@@ -57,7 +57,7 @@ const INFINITIES: &[&str] = &[".inf", ".Inf", ".INF"];
 const NANS: &[&str] = &[".nan", ".NaN", ".NAN"];
 
 /// The core-schema kind of a plain scalar's text.
-fn resolve(text: &str) -> ScalarKind {
+pub fn resolve(text: &str) -> ScalarKind {
     if NULLS.contains(&text) {
         ScalarKind::Null
     } else if BOOLS.contains(&text) {
@@ -105,6 +105,77 @@ fn is_float(text: &str) -> bool {
     exponent_ok && mantissa_ok
 }
 
+impl ScalarKind {
+    /// The kind in words, for messages: "an integer".
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Null => "null",
+            Self::Bool => "a boolean",
+            Self::Int => "an integer",
+            Self::Float => "a float",
+            Self::String => "text",
+        }
+    }
+}
+
+/// How a new value is written in place of an old one: the old value's quote style, the kind the
+/// new one must read back as, and whether it sits inside a flow collection (`[..]` or `{..}`).
+#[derive(Clone, Copy, Debug)]
+pub struct Spelling {
+    /// The quote style written before; kept for text.
+    pub style: ScalarStyle,
+    /// The kind the written value reads back as.
+    pub kind: ScalarKind,
+    /// Inside `[..]` or `{..}`, where `,[]{}` end a plain value.
+    pub flow: bool,
+}
+
+impl Spelling {
+    /// `text` written to read back as `kind`, or `None` when it cannot. Text keeps a quoted
+    /// style (single quotes fall back to double for control characters) and stays plain when
+    /// YAML reads it back as the same text; other kinds are written plain and must resolve to
+    /// that kind, so an empty value is refused (write `null`).
+    #[must_use]
+    pub fn write(self, text: &str) -> Option<String> {
+        if self.kind != ScalarKind::String {
+            return (!text.is_empty() && resolve(text) == self.kind).then(|| text.to_owned());
+        }
+        Some(match self.style {
+            ScalarStyle::DoubleQuoted => double_quote(text),
+            ScalarStyle::SingleQuoted if !text.contains(char::is_control) => single_quote(text),
+            _ => write_text(text, self.flow),
+        })
+    }
+}
+
+/// Text in the house style: plain when YAML reads it back as the same text, otherwise
+/// double-quoted with escapes. `flow` is true inside `[..]` or `{..}`.
+pub fn write_text(text: &str, flow: bool) -> String {
+    if needs_quotes(text, flow) { double_quote(text) } else { text.to_owned() }
+}
+
+const INDICATORS: &[char] =
+    &['-', '?', ':', ',', '[', ']', '{', '}', '#', '&', '*', '!', '|', '>', '\'', '"', '%', '@', '`'];
+const FLOW_INDICATORS: &[char] = &[',', '[', ']', '{', '}'];
+
+fn needs_quotes(text: &str, flow: bool) -> bool {
+    resolve(text) != ScalarKind::String
+        || (flow && text.contains(FLOW_INDICATORS))
+        || text.starts_with(INDICATORS)
+        || text.starts_with(char::is_whitespace)
+        || text.ends_with(char::is_whitespace)
+        || text.ends_with(':')
+        || text.contains(": ")
+        || text.contains(" #")
+        || text.contains(char::is_control)
+}
+
+/// `text` as a single-quoted YAML scalar; `text` must hold no control characters.
+fn single_quote(text: &str) -> String {
+    format!("'{}'", text.replace('\'', "''"))
+}
+
 /// `text` as a double-quoted YAML scalar.
 pub fn double_quote(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + 2);
@@ -127,7 +198,11 @@ pub fn double_quote(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{ScalarKind as K, ScalarStyle, double_quote, resolve};
+    use super::{ScalarKind as K, ScalarStyle, Spelling, double_quote, resolve, write_text};
+
+    fn render(text: &str) -> String {
+        write_text(text, false)
+    }
 
     #[test]
     fn plain_scalars_resolve_by_the_core_schema() {
@@ -170,7 +245,42 @@ mod tests {
     }
 
     #[test]
-    fn double_quote_escapes_what_yaml_needs() {
+    fn render_quotes_only_what_yaml_would_misread() {
+        assert_eq!(render("orders#place"), "orders#place");
+        assert_eq!(render("${var.userId}"), "${var.userId}");
+        assert_eq!(render("12"), "\"12\"");
+        assert_eq!(render("see #212"), "\"see #212\"");
+        assert_eq!(render("a: b"), "\"a: b\"");
+        assert_eq!(render(""), "\"\"");
         assert_eq!(double_quote("a\"b\\c\nd\u{1}"), "\"a\\\"b\\\\c\\nd\\u0001\"");
+    }
+
+    #[test]
+    fn flow_context_quotes_flow_indicators_anywhere() {
+        for text in ["x, y", "a]b", "a[b", "a{b", "a}b"] {
+            assert_eq!(write_text(text, true), format!("\"{text}\""));
+            assert_eq!(write_text(text, false), text);
+        }
+        assert_eq!(write_text("plain", true), "plain");
+    }
+
+    #[test]
+    fn spelling_keeps_the_quote_style_and_the_kind() {
+        let spell = |style, kind, text| Spelling { style, kind, flow: false }.write(text);
+        assert_eq!(spell(ScalarStyle::SingleQuoted, K::String, "it's").as_deref(), Some("'it''s'"));
+        assert_eq!(spell(ScalarStyle::SingleQuoted, K::String, "a\nb").as_deref(), Some("\"a\\nb\""));
+        assert_eq!(spell(ScalarStyle::DoubleQuoted, K::String, "x").as_deref(), Some("\"x\""));
+        assert_eq!(spell(ScalarStyle::Plain, K::String, "x").as_deref(), Some("x"));
+        assert_eq!(spell(ScalarStyle::Plain, K::Int, "-3").as_deref(), Some("-3"));
+        assert_eq!(spell(ScalarStyle::DoubleQuoted, K::Bool, "true").as_deref(), Some("true"));
+        assert_eq!(spell(ScalarStyle::Plain, K::Int, "abc"), None);
+        assert_eq!(spell(ScalarStyle::Plain, K::Null, ""), None);
+        assert_eq!(spell(ScalarStyle::Plain, K::Null, "~").as_deref(), Some("~"));
+    }
+
+    #[test]
+    fn kinds_have_names_for_messages() {
+        let names = [K::Null, K::Bool, K::Int, K::Float, K::String].map(K::name);
+        assert_eq!(names, ["null", "a boolean", "an integer", "a float", "text"]);
     }
 }
