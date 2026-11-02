@@ -120,6 +120,8 @@ mod tests {
             ("// var\nvar", "// var\n_v_"),
             ("1 / var // var", "1 / _v_ // var"),
             ("é + var", "é + _v_"),
+            ("r + var", "r + _v_"),
+            ("'\\'' + var", "'\\'' + _v_"),
             ("'unterminated var", "'unterminated var"),
         ];
         for (text, hidden) in cases {

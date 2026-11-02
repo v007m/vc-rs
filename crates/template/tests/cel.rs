@@ -75,6 +75,9 @@ fn check_skips_comprehension_vars_builtins_and_computed_indexes() {
     let program = check("response.body.items.all(i, type(i.id) == int && dyn(var.x) != null)").unwrap();
     let roots: Vec<_> = program.refs.iter().map(|r| r.ns).collect();
     assert_eq!(roots, [Namespace::Response, Namespace::Var]);
+    let program = check("{var.k: request.url}.size() == 1").unwrap();
+    let roots: Vec<_> = program.refs.iter().map(|r| r.ns).collect();
+    assert_eq!(roots, [Namespace::Var, Namespace::Request]);
     let program = check("{'a': 1}.exists(k, var.list[k] == 1) || response.body[var.key].x").unwrap();
     let paths: Vec<_> = program.refs.iter().map(|r| r.path.segments.clone()).collect();
     assert_eq!(paths, [vec![key("list")], vec![key("body")], vec![key("key")]]);
