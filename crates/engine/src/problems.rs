@@ -5,7 +5,7 @@ use vc_model::{Pos, SourceFile, SourceFiles, SourcePath, SourceSpan};
 /// What a diagnostic names when a problem has no usable path.
 const PROJECT: &str = "<project>";
 
-/// Reports each file discovery could not read as a V1001 error at the start of its path.
+/// Reports each file discovery could not read as a V1012 error at the start of its path.
 ///
 /// The file goes into `files` with no text, so the diagnostic has a file to point at; a name
 /// a [`SourcePath`] refuses is shown with the bad characters replaced.
@@ -15,7 +15,7 @@ pub fn add_problems(problems: &[SourceError], diagnostics: &mut Diagnostics, fil
         let Some(path) = path.or_else(|| SourcePath::new(PROJECT).ok()) else { continue };
         let Ok(id) = files.push(SourceFile { path, text: String::new(), hash: content_hash(&[]) }) else { break };
         let start = Pos::new(1, 1, 0);
-        let mut diagnostic = Diagnostic::new(Code::V1001, SourceSpan::new(id, start, start), problem.to_string());
+        let mut diagnostic = Diagnostic::new(Code::V1012, SourceSpan::new(id, start, start), problem.to_string());
         if let Some(help) = help(problem) {
             diagnostic = diagnostic.help(help);
         }

@@ -1059,6 +1059,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V1009 | error | Map key is not text (a list or map) (D149) | — |
 | V1010 | error | More than one YAML document in a file (D149) | — |
 | V1011 | error | Nesting deeper than 128 levels (D149) | — |
+| V1012 | error | File cannot be read: permissions, not UTF-8, a link outside the project root, or a name that is not a valid path (D154) | — |
 | V2001 | error | Duplicate ID | — |
 | V2002 | error | Unknown auth, profile, dataset or generator | close match |
 | V2003 | error | Unknown api or test | close match; after a file move, the moved file's new ID (D139) |
@@ -1077,7 +1078,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V2302 | error | Wrong value type (`"3"` for an integer) | convert |
 | V2303 | error | Invalid status code or class | — |
 | V2304 | error | Pipe or path cannot apply to that value's type | — |
-| V2305 | error | Template or CEL does not parse (unclosed `${`, empty `${}`, bad path segment, malformed pipe arguments; D144); CEL `timestamp()` or `duration()`, not supported yet | — |
+| V2305 | error | Template or CEL does not parse (unclosed `${`, empty `${}`, bad path segment, malformed pipe arguments; D144); CEL `timestamp()` or `duration()`, not supported yet (own functions by M4, D153) | — |
 | V2306 | error | Matcher argument invalid (bad regex, `between` with one value); also a literal regex given to CEL `matches()` | — |
 | V2308 | error | Unknown pipe or wrong pipe arguments (arity, argument type; D145) | the closest pipe name, when one is close |
 | V3101 | error | No profile defined, or no active profile for this run | add `default: true` to the only profile |
@@ -1184,7 +1185,6 @@ None of these block M0–M2; each has a default the plan assumes until decided.
 | Question | Default assumed | Decide by |
 | --- | --- | --- |
 | Varlock's exact CLI contract for loading values as JSON per environment (flag names, exit codes) | Call `varlock load` with JSON output once per run; wrap it behind `SecretProvider` so a change stays in one adapter | M3, after testing against the current Varlock release |
-| CEL `timestamp()` and `duration()`: they need the `cel` crate's `chrono` feature, which fails `cargo deny` on duplicate versions. `chrono` 0.4.45 pulls `iana-time-zone` 0.1.65 → `windows-core` 0.62.2 → `windows-implement` 0.60.2 and `windows-interface` 0.59.3, which need `syn` 2.0.119 while the workspace uses `syn` 3.0.9. (The `json` feature also clashes: `base64` 0.22.1 against the 0.23.1 used by `hyper-util` 0.1.21 and `reqwest` 0.13.5; we convert JSON ourselves, so it is not needed.) Options: (a) a `deny.toml` skip entry for `syn` 2 and `windows-*` (a gate file, so Sarath's call); (b) our own `timestamp()`/`duration()` functions on ISO-8601 strings and our duration format, registered like `sum()`; (c) wait for upstream to move to `syn` 3 | Built without `chrono`: `vc check` reports `timestamp()` and `duration()` as V2305 "not supported yet". The Syntax Reference still documents them | M4 (`$cel`) |
 | Other `cel` 0.15 gaps compared with cel-go | No type checker, so unknown functions and type mismatches surface at run time, not in `vc check`; `var` is a reserved word (worked around by renaming, see CEL); no two-variable comprehensions; mixed `int`/`double` arithmetic is an error (`1.5 * 2`), while comparisons across them work; the crate uses `lazy_static` and `parking_lot` internally, and `Context::add_variable_from_value` has an internal `unwrap` (fine for JSON values) | Keep it behind `Expr`; add missing functions locally; contribute a checker and fixes upstream | M4 |
 | Faker catalogue parity: the Rust `fake` crate's generators versus the Faker JS names used in templates | A mapping table from Faker JS names to `fake` generators; unmapped names are a V2002 error listing what exists | M4 |
 | Web UI framework | Decided by Sarath: Svelte with SvelteKit (static adapter), built by Vite | M9 kickoff |

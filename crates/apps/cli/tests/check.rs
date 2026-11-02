@@ -44,7 +44,7 @@ fn finds_the_project_from_a_subfolder() {
 #[test]
 fn reports_an_unreadable_file_and_exits_2() {
     let dir = project(&[CONFIG, USERS, BAD]).unwrap();
-    let expected = "error[V1001]: services/orders/orders.api.yaml: is not UTF-8 text\n \
+    let expected = "error[V1012]: services/orders/orders.api.yaml: is not UTF-8 text\n \
                     --> services/orders/orders.api.yaml:1:1\n";
     check(dir.path())
         .assert()
@@ -59,7 +59,7 @@ fn prints_json_with_the_flag() {
     let output = check(dir.path()).arg("--json").assert().code(2).get_output().stdout.clone();
     let text = String::from_utf8(output).unwrap();
     assert!(text.starts_with('{') && text.ends_with("}\n"), "{text}");
-    assert!(text.contains("\"code\": \"V1001\"") && text.contains("\"errors\": 1"), "{text}");
+    assert!(text.contains("\"code\": \"V1012\"") && text.contains("\"errors\": 1"), "{text}");
 }
 
 #[test]

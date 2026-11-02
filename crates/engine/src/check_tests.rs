@@ -43,14 +43,14 @@ fn checks_a_clean_project_and_leaves_a_cache() {
 }
 
 #[test]
-fn reports_unreadable_files_as_v1001_errors() {
+fn reports_unreadable_files_as_v1012_errors() {
     let report = engine(&[CONFIG, ("bad.api.yaml", &[0xff]), USERS], Arc::new(MemoryCompileCache::new()))
         .check(&CheckRequest::default())
         .unwrap();
     assert!(report.has_errors());
     let found: Vec<_> = report.diagnostics.iter().map(|d| (d.code, report.files.get(d.primary.span.file))).collect();
     assert_eq!(found.len(), 1);
-    assert_eq!(found[0].0, Code::V1001);
+    assert_eq!(found[0].0, Code::V1012);
     assert_eq!(found[0].1.map(|file| file.path.as_str()), Some("bad.api.yaml"));
     assert_eq!(report.checked, 3, "the unreadable file still counts as checked");
 }
