@@ -7,7 +7,8 @@ use crate::ModelError;
 /// A file's path relative to the project root, with `/` separators on every OS.
 ///
 /// Never absolute and never climbs out of the project with `..`. It is what diagnostics and
-/// reports print: `services/orders/checkout.test.yaml`.
+/// reports print: `services/orders/checkout.test.yaml`, so it holds no control or bidi
+/// characters either.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
 pub struct SourcePath(String);
@@ -18,13 +19,21 @@ impl SourcePath {
     ///
     /// # Errors
     ///
-    /// [`ModelError::InvalidSourcePath`] when the path is absolute (`/x`, `C:/x`, `C:`), ends
-    /// in `/`, has a `..` part, or names no file (empty or `.`).
+    /// [`ModelError::InvalidSourcePath`] when the path:
+    /// - starts with `/`;
+    /// - has a `..` part;
+    /// - has a `:` in any part. That covers drives (`C:/x`, `C:x`, `C:`), which a join on
+    ///   Windows would take out of the project, and NTFS streams (`a.yaml:s`). Windows forbids
+    ///   `:` in file names anyway.
+    /// - names no file: its last part is empty or `.` (`a/`, `a/.`, `.`, the empty path);
+    /// - holds a control character (C0, DEL, C1) or a bidi control (U+202A–U+202E,
+    ///   U+2066–U+2069, U+200E, U+200F, U+061C), which could disguise it when printed.
     pub fn new(text: &str) -> Result<Self, ModelError> {
         let slashed = text.replace('\\', "/");
+        let names_file = slashed.rsplit('/').next().is_some_and(|last| !last.is_empty() && last != ".");
         let parts: Vec<&str> = slashed.split('/').filter(|part| !part.is_empty() && *part != ".").collect();
-        let absolute = slashed.starts_with('/') || has_drive(&slashed);
-        if absolute || slashed.ends_with('/') || parts.is_empty() || parts.contains(&"..") {
+        let bad_part = parts.iter().any(|part| *part == ".." || part.contains(':'));
+        if slashed.starts_with('/') || !names_file || bad_part || slashed.chars().any(is_hidden) {
             return Err(ModelError::InvalidSourcePath(text.to_owned()));
         }
         Ok(Self(parts.join("/")))
@@ -43,12 +52,10 @@ impl SourcePath {
     }
 }
 
-/// Whether `path` starts with a Windows drive: an ASCII letter, `:`, then `/` or nothing.
-fn has_drive(path: &str) -> bool {
-    let bytes = path.as_bytes();
-    bytes.first().is_some_and(u8::is_ascii_alphabetic)
-        && bytes.get(1) == Some(&b':')
-        && matches!(bytes.get(2), None | Some(b'/'))
+/// Whether `c` is a control character or a bidi control, which a path must not hold.
+const fn is_hidden(c: char) -> bool {
+    c.is_control()
+        || matches!(c, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{200e}' | '\u{200f}' | '\u{61c}')
 }
 
 impl fmt::Display for SourcePath {
@@ -158,6 +165,9 @@ mod tests {
         for bad in ["", "./", "/etc/passwd", r"C:\x.api.yaml", "../x.api.yaml", "a/../../b", "C:/x", "C:", "c:"] {
             assert!(SourcePath::new(bad).is_err(), "{bad:?} was accepted");
         }
+        for bad in ["C:x.api.yaml", "C:..", "c:../x", "a/C:x"] {
+            assert!(SourcePath::new(bad).is_err(), "{bad:?} could leave the project on Windows");
+        }
     }
 
     #[test]
@@ -169,16 +179,25 @@ mod tests {
 
     #[test]
     fn paths_naming_no_file_are_rejected() {
-        for bad in [".", "./.", "//", "a/", "services/orders/", r"a\"] {
+        for bad in [".", "./.", "//", "a/", "a/.", "a/./", "services/orders/", r"a\"] {
             assert!(SourcePath::new(bad).is_err(), "{bad:?} was accepted");
         }
     }
 
     #[test]
-    fn only_a_letter_colon_slash_start_is_a_drive() {
-        assert_eq!(SourcePath::new("k:v.api.yaml").unwrap().as_str(), "k:v.api.yaml");
-        assert_eq!(SourcePath::new("services/k:v.api.yaml").unwrap().file_name(), "k:v.api.yaml");
-        assert_eq!(SourcePath::new("1:/x.api.yaml").unwrap().as_str(), "1:/x.api.yaml");
+    fn colons_are_rejected_in_every_part() {
+        for bad in ["k:v.api.yaml", "services/k:v.api.yaml", "1:/x.api.yaml", "a.yaml:stream"] {
+            assert!(SourcePath::new(bad).is_err(), "{bad:?} was accepted");
+        }
+    }
+
+    #[test]
+    fn control_and_bidi_characters_are_rejected() {
+        for hidden in ['\x1b', '\t', '\r', '\x7f', '\u{9b}', '\u{202e}', '\u{2066}', '\u{200e}', '\u{200f}', '\u{61c}']
+        {
+            let bad = format!("services/x{hidden}.test.yaml");
+            assert!(SourcePath::new(&bad).is_err(), "{bad:?} was accepted");
+        }
     }
 
     #[test]
