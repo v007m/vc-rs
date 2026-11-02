@@ -85,6 +85,20 @@ fn checks_matcher_arguments() {
 }
 
 #[test]
+fn reads_ranges_and_lengths_in_their_unit() {
+    let timing = unit_with("    expect:\n      timing: {total: {between: [1s, 2s]}}\n");
+    assert!(timing.diagnostics.is_empty(), "{:?}", timing.diagnostics);
+    let Piece::Matcher(Matcher::All(calls)) = pieces(&timing)[0] else { panic!("{:?}", pieces(&timing)) };
+    let MatcherArg::Range(bounds) = &calls[0].arg else { panic!("{:?}", calls[0].arg) };
+    assert!(matches!(bounds.as_ref(), [MatcherArg::Duration(_), MatcherArg::Duration(_)]), "{bounds:?}");
+    let lengths = unit_with(
+        "    expect:\n      body:\n        match:\n          a: {length: 3}\n          b: {length: '${var.n}'}\n",
+    );
+    assert!(lengths.diagnostics.is_empty(), "{:?}", lengths.diagnostics);
+    assert_eq!(lengths.parts.len(), 2);
+}
+
+#[test]
 fn checks_cel_with_the_files_action_ids() {
     let text = "beforeAll:\n  - id: seed\n    command: ./seed\ntests:\n  - id: a\n    call: users#get\n    vars: {n: {$cel: 'seed.count + 1'}}\n    expect:\n      cel: {big: response.body.n > 1}\n";
     let unit = unit(FileKind::Test, text);

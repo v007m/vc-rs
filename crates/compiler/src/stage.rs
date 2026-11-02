@@ -116,5 +116,6 @@ mod tests {
         assert_eq!(codes(&run("vibranium.config.yaml", "")), [Code::V1003]);
         let config = run("vibranium.config.yaml", "syntaxVersion: 3\n");
         assert_eq!(codes(&config), [Code::V1003]);
+        assert_eq!(codes(&run("services/users/users.api.yaml", "hello\n")), [Code::V2302]);
     }
 }

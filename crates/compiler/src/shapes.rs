@@ -67,7 +67,7 @@ mod tests {
 
     use vc_model::FileKind;
 
-    use super::{reachable, root};
+    use super::{Scope, reachable, root};
 
     #[test]
     fn every_shape_has_unique_documented_keys() {
@@ -86,6 +86,18 @@ mod tests {
             }
         }
         assert!(titles.len() > 30, "only {} shapes reached", titles.len());
+        let api: Vec<_> = reachable(root(FileKind::Api)).iter().map(|shape| shape.title).collect();
+        assert!(api.contains(&"authUse"), "a shape reached only through an alternative: {api:?}");
+    }
+
+    #[test]
+    fn gives_each_scope_its_own_root() {
+        let all = [Scope::CALL, Scope::EXAMPLES, Scope::LOOP, Scope::FOR_EACH];
+        for (index, scope) in all.iter().enumerate() {
+            assert!(!Scope::NONE.has(*scope));
+            assert_eq!(scope.with(*scope), *scope);
+            assert!(all[index + 1..].iter().all(|other| !scope.has(*other)));
+        }
     }
 
     #[test]

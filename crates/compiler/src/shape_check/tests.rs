@@ -118,3 +118,28 @@ fn takes_the_first_alternative_that_fits() {
     let wrong = super::check(&tree("auth: [x]\n"), root(FileKind::Api));
     assert_eq!(only(&wrong).message, "expected reference or authUse, found a list");
 }
+
+#[test]
+fn checks_inside_the_alternative_it_takes() {
+    let walk = walk(FileKind::Api, "auth: {id: shopOauth, varz: {a: 1}}\n");
+    assert_eq!(only(&walk).message, "unknown key `varz` in authUse");
+    let id = walk_config("syntaxVersion: 2\nprofiles: [{id: 5}]\n");
+    assert_eq!(only(&id).code, Code::V2302);
+}
+
+#[test]
+fn takes_a_schema_as_a_map_or_a_file_name() {
+    let body =
+        |schema: &str| format!("tests:\n  - id: a\n    call: users#get\n    expect: {{body: {{schema: {schema}}}}}\n");
+    assert!(walk(FileKind::Test, &body("{$file: user.json}")).diagnostics.is_empty());
+    assert!(walk(FileKind::Test, &body("user.json")).diagnostics.is_empty());
+    assert_eq!(only(&walk(FileKind::Test, &body("[x]"))).code, Code::V2302);
+}
+
+#[test]
+fn adds_sibling_roots_only_when_the_sibling_is_written() {
+    let walk = walk(FileKind::Test, "tests:\n  - id: a\n    call: users#get\n    expect: {status: 200}\n");
+    assert!(!walk.leaves[0].scope.has(Scope::EXAMPLES), "{:?}", walk.leaves);
+    let sizes = walk_config("syntaxVersion: 2\nhistory: {maxBodySize: 1mb}\n");
+    assert_eq!(sizes.leaves.iter().map(|leaf| leaf.ty).collect::<Vec<_>>(), [LeafTy::Size]);
+}
