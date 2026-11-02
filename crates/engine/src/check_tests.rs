@@ -8,8 +8,8 @@ use vc_testkit::{MemoryCompileCache, MemorySources};
 use crate::{CheckRequest, Engine, EngineBuilder, EngineError};
 
 const CONFIG: (&str, &[u8]) = ("vibranium.config.yaml", b"syntaxVersion: 2\n");
-const USERS: (&str, &[u8]) = ("services/users/users.api.yaml", b"apis: {}\n");
-const ORDERS: (&str, &[u8]) = ("services/orders/orders.api.yaml", b"apis: {}\n");
+const USERS: (&str, &[u8]) = ("services/users/users.api.yaml", b"apis: []\n");
+const ORDERS: (&str, &[u8]) = ("services/orders/orders.api.yaml", b"apis: []\n");
 
 fn engine(files: &[(&str, &[u8])], cache: Arc<dyn CompileCacheStore>) -> Engine {
     let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(files));

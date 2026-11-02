@@ -7,7 +7,7 @@ use predicates::str::contains;
 use tempfile::TempDir;
 
 const CONFIG: (&str, &[u8]) = ("vibranium.config.yaml", b"syntaxVersion: 2\n");
-const USERS: (&str, &[u8]) = ("services/users/users.api.yaml", b"apis: {}\n");
+const USERS: (&str, &[u8]) = ("services/users/users.api.yaml", b"apis: []\n");
 const BAD: (&str, &[u8]) = ("services/orders/orders.api.yaml", &[0xff, 0xfe]);
 
 fn project(files: &[(&str, &[u8])]) -> std::io::Result<TempDir> {
