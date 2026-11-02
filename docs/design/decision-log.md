@@ -258,6 +258,13 @@ Round 18 additions (M1 template review, 2 November 2026):
 | D145 | Pipe call error code | New code V2308 "Unknown pipe or wrong pipe arguments": an unknown pipe name (with a did-you-mean fix when one is close), wrong arity or argument types. V2304 stays for a pipe or path that cannot apply to the value's type. V2307 is left unused | V2304 for unknown pipes |
 | D146 | Size unit base | Sizes are binary: `kb` = 1024 bytes, `mb` = 1024², `gb` = 1024³ | Unit base unspecified |
 
+Round 20 additions (template answers, 2 November 2026):
+
+| # | Decision | Choice | Supersedes |
+| --- | --- | --- | --- |
+| D150 | No bare response fields | Every template and CEL expression writes `response.status`, `response.headers` and `response.body`; the roots are `response`, `request`, `var`, `env`, `item`, `iteration`, `example` and step ids. A bare `status`, `headers` or `body` that is not a known step id is V2105, help "write `response.body`", with a certain fix that inserts `response.` | D125 bare `status/headers/body` alias inside `expect` |
+| D151 | Literal arguments | Pipe and generator arguments are JSON numbers, `true`/`false` and single-quoted strings only. `null` and double-quoted strings are V2305 with help "use single quotes"; a double-quoted string with no `'` or escapes gets a certain fix that swaps the quotes | `null` and double-quoted arguments accepted |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
