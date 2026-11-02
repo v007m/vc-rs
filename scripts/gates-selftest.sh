@@ -35,7 +35,7 @@ check_fixture() {
       "$wt/scripts/commit-check.sh" HEAD~1
       ;;
     *)
-      git -C "$wt" apply "$body"
+      git -C "$wt" apply --index "$body"
       refresh_lockfile
       if [[ "$gate" == GATE-MUTANTS ]]; then
         GATES_MUTANTS=1 GATES_BASE=HEAD "$wt/scripts/gates.sh"
