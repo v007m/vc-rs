@@ -17,6 +17,7 @@ mod ids;
 mod source;
 mod span;
 mod strings;
+mod template;
 mod units;
 
 pub use error::ModelError;
@@ -25,4 +26,8 @@ pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileI
 pub use source::{ContentHash, FileKind, SourceFile, SourcePath};
 pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};
+pub use template::{
+    CelSource, Namespace, Part, Path, PipeCall, Reference, ScalarSource, ScalarStyle, Segment, StatusPattern, Template,
+    TemplateValue,
+};
 pub use units::{Duration, Size};

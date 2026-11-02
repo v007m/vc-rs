@@ -284,7 +284,7 @@ pub struct SourceSpan {
 pub struct Pos { pub line: u32, pub column: u32, pub offset: usize }
 
 pub struct Duration(std::time::Duration); // parsed from "250ms", "2s", "1m" by the template crate
-pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb" by the template crate
+pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb" by the template crate (binary units, D146)
 
 /// One file as the engine read it, handed to the pure compiler (D132).
 pub struct SourceFile { pub path: SourcePath, pub text: String, pub hash: ContentHash }
@@ -436,20 +436,26 @@ pub struct Check {
 }
 
 /// "/users/${var.userId}" is stored as parts, parsed once at compile time.
-pub struct Template { pub parts: Vec<Part> }
+pub struct Template { pub parts: Vec<Part> }   // preserves_type(): parts is exactly one Ref
 pub enum Part { Literal(String), Ref(Reference) }
 pub struct Reference {
     pub ns: Namespace,                    // Var, Env, Secret, Response, Request, Step(Sym), Example, Item, Iteration, Fake, Dataset, Run (D125)
-    pub path: Path,                       // .body.items[0].id
-    pub pipes: Vec<PipeCall>,             // | int | default('x')
+    pub path: Path,                       // .body.items[0].id; Segment = Key | Index(i64) | All
+    pub args: Vec<serde_json::Value>,     // literal generator arguments: ${fake.lorem.words(5)}; empty otherwise
+    pub pipes: Vec<PipeCall>,             // | int | default('x'); PipeCall { name, args, name_span, span }
     pub span: SourceSpan,
+    pub root_span: SourceSpan,            // the root as written, for fixes; the whole scalar where spans are approximate
 }
+
+/// Where and how the parser found a scalar; vc-template maps spans into it.
+pub struct ScalarSource { pub span: SourceSpan, pub style: ScalarStyle }
+pub enum ScalarStyle { Plain, SingleQuoted { escaped: bool }, DoubleQuoted { escaped: bool }, Block } // escaped: `''` or a backslash
 
 /// A value that may hold templates anywhere inside (bodies, vars, saves).
 pub enum TemplateValue {
     Null, Bool(bool), Number(serde_json::Number), String(Template),
     List(Vec<TemplateValue>), Map(IndexMap<String, TemplateValue>),
-    Cel(CelProgram),                      // $cel: computed value
+    Cel(CelSource),                       // $cel: source text and span; the compiled program is added with CEL
     Extend { base: Template, changes: Box<TemplateValue>, remove: Vec<Path> },
 }
 
@@ -720,10 +726,11 @@ Config values are layered once, lowest first: built-in defaults < user config < 
 
 ### Rendering
 
-- **Type preservation.** A value that is exactly one template keeps its type (number, list, object); a template inside other text renders to a string. This is decided at compile time and stored in the template.
+- **Type preservation.** A value that is exactly one template keeps its type (number, list, object); a template inside other text renders to a string. This is decided at compile time from the parsed parts (`Template::preserves_type`).
 - **Fake data memo.** A var defined as `${fake.…}` is generated once per instance (or per loop iteration) and then reused, so one value can appear in several places; an inline `${fake.…}` is fresh each time it is rendered (D131).
 - **Paths.** After the namespace, paths walk JSON with `.key`, `[n]` (negative from the end), `[*]` (map over a list) and quoted keys; a missing path is a run-time render failure of that action (V5111), with the path and the actual value shown.
-- **Pipes.** Registered functions `fn(Value, &[Arg]) -> Result<Value>`: `number`, `int`, `bool`, `string`, `json`, `jsonString`, `base64`, `fromBase64`, `lower`, `upper`, `trim`, `urlEncode`, `default`, `random`, `shuffle`, `take`. A plugin can register more under a prefix.
+- **Pipes.** Registered functions `fn(Value, &[Arg]) -> Result<Value>`: `number`, `int`, `bool`, `string`, `json`, `jsonString`, `base64`, `fromBase64`, `lower`, `upper`, `trim`, `urlEncode`, `default`, `random`, `shuffle`, `take`. A plugin registers more under its prefix (`acme.mask`); `PipeRegistry::register` returns `TemplateError::UnprefixedPipe` or `DuplicatePipe` otherwise. The `PipeRegistry` holds each pipe's signature (argument types, input and output type) so `vc check` reports an unknown pipe or wrong arguments (V2308) and a pipe given the wrong type (V2304) before the run. Messages name types in the Syntax Reference's words (`a list`, `a whole number ≥ 0`).
+- **Parsing.** `vc_template::parse(text, ScalarSource, &mut StringTable) -> Result<Template, TemplateError>`; `TemplateError::Syntax` carries a V2305 diagnostic naming what the innermost rule expected, and `TemplateError::Internal` wraps a `ModelError` such as a full string table. The parser reports each scalar's style, so spans are exact only for one-line plain scalars and quoted scalars without escapes; for block scalars, folded lines and escaped quoted scalars the span is the whole scalar and no diagnostic offers a fix. Literal arguments are JSON numbers, `true`, `false` and single-quoted strings; `null` and double-quoted strings are V2305, with a certain fix that swaps the quotes when the text has no `'` or `\` and the scalar is not single-quoted (D151). A bare `status`, `headers` or `body` parses as a step id; `Roots::check` reports it as V2105 unless that step is available, with a certain fix that inserts `response.` when the root span is exact (D150).
 - **`$extend` and `$remove`.** The base value is rendered, the changes are deep-merged into it (maps merge, lists and scalars replace, `null` sets null), then the `$remove` paths are deleted.
 - **Secrets.** `${secret.X}` renders the real value into the request, and the value is registered with the redactor the moment it is first resolved, so it is masked in every event and output.
 
@@ -736,7 +743,7 @@ pub trait Expr: Send + Sync {
     fn eval(&self, activation: &Activation) -> Result<Value, ExprError>;
 }
 // Activation roots (D125): response (status, headers, body, timing), request, var (D53), env, item,
-// iteration, example, and each step id. Inside `expect`, bare status/headers/body alias response.*.
+// iteration, example, and each step id. There are no bare status/headers/body aliases (D150).
 // A root not available at that spot is a compile error (V2105).
 ```
 
@@ -1038,8 +1045,9 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V2302 | error | Wrong value type (`"3"` for an integer) | convert |
 | V2303 | error | Invalid status code or class | — |
 | V2304 | error | Pipe or path cannot apply to that value's type | — |
-| V2305 | error | CEL does not parse or type-check | — |
+| V2305 | error | Template or CEL does not parse (unclosed `${`, empty `${}`, bad path segment, malformed pipe arguments; D144) | — |
 | V2306 | error | Matcher argument invalid (bad regex, `between` with one value) | — |
+| V2308 | error | Unknown pipe or wrong pipe arguments (arity, argument type; D145) | the closest pipe name, when one is close |
 | V3101 | error | No profile defined, or no active profile for this run | add `default: true` to the only profile |
 | V3102 | error | More than one default profile | — |
 | V3103 | error | `skip` without a reason | — |
