@@ -1,10 +1,12 @@
-use vc_model::{SourceFiles, SourceSpan};
+use vc_model::{SourceFileId, SourceFiles, SourceSpan};
 
+use self::escape::escape;
+use self::excerpt::{Excerpt, Underline, excerpts, gutter_width};
 use super::{Render, path_of};
-use crate::{Diagnostic, Diagnostics, DiagnosticsError, Label, Severity};
+use crate::{Diagnostic, Diagnostics, DiagnosticsError, Severity};
 
-/// Spans covering more lines than this show their first two lines, `...`, and their last.
-const MAX_FULL_LINES: u32 = 4;
+mod escape;
+mod excerpt;
 
 /// Renders diagnostics for a terminal, in the style of rustc:
 ///
@@ -18,9 +20,12 @@ const MAX_FULL_LINES: u32 = 4;
 ///    = fix: Replace with orders#place (certain)
 /// ```
 ///
-/// Secondary labels are underlined with `-`, and those in another file get a `:::` line with
-/// their location. Colour is off unless [`TextRenderer::color`] turns it on; the CLI decides
-/// (a terminal, and no `NO_COLOR`).
+/// Secondary labels are underlined with `-`. Labels in one file whose lines overlap or touch
+/// share an excerpt; an excerpt in a different file from the one before it gets a `:::` line
+/// with its location. Control characters and bidi overrides in messages, labels, paths and
+/// source lines are printed as visible stand-ins, so a file cannot drive the terminal. Colour
+/// is off unless [`TextRenderer::color`] turns it on; the CLI decides (a terminal, and no
+/// `NO_COLOR`).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TextRenderer {
     color: bool,
@@ -38,11 +43,20 @@ impl Render for TextRenderer {
     fn render(&self, diagnostics: &Diagnostics, files: &SourceFiles) -> Result<String, DiagnosticsError> {
         let mut out = String::new();
         for diagnostic in diagnostics.iter() {
-            let width = gutter_width(diagnostic);
-            Writer { files, paint: Paint(self.color), width, out: &mut out }.diagnostic(diagnostic)?;
+            check_edit_files(diagnostic, files)?;
+            Writer { files, paint: Paint(self.color), width: 1, out: &mut out }.diagnostic(diagnostic)?;
         }
         Ok(out)
     }
+}
+
+/// Fails with [`DiagnosticsError::UnknownFile`] when a fix edits a file the table lacks, as
+/// the JSON renderer does.
+fn check_edit_files(diagnostic: &Diagnostic, files: &SourceFiles) -> Result<(), DiagnosticsError> {
+    for edit in diagnostic.fixes.iter().flat_map(|fix| &fix.edits) {
+        path_of(files, edit.file)?;
+    }
+    Ok(())
 }
 
 /// Writes one diagnostic; `width` is the width of the line-number gutter.
@@ -56,15 +70,18 @@ struct Writer<'a> {
 impl Writer<'_> {
     fn diagnostic(&mut self, diagnostic: &Diagnostic) -> Result<(), DiagnosticsError> {
         let tone = Tone::of(diagnostic.severity);
+        let excerpts = excerpts(diagnostic);
+        self.width = gutter_width(&excerpts);
         let head = self.paint.apply(&format!("{}[{}]", diagnostic.severity, diagnostic.code), tone);
-        self.push(&format!("{head}: {}", diagnostic.message));
-        self.location("-->", &diagnostic.primary.span)?;
-        self.snippet(&diagnostic.primary, tone);
-        for label in &diagnostic.secondary {
-            if label.span.file != diagnostic.primary.span.file {
-                self.location(":::", &label.span)?;
+        self.push(&format!("{head}: {}", escape(&diagnostic.message)));
+        let mut previous: Option<SourceFileId> = None;
+        for excerpt in &excerpts {
+            if previous != Some(excerpt.file) {
+                let arrow = if previous.is_none() { "-->" } else { ":::" };
+                self.location(arrow, &excerpt.anchor)?;
             }
-            self.snippet(label, Tone::Secondary);
+            previous = Some(excerpt.file);
+            self.excerpt(excerpt, tone);
         }
         self.trailers(diagnostic);
         self.out.push('\n');
@@ -75,29 +92,34 @@ impl Writer<'_> {
         let path = path_of(self.files, span.file)?;
         let arrow = self.paint.apply(arrow, Tone::Gutter);
         let pad = " ".repeat(self.width);
-        self.push(&format!("{pad}{arrow} {path}:{}:{}", span.start.line, span.start.column));
+        self.push(&format!("{pad}{arrow} {}:{}:{}", escape(path.as_str()), span.start.line, span.start.column));
         Ok(())
     }
 
-    fn snippet(&mut self, label: &Label, tone: Tone) {
+    fn excerpt(&mut self, excerpt: &Excerpt<'_>, tone: Tone) {
         self.gutter("", "");
-        for line in shown_lines(&label.span) {
+        for line in excerpt.shown_lines() {
             match line {
-                Some(number) => self.source_line(label, number, tone),
+                Some(number) => self.source_line(excerpt, number, tone),
                 None => self.push(&self.paint.apply("...", Tone::Gutter)),
             }
         }
     }
 
-    fn source_line(&mut self, label: &Label, number: u32, tone: Tone) {
-        let Some(text) = self.files.line(label.span.file, number) else { return };
-        self.gutter(&number.to_string(), text);
-        let (from, to) = underline_columns(&label.span, number, text);
-        let pad: String = text.chars().take(from - 1).map(|c| if c == '\t' { '\t' } else { ' ' }).collect();
-        let carets = String::from(tone.caret()).repeat(to.saturating_sub(from).max(1));
-        let mut marks = format!("{pad}{}", self.paint.apply(&carets, tone));
-        if number == label.span.end.line && !label.text.is_empty() {
-            marks = format!("{marks} {}", self.paint.apply(&label.text, tone));
+    fn source_line(&mut self, excerpt: &Excerpt<'_>, number: u32, tone: Tone) {
+        let Some(text) = self.files.line(excerpt.file, number) else { return };
+        self.gutter(&number.to_string(), &escape(text));
+        for mark in excerpt.marks_on(number) {
+            let tone = if mark.primary { tone } else { Tone::Secondary };
+            self.underline(&mark.underline(number, text), tone);
+        }
+    }
+
+    fn underline(&mut self, underline: &Underline<'_>, tone: Tone) {
+        let carets = String::from(tone.caret()).repeat(underline.width);
+        let mut marks = format!("{}{}", underline.pad, self.paint.apply(&carets, tone));
+        if let Some(text) = underline.text {
+            marks = format!("{marks} {}", self.paint.apply(&escape(text), tone));
         }
         self.gutter("", &marks);
     }
@@ -108,16 +130,14 @@ impl Writer<'_> {
     }
 
     fn trailers(&mut self, diagnostic: &Diagnostic) {
-        let notes = diagnostic.notes.iter().map(|note| ("note", note.clone()));
-        let help = diagnostic.help.iter().map(|help| ("help", help.clone()));
-        let fixes = diagnostic
-            .fixes
-            .iter()
-            .map(|fix| ("fix", if fix.certain { format!("{} (certain)", fix.title) } else { fix.title.clone() }));
+        let notes = diagnostic.notes.iter().map(|note| ("note", note.as_str(), ""));
+        let help = diagnostic.help.iter().map(|help| ("help", help.as_str(), ""));
+        let fixes =
+            diagnostic.fixes.iter().map(|fix| ("fix", fix.title.as_str(), if fix.certain { " (certain)" } else { "" }));
         let pad = " ".repeat(self.width + 1);
         let equals = self.paint.apply("=", Tone::Gutter);
-        for (kind, text) in notes.chain(help).chain(fixes) {
-            self.push(&format!("{pad}{equals} {kind}: {text}"));
+        for (kind, text, suffix) in notes.chain(help).chain(fixes) {
+            self.push(&format!("{pad}{equals} {kind}: {}{suffix}", escape(text)));
         }
     }
 
@@ -125,38 +145,6 @@ impl Writer<'_> {
         self.out.push_str(line);
         self.out.push('\n');
     }
-}
-
-/// The width of the widest line number any label of `diagnostic` shows.
-fn gutter_width(diagnostic: &Diagnostic) -> usize {
-    let labels = std::iter::once(&diagnostic.primary).chain(&diagnostic.secondary);
-    labels.map(|label| label.span.end.line).max().unwrap_or(1).to_string().len()
-}
-
-/// The lines to show for `span`; `None` stands for the elided middle of a long span.
-fn shown_lines(span: &SourceSpan) -> Vec<Option<u32>> {
-    let (first, last) = (span.start.line, span.end.line.max(span.start.line));
-    if last - first < MAX_FULL_LINES {
-        (first..=last).map(Some).collect()
-    } else {
-        vec![Some(first), Some(first + 1), None, Some(last)]
-    }
-}
-
-/// The 1-based columns to underline on `line`, from the first up to (not including) the second.
-///
-/// The span's first line is underlined from its start column, its last line up to its end
-/// column, and lines between from their first non-blank character to their end.
-fn underline_columns(span: &SourceSpan, line: u32, text: &str) -> (usize, usize) {
-    let past_end = text.chars().count() + 1;
-    let first_visible = text.chars().take_while(|c| c.is_whitespace()).count() + 1;
-    let from = if line == span.start.line { column(span.start.column) } else { first_visible };
-    let to = if line == span.end.line { column(span.end.column) } else { past_end };
-    (from.clamp(1, past_end), to.clamp(1, past_end))
-}
-
-fn column(value: u32) -> usize {
-    usize::try_from(value).unwrap_or(usize::MAX)
 }
 
 /// The colour a piece of output is drawn in.

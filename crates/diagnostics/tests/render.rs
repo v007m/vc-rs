@@ -65,6 +65,12 @@ fn diagnostics(files: &SourceFiles) -> Option<Diagnostics> {
     Some([unknown_api, unknown_profile, body_default].into_iter().collect())
 }
 
+fn one(diagnostic: Diagnostic) -> Diagnostics {
+    let mut diagnostics = Diagnostics::new();
+    diagnostics.push(diagnostic);
+    diagnostics
+}
+
 #[test]
 fn text_shows_excerpts_labels_notes_and_fixes() {
     let files = files().unwrap();
@@ -107,4 +113,61 @@ fn nothing_to_report_renders_an_empty_summary() {
     let expected = serde_json::json!({"summary": {"errors": 0, "warnings": 0, "infos": 0}, "diagnostics": []});
     assert_eq!(value, expected);
     assert_eq!(TextRenderer::default().render(&Diagnostics::new(), &files).unwrap(), "");
+}
+
+#[test]
+fn text_names_the_file_again_when_an_excerpt_returns_to_it() {
+    let files = files().unwrap();
+    let call = span(&files, TEST, "orders#plcae", "plcae").unwrap();
+    let staging = span(&files, CONFIG, "staging", "staging").unwrap();
+    let coupon = span(&files, TEST, "coupon", "SAVE10").unwrap();
+    let diagnostic = Diagnostic::new(Code::V2003, call, "unknown api")
+        .label("not defined")
+        .secondary(staging, "in the config")
+        .secondary(coupon, "back in the test file");
+    let text = TextRenderer::default().render(&one(diagnostic), &files).unwrap();
+    insta::assert_snapshot!(text);
+}
+
+#[test]
+fn text_stops_before_the_line_a_span_ends_at_the_start_of() {
+    let files = files().unwrap();
+    let text = &files.get(TEST).unwrap().text;
+    let (start, end) = (text.find("    call").unwrap(), text.find("    profiles").unwrap());
+    let line = SourceSpan::new(TEST, files.position(TEST, start).unwrap(), files.position(TEST, end).unwrap());
+    let diagnostic = Diagnostic::new(Code::V2003, line, "unknown api").label("this line");
+    let text = TextRenderer::default().render(&one(diagnostic), &files).unwrap();
+    assert!(text.contains("4 |     call: orders#plcae\n  | ^^^^^^^^^^^^^^^^^^^^^^ this line\n"), "{text}");
+    assert!(!text.contains("profiles"), "{text}");
+}
+
+#[test]
+fn text_shows_control_characters_and_bidi_overrides_as_visible_stand_ins() {
+    let mut files = SourceFiles::new();
+    let path = SourcePath::new("services/evil/x\x1b[31m.test.yaml").unwrap();
+    let source = "name: \x1b[2Jboom\u{202e}gnp.exe\r\n";
+    files.push(SourceFile { path, text: source.to_owned(), hash: ContentHash::new([0; 32]) }).unwrap();
+    let id = SourceFileId::new(0);
+    let name = span(&files, id, "\x1b", "boom").unwrap();
+    let diagnostic = Diagnostic::new(Code::V2003, name, "bad \x1b]0;title\x07")
+        .label("\u{2066}hidden")
+        .note("a\rb")
+        .help("\x7f\u{9b}")
+        .fix(Fix::suggested("\x1b[1A", vec![TextEdit::replace(name, "ok")]));
+    let text = TextRenderer::default().render(&one(diagnostic), &files).unwrap();
+    let unsafe_chars = ['\x1b', '\r', '\x07', '\x7f', '\u{9b}', '\u{202e}', '\u{2066}'];
+    assert!(!text.contains(unsafe_chars), "{text:?}");
+    insta::assert_snapshot!(text);
+}
+
+#[test]
+fn text_rejects_fix_edits_into_missing_files() {
+    let files = files().unwrap();
+    let call = span(&files, TEST, "orders#plcae", "plcae").unwrap();
+    let elsewhere = SourceSpan { file: SourceFileId::new(9), ..call };
+    let fix = Fix::certain("Replace", vec![TextEdit::replace(elsewhere, "x")]);
+    let diagnostics = one(Diagnostic::new(Code::V2003, call, "unknown api").fix(fix));
+    let expected = Err(DiagnosticsError::UnknownFile(9));
+    assert_eq!(TextRenderer::default().render(&diagnostics, &files), expected);
+    assert_eq!(JsonRenderer.render(&diagnostics, &files), expected);
 }

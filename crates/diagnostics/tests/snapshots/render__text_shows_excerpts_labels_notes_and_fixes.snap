@@ -25,17 +25,16 @@ error[V2002]: unknown profile "stagng"
 warning[V3205]: a body default reaches a GET step
   --> services/orders/checkout.test.yaml:7:7
    |
- 7 |       items:
-   |       ^^^^^^
- 8 |         - sku: A1
-   |         ^^^^^^^^^
- 9 |           qty: 2
-   |           ^^^^^^ sent with GET orders#list
-   |
  6 |     body:
    |     -----
  7 |       items:
+   |       ^^^^^^
    |       ------
-...
+ 8 |         - sku: A1
+   |         ^^^^^^^^^
+   |         ---------
+ 9 |           qty: 2
+   |           ^^^^^^ sent with GET orders#list
+   |           ------
 10 |       coupon: SAVE10
    |       -------------- test-level default set here

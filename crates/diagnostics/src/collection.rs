@@ -58,8 +58,15 @@ impl Diagnostics {
     /// The count of each severity.
     #[must_use]
     pub fn summary(&self) -> Summary {
-        let count = |severity| self.0.iter().filter(|d| d.severity == severity).count();
-        Summary { errors: count(Severity::Error), warnings: count(Severity::Warning), infos: count(Severity::Info) }
+        let mut summary = Summary::default();
+        for diagnostic in &self.0 {
+            match diagnostic.severity {
+                Severity::Error => summary.errors += 1,
+                Severity::Warning => summary.warnings += 1,
+                Severity::Info => summary.infos += 1,
+            }
+        }
+        summary
     }
 
     /// The diagnostics in their current order.
