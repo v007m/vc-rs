@@ -1,0 +1,316 @@
+{
+  "adapters-hooks": {
+    "production": {
+      "code_lines": 272,
+      "explicit_lifetimes": 19,
+      "lifetime_names": [
+        "_",
+        "js",
+        "static"
+      ],
+      "pub_api_lines_with_lifetimes": [
+        "pub fn json_to_js<'js>(ctx: &Ctx<'js>, v: &Json) -> rquickjs::Result<Value<'js>> {",
+        "pub fn js_to_json<'js>(ctx: &Ctx<'js>, v: &Value<'js>) -> rquickjs::Result<Json> {"
+      ],
+      "clone_calls": 21,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 20,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 1,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "adapters-http": {
+    "production": {
+      "code_lines": 70,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "adapters-store": {
+    "production": {
+      "code_lines": 78,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 1,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "arch-tests": {
+    "production": {
+      "code_lines": 92,
+      "explicit_lifetimes": 2,
+      "lifetime_names": [
+        "_"
+      ],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 1,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 66,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "cli": {
+    "production": {
+      "code_lines": 95,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 3,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 53,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 2,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "compiler": {
+    "production": {
+      "code_lines": 58,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "engine": {
+    "production": {
+      "code_lines": 203,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 11,
+      "arc_clone_calls": 4,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 1,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 195,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 6,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "ir": {
+    "production": {
+      "code_lines": 271,
+      "explicit_lifetimes": 2,
+      "lifetime_names": [
+        "_"
+      ],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 3,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 32,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "ports": {
+    "production": {
+      "code_lines": 85,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "tsstrip": {
+    "production": {
+      "code_lines": 90,
+      "explicit_lifetimes": 2,
+      "lifetime_names": [
+        "_",
+        "static"
+      ],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 1,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  }
+}

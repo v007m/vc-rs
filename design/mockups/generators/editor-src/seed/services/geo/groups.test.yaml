@@ -1,0 +1,26 @@
+id: geo.groups
+name: Location groups
+tags: [geo]
+
+tests:
+  - id: groupsCapitals
+    name: A location group keeps the capitals it was created with
+    steps:
+      - call: geo.createCity
+        forEach:
+          $file: ../../datasets/capitals.csv
+        vars:
+          cityName: ${item.name}
+          country: ${item.country}
+        save:
+          cities:
+            id: ${response.body.id}
+      - call: geo.createLocationGroup
+        vars:
+          cityIds: ${var.cities[*].id}
+    expect:
+      status: 201
+      body:
+        match:
+          cityIds:
+            length: 8

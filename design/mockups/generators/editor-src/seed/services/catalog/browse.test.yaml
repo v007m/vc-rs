@@ -1,0 +1,18 @@
+id: catalog.browse
+name: Browsing the catalog
+tags: [catalog, smoke]
+
+tests:
+  - id: searchesProducts
+    name: Search returns matching products
+    call: catalog.search
+    expect:
+      status: 200
+      body:
+        match:
+          items:
+            length:
+              gte: 1
+          items[*].name:
+            every:
+              contains: lamp

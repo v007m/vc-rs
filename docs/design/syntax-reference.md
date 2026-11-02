@@ -1,0 +1,1371 @@
+# Vibranium v2 — Syntax Reference
+
+Oct 23, 2026 · @Sarath
+
+This is the complete syntax for Vibranium v2 definition files. Every concept has one way to write it:
+
+- Apis say how to call an endpoint, including how to undo what a call creates.
+- Tests `call` apis and `expect` results.
+- Lifecycle blocks (`beforeRun`, `beforeAll`, `beforeEach`, `before` and their `after` partners) prepare data by calling apis, and where a block sits decides how long that data lives.
+- Every value is a `var`.
+- Profiles switch values per environment without duplicating logic.
+
+YAML and JSON are equivalent; examples use YAML.
+
+## Design rules
+
+These rules govern every file; `vc check` enforces each one with a diagnostic.
+
+1. **camelCase keys everywhere.** No kebab-case (`repeat-delay`) or snake\_case (`max_parallel_executors`). Request bodies are your API's data and are sent exactly as written.
+2. **The file suffix decides the kind:** `vibranium.config.yaml`, `*.api.yaml`, `*.test.yaml`, `*.load.yaml`. There is no `kind:` key.
+3. **Every item has an `id`, and may have a `name`.** `id` is the reference: camelCase letters and digits only (`createsMember`), no spaces, dots or dashes. `name` is free text for reports. A full ID is `<fileId>.<id>` (`users.crud.createsMember`); inside the same file the short `id` works. File IDs are lowercase words joined by dots (`users.crud`).
+4. **Things with several properties are list items; plain name–value pairs are maps.** Apis, tests, profiles, auth definitions, generators and plugins are lists of items with `id`; steps and lifecycle actions are lists whose `id` is optional. Vars, headers, query and saved values are maps.
+5. **One kind of value: vars.** Defaults, inputs to an api, environment values and values saved from a response are all vars, read as `${var.x}`. Values set closer to the call win (see Vars and profiles).
+6. **Sections are plural, references are singular.** `vars:` is read as `${var.x}`, `secrets` as `${secret.X}`, `examples:` as `${example.x}`.
+7. **One template syntax:** `${namespace.path}`, optionally followed by pipes that convert the value (`${var.count | number}`), plus generator calls with literal arguments (`${fake.lorem.words(5)}`). No other code inside templates.
+8. **One check form.** `expect` looks the same on apis, tests, steps, actions, polling and load thresholds. A literal means "equals"; anything else is a matcher such as `lt: 500ms`.
+9. **Units are written out.** Durations `250ms`, `2s`, `1m`; sizes `4kb`, `1mb`; rates `1%`. A bare number is never milliseconds.
+10. **One flexible `body`.** Nested YAML or pasted JSON is sent as JSON, a string as text, `$file` as file bytes, `$base64` as raw bytes, `$extend` as an existing object with your changes; the `content-type` header decides the encoding.
+11. **Logic lives in two places only:** CEL one-liners (under `expect.cel`, or as a computed value with `$cel`), and functions in code files referenced with `function:`.
+12. **Placement decides lifetime.** Data made in `beforeRun` lives for the run, in `beforeAll` for one test file, in `beforeEach` or `before` for one test. There is no separate scope setting.
+13. **Whatever creates, undoes.** An api that creates something declares its `cleanup` once; every successful call registers it, and it runs when the block that made the call ends.
+14. **Nested style.** Examples and `vc fmt` use indented YAML; inline `{ … }` parses the same but is not the house style.
+
+## Files at a glance
+
+A project is one `vibranium.config.yaml` at the root plus api, test and load files anywhere below it; folders are only for people.
+
+| File | Holds | Top-level keys | Item IDs |
+| --- | --- | --- | --- |
+| `vibranium.config.yaml` | Project settings, vars, profiles (at least one), auth, secrets, generators, datasets, reports, history, alerts, plugins, run-level lifecycle blocks | `syntaxVersion`, `project`, `paths`, `defaults`, `vars`, `profiles`, `auth`, `secrets`, `generators`, `datasets`, `reports`, `history`, `alerts`, `plugins`, `redact`, `beforeRun`, `afterRun` | auth: `partnerLogin` |
+| `*.api.yaml` | How to call endpoints, and how to undo them | `id`, `name`, `baseUrl`, `auth`, `headers`, `vars`, `profiles`, `source`, `beforeRequest`, `afterResponse`, `apis` | `users.create` |
+| `*.test.yaml` | Tests and the lifecycle blocks around them | `id`, `name`, `tags`, `vars`, `profiles`, `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, `tests` | `users.crud.getsCreatedUser` |
+| `*.load.yaml` | A load scenario built from tests | `id`, `name`, `mix`, `stages`, `thinkTime`, `checks`, `thresholds`, `abortOn` | `checkout.peak` |
+| `schemas/*.json` | JSON Schemas, loaded with `$file` | — | — |
+| `datasets/*.csv`, `*.json`, `*.yaml` | Your own data lists | — | file name, e.g. `cities` |
+| `hooks/*.ts`, `*.js`, `*.py`, … | Functions for lifecycle actions, request hooks and custom checks, referenced as `path#exportName` | — | — |
+| `.vibranium/` | Generated: reports, `history.db`, `cache.db`; not committed | — | — |
+
+`syntaxVersion` is the version of the file format, not of Vibranium or of your API. It changes only when the format has a breaking change. Upgrading Vibranium never edits it; `vc migrate` raises it when you choose to upgrade old files, so a newer Vibranium always knows how to read older ones.
+
+## Templates and references
+
+Every dynamic value is written `${namespace.path}`; `vc check` resolves each reference and reports unknown names before anything runs.
+
+| Namespace | Value | Example |
+| --- | --- | --- |
+| `var` | A var: defaults, call values, profile values and saved values (see Vars and profiles) | `${var.usersUrl}`, `${var.admin.userId}` |
+| `env` | Operating-system environment variables | `${env.CI_COMMIT_SHA}` |
+| `secret` | Secrets from the secrets provider; always redacted | `${secret.SHOP_CLIENT_SECRET}` |
+| `response` | The current call's `status`, `headers`, `body`, `timing`; used in `expect`, `save`, `poll` and an api's `cleanup` | `${response.headers.location}` |
+| *action id* | The last response (`status`, `headers`, `body`, `timing`) of an action or step with that `id`, within the same test or block | `${place.body.total}` |
+| `example` | The current row of `examples` | `${example.email}` |
+| `item` | The current element of a `forEach` loop | `${item.sku}` |
+| `iteration` | `index` (from 1) and `count` in a `repeat` or `forEach` loop, or a repeated test | `${iteration.index}` |
+| `fake` | Generated data (see Generators and datasets) | `${fake.location.city}` |
+| `dataset` | One of your datasets: its whole list of rows (see Generators and datasets) | `${dataset.capitals}` |
+| `run` | `id`, `startedAt`, `profiles` | `${run.id}` |
+
+Paths: after a namespace, and as keys under `expect.body.match`, paths use dotted names, `[n]` for an index (negative counts from the end), `[*]` for every element, and quotes for unusual keys (`headers["x-request-id"]`). Filtering is done with CEL.
+
+Typing: a value that is exactly one template keeps the referenced type, so `limit: ${var.pageSize}` stays a number and `cities: ${var.cities}` stays a list; a template inside other text gives a string (`user-${run.id}`). Quoting does not change this. To change a type, use a pipe.
+
+### Converting types with pipes
+
+A pipe after the path converts or tidies the value: `${response.body.count | number}`. Pipes chain left to right: `${var.name | trim | lower}`.
+
+| Pipe | Takes | Gives | Example |
+| --- | --- | --- | --- |
+| `number` | `"42.5"` | `42.5` | `${var.price \| number}` |
+| `int` | `"42"` or `42.9` | `42` (truncated) | `${response.headers["x-total-count"] \| int}` |
+| `bool` | `"true"`, `"false"` | `true`, `false` | `${var.enabled \| bool}` |
+| `string` | any value | its text; objects and lists become compact JSON | `${var.id \| string}` |
+| `json` | a string holding JSON | the parsed object or list | `${response.body.payload \| json}` |
+| `jsonString` | an object or list | a JSON string | `${var.order \| jsonString}` |
+| `base64`, `fromBase64` | text or bytes | encoded or decoded | `${var.csv \| base64}` |
+| `lower`, `upper`, `trim` | a string | the changed text | `${var.email \| lower}` |
+| `urlEncode` | a string | percent-encoded text | `${var.query \| urlEncode}` |
+| `default('x')` | a missing or null value | the fallback, any literal | `${var.note \| default('none')}` |
+| `random` | a list | one element, chosen at random (follows `--seed`) | `${dataset.capitals \| random}` |
+| `shuffle` | a list | the list in random order | `${dataset.capitals \| shuffle}` |
+| `take(n)` | a list | its first `n` elements | `${dataset.capitals \| take(10)}` |
+
+To read inside a string of JSON, save it parsed first (`payload: ${response.body.payload | json}`), then read `${var.payload.orderId}`. A failed conversion, such as `"abc" | number`, fails the step with the value and the pipe in the message; `vc check` reports conversions it can already see will fail, such as `| number` on a field the api's schema says is an object.
+
+### Computed values
+
+Where a value needs arithmetic or a choice, `$cel` computes it with the same CEL used in checks. Its variables are `var`, `response` (where there is one) and action ids.
+
+```yaml
+vars:
+  doubled:
+    $cel: var.price * 2
+  tier:
+    $cel: "var.total > 100.0 ? 'gold' : 'standard'"
+```
+
+Escaping: write `$${` for a literal `${`.
+
+Reserved names: an action or step `id` cannot be `var`, `env`, `secret`, `response`, `example`, `item`, `iteration`, `fake`, `dataset` or `run`.
+
+## Project config
+
+`vibranium.config.yaml` sits at the project root and is the only project-wide file; `vc` finds it by walking up from the current directory.
+
+| Key | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `syntaxVersion` | integer | required, `2` | File-format version (see Files at a glance) |
+| `project` | string | folder name | Display name in reports and on the server |
+| `paths.include`, `paths.exclude` | lists of globs | everything except `node_modules` and `.vibranium` | Where definition files are found |
+| `defaults.timeout` | duration | `30s` | Per request |
+| `defaults.concurrency` | integer | `16` | Test instances in flight |
+| `defaults.perHost` | integer | `8` | Connections per host |
+| `defaults.retry` | `attempts`, `delay` | none | Applied to every test unless overridden |
+| `defaults.headers` | map | none | Sent with every request |
+| `vars` | map | — | Project-wide values |
+| `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles) |
+| `auth` | list | — | Auth definitions (see Authentication) |
+| `secrets` | `provider`, `schema` | Varlock with `.env.schema` | Where `${secret.*}` comes from |
+| `generators` | list | — | Named fake-data generators |
+| `datasets` | list | every file in `datasets/` | Your own data lists |
+| `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file) |
+| `history` | `bodies`, `maxBodySize`, `retain` | SQLite, bodies of failures only | Run history and retention |
+| `alerts` | list | none | Notifications |
+| `plugins` | list | none | Third-party plugins |
+| `redact` | `headers`, `fields` | auth headers and secrets | Extra values to mask |
+| `beforeRun`, `afterRun` | lists of actions | none | Run-level lifecycle blocks (see Lifecycle blocks) |
+
+```yaml
+# vibranium.config.yaml
+syntaxVersion: 2
+project: shop
+
+defaults:
+  timeout: 10s
+  concurrency: 32
+  perHost: 16
+  headers:
+    accept: application/json
+
+vars:
+  usersUrl: http://localhost:8080
+  ordersUrl: http://localhost:8081
+  identityUrl: http://localhost:8090
+
+profiles:
+  - id: dev
+    default: true
+    agents:
+      run: true
+      call: [GET, POST, PUT, DELETE]
+      writeDefinitions: true
+  - id: staging
+    vars:
+      usersUrl: https://users.staging.shop.example
+      ordersUrl: https://orders.staging.shop.example
+      identityUrl: https://id.staging.shop.example
+    agents:
+      run: true
+      call: [GET, POST]
+      approve: [PUT, PATCH, DELETE]
+      writeDefinitions: ask
+  - id: prod
+    vars:
+      usersUrl: https://users.shop.example
+      ordersUrl: https://orders.shop.example
+      identityUrl: https://id.shop.example
+    agents:
+      run: true
+      call: [GET]
+      approve: [POST, PUT, PATCH, DELETE]
+      writeDefinitions: false
+
+auth:
+  - id: shopOauth
+    type: oauth2ClientCredentials
+    tokenUrl: ${var.identityUrl}/oauth/token
+    clientId: ${secret.SHOP_CLIENT_ID}
+    clientSecret: ${secret.SHOP_CLIENT_SECRET}
+    scopes: [users.read, users.write, orders.write]
+
+secrets:
+  provider: varlock
+  schema: .env.schema
+
+reports:
+  dir: .vibranium/reports
+  formats: [ctrf, junit, html]
+
+history:
+  bodies: failures
+  maxBodySize: 4kb
+  retain:
+    runs: 500
+    days: 90
+
+alerts:
+  - on: [failure, recovery, flaky, threshold]
+    profiles: [staging, prod]
+    notify:
+      - slack:
+          channel: "#qa-alerts"
+          webhook: ${secret.SLACK_WEBHOOK}
+
+beforeRun:
+  - command: docker compose up -d --wait
+  - id: admin                    # created only if a test reads ${var.admin.*}
+    call: users.create
+    vars:
+      role: admin
+    cache:
+      for: 12h
+      check:
+        call: users.get
+        vars:
+          userId: ${var.admin.userId}
+
+afterRun:
+  - function: hooks/notify.ts#postSummary
+```
+
+## Vars and profiles
+
+Every value you set is a var, read as `${var.x}`, and a profile only changes values, never logic.
+
+Where vars are set, from the closest to the call to the furthest:
+
+1. `vars` on the call itself: a test, a step or an action
+2. Values saved earlier in the same test, by its `beforeEach` and `before` blocks and its steps; the latest wins
+3. Values saved by the file's `beforeAll`, under the action's `id` (`${var.catalog.productIds}`)
+4. The test file's `vars`
+5. Values saved by `beforeRun`, under the action's `id` (`${var.admin.userId}`)
+6. The api's own `vars` (its defaults)
+7. The api file's `vars`
+8. The config's `vars`
+
+The closest value wins. A template that no level sets is a `vc check` error naming the var, so there is no separate "required" flag.
+
+Profiles replace environments and work like Spring Boot profiles. In Vibranium, "environment" only ever means operating-system environment variables (`${env.X}`).
+
+- **Every project has at least one profile.** `vc init` creates one called `default` and marks it `default: true`.
+- **Every run has an active profile.** Name it with `--profile staging` (or `VIB_PROFILE=staging`); otherwise the profile marked `default: true` applies. A project with no profiles, or a run with none active, is a `vc check` error.
+- **Several profiles apply in order, later ones winning:** `--profile staging,eu`.
+- **Profiles override vars at each level.** The config's `profiles` override config `vars`. Any api or test file can carry its own `profiles` list to override that file's `vars`; a profile id used there must exist in the config, so a typo is an error, not a silent no-op.
+
+```yaml
+# services/orders/checkout.test.yaml (excerpt)
+vars:
+  currency: USD
+  couponCode: WELCOME10
+profiles:
+  - id: eu
+    vars:
+      currency: EUR
+  - id: prod
+    vars:
+      couponCode: PROD-SMOKE
+```
+
+Saving values from a response: `save` maps names to templates over `response`; a value can be one template, or a map of them, which saves an object. Where you save decides who sees the value:
+
+- **On a test, step or per-test action** (`before`, `beforeEach`): the values are vars for the rest of that test.
+- **In `beforeAll` and `beforeRun`:** everything an action saves is shared under the action's `id`, which those blocks require.
+- **On an api:** `save` runs on every call of it, so every caller gets the same names.
+- **Inside a loop:** every saved name collects a list (see Loops: repeat and forEach).
+
+```yaml
+save:
+  orderId: ${response.body.id}
+  location: ${response.headers.location}
+  buyer:
+    id: ${response.body.buyer.id}
+    email: ${response.body.buyer.email}
+```
+
+## Api files
+
+An api file describes how to call a group of endpoints, the checks that must hold on every call of each one, and how to undo what a call creates.
+
+File-level keys:
+
+| Key | Type | Purpose |
+| --- | --- | --- |
+| `id` | file ID, required | Prefix of every api in the file |
+| `name` | text | Shown in listings |
+| `baseUrl` | template | Prefixed to every `path` |
+| `auth` | auth ID, or `none` | Default auth for the file |
+| `headers` | map | Default headers |
+| `vars` | map | Defaults for every api in the file |
+| `profiles` | list | Per-profile overrides of the file's `vars` |
+| `source.openapi` | path or URL | Spec this file syncs from: a URL or a file, JSON or YAML; with source.headers for a protected URL and source.include to take only some tags |
+| `beforeRequest`, `afterResponse` | lists of functions | Run around every request in the file (see Functions and request hooks) |
+| `apis` | list | The apis |
+
+Each item in `apis`:
+
+| Key | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `id` | camelCase, required | — | Reference, e.g. `create` → `users.create` |
+| `name` | text | — | Shown in listings |
+| `method` | `GET` `POST` `PUT` `PATCH` `DELETE` `HEAD` `OPTIONS` | `GET` | HTTP method |
+| `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}` |
+| `vars` | map | — | Defaults for this api; callers override them |
+| `query` | map of templates | — | Query string |
+| `headers` | map of templates | — | Merged over the file's headers |
+| `body` | see Request body | none | Request body |
+| `auth` | auth ID, `none`, or `id` + `vars` | the file's | Overrides the file's auth |
+| `timeout` | duration | `defaults.timeout` | Per request |
+| `expect` | checks | `status: 2xx` | Checks that hold on every call; a test's `expect` adds to them and replaces matching keys |
+| `save` | map of templates over `response` | — | Values every caller gets as vars |
+| `cleanup` | `call` + `vars` | — | How to undo a successful call; registered automatically (see Cleanup on an api) |
+| `operationId` | text | — | Link to the OpenAPI operation, kept by sync |
+| `beforeRequest`, `afterResponse` | lists of functions | — | Run around this api's requests, after the file's |
+| `deprecated` | boolean | false | Set by sync when the operation leaves the spec; vc check warns where tests still call it |
+
+### Request body
+
+| You write | Sent as | Default `content-type` |
+| --- | --- | --- |
+| no `body` key | empty | none |
+| nested YAML, or pasted JSON | JSON | `application/json` |
+| a string | the text as written | `text/plain` |
+| `$file: path` | the file's bytes | from the file extension |
+| `$base64: …` | the decoded bytes | `application/octet-stream` |
+| `$extend: <object>` plus changes | the object with your changes (see below) | `application/json` |
+| a map with `content-type: application/x-www-form-urlencoded` | URL-encoded form | — |
+| a map with `content-type: multipart/form-data` | multipart; `$file` values become file parts | — |
+
+```yaml
+# services/users/users.api.yaml
+id: users
+name: User accounts service
+baseUrl: ${var.usersUrl}/api/v1
+auth: shopOauth
+source:
+  openapi: https://users.staging.shop.example/v3/api-docs
+
+apis:
+  - id: create
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+      role: member
+    body:
+      name: ${var.name}
+      email: ${var.email}
+      role: ${var.role}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: delete
+      vars:
+        userId: ${response.body.id}
+
+  - id: get
+    name: Get a user
+    path: /users/${var.userId}
+
+  - id: delete
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [200, 204, 404]
+
+  - id: importCsv
+    name: Import users from CSV
+    method: POST
+    path: /users/import
+    headers:
+      content-type: text/csv
+    body:
+      $file: ../../fixtures/users.csv
+
+  - id: uploadAvatar
+    name: Upload an avatar image
+    method: PUT
+    path: /users/${var.userId}/avatar
+    headers:
+      content-type: multipart/form-data
+    body:
+      file:
+        $file: ../../fixtures/avatar.png
+      caption: Profile photo
+    beforeRequest:
+      - function: ../../hooks/sign.ts#addUploadSignature
+```
+
+JSON pasted as is works too:
+
+```yaml
+  - id: rename
+    method: PATCH
+    path: /users/${var.userId}
+    body: {"name": "${var.name}", "tags": ["renamed"]}
+```
+
+OpenAPI import and sync (`vc import openapi`, `vc sync users`) are described in the Vibranium v2 CLI and Developer Workflow doc. In short: the spec can be a URL or a file, JSON or YAML (Swagger 2.0 is converted). Every import and sync saves a snapshot to `openapi/<fileId>.yaml`, which you commit; sync uses it as the merge base. Sync updates `method`, `path`, parameter vars and `operationId`, and never touches names, `expect`, `save`, `cleanup`, hooks or defaults you wrote. Conflicts are reported instead of overwritten, and an operation removed from the spec leaves its api in place with `deprecated: true`.
+
+### Reusing a payload with changes
+
+`$extend` starts a map from an existing object, usually a response body or a saved value, and the keys beside it change it. Maps merge deeply, so `shipping.city` changes one field and keeps the rest of `shipping`; lists and plain values are replaced whole; `null` sets a field to null. `$remove` lists paths to drop, such as server-generated fields. Both work in any map value: a body, a var, a saved object.
+
+`body` on a test, step or action replaces the api's body for that one call. Use it when a test needs a body the api's vars cannot express, as here:
+
+```yaml
+  - id: reordersToNewCity
+    name: Re-placing an order with a new city keeps every item
+    steps:
+      - id: original
+        call: orders.get
+        vars:
+          orderId: ord_existing
+      - call: orders.place
+        body:
+          $extend: ${original.body}
+          shipping:
+            city: Pune
+          $remove: [id, status, createdAt, total, shipping.geo]
+    expect:
+      status: 201
+      cel:
+        same items: body.items == original.body.items
+```
+
+If a value arrives as text but you need it as JSON, or the other way round, convert it with a pipe (see Converting types with pipes): `$extend: ${response.body.payload | json}`.
+
+### Cleanup on an api
+
+An api that creates something says once how to undo it. Every call with a 2xx status registers its cleanup, with the cleanup's `vars` resolved at that moment against that call's `response`, so ten creates register ten deletes. Registered cleanups run in reverse order of creation when the block that made the call ends. `keep: true` on a call skips its cleanup.
+
+| The call was made in | Its cleanup runs |
+| --- | --- |
+| a test's steps, `before` or `beforeEach` | after the test's `after` and `afterEach`, whether the test passed or not |
+| the file's `beforeAll` | after the file's `afterAll` |
+| the config's `beforeRun` | after `afterRun` |
+| an action with `cache` | when the cache entry expires, or on `vc cache clear`; not at the end of the run |
+
+Cleanups also run after Ctrl-C. A failed cleanup is reported but does not change test results; the cleanup call itself never registers a cleanup.
+
+### Which base URL and auth a call uses
+
+Every api takes its base URL and auth from its own file, so one test can call several services and each request goes to the right host with the right credentials. In a test that calls `users.create` and then `orders.place`, the first request goes to `${var.usersUrl}` with the users file's auth and the second to `${var.ordersUrl}` with the orders file's auth, without the test saying anything.
+
+An api can override its file's `auth`, and a test, step or action can override it again with `auth:` for one call, for example to act as a different user. The base URL changes only through vars: to point one call elsewhere, set the var its file's `baseUrl` uses in that call's `vars` (`usersUrl: http://localhost:9000`).
+
+## Tests
+
+A test calls an api (or several, as steps) and states what it expects; it passes only if every check passes.
+
+File-level keys of a test file:
+
+| Key | Type | Purpose |
+| --- | --- | --- |
+| `id` | file ID, required | Prefix of every test in the file |
+| `name` | text | Shown in reports |
+| `tags` | list | Added to every test in the file |
+| `vars` | map | File-level vars |
+| `profiles` | list | Per-profile overrides of the file's `vars` |
+| `beforeAll`, `afterAll` | lists of actions | Run once for the file, around all its tests (see Lifecycle blocks) |
+| `beforeEach`, `afterEach` | lists of actions | Run around every test instance in the file |
+| `tests` | list | The tests |
+| `skip` | a reason, or reason and until | Skip every test in the file (see Skipping) |
+
+Each item in `tests`:
+
+| Key | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `id` | camelCase, required | — | Reference, e.g. `users.crud.getsCreatedUser` |
+| `name` | text | `id` | Shown in reports |
+| `tags` | list | — | Added to the file's tags |
+| `before`, `after` | lists of actions | — | Run around this test only, inside `beforeEach` and `afterEach` |
+| `call` | api ID | one of `call` or `steps` | The api to call |
+| `steps` | list of actions | — | Several actions in order (see Actions); usually `call`s, each with its own `id`, `vars`, `expect`, `save` |
+| `vars` | map | — | Values for this test and its call; each is evaluated once per test instance |
+| `auth` | auth ID, `none`, or `id` + `vars` | the api's | Call as a different identity |
+| `body` | as an api's `body` | the api's | Replaces the api's body for this test |
+| `expect` | checks | the api's `expect` | Added to the api's checks; matching keys replace them |
+| `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach` |
+| `poll` | `until`, `every`, `timeout` | — | Re-send until `until` (checks) holds, then check `expect` |
+| `examples` | list of maps, or `$file` | — | One test instance per row; values in `${example.*}` |
+| `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
+| `retry` | `attempts`, `delay` | none | Retry a failure; a pass after retry is reported as flaky |
+| `timeout` | duration | per-request timeout × calls | Whole-test limit |
+| `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
+| `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
+
+With `steps`, a test-level `expect` applies to the last step; each step can carry its own `expect` too.
+
+Order of work: the file's `beforeAll` runs once, before its first selected test. Then, for each test instance: `beforeEach` → `before` → the call or steps (each: request, the api's `expect` merged with the step's, `poll`, `save`, cleanup registered) → the test-level `expect` → `after` → `afterEach` → registered cleanups, newest first → record. `after` and `afterEach` run even when something before them failed. After the file's last test: `afterAll`, then the file's cleanups.
+
+```yaml
+# services/users/users.test.yaml
+id: users.crud
+name: User accounts
+tags: [users, smoke]
+
+tests:
+  - id: createsMember
+    name: Creates a member account
+    call: users.create
+    expect:
+      body:
+        match:
+          role: member
+
+  - id: getsCreatedUser
+    name: Returns the user that was just created
+    before:
+      - call: users.create
+    repeat: 5
+    call: users.get
+    expect:
+      status: 200
+      body:
+        schema:
+          $file: ../../schemas/user.json
+        match:
+          id: ${var.userId}
+          email:
+            endsWith: "@example.com"
+      timing:
+        total:
+          lt: 500ms
+
+  - id: rejectsBadEmail
+    name: Rejects malformed email addresses
+    examples:
+      - email: no-at-sign
+      - email: ""
+    call: users.create
+    vars:
+      email: ${example.email}
+    expect:
+      status: 400
+      cel:
+        names the email field: body.errors.exists(e, e.field == 'email')
+
+  - id: exportFinishes
+    name: A user export completes within two minutes
+    steps:
+      - id: start
+        call: users.startExport
+        save:
+          jobId: ${response.body.jobId}
+      - id: wait
+        call: users.exportStatus
+        poll:
+          until:
+            body:
+              match:
+                state: done
+          every: 2s
+          timeout: 2m
+    expect:
+      body:
+        match:
+          rows:
+            gt: 0
+```
+
+Notes on the example: `users.create` saves `userId` and declares its own cleanup, so no test here has to delete anything. `getsCreatedUser` creates a fresh user in `before` for each of its five instances and reads it as `${var.userId}`. `rejectsBadEmail` replaces the api's `status: 201` with `400` simply by stating it; a 400 creates nothing, so no cleanup is registered.
+
+### Skipping
+
+`skip` parks a test, or a whole file when written at the top of the file, like JUnit's `@Disabled`. A reason is required and shows in every report, where the test is counted as **skipped**; `until` is optional, and after that date the test runs again and `vc check` warns that the skip expired. A skipped file's `beforeAll` and `afterAll` don't run. `vc run --include-skipped` runs skipped tests anyway; `vc skip` and `vc unskip` edit the YAML for you.
+
+```yaml
+  - id: appliesCoupon
+    skip:
+      reason: "coupon service flaky on staging, see #212"
+      until: 2026-11-15
+```
+
+## Lifecycle blocks
+
+Lifecycle blocks prepare data and tidy up around tests, like JUnit's `@BeforeAll` and `@BeforeEach`. Each block is a list of actions, and where the block sits decides when it runs and how long what it creates lives. There is no separate scope setting.
+
+| Block | Written in | Runs | What it creates lives until |
+| --- | --- | --- | --- |
+| `beforeRun`, `afterRun` | `vibranium.config.yaml` | once per run; value-producing actions run when a test first needs them | the end of the run, or the cache expiry |
+| `beforeAll`, `afterAll` | a test file | once per file: before its first selected test, after its last | the end of the file |
+| `beforeEach`, `afterEach` | a test file | around every test instance in the file, including each `repeat` and `examples` row | the end of that test instance |
+| `before`, `after` | a test | around that test's instances, inside `beforeEach` and `afterEach` | the end of that test instance |
+
+### Actions
+
+An action is one entry in a lifecycle block or in a test's `steps`. Most actions call an api: the api already knows its URL, auth, body, checks, saved values and cleanup, so a block only says which api to call and with which values.
+
+| Action | Does | Use it for |
+| --- | --- | --- |
+| `call: <api>` | Calls an api with its base URL, auth, checks, saves and cleanup | Almost everything |
+| `test: <test>` | Runs another test's calls in order, each with its api's checks; that test's own test-level `expect` is not checked | A multi-step flow that already exists as a test (see Reusing a multi-step flow) |
+| `function: path#export` | Runs a function from a code file | Work no api does: seeding a database, reading a mailbox; it may return an object whose fields are saved |
+| `command: <shell command>` | Runs a command; a non-zero exit fails the action, and its output is attached to the report | Starting services, `docker compose up -d --wait` |
+
+`call` and `test` actions also take `id`, `vars`, `auth`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars` and `timeout`.
+
+In `beforeRun` and `beforeAll` every action that produces values needs an `id`, and everything it saves, including its api's `save`, is shared under that id: `${var.catalog.productIds}`. In per-test blocks and steps, saved names are plain (`${var.userId}`), as for any step.
+
+```yaml
+# services/orders/checkout.test.yaml (excerpt)
+beforeAll:
+  - id: catalog
+    call: catalog.seedProducts
+
+beforeEach:
+  - call: users.create
+  - call: carts.create
+  - call: carts.addItem
+    forEach: ${var.catalog.productIds}
+    vars:
+      sku: ${item}
+
+afterAll:
+  - command: ./scripts/print-order-stats.sh
+```
+
+Every test in this file gets its own buyer and cart (`${var.userId}` and `${var.cartId}`, from those apis' `save`), and both are deleted after the test by their apis' cleanups. The catalog is seeded once for the whole file.
+
+### Shared values and concurrency
+
+Tests run in parallel, up to `defaults.concurrency`; within one test, actions and steps run in order.
+
+- A value-producing `beforeRun` action runs at most once per run. The first test that needs one of its values starts it; tests that need it at the same moment wait for that one run instead of starting their own. Tests that never use it (for example under `vc run -t users.*`) never trigger it. `command` and `function` actions in `beforeRun` run at the start of the run, in order, because they usually prepare the system.
+- `beforeAll` finishes before any test in the file starts; the file's tests then run in parallel, and `afterAll` waits for all of them.
+- Values from `beforeRun` and `beforeAll` are shared by tests running at the same moment, so treat them as read-only. A test that changes or deletes data creates its own in `beforeEach` or `before`. `vc check` warns when a `PUT`, `PATCH` or `DELETE` call uses a shared value.
+- `beforeEach` and `before` run separately for every test instance, so parallel instances never share what they create.
+- If a `beforeRun` or `beforeAll` action fails after its `retry`, it is reported once, with its request, response and failed check, and every test that needs it is marked **blocked** with a link to that failure. If `beforeEach` or `before` fails, that test instance is marked blocked the same way; its `after`, `afterEach` and cleanups still run.
+- A cycle (a test reused with `test:` that, directly or through others, reuses the first) is a compile error that prints the whole cycle.
+
+### Loops: repeat and forEach
+
+Any `call` or `test` action can run several times without being written several times.
+
+| Key | Runs the action | Available inside it |
+| --- | --- | --- |
+| `repeat: 10` | 10 times | `${iteration.index}` (from 1) and `${iteration.count}` |
+| `forEach: <list>` | once per element of a literal list, a list-valued template (`${var.cities}`) or a `$file` with a CSV, JSON or YAML list | `${item}` is the element (`${item.name}` for a row), plus `iteration` |
+| `parallel: 5` | up to 5 iterations at a time | default `1`: one after another, in order |
+
+Every name saved inside a loop collects a list, one entry per iteration in iteration order, even when iterations run in parallel. `${var.cities[*].id}` reads one field from every entry. Each successful iteration registers its own cleanup. If an iteration fails, the action fails once the iterations in flight finish, and the cleanups of the ones that succeeded still run.
+
+`repeat` on a test is different: it runs the whole test that many times and reports each instance.
+
+Example: create ten cities, then a location group from their IDs.
+
+```yaml
+# services/geo/geo.api.yaml
+id: geo
+name: Geography service
+baseUrl: ${var.geoUrl}/api/v2
+auth: geoApiKey
+
+apis:
+  - id: createCity
+    name: Create a city
+    method: POST
+    path: /cities
+    vars:
+      cityName: ${fake.location.city}
+      country: ${fake.location.countryCode}
+    body:
+      name: ${var.cityName}
+      country: ${var.country}
+    expect:
+      status: 201
+    cleanup:
+      call: deleteCity
+      vars:
+        cityId: ${response.body.id}
+
+  - id: deleteCity
+    name: Delete a city
+    method: DELETE
+    path: /cities/${var.cityId}
+    expect:
+      status: [204, 404]
+
+  - id: createLocationGroup
+    name: Create a location group
+    method: POST
+    path: /location-groups
+    vars:
+      groupName: ${fake.lorem.words(2)}
+    body:
+      name: ${var.groupName}
+      cityIds: ${var.cityIds}
+    expect:
+      status: 201
+    cleanup:
+      call: deleteLocationGroup
+      vars:
+        groupId: ${response.body.id}
+
+  - id: deleteLocationGroup
+    name: Delete a location group
+    method: DELETE
+    path: /location-groups/${var.groupId}
+```
+
+```yaml
+# services/geo/groups.test.yaml
+id: geo.groups
+name: Location groups
+
+tests:
+  - id: groupsTenCities
+    name: A location group keeps the ten cities it was created with
+    steps:
+      - call: geo.createCity
+        repeat: 10
+        parallel: 5
+        save:
+          cities:
+            id: ${response.body.id}
+            name: ${response.body.name}
+            longitude: ${response.body.location.lon | number}
+      - call: geo.createLocationGroup
+        vars:
+          cityIds: ${var.cities[*].id}
+    expect:
+      body:
+        match:
+          cityIds:
+            length: 10
+      cel:
+        same cities in the same order: body.cityIds == var.cities.map(c, c.id)
+```
+
+After the test, the group is deleted first and then the ten cities, because cleanups run newest first. To send whole objects instead of IDs, the api's body can use `cities: ${var.cities}`. To create named cities from a file instead of random ones:
+
+```yaml
+      - call: geo.createCity
+        forEach: ${dataset.capitals}
+        vars:
+          cityName: ${item.name}
+          country: ${item.country}
+```
+
+### Caching across runs
+
+Data that is slow or rate-limited to create can outlive a run. `cache` on a `call` or `test` action keeps what the action saved in `.vibranium/cache.db`, per profile, and later runs reuse it instead of calling again.
+
+| Key | Type | Purpose |
+| --- | --- | --- |
+| `cache.for` | duration | How long the result is reused |
+| `cache.check` | an action | Optional quick call that confirms the cached data still exists; if it fails, the action runs again |
+
+Rules:
+
+- The cache key is the api (or test), its resolved `vars` and the profile, so `users.create` with `role: admin` and with `role: member` are cached separately.
+- A cached action's cleanup does not run at the end of the run. It runs when the entry expires (at the start of the next run that finds it expired) or on `vc cache clear`.
+- Cached values that came from secrets or auth are encrypted with a key kept in the OS keychain; where there is no keychain, as in most CI, set `VIB_CACHE_KEY`.
+- `vc run --no-cache` ignores the cache for one run; `vc cache list` shows the entries and when they expire.
+- `cache` belongs in `beforeRun` and `beforeAll`. On a per-test action `vc check` warns, because every test instance would share one cached object.
+
+```yaml
+# vibranium.config.yaml (excerpt)
+beforeRun:
+  - id: admin
+    call: users.create
+    vars:
+      role: admin
+    cache:
+      for: 12h
+      check:
+        call: users.get
+        vars:
+          userId: ${var.admin.userId}
+```
+
+### Reusing a multi-step flow
+
+Most blocks call apis directly. When the data takes several calls that already exist together as a test, `test:` runs that test's calls instead of repeating them. Its saved values arrive as if the calls were written in place (under the action's `id` in shared blocks), its test-level `expect` is not checked, and its apis' cleanups are registered as usual. A test meant only for reuse has `standalone: false`, so it never runs or appears in reports on its own.
+
+```yaml
+# services/shared/flows.test.yaml
+id: flows
+name: Reusable flows
+
+tests:
+  - id: verifiedMember
+    name: Sign up, confirm the email, log in
+    standalone: false
+    steps:
+      - call: users.signUp
+      - call: mail.latestCode
+        vars:
+          to: ${var.email}
+        save:
+          code: ${response.body.code}
+      - call: users.confirmEmail
+      - call: users.login
+```
+
+```yaml
+# in any test file
+beforeEach:
+  - test: flows.verifiedMember
+```
+
+## Checks and matchers
+
+`expect` has one shape wherever it appears: on an api (checks that always hold), on a test, step or action, in `poll.until`, and in load thresholds. Within it every value is either a literal (equals) or a matcher.
+
+| Key | Value | Example |
+| --- | --- | --- |
+| `status` | code, list of codes, class (`2xx`), or matcher | `status: [200, 201]` |
+| `headers.<name>` | matcher; names are case-insensitive | `content-type: {contains: json}` |
+| `body.schema` | JSON Schema, usually `$file` | `schema: {$file: schemas/user.json}` |
+| `body.match.<path>` | matcher at a path in the body | `items[*].price: {every: {gt: 0}}` |
+| `body.equals` | the whole body, compared deeply | `equals: {"ok": true}` |
+| `size` | matcher on body size | `size: {lt: 100kb}` |
+| `timing.<phase>` | matcher on `dns`, `connect`, `tls`, `firstByte`, `download`, `total` | `total: {lt: 500ms}` |
+| `cel.<label>` | CEL expression that must be true; variables `status`, `headers`, `body`, `timing`, `var`, plus action ids | `has items: size(body.items) > 0` |
+| `custom` | list of functions, `- function: path#export` | `- function: hooks/checks.ts#isSorted` |
+
+Merging: a test's `expect` is added to its api's `expect`; where both set the same key (for example `status`), the test's value replaces the api's. That is how a negative test expects 400 from an api whose normal result is 201.
+
+### CEL in one minute
+
+CEL (Common Expression Language) is a small expression language from Google, also used for rules in Kubernetes, Firebase and Google Cloud. It reads like a JavaScript one-liner: `body.total > 0 && body.items.all(i, i.price > 0)`. It has no loops, network or file access, so an expression always finishes, cannot leak secrets and is type-checked by `vc check` before the run. The same expression behaves the same in every SDK. Useful parts: `size(x)`, `x.all(i, …)`, `x.exists(i, …)`, `x.map(i, …)`, `x.filter(i, …)`, `has(body.field)`, `matches(s, regex)`, `timestamp(…)`, `duration(…)`. The same language computes values with `$cel` (see Templates and references). Anything longer than a line belongs in a `custom` function.
+
+Matchers:
+
+| Matcher | Passes when | Example |
+| --- | --- | --- |
+| literal | value equals it (deep for objects) | `role: admin` |
+| `eq`, `ne` | equal, not equal | `{ ne: null }` |
+| `gt`, `gte`, `lt`, `lte` | numeric, duration or size comparison | `{ gte: 1 }` |
+| `between` | inclusive range `[low, high]` | `{ between: [1, 10] }` |
+| `in`, `notIn` | value is (not) one of a list | `{ in: [active, pending] }` |
+| `type` | `string`, `number`, `integer`, `boolean`, `object`, `array`, `null` | `{ type: string }` |
+| `exists` | path is present (`true`) or absent (`false`) | `{ exists: false }` |
+| `empty` | string, array or object is empty | `{ empty: false }` |
+| `length` | length matches a number or matcher | `{ length: { gte: 1 } }` |
+| `contains` | string has substring; array has element | `{ contains: admin }` |
+| `startsWith`, `endsWith` | string prefix or suffix | `{ endsWith: .com }` |
+| `regex` | string matches the pattern | `{ regex: "^[A-Z]{3}-\\d+$" }` |
+| `format` | `email`, `uuid`, `uri`, `date`, `dateTime`, `ipv4` | `{ format: uuid }` |
+| `every`, `some`, `none` | applies a matcher to each element of a list | `{ every: { gt: 0 } }` |
+| `not` | inverts a matcher | `{ not: { contains: test } }` |
+| `allOf`, `anyOf` | combines matchers | `{ anyOf: [{ eq: 0 }, { gt: 10 }] }` |
+
+Several matchers in one object must all pass: `{ type: string, length: 32 }`. A path with `[*]` yields a list, so it takes a list matcher (`every`, `some`, `none`, `length`, `contains`); the compiler flags a scalar matcher on a list path.
+
+Every evaluated check is reported on its own, with its source line, expected value, actual value and a diff for objects.
+
+## Load files
+
+A load file turns existing tests into a traffic mix; it adds no request or check logic of its own.
+
+| Key | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `id` | file ID, required | — | Scenario ID for `vc load <id>` |
+| `name` | text | — | Shown in the load report |
+| `mix` | list | required | Each: `test` (ID), `weight` (integer), optional `thresholds` for that test |
+| `stages` | list | required | Each: `duration`, `users`; users ramp from the previous stage's count |
+| `thinkTime` | duration, or `min` and `max` | `0s` | Pause between iterations |
+| `checks` | `api` \| `full` | `api` | `full` evaluates every test's `expect`; `api` evaluates only the apis' own `expect`, to keep the tool fast |
+| `thresholds` | map of metric → matcher | — | `p50`, `p90`, `p95`, `p99`, `max`, `errorRate`, `rps` |
+| `abortOn` | list of metrics | `[]` | Stop early when one of these thresholds is breached |
+
+Lifecycle blocks work as in functional runs: `beforeRun` and the `beforeAll` of every file in the mix run once, before the first stage. `beforeEach` and `before` run in every iteration; their requests count toward the load but are reported apart from the mix. Cleanups registered during an iteration run at its end.
+
+```yaml
+# load/checkout.load.yaml
+id: checkout.peak
+name: Black Friday checkout mix
+mix:
+  - test: users.crud.getsCreatedUser
+    weight: 6
+  - test: catalog.browse.searchesProducts
+    weight: 3
+  - test: orders.checkout.placesOrder
+    weight: 1
+    thresholds:
+      p95:
+        lt: 1200ms
+stages:
+  - duration: 1m
+    users: 500
+  - duration: 5m
+    users: 5000
+  - duration: 1m
+    users: 0
+thinkTime:
+  min: 500ms
+  max: 2s
+thresholds:
+  p99:
+    lt: 800ms
+  errorRate:
+    lt: 1%
+abortOn: [errorRate]
+```
+
+## Authentication
+
+Auth definitions live in `vibranium.config.yaml` under `auth`, are written once, and take their environment-specific values (URLs, users, tenants) from vars, so profiles switch them without duplicating anything.
+
+| `type` | Keys | Notes |
+| --- | --- | --- |
+| `basic` | `username`, `password` |  |
+| `bearer` | `token` | A fixed token |
+| `apiKey` | `in` (`header` or `query`), `name`, `value` |  |
+| `oauth2ClientCredentials` | `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `audience`, `cache` | Token shared for the run, refreshed before expiry |
+| `oauth2AuthorizationCode` | `authorizeUrl`, `tokenUrl`, `clientId`, `scopes`, `pkce`, `redirectPort` | Opens a browser once; refresh token kept in the OS keychain |
+| `oauth2Refresh` | `tokenUrl`, `clientId`, `refreshToken` | For CI with a long-lived refresh token |
+| `flow` | `steps`, `apply`, `expiresIn`, `refreshBefore`, `refreshOn`, `cache` | Any sequence of requests that ends in credentials (below) |
+| `plugin` | `plugin`, `config` | Custom schemes through an auth plugin |
+
+Every definition can also have `vars` (its defaults). Use one by ID on an api file, an api, a test, a step or an action: `auth: shopOauth`, `auth: none`, or with values:
+
+```yaml
+auth:
+  id: partnerLogin
+  vars:
+    username: ${secret.PARTNER_ADMIN_USER}
+    password: ${secret.PARTNER_ADMIN_PASSWORD}
+```
+
+### Multi-step auth with `flow`
+
+A `flow` runs steps, then applies what they saved to every request that uses it. Its steps use the same syntax as test steps; a step either `call`s an api by ID or describes its request inline with the api fields (`method`, `url`, `headers`, `body`, `expect`, `save`), so login endpoints need no api file of their own.
+
+| Key | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `steps` | list of steps | required | The requests that produce credentials |
+| `apply.headers`, `apply.query`, `apply.cookies` | maps of templates | — | What is added to each request |
+| `expiresIn` | duration (a template is fine) | never | When the credentials go stale |
+| `refreshBefore` | duration | `1m` | Re-run the flow this long before expiry |
+| `refreshOn` | list of status codes | `[401]` | Re-run the flow once and retry the request when a response has one of these |
+| `cache` | boolean | `false` | `true` keeps the credentials in `.vibranium/cache.db`, encrypted, and reuses them across runs until they expire |
+
+```yaml
+# vibranium.config.yaml (excerpt)
+vars:
+  identityUrl: http://localhost:8090
+  partnerTenant: demo
+
+profiles:
+  - id: prod
+    vars:
+      identityUrl: https://id.shop.example
+      partnerTenant: acme
+
+auth:
+  - id: partnerLogin
+    name: Partner portal login, then token exchange
+    type: flow
+    cache: true
+    vars:
+      username: ${secret.PARTNER_USER}
+      password: ${secret.PARTNER_PASSWORD}
+    steps:
+      - id: login
+        method: POST
+        url: ${var.identityUrl}/login
+        body:
+          username: ${var.username}
+          password: ${var.password}
+          tenant: ${var.partnerTenant}
+        expect:
+          status: 200
+        save:
+          sessionId: ${response.body.session.id}
+      - id: token
+        method: POST
+        url: ${var.identityUrl}/token
+        headers:
+          content-type: application/x-www-form-urlencoded
+        body:
+          grant_type: session
+          session_id: ${var.sessionId}
+        save:
+          accessToken: ${response.body.access_token}
+          expiresIn: ${response.body.expires_in | int}
+    apply:
+      headers:
+        authorization: Bearer ${var.accessToken}
+        x-tenant-id: ${var.partnerTenant}
+    expiresIn: ${var.expiresIn}s
+```
+
+The same definition serves every profile: under `--profile prod` it logs in to `id.shop.example` as tenant `acme`. Within a run the flow runs once for each set of `vars`, before the first request that needs it, and again when it expires or a response matches `refreshOn`; tests that need it at the same moment wait for that one login. If a step fails, every test using it is reported as blocked by it, with the failing request and response; credentials and saved values are redacted in all output.
+
+## Secrets
+
+`secrets` defaults to `provider: varlock` with `schema: .env.schema`. Secrets are named in `.env.schema` and resolved by Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). `provider: env` reads plain environment variables instead. Every `${secret.*}` value is redacted everywhere, including inside response bodies.
+
+## Generators and datasets
+
+`${fake.*}` generates realistic data from the Faker catalogue, by Faker's own names; generators that take settings accept literal arguments.
+
+| Need | Template |
+| --- | --- |
+| Names | `${fake.person.fullName}`, `${fake.person.firstName}`, `${fake.person.jobTitle}` |
+| Contact | `${fake.internet.email}`, `${fake.phone.number}`, `${fake.internet.userName}` |
+| Address | `${fake.location.streetAddress}`, `${fake.location.city}`, `${fake.location.zipCode}`, `${fake.location.country}` |
+| IDs | `${fake.string.uuid}`, `${fake.string.alphanumeric(12)}`, `${fake.string.fromRegExp('[A-Z]{3}-[0-9]{4}')}` |
+| Text | `${fake.lorem.word}`, `${fake.lorem.words(5)}`, `${fake.lorem.sentence}`, `${fake.lorem.paragraphs(3)}` |
+| Numbers | `${fake.number.int(1, 100)}`, `${fake.number.float(0, 1)}`, `${fake.commerce.price}` |
+| Dates | `${fake.date.past}`, `${fake.date.future}`, `${fake.date.recent}` |
+| Choice | `${fake.helpers.arrayElement('PRIVATE', 'PUBLIC')}` |
+
+Rules:
+
+- Arguments are literals only: numbers, booleans and single-quoted strings.
+- Every occurrence generates a new value. To use one value in several places, put it in the test's `vars` once (`email: ${fake.internet.email}`) and use `${var.email}`. In a loop, every iteration gets fresh values.
+- `vc run --seed 42` makes generated data repeatable; the seed is printed in every report.
+
+Named generators, for settings you reuse, are declared once in `vibranium.config.yaml` and used in the same `fake` namespace:
+
+```yaml
+generators:
+  - id: teamName
+    fromRegExp: "[A-Z][a-z]{4,12} Team"
+  - id: visibility
+    oneOf: [PRIVATE, PUBLIC]
+  - id: quantity
+    int:
+      min: 1
+      max: 5
+  - id: longBio
+    lorem:
+      words: 500
+```
+
+Then `${fake.teamName}`, `${fake.quantity}`. A named generator cannot reuse a Faker module name such as `person`.
+
+### Datasets
+
+A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its file, so `datasets/capitals.csv` is `capitals`; files kept elsewhere are listed under `datasets` in the config. `${dataset.capitals}` is the whole list, and there are three ways to use it.
+
+```
+# datasets/capitals.csv
+name,country,population
+Tokyo,JP,37400000
+Delhi,IN,32900000
+Paris,FR,11200000
+```
+
+| You want | Write | Then read |
+| --- | --- | --- |
+| One test per row (data-driven test) | `examples: ${dataset.capitals}` on a test | `${example.name}` |
+| One call per row (create seed data) | `forEach: ${dataset.capitals}` on an action | `${item.name}` |
+| One realistic row, picked at random | `city: ${dataset.capitals \| random}` in `vars` | `${var.city.name}`, `${var.city.country}`: always the same row |
+
+**1. A data-driven test.** The search must find every capital; each row becomes its own reported test instance.
+
+```yaml
+  - id: findsEveryCapital
+    name: Search finds each capital by name
+    examples: ${dataset.capitals}
+    call: geo.searchCities
+    vars:
+      query: ${example.name}
+    expect:
+      body:
+        match:
+          results[0].country: ${example.country}
+```
+
+**2. Seed data.** The geo tests need the capitals to exist; create them once for the file, and their api's cleanup deletes them afterwards.
+
+```yaml
+beforeAll:
+  - id: capitals
+    call: geo.createCity
+    forEach: ${dataset.capitals}
+    parallel: 5
+    vars:
+      cityName: ${item.name}
+      country: ${item.country}
+      population: ${item.population | int}
+```
+
+**3. A realistic random value.** Use one row, so the name and country belong together.
+
+```yaml
+  - id: createsOfficeInACapital
+    vars:
+      city: ${dataset.capitals | random}
+    call: offices.create
+    body:
+      city: ${var.city.name}
+      country: ${var.city.country}
+```
+
+Rules:
+
+- Large datasets can be trimmed with pipes: `${dataset.capitals | take(10)}` keeps the first ten rows, and `${dataset.capitals | shuffle | take(10)}` keeps ten random ones.
+- `random` and `shuffle` follow `--seed`, so a run can be repeated exactly.
+- CSV cells are text: convert with a pipe (`${item.population | int}`), or use JSON or YAML when the data has types.
+- A dataset is read once per run and never changed by it.
+
+```yaml
+# vibranium.config.yaml: a dataset kept outside datasets/
+datasets:
+  - id: worldCities
+    file: ../shared-data/world-cities.csv
+```
+
+## Functions and request hooks
+
+Code runs in two kinds of places. In lifecycle blocks and steps, a `function:` or `command:` action runs at that point (see Lifecycle blocks). On api files and apis, request hooks run around every request. Every entry is `function: path#exportName`, a function in a code file.
+
+| Where | Key | The function receives |
+| --- | --- | --- |
+| api file or api | `beforeRequest` | the rendered request, which it may change and return (e.g. to sign it) |
+| api file or api | `afterResponse` | the response, read-only (e.g. to log it) |
+| any lifecycle block or steps | a `function:` action | vars and run info (`afterRun` also gets the results); it may return an object whose fields are saved |
+
+Custom checks go under `expect.custom`, receive the response and resolved values, and return `true` or a failure message.
+
+```ts
+// hooks/sign.ts
+import type { BeforeRequestHook } from "@vibranium/sdk";
+import { hmacSha256Hex } from "vibranium:std"; // hooks run in the engine, not Node: no node: imports
+
+export const addUploadSignature: BeforeRequestHook = ({ request, secret }) => {
+  const signature = hmacSha256Hex(secret("UPLOAD_KEY"), request.path);
+  return { ...request, headers: { ...request.headers, "x-signature": signature } };
+};
+```
+
+TypeScript and JavaScript functions run inside the engine; functions in other languages run through the plugin protocol. A function that throws fails its action, which is reported like any other failed action (a failure in `beforeRun` or `beforeAll` blocks the tests that need it).
+
+## Plugins and alerts
+
+```yaml
+plugins:
+  - id: acmeAuth
+    source: npm:@acme/vibranium-auth@2
+    config:
+      realm: partners
+
+alerts:
+  - on: [failure, recovery, flaky, threshold]
+    profiles: [staging, prod]
+    tags: [smoke]
+    notify:
+      - webhook:
+          url: https://hooks.example/vibranium
+      - pagerduty:
+          routingKey: ${secret.PD_ROUTING_KEY}
+```
+
+`vc plugin add` shows the permissions a plugin asks for (network hosts, secrets, files); the approved list is recorded in `vibranium.lock`. Alert channels: `webhook`, `slack`, `teams`, `pagerduty`, `email`.
+
+## v1 to v2
+
+Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc migrate v1` performs these conversions and lists anything it could not convert.
+
+| v1 construct | Problem | v2 replacement |
+| --- | --- | --- |
+| `{var}`, `{dataset.names}`, `{lorem_500}`, `[PRIVATE\|PUBLIC]`, `[a-z]{10}` | Five template syntaxes, some colliding with regex | `${var.x}`, `${fake.lorem.words(500)}`, `${fake.helpers.arrayElement('PRIVATE', 'PUBLIC')}`, `${dataset.names \| random}`, named `generators` |
+| `"!userSchemas/allUsers"` | Sigil inside a string | `$file: schemas/all-users.json` |
+| `repeat-delay`, `before-endpoint`, `firstByte`, `max_parallel_executors`, `created_on` | Three casing styles | camelCase everywhere |
+| `tags: "a,b,c"` | List hidden in a string | `tags: [a, b, c]` |
+| Collection folder + scenario file + `endpoints` array | Position decides identity | File `id` + item `id`: `users.crud.getsUser` |
+| `name: "01.get_all_teams"` | Order and identity mixed into one name | `id` for references, `name` for people; list order is run order |
+| `dependencies: [{ api, scenario, collection, variable }]` | Re-ran the whole dependency, assertions included, on every use | `before`, `beforeEach`, `beforeAll` or `beforeRun` with `call: <api>`: only the api runs, with its own checks, once per block |
+| `variable: "response.id"` vs `variable: { id: "all.id" }` | String or map; paths with or without `response.` | `save: {id: ${response.body.id}}`, then `${var.id}` |
+| `variables`, `generate`, dependency `variables` | One word, three meanings | `vars` everywhere, with one lookup order; `generators` and `datasets` for fake data |
+| `{response.all.id}`, `any`, `any_n` | A custom path language | Paths with `[*]` plus `every`, `some`, `none`, or CEL |
+| `expect.response: { "desc": "JS expression" }`, `schema` mixed in | JavaScript strings run through vm2 | `expect.body.match`, `expect.body.schema`, `expect.cel.<label>`, `expect.custom` |
+| `timing: { total: "<700" }`, `delay: 500`, `timeout: 120000` | Unitless numbers, comparison strings | `lt: 700ms`, `500ms`, `2m` |
+| `status: 200` only | No ranges or alternatives | `status: 2xx`, `[200, 204]` or a matcher |
+| `cache: true` | Cache ignored input values | `cache: {for: 12h}` on a lifecycle action, keyed by api, vars and profile |
+| `async: true` | Meant "run repeats in parallel" | `parallel: N` on a looped action; the scheduler and `defaults.concurrency` for tests |
+| `repeat-until` | Separate loop construct | `poll` with `until`, `every`, `timeout` |
+| `ignore: true` | No reason recorded | `skip: "reason"` |
+| `system`, `accounts`, `default_account` | Three names for credentials, copied per environment | `auth` definitions in the config, values switched by profiles |
+| `language: "en"` | Special case for one header | `headers: {accept-language: en}` |
+| `payload` | Unclear for non-JSON bodies | One `body`: JSON, text, `$file`, `$base64`, `$extend`; encoding follows `content-type` |
+| Eight `scripts` lifecycle points as JavaScript strings | Code in strings | Lifecycle blocks at run, file and test level with `function` or `command` actions; `beforeRequest` and `afterResponse` on apis |
+| `_range_index` | Magic variable | `${iteration.index}` |
+| `id`, `email`, `created_on`, `app`, `author` in scenario files | Metadata nobody kept current | Removed; git history has it |
+| `~/.vib/config.json` pointing at one workspace | Global config, painful in CI | `vibranium.config.yaml` at the project root, with at least one profile |
+
+## Complete example project
+
+This small shop project uses every file kind; the interface mockups show the same project.
+
+```
+shop/
+  vibranium.config.yaml        # vars, profiles, auth, beforeRun (shown above)
+  .env.schema                  # secret names for Varlock
+  openapi/
+    users.yaml
+    orders.yaml
+  schemas/
+    user.json
+    order.json
+  datasets/
+    capitals.csv
+  hooks/
+    checks.ts
+    notify.ts
+    sign.ts
+  services/
+    shared/flows.test.yaml     # verifiedMember (shown above)
+    users/
+      users.api.yaml           # shown above
+      users.test.yaml          # shown above
+    geo/
+      geo.api.yaml             # shown above
+      groups.test.yaml         # shown above
+    catalog/catalog.api.yaml
+    carts/carts.api.yaml
+    orders/
+      orders.api.yaml
+      checkout.test.yaml
+  load/
+    checkout.load.yaml         # shown above
+  .vibranium/                  # reports, history.db, cache.db; not committed
+```
+
+```yaml
+# services/orders/orders.api.yaml
+id: orders
+name: Orders service
+baseUrl: ${var.ordersUrl}/api/v1
+auth: shopOauth
+source:
+  openapi: https://orders.staging.shop.example/v3/api-docs
+
+apis:
+  - id: place
+    name: Place an order
+    method: POST
+    path: /orders
+    vars:
+      paymentToken: tok_visa
+    body: {"cartId": "${var.cartId}", "payment": {"token": "${var.paymentToken}"}}
+    expect:
+      status: 201
+    save:
+      orderId: ${response.body.id}
+      orderTotal: ${response.body.total}
+    cleanup:
+      call: cancel
+      vars:
+        orderId: ${response.body.id}
+
+  - id: get
+    name: Get an order
+    path: /orders/${var.orderId}
+
+  - id: cancel
+    name: Cancel an order
+    method: POST
+    path: /orders/${var.orderId}/cancel
+    expect:
+      status: [200, 409]
+
+  - id: refund
+    name: Refund an order (admins only)
+    method: POST
+    path: /orders/${var.orderId}/refund
+```
+
+```yaml
+# services/orders/checkout.test.yaml
+id: orders.checkout
+name: Checkout
+tags: [orders, checkout]
+
+beforeAll:
+  - id: catalog                 # shared by the file: read as ${var.catalog.*}
+    call: catalog.seedProducts
+    cache:
+      for: 12h
+      check:
+        call: catalog.getProduct
+        vars:
+          productId: ${var.catalog.productIds[0]}
+
+beforeEach:                     # every test gets its own buyer and cart
+  - call: users.create
+  - call: carts.create
+  - call: carts.addItem
+    forEach: ${var.catalog.productIds}
+    vars:
+      sku: ${item}
+
+tests:
+  - id: placesOrder
+    name: A cart with two items becomes a paid order
+    steps:
+      - id: place
+        call: orders.place
+      - id: fetch
+        call: orders.get
+        poll:
+          until:
+            body:
+              match:
+                status: paid
+          every: 1s
+          timeout: 30s
+    expect:
+      status: 200
+      body:
+        schema:
+          $file: ../../schemas/order.json
+        match:
+          items:
+            length: 2
+          items[*].quantity:
+            every:
+              gte: 1
+          total: ${var.orderTotal}
+      cel:
+        total equals sum of lines: body.total == body.items.map(i, i.price * i.quantity).sum()
+      custom:
+        - function: ../../hooks/checks.ts#currencyIsConsistent
+
+  - id: rejectsDeclinedCard
+    name: A declined card returns 402
+    call: orders.place
+    vars:
+      paymentToken: tok_chargeDeclined
+    expect:
+      status: 402
+      body:
+        match:
+          error.code: card_declined
+
+  - id: memberCannotRefund
+    name: A member cannot refund an order
+    call: orders.refund
+    auth:
+      id: partnerLogin
+      vars:
+        username: ${secret.MEMBER_USER}
+        password: ${secret.MEMBER_PASSWORD}
+    vars:
+      orderId: ord_existing
+    expect:
+      status: 403
+```
+
+After each test, its order is cancelled, then its cart and buyer are deleted, all by the apis' own cleanups in reverse order; the seeded catalog stays for 12 hours and is reused by later runs while `catalog.getProduct` still finds it.
+
+```ts
+// hooks/checks.ts
+import type { CustomCheck } from "@vibranium/sdk";
+
+export const currencyIsConsistent: CustomCheck = ({ response }) => {
+  const currencies = new Set(response.body.items.map((item: { currency: string }) => item.currency));
+  return currencies.size === 1 || `mixed currencies: ${[...currencies].join(", ")}`;
+};
+```

@@ -1,0 +1,57 @@
+id: users.crud
+name: User accounts
+tags: [users, smoke]
+
+tests:
+  - id: createsMember
+    name: Creates a member account
+    call: users.create
+    expect:
+      body:
+        match:
+          role: member
+  - id: getsCreatedUser
+    name: Returns the user that was just created
+    before:
+      - call: users.create
+    call: users.get
+    expect:
+      status: 200
+      body:
+        schema:
+          $file: ../../schemas/users/user.json
+        match:
+          id: ${var.userId}
+          email:
+            endsWith: "@example.com"
+      timing:
+        total:
+          lt: 500ms
+    repeat: 5
+  - id: rejectsBadEmail
+    name: Rejects malformed email addresses
+    call: users.create
+    vars:
+      email: ${example.email}
+    expect:
+      status: 400
+      cel:
+        names the email field: body.errors.exists(e, e.field == 'email')
+    examples:
+      - email: no-at-sign
+      - email: ""
+  - id: renamesUser
+    name: Renames a user
+    skip:
+      reason: rename returns 500 until users v4.2 ships
+      until: 2026-10-20
+    before:
+      - call: users.create
+    call: users.rename
+    vars:
+      newName: ${fake.person.fullName}
+    expect:
+      status: 200
+      body:
+        match:
+          name: ${var.newName}

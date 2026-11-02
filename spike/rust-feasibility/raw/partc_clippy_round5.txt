@@ -1,0 +1,2 @@
+    Checking cli v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.51s

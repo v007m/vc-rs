@@ -1,0 +1,39 @@
+id: geo
+name: Geography service
+baseUrl: ${var.geoUrl}/api/v2
+auth: shopOauth
+
+apis:
+  - id: createCity
+    name: Create a city
+    method: POST
+    path: /cities
+    vars:
+      cityName: ${fake.location.city}
+      country: ${fake.location.countryCode}
+    body:
+      name: ${var.cityName}
+      country: ${var.country}
+    expect:
+      status: 201
+    cleanup:
+      call: deleteCity
+      vars:
+        cityId: ${response.body.id}
+  - id: deleteCity
+    name: Delete a city
+    method: DELETE
+    path: /cities/${var.cityId}
+    expect:
+      status: [204, 404]
+  - id: createLocationGroup
+    name: Create a location group
+    method: POST
+    path: /location-groups
+    vars:
+      groupName: ${fake.lorem.words(2)}
+    body:
+      name: ${var.groupName}
+      cityIds: ${var.cityIds}
+    expect:
+      status: 201

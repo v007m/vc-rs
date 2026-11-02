@@ -1,0 +1,23 @@
+# Snapshot written by vc sync on 2026-10-21 from https://users.staging.shop.example/v3/api-docs
+openapi: 3.0.3
+info:
+  title: Users
+  version: 4.1.3
+paths:
+  /users:
+    post:
+      operationId: createUser
+      responses:
+        "201":
+          description: Created
+  /users/{userId}:
+    get:
+      operationId: getUser
+      responses:
+        "200":
+          description: The user
+components:
+  schemas:
+    User:
+      type: object
+      required: [id, name, email, role]

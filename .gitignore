@@ -22,3 +22,20 @@ rustc-ice-*.txt
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Node / web
+node_modules/
+
+# Vibranium local state and secrets
+.vibranium/
+.env
+.env.*
+!.env.schema
+
+# Multi-session coordination (never committed)
+.agent-board.md
+to_be_deleted/
+
+# OS / editor noise
+.DS_Store
+__pycache__/

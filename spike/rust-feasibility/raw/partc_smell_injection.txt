@@ -1,0 +1,26 @@
+smells.rs:3	clippy::disallowed_types	use of a disallowed type `std::sync::Mutex`
+smells.rs:5	clippy::disallowed_types	use of a disallowed type `std::sync::Mutex`
+smells.rs:8	clippy::many_single_char_names	5 bindings with single-character names in scope
+smells.rs:8	clippy::missing_const_for_fn	this could be a `const fn`
+smells.rs:8	clippy::must_use_candidate	this function could have a `#[must_use]` attribute
+smells.rs:8	clippy::too_many_arguments	this function has too many arguments (5/4)
+smells.rs:10	clippy::dbg_macro	the `dbg!` macro is intended as a debugging tool
+smells.rs:10	clippy::expect_used	used `expect()` on a `Result` value
+smells.rs:10	clippy::missing_panics_doc	docs for function which may panic missing `# Panics` section
+smells.rs:10	clippy::must_use_candidate	this function could have a `#[must_use]` attribute
+smells.rs:10	clippy::unwrap_used	used `unwrap()` on a `Result` value
+smells.rs:12	clippy::must_use_candidate	this function could have a `#[must_use]` attribute
+smells.rs:12	clippy::todo	`todo` should not be present in production code
+smells.rs:16	clippy::must_use_candidate	this function could have a `#[must_use]` attribute
+smells.rs:32	clippy::implicit_hasher	parameter of type `HashMap` should be generalized over different hashers
+smells.rs:75	clippy::match_same_arms	these match arms have identical bodies
+smells.rs:75	clippy::missing_const_for_fn	this could be a `const fn`
+smells.rs:75	clippy::must_use_candidate	this function could have a `#[must_use]` attribute
+smells.rs:77	clippy::must_use_candidate	this function could have a `#[must_use]` attribute
+smells.rs:77	clippy::type_complexity	very complex type used. Consider factoring parts into `type` definitions
+smells.rs:79	clippy::fn_params_excessive_bools	more than 3 bools in function parameters
+smells.rs:79	clippy::missing_const_for_fn	this could be a `const fn`
+smells.rs:79	clippy::must_use_candidate	this function could have a `#[must_use]` attribute
+smells.rs:81	clippy::missing_const_for_fn	this could be a `const fn`
+smells.rs:81	dead_code	function `unused_helper` is never used
+smells.rs:83	unsafe_code	usage of an `unsafe` block

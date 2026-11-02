@@ -1,0 +1,531 @@
+// Package compiler implements discover -> parse (with spans) -> validate -> link -> cycle-detect.
+package compiler
+
+import (
+	"cmp"
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"reflect"
+	"regexp"
+	"runtime"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/goccy/go-yaml"
+	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/parser"
+
+	"vibranium/internal/diag"
+	"vibranium/internal/model"
+	"vibranium/internal/ports"
+)
+
+type SourceFile struct {
+	Path string
+	Kind model.Kind
+}
+
+var suffixes = []struct {
+	suffix string
+	kind   model.Kind
+}{{".api.yaml", model.KindAPI}, {".given.yaml", model.KindGiven}, {".test.yaml", model.KindTest}}
+
+func Discover(root string) ([]SourceFile, error) {
+	var out []SourceFile
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		for _, s := range suffixes {
+			if strings.HasSuffix(d.Name(), s.suffix) {
+				out = append(out, SourceFile{Path: path, Kind: s.kind})
+				break
+			}
+		}
+		return nil
+	})
+	return out, err
+}
+
+var (
+	idRe       = regexp.MustCompile(`^[A-Za-z][\w-]*(\.[\w-]+)+$`)
+	jsonPathRe = regexp.MustCompile(`^\$(\.[A-Za-z_][\w-]*|\[\d+\])*$`)
+)
+
+func newValidator() *validator.Validate {
+	v := validator.New(validator.WithRequiredStructEnabled())
+	v.RegisterTagNameFunc(func(f reflect.StructField) string {
+		name, _, _ := strings.Cut(f.Tag.Get("yaml"), ",")
+		return name
+	})
+	_ = v.RegisterValidation("vibid", func(fl validator.FieldLevel) bool { return idRe.MatchString(fl.Field().String()) })
+	_ = v.RegisterValidation("jsonpath", func(fl validator.FieldLevel) bool { return jsonPathRe.MatchString(fl.Field().String()) })
+	return v
+}
+
+// knownKeys is every YAML key in the model, used for "did you mean" on unknown fields.
+var knownKeys = func() []string {
+	seen := map[string]bool{}
+	var walk func(t reflect.Type)
+	walk = func(t reflect.Type) {
+		for t.Kind() == reflect.Pointer || t.Kind() == reflect.Slice {
+			t = t.Elem()
+		}
+		if t.Kind() != reflect.Struct {
+			return
+		}
+		for i := range t.NumField() {
+			f := t.Field(i)
+			if name, _, _ := strings.Cut(f.Tag.Get("yaml"), ","); name != "" && !seen[name] {
+				seen[name] = true
+				walk(f.Type)
+			}
+		}
+	}
+	for _, t := range []any{model.APIFile{}, model.GivenFile{}, model.TestFile{}} {
+		walk(reflect.TypeOf(t))
+	}
+	return slices.Sorted(func(yield func(string) bool) {
+		for k := range seen {
+			if !yield(k) {
+				return
+			}
+		}
+	})
+}()
+
+// parsed is one file after parse+validate.
+type parsed struct {
+	file   SourceFile
+	src    []byte
+	root   ast.Node
+	apis   []model.API
+	givens []model.Given
+	tests  []model.Test
+	diags  []diag.Diagnostic
+}
+
+func (p *parsed) span(path ...any) model.Span { return spanAt(p.file.Path, p.root, path, false) }
+
+type Result struct {
+	Program     *model.Program
+	Diagnostics []diag.Diagnostic
+	Sources     map[string][]byte
+	FileCount   int
+}
+
+type Compiler struct {
+	exprs    ports.ExprEngine
+	validate *validator.Validate
+}
+
+func New(exprs ports.ExprEngine) *Compiler {
+	return &Compiler{exprs: exprs, validate: newValidator()}
+}
+
+func (c *Compiler) Compile(root string) (*Result, error) {
+	files, err := Discover(root)
+	if err != nil {
+		return nil, err
+	}
+	// Parse and validate in parallel; files are independent.
+	results := make([]*parsed, len(files))
+	var wg sync.WaitGroup
+	next := make(chan int)
+	for range runtime.GOMAXPROCS(0) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range next {
+				results[i] = c.parseFile(files[i])
+			}
+		}()
+	}
+	for i := range files {
+		next <- i
+	}
+	close(next)
+	wg.Wait()
+
+	prog := &model.Program{APIs: map[string]model.Located[model.API]{}, Givens: map[string]model.Located[model.Given]{}}
+	res := &Result{Program: prog, Sources: make(map[string][]byte, len(files)), FileCount: len(files)}
+	firstDef := map[string]func(...any) model.Span{}
+	for _, p := range results {
+		res.Sources[p.file.Path] = p.src
+		res.Diagnostics = append(res.Diagnostics, p.diags...)
+		// claim registers an id; it reports E003 and returns false for duplicates.
+		claim := func(id string, span func(...any) model.Span) bool {
+			if prev, dup := firstDef[id]; dup {
+				first := prev("id")
+				res.Diagnostics = append(res.Diagnostics, diag.Diagnostic{
+					Code: "E003", Message: fmt.Sprintf("duplicate id `%s`", id), Span: span("id"),
+					Notes: []diag.Note{{Message: "first defined here", Span: &first}},
+					Help:  "ids must be unique across all *.api.yaml, *.given.yaml and *.test.yaml files",
+				})
+				return false
+			}
+			firstDef[id] = span
+			return true
+		}
+		itemSpan := func(list string, i int) func(...any) model.Span {
+			return func(path ...any) model.Span { return p.span(append([]any{list, i}, path...)...) }
+		}
+		for i := range p.apis {
+			if s := itemSpan("apis", i); claim(p.apis[i].ID, s) {
+				prog.APIs[p.apis[i].ID] = model.Located[model.API]{Def: &p.apis[i], File: p.file.Path, Span: s}
+			}
+		}
+		for i := range p.givens {
+			if s := itemSpan("givens", i); claim(p.givens[i].ID, s) {
+				prog.Givens[p.givens[i].ID] = model.Located[model.Given]{Def: &p.givens[i], File: p.file.Path, Span: s}
+				prog.GivenOrder = append(prog.GivenOrder, p.givens[i].ID)
+			}
+		}
+		for i := range p.tests {
+			if s := itemSpan("tests", i); claim(p.tests[i].ID, s) {
+				prog.Tests = append(prog.Tests, model.Located[model.Test]{Def: &p.tests[i], File: p.file.Path, Span: s})
+			}
+		}
+	}
+	res.Diagnostics = append(res.Diagnostics, c.link(prog)...)
+	res.Diagnostics = append(res.Diagnostics, detectCycles(prog)...)
+	slices.SortStableFunc(res.Diagnostics, func(a, b diag.Diagnostic) int {
+		return cmp.Or(cmp.Compare(a.Span.File, b.Span.File), cmp.Compare(a.Span.Line, b.Span.Line), cmp.Compare(a.Span.Col, b.Span.Col))
+	})
+	return res, nil
+}
+
+func (c *Compiler) parseFile(f SourceFile) *parsed {
+	p := &parsed{file: f}
+	src, err := os.ReadFile(f.Path)
+	if err != nil {
+		p.diags = append(p.diags, diag.Diagnostic{Code: "E001", Message: err.Error(), Span: model.Span{File: f.Path, Line: 1, Col: 1, Len: 1}})
+		return p
+	}
+	p.src = src
+	file, err := parser.ParseBytes(src, 0)
+	if err != nil {
+		p.diags = append(p.diags, yamlErrDiag(f.Path, "E001", "YAML syntax: ", err))
+		return p
+	}
+	if len(file.Docs) == 0 || file.Docs[0].Body == nil {
+		p.diags = append(p.diags, diag.Diagnostic{Code: "E002", Message: "empty document", Span: model.Span{File: f.Path, Line: 1, Col: 1, Len: 1}})
+		return p
+	}
+	p.root = file.Docs[0].Body
+
+	var target any
+	switch f.Kind {
+	case model.KindAPI:
+		target = &model.APIFile{}
+	case model.KindGiven:
+		target = &model.GivenFile{}
+	case model.KindTest:
+		target = &model.TestFile{}
+	}
+	if err := yaml.NodeToValue(p.root, target, yaml.DisallowUnknownField()); err != nil {
+		p.diags = append(p.diags, unknownFieldOr(f.Path, err))
+		return p
+	}
+	if err := c.validate.Struct(target); err != nil {
+		var verrs validator.ValidationErrors
+		if !errors.As(err, &verrs) {
+			p.diags = append(p.diags, diag.Diagnostic{Code: "E002", Message: err.Error(), Span: p.span()})
+			return p
+		}
+		for _, fe := range verrs {
+			path := namespacePath(fe.Namespace())
+			p.diags = append(p.diags, diag.Diagnostic{
+				Code:    "E002",
+				Message: fmt.Sprintf("%s: failed `%s` constraint%s", joinPath(path), fe.Tag(), paramSuffix(fe.Param())),
+				Span:    spanAt(f.Path, p.root, path, false),
+			})
+		}
+		return p
+	}
+	switch t := target.(type) {
+	case *model.APIFile:
+		p.apis = t.APIs
+	case *model.GivenFile:
+		p.givens = t.Givens
+	case *model.TestFile:
+		p.tests = t.Tests
+		for i := range p.tests {
+			if p.tests[i].Repeat == 0 {
+				p.tests[i].Repeat = 1
+			}
+		}
+	}
+	return p
+}
+
+func paramSuffix(p string) string {
+	if p == "" {
+		return ""
+	}
+	return " (" + p + ")"
+}
+
+func unknownFieldOr(file string, err error) diag.Diagnostic {
+	var uf *yaml.UnknownFieldError
+	if errors.As(err, &uf) && uf.Token != nil {
+		key := uf.Token.Value
+		d := diag.Diagnostic{Code: "E002", Message: fmt.Sprintf("unknown field `%s`", key), Span: tokenSpan(file, uf.Token.Position.Line, uf.Token.Position.Column, len(key))}
+		if guess, ok := diag.Suggest[string](key, slices.Values(knownKeys)); ok {
+			d.Help = fmt.Sprintf("did you mean `%s`?", guess)
+		}
+		return d
+	}
+	return yamlErrDiag(file, "E002", "", err)
+}
+
+func yamlErrDiag(file, code, prefix string, err error) diag.Diagnostic {
+	var ye yaml.Error
+	if errors.As(err, &ye) && ye.GetToken() != nil {
+		pos := ye.GetToken().Position
+		return diag.Diagnostic{Code: code, Message: prefix + ye.GetMessage(), Span: tokenSpan(file, pos.Line, pos.Column, 1)}
+	}
+	return diag.Diagnostic{Code: code, Message: prefix + err.Error(), Span: tokenSpan(file, 1, 1, 1)}
+}
+
+func tokenSpan(file string, line, col, n int) model.Span {
+	return model.Span{File: file, Line: line, Col: col, Len: max(1, n)}
+}
+
+// namespacePath turns "TestFile.tests[0].expect.match[$.id]" into ["tests", 0, "expect", "match", "$.id"].
+func namespacePath(ns string) []any {
+	_, rest, _ := strings.Cut(ns, ".") // drop root type name
+	var out []any
+	for len(rest) > 0 {
+		switch rest[0] {
+		case '.':
+			rest = rest[1:]
+		case '[':
+			end := strings.IndexByte(rest, ']')
+			inner := rest[1:end]
+			if n, err := strconv.Atoi(inner); err == nil {
+				out = append(out, n)
+			} else {
+				out = append(out, inner)
+			}
+			rest = rest[end+1:]
+		default:
+			end := strings.IndexAny(rest, ".[")
+			if end < 0 {
+				end = len(rest)
+			}
+			out = append(out, rest[:end])
+			rest = rest[end:]
+		}
+	}
+	return out
+}
+
+func joinPath(path []any) string {
+	parts := make([]string, len(path))
+	for i, p := range path {
+		parts[i] = fmt.Sprint(p)
+	}
+	return strings.Join(parts, ".")
+}
+
+// spanAt walks the AST along path and returns the span of the deepest node found.
+func spanAt(file string, root ast.Node, path []any, key bool) model.Span {
+	node := root
+	var target ast.Node = root
+	for i, seg := range path {
+		last := i == len(path)-1
+		switch n := node.(type) {
+		case *ast.MappingNode:
+			mv := findKey(n.Values, seg)
+			if mv == nil {
+				return nodeSpan(file, target)
+			}
+			target, node = mv.Value, mv.Value
+			if last && key {
+				target = mv.Key
+			}
+		case *ast.MappingValueNode:
+			mv := findKey([]*ast.MappingValueNode{n}, seg)
+			if mv == nil {
+				return nodeSpan(file, target)
+			}
+			target, node = mv.Value, mv.Value
+			if last && key {
+				target = mv.Key
+			}
+		case *ast.SequenceNode:
+			idx, ok := seg.(int)
+			if !ok || idx >= len(n.Values) {
+				return nodeSpan(file, target)
+			}
+			target, node = n.Values[idx], n.Values[idx]
+		default:
+			return nodeSpan(file, target)
+		}
+	}
+	return nodeSpan(file, target)
+}
+
+func findKey(values []*ast.MappingValueNode, seg any) *ast.MappingValueNode {
+	s, ok := seg.(string)
+	if !ok {
+		return nil
+	}
+	for _, mv := range values {
+		if mv.Key.GetToken().Value == s {
+			return mv
+		}
+	}
+	return nil
+}
+
+func nodeSpan(file string, n ast.Node) model.Span {
+	// Collections start at their first key; scalars span their text.
+	switch m := n.(type) {
+	case *ast.MappingNode:
+		if len(m.Values) > 0 {
+			n = m.Values[0].Key
+		}
+	case *ast.MappingValueNode:
+		n = m.Key
+	}
+	if n == nil || n.GetToken() == nil {
+		return tokenSpan(file, 1, 1, 1)
+	}
+	tk := n.GetToken()
+	return tokenSpan(file, tk.Position.Line, tk.Position.Column, len(tk.Value))
+}
+
+func (c *Compiler) link(prog *model.Program) []diag.Diagnostic {
+	var out []diag.Diagnostic
+	checkRef := func(id string, has bool, keys func(func(string) bool), what string, span func() model.Span) bool {
+		if has {
+			return true
+		}
+		d := diag.Diagnostic{Code: "E004", Message: fmt.Sprintf("unknown %s `%s`", what, id), Span: span()}
+		if guess, ok := diag.Suggest[string](id, keys); ok {
+			d.Help = fmt.Sprintf("did you mean `%s`?", guess)
+		}
+		out = append(out, d)
+		return false
+	}
+	apiKeys := func(yield func(string) bool) {
+		for k := range prog.APIs {
+			if !yield(k) {
+				return
+			}
+		}
+	}
+	givenKeys := func(yield func(string) bool) {
+		for k := range prog.Givens {
+			if !yield(k) {
+				return
+			}
+		}
+	}
+	checkCall := func(apiID string, uses map[string]string, with map[string]any, span func(...any) model.Span) {
+		for _, alias := range slices.Sorted(mapKeys(uses)) {
+			gid := uses[alias]
+			_, ok := prog.Givens[gid]
+			checkRef(gid, ok, givenKeys, "given", func() model.Span { return span("uses", alias) })
+		}
+		api, ok := prog.APIs[apiID]
+		if !checkRef(apiID, ok, apiKeys, "api", func() model.Span { return span("api") }) {
+			return
+		}
+		for _, input := range slices.Sorted(mapKeys(with)) {
+			if !slices.Contains(api.Def.Inputs, input) {
+				out = append(out, diag.Diagnostic{Code: "E006", Message: fmt.Sprintf("api `%s` has no input `%s`", apiID, input),
+					Span: span("with", input), Help: fmt.Sprintf("declared inputs: [%s]", strings.Join(api.Def.Inputs, ", "))})
+			}
+		}
+	}
+	for _, id := range prog.GivenOrder {
+		g := prog.Givens[id]
+		checkCall(g.Def.API, g.Def.Uses, g.Def.With, g.Span)
+	}
+	celSeen := map[string]bool{}
+	for _, t := range prog.Tests {
+		checkCall(t.Def.API, t.Def.Uses, t.Def.With, t.Span)
+		if src := t.Def.Expect.CEL; src != "" && !celSeen[src] {
+			if _, err := c.exprs.Compile(src); err != nil {
+				first, _, _ := strings.Cut(err.Error(), "\n")
+				out = append(out, diag.Diagnostic{Code: "E007", Message: "invalid CEL expression: " + first, Span: t.Span("expect", "cel")})
+			} else {
+				celSeen[src] = true
+			}
+		}
+	}
+	return out
+}
+
+func mapKeys[V any](m map[string]V) func(func(string) bool) {
+	return func(yield func(string) bool) {
+		for k := range m {
+			if !yield(k) {
+				return
+			}
+		}
+	}
+}
+
+func detectCycles(prog *model.Program) []diag.Diagnostic {
+	var out []diag.Diagnostic
+	const (
+		visiting = 1
+		done     = 2
+	)
+	state := map[string]int{}
+	var stack []string
+	var visit func(id string)
+	visit = func(id string) {
+		state[id] = visiting
+		stack = append(stack, id)
+		g := prog.Givens[id]
+		for _, alias := range slices.Sorted(mapKeys(g.Def.Uses)) {
+			dep := g.Def.Uses[alias]
+			if _, ok := prog.Givens[dep]; !ok {
+				continue
+			}
+			switch state[dep] {
+			case visiting:
+				cycle := append(slices.Clone(stack[slices.Index(stack, dep):]), dep)
+				notes := make([]diag.Note, 0, len(cycle)-1)
+				for _, c := range cycle[:len(cycle)-1] {
+					s := prog.Givens[c].Span("id")
+					notes = append(notes, diag.Note{Message: fmt.Sprintf("`%s` defined here", c), Span: &s})
+				}
+				out = append(out, diag.Diagnostic{
+					Code: "E005", Message: "dependency cycle between givens: " + strings.Join(cycle, " -> "),
+					Span: g.Span("uses", alias), Notes: notes, Help: "break the cycle by removing one of the `uses` entries",
+				})
+			case 0:
+				visit(dep)
+			}
+		}
+		stack = stack[:len(stack)-1]
+		state[id] = done
+	}
+	for _, id := range prog.GivenOrder {
+		if state[id] == 0 {
+			visit(id)
+		}
+	}
+	return out
+}
+
+// Format renders all diagnostics.
+func Format(r *Result) string {
+	parts := make([]string, len(r.Diagnostics))
+	for i, d := range r.Diagnostics {
+		parts[i] = diag.Render(d, r.Sources)
+	}
+	return strings.Join(parts, "\n\n")
+}

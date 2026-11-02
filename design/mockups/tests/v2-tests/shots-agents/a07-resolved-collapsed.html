@@ -1,0 +1,756 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>/* Vibranium web look: gradient + grain ground, flat chrome, one elevated content panel. */
+:root{
+  --bg1:#E4DEFA; --bg2:#EFE4F3; --bg3:#F9E5D8;
+  --ink:#1B1830; --ink2:#4F4B66; --ink3:#67637D;
+  --line:#ECE9F2; --line2:#DEDAE8; --hover:rgba(255,255,255,.55); --on:rgba(255,255,255,.82);
+  --panel:#FFFFFF; --panel2:#F8F7FB; --panel3:#F2F0F7;
+  --accent:#5440D6; --accentInk:#3B2BA8; --accentSoft:#EEEBFD;
+  --pass:#1A7148; --passSoft:#E3F2E9;
+  --fail:#B3261E; --failSoft:#FCE8E6;
+  --block:#8A5200; --blockSoft:#FBEED7;
+  --skip:#4F4B66; --skipSoft:#EEEDF3;
+  --flaky:#2459B8; --flakySoft:#E5EDFB;
+  --radius:14px; --shadow:0 1px 2px rgba(27,24,48,.06),0 12px 32px rgba(27,24,48,.11);
+  --font:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'Geist Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg1);-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:var(--accentInk)} a:hover{color:var(--accent)}
+
+/* ground */
+.app{min-height:100vh;display:flex;flex-direction:column;position:relative;isolation:isolate;
+  background:linear-gradient(140deg,var(--bg1) 0%,var(--bg2) 50%,var(--bg3) 100%);font-size:13.5px}
+.app::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background-image:url(file:///tmp/claude-0/-home-claude/80b4900a-8223-5c77-874b-c1dda2eeca25/scratchpad/vibmock/assets/noise.png);background-size:256px 256px;opacity:.55;mix-blend-mode:multiply}
+
+/* flat chrome */
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px 8px;min-height:52px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none}
+.crumbs{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;flex-wrap:wrap}
+.crumbs b{color:var(--ink);font-weight:600}
+.grow{flex:1 1 auto}
+.search{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:9px;background:var(--hover);border:1px solid transparent;min-width:220px;flex:0 1 420px;color:var(--ink2)}
+.search input{border:0;background:transparent;outline:none;font:inherit;color:var(--ink);flex:1;min-width:0}
+.search:focus-within{background:var(--on);border-color:var(--line2)}
+.frame{flex:1 1 auto;display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 10px;min-height:0;align-items:stretch}
+.side{flex:0 1 232px;min-width:200px;display:flex;flex-direction:column;gap:2px;padding:4px 4px 12px}
+.navlabel{font-size:11.5px;font-weight:600;color:var(--ink2);padding:14px 10px 6px;letter-spacing:.02em}
+.navitem{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:13.5px;border:0;background:transparent;font-family:inherit;cursor:pointer;text-align:left;width:100%}
+.navitem:hover{background:var(--hover);color:var(--ink)}
+.navitem.on{background:var(--on);box-shadow:0 1px 1px rgba(27,24,48,.05);font-weight:500}
+.navitem .count{margin-left:auto;font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.navitem svg{flex:none}
+
+/* the one elevated surface */
+.panel{flex:999 1 620px;min-width:0;background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}
+.panel-body{padding:20px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.section{display:flex;flex-direction:column;gap:10px;min-width:0}
+.section + .section{border-top:1px solid var(--line);padding-top:20px}
+.h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
+.h2{margin:0;font-size:15px;font-weight:600}
+.h3{margin:0;font-size:13px;font-weight:600;color:var(--ink2)}
+.muted{color:var(--ink2)} .subtle{color:var(--ink3)}
+.split{display:flex;flex-wrap:wrap;min-width:0}
+.split > .pane{min-width:0;display:flex;flex-direction:column}
+.vr{border-left:1px solid var(--line)}
+.well{background:var(--panel2);border-radius:10px;padding:12px 14px}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 13px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);font:500 13px var(--font);cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--panel2)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.primary:hover{background:#2D2945}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--panel3)}
+.app > .topbar .btn.ghost:hover, .side .btn.ghost:hover{background:var(--hover)}
+.btn.sm{height:28px;padding:0 10px;font-size:12.5px;border-radius:7px}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.iconbtn:hover{background:var(--panel3);color:var(--ink)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 12px;overflow-x:auto}
+.tab{height:38px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;font:500 13px var(--font);color:var(--ink2);cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.seg{display:inline-flex;padding:2px;border-radius:9px;background:var(--panel3);gap:2px}
+.seg button{height:28px;padding:0 11px;border:0;border-radius:7px;background:transparent;font:500 12.5px var(--font);color:var(--ink2);cursor:pointer}
+.seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(27,24,48,.10)}
+.field{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--ink2);min-width:0}
+.input,.select,.textarea{height:34px;border:1px solid var(--line2);border-radius:8px;padding:0 10px;font:13px var(--font);color:var(--ink);background:var(--panel);min-width:0;width:100%}
+.input.mono,.textarea.mono{font-family:var(--mono);font-size:12.5px}
+.textarea{height:auto;padding:8px 10px;line-height:1.55;resize:vertical}
+.input:focus,.select:focus,.textarea:focus{outline:2px solid var(--accentSoft);border-color:var(--accent)}
+.input.err{border-color:var(--fail);background:#FFFBFA}
+.help{font-size:12px;font-weight:400;color:var(--ink2)}
+.help.err{color:var(--fail)}
+
+/* data */
+.mono{font-family:var(--mono);font-size:12.5px}
+.kbd{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:5px;background:var(--panel3);border:1px solid var(--line2);font:500 11.5px var(--mono);color:var(--ink2)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-weight:500;font-size:12px;color:var(--ink2);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr.sel td{background:var(--accentSoft)}
+.tbl tbody tr:hover td{background:var(--panel2)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.scrollx{overflow-x:auto;min-width:0}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--panel3);color:var(--ink2)}
+.pill.pass{background:var(--passSoft);color:var(--pass)} .pill.fail{background:var(--failSoft);color:var(--fail)}
+.pill.block{background:var(--blockSoft);color:var(--block)} .pill.skip{background:var(--skipSoft);color:var(--skip)}
+.pill.flaky{background:var(--flakySoft);color:var(--flaky)} .pill.accent{background:var(--accentSoft);color:var(--accentInk)}
+.method{display:inline-flex;justify-content:center;min-width:52px;height:20px;align-items:center;border-radius:5px;font:600 11px var(--mono)}
+.m-get{background:#E3F2E9;color:#1A7148} .m-post{background:#E5EDFB;color:#1F4FA8} .m-put{background:#FBEED7;color:#8A5200} .m-patch{background:#F3E8FB;color:#6B2EA3} .m-delete{background:#FCE8E6;color:#B3261E}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot.pass{background:var(--pass)} .dot.fail{background:var(--fail)} .dot.block{background:var(--block)} .dot.skip{background:#9A96AD} .dot.flaky{background:var(--flaky)}
+
+/* code and YAML (light, inside the panel) */
+.code{font:12.5px/1.65 var(--mono);background:var(--panel2);border-radius:10px;padding:12px 0;overflow:auto;margin:0;color:var(--ink)}
+.code .ln{display:flex;white-space:pre;padding:0 14px 0 0}
+.code .ln .no{width:44px;flex:none;text-align:right;padding-right:14px;color:#8E8AA3;user-select:none}
+.code .ln.hl{background:#FFF6E0}
+.code .ln.err{background:var(--failSoft)}
+.y-key{color:#1F4FA8} .y-str{color:#2E6B33} .y-num{color:#A3470E} .y-tpl{color:#6B2EA3;background:#F3EEFD;border-radius:3px} .y-com{color:#7A7690;font-style:italic} .y-punc{color:#7A7690}
+.squig{text-decoration:underline wavy var(--fail);text-underline-offset:3px}
+.diag{display:flex;gap:10px;padding:10px 12px;border-radius:9px;font-size:13px;align-items:flex-start}
+.diag.error{background:var(--failSoft)} .diag.warn{background:var(--blockSoft)} .diag.info{background:var(--flakySoft)}
+.popover{background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:0 8px 28px rgba(27,24,48,.16);padding:4px;min-width:260px}
+.popover .opt{display:flex;gap:10px;align-items:center;padding:6px 10px;border-radius:7px;font-size:12.5px;cursor:pointer;border:0;background:transparent;width:100%;text-align:left;font-family:inherit;color:var(--ink)}
+.popover .opt.on,.popover .opt:hover{background:var(--accentSoft)}
+.scrim{position:fixed;inset:0;background:rgba(27,24,48,.28);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.modal{background:var(--panel);border-radius:16px;box-shadow:0 24px 64px rgba(27,24,48,.28);width:min(880px,100%);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column}
+
+/* phone */
+@media (max-width: 860px){
+  .side{flex:1 1 100%;flex-direction:row;overflow-x:auto;min-width:0;padding:0 2px 6px}
+  .side .navlabel{display:none}
+  .side .navitem{width:auto;flex:none}
+  .panel-body{padding:14px}
+  .search{flex:1 1 100%}
+  .vr{border-left:0;border-top:1px solid var(--line)}
+}
+
+/* ---- v2 additions: collapsible sidebar, fluid forms, no clipping ---- */
+.panel{container-type:inline-size}
+.side{transition:flex-basis .18s ease,min-width .18s ease}
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:2px 2px 4px}
+.side .navitem .label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side .ctx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.app.side-collapsed .side{flex:0 0 56px;min-width:56px;padding:4px 4px 12px}
+.app.side-collapsed .side .navitem{justify-content:center;padding:0;width:44px;height:36px;margin:0 auto}
+.app.side-collapsed .side .navitem .label,.app.side-collapsed .side .navitem .count,
+.app.side-collapsed .side .navlabel,.app.side-collapsed .side .ctx{display:none}
+.app.side-collapsed .side .side-head{justify-content:center}
+.project{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);min-width:0}
+.project b{color:var(--ink);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;background:var(--hover);font:500 12px var(--mono);color:var(--ink2);white-space:nowrap}
+/* layout helpers that use the full width */
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px 16px;align-items:start}
+.formgrid .span-all{grid-column:1/-1}
+.formgrid .field>.input,.formgrid .field>.select,.formgrid .field>.textarea{width:100%}
+.cluster{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
+.cluster>.grow{flex:1 1 220px;min-width:0}
+.panes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));min-width:0}
+.panes>*{min-width:0}
+.ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.wrap{overflow-wrap:anywhere;min-width:0}
+.btn,.pill,.tab,.seg button{max-width:100%}
+.btn .label{overflow:hidden;text-overflow:ellipsis}
+.tbl td{overflow-wrap:anywhere}
+.tbl td.nowrap,.tbl th{white-space:nowrap}
+@container (max-width: 760px){
+  .panes{grid-template-columns:1fr}
+  .vr{border-left:0;border-top:1px solid var(--line)}
+  .panel-head{padding:12px 14px}
+}
+@media (max-width: 860px){
+  .app.side-collapsed .side{flex:1 1 100%;min-width:0}
+  .app.side-collapsed .side .navitem .label{display:inline}
+  .side-head{display:none}
+}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+sc-for,sc-if{display:contents}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.topsel{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2)}
+.topsel select{height:30px;border:0;border-radius:8px;background:var(--hover);padding:0 8px;font:500 12.5px var(--font);color:var(--ink)}
+.navrow{display:flex;flex-direction:column;gap:2px}
+.navsep{height:1px;background:rgba(27,24,48,.08);margin:6px 10px}
+.ctx .navitem{height:auto;min-height:34px;padding-top:6px;padding-bottom:6px;align-items:flex-start}
+.ctx .navitem .dot{margin-top:5px}
+.agrow{display:flex;flex-direction:column;gap:1px;min-width:0}
+.agrow small{font-size:11.5px;color:var(--ink2);line-height:1.35}
+.sidenote{padding:4px 10px;font-size:12px;color:var(--ink2);line-height:1.5}
+.dot.accent{background:var(--accent)}
+.dot.wait{background:#B86E00}
+.dot.idle{background:#9A96AD}
+.dot.pulse{background:var(--accent);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.h1sub{font-size:13px;color:var(--ink2)}
+a.pill{text-decoration:none}
+a.pill:hover{filter:brightness(.97)}
+.intro{display:flex;flex-direction:column;gap:14px;max-width:1100px}
+.intro p{margin:0;font-size:14px;line-height:1.6;color:var(--ink);text-wrap:pretty}
+.safe{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:14px 22px}
+.safe a{display:flex;gap:10px;align-items:flex-start;text-decoration:none;color:var(--ink);min-width:0}
+.safe a:hover b{color:var(--accentInk);text-decoration:underline}
+.safe .ic{width:30px;height:30px;border-radius:8px;background:var(--accentSoft);color:var(--accentInk);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.safe span.t{display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--ink2);line-height:1.45;min-width:0}
+.safe b{font-size:13px;color:var(--ink);font-weight:600}
+.shead{display:flex;align-items:baseline;gap:6px 12px;flex-wrap:wrap}
+.shead .muted{font-size:12.5px}
+.stepno{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;font:600 12px var(--font);flex:none;align-self:center}
+.panes.gap{gap:20px 28px}
+.connbox{display:flex;flex-direction:column;gap:12px;min-width:0}
+.connbox .tabs{padding:0;margin:0}
+.lead{margin:0;font-size:13px;line-height:1.55;color:var(--ink2)}
+.lead .mono,.tool-line .mono{color:var(--ink)}
+.snip{display:flex;align-items:flex-start;gap:8px;min-width:0}
+.snip .code{flex:1 1 auto;min-width:0}
+.snip .btn{flex:none;margin-top:6px}
+.snlabel{font-size:12px;font-weight:600;color:var(--ink2)}
+.status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2)}
+.status b{color:var(--ink);font-weight:600}
+.try{font-size:12.5px;color:var(--ink2);line-height:1.5}
+.tools{display:flex;flex-direction:column;min-width:0}
+.tool-line{display:grid;grid-template-columns:minmax(118px,auto) minmax(0,1fr);gap:2px 14px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.45;align-items:baseline}
+.tool-line:last-child{border-bottom:0}
+.tool-line .nm{font:600 12.5px var(--mono);color:var(--ink)}
+.tool-line .ds{color:var(--ink2);min-width:0}
+.tool-line .gate{color:#8A5200;font-weight:500;white-space:nowrap}
+.req{display:flex;flex-direction:column;gap:12px;padding:18px 0;border-top:1px solid var(--line);min-width:0}
+.req:first-of-type{border-top:0;padding-top:4px}
+.req .sent{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:15px;line-height:1.45}
+.req .sent b{font-weight:600}
+.req .sent .stext{flex:1 1 320px;min-width:0;overflow-wrap:anywhere}
+.req .sent .who{display:inline-flex;align-items:center;gap:7px;font-weight:600}
+.req .sent .waited{margin-left:auto;font-size:12px;color:var(--ink2)}
+.req .why{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.5;padding:8px 12px;border-radius:9px;background:var(--blockSoft);color:#5C3700}
+.req .why a{color:#5C3700;font-weight:500}
+.req .col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.req .panes{gap:14px 28px}
+.code.wrapcode .ln > span:last-child{white-space:pre-wrap;overflow-wrap:anywhere;min-width:0}
+.happen{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:5px;font-size:13px;line-height:1.5}
+.quote{margin:0;font-size:13px;line-height:1.55;color:var(--ink2);padding-left:12px;border-left:2px solid var(--line2)}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn.danger{color:#B3261E}
+.btn[aria-expanded="true"]{background:var(--panel3)}
+.sub{display:flex;flex-direction:column;gap:10px}
+.sub p{margin:0;font-size:13px;line-height:1.5}
+.code .ln.add{background:#E6F4EA}
+.code .ln.del{background:var(--failSoft)}
+.empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 16px;text-align:center;color:var(--ink2);font-size:13px}
+.empty b{color:var(--ink);font-size:14px}
+.prof{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(205px,100%),1fr));gap:0;min-width:0}
+.pcol{display:flex;flex-direction:column;gap:2px;padding:4px 20px 8px;border-left:1px solid var(--line);min-width:0;border-radius:10px;transition:background .2s}
+.pcol:first-child{border-left:0;padding-left:0}
+.pcol.focus{background:var(--accentSoft);border-left-color:transparent;padding-left:14px}
+.pcol .ph{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0 8px}
+.pcol .ph h3{margin:0;font:600 15px var(--mono)}
+.prow{display:grid;grid-template-columns:20px minmax(0,1fr);gap:2px 8px;padding:7px 0;border-top:1px solid var(--line);font-size:13px;line-height:1.45}
+.pcol.focus .prow{border-top-color:rgba(84,64,214,.14)}
+.prow .lb{font-size:12px;color:var(--ink2)}
+.prow .tx{grid-column:2;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.prow svg{grid-row:1 / span 2;margin-top:1px}
+.accfoot{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:12.5px;color:var(--ink2)}
+.logtools{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.logtools .q{flex:1 1 240px;min-width:0;display:flex}
+.logtools .q .input{height:32px}
+.logtools .ag{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2)}
+.logtools .ag .select{height:32px;width:auto;min-width:150px}
+.loglist{display:flex;flex-direction:column;min-width:0;border-top:1px solid var(--line)}
+.lg{display:grid;grid-template-columns:52px minmax(96px,.8fr) minmax(118px,.9fr) minmax(0,1.7fr) 74px minmax(0,1.5fr) 18px;grid-template-areas:"t a tool tg p r x";gap:4px 12px;align-items:center;padding:9px 4px;border:0;border-bottom:1px solid var(--line);background:transparent;width:100%;text-align:left;font:13px var(--font);color:var(--ink);cursor:pointer}
+.lg:hover{background:var(--panel2)}
+.lg.h{cursor:default;font-size:12px;font-weight:500;color:var(--ink2);padding-top:6px;padding-bottom:6px}
+.lg.h:hover{background:transparent}
+.lg.fresh{background:#F6F4FE}
+.lg .t{grid-area:t;font:12px var(--mono);color:var(--ink2)}
+.lg .a{grid-area:a;min-width:0}
+.lg .tool{grid-area:tool;font:12px var(--mono);min-width:0}
+.lg .tg{grid-area:tg;font:12px var(--mono);min-width:0}
+.lg .p{grid-area:p}
+.lg .r{grid-area:r;display:flex;align-items:center;gap:6px;min-width:0}
+.lg .x{grid-area:x;color:var(--ink2);display:flex}
+.lgx{padding:12px 4px 16px 68px;border-bottom:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;gap:10px}
+.lgx .panes{gap:12px 16px}
+.lgx .code{background:var(--panel)}
+.morebar{display:flex;justify-content:center;padding:10px 0 0}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:0 10px 30px rgba(27,24,48,.3);z-index:50;display:flex;gap:8px;align-items:center;max-width:calc(100vw - 32px)}
+@container (max-width: 760px){
+  .req .sent .waited{margin-left:0;width:100%}
+}
+@container (max-width: 660px){
+  .pcol{border-left:0;padding-left:0;border-top:1px solid var(--line)}
+  .pcol:first-child{border-top:0}
+  .pcol.focus{padding-left:12px}
+  .lg{grid-template-columns:44px minmax(0,1fr) auto 18px;grid-template-areas:"t a p x" "t tool tool tool" "t tg tg tg" "t r r r"}
+  .lg.h{display:none}
+  .lgx{padding-left:12px}
+}
+@media (max-width: 860px){
+  .app .side{flex-direction:column;overflow:visible;padding-bottom:4px}
+  .app .side .navrow{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .navsep{display:none}
+  .app.side-collapsed .side .navitem{width:auto;padding:0 10px;margin:0;height:32px}
+  .app .side .ctx{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .ctx .navitem{width:auto;flex:none}
+  .sidenote{display:none}
+}
+</style>
+</head><body>
+
+<div class="app side-collapsed">
+  <header class="topbar">
+    <a class="brand" href="WebExplorer.dc.html"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"></path><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Vibranium</a>
+    <span class="project"><b>shop</b><span class="chip" title="git branch">main</span></span>
+    <label class="topsel"><span>Profile</span>
+      <select><option>dev</option><option selected>staging</option><option>prod</option></select>
+    </label>
+    <div class="grow"></div>
+    <label class="search"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.75"></circle><path d="m10.5 10.5 3.5 3.5"></path></svg><span class="sr">Search tests, apis, files</span><input type="search" placeholder="Search tests, apis, files…"><span class="kbd">⌘K</span></label>
+  </header>
+
+  <div class="frame">
+    <div class="side">
+      <div class="side-head">
+        <span class="sr">Navigation</span>
+        <button class="iconbtn" type="button" aria-label="Expand sidebar" title="Expand sidebar" aria-expanded="false">
+          
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"></rect><path d="M6 3v10M9 6.5 10.5 8 9 9.5"></path></svg>
+        </button>
+      </div>
+      <nav class="navrow" aria-label="Main">
+        <a class="navitem" href="WebExplorer.dc.html" title="Tests"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 4.5 1.5 1.5 2.5-3M2.5 11l1.5 1.5 2.5-3M9 5h4.5M9 11.5h4.5"></path></svg><span class="label">Tests</span><span class="count">412</span></a>
+        <a class="navitem" href="WebClient.dc.html" title="API client"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h9M8 4.5 11.5 8 8 11.5M14 3v10"></path></svg><span class="label">API client</span></a>
+        <a class="navitem" href="WebEditor.dc.html" title="Editor"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13H3v-3zM9 4l3 3"></path></svg><span class="label">Editor</span></a>
+        <a class="navitem" href="WebRun.dc.html" title="Runs"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M6.5 5.5v5l4-2.5z"></path></svg><span class="label">Runs</span></a>
+        <a class="navitem" href="WebInsights.dc.html" title="Insights"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 13.5h11M4.5 11V8M8 11V4M11.5 11V6.5"></path></svg><span class="label">Insights</span></a>
+        <a class="navitem on" href="WebAgents.dc.html" title="AI agents" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="10" height="8" rx="2"></rect><path d="M8 2.5V5M6 8.5v1.5M10 8.5v1.5"></path></svg><span class="label">AI agents</span><span class="count"></span></a>
+        <div class="navsep" role="presentation"></div>
+        <a class="navitem" href="WebSettings.dc.html" title="Settings"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"></path><circle cx="11" cy="4.5" r="1.5"></circle><circle cx="5" cy="11.5" r="1.5"></circle></svg><span class="label">Settings</span></a>
+      </nav>
+      <div class="ctx" aria-label="Agents">
+        <div class="navlabel">Connected agents</div>
+        
+          <button class="navitem " type="button" aria-pressed="false" title="Show activity from Claude Code 2.1"><span class="dot pass"></span><span class="agrow"><span>Claude Code 2.1</span><small>stdio · active just now</small></span></button>
+        
+          <button class="navitem " type="button" aria-pressed="false" title="Show activity from Cursor"><span class="dot pass"></span><span class="agrow"><span>Cursor</span><small>HTTP · active just now</small></span></button>
+        
+        <div class="navlabel">Earlier today</div>
+        
+          <button class="navitem " type="button" aria-pressed="false" title="Show activity from Windsurf"><span class="dot idle"></span><span class="agrow"><span>Windsurf</span><small>disconnected at 13:52</small></span></button>
+        
+        <div class="navlabel">MCP endpoint</div>
+        <div class="sidenote"><span class="mono" style="color: #1B1830">localhost:7420/mcp</span><br>Listening while <span class="mono">vc ui</span> runs. Agents can also start <span class="mono">vc mcp</span> themselves.</div>
+      </div>
+    </div>
+
+    <main class="panel" aria-labelledby="ag-title">
+      <div class="panel-head">
+        <h1 class="h1" id="ag-title">AI agents</h1>
+        <div class="grow"></div>
+        <div class="cluster">
+          <a class="pill pass" href="#connect">2 agents connected</a>
+          <a class="pill skip" href="#approvals">nothing waiting</a>
+        </div>
+      </div>
+
+      <div class="panel-body">
+        <section class="section intro" aria-label="What this page is">
+          <p>Coding agents such as <b>Claude Code</b> or <b>Cursor</b> can work with this project through MCP, the protocol they use for tools. Once connected, an agent can find and run tests, explain why one failed, call your apis and edit test files, using the same project files and profiles you do.</p>
+          <div class="safe">
+            <a href="#access"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg></span><span class="t"><b>Access per profile</b>Each profile says what agents may run, call and edit. prod is read-only.</span></a>
+            <a href="#approvals"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 4.75V8l2 1.5"></path></svg></span><span class="t"><b>Approvals</b>Anything risky pauses the agent until you approve it here.</span></a>
+            <a href="#activity"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8s2.25-4 6-4 6 4 6 4-2.25 4-6 4-6-4-6-4z"></path><path d="M3 13 13 3"></path></svg></span><span class="t"><b>Redaction</b>Secrets and tokens are replaced with [redacted] in everything an agent sees.</span></a>
+            <a href="#activity"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4zM6.5 7.5h4M6.5 10h4"></path></svg></span><span class="t"><b>A full log</b>Every call is kept in the project history with its arguments and result.</span></a>
+          </div>
+        </section>
+
+        <section class="section" id="connect" aria-labelledby="c-h">
+          <div class="shead"><span class="stepno" aria-hidden="true">1</span><h2 class="h2" id="c-h">Connect an agent</h2><span class="muted">Once per project. The agent starts Vibranium’s MCP server when it needs it.</span></div>
+          <div class="panes gap">
+            <div class="connbox">
+              <div class="tabs" role="tablist" aria-label="Agent">
+                
+                  <button class="tab " type="button" role="tab" aria-selected="false">Claude Code</button>
+                
+                  <button class="tab " type="button" role="tab" aria-selected="false">Cursor / Windsurf</button>
+                
+                  <button class="tab on" type="button" role="tab" aria-selected="true">Any MCP client</button>
+                
+              </div>
+              
+                <div class="connbox" style="gap: 6px">
+                  <p class="lead">Local (stdio): have the client start this command in the project folder.</p>
+                  <div class="snip">
+                    <pre class="code wrapcode" aria-label="the stdio command"><span class="ln"><span class="no">$</span><span><span class="">vc mcp</span></span></span></pre>
+                    <button class="btn sm" type="button"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"></path></svg>Copy</button>
+                  </div>
+                  
+                </div>
+              
+                <div class="connbox" style="gap: 6px">
+                  <p class="lead">HTTP: point the client at this address while vc ui is running.</p>
+                  <div class="snip">
+                    <pre class="code wrapcode" aria-label="the MCP address"><span class="ln"><span class="no">url</span><span><span class="y-str">http://localhost:7420/mcp</span></span></span></pre>
+                    <button class="btn sm" type="button"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"></path></svg>Copy</button>
+                  </div>
+                  
+                </div>
+              
+              <div class="status" role="status"><span class="dot pulse"></span><b>Waiting for a connection…</b><span>this line turns green when a new client says hello</span></div>
+              <div class="try">Then try asking it: “Which tests failed in the last staging run, and why?”</div>
+            </div>
+            <div class="connbox">
+              <div class="snlabel">What a connected agent can do</div>
+              <div class="tools">
+                
+                  <div class="tool-line"><span class="nm">list_definitions</span><span class="ds">Lists apis, tests, load files and profiles with their ids and files.</span></div>
+                
+                  <div class="tool-line"><span class="nm">search</span><span class="ds">Finds tests and apis by id, name, tag, path or text.</span></div>
+                
+                  <div class="tool-line"><span class="nm">check</span><span class="ds">Validates the project like vc check and returns the diagnostics.</span></div>
+                
+                  <div class="tool-line"><span class="nm">run_tests</span><span class="ds">Runs tests by id, file or tag and returns results and the report path. <span class="gate">· asks you on staging, prod</span></span></div>
+                
+                  <div class="tool-line"><span class="nm">explain_failure</span><span class="ds">Explains a failed test: expected vs actual, history and related commits.</span></div>
+                
+                  <div class="tool-line"><span class="nm">read_history</span><span class="ds">Reads past runs, flaky tests and timings from history.</span></div>
+                
+                  <div class="tool-line"><span class="nm">call_api</span><span class="ds">Sends one api call with a profile’s vars and auth; secrets stay hidden. <span class="gate">· asks you on staging, prod</span></span></div>
+                
+                  <div class="tool-line"><span class="nm">write_definition</span><span class="ds">Creates or edits test and api files; checked before saving. <span class="gate">· asks you on staging · off on prod</span></span></div>
+                
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="approvals" aria-labelledby="w-h">
+          <div class="shead"><span class="stepno" aria-hidden="true">2</span><h2 class="h2" id="w-h">Waiting for you</h2><span class="muted">The agent is paused until you decide. With no browser open, <span class="mono">vc mcp</span> asks in its terminal instead.</span></div>
+          
+          
+            <div class="empty well">
+              <svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="m5.5 8 1.8 1.8 3.2-3.6"></path></svg>
+              <b>Nothing waiting.</b>
+              <span>Agents pause here when they need you. Your decisions are in the activity log below.</span>
+              <button class="btn sm ghost" type="button">Show the sample requests again</button>
+            </div>
+          
+        </section>
+
+        <section class="section" id="access" aria-labelledby="a-h">
+          <div class="shead"><span class="stepno" aria-hidden="true">3</span><h2 class="h2" id="a-h">What agents may do</h2><span class="muted">Per profile, from <span class="mono">profiles[].agents</span> in <span class="mono">vibranium.config.yaml</span>. Agents use the profile you picked when you connected them, or the one they ask for.</span></div>
+          <div class="prof">
+            
+              <div class="pcol " id="access-dev">
+                <div class="ph"><h3>dev</h3></div>
+                
+                  <div class="prow">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+                    
+                    
+                    <span class="lb">Run tests</span>
+                    <span class="tx"><span>Any test</span></span>
+                  </div>
+                
+                  <div class="prow">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+                    
+                    
+                    <span class="lb">Call apis without asking</span>
+                    <span class="tx"><span>Any method</span></span>
+                  </div>
+                
+                  <div class="prow">
+                    
+                    
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#67637D" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg>
+                    <span class="lb">Asks you first</span>
+                    <span class="tx"><span>Nothing</span></span>
+                  </div>
+                
+                  <div class="prow">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+                    
+                    
+                    <span class="lb">Edit test and api files</span>
+                    <span class="tx"><span>Yes</span></span>
+                  </div>
+                
+              </div>
+            
+              <div class="pcol " id="access-staging">
+                <div class="ph"><h3>staging</h3><span class="pill accent" style="height: 20px; font-size: 11.5px">selected profile</span></div>
+                
+                  <div class="prow">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+                    
+                    
+                    <span class="lb">Run tests</span>
+                    <span class="tx"><span>Tests that send only GET or POST; others ask you</span></span>
+                  </div>
+                
+                  <div class="prow">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+                    
+                    
+                    <span class="lb">Call apis without asking</span>
+                    <span class="tx"><span class="method m-get">GET</span><span class="method m-post">POST</span><span></span></span>
+                  </div>
+                
+                  <div class="prow">
+                    
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A5200" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 4.75V8l2 1.5"></path></svg>
+                    
+                    <span class="lb">Asks you first</span>
+                    <span class="tx"><span class="method m-put">PUT</span><span class="method m-patch">PATCH</span><span class="method m-delete">DELETE</span><span></span></span>
+                  </div>
+                
+                  <div class="prow">
+                    
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A5200" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 4.75V8l2 1.5"></path></svg>
+                    
+                    <span class="lb">Edit test and api files</span>
+                    <span class="tx"><span>Yes, after you approve each change</span></span>
+                  </div>
+                
+              </div>
+            
+              <div class="pcol focus" id="access-prod">
+                <div class="ph"><h3>prod</h3><span class="pill pass" style="height: 20px; font-size: 11.5px">changed just now</span></div>
+                
+                  <div class="prow">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+                    
+                    
+                    <span class="lb">Run tests</span>
+                    <span class="tx"><span>Tests that send only GET or POST; others ask you</span></span>
+                  </div>
+                
+                  <div class="prow">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+                    
+                    
+                    <span class="lb">Call apis without asking</span>
+                    <span class="tx"><span class="method m-get">GET</span><span class="method m-post">POST</span><span></span></span>
+                  </div>
+                
+                  <div class="prow">
+                    
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A5200" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"></circle><path d="M8 4.75V8l2 1.5"></path></svg>
+                    
+                    <span class="lb">Asks you first</span>
+                    <span class="tx"><span class="method m-put">PUT</span><span class="method m-patch">PATCH</span><span class="method m-delete">DELETE</span><span></span></span>
+                  </div>
+                
+                  <div class="prow">
+                    
+                    
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#67637D" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"></path></svg>
+                    <span class="lb">Edit test and api files</span>
+                    <span class="tx"><span>No</span></span>
+                  </div>
+                
+              </div>
+            
+          </div>
+          <div class="accfoot">
+            <a class="btn" href="WebSettings.dc.html"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"></path><circle cx="11" cy="4.5" r="1.5"></circle><circle cx="5" cy="11.5" r="1.5"></circle></svg>Change in Settings</a>
+            <span>A method that is neither allowed nor “asks you” is refused without asking.</span>
+            <span style="color: #1A7148">Saved: prod now allows POST without asking.</span>
+          </div>
+        </section>
+
+        <section class="section" id="activity" aria-labelledby="l-h">
+          <div class="shead"><span class="stepno" aria-hidden="true">4</span><h2 class="h2" id="l-h">Activity</h2><span class="muted">14 calls today, newest first. Select a row to see what the agent sent and got back.</span></div>
+          <div class="logtools">
+            <label class="q"><span class="sr">Filter activity</span><input class="input" type="search" placeholder="Filter by tool, api, test or file" value=""></label>
+            <label class="ag"><span>Agent</span><select class="select"><option selected>All agents</option><option>Claude Code</option><option>Cursor</option><option>Windsurf</option></select></label>
+            <div class="seg" role="group" aria-label="Result">
+              <button type="button" class="on" aria-pressed="true">All</button><button type="button" class="" aria-pressed="false">Needed you</button><button type="button" class="" aria-pressed="false">Denied</button><button type="button" class="" aria-pressed="false">Failed</button>
+            </div>
+          </div>
+          <div class="loglist">
+            <div class="lg h" aria-hidden="true"><span class="t">Time</span><span class="a">Agent</span><span class="tool">Tool</span><span class="tg">Target</span><span class="p">Profile</span><span class="r">Result</span><span class="x"></span></div>
+            
+              <button class="lg fresh" type="button" aria-expanded="false">
+                <span class="t">14:23</span>
+                <span class="a ellipsis" title="Cursor">Cursor</span>
+                <span class="tool ellipsis" title="write_definition">write_definition</span>
+                <span class="tg ellipsis" title="services/orders/checkout.test.yaml">services/orders/checkout.test.yaml</span>
+                <span class="p"><span class="pill accent" style="height: 20px; font-size: 11.5px">staging</span></span>
+                <span class="r"><span class="dot fail"></span><span class="wrap">denied by you: “Keep the fixed total”</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg fresh" type="button" aria-expanded="false">
+                <span class="t">14:22</span>
+                <span class="a ellipsis" title="Claude Code">Claude Code</span>
+                <span class="tool ellipsis" title="call_api">call_api</span>
+                <span class="tg ellipsis" title="orders.refund">orders.refund</span>
+                <span class="p"><span class="pill fail" style="height: 20px; font-size: 11.5px">prod</span></span>
+                <span class="r"><span class="dot accent"></span><span class="wrap">approved · rule saved: prod allows POST</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="true">
+                <span class="t">14:21</span>
+                <span class="a ellipsis" title="Claude Code">Claude Code</span>
+                <span class="tool ellipsis" title="explain_failure">explain_failure</span>
+                <span class="tg ellipsis" title="orders.checkout.placesOrder">orders.checkout.placesOrder</span>
+                <span class="p"><span class="pill accent" style="height: 20px; font-size: 11.5px">staging</span></span>
+                <span class="r"><span class="dot pass"></span><span class="wrap">answered</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 10 4-4 4 4"></path></svg></span>
+              </button>
+              
+                <div class="lgx">
+                  <div class="panes">
+                    <div class="col" style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span class="h3">Arguments</span><pre class="code wrapcode" aria-label="Arguments"><span class="ln"><span class="no">1</span><span><span class="y-punc">{</span></span></span><span class="ln"><span class="no">2</span><span><span class="">  </span><span class="y-key">&quot;test&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">&quot;orders.checkout.placesOrder&quot;</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">3</span><span><span class="">  </span><span class="y-key">&quot;run&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">482</span></span></span><span class="ln"><span class="no">4</span><span><span class="y-punc">}</span></span></span></pre></div>
+                    <div class="col" style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span class="h3">Result returned to Claude Code</span><pre class="code wrapcode" aria-label="Result"><span class="ln"><span class="no">1</span><span><span class="y-punc">{</span></span></span><span class="ln"><span class="no">2</span><span><span class="">  </span><span class="y-key">&quot;cause&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">&quot;body.total is 64.78, expected 59.98&quot;</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">3</span><span><span class="">  </span><span class="y-key">&quot;likely&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">&quot;a1c9e4f \&quot;orders: add tax line\&quot; by priya adds tax 4.80&quot;</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">4</span><span><span class="">  </span><span class="y-key">&quot;affectedTests&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">6</span></span></span><span class="ln"><span class="no">5</span><span><span class="y-punc">}</span></span></span></pre></div>
+                  </div>
+                  <span class="muted" style="font-size: 12px">Stored in .vibranium/history.db · values matching secrets, tokens and redact rules are replaced with [redacted] before the agent sees them.</span>
+                </div>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">14:19</span>
+                <span class="a ellipsis" title="Claude Code">Claude Code</span>
+                <span class="tool ellipsis" title="read_history">read_history</span>
+                <span class="tg ellipsis" title="orders.checkout">orders.checkout</span>
+                <span class="p"><span class="pill accent" style="height: 20px; font-size: 11.5px">staging</span></span>
+                <span class="r"><span class="dot pass"></span><span class="wrap">10 runs</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">14:18</span>
+                <span class="a ellipsis" title="Cursor">Cursor</span>
+                <span class="tool ellipsis" title="run_tests">run_tests</span>
+                <span class="tg ellipsis" title="tag:checkout">tag:checkout</span>
+                <span class="p"><span class="pill accent" style="height: 20px; font-size: 11.5px">staging</span></span>
+                <span class="r"><span class="dot block"></span><span class="wrap">6 failed · 9 passed</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="true">
+                <span class="t">14:16</span>
+                <span class="a ellipsis" title="Claude Code">Claude Code</span>
+                <span class="tool ellipsis" title="call_api">call_api</span>
+                <span class="tg ellipsis" title="orders.get">orders.get</span>
+                <span class="p"><span class="pill fail" style="height: 20px; font-size: 11.5px">prod</span></span>
+                <span class="r"><span class="dot pass"></span><span class="wrap">200 · 212 ms</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 10 4-4 4 4"></path></svg></span>
+              </button>
+              
+                <div class="lgx">
+                  <div class="panes">
+                    <div class="col" style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span class="h3">Arguments</span><pre class="code wrapcode" aria-label="Arguments"><span class="ln"><span class="no">1</span><span><span class="y-punc">{</span></span></span><span class="ln"><span class="no">2</span><span><span class="">  </span><span class="y-key">&quot;api&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">&quot;orders.get&quot;</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">3</span><span><span class="">  </span><span class="y-key">&quot;profile&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">&quot;prod&quot;</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">4</span><span><span class="">  </span><span class="y-key">&quot;vars&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-punc">{</span></span></span><span class="ln"><span class="no">5</span><span><span class="">    </span><span class="y-key">&quot;orderId&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">&quot;ord_Y81mQa&quot;</span></span></span><span class="ln"><span class="no">6</span><span><span class="">  </span><span class="y-punc">}</span></span></span><span class="ln"><span class="no">7</span><span><span class="y-punc">}</span></span></span></pre></div>
+                    <div class="col" style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span class="h3">Result returned to Claude Code</span><pre class="code wrapcode" aria-label="Result"><span class="ln"><span class="no">1</span><span><span class="y-punc">{</span></span></span><span class="ln"><span class="no">2</span><span><span class="">  </span><span class="y-key">&quot;status&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">200</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">3</span><span><span class="">  </span><span class="y-key">&quot;timeMs&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">212</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">4</span><span><span class="">  </span><span class="y-key">&quot;request&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-punc">{</span></span></span><span class="ln"><span class="no">5</span><span><span class="">    </span><span class="y-key">&quot;headers&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-punc">{</span></span></span><span class="ln"><span class="no">6</span><span><span class="">      </span><span class="y-key">&quot;authorization&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">&quot;Bearer [redacted]&quot;</span></span></span><span class="ln"><span class="no">7</span><span><span class="">    </span><span class="y-punc">}</span></span></span><span class="ln"><span class="no">8</span><span><span class="">  </span><span class="y-punc">}</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">9</span><span><span class="">  </span><span class="y-key">&quot;body&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-punc">{</span></span></span><span class="ln"><span class="no">10</span><span><span class="">    </span><span class="y-key">&quot;id&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">&quot;ord_Y81mQa&quot;</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">11</span><span><span class="">    </span><span class="y-key">&quot;status&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">&quot;paid&quot;</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">12</span><span><span class="">    </span><span class="y-key">&quot;total&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">64.78</span><span class="y-punc">,</span></span></span><span class="ln"><span class="no">13</span><span><span class="">    </span><span class="y-key">&quot;tax&quot;</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">4.8</span></span></span><span class="ln"><span class="no">14</span><span><span class="">  </span><span class="y-punc">}</span></span></span><span class="ln"><span class="no">15</span><span><span class="y-punc">}</span></span></span></pre></div>
+                  </div>
+                  <span class="muted" style="font-size: 12px">Stored in .vibranium/history.db · values matching secrets, tokens and redact rules are replaced with [redacted] before the agent sees them.</span>
+                </div>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">14:12</span>
+                <span class="a ellipsis" title="Cursor">Cursor</span>
+                <span class="tool ellipsis" title="search">search</span>
+                <span class="tg ellipsis" title="&quot;tax&quot;">&quot;tax&quot;</span>
+                <span class="p"><span class="pill skip" style="height: 20px; font-size: 11.5px">—</span></span>
+                <span class="r"><span class="dot pass"></span><span class="wrap">7 matches</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">14:10</span>
+                <span class="a ellipsis" title="Claude Code">Claude Code</span>
+                <span class="tool ellipsis" title="check">check</span>
+                <span class="tg ellipsis" title="whole project">whole project</span>
+                <span class="p"><span class="pill skip" style="height: 20px; font-size: 11.5px">—</span></span>
+                <span class="r"><span class="dot pass"></span><span class="wrap">0 errors · 2 warnings</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">13:58</span>
+                <span class="a ellipsis" title="Claude Code">Claude Code</span>
+                <span class="tool ellipsis" title="call_api">call_api</span>
+                <span class="tg ellipsis" title="orders.cancel">orders.cancel</span>
+                <span class="p"><span class="pill fail" style="height: 20px; font-size: 11.5px">prod</span></span>
+                <span class="r"><span class="dot fail"></span><span class="wrap">denied by you: “Don’t cancel real orders; use staging.”</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">13:52</span>
+                <span class="a ellipsis" title="Windsurf">Windsurf</span>
+                <span class="tool ellipsis" title="list_definitions">list_definitions</span>
+                <span class="tg ellipsis" title="services/catalog">services/catalog</span>
+                <span class="p"><span class="pill skip" style="height: 20px; font-size: 11.5px">dev</span></span>
+                <span class="r"><span class="dot pass"></span><span class="wrap">14 apis · 3 test files</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">13:47</span>
+                <span class="a ellipsis" title="Windsurf">Windsurf</span>
+                <span class="tool ellipsis" title="write_definition">write_definition</span>
+                <span class="tg ellipsis" title="services/catalog/search.test.yaml">services/catalog/search.test.yaml</span>
+                <span class="p"><span class="pill skip" style="height: 20px; font-size: 11.5px">dev</span></span>
+                <span class="r"><span class="dot pass"></span><span class="wrap">written · dev allows edits</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">13:40</span>
+                <span class="a ellipsis" title="Claude Code">Claude Code</span>
+                <span class="tool ellipsis" title="run_tests">run_tests</span>
+                <span class="tg ellipsis" title="tag:smoke">tag:smoke</span>
+                <span class="p"><span class="pill accent" style="height: 20px; font-size: 11.5px">staging</span></span>
+                <span class="r"><span class="dot pass"></span><span class="wrap">38 passed</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">13:31</span>
+                <span class="a ellipsis" title="Cursor">Cursor</span>
+                <span class="tool ellipsis" title="call_api">call_api</span>
+                <span class="tg ellipsis" title="catalog.seedProducts">catalog.seedProducts</span>
+                <span class="p"><span class="pill accent" style="height: 20px; font-size: 11.5px">staging</span></span>
+                <span class="r"><span class="dot block"></span><span class="wrap">503 Service Unavailable</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+              <button class="lg " type="button" aria-expanded="false">
+                <span class="t">13:25</span>
+                <span class="a ellipsis" title="Claude Code">Claude Code</span>
+                <span class="tool ellipsis" title="call_api">call_api</span>
+                <span class="tg ellipsis" title="users.update">users.update</span>
+                <span class="p"><span class="pill accent" style="height: 20px; font-size: 11.5px">staging</span></span>
+                <span class="r"><span class="dot accent"></span><span class="wrap">approved by you · 200</span></span>
+                <span class="x"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"></path></svg></span>
+              </button>
+              
+            
+            
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  
+</div>
+</body></html>

@@ -1,0 +1,85 @@
+id: orders.checkout
+name: Checkout
+tags: [orders, checkout]
+
+beforeAll:
+  - id: catalog  # shared by the file: read as ${var.catalog.*}
+    call: catalog.seedProducts
+    cache:
+      for: 12h
+      check:
+        call: catalog.getProduct
+        vars:
+          productId: ${var.catalog.productIds[0]}
+
+beforeEach:  # every test gets its own buyer and cart
+  - call: users.create
+  - call: carts.create
+  - call: carts.addItem
+    forEach: ${var.catalog.productIds}
+    vars:
+      sku: ${item}
+
+tests:
+  - id: placesOrder
+    name: A cart with two items becomes a paid order
+    steps:
+      - id: place
+        call: orders.place
+      - id: fetch
+        call: orders.get
+        poll:
+          until:
+            body:
+              match:
+                status: paid
+          every: 1s
+          timeout: 30s
+    expect:
+      status: 200
+      body:
+        schema:
+          $file: ../../schemas/orders/order.json
+        match:
+          items:
+            length: 2
+          items[*].quantity:
+            every:
+              gte: 1
+          total: ${var.orderTotal}
+      cel:
+        total equals sum of lines: body.total == body.items.map(i, i.price * i.quantity).sum()
+      custom:
+        - function: ../../hooks/checks.ts#currencyIsConsistent
+  - id: rejectsDeclinedCard
+    name: A declined card returns 402
+    call: orders.place
+    vars:
+      paymentToken: tok_chargeDeclined
+    expect:
+      status: 402
+      body:
+        match:
+          error.code: card_declined
+  - id: memberCannotRefund
+    name: A member cannot refund an order
+    call: orders.refund
+    vars:
+      orderId: ord_existing
+    auth:
+      id: partnerLogin
+      vars:
+        username: ${secret.MEMBER_USER}
+        password: ${secret.MEMBER_PASSWORD}
+    expect:
+      status: 403
+  - id: appliesCoupon
+    name: A coupon code lowers the total
+    skip:
+      reason: "coupon service flaky on staging, see #212"
+      until: 2026-11-15
+    call: orders.place
+    vars:
+      couponCode: WELCOME10
+    expect:
+      status: 201

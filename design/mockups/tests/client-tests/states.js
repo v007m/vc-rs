@@ -1,0 +1,32 @@
+const fs = require('fs'), path = require('path');
+const { loadComponent } = require('./load');
+const { page } = require('./render');
+const { Component, timers } = loadComponent();
+const c = new Component({});
+const ev = (value, checked) => ({ target: { value, checked } });
+const out = path.join(__dirname, 'shots');
+// each state is written twice: <name>.html (sidebar expanded) and <name>-c.html (sidebar collapsed)
+for (const f of fs.readdirSync(out)) if (/\.(html|png)$/.test(f)) fs.unlinkSync(path.join(out, f));
+const save = (name) => {
+  fs.writeFileSync(path.join(out, name + '.html'), page(c.renderVals()));
+  const was = c.state.sideCollapsed; c.setState({ sideCollapsed: true });
+  fs.writeFileSync(path.join(out, name + '-c.html'), page(c.renderVals()));
+  c.setState({ sideCollapsed: was });
+};
+let v = c.renderVals();
+save('01-initial');
+v.tabs[1].select(); save('02-orders-checks');
+v = c.renderVals(); v.tabs[2].select(); v = c.renderVals(); v.flow.runAll(); timers.advance(1300); save('03-flow-running'); timers.flush(); save('04-flow-done');
+v = c.renderVals(); v.flow.stages[2].open(); save('05-stage-request');
+v = c.renderVals(); v.req.subtabs[4].pick(); v = c.renderVals(); v.resp.tabs[2].pick(); save('06-vars-timing');
+v = c.renderVals(); v.openImport(); v = c.renderVals(); v.imp.next(); save('07-import-filter');
+v = c.renderVals(); v.imp.next(); save('08-import-map');
+v = c.renderVals(); v.imp.next(); save('09-import-secrets');
+v = c.renderVals(); v.imp.next(); save('10-import-flow');
+v = c.renderVals(); v.imp.next(); save('11-import-review');
+v = c.renderVals(); v.imp.apply(); timers.flush();
+v = c.renderVals(); v.tabs[1].select(); v = c.renderVals(); v.resp.saveTest(); v = c.renderVals(); v.dlg.st.setName(ev('Places an order with tax')); v = c.renderVals(); v.dlg.st.create(); save('12-savetest-done');
+v = c.renderVals(); v.dlg.close(); v = c.renderVals(); v.req.setUrl(ev('${var.ordersUrl}/api/v1/orders?source=web')); v = c.renderVals(); v.req.openSaveApi(); save('13-saveapi');
+v = c.renderVals(); v.dlg.close(); v = c.renderVals(); v.tabs[2].select(); v = c.renderVals(); v.cur.toFlow(); v = c.renderVals(); v.flow.openLifecycle(); save('14-lifecycle');
+v = c.renderVals(); v.dlg.close(); v = c.renderVals(); v.flow.togglePicker(); save('15-picker');
+console.log('ok');

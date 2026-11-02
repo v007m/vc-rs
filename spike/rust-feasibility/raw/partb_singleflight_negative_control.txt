@@ -1,0 +1,5 @@
+mock stats: {"GET /sessions/:id": 50, "GET /items/:id": 1, "POST /items": 1, "POST /slow/sessions": 50, "POST /uploads": 1}
+thread 'fifty_tests_sharing_a_file_setup_make_exactly_one_setup_request' (27238) panicked at crates/cli/tests/mock_server.rs:55:5:
+  left: Some(50)
+ right: Some(1)
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s

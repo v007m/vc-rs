@@ -1,0 +1,103 @@
+syntaxVersion: 2
+project: shop
+
+defaults:
+  timeout: 10s
+  concurrency: 32
+  perHost: 16
+  retry:
+    attempts: 2
+    delay: 500ms
+  headers:
+    accept: application/json
+
+vars:
+  usersUrl: http://localhost:8080
+  ordersUrl: http://localhost:8081
+  catalogUrl: http://localhost:8082
+  cartsUrl: http://localhost:8083
+  paymentsUrl: http://localhost:8084
+  geoUrl: http://localhost:8085
+  identityUrl: http://localhost:8090
+
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+    vars:
+      usersUrl: https://users.staging.shop.example
+      ordersUrl: https://orders.staging.shop.example
+      catalogUrl: https://catalog.staging.shop.example
+      cartsUrl: https://carts.staging.shop.example
+      identityUrl: https://id.staging.shop.example
+  - id: prod
+    vars:
+      usersUrl: https://users.shop.example
+      ordersUrl: https://orders.shop.example
+      catalogUrl: https://catalog.shop.example
+      cartsUrl: https://carts.shop.example
+      identityUrl: https://id.shop.example
+
+auth:
+  - id: shopOauth
+    type: oauth2ClientCredentials
+    tokenUrl: ${var.identityUrl}/oauth/token
+    clientId: ${secret.SHOP_CLIENT_ID}
+    clientSecret: ${secret.SHOP_CLIENT_SECRET}
+    scopes: [users.read, users.write, orders.write]
+  - id: partnerLogin
+    name: Partner portal login, then token exchange
+    type: flow
+    cache: true
+    vars:
+      username: ${secret.PARTNER_USER}
+      password: ${secret.PARTNER_PASSWORD}
+    steps:
+      - id: login
+        method: POST
+        url: ${var.identityUrl}/login
+        body:
+          username: ${var.username}
+          password: ${var.password}
+        expect:
+          status: 200
+        save:
+          sessionId: ${response.body.session.id}
+      - id: token
+        method: POST
+        url: ${var.identityUrl}/token
+        headers:
+          content-type: application/x-www-form-urlencoded
+        body:
+          grant_type: session
+          session_id: ${var.sessionId}
+        save:
+          accessToken: ${response.body.access_token}
+          expiresIn: ${response.body.expires_in | int}
+    apply:
+      headers:
+        authorization: Bearer ${var.accessToken}
+    expiresIn: ${var.expiresIn}s
+
+secrets:
+  provider: varlock
+  schema: .env.schema
+
+reports:
+  dir: .vibranium/reports
+  formats: [ctrf, junit, html]
+
+beforeRun:
+  - id: admin  # created only if a test reads ${var.admin.*}
+    call: users.create
+    vars:
+      role: admin
+    cache:
+      for: 12h
+      check:
+        call: users.get
+        vars:
+          userId: ${var.admin.userId}
+
+afterRun:
+  - function: hooks/notify.ts#postSummary

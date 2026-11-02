@@ -1,0 +1,9 @@
+[package]
+name = "hook-qjs"
+edition.workspace = true
+version.workspace = true
+[dependencies]
+tsstrip = { path = "../tsstrip" }
+hookbench = { path = "../hookbench" }
+rquickjs = "0.14"
+serde_json = "1"

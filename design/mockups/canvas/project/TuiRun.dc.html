@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium TUI · live run</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.pane{border:1px solid #2C313C;border-radius:4px;position:relative;padding:14px 12px 10px;box-sizing:border-box;min-width:0;overflow:visible}
+.ptitle{position:absolute;top:-9px;left:10px;background:#0F1115;padding:0 6px;color:#A99BFF;font-weight:700}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.sel{background:#252A36}
+.key{display:inline-block;background:#2C313C;color:#D7DAE0;padding:0 5px;border-radius:3px;margin-right:4px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; background: #0F1115; color: #D7DAE0; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+
+  <div class="ln" style="display: flex; justify-content: space-between"><span><span class="vio b">◆ vibranium</span>  shop  <span class="dim">profile</span> staging  <span class="dim">run</span> #483  <span class="dim">selector</span> --tag smoke,regression</span><span><span class="sel" style="padding: 0 8px">1 Run</span>  <span class="dim">2 Explore</span>  <span class="dim">3 History</span>  <span class="dim">4 Load</span></span></div>
+
+  <div class="ln" style="display: flex; gap: 14px; align-items: center"><span class="b">running</span><span style="flex: 1; height: 10px; background: #1C2029; border-radius: 2px; overflow: hidden; display: flex"><span style="width: 72%; background: #4FC27A"></span><span style="width: 1.4%; background: #F06A5D"></span><span style="width: 1%; background: #E5A13A"></span><span style="width: 1%; background: #6AA2F5"></span></span><span>312/412</span><span class="ok">✓ 297</span><span class="bad">✕ 6</span><span class="warn">⊘ 4</span><span class="info">↻ 2</span><span class="dim">– 3</span><span>00:31</span><span class="dim">74 req/s</span></div>
+
+  <div style="flex: 1; display: grid; grid-template-columns: 470px minmax(0, 1fr); gap: 14px; min-height: 0">
+
+    <div class="pane">
+      <span class="ptitle">Tests · 38 files</span>
+      <div class="ln dim">filter: <span style="color: #D7DAE0">all</span>   sort: file</div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim">▾</span> <span class="b">orders.checkout</span>              <span class="bad">4✕</span> <span class="ok">5✓</span></div>
+      <div class="ln sel">  <span class="bad">✕</span> placesOrder                    <span class="dim">6.4s</span></div>
+      <div class="ln">  <span class="ok">✓</span> rejectsDeclinedCard            <span class="dim">0.4s</span></div>
+      <div class="ln">  <span class="bad">✕</span> cancelsPaidOrder               <span class="dim">2.1s</span></div>
+      <div class="ln">  <span class="bad">✕</span> placesGuestOrder               <span class="dim">3.0s</span></div>
+      <div class="ln">  <span class="bad">✕</span> appliesCoupon                  <span class="dim">2.7s</span></div>
+      <div class="ln"><span class="dim">▾</span> <span class="b">users.crud</span>                   <span class="vio">⠹</span> <span class="ok">7✓</span></div>
+      <div class="ln">  <span class="ok">✓</span> getsCreatedUser ×5             <span class="dim">0.9s</span></div>
+      <div class="ln">  <span class="ok">✓</span> rejectsBadEmail [2 rows]       <span class="dim">0.3s</span></div>
+      <div class="ln">  <span class="vio">⠹</span> exportFinishes   <span class="dim">polling 14/60</span>  <span class="dim">28s</span></div>
+      <div class="ln">  <span class="ok">✓</span> adminSeesAllUsers              <span class="dim">2.2s</span></div>
+      <div class="ln"><span class="dim">▾</span> <span class="b">catalog.admin</span>                <span class="warn">3⊘</span></div>
+      <div class="ln">  <span class="warn">⊘</span> publishesProduct  <span class="dim">blocked by beforeRun</span></div>
+      <div class="ln">  <span class="warn">⊘</span> archivesProduct   <span class="dim">blocked by beforeRun</span></div>
+      <div class="ln">  <span class="warn">⊘</span> bulkPriceUpdate   <span class="dim">blocked by beforeRun</span></div>
+      <div class="ln"><span class="dim">▸</span> <span class="b">catalog.search</span>               <span class="info">1↻</span> <span class="ok">46✓</span></div>
+      <div class="ln"><span class="dim">▸</span> <span class="b">catalog.browse</span>               <span class="warn">1⊘</span> <span class="ok">22✓</span></div>
+      <div class="ln dim">  … 33 more files</div>
+    </div>
+
+    <div style="display: grid; grid-template-rows: auto minmax(0, 1fr) 168px; gap: 14px; min-height: 0">
+
+      <div class="pane">
+        <span class="ptitle">Lifecycle</span>
+        <div class="ln"><span class="ok">✓</span> admin            <span class="dim">beforeRun </span>  ran once           <span class="dim">used by 64</span></div>
+        <div class="ln"><span class="ok">✓</span> users.create     <span class="dim">before    </span>  5 of 5 ran         <span class="dim">getsCreatedUser</span></div>
+        <div class="ln"><span class="vio">⠹</span> orders.checkout  <span class="dim">beforeEach</span>  6 of 9 ran         <span class="dim">3 calls each</span></div>
+        <div class="ln"><span class="warn">✕</span> catalog          <span class="dim">beforeRun </span>  <span class="warn">503 after 3 tries</span>  <span class="warn">blocks 4</span></div>
+      </div>
+
+      <div class="pane">
+        <span class="ptitle">orders.checkout.placesOrder · failed</span>
+        <div class="ln dim">services/orders/checkout.test.yaml:8 · A cart with two items becomes a paid order</div>
+        <div class="ln"> </div>
+        <div class="ln"><span class="dim">beforeEach</span>  users.create 161ms → carts.create 117ms → carts.addItem ×2 132ms</div>
+        <div class="ln"><span class="dim">step      </span>  place          POST /orders            <span class="ok">201</span>  312ms</div>
+        <div class="ln"><span class="dim">step      </span>  fetch          GET  /orders/ord_8Kq2Tz <span class="ok">200</span>  poll ×6 until paid · 5.6s</div>
+        <div class="ln"> </div>
+        <div class="ln"><span class="ok">✓</span> status: 200                                         <span class="dim">:23</span></div>
+        <div class="ln"><span class="ok">✓</span> body.schema schemas/order.json                      <span class="dim">:25</span></div>
+        <div class="ln"><span class="ok">✓</span> items: { length: 2 }                                <span class="dim">:28</span></div>
+        <div class="ln"><span class="ok">✓</span> items[*].quantity: { every: { gte: 1 } }            <span class="dim">:30</span></div>
+        <div class="ln"><span class="bad">✕ total: ${var.orderTotal}</span>                              <span class="dim">:33</span></div>
+        <div class="ln">    expected <span class="ok">59.98</span>   actual <span class="bad">64.78</span>   <span class="dim">response added "tax": 4.80</span></div>
+        <div class="ln"><span class="bad">✕ cel · total equals sum of lines</span>                    <span class="dim">:35</span></div>
+        <div class="ln">    body.total == sum(price × quantity)  →  64.78 == 59.98</div>
+        <div class="ln"><span class="ok">✓</span> custom check currencyIsConsistent                   <span class="dim">:37</span></div>
+      </div>
+
+      <div class="pane">
+        <span class="ptitle">Requests · live</span>
+        <div class="ln"><span class="dim">14:02:41</span>  GET    /api/v1/users/u_93kd           <span class="ok">200</span>    41ms  <span class="dim">getsCreatedUser #4</span></div>
+        <div class="ln"><span class="dim">14:02:41</span>  POST   /api/v1/carts                  <span class="ok">201</span>   117ms  <span class="dim">beforeEach carts.create</span></div>
+        <div class="ln"><span class="dim">14:02:41</span>  GET    /api/v1/exports/exp_2201       <span class="ok">200</span>    38ms  <span class="dim">exportFinishes poll 14</span></div>
+        <div class="ln"><span class="dim">14:02:42</span>  POST   /api/v1/orders                 <span class="ok">201</span>   288ms  <span class="dim">placesGuestOrder</span></div>
+        <div class="ln"><span class="dim">14:02:42</span>  GET    /api/v1/search?q=lamp~         <span class="bad">500</span>   902ms  <span class="dim">fuzzyQueries retry 1/2</span></div>
+        <div class="ln"><span class="dim">14:02:42</span>  GET    /api/v1/search?q=lamp~         <span class="ok">200</span>   311ms  <span class="dim">fuzzyQueries retry 2/2</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ln dim"><span class="key">↑↓</span>move <span class="key">enter</span>open <span class="key">/</span>search <span class="key">f</span>filter <span class="key">r</span>rerun selected <span class="key">R</span>rerun failed <span class="key">e</span>edit <span class="key">o</span>open in $EDITOR <span class="key">c</span>copy curl <span class="key">p</span>pause <span class="key">?</span>help <span class="key">q</span>quit</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

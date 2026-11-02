@@ -1,0 +1,871 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>/* Vibranium web look: gradient + grain ground, flat chrome, one elevated content panel. */
+:root{
+  --bg1:#E4DEFA; --bg2:#EFE4F3; --bg3:#F9E5D8;
+  --ink:#1B1830; --ink2:#4F4B66; --ink3:#67637D;
+  --line:#ECE9F2; --line2:#DEDAE8; --hover:rgba(255,255,255,.55); --on:rgba(255,255,255,.82);
+  --panel:#FFFFFF; --panel2:#F8F7FB; --panel3:#F2F0F7;
+  --accent:#5440D6; --accentInk:#3B2BA8; --accentSoft:#EEEBFD;
+  --pass:#1A7148; --passSoft:#E3F2E9;
+  --fail:#B3261E; --failSoft:#FCE8E6;
+  --block:#8A5200; --blockSoft:#FBEED7;
+  --skip:#4F4B66; --skipSoft:#EEEDF3;
+  --flaky:#2459B8; --flakySoft:#E5EDFB;
+  --radius:14px; --shadow:0 1px 2px rgba(27,24,48,.06),0 12px 32px rgba(27,24,48,.11);
+  --font:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'Geist Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg1);-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:var(--accentInk)} a:hover{color:var(--accent)}
+
+/* ground */
+.app{min-height:100vh;display:flex;flex-direction:column;position:relative;isolation:isolate;
+  background:linear-gradient(140deg,var(--bg1) 0%,var(--bg2) 50%,var(--bg3) 100%);font-size:13.5px}
+.app::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background-image:url(file:///tmp/claude-0/-home-claude/80b4900a-8223-5c77-874b-c1dda2eeca25/scratchpad/vibmock/assets/noise.png);background-size:256px 256px;opacity:.55;mix-blend-mode:multiply}
+
+/* flat chrome */
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px 8px;min-height:52px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none}
+.crumbs{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;flex-wrap:wrap}
+.crumbs b{color:var(--ink);font-weight:600}
+.grow{flex:1 1 auto}
+.search{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:9px;background:var(--hover);border:1px solid transparent;min-width:220px;flex:0 1 420px;color:var(--ink2)}
+.search input{border:0;background:transparent;outline:none;font:inherit;color:var(--ink);flex:1;min-width:0}
+.search:focus-within{background:var(--on);border-color:var(--line2)}
+.frame{flex:1 1 auto;display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 10px;min-height:0;align-items:stretch}
+.side{flex:0 1 232px;min-width:200px;display:flex;flex-direction:column;gap:2px;padding:4px 4px 12px}
+.navlabel{font-size:11.5px;font-weight:600;color:var(--ink2);padding:14px 10px 6px;letter-spacing:.02em}
+.navitem{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:13.5px;border:0;background:transparent;font-family:inherit;cursor:pointer;text-align:left;width:100%}
+.navitem:hover{background:var(--hover);color:var(--ink)}
+.navitem.on{background:var(--on);box-shadow:0 1px 1px rgba(27,24,48,.05);font-weight:500}
+.navitem .count{margin-left:auto;font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.navitem svg{flex:none}
+
+/* the one elevated surface */
+.panel{flex:999 1 620px;min-width:0;background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}
+.panel-body{padding:20px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.section{display:flex;flex-direction:column;gap:10px;min-width:0}
+.section + .section{border-top:1px solid var(--line);padding-top:20px}
+.h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
+.h2{margin:0;font-size:15px;font-weight:600}
+.h3{margin:0;font-size:13px;font-weight:600;color:var(--ink2)}
+.muted{color:var(--ink2)} .subtle{color:var(--ink3)}
+.split{display:flex;flex-wrap:wrap;min-width:0}
+.split > .pane{min-width:0;display:flex;flex-direction:column}
+.vr{border-left:1px solid var(--line)}
+.well{background:var(--panel2);border-radius:10px;padding:12px 14px}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 13px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);font:500 13px var(--font);cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--panel2)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.primary:hover{background:#2D2945}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--panel3)}
+.app > .topbar .btn.ghost:hover, .side .btn.ghost:hover{background:var(--hover)}
+.btn.sm{height:28px;padding:0 10px;font-size:12.5px;border-radius:7px}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.iconbtn:hover{background:var(--panel3);color:var(--ink)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 12px;overflow-x:auto}
+.tab{height:38px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;font:500 13px var(--font);color:var(--ink2);cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.seg{display:inline-flex;padding:2px;border-radius:9px;background:var(--panel3);gap:2px}
+.seg button{height:28px;padding:0 11px;border:0;border-radius:7px;background:transparent;font:500 12.5px var(--font);color:var(--ink2);cursor:pointer}
+.seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(27,24,48,.10)}
+.field{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--ink2);min-width:0}
+.input,.select,.textarea{height:34px;border:1px solid var(--line2);border-radius:8px;padding:0 10px;font:13px var(--font);color:var(--ink);background:var(--panel);min-width:0;width:100%}
+.input.mono,.textarea.mono{font-family:var(--mono);font-size:12.5px}
+.textarea{height:auto;padding:8px 10px;line-height:1.55;resize:vertical}
+.input:focus,.select:focus,.textarea:focus{outline:2px solid var(--accentSoft);border-color:var(--accent)}
+.input.err{border-color:var(--fail);background:#FFFBFA}
+.help{font-size:12px;font-weight:400;color:var(--ink2)}
+.help.err{color:var(--fail)}
+
+/* data */
+.mono{font-family:var(--mono);font-size:12.5px}
+.kbd{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:5px;background:var(--panel3);border:1px solid var(--line2);font:500 11.5px var(--mono);color:var(--ink2)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-weight:500;font-size:12px;color:var(--ink2);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr.sel td{background:var(--accentSoft)}
+.tbl tbody tr:hover td{background:var(--panel2)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.scrollx{overflow-x:auto;min-width:0}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--panel3);color:var(--ink2)}
+.pill.pass{background:var(--passSoft);color:var(--pass)} .pill.fail{background:var(--failSoft);color:var(--fail)}
+.pill.block{background:var(--blockSoft);color:var(--block)} .pill.skip{background:var(--skipSoft);color:var(--skip)}
+.pill.flaky{background:var(--flakySoft);color:var(--flaky)} .pill.accent{background:var(--accentSoft);color:var(--accentInk)}
+.method{display:inline-flex;justify-content:center;min-width:52px;height:20px;align-items:center;border-radius:5px;font:600 11px var(--mono)}
+.m-get{background:#E3F2E9;color:#1A7148} .m-post{background:#E5EDFB;color:#1F4FA8} .m-put{background:#FBEED7;color:#8A5200} .m-patch{background:#F3E8FB;color:#6B2EA3} .m-delete{background:#FCE8E6;color:#B3261E}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot.pass{background:var(--pass)} .dot.fail{background:var(--fail)} .dot.block{background:var(--block)} .dot.skip{background:#9A96AD} .dot.flaky{background:var(--flaky)}
+
+/* code and YAML (light, inside the panel) */
+.code{font:12.5px/1.65 var(--mono);background:var(--panel2);border-radius:10px;padding:12px 0;overflow:auto;margin:0;color:var(--ink)}
+.code .ln{display:flex;white-space:pre;padding:0 14px 0 0}
+.code .ln .no{width:44px;flex:none;text-align:right;padding-right:14px;color:#8E8AA3;user-select:none}
+.code .ln.hl{background:#FFF6E0}
+.code .ln.err{background:var(--failSoft)}
+.y-key{color:#1F4FA8} .y-str{color:#2E6B33} .y-num{color:#A3470E} .y-tpl{color:#6B2EA3;background:#F3EEFD;border-radius:3px} .y-com{color:#7A7690;font-style:italic} .y-punc{color:#7A7690}
+.squig{text-decoration:underline wavy var(--fail);text-underline-offset:3px}
+.diag{display:flex;gap:10px;padding:10px 12px;border-radius:9px;font-size:13px;align-items:flex-start}
+.diag.error{background:var(--failSoft)} .diag.warn{background:var(--blockSoft)} .diag.info{background:var(--flakySoft)}
+.popover{background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:0 8px 28px rgba(27,24,48,.16);padding:4px;min-width:260px}
+.popover .opt{display:flex;gap:10px;align-items:center;padding:6px 10px;border-radius:7px;font-size:12.5px;cursor:pointer;border:0;background:transparent;width:100%;text-align:left;font-family:inherit;color:var(--ink)}
+.popover .opt.on,.popover .opt:hover{background:var(--accentSoft)}
+.scrim{position:fixed;inset:0;background:rgba(27,24,48,.28);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.modal{background:var(--panel);border-radius:16px;box-shadow:0 24px 64px rgba(27,24,48,.28);width:min(880px,100%);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column}
+
+/* phone */
+@media (max-width: 860px){
+  .side{flex:1 1 100%;flex-direction:row;overflow-x:auto;min-width:0;padding:0 2px 6px}
+  .side .navlabel{display:none}
+  .side .navitem{width:auto;flex:none}
+  .panel-body{padding:14px}
+  .search{flex:1 1 100%}
+  .vr{border-left:0;border-top:1px solid var(--line)}
+}
+
+/* ---- v2 additions: collapsible sidebar, fluid forms, no clipping ---- */
+.panel{container-type:inline-size}
+.side{transition:flex-basis .18s ease,min-width .18s ease}
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:2px 2px 4px}
+.side .navitem .label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side .ctx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.app.side-collapsed .side{flex:0 0 56px;min-width:56px;padding:4px 4px 12px}
+.app.side-collapsed .side .navitem{justify-content:center;padding:0;width:44px;height:36px;margin:0 auto}
+.app.side-collapsed .side .navitem .label,.app.side-collapsed .side .navitem .count,
+.app.side-collapsed .side .navlabel,.app.side-collapsed .side .ctx{display:none}
+.app.side-collapsed .side .side-head{justify-content:center}
+.project{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);min-width:0}
+.project b{color:var(--ink);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;background:var(--hover);font:500 12px var(--mono);color:var(--ink2);white-space:nowrap}
+/* layout helpers that use the full width */
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px 16px;align-items:start}
+.formgrid .span-all{grid-column:1/-1}
+.formgrid .field>.input,.formgrid .field>.select,.formgrid .field>.textarea{width:100%}
+.cluster{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
+.cluster>.grow{flex:1 1 220px;min-width:0}
+.panes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));min-width:0}
+.panes>*{min-width:0}
+.ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.wrap{overflow-wrap:anywhere;min-width:0}
+.btn,.pill,.tab,.seg button{max-width:100%}
+.btn .label{overflow:hidden;text-overflow:ellipsis}
+.tbl td{overflow-wrap:anywhere}
+.tbl td.nowrap,.tbl th{white-space:nowrap}
+@container (max-width: 760px){
+  .panes{grid-template-columns:1fr}
+  .vr{border-left:0;border-top:1px solid var(--line)}
+  .panel-head{padding:12px 14px}
+}
+@media (max-width: 860px){
+  .app.side-collapsed .side{flex:1 1 100%;min-width:0}
+  .app.side-collapsed .side .navitem .label{display:inline}
+  .side-head{display:none}
+}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+html{scroll-behavior:smooth}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.small{font-size:12px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.panel{position:relative}
+.panel .sr{left:0;top:0}
+code{font:500 12px var(--mono);background:var(--panel3);padding:1px 5px;border-radius:5px;color:var(--ink)}
+.tchip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 9px;border-radius:7px;background:var(--hover);font-size:12.5px;color:var(--ink);white-space:nowrap}
+.tchip.mono{font-size:12px}
+.topbar .btn{background:var(--on);border-color:transparent}
+.topbar .btn:hover{background:#fff}
+.topbar .btn.primary{background:var(--ink);color:#fff}
+.sec{scroll-margin-top:12px}
+.sh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sh .grow{flex:1 1 auto}
+.verdict{margin:0;font-size:26px;line-height:1.25;font-weight:600;letter-spacing:-.015em;text-wrap:pretty;max-width:980px}
+.lede{margin:0;font-size:14.5px;line-height:1.55;max-width:980px;text-wrap:pretty}
+.th{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.th > div{padding:14px 16px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.th > div:first-child{border-left:0;padding-left:0}
+.th > div.breach{background:var(--failSoft);border-left-color:transparent;padding-left:16px}
+.th .big{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.th .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.ok{color:var(--pass);font-weight:600;font-size:12.5px} .bad{color:var(--fail);font-weight:600;font-size:12.5px}
+.d-bad{color:var(--fail)}
+.chart{display:block;width:100%;height:auto}
+.chartbox{overflow-x:auto;min-width:0}
+.legend{display:flex;gap:6px;flex-wrap:wrap}
+.lgb{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);font:500 12.5px var(--font);color:var(--ink);cursor:pointer}
+.lgb:hover{background:var(--panel2)}
+.lgb.off{color:var(--ink3);background:var(--panel2);border-style:dashed}
+.lgb .sw{width:14px;height:3px;border-radius:2px;display:inline-block}
+.lgb .sw.dash{height:0;border-top:2px dashed}
+.lgb.static{cursor:default}
+.lgb.static:hover{background:var(--panel)}
+.gt{display:flex;flex-direction:column;font-size:13px}
+.gt .hd,.gt .tr{display:grid;align-items:center;column-gap:14px;padding:0 12px;border-bottom:1px solid var(--line)}
+.gt .hd{font-size:12px;font-weight:500;color:var(--ink2);min-height:34px}
+.gt .tr{min-height:42px;padding-top:7px;padding-bottom:7px}
+.gt .tr:hover{background:var(--panel2)}
+.gt .tr.sel{background:var(--accentSoft)}
+.gt .tr.breach{background:var(--failSoft)}
+.gt .num{text-align:right;font-variant-numeric:tabular-nums}
+.cellname{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cellname .mono{overflow-wrap:anywhere}
+.t-stage{min-width:900px}
+.t-stage .hd,.t-stage .tr{grid-template-columns:minmax(150px,1.2fr) minmax(120px,1fr) 100px 100px 96px 90px 84px 92px}
+.t-test{min-width:1000px}
+.t-test .hd,.t-test .tr{grid-template-columns:minmax(240px,2fr) 60px 90px 84px 70px 80px 80px 70px minmax(200px,1.1fr)}
+.t-api{min-width:1120px}
+.t-api .hd,.t-api .tr{grid-template-columns:minmax(140px,1fr) minmax(240px,1.6fr) 110px 80px 70px 64px 66px 66px 72px 112px}
+.t-err{min-width:760px}
+.t-err .hd,.t-err .tr{grid-template-columns:minmax(190px,1.2fr) 70px 64px minmax(200px,1.5fr) minmax(200px,1.4fr)}
+.t-life{min-width:860px}
+.t-life .hd,.t-life .tr{grid-template-columns:minmax(230px,1.6fr) minmax(130px,.9fr) minmax(160px,1fr) 110px minmax(160px,1fr)}
+.stagebtn{border:0;background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer;padding:0;display:flex;align-items:center;gap:8px}
+.stagebtn .box{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--line2);display:inline-flex;align-items:center;justify-content:center}
+.stagebtn .box.on{background:var(--accent);border-color:var(--accent)}
+.lanes{display:flex;flex-direction:column;gap:0;min-width:820px}
+.lane{display:grid;grid-template-columns:260px minmax(0,1fr) 200px;gap:16px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+.lane-axis{display:grid;grid-template-columns:260px minmax(0,1fr) 200px;gap:16px;font-size:11.5px;color:var(--ink2);padding-bottom:4px}
+.ltrack{position:relative;height:14px;background:var(--passSoft);border-radius:4px}
+.ltrack .seg{position:absolute;top:0;height:14px;border-radius:4px;background:var(--fail)}
+.ltrack .tick{position:absolute;top:-3px;width:2px;height:20px;background:var(--ink)}
+.ltrack.idle{background:var(--panel3)}
+.axis{position:relative;height:14px}
+.axis span{position:absolute;transform:translateX(-50%);font-variant-numeric:tabular-nums}
+.split2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr));gap:20px 32px}
+.pane{display:flex;flex-direction:column;gap:8px;min-width:0}
+.kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 18px;font-size:13px;margin:0}
+.kv dt{color:var(--ink2)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr));gap:12px 20px}
+.facts .v{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.code{max-height:none}
+.code .ln{min-height:20px}
+.cmd{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:10px;padding:8px 8px 8px 14px}
+.cmd code{background:transparent;padding:0;font-size:12.5px;flex:1;min-width:0;overflow-wrap:anywhere}
+.navcheck{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--ink)}
+.navcheck:hover{background:var(--hover)}
+.navcheck input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink2)}
+.navrow{display:flex;flex-direction:column;gap:2px}
+.side-head .navlabel{padding:0 8px}
+.ctx .seg{flex-wrap:wrap}
+.runid,.acts{gap:6px}
+.narrow-only{display:none}
+.morewrap{position:relative}
+.morewrap .popover{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px}
+.morewrap .popover a.opt{text-decoration:none}
+.gt .tr > *{min-width:0;overflow-wrap:anywhere}
+.errbtn{border:0;background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer;padding:0;display:flex;align-items:center;gap:8px;min-width:0}
+.errbtn svg.chev{transition:transform .15s;flex:none;color:var(--ink2)}
+.errbtn.open svg.chev{transform:rotate(90deg)}
+.xp{padding:12px 16px 14px 40px;background:var(--panel2);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.samp{display:grid;grid-template-columns:90px minmax(130px,.8fr) 64px 80px minmax(0,2fr);gap:4px 14px;font-size:12.5px;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--line)}
+.samp:last-child{border-bottom:0}
+.samp > *{min-width:0;overflow-wrap:anywhere}
+.loadline{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-size:13px;color:var(--ink2);padding:4px 0}
+.loadline .mono{overflow-wrap:anywhere;min-width:0}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.about{font-size:12.5px;color:var(--ink2);line-height:1.55;padding:10px 12px;background:var(--panel2);border-radius:9px}
+@container (max-width: 760px){
+  .verdict{font-size:22px}
+  .lanes{min-width:0}
+  .lane-axis{display:none}
+  .lane{grid-template-columns:minmax(0,1fr);row-gap:6px}
+  .samp{grid-template-columns:auto auto minmax(0,1fr)}
+  .samp .sm-body{grid-column:1 / -1}
+  .xp{padding-left:16px}
+}
+@container (max-width: 640px){
+  .chart{min-width:620px}
+  .split2 .chart{min-width:440px}
+  .th > div{border-left:0;padding-left:0}
+  .th > div.breach{padding-left:12px}
+}
+@media (max-width: 860px){
+  .app .side{flex-direction:column;overflow:visible;padding-bottom:4px}
+  .app .side .navrow{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .ctx{display:none}
+  .app.side-collapsed .side .navitem{width:auto;padding:0 10px;margin:0;height:32px}
+}
+@media (max-width: 760px){
+  .wide-only{display:none}
+  .narrow-only{display:inline-flex}
+}
+</style>
+</head><body>
+
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="#summary"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"></path><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Vibranium</a>
+    <nav class="crumbs" aria-label="Run">
+      <span>shop</span><span aria-hidden="true">/</span><b>Load run #57</b><span aria-hidden="true">/</span><span class="mono">checkout.peak</span>
+    </nav>
+    <div class="cluster runid">
+      <span class="pill fail"><span class="dot fail"></span>Breached</span>
+      <span class="tchip">profile staging</span>
+      <span class="tchip mono">main@a1c9e4f</span>
+      <span class="tchip">23 Oct 2026 15:10</span>
+      <span class="tchip">7 min</span>
+    </div>
+    <span class="grow"></span>
+    <div class="cluster acts">
+      <a class="btn" href="WebRun.dc.html">Open in web UI</a>
+      <a class="btn wide-only" href="ctrf.json" download="load-57.ctrf.json">Download CTRF</a>
+      <div class="morewrap narrow-only">
+        <button class="btn" type="button" aria-expanded="false" aria-haspopup="true">More<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"></path></svg></button>
+        
+      </div>
+      <button class="btn primary" type="button"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="9" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"></rect><path d="M3 11V3.6A1.6 1.6 0 0 1 4.6 2H10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>Copy rerun command</button>
+    </div>
+  </header>
+
+  <div class="frame">
+    <div class="side">
+      <div class="side-head">
+        <span class="navlabel">On this page</span>
+        <button class="iconbtn" type="button" aria-label="Collapse sidebar" title="Collapse sidebar" aria-expanded="true">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"></rect><path d="M6 3v10M10.5 6.5 9 8l1.5 1.5"></path></svg>
+          
+        </button>
+      </div>
+      <nav class="navrow" aria-label="Report sections">
+      
+        <a class="navitem on" href="#summary" title="Summary"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5 8 3l5.5 5.5M4 7.5V13h8V7.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Summary</span><span class="count"></span></a>
+      
+        <a class="navitem " href="#users" title="Users and throughput"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 12.5 6 8l3 2.5L14 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Users and throughput</span><span class="count"></span></a>
+      
+        <a class="navitem " href="#latency" title="Latency"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13V3M2 13h12M5 10l3-3 2 2 3-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Latency</span><span class="count"></span></a>
+      
+        <a class="navitem " href="#stages" title="Stages"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13h4V9h4V5h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Stages</span><span class="count">3</span></a>
+      
+        <a class="navitem " href="#bytest" title="By test"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4h7.5M6 8h7.5M6 12h7.5M2.5 4h.5M2.5 8h.5M2.5 12h.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">By test</span><span class="count">3</span></a>
+      
+        <a class="navitem " href="#byapi" title="By api"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">By api</span><span class="count">9</span></a>
+      
+        <a class="navitem " href="#errors" title="Errors"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5 14 13H2zM8 6.5v3M8 11.2v.3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Errors</span><span class="count">2,034</span></a>
+      
+        <a class="navitem " href="#thresholds" title="Threshold timeline"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h12M5 5v6M11 5v6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Threshold timeline</span><span class="count">1 breach</span></a>
+      
+        <a class="navitem " href="#host" title="Host resources"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v6H3zM6 12.5h4M8 9.5v3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Host resources</span><span class="count"></span></a>
+      
+        <a class="navitem " href="#lifecycle" title="Lifecycle"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Lifecycle</span><span class="count">6</span></a>
+      
+        <a class="navitem " href="#config" title="Configuration"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5 6 8l-3.5 3.5M8 12h5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Configuration</span><span class="count"></span></a>
+      
+      </nav>
+      <div class="ctx">
+        <div class="navlabel">Chart series</div>
+        
+          <label class="navcheck"><input type="checkbox" checked>Virtual users</label>
+        
+          <label class="navcheck"><input type="checkbox" checked>Requests per second</label>
+        
+          <label class="navcheck"><input type="checkbox" checked>Latency p50</label>
+        
+          <label class="navcheck"><input type="checkbox" checked>Latency p95</label>
+        
+          <label class="navcheck"><input type="checkbox" checked>Latency p99</label>
+        
+        <div class="navlabel">Errors grouped by</div>
+        <div style="padding: 0 6px"><div class="seg" role="group" aria-label="Group errors by"><button type="button" class="on" aria-pressed="true">Status code</button><button type="button" class="" aria-pressed="false">Api</button></div></div>
+      </div>
+    </div>
+
+    <main class="panel">
+      <div class="panel-body">
+
+        <section id="summary" class="section sec" aria-labelledby="h-summary">
+          <div class="row">
+            <span class="pill fail">1 of 3 thresholds breached</span>
+            <span class="pill">aborted: no · abortOn errorRate &gt; 5% not reached</span>
+            <span class="tchip mono" style="background: var(--panel3)">vc load checkout.peak --profile staging</span>
+          </div>
+          <h1 id="h-summary" class="verdict">Checkout p95 crossed 1.2 s once traffic passed about 3,400 users</h1>
+          <div class="muted">Black Friday checkout mix · 7 min · peak 5,000 virtual users · 968,412 requests · 0.21% errors · started 15:10:04, ended 15:17:04</div>
+          <p class="lede">Throughput flattened near 3,200 requests/s from minute 3 while users kept rising, so the extra users queued. <code>orders.place</code> absorbed most of the wait: its p95 reached 1,050 ms and it returned 1,012 × 503 after minute 4. The load generator stayed under 45% CPU, so the limit is on the service side.</p>
+          <div class="th" role="group" aria-label="Thresholds">
+            <div><div class="top"><span class="mono small">p99 &lt; 800 ms</span><span class="ok">met</span></div><span class="big">612 ms</span><span class="small muted">all tests, whole run · worst 10 s window 744 ms</span></div>
+            <div><div class="top"><span class="mono small">errorRate &lt; 1%</span><span class="ok">met</span></div><span class="big">0.21%</span><span class="small muted">2,034 failed requests · worst window 0.62%</span></div>
+            <div class="breach"><div class="top"><span class="mono small">placesOrder p95 &lt; 1200 ms</span><span class="bad">breached</span></div><span class="big" style="color: var(--fail)">1,340 ms</span><span class="small muted">first breached at 4 m 12 s · for 116 s</span></div>
+            <div><div class="top"><span class="small">Peak throughput</span></div><span class="big">3,240/s</span><span class="small muted">at 5 m 30 s · tool CPU 41% at peak</span></div>
+          </div>
+        </section>
+
+        <section id="users" class="section sec" aria-labelledby="h-users">
+          <div class="sh" style="align-items: center"><h2 id="h-users" class="h2">Users and throughput</h2><span class="grow"></span>
+            <div class="legend">
+              <button type="button" class="lgb " aria-pressed="true"><span class="sw dash" style="border-color: #8A8699"></span>Virtual users</button>
+              <button type="button" class="lgb " aria-pressed="true"><span class="sw" style="background: #5440D6"></span>Requests per second</button>
+            </div>
+          </div>
+          <div class="chartbox"><svg class="chart" viewBox="0 0 1050 262" role="img" aria-label="Users ramp to 500 in 1 minute and to 5,000 by minute 6, then down to 0 at minute 7. Requests per second rise to about 3,050 by minute 3, then flatten and peak at 3,240 at 5 minutes 30 seconds. placesOrder p95 breach starts at 4 minutes 12 seconds, at about 3,400 users.">
+            <rect x="0" y="20" width="0" height="200" fill="#EEEBFD" fill-opacity="0"></rect>
+            <g stroke="#ECE9F2" stroke-width="1"><line x1="60" y1="20" x2="980" y2="20"></line><line x1="60" y1="70" x2="980" y2="70"></line><line x1="60" y1="120" x2="980" y2="120"></line><line x1="60" y1="170" x2="980" y2="170"></line><line x1="60" y1="220" x2="980" y2="220" stroke="#C9C5D6"></line></g>
+            <g stroke="#DEDAE8" stroke-width="1" stroke-dasharray="2 4"><line x1="191.4" y1="20" x2="191.4" y2="220"></line><line x1="848.6" y1="20" x2="848.6" y2="220"></line></g>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#67637D">
+              <text x="52" y="24" text-anchor="end">5,000</text><text x="52" y="124" text-anchor="end">2,500</text><text x="52" y="224" text-anchor="end">0</text>
+              <text x="988" y="24">4,000/s</text><text x="988" y="124">2,000/s</text>
+              <text x="60" y="242" text-anchor="middle">0m</text><text x="191.4" y="242" text-anchor="middle">1m</text><text x="322.9" y="242" text-anchor="middle">2m</text><text x="454.3" y="242" text-anchor="middle">3m</text><text x="585.7" y="242" text-anchor="middle">4m</text><text x="717.1" y="242" text-anchor="middle">5m</text><text x="848.6" y="242" text-anchor="middle">6m</text><text x="980" y="242" text-anchor="middle">7m</text>
+              <text x="125.7" y="258" text-anchor="middle">stage 1</text><text x="520" y="258" text-anchor="middle">stage 2</text><text x="914.3" y="258" text-anchor="middle">stage 3</text>
+            </g>
+            <polyline display="inline" points="60,220 191.4,200 848.6,20 980,220" fill="none" stroke="#8A8699" stroke-width="2.5" stroke-dasharray="6 4"></polyline>
+            <polyline display="inline" points="60,220 125.7,194 191.4,165 257.1,125 322.9,90 388.6,75 454.3,67.5 520,64 585.7,62 651.4,60.5 717.1,59.5 782.9,58 848.6,61 914.3,135 980,220" fill="none" stroke="#5440D6" stroke-width="2.5" stroke-linejoin="round"></polyline>
+            <line x1="612" y1="20" x2="612" y2="220" stroke="#B3261E" stroke-width="1.5" stroke-dasharray="4 4"></line>
+            <text x="605" y="210" text-anchor="end" font-family="Geist, sans-serif" font-size="12" fill="#B3261E">placesOrder p95 breach · 4m12s · 3,400 users</text>
+          </svg></div>
+          <div class="small muted">Select a stage in the stage table to shade it here. Left axis: virtual users; right axis: requests per second.</div>
+        </section>
+
+        <section id="latency" class="section sec" aria-labelledby="h-lat">
+          <div class="sh" style="align-items: center"><h2 id="h-lat" class="h2">Latency, all tests</h2><span class="grow"></span>
+            <div class="legend">
+              
+                <button type="button" class="lgb " aria-pressed="true"><span class="sw" style="background: #A99BFF"></span>p50</button>
+              
+                <button type="button" class="lgb " aria-pressed="true"><span class="sw" style="background: #5440D6"></span>p95</button>
+              
+                <button type="button" class="lgb " aria-pressed="true"><span class="sw" style="background: #1B1830"></span>p99</button>
+              
+              <span class="lgb static"><span class="sw dash" style="border-color: #B3261E"></span>p99 threshold 800 ms</span>
+            </div>
+          </div>
+          <div class="chartbox"><svg class="chart" viewBox="0 0 1000 250" role="img" aria-label="p50 rises from 90 to 190 ms, p95 from 210 to 520 ms, p99 from 300 to 690 ms at peak, staying under the 800 ms threshold">
+            <g stroke="#ECE9F2" stroke-width="1"><line x1="60" y1="20" x2="980" y2="20"></line><line x1="60" y1="70" x2="980" y2="70"></line><line x1="60" y1="120" x2="980" y2="120"></line><line x1="60" y1="170" x2="980" y2="170"></line><line x1="60" y1="220" x2="980" y2="220" stroke="#C9C5D6"></line></g>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#67637D"><text x="52" y="24" text-anchor="end">1 s</text><text x="52" y="124" text-anchor="end">500 ms</text><text x="52" y="224" text-anchor="end">0</text><text x="60" y="242" text-anchor="middle">0m</text><text x="191.4" y="242" text-anchor="middle">1m</text><text x="322.9" y="242" text-anchor="middle">2m</text><text x="454.3" y="242" text-anchor="middle">3m</text><text x="585.7" y="242" text-anchor="middle">4m</text><text x="717.1" y="242" text-anchor="middle">5m</text><text x="848.6" y="242" text-anchor="middle">6m</text><text x="980" y="242" text-anchor="middle">7m</text></g>
+            <line x1="60" y1="60" x2="980" y2="60" stroke="#B3261E" stroke-width="1.5" stroke-dasharray="6 4"></line>
+            <polyline display="inline" points="60,202 191,200 323,196 454,192 586,188 717,184 849,182 900,196 980,204" fill="none" stroke="#A99BFF" stroke-width="2.5" stroke-linejoin="round"></polyline>
+            <polyline display="inline" points="60,178 191,174 323,166 454,150 586,134 717,122 849,116 900,160 980,182" fill="none" stroke="#5440D6" stroke-width="2.5" stroke-linejoin="round"></polyline>
+            <polyline display="inline" points="60,160 191,154 323,142 454,126 586,104 717,90 849,82 900,136 980,166" fill="none" stroke="#1B1830" stroke-width="2.5" stroke-linejoin="round"></polyline>
+          </svg></div>
+        </section>
+
+        <section id="stages" class="section sec" aria-labelledby="h-stages">
+          <div class="sh"><h2 id="h-stages" class="h2">Stages</h2><span class="small muted">targets from <span class="mono">stages</span> in load/checkout.load.yaml · p95 over all mix tests</span></div>
+          <div class="scrollx">
+            <div class="gt t-stage" role="table" aria-label="Stages">
+              <div class="hd" role="row"><span role="columnheader">Stage</span><span role="columnheader">Target users</span><span role="columnheader" class="num">Actual users</span><span role="columnheader" class="num">Requests</span><span role="columnheader" class="num">Avg rps</span><span role="columnheader" class="num">Peak rps</span><span role="columnheader" class="num">p95</span><span role="columnheader" class="num">Errors</span></div>
+              
+                <div class="tr " role="row">
+                  <span role="cell"><button type="button" class="stagebtn" aria-pressed="false"><span class="box " aria-hidden="true"><svg width="10" height="10" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span class="cellname"><span style="font-weight: 500">Stage 1</span><span class="small muted">0:00–1:00 · 1m</span></span></button></span>
+                  <span role="cell" class="mono small">0 → 500</span>
+                  <span role="cell" class="num">500</span>
+                  <span role="cell" class="num">31,524</span>
+                  <span role="cell" class="num">525/s</span>
+                  <span role="cell" class="num">1,100/s</span>
+                  <span role="cell" class="num">218 ms</span>
+                  <span role="cell" class="num">0 · 0.00%</span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell"><button type="button" class="stagebtn" aria-pressed="false"><span class="box " aria-hidden="true"><svg width="10" height="10" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span class="cellname"><span style="font-weight: 500">Stage 2</span><span class="small muted">1:00–6:00 · 5m</span></span></button></span>
+                  <span role="cell" class="mono small">500 → 5,000</span>
+                  <span role="cell" class="num">4,986</span>
+                  <span role="cell" class="num">839,960</span>
+                  <span role="cell" class="num">2,800/s</span>
+                  <span role="cell" class="num">3,240/s</span>
+                  <span role="cell" class="num">640 ms</span>
+                  <span role="cell" class="num">1,604 · 0.19%</span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell"><button type="button" class="stagebtn" aria-pressed="false"><span class="box " aria-hidden="true"><svg width="10" height="10" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span class="cellname"><span style="font-weight: 500">Stage 3</span><span class="small muted">6:00–7:00 · 1m</span></span></button></span>
+                  <span role="cell" class="mono small">5,000 → 0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">96,928</span>
+                  <span role="cell" class="num">1,615/s</span>
+                  <span role="cell" class="num">3,180/s</span>
+                  <span role="cell" class="num">410 ms</span>
+                  <span role="cell" class="num">430 · 0.44%</span>
+                </div>
+              
+            </div>
+          </div>
+        </section>
+
+        <section id="bytest" class="section sec" aria-labelledby="h-bytest">
+          <div class="sh"><h2 id="h-bytest" class="h2">By test</h2><span class="small muted">mix weights 6 : 3 : 1 · 48,421 placesOrder iterations</span></div>
+          <div class="scrollx">
+            <div class="gt t-test" role="table" aria-label="Results per mix test">
+              <div class="hd" role="row"><span role="columnheader">Test</span><span role="columnheader" class="num">Weight</span><span role="columnheader" class="num">Requests</span><span role="columnheader" class="num">Req/s peak</span><span role="columnheader" class="num">p50</span><span role="columnheader" class="num">p95</span><span role="columnheader" class="num">p99</span><span role="columnheader" class="num">Errors</span><span role="columnheader">Threshold</span></div>
+              <div class="tr" role="row"><span role="cell" class="mono">users.crud.getsCreatedUser</span><span role="cell" class="num">6</span><span role="cell" class="num">581,050</span><span role="cell" class="num">1,944</span><span role="cell" class="num">84 ms</span><span role="cell" class="num">290 ms</span><span role="cell" class="num">410 ms</span><span role="cell" class="num">0.04%</span><span role="cell" class="muted">none</span></div>
+              <div class="tr" role="row"><span role="cell" class="mono">catalog.browse.searchesProducts</span><span role="cell" class="num">3</span><span role="cell" class="num">290,520</span><span role="cell" class="num">972</span><span role="cell" class="num">142 ms</span><span role="cell" class="num">480 ms</span><span role="cell" class="num">655 ms</span><span role="cell" class="num">0.18%</span><span role="cell" class="muted">none</span></div>
+              <div class="tr breach" role="row"><span role="cell" class="mono">orders.checkout.placesOrder</span><span role="cell" class="num">1</span><span role="cell" class="num">96,842</span><span role="cell" class="num">324</span><span role="cell" class="num">410 ms</span><span role="cell" class="num" style="color: var(--fail); font-weight: 600">1,340 ms</span><span role="cell" class="num">1,910 ms</span><span role="cell" class="num">1.32%</span><span role="cell" style="color: var(--fail); font-weight: 500">breached · p95 &lt; 1200 ms</span></div>
+            </div>
+          </div>
+          <p class="small muted" style="margin: 0; line-height: 1.55; max-width: 1000px"><span class="mono">beforeRun</span> and <span class="mono">beforeAll</span> ran once before the first stage (<span class="mono">admin</span>, <span class="mono">catalog</span>). The file's <span class="mono">beforeEach</span> (<span class="mono">users.create → carts.create → carts.addItem ×2</span>) runs per iteration, so its 4 setup requests and 2 cleanup requests per order count toward load but are reported apart from the mix: 290,526 lifecycle requests on top of the 968,412 above.</p>
+        </section>
+
+        <section id="byapi" class="section sec" aria-labelledby="h-byapi">
+          <div class="sh" style="align-items: center"><h2 id="h-byapi" class="h2">By api</h2><span class="small muted">every request sent during the stages, mix and lifecycle</span><span class="grow"></span>
+            <div class="seg" role="group" aria-label="Sort apis by">
+              <button type="button" class="on" aria-pressed="true">Requests</button><button type="button" class="" aria-pressed="false">p95</button><button type="button" class="" aria-pressed="false">Errors</button><button type="button" class="" aria-pressed="false">Name</button>
+            </div>
+          </div>
+          <div class="scrollx">
+            <div class="gt t-api" role="table" aria-label="Latency and errors per api">
+              <div class="hd" role="row"><span role="columnheader">Api</span><span role="columnheader">Request</span><span role="columnheader">Source</span><span role="columnheader" class="num">Requests</span><span role="columnheader" class="num">Peak rps</span><span role="columnheader" class="num">p50</span><span role="columnheader" class="num">p95</span><span role="columnheader" class="num">p99</span><span role="columnheader" class="num">Max</span><span role="columnheader" class="num">Errors</span></div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.create</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/users</span></span>
+                  <span role="cell"><span class="pill ">mix + setup</span></span>
+                  <span role="cell" class="num">338,946</span>
+                  <span role="cell" class="num">1,130</span>
+                  <span role="cell" class="num">88 ms</span>
+                  <span role="cell" class="num ">300 ms</span>
+                  <span role="cell" class="num">420 ms</span>
+                  <span role="cell" class="num">1,210 ms</span>
+                  <span role="cell" class="num ">104 · 0.03%</span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.get</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/users/{userId}</span></span>
+                  <span role="cell"><span class="pill accent">mix</span></span>
+                  <span role="cell" class="num">290,525</span>
+                  <span role="cell" class="num">972</span>
+                  <span role="cell" class="num">62 ms</span>
+                  <span role="cell" class="num ">240 ms</span>
+                  <span role="cell" class="num">380 ms</span>
+                  <span role="cell" class="num">990 ms</span>
+                  <span role="cell" class="num ">128 · 0.04%</span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">catalog.search</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/products/search</span></span>
+                  <span role="cell"><span class="pill accent">mix</span></span>
+                  <span role="cell" class="num">290,520</span>
+                  <span role="cell" class="num">972</span>
+                  <span role="cell" class="num">142 ms</span>
+                  <span role="cell" class="num ">480 ms</span>
+                  <span role="cell" class="num">655 ms</span>
+                  <span role="cell" class="num">2,140 ms</span>
+                  <span role="cell" class="num ">523 · 0.18%</span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">carts.addItem</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/carts/{cartId}/items</span></span>
+                  <span role="cell"><span class="pill ">setup</span></span>
+                  <span role="cell" class="num">96,842</span>
+                  <span role="cell" class="num">324</span>
+                  <span role="cell" class="num">58 ms</span>
+                  <span role="cell" class="num ">170 ms</span>
+                  <span role="cell" class="num">240 ms</span>
+                  <span role="cell" class="num">690 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr breach" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">orders.place</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/orders</span></span>
+                  <span role="cell"><span class="pill accent">mix</span></span>
+                  <span role="cell" class="num">48,421</span>
+                  <span role="cell" class="num">162</span>
+                  <span role="cell" class="num">330 ms</span>
+                  <span role="cell" class="num d-bad">1,050 ms</span>
+                  <span role="cell" class="num">1,560 ms</span>
+                  <span role="cell" class="num">4,870 ms</span>
+                  <span role="cell" class="num d-bad">1,241 · 2.56%</span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">orders.get</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/orders/{orderId}</span></span>
+                  <span role="cell"><span class="pill accent">mix</span></span>
+                  <span role="cell" class="num">48,421</span>
+                  <span role="cell" class="num">162</span>
+                  <span role="cell" class="num">74 ms</span>
+                  <span role="cell" class="num ">300 ms</span>
+                  <span role="cell" class="num">470 ms</span>
+                  <span role="cell" class="num">1,320 ms</span>
+                  <span role="cell" class="num ">38 · 0.08%</span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">carts.create</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/carts</span></span>
+                  <span role="cell"><span class="pill ">setup</span></span>
+                  <span role="cell" class="num">48,421</span>
+                  <span role="cell" class="num">162</span>
+                  <span role="cell" class="num">60 ms</span>
+                  <span role="cell" class="num ">180 ms</span>
+                  <span role="cell" class="num">260 ms</span>
+                  <span role="cell" class="num">740 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">carts.delete</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-delete">DELETE</span><span class="mono small" style="overflow-wrap: anywhere">/carts/{cartId}</span></span>
+                  <span role="cell"><span class="pill skip">cleanup</span></span>
+                  <span role="cell" class="num">48,421</span>
+                  <span role="cell" class="num">160</span>
+                  <span role="cell" class="num">34 ms</span>
+                  <span role="cell" class="num ">110 ms</span>
+                  <span role="cell" class="num">170 ms</span>
+                  <span role="cell" class="num">520 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.delete</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-delete">DELETE</span><span class="mono small" style="overflow-wrap: anywhere">/users/{userId}</span></span>
+                  <span role="cell"><span class="pill skip">cleanup</span></span>
+                  <span role="cell" class="num">48,421</span>
+                  <span role="cell" class="num">160</span>
+                  <span role="cell" class="num">40 ms</span>
+                  <span role="cell" class="num ">130 ms</span>
+                  <span role="cell" class="num">190 ms</span>
+                  <span role="cell" class="num">880 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+            </div>
+          </div>
+          <div class="small muted">users.delete for the 290,525 users created by <span class="mono">getsCreatedUser</span> ran after the last stage (3 m 40 s at perHost 16) and is not counted above.</div>
+        </section>
+
+        <section id="errors" class="section sec" aria-labelledby="h-err">
+          <div class="sh" style="align-items: center"><h2 id="h-err" class="h2">Errors</h2><span class="small muted">2,034 failed requests · 30 s buckets · open a row to load sample requests</span><span class="grow"></span>
+            <div class="seg" role="group" aria-label="Group errors by"><button type="button" class="on" aria-pressed="true">By status code</button><button type="button" class="" aria-pressed="false">By api</button></div>
+          </div>
+          <div class="legend">
+            
+              <span class="lgb static"><span class="sw" style="height: 10px; width: 10px; border-radius: 3px; background: #B3261E"></span>503 <span class="muted">1,012</span></span>
+            
+              <span class="lgb static"><span class="sw" style="height: 10px; width: 10px; border-radius: 3px; background: #E0A030"></span>504 <span class="muted">578</span></span>
+            
+              <span class="lgb static"><span class="sw" style="height: 10px; width: 10px; border-radius: 3px; background: #7FA6E8"></span>429 <span class="muted">232</span></span>
+            
+              <span class="lgb static"><span class="sw" style="height: 10px; width: 10px; border-radius: 3px; background: #3B2BA8"></span>500 <span class="muted">212</span></span>
+            
+          </div>
+          <div class="chartbox"><svg class="chart" viewBox="0 0 1000 250" role="img" aria-label="Stacked errors per 30 second bucket by status code: none in the first minute, rising after 4 minutes to a peak of 474 between 5:30 and 6:00; 503 Service Unavailable 1012, 504 Gateway Timeout 578, 429 Too Many Requests 232, 500 Internal Server Error 212">
+            <g stroke="#ECE9F2" stroke-width="1"><line x1="60" y1="20" x2="980" y2="20"></line><line x1="60" y1="70" x2="980" y2="70"></line><line x1="60" y1="120" x2="980" y2="120"></line><line x1="60" y1="170" x2="980" y2="170"></line><line x1="60" y1="220" x2="980" y2="220" stroke="#C9C5D6"></line></g>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#67637D"><text x="52" y="24" text-anchor="end">500</text><text x="52" y="124" text-anchor="end">250</text><text x="52" y="224" text-anchor="end">0</text><text x="60" y="242" text-anchor="middle">0m</text><text x="191.4" y="242" text-anchor="middle">1m</text><text x="322.9" y="242" text-anchor="middle">2m</text><text x="454.3" y="242" text-anchor="middle">3m</text><text x="585.7" y="242" text-anchor="middle">4m</text><text x="717.1" y="242" text-anchor="middle">5m</text><text x="848.6" y="242" text-anchor="middle">6m</text><text x="980" y="242" text-anchor="middle">7m</text></g>
+            <path d="M594.7 204h48v16h-48zM660.4 164h48v56h-48zM726.1 120h48v100h-48zM791.9 100h48v120h-48zM857.6 127.2h48v92.8h-48zM923.3 200h48v20h-48z" fill="#B3261E"></path>
+            <path d="M266.1 219.2h48v0.8h-48zM331.9 217.6h48v2.4h-48zM397.6 214.4h48v5.6h-48zM463.3 208h48v12h-48zM529 200.8h48v19.2h-48zM594.7 176h48v28h-48zM660.4 125.6h48v38.4h-48zM726.1 72h48v48h-48zM791.9 56h48v44h-48zM857.6 102.4h48v24.8h-48zM923.3 192h48v8h-48z" fill="#E0A030"></path>
+            <path d="M331.9 216h48v1.6h-48zM397.6 210.4h48v4h-48zM463.3 200.8h48v7.2h-48zM529 190.4h48v10.4h-48zM594.7 163.2h48v12.8h-48zM660.4 110.4h48v15.2h-48zM726.1 56h48v16h-48zM791.9 42.4h48v13.6h-48zM857.6 93.6h48v8.8h-48zM923.3 188.8h48v3.2h-48z" fill="#7FA6E8"></path>
+            <path d="M200.4 219.2h48v0.8h-48zM266.1 217.6h48v1.6h-48zM331.9 212.8h48v3.2h-48zM397.6 205.6h48v4.8h-48zM463.3 194.4h48v6.4h-48zM529 182.4h48v8h-48zM594.7 153.6h48v9.6h-48zM660.4 99.2h48v11.2h-48zM726.1 43.2h48v12.8h-48zM791.9 30.4h48v12h-48zM857.6 84h48v9.6h-48zM923.3 184h48v4.8h-48z" fill="#3B2BA8"></path>
+            <path d="" fill="none"></path>
+            <line x1="612" y1="20" x2="612" y2="220" stroke="#B3261E" stroke-width="1.5" stroke-dasharray="4 4"></line>
+          </svg></div>
+          <div class="scrollx">
+            <div class="gt t-err" role="table" aria-label="Errors by status code">
+              <div class="hd" role="row"><span role="columnheader">Status</span><span role="columnheader" class="num">Count</span><span role="columnheader" class="num">Share</span><span role="columnheader">Apis</span><span role="columnheader">First seen · sample</span></div>
+              
+                <div class="tr" role="row">
+                  <span role="cell"><button type="button" class="errbtn open" aria-expanded="true"><svg class="chev" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="sw" style="width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; background: #B3261E"></span><span class="">503 Service Unavailable</span></button></span>
+                  <span role="cell" class="num">1,012</span>
+                  <span role="cell" class="num">49.8%</span>
+                  <span role="cell" class="small">orders.place 1,012</span>
+                  <span role="cell" class="cellname"><span class="small">first at 4m05s</span><span class="mono small muted" style="overflow-wrap: anywhere">{&quot;error&quot;:&quot;payment gateway pool exhausted&quot;}</span></span>
+                </div>
+                
+                  <div class="xp" role="row">
+                    <div class="loadline" role="cell"><span class="spin" aria-hidden="true"></span>Loading sample requests… <span class="mono small">samples/errors/503.json · 3 KB</span></div>
+                    
+                  </div>
+                
+              
+                <div class="tr" role="row">
+                  <span role="cell"><button type="button" class="errbtn " aria-expanded="false"><svg class="chev" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="sw" style="width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; background: #E0A030"></span><span class="">504 Gateway Timeout</span></button></span>
+                  <span role="cell" class="num">578</span>
+                  <span role="cell" class="num">28.4%</span>
+                  <span role="cell" class="small">catalog.search 311 · orders.place 229 · orders.get 38</span>
+                  <span role="cell" class="cellname"><span class="small">first at 1m44s</span><span class="mono small muted" style="overflow-wrap: anywhere">upstream request timeout after 5000 ms</span></span>
+                </div>
+                
+              
+                <div class="tr" role="row">
+                  <span role="cell"><button type="button" class="errbtn " aria-expanded="false"><svg class="chev" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="sw" style="width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; background: #7FA6E8"></span><span class="">429 Too Many Requests</span></button></span>
+                  <span role="cell" class="num">232</span>
+                  <span role="cell" class="num">11.4%</span>
+                  <span role="cell" class="small">users.get 128 · users.create 104</span>
+                  <span role="cell" class="cellname"><span class="small">first at 2m03s</span><span class="mono small muted" style="overflow-wrap: anywhere">{&quot;error&quot;:&quot;rate limit 1000/s per client&quot;} · retry-after: 1</span></span>
+                </div>
+                
+              
+                <div class="tr" role="row">
+                  <span role="cell"><button type="button" class="errbtn " aria-expanded="false"><svg class="chev" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="sw" style="width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; background: #3B2BA8"></span><span class="">500 Internal Server Error</span></button></span>
+                  <span role="cell" class="num">212</span>
+                  <span role="cell" class="num">10.4%</span>
+                  <span role="cell" class="small">catalog.search 212</span>
+                  <span role="cell" class="cellname"><span class="small">first at 1m12s</span><span class="mono small muted" style="overflow-wrap: anywhere">{&quot;error&quot;:&quot;search_phase_execution_exception&quot;}</span></span>
+                </div>
+                
+              
+            </div>
+          </div>
+        </section>
+
+        <section id="thresholds" class="section sec" aria-labelledby="h-thr">
+          <div class="sh"><h2 id="h-thr" class="h2">Threshold timeline</h2><span class="small muted">evaluated over rolling 10 s windows · red where breached</span></div>
+          <div class="scrollx">
+            <div class="lanes" role="list" aria-label="Threshold state over time">
+              <div class="lane-axis" aria-hidden="true"><span>Threshold</span><div class="axis"><span style="left: 0%">0m</span><span style="left: 14.29%">1m</span><span style="left: 28.57%">2m</span><span style="left: 42.86%">3m</span><span style="left: 57.14%">4m</span><span style="left: 71.43%">5m</span><span style="left: 85.71%">6m</span><span style="left: 100%">7m</span></div><span>Result</span></div>
+              <div class="lane" role="listitem"><div class="cellname"><span class="mono">p99 &lt; 800 ms</span><span class="small muted">all tests · whole run 612 ms</span></div><div class="ltrack" role="img" aria-label="Never breached"></div><span class="small"><span class="ok">met</span> · worst 744 ms at 5m50s</span></div>
+              <div class="lane" role="listitem"><div class="cellname"><span class="mono">errorRate &lt; 1%</span><span class="small muted">all requests · whole run 0.21%</span></div><div class="ltrack" role="img" aria-label="Never breached"></div><span class="small"><span class="ok">met</span> · worst 0.62% at 6m20s</span></div>
+              <div class="lane" role="listitem"><div class="cellname"><span class="mono">placesOrder p95 &lt; 1200 ms</span><span class="small muted">mix threshold · whole run 1,340 ms</span></div><div class="ltrack" role="img" aria-label="Breached from 4 minutes 12 seconds to 6 minutes 8 seconds"><span class="seg" style="left: 60%; width: 27.62%"></span></div><span class="small"><span class="bad">breached</span> 4m12s–6m08s · worst 1,620 ms at 5m48s</span></div>
+              <div class="lane" role="listitem"><div class="cellname"><span class="mono">abortOn errorRate &gt; 5%</span><span class="small muted">stops the run when crossed</span></div><div class="ltrack idle" role="img" aria-label="Not triggered"></div><span class="small muted">not triggered · peak 0.62%</span></div>
+            </div>
+          </div>
+          <h3 class="h3" style="margin-top: 6px">placesOrder p95 against its 1,200 ms threshold</h3>
+          <div class="chartbox"><svg class="chart" viewBox="0 0 1000 250" role="img" aria-label="placesOrder p95 rises from 310 ms to 1,590 ms at 5 minutes 30 seconds, above the 1,200 ms threshold from 4 minutes 12 seconds to 6 minutes 8 seconds, then falls to 600 ms">
+            <rect x="612" y="20" width="254" height="200" fill="#FCE8E6"></rect>
+            <g stroke="#ECE9F2" stroke-width="1"><line x1="60" y1="20" x2="980" y2="20"></line><line x1="60" y1="120" x2="980" y2="120"></line><line x1="60" y1="220" x2="980" y2="220" stroke="#C9C5D6"></line></g>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#67637D"><text x="52" y="24" text-anchor="end">2 s</text><text x="52" y="124" text-anchor="end">1 s</text><text x="52" y="224" text-anchor="end">0</text><text x="60" y="242" text-anchor="middle">0m</text><text x="191.4" y="242" text-anchor="middle">1m</text><text x="322.9" y="242" text-anchor="middle">2m</text><text x="454.3" y="242" text-anchor="middle">3m</text><text x="585.7" y="242" text-anchor="middle">4m</text><text x="717.1" y="242" text-anchor="middle">5m</text><text x="848.6" y="242" text-anchor="middle">6m</text><text x="980" y="242" text-anchor="middle">7m</text></g>
+            <line x1="60" y1="100" x2="980" y2="100" stroke="#B3261E" stroke-width="1.5" stroke-dasharray="6 4"></line>
+            <text x="975" y="94" text-anchor="end" font-family="Geist, sans-serif" font-size="12" fill="#B3261E">threshold 1,200 ms</text>
+            <polyline points="60,189 125.7,187 191.4,184 257.1,178 322.9,168 388.6,156 454.3,142 520,125 585.7,108 651.4,82 717.1,69 782.9,61 848.6,96 914.3,138 980,160" fill="none" stroke="#5440D6" stroke-width="2.5" stroke-linejoin="round"></polyline>
+          </svg></div>
+        </section>
+
+        <section id="host" class="section sec" aria-labelledby="h-host">
+          <div class="sh"><h2 id="h-host" class="h2">Host resources</h2><span class="small muted">the load generator itself · loadgen-1 · c6i.2xlarge, 8 vCPU, 16 GB · one agent</span></div>
+          <div class="split2">
+            <div class="pane">
+              <h3 class="h3">Tool CPU · peak 41%</h3>
+              <div class="chartbox"><svg class="chart" viewBox="0 0 480 180" role="img" aria-label="Tool CPU rises from 4% to a peak of 41% at 5 minutes 30 seconds, then falls to 6%">
+                <g stroke="#ECE9F2" stroke-width="1"><line x1="40" y1="20" x2="470" y2="20"></line><line x1="40" y1="85" x2="470" y2="85"></line><line x1="40" y1="150" x2="470" y2="150" stroke="#C9C5D6"></line></g>
+                <g font-family="Geist Mono, monospace" font-size="11" fill="#67637D"><text x="34" y="24" text-anchor="end">100%</text><text x="34" y="89" text-anchor="end">50%</text><text x="34" y="154" text-anchor="end">0</text><text x="40" y="170" text-anchor="middle">0m</text><text x="160" y="170" text-anchor="middle">2m</text><text x="280" y="170" text-anchor="middle">4m</text><text x="400" y="170" text-anchor="middle">6m</text><text x="460" y="170" text-anchor="middle">7m</text></g>
+                <polyline points="40,145 70,138 100,132 130,125 160,119 190,114 220,110 250,106 280,103 310,101 340,99 370,97 400,98 430,121 460,142" fill="none" stroke="#5440D6" stroke-width="2.2" stroke-linejoin="round"></polyline>
+              </svg></div>
+            </div>
+            <div class="pane">
+              <h3 class="h3">Tool memory · peak 1.18 GB</h3>
+              <div class="chartbox"><svg class="chart" viewBox="0 0 480 180" role="img" aria-label="Tool memory grows from 180 MB to a peak of 1.18 GB at 6 minutes, then drops to 420 MB">
+                <g stroke="#ECE9F2" stroke-width="1"><line x1="40" y1="20" x2="470" y2="20"></line><line x1="40" y1="85" x2="470" y2="85"></line><line x1="40" y1="150" x2="470" y2="150" stroke="#C9C5D6"></line></g>
+                <g font-family="Geist Mono, monospace" font-size="11" fill="#67637D"><text x="34" y="24" text-anchor="end">1.6G</text><text x="34" y="89" text-anchor="end">0.8G</text><text x="34" y="154" text-anchor="end">0</text><text x="40" y="170" text-anchor="middle">0m</text><text x="160" y="170" text-anchor="middle">2m</text><text x="280" y="170" text-anchor="middle">4m</text><text x="400" y="170" text-anchor="middle">6m</text><text x="460" y="170" text-anchor="middle">7m</text></g>
+                <polyline points="40,135 70,129 100,122 130,113 160,103 190,94 220,86 250,79 280,72 310,66 340,61 370,57 400,54 430,77 460,116" fill="none" stroke="#2459B8" stroke-width="2.2" stroke-linejoin="round"></polyline>
+              </svg></div>
+            </div>
+          </div>
+          <div class="facts">
+            <div><div class="small muted">Open sockets, peak</div><div class="v">5,212</div></div>
+            <div><div class="small muted">Event loop lag p99</div><div class="v">4 ms</div></div>
+            <div><div class="small muted">Longest GC pause</div><div class="v">18 ms</div></div>
+            <div><div class="small muted">Network in / out, peak</div><div class="v">186 / 41 Mbit/s</div></div>
+            <div><div class="small muted">Dropped iterations</div><div class="v">0</div></div>
+          </div>
+          <div class="small muted">The generator never saturated: CPU stayed under 45% and event loop lag under 5 ms, so latency growth comes from the services.</div>
+        </section>
+
+        <section id="lifecycle" class="section sec" aria-labelledby="h-life">
+          <div class="sh"><h2 id="h-life" class="h2">Lifecycle</h2><span class="small muted">once-per-run work happened before stage 1 and is not in the latency numbers</span></div>
+          <div class="scrollx">
+            <div class="gt t-life" role="table" aria-label="Lifecycle actions in the load run">
+              <div class="hd" role="row"><span role="columnheader">Action</span><span role="columnheader">Block</span><span role="columnheader">Ran</span><span role="columnheader" class="num">Requests</span><span role="columnheader">Result</span></div>
+              <div class="tr" role="row"><div class="cellname" role="cell"><span class="mono">admin</span><span class="small muted mono">users.create · role admin</span></div><span role="cell" class="mono small">beforeRun</span><span role="cell" class="small">once, before stage 1</span><span role="cell" class="num">1</span><span role="cell"><span class="pill pass">201 · 148 ms</span></span></div>
+              <div class="tr" role="row"><div class="cellname" role="cell"><span class="mono">catalog</span><span class="small muted mono">catalog.seedProducts</span></div><span role="cell" class="mono small">beforeRun</span><span role="cell" class="small">once, before stage 1</span><span role="cell" class="num">1</span><span role="cell"><span class="pill pass">201 · 2.4 s</span></span></div>
+              <div class="tr" role="row"><div class="cellname" role="cell"><span class="mono">catalog</span><span class="small muted mono">catalog.seedProducts · cache for 12h</span></div><span role="cell" class="mono small">beforeAll</span><span role="cell" class="small">orders.checkout</span><span role="cell" class="num">0</span><span role="cell"><span class="pill accent">cache hit</span></span></div>
+              <div class="tr" role="row"><div class="cellname" role="cell"><span class="mono">users.create → carts.create → carts.addItem ×2</span><span class="small muted">4 setup requests per order</span></div><span role="cell" class="mono small">beforeEach</span><span role="cell" class="small">48,421 iterations</span><span role="cell" class="num">193,684</span><span role="cell"><span class="pill pass">ok · 0 errors</span></span></div>
+              <div class="tr" role="row"><div class="cellname" role="cell"><span class="mono">carts.delete, users.delete</span><span class="small muted">cleanup registered by beforeEach</span></div><span role="cell" class="mono small">cleanup</span><span role="cell" class="small">48,421 iterations</span><span role="cell" class="num">96,842</span><span role="cell"><span class="pill pass">96,842 ran · 0 failed</span></span></div>
+              <div class="tr" role="row"><div class="cellname" role="cell"><span class="mono">users.delete</span><span class="small muted">cleanup of getsCreatedUser, after the last stage</span></div><span role="cell" class="mono small">cleanup</span><span role="cell" class="small">3 m 40 s · perHost 16</span><span role="cell" class="num">290,525</span><span role="cell"><span class="pill pass">290,525 ran · 0 failed</span></span></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="config" class="section sec" aria-labelledby="h-config">
+          <div class="sh"><h2 id="h-config" class="h2">Run configuration</h2><span class="small muted">exactly what ran, to compare or repeat</span></div>
+          <div class="split2">
+            <div class="pane">
+              <div class="small muted mono">load/checkout.load.yaml</div>
+              <div class="code" aria-label="Load file source">
+                
+                  <span class="ln"><span class="no">1</span><span class="y-key">id</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">checkout.peak</span></span>
+                
+                  <span class="ln"><span class="no">2</span><span class="y-key">name</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">Black Friday checkout mix</span></span>
+                
+                  <span class="ln"><span class="no">3</span><span class="y-key">mix</span><span class="y-punc">:</span></span>
+                
+                  <span class="ln"><span class="no">4</span><span class="">  </span><span class="y-punc">- </span><span class="y-key">test</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">users.crud.getsCreatedUser</span></span>
+                
+                  <span class="ln"><span class="no">5</span><span class="">    </span><span class="y-key">weight</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">6</span></span>
+                
+                  <span class="ln"><span class="no">6</span><span class="">  </span><span class="y-punc">- </span><span class="y-key">test</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">catalog.browse.searchesProducts</span></span>
+                
+                  <span class="ln"><span class="no">7</span><span class="">    </span><span class="y-key">weight</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">3</span></span>
+                
+                  <span class="ln"><span class="no">8</span><span class="">  </span><span class="y-punc">- </span><span class="y-key">test</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">orders.checkout.placesOrder</span></span>
+                
+                  <span class="ln"><span class="no">9</span><span class="">    </span><span class="y-key">weight</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">1</span></span>
+                
+                  <span class="ln"><span class="no">10</span><span class="">    </span><span class="y-key">thresholds</span><span class="y-punc">:</span></span>
+                
+                  <span class="ln"><span class="no">11</span><span class="">      </span><span class="y-key">p95</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">1200ms</span></span>
+                
+                  <span class="ln"><span class="no">12</span><span class="y-key">stages</span><span class="y-punc">:</span></span>
+                
+                  <span class="ln"><span class="no">13</span><span class="">  </span><span class="y-punc">- </span><span class="y-key">duration</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">1m</span></span>
+                
+                  <span class="ln"><span class="no">14</span><span class="">    </span><span class="y-key">users</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">500</span></span>
+                
+                  <span class="ln"><span class="no">15</span><span class="">  </span><span class="y-punc">- </span><span class="y-key">duration</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">5m</span></span>
+                
+                  <span class="ln"><span class="no">16</span><span class="">    </span><span class="y-key">users</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">5000</span></span>
+                
+                  <span class="ln"><span class="no">17</span><span class="">  </span><span class="y-punc">- </span><span class="y-key">duration</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">1m</span></span>
+                
+                  <span class="ln"><span class="no">18</span><span class="">    </span><span class="y-key">users</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">0</span></span>
+                
+                  <span class="ln"><span class="no">19</span><span class="y-key">thinkTime</span><span class="y-punc">:</span></span>
+                
+                  <span class="ln"><span class="no">20</span><span class="">  </span><span class="y-key">min</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">1s</span></span>
+                
+                  <span class="ln"><span class="no">21</span><span class="">  </span><span class="y-key">max</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">3s</span></span>
+                
+                  <span class="ln"><span class="no">22</span><span class="y-key">checks</span><span class="y-punc">:</span><span class=""> </span><span class="y-str">api</span></span>
+                
+                  <span class="ln"><span class="no">23</span><span class="y-key">thresholds</span><span class="y-punc">:</span></span>
+                
+                  <span class="ln"><span class="no">24</span><span class="">  </span><span class="y-key">p99</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">800ms</span></span>
+                
+                  <span class="ln"><span class="no">25</span><span class="">  </span><span class="y-key">errorRate</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">1%</span></span>
+                
+                  <span class="ln"><span class="no">26</span><span class="y-key">abortOn</span><span class="y-punc">:</span></span>
+                
+                  <span class="ln"><span class="no">27</span><span class="">  </span><span class="y-key">errorRate</span><span class="y-punc">:</span><span class=""> </span><span class="y-num">5%</span></span>
+                
+              </div>
+            </div>
+            <div class="pane">
+              <div class="small muted">Command</div>
+              <div class="cmd"><code>vc load checkout.peak --profile staging --seed 5c2e81fa</code><button type="button" class="btn sm">Copy</button></div>
+              <dl class="kv" style="margin-top: 6px">
+                <dt>Profile</dt><dd>staging · 6 service urls from <span class="mono">vibranium.config.yaml</span></dd>
+                <dt>Seed</dt><dd class="mono">5c2e81fa</dd>
+                <dt>Vibranium</dt><dd class="mono">2.0.0 · syntaxVersion 2</dd>
+                <dt>Git</dt><dd class="mono">main@a1c9e4f · clean worktree</dd>
+                <dt>Agent</dt><dd>loadgen-1 · c6i.2xlarge · ubuntu-24.04 x64 · eu-west-1</dd>
+                <dt>Connections</dt><dd class="mono">perHost 512 · keep-alive · HTTP/1.1</dd>
+                <dt>Timeout</dt><dd class="mono">10s per request (defaults.timeout)</dd>
+                <dt>Checks</dt><dd><span class="mono">api</span> · status, schema and match are evaluated; custom hooks are skipped under load</dd>
+                <dt>Think time</dt><dd class="mono">1s–3s, uniform</dd>
+                <dt>Window</dt><dd>started 15:10:04, ended 15:17:04 · 23 Oct 2026</dd>
+                <dt>Config hash</dt><dd class="mono">sha256:3e9b07d4…c41a</dd>
+                <dt>Artifacts</dt><dd class="mono">.vibranium/reports/load-57/ctrf.json · samples.ndjson.gz</dd>
+              </dl>
+              <div class="about"><b style="color: #1B1830; font-weight: 600">This report:</b> index 96 KB · 10 s aggregates for every chart · 3 sample requests kept per error group, loaded when you open the row · 968,412 raw samples stay in <span class="mono">samples.ndjson.gz</span> and are never loaded by this page.</div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="foot">
+          <span>Generated by Vibranium 2.0.0 from <span class="mono">.vibranium/reports/load-57/ctrf.json</span> · a single file, no server needed</span>
+          <span>Compared runs: none selected · <a href="Main.dc.html">Functional run #482 on the same commit</a></span>
+        </footer>
+      </div>
+    </main>
+  </div>
+</div>
+</body></html>

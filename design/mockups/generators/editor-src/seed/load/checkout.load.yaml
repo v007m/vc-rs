@@ -1,0 +1,33 @@
+id: checkout.peak
+name: Black Friday checkout mix
+
+mix:
+  - test: users.crud.getsCreatedUser
+    weight: 6
+  - test: catalog.browse.searchesProducts
+    weight: 3
+  - test: orders.checkout.placesOrder
+    weight: 1
+    thresholds:
+      p95:
+        lt: 1200ms
+
+stages:
+  - duration: 1m
+    users: 500
+  - duration: 5m
+    users: 5000
+  - duration: 1m
+    users: 0
+
+thinkTime:
+  min: 500ms
+  max: 2s
+checks: api
+
+thresholds:
+  p99:
+    lt: 800ms
+  errorRate:
+    lt: 1%
+abortOn: [errorRate]

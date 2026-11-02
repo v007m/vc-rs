@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium CLI · errors that tell you how to fix them</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.term{box-sizing:border-box;background:#0A0C10;color:#D7DAE0;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid #2C313C;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.bar{height:32px;flex:none;box-sizing:border-box;background:#1A1D24;border-bottom:1px solid #2C313C;position:relative;display:flex;align-items:center;gap:8px;padding:0 14px}
+.dot{width:12px;height:12px;border-radius:50%}
+.btitle{position:absolute;left:0;right:0;text-align:center;color:#8B92A0;font-size:12px;pointer-events:none}
+.body{flex:1;min-height:0;overflow:hidden;padding:14px 18px 16px}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.k{color:#8FB8F0}.s{color:#C9D99A}.t{color:#E8B86D}
+.g{display:inline-block;width:1ch;text-align:center}
+.cur{background:#D7DAE0;color:#0A0C10}
+</style>
+</helmet>
+<div class="term" style="width: 1280px; height: 2972px">
+  <div class="bar"><span class="dot" style="background: #F06A5D"></span><span class="dot" style="background: #E5A13A"></span><span class="dot" style="background: #4FC27A"></span><span class="btitle">zsh — shop</span></div>
+  <div class="body">
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc check</div>
+    <div class="ln">  <span class="vio b"><span class="g">◆</span> vibranium</span> <span class="dim">2.0.0</span>  <span class="dim">checking</span> 58 files <span class="dim">· 64 apis · 418 tests · profiles</span> dev, staging, prod</div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="bad b">error[V1002]</span><span class="b">: YAML syntax: `body` sits between two indentation levels</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/orders/checkout.test.yaml:43:6  <span class="dim">·</span> orders.checkout.rejectsDeclinedCard</div>
+    <div class="ln">  <span class="info"> 41 <span class="g">│</span></span>     <span class="k">expect</span>:</div>
+    <div class="ln">  <span class="info"> 42 <span class="g">│</span></span>       <span class="k">status</span>: <span class="t">402</span></div>
+    <div class="ln">  <span class="info"> 43 <span class="g">│</span></span>      <span class="k">body</span>:</div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>      <span class="bad b">^</span> <span class="bad">column 6: deeper than</span> <span class="k">expect</span> <span class="bad">(column 5), not as deep as</span> <span class="k">status</span> <span class="bad">(column 7)</span></div>
+    <div class="ln">  <span class="info"> 44 <span class="g">│</span></span>         <span class="k">match</span>: { <span class="k">error</span>: <span class="s">card_declined</span> }</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">expected</span>: a mapping under <span class="k">expect</span>: every key in it starts at column 7, like <span class="k">status</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">note</span>: <span class="k">body</span> is an expect key (status, headers, body, size, timing, cel, custom), so it belongs inside <span class="k">expect</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: indent line 43 by one space; its child lines (44–45) are already deep enough</div>
+    <div class="ln">  <span class="info">    =</span> <span class="ok b">fix</span>:  <span class="dim">43 <span class="g">│</span></span>       <span class="k">body</span>:</div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="bad b">error[V2003]</span><span class="b">: unknown api `orders.plcae`</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/orders/checkout.test.yaml:58:15  <span class="dim">·</span> orders.checkout.placesGuestOrder <span class="dim">· step</span> place</div>
+    <div class="ln">  <span class="info"> 58 <span class="g">│</span></span>         <span class="k">call</span>: <span class="s">orders.plcae</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>               <span class="bad b">^^^^^^^^^^^^</span> <span class="bad">not in</span> services/orders/orders.api.yaml <span class="dim">(apis: place, get, cancel, refund)</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: did you mean <span class="ok b">orders.place</span>? <span class="dim">(two letters swapped)</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="ok b">fix</span>:  <span class="dim">58 <span class="g">│</span></span>         <span class="k">call</span>: <span class="s">orders.place</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="bad b">error[V2101]</span><span class="b">: ${var.couponCode} is used but never set for profiles dev and staging</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/Orders/CouponTests.test.yaml:14:15  <span class="dim">·</span> couponTests.Test_Coupon2</div>
+    <div class="ln">  <span class="info"> 12 <span class="g">│</span></span>     <span class="k">call</span>: <span class="s">orders.place</span></div>
+    <div class="ln">  <span class="info"> 13 <span class="g">│</span></span>     <span class="k">body</span>:</div>
+    <div class="ln">  <span class="info"> 14 <span class="g">│</span></span>       <span class="k">coupon</span>: <span class="s">${var.couponCode}</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>               <span class="bad b">^^^^^^^^^^^^^^^^^</span> <span class="bad">no value under dev or staging; the request would send an empty coupon</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">note</span>: couponCode could be set in any of these places; only the prod profile sets it:</div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="dim">test vars</span>     services/Orders/CouponTests.test.yaml:9     tests › Test_Coupon2 › vars   <span class="dim">not set</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="dim">file vars</span>     services/Orders/CouponTests.test.yaml:1     vars                          <span class="dim">not set</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="dim">api vars</span>      services/orders/orders.api.yaml:14          place › vars                  <span class="dim">not set</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="dim">profile</span>       vibranium.config.yaml:30                    profiles › dev › vars         <span class="dim">not set</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>                 vibranium.config.yaml:41                    profiles › staging › vars     <span class="dim">not set</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>                 vibranium.config.yaml:52                    profiles › prod › vars        <span class="ok"><span class="g">✓</span></span> <span class="k">couponCode</span>: <span class="s">WELCOME10</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: same code everywhere? set it once in the test file: <span class="k">vars</span>: { <span class="k">couponCode</span>: <span class="s">WELCOME10</span> }</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: differs per environment? add it under profiles › staging › vars and profiles › dev › vars in vibranium.config.yaml</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: or give this use a fallback: <span class="s">${var.couponCode | default('WELCOME10')}</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="bad b">error[V2302]</span><span class="b">: type: `retry.attempts` must be an integer, got the string "3"</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/orders/history.test.yaml:27:17  <span class="dim">·</span> orders.history.listsPastOrders</div>
+    <div class="ln">  <span class="info"> 26 <span class="g">│</span></span>     <span class="k">retry</span>:</div>
+    <div class="ln">  <span class="info"> 27 <span class="g">│</span></span>       <span class="k">attempts</span>: <span class="s">"3"</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>                 <span class="bad b">^^^</span> <span class="bad">quoted, so YAML reads it as text; attempts takes a whole number from 1 to 10</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: remove the quotes; to take it from a var, convert it: <span class="k">attempts</span>: <span class="s">${var.retries | int}</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="ok b">fix</span>:  <span class="dim">27 <span class="g">│</span></span>       <span class="k">attempts</span>: <span class="t">3</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="bad b">error[V2205]</span><span class="b">: cycle: flows.verifiedMember reuses itself through users.crud.signsUp</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/shared/flows.test.yaml:12:15  <span class="dim">·</span> flows.verifiedMember <span class="dim">· step</span> signUp</div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span> </div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="bad"><span class="g">┌</span><span class="g">─</span><span class="g">▶</span></span> <span class="b">flows.verifiedMember</span>    services/shared/flows.test.yaml:12    <span class="dim">step signUp</span>     <span class="k">test</span>: <span class="s">users.crud.signsUp</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="bad"><span class="g">│</span></span>       <span class="bad"><span class="g">│</span></span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="bad"><span class="g">│</span></span>       <span class="bad"><span class="g">▼</span></span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="bad"><span class="g">│</span></span>   <span class="b">users.crud.signsUp</span>      services/users/users.test.yaml:64     <span class="dim">before</span>          <span class="k">test</span>: <span class="s">flows.verifiedMember</span>  <span class="bad"><span class="g">←</span> back to the start</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="bad"><span class="g">│</span></span>       <span class="bad"><span class="g">│</span></span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="bad"><span class="g">└</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">┘</span></span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span> </div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">why</span>: <span class="k">test</span>: runs the whole reused test, its before and steps included, so these two would run each other forever</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: signsUp only needs a member to exist: at users.test.yaml:64 replace <span class="k">test</span>: <span class="s">flows.verifiedMember</span> with <span class="k">call</span>: <span class="s">users.create</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: vc explain V2205 <span class="dim">has a worked example · in the TUI, Explore <span class="g">→</span> ctrl-g draws the reuse graph</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="warn b">warning[V4001]</span><span class="b">: naming: test id `Test_Coupon2` does not describe a behaviour</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/Orders/CouponTests.test.yaml:9:9</div>
+    <div class="ln">  <span class="info">  9 <span class="g">│</span></span>   - <span class="k">id</span>: <span class="s">Test_Coupon2</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>         <span class="warn b">^^^^^^^^^^^^</span> <span class="warn">underscore, capital first letter, a number instead of a behaviour</span></div>
+    <div class="ln">  <span class="info"> 10 <span class="g">│</span></span>     <span class="k">name</span>: <span class="s">Applies a coupon twice</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>           <span class="info">----------------------</span> <span class="info">id from the name <span class="g">→</span></span> <span class="ok b">appliesCouponTwice</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">rule</span>: test ids are camelCase, a behaviour in the third person with the subject implied: createsMember, rejectsBadEmail</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: rename it to <span class="ok b">appliesCouponTwice</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="ok b">fix</span>:  renames the id and its 1 reference <span class="dim">·</span> CouponTests.test.yaml:31  <span class="k">test</span>: <span class="s">couponTests.Test_Coupon2</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="warn b">warning[V4003]</span><span class="b">: naming: test file `services/Orders/CouponTests.test.yaml` is off the folder convention</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/Orders/CouponTests.test.yaml:1:5</div>
+    <div class="ln">  <span class="info">  1 <span class="g">│</span></span> <span class="k">id</span>: <span class="s">couponTests</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>     <span class="warn b">^^^^^^^^^^^</span> <span class="warn">conventional:</span> <span class="ok b">orders.coupons</span> <span class="warn">at</span> <span class="ok b">services/orders/coupons.test.yaml</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">rule</span>: test files live at services/&lt;service&gt;/&lt;area&gt;.test.yaml, lowercase, with id &lt;service&gt;.&lt;area&gt;</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">note</span>: services/Orders/ and services/orders/ differ only in case: on macOS and Windows they are the same folder</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: vc mv services/Orders/CouponTests.test.yaml services/orders/coupons.test.yaml</div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>       <span class="dim">moves it with git mv, sets</span> <span class="k">id</span>: <span class="s">orders.coupons</span><span class="dim">, rewrites</span> couponTests.* <span class="g">→</span> orders.coupons.* <span class="dim">(3 references, 2 files)</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">note</span>: not part of --fix: a move is best in its own commit, so review shows it as a rename</div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="warn b">warning[V3104]</span><span class="b">: skip expired on 2026-10-20, test runs again</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/catalog/search.test.yaml:47:5  <span class="dim">·</span> catalog.search.fuzzyQueries</div>
+    <div class="ln">  <span class="info"> 47 <span class="g">│</span></span>     <span class="k">skip</span>: { <span class="k">reason</span>: <span class="s">"search index rebuild"</span>, <span class="k">until</span>: <span class="t">2026-10-20</span> }</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: delete the line, or extend it: vc skip catalog.search.fuzzyQueries --until 2026-11-01</div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="bad b"><span class="g">✕</span> 5 errors</span> <span class="dim">·</span> <span class="warn b">3 warnings</span> <span class="dim">·</span> <span class="ok b">4 fixable</span> <span class="dim">· run</span> vc check --fix <span class="dim">to preview</span>                           <span class="dim">58 files · 64 apis · 418 tests · 3 profiles · 214ms</span></div>
+    <div class="ln">  <span class="bad">exit 1</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc check --fix</div>
+    <div class="ln">  <span class="b">4 fixes in 3 files</span>  <span class="dim">· preview, nothing written yet</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">services/orders/checkout.test.yaml</span>  <span class="dim">2 fixes</span></div>
+    <div class="ln">  <span class="info">@@ -41,5 +41,5 @@</span>  <span class="dim">orders.checkout.rejectsDeclinedCard</span>                                        <span class="dim">V1002 indentation</span></div>
+    <div class="ln">     <span class="dim"> 41</span>      expect:</div>
+    <div class="ln">     <span class="dim"> 42</span>        status: 402</div>
+    <div class="ln">  <span class="bad">-</span>  <span class="bad"> 43</span>  <span class="bad">     body:</span></div>
+    <div class="ln">  <span class="ok">+</span>  <span class="ok"> 43</span>  <span class="ok">      body:</span></div>
+    <div class="ln">     <span class="dim"> 44</span>          match: { error: card_declined }</div>
+    <div class="ln">  <span class="info">@@ -58 +58 @@</span>  <span class="dim">orders.checkout.placesGuestOrder</span>                                               <span class="dim">V2003 unknown api</span></div>
+    <div class="ln">  <span class="bad">-</span>  <span class="bad"> 58</span>  <span class="bad">        call: orders.plcae</span></div>
+    <div class="ln">  <span class="ok">+</span>  <span class="ok"> 58</span>  <span class="ok">        call: orders.place</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">services/orders/history.test.yaml</span>  <span class="dim">1 fix</span></div>
+    <div class="ln">  <span class="info">@@ -26,2 +26,2 @@</span>  <span class="dim">orders.history.listsPastOrders</span>                                             <span class="dim">V2302 type</span></div>
+    <div class="ln">     <span class="dim"> 26</span>      retry:</div>
+    <div class="ln">  <span class="bad">-</span>  <span class="bad"> 27</span>  <span class="bad">      attempts: "3"</span></div>
+    <div class="ln">  <span class="ok">+</span>  <span class="ok"> 27</span>  <span class="ok">      attempts: 3</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">services/Orders/CouponTests.test.yaml</span>  <span class="dim">1 fix, 2 lines</span></div>
+    <div class="ln">  <span class="info">@@ -9 +9 @@</span>  <span class="dim">couponTests.Test_Coupon2</span>                                                         <span class="dim">V4001 naming</span></div>
+    <div class="ln">  <span class="bad">-</span>  <span class="bad">  9</span>  <span class="bad">  - id: Test_Coupon2</span></div>
+    <div class="ln">  <span class="ok">+</span>  <span class="ok">  9</span>  <span class="ok">  - id: appliesCouponTwice</span></div>
+    <div class="ln">  <span class="info">@@ -31 +31 @@</span>  <span class="dim">couponTests.stacksWithSalePrice · step coupon</span>                                  <span class="dim">V4001 reference</span></div>
+    <div class="ln">  <span class="bad">-</span>  <span class="bad"> 31</span>  <span class="bad">        test: couponTests.Test_Coupon2</span></div>
+    <div class="ln">  <span class="ok">+</span>  <span class="ok"> 31</span>  <span class="ok">        test: couponTests.appliesCouponTwice</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="vio b">?</span> <span class="b">Apply 4 fixes?</span> <span class="dim">[Y/n]</span> y</div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> <span class="b">applied 4 fixes in 3 files</span> <span class="dim">·</span> <span class="bad b">2 errors need you</span></div>
+    <div class="ln">      <span class="bad"><span class="g">✕</span></span> V2101     ${var.couponCode} is not set for dev, staging           <span class="dim">services/Orders/CouponTests.test.yaml:14</span></div>
+    <div class="ln">      <span class="bad"><span class="g">✕</span></span> V2205     cycle flows.verifiedMember <span class="g">⇄</span> users.crud.signsUp         <span class="dim">services/shared/flows.test.yaml:12</span></div>
+    <div class="ln">      <span class="warn">!</span> V4003     file off convention, move with vc mv                    <span class="dim">services/Orders/CouponTests.test.yaml</span></div>
+    <div class="ln">      <span class="warn">!</span> V3104     expired skip                                            <span class="dim">services/catalog/search.test.yaml:47</span></div>
+    <div class="ln">  <span class="info">hint</span> git diff <span class="dim">shows exactly what changed; nothing is staged or committed</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc explain V2205</div>
+    <div class="ln">  <span class="bad b">V2205</span>  <span class="b">error · cycle in reused tests</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  A step or lifecycle action written as <span class="k">test</span>: <span class="s">&lt;testId&gt;</span> runs that whole test inside this one: its before, steps and after.</div>
+    <div class="ln">  If test A reuses B, and B reuses A (directly or through other tests), the run could never finish. vc check reports it,</div>
+    <div class="ln">  vc run refuses to start, and nothing is sent. Lifecycle actions and steps that use <span class="k">call</span>: are never part of a cycle.</div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="bad b"><span class="g">✕</span> fails</span>                                                         <span class="ok b"><span class="g">✓</span> works</span>  <span class="dim">break the loop where only data is needed</span></div>
+    <div class="ln">    <span class="dim"># services/shared/flows.test.yaml</span>                               <span class="dim"># services/users/users.test.yaml</span></div>
+    <div class="ln">    - <span class="k">id</span>: <span class="s">verifiedMember</span>                                            - <span class="k">id</span>: <span class="s">signsUp</span></div>
+    <div class="ln">      <span class="k">steps</span>:                                                          <span class="k">before</span>:</div>
+    <div class="ln">        - { <span class="k">id</span>: <span class="s">signUp</span>, <span class="k">test</span>: <span class="s">users.crud.signsUp</span> }                      - <span class="k">call</span>: <span class="s">users.create</span>       <span class="dim"># the member it needs</span></div>
+    <div class="ln">        - { <span class="k">call</span>: <span class="s">users.update</span>, <span class="k">vars</span>: { <span class="k">emailVerified</span>: <span class="t">true</span> } }       <span class="k">call</span>: <span class="s">users.get</span></div>
+    <div class="ln">    <span class="dim"># services/users/users.test.yaml</span>                                  <span class="k">expect</span>: { <span class="k">status</span>: <span class="t">200</span> }</div>
+    <div class="ln">    - <span class="k">id</span>: <span class="s">signsUp</span></div>
+    <div class="ln">      <span class="k">before</span>:                                                       <span class="dim"># flows.test.yaml stays as it is: reusing</span></div>
+    <div class="ln">        - <span class="k">test</span>: <span class="s">flows.verifiedMember</span>   <span class="bad"># <span class="g">←</span> cycle</span>                    <span class="dim"># users.crud.signsUp is fine once it no</span></div>
+    <div class="ln">      <span class="k">call</span>: <span class="s">users.get</span>                                               <span class="dim"># longer reuses verifiedMember back</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="dim">see also</span>  vc explain V2003 <span class="dim">unknown api ·</span> vc explain --list <span class="dim">every code with a one-line summary</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2972}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+[package]
+name = "arch-tests"
+description = "Machine-checked architecture and design rules for the workspace."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+cargo_metadata = "0.23"
+syn = { version = "2", features = ["full", "visit"] }
+
+[lints]
+workspace = true

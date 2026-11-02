@@ -1,0 +1,73 @@
+id: users
+name: User accounts service
+baseUrl: ${var.usersUrl}/api/v1
+auth: shopOauth
+
+source:
+  openapi: https://users.staging.shop.example/v3/api-docs
+
+apis:
+  - id: create
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+      role: member
+    body:
+      name: ${var.name}
+      email: ${var.email}
+      role: ${var.role}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: delete
+      vars:
+        userId: ${response.body.id}
+  - id: get
+    name: Get a user
+    path: /users/${var.userId}
+  - id: list
+    name: List users
+    path: /users
+    query:
+      limit: 50
+  - id: update
+    name: Replace a user's profile
+    method: PUT
+    path: /users/${var.userId}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+  - id: rename
+    name: Rename a user
+    method: PATCH
+    path: /users/${var.userId}
+    body:
+      name: ${var.newName}
+  - id: deactivate
+    name: Deactivate a user
+    method: POST
+    path: /users/${var.userId}/deactivate
+    expect:
+      status: 204
+  - id: delete
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [200, 204, 404]
+  - id: startExport
+    name: Start a user export
+    method: POST
+    path: /exports
+    expect:
+      status: 202
+    save:
+      jobId: ${response.body.jobId}
+  - id: exportStatus
+    name: Check an export
+    path: /exports/${var.jobId}

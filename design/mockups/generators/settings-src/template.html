@@ -1,0 +1,633 @@
+<div class="app {{appCls}}">
+%%TOPBAR%%
+
+  <div class="frame">
+    <div class="side">
+%%SIDE%%
+      <div class="ctx">
+        <section class="ctxsec" aria-label="Settings sections">
+          <div class="navlabel">Settings</div>
+          <sc-for list="{{secs}}" as="x" hint-placeholder-count="8">
+            <button class="navitem {{x.cls}}" type="button" aria-pressed="{{x.on}}" onClick="{{x.pick}}"><span class="sw"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{x.icon}}"/></svg></span><span class="txt">{{x.label}}</span><sc-if value="{{x.dirty}}" hint-placeholder-val="{{ false }}"><span class="dot accent" title="Unsaved changes in this section"></span><span class="sr">(unsaved changes)</span></sc-if><span class="count">{{x.count}}</span></button>
+          </sc-for>
+        </section>
+        <section class="ctxsec" aria-label="Files behind this page">
+          <div class="navlabel">Files behind this page</div>
+          <a class="navitem" href="WebEditor.dc.html" title="Open vibranium.config.yaml in the editor"><span class="sw"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h5.5L12 5v8.5H4zM9.5 2.5V5H12"/></svg></span><span class="txt mono fname">vibranium.config.yaml</span><span class="count" title="{{cfgCountTitle}}">{{cfgCount}}</span></a>
+          <a class="navitem" href="WebEditor.dc.html" title="Open .env.schema in the editor"><span class="sw"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h5.5L12 5v8.5H4zM9.5 2.5V5H12"/></svg></span><span class="txt mono fname">.env.schema</span><span class="count" title="{{envCountTitle}}">{{envCount}}</span></a>
+        </section>
+      </div>
+    </div>
+
+    <main class="panel" aria-labelledby="set-title">
+      <div class="panel-head">
+        <div class="titleblock">
+          <h1 class="h1" id="set-title" style="font-size: 19px">Settings</h1>
+          <div class="muted wrap" style="font-size: 12.5px">A form view of <span class="mono">vibranium.config.yaml</span> and <span class="mono">.env.schema</span> in the project root. Every change here is written to those two files when you save; nothing is stored anywhere else.</div>
+        </div>
+        <div class="grow"></div>
+        <div class="cluster">
+          <a class="btn" href="WebEditor.dc.html"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13H3v-3zM9 4l3 3"/></svg>Open in editor</a>
+        </div>
+      </div>
+
+      <sc-if value="{{dirty}}" hint-placeholder-val="{{ false }}">
+        <div class="pending" role="status" aria-live="polite">
+          <span class="pdot" aria-hidden="true"></span>
+          <span class="ptext"><b>{{pendLabel}}</b></span>
+          <button class="btn sm ghost" type="button" onClick="{{openDiff}}">View diff</button>
+          <span class="grow"></span>
+          <div class="cluster">
+            <button class="btn sm" type="button" onClick="{{discard}}">Discard</button>
+            <button class="btn sm primary" type="button" disabled="{{saveDisabled}}" title="{{saveTitle}}" onClick="{{save}}">Save</button>
+          </div>
+          <sc-if value="{{hasProblems}}" hint-placeholder-val="{{ false }}">
+            <div class="pprob"><span class="wrap">{{problemText}}</span><button class="btn sm ghost" type="button" onClick="{{goProblem}}">Show me</button></div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+        <div class="saved" role="status"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8.5 3 3 7-7"/></svg><span class="wrap">{{toast}}</span><span class="grow"></span><button class="iconbtn" type="button" aria-label="Dismiss" onClick="{{dismissToast}}"><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+      </sc-if>
+
+      <div class="panel-body">
+
+        <!-- GENERAL -->
+        <sc-if value="{{isGeneral}}" hint-placeholder-val="{{ true }}">
+          <div class="shead">
+            <div class="stitle"><h2 class="h2">General</h2><p class="desc">Project name, which files vc loads, and the defaults every request starts from.</p></div>
+            <a class="loc" href="WebEditor.dc.html" title="Open this part of the file in the editor">{{locs.general}}</a>
+          </div>
+          <section class="section" aria-labelledby="g-proj">
+            <h3 class="h3" id="g-proj">Project</h3>
+            <div class="formgrid">
+              <label class="field">Project name
+                <input class="input mono {{g.project.cls}}" type="text" value="{{g.project.v}}" onInput="{{g.project.set}}">
+                <span class="help {{g.project.helpCls}}">{{g.project.help}}</span>
+              </label>
+              <div class="field"><span id="g-sv">syntaxVersion</span>
+                <div class="ro" aria-labelledby="g-sv"><span>2</span><span class="pill">read-only</span></div>
+                <span class="help">Only <span class="mono">vc migrate</span> changes it: it upgrades every file to the new syntax, then bumps this number.</span>
+              </div>
+            </div>
+          </section>
+          <section class="section" aria-labelledby="g-paths">
+            <h3 class="h3" id="g-paths">Paths</h3>
+            <p class="desc">Globs relative to the project root. vc loads every file an include pattern matches, unless an exclude pattern also matches it.</p>
+            <div class="formgrid">
+              <div class="field"><span>Include</span>
+                <div class="rows">
+                  <sc-for list="{{g.include}}" as="r" hint-placeholder-count="3">
+                    <div class="kv1"><input class="input mono" type="text" aria-label="{{r.label}}" value="{{r.v}}" onInput="{{r.set}}"><button class="iconbtn" type="button" aria-label="Remove {{r.label}}" title="{{r.rmTitle}}" disabled="{{r.rmDisabled}}" onClick="{{r.remove}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+                  </sc-for>
+                </div>
+                <div class="cluster"><button class="btn sm" type="button" onClick="{{g.addInclude}}">Add include pattern</button><span class="help">At least one pattern is required.</span></div>
+              </div>
+              <div class="field"><span>Exclude</span>
+                <div class="rows">
+                  <sc-for list="{{g.exclude}}" as="r" hint-placeholder-count="1">
+                    <div class="kv1"><input class="input mono" type="text" aria-label="{{r.label}}" value="{{r.v}}" onInput="{{r.set}}"><button class="iconbtn" type="button" aria-label="Remove {{r.label}}" title="{{r.rmTitle}}" disabled="{{r.rmDisabled}}" onClick="{{r.remove}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+                  </sc-for>
+                </div>
+                <div class="cluster"><button class="btn sm" type="button" onClick="{{g.addExclude}}">Add exclude pattern</button></div>
+              </div>
+            </div>
+          </section>
+          <section class="section" aria-labelledby="g-def">
+            <h3 class="h3" id="g-def">Defaults</h3>
+            <p class="desc">Used by every api and test unless the file, the api or the test sets its own value.</p>
+            <div class="formgrid fg5">
+              <label class="field">Timeout<input class="input mono {{g.timeout.cls}}" type="text" value="{{g.timeout.v}}" onInput="{{g.timeout.set}}"><span class="help {{g.timeout.helpCls}}">{{g.timeout.help}}</span></label>
+              <label class="field">Concurrency<input class="input mono {{g.concurrency.cls}}" type="text" inputmode="numeric" value="{{g.concurrency.v}}" onInput="{{g.concurrency.set}}"><span class="help {{g.concurrency.helpCls}}">{{g.concurrency.help}}</span></label>
+              <label class="field">Per host<input class="input mono {{g.perHost.cls}}" type="text" inputmode="numeric" value="{{g.perHost.v}}" onInput="{{g.perHost.set}}"><span class="help {{g.perHost.helpCls}}">{{g.perHost.help}}</span></label>
+              <label class="field">Retry attempts<input class="input mono {{g.attempts.cls}}" type="text" inputmode="numeric" value="{{g.attempts.v}}" onInput="{{g.attempts.set}}"><span class="help {{g.attempts.helpCls}}">{{g.attempts.help}}</span></label>
+              <label class="field">Retry delay<input class="input mono {{g.delay.cls}}" type="text" value="{{g.delay.v}}" onInput="{{g.delay.set}}"><span class="help {{g.delay.helpCls}}">{{g.delay.help}}</span></label>
+            </div>
+            <div class="field" style="margin-top: 6px"><span>Default headers</span>
+              <div class="rows">
+                <div class="kv kvhead" aria-hidden="true"><span>Name</span><span>Value</span><span></span></div>
+                <sc-for list="{{g.headers}}" as="h" hint-placeholder-count="2">
+                  <div class="kv"><input class="input mono {{h.kCls}}" type="text" aria-label="{{h.aria}} name" value="{{h.k}}" onInput="{{h.setK}}"><input class="input mono" type="text" aria-label="{{h.aria}} value" value="{{h.v}}" onInput="{{h.setV}}"><button class="iconbtn" type="button" aria-label="Remove {{h.aria}}" onClick="{{h.remove}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+                </sc-for>
+                <sc-if value="{{g.noHeaders}}" hint-placeholder-val="{{ false }}"><span class="help">No default headers.</span></sc-if>
+              </div>
+              <div class="cluster"><button class="btn sm" type="button" onClick="{{g.addHeader}}">Add header</button><span class="help">Lowercase names. Values may use ${var.…}, ${run.id} and ${secret.…}.</span></div>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- PROFILES -->
+        <sc-if value="{{isProfiles}}" hint-placeholder-val="{{ false }}">
+          <div class="shead">
+            <div class="stitle"><h2 class="h2">Profiles</h2><p class="desc">A profile is the environment a run targets: it overrides variables, picks which secrets Varlock resolves, and sets what AI agents may do. Choose one with <span class="mono">vc run --profile staging</span> or the Profile menu at the top.</p></div>
+            <a class="loc" href="WebEditor.dc.html" title="Open this part of the file in the editor">{{locs.profiles}}</a>
+          </div>
+          <div class="diag info rule"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#2459B8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 7.5V11M8 5v.2"/></svg><span class="wrap">At least one profile is required, and exactly one is the default (used when no <span class="mono">--profile</span> is given). Names are lowercase single words: <span class="mono">dev</span>, <span class="mono">staging</span>, <span class="mono">prod</span>, <span class="mono">eu</span>.</span></div>
+          <section class="section" aria-labelledby="p-list">
+            <div class="cluster"><h3 class="h3" id="p-list">{{pr.summary}}</h3><span class="grow"></span><button class="btn accent" type="button" onClick="{{pr.openNew}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>New profile</button></div>
+            <sc-if value="{{pr.hasMsg}}" hint-placeholder-val="{{ false }}">
+              <div class="diag warn" role="alert"><span class="wrap" style="flex: 1">{{pr.msg}}</span><button class="iconbtn" type="button" aria-label="Dismiss" onClick="{{pr.closeMsg}}"><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+            </sc-if>
+            <div class="lrows">
+              <sc-for list="{{pr.rows}}" as="p" hint-placeholder-count="3">
+                <div class="lrow prow">
+                  <div class="pid"><b class="mono">{{p.id}}</b><span class="muted wrap">{{p.name}}</span></div>
+                  <div class="pmeta"><span class="wrap">{{p.overrides}}</span><span class="subtle wrap">{{p.agents}}</span></div>
+                  <div class="cluster pact">
+                    <sc-if value="{{p.isDef}}" hint-placeholder-val="{{ true }}"><span class="pill accent">default</span></sc-if>
+                    <sc-if value="{{p.notDef}}" hint-placeholder-val="{{ false }}"><button class="btn sm" type="button" onClick="{{p.makeDef}}">Make default</button></sc-if>
+                    <button class="btn sm ghost danger" type="button" aria-label="{{p.delAria}}" onClick="{{p.del}}">Delete</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          <section class="section" aria-labelledby="p-vars">
+            <h3 class="h3" id="p-vars">Variables per profile</h3>
+            <p class="desc">Rows are variables from <span class="mono">vars:</span>, columns are the base value and each profile’s override. An empty override cell inherits the base value, shown greyed. Tests read them as <span class="mono">${var.usersUrl}</span>.</p>
+            <div class="scrollx mxwrap">
+              <div class="matrix" style="grid-template-columns: {{mx.cols}}">
+                <div class="mxh">Variable</div>
+                <sc-for list="{{mx.head}}" as="h" hint-placeholder-count="4"><div class="mxh"><span>{{h.label}}</span><span class="sub">{{h.sub}}</span></div></sc-for>
+                <sc-for list="{{mx.rows}}" as="r" hint-placeholder-count="5">
+                  <div class="mxn mono ellipsis" title="{{r.name}}">{{r.name}}</div>
+                  <sc-for list="{{r.cells}}" as="c"><div class="mxc"><input class="input mono {{c.cls}}" type="text" value="{{c.v}}" placeholder="{{c.ph}}" aria-label="{{c.aria}}" title="{{c.aria}}" onInput="{{c.set}}"></div></sc-for>
+                </sc-for>
+              </div>
+            </div>
+            <div class="formgrid">
+              <label class="field">New variable
+                <input class="input mono {{mx.newCls}}" type="text" placeholder="paymentsUrl" value="{{mx.newVar}}" onInput="{{mx.setNewVar}}">
+                <span class="help {{mx.newHelpCls}}">{{mx.newHelp}}</span>
+              </label>
+              <div class="field"><span class="sr">Add</span><div class="cluster" style="padding-top: 19px"><button class="btn" type="button" disabled="{{mx.addDisabled}}" onClick="{{mx.add}}">Add variable</button></div></div>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- AUTH -->
+        <sc-if value="{{isAuth}}" hint-placeholder-val="{{ false }}">
+          <div class="shead">
+            <div class="stitle"><h2 class="h2">Authentication</h2><p class="desc">Named ways to authenticate. An api file or a single api picks one with <span class="mono">auth: shopOauth</span>; the profile decides which URLs and secrets it uses. Test a definition here before any test depends on it.</p></div>
+            <a class="loc" href="WebEditor.dc.html" title="Open this part of the file in the editor">{{locs.auth}}</a>
+          </div>
+          <section class="section" aria-labelledby="a-list">
+            <div class="cluster"><h3 class="h3" id="a-list">{{au.summary}}</h3><span class="grow"></span><button class="btn accent" type="button" onClick="{{au.openWizard}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>New auth</button></div>
+            <div class="arows">
+              <sc-for list="{{au.rows}}" as="a" hint-placeholder-count="2">
+                <button class="arow {{a.cls}}" type="button" aria-pressed="{{a.on}}" onClick="{{a.pick}}">
+                  <span class="aid"><b class="mono">{{a.id}}</b><span class="pill">{{a.typeLabel}}</span><sc-if value="{{a.hasProbs}}" hint-placeholder-val="{{ false }}"><span class="pill fail">{{a.probs}}</span></sc-if></span>
+                  <span class="asum mono ellipsis" title="{{a.summary}}">{{a.summary}}</span>
+                  <span class="aused" title="{{a.usedTitle}}">{{a.used}}</span>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+          <section class="section" aria-labelledby="a-detail">
+            <div class="cluster">
+              <h3 class="h2" id="a-detail"><span class="mono">{{ad.id}}</span></h3><span class="pill">{{ad.typeLabel}}</span><span class="pill {{ad.problemsCls}}">{{ad.problems}}</span>
+              <span class="grow"></span>
+              <button class="btn sm ghost danger" type="button" onClick="{{ad.del}}">Delete {{ad.id}}</button>
+            </div>
+            <p class="desc">{{ad.used}}</p>
+            <sc-if value="{{ad.hasMsg}}" hint-placeholder-val="{{ false }}">
+              <div class="diag warn" role="alert"><span class="wrap" style="flex: 1">{{ad.msg}}</span><button class="iconbtn" type="button" aria-label="Dismiss" onClick="{{ad.closeMsg}}"><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+            </sc-if>
+            <div class="panes apanes">
+              <div class="apane">
+                <h4 class="h3">Definition</h4>
+                <sc-if value="{{ad.notFlow}}" hint-placeholder-val="{{ true }}">
+                  <div class="formgrid">
+                    <sc-for list="{{ad.fields}}" as="f" hint-placeholder-count="5">
+                      <div class="field {{f.span}}">
+                        <span>{{f.label}}<sc-if value="{{f.isSecret}}" hint-placeholder-val="{{ false }}"> <span class="pill skip lockp">secret reference</span></sc-if></span>
+                        <sc-if value="{{f.isText}}" hint-placeholder-val="{{ true }}"><input class="input mono {{f.cls}}" type="text" aria-label="{{f.label}}" placeholder="{{f.ph}}" value="{{f.v}}" onInput="{{f.set}}"></sc-if>
+                        <sc-if value="{{f.isArea}}" hint-placeholder-val="{{ false }}"><textarea class="textarea mono" rows="3" aria-label="{{f.label}}" value="{{f.v}}" onInput="{{f.set}}"></textarea></sc-if>
+                        <sc-if value="{{f.isChoice}}" hint-placeholder-val="{{ false }}"><div class="seg segwrap" role="group" aria-label="{{f.label}}"><sc-for list="{{f.opts}}" as="o"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></sc-if>
+                        <span class="help {{f.helpCls}} wrap">{{f.help}}</span>
+                        <sc-if value="{{f.hasSugg}}" hint-placeholder-val="{{ false }}"><div class="cluster"><button class="btn sm wbtn" type="button" onClick="{{f.useSugg}}">Use <span class="mono">{{f.sugg}}</span></button></div></sc-if>
+                        <sc-if value="{{f.hasAddEnv}}" hint-placeholder-val="{{ false }}"><div class="cluster"><button class="btn sm wbtn" type="button" onClick="{{f.addEnv}}">{{f.addEnvLabel}}</button></div></sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ad.isFlow}}" hint-placeholder-val="{{ false }}">
+                  <div class="flow">
+                    <sc-for list="{{fe.steps}}" as="st" hint-placeholder-count="2">
+                      <div class="fstep">
+                        <div class="cluster"><b class="fsn">{{st.label}}</b><span class="grow"></span><button class="btn sm ghost" type="button" title="{{st.rmTitle}}" disabled="{{st.rmDisabled}}" onClick="{{st.remove}}">Remove step</button></div>
+                        <div class="formgrid">
+                          <label class="field">Step id<input class="input mono" type="text" value="{{st.id}}" onInput="{{st.setId}}"></label>
+                          <label class="field">Method<select class="select" value="{{st.method}}" onChange="{{st.setMethod}}"><option value="GET">GET</option><option value="POST">POST</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option></select></label>
+                          <label class="field span-all">URL<input class="input mono {{st.urlCls}}" type="text" value="{{st.url}}" onInput="{{st.setUrl}}"><span class="help {{st.urlHelpCls}} wrap">{{st.urlHelp}}</span></label>
+                          <label class="field span-all">Body, one key: value per line<textarea class="textarea mono" rows="3" value="{{st.body}}" onInput="{{st.setBody}}"></textarea></label>
+                        </div>
+                        <div class="field"><span>Save from the response</span>
+                          <div class="rows">
+                            <sc-for list="{{st.save}}" as="sv"><div class="kv"><input class="input mono" type="text" aria-label="{{sv.aria}} name" placeholder="accessToken" value="{{sv.k}}" onInput="{{sv.setK}}"><input class="input mono" type="text" aria-label="{{sv.aria}} source" placeholder="${response.body.access_token}" value="{{sv.v}}" onInput="{{sv.setV}}"><button class="iconbtn" type="button" aria-label="Remove {{sv.aria}}" onClick="{{sv.remove}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div></sc-for>
+                          </div>
+                          <div class="cluster"><button class="btn sm" type="button" onClick="{{st.addSave}}">Add saved value</button></div>
+                        </div>
+                      </div>
+                    </sc-for>
+                    <div class="cluster"><button class="btn sm" type="button" onClick="{{fe.addStep}}">Add step</button><span class="help wrap">{{fe.saved}}</span></div>
+                    <div class="field"><span>apply.headers: added to every request that uses this auth</span>
+                      <div class="rows">
+                        <sc-for list="{{fe.headers}}" as="h"><div class="kv"><input class="input mono" type="text" aria-label="{{h.aria}} name" value="{{h.k}}" onInput="{{h.setK}}"><input class="input mono" type="text" aria-label="{{h.aria}} value" value="{{h.v}}" onInput="{{h.setV}}"><button class="iconbtn" type="button" aria-label="Remove {{h.aria}}" onClick="{{h.remove}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div></sc-for>
+                      </div>
+                      <div class="cluster"><button class="btn sm" type="button" onClick="{{fe.addHeader}}">Add header</button></div>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+              <div class="apane tpane">
+                <h4 class="h3">Test {{ad.id}}</h4>
+                <div class="cluster">
+                  <span class="muted" id="t-prof" style="font-size: 12.5px">Profile</span>
+                  <div class="seg segwrap" role="group" aria-labelledby="t-prof"><sc-for list="{{tst.profs}}" as="o" hint-placeholder-count="3"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+                  <span class="grow"></span>
+                  <button class="btn primary" type="button" disabled="{{tst.running}}" onClick="{{tst.run}}"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3v10l8.5-5z"/></svg>{{tst.runLabel}}</button>
+                </div>
+                <p class="help wrap" style="margin: 0">{{tst.note}}</p>
+                <ol class="tsteps" aria-live="polite">
+                  <sc-for list="{{tst.steps}}" as="t" hint-placeholder-count="3">
+                    <li class="tstep {{t.cls}}">
+                      <div class="tsh"><span class="tsn">{{t.n}}</span><span class="tst wrap">{{t.title}}</span><span class="grow"></span><span class="mono subtle" style="font-size: 12px">{{t.ms}}</span><span class="pill {{t.pill}}">{{t.stLabel}}</span></div>
+                      <sc-if value="{{t.showLines}}" hint-placeholder-val="{{ false }}">
+                        <div class="tl"><sc-for list="{{t.lines}}" as="l"><span class="tk">{{l.k}}</span><span class="tv mono wrap {{l.cls}}">{{l.v}}</span></sc-for></div>
+                      </sc-if>
+                    </li>
+                  </sc-for>
+                </ol>
+                <sc-if value="{{tst.ok}}" hint-placeholder-val="{{ false }}">
+                  <div class="tres ok">
+                    <b>{{tst.summary}}</b>
+                    <span class="muted">Headers applied to every request that uses this auth:</span>
+                    <div class="code hdrs"><sc-for list="{{tst.headers}}" as="h"><div class="ln"><span class="no"></span><span><span class="y-key">{{h.k}}</span><span class="y-punc">: </span><span class="y-str">{{h.v}}</span></span></div></sc-for></div>
+                    <span class="cluster"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 1.5"/></svg><span class="wrap">{{tst.expiry}}</span></span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{tst.failed}}" hint-placeholder-val="{{ false }}">
+                  <div class="diag error tfix" role="alert">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#B3261E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M6 6l4 4M10 6l-4 4"/></svg>
+                    <div class="tfixb">
+                      <b class="wrap">{{tst.fixTitle}}</b>
+                      <span class="wrap">{{tst.fixText}}</span>
+                      <ol class="fixl"><sc-for list="{{tst.fixSteps}}" as="x"><li class="wrap">{{x.t}}<span class="mono">{{x.code}}</span></li></sc-for></ol>
+                      <div class="cluster">
+                        <sc-if value="{{tst.hasFixAdd}}" hint-placeholder-val="{{ false }}"><button class="btn sm primary wbtn" type="button" onClick="{{tst.fixAdd}}">{{tst.fixAddLabel}}</button></sc-if>
+                        <button class="btn sm" type="button" onClick="{{tst.goSecrets}}">Open Secrets</button>
+                        <button class="btn sm" type="button" onClick="{{tst.run}}">Run test again</button>
+                      </div>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- SECRETS -->
+        <sc-if value="{{isSecrets}}" hint-placeholder-val="{{ false }}">
+          <div class="shead">
+            <div class="stitle"><h2 class="h2">Secrets</h2><p class="desc">vc never stores secret values. <span class="mono">.env.schema</span> declares each secret and where Varlock reads it from, per profile through <span class="mono">$VC_PROFILE</span>. This page only shows whether each one resolves.</p></div>
+            <a class="loc" href="WebEditor.dc.html" title="Open .env.schema in the editor">{{locs.secrets}}</a>
+          </div>
+          <section class="section" aria-labelledby="s-prov">
+            <h3 class="h3" id="s-prov">Provider</h3>
+            <div class="formgrid">
+              <div class="field"><span>Provider</span><div class="ro"><span>varlock</span><span class="pill">the only provider</span></div><span class="help">Varlock reads .env.schema and calls 1Password, Vault or the environment.</span></div>
+              <div class="field"><span>Schema file</span><div class="ro"><span>.env.schema</span><a href="WebEditor.dc.html" style="margin-left: auto; font-family: var(--font); font-size: 12px">Open</a></div><span class="help">Committed to git: it holds names and sources, never values.</span></div>
+              <div class="field"><span>Profile flag</span><div class="ro"><span>VC_PROFILE</span></div><span class="help">Set by vc to the profile of the run, so one line serves every profile.</span></div>
+            </div>
+          </section>
+          <section class="section" aria-labelledby="s-list">
+            <div class="cluster">
+              <h3 class="h3" id="s-list">Declared in .env.schema</h3><span class="grow"></span>
+              <button class="btn" type="button" disabled="{{sx.checking}}" onClick="{{sx.check}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5v3h-3"/></svg>{{sx.checkLabel}}</button>
+              <button class="btn accent" type="button" aria-expanded="{{sx.addOpen}}" onClick="{{sx.toggleAdd}}">{{sx.addLabel}}</button>
+            </div>
+            <p class="help wrap" style="margin: 0" aria-live="polite">{{sx.last}}</p>
+            <sc-if value="{{sx.addOpen}}" hint-placeholder-val="{{ false }}">
+              <div class="well addform">
+                <div class="formgrid">
+                  <label class="field">Name<input class="input mono {{sx.ns.cls}}" type="text" placeholder="BILLING_API_KEY" value="{{sx.ns.name}}" onInput="{{sx.ns.setName}}"><span class="help {{sx.ns.helpCls}}">{{sx.ns.help}}</span></label>
+                  <label class="field">Description<input class="input" type="text" placeholder="API key for the billing sandbox" value="{{sx.ns.desc}}" onInput="{{sx.ns.setDesc}}"><span class="help">Written as a comment above the entry.</span></label>
+                  <div class="field"><span id="ns-src">Source</span><div class="seg segwrap" role="group" aria-labelledby="ns-src"><sc-for list="{{sx.ns.srcs}}" as="o"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+                  <label class="field">{{sx.ns.refLabel}}<input class="input mono" type="text" placeholder="{{sx.ns.refPh}}" value="{{sx.ns.ref}}" onInput="{{sx.ns.setRef}}"><span class="help">{{sx.ns.refHelp}}</span></label>
+                </div>
+                <div class="cluster"><span class="mono subtle wrap" style="font-size: 12px">{{sx.ns.preview}}</span><span class="grow"></span><button class="btn primary" type="button" disabled="{{sx.ns.invalid}}" onClick="{{sx.ns.add}}">Add to .env.schema</button></div>
+              </div>
+            </sc-if>
+            <div class="scrollx">
+              <div class="sgrid" style="grid-template-columns: {{sx.cols}}">
+                <div class="sgh">Secret</div><div class="sgh">Source</div>
+                <sc-for list="{{sx.head}}" as="h" hint-placeholder-count="3"><div class="sgh">{{h.label}}</div></sc-for>
+                <sc-for list="{{sx.rows}}" as="r" hint-placeholder-count="7">
+                  <div class="sgc sname"><b class="mono wrap">{{r.name}}</b><span class="muted wrap">{{r.desc}}</span><span class="subtle wrap" style="font-size: 12px">{{r.used}}</span><sc-if value="{{r.canRemove}}" hint-placeholder-val="{{ false }}"><button class="btn sm ghost" type="button" style="align-self: flex-start" aria-label="{{r.rmTitle}}" onClick="{{r.remove}}">Remove</button></sc-if></div>
+                  <div class="sgc ssrc"><span>{{r.srcLabel}}</span><span class="mono subtle wrap" style="font-size: 12px">{{r.ref}}</span></div>
+                  <sc-for list="{{r.st}}" as="x"><div class="sgc sst"><span class="sgp mono">{{x.p}}</span><span class="pill {{x.cls}}" title="{{x.aria}}">{{x.label}}</span></div></sc-for>
+                </sc-for>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- REPORTS -->
+        <sc-if value="{{isReports}}" hint-placeholder-val="{{ false }}">
+          <div class="shead">
+            <div class="stitle"><h2 class="h2">Reports and history</h2><p class="desc">What every run writes to <span class="mono">.vibranium/</span> (git-ignored) and how long it is kept.</p></div>
+            <a class="loc" href="WebEditor.dc.html" title="Open this part of the file in the editor">{{locs.reports}}</a>
+          </div>
+          <section class="section" aria-labelledby="r-fmt">
+            <h3 class="h3" id="r-fmt">Formats</h3>
+            <div class="formgrid">
+              <sc-for list="{{rp.formats}}" as="f" hint-placeholder-count="3">
+                <label class="check"><input type="checkbox" checked="{{f.on}}" onChange="{{f.toggle}}"><span><b>{{f.label}}</b><span class="muted wrap">{{f.desc}}</span></span></label>
+              </sc-for>
+            </div>
+            <span class="help {{rp.formatHelpCls}}">{{rp.formatHelp}}</span>
+          </section>
+          <section class="section" aria-labelledby="r-lay">
+            <h3 class="h3" id="r-lay">HTML report layout</h3>
+            <div class="formgrid">
+              <sc-for list="{{rp.layouts}}" as="l" hint-placeholder-count="2">
+                <label class="check radio {{l.cls}}"><input type="radio" name="layout" checked="{{l.on}}" disabled="{{l.dis}}" onChange="{{l.pick}}"><span><b>{{l.label}}</b><span class="muted wrap">{{l.desc}}</span></span></label>
+              </sc-for>
+            </div>
+            <sc-if value="{{rp.htmlOff}}" hint-placeholder-val="{{ false }}"><span class="help">{{rp.layoutNote}}</span></sc-if>
+          </section>
+          <section class="section" aria-labelledby="r-bod">
+            <h3 class="h3" id="r-bod">Request and response bodies</h3>
+            <div class="formgrid">
+              <div class="field"><span id="r-bodl">Keep bodies for</span><div class="seg segwrap" role="group" aria-labelledby="r-bodl"><sc-for list="{{rp.bodies}}" as="o" hint-placeholder-count="3"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div><span class="help wrap">{{rp.bodiesDesc}}</span></div>
+              <label class="field">Max body size<input class="input mono {{rp.maxBody.cls}}" type="text" value="{{rp.maxBody.v}}" disabled="{{rp.maxBody.dis}}" onInput="{{rp.maxBody.set}}"><span class="help {{rp.maxBody.helpCls}}">{{rp.maxBody.help}}</span></label>
+            </div>
+          </section>
+          <section class="section" aria-labelledby="r-ret">
+            <h3 class="h3" id="r-ret">Retention</h3>
+            <div class="formgrid">
+              <label class="field">Keep runs<input class="input mono {{rp.runs.cls}}" type="text" inputmode="numeric" value="{{rp.runs.v}}" onInput="{{rp.runs.set}}"><span class="help {{rp.runs.helpCls}}">{{rp.runs.help}}</span></label>
+              <label class="field">Keep days<input class="input mono {{rp.days.cls}}" type="text" inputmode="numeric" value="{{rp.days.v}}" onInput="{{rp.days.set}}"><span class="help {{rp.days.helpCls}}">{{rp.days.help}}</span></label>
+            </div>
+            <span class="help">{{rp.retention}}</span>
+          </section>
+        </sc-if>
+
+        <!-- ALERTS -->
+        <sc-if value="{{isAlerts}}" hint-placeholder-val="{{ false }}">
+          <div class="shead">
+            <div class="stitle"><h2 class="h2">Alerts</h2><p class="desc">Where vc posts after a run, for which events and which profiles. Laptop runs alert only if their profile is listed.</p></div>
+            <a class="loc" href="WebEditor.dc.html" title="Open this part of the file in the editor">{{locs.alerts}}</a>
+          </div>
+          <section class="section" aria-labelledby="al-ch">
+            <div class="cluster"><h3 class="h3" id="al-ch">Channels</h3><span class="grow"></span><button class="btn accent" type="button" aria-expanded="{{al.addOpen}}" onClick="{{al.toggleAdd}}">{{al.addLabel}}</button></div>
+            <sc-if value="{{al.addOpen}}" hint-placeholder-val="{{ false }}">
+              <div class="well addform">
+                <div class="formgrid">
+                  <div class="field"><span id="nc-t">Type</span><div class="seg segwrap" role="group" aria-labelledby="nc-t"><sc-for list="{{al.nc.types}}" as="o"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+                  <label class="field">Id<input class="input mono {{al.nc.idCls}}" type="text" placeholder="releaseChannel" value="{{al.nc.id}}" onInput="{{al.nc.setId}}"><span class="help {{al.nc.idHelpCls}}">{{al.nc.idHelp}}</span></label>
+                  <label class="field">{{al.nc.targetLabel}}<input class="input mono {{al.nc.targetCls}}" type="text" placeholder="{{al.nc.targetPh}}" value="{{al.nc.target}}" onInput="{{al.nc.setTarget}}"><span class="help {{al.nc.targetHelpCls}} wrap">{{al.nc.targetHelp}}</span></label>
+                  <sc-if value="{{al.nc.isSlack}}" hint-placeholder-val="{{ true }}"><label class="field">Channel name (optional)<input class="input mono" type="text" placeholder="#shop-releases" value="{{al.nc.note}}" onInput="{{al.nc.setNote}}"><span class="help">Shown in the test result only.</span></label></sc-if>
+                </div>
+                <div class="cluster"><span class="grow"></span><button class="btn primary" type="button" disabled="{{al.nc.invalid}}" onClick="{{al.nc.add}}">Add channel</button></div>
+              </div>
+            </sc-if>
+            <div class="lrows">
+              <sc-for list="{{al.channels}}" as="c" hint-placeholder-count="2">
+                <div class="lrow crow">
+                  <div class="pid"><b class="mono">{{c.id}}</b><span class="pill">{{c.type}}</span></div>
+                  <div class="pmeta"><span class="mono wrap" style="font-size: 12.5px">{{c.target}}</span><sc-if value="{{c.hasNote}}" hint-placeholder-val="{{ true }}"><span class="subtle">{{c.note}}</span></sc-if></div>
+                  <div class="cluster pact"><span class="pill {{c.stCls}}">{{c.st}}</span><button class="btn sm ghost danger" type="button" aria-label="{{c.rmAria}}" onClick="{{c.remove}}">Remove</button></div>
+                  <sc-if value="{{c.hasMsg}}" hint-placeholder-val="{{ false }}"><span class="cmsg wrap">{{c.msg}}</span></sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{al.noChannels}}" hint-placeholder-val="{{ false }}"><p class="help">No channels: runs never alert.</p></sc-if>
+            </div>
+            <div class="cluster">
+              <span class="muted" id="al-sp" style="font-size: 12.5px">Send as</span>
+              <div class="seg segwrap" role="group" aria-labelledby="al-sp"><sc-for list="{{al.sendProfs}}" as="o" hint-placeholder-count="3"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+              <button class="btn" type="button" disabled="{{al.sendDisabled}}" onClick="{{al.send}}">{{al.sendLabel}}</button>
+              <span class="help wrap grow">{{al.sendNote}}</span>
+            </div>
+          </section>
+          <section class="section" aria-labelledby="al-tr">
+            <h3 class="h3" id="al-tr">Triggers</h3>
+            <div class="formgrid">
+              <sc-for list="{{al.triggers}}" as="t" hint-placeholder-count="4">
+                <label class="check"><input type="checkbox" checked="{{t.on}}" onChange="{{t.toggle}}"><span><b>{{t.label}}</b><span class="muted wrap">{{t.desc}}</span></span></label>
+              </sc-for>
+            </div>
+          </section>
+          <section class="section" aria-labelledby="al-pr">
+            <h3 class="h3" id="al-pr">Profiles that alert</h3>
+            <div class="cluster">
+              <sc-for list="{{al.profiles}}" as="p" hint-placeholder-count="3">
+                <label class="check inline"><input type="checkbox" checked="{{p.on}}" onChange="{{p.toggle}}"><span class="mono">{{p.label}}</span></label>
+              </sc-for>
+            </div>
+            <span class="help">{{al.profilesNote}}</span>
+          </section>
+        </sc-if>
+
+        <!-- AGENTS -->
+        <sc-if value="{{isAgents}}" hint-placeholder-val="{{ false }}">
+          <div class="shead">
+            <div class="stitle"><h2 class="h2">Agent access</h2><p class="desc">What coding agents (Claude Code, Cursor, any MCP client) may do through <span class="mono">vc mcp</span> or this UI’s MCP endpoint, set per profile in <span class="mono">profiles[].agents</span>. Everything an agent does is logged in history with the tool and its arguments; secrets are redacted.</p></div>
+            <a class="loc" href="WebEditor.dc.html" title="Open this part of the file in the editor">{{locs.agents}}</a>
+          </div>
+          <div class="cluster">
+            <span class="muted" id="ag-p" style="font-size: 12.5px">Profile</span>
+            <div class="seg segwrap" role="group" aria-labelledby="ag-p"><sc-for list="{{ag.profs}}" as="o" hint-placeholder-count="3"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div>
+            <span class="grow"></span>
+            <a class="btn" href="WebAgents.dc.html">See connected agents and approvals</a>
+          </div>
+          <div class="well agsum"><span class="wrap">{{ag.summary}}</span></div>
+          <section class="section" aria-labelledby="ag-run">
+            <h3 class="h3" id="ag-run">Run tests</h3>
+            <label class="switch"><input type="checkbox" role="switch" checked="{{ag.run}}" onChange="{{ag.toggleRun}}"><span>Agents may run tests on <b class="mono">{{ag.prof}}</b></span></label>
+            <span class="help wrap">{{ag.runHelp}}</span>
+          </section>
+          <section class="section" aria-labelledby="ag-call">
+            <h3 class="h3" id="ag-call">Calling apis</h3>
+            <p class="desc"><b>Without asking</b>: the call goes out right away. <b>Ask a person</b>: the agent pauses until someone approves it on the AI agents page, or in the terminal running <span class="mono">vc mcp</span> when no UI is open. <b>Not allowed</b>: the call is refused and the agent is told why.</p>
+            <div class="mrows">
+              <sc-for list="{{ag.methods}}" as="m" hint-placeholder-count="5">
+                <div class="mrow"><span class="{{m.mcls}}">{{m.m}}</span><div class="seg segwrap" role="group" aria-label="{{m.m}} calls"><sc-for list="{{m.opts}}" as="o"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div>
+              </sc-for>
+            </div>
+          </section>
+          <section class="section" aria-labelledby="ag-w">
+            <h3 class="h3" id="ag-w">Edit definitions</h3>
+            <div class="cluster"><div class="seg" role="group" aria-labelledby="ag-w"><sc-for list="{{ag.writes}}" as="o" hint-placeholder-count="3"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div><span class="help wrap grow">{{ag.writeHelp}}</span></div>
+          </section>
+          <section class="section" aria-labelledby="ag-y">
+            <h3 class="h3" id="ag-y">In vibranium.config.yaml</h3>
+            <div class="code" role="region" aria-label="YAML for these rules" tabindex="0"><sc-for list="{{ag.yaml}}" as="l" hint-placeholder-count="5"><div class="ln"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="x"><span class="{{x.c}}">{{x.t}}</span></sc-for></span></div></sc-for></div>
+          </section>
+        </sc-if>
+
+        <!-- PLUGINS -->
+        <sc-if value="{{isPlugins}}" hint-placeholder-val="{{ false }}">
+          <div class="shead">
+            <div class="stitle"><h2 class="h2">Plugins</h2><p class="desc">Installed plugins and exactly what they may touch. A plugin runs with these permissions only; vc asks before a new version widens them. Add one with <span class="mono">vc plugin add &lt;package&gt;</span>.</p></div>
+            <a class="loc" href="WebEditor.dc.html" title="Open this part of the file in the editor">{{locs.plugins}}</a>
+          </div>
+          <sc-if value="{{pl.hasMsg}}" hint-placeholder-val="{{ false }}">
+            <div class="diag info" role="status"><span class="wrap" style="flex: 1">{{pl.msg}}</span><button class="iconbtn" type="button" aria-label="Dismiss" onClick="{{pl.closeMsg}}"><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+          </sc-if>
+          <div class="lrows">
+            <sc-for list="{{pl.rows}}" as="p" hint-placeholder-count="2">
+              <div class="plrow">
+                <div class="cluster"><b class="mono wrap">{{p.id}}</b><span class="pill">{{p.version}}</span><span class="grow"></span><button class="btn sm ghost danger" type="button" aria-label="{{p.rmAria}}" onClick="{{p.remove}}">Remove</button></div>
+                <span class="muted wrap">{{p.what}}</span>
+                <div class="pgrid">
+                  <sc-for list="{{p.groups}}" as="gr">
+                    <div class="pg"><span class="h3">{{gr.label}}</span><div class="cluster" style="gap: 4px"><sc-for list="{{gr.items}}" as="i"><span class="pill accent mono">{{i.t}}</span></sc-for><sc-if value="{{gr.none}}" hint-placeholder-val="{{ false }}"><span class="subtle" style="font-size: 12.5px">{{gr.noneLabel}}</span></sc-if></div></div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{pl.noPlugins}}" hint-placeholder-val="{{ false }}"><p class="help">No plugins installed.</p></sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+
+  <!-- DIFF -->
+  <sc-if value="{{dlgDiff}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="df-t" style="width: min(980px, 100%)">
+        <div class="mh"><div><h2 class="h2" id="df-t">Pending changes</h2><div class="muted" style="font-size: 12.5px; margin-top: 4px">{{df.summary}}</div></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{closeDlg}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+        <div class="tabs" role="tablist"><sc-for list="{{df.tabs}}" as="t" hint-placeholder-count="2"><button class="tab {{t.cls}}" type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}"><span class="mono">{{t.label}}</span> <span class="subtle">{{t.count}}</span></button></sc-for></div>
+        <div class="diff" role="region" aria-label="Line diff" tabindex="0">
+          <sc-for list="{{df.lines}}" as="l" hint-placeholder-count="12"><div class="dl {{l.cls}}"><span class="dn">{{l.a}}</span><span class="dn">{{l.b}}</span><span class="ds">{{l.sign}}</span><span class="dt"><sc-for list="{{l.segs}}" as="x"><span class="{{x.c}}">{{x.t}}</span></sc-for></span></div></sc-for>
+        </div>
+        <div class="mf"><a class="btn" href="WebEditor.dc.html">Open in editor</a><span class="grow"></span><button class="btn" type="button" onClick="{{discard}}">Discard</button><button class="btn primary" type="button" disabled="{{saveDisabled}}" title="{{saveTitle}}" onClick="{{save}}">Save</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- NEW PROFILE -->
+  <sc-if value="{{dlgNewProfile}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="np-t" style="width: min(640px, 100%)">
+        <div class="mh"><div><h2 class="h2" id="np-t">New profile</h2><div class="muted" style="font-size: 12.5px; margin-top: 4px">Adds an entry under <span class="mono">profiles:</span> in vibranium.config.yaml.</div></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{closeDlg}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+        <div class="mb">
+          <div class="formgrid">
+            <label class="field">Name<input class="input mono {{np.cls}}" type="text" placeholder="eu" value="{{np.name}}" onInput="{{np.setName}}"><span class="help {{np.helpCls}}">{{np.help}}</span></label>
+            <label class="field">Display name (optional)<input class="input" type="text" placeholder="EU region staging" value="{{np.title}}" onInput="{{np.setTitle}}"><span class="help">Shown in menus and reports.</span></label>
+          </div>
+          <sc-if value="{{np.hasSugg}}" hint-placeholder-val="{{ false }}"><div class="cluster"><span class="help err">Suggestion</span><button class="btn sm" type="button" onClick="{{np.useSugg}}"><span class="mono">{{np.sugg}}</span></button></div></sc-if>
+          <fieldset class="field fs"><legend>Copy overrides from</legend>
+            <div class="rows">
+              <sc-for list="{{np.copyOpts}}" as="o" hint-placeholder-count="4"><label class="check radio {{o.cls}}"><input type="radio" name="npcopy" checked="{{o.on}}" onChange="{{o.pick}}"><span><b>{{o.label}}</b><span class="muted wrap">{{o.sub}}</span></span></label></sc-for>
+            </div>
+          </fieldset>
+          <label class="check"><input type="checkbox" checked="{{np.def}}" onChange="{{np.toggleDef}}"><span><b>Set as default</b><span class="muted wrap">{{np.defNote}}</span></span></label>
+          <div class="code" aria-label="YAML that will be added"><sc-for list="{{np.yaml}}" as="l" hint-placeholder-count="6"><div class="ln"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="x"><span class="{{x.c}}">{{x.t}}</span></sc-for></span></div></sc-for></div>
+        </div>
+        <div class="mf"><button class="btn" type="button" onClick="{{closeDlg}}">Cancel</button><button class="btn accent" type="button" disabled="{{np.invalid}}" onClick="{{np.create}}">Add profile</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- DELETE PROFILE -->
+  <sc-if value="{{dlgDelProfile}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dp-t" style="width: min(560px, 100%)">
+        <div class="mh"><div><h2 class="h2" id="dp-t">Delete profile <span class="mono">{{dp.id}}</span>?</h2></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{closeDlg}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+        <div class="mb"><ul class="dlist"><sc-for list="{{dp.lines}}" as="x" hint-placeholder-count="4"><li class="wrap">{{x.t}}</li></sc-for></ul><span class="help">Nothing is written until you save. Discard undoes it.</span></div>
+        <div class="mf"><button class="btn" type="button" onClick="{{closeDlg}}">Cancel</button><button class="btn dangerfill" type="button" onClick="{{dp.confirm}}">Delete {{dp.id}}</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- NEW AUTH WIZARD -->
+  <sc-if value="{{dlgWizard}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="wz-t" style="width: min(860px, 100%)">
+        <div class="mh"><div><h2 class="h2" id="wz-t">New auth definition</h2><div class="muted" style="font-size: 12.5px; margin-top: 4px">{{wz.stepLabel}}</div></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{closeDlg}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+        <ol class="wsteps"><sc-for list="{{wz.steps}}" as="x" hint-placeholder-count="3"><li class="{{x.cls}}">{{x.label}}</li></sc-for></ol>
+        <div class="mb">
+          <sc-if value="{{wz.step1}}" hint-placeholder-val="{{ true }}">
+            <fieldset class="fs"><legend class="sr">Auth type</legend>
+              <div class="tcards">
+                <sc-for list="{{wz.types}}" as="t" hint-placeholder-count="8">
+                  <label class="tcard {{t.cls}}"><input type="radio" name="wztype" checked="{{t.on}}" onChange="{{t.pick}}"><span><b>{{t.label}}</b><span class="mono subtle" style="font-size: 11.5px">{{t.key}}</span><span class="muted wrap">{{t.desc}}</span></span></label>
+                </sc-for>
+              </div>
+            </fieldset>
+          </sc-if>
+          <sc-if value="{{wz.step2}}" hint-placeholder-val="{{ false }}">
+            <div class="formgrid">
+              <label class="field">Name, what it signs in to<input class="input" type="text" placeholder="Billing sandbox key" value="{{wz.name}}" onInput="{{wz.setName}}"><span class="help">Plain words; the id is derived from it.</span></label>
+              <label class="field">Id<input class="input mono {{wz.idCls}}" type="text" value="{{wz.id}}" onInput="{{wz.setId}}"><span class="help {{wz.idHelpCls}} wrap">{{wz.idHelp}}</span></label>
+            </div>
+            <div class="cluster">
+              <sc-if value="{{wz.hasIdSugg}}" hint-placeholder-val="{{ false }}"><button class="btn sm wbtn" type="button" onClick="{{wz.useIdSugg}}">Use <span class="mono">{{wz.idSugg}}</span></button></sc-if>
+              <sc-if value="{{wz.idEdited}}" hint-placeholder-val="{{ false }}"><button class="btn sm ghost" type="button" onClick="{{wz.resetId}}">Derive the id from the name again</button></sc-if>
+            </div>
+            <div class="whint"><span class="pill accent">{{wz.typeLabel}}</span><span class="help wrap">URLs take <span class="mono">${var.identityUrl}</span>-style variables so each profile uses its own host. Secret fields take only <span class="mono">${secret.NAME}</span>; the value lives in 1Password, Vault or the environment.</span></div>
+            <sc-if value="{{wz.notFlow}}" hint-placeholder-val="{{ true }}">
+              <div class="formgrid">
+                <sc-for list="{{wz.fields}}" as="f" hint-placeholder-count="5">
+                  <div class="field {{f.span}}">
+                    <span>{{f.label}}<sc-if value="{{f.isSecret}}" hint-placeholder-val="{{ false }}"> <span class="pill skip lockp">secret reference</span></sc-if></span>
+                    <sc-if value="{{f.isText}}" hint-placeholder-val="{{ true }}"><input class="input mono {{f.cls}}" type="text" aria-label="{{f.label}}" placeholder="{{f.ph}}" value="{{f.v}}" onInput="{{f.set}}"></sc-if>
+                    <sc-if value="{{f.isArea}}" hint-placeholder-val="{{ false }}"><textarea class="textarea mono" rows="3" aria-label="{{f.label}}" value="{{f.v}}" onInput="{{f.set}}"></textarea></sc-if>
+                    <sc-if value="{{f.isChoice}}" hint-placeholder-val="{{ false }}"><div class="seg segwrap" role="group" aria-label="{{f.label}}"><sc-for list="{{f.opts}}" as="o"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></sc-if>
+                    <span class="help {{f.helpCls}} wrap">{{f.help}}</span>
+                    <sc-if value="{{f.hasSugg}}" hint-placeholder-val="{{ false }}"><div class="cluster"><button class="btn sm wbtn" type="button" onClick="{{f.useSugg}}">Use <span class="mono">{{f.sugg}}</span></button></div></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{wz.isFlow}}" hint-placeholder-val="{{ false }}">
+              <div class="flow">
+                <sc-for list="{{wfe.steps}}" as="st" hint-placeholder-count="1">
+                  <div class="fstep">
+                    <div class="cluster"><b class="fsn">{{st.label}}</b><span class="grow"></span><button class="btn sm ghost" type="button" title="{{st.rmTitle}}" disabled="{{st.rmDisabled}}" onClick="{{st.remove}}">Remove step</button></div>
+                    <div class="formgrid">
+                      <label class="field">Step id<input class="input mono" type="text" value="{{st.id}}" onInput="{{st.setId}}"></label>
+                      <label class="field">Method<select class="select" value="{{st.method}}" onChange="{{st.setMethod}}"><option value="GET">GET</option><option value="POST">POST</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option></select></label>
+                      <label class="field span-all">URL<input class="input mono {{st.urlCls}}" type="text" value="{{st.url}}" onInput="{{st.setUrl}}"><span class="help {{st.urlHelpCls}} wrap">{{st.urlHelp}}</span></label>
+                      <label class="field span-all">Body, one key: value per line<textarea class="textarea mono" rows="3" value="{{st.body}}" onInput="{{st.setBody}}"></textarea></label>
+                    </div>
+                    <div class="field"><span>Save from the response</span>
+                      <div class="rows">
+                        <sc-for list="{{st.save}}" as="sv"><div class="kv"><input class="input mono" type="text" aria-label="{{sv.aria}} name" placeholder="accessToken" value="{{sv.k}}" onInput="{{sv.setK}}"><input class="input mono" type="text" aria-label="{{sv.aria}} source" placeholder="${response.body.access_token}" value="{{sv.v}}" onInput="{{sv.setV}}"><button class="iconbtn" type="button" aria-label="Remove {{sv.aria}}" onClick="{{sv.remove}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div></sc-for>
+                      </div>
+                      <div class="cluster"><button class="btn sm" type="button" onClick="{{st.addSave}}">Add saved value</button></div>
+                    </div>
+                  </div>
+                </sc-for>
+                <div class="cluster"><button class="btn sm" type="button" onClick="{{wfe.addStep}}">Add step</button><span class="help wrap">{{wfe.saved}}</span></div>
+                <div class="field"><span>apply.headers: added to every request that uses this auth</span>
+                  <div class="rows">
+                    <sc-for list="{{wfe.headers}}" as="h"><div class="kv"><input class="input mono" type="text" aria-label="{{h.aria}} name" value="{{h.k}}" onInput="{{h.setK}}"><input class="input mono" type="text" aria-label="{{h.aria}} value" value="{{h.v}}" onInput="{{h.setV}}"><button class="iconbtn" type="button" aria-label="Remove {{h.aria}}" onClick="{{h.remove}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div></sc-for>
+                  </div>
+                  <div class="cluster"><button class="btn sm" type="button" onClick="{{wfe.addHeader}}">Add header</button></div>
+                </div>
+              </div>
+            </sc-if>
+          </sc-if>
+          <sc-if value="{{wz.step3}}" hint-placeholder-val="{{ false }}">
+            <p class="desc" style="margin: 0">Adds this to <span class="mono">auth:</span> in vibranium.config.yaml. Nothing is written until you save; test it first from the Authentication page.</p>
+            <div class="code" aria-label="YAML that will be added"><sc-for list="{{wz.yaml}}" as="l" hint-placeholder-count="6"><div class="ln"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="x"><span class="{{x.c}}">{{x.t}}</span></sc-for></span></div></sc-for></div>
+            <sc-if value="{{wz.hasNewSecrets}}" hint-placeholder-val="{{ false }}"><div class="diag info"><span class="wrap">{{wz.newSecrets}}</span></div></sc-if>
+          </sc-if>
+          <sc-if value="{{wz.hasErrs}}" hint-placeholder-val="{{ false }}"><div class="diag warn"><span class="wrap">To continue: {{wz.errs}}</span></div></sc-if>
+        </div>
+        <div class="mf">
+          <button class="btn" type="button" onClick="{{closeDlg}}">Cancel</button>
+          <span class="grow"></span>
+          <sc-if value="{{wz.hasBack}}" hint-placeholder-val="{{ false }}"><button class="btn" type="button" onClick="{{wz.back}}">Back</button></sc-if>
+          <sc-if value="{{wz.notLast}}" hint-placeholder-val="{{ true }}"><button class="btn primary" type="button" disabled="{{wz.nextDisabled}}" title="{{wz.nextTitle}}" onClick="{{wz.next}}">Next</button></sc-if>
+          <sc-if value="{{wz.isLast}}" hint-placeholder-val="{{ false }}"><button class="btn accent" type="button" onClick="{{wz.create}}">Create {{wz.id}}</button></sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>

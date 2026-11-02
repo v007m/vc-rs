@@ -1,0 +1,28 @@
+id: carts
+name: Shopping carts
+baseUrl: ${var.cartsUrl}/api/v1
+auth: shopOauth
+
+apis:
+  - id: create
+    name: Create a cart
+    method: POST
+    path: /carts
+    body:
+      userId: ${var.userId}
+    expect:
+      status: 201
+    save:
+      cartId: ${response.body.id}
+  - id: addItem
+    name: Add an item to a cart
+    method: POST
+    path: /carts/${var.cartId}/items
+    body:
+      sku: ${var.sku}
+      quantity: 1
+    expect:
+      status: 201
+  - id: get
+    name: Get a cart
+    path: /carts/${var.cartId}

@@ -1,0 +1,41 @@
+id: orders
+name: Orders service
+baseUrl: ${var.ordersUrl}/api/v1
+auth: shopOauth
+
+source:
+  openapi: https://orders.staging.shop.example/v3/api-docs
+
+apis:
+  - id: place
+    name: Place an order
+    method: POST
+    path: /orders
+    vars:
+      paymentToken: tok_visa
+    body:
+      cartId: ${var.cartId}
+      payment:
+        token: ${var.paymentToken}
+    expect:
+      status: 201
+    save:
+      orderId: ${response.body.id}
+      orderTotal: ${response.body.total}
+    cleanup:
+      call: cancel
+      vars:
+        orderId: ${response.body.id}
+  - id: get
+    name: Get an order
+    path: /orders/${var.orderId}
+  - id: cancel
+    name: Cancel an order
+    method: POST
+    path: /orders/${var.orderId}/cancel
+    expect:
+      status: [200, 409]
+  - id: refund
+    name: Refund an order (admins only)
+    method: POST
+    path: /orders/${var.orderId}/refund

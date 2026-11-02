@@ -1,0 +1,29 @@
+[package]
+name = "cli"
+description = "Composition root: wires adapters into the engine."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "vibranium"
+path = "src/main.rs"
+
+[dependencies]
+ir.workspace = true
+ports.workspace = true
+engine.workspace = true
+compiler.workspace = true
+adapters-http.workspace = true
+adapters-store.workspace = true
+adapters-hooks.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+reqwest = { version = "0.13", default-features = false }
+serde_json.workspace = true
+
+[lints]
+workspace = true

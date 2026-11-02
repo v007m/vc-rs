@@ -1,0 +1,170 @@
+{
+  "hello": {
+    "production": {
+      "code_lines": 1,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "hook-deno": {
+    "production": {
+      "code_lines": 269,
+      "explicit_lifetimes": 14,
+      "lifetime_names": [
+        "_",
+        "s"
+      ],
+      "pub_api_lines_with_lifetimes": [
+        "pub fn to_v8<'s>(scope: &mut v8::PinScope<'s, '_>, v: &Json, how: Marshal) -> Result<v8::Local<'s, v8::Value>, String> {",
+        "pub fn from_v8<'s>(scope: &mut v8::PinScope<'s, '_>, v: v8::Local<'s, v8::Value>, how: Marshal) -> Result<Json, String> {"
+      ],
+      "clone_calls": 8,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 1,
+      "rc_mentions": 1,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "hook-qjs": {
+    "production": {
+      "code_lines": 197,
+      "explicit_lifetimes": 18,
+      "lifetime_names": [
+        "_",
+        "js",
+        "static"
+      ],
+      "pub_api_lines_with_lifetimes": [
+        "pub fn to_js<'js>(ctx: &Ctx<'js>, v: &Json, how: Marshal) -> rquickjs::Result<Value<'js>> {",
+        "pub fn from_js<'js>(ctx: &Ctx<'js>, v: &Value<'js>, how: Marshal) -> rquickjs::Result<Json> {",
+        "pub fn json_to_js<'js>(ctx: &Ctx<'js>, v: &Json) -> rquickjs::Result<Value<'js>> {",
+        "pub fn js_to_json<'js>(ctx: &Ctx<'js>, v: &Value<'js>) -> rquickjs::Result<Json> {"
+      ],
+      "clone_calls": 16,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "hookbench": {
+    "production": {
+      "code_lines": 212,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 5,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  },
+  "tsstrip": {
+    "production": {
+      "code_lines": 101,
+      "explicit_lifetimes": 2,
+      "lifetime_names": [
+        "_",
+        "static"
+      ],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 1,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    },
+    "tests": {
+      "code_lines": 0,
+      "explicit_lifetimes": 0,
+      "lifetime_names": [],
+      "pub_api_lines_with_lifetimes": [],
+      "clone_calls": 0,
+      "arc_clone_calls": 0,
+      "arc_mutex_or_rwlock": 0,
+      "mutex_or_rwlock_mentions": 0,
+      "refcell_mentions": 0,
+      "rc_mentions": 0,
+      "unsafe_blocks": 0,
+      "static_items": 0
+    }
+  }
+}

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium CLI · start from an OpenAPI spec</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.term{box-sizing:border-box;background:#0A0C10;color:#D7DAE0;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid #2C313C;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.bar{height:32px;flex:none;box-sizing:border-box;background:#1A1D24;border-bottom:1px solid #2C313C;position:relative;display:flex;align-items:center;gap:8px;padding:0 14px}
+.dot{width:12px;height:12px;border-radius:50%}
+.btitle{position:absolute;left:0;right:0;text-align:center;color:#8B92A0;font-size:12px;pointer-events:none}
+.body{flex:1;min-height:0;overflow:hidden;padding:14px 18px 16px}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.k{color:#8FB8F0}.s{color:#C9D99A}.t{color:#E8B86D}
+.g{display:inline-block;width:1ch;text-align:center}
+.cur{background:#D7DAE0;color:#0A0C10}
+</style>
+</helmet>
+<div class="term" style="width: 1280px; height: 1292px">
+  <div class="bar"><span class="dot" style="background: #F06A5D"></span><span class="dot" style="background: #E5A13A"></span><span class="dot" style="background: #4FC27A"></span><span class="btitle">zsh — shop</span></div>
+  <div class="body">
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc init</div>
+    <div class="ln">  <span class="vio b"><span class="g">◆</span> vibranium</span> <span class="dim">2.0.0</span>  <span class="dim">·  new project</span> shop <span class="dim">in ~/shop</span></div>
+    <div class="ln">  <span class="ok">created</span>  vibranium.config.yaml             <span class="dim">defaults for</span> timeout, concurrency, headers, reports, history  <span class="dim">· profile</span> default <span class="dim">(active)</span></div>
+    <div class="ln">  <span class="ok">created</span>  .env.schema                       <span class="dim">names the secrets; values go in</span> .env <span class="dim">(git-ignored)</span></div>
+    <div class="ln">  <span class="ok">created</span>  .gitignore                        <span class="dim">+</span> .vibranium/  <span class="dim">+</span> .env</div>
+    <div class="ln">  <span class="ok">created</span>  schemas/  datasets/  hooks/  openapi/  load/</div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="vio b">sample</span>   <span class="dim">annotated starter that runs offline against the built-in demo service</span> vc demo <span class="dim">on</span> localhost:7421</div>
+    <div class="ln">  <span class="ok">created</span>  services/sample/sample.api.yaml   <span class="b">4 apis</span>   <span class="dim">· id</span> sample <span class="dim">·</span> listUsers, createUser, getUser, deleteUser</div>
+    <div class="ln">  <span class="ok">created</span>  services/sample/basics.test.yaml  <span class="b">4 tests</span>  <span class="dim">· id</span> sample.basics <span class="dim">· starts</span> vc demo <span class="dim">before the tests and stops it after</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="dim">every file starts with a schema line for editor autocomplete and a short doc header with links to the docs</span></div>
+    <div class="ln">  <span class="dim">comments in generated files</span> --comments full|brief|none  <span class="dim">·  skip the sample</span> --no-sample</div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">next</span></div>
+    <div class="ln">    vc run sample.basics                     <span class="ok">4 passed</span><span class="dim">, offline: no server, keys or config needed</span></div>
+    <div class="ln">    vc import openapi &lt;url&gt;                  <span class="dim">add your own service from its spec</span></div>
+    <div class="ln">    vc new test …                            <span class="dim">write a test step by step; each answer is also a flag</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc run sample.basics</div>
+    <div class="ln">  <span class="vio b"><span class="g">◆</span> vibranium</span> <span class="dim">2.0.0</span>  <span class="dim">profile</span> default  <span class="dim">selector</span> sample.basics  <span class="dim">·  4 tests in 1 file ·</span> vc demo <span class="dim">on</span> localhost:7421</div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> <span class="b">sample.basics</span>  <span class="dim">services/sample/basics.test.yaml</span>   4/4   0.6s   <span class="dim">listsUsers · createsUser · getsCreatedUser · rejectsMissingEmail</span></div>
+    <div class="ln">  <span class="b">Tests</span>  <span class="ok b">4 passed</span> <span class="dim">(4)</span>   <span class="b">Time</span> 0.6s <span class="dim">· demo service started and stopped by the test file</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc import openapi https://users.staging.shop.example/v3/api-docs --id users --tests</div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> fetched  https://users.staging.shop.example/v3/api-docs  <span class="dim">JSON · OpenAPI 3.0.3 · 7 operations · 5 schemas · 184ms</span></div>
+    <div class="ln">  <span class="ok">wrote</span>  services/users/users.api.yaml     <span class="b">7 apis</span>  <span class="dim">· id</span> users <span class="dim">· ids from operationId</span></div>
+    <div class="ln">         <span class="dim">id</span>                  <span class="dim">method</span>   <span class="dim">path</span>                       <span class="dim">operationId</span></div>
+    <div class="ln">         users.<span class="b">create</span>        POST     /users                     <span class="dim">createUser</span>            <span class="dim">cleanup <span class="g">→</span> users.delete (DELETE on the same resource)</span></div>
+    <div class="ln">         users.<span class="b">get</span>           GET      /users/{id}                <span class="dim">getUser</span></div>
+    <div class="ln">         users.<span class="b">list</span>          GET      /users                     <span class="dim">listUsers</span>             <span class="dim">query: limit, status</span></div>
+    <div class="ln">         users.<span class="b">update</span>        PUT      /users/{id}                <span class="dim">updateUser</span></div>
+    <div class="ln">         users.<span class="b">delete</span>        DELETE   /users/{id}                <span class="dim">deleteUser</span></div>
+    <div class="ln">         users.<span class="b">startExport</span>   POST     /users/exports             <span class="dim">startUserExport</span>       <span class="dim">saves jobId</span></div>
+    <div class="ln">         users.<span class="b">exportStatus</span>  GET      /users/exports/{jobId}     <span class="dim">getUserExportStatus</span></div>
+    <div class="ln">  <span class="ok">wrote</span>  openapi/users.yaml                <span class="dim">snapshot · the merge base for</span> vc sync <span class="dim">· commit it</span></div>
+    <div class="ln">  <span class="ok">wrote</span>  services/users/users.test.yaml    <span class="b">7 tests</span>  <span class="dim">· id</span> users.crud <span class="dim">· one happy path per api: status + response schema</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="info">note</span>   base URL <span class="g">→</span> var <span class="b">usersUrl</span> added to config  <span class="dim">default = https://users.staging.shop.example/api/v1 (servers[0]) · path params <span class="g">→</span> vars</span></div>
+    <div class="ln">  <span class="warn">auth</span>   spec says <span class="b">oauth2 client credentials</span> <span class="g">→</span> add <span class="b">shopOauth</span> with  vc new auth shopOauth --kind oauth2-client</div>
+    <div class="ln">         <span class="dim">until then apis send</span> Authorization: Bearer ${env.USERS_TOKEN} <span class="dim">· added</span> USERS_TOKEN <span class="dim">to</span> .env.schema</div>
+    <div class="ln">  <span class="info">hint</span> vc check <span class="dim">validates everything ·</span> vc run users <span class="dim">runs the 7 new tests</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc check</div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> <span class="b">3 files · 7 apis · 7 tests · 0 errors</span>  <span class="dim">· 38ms</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc run users</div>
+    <div class="ln">  <span class="vio b"><span class="g">◆</span> vibranium</span> <span class="dim">2.0.0</span>  <span class="dim">profile</span> default  <span class="dim">selector</span> users  <span class="dim">·  7 tests in 1 file</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> <span class="b">users.crud</span>  <span class="dim">services/users/users.test.yaml</span>   7/7   1.9s</div>
+    <div class="ln">      <span class="ok"><span class="g">✓</span></span> createOk        <span class="dim">POST</span>    <span class="dim">/users</span>                    <span class="ok">201</span>   212ms</div>
+    <div class="ln">      <span class="ok"><span class="g">✓</span></span> getOk           <span class="dim">GET</span>     <span class="dim">/users/u_93kd41ra</span>         <span class="ok">200</span>    41ms   <span class="dim">before users.create</span></div>
+    <div class="ln">      <span class="ok"><span class="g">✓</span></span> listOk          <span class="dim">GET</span>     <span class="dim">/users?limit=20</span>           <span class="ok">200</span>    64ms</div>
+    <div class="ln">      <span class="ok"><span class="g">✓</span></span> updateOk        <span class="dim">PUT</span>     <span class="dim">/users/u_2mx8c7vd</span>         <span class="ok">200</span>   118ms   <span class="dim">before users.create</span></div>
+    <div class="ln">      <span class="ok"><span class="g">✓</span></span> deleteOk        <span class="dim">DELETE</span>  <span class="dim">/users/u_q41ne0zt</span>         <span class="ok">204</span>    57ms   <span class="dim">before users.create</span></div>
+    <div class="ln">      <span class="ok"><span class="g">✓</span></span> startExportOk   <span class="dim">POST</span>    <span class="dim">/users/exports</span>            <span class="ok">202</span>    96ms</div>
+    <div class="ln">      <span class="ok"><span class="g">✓</span></span> exportStatusOk  <span class="dim">GET</span>     <span class="dim">/users/exports/ex_41b2</span>    <span class="ok">200</span>    38ms   <span class="dim">before users.startExport</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">Tests</span>  <span class="ok b">7 passed</span> <span class="dim">(7)</span>   <span class="b">Time</span> 1.92s <span class="dim">· 14 requests · cleanup users.delete ×4</span></div>
+    <div class="ln">  <span class="dim">reports</span> .vibranium/reports/ <span class="dim"><span class="g">→</span></span> ctrf.json · junit.xml · report.html</div>
+    <div class="ln">  <span class="info">hint</span> vc report --open <span class="dim">to browse requests ·</span> vc watch users <span class="dim">reruns on save</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1292}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
