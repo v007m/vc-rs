@@ -1,0 +1,12 @@
+[package]
+name = "vc-parser"
+description = "YAML and JSON parsing with source spans, and minimal text edits."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

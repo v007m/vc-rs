@@ -1,0 +1,12 @@
+[package]
+name = "vc-planner"
+description = "Pure planner: a selection over a Program to a Plan."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

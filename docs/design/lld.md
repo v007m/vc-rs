@@ -156,7 +156,7 @@ The feasibility spike showed that Rust's borrow checker stays out of the way whe
 9. **Small functions.** At most 40 lines, cognitive complexity at most 10, at most 3 parameters excluding `self` (group the rest into a context struct) (D109).
 10. **Small files and traits.** A source file has at most 400 lines and a trait at most 7 methods; generated and test files are exempt (D114).
 11. **A facade per crate.** Library crates keep their modules private and `pub use` the public items in `lib.rs`; no `pub mod`, except in the generated `vc-contracts`.
-12. **Inject trait objects.** Dependencies are passed as `Arc<dyn Trait>`; async methods use `async-trait` unless native dyn-async is stable; generics only where a bench proves the need (D115).
+12. **Inject trait objects.** Dependencies are passed as `Arc<dyn Trait>`; async methods use `async-trait`, because `async fn` in a trait is still not dyn-compatible on Rust 1.99 (checked at M0); generics only where a bench proves the need (D115).
 13. **Errors per crate.** Each library crate has its own `thiserror` enum; `anyhow` is used only in `vc-cli`.
 14. **Contract suites.** Every interface trait has one contract suite in `vc-testkit`, and every adapter or fake that implements the trait runs it (D112).
 15. **Conventional commits, tidy first.** `refactor:` commits stay apart from behaviour changes and never change test assertions; CI fails one that does (D116).

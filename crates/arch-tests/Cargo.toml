@@ -1,0 +1,12 @@
+[package]
+name = "vc-arch-tests"
+description = "Machine-checked dependency and design rules for the workspace."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

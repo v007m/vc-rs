@@ -1,0 +1,9 @@
+{
+  "name": "vibranium-workspace",
+  "private": true,
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@12.16.1",
+  "devDependencies": {
+    "jscpd": "5.4.2"
+  }
+}

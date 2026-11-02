@@ -1,0 +1,68 @@
+[workspace]
+resolver = "3"
+members = [
+  "crates/model",
+  "crates/diagnostics",
+  "crates/parser",
+  "crates/template",
+  "crates/compiler",
+  "crates/planner",
+  "crates/interfaces",
+  "crates/executor",
+  "crates/engine",
+  "crates/testkit",
+  "crates/adapters/system",
+  "crates/adapters/http",
+  "crates/adapters/reporters",
+  "crates/apps/cli",
+  "crates/arch-tests",
+  "bench/mock",
+]
+exclude = ["spike"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+rust-version = "1.99"
+license = "Apache-2.0"
+repository = "https://github.com/v007m/vc-rs"
+publish = false
+
+[workspace.dependencies]
+vc-model = { path = "crates/model" }
+vc-diagnostics = { path = "crates/diagnostics" }
+vc-parser = { path = "crates/parser" }
+vc-template = { path = "crates/template" }
+vc-compiler = { path = "crates/compiler" }
+vc-planner = { path = "crates/planner" }
+vc-interfaces = { path = "crates/interfaces" }
+vc-executor = { path = "crates/executor" }
+vc-engine = { path = "crates/engine" }
+vc-testkit = { path = "crates/testkit" }
+vc-adapter-system = { path = "crates/adapters/system" }
+vc-adapter-http = { path = "crates/adapters/http" }
+vc-adapter-reporters = { path = "crates/adapters/reporters" }
+assert_cmd = "2.2.2"
+clap = { version = "4.6.7", features = ["derive"] }
+predicates = "3.1.4"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+# unreachable_pub is not enabled: it contradicts clippy::redundant_pub_crate (nursery).
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# Not in pedantic or nursery: without this the clippy.toml threshold is ignored.
+cognitive_complexity = "warn"
+unwrap_used = "deny"
+expect_used = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+panic = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = "symbols"
