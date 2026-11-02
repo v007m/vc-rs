@@ -42,7 +42,7 @@ pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};
 pub use test::{Action, ActionKind, InlineRequest, Test, TestBody, TestFile};
 pub use template::{
-    CelSource, Namespace, Part, Path, PipeCall, Reference, ScalarSource, ScalarStyle, Segment, StatusPattern, Template,
-    TemplateValue,
+    CelProgram, CelSource, Namespace, Part, Path, PipeCall, Reference, ScalarSource, ScalarStyle, Segment,
+    StatusPattern, Template, TemplateValue,
 };
 pub use units::{Duration, Size};
