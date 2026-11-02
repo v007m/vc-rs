@@ -187,9 +187,70 @@ Round 14 additions (engine structure, 23 October 2026):
 | D94 | Execution model and patterns | Hierarchical orchestration: `RunOrchestrator` → `FileOrchestrator` → `InstanceWorkflow`, each a pure state machine that decides, while strategies and adapters act. Cleanups are saga compensations. Ports and adapters throughout, with strategy, factory and registry, builder (including `EngineBuilder` as the composition root), facade, observer, middleware chain (`tower`), decorator, command, visitor, specification, repository and null object, each used where it removes coupling or branching (listed in the LLD); interfaces only across crates | — |
 | D95 | Web UI framework | Svelte with SvelteKit (static adapter), built by Vite and embedded in the binary | LLD default (React) |
 
+Round 15 additions (implementation kick-off grill for M0–M2, 2 November 2026):
+
+| # | Decision | Choice | Supersedes |
+| --- | --- | --- | --- |
+| D96 | Planning scope | M0–M2 planned in detail; M3+ each get a grill-and-review at kick-off | — |
+| D97 | Git model | `master` is the integration branch; each session has one long-lived `s/<name>` branch; small PRs → code review → merge | `main` |
+| D98 | Toolchain | rustup with `rust-toolchain.toml` pinned to 1.99 | LLD 1.97 |
+| D99 | Monorepo | Cargo workspace + pnpm workspace + `mise.toml` (pins node, pnpm, cargo tools, jscpd, buf; tasks `mise run gates/test/bench/mock`) | — |
+| D100 | Mock server | Rust axum crate `bench/mock` (`vc-mock-server`): library started in-process on port 0 by tests, plus a bin | spike Go mock |
+| D101 | Wire contract | Hand-written `.proto` files are the contract (`buf lint`, `buf breaking`), generated into `vc-contracts` and TypeScript; `vc-model` stays hand-written; each proto is written at its first consumer | TD "IR defined in protobuf" |
+| D102 | Crate names | `vc-<dir>`; ir→`model`, diag→`diagnostics`, syntax→`parser`, ports→`interfaces`, load→`loadtest`, proto→`contracts`; adapters `vc-adapter-<x>` | LLD names |
+| D103 | Plan and Event types | Live in `vc-model` | — |
+| D104 | Load engine | `vc-loadtest` may depend on `vc-executor` | LLD dep table |
+| D105 | Diagnostics in leaf crates | `vc-parser` and `vc-template` may depend on `vc-diagnostics` | LLD dep table |
+| D106 | Redactor and flow auth | Redactor is core logic in `vc-executor` (secrets adapter only supplies values); flow auth runs steps through an `ActionRunner` trait implemented by the executor and injected by `EngineBuilder` | LLD secrets adapter owning the redactor |
+| D107 | Guarded edits | `vc-parser` produces minimal `TextEdit`s and checks they re-parse; compile-before/after and refusal of new errors live in `vc-engine` | — |
+| D108 | App dependencies | Apps depend only on `vc-engine` (which re-exports model types), plus `vc-contracts` for server and MCP | LLD apps → ir |
+| D109 | Parameter limit | Clippy `too-many-arguments-threshold = 4` plus an arch-test: at most 3 parameters excluding `self` | — |
+| D110 | Launcher | `vc-cli` owns `main` and dispatches `tui`/`mcp`/`ui`; the only app→app edges are cli→{tui, mcp, server} | — |
+| D111 | External types in public APIs | `vc-model` and `vc-interfaces` public items may name only std, serde/serde_json, indexmap, smol_str, bytes and `http`; enforced by arch-tests | — |
+| D112 | Test kit | `vc-testkit` (fakes, fixture builders, one contract suite per interface trait); dev-dependency only | LLD `ports/contract` |
+| D113 | Lock allow-list | Exactly two files may hold a lock: TokenCache (mutex map of slots, never held across an await) and Redactor (`arc-swap`) | — |
+| D114 | Size caps | Source file ≤400 lines; trait ≤7 methods; generated and test files exempt | — |
+| D115 | Dispatch | Dependencies injected as `Arc<dyn Trait>`; async methods via `async-trait` unless native dyn-async is stable; generics only where a bench proves the need | — |
+| D116 | Commits | Conventional commits; CI fails a `refactor:` commit that changes test assertions (tidy first) | — |
+| D117 | API snapshots | `cargo public-api` snapshots for model, interfaces and engine from the end of M2 | — |
+| D118 | Branch protection | `master`: required gates and cross-OS test checks, CODEOWNERS review with admin bypass, linear history, no force-push | — |
+| D119 | CI matrix | Ubuntu runs every gate; macOS and Windows build and test; nightly runs full mutation testing and wall-clock budgets | — |
+| D120 | Performance gate | Instruction-count benches (gungraun) on PRs fail at a >5% regression; criterion wall-clock budgets run nightly and open an issue on breach | LLD "fail on 10% in CI" |
+| D121 | Gate self-test | `scripts/gates-selftest.sh` applies one bad patch per gate and asserts that gate rejects it | — |
+| D122 | Lifecycle timing | `beforeRun` and `beforeAll` run eagerly: planned when their run or file has a selected instance, finished before any instance starts; the needs analysis decides which instances are blocked by a failure; laziness remains in the token cache and cache-store hits | LLD planner step 3 (lazy shared actions); D81 "pulls in only the lifecycle actions selected tests need" |
+| D123 | Expect merge key | Check kind + leaf path; the more specific level replaces (api → test → step; the step wins); `custom` and CEL checks append; `expect: { replace: true }` drops inherited checks | — |
+| D124 | Test-level keys with steps | Test-level `auth/headers/query/body/poll/expect` are defaults for every step (step wins); body default on GET/HEAD is V3205; unused default is V3206; test-level `save` reads the last step's response | — |
+| D125 | CEL and template roots | `response` (`status`, `headers`, `body`, `timing`), `request`, `var` (D53), `env`, `item`, `iteration`, `example`, step ids; bare `status/headers/body` alias `response.*` inside `expect`; a root unavailable at that spot is V2105 | — |
+| D126 | Retry, flaky, skipped | Test `retry` re-runs the whole instance with cleanups between attempts; pass after fail is `flaky`; blocked is never retried; `defaults.retry` applies to tests; transport retries are `http.retry`; new `Skipped` state | — |
+| D127 | Exit codes | Keeps D81 (0 pass, 1 fail or blocked, 2 nothing ran, 3 load threshold, 4 sync drift) and adds 130 (cancelled by signal) and 70 (internal error, with a report hint and redacted debug bundle); `vc sync --check` exits 4 everywhere | CLI doc `sync --check` = 1 |
+| D128 | IDs and dynamic saves | One ID namespace per file across kinds; cross-file references `<fileId>#<id>` (see D138); `function:`/`test:` may declare `provides: [x]`; undeclared dynamic save used is V5108, declared but missing is V5109 | — |
+| D129 | Config layering | built-in < user config < `vibranium.config.yaml` < profiles in order < `.env` < `VIB_*` < `--set`; each layer a `ConfigSource`; every value keeps its origin | — |
+| D130 | Command milestones | `vc plan`, `vc list`, `--changed` → M2; `--failed` → M3; `vc call`, `unskip`, `new auth/file`, `config explain` → M5; `vc import http` → M6 | — |
+| D131 | Fake data memo | A var defined as `${fake.…}` is generated once per instance or iteration; inline `${fake.…}` is fresh each time; seeded by `--seed`, printed on failure | — |
+| D132 | Pure compiler and planner | The engine supplies source texts (`SourceProvider`) and preloaded data; the compiler returns the program or diagnostics plus a `CompileCache` the engine persists | LLD compiler discovery with `ignore` |
+| D133 | System adapter | `vc-adapter-system`: discovery and file system, clock, random, environment, command runner, git (`Vcs`), config file sources | — |
+| D134 | Request pipeline order | timing → timeout → retry (`refreshOn`, `http.retry`) → auth → `beforeRequest` hooks → per-host limit → transport | LLD order (auth outside retry) |
+| D135 | Supply-chain and duplication gates | cargo-deny `multiple-versions = deny` with a skip list; bans openssl-sys, v8, deno_core; unknown registries and git denied; jscpd at 10 lines; nextest plus doctests | spike `warn` |
+| D136 | Added crates | thiserror, async-trait, tower, hickory-resolver, regex, smallvec, camino, strsim, arc-swap, assert_cmd, gungraun, criterion; rust-embed, zstd, zeroize, rustls-platform-verifier when first used | — |
+| D137 | New diagnostic codes | V2006 reserved ID; V2102 covers `${iteration}` outside a loop; V2105 root unavailable; V3205, V3206; V5108, V5109; V5110 command exited non-zero; V5111 render failure at run time | — |
+
+Round 16 additions (full-ID separator, 2 November 2026):
+
+| # | Decision | Choice | Supersedes |
+| --- | --- | --- | --- |
+| D138 | Full ID separator | An item's full ID is `<fileId>#<id>` (as in Java's `Foo#bar`) everywhere: YAML references, CLI selectors, reports, diagnostics and the UI. A bare dotted word is always a file ID (`users.crud`); inside the same file the short `id` works. A file's ID comes from its `id:` key, not its path; by convention deeper folders add words (`services/payments/refunds/partial.test.yaml` → `payments.refunds.partial`). This removes the ambiguity between `users.create` as a file and as an item | Dotted full IDs `<fileId>.<id>` |
+| D139 | File IDs from paths | A file's `id:` is optional; when absent it is derived from the path: drop the conventional root (`services/`, `load/`, else the project root) and the kind suffix, join folders and stem with dots, lowercase, and collapse a stem equal to its folder (`services/users/users.api.yaml` → `users`, `services/payments/refunds/partial.test.yaml` → `payments.refunds.partial`, `load/checkout/peak.load.yaml` → `checkout.peak`). An explicit `id:` must equal the derived one: a mismatch is error V2007, whose certain fix renames the ID and its references. A move that breaks references (file without `id:`) is detected through the compile cache, and V2003 then offers a certain fix that updates them. `vc new` and `vc init` still write `id:`. Two files deriving the same ID are V2001 | D138 "from its `id:` key, not its path"; file `id` required |
+| D140 | Instance selector | One example row or repeat of a test is selected with `:n` (`vc run users.crud#rejectsBadEmail:2`), safe unquoted in every shell | `#n` instance selector |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
+
+Carried to milestone kick-offs (Round 15):
+
+- Default secrets provider: Varlock (a Node CLI) or environment variables with Varlock opt-in — decide at M3.
+- Notifiers and alerts: PRD R21 says v2.0, the LLD places them in M8 — decide at M3.
+- Whether `vc demo` reuses the mock server crate — decide at M5.
 
 ## Parking lot
 

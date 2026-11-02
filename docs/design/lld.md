@@ -21,63 +21,78 @@ This is the build plan for the Vibranium v2 engine and its interfaces in Rust. I
 | `mpsc::Sender<Event>` | One end of a queue another task reads from (like posting to a worker) |
 | `#[derive(Serialize)]` | Generated JSON conversion |
 
-Versions named below were current on 23 October 2026 and are pinned in `Cargo.lock`; the Rust toolchain is pinned in `rust-toolchain.toml` (1.97, edition 2024). The licence is Apache-2.0 (D35); the feasibility spike's MIT header does not carry over.
+Versions named below were current on 23 October 2026 and are pinned in `Cargo.lock`; the Rust toolchain is installed with rustup and pinned in `rust-toolchain.toml` (1.99, edition 2024) (D98). The licence is Apache-2.0 (D35); the feasibility spike's MIT header does not carry over.
 
 ## Workspace and crates
 
-One Cargo workspace builds one binary, `vc` (installed also as `vibranium`), which contains the CLI, terminal UI, MCP server and local web server. Code is split into small crates so each layer can be tested alone and the dependency direction can be checked by machine. Apps sit on the outside, the `engine` facade in the middle, pure logic underneath, and adapters plug into the ports.
+One Cargo workspace builds one binary, `vc` (installed also as `vibranium`), which contains the CLI, terminal UI, MCP server and local web server. Code is split into small crates so each layer can be tested alone and the dependency direction can be checked by machine. Apps sit on the outside, the `engine` facade in the middle, pure logic underneath, and adapters plug into the interfaces. Each crate's package name is `vc-<dir>` (`crates/model` is `vc-model`); adapters are `vc-adapter-<x>` (D102).
 
 ```
 vibranium/
   Cargo.toml                 workspace, shared lints, profiles
-  rust-toolchain.toml        1.97
-  proto/                     vibranium.{ir,engine,plugin,results}.v1 .proto files
+  rust-toolchain.toml        1.99 (D98)
+  mise.toml                  pinned tools (node, pnpm, cargo tools, jscpd, buf) and tasks: gates, test, bench, mock (D99)
+  package.json               pnpm workspace (with pnpm-workspace.yaml) for web/, sdks/* and jscpd (D99)
+  proto/                     hand-written vibranium.{ir,engine,plugin,results}.v1 .proto files: the wire contract (D101)
   crates/
-    ir/                      IDs, spans, the compiled program (pure data)
-    diag/                    Diagnostic, codes, fixes, rendering
-    syntax/                  YAML/JSON parsing with source spans
+    model/                   IDs, spans, the compiled program, Plan and Event types (pure data) (D103)
+    diagnostics/             Diagnostic, codes, fixes, rendering
+    parser/                  YAML/JSON parsing with source spans; minimal TextEdits (D107)
     template/                templates, pipes, CEL wrapper
-    compiler/                discover → parse → validate → link → Program
-    planner/                 selection → Plan
-    ports/                   traits the core depends on (transport, auth, store, …)
-    executor/                runs a Plan through the ports; frames, lifecycle, events
-    load/                    load engine on top of the executor
+    compiler/                parse → validate → link → Program (pure; the engine supplies the sources, D132)
+    planner/                 selection → Plan (pure)
+    interfaces/              traits the core depends on (transport, auth, store, …)
+    executor/                runs a Plan through the interfaces; frames, lifecycle, events, redactor (D106)
+    loadtest/                load engine on top of the executor
     engine/                  facade: compile, plan, run, call, sync, query; the only crate apps import
+    testkit/                 fakes, fixture builders, one contract suite per interface trait; dev-dependency only (D112)
     adapters/
+      system/                discovery and file system, clock, random, environment, command runner, git (`Vcs`), config sources (D133)
       http/                  hyper + rustls transport with phase timings
       auth/                  auth providers, flow auth, token cache
-      secrets/               Varlock and environment providers, redactor
+      secrets/               Varlock and environment providers; the default is decided at M3 (they supply values; the redactor is in the executor, D106)
       hooks/                 QuickJS thread, TypeScript stripping (oxc)
       store/                 history.db and cache.db (SQLite)
       reporters/             CTRF, JUnit, HTML (folder and single), console
       notifiers/             webhook, Slack, Teams, PagerDuty, email
       importers/             OpenAPI, HAR, cURL, Postman, Bruno, v1
       plugins/               JSON-RPC and HTTP plugin host, permissions
-    proto/                   generated protobuf types (prost + pbjson)
+    contracts/               protobuf types generated from proto/ (prost + pbjson) (D101)
     apps/
-      cli/                   the vc binary: clap commands, console output
+      cli/                   the vc binary: owns main and dispatches tui, mcp and ui (D110); clap commands, console output
       tui/                   ratatui screens
       mcp/                   MCP server (rmcp)
       server/                axum: Connect-protocol API, embedded web UI, MCP over HTTP
     arch-tests/              dependency and design-rule checks
   web/                       web UI: TypeScript, svelte/sveltekit (built, then embedded)
   sdks/                      typescript/ python/ go/ java/
-  bench/                     generated projects, mock server, benchmarks
+  bench/
+    mock/                    vc-mock-server: axum mock server; a library tests start in-process on port 0, plus a bin (D100)
+                             also generated projects and benchmarks
   docs/                      reference docs, JSON Schemas for the file formats
 ```
 
-Dependency rules, enforced by `arch-tests` in CI:
+Dependency rules: the crates form a layered graph with no cycles, enforced by `arch-tests` in CI.
 
-| Crate | May depend on | Must not depend on |
+| Layer | Crate | May depend on |
 | --- | --- | --- |
-| `ir` | std, serde, small data crates | anything else in the workspace |
-| `diag`, `syntax`, `template` | `ir` | each other's internals, ports, adapters |
-| `compiler`, `planner` | `ir`, `diag`, `syntax`, `template` | `ports`, `executor`, adapters, apps |
-| `ports` | `ir`, `diag` | implementations of any kind |
-| `executor`, `load` | `ir`, `ports`, `template` | adapters, apps, the compiler |
-| `engine` | everything in the core plus adapters, wired by configuration | apps |
-| `adapters/*` | `ir`, `ports`, their own third-party crates | each other, the core logic crates, apps |
-| `apps/*` | `engine`, `ir`, `proto` | the core crates and adapters directly |
+| L0 | `vc-model` | std plus the D111 allow-list (below); nothing in the workspace |
+| L1 | `vc-diagnostics` | model |
+| L2 | `vc-parser`, `vc-template` | model, diagnostics (D105) |
+| L2 | `vc-interfaces` | model, diagnostics |
+| L2 | `vc-contracts` | model (generated; the `From` conversions live here because of the orphan rule) |
+| L3 | `vc-compiler` | model, diagnostics, parser, template (pure, D132) |
+| L3 | `vc-planner` | model, diagnostics (pure) |
+| L3 | `vc-executor` | model, diagnostics, interfaces, template |
+| L3 | `vc-adapter-*` | model, diagnostics, interfaces, their own third-party crates (plus contracts for `vc-adapter-plugins` only) |
+| L4 | `vc-loadtest` | model, interfaces, executor (D104) |
+| L5 | `vc-engine` | L0–L4; the only crate that names adapters (`EngineBuilder` is the composition root) |
+| L6 | `vc-tui`, `vc-mcp`, `vc-server` | engine, which re-exports the model types they need (plus contracts for mcp and server) (D108) |
+| L7 | `vc-cli` (bin `vc`) | engine, tui, mcp, server: the only app→app edges (D110) |
+| — | `vc-testkit` | model, interfaces; used only as a dev-dependency (D112) |
+| — | `vc-arch-tests`, `vc-mock-server` | no workspace crates |
+
+Every edge points to a strictly lower layer; adapters never depend on each other or on the core logic crates. `arch-tests` asserts the whole table (crates for later milestones included, so adding them does not touch gate files), rejects unknown crates, and checks dev-dependency edges for cycles. Public items in `vc-model` and `vc-interfaces` may name only types from std, serde/serde_json, indexmap, smol_str, bytes and `http` (D111).
 
 The web UI and the SDKs never link Rust code: they talk to the engine through the `vibranium.engine.v1` protobuf contract (Connect protocol over HTTP for the web UI, JSON-RPC over stdio or HTTP for plugins).
 
@@ -112,7 +127,16 @@ Third-party crates:
 | Protobuf | `prost` 0.14, `pbjson` 0.9, `tonic` 0.14 (plugin gRPC only) | Generated types with proto3 JSON mapping |
 | MCP | `rmcp` 3 | The official Rust MCP SDK |
 | Logging | `tracing` 0.1 | Structured logs; `--log` level per crate |
-| Testing | `insta` 1, `proptest` 1 | Golden files for diagnostics and reports; property tests for the planner |
+| Errors | `thiserror` 2 (library crates), `anyhow` 1 (`vc-cli` only) | One typed error enum per library crate; context-rich errors only at the top (D136) |
+| Async traits | `async-trait` 0.1 | Async methods on `Arc<dyn Trait>` until native dyn-async is stable (D115, D136) |
+| Request middleware | `tower` 0.5 | The request pipeline as composable layers (D134, D136) |
+| DNS and certificates | `hickory-resolver`; `rustls-platform-verifier` when first used | Timed DNS with the system resolver as fallback; the OS certificate store, so corporate CAs work (D136) |
+| Regular expressions | `regex` 1 | The `regex` matcher and CEL `matches()` (D136) |
+| Small helpers | `smallvec` 1, `camino` 1, `strsim` 0.11 | Scope levels without allocation; UTF-8 paths; "did you mean" suggestions (D136) |
+| Lock-free swap | `arc-swap` 1 | The redactor's automaton is replaced without blocking readers (D113, D136) |
+| Embedding, compression, secret memory | `rust-embed`, `zstd`, `zeroize`, each when first used | Web UI in the binary; stored bodies and `zstd` responses; secrets zeroed on drop (D136) |
+| Testing | `insta` 1, `proptest` 1, `assert_cmd` 2 | Golden files for diagnostics and reports; property tests for the planner; e2e tests on the real `vc` binary (D136) |
+| Benchmarks | `gungraun`, `criterion` | Instruction-count benches on PRs; wall-clock benches nightly (D120, D136) |
 | Packaging | `cargo-dist` 0.32 | Release binaries, install scripts, Homebrew tap |
 
 ## Design rules and quality gates
@@ -124,27 +148,37 @@ The feasibility spike showed that Rust's borrow checker stays out of the way whe
 1. **The compiled program is read-only.** The compiler produces one `Program`; after that it is wrapped in `Arc` and never changes. Everything that varies during a run (saved values, cleanup stacks, statuses) lives in executor frames owned by one task each.
 2. **Refer by ID, not by reference.** IR nodes point at each other with typed IDs (`ApiId`, `TestId`, `ActionId`) looked up in the program's tables, never with Rust references or pointers between nodes. No lifetimes appear in any public API.
 3. **Talk through queues.** Long-lived parts (the history writer, the hook engine, reporters, the UI event stream) run as their own tasks and receive messages; nothing else touches their state.
-4. **One lock only where shared work is coalesced.** Singleflight maps for shared lifecycle actions and auth tokens are the only shared mutable state; each is one small type with its own tests.
+4. **Locks only on the allow-list.** Exactly two files may hold a lock: the `TokenCache` (a mutex map of slots, never held across an `await`) and the `Redactor` (`arc-swap`). Shared lifecycle slots are `OnceCell`s, not locks (D113).
 5. **No globals.** No `static mut`, no global registries; dependencies are passed in through constructors (the `engine` crate wires them).
 6. **No panics in library code.** `unwrap`, `expect`, `panic!`, `todo!` and `dbg!` are denied by lint; errors are values (`Result`) with a diagnostic code where a user can act on them.
 7. **Kinds are registries, not `match` on strings.** Matchers, pipes, auth types, reporters, importers and notifiers register by name in a table built at start-up, so adding one touches one file plus one registry line (the *Refactoring* "switch statements" and "shotgun surgery" smells).
 8. **Distinct types for distinct things.** IDs, durations, sizes and file paths are newtypes, not bare strings or numbers.
-9. **Small functions.** At most 40 lines, cognitive complexity at most 10, at most 3 parameters (group the rest into a context struct).
+9. **Small functions.** At most 40 lines, cognitive complexity at most 10, at most 3 parameters excluding `self` (group the rest into a context struct) (D109).
+10. **Small files and traits.** A source file has at most 400 lines and a trait at most 7 methods; generated and test files are exempt (D114).
+11. **A facade per crate.** Library crates keep their modules private and `pub use` the public items in `lib.rs`; no `pub mod`, except in the generated `vc-contracts`.
+12. **Inject trait objects.** Dependencies are passed as `Arc<dyn Trait>`; async methods use `async-trait` unless native dyn-async is stable; generics only where a bench proves the need (D115).
+13. **Errors per crate.** Each library crate has its own `thiserror` enum; `anyhow` is used only in `vc-cli`.
+14. **Contract suites.** Every interface trait has one contract suite in `vc-testkit`, and every adapter or fake that implements the trait runs it (D112).
+15. **Conventional commits, tidy first.** `refactor:` commits stay apart from behaviour changes and never change test assertions; CI fails one that does (D116).
 
 ### Gates (`scripts/gates.sh`, required in CI)
 
 | Gate | Fails when | Tool |
 | --- | --- | --- |
 | Lints | Any warning from clippy `pedantic` and `nursery`, plus the denied lints above; `cognitive_complexity` is switched on explicitly because current Clippy leaves it out of pedantic | `cargo clippy --all-targets -- -D warnings` |
-| Function size | A function over 40 lines or complexity over 10 | `clippy.toml` thresholds |
-| Duplication | A copied block of 10 lines or more | `jscpd` |
-| Architecture | A crate imports something the dependency table forbids, or a rule above is broken (e.g. `static` state, an `Arc<Mutex<_>>` outside the allowed types) | `arch-tests` (cargo metadata plus a syntax scan) |
-| Dependencies | A licence outside the allow-list, a known vulnerability, a duplicate major version, an unused dependency | `cargo-deny`, `cargo-machete` |
+| Function size | A function over 40 lines or complexity over 10, or more than 3 parameters (`too-many-arguments-threshold = 4`) (D109) | `clippy.toml` thresholds, `arch-tests` |
+| Duplication | A copied block of 10 lines or more (D135) | `jscpd` |
+| Architecture | A crate imports something the layer table forbids, or a rule above is broken: `static` state, a lock outside the D113 allow-list, `pub mod` in a library crate, more than 3 parameters, a file over 400 lines, a trait over 7 methods, an external type outside the D111 allow-list, `anyhow` outside `vc-cli`, `vc-testkit` as a normal dependency, an interface impl without its contract suite | `arch-tests` (cargo metadata plus a syntax scan); each failure prints a stable rule ID |
+| Dependencies | A licence outside the allow-list, a known vulnerability, a duplicate version (`multiple-versions = deny`, with a skip list), a banned crate (`openssl-sys`, `v8`, `deno_core`), an unknown registry or git source, an unused dependency (D135) | `cargo-deny`, `cargo-machete` |
 | Formatting | Unformatted code | `cargo fmt --check` |
-| Tests | Any failing test | `cargo nextest run --workspace` |
-| Mutation score | Below 85% caught mutants in `executor`, `planner` and `template` (weekly job, and on PRs that touch them) | `cargo-mutants` |
+| Tests | Any failing test or doctest (D135) | `cargo nextest run --workspace` plus `cargo test --doc` |
+| Mutation score | Below 85% caught mutants in `executor`, `planner`, `template` and `compiler`: on the diff in PRs, the full run nightly (D119) | `cargo-mutants` |
+| Performance | An instruction-count bench regresses by more than 5% on a PR (D120) | `gungraun` |
+| Commits | A commit message that is not a conventional commit, or a `refactor:` commit that changes test assertions (D116) | `scripts/commit-check.sh` |
 
-Coding agents may not edit `clippy.toml`, the `[workspace.lints]` table, `deny.toml`, `scripts/gates.sh` or `arch-tests`; a CODEOWNERS rule routes those files to Sarath. Smells no tool catches (naming, speculative generality, duplicated logic written differently) are covered by a ten-line review checklist in `CONTRIBUTING.md` that every PR description answers.
+CI (D119): Ubuntu runs every gate; macOS and Windows build and run the tests; a nightly job runs full mutation testing and the wall-clock budgets. `scripts/gates-selftest.sh` applies one bad patch per gate and asserts that the expected gate rejects it, so a gate cannot silently stop working (D121). From the end of M2, `cargo public-api` snapshots for `vc-model`, `vc-interfaces` and `vc-engine` make any public API change visible in review (D117).
+
+Coding agents may not edit `clippy.toml`, the `[workspace.lints]` table, `deny.toml`, `scripts/gates.sh` or `arch-tests`; a CODEOWNERS rule routes those files to Sarath. `master` is protected: required gates and cross-OS test checks, CODEOWNERS review with admin bypass, linear history, no force-push (D97, D118). Smells no tool catches (naming, speculative generality, duplicated logic written differently) are covered by a ten-line review checklist in `CONTRIBUTING.md` that every PR description answers.
 
 ## Orchestration and design patterns
 
@@ -152,7 +186,7 @@ The execution workflow is run by an **orchestrator**: one component decides what
 
 &#91;embedded content: orchestration · orchestrators, strategies, events, ports\]
 
-Orchestration is hierarchical, so each level stays small. Orchestrators and workflows decide; strategies and adapters act. All of them depend on interfaces (traits in `ports`), never on each other's concrete types.
+Orchestration is hierarchical, so each level stays small. Orchestrators and workflows decide; strategies and adapters act. All of them depend on interfaces (traits in `vc-interfaces`), never on each other's concrete types.
 
 ### The orchestrators and their state machines
 
@@ -160,14 +194,14 @@ Orchestration is hierarchical, so each level stays small. Orchestrators and work
 | --- | --- | --- | --- |
 | `RunOrchestrator` (one per run) | the run's state, the shared `beforeRun` slots, the root cancellation token, the run cleanup list | `Planned → Preparing → Running → Draining → CleaningUp → Reporting → Finished(Passed \| Failed \| Cancelled)` | when files start, when to stop (bail, Ctrl-C, abortOn), the final status |
 | `FileOrchestrator` (one per test file) | `beforeAll` slots, the file's cleanup list, the file's instance queue | `Waiting → Preparing → Running → CleaningUp → Done` | which instance starts next (under the concurrency limit), when `afterAll` runs |
-| `InstanceWorkflow` (one per test instance) | the instance frame: saved values, cleanup stack, results | `Pending → AwaitingShared → Before → Body → After → Cleanup → Done(Passed \| Failed \| Blocked \| Flaky)` | retries, stop on the first failed step, blocked when a shared action failed |
+| `InstanceWorkflow` (one per test instance) | the instance frame: saved values, cleanup stack, results | `Pending → Before → Body → After → Cleanup → Done(Passed \| Failed \| Blocked \| Flaky \| Skipped)` | retries of the whole instance, stop on the first failed step, blocked when a shared action failed (D126) |
 
 Each state machine is an `enum` of states and a single `transition(state, input) -> (state, commands)` function. It is pure: no I/O, no clock. The orchestrator task feeds it inputs (results from workers, timer ticks, cancellation) and carries out the commands it returns (start an action, start a file, emit an event). Illegal transitions cannot be written, because each state only accepts the inputs that make sense for it. The transition functions are tested exhaustively with table tests and `proptest`.
 
 ```rust
 // The instance workflow, simplified. Pure: inputs in, next state and commands out.
-pub enum InstanceState { Pending, AwaitingShared(Needs), Before(Cursor), Body(Cursor), After(Cursor), Cleanup(Cursor), Done(Status) }
-pub enum InstanceInput { SharedReady, SharedFailed(Failure), ActionDone(ActionOutcome), Cancelled }
+pub enum InstanceState { Pending, Before(Cursor), Body(Cursor), After(Cursor), Cleanup(Cursor), Done(Status) } // Status includes Skipped (D126)
+pub enum InstanceInput { SharedReady, SharedFailed(Failure), ActionDone(ActionOutcome), Cancelled } // Shared*: sent to a Pending instance once beforeRun and beforeAll have finished (D122)
 pub enum Command { RunAction(ActionId, OwnerKey), RunCleanup(PendingCleanup), Emit(Event), Finish(Status) }
 
 pub fn transition(state: InstanceState, input: InstanceInput, test: &Test) -> (InstanceState, Vec<Command>);
@@ -183,18 +217,18 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 | --- | --- | --- |
 | **Orchestrator + state machine** | `RunOrchestrator`, `FileOrchestrator`, `InstanceWorkflow`; also the load stage controller and the HAR import wizard | One place decides and holds state; workers stay simple and testable |
 | **Saga (compensation)** | Api `cleanup` as compensating actions, run in reverse | Undo without tests describing it |
-| **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `ports`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `FileSystem` | The core never knows which library sits behind it |
+| **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `vc-interfaces`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `FileSystem`, `SourceProvider`, `CommandRunner`, `Vcs`, `ConfigSource`, `ActionRunner` | The core never knows which library sits behind it |
 | **Strategy** | Action executors (call, test reuse, function, command); matchers; pipes; body encoders (JSON, form, multipart, file); retry and loop policies (sequential, parallel); the load mix selector; sync merge rules | Swap behaviour by kind without branching in the caller |
 | **Factory and registry** | One registry per kind of strategy or adapter, filled at start-up: `ActionExecutorFactory` (by action kind), `AuthProviderFactory` (by auth `type`), `ReporterFactory`, `NotifierFactory`, `ImporterFactory` (by source), `TransportFactory` (by URL scheme, ready for gRPC and WebSocket), `MatcherRegistry`, `PipeRegistry`, `LintRegistry` | Adding a kind is one new file plus one registration line; nothing else changes |
 | **Builder** | `EngineBuilder` (the composition root that wires adapters into the engine); `ProgramBuilder` (the compiler accumulates, then `freeze()` gives the immutable `Program`); `RequestBuilder` (renders a request from an api, scope and auth); `PlanBuilder`; `DiagnosticBuilder`; test fixtures (`ProjectBuilder`, `ProgramBuilder::for_tests`); the SDKs' fluent builders | Objects with many optional parts are assembled step by step and checked once; required parts are enforced by typed builder states |
 | **Facade** | The `engine` crate: `compile`, `plan`, `run`, `call`, `sync`, `query` | Apps depend on one small surface |
 | **Observer (publish/subscribe)** | The event bus and its subscribers: history writer, reporters, console, TUI, web UI, MCP | Producers never know who listens |
-| **Chain of responsibility (middleware)** | The request pipeline as `tower` layers: auth → `beforeRequest` hooks → timeout → retry on `refreshOn` → per-host limit → timing → transport | Each concern is one layer, composable and testable alone |
+| **Chain of responsibility (middleware)** | The request pipeline as `tower` layers: timing → timeout → retry (`refreshOn`, `http.retry`) → auth → `beforeRequest` hooks → per-host limit → transport (D134) | Each concern is one layer, composable and testable alone |
 | **Decorator** | `CachingAuthProvider` (the token cache around any provider); `RedactingSink` around every outward stream; `RecordingTransport` and `FaultyTransport` in tests | Add behaviour without changing the wrapped type |
-| **Command** | Engine API operations; `syntax::edit` changes as `EditCommand`s that produce `TextEdit`s and can be inverted (undo in the web editor) | Operations become values: logged, previewed, undone |
+| **Command** | Engine API operations; `parser::edit` changes as `EditCommand`s that produce `TextEdit`s and can be inverted (undo in the web editor) | Operations become values: logged, previewed, undone |
 | **Interpreter and composite** | Templates and pipes; CEL behind `Expr`; matchers composed with `allOf`, `anyOf`, `not`, `every` | Small languages evaluated without running user code |
 | **Visitor** | Walks over the `Program` for linking, lints and the planner's needs analysis (`Visit` trait with default no-op methods) | New analyses without editing the IR types |
-| **Specification** | Run selection: IDs, globs, tags, grep, changed and failed as composable predicates | Selectors combine freely ("or" for positional, "and" for flags) |
+| **Specification** | Run selection: IDs, globs, paths, tags, grep, changed and failed as composable predicates | Selectors combine freely ("or" for positional, "and" for flags) |
 | **Repository** | `HistoryReader`/`HistoryWriter`, `CacheStore` with SQLite and Postgres implementations | Storage swappable; queries named by intent |
 | **Null object** | `NoAuth`, `NoopReporter`, `NoHooks` | No `Option` checks scattered through callers |
 | **Singleflight (memoization)** | Shared lifecycle slots and the token cache | Concurrent callers share one execution |
@@ -202,16 +236,16 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 
 ### Rules that keep coupling loose
 
-- **Depend on interfaces.** Core crates take `Arc<dyn Port>` (or a generic `T: Port` on hot paths) through constructors; only `EngineBuilder` names concrete adapter types. `arch-tests` fails if a core crate's public signature mentions an adapter type.
+- **Depend on interfaces.** Core crates take `Arc<dyn Trait>` through constructors, with generics only where a bench proves the need (D115); only `EngineBuilder` names concrete adapter types. `arch-tests` fails if a core crate's public signature mentions an adapter type.
 - **Small interfaces.** Traits are split by who uses them (`HistoryWriter` for the writer task, `HistoryReader` for queries; `Transport` knows nothing of auth), so no consumer depends on methods it doesn't call.
-- **Data crosses boundaries, behaviour doesn't.** Between crates only `ir` types, events and port traits are shared; no crate reaches into another's internals (`pub(crate)` by default).
+- **Data crosses boundaries, behaviour doesn't.** Between crates only `vc-model` types (including `Plan` and `Event`, D103) and `vc-interfaces` traits are shared; no crate reaches into another's internals (`pub(crate)` by default).
 - **Tell, don't ask, and no train wrecks.** Workers receive the data they need in the command; a function that reaches through `a.b().c().d()` gets that value passed in instead (Law of Demeter, enforced in review).
 - **Composition over inheritance.** Behaviour is shared by composing strategies and decorators, never by deep type hierarchies or default-method templates.
 - **Refactoring before extending.** When a change needs a `match` on a kind in a second place, it becomes a strategy with a registry ("replace conditional with polymorphism"). When a function grows past the limits, extract functions or a parameter object first, then add the feature.
 
 ## Core types
 
-The `ir` crate holds the compiled program: plain data, no behaviour beyond lookups. Every other part reads it. It is also the source of the `vibranium.ir.v1` protobuf messages, which are generated from these types (by a build step) so that the SDKs, plugins and web UI see the same shapes.
+The `vc-model` crate holds the compiled program, and also the `Plan` and `Event` types (D103): plain data, no behaviour beyond lookups. Every other part reads it. Its types are written by hand; the `vibranium.ir.v1` protobuf messages are separate hand-written `.proto` files (checked by `buf lint` and `buf breaking`), generated into `vc-contracts` and TypeScript, with `From` conversions in `vc-contracts`, so that the SDKs, plugins and web UI see the same shapes. Each proto is written when its first consumer needs it (D101).
 
 ### IDs and positions
 
@@ -222,8 +256,8 @@ pub struct Sym(lasso::Spur);
 
 // One newtype per kind of ID, so an ApiId can never be passed where a TestId is expected.
 pub struct FileId(Sym);      // "users.crud"
-pub struct ApiId(Sym);       // "users.create"          (file id + item id)
-pub struct TestId(Sym);      // "users.crud.createsMember"
+pub struct ApiId(Sym);       // "users#create"          (full ID: file id # item id, D138)
+pub struct TestId(Sym);      // "users.crud#createsMember"
 pub struct ActionId(u32);    // index into program.actions
 pub struct AuthId(Sym);      // "shopOauth"
 pub struct ProfileId(Sym);   // "staging"
@@ -245,7 +279,7 @@ pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb"
 ```rust
 /// Everything `vc check` produced, frozen and shared read-only (Arc<Program>).
 pub struct Program {
-    pub strings: lasso::RodeoReader,                 // the interned strings
+    strings: StringTable,                            // the interned strings; private, so lasso stays out of the public API (D111)
     pub files: Vec<SourceFile>,                      // path, kind, content hash
     pub config: Config,                              // defaults, reports, history, secrets
     pub profiles: IndexMap<ProfileId, Profile>,      // at least one; one marked default
@@ -314,7 +348,7 @@ pub struct Test {
     pub after: Vec<ActionId>,
     pub body: TestBody,                   // Call(ActionId) | Steps(Vec<ActionId>)
     pub vars: VarDefs,
-    pub expect: Expect,                   // applied to the call, or to the last step
+    pub expect: Expect,                   // applied to the call; with steps, a default for every step (D124)
     pub examples: Option<Examples>,       // rows (literal, $file or dataset)
     pub repeat: u32,
     pub retry: Option<Retry>,
@@ -359,7 +393,7 @@ pub enum ActionKind {
 ### Checks, templates and vars
 
 ```rust
-/// The merged checks for one call: api checks first, then the test's, with matching keys replaced.
+/// The merged checks for one call, keyed by kind + leaf path: api → test → step, more specific replaces; custom and CEL append (D123).
 pub struct Expect { pub checks: Vec<Check> }
 
 pub struct Check {
@@ -396,20 +430,20 @@ The remaining entities (`ApiGroup`, `Profile`, `AuthDef`, `LoadScenario`, `Datas
 
 ## Compiler
 
-The compiler turns the project's files into a `Program` or a list of diagnostics. It runs on `vc check`, at the start of every run, on every keystroke in the editors (through the engine's `Check` call) and before any command writes a file. It collects every problem in one pass instead of stopping at the first.
+The compiler turns the project's files into a `Program` or a list of diagnostics. It is pure: the engine finds the files and hands their texts in through a `SourceProvider`, and the compiler returns the program or the diagnostics, plus a `CompileCache` value that the engine persists (D132). It runs on `vc check`, at the start of every run, on every keystroke in the editors (through the engine's `Check` call) and before any command writes a file. It collects every problem in one pass instead of stopping at the first.
 
 ### Stages
 
 | Stage | Input | Output | Notes |
 | --- | --- | --- | --- |
-| Discover | project root, `paths` globs | file list with BLAKE3 content hashes | `ignore` walker (respects `.gitignore`); file kind from the suffix |
-| Parse | changed files only | a marked tree per file (`syntax::Node`, every node with its span) | `saphyr`; JSON goes through the same tree type |
+| Discover (engine, not compiler) | project root, `paths` globs | source texts with BLAKE3 content hashes, through `SourceProvider` | `vc-adapter-system` walks with `ignore` (respects `.gitignore`); file kind from the suffix (D132, D133) |
+| Parse | changed files only | a marked tree per file (`parser::Node`, every node with its span) | `saphyr`; JSON goes through the same tree type |
 | Shape-check | marked trees | raw items per file kind, with unknown keys, wrong types and missing required keys reported | shapes are declared once (below) |
 | Compile parts | raw items | templates, pipes, CEL programs, matchers, durations, sizes | `template` crate; CEL type-checked against the namespaces available at that spot |
-| Link | all raw items | the `Program`: ID tables, references resolved, merged `expect`, var reachability | the only stage that sees every file at once |
+| Link | all raw items | the `Program`: ID tables, references resolved, merged `expect`, test-level step defaults, var reachability | the only stage that sees every file at once |
 | Lint | the `Program` | warnings: naming conventions, expired skips, shared-value writes, cache in per-test blocks | each lint is a registered rule with a V-code |
 
-**Incremental.** `.vibranium/cache/compile.bin` keeps, per file hash, its parsed and shape-checked items. On the next run only changed files are parsed again; linking always runs over everything but is cheap (target: 1,000 files in under 100 ms warm, under 500 ms cold). The editor and `vc watch` keep the cache in memory.
+**Incremental.** The `CompileCache` keeps, per file hash, its parsed and shape-checked items; the compiler takes the previous one as input and returns the new one, and the engine reads and writes it as `.vibranium/cache/compile.bin` (D132). On the next run only changed files are parsed again; linking always runs over everything but is cheap (target: 1,000 files in under 100 ms warm, under 500 ms cold). The editor and `vc watch` keep the cache in memory.
 
 **One declaration per file shape.** Each file kind's keys are declared once in Rust, with type, default, description and an example:
 
@@ -428,12 +462,13 @@ The same declarations generate the JSON Schemas shipped for editors (`vc schema 
 
 ### Linking in detail
 
-1. **Symbol tables.** Every file ID, api ID, test ID, auth ID, profile, dataset and generator goes into a table; duplicates are V2001 with both locations.
-2. **References.** `call`, `test`, `cleanup.call`, `auth`, `$file`, `function`, `forEach` datasets and load `mix` entries are resolved; unknown ones are V2003 with "did you mean" from Damerau–Levenshtein distance over the IDs of the right kind, ranked with same-file IDs first.
-3. **Expect merge.** For each call, the api's checks come first and the caller's checks replace any with the same key, so every check carries its origin and source line.
-4. **Var reachability.** For each template, the linker walks the levels that can supply a var at that spot (call vars, earlier saves in the same test, beforeAll saves under their action id, file vars, beforeRun saves, the api's defaults, the api file, config), separately for every profile. A var that no level provides for some profile is V2101, naming the profiles where it is missing and the places it could be set.
-5. **Lifecycle graph.** `test:` reuse forms a graph; cycles are V2205 with the whole chain. Shared actions without an `id` are V2210.
-6. **Types.** Pipes and CEL are checked against what each reference can hold (a `| number` on a value the api's schema says is an object is V2304).
+1. **Symbol tables.** Every file ID, api ID, test ID, auth ID, profile, dataset and generator goes into a table. Each file has one ID namespace across kinds, so two items in one file with the same ID are V2001 with both locations, whatever their kinds; a reserved ID is V2006. Another file's items are referenced by full ID, `fileId#id`; a bare dotted word is always a file ID (D128, D138). File IDs are derived from paths; an explicit `id:` that differs is V2007, and two files with the same ID are V2001 (D139). The `CompileCache` keeps each file's content hash and last ID, so a moved file is recognised and V2003 can offer its new ID as a certain fix.
+2. **References.** `call`, `test`, `cleanup.call`, `auth`, `$file`, `function`, `forEach` datasets and load `mix` entries are resolved; unknown ones are V2003 with "did you mean" from Damerau–Levenshtein distance (`strsim`) over the IDs of the right kind, ranked with same-file IDs first.
+3. **Expect merge.** Checks are keyed by check kind plus leaf path. Levels merge api → test → step (the step wins), and the more specific level replaces a check with the same key; `custom` and CEL checks append instead. `expect: { replace: true }` drops the inherited checks. Every check carries its origin and source line (D123).
+4. **Test-level step defaults.** A test's `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every step, and the step's own value wins. A body default that reaches a GET or HEAD step is V3205; a default no step uses is V3206. A test-level `save` reads the last step's response (D124).
+5. **Var reachability.** For each template, the linker walks the levels that can supply a var at that spot (call vars, earlier saves in the same test, beforeAll saves under their action id, file vars, beforeRun saves, the api's defaults, the api file, config), separately for every profile. A `function:` or `test:` action may declare `provides: [x]`, and the linker trusts that declaration (D128). A var that no level provides for some profile is V2101, naming the profiles where it is missing and the places it could be set. A template root that is not available at that spot (D125) is V2105.
+6. **Lifecycle graph.** `test:` reuse forms a graph; cycles are V2205 with the whole chain. Shared actions without an `id` are V2210.
+7. **Types.** Pipes and CEL are checked against what each reference can hold (a `| number` on a value the api's schema says is an object is V2304).
 
 ### Diagnostics and fixes
 
@@ -441,7 +476,7 @@ The same declarations generate the JSON Schemas shipped for editors (`vc schema 
 pub struct Diagnostic {
     pub code: Code,                       // V2003
     pub severity: Severity,               // Error | Warning | Info
-    pub message: String,                  // unknown api "orders.plcae"
+    pub message: String,                  // unknown api "orders#plcae"
     pub primary: Label,                   // span + short label under the caret
     pub secondary: Vec<Label>,            // other places involved (e.g. the earlier duplicate)
     pub notes: Vec<String>,               // = note: …
@@ -450,7 +485,7 @@ pub struct Diagnostic {
 }
 
 pub struct Fix {
-    pub title: String,                    // Replace with orders.place
+    pub title: String,                    // Replace with orders#place
     pub certain: bool,                    // true: vc check --fix may apply it without asking per fix
     pub edits: Vec<TextEdit>,             // byte-range replacements, possibly across several files
 }
@@ -462,30 +497,31 @@ Diagnostics render through `miette` in the terminal, as JSON with `--json`, and 
 
 ### Editing files without reformatting them
 
-Everything that changes a definition file (`vc new`, `vc rename`, `--fix`, `vc sync`, `vc skip`, HAR import, the web editor's form view, agents' `write_definition`) goes through one module, `syntax::edit`. It takes the original text and its marked tree and turns structural changes (set a key, insert a list item, remove an item, rename a reference) into `TextEdit`s on the original text, keeping comments, quoting and spacing everywhere else. New text is written in the house style (`vc fmt`): block YAML, two-space indent, keys in the documented order, templates unquoted unless YAML needs quotes. After every edit the result is parsed and compiled again, and the edit is refused if it would add an error.
+Everything that changes a definition file (`vc new`, `vc rename`, `--fix`, `vc sync`, `vc skip`, HAR import, the web editor's form view, agents' `write_definition`) goes through one module, `parser::edit`. It takes the original text and its marked tree and turns structural changes (set a key, insert a list item, remove an item, rename a reference) into minimal `TextEdit`s on the original text, keeping comments, quoting and spacing everywhere else, and checks that the result parses again. New text is written in the house style (`vc fmt`): block YAML, two-space indent, keys in the documented order, templates unquoted unless YAML needs quotes. The guard lives in the engine: it compiles before and after every edit and refuses the edit if it would add an error (D107).
 
 ## Planner
 
 The planner decides what a run will do before anything is sent: which test instances, in which files, needing which lifecycle actions. `vc plan` prints this; `vc run` prints its first line. It is a pure function, so it is tested with property tests rather than against servers.
 
 ```rust
+// Pure: `$file` examples and datasets arrive preloaded in `options` (D132); `Plan` lives in vc-model (D103).
 pub fn plan(program: &Program, selection: &Selection, options: &RunOptions) -> Result<Plan, Vec<Diagnostic>>;
 
 pub struct Selection {
-    pub ids: Vec<IdPattern>,           // test ID, file ID, glob, test#row
+    pub ids: Vec<IdPattern>,           // test ID, file ID, glob, test:row (D140)
     pub paths: Vec<Utf8PathBuf>,
     pub tags: TagExpr,                 // smoke,checkout & !slow
     pub grep: Option<String>,
-    pub changed_since: Option<GitRef>, // resolved to file IDs before planning
-    pub failed_in: Option<RunId>,      // from history
+    pub changed_since: Option<GitRef>, // resolved to file IDs by the engine through the `Vcs` trait before planning
+    pub failed_in: Option<RunId>,      // from history; arrives in M3 with the history store (D130)
     pub include_skipped: bool,
 }
 
 pub struct Plan {
     pub profiles: Vec<ProfileId>,
-    pub run_actions: Vec<PlannedAction>,         // beforeRun actions actually needed
+    pub run_actions: Vec<PlannedAction>,         // beforeRun actions, planned when any instance is selected (D122)
     pub files: Vec<PlannedFile>,                 // in project order
-    pub skipped: Vec<SkippedTest>,               // reason, until; reported, never run
+    pub skipped: Vec<SkippedTest>,               // reason, until; reported with the `Skipped` state, never run (D126)
     pub instance_count: usize,
 }
 
@@ -500,23 +536,23 @@ pub struct Instance {
     pub test: TestId,
     pub example_row: Option<u32>,
     pub repeat_index: u32,
-    pub needs: BitSet,                           // indexes of shared actions this instance reads
+    pub needs: BitSet,                           // shared actions this instance reads: decides which are blocked by a failure
 }
 ```
 
 How it works:
 
 1. **Select.** Apply the selectors to the test table: positional selectors are joined with "or", flags filter with "and". Skipped tests and files go to `skipped` unless `include_skipped`; an expired skip is ignored, so the test runs, and the lint already warned.
-2. **Expand instances.** For each selected test, create one instance per example row × repeat (dataset rows are counted at plan time; `$file` examples are read then).
-3. **Find what each instance needs.** Walk the instance's templates (including those of the calls it makes and of `test:` actions it reuses) and record which shared actions (`beforeRun` and the file's `beforeAll`) it reads. Only those are planned; a `beforeRun` command or function is always planned because it may prepare the system.
+2. **Expand instances.** For each selected test, create one instance per example row × repeat (dataset rows are counted at plan time; `$file` examples and dataset contents are preloaded by the engine and passed in, so the planner does no I/O (D132)).
+3. **Plan lifecycle and find what each instance needs.** `beforeRun` is planned when the run has a selected instance, and a file's `beforeAll` when that file has one; both run eagerly and finish before any instance starts (D122). The planner still walks each instance's templates (including those of the calls it makes and of `test:` actions it reuses) and records which shared actions it reads; this needs analysis decides which instances are blocked when a shared action fails. Laziness remains only in the token cache and in cache-store hits.
 4. **Order.** Files keep project order; instances keep file order. `petgraph` checks the action graph is acyclic (already guaranteed by the linker, re-asserted here). Concurrency is decided at run time by the scheduler, not by the plan.
 5. **Explain.** `Plan` renders to the plan line (`12 tests in 3 files · lifecycle: beforeRun admin (cached, 3h left) · beforeAll catalog · beforeEach ×9`), to a tree for `vc plan`, and to DOT for `vc plan --dot`.
 
-Property tests (`proptest` over generated programs): every instance's needs are planned; nothing unneeded is planned; selection is idempotent; selecting by file equals selecting its test IDs.
+Property tests (`proptest` over generated programs): every instance's needs are planned; no lifecycle block is planned for a run or file without a selected instance; selection is idempotent; selecting by file equals selecting its test IDs.
 
 ## Executor
 
-The executor runs a `Plan`. It is where concurrency, lifecycle blocks, shared values, cleanup and cancellation come together, so it is designed to need no locks at all: every piece of changing state has exactly one owner task, and shared values are slots created up front and filled once.
+The executor runs a `Plan`. It is where concurrency, lifecycle blocks, shared values, cleanup and cancellation come together, so it is designed to need no locks beyond the redactor's `arc-swap` (D113): every piece of changing state has exactly one owner task, and shared values are slots created up front and filled once.
 
 ### Tasks and who owns what
 
@@ -524,19 +560,19 @@ The executor runs a `Plan`. It is where concurrency, lifecycle blocks, shared va
 | --- | --- | --- | --- |
 | Run orchestrator | run | the run frame: shared `beforeRun` slots, the run's cleanup list, the run status | file orchestrators (spawns them), the event bus |
 | File orchestrator | test file in the plan | the file frame: `beforeAll` slots, the file's cleanup list | instance workflows (spawns them under the concurrency limit) |
-| Instance workflow | test instance | the instance frame: saved values, its cleanup stack, check results | transport, auth, hooks (all through ports) |
+| Instance workflow | test instance | the instance frame: saved values, its cleanup stack, check results | transport, auth, hooks (all through interface traits) |
 | Event writer tasks | subscriber | their own buffers | history store, reporters, console, UI stream |
 | Hook thread | process | the QuickJS runtime | instance workflows, via a request queue |
 
-This section details the workers and frames under the orchestrators described in Orchestration and design patterns. The run orchestrator starts the run's eager `beforeRun` actions (commands and functions), then starts file orchestrators in plan order; instances from different files run side by side, limited by `defaults.concurrency` (a semaphore) and by `defaults.perHost` (a semaphore per host inside the transport).
+This section details the workers and frames under the orchestrators described in Orchestration and design patterns. The run orchestrator runs the planned `beforeRun` actions to completion, and each file orchestrator runs its `beforeAll` before any of its instances start (D122); file orchestrators start in plan order; instances from different files run side by side, limited by `defaults.concurrency` (a semaphore) and by `defaults.perHost` (a semaphore per host inside the transport).
 
 ### Shared values without locks
 
-Because the planner knows every shared action that will be needed, each frame creates its slots before any instance starts:
+The planner lists every shared action, so each frame creates its slots up front and fills them before any instance starts (D122):
 
 ```rust
 /// One per planned shared action (beforeRun or beforeAll), created up front.
-/// The first instance that needs it runs the action; the others await the same result.
+/// The frame owner runs the action once; every instance reads the same result.
 pub struct SharedSlot {
     action: ActionId,
     cell: tokio::sync::OnceCell<Result<Arc<SharedOutcome>, Arc<Failure>>>,
@@ -550,29 +586,29 @@ pub struct SharedOutcome {
 }
 ```
 
-`OnceCell::get_or_init` gives singleflight for free: concurrent callers wait for the one running initialization. The slots live in a read-only map shared by `Arc`; a failed action stores its failure, and every instance that needs it is marked **blocked** with that failure attached. Cleanups are returned as data and run by the frame's owner when it closes, so no task ever writes into another task's state.
+`OnceCell` makes each slot write-once, so it needs no lock. The slots live in a read-only map shared by `Arc`; a failed action stores its failure, and every instance whose needs include it is marked **blocked** with that failure attached; blocked instances are never retried (D126). Cleanups are returned as data and run by the frame's owner when it closes, so no task ever writes into another task's state.
 
 ### One test instance
 
 ```text
-run_instance(instance):
+run_instance(instance):                           # repeated per attempt when the test has retry (D126)
   frame = InstanceFrame::new(instance, scope = run saves + file saves (read-only) + file vars + …)
   for action in file.beforeEach ++ test.before:    run_action(action, frame)   # on failure: blocked, skip to after
   if test is Call: run_action(call, frame)
-  else for step in test.steps:                     run_action(step, frame)     # stop at the first failure
-  evaluate test-level expect on the last response (already merged where it applies)
+  else for step in test.steps:                     run_action(step, frame)     # test-level keys are step defaults (D124); stop at the first failure
+  apply test-level save to the last step's response (D124)
   for action in test.after ++ file.afterEach:      run_action(action, frame)   # always runs
-  run frame.cleanups newest first                                              # always runs, own timeout
-  emit TestFinished(status, checks, timings)
+  run frame.cleanups newest first                                              # always runs, own timeout, also between attempts
+  emit TestFinished(status, checks, timings)                                   # passed after a failed attempt = flaky
 ```
 
 `run_action` dispatches on the action kind:
 
 - **Call.** Wait for any shared slots the templates read; resolve the effective auth (step, then api, then api file); render the request (method, URL from the api file's `baseUrl`, headers, query, body) against the scope; run `beforeRequest` hooks; send through the transport; run `afterResponse` hooks; evaluate the merged checks; if `poll` is set, repeat until `until` holds or its timeout passes; apply `save` (api saves, then the action's); if the status is 2xx, the api has `cleanup` and the action isn't `keep`, render the cleanup's vars against this response and push it onto the owner's cleanup stack.
 - **Test** (`test:` reuse). Run the reused test's calls in order inside the current frame, with each api's checks; the reused test's own test-level checks are skipped.
-- **Function / command.** Send the call to the hook thread or spawn the process (with a timeout and the run's environment); a non-zero exit or a thrown error fails the action; a returned object becomes saved values.
+- **Function / command.** Send the call to the hook thread or spawn the process through the `CommandRunner` trait (with a timeout and the run's environment); a non-zero exit (V5110) or a thrown error fails the action; a returned object becomes saved values. A dynamically saved value that a later template uses without a `provides:` declaration is V5108; a declared one the action did not return is V5109 (D128). The `function:` executor is registered in M4; until then the planner rejects `function:` actions.
 - **Loops.** `repeat` and `forEach` expand into iterations run in a `JoinSet` under a semaphore of size `parallel` (default 1). Each iteration writes its saved values into slot `i` of a pre-sized list, so lists come out in iteration order however the iterations finish. On failure, the action waits for the iterations already running, keeps their cleanups, and reports the first failure.
-- **Retry.** A failed action (or test, with test-level `retry`) is retried after `delay`; a later pass marks it **flaky** with every attempt recorded.
+- **Retry.** A test's `retry` (or `defaults.retry`) re-runs the whole instance after `delay`, running its cleanups between attempts; a pass after a failure marks it **flaky** with every attempt recorded. A blocked instance is never retried. Transport-level retries are `http.retry`, in the request pipeline (D126).
 - **Cache.** If the action has `cache`, look in the cache store first (see Results, history store, cache store); a live hit restores saved values and registers no cleanup.
 
 ### Cancellation and timeouts
@@ -595,11 +631,11 @@ pub enum Event {
 }
 ```
 
-Subscribers (history writer, reporters, console, TUI, web UI, MCP) each get their own task fed by a fan-out task, so a slow subscriber is buffered and cannot slow the run; if a buffer overflows, that subscriber is told how many events it missed and reloads from the history store. Every event passes through the redactor before it leaves the executor.
+Subscribers (history writer, reporters, console, TUI, web UI, MCP) each get their own task fed by a fan-out task, so a slow subscriber is buffered and cannot slow the run; if a buffer overflows, that subscriber is told how many events it missed and reloads from the history store. Every event passes through the redactor before it leaves the executor; the redactor is executor logic, and the secrets adapter only supplies values (D106). `Event` is a `vc-model` type (D103).
 
 ### Determinism
 
-The executor reaches time, randomness and the file system only through the `Clock`, `Random` and `FileSystem` ports. `--seed` seeds `Random` (fake data, `random`/`shuffle` pipes, dataset picks), so a run can be repeated exactly, and tests use fakes for all three.
+The executor reaches time, randomness, the file system and processes only through the `Clock`, `Random`, `FileSystem` and `CommandRunner` traits (implemented in `vc-adapter-system`, D133). `--seed` seeds `Random` (fake data, `random`/`shuffle` pipes, dataset picks), so a run can be repeated exactly; the seed is printed on failure (D131), and tests use the `vc-testkit` fakes.
 
 ## Vars, templates and CEL at run time
 
@@ -624,13 +660,13 @@ pub enum Level {
 }
 ```
 
-Profile overrides are applied when the program is loaded for a run, not on every lookup: for each level that has `profiles`, the active profiles' values are layered over the base values once. A lookup walks the levels and returns the first hit; the linker has already proven every reference resolves for the active profiles, so a miss at run time is an internal error, not a user error.
+Config values are layered once, lowest first: built-in defaults < user config < `vibranium.config.yaml` < profiles in the order given < `.env` < `VIB_*` variables < `--set`. Each layer is a `ConfigSource`, and every value keeps its origin, so `vc config explain` can say where it came from (D129). Profile overrides are applied when the program is loaded for a run, not on every lookup: for each level that has `profiles`, the active profiles' values are layered over the base values once. A lookup walks the levels and returns the first hit; the linker has already proven every reference resolves for the active profiles, so a miss at run time is an internal error, not a user error.
 
 ### Rendering
 
 - **Type preservation.** A value that is exactly one template keeps its type (number, list, object); a template inside other text renders to a string. This is decided at compile time and stored in the template.
-- **Laziness.** `${fake.*}` values are generated when rendered; a var defined as `${fake.internet.email}` is rendered once per test instance and then reused, so one value can appear in several places.
-- **Paths.** After the namespace, paths walk JSON with `.key`, `[n]` (negative from the end), `[*]` (map over a list) and quoted keys; a missing path is a run-time failure of that action, with the path and the actual value shown.
+- **Fake data memo.** A var defined as `${fake.…}` is generated once per instance (or per loop iteration) and then reused, so one value can appear in several places; an inline `${fake.…}` is fresh each time it is rendered (D131).
+- **Paths.** After the namespace, paths walk JSON with `.key`, `[n]` (negative from the end), `[*]` (map over a list) and quoted keys; a missing path is a run-time render failure of that action (V5111), with the path and the actual value shown.
 - **Pipes.** Registered functions `fn(Value, &[Arg]) -> Result<Value>`: `number`, `int`, `bool`, `string`, `json`, `jsonString`, `base64`, `fromBase64`, `lower`, `upper`, `trim`, `urlEncode`, `default`, `random`, `shuffle`, `take`. A plugin can register more under a prefix.
 - **`$extend` and `$remove`.** The base value is rendered, the changes are deep-merged into it (maps merge, lists and scalars replace, `null` sets null), then the `$remove` paths are deleted.
 - **Secrets.** `${secret.X}` renders the real value into the request, and the value is registered with the redactor the moment it is first resolved, so it is masked in every event and output.
@@ -643,7 +679,9 @@ Profile overrides are applied when the program is loaded for a run, not on every
 pub trait Expr: Send + Sync {
     fn eval(&self, activation: &Activation) -> Result<Value, ExprError>;
 }
-// Activation exposes: status, headers, body, timing, var, and each step id's response.
+// Activation roots (D125): response (status, headers, body, timing), request, var (D53), env, item,
+// iteration, example, and each step id. Inside `expect`, bare status/headers/body alias response.*.
+// A root not available at that spot is a compile error (V2105).
 ```
 
 Expressions are compiled and type-checked once by the compiler. At run time each evaluation gets a fresh activation built from the response and scope. Two additions to the standard library are registered: `sum()` on lists of numbers and `matches()` with the same regex engine as the `regex` matcher. Evaluation has a step limit, so a pathological expression fails instead of hanging.
@@ -668,6 +706,8 @@ pub struct Exchange {
 
 The HTTP adapter is built on `hyper` 1 with `hyper-util`'s pooled client and a custom connector that times each phase: DNS through `hickory-resolver` (with the system resolver as fallback), TCP connect, the `rustls` handshake (platform certificate verifier, so corporate CAs work), then first byte and download measured around the body stream. HTTP/2 is negotiated by ALPN. A semaphore per host enforces `defaults.perHost`. Response bodies are read up to a cap (`history.maxBodySize` for storage, a much larger in-memory cap for checks) and decompressed (gzip, br, zstd). Proxy settings follow `HTTPS_PROXY`/`NO_PROXY`; client certificates and custom CA bundles are per-profile config.
 
+Around the transport, each request passes through `tower` layers in this order (D134): timing → timeout → retry (on `refreshOn` and per `http.retry`) → auth → `beforeRequest` hooks → per-host limit → transport. Auth sits inside retry, so a retried request gets fresh credentials. Until M3 and M4 the auth and hook layers are null objects.
+
 ### Auth
 
 ```rust
@@ -681,9 +721,9 @@ pub trait AuthProvider: Send + Sync {
 // AuthKey = (AuthId, hash of the resolved vars, active profiles): one login per distinct identity.
 ```
 
-One `TokenCache` sits in front of every provider: a map from `AuthKey` to a slot like the executor's shared slots, so concurrent requests needing the same identity wait for one login. A slot records an expiry; credentials are refreshed `refreshBefore` the expiry by the next caller. On a `refreshOn` status the request is retried once with fresh credentials. With `cache: true`, credentials are also written to the cache store, encrypted, and reused across runs until they expire.
+One `TokenCache` sits in front of every provider: a map from `AuthKey` to a slot like the executor's shared slots, so concurrent requests needing the same identity wait for one login. It is one of the two places allowed a lock: a mutex over the map of slots, never held across an `await` (D113). A slot records an expiry; credentials are refreshed `refreshBefore` the expiry by the next caller. On a `refreshOn` status the request is retried once with fresh credentials. With `cache: true`, credentials are also written to the cache store, encrypted, and reused across runs until they expire.
 
-Providers by type: `basic`, `bearer`, `apiKey` (pure functions of their vars); `oauth2ClientCredentials` and `oauth2Refresh` (token endpoint calls through the same transport, so their timings show in reports); `oauth2AuthorizationCode` (opens the browser once, listens on `redirectPort`, stores the refresh token in the OS keychain); `flow` (runs its steps with the executor's action runner in a private frame, then renders `apply`); `plugin` (delegates over the plugin protocol).
+Providers by type: `basic`, `bearer`, `apiKey` (pure functions of their vars); `oauth2ClientCredentials` and `oauth2Refresh` (token endpoint calls through the same transport, so their timings show in reports); `oauth2AuthorizationCode` (opens the browser once, listens on `redirectPort`, stores the refresh token in the OS keychain); `flow` (runs its steps in a private frame through the `ActionRunner` trait, which the executor implements and `EngineBuilder` injects, then renders `apply`) (D106); `plugin` (delegates over the plugin protocol).
 
 ### Secrets and redaction
 
@@ -695,9 +735,9 @@ pub trait SecretProvider: Send + Sync {
 }
 ```
 
-The default adapter runs Varlock: on the first secret request of a run it calls `varlock load --format json` once (with the active profile as the environment), keeps the values in memory for the run only, and never writes them to disk. `provider: env` reads environment variables. `Secret` holds its value in a type that does not implement `Debug` or `Serialize` and zeroes its memory on drop, so it cannot be logged or stored by accident.
+Two providers exist. `provider: varlock` runs Varlock: on the first secret request of a run it calls `varlock load --format json` once (with the active profile as the environment), keeps the values in memory for the run only, and never writes them to disk. `provider: env` reads environment variables. Varlock is the current default, as the syntax reference and `vc init` show; the M3 kick-off confirms or changes it (see decision-log Open). `Secret` holds its value in a type that does not implement `Debug` or `Serialize` and zeroes its memory on drop, so it cannot be logged or stored by accident.
 
-The redactor is one `aho-corasick` automaton rebuilt whenever a secret is resolved or a token is issued. It also masks the `Authorization`, `Cookie` and `Set-Cookie` headers and any field named in `redact`. It runs on every event before it leaves the executor, on plugin responses, and on MCP results. A redacted value is shown as `•••• (secret SHOP_CLIENT_SECRET)` so the reader knows what was there.
+The redactor is core logic in `vc-executor`; secret providers only supply values (D106). It is one `aho-corasick` automaton rebuilt whenever a secret is resolved or a token is issued and swapped in with `arc-swap`, so readers never wait (D113). It also masks the `Authorization`, `Cookie` and `Set-Cookie` headers and any field named in `redact`. It runs on every event before it leaves the executor, on plugin responses, and on MCP results. A redacted value is shown as `•••• (secret SHOP_CLIENT_SECRET)` so the reader knows what was there.
 
 ## Hook bridge: TypeScript in QuickJS
 
@@ -804,7 +844,7 @@ The HTML reporter writes the folder layout from the Technical Design: `index.htm
 
 ## Import and sync: OpenAPI and HAR
 
-All importers produce the same intermediate form and hand it to `syntax::edit`, so every import respects the naming conventions, writes the documentation header and never reformats existing text.
+All importers produce the same intermediate form and hand it to `parser::edit` (with the engine's compile guard, D107), so every import respects the naming conventions, writes the documentation header and never reformats existing text.
 
 ```rust
 #[async_trait]
@@ -864,7 +904,7 @@ Every interface is a thin adapter over the `engine` facade, so a capability adde
 | `Check(paths?, overlay?)` | Compile; return diagnostics. `overlay` supplies unsaved file contents | CLI, editors, web editor on each keystroke, agents |
 | `Complete(file, offset, overlay)` | Completions at a position: api IDs, vars in scope with their source, matchers, keys allowed here, `$file` paths, hook exports | web editor, future LSP |
 | `Hover(file, offset)` / `Explain(id or code)` | Docs for a key, a resolved test, or a diagnostic code | editors, `vc explain` |
-| `Edit(changes)` | Structural edits (`syntax::edit`), returning text edits and resulting diagnostics; refuses edits that add errors | web editor form view, Settings, creators, agents |
+| `Edit(changes)` | Structural edits (`parser::edit`), returning text edits and resulting diagnostics; refuses edits that add errors (the guard is in the engine, D107) | web editor form view, Settings, creators, agents |
 | `ApplyFixes(codes or fix IDs)` | The certain fixes as edits | `vc check --fix`, Problems panel |
 | `Plan(selection)` / `Run(selection, options)` | Plan; run with a stream of `Event`s | all |
 | `Call(api, vars, profile)` | One ad hoc request with checks | API client, `vc call`, agents |
@@ -875,7 +915,7 @@ Every interface is a thin adapter over the `engine` facade, so a capability adde
 
 ### CLI (`apps/cli`)
 
-`clap` derive commands as listed in the CLI and Developer Workflow doc; global flags `--profile`, `--json`, `--project`, `--log`. Console output is written by the console reporter (spec, dots, json) and the `miette` diagnostic renderer; colour and progress bars switch off when stdout is not a terminal. Exit codes follow that doc. `vc completion <shell>` generates static completion plus a dynamic hook (`vc __complete`) that lists project IDs.
+`clap` derive commands as listed in the CLI and Developer Workflow doc; global flags `--profile`, `--json`, `--project`, `--log`. Console output is written by the console reporter (spec, dots, json) and the `miette` diagnostic renderer; colour and progress bars switch off when stdout is not a terminal. Exit codes follow that doc (0 pass, 1 failed or blocked, 2 nothing ran, 3 load threshold, 4 sync drift), plus 130 when cancelled and 70 for an internal error, which prints a report hint and writes a redacted debug bundle (D127). `vc-cli` owns `main` and dispatches `vc tui`, `vc mcp` and `vc ui` to their app crates (D110). `vc completion <shell>` generates static completion plus a dynamic hook (`vc __complete`) that lists project IDs.
 
 ### TUI (`apps/tui`)
 
@@ -915,7 +955,7 @@ Third-party plugins are separate processes speaking JSON-RPC 2.0 over stdio, wit
 
 ## Diagnostic codes
 
-Codes are stable once released: a code is never reused for a different problem, and each has a `vc explain` page with a wrong and a right example (written in `crates/diag/explain/Vxxxx.md`, checked by a test that compiles both examples). The first release ships these; new ones are added at the end of their range.
+Codes are stable once released: a code is never reused for a different problem, and each has a `vc explain` page with a wrong and a right example (written in `crates/diagnostics/explain/Vxxxx.md`, checked by a test that compiles both examples). The first release ships these; new ones are added at the end of their range.
 
 | Code | Severity | Problem | Certain fix |
 | --- | --- | --- | --- |
@@ -926,12 +966,15 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V1005 | error | Required key missing | — |
 | V2001 | error | Duplicate ID | — |
 | V2002 | error | Unknown auth, profile, dataset or generator | close match |
-| V2003 | error | Unknown api or test | close match |
+| V2003 | error | Unknown api or test | close match; after a file move, the moved file's new ID (D139) |
 | V2004 | error | `$file` or snapshot reference not found | close path |
 | V2005 | error | Hook export not found | close export |
+| V2006 | error | Reserved ID (D137) | — |
+| V2007 | error | File ID doesn't match its path (D139) | rename the ID and its references |
 | V2101 | error | Var used but never set for some profile | close var name |
-| V2102 | error | `${item}` outside `forEach`, `${example}` without `examples` | — |
+| V2102 | error | `${item}` outside `forEach`, `${example}` without `examples`, `${iteration}` outside a loop (D137) | — |
 | V2103 | error | Unknown example or dataset column | close column |
+| V2105 | error | Template or CEL root not available at that spot (D125, D137) | — |
 | V2201 | error | Exactly one of `call` or `steps` needed | — |
 | V2205 | error | Cycle through `test:` reuse | — |
 | V2210 | error | Shared action saves values but has no `id` | add an id derived from the api |
@@ -949,9 +992,11 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V3202 | warning | `cache` on a per-test action | — |
 | V3203 | warning | Call to a `deprecated` api | — |
 | V3204 | warning | Unquoted value that YAML cut at `  # ` (a comment) | quote it |
+| V3205 | warning | A test-level `body` default reaches a GET or HEAD step (D124) | — |
+| V3206 | warning | A test-level default that no step uses (D124) | — |
 | V4001 | warning | Test ID breaks the convention | rename from the name, with references |
 | V4002 | warning | Api ID breaks the convention (case, service prefix) | rename with references |
-| V4003 | warning | File name, file ID or folder breaks the convention | — (`vc rename` moves it) |
+| V4003 | warning | File name or folder breaks the convention | — (`vc rename` moves it) |
 | V4004 | warning | Tag, profile or dataset name breaks the convention | rename with references |
 | V5101 | failure | Expectation failed | — |
 | V5102 | failure | CEL check false | — |
@@ -960,6 +1005,10 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V5105 | failure | Transport error (DNS, connect, TLS, reset) | — |
 | V5106 | blocked | A lifecycle action this test needs failed | — |
 | V5107 | warning | Cleanup failed (reported, results unchanged) | — |
+| V5108 | failure | A dynamically saved value is used but its `function:` or `test:` does not declare it in `provides` (D128) | — |
+| V5109 | failure | A value declared in `provides` was not saved (D128) | — |
+| V5110 | failure | Command exited non-zero | — |
+| V5111 | failure | Template failed to render at run time (missing path, wrong type) | — |
 
 V3204 is new: the skip-reason example that silently lost `see #212` showed that an unquoted `  # ` inside a value is an easy mistake, and the parser can see it (a comment that starts mid-value on a line whose value looks cut).
 
@@ -971,14 +1020,17 @@ V3204 is new: the skip-reason example that silently lost `see #212` showed that 
 | --- | --- | --- |
 | Pure logic (templates, pipes, matchers, var lookup, diff, edits) | Unit tests next to the code | each crate |
 | Compiler diagnostics | Golden files: a folder of small projects, each with the expected `vc check` output (`insta` snapshots, text and JSON) | `crates/compiler/tests/cases/` |
-| `syntax::edit` | Round trips: apply an edit, re-parse, compare with the expected file byte for byte; comments and formatting elsewhere unchanged | `crates/syntax/tests/` |
+| `parser::edit` | Round trips: apply an edit, re-parse, compare with the expected file byte for byte; comments and formatting elsewhere unchanged | `crates/parser/tests/` |
 | Planner and executor invariants | `proptest` over generated programs with a fake transport: shared actions run at most once per key; every registered cleanup runs exactly once, newest first, also on cancellation; loops keep order under parallelism | `crates/executor/tests/` |
-| Adapters | One contract suite per port that every adapter must pass (a transport suite, a store suite, …) | `crates/ports/contract/` |
-| End to end | `vc` against the in-repo mock server, whose request counter proves the lifecycle guarantees (50 tests sharing a `beforeAll` send 1 request) | `bench/mock/`, `tests/e2e/` |
+| Adapters | One contract suite per interface trait that every adapter and test fake must pass (a transport suite, a store suite, …) (D112) | `crates/testkit` |
+| End to end | `vc` run with `assert_cmd` against the in-repo mock server (`vc-mock-server`, started in-process on port 0 so each test has its own), whose request counter proves the lifecycle guarantees (50 tests sharing a `beforeAll` send 1 request) (D100) | `bench/mock/`, `tests/e2e/` |
 | Interfaces | CLI output snapshots; TUI rendered to a test backend; web UI with Playwright against `vc ui` and the mock server | `apps/*/tests/`, `web/tests/` |
 | Docs | Every example YAML in the docs is extracted and compiled in CI | `docs/tests/` |
+| Public API | `cargo public-api` snapshots for `vc-model`, `vc-interfaces` and `vc-engine`, from the end of M2 (D117) | each crate |
 
-### Performance budgets (checked in CI, fail on a 10% regression)
+### Performance budgets
+
+Budgets are enforced in two ways (D120): instruction-count benches (`gungraun`) run on every PR and fail at a regression over 5%; wall-clock benches (`criterion`) run nightly against the targets below and open an issue on a breach.
 
 | Budget | Target |
 | --- | --- |
@@ -993,11 +1045,11 @@ V3204 is new: the skip-reason example that silently lost `see #212` showed that 
 
 ### Build and release
 
-- **Toolchain.** Rust 1.97 pinned; `cargo build --release` with thin LTO, 4 codegen units and stripped symbols (as in the spike). The web UI and report front ends are built with Vite first and embedded.
+- **Toolchain.** Rust 1.99 pinned through rustup and `rust-toolchain.toml` (D98); other tools pinned in `mise.toml` (D99); `cargo build --release` with thin LTO, 4 codegen units and stripped symbols (as in the spike). The web UI and report front ends are built with Vite first and embedded.
 - **Targets.** macOS (arm64, x64), Linux (x64, arm64, statically linked with musl), Windows (x64).
 - **Distribution** through `cargo-dist`: GitHub releases with checksums and build provenance, a one-line installer (`curl -fsSL https://…/install.sh | sh` and a PowerShell equivalent), a Homebrew tap, a Docker image, and an npm package `@vibranium/cli` that downloads the right binary (for JavaScript projects that want it in `devDependencies`).
 - **Command names.** The installer adds `vibranium` and `vc`, and warns if another `vc` is already on `PATH`.
-- **CI.** Every PR runs `gates.sh`, the test suites, the e2e tests on Linux and macOS, and the budgets; releases are cut from tags by `cargo-dist`'s workflow.
+- **CI.** Every PR runs `gates.sh` and the instruction-count budgets on Ubuntu, and builds and runs the tests (including e2e) on macOS and Windows; a nightly job runs full mutation testing and the wall-clock budgets (D119, D120). PRs merge into `master` (D97, D118); releases are cut from tags by `cargo-dist`'s workflow.
 
 ## Implementation plan
 
@@ -1005,13 +1057,13 @@ Milestones are sized for a coding agent to take one at a time, each ending in so
 
 | # | Milestone | Delivers | Done when | Release |
 | --- | --- | --- | --- | --- |
-| M0 | Workspace and gates | Crate skeletons with the dependency rules, `gates.sh`, `arch-tests`, CI, the mock server, `rust-toolchain.toml` | CI is green; a deliberately bad commit for each gate is rejected by that gate | — |
-| M1 | Read and check | `syntax` (marked YAML/JSON), file shapes for all kinds, `template` (templates, pipes, CEL), the linker, diagnostics V1xxx–V3xxx, `vc check`, `vc schema export` | The diagnostics golden suite passes; the compile budget holds on a generated 1,000-file project | v2.0 |
-| M2 | Run | Planner, executor (calls, steps, lifecycle blocks, shared slots, cleanup, loops, retry, poll, cancellation), HTTP transport with timings, matchers and checks, vars and profiles, console, CTRF and JUnit reporters, `vc run` selectors | The e2e suite passes against the mock server, including "50 tests, 1 setup request" and cleanup on Ctrl-C; the executor property tests pass | v2.0 |
-| M3 | Identity and memory | Auth providers and token cache, Varlock secrets, redactor, history store, cache store, `vc history`, the HTML report (folder and single), `vc report` | Secrets never appear in any output in the redaction test suite; a 10,000-test report meets its budget | v2.0 |
+| M0 | Workspace and gates | Crate skeletons for M0–M2 with the layer rules (including `vc-testkit` and a `vc-adapter-system` skeleton), `gates.sh`, `arch-tests`, the gates self-test (D121), CI on three OSes, CODEOWNERS and branch protection (D118), the mock server in `bench/mock`, `rust-toolchain.toml`, `mise.toml` | CI is green on all three OSes; `gates-selftest.sh` shows every bad patch rejected by its gate; branch protection is active; `vc --version` works | — |
+| M1 | Read and check | `parser` (marked YAML/JSON), file shapes for all kinds, `template` (templates, pipes, CEL), a pure compiler fed by the engine's `SourceProvider` and returning a `CompileCache` (D132), the linker, diagnostics V1xxx–V3xxx, `vc check` (exit 0, 2 or 70), `vc schema export` | The diagnostics golden suite passes; the compile budget holds on a generated 1,000-file project | v2.0 |
+| M2 | Run | Planner, executor (calls, steps, lifecycle blocks, shared slots, cleanup, loops, retry, poll, cancellation), HTTP transport with timings, matchers and checks, vars and profiles with config layering (D129), console, CTRF and JUnit reporters, `vc run` selectors including `--changed`, `vc plan`, `vc list`, exit codes with 130 and 70 (D127, D130) | The e2e suite passes against the mock server, including "50 tests, 1 setup request" and cleanup on Ctrl-C; the executor property tests pass | v2.0 |
+| M3 | Identity and memory | Auth providers and token cache, Varlock secrets, redactor (body and value masking; headers since M2), history store, cache store, `vc history`, `--failed` (D130), the HTML report (folder and single), `vc report` | Secrets never appear in any output in the redaction test suite; a 10,000-test report meets its budget | v2.0 |
 | M4 | Code and data | Hook bridge (oxc + QuickJS), custom checks, `function:` actions, generators, datasets, `$extend`, `$cel` | Hook budgets met; a hook overrunning its time or memory is stopped and reported with the TypeScript line | v2.0 |
-| M5 | Authoring | `syntax::edit`, `vc init` with the sample and `vc demo`, `vc new`, `vc rename`, `vc fmt`, `vc check --fix`, `vc explain`, `vc skip`, `vc watch`, shell completion, V4xxx lints | Edit round-trip tests pass byte for byte; a fresh `vc init && vc run` passes offline | v2.0 |
-| M6 | Import and sync | OpenAPI (Swagger 2.0, 3.0, 3.1) import and three-way sync with snapshots, HAR, cURL, Postman, Bruno, the v1 migrator | Sync passes its rule-table tests; a recorded HAR replays green against the mock server | v2.0 |
+| M5 | Authoring | `parser::edit` with the engine's compile guard (D107), `vc init` with the sample and `vc demo`, `vc new` (including `new auth` and `new file`), `vc rename`, `vc fmt`, `vc check --fix`, `vc explain`, `vc skip` and `unskip`, `vc call`, `vc config explain`, `vc watch`, shell completion, V4xxx lints (D130) | Edit round-trip tests pass byte for byte; a fresh `vc init && vc run` passes offline | v2.0 |
+| M6 | Import and sync | OpenAPI (Swagger 2.0, 3.0, 3.1) import and three-way sync with snapshots, HAR, cURL, Postman, Bruno, `vc import http` (D130), the v1 migrator | Sync passes its rule-table tests; a recorded HAR replays green against the mock server | v2.0 |
 | M7 | Agents and load | MCP server, agent policy and approvals (`vc approvals`), the load engine, `vc load` | An agent session in the e2e suite needs approval exactly where the policy says; 5,000 users within the CPU budget | v2.1 |
 | M8 | Terminal UI and plugins | `vc tui` (Run, Explore, History, Load, Import), the plugin host with permissions, the remaining auth types and notifiers | TUI snapshot tests; a sample Python reporter plugin works and is refused a secret it did not declare | v2.2 |
 | M9 | Web UI | The engine API over Connect, `vc ui`, the web UI (tests, API client with flows and HAR import, editor, runs, insights, AI agents, Settings) | Playwright suite over every screen in the mockups; editor round-trips keep files byte-identical | v2.3 |

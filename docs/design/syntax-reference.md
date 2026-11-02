@@ -18,7 +18,7 @@ These rules govern every file; `vc check` enforces each one with a diagnostic.
 
 1. **camelCase keys everywhere.** No kebab-case (`repeat-delay`) or snake\_case (`max_parallel_executors`). Request bodies are your API's data and are sent exactly as written.
 2. **The file suffix decides the kind:** `vibranium.config.yaml`, `*.api.yaml`, `*.test.yaml`, `*.load.yaml`. There is no `kind:` key.
-3. **Every item has an `id`, and may have a `name`.** `id` is the reference: camelCase letters and digits only (`createsMember`), no spaces, dots or dashes. `name` is free text for reports. A full ID is `<fileId>.<id>` (`users.crud.createsMember`); inside the same file the short `id` works. File IDs are lowercase words joined by dots (`users.crud`).
+3. **Every item has an `id`, and may have a `name`.** `id` is the reference: camelCase letters and digits only (`createsMember`), no spaces, dots or dashes. `name` is free text for reports. A full ID is `<fileId>#<id>` (`users.crud#createsMember`), and that is how another file's item is referenced; inside the same file the short `id` works. IDs are unique within a file across every kind (tests, apis, actions, steps, datasets…), so one short `id` never names two things (D128, D138). File IDs are lowercase words joined by dots (`users.crud`), so a bare dotted word is always a file ID. A file's ID comes from its path (D139): the conventional root (`services/`, `load/`) and the kind suffix are dropped and the folders and file name are joined with dots, so `services/payments/refunds/partial.test.yaml` is `payments.refunds.partial` and `services/users/users.api.yaml` is `users` (a file name equal to its folder collapses). The `id:` key is optional; when present it must match the path (V2007), and `vc check --fix` renames it with its references.
 4. **Things with several properties are list items; plain name–value pairs are maps.** Apis, tests, profiles, auth definitions, generators and plugins are lists of items with `id`; steps and lifecycle actions are lists whose `id` is optional. Vars, headers, query and saved values are maps.
 5. **One kind of value: vars.** Defaults, inputs to an api, environment values and values saved from a response are all vars, read as `${var.x}`. Values set closer to the call win (see Vars and profiles).
 6. **Sections are plural, references are singular.** `vars:` is read as `${var.x}`, `secrets` as `${secret.X}`, `examples:` as `${example.x}`.
@@ -38,8 +38,8 @@ A project is one `vibranium.config.yaml` at the root plus api, test and load fil
 | File | Holds | Top-level keys | Item IDs |
 | --- | --- | --- | --- |
 | `vibranium.config.yaml` | Project settings, vars, profiles (at least one), auth, secrets, generators, datasets, reports, history, alerts, plugins, run-level lifecycle blocks | `syntaxVersion`, `project`, `paths`, `defaults`, `vars`, `profiles`, `auth`, `secrets`, `generators`, `datasets`, `reports`, `history`, `alerts`, `plugins`, `redact`, `beforeRun`, `afterRun` | auth: `partnerLogin` |
-| `*.api.yaml` | How to call endpoints, and how to undo them | `id`, `name`, `baseUrl`, `auth`, `headers`, `vars`, `profiles`, `source`, `beforeRequest`, `afterResponse`, `apis` | `users.create` |
-| `*.test.yaml` | Tests and the lifecycle blocks around them | `id`, `name`, `tags`, `vars`, `profiles`, `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, `tests` | `users.crud.getsCreatedUser` |
+| `*.api.yaml` | How to call endpoints, and how to undo them | `id`, `name`, `baseUrl`, `auth`, `headers`, `vars`, `profiles`, `source`, `beforeRequest`, `afterResponse`, `apis` | `users#create` |
+| `*.test.yaml` | Tests and the lifecycle blocks around them | `id`, `name`, `tags`, `vars`, `profiles`, `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, `tests` | `users.crud#getsCreatedUser` |
 | `*.load.yaml` | A load scenario built from tests | `id`, `name`, `mix`, `stages`, `thinkTime`, `checks`, `thresholds`, `abortOn` | `checkout.peak` |
 | `schemas/*.json` | JSON Schemas, loaded with `$file` | — | — |
 | `datasets/*.csv`, `*.json`, `*.yaml` | Your own data lists | — | file name, e.g. `cities` |
@@ -58,6 +58,7 @@ Every dynamic value is written `${namespace.path}`; `vc check` resolves each ref
 | `env` | Operating-system environment variables | `${env.CI_COMMIT_SHA}` |
 | `secret` | Secrets from the secrets provider; always redacted | `${secret.SHOP_CLIENT_SECRET}` |
 | `response` | The current call's `status`, `headers`, `body`, `timing`; used in `expect`, `save`, `poll` and an api's `cleanup` | `${response.headers.location}` |
+| `request` | The current call's request as sent: `method`, `url`, `headers`, `body`; available where `response` is (D125) | `${request.headers["x-request-id"]}` |
 | *action id* | The last response (`status`, `headers`, `body`, `timing`) of an action or step with that `id`, within the same test or block | `${place.body.total}` |
 | `example` | The current row of `examples` | `${example.email}` |
 | `item` | The current element of a `forEach` loop | `${item.sku}` |
@@ -65,6 +66,8 @@ Every dynamic value is written `${namespace.path}`; `vc check` resolves each ref
 | `fake` | Generated data (see Generators and datasets) | `${fake.location.city}` |
 | `dataset` | One of your datasets: its whole list of rows (see Generators and datasets) | `${dataset.capitals}` |
 | `run` | `id`, `startedAt`, `profiles` | `${run.id}` |
+
+Where each root is available (D125): `response` and `request` exist only once a call has been made (in `expect`, `save`, `poll` and an api's `cleanup`); `item` only inside `forEach`; `iteration` only inside `repeat`, `forEach` or a repeated test; `example` only in a test with `examples`; an action or step id only after that action, in the same test or block. `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere. Inside `expect`, bare `status`, `headers` and `body` are short for `response.status`, `response.headers` and `response.body`. Using a root where it is not available is V2105 (`${item}` outside `forEach`, `${example}` without `examples` and `${iteration}` outside a loop are V2102) (D125, D137).
 
 Paths: after a namespace, and as keys under `expect.body.match`, paths use dotted names, `[n]` for an index (negative counts from the end), `[*]` for every element, and quotes for unusual keys (`headers["x-request-id"]`). Filtering is done with CEL.
 
@@ -94,7 +97,7 @@ To read inside a string of JSON, save it parsed first (`payload: ${response.body
 
 ### Computed values
 
-Where a value needs arithmetic or a choice, `$cel` computes it with the same CEL used in checks. Its variables are `var`, `response` (where there is one) and action ids.
+Where a value needs arithmetic or a choice, `$cel` computes it with the same CEL used in checks. Its variables are the roots above, wherever each is available (D125).
 
 ```yaml
 vars:
@@ -106,11 +109,13 @@ vars:
 
 Escaping: write `$${` for a literal `${`.
 
-Reserved names: an action or step `id` cannot be `var`, `env`, `secret`, `response`, `example`, `item`, `iteration`, `fake`, `dataset` or `run`.
+Reserved names: no `id` (test, api, action, step, dataset…) can be a root name: `var`, `env`, `secret`, `response`, `request`, `example`, `item`, `iteration`, `fake`, `dataset` or `run`; `vc check` reports V2006 (D128, D137).
 
 ## Project config
 
 `vibranium.config.yaml` sits at the project root and is the only project-wide file; `vc` finds it by walking up from the current directory.
+
+Settings are layered, lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line. Every value keeps the layer it came from, and `vc config explain <key>` prints it (D129).
 
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
@@ -120,7 +125,7 @@ Reserved names: an action or step `id` cannot be `var`, `env`, `secret`, `respon
 | `defaults.timeout` | duration | `30s` | Per request |
 | `defaults.concurrency` | integer | `16` | Test instances in flight |
 | `defaults.perHost` | integer | `8` | Connections per host |
-| `defaults.retry` | `attempts`, `delay` | none | Applied to every test unless overridden |
+| `defaults.retry` | `attempts`, `delay` | none | Applied to every test unless overridden; re-runs the whole test instance (D126) |
 | `defaults.headers` | map | none | Sent with every request |
 | `vars` | map | — | Project-wide values |
 | `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles) |
@@ -213,14 +218,14 @@ alerts:
 
 beforeRun:
   - command: docker compose up -d --wait
-  - id: admin                    # created only if a test reads ${var.admin.*}
-    call: users.create
+  - id: admin                    # created once, before any test starts
+    call: users#create
     vars:
       role: admin
     cache:
       for: 12h
       check:
-        call: users.get
+        call: users#get
         vars:
           userId: ${var.admin.userId}
 
@@ -290,7 +295,7 @@ File-level keys:
 
 | Key | Type | Purpose |
 | --- | --- | --- |
-| `id` | file ID, required | Prefix of every api in the file |
+| `id` | file ID, optional; must match the path (D139) | Prefix of every api in the file |
 | `name` | text | Shown in listings |
 | `baseUrl` | template | Prefixed to every `path` |
 | `auth` | auth ID, or `none` | Default auth for the file |
@@ -305,7 +310,7 @@ Each item in `apis`:
 
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
-| `id` | camelCase, required | — | Reference, e.g. `create` → `users.create` |
+| `id` | camelCase, required | — | Reference, e.g. `create` → `users#create` |
 | `name` | text | — | Shown in listings |
 | `method` | `GET` `POST` `PUT` `PATCH` `DELETE` `HEAD` `OPTIONS` | `GET` | HTTP method |
 | `path` | template | required | Appended to `baseUrl`, e.g. `/users/${var.id}` |
@@ -422,19 +427,19 @@ OpenAPI import and sync (`vc import openapi`, `vc sync users`) are described in 
     name: Re-placing an order with a new city keeps every item
     steps:
       - id: original
-        call: orders.get
+        call: orders#get
         vars:
           orderId: ord_existing
-      - call: orders.place
+      - call: orders#place
         body:
           $extend: ${original.body}
           shipping:
             city: Pune
           $remove: [id, status, createdAt, total, shipping.geo]
-    expect:
-      status: 201
-      cel:
-        same items: body.items == original.body.items
+        expect:
+          status: 201
+          cel:
+            same items: body.items == original.body.items
 ```
 
 If a value arrives as text but you need it as JSON, or the other way round, convert it with a pipe (see Converting types with pipes): `$extend: ${response.body.payload | json}`.
@@ -454,7 +459,7 @@ Cleanups also run after Ctrl-C. A failed cleanup is reported but does not change
 
 ### Which base URL and auth a call uses
 
-Every api takes its base URL and auth from its own file, so one test can call several services and each request goes to the right host with the right credentials. In a test that calls `users.create` and then `orders.place`, the first request goes to `${var.usersUrl}` with the users file's auth and the second to `${var.ordersUrl}` with the orders file's auth, without the test saying anything.
+Every api takes its base URL and auth from its own file, so one test can call several services and each request goes to the right host with the right credentials. In a test that calls `users#create` and then `orders#place`, the first request goes to `${var.usersUrl}` with the users file's auth and the second to `${var.ordersUrl}` with the orders file's auth, without the test saying anything.
 
 An api can override its file's `auth`, and a test, step or action can override it again with `auth:` for one call, for example to act as a different user. The base URL changes only through vars: to point one call elsewhere, set the var its file's `baseUrl` uses in that call's `vars` (`usersUrl: http://localhost:9000`).
 
@@ -466,7 +471,7 @@ File-level keys of a test file:
 
 | Key | Type | Purpose |
 | --- | --- | --- |
-| `id` | file ID, required | Prefix of every test in the file |
+| `id` | file ID, optional; must match the path (D139) | Prefix of every test in the file |
 | `name` | text | Shown in reports |
 | `tags` | list | Added to every test in the file |
 | `vars` | map | File-level vars |
@@ -480,7 +485,7 @@ Each item in `tests`:
 
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
-| `id` | camelCase, required | — | Reference, e.g. `users.crud.getsCreatedUser` |
+| `id` | camelCase, required | — | Reference, e.g. `users.crud#getsCreatedUser` |
 | `name` | text | `id` | Shown in reports |
 | `tags` | list | — | Added to the file's tags |
 | `before`, `after` | lists of actions | — | Run around this test only, inside `beforeEach` and `afterEach` |
@@ -488,23 +493,51 @@ Each item in `tests`:
 | `steps` | list of actions | — | Several actions in order (see Actions); usually `call`s, each with its own `id`, `vars`, `expect`, `save` |
 | `vars` | map | — | Values for this test and its call; each is evaluated once per test instance |
 | `auth` | auth ID, `none`, or `id` + `vars` | the api's | Call as a different identity |
+| `headers`, `query` | maps of templates | — | Merged over the api's headers and query |
 | `body` | as an api's `body` | the api's | Replaces the api's body for this test |
-| `expect` | checks | the api's `expect` | Added to the api's checks; matching keys replace them |
-| `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach` |
+| `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
+| `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
 | `poll` | `until`, `every`, `timeout` | — | Re-send until `until` (checks) holds, then check `expect` |
 | `examples` | list of maps, or `$file` | — | One test instance per row; values in `${example.*}` |
 | `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
-| `retry` | `attempts`, `delay` | none | Retry a failure; a pass after retry is reported as flaky |
+| `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
 | `timeout` | duration | per-request timeout × calls | Whole-test limit |
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
 
-With `steps`, a test-level `expect` applies to the last step; each step can carry its own `expect` too.
-
-Order of work: the file's `beforeAll` runs once, before its first selected test. Then, for each test instance: `beforeEach` → `before` → the call or steps (each: request, the api's `expect` merged with the step's, `poll`, `save`, cleanup registered) → the test-level `expect` → `after` → `afterEach` → registered cleanups, newest first → record. `after` and `afterEach` run even when something before them failed. After the file's last test: `afterAll`, then the file's cleanups.
+With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every step, and a step's own value wins (D124). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205) and when no step uses a default (V3206).
 
 ```yaml
-# services/users/users.test.yaml
+  - id: renamesUser
+    name: A renamed user reads back with the new name
+    headers:
+      x-request-source: vibranium-tests
+    expect:
+      headers:
+        content-type:
+          contains: json
+    steps:
+      - call: users#create
+      - call: users#rename
+        vars:
+          name: Ada Lovelace
+      - call: users#get
+        expect:
+          body:
+            match:
+              name: Ada Lovelace
+    save:
+      finalName: ${response.body.name}
+```
+
+Every step sends `x-request-source` and checks the `content-type`; only the last step checks the name, and `finalName` comes from `users#get`.
+
+Retries and statuses (D126): `retry` on a test re-runs the whole test instance, with its cleanups run between attempts. A pass after a failure is reported as **flaky**. A **blocked** instance is never retried. Retrying a single request on a 5xx or a timeout is a transport setting, `http.retry`, not a test retry. Every test instance ends as passed, failed, blocked, skipped or flaky.
+
+Order of work: the file's `beforeAll` runs once, before any of its selected tests starts (D122). Then, for each test instance: `beforeEach` → `before` → the call or steps (each: request, the api's `expect` merged with the test's and the step's, `poll`, `save`, cleanup registered) → the test-level `save` → `after` → `afterEach` → registered cleanups, newest first → record. `after` and `afterEach` run even when something before them failed. After the file's last test: `afterAll`, then the file's cleanups.
+
+```yaml
+# services/users/crud.test.yaml
 id: users.crud
 name: User accounts
 tags: [users, smoke]
@@ -512,7 +545,7 @@ tags: [users, smoke]
 tests:
   - id: createsMember
     name: Creates a member account
-    call: users.create
+    call: users#create
     expect:
       body:
         match:
@@ -521,9 +554,9 @@ tests:
   - id: getsCreatedUser
     name: Returns the user that was just created
     before:
-      - call: users.create
+      - call: users#create
     repeat: 5
-    call: users.get
+    call: users#get
     expect:
       status: 200
       body:
@@ -542,7 +575,7 @@ tests:
     examples:
       - email: no-at-sign
       - email: ""
-    call: users.create
+    call: users#create
     vars:
       email: ${example.email}
     expect:
@@ -554,11 +587,11 @@ tests:
     name: A user export completes within two minutes
     steps:
       - id: start
-        call: users.startExport
+        call: users#startExport
         save:
           jobId: ${response.body.jobId}
       - id: wait
-        call: users.exportStatus
+        call: users#exportStatus
         poll:
           until:
             body:
@@ -566,14 +599,14 @@ tests:
                 state: done
           every: 2s
           timeout: 2m
-    expect:
-      body:
-        match:
-          rows:
-            gt: 0
+        expect:
+          body:
+            match:
+              rows:
+                gt: 0
 ```
 
-Notes on the example: `users.create` saves `userId` and declares its own cleanup, so no test here has to delete anything. `getsCreatedUser` creates a fresh user in `before` for each of its five instances and reads it as `${var.userId}`. `rejectsBadEmail` replaces the api's `status: 201` with `400` simply by stating it; a 400 creates nothing, so no cleanup is registered.
+Notes on the example: `users#create` saves `userId` and declares its own cleanup, so no test here has to delete anything. `getsCreatedUser` creates a fresh user in `before` for each of its five instances and reads it as `${var.userId}`. `rejectsBadEmail` replaces the api's `status: 201` with `400` simply by stating it; a 400 creates nothing, so no cleanup is registered.
 
 ### Skipping
 
@@ -592,8 +625,8 @@ Lifecycle blocks prepare data and tidy up around tests, like JUnit's `@BeforeAll
 
 | Block | Written in | Runs | What it creates lives until |
 | --- | --- | --- | --- |
-| `beforeRun`, `afterRun` | `vibranium.config.yaml` | once per run; value-producing actions run when a test first needs them | the end of the run, or the cache expiry |
-| `beforeAll`, `afterAll` | a test file | once per file: before its first selected test, after its last | the end of the file |
+| `beforeRun`, `afterRun` | `vibranium.config.yaml` | once per run, when any test is selected: before any test starts, after the last (D122) | the end of the run, or the cache expiry |
+| `beforeAll`, `afterAll` | a test file | once per file, when one of its tests is selected: before any of them starts, after the last (D122) | the end of the file |
 | `beforeEach`, `afterEach` | a test file | around every test instance in the file, including each `repeat` and `examples` row | the end of that test instance |
 | `before`, `after` | a test | around that test's instances, inside `beforeEach` and `afterEach` | the end of that test instance |
 
@@ -608,20 +641,22 @@ An action is one entry in a lifecycle block or in a test's `steps`. Most actions
 | `function: path#export` | Runs a function from a code file | Work no api does: seeding a database, reading a mailbox; it may return an object whose fields are saved |
 | `command: <shell command>` | Runs a command; a non-zero exit fails the action, and its output is attached to the report | Starting services, `docker compose up -d --wait` |
 
-`call` and `test` actions also take `id`, `vars`, `auth`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars` and `timeout`.
+`call` and `test` actions also take `id`, `vars`, `auth`, `headers`, `query`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars` and `timeout`. `function` and `test` actions may also declare `provides` (below).
 
 In `beforeRun` and `beforeAll` every action that produces values needs an `id`, and everything it saves, including its api's `save`, is shared under that id: `${var.catalog.productIds}`. In per-test blocks and steps, saved names are plain (`${var.userId}`), as for any step.
+
+A `function:` or `test:` action can't always be read ahead of time to see what it saves, so it may declare `provides: [name, …]`; `vc check` then counts those names as set when it looks for vars that are never set (V2101). At run time, using a name such an action saved without declaring it is V5108, and a declared name it did not save is V5109 (D128).
 
 ```yaml
 # services/orders/checkout.test.yaml (excerpt)
 beforeAll:
   - id: catalog
-    call: catalog.seedProducts
+    call: catalog#seedProducts
 
 beforeEach:
-  - call: users.create
-  - call: carts.create
-  - call: carts.addItem
+  - call: users#create
+  - call: carts#create
+  - call: carts#addItem
     forEach: ${var.catalog.productIds}
     vars:
       sku: ${item}
@@ -636,11 +671,10 @@ Every test in this file gets its own buyer and cart (`${var.userId}` and `${var.
 
 Tests run in parallel, up to `defaults.concurrency`; within one test, actions and steps run in order.
 
-- A value-producing `beforeRun` action runs at most once per run. The first test that needs one of its values starts it; tests that need it at the same moment wait for that one run instead of starting their own. Tests that never use it (for example under `vc run -t users.*`) never trigger it. `command` and `function` actions in `beforeRun` run at the start of the run, in order, because they usually prepare the system.
-- `beforeAll` finishes before any test in the file starts; the file's tests then run in parallel, and `afterAll` waits for all of them.
+- `beforeRun` and `beforeAll` run eagerly (D122). `beforeRun` runs once at the start of any run that selects at least one test, and finishes before any test starts; `beforeAll` runs only for a file with a selected test, and finishes before any test in the file starts. Each shared action runs at most once, and its saved values are computed once and shared. The file's tests then run in parallel, and `afterAll` waits for all of them. What stays lazy is reuse: cached actions and auth tokens are only fetched again when missing or expired.
 - Values from `beforeRun` and `beforeAll` are shared by tests running at the same moment, so treat them as read-only. A test that changes or deletes data creates its own in `beforeEach` or `before`. `vc check` warns when a `PUT`, `PATCH` or `DELETE` call uses a shared value.
 - `beforeEach` and `before` run separately for every test instance, so parallel instances never share what they create.
-- If a `beforeRun` or `beforeAll` action fails after its `retry`, it is reported once, with its request, response and failed check, and every test that needs it is marked **blocked** with a link to that failure. If `beforeEach` or `before` fails, that test instance is marked blocked the same way; its `after`, `afterEach` and cleanups still run.
+- If a `beforeRun` or `beforeAll` action fails after its `retry`, it is reported once, with its request, response and failed check, and every test that needs it is marked **blocked** with a link to that failure. If `beforeEach` or `before` fails, that test instance is marked blocked the same way; its `after`, `afterEach` and cleanups still run. Which tests are blocked is decided by what each test reads, and a blocked test is never retried (D122, D126).
 - A cycle (a test reused with `test:` that, directly or through others, reuses the first) is a compile error that prints the whole cycle.
 
 ### Loops: repeat and forEach
@@ -722,7 +756,7 @@ tests:
   - id: groupsTenCities
     name: A location group keeps the ten cities it was created with
     steps:
-      - call: geo.createCity
+      - call: geo#createCity
         repeat: 10
         parallel: 5
         save:
@@ -730,22 +764,22 @@ tests:
             id: ${response.body.id}
             name: ${response.body.name}
             longitude: ${response.body.location.lon | number}
-      - call: geo.createLocationGroup
+      - call: geo#createLocationGroup
         vars:
           cityIds: ${var.cities[*].id}
-    expect:
-      body:
-        match:
-          cityIds:
-            length: 10
-      cel:
-        same cities in the same order: body.cityIds == var.cities.map(c, c.id)
+        expect:
+          body:
+            match:
+              cityIds:
+                length: 10
+          cel:
+            same cities in the same order: body.cityIds == var.cities.map(c, c.id)
 ```
 
 After the test, the group is deleted first and then the ten cities, because cleanups run newest first. To send whole objects instead of IDs, the api's body can use `cities: ${var.cities}`. To create named cities from a file instead of random ones:
 
 ```yaml
-      - call: geo.createCity
+      - call: geo#createCity
         forEach: ${dataset.capitals}
         vars:
           cityName: ${item.name}
@@ -763,7 +797,7 @@ Data that is slow or rate-limited to create can outlive a run. `cache` on a `cal
 
 Rules:
 
-- The cache key is the api (or test), its resolved `vars` and the profile, so `users.create` with `role: admin` and with `role: member` are cached separately.
+- The cache key is the api (or test), its resolved `vars` and the profile, so `users#create` with `role: admin` and with `role: member` are cached separately.
 - A cached action's cleanup does not run at the end of the run. It runs when the entry expires (at the start of the next run that finds it expired) or on `vc cache clear`.
 - Cached values that came from secrets or auth are encrypted with a key kept in the OS keychain; where there is no keychain, as in most CI, set `VIB_CACHE_KEY`.
 - `vc run --no-cache` ignores the cache for one run; `vc cache list` shows the entries and when they expire.
@@ -773,13 +807,13 @@ Rules:
 # vibranium.config.yaml (excerpt)
 beforeRun:
   - id: admin
-    call: users.create
+    call: users#create
     vars:
       role: admin
     cache:
       for: 12h
       check:
-        call: users.get
+        call: users#get
         vars:
           userId: ${var.admin.userId}
 ```
@@ -790,7 +824,7 @@ Most blocks call apis directly. When the data takes several calls that already e
 
 ```yaml
 # services/shared/flows.test.yaml
-id: flows
+id: shared.flows
 name: Reusable flows
 
 tests:
@@ -798,20 +832,20 @@ tests:
     name: Sign up, confirm the email, log in
     standalone: false
     steps:
-      - call: users.signUp
-      - call: mail.latestCode
+      - call: users#signUp
+      - call: mail#latestCode
         vars:
           to: ${var.email}
         save:
           code: ${response.body.code}
-      - call: users.confirmEmail
-      - call: users.login
+      - call: users#confirmEmail
+      - call: users#login
 ```
 
 ```yaml
 # in any test file
 beforeEach:
-  - test: flows.verifiedMember
+  - test: shared.flows#verifiedMember
 ```
 
 ## Checks and matchers
@@ -827,10 +861,34 @@ beforeEach:
 | `body.equals` | the whole body, compared deeply | `equals: {"ok": true}` |
 | `size` | matcher on body size | `size: {lt: 100kb}` |
 | `timing.<phase>` | matcher on `dns`, `connect`, `tls`, `firstByte`, `download`, `total` | `total: {lt: 500ms}` |
-| `cel.<label>` | CEL expression that must be true; variables `status`, `headers`, `body`, `timing`, `var`, plus action ids | `has items: size(body.items) > 0` |
+| `cel.<label>` | CEL expression that must be true; variables are the roots available there (see Templates and references), with bare `status`, `headers` and `body` short for `response.*` (D125) | `has items: size(body.items) > 0` |
 | `custom` | list of functions, `- function: path#export` | `- function: hooks/checks.ts#isSorted` |
+| `replace` | `true` | Drop every inherited check and keep only the ones written here (D123) | `replace: true` |
 
-Merging: a test's `expect` is added to its api's `expect`; where both set the same key (for example `status`), the test's value replaces the api's. That is how a negative test expects 400 from an api whose normal result is 201.
+Merging (D123): checks are inherited from the api, then the test, then the step, and the more specific level wins. Each check is keyed by its kind and leaf path, such as `status`, `headers.content-type` or `body.$.id`; a check with the same key replaces the inherited one, and every other inherited check still applies. `cel` and `custom` checks are never replaced, only added. `replace: true` drops everything inherited. That is how a negative test expects 400 from an api whose normal result is 201.
+
+```yaml
+  - id: rejectsDuplicateEmail
+    name: Rejects a second account with the same email
+    call: users#create
+    vars:
+      email: taken@example.com
+    expect:
+      status: 409
+      cel:
+        names the email field: body.errors.exists(e, e.field == 'email')
+
+  - id: reportsMaintenance
+    name: Returns 503 during maintenance, whatever the body
+    call: users#get
+    vars:
+      userId: u_existing
+    expect:
+      replace: true
+      status: 503
+```
+
+The first test replaces the api's `status: 201` and keeps its other checks, and its CEL check is added to any the api has. The second checks only the status.
 
 ### CEL in one minute
 
@@ -867,7 +925,7 @@ A load file turns existing tests into a traffic mix; it adds no request or check
 
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
-| `id` | file ID, required | — | Scenario ID for `vc load <id>` |
+| `id` | file ID, optional; must match the path (D139) | path-derived | Scenario ID for `vc load <id>` |
 | `name` | text | — | Shown in the load report |
 | `mix` | list | required | Each: `test` (ID), `weight` (integer), optional `thresholds` for that test |
 | `stages` | list | required | Each: `duration`, `users`; users ramp from the previous stage's count |
@@ -879,15 +937,15 @@ A load file turns existing tests into a traffic mix; it adds no request or check
 Lifecycle blocks work as in functional runs: `beforeRun` and the `beforeAll` of every file in the mix run once, before the first stage. `beforeEach` and `before` run in every iteration; their requests count toward the load but are reported apart from the mix. Cleanups registered during an iteration run at its end.
 
 ```yaml
-# load/checkout.load.yaml
+# load/checkout/peak.load.yaml
 id: checkout.peak
 name: Black Friday checkout mix
 mix:
-  - test: users.crud.getsCreatedUser
+  - test: users.crud#getsCreatedUser
     weight: 6
-  - test: catalog.browse.searchesProducts
+  - test: catalog.browse#searchesProducts
     weight: 3
-  - test: orders.checkout.placesOrder
+  - test: orders.checkout#placesOrder
     weight: 1
     thresholds:
       p95:
@@ -1022,8 +1080,9 @@ The same definition serves every profile: under `--profile prod` it logs in to `
 Rules:
 
 - Arguments are literals only: numbers, booleans and single-quoted strings.
-- Every occurrence generates a new value. To use one value in several places, put it in the test's `vars` once (`email: ${fake.internet.email}`) and use `${var.email}`. In a loop, every iteration gets fresh values.
-- `vc run --seed 42` makes generated data repeatable; the seed is printed in every report.
+- A var defined as `${fake.…}` is generated once per test instance, or once per loop iteration, and every `${var.…}` read of it gets the same value: put it in `vars` once (`email: ${fake.internet.email}`) and use `${var.email}` (D131).
+- A `${fake.…}` written inline in a field generates a new value every time it is rendered (D131).
+- `vc run --seed 42` makes generated data repeatable; the seed is printed in every report and with every failure (D131).
 
 Named generators, for settings you reuse, are declared once in `vibranium.config.yaml` and used in the same `fake` namespace:
 
@@ -1068,7 +1127,7 @@ Paris,FR,11200000
   - id: findsEveryCapital
     name: Search finds each capital by name
     examples: ${dataset.capitals}
-    call: geo.searchCities
+    call: geo#searchCities
     vars:
       query: ${example.name}
     expect:
@@ -1082,7 +1141,7 @@ Paris,FR,11200000
 ```yaml
 beforeAll:
   - id: capitals
-    call: geo.createCity
+    call: geo#createCity
     forEach: ${dataset.capitals}
     parallel: 5
     vars:
@@ -1097,7 +1156,7 @@ beforeAll:
   - id: createsOfficeInACapital
     vars:
       city: ${dataset.capitals | random}
-    call: offices.create
+    call: offices#create
     body:
       city: ${var.city.name}
       country: ${var.city.country}
@@ -1174,7 +1233,7 @@ Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc
 | `"!userSchemas/allUsers"` | Sigil inside a string | `$file: schemas/all-users.json` |
 | `repeat-delay`, `before-endpoint`, `firstByte`, `max_parallel_executors`, `created_on` | Three casing styles | camelCase everywhere |
 | `tags: "a,b,c"` | List hidden in a string | `tags: [a, b, c]` |
-| Collection folder + scenario file + `endpoints` array | Position decides identity | File `id` + item `id`: `users.crud.getsUser` |
+| Collection folder + scenario file + `endpoints` array | Position decides identity | File `id` + item `id`: `users.crud#getsUser` |
 | `name: "01.get_all_teams"` | Order and identity mixed into one name | `id` for references, `name` for people; list order is run order |
 | `dependencies: [{ api, scenario, collection, variable }]` | Re-ran the whole dependency, assertions included, on every use | `before`, `beforeEach`, `beforeAll` or `beforeRun` with `call: <api>`: only the api runs, with its own checks, once per block |
 | `variable: "response.id"` vs `variable: { id: "all.id" }` | String or map; paths with or without `response.` | `save: {id: ${response.body.id}}`, then `${var.id}` |
@@ -1219,7 +1278,7 @@ shop/
     shared/flows.test.yaml     # verifiedMember (shown above)
     users/
       users.api.yaml           # shown above
-      users.test.yaml          # shown above
+      crud.test.yaml           # shown above
     geo/
       geo.api.yaml             # shown above
       groups.test.yaml         # shown above
@@ -1229,7 +1288,7 @@ shop/
       orders.api.yaml
       checkout.test.yaml
   load/
-    checkout.load.yaml         # shown above
+    checkout/peak.load.yaml    # shown above
   .vibranium/                  # reports, history.db, cache.db; not committed
 ```
 
@@ -1285,18 +1344,18 @@ tags: [orders, checkout]
 
 beforeAll:
   - id: catalog                 # shared by the file: read as ${var.catalog.*}
-    call: catalog.seedProducts
+    call: catalog#seedProducts
     cache:
       for: 12h
       check:
-        call: catalog.getProduct
+        call: catalog#getProduct
         vars:
           productId: ${var.catalog.productIds[0]}
 
 beforeEach:                     # every test gets its own buyer and cart
-  - call: users.create
-  - call: carts.create
-  - call: carts.addItem
+  - call: users#create
+  - call: carts#create
+  - call: carts#addItem
     forEach: ${var.catalog.productIds}
     vars:
       sku: ${item}
@@ -1306,9 +1365,9 @@ tests:
     name: A cart with two items becomes a paid order
     steps:
       - id: place
-        call: orders.place
+        call: orders#place
       - id: fetch
-        call: orders.get
+        call: orders#get
         poll:
           until:
             body:
@@ -1316,26 +1375,26 @@ tests:
                 status: paid
           every: 1s
           timeout: 30s
-    expect:
-      status: 200
-      body:
-        schema:
-          $file: ../../schemas/order.json
-        match:
-          items:
-            length: 2
-          items[*].quantity:
-            every:
-              gte: 1
-          total: ${var.orderTotal}
-      cel:
-        total equals sum of lines: body.total == body.items.map(i, i.price * i.quantity).sum()
-      custom:
-        - function: ../../hooks/checks.ts#currencyIsConsistent
+        expect:
+          status: 200
+          body:
+            schema:
+              $file: ../../schemas/order.json
+            match:
+              items:
+                length: 2
+              items[*].quantity:
+                every:
+                  gte: 1
+              total: ${var.orderTotal}
+          cel:
+            total equals sum of lines: body.total == body.items.map(i, i.price * i.quantity).sum()
+          custom:
+            - function: ../../hooks/checks.ts#currencyIsConsistent
 
   - id: rejectsDeclinedCard
     name: A declined card returns 402
-    call: orders.place
+    call: orders#place
     vars:
       paymentToken: tok_chargeDeclined
     expect:
@@ -1346,7 +1405,7 @@ tests:
 
   - id: memberCannotRefund
     name: A member cannot refund an order
-    call: orders.refund
+    call: orders#refund
     auth:
       id: partnerLogin
       vars:
@@ -1358,7 +1417,7 @@ tests:
       status: 403
 ```
 
-After each test, its order is cancelled, then its cart and buyer are deleted, all by the apis' own cleanups in reverse order; the seeded catalog stays for 12 hours and is reused by later runs while `catalog.getProduct` still finds it.
+After each test, its order is cancelled, then its cart and buyer are deleted, all by the apis' own cleanups in reverse order; the seeded catalog stays for 12 hours and is reused by later runs while `catalog#getProduct` still finds it.
 
 ```ts
 // hooks/checks.ts

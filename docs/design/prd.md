@@ -62,27 +62,27 @@ Users write two things: an **api** says how to call an endpoint, what must alway
 | `*.load.yaml` | A weighted mix of tests, user stages, thresholds | New request or check logic |
 
 ```yaml
-# services/users/users.test.yaml
+# services/users/crud.test.yaml
 id: users.crud
 name: User accounts
 
 beforeAll:
   - id: admin
-    call: users.create
+    call: users#create
     vars:
       role: admin
 
 tests:
   - id: createsMember
     name: Creates a member account
-    call: users.create
+    call: users#create
 
   - id: getsCreatedUser
     name: Returns the user that was just created
     before:
-      - call: users.create
+      - call: users#create
     repeat: 5
-    call: users.get
+    call: users#get
     expect:
       status: 200
       body:
@@ -90,7 +90,7 @@ tests:
           id: ${var.userId}
 ```
 
-Here the admin account is created once for the whole file and read as `${var.admin.userId}`. Each of the five `getsCreatedUser` instances creates its own user in `before`; `users.create` saves its ID as `userId` and declares `users.delete` as its cleanup, so every user is deleted when the block that made it ends, and no test mentions deletion. If a lifecycle action fails, it retries, then every test that needs it is reported as **blocked** with the exact cause: which action, which request, which check, and the response that broke it (D11).
+Here the admin account is created once for the whole file and read as `${var.admin.userId}`. Each of the five `getsCreatedUser` instances creates its own user in `before`; `users#create` saves its ID as `userId` and declares `users#delete` as its cleanup, so every user is deleted when the block that made it ends, and no test mentions deletion. If a lifecycle action fails, it retries, then every test that needs it is reported as **blocked** with the exact cause: which action, which request, which check, and the response that broke it (D11).
 
 ## Requirements
 
