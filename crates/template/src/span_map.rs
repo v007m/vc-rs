@@ -12,6 +12,7 @@ use vc_model::{Pos, ScalarSource, ScalarStyle, SourceSpan};
 pub struct SpanMap<'a> {
     text: &'a str,
     scalar: SourceSpan,
+    style: ScalarStyle,
     shift: Option<usize>,
 }
 
@@ -28,7 +29,7 @@ impl<'a> SpanMap<'a> {
         let scalar = source.span;
         let one_line = scalar.start.line == scalar.end.line;
         let shift = quotes.filter(|quotes| one_line && scalar.byte_range().len() == text.len() + 2 * quotes);
-        Self { text, scalar, shift }
+        Self { text, scalar, style: source.style, shift }
     }
 
     /// The source span of `range`, a byte range of the text on char boundaries.
@@ -36,6 +37,12 @@ impl<'a> SpanMap<'a> {
         self.shift.map_or(self.scalar, |shift| {
             SourceSpan::new(self.scalar.file, self.pos(range.start, shift), self.pos(range.end, shift))
         })
+    }
+
+    /// Whether an edit may write a `'` at an exact span: the spans are exact and the scalar is
+    /// not single-quoted, where a `'` would end it.
+    pub const fn takes_single_quotes(&self) -> bool {
+        self.shift.is_some() && !matches!(self.style, ScalarStyle::SingleQuoted { .. })
     }
 
     /// The span of the character at `offset`, or an empty span at the end of the text.

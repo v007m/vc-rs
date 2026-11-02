@@ -100,8 +100,8 @@ fn pipes_keep_their_arguments_and_spans() {
     assert_eq!(reference.pipes[1].args, [json!(10)]);
     assert_eq!((reference.pipes[1].name_span, reference.pipes[1].span), (cols(32, 36), cols(32, 40)));
     assert_eq!(reference.pipes[2].args, NO_ARGS);
-    let literals = only_ref(r#"${var.x | f(true, false, null, -2.5, "q")}"#);
-    assert_eq!(literals.pipes[0].args, [json!(true), json!(false), json!(null), json!(-2.5), json!("q")]);
+    let literals = only_ref("${var.x | f(true, false, -2.5, 'q', '')}");
+    assert_eq!(literals.pipes[0].args, [json!(true), json!(false), json!(-2.5), json!("q"), json!("")]);
     assert_eq!(only_ref("${var.x|trim()}").pipes[0].args, NO_ARGS);
 }
 
@@ -236,21 +236,49 @@ fn literal_numbers_are_json_numbers() {
 }
 
 #[test]
-fn bare_status_headers_and_body_are_response_aliases() {
-    for (text, path) in [
-        ("${status}", keys(&["status"])),
-        ("${headers.etag}", keys(&["headers", "etag"])),
-        ("${body.items[0]}", [keys(&["body", "items"]), vec![Segment::Index(0)]].concat()),
-    ] {
-        let reference = only_ref(text);
-        assert_eq!(
-            (reference.ns, reference.path.segments, reference.response_alias),
-            (Namespace::Response, path, true)
-        );
+fn bare_status_headers_and_body_are_step_ids_and_roots_have_spans() {
+    let mut strings = StringTable::new();
+    let template = parse("${body.items[0]}", plain("${body.items[0]}"), &mut strings).unwrap();
+    let reference = template.single_ref().unwrap();
+    let Namespace::Step(id) = reference.ns else { panic!("expected a step") };
+    assert_eq!(strings.resolve(id), Some("body"));
+    assert_eq!(reference.path.segments, [keys(&["items"]), vec![Segment::Index(0)]].concat());
+    assert_eq!(reference.root_span, cols(2, 6));
+    let Some(Part::Ref(spaced)) = ok("a ${ var.x }").parts.pop() else { panic!("expected a reference") };
+    assert_eq!(spaced.root_span, cols(5, 8));
+}
+
+#[test]
+fn null_and_double_quoted_arguments_are_v2305() {
+    let text = r#"${var.x | default("none")}"#;
+    let diagnostic = err(text);
+    assert_eq!((diagnostic.code, diagnostic.primary.span), (Code::V2305, cols(18, 24)));
+    assert_eq!(diagnostic.message, "invalid template: text arguments take single quotes");
+    assert_eq!(diagnostic.help, ["use single quotes"]);
+    let [fix] = &diagnostic.fixes[..] else { panic!("expected one fix") };
+    assert!(fix.certain);
+    assert_eq!((fix.edits[0].new_text.as_str(), fix.edits[0].range.clone()), ("'none'", 38..44));
+    let null = err("${var.x | default(null)}");
+    assert_eq!(
+        (null.code, null.primary.span, null.message.as_str()),
+        (Code::V2305, cols(18, 22), "invalid template: `null` is not an argument")
+    );
+    assert_eq!((null.help.len(), null.fixes.len()), (1, 0));
+    assert_eq!(err(r#"${fake.helpers.arrayElement('a', "b")}"#).code, Code::V2305);
+}
+
+#[test]
+fn double_quoted_arguments_get_no_fix_when_single_quotes_would_break() {
+    for text in [r#"${var.x | default("it's")}"#, r#"${var.x | default("a\b")}"#] {
+        assert_eq!(err(text).fixes.len(), 0, "{text}");
     }
-    let full = only_ref("${response.status}");
-    assert_eq!((full.ns, full.path.segments, full.response_alias), (Namespace::Response, keys(&["status"]), false));
-    assert!(!only_ref("${var.status}").response_alias);
+    let text = r#"${var.x | default("none")}"#;
+    for style in [ScalarStyle::SingleQuoted { escaped: false }, ScalarStyle::DoubleQuoted { escaped: true }] {
+        let diagnostic = syntax(parse(text, ScalarSource { span: scalar(text, 1), style }, &mut StringTable::new()));
+        assert_eq!((diagnostic.code, diagnostic.fixes.len()), (Code::V2305, 0), "{style:?}");
+    }
+    let quoted = ScalarSource { span: scalar(text, 1), style: ScalarStyle::DoubleQuoted { escaped: false } };
+    assert_eq!(syntax(parse(text, quoted, &mut StringTable::new())).fixes.len(), 1);
 }
 
 #[test]

@@ -25,8 +25,9 @@ pub enum RawPart {
 /// A reference before its root is resolved.
 pub struct RawRef {
     pub root: String,
+    pub root_range: Range<usize>,
     pub path: Vec<Segment>,
-    pub args: Option<Vec<Value>>,
+    pub args: Option<Vec<RawArg>>,
     pub pipes: Vec<RawPipe>,
     pub range: Range<usize>,
 }
@@ -35,8 +36,25 @@ pub struct RawRef {
 pub struct RawPipe {
     pub name: String,
     pub name_range: Range<usize>,
-    pub args: Vec<Value>,
+    pub args: Vec<RawArg>,
     pub range: Range<usize>,
+}
+
+/// A literal argument with its byte range.
+pub struct RawArg {
+    pub value: Value,
+    pub range: Range<usize>,
+    /// Set for a literal read only to be reported (D151).
+    pub problem: Option<ArgProblem>,
+}
+
+/// A literal that is not an argument (D151).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArgProblem {
+    /// `"text"`: arguments use single quotes.
+    DoubleQuoted,
+    /// `null`.
+    Null,
 }
 
 /// Parses a whole template; on failure, the error's offset is where it went wrong.
@@ -68,10 +86,11 @@ fn part(input: &mut In<'_>) -> ModalResult<RawPart> {
 }
 
 fn reference(input: &mut In<'_>) -> ModalResult<RawRef> {
-    let body = (space0, cut_err(ident).context(expected("a root such as `var`")), path, opt(args), pipes, space0);
-    let closed = (body, cut_err("}").context(expected("`}` or `|`")));
-    let (((_, root, path, args, pipes, _), _), range) = preceded("${", closed).with_span().parse_next(input)?;
-    Ok(RawRef { root: root.to_owned(), path, args, pipes, range })
+    let root = cut_err(ident.with_span()).context(expected("a root such as `var`"));
+    let closed = ((space0, root, path, opt(args), pipes, space0), cut_err("}").context(expected("`}` or `|`")));
+    let (((_, (root, root_range), path, args, pipes, _), _), range) =
+        preceded("${", closed).with_span().parse_next(input)?;
+    Ok(RawRef { root: root.to_owned(), root_range, path, args, pipes, range })
 }
 
 fn ident<'a>(input: &mut In<'a>) -> ModalResult<&'a str> {
@@ -93,26 +112,38 @@ fn path(input: &mut In<'_>) -> ModalResult<Vec<Segment>> {
 }
 
 fn quoted(input: &mut In<'_>) -> ModalResult<String> {
-    let double = delimited('"', take_till(0.., '"'), cut_err('"').context(expected("a closing `\"`")));
-    let single = delimited('\'', take_till(0.., '\''), cut_err('\'').context(expected("a closing `'`")));
-    alt((double, single)).map(str::to_owned).parse_next(input)
+    alt((double_quoted, single_quoted)).map(str::to_owned).parse_next(input)
 }
 
-fn args(input: &mut In<'_>) -> ModalResult<Vec<Value>> {
+fn double_quoted<'a>(input: &mut In<'a>) -> ModalResult<&'a str> {
+    delimited('"', take_till(0.., '"'), cut_err('"').context(expected("a closing `\"`"))).parse_next(input)
+}
+
+fn single_quoted<'a>(input: &mut In<'a>) -> ModalResult<&'a str> {
+    delimited('\'', take_till(0.., '\''), cut_err('\'').context(expected("a closing `'`"))).parse_next(input)
+}
+
+fn args(input: &mut In<'_>) -> ModalResult<Vec<RawArg>> {
     let item = delimited(space0, literal, space0);
     let list = separated(0.., item, ',');
     let close = cut_err(')').context(expected("a literal, `,` or `)`"));
     preceded('(', terminated(list, (space0, close))).parse_next(input)
 }
 
-fn literal(input: &mut In<'_>) -> ModalResult<Value> {
+/// A literal argument; `null` and double-quoted text are read only to be reported (D151).
+fn literal(input: &mut In<'_>) -> ModalResult<RawArg> {
+    let text = |s: &str| Value::String(s.to_owned());
+    let number = preceded(peek(one_of(|c: char| c == '-' || c.is_ascii_digit())), cut_err(number));
     alt((
-        quoted.map(Value::String),
-        "true".value(Value::Bool(true)),
-        "false".value(Value::Bool(false)),
-        "null".value(Value::Null),
-        preceded(peek(one_of(|c: char| c == '-' || c.is_ascii_digit())), cut_err(number)).map(Value::Number),
+        single_quoted.map(|s| (text(s), None)),
+        double_quoted.map(|s| (text(s), Some(ArgProblem::DoubleQuoted))),
+        "true".value((Value::Bool(true), None)),
+        "false".value((Value::Bool(false), None)),
+        "null".value((Value::Null, Some(ArgProblem::Null))),
+        number.map(|n| (Value::Number(n), None)),
     ))
+    .with_span()
+    .map(|((value, problem), range)| RawArg { value, range, problem })
     .parse_next(input)
 }
 

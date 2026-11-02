@@ -99,7 +99,7 @@ fn plugins_register_pipes_under_their_prefix() {
     assert!(registry.get("acme.mask").is_none());
     registry.register("acme.mask", PipeSignature::new(ValueType::Text, ValueType::Text, &[ArgType::Any])).unwrap();
     assert_eq!(registry.get("acme.mask").unwrap().signature.args, [ArgType::Any]);
-    assert_eq!(registry.check_chain(&calls("acme.mask(\"*\")"), ValueType::Text).unwrap(), ValueType::Text);
+    assert_eq!(registry.check_chain(&calls("acme.mask('*')"), ValueType::Text).unwrap(), ValueType::Text);
     assert_eq!(registry.check(&calls("acme.mask(1)")[0]).unwrap().input, ValueType::Text);
     assert_eq!(calls("acme.mask(1)")[0].args, [json!(1)]);
 }

@@ -1,5 +1,5 @@
-use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Namespace, Reference, Segment, StringTable, Sym};
+use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};
+use vc_model::{Namespace, Reference, StringTable, Sym};
 
 use crate::codes;
 use crate::parse::root_name;
@@ -24,8 +24,10 @@ const LIMITED: &[(Namespace, Code, &str)] = &[
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Roots {
     added: Vec<Namespace>,
-    in_expect: bool,
 }
+
+/// Parts of `response` written without it; a bare one is a step id unless reported (D150).
+const RESPONSE_FIELDS: &[&str] = &["status", "headers", "body"];
 
 impl Roots {
     /// Only the roots available everywhere.
@@ -38,13 +40,6 @@ impl Roots {
     #[must_use]
     pub fn with_call(self) -> Self {
         self.with(&[Namespace::Response, Namespace::Request])
-    }
-
-    /// Inside `expect`: `response` and `request`, and bare `status`, `headers` and `body`
-    /// short for `response.…`.
-    #[must_use]
-    pub fn in_expect(self) -> Self {
-        Self { in_expect: true, ..self.with_call() }
     }
 
     /// Inside `forEach`: `item` and `iteration`.
@@ -81,14 +76,17 @@ impl Roots {
     /// # Errors
     ///
     /// V2102 for `item`, `example` or `iteration` outside its block, V2105 for any other root
-    /// not available here, including a bare `status`, `headers` or `body` outside `expect`. Whether a step id names a step at all is the linker's check.
+    /// not available here. A bare `status`, `headers` or `body` that is not an available step
+    /// is V2105 with a certain fix to `response.…` (D150). Whether a step id names a step at all
+    /// is the linker's check.
     pub fn check(&self, reference: &Reference, strings: &StringTable) -> Result<(), Box<Diagnostic>> {
-        if reference.response_alias && !self.in_expect {
-            return Err(Box::new(alias_outside_expect(reference)));
-        }
         let ns = reference.ns;
         if EVERYWHERE.contains(&ns) || self.added.contains(&ns) {
             return Ok(());
+        }
+        let step = step_name(ns, strings);
+        if let Some(name) = step.filter(|name| RESPONSE_FIELDS.contains(name)) {
+            return Err(Box::new(bare_response_field(reference, name)));
         }
         let (code, needs) = LIMITED
             .iter()
@@ -96,7 +94,7 @@ impl Roots {
             .map_or((codes::ROOT_UNAVAILABLE, "only after that action, in the same test or block"), |(_, c, n)| {
                 (*c, *n)
             });
-        let name = root_name(ns).or_else(|| step_name(ns, strings)).unwrap_or("step");
+        let name = root_name(ns).or(step).unwrap_or("step");
         let diagnostic = Diagnostic::new(code, reference.span, format!("`{name}` is not available here"));
         Err(Box::new(diagnostic.help(format!("`{name}` is available {needs}"))))
     }
@@ -109,11 +107,14 @@ fn step_name(ns: Namespace, strings: &StringTable) -> Option<&str> {
     }
 }
 
-fn alias_outside_expect(reference: &Reference) -> Diagnostic {
-    let name = match reference.path.segments.first() {
-        Some(Segment::Key(name)) => name.as_str(),
-        _ => "body",
-    };
-    let message = format!("bare `{name}` is short for `response.{name}` only inside expect");
-    Diagnostic::new(codes::ROOT_UNAVAILABLE, reference.span, message).help(format!("write `response.{name}`"))
+fn bare_response_field(reference: &Reference, name: &str) -> Diagnostic {
+    let message = format!("`{name}` is not a root; did you mean `response.{name}`?");
+    let diagnostic = Diagnostic::new(codes::ROOT_UNAVAILABLE, reference.span, message);
+    let diagnostic = diagnostic.help(format!("write `response.{name}`"));
+    let root = reference.root_span;
+    if root.byte_range().len() != name.len() {
+        return diagnostic;
+    }
+    let edit = TextEdit::replace(root, format!("response.{name}"));
+    diagnostic.fix(Fix::certain(format!("Write response.{name}"), vec![edit]))
 }

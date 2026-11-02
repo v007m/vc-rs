@@ -43,18 +43,37 @@ fn call_roots_need_a_call() {
 }
 
 #[test]
-fn response_aliases_work_only_inside_expect() {
-    let expect = Roots::new().in_expect();
-    for text in ["${status}", "${headers.etag}", "${body.id}", "${response.body}", "${request.url}"] {
-        assert!(check(&expect, text).is_ok(), "{text}");
-    }
+fn bare_response_fields_are_v2105_with_a_certain_fix() {
     for roots in [Roots::new(), Roots::new().with_call()] {
         let diagnostic = *check(&roots, "${headers.etag}").unwrap_err();
         assert_eq!(diagnostic.code, Code::V2105);
-        assert_eq!(diagnostic.message, "bare `headers` is short for `response.headers` only inside expect");
+        assert_eq!(diagnostic.message, "`headers` is not a root; did you mean `response.headers`?");
         assert_eq!(diagnostic.help, ["write `response.headers`"]);
+        let [fix] = &diagnostic.fixes[..] else { panic!("expected one fix") };
+        assert!(fix.certain);
+        assert_eq!((fix.edits[0].new_text.as_str(), fix.edits[0].range.clone()), ("response.headers", 2..9));
     }
-    assert_eq!(code(&Roots::new().with_call(), "${status}"), Code::V2105);
+    let spaced = *check(&Roots::new(), "${ status }").unwrap_err();
+    assert_eq!(spaced.fixes[0].edits[0].range, 3..9);
+    assert!(check(&Roots::new().with_call(), "${response.body}").is_ok());
+}
+
+#[test]
+fn a_step_named_like_a_response_field_is_that_step() {
+    let mut strings = StringTable::new();
+    let body = reference("${body.id}", &mut strings);
+    let vc_model::Namespace::Step(id) = body.ns else { panic!("expected a step") };
+    assert!(Roots::new().with_step(id).check(&body, &strings).is_ok());
+}
+
+#[test]
+fn bare_response_fields_with_approximate_spans_get_no_fix() {
+    let text = "${body.id}";
+    let span = SourceSpan::new(SourceFileId::new(0), Pos::START, Pos::new(3, 1, 40));
+    let mut strings = StringTable::new();
+    let template = parse(text, ScalarSource { span, style: ScalarStyle::Block }, &mut strings).unwrap();
+    let diagnostic = *Roots::new().check(template.single_ref().unwrap(), &strings).unwrap_err();
+    assert_eq!((diagnostic.code, diagnostic.primary.span, diagnostic.fixes.len()), (Code::V2105, span, 0));
 }
 
 #[test]

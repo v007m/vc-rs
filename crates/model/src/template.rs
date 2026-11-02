@@ -51,9 +51,8 @@ pub struct Reference {
     pub pipes: Vec<PipeCall>,
     /// The whole `${…}`.
     pub span: SourceSpan,
-    /// Written as a bare `status`, `headers` or `body`, short for `response.…` inside `expect`
-    /// (D125); `ns` is then [`Namespace::Response`] and the path starts with that name.
-    pub response_alias: bool,
+    /// The root as written: `var` in `${ var.x }`; the whole scalar where spans are approximate.
+    pub root_span: SourceSpan,
 }
 
 /// How a YAML scalar is written, so positions in its decoded text can be mapped back to the file.
@@ -214,7 +213,7 @@ mod tests {
             args: Vec::new(),
             pipes: Vec::new(),
             span,
-            response_alias: false,
+            root_span: span,
         }
     }
 

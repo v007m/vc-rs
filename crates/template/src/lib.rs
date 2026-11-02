@@ -22,6 +22,7 @@ mod builtin_pipes;
 mod codes;
 mod error;
 mod grammar;
+mod literals;
 mod parse;
 mod pipes;
 mod roots;
