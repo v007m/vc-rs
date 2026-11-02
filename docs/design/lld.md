@@ -110,7 +110,7 @@ Third-party crates:
 | Fake data | `fake` 5 | Faker-style generators; names mapped to the Faker JS catalogue used in templates |
 | Diagnostics rendering | `miette` 7 | Rustc-style rendering with labels, help and codes; also emits JSON |
 | Diffs | `similar` 3 | Line diffs for `--fix`, sync previews and the editor |
-| Interning, maps | `lasso` 0.7, `indexmap` 2, `smol_str` 0.3 | Cheap IDs, ordered maps, small strings |
+| Interning, maps | `indexmap` 2, `smol_str` 0.3; interning is hand-written (`StringTable` in `vc-model`) | Cheap IDs, ordered maps, small strings; `lasso` 0.7 was dropped because it pins `hashbrown` 0.14 next to indexmap's 0.17, which `multiple-versions = deny` rejects |
 | Graphs | `petgraph` 0.8 | Cycle detection and topological order in the planner |
 | Hashing | `blake3` 1 | File-hash cache, memo keys, body deduplication |
 | File walking and watching | `ignore` 0.4, `notify` 9 | `.gitignore`-aware discovery; `vc watch` |
@@ -220,7 +220,7 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 | **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `vc-interfaces`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `FileSystem`, `SourceProvider`, `CommandRunner`, `Vcs`, `ConfigSource`, `ActionRunner` | The core never knows which library sits behind it |
 | **Strategy** | Action executors (call, test reuse, function, command); matchers; pipes; body encoders (JSON, form, multipart, file); retry and loop policies (sequential, parallel); the load mix selector; sync merge rules | Swap behaviour by kind without branching in the caller |
 | **Factory and registry** | One registry per kind of strategy or adapter, filled at start-up: `ActionExecutorFactory` (by action kind), `AuthProviderFactory` (by auth `type`), `ReporterFactory`, `NotifierFactory`, `ImporterFactory` (by source), `TransportFactory` (by URL scheme, ready for gRPC and WebSocket), `MatcherRegistry`, `PipeRegistry`, `LintRegistry` | Adding a kind is one new file plus one registration line; nothing else changes |
-| **Builder** | `EngineBuilder` (the composition root that wires adapters into the engine); `ProgramBuilder` (the compiler accumulates, then `freeze()` gives the immutable `Program`); `RequestBuilder` (renders a request from an api, scope and auth); `PlanBuilder`; `DiagnosticBuilder`; test fixtures (`ProjectBuilder`, `ProgramBuilder::for_tests`); the SDKs' fluent builders | Objects with many optional parts are assembled step by step and checked once; required parts are enforced by typed builder states |
+| **Builder** | `EngineBuilder` (the composition root that wires adapters into the engine); `ProgramBuilder` (the compiler accumulates, then `freeze()` gives the immutable `Program`); `RequestBuilder` (renders a request from an api, scope and auth); `PlanBuilder`; `Diagnostic::new(…)` with chained `label`, `help`, `fix`; test fixtures (`ProjectBuilder`, `ProgramBuilder::for_tests`); the SDKs' fluent builders | Objects with many optional parts are assembled step by step and checked once; required parts are enforced by typed builder states |
 | **Facade** | The `engine` crate: `compile`, `plan`, `run`, `call`, `sync`, `query` | Apps depend on one small surface |
 | **Observer (publish/subscribe)** | The event bus and its subscribers: history writer, reporters, console, TUI, web UI, MCP | Producers never know who listens |
 | **Chain of responsibility (middleware)** | The request pipeline as `tower` layers: timing → retry (`refreshOn`, `http.retry`) → auth → `beforeRequest` hooks → per-host limit → timeout (per attempt) → transport (D134, D141) | Each concern is one layer, composable and testable alone |
@@ -252,9 +252,16 @@ The `vc-model` crate holds the compiled program, and also the `Plan` and `Event`
 ```rust
 /// An interned string: a 4-byte handle into the program's string table.
 /// Cheap to copy and compare; turned back into text with `program.str(sym)`.
-pub struct Sym(lasso::Spur);
+/// Symbols order by interning order, not alphabetically.
+pub struct Sym(u32);
+
+/// The interned strings: a small hand-written interner (no `lasso`, see the crate table).
+/// `intern(&mut self, &str) -> Result<Sym, ModelError>` while building;
+/// `get(&self, &str) -> Option<Sym>` and `resolve(&self, Sym) -> Option<&str>` once frozen.
+pub struct StringTable { strings: Vec<Arc<str>>, index: HashMap<Arc<str>, Sym> }
 
 // One newtype per kind of ID, so an ApiId can never be passed where a TestId is expected.
+// Each has `new(Sym)` and `sym()`; the index IDs have `new(u32)` and `index()`.
 pub struct FileId(Sym);      // "users.crud"
 pub struct ApiId(Sym);       // "users#create"          (full ID: file id # item id, D138)
 pub struct TestId(Sym);      // "users.crud#createsMember"
@@ -262,16 +269,22 @@ pub struct ActionId(u32);    // index into program.actions
 pub struct AuthId(Sym);      // "shopOauth"
 pub struct ProfileId(Sym);   // "staging"
 pub struct VarName(Sym);     // "userId"
+pub struct DatasetId(Sym);   // "users.seed"
+pub struct SourceFileId(u32); // index into program.files
 
 /// Where something came from, for every diagnostic and report line.
+/// Spans order by file, then start, then end: the order diagnostics are shown in.
 pub struct SourceSpan {
     pub file: SourceFileId,  // index into program.files
-    pub start: Pos,          // line and column, 1-based, plus byte offset
-    pub end: Pos,
+    pub start: Pos,          // see Pos
+    pub end: Pos,            // just after the last position covered
 }
 
-pub struct Duration(std::time::Duration); // parsed from "250ms", "2s", "1m"
-pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb"
+/// 1-based line and column (in characters) plus the 0-based byte offset.
+pub struct Pos { pub line: u32, pub column: u32, pub offset: usize }
+
+pub struct Duration(std::time::Duration); // parsed from "250ms", "2s", "1m" by the template crate
+pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb" by the template crate
 ```
 
 ### The program
@@ -279,7 +292,7 @@ pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb"
 ```rust
 /// Everything `vc check` produced, frozen and shared read-only (Arc<Program>).
 pub struct Program {
-    strings: StringTable,                            // the interned strings; private, so lasso stays out of the public API (D111)
+    strings: StringTable,                            // the interned strings; private, reached through program.str(sym)
     pub files: Vec<SourceFile>,                      // path, kind, content hash
     pub config: Config,                              // defaults, reports, history, secrets
     pub profiles: IndexMap<ProfileId, Profile>,      // at least one; one marked default
@@ -492,6 +505,16 @@ pub struct Fix {
 
 pub struct TextEdit { pub file: SourceFileId, pub range: Range<usize>, pub new_text: String }
 ```
+
+`Code` is a registry of associated consts (`Code::V2003`), each with its number, category (V1 to V5), default severity and title; `Code::ALL` lists them in numeric order and `"V2003".parse::<Code>()` looks one up. The table is the one under [Diagnostic codes](#diagnostic-codes); a failure or blocked result there has severity `Error`. Diagnostics are built step by step, taking the severity from the code:
+
+```rust
+Diagnostic::new(Code::V2003, span, "unknown api \"orders#plcae\"")
+    .label("not defined").help("did you mean orders#place?")
+    .fix(Fix::certain("Replace with orders#place", vec![TextEdit::replace(span, "orders#place")]))
+```
+
+A `Diagnostics` collection gathers them (`push`, `extend`, `has_errors`) and `sort()`s them by file, position and code for display. The JSON shape is the serde form of these types (camelCase keys, codes as `"V2003"`, severities in lowercase).
 
 Diagnostics render through `miette` in the terminal, as JSON with `--json`, and over the engine API to the editors and the web UI, which show the same code, text and fixes.
 
