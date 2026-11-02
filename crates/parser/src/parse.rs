@@ -1,10 +1,7 @@
-use saphyr_parser::Parser;
 use vc_diagnostics::Diagnostics;
 use vc_model::SourceFileId;
 
-use crate::Node;
-use crate::build::{Builder, Flow};
-use crate::positions::Positions;
+use crate::{Node, yaml};
 
 /// Parses one YAML or JSON file into a [`Node`] tree, collecting every problem it can find.
 ///
@@ -27,20 +24,5 @@ use crate::positions::Positions;
 /// ```
 #[must_use]
 pub fn parse(file: SourceFileId, text: &str) -> (Option<Node>, Diagnostics) {
-    let mut builder = Builder::new(text, Positions::new(file, text));
-    let mut parser = Parser::new_from_str(text);
-    while let Some(next) = parser.next_event() {
-        match next {
-            Ok((event, span)) => {
-                if builder.event(event, &span) == Flow::Stop {
-                    break;
-                }
-            }
-            Err(error) => {
-                builder.scan_error(&error);
-                break;
-            }
-        }
-    }
-    builder.finish()
+    yaml::read(file, text)
 }

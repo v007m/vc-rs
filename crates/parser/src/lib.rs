@@ -14,6 +14,7 @@ mod parse;
 mod positions;
 mod problems;
 mod scalar;
+mod yaml;
 
 pub use edit::Document;
 pub use error::ParserError;
