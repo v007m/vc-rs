@@ -9,11 +9,11 @@ This is how a developer works with Vibranium day to day from the terminal: start
 | You want to | Commands | What you end up with |
 | --- | --- | --- |
 | Start from an existing OpenAPI spec | `vc init`, then `vc import openapi <url-or-file> --id users --tests` | A config with a `default` profile, an api file with one api per operation, a committed spec snapshot, and one passing happy-path test per api |
-| Add an endpoint the spec doesn't have yet | `vc new api users.deactivate --method POST --path /users/{id}/deactivate`, or `vc new api --from-curl '<curl command>'` | A new api appended to the right api file, path parameters turned into vars |
-| Write tests for an api | `vc new test users.crud.deactivatesUser --from users.deactivate --negative`, or `vc call users.deactivate --var id=… --save-as-test users.crud.deactivatesUser` | Generated tests you then edit, or a test captured from a real call |
-| Run while you edit | `vc watch users.crud`, `vc run users.crud.getsCreatedUser`, `vc run --failed` | Fast feedback on just the tests you are touching |
+| Add an endpoint the spec doesn't have yet | `vc new api users#deactivate --method POST --path /users/{id}/deactivate`, or `vc new api --from-curl '<curl command>'` | A new api appended to the right api file, path parameters turned into vars |
+| Write tests for an api | `vc new test users.crud#deactivatesUser --from users#deactivate --negative`, or `vc call users#deactivate --var id=… --save-as-test users.crud#deactivatesUser` | Generated tests you then edit, or a test captured from a real call |
+| Run while you edit | `vc watch users.crud`, `vc run users.crud#getsCreatedUser`, `vc run --failed` | Fast feedback on just the tests you are touching |
 | Keep in step with the backend | `vc sync users`; in CI, `vc sync --check` | Spec changes merged into api files without losing your edits; CI fails when the spec drifts |
-| Park a flaky test | `vc skip orders.checkout.appliesCoupon --reason "…" --until 2026-11-15` | The test is reported as skipped with its reason, and runs again after the date |
+| Park a flaky test | `vc skip orders.checkout#appliesCoupon --reason "…" --until 2026-11-15` | The test is reported as skipped with its reason, and runs again after the date |
 
 Every command that writes a file compiles the result first and refuses to write something `vc check` would reject, so generated files always load. Every command takes `--json` for scripts and agents, and `--profile` where a profile matters.
 
@@ -54,7 +54,7 @@ How much more is written is a personal preference in `~/.config/vibranium/config
 ### `vibranium.config.yaml`
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/sarathm09/vibranium/v2/schema/config.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/v007m/vc-rs/master/schema/config.schema.json
 # ─ Project config ─────────────────────────────────────────────
 # One per project, at the root: profiles, project-wide vars, auth,
 # secrets and run settings. Only syntaxVersion and one profile are required.
@@ -105,15 +105,17 @@ history:
     days: 90
 ```
 
+Any value here can be set from several places. Layers apply lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line, so `vc run --set defaults.timeout=60s` wins over everything else for one run. `vc config explain <key>` shows the value and the layer that set it (D129).
+
 ### `services/sample/sample.api.yaml`
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/sarathm09/vibranium/v2/schema/api.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/v007m/vc-rs/master/schema/api.schema.json
 # ─ Api file: sample ───────────────────────────────────────────
-# How to call one service. Tests call each api by its full ID, sample.<id>.
+# How to call one service. Tests call each api by its full ID, sample#<id>.
 # Safe to delete once you have your own api files.
 # Reference: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#api-files
-# Try one: vc call sample.listUsers
+# Try one: vc call sample#listUsers
 # ─────────────────────────────────────────────────────────────
 id: sample
 name: Demo service built into Vibranium
@@ -165,10 +167,10 @@ apis:
 ### `services/sample/basics.test.yaml`
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/sarathm09/vibranium/v2/schema/test.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/v007m/vc-rs/master/schema/test.schema.json
 # ─ Test file: sample.basics ───────────────────────────────────
 # Tests call apis and state what they expect.
-# Run this file: vc run sample.basics    One test: vc run sample.basics.createsUser
+# Run this file: vc run sample.basics    One test: vc run sample.basics#createsUser
 # Reference: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#tests
 # ─────────────────────────────────────────────────────────────
 id: sample.basics
@@ -184,7 +186,7 @@ tests:
   # The smallest test: call an api and check the status.
   - id: listsUsers
     name: Lists users
-    call: sample.listUsers
+    call: sample#listUsers
     expect:
       status: 200
 
@@ -192,7 +194,7 @@ tests:
   # and createUser's cleanup deletes the user afterwards.
   - id: createsUser
     name: Creates a user with the given email
-    call: sample.createUser
+    call: sample#createUser
     vars:
       email: ada@example.com
     expect:
@@ -206,8 +208,8 @@ tests:
   - id: getsCreatedUser
     name: Returns the user that was just created
     before:
-      - call: sample.createUser
-    call: sample.getUser
+      - call: sample#createUser
+    call: sample#getUser
     expect:
       status: 200
       body:
@@ -220,17 +222,17 @@ tests:
   # A negative test: stating a status replaces the api's expected 201.
   - id: rejectsMissingEmail
     name: Rejects a user without an email
-    call: sample.createUser
+    call: sample#createUser
     body:
       name: No Email
     expect:
       status: 400
 ```
 
-With `brief` comments, `vc new api users.deactivate` adds a single line above the new item:
+With `brief` comments, `vc new api users#deactivate` adds a single line above the new item:
 
 ```yaml
-  # users.deactivate · POST /users/{id}/deactivate · keys: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#api-files
+  # users#deactivate · POST /users/{id}/deactivate · keys: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#api-files
   - id: deactivate
     method: POST
     path: /users/${var.id}/deactivate
@@ -247,7 +249,7 @@ Tests and apis are the definitions; everything else is something they point at.
 | Folder or file | Holds | Used from | Example |
 | --- | --- | --- | --- |
 | `vibranium.config.yaml` | Profiles, project vars, auth, secrets, generators, datasets list, reports, history, alerts, `beforeRun` and `afterRun` | Every file: vars and profiles apply everywhere, auth is named by ID | `auth: shopOauth` in an api file |
-| `services/<name>/*.api.yaml` | How to call each endpoint, its always-true checks, what it saves and how to undo it | Tests and lifecycle blocks, by api ID | `call: users.create` |
+| `services/<name>/*.api.yaml` | How to call each endpoint, its always-true checks, what it saves and how to undo it | Tests and lifecycle blocks, by api ID | `call: users#create` |
 | `services/<name>/*.test.yaml` | Tests, plus `beforeAll`/`beforeEach` blocks around them | `vc run`, load files, `test:` actions | `vc run users.crud` |
 | `load/*.load.yaml` | A weighted mix of existing tests, stages and thresholds | `vc load` | `vc load checkout.peak` |
 | `schemas/` | JSON Schemas for response bodies | `expect.body.schema` in apis and tests | `schema: {$file: ../../schemas/user.json}` |
@@ -266,10 +268,11 @@ Every way of creating something (`vc new`, `vc import`, the terminal UI and the 
 
 | Thing | Convention | Example |
 | --- | --- | --- |
-| Api file | `services/<service>/<service>.api.yaml`; file ID = the service, lowercase | `services/users/users.api.yaml`, ID `users` |
-| Test file | `services/<service>/<area>.test.yaml`; file ID `<service>.<area>` | `services/orders/checkout.test.yaml`, ID `orders.checkout` |
-| Load file | `load/<name>.load.yaml`; ID `<area>.<scenario>` | `load/checkout.load.yaml`, ID `checkout.peak` |
-| Api ID | camelCase, verb first, no service prefix (the file ID supplies it) | `create`, `startExport` → `users.startExport` |
+| Api file | `services/<service>/<service>.api.yaml`; file ID = the service, lowercase (derived from the path, D139) | `services/users/users.api.yaml`, ID `users` |
+| Test file | `services/<service>/<area>.test.yaml`; file ID `<service>.<area>`; deeper folders add words (`services/payments/refunds/partial.test.yaml` → `payments.refunds.partial`). The ID is derived from the path; an `id:` key is optional and must match it (V2007, D139) | `services/orders/checkout.test.yaml`, ID `orders.checkout` |
+| Load file | `load/<area>/<scenario>.load.yaml`; ID `<area>.<scenario>` | `load/checkout/peak.load.yaml`, ID `checkout.peak` |
+| Api ID | camelCase, verb first, no service prefix (the file ID supplies it) | `create`, `startExport` → `users#startExport` |
+| Full ID | `<fileId>#<id>`; a bare dotted word is always a file ID; inside the same file the short `id` works (D138) | `users.crud#getsCreatedUser`, `users#create` |
 | Test ID | camelCase behaviour in the third person, subject implied | `createsMember`, `rejectsDeclinedCard` |
 | Test name | A plain sentence; the ID is derived from it | "Rejects a declined card" → `rejectsDeclinedCard` |
 | Vars and saved values | camelCase nouns; IDs end in `Id`, URLs in `Url` | `userId`, `usersUrl`, `orderTotal` |
@@ -293,8 +296,8 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc init [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, `.env.schema`, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi`, also runs the import below |
 | `vc import openapi <url-or-file> --id <fileId> [--tests] [--negative] [--auth]` | Creates an api file from a spec (one api per operation), saves the spec snapshot, adds a base-URL var to the config, and optionally generates tests |
 | `vc import har\|postman\|bruno\|http\|v1 <path>` | Converts browser HAR recordings (see Importing from a HAR file), other tools' collections, or Vibranium v1 projects |
-| `vc new api <fileId.apiId> [--method] [--path] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--from-curl`, method, URL, headers and body come from the curl command |
-| `vc new test <fileId.testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
+| `vc new api <fileId#apiId> [--method] [--path] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--from-curl`, method, URL, headers and body come from the curl command |
+| `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
 | `vc new file api\|test\|load <fileId>` | Creates an empty file of that kind with its header filled in |
 | `vc call <apiId> [--var k=v] [--save-as-test <testId>]` | Calls one api ad hoc with project auth and the active profile; optionally saves the call as a test with expectations taken from the response |
@@ -306,9 +309,9 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | Command | Does |
 | --- | --- |
 | `vc check` | Compiles and links everything; prints errors and warnings with file, line and column; exits non-zero on errors; with --fix, previews and applies the certain fixes |
-| `vc list apis\|tests\|files [selector] [--skipped] [--tag]` | Lists definitions, with search and filters |
+| `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions, with search and filters; `--json` for scripts and agents (D130) |
 | `vc explain <id>` | Shows one api or test fully resolved for the active profile: final URL, vars and where each came from, auth, merged `expect`, the lifecycle actions it triggers and the cleanups it registers |
-| `vc plan [selector] [--dot]` | Shows what a run would do, in order, without sending a request |
+| `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request; `--json` for scripts and agents (D130) |
 | `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …) with a wrong and a right example |
 
 **Run**
@@ -335,7 +338,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc history [query]` | Past runs, failures, flaky tests, trends; `vc history compare 481 482` |
 | `vc report [run] --format html\|junit\|ctrf [--open]` | Writes a report for any stored run |
 | `vc cache list\|clear [id]` | Shows or clears cached lifecycle data (clearing runs its cleanup) |
-| `vc config explain <key>` | Shows a config value and which layer set it |
+| `vc config explain <key>` | Shows a config value and which layer set it (D129) |
 | `vc plugin add\|list\|remove` | Manages plugins and their permissions |
 
 **Other interfaces**
@@ -354,23 +357,25 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | Selector | Runs | Example |
 | --- | --- | --- |
 | nothing | every test in the project | `vc run` |
-| a test ID | one test, all its instances (repeats, example rows) | `vc run users.crud.getsCreatedUser` |
-| a test ID with `#n` | one example row or repeat of a test | `vc run users.crud.rejectsBadEmail#2` |
+| a test ID | one test, all its instances (repeats, example rows) | `vc run users.crud#getsCreatedUser` |
+| a test ID with `:n` | one example row or repeat of a test (D140) | `vc run users.crud#rejectsBadEmail:2` |
 | a file ID | every test in one file | `vc run users.crud` |
-| a glob over IDs | matching tests | `vc run 'users.*' 'orders.checkout.places*'` |
+| a glob over IDs | matching tests | `vc run 'users.*' 'orders.checkout#places*'` |
 | a path | every test file under a folder, or one file | `vc run services/orders/` |
 | `-t`, `--tag` | tests with a tag; `!` excludes, `,` means or | `vc run -t smoke,checkout -t '!slow'` |
 | `-g`, `--grep` | tests whose ID or name contains text | `vc run -g export` |
-| `--changed [ref]` | tests in files changed since a git ref, plus tests that call apis in changed api files | `vc run --changed origin/main` |
+| `--changed [ref]` | tests in files git reports as changed since a ref, plus tests that call apis in changed api files (D130) | `vc run --changed origin/main` |
 | `--failed` | the tests that failed or were blocked in the last run | `vc run --failed` |
 | `--include-skipped` | also runs tests marked `skip` | `vc run users.crud --include-skipped` |
 
-Useful run flags: `--profile staging,eu` (profiles, later wins), `--bail` (stop at the first failure), `--repeat 20` (repeat every selected test, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data), `--no-cache` (ignore cached lifecycle data), `--reporter spec|dots|json` (console format), `--report html,junit` (files to write).
+A full ID joins the file ID and the item ID with `#` (`users.crud#getsCreatedUser`); a bare dotted word is always a file ID (D138). A `#` inside a word is not a comment in bash, zsh, fish or PowerShell, so selectors work unquoted; quote them only under zsh's `extendedglob` option. Web UI URLs percent-encode it (`%23`).
 
-Selecting a few tests never runs work they don't need. The planner pulls in only the lifecycle actions the selected tests depend on: running one checkout test runs its file's `beforeAll` and `beforeEach`, and the config's `beforeRun` actions only if that test reads their values. `vc plan` prints this before you run, and the first line of `vc run` output repeats it:
+Useful run flags: `--profile staging,eu` (profiles, later wins), `--bail` (stop at the first failure), `--repeat 20` (repeat every selected test, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data), `--set key=value` (override one config value for this run, D129), `--no-cache` (ignore cached lifecycle data), `--reporter spec|dots|json` (console format), `--report html,junit` (files to write).
+
+Selecting a few tests never runs other files' setup. Running one checkout test runs the config's `beforeRun` (it runs for any run that selects a test), its own file's `beforeAll` and its `beforeEach`; other files' `beforeAll` blocks don't run. `beforeRun` and `beforeAll` finish before any selected test starts (D122). `vc plan` prints this before you run, and the first line of `vc run` output repeats it:
 
 ```
-$ vc run orders.checkout.placesOrder --profile staging
+$ vc run orders.checkout#placesOrder --profile staging
 plan  1 test · lifecycle: beforeAll catalog (cached, 3h left) · beforeEach ×3 calls · profile staging
 ```
 
@@ -378,11 +383,11 @@ plan  1 test · lifecycle: beforeAll catalog (cached, 3h left) · beforeEach ×3
 
 ### A new api
 
-`vc new api <fileId>.<apiId>` appends to the api file with that ID, creating `services/<first word>/<fileId>.api.yaml` if none exists. Path parameters become vars, so `{id}` is written as `${var.id}`:
+`vc new api <fileId>#<apiId>` appends to the api file with that ID, creating `services/<first word>/<fileId>.api.yaml` if none exists. Path parameters become vars, so `{id}` is written as `${var.id}`:
 
 ```
-$ vc new api users.deactivate --method POST --path /users/{id}/deactivate
-✓ added users.deactivate to services/users/users.api.yaml:84
+$ vc new api users#deactivate --method POST --path /users/{id}/deactivate
+✓ added users#deactivate to services/users/users.api.yaml:84
 ```
 
 ```yaml
@@ -396,8 +401,8 @@ From a curl command, copied from browser dev tools or API docs, Vibranium also f
 ```
 $ vc new api --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v1/users/u_7f3k \
     -H "content-type: application/json" -H "authorization: Bearer eyJ…" -d "{\"name\":\"Ada\"}"'
-? Api ID  users.rename
-✓ added users.rename to services/users/users.api.yaml:91
+? Api ID  users#rename
+✓ added users#rename to services/users/users.api.yaml:91
   host matches var usersUrl (profile staging) · path id u_7f3k → ${var.id} · body name → var name, default "Ada"
   authorization header dropped: the file already uses auth shopOauth
 ```
@@ -408,7 +413,7 @@ $ vc new api --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v
 
 ### Generated tests
 
-`vc new test <fileId>.<testId> --from <apiId>` writes a happy-path test you can run straight away; `--negative` and `--auth` add the usual failure cases. `vc import openapi --tests` does the same for every operation.
+`vc new test <fileId>#<testId> --from <apiId>` writes a happy-path test you can run straight away; `--negative` and `--auth` add the usual failure cases. `vc import openapi --tests` does the same for every operation.
 
 | Flag | Adds | Expects |
 | --- | --- | --- |
@@ -419,16 +424,16 @@ $ vc new api --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v
 What the generator fills in for you:
 
 - **Required inputs.** Vars the api needs get generators matched to the spec's type and format (`email` → `${fake.internet.email}`, `uuid` → `${fake.string.uuid}`), written as the api's defaults so every test benefits.
-- **Resources the call needs.** When a path needs an existing resource (`/users/{id}/deactivate`) and the same api file has the call that creates it (`POST /users`), the test gets `before: - call: users.create`; that api's cleanup removes the user afterwards. If no creating call is found, the var is left unset and `vc check` points at it.
+- **Resources the call needs.** When a path needs an existing resource (`/users/{id}/deactivate`) and the same api file has the call that creates it (`POST /users`), the test gets `before: - call: users#create`; that api's cleanup removes the user afterwards. If no creating call is found, the var is left unset and `vc check` points at it.
 - **Schemas.** Response schemas are referenced straight from the spec snapshot, so nothing is copied: `schema: {$file: ../../openapi/users.yaml#/components/schemas/User}`. The `schemas/` folder is for schemas you write yourself.
 
 ```yaml
-# generated by: vc new test users.crud.deactivatesUser --from users.deactivate --negative --auth
+# generated by: vc new test users.crud#deactivatesUser --from users#deactivate --negative --auth
   - id: deactivatesUser
     name: Deactivate a user
     before:
-      - call: users.create
-    call: users.deactivate
+      - call: users#create
+    call: users#deactivate
     expect:
       status: 200
       body:
@@ -438,20 +443,20 @@ What the generator fills in for you:
   - id: deactivateRejectsInvalidBody
     name: Deactivate rejects an invalid body
     before:
-      - call: users.create
+      - call: users#create
     examples:
       - name: reason missing
         body: {notify: true}
       - name: notify is not a boolean
         body: {reason: left company, notify: "yes"}
-    call: users.deactivate
+    call: users#deactivate
     body: ${example.body}
     expect:
       status: 400
 
   - id: deactivateRejectsAnonymous
     name: Deactivate needs a signed-in caller
-    call: users.deactivate
+    call: users#deactivate
     auth: none
     vars:
       id: u_doesNotMatter
@@ -466,9 +471,9 @@ A `name` in an example row labels that instance in reports, so a failure reads "
 `vc call` sends one request with the project's auth and active profile and prints the response. Adding `--save-as-test` writes it as a test, with expectations suggested from what came back (status, schema when known, the fields you name with `--expect-field`); the web and terminal UIs offer the same with checkboxes.
 
 ```
-$ vc call users.deactivate --var id=u_7f3k29qp --profile staging --save-as-test users.crud.deactivatesUser
+$ vc call users#deactivate --var id=u_7f3k29qp --profile staging --save-as-test users.crud#deactivatesUser
 200 OK · 148 ms · api expect passed
-✓ wrote users.crud.deactivatesUser to services/users/users.test.yaml:72 (expects status 200, schema User)
+✓ wrote users.crud#deactivatesUser to services/users/crud.test.yaml:72 (expects status 200, schema User)
 ```
 
 ### Importing from a HAR file
@@ -476,7 +481,7 @@ $ vc call users.deactivate --var id=u_7f3k29qp --profile staging --save-as-test 
 A HAR file is the recording a browser's dev tools save from the Network tab (Chrome, Firefox, Safari and Edge all export it, as do proxies like Charles and mitmproxy). Importing one turns real traffic into apis, and optionally into a test that replays the session in order. It works the same from `vc import har`, the terminal UI and the web UI's import dialog.
 
 ```
-$ vc import har ~/Downloads/checkout-session.har --flow orders.checkout.recordedCheckout
+$ vc import har ~/Downloads/checkout-session.har --flow orders.checkout#recordedCheckout
 ```
 
 What the import does, in order:
@@ -500,7 +505,7 @@ read 46 entries · filtered 21 static, 6 third-party, 5 OPTIONS → 14 requests
   orders.staging.shop.example    → orders    (existing)   2 matched
   payments.staging.shop.example  → payments  (existing)   1 matched, 1 new
 secrets  authorization → auth shopOauth · cookie session dropped · query api_key → ${secret.PAYMENTS_KEY}
-✓ updated 2 api files · flow orders.checkout.recordedCheckout (6 steps)
+✓ updated 2 api files · flow orders.checkout#recordedCheckout (6 steps)
 ```
 
 A host that no api file's `baseUrl` resolves to becomes a new api file named by the conventions, with a base-URL var added to the config for the active profile.
@@ -553,18 +558,18 @@ You don't keep one yourself, but Vibranium does: every import and sync writes `o
 
 - **What sync owns:** `method`, `path`, path and query parameters (as vars), `operationId` and the request content type. It never touches IDs, names, `expect`, `save`, `cleanup`, hooks or the defaults you set. When the spec adds a required body field, sync tells you rather than rewriting your body.
 - **Matching:** apis are matched to operations by `operationId`, so you can rename an api ID freely. New IDs come from the operationId in camelCase; without one, from the method and path (`POST /users/{id}/deactivate` → `postUsersIdDeactivate`).
-- **Previewing and CI:** `vc sync --dry-run` prints the changes without writing anything. `vc sync --check` writes nothing and exits with code 1 when any spec has changed since its snapshot, so a CI job can flag drift before tests start failing.
+- **Previewing and CI:** `vc sync --dry-run` prints the changes without writing anything. `vc sync --check` writes nothing and exits with code 4 when any spec has changed since its snapshot (D127), so a CI job can flag drift before tests start failing.
 
 ```
 $ vc sync users
 fetched https://users.staging.shop.example/v3/api-docs (OpenAPI 3.0.3, 8 operations)
-  ↑ users.list     query param cursor → var cursor
-  ↑ users.get      path /users/{id} → /users/{userId}
-  + users.restore  new operation POST /users/{userId}/restore
-  = users.create   kept your edit (header x-idempotency-key)
-  ! users.update   conflict: spec changed PUT → PATCH, you changed the path
-                   resolve: vc sync users --take spec users.update | --take mine | edit, then --resolved
-  - users.legacyImport  removed from the spec → kept, marked deprecated
+  ↑ users#list     query param cursor → var cursor
+  ↑ users#get      path /users/{id} → /users/{userId}
+  + users#restore  new operation POST /users/{userId}/restore
+  = users#create   kept your edit (header x-idempotency-key)
+  ! users#update   conflict: spec changed PUT → PATCH, you changed the path
+                   resolve: vc sync users --take spec users#update | --take mine | edit, then --resolved
+  - users#legacyImport  removed from the spec → kept, marked deprecated
 snapshot openapi/users.yaml updated · 1 conflict left
 ```
 
@@ -601,11 +606,11 @@ Nothing runs until every file compiles, so `vc check` (also run at the start of 
 
 | Part | Example |
 | --- | --- |
-| Code and title | `error[V2003]: unknown api "orders.plcae"` |
+| Code and title | `error[V2003]: unknown api "orders#plcae"` |
 | Location | `--> services/orders/checkout.test.yaml:41:15` |
 | Source excerpt with the exact span underlined | the offending line, with `^^^^` under the name |
 | Plain explanation | what was expected and what was found |
-| `help:` | what to do, with the likely options: "did you mean orders.place?", or the three places a missing var could be set |
+| `help:` | what to do, with the likely options: "did you mean orders#place?", or the three places a missing var could be set |
 | `fix:` | when the fix is certain, what `vc check --fix` will change |
 
 ```
@@ -635,12 +640,12 @@ error[V2101]: ${var.couponCode} is used but never set
 `vc run` prints a plan line, one line per test as it finishes, a detailed block for each failure, and a summary. The detailed block reads like a compiler error: the file, line and column of the failing check, expected and actual values, and where an expected value came from.
 
 ```
-✕ orders.checkout.placesOrder                                  6.4s
+✕ orders.checkout#placesOrder                                  6.4s
   error: expect.body.match.total
     --> services/orders/checkout.test.yaml:33:11
      |
   33 |           total: ${var.orderTotal}
-     |                  ^^^^^^^^^^^^^^^^^ expected 59.98 (saved by orders.place), got 64.78
+     |                  ^^^^^^^^^^^^^^^^^ expected 59.98 (saved by orders#place), got 64.78
   error: expect.cel “total equals sum of lines”  → 64.78 == 59.98 is false
     --> services/orders/checkout.test.yaml:35:9
 
@@ -648,6 +653,8 @@ error[V2101]: ${var.couponCode} is used but never set
 reports  .vibranium/reports/483/{ctrf.json,junit.xml,report.html}
 next     vc run --failed · vc report 483 --open
 ```
+
+Every test instance ends as `passed`, `failed`, `blocked` (a setup it needs failed; never retried), `skipped` or `flaky` (failed, then passed when its `retry` re-ran the whole test) (D126).
 
 Console formats: `spec` (above, the default in a terminal), `dots` (compact), `json` (one event per line, for tools). In CI, where there is no terminal, colour and progress bars switch off and output stays line-based.
 
@@ -658,6 +665,8 @@ Console formats: `spec` (above, the default in a terminal), `dots` (compact), `j
 | 2 | Nothing ran: `vc check` errors, an empty selection, or no active profile |
 | 3 | A load threshold was breached |
 | 4 | `vc sync --check` found drift |
+| 70 | Internal error in Vibranium: prints a "please report" hint and the path of a redacted debug bundle to attach (D127) |
+| 130 | Cancelled by a signal (Ctrl-C); cleanups have run (D127) |
 
 A typical CI job:
 
@@ -677,4 +686,4 @@ A typical CI job:
 - **Shell completion.** `vc completion zsh` (or bash, fish, powershell) completes commands, flags, and the project's own api, test, file and tag IDs, so `vc run users.c<Tab>` works.
 - **Watch mode.** `vc watch` re-runs only the tests affected by a save: editing an api file re-runs the tests that call it, editing a dataset re-runs the tests that read it.
 - **One-keystroke loops in the TUI.** `vc tui` offers the same selectors with search, `r` to re-run, `f` for failures only, and inline editing with checks before saving.
-- **Explain anything.** `vc explain orders.checkout.placesOrder` shows the test exactly as it will run for the active profile: URLs, every var with the level that set it, auth, the merged checks and the lifecycle work around it. It is the first thing to try when a value isn't what you expected.
+- **Explain anything.** `vc explain orders.checkout#placesOrder` shows the test exactly as it will run for the active profile: URLs, every var with the level that set it, auth, the merged checks and the lifecycle work around it. It is the first thing to try when a value isn't what you expected.

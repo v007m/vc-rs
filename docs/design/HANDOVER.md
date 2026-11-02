@@ -4,7 +4,7 @@ The design was worked out between Sarath and Claude in one long claude.ai conver
 
 ## State on handover
 
-- **Done:** PRD, technical design, Rust LLD, syntax reference, CLI and workflow spec, and a decision log with D1–D95. Also done: a Rust feasibility spike (passed) and clickable mockups of every CLI, TUI, web UI and report screen.
+- **Done:** PRD, technical design, Rust LLD, syntax reference, CLI and workflow spec, and a decision log with D1–D95. The implementation kick-off grill (Round 15, D96–D137, plus D138–D140 in Round 16) then settled the toolchain, repo layout, crate names, engineering rules and the open semantics for M0–M2. Also done: a Rust feasibility spike (passed) and clickable mockups of every CLI, TUI, web UI and report screen.
 - **Not started:** engine code. The first task is M0 (see below).
 - **Not yet written:**
   - the `.proto` contracts (`vibranium.{ir,engine,plugin,results}.v1`);
@@ -51,9 +51,10 @@ These changed during the conversation. The older wording may still appear in an 
   Where a block sits decides how long its data lives.
 - **Lifecycle actions call apis.** `call: <api>` is the normal action. `test: <test>` exists only to reuse a multi-step flow and runs only that flow's calls, never its checks. `function:` and `command:` run code.
 - **Cleanup is declared once, on the api.** Every 2xx call registers its cleanup. Cleanups run newest first when the owning block ends, including on Ctrl-C. `keep: true` opts out.
-- **Shared saves** from `beforeRun` and `beforeAll` are read-only and live under the action's `id` (`${var.admin.userId}`). Value-producing `beforeRun` actions run lazily, with singleflight.
+- **Shared saves** from `beforeRun` and `beforeAll` are read-only and live under the action's `id` (`${var.admin.userId}`). `beforeRun` and `beforeAll` actions run eagerly: they are planned when their run or file has a selected instance, and finish before any instance starts (D122). The token cache and cache-store hits are still lazy.
 - **Profiles are mandatory.** `vc init` creates `default`. "Environment" now means OS environment variables only.
 - **Each api routes to its own file's `baseUrl` and `auth`**, so one test can span several services.
+- **Full IDs use `#`:** `<fileId>#<id>` (`users.crud#getsCreatedUser`) in YAML, selectors and output (D138). A bare dotted word is always a file ID. File IDs are derived from paths, and an explicit `id:` must match (D139); example rows are selected with `:n` (D140).
 - **Language:** Rust. Hooks are TypeScript, type-checked by the user with `tsc` against the types-only `@vibranium/sdk`. At load time oxc strips the types and the hook runs in QuickJS (rquickjs), not V8.
 - **Web UI:**
   - Svelte/SvelteKit (D95, Sarath's own edit).
@@ -68,11 +69,13 @@ Each item has a default the plan assumes. Ask before relying on it past the mile
 
 | Question | Default | Needed by |
 | --- | --- | --- |
-| Which repo: a `v2` branch of `sarathm09/vibranium`, or a new repository? | — | Before the first push |
 | Sample project target: a demo service built into the binary (`vc demo`, localhost:7421) or a public echo API? | Built-in `vc demo` (D89) | M5 |
-| Docs and JSON Schema hosting | GitHub raw URLs on the `v2` branch, e.g. `https://raw.githubusercontent.com/sarathm09/vibranium/v2/schema/<kind>.schema.json`, plus SchemaStore entries | v2.0 release |
+| Docs and JSON Schema hosting | GitHub raw URLs on `master` of `v007m/vc-rs`, e.g. `https://raw.githubusercontent.com/v007m/vc-rs/master/schema/<kind>.schema.json`, plus SchemaStore entries | v2.0 release |
 | Staging agent policy: should PATCH and definition edits also need approval? | `approve: [PUT, PATCH, DELETE]`, `writeDefinitions: ask` | M7 |
 | Review of the LLD and a click-through of the mockups in Play mode | Treat both as accepted | Before M2 and M9 |
+| Default secrets provider: Varlock or plain env | — | M3 kick-off |
+| Notifiers: v2.0 (PRD) or M8 (LLD) | — | M3 kick-off |
+| Does `vc demo` reuse the mock server (`bench/mock`)? | — | M5 kick-off |
 
 The open questions in the LLD are listed in its last section:
 - the Varlock CLI contract (M3);
@@ -100,30 +103,14 @@ The open questions in the LLD are listed in its last section:
 
 ## Starting M0
 
-From the LLD's implementation plan, M0 delivers:
-- the workspace and crate skeletons with the dependency rules;
-- `scripts/gates.sh`, `arch-tests` and CI;
-- the mock server;
-- `rust-toolchain.toml`.
+The repository is `v007m/vc-rs`; `master` is the integration branch and each session works on one `s/<name>` branch. The approved plan for bootstrap, M0, M1 and M2 is recorded as decisions D96–D137 in `decision-log.md` (Round 15). M0 delivers:
+- the Cargo workspace (resolver 3, edition 2024, Apache-2.0) with `rust-toolchain.toml` pinned to 1.99, `mise.toml` (tools and tasks) and a pnpm workspace;
+- skeleton crates for M0–M2 only: model, diagnostics, parser, template, compiler, planner, interfaces, executor, engine, testkit, adapter-system, adapter-http, adapter-reporters, cli, arch-tests, and the mock server at `bench/mock`;
+- `vc-arch-tests`, which enforces the layered dependency table and the engineering rules (each rule prints a stable ID such as `ARCH-LAYER`);
+- `scripts/gates.sh`, `scripts/commit-check.sh`, `scripts/gates-selftest.sh` with one bad patch per gate, CI on Linux (all gates) and macOS/Windows (build and test), CODEOWNERS, `CONTRIBUTING.md` and branch protection.
 
-It is done when CI is green and a deliberately bad commit is rejected by each gate.
+It is done when CI is green on all three systems, every gate fixture is rejected by its expected gate ID, and `vc --version` works.
 
-Start from `spike/rust-feasibility/partb`. It already has the workspace lints, `clippy.toml` (40 lines, complexity 10, at most 3 arguments, disallowed lock and global types), `deny.toml`, `rustfmt.toml`, a working `gates.sh` and an `arch-tests` crate. Changes it needs to match the LLD:
-
-1. Change the workspace licence from MIT to **Apache-2.0** and add the licence file and NOTICE.
-2. Move to the LLD layout:
-   - `crates/{ir, diag, syntax, template, compiler, planner, ports, executor, load, engine}`;
-   - `crates/adapters/*` and `crates/apps/*`;
-   - `proto/` and `web/`.
-
-   The spike's `adapters-http`, `adapters-store`, `adapters-hooks` and `tsstrip` move under `adapters/` (`tsstrip` goes into `adapters/hooks`).
-3. Move `gates.sh` to `scripts/gates.sh` and update it:
-   - use `cargo nextest`;
-   - keep `jscpd`;
-   - add the per-crate `cargo-mutants` threshold (85 % in `executor`, `planner` and `template`);
-   - make it the required CI check.
-4. Rewrite `arch-tests` to enforce the LLD's dependency table ("Dependency rules, enforced by `arch-tests`"). It must also check that only `engine` names adapters, that apps import only `engine`, and that there is no `static` state.
-5. Add a CODEOWNERS entry that routes the gate files to Sarath.
-6. Add a `CONTRIBUTING.md` with the ten-line review checklist.
+Start from `spike/rust-feasibility/partb`. It already has the workspace lints, `clippy.toml` (40 lines, complexity 10, disallowed lock and global types), `deny.toml`, `rustfmt.toml`, a working `gates.sh` and an `arch-tests` crate. Carry those over, then apply the LLD: the Apache-2.0 licence and NOTICE, the `crates/` layout with the Round 15 crate names, `too-many-arguments-threshold = 4` plus the arch-test parameter rule, the D135 `deny.toml` settings, and `gates.sh` moved to `scripts/` using `cargo nextest`, `jscpd` and the per-crate `cargo-mutants` threshold (85 % in executor, planner, template and compiler).
 
 The spike's mock server, singleflight proof and borrow-checker log (`spike/rust-feasibility/logs/borrow_checker_log.md`) are worth reading first. Some spike scripts contain absolute paths from the original cloud workspace (`/home/claude/vibranium-spike`); they are reference material, not part of the build.

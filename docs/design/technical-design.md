@@ -29,18 +29,18 @@ Compilation turns files into a linked, immutable IR and an execution plan; any e
 Diagnostics carry a stable code, a source span and, for unknown IDs, the closest matches by edit distance:
 
 ```
-error[V2003]: unknown api `users.creat`
-  --> services/users/users.test.yaml:14:11
+error[V2003]: unknown api `users#creat`
+  --> services/users/crud.test.yaml:14:11
    |
-14 |     call: users.creat
-   |           ^^^^^^^^^^^ did you mean `users.create`?
+14 |     call: users#creat
+   |           ^^^^^^^^^^^ did you mean `users#create`?
 ```
 
 The compiler collects all errors in one pass instead of stopping at the first, and `vc check --json` returns them in a structured form for editors and agents.
 
 ## Intermediate representation and contracts
 
-The IR is the single typed model every stage after parsing works on; it is defined once in protobuf (D26) and generated for the engine and every SDK, so YAML, JSON and code builders all produce the same thing.
+The IR is the single typed model every stage after parsing works on, so YAML, JSON and code builders all produce the same thing. The in-process model (`vc-model`) is hand-written Rust. Hand-written `.proto` files are the wire contract (checked with `buf lint` and `buf breaking`), generated into `vc-contracts` for Rust and into TypeScript; each proto is written when its first consumer needs it (D101).
 
 | IR entity | Key fields | Notes |
 | --- | --- | --- |
@@ -85,21 +85,21 @@ The executor walks the planned graph and runs each test instance as soon as the 
 
 | Block | Owner frame | Runs | Memo key for its actions |
 | --- | --- | --- | --- |
-| `beforeRun` | run | value-producing actions lazily, on first need; commands and functions at run start | action id + hash of resolved vars |
-| `beforeAll` | test file | before the file's first selected instance | file + action id + hash of resolved vars |
+| `beforeRun` | run | eagerly, when the run selects any instance; finished before any instance starts (D122) | action id + hash of resolved vars |
+| `beforeAll` | test file | eagerly, when the file has a selected instance; finished before any of them starts (D122) | file + action id + hash of resolved vars |
 | `beforeEach`, `before` | test instance | once for every instance (test × example row × repeat index) | instance id |
 
 - **Owner frames:** the executor keeps a frame per owner (run, file, instance) holding saved values, a cleanup stack and a status. A frame closes when its owner ends: it runs the matching `after` block, then pops its cleanup stack.
 - **Singleflight:** concurrent instances that need the same `beforeRun` or `beforeAll` action wait on one in-flight execution; its saved values are stored in the owner frame under the action's `id` and are read-only.
 - **Cleanup stack:** every 2xx call whose api declares `cleanup` pushes that cleanup, with vars resolved against the response, unless the call has `keep: true`. Frames pop newest first, also after cancellation; cleanup failures are reported but do not change test results.
 - **Loops:** `repeat` and `forEach` expand into iterations run through a semaphore sized by `parallel` (default 1); each iteration writes its saved values into slot `i` of a pre-sized list, so the order is deterministic under parallelism.
-- **Failure:** an action retries per its policy. A failed shared action marks every dependent instance `blocked` with the action's id, the failing request and response, and the check that failed (D11). A per-instance failure blocks only that instance; its `after` blocks and cleanups still run.
+- **Failure:** an action retries per its policy; a test's `retry` re-runs the whole instance, running its cleanups between attempts (D126). A failed shared action marks every dependent instance `blocked`, as decided by the needs analysis (D122), with the action's id, the failing request and response, and the check that failed (D11). A per-instance failure blocks only that instance; its `after` blocks and cleanups still run.
 - **Cache:** an action with `cache` first looks up the `CacheStore` by (api or test id, canonical hash of resolved vars, profile). A live hit runs `cache.check` if present; on success the saved values are restored and nothing is pushed to the cleanup stack. An expired entry has its recorded cleanup run before a fresh execution. Values derived from secrets are sealed with a key from the OS keychain, or `VIB_CACHE_KEY` where there is none.
 - **Static checks:** the linker builds the reuse graph from `test:` actions and reports cycles; it warns on `PUT`, `PATCH` or `DELETE` calls that read shared values, and on `cache` in per-instance blocks.
 
 ### Results per test instance
 
-One of `passed`, `failed`, `blocked`, `skipped` or `flaky` (passed after a retry). Every expectation result carries its source span, expected value, actual value and a diff for structured values.
+One of `passed`, `failed`, `blocked`, `skipped` or `flaky` (passed after a retry). Blocked instances are never retried (D126). Every expectation result carries its source span, expected value, actual value and a diff for structured values.
 
 ### Load engine
 
@@ -183,7 +183,7 @@ Discovery walks up from the working directory to the first `vibranium.config.yam
 6. `VIB_*` environment variables
 7. CLI flags and `--set key=value`
 
-The merged config is validated against its schema once; `vc config explain <key>` prints the value and its layer.
+Each layer is a `ConfigSource`, and every value keeps its origin (D129). The merged config is validated against its schema once; `vc config explain <key>` prints the value and its layer.
 
 Secrets:
 
@@ -231,7 +231,7 @@ v1 wrote every error, payload and response body into one HTML file, which became
 
 - **Works from disk.** The data files are JavaScript (`VIB.load("tests/0042", {...})`) rather than JSON, because browsers block `fetch` on `file://` but allow `<script>` tags. A report opened by double-clicking, from a CI artifact or from an emailed zip works the same way.
 - **Only visible rows are drawn.** The tests table is virtualized and search runs over the in-memory index, so filtering 10,000 rows stays instant.
-- **Direct links.** Every test has its own address (`index.html#/test/orders.checkout.placesOrder`), which loads only that test's shard, so links from CI comments and alerts open quickly.
+- **Direct links.** Every test has its own address (`index.html#/test/orders.checkout%23placesOrder`), which loads only that test's shard, so links from CI comments and alerts open quickly.
 - **Bodies follow the history policy.** Bodies follow `history.bodies` (default: failures only) and are truncated at `history.maxBodySize`, with the size and a note when cut. Load runs store per-second aggregates and a sample of errors (the first few per api and status), never every exchange.
 - **Single-file option.** `reports.html.layout: single` produces one file for emailing. Each test's details are gzip-compressed and base64-encoded inside it and only decompressed (with the browser's `DecompressionStream`) when expanded, so even a single file opens fast. Above 20 MB, `vc` warns and suggests the folder layout.
 - **One renderer.** The report and the web UI's run view share the same renderer, and `vc report <run>` can rebuild any report later from `history.db`.
@@ -290,9 +290,9 @@ The web UI is a client of the Engine service. Its editor works on the YAML files
 One repository holds the contracts, engine, adapters, apps and SDKs, and automated dependency rules keep the layers apart.
 
 ```
-proto/                 vibranium.{ir,engine,plugin,results}.v1 (source of all types)
+proto/                 vibranium.{ir,engine,plugin,results}.v1 (the wire contract, generated into contracts; D101)
 core/
-  ir/                  generated IR types + JSON Schema for editors
+  model/               hand-written model types + JSON Schema for editors (D101, D102)
   config/  loader/  compiler/  linker/  planner/  executor/  assertions/
 adapters/
   transport-http/  auth/  secrets-varlock/  cel/  faker/
@@ -308,9 +308,9 @@ docs/
 
 Dependency rules, checked in CI:
 
-- `core/*` imports only `core/ir` and port interfaces; never an adapter or app.
-- `adapters/*` import `core/ir` and the port they implement; never each other.
-- `apps/*` import only `engine` and `core/ir`.
+- `core/*` imports only `core/model` and port interfaces; never an adapter or app.
+- `adapters/*` import `core/model` and the port they implement; never each other.
+- `apps/*` import only `engine` (which re-exports the model types), plus `contracts` for the server and MCP (D108).
 - No global mutable state anywhere; v1's module-level counters are the example to avoid.
 
 Coding standards, taken from Fowler's *Refactoring* code smells and made checkable:
@@ -334,9 +334,9 @@ Testing strategy:
 3. Golden-file tests for diagnostics output.
 4. A shared contract test suite that every adapter of a port must pass.
 5. Integration tests against the in-repo mock server, whose request counter proves the lifecycle and cleanup guarantees.
-6. Benchmarks in CI; a regression over 10% fails the build.
+6. Benchmarks in CI: instruction-count benches fail a PR at a regression over 5%; wall-clock budgets run nightly and open an issue on a breach (D120).
 
-Field descriptions written once in protobuf flow into the JSON Schema, editor hovers, MCP tool descriptions and the docs site, so documentation cannot drift from the types.
+Field descriptions written once in the compiler's shape declarations flow into the shape check, the JSON Schema, editor hovers, MCP tool descriptions and the docs site, so documentation cannot drift from the types. The `.proto` files are only the wire contract (D101).
 
 ## Questions for the spike and the LLD
 

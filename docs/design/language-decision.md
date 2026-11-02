@@ -129,6 +129,8 @@ So the choice rests on two judgements: that runtime-loaded TypeScript hooks matt
 
 ## Conditions for the LLD
 
+Superseded: the language decision moved to Rust (see the decision log, D36–D41, and lld.md). Kept for history.
+
 The decision holds only if the low-level design adopts these, each of which came out of the spike:
 
 1. **Bun as the shipping runtime, Node as standby** for binaries and load testing; code against Node-compatible APIs and web standards so the npm package still runs on Node; CI builds and tests a Node 26 single binary on every release, so switching runtime is a build change.
