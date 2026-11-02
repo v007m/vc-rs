@@ -1,5 +1,8 @@
 //! Test fakes, fixture builders and one contract suite per interface trait (dev-dependency only).
 //!
+//! `generate_project` builds a realistic, seeded project of any size for benchmarks and
+//! large-project tests.
+//!
 //! Every implementation of a `vc-interfaces` trait, fakes included, runs that trait's suite from
 //! a test (`<snake_trait>_suite`, D112); `arch-tests` checks that it does:
 //!
@@ -11,11 +14,13 @@
 //! ```
 
 mod cache_suite;
+mod generator;
 mod memory_cache;
 mod memory_sources;
 mod source_suite;
 
 pub use cache_suite::{MakeCompileCache, compile_cache_store_suite};
+pub use generator::{GeneratedFile, GeneratedProject, generate_project};
 pub use memory_cache::MemoryCompileCache;
 pub use memory_sources::MemorySources;
 pub use source_suite::{MakeSources, source_provider_suite};
