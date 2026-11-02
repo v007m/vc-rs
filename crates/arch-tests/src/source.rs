@@ -1,0 +1,122 @@
+use std::fmt;
+
+use proc_macro2::Span;
+use syn::{Attribute, Item, Meta};
+
+use crate::ArchError;
+
+/// Where a source file comes from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Origin {
+    /// Package that owns the file.
+    pub package: String,
+    /// Workspace-relative path.
+    pub path: String,
+    /// Test-only code: a `tests/`, bench or example target, or a module under `#[cfg(test)]`.
+    pub test_only: bool,
+}
+
+/// A parsed Rust source file.
+#[derive(Clone)]
+pub struct SourceFile {
+    /// Where the file comes from.
+    pub origin: Origin,
+    /// Number of lines.
+    pub lines: usize,
+    /// The file is marked `@generated`.
+    pub generated: bool,
+    /// The whole file, test code included.
+    pub syntax: syn::File,
+    library: Option<syn::File>,
+}
+
+impl SourceFile {
+    /// Parses `text` as the file described by `origin`.
+    ///
+    /// # Errors
+    /// When `text` is not valid Rust.
+    pub fn parse(origin: Origin, text: &str) -> Result<Self, ArchError> {
+        let syntax = syn::parse_file(text).map_err(|source| ArchError::Parse { path: origin.path.clone(), source })?;
+        let library = (!origin.test_only).then(|| library_view(&syntax));
+        Ok(Self { lines: text.lines().count(), generated: text.contains("@generated"), syntax, library, origin })
+    }
+
+    /// The file without test code, or `None` when the whole file is test code.
+    #[must_use]
+    pub const fn library(&self) -> Option<&syn::File> {
+        self.library.as_ref()
+    }
+
+    /// `path:line` of `span`.
+    #[must_use]
+    pub fn at(&self, span: Span) -> String {
+        format!("{}:{}", self.origin.path, span.start().line)
+    }
+
+    /// The file name without its directory.
+    #[must_use]
+    pub fn file_name(&self) -> &str {
+        self.origin.path.rsplit('/').next().unwrap_or(&self.origin.path)
+    }
+}
+
+impl fmt::Debug for SourceFile {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SourceFile").field("origin", &self.origin).field("lines", &self.lines).finish_non_exhaustive()
+    }
+}
+
+/// `#[test]` or `#[cfg(test)]` is among `attrs`.
+#[must_use]
+pub fn is_test(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| match &attr.meta {
+        Meta::Path(path) => path.is_ident("test"),
+        Meta::List(list) => list.path.is_ident("cfg") && list.tokens.to_string() == "test",
+        Meta::NameValue(_) => false,
+    })
+}
+
+fn library_view(file: &syn::File) -> syn::File {
+    let mut file = file.clone();
+    strip_tests(&mut file.items);
+    file
+}
+
+fn strip_tests(items: &mut Vec<Item>) {
+    items.retain(|item| !is_test(attrs(item)));
+    for item in items {
+        if let Item::Mod(module) = item
+            && let Some((_, inner)) = &mut module.content
+        {
+            strip_tests(inner);
+        }
+    }
+}
+
+const fn attrs(item: &Item) -> &[Attribute] {
+    match item {
+        Item::Fn(i) => i.attrs.as_slice(),
+        Item::Mod(i) => i.attrs.as_slice(),
+        Item::Impl(i) => i.attrs.as_slice(),
+        Item::Use(i) => i.attrs.as_slice(),
+        Item::Static(i) => i.attrs.as_slice(),
+        Item::Const(i) => i.attrs.as_slice(),
+        Item::Struct(i) => i.attrs.as_slice(),
+        Item::Enum(i) => i.attrs.as_slice(),
+        Item::Trait(i) => i.attrs.as_slice(),
+        _ => &[],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::fixtures::lib_file;
+
+    #[test]
+    fn library_view_drops_test_modules_and_functions() {
+        let file = lib_file("vc-model", "fn a() {} #[cfg(test)] mod tests { fn b() {} } #[test] fn c() {}");
+        assert_eq!(file.library().map(|f| f.items.len()), Some(1));
+        assert_eq!(file.syntax.items.len(), 3);
+        assert_eq!(file.file_name(), "lib.rs");
+    }
+}

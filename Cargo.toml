@@ -43,8 +43,12 @@ vc-adapter-system = { path = "crates/adapters/system" }
 vc-adapter-http = { path = "crates/adapters/http" }
 vc-adapter-reporters = { path = "crates/adapters/reporters" }
 assert_cmd = "2.2.2"
+cargo_metadata = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
 predicates = "3.1.4"
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+syn = { version = "3.0.9", features = ["full", "visit"] }
+thiserror = "2.0.21"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
