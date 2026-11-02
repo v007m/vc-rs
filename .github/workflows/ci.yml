@@ -94,3 +94,35 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: cargo fetch --locked
       - run: scripts/gates-selftest.sh
+
+  # D120: instruction counts of the compile benches on every PR, compared with the base branch;
+  # a rise of more than 5 % fails. gungraun runs under valgrind, so this job is Linux only.
+  bench-instructions:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      # Shared by the base and the PR builds, so the base's baseline lands where the PR looks.
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - run: rustup toolchain install
+      - run: sudo apt-get update && sudo apt-get install -y valgrind
+      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+        with:
+          tool: gungraun-runner@0.20.0
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Baseline from the base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git worktree add "$RUNNER_TEMP/base" "origin/$BASE_REF"
+          if [ -f "$RUNNER_TEMP/base/crates/engine/benches/compile_instructions.rs" ]; then
+            cd "$RUNNER_TEMP/base"
+            cargo bench -p vc-engine --bench compile_instructions --locked -- --save-baseline=base
+          else
+            echo "::notice::$BASE_REF has no instruction-count benches yet, so this run records counts without comparing"
+          fi
+      - name: Compare with the base branch
+        run: cargo bench -p vc-engine --bench compile_instructions --locked -- --baseline=base --callgrind-limits='ir=5%'
