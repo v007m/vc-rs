@@ -8,5 +8,14 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[dependencies]
+ignore.workspace = true
+vc-interfaces.workspace = true
+vc-model.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+vc-testkit.workspace = true
+
 [lints]
 workspace = true
