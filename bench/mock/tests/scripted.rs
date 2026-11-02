@@ -85,6 +85,23 @@ async fn the_in_flight_gauge_records_concurrent_requests() -> TestResult {
     Ok(())
 }
 
+#[tokio::test]
+async fn a_request_from_before_a_reset_does_not_lower_the_new_gauge() -> TestResult {
+    let mock = Mock::start().await?;
+    let early = tokio::spawn(mock.get("/slow?ms=200").send());
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    mock.handle.reset().await?;
+    let long = tokio::spawn(mock.get("/slow?ms=500").send());
+    early.await??;
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    mock.get("/slow?ms=10").send().await?;
+    long.await??;
+    let stats = mock.handle.stats().await?;
+    assert_eq!(stats.max_in_flight.get("GET /slow"), Some(&2));
+    assert_eq!(stats.max_in_flight_total, 2);
+    Ok(())
+}
+
 /// Runs the futures concurrently on spawned tasks and collects their results in order.
 async fn join_all<F>(futures: impl Iterator<Item = F>) -> Vec<F::Output>
 where

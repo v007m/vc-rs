@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use tokio::sync::{mpsc, oneshot};
 
 use crate::error::MockError;
@@ -9,6 +12,7 @@ type Job = Box<dyn FnOnce(&mut State) + Send>;
 #[derive(Clone)]
 pub struct Store {
     jobs: mpsc::UnboundedSender<Job>,
+    tickets: Arc<AtomicU64>,
 }
 
 impl Store {
@@ -21,7 +25,7 @@ impl Store {
                 job(&mut state);
             }
         });
-        Self { jobs }
+        Self { jobs, tickets: Arc::default() }
     }
 
     /// Runs `job` on the actor and returns its result.
@@ -35,6 +39,11 @@ impl Store {
             let _ = reply.send(job(state));
         });
         answer.await.map_err(|_| MockError::Stopped)
+    }
+
+    /// A number no other request on this server gets, never reused across resets.
+    pub fn ticket(&self) -> u64 {
+        self.tickets.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Queues `job` without waiting; a stopped actor drops it.

@@ -15,20 +15,20 @@ pub async fn track(State(store): State<Store>, request: Request, next: Next) -> 
 
 struct InFlight {
     store: Store,
-    route: String,
+    ticket: u64,
 }
 
 impl InFlight {
     fn begin(store: Store, route: String) -> Self {
-        let key = route.clone();
-        store.tell(move |state| state.traffic.begin(&key));
-        Self { store, route }
+        let ticket = store.ticket();
+        store.tell(move |state| state.traffic.begin(ticket, route));
+        Self { store, ticket }
     }
 }
 
 impl Drop for InFlight {
     fn drop(&mut self) {
-        let route = std::mem::take(&mut self.route);
-        self.store.tell(move |state| state.traffic.end(&route));
+        let ticket = self.ticket;
+        self.store.tell(move |state| state.traffic.end(ticket));
     }
 }

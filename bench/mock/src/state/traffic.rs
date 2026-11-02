@@ -7,28 +7,31 @@ use crate::stats::Stats;
 pub struct Traffic {
     requests: BTreeMap<String, u64>,
     in_flight: HashMap<String, u64>,
+    live: HashMap<u64, String>,
     max_in_flight: BTreeMap<String, u64>,
     total_in_flight: u64,
     max_total: u64,
 }
 
 impl Traffic {
-    pub fn begin(&mut self, route: &str) {
-        *self.requests.entry(route.to_owned()).or_default() += 1;
-        let in_flight = self.in_flight.entry(route.to_owned()).or_default();
+    pub fn begin(&mut self, ticket: u64, route: String) {
+        *self.requests.entry(route.clone()).or_default() += 1;
+        let in_flight = self.in_flight.entry(route.clone()).or_default();
         *in_flight += 1;
-        let max = self.max_in_flight.entry(route.to_owned()).or_default();
+        let max = self.max_in_flight.entry(route.clone()).or_default();
         *max = (*max).max(*in_flight);
         self.total_in_flight += 1;
         self.max_total = self.max_total.max(self.total_in_flight);
+        self.live.insert(ticket, route);
     }
 
-    /// Saturates at zero, so a request that began before a reset ends cleanly.
-    pub fn end(&mut self, route: &str) {
-        if let Some(in_flight) = self.in_flight.get_mut(route) {
-            *in_flight = in_flight.saturating_sub(1);
+    /// Ignores a ticket that began before the last reset, so it can't lower the new gauges.
+    pub fn end(&mut self, ticket: u64) {
+        let Some(route) = self.live.remove(&ticket) else { return };
+        if let Some(in_flight) = self.in_flight.get_mut(&route) {
+            *in_flight -= 1;
         }
-        self.total_in_flight = self.total_in_flight.saturating_sub(1);
+        self.total_in_flight -= 1;
     }
 
     pub fn stats(&self) -> Stats {
