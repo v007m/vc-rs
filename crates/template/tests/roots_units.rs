@@ -1,0 +1,131 @@
+#![cfg(test)]
+
+use std::time::Duration;
+
+use vc_diagnostics::{Code, Diagnostic};
+use vc_model::{Pos, Reference, SourceFileId, SourceSpan, StatusPattern, StringTable};
+use vc_template::{Roots, parse, parse_duration, parse_size, parse_status};
+
+fn span() -> SourceSpan {
+    SourceSpan::new(SourceFileId::new(0), Pos::new(4, 9, 50), Pos::new(4, 14, 55))
+}
+
+fn reference(text: &str, strings: &mut StringTable) -> Reference {
+    let end = Pos::new(1, 1 + u32::try_from(text.len()).unwrap(), text.len());
+    let scalar = SourceSpan::new(SourceFileId::new(0), Pos::START, end);
+    parse(text, scalar, strings).unwrap().single_ref().cloned().unwrap()
+}
+
+fn check(roots: &Roots, text: &str) -> Result<(), Box<Diagnostic>> {
+    let mut strings = StringTable::new();
+    roots.check(&reference(text, &mut strings), &strings)
+}
+
+fn code(roots: &Roots, text: &str) -> Code {
+    check(roots, text).unwrap_err().code
+}
+
+#[test]
+fn everyday_roots_are_available_everywhere() {
+    for text in ["${var.a}", "${env.HOME}", "${secret.key}", "${fake.uuid}", "${dataset.users}", "${run.id}"] {
+        assert!(check(&Roots::new(), text).is_ok(), "{text}");
+    }
+}
+
+#[test]
+fn call_roots_need_a_call() {
+    let diagnostic = *check(&Roots::new(), "${response.body}").unwrap_err();
+    assert_eq!((diagnostic.code, diagnostic.message.as_str()), (Code::V2105, "`response` is not available here"));
+    assert_eq!(diagnostic.help, ["`response` is available once a call is made: in expect, save, poll and cleanup"]);
+    assert_eq!(code(&Roots::new(), "${request.url}"), Code::V2105);
+    assert!(check(&Roots::new().with_call(), "${response.status}").is_ok());
+    assert!(check(&Roots::new().with_call(), "${request.url}").is_ok());
+}
+
+#[test]
+fn loop_roots_outside_their_block_are_v2102() {
+    let none = Roots::new();
+    assert_eq!(
+        (code(&none, "${item}"), code(&none, "${iteration.index}"), code(&none, "${example.x}")),
+        (Code::V2102, Code::V2102, Code::V2102)
+    );
+    let diagnostic = *check(&none, "${item}").unwrap_err();
+    assert_eq!(diagnostic.help, ["`item` is available only inside forEach"]);
+    assert!(check(&Roots::new().in_for_each(), "${item.id}").is_ok());
+    assert!(check(&Roots::new().in_for_each(), "${iteration.index}").is_ok());
+    assert!(check(&Roots::new().in_loop(), "${iteration.count}").is_ok());
+    assert_eq!(code(&Roots::new().in_loop(), "${item}"), Code::V2102);
+    assert!(check(&Roots::new().with_examples(), "${example.email}").is_ok());
+    assert_eq!(code(&Roots::new().with_examples(), "${iteration}"), Code::V2102);
+}
+
+#[test]
+fn step_roots_need_that_step() {
+    let mut strings = StringTable::new();
+    let place = reference("${place.body.id}", &mut strings);
+    let other = reference("${login.body}", &mut strings);
+    let vc_model::Namespace::Step(id) = place.ns else { panic!("expected a step") };
+    let roots = Roots::new().with_call().with_step(id);
+    assert!(roots.check(&place, &strings).is_ok());
+    let diagnostic = *roots.check(&other, &strings).unwrap_err();
+    assert_eq!((diagnostic.code, diagnostic.message.as_str()), (Code::V2105, "`login` is not available here"));
+    assert_eq!(diagnostic.help, ["`login` is available only after that action, in the same test or block"]);
+    assert_eq!(diagnostic.primary.span.byte_range(), 0..13);
+    let unnamed = roots.check(&other, &StringTable::new()).unwrap_err();
+    assert_eq!(unnamed.message, "`step` is not available here");
+}
+
+#[test]
+fn durations_take_a_unit() {
+    let ok = |text| parse_duration(text, span()).unwrap().get();
+    assert_eq!(ok("250ms"), Duration::from_millis(250));
+    assert_eq!(ok("2s"), Duration::from_secs(2));
+    assert_eq!(ok("3m"), Duration::from_secs(180));
+    assert_eq!(ok("12h"), Duration::from_hours(12));
+    assert_eq!(ok("0s"), Duration::ZERO);
+}
+
+#[test]
+fn a_bare_number_gets_a_certain_fix() {
+    let diagnostic = *parse_duration("500", span()).unwrap_err();
+    assert_eq!((diagnostic.code, diagnostic.message.as_str()), (Code::V2301, "invalid duration `500`"));
+    let [fix] = &diagnostic.fixes[..] else { panic!("expected one fix") };
+    assert!(fix.certain);
+    assert_eq!((fix.edits[0].new_text.as_str(), fix.edits[0].range.clone()), ("500ms", 50..55));
+}
+
+#[test]
+fn bad_durations_have_no_fix() {
+    for text in ["", "ms", "2 s", "2sec", "1.5s", "-1s", "2S", "99999999999999999999h", "18446744073709551615h"] {
+        let diagnostic = *parse_duration(text, span()).unwrap_err();
+        assert_eq!((diagnostic.code, diagnostic.fixes.len()), (Code::V2301, 0), "{text}");
+        assert_eq!(diagnostic.primary.span, span());
+    }
+}
+
+#[test]
+fn sizes_are_binary() {
+    let ok = |text| parse_size(text, span()).unwrap().bytes();
+    assert_eq!((ok("512b"), ok("4kb"), ok("1mb"), ok("2gb")), (512, 4096, 1_048_576, 2_147_483_648));
+    for text in ["4", "4k", "4KB", "kb", "4 kb", "18446744073709551615kb"] {
+        let diagnostic = *parse_size(text, span()).unwrap_err();
+        assert_eq!((diagnostic.code, diagnostic.message.clone()), (Code::V2301, format!("invalid size `{text}`")));
+    }
+}
+
+#[test]
+fn statuses_are_codes_or_classes() {
+    let ok = |text| parse_status(text, span()).unwrap();
+    assert_eq!(
+        (ok("201"), ok("100"), ok("599")),
+        (StatusPattern::Code(201), StatusPattern::Code(100), StatusPattern::Code(599))
+    );
+    assert_eq!(
+        (ok("1xx"), ok("2xx"), ok("5xx")),
+        (StatusPattern::Class(1), StatusPattern::Class(2), StatusPattern::Class(5))
+    );
+    for text in ["", "99", "099", "600", "2000", "+20", "0xx", "6xx", "22xx", "xx", "2XX", "+xx", "20x"] {
+        let diagnostic = *parse_status(text, span()).unwrap_err();
+        assert_eq!((diagnostic.code, diagnostic.primary.span), (Code::V2303, span()), "{text}");
+    }
+}

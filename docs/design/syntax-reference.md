@@ -24,7 +24,7 @@ These rules govern every file; `vc check` enforces each one with a diagnostic.
 6. **Sections are plural, references are singular.** `vars:` is read as `${var.x}`, `secrets` as `${secret.X}`, `examples:` as `${example.x}`.
 7. **One template syntax:** `${namespace.path}`, optionally followed by pipes that convert the value (`${var.count | number}`), plus generator calls with literal arguments (`${fake.lorem.words(5)}`). No other code inside templates.
 8. **One check form.** `expect` looks the same on apis, tests, steps, actions, polling and load thresholds. A literal means "equals"; anything else is a matcher such as `lt: 500ms`.
-9. **Units are written out.** Durations `250ms`, `2s`, `1m`; sizes `4kb`, `1mb`; rates `1%`. A bare number is never milliseconds.
+9. **Units are written out.** Durations `250ms`, `2s`, `1m`; sizes `4kb`, `1mb` (binary: `kb` is 1024 bytes, `mb` 1024², `gb` 1024³; D146); rates `1%`. A bare number is never milliseconds.
 10. **One flexible `body`.** Nested YAML or pasted JSON is sent as JSON, a string as text, `$file` as file bytes, `$base64` as raw bytes, `$extend` as an existing object with your changes; the `content-type` header decides the encoding.
 11. **Logic lives in two places only:** CEL one-liners (under `expect.cel`, or as a computed value with `$cel`), and functions in code files referenced with `function:`.
 12. **Placement decides lifetime.** Data made in `beforeRun` lives for the run, in `beforeAll` for one test file, in `beforeEach` or `before` for one test. There is no separate scope setting.
@@ -69,7 +69,7 @@ Every dynamic value is written `${namespace.path}`; `vc check` resolves each ref
 
 Where each root is available (D125): `response` and `request` exist only once a call has been made (in `expect`, `save`, `poll` and an api's `cleanup`); `item` only inside `forEach`; `iteration` only inside `repeat`, `forEach` or a repeated test; `example` only in a test with `examples`; an action or step id only after that action, in the same test or block. `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere. Inside `expect`, bare `status`, `headers` and `body` are short for `response.status`, `response.headers` and `response.body`. Using a root where it is not available is V2105 (`${item}` outside `forEach`, `${example}` without `examples` and `${iteration}` outside a loop are V2102) (D125, D137).
 
-Paths: after a namespace, and as keys under `expect.body.match`, paths use dotted names, `[n]` for an index (negative counts from the end), `[*]` for every element, and quotes for unusual keys (`headers["x-request-id"]`). Filtering is done with CEL.
+Paths: after a namespace, and as keys under `expect.body.match`, paths use dotted names, `[n]` for an index (negative counts from the end), `[*]` for every element, and quotes for unusual keys (`headers["x-request-id"]` or `['x-request-id']`; quoted keys and quoted pipe arguments have no escapes). Filtering is done with CEL.
 
 Typing: a value that is exactly one template keeps the referenced type, so `limit: ${var.pageSize}` stays a number and `cities: ${var.cities}` stays a list; a template inside other text gives a string (`user-${run.id}`). Quoting does not change this. To change a type, use a pipe.
 
