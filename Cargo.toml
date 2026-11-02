@@ -47,6 +47,7 @@ axum = { version = "0.8.9", default-features = false, features = ["http1", "json
 cargo_metadata = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
 indexmap = "2.14.2"
+insta = { version = "1.49.0", default-features = false }
 predicates = "3.1.4"
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 proptest = "1.12.0"
