@@ -39,6 +39,19 @@ impl SourcePath {
         Ok(Self(parts.join("/")))
     }
 
+    /// Like [`SourcePath::new`], but a `:`, control or bidi character becomes `�` (U+FFFD)
+    /// instead of failing, so a file with a name the project cannot use can still be named in
+    /// a diagnostic.
+    ///
+    /// # Errors
+    ///
+    /// [`ModelError::InvalidSourcePath`] when the path is absolute, has a `..` part or names
+    /// no file.
+    pub fn lossy(text: &str) -> Result<Self, ModelError> {
+        let replaced: String = text.chars().map(|c| if c == ':' || is_hidden(c) { '\u{fffd}' } else { c }).collect();
+        Self::new(&replaced)
+    }
+
     /// The path as text.
     #[must_use]
     pub fn as_str(&self) -> &str {
@@ -109,6 +122,20 @@ const KIND_PATTERNS: [(&str, FileKind); 4] = [
 ];
 
 impl FileKind {
+    /// Every kind, in declaration order.
+    pub const ALL: [Self; 4] = [Self::Config, Self::Api, Self::Test, Self::Load];
+
+    /// The kind's lowercase name, as in `api.schema.json`: `config`, `api`, `test` or `load`.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Config => "config",
+            Self::Api => "api",
+            Self::Test => "test",
+            Self::Load => "load",
+        }
+    }
+
     /// The kind of the file at `path`, or `None` when it matches no kind.
     ///
     /// Only the root `vibranium.config.yaml` is [`FileKind::Config`]; one in a folder has no kind.
@@ -201,6 +228,16 @@ mod tests {
     }
 
     #[test]
+    fn lossy_paths_replace_what_new_rejects_but_still_stay_inside() {
+        let lossy = SourcePath::lossy("services/k:v\u{202e}.api.yaml").unwrap();
+        assert_eq!(lossy.as_str(), "services/k\u{fffd}v\u{fffd}.api.yaml");
+        assert_eq!(SourcePath::lossy("a/b.api.yaml").unwrap().as_str(), "a/b.api.yaml");
+        for bad in ["/etc/x.api.yaml", "../x.api.yaml", "a/"] {
+            assert!(SourcePath::lossy(bad).is_err(), "{bad:?} was accepted");
+        }
+    }
+
+    #[test]
     fn kind_comes_from_the_file_name() {
         assert_eq!(kind("vibranium.config.yaml"), Some(FileKind::Config));
         assert_eq!(kind("services/users/users.api.yaml"), Some(FileKind::Api));
@@ -215,6 +252,13 @@ mod tests {
         }
         assert_eq!(kind("services/vibranium.config.yaml.bak"), None);
         assert_eq!(kind("services/vibranium.config.yaml"), None, "only the root config is a config");
+    }
+
+    #[test]
+    fn every_kind_has_its_serde_name() {
+        for kind in FileKind::ALL {
+            assert_eq!(serde_json::to_value(kind).unwrap(), kind.name());
+        }
     }
 
     #[test]

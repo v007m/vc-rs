@@ -99,6 +99,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arraydeque"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d902e3d592a523def97af8f317b08ce16b7ab854c1985a0c671e6f15cebc236"
+
+[[package]]
 name = "assert_cmd"
 version = "2.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1232,6 +1238,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 
 [[package]]
+name = "saphyr-parser"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "48cf5a82d41247a625f040af08e91008fec945bce3b0bffba992c44af092caa2"
+dependencies = [
+ "arraydeque",
+ "thiserror",
+]
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1687,6 +1703,11 @@ dependencies = [
 [[package]]
 name = "vc-compiler"
 version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vc-diagnostics",
+ "vc-model",
+]
 
 [[package]]
 name = "vc-diagnostics"
@@ -1738,6 +1759,13 @@ dependencies = [
 [[package]]
 name = "vc-parser"
 version = "0.1.0"
+dependencies = [
+ "proptest",
+ "saphyr-parser",
+ "thiserror",
+ "vc-diagnostics",
+ "vc-model",
+]
 
 [[package]]
 name = "vc-planner"
