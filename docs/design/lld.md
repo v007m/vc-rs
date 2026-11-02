@@ -1045,7 +1045,7 @@ Budgets are enforced in two ways (D120): instruction-count benches (`gungraun`) 
 
 ### Build and release
 
-- **Toolchain.** Rust 1.99 pinned through rustup and `rust-toolchain.toml` (D98); other tools pinned in `mise.toml` (D99); `cargo build --release` with thin LTO, 4 codegen units and stripped symbols (as in the spike). The web UI and report front ends are built with Vite first and embedded.
+- **Toolchain.** Rust 1.99 pinned through rustup and `rust-toolchain.toml` (D98); other tools pinned in `mise.toml` (D99); `cargo build --release` with thin LTO, 4 codegen units and debug info stripped; symbol names are kept so the exit-70 debug bundle has readable backtraces (D127). The web UI and report front ends are built with Vite first and embedded.
 - **Targets.** macOS (arm64, x64), Linux (x64, arm64, statically linked with musl), Windows (x64).
 - **Distribution** through `cargo-dist`: GitHub releases with checksums and build provenance, a one-line installer (`curl -fsSL https://…/install.sh | sh` and a PowerShell equivalent), a Homebrew tap, a Docker image, and an npm package `@vibranium/cli` that downloads the right binary (for JavaScript projects that want it in `devDependencies`).
 - **Command names.** The installer adds `vibranium` and `vc`, and warns if another `vc` is already on `PATH`.

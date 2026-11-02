@@ -65,4 +65,4 @@ panic = "deny"
 [profile.release]
 lto = "thin"
 codegen-units = 4
-strip = "symbols"
+strip = "debuginfo"

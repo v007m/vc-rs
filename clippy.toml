@@ -17,7 +17,12 @@ disallowed-types = [
   { path = "std::sync::LazyLock", reason = "global state: inject dependencies instead" },
   { path = "std::sync::OnceLock", reason = "global state: inject dependencies instead" },
   { path = "std::cell::RefCell", reason = "interior mutability: needs a reviewed #[expect]" },
+  { path = "std::sync::Condvar", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "parking_lot::Mutex", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "parking_lot::RwLock", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "once_cell::sync::Lazy", reason = "global state: inject dependencies instead" },
 ]
 disallowed-macros = [
   { path = "std::thread_local", reason = "global state: inject dependencies instead" },
+  { path = "lazy_static::lazy_static", reason = "global state: inject dependencies instead" },
 ]
