@@ -12,9 +12,8 @@ fn codes_are_unique_and_in_numeric_order() {
 }
 
 #[test]
-fn every_code_is_in_its_category_range() {
+fn every_code_is_in_the_v1_to_v5_range_with_a_title() {
     for code in Code::ALL {
-        assert_eq!(code.number() / 1000, code.category().digit(), "{code}");
         assert!((1001..=5999).contains(&code.number()), "{code}");
         assert!(!code.title().is_empty(), "{code}");
     }
@@ -40,7 +39,7 @@ fn prints_and_parses_as_v_number() {
 
 #[test]
 fn rejects_unknown_or_malformed_codes() {
-    for text in ["V9999", "V02003", "2003", "v2003", ""] {
+    for text in ["V9999", "V02003", "V+2003", "V+203", "V0123", "V200", "2003", "v2003", "V", ""] {
         assert_eq!(text.parse::<Code>(), Err(DiagnosticsError::UnknownCode(text.to_owned())));
     }
 }
@@ -50,7 +49,14 @@ fn carries_title_and_default_severity() {
     assert_eq!(Code::V2003.title(), "Unknown api or test");
     assert_eq!(Code::V2003.default_severity(), Severity::Error);
     assert_eq!(Code::V3104.default_severity(), Severity::Warning);
-    assert_eq!(Code::V4001.category(), Category::Convention);
+}
+
+#[test]
+fn category_comes_from_the_first_digit() {
+    let found = [Code::V1004, Code::V2003, Code::V3104, Code::V4001, Code::V5101].map(Code::category);
+    let expected =
+        [Category::Syntax, Category::Reference, Category::Lifecycle, Category::Convention, Category::Runtime];
+    assert_eq!(found, expected);
 }
 
 #[test]

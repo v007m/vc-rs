@@ -24,20 +24,6 @@ pub enum Category {
     Runtime,
 }
 
-impl Category {
-    /// The first digit of this category's codes: 2 for V2xxx.
-    #[must_use]
-    pub const fn digit(self) -> u16 {
-        match self {
-            Self::Syntax => 1,
-            Self::Reference => 2,
-            Self::Lifecycle => 3,
-            Self::Convention => 4,
-            Self::Runtime => 5,
-        }
-    }
-}
-
 /// A stable diagnostic code such as V2003, with its title and default severity.
 ///
 /// Every code is an associated const (`Code::V2003`), listed in [`Code::ALL`]; a code is never
@@ -45,7 +31,6 @@ impl Category {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Code {
     number: u16,
-    category: Category,
     severity: Severity,
     title: &'static str,
 }
@@ -57,10 +42,16 @@ impl Code {
         self.number
     }
 
-    /// The area the code belongs to.
+    /// The area the code belongs to, from its first digit (every code is in V1001 to V5999).
     #[must_use]
     pub const fn category(self) -> Category {
-        self.category
+        match self.number / 1000 {
+            1 => Category::Syntax,
+            2 => Category::Reference,
+            3 => Category::Lifecycle,
+            4 => Category::Convention,
+            _ => Category::Runtime,
+        }
     }
 
     /// The severity a diagnostic with this code has unless something overrides it.
@@ -85,9 +76,11 @@ impl fmt::Display for Code {
 impl FromStr for Code {
     type Err = DiagnosticsError;
 
-    /// Looks a code up by its text, `"V2003"`.
+    /// Looks a code up by its text: `V` and exactly four ASCII digits, `"V2003"`.
     fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let found = Self::ALL.iter().copied().find(|code| code.to_string() == text);
+        let digits = text.strip_prefix('V').filter(|d| d.len() == 4 && d.bytes().all(|b| b.is_ascii_digit()));
+        let number = digits.and_then(|d| d.parse::<u16>().ok());
+        let found = number.and_then(|n| Self::ALL.iter().copied().find(|code| code.number == n));
         found.ok_or_else(|| DiagnosticsError::UnknownCode(text.to_owned()))
     }
 }

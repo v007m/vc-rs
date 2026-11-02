@@ -43,16 +43,17 @@ pub struct SourceSpan {
 }
 
 impl SourceSpan {
-    /// The span from `start` up to `end` in `file`.
+    /// The span between `start` and `end` in `file`; the two are swapped when `end` comes first.
     #[must_use]
-    pub const fn new(file: SourceFileId, start: Pos, end: Pos) -> Self {
-        Self { file, start, end }
+    pub fn new(file: SourceFileId, start: Pos, end: Pos) -> Self {
+        if end < start { Self { file, start: end, end: start } } else { Self { file, start, end } }
     }
 
-    /// The bytes the span covers.
+    /// The bytes the span covers, lowest offset first even if the fields were set inverted.
     #[must_use]
     pub const fn byte_range(&self) -> Range<usize> {
-        self.start.offset..self.end.offset
+        let (a, b) = (self.start.offset, self.end.offset);
+        if a <= b { a..b } else { b..a }
     }
 }
 
@@ -79,5 +80,14 @@ mod tests {
         let span = SourceSpan::new(SourceFileId::new(0), Pos::new(2, 3, 14), Pos::new(2, 8, 19));
         assert_eq!(span.byte_range(), 14..19);
         assert_eq!(Pos::START, Pos::new(1, 1, 0));
+    }
+
+    #[test]
+    fn inverted_spans_are_normalised() {
+        let (early, late) = (Pos::new(2, 3, 14), Pos::new(2, 8, 19));
+        let span = SourceSpan::new(SourceFileId::new(0), late, early);
+        assert_eq!((span.start, span.end), (early, late));
+        let hand_built = SourceSpan { file: SourceFileId::new(0), start: late, end: early };
+        assert_eq!(hand_built.byte_range(), 14..19);
     }
 }
