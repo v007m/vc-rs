@@ -201,7 +201,7 @@ Each state machine is an `enum` of states and a single `transition(state, input)
 ```rust
 // The instance workflow, simplified. Pure: inputs in, next state and commands out.
 pub enum InstanceState { Pending, Before(Cursor), Body(Cursor), After(Cursor), Cleanup(Cursor), Done(Status) } // Status includes Skipped (D126)
-pub enum InstanceInput { SharedReady, SharedFailed(Failure), ActionDone(ActionOutcome), Cancelled } // Shared*: sent to a Pending instance once beforeRun and beforeAll have finished (D122)
+pub enum InstanceInput { Start, Block(Failure), ActionDone(ActionOutcome), Cancelled } // the file orchestrator sends Start or Block (from the needs analysis) once beforeRun and beforeAll have finished (D122)
 pub enum Command { RunAction(ActionId, OwnerKey), RunCleanup(PendingCleanup), Emit(Event), Finish(Status) }
 
 pub fn transition(state: InstanceState, input: InstanceInput, test: &Test) -> (InstanceState, Vec<Command>);
@@ -408,7 +408,7 @@ pub struct Check {
 pub struct Template { pub parts: Vec<Part> }
 pub enum Part { Literal(String), Ref(Reference) }
 pub struct Reference {
-    pub ns: Namespace,                    // Var, Env, Secret, Response, Step(Sym), Example, Item, Iteration, Fake, Dataset, Run
+    pub ns: Namespace,                    // Var, Env, Secret, Response, Request, Step(Sym), Example, Item, Iteration, Fake, Dataset, Run (D125)
     pub path: Path,                       // .body.items[0].id
     pub pipes: Vec<PipeCall>,             // | int | default('x')
     pub span: SourceSpan,
@@ -430,7 +430,7 @@ The remaining entities (`ApiGroup`, `Profile`, `AuthDef`, `LoadScenario`, `Datas
 
 ## Compiler
 
-The compiler turns the project's files into a `Program` or a list of diagnostics. It is pure: the engine finds the files and hands their texts in through a `SourceProvider`, and the compiler returns the program or the diagnostics, plus a `CompileCache` value that the engine persists (D132). It runs on `vc check`, at the start of every run, on every keystroke in the editors (through the engine's `Check` call) and before any command writes a file. It collects every problem in one pass instead of stopping at the first.
+The compiler turns the project's files into a `Program` or a list of diagnostics. It is pure: the engine reads the files through the `SourceProvider` trait and hands the compiler plain `SourceFile { path, text, hash }` values (a `vc-model` type), so the compiler never depends on `vc-interfaces`; the compiler returns the program or the diagnostics, plus a `CompileCache` value that the engine persists (D132). It runs on `vc check`, at the start of every run, on every keystroke in the editors (through the engine's `Check` call) and before any command writes a file. It collects every problem in one pass instead of stopping at the first.
 
 ### Stages
 
@@ -604,7 +604,7 @@ run_instance(instance):                           # repeated per attempt when th
 
 `run_action` dispatches on the action kind:
 
-- **Call.** Wait for any shared slots the templates read; resolve the effective auth (step, then api, then api file); render the request (method, URL from the api file's `baseUrl`, headers, query, body) against the scope; run `beforeRequest` hooks; send through the transport; run `afterResponse` hooks; evaluate the merged checks; if `poll` is set, repeat until `until` holds or its timeout passes; apply `save` (api saves, then the action's); if the status is 2xx, the api has `cleanup` and the action isn't `keep`, render the cleanup's vars against this response and push it onto the owner's cleanup stack.
+- **Call.** Resolve the effective auth (step, then api, then api file); render the request (method, URL from the api file's `baseUrl`, headers, query, body) against the scope; run `beforeRequest` hooks; send through the transport; run `afterResponse` hooks; evaluate the merged checks; if `poll` is set, repeat until `until` holds or its timeout passes; apply `save` (api saves, then the action's); if the status is 2xx, the api has `cleanup` and the action isn't `keep`, render the cleanup's vars against this response and push it onto the owner's cleanup stack.
 - **Test** (`test:` reuse). Run the reused test's calls in order inside the current frame, with each api's checks; the reused test's own test-level checks are skipped.
 - **Function / command.** Send the call to the hook thread or spawn the process through the `CommandRunner` trait (with a timeout and the run's environment); a non-zero exit (V5110) or a thrown error fails the action; a returned object becomes saved values. A dynamically saved value that a later template uses without a `provides:` declaration is V5108; a declared one the action did not return is V5109 (D128). The `function:` executor is registered in M4; until then the planner rejects `function:` actions.
 - **Loops.** `repeat` and `forEach` expand into iterations run in a `JoinSet` under a semaphore of size `parallel` (default 1). Each iteration writes its saved values into slot `i` of a pre-sized list, so lists come out in iteration order however the iterations finish. On failure, the action waits for the iterations already running, keeps their cleanups, and reports the first failure.
@@ -1058,7 +1058,7 @@ Milestones are sized for a coding agent to take one at a time, each ending in so
 | # | Milestone | Delivers | Done when | Release |
 | --- | --- | --- | --- | --- |
 | M0 | Workspace and gates | Crate skeletons for M0–M2 with the layer rules (including `vc-testkit` and a `vc-adapter-system` skeleton), `gates.sh`, `arch-tests`, the gates self-test (D121), CI on three OSes, CODEOWNERS and branch protection (D118), the mock server in `bench/mock`, `rust-toolchain.toml`, `mise.toml` | CI is green on all three OSes; `gates-selftest.sh` shows every bad patch rejected by its gate; branch protection is active; `vc --version` works | — |
-| M1 | Read and check | `parser` (marked YAML/JSON), file shapes for all kinds, `template` (templates, pipes, CEL), a pure compiler fed by the engine's `SourceProvider` and returning a `CompileCache` (D132), the linker, diagnostics V1xxx–V3xxx, `vc check` (exit 0, 2 or 70), `vc schema export` | The diagnostics golden suite passes; the compile budget holds on a generated 1,000-file project | v2.0 |
+| M1 | Read and check | `parser` (marked YAML/JSON), file shapes for all kinds, `template` (templates, pipes, CEL), a pure compiler fed `SourceFile` values that the engine reads through its `SourceProvider`, returning a `CompileCache` (D132), the linker, diagnostics V1xxx–V3xxx, `vc check` (exit 0, 2 or 70), `vc schema export` | The diagnostics golden suite passes; the compile budget holds on a generated 1,000-file project | v2.0 |
 | M2 | Run | Planner, executor (calls, steps, lifecycle blocks, shared slots, cleanup, loops, retry, poll, cancellation), HTTP transport with timings, matchers and checks, vars and profiles with config layering (D129), console, CTRF and JUnit reporters, `vc run` selectors including `--changed`, `vc plan`, `vc list`, exit codes with 130 and 70 (D127, D130) | The e2e suite passes against the mock server, including "50 tests, 1 setup request" and cleanup on Ctrl-C; the executor property tests pass | v2.0 |
 | M3 | Identity and memory | Auth providers and token cache, Varlock secrets, redactor (body and value masking; headers since M2), history store, cache store, `vc history`, `--failed` (D130), the HTML report (folder and single), `vc report` | Secrets never appear in any output in the redaction test suite; a 10,000-test report meets its budget | v2.0 |
 | M4 | Code and data | Hook bridge (oxc + QuickJS), custom checks, `function:` actions, generators, datasets, `$extend`, `$cel` | Hook budgets met; a hook overrunning its time or memory is stopped and reported with the TypeScript line | v2.0 |

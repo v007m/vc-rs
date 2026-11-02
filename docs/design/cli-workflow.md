@@ -383,7 +383,7 @@ plan  1 test · lifecycle: beforeAll catalog (cached, 3h left) · beforeEach ×3
 
 ### A new api
 
-`vc new api <fileId>#<apiId>` appends to the api file with that ID, creating `services/<first word>/<fileId>.api.yaml` if none exists. Path parameters become vars, so `{id}` is written as `${var.id}`:
+`vc new api <fileId>#<apiId>` appends to the api file with that ID, creating it if none exists at the path its ID derives from (D139): the ID's words become folders and the last word the file name, and a one-word ID gets its own folder (`users` → `services/users/users.api.yaml`, `payments.refunds` → `services/payments/refunds.api.yaml`). Path parameters become vars, so `{id}` is written as `${var.id}`:
 
 ```
 $ vc new api users#deactivate --method POST --path /users/{id}/deactivate

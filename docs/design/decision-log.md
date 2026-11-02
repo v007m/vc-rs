@@ -246,6 +246,8 @@ Round 16 additions (full-ID separator, 2 November 2026):
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
 
+- The mockup seed project (`design/mockups/generators/editor-src/seed/`) and the generated canvases predate D138–D140 (dotted full IDs, `id:`/path mismatches). Update them at the M9 kick-off, before they are used as web UI fixtures.
+
 Carried to milestone kick-offs (Round 15):
 
 - Default secrets provider: Varlock (a Node CLI) or environment variables with Varlock opt-in — decide at M3.
