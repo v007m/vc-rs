@@ -108,7 +108,7 @@ Third-party crates:
 | CEL | `cel-interpreter` 0.10 | The maintained Rust CEL implementation; wrapped so it can be swapped |
 | JSON Schema | `jsonschema` 0.60 | Body schema checks and file-format validation |
 | Fake data | `fake` 5 | Faker-style generators; names mapped to the Faker JS catalogue used in templates |
-| Diagnostics rendering | `miette` 7 | Rustc-style rendering with labels, help and codes; also emits JSON |
+| Diagnostics rendering | hand-written (`TextRenderer`, `JsonRenderer` in `vc-diagnostics`); `miette` dropped at M1 | Rustc-style text and the stable `vc check --json` shape. `miette` was dropped because a report holds one source text, so a secondary label in another file (the earlier duplicate, the profile in the config) needs a separate related report; fixes and the JSON shape (spans by path, a summary) would be ours either way; and it adds a colour and text-wrapping dependency tree under `multiple-versions = deny`. The renderer is about 400 lines |
 | Diffs | `similar` 3 | Line diffs for `--fix`, sync previews and the editor |
 | Interning, maps | `indexmap` 2, `smol_str` 0.3; interning is hand-written (`StringTable` in `vc-model`) | Cheap IDs, ordered maps, small strings; `lasso` 0.7 was dropped because it pins `hashbrown` 0.14 next to indexmap's 0.17, which `multiple-versions = deny` rejects |
 | Graphs | `petgraph` 0.8 | Cycle detection and topological order in the planner |
@@ -284,7 +284,25 @@ pub struct SourceSpan {
 pub struct Pos { pub line: u32, pub column: u32, pub offset: usize }
 
 pub struct Duration(std::time::Duration); // parsed from "250ms", "2s", "1m" by the template crate
-pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb" by the template crate
+pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb" by the template crate (binary units, D146)
+
+/// One file as the engine read it, handed to the pure compiler (D132).
+pub struct SourceFile { pub path: SourcePath, pub text: String, pub hash: ContentHash }
+pub struct SourcePath(String);   // project-relative, `/` on every OS, `//` and `.` parts collapsed;
+                                 // no leading `/`, no `..`, no `:` in any part (drives, NTFS streams),
+                                 // last part not empty or `.`, no control or bidi characters
+pub struct ContentHash([u8; 32]); // opaque; the engine computes BLAKE3 when it reads the file
+
+/// From the path, through a table of patterns (`vibranium.config.yaml`, `*.api.yaml`,
+/// `*.test.yaml`, `*.load.yaml`). `*` patterns match the file name in any folder; Config is
+/// only `vibranium.config.yaml` at the project root, and one in a folder has no kind.
+/// Schemas, datasets and hooks have no kind: the reference that reads them (`$file`,
+/// `datasets`, `function:`) says what they are.
+pub enum FileKind { Config, Api, Test, Load }
+
+/// The files by SourceFileId (`push` hands out the next ID), with the lookups renderers need:
+/// `position(id, offset) -> Option<Pos>` and `line(id, n) -> Option<&str>`.
+pub struct SourceFiles { /* files plus each file's line starts */ }
 ```
 
 ### The program
@@ -293,7 +311,7 @@ pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb" b
 /// Everything `vc check` produced, frozen and shared read-only (Arc<Program>).
 pub struct Program {
     strings: StringTable,                            // the interned strings; private, reached through program.str(sym)
-    pub files: Vec<SourceFile>,                      // path, kind, content hash
+    pub files: SourceFiles,                          // path, text, hash per SourceFileId; kind from the name
     pub config: Config,                              // defaults, reports, history, secrets
     pub profiles: IndexMap<ProfileId, Profile>,      // at least one; one marked default
     pub auth: IndexMap<AuthId, AuthDef>,
@@ -418,20 +436,26 @@ pub struct Check {
 }
 
 /// "/users/${var.userId}" is stored as parts, parsed once at compile time.
-pub struct Template { pub parts: Vec<Part> }
+pub struct Template { pub parts: Vec<Part> }   // preserves_type(): parts is exactly one Ref
 pub enum Part { Literal(String), Ref(Reference) }
 pub struct Reference {
     pub ns: Namespace,                    // Var, Env, Secret, Response, Request, Step(Sym), Example, Item, Iteration, Fake, Dataset, Run (D125)
-    pub path: Path,                       // .body.items[0].id
-    pub pipes: Vec<PipeCall>,             // | int | default('x')
+    pub path: Path,                       // .body.items[0].id; Segment = Key | Index(i64) | All
+    pub args: Vec<serde_json::Value>,     // literal generator arguments: ${fake.lorem.words(5)}; empty otherwise
+    pub pipes: Vec<PipeCall>,             // | int | default('x'); PipeCall { name, args, name_span, span }
     pub span: SourceSpan,
+    pub root_span: SourceSpan,            // the root as written, for fixes; the whole scalar where spans are approximate
 }
+
+/// Where and how the parser found a scalar; vc-template maps spans into it.
+pub struct ScalarSource { pub span: SourceSpan, pub style: ScalarStyle }
+pub enum ScalarStyle { Plain, SingleQuoted { escaped: bool }, DoubleQuoted { escaped: bool }, Block } // escaped: `''` or a backslash
 
 /// A value that may hold templates anywhere inside (bodies, vars, saves).
 pub enum TemplateValue {
     Null, Bool(bool), Number(serde_json::Number), String(Template),
     List(Vec<TemplateValue>), Map(IndexMap<String, TemplateValue>),
-    Cel(CelProgram),                      // $cel: computed value
+    Cel(CelSource),                       // $cel: source text and span; the compiled program is added with CEL
     Extend { base: Template, changes: Box<TemplateValue>, remove: Vec<Path> },
 }
 
@@ -514,9 +538,24 @@ Diagnostic::new(Code::V2003, span, "unknown api \"orders#plcae\"")
     .fix(Fix::certain("Replace with orders#place", vec![TextEdit::replace(span, "orders#place")]))
 ```
 
-A `Diagnostics` collection gathers them (`push`, `extend`, `has_errors`) and `sort()`s them for display by file-table order (the compiler adds files in path order), then position, then code. These types serialize with serde (camelCase keys, codes as `"V2003"`, severities in lowercase), but that is not yet the `vc check --json` shape: spans hold a `SourceFileId` index, and the JSON reporter (A2) replaces it with the file path.
+A `Diagnostics` collection gathers them (`push`, `extend`, `has_errors`) and `sort()`s them for display by file-table order (the compiler adds files in path order), then position, then code. These types serialize with serde (camelCase keys, codes as `"V2003"`, severities in lowercase), but that is not the `vc check --json` shape: spans hold a `SourceFileId` index, which the JSON renderer replaces with the file path.
 
-Diagnostics render through `miette` in the terminal, as JSON with `--json`, and over the engine API to the editors and the web UI, which show the same code, text and fixes.
+Diagnostics render through the `Render` trait (`render(&Diagnostics, &SourceFiles) -> Result<String, DiagnosticsError>`), in the order given, so callers `sort()` first. `TextRenderer` writes the rustc-style text shown in the CLI doc: `error[V2003]: message`, `--> path:line:col`, the excerpt with the primary span underlined `^^^` and its label, secondary labels underlined `---`, then `= note:`, `= help:` and `= fix: <title>`, with ` (certain)` after a certain fix. Excerpts are grouped by file, the primary's file first and the others in the order their first label appears: each file gets one location line (`-->` for the first, `::: path:line:col` for the rest) and its excerpts in line order, with `...` between disjoint ones. Labels in one file whose lines overlap, touch or are one line apart share one excerpt (a single line between them is shown, not elided), each underlined on its own row under the line, primary first. A span over more than four lines shows its first two lines, `...` and its last; a span ending at column 1 of a line (just past a newline) ends on the line before. Control characters and bidi controls in messages, labels, notes, help, fix titles, paths and source lines print as one column-wide control picture each (C0 as its own such as `␛`, DEL as `␡`, C1 and U+202A–202E, U+2066–2069, U+200E, U+200F, U+061C as the substitute picture `␚`), so a file cannot drive the terminal; `SourcePath` already rejects them, so this is defence in depth. Fix edits into a file missing from the table fail with `UnknownFile`, as in the JSON renderer. Colour is off unless `.color(true)` turns it on; the CLI decides (a terminal and no `NO_COLOR`). `JsonRenderer` writes the stable shape for `vc check --json`, editors and agents:
+
+```json
+{
+  "summary": { "errors": 1, "warnings": 0, "infos": 0 },
+  "diagnostics": [{
+    "code": "V2003", "severity": "error", "message": "unknown api \"orders#plcae\"",
+    "primary": { "span": { "path": "services/orders/checkout.test.yaml", "line": 4, "column": 11, "endLine": 4, "endColumn": 23 }, "text": "not defined" },
+    "secondary": [], "notes": [], "help": ["did you mean orders#place?"],
+    "fixes": [{ "title": "Replace with orders#place", "certain": true,
+                "edits": [{ "path": "services/orders/checkout.test.yaml", "range": { "start": 57, "end": 69 }, "newText": "orders#place" }] }]
+  }]
+}
+```
+
+Lines are 1-based, columns 1-based in characters, and `endLine`/`endColumn` point just past the span; edit ranges are 0-based byte offsets. A span or edit naming a file not in `SourceFiles` is `DiagnosticsError::UnknownFile`, an internal error. The engine API carries the same data to the editors and the web UI, which show the same code, text and fixes.
 
 ### Editing files without reformatting them
 
@@ -687,10 +726,11 @@ Config values are layered once, lowest first: built-in defaults < user config < 
 
 ### Rendering
 
-- **Type preservation.** A value that is exactly one template keeps its type (number, list, object); a template inside other text renders to a string. This is decided at compile time and stored in the template.
+- **Type preservation.** A value that is exactly one template keeps its type (number, list, object); a template inside other text renders to a string. This is decided at compile time from the parsed parts (`Template::preserves_type`).
 - **Fake data memo.** A var defined as `${fake.…}` is generated once per instance (or per loop iteration) and then reused, so one value can appear in several places; an inline `${fake.…}` is fresh each time it is rendered (D131).
 - **Paths.** After the namespace, paths walk JSON with `.key`, `[n]` (negative from the end), `[*]` (map over a list) and quoted keys; a missing path is a run-time render failure of that action (V5111), with the path and the actual value shown.
-- **Pipes.** Registered functions `fn(Value, &[Arg]) -> Result<Value>`: `number`, `int`, `bool`, `string`, `json`, `jsonString`, `base64`, `fromBase64`, `lower`, `upper`, `trim`, `urlEncode`, `default`, `random`, `shuffle`, `take`. A plugin can register more under a prefix.
+- **Pipes.** Registered functions `fn(Value, &[Arg]) -> Result<Value>`: `number`, `int`, `bool`, `string`, `json`, `jsonString`, `base64`, `fromBase64`, `lower`, `upper`, `trim`, `urlEncode`, `default`, `random`, `shuffle`, `take`. A plugin registers more under its prefix (`acme.mask`); `PipeRegistry::register` returns `TemplateError::UnprefixedPipe` or `DuplicatePipe` otherwise. The `PipeRegistry` holds each pipe's signature (argument types, input and output type) so `vc check` reports an unknown pipe or wrong arguments (V2308) and a pipe given the wrong type (V2304) before the run. Messages name types in the Syntax Reference's words (`a list`, `a whole number ≥ 0`).
+- **Parsing.** `vc_template::parse(text, ScalarSource, &mut StringTable) -> Result<Template, TemplateError>`; `TemplateError::Syntax` carries a V2305 diagnostic naming what the innermost rule expected, and `TemplateError::Internal` wraps a `ModelError` such as a full string table. The parser reports each scalar's style, so spans are exact only for one-line plain scalars and quoted scalars without escapes; for block scalars, folded lines and escaped quoted scalars the span is the whole scalar and no diagnostic offers a fix. Literal arguments are JSON numbers, `true`, `false` and single-quoted strings; `null` and double-quoted strings are V2305, with a certain fix that swaps the quotes when the text has no `'` or `\` and the scalar is not single-quoted (D151). A bare `status`, `headers` or `body` parses as a step id; `Roots::check` reports it as V2105 unless that step is available, with a certain fix that inserts `response.` when the root span is exact (D150).
 - **`$extend` and `$remove`.** The base value is rendered, the changes are deep-merged into it (maps merge, lists and scalars replace, `null` sets null), then the `$remove` paths are deleted.
 - **Secrets.** `${secret.X}` renders the real value into the request, and the value is registered with the redactor the moment it is first resolved, so it is masked in every event and output.
 
@@ -703,7 +743,7 @@ pub trait Expr: Send + Sync {
     fn eval(&self, activation: &Activation) -> Result<Value, ExprError>;
 }
 // Activation roots (D125): response (status, headers, body, timing), request, var (D53), env, item,
-// iteration, example, and each step id. Inside `expect`, bare status/headers/body alias response.*.
+// iteration, example, and each step id. There are no bare status/headers/body aliases (D150).
 // A root not available at that spot is a compile error (V2105).
 ```
 
@@ -938,7 +978,7 @@ Every interface is a thin adapter over the `engine` facade, so a capability adde
 
 ### CLI (`apps/cli`)
 
-`clap` derive commands as listed in the CLI and Developer Workflow doc; global flags `--profile`, `--json`, `--project`, `--log`. Console output is written by the console reporter (spec, dots, json) and the `miette` diagnostic renderer; colour and progress bars switch off when stdout is not a terminal. Exit codes follow that doc (0 pass, 1 failed or blocked, 2 nothing ran, 3 load threshold, 4 sync drift), plus 130 when cancelled and 70 for an internal error, which prints a report hint and writes a redacted debug bundle (D127). `vc-cli` owns `main` and dispatches `vc tui`, `vc mcp` and `vc ui` to their app crates (D110). `vc completion <shell>` generates static completion plus a dynamic hook (`vc __complete`) that lists project IDs.
+`clap` derive commands as listed in the CLI and Developer Workflow doc; global flags `--profile`, `--json`, `--project`, `--log`. Console output is written by the console reporter (spec, dots, json) and the diagnostics `TextRenderer`; colour and progress bars switch off when stdout is not a terminal. Exit codes follow that doc (0 pass, 1 failed or blocked, 2 nothing ran, 3 load threshold, 4 sync drift), plus 130 when cancelled and 70 for an internal error, which prints a report hint and writes a redacted debug bundle (D127). `vc-cli` owns `main` and dispatches `vc tui`, `vc mcp` and `vc ui` to their app crates (D110). `vc completion <shell>` generates static completion plus a dynamic hook (`vc __complete`) that lists project IDs.
 
 ### TUI (`apps/tui`)
 
@@ -1011,8 +1051,9 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V2302 | error | Wrong value type (`"3"` for an integer) | convert |
 | V2303 | error | Invalid status code or class | — |
 | V2304 | error | Pipe or path cannot apply to that value's type | — |
-| V2305 | error | CEL does not parse or type-check | — |
+| V2305 | error | Template or CEL does not parse (unclosed `${`, empty `${}`, bad path segment, malformed pipe arguments; D144) | — |
 | V2306 | error | Matcher argument invalid (bad regex, `between` with one value) | — |
+| V2308 | error | Unknown pipe or wrong pipe arguments (arity, argument type; D145) | the closest pipe name, when one is close |
 | V3101 | error | No profile defined, or no active profile for this run | add `default: true` to the only profile |
 | V3102 | error | More than one default profile | — |
 | V3103 | error | `skip` without a reason | — |

@@ -51,8 +51,9 @@ code_table! {
     V2302 = 2302, Error, "Wrong value type";
     V2303 = 2303, Error, "Invalid status code or class";
     V2304 = 2304, Error, "Pipe or path cannot apply to that value's type";
-    V2305 = 2305, Error, "CEL does not parse or type-check";
+    V2305 = 2305, Error, "Template or CEL does not parse";
     V2306 = 2306, Error, "Matcher argument invalid";
+    V2308 = 2308, Error, "Unknown pipe or wrong pipe arguments";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";

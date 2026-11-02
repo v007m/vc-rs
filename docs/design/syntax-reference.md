@@ -24,7 +24,7 @@ These rules govern every file; `vc check` enforces each one with a diagnostic.
 6. **Sections are plural, references are singular.** `vars:` is read as `${var.x}`, `secrets` as `${secret.X}`, `examples:` as `${example.x}`.
 7. **One template syntax:** `${namespace.path}`, optionally followed by pipes that convert the value (`${var.count | number}`), plus generator calls with literal arguments (`${fake.lorem.words(5)}`). No other code inside templates.
 8. **One check form.** `expect` looks the same on apis, tests, steps, actions, polling and load thresholds. A literal means "equals"; anything else is a matcher such as `lt: 500ms`.
-9. **Units are written out.** Durations `250ms`, `2s`, `1m`; sizes `4kb`, `1mb`; rates `1%`. A bare number is never milliseconds.
+9. **Units are written out.** Durations `250ms`, `2s`, `1m`; sizes `4kb`, `1mb` (binary: `kb` is 1024 bytes, `mb` 1024², `gb` 1024³; D146); rates `1%`. A bare number is never milliseconds.
 10. **One flexible `body`.** Nested YAML or pasted JSON is sent as JSON, a string as text, `$file` as file bytes, `$base64` as raw bytes, `$extend` as an existing object with your changes; the `content-type` header decides the encoding.
 11. **Logic lives in two places only:** CEL one-liners (under `expect.cel`, or as a computed value with `$cel`), and functions in code files referenced with `function:`.
 12. **Placement decides lifetime.** Data made in `beforeRun` lives for the run, in `beforeAll` for one test file, in `beforeEach` or `before` for one test. There is no separate scope setting.
@@ -67,9 +67,9 @@ Every dynamic value is written `${namespace.path}`; `vc check` resolves each ref
 | `dataset` | One of your datasets: its whole list of rows (see Generators and datasets) | `${dataset.capitals}` |
 | `run` | `id`, `startedAt`, `profiles` | `${run.id}` |
 
-Where each root is available (D125): `response` and `request` exist only once a call has been made (in `expect`, `save`, `poll` and an api's `cleanup`); `item` only inside `forEach`; `iteration` only inside `repeat`, `forEach` or a repeated test; `example` only in a test with `examples`; an action or step id only after that action, in the same test or block. `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere. Inside `expect`, bare `status`, `headers` and `body` are short for `response.status`, `response.headers` and `response.body`. Using a root where it is not available is V2105 (`${item}` outside `forEach`, `${example}` without `examples` and `${iteration}` outside a loop are V2102) (D125, D137).
+Where each root is available (D125): `response` and `request` exist only once a call has been made (in `expect`, `save`, `poll` and an api's `cleanup`); `item` only inside `forEach`; `iteration` only inside `repeat`, `forEach` or a repeated test; `example` only in a test with `examples`; an action or step id only after that action, in the same test or block. `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere. There are no shorthands: write `response.status`, `response.headers` and `response.body`, in `expect` too. A bare `status`, `headers` or `body` that is not a step id is V2105, with a fix that inserts `response.` (D150). Using a root where it is not available is V2105 (`${item}` outside `forEach`, `${example}` without `examples` and `${iteration}` outside a loop are V2102) (D125, D137).
 
-Paths: after a namespace, and as keys under `expect.body.match`, paths use dotted names, `[n]` for an index (negative counts from the end), `[*]` for every element, and quotes for unusual keys (`headers["x-request-id"]`). Filtering is done with CEL.
+Paths: after a namespace, and as keys under `expect.body.match`, paths use dotted names, `[n]` for an index (negative counts from the end), `[*]` for every element, and quotes for unusual keys (`headers["x-request-id"]` or `['x-request-id']`; quoted keys and text arguments have no escapes). Arguments to pipes and generators are numbers written as in JSON (`-2`, `0.5`, `1e3`, without leading zeros), `true`, `false` and single-quoted text (`default('none')`); `null` and double-quoted text are V2305 (D151). Filtering is done with CEL.
 
 Typing: a value that is exactly one template keeps the referenced type, so `limit: ${var.pageSize}` stays a number and `cities: ${var.cities}` stays a list; a template inside other text gives a string (`user-${run.id}`). Quoting does not change this. To change a type, use a pipe.
 
@@ -441,7 +441,7 @@ OpenAPI import and sync (`vc import openapi`, `vc sync users`) are described in 
         expect:
           status: 201
           cel:
-            same items: body.items == original.body.items
+            same items: response.body.items == original.body.items
 ```
 
 If a value arrives as text but you need it as JSON, or the other way round, convert it with a pipe (see Converting types with pipes): `$extend: ${response.body.payload | json}`.
@@ -583,7 +583,7 @@ tests:
     expect:
       status: 400
       cel:
-        names the email field: body.errors.exists(e, e.field == 'email')
+        names the email field: response.body.errors.exists(e, e.field == 'email')
 
   - id: exportFinishes
     name: A user export completes within two minutes
@@ -775,7 +775,7 @@ tests:
               cityIds:
                 length: 10
           cel:
-            same cities in the same order: body.cityIds == var.cities.map(c, c.id)
+            same cities in the same order: response.body.cityIds == var.cities.map(c, c.id)
 ```
 
 After the test, the group is deleted first and then the ten cities, because cleanups run newest first. To send whole objects instead of IDs, the api's body can use `cities: ${var.cities}`. To create named cities from a file instead of random ones:
@@ -863,7 +863,7 @@ beforeEach:
 | `body.equals` | the whole body, compared deeply | `equals: {"ok": true}` |
 | `size` | matcher on body size | `size: {lt: 100kb}` |
 | `timing.<phase>` | matcher on `dns`, `connect`, `tls`, `firstByte`, `download`, `total` | `total: {lt: 500ms}` |
-| `cel.<label>` | CEL expression that must be true; variables are the roots available there (see Templates and references), with bare `status`, `headers` and `body` short for `response.*` (D125) | `has items: size(body.items) > 0` |
+| `cel.<label>` | CEL expression that must be true; variables are the roots available there (see Templates and references); write `response.body`, not `body` (D125, D150) | `has items: size(response.body.items) > 0` |
 | `custom` | list of functions, `- function: path#export` | `- function: hooks/checks.ts#isSorted` |
 | `replace` | `true` | Drop every inherited check and keep only the ones written here (D123) | `replace: true` |
 
@@ -878,7 +878,7 @@ Merging (D123): checks are inherited from the api, then the test, then the step,
     expect:
       status: 409
       cel:
-        names the email field: body.errors.exists(e, e.field == 'email')
+        names the email field: response.body.errors.exists(e, e.field == 'email')
 
   - id: reportsMaintenance
     name: Returns 503 during maintenance, whatever the body
@@ -894,7 +894,7 @@ The first test replaces the api's `status: 201` and keeps its other checks, and 
 
 ### CEL in one minute
 
-CEL (Common Expression Language) is a small expression language from Google, also used for rules in Kubernetes, Firebase and Google Cloud. It reads like a JavaScript one-liner: `body.total > 0 && body.items.all(i, i.price > 0)`. It has no loops, network or file access, so an expression always finishes, cannot leak secrets and is type-checked by `vc check` before the run. The same expression behaves the same in every SDK. Useful parts: `size(x)`, `x.all(i, …)`, `x.exists(i, …)`, `x.map(i, …)`, `x.filter(i, …)`, `has(body.field)`, `matches(s, regex)`, `timestamp(…)`, `duration(…)`. The same language computes values with `$cel` (see Templates and references). Anything longer than a line belongs in a `custom` function.
+CEL (Common Expression Language) is a small expression language from Google, also used for rules in Kubernetes, Firebase and Google Cloud. It reads like a JavaScript one-liner: `response.body.total > 0 && response.body.items.all(i, i.price > 0)`. It has no loops, network or file access, so an expression always finishes, cannot leak secrets and is type-checked by `vc check` before the run. The same expression behaves the same in every SDK. Useful parts: `size(x)`, `x.all(i, …)`, `x.exists(i, …)`, `x.map(i, …)`, `x.filter(i, …)`, `has(response.body.field)`, `matches(s, regex)`, `timestamp(…)`, `duration(…)`. The same language computes values with `$cel` (see Templates and references). Anything longer than a line belongs in a `custom` function.
 
 Matchers:
 
@@ -1081,7 +1081,7 @@ The same definition serves every profile: under `--profile prod` it logs in to `
 
 Rules:
 
-- Arguments are literals only: numbers, booleans and single-quoted strings.
+- Arguments are literals only: numbers, booleans and single-quoted strings; `null` and double quotes are V2305 (D151).
 - A var defined as `${fake.…}` is generated once per test instance, or once per loop iteration, and every `${var.…}` read of it gets the same value: put it in `vars` once (`email: ${fake.internet.email}`) and use `${var.email}` (D131).
 - A `${fake.…}` written inline in a field generates a new value every time it is rendered (D131).
 - `vc run --seed 42` makes generated data repeatable; the seed is printed in every report and with every failure (D131).
@@ -1390,7 +1390,7 @@ tests:
                   gte: 1
               total: ${var.orderTotal}
           cel:
-            total equals sum of lines: body.total == body.items.map(i, i.price * i.quantity).sum()
+            total equals sum of lines: response.body.total == response.body.items.map(i, i.price * i.quantity).sum()
           custom:
             - function: ../../hooks/checks.ts#currencyIsConsistent
 
