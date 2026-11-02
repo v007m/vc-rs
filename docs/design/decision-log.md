@@ -242,6 +242,14 @@ Round 16 additions (full-ID separator, 2 November 2026):
 | D139 | File IDs from paths | A file's `id:` is optional; when absent it is derived from the path: drop the conventional root (`services/`, `load/`, else the project root) and the kind suffix, join folders and stem with dots, lowercase, and collapse a stem equal to its folder (`services/users/users.api.yaml` → `users`, `services/payments/refunds/partial.test.yaml` → `payments.refunds.partial`, `load/checkout/peak.load.yaml` → `checkout.peak`). An explicit `id:` must equal the derived one: a mismatch is error V2007, whose certain fix renames the ID and its references. A move that breaks references (file without `id:`) is detected through the compile cache, and V2003 then offers a certain fix that updates them. `vc new` and `vc init` still write `id:`. Two files deriving the same ID are V2001 | D138 "from its `id:` key, not its path"; file `id` required |
 | D140 | Instance selector | One example row or repeat of a test is selected with `:n` (`vc run users.crud#rejectsBadEmail:2`), safe unquoted in every shell | `#n` instance selector |
 
+Round 17 additions (PR #1 review, 2 November 2026):
+
+| # | Decision | Choice | Supersedes |
+| --- | --- | --- | --- |
+| D141 | Request pipeline order | timing → retry (`refreshOn`, `http.retry`) → auth → `beforeRequest` hooks → per-host limit → timeout (per attempt) → transport. A timed-out attempt can be retried; a total cap across attempts, if ever needed, is a separate optional setting | D134 order (timeout outside retry) |
+| D142 | File-ID collapse scope | Only `*.api.yaml` files collapse a stem equal to their folder (`services/users/users.api.yaml` → `users`). Other kinds keep both words (`services/orders/orders.test.yaml` → `orders.orders`), so they never clash with the api file; V4003 suggests a better name | D139 collapse for every kind |
+| D143 | `http.retry` shape | `{ attempts: 0, on: [connect, timeout, 502, 503, 504], methods: [GET, HEAD, OPTIONS, PUT, DELETE], backoff: { base: 100ms, max: 2s, jitter: true } }`: off by default, idempotent methods only, exponential backoff with jitter. Set in config, overridable per api | D126 left the shape open |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

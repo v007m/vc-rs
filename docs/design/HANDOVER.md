@@ -4,7 +4,7 @@ The design was worked out between Sarath and Claude in one long claude.ai conver
 
 ## State on handover
 
-- **Done:** PRD, technical design, Rust LLD, syntax reference, CLI and workflow spec, and a decision log with D1–D95. The implementation kick-off grill (Round 15, D96–D137, plus D138–D140 in Round 16) then settled the toolchain, repo layout, crate names, engineering rules and the open semantics for M0–M2. Also done: a Rust feasibility spike (passed) and clickable mockups of every CLI, TUI, web UI and report screen.
+- **Done:** PRD, technical design, Rust LLD, syntax reference, CLI and workflow spec, and a decision log with D1–D95. The implementation kick-off grill (Round 15, D96–D137, plus D138–D140 in Round 16 and D141–D143 in Round 17) then settled the toolchain, repo layout, crate names, engineering rules and the open semantics for M0–M2. Also done: a Rust feasibility spike (passed) and clickable mockups of every CLI, TUI, web UI and report screen.
 - **Not started:** engine code. The first task is M0 (see below).
 - **Not yet written:**
   - the `.proto` contracts (`vibranium.{ir,engine,plugin,results}.v1`);
