@@ -108,7 +108,7 @@ Third-party crates:
 | CEL | `cel-interpreter` 0.10 | The maintained Rust CEL implementation; wrapped so it can be swapped |
 | JSON Schema | `jsonschema` 0.60 | Body schema checks and file-format validation |
 | Fake data | `fake` 5 | Faker-style generators; names mapped to the Faker JS catalogue used in templates |
-| Diagnostics rendering | `miette` 7 | Rustc-style rendering with labels, help and codes; also emits JSON |
+| Diagnostics rendering | hand-written (`TextRenderer`, `JsonRenderer` in `vc-diagnostics`); `miette` dropped at M1 | Rustc-style text and the stable `vc check --json` shape. `miette` was dropped because a report holds one source text, so a secondary label in another file (the earlier duplicate, the profile in the config) needs a separate related report; fixes and the JSON shape (spans by path, a summary) would be ours either way; and it adds a colour and text-wrapping dependency tree under `multiple-versions = deny`. The renderer is about 200 lines |
 | Diffs | `similar` 3 | Line diffs for `--fix`, sync previews and the editor |
 | Interning, maps | `indexmap` 2, `smol_str` 0.3; interning is hand-written (`StringTable` in `vc-model`) | Cheap IDs, ordered maps, small strings; `lasso` 0.7 was dropped because it pins `hashbrown` 0.14 next to indexmap's 0.17, which `multiple-versions = deny` rejects |
 | Graphs | `petgraph` 0.8 | Cycle detection and topological order in the planner |
@@ -285,6 +285,20 @@ pub struct Pos { pub line: u32, pub column: u32, pub offset: usize }
 
 pub struct Duration(std::time::Duration); // parsed from "250ms", "2s", "1m" by the template crate
 pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb" by the template crate
+
+/// One file as the engine read it, handed to the pure compiler (D132).
+pub struct SourceFile { pub path: SourcePath, pub text: String, pub hash: ContentHash }
+pub struct SourcePath(String);   // project-relative, `/` on every OS; never absolute, no `..`
+pub struct ContentHash([u8; 32]); // opaque; the engine computes BLAKE3 when it reads the file
+
+/// From the file name, through a table of patterns (`vibranium.config.yaml`, `*.api.yaml`,
+/// `*.test.yaml`, `*.load.yaml`). Schemas, datasets and hooks have no kind: the reference
+/// that reads them (`$file`, `datasets`, `function:`) says what they are.
+pub enum FileKind { Config, Api, Test, Load }
+
+/// The files by SourceFileId (`push` hands out the next ID), with the lookups renderers need:
+/// `position(id, offset) -> Option<Pos>` and `line(id, n) -> Option<&str>`.
+pub struct SourceFiles { /* files plus each file's line starts */ }
 ```
 
 ### The program
@@ -293,7 +307,7 @@ pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb" b
 /// Everything `vc check` produced, frozen and shared read-only (Arc<Program>).
 pub struct Program {
     strings: StringTable,                            // the interned strings; private, reached through program.str(sym)
-    pub files: Vec<SourceFile>,                      // path, kind, content hash
+    pub files: SourceFiles,                          // path, text, hash per SourceFileId; kind from the name
     pub config: Config,                              // defaults, reports, history, secrets
     pub profiles: IndexMap<ProfileId, Profile>,      // at least one; one marked default
     pub auth: IndexMap<AuthId, AuthDef>,
@@ -514,9 +528,24 @@ Diagnostic::new(Code::V2003, span, "unknown api \"orders#plcae\"")
     .fix(Fix::certain("Replace with orders#place", vec![TextEdit::replace(span, "orders#place")]))
 ```
 
-A `Diagnostics` collection gathers them (`push`, `extend`, `has_errors`) and `sort()`s them for display by file-table order (the compiler adds files in path order), then position, then code. These types serialize with serde (camelCase keys, codes as `"V2003"`, severities in lowercase), but that is not yet the `vc check --json` shape: spans hold a `SourceFileId` index, and the JSON reporter (A2) replaces it with the file path.
+A `Diagnostics` collection gathers them (`push`, `extend`, `has_errors`) and `sort()`s them for display by file-table order (the compiler adds files in path order), then position, then code. These types serialize with serde (camelCase keys, codes as `"V2003"`, severities in lowercase), but that is not the `vc check --json` shape: spans hold a `SourceFileId` index, which the JSON renderer replaces with the file path.
 
-Diagnostics render through `miette` in the terminal, as JSON with `--json`, and over the engine API to the editors and the web UI, which show the same code, text and fixes.
+Diagnostics render through the `Render` trait (`render(&Diagnostics, &SourceFiles) -> Result<String, DiagnosticsError>`), in the order given, so callers `sort()` first. `TextRenderer` writes the rustc-style text shown in the CLI doc: `error[V2003]: message`, `--> path:line:col`, the excerpt with the primary span underlined `^^^` and its label, secondary labels underlined `---` (with a `::: path:line:col` line when in another file), then `= note:`, `= help:` and `= fix: <title>`, with ` (certain)` after a certain fix. A span over more than four lines shows its first two lines, `...` and its last. Colour is off unless `.color(true)` turns it on; the CLI decides (a terminal and no `NO_COLOR`). `JsonRenderer` writes the stable shape for `vc check --json`, editors and agents:
+
+```json
+{
+  "summary": { "errors": 1, "warnings": 0, "infos": 0 },
+  "diagnostics": [{
+    "code": "V2003", "severity": "error", "message": "unknown api \"orders#plcae\"",
+    "primary": { "span": { "path": "services/orders/checkout.test.yaml", "line": 4, "column": 11, "endLine": 4, "endColumn": 23 }, "text": "not defined" },
+    "secondary": [], "notes": [], "help": ["did you mean orders#place?"],
+    "fixes": [{ "title": "Replace with orders#place", "certain": true,
+                "edits": [{ "path": "services/orders/checkout.test.yaml", "range": { "start": 57, "end": 69 }, "newText": "orders#place" }] }]
+  }]
+}
+```
+
+Lines are 1-based, columns 1-based in characters, and `endLine`/`endColumn` point just past the span; edit ranges are 0-based byte offsets. A span or edit naming a file not in `SourceFiles` is `DiagnosticsError::UnknownFile`, an internal error. The engine API carries the same data to the editors and the web UI, which show the same code, text and fixes.
 
 ### Editing files without reformatting them
 
@@ -938,7 +967,7 @@ Every interface is a thin adapter over the `engine` facade, so a capability adde
 
 ### CLI (`apps/cli`)
 
-`clap` derive commands as listed in the CLI and Developer Workflow doc; global flags `--profile`, `--json`, `--project`, `--log`. Console output is written by the console reporter (spec, dots, json) and the `miette` diagnostic renderer; colour and progress bars switch off when stdout is not a terminal. Exit codes follow that doc (0 pass, 1 failed or blocked, 2 nothing ran, 3 load threshold, 4 sync drift), plus 130 when cancelled and 70 for an internal error, which prints a report hint and writes a redacted debug bundle (D127). `vc-cli` owns `main` and dispatches `vc tui`, `vc mcp` and `vc ui` to their app crates (D110). `vc completion <shell>` generates static completion plus a dynamic hook (`vc __complete`) that lists project IDs.
+`clap` derive commands as listed in the CLI and Developer Workflow doc; global flags `--profile`, `--json`, `--project`, `--log`. Console output is written by the console reporter (spec, dots, json) and the diagnostics `TextRenderer`; colour and progress bars switch off when stdout is not a terminal. Exit codes follow that doc (0 pass, 1 failed or blocked, 2 nothing ran, 3 load threshold, 4 sync drift), plus 130 when cancelled and 70 for an internal error, which prints a report hint and writes a redacted debug bundle (D127). `vc-cli` owns `main` and dispatches `vc tui`, `vc mcp` and `vc ui` to their app crates (D110). `vc completion <shell>` generates static completion plus a dynamic hook (`vc __complete`) that lists project IDs.
 
 ### TUI (`apps/tui`)
 

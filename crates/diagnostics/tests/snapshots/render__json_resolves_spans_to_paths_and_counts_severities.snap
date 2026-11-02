@@ -1,0 +1,126 @@
+---
+source: crates/diagnostics/tests/render.rs
+expression: json
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 1,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2003",
+      "severity": "error",
+      "message": "unknown api \"orders#plcae\"",
+      "primary": {
+        "span": {
+          "path": "services/orders/checkout.test.yaml",
+          "line": 4,
+          "column": 11,
+          "endLine": 4,
+          "endColumn": 23
+        },
+        "text": "not defined"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean orders#place?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with orders#place",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/orders/checkout.test.yaml",
+              "range": {
+                "start": 57,
+                "end": 69
+              },
+              "newText": "orders#place"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "unknown profile \"stagng\"",
+      "primary": {
+        "span": {
+          "path": "services/orders/checkout.test.yaml",
+          "line": 5,
+          "column": 16,
+          "endLine": 5,
+          "endColumn": 22
+        },
+        "text": "no such profile"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "vibranium.config.yaml",
+            "line": 3,
+            "column": 9,
+            "endLine": 3,
+            "endColumn": 16
+          },
+          "text": "a close match is defined here"
+        }
+      ],
+      "notes": [
+        "profiles are defined in vibranium.config.yaml"
+      ],
+      "help": [],
+      "fixes": [
+        {
+          "title": "Replace with staging",
+          "certain": false,
+          "edits": [
+            {
+              "path": "services/orders/checkout.test.yaml",
+              "range": {
+                "start": 85,
+                "end": 91
+              },
+              "newText": "staging"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V3205",
+      "severity": "warning",
+      "message": "a body default reaches a GET step",
+      "primary": {
+        "span": {
+          "path": "services/orders/checkout.test.yaml",
+          "line": 7,
+          "column": 7,
+          "endLine": 9,
+          "endColumn": 17
+        },
+        "text": "sent with GET orders#list"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "services/orders/checkout.test.yaml",
+            "line": 6,
+            "column": 5,
+            "endLine": 10,
+            "endColumn": 21
+          },
+          "text": "test-level default set here"
+        }
+      ],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    }
+  ]
+}

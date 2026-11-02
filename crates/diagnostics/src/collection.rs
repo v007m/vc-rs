@@ -1,6 +1,17 @@
 use serde::Serialize;
 
-use crate::Diagnostic;
+use crate::{Diagnostic, Severity};
+
+/// How many diagnostics there are of each severity.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Summary {
+    /// Diagnostics with severity `Error`.
+    pub errors: usize,
+    /// Diagnostics with severity `Warning`.
+    pub warnings: usize,
+    /// Diagnostics with severity `Info`.
+    pub infos: usize,
+}
 
 /// The diagnostics found by one check or run, in the order they were pushed until sorted.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
@@ -44,6 +55,13 @@ impl Diagnostics {
         self.0.sort_by_key(|diagnostic| (diagnostic.primary.span, diagnostic.code));
     }
 
+    /// The count of each severity.
+    #[must_use]
+    pub fn summary(&self) -> Summary {
+        let count = |severity| self.0.iter().filter(|d| d.severity == severity).count();
+        Summary { errors: count(Severity::Error), warnings: count(Severity::Warning), infos: count(Severity::Info) }
+    }
+
     /// The diagnostics in their current order.
     pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.0.iter()
@@ -53,6 +71,12 @@ impl Diagnostics {
 impl Extend<Diagnostic> for Diagnostics {
     fn extend<I: IntoIterator<Item = Diagnostic>>(&mut self, iter: I) {
         self.0.extend(iter);
+    }
+}
+
+impl FromIterator<Diagnostic> for Diagnostics {
+    fn from_iter<I: IntoIterator<Item = Diagnostic>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
     }
 }
 
@@ -69,8 +93,8 @@ impl IntoIterator for Diagnostics {
 mod tests {
     use vc_model::{Pos, SourceFileId, SourceSpan};
 
-    use super::Diagnostics;
-    use crate::{Code, Diagnostic};
+    use super::{Diagnostics, Summary};
+    use crate::{Code, Diagnostic, Severity};
 
     fn at(file: u32, line: u32, code: Code) -> Diagnostic {
         let start = Pos::new(line, 1, 0);
@@ -86,6 +110,14 @@ mod tests {
         diagnostics.extend([at(0, 2, Code::V2003)]);
         assert!(diagnostics.has_errors());
         assert_eq!(diagnostics.len(), 2);
+    }
+
+    #[test]
+    fn summary_counts_each_severity() {
+        let mut info = at(0, 3, Code::V3104);
+        info.severity = Severity::Info;
+        let diagnostics: Diagnostics = [at(0, 1, Code::V2003), at(0, 2, Code::V3104), info].into_iter().collect();
+        assert_eq!(diagnostics.summary(), Summary { errors: 1, warnings: 1, infos: 1 });
     }
 
     #[test]

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::Serialize;
 
 /// How serious a diagnostic is. Severities order from `Info` up to `Error`, so the worst of
@@ -15,6 +17,17 @@ pub enum Severity {
     Error,
 }
 
+impl fmt::Display for Severity {
+    /// The lowercase name, as in `error[V2003]`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Info => "info",
+            Self::Warning => "warning",
+            Self::Error => "error",
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Severity;
@@ -24,5 +37,11 @@ mod tests {
         let found = [Severity::Warning, Severity::Error, Severity::Info];
         assert_eq!(found.into_iter().max(), Some(Severity::Error));
         assert!(Severity::Info < Severity::Warning);
+    }
+
+    #[test]
+    fn displays_in_lowercase() {
+        let names = [Severity::Info, Severity::Warning, Severity::Error].map(|s| s.to_string());
+        assert_eq!(names, ["info", "warning", "error"]);
     }
 }
