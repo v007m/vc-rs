@@ -6,6 +6,8 @@ use vc_diagnostics::Code;
 pub const TEMPLATE_SYNTAX: Code = Code::V2305;
 /// An unknown pipe, or a pipe with the wrong argument count or types (D145).
 pub const PIPE_CALL: Code = Code::V2308;
+/// A literal regex given to CEL's `matches()` that does not compile.
+pub const MATCHER_ARG: Code = Code::V2306;
 /// A pipe that cannot take the type of value it is given (D145).
 pub const PIPE_TYPE: Code = Code::V2304;
 /// A root not available at that spot (D125).

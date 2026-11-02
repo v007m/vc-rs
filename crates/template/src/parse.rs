@@ -75,7 +75,7 @@ fn reference(raw: RawRef, map: &SpanMap<'_>, strings: &mut StringTable) -> Resul
     Ok(Reference { ns, path: Path { segments: raw.path }, args, pipes, span, root_span })
 }
 
-fn namespace(root: &str, strings: &mut StringTable) -> Result<Namespace, TemplateError> {
+pub fn namespace(root: &str, strings: &mut StringTable) -> Result<Namespace, TemplateError> {
     if let Some((_, ns)) = ROOTS.iter().find(|(name, _)| *name == root) {
         return Ok(*ns);
     }
