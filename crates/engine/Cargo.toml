@@ -8,5 +8,17 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+vc-adapter-system.workspace = true
+vc-compiler.workspace = true
+vc-diagnostics.workspace = true
+vc-interfaces.workspace = true
+vc-model.workspace = true
+
+[dev-dependencies]
+vc-testkit.workspace = true
+
 [lints]
 workspace = true

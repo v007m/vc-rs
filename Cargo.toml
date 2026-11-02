@@ -42,10 +42,14 @@ vc-testkit = { path = "crates/testkit" }
 vc-adapter-system = { path = "crates/adapters/system" }
 vc-adapter-http = { path = "crates/adapters/http" }
 vc-adapter-reporters = { path = "crates/adapters/reporters" }
+anyhow = "1.0.104"
 assert_cmd = "2.2.2"
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "matched-path", "query", "tokio"] }
+blake3 = "1.8.7"
 cargo_metadata = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
+globset = "0.4.21"
+ignore = "0.4.34"
 indexmap = "2.14.2"
 insta = { version = "1.49.0", default-features = false }
 predicates = "3.1.4"
@@ -57,6 +61,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 strsim = "0.11.1"
 syn = { version = "3.0.9", features = ["full", "visit"] }
+tempfile = "3.27.0"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["macros", "net", "rt", "rt-multi-thread", "signal", "sync", "time"] }
 tower-http = { version = "0.6.11", features = ["compression-br", "compression-gzip"] }

@@ -113,7 +113,7 @@ Third-party crates:
 | Interning, maps | `indexmap` 2, `smol_str` 0.3; interning is hand-written (`StringTable` in `vc-model`) | Cheap IDs, ordered maps, small strings; `lasso` 0.7 was dropped because it pins `hashbrown` 0.14 next to indexmap's 0.17, which `multiple-versions = deny` rejects |
 | Graphs | `petgraph` 0.8 | Cycle detection and topological order in the planner |
 | Hashing | `blake3` 1 | File-hash cache, memo keys, body deduplication |
-| File walking and watching | `ignore` 0.4, `notify` 9 | `.gitignore`-aware discovery; `vc watch` |
+| File walking and watching | `ignore` 0.4, `globset` 0.4, `notify` 9 | `.gitignore`-aware discovery; `paths.include` and `paths.exclude` globs (`SourceFilter`); `vc watch` |
 | SQLite | `rusqlite` 0.40 (bundled) | history.db and cache.db; no system dependency |
 | Keychain and encryption | `keyring` 4, `chacha20poly1305` 0.11 | Cache encryption key in the OS keychain |
 | Secret redaction | `aho-corasick` 1 | Fast multi-string replacement over every output |
@@ -135,7 +135,7 @@ Third-party crates:
 | Small helpers | `smallvec` 1, `camino` 1, `strsim` 0.11 | Scope levels without allocation; UTF-8 paths; "did you mean" suggestions (D136) |
 | Lock-free swap | `arc-swap` 1 | The redactor's automaton is replaced without blocking readers (D113, D136) |
 | Embedding, compression, secret memory | `rust-embed`, `zstd`, `zeroize`, each when first used | Web UI in the binary; stored bodies and `zstd` responses; secrets zeroed on drop (D136) |
-| Testing | `insta` 1, `proptest` 1, `assert_cmd` 2 | Golden files for diagnostics and reports; property tests for the planner; e2e tests on the real `vc` binary (D136) |
+| Testing | `insta` 1, `proptest` 1, `assert_cmd` 2, `tempfile` 3 | Golden files for diagnostics and reports; property tests for the planner; e2e tests on the real `vc` binary (D136) |
 | Benchmarks | `gungraun`, `criterion` | Instruction-count benches on PRs; wall-clock benches nightly (D120, D136) |
 | Packaging | `cargo-dist` 0.32 | Release binaries, install scripts, Homebrew tap |
 
@@ -217,7 +217,7 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 | --- | --- | --- |
 | **Orchestrator + state machine** | `RunOrchestrator`, `FileOrchestrator`, `InstanceWorkflow`; also the load stage controller and the HAR import wizard | One place decides and holds state; workers stay simple and testable |
 | **Saga (compensation)** | Api `cleanup` as compensating actions, run in reverse | Undo without tests describing it |
-| **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `vc-interfaces`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `FileSystem`, `SourceProvider`, `CommandRunner`, `Vcs`, `ConfigSource`, `ActionRunner` | The core never knows which library sits behind it |
+| **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `vc-interfaces`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `FileSystem`, `SourceProvider`, `CompileCacheStore`, `CommandRunner`, `Vcs`, `ConfigSource`, `ActionRunner` | The core never knows which library sits behind it |
 | **Strategy** | Action executors (call, test reuse, function, command); matchers; pipes; body encoders (JSON, form, multipart, file); retry and loop policies (sequential, parallel); the load mix selector; sync merge rules | Swap behaviour by kind without branching in the caller |
 | **Factory and registry** | One registry per kind of strategy or adapter, filled at start-up: `ActionExecutorFactory` (by action kind), `AuthProviderFactory` (by auth `type`), `ReporterFactory`, `NotifierFactory`, `ImporterFactory` (by source), `TransportFactory` (by URL scheme, ready for gRPC and WebSocket), `MatcherRegistry`, `PipeRegistry`, `LintRegistry` | Adding a kind is one new file plus one registration line; nothing else changes |
 | **Builder** | `EngineBuilder` (the composition root that wires adapters into the engine); `ProgramBuilder` (the compiler accumulates, then `freeze()` gives the immutable `Program`); `RequestBuilder` (renders a request from an api, scope and auth); `PlanBuilder`; `Diagnostic::new(…)` with chained `label`, `help`, `fix`; test fixtures (`ProjectBuilder`, `ProgramBuilder::for_tests`); the SDKs' fluent builders | Objects with many optional parts are assembled step by step and checked once; required parts are enforced by typed builder states |
@@ -481,6 +481,13 @@ The compiler turns the project's files into a `Program` or a list of diagnostics
 | Lint | the `Program` | warnings: naming conventions, expired skips, shared-value writes, cache in per-test blocks | each lint is a registered rule with a V-code |
 
 **Incremental.** The `CompileCache` keeps, per file hash, its parsed and shape-checked items; the compiler takes the previous one as input and returns the new one, and the engine reads and writes it as `.vibranium/cache/compile.bin` (D132). On the next run only changed files are parsed again; linking always runs over everything but is cheap (target: 1,000 files in under 100 ms warm, under 500 ms cold). The editor and `vc watch` keep the cache in memory.
+
+**Discovery and the cache blob (ports).** Both are synchronous traits in `vc-interfaces`, each with a contract suite and an in-memory fake in `vc-testkit` (`MemorySources`, `MemoryCompileCache`):
+
+- `SourceProvider::discover(&SourceFilter) -> Result<Discovery, SourceError>` returns the definition files (names with a `FileKind`) in path order, each read and hashed by `source_file`, plus one `SourceError` per file it could not use (unreadable, not UTF-8, a name a `SourcePath` refuses, a link out of the project); only a root that cannot be searched fails the call. `SourceFilter` holds the `paths.include` and `paths.exclude` globs (`globset`, `*` stays within one folder, an exclude that matches a folder drops everything in it); `.vibranium/` and `.git/` are always left out, and `node_modules/` unless the config writes its own excludes.
+- `CompileCacheStore::load() -> Result<Option<Vec<u8>>, _>` and `save(&[u8])` hold the opaque `CompileCache` blob. The engine treats a failed load or save as a notice (`warning:` on stderr), never as a failed check.
+- `vc-adapter-system` implements them as `FsSources` (the `ignore` walker: `.gitignore` and `.ignore` respected even outside a repository, the user's global excludes not; links to folders not followed; a linked file read only when its resolved path is inside the root, otherwise `OutsideRoot`) and `FsCompileCache` (temp file, `sync_all`, rename; refuses to go through a link at `.vibranium`, `.vibranium/cache` or the blob). `find_project_root` walks up from the start folder to the first `vibranium.config.yaml`.
+- The engine turns each discovery problem into a V1001 error on an empty placeholder file at that path, so it renders like any other diagnostic and the check fails.
 
 **One declaration per file shape.** Each file kind's keys are declared once in Rust, with type, default, description and an example:
 
@@ -979,6 +986,8 @@ Every interface is a thin adapter over the `engine` facade, so a capability adde
 ### CLI (`apps/cli`)
 
 `clap` derive commands as listed in the CLI and Developer Workflow doc; global flags `--profile`, `--json`, `--project`, `--log`. Console output is written by the console reporter (spec, dots, json) and the diagnostics `TextRenderer`; colour and progress bars switch off when stdout is not a terminal. Exit codes follow that doc (0 pass, 1 failed or blocked, 2 nothing ran, 3 load threshold, 4 sync drift), plus 130 when cancelled and 70 for an internal error, which prints a report hint and writes a redacted debug bundle (D127). `vc-cli` owns `main` and dispatches `vc tui`, `vc mcp` and `vc ui` to their app crates (D110). `vc completion <shell>` generates static completion plus a dynamic hook (`vc __complete`) that lists project IDs.
+
+So far (M1) the CLI has `vc check [--json] [paths…]` and `vc schema export [--out <dir>]`. `vc check` finds the project from the working folder (`EngineBuilder::for_project`), calls `Engine::check(CheckRequest { paths })` and prints the report with `TextRenderer` (colour only on a terminal without `NO_COLOR`) followed by a summary line, or with `JsonRenderer` under `--json`. Paths are resolved against the working folder and must lie in the project. `vc schema export` needs no project: `Engine::schema_bundle()` prints one object keyed by kind, `Engine::schema_export()` gives the `<kind>.schema.json` files for `--out`. Everything a user can fix (no project, a path outside it or with no definition files, an unwritable `--out`) prints `error: …` and exits 2; any other error or a panic exits 70 with the "please report" hint.
 
 ### TUI (`apps/tui`)
 
