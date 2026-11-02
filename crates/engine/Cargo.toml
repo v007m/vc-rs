@@ -1,0 +1,12 @@
+[package]
+name = "vc-engine"
+description = "Engine facade and composition root: the only crate apps import."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

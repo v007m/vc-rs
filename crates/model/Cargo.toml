@@ -1,0 +1,12 @@
+[package]
+name = "vc-model"
+description = "IDs, spans, the compiled program, and the Plan and Event types: pure data."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "vc-adapter-reporters"
+description = "Reporters: console, CTRF and JUnit XML."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

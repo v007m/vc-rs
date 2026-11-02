@@ -1,0 +1,12 @@
+[package]
+name = "vc-executor"
+description = "Runs a Plan through the interfaces: frames, lifecycle, events and the redactor."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

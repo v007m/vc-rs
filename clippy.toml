@@ -1,0 +1,28 @@
+# Refactoring-smell thresholds (Fowler): long function, long parameter list, complex types.
+cognitive-complexity-threshold = 10
+too-many-lines-threshold = 40
+too-many-arguments-threshold = 4
+type-complexity-threshold = 150
+# unwrap/expect are banned in production code but fine inside #[test] code.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+# Global / shared mutable data: every lock or lazy global must be an explicit, reviewed exception
+# (`#[expect(clippy::disallowed_types, reason = "...")]`), which makes them greppable.
+disallowed-types = [
+  { path = "std::sync::Mutex", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "std::sync::RwLock", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "tokio::sync::Mutex", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "tokio::sync::RwLock", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "std::sync::LazyLock", reason = "global state: inject dependencies instead" },
+  { path = "std::sync::OnceLock", reason = "global state: inject dependencies instead" },
+  { path = "std::cell::RefCell", reason = "interior mutability: needs a reviewed #[expect]" },
+  { path = "std::sync::Condvar", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "parking_lot::Mutex", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "parking_lot::RwLock", reason = "shared mutable state: prefer channels or owned data; needs a reviewed #[expect]" },
+  { path = "once_cell::sync::Lazy", reason = "global state: inject dependencies instead" },
+]
+disallowed-macros = [
+  { path = "std::thread_local", reason = "global state: inject dependencies instead" },
+  { path = "lazy_static::lazy_static", reason = "global state: inject dependencies instead" },
+]

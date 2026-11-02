@@ -1,0 +1,12 @@
+[package]
+name = "vc-interfaces"
+description = "Traits the core depends on: transport, clock, sources, reporters and the rest."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,28 @@
+[graph]
+all-features = false
+
+[advisories]
+yanked = "deny"
+
+[licenses]
+allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib"]
+confidence-threshold = 0.9
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = true
+# Duplicate versions that cannot be avoided yet; each entry needs a reason.
+skip = []
+deny = [
+  { name = "openssl-sys", reason = "rustls only" },
+  { name = "v8", reason = "hooks run in QuickJS" },
+  { name = "deno_core", reason = "hooks run in QuickJS" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

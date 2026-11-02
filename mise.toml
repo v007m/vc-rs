@@ -1,0 +1,13 @@
+[tools]
+node = "26.13.0"
+pnpm = "12.16.1"
+buf = "1.75.0"
+cargo-binstall = "1.26.2"
+cargo-deny = "0.20.2"
+"cargo:cargo-nextest" = "0.9.150"
+"cargo:cargo-machete" = "0.9.2"
+"cargo:cargo-mutants" = "27.1.0"
+
+[tasks.test]
+description = "Run every test and doctest in the workspace"
+run = ["cargo nextest run --workspace", "cargo test --workspace --doc"]
