@@ -1,0 +1,16 @@
+---
+source: crates/diagnostics/tests/render.rs
+expression: text
+---
+error[V2003]: unknown api
+  --> services/orders/checkout.test.yaml:4:11
+   |
+ 4 |     call: orders#plcae
+   |           ^^^^^^^^^^^^ not defined
+...
+10 |       coupon: SAVE10
+   |       -------------- back in the test file
+  ::: vibranium.config.yaml:3:9
+   |
+ 3 |   - id: staging
+   |         ------- in the config

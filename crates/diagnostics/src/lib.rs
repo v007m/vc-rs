@@ -20,11 +20,13 @@ mod collection;
 mod diagnostic;
 mod error;
 mod fix;
+mod render;
 mod severity;
 
 pub use code::{Category, Code};
-pub use collection::Diagnostics;
+pub use collection::{Diagnostics, Summary};
 pub use diagnostic::{Diagnostic, Label};
 pub use error::DiagnosticsError;
 pub use fix::{Fix, TextEdit};
+pub use render::{JsonRenderer, Render, TextRenderer};
 pub use severity::Severity;
