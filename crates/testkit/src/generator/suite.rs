@@ -35,8 +35,13 @@ tests:
 pub fn render(service: &Service<'_>, area: usize, rng: &mut Rng) -> String {
     let area_name = AREAS[area % AREAS.len()];
     let qty = rng.between(1, 9);
-    let numbers = [qty.to_string(), (qty * 2).to_string(), rng.between(5, 50).to_string(), rng.between(2, 5).to_string()];
-    let each = if area == 0 { format!("call: {}#create", service.name) } else { format!("test: {}.crud#preparesItem", service.name) };
+    let numbers =
+        [qty.to_string(), (qty * 2).to_string(), rng.between(5, 50).to_string(), rng.between(2, 5).to_string()];
+    let each = if area == 0 {
+        format!("call: {}#create", service.name)
+    } else {
+        format!("test: {}.crud#preparesItem", service.name)
+    };
     let values = [
         ("svc", service.name),
         ("other", service.other),

@@ -13,7 +13,9 @@ fn compile(c: &mut Criterion) {
     let bench = Bench::prepare();
     let mut group = c.benchmark_group("compile");
     group.sample_size(20);
-    for (id, scenario) in [("cold_1000", Scenario::Cold), ("warm_1000", Scenario::Warm), ("changed_1000", Scenario::Changed)] {
+    for (id, scenario) in
+        [("cold_1000", Scenario::Cold), ("warm_1000", Scenario::Warm), ("changed_1000", Scenario::Changed)]
+    {
         group.bench_function(id, |b| {
             b.iter_batched(
                 || bench.engine(scenario),

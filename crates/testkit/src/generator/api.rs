@@ -115,7 +115,8 @@ const ACTION: &str = "
 ";
 
 /// The verbs extra apis are named after.
-const VERBS: &[&str] = &["archive", "restore", "publish", "approve", "lock", "unlock", "share", "flag", "verify", "close"];
+const VERBS: &[&str] =
+    &["archive", "restore", "publish", "approve", "lock", "unlock", "share", "flag", "verify", "close"];
 
 /// The api file of service `svc`.
 pub fn render(svc: &str, rng: &mut Rng) -> String {

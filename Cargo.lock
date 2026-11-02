@@ -2220,6 +2220,8 @@ name = "vc-testkit"
 version = "0.1.0"
 dependencies = [
  "vc-interfaces",
+ "vc-model",
+ "vc-parser",
 ]
 
 [[package]]

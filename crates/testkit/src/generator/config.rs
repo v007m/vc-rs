@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 use super::rng::{Rng, fill};
 
 /// The settings, the shared `pageSize` var and the `vars:` key the service URLs follow.
@@ -50,13 +52,13 @@ afterRun:
 pub fn render(services: &[String], rng: &mut Rng) -> String {
     let mut text = HEAD.to_owned();
     for name in services {
-        text.push_str(&format!("  {name}Url: http://localhost:18080/{name}\n"));
+        let _ = writeln!(text, "  {name}Url: http://localhost:18080/{name}");
     }
     text.push_str(PROFILES);
     if let Some(first) = services.first() {
         text.push_str(STAGING);
         for name in services {
-            text.push_str(&format!("      {name}Url: https://{name}.staging.example.test\n"));
+            let _ = writeln!(text, "      {name}Url: https://{name}.staging.example.test");
         }
         text.push_str(&fill(RUN_BLOCKS, &[("first", first), ("word", rng.word())]));
     }

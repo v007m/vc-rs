@@ -32,7 +32,7 @@ fn projects_have_exactly_the_files_asked_for() {
 fn every_file_parses_without_diagnostics() {
     for (index, file) in generate_project(7, 300).files().iter().enumerate() {
         let id = SourceFileId::new(u32::try_from(index).unwrap());
-        let (root, diagnostics) = vc_parser::parse(id, &file.text);
+        let (root, diagnostics) = vc_parser::parse(id, vc_parser::Syntax::Yaml, &file.text);
         assert!(root.is_some() && diagnostics.is_empty(), "{}: {diagnostics:?}\n{}", file.path, file.text);
     }
 }
@@ -40,7 +40,8 @@ fn every_file_parses_without_diagnostics() {
 #[test]
 fn test_files_reuse_the_crud_flow_and_call_other_services() {
     let project = generate_project(3, 40);
-    let text = |path: &str| project.files().iter().find(|file| file.path == path).map(|file| file.text.clone()).unwrap();
+    let text =
+        |path: &str| project.files().iter().find(|file| file.path == path).map(|file| file.text.clone()).unwrap();
     assert!(text("services/accounts/crud.test.yaml").contains("id: preparesItem"));
     assert!(text("services/accounts/search.test.yaml").contains("test: accounts.crud#preparesItem"));
     assert!(text("vibranium.config.yaml").contains("call: accounts#create"));
@@ -54,5 +55,5 @@ fn one_changed_file_differs_only_in_the_last_file() {
     let differing: Vec<_> =
         project.files().iter().zip(changed.files()).filter(|(a, b)| a != b).map(|(a, _)| a.path.clone()).collect();
     assert_eq!(differing, [project.files()[19].path.clone()]);
-    assert!(generate_project(5, 0).with_one_file_changed().files().is_empty());
+    assert_eq!(generate_project(5, 0).with_one_file_changed().files(), []);
 }

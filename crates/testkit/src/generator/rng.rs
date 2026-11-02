@@ -39,8 +39,9 @@ const SERVICES: &[&str] = &[
 ];
 
 /// Plain words for labels and search terms.
-const WORDS: &[&str] =
-    &["amber", "birch", "cedar", "delta", "ember", "fjord", "garnet", "harbor", "indigo", "juniper", "kestrel", "lumen"];
+const WORDS: &[&str] = &[
+    "amber", "birch", "cedar", "delta", "ember", "fjord", "garnet", "harbor", "indigo", "juniper", "kestrel", "lumen",
+];
 
 /// A small deterministic random source (SplitMix64): the same seed always gives the same project.
 #[derive(Clone, Debug)]

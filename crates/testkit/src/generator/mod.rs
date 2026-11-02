@@ -46,7 +46,8 @@ impl GeneratedProject {
     /// The files as an in-memory source provider.
     #[must_use]
     pub fn sources(&self) -> MemorySources {
-        let pairs: Vec<(&str, &[u8])> = self.files.iter().map(|file| (file.path.as_str(), file.text.as_bytes())).collect();
+        let pairs: Vec<(&str, &[u8])> =
+            self.files.iter().map(|file| (file.path.as_str(), file.text.as_bytes())).collect();
         MemorySources::new(&pairs)
     }
 
@@ -92,7 +93,10 @@ fn service_names(files: usize) -> Vec<String> {
 /// A service's api file and its first `tests` test files.
 fn service_files(service: &Service<'_>, tests: usize, rng: &mut Rng) -> Vec<GeneratedFile> {
     let folder = format!("services/{}", service.name);
-    let mut out = vec![GeneratedFile { path: format!("{folder}/{}.api.yaml", service.name), text: api::render(service.name, rng) }];
+    let mut out = vec![GeneratedFile {
+        path: format!("{folder}/{}.api.yaml", service.name),
+        text: api::render(service.name, rng),
+    }];
     for area in 0..tests {
         let path = format!("{folder}/{}.test.yaml", suite::AREAS[area]);
         out.push(GeneratedFile { path, text: suite::render(service, area, rng) });
