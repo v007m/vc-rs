@@ -8,12 +8,13 @@ use crate::positions::Positions;
 
 /// Parses one YAML or JSON file into a [`Node`] tree, collecting every problem it can find.
 ///
-/// The root is `None` when the scanner stops on an error (V1001, or V1002 for a structure
-/// problem or an alias to a missing anchor) and when nesting goes deeper than 128 levels
-/// (V1002); an empty file gives a null scalar. Structure problems the tree can survive
-/// (duplicate keys, aliases, tags, a second document) are reported and the tree is still
-/// returned, so later stages can report more. JSON is parsed as the YAML 1.2 subset it is.
-/// Node spans cover the value itself, without any `&anchor` or `!tag` written before it.
+/// The root is `None` when the scanner stops on an error (V1001; V1002 for a structure
+/// problem; V1007 for an alias to a missing anchor) and when nesting goes deeper than 128
+/// levels (V1011); an empty file gives a null scalar. Problems the tree can survive (V1006
+/// duplicate key, V1007 alias, V1008 tag, V1009 non-text key, V1010 second document) are
+/// reported and the tree is still returned, so later stages can report more. JSON is parsed
+/// as the YAML 1.2 subset it is, with saphyr's gaps, until `.json` files get their own reader
+/// (D148). Node spans cover the value itself, without any `&anchor` or `!tag` written before it.
 ///
 /// ```
 /// use vc_model::SourceFileId;
