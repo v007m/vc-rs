@@ -1,6 +1,6 @@
 use syn::visit::Visit;
 
-use super::{Finding, scan_library};
+use super::{Finder, find, scan_library};
 use crate::{Rule, Violation, Workspace};
 
 const ID: &str = "ARCH-LOCK";
@@ -21,22 +21,18 @@ impl Rule for Locks {
             if ALLOWED_FILES.contains(&source.file_name()) {
                 return Vec::new();
             }
-            let mut finder = Finder(Vec::new());
-            finder.visit_file(file);
-            finder.0
+            find::<Self>(file)
         })
     }
 }
 
-struct Finder(Vec<Finding>);
-
-impl Visit<'_> for Finder {
+impl Visit<'_> for Finder<Locks> {
     fn visit_ident(&mut self, ident: &proc_macro2::Ident) {
         let name = ident.to_string();
         if matches!(name.as_str(), "Mutex" | "RwLock" | "arc_swap") || name.starts_with("ArcSwap") {
             let message =
                 format!("`{name}` is a lock; locks are allowed only in token_cache.rs and redactor.rs (D113)");
-            self.0.push((ident.span(), message));
+            self.push(ident.span(), message);
         }
     }
 }

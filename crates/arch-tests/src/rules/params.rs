@@ -1,37 +1,21 @@
 use syn::visit::{self, Visit};
 
-use super::{Finding, scan_library};
-use crate::{Rule, Violation, Workspace};
+use super::Finder;
 
-const ID: &str = "ARCH-PARAMS";
 const MAX_PARAMS: usize = 3;
 
 /// A function or method takes at most three parameters, not counting `self` (D109).
 pub struct Params;
 
-impl Rule for Params {
-    fn id(&self) -> &'static str {
-        ID
-    }
+syntax_rule!(Params, "ARCH-PARAMS");
 
-    fn check(&self, workspace: &Workspace) -> Vec<Violation> {
-        scan_library(workspace, ID, |_, file| {
-            let mut finder = Finder(Vec::new());
-            finder.visit_file(file);
-            finder.0
-        })
-    }
-}
-
-struct Finder(Vec<Finding>);
-
-impl Visit<'_> for Finder {
+impl Visit<'_> for Finder<Params> {
     fn visit_signature(&mut self, sig: &syn::Signature) {
         let count = sig.inputs.iter().filter(|arg| matches!(arg, syn::FnArg::Typed(_))).count();
         if count > MAX_PARAMS {
             let message =
                 format!("`{}` takes {count} parameters (max {MAX_PARAMS}); group them in a struct", sig.ident);
-            self.0.push((sig.ident.span(), message));
+            self.push(sig.ident.span(), message);
         }
         visit::visit_signature(self, sig);
     }

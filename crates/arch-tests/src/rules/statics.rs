@@ -1,33 +1,16 @@
 use syn::visit::{self, Visit};
 
-use super::{Finding, scan_library};
-use crate::{Rule, Violation, Workspace};
-
-const ID: &str = "ARCH-STATIC";
+use super::Finder;
 
 /// No `static` items in library code: no globals, atomics or lazies; pass state in instead.
 pub struct Statics;
 
-impl Rule for Statics {
-    fn id(&self) -> &'static str {
-        ID
-    }
+syntax_rule!(Statics, "ARCH-STATIC");
 
-    fn check(&self, workspace: &Workspace) -> Vec<Violation> {
-        scan_library(workspace, ID, |_, file| {
-            let mut finder = Finder(Vec::new());
-            finder.visit_file(file);
-            finder.0
-        })
-    }
-}
-
-struct Finder(Vec<Finding>);
-
-impl Visit<'_> for Finder {
+impl Visit<'_> for Finder<Statics> {
     fn visit_item_static(&mut self, item: &syn::ItemStatic) {
         let message = format!("static `{}` is global state; pass it in through a constructor", item.ident);
-        self.0.push((item.ident.span(), message));
+        self.push(item.ident.span(), message);
         visit::visit_item_static(self, item);
     }
 }

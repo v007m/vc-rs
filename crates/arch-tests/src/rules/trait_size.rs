@@ -1,36 +1,20 @@
 use syn::visit::{self, Visit};
 
-use super::{Finding, scan_library};
-use crate::{Rule, Violation, Workspace};
+use super::Finder;
 
-const ID: &str = "ARCH-TRAIT-SIZE";
 const MAX_METHODS: usize = 7;
 
 /// A trait has at most seven methods (D114); split a bigger one into role interfaces.
 pub struct TraitSize;
 
-impl Rule for TraitSize {
-    fn id(&self) -> &'static str {
-        ID
-    }
+syntax_rule!(TraitSize, "ARCH-TRAIT-SIZE");
 
-    fn check(&self, workspace: &Workspace) -> Vec<Violation> {
-        scan_library(workspace, ID, |_, file| {
-            let mut finder = Finder(Vec::new());
-            finder.visit_file(file);
-            finder.0
-        })
-    }
-}
-
-struct Finder(Vec<Finding>);
-
-impl Visit<'_> for Finder {
+impl Visit<'_> for Finder<TraitSize> {
     fn visit_item_trait(&mut self, item: &syn::ItemTrait) {
         let count = item.items.iter().filter(|i| matches!(i, syn::TraitItem::Fn(_))).count();
         if count > MAX_METHODS {
             let message = format!("trait `{}` has {count} methods (max {MAX_METHODS}); split it", item.ident);
-            self.0.push((item.ident.span(), message));
+            self.push(item.ident.span(), message);
         }
         visit::visit_item_trait(self, item);
     }
