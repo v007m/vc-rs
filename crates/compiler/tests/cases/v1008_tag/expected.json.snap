@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1008_tag/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1008",
+      "severity": "error",
+      "message": "YAML tags (`!name`, `!!str`) are not supported",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 1,
+          "column": 7,
+          "endLine": 1,
+          "endColumn": 18
+        },
+        "text": "tagged value"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "remove the tag; to keep a value as text, quote it"
+      ],
+      "fixes": []
+    }
+  ]
+}

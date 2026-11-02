@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2303_bad_status/project
+---
+error[V2303]: invalid status `99x`
+ --> services/users/crud.test.yaml:6:15
+  |
+6 |       status: 99x
+  |               ^^^
+  = help: write a code from 100 to 599 or a class from 1xx to 5xx

@@ -1,0 +1,49 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1004_unknown_key/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1004",
+      "severity": "error",
+      "message": "unknown key `nmae` in api",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 5
+        },
+        "text": "not a known key"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `name`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with name",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 0,
+                "end": 4
+              },
+              "newText": "name"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

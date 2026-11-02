@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2305_template_syntax/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2305",
+      "severity": "error",
+      "message": "invalid template: expected `}` or `|`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 1,
+          "column": 23,
+          "endLine": 1,
+          "endColumn": 23
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `${namespace.path | pipe}`; write `$${` for a literal `${`"
+      ],
+      "fixes": []
+    }
+  ]
+}

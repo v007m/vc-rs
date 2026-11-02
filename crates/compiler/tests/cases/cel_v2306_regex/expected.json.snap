@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/cel_v2306_regex/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2306",
+      "severity": "error",
+      "message": "invalid regex in `matches()`: error: unclosed group",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 6,
+          "column": 48,
+          "endLine": 6,
+          "endColumn": 51
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "fix the pattern; `matches()` uses the same regex syntax as the `regex` matcher"
+      ],
+      "fixes": []
+    }
+  ]
+}

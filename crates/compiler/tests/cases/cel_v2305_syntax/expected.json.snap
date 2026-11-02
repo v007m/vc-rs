@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/cel_v2305_syntax/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2305",
+      "severity": "error",
+      "message": "invalid CEL: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 6,
+          "column": 36,
+          "endLine": 6,
+          "endColumn": 36
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "for example `response.body.items.size() > 0`"
+      ],
+      "fixes": []
+    }
+  ]
+}

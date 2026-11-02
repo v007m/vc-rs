@@ -1,0 +1,17 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2201_one_of/project
+---
+error[V2201]: a testEntry needs one of `call`, `steps`
+ --> services/users/crud.test.yaml:2:5
+  |
+2 |   - id: getsUser
+  |     ^^
+
+error[V2201]: write only one of `call`, `steps`
+ --> services/users/crud.test.yaml:6:5
+  |
+5 |     call: users#listUsers
+  |     ---- `call` is written here
+6 |     steps: []
+  |     ^^^^^ `steps` is also written

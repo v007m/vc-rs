@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1011_too_deep/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1011",
+      "severity": "error",
+      "message": "nested more than 128 levels deep",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 2,
+          "column": 135,
+          "endLine": 2,
+          "endColumn": 136
+        },
+        "text": "too deep"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "flatten the structure, or load deep data from a file with `$file`"
+      ],
+      "fixes": []
+    }
+  ]
+}
