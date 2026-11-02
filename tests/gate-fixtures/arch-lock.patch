@@ -8,6 +8,6 @@ new file mode 100644
 +
 +#[expect(clippy::disallowed_types, reason = "gate fixture: the arch rule must still catch it")]
 +fn main() {
-+    let count = std::sync::Mutex::new(0_u8);
++    let count = std::sync::Mutex::new(std::env::args().count());
 +    std::hint::black_box(count);
 +}
