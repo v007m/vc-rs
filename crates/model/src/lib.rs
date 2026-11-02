@@ -15,10 +15,14 @@ mod error;
 mod ids;
 mod span;
 mod strings;
+mod template;
 mod units;
 
 pub use error::ModelError;
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
 pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};
+pub use template::{
+    CelSource, Namespace, Part, Path, PipeCall, Reference, Segment, StatusPattern, Template, TemplateValue,
+};
 pub use units::{Duration, Size};
