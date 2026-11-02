@@ -12,7 +12,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Stale PR runs are cancelled; every master commit keeps its own complete run.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -29,6 +30,10 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: pnpm install --frozen-lockfile
       - run: scripts/gates.sh
+        env:
+          # The LLD's mutation floor applies to the diff on every PR; the full run is nightly.
+          GATES_MUTANTS: ${{ github.event_name == 'pull_request' && '1' || '0' }}
+          GATES_BASE: origin/${{ github.base_ref || 'master' }}
       - if: github.event_name == 'pull_request'
         run: scripts/commit-check.sh "origin/${{ github.base_ref }}"
 
@@ -68,6 +73,12 @@ jobs:
               - 'clippy.toml'
               - 'deny.toml'
               - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - 'mise.toml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/**'
               - 'crates/arch-tests/**'
 
   # D121: every gate must still reject its bad-patch fixture. Runs only when a gate changes.
