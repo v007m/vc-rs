@@ -1270,6 +1270,12 @@ version = "0.1.0"
 [[package]]
 name = "vc-diagnostics"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "vc-model",
+]
 
 [[package]]
 name = "vc-engine"
@@ -1300,6 +1306,10 @@ dependencies = [
 [[package]]
 name = "vc-model"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
+]
 
 [[package]]
 name = "vc-parser"
