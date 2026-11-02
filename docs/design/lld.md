@@ -288,12 +288,15 @@ pub struct Size(u64);                       // bytes, parsed from "4kb", "1mb" b
 
 /// One file as the engine read it, handed to the pure compiler (D132).
 pub struct SourceFile { pub path: SourcePath, pub text: String, pub hash: ContentHash }
-pub struct SourcePath(String);   // project-relative, `/` on every OS; never absolute, no `..`
+pub struct SourcePath(String);   // project-relative, `/` on every OS, `//` and `.` parts collapsed;
+                                 // never absolute (`/x`, `C:/x`, `C:`), no `..`, no trailing `/`
 pub struct ContentHash([u8; 32]); // opaque; the engine computes BLAKE3 when it reads the file
 
-/// From the file name, through a table of patterns (`vibranium.config.yaml`, `*.api.yaml`,
-/// `*.test.yaml`, `*.load.yaml`). Schemas, datasets and hooks have no kind: the reference
-/// that reads them (`$file`, `datasets`, `function:`) says what they are.
+/// From the path, through a table of patterns (`vibranium.config.yaml`, `*.api.yaml`,
+/// `*.test.yaml`, `*.load.yaml`). `*` patterns match the file name in any folder; Config is
+/// only `vibranium.config.yaml` at the project root, and one in a folder has no kind.
+/// Schemas, datasets and hooks have no kind: the reference that reads them (`$file`,
+/// `datasets`, `function:`) says what they are.
 pub enum FileKind { Config, Api, Test, Load }
 
 /// The files by SourceFileId (`push` hands out the next ID), with the lookups renderers need:

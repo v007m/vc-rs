@@ -13,20 +13,21 @@ use crate::ModelError;
 pub struct SourcePath(String);
 
 impl SourcePath {
-    /// The path `text`, with `\` turned into `/` and any leading `./` dropped.
+    /// The path `text`, normalised: `\` turned into `/`, and empty (`a//b`) and `.` parts
+    /// dropped, so one file has one path.
     ///
     /// # Errors
     ///
-    /// [`ModelError::InvalidSourcePath`] when the path is empty, absolute (`/x`, `C:/x`) or has
-    /// a `..` part.
+    /// [`ModelError::InvalidSourcePath`] when the path is absolute (`/x`, `C:/x`, `C:`), ends
+    /// in `/`, has a `..` part, or names no file (empty or `.`).
     pub fn new(text: &str) -> Result<Self, ModelError> {
         let slashed = text.replace('\\', "/");
-        let path = slashed.trim_start_matches("./");
-        let absolute = path.starts_with('/') || path.as_bytes().get(1) == Some(&b':');
-        if path.is_empty() || absolute || path.split('/').any(|part| part == "..") {
+        let parts: Vec<&str> = slashed.split('/').filter(|part| !part.is_empty() && *part != ".").collect();
+        let absolute = slashed.starts_with('/') || has_drive(&slashed);
+        if absolute || slashed.ends_with('/') || parts.is_empty() || parts.contains(&"..") {
             return Err(ModelError::InvalidSourcePath(text.to_owned()));
         }
-        Ok(Self(path.to_owned()))
+        Ok(Self(parts.join("/")))
     }
 
     /// The path as text.
@@ -40,6 +41,14 @@ impl SourcePath {
     pub fn file_name(&self) -> &str {
         self.0.rsplit('/').next().unwrap_or(&self.0)
     }
+}
+
+/// Whether `path` starts with a Windows drive: an ASCII letter, `:`, then `/` or nothing.
+fn has_drive(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.first().is_some_and(u8::is_ascii_alphabetic)
+        && bytes.get(1) == Some(&b':')
+        && matches!(bytes.get(2), None | Some(b'/'))
 }
 
 impl fmt::Display for SourcePath {
@@ -83,7 +92,8 @@ pub enum FileKind {
     Load,
 }
 
-/// File-name patterns for each kind; a leading `*` stands for a name of at least one character.
+/// Patterns for each kind. A leading `*` stands for a name of at least one character and matches
+/// the file name in any folder; a pattern without one is a file at the project root only.
 const KIND_PATTERNS: [(&str, FileKind); 4] = [
     ("vibranium.config.yaml", FileKind::Config),
     ("*.api.yaml", FileKind::Api),
@@ -92,16 +102,19 @@ const KIND_PATTERNS: [(&str, FileKind); 4] = [
 ];
 
 impl FileKind {
-    /// The kind of the file at `path`, or `None` when its name matches no kind.
+    /// The kind of the file at `path`, or `None` when it matches no kind.
+    ///
+    /// Only the root `vibranium.config.yaml` is [`FileKind::Config`]; one in a folder has no kind.
     #[must_use]
     pub fn from_path(path: &SourcePath) -> Option<Self> {
-        let name = path.file_name();
-        KIND_PATTERNS.iter().find(|(pattern, _)| name_matches(pattern, name)).map(|&(_, kind)| kind)
+        KIND_PATTERNS.iter().find(|(pattern, _)| path_matches(pattern, path)).map(|&(_, kind)| kind)
     }
 }
 
-fn name_matches(pattern: &str, name: &str) -> bool {
-    pattern.strip_prefix('*').map_or(name == pattern, |suffix| name.len() > suffix.len() && name.ends_with(suffix))
+fn path_matches(pattern: &str, path: &SourcePath) -> bool {
+    let Some(suffix) = pattern.strip_prefix('*') else { return path.as_str() == pattern };
+    let name = path.file_name();
+    name.len() > suffix.len() && name.ends_with(suffix)
 }
 
 /// One file as the engine read it: what the pure compiler is given instead of doing I/O (D132).
@@ -142,9 +155,30 @@ mod tests {
 
     #[test]
     fn paths_outside_the_project_are_rejected() {
-        for bad in ["", "./", "/etc/passwd", r"C:\x.api.yaml", "../x.api.yaml", "a/../../b"] {
+        for bad in ["", "./", "/etc/passwd", r"C:\x.api.yaml", "../x.api.yaml", "a/../../b", "C:/x", "C:", "c:"] {
             assert!(SourcePath::new(bad).is_err(), "{bad:?} was accepted");
         }
+    }
+
+    #[test]
+    fn paths_collapse_empty_and_dot_parts() {
+        for (text, expected) in [("a//b", "a/b"), ("a/./b", "a/b"), ("./a/.//b", "a/b"), (r"a\\b", "a/b")] {
+            assert_eq!(SourcePath::new(text).unwrap().as_str(), expected, "{text:?}");
+        }
+    }
+
+    #[test]
+    fn paths_naming_no_file_are_rejected() {
+        for bad in [".", "./.", "//", "a/", "services/orders/", r"a\"] {
+            assert!(SourcePath::new(bad).is_err(), "{bad:?} was accepted");
+        }
+    }
+
+    #[test]
+    fn only_a_letter_colon_slash_start_is_a_drive() {
+        assert_eq!(SourcePath::new("k:v.api.yaml").unwrap().as_str(), "k:v.api.yaml");
+        assert_eq!(SourcePath::new("services/k:v.api.yaml").unwrap().file_name(), "k:v.api.yaml");
+        assert_eq!(SourcePath::new("1:/x.api.yaml").unwrap().as_str(), "1:/x.api.yaml");
     }
 
     #[test]
@@ -161,6 +195,7 @@ mod tests {
             assert_eq!(kind(other), None, "{other}");
         }
         assert_eq!(kind("services/vibranium.config.yaml.bak"), None);
+        assert_eq!(kind("services/vibranium.config.yaml"), None, "only the root config is a config");
     }
 
     #[test]
