@@ -49,8 +49,9 @@ count() {
   local file="$out/mutants.out/$1"
   if [[ -s "$file" ]]; then grep -c . "$file"; else echo 0; fi
 }
-caught=$(count caught.txt)
-viable=$((caught + $(count missed.txt) + $(count timeout.txt)))
+# A timed-out mutant was detected (the tests did not finish), so it counts as caught.
+caught=$(($(count caught.txt) + $(count timeout.txt)))
+viable=$((caught + $(count missed.txt)))
 if [[ $viable -eq 0 ]]; then
   echo "no viable mutants"
   exit 0

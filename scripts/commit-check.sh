@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Commit gates (D116) for every non-merge commit in <base-ref>..HEAD (default origin/master):
 #   GATE-COMMIT    the subject is not a conventional commit
-#   GATE-REFACTOR  a refactor: commit changes a test file or a line containing an assertion
+#   GATE-REFACTOR  a refactor: commit changes a test file or a diff hunk that holds an assertion
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,11 +17,17 @@ report() {
 }
 
 touches_assertions() {
-  local files changed
+  local files
   files=$(git show --format= --name-only "$1")
   if grep -Eq "$TEST_FILE_RE" <<<"$files"; then return 0; fi
-  changed=$(git show --format= --unified=0 "$1" -- '*.rs' | grep -E '^[-+]' | grep -Ev '^(\+\+\+|---) ' || true)
-  [[ $changed == *assert* ]]
+  # A hunk counts when it changes a line and mentions an assertion anywhere, context included, so
+  # editing the expected value on its own line of a multi-line assert_eq! is caught as well.
+  git show --format= --unified=3 "$1" -- '*.rs' | awk '
+    /^@@/ { if (changed && asserts) found = 1; changed = 0; asserts = 0; next }
+    /^(\+\+\+|---) / { next }
+    /^[-+]/ { changed = 1 }
+    /assert/ { asserts = 1 }
+    END { if (changed && asserts) found = 1; exit !found }'
 }
 
 for sha in $(git rev-list --no-merges --reverse "$base..HEAD"); do

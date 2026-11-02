@@ -1,0 +1,48 @@
+# expect: GATE-REFACTOR changes test assertions
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gate Fixture <gate-fixture@example.invalid>
+Date: Mon, 2 Nov 2026 00:00:00 +0000
+Subject: [PATCH 1/2] test(planner): cap the retry limit
+
+Gate fixture setup: a test commit with a multi-line assertion.
+---
+diff --git a/crates/planner/src/gate_fixture.rs b/crates/planner/src/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/gate_fixture.rs
+@@ -0,0 +1,12 @@
++const fn retries_allowed(requested: u32) -> u32 {
++    if requested > 5 { 5 } else { requested }
++}
++
++#[cfg(test)]
++#[test]
++fn caps_retries_at_five() {
++    assert_eq!(
++        retries_allowed(9),
++        5
++    );
++}
+--
+2.50.0
+
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gate Fixture <gate-fixture@example.invalid>
+Date: Mon, 2 Nov 2026 00:00:01 +0000
+Subject: [PATCH 2/2] refactor(planner): tidy the retry limit
+
+Gate fixture: a refactor commit that edits only the expected value of a multi-line assertion.
+---
+diff --git a/crates/planner/src/gate_fixture.rs b/crates/planner/src/gate_fixture.rs
+--- a/crates/planner/src/gate_fixture.rs
++++ b/crates/planner/src/gate_fixture.rs
+@@ -7,6 +7,6 @@ const fn retries_allowed(requested: u32) -> u32 {
+ fn caps_retries_at_five() {
+     assert_eq!(
+         retries_allowed(9),
+-        5
++        6
+     );
+ }
+--
+2.50.0
