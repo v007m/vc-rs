@@ -105,7 +105,7 @@ Third-party crates:
 | YAML with positions | `saphyr` 0.2 | YAML 1.2 with a marked tree (line and column for every node), needed for diagnostics and minimal-diff edits |
 | JSON | `serde` 1, `serde_json` 1 | Standard |
 | Template and pipe parsing | `winnow` 1 | Small, fast parser combinators with good error positions |
-| CEL | `cel-interpreter` 0.10 | The maintained Rust CEL implementation; wrapped so it can be swapped |
+| CEL | `cel` 0.15 (formerly `cel-interpreter`), `regex` feature only | The maintained Rust CEL implementation; wrapped behind `Expr` so it can be swapped. Its `chrono` and `json` features fail `cargo deny` (see Open questions) |
 | JSON Schema | `jsonschema` 0.60 | Body schema checks and file-format validation |
 | Fake data | `fake` 5 | Faker-style generators; names mapped to the Faker JS catalogue used in templates |
 | Diagnostics rendering | hand-written (`TextRenderer`, `JsonRenderer` in `vc-diagnostics`); `miette` dropped at M1 | Rustc-style text and the stable `vc check --json` shape. `miette` was dropped because a report holds one source text, so a secondary label in another file (the earlier duplicate, the profile in the config) needs a separate related report; fixes and the JSON shape (spans by path, a summary) would be ours either way; and it adds a colour and text-wrapping dependency tree under `multiple-versions = deny`. The renderer is about 400 lines |
@@ -455,9 +455,13 @@ pub enum ScalarStyle { Plain, SingleQuoted { escaped: bool }, DoubleQuoted { esc
 pub enum TemplateValue {
     Null, Bool(bool), Number(serde_json::Number), String(Template),
     List(Vec<TemplateValue>), Map(IndexMap<String, TemplateValue>),
-    Cel(CelSource),                       // $cel: source text and span; the compiled program is added with CEL
+    Cel(CelSource),                       // $cel: as written; the compiler checks it into a CelProgram (see CEL)
     Extend { base: Template, changes: Box<TemplateValue>, remove: Vec<Path> },
 }
+
+/// A $cel value or CEL check as written, and the checked form. Plain data: the evaluator lives in vc-template.
+pub struct CelSource { pub text: String, pub span: SourceSpan, pub style: ScalarStyle }
+pub struct CelProgram { pub source: CelSource, pub refs: Vec<Reference> } // every root it reads, in source order
 
 /// Vars set at one level; the executor stacks levels at run time (see Vars, templates and CEL).
 pub struct VarDefs { pub values: IndexMap<VarName, TemplateValue>, pub by_profile: IndexMap<ProfileId, IndexMap<VarName, TemplateValue>> }
@@ -476,7 +480,7 @@ The compiler turns the project's files into a `Program` or a list of diagnostics
 | Discover (engine, not compiler) | project root, `paths` globs | source texts with BLAKE3 content hashes, through `SourceProvider` | `vc-adapter-system` walks with `ignore` (respects `.gitignore`); file kind from the suffix (D132, D133) |
 | Parse | changed files only | a marked tree per file (`parser::Node`, every node with its span) | `saphyr`; JSON goes through the same tree type |
 | Shape-check | marked trees | raw items per file kind, with unknown keys, wrong types and missing required keys reported | shapes are declared once (below) |
-| Compile parts | raw items | templates, pipes, CEL programs, matchers, durations, sizes | `template` crate; CEL type-checked against the namespaces available at that spot |
+| Compile parts | raw items | templates, pipes, CEL programs, matchers, durations, sizes | `template` crate; CEL parsed and its roots checked against the namespaces available at that spot |
 | Link | all raw items | the `Program`: ID tables, references resolved, merged `expect`, test-level step defaults, var reachability | the only stage that sees every file at once |
 | Lint | the `Program` | warnings: naming conventions, expired skips, shared-value writes, cache in per-test blocks | each lint is a registered rule with a V-code |
 
@@ -505,7 +509,7 @@ The same declarations generate the JSON Schemas shipped for editors (`vc schema 
 4. **Test-level step defaults.** A test's `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every step, and the step's own value wins. A body default that reaches a GET or HEAD step is V3205; a default no step uses is V3206. A test-level `save` reads the last step's response (D124).
 5. **Var reachability.** For each template, the linker walks the levels that can supply a var at that spot (call vars, earlier saves in the same test, beforeAll saves under their action id, file vars, beforeRun saves, the api's defaults, the api file, config), separately for every profile. A `function:` or `test:` action may declare `provides: [x]`, and the linker trusts that declaration (D128). A var that no level provides for some profile is V2101, naming the profiles where it is missing and the places it could be set. A template root that is not available at that spot (D125) is V2105.
 6. **Lifecycle graph.** `test:` reuse forms a graph; cycles are V2205 with the whole chain. Shared actions without an `id` are V2210.
-7. **Types.** Pipes and CEL are checked against what each reference can hold (a `| number` on a value the api's schema says is an object is V2304).
+7. **Types.** Pipes are checked against what each reference can hold (a `| number` on a value the api's schema says is an object is V2304). CEL is not type-checked until the interpreter has a checker (see Open questions).
 
 ### Diagnostics and fixes
 
@@ -736,18 +740,30 @@ Config values are layered once, lowest first: built-in defaults < user config < 
 
 ### CEL
 
-`cel-interpreter` is wrapped behind a small trait so it can be replaced:
+The `cel` crate is private to `vc-template`, behind a small trait so it can be replaced. Checking and evaluating are split so that `vc-model` stays plain data and the compiler stays pure:
 
 ```rust
-pub trait Expr: Send + Sync {
-    fn eval(&self, activation: &Activation) -> Result<Value, ExprError>;
+impl CelCompiler {
+    /// Pure, used by the compiler: parses the source and checks every root it reads.
+    pub fn check(&self, source: &CelSource, roots: &Roots, strings: &mut StringTable) -> Result<CelProgram, TemplateError>;
+    /// Used by the executor at run start: turns a checked program into an evaluator.
+    pub fn prepare(&self, program: &CelProgram) -> Result<Arc<dyn Expr>, TemplateError>;
 }
-// Activation roots (D125): response (status, headers, body, timing), request, var (D53), env, item,
-// iteration, example, and each step id. There are no bare status/headers/body aliases (D150).
-// A root not available at that spot is a compile error (V2105).
+pub trait Expr: Send + Sync + Debug {
+    fn eval(&self, activation: &Activation) -> Result<serde_json::Value, ExprError>;
+}
+/// One evaluation's roots (D125): response (status, headers, body, timing), request, var (D53), env,
+/// item, iteration, example and each step id, as JSON; plus the step limit (default 1,000,000).
+pub struct Activation { /* roots: HashMap<Namespace, Arc<Value>>, step_limit */ }
+pub enum ExprError { Eval(String), StepLimit(u64), MissingRoot(String), Unrepresentable(String) }
 ```
 
-Expressions are compiled and type-checked once by the compiler. At run time each evaluation gets a fresh activation built from the response and scope. Two additions to the standard library are registered: `sum()` on lists of numbers and `matches()` with the same regex engine as the `regex` matcher. Evaluation has a step limit, so a pathological expression fails instead of hanging.
+- **Check (compile time).** `check` parses the expression and walks it for roots: an identifier followed by fields and literal indexes becomes a `Reference` with its path and exact span, and comprehension variables and type names are skipped. Each reference goes through the same `Roots::check` as templates, so an unavailable root is V2105 or V2102, and a bare `status`, `headers` or `body` is V2105 with the certain `response.` fix (D150). `secret`, `fake`, `dataset` and `run` are V2105 "not available in CEL": CEL's activation has no such roots (D125), so the help says to set a var from a template and read `var.<name>`. A parse error is V2305 at the parser's position, with the parser's internal "Incomplete …" errors dropped. `timestamp()` and `duration()` are V2305 "not supported yet" (see Open questions), so they never fail silently at run time. A literal pattern given to `matches()` that does not compile is V2306, as for the `regex` matcher. `cel-rust` has no type checker, so a call to an unknown function or a type mismatch is only found at run time.
+- **Prepare (run start).** The executor (M2) prepares every `CelProgram` once per run into its own table keyed by the program's position in the `Program`; the `Program` itself holds only data. `prepare` re-parses the source, binds each root the program reads to its `Namespace`, and wraps every comprehension's range in a counting call (below).
+- **Evaluate.** Each evaluation builds a fresh CEL context from the activation: only the roots the program reads are converted from JSON, every integer that fits becomes an `int` (CEL has no arithmetic across `int`, `uint` and `double`), and the result is converted back to JSON with map keys as sorted strings. Bytes, NaN and infinities have no JSON form (`ExprError::Unrepresentable`).
+- **Standard library additions.** `sum()` on a list of numbers is an `int` when every element is one (overflow is an error) and a `double` otherwise; `[]` sums to 0. `matches()` is the interpreter's own, built on the same `regex` crate as the `regex` matcher.
+- **Step limit.** CEL's only loops are comprehensions (`all`, `exists`, `map`, `filter`). Every comprehension's range is passed through a hidden `@steps` function that adds the range's size to a counter local to that evaluation and fails with `ExprError::StepLimit` past the activation's limit, so a nested pathological expression fails instead of hanging. List and string building outside comprehensions is not counted.
+- **The word `var`.** CEL reserves `var`, which is one of our roots. Before parsing, every `var` outside strings and comments and not after a `.` is renamed in place to `_v_`, a word of the same length, so every offset still matches the source. Writing `_v_` yourself is V2305.
 
 ## HTTP transport, auth and secrets
 
@@ -1045,8 +1061,8 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V2302 | error | Wrong value type (`"3"` for an integer) | convert |
 | V2303 | error | Invalid status code or class | — |
 | V2304 | error | Pipe or path cannot apply to that value's type | — |
-| V2305 | error | Template or CEL does not parse (unclosed `${`, empty `${}`, bad path segment, malformed pipe arguments; D144) | — |
-| V2306 | error | Matcher argument invalid (bad regex, `between` with one value) | — |
+| V2305 | error | Template or CEL does not parse (unclosed `${`, empty `${}`, bad path segment, malformed pipe arguments; D144); CEL `timestamp()` or `duration()`, not supported yet | — |
+| V2306 | error | Matcher argument invalid (bad regex, `between` with one value); also a literal regex given to CEL `matches()` | — |
 | V2308 | error | Unknown pipe or wrong pipe arguments (arity, argument type; D145) | the closest pipe name, when one is close |
 | V3101 | error | No profile defined, or no active profile for this run | add `default: true` to the only profile |
 | V3102 | error | More than one default profile | — |
@@ -1142,7 +1158,8 @@ None of these block M0–M2; each has a default the plan assumes until decided.
 | Question | Default assumed | Decide by |
 | --- | --- | --- |
 | Varlock's exact CLI contract for loading values as JSON per environment (flag names, exit codes) | Call `varlock load` with JSON output once per run; wrap it behind `SecretProvider` so a change stays in one adapter | M3, after testing against the current Varlock release |
-| `cel-interpreter` gaps (macros, timestamps, error positions) compared with cel-go | Use it behind the `Expr` trait; add missing functions locally; contribute fixes upstream | M1 |
+| CEL `timestamp()` and `duration()`: they need the `cel` crate's `chrono` feature, which fails `cargo deny` on duplicate versions. `chrono` 0.4.45 pulls `iana-time-zone` 0.1.65 → `windows-core` 0.62.2 → `windows-implement` 0.60.2 and `windows-interface` 0.59.3, which need `syn` 2.0.119 while the workspace uses `syn` 3.0.9. (The `json` feature also clashes: `base64` 0.22.1 against the 0.23.1 used by `hyper-util` 0.1.21 and `reqwest` 0.13.5; we convert JSON ourselves, so it is not needed.) Options: (a) a `deny.toml` skip entry for `syn` 2 and `windows-*` (a gate file, so Sarath's call); (b) our own `timestamp()`/`duration()` functions on ISO-8601 strings and our duration format, registered like `sum()`; (c) wait for upstream to move to `syn` 3 | Built without `chrono`: `vc check` reports `timestamp()` and `duration()` as V2305 "not supported yet". The Syntax Reference still documents them | M4 (`$cel`) |
+| Other `cel` 0.15 gaps compared with cel-go | No type checker, so unknown functions and type mismatches surface at run time, not in `vc check`; `var` is a reserved word (worked around by renaming, see CEL); no two-variable comprehensions; mixed `int`/`double` arithmetic is an error (`1.5 * 2`), while comparisons across them work; the crate uses `lazy_static` and `parking_lot` internally, and `Context::add_variable_from_value` has an internal `unwrap` (fine for JSON values) | Keep it behind `Expr`; add missing functions locally; contribute a checker and fixes upstream | M4 |
 | Faker catalogue parity: the Rust `fake` crate's generators versus the Faker JS names used in templates | A mapping table from Faker JS names to `fake` generators; unmapped names are a V2002 error listing what exists | M4 |
 | Web UI framework | Decided by Sarath: Svelte with SvelteKit (static adapter), built by Vite | M9 kickoff |
 | Where the documentation site and JSON Schemas are hosted | The GitHub repository (raw URLs) until a domain exists; SchemaStore entries point there | v2.0 release |
