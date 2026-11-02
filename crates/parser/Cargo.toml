@@ -10,6 +10,7 @@ publish.workspace = true
 
 [dependencies]
 saphyr-parser.workspace = true
+thiserror.workspace = true
 vc-diagnostics.workspace = true
 vc-model.workspace = true
 

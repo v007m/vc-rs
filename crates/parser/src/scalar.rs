@@ -105,6 +105,26 @@ fn is_float(text: &str) -> bool {
     exponent_ok && mantissa_ok
 }
 
+/// The text written in the house style: plain when YAML reads it back as the same text,
+/// otherwise double-quoted with escapes.
+pub fn render(text: &str) -> String {
+    if needs_quotes(text) { double_quote(text) } else { text.to_owned() }
+}
+
+const INDICATORS: &[char] =
+    &['-', '?', ':', ',', '[', ']', '{', '}', '#', '&', '*', '!', '|', '>', '\'', '"', '%', '@', '`'];
+
+fn needs_quotes(text: &str) -> bool {
+    resolve(text) != ScalarKind::String
+        || text.starts_with(INDICATORS)
+        || text.starts_with(char::is_whitespace)
+        || text.ends_with(char::is_whitespace)
+        || text.ends_with(':')
+        || text.contains(": ")
+        || text.contains(" #")
+        || text.contains(char::is_control)
+}
+
 /// `text` as a double-quoted YAML scalar.
 pub fn double_quote(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + 2);
@@ -127,7 +147,7 @@ pub fn double_quote(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{ScalarKind as K, ScalarStyle, double_quote, resolve};
+    use super::{ScalarKind as K, ScalarStyle, double_quote, render, resolve};
 
     #[test]
     fn plain_scalars_resolve_by_the_core_schema() {
@@ -170,7 +190,13 @@ mod tests {
     }
 
     #[test]
-    fn double_quote_escapes_what_yaml_needs() {
+    fn render_quotes_only_what_yaml_would_misread() {
+        assert_eq!(render("orders#place"), "orders#place");
+        assert_eq!(render("${var.userId}"), "${var.userId}");
+        assert_eq!(render("12"), "\"12\"");
+        assert_eq!(render("see #212"), "\"see #212\"");
+        assert_eq!(render("a: b"), "\"a: b\"");
+        assert_eq!(render(""), "\"\"");
         assert_eq!(double_quote("a\"b\\c\nd\u{1}"), "\"a\\\"b\\\\c\\nd\\u0001\"");
     }
 }
