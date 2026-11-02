@@ -18,7 +18,7 @@ These rules govern every file; `vc check` enforces each one with a diagnostic.
 
 1. **camelCase keys everywhere.** No kebab-case (`repeat-delay`) or snake\_case (`max_parallel_executors`). Request bodies are your API's data and are sent exactly as written.
 2. **The file suffix decides the kind:** `vibranium.config.yaml`, `*.api.yaml`, `*.test.yaml`, `*.load.yaml`. There is no `kind:` key.
-3. **Every item has an `id`, and may have a `name`.** `id` is the reference: camelCase letters and digits only (`createsMember`), no spaces, dots or dashes. `name` is free text for reports. A full ID is `<fileId>#<id>` (`users.crud#createsMember`), and that is how another file's item is referenced; inside the same file the short `id` works. IDs are unique within a file across every kind (tests, apis, actions, steps, datasets…), so one short `id` never names two things (D128, D138). File IDs are lowercase words joined by dots (`users.crud`), so a bare dotted word is always a file ID. A file's ID comes from its path (D139): the conventional root (`services/`, `load/`) and the kind suffix are dropped and the folders and file name are joined with dots, so `services/payments/refunds/partial.test.yaml` is `payments.refunds.partial` and `services/users/users.api.yaml` is `users` (a file name equal to its folder collapses). The `id:` key is optional; when present it must match the path (V2007), and `vc check --fix` renames it with its references.
+3. **Every item has an `id`, and may have a `name`.** `id` is the reference: camelCase letters and digits only (`createsMember`), no spaces, dots or dashes. `name` is free text for reports. A full ID is `<fileId>#<id>` (`users.crud#createsMember`), and that is how another file's item is referenced; inside the same file the short `id` works. IDs are unique within a file across every kind (tests, apis, actions, steps, datasets…), so one short `id` never names two things (D128, D138). File IDs are lowercase words joined by dots (`users.crud`), so a bare dotted word is always a file ID. A file's ID comes from its path (D139): the conventional root (`services/`, `load/`) and the kind suffix are dropped and the folders and file name are joined with dots, so `services/payments/refunds/partial.test.yaml` is `payments.refunds.partial` and `services/users/users.api.yaml` is `users` (an api file named like its folder collapses; D142). Other kinds never collapse: `services/orders/orders.test.yaml` is `orders.orders`, and the convention lint suggests a better name such as `crud`. The `id:` key is optional; when present it must match the path (V2007), and `vc check --fix` renames it with its references.
 4. **Things with several properties are list items; plain name–value pairs are maps.** Apis, tests, profiles, auth definitions, generators and plugins are lists of items with `id`; steps and lifecycle actions are lists whose `id` is optional. Vars, headers, query and saved values are maps.
 5. **One kind of value: vars.** Defaults, inputs to an api, environment values and values saved from a response are all vars, read as `${var.x}`. Values set closer to the call win (see Vars and profiles).
 6. **Sections are plural, references are singular.** `vars:` is read as `${var.x}`, `secrets` as `${secret.X}`, `examples:` as `${example.x}`.
@@ -127,6 +127,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `defaults.perHost` | integer | `8` | Connections per host |
 | `defaults.retry` | `attempts`, `delay` | none | Applied to every test unless overridden; re-runs the whole test instance (D126) |
 | `defaults.headers` | map | none | Sent with every request |
+| `http.retry` | `attempts`, `on`, `methods`, `backoff` | `attempts: 0` (off) | Transport retry of one request (D143). `on` defaults to `[connect, timeout, 502, 503, 504]`, `methods` to `[GET, HEAD, OPTIONS, PUT, DELETE]`, `backoff` to `{ base: 100ms, max: 2s, jitter: true }` (exponential). Each attempt gets the full `timeout` |
 | `vars` | map | — | Project-wide values |
 | `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles) |
 | `auth` | list | — | Auth definitions (see Authentication) |
@@ -319,7 +320,8 @@ Each item in `apis`:
 | `headers` | map of templates | — | Merged over the file's headers |
 | `body` | see Request body | none | Request body |
 | `auth` | auth ID, `none`, or `id` + `vars` | the file's | Overrides the file's auth |
-| `timeout` | duration | `defaults.timeout` | Per request |
+| `timeout` | duration | `defaults.timeout` | Per request attempt |
+| `http.retry` | as in config | config's `http.retry` | Transport retry for this api; keys given here replace the config's (D143) |
 | `expect` | checks | `status: 2xx` | Checks that hold on every call; a test's `expect` adds to them and replaces matching keys |
 | `save` | map of templates over `response` | — | Values every caller gets as vars |
 | `cleanup` | `call` + `vars` | — | How to undo a successful call; registered automatically (see Cleanup on an api) |
@@ -532,7 +534,7 @@ With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `exp
 
 Every step sends `x-request-source` and checks the `content-type`; only the last step checks the name, and `finalName` comes from `users#get`.
 
-Retries and statuses (D126): `retry` on a test re-runs the whole test instance, with its cleanups run between attempts. A pass after a failure is reported as **flaky**. A **blocked** instance is never retried. Retrying a single request on a 5xx or a timeout is a transport setting, `http.retry`, not a test retry. Every test instance ends as passed, failed, blocked, skipped or flaky.
+Retries and statuses (D126): `retry` on a test re-runs the whole test instance, with its cleanups run between attempts. A pass after a failure is reported as **flaky**. A **blocked** instance is never retried. Retrying a single request on a 5xx or a timeout is a transport setting, `http.retry` (D143, off by default), not a test retry. Every test instance ends as passed, failed, blocked, skipped or flaky.
 
 Order of work: the file's `beforeAll` runs once, before any of its selected tests starts (D122). Then, for each test instance: `beforeEach` → `before` → the call or steps (each: request, the api's `expect` merged with the test's and the step's, `poll`, `save`, cleanup registered) → the test-level `save` → `after` → `afterEach` → registered cleanups, newest first → record. `after` and `afterEach` run even when something before them failed. After the file's last test: `afterAll`, then the file's cleanups.
 
