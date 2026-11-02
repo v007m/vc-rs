@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium web · API client</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/81dcd3b549d078b575adb6aed82e1861">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+sc-for,sc-if{display:contents}
+.sr{position:absolute;left:0;top:0;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.small{font-size:12px}
+.ic{flex:none}
+.profsel{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2)}
+.profsel .select{width:auto;height:30px;background:var(--hover);border-color:transparent}
+.cside{flex:0 1 272px;min-width:224px}
+.gnav{display:flex;flex-direction:column;gap:2px}
+.navsep{height:1px;background:rgba(27,24,48,.08);margin:6px 10px}
+.side-head .sidetoggle{margin-left:auto}
+.app.side-collapsed .side-head .sidetoggle{margin:0}
+.sidetoggle .flip{transform:scaleX(-1)}
+.project .chip{background:var(--hover);color:var(--ink2);font-size:12px;height:22px;padding:0 8px;gap:5px}
+.ctx{display:flex;flex-direction:column;gap:1px;min-width:0}
+.ctx > *{flex-shrink:0}
+.ssearch{display:flex;align-items:center;gap:7px;height:32px;margin:12px 0 4px;padding:0 9px;border-radius:8px;background:var(--hover);color:var(--ink2)}
+.ssearch input{border:0;background:transparent;font:inherit;font-size:13px;color:var(--ink);outline:none;flex:1;min-width:0}
+.ssearch:focus-within{background:var(--on)}
+.ctxhead{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-right:2px}
+.ctxhead .navlabel{padding-right:0}
+.lblcount{font-weight:500;color:var(--ink2);margin-left:5px}
+.arow{display:flex;align-items:center;gap:8px;min-height:27px;padding:0 8px 0 10px;border-radius:7px;border:0;background:transparent;font:inherit;font-size:13px;color:var(--ink);cursor:pointer;text-align:left;width:100%;min-width:0}
+.arow:hover{background:var(--hover)}
+.arow.on{background:var(--on);box-shadow:0 1px 1px rgba(27,24,48,.05)}
+.arow .method{min-width:38px;height:18px;font-size:10.5px}
+.arow.sub{padding-left:24px}
+.aid{font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto}
+.atext{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1 1 auto}
+.grp{font-weight:600;font-size:12.5px;color:var(--ink2)}
+.grp .aid{font-weight:600;color:var(--ink)}
+.chev{transition:transform .15s}
+.chev.open{transform:rotate(90deg)}
+.cnt{margin-left:auto;font-size:11.5px;color:var(--ink2);font-variant-numeric:tabular-nums;flex:none}
+.hst{font:500 11.5px var(--mono);flex:none}
+.hst.ok{color:var(--pass)} .hst.bad{color:var(--fail)}
+.ago{font-size:11.5px;color:var(--ink2);white-space:nowrap;flex:none}
+.newdot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
+.empty-s{font-size:12px;color:var(--ink2);padding:4px 10px}
+.pill.tiny{height:17px;font-size:10.5px;padding:0 6px}
+
+.cpanel{min-height:0;position:relative}
+.rtabs{display:flex;align-items:flex-end;gap:2px;padding:6px 8px 0;border-bottom:1px solid var(--line);overflow-x:auto;background:var(--panel2)}
+.rtab{display:flex;align-items:center;border-radius:9px 9px 0 0;border:1px solid transparent;border-bottom:0;margin-bottom:-1px;max-width:250px;min-width:0;flex:none}
+.rtab:hover{background:var(--panel3)}
+.rtab.on{background:var(--panel);border-color:var(--line)}
+.rtab-main{display:flex;align-items:center;gap:7px;height:35px;padding:0 4px 0 10px;border:0;background:transparent;font:500 12.5px var(--font);color:var(--ink2);cursor:pointer;min-width:0}
+.rtab.on .rtab-main{color:var(--ink)}
+.rtab-main .method{min-width:38px;height:18px;font-size:10.5px}
+.rtab-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rtab-name.mono{font-size:12px}
+.rtab-x{width:24px;height:24px;margin-right:5px;border-radius:6px;border:0;background:transparent;color:var(--ink2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.rtab-x:hover{background:var(--panel3);color:var(--ink)}
+.newtab{margin:0 0 3px 4px;flex:none}
+.udot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.modebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 16px;border-bottom:1px solid var(--line)}
+.stagebanner{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--ink);background:var(--accentSoft);border-radius:8px;padding:2px 3px 2px 10px}
+.filenote{font-size:12px;color:var(--ink2)}
+
+.reqbar{padding:12px 16px 11px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line)}
+.reqline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.msel{width:108px;flex:none;height:38px;font:600 12.5px var(--mono);border-color:transparent}
+.url{flex:1 1 240px;height:38px}
+.profchip{height:20px;font:500 11.5px var(--mono)}
+.send{height:38px;padding:0 16px}
+.kbd.inv{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.32);color:#fff}
+.resolved{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;min-width:0}
+.rurl{overflow-wrap:anywhere;min-width:0}
+.rurl .rv{color:var(--accentInk);background:var(--accentSoft);border-radius:3px;padding:0 2px}
+.rurl .miss{color:var(--fail);background:var(--failSoft);border-radius:3px;padding:0 2px}
+.rurl .ph{color:var(--ink2);font-family:var(--font)}
+
+.work{display:flex;flex-wrap:wrap;flex:1 1 auto;min-height:0;align-items:stretch}
+.work > .pane{flex:1 1 380px;min-width:0;display:flex;flex-direction:column}
+.work > .resppane{flex:1.6 1 480px;border-left:1px solid var(--line)}
+.respact{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.pbody{padding:14px 16px 18px;display:flex;flex-direction:column;gap:14px;min-width:0;overflow:auto;max-height:660px}
+.tabs .tab{display:inline-flex;align-items:center;gap:6px}
+.pane > .tabs{padding:0 6px;gap:0}
+.pane > .tabs .tab{padding:0 8px;font-size:12.5px;gap:5px}
+.pane > .tabs .tcount{padding:1px 5px}
+.tcount{font-size:11px;font-weight:500;color:var(--ink2);background:var(--panel3);border-radius:999px;padding:1px 6px}
+.tcount.bad{background:var(--failSoft);color:var(--fail)}
+.subhead{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.gtab{display:flex;flex-direction:column;font-size:12.5px;min-width:0}
+.gc1{--cols:minmax(90px,.8fr) minmax(150px,1.4fr) 104px minmax(110px,1fr)}
+.gc2{--cols:34px minmax(90px,1fr) minmax(120px,1.6fr) 36px}
+.gc3{--cols:minmax(110px,.9fr) minmax(150px,1.6fr) minmax(110px,.9fr)}
+.gc4{--cols:34px minmax(110px,1fr) minmax(130px,1.6fr) 36px}
+.gc5{--cols:34px minmax(100px,1fr) minmax(130px,1.6fr) 36px}
+.gc6{--cols:minmax(84px,.7fr) minmax(130px,1.3fr) 96px minmax(110px,1.1fr)}
+.gc7{--cols:minmax(110px,1fr) 22px minmax(150px,1.6fr) 36px}
+.gc8{--cols:minmax(120px,.8fr) minmax(160px,1.6fr)}
+.gc9{--cols:80px minmax(130px,1.2fr) minmax(80px,.8fr) minmax(80px,.8fr) 70px}
+.gc10{--cols:minmax(90px,.8fr) minmax(130px,1.2fr) minmax(110px,1fr)}
+.gc11{--cols:34px minmax(190px,1.25fr) minmax(170px,1.15fr) minmax(130px,.9fr) 150px minmax(140px,1fr) 70px 126px}
+.gc12{--cols:34px 64px minmax(260px,1fr) 56px 70px 92px}
+.gc13{--cols:34px 64px minmax(200px,1.4fr) minmax(130px,1fr) minmax(150px,1fr)}
+.gc14{--cols:120px minmax(0,1fr)}
+.gc15{--cols:34px minmax(140px,1fr) 64px minmax(200px,1.5fr) minmax(170px,1fr)}
+.trow{display:grid;grid-template-columns:var(--cols);align-items:center;border-bottom:1px solid var(--line);min-width:0}
+.trow > div{padding:6px 8px;min-width:0;display:flex;align-items:center;gap:6px}
+.trow.hd > div{font-size:11.5px;font-weight:500;color:var(--ink2);padding-top:4px;padding-bottom:6px}
+.trow.inh{color:var(--ink2)}
+.trow.inh.ovr .kv{text-decoration:line-through}
+.trow.sel{background:var(--accentSoft)}
+.cellv{overflow-wrap:anywhere;min-width:0}
+.input.sm,.select.sm{height:30px;font-size:12.5px;border-radius:7px}
+.input.ghostin{border-color:transparent;background:transparent}
+.input.ghostin:hover{border-color:var(--line2)}
+.chk{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+.chk input{width:15px;height:15px;accent-color:var(--accent);margin:0}
+.lvl{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;font-size:11.5px;font-weight:500;background:var(--panel3);color:var(--ink2);white-space:nowrap}
+.lvl.l-call{background:var(--accentSoft);color:var(--accentInk)}
+.lvl.l-saved{background:var(--flakySoft);color:var(--flaky)}
+.lvl.l-miss{background:var(--failSoft);color:var(--fail)}
+.addrow{align-self:flex-start}
+.note{font-size:12px;color:var(--ink2);line-height:1.5}
+.note code,.mono-i{font-family:var(--mono);font-size:11.5px}
+.radios{display:flex;flex-direction:column;gap:2px}
+.radio{display:grid;grid-template-columns:20px minmax(0,1fr);gap:2px 8px;align-items:start;padding:8px 10px;border-radius:9px;cursor:pointer}
+.radio:hover{background:var(--panel2)}
+.radio.on{background:var(--accentSoft)}
+.radio input{margin:3px 0 0;accent-color:var(--accent)}
+.radio .rdesc{grid-column:2;font-size:12px;color:var(--ink2)}
+.tokrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.twocol{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:10px}
+.ncform{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.ncform .field{flex:1 1 120px}
+.ronly{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;padding:6px 10px;border-radius:8px;background:var(--panel2)}
+
+.resphead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);min-height:51px}
+.resphead .stat{font-size:12.5px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.resphead .stat b{color:var(--ink);font-weight:600}
+.pillbtn{border:0;cursor:pointer;font-family:inherit}
+.respempty{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:40px 20px;color:var(--ink2);text-align:center;min-height:300px}
+.respempty .big{font-size:14px;color:var(--ink);font-weight:500}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--accentSoft);border-top-color:var(--accent);animation:vcspin .7s linear infinite;flex:none}
+.spin.sm{width:11px;height:11px;border-width:2px}
+@keyframes vcspin{to{transform:rotate(360deg)}}
+.errbox{margin:16px;display:flex;flex-direction:column;gap:6px}
+.code{max-height:520px}
+.code .ln .sg{width:16px;flex:none;color:var(--ink2);user-select:none}
+.code .ln.add{background:var(--passSoft)}
+.code .ln.del{background:var(--failSoft)}
+.code .ln.gap{background:var(--panel3)}
+.code.wrap .ln{white-space:pre-wrap;overflow-wrap:anywhere}
+.codebar{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.wf{display:flex;flex-direction:column;gap:2px}
+.wfrow{display:grid;grid-template-columns:96px minmax(0,1fr) 64px;gap:10px;align-items:center;font-size:12.5px;padding:5px 0}
+.wftrack{height:12px;background:var(--panel2);border-radius:4px;position:relative;overflow:hidden}
+.wfbar{height:12px;border-radius:3px;background:var(--accent)}
+.wfbar.dns{background:#8E8AA3} .wfbar.connect{background:#2459B8} .wfbar.tls{background:#6B2EA3} .wfbar.firstByte{background:#5440D6} .wfbar.download{background:#1A7148}
+.wfrow.tot{border-top:1px solid var(--line);margin-top:4px;padding-top:9px;font-weight:600}
+.okmark{color:var(--pass)} .badmark{color:var(--fail)}
+
+.flowhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.flowname{width:auto;flex:0 1 280px;font-weight:600;font-size:14px;height:34px}
+.flowbody{padding:6px 16px 20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.stagewrap{min-width:0}
+.stages{min-width:1040px}
+/* the stage table reflows instead of scrolling: two lines per stage below ~1100px of panel, one field per line on a phone */
+@container (max-width: 1100px){
+  .stages{min-width:0}
+  .stages .trow{grid-template-columns:34px minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) auto;grid-template-areas:"n req uses saves act" "n rep status time act"}
+  .stages .trow > div:nth-child(1){grid-area:n} .stages .trow > div:nth-child(2){grid-area:req} .stages .trow > div:nth-child(3){grid-area:uses}
+  .stages .trow > div:nth-child(4){grid-area:saves} .stages .trow > div:nth-child(5){grid-area:rep} .stages .trow > div:nth-child(6){grid-area:status}
+  .stages .trow > div:nth-child(7){grid-area:time;align-items:flex-start !important} .stages .trow > div:nth-child(8){grid-area:act}
+  .stages .trow > div:nth-child(5) .select{max-width:220px}
+  .stages .trow > div{padding-top:5px;padding-bottom:5px}
+}
+@container (max-width: 600px){
+  .stages .trow{grid-template-columns:30px minmax(0,1fr) auto;grid-template-areas:"n req act" "n uses act" "n saves act" "n rep act" "n status act" "n time act"}
+  .stages .trow.hd{display:none}
+  .stages .trow{align-items:start}
+  .stages .trow > div:nth-child(5) .select{max-width:none}
+  .stages .trow:not(.hd) > div:nth-child(n+3):nth-child(-n+7)::before{font:500 11.5px var(--font);color:var(--ink2)}
+  .stages .trow:not(.hd) > div:nth-child(3)::before{content:"Uses"} .stages .trow:not(.hd) > div:nth-child(4)::before{content:"Saves"}
+  .stages .trow:not(.hd) > div:nth-child(5)::before{content:"Repeat"} .stages .trow:not(.hd) > div:nth-child(6)::before{content:"Status"}
+  .stages .trow:not(.hd) > div:nth-child(7)::before{content:"Time"}
+  .stages .trow > div:nth-child(8){flex-direction:column !important}
+}
+.stages .trow > div{padding:9px 8px;align-items:flex-start;flex-direction:column;gap:4px}
+.stages .trow.hd > div{padding:8px 8px 6px}
+.stages .trow.running{background:#F7F5FE}
+.stages .trow.failed{background:#FFF8F7}
+.stages .trow.sel{box-shadow:inset 3px 0 0 var(--accent)}
+.stagelink{display:flex;align-items:center;gap:8px;border:0;background:transparent;padding:0;font:inherit;color:var(--ink);cursor:pointer;text-align:left}
+.stagelink:hover .mono{text-decoration:underline}
+.stagelink .method{min-width:44px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 7px;border-radius:6px;background:var(--panel3);font:500 11.5px var(--mono);color:var(--ink);white-space:nowrap}
+.chip .from{font-family:var(--font);font-weight:400;color:var(--ink2);font-size:11px}
+.chip.chain{background:var(--accentSoft);color:var(--accentInk)}
+.chip.save{background:var(--passSoft);color:var(--pass)}
+.chip.save .from{color:#2F5A43}
+.rowact{display:flex;gap:2px;flex-direction:row !important}
+.iconbtn.sm{width:28px;height:28px}
+.iconbtn:disabled{opacity:.35;cursor:default}
+.stnum{font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.failnote{color:var(--fail)}
+.addstage{position:relative;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.picker{position:absolute;top:36px;left:0;z-index:5;width:340px;max-width:calc(100vw - 48px);display:flex;flex-direction:column;gap:2px}
+.picker .input{margin:4px 4px 6px;width:auto}
+.picker .opt .method{min-width:44px}
+.picklist{max-height:280px;overflow:auto;display:flex;flex-direction:column}
+.vt .trow > div{justify-content:flex-start}
+.vt .cell{font-family:var(--mono);font-size:12px;border-radius:5px;padding:2px 6px}
+.vt .cell.set{background:var(--passSoft);color:var(--pass);font-weight:600}
+.vt .cell.use{background:var(--accentSoft);color:var(--accentInk)}
+.vt .cell.none{color:#8E8AA3}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink2);align-items:center}
+.legend .cell{font-family:var(--mono);font-size:11.5px;border-radius:5px;padding:1px 6px}
+.emptypanel{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 20px;text-align:center;color:var(--ink2)}
+
+.modal{width:min(760px,100%);overflow:hidden;position:relative}
+.modal .mhead,.modal .tabs,.modal .stepper,.modal .mfoot{flex-shrink:0}
+.modal .mbody{flex:1 1 auto;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:max-content;align-content:start}
+.modal .mbody .seg,.modal .mbody .btn{justify-self:start}
+.modal.wide{width:min(1120px,100%)}
+.mhead{display:flex;align-items:center;gap:10px;padding:16px 20px 12px;border-bottom:1px solid var(--line)}
+.mbody{padding:16px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.mfoot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 20px 16px;border-top:1px solid var(--line)}
+.mfoot .note{flex:1 1 200px}
+.stepper{display:flex;gap:4px;flex-wrap:wrap;padding:12px 20px 0}
+.stp{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px 0 5px;border-radius:999px;border:0;background:transparent;font:500 12.5px var(--font);color:var(--ink2);cursor:pointer}
+.stp:disabled{cursor:default;color:#8E8AA3}
+.stp .stpn{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--panel3);font-size:11px;font-weight:600}
+.stp.done .stpn{background:var(--passSoft);color:var(--pass)}
+.stp.on{background:var(--accentSoft);color:var(--accentInk)}
+.stp.on .stpn{background:var(--accent);color:#fff}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;color:var(--ink2);background:var(--panel2)}
+.filecard{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line);width:min(560px,100%);text-align:left}
+.filecard .grow{min-width:0}
+.fname{font-family:var(--mono);font-size:13px;color:var(--ink);font-weight:600}
+.toggles{display:flex;flex-direction:column;gap:6px}
+.harlist{max-height:430px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.harlist .trow:last-child{border-bottom:0}
+.urlcell{font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block !important}
+.kind{font-size:11px;color:var(--ink2)}
+.mapgrp{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mapgrp + .mapgrp{margin-top:10px}
+.maphead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;background:var(--panel2);font-size:12.5px}
+.maprow{display:grid;grid-template-columns:52px minmax(0,1.5fr) minmax(150px,.9fr) minmax(170px,1.1fr);gap:10px;padding:10px 12px;border-top:1px solid var(--line);align-items:start}
+.maprow .method{min-width:52px}
+.mpath{display:flex;flex-direction:column;gap:3px;min-width:0;font-family:var(--mono);font-size:12px}
+.mpath .rec{color:var(--ink2);overflow-wrap:anywhere}
+.mpath .tpl{overflow-wrap:anywhere}
+.mstat{display:flex;flex-direction:column;gap:5px;align-items:flex-start;min-width:0}
+.seg.sm button{height:24px;font-size:12px;padding:0 9px}
+.secrow{display:grid;grid-template-columns:110px minmax(0,1fr);gap:4px 14px;padding:12px 0;border-top:1px solid var(--line)}
+.secrow:first-child{border-top:0}
+.review{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:14px;min-width:0}
+.flist{display:flex;flex-direction:column;gap:2px}
+.fbtn{display:flex;flex-direction:column;gap:3px;align-items:flex-start;padding:8px 10px;border-radius:8px;border:0;background:transparent;text-align:left;cursor:pointer;font:inherit;color:var(--ink)}
+.fbtn:hover{background:var(--panel2)}
+.fbtn.on{background:var(--accentSoft)}
+.fbtn .mono{font-size:12px;overflow-wrap:anywhere}
+.fmeta{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--ink2)}
+.plus{color:var(--pass);font-weight:600} .minus{color:var(--fail);font-weight:600}
+.idout{font-family:var(--mono);font-size:12.5px;padding:7px 10px;border-radius:8px;background:var(--panel2);overflow-wrap:anywhere}
+.chainlist{display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.toast{position:fixed;right:20px;bottom:20px;z-index:40;background:var(--ink);color:#fff;border-radius:10px;padding:10px 14px;font-size:13px;box-shadow:0 10px 30px rgba(27,24,48,.3);max-width:min(460px,calc(100vw - 40px));display:flex;gap:10px;align-items:center}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.accent:hover{background:#4733C4}
+
+@media (max-width: 860px){
+  .cside{flex:1 1 100% !important;flex-direction:column !important;overflow:visible !important;padding:0 2px 6px !important}
+  .cside .ctx .navlabel{display:block}
+  .gnav .navsep{width:1px;height:20px;margin:6px 4px;flex:none}
+  .gnav .navitem{width:auto;flex:none}
+  .app.side-collapsed .side .navitem{width:auto;height:32px;padding:0 10px;margin:0;justify-content:flex-start}
+  .app.side-collapsed .side .ctx{display:flex}
+  .app.side-collapsed .side .ctx .navlabel{display:block}
+  .gnav{flex-direction:row;overflow-x:auto;gap:2px}
+  .ctx{max-height:340px;overflow:auto;border-radius:10px}
+  .resppane{border-left:0;border-top:1px solid var(--line)}
+  .pbody{max-height:none}
+  .url{flex-basis:100%;order:3}
+  .review{grid-template-columns:minmax(0,1fr)}
+  .maprow{grid-template-columns:52px minmax(0,1fr)}
+  .maprow > div:nth-child(n+3){grid-column:1 / -1}
+  .secrow{grid-template-columns:minmax(0,1fr)}
+  .modebar,.reqbar,.resphead,.flowhead{padding-left:12px;padding-right:12px}
+}
+/* soft right-edge fade on horizontal scrollers, only while there is more to scroll (scroll-driven; no effect where unsupported or not scrollable) */
+@keyframes fadex{0%,94%{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}100%{-webkit-mask-image:none;mask-image:none}}
+.gnav,.rtabs{animation:fadex linear both;animation-timeline:scroll(self inline)}
+</style>
+</helmet>
+<div class="{{appCls}}">
+  <header class="topbar">
+    <a class="brand" href="WebExplorer.dc.html"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"/><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Vibranium</a>
+    <span class="project" title="Project shop, git branch main"><b>shop</b><span class="chip"><svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5" r="2"/><circle cx="7" cy="19" r="2"/><circle cx="17" cy="8" r="2"/><path d="M7 7v10M17 10c0 4-10 3-10 7"/></svg>main</span></span>
+    <label class="profsel">Profile <select class="select" value="{{profile}}" onChange="{{setProfile}}"><option value="dev">dev</option><option value="staging">staging</option><option value="prod">prod</option></select></label>
+    <div class="grow"></div>
+    <label class="search"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="sr">Search</span><input placeholder="Search tests, apis, files…"><span class="kbd">⌘K</span></label>
+  </header>
+
+  <div class="frame">
+    <nav class="side cside" aria-label="Main">
+      <div class="side-head">
+        <button class="iconbtn sidetoggle" type="button" onClick="{{toggleSide}}" aria-label="{{sideToggleLbl}}" title="{{sideToggleLbl}}" aria-expanded="{{sideExp}}"><svg class="{{sideChev}}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16M16 10l-2 2 2 2"/></svg></button>
+      </div>
+      <div class="gnav">
+        <a class="navitem" href="WebExplorer.dc.html" title="Tests"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="label">Tests</span></a>
+        <a class="navitem on" href="WebClient.dc.html" aria-current="page" title="API client"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg><span class="label">API client</span></a>
+        <a class="navitem" href="WebEditor.dc.html" title="Editor"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span class="label">Editor</span></a>
+        <a class="navitem" href="WebRun.dc.html" title="Runs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l14 8-14 8Z"/></svg><span class="label">Runs</span></a>
+        <a class="navitem" href="WebInsights.dc.html" title="Insights"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span class="label">Insights</span></a>
+        <a class="navitem" href="WebAgents.dc.html" title="AI agents"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01M9 16h6"/></svg><span class="label">AI agents</span></a>
+        <div class="navsep" role="separator"></div>
+        <a class="navitem" href="WebSettings.dc.html" title="Settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg><span class="label">Settings</span></a>
+      </div>
+
+      <div class="ctx">
+        <label class="ssearch"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="sr">Filter apis, flows and history</span><input value="{{side.q}}" onInput="{{side.setQ}}" placeholder="Filter apis, flows, history"></label>
+
+        <div class="ctxhead">
+          <div class="navlabel">Apis<span class="lblcount">{{side.apiCount}}</span></div>
+          <button class="btn ghost sm" type="button" onClick="{{openImport}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v3h16v-3"/></svg>Import</button>
+        </div>
+        <sc-for list="{{side.groups}}" as="g" hint-placeholder-count="6">
+          <button class="arow grp" type="button" aria-expanded="{{g.expanded}}" onClick="{{g.toggle}}"><svg class="ic chev {{g.chevCls}}" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg><span class="aid">{{g.id}}</span><sc-if value="{{g.isNew}}" hint-placeholder-val="{{ false }}"><span class="pill accent tiny">new</span></sc-if><span class="cnt">{{g.count}}</span></button>
+          <sc-if value="{{g.expanded}}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{g.apis}}" as="a" hint-placeholder-count="3">
+              <button class="arow sub {{a.cls}}" type="button" onClick="{{a.open}}" title="{{a.name}}"><span class="method {{a.mcls}}">{{a.mshort}}</span><span class="aid">{{a.fullId}}</span><sc-if value="{{a.isNew}}" hint-placeholder-val="{{ false }}"><span class="newdot" title="Added by import"></span></sc-if></button>
+            </sc-for>
+          </sc-if>
+        </sc-for>
+        <sc-if value="{{side.noApis}}" hint-placeholder-val="{{ false }}"><div class="empty-s">No apis match</div></sc-if>
+
+        <div class="navlabel">Flows</div>
+        <sc-for list="{{side.flows}}" as="f" hint-placeholder-count="2">
+          <button class="arow {{f.cls}}" type="button" onClick="{{f.open}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 7v10M8 5h3a5 5 0 0 1 5 5M8 19h3a5 5 0 0 0 5-5"/></svg><span class="atext">{{f.name}}</span><span class="cnt">{{f.count}}</span></button>
+        </sc-for>
+        <sc-if value="{{side.noFlows}}" hint-placeholder-val="{{ false }}"><div class="empty-s">No flows match</div></sc-if>
+
+        <div class="navlabel">History</div>
+        <sc-for list="{{side.history}}" as="h" hint-placeholder-count="5">
+          <button class="arow" type="button" onClick="{{h.open}}" title="{{h.title}}"><span class="method {{h.mcls}}">{{h.mshort}}</span><span class="aid">{{h.apiId}}</span><span class="hst {{h.cls}}">{{h.status}}</span><span class="ago">{{h.ago}}</span></button>
+        </sc-for>
+        <sc-if value="{{side.noHistory}}" hint-placeholder-val="{{ false }}"><div class="empty-s">Nothing sent yet</div></sc-if>
+      </div>
+    </nav>
+
+    <main class="panel cpanel">
+      <div class="rtabs" role="tablist" aria-label="Open requests">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+          <div class="rtab {{t.cls}}">
+            <button class="rtab-main" type="button" role="tab" aria-selected="{{t.active}}" onClick="{{t.select}}">
+              <sc-if value="{{t.isFlowTab}}" hint-placeholder-val="{{ false }}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 7v10M8 5h3a5 5 0 0 1 5 5M8 19h3a5 5 0 0 0 5-5"/></svg></sc-if>
+              <sc-if value="{{t.isReqTab}}" hint-placeholder-val="{{ true }}"><span class="method {{t.mcls}}">{{t.mshort}}</span></sc-if>
+              <span class="rtab-name {{t.nameCls}}">{{t.label}}</span>
+              <sc-if value="{{t.dirty}}" hint-placeholder-val="{{ false }}"><span class="udot" title="Unsaved changes"></span></sc-if>
+            </button>
+            <button class="rtab-x" type="button" aria-label="Close {{t.label}}" onClick="{{t.close}}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </div>
+        </sc-for>
+        <button class="iconbtn newtab" type="button" aria-label="New request" title="New request" onClick="{{newTab}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+
+      <sc-if value="{{noTabs}}" hint-placeholder-val="{{ false }}">
+        <div class="emptypanel">
+          <div class="h2" style="color: var(--ink)">No requests open</div>
+          <div>Pick an api or a flow in the sidebar, start a blank request, or import a HAR file, an OpenAPI spec, a cURL command or a Postman collection.</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center">
+            <button class="btn primary" type="button" onClick="{{newTab}}">New request</button>
+            <button class="btn" type="button" onClick="{{openImport}}">Import</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{hasTab}}" hint-placeholder-val="{{ true }}">
+        <div class="modebar">
+          <div class="seg" role="group" aria-label="Mode">
+            <button type="button" class="{{cur.reqSegCls}}" aria-pressed="{{cur.isRequest}}" onClick="{{cur.toRequest}}">Request</button>
+            <button type="button" class="{{cur.flowSegCls}}" aria-pressed="{{cur.isFlow}}" onClick="{{cur.toFlow}}">Flow</button>
+          </div>
+          <sc-if value="{{cur.banner.show}}" hint-placeholder-val="{{ false }}">
+            <div class="stagebanner">
+              <span>Stage <b>{{cur.banner.n}}</b> of {{cur.banner.m}} · <b>{{cur.banner.flowName}}</b> · {{cur.banner.note}}</span>
+              <button class="btn sm ghost" type="button" onClick="{{cur.banner.apply}}">Apply vars to stage</button>
+              <button class="btn sm ghost" type="button" onClick="{{cur.toFlow}}">Back to flow</button>
+            </div>
+          </sc-if>
+          <div class="grow"></div>
+          <sc-if value="{{cur.isRequest}}" hint-placeholder-val="{{ true }}">
+            <sc-if value="{{cur.noBanner}}" hint-placeholder-val="{{ true }}"><span class="filenote mono">{{req.fileNote}}</span></sc-if>
+            <button class="btn sm" type="button" disabled="{{req.cantSaveApi}}" onClick="{{req.openSaveApi}}" title="{{req.saveApiTitle}}">Save changes to api</button>
+          </sc-if>
+          <sc-if value="{{cur.isFlow}}" hint-placeholder-val="{{ false }}">
+            <span class="filenote">Flows run in their own scope: values saved by a stage feed later stages only.</span>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{cur.isRequest}}" hint-placeholder-val="{{ true }}">
+          <div class="reqbar">
+            <div class="reqline">
+              <label class="sr" for="vcMethod">Method</label>
+              <select id="vcMethod" class="select msel {{req.mcls}}" value="{{req.method}}" onChange="{{req.setMethod}}"><option value="GET">GET</option><option value="POST">POST</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option></select>
+              <label class="sr" for="vcUrl">URL template</label>
+              <input id="vcUrl" class="input mono url" value="{{req.urlTpl}}" onInput="{{req.setUrl}}" onKeyDown="{{req.keydown}}" placeholder="${var.usersUrl}/api/v1/users" spellcheck="false" autocomplete="off">
+              <button class="btn accent send" type="button" onClick="{{req.send}}" disabled="{{req.sending}}">Send <span class="kbd inv">⌘↵</span></button>
+            </div>
+            <div class="resolved">
+              <span class="pill profchip" title="Active profile; change it with Profile in the top bar">{{profile}}</span><span class="muted" aria-hidden="true">→</span>
+              <span class="mono rurl"><sc-for list="{{req.urlSegs}}" as="u" hint-placeholder-count="3"><span class="{{u.cls}}">{{u.t}}</span></sc-for></span>
+              <sc-if value="{{req.hasMissing}}" hint-placeholder-val="{{ false }}"><span class="pill fail">{{req.missingText}}</span></sc-if>
+              <span class="pill {{req.authTone}}">{{req.authText}}</span>
+            </div>
+          </div>
+
+          <div class="work">
+            <section class="pane" aria-label="Request">
+              <div class="tabs" role="tablist" aria-label="Request parts">
+                <sc-for list="{{req.subtabs}}" as="rt" hint-placeholder-count="7">
+                  <button type="button" role="tab" class="{{rt.cls}}" aria-selected="{{rt.on}}" onClick="{{rt.pick}}">{{rt.label}}<sc-if value="{{rt.hasCount}}" hint-placeholder-val="{{ false }}"><span class="tcount">{{rt.count}}</span></sc-if></button>
+                </sc-for>
+              </div>
+              <div class="pbody">
+
+                <sc-if value="{{req.t.params}}" hint-placeholder-val="{{ true }}">
+                  <div class="subhead"><h3 class="h3">Path variables</h3><span class="note">Editing a value sets it at call level for this request only.</span></div>
+                  <div class="gtab gc1">
+                    <div class="trow hd"><div>Variable</div><div>Value at call level</div><div>Set by</div><div>Resolves to</div></div>
+                    <sc-for list="{{req.pathVars}}" as="pv" hint-placeholder-count="2">
+                      <div class="trow"><div class="mono">{{pv.name}}</div><div><input class="input sm mono" value="{{pv.callValue}}" placeholder="{{pv.placeholder}}" onInput="{{pv.set}}" aria-label="Call-level value for {{pv.name}}"></div><div><span class="lvl {{pv.lvlCls}}">{{pv.level}}</span></div><div class="mono cellv">{{pv.resolved}}</div></div>
+                    </sc-for>
+                    <sc-if value="{{req.noPathVars}}" hint-placeholder-val="{{ false }}"><div class="note" style="padding: 8px">This URL has no variables.</div></sc-if>
+                  </div>
+                  <div class="subhead"><h3 class="h3">Query parameters</h3></div>
+                  <div class="gtab gc2">
+                    <div class="trow hd"><div><span class="sr">On</span></div><div>Key</div><div>Value</div><div><span class="sr">Remove</span></div></div>
+                    <sc-for list="{{req.query}}" as="q" hint-placeholder-count="2">
+                      <div class="trow"><div><input type="checkbox" checked="{{q.on}}" onChange="{{q.toggle}}" aria-label="Send query parameter {{q.n}}"></div><div><input class="input sm mono" value="{{q.k}}" onInput="{{q.setK}}" placeholder="key" aria-label="Query key {{q.n}}"></div><div><input class="input sm mono" value="{{q.v}}" onInput="{{q.setV}}" placeholder="value or ${var.x}" aria-label="Query value {{q.n}}"></div><div><button class="iconbtn sm" type="button" aria-label="Remove query parameter {{q.n}}" onClick="{{q.remove}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
+                    </sc-for>
+                    <sc-if value="{{req.noQuery}}" hint-placeholder-val="{{ false }}"><div class="note" style="padding: 8px">No query parameters.</div></sc-if>
+                  </div>
+                  <button class="btn sm addrow" type="button" onClick="{{req.addQuery}}">Add query parameter</button>
+                </sc-if>
+
+                <sc-if value="{{req.t.headers}}" hint-placeholder-val="{{ false }}">
+                  <div class="subhead"><h3 class="h3">Inherited</h3><span class="note">Added at send time. A request header with the same name overrides one.</span></div>
+                  <div class="gtab gc3">
+                    <div class="trow hd"><div>Header</div><div>Value</div><div>From</div></div>
+                    <sc-for list="{{req.inherited}}" as="ih" hint-placeholder-count="4">
+                      <div class="trow inh {{ih.cls}}"><div class="mono kv">{{ih.k}}</div><div class="mono cellv kv">{{ih.v}}</div><div class="small">{{ih.src}}</div></div>
+                    </sc-for>
+                  </div>
+                  <div class="subhead"><h3 class="h3">This request</h3></div>
+                  <div class="gtab gc4">
+                    <div class="trow hd"><div><span class="sr">On</span></div><div>Header</div><div>Value</div><div><span class="sr">Remove</span></div></div>
+                    <sc-for list="{{req.headers}}" as="hh" hint-placeholder-count="1">
+                      <div class="trow"><div><input type="checkbox" checked="{{hh.on}}" onChange="{{hh.toggle}}" aria-label="Send header {{hh.n}}"></div><div><input class="input sm mono" value="{{hh.k}}" onInput="{{hh.setK}}" placeholder="x-header" aria-label="Header name {{hh.n}}"></div><div><input class="input sm mono" value="{{hh.v}}" onInput="{{hh.setV}}" placeholder="value or ${var.x}" aria-label="Header value {{hh.n}}"></div><div><button class="iconbtn sm" type="button" aria-label="Remove header {{hh.n}}" onClick="{{hh.remove}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
+                    </sc-for>
+                    <sc-if value="{{req.noHeaders}}" hint-placeholder-val="{{ false }}"><div class="note" style="padding: 8px">No request headers. The inherited ones above are sent.</div></sc-if>
+                  </div>
+                  <button class="btn sm addrow" type="button" onClick="{{req.addHeader}}">Add header</button>
+                </sc-if>
+
+                <sc-if value="{{req.t.body}}" hint-placeholder-val="{{ false }}">
+                  <div class="subhead">
+                    <div class="seg" role="group" aria-label="Body type">
+                      <sc-for list="{{req.bodyModes}}" as="bm" hint-placeholder-count="6"><button type="button" class="{{bm.cls}}" aria-pressed="{{bm.on}}" onClick="{{bm.pick}}">{{bm.label}}</button></sc-for>
+                    </div>
+                    <span class="note">{{req.ctNote}}</span>
+                  </div>
+                  <sc-if value="{{req.body.isNone}}" hint-placeholder-val="{{ false }}"><div class="note">No body is sent with this request.</div></sc-if>
+                  <sc-if value="{{req.body.isJson}}" hint-placeholder-val="{{ true }}">
+                    <label class="field">JSON body <span class="help">Templates like ${var.name} resolve at send time. A whole-value template keeps its type, so ${var.quantity} sends a number.</span>
+                      <textarea class="textarea mono {{req.body.errCls}}" rows="12" spellcheck="false" value="{{req.body.text}}" onInput="{{req.body.setText}}" onKeyDown="{{req.keydown}}"></textarea>
+                    </label>
+                    <div class="subhead">
+                      <sc-if value="{{req.body.hasErr}}" hint-placeholder-val="{{ false }}"><span class="help err">{{req.body.err}}</span></sc-if>
+                      <sc-if value="{{req.body.ok}}" hint-placeholder-val="{{ true }}"><span class="help">{{req.body.okText}}</span></sc-if>
+                      <button class="btn sm" type="button" onClick="{{req.body.format}}" disabled="{{req.body.hasErr}}">Format</button>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{req.body.isText}}" hint-placeholder-val="{{ false }}">
+                    <label class="field">Text body<textarea class="textarea mono" rows="10" spellcheck="false" value="{{req.body.text}}" onInput="{{req.body.setText}}"></textarea></label>
+                  </sc-if>
+                  <sc-if value="{{req.body.isForm}}" hint-placeholder-val="{{ false }}">
+                    <div class="gtab gc5">
+                      <div class="trow hd"><div><span class="sr">On</span></div><div>Field</div><div>Value</div><div><span class="sr">Remove</span></div></div>
+                      <sc-for list="{{req.form}}" as="ff" hint-placeholder-count="2">
+                        <div class="trow"><div><input type="checkbox" checked="{{ff.on}}" onChange="{{ff.toggle}}" aria-label="Send field {{ff.n}}"></div><div><input class="input sm mono" value="{{ff.k}}" onInput="{{ff.setK}}" placeholder="field" aria-label="Field name {{ff.n}}"></div><div><input class="input sm mono" value="{{ff.v}}" onInput="{{ff.setV}}" placeholder="value or ${var.x}" aria-label="Field value {{ff.n}}"></div><div><button class="iconbtn sm" type="button" aria-label="Remove field {{ff.n}}" onClick="{{ff.remove}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
+                      </sc-for>
+                    </div>
+                    <button class="btn sm addrow" type="button" onClick="{{req.addForm}}">Add field</button>
+                  </sc-if>
+                  <sc-if value="{{req.body.isFile}}" hint-placeholder-val="{{ false }}">
+                    <div class="drop">
+                      <sc-if value="{{req.body.hasFile}}" hint-placeholder-val="{{ false }}">
+                        <div class="filecard"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7Z"/><path d="M14 3v4h4"/></svg><div class="grow"><div class="fname">{{req.body.fileName}}</div><div class="small muted">Written to the api as body: $file: ../../fixtures/{{req.body.fileName}}</div></div><button class="btn sm" type="button" onClick="{{req.body.clearFile}}">Remove</button></div>
+                      </sc-if>
+                      <sc-if value="{{req.body.noFile}}" hint-placeholder-val="{{ true }}">
+                        <div>Send a file as the raw body.</div>
+                        <button class="btn sm" type="button" onClick="{{req.body.pickFile}}">Choose file…</button>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </sc-if>
+
+                <sc-if value="{{req.t.auth}}" hint-placeholder-val="{{ false }}">
+                  <fieldset class="radios" style="border: 0; padding: 0; margin: 0">
+                    <legend class="h3" style="margin-bottom: 8px">Authentication</legend>
+                    <sc-for list="{{req.authOpts}}" as="ao" hint-placeholder-count="5">
+                      <label class="radio {{ao.cls}}"><input type="radio" name="vcAuth" checked="{{ao.on}}" onChange="{{ao.pick}}"><span>{{ao.label}}</span><span class="rdesc">{{ao.desc}}</span></label>
+                    </sc-for>
+                  </fieldset>
+                  <sc-if value="{{req.auth.isInherit}}" hint-placeholder-val="{{ true }}">
+                    <div class="tokrow"><span class="pill {{req.authTone}}">{{req.auth.status}}</span><span class="note">Token endpoint from vibranium.config.yaml, client secret from ${secret.SHOP_CLIENT_SECRET}. Profile {{profile}}.</span></div>
+                  </sc-if>
+                  <sc-if value="{{req.auth.isBearer}}" hint-placeholder-val="{{ false }}">
+                    <label class="field">Token<input class="input mono" value="{{req.auth.bearer}}" onInput="{{req.auth.setBearer}}" placeholder="${secret.MY_TOKEN} or a pasted token"></label>
+                  </sc-if>
+                  <sc-if value="{{req.auth.isBasic}}" hint-placeholder-val="{{ false }}">
+                    <div class="twocol">
+                      <label class="field">Username<input class="input mono" value="{{req.auth.user}}" onInput="{{req.auth.setUser}}"></label>
+                      <label class="field">Password<input class="input mono" type="password" value="{{req.auth.pass}}" onInput="{{req.auth.setPass}}" placeholder="${secret.X}"></label>
+                    </div>
+                  </sc-if>
+                </sc-if>
+
+                <sc-if value="{{req.t.vars}}" hint-placeholder-val="{{ false }}">
+                  <div class="note">Every variable this request uses, highest level first: call, saved (from an earlier send), api default, file, profile, config. Type a value to override it at call level.</div>
+                  <div class="gtab gc6">
+                    <div class="trow hd"><div>Variable</div><div>Call level</div><div>Set by</div><div>Value and lower levels</div></div>
+                    <sc-for list="{{req.vars}}" as="vr" hint-placeholder-count="4">
+                      <div class="trow"><div class="mono">{{vr.name}}</div><div><input class="input sm mono" value="{{vr.callValue}}" placeholder="{{vr.placeholder}}" onInput="{{vr.set}}" aria-label="Call-level value for {{vr.name}}"></div><div><span class="lvl {{vr.lvlCls}}">{{vr.level}}</span></div><div style="flex-direction: column; align-items: flex-start; gap: 2px"><span class="mono cellv">{{vr.resolved}}</span><span class="small muted cellv">{{vr.lower}}</span></div></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{req.t.checks}}" hint-placeholder-val="{{ false }}">
+                  <div class="subhead"><h3 class="h3">{{req.checksFrom}}</h3><span class="note">Read-only here. Edit them in the api file.</span></div>
+                  <sc-for list="{{req.apiChecks}}" as="ac" hint-placeholder-count="1"><div class="ronly"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>{{ac.text}}</div></sc-for>
+                  <sc-if value="{{req.noApiChecks}}" hint-placeholder-val="{{ false }}"><div class="note">The api has no expect block.</div></sc-if>
+                  <div class="subhead"><h3 class="h3">Added for this request</h3></div>
+                  <sc-for list="{{req.extraChecks}}" as="xc" hint-placeholder-count="1"><div class="ronly" style="background: var(--accentSoft)"><span style="flex: 1">{{xc.text}}</span><button class="iconbtn sm" type="button" aria-label="Remove check {{xc.text}}" onClick="{{xc.remove}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></sc-for>
+                  <div class="ncform">
+                    <label class="field" style="flex: 0 1 130px">Check<select class="select sm" value="{{req.nc.kind}}" onChange="{{req.nc.setKind}}"><option value="status">Status</option><option value="body">Body field</option><option value="timing">Timing</option></select></label>
+                    <sc-if value="{{req.nc.isBody}}" hint-placeholder-val="{{ true }}"><label class="field">Body path<input class="input sm mono" value="{{req.nc.path}}" onInput="{{req.nc.setPath}}" placeholder="role or items.0.sku"></label></sc-if>
+                    <sc-if value="{{req.nc.isTiming}}" hint-placeholder-val="{{ false }}"><label class="field">Phase<select class="select sm" value="{{req.nc.path}}" onChange="{{req.nc.setPath}}"><option value="total">total</option><option value="firstByte">firstByte</option><option value="connect">connect</option><option value="tls">tls</option></select></label></sc-if>
+                    <sc-if value="{{req.nc.hasOp}}" hint-placeholder-val="{{ true }}"><label class="field" style="flex: 0 1 120px">Matcher<select class="select sm" value="{{req.nc.op}}" onChange="{{req.nc.setOp}}"><option value="eq">equals</option><option value="contains">contains</option><option value="exists">exists</option><option value="lt">lt</option><option value="gt">gt</option></select></label></sc-if>
+                    <sc-if value="{{req.nc.hasValue}}" hint-placeholder-val="{{ true }}"><label class="field">{{req.nc.valueLabel}}<input class="input sm mono" value="{{req.nc.value}}" onInput="{{req.nc.setValue}}" placeholder="{{req.nc.valuePh}}"></label></sc-if>
+                    <button class="btn sm" type="button" onClick="{{req.nc.add}}" disabled="{{req.nc.invalid}}">Add check</button>
+                  </div>
+                  <div class="note">Added checks run on every send of this tab and are offered as expectations when you save it as a test.</div>
+                </sc-if>
+
+                <sc-if value="{{req.t.save}}" hint-placeholder-val="{{ false }}">
+                  <div class="note">Values saved from the response become ${var.name} for later requests and for later stages in a flow. Names are camelCase nouns; ids end in Id.</div>
+                  <div class="gtab gc7">
+                    <div class="trow hd"><div>Name</div><div></div><div>From</div><div><span class="sr">Remove</span></div></div>
+                    <sc-for list="{{req.saves}}" as="sv" hint-placeholder-count="1">
+                      <div class="trow"><div><input class="input sm mono {{sv.errCls}}" value="{{sv.name}}" onInput="{{sv.setName}}" placeholder="orderId" aria-label="Saved value name {{sv.n}}"></div><div class="muted">←</div><div><input class="input sm mono" value="{{sv.expr}}" onInput="{{sv.setExpr}}" placeholder="${response.body.id}" aria-label="Saved value expression {{sv.n}}"></div><div><button class="iconbtn sm" type="button" aria-label="Remove saved value {{sv.n}}" onClick="{{sv.remove}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
+                    </sc-for>
+                    <sc-if value="{{req.noSaves}}" hint-placeholder-val="{{ false }}"><div class="note" style="padding: 8px">Nothing is saved from this response.</div></sc-if>
+                  </div>
+                  <button class="btn sm addrow" type="button" onClick="{{req.addSave}}">Add saved value</button>
+                </sc-if>
+              </div>
+            </section>
+
+            <section class="pane resppane" aria-label="Response">
+              <div class="resphead">
+                <sc-if value="{{resp.has}}" hint-placeholder-val="{{ true }}">
+                  <span class="pill {{resp.statusCls}}">{{resp.statusText}}</span>
+                  <span class="stat"><b>{{resp.time}}</b> · {{resp.size}}</span>
+                  <sc-if value="{{resp.hasChecks}}" hint-placeholder-val="{{ true }}"><button class="pill pillbtn {{resp.checksCls}}" type="button" onClick="{{resp.gotoChecks}}">{{resp.checksText}}</button></sc-if>
+                  <div class="respact">
+                    <button class="btn sm" type="button" onClick="{{resp.saveTest}}">Save as test</button>
+                    <button class="btn sm" type="button" onClick="{{resp.addToFlow}}">Add to flow</button>
+                    <button class="btn sm" type="button" onClick="{{resp.copyCurl}}" aria-label="Copy as cURL"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>cURL</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{resp.noHas}}" hint-placeholder-val="{{ false }}">
+                  <h2 class="h3" style="color: var(--ink)">Response</h2>
+                  <div class="grow"></div>
+                  <button class="btn sm" type="button" onClick="{{resp.copyCurl}}">Copy as cURL</button>
+                </sc-if>
+              </div>
+              <sc-if value="{{resp.sending}}" hint-placeholder-val="{{ false }}">
+                <div class="respempty"><div class="spin"></div><div class="big">Sending to {{resp.host}}</div><div class="small">{{resp.sendingNote}}</div></div>
+              </sc-if>
+              <sc-if value="{{resp.empty}}" hint-placeholder-val="{{ false }}">
+                <div class="respempty"><div class="big">Send the request to see the response</div><div class="small">Press Send or <span class="kbd">⌘↵</span> in the URL or body. It runs through the same engine as <span class="mono-i">vc run</span>, with profile {{profile}}.</div></div>
+              </sc-if>
+              <sc-if value="{{resp.error}}" hint-placeholder-val="{{ false }}">
+                <div class="errbox"><div class="diag error"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B3261E" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/></svg><div><b>{{resp.errTitle}}</b><div class="small" style="margin-top: 3px">{{resp.errHelp}}</div></div></div></div>
+              </sc-if>
+              <sc-if value="{{resp.has}}" hint-placeholder-val="{{ true }}">
+                <div class="tabs" role="tablist" aria-label="Response parts">
+                  <sc-for list="{{resp.tabs}}" as="xt" hint-placeholder-count="5">
+                    <button type="button" role="tab" class="{{xt.cls}}" aria-selected="{{xt.on}}" onClick="{{xt.pick}}">{{xt.label}}<sc-if value="{{xt.hasCount}}" hint-placeholder-val="{{ false }}"><span class="tcount {{xt.countCls}}">{{xt.count}}</span></sc-if></button>
+                  </sc-for>
+                </div>
+                <div class="pbody">
+                  <sc-if value="{{resp.t.body}}" hint-placeholder-val="{{ true }}">
+                    <div class="codebar"><span class="note">{{resp.bodyNote}}</span><button class="btn sm ghost" type="button" onClick="{{resp.copyBody}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>Copy</button></div>
+                    <sc-if value="{{resp.hasBody}}" hint-placeholder-val="{{ true }}">
+                      <pre class="code" aria-label="Response body"><sc-for list="{{resp.lines}}" as="l" hint-placeholder-count="8"><div class="ln"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="sg"><span class="{{sg.cls}}">{{sg.t}}</span></sc-for></span></div></sc-for></pre>
+                    </sc-if>
+                    <sc-if value="{{resp.noBody}}" hint-placeholder-val="{{ false }}"><div class="note">No body ({{resp.statusText}}).</div></sc-if>
+                  </sc-if>
+                  <sc-if value="{{resp.t.headers}}" hint-placeholder-val="{{ false }}">
+                    <div class="gtab gc8">
+                      <div class="trow hd"><div>Header</div><div>Value</div></div>
+                      <sc-for list="{{resp.headers}}" as="rh" hint-placeholder-count="5"><div class="trow"><div class="mono">{{rh.k}}</div><div class="mono cellv">{{rh.v}}</div></div></sc-for>
+                    </div>
+                    <div class="subhead"><h3 class="h3">Sent</h3></div>
+                    <div class="gtab gc8">
+                      <sc-for list="{{resp.sentHeaders}}" as="sh" hint-placeholder-count="4"><div class="trow"><div class="mono">{{sh.k}}</div><div class="mono cellv">{{sh.v}}</div></div></sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{resp.t.timing}}" hint-placeholder-val="{{ false }}">
+                    <div class="wf" aria-label="Timing waterfall">
+                      <sc-for list="{{resp.phases}}" as="ph" hint-placeholder-count="5">
+                        <div class="wfrow"><span class="mono">{{ph.name}}</span><div class="wftrack"><div class="wfbar {{ph.name}}" style="{{ph.barStyle}}"></div></div><span class="mono num">{{ph.ms}}</span></div>
+                      </sc-for>
+                      <div class="wfrow tot"><span>total</span><span></span><span class="mono num">{{resp.time}}</span></div>
+                    </div>
+                    <div class="note">{{resp.timingNote}}</div>
+                  </sc-if>
+                  <sc-if value="{{resp.t.checks}}" hint-placeholder-val="{{ false }}">
+                    <div class="scrollx">
+                      <div class="gtab gc9" style="min-width: 460px">
+                        <div class="trow hd"><div>Result</div><div>Check</div><div>Expected</div><div>Actual</div><div>From</div></div>
+                        <sc-for list="{{resp.checks}}" as="ck" hint-placeholder-count="2">
+                          <div class="trow"><div><span class="pill {{ck.cls}}">{{ck.result}}</span></div><div class="mono cellv">{{ck.label}}</div><div class="mono cellv">{{ck.expected}}</div><div class="mono cellv {{ck.actualCls}}">{{ck.actual}}</div><div class="small">{{ck.source}}</div></div>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <sc-if value="{{resp.hasFailed}}" hint-placeholder-val="{{ false }}"><div class="diag warn small">{{resp.failHint}}</div></sc-if>
+                    <sc-if value="{{resp.noChecks}}" hint-placeholder-val="{{ false }}"><div class="note">No checks ran. Add some on the Checks tab of the request.</div></sc-if>
+                  </sc-if>
+                  <sc-if value="{{resp.t.saved}}" hint-placeholder-val="{{ false }}">
+                    <div class="gtab gc10">
+                      <div class="trow hd"><div>Name</div><div>From</div><div>Value</div></div>
+                      <sc-for list="{{resp.saved}}" as="sd" hint-placeholder-count="1"><div class="trow"><div class="mono">{{sd.name}}</div><div class="mono cellv">{{sd.expr}}</div><div class="mono cellv {{sd.cls}}">{{sd.value}}</div></div></sc-for>
+                    </div>
+                    <div class="note">{{resp.savedNote}}</div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </section>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{cur.isFlow}}" hint-placeholder-val="{{ false }}">
+          <div class="flowhead">
+            <label class="sr" for="vcFlowName">Flow name</label>
+            <input id="vcFlowName" class="input flowname" value="{{flow.name}}" onInput="{{flow.setName}}">
+            <span class="muted small">{{flow.summary}}</span>
+            <label class="chk"><input type="checkbox" checked="{{flow.stopOnFail}}" onChange="{{flow.toggleStop}}">Stop on failure</label>
+            <div class="grow"></div>
+            <sc-if value="{{flow.running}}" hint-placeholder-val="{{ false }}"><button class="btn" type="button" onClick="{{flow.stop}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>Stop</button></sc-if>
+            <sc-if value="{{flow.idle}}" hint-placeholder-val="{{ true }}"><button class="btn primary" type="button" onClick="{{flow.runAll}}" disabled="{{flow.empty}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5l12 7-12 7Z"/></svg>Run all</button></sc-if>
+            <button class="btn" type="button" onClick="{{flow.openSaveTest}}" disabled="{{flow.empty}}">Save as test</button>
+            <button class="btn" type="button" onClick="{{flow.openLifecycle}}" disabled="{{flow.tooShort}}">Save as lifecycle</button>
+          </div>
+          <div class="flowbody">
+            <div class="scrollx stagewrap">
+              <div class="gtab stages gc11">
+                <div class="trow hd"><div>#</div><div>Request</div><div>Uses</div><div>Saves</div><div>Repeat</div><div>Status</div><div style="align-items: flex-end">Time</div><div><span class="sr">Actions</span></div></div>
+                <sc-for list="{{flow.stages}}" as="s" hint-placeholder-count="5">
+                  <div class="trow {{s.rowCls}}">
+                    <div><span class="stnum">{{s.n}}</span></div>
+                    <div><button class="stagelink" type="button" onClick="{{s.open}}" title="Open stage {{s.n}} in Request mode"><span class="method {{s.mcls}}">{{s.mshort}}</span><span class="mono">{{s.api}}</span></button><span class="small muted">{{s.name}}</span></div>
+                    <div><div class="chips"><sc-for list="{{s.consumes}}" as="c" hint-placeholder-count="1"><span class="chip {{c.cls}}" title="{{c.title}}">{{c.name}}<span class="from">{{c.from}}</span></span></sc-for><sc-if value="{{s.noConsumes}}" hint-placeholder-val="{{ false }}"><span class="small muted">nothing chained</span></sc-if></div></div>
+                    <div><div class="chips"><sc-for list="{{s.saves}}" as="v" hint-placeholder-count="1"><span class="chip save">{{v.name}}<sc-if value="{{v.hasVal}}" hint-placeholder-val="{{ false }}"><span class="from">{{v.val}}</span></sc-if></span></sc-for><sc-if value="{{s.noSaves}}" hint-placeholder-val="{{ false }}"><span class="small muted">none</span></sc-if></div></div>
+                    <div>
+                      <select class="select sm" value="{{s.loopKind}}" onChange="{{s.setLoop}}" aria-label="Repeat for stage {{s.n}}"><option value="once">Once</option><option value="repeat2">repeat ×2</option><option value="repeat3">repeat ×3</option><option value="forEach">forEach</option></select>
+                      <sc-if value="{{s.isForEach}}" hint-placeholder-val="{{ false }}"><input class="input sm mono" value="{{s.items}}" onInput="{{s.setItems}}" aria-label="forEach items for stage {{s.n}}, comma separated"></sc-if>
+                      <sc-if value="{{s.hasPoll}}" hint-placeholder-val="{{ false }}"><span class="small muted">poll until {{s.pollText}}</span></sc-if>
+                    </div>
+                    <div><span class="pill {{s.statusCls}}"><sc-if value="{{s.isRunning}}" hint-placeholder-val="{{ false }}"><span class="spin sm"></span></sc-if>{{s.statusText}}</span><span class="small {{s.noteCls}}">{{s.note}}</span></div>
+                    <div class="num mono" style="align-items: flex-end">{{s.time}}</div>
+                    <div class="rowact">
+                      <button class="iconbtn sm" type="button" aria-label="Run stage {{s.n}}" title="Run stage {{s.n}} with values from earlier stages" onClick="{{s.run}}" disabled="{{s.busy}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5l12 7-12 7Z"/></svg></button>
+                      <button class="iconbtn sm" type="button" aria-label="Move stage {{s.n}} up" onClick="{{s.up}}" disabled="{{s.upOff}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
+                      <button class="iconbtn sm" type="button" aria-label="Move stage {{s.n}} down" onClick="{{s.down}}" disabled="{{s.downOff}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                      <button class="iconbtn sm" type="button" aria-label="Remove stage {{s.n}}" onClick="{{s.remove}}" disabled="{{s.busy}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{flow.empty}}" hint-placeholder-val="{{ false }}"><div class="note" style="padding: 14px 8px">No stages yet. Add one below, or use Add to flow on any request.</div></sc-if>
+            </div>
+
+            <div class="addstage">
+              <button class="btn sm" type="button" aria-expanded="{{flow.pickerOpen}}" onClick="{{flow.togglePicker}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add stage</button>
+              <span class="note">Click a stage to open it in Request mode with the values earlier stages saved.</span>
+              <sc-if value="{{flow.pickerOpen}}" hint-placeholder-val="{{ false }}">
+                <div class="popover picker" role="dialog" aria-label="Pick an api">
+                  <input class="input sm" value="{{flow.pickQ}}" onInput="{{flow.setPickQ}}" placeholder="Search apis" aria-label="Search apis">
+                  <div class="picklist">
+                    <sc-for list="{{flow.pickItems}}" as="pi" hint-placeholder-count="6"><button class="opt" type="button" onClick="{{pi.add}}"><span class="method {{pi.mcls}}">{{pi.mshort}}</span><span class="mono" style="font-size: 12px">{{pi.fullId}}</span><span class="muted small" style="margin-left: auto">{{pi.name}}</span></button></sc-for>
+                    <sc-if value="{{flow.noPick}}" hint-placeholder-val="{{ false }}"><div class="note" style="padding: 8px 10px">No apis match</div></sc-if>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <div class="section">
+              <div class="subhead"><h3 class="h2">Variables after each stage</h3>
+                <div class="legend"><span><span class="cell" style="background: var(--passSoft); color: var(--pass)">value</span> saved by this stage</span><span><span class="cell" style="background: var(--accentSoft); color: var(--accentInk)">value</span> used by this stage</span></div>
+              </div>
+              <div class="scrollx">
+                <div class="gtab vt" style="{{flow.varMinW}}">
+                  <div class="trow hd" style="{{flow.varCols}}"><div>Variable</div><sc-for list="{{flow.varHead}}" as="vh" hint-placeholder-count="5"><div><span class="mono">{{vh.label}}</span></div></sc-for></div>
+                  <sc-for list="{{flow.varRows}}" as="vrow" hint-placeholder-count="4">
+                    <div class="trow" style="{{flow.varCols}}"><div class="mono">{{vrow.name}}</div><sc-for list="{{vrow.cells}}" as="vc" hint-placeholder-count="5"><div><span class="cell {{vc.cls}}">{{vc.val}}</span></div></sc-for></div>
+                  </sc-for>
+                </div>
+              </div>
+              <div class="note">{{flow.varNote}}</div>
+            </div>
+          </div>
+        </sc-if>
+      </sc-if>
+    </main>
+  </div>
+
+  <!-- ===== dialogs ===== -->
+  <sc-if value="{{dlg.saveTest}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vcStTitle">
+        <div class="mhead"><h2 id="vcStTitle" class="h2">Save as test</h2><span class="muted small">from {{dlg.st.apiId}}</span><div class="grow"></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{dlg.close}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <sc-if value="{{dlg.st.editing}}" hint-placeholder-val="{{ true }}">
+          <div class="mbody">
+            <label class="field">Test name<input class="input" value="{{dlg.st.name}}" onInput="{{dlg.st.setName}}" placeholder="Creates a member"><span class="help">A sentence describing the behaviour. The id is derived from it.</span></label>
+            <div class="twocol">
+              <div class="field">Test id<div class="idout">{{dlg.st.fullId}}</div>
+                <sc-if value="{{dlg.st.hasIdErr}}" hint-placeholder-val="{{ false }}"><span class="help err">{{dlg.st.idErr}}</span></sc-if>
+                <sc-if value="{{dlg.st.hasWarn}}" hint-placeholder-val="{{ false }}"><span class="help" style="color: var(--block)">{{dlg.st.warn}}</span></sc-if>
+              </div>
+              <label class="field">Test file<select class="select" value="{{dlg.st.fileId}}" onChange="{{dlg.st.setFile}}"><option value="users.crud">users.crud</option><option value="users.reports">users.reports</option><option value="orders.checkout">orders.checkout</option><option value="orders.history">orders.history</option><option value="catalog.admin">catalog.admin</option><option value="catalog.browse">catalog.browse</option><option value="catalog.search">catalog.search</option><option value="geo.groups">geo.groups</option><option value="carts.pricing">carts.pricing</option><option value="new">New file…</option></select><span class="help mono-i">{{dlg.st.path}}</span></label>
+            </div>
+            <sc-if value="{{dlg.st.isNewFile}}" hint-placeholder-val="{{ false }}">
+              <label class="field">Area<input class="input mono" value="{{dlg.st.area}}" onInput="{{dlg.st.setArea}}" placeholder="smoke"><span class="help">Lowercase words joined by dots. File id becomes {{dlg.st.newFileId}}.</span></label>
+            </sc-if>
+            <div class="field">Expectations suggested from the response
+              <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px">
+                <sc-for list="{{dlg.st.exp}}" as="ex" hint-placeholder-count="4"><label class="chk"><input type="checkbox" checked="{{ex.on}}" onChange="{{ex.toggle}}"><span class="mono-i">{{ex.label}}</span></label></sc-for>
+              </div>
+            </div>
+            <sc-if value="{{dlg.st.hasVars}}" hint-placeholder-val="{{ false }}"><label class="chk"><input type="checkbox" checked="{{dlg.st.includeVars}}" onChange="{{dlg.st.toggleVars}}">Keep call-level vars ({{dlg.st.varsText}})</label></sc-if>
+          </div>
+          <div class="mfoot"><span class="note">Writes to {{dlg.st.path}}. Nothing is committed.</span><button class="btn" type="button" onClick="{{dlg.close}}">Cancel</button><button class="btn primary" type="button" onClick="{{dlg.st.create}}" disabled="{{dlg.st.invalid}}">Create test</button></div>
+        </sc-if>
+        <sc-if value="{{dlg.st.done}}" hint-placeholder-val="{{ false }}">
+          <div class="mbody">
+            <div class="diag info small">{{dlg.st.doneNote}}</div>
+            <pre class="code"><sc-for list="{{dlg.st.yaml}}" as="l" hint-placeholder-count="8"><div class="ln"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="sg"><span class="{{sg.cls}}">{{sg.t}}</span></sc-for></span></div></sc-for></pre>
+          </div>
+          <div class="mfoot"><span class="note">Run it with <span class="mono-i">vc run {{dlg.st.fullId}}</span></span><a class="btn" href="WebEditor.dc.html">Open in Editor</a><button class="btn primary" type="button" onClick="{{dlg.close}}">Done</button></div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{dlg.curl}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vcCurlTitle">
+        <div class="mhead"><h2 id="vcCurlTitle" class="h2">Copy as cURL</h2><div class="grow"></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{dlg.close}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <div class="mbody">
+          <div class="note">Resolved for profile {{profile}}. The bearer token is replaced by $TOKEN; print one with <span class="mono-i">vc auth token shopOauth</span>.</div>
+          <pre class="code wrap"><sc-for list="{{dlg.cu.lines}}" as="l" hint-placeholder-count="4"><div class="ln"><span class="no">{{l.no}}</span><span>{{l.text}}</span></div></sc-for></pre>
+        </div>
+        <div class="mfoot"><span class="note">{{dlg.cu.copiedNote}}</span><button class="btn" type="button" onClick="{{dlg.close}}">Close</button><button class="btn primary" type="button" onClick="{{dlg.cu.copy}}">Copy</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{dlg.saveApi}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vcSaTitle">
+        <div class="mhead"><h2 id="vcSaTitle" class="h2">Save changes to {{dlg.sa.apiId}}</h2><div class="grow"></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{dlg.close}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <div class="mbody">
+          <sc-if value="{{dlg.sa.hasErr}}" hint-placeholder-val="{{ false }}"><div class="diag error small">{{dlg.sa.err}}</div></sc-if>
+          <sc-if value="{{dlg.sa.ok}}" hint-placeholder-val="{{ true }}">
+            <div class="subhead"><span class="mono small">{{dlg.sa.path}}</span><span class="small"><span class="plus">+{{dlg.sa.add}}</span> <span class="minus">−{{dlg.sa.del}}</span></span></div>
+            <pre class="code"><sc-for list="{{dlg.sa.rows}}" as="l" hint-placeholder-count="8"><div class="{{l.cls}}"><span class="no">{{l.no}}</span><span class="sg">{{l.sign}}</span><span><sc-for list="{{l.segs}}" as="sg"><span class="{{sg.cls}}">{{sg.t}}</span></sc-for></span></div></sc-for></pre>
+            <div class="note">Method, path, query, headers, body and saved values are written back. Call-level vars and added checks stay in this tab.</div>
+          </sc-if>
+        </div>
+        <div class="mfoot"><span class="note">Other tests that call {{dlg.sa.apiId}} pick this up on their next run.</span><button class="btn" type="button" onClick="{{dlg.close}}">Cancel</button><button class="btn primary" type="button" onClick="{{dlg.sa.write}}" disabled="{{dlg.sa.hasErr}}">Write to {{dlg.sa.fileName}}</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{dlg.addFlow}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vcAfTitle" style="width: min(480px, 100%)">
+        <div class="mhead"><h2 id="vcAfTitle" class="h2">Add {{dlg.af.apiId}} to a flow</h2><div class="grow"></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{dlg.close}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <div class="mbody">
+          <sc-if value="{{dlg.af.blocked}}" hint-placeholder-val="{{ false }}"><div class="diag warn small">This request is not an api yet. Import it or save it to an api file first, then add it to a flow.</div></sc-if>
+          <sc-if value="{{dlg.af.ok}}" hint-placeholder-val="{{ true }}">
+            <div class="note">It becomes the last stage. Call-level vars come along as stage vars.</div>
+            <div class="flist">
+              <sc-for list="{{dlg.af.flows}}" as="fl" hint-placeholder-count="2"><button class="fbtn" type="button" onClick="{{fl.pick}}"><span>{{fl.name}}</span><span class="fmeta">{{fl.meta}}</span></button></sc-for>
+              <button class="fbtn" type="button" onClick="{{dlg.af.newFlow}}"><span>New flow</span><span class="fmeta">starts with this request</span></button>
+            </div>
+          </sc-if>
+        </div>
+        <div class="mfoot"><div class="grow"></div><button class="btn" type="button" onClick="{{dlg.close}}">Cancel</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{dlg.flowTest}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vcFtTitle">
+        <div class="mhead"><h2 id="vcFtTitle" class="h2">{{dlg.ft.title}}</h2><div class="grow"></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{dlg.close}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <div class="mbody">
+          <div class="twocol">
+            <label class="field">Test name<input class="input" value="{{dlg.ft.name}}" onInput="{{dlg.ft.setName}}"></label>
+            <label class="field">Test file<select class="select" value="{{dlg.ft.fileId}}" onChange="{{dlg.ft.setFile}}"><option value="users.crud">users.crud</option><option value="users.reports">users.reports</option><option value="orders.checkout">orders.checkout</option><option value="orders.history">orders.history</option><option value="catalog.admin">catalog.admin</option><option value="catalog.browse">catalog.browse</option><option value="catalog.search">catalog.search</option><option value="geo.groups">geo.groups</option><option value="carts.pricing">carts.pricing</option></select><span class="help mono-i">{{dlg.ft.path}}</span></label>
+          </div>
+          <div class="field">Test id<div class="idout">{{dlg.ft.fullId}}</div>
+            <sc-if value="{{dlg.ft.hasIdErr}}" hint-placeholder-val="{{ false }}"><span class="help err">{{dlg.ft.idErr}}</span></sc-if>
+            <sc-if value="{{dlg.ft.hasWarn}}" hint-placeholder-val="{{ false }}"><span class="help" style="color: var(--block)">{{dlg.ft.warn}}</span></sc-if>
+          </div>
+          <sc-if value="{{dlg.ft.isLifecycle}}" hint-placeholder-val="{{ false }}">
+            <div class="field">Stages that go into beforeEach
+              <div class="tokrow" style="margin-top: 4px">
+                <button class="iconbtn" type="button" aria-label="One stage fewer" onClick="{{dlg.ft.less}}" disabled="{{dlg.ft.lessOff}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+                <span class="idout" style="min-width: 220px">{{dlg.ft.nText}}</span>
+                <button class="iconbtn" type="button" aria-label="One stage more" onClick="{{dlg.ft.more}}" disabled="{{dlg.ft.moreOff}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+              </div>
+              <span class="help">Runs before every test in {{dlg.ft.fileId}}; the remaining stages become this test's steps. {{dlg.ft.lcNote}}</span>
+            </div>
+          </sc-if>
+          <div class="subhead"><span class="h3">{{dlg.ft.previewTitle}}</span><span class="small muted">{{dlg.ft.previewNote}}</span></div>
+          <pre class="code"><sc-for list="{{dlg.ft.yaml}}" as="l" hint-placeholder-count="10"><div class="{{l.cls}}"><span class="no">{{l.no}}</span><span class="sg">{{l.sign}}</span><span><sc-for list="{{l.segs}}" as="sg"><span class="{{sg.cls}}">{{sg.t}}</span></sc-for></span></div></sc-for></pre>
+        </div>
+        <div class="mfoot"><span class="note">{{dlg.ft.footNote}}</span><button class="btn" type="button" onClick="{{dlg.close}}">Cancel</button><button class="btn primary" type="button" onClick="{{dlg.ft.write}}" disabled="{{dlg.ft.invalid}}">{{dlg.ft.writeLabel}}</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== import ===== -->
+  <sc-if value="{{imp.open}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="vcImpTitle">
+        <div class="mhead"><h2 id="vcImpTitle" class="h2">Import requests</h2><span class="muted small">into api files, following the naming conventions</span><div class="grow"></div><button class="iconbtn" type="button" aria-label="Close import" onClick="{{imp.close}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+        <div class="tabs" role="tablist" aria-label="Import source">
+          <sc-for list="{{imp.tabs}}" as="it" hint-placeholder-count="4"><button type="button" role="tab" class="{{it.cls}}" aria-selected="{{it.on}}" onClick="{{it.pick}}">{{it.label}}</button></sc-for>
+        </div>
+
+        <sc-if value="{{imp.isHar}}" hint-placeholder-val="{{ true }}">
+          <div class="stepper" aria-label="Steps">
+            <sc-for list="{{imp.steps}}" as="sp" hint-placeholder-count="6"><button type="button" class="stp {{sp.cls}}" onClick="{{sp.go}}" disabled="{{sp.locked}}" aria-current="{{sp.current}}"><span class="stpn">{{sp.n}}</span>{{sp.label}}</button></sc-for>
+          </div>
+          <div class="mbody">
+            <sc-if value="{{imp.s1}}" hint-placeholder-val="{{ true }}">
+              <div class="drop">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v4h16v-4"/></svg>
+                <div>Drop a .har file here. Export one from the browser's network panel with "Save all as HAR".</div>
+                <sc-if value="{{imp.har.hasFile}}" hint-placeholder-val="{{ true }}">
+                  <div class="filecard"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5440D6" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7Z"/><path d="M14 3v4h4"/></svg><div class="grow"><div class="fname">checkout-session.har</div><div class="small muted">46 entries, recorded 23 Oct 2026 in Chrome · 1.8 MB</div></div><button class="btn sm" type="button" onClick="{{imp.har.removeFile}}">Remove</button></div>
+                </sc-if>
+                <sc-if value="{{imp.har.noFile}}" hint-placeholder-val="{{ false }}"><button class="btn" type="button" onClick="{{imp.har.pickFile}}">Choose file…</button></sc-if>
+              </div>
+              <div class="note">Nothing leaves your machine: the file is parsed locally by the Vibranium server you started with <span class="mono-i">vc web</span>. HAR files hold cookies and tokens; the Secrets step removes them before anything is written.</div>
+            </sc-if>
+
+            <sc-if value="{{imp.s2}}" hint-placeholder-val="{{ false }}">
+              <div class="toggles">
+                <label class="chk"><input type="checkbox" checked="{{imp.har.hideStatic}}" onChange="{{imp.har.toggleStatic}}">Hide static assets (css, js, images, fonts) <span class="tcount">{{imp.har.cStatic}}</span></label>
+                <label class="chk"><input type="checkbox" checked="{{imp.har.hideThird}}" onChange="{{imp.har.toggleThird}}">Hide third-party hosts (analytics, cdn) <span class="tcount">{{imp.har.cThird}}</span></label>
+                <label class="chk"><input type="checkbox" checked="{{imp.har.hidePre}}" onChange="{{imp.har.togglePre}}">Hide OPTIONS preflights <span class="tcount">{{imp.har.cPre}}</span></label>
+              </div>
+              <div class="subhead"><span class="h3">{{imp.har.listTitle}}</span><span class="note">{{imp.har.selNote}}</span></div>
+              <div class="harlist scrollx">
+                <div class="gtab gc12" style="min-width: 640px">
+                  <div class="trow hd"><div><span class="sr">Import</span></div><div>Method</div><div>URL</div><div>Status</div><div class="num">Time</div><div>Kind</div></div>
+                  <sc-for list="{{imp.har.rows}}" as="hr" hint-placeholder-count="8">
+                    <div class="trow"><div><input type="checkbox" checked="{{hr.on}}" onChange="{{hr.toggle}}" aria-label="Import {{hr.method}} {{hr.url}}"></div><div><span class="method {{hr.mcls}}">{{hr.mshort}}</span></div><div class="urlcell" title="{{hr.url}}">{{hr.url}}</div><div class="mono">{{hr.status}}</div><div class="mono num" style="justify-content: flex-end">{{hr.time}}</div><div class="kind">{{hr.kind}}</div></div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{imp.s3}}" hint-placeholder-val="{{ false }}">
+              <div class="note">Each host becomes an api file named after its service. Ids are derived per the conventions (camelCase, verb first, no service prefix): POST /carts is <span class="mono-i">create</span>, POST /carts/{cartId}/items is <span class="mono-i">addItem</span>. Ids in recorded paths become variables, and duplicates are merged.</div>
+              <sc-for list="{{imp.map}}" as="mg" hint-placeholder-count="3">
+                <div class="mapgrp">
+                  <div class="maphead"><span class="mono">{{mg.host}}</span><span class="muted">→</span><b class="mono">{{mg.fileId}}</b><span class="mono small muted">{{mg.filePath}}</span><span class="pill {{mg.pillCls}}">{{mg.fileStatus}}</span></div>
+                  <sc-for list="{{mg.apis}}" as="ma" hint-placeholder-count="2">
+                    <div class="maprow">
+                      <div><span class="method {{ma.mcls}}">{{ma.mshort}}</span></div>
+                      <div class="mpath"><span class="rec">{{ma.recordedPath}}</span><span class="tpl"><sc-for list="{{ma.pathSegs}}" as="ps"><span class="{{ps.cls}}">{{ps.t}}</span></sc-for></span><sc-if value="{{ma.hasParams}}" hint-placeholder-val="{{ false }}"><span class="small muted" style="font-family: var(--font)">{{ma.paramsText}}</span></sc-if></div>
+                      <div class="mstat">
+                        <label class="sr" for="{{ma.inputId}}">Api id for {{ma.method}} {{ma.recordedPath}}</label>
+                        <input id="{{ma.inputId}}" class="input sm mono {{ma.errCls}}" value="{{ma.id}}" onInput="{{ma.setId}}" disabled="{{ma.idLocked}}">
+                        <sc-if value="{{ma.hasErr}}" hint-placeholder-val="{{ false }}"><span class="help err">{{ma.idErr}}</span></sc-if>
+                        <span class="small muted mono">{{ma.fullId}}</span>
+                      </div>
+                      <div class="mstat">
+                        <sc-if value="{{ma.isMatch}}" hint-placeholder-val="{{ true }}">
+                          <span class="small">matches <b class="mono">{{ma.match}}</b></span>
+                          <div class="seg sm" role="group" aria-label="What to do with {{ma.match}}"><button type="button" class="{{ma.skipCls}}" aria-pressed="{{ma.isSkip}}" onClick="{{ma.setSkip}}">skip</button><button type="button" class="{{ma.updCls}}" aria-pressed="{{ma.isUpd}}" onClick="{{ma.setUpdate}}">update</button></div>
+                        </sc-if>
+                        <sc-if value="{{ma.isNewApi}}" hint-placeholder-val="{{ false }}"><span class="pill accent">new api</span></sc-if>
+                        <sc-if value="{{ma.hasMerged}}" hint-placeholder-val="{{ false }}"><span class="small muted">{{ma.mergedText}}</span></sc-if>
+                        <sc-if value="{{ma.hasNote}}" hint-placeholder-val="{{ false }}"><span class="small" style="color: var(--block)">{{ma.note}}</span></sc-if>
+                        <sc-if value="{{ma.hasVars}}" hint-placeholder-val="{{ false }}"><div class="chips"><sc-for list="{{ma.vars}}" as="mv"><span class="chip">{{mv.name}}<span class="from">{{mv.val}}</span></span></sc-for></div></sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </sc-if>
+
+            <sc-if value="{{imp.s4}}" hint-placeholder-val="{{ false }}">
+              <div class="note">Found in the recorded requests. None of these values are written to any file.</div>
+              <div>
+                <sc-for list="{{imp.secrets}}" as="se" hint-placeholder-count="3">
+                  <div class="secrow">
+                    <div style="display: flex; flex-direction: column; gap: 4px"><span class="pill block" style="align-self: flex-start">{{se.kindLabel}}</span><span class="small muted">{{se.countText}}</span></div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+                      <div><b class="mono" style="font-size: 12.5px">{{se.name}}</b> <span class="mono small muted">{{se.sample}}</span> <span class="small muted">{{se.where}}</span></div>
+                      <div class="small">{{se.outcome}}</div>
+                      <sc-if value="{{se.isQuery}}" hint-placeholder-val="{{ false }}">
+                        <label class="field" style="max-width: 360px">Secret name<input class="input sm mono {{se.errCls}}" value="{{se.secretName}}" onInput="{{se.setName}}"><span class="help">Uppercase with underscores, read from .env through varlock.</span></label>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{imp.s5}}" hint-placeholder-val="{{ false }}">
+              <label class="chk"><input type="checkbox" checked="{{imp.fl.on}}" onChange="{{imp.fl.toggle}}">Also create a flow test from the recorded order</label>
+              <sc-if value="{{imp.fl.on}}" hint-placeholder-val="{{ true }}">
+                <div class="twocol">
+                  <label class="field">Test name<input class="input" value="{{imp.fl.name}}" onInput="{{imp.fl.setName}}"></label>
+                  <div class="field">Test id<div class="idout">{{imp.fl.fullId}}</div><span class="help mono-i">services/orders/checkout.test.yaml</span></div>
+                </div>
+                <sc-if value="{{imp.fl.hasErr}}" hint-placeholder-val="{{ false }}"><span class="help err">{{imp.fl.err}}</span></sc-if>
+                <label class="chk"><input type="checkbox" checked="{{imp.fl.keepReads}}" onChange="{{imp.fl.toggleReads}}">Keep GET requests whose responses no later step uses</label>
+                <div class="split" style="gap: 16px">
+                  <div class="pane" style="flex: 1 1 380px; gap: 6px">
+                    <span class="h3">Steps</span>
+                    <pre class="code"><sc-for list="{{imp.fl.yaml}}" as="l" hint-placeholder-count="10"><div class="ln"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="sg"><span class="{{sg.cls}}">{{sg.t}}</span></sc-for></span></div></sc-for></pre>
+                  </div>
+                  <div class="pane" style="flex: 1 1 260px; gap: 6px">
+                    <span class="h3">Saved values chained between steps</span>
+                    <div class="chainlist">
+                      <sc-for list="{{imp.fl.chain}}" as="ch" hint-placeholder-count="3"><div><span class="chip save">{{ch.name}}</span> <span class="small muted">saved by</span> <span class="mono small">{{ch.from}}</span> <span class="small muted">→</span> <span class="mono small">{{ch.to}}</span></div></sc-for>
+                    </div>
+                    <div class="note">Each api already saves its id (users.create saves userId), so steps need no extra save blocks.</div>
+                  </div>
+                </div>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{imp.s6}}" hint-placeholder-val="{{ false }}">
+              <div class="review">
+                <div class="flist" aria-label="Files">
+                  <sc-for list="{{imp.files}}" as="fi" hint-placeholder-count="5"><button type="button" class="fbtn {{fi.cls}}" onClick="{{fi.pick}}"><span class="mono">{{fi.path}}</span><span class="fmeta"><span class="pill tiny {{fi.pillCls}}">{{fi.status}}</span><span class="plus">+{{fi.add}}</span><span class="minus">−{{fi.del}}</span></span></button></sc-for>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+                  <div class="subhead"><span class="mono small">{{imp.rv.path}}</span><span class="small muted">{{imp.rv.statusText}}</span></div>
+                  <sc-if value="{{imp.rv.hasNote}}" hint-placeholder-val="{{ false }}"><div class="diag warn small">{{imp.rv.note}}</div></sc-if>
+                  <pre class="code"><sc-for list="{{imp.rv.rows}}" as="l" hint-placeholder-count="12"><div class="{{l.cls}}"><span class="no">{{l.no}}</span><span class="sg">{{l.sign}}</span><span><sc-for list="{{l.segs}}" as="sg"><span class="{{sg.cls}}">{{sg.t}}</span></sc-for></span></div></sc-for></pre>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+          <div class="mfoot">
+            <button class="btn" type="button" onClick="{{imp.close}}">Cancel</button>
+            <span class="note">{{imp.footNote}}</span>
+            <button class="btn" type="button" onClick="{{imp.back}}" disabled="{{imp.backOff}}">Back</button>
+            <sc-if value="{{imp.notLast}}" hint-placeholder-val="{{ true }}"><button class="btn primary" type="button" onClick="{{imp.next}}" disabled="{{imp.nextOff}}">Next</button></sc-if>
+            <sc-if value="{{imp.isLast}}" hint-placeholder-val="{{ false }}"><button class="btn accent" type="button" onClick="{{imp.apply}}">Import</button></sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{imp.isOpenapi}}" hint-placeholder-val="{{ false }}">
+          <div class="mbody">
+            <div class="seg" role="group" aria-label="Spec source"><button type="button" class="{{imp.oa.urlCls}}" aria-pressed="{{imp.oa.isUrl}}" onClick="{{imp.oa.useUrl}}">URL</button><button type="button" class="{{imp.oa.fileCls}}" aria-pressed="{{imp.oa.isFile}}" onClick="{{imp.oa.useFile}}">File</button></div>
+            <sc-if value="{{imp.oa.isUrl}}" hint-placeholder-val="{{ true }}">
+              <div class="reqline"><label class="sr" for="vcOaUrl">Spec URL</label><input id="vcOaUrl" class="input mono" style="flex: 1 1 360px" value="{{imp.oa.url}}" onInput="{{imp.oa.setUrl}}"><button class="btn primary" type="button" onClick="{{imp.oa.load}}" disabled="{{imp.oa.loading}}">Load spec</button></div>
+            </sc-if>
+            <sc-if value="{{imp.oa.isFile}}" hint-placeholder-val="{{ false }}">
+              <div class="drop"><div>Drop an OpenAPI 3.x or Swagger 2.0 file, JSON or YAML.</div><sc-if value="{{imp.oa.hasFile}}" hint-placeholder-val="{{ false }}"><div class="filecard"><div class="grow"><div class="fname">payments-v2.swagger.json</div><div class="small muted">Swagger 2.0 · converted to OpenAPI 3.0 before mapping</div></div></div></sc-if><button class="btn" type="button" onClick="{{imp.oa.pickFile}}" disabled="{{imp.oa.loading}}">{{imp.oa.fileBtn}}</button></div>
+            </sc-if>
+            <sc-if value="{{imp.oa.loading}}" hint-placeholder-val="{{ false }}"><div class="tokrow"><span class="spin"></span><span class="note">Reading the spec…</span></div></sc-if>
+            <sc-if value="{{imp.oa.loaded}}" hint-placeholder-val="{{ false }}">
+              <div class="diag info small">{{imp.oa.summary}}</div>
+              <div class="scrollx">
+                <div class="gtab gc13" style="min-width: 620px">
+                  <div class="trow hd"><div><span class="sr">Import</span></div><div>Method</div><div>Path</div><div>Api id</div><div>Status</div></div>
+                  <sc-for list="{{imp.oa.rows}}" as="or" hint-placeholder-count="5"><div class="trow"><div><input type="checkbox" checked="{{or.on}}" onChange="{{or.toggle}}" disabled="{{or.isMatch}}" aria-label="Import {{or.method}} {{or.path}}"></div><div><span class="method {{or.mcls}}">{{or.mshort}}</span></div><div class="mono cellv">{{or.path}}</div><div style="flex-direction: column; align-items: flex-start; gap: 2px"><span class="mono">{{or.id}}</span><span class="small muted">{{or.idFrom}}</span></div><div class="small">{{or.status}}</div></div></sc-for>
+                </div>
+              </div>
+              <div class="note">Writes services/payments/payments.api.yaml (source.openapi set to the spec) and a snapshot in openapi/payments.json, so <span class="mono-i">vc sync</span> can show what changed next time.</div>
+            </sc-if>
+          </div>
+          <div class="mfoot"><button class="btn" type="button" onClick="{{imp.close}}">Cancel</button><span class="note">{{imp.oa.foot}}</span><button class="btn accent" type="button" onClick="{{imp.oa.apply}}" disabled="{{imp.oa.cantApply}}">Import {{imp.oa.count}} apis</button></div>
+        </sc-if>
+
+        <sc-if value="{{imp.isCurl}}" hint-placeholder-val="{{ false }}">
+          <div class="mbody">
+            <label class="field">Paste a cURL command<textarea class="textarea mono" rows="6" spellcheck="false" value="{{imp.cu.text}}" onInput="{{imp.cu.setText}}"></textarea></label>
+            <sc-if value="{{imp.cu.hasErr}}" hint-placeholder-val="{{ false }}"><div class="diag error small">{{imp.cu.err}}</div></sc-if>
+            <sc-if value="{{imp.cu.ok}}" hint-placeholder-val="{{ true }}">
+              <div class="gtab gc14">
+                <div class="trow"><div class="muted">Request</div><div><span class="method {{imp.cu.mcls}}">{{imp.cu.method}}</span><span class="mono cellv">{{imp.cu.tpl}}</span></div></div>
+                <div class="trow"><div class="muted">Api</div><div style="flex-wrap: wrap"><span class="mono">{{imp.cu.fullId}}</span><span class="pill {{imp.cu.pillCls}}">{{imp.cu.status}}</span><span class="small muted mono">{{imp.cu.filePath}}</span></div></div>
+                <div class="trow"><div class="muted">Path params</div><div class="small">{{imp.cu.params}}</div></div>
+                <div class="trow"><div class="muted">Headers</div><div style="flex-direction: column; align-items: flex-start; gap: 3px"><sc-for list="{{imp.cu.headers}}" as="ch2"><span class="small"><span class="mono">{{ch2.k}}</span> <span class="muted">{{ch2.note}}</span></span></sc-for></div></div>
+                <div class="trow"><div class="muted">Body</div><div class="mono cellv small">{{imp.cu.body}}</div></div>
+              </div>
+            </sc-if>
+          </div>
+          <div class="mfoot"><button class="btn" type="button" onClick="{{imp.close}}">Cancel</button><span class="note">Open as request keeps it unsaved in a tab; Import as api writes it to the api file.</span><button class="btn" type="button" onClick="{{imp.cu.open}}" disabled="{{imp.cu.hasErr}}">Open as request</button><button class="btn accent" type="button" onClick="{{imp.cu.apply}}" disabled="{{imp.cu.cantImport}}">Import as api</button></div>
+        </sc-if>
+
+        <sc-if value="{{imp.isPostman}}" hint-placeholder-val="{{ false }}">
+          <div class="mbody">
+            <div class="drop"><div class="filecard"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5440D6" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7Z"/><path d="M14 3v4h4"/></svg><div class="grow"><div class="fname">shop-checkout.postman_collection.json</div><div class="small muted">Collection v2.1 · 3 folders, 6 requests · collection variables usersUrl, ordersUrl, catalogUrl, userId, orderId, sku</div></div></div></div>
+            <div class="note">Folders do not become files: each request goes to the api file of its host variable. Collection variables become ${var.x}; pre-request scripts are listed but not converted.</div>
+            <div class="scrollx">
+              <div class="gtab gc15" style="min-width: 660px">
+                <div class="trow hd"><div><span class="sr">Import</span></div><div>Postman request</div><div>Method</div><div>Becomes</div><div>Api</div></div>
+                <sc-for list="{{imp.pm.rows}}" as="pr" hint-placeholder-count="6"><div class="trow"><div><input type="checkbox" checked="{{pr.on}}" onChange="{{pr.toggle}}" disabled="{{pr.isMatch}}" aria-label="Import {{pr.name}}"></div><div style="flex-direction: column; align-items: flex-start; gap: 2px"><span>{{pr.name}}</span><span class="small muted">{{pr.folder}}</span></div><div><span class="method {{pr.mcls}}">{{pr.mshort}}</span></div><div class="mono cellv small">{{pr.tpl}}</div><div style="flex-direction: column; align-items: flex-start; gap: 2px"><span class="mono">{{pr.fullId}}</span><span class="small muted">{{pr.status}}</span></div></div></sc-for>
+              </div>
+            </div>
+          </div>
+          <div class="mfoot"><button class="btn" type="button" onClick="{{imp.close}}">Cancel</button><span class="note">{{imp.pm.foot}}</span><button class="btn accent" type="button" onClick="{{imp.pm.apply}}" disabled="{{imp.pm.cantApply}}">Import {{imp.pm.count}} apis</button></div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{toast.show}}" hint-placeholder-val="{{ false }}">
+    <div class="toast" role="status"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9FE0BC" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg><span>{{toast.text}}</span></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+/*__CLASS__*/
+</script>
+</body>
+</html>

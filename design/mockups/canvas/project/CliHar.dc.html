@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium CLI · import a HAR and run it</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.term{box-sizing:border-box;background:#0A0C10;color:#D7DAE0;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid #2C313C;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.bar{height:32px;flex:none;box-sizing:border-box;background:#1A1D24;border-bottom:1px solid #2C313C;position:relative;display:flex;align-items:center;gap:8px;padding:0 14px}
+.dot{width:12px;height:12px;border-radius:50%}
+.btitle{position:absolute;left:0;right:0;text-align:center;color:#8B92A0;font-size:12px;pointer-events:none}
+.body{flex:1;min-height:0;overflow:hidden;padding:14px 18px 16px}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.k{color:#8FB8F0}.s{color:#C9D99A}.t{color:#E8B86D}
+.g{display:inline-block;width:1ch;text-align:center}
+.cur{background:#D7DAE0;color:#0A0C10}
+</style>
+</helmet>
+<div class="term" style="width: 1280px; height: 1792px">
+  <div class="bar"><span class="dot" style="background: #F06A5D"></span><span class="dot" style="background: #E5A13A"></span><span class="dot" style="background: #4FC27A"></span><span class="btitle">zsh — shop</span></div>
+  <div class="body">
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc import har ~/Downloads/checkout-session.har --flow orders.checkout.recordedCheckout</div>
+    <div class="ln">  <span class="vio b"><span class="g">◆</span> vibranium</span> <span class="dim">2.0.0</span>  <span class="dim">import har · profile</span> staging</div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> read  ~/Downloads/checkout-session.har  <span class="dim">· HAR 1.2 ·</span> <span class="b">46 entries</span> <span class="dim">· recorded 2026-10-22 16:41–16:43 · 3.8 MB</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">filter</span></div>
+    <div class="ln">    <span class="dim"><span class="g">−</span></span> 21    static assets         <span class="dim">.js .css .woff2 .png .svg from shop.example, cdn.shop.example</span></div>
+    <div class="ln">    <span class="dim"><span class="g">−</span></span> 6     third-party           <span class="dim">analytics.example.net ×4 · chat-widget.example.com ×2</span></div>
+    <div class="ln">    <span class="dim"><span class="g">−</span></span> 5     OPTIONS               <span class="dim">CORS preflights the browser sent before 5 of the POSTs</span></div>
+    <div class="ln">    <span class="ok b">=</span> <span class="b">14</span>    <span class="b">requests</span>              <span class="dim">to 4 api hosts ·</span> --dry-run <span class="dim">lists every dropped entry ·</span> --include-host <span class="dim">keeps one</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">host <span class="g">→</span> api file</span></div>
+    <div class="ln">    users.staging.shop.example       <span class="s">${var.usersUrl}</span>     services/users/users.api.yaml          <span class="dim">existing · id users · 9 apis</span></div>
+    <div class="ln">    carts.staging.shop.example       <span class="s">${var.cartsUrl}</span>     services/carts/carts.api.yaml          <span class="dim">existing · id carts · 3 apis</span></div>
+    <div class="ln">    orders.staging.shop.example      <span class="s">${var.ordersUrl}</span>    services/orders/orders.api.yaml        <span class="dim">existing · id orders · 4 apis</span></div>
+    <div class="ln">    payments.staging.shop.example    <span class="s">${var.paymentsUrl}</span>  services/payments/payments.api.yaml    <span class="dim">existing · id payments · 1 api</span></div>
+    <div class="ln">    <span class="dim">every host already maps to an api file through its baseUrl var for profile staging, so no new files or vars are needed</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">apis</span>  <span class="dim">14 requests <span class="g">→</span> 9 apis · ids follow &lt;file id&gt;.&lt;verb&gt;&lt;Thing&gt; · paths are relative to the file's baseUrl</span></div>
+    <div class="ln">    <span class="dim">entry</span> <span class="dim">method</span>  <span class="dim">path</span>                              <span class="dim">id</span>                    <span class="dim">action</span></div>
+    <div class="ln">    07    GET     /users/<span class="s">${var.userId}</span>              users.get             <span class="dim">= matches existing  users.api.yaml:31</span></div>
+    <div class="ln">    08    GET     /users/<span class="s">${var.userId}</span>/addresses    users.<span class="b">listAddresses</span>   <span class="ok">+ new</span></div>
+    <div class="ln">    12    POST    /carts                            carts.<span class="b">create</span>          <span class="info">= matches</span></div>
+    <div class="ln">    15    POST    /carts/<span class="s">${var.cartId}</span>/items        carts.<span class="b">addItem</span>         <span class="info">= matches</span> <span class="dim">·</span> <span class="info">merged ×3</span> <span class="dim">· entries 15, 18, 21 differ only in</span> <span class="k">sku</span></div>
+    <div class="ln">    22    GET     /carts/<span class="s">${var.cartId}</span>              carts.<span class="b">get</span>             <span class="info">= matches</span> <span class="dim">·</span> <span class="info">merged ×2</span> <span class="dim">· entries 22, 30</span></div>
+    <div class="ln">    27    GET     /payment-methods                  payments.<span class="b">listMethods</span>  <span class="ok">+ new</span></div>
+    <div class="ln">    32    POST    /authorizations                   payments.<span class="b">authorize</span>    <span class="info">= matches</span> <span class="dim">· query</span> <span class="k">api_key</span> <span class="dim">is a secret, see below</span></div>
+    <div class="ln">    35    POST    /orders                           orders.place          <span class="dim">= matches existing  orders.api.yaml:9 · same body keys</span></div>
+    <div class="ln">    38    GET     /orders/<span class="s">${var.orderId}</span>            orders.get            <span class="dim">= matches existing ·</span> <span class="info">merged ×3</span> <span class="dim">· polled until</span> <span class="k">status</span><span class="dim">:</span> <span class="s">paid</span></div>
+    <div class="ln">    <span class="dim">path ids:</span> u_7f3k29qp <span class="g">→</span> <span class="k">userId</span>  <span class="dim">·</span> c_4Hq9Lm <span class="g">→</span> <span class="k">cartId</span>  <span class="dim">·</span> ord_9Tk2Px <span class="g">→</span> <span class="k">orderId</span>   <span class="dim">ids that vary between entries became path vars</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">chains</span>  <span class="dim">a value from one response that reappears in a later request becomes a save, and later steps use the var</span></div>
+    <div class="ln">    c_4Hq9Lm      carts.create <span class="g">→</span> body.id                used by 6 later requests          <span class="g">→</span> save <span class="k">cartId</span></div>
+    <div class="ln">    42.50         carts.get <span class="g">→</span> body.total                payments.authorize body.amount    <span class="g">→</span> save <span class="k">cartTotal</span></div>
+    <div class="ln">    pt_7Qm2Xc     payments.authorize <span class="g">→</span> body.token       orders.place body.paymentToken    <span class="g">→</span> save <span class="k">paymentToken</span></div>
+    <div class="ln">    ord_9Tk2Px    orders.place <span class="g">→</span> body.id                orders.get path ×3                <span class="g">→</span> save <span class="k">orderId</span></div>
+    <div class="ln">    u_7f3k29qp    <span class="dim">in no response: the signed-in user</span>                                      <span class="g">→</span> var <span class="k">userId</span> <span class="dim">(default u_7f3k29qp)</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">secrets</span>  <span class="dim">found in the recording and removed; none is written to disk</span></div>
+    <div class="ln">    <span class="warn">Authorization: Bearer eyJhbGciOi…</span>     12 requests   <span class="g">→</span> removed; the files use auth <span class="b">shopOauth</span> <span class="dim">(same token issuer)</span></div>
+    <div class="ln">    <span class="warn">Cookie: session=…</span>                     14 requests   <span class="g">→</span> dropped; apis authenticate with shopOauth, not the browser session</div>
+    <div class="ln">    <span class="warn">?api_key=…</span> <span class="dim">(32 chars)</span>                 1 request     <span class="g">→</span> <span class="s">${secret.PAYMENTS_KEY}</span> <span class="dim">·</span> PAYMENTS_KEY <span class="dim">added to</span> .env.schema<span class="dim">; set its value in</span> .env</div>
+    <div class="ln">    <span class="warn">!</span> <span class="dim">the .har file still holds all three: delete it, or keep it out of the repo</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">body <span class="g">→</span> vars</span>  <span class="dim">recorded values become defaults, so each api runs as recorded and every value can be overridden</span></div>
+    <div class="ln">    carts.addItem         <span class="k">sku</span> <span class="s">"SKU-1042"</span> · <span class="k">quantity</span> <span class="t">1</span>             <span class="dim">vars sku, quantity · the 3 recorded skus <span class="g">→</span> var</span> <span class="k">skus</span> <span class="dim">in the flow</span></div>
+    <div class="ln">    payments.authorize    <span class="k">amount</span> <span class="t">42.50</span> · <span class="k">currency</span> <span class="s">"EUR"</span>           <span class="dim">vars amount, currency · amount chained from</span> <span class="k">cartTotal</span></div>
+    <div class="ln">    orders.place          <span class="k">cartId</span> · <span class="k">paymentToken</span>                   <span class="dim">already vars in orders.api.yaml · both chained</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> wrote test <span class="b">orders.checkout.recordedCheckout</span>  <span class="dim">services/orders/checkout.test.yaml:142 · 6 steps</span></div>
+    <div class="ln">  <span class="dim">142 <span class="g">│</span></span>   - <span class="k">id</span>: <span class="s">recordedCheckout</span></div>
+    <div class="ln">  <span class="dim">143 <span class="g">│</span></span>     <span class="k">name</span>: <span class="s">Recorded checkout, from checkout-session.har</span></div>
+    <div class="ln">  <span class="dim">144 <span class="g">│</span></span>     <span class="k">standalone</span>: <span class="t">true</span>                <span class="dim"># skips this file's beforeEach: the recording makes its own cart</span></div>
+    <div class="ln">  <span class="dim">145 <span class="g">│</span></span>     <span class="k">vars</span>: { <span class="k">skus</span>: [<span class="s">SKU-1042</span>, <span class="s">SKU-2210</span>, <span class="s">SKU-0087</span>] }</div>
+    <div class="ln">  <span class="dim">146 <span class="g">│</span></span>     <span class="k">steps</span>:</div>
+    <div class="ln">  <span class="dim">147 <span class="g">│</span></span>       - { <span class="k">id</span>: <span class="s">cart</span>,      <span class="k">call</span>: <span class="s">carts.create</span>,       <span class="k">save</span>: { <span class="k">cartId</span>: <span class="s">${response.body.id}</span> } }</div>
+    <div class="ln">  <span class="dim">148 <span class="g">│</span></span>       - { <span class="k">id</span>: <span class="s">items</span>,     <span class="k">call</span>: <span class="s">carts.addItem</span>,      <span class="k">forEach</span>: <span class="s">${var.skus}</span>, <span class="k">vars</span>: { <span class="k">sku</span>: <span class="s">${item}</span> } }</div>
+    <div class="ln">  <span class="dim">149 <span class="g">│</span></span>       - { <span class="k">id</span>: <span class="s">review</span>,    <span class="k">call</span>: <span class="s">carts.get</span>,          <span class="k">save</span>: { <span class="k">cartTotal</span>: <span class="s">${response.body.total}</span> } }</div>
+    <div class="ln">  <span class="dim">150 <span class="g">│</span></span>       - { <span class="k">id</span>: <span class="s">authorize</span>, <span class="k">call</span>: <span class="s">payments.authorize</span>, <span class="k">vars</span>: { <span class="k">amount</span>: <span class="s">${var.cartTotal}</span> }, <span class="k">save</span>: { <span class="k">paymentToken</span>: <span class="s">${response.body.token}</span> } }</div>
+    <div class="ln">  <span class="dim">151 <span class="g">│</span></span>       - { <span class="k">id</span>: <span class="s">place</span>,     <span class="k">call</span>: <span class="s">orders.place</span>,       <span class="k">save</span>: { <span class="k">orderId</span>: <span class="s">${response.body.id}</span> } }</div>
+    <div class="ln">  <span class="dim">152 <span class="g">│</span></span>       - { <span class="k">id</span>: <span class="s">fetch</span>,     <span class="k">call</span>: <span class="s">orders.get</span>,         <span class="k">poll</span>: { <span class="k">until</span>: { <span class="k">body</span>: { <span class="k">match</span>: { <span class="k">status</span>: <span class="s">paid</span> } } }, <span class="k">every</span>: <span class="t">1s</span>, <span class="k">timeout</span>: <span class="t">30s</span> } }</div>
+    <div class="ln">  <span class="dim">153 <span class="g">│</span></span>     <span class="k">expect</span>: { <span class="k">status</span>: <span class="t">200</span>, <span class="k">body</span>: { <span class="k">match</span>: { <span class="k">status</span>: <span class="s">paid</span> } } }   <span class="dim"># from the last recorded response</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">files</span></div>
+    <div class="ln">    <span class="dim">=</span>  <span class="dim">services/carts/carts.api.yaml</span>             <span class="dim">unchanged: create, addItem, get already match the recording</span></div>
+    <div class="ln">    <span class="info">~</span>  services/payments/payments.api.yaml       <span class="dim">+1 api: listMethods · authorize unchanged</span></div>
+    <div class="ln">    <span class="info">~</span>  services/users/users.api.yaml             <span class="dim">+1 api: listAddresses · users.get unchanged</span></div>
+    <div class="ln">    <span class="info">~</span>  services/orders/checkout.test.yaml        <span class="dim">+1 test: recordedCheckout, 6 steps</span></div>
+    <div class="ln">    <span class="info">~</span>  .env.schema                               <span class="dim">+PAYMENTS_KEY</span></div>
+    <div class="ln">    <span class="dim">=</span>  <span class="dim">services/orders/orders.api.yaml</span>           <span class="dim">unchanged: place and get already match the recording</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc check</div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> <span class="b">0 errors · 0 warnings</span>  <span class="dim">· 60 files · 70 apis · 419 tests · secrets 4 of 4 set · 226ms</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc run orders.checkout.recordedCheckout --profile staging</div>
+    <div class="ln">  <span class="vio b"><span class="g">◆</span> vibranium</span> <span class="dim">2.0.0</span>  <span class="dim">run</span> #486  <span class="dim">profile</span> staging  <span class="dim">· 1 test · standalone ·</span> services/orders/checkout.test.yaml:142</div>
+    <div class="ln"> </div>
+    <div class="ln">    <span class="ok"><span class="g">✓</span></span> cart          <span class="dim">POST</span>   <span class="dim">/carts</span>                    <span class="ok">201</span>   118ms     saved <span class="k">cartId</span> c_8Rw2Mn</div>
+    <div class="ln">    <span class="ok"><span class="g">✓</span></span> items <span class="dim">×3</span>      <span class="dim">POST</span>   <span class="dim">/carts/c_8Rw2Mn/items</span>     <span class="ok">201</span>    96ms     <span class="dim">avg ·</span> SKU-1042, SKU-2210, SKU-0087</div>
+    <div class="ln">    <span class="ok"><span class="g">✓</span></span> review        <span class="dim">GET</span>    <span class="dim">/carts/c_8Rw2Mn</span>           <span class="ok">200</span>    44ms     saved <span class="k">cartTotal</span> 42.50</div>
+    <div class="ln">    <span class="ok"><span class="g">✓</span></span> authorize     <span class="dim">POST</span>   <span class="dim">/authorizations</span>           <span class="ok">201</span>   310ms     saved <span class="k">paymentToken</span> pt_3Ld8Wv  <span class="dim">· api_key from</span> <span class="s">${secret.PAYMENTS_KEY}</span></div>
+    <div class="ln">    <span class="ok"><span class="g">✓</span></span> place         <span class="dim">POST</span>   <span class="dim">/orders</span>                   <span class="ok">201</span>   296ms     saved <span class="k">orderId</span> ord_5Vb8Qe</div>
+    <div class="ln">    <span class="ok"><span class="g">✓</span></span> fetch         <span class="dim">GET</span>    <span class="dim">/orders/ord_5Vb8Qe</span>        <span class="ok">200</span>    3.1s     poll ×4 until <span class="k">status</span>: <span class="s">paid</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="ok b"><span class="g">✓</span> 1 test passed</span>  <span class="dim">· 6 steps · 11 requests ·</span> 4.2s</div>
+    <div class="ln">  <span class="info">hint</span> vc import har &lt;file&gt; --dry-run <span class="dim">prints this plan without writing ·</span> --include-host &lt;host&gt; <span class="dim">keeps a host the filter dropped</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1792}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

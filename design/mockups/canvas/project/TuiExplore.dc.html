@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium TUI · explore and edit</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.pane{border:1px solid #2C313C;border-radius:4px;position:relative;padding:14px 12px 10px;box-sizing:border-box;min-width:0;overflow:visible}
+.ptitle{position:absolute;top:-9px;left:10px;background:#0F1115;padding:0 6px;color:#A99BFF;font-weight:700}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.k{color:#8FB8F0}.s{color:#C9D99A}.t{color:#E8B86D}
+.sel{background:#252A36}
+.key{display:inline-block;background:#2C313C;color:#D7DAE0;padding:0 5px;border-radius:3px;margin-right:4px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; background: #0F1115; color: #D7DAE0; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+
+  <div class="ln" style="display: flex; justify-content: space-between"><span><span class="vio b">◆ vibranium</span>  shop  <span class="dim">profile</span> staging  <span class="dim">412 tests · 61 apis · 18 lifecycle blocks · 0 errors</span></span><span><span class="dim">1 Run</span>  <span class="sel" style="padding: 0 8px">2 Explore</span>  <span class="dim">3 History</span>  <span class="dim">4 Load</span></span></div>
+
+  <div class="ln" style="border: 1px solid #A99BFF; border-radius: 4px; padding: 4px 10px"><span class="vio">/</span> export<span style="background: #D7DAE0; color: #0F1115">▏</span>   <span class="dim">3 matches: users.crud.exportFinishes · users.api.startExport · users.api.exportStatus</span></div>
+
+  <div style="flex: 1; display: grid; grid-template-columns: 300px minmax(0, 1fr) 330px; gap: 14px; min-height: 0">
+
+    <div class="pane">
+      <span class="ptitle">Project</span>
+      <div class="ln">▾ services/</div>
+      <div class="ln">  ▸ catalog/</div>
+      <div class="ln">  ▸ orders/</div>
+      <div class="ln">  ▸ shared/</div>
+      <div class="ln">  ▾ users/</div>
+      <div class="ln">      <span class="info">api </span> users.api.yaml     <span class="dim">7</span></div>
+      <div class="ln sel">      <span class="ok">test</span> users.test.yaml    <span class="dim">4</span></div>
+      <div class="ln">      <span class="ok">test</span> reports.test.yaml  <span class="dim">3</span></div>
+      <div class="ln">▸ load/</div>
+      <div class="ln">▸ schemas/</div>
+      <div class="ln">▸ hooks/</div>
+      <div class="ln">  vibranium.config.yaml</div>
+      <div class="ln"> </div>
+      <div class="ln dim">─ users.crud ──────────────</div>
+      <div class="ln">  <span class="ok">✓</span> getsCreatedUser    <span class="dim">×5</span></div>
+      <div class="ln">  <span class="ok">✓</span> rejectsBadEmail    <span class="dim">2 rows</span></div>
+      <div class="ln sel">  <span class="bad">✕</span> exportFinishes     <span class="dim">steps</span></div>
+      <div class="ln">  <span class="ok">✓</span> adminSeesAllUsers</div>
+      <div class="ln dim">  last run #482 · 2 min ago</div>
+    </div>
+
+    <div class="pane">
+      <span class="ptitle">users.test.yaml · editing  <span class="warn">● unsaved</span></span>
+      <div class="ln"><span class="dim">38 </span>  - <span class="k">id</span>: <span class="s">exportFinishes</span></div>
+      <div class="ln"><span class="dim">39 </span>    <span class="k">name</span>: <span class="s">A user export completes within two minutes</span></div>
+      <div class="ln"><span class="dim">40 </span>    <span class="k">steps</span>:</div>
+      <div class="ln"><span class="dim">41 </span>      - <span class="k">id</span>: <span class="s">start</span></div>
+      <div class="ln"><span class="dim">42 </span>        <span class="k">call</span>: <span class="s">users.startExport</span></div>
+      <div class="ln"><span class="dim">43 </span>        <span class="k">save</span>:</div>
+      <div class="ln"><span class="dim">44 </span>          <span class="k">jobId</span>: <span class="s">${response.body.jobId}</span></div>
+      <div class="ln"><span class="dim">45 </span>      - <span class="k">id</span>: <span class="s">wait</span></div>
+      <div class="ln" style="background: #3A1D1B"><span class="bad">46 </span>        <span class="k">call</span>: <span class="s" style="text-decoration: underline wavy #F06A5D">users.exportStatsu</span><span style="background: #D7DAE0; color: #0F1115">▏</span></div>
+      <div class="ln"><span class="dim">47 </span>        <span class="k">poll</span>:</div>
+      <div class="ln"><span class="dim">48 </span>          <span class="k">every</span>: <span class="t">2s</span></div>
+      <div class="ln"><span class="dim">49 </span>          <span class="k">timeout</span>: <span class="t">2m</span></div>
+      <div class="ln"><span class="dim">50 </span>    <span class="k">expect</span>:</div>
+      <div class="ln"> </div>
+      <div style="border: 1px solid #F06A5D; border-radius: 4px; padding: 8px 10px; background: #1A1214">
+        <div class="ln"><span class="bad b">error[V2003]</span> unknown api `users.exportStatsu`</div>
+        <div class="ln dim">  --> services/users/users.test.yaml:46:15</div>
+        <div class="ln">  did you mean <span class="ok">users.exportStatus</span>?  <span class="key">tab</span>accept</div>
+      </div>
+      <div class="ln"> </div>
+      <div class="ln dim">completions for `users.`</div>
+      <div class="ln sel">  users.exportStatus   <span class="dim">GET  /users/exports/${var.jobId}</span></div>
+      <div class="ln">  users.startExport    <span class="dim">POST /users/exports</span></div>
+      <div class="ln">  users.get            <span class="dim">GET  /users/${var.id}</span></div>
+    </div>
+
+    <div style="display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 14px; min-height: 0">
+      <div class="pane">
+        <span class="ptitle">Depends on</span>
+        <div class="ln b">exportFinishes</div>
+        <div class="ln">├─ step start</div>
+        <div class="ln">│  └─ <span class="info">users.startExport</span></div>
+        <div class="ln">│     POST /users/exports</div>
+        <div class="ln">│     saves: jobId</div>
+        <div class="ln">├─ step wait</div>
+        <div class="ln">│  └─ <span class="bad">users.exportStatsu ✕</span></div>
+        <div class="ln">└─ before</div>
+        <div class="ln">   └─ <span class="info">users.create</span></div>
+        <div class="ln">      cleanup users.delete <span class="dim">(api)</span></div>
+        <div class="ln"> </div>
+        <div class="ln dim">Used by load scenarios: none</div>
+        <div class="ln dim">Last 10 runs:  <span class="ok">✓✓✓✓✓✓✓</span><span class="bad">✕✕✕</span></div>
+      </div>
+      <div class="pane">
+        <span class="ptitle">Actions</span>
+        <div class="ln"><span class="key">ctrl-s</span>save (checks first)</div>
+        <div class="ln"><span class="key">ctrl-r</span>run this test</div>
+        <div class="ln"><span class="key">ctrl-d</span>show diff vs git</div>
+        <div class="ln"><span class="key">ctrl-g</span>open dependency graph</div>
+        <div class="ln"><span class="key">esc</span>back to browse</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ln dim"><span class="key">tab</span>switch pane <span class="key">/</span>search <span class="key">n</span>new test <span class="key">a</span>new api <span class="key">i</span>import OpenAPI <span class="key">s</span>sync api group <span class="key">e</span>edit <span class="key">enter</span>run <span class="key">?</span>help</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

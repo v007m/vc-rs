@@ -1,0 +1,9 @@
+error[E0277]: the trait bound `compiler::Kind: std::cmp::Ord` is not satisfied
+error[E0277]: the trait bound `serde_saphyr::Location: Default` is not satisfied
+error[E0277]: the trait bound `serde_saphyr::Location: Default` is not satisfied
+error[E0618]: expected function, found `&Spanned<std::string::String>`
+error[E0618]: expected function, found `&Spanned<std::string::String>`
+error[E0618]: expected function, found `&Spanned<std::string::String>`
+error[E0618]: expected function, found `&Spanned<std::string::String>`
+error[E0618]: expected function, found `&Spanned<std::string::String>`
+error: could not compile `vibranium` (bin "vibranium") due to 8 previous errors

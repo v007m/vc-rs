@@ -1,0 +1,1 @@
+{"engine":"quickjs","mode":"errors","marshal":"Direct","result":{"kind":"Thrown","message":"cannot read property 'reduce' of undefined\n    at total (hooks/throws.ts:7:10)\n    at totalIsPositive (hooks/throws.ts:12:16)\n"}}

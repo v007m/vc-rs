@@ -1,0 +1,4 @@
+hello release_cold_s=4.683914297 rc=0
+tsstrip release_cold_s=115.545627055 rc=0
+hook-qjs release_cold_s=164.838412103 rc=0
+hook-deno release_cold_s=236.943829306 rc=0

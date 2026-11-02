@@ -1,0 +1,14 @@
+const path = require('path');
+const { loadComponent } = require('./load');
+const { makeRenderer } = require('./render');
+const ART = path.resolve(__dirname, '../vibmock/project/ReportFailure.dc.html');
+const { Component, timers } = loadComponent(ART);
+const r = makeRenderer(ART, path.join(__dirname, 'shots-fail'));
+const c = new Component({});
+let v = c.renderVals();
+r.save('f01-initial', v);
+v.toggleSide(); r.save('f02-collapsed', c.renderVals()); c.renderVals().toggleSide();
+v = c.renderVals(); v.lifeRows[4].view(); v = c.renderVals(); if (!v.exLoading) throw new Error('no loading'); r.save('f03-loading', v);
+timers.flush(); v = c.renderVals(); v.tabs[2].pick(); r.save('f04-headers', c.renderVals());
+v = c.renderVals(); v.toggleOnlyFailed(); v = c.renderVals(); v.expandHead(); v = c.renderVals(); v.toggleMore(); v = c.renderVals(); v.tabs[3].pick(); r.save('f05-misc', c.renderVals());
+const errs = r.errors(); console.log(errs.length ? errs.slice(0, 20).join('\n') : 'holes ok in all states');

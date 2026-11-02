@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium TUI · history and flaky tests</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.pane{border:1px solid #2C313C;border-radius:4px;position:relative;padding:14px 12px 10px;box-sizing:border-box;min-width:0;overflow:visible}
+.ptitle{position:absolute;top:-9px;left:10px;background:#0F1115;padding:0 6px;color:#A99BFF;font-weight:700}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.sel{background:#252A36}
+.key{display:inline-block;background:#2C313C;color:#D7DAE0;padding:0 5px;border-radius:3px;margin-right:4px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; background: #0F1115; color: #D7DAE0; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+
+  <div class="ln" style="display: flex; justify-content: space-between"><span><span class="vio b">◆ vibranium</span>  shop  <span class="dim">history</span> .vibranium/history.db  <span class="dim">482 runs · 90 days</span></span><span><span class="dim">1 Run</span>  <span class="dim">2 Explore</span>  <span class="sel" style="padding: 0 8px">3 History</span>  <span class="dim">4 Load</span></span></div>
+
+  <div class="ln dim">profile: <span style="color: #D7DAE0">staging ▾</span>   branch: <span style="color: #D7DAE0">main ▾</span>   selector: <span style="color: #D7DAE0">any ▾</span>   query: <span style="color: #D7DAE0">status:failed since:7d</span></div>
+
+  <div style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 470px; grid-template-rows: minmax(0, 1fr) 250px; gap: 14px; min-height: 0">
+
+    <div class="pane">
+      <span class="ptitle">Runs</span>
+      <div class="ln dim">  run   when        branch@commit       pass rate        ✓     ✕   ⊘   ↻   time</div>
+      <div class="ln sel">▸ <span class="b">#482</span>  2 min ago   main@a1c9e4f        <span class="bad">96.1% ▼</span>        396    6   4   3  48.2s</div>
+      <div class="ln">  #481  3 h ago     main@7e02b11        <span class="ok">98.8%</span>          407    2   0   1  51.3s</div>
+      <div class="ln">  #480  6 h ago     main@7e02b11        <span class="ok">98.8%</span>          407    2   0   0  50.9s</div>
+      <div class="ln">  #479  9 h ago     main@c41f0aa        <span class="ok">99.0%</span>          408    1   0   2  49.7s</div>
+      <div class="ln">  #478  12 h ago    feat/coupons@19d3   <span class="ok">99.5%</span>          410    0   0   2  52.0s</div>
+      <div class="ln">  #477  15 h ago    main@c41f0aa        <span class="ok">99.5%</span>          410    0   0   1  50.4s</div>
+      <div class="ln">  #476  18 h ago    main@5bb7e90        <span class="ok">99.8%</span>          411    0   0   0  49.9s</div>
+      <div class="ln"> </div>
+      <div class="ln dim">  pass rate, last 30 runs</div>
+      <div class="ln">  <span class="ok">▇▇▇▇▇▇▇█▇▇▇▇▇▇██▇▇▇▇▇▇▇▇▇▇▇▇</span><span class="warn">▆</span><span class="bad">▅</span></div>
+      <div class="ln dim">  duration, last 30 runs</div>
+      <div class="ln">  <span class="info">▄▄▅▄▄▄▅▅▄▄▄▅▅▅▅▆▅▅▅▅▅▆▆▅▅▅▅▅▅▄</span></div>
+    </div>
+
+    <div class="pane">
+      <span class="ptitle">Flaky tests · 30 days</span>
+      <div class="ln dim">test                              flaky  trend</div>
+      <div class="ln">catalog.search.fuzzyQueries        <span class="info">6/30</span>   <span class="info">▁▃▁▅▁▁▃▁▇▃</span></div>
+      <div class="ln">users.auth.refreshesToken          <span class="info">2/30</span>   <span class="info">▁▁▁▁▃▁▁▁▁▃</span></div>
+      <div class="ln">orders.history.paginates           <span class="info">1/30</span>   <span class="info">▁▁▁▁▁▁▁▁▁▃</span></div>
+      <div class="ln"> </div>
+      <div class="ln dim">fuzzyQueries fails on: GET /search 500</div>
+      <div class="ln dim">  (5 of 6 times) within 2s of a</div>
+      <div class="ln dim">  catalog.seedProducts call</div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="key">enter</span>open test  <span class="key">t</span>tag @quarantine</div>
+    </div>
+
+    <div class="pane" style="grid-column: 1 / span 2">
+      <span class="ptitle">Compare  #481 → #482</span>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px">
+        <div>
+          <div class="ln bad b">Newly failing · 4</div>
+          <div class="ln">orders.checkout.placesOrder</div>
+          <div class="ln">orders.checkout.cancelsPaidOrder</div>
+          <div class="ln">orders.checkout.placesGuestOrder</div>
+          <div class="ln">orders.checkout.appliesCoupon</div>
+          <div class="ln dim">all at body.total · since a1c9e4f</div>
+        </div>
+        <div>
+          <div class="ln warn b">Newly blocked · 4</div>
+          <div class="ln">catalog.admin.publishesProduct</div>
+          <div class="ln">catalog.admin.archivesProduct</div>
+          <div class="ln">catalog.admin.bulkPriceUpdate</div>
+          <div class="ln">catalog.browse.facetsReflectSeed</div>
+          <div class="ln dim">beforeRun catalog · seedProducts 503</div>
+        </div>
+        <div>
+          <div class="ln ok b">Fixed · 0   <span class="dim">Slower by &gt;20% · 2</span></div>
+          <div class="ln">orders.history.paginates  <span class="warn">1.1s → 1.8s</span></div>
+          <div class="ln">users.crud.adminSeesAll…  <span class="warn">1.7s → 2.2s</span></div>
+          <div class="ln"> </div>
+          <div class="ln dim">still failing from #481: 2</div>
+          <div class="ln">users.crud.exportFinishes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ln dim"><span class="key">↑↓</span>select run <span class="key">enter</span>open report <span class="key">c</span>compare with… <span class="key">h</span>open HTML report <span class="key">x</span>export CTRF <span class="key">/</span>query <span class="key">p</span>prune <span class="key">?</span>help</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

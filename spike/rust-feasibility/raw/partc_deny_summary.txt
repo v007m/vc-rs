@@ -1,0 +1,3 @@
+      1 warning[duplicate]: found 2 duplicate entries for crate 'hashbrown'
+      1 warning[duplicate]: found 2 duplicate entries for crate 'syn'
+      3 warning[license-not-encountered]: license was not encountered

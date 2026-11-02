@@ -1,0 +1,1517 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>/* Vibranium web look: gradient + grain ground, flat chrome, one elevated content panel. */
+:root{
+  --bg1:#E4DEFA; --bg2:#EFE4F3; --bg3:#F9E5D8;
+  --ink:#1B1830; --ink2:#4F4B66; --ink3:#67637D;
+  --line:#ECE9F2; --line2:#DEDAE8; --hover:rgba(255,255,255,.55); --on:rgba(255,255,255,.82);
+  --panel:#FFFFFF; --panel2:#F8F7FB; --panel3:#F2F0F7;
+  --accent:#5440D6; --accentInk:#3B2BA8; --accentSoft:#EEEBFD;
+  --pass:#1A7148; --passSoft:#E3F2E9;
+  --fail:#B3261E; --failSoft:#FCE8E6;
+  --block:#8A5200; --blockSoft:#FBEED7;
+  --skip:#4F4B66; --skipSoft:#EEEDF3;
+  --flaky:#2459B8; --flakySoft:#E5EDFB;
+  --radius:14px; --shadow:0 1px 2px rgba(27,24,48,.06),0 12px 32px rgba(27,24,48,.11);
+  --font:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'Geist Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg1);-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:var(--accentInk)} a:hover{color:var(--accent)}
+
+/* ground */
+.app{min-height:100vh;display:flex;flex-direction:column;position:relative;isolation:isolate;
+  background:linear-gradient(140deg,var(--bg1) 0%,var(--bg2) 50%,var(--bg3) 100%);font-size:13.5px}
+.app::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background-image:url(file:///tmp/claude-0/-home-claude/80b4900a-8223-5c77-874b-c1dda2eeca25/scratchpad/vibmock/assets/noise.png);background-size:256px 256px;opacity:.55;mix-blend-mode:multiply}
+
+/* flat chrome */
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px 8px;min-height:52px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none}
+.crumbs{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;flex-wrap:wrap}
+.crumbs b{color:var(--ink);font-weight:600}
+.grow{flex:1 1 auto}
+.search{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:9px;background:var(--hover);border:1px solid transparent;min-width:220px;flex:0 1 420px;color:var(--ink2)}
+.search input{border:0;background:transparent;outline:none;font:inherit;color:var(--ink);flex:1;min-width:0}
+.search:focus-within{background:var(--on);border-color:var(--line2)}
+.frame{flex:1 1 auto;display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 10px;min-height:0;align-items:stretch}
+.side{flex:0 1 232px;min-width:200px;display:flex;flex-direction:column;gap:2px;padding:4px 4px 12px}
+.navlabel{font-size:11.5px;font-weight:600;color:var(--ink2);padding:14px 10px 6px;letter-spacing:.02em}
+.navitem{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:13.5px;border:0;background:transparent;font-family:inherit;cursor:pointer;text-align:left;width:100%}
+.navitem:hover{background:var(--hover);color:var(--ink)}
+.navitem.on{background:var(--on);box-shadow:0 1px 1px rgba(27,24,48,.05);font-weight:500}
+.navitem .count{margin-left:auto;font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.navitem svg{flex:none}
+
+/* the one elevated surface */
+.panel{flex:999 1 620px;min-width:0;background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}
+.panel-body{padding:20px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.section{display:flex;flex-direction:column;gap:10px;min-width:0}
+.section + .section{border-top:1px solid var(--line);padding-top:20px}
+.h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
+.h2{margin:0;font-size:15px;font-weight:600}
+.h3{margin:0;font-size:13px;font-weight:600;color:var(--ink2)}
+.muted{color:var(--ink2)} .subtle{color:var(--ink3)}
+.split{display:flex;flex-wrap:wrap;min-width:0}
+.split > .pane{min-width:0;display:flex;flex-direction:column}
+.vr{border-left:1px solid var(--line)}
+.well{background:var(--panel2);border-radius:10px;padding:12px 14px}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 13px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);font:500 13px var(--font);cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--panel2)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.primary:hover{background:#2D2945}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--panel3)}
+.app > .topbar .btn.ghost:hover, .side .btn.ghost:hover{background:var(--hover)}
+.btn.sm{height:28px;padding:0 10px;font-size:12.5px;border-radius:7px}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.iconbtn:hover{background:var(--panel3);color:var(--ink)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 12px;overflow-x:auto}
+.tab{height:38px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;font:500 13px var(--font);color:var(--ink2);cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.seg{display:inline-flex;padding:2px;border-radius:9px;background:var(--panel3);gap:2px}
+.seg button{height:28px;padding:0 11px;border:0;border-radius:7px;background:transparent;font:500 12.5px var(--font);color:var(--ink2);cursor:pointer}
+.seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(27,24,48,.10)}
+.field{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--ink2);min-width:0}
+.input,.select,.textarea{height:34px;border:1px solid var(--line2);border-radius:8px;padding:0 10px;font:13px var(--font);color:var(--ink);background:var(--panel);min-width:0;width:100%}
+.input.mono,.textarea.mono{font-family:var(--mono);font-size:12.5px}
+.textarea{height:auto;padding:8px 10px;line-height:1.55;resize:vertical}
+.input:focus,.select:focus,.textarea:focus{outline:2px solid var(--accentSoft);border-color:var(--accent)}
+.input.err{border-color:var(--fail);background:#FFFBFA}
+.help{font-size:12px;font-weight:400;color:var(--ink2)}
+.help.err{color:var(--fail)}
+
+/* data */
+.mono{font-family:var(--mono);font-size:12.5px}
+.kbd{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:5px;background:var(--panel3);border:1px solid var(--line2);font:500 11.5px var(--mono);color:var(--ink2)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-weight:500;font-size:12px;color:var(--ink2);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr.sel td{background:var(--accentSoft)}
+.tbl tbody tr:hover td{background:var(--panel2)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.scrollx{overflow-x:auto;min-width:0}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--panel3);color:var(--ink2)}
+.pill.pass{background:var(--passSoft);color:var(--pass)} .pill.fail{background:var(--failSoft);color:var(--fail)}
+.pill.block{background:var(--blockSoft);color:var(--block)} .pill.skip{background:var(--skipSoft);color:var(--skip)}
+.pill.flaky{background:var(--flakySoft);color:var(--flaky)} .pill.accent{background:var(--accentSoft);color:var(--accentInk)}
+.method{display:inline-flex;justify-content:center;min-width:52px;height:20px;align-items:center;border-radius:5px;font:600 11px var(--mono)}
+.m-get{background:#E3F2E9;color:#1A7148} .m-post{background:#E5EDFB;color:#1F4FA8} .m-put{background:#FBEED7;color:#8A5200} .m-patch{background:#F3E8FB;color:#6B2EA3} .m-delete{background:#FCE8E6;color:#B3261E}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot.pass{background:var(--pass)} .dot.fail{background:var(--fail)} .dot.block{background:var(--block)} .dot.skip{background:#9A96AD} .dot.flaky{background:var(--flaky)}
+
+/* code and YAML (light, inside the panel) */
+.code{font:12.5px/1.65 var(--mono);background:var(--panel2);border-radius:10px;padding:12px 0;overflow:auto;margin:0;color:var(--ink)}
+.code .ln{display:flex;white-space:pre;padding:0 14px 0 0}
+.code .ln .no{width:44px;flex:none;text-align:right;padding-right:14px;color:#8E8AA3;user-select:none}
+.code .ln.hl{background:#FFF6E0}
+.code .ln.err{background:var(--failSoft)}
+.y-key{color:#1F4FA8} .y-str{color:#2E6B33} .y-num{color:#A3470E} .y-tpl{color:#6B2EA3;background:#F3EEFD;border-radius:3px} .y-com{color:#7A7690;font-style:italic} .y-punc{color:#7A7690}
+.squig{text-decoration:underline wavy var(--fail);text-underline-offset:3px}
+.diag{display:flex;gap:10px;padding:10px 12px;border-radius:9px;font-size:13px;align-items:flex-start}
+.diag.error{background:var(--failSoft)} .diag.warn{background:var(--blockSoft)} .diag.info{background:var(--flakySoft)}
+.popover{background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:0 8px 28px rgba(27,24,48,.16);padding:4px;min-width:260px}
+.popover .opt{display:flex;gap:10px;align-items:center;padding:6px 10px;border-radius:7px;font-size:12.5px;cursor:pointer;border:0;background:transparent;width:100%;text-align:left;font-family:inherit;color:var(--ink)}
+.popover .opt.on,.popover .opt:hover{background:var(--accentSoft)}
+.scrim{position:fixed;inset:0;background:rgba(27,24,48,.28);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.modal{background:var(--panel);border-radius:16px;box-shadow:0 24px 64px rgba(27,24,48,.28);width:min(880px,100%);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column}
+
+/* phone */
+@media (max-width: 860px){
+  .side{flex:1 1 100%;flex-direction:row;overflow-x:auto;min-width:0;padding:0 2px 6px}
+  .side .navlabel{display:none}
+  .side .navitem{width:auto;flex:none}
+  .panel-body{padding:14px}
+  .search{flex:1 1 100%}
+  .vr{border-left:0;border-top:1px solid var(--line)}
+}
+
+/* ---- v2 additions: collapsible sidebar, fluid forms, no clipping ---- */
+.panel{container-type:inline-size}
+.side{transition:flex-basis .18s ease,min-width .18s ease}
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:2px 2px 4px}
+.side .navitem .label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side .ctx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.app.side-collapsed .side{flex:0 0 56px;min-width:56px;padding:4px 4px 12px}
+.app.side-collapsed .side .navitem{justify-content:center;padding:0;width:44px;height:36px;margin:0 auto}
+.app.side-collapsed .side .navitem .label,.app.side-collapsed .side .navitem .count,
+.app.side-collapsed .side .navlabel,.app.side-collapsed .side .ctx{display:none}
+.app.side-collapsed .side .side-head{justify-content:center}
+.project{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);min-width:0}
+.project b{color:var(--ink);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;background:var(--hover);font:500 12px var(--mono);color:var(--ink2);white-space:nowrap}
+/* layout helpers that use the full width */
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px 16px;align-items:start}
+.formgrid .span-all{grid-column:1/-1}
+.formgrid .field>.input,.formgrid .field>.select,.formgrid .field>.textarea{width:100%}
+.cluster{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
+.cluster>.grow{flex:1 1 220px;min-width:0}
+.panes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));min-width:0}
+.panes>*{min-width:0}
+.ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.wrap{overflow-wrap:anywhere;min-width:0}
+.btn,.pill,.tab,.seg button{max-width:100%}
+.btn .label{overflow:hidden;text-overflow:ellipsis}
+.tbl td{overflow-wrap:anywhere}
+.tbl td.nowrap,.tbl th{white-space:nowrap}
+@container (max-width: 760px){
+  .panes{grid-template-columns:1fr}
+  .vr{border-left:0;border-top:1px solid var(--line)}
+  .panel-head{padding:12px 14px}
+}
+@media (max-width: 860px){
+  .app.side-collapsed .side{flex:1 1 100%;min-width:0}
+  .app.side-collapsed .side .navitem .label{display:inline}
+  .side-head{display:none}
+}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+html{scroll-behavior:smooth}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.small{font-size:12px}
+.strong{font-weight:600}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.panel{position:relative}
+.panel .sr{left:0;top:0}
+code{font:500 12px var(--mono);background:var(--panel3);padding:1px 5px;border-radius:5px;color:var(--ink)}
+.tchip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 9px;border-radius:7px;background:var(--hover);font-size:12.5px;color:var(--ink);white-space:nowrap}
+.tchip.mono{font-size:12px}
+.topbar .btn{background:var(--on);border-color:transparent}
+.topbar .btn:hover{background:#fff}
+.topbar .btn.primary{background:var(--ink);color:#fff}
+.sec{scroll-margin-top:12px}
+.sh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sh .grow{flex:1 1 auto}
+.verdict{margin:0;font-size:26px;line-height:1.25;font-weight:600;letter-spacing:-.015em;text-wrap:pretty;max-width:940px}
+.lede{margin:0;font-size:14.5px;line-height:1.55;max-width:960px;text-wrap:pretty}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(120px,100%),1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.stat{padding:14px 16px;display:flex;flex-direction:column;gap:3px;border-left:1px solid var(--line)}
+.stat:first-child{border-left:0;padding-left:0}
+.stat .lbl{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2)}
+.big{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.delta{font-size:12px;font-weight:500}
+.d-bad{color:var(--fail)} .d-good{color:var(--pass)} .d-flat{color:var(--ink2)} .d-warn{color:var(--block)}
+.sbar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
+.sbar span{display:block;min-width:6px}
+.b-pass{background:var(--pass)} .b-fail{background:var(--fail)} .b-block{background:#C27A00} .b-flaky{background:var(--flaky)} .b-skip{background:#A6A2B8}
+.kn{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:16px}
+.kn .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.cause{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:28px;padding:18px 0 4px;border-top:1px solid var(--line)}
+.cause-main{display:flex;flex-direction:column;gap:10px;min-width:0}
+.cause p{margin:0;font-size:14px;line-height:1.55;text-wrap:pretty}
+.ev{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:7px 16px;font-size:13px;margin:0}
+.ev dt{color:var(--ink2)} .ev dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.tlist{display:flex;flex-direction:column;min-width:0}
+.tlist .ti{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.tlist .ti .dot{margin-top:5px}
+.tlist .ti:last-child{border-bottom:0}
+.code .ln.add{background:var(--passSoft)}
+.chg{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:18px 28px}
+.cg{display:flex;flex-direction:column;min-width:0}
+.cg-h{display:flex;align-items:center;gap:8px;padding-bottom:6px;border-bottom:1px solid var(--line2);font-size:13px;font-weight:600}
+.cg-h .n{margin-left:auto;font-weight:500;color:var(--ink2);font-variant-numeric:tabular-nums}
+.cg-i{padding:7px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:2px;font-size:13px;min-width:0}
+.cg-i .mono{overflow-wrap:anywhere}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.fchip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);font:500 12.5px var(--font);color:var(--ink);cursor:pointer}
+.fchip:hover{background:var(--panel2)}
+.fchip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.fchip .n{color:var(--ink2);font-variant-numeric:tabular-nums}
+.fchip.on .n{color:#DAD6EA}
+.dot.none{display:none}
+.sfield{display:flex;align-items:center;gap:8px;height:34px;border:1px solid var(--line2);border-radius:9px;padding:0 10px;flex:1 1 240px;min-width:0;color:var(--ink2)}
+.sfield input{border:0;outline:none;font:13px var(--font);flex:1;min-width:0;background:transparent;color:var(--ink)}
+.sfield:focus-within{border-color:var(--accent);outline:2px solid var(--accentSoft)}
+.gt{display:flex;flex-direction:column;font-size:13px}
+.gt .hd,.gt .tr{display:grid;align-items:center;column-gap:14px;padding:0 12px;border-bottom:1px solid var(--line)}
+.gt .hd{font-size:12px;font-weight:500;color:var(--ink2);min-height:34px}
+.gt .tr{min-height:40px;padding-top:7px;padding-bottom:7px}
+.gt .tr:hover{background:var(--panel2)}
+.gt .tr > *{min-width:0;overflow-wrap:anywhere}
+.gt .num{text-align:right;font-variant-numeric:tabular-nums}
+.gt .tr.sel{background:var(--accentSoft)}
+.t-tests{min-width:980px}
+.t-tests .hd,.t-tests .tr{grid-template-columns:30px 96px minmax(260px,2.2fr) minmax(250px,1.4fr) 76px 64px minmax(100px,.6fr)}
+.t-files{min-width:960px}
+.t-files .hd,.t-files .tr{grid-template-columns:minmax(230px,2fr) 60px 64px 60px 66px 56px 66px minmax(120px,1fr) 70px}
+.t-apis{min-width:980px}
+.t-apis .hd,.t-apis .tr{grid-template-columns:minmax(170px,1.1fr) minmax(250px,1.9fr) 74px minmax(170px,1.3fr) 64px 70px 58px}
+.t-unc{min-width:760px}
+.t-unc .hd,.t-unc .tr{grid-template-columns:minmax(300px,2fr) minmax(150px,1fr) minmax(220px,1.5fr)}
+.t-life{min-width:1060px}
+.t-life .hd,.t-life .tr{grid-template-columns:minmax(220px,1.6fr) minmax(190px,1.1fr) minmax(120px,.9fr) minmax(100px,.7fr) minmax(170px,1.2fr) minmax(130px,1fr) minmax(130px,.9fr)}
+.t-flaky{min-width:560px}
+.t-flaky .hd,.t-flaky .tr{grid-template-columns:minmax(200px,1.2fr) 74px minmax(220px,1.6fr) 70px}
+.t-skip{min-width:600px}
+.t-skip .hd,.t-skip .tr{grid-template-columns:minmax(250px,1.3fr) minmax(200px,1.5fr) minmax(120px,.7fr)}
+.t-req{min-width:520px}
+.t-req .hd,.t-req .tr{grid-template-columns:minmax(240px,2fr) minmax(130px,1fr) 64px}
+.t-vars{min-width:480px}
+.t-vars .hd,.t-vars .tr{grid-template-columns:minmax(200px,1fr) minmax(260px,1.6fr) minmax(130px,1fr)}
+.grp{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px 8px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.grp .mono{font-weight:600}
+.cellname{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cellname .mono{overflow-wrap:anywhere}
+.xbtn{width:28px;height:28px;border-radius:7px;border:0;background:transparent;color:var(--ink2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.xbtn:hover{background:var(--panel3);color:var(--ink)}
+.xbtn svg{transition:transform .15s}
+.xbtn.open svg{transform:rotate(90deg)}
+.xp{padding:14px 16px 16px 56px;background:var(--panel2);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.xgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:18px 24px}
+.xcol{display:flex;flex-direction:column;gap:6px;min-width:0}
+.clist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:12.5px}
+.clist li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.clist li .dot{transform:translateY(-1px)}
+.cnote{color:var(--ink2)} .cnote.bad{color:var(--fail);font-weight:500}
+.exl{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:12.5px}
+.exl .mono{overflow-wrap:anywhere}
+.minibar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:1px;background:var(--panel3)}
+.minibar span{display:block}
+.hb{height:6px;background:var(--panel3);border-radius:3px;overflow:hidden}
+.hb span{display:block;height:6px;border-radius:3px}
+.hb .ok{background:#8D82E6} .hb .bad{background:var(--fail)}
+.slow{display:flex;flex-direction:column;gap:5px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.slow .top{display:flex;justify-content:space-between;gap:12px}
+.phase{display:flex;height:16px;border-radius:5px;overflow:hidden;gap:2px}
+.phase span{display:block;min-width:5px}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:10px;font-size:12.5px}
+.legend > span{white-space:nowrap}
+.legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.split2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr));gap:20px 32px}
+.split2.wide{grid-template-columns:repeat(auto-fit,minmax(min(620px,100%),1fr))}
+.kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 18px;font-size:13px;margin:0}
+.kv dt{color:var(--ink2)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.cmd{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:10px;padding:8px 8px 8px 14px}
+.cmd code{background:transparent;padding:0;font-size:12.5px;flex:1;min-width:0;overflow-wrap:anywhere}
+.empty{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:24px 12px;color:var(--ink2);font-size:13px}
+.navcheck{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--ink)}
+.navcheck:hover{background:var(--hover)}
+.navcheck input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.navcheck .count{margin-left:auto;font-size:12px;color:var(--ink2)}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink2)}
+.topbar .tchip{max-width:100%}
+.runid{gap:6px}
+.acts{gap:6px}
+.narrow-only{display:none}
+.morewrap{position:relative}
+.morewrap .popover{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px}
+.morewrap .popover a.opt{text-decoration:none}
+.side-head .navlabel{padding:0 8px}
+.navrow{display:flex;flex-direction:column;gap:2px}
+.dot.accent{background:var(--accent)}
+.ctx .navitem,.ctx .navcheck{font-size:13px}
+.t-tests .c-du::before,.t-tests .c-re::before,.t-tests .c-in::before{content:attr(data-l);color:var(--ink2);font-size:12px;margin-right:4px}
+.t-tests .c-du::before,.t-tests .c-re::before,.t-tests .c-in::before{display:none}
+.loadline{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-size:13px;color:var(--ink2);padding:6px 0}
+.loadline .mono{overflow-wrap:anywhere;min-width:0}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.skel{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:18px 24px}
+.skel span{display:block;height:10px;border-radius:5px;background:var(--panel3);margin:6px 0}
+.morebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.about{font-size:12.5px;color:var(--ink2);line-height:1.55;padding:10px 12px;background:var(--panel2);border-radius:9px}
+@container (max-width: 900px){
+  .cause{grid-template-columns:minmax(0,1fr);gap:14px}
+}
+@container (max-width: 820px){
+  .t-tests{min-width:0}
+  .t-tests .hd{display:none}
+  .t-tests .tr{grid-template-columns:30px auto auto minmax(0,1fr);grid-template-areas:"x st st st" "x nm nm nm" "x fl fl fl" "x du re in";row-gap:4px;column-gap:10px}
+  .t-tests .c-x{grid-area:x;align-self:start}
+  .t-tests .c-st{grid-area:st;align-self:start;justify-self:start}
+  .t-tests .c-nm{grid-area:nm}
+  .t-tests .c-fl{grid-area:fl}
+  .t-tests .c-du{grid-area:du;text-align:left}
+  .t-tests .c-re{grid-area:re;text-align:left}
+  .t-tests .c-in{grid-area:in}
+  .t-tests .c-du::before,.t-tests .c-re::before,.t-tests .c-in::before{display:inline}
+  .t-tests .c-du,.t-tests .c-re,.t-tests .c-in{font-size:12px}
+  .xp{padding-left:16px}
+  .verdict{font-size:22px}
+}
+@container (max-width: 560px){
+  .ev{grid-template-columns:minmax(0,1fr);gap:2px 0}
+  .ev dd{margin-bottom:6px}
+  .kv{grid-template-columns:minmax(0,1fr);gap:2px 0}
+  .kv dd{margin-bottom:6px}
+}
+@container (max-width: 640px){
+  .stat{border-left:0;padding-left:0}
+}
+@media (max-width: 860px){
+  .app .side{flex-direction:column;overflow:visible;padding-bottom:4px}
+  .app .side .navrow{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .ctx{display:none}
+  .app.side-collapsed .side .navitem{width:auto;padding:0 10px;margin:0;height:32px}
+}
+@media (max-width: 760px){
+  .wide-only{display:none}
+  .narrow-only{display:inline-flex}
+}
+</style>
+</head><body>
+
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="#summary"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"></path><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Vibranium</a>
+    <nav class="crumbs" aria-label="Run">
+      <span>shop</span><span aria-hidden="true">/</span><b>Run #482</b>
+    </nav>
+    <div class="cluster runid">
+      <span class="pill fail"><span class="dot fail"></span>Failed</span>
+      <span class="tchip">profile staging</span>
+      <span class="tchip mono">main@a1c9e4f</span>
+      <span class="tchip">23 Oct 2026 14:02</span>
+      <span class="tchip">48.2 s</span>
+    </div>
+    <span class="grow"></span>
+    <div class="cluster acts">
+      <a class="btn" href="WebRun.dc.html">Open in web UI</a>
+      <a class="btn wide-only" href="ctrf.json" download="run-482.ctrf.json">Download CTRF</a>
+      <a class="btn wide-only" href="junit.xml" download="run-482.junit.xml">JUnit XML</a>
+      <div class="morewrap narrow-only">
+        <button class="btn" type="button" aria-expanded="true" aria-haspopup="true">More<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"></path></svg></button>
+        
+          <div class="popover">
+            <a class="opt" href="ctrf.json" download="run-482.ctrf.json">Download CTRF</a>
+            <a class="opt" href="junit.xml" download="run-482.junit.xml">JUnit XML</a>
+          </div>
+        
+      </div>
+      <button class="btn primary" type="button"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="9" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"></rect><path d="M3 11V3.6A1.6 1.6 0 0 1 4.6 2H10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>Copy rerun command</button>
+    </div>
+  </header>
+
+  <div class="frame">
+    <div class="side">
+      <div class="side-head">
+        <span class="navlabel">On this page</span>
+        <button class="iconbtn" type="button" aria-label="Collapse sidebar" title="Collapse sidebar" aria-expanded="true">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"></rect><path d="M6 3v10M10.5 6.5 9 8l1.5 1.5"></path></svg>
+          
+        </button>
+      </div>
+      <nav class="navrow" aria-label="Report sections">
+      
+        <a class="navitem on" href="#summary" title="Overview"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5 8 3l5.5 5.5M4 7.5V13h8V7.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Overview</span><span class="count"></span></a>
+      
+        <a class="navitem " href="#causes" title="Root causes"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-11 0a5.5 5.5 0 1 1 11 0M10 8a2 2 0 1 1-4 0a2 2 0 1 1 4 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Root causes</span><span class="count">3</span></a>
+      
+        <a class="navitem " href="#changes" title="Changes since #481"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5h9.5L10 2.5M13 11H3.5L6 13.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Changes since #481</span><span class="count">19</span></a>
+      
+        <a class="navitem " href="#tests" title="All tests"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4h7.5M6 8h7.5M6 12h7.5M2.5 4h.5M2.5 8h.5M2.5 12h.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">All tests</span><span class="count">412</span></a>
+      
+        <a class="navitem " href="#files" title="By file"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.8h5l3 3v9.4H4zM9 1.8v3h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">By file</span><span class="count">38</span></a>
+      
+        <a class="navitem " href="#apis" title="API coverage"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">API coverage</span><span class="count">24/31</span></a>
+      
+        <a class="navitem " href="#lifecycle" title="Lifecycle"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Lifecycle</span><span class="count">23</span></a>
+      
+        <a class="navitem " href="#flaky" title="Flaky and skipped"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 9.5 5 5l3 6 3-6 3 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Flaky and skipped</span><span class="count">6</span></a>
+      
+        <a class="navitem " href="#perf" title="Performance"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 9a5 5 0 1 1-10 0a5 5 0 1 1 10 0M8 6.5V9l1.8 1.2M6.5 2h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Performance</span><span class="count"></span></a>
+      
+        <a class="navitem " href="#reproduce" title="Reproduce"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5 6 8l-3.5 3.5M8 12h5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Reproduce</span><span class="count"></span></a>
+      
+      </nav>
+      <div class="ctx">
+        <div class="navlabel">Filter tests</div>
+        
+          <a class="navitem " href="#tests" aria-current="false"><span class="dot none" style="margin: 0 4px"></span><span class="label">All tests</span><span class="count">412</span></a>
+        
+          <a class="navitem on" href="#tests" aria-current="true"><span class="dot fail" style="margin: 0 4px"></span><span class="label">Failed</span><span class="count">6</span></a>
+        
+          <a class="navitem " href="#tests" aria-current="false"><span class="dot block" style="margin: 0 4px"></span><span class="label">Blocked</span><span class="count">4</span></a>
+        
+          <a class="navitem " href="#tests" aria-current="false"><span class="dot flaky" style="margin: 0 4px"></span><span class="label">Flaky</span><span class="count">3</span></a>
+        
+          <a class="navitem " href="#tests" aria-current="false"><span class="dot skip" style="margin: 0 4px"></span><span class="label">Skipped</span><span class="count">3</span></a>
+        
+          <a class="navitem " href="#tests" aria-current="false"><span class="dot pass" style="margin: 0 4px"></span><span class="label">Passed</span><span class="count">396</span></a>
+        
+        <label class="navcheck"><input type="checkbox">Changed since #481<span class="count">19</span></label>
+        <label class="navcheck"><input type="checkbox">Group by file</label>
+      </div>
+    </div>
+
+    <main class="panel">
+      <div class="panel-body">
+
+        <section id="summary" class="section sec" aria-labelledby="h-summary">
+          <div class="row">
+            <span class="pill fail">6 failed</span>
+            <span class="pill block">4 blocked</span>
+            <span class="tchip mono" style="background: var(--panel3)">vc run --tag smoke,regression</span>
+            <span class="small muted">GitHub Actions job 7731 · push to main by priya</span>
+          </div>
+          <h1 id="h-summary" class="verdict">6 tests failed and 4 are blocked by one failed beforeRun action</h1>
+          <p class="lede">Three causes explain all 10. Orders now add an 8% tax line to <code>total</code> since commit <code>a1c9e4f</code>, which fails 4 checkout tests. <code>catalog.seedProducts</code> answered 503 in <code>beforeRun</code>, so 4 catalog tests never started. The user export poll timed out again, as it did in runs #479 and #480.</p>
+          <div class="small muted">412 test instances from 38 files · started 23 Oct 2026, 14:02:11 · finished 14:02:59 in 48.2 s · compared with run #481 (22 Oct 2026, 18:40 · main@5be20d7 · 410 tests)</div>
+          <div class="stats" role="group" aria-label="Status counts compared with run 481">
+            <div class="stat"><span class="lbl"><span class="dot pass"></span>Passed</span><span class="big">396</span><span class="delta d-bad">−9 vs #481</span></div>
+            <div class="stat"><span class="lbl"><span class="dot fail"></span>Failed</span><span class="big" style="color: var(--fail)">6</span><span class="delta d-bad">+4 · 6 new, 2 fixed</span></div>
+            <div class="stat"><span class="lbl"><span class="dot block"></span>Blocked</span><span class="big" style="color: var(--block)">4</span><span class="delta d-bad">+4 vs #481</span></div>
+            <div class="stat"><span class="lbl"><span class="dot flaky"></span>Flaky</span><span class="big" style="color: var(--flaky)">3</span><span class="delta d-warn">+2 vs #481</span></div>
+            <div class="stat"><span class="lbl"><span class="dot skip"></span>Skipped</span><span class="big">3</span><span class="delta d-flat">+1 · 1 expired skip</span></div>
+          </div>
+          <div class="sbar" role="img" aria-label="Stacked status bar: 396 passed, 6 failed, 4 blocked, 3 flaky, 3 skipped of 412">
+            <span class="b-pass" style="flex: 396"></span><span class="b-fail" style="flex: 6"></span><span class="b-block" style="flex: 4"></span><span class="b-flaky" style="flex: 3"></span><span class="b-skip" style="flex: 3"></span>
+          </div>
+          <div class="kn">
+            <div><div class="small muted">Pass rate</div><div class="v">96.1%</div><div class="delta d-bad">down from 98.8% in run #481</div></div>
+            <div><div class="small muted">Duration</div><div class="v">48.2 s</div><div class="delta d-good">3.1 s faster than run #481</div></div>
+            <div><div class="small muted">Requests sent</div><div class="v">1,318</div><div class="delta d-flat">p95 latency 412 ms · 4 unexpected errors</div></div>
+            <div><div class="small muted">Lifecycle actions</div><div class="v">23</div><div class="delta d-flat">shared with 311 tests · 0 repeated</div></div>
+          </div>
+        </section>
+
+        <section id="causes" class="section sec" aria-labelledby="h-causes">
+          <div class="sh"><h2 id="h-causes" class="h2">Root causes</h2><span class="small muted">10 problems collapse into 3 causes · blocked tests are listed under the lifecycle action that blocked them</span></div>
+
+          <div class="cause">
+            <div class="cause-main">
+              <div class="row"><span class="pill fail">4 failed</span><span class="mono strong">orders.checkout · body.total</span><span class="pill accent">new in #482</span></div>
+              <p>Orders now return a <code>tax</code> field and <code>total</code> includes it. Every checkout test that compares the order total with the cart total fails by exactly 8%.</p>
+              <dl class="ev">
+                <dt>Check</dt><dd><code>total: ${var.orderTotal}</code> · <span class="mono small">services/orders/checkout.test.yaml:41</span></dd>
+                <dt>Expected</dt><dd class="mono">59.98 <span class="muted">(var.orderTotal, saved by carts.addItem)</span></dd>
+                <dt>Actual</dt><dd class="mono" style="color: var(--fail); font-weight: 600">64.78 <span class="muted" style="font-weight: 400">(+4.80 = 8% of 59.98)</span></dd>
+                <dt>First bad commit</dt><dd><code>a1c9e4f</code> “orders: add tax line” by priya · 23 Oct 2026, 13:47</dd>
+                <dt>Last passed</dt><dd>run #481 · main@5be20d7</dd>
+              </dl>
+              <pre class="code" aria-label="Response body difference against run 481"><span class="ln"><span class="no">7</span>    { &quot;sku&quot;: &quot;SKU-2&quot;, &quot;price&quot;: 39.99, &quot;quantity&quot;: 1 }</span><span class="ln"><span class="no">8</span>  ],</span><span class="ln add"><span class="no">+</span>  &quot;tax&quot;: 4.80,</span><span class="ln err"><span class="no">−</span>  &quot;total&quot;: 59.98,</span><span class="ln add"><span class="no">+</span>  &quot;total&quot;: 64.78,</span><span class="ln"><span class="no">10</span>  &quot;createdAt&quot;: &quot;2026-10-23T14:02:31Z&quot;</span></pre>
+              <div class="row"><a class="btn sm" href="ReportFailure.dc.html">Open failure detail</a><span class="small muted">If tax is intended, compare with <code>body.subtotal</code> or expect <code>${var.orderTotal | number}</code> × 1.08.</span></div>
+            </div>
+            <div class="tlist" aria-label="Tests with this cause">
+              <div class="small muted" style="padding-bottom: 4px">Failed tests</div>
+              <div class="ti"><span class="dot fail"></span><div><a class="mono" href="ReportFailure.dc.html">orders.checkout.placesOrder</a><div class="small muted">total 59.98 → 64.78 · 6.4 s</div></div></div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">orders.checkout.cancelsPaidOrder</span><div class="small muted">refund.amount 59.98 → 64.78 · 2.1 s</div></div></div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">orders.checkout.placesGuestOrder</span><div class="small muted">total 39.99 → 43.19 · 1.6 s</div></div></div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">orders.checkout.reordersPreviousCart</span><div class="small muted">total 59.98 → 64.78 · 1.9 s</div></div></div>
+            </div>
+          </div>
+
+          <div class="cause">
+            <div class="cause-main">
+              <div class="row"><span class="pill block">beforeRun failed · blocks 4</span><span class="mono strong">catalog</span><span class="small muted">call catalog.seedProducts</span></div>
+              <p><code>POST /catalog/seed</code> returned <b>503 Service Unavailable</b> on all 3 attempts, 2 s apart. The api expects <code>status: 201</code>. The server asked for <code>retry-after: 30</code>, longer than the action's retry window.</p>
+              <dl class="ev">
+                <dt>Defined in</dt><dd class="mono small">vibranium.config.yaml:58 · beforeRun[1]</dd>
+                <dt>Request</dt><dd class="mono small">POST https://catalog.staging.shop.example/api/v1/catalog/seed</dd>
+                <dt>Attempts</dt><dd class="mono small">14:02:11.204 → 503 · 14:02:13.291 → 503 · 14:02:15.377 → 503</dd>
+                <dt>Response</dt><dd class="mono small">{&quot;error&quot;:&quot;search index rebuilding&quot;} · retry-after: 30</dd>
+                <dt>First bad commit</dt><dd>none · no commit since run #481 touches <span class="mono">services/catalog</span>; likely the staging environment</dd>
+              </dl>
+            </div>
+            <div class="tlist" aria-label="Tests blocked by this cause">
+              <div class="small muted" style="padding-bottom: 4px">Blocked tests</div>
+              <div class="ti"><span class="dot block"></span><div><span class="mono">catalog.admin.publishesProduct</span><div class="small muted">needs catalog · not started</div></div></div>
+              <div class="ti"><span class="dot block"></span><div><span class="mono">catalog.admin.archivesProduct</span><div class="small muted">needs catalog · not started</div></div></div>
+              <div class="ti"><span class="dot block"></span><div><span class="mono">catalog.admin.bulkPriceUpdate</span><div class="small muted">needs catalog · not started</div></div></div>
+              <div class="ti"><span class="dot block"></span><div><span class="mono">catalog.browse.facetsReflectSeed</span><div class="small muted">needs catalog · not started</div></div></div>
+            </div>
+          </div>
+
+          <div class="cause">
+            <div class="cause-main">
+              <div class="row"><span class="pill fail">2 failed</span><span class="mono strong">users.exportStatus · poll timed out</span><span class="pill flaky">intermittent</span></div>
+              <p>Step <code>wait</code> polled every 2 s for 30 s; <code>state</code> stayed <code>running</code> across 15 polls. The status endpoint answered quickly (p95 70 ms), so the export job itself is slow, not the api.</p>
+              <dl class="ev">
+                <dt>Check</dt><dd><code>poll.until: body.match.state: done</code> · <span class="mono small">services/users/crud.test.yaml:44</span></dd>
+                <dt>Expected</dt><dd class="mono">state: done within 30 s</dd>
+                <dt>Actual</dt><dd class="mono" style="color: var(--fail); font-weight: 600">state: running after 15 polls</dd>
+                <dt>History</dt><dd>failed in #479 and #480, passed in #481, failed in #482 · no linked commit</dd>
+              </dl>
+            </div>
+            <div class="tlist" aria-label="Tests with this cause">
+              <div class="small muted" style="padding-bottom: 4px">Failed tests</div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">users.crud.exportFinishes</span><div class="small muted">exp_51Rz still running · 30.4 s</div></div></div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">users.reports.monthlyCsv</span><div class="small muted">exp_51S2 still running · 30.8 s</div></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="changes" class="section sec" aria-labelledby="h-changes">
+          <div class="sh"><h2 id="h-changes" class="h2">Changes since run #481</h2><span class="small muted">same profile and selector · 410 → 412 tests</span></div>
+          <div class="chg">
+            
+              <div class="cg">
+                <div class="cg-h"><span class="dot fail"></span>Newly failing<span class="n">6</span></div>
+                
+                  <div class="cg-i"><span class="mono">orders.checkout.placesOrder</span><span class="small muted">passed in #481 · total 59.98 → 64.78</span></div>
+                
+                  <div class="cg-i"><span class="mono">orders.checkout.cancelsPaidOrder</span><span class="small muted">passed in #481 · refund 59.98 → 64.78</span></div>
+                
+                  <div class="cg-i"><span class="mono">orders.checkout.placesGuestOrder</span><span class="small muted">passed in #481 · total 39.99 → 43.19</span></div>
+                
+                  <div class="cg-i"><span class="mono">orders.checkout.reordersPreviousCart</span><span class="small muted">passed in #481 · total 59.98 → 64.78</span></div>
+                
+                  <div class="cg-i"><span class="mono">users.crud.exportFinishes</span><span class="small muted">passed in #481 · failed in #479, #480</span></div>
+                
+                  <div class="cg-i"><span class="mono">users.reports.monthlyCsv</span><span class="small muted">passed in #481 · failed in #479, #480</span></div>
+                
+              </div>
+            
+              <div class="cg">
+                <div class="cg-h"><span class="dot block"></span>Newly blocked<span class="n">4</span></div>
+                
+                  <div class="cg-i"><span class="mono">catalog.admin.publishesProduct</span><span class="small muted">beforeRun catalog 503</span></div>
+                
+                  <div class="cg-i"><span class="mono">catalog.admin.archivesProduct</span><span class="small muted">beforeRun catalog 503</span></div>
+                
+                  <div class="cg-i"><span class="mono">catalog.admin.bulkPriceUpdate</span><span class="small muted">beforeRun catalog 503</span></div>
+                
+                  <div class="cg-i"><span class="mono">catalog.browse.facetsReflectSeed</span><span class="small muted">beforeRun catalog 503</span></div>
+                
+              </div>
+            
+              <div class="cg">
+                <div class="cg-h"><span class="dot pass"></span>Fixed<span class="n">2</span></div>
+                
+                  <div class="cg-i"><span class="mono">carts.pricing.roundsHalfUp</span><span class="small muted">failed in #481: price 10.12, expected 10.13</span></div>
+                
+                  <div class="cg-i"><span class="mono">geo.groups.rejectsEmptyGroup</span><span class="small muted">failed in #481: status 500, expected 422</span></div>
+                
+              </div>
+            
+              <div class="cg">
+                <div class="cg-h"><span class="dot flaky"></span>Slower by more than 20%<span class="n">4</span></div>
+                
+                  <div class="cg-i"><span class="mono">catalog.search.fuzzyQueries</span><span class="small muted">2.6 s → 3.9 s · +50%</span></div>
+                
+                  <div class="cg-i"><span class="mono">orders.history.paginates</span><span class="small muted">1.3 s → 1.8 s · +38%</span></div>
+                
+                  <div class="cg-i"><span class="mono">users.crud.adminSeesAllUsers</span><span class="small muted">1.7 s → 2.2 s · +29%</span></div>
+                
+                  <div class="cg-i"><span class="mono">geo.groups.groupsCapitals</span><span class="small muted">2.2 s → 2.8 s · +27%</span></div>
+                
+              </div>
+            
+              <div class="cg">
+                <div class="cg-h"><span class="dot skip"></span>Newly skipped<span class="n">1</span></div>
+                
+                  <div class="cg-i"><span class="mono">orders.checkout.appliesCoupon</span><span class="small muted">until 15 Nov 2026 · coupon service flaky on staging, see #212</span></div>
+                
+              </div>
+            
+              <div class="cg">
+                <div class="cg-h"><span class="dot accent"></span>New tests<span class="n">2</span></div>
+                
+                  <div class="cg-i"><span class="mono">users.crud.deactivatesUser</span><span class="small muted">passed · 0.6 s · added in 7d02b11</span></div>
+                
+                  <div class="cg-i"><span class="mono">users.crud.renamesUser</span><span class="small muted">passed · 0.4 s · added in 7d02b11</span></div>
+                
+              </div>
+            
+          </div>
+        </section>
+
+        <section id="tests" class="section sec" aria-labelledby="h-tests">
+          <div class="sh" style="align-items: center"><h2 id="h-tests" class="h2">All tests</h2><span class="small muted">6 tests · sorted by status, then id · checks and exchanges load when you open a test</span><span class="grow"></span><button type="button" class="btn sm ghost">Collapse all</button></div>
+          <div class="toolbar">
+            <div class="chips" role="group" aria-label="Filter by status">
+              
+                <button type="button" class="fchip " aria-pressed="false"><span class="dot none"></span>All<span class="n">412</span></button>
+              
+                <button type="button" class="fchip on" aria-pressed="true"><span class="dot fail"></span>Failed<span class="n">6</span></button>
+              
+                <button type="button" class="fchip " aria-pressed="false"><span class="dot block"></span>Blocked<span class="n">4</span></button>
+              
+                <button type="button" class="fchip " aria-pressed="false"><span class="dot flaky"></span>Flaky<span class="n">3</span></button>
+              
+                <button type="button" class="fchip " aria-pressed="false"><span class="dot skip"></span>Skipped<span class="n">3</span></button>
+              
+                <button type="button" class="fchip " aria-pressed="false"><span class="dot pass"></span>Passed<span class="n">396</span></button>
+              
+            </div>
+            <label class="sfield"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="m10.5 10.5 3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg><span class="sr">Search tests</span><input type="search" placeholder="Search id, name, file or tag" value=""></label>
+            <div class="seg" role="group" aria-label="Layout">
+              <button type="button" class="" aria-pressed="false">Group by file</button>
+              <button type="button" class="on" aria-pressed="true">Flat list</button>
+            </div>
+          </div>
+          <div class="scrollx">
+            <div class="gt t-tests" role="table" aria-label="Tests in run 482">
+              <div class="hd" role="row"><span role="columnheader"><span class="sr">Expand</span></span><span role="columnheader">Status</span><span role="columnheader">Test</span><span role="columnheader">File</span><span role="columnheader" class="num">Duration</span><span role="columnheader" class="num">Retries</span><span role="columnheader">Instances</span></div>
+              
+                
+                
+                  <div class="tr" role="row">
+                    <span role="cell" class="c-x"><button type="button" class="xbtn " aria-expanded="false" aria-label="Expand orders.checkout.cancelsPaidOrder"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></span>
+                    <span role="cell" class="c-st"><span class="pill fail"><span class="dot fail"></span>Failed</span></span>
+                    <div class="cellname c-nm" role="cell"><div class="row" style="gap: 6px"><span class="mono" style="font-weight: 500">orders.checkout.cancelsPaidOrder</span><span class="pill accent" style="height: 19px; font-size: 11px">newly failing</span></div><span class="small muted">A paid order can be cancelled and is refunded in full</span></div>
+                    <span role="cell" class="mono small muted c-fl ellipsis" title="services/orders/checkout.test.yaml">services/orders/checkout.test.yaml</span>
+                    <span role="cell" class="num c-du" data-l="Duration">2.1 s</span>
+                    <span role="cell" class="num c-re" data-l="Retries">0</span>
+                    <span role="cell" class="small c-in" data-l="Instances">1</span>
+                  </div>
+                  
+                
+                  <div class="tr" role="row">
+                    <span role="cell" class="c-x"><button type="button" class="xbtn open" aria-expanded="true" aria-label="Collapse orders.checkout.placesGuestOrder"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></span>
+                    <span role="cell" class="c-st"><span class="pill fail"><span class="dot fail"></span>Failed</span></span>
+                    <div class="cellname c-nm" role="cell"><div class="row" style="gap: 6px"><span class="mono" style="font-weight: 500">orders.checkout.placesGuestOrder</span><span class="pill accent" style="height: 19px; font-size: 11px">newly failing</span></div><span class="small muted">A guest checkout without an account is accepted</span></div>
+                    <span role="cell" class="mono small muted c-fl ellipsis" title="services/orders/checkout.test.yaml">services/orders/checkout.test.yaml</span>
+                    <span role="cell" class="num c-du" data-l="Duration">1.6 s</span>
+                    <span role="cell" class="num c-re" data-l="Retries">0</span>
+                    <span role="cell" class="small c-in" data-l="Instances">1</span>
+                  </div>
+                  
+                    <div class="xp" role="row">
+                      
+                        <div class="diag error" role="cell"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 4.8v3.6M8 10.8v.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg><span>body.total: expected 39.99, got 43.19 (tax 3.20).</span></div>
+                      
+                      
+                      
+                      <div class="xgrid" role="cell">
+                        <div class="xcol">
+                          <div class="h3">Checks · 3 of 4 passed</div>
+                          <ul class="clist">
+                            
+                              <li><span class="dot pass"></span><span class="sr">passed</span><span class="mono">status: 201</span><span class="cnote "></span></li>
+                            
+                              <li><span class="dot pass"></span><span class="sr">passed</span><span class="mono">customer.guest: true</span><span class="cnote "></span></li>
+                            
+                              <li><span class="dot pass"></span><span class="sr">passed</span><span class="mono">body.schema</span><span class="cnote ">schemas/orders/order.json</span></li>
+                            
+                              <li><span class="dot fail"></span><span class="sr">failed</span><span class="mono">total: ${var.orderTotal}</span><span class="cnote bad">expected 39.99, got 43.19</span></li>
+                            
+                          </ul>
+                        </div>
+                        <div class="xcol">
+                          <div class="h3">Exchanges</div>
+                          
+                            <div class="exl"><span class="method m-post">POST</span><span class="mono">/orders</span><span class="small muted">201 · 276 ms</span></div>
+                          
+                            <div class="exl"><span class="method m-get">GET</span><span class="mono">/orders/ord_8Kr3Pd</span><span class="small muted">200 · 2 polls</span></div>
+                          
+                        </div>
+                        <div class="xcol">
+                          <div class="h3">Lifecycle</div>
+                          <div class="small mono" style="line-height: 1.6; white-space: pre-line">beforeAll catalog: cache hit
+beforeEach users.create → carts.create → carts.addItem ×2</div>
+                          <div class="h3" style="margin-top: 6px">Tags</div>
+                          <div class="small mono">orders, checkout, guest</div>
+                        </div>
+                      </div>
+                      
+                      
+                    </div>
+                  
+                
+                  <div class="tr" role="row">
+                    <span role="cell" class="c-x"><button type="button" class="xbtn open" aria-expanded="true" aria-label="Collapse orders.checkout.placesOrder"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></span>
+                    <span role="cell" class="c-st"><span class="pill fail"><span class="dot fail"></span>Failed</span></span>
+                    <div class="cellname c-nm" role="cell"><div class="row" style="gap: 6px"><span class="mono" style="font-weight: 500">orders.checkout.placesOrder</span><span class="pill accent" style="height: 19px; font-size: 11px">newly failing</span></div><span class="small muted">A cart with two items becomes a paid order</span></div>
+                    <span role="cell" class="mono small muted c-fl ellipsis" title="services/orders/checkout.test.yaml">services/orders/checkout.test.yaml</span>
+                    <span role="cell" class="num c-du" data-l="Duration">6.4 s</span>
+                    <span role="cell" class="num c-re" data-l="Retries">0</span>
+                    <span role="cell" class="small c-in" data-l="Instances">1</span>
+                  </div>
+                  
+                    <div class="xp" role="row">
+                      
+                        <div class="diag error" role="cell"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 4.8v3.6M8 10.8v.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg><span>body.total: expected 59.98, got 64.78. The order now carries &quot;tax&quot;: 4.80, which total includes.</span></div>
+                      
+                      
+                      
+                      <div class="xgrid" role="cell">
+                        <div class="xcol">
+                          <div class="h3">Checks · 5 of 7 passed</div>
+                          <ul class="clist">
+                            
+                              <li><span class="dot pass"></span><span class="sr">passed</span><span class="mono">status: 200</span><span class="cnote "></span></li>
+                            
+                              <li><span class="dot pass"></span><span class="sr">passed</span><span class="mono">body.schema</span><span class="cnote ">schemas/orders/order.json</span></li>
+                            
+                              <li><span class="dot pass"></span><span class="sr">passed</span><span class="mono">items.length: 2</span><span class="cnote "></span></li>
+                            
+                              <li><span class="dot pass"></span><span class="sr">passed</span><span class="mono">items.every.quantity: gte 1</span><span class="cnote "></span></li>
+                            
+                              <li><span class="dot fail"></span><span class="sr">failed</span><span class="mono">total: ${var.orderTotal}</span><span class="cnote bad">expected 59.98, got 64.78</span></li>
+                            
+                              <li><span class="dot fail"></span><span class="sr">failed</span><span class="mono">cel: total equals sum of lines</span><span class="cnote bad">64.78 == 59.98 is false</span></li>
+                            
+                              <li><span class="dot pass"></span><span class="sr">passed</span><span class="mono">custom: currencyIsConsistent</span><span class="cnote ">hooks/checks.ts</span></li>
+                            
+                          </ul>
+                        </div>
+                        <div class="xcol">
+                          <div class="h3">Exchanges</div>
+                          
+                            <div class="exl"><span class="method m-post">POST</span><span class="mono">/orders</span><span class="small muted">201 · 312 ms</span></div>
+                          
+                            <div class="exl"><span class="method m-get">GET</span><span class="mono">/orders/ord_8Kq2Tz</span><span class="small muted">200 · 6 polls · 5.6 s</span></div>
+                          
+                        </div>
+                        <div class="xcol">
+                          <div class="h3">Lifecycle</div>
+                          <div class="small mono" style="line-height: 1.6; white-space: pre-line">beforeAll catalog: cache hit
+beforeEach users.create → carts.create → carts.addItem ×2</div>
+                          <div class="h3" style="margin-top: 6px">Tags</div>
+                          <div class="small mono">orders, checkout</div>
+                        </div>
+                      </div>
+                      
+                      
+                        <div class="row" role="cell"><a class="btn sm" href="ReportFailure.dc.html">Open failure detail</a><span class="small muted">timeline, every exchange, resolved vars, cleanup and history</span></div>
+                      
+                    </div>
+                  
+                
+                  <div class="tr" role="row">
+                    <span role="cell" class="c-x"><button type="button" class="xbtn " aria-expanded="false" aria-label="Expand orders.checkout.reordersPreviousCart"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></span>
+                    <span role="cell" class="c-st"><span class="pill fail"><span class="dot fail"></span>Failed</span></span>
+                    <div class="cellname c-nm" role="cell"><div class="row" style="gap: 6px"><span class="mono" style="font-weight: 500">orders.checkout.reordersPreviousCart</span><span class="pill accent" style="height: 19px; font-size: 11px">newly failing</span></div><span class="small muted">Reordering a past order rebuilds the same cart</span></div>
+                    <span role="cell" class="mono small muted c-fl ellipsis" title="services/orders/checkout.test.yaml">services/orders/checkout.test.yaml</span>
+                    <span role="cell" class="num c-du" data-l="Duration">1.9 s</span>
+                    <span role="cell" class="num c-re" data-l="Retries">0</span>
+                    <span role="cell" class="small c-in" data-l="Instances">1</span>
+                  </div>
+                  
+                
+                  <div class="tr" role="row">
+                    <span role="cell" class="c-x"><button type="button" class="xbtn " aria-expanded="false" aria-label="Expand users.crud.exportFinishes"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></span>
+                    <span role="cell" class="c-st"><span class="pill fail"><span class="dot fail"></span>Failed</span></span>
+                    <div class="cellname c-nm" role="cell"><div class="row" style="gap: 6px"><span class="mono" style="font-weight: 500">users.crud.exportFinishes</span><span class="pill accent" style="height: 19px; font-size: 11px">newly failing</span></div><span class="small muted">An export started by an admin finishes within 30 s</span></div>
+                    <span role="cell" class="mono small muted c-fl ellipsis" title="services/users/crud.test.yaml">services/users/crud.test.yaml</span>
+                    <span role="cell" class="num c-du" data-l="Duration">30.4 s</span>
+                    <span role="cell" class="num c-re" data-l="Retries">0</span>
+                    <span role="cell" class="small c-in" data-l="Instances">1</span>
+                  </div>
+                  
+                
+                  <div class="tr" role="row">
+                    <span role="cell" class="c-x"><button type="button" class="xbtn " aria-expanded="false" aria-label="Expand users.reports.monthlyCsv"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></span>
+                    <span role="cell" class="c-st"><span class="pill fail"><span class="dot fail"></span>Failed</span></span>
+                    <div class="cellname c-nm" role="cell"><div class="row" style="gap: 6px"><span class="mono" style="font-weight: 500">users.reports.monthlyCsv</span><span class="pill accent" style="height: 19px; font-size: 11px">newly failing</span></div><span class="small muted">Monthly report CSV has one row per active user</span></div>
+                    <span role="cell" class="mono small muted c-fl ellipsis" title="services/users/reports.test.yaml">services/users/reports.test.yaml</span>
+                    <span role="cell" class="num c-du" data-l="Duration">30.8 s</span>
+                    <span role="cell" class="num c-re" data-l="Retries">0</span>
+                    <span role="cell" class="small c-in" data-l="Instances">1</span>
+                  </div>
+                  
+                
+              
+              
+            </div>
+          </div>
+          <div class="morebar">
+            <span class="small muted">Showing all 6</span>
+            
+          </div>
+        </section>
+
+        <section id="files" class="section sec" aria-labelledby="h-files">
+          <div class="sh"><h2 id="h-files" class="h2">By file</h2><span class="small muted">38 test files · durations are summed test time, run wall time was 48.2 s at concurrency 8</span></div>
+          <div class="scrollx">
+            <div class="gt t-files" role="table" aria-label="Results per test file">
+              <div class="hd" role="row"><span role="columnheader">File</span><span role="columnheader" class="num">Tests</span><span role="columnheader" class="num">Passed</span><span role="columnheader" class="num">Failed</span><span role="columnheader" class="num">Blocked</span><span role="columnheader" class="num">Flaky</span><span role="columnheader" class="num">Skipped</span><span role="columnheader">Mix</span><span role="columnheader" class="num">Time</span></div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">orders.checkout</span><span class="small muted mono">services/orders/checkout.test.yaml</span></div>
+                  <span role="cell" class="num">9</span>
+                  <span role="cell" class="num">4</span>
+                  <span role="cell" class="num d-bad">4</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">1</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="4 passed, 4 failed, 0 blocked, 0 flaky, 1 skipped"><span class="b-pass" style="flex: 4"></span><span class="b-fail" style="flex: 4"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 0"></span><span class="b-skip" style="flex: 1"></span></span></span>
+                  <span role="cell" class="num">14.8 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">users.crud</span><span class="small muted mono">services/users/crud.test.yaml</span></div>
+                  <span role="cell" class="num">48</span>
+                  <span role="cell" class="num">47</span>
+                  <span role="cell" class="num d-bad">1</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="47 passed, 1 failed, 0 blocked, 0 flaky, 0 skipped"><span class="b-pass" style="flex: 47"></span><span class="b-fail" style="flex: 1"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 0"></span><span class="b-skip" style="flex: 0"></span></span></span>
+                  <span role="cell" class="num">41.2 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">users.reports</span><span class="small muted mono">services/users/reports.test.yaml</span></div>
+                  <span role="cell" class="num">12</span>
+                  <span role="cell" class="num">11</span>
+                  <span role="cell" class="num d-bad">1</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="11 passed, 1 failed, 0 blocked, 0 flaky, 0 skipped"><span class="b-pass" style="flex: 11"></span><span class="b-fail" style="flex: 1"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 0"></span><span class="b-skip" style="flex: 0"></span></span></span>
+                  <span role="cell" class="num">33.9 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">catalog.admin</span><span class="small muted mono">services/catalog/admin.test.yaml</span></div>
+                  <span role="cell" class="num">3</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num d-warn">3</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="0 passed, 0 failed, 3 blocked, 0 flaky, 0 skipped"><span class="b-pass" style="flex: 0"></span><span class="b-fail" style="flex: 0"></span><span class="b-block" style="flex: 3"></span><span class="b-flaky" style="flex: 0"></span><span class="b-skip" style="flex: 0"></span></span></span>
+                  <span role="cell" class="num">0 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">catalog.browse</span><span class="small muted mono">services/catalog/browse.test.yaml</span></div>
+                  <span role="cell" class="num">22</span>
+                  <span role="cell" class="num">21</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num d-warn">1</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="21 passed, 0 failed, 1 blocked, 0 flaky, 0 skipped"><span class="b-pass" style="flex: 21"></span><span class="b-fail" style="flex: 0"></span><span class="b-block" style="flex: 1"></span><span class="b-flaky" style="flex: 0"></span><span class="b-skip" style="flex: 0"></span></span></span>
+                  <span role="cell" class="num">4.7 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">catalog.search</span><span class="small muted mono">services/catalog/search.test.yaml</span></div>
+                  <span role="cell" class="num">48</span>
+                  <span role="cell" class="num">47</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">1</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="47 passed, 0 failed, 0 blocked, 1 flaky, 0 skipped"><span class="b-pass" style="flex: 47"></span><span class="b-fail" style="flex: 0"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 1"></span><span class="b-skip" style="flex: 0"></span></span></span>
+                  <span role="cell" class="num">9.2 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">users.auth</span><span class="small muted mono">services/users/auth.test.yaml</span></div>
+                  <span role="cell" class="num">9</span>
+                  <span role="cell" class="num">8</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">1</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="8 passed, 0 failed, 0 blocked, 1 flaky, 0 skipped"><span class="b-pass" style="flex: 8"></span><span class="b-fail" style="flex: 0"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 1"></span><span class="b-skip" style="flex: 0"></span></span></span>
+                  <span role="cell" class="num">3.1 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">orders.history</span><span class="small muted mono">services/orders/history.test.yaml</span></div>
+                  <span role="cell" class="num">14</span>
+                  <span role="cell" class="num">13</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">1</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="13 passed, 0 failed, 0 blocked, 1 flaky, 0 skipped"><span class="b-pass" style="flex: 13"></span><span class="b-fail" style="flex: 0"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 1"></span><span class="b-skip" style="flex: 0"></span></span></span>
+                  <span role="cell" class="num">6.4 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">geo.groups</span><span class="small muted mono">services/geo/groups.test.yaml</span></div>
+                  <span role="cell" class="num">16</span>
+                  <span role="cell" class="num">15</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">1</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="15 passed, 0 failed, 0 blocked, 0 flaky, 1 skipped"><span class="b-pass" style="flex: 15"></span><span class="b-fail" style="flex: 0"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 0"></span><span class="b-skip" style="flex: 1"></span></span></span>
+                  <span role="cell" class="num">7.9 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">payments.cards</span><span class="small muted mono">services/payments/cards.test.yaml</span></div>
+                  <span role="cell" class="num">7</span>
+                  <span role="cell" class="num">6</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">1</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="6 passed, 0 failed, 0 blocked, 0 flaky, 1 skipped"><span class="b-pass" style="flex: 6"></span><span class="b-fail" style="flex: 0"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 0"></span><span class="b-skip" style="flex: 1"></span></span></span>
+                  <span role="cell" class="num">3.6 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">carts.pricing</span><span class="small muted mono">services/carts/pricing.test.yaml</span></div>
+                  <span role="cell" class="num">18</span>
+                  <span role="cell" class="num">18</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="18 passed, 0 failed, 0 blocked, 0 flaky, 0 skipped"><span class="b-pass" style="flex: 18"></span><span class="b-fail" style="flex: 0"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 0"></span><span class="b-skip" style="flex: 0"></span></span></span>
+                  <span role="cell" class="num">2.4 s</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">27 more files</span><span class="small muted mono">services/** · all passed</span></div>
+                  <span role="cell" class="num">206</span>
+                  <span role="cell" class="num">206</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num ">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell" class="num">0</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="206 passed, 0 failed, 0 blocked, 0 flaky, 0 skipped"><span class="b-pass" style="flex: 206"></span><span class="b-fail" style="flex: 0"></span><span class="b-block" style="flex: 0"></span><span class="b-flaky" style="flex: 0"></span><span class="b-skip" style="flex: 0"></span></span></span>
+                  <span role="cell" class="num">61.5 s</span>
+                </div>
+              
+            </div>
+          </div>
+        </section>
+
+        <section id="apis" class="section sec" aria-labelledby="h-apis">
+          <div class="sh"><h2 id="h-apis" class="h2">API coverage in this run</h2><span class="small muted">24 of 31 documented endpoints called · 1,318 requests · from <span class="mono">openapi/</span> snapshots</span></div>
+          <div class="scrollx">
+            <div class="gt t-apis" role="table" aria-label="Apis called in this run">
+              <div class="hd" role="row"><span role="columnheader">Api</span><span role="columnheader">Request</span><span role="columnheader" class="num">Requests</span><span role="columnheader">Status codes seen</span><span role="columnheader" class="num">p50</span><span role="columnheader" class="num">p95</span><span role="columnheader" class="num">Errors</span></div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.create</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/users</span></span>
+                  <span role="cell" class="num">184</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">201 ×178</span><span class="pill " style="height: 20px; font-size: 11.5px">422 ×6</span></span>
+                  <span role="cell" class="num">92 ms</span>
+                  <span role="cell" class="num">161 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.get</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/users/{userId}</span></span>
+                  <span role="cell" class="num">160</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×148</span><span class="pill " style="height: 20px; font-size: 11.5px">404 ×12</span></span>
+                  <span role="cell" class="num">41 ms</span>
+                  <span role="cell" class="num">88 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.list</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/users</span></span>
+                  <span role="cell" class="num">30</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×30</span></span>
+                  <span role="cell" class="num">120 ms</span>
+                  <span role="cell" class="num">1,140 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.update</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-patch">PATCH</span><span class="mono small" style="overflow-wrap: anywhere">/users/{userId}</span></span>
+                  <span role="cell" class="num">18</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×15</span><span class="pill " style="height: 20px; font-size: 11.5px">422 ×3</span></span>
+                  <span role="cell" class="num">70 ms</span>
+                  <span role="cell" class="num">140 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.delete</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-delete">DELETE</span><span class="mono small" style="overflow-wrap: anywhere">/users/{userId}</span></span>
+                  <span role="cell" class="num">184</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">204 ×171</span><span class="pill " style="height: 20px; font-size: 11.5px">404 ×12</span><span class="pill fail" style="height: 20px; font-size: 11.5px">500 ×1</span></span>
+                  <span role="cell" class="num">48 ms</span>
+                  <span role="cell" class="num">96 ms</span>
+                  <span role="cell" class="num d-bad">1</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.startExport</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/users/exports</span></span>
+                  <span role="cell" class="num">4</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">202 ×4</span></span>
+                  <span role="cell" class="num">410 ms</span>
+                  <span role="cell" class="num">640 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.exportStatus</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/users/exports/{exportId}</span></span>
+                  <span role="cell" class="num">31</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×31</span></span>
+                  <span role="cell" class="num">38 ms</span>
+                  <span role="cell" class="num">70 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.deactivate</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/users/{userId}/deactivate</span></span>
+                  <span role="cell" class="num">3</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×3</span></span>
+                  <span role="cell" class="num">66 ms</span>
+                  <span role="cell" class="num">90 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">users.rename</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/users/{userId}/rename</span></span>
+                  <span role="cell" class="num">2</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×2</span></span>
+                  <span role="cell" class="num">58 ms</span>
+                  <span role="cell" class="num">72 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">orders.place</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/orders</span></span>
+                  <span role="cell" class="num">41</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">201 ×38</span><span class="pill " style="height: 20px; font-size: 11.5px">402 ×3</span></span>
+                  <span role="cell" class="num">298 ms</span>
+                  <span role="cell" class="num">412 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">orders.get</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/orders/{orderId}</span></span>
+                  <span role="cell" class="num">96</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×96</span></span>
+                  <span role="cell" class="num">44 ms</span>
+                  <span role="cell" class="num">96 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">orders.list</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/orders</span></span>
+                  <span role="cell" class="num">28</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×28</span></span>
+                  <span role="cell" class="num">160 ms</span>
+                  <span role="cell" class="num">380 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">orders.cancel</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/orders/{orderId}/cancel</span></span>
+                  <span role="cell" class="num">37</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×35</span><span class="pill " style="height: 20px; font-size: 11.5px">409 ×2</span></span>
+                  <span role="cell" class="num">120 ms</span>
+                  <span role="cell" class="num">204 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">carts.create</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/carts</span></span>
+                  <span role="cell" class="num">52</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">201 ×52</span></span>
+                  <span role="cell" class="num">64 ms</span>
+                  <span role="cell" class="num">117 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">carts.addItem</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/carts/{cartId}/items</span></span>
+                  <span role="cell" class="num">104</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">201 ×104</span></span>
+                  <span role="cell" class="num">62 ms</span>
+                  <span role="cell" class="num">88 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">carts.get</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/carts/{cartId}</span></span>
+                  <span role="cell" class="num">18</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×18</span></span>
+                  <span role="cell" class="num">40 ms</span>
+                  <span role="cell" class="num">66 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">carts.delete</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-delete">DELETE</span><span class="mono small" style="overflow-wrap: anywhere">/carts/{cartId}</span></span>
+                  <span role="cell" class="num">52</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">204 ×52</span></span>
+                  <span role="cell" class="num">36 ms</span>
+                  <span role="cell" class="num">58 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">catalog.seedProducts</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/catalog/seed</span></span>
+                  <span role="cell" class="num">3</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill fail" style="height: 20px; font-size: 11.5px">503 ×3</span></span>
+                  <span role="cell" class="num">84 ms</span>
+                  <span role="cell" class="num">96 ms</span>
+                  <span role="cell" class="num d-bad">3</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">catalog.getProduct</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/products/{sku}</span></span>
+                  <span role="cell" class="num">64</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×61</span><span class="pill " style="height: 20px; font-size: 11.5px">404 ×3</span></span>
+                  <span role="cell" class="num">30 ms</span>
+                  <span role="cell" class="num">62 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">catalog.search</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/products/search</span></span>
+                  <span role="cell" class="num">107</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×107</span></span>
+                  <span role="cell" class="num">140 ms</span>
+                  <span role="cell" class="num">980 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">geo.createCity</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/cities</span></span>
+                  <span role="cell" class="num">39</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">201 ×39</span></span>
+                  <span role="cell" class="num">54 ms</span>
+                  <span role="cell" class="num">110 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">geo.deleteCity</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-delete">DELETE</span><span class="mono small" style="overflow-wrap: anywhere">/cities/{cityId}</span></span>
+                  <span role="cell" class="num">39</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">204 ×39</span></span>
+                  <span role="cell" class="num">40 ms</span>
+                  <span role="cell" class="num">72 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">geo.createLocationGroup</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/location-groups</span></span>
+                  <span role="cell" class="num">8</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">201 ×7</span><span class="pill " style="height: 20px; font-size: 11.5px">422 ×1</span></span>
+                  <span role="cell" class="num">88 ms</span>
+                  <span role="cell" class="num">150 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">payments.authorize</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/payments/authorizations</span></span>
+                  <span role="cell" class="num">14</span>
+                  <span role="cell" class="row" style="gap: 4px"><span class="pill pass" style="height: 20px; font-size: 11.5px">200 ×12</span><span class="pill " style="height: 20px; font-size: 11.5px">402 ×2</span></span>
+                  <span role="cell" class="num">220 ms</span>
+                  <span role="cell" class="num">390 ms</span>
+                  <span role="cell" class="num muted">0</span>
+                </div>
+              
+            </div>
+          </div>
+          <div class="sh" style="margin-top: 10px"><h3 class="h3" style="color: var(--ink)">Documented but never called</h3><span class="small muted">7 operations in the spec snapshots with no request in this run</span></div>
+          <div class="scrollx">
+            <div class="gt t-unc" role="table" aria-label="Documented endpoints never called">
+              <div class="hd" role="row"><span role="columnheader">Endpoint</span><span role="columnheader">Operation</span><span role="columnheader">Where it is documented</span></div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small">/users/{userId}/sessions</span></span>
+                  <span role="cell" class="mono small">listSessions</span>
+                  <span role="cell" class="small muted">openapi/users.json · no api in users.api.yaml</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-delete">DELETE</span><span class="mono small">/users/{userId}/sessions</span></span>
+                  <span role="cell" class="mono small">revokeSessions</span>
+                  <span role="cell" class="small muted">openapi/users.json · no api in users.api.yaml</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small">/orders/{orderId}/refund</span></span>
+                  <span role="cell" class="mono small">orders.refund</span>
+                  <span role="cell" class="small muted">orders.api.yaml · defined, no test calls it</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-put">PUT</span><span class="mono small">/products/{sku}/inventory</span></span>
+                  <span role="cell" class="mono small">setInventory</span>
+                  <span role="cell" class="small muted">openapi/catalog.json · no api in catalog.api.yaml</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small">/payments/{paymentId}/capture</span></span>
+                  <span role="cell" class="mono small">capturePayment</span>
+                  <span role="cell" class="small muted">openapi/payments.json · no api</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small">/payments/{paymentId}/void</span></span>
+                  <span role="cell" class="mono small">voidPayment</span>
+                  <span role="cell" class="small muted">openapi/payments.json · no api</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small">/cities/nearby</span></span>
+                  <span role="cell" class="mono small">findNearbyCities</span>
+                  <span role="cell" class="small muted">openapi/geo.json · no api in geo.api.yaml</span>
+                </div>
+              
+            </div>
+          </div>
+        </section>
+
+        <section id="lifecycle" class="section sec" aria-labelledby="h-life">
+          <div class="sh"><h2 id="h-life" class="h2">Lifecycle</h2><span class="small muted">23 actions · ran 41 times for 311 tests · cleanup 312 registered, 312 ran, 1 failed</span></div>
+          <p class="small muted" style="margin: 0; max-width: 980px; line-height: 1.55">Lifecycle actions call apis directly and run once per block, then share what they saved with every test in scope. In v1 these dependencies would have re-run with their assertions for every caller.</p>
+          <div class="scrollx">
+            <div class="gt t-life" role="table" aria-label="Lifecycle actions">
+              <div class="hd" role="row"><span role="columnheader">Action</span><span role="columnheader">Block · owner</span><span role="columnheader">Ran</span><span role="columnheader">Shared with</span><span role="columnheader">Cache</span><span role="columnheader">Result</span><span role="columnheader">Cleanup reg · ran · failed</span></div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">admin</span><span class="small muted mono">users.create · role admin</span></div>
+                  <div class="cellname" role="cell"><span class="mono small">beforeRun</span><span class="small muted">vibranium.config.yaml:52</span></div>
+                  <span role="cell" class="small">1 time · 1 request</span>
+                  <span role="cell" class="small">64 tests</span>
+                  <span role="cell" class="small">for 12h · miss, stored</span>
+                  <span role="cell"><span class="pill pass">ok · 201</span></span>
+                  <span role="cell" class="small ">1 · 1 · 0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">catalog</span><span class="small muted mono">catalog.seedProducts</span></div>
+                  <div class="cellname" role="cell"><span class="mono small">beforeRun</span><span class="small muted">vibranium.config.yaml:58</span></div>
+                  <span role="cell" class="small">3 attempts · 3 requests</span>
+                  <span role="cell" class="small">4 tests</span>
+                  <span role="cell" class="small">none</span>
+                  <span role="cell"><span class="pill block">503 · blocked 4</span></span>
+                  <span role="cell" class="small ">0 · 0 · 0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">catalog</span><span class="small muted mono">catalog.seedProducts</span></div>
+                  <div class="cellname" role="cell"><span class="mono small">beforeAll</span><span class="small muted">orders.checkout</span></div>
+                  <span role="cell" class="small">0 times</span>
+                  <span role="cell" class="small">9 tests</span>
+                  <span role="cell" class="small">for 12h · hit (run #478, 09:12)</span>
+                  <span role="cell"><span class="pill pass">ok · from cache</span></span>
+                  <span role="cell" class="small ">—</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">capitals</span><span class="small muted mono">geo.createCity forEach dataset.capitals</span></div>
+                  <div class="cellname" role="cell"><span class="mono small">beforeAll</span><span class="small muted">geo.groups</span></div>
+                  <span role="cell" class="small">1 time · 39 requests</span>
+                  <span role="cell" class="small">16 tests</span>
+                  <span role="cell" class="small">none</span>
+                  <span role="cell"><span class="pill pass">ok · 39 × 201</span></span>
+                  <span role="cell" class="small ">39 · 39 · 0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">exportAdmin</span><span class="small muted mono">users.create · role admin</span></div>
+                  <div class="cellname" role="cell"><span class="mono small">beforeAll</span><span class="small muted">users.reports</span></div>
+                  <span role="cell" class="small">1 time · 1 request</span>
+                  <span role="cell" class="small">12 tests</span>
+                  <span role="cell" class="small">none</span>
+                  <span role="cell"><span class="pill pass">ok · 201</span></span>
+                  <span role="cell" class="small d-bad">1 · 1 · 1</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">(3 actions)</span><span class="small muted mono">users.create → carts.create → carts.addItem ×2</span></div>
+                  <div class="cellname" role="cell"><span class="mono small">beforeEach</span><span class="small muted">orders.checkout</span></div>
+                  <span role="cell" class="small">8 times · 32 requests</span>
+                  <span role="cell" class="small">per test</span>
+                  <span role="cell" class="small">none</span>
+                  <span role="cell"><span class="pill pass">ok</span></span>
+                  <span role="cell" class="small ">16 · 16 · 0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">(1 action)</span><span class="small muted mono">users.create</span></div>
+                  <div class="cellname" role="cell"><span class="mono small">before</span><span class="small muted">users.crud.getsCreatedUser</span></div>
+                  <span role="cell" class="small">5 times · 5 requests</span>
+                  <span role="cell" class="small">per repeat</span>
+                  <span role="cell" class="small">none</span>
+                  <span role="cell"><span class="pill pass">ok</span></span>
+                  <span role="cell" class="small ">5 · 5 · 0</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">postSummary</span><span class="small muted mono">function hooks/notify.ts#postSummary</span></div>
+                  <div class="cellname" role="cell"><span class="mono small">afterRun</span><span class="small muted">vibranium.config.yaml:71</span></div>
+                  <span role="cell" class="small">1 time</span>
+                  <span role="cell" class="small">run</span>
+                  <span role="cell" class="small">none</span>
+                  <span role="cell"><span class="pill pass">ok · 212 ms</span></span>
+                  <span role="cell" class="small ">—</span>
+                </div>
+              
+            </div>
+          </div>
+          <div class="diag error"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 4.8v3.6M8 10.8v.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg><span>1 cleanup failed: <code>users.delete</code> for <code>usr_7Hd2Qx</code> (created by <span class="mono">users.reports</span> beforeAll <span class="mono">exportAdmin</span>) returned 500 <span class="mono">{&quot;error&quot;:&quot;user has a running export&quot;}</span>. The user is still on staging.</span></div>
+        </section>
+
+        <section id="flaky" class="section sec" aria-labelledby="h-flaky">
+          <div class="sh"><h2 id="h-flaky" class="h2">Flaky and skipped</h2><span class="small muted">3 passed only on retry · 3 skipped, 1 skip past its until date</span></div>
+          <div class="split2 wide">
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <h3 class="h3">Flaky in this run</h3>
+              <div class="scrollx">
+                <div class="gt t-flaky" role="table" aria-label="Flaky tests">
+                  <div class="hd" role="row"><span role="columnheader">Test</span><span role="columnheader">Attempts</span><span role="columnheader">First-try error</span><span role="columnheader" class="num">Last 20</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small" style="overflow-wrap: anywhere">catalog.search.fuzzyQueries</span><span role="cell" class="small">2 of 3</span><span role="cell" class="small">row 17 &quot;chiar&quot;: items.length expected gte 1, got 0</span><span role="cell" class="num small">6 runs</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small" style="overflow-wrap: anywhere">users.auth.refreshesToken</span><span role="cell" class="small">2 of 2</span><span role="cell" class="small">status expected 200, got 401</span><span role="cell" class="num small">2 runs</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small" style="overflow-wrap: anywhere">orders.history.paginates</span><span role="cell" class="small">2 of 3</span><span role="cell" class="small">page 2 items.length expected 20, got 19</span><span role="cell" class="num small">1 run</span></div>
+                  
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <h3 class="h3">Skipped</h3>
+              <div class="scrollx">
+                <div class="gt t-skip" role="table" aria-label="Skipped tests">
+                  <div class="hd" role="row"><span role="columnheader">Test</span><span role="columnheader">Reason</span><span role="columnheader">Until</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small" style="overflow-wrap: anywhere">orders.checkout.appliesCoupon</span><span role="cell" class="small">coupon service flaky on staging, see #212</span><span role="cell" class="cellname"><span class="small">15 Nov 2026</span></span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small" style="overflow-wrap: anywhere">geo.groups.mergesGroups</span><span role="cell" class="small">merge endpoint not deployed to staging</span><span role="cell" class="cellname"><span class="small">20 Oct 2026</span><span class="pill block" style="height: 20px; font-size: 11.5px; align-self: flex-start">expired 3 days ago</span></span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small" style="overflow-wrap: anywhere">payments.cards.completes3ds</span><span role="cell" class="small">needs the sandbox card issuer, which staging does not have</span><span role="cell" class="cellname"><span class="small">no date</span></span></div>
+                  
+                </div>
+              </div>
+              <div class="small muted"><span class="mono">vc check</span> warns about expired skips; remove the <span class="mono">skip</span> or move <span class="mono">until</span>.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="perf" class="section sec" aria-labelledby="h-perf">
+          <div class="sh"><h2 id="h-perf" class="h2">Performance</h2><span class="small muted">slowest tests, slowest single requests and where request time went</span></div>
+          <div class="split2">
+            <div style="display: flex; flex-direction: column; min-width: 0">
+              <h3 class="h3" style="padding-bottom: 4px">Slowest tests</h3>
+              
+                <div class="slow"><div class="top"><span class="mono small" style="overflow-wrap: anywhere">users.reports.monthlyCsv</span><span class="small" style="font-variant-numeric: tabular-nums; white-space: nowrap">30.8 s</span></div><div class="hb"><span class="bad" style="width: 100%"></span></div></div>
+              
+                <div class="slow"><div class="top"><span class="mono small" style="overflow-wrap: anywhere">users.crud.exportFinishes</span><span class="small" style="font-variant-numeric: tabular-nums; white-space: nowrap">30.4 s</span></div><div class="hb"><span class="bad" style="width: 99%"></span></div></div>
+              
+                <div class="slow"><div class="top"><span class="mono small" style="overflow-wrap: anywhere">orders.checkout.placesOrder</span><span class="small" style="font-variant-numeric: tabular-nums; white-space: nowrap">6.4 s</span></div><div class="hb"><span class="bad" style="width: 21%"></span></div></div>
+              
+                <div class="slow"><div class="top"><span class="mono small" style="overflow-wrap: anywhere">catalog.search.fuzzyQueries</span><span class="small" style="font-variant-numeric: tabular-nums; white-space: nowrap">3.9 s</span></div><div class="hb"><span class="ok" style="width: 13%"></span></div></div>
+              
+                <div class="slow"><div class="top"><span class="mono small" style="overflow-wrap: anywhere">geo.groups.groupsCapitals</span><span class="small" style="font-variant-numeric: tabular-nums; white-space: nowrap">2.8 s</span></div><div class="hb"><span class="ok" style="width: 9%"></span></div></div>
+              
+                <div class="slow"><div class="top"><span class="mono small" style="overflow-wrap: anywhere">users.crud.adminSeesAllUsers</span><span class="small" style="font-variant-numeric: tabular-nums; white-space: nowrap">2.2 s</span></div><div class="hb"><span class="ok" style="width: 7%"></span></div></div>
+              
+                <div class="slow"><div class="top"><span class="mono small" style="overflow-wrap: anywhere">orders.checkout.cancelsPaidOrder</span><span class="small" style="font-variant-numeric: tabular-nums; white-space: nowrap">2.1 s</span></div><div class="hb"><span class="bad" style="width: 7%"></span></div></div>
+              
+                <div class="slow"><div class="top"><span class="mono small" style="overflow-wrap: anywhere">orders.checkout.reordersPreviousCart</span><span class="small" style="font-variant-numeric: tabular-nums; white-space: nowrap">1.9 s</span></div><div class="hb"><span class="bad" style="width: 6%"></span></div></div>
+              
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <h3 class="h3">Slowest requests</h3>
+              <div class="scrollx">
+                <div class="gt t-req" role="table" aria-label="Slowest requests">
+                  <div class="hd" role="row"><span role="columnheader">Request</span><span role="columnheader">Test</span><span role="columnheader" class="num">Time</span></div>
+                  
+                    <div class="tr" role="row"><div class="cellname" role="cell"><span class="row" style="gap: 6px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/users?limit=500</span></span><span class="small muted">users.list · 200</span></div><span role="cell" class="mono small muted ellipsis" title="users.crud.adminSeesAllUsers">users.crud.adminSeesAllUsers</span><span role="cell" class="num small">1,140 ms</span></div>
+                  
+                    <div class="tr" role="row"><div class="cellname" role="cell"><span class="row" style="gap: 6px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/products/search?q=chiar</span></span><span class="small muted">catalog.search · 200</span></div><span role="cell" class="mono small muted ellipsis" title="catalog.search.fuzzyQueries">catalog.search.fuzzyQueries</span><span role="cell" class="num small">980 ms</span></div>
+                  
+                    <div class="tr" role="row"><div class="cellname" role="cell"><span class="row" style="gap: 6px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/users/exports</span></span><span class="small muted">users.startExport · 202</span></div><span role="cell" class="mono small muted ellipsis" title="users.crud.exportFinishes">users.crud.exportFinishes</span><span role="cell" class="num small">640 ms</span></div>
+                  
+                    <div class="tr" role="row"><div class="cellname" role="cell"><span class="row" style="gap: 6px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/orders</span></span><span class="small muted">orders.place · 201</span></div><span role="cell" class="mono small muted ellipsis" title="orders.checkout.placesOrder">orders.checkout.placesOrder</span><span role="cell" class="num small">412 ms</span></div>
+                  
+                    <div class="tr" role="row"><div class="cellname" role="cell"><span class="row" style="gap: 6px; flex-wrap: nowrap"><span class="method m-post">POST</span><span class="mono small" style="overflow-wrap: anywhere">/payments/authorizations</span></span><span class="small muted">payments.authorize · 200</span></div><span role="cell" class="mono small muted ellipsis" title="payments.cards.authorizesVisa">payments.cards.authorizesVisa</span><span role="cell" class="num small">390 ms</span></div>
+                  
+                    <div class="tr" role="row"><div class="cellname" role="cell"><span class="row" style="gap: 6px; flex-wrap: nowrap"><span class="method m-get">GET</span><span class="mono small" style="overflow-wrap: anywhere">/orders?page=2</span></span><span class="small muted">orders.list · 200</span></div><span role="cell" class="mono small muted ellipsis" title="orders.history.paginates">orders.history.paginates</span><span role="cell" class="num small">380 ms</span></div>
+                  
+                </div>
+              </div>
+              <h3 class="h3" style="margin-top: 8px">Request time by phase · 162.4 s over 1,318 requests</h3>
+              <div class="phase" role="img" aria-label="DNS 0.3 s, connect 2.9 s, TLS 6.1 s, server wait 148.7 s, download 4.4 s">
+                <span style="flex: 0.3; background: #CFC8F7"></span><span style="flex: 2.9; background: #A99BFF"></span><span style="flex: 6.1; background: #7A6CE0"></span><span style="flex: 148.7; background: #5440D6"></span><span style="flex: 4.4; background: #2F2390"></span>
+              </div>
+              <div class="legend">
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #CFC8F7"></span>DNS 0.3 s</span>
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #A99BFF"></span>Connect 2.9 s</span>
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #7A6CE0"></span>TLS 6.1 s</span>
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #5440D6"></span>Server wait 148.7 s</span>
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #2F2390"></span>Download 4.4 s</span>
+              </div>
+              <div class="small muted">74 new connections, 1,244 requests reused one (94%) · perHost 4 · 6 hosts</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="reproduce" class="section sec" aria-labelledby="h-repro">
+          <div class="sh"><h2 id="h-repro" class="h2">Reproduce</h2><span class="small muted">everything needed to run exactly this selection again</span></div>
+          <div class="split2 wide">
+            <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+              <div class="small muted">Whole run</div>
+              <div class="cmd"><code>vc run --tag smoke,regression --profile staging --seed 7f3a91c2</code><button type="button" class="btn sm">Copy rerun command</button></div>
+              <div class="small muted">Only what failed or was blocked</div>
+              <div class="cmd"><code>vc run orders.checkout users.crud.exportFinishes users.reports.monthlyCsv catalog.admin catalog.browse.facetsReflectSeed --profile staging --seed 7f3a91c2</code><button type="button" class="btn sm">Copy</button></div>
+              <dl class="kv" style="margin-top: 6px">
+                <dt>Profile</dt><dd>staging</dd>
+                <dt>Selector</dt><dd class="mono">--tag smoke,regression · 412 tests from 38 files</dd>
+                <dt>Seed</dt><dd class="mono">7f3a91c2 <span class="muted">(fake data and random pipes)</span></dd>
+                <dt>Vibranium</dt><dd class="mono">2.0.0 · syntaxVersion 2</dd>
+                <dt>Concurrency</dt><dd class="mono">8 · perHost 4 · retry 2 · timeout 10s</dd>
+                <dt>Git</dt><dd class="mono">main@a1c9e4f · clean worktree</dd>
+                <dt>Config hash</dt><dd class="mono">sha256:3e9b07d4…c41a</dd>
+                <dt>OS</dt><dd class="mono">ubuntu-24.04 x64 · GitHub Actions runner 2.319</dd>
+                <dt>Artifacts</dt><dd class="mono">.vibranium/reports/482/ctrf.json · junit.xml</dd>
+              </dl>
+              <div class="about"><b style="color: #1B1830; font-weight: 600">This report:</b> index 180 KB · 412 test pages · bodies stored for failures only. The overview loads only the summary and the test list; a test’s checks, exchanges and bodies load when you open its row or its page, so big runs stay fast.</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <div class="small muted">Vars snapshot · secrets redacted</div>
+              <div class="scrollx">
+                <div class="gt t-vars" role="table" aria-label="Resolved vars for this run">
+                  <div class="hd" role="row"><span role="columnheader">Name</span><span role="columnheader">Value</span><span role="columnheader">Set by</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">usersUrl</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">https://users.staging.shop.example</span><span role="cell" class="small muted">profile staging</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">ordersUrl</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">https://orders.staging.shop.example</span><span role="cell" class="small muted">profile staging</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">cartsUrl</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">https://carts.staging.shop.example</span><span role="cell" class="small muted">profile staging</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">catalogUrl</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">https://catalog.staging.shop.example</span><span role="cell" class="small muted">profile staging</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">geoUrl</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">https://geo.staging.shop.example</span><span role="cell" class="small muted">profile staging</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">paymentsUrl</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">https://payments.staging.shop.example</span><span role="cell" class="small muted">profile staging</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">currency</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">USD</span><span role="cell" class="small muted">config vars</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">env.CI</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">true</span><span role="cell" class="small muted">environment</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">secret.SHOP_CLIENT_ID</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">•••••••• (redacted)</span><span role="cell" class="small muted">varlock · .env.schema</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">secret.SHOP_CLIENT_SECRET</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">•••••••• (redacted)</span><span role="cell" class="small muted">varlock · .env.schema</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">auth shopOauth</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">Bearer •••••••• (redacted)</span><span role="cell" class="small muted">oauth2 client credentials</span></div>
+                  
+                    <div class="tr" role="row"><span role="cell" class="mono small">run.id</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">482</span><span role="cell" class="small muted">runtime</span></div>
+                  
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="foot">
+          <span>Generated by Vibranium 2.0.0 from <span class="mono">.vibranium/reports/482/ctrf.json</span> · a single file, no server needed</span>
+          <span>Widgets: summary, rootCauses, changes, testTree, files, coverage, lifecycle, flaky, performance, reproduce · set in <span class="mono">vibranium.config.yaml</span> under <span class="mono">reports</span></span>
+        </footer>
+      </div>
+    </main>
+  </div>
+</div>
+</body></html>

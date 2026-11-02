@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium · AI agents</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/81dcd3b549d078b575adb6aed82e1861">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+sc-for,sc-if{display:contents}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.topsel{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2)}
+.topsel select{height:30px;border:0;border-radius:8px;background:var(--hover);padding:0 8px;font:500 12.5px var(--font);color:var(--ink)}
+.navrow{display:flex;flex-direction:column;gap:2px}
+.navsep{height:1px;background:rgba(27,24,48,.08);margin:6px 10px}
+.ctx .navitem{height:auto;min-height:34px;padding-top:6px;padding-bottom:6px;align-items:flex-start}
+.ctx .navitem .dot{margin-top:5px}
+.agrow{display:flex;flex-direction:column;gap:1px;min-width:0}
+.agrow small{font-size:11.5px;color:var(--ink2);line-height:1.35}
+.sidenote{padding:4px 10px;font-size:12px;color:var(--ink2);line-height:1.5}
+.dot.accent{background:var(--accent)}
+.dot.wait{background:#B86E00}
+.dot.idle{background:#9A96AD}
+.dot.pulse{background:var(--accent);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.h1sub{font-size:13px;color:var(--ink2)}
+a.pill{text-decoration:none}
+a.pill:hover{filter:brightness(.97)}
+.intro{display:flex;flex-direction:column;gap:14px;max-width:1100px}
+.intro p{margin:0;font-size:14px;line-height:1.6;color:var(--ink);text-wrap:pretty}
+.safe{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:14px 22px}
+.safe a{display:flex;gap:10px;align-items:flex-start;text-decoration:none;color:var(--ink);min-width:0}
+.safe a:hover b{color:var(--accentInk);text-decoration:underline}
+.safe .ic{width:30px;height:30px;border-radius:8px;background:var(--accentSoft);color:var(--accentInk);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.safe span.t{display:flex;flex-direction:column;gap:2px;font-size:12.5px;color:var(--ink2);line-height:1.45;min-width:0}
+.safe b{font-size:13px;color:var(--ink);font-weight:600}
+.shead{display:flex;align-items:baseline;gap:6px 12px;flex-wrap:wrap}
+.shead .muted{font-size:12.5px}
+.stepno{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;font:600 12px var(--font);flex:none;align-self:center}
+.panes.gap{gap:20px 28px}
+.connbox{display:flex;flex-direction:column;gap:12px;min-width:0}
+.connbox .tabs{padding:0;margin:0}
+.lead{margin:0;font-size:13px;line-height:1.55;color:var(--ink2)}
+.lead .mono,.tool-line .mono{color:var(--ink)}
+.snip{display:flex;align-items:flex-start;gap:8px;min-width:0}
+.snip .code{flex:1 1 auto;min-width:0}
+.snip .btn{flex:none;margin-top:6px}
+.snlabel{font-size:12px;font-weight:600;color:var(--ink2)}
+.status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2)}
+.status b{color:var(--ink);font-weight:600}
+.try{font-size:12.5px;color:var(--ink2);line-height:1.5}
+.tools{display:flex;flex-direction:column;min-width:0}
+.tool-line{display:grid;grid-template-columns:minmax(118px,auto) minmax(0,1fr);gap:2px 14px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.45;align-items:baseline}
+.tool-line:last-child{border-bottom:0}
+.tool-line .nm{font:600 12.5px var(--mono);color:var(--ink)}
+.tool-line .ds{color:var(--ink2);min-width:0}
+.tool-line .gate{color:#8A5200;font-weight:500;white-space:nowrap}
+.req{display:flex;flex-direction:column;gap:12px;padding:18px 0;border-top:1px solid var(--line);min-width:0}
+.req:first-of-type{border-top:0;padding-top:4px}
+.req .sent{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:15px;line-height:1.45}
+.req .sent b{font-weight:600}
+.req .sent .stext{flex:1 1 320px;min-width:0;overflow-wrap:anywhere}
+.req .sent .who{display:inline-flex;align-items:center;gap:7px;font-weight:600}
+.req .sent .waited{margin-left:auto;font-size:12px;color:var(--ink2)}
+.req .why{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.5;padding:8px 12px;border-radius:9px;background:var(--blockSoft);color:#5C3700}
+.req .why a{color:#5C3700;font-weight:500}
+.req .col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.req .panes{gap:14px 28px}
+.code.wrapcode .ln > span:last-child{white-space:pre-wrap;overflow-wrap:anywhere;min-width:0}
+.happen{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:5px;font-size:13px;line-height:1.5}
+.quote{margin:0;font-size:13px;line-height:1.55;color:var(--ink2);padding-left:12px;border-left:2px solid var(--line2)}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn.danger{color:#B3261E}
+.btn[aria-expanded="true"]{background:var(--panel3)}
+.sub{display:flex;flex-direction:column;gap:10px}
+.sub p{margin:0;font-size:13px;line-height:1.5}
+.code .ln.add{background:#E6F4EA}
+.code .ln.del{background:var(--failSoft)}
+.empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 16px;text-align:center;color:var(--ink2);font-size:13px}
+.empty b{color:var(--ink);font-size:14px}
+.prof{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(205px,100%),1fr));gap:0;min-width:0}
+.pcol{display:flex;flex-direction:column;gap:2px;padding:4px 20px 8px;border-left:1px solid var(--line);min-width:0;border-radius:10px;transition:background .2s}
+.pcol:first-child{border-left:0;padding-left:0}
+.pcol.focus{background:var(--accentSoft);border-left-color:transparent;padding-left:14px}
+.pcol .ph{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0 8px}
+.pcol .ph h3{margin:0;font:600 15px var(--mono)}
+.prow{display:grid;grid-template-columns:20px minmax(0,1fr);gap:2px 8px;padding:7px 0;border-top:1px solid var(--line);font-size:13px;line-height:1.45}
+.pcol.focus .prow{border-top-color:rgba(84,64,214,.14)}
+.prow .lb{font-size:12px;color:var(--ink2)}
+.prow .tx{grid-column:2;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+.prow svg{grid-row:1 / span 2;margin-top:1px}
+.accfoot{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:12.5px;color:var(--ink2)}
+.logtools{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.logtools .q{flex:1 1 240px;min-width:0;display:flex}
+.logtools .q .input{height:32px}
+.logtools .ag{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2)}
+.logtools .ag .select{height:32px;width:auto;min-width:150px}
+.loglist{display:flex;flex-direction:column;min-width:0;border-top:1px solid var(--line)}
+.lg{display:grid;grid-template-columns:52px minmax(96px,.8fr) minmax(118px,.9fr) minmax(0,1.7fr) 74px minmax(0,1.5fr) 18px;grid-template-areas:"t a tool tg p r x";gap:4px 12px;align-items:center;padding:9px 4px;border:0;border-bottom:1px solid var(--line);background:transparent;width:100%;text-align:left;font:13px var(--font);color:var(--ink);cursor:pointer}
+.lg:hover{background:var(--panel2)}
+.lg.h{cursor:default;font-size:12px;font-weight:500;color:var(--ink2);padding-top:6px;padding-bottom:6px}
+.lg.h:hover{background:transparent}
+.lg.fresh{background:#F6F4FE}
+.lg .t{grid-area:t;font:12px var(--mono);color:var(--ink2)}
+.lg .a{grid-area:a;min-width:0}
+.lg .tool{grid-area:tool;font:12px var(--mono);min-width:0}
+.lg .tg{grid-area:tg;font:12px var(--mono);min-width:0}
+.lg .p{grid-area:p}
+.lg .r{grid-area:r;display:flex;align-items:center;gap:6px;min-width:0}
+.lg .x{grid-area:x;color:var(--ink2);display:flex}
+.lgx{padding:12px 4px 16px 68px;border-bottom:1px solid var(--line);background:var(--panel2);display:flex;flex-direction:column;gap:10px}
+.lgx .panes{gap:12px 16px}
+.lgx .code{background:var(--panel)}
+.morebar{display:flex;justify-content:center;padding:10px 0 0}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:0 10px 30px rgba(27,24,48,.3);z-index:50;display:flex;gap:8px;align-items:center;max-width:calc(100vw - 32px)}
+@container (max-width: 760px){
+  .req .sent .waited{margin-left:0;width:100%}
+}
+@container (max-width: 660px){
+  .pcol{border-left:0;padding-left:0;border-top:1px solid var(--line)}
+  .pcol:first-child{border-top:0}
+  .pcol.focus{padding-left:12px}
+  .lg{grid-template-columns:44px minmax(0,1fr) auto 18px;grid-template-areas:"t a p x" "t tool tool tool" "t tg tg tg" "t r r r"}
+  .lg.h{display:none}
+  .lgx{padding-left:12px}
+}
+@media (max-width: 860px){
+  .app .side{flex-direction:column;overflow:visible;padding-bottom:4px}
+  .app .side .navrow{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .navsep{display:none}
+  .app.side-collapsed .side .navitem{width:auto;padding:0 10px;margin:0;height:32px}
+  .app .side .ctx{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .ctx .navitem{width:auto;flex:none}
+  .sidenote{display:none}
+}
+</style>
+</helmet>
+<div class="{{appCls}}">
+  <header class="topbar">
+    <a class="brand" href="WebExplorer.dc.html"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"/><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Vibranium</a>
+    <span class="project"><b>shop</b><span class="chip" title="git branch">main</span></span>
+    <label class="topsel"><span>Profile</span>
+      <select value="{{profile}}" onChange="{{setProfile}}"><option value="dev">dev</option><option value="staging">staging</option><option value="prod">prod</option></select>
+    </label>
+    <div class="grow"></div>
+    <label class="search"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.75"/><path d="m10.5 10.5 3.5 3.5"/></svg><span class="sr">Search tests, apis, files</span><input type="search" placeholder="Search tests, apis, files…"><span class="kbd">⌘K</span></label>
+  </header>
+
+  <div class="frame">
+    <div class="side">
+      <div class="side-head">
+        <span class="sr">Navigation</span>
+        <button class="iconbtn" type="button" aria-label="{{collapseLabel}}" title="{{collapseLabel}}" aria-expanded="{{sideOpen}}" onClick="{{toggleSide}}">
+          <sc-if value="{{sideOpen}}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6 3v10M10.5 6.5 9 8l1.5 1.5"/></svg></sc-if>
+          <sc-if value="{{sideShut}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6 3v10M9 6.5 10.5 8 9 9.5"/></svg></sc-if>
+        </button>
+      </div>
+      <nav class="navrow" aria-label="Main">
+        <a class="navitem" href="WebExplorer.dc.html" title="Tests"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 4.5 1.5 1.5 2.5-3M2.5 11l1.5 1.5 2.5-3M9 5h4.5M9 11.5h4.5"/></svg><span class="label">Tests</span><span class="count">412</span></a>
+        <a class="navitem" href="WebClient.dc.html" title="API client"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h9M8 4.5 11.5 8 8 11.5M14 3v10"/></svg><span class="label">API client</span></a>
+        <a class="navitem" href="WebEditor.dc.html" title="Editor"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13H3v-3zM9 4l3 3"/></svg><span class="label">Editor</span></a>
+        <a class="navitem" href="WebRun.dc.html" title="Runs"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M6.5 5.5v5l4-2.5z"/></svg><span class="label">Runs</span></a>
+        <a class="navitem" href="WebInsights.dc.html" title="Insights"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 13.5h11M4.5 11V8M8 11V4M11.5 11V6.5"/></svg><span class="label">Insights</span></a>
+        <a class="navitem on" href="WebAgents.dc.html" title="AI agents" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="10" height="8" rx="2"/><path d="M8 2.5V5M6 8.5v1.5M10 8.5v1.5"/></svg><span class="label">AI agents</span><span class="count">{{navCount}}</span></a>
+        <div class="navsep" role="presentation"></div>
+        <a class="navitem" href="WebSettings.dc.html" title="Settings"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"/><circle cx="11" cy="4.5" r="1.5"/><circle cx="5" cy="11.5" r="1.5"/></svg><span class="label">Settings</span></a>
+      </nav>
+      <div class="ctx" aria-label="Agents">
+        <div class="navlabel">Connected agents</div>
+        <sc-for list="{{sideAgents}}" as="a" hint-placeholder-count="2">
+          <button class="navitem {{a.cls}}" type="button" aria-pressed="{{a.on}}" title="Show activity from {{a.name}}" onClick="{{a.pick}}"><span class="dot {{a.dot}}"></span><span class="agrow"><span>{{a.name}}</span><small>{{a.meta}}</small></span></button>
+        </sc-for>
+        <div class="navlabel">Earlier today</div>
+        <sc-for list="{{sideEarlier}}" as="a" hint-placeholder-count="1">
+          <button class="navitem {{a.cls}}" type="button" aria-pressed="{{a.on}}" title="Show activity from {{a.name}}" onClick="{{a.pick}}"><span class="dot idle"></span><span class="agrow"><span>{{a.name}}</span><small>{{a.meta}}</small></span></button>
+        </sc-for>
+        <div class="navlabel">MCP endpoint</div>
+        <div class="sidenote"><span class="mono" style="color: #1B1830">localhost:7420/mcp</span><br>Listening while <span class="mono">vc ui</span> runs. Agents can also start <span class="mono">vc mcp</span> themselves.</div>
+      </div>
+    </div>
+
+    <main class="panel" aria-labelledby="ag-title">
+      <div class="panel-head">
+        <h1 class="h1" id="ag-title">AI agents</h1>
+        <div class="grow"></div>
+        <div class="cluster">
+          <a class="pill pass" href="#connect">{{connectedLabel}}</a>
+          <a class="pill {{waitPill}}" href="#approvals">{{waitLabel}}</a>
+        </div>
+      </div>
+
+      <div class="panel-body">
+        <section class="section intro" aria-label="What this page is">
+          <p>Coding agents such as <b>Claude Code</b> or <b>Cursor</b> can work with this project through MCP, the protocol they use for tools. Once connected, an agent can find and run tests, explain why one failed, call your apis and edit test files, using the same project files and profiles you do.</p>
+          <div class="safe">
+            <a href="#access"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></span><span class="t"><b>Access per profile</b>Each profile says what agents may run, call and edit. prod is read-only.</span></a>
+            <a href="#approvals"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 4.75V8l2 1.5"/></svg></span><span class="t"><b>Approvals</b>Anything risky pauses the agent until you approve it here.</span></a>
+            <a href="#activity"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8s2.25-4 6-4 6 4 6 4-2.25 4-6 4-6-4-6-4z"/><path d="M3 13 13 3"/></svg></span><span class="t"><b>Redaction</b>Secrets and tokens are replaced with [redacted] in everything an agent sees.</span></a>
+            <a href="#activity"><span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4zM6.5 7.5h4M6.5 10h4"/></svg></span><span class="t"><b>A full log</b>Every call is kept in the project history with its arguments and result.</span></a>
+          </div>
+        </section>
+
+        <section class="section" id="connect" aria-labelledby="c-h">
+          <div class="shead"><span class="stepno" aria-hidden="true">1</span><h2 class="h2" id="c-h">Connect an agent</h2><span class="muted">Once per project. The agent starts Vibranium’s MCP server when it needs it.</span></div>
+          <div class="panes gap">
+            <div class="connbox">
+              <div class="tabs" role="tablist" aria-label="Agent">
+                <sc-for list="{{connTabs}}" as="t" hint-placeholder-count="3">
+                  <button class="tab {{t.cls}}" type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button>
+                </sc-for>
+              </div>
+              <sc-for list="{{connSteps}}" as="c" hint-placeholder-count="1">
+                <div class="connbox" style="gap: 6px">
+                  <p class="lead">{{c.lead}}</p>
+                  <div class="snip">
+                    <pre class="code wrapcode" aria-label="{{c.aria}}"><sc-for list="{{c.lines}}" as="l"><span class="ln"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="g"><span class="{{g.c}}">{{g.t}}</span></sc-for></span></span></sc-for></pre>
+                    <button class="btn sm" type="button" onClick="{{c.copy}}"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"/></svg>Copy</button>
+                  </div>
+                  <sc-if value="{{c.hasNote}}" hint-placeholder-val="{{ false }}"><p class="lead" style="font-size: 12.5px">{{c.note}}</p></sc-if>
+                </div>
+              </sc-for>
+              <div class="status" role="status"><span class="dot {{connStatus.dot}}"></span><b>{{connStatus.main}}</b><span>{{connStatus.sub}}</span></div>
+              <div class="try">Then try asking it: “Which tests failed in the last staging run, and why?”</div>
+            </div>
+            <div class="connbox">
+              <div class="snlabel">What a connected agent can do</div>
+              <div class="tools">
+                <sc-for list="{{tools}}" as="t" hint-placeholder-count="8">
+                  <div class="tool-line"><span class="nm">{{t.name}}</span><span class="ds">{{t.desc}}<sc-if value="{{t.gated}}" hint-placeholder-val="{{ false }}"> <span class="gate">· {{t.gate}}</span></sc-if></span></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="approvals" aria-labelledby="w-h">
+          <div class="shead"><span class="stepno" aria-hidden="true">2</span><h2 class="h2" id="w-h">Waiting for you</h2><span class="muted">The agent is paused until you decide. With no browser open, <span class="mono">vc mcp</span> asks in its terminal instead.</span></div>
+          <sc-for list="{{queue}}" as="q" hint-placeholder-count="2">
+            <article class="req" aria-label="{{q.aria}}">
+              <div class="sent">
+                <span class="stext"><span class="who"><span class="dot wait"></span>{{q.agent}}</span> wants to {{q.verb}} <b class="mono" style="font-size: 14px">{{q.target}}</b> {{q.onWord}} <b>{{q.profile}}</b></span>
+                <span class="waited">{{q.waited}}</span>
+              </div>
+              <div class="why"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span class="wrap">Why it needs you: {{q.why}}. <a href="#access" onClick="{{q.showRule}}">See the {{q.profile}} access rule</a></span></div>
+              <div class="panes">
+                <div class="col">
+                  <span class="h3">What will happen if you approve</span>
+                  <ul class="happen"><sc-for list="{{q.happen}}" as="h"><li class="wrap">{{h.t}}</li></sc-for></ul>
+                  <span class="h3" style="margin-top: 6px">{{q.agent}} says</span>
+                  <p class="quote wrap">{{q.reason}}</p>
+                </div>
+                <div class="col">
+                  <span class="h3">{{q.codeTitle}}</span>
+                  <pre class="code wrapcode" aria-label="{{q.codeTitle}}"><sc-for list="{{q.code}}" as="l"><span class="ln {{l.cls}}"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="g"><span class="{{g.c}}">{{g.t}}</span></sc-for></span></span></sc-for></pre>
+                </div>
+              </div>
+              <div class="acts">
+                <button class="btn primary" type="button" onClick="{{q.approve}}">Approve once</button>
+                <button class="btn" type="button" aria-expanded="{{q.alwaysOpen}}" onClick="{{q.toggleAlways}}">Always allow on {{q.profile}}</button>
+                <button class="btn danger" type="button" aria-expanded="{{q.denyOpen}}" onClick="{{q.toggleDeny}}">Deny</button>
+                <sc-if value="{{q.isEdit}}" hint-placeholder-val="{{ false }}"><a class="btn ghost" href="WebEditor.dc.html">Open file in editor</a></sc-if>
+              </div>
+              <sc-if value="{{q.alwaysOpen}}" hint-placeholder-val="{{ false }}">
+                <div class="sub well">
+                  <p><b>Always allow</b> saves this change to <span class="mono">vibranium.config.yaml</span>, so {{q.alwaysScope}}</p>
+                  <pre class="code wrapcode" aria-label="Change to vibranium.config.yaml" style="background: #FFFFFF"><sc-for list="{{q.alwaysDiff}}" as="l"><span class="ln {{l.cls}}"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="g"><span class="{{g.c}}">{{g.t}}</span></sc-for></span></span></sc-for></pre>
+                  <div class="acts"><button class="btn primary" type="button" onClick="{{q.always}}">Save rule and approve</button><button class="btn ghost" type="button" onClick="{{q.toggleAlways}}">Cancel</button><span class="muted" style="font-size: 12.5px">You can change it back in <a href="WebSettings.dc.html">Settings</a>.</span></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{q.denyOpen}}" hint-placeholder-val="{{ false }}">
+                <div class="sub well">
+                  <label class="field">Reason sent back to {{q.agent}} (optional)<input class="input" type="text" placeholder="{{q.denyHint}}" value="{{q.denyText}}" onInput="{{q.setDeny}}"></label>
+                  <div class="acts"><button class="btn danger" type="button" onClick="{{q.deny}}">Deny this call</button><button class="btn ghost" type="button" onClick="{{q.toggleDeny}}">Cancel</button><span class="muted" style="font-size: 12.5px">{{q.agent}} gets “denied by you” and continues without it.</span></div>
+                </div>
+              </sc-if>
+            </article>
+          </sc-for>
+          <sc-if value="{{queueEmpty}}" hint-placeholder-val="{{ false }}">
+            <div class="empty well">
+              <svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="m5.5 8 1.8 1.8 3.2-3.6"/></svg>
+              <b>Nothing waiting.</b>
+              <span>Agents pause here when they need you. Your decisions are in the activity log below.</span>
+              <button class="btn sm ghost" type="button" onClick="{{resetQueue}}">Show the sample requests again</button>
+            </div>
+          </sc-if>
+        </section>
+
+        <section class="section" id="access" aria-labelledby="a-h">
+          <div class="shead"><span class="stepno" aria-hidden="true">3</span><h2 class="h2" id="a-h">What agents may do</h2><span class="muted">Per profile, from <span class="mono">profiles[].agents</span> in <span class="mono">vibranium.config.yaml</span>. Agents use the profile you picked when you connected them, or the one they ask for.</span></div>
+          <div class="prof">
+            <sc-for list="{{profiles}}" as="p" hint-placeholder-count="3">
+              <div class="pcol {{p.cls}}" id="{{p.anchor}}">
+                <div class="ph"><h3>{{p.id}}</h3><sc-if value="{{p.current}}" hint-placeholder-val="{{ false }}"><span class="pill accent" style="height: 20px; font-size: 11.5px">selected profile</span></sc-if><sc-if value="{{p.changed}}" hint-placeholder-val="{{ false }}"><span class="pill pass" style="height: 20px; font-size: 11.5px">changed just now</span></sc-if></div>
+                <sc-for list="{{p.rows}}" as="r">
+                  <div class="prow">
+                    <sc-if value="{{r.yes}}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1A7148" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg></sc-if>
+                    <sc-if value="{{r.ask}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A5200" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 4.75V8l2 1.5"/></svg></sc-if>
+                    <sc-if value="{{r.no}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#67637D" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7"/></svg></sc-if>
+                    <span class="lb">{{r.label}}</span>
+                    <span class="tx"><sc-for list="{{r.methods}}" as="m"><span class="method m-{{m.m}}">{{m.M}}</span></sc-for><span>{{r.text}}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div class="accfoot">
+            <a class="btn" href="WebSettings.dc.html"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"/><circle cx="11" cy="4.5" r="1.5"/><circle cx="5" cy="11.5" r="1.5"/></svg>Change in Settings</a>
+            <span>A method that is neither allowed nor “asks you” is refused without asking.</span>
+            <sc-if value="{{hasSavedNote}}" hint-placeholder-val="{{ false }}"><span style="color: #1A7148">{{savedNote}}</span></sc-if>
+          </div>
+        </section>
+
+        <section class="section" id="activity" aria-labelledby="l-h">
+          <div class="shead"><span class="stepno" aria-hidden="true">4</span><h2 class="h2" id="l-h">Activity</h2><span class="muted">{{logNote}}</span></div>
+          <div class="logtools">
+            <label class="q"><span class="sr">Filter activity</span><input class="input" type="search" placeholder="Filter by tool, api, test or file" value="{{logQ}}" onInput="{{setLogQ}}"></label>
+            <label class="ag"><span>Agent</span><select class="select" value="{{logAgent}}" onChange="{{setLogAgent}}"><option value="">All agents</option><option value="Claude Code">Claude Code</option><option value="Cursor">Cursor</option><option value="Windsurf">Windsurf</option></select></label>
+            <div class="seg" role="group" aria-label="Result">
+              <sc-for list="{{logKinds}}" as="o" hint-placeholder-count="4"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for>
+            </div>
+          </div>
+          <div class="loglist">
+            <div class="lg h" aria-hidden="true"><span class="t">Time</span><span class="a">Agent</span><span class="tool">Tool</span><span class="tg">Target</span><span class="p">Profile</span><span class="r">Result</span><span class="x"></span></div>
+            <sc-for list="{{log}}" as="l" hint-placeholder-count="10">
+              <button class="lg {{l.cls}}" type="button" aria-expanded="{{l.open}}" onClick="{{l.toggle}}">
+                <span class="t">{{l.t}}</span>
+                <span class="a ellipsis" title="{{l.agent}}">{{l.agent}}</span>
+                <span class="tool ellipsis" title="{{l.tool}}">{{l.tool}}</span>
+                <span class="tg ellipsis" title="{{l.target}}">{{l.target}}</span>
+                <span class="p"><span class="pill {{l.ppill}}" style="height: 20px; font-size: 11.5px">{{l.profile}}</span></span>
+                <span class="r"><span class="dot {{l.dot}}"></span><span class="wrap">{{l.result}}</span></span>
+                <span class="x"><sc-if value="{{l.open}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 10 4-4 4 4"/></svg></sc-if><sc-if value="{{l.shut}}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></sc-if></span>
+              </button>
+              <sc-if value="{{l.open}}" hint-placeholder-val="{{ false }}">
+                <div class="lgx">
+                  <div class="panes">
+                    <div class="col" style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span class="h3">Arguments</span><pre class="code wrapcode" aria-label="Arguments"><sc-for list="{{l.args}}" as="x"><span class="ln"><span class="no">{{x.no}}</span><span><sc-for list="{{x.segs}}" as="g"><span class="{{g.c}}">{{g.t}}</span></sc-for></span></span></sc-for></pre></div>
+                    <div class="col" style="display: flex; flex-direction: column; gap: 6px; min-width: 0"><span class="h3">Result returned to {{l.agent}}</span><pre class="code wrapcode" aria-label="Result"><sc-for list="{{l.res}}" as="x"><span class="ln"><span class="no">{{x.no}}</span><span><sc-for list="{{x.segs}}" as="g"><span class="{{g.c}}">{{g.t}}</span></sc-for></span></span></sc-for></pre></div>
+                  </div>
+                  <span class="muted" style="font-size: 12px">{{l.foot}}</span>
+                </div>
+              </sc-if>
+            </sc-for>
+            <sc-if value="{{logEmpty}}" hint-placeholder-val="{{ false }}"><div class="empty">No activity matches these filters.<button class="btn sm" type="button" onClick="{{clearLog}}">Clear filters</button></div></sc-if>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}"><div class="toast" role="status"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg>{{toast}}</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2660}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const D = { sideCollapsed: false, profile: 'staging', connTab: 'claude', resolved: {}, panel: {}, reasons: {}, pol: null, extra: [], logAgent: '', logKind: 'all', logQ: '', open: {}, toast: '', toastN: 0, focus: '', changed: {} };
+    const s = Object.assign({}, D, this.state || {});
+    const set = (o) => this.setState(o);
+    const M5 = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+    const POL0 = {
+      dev: { run: true, call: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], approve: [], write: true },
+      staging: { run: true, call: ['GET', 'POST'], approve: ['PUT', 'PATCH', 'DELETE'], write: 'ask' },
+      prod: { run: true, call: ['GET'], approve: ['POST', 'PUT', 'PATCH', 'DELETE'], write: false }
+    };
+    const pol = s.pol || POL0;
+    const clone = (x) => JSON.parse(JSON.stringify(x));
+    const sortM = (a) => a.slice().sort((x, y) => M5.indexOf(x) - M5.indexOf(y));
+    const orList = (a) => (a.length <= 1 ? a.join('') : a.slice(0, -1).join(', ') + ' or ' + a[a.length - 1]);
+
+    // ---- toast + clipboard
+    const toast = (msg) => {
+      const n = s.toastN + 1;
+      set({ toast: msg, toastN: n });
+      setTimeout(() => { if (this.state && this.state.toastN === n) this.setState({ toast: '' }); }, 2400);
+    };
+    const copy = (text, what) => () => {
+      try { if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(() => {}); } catch (e) { /* clipboard blocked: the toast still confirms the text */ }
+      toast('Copied ' + what);
+    };
+
+    // ---- highlighting
+    const jsonSegs = (line) => {
+      const out = []; const re = /("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?)|(true|false|null)|([{}\[\],])|(\s+)|([^\s"{}\[\],]+)/g; let m;
+      while ((m = re.exec(line))) {
+        if (m[1]) { out.push({ c: m[2] ? 'y-key' : 'y-str', t: m[1] }); if (m[2]) out.push({ c: 'y-punc', t: m[2] }); }
+        else if (m[3] || m[4]) out.push({ c: 'y-num', t: m[3] || m[4] });
+        else if (m[5]) out.push({ c: 'y-punc', t: m[5] });
+        else out.push({ c: '', t: m[0] });
+      }
+      return out;
+    };
+    const valSegs = (v, out) => v.split(/(\$\{[^}]*\})/).forEach((p) => { if (!p) return; out.push({ c: /^\$\{/.test(p) ? 'y-tpl' : (/^\s*(\[.*\]|true|false|ask|-?\d+(\.\d+)?)\s*$/.test(p) ? 'y-num' : 'y-str'), t: p }); });
+    const yamlSegs = (line) => {
+      const out = []; const m = line.match(/^(\s*)(- )?([A-Za-z0-9_$.][A-Za-z0-9_$. ]*?)(:)(\s.*)?$/);
+      if (!m) { valSegs(line, out); return out; }
+      if (m[1]) out.push({ c: '', t: m[1] }); if (m[2]) out.push({ c: 'y-punc', t: m[2] });
+      out.push({ c: 'y-key', t: m[3] }); out.push({ c: 'y-punc', t: ':' });
+      if (m[5]) valSegs(m[5], out);
+      return out;
+    };
+    const plain = (text, fn, start) => text.split('\n').map((l, i) => ({ no: String((start || 1) + i), cls: '', segs: fn(l) }));
+    const shell = (cmd) => [{ no: '$', cls: '', segs: [{ c: '', t: cmd }] }];
+    const jsonLines = (obj) => plain(JSON.stringify(obj, null, 2), jsonSegs, 1);
+
+    // ---- connect
+    const CURSOR_JSON = '{\n  "mcpServers": {\n    "vibranium": {\n      "command": "vc",\n      "args": ["mcp"]\n    }\n  }\n}';
+    const TABS = {
+      claude: { label: 'Claude Code', steps: [{ lead: 'Run this once in the project folder. Claude Code starts vc mcp by itself whenever it needs Vibranium.', lines: shell('claude mcp add vibranium -- vc mcp'), text: 'claude mcp add vibranium -- vc mcp', what: 'the Claude Code command', note: 'Add --scope project to save it in .mcp.json, so everyone who clones the repo gets it.' }],
+        status: { dot: 'pass', main: 'Connected: Claude Code 2.1', sub: '· 3 min ago · over stdio' } },
+      cursor: { label: 'Cursor / Windsurf', steps: [{ lead: 'Add this to .cursor/mcp.json in the project. For Windsurf, add it to ~/.codeium/windsurf/mcp_config.json.', lines: plain(CURSOR_JSON, jsonSegs, 1), text: CURSOR_JSON, what: 'the MCP config', note: '' }],
+        status: { dot: 'pass', main: 'Connected: Cursor', sub: '· 12 min ago · Windsurf last seen 13:52' } },
+      any: { label: 'Any MCP client', steps: [
+        { lead: 'Local (stdio): have the client start this command in the project folder.', lines: shell('vc mcp'), text: 'vc mcp', what: 'the stdio command', note: '' },
+        { lead: 'HTTP: point the client at this address while vc ui is running.', lines: [{ no: 'url', cls: '', segs: [{ c: 'y-str', t: 'http://localhost:7420/mcp' }] }], text: 'http://localhost:7420/mcp', what: 'the MCP address', note: '' }],
+        status: { dot: 'pulse', main: 'Waiting for a connection…', sub: 'this line turns green when a new client says hello' } }
+    };
+    const tab = TABS[s.connTab] || TABS.claude;
+    const connTabs = ['claude', 'cursor', 'any'].map((k) => ({ label: TABS[k].label, on: s.connTab === k, cls: s.connTab === k ? 'on' : '', pick: () => set({ connTab: k }) }));
+    const connSteps = tab.steps.map((c) => ({ lead: c.lead, lines: c.lines, aria: c.what, hasNote: !!c.note, note: c.note, copy: copy(c.text, c.what) }));
+
+    const askOn = (fn) => ['dev', 'staging', 'prod'].filter((p) => fn(pol[p]));
+    const gateText = (asks, offs) => [asks.length ? 'asks you on ' + asks.join(', ') : '', offs.length ? 'off on ' + offs.join(', ') : ''].filter(Boolean).join(' · ');
+    const TOOLS = [
+      ['list_definitions', 'Lists apis, tests, load files and profiles with their ids and files.', ''],
+      ['search', 'Finds tests and apis by id, name, tag, path or text.', ''],
+      ['check', 'Validates the project like vc check and returns the diagnostics.', ''],
+      ['run_tests', 'Runs tests by id, file or tag and returns results and the report path.', gateText(askOn((x) => x.run && x.approve.length), askOn((x) => !x.run))],
+      ['explain_failure', 'Explains a failed test: expected vs actual, history and related commits.', ''],
+      ['read_history', 'Reads past runs, flaky tests and timings from history.', ''],
+      ['call_api', 'Sends one api call with a profile’s vars and auth; secrets stay hidden.', gateText(askOn((x) => x.approve.length), [])],
+      ['write_definition', 'Creates or edits test and api files; checked before saving.', gateText(askOn((x) => x.write === 'ask'), askOn((x) => x.write === false))]
+    ];
+    const tools = TOOLS.map(([name, desc, gate]) => ({ name, desc, gate, gated: !!gate }));
+
+    // ---- approvals
+    const PP = { dev: 'skip', staging: 'accent', prod: 'fail', '—': 'skip' };
+    const diffLines = (rows) => rows.map(([no, mark, text]) => ({ no: mark === '+' ? '+' : mark === '-' ? '−' : String(no), cls: mark === '+' ? 'add' : mark === '-' ? 'del' : '', segs: yamlSegs(text) }));
+    const yamlFor = (p, x) => ['  - id: ' + p, '    agents:', '      run: ' + x.run, '      call: [' + x.call.join(', ') + ']', '      approve: [' + x.approve.join(', ') + ']', '      writeDefinitions: ' + String(x.write)];
+    const configDiff = (p, after) => {
+      const a = yamlFor(p, pol[p]); const b = yamlFor(p, after); const rows = [[0, ' ', 'profiles:']];
+      const dels = [], adds = [];
+      const flush = () => { dels.forEach((d) => rows.push(d)); adds.forEach((d) => rows.push(d)); dels.length = 0; adds.length = 0; };
+      a.forEach((l, i) => { if (l === b[i]) { flush(); rows.push([0, ' ', l]); } else { dels.push([0, '-', l]); adds.push([0, '+', b[i]]); } });
+      flush();
+      return rows.map(([n, mark, text]) => ({ no: mark === '+' ? '+' : mark === '-' ? '−' : '', cls: mark === '+' ? 'add' : mark === '-' ? 'del' : '', segs: yamlSegs(text) }));
+    };
+    const Q = [
+      { id: 'r1', agent: 'Claude Code', tool: 'call_api', verb: 'call', target: 'orders.refund', onWord: 'on', profile: 'prod', method: 'POST', waited: 'paused 1 min 12 s',
+        why: () => 'prod requires approval for POST',
+        happen: ['Sends POST https://orders.shop.example/api/v1/orders/ord_Y81mQa/refund', 'Signs in with shopOauth using the prod client secret; Claude Code never sees it', 'Refunds 4.80 on order ord_Y81mQa. This changes real data on prod.', 'The response goes back to Claude Code with secrets redacted'],
+        reason: '“After a1c9e4f added a tax line, I want to confirm refunds still work on prod, using the internal test order ord_Y81mQa.”',
+        codeTitle: 'Arguments', code: jsonLines({ api: 'orders.refund', profile: 'prod', vars: { orderId: 'ord_Y81mQa', amount: 4.8, reason: 'tax line check on internal test order' } }),
+        after: (x) => { x.call = sortM(x.call.concat(['POST'])); x.approve = x.approve.filter((m) => m !== 'POST'); },
+        alwaysScope: 'agents can send any POST to prod without asking, not only orders.refund.', denyHint: 'Use the staging order instead',
+        okResult: 'approved by you · 200 · refunded 4.80', alwaysResult: 'approved · rule saved: prod allows POST', savedNote: 'Saved: prod now allows POST without asking.',
+        args: { api: 'orders.refund', profile: 'prod', vars: { orderId: 'ord_Y81mQa', amount: 4.8, reason: 'tax line check on internal test order' } },
+        res: { status: 200, timeMs: 341, request: { headers: { authorization: 'Bearer [redacted]' } }, body: { refundId: 'rf_20QmZ8', orderId: 'ord_Y81mQa', amount: 4.8, status: 'refunded' } } },
+      { id: 'r2', agent: 'Cursor', tool: 'write_definition', verb: 'edit', target: 'services/orders/checkout.test.yaml', onWord: 'while working on', profile: 'staging', method: '', waited: 'paused 24 s', isEdit: true,
+        why: () => 'staging asks before agents edit files',
+        happen: ['Writes services/orders/checkout.test.yaml in your working tree; nothing is committed', 'Changes one test, orders.checkout.placesOrder', 'vc check on the new file: no errors'],
+        reason: '“Orders now include tax (a1c9e4f by priya). Check the total as item lines plus tax instead of a fixed amount; this fixes the 6 failures in run #482.”',
+        codeTitle: 'The change', code: diffLines([[36, ' ', '        match:'], [37, ' ', '          items:'], [38, ' ', '            length: 2'], [39, '-', '          total: ${var.orderTotal}'], [0, '+', '          tax:'], [0, '+', '            type: number'], [41, ' ', '      cel:'], [0, '-', '        total equals sum of lines: body.total == body.items.map(i, i.price * i.quantity).sum()'], [0, '+', '        total equals lines plus tax: body.total == body.items.map(i, i.price * i.quantity).sum() + body.tax']]),
+        after: (x) => { x.write = true; },
+        alwaysScope: 'agents working on staging can edit any test and api file without asking.', denyHint: 'Keep the fixed total; I will update orderTotal',
+        okResult: 'approved by you · written · vc check passed', alwaysResult: 'approved · rule saved: staging edits allowed', savedNote: 'Saved: staging now lets agents edit files without asking.',
+        args: { path: 'services/orders/checkout.test.yaml', test: 'orders.checkout.placesOrder', change: 'expect.body.match.total → tax; cel: lines plus tax' },
+        res: { written: true, check: { errors: 0, warnings: 0 }, lines: '+3 −2' } }
+    ];
+    const pending = Q.filter((q) => !s.resolved[q.id]);
+    const stamp = () => '14:2' + Math.min(9, 2 + s.extra.length);
+    const decide = (q, kind, result, extraState) => {
+      const entry = { id: 'n' + q.id, t: stamp(), agent: q.agent, tool: q.tool, target: q.target, profile: q.profile, result, kind, args: q.args, res: kind === 'denied' ? { denied: true, by: 'you', reason: (s.reasons[q.id] || '').trim() || null } : q.res, fresh: true };
+      set(Object.assign({ resolved: Object.assign({}, s.resolved, { [q.id]: kind }), extra: [entry].concat(s.extra), panel: Object.assign({}, s.panel, { [q.id]: '' }) }, extraState || {}));
+    };
+    const queue = pending.map((q) => {
+      const after = clone(pol[q.profile]); q.after(after);
+      const panel = s.panel[q.id] || '';
+      return {
+        agent: q.agent, verb: q.verb, target: q.target, onWord: q.onWord, profile: q.profile, waited: q.waited, why: q.why(), happen: q.happen.map((t) => ({ t })), reason: q.reason,
+        codeTitle: q.codeTitle, code: q.code, isEdit: !!q.isEdit, aria: q.agent + ' wants to ' + q.verb + ' ' + q.target + ' on ' + q.profile,
+        alwaysOpen: panel === 'always', denyOpen: panel === 'deny', alwaysScope: q.alwaysScope, alwaysDiff: configDiff(q.profile, after),
+        denyHint: q.denyHint, denyText: s.reasons[q.id] || '',
+        setDeny: (e) => set({ reasons: Object.assign({}, s.reasons, { [q.id]: e.target.value }) }),
+        toggleAlways: () => set({ panel: Object.assign({}, s.panel, { [q.id]: panel === 'always' ? '' : 'always' }) }),
+        toggleDeny: () => set({ panel: Object.assign({}, s.panel, { [q.id]: panel === 'deny' ? '' : 'deny' }) }),
+        showRule: () => set({ focus: q.profile }),
+        approve: () => { decide(q, 'you', q.okResult); toast('Approved · ' + q.agent + ' continues'); },
+        always: () => {
+          const np = clone(pol); q.after(np[q.profile]);
+          decide(q, 'you', q.alwaysResult, { pol: np, changed: Object.assign({}, s.changed, { [q.profile]: q.savedNote }), focus: q.profile });
+          toast('Saved to vibranium.config.yaml and approved');
+        },
+        deny: () => { const r = (s.reasons[q.id] || '').trim(); decide(q, 'denied', 'denied by you' + (r ? ': “' + r + '”' : '')); toast('Denied · ' + q.agent + ' was told why'); }
+      };
+    });
+
+    // ---- access summary
+    const badges = (a) => a.map((M) => ({ M, m: M.toLowerCase() }));
+    const profiles = ['dev', 'staging', 'prod'].map((p) => {
+      const x = pol[p];
+      const allCall = x.call.length === 5 && !x.approve.length;
+      const runText = !x.run ? 'No' : !x.approve.length ? 'Any test' : (x.call.length === 1 && x.call[0] === 'GET' ? 'Read-only tests; a test that sends anything else asks you' : 'Tests that send only ' + orList(x.call) + '; others ask you');
+      const rows = [
+        { label: 'Run tests', st: x.run ? 'yes' : 'no', text: runText, methods: [] },
+        { label: 'Call apis without asking', st: x.call.length ? 'yes' : 'no', text: allCall ? 'Any method' : (x.call.length ? '' : 'None'), methods: allCall ? [] : badges(x.call.filter((m) => x.approve.indexOf(m) < 0)) },
+        { label: 'Asks you first', st: x.approve.length ? 'ask' : 'no', text: x.approve.length ? '' : 'Nothing', methods: badges(x.approve) },
+        { label: 'Edit test and api files', st: x.write === true ? 'yes' : x.write === 'ask' ? 'ask' : 'no', text: x.write === true ? 'Yes' : x.write === 'ask' ? 'Yes, after you approve each change' : 'No', methods: [] }
+      ].map((r) => Object.assign(r, { yes: r.st === 'yes', ask: r.st === 'ask', no: r.st === 'no' }));
+      return { id: p, anchor: 'access-' + p, rows, current: s.profile === p, changed: !!s.changed[p], cls: s.focus === p ? 'focus' : '' };
+    });
+    const savedNotes = Object.keys(s.changed).map((k) => s.changed[k]);
+
+    // ---- activity log
+    const LOG0 = [
+      { id: 'l1', t: '14:21', agent: 'Claude Code', tool: 'explain_failure', target: 'orders.checkout.placesOrder', profile: 'staging', result: 'answered', kind: 'ok',
+        args: { test: 'orders.checkout.placesOrder', run: 482 }, res: { cause: 'body.total is 64.78, expected 59.98', likely: 'a1c9e4f "orders: add tax line" by priya adds tax 4.80', affectedTests: 6 } },
+      { id: 'l2', t: '14:19', agent: 'Claude Code', tool: 'read_history', target: 'orders.checkout', profile: 'staging', result: '10 runs', kind: 'ok',
+        args: { file: 'orders.checkout', limit: 10 }, res: { runs: 10, lastPassed: 481, firstFailed: 482 } },
+      { id: 'l3', t: '14:18', agent: 'Cursor', tool: 'run_tests', target: 'tag:checkout', profile: 'staging', result: '6 failed · 9 passed', kind: 'fail',
+        args: { selector: 'tag:checkout', profile: 'staging' }, res: { run: 483, passed: 9, failed: 6, duration: '6.4 s', report: '.vibranium/reports/483/index.html' } },
+      { id: 'l4', t: '14:16', agent: 'Claude Code', tool: 'call_api', target: 'orders.get', profile: 'prod', result: '200 · 212 ms', kind: 'ok',
+        args: { api: 'orders.get', profile: 'prod', vars: { orderId: 'ord_Y81mQa' } }, res: { status: 200, timeMs: 212, request: { headers: { authorization: 'Bearer [redacted]' } }, body: { id: 'ord_Y81mQa', status: 'paid', total: 64.78, tax: 4.8 } } },
+      { id: 'l5', t: '14:12', agent: 'Cursor', tool: 'search', target: '"tax"', profile: '—', result: '7 matches', kind: 'ok',
+        args: { query: 'tax' }, res: { matches: 7, files: ['services/orders/orders.api.yaml', 'services/orders/checkout.test.yaml', 'schemas/orders/order.json'] } },
+      { id: 'l6', t: '14:10', agent: 'Claude Code', tool: 'check', target: 'whole project', profile: '—', result: '0 errors · 2 warnings', kind: 'ok',
+        args: {}, res: { errors: 0, warnings: [{ file: 'services/catalog/admin.test.yaml', message: 'test id "Archive_Product" should be camelCase: archivesProduct' }, { file: 'services/users/users.api.yaml', message: 'api users.rename is deprecated and unused' }] } },
+      { id: 'l7', t: '13:58', agent: 'Claude Code', tool: 'call_api', target: 'orders.cancel', profile: 'prod', result: 'denied by you: “Don’t cancel real orders; use staging.”', kind: 'denied',
+        args: { api: 'orders.cancel', profile: 'prod', vars: { orderId: 'ord_7Hc2Lp' } }, res: { denied: true, by: 'you', reason: 'Don’t cancel real orders; use staging.' } },
+      { id: 'l8', t: '13:52', agent: 'Windsurf', tool: 'list_definitions', target: 'services/catalog', profile: 'dev', result: '14 apis · 3 test files', kind: 'ok',
+        args: { path: 'services/catalog' }, res: { apis: 14, testFiles: ['catalog.admin', 'catalog.browse', 'catalog.search'] } },
+      { id: 'l9', t: '13:47', agent: 'Windsurf', tool: 'write_definition', target: 'services/catalog/search.test.yaml', profile: 'dev', result: 'written · dev allows edits', kind: 'ok',
+        args: { path: 'services/catalog/search.test.yaml', test: 'catalog.search.filtersByPrice' }, res: { written: true, check: { errors: 0, warnings: 0 }, lines: '+18' } },
+      { id: 'l10', t: '13:40', agent: 'Claude Code', tool: 'run_tests', target: 'tag:smoke', profile: 'staging', result: '38 passed', kind: 'ok',
+        args: { selector: 'tag:smoke', profile: 'staging' }, res: { run: 481, passed: 38, failed: 0, duration: '4.1 s' } },
+      { id: 'l11', t: '13:31', agent: 'Cursor', tool: 'call_api', target: 'catalog.seedProducts', profile: 'staging', result: '503 Service Unavailable', kind: 'fail',
+        args: { api: 'catalog.seedProducts', profile: 'staging' }, res: { status: 503, timeMs: 30004, request: { headers: { authorization: 'Bearer [redacted]', 'x-api-key': '[redacted]' } }, body: { error: 'seeding disabled during deploy' } } },
+      { id: 'l12', t: '13:25', agent: 'Claude Code', tool: 'call_api', target: 'users.update', profile: 'staging', result: 'approved by you · 200', kind: 'you',
+        args: { api: 'users.update', profile: 'staging', vars: { userId: 'usr_4kD91x', role: 'admin' } }, res: { status: 200, timeMs: 188, body: { id: 'usr_4kD91x', role: 'admin', email: '[redacted]' } } }
+    ];
+    const KIND = { ok: 'pass', you: 'accent', denied: 'fail', fail: 'block' };
+    const all = s.extra.concat(LOG0);
+    const q = s.logQ.trim().toLowerCase();
+    const kindOk = (k) => s.logKind === 'all' || (s.logKind === 'you' && (k === 'you' || k === 'denied')) || s.logKind === k;
+    const log = all.filter((l) => (!s.logAgent || l.agent === s.logAgent) && kindOk(l.kind) && (!q || (l.tool + ' ' + l.target + ' ' + l.result).toLowerCase().indexOf(q) >= 0)).map((l) => {
+      const open = !!s.open[l.id];
+      return {
+        t: l.t, agent: l.agent, tool: l.tool, target: l.target, profile: l.profile, ppill: PP[l.profile], result: l.result, dot: KIND[l.kind], cls: l.fresh ? 'fresh' : '',
+        open, shut: !open, toggle: () => set({ open: Object.assign({}, s.open, { [l.id]: !open }) }),
+        args: jsonLines(l.args), res: jsonLines(l.res),
+        foot: 'Stored in .vibranium/history.db · values matching secrets, tokens and redact rules are replaced with [redacted] before the agent sees them.'
+      };
+    });
+
+    // ---- sidebar agents
+    const waitingFor = (name) => pending.filter((x) => x.agent === name).length;
+    const agentBtn = (key, name, meta, dot) => ({ name, meta, dot, on: s.logAgent === key, cls: s.logAgent === key ? 'on' : '', pick: () => set({ logAgent: s.logAgent === key ? '' : key }) });
+    const live = (key, name, via) => agentBtn(key, name, via + (waitingFor(key) ? ' · waiting for you' : ' · active just now'), waitingFor(key) ? 'wait' : 'pass');
+    const sideAgents = [live('Claude Code', 'Claude Code 2.1', 'stdio'), live('Cursor', 'Cursor', 'HTTP')];
+    const sideEarlier = [agentBtn('Windsurf', 'Windsurf', 'disconnected at 13:52', 'idle')];
+
+    const nWait = pending.length;
+    return {
+      appCls: 'app' + (s.sideCollapsed ? ' side-collapsed' : ''),
+      sideOpen: !s.sideCollapsed, sideShut: !!s.sideCollapsed, collapseLabel: s.sideCollapsed ? 'Expand sidebar' : 'Collapse sidebar',
+      toggleSide: () => set({ sideCollapsed: !s.sideCollapsed }),
+      profile: s.profile, setProfile: (e) => set({ profile: e.target.value }),
+      navCount: nWait ? String(nWait) : '',
+      connectedLabel: '2 agents connected', waitLabel: nWait ? nWait + ' waiting for you' : 'nothing waiting', waitPill: nWait ? 'block' : 'skip',
+      connTabs, connSteps, connStatus: tab.status, tools,
+      queue, queueEmpty: nWait === 0, resetQueue: () => set({ resolved: {}, panel: {} }),
+      profiles, hasSavedNote: savedNotes.length > 0, savedNote: savedNotes.join(' '),
+      logNote: all.length + ' calls today, newest first. Select a row to see what the agent sent and got back.',
+      logQ: s.logQ, setLogQ: (e) => set({ logQ: e.target.value }),
+      logAgent: s.logAgent, setLogAgent: (e) => set({ logAgent: e.target.value }),
+      logKinds: [['all', 'All'], ['you', 'Needed you'], ['denied', 'Denied'], ['fail', 'Failed']].map(([k, label]) => ({ label, on: s.logKind === k, cls: s.logKind === k ? 'on' : '', pick: () => set({ logKind: k }) })),
+      log, logEmpty: log.length === 0, clearLog: () => set({ logQ: '', logAgent: '', logKind: 'all' }),
+      sideAgents, sideEarlier,
+      hasToast: !!s.toast, toast: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

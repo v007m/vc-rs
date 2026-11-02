@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium CLI · keep in sync and keep tidy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.term{box-sizing:border-box;background:#0A0C10;color:#D7DAE0;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid #2C313C;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.bar{height:32px;flex:none;box-sizing:border-box;background:#1A1D24;border-bottom:1px solid #2C313C;position:relative;display:flex;align-items:center;gap:8px;padding:0 14px}
+.dot{width:12px;height:12px;border-radius:50%}
+.btitle{position:absolute;left:0;right:0;text-align:center;color:#8B92A0;font-size:12px;pointer-events:none}
+.body{flex:1;min-height:0;overflow:hidden;padding:14px 18px 16px}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.k{color:#8FB8F0}.s{color:#C9D99A}.t{color:#E8B86D}
+.cur{background:#D7DAE0;color:#0A0C10}
+</style>
+</helmet>
+<div class="term" style="width: 1280px; height: 992px">
+  <div class="bar"><span class="dot" style="background: #F06A5D"></span><span class="dot" style="background: #E5A13A"></span><span class="dot" style="background: #4FC27A"></span><span class="btitle">zsh — shop</span></div>
+  <div class="body">
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc sync users</div>
+    <div class="ln">  <span class="ok">✓</span> fetched  https://users.staging.shop.example/v3/api-docs  <span class="dim">JSON · OpenAPI 3.0.3 · 8 operations · changed since snapshot of 2026-10-02</span></div>
+    <div class="ln">  <span class="dim">3-way merge: base</span> openapi/users.yaml <span class="dim">· theirs: the spec · yours:</span> services/users/users.api.yaml</div>
+    <div class="ln">  <span class="ok">↓</span>   users.list          <span class="ok">updated</span>      spec added query param cursor → var <span class="b">cursor</span> <span class="dim">(optional)</span></div>
+    <div class="ln">  <span class="ok">↓</span>   users.get           <span class="ok">updated</span>      spec added query param expand → var <span class="b">expand</span> <span class="dim">(enum: roles, addresses)</span></div>
+    <div class="ln">  <span class="ok">↓</span>   users.exportStatus  <span class="ok">updated</span>      path /users/exports/{jobId} → /exports/{jobId}</div>
+    <div class="ln">  <span class="dim">=</span>   users.create        <span class="dim">kept</span>         your edit (query var sendWelcome, :9) · spec unchanged</div>
+    <div class="ln">  <span class="ok">+</span>   users.restore       <span class="ok">added</span>        POST /users/{id}/restore → services/users/users.api.yaml:121 <span class="dim">· no test yet</span></div>
+    <div class="ln">  <span class="warn">−</span>   users.legacyImport  <span class="warn">deprecated</span>   removed from spec · kept, marked <span class="k">deprecated</span>: <span class="t">true</span> <span class="dim">(2 tests still call it)</span></div>
+    <div class="ln">  <span class="bad">✕</span>   users.update        <span class="bad b">conflict</span>     both changed since the snapshot · file left as is</div>
+    <div class="ln">                                       <span class="dim">spec</span>   method  PUT → PATCH</div>
+    <div class="ln">                                       <span class="dim">yours</span>  path    /users/${var.id} → /users/${var.id}/profile   <span class="dim">services/users/users.api.yaml:41</span></div>
+    <div class="ln">                                       <span class="dim">take the spec:</span>        vc sync users --take spec users.update</div>
+    <div class="ln">                                       <span class="dim">or fix by hand, then:</span> vc sync users --resolved users.update</div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">3 updated · 1 kept · 1 added · 1 deprecated ·</span> <span class="bad b">1 conflict</span>   <span class="dim">untouched: users.deactivate, users.rename (not in spec)</span></div>
+    <div class="ln">  <span class="dim">snapshot</span> openapi/users.yaml <span class="dim">updated; users.update stays on the old base until resolved · names, expect, save, cleanup never touched</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc sync --check                                                                            <span class="dim"># the same command CI runs on every PR</span></div>
+    <div class="ln">  <span class="bad">✕</span>   orders    spec changed since snapshot <span class="b">(2 operations)</span>  <span class="dim">orders.place: new field tax · orders.list: new query var</span></div>
+    <div class="ln">  <span class="bad">✕</span>   users     1 unresolved conflict: users.update</div>
+    <div class="ln">  <span class="ok">✓</span>   catalog   <span class="dim">in sync      –  carts, geo: no</span> source.openapi <span class="dim">configured</span></div>
+    <div class="ln">  <span class="bad">exit 1</span>  <span class="dim">·  run</span> vc sync orders <span class="dim">locally and commit the api file with its snapshot</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc skip orders.checkout.appliesCoupon --reason "coupon service flaky on staging, see #212" --until 2026-11-15</div>
+    <div class="ln">  <span class="ok">✓</span> wrote skip to services/orders/checkout.test.yaml:61</div>
+    <div class="ln">  <span class="dim"> 61 │</span>     <span class="k">skip</span>: { <span class="k">reason</span>: <span class="s">"coupon service flaky on staging, see #212"</span>, <span class="k">until</span>: <span class="t">2026-11-15</span> }</div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc check</div>
+    <div class="ln"><span class="warn b">warning[V3104]</span><span class="b">: skip expired on 2026-10-20, test runs again</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/catalog/search.test.yaml:47:5  <span class="dim">·</span> catalog.search.fuzzyQueries</div>
+    <div class="ln">  <span class="info"> 47 │</span>     <span class="k">skip</span>: { <span class="k">reason</span>: <span class="s">"search index rebuild"</span>, <span class="k">until</span>: <span class="t">2026-10-20</span> }</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: delete the line, or extend it: vc skip catalog.search.fuzzyQueries --until 2026-11-01</div>
+    <div class="ln"><span class="warn b">warning[V3201]</span><span class="b">: DELETE uses shared value ${var.catalog.productIds} from beforeAll</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/catalog/admin.test.yaml:88:18  <span class="dim">·</span> catalog.admin.deletesProducts</div>
+    <div class="ln">  <span class="info"> 87 │</span>     <span class="k">call</span>: <span class="s">catalog.deleteProducts</span>          <span class="dim"># DELETE /products?ids=…</span></div>
+    <div class="ln">  <span class="info"> 88 │</span>     <span class="k">vars</span>: { <span class="k">ids</span>: <span class="s">${var.catalog.productIds}</span> }</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: beforeAll values are shared by every test in the file; create products in <span class="k">before</span>: so each test owns its own</div>
+    <div class="ln">  <span class="ok">✓</span> <span class="b">0 errors · 2 warnings</span>  <span class="dim">· 58 files · 64 apis · 418 tests · 211ms</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc list tests --skipped</div>
+    <div class="ln">  <span class="dim">test</span>                                  <span class="dim">reason</span>                                        <span class="dim">until</span>               <span class="dim">location</span></div>
+    <div class="ln">  orders.checkout.appliesCoupon         coupon service flaky on staging, see #212     2026-11-15          <span class="dim">services/orders/checkout.test.yaml:61</span></div>
+    <div class="ln">  geo.lookup.reverseGeocodeEU           geocoder sandbox has no EU data               <span class="dim">no end date</span>         <span class="dim">services/geo/lookup.test.yaml:22</span></div>
+    <div class="ln">  catalog.search.fuzzyQueries           <span class="dim">search index rebuild</span>                          <span class="warn">expired 10-20</span>       <span class="dim">services/catalog/search.test.yaml:47</span></div>
+    <div class="ln">  <span class="b">2 skipped</span> <span class="dim">·</span> <span class="warn">1 expired, runs again</span> <span class="dim">·  include them in a run with</span> vc run --include-skipped</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":992}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+    Checking ir v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/ir)
+    Checking tsstrip v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/tsstrip)
+    Checking arch-tests v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/arch-tests)
+    Checking ports v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/ports)
+    Checking compiler v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/compiler)
+    Checking adapters-hooks v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-hooks)
+    Checking adapters-store v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-store)
+    Checking engine v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/engine)
+    Checking adapters-http v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-http)
+    Checking cli v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/cli)
+crates/cli/tests/mock_server.rs:25:16: error: used `unwrap()` on a `Result` value
+crates/cli/tests/mock_server.rs:28:17: error: used `unwrap()` on a `Result` value
+error: could not compile `cli` (test "mock_server") due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...

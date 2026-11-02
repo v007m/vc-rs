@@ -1,0 +1,16 @@
+[package]
+name = "adapters-store"
+description = "ResultStore over SQLite: one writer thread fed by a channel."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ports.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+rusqlite = { version = "0.40", features = ["bundled"] }
+
+[lints]
+workspace = true

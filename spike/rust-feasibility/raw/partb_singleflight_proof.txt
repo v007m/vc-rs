@@ -1,0 +1,4 @@
+passed 53 failed 0 errored 0
+mock stats: {"POST /uploads": 1, "POST /slow/sessions": 1, "GET /items/:id": 1, "GET /sessions/:id": 50, "POST /items": 1}
+report: Report { summary: RunSummary { passed: 53, failed: 0, errored: 0, store_errors: 0 }, stored: 53 }
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s

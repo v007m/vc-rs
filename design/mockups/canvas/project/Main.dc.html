@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Run #482 report</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/81dcd3b549d078b575adb6aed82e1861">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+html{scroll-behavior:smooth}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.small{font-size:12px}
+.strong{font-weight:600}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.panel{position:relative}
+.panel .sr{left:0;top:0}
+code{font:500 12px var(--mono);background:var(--panel3);padding:1px 5px;border-radius:5px;color:var(--ink)}
+.tchip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 9px;border-radius:7px;background:var(--hover);font-size:12.5px;color:var(--ink);white-space:nowrap}
+.tchip.mono{font-size:12px}
+.topbar .btn{background:var(--on);border-color:transparent}
+.topbar .btn:hover{background:#fff}
+.topbar .btn.primary{background:var(--ink);color:#fff}
+.sec{scroll-margin-top:12px}
+.sh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sh .grow{flex:1 1 auto}
+.verdict{margin:0;font-size:26px;line-height:1.25;font-weight:600;letter-spacing:-.015em;text-wrap:pretty;max-width:940px}
+.lede{margin:0;font-size:14.5px;line-height:1.55;max-width:960px;text-wrap:pretty}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(120px,100%),1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.stat{padding:14px 16px;display:flex;flex-direction:column;gap:3px;border-left:1px solid var(--line)}
+.stat:first-child{border-left:0;padding-left:0}
+.stat .lbl{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2)}
+.big{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.delta{font-size:12px;font-weight:500}
+.d-bad{color:var(--fail)} .d-good{color:var(--pass)} .d-flat{color:var(--ink2)} .d-warn{color:var(--block)}
+.sbar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
+.sbar span{display:block;min-width:6px}
+.b-pass{background:var(--pass)} .b-fail{background:var(--fail)} .b-block{background:#C27A00} .b-flaky{background:var(--flaky)} .b-skip{background:#A6A2B8}
+.kn{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:16px}
+.kn .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.cause{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:28px;padding:18px 0 4px;border-top:1px solid var(--line)}
+.cause-main{display:flex;flex-direction:column;gap:10px;min-width:0}
+.cause p{margin:0;font-size:14px;line-height:1.55;text-wrap:pretty}
+.ev{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:7px 16px;font-size:13px;margin:0}
+.ev dt{color:var(--ink2)} .ev dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.tlist{display:flex;flex-direction:column;min-width:0}
+.tlist .ti{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.tlist .ti .dot{margin-top:5px}
+.tlist .ti:last-child{border-bottom:0}
+.code .ln.add{background:var(--passSoft)}
+.chg{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:18px 28px}
+.cg{display:flex;flex-direction:column;min-width:0}
+.cg-h{display:flex;align-items:center;gap:8px;padding-bottom:6px;border-bottom:1px solid var(--line2);font-size:13px;font-weight:600}
+.cg-h .n{margin-left:auto;font-weight:500;color:var(--ink2);font-variant-numeric:tabular-nums}
+.cg-i{padding:7px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:2px;font-size:13px;min-width:0}
+.cg-i .mono{overflow-wrap:anywhere}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.fchip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--line2);background:var(--panel);font:500 12.5px var(--font);color:var(--ink);cursor:pointer}
+.fchip:hover{background:var(--panel2)}
+.fchip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.fchip .n{color:var(--ink2);font-variant-numeric:tabular-nums}
+.fchip.on .n{color:#DAD6EA}
+.dot.none{display:none}
+.sfield{display:flex;align-items:center;gap:8px;height:34px;border:1px solid var(--line2);border-radius:9px;padding:0 10px;flex:1 1 240px;min-width:0;color:var(--ink2)}
+.sfield input{border:0;outline:none;font:13px var(--font);flex:1;min-width:0;background:transparent;color:var(--ink)}
+.sfield:focus-within{border-color:var(--accent);outline:2px solid var(--accentSoft)}
+.gt{display:flex;flex-direction:column;font-size:13px}
+.gt .hd,.gt .tr{display:grid;align-items:center;column-gap:14px;padding:0 12px;border-bottom:1px solid var(--line)}
+.gt .hd{font-size:12px;font-weight:500;color:var(--ink2);min-height:34px}
+.gt .tr{min-height:40px;padding-top:7px;padding-bottom:7px}
+.gt .tr:hover{background:var(--panel2)}
+.gt .tr > *{min-width:0;overflow-wrap:anywhere}
+.gt .num{text-align:right;font-variant-numeric:tabular-nums}
+.gt .tr.sel{background:var(--accentSoft)}
+.t-tests{min-width:980px}
+.t-tests .hd,.t-tests .tr{grid-template-columns:30px 96px minmax(260px,2.2fr) minmax(250px,1.4fr) 76px 64px minmax(100px,.6fr)}
+.t-files{min-width:960px}
+.t-files .hd,.t-files .tr{grid-template-columns:minmax(230px,2fr) 60px 64px 60px 66px 56px 66px minmax(120px,1fr) 70px}
+.t-apis{min-width:980px}
+.t-apis .hd,.t-apis .tr{grid-template-columns:minmax(170px,1.1fr) minmax(250px,1.9fr) 74px minmax(170px,1.3fr) 64px 70px 58px}
+.t-unc{min-width:760px}
+.t-unc .hd,.t-unc .tr{grid-template-columns:minmax(300px,2fr) minmax(150px,1fr) minmax(220px,1.5fr)}
+.t-life{min-width:1060px}
+.t-life .hd,.t-life .tr{grid-template-columns:minmax(220px,1.6fr) minmax(190px,1.1fr) minmax(120px,.9fr) minmax(100px,.7fr) minmax(170px,1.2fr) minmax(130px,1fr) minmax(130px,.9fr)}
+.t-flaky{min-width:560px}
+.t-flaky .hd,.t-flaky .tr{grid-template-columns:minmax(200px,1.2fr) 74px minmax(220px,1.6fr) 70px}
+.t-skip{min-width:600px}
+.t-skip .hd,.t-skip .tr{grid-template-columns:minmax(250px,1.3fr) minmax(200px,1.5fr) minmax(120px,.7fr)}
+.t-req{min-width:520px}
+.t-req .hd,.t-req .tr{grid-template-columns:minmax(240px,2fr) minmax(130px,1fr) 64px}
+.t-vars{min-width:480px}
+.t-vars .hd,.t-vars .tr{grid-template-columns:minmax(200px,1fr) minmax(260px,1.6fr) minmax(130px,1fr)}
+.grp{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px 8px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.grp .mono{font-weight:600}
+.cellname{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cellname .mono{overflow-wrap:anywhere}
+.xbtn{width:28px;height:28px;border-radius:7px;border:0;background:transparent;color:var(--ink2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.xbtn:hover{background:var(--panel3);color:var(--ink)}
+.xbtn svg{transition:transform .15s}
+.xbtn.open svg{transform:rotate(90deg)}
+.xp{padding:14px 16px 16px 56px;background:var(--panel2);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.xgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:18px 24px}
+.xcol{display:flex;flex-direction:column;gap:6px;min-width:0}
+.clist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:12.5px}
+.clist li{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.clist li .dot{transform:translateY(-1px)}
+.cnote{color:var(--ink2)} .cnote.bad{color:var(--fail);font-weight:500}
+.exl{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:12.5px}
+.exl .mono{overflow-wrap:anywhere}
+.minibar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:1px;background:var(--panel3)}
+.minibar span{display:block}
+.hb{height:6px;background:var(--panel3);border-radius:3px;overflow:hidden}
+.hb span{display:block;height:6px;border-radius:3px}
+.hb .ok{background:#8D82E6} .hb .bad{background:var(--fail)}
+.slow{display:flex;flex-direction:column;gap:5px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px}
+.slow .top{display:flex;justify-content:space-between;gap:12px}
+.phase{display:flex;height:16px;border-radius:5px;overflow:hidden;gap:2px}
+.phase span{display:block;min-width:5px}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:10px;font-size:12.5px}
+.legend > span{white-space:nowrap}
+.legend .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.split2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr));gap:20px 32px}
+.split2.wide{grid-template-columns:repeat(auto-fit,minmax(min(620px,100%),1fr))}
+.kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 18px;font-size:13px;margin:0}
+.kv dt{color:var(--ink2)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.cmd{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:10px;padding:8px 8px 8px 14px}
+.cmd code{background:transparent;padding:0;font-size:12.5px;flex:1;min-width:0;overflow-wrap:anywhere}
+.empty{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:24px 12px;color:var(--ink2);font-size:13px}
+.navcheck{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--ink)}
+.navcheck:hover{background:var(--hover)}
+.navcheck input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.navcheck .count{margin-left:auto;font-size:12px;color:var(--ink2)}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink2)}
+.topbar .tchip{max-width:100%}
+.runid{gap:6px}
+.acts{gap:6px}
+.narrow-only{display:none}
+.morewrap{position:relative}
+.morewrap .popover{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px}
+.morewrap .popover a.opt{text-decoration:none}
+.side-head .navlabel{padding:0 8px}
+.navrow{display:flex;flex-direction:column;gap:2px}
+.dot.accent{background:var(--accent)}
+.ctx .navitem,.ctx .navcheck{font-size:13px}
+.t-tests .c-du::before,.t-tests .c-re::before,.t-tests .c-in::before{content:attr(data-l);color:var(--ink2);font-size:12px;margin-right:4px}
+.t-tests .c-du::before,.t-tests .c-re::before,.t-tests .c-in::before{display:none}
+.loadline{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-size:13px;color:var(--ink2);padding:6px 0}
+.loadline .mono{overflow-wrap:anywhere;min-width:0}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.skel{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:18px 24px}
+.skel span{display:block;height:10px;border-radius:5px;background:var(--panel3);margin:6px 0}
+.morebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.about{font-size:12.5px;color:var(--ink2);line-height:1.55;padding:10px 12px;background:var(--panel2);border-radius:9px}
+@container (max-width: 900px){
+  .cause{grid-template-columns:minmax(0,1fr);gap:14px}
+}
+@container (max-width: 820px){
+  .t-tests{min-width:0}
+  .t-tests .hd{display:none}
+  .t-tests .tr{grid-template-columns:30px auto auto minmax(0,1fr);grid-template-areas:"x st st st" "x nm nm nm" "x fl fl fl" "x du re in";row-gap:4px;column-gap:10px}
+  .t-tests .c-x{grid-area:x;align-self:start}
+  .t-tests .c-st{grid-area:st;align-self:start;justify-self:start}
+  .t-tests .c-nm{grid-area:nm}
+  .t-tests .c-fl{grid-area:fl}
+  .t-tests .c-du{grid-area:du;text-align:left}
+  .t-tests .c-re{grid-area:re;text-align:left}
+  .t-tests .c-in{grid-area:in}
+  .t-tests .c-du::before,.t-tests .c-re::before,.t-tests .c-in::before{display:inline}
+  .t-tests .c-du,.t-tests .c-re,.t-tests .c-in{font-size:12px}
+  .xp{padding-left:16px}
+  .verdict{font-size:22px}
+}
+@container (max-width: 560px){
+  .ev{grid-template-columns:minmax(0,1fr);gap:2px 0}
+  .ev dd{margin-bottom:6px}
+  .kv{grid-template-columns:minmax(0,1fr);gap:2px 0}
+  .kv dd{margin-bottom:6px}
+}
+@container (max-width: 640px){
+  .stat{border-left:0;padding-left:0}
+}
+@media (max-width: 860px){
+  .app .side{flex-direction:column;overflow:visible;padding-bottom:4px}
+  .app .side .navrow{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .ctx{display:none}
+  .app.side-collapsed .side .navitem{width:auto;padding:0 10px;margin:0;height:32px}
+}
+@media (max-width: 760px){
+  .wide-only{display:none}
+  .narrow-only{display:inline-flex}
+}
+</style>
+</helmet>
+<div class="{{appCls}}">
+  <header class="topbar">
+    <a class="brand" href="#summary"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"/><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Vibranium</a>
+    <nav class="crumbs" aria-label="Run">
+      <span>shop</span><span aria-hidden="true">/</span><b>Run #482</b>
+    </nav>
+    <div class="cluster runid">
+      <span class="pill fail"><span class="dot fail"></span>Failed</span>
+      <span class="tchip">profile staging</span>
+      <span class="tchip mono">main@a1c9e4f</span>
+      <span class="tchip">23 Oct 2026 14:02</span>
+      <span class="tchip">48.2 s</span>
+    </div>
+    <span class="grow"></span>
+    <div class="cluster acts">
+      <a class="btn" href="WebRun.dc.html">Open in web UI</a>
+      <a class="btn wide-only" href="ctrf.json" download="run-482.ctrf.json">Download CTRF</a>
+      <a class="btn wide-only" href="junit.xml" download="run-482.junit.xml">JUnit XML</a>
+      <div class="morewrap narrow-only">
+        <button class="btn" type="button" aria-expanded="{{moreOpen}}" aria-haspopup="true" onClick="{{toggleMore}}">More<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button>
+        <sc-if value="{{moreOpen}}" hint-placeholder-val="{{ false }}">
+          <div class="popover">
+            <a class="opt" href="ctrf.json" download="run-482.ctrf.json">Download CTRF</a>
+            <a class="opt" href="junit.xml" download="run-482.junit.xml">JUnit XML</a>
+          </div>
+        </sc-if>
+      </div>
+      <button class="btn primary" type="button" onClick="{{copyRerun}}"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="9" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 11V3.6A1.6 1.6 0 0 1 4.6 2H10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>{{copyLabel}}</button>
+    </div>
+  </header>
+
+  <div class="frame">
+    <div class="side">
+      <div class="side-head">
+        <span class="navlabel">On this page</span>
+        <button class="iconbtn" type="button" aria-label="{{collapseLabel}}" title="{{collapseLabel}}" aria-expanded="{{sideOpen}}" onClick="{{toggleSide}}">
+          <sc-if value="{{sideOpen}}" hint-placeholder-val="{{ true }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6 3v10M10.5 6.5 9 8l1.5 1.5"/></svg></sc-if>
+          <sc-if value="{{sideShut}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6 3v10M9 6.5 10.5 8 9 9.5"/></svg></sc-if>
+        </button>
+      </div>
+      <nav class="navrow" aria-label="Report sections">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="10">
+        <a class="navitem {{n.cls}}" href="{{n.href}}" title="{{n.label}}" onClick="{{n.go}}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="{{n.icon}}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">{{n.label}}</span><span class="count">{{n.count}}</span></a>
+      </sc-for>
+      </nav>
+      <div class="ctx">
+        <div class="navlabel">Filter tests</div>
+        <sc-for list="{{sideStatus}}" as="f" hint-placeholder-count="6">
+          <a class="navitem {{f.cls}}" href="#tests" aria-current="{{f.current}}" onClick="{{f.pick}}"><span class="dot {{f.dot}}" style="margin: 0 4px"></span><span class="label">{{f.label}}</span><span class="count">{{f.count}}</span></a>
+        </sc-for>
+        <label class="navcheck"><input type="checkbox" checked="{{changedOnly}}" onChange="{{toggleChanged}}">Changed since #481<span class="count">{{changedCount}}</span></label>
+        <label class="navcheck"><input type="checkbox" checked="{{groupByFile}}" onChange="{{toggleGroup}}">Group by file</label>
+      </div>
+    </div>
+
+    <main class="panel">
+      <div class="panel-body">
+
+        <section id="summary" class="section sec" aria-labelledby="h-summary">
+          <div class="row">
+            <span class="pill fail">6 failed</span>
+            <span class="pill block">4 blocked</span>
+            <span class="tchip mono" style="background: var(--panel3)">vc run --tag smoke,regression</span>
+            <span class="small muted">GitHub Actions job 7731 · push to main by priya</span>
+          </div>
+          <h1 id="h-summary" class="verdict">6 tests failed and 4 are blocked by one failed beforeRun action</h1>
+          <p class="lede">Three causes explain all 10. Orders now add an 8% tax line to <code>total</code> since commit <code>a1c9e4f</code>, which fails 4 checkout tests. <code>catalog.seedProducts</code> answered 503 in <code>beforeRun</code>, so 4 catalog tests never started. The user export poll timed out again, as it did in runs #479 and #480.</p>
+          <div class="small muted">412 test instances from 38 files · started 23 Oct 2026, 14:02:11 · finished 14:02:59 in 48.2 s · compared with run #481 (22 Oct 2026, 18:40 · main@5be20d7 · 410 tests)</div>
+          <div class="stats" role="group" aria-label="Status counts compared with run 481">
+            <div class="stat"><span class="lbl"><span class="dot pass"></span>Passed</span><span class="big">396</span><span class="delta d-bad">−9 vs #481</span></div>
+            <div class="stat"><span class="lbl"><span class="dot fail"></span>Failed</span><span class="big" style="color: var(--fail)">6</span><span class="delta d-bad">+4 · 6 new, 2 fixed</span></div>
+            <div class="stat"><span class="lbl"><span class="dot block"></span>Blocked</span><span class="big" style="color: var(--block)">4</span><span class="delta d-bad">+4 vs #481</span></div>
+            <div class="stat"><span class="lbl"><span class="dot flaky"></span>Flaky</span><span class="big" style="color: var(--flaky)">3</span><span class="delta d-warn">+2 vs #481</span></div>
+            <div class="stat"><span class="lbl"><span class="dot skip"></span>Skipped</span><span class="big">3</span><span class="delta d-flat">+1 · 1 expired skip</span></div>
+          </div>
+          <div class="sbar" role="img" aria-label="Stacked status bar: 396 passed, 6 failed, 4 blocked, 3 flaky, 3 skipped of 412">
+            <span class="b-pass" style="flex: 396"></span><span class="b-fail" style="flex: 6"></span><span class="b-block" style="flex: 4"></span><span class="b-flaky" style="flex: 3"></span><span class="b-skip" style="flex: 3"></span>
+          </div>
+          <div class="kn">
+            <div><div class="small muted">Pass rate</div><div class="v">96.1%</div><div class="delta d-bad">down from 98.8% in run #481</div></div>
+            <div><div class="small muted">Duration</div><div class="v">48.2 s</div><div class="delta d-good">3.1 s faster than run #481</div></div>
+            <div><div class="small muted">Requests sent</div><div class="v">1,318</div><div class="delta d-flat">p95 latency 412 ms · 4 unexpected errors</div></div>
+            <div><div class="small muted">Lifecycle actions</div><div class="v">23</div><div class="delta d-flat">shared with 311 tests · 0 repeated</div></div>
+          </div>
+        </section>
+
+        <section id="causes" class="section sec" aria-labelledby="h-causes">
+          <div class="sh"><h2 id="h-causes" class="h2">Root causes</h2><span class="small muted">10 problems collapse into 3 causes · blocked tests are listed under the lifecycle action that blocked them</span></div>
+
+          <div class="cause">
+            <div class="cause-main">
+              <div class="row"><span class="pill fail">4 failed</span><span class="mono strong">orders.checkout · body.total</span><span class="pill accent">new in #482</span></div>
+              <p>Orders now return a <code>tax</code> field and <code>total</code> includes it. Every checkout test that compares the order total with the cart total fails by exactly 8%.</p>
+              <dl class="ev">
+                <dt>Check</dt><dd><code>total: ${var.orderTotal}</code> · <span class="mono small">services/orders/checkout.test.yaml:41</span></dd>
+                <dt>Expected</dt><dd class="mono">59.98 <span class="muted">(var.orderTotal, saved by carts.addItem)</span></dd>
+                <dt>Actual</dt><dd class="mono" style="color: var(--fail); font-weight: 600">64.78 <span class="muted" style="font-weight: 400">(+4.80 = 8% of 59.98)</span></dd>
+                <dt>First bad commit</dt><dd><code>a1c9e4f</code> “orders: add tax line” by priya · 23 Oct 2026, 13:47</dd>
+                <dt>Last passed</dt><dd>run #481 · main@5be20d7</dd>
+              </dl>
+              <pre class="code" aria-label="Response body difference against run 481"><span class="ln"><span class="no">7</span>    { "sku": "SKU-2", "price": 39.99, "quantity": 1 }</span><span class="ln"><span class="no">8</span>  ],</span><span class="ln add"><span class="no">+</span>  "tax": 4.80,</span><span class="ln err"><span class="no">−</span>  "total": 59.98,</span><span class="ln add"><span class="no">+</span>  "total": 64.78,</span><span class="ln"><span class="no">10</span>  "createdAt": "2026-10-23T14:02:31Z"</span></pre>
+              <div class="row"><a class="btn sm" href="ReportFailure.dc.html">Open failure detail</a><span class="small muted">If tax is intended, compare with <code>body.subtotal</code> or expect <code>${var.orderTotal | number}</code> × 1.08.</span></div>
+            </div>
+            <div class="tlist" aria-label="Tests with this cause">
+              <div class="small muted" style="padding-bottom: 4px">Failed tests</div>
+              <div class="ti"><span class="dot fail"></span><div><a class="mono" href="ReportFailure.dc.html">orders.checkout.placesOrder</a><div class="small muted">total 59.98 → 64.78 · 6.4 s</div></div></div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">orders.checkout.cancelsPaidOrder</span><div class="small muted">refund.amount 59.98 → 64.78 · 2.1 s</div></div></div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">orders.checkout.placesGuestOrder</span><div class="small muted">total 39.99 → 43.19 · 1.6 s</div></div></div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">orders.checkout.reordersPreviousCart</span><div class="small muted">total 59.98 → 64.78 · 1.9 s</div></div></div>
+            </div>
+          </div>
+
+          <div class="cause">
+            <div class="cause-main">
+              <div class="row"><span class="pill block">beforeRun failed · blocks 4</span><span class="mono strong">catalog</span><span class="small muted">call catalog.seedProducts</span></div>
+              <p><code>POST /catalog/seed</code> returned <b>503 Service Unavailable</b> on all 3 attempts, 2 s apart. The api expects <code>status: 201</code>. The server asked for <code>retry-after: 30</code>, longer than the action's retry window.</p>
+              <dl class="ev">
+                <dt>Defined in</dt><dd class="mono small">vibranium.config.yaml:58 · beforeRun[1]</dd>
+                <dt>Request</dt><dd class="mono small">POST https://catalog.staging.shop.example/api/v1/catalog/seed</dd>
+                <dt>Attempts</dt><dd class="mono small">14:02:11.204 → 503 · 14:02:13.291 → 503 · 14:02:15.377 → 503</dd>
+                <dt>Response</dt><dd class="mono small">{"error":"search index rebuilding"} · retry-after: 30</dd>
+                <dt>First bad commit</dt><dd>none · no commit since run #481 touches <span class="mono">services/catalog</span>; likely the staging environment</dd>
+              </dl>
+            </div>
+            <div class="tlist" aria-label="Tests blocked by this cause">
+              <div class="small muted" style="padding-bottom: 4px">Blocked tests</div>
+              <div class="ti"><span class="dot block"></span><div><span class="mono">catalog.admin.publishesProduct</span><div class="small muted">needs catalog · not started</div></div></div>
+              <div class="ti"><span class="dot block"></span><div><span class="mono">catalog.admin.archivesProduct</span><div class="small muted">needs catalog · not started</div></div></div>
+              <div class="ti"><span class="dot block"></span><div><span class="mono">catalog.admin.bulkPriceUpdate</span><div class="small muted">needs catalog · not started</div></div></div>
+              <div class="ti"><span class="dot block"></span><div><span class="mono">catalog.browse.facetsReflectSeed</span><div class="small muted">needs catalog · not started</div></div></div>
+            </div>
+          </div>
+
+          <div class="cause">
+            <div class="cause-main">
+              <div class="row"><span class="pill fail">2 failed</span><span class="mono strong">users.exportStatus · poll timed out</span><span class="pill flaky">intermittent</span></div>
+              <p>Step <code>wait</code> polled every 2 s for 30 s; <code>state</code> stayed <code>running</code> across 15 polls. The status endpoint answered quickly (p95 70 ms), so the export job itself is slow, not the api.</p>
+              <dl class="ev">
+                <dt>Check</dt><dd><code>poll.until: body.match.state: done</code> · <span class="mono small">services/users/crud.test.yaml:44</span></dd>
+                <dt>Expected</dt><dd class="mono">state: done within 30 s</dd>
+                <dt>Actual</dt><dd class="mono" style="color: var(--fail); font-weight: 600">state: running after 15 polls</dd>
+                <dt>History</dt><dd>failed in #479 and #480, passed in #481, failed in #482 · no linked commit</dd>
+              </dl>
+            </div>
+            <div class="tlist" aria-label="Tests with this cause">
+              <div class="small muted" style="padding-bottom: 4px">Failed tests</div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">users.crud.exportFinishes</span><div class="small muted">exp_51Rz still running · 30.4 s</div></div></div>
+              <div class="ti"><span class="dot fail"></span><div><span class="mono">users.reports.monthlyCsv</span><div class="small muted">exp_51S2 still running · 30.8 s</div></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="changes" class="section sec" aria-labelledby="h-changes">
+          <div class="sh"><h2 id="h-changes" class="h2">Changes since run #481</h2><span class="small muted">same profile and selector · 410 → 412 tests</span></div>
+          <div class="chg">
+            <sc-for list="{{changes}}" as="g" hint-placeholder-count="6">
+              <div class="cg">
+                <div class="cg-h"><span class="dot {{g.dot}}"></span>{{g.title}}<span class="n">{{g.count}}</span></div>
+                <sc-for list="{{g.items}}" as="ci" hint-placeholder-count="3">
+                  <div class="cg-i"><span class="mono">{{ci.id}}</span><span class="small muted">{{ci.note}}</span></div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+
+        <section id="tests" class="section sec" aria-labelledby="h-tests">
+          <div class="sh" style="align-items: center"><h2 id="h-tests" class="h2">All tests</h2><span class="small muted">{{shownText}} · checks and exchanges load when you open a test</span><span class="grow"></span><button type="button" class="btn sm ghost" onClick="{{toggleAll}}">{{toggleAllLabel}}</button></div>
+          <div class="toolbar">
+            <div class="chips" role="group" aria-label="Filter by status">
+              <sc-for list="{{chips}}" as="c" hint-placeholder-count="6">
+                <button type="button" class="fchip {{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}"><span class="dot {{c.dot}}"></span>{{c.label}}<span class="n">{{c.count}}</span></button>
+              </sc-for>
+            </div>
+            <label class="sfield"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="m10.5 10.5 3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg><span class="sr">Search tests</span><input type="search" placeholder="Search id, name, file or tag" value="{{q}}" onInput="{{onQ}}"></label>
+            <div class="seg" role="group" aria-label="Layout">
+              <button type="button" class="{{groupOnCls}}" aria-pressed="{{groupByFile}}" onClick="{{groupOn}}">Group by file</button>
+              <button type="button" class="{{groupOffCls}}" aria-pressed="{{flat}}" onClick="{{groupOff}}">Flat list</button>
+            </div>
+          </div>
+          <div class="scrollx">
+            <div class="gt t-tests" role="table" aria-label="Tests in run 482">
+              <div class="hd" role="row"><span role="columnheader"><span class="sr">Expand</span></span><span role="columnheader">Status</span><span role="columnheader">Test</span><span role="columnheader">File</span><span role="columnheader" class="num">Duration</span><span role="columnheader" class="num">Retries</span><span role="columnheader">Instances</span></div>
+              <sc-for list="{{groups}}" as="grp" hint-placeholder-count="3">
+                <sc-if value="{{grp.showHead}}" hint-placeholder-val="{{ true }}">
+                  <div class="grp" role="row"><span class="mono" role="cell">{{grp.id}}</span><span class="small muted mono">{{grp.path}}</span><span class="small muted">{{grp.summary}}</span></div>
+                </sc-if>
+                <sc-for list="{{grp.rows}}" as="t" hint-placeholder-count="4">
+                  <div class="tr" role="row">
+                    <span role="cell" class="c-x"><button type="button" class="xbtn {{t.openCls}}" aria-expanded="{{t.open}}" aria-label="{{t.toggleLabel}}" onClick="{{t.toggle}}"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></span>
+                    <span role="cell" class="c-st"><span class="pill {{t.cls}}"><span class="dot {{t.cls}}"></span>{{t.label}}</span></span>
+                    <div class="cellname c-nm" role="cell"><div class="row" style="gap: 6px"><span class="mono" style="font-weight: 500">{{t.id}}</span><sc-if value="{{t.hasChg}}" hint-placeholder-val="{{ false }}"><span class="pill accent" style="height: 19px; font-size: 11px">{{t.chg}}</span></sc-if></div><span class="small muted">{{t.name}}</span></div>
+                    <span role="cell" class="mono small muted c-fl ellipsis" title="{{t.file}}">{{t.file}}</span>
+                    <span role="cell" class="num c-du" data-l="Duration">{{t.dur}}</span>
+                    <span role="cell" class="num c-re" data-l="Retries">{{t.retries}}</span>
+                    <span role="cell" class="small c-in" data-l="Instances">{{t.inst}}</span>
+                  </div>
+                  <sc-if value="{{t.open}}" hint-placeholder-val="{{ false }}">
+                    <div class="xp" role="row">
+                      <sc-if value="{{t.hasErr}}" hint-placeholder-val="{{ true }}">
+                        <div class="diag {{t.diag}}" role="cell"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 4.8v3.6M8 10.8v.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg><span>{{t.err}}</span></div>
+                      </sc-if>
+                      <sc-if value="{{t.loading}}" hint-placeholder-val="{{ false }}">
+                        <div role="cell" style="display: flex; flex-direction: column; gap: 6px">
+                          <div class="loadline" role="status"><span class="spin" aria-hidden="true"></span>Loading checks and exchanges… <span class="mono small">{{t.page}}</span></div>
+                          <div class="skel" aria-hidden="true"><div><span style="width: 60%"></span><span style="width: 85%"></span><span style="width: 70%"></span></div><div><span style="width: 75%"></span><span style="width: 55%"></span></div><div><span style="width: 50%"></span><span style="width: 65%"></span></div></div>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{t.ready}}" hint-placeholder-val="{{ true }}">
+                      <div class="xgrid" role="cell">
+                        <div class="xcol">
+                          <div class="h3">{{t.checksHead}}</div>
+                          <ul class="clist">
+                            <sc-for list="{{t.checks}}" as="ck" hint-placeholder-count="3">
+                              <li><span class="dot {{ck.dot}}"></span><span class="sr">{{ck.sr}}</span><span class="mono">{{ck.label}}</span><span class="cnote {{ck.noteCls}}">{{ck.note}}</span></li>
+                            </sc-for>
+                          </ul>
+                        </div>
+                        <div class="xcol">
+                          <div class="h3">{{t.exHead}}</div>
+                          <sc-for list="{{t.ex}}" as="x" hint-placeholder-count="2">
+                            <div class="exl"><span class="method {{x.mcls}}">{{x.m}}</span><span class="mono">{{x.path}}</span><span class="small muted">{{x.meta}}</span></div>
+                          </sc-for>
+                        </div>
+                        <div class="xcol">
+                          <div class="h3">Lifecycle</div>
+                          <div class="small mono" style="line-height: 1.6; white-space: pre-line">{{t.life}}</div>
+                          <div class="h3" style="margin-top: 6px">Tags</div>
+                          <div class="small mono">{{t.tags}}</div>
+                        </div>
+                      </div>
+                      </sc-if>
+                      <sc-if value="{{t.link}}" hint-placeholder-val="{{ false }}">
+                        <div class="row" role="cell"><a class="btn sm" href="ReportFailure.dc.html">Open failure detail</a><span class="small muted">timeline, every exchange, resolved vars, cleanup and history</span></div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </sc-for>
+              </sc-for>
+              <sc-if value="{{noResults}}" hint-placeholder-val="{{ false }}">
+                <div class="empty" role="row"><span role="cell">No tests match these filters.</span><button type="button" class="btn sm" onClick="{{clearFilters}}">Clear filters</button></div>
+              </sc-if>
+            </div>
+          </div>
+          <div class="morebar">
+            <span class="small muted">{{pageText}}</span>
+            <sc-if value="{{hasMore}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn sm" onClick="{{showMore}}">Show {{nextCount}} more</button><button type="button" class="btn sm ghost" onClick="{{showAll}}">Show all {{shownCount}}</button></sc-if>
+          </div>
+        </section>
+
+        <section id="files" class="section sec" aria-labelledby="h-files">
+          <div class="sh"><h2 id="h-files" class="h2">By file</h2><span class="small muted">38 test files · durations are summed test time, run wall time was 48.2 s at concurrency 8</span></div>
+          <div class="scrollx">
+            <div class="gt t-files" role="table" aria-label="Results per test file">
+              <div class="hd" role="row"><span role="columnheader">File</span><span role="columnheader" class="num">Tests</span><span role="columnheader" class="num">Passed</span><span role="columnheader" class="num">Failed</span><span role="columnheader" class="num">Blocked</span><span role="columnheader" class="num">Flaky</span><span role="columnheader" class="num">Skipped</span><span role="columnheader">Mix</span><span role="columnheader" class="num">Time</span></div>
+              <sc-for list="{{files}}" as="fl" hint-placeholder-count="8">
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">{{fl.id}}</span><span class="small muted mono">{{fl.path}}</span></div>
+                  <span role="cell" class="num">{{fl.tests}}</span>
+                  <span role="cell" class="num">{{fl.pass}}</span>
+                  <span role="cell" class="num {{fl.failCls}}">{{fl.fail}}</span>
+                  <span role="cell" class="num {{fl.blockCls}}">{{fl.block}}</span>
+                  <span role="cell" class="num">{{fl.flaky}}</span>
+                  <span role="cell" class="num">{{fl.skip}}</span>
+                  <span role="cell"><span class="minibar" role="img" aria-label="{{fl.aria}}"><span class="b-pass" style="flex: {{fl.pass}}"></span><span class="b-fail" style="flex: {{fl.fail}}"></span><span class="b-block" style="flex: {{fl.block}}"></span><span class="b-flaky" style="flex: {{fl.flaky}}"></span><span class="b-skip" style="flex: {{fl.skip}}"></span></span></span>
+                  <span role="cell" class="num">{{fl.dur}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </section>
+
+        <section id="apis" class="section sec" aria-labelledby="h-apis">
+          <div class="sh"><h2 id="h-apis" class="h2">API coverage in this run</h2><span class="small muted">24 of 31 documented endpoints called · 1,318 requests · from <span class="mono">openapi/</span> snapshots</span></div>
+          <div class="scrollx">
+            <div class="gt t-apis" role="table" aria-label="Apis called in this run">
+              <div class="hd" role="row"><span role="columnheader">Api</span><span role="columnheader">Request</span><span role="columnheader" class="num">Requests</span><span role="columnheader">Status codes seen</span><span role="columnheader" class="num">p50</span><span role="columnheader" class="num">p95</span><span role="columnheader" class="num">Errors</span></div>
+              <sc-for list="{{apis}}" as="ap" hint-placeholder-count="10">
+                <div class="tr" role="row">
+                  <span role="cell" class="mono" style="font-weight: 500">{{ap.id}}</span>
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method {{ap.mcls}}">{{ap.m}}</span><span class="mono small" style="overflow-wrap: anywhere">{{ap.path}}</span></span>
+                  <span role="cell" class="num">{{ap.n}}</span>
+                  <span role="cell" class="row" style="gap: 4px"><sc-for list="{{ap.codes}}" as="sc" hint-placeholder-count="2"><span class="pill {{sc.cls}}" style="height: 20px; font-size: 11.5px">{{sc.text}}</span></sc-for></span>
+                  <span role="cell" class="num">{{ap.p50}}</span>
+                  <span role="cell" class="num">{{ap.p95}}</span>
+                  <span role="cell" class="num {{ap.errCls}}">{{ap.err}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div class="sh" style="margin-top: 10px"><h3 class="h3" style="color: var(--ink)">Documented but never called</h3><span class="small muted">7 operations in the spec snapshots with no request in this run</span></div>
+          <div class="scrollx">
+            <div class="gt t-unc" role="table" aria-label="Documented endpoints never called">
+              <div class="hd" role="row"><span role="columnheader">Endpoint</span><span role="columnheader">Operation</span><span role="columnheader">Where it is documented</span></div>
+              <sc-for list="{{uncalled}}" as="u" hint-placeholder-count="7">
+                <div class="tr" role="row">
+                  <span role="cell" class="row" style="gap: 8px; flex-wrap: nowrap"><span class="method {{u.mcls}}">{{u.m}}</span><span class="mono small">{{u.path}}</span></span>
+                  <span role="cell" class="mono small">{{u.op}}</span>
+                  <span role="cell" class="small muted">{{u.where}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </section>
+
+        <section id="lifecycle" class="section sec" aria-labelledby="h-life">
+          <div class="sh"><h2 id="h-life" class="h2">Lifecycle</h2><span class="small muted">23 actions · ran 41 times for 311 tests · cleanup 312 registered, 312 ran, 1 failed</span></div>
+          <p class="small muted" style="margin: 0; max-width: 980px; line-height: 1.55">Lifecycle actions call apis directly and run once per block, then share what they saved with every test in scope. In v1 these dependencies would have re-run with their assertions for every caller.</p>
+          <div class="scrollx">
+            <div class="gt t-life" role="table" aria-label="Lifecycle actions">
+              <div class="hd" role="row"><span role="columnheader">Action</span><span role="columnheader">Block · owner</span><span role="columnheader">Ran</span><span role="columnheader">Shared with</span><span role="columnheader">Cache</span><span role="columnheader">Result</span><span role="columnheader">Cleanup reg · ran · failed</span></div>
+              <sc-for list="{{life}}" as="lf" hint-placeholder-count="8">
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">{{lf.id}}</span><span class="small muted mono">{{lf.call}}</span></div>
+                  <div class="cellname" role="cell"><span class="mono small">{{lf.block}}</span><span class="small muted">{{lf.owner}}</span></div>
+                  <span role="cell" class="small">{{lf.ran}}</span>
+                  <span role="cell" class="small">{{lf.shared}}</span>
+                  <span role="cell" class="small">{{lf.cache}}</span>
+                  <span role="cell"><span class="pill {{lf.cls}}">{{lf.result}}</span></span>
+                  <span role="cell" class="small {{lf.cleanCls}}">{{lf.clean}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div class="diag error"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 4.8v3.6M8 10.8v.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg><span>1 cleanup failed: <code>users.delete</code> for <code>usr_7Hd2Qx</code> (created by <span class="mono">users.reports</span> beforeAll <span class="mono">exportAdmin</span>) returned 500 <span class="mono">{"error":"user has a running export"}</span>. The user is still on staging.</span></div>
+        </section>
+
+        <section id="flaky" class="section sec" aria-labelledby="h-flaky">
+          <div class="sh"><h2 id="h-flaky" class="h2">Flaky and skipped</h2><span class="small muted">3 passed only on retry · 3 skipped, 1 skip past its until date</span></div>
+          <div class="split2 wide">
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <h3 class="h3">Flaky in this run</h3>
+              <div class="scrollx">
+                <div class="gt t-flaky" role="table" aria-label="Flaky tests">
+                  <div class="hd" role="row"><span role="columnheader">Test</span><span role="columnheader">Attempts</span><span role="columnheader">First-try error</span><span role="columnheader" class="num">Last 20</span></div>
+                  <sc-for list="{{flakyRows}}" as="fk" hint-placeholder-count="3">
+                    <div class="tr" role="row"><span role="cell" class="mono small" style="overflow-wrap: anywhere">{{fk.id}}</span><span role="cell" class="small">{{fk.att}}</span><span role="cell" class="small">{{fk.err}}</span><span role="cell" class="num small">{{fk.hist}}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <h3 class="h3">Skipped</h3>
+              <div class="scrollx">
+                <div class="gt t-skip" role="table" aria-label="Skipped tests">
+                  <div class="hd" role="row"><span role="columnheader">Test</span><span role="columnheader">Reason</span><span role="columnheader">Until</span></div>
+                  <sc-for list="{{skipRows}}" as="sk" hint-placeholder-count="3">
+                    <div class="tr" role="row"><span role="cell" class="mono small" style="overflow-wrap: anywhere">{{sk.id}}</span><span role="cell" class="small">{{sk.reason}}</span><span role="cell" class="cellname"><span class="small">{{sk.until}}</span><sc-if value="{{sk.expired}}" hint-placeholder-val="{{ false }}"><span class="pill block" style="height: 20px; font-size: 11.5px; align-self: flex-start">expired 3 days ago</span></sc-if></span></div>
+                  </sc-for>
+                </div>
+              </div>
+              <div class="small muted"><span class="mono">vc check</span> warns about expired skips; remove the <span class="mono">skip</span> or move <span class="mono">until</span>.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="perf" class="section sec" aria-labelledby="h-perf">
+          <div class="sh"><h2 id="h-perf" class="h2">Performance</h2><span class="small muted">slowest tests, slowest single requests and where request time went</span></div>
+          <div class="split2">
+            <div style="display: flex; flex-direction: column; min-width: 0">
+              <h3 class="h3" style="padding-bottom: 4px">Slowest tests</h3>
+              <sc-for list="{{slowTests}}" as="st" hint-placeholder-count="8">
+                <div class="slow"><div class="top"><span class="mono small" style="overflow-wrap: anywhere">{{st.id}}</span><span class="small" style="font-variant-numeric: tabular-nums; white-space: nowrap">{{st.dur}}</span></div><div class="hb"><span class="{{st.barCls}}" style="width: {{st.pct}}"></span></div></div>
+              </sc-for>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <h3 class="h3">Slowest requests</h3>
+              <div class="scrollx">
+                <div class="gt t-req" role="table" aria-label="Slowest requests">
+                  <div class="hd" role="row"><span role="columnheader">Request</span><span role="columnheader">Test</span><span role="columnheader" class="num">Time</span></div>
+                  <sc-for list="{{slowReqs}}" as="sq" hint-placeholder-count="6">
+                    <div class="tr" role="row"><div class="cellname" role="cell"><span class="row" style="gap: 6px; flex-wrap: nowrap"><span class="method {{sq.mcls}}">{{sq.m}}</span><span class="mono small" style="overflow-wrap: anywhere">{{sq.path}}</span></span><span class="small muted">{{sq.api}} · {{sq.status}}</span></div><span role="cell" class="mono small muted ellipsis" title="{{sq.test}}">{{sq.test}}</span><span role="cell" class="num small">{{sq.ms}}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+              <h3 class="h3" style="margin-top: 8px">Request time by phase · 162.4 s over 1,318 requests</h3>
+              <div class="phase" role="img" aria-label="DNS 0.3 s, connect 2.9 s, TLS 6.1 s, server wait 148.7 s, download 4.4 s">
+                <span style="flex: 0.3; background: #CFC8F7"></span><span style="flex: 2.9; background: #A99BFF"></span><span style="flex: 6.1; background: #7A6CE0"></span><span style="flex: 148.7; background: #5440D6"></span><span style="flex: 4.4; background: #2F2390"></span>
+              </div>
+              <div class="legend">
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #CFC8F7"></span>DNS 0.3 s</span>
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #A99BFF"></span>Connect 2.9 s</span>
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #7A6CE0"></span>TLS 6.1 s</span>
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #5440D6"></span>Server wait 148.7 s</span>
+                <span class="row" style="gap: 6px"><span class="sw" style="background: #2F2390"></span>Download 4.4 s</span>
+              </div>
+              <div class="small muted">74 new connections, 1,244 requests reused one (94%) · perHost 4 · 6 hosts</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="reproduce" class="section sec" aria-labelledby="h-repro">
+          <div class="sh"><h2 id="h-repro" class="h2">Reproduce</h2><span class="small muted">everything needed to run exactly this selection again</span></div>
+          <div class="split2 wide">
+            <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+              <div class="small muted">Whole run</div>
+              <div class="cmd"><code>vc run --tag smoke,regression --profile staging --seed 7f3a91c2</code><button type="button" class="btn sm" onClick="{{copyRerun}}">{{copyLabel}}</button></div>
+              <div class="small muted">Only what failed or was blocked</div>
+              <div class="cmd"><code>vc run orders.checkout users.crud.exportFinishes users.reports.monthlyCsv catalog.admin catalog.browse.facetsReflectSeed --profile staging --seed 7f3a91c2</code><button type="button" class="btn sm" onClick="{{copyFailed}}">{{copyFailedLabel}}</button></div>
+              <dl class="kv" style="margin-top: 6px">
+                <dt>Profile</dt><dd>staging</dd>
+                <dt>Selector</dt><dd class="mono">--tag smoke,regression · 412 tests from 38 files</dd>
+                <dt>Seed</dt><dd class="mono">7f3a91c2 <span class="muted">(fake data and random pipes)</span></dd>
+                <dt>Vibranium</dt><dd class="mono">2.0.0 · syntaxVersion 2</dd>
+                <dt>Concurrency</dt><dd class="mono">8 · perHost 4 · retry 2 · timeout 10s</dd>
+                <dt>Git</dt><dd class="mono">main@a1c9e4f · clean worktree</dd>
+                <dt>Config hash</dt><dd class="mono">sha256:3e9b07d4…c41a</dd>
+                <dt>OS</dt><dd class="mono">ubuntu-24.04 x64 · GitHub Actions runner 2.319</dd>
+                <dt>Artifacts</dt><dd class="mono">.vibranium/reports/482/ctrf.json · junit.xml</dd>
+              </dl>
+              <div class="about"><b style="color: #1B1830; font-weight: 600">This report:</b> index 180 KB · 412 test pages · bodies stored for failures only. The overview loads only the summary and the test list; a test’s checks, exchanges and bodies load when you open its row or its page, so big runs stay fast.</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <div class="small muted">Vars snapshot · secrets redacted</div>
+              <div class="scrollx">
+                <div class="gt t-vars" role="table" aria-label="Resolved vars for this run">
+                  <div class="hd" role="row"><span role="columnheader">Name</span><span role="columnheader">Value</span><span role="columnheader">Set by</span></div>
+                  <sc-for list="{{vars}}" as="v" hint-placeholder-count="10">
+                    <div class="tr" role="row"><span role="cell" class="mono small">{{v.k}}</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">{{v.v}}</span><span role="cell" class="small muted">{{v.src}}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="foot">
+          <span>Generated by Vibranium 2.0.0 from <span class="mono">.vibranium/reports/482/ctrf.json</span> · a single file, no server needed</span>
+          <span>Widgets: summary, rootCauses, changes, testTree, files, coverage, lifecycle, flaky, performance, reproduce · set in <span class="mono">vibranium.config.yaml</span> under <span class="mono">reports</span></span>
+        </footer>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":10332}}'>
+const STATUS = {
+  failed: { cls: 'fail', label: 'Failed', rank: 0 },
+  blocked: { cls: 'block', label: 'Blocked', rank: 1 },
+  flaky: { cls: 'flaky', label: 'Flaky', rank: 2 },
+  skipped: { cls: 'skip', label: 'Skipped', rank: 3 },
+  passed: { cls: 'pass', label: 'Passed', rank: 4 }
+};
+const RUN_TOTALS = { all: 412, failed: 6, blocked: 4, flaky: 3, skipped: 3, passed: 396 };
+const FILE_PATHS = {
+  'orders.checkout': 'services/orders/checkout.test.yaml',
+  'orders.history': 'services/orders/history.test.yaml',
+  'users.crud': 'services/users/crud.test.yaml',
+  'users.reports': 'services/users/reports.test.yaml',
+  'users.auth': 'services/users/auth.test.yaml',
+  'catalog.admin': 'services/catalog/admin.test.yaml',
+  'catalog.browse': 'services/catalog/browse.test.yaml',
+  'catalog.search': 'services/catalog/search.test.yaml',
+  'geo.groups': 'services/geo/groups.test.yaml',
+  'carts.pricing': 'services/carts/pricing.test.yaml',
+  'payments.cards': 'services/payments/cards.test.yaml'
+};
+const CHECKOUT_LIFE = 'beforeAll catalog: cache hit\nbeforeEach users.create → carts.create → carts.addItem ×2';
+const BLOCKED_ERR = 'Blocked: beforeRun catalog (catalog.seedProducts) failed with 503 after 3 attempts. The test did not start and sent no requests.';
+// [status, id, name, ms, retries, instances, changed, tags, lifecycle, error, checks[[state,label,note]], exchanges[[method,path,meta]], link]
+const TESTS = [
+  ['failed', 'orders.checkout.placesOrder', 'A cart with two items becomes a paid order', 6400, '0', '1', 'newly failing', 'orders, checkout', CHECKOUT_LIFE,
+    'body.total: expected 59.98, got 64.78. The order now carries "tax": 4.80, which total includes.',
+    [['ok', 'status: 200', ''], ['ok', 'body.schema', 'schemas/orders/order.json'], ['ok', 'items.length: 2', ''], ['ok', 'items.every.quantity: gte 1', ''], ['bad', 'total: ${var.orderTotal}', 'expected 59.98, got 64.78'], ['bad', 'cel: total equals sum of lines', '64.78 == 59.98 is false'], ['ok', 'custom: currencyIsConsistent', 'hooks/checks.ts']],
+    [['POST', '/orders', '201 · 312 ms'], ['GET', '/orders/ord_8Kq2Tz', '200 · 6 polls · 5.6 s']], true],
+  ['failed', 'orders.checkout.cancelsPaidOrder', 'A paid order can be cancelled and is refunded in full', 2100, '0', '1', 'newly failing', 'orders, checkout', CHECKOUT_LIFE,
+    'body.refund.amount: expected 59.98 (var.orderTotal), got 64.78. The refund includes the new tax line.',
+    [['ok', 'status: 200', ''], ['ok', 'body.status: cancelled', ''], ['bad', 'refund.amount: ${var.orderTotal}', 'expected 59.98, got 64.78'], ['ok', 'refund.currency: USD', '']],
+    [['POST', '/orders', '201 · 298 ms'], ['GET', '/orders/ord_8Kr0Vb', '200 · 3 polls'], ['POST', '/orders/ord_8Kr0Vb/cancel', '200 · 204 ms']], false],
+  ['failed', 'orders.checkout.placesGuestOrder', 'A guest checkout without an account is accepted', 1600, '0', '1', 'newly failing', 'orders, checkout, guest', CHECKOUT_LIFE,
+    'body.total: expected 39.99, got 43.19 (tax 3.20).',
+    [['ok', 'status: 201', ''], ['ok', 'customer.guest: true', ''], ['ok', 'body.schema', 'schemas/orders/order.json'], ['bad', 'total: ${var.orderTotal}', 'expected 39.99, got 43.19']],
+    [['POST', '/orders', '201 · 276 ms'], ['GET', '/orders/ord_8Kr3Pd', '200 · 2 polls']], false],
+  ['failed', 'orders.checkout.reordersPreviousCart', 'Reordering a past order rebuilds the same cart', 1900, '0', '1', 'newly failing', 'orders, checkout', CHECKOUT_LIFE,
+    'body.total: expected 59.98, got 64.78 on the second order.',
+    [['ok', 'status: 201', ''], ['ok', 'items.length: 2', ''], ['bad', 'total: ${var.orderTotal}', 'expected 59.98, got 64.78']],
+    [['POST', '/orders', '201 ×2 · 301 ms avg'], ['GET', '/carts/crt_77Bq', '200 · 41 ms']], false],
+  ['failed', 'users.crud.exportFinishes', 'An export started by an admin finishes within 30 s', 30400, '0', '1', 'newly failing', 'users, export, slow', 'beforeRun admin: users.create (shared)',
+    'Step wait: poll timed out after 30 s; body.state stayed "running" across 15 polls every 2 s.',
+    [['ok', 'start · status: 202', ''], ['bad', 'poll.until: state: done', 'still running after 30 s'], ['na', 'expect · 2 checks', 'not evaluated']],
+    [['POST', '/users/exports', '202 · 640 ms'], ['GET', '/users/exports/exp_51Rz', '200 · 15 polls']], false],
+  ['failed', 'users.reports.monthlyCsv', 'Monthly report CSV has one row per active user', 30800, '0', '1', 'newly failing', 'users, reports, slow', 'beforeAll exportAdmin: users.create role admin',
+    'Step export: poll timed out after 30 s; body.state stayed "running" across 15 polls every 2 s.',
+    [['ok', 'start · status: 202', ''], ['bad', 'poll.until: state: done', 'still running after 30 s'], ['na', 'expect · 3 checks', 'not evaluated']],
+    [['POST', '/users/exports', '202 · 588 ms'], ['GET', '/users/exports/exp_51S2', '200 · 15 polls']], false],
+  ['blocked', 'catalog.admin.publishesProduct', 'Publishing a draft product makes it searchable', 0, '—', '1', 'newly blocked', 'catalog, admin', 'beforeRun catalog: failed (503)', BLOCKED_ERR, [], [], false],
+  ['blocked', 'catalog.admin.archivesProduct', 'Archived products disappear from listings', 0, '—', '1', 'newly blocked', 'catalog, admin', 'beforeRun catalog: failed (503)', BLOCKED_ERR, [], [], false],
+  ['blocked', 'catalog.admin.bulkPriceUpdate', 'A bulk price update changes every listed SKU', 0, '—', '1', 'newly blocked', 'catalog, admin', 'beforeRun catalog: failed (503)', BLOCKED_ERR, [], [], false],
+  ['blocked', 'catalog.browse.facetsReflectSeed', 'Facet counts match the seeded catalog', 0, '—', '1', 'newly blocked', 'catalog, browse', 'beforeRun catalog: failed (503)', BLOCKED_ERR, [], [], false],
+  ['flaky', 'catalog.search.fuzzyQueries', 'Misspelled queries still find the product', 3900, '1 of 2', '24 dataset rows', 'slower +50%', 'catalog, search', 'none',
+    'Passed on attempt 2. Attempt 1 failed on row 17 (query "chiar"): body.items.length expected gte 1, got 0.',
+    [['ok', 'status: 200', '24 of 24 rows'], ['ok', 'items.length: gte 1', 'row 17 on attempt 2'], ['ok', 'items[0].name: contains ${item.expected}', '']],
+    [['GET', '/products/search?q=…', '200 ×25 · p95 980 ms']], false],
+  ['flaky', 'users.auth.refreshesToken', 'An expired access token is refreshed once', 800, '1 of 1', '1', '', 'users, auth', 'none',
+    'Passed on attempt 2. Attempt 1: status expected 200, got 401; the token refresh landed 40 ms after the request.',
+    [['ok', 'status: 200', ''], ['ok', 'headers.www-authenticate: not exists', '']],
+    [['GET', '/users/usr_3Fq9Lm', '401, then 200'], ['POST', '/oauth/token', '200 · 88 ms']], false],
+  ['flaky', 'orders.history.paginates', 'Order history pages hold 20 orders each', 1800, '1 of 2', '1', 'slower +38%', 'orders, history', 'before: 41 × orders.place (shared)',
+    'Passed on attempt 2. Attempt 1: page 2 items.length expected 20, got 19 (an order was written while paging).',
+    [['ok', 'status: 200', ''], ['ok', 'items.length: 20', 'pages 1 and 2'], ['ok', 'items.every.createdAt: lte previous', '']],
+    [['GET', '/orders?page=1', '200 · 162 ms'], ['GET', '/orders?page=2', '200 ×2 · 380 ms']], false],
+  ['skipped', 'orders.checkout.appliesCoupon', 'Applies the WELCOME10 coupon at checkout', 0, '—', '1', 'newly skipped', 'orders, checkout, coupon', 'not run',
+    'Skipped: coupon service flaky on staging, see #212 · until 15 Nov 2026', [], [], false],
+  ['skipped', 'geo.groups.mergesGroups', 'Merging two location groups keeps every city', 0, '—', '1', '', 'geo', 'not run',
+    'Skipped: merge endpoint not deployed to staging · until 20 Oct 2026, expired 3 days ago', [], [], false],
+  ['skipped', 'payments.cards.completes3ds', 'A 3-D Secure challenge completes and authorizes', 0, '—', '1', '', 'payments, cards', 'not run',
+    'Skipped: needs the sandbox card issuer, which staging does not have · no until date', [], [], false],
+  ['passed', 'users.crud.createsMember', 'Creates a member with a generated name and email', 300, '0', '1', '', 'users, smoke', 'none', '',
+    [['ok', 'status: 201', ''], ['ok', 'body.schema', 'schemas/users/user.json'], ['ok', 'role: member', '']], [['POST', '/users', '201 · 92 ms']], false],
+  ['passed', 'users.crud.getsCreatedUser', 'A created user can be fetched by id', 900, '0', '5 repeats', '', 'users, smoke', 'before users.create, once per repeat', '',
+    [['ok', 'status: 200', '5 of 5'], ['ok', 'id: ${var.userId}', '5 of 5']], [['POST', '/users', '201 ×5'], ['GET', '/users/{userId}', '200 ×5 · p95 61 ms']], false],
+  ['passed', 'users.crud.rejectsBadEmail', 'Rejects malformed email addresses', 300, '0', '2 example rows', '', 'users, validation', 'none', '',
+    [['ok', 'status: 422', '2 of 2'], ['ok', 'errors[0].field: email', '2 of 2']], [['POST', '/users', '422 ×2']], false],
+  ['passed', 'users.crud.adminSeesAllUsers', 'An admin sees every user in the list', 2200, '0', '1', 'slower +29%', 'users, admin', 'beforeRun admin: users.create (shared)', '',
+    [['ok', 'status: 200', ''], ['ok', 'items.length: gte 1', '']], [['GET', '/users?limit=500', '200 · 1,140 ms']], false],
+  ['passed', 'users.crud.deactivatesUser', 'A deactivated user can no longer sign in', 600, '0', '1', 'new test', 'users', 'before users.create', '',
+    [['ok', 'status: 200', ''], ['ok', 'body.active: false', '']], [['POST', '/users', '201'], ['POST', '/users/{userId}/deactivate', '200 · 66 ms']], false],
+  ['passed', 'users.crud.renamesUser', 'Renaming a user keeps the same id', 400, '0', '1', 'new test', 'users', 'before users.create', '',
+    [['ok', 'status: 200', ''], ['ok', 'id: ${var.userId}', '']], [['POST', '/users/{userId}/rename', '200 · 58 ms']], false],
+  ['passed', 'orders.checkout.rejectsDeclinedCard', 'Rejects a declined card', 400, '0', '1', '', 'orders, checkout', CHECKOUT_LIFE, '',
+    [['ok', 'status: 402', ''], ['ok', 'error.code: card_declined', '']], [['POST', '/orders', '402 · 233 ms']], false],
+  ['passed', 'orders.history.listsNewestFirst', 'Order history lists the newest order first', 700, '0', '1', '', 'orders, history', 'before: 41 × orders.place (shared)', '',
+    [['ok', 'status: 200', ''], ['ok', 'items[0].id: ${var.lastOrderId}', '']], [['GET', '/orders?page=1', '200 · 160 ms']], false],
+  ['passed', 'catalog.browse.getsProduct', 'A product page returns price and stock', 200, '0', '1', '', 'catalog, smoke', 'none', '',
+    [['ok', 'status: 200', ''], ['ok', 'price: gt 0', '']], [['GET', '/products/SKU-1', '200 · 30 ms']], false],
+  ['passed', 'catalog.search.filtersByCategory', 'Filters results by category', 1100, '0', '12 example rows', '', 'catalog, search', 'none', '',
+    [['ok', 'status: 200', '12 of 12'], ['ok', 'items.every.category: ${example.category}', '12 of 12']], [['GET', '/products/search?category=…', '200 ×12']], false],
+  ['passed', 'geo.groups.groupsCapitals', 'A group built from capitals.csv holds every capital', 2800, '0', '1', 'slower +27%', 'geo, dataset', 'beforeAll capitals: geo.createCity ×39', '',
+    [['ok', 'status: 201', ''], ['ok', 'cities.length: 39', '']], [['POST', '/location-groups', '201 · 88 ms']], false],
+  ['passed', 'carts.pricing.roundsHalfUp', 'Line prices round half up to whole cents', 300, '0', '6 example rows', 'fixed', 'carts, pricing', 'none', '',
+    [['ok', 'lines[0].price: ${example.expected}', '6 of 6']], [['POST', '/carts/{cartId}/items', '201 ×6']], false],
+  ['passed', 'geo.groups.rejectsEmptyGroup', 'Rejects a location group with no cities', 200, '0', '1', 'fixed', 'geo, validation', 'none', '',
+    [['ok', 'status: 422', '']], [['POST', '/location-groups', '422 · 41 ms']], false],
+  ['passed', 'carts.pricing.appliesBulkDiscount', 'Ten or more units get the bulk discount', 500, '0', '1', '', 'carts, pricing', 'none', '',
+    [['ok', 'discount.percent: 10', ''], ['ok', 'total: ${var.discountedTotal}', '']], [['POST', '/carts/{cartId}/items', '201 · 62 ms']], false]
+];
+// [fileId, tests, passed, failed, blocked, flaky, skipped, time]
+const FILES = [
+  ['orders.checkout', 9, 4, 4, 0, 0, 1, '14.8 s'],
+  ['users.crud', 48, 47, 1, 0, 0, 0, '41.2 s'],
+  ['users.reports', 12, 11, 1, 0, 0, 0, '33.9 s'],
+  ['catalog.admin', 3, 0, 0, 3, 0, 0, '0 s'],
+  ['catalog.browse', 22, 21, 0, 1, 0, 0, '4.7 s'],
+  ['catalog.search', 48, 47, 0, 0, 1, 0, '9.2 s'],
+  ['users.auth', 9, 8, 0, 0, 1, 0, '3.1 s'],
+  ['orders.history', 14, 13, 0, 0, 1, 0, '6.4 s'],
+  ['geo.groups', 16, 15, 0, 0, 0, 1, '7.9 s'],
+  ['payments.cards', 7, 6, 0, 0, 0, 1, '3.6 s'],
+  ['carts.pricing', 18, 18, 0, 0, 0, 0, '2.4 s'],
+  ['27 more files', 206, 206, 0, 0, 0, 0, '61.5 s']
+];
+// [api, method, path, requests, [[code,count]], p50, p95, errors]
+const APIS = [
+  ['users.create', 'POST', '/users', 184, [['201', 178], ['422', 6]], '92 ms', '161 ms', 0],
+  ['users.get', 'GET', '/users/{userId}', 160, [['200', 148], ['404', 12]], '41 ms', '88 ms', 0],
+  ['users.list', 'GET', '/users', 30, [['200', 30]], '120 ms', '1,140 ms', 0],
+  ['users.update', 'PATCH', '/users/{userId}', 18, [['200', 15], ['422', 3]], '70 ms', '140 ms', 0],
+  ['users.delete', 'DELETE', '/users/{userId}', 184, [['204', 171], ['404', 12], ['500', 1]], '48 ms', '96 ms', 1],
+  ['users.startExport', 'POST', '/users/exports', 4, [['202', 4]], '410 ms', '640 ms', 0],
+  ['users.exportStatus', 'GET', '/users/exports/{exportId}', 31, [['200', 31]], '38 ms', '70 ms', 0],
+  ['users.deactivate', 'POST', '/users/{userId}/deactivate', 3, [['200', 3]], '66 ms', '90 ms', 0],
+  ['users.rename', 'POST', '/users/{userId}/rename', 2, [['200', 2]], '58 ms', '72 ms', 0],
+  ['orders.place', 'POST', '/orders', 41, [['201', 38], ['402', 3]], '298 ms', '412 ms', 0],
+  ['orders.get', 'GET', '/orders/{orderId}', 96, [['200', 96]], '44 ms', '96 ms', 0],
+  ['orders.list', 'GET', '/orders', 28, [['200', 28]], '160 ms', '380 ms', 0],
+  ['orders.cancel', 'POST', '/orders/{orderId}/cancel', 37, [['200', 35], ['409', 2]], '120 ms', '204 ms', 0],
+  ['carts.create', 'POST', '/carts', 52, [['201', 52]], '64 ms', '117 ms', 0],
+  ['carts.addItem', 'POST', '/carts/{cartId}/items', 104, [['201', 104]], '62 ms', '88 ms', 0],
+  ['carts.get', 'GET', '/carts/{cartId}', 18, [['200', 18]], '40 ms', '66 ms', 0],
+  ['carts.delete', 'DELETE', '/carts/{cartId}', 52, [['204', 52]], '36 ms', '58 ms', 0],
+  ['catalog.seedProducts', 'POST', '/catalog/seed', 3, [['503', 3]], '84 ms', '96 ms', 3],
+  ['catalog.getProduct', 'GET', '/products/{sku}', 64, [['200', 61], ['404', 3]], '30 ms', '62 ms', 0],
+  ['catalog.search', 'GET', '/products/search', 107, [['200', 107]], '140 ms', '980 ms', 0],
+  ['geo.createCity', 'POST', '/cities', 39, [['201', 39]], '54 ms', '110 ms', 0],
+  ['geo.deleteCity', 'DELETE', '/cities/{cityId}', 39, [['204', 39]], '40 ms', '72 ms', 0],
+  ['geo.createLocationGroup', 'POST', '/location-groups', 8, [['201', 7], ['422', 1]], '88 ms', '150 ms', 0],
+  ['payments.authorize', 'POST', '/payments/authorizations', 14, [['200', 12], ['402', 2]], '220 ms', '390 ms', 0]
+];
+const UNCALLED = [
+  ['GET', '/users/{userId}/sessions', 'listSessions', 'openapi/users.json · no api in users.api.yaml'],
+  ['DELETE', '/users/{userId}/sessions', 'revokeSessions', 'openapi/users.json · no api in users.api.yaml'],
+  ['POST', '/orders/{orderId}/refund', 'orders.refund', 'orders.api.yaml · defined, no test calls it'],
+  ['PUT', '/products/{sku}/inventory', 'setInventory', 'openapi/catalog.json · no api in catalog.api.yaml'],
+  ['POST', '/payments/{paymentId}/capture', 'capturePayment', 'openapi/payments.json · no api'],
+  ['POST', '/payments/{paymentId}/void', 'voidPayment', 'openapi/payments.json · no api'],
+  ['GET', '/cities/nearby', 'findNearbyCities', 'openapi/geo.json · no api in geo.api.yaml']
+];
+// [id, call, block, owner, ran, shared, cache, resultCls, result, cleanup, cleanupCls]
+const LIFE = [
+  ['admin', 'users.create · role admin', 'beforeRun', 'vibranium.config.yaml:52', '1 time · 1 request', '64 tests', 'for 12h · miss, stored', 'pass', 'ok · 201', '1 · 1 · 0', ''],
+  ['catalog', 'catalog.seedProducts', 'beforeRun', 'vibranium.config.yaml:58', '3 attempts · 3 requests', '4 tests', 'none', 'block', '503 · blocked 4', '0 · 0 · 0', ''],
+  ['catalog', 'catalog.seedProducts', 'beforeAll', 'orders.checkout', '0 times', '9 tests', 'for 12h · hit (run #478, 09:12)', 'pass', 'ok · from cache', '—', ''],
+  ['capitals', 'geo.createCity forEach dataset.capitals', 'beforeAll', 'geo.groups', '1 time · 39 requests', '16 tests', 'none', 'pass', 'ok · 39 × 201', '39 · 39 · 0', ''],
+  ['exportAdmin', 'users.create · role admin', 'beforeAll', 'users.reports', '1 time · 1 request', '12 tests', 'none', 'pass', 'ok · 201', '1 · 1 · 1', 'd-bad'],
+  ['(3 actions)', 'users.create → carts.create → carts.addItem ×2', 'beforeEach', 'orders.checkout', '8 times · 32 requests', 'per test', 'none', 'pass', 'ok', '16 · 16 · 0', ''],
+  ['(1 action)', 'users.create', 'before', 'users.crud.getsCreatedUser', '5 times · 5 requests', 'per repeat', 'none', 'pass', 'ok', '5 · 5 · 0', ''],
+  ['postSummary', 'function hooks/notify.ts#postSummary', 'afterRun', 'vibranium.config.yaml:71', '1 time', 'run', 'none', 'pass', 'ok · 212 ms', '—', '']
+];
+const VARS = [
+  ['usersUrl', 'https://users.staging.shop.example', 'profile staging'],
+  ['ordersUrl', 'https://orders.staging.shop.example', 'profile staging'],
+  ['cartsUrl', 'https://carts.staging.shop.example', 'profile staging'],
+  ['catalogUrl', 'https://catalog.staging.shop.example', 'profile staging'],
+  ['geoUrl', 'https://geo.staging.shop.example', 'profile staging'],
+  ['paymentsUrl', 'https://payments.staging.shop.example', 'profile staging'],
+  ['currency', 'USD', 'config vars'],
+  ['env.CI', 'true', 'environment'],
+  ['secret.SHOP_CLIENT_ID', '•••••••• (redacted)', 'varlock · .env.schema'],
+  ['secret.SHOP_CLIENT_SECRET', '•••••••• (redacted)', 'varlock · .env.schema'],
+  ['auth shopOauth', 'Bearer •••••••• (redacted)', 'oauth2 client credentials'],
+  ['run.id', '482', 'runtime']
+];
+const NAV = [
+  ['summary', 'Overview', '', 'M2.5 8.5 8 3l5.5 5.5M4 7.5V13h8V7.5'],
+  ['causes', 'Root causes', '3', 'M13.5 8a5.5 5.5 0 1 1-11 0a5.5 5.5 0 1 1 11 0M10 8a2 2 0 1 1-4 0a2 2 0 1 1 4 0'],
+  ['changes', 'Changes since #481', '19', 'M3 5h9.5L10 2.5M13 11H3.5L6 13.5'],
+  ['tests', 'All tests', '412', 'M6 4h7.5M6 8h7.5M6 12h7.5M2.5 4h.5M2.5 8h.5M2.5 12h.5'],
+  ['files', 'By file', '38', 'M4 1.8h5l3 3v9.4H4zM9 1.8v3h3'],
+  ['apis', 'API coverage', '24/31', 'M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4'],
+  ['lifecycle', 'Lifecycle', '23', 'M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5'],
+  ['flaky', 'Flaky and skipped', '6', 'M2 9.5 5 5l3 6 3-6 3 4.5'],
+  ['perf', 'Performance', '', 'M13 9a5 5 0 1 1-10 0a5 5 0 1 1 10 0M8 6.5V9l1.8 1.2M6.5 2h3'],
+  ['reproduce', 'Reproduce', '', 'M2.5 4.5 6 8l-3.5 3.5M8 12h5.5']
+];
+const CHANGES = [
+  ['fail', 'Newly failing', [['orders.checkout.placesOrder', 'passed in #481 · total 59.98 → 64.78'], ['orders.checkout.cancelsPaidOrder', 'passed in #481 · refund 59.98 → 64.78'], ['orders.checkout.placesGuestOrder', 'passed in #481 · total 39.99 → 43.19'], ['orders.checkout.reordersPreviousCart', 'passed in #481 · total 59.98 → 64.78'], ['users.crud.exportFinishes', 'passed in #481 · failed in #479, #480'], ['users.reports.monthlyCsv', 'passed in #481 · failed in #479, #480']]],
+  ['block', 'Newly blocked', [['catalog.admin.publishesProduct', 'beforeRun catalog 503'], ['catalog.admin.archivesProduct', 'beforeRun catalog 503'], ['catalog.admin.bulkPriceUpdate', 'beforeRun catalog 503'], ['catalog.browse.facetsReflectSeed', 'beforeRun catalog 503']]],
+  ['pass', 'Fixed', [['carts.pricing.roundsHalfUp', 'failed in #481: price 10.12, expected 10.13'], ['geo.groups.rejectsEmptyGroup', 'failed in #481: status 500, expected 422']]],
+  ['flaky', 'Slower by more than 20%', [['catalog.search.fuzzyQueries', '2.6 s → 3.9 s · +50%'], ['orders.history.paginates', '1.3 s → 1.8 s · +38%'], ['users.crud.adminSeesAllUsers', '1.7 s → 2.2 s · +29%'], ['geo.groups.groupsCapitals', '2.2 s → 2.8 s · +27%']]],
+  ['skip', 'Newly skipped', [['orders.checkout.appliesCoupon', 'until 15 Nov 2026 · coupon service flaky on staging, see #212']]],
+  ['accent', 'New tests', [['users.crud.deactivatesUser', 'passed · 0.6 s · added in 7d02b11'], ['users.crud.renamesUser', 'passed · 0.4 s · added in 7d02b11']]]
+];
+const FLAKY = [
+  ['catalog.search.fuzzyQueries', '2 of 3', 'row 17 "chiar": items.length expected gte 1, got 0', '6 runs'],
+  ['users.auth.refreshesToken', '2 of 2', 'status expected 200, got 401', '2 runs'],
+  ['orders.history.paginates', '2 of 3', 'page 2 items.length expected 20, got 19', '1 run']
+];
+const SKIPS = [
+  ['orders.checkout.appliesCoupon', 'coupon service flaky on staging, see #212', '15 Nov 2026', false],
+  ['geo.groups.mergesGroups', 'merge endpoint not deployed to staging', '20 Oct 2026', true],
+  ['payments.cards.completes3ds', 'needs the sandbox card issuer, which staging does not have', 'no date', false]
+];
+const SLOW_REQS = [
+  ['GET', '/users?limit=500', 'users.list', '200', 'users.crud.adminSeesAllUsers', '1,140 ms'],
+  ['GET', '/products/search?q=chiar', 'catalog.search', '200', 'catalog.search.fuzzyQueries', '980 ms'],
+  ['POST', '/users/exports', 'users.startExport', '202', 'users.crud.exportFinishes', '640 ms'],
+  ['POST', '/orders', 'orders.place', '201', 'orders.checkout.placesOrder', '412 ms'],
+  ['POST', '/payments/authorizations', 'payments.authorize', '200', 'payments.cards.authorizesVisa', '390 ms'],
+  ['GET', '/orders?page=2', 'orders.list', '200', 'orders.history.paginates', '380 ms']
+];
+
+// The report index lists every test; passed tests beyond the hand-written ones above are listed from the same index.
+const EXTRA_FILES = [
+  ['users.profile', 'Profile', 'profile', 'profiles'], ['users.roles', 'Role', 'role', 'roles'], ['users.search', 'Account', 'account', 'accounts'],
+  ['users.sessions', 'Session', 'session', 'sessions'], ['users.export', 'Export', 'export', 'exports'], ['orders.returns', 'Return', 'return', 'returns'],
+  ['orders.invoices', 'Invoice', 'invoice', 'invoices'], ['orders.shipping', 'Shipment', 'shipment', 'shipments'], ['orders.status', 'StatusChange', 'status change', 'status changes'],
+  ['catalog.inventory', 'StockItem', 'stock item', 'stock items'], ['catalog.categories', 'Category', 'category', 'categories'], ['catalog.images', 'Image', 'image', 'images'],
+  ['catalog.reviews', 'Review', 'review', 'reviews'], ['catalog.prices', 'PriceList', 'price list', 'price lists'], ['carts.items', 'Line', 'cart line', 'cart lines'],
+  ['carts.merge', 'GuestCart', 'guest cart', 'guest carts'], ['carts.expiry', 'IdleCart', 'idle cart', 'idle carts'], ['carts.coupons', 'Coupon', 'coupon', 'coupons'],
+  ['geo.cities', 'City', 'city', 'cities'], ['geo.search', 'Place', 'place', 'places'], ['geo.timezones', 'Timezone', 'timezone', 'timezones'],
+  ['payments.refunds', 'Refund', 'refund', 'refunds'], ['payments.webhooks', 'Webhook', 'webhook', 'webhooks'], ['payments.methods', 'PaymentMethod', 'payment method', 'payment methods'],
+  ['payments.currency', 'ExchangeRate', 'exchange rate', 'exchange rates'], ['payments.limits', 'Limit', 'limit', 'limits'], ['payments.disputes', 'Dispute', 'dispute', 'disputes']
+];
+const NOUNS = {
+  'users.crud': ['User', 'user', 'users'], 'users.reports': ['Report', 'report', 'reports'], 'users.auth': ['Token', 'token', 'tokens'],
+  'orders.checkout': ['Order', 'order', 'orders'], 'orders.history': ['PastOrder', 'past order', 'past orders'], 'catalog.browse': ['Product', 'product', 'products'],
+  'catalog.search': ['Result', 'search result', 'search results'], 'geo.groups': ['Group', 'location group', 'location groups'], 'carts.pricing': ['Cart', 'cart', 'carts'],
+  'payments.cards': ['Card', 'card', 'cards']
+};
+EXTRA_FILES.forEach(([fid, N, n, ns]) => { NOUNS[fid] = [N, n, ns]; FILE_PATHS[fid] = 'services/' + fid.split('.')[0] + '/' + fid.split('.')[1] + '.test.yaml'; });
+// [method, path suffix, status, id pattern, name pattern, check]
+const TEMPLATES = [
+  ['POST', '', 201, 'creates{N}', 'Creates {a} {n}', 'body.schema'],
+  ['GET', '/{id}', 200, 'gets{N}', 'Gets {a} {n} by id', 'id: ${var.{v}Id}'],
+  ['GET', '', 200, 'lists{Ns}', 'Lists {ns} newest first', 'items.length: gte 1'],
+  ['PATCH', '/{id}', 200, 'updates{N}', 'Updates {a} {n}', 'updatedAt: exists'],
+  ['DELETE', '/{id}', 204, 'deletes{N}', 'Deletes {a} {n}', 'body: empty'],
+  ['POST', '', 422, 'rejectsMissingFields', 'Rejects {a} {n} with missing required fields', 'errors.length: gte 1'],
+  ['GET', '/{id}', 404, 'returnsNotFoundForUnknown{N}', 'Returns 404 for an unknown {n}', 'error.code: not_found'],
+  ['GET', '?page=2', 200, 'paginates{Ns}', 'Pages through {ns} 20 at a time', 'items.length: lte 20'],
+  ['GET', '?sort=-createdAt', 200, 'sorts{Ns}ByDate', 'Sorts {ns} by creation date', 'items.every.createdAt: lte previous'],
+  ['GET', '?status=active', 200, 'filters{Ns}ByStatus', 'Filters {ns} by status', 'items.every.status: active'],
+  ['GET', '', 401, 'requiresToken', 'Rejects calls without a token', 'headers.www-authenticate: exists'],
+  ['GET', '/{id}', 404, 'hides{N}FromOtherAccounts', 'Hides {a} {n} from other accounts', 'error.code: not_found'],
+  ['GET', '/{id}', 200, 'returnsEtag', 'Returns an ETag with each {n}', 'headers.etag: exists'],
+  ['PATCH', '/{id}', 412, 'rejectsStaleEtag', 'Rejects an update with a stale ETag', 'error.code: precondition_failed'],
+  ['GET', '?limit=500', 200, 'capsPageSize', 'Caps the page size at 100', 'items.length: lte 100'],
+  ['POST', '', 409, 'rejectsDuplicate{N}', 'Rejects a duplicate {n}', 'error.code: conflict'],
+  ['GET', '?q=…', 200, 'finds{Ns}ByName', 'Finds {ns} by name', 'items[0].name: contains ${var.query}'],
+  ['POST', '', 201, 'trimsWhitespace', 'Trims whitespace from text fields', 'name: ${var.name | trim}'],
+  ['GET', '/{id}', 200, 'matches{N}Schema', '{A} {n} matches its JSON Schema', 'body.schema'],
+  ['POST', '', 413, 'rejectsOversizedBody', 'Rejects a body over 1 MB', 'error.code: payload_too_large'],
+  ['GET', '', 200, 'listsWithin300Ms', 'Answers the list call within 300 ms', 'timing.total: lt 300'],
+  ['POST', '', 201, 'acceptsUnicodeNames', 'Accepts names with accents and non-Latin scripts', 'name: ${var.name}'],
+  ['PUT', '/{id}', 200, 'replaces{N}', 'Replaces {a} {n} with PUT', 'body.match'],
+  ['DELETE', '/{id}', 404, 'deletesTwiceSafely', 'Deleting {a} {n} twice returns 404', 'error.code: not_found'],
+  ['GET', '?fields=id,name', 200, 'returnsSparseFields', 'Returns only the requested fields', 'items[0].createdAt: not exists'],
+  ['POST', '', 400, 'rejectsMalformedJson', 'Rejects malformed JSON', 'error.code: bad_json'],
+  ['GET', '', 200, 'setsCacheHeaders', 'Sets cache headers on the list', 'headers.cache-control: exists'],
+  ['GET', '?page=999', 200, 'returnsEmptyLastPage', 'Returns an empty page past the end', 'items: empty'],
+  ['PATCH', '/{id}', 422, 'rejectsUnknownStatus', 'Rejects an unknown status value', 'errors[0].field: status'],
+  ['GET', '/{id}', 200, 'includesLinks', 'Includes self and collection links', 'links.self: exists'],
+  ['POST', '', 201, 'recordsCreator', 'Records who created the {n}', 'createdBy: ${var.userId}'],
+  ['GET', '', 200, 'reportsTotalCount', 'Reports the total count', 'total: gte 1'],
+  ['POST', '', 201, 'returnsLocationHeader', 'Returns a Location header for a new {n}', 'headers.location: startsWith /'],
+  ['GET', '?since=…', 200, 'lists{Ns}ChangedSince', 'Lists {ns} changed since a date', 'items.every.updatedAt: gte ${var.since}'],
+  ['DELETE', '/{id}', 403, 'memberCannotDelete', 'A member cannot delete {a} {n}', 'error.code: forbidden'],
+  ['GET', '/{id}', 304, 'honoursIfNoneMatch', 'Returns 304 for an unchanged {n}', 'body: empty'],
+  ['POST', '', 201, 'createsWithRequiredFieldsOnly', 'Creates {a} {n} with only required fields', 'body.schema'],
+  ['GET', '?page=1', 200, 'keepsStableOrder', 'Keeps a stable order across pages', 'items.length: 20'],
+  ['POST', '', 429, 'rateLimitsBursts', 'Rate-limits more than 50 calls a second', 'headers.retry-after: exists'],
+  ['GET', '/{id}', 200, 'returnsIsoDates', 'Returns dates in ISO 8601', 'createdAt: format date-time'],
+  ['PATCH', '/{id}', 200, 'ignoresReadOnlyFields', 'Ignores read-only fields on update', 'id: ${var.{v}Id}'],
+  ['GET', '', 200, 'usesProfileCurrency', 'Shows prices in the profile currency', 'currency: ${var.currency}'],
+  ['POST', '', 201, 'honoursIdempotencyKey', 'A repeated request with an Idempotency-Key creates one {n}', 'id: ${var.firstId}'],
+  ['GET', '?q=', 200, 'emptyQueryListsAll', 'An empty query lists everything', 'items.length: gte 1'],
+  ['GET', '?status=unknown', 422, 'rejectsUnknownFilter', 'Rejects an unknown filter value', 'errors[0].field: status'],
+  ['DELETE', '/{id}', 204, 'removesChildren', 'Deleting {a} {n} removes what belongs to it', 'body: empty'],
+  ['GET', '/{id}/history', 200, 'keeps{N}History', 'Keeps a history of {n} changes', 'items.length: gte 1'],
+  ['POST', '', 201, 'storesEmailInLowerCase', 'Stores emails in lower case', 'email: ${var.email | lower}']
+];
+const hashStr = (str) => { let h = 7; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; };
+function listedPassed() {
+  const out = [];
+  const have = new Set(TESTS.map((t) => t[1]));
+  const need = {};
+  FILES.forEach(([fid, , pass]) => { if (NOUNS[fid]) need[fid] = pass - TESTS.filter((t) => t[0] === 'passed' && t[1].indexOf(fid + '.') === 0).length; });
+  EXTRA_FILES.forEach(([fid], i) => { need[fid] = i < 17 ? 8 : 7; });
+  Object.keys(need).forEach((fid) => {
+    const [N, n, ns] = NOUNS[fid];
+    const v = N[0].toLowerCase() + N.slice(1);
+    const Ns = N + (/y$/.test(N) ? '' : 's'); const NsFix = /y$/.test(N) ? N.slice(0, -1) + 'ies' : Ns;
+    const a = /^[aeiou]/.test(n) ? 'an' : 'a';
+    const base = '/' + fid.split('.')[0] + (fid.split('.')[1] === 'crud' ? '' : '/' + fid.split('.')[1]);
+    let k = 0, made = 0;
+    while (made < need[fid] && k < TEMPLATES.length) {
+      const [m, suf, code, idp, namep, check] = TEMPLATES[k++];
+      const id = fid + '.' + idp.replace('{Ns}', NsFix).replace('{N}', N);
+      if (have.has(id)) continue;
+      have.add(id); made++;
+      const ms = 60 + (hashStr(id) % 700);
+      const name = namep.replace('{A}', a === 'an' ? 'An' : 'A').replace('{a}', a).replace('{ns}', ns).replace('{n}', n);
+      out.push(['passed', id, name, ms, '0', '1', '', fid.split('.')[0] + (k <= 3 ? ', smoke' : ''), 'none', '',
+        [['ok', 'status: ' + code, ''], ['ok', check.replace('{v}', v), '']], [[m, base + suf.replace('/{id}', '/{' + v + 'Id}'), code + ' · ' + ms + ' ms']], false]);
+    }
+  });
+  return out;
+}
+const ALL_TESTS = TESTS.concat(listedPassed());
+const PAGE = 50;
+const mcls = (m) => 'm-' + m.toLowerCase();
+const fmtMs = (ms) => (ms === 0 ? '—' : ms >= 1000 ? (ms / 1000).toFixed(1) + ' s' : ms + ' ms');
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { status: 'all', q: '', groupByFile: true, changedOnly: false, open: { 'orders.checkout.placesOrder': true }, loaded: { 'orders.checkout.placesOrder': true }, loading: {}, limit: PAGE, sec: 'summary', copied: '', sideCollapsed: false, moreOpen: false };
+  }
+  copy(text, key) {
+    try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) { /* clipboard unavailable */ }
+    this.setState({ copied: key });
+  }
+  renderVals() {
+    const s = this.state;
+    const q = (s.q || '').trim().toLowerCase();
+    const loadRows = (ids) => {
+      const st = this.state; const need = ids.filter((id) => !(st.loaded || {})[id]);
+      if (!need.length) return {};
+      setTimeout(() => {
+        const lo = Object.assign({}, this.state.loaded), li = Object.assign({}, this.state.loading);
+        need.forEach((id) => { lo[id] = true; li[id] = false; });
+        this.setState({ loaded: lo, loading: li });
+      }, 450);
+      const li = Object.assign({}, st.loading); need.forEach((id) => { li[id] = true; });
+      return { loading: li };
+    };
+    const rows = ALL_TESTS.map((t) => {
+      const [st, id, name, ms, retries, inst, chg, tags, life, err, checks, ex, link] = t;
+      const fileId = id.split('.').slice(0, 2).join('.');
+      const open = !!s.open[id];
+      const nBad = checks.filter((c) => c[0] === 'bad').length;
+      return {
+        st, id, name, fileId, file: FILE_PATHS[fileId], ms, dur: fmtMs(ms), retries, inst, chg, hasChg: !!chg,
+        tags, life, err, hasErr: !!err, link,
+        cls: STATUS[st].cls, label: STATUS[st].label, rank: STATUS[st].rank,
+        diag: st === 'failed' ? 'error' : st === 'skipped' ? 'info' : 'warn',
+        open, openCls: open ? 'open' : '', toggleLabel: (open ? 'Collapse ' : 'Expand ') + id,
+        loading: !!(s.loading || {})[id], ready: !(s.loading || {})[id],
+        page: 'tests/' + id + '.json · ' + (2 + checks.length + ex.length * 2 + (st === 'failed' ? 9 : 0)) + ' KB',
+        toggle: () => {
+          const opening = !this.state.open[id];
+          this.setState(Object.assign({ open: Object.assign({}, this.state.open, { [id]: opening }) }, opening ? loadRows([id]) : {}));
+        },
+        checksHead: checks.length ? `Checks · ${checks.length - nBad} of ${checks.length} passed` : 'Checks · not run',
+        checks: checks.length ? checks.map(([state, label, note]) => ({ dot: state === 'ok' ? 'pass' : state === 'bad' ? 'fail' : 'skip', sr: state === 'ok' ? 'passed' : state === 'bad' ? 'failed' : 'not evaluated', label, note, noteCls: state === 'bad' ? 'bad' : '' })) : [{ dot: 'skip', sr: '', label: 'no checks evaluated', note: '', noteCls: '' }],
+        exHead: ex.length ? 'Exchanges' : 'Exchanges · none sent',
+        ex: ex.map(([m, path, meta]) => ({ m, mcls: mcls(m), path, meta }))
+      };
+    });
+    const match = (r) => (s.status === 'all' || r.st === s.status) && (!s.changedOnly || r.hasChg) &&
+      (!q || (r.id + ' ' + r.name + ' ' + r.file + ' ' + r.tags).toLowerCase().includes(q));
+    const shown = rows.filter(match).sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
+    const limit = s.limit || PAGE;
+    const paged = shown.slice(0, limit);
+    let groups;
+    if (s.groupByFile) {
+      const byFile = {};
+      paged.forEach((r) => { (byFile[r.fileId] = byFile[r.fileId] || []).push(r); });
+      groups = Object.keys(byFile).map((fid) => {
+        const rs = byFile[fid];
+        const counts = {};
+        rs.forEach((r) => { counts[r.label] = (counts[r.label] || 0) + 1; });
+        return { id: fid, path: FILE_PATHS[fid], showHead: true, rows: rs, rank: Math.min(...rs.map((r) => r.rank)),
+          summary: Object.keys(counts).map((k) => counts[k] + ' ' + k.toLowerCase()).join(' · ') };
+      }).sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
+    } else {
+      groups = paged.length ? [{ id: '', path: '', showHead: false, rows: paged, summary: '' }] : [];
+    }
+    const anyOpen = paged.some((r) => r.open);
+    const chipDefs = [['all', 'All', 'none'], ['failed', 'Failed', 'fail'], ['blocked', 'Blocked', 'block'], ['flaky', 'Flaky', 'flaky'], ['skipped', 'Skipped', 'skip'], ['passed', 'Passed', 'pass']];
+    const pick = (k) => () => this.setState({ status: k, limit: PAGE });
+    const chips = chipDefs.map(([k, label, dot]) => ({ label, dot, count: RUN_TOTALS[k], on: s.status === k, cls: s.status === k ? 'on' : '', pick: pick(k) }));
+    const sideStatus = chipDefs.map(([k, label, dot]) => ({ label: k === 'all' ? 'All tests' : label, dot, count: RUN_TOTALS[k], current: s.status === k ? 'true' : 'false', cls: s.status === k ? 'on' : '', pick: pick(k) }));
+    const maxMs = Math.max(...TESTS.map((t) => t[3]));
+    return {
+      copyLabel: s.copied === 'run' ? 'Copied' : 'Copy rerun command',
+      copyFailedLabel: s.copied === 'failed' ? 'Copied' : 'Copy',
+      copyRerun: () => this.copy('vc run --tag smoke,regression --profile staging --seed 7f3a91c2', 'run'),
+      copyFailed: () => this.copy('vc run orders.checkout users.crud.exportFinishes users.reports.monthlyCsv catalog.admin catalog.browse.facetsReflectSeed --profile staging --seed 7f3a91c2', 'failed'),
+      nav: NAV.map(([id, label, count, icon]) => ({ href: '#' + id, label, count, icon, cls: s.sec === id ? 'on' : '', go: () => this.setState({ sec: id }) })),
+      sideStatus, chips,
+      changedOnly: s.changedOnly,
+      changedCount: rows.filter((r) => r.hasChg).length,
+      toggleChanged: (e) => this.setState({ changedOnly: e && e.target ? !!e.target.checked : !this.state.changedOnly, limit: PAGE }),
+      groupByFile: s.groupByFile, flat: !s.groupByFile,
+      toggleGroup: (e) => this.setState({ groupByFile: e && e.target ? !!e.target.checked : !this.state.groupByFile }),
+      groupOn: () => this.setState({ groupByFile: true }), groupOff: () => this.setState({ groupByFile: false }),
+      groupOnCls: s.groupByFile ? 'on' : '', groupOffCls: s.groupByFile ? '' : 'on',
+      q: s.q, onQ: (e) => this.setState({ q: e.target.value, limit: PAGE }),
+      groups, noResults: shown.length === 0,
+      clearFilters: () => this.setState({ status: 'all', q: '', changedOnly: false, limit: PAGE }),
+      toggleAllLabel: anyOpen ? 'Collapse all' : 'Expand all',
+      toggleAll: () => {
+        if (anyOpen) this.setState({ open: {} });
+        else { const o = {}; paged.forEach((r) => { o[r.id] = true; }); this.setState(Object.assign({ open: o }, loadRows(paged.map((r) => r.id)))); }
+      },
+      shownText: `${shown.length} tests · sorted by status, then id`,
+      pageText: shown.length > paged.length ? `Showing ${paged.length} of ${shown.length} · rows load in pages of ${PAGE}` : `Showing all ${shown.length}`,
+      hasMore: shown.length > paged.length, nextCount: Math.min(PAGE, shown.length - paged.length), shownCount: shown.length,
+      showMore: () => this.setState({ limit: limit + PAGE }), showAll: () => this.setState({ limit: shown.length }),
+      appCls: 'app' + (s.sideCollapsed ? ' side-collapsed' : ''), sideOpen: !s.sideCollapsed, sideShut: !!s.sideCollapsed,
+      collapseLabel: s.sideCollapsed ? 'Expand sidebar' : 'Collapse sidebar', toggleSide: () => this.setState({ sideCollapsed: !this.state.sideCollapsed }),
+      moreOpen: !!s.moreOpen, toggleMore: () => this.setState({ moreOpen: !this.state.moreOpen }),
+      changes: CHANGES.map(([dot, title, items]) => ({ dot, title, count: items.length, items: items.map(([id, note]) => ({ id, note })) })),
+      files: FILES.map(([id, tests, pass, fail, block, flaky, skip, dur]) => ({
+        id, path: FILE_PATHS[id] || 'services/** · all passed', tests, pass, fail, block, flaky, skip, dur,
+        failCls: fail ? 'd-bad' : '', blockCls: block ? 'd-warn' : '',
+        aria: `${pass} passed, ${fail} failed, ${block} blocked, ${flaky} flaky, ${skip} skipped`
+      })),
+      apis: APIS.map(([id, m, path, n, codes, p50, p95, err]) => ({
+        id, m, mcls: mcls(m), path, n: n.toLocaleString('en-US'), p50, p95, err: err ? String(err) : '0', errCls: err ? 'd-bad' : 'muted',
+        codes: codes.map(([c, k]) => ({ text: c + ' ×' + k, cls: c[0] === '2' ? 'pass' : c[0] === '5' ? 'fail' : '' }))
+      })),
+      uncalled: UNCALLED.map(([m, path, op, where]) => ({ m, mcls: mcls(m), path, op, where })),
+      life: LIFE.map(([id, call, block, owner, ran, shared, cache, cls, result, clean, cleanCls]) => ({ id, call, block, owner, ran, shared, cache, cls, result, clean, cleanCls })),
+      flakyRows: FLAKY.map(([id, att, err, hist]) => ({ id, att, err, hist })),
+      skipRows: SKIPS.map(([id, reason, until, expired]) => ({ id, reason, until, expired })),
+      slowTests: TESTS.slice().sort((a, b) => b[3] - a[3]).slice(0, 8).map((t) => ({ id: t[1], dur: fmtMs(t[3]), pct: Math.max(2, Math.round((t[3] / maxMs) * 100)) + '%', barCls: t[0] === 'failed' ? 'bad' : 'ok' })),
+      slowReqs: SLOW_REQS.map(([m, path, api, status, test, ms]) => ({ m, mcls: mcls(m), path, api, status, test, ms })),
+      vars: VARS.map(([k, v, src]) => ({ k, v, src }))
+    };
+  }
+}
+</script>
+</body>
+</html>

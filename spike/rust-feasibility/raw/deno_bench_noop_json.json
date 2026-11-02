@@ -1,0 +1,1 @@
+{"engine":"v8-deno_core","mode":"bench","marshal":"JsonText","result":{"iterations":100000,"runs":3,"before_request_ns_runs":[19375.52569,19488.87195,17784.94784],"check_ns_runs":[35008.88997999999,37394.16433,35299.26648],"before_request_ns_median":19375.52569,"check_ns_median":35299.26648}}

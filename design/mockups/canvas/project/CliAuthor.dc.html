@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium CLI · add apis and tests by hand</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.term{box-sizing:border-box;background:#0A0C10;color:#D7DAE0;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid #2C313C;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.bar{height:32px;flex:none;box-sizing:border-box;background:#1A1D24;border-bottom:1px solid #2C313C;position:relative;display:flex;align-items:center;gap:8px;padding:0 14px}
+.dot{width:12px;height:12px;border-radius:50%}
+.btitle{position:absolute;left:0;right:0;text-align:center;color:#8B92A0;font-size:12px;pointer-events:none}
+.body{flex:1;min-height:0;overflow:hidden;padding:14px 18px 16px}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.k{color:#8FB8F0}.s{color:#C9D99A}.t{color:#E8B86D}
+.cur{background:#D7DAE0;color:#0A0C10}
+</style>
+</helmet>
+<div class="term" style="width: 1280px; height: 992px">
+  <div class="bar"><span class="dot" style="background: #F06A5D"></span><span class="dot" style="background: #E5A13A"></span><span class="dot" style="background: #4FC27A"></span><span class="btitle">zsh — shop</span></div>
+  <div class="body">
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc new api users.deactivate --method POST --path /users/{id}/deactivate</div>
+    <div class="ln">  <span class="ok">✓</span> appended api <span class="b">users.deactivate</span> to services/users/users.api.yaml:84</div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="dim"> 84 │</span> - <span class="k">id</span>: <span class="s">deactivate</span></div>
+    <div class="ln">  <span class="dim"> 85 │</span>   <span class="k">name</span>: <span class="s">Deactivate a user</span></div>
+    <div class="ln">  <span class="dim"> 86 │</span>   <span class="k">method</span>: <span class="s">POST</span></div>
+    <div class="ln">  <span class="dim"> 87 │</span>   <span class="k">path</span>: <span class="s">/users/${var.id}/deactivate</span>          <span class="dim"># base URL from the file: ${var.usersUrl}</span></div>
+    <div class="ln">  <span class="dim"> 88 │</span>   <span class="k">vars</span>:</div>
+    <div class="ln">  <span class="dim"> 89 │</span>     <span class="k">id</span>: { <span class="k">type</span>: <span class="s">string</span>, <span class="k">required</span>: <span class="t">true</span> }   <span class="dim"># from the {id} path param</span></div>
+    <div class="ln">  <span class="dim"> 90 │</span>   <span class="k">expect</span>: { <span class="k">status</span>: <span class="t">200</span> }                 <span class="dim"># add body, save or cleanup by hand</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc new api --id users.rename --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v1/users/u_7f3k29qp</div>
+    <div class="ln"><span class="dim">quote&gt;</span> -H "content-type: application/json" -d "{\"displayName\":\"Ada L.\",\"locale\":\"en-GB\"}"'</div>
+    <div class="ln">  <span class="dim">parsed</span>  PATCH /api/v1/users/u_7f3k29qp <span class="dim">· 1 header · JSON body, 2 fields · host matched</span> ${var.usersUrl} <span class="dim">→ users.api.yaml</span></div>
+    <div class="ln">  <span class="ok">✓</span> appended api <span class="b">users.rename</span> to services/users/users.api.yaml:93  <span class="dim">· kept content-type, dropped Authorization (file uses</span> shopOauth<span class="dim">)</span></div>
+    <div class="ln">      <span class="k">path</span>     /users/<span class="s">${var.id}</span>                    <span class="dim">u_7f3k29qp → var id (required)</span></div>
+    <div class="ln">      <span class="k">body</span>     displayName: <span class="s">${var.displayName}</span>     <span class="dim">"Ada L." → var displayName (default)</span></div>
+    <div class="ln">               locale: <span class="s">${var.locale}</span>               <span class="dim">"en-GB"  → var locale (default)</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc new test users.crud.deactivatesUser --from users.deactivate --negative --auth</div>
+    <div class="ln">  <span class="ok">✓</span> wrote <span class="b">4 tests</span> to services/users/users.test.yaml:112  <span class="dim">· bad-enum: none, users.deactivate has no enum vars</span></div>
+    <div class="ln">      <span class="b">deactivatesUser</span>                           <span class="dim">happy path</span>    200 + body.schema schemas/user.json</div>
+    <div class="ln">      <span class="b">deactivatesUserWithoutIdReturns404</span>        <span class="dim">--negative</span>    missing required var id → 404</div>
+    <div class="ln">      <span class="b">rejectsWrongTypeIdReturns400</span>              <span class="dim">--negative</span>    id = 12345 (number, want string) → 400</div>
+    <div class="ln">      <span class="b">rejectsAnonymous</span>                          <span class="dim">--auth</span>        no credentials → 401</div>
+    <div class="ln">  <span class="dim">112 │</span> - <span class="k">id</span>: <span class="s">deactivatesUser</span></div>
+    <div class="ln">  <span class="dim">113 │</span>   <span class="k">name</span>: <span class="s">Deactivating a user marks it inactive</span></div>
+    <div class="ln">  <span class="dim">114 │</span>   <span class="k">before</span>:</div>
+    <div class="ln">  <span class="dim">115 │</span>     - <span class="k">call</span>: <span class="s">users.create</span>                <span class="dim"># its cleanup users.delete runs after the test</span></div>
+    <div class="ln">  <span class="dim">116 │</span>       <span class="k">save</span>: { <span class="k">userId</span>: <span class="s">${response.body.id}</span> }</div>
+    <div class="ln">  <span class="dim">117 │</span>   <span class="k">call</span>: <span class="s">users.deactivate</span></div>
+    <div class="ln">  <span class="dim">118 │</span>   <span class="k">vars</span>: { <span class="k">id</span>: <span class="s">${var.userId}</span> }</div>
+    <div class="ln">  <span class="dim">119 │</span>   <span class="k">expect</span>: { <span class="k">status</span>: <span class="t">200</span>, <span class="k">body.schema</span>: <span class="s">schemas/user.json</span> }</div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc call users.deactivate --var id=u_7f3k29qp --profile staging</div>
+    <div class="ln">  <span class="info">POST</span> https://users.staging.shop.example/api/v1/users/u_7f3k29qp/deactivate  <span class="ok b">200 OK</span> <span class="dim">·</span> 143ms <span class="dim">·</span> 412 B <span class="dim">· auth</span> shopOauth <span class="dim">(cached, 52m left)</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  {</div>
+    <div class="ln">    <span class="k">"id"</span>: <span class="s">"u_7f3k29qp"</span>,</div>
+    <div class="ln">    <span class="k">"email"</span>: <span class="s">"ada.l@example.test"</span>,</div>
+    <div class="ln">    <span class="k">"displayName"</span>: <span class="s">"Ada L."</span>,</div>
+    <div class="ln">    <span class="k">"status"</span>: <span class="s">"inactive"</span>,</div>
+    <div class="ln">    <span class="k">"deactivatedAt"</span>: <span class="s">"2026-10-23T09:14:52Z"</span></div>
+    <div class="ln">  }</div>
+    <div class="ln">  <span class="ok">✓</span> api expect passed  <span class="dim">status 200</span></div>
+    <div class="ln">  <span class="info">hint</span> keep this as a test:  vc call users.deactivate --var id=u_7f3k29qp --save-as-test users.crud.deactivatesKnownUser</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":992}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

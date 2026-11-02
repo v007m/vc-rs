@@ -1,0 +1,420 @@
+<div class="{{appCls}}">
+  <header class="topbar">
+    <a class="brand" href="WebExplorer.dc.html"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"/><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Vibranium</a>
+    <span class="project" title="Project shop, git branch main"><b>shop</b><span class="chip"><svg class="i" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><circle cx="5" cy="3.5" r="1.5"/><circle cx="5" cy="12.5" r="1.5"/><circle cx="11" cy="5.5" r="1.5"/><path d="M5 5v6M11 7c0 2.5-6 2-6 4"/></svg>main</span></span>
+    <label class="profsel">Profile
+      <select value="{{profile}}" onChange="{{onProfile}}" aria-label="Active profile">
+        <sc-for list="{{profiles}}" as="pf" hint-placeholder-count="3"><option value="{{pf.id}}" selected="{{pf.sel}}">{{pf.id}}</option></sc-for>
+      </select>
+    </label>
+    <div class="grow"></div>
+    <label class="search"><svg class="i" width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><input value="{{filter}}" onInput="{{onFilter}}" placeholder="Search tests, apis, files…" aria-label="Search files in this project"><span class="kbd">⌘K</span></label>
+  </header>
+  <div class="frame">
+    <nav class="side" aria-label="Main">
+      <div class="side-head">
+        <button class="iconbtn sidetoggle" type="button" onClick="{{toggleSide}}" aria-label="{{sideToggleLbl}}" title="{{sideToggleLbl}}" aria-expanded="{{sideExp}}"><svg class="{{sideChev}}" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10" rx="2"/><path d="M6 3v10M10.5 6.5 9 8l1.5 1.5"/></svg></button>
+      </div>
+      <div class="gnav">
+        <a class="navitem" href="WebExplorer.dc.html" title="Tests"><svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h1.5M3 8h1.5M3 12h1.5M7 4h6M7 8h6M7 12h6"/></svg><span class="label">Tests</span></a>
+        <a class="navitem" href="WebClient.dc.html" title="API client"><svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 5.5h10l-2.5-2.5M13.5 10.5h-10l2.5 2.5"/></svg><span class="label">API client</span></a>
+        <a class="navitem on" href="WebEditor.dc.html" aria-current="page" title="{{editorNavTitle}}"><svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 13l1-3.5L10.5 3 13 5.5 6.5 12z M9 4.5 11.5 7"/></svg><span class="label">Editor</span><sc-if value="{{hasDirty}}" hint-placeholder-val="{{ false }}"><span class="count">{{dirtyLbl}}</span></sc-if></a>
+        <a class="navitem" href="WebRun.dc.html" title="Runs"><svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M6.8 5.6v4.8L10.4 8z"/></svg><span class="label">Runs</span></a>
+        <a class="navitem" href="WebInsights.dc.html" title="Insights"><svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 13V8M8 13V3M13 13V6"/></svg><span class="label">Insights</span></a>
+        <a class="navitem" href="WebAgents.dc.html" title="AI agents"><svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="5" width="10" height="8" rx="2"/><path d="M8 5V3M6 9h.01M10 9h.01"/></svg><span class="label">AI agents</span></a>
+        <div class="navsep" role="separator"></div>
+        <a class="navitem" href="WebSettings.dc.html" title="Settings"><svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2"/><path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M3.6 12.4l1.2-1.2M11.2 4.8l1.2-1.2"/></svg><span class="label">Settings</span></a>
+      </div>
+      <div class="ctx">
+      <div class="ctxhead">
+        <span class="navlabel">Project files</span>
+        <button class="newbtn" type="button" onClick="{{openNew}}"><svg class="i" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>New…</button>
+      </div>
+      <label class="tfilter"><svg class="i" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><input value="{{filter}}" onInput="{{onFilter}}" placeholder="Filter files" aria-label="Filter files"><sc-if value="{{hasFilter}}" hint-placeholder-val="{{ false }}"><button class="xbtn" type="button" onClick="{{clearFilter}}" aria-label="Clear filter"><svg class="i" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></sc-if></label>
+      <div class="tree">
+        <sc-if value="{{treeEmpty}}" hint-placeholder-val="{{ false }}"><p class="tempty">No files match the filter.</p></sc-if>
+        <sc-for list="{{tree}}" as="t" hint-placeholder-count="12">
+          <sc-if value="{{t.isDir}}" hint-placeholder-val="{{ false }}">
+            <button class="{{t.cls}}" type="button" onClick="{{t.toggle}}" aria-expanded="{{t.exp}}" aria-label="{{t.aria}}"><svg class="i {{t.chev}}" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg><span class="tname">{{t.name}}</span><span class="tcnt">{{t.cnt}}</span></button>
+          </sc-if>
+          <sc-if value="{{t.isFile}}" hint-placeholder-val="{{ true }}">
+            <button class="{{t.cls}}" type="button" onClick="{{t.on}}" aria-label="{{t.aria}}" title="{{t.path}}">
+              <sc-if value="{{t.iCfg}}" hint-placeholder-val="{{ false }}"><svg class="i fi" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5h10M3 11h10"/><circle cx="6" cy="5" r="1.6"/><circle cx="10" cy="11" r="1.6"/></svg></sc-if>
+              <sc-if value="{{t.iYaml}}" hint-placeholder-val="{{ true }}"><svg class="i fi" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2h5l3 3v9H4z M9 2v3h3 M6 8.5h4 M6 11h4"/></svg></sc-if>
+              <sc-if value="{{t.iSnap}}" hint-placeholder-val="{{ false }}"><svg class="i fi" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2h5l3 3v9H4z M9 2v3h3"/></svg></sc-if>
+              <sc-if value="{{t.iJson}}" hint-placeholder-val="{{ false }}"><svg class="i fi" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3c-1.5 0-2 .7-2 2v1.5C4 7.3 3.5 8 2.5 8c1 0 1.5.7 1.5 1.5V11c0 1.3.5 2 2 2M10 3c1.5 0 2 .7 2 2v1.5c0 .8.5 1.5 1.5 1.5-1 0-1.5.7-1.5 1.5V11c0 1.3-.5 2-2 2"/></svg></sc-if>
+              <sc-if value="{{t.iCsv}}" hint-placeholder-val="{{ false }}"><svg class="i fi" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M2.5 6.5h11M2.5 10h11M6.5 3v10"/></svg></sc-if>
+              <sc-if value="{{t.iTs}}" hint-placeholder-val="{{ false }}"><svg class="i fi" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 5 3 8l3 3M10 5l3 3-3 3"/></svg></sc-if>
+              <span class="tname">{{t.name}}</span>
+              <sc-if value="{{t.dirty}}" hint-placeholder-val="{{ false }}"><span class="ddot" aria-hidden="true"></span></sc-if>
+              <sc-if value="{{t.hasDot}}" hint-placeholder-val="{{ false }}"><span class="{{t.dotCls}}" aria-hidden="true"></span></sc-if>
+              <sc-if value="{{t.ro}}" hint-placeholder-val="{{ false }}"><svg class="i fi" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></sc-if>
+            </button>
+          </sc-if>
+        </sc-for>
+      </div>
+      </div>
+    </nav>
+
+    <main class="panel" aria-label="Editor">
+      <div class="etabs" role="tablist" aria-label="Open files">
+        <sc-for list="{{tabs}}" as="tb" hint-placeholder-count="4">
+          <div class="{{tb.cls}}">
+            <button class="etab-b" type="button" role="tab" aria-selected="{{tb.sel}}" onClick="{{tb.on}}" title="{{tb.path}}">{{tb.name}}<sc-if value="{{tb.dirty}}" hint-placeholder-val="{{ false }}"><span class="ddot" aria-label="unsaved" role="img"></span></sc-if><sc-if value="{{tb.hasDot}}" hint-placeholder-val="{{ false }}"><span class="{{tb.dotCls}}" aria-hidden="true"></span></sc-if></button>
+            <button class="etab-x" type="button" onClick="{{tb.close}}" aria-label="{{tb.closeAria}}" title="{{tb.closeAria}}"><svg class="i" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{noFile}}" hint-placeholder-val="{{ false }}">
+        <div class="emptyst">
+          <p class="h2">No file open</p>
+          <p>Pick a file in the project tree, or create one that follows the naming conventions.</p>
+          <button class="btn primary" type="button" onClick="{{openNew}}">New…</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{hasFile}}" hint-placeholder-val="{{ true }}">
+        <div class="ehead">
+          <div class="epath">
+            <span class="pth" title="{{dir}}{{base}}"><span class="dirp">{{dir}}</span>{{base}}</span>
+            <span class="pill accent">{{kindLbl}}</span>
+            <sc-if value="{{ro}}" hint-placeholder-val="{{ false }}"><span class="pill"><svg class="i" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>read-only</span></sc-if>
+            <span class="{{statusCls}}">{{status}}</span>
+          </div>
+          <div class="ectl">
+            <div class="seg" role="group" aria-label="Editor view">
+              <sc-for list="{{segs}}" as="sg" hint-placeholder-count="3"><button type="button" class="{{sg.cls}}" aria-pressed="{{sg.pressed}}" onClick="{{sg.on}}" disabled="{{sg.dis}}" title="{{sg.title}}">{{sg.l}}</button></sc-for>
+            </div>
+            <button class="{{diffCls}}" type="button" onClick="{{toggleDiff}}" aria-pressed="{{diffPressed}}" title="{{diffTitle}}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2.5v7M2 6h6M8.5 12h5"/></svg>Diff<sc-if value="{{hasDiffN}}" hint-placeholder-val="{{ false }}"><span class="dplus">{{diffAdd}}</span><span class="dminus">{{diffDel}}</span></sc-if></button>
+            <button class="btn sm" type="button" onClick="{{onRevert}}" disabled="{{revertDis}}" title="{{revertTitle}}" aria-label="{{revertTitle}}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6h6a3 3 0 0 1 0 6H6M4 6l2.5-2.5M4 6l2.5 2.5"/></svg>Revert</button>
+            <sc-if value="{{isTestFile}}" hint-placeholder-val="{{ true }}"><button class="btn sm" type="button" onClick="{{onRun}}" title="{{runTitle}}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z"/></svg>{{runLbl}}</button></sc-if>
+            <button class="{{saveCls}}" type="button" onClick="{{onSave}}" disabled="{{saveDis}}" title="{{saveTitle}}" aria-label="{{saveTitle}}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3h8l2 2v8H3z M5.5 3v3h4V3 M5 13V9.5h6V13"/></svg>Save</button>
+          </div>
+        </div>
+
+        <sc-if value="{{blocked}}" hint-placeholder-val="{{ false }}">
+          <div class="banner err" role="alert">
+            <svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/></svg>
+            <span class="grow">{{blockedMsg}}</span>
+            <button class="btn sm" type="button" onClick="{{closeBlocked}}">Dismiss</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{hasRun}}" hint-placeholder-val="{{ false }}">
+          <div class="{{runCls}}" role="status">
+            <div class="runres-h">
+              <span class="{{runPillCls}}">{{runPill}}</span>
+              <span class="grow">{{runText}}</span>
+              <button class="btn sm ghost" type="button" onClick="{{closeRun}}">Dismiss</button>
+            </div>
+            <div class="rls">
+              <sc-for list="{{runLines}}" as="rl" hint-placeholder-count="3"><span class="{{rl.cls}}"><sc-if value="{{rl.ok}}" hint-placeholder-val="{{ true }}"><svg class="i" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></sc-if><sc-if value="{{rl.bad}}" hint-placeholder-val="{{ false }}"><svg class="i" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></sc-if>{{rl.txt}}</span></sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <div class="ebody">
+          <sc-if value="{{showDiff}}" hint-placeholder-val="{{ false }}">
+            <section class="diffv" aria-label="Changes since the last save">
+              <div class="diff-bar">
+                <span>{{diffHead}}</span>
+                <div class="seg wideonly" role="group" aria-label="Diff layout">
+                  <button type="button" class="{{uniCls}}" aria-pressed="{{uniPressed}}" onClick="{{setUni}}">Unified</button>
+                  <button type="button" class="{{sbsCls}}" aria-pressed="{{sbsPressed}}" onClick="{{setSbs}}">Side by side</button>
+                </div>
+              </div>
+              <div class="diff-scroll">
+                <sc-if value="{{diffEmpty}}" hint-placeholder-val="{{ false }}"><p class="empty" style="padding: 12px 16px">Nothing changed. Edit the form or the source and the changes appear here, line by line.</p></sc-if>
+                <sc-if value="{{diffModeUni}}" hint-placeholder-val="{{ false }}">
+                  <div><sc-for list="{{uni}}" as="d" hint-placeholder-count="6"><sc-if value="{{d.isGap}}" hint-placeholder-val="{{ false }}"><div class="dgap">{{d.txt}}</div></sc-if><sc-if value="{{d.isLn}}" hint-placeholder-val="{{ true }}"><div class="{{d.cls}}"><span class="dn">{{d.a}}</span><span class="dn">{{d.b}}</span><span class="ds">{{d.sign}}</span><span class="dt">{{d.text}}</span></div></sc-if></sc-for></div>
+                </sc-if>
+                <sc-if value="{{diffModeSbs}}" hint-placeholder-val="{{ true }}">
+                  <div class="sbs sbs-wide"><sc-for list="{{sbs}}" as="d" hint-placeholder-count="6"><sc-if value="{{d.isGap}}" hint-placeholder-val="{{ false }}"><div class="dgap">{{d.txt}}</div></sc-if><sc-if value="{{d.isLn}}" hint-placeholder-val="{{ true }}"><div class="{{d.lcls}} l"><span class="dn">{{d.la}}</span><span class="dt">{{d.lt}}</span></div><div class="{{d.rcls}}"><span class="dn">{{d.rb}}</span><span class="dt">{{d.rt}}</span></div></sc-if></sc-for></div>
+                  <div class="sbs-narrow"><sc-for list="{{uni}}" as="d" hint-placeholder-count="6"><sc-if value="{{d.isGap}}" hint-placeholder-val="{{ false }}"><div class="dgap">{{d.txt}}</div></sc-if><sc-if value="{{d.isLn}}" hint-placeholder-val="{{ true }}"><div class="{{d.cls}}"><span class="dn">{{d.a}}</span><span class="dn">{{d.b}}</span><span class="ds">{{d.sign}}</span><span class="dt">{{d.text}}</span></div></sc-if></sc-for></div>
+                </sc-if>
+              </div>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{showEditor}}" hint-placeholder-val="{{ true }}">
+            <div class="{{panesCls}}">
+              <sc-if value="{{showForm}}" hint-placeholder-val="{{ true }}">
+                <section class="pane-form" aria-label="Form">
+                  <sc-if value="{{parseErr}}" hint-placeholder-val="{{ false }}">
+                    <div class="diag error pe-banner" role="alert">
+                      <svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/></svg>
+                      <span style="flex: 1 1 260px">YAML has a syntax error on line {{parseErrLine}}; fix it in YAML view. The form shows again as soon as the file parses. ({{parseErrMsg}})</span>
+                      <button class="btn sm" type="button" onClick="{{goParseErr}}">Show line {{parseErrLine}}</button>
+                    </div>
+                  </sc-if>
+                  <div class="fwrap">
+                    <sc-if value="{{hasNav}}" hint-placeholder-val="{{ true }}">
+                      <nav class="fnav" aria-label="{{navLbl}}">
+                        <span class="fnav-h">{{navLbl}}</span>
+                        <sc-for list="{{fnav}}" as="n" hint-placeholder-count="6">
+                          <div class="{{n.cls}}">
+                            <button class="fnav-b" type="button" onClick="{{n.on}}" title="{{n.l}}"><span class="fnav-l"><sc-if value="{{n.hasM}}" hint-placeholder-val="{{ false }}"><span class="{{n.mcls}}">{{n.m}}</span></sc-if><span class="fnav-t">{{n.l}}</span><sc-if value="{{n.hasPill}}" hint-placeholder-val="{{ false }}"><span class="{{n.pillCls}}">{{n.pill}}</span></sc-if><sc-if value="{{n.hasDot}}" hint-placeholder-val="{{ false }}"><span class="{{n.dotCls}}" role="img" aria-label="{{n.dotLbl}}"></span></sc-if></span><span class="{{n.subCls}}">{{n.sub}}</span></button>
+                            <sc-if value="{{n.hasBtns}}" hint-placeholder-val="{{ false }}">
+                              <div class="fnav-btns">
+                                <sc-for list="{{n.btns}}" as="b"><button class="iconbtn sm" type="button" onClick="{{b.on}}" disabled="{{b.dis}}" aria-label="{{b.aria}}" title="{{b.aria}}"><sc-if value="{{b.isUp}}" hint-placeholder-val="{{ false }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M4 7l4-4 4 4"/></svg></sc-if><sc-if value="{{b.isDown}}" hint-placeholder-val="{{ false }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M4 9l4 4 4-4"/></svg></sc-if><sc-if value="{{b.isDup}}" hint-placeholder-val="{{ false }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M3 10.5V4a1 1 0 0 1 1-1h6.5"/></svg></sc-if><sc-if value="{{b.isDel}}" hint-placeholder-val="{{ false }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg></sc-if></button></sc-for>
+                              </div>
+                            </sc-if>
+                          </div>
+                        </sc-for>
+                        <sc-if value="{{hasNavAdd}}" hint-placeholder-val="{{ true }}"><button class="btn sm fnav-add" type="button" onClick="{{navAddOn}}"><svg class="i" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>{{navAddLbl}}</button></sc-if>
+                      </nav>
+                    </sc-if>
+                    <div class="{{formMainCls}}" id="form-main">
+                      <sc-for list="{{fsecs}}" as="s" hint-placeholder-count="3">
+                        <section class="{{s.cls}}" id="{{s.fid}}" aria-label="{{s.title}}">
+                          <sc-if value="{{s.hasHead}}" hint-placeholder-val="{{ true }}">
+                            <div class="fsec-h">
+                              <h3 class="{{s.mono}}">{{s.title}}</h3>
+                              <sc-if value="{{s.hasPill}}" hint-placeholder-val="{{ false }}"><span class="{{s.pillCls}}">{{s.pill}}</span></sc-if>
+                              <sc-if value="{{s.hasSub}}" hint-placeholder-val="{{ true }}"><span class="fsec-sub">{{s.sub}}</span></sc-if>
+                              <sc-if value="{{s.hasBtns}}" hint-placeholder-val="{{ false }}">
+                                <div class="fsec-btns">
+                                  <sc-for list="{{s.btns}}" as="b"><button class="iconbtn sm" type="button" onClick="{{b.on}}" disabled="{{b.dis}}" aria-label="{{b.aria}}" title="{{b.aria}}"><sc-if value="{{b.isUp}}" hint-placeholder-val="{{ false }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M4 7l4-4 4 4"/></svg></sc-if><sc-if value="{{b.isDown}}" hint-placeholder-val="{{ false }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M4 9l4 4 4-4"/></svg></sc-if><sc-if value="{{b.isDup}}" hint-placeholder-val="{{ false }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M3 10.5V4a1 1 0 0 1 1-1h6.5"/></svg></sc-if><sc-if value="{{b.isDel}}" hint-placeholder-val="{{ false }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg></sc-if></button></sc-for>
+                                </div>
+                              </sc-if>
+                            </div>
+                          </sc-if>
+                          <div class="rows">
+                            <sc-for list="{{s.rows}}" as="r" hint-placeholder-count="4">
+                              <sc-if value="{{r.isText}}" hint-placeholder-val="{{ true }}">
+                                <div class="{{r.cls}}">
+                                  <label class="flbl" for="{{r.fid}}">{{r.lbl}}</label>
+                                  <div class="cwrap">
+                                    <div class="irow">
+                                      <input id="{{r.fid}}" class="{{r.icls}}" type="{{r.type}}" value="{{r.val}}" placeholder="{{r.ph}}" onInput="{{r.on}}" onKeyDown="{{r.kd}}" onBlur="{{r.bl}}" autocomplete="off" spellcheck="false">
+                                      <sc-if value="{{r.hasBtn}}" hint-placeholder-val="{{ false }}"><button class="btn sm" type="button" onClick="{{r.btnOn}}" title="{{r.btnT}}">{{r.btnL}}</button></sc-if>
+                                    </div>
+                                    <sc-if value="{{r.compOpen}}" hint-placeholder-val="{{ false }}">
+                                      <div class="popover comp" role="listbox" aria-label="Suggestions"><sc-for list="{{r.compItems}}" as="ci"><button type="button" class="{{ci.cls}}" role="option" onMouseDown="{{ci.pick}}" onClick="{{ci.pick}}"><sc-if value="{{ci.hasM}}" hint-placeholder-val="{{ false }}"><span class="{{ci.mcls}}">{{ci.m}}</span></sc-if><span class="ol">{{ci.l}}</span><span class="od">{{ci.d}}</span></button></sc-for></div>
+                                    </sc-if>
+                                  </div>
+                                  <sc-if value="{{r.hasHelp}}" hint-placeholder-val="{{ false }}"><span class="{{r.hcls}}">{{r.help}}</span></sc-if>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{r.isSelect}}" hint-placeholder-val="{{ false }}">
+                                <div class="{{r.cls}}">
+                                  <label class="flbl" for="{{r.fid}}">{{r.lbl}}</label>
+                                  <select id="{{r.fid}}" class="{{r.icls}}" value="{{r.val}}" onChange="{{r.on}}"><sc-for list="{{r.opts}}" as="o"><option value="{{o.v}}" selected="{{o.sel}}">{{o.l}}</option></sc-for></select>
+                                  <sc-if value="{{r.hasHelp}}" hint-placeholder-val="{{ false }}"><span class="{{r.hcls}}">{{r.help}}</span></sc-if>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{r.isCheck}}" hint-placeholder-val="{{ false }}">
+                                <div class="{{r.cls}}">
+                                  <label class="chkl"><input type="checkbox" id="{{r.fid}}" checked="{{r.chk}}" onChange="{{r.on}}">{{r.lbl}}</label>
+                                  <sc-if value="{{r.hasHelp}}" hint-placeholder-val="{{ false }}"><span class="help">{{r.help}}</span></sc-if>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{r.isTable}}" hint-placeholder-val="{{ false }}">
+                                <div class="{{r.cls}}" id="{{r.fid}}">
+                                  <div class="tlbl"><span class="flbl">{{r.lbl}}</span><span class="fsub">{{r.sub}}</span></div>
+                                  <sc-if value="{{r.empty}}" hint-placeholder-val="{{ false }}"><p class="empty">{{r.emptyTxt}}</p></sc-if>
+                                  <div class="tgrid" style="grid-template-columns: {{r.gcols}}">
+                                    <sc-if value="{{r.hasHeads}}" hint-placeholder-val="{{ false }}"><sc-for list="{{r.heads}}" as="h"><span class="th">{{h.t}}</span></sc-for></sc-if>
+                                    <sc-for list="{{r.items}}" as="it" hint-placeholder-count="2">
+                                      <sc-for list="{{it.cells}}" as="cl" hint-placeholder-count="2">
+                                        <div class="{{cl.wcls}}" data-h="{{cl.h}}">
+                                          <sc-if value="{{cl.isIn}}" hint-placeholder-val="{{ true }}"><input id="{{cl.fid}}" class="{{cl.icls}}" value="{{cl.val}}" placeholder="{{cl.ph}}" aria-label="{{cl.aria}}" title="{{cl.title}}" onInput="{{cl.on}}" onKeyDown="{{cl.kd}}" onBlur="{{cl.bl}}" autocomplete="off" spellcheck="false"></sc-if>
+                                          <sc-if value="{{cl.isSel}}" hint-placeholder-val="{{ false }}"><select id="{{cl.fid}}" class="{{cl.icls}}" value="{{cl.val}}" onChange="{{cl.on}}" aria-label="{{cl.aria}}" title="{{cl.title}}"><sc-for list="{{cl.opts}}" as="o"><option value="{{o.v}}" selected="{{o.sel}}">{{o.l}}</option></sc-for></select></sc-if>
+                                          <sc-if value="{{cl.isStatic}}" hint-placeholder-val="{{ false }}"><span>{{cl.txt}}</span></sc-if>
+                                          <sc-if value="{{cl.isRange}}" hint-placeholder-val="{{ false }}"><input id="{{cl.fid}}" type="range" min="{{cl.min}}" max="{{cl.max}}" value="{{cl.val}}" onInput="{{cl.on}}" aria-label="{{cl.aria}}"><output>{{cl.out}}</output></sc-if>
+                                          <sc-if value="{{cl.compOpen}}" hint-placeholder-val="{{ false }}">
+                                            <div class="popover comp" role="listbox" aria-label="Suggestions"><sc-for list="{{cl.compItems}}" as="ci"><button type="button" class="{{ci.cls}}" role="option" onMouseDown="{{ci.pick}}" onClick="{{ci.pick}}"><sc-if value="{{ci.hasM}}" hint-placeholder-val="{{ false }}"><span class="{{ci.mcls}}">{{ci.m}}</span></sc-if><span class="ol">{{ci.l}}</span><span class="od">{{ci.d}}</span></button></sc-for></div>
+                                          </sc-if>
+                                        </div>
+                                      </sc-for>
+                                      <button class="iconbtn sm" type="button" onClick="{{it.del}}" aria-label="{{it.delAria}}" title="{{it.delAria}}"><svg class="i" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+                                    </sc-for>
+                                  </div>
+                                  <sc-if value="{{r.hasErrs}}" hint-placeholder-val="{{ false }}"><div class="terrs"><sc-for list="{{r.errs}}" as="er"><span class="{{er.cls}}">{{er.txt}}</span></sc-for></div></sc-if>
+                                  <sc-if value="{{r.hasAdd}}" hint-placeholder-val="{{ true }}"><div class="tfoot"><button class="btn sm ghost addb" type="button" onClick="{{r.add}}"><svg class="i" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>{{r.addLbl}}</button></div></sc-if>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{r.isGrid}}" hint-placeholder-val="{{ false }}">
+                                <div class="{{r.cls}}">
+                                  <span class="flbl">{{r.lbl}}</span>
+                                  <div class="scrollx gridbox">
+                                    <table class="tbl egrid">
+                                      <thead><tr>
+                                        <sc-if value="{{r.hasFirst}}" hint-placeholder-val="{{ true }}"><th class="num">{{r.firstHead}}</th></sc-if>
+                                        <sc-for list="{{r.cols}}" as="cc" hint-placeholder-count="3"><th><div class="thc">
+                                          <sc-if value="{{cc.isEdit}}" hint-placeholder-val="{{ true }}"><input id="{{cc.fid}}" class="{{cc.icls}}" value="{{cc.val}}" aria-label="{{cc.aria}}" onInput="{{cc.on}}" onBlur="{{cc.bl}}" autocomplete="off" spellcheck="false"></sc-if>
+                                          <sc-if value="{{cc.isStaticHead}}" hint-placeholder-val="{{ false }}"><span class="thname">{{cc.name}}</span></sc-if>
+                                          <sc-if value="{{cc.isRadio}}" hint-placeholder-val="{{ false }}"><label class="rad"><input type="radio" name="{{cc.rName}}" checked="{{cc.rChk}}" onChange="{{cc.rOn}}">{{cc.rLbl}}</label></sc-if>
+                                          <sc-if value="{{cc.hasDel}}" hint-placeholder-val="{{ false }}"><button class="iconbtn xs" type="button" onClick="{{cc.del}}" aria-label="{{cc.delAria}}" title="{{cc.delAria}}"><svg class="i" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></sc-if>
+                                        </div></th></sc-for>
+                                        <th><span class="sr" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Row actions</span></th>
+                                      </tr></thead>
+                                      <tbody>
+                                        <sc-for list="{{r.rows}}" as="rw" hint-placeholder-count="3"><tr>
+                                          <sc-if value="{{r.hasFirst}}" hint-placeholder-val="{{ true }}"><td class="num subtle">{{rw.n}}</td></sc-if>
+                                          <sc-for list="{{rw.cells}}" as="ce" hint-placeholder-count="3"><td><input id="{{ce.fid}}" class="{{ce.icls}}" value="{{ce.val}}" placeholder="{{ce.ph}}" aria-label="{{ce.aria}}" title="{{ce.title}}" onInput="{{ce.on}}" onBlur="{{ce.bl}}" autocomplete="off" spellcheck="false"></td></sc-for>
+                                          <td><sc-if value="{{rw.hasDel}}" hint-placeholder-val="{{ true }}"><button class="iconbtn sm" type="button" onClick="{{rw.del}}" aria-label="{{rw.delAria}}" title="{{rw.delAria}}"><svg class="i" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></sc-if></td>
+                                        </tr></sc-for>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                  <div class="tfoot">
+                                    <button class="btn sm ghost addb" type="button" onClick="{{r.addRow}}"><svg class="i" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>{{r.addRowLbl}}</button>
+                                    <sc-if value="{{r.hasAddCol}}" hint-placeholder-val="{{ true }}"><button class="btn sm ghost addb" type="button" onClick="{{r.addCol}}"><svg class="i" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>{{r.addColLbl}}</button></sc-if>
+                                  </div>
+                                  <sc-if value="{{r.hasNote}}" hint-placeholder-val="{{ false }}"><span class="help">{{r.note}}</span></sc-if>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{r.isSeg}}" hint-placeholder-val="{{ false }}">
+                                <div class="{{r.cls}}">
+                                  <span class="flbl">{{r.lbl}}</span>
+                                  <div><div class="seg" role="group" aria-label="{{r.lbl}}"><sc-for list="{{r.opts}}" as="o"><button type="button" class="{{o.cls}}" aria-pressed="{{o.pressed}}" onClick="{{o.on}}" title="{{o.title}}">{{o.l}}</button></sc-for></div></div>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{r.isCode}}" hint-placeholder-val="{{ false }}">
+                                <div class="{{r.cls}}">
+                                  <label class="flbl" for="{{r.fid}}">{{r.lbl}}</label>
+                                  <textarea id="{{r.fid}}" class="{{r.icls}}" rows="{{r.rows}}" value="{{r.val}}" onInput="{{r.on}}" onBlur="{{r.bl}}" spellcheck="false"></textarea>
+                                  <sc-if value="{{r.hasHelp}}" hint-placeholder-val="{{ false }}"><span class="{{r.hcls}}">{{r.help}}</span></sc-if>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{r.isAdds}}" hint-placeholder-val="{{ false }}">
+                                <div class="{{r.cls}} adds"><sc-for list="{{r.btns}}" as="b"><button class="btn sm ghost addb" type="button" onClick="{{b.on}}" title="{{b.title}}">{{b.l}}</button></sc-for></div>
+                              </sc-if>
+                              <sc-if value="{{r.isChips}}" hint-placeholder-val="{{ false }}">
+                                <div class="{{r.cls}}"><span class="flbl">{{r.lbl}}</span><div class="chips"><sc-for list="{{r.chips}}" as="cp"><span class="{{cp.cls}}" title="{{cp.title}}">{{cp.t}}</span></sc-for></div></div>
+                              </sc-if>
+                              <sc-if value="{{r.isNote}}" hint-placeholder-val="{{ false }}"><p class="{{r.cls}}">{{r.txt}}</p></sc-if>
+                              <sc-if value="{{r.isRamp}}" hint-placeholder-val="{{ false }}">
+                                <div class="{{r.cls}}">
+                                  <svg class="ramp" viewBox="{{r.vb}}" preserveAspectRatio="none" role="img" aria-label="{{r.desc}}"><polygon class="ra" points="{{r.area}}"></polygon><polyline class="rl" points="{{r.pts}}"></polyline></svg>
+                                  <span class="ramp-cap">{{r.total}}</span>
+                                </div>
+                              </sc-if>
+                            </sc-for>
+                          </div>
+                        </section>
+                      </sc-for>
+                    </div>
+                  </div>
+                </section>
+              </sc-if>
+
+              <sc-if value="{{showSrc}}" hint-placeholder-val="{{ false }}">
+                <section class="pane-src" aria-label="Source">
+                  <div class="src-bar"><span>{{srcHint}}</span><sc-if value="{{hasEngine}}" hint-placeholder-val="{{ true }}"><span>parser: {{engine}}</span></sc-if></div>
+                  <div class="src-wrap">
+                    <div class="src-scroll" id="src-scroll">
+                      <div class="src-inner" style="{{innerStyle}}">
+                        <div class="src-lines" aria-hidden="{{srcHide}}"><sc-for list="{{lines}}" as="ln" hint-placeholder-count="20"><div class="{{ln.cls}}"><span class="{{ln.gut}}">{{ln.no}}</span><span class="code-t"><sc-for list="{{ln.toks}}" as="tk"><span class="{{tk.c}}">{{tk.t}}</span></sc-for></span><sc-if value="{{ln.hasLens}}" hint-placeholder-val="{{ false }}"><span class="{{ln.lensCls}}">{{ln.lens}}</span></sc-if></div></sc-for></div>
+                        <sc-if value="{{srcEditable}}" hint-placeholder-val="{{ true }}"><textarea id="src-ta" class="src-ta" style="{{taStyle}}" wrap="off" spellcheck="false" autocomplete="off" aria-label="{{srcLabel}}" value="{{src}}" onInput="{{onSrcInput}}" onKeyDown="{{onSrcKey}}" onKeyUp="{{onSrcCaret}}" onClick="{{onSrcCaret}}" onBlur="{{onSrcBlur}}"></textarea></sc-if>
+                        <sc-if value="{{srcComp}}" hint-placeholder-val="{{ false }}">
+                          <div class="popover comp srcpop" style="{{srcCompStyle}}" role="listbox" aria-label="Suggestions"><sc-for list="{{srcItems}}" as="ci"><button type="button" class="{{ci.cls}}" role="option" onMouseDown="{{ci.pick}}" onClick="{{ci.pick}}"><sc-if value="{{ci.hasM}}" hint-placeholder-val="{{ false }}"><span class="{{ci.mcls}}">{{ci.m}}</span></sc-if><span class="ol">{{ci.l}}</span><span class="od">{{ci.d}}</span></button></sc-for></div>
+                        </sc-if>
+                      </div>
+                    </div>
+                    <sc-if value="{{hasAside}}" hint-placeholder-val="{{ false }}">
+                      <aside class="src-aside" aria-label="{{asideTitle}}">
+                        <h3 class="h3">{{asideTitle}}</h3>
+                        <sc-for list="{{aside}}" as="ai"><div class="ai"><b>{{ai.t}}</b><span class="muted">{{ai.s}}</span></div></sc-for>
+                      </aside>
+                    </sc-if>
+                  </div>
+                </section>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+
+        <section class="probs" aria-label="Problems">
+          <div class="probs-h">
+            <button class="probs-t" type="button" onClick="{{toggleProb}}" aria-expanded="{{probExp}}"><svg class="i {{probChev}}" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>Problems<span class="{{errBadge}}">{{errLbl}}</span><span class="{{warnBadge}}">{{warnLbl}}</span></button>
+            <span class="muted" style="font-size: 12px">Recomputed on every change, like vc check</span>
+          </div>
+          <sc-if value="{{probOpen}}" hint-placeholder-val="{{ true }}">
+            <div class="probs-list">
+              <sc-if value="{{noProblems}}" hint-placeholder-val="{{ false }}"><p class="pnone"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>No problems in this file.</p></sc-if>
+              <sc-for list="{{problems}}" as="pb" hint-placeholder-count="2">
+                <div class="{{pb.cls}}">
+                  <button class="prob-go" type="button" onClick="{{pb.go}}" aria-label="{{pb.goAria}}"><sc-if value="{{pb.isErr}}" hint-placeholder-val="{{ true }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/></svg></sc-if><sc-if value="{{pb.isWarn}}" hint-placeholder-val="{{ false }}"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5l6 11H2z M8 6.5v3M8 11.5h.01"/></svg></sc-if><span class="pmsg">{{pb.msg}}</span><span class="ploc">{{pb.loc}}</span></button>
+                  <sc-for list="{{pb.fixes}}" as="fx"><button class="btn sm" type="button" onClick="{{fx.on}}">{{fx.l}}</button></sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </section>
+      </sc-if>
+    </main>
+  </div>
+
+  <sc-if value="{{dlgOpen}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal newdlg" role="dialog" aria-modal="true" aria-labelledby="nd-title">
+        <div class="md-h"><h2 class="h2" id="nd-title">New</h2><button class="iconbtn" type="button" onClick="{{closeDlg}}" aria-label="Close"><svg class="i" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div>
+        <div class="md-b">
+          <div class="seg kinds" role="group" aria-label="What to create"><sc-for list="{{dlg.kinds}}" as="k" hint-placeholder-count="7"><button type="button" class="{{k.cls}}" aria-pressed="{{k.pressed}}" onClick="{{k.on}}">{{k.l}}</button></sc-for></div>
+          <div class="ndgrid">
+            <sc-if value="{{dlg.isTest}}" hint-placeholder-val="{{ true }}">
+              <label class="field">Test file<select class="select" value="{{dlg.file}}" onChange="{{dlg.onFile}}"><sc-for list="{{dlg.fileOpts}}" as="o"><option value="{{o.v}}" selected="{{o.sel}}">{{o.l}}</option></sc-for></select></label>
+              <label class="field">Start from an api (happy path)<select class="select" onChange="{{dlg.onFromApi}}"><sc-for list="{{dlg.apiOpts}}" as="o"><option value="{{o.v}}" selected="{{o.sel}}">{{o.l}}</option></sc-for></select></label>
+            </sc-if>
+            <sc-if value="{{dlg.showSvc}}" hint-placeholder-val="{{ false }}">
+              <label class="field">Service<select class="select" onChange="{{dlg.onSvc}}"><sc-for list="{{dlg.svcOpts}}" as="o"><option value="{{o.v}}" selected="{{o.sel}}">{{o.l}}</option></sc-for></select></label>
+              <sc-if value="{{dlg.newSvc}}" hint-placeholder-val="{{ false }}"><label class="field">New service name<input class="input mono" value="{{dlg.newService}}" onInput="{{dlg.onNewSvc}}" onKeyDown="{{dlg.onKey}}" placeholder="invoices"></label></sc-if>
+            </sc-if>
+            <sc-if value="{{dlg.showArea}}" hint-placeholder-val="{{ false }}"><label class="field">Area<input class="input mono" value="{{dlg.area}}" onInput="{{dlg.onArea}}" onKeyDown="{{dlg.onKey}}" placeholder="{{dlg.areaPh}}"></label></sc-if>
+            <sc-if value="{{dlg.isLoad}}" hint-placeholder-val="{{ false }}"><label class="field">Scenario<input class="input mono" value="{{dlg.scenario}}" onInput="{{dlg.onScenario}}" onKeyDown="{{dlg.onKey}}" placeholder="peak"></label></sc-if>
+            <label class="field wide">{{dlg.nameLbl}}<input class="input" value="{{dlg.name}}" onInput="{{dlg.onName}}" onKeyDown="{{dlg.onKey}}" placeholder="{{dlg.namePh}}"></label>
+            <sc-if value="{{dlg.showId}}" hint-placeholder-val="{{ true }}">
+              <div class="field">
+                <label for="nd-id">Id</label>
+                <div class="irow"><input id="nd-id" class="{{dlg.idCls}}" value="{{dlg.idVal}}" onInput="{{dlg.onId}}" onKeyDown="{{dlg.onKey}}" placeholder="derived from the name"><sc-if value="{{dlg.canReset}}" hint-placeholder-val="{{ false }}"><button class="btn sm" type="button" onClick="{{dlg.resetId}}">Derive again</button></sc-if></div>
+                <span class="help">{{dlg.idHelp}}</span>
+                <sc-if value="{{dlg.hasSugg}}" hint-placeholder-val="{{ false }}"><button class="btn sm" type="button" onClick="{{dlg.useSugg}}">Use {{dlg.sugg}}</button></sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{dlg.isApi}}" hint-placeholder-val="{{ false }}">
+              <label class="field narrow">Method<select class="select" onChange="{{dlg.onMethod}}"><sc-for list="{{dlg.methodOpts}}" as="o"><option value="{{o.v}}" selected="{{o.sel}}">{{o.l}}</option></sc-for></select></label>
+              <label class="field">Path<input class="input mono" value="{{dlg.apiPath}}" onInput="{{dlg.onApiPath}}" onKeyDown="{{dlg.onKey}}" placeholder="/exports/${var.jobId}"></label>
+            </sc-if>
+            <sc-if value="{{dlg.isDataset}}" hint-placeholder-val="{{ false }}"><label class="field wide">Columns<input class="input mono" value="{{dlg.columns}}" onInput="{{dlg.onColumns}}" onKeyDown="{{dlg.onKey}}" placeholder="name, country, population"></label></sc-if>
+            <sc-if value="{{dlg.isHook}}" hint-placeholder-val="{{ false }}">
+              <label class="field">Hook file<select class="select" onChange="{{dlg.onHookFile}}"><sc-for list="{{dlg.hookOpts}}" as="o"><option value="{{o.v}}" selected="{{o.sel}}">{{o.l}}</option></sc-for></select></label>
+              <sc-if value="{{dlg.newHook}}" hint-placeholder-val="{{ false }}"><label class="field">Purpose<input class="input mono" value="{{dlg.purpose}}" onInput="{{dlg.onPurpose}}" onKeyDown="{{dlg.onKey}}" placeholder="pricing"></label></sc-if>
+            </sc-if>
+          </div>
+          <div class="well tgt">
+            <span><span class="muted">Writes to </span><span class="mono">{{dlg.target}}</span> <span class="pill">{{dlg.targetNote}}</span></span>
+            <sc-if value="{{dlg.hasFull}}" hint-placeholder-val="{{ true }}"><span><span class="muted">Full id </span><span class="mono">{{dlg.fullId}}</span></span></sc-if>
+            <sc-if value="{{dlg.hasPreview}}" hint-placeholder-val="{{ false }}"><span class="prev">{{dlg.preview}}</span></sc-if>
+          </div>
+          <sc-if value="{{dlg.hasErrs}}" hint-placeholder-val="{{ false }}"><ul class="errlist" role="alert"><sc-for list="{{dlg.errs}}" as="e"><li>{{e.t}}</li></sc-for></ul></sc-if>
+          <sc-if value="{{dlg.hasNotes}}" hint-placeholder-val="{{ false }}"><ul class="notelist"><sc-for list="{{dlg.notes}}" as="e"><li>{{e.t}}</li></sc-for></ul></sc-if>
+        </div>
+        <div class="md-f">
+          <button class="btn" type="button" onClick="{{closeDlg}}">Cancel</button>
+          <button class="btn primary" type="button" onClick="{{dlg.create}}" disabled="{{dlg.createDis}}" title="{{dlg.createTitle}}">{{dlg.createLbl}}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{confirmOpen}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="cf-title" style="width: min(460px, 100%)">
+        <div class="md-h"><h2 class="h2" id="cf-title">Close {{confirmName}}?</h2></div>
+        <div class="md-b"><p style="margin: 0">It has unsaved changes. Save them, discard them, or keep editing.</p></div>
+        <div class="md-f">
+          <button class="btn" type="button" onClick="{{confirmCancel}}">Keep editing</button>
+          <button class="btn" type="button" onClick="{{confirmDiscard}}">Discard changes</button>
+          <button class="btn primary" type="button" onClick="{{confirmSave}}" disabled="{{confirmSaveDis}}" title="{{confirmSaveTitle}}">Save and close</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+    <div class="{{toastCls}}" role="status"><svg class="i" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg><div class="tb"><span class="tm">{{toast.msg}}</span><span class="ts">{{toast.sub}}</span></div><button class="xbtn" type="button" onClick="{{closeToast}}" aria-label="Dismiss"><svg class="i" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div>
+  </sc-if>
+</div>

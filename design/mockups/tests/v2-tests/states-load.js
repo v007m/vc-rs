@@ -1,0 +1,14 @@
+const path = require('path');
+const { loadComponent } = require('./load');
+const { makeRenderer } = require('./render');
+const ART = path.resolve(__dirname, '../vibmock/project/ReportLoad.dc.html');
+const { Component, timers } = loadComponent(ART);
+const r = makeRenderer(ART, path.join(__dirname, 'shots-load'));
+const c = new Component({});
+let v = c.renderVals();
+r.save('l01-initial', v);
+v.toggleSide(); r.save('l02-collapsed', c.renderVals()); c.renderVals().toggleSide();
+v = c.renderVals(); v.errRows[0].toggle(); v = c.renderVals(); if (!v.errRows[0].loading) throw new Error('no loading'); r.save('l03-loading', v);
+timers.flush(); v = c.renderVals(); v.stages[1].pick(); r.save('l04-samples', c.renderVals());
+v = c.renderVals(); v.showErrApi(); v = c.renderVals(); v.errRows[0].toggle(); timers.flush(); v = c.renderVals(); v.toggleMore(); v.lgRps.toggle(); r.save('l05-api-more', c.renderVals());
+const errs = r.errors(); console.log(errs.length ? errs.slice(0, 20).join('\n') : 'holes ok in all states');

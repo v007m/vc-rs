@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium TUI · import a HAR</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.pane{border:1px solid #2C313C;border-radius:4px;position:relative;padding:14px 12px 10px;box-sizing:border-box;min-width:0;overflow:visible}
+.pane.focus{border-color:#A99BFF}
+.ptitle{position:absolute;top:-9px;left:10px;background:#0F1115;padding:0 6px;color:#A99BFF;font-weight:700}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.k{color:#8FB8F0}.s{color:#C9D99A}.t{color:#E8B86D}
+.sel{background:#252A36}
+.edit{background:#1C2029;outline:1px solid #A99BFF}
+.g{display:inline-block;width:1ch;text-align:center}
+.cur{background:#D7DAE0;color:#0F1115}
+.key{display:inline-block;background:#2C313C;color:#D7DAE0;padding:0 5px;border-radius:3px;margin-right:4px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; background: #0F1115; color: #D7DAE0; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+
+  <div class="ln" style="display: flex; justify-content: space-between"><span><span class="vio b"><span class="g">◆</span> vibranium</span>  shop  <span class="dim">profile</span> staging  <span class="dim">Explore ›</span> import har  <span class="dim">~/Downloads/checkout-session.har · 46 entries</span></span><span><span class="dim">1 Run</span>  <span class="sel" style="padding: 0 8px">2 Explore</span>  <span class="dim">3 History</span>  <span class="dim">4 Load</span></span></div>
+
+  <div class="ln" style="border: 1px solid #A99BFF; border-radius: 4px; padding: 4px 10px"><span class="vio"><span class="g">→</span></span> 13 requests <span class="dim"><span class="g">→</span></span> 8 apis <span class="dim">in</span> 4 files  <span class="dim">·</span> flow <span class="b">orders.checkout.recordedCheckout</span> <span class="dim">· 6 steps ·</span> <span class="warn">3 secrets removed</span>  <span class="dim">· nothing written until</span> enter</div>
+
+  <div style="flex: 1; display: grid; grid-template-columns: 376px minmax(0, 1fr) 440px; gap: 14px; min-height: 0">
+
+    <div class="pane focus">
+      <span class="ptitle">HAR entries · 46</span>
+      <div class="ln"><span class="dim">hide</span>  <span class="vio"><span class="g">▣</span></span> static <span class="dim">21</span>  <span class="vio"><span class="g">▣</span></span> 3rd-party <span class="dim">6</span>  <span class="vio"><span class="g">▣</span></span> OPTIONS <span class="dim">5</span></div>
+      <div class="ln"><span class="dim">14 of 46 shown · 13 selected · by host</span></div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim"><span class="g">▾</span></span> <span class="b">users.staging.shop.example</span>        <span class="dim">2</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 07 GET  /users/u_7f3k29qp       <span class="ok">200</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 08 GET  /users/u_7f…/addresses  <span class="ok">200</span></div>
+      <div class="ln"><span class="dim"><span class="g">▾</span></span> <span class="b">carts.staging.shop.example</span>        <span class="dim">6</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 12 POST /carts                  <span class="ok">201</span></div>
+      <div class="ln sel">  <span class="ok">[x]</span> 15 POST /carts/c_4Hq9Lm/items   <span class="ok">201</span> <span class="info">×3</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 18 POST <span class="dim">/carts/c_4Hq9Lm/items</span>   <span class="ok">201</span> <span class="dim"><span class="g">↳</span>15</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 21 POST <span class="dim">/carts/c_4Hq9Lm/items</span>   <span class="ok">201</span> <span class="dim"><span class="g">↳</span>15</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 22 GET  /carts/c_4Hq9Lm         <span class="ok">200</span> <span class="info">×2</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 30 GET  <span class="dim">/carts/c_4Hq9Lm</span>         <span class="ok">200</span> <span class="dim"><span class="g">↳</span>22</span></div>
+      <div class="ln"><span class="dim"><span class="g">▾</span></span> <span class="b">payments.staging.shop.example</span>     <span class="dim">2</span></div>
+      <div class="ln">  <span class="dim">[ ]</span> <span class="dim">27</span> <span class="dim">GET</span>  <span class="dim">/payment-methods</span>        <span class="dim">200</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 32 POST /authorizations<span class="warn">?api_key</span> <span class="ok">201</span></div>
+      <div class="ln"><span class="dim"><span class="g">▾</span></span> <span class="b">orders.staging.shop.example</span>       <span class="dim">4</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 35 POST /orders                 <span class="ok">201</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 38 GET  /orders/ord_9Tk2Px      <span class="ok">200</span> <span class="info">×3</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 41 GET  <span class="dim">/orders/ord_9Tk2Px</span>      <span class="ok">200</span> <span class="dim"><span class="g">↳</span>38</span></div>
+      <div class="ln">  <span class="ok">[x]</span> 44 GET  <span class="dim">/orders/ord_9Tk2Px</span>      <span class="ok">200</span> <span class="dim"><span class="g">↳</span>38</span></div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim"><span class="g">▸</span> 21 static assets  .js .css .woff2 .png</span></div>
+      <div class="ln"><span class="dim"><span class="g">▸</span> 6 third-party     analytics, chat widget</span></div>
+      <div class="ln"><span class="dim"><span class="g">▸</span> 5 OPTIONS         CORS preflights</span></div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim"><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span></span></div>
+      <div class="ln"><span class="b">13 selected</span> <span class="dim"><span class="g">→</span></span> 8 apis <span class="dim">(</span><span class="ok">5 new</span> <span class="dim">·</span> 3 match<span class="dim">)</span></div>
+      <div class="ln"><span class="dim">27 unchecked: no later request uses it</span></div>
+    </div>
+
+    <div class="pane">
+      <span class="ptitle">Mapping · entry 15</span>
+      <div class="ln"><span class="info b">POST</span> carts.staging.shop.example</div>
+      <div class="ln">     /api/v1/carts/c_4Hq9Lm/items  <span class="ok">201</span> <span class="dim">92ms</span></div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim">file</span>     services/carts/carts.api.yaml</div>
+      <div class="ln">         <span class="ok">new file</span> <span class="dim">· id carts · from the host</span></div>
+      <div class="ln"><span class="dim">baseUrl</span>  <span class="s">${var.cartsUrl}</span>/api/v1</div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim">id</span>       carts.<span class="edit">addItem</span><span class="cur"> </span></div>
+      <div class="ln">         <span class="ok"><span class="g">✓</span></span> camelCase  <span class="ok"><span class="g">✓</span></span> verb first  <span class="ok"><span class="g">✓</span></span> unique</div>
+      <div class="ln">         <span class="dim">rule: &lt;file id&gt;.&lt;verb&gt;&lt;Thing&gt;</span></div>
+      <div class="ln">         <span class="dim">like carts.create, users.startExport</span></div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim">params</span>   <span class="dim">path</span> c_4Hq9Lm   <span class="g">→</span> <span class="s">${var.cartId}</span></div>
+      <div class="ln">         <span class="dim">      saved from entry 12 body.id</span></div>
+      <div class="ln">         <span class="dim">body</span> sku <span class="s">"SKU-1042"</span> <span class="g">→</span> <span class="s">${var.sku}</span></div>
+      <div class="ln">         <span class="dim">    </span> quantity <span class="t">1</span> <span class="g">→</span> <span class="s">${var.quantity | int}</span></div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim">merge</span>    <span class="info">×3</span> with entries 18, 21</div>
+      <div class="ln">         <span class="dim">same method and path; only sku differs</span></div>
+      <div class="ln">         <span class="dim"><span class="g">→</span> one api; the flow step uses</span> <span class="k">forEach</span></div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim">matches</span>  <span class="dim">none: carts has no api file yet</span></div>
+      <div class="ln">         <span class="dim">matched by method + path template, e.g.</span></div>
+      <div class="ln">         <span class="dim">entry 35 <span class="g">→</span></span> orders.place <span class="dim">(existing)</span></div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim">secrets</span>  <span class="warn">Authorization: Bearer</span> <span class="g">→</span> auth <span class="b">shopOauth</span></div>
+      <div class="ln">         <span class="warn">Cookie: session</span> <span class="g">→</span> dropped</div>
+      <div class="ln"> </div>
+      <div class="ln"><span class="dim">expect</span>   <span class="k">status</span>: <span class="t">201</span> <span class="dim">(all 3 recorded)</span></div>
+    </div>
+
+    <div style="display: grid; grid-template-rows: minmax(0, 1fr) 286px; gap: 14px; min-height: 0">
+      <div class="pane">
+        <span class="ptitle">services/carts/carts.api.yaml · new</span>
+        <div class="ln"><span class="dim"> 1</span> <span class="k">id</span>: <span class="s">carts</span></div>
+        <div class="ln"><span class="dim"> 2</span> <span class="k">name</span>: <span class="s">Carts</span></div>
+        <div class="ln"><span class="dim"> 3</span> <span class="k">baseUrl</span>: <span class="s">${var.cartsUrl}/api/v1</span></div>
+        <div class="ln"><span class="dim"> 4</span> <span class="k">auth</span>: <span class="s">shopOauth</span></div>
+        <div class="ln"><span class="dim"> 5</span> <span class="k">apis</span>:</div>
+        <div class="ln"><span class="dim"> 6</span>   - { <span class="k">id</span>: <span class="s">create</span>, <span class="k">method</span>: <span class="s">POST</span>, <span class="k">path</span>: <span class="s">/carts</span> }</div>
+        <div class="ln sel"><span class="dim"> 7</span>   - <span class="k">id</span>: <span class="s">addItem</span></div>
+        <div class="ln sel"><span class="dim"> 8</span>     <span class="k">name</span>: <span class="s">Add item</span></div>
+        <div class="ln sel"><span class="dim"> 9</span>     <span class="k">method</span>: <span class="s">POST</span></div>
+        <div class="ln sel"><span class="dim">10</span>     <span class="k">path</span>: <span class="s">/carts/${var.cartId}/items</span></div>
+        <div class="ln sel"><span class="dim">11</span>     <span class="k">vars</span>: { <span class="k">sku</span>: <span class="s">SKU-1042</span>, <span class="k">quantity</span>: <span class="t">1</span> }</div>
+        <div class="ln sel"><span class="dim">12</span>     <span class="k">body</span>:</div>
+        <div class="ln sel"><span class="dim">13</span>       <span class="k">sku</span>: <span class="s">${var.sku}</span></div>
+        <div class="ln sel"><span class="dim">14</span>       <span class="k">quantity</span>: <span class="s">${var.quantity | int}</span></div>
+        <div class="ln sel"><span class="dim">15</span>     <span class="k">expect</span>: { <span class="k">status</span>: <span class="t">201</span> }</div>
+        <div class="ln"><span class="dim">16</span>   - { <span class="k">id</span>: <span class="s">get</span>, <span class="k">path</span>: <span class="s">/carts/${var.cartId}</span> }</div>
+        <div class="ln"><span class="dim">new file · 3 apis · no secrets, no cookies</span></div>
+      </div>
+      <div class="pane">
+        <span class="ptitle">checkout.test.yaml · flow preview</span>
+        <div class="ln"><span class="dim">142</span> - <span class="k">id</span>: <span class="s">recordedCheckout</span></div>
+        <div class="ln"><span class="dim">143</span>   <span class="k">name</span>: <span class="s">Recorded checkout (HAR)</span></div>
+        <div class="ln"><span class="dim">144</span>   <span class="k">standalone</span>: <span class="t">true</span></div>
+        <div class="ln"><span class="dim">145</span>   <span class="k">vars</span>: { <span class="k">skus</span>: [<span class="s">SKU-1042</span>, <span class="s">SKU-2210</span>, <span class="s">SKU-0087</span>] }</div>
+        <div class="ln"><span class="dim">146</span>   <span class="k">steps</span>:</div>
+        <div class="ln"><span class="dim">147</span>     - { <span class="k">id</span>: <span class="s">cart</span>, <span class="k">call</span>: <span class="s">carts.create</span> }</div>
+        <div class="ln sel"><span class="dim">148</span>     - { <span class="k">id</span>: <span class="s">items</span>, <span class="k">call</span>: <span class="s">carts.addItem</span>,</div>
+        <div class="ln sel"><span class="dim">149</span>         <span class="k">forEach</span>: <span class="s">${var.skus}</span> }</div>
+        <div class="ln"><span class="dim">150</span>     - { <span class="k">id</span>: <span class="s">review</span>, <span class="k">call</span>: <span class="s">carts.get</span> }</div>
+        <div class="ln"><span class="dim">151</span>     - { <span class="k">id</span>: <span class="s">authorize</span>, <span class="k">call</span>: <span class="s">payments.authorize</span> }</div>
+        <div class="ln"><span class="dim">152</span>     - { <span class="k">id</span>: <span class="s">place</span>, <span class="k">call</span>: <span class="s">orders.place</span> }</div>
+        <div class="ln"><span class="dim">153</span>     - { <span class="k">id</span>: <span class="s">fetch</span>, <span class="k">call</span>: <span class="s">orders.get</span>, <span class="k">poll</span>: <span class="s">…</span> }</div>
+        <div class="ln"><span class="dim">saves: cartId, cartTotal, paymentToken, orderId</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ln dim"><span class="key">↑↓</span>move <span class="key">space</span>toggle <span class="key">e</span>edit id <span class="key">m</span>merge <span class="key">/</span>filter <span class="key">1-3</span>hide groups <span class="key">tab</span>switch pane <span class="key">enter</span>import <span class="key">?</span>help <span class="key">esc</span>cancel</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

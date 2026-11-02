@@ -1,0 +1,8 @@
+Found 20 mutants to test
+ok       Unmutated baseline in 19s build + 0s test
+MISSED   crates/engine/src/scheduler.rs:27:62: replace * with + in run in 2s build + 0s test
+MISSED   crates/engine/src/scheduler.rs:27:62: replace * with / in run in 0s build + 0s test
+MISSED   crates/engine/src/scheduler.rs:47:34: replace += with -= in collect in 1s build + 0s test
+MISSED   crates/engine/src/scheduler.rs:47:34: replace += with *= in collect in 0s build + 0s test
+20 mutants tested in 43s: 4 missed, 11 caught, 5 unviable
+exit=2 secs=44

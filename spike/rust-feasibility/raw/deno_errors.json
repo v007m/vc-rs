@@ -1,0 +1,1 @@
+{"engine":"v8-deno_core","mode":"errors","marshal":"Direct","result":{"kind":"Thrown","message":"TypeError: Cannot read properties of undefined (reading 'reduce')\n    at total (file:///home/claude/vibranium-spike/rust-feasibility/parta/hooks/throws.ts:7:16)\n    at totalIsPositive (file:///home/claude/vibranium-spike/rust-feasibility/parta/hooks/throws.ts:12:10)"}}

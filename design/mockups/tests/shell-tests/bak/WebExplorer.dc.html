@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium · Tests</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/1e69a6d642232c67587a282225e98669">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+sc-for,sc-if{display:contents}
+.dot.accent{background:var(--accent)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.navrow,.ctx,.ctxsec{display:flex;flex-direction:column;gap:2px}
+.ctxsec .navitem{height:30px;font-size:13px}
+.navitem .sw{width:16px;display:inline-flex;justify-content:center}
+.navitem .tagh{color:var(--ink3);font-family:var(--mono);font-size:12px}
+.topsel{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2)}
+.topsel select{height:30px;border:0;border-radius:8px;background:var(--hover);padding:0 8px;font:500 12.5px var(--font);color:var(--ink)}
+.popwrap{position:relative}
+.popwrap .popover{position:absolute;top:calc(100% + 6px);z-index:40}
+.pophead{padding:8px 10px 4px;font-size:11.5px;font-weight:600;color:var(--ink2)}
+.popnote{padding:6px 10px 8px;font-size:12px;color:var(--ink2);line-height:1.45}
+.avatar{width:32px;height:32px;border-radius:50%;border:0;background:var(--ink);color:#fff;font:600 13px var(--font);cursor:pointer}
+.qbox{display:flex;align-items:center;gap:10px;height:48px;padding:0 8px 0 14px;border:1px solid var(--line2);border-radius:12px;background:var(--panel)}
+.qbox:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentSoft)}
+.qbox input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:500 14.5px var(--mono);color:var(--ink)}
+.hints{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--ink2)}
+.hint{border:0;background:var(--panel3);border-radius:6px;height:24px;padding:0 8px;font:12px var(--mono);color:var(--ink);cursor:pointer}
+.hint:hover{background:var(--accentSoft);color:var(--accentInk)}
+.hint b{font-weight:500;color:var(--accentInk)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:28px}
+.chip{display:inline-flex;align-items:center;gap:2px;height:26px;padding:0 2px 0 9px;border-radius:999px;background:var(--accentSoft);color:var(--accentInk);font:500 12px var(--mono)}
+.chip .k{color:var(--ink2)}
+.chip.bad{background:var(--blockSoft);color:var(--block)}
+.chip button{width:22px;height:22px;border:0;border-radius:50%;background:transparent;color:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.chip button:hover{background:rgba(27,24,48,.08)}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 20px;border-top:1px solid var(--line)}
+.tlabel{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2)}
+.tlabel .select{height:30px;width:auto;font-size:12.5px}
+.work{display:flex;flex-wrap:wrap;border-top:1px solid var(--line);min-width:0}
+.list{flex:999 1 640px;min-width:0;height:820px;overflow:auto;position:relative}
+.detail{flex:1 1 400px;min-width:0;height:820px;overflow:auto;border-left:1px solid var(--line)}
+.lin{min-width:720px}
+.rgrid{display:grid;grid-template-columns:22px minmax(220px,2.2fr) minmax(150px,1.3fr) minmax(140px,1.2fr) 92px 58px;column-gap:14px;align-items:center;padding:0 18px}
+.lhead{position:sticky;top:0;z-index:3;background:var(--panel);height:36px;border-bottom:1px solid var(--line);font-size:12px;color:var(--ink2);font-weight:500}
+.ghead{position:sticky;top:36px;z-index:2;display:flex;align-items:center;gap:10px;height:34px;padding:0 18px;background:var(--panel2);border-bottom:1px solid var(--line);font-size:12px;color:var(--ink2)}
+.ghead b{font:600 12.5px var(--mono);color:var(--ink)}
+.trow{min-height:54px;border-bottom:1px solid var(--line)}
+.trow:hover{background:var(--panel2)}
+.trow.on{background:var(--accentSoft)}
+.trow.picked{background:#F6F4FE}
+.cb{display:inline-flex;align-items:center}
+.cb input{width:16px;height:16px;margin:0;accent-color:var(--accent);cursor:pointer}
+.tname{border:0;background:transparent;text-align:left;padding:8px 0;cursor:pointer;font:inherit;color:inherit;display:flex;flex-direction:column;gap:3px;min-width:0}
+.tname .id{font:600 12.5px var(--mono);display:flex;align-items:center;gap:7px;color:var(--ink)}
+.tname .nm{font-size:12.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.fcell{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:12px}
+.fcell .f{font:12px var(--mono);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tagrow{display:flex;flex-wrap:wrap;gap:4px}
+.tg{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:5px;background:var(--panel3);color:var(--ink2);font:11.5px var(--mono)}
+.tg.new{background:var(--accentSoft);color:var(--accentInk)}
+.acell{display:flex;flex-direction:column;gap:3px;min-width:0}
+.aline{display:flex;align-items:center;gap:6px;font:11.5px var(--mono);color:var(--ink);white-space:nowrap;overflow:hidden}
+.aline .method{min-width:44px;height:18px;font-size:10.5px}
+.more{font-size:11.5px;color:var(--ink2)}
+.med{text-align:right;font:12.5px var(--mono);font-variant-numeric:tabular-nums}
+.empty{padding:48px 20px;text-align:center;color:var(--ink2);display:flex;flex-direction:column;gap:10px;align-items:center}
+.tnode{display:flex;align-items:center;gap:8px;width:100%;min-height:34px;border:0;border-bottom:1px solid var(--line);background:transparent;font:inherit;color:var(--ink);text-align:left;cursor:pointer;padding-right:18px}
+.tnode:hover{background:var(--panel2)}
+.tnode.on{background:var(--accentSoft)}
+.tnode .chev{transition:transform .15s;color:var(--ink2)}
+.tnode .chev.open{transform:rotate(90deg)}
+.tnode .cnt{margin-left:auto;font-size:12px;color:var(--ink2)}
+.bulk{position:sticky;bottom:14px;z-index:4;margin:14px auto 14px;width:max-content;max-width:calc(100% - 28px);display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--ink);color:#fff;border-radius:12px;padding:6px 6px 6px 14px;box-shadow:0 10px 30px rgba(27,24,48,.28);font-size:13px}
+.bbtn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:8px;border:0;background:rgba(255,255,255,.13);color:#fff;font:500 12.5px var(--font);text-decoration:none;cursor:pointer;white-space:nowrap}
+.bbtn:hover{background:rgba(255,255,255,.22);color:#fff}
+.bbtn.lite{background:#fff;color:var(--ink)}
+.bbtn.lite:hover{background:#ECE9F7;color:var(--ink)}
+.dsec{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.dsec:last-child{border-bottom:0}
+.dtitle{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.lc{display:grid;grid-template-columns:86px minmax(0,1fr);gap:4px 12px;font-size:12.5px;align-items:baseline}
+.lc .w{font:11.5px var(--mono);color:var(--ink2)}
+.lc .c{font:12px var(--mono)}
+.lc .n{grid-column:2;font-size:12px;color:var(--ink2);margin-top:-2px}
+.lc .c.fail{color:var(--fail)}
+.apil{display:flex;flex-direction:column;gap:2px}
+.apil a{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;text-decoration:none;color:var(--ink);font:12px var(--mono)}
+.apil a:hover{background:var(--panel2);color:var(--ink)}
+.apil .p{color:var(--ink2);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bars{display:flex;align-items:flex-end;gap:4px;height:64px;padding-top:4px}
+.bars span{flex:1;border-radius:3px 3px 0 0;min-height:3px}
+.b-P{background:#7FBF9C}.b-F{background:var(--fail)}.b-B{background:#D9A64A}.b-S{background:#CFCBDB}.b-K{background:#6E95DB}
+.runl{display:grid;grid-template-columns:52px 74px minmax(0,1fr) 56px;gap:4px 10px;font-size:12.5px;align-items:center}
+.runl .r{font:12px var(--mono)}
+.runl .d{text-align:right;font:12px var(--mono)}
+.meter{height:6px;border-radius:3px;background:var(--panel3);overflow:hidden}
+.meter span{display:block;height:6px;background:var(--flaky);border-radius:3px}
+.modal .mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px 12px}
+.modal .mb{padding:4px 22px 18px;display:flex;flex-direction:column;gap:14px}
+.modal .mf{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--line);flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:14px}
+.radios{display:flex;flex-direction:column;gap:4px}
+.radio{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);font-size:12.5px;color:var(--ink);cursor:pointer;font-weight:400}
+.radio.on{border-color:var(--accent);background:var(--accentSoft)}
+.radio input{accent-color:var(--accent);margin:0}
+.idline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font:12.5px var(--mono)}
+.sugg{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--fail)}
+.conv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:12px;color:var(--ink2)}
+.conv code{font:12px var(--mono);color:var(--ink)}
+.toast{position:sticky;bottom:14px;z-index:5;margin:0 auto 14px;width:max-content;max-width:calc(100% - 28px);display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line2);box-shadow:0 8px 24px rgba(27,24,48,.16);border-radius:10px;padding:6px 6px 6px 14px;font-size:13px}
+@media (max-width:1100px){
+  .list{height:auto;max-height:640px}
+  .detail{height:auto;border-left:0;border-top:1px solid var(--line)}
+}
+@media (max-width:860px){
+  .app .side{flex-direction:column;overflow:visible}
+  .app .side .navrow,.app .side .ctx{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .ctxsec{flex-direction:row;flex:none;gap:4px}
+  .toolbar{padding:10px 14px}
+}
+</style>
+</helmet>
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="WebExplorer.dc.html"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"/><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Vibranium</a>
+    <div class="popwrap">
+      <button class="btn ghost sm" type="button" aria-expanded="{{projOpen}}" onClick="{{toggleProj}}">shop <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button>
+      <sc-if value="{{projOpen}}" hint-placeholder-val="{{ false }}">
+        <div class="popover" style="left: 0">
+          <div class="pophead">Project</div>
+          <button class="opt on" type="button" onClick="{{toggleProj}}"><span class="mono">shop</span><span class="subtle" style="margin-left: auto">~/code/shop · main</span></button>
+          <div class="popnote">Run <span class="mono">vc web</span> in another folder to open that project.</div>
+        </div>
+      </sc-if>
+    </div>
+    <label class="topsel"><span>Profile</span>
+      <select value="{{profile}}" onChange="{{setProfile}}"><option value="dev">dev</option><option value="staging">staging</option><option value="prod">prod</option></select>
+    </label>
+    <div class="grow"></div>
+    <label class="search"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.75"/><path d="m10.5 10.5 3.5 3.5"/></svg><span class="sr">Search tests, apis, files</span><input type="search" placeholder="Search tests, apis, files…" value="{{q}}" onInput="{{onQuery}}"><span class="kbd">⌘K</span></label>
+    <a class="btn primary" href="WebRun.dc.html"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3v10l8.5-5z"/></svg>Run</a>
+    <div class="popwrap">
+      <button class="avatar" type="button" aria-label="Account: Sarath" aria-expanded="{{meOpen}}" onClick="{{toggleMe}}">S</button>
+      <sc-if value="{{meOpen}}" hint-placeholder-val="{{ false }}">
+        <div class="popover" style="right: 0">
+          <div class="pophead">Sarath</div>
+          <div class="popnote">Signed in as your git user. Agent approvals and skips you make here are recorded under this name.</div>
+        </div>
+      </sc-if>
+    </div>
+  </header>
+
+  <div class="frame">
+    <div class="side">
+      <nav class="navrow" aria-label="Main">
+        <a class="navitem on" href="WebExplorer.dc.html" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 4.5 1.5 1.5 2.5-3M2.5 11l1.5 1.5 2.5-3M9 5h4.5M9 11.5h4.5"/></svg>Tests<span class="count">412</span></a>
+        <a class="navitem" href="WebClient.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h9M8 4.5 11.5 8 8 11.5M14 3v10"/></svg>API client</a>
+        <a class="navitem" href="WebEditor.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13H3v-3zM9 4l3 3"/></svg>Editor</a>
+        <a class="navitem" href="WebRun.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M6.5 5.5v5l4-2.5z"/></svg>Runs</a>
+        <a class="navitem" href="WebInsights.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 13.5h11M4.5 11V8M8 11V4M11.5 11V6.5"/></svg>Insights</a>
+        <a class="navitem" href="WebAgents.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="10" height="8" rx="2"/><path d="M8 2.5V5M6 8.5v1.5M10 8.5v1.5"/></svg>Agents<span class="count">3</span></a>
+      </nav>
+      <div class="ctx">
+        <section class="ctxsec" aria-label="Saved views">
+          <div class="navlabel">Saved views</div>
+          <sc-for list="{{views}}" as="v" hint-placeholder-count="6">
+            <button class="navitem {{v.cls}}" type="button" aria-pressed="{{v.on}}" onClick="{{v.pick}}"><span class="sw"><span class="dot {{v.dot}}"></span></span>{{v.label}}<span class="count">{{v.count}}</span></button>
+          </sc-for>
+        </section>
+        <section class="ctxsec" aria-label="Services">
+          <div class="navlabel">Services</div>
+          <sc-for list="{{services}}" as="v" hint-placeholder-count="6">
+            <button class="navitem {{v.cls}}" type="button" aria-pressed="{{v.on}}" onClick="{{v.pick}}"><span class="sw"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2.5 4.5h4l1.5 1.5h5.5v6.5h-11z"/></svg></span>{{v.label}}<span class="count">{{v.count}}</span></button>
+          </sc-for>
+        </section>
+        <section class="ctxsec" aria-label="Tags">
+          <div class="navlabel">Tags</div>
+          <sc-for list="{{tagViews}}" as="v" hint-placeholder-count="8">
+            <button class="navitem {{v.cls}}" type="button" aria-pressed="{{v.on}}" onClick="{{v.pick}}"><span class="sw tagh">#</span>{{v.label}}<span class="count">{{v.count}}</span></button>
+          </sc-for>
+        </section>
+      </div>
+    </div>
+
+    <main class="panel" aria-labelledby="pg-title">
+      <div class="panel-head">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+          <h1 class="h1" id="pg-title" style="font-size: 19px">Tests</h1>
+          <div class="muted" style="font-size: 12.5px">412 tests in 38 files · last run <a href="Main.dc.html">#482</a> on staging, 2 h ago · 6 failed, 4 blocked</div>
+        </div>
+        <div class="grow"></div>
+        <a class="btn" href="WebRun.dc.html"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5v3h-3"/></svg>Re-run 10 not passing</a>
+        <button class="btn accent" type="button" onClick="{{openNew}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>New test</button>
+      </div>
+
+      <div style="padding: 16px 20px 12px; display: flex; flex-direction: column; gap: 10px">
+        <label class="qbox">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#4F4B66" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.75"/><path d="m10.5 10.5 3.5 3.5"/></svg>
+          <span class="sr">Filter tests with query syntax</span>
+          <input type="text" spellcheck="false" autocomplete="off" placeholder="status:failed tag:smoke api:orders.place file:checkout name:&quot;coupon&quot;" value="{{q}}" onInput="{{onQuery}}">
+          <sc-if value="{{hasQuery}}" hint-placeholder-val="{{ false }}">
+            <button class="btn ghost sm" type="button" onClick="{{clearQuery}}">Clear</button>
+          </sc-if>
+          <span class="pill accent" aria-live="polite">{{matchLabel}}</span>
+        </label>
+        <div class="hints">
+          <span>Add a filter:</span>
+          <sc-for list="{{hints}}" as="h" hint-placeholder-count="7">
+            <button class="hint" type="button" onClick="{{h.add}}"><b>{{h.k}}:</b>{{h.v}}</button>
+          </sc-for>
+          <span class="subtle">· filters combine with AND; quote values with spaces; bare words match id, name, file and api</span>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="chips" aria-label="Active filters">
+          <sc-for list="{{chips}}" as="c" hint-placeholder-count="2">
+            <span class="chip {{c.cls}}" title="{{c.title}}"><span class="k">{{c.k}}</span>{{c.v}}<button type="button" aria-label="Remove filter {{c.raw}}" onClick="{{c.remove}}"><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></span>
+          </sc-for>
+          <sc-if value="{{noChips}}" hint-placeholder-val="{{ true }}">
+            <span class="muted" style="font-size: 12.5px">No filters · showing every test</span>
+          </sc-if>
+        </div>
+        <div class="grow"></div>
+        <label class="tlabel">Sort
+          <select class="select" value="{{sort}}" onChange="{{setSort}}"><option value="status">Status, worst first</option><option value="name">Test id</option><option value="duration">Median duration</option><option value="flaky">Flakiness</option><option value="file">File</option></select>
+        </label>
+        <div class="tlabel"><span id="grp-l">Group</span>
+          <div class="seg" role="group" aria-labelledby="grp-l">
+            <sc-for list="{{groupOpts}}" as="o" hint-placeholder-count="4"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for>
+          </div>
+        </div>
+        <div class="seg" role="group" aria-label="View">
+          <button type="button" class="{{listCls}}" aria-pressed="{{isList}}" onClick="{{showList}}">List</button>
+          <button type="button" class="{{treeCls}}" aria-pressed="{{isTree}}" onClick="{{showTree}}">Tree</button>
+        </div>
+      </div>
+
+      <div class="work">
+        <section class="list" aria-label="Matching tests">
+          <sc-if value="{{isList}}" hint-placeholder-val="{{ true }}">
+            <div class="lin">
+              <div class="rgrid lhead">
+                <label class="cb"><input type="checkbox" checked="{{allSel}}" onChange="{{toggleAll}}"><span class="sr">Select all shown tests</span></label>
+                <span>Test</span><span>File · tags</span><span>Calls</span><span>Last 10 runs</span><span style="text-align: right">Median</span>
+              </div>
+              <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+                <div>
+                  <sc-if value="{{g.showHead}}" hint-placeholder-val="{{ true }}">
+                    <div class="ghead"><span class="dot {{g.dot}}"></span><b>{{g.label}}</b><span class="mono" style="font-size: 11.5px">{{g.sub}}</span><span style="margin-left: auto">{{g.summary}}</span></div>
+                  </sc-if>
+                  <sc-for list="{{g.rows}}" as="t" hint-placeholder-count="5">
+                    <div class="rgrid trow {{t.rowCls}}">
+                      <label class="cb"><input type="checkbox" checked="{{t.sel}}" onChange="{{t.toggle}}"><span class="sr">Select {{t.full}}</span></label>
+                      <button class="tname" type="button" aria-current="{{t.on}}" onClick="{{t.open}}">
+                        <span class="id"><span class="dot {{t.dot}}"></span><span class="sr">{{t.stLabel}}:</span>{{t.id}}</span>
+                        <span class="nm">{{t.name}}</span>
+                      </button>
+                      <div class="fcell">
+                        <span class="f">{{t.f}}</span>
+                        <span class="tagrow"><sc-for list="{{t.tagList}}" as="x"><span class="tg {{x.cls}}">{{x.t}}</span></sc-for></span>
+                      </div>
+                      <div class="acell">
+                        <sc-for list="{{t.apiShown}}" as="a"><span class="aline"><span class="method m-{{a.m}}">{{a.M}}</span>{{a.id}}</span></sc-for>
+                        <sc-if value="{{t.apiMore}}" hint-placeholder-val="{{ false }}"><span class="more">{{t.apiMoreLabel}}</span></sc-if>
+                      </div>
+                      <svg width="88" height="12" viewBox="0 0 88 12" role="img" aria-label="{{t.runsLabel}}"><path d="{{t.spP}}" fill="#1A7148"/><path d="{{t.spF}}" fill="#B3261E"/><path d="{{t.spB}}" fill="#C27A00"/><path d="{{t.spS}}" fill="#BAB6C8"/><path d="{{t.spK}}" fill="#2459B8"/></svg>
+                      <span class="med">{{t.medLabel}}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+              <sc-if value="{{noResults}}" hint-placeholder-val="{{ false }}">
+                <div class="empty">
+                  <svg width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="#67637D" stroke-width="1.2" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.75"/><path d="m10.5 10.5 3.5 3.5"/></svg>
+                  <div><b style="color: #1B1830">No test matches</b> <span class="mono">{{q}}</span></div>
+                  <div>Try fewer filters, or create the test you were looking for.</div>
+                  <div style="display: flex; gap: 8px"><button class="btn sm" type="button" onClick="{{clearQuery}}">Clear filters</button><button class="btn sm accent" type="button" onClick="{{openNew}}">New test</button></div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{isTree}}" hint-placeholder-val="{{ false }}">
+            <div aria-label="Tests by service and file">
+              <sc-for list="{{tree}}" as="n" hint-placeholder-count="10">
+                <div>
+                  <sc-if value="{{n.isTest}}" hint-placeholder-val="{{ true }}">
+                    <button class="tnode {{n.cls}}" type="button" style="padding-left: {{n.pad}}px" onClick="{{n.act}}"><span class="dot {{n.dot}}"></span><span class="mono" style="font-size: 12.5px">{{n.label}}</span><span class="muted" style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.sub}}</span><span class="cnt">{{n.count}}</span></button>
+                  </sc-if>
+                  <sc-if value="{{n.isGroup}}" hint-placeholder-val="{{ false }}">
+                    <button class="tnode" type="button" style="padding-left: {{n.pad}}px" aria-expanded="{{n.expanded}}" onClick="{{n.act}}"><svg class="chev {{n.chev}}" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m4.5 3 3 3-3 3"/></svg><span class="dot {{n.dot}}"></span><span class="{{n.labelCls}}">{{n.label}}</span><span class="subtle mono" style="font-size: 11.5px">{{n.sub}}</span><span class="cnt">{{n.count}}</span></button>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{hasSel}}" hint-placeholder-val="{{ false }}">
+            <div class="bulk" role="region" aria-label="Bulk actions">
+              <span style="font-weight: 500">{{selLabel}}</span>
+              <a class="bbtn lite" href="WebRun.dc.html"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3v10l8.5-5z"/></svg>Run selected</a>
+              <button class="bbtn" type="button" onClick="{{openSkip}}">Skip…</button>
+              <button class="bbtn" type="button" onClick="{{openTag}}">Tag…</button>
+              <a class="bbtn" href="WebEditor.dc.html">Open in editor</a>
+              <button class="bbtn" type="button" aria-label="Clear selection" onClick="{{clearSel}}"><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button>
+            </div>
+          </sc-if>
+          <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+            <div class="toast" role="status"><span>{{toast}}</span><button class="btn sm ghost" type="button" onClick="{{undo}}">Undo</button><button class="iconbtn" type="button" aria-label="Dismiss" onClick="{{dismissToast}}"><svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+          </sc-if>
+        </section>
+
+        <aside class="detail" aria-label="Selected test">
+          <div class="dsec" style="gap: 8px">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+              <span class="pill {{d.pill}}"><span class="dot {{d.dot}}"></span>{{d.stLabel}}</span>
+              <span class="subtle" style="font-size: 12px">{{d.lastLine}}</span>
+            </div>
+            <h2 class="h2" style="font-size: 16px; line-height: 1.35">{{d.name}}</h2>
+            <div class="mono" style="font-weight: 600; word-break: break-all">{{d.full}}</div>
+            <div class="mono muted" style="font-size: 12px">{{d.path}}:{{d.ln}}</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px">
+              <a class="btn primary sm" href="WebRun.dc.html"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3v10l8.5-5z"/></svg>Run</a>
+              <a class="btn sm" href="WebEditor.dc.html">Edit</a>
+              <a class="btn sm" href="WebClient.dc.html">Open in API client</a>
+            </div>
+          </div>
+          <sc-if value="{{d.hasNote}}" hint-placeholder-val="{{ true }}">
+            <div class="dsec">
+              <div class="diag {{d.noteCls}}">
+                <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+                  <b style="font-weight: 600">{{d.noteTitle}}</b>
+                  <span>{{d.note}}</span>
+                  <sc-if value="{{d.isFailed}}" hint-placeholder-val="{{ false }}"><a href="Main.dc.html" style="font-size: 12.5px">Open the failure in report #482</a></sc-if>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+          <div class="dsec">
+            <div class="dtitle"><h3 class="h3">Definition</h3><span class="subtle" style="font-size: 12px">read-only · lines {{d.ln}}–{{d.lnEnd}}</span></div>
+            <div class="code" role="region" aria-label="YAML definition of {{d.id}}" tabindex="0">
+              <sc-for list="{{d.yaml}}" as="l" hint-placeholder-count="10">
+                <div class="ln {{l.cls}}"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="s"><span class="{{s.c}}">{{s.t}}</span></sc-for></span></div>
+              </sc-for>
+            </div>
+          </div>
+          <div class="dsec">
+            <h3 class="h3">Lifecycle it triggers</h3>
+            <div class="lc">
+              <sc-for list="{{d.life}}" as="x" hint-placeholder-count="3">
+                <span class="w">{{x.when}}</span><span class="c {{x.cls}}">{{x.label}}</span><span class="n">{{x.note}}</span>
+              </sc-for>
+            </div>
+          </div>
+          <div class="dsec">
+            <h3 class="h3">APIs it calls</h3>
+            <div class="apil">
+              <sc-for list="{{d.apis}}" as="a" hint-placeholder-count="2">
+                <a href="WebClient.dc.html"><span class="method m-{{a.m}}">{{a.M}}</span>{{a.id}}<span class="p">{{a.path}}</span></a>
+              </sc-for>
+            </div>
+          </div>
+          <div class="dsec">
+            <div class="dtitle"><h3 class="h3">Last 10 runs</h3><span class="subtle" style="font-size: 12px">median {{d.medLabel}}</span></div>
+            <div class="bars" role="img" aria-label="{{d.runsLabel}}">
+              <sc-for list="{{d.runs}}" as="r" hint-placeholder-count="10"><span class="b-{{r.s}}" style="height: {{r.h}}%"></span></sc-for>
+            </div>
+            <div class="runl">
+              <sc-for list="{{d.recent}}" as="r" hint-placeholder-count="5">
+                <a class="r" href="Main.dc.html">#{{r.no}}</a><span class="pill {{r.pill}}" style="height: 20px; font-size: 11.5px">{{r.label}}</span><span class="subtle" style="font-size: 12px">{{r.meta}}</span><span class="d">{{r.dur}}</span>
+              </sc-for>
+            </div>
+          </div>
+          <div class="dsec">
+            <div class="dtitle"><h3 class="h3">Flakiness</h3><span class="mono" style="font-size: 12px">{{d.flakeLabel}}</span></div>
+            <div class="meter" role="img" aria-label="{{d.flakeAria}}"><span style="width: {{d.flakePct}}%"></span></div>
+            <div class="muted" style="font-size: 12.5px">{{d.flakeNote}}</div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{dlgSkip}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="skip-t" style="width: min(560px, 100%)">
+        <div class="mh"><div><h2 class="h2" id="skip-t">Skip {{selLabel}}</h2><div class="muted" style="font-size: 12.5px; margin-top: 4px">Writes a <span class="mono">skip</span> block into each test. Skipped tests stay in reports with the reason.</div></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{closeDlg}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+        <div class="mb">
+          <label class="field">Reason
+            <textarea class="textarea {{skipErrCls}}" rows="2" placeholder="coupon service flaky on staging, see #212" value="{{skipReason}}" onInput="{{onSkipReason}}"></textarea>
+            <span class="help {{skipHelpCls}}">{{skipHelp}}</span>
+          </label>
+          <label class="field" style="max-width: 220px">Until (optional)
+            <input class="input" type="date" value="{{skipUntil}}" onInput="{{onSkipUntil}}">
+            <span class="help">After this date the test runs again and <span class="mono">vc check</span> warns.</span>
+          </label>
+          <div class="code" aria-label="YAML that will be written">
+            <sc-for list="{{skipYaml}}" as="l" hint-placeholder-count="3"><div class="ln"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="s"><span class="{{s.c}}">{{s.t}}</span></sc-for></span></div></sc-for>
+          </div>
+        </div>
+        <div class="mf"><button class="btn" type="button" onClick="{{closeDlg}}">Cancel</button><button class="btn primary" type="button" disabled="{{skipInvalid}}" onClick="{{applySkip}}">Skip {{selLabel}}</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{dlgTag}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tag-t" style="width: min(480px, 100%)">
+        <div class="mh"><div><h2 class="h2" id="tag-t">Tag {{selLabel}}</h2><div class="muted" style="font-size: 12.5px; margin-top: 4px">Adds the tag to each test's <span class="mono">tags</span> list.</div></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{closeDlg}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+        <div class="mb">
+          <label class="field">Tag
+            <input class="input mono {{tagErrCls}}" type="text" placeholder="slow-network" value="{{tagVal}}" onInput="{{onTagVal}}">
+            <span class="help {{tagHelpCls}}">{{tagHelp}}</span>
+          </label>
+          <sc-if value="{{tagHasSugg}}" hint-placeholder-val="{{ false }}">
+            <div class="sugg">Did you mean <button class="btn sm" type="button" onClick="{{useTagSugg}}"><span class="mono">{{tagSugg}}</span></button></div>
+          </sc-if>
+          <div class="hints"><span>Existing:</span><sc-for list="{{tagPicks}}" as="h"><button class="hint" type="button" onClick="{{h.pick}}">{{h.t}}</button></sc-for></div>
+        </div>
+        <div class="mf"><button class="btn" type="button" onClick="{{closeDlg}}">Cancel</button><button class="btn primary" type="button" disabled="{{tagInvalid}}" onClick="{{applyTag}}">Add tag</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{dlgNew}}" hint-placeholder-val="{{ false }}">
+    <div class="scrim">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="new-t">
+        <div class="mh"><div><h2 class="h2" id="new-t">New test</h2><div class="muted" style="font-size: 12.5px; margin-top: 4px">Describe the behaviour as a sentence. The id, file and path follow the project conventions.</div></div><button class="iconbtn" type="button" aria-label="Close" onClick="{{closeDlg}}"><svg width="12" height="12" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m2 2 6 6M8 2 2 8"/></svg></button></div>
+        <div class="mb">
+          <div class="grid2">
+            <div style="display: flex; flex-direction: column; gap: 14px; min-width: 0">
+              <label class="field">Name, a sentence
+                <input class="input" type="text" placeholder="Rejects a declined card" value="{{nt.name}}" onInput="{{onNtName}}">
+                <span class="help">Third person, what the system does: “Rejects malformed email addresses”.</span>
+              </label>
+              <label class="field">Id
+                <input class="input mono {{nt.idErrCls}}" type="text" value="{{nt.id}}" onInput="{{onNtId}}" aria-describedby="nt-idhelp">
+                <span class="help {{nt.idHelpCls}}" id="nt-idhelp">{{nt.idHelp}}</span>
+              </label>
+              <sc-if value="{{nt.hasSugg}}" hint-placeholder-val="{{ false }}">
+                <div class="sugg">Suggestion <button class="btn sm" type="button" onClick="{{useIdSugg}}"><span class="mono">{{nt.sugg}}</span></button></div>
+              </sc-if>
+              <sc-if value="{{nt.idEdited}}" hint-placeholder-val="{{ false }}">
+                <button class="btn sm ghost" type="button" style="align-self: flex-start" onClick="{{resetId}}">Derive the id from the name again</button>
+              </sc-if>
+              <label class="field">Start from an api (optional)
+                <select class="select" value="{{nt.api}}" onChange="{{onNtApi}}">
+                  <option value="">None, write the steps myself</option>
+                  <option value="users.create">users.create · POST /users</option>
+                  <option value="users.get">users.get · GET /users/{userId}</option>
+                  <option value="users.update">users.update · PUT /users/{userId}</option>
+                  <option value="orders.place">orders.place · POST /orders</option>
+                  <option value="orders.get">orders.get · GET /orders/{orderId}</option>
+                  <option value="orders.refund">orders.refund · POST /orders/{orderId}/refund</option>
+                  <option value="carts.addItem">carts.addItem · POST /carts/{cartId}/items</option>
+                  <option value="catalog.search">catalog.search · GET /catalog/search</option>
+                  <option value="geo.createLocationGroup">geo.createLocationGroup · POST /geo/location-groups</option>
+                  <option value="payments.authorize">payments.authorize · POST /payments/authorizations</option>
+                </select>
+                <span class="help">Prefills <span class="mono">call</span> and the documented success status.</span>
+              </label>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 14px; min-width: 0">
+              <label class="field">Service
+                <select class="select" value="{{nt.svc}}" onChange="{{onNtSvc}}"><option value="users">users</option><option value="orders">orders</option><option value="catalog">catalog</option><option value="carts">carts</option><option value="geo">geo</option><option value="payments">payments</option></select>
+              </label>
+              <fieldset class="field" style="border: 0; padding: 0; margin: 0">
+                <legend style="padding: 0 0 5px">File</legend>
+                <div class="radios">
+                  <sc-for list="{{nt.files}}" as="f" hint-placeholder-count="2">
+                    <label class="radio {{f.cls}}"><input type="radio" name="ntfile" checked="{{f.on}}" onChange="{{f.pick}}"><span class="mono">{{f.id}}</span><span class="subtle mono" style="margin-left: auto; font-size: 11.5px">{{f.path}}</span></label>
+                  </sc-for>
+                  <label class="radio {{nt.newCls}}"><input type="radio" name="ntfile" checked="{{nt.isNewFile}}" onChange="{{pickNewFile}}">New file in <span class="mono">{{nt.svc}}</span></label>
+                </div>
+              </fieldset>
+              <sc-if value="{{nt.isNewFile}}" hint-placeholder-val="{{ false }}">
+                <label class="field">Area, lowercase words joined by dots
+                  <input class="input mono {{nt.areaErrCls}}" type="text" placeholder="refunds" value="{{nt.area}}" onInput="{{onNtArea}}">
+                  <span class="help {{nt.areaHelpCls}}">{{nt.areaHelp}}</span>
+                </label>
+              </sc-if>
+            </div>
+          </div>
+          <div class="well" style="display: flex; flex-direction: column; gap: 8px">
+            <div class="idline"><span class="muted" style="font-family: var(--font)">Full id</span><b>{{nt.full}}</b></div>
+            <div class="idline"><span class="muted" style="font-family: var(--font)">Writes to</span><span>{{nt.path}}</span><span class="pill" style="height: 20px">{{nt.fileState}}</span></div>
+          </div>
+          <div class="code" aria-label="YAML that will be added">
+            <sc-for list="{{nt.yaml}}" as="l" hint-placeholder-count="5"><div class="ln"><span class="no">{{l.no}}</span><span><sc-for list="{{l.segs}}" as="s"><span class="{{s.c}}">{{s.t}}</span></sc-for></span></div></sc-for>
+          </div>
+          <div class="conv" aria-label="Naming conventions">
+            <span>Test file</span><span><code>services/&lt;service&gt;/&lt;area&gt;.test.yaml</code>, id <code>&lt;service&gt;.&lt;area&gt;</code></span>
+            <span>Test id</span><span>camelCase behaviour in third person, subject implied: <code>createsMember</code>, <code>rejectsBadEmail</code></span>
+            <span>Renaming later</span><span><code>vc rename &lt;old&gt; &lt;new&gt;</code> updates every reference</span>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn" type="button" onClick="{{closeDlg}}">Cancel</button>
+          <sc-if value="{{nt.valid}}" hint-placeholder-val="{{ false }}"><a class="btn accent" href="WebEditor.dc.html">Create and open in editor</a></sc-if>
+          <sc-if value="{{nt.invalid}}" hint-placeholder-val="{{ true }}"><button class="btn accent" type="button" disabled="{{ true }}">Create and open in editor</button></sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const API = {
+      'users.create': ['POST', '/users'], 'users.get': ['GET', '/users/{userId}'], 'users.list': ['GET', '/users'], 'users.update': ['PUT', '/users/{userId}'],
+      'users.delete': ['DELETE', '/users/{userId}'], 'users.startExport': ['POST', '/users/exports'], 'users.exportStatus': ['GET', '/users/exports/{exportId}'],
+      'users.deactivate': ['POST', '/users/{userId}/deactivate'], 'users.rename': ['PATCH', '/users/{userId}/name'],
+      'orders.place': ['POST', '/orders'], 'orders.get': ['GET', '/orders/{orderId}'], 'orders.cancel': ['POST', '/orders/{orderId}/cancel'], 'orders.refund': ['POST', '/orders/{orderId}/refund'],
+      'carts.create': ['POST', '/carts'], 'carts.addItem': ['POST', '/carts/{cartId}/items'], 'carts.get': ['GET', '/carts/{cartId}'],
+      'catalog.seedProducts': ['POST', '/catalog/seed'], 'catalog.getProduct': ['GET', '/catalog/products/{sku}'], 'catalog.search': ['GET', '/catalog/search'],
+      'catalog.createProduct': ['POST', '/catalog/products'], 'catalog.archiveProduct': ['DELETE', '/catalog/products/{sku}'], 'catalog.updatePrice': ['PATCH', '/catalog/products/{sku}/price'],
+      'geo.createCity': ['POST', '/geo/cities'], 'geo.deleteCity': ['DELETE', '/geo/cities/{cityId}'], 'geo.createLocationGroup': ['POST', '/geo/location-groups'],
+      'payments.authorize': ['POST', '/payments/authorizations']
+    };
+    const FILES = {
+      'users.crud': { svc: 'users', tags: ['users'], head: 9, life: [['beforeRun', 'admin → users.create', 'config · once per run, shared by 64 tests'], ['beforeEach', 'users.create', 'a fresh member for every test'], ['cleanup', 'users.delete', 'registered by users.create']] },
+      'users.reports': { svc: 'users', tags: ['users', 'reports'], head: 8, life: [['beforeRun', 'admin → users.create', 'config · shared'], ['beforeAll', 'members → users.create', 'forEach ${dataset.capitals | take(5)}']] },
+      'orders.checkout': { svc: 'orders', tags: ['orders', 'checkout'], head: 17, life: [['beforeRun', 'admin → users.create', 'config · shared'], ['beforeAll', 'catalog → catalog.seedProducts', 'cache for 12h · hit, seeded 3 h ago'], ['beforeEach', 'users.create → carts.create', 'then carts.addItem forEach ${var.catalog.productIds}'], ['cleanup', 'users.delete', 'registered by users.create']] },
+      'orders.history': { svc: 'orders', tags: ['orders'], head: 11, life: [['beforeRun', 'admin → users.create', 'config · shared'], ['beforeAll', 'pastOrders → orders.place', 'repeat 12 · one member, newest last']] },
+      'catalog.admin': { svc: 'catalog', tags: ['catalog', 'admin'], head: 7, life: [['beforeRun', 'catalog → catalog.seedProducts', 'POST /catalog/seed returned 503 on 3 attempts', 'fail'], ['afterEach', 'catalog.archiveProduct', 'removes products the test created']] },
+      'catalog.browse': { svc: 'catalog', tags: ['catalog'], head: 6, life: [['before', 'catalog → catalog.seedProducts', 'only listsCategory needs it · 503', 'fail']] },
+      'catalog.search': { svc: 'catalog', tags: ['catalog', 'search'], head: 8, life: [['beforeAll', 'warm → catalog.search', 'warms the search index, keep: true']] },
+      'geo.groups': { svc: 'geo', tags: ['geo'], head: 10, life: [['beforeRun', 'capitals → geo.createCity', 'forEach ${dataset.capitals | take(3)}'], ['afterAll', 'geo.deleteCity', 'forEach saved cityIds']] },
+      'carts.pricing': { svc: 'carts', tags: ['carts', 'pricing'], head: 9, life: [['beforeRun', 'admin → users.create', 'config · shared'], ['beforeEach', 'carts.create', 'empty cart in EUR']] }
+    };
+    const PATH = (f) => 'services/' + FILES[f].svc + '/' + f.split('.').slice(1).join('.') + '.test.yaml';
+    const T = [
+      ['users.crud', 'createsMember', 'Creates a member with a generated name and email', 'passed', ['users.create', 'users.get'], ['smoke'], 'PPPPPPPPPP', 0.31, 1, { x: ['    vars:', '      role: member', '    expect:', '      status: 201', '      body:', '        schema:', '          $file: ../../schemas/users/user.json'] }],
+      ['users.crud', 'getsCreatedUser', 'Gets the user that was just created', 'passed', ['users.create', 'users.get'], ['smoke'], 'PPPPPPPPPP', 0.22],
+      ['users.crud', 'rejectsBadEmail', 'Rejects malformed email addresses', 'passed', ['users.create'], ['validation'], 'PPPPPPPPPP', 0.12, 0, { x: ['    vars:', '      email: not-an-email', '    expect:', '      status: 400', '      body:', '        match:', '          error.code: invalidEmail'] }],
+      ['users.crud', 'renamesUser', 'Renames a user and keeps the email', 'passed', ['users.rename', 'users.get'], [], 'PPPPPPKPPP', 0.28],
+      ['users.crud', 'deactivatesUser', 'Deactivated users cannot sign in', 'passed', ['users.deactivate', 'users.get'], [], 'PPPPPPPPPP', 0.41],
+      ['users.crud', 'listsUsersPaged', 'Lists users 20 per page', 'passed', ['users.list'], [], 'PPPPPPPPPP', 0.18],
+      ['users.reports', 'startsExport', 'Starts a CSV export of all members', 'passed', ['users.startExport'], ['slow'], 'PPPPPPPPPP', 0.82],
+      ['users.reports', 'exportFinishes', 'Export finishes within two minutes', 'passed', ['users.startExport', 'users.exportStatus'], ['slow'], 'PPPPPPPPPP', 14.2, 0, { x: ['        poll:', '          until:', '            body:', '              match:', '                state: done', '          every: 2s', '          timeout: 2m'] }],
+      ['orders.checkout', 'placesOrder', 'A cart with two items becomes a paid order', 'failed', ['orders.place', 'orders.get'], ['smoke'], 'PPPPPPPPPF', 6.1, 0, { x: ['        poll:', '          until:', '            body:', '              match:', '                status: paid', '          every: 1s', '          timeout: 30s', '    expect:', '      status: 200', '      body:', '        schema:', '          $file: ../../schemas/orders/order.json', '        match:', '          items:', '            length: 2', '          total: ${var.orderTotal}'], err: 'total: ${var.orderTotal}', msg: 'body.total: expected 59.98, got 64.78. Orders now carry a tax line since a1c9e4f “orders: add tax line” (priya).' }],
+      ['orders.checkout', 'rejectsDeclinedCard', 'Rejects a declined card with 402', 'passed', ['orders.place', 'payments.authorize'], [], 'PPPPPPPPPP', 0.4, 0, { x: ['    vars:', '      cardToken: tok_declined', '    expect:', '      status: 402'] }],
+      ['orders.checkout', 'cancelsPaidOrder', 'Cancels a paid order and refunds the full total', 'failed', ['orders.place', 'orders.cancel'], [], 'PPPPPPPPPF', 2.0, 0, { x: ['    expect:', '      status: 200', '      body:', '        match:', '          status: cancelled', '          refundedTotal: ${var.orderTotal}'], err: 'refundedTotal:', msg: 'body.refundedTotal: expected 59.98, got 64.78. Same root cause as placesOrder: tax is now part of the total.' }],
+      ['orders.checkout', 'placesGuestOrder', 'A guest without an account can place an order', 'failed', ['orders.place', 'orders.get'], [], 'PPPPKPPPPF', 2.9, 0, { x: ['    auth: none', '    expect:', '      status: 200', '      body:', '        match:', '          total: ${var.orderTotal}'], err: 'total: ${var.orderTotal}', msg: 'body.total: expected 59.98, got 64.78.' }],
+      ['orders.checkout', 'totalsMatchLines', 'Order total equals the sum of its lines', 'failed', ['orders.place', 'orders.get'], [], 'PPPPPPPPPF', 1.8, 1, { x: ['    expect:', '      cel:', '        total equals sum of lines: body.total == body.items.map(i, i.price * i.quantity).sum()'], err: 'total equals sum of lines', msg: 'cel “total equals sum of lines” was false: 64.78 ≠ 59.98 (the 4.80 tax line is not an item).' }],
+      ['orders.checkout', 'appliesCoupon', 'Applies a WELCOME10 coupon at checkout', 'skipped', ['orders.place'], [], 'PPPPPPPKSS', 2.6, 0, { skip: ['coupon service flaky on staging, see #212', '2026-11-15'], x: ['    vars:', '      couponCode: WELCOME10'] }],
+      ['orders.history', 'listsPastOrders', 'Lists a member’s past orders newest first', 'failed', ['orders.place', 'orders.get'], [], 'PPPPPPPPPF', 1.2, 0, { x: ['    expect:', '      status: 200', '      body:', '        match:', '          items.0.total: ${pastOrders.body.total}'], err: 'items.0.total', msg: 'body.items.0.total: expected 59.98, got 64.78. History returns totals including tax.' }],
+      ['orders.history', 'showsOrderTotals', 'History shows the same total as the order', 'failed', ['orders.get'], [], 'PPPPPPPPPF', 0.9, 0, { x: ['    expect:', '      body:', '        match:', '          total: ${var.orderTotal | number}'], err: 'total:', msg: 'body.total: expected 59.98, got 64.78.' }],
+      ['orders.history', 'paginates', 'Paginates history 10 orders per page', 'flaky', ['orders.get'], ['slow-network'], 'PPKPPPPKPK', 3.4, 0, { x: ['    retry: 2', '    timeout: 10s'] }],
+      ['orders.history', 'showsCancelledOrders', 'Cancelled orders show as cancelled in history', 'passed', ['orders.place', 'orders.cancel', 'orders.get'], [], 'PPPPPPPPPP', 1.6],
+      ['catalog.admin', 'createsProduct', 'Creates a product with two variants', 'blocked', ['catalog.createProduct'], ['destructive'], 'PPPPPPPPPB', 0.5],
+      ['catalog.admin', 'archivesProduct', 'Archived products disappear from search', 'blocked', ['catalog.createProduct', 'catalog.archiveProduct', 'catalog.search'], ['destructive'], 'PPPPPPPPPB', 1.1],
+      ['catalog.admin', 'updatesPrice', 'Price changes apply to new carts only', 'blocked', ['catalog.updatePrice', 'carts.create', 'carts.addItem'], [], 'PPPPPPPPPB', 0.9, 1],
+      ['catalog.browse', 'getsProduct', 'Gets a product by sku', 'passed', ['catalog.getProduct'], ['smoke'], 'PPPPPPPPPP', 0.09],
+      ['catalog.browse', 'listsCategory', 'Lists the products in one category', 'blocked', ['catalog.search'], [], 'PPPPPPPPPB', 0.3],
+      ['catalog.browse', 'hidesOutOfStock', 'Out-of-stock products are flagged', 'passed', ['catalog.getProduct'], [], 'PPPPPPPPPP', 0.11],
+      ['catalog.search', 'fuzzyQueries', 'Fuzzy queries tolerate one typo', 'flaky', ['catalog.search'], [], 'PKPPKPKPPK', 0.7, 0, { x: ['    query:', '      q: wireles headphones', '    retry: 2'] }],
+      ['catalog.search', 'filtersByPrice', 'Filters results by price range', 'passed', ['catalog.search'], ['smoke'], 'PPPPPPPPPP', 0.24],
+      ['catalog.search', 'sortsByRelevance', 'Sorts results by relevance', 'skipped', ['catalog.search'], [], 'PPPPPSSSSS', 0.3, 1, { skip: ['ranking model retrained weekly; re-baseline pending', '2026-11-01'] }],
+      ['geo.groups', 'createsLocationGroup', 'Groups three capitals into a location group', 'passed', ['geo.createCity', 'geo.createLocationGroup', 'geo.deleteCity'], ['dataset'], 'PPPPPPPPPP', 1.4, 1],
+      ['geo.groups', 'rejectsEmptyGroup', 'Rejects a group with no cities', 'passed', ['geo.createLocationGroup'], ['validation'], 'PPPPPPPPPP', 0.15],
+      ['carts.pricing', 'addsItems', 'Adding two items sums the line prices', 'passed', ['carts.create', 'carts.addItem', 'carts.get'], ['smoke'], 'PPPPPPPPPP', 0.33],
+      ['carts.pricing', 'appliesBulkDiscount', 'Ten or more units get 5% off', 'flaky', ['carts.addItem', 'carts.get'], [], 'PPPKPPPPKK', 0.6, 1, { x: ['    vars:', '      quantity: 10', '    retry: 2', '    expect:', '      body:', '        match:', '          discount: 0.05'] }],
+      ['carts.pricing', 'keepsCurrency', 'A cart keeps the currency of its first item', 'skipped', ['carts.addItem'], [], 'SSSSSSSSSS', 0, 0, { skip: ['multi-currency carts are not built yet', ''] }]
+    ];
+    const ST = {
+      failed: { label: 'Failed', dot: 'fail', pill: 'fail', rank: 0, c: 'F' }, blocked: { label: 'Blocked', dot: 'block', pill: 'block', rank: 1, c: 'B' },
+      flaky: { label: 'Flaky', dot: 'flaky', pill: 'flaky', rank: 2, c: 'K' }, skipped: { label: 'Skipped', dot: 'skip', pill: 'skip', rank: 3, c: 'S' },
+      passed: { label: 'Passed', dot: 'pass', pill: 'pass', rank: 4, c: 'P' }
+    };
+    const CH = { P: 'passed', F: 'failed', B: 'blocked', S: 'skipped', K: 'flaky' };
+    const D = { q: '', group: 'file', sort: 'status', view: 'list', active: 'orders.checkout.placesOrder', sel: [], collapsed: {}, ov: {}, dlg: '', skipReason: '', skipUntil: '2026-11-06', tagVal: '', toast: '', prevOv: null, projOpen: false, meOpen: false, profile: 'staging',
+      nt: { name: '', id: '', idEdited: false, svc: 'orders', file: 'orders.checkout', newFile: false, area: '', api: '' } };
+    const s0 = this.state || {};
+    const s = Object.assign({}, D, s0, { nt: Object.assign({}, D.nt, s0.nt || {}) });
+    const set = (o) => this.setState(o);
+    const setNt = (o) => this.setState({ nt: Object.assign({}, s.nt, o) });
+
+    // YAML highlighting
+    const valSegs = (v, out) => {
+      if (!v) return;
+      const lead = v.match(/^\s*/)[0]; if (lead) out.push({ c: '', t: lead });
+      const body = v.slice(lead.length);
+      if (/^#/.test(body)) { out.push({ c: 'y-com', t: body }); return; }
+      if (/^-?\d+(\.\d+)?$/.test(body)) { out.push({ c: 'y-num', t: body }); return; }
+      body.split(/(\$\{[^}]*\})/).forEach((p) => { if (!p) return; out.push({ c: /^\$\{/.test(p) ? 'y-tpl' : (/^[\[\]]$/.test(p) ? 'y-punc' : 'y-str'), t: p }); });
+    };
+    const tok = (line) => {
+      const out = [];
+      const m = line.match(/^(\s*)(- )?([A-Za-z0-9_$.][A-Za-z0-9_$. -]*?)(:)(\s.*)?$/);
+      if (m && !/^\s*-?\d/.test(m[3])) {
+        if (m[1]) out.push({ c: '', t: m[1] });
+        if (m[2]) out.push({ c: 'y-punc', t: '- ' });
+        out.push({ c: 'y-key', t: m[3] }); out.push({ c: 'y-punc', t: ':' });
+        valSegs(m[5] || '', out);
+        return out;
+      }
+      const m2 = line.match(/^(\s*)(- )(.*)$/);
+      if (m2) { if (m2[1]) out.push({ c: '', t: m2[1] }); out.push({ c: 'y-punc', t: '- ' }); valSegs(m2[3], out); return out; }
+      valSegs(line, out); return out;
+    };
+    const toYaml = (lines, start, err) => lines.map((l, i) => ({ no: start + i, segs: tok(l), cls: err && l.indexOf(err) >= 0 ? 'err' : '' }));
+    const stepId = (api) => { const v = api.split('.')[1]; return v.replace(/^(get|create)([A-Z].*)?$/, (a) => a); };
+    const testLines = (t) => {
+      const L = ['  - id: ' + t.id, '    name: ' + t.name];
+      if (t.ownTags.length) L.push('    tags: [' + t.ownTags.join(', ') + ']');
+      if (t.skip) { L.push('    skip:'); L.push('      reason: ' + t.skip[0]); if (t.skip[1]) L.push('      until: ' + t.skip[1]); }
+      const x = t.x || [];
+      const pollIdx = x.length && /^        poll:/.test(x[0]);
+      if (t.apis.length > 1) {
+        L.push('    steps:');
+        t.apis.forEach((a, i) => { L.push('      - id: ' + (i === 0 ? stepId(a) : (a.split('.')[1] === 'get' ? 'fetch' : stepId(a)))); L.push('        call: ' + a); });
+      } else { L.push('    call: ' + t.apis[0]); }
+      if (pollIdx) { let k = 0; while (k < x.length && /^        /.test(x[k])) { L.push(x[k]); k++; } x.slice(k).forEach((l) => L.push(l)); }
+      else x.forEach((l) => L.push(l));
+      if (!x.some((l) => /^    expect:/.test(l)) && !t.skip) { const m = API[t.apis[t.apis.length - 1]][0]; L.push('    expect:'); L.push('      status: ' + (m === 'POST' ? 201 : m === 'DELETE' ? 204 : 200)); }
+      return L;
+    };
+
+    // effective tests
+    const tests = T.map((r) => {
+      const [f, id, name, st0, apis, own, runs0, med, changed, ex] = r;
+      const full = f + '.' + id;
+      const o = s.ov[full] || {};
+      const st = o.st || st0;
+      const ownTags = own.concat(o.tags || []);
+      const skip = o.st === 'skipped' ? [o.reason, o.until] : (ex && ex.skip) || null;
+      const runs = o.st === 'skipped' ? runs0.slice(1) + 'S' : runs0;
+      return { f, id, name, st, apis, ownTags, addedTags: o.tags || [], tags: FILES[f].tags.concat(ownTags), runs, med, changed: !!changed, x: ex && ex.x, err: ex && ex.err, msg: ex && ex.msg, skip, full, svc: FILES[f].svc };
+    });
+    // line numbers per file
+    const lnStart = {};
+    const seen = {};
+    tests.forEach((t) => { if (!(t.f in seen)) seen[t.f] = FILES[t.f].head + 1; t.yl = testLines(t); t.ln = seen[t.f]; seen[t.f] += t.yl.length; });
+
+    // query parsing
+    const q = s.q || '';
+    const toks = [];
+    const re = /(\w+):"([^"]*)"|(\w+):(\S+)|"([^"]*)"|(\S+)/g; let m;
+    while ((m = re.exec(q))) {
+      if (m[1]) toks.push({ k: m[1].toLowerCase(), v: m[2], raw: m[0] });
+      else if (m[3]) toks.push({ k: m[3].toLowerCase(), v: m[4], raw: m[0] });
+      else toks.push({ k: '', v: m[5] != null ? m[5] : m[6], raw: m[0] });
+    }
+    const KNOWN = ['status', 'tag', 'api', 'file', 'name', 'service', 'is'];
+    const STAT_ALIAS = { fail: 'failed', failing: 'failed', failed: 'failed', pass: 'passed', passed: 'passed', passing: 'passed', blocked: 'blocked', skip: 'skipped', skipped: 'skipped', flaky: 'flaky' };
+    const lc = (x) => String(x).toLowerCase();
+    const match = (t, k) => {
+      const v = lc(k.v);
+      if (!v) return true;
+      switch (k.k) {
+        case 'status': return t.st === (STAT_ALIAS[v] || v);
+        case 'tag': return t.tags.some((g) => lc(g) === v);
+        case 'api': return t.apis.some((a) => lc(a).indexOf(v) >= 0);
+        case 'file': return lc(t.f).indexOf(v) >= 0 || lc(PATH(t.f)).indexOf(v) >= 0;
+        case 'name': return lc(t.name).indexOf(v) >= 0 || lc(t.id).indexOf(v) >= 0;
+        case 'service': return t.svc === v;
+        case 'is': return v === 'changed' ? t.changed : true;
+        case '': return [t.full, t.name, PATH(t.f), t.apis.join(' '), t.tags.join(' ')].some((x) => lc(x).indexOf(v) >= 0);
+        default: return true;
+      }
+    };
+    const filtered = tests.filter((t) => toks.every((k) => match(t, k)));
+
+    const removeTok = (raw) => () => set({ q: q.replace(raw, '').replace(/\s+/g, ' ').trim() });
+    const chips = toks.map((k) => {
+      const bad = k.k && KNOWN.indexOf(k.k) < 0;
+      const badStatus = k.k === 'status' && !STAT_ALIAS[lc(k.v)];
+      return { k: k.k ? k.k + ':' : 'text ', v: k.v, raw: k.raw, cls: bad || badStatus ? 'bad' : '', title: bad ? 'Unknown filter; use status, tag, api, file, name, service or is' : (badStatus ? 'Status is one of passed, failed, blocked, skipped, flaky' : 'Filter'), remove: removeTok(k.raw) };
+    });
+    const addTok = (tk) => () => { const cur = q.trim(); if ((' ' + cur + ' ').indexOf(' ' + tk + ' ') >= 0) return; set({ q: (cur ? cur + ' ' : '') + tk }); };
+    const hints = [['status', 'failed'], ['tag', 'smoke'], ['api', 'orders.place'], ['file', 'checkout'], ['name', '"coupon"'], ['service', 'catalog'], ['is', 'changed']].map(([k, v]) => ({ k, v, add: addTok(k + ':' + v) }));
+
+    // sorting
+    const flakeOf = (t) => (t.runs.match(/K/g) || []).length;
+    const cmp = {
+      status: (a, b) => ST[a.st].rank - ST[b.st].rank || a.full.localeCompare(b.full),
+      name: (a, b) => a.id.localeCompare(b.id),
+      duration: (a, b) => b.med - a.med,
+      flaky: (a, b) => flakeOf(b) - flakeOf(a) || ST[a.st].rank - ST[b.st].rank,
+      file: (a, b) => a.f.localeCompare(b.f) || a.ln - b.ln
+    }[s.sort];
+    const sorted = filtered.slice().sort(cmp);
+
+    const fmtDur = (x) => (x <= 0 ? '—' : x < 1 ? Math.round(x * 1000) + ' ms' : x.toFixed(1) + ' s');
+    const spark = (runs, c) => { let d = ''; for (let i = 0; i < runs.length; i++) if (runs[i] === c) d += 'M' + (i * 9) + ' 2h7v8h-7z'; return d || 'M0 0'; };
+    const runsLabel = (runs) => 'Last 10 runs, oldest first: ' + runs.split('').map((c) => CH[c]).join(', ');
+    const selSet = {}; s.sel.forEach((x) => { selSet[x] = 1; });
+    const row = (t) => {
+      const ap = t.apis.map((a) => ({ id: a, M: API[a][0], m: API[a][0].toLowerCase() }));
+      return {
+        id: t.id, name: t.name, full: t.full, f: t.f + ':' + t.ln, dot: ST[t.st].dot, stLabel: ST[t.st].label,
+        tagList: t.tags.map((g) => ({ t: g, cls: t.addedTags.indexOf(g) >= 0 ? 'new' : '' })),
+        apiShown: ap.slice(0, 2), apiMore: ap.length > 2, apiMoreLabel: '+' + (ap.length - 2) + ' more',
+        spP: spark(t.runs, 'P'), spF: spark(t.runs, 'F'), spB: spark(t.runs, 'B'), spS: spark(t.runs, 'S'), spK: spark(t.runs, 'K'), runsLabel: runsLabel(t.runs),
+        medLabel: fmtDur(t.med), sel: !!selSet[t.full], on: s.active === t.full,
+        rowCls: s.active === t.full ? 'on' : (selSet[t.full] ? 'picked' : ''),
+        toggle: () => set({ sel: selSet[t.full] ? s.sel.filter((x) => x !== t.full) : s.sel.concat([t.full]) }),
+        open: () => set({ active: t.full })
+      };
+    };
+    const worst = (arr) => arr.reduce((w, t) => (ST[t.st].rank < ST[w].rank ? t.st : w), 'passed');
+    const summary = (arr) => { const c = {}; arr.forEach((t) => { c[t.st] = (c[t.st] || 0) + 1; }); return ['failed', 'blocked', 'flaky', 'skipped', 'passed'].filter((k) => c[k]).map((k) => c[k] + ' ' + k).join(' · '); };
+    let groups = [];
+    if (s.group === 'none') groups = [{ key: 'all', label: '', sub: '', rows: sorted }];
+    else {
+      const map = {}; const order = [];
+      sorted.forEach((t) => { const k = s.group === 'file' ? t.f : s.group === 'service' ? t.svc : t.st; if (!map[k]) { map[k] = []; order.push(k); } map[k].push(t); });
+      groups = order.map((k) => ({ key: k, label: s.group === 'status' ? ST[k].label : k, sub: s.group === 'file' ? PATH(k) : s.group === 'service' ? 'services/' + k + '/' : '', rows: map[k] }));
+      groups.sort((a, b) => ST[worst(a.rows)].rank - ST[worst(b.rows)].rank || (s.group === 'status' ? 0 : a.key.localeCompare(b.key)));
+    }
+    const groupVals = groups.map((g) => ({ label: g.label, sub: g.sub, showHead: s.group !== 'none', dot: ST[worst(g.rows)].dot, summary: summary(g.rows), rows: g.rows.map(row) }));
+
+    // tree
+    const tree = [];
+    const svcOrder = ['users', 'orders', 'catalog', 'carts', 'geo', 'payments'];
+    svcOrder.forEach((sv) => {
+      const inSvc = filtered.filter((t) => t.svc === sv);
+      if (!inSvc.length) return;
+      const kS = 's:' + sv; const openS = !s.collapsed[kS];
+      tree.push({ isTest: false, isGroup: true, pad: 16, label: sv, labelCls: '', sub: 'services/' + sv + '/', count: inSvc.length + ' tests', dot: ST[worst(inSvc)].dot, chev: openS ? 'open' : '', expanded: openS, cls: '', act: () => set({ collapsed: Object.assign({}, s.collapsed, { [kS]: openS }) }) });
+      if (!openS) return;
+      const files = []; inSvc.forEach((t) => { if (files.indexOf(t.f) < 0) files.push(t.f); });
+      files.forEach((f) => {
+        const inF = inSvc.filter((t) => t.f === f);
+        const kF = 'f:' + f; const openF = !s.collapsed[kF];
+        tree.push({ isTest: false, isGroup: true, pad: 36, label: f.split('.').slice(1).join('.') + '.test.yaml', labelCls: 'mono', sub: f, count: inF.length + '', dot: ST[worst(inF)].dot, chev: openF ? 'open' : '', expanded: openF, cls: '', act: () => set({ collapsed: Object.assign({}, s.collapsed, { [kF]: openF }) }) });
+        if (!openF) return;
+        inF.slice().sort((a, b) => a.ln - b.ln).forEach((t) => tree.push({ isTest: true, isGroup: false, pad: 60, label: t.id, labelCls: 'mono', sub: t.name, count: fmtDur(t.med), dot: ST[t.st].dot, chev: '', expanded: false, cls: s.active === t.full ? 'on' : '', act: () => set({ active: t.full }) }));
+      });
+    });
+
+    // sidebar
+    const qt = q.trim();
+    const changedCount = tests.filter((t) => t.changed).length;
+    const view = (label, tk, count, dot) => ({ label, count, dot, on: qt === tk, cls: qt === tk ? 'on' : '', pick: () => set({ q: tk }) });
+    const views = [view('All tests', '', '412', 'pass'), view('Failing', 'status:failed', '6', 'fail'), view('Blocked', 'status:blocked', '4', 'block'), view('Flaky', 'status:flaky', '3', 'flaky'), view('Skipped', 'status:skipped', '3', 'skip'), view('Changed in this branch', 'is:changed', String(changedCount), 'accent')];
+    views[5].dot = '';
+    const services = [['users', 58], ['orders', 64], ['catalog', 121], ['carts', 47], ['geo', 38], ['payments', 84]].map(([n, c]) => view(n, 'service:' + n, String(c), ''));
+    const tagViews = [['smoke', 38], ['checkout', 14], ['validation', 22], ['slow', 9], ['destructive', 6], ['slow-network', 4], ['dataset', 11], ['reports', 9]].map(([n, c]) => view(n, 'tag:' + n, String(c), ''));
+
+    // detail
+    const at = tests.find((t) => t.full === s.active) || tests[8];
+    const durs = at.runs.split('').map((c, i) => (c === 'S' ? 0 : at.med * (0.82 + (((i * 37 + at.id.length * 13) % 31) / 100)) * (c === 'F' ? 1.18 : c === 'K' ? 1.6 : 1)));
+    const maxD = Math.max.apply(null, durs.concat([0.001]));
+    const runsArr = at.runs.split('').map((c, i) => ({ s: c, h: c === 'S' ? 6 : Math.max(8, Math.round((durs[i] / maxD) * 100)) }));
+    const recent = [];
+    for (let i = 9; i >= 5; i--) {
+      const c = at.runs[i]; const no = 473 + i;
+      recent.push({ no, label: ST[CH[c]].label, pill: ST[CH[c]].pill, dur: c === 'S' ? '—' : fmtDur(durs[i]), meta: (no === 482 ? 'staging · a1c9e4f' : no === 481 ? 'staging · 7d41e0a' : no % 2 ? 'dev · laptop' : 'staging · CI') + (c === 'K' ? ' · retry 2' : '') });
+    }
+    const fl = flakeOf(at);
+    const notes = {
+      failed: ['diag error', 'Failed in #482', at.msg || 'An expectation did not hold.'],
+      blocked: ['diag warn', 'Blocked in #482', 'beforeRun catalog (catalog.seedProducts) returned 503 on 3 attempts, so this test did not run.'],
+      flaky: ['diag info', 'Passed on retry in #482', at.f === 'catalog.search' ? 'Typical first failure: GET /catalog/search 500, gone on retry.' : at.f === 'carts.pricing' ? 'Typical first failure: 409 when two addItem calls race on one cart.' : 'Typical first failure: timeout at 10 s on page 3.'],
+      skipped: ['diag info', 'Skipped', at.skip ? at.skip[0] + (at.skip[1] ? ' · until ' + at.skip[1] : ' · no end date, vc check warns') : 'Skipped.']
+    };
+    const n = notes[at.st];
+    const lifeRows = FILES[at.f].life.map((l) => ({ when: l[0], label: l[1], note: l[2], cls: l[3] === 'fail' ? 'fail' : '' }));
+    lifeRows.push({ when: 'test', label: at.apis.join(' → '), note: at.apis.length + (at.apis.length === 1 ? ' call' : ' calls') + ' in this test', cls: '' });
+    const d = {
+      id: at.id, full: at.full, name: at.name, path: PATH(at.f), ln: at.ln, lnEnd: at.ln + at.yl.length - 1,
+      stLabel: ST[at.st].label, pill: ST[at.st].pill, dot: ST[at.st].dot, lastLine: 'in #482 · staging · ' + fmtDur(durs[9]),
+      hasNote: !!n, noteCls: n ? n[0] : '', noteTitle: n ? n[1] : '', note: n ? n[2] : '', isFailed: at.st === 'failed',
+      yaml: toYaml(at.yl, at.ln, at.err), life: lifeRows,
+      apis: at.apis.map((a) => ({ id: a, M: API[a][0], m: API[a][0].toLowerCase(), path: API[a][1] })),
+      runs: runsArr, runsLabel: 'Durations of the last 10 runs, oldest first. ' + runsLabel(at.runs), recent, medLabel: fmtDur(at.med),
+      flakePct: fl * 10, flakeLabel: fl + ' of 10 runs', flakeAria: 'Passed on retry in ' + fl + ' of the last 10 runs',
+      flakeNote: fl === 0 ? 'Never needed a retry in the last 30 runs.' : fl >= 3 ? 'Among the flakiest tests in the project. Consider quarantine from Insights.' : 'Occasional retry; watch it.'
+    };
+
+    // selection and dialogs
+    const visibleIds = filtered.map((t) => t.full);
+    const allSel = visibleIds.length > 0 && visibleIds.every((x) => selSet[x]);
+    const nSel = s.sel.length;
+    const selLabel = nSel === 1 ? '1 test' : nSel + ' tests';
+    const reasonOk = s.skipReason.trim().length >= 4;
+    const skipLines = ['    skip:', '      reason: ' + (s.skipReason.trim() || '…')].concat(s.skipUntil ? ['      until: ' + s.skipUntil] : []);
+    const tagV = s.tagVal.trim();
+    const tagOk = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(tagV);
+    const tagSugg = tagV.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/^[0-9-]+/, '');
+    const applyOv = (fn, msg) => { const ov = Object.assign({}, s.ov); s.sel.forEach((id) => { ov[id] = fn(Object.assign({}, ov[id] || {})); }); set({ ov, prevOv: s.ov, sel: [], dlg: '', toast: msg }); };
+
+    // new test
+    const nt = s.nt;
+    const camel = (str) => { const w = String(str).replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean).filter((x) => ['a', 'an', 'the'].indexOf(x) < 0); return w.map((x, i) => (i ? x[0].toUpperCase() + x.slice(1) : x)).join('').replace(/^[0-9]+/, ''); };
+    const derived = camel(nt.name);
+    const ntId = nt.idEdited ? nt.id : derived;
+    const svcFiles = Object.keys(FILES).filter((f) => FILES[f].svc === nt.svc);
+    const isNewFile = nt.newFile || svcFiles.length === 0 || (svcFiles.indexOf(nt.file) < 0 && !nt.newFile);
+    const fileChoice = isNewFile ? null : nt.file;
+    const area = nt.area.trim();
+    const areaOk = /^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$/.test(area);
+    const areaSugg = area.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+    const fileId = isNewFile ? nt.svc + '.' + (area || '<area>') : fileChoice;
+    const filePath = isNewFile ? 'services/' + nt.svc + '/' + (area || '<area>') + '.test.yaml' : PATH(fileChoice);
+    let idErr = ''; let sugg = '';
+    if (!ntId) idErr = 'Type a name and the id is derived from it.';
+    else if (/^test/i.test(ntId)) { idErr = 'Name the behaviour, not the fact that it is a test.'; sugg = camel(ntId.replace(/^test/i, '')); }
+    else if (!/^[a-z][a-zA-Z0-9]*$/.test(ntId)) { idErr = 'Ids are camelCase: letters and digits, starting lowercase.'; sugg = camel(ntId); }
+    else if (ntId.toLowerCase().indexOf(nt.svc) === 0 && ntId.length > nt.svc.length) { idErr = 'Drop the service prefix; the file id already provides it.'; sugg = camel(ntId.slice(nt.svc.length)); }
+    else if (!isNewFile && tests.some((t) => t.f === fileChoice && t.id === ntId)) { idErr = fileChoice + ' already has ' + ntId + '. Describe what is different, for example with a “when” or “for” clause.'; }
+    if (sugg === ntId) sugg = '';
+    const areaErr = isNewFile && !areaOk;
+    const valid = !!ntId && !idErr && !areaErr && nt.name.trim().length > 3;
+    const ntApiM = nt.api && API[nt.api] ? API[nt.api][0] : '';
+    const newLines = ['  - id: ' + (ntId || '…'), '    name: ' + (nt.name.trim() || '…')]
+      .concat(ntApiM ? ['    call: ' + nt.api, '    expect:', '      status: ' + (ntApiM === 'POST' ? 201 : ntApiM === 'DELETE' ? 204 : 200)] : ['    steps:', '      - call: …']);
+    const newStart = isNewFile ? 4 : (seen[fileChoice] || 20);
+    const ntYaml = (isNewFile ? ['id: ' + fileId, 'name: ' + (area ? area.split('.').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ') : '…'), 'tests:'] : []).concat(newLines);
+    const ntV = {
+      name: nt.name, id: ntId, idEdited: nt.idEdited, svc: nt.svc, api: nt.api, area: nt.area,
+      idErrCls: idErr && ntId ? 'err' : '', idHelpCls: idErr && ntId ? 'err' : '',
+      idHelp: idErr || (nt.idEdited ? 'Edited by hand. It still has to be camelCase.' : 'Derived from the name: articles dropped, camelCase.'),
+      hasSugg: !!sugg, sugg,
+      files: svcFiles.map((f) => ({ id: f, path: PATH(f), on: !isNewFile && f === fileChoice, cls: !isNewFile && f === fileChoice ? 'on' : '', pick: () => setNt({ file: f, newFile: false }) })),
+      isNewFile, newCls: isNewFile ? 'on' : '',
+      areaErrCls: isNewFile && area && !areaOk ? 'err' : '', areaHelpCls: isNewFile && area && !areaOk ? 'err' : '',
+      areaHelp: !area ? 'Example: refunds, gift.cards' : (areaOk ? 'File id ' + fileId : 'Use lowercase words joined by dots, like ' + (areaSugg || 'refunds')),
+      full: fileId + '.' + (ntId || '…'), path: filePath, fileState: isNewFile ? 'new file' : 'appends to existing file',
+      yaml: toYaml(ntYaml, isNewFile ? 1 : newStart),
+      valid, invalid: !valid
+    };
+
+    return {
+      projOpen: s.projOpen, meOpen: s.meOpen, profile: s.profile,
+      toggleProj: () => set({ projOpen: !s.projOpen, meOpen: false }),
+      toggleMe: () => set({ meOpen: !s.meOpen, projOpen: false }),
+      setProfile: (e) => set({ profile: e.target.value }),
+      q, onQuery: (e) => set({ q: e.target.value }), clearQuery: () => set({ q: '' }), hasQuery: q.length > 0,
+      matchLabel: filtered.length === tests.length && !qt ? '412 tests' : filtered.length + (filtered.length === 1 ? ' match' : ' matches'),
+      hints, chips, noChips: chips.length === 0,
+      views, services, tagViews,
+      sort: s.sort, setSort: (e) => set({ sort: e.target.value }),
+      groupOpts: [['file', 'File'], ['service', 'Service'], ['status', 'Status'], ['none', 'None']].map(([k, l]) => ({ label: l, on: s.group === k, cls: s.group === k ? 'on' : '', pick: () => set({ group: k }) })),
+      isList: s.view === 'list', isTree: s.view === 'tree', listCls: s.view === 'list' ? 'on' : '', treeCls: s.view === 'tree' ? 'on' : '',
+      showList: () => set({ view: 'list' }), showTree: () => set({ view: 'tree' }),
+      groups: groupVals, noResults: filtered.length === 0, tree,
+      allSel, toggleAll: () => set({ sel: allSel ? s.sel.filter((x) => visibleIds.indexOf(x) < 0) : s.sel.concat(visibleIds.filter((x) => !selSet[x])) }),
+      hasSel: nSel > 0 && !s.dlg, selLabel, clearSel: () => set({ sel: [] }),
+      openSkip: () => set({ dlg: 'skip' }), openTag: () => set({ dlg: 'tag' }), openNew: () => set({ dlg: 'new', projOpen: false, meOpen: false }), closeDlg: () => set({ dlg: '' }),
+      dlgSkip: s.dlg === 'skip', dlgTag: s.dlg === 'tag', dlgNew: s.dlg === 'new',
+      skipReason: s.skipReason, skipUntil: s.skipUntil, onSkipReason: (e) => set({ skipReason: e.target.value }), onSkipUntil: (e) => set({ skipUntil: e.target.value }),
+      skipErrCls: '', skipHelpCls: '', skipHelp: reasonOk ? 'Shown in reports next to the test.' : 'A reason is required, ideally with an issue link.',
+      skipYaml: toYaml(skipLines, 1), skipInvalid: !reasonOk,
+      applySkip: () => { if (!reasonOk) return; const r = s.skipReason.trim(); const u = s.skipUntil; applyOv((o) => Object.assign(o, { st: 'skipped', reason: r, until: u }), 'Skipped ' + selLabel + (u ? ' until ' + u : '')); },
+      tagVal: s.tagVal, onTagVal: (e) => set({ tagVal: e.target.value }),
+      tagErrCls: tagV && !tagOk ? 'err' : '', tagHelpCls: tagV && !tagOk ? 'err' : '',
+      tagHelp: !tagV ? 'Lowercase; kebab-case for two words, like slow-network.' : (tagOk ? 'Adds #' + tagV + ' to ' + selLabel + '.' : 'Tags are lowercase, kebab-case for two words.'),
+      tagHasSugg: !!tagV && !tagOk && !!tagSugg, tagSugg, useTagSugg: () => set({ tagVal: tagSugg }), tagInvalid: !tagOk,
+      tagPicks: ['smoke', 'regression', 'slow', 'slow-network', 'destructive'].map((t) => ({ t, pick: () => set({ tagVal: t }) })),
+      applyTag: () => { if (!tagOk) return; applyOv((o) => Object.assign(o, { tags: (o.tags || []).filter((x) => x !== tagV).concat([tagV]) }), 'Tagged ' + selLabel + ' #' + tagV); },
+      hasToast: !!s.toast, toast: s.toast, undo: () => set({ ov: s.prevOv || {}, toast: '' }), dismissToast: () => set({ toast: '' }),
+      d, nt: ntV,
+      onNtName: (e) => setNt({ name: e.target.value }),
+      onNtId: (e) => setNt({ id: e.target.value, idEdited: true }),
+      resetId: () => setNt({ idEdited: false, id: '' }),
+      useIdSugg: () => setNt({ id: sugg, idEdited: true }),
+      onNtSvc: (e) => { const sv = e.target.value; const fs = Object.keys(FILES).filter((f) => FILES[f].svc === sv); setNt({ svc: sv, file: fs[0] || '', newFile: fs.length === 0 }); },
+      pickNewFile: () => setNt({ newFile: true }),
+      onNtArea: (e) => setNt({ area: e.target.value }),
+      onNtApi: (e) => setNt({ api: e.target.value })
+    };
+  }
+}
+</script>
+</body>
+</html>

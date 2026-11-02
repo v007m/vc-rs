@@ -1,0 +1,44 @@
+    Checking ir v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/ir)
+    Checking arch-tests v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/arch-tests)
+    Checking tsstrip v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/tsstrip)
+    Checking ports v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/ports)
+    Checking compiler v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/compiler)
+    Checking adapters-hooks v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-hooks)
+crates/compiler/src/lib.rs:9:1: error: this function has too many arguments (5/4)
+error: could not compile `compiler` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+    Checking adapters-http v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-http)
+crates/adapters-hooks/src/lib.rs:1:34: error: item in documentation is missing backticks
+crates/adapters-hooks/src/marshal.rs:1:36: error: item in documentation is missing backticks
+crates/adapters-hooks/src/marshal.rs:1:51: error: item in documentation is missing backticks
+crates/adapters-hooks/src/marshal.rs:30:28: error: use Option::map_or_else instead of an if let/else: help: try: `n.as_i64().and_then(|i| i32::try_from(i).ok()).map_or_else(|| Value::new_float(ctx.clone(), n.as_f64().unwrap_or(f64::NAN)), |i| Value::new_int(ctx.clone(), i))`
+crates/adapters-hooks/src/sandbox.rs:1:9: error: item in documentation is missing backticks
+crates/adapters-hooks/src/marshal.rs:7:1: error: unreachable `pub` item
+crates/adapters-hooks/src/marshal.rs:13:1: error: unreachable `pub` item
+crates/adapters-hooks/src/marshal.rs:26:1: error: unreachable `pub` item
+crates/adapters-hooks/src/marshal.rs:52:1: error: unreachable `pub` item
+crates/adapters-hooks/src/sandbox.rs:24:1: error: unreachable `pub` item
+crates/adapters-hooks/src/sandbox.rs:64:1: error: unreachable `pub` item
+crates/adapters-hooks/src/sandbox.rs:90:5: error: unreachable `pub` item
+crates/adapters-hooks/src/sandbox.rs:124:5: error: unreachable `pub` item
+    Checking engine v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/engine)
+error: could not compile `adapters-hooks` (lib) due to 13 previous errors
+    Checking adapters-store v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-store)
+crates/adapters-store/src/lib.rs:1:5: error: item in documentation is missing backticks
+error: could not compile `adapters-store` (lib) due to 1 previous error
+crates/engine/src/assertions.rs:5:1: error: unreachable `pub` item
+crates/engine/src/executor.rs:9:1: error: unreachable `pub` item
+crates/engine/src/executor.rs:16:1: error: unreachable `pub` item
+crates/engine/src/executor.rs:21:1: error: unreachable `pub` item
+crates/engine/src/scheduler.rs:22:1: error: unreachable `pub` item
+crates/engine/src/setup_cache.rs:17:1: error: unreachable `pub` item
+crates/engine/src/setup_cache.rs:24:5: error: unreachable `pub` item
+crates/engine/src/setup_cache.rs:38:1: error: unreachable `pub` item
+crates/engine/src/setup_cache.rs:44:5: error: unreachable `pub` item
+error: could not compile `engine` (lib) due to 9 previous errors
+error: could not compile `adapters-store` (lib test) due to 1 previous error
+error: could not compile `adapters-hooks` (lib test) due to 13 previous errors
+error: could not compile `compiler` (lib test) due to 1 previous error
+crates/ir/src/program.rs:124:17: error: 5 bindings with single-character names in scope
+error: could not compile `engine` (lib test) due to 9 previous errors
+error: could not compile `ir` (lib test) due to 1 previous error

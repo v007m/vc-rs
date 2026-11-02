@@ -1,0 +1,278 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-10-23T03:10:00Z"
+ },
+ "title": "Vibranium v2 Interface Mockups",
+ "launch": {
+  "view": "canvas",
+  "page": "cli"
+ },
+ "pages": [
+  {
+   "id": "cli",
+   "name": "CLI"
+  },
+  {
+   "id": "report",
+   "name": "HTML report"
+  },
+  {
+   "id": "tui",
+   "name": "Terminal UI"
+  },
+  {
+   "id": "web",
+   "name": "Web UI"
+  }
+ ],
+ "boards": {
+  "CliStart.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 1292,
+   "title": "CLI \u00b7 start from an OpenAPI spec",
+   "page": "cli"
+  },
+  "CliAuthor.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1280,
+   "h": 992,
+   "title": "CLI \u00b7 add apis and tests by hand",
+   "page": "cli"
+  },
+  "CliRun.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 1280,
+   "h": 992,
+   "title": "CLI \u00b7 run one, some or all",
+   "page": "cli"
+  },
+  "CliMaintain.dc.html": {
+   "x": 4080,
+   "y": 0,
+   "w": 1280,
+   "h": 992,
+   "title": "CLI \u00b7 sync, skip, check",
+   "page": "cli"
+  },
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 10332,
+   "title": "Report \u00b7 run overview",
+   "page": "report",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "ReportFailure.dc.html": {
+   "x": 1520,
+   "y": 0,
+   "w": 1440,
+   "h": 4745,
+   "title": "Report \u00b7 failure detail",
+   "page": "report",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "ReportLoad.dc.html": {
+   "x": 3040,
+   "y": 0,
+   "w": 1440,
+   "h": 4970,
+   "title": "Report \u00b7 load run",
+   "page": "report",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "TuiRun.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "TUI \u00b7 live run",
+   "page": "tui"
+  },
+  "TuiExplore.dc.html": {
+   "x": 1360,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "TUI \u00b7 explore and edit",
+   "page": "tui"
+  },
+  "TuiHistory.dc.html": {
+   "x": 2720,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "TUI \u00b7 history and flaky tests",
+   "page": "tui"
+  },
+  "WebExplorer.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 1140,
+   "title": "Web \u00b7 tests",
+   "page": "web",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "WebEditor.dc.html": {
+   "x": 3040,
+   "y": 0,
+   "w": 1440,
+   "h": 1000,
+   "title": "Web \u00b7 editor",
+   "page": "web",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "WebRun.dc.html": {
+   "x": 0,
+   "y": 1260,
+   "w": 1440,
+   "h": 1660,
+   "title": "Web \u00b7 live run",
+   "page": "web",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "WebInsights.dc.html": {
+   "x": 1520,
+   "y": 1260,
+   "w": 1440,
+   "h": 1860,
+   "title": "Web \u00b7 insights",
+   "page": "web",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "WebAgents.dc.html": {
+   "x": 3040,
+   "y": 1260,
+   "w": 1440,
+   "h": 2660,
+   "title": "Web \u00b7 agents",
+   "page": "web",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "CliCheck.dc.html": {
+   "x": 0,
+   "y": 1412,
+   "w": 1280,
+   "h": 2972,
+   "title": "CLI \u00b7 errors that tell you how to fix them",
+   "page": "cli"
+  },
+  "CliNew.dc.html": {
+   "x": 1360,
+   "y": 1412,
+   "w": 1280,
+   "h": 1952,
+   "title": "CLI \u00b7 creating things the conventional way",
+   "page": "cli"
+  },
+  "CliHar.dc.html": {
+   "x": 2720,
+   "y": 1412,
+   "w": 1280,
+   "h": 1792,
+   "title": "CLI \u00b7 import a HAR and run it",
+   "page": "cli"
+  },
+  "TuiImport.dc.html": {
+   "x": 4080,
+   "y": 0,
+   "w": 1280,
+   "h": 800,
+   "title": "TUI \u00b7 import a HAR",
+   "page": "tui"
+  },
+  "WebClient.dc.html": {
+   "x": 1520,
+   "y": 0,
+   "w": 1440,
+   "h": 1040,
+   "title": "Web \u00b7 API client",
+   "page": "web",
+   "expand": "fill",
+   "is_interactive": true
+  },
+  "WebSettings.dc.html": {
+   "x": 4560,
+   "y": 0,
+   "w": 1440,
+   "h": 990,
+   "title": "Web \u00b7 settings",
+   "page": "web",
+   "expand": "fill",
+   "is_interactive": true
+  }
+ },
+ "order": [
+  "CliStart.dc.html",
+  "CliAuthor.dc.html",
+  "CliRun.dc.html",
+  "CliMaintain.dc.html",
+  "CliCheck.dc.html",
+  "CliNew.dc.html",
+  "CliHar.dc.html",
+  "Main.dc.html",
+  "ReportFailure.dc.html",
+  "ReportLoad.dc.html",
+  "TuiRun.dc.html",
+  "TuiExplore.dc.html",
+  "TuiHistory.dc.html",
+  "TuiImport.dc.html",
+  "WebExplorer.dc.html",
+  "WebClient.dc.html",
+  "WebEditor.dc.html",
+  "WebRun.dc.html",
+  "WebInsights.dc.html",
+  "WebAgents.dc.html",
+  "WebSettings.dc.html"
+ ],
+ "notes": {
+  "cliTitle": {
+   "x": 0,
+   "y": -300,
+   "text": "CLI: author, sync and run from the terminal",
+   "kind": "title1",
+   "maxW": 5600,
+   "page": "cli"
+  },
+  "reportTitle": {
+   "x": 0,
+   "y": -300,
+   "text": "HTML report: generated per run from CTRF, built from pluggable widgets",
+   "kind": "title1",
+   "maxW": 4480,
+   "page": "report"
+  },
+  "tuiTitle": {
+   "x": 0,
+   "y": -300,
+   "text": "Terminal UI: keyboard-first, same engine as the CLI",
+   "kind": "title1",
+   "maxW": 5360,
+   "page": "tui"
+  },
+  "webTitle": {
+   "x": 0,
+   "y": -300,
+   "text": "Web UI: a Postman-grade client, a full editor, runs and insights, on one engine",
+   "kind": "title1",
+   "maxW": 6000,
+   "page": "web"
+  }
+ },
+ "designSystems": []
+}

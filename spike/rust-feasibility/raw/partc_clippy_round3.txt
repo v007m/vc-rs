@@ -1,0 +1,25 @@
+    Checking ir v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/ir)
+    Checking ports v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/ports)
+    Checking compiler v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/compiler)
+    Checking engine v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/engine)
+    Checking adapters-store v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-store)
+crates/engine/src/assertions.rs:5:1: error: pub(crate) function inside private module
+crates/engine/src/executor.rs:9:1: error: pub(crate) enum inside private module
+crates/engine/src/executor.rs:16:1: error: pub(crate) struct inside private module
+crates/engine/src/executor.rs:21:1: error: pub(crate) function inside private module
+crates/engine/src/scheduler.rs:22:1: error: pub(crate) function inside private module
+    Checking adapters-http v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-http)
+crates/engine/src/setup_cache.rs:17:1: error: pub(crate) struct inside private module
+crates/engine/src/setup_cache.rs:38:1: error: pub(crate) struct inside private module
+error: could not compile `engine` (lib) due to 7 previous errors
+warning: build failed, waiting for other jobs to finish...
+    Checking adapters-hooks v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-hooks)
+crates/adapters-hooks/src/marshal.rs:7:1: error: pub(crate) function inside private module
+crates/adapters-hooks/src/marshal.rs:13:1: error: pub(crate) function inside private module
+crates/adapters-hooks/src/marshal.rs:26:1: error: pub(crate) function inside private module
+crates/adapters-hooks/src/marshal.rs:52:1: error: pub(crate) function inside private module
+crates/adapters-hooks/src/sandbox.rs:24:1: error: pub(crate) function inside private module
+crates/adapters-hooks/src/sandbox.rs:64:1: error: pub(crate) struct inside private module
+error: could not compile `adapters-hooks` (lib) due to 6 previous errors
+error: could not compile `engine` (lib test) due to 7 previous errors
+error: could not compile `adapters-hooks` (lib test) due to 6 previous errors

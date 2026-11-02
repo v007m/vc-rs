@@ -1,0 +1,7 @@
+[package]
+name = "tsstrip"
+edition.workspace = true
+version.workspace = true
+[dependencies]
+oxc = { version = "0.155", features = ["transformer", "codegen", "semantic"] }
+oxc_sourcemap = "9"

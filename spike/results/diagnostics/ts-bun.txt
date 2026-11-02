@@ -1,0 +1,38 @@
+error[E003]: duplicate id `users1.t220_0`
+  --> ../fixtures/broken/domain00/users1/tests/t220.test.yaml:2:7
+    |
+  2 | - id: users1.t220_0
+    |       ^^^^^^^^^^^^^
+  = note: first defined here (../fixtures/broken/domain00/users1/tests/t020.test.yaml:2:7)
+  = help: ids must be unique across all *.api.yaml, *.given.yaml and *.test.yaml files
+
+error[E004]: unknown api `reviews0.creaet`
+  --> ../fixtures/broken/domain10/reviews0/tests/t010.test.yaml:3:8
+    |
+  3 |   api: reviews0.creaet
+    |        ^^^^^^^^^^^^^^^
+  = help: did you mean `reviews0.create`?
+
+error[E002]: tests.0.expect: Invalid input: expected object, received undefined
+  --> ../fixtures/broken/domain10/reviews1/tests/t030.test.yaml:2:3
+    |
+  2 | - id: reviews1.t030_0
+    |   ^^^^^^^^^^^^^^^^^^^
+
+error[E002]: unknown field `exepct`
+  --> ../fixtures/broken/domain10/reviews1/tests/t030.test.yaml:7:3
+    |
+  7 |   exepct:
+    |   ^^^^^^
+  = help: did you mean `expect`?
+
+error[E005]: dependency cycle between givens: seed050.shipments8_0 -> seed051.payments6_0 -> seed050.shipments8_0
+  --> ../fixtures/broken/domain11/givens/seeds051.given.yaml:6:13
+    |
+  6 |     parent: seed050.shipments8_0
+    |             ^^^^^^^^^^^^^^^^^^^^
+  = note: `seed050.shipments8_0` defined here (../fixtures/broken/domain10/givens/seeds050.given.yaml:2:7)
+  = note: `seed051.payments6_0` defined here (../fixtures/broken/domain11/givens/seeds051.given.yaml:2:7)
+  = help: break the cycle by removing one of the `uses` entries
+
+5 error(s) in 1000 files

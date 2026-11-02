@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium CLI · creating things the conventional way</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.term{box-sizing:border-box;background:#0A0C10;color:#D7DAE0;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid #2C313C;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.bar{height:32px;flex:none;box-sizing:border-box;background:#1A1D24;border-bottom:1px solid #2C313C;position:relative;display:flex;align-items:center;gap:8px;padding:0 14px}
+.dot{width:12px;height:12px;border-radius:50%}
+.btitle{position:absolute;left:0;right:0;text-align:center;color:#8B92A0;font-size:12px;pointer-events:none}
+.body{flex:1;min-height:0;overflow:hidden;padding:14px 18px 16px}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.k{color:#8FB8F0}.s{color:#C9D99A}.t{color:#E8B86D}
+.g{display:inline-block;width:1ch;text-align:center}
+.cur{background:#D7DAE0;color:#0A0C10}
+</style>
+</helmet>
+<div class="term" style="width: 1280px; height: 1952px">
+  <div class="bar"><span class="dot" style="background: #F06A5D"></span><span class="dot" style="background: #E5A13A"></span><span class="dot" style="background: #4FC27A"></span><span class="btitle">zsh — shop</span></div>
+  <div class="body">
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc new test</div>
+    <div class="ln">  <span class="vio b"><span class="g">◆</span> vibranium</span> <span class="dim">2.0.0</span>  <span class="dim">new test · <span class="g">↑</span><span class="g">↓</span> move · enter choose · each answer is also a flag, see</span> vc new test --help</div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio b">?</span> <span class="b">What should the test show? Write it as a sentence</span> <span class="dim">›</span> <span class="info b">Rejects a declined card</span><span class="cur"> </span></div>
+    <div class="ln">    <span class="dim">id</span>  <span class="ok b">rejectsDeclinedCard</span>   <span class="dim">updates as you type: the verb comes first, camelCase, a / an / the dropped</span>   <span class="ok"><span class="g">✓</span> valid</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio b">?</span> <span class="b">Which service?</span> <span class="dim">›</span> <span class="info b">orders</span>  <span class="dim">type to filter</span></div>
+    <div class="ln">    <span class="dim">users</span>            <span class="dim">services/users/</span>      <span class="dim">2 test files</span>    <span class="dim">9 apis</span></div>
+    <div class="ln">  <span class="vio b"><span class="g">❯</span></span> <span class="vio b">orders</span>           services/orders/     2 test files    <span class="dim">4 apis</span></div>
+    <div class="ln">    <span class="dim">catalog</span>          <span class="dim">services/catalog/</span>    <span class="dim">3 test files</span>    <span class="dim">3 apis</span></div>
+    <div class="ln">    <span class="dim">carts</span>            <span class="dim">services/carts/</span>      <span class="dim">1 test file</span>     <span class="dim">3 apis</span></div>
+    <div class="ln">    <span class="dim">geo</span>              <span class="dim">services/geo/</span>        <span class="dim">1 test file</span>     <span class="dim">3 apis</span></div>
+    <div class="ln">    <span class="dim">payments</span>         <span class="dim">services/payments/</span>   <span class="dim">no tests yet</span>    <span class="dim">1 api</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio b">?</span> <span class="b">Which file?</span> <span class="dim">›</span> <span class="info b">+ new file</span></div>
+    <div class="ln">    <span class="dim">orders.checkout</span>   <span class="dim">services/orders/checkout.test.yaml</span>    <span class="dim">10 tests</span>  <span class="warn">has rejectsDeclinedCard already (:38), ids are unique per file</span></div>
+    <div class="ln">    <span class="dim">orders.history</span>    <span class="dim">services/orders/history.test.yaml</span>     <span class="dim">4 tests</span></div>
+    <div class="ln">  <span class="vio b"><span class="g">❯</span></span> <span class="vio b">+ new file</span>        services/orders/<span class="dim">&lt;area&gt;</span>.test.yaml                <span class="dim">one area of the service per file</span></div>
+    <div class="ln"><span class="vio b">?</span> <span class="b">Area, one lowercase word</span> <span class="dim">›</span> <span class="info b">payments</span><span class="cur"> </span></div>
+    <div class="ln">    <span class="dim">file</span>  services/orders/<span class="ok b">payments</span>.test.yaml   <span class="dim">id</span>  orders.<span class="ok b">payments</span>   <span class="ok"><span class="g">✓</span> follows services/&lt;service&gt;/&lt;area&gt;.test.yaml · folder exists</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio b">?</span> <span class="b">Start from which api?</span> <span class="dim">›</span> <span class="info b">ord plac</span><span class="cur"> </span>  <span class="dim">fuzzy, over 64 apis · 1 match</span></div>
+    <div class="ln">  <span class="vio b"><span class="g">❯</span></span> <span class="vio b">ord</span><span class="vio">ers.</span><span class="vio b">plac</span><span class="vio">e</span>    <span class="info">POST</span>  /orders     <span class="dim">vars</span> cartId <span class="dim">(required),</span> paymentToken <span class="dim">· spec responses</span> 201 400 401 402</div>
+    <div class="ln"><span class="vio b">?</span> <span class="b">Expected status</span> <span class="dim">›</span> <span class="info b">402</span>  <span class="dim">Payment Required · from openapi/orders.yaml</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio b">?</span> <span class="b">Also generate</span> <span class="dim">›</span> <span class="info b">3 selected</span>  <span class="dim">space toggles · enter confirms</span></div>
+    <div class="ln">    <span class="vio b"><span class="g">◉</span></span> negative cases      <span class="dim">cartId of the wrong type <span class="g">→</span> 400</span>                <span class="dim">+1 test</span></div>
+    <div class="ln">    <span class="vio b"><span class="g">◉</span></span> 401                 <span class="dim">the same request without credentials</span>          <span class="dim">+1 test</span></div>
+    <div class="ln">    <span class="dim"><span class="g">○</span> response schema</span>     <span class="dim">body.schema from schemas/orders/order.json</span></div>
+    <div class="ln">    <span class="vio b"><span class="g">◉</span></span> setup               <span class="dim">copy beforeEach from orders.checkout</span>          <span class="dim">orders.place needs a cart</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> wrote <span class="b">services/orders/payments.test.yaml</span>  <span class="dim">· new file · id</span> orders.payments <span class="dim">· 3 tests</span></div>
+    <div class="ln">  <span class="dim">  1 <span class="g">│</span></span> <span class="k">id</span>: <span class="s">orders.payments</span></div>
+    <div class="ln">  <span class="dim">  2 <span class="g">│</span></span> <span class="k">name</span>: <span class="s">Order payments</span></div>
+    <div class="ln">  <span class="dim">  3 <span class="g">│</span></span> <span class="k">tags</span>: [<span class="s">orders</span>, <span class="s">payments</span>]</div>
+    <div class="ln">  <span class="dim">  4 <span class="g">│</span></span> <span class="k">beforeEach</span>:                                 <span class="dim"># orders.place needs a cart: same setup as orders.checkout</span></div>
+    <div class="ln">  <span class="dim">  5 <span class="g">│</span></span>   - <span class="k">call</span>: <span class="s">users.create</span></div>
+    <div class="ln">  <span class="dim">  6 <span class="g">│</span></span>   - <span class="k">call</span>: <span class="s">carts.create</span></div>
+    <div class="ln">  <span class="dim">  7 <span class="g">│</span></span>   - <span class="k">call</span>: <span class="s">carts.addItem</span></div>
+    <div class="ln">  <span class="dim">  8 <span class="g">│</span></span> <span class="k">tests</span>:</div>
+    <div class="ln">  <span class="dim">  9 <span class="g">│</span></span>   - <span class="k">id</span>: <span class="s">rejectsDeclinedCard</span></div>
+    <div class="ln">  <span class="dim"> 10 <span class="g">│</span></span>     <span class="k">name</span>: <span class="s">Rejects a declined card</span></div>
+    <div class="ln">  <span class="dim"> 11 <span class="g">│</span></span>     <span class="k">call</span>: <span class="s">orders.place</span></div>
+    <div class="ln">  <span class="dim"> 12 <span class="g">│</span></span>     <span class="k">vars</span>: { <span class="k">paymentToken</span>: <span class="s">tok_declined</span> }          <span class="dim"># a token your payments sandbox always declines</span></div>
+    <div class="ln">  <span class="dim"> 13 <span class="g">│</span></span>     <span class="k">expect</span>: { <span class="k">status</span>: <span class="t">402</span> }</div>
+    <div class="ln">  <span class="dim"> 14 <span class="g">│</span></span>   - <span class="k">id</span>: <span class="s">rejectsNumericCartId</span></div>
+    <div class="ln">  <span class="dim"> 15 <span class="g">│</span></span>     <span class="k">name</span>: <span class="s">Rejects a numeric cart id</span></div>
+    <div class="ln">  <span class="dim"> 16 <span class="g">│</span></span>     <span class="k">call</span>: <span class="s">orders.place</span></div>
+    <div class="ln">  <span class="dim"> 17 <span class="g">│</span></span>     <span class="k">vars</span>: { <span class="k">cartId</span>: <span class="t">12345</span> }                       <span class="dim"># the spec says cartId is a string</span></div>
+    <div class="ln">  <span class="dim"> 18 <span class="g">│</span></span>     <span class="k">expect</span>: { <span class="k">status</span>: <span class="t">400</span> }</div>
+    <div class="ln">  <span class="dim"> 19 <span class="g">│</span></span>   - <span class="k">id</span>: <span class="s">rejectsAnonymousOrder</span></div>
+    <div class="ln">  <span class="dim"> 20 <span class="g">│</span></span>     <span class="k">name</span>: <span class="s">Rejects an anonymous order</span></div>
+    <div class="ln">  <span class="dim"> 21 <span class="g">│</span></span>     <span class="k">call</span>: <span class="s">orders.place</span></div>
+    <div class="ln">  <span class="dim"> 22 <span class="g">│</span></span>     <span class="k">auth</span>: <span class="s">none</span></div>
+    <div class="ln">  <span class="dim"> 23 <span class="g">│</span></span>     <span class="k">expect</span>: { <span class="k">status</span>: <span class="t">401</span> }</div>
+    <div class="ln">  <span class="info">hint</span> vc run orders.payments <span class="dim">· the same in one line:</span> vc new test "Rejects a declined card" --file orders.payments --from orders.place --status 402</div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc new api orders.Get-Refunds</div>
+    <div class="ln"><span class="bad b">error[V4002]</span><span class="b">: invalid api id `Get-Refunds`</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">rule</span>: api ids are camelCase and start with a verb; no dashes, no service prefix: the file id <span class="b">orders</span> supplies it</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: did you mean</div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="ok b">orders.listRefunds</span>      <span class="dim">list</span> for a collection   GET /orders/${var.orderId}/refunds  <span class="dim"><span class="g">←</span> preferred</span></div>
+    <div class="ln">  <span class="info">    <span class="g">│</span></span>   <span class="ok">orders.getRefunds</span>       <span class="dim">also valid, same request; get is usually kept for one item</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">note</span>: it goes in services/orders/orders.api.yaml <span class="dim">(file id</span> orders<span class="dim">), next to</span> orders.refund</div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">help</span>: vc new api orders.listRefunds --method GET --path /orders/{orderId}/refunds</div>
+    <div class="ln">  <span class="bad">exit 2</span>  <span class="dim">· nothing written</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc rename users.crud.Test1 users.crud.createsMember</div>
+    <div class="ln">  <span class="dim">test</span> users.crud.Test1 <span class="dim"><span class="g">→</span></span> <span class="ok b">users.crud.createsMember</span>   <span class="dim">its name "Creates a member" gives the same id ·</span> <span class="ok">clears V4001</span></div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> <span class="b">updated 6 references in 4 files</span></div>
+    <div class="ln">    services/users/users.test.yaml:22       <span class="k">id</span>: <span class="bad">Test1</span>                         <span class="g">→</span> <span class="ok">createsMember</span>                   <span class="dim">the definition</span></div>
+    <div class="ln">    services/users/users.test.yaml:58       <span class="k">test</span>: <span class="bad">users.crud.Test1</span>            <span class="g">→</span> <span class="ok">users.crud.createsMember</span>        <span class="dim">step in deletesMember</span></div>
+    <div class="ln">    services/users/reports.test.yaml:9      <span class="k">test</span>: <span class="bad">users.crud.Test1</span>            <span class="g">→</span> <span class="ok">users.crud.createsMember</span>        <span class="dim">beforeAll</span></div>
+    <div class="ln">    services/shared/flows.test.yaml:14      <span class="k">test</span>: <span class="bad">users.crud.Test1</span>            <span class="g">→</span> <span class="ok">users.crud.createsMember</span>        <span class="dim">step in verifiedMember</span></div>
+    <div class="ln">    services/shared/flows.test.yaml:31      <span class="k">test</span>: <span class="bad">users.crud.Test1</span>            <span class="g">→</span> <span class="ok">users.crud.createsMember</span>        <span class="dim">step in adminMember</span></div>
+    <div class="ln">    load/checkout.load.yaml:12              <span class="k">test</span>: <span class="bad">users.crud.Test1</span>            <span class="g">→</span> <span class="ok">users.crud.createsMember</span>        <span class="dim">mix, weight 1</span></div>
+    <div class="ln">  <span class="dim">history</span> .vibranium/history.db <span class="dim">keeps past runs of Test1 under the new id · files changed, nothing staged</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim"><span class="g">❯</span></span> vc new file test orders.coupons</div>
+    <div class="ln">  <span class="ok"><span class="g">✓</span></span> created <span class="b">services/orders/coupons.test.yaml</span>  <span class="dim">· id</span> orders.coupons <span class="dim">· path from the id: services/&lt;service&gt;/&lt;area&gt;.test.yaml</span></div>
+    <div class="ln">  <span class="dim">  1 <span class="g">│</span></span> <span class="k">id</span>: <span class="s">orders.coupons</span></div>
+    <div class="ln">  <span class="dim">  2 <span class="g">│</span></span> <span class="k">name</span>: <span class="s">Coupons</span>                        <span class="dim"># a short title; each test's name is a sentence</span></div>
+    <div class="ln">  <span class="dim">  3 <span class="g">│</span></span> <span class="k">tags</span>: [<span class="s">orders</span>, <span class="s">coupons</span>]              <span class="dim"># lowercase, kebab-case for two words</span></div>
+    <div class="ln">  <span class="dim">  4 <span class="g">│</span></span> <span class="dim"># vars:         values every test here can use, e.g. couponCode: WELCOME10</span></div>
+    <div class="ln">  <span class="dim">  5 <span class="g">│</span></span> <span class="dim"># beforeEach:   actions before each test; orders.place needs a cart:</span></div>
+    <div class="ln">  <span class="dim">  6 <span class="g">│</span></span> <span class="dim">#   - call: carts.create</span></div>
+    <div class="ln">  <span class="dim">  7 <span class="g">│</span></span> <span class="k">tests</span>: []                            <span class="dim"># add one: vc new test --file orders.coupons</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="dim"><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span><span class="g">─</span></span></div>
+    <div class="ln">  <span class="dim">conventions applied</span></div>
+    <div class="ln">  <span class="dim">test id</span>       <span class="dim">camelCase, verb first, from the name</span>              <span class="dim">Rejects a declined card <span class="g">→</span> rejectsDeclinedCard</span></div>
+    <div class="ln">  <span class="dim">test file</span>     <span class="dim">services/&lt;service&gt;/&lt;area&gt;.test.yaml</span>               <span class="dim">id &lt;service&gt;.&lt;area&gt; <span class="g">→</span> orders.payments, orders.coupons</span></div>
+    <div class="ln">  <span class="dim">api id</span>        <span class="dim">camelCase verb + thing, no service prefix</span>         <span class="dim">list for collections, get for one <span class="g">→</span> orders.listRefunds</span></div>
+    <div class="ln">  <span class="dim">renames</span>       <span class="dim">every reference updated, history kept</span>             <span class="dim">vc rename · vc check --fix for V4001 test ids</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1952}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

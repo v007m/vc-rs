@@ -1,0 +1,798 @@
+{
+  "machine": {
+    "vcpu": 2,
+    "ram_gb": 7.8,
+    "rustc": "1.97.0",
+    "linker": "LLD 22.1.6 (rustc default)",
+    "cargo_build_jobs": 2
+  },
+  "calibration": {
+    "serde_json_clone_of_test_response_us": 8,
+    "serde_json_roundtrip_of_test_response_us": "26-32",
+    "note": "allocation-heavy work is slow on this VM; mimalloc halves it"
+  },
+  "part_a": {
+    "binary_bytes_stripped_release": {
+      "hello": 339120,
+      "tsstrip": 3086464,
+      "hook-qjs": 4581048,
+      "hook-deno": 53419088
+    },
+    "added_over_hello_bytes": {
+      "quickjs": 4241928,
+      "v8_deno_core": 53079968,
+      "oxc_only": 2747344
+    },
+    "cold_release_build": {
+      "hello": {
+        "release_cold_s": 4.7,
+        "exit": 0
+      },
+      "tsstrip": {
+        "release_cold_s": 115.5,
+        "exit": 0
+      },
+      "hook-qjs": {
+        "release_cold_s": 164.8,
+        "exit": 0
+      },
+      "hook-deno": {
+        "release_cold_s": 236.9,
+        "exit": 0
+      }
+    },
+    "startup_to_first_hook_call": {
+      "hello": {
+        "wall_ms_median": 1.89,
+        "wall_ms_mean": 2.04,
+        "peak_rss_mb_median": 3.2,
+        "runs": 30
+      },
+      "tsstrip-only": {
+        "wall_ms_median": 2.61,
+        "wall_ms_mean": 2.81,
+        "peak_rss_mb_median": 4.6,
+        "runs": 30
+      },
+      "quickjs-first-call": {
+        "wall_ms_median": 3.23,
+        "wall_ms_mean": 3.51,
+        "peak_rss_mb_median": 6.1,
+        "runs": 30
+      },
+      "v8-first-call": {
+        "wall_ms_median": 24.79,
+        "wall_ms_mean": 25.19,
+        "peak_rss_mb_median": 27.0,
+        "runs": 30
+      }
+    },
+    "in_process_first_call": {
+      "quickjs": {
+        "engine_created_us": 536,
+        "module_loaded_us": 974,
+        "first_call_done_us": 5290,
+        "signature_correct": true,
+        "x_signature": "f76dc2cf44b63259f327c907cad950eb93f4f26b17d60ab2df2303d76e0b36e4"
+      },
+      "v8_deno_core": {
+        "engine_created_us": 27729,
+        "module_loaded_us": 28361,
+        "first_call_done_us": 28607,
+        "signature_correct": true,
+        "x_signature": "f76dc2cf44b63259f327c907cad950eb93f4f26b17d60ab2df2303d76e0b36e4"
+      }
+    },
+    "per_call": {
+      "quickjs": {
+        "direct": {
+          "marshal": "Direct",
+          "iterations": 100000,
+          "runs": 3,
+          "before_request_ns_median": 20177,
+          "before_request_ns_runs": [
+            21619,
+            20177,
+            20009
+          ],
+          "custom_check_ns_median": 35638,
+          "custom_check_ns_runs": [
+            35638,
+            37669,
+            34550
+          ]
+        },
+        "json": {
+          "marshal": "JsonText",
+          "iterations": 100000,
+          "runs": 3,
+          "before_request_ns_median": 44673,
+          "before_request_ns_runs": [
+            46812,
+            44673,
+            44103
+          ],
+          "custom_check_ns_median": 73665,
+          "custom_check_ns_runs": [
+            73665,
+            74672,
+            70270
+          ]
+        },
+        "noop_direct": {
+          "marshal": "Direct",
+          "iterations": 100000,
+          "runs": 3,
+          "before_request_ns_median": 15464,
+          "before_request_ns_runs": [
+            15464,
+            16743,
+            14786
+          ],
+          "custom_check_ns_median": 34527,
+          "custom_check_ns_runs": [
+            32432,
+            34527,
+            35039
+          ]
+        },
+        "noop_json": {
+          "marshal": "JsonText",
+          "iterations": 100000,
+          "runs": 3,
+          "before_request_ns_median": 37485,
+          "before_request_ns_runs": [
+            37485,
+            37250,
+            41613
+          ],
+          "custom_check_ns_median": 68410,
+          "custom_check_ns_runs": [
+            66085,
+            70502,
+            68410
+          ]
+        }
+      },
+      "v8_deno_core": {
+        "direct": {
+          "marshal": "Direct",
+          "iterations": 100000,
+          "runs": 3,
+          "before_request_ns_median": 37883,
+          "before_request_ns_runs": [
+            33443,
+            37883,
+            38424
+          ],
+          "custom_check_ns_median": 53100,
+          "custom_check_ns_runs": [
+            53100,
+            50177,
+            54441
+          ]
+        },
+        "json": {
+          "marshal": "JsonText",
+          "iterations": 100000,
+          "runs": 3,
+          "before_request_ns_median": 25417,
+          "before_request_ns_runs": [
+            28158,
+            25417,
+            23148
+          ],
+          "custom_check_ns_median": 39817,
+          "custom_check_ns_runs": [
+            39817,
+            40961,
+            39491
+          ]
+        },
+        "noop_direct": {
+          "marshal": "Direct",
+          "iterations": 100000,
+          "runs": 3,
+          "before_request_ns_median": 30009,
+          "before_request_ns_runs": [
+            27027,
+            30009,
+            30412
+          ],
+          "custom_check_ns_median": 45347,
+          "custom_check_ns_runs": [
+            44942,
+            50943,
+            45347
+          ]
+        },
+        "noop_json": {
+          "marshal": "JsonText",
+          "iterations": 100000,
+          "runs": 3,
+          "before_request_ns_median": 19376,
+          "before_request_ns_runs": [
+            19376,
+            19489,
+            17785
+          ],
+          "custom_check_ns_median": 35299,
+          "custom_check_ns_runs": [
+            35009,
+            37394,
+            35299
+          ]
+        }
+      }
+    },
+    "peak_rss_mb_20k_call_bench": {
+      "quickjs": 11.0,
+      "v8_deno_core": 46.6
+    },
+    "safety": {
+      "quickjs": {
+        "dynamic_import_fs": {
+          "error_kind": "Thrown",
+          "message": "could not load module 'fs'",
+          "ms": 0.089505
+        },
+        "engine_usable_after": true,
+        "global_escape_probe": {
+          "ms": 0.11655700000000001,
+          "outcome": "Pass"
+        },
+        "infinite_loop": {
+          "error_kind": "Timeout",
+          "message": "interrupted |     at spin (hooks/hostile.ts:6:14)",
+          "ms": 200.28486
+        },
+        "memory_hog": {
+          "error_kind": "OutOfMemory",
+          "message": "out of memory |     at hog (hooks/hostile.ts:13:70)",
+          "ms": 159.739829
+        }
+      },
+      "v8_deno_core": {
+        "infinite_loop": {
+          "error_kind": "Timeout",
+          "message": "execution terminated",
+          "ms": 200.559876
+        },
+        "memory_hog": {
+          "error_kind": "OutOfMemory",
+          "message": "execution terminated",
+          "ms": 200.30416300000002
+        },
+        "global_escape_probe": {
+          "outcome": "Pass",
+          "ms": 0.463295
+        },
+        "dynamic_import_fs": {
+          "error_kind": "Thrown",
+          "message": "TypeError: imports are disabled in hooks: 'fs' |     at async importFs (file:///home/claude/vibranium-spike/rust-feasibility/parta/hooks/hostile.ts:26:22)",
+          "ms": 0.816418
+        },
+        "engine_usable_after": true
+      }
+    },
+    "errors": {
+      "quickjs": {
+        "kind": "Thrown",
+        "message": "cannot read property 'reduce' of undefined\n    at total (hooks/throws.ts:7:10)\n    at totalIsPositive (hooks/throws.ts:12:16)\n"
+      },
+      "v8_deno_core": {
+        "kind": "Thrown",
+        "message": "TypeError: Cannot read properties of undefined (reading 'reduce')\n    at total (file:///home/claude/vibranium-spike/rust-feasibility/parta/hooks/throws.ts:7:16)\n    at totalIsPositive (file:///home/claude/vibranium-spike/rust-feasibility/parta/hooks/throws.ts:12:10)"
+      }
+    },
+    "deno_core_builds": true
+  },
+  "part_b": {
+    "singleflight_proof": [
+      "passed 53 failed 0 errored 0",
+      "mock stats: {\"POST /uploads\": 1, \"POST /slow/sessions\": 1, \"GET /items/:id\": 1, \"GET /sessions/:id\": 50, \"POST /items\": 1}",
+      "report: Report { summary: RunSummary { passed: 53, failed: 0, errored: 0, store_errors: 0 }, stored: 53 }",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s"
+    ],
+    "singleflight_negative_control": [
+      "mock stats: {\"GET /sessions/:id\": 50, \"GET /items/:id\": 1, \"POST /items\": 1, \"POST /slow/sessions\": 50, \"POST /uploads\": 1}",
+      "thread 'fifty_tests_sharing_a_file_setup_make_exactly_one_setup_request' (27238) panicked at crates/cli/tests/mock_server.rs:55:5:",
+      "  left: Some(50)",
+      " right: Some(1)",
+      "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s"
+    ],
+    "code_metrics": {
+      "adapters-hooks": {
+        "production": {
+          "code_lines": 272,
+          "explicit_lifetimes": 19,
+          "lifetime_names": [
+            "_",
+            "js",
+            "static"
+          ],
+          "pub_api_lines_with_lifetimes": [
+            "pub fn json_to_js<'js>(ctx: &Ctx<'js>, v: &Json) -> rquickjs::Result<Value<'js>> {",
+            "pub fn js_to_json<'js>(ctx: &Ctx<'js>, v: &Value<'js>) -> rquickjs::Result<Json> {"
+          ],
+          "clone_calls": 21,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 20,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 1,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      },
+      "adapters-http": {
+        "production": {
+          "code_lines": 70,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 0,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      },
+      "adapters-store": {
+        "production": {
+          "code_lines": 78,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 1,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 0,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      },
+      "arch-tests": {
+        "production": {
+          "code_lines": 92,
+          "explicit_lifetimes": 2,
+          "lifetime_names": [
+            "_"
+          ],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 1,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 66,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      },
+      "cli": {
+        "production": {
+          "code_lines": 95,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 3,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 53,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 2,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      },
+      "compiler": {
+        "production": {
+          "code_lines": 58,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 0,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      },
+      "engine": {
+        "production": {
+          "code_lines": 203,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 11,
+          "arc_clone_calls": 4,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 1,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 195,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 6,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      },
+      "ir": {
+        "production": {
+          "code_lines": 271,
+          "explicit_lifetimes": 2,
+          "lifetime_names": [
+            "_"
+          ],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 3,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 32,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      },
+      "ports": {
+        "production": {
+          "code_lines": 85,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 0,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      },
+      "tsstrip": {
+        "production": {
+          "code_lines": 90,
+          "explicit_lifetimes": 2,
+          "lifetime_names": [
+            "_",
+            "static"
+          ],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 1,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        },
+        "tests": {
+          "code_lines": 0,
+          "explicit_lifetimes": 0,
+          "lifetime_names": [],
+          "pub_api_lines_with_lifetimes": [],
+          "clone_calls": 0,
+          "arc_clone_calls": 0,
+          "arc_mutex_or_rwlock": 0,
+          "mutex_or_rwlock_mentions": 0,
+          "refcell_mentions": 0,
+          "rc_mentions": 0,
+          "unsafe_blocks": 0,
+          "static_items": 0
+        }
+      }
+    },
+    "borrow_checker_errors": 0,
+    "first_check_compile_errors": 0,
+    "first_test_run": "13/13 passed"
+  },
+  "part_c": {
+    "clippy_rounds_to_green": 5,
+    "clippy_code_findings_fixed": 15,
+    "clippy_config_conflict_findings": 30,
+    "smell_injection_findings": [
+      "smells.rs:3\tclippy::disallowed_types\tuse of a disallowed type `std::sync::Mutex`",
+      "smells.rs:5\tclippy::disallowed_types\tuse of a disallowed type `std::sync::Mutex`",
+      "smells.rs:8\tclippy::many_single_char_names\t5 bindings with single-character names in scope",
+      "smells.rs:8\tclippy::missing_const_for_fn\tthis could be a `const fn`",
+      "smells.rs:8\tclippy::must_use_candidate\tthis function could have a `#[must_use]` attribute",
+      "smells.rs:8\tclippy::too_many_arguments\tthis function has too many arguments (5/4)",
+      "smells.rs:10\tclippy::dbg_macro\tthe `dbg!` macro is intended as a debugging tool",
+      "smells.rs:10\tclippy::expect_used\tused `expect()` on a `Result` value",
+      "smells.rs:10\tclippy::missing_panics_doc\tdocs for function which may panic missing `# Panics` section",
+      "smells.rs:10\tclippy::must_use_candidate\tthis function could have a `#[must_use]` attribute",
+      "smells.rs:10\tclippy::unwrap_used\tused `unwrap()` on a `Result` value",
+      "smells.rs:12\tclippy::must_use_candidate\tthis function could have a `#[must_use]` attribute",
+      "smells.rs:12\tclippy::todo\t`todo` should not be present in production code",
+      "smells.rs:16\tclippy::must_use_candidate\tthis function could have a `#[must_use]` attribute",
+      "smells.rs:32\tclippy::implicit_hasher\tparameter of type `HashMap` should be generalized over different hashers",
+      "smells.rs:75\tclippy::match_same_arms\tthese match arms have identical bodies",
+      "smells.rs:75\tclippy::missing_const_for_fn\tthis could be a `const fn`",
+      "smells.rs:75\tclippy::must_use_candidate\tthis function could have a `#[must_use]` attribute",
+      "smells.rs:77\tclippy::must_use_candidate\tthis function could have a `#[must_use]` attribute",
+      "smells.rs:77\tclippy::type_complexity\tvery complex type used. Consider factoring parts into `type` definitions",
+      "smells.rs:79\tclippy::fn_params_excessive_bools\tmore than 3 bools in function parameters",
+      "smells.rs:79\tclippy::missing_const_for_fn\tthis could be a `const fn`",
+      "smells.rs:79\tclippy::must_use_candidate\tthis function could have a `#[must_use]` attribute",
+      "smells.rs:81\tclippy::missing_const_for_fn\tthis could be a `const fn`",
+      "smells.rs:81\tdead_code\tfunction `unused_helper` is never used",
+      "smells.rs:83\tunsafe_code\tusage of an `unsafe` block"
+    ],
+    "jscpd_partb": {
+      "lines": 2184,
+      "tokens": 24229,
+      "sources": 33,
+      "clones": 0,
+      "duplicatedLines": 0,
+      "duplicatedTokens": 0,
+      "percentage": 0,
+      "percentageTokens": 0,
+      "newDuplicatedLines": 0,
+      "newClones": 0
+    },
+    "jscpd_control_parta_plus_partb": {
+      "lines": 3135,
+      "tokens": 37911,
+      "sources": 45,
+      "clones": 8,
+      "duplicatedLines": 189,
+      "duplicatedTokens": 2567,
+      "percentage": 6.03,
+      "percentageTokens": 6.77,
+      "newDuplicatedLines": 0,
+      "newClones": 0
+    },
+    "arch_negative_control": [
+      "architecture violations:",
+      "`engine` must not depend on `adapters-http`",
+      "`ir` must not depend on `tsstrip`",
+      "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.15s"
+    ],
+    "cargo_deny": "advisories ok, bans ok, licenses ok, sources ok; warnings: duplicate hashbrown, syn",
+    "cargo_machete": "no unused dependencies",
+    "cargo_mutants_engine_before": {
+      "total_mutants": 20,
+      "caught": 11,
+      "missed": 4,
+      "unviable": 5,
+      "timeout": 0,
+      "success": 0
+    },
+    "cargo_mutants_engine_after": {
+      "total_mutants": 18,
+      "caught": 13,
+      "missed": 0,
+      "unviable": 5,
+      "timeout": 0,
+      "success": 0
+    }
+  },
+  "part_d": {
+    "cold_debug_build": {
+      "median_s": 119.87,
+      "runs_s": [
+        136.49,
+        119.85,
+        119.87
+      ],
+      "exits": [
+        0,
+        0,
+        0
+      ]
+    },
+    "cold_release_build": {
+      "median_s": 250.28,
+      "runs_s": [
+        258.61,
+        250.28,
+        247.42
+      ],
+      "exits": [
+        0,
+        0,
+        0
+      ]
+    },
+    "incr_check": {
+      "median_s": 0.79,
+      "runs_s": [
+        0.73,
+        0.79,
+        0.81
+      ],
+      "exits": [
+        0,
+        0,
+        0
+      ]
+    },
+    "incr_debug_build": {
+      "median_s": 2.26,
+      "runs_s": [
+        2.28,
+        2.26,
+        1.94
+      ],
+      "exits": [
+        0,
+        0,
+        0
+      ]
+    },
+    "incr_test_build_and_run": {
+      "median_s": 4.59,
+      "runs_s": [
+        4.59,
+        4.63,
+        4.27
+      ],
+      "exits": [
+        0,
+        0,
+        0
+      ]
+    },
+    "incr_test_engine_only": {
+      "median_s": 0.82,
+      "runs_s": [
+        0.88,
+        0.81,
+        0.82
+      ],
+      "exits": [
+        0,
+        0,
+        0
+      ]
+    },
+    "incr_release_build": {
+      "median_s": 47.39,
+      "runs_s": [
+        47.39,
+        48.16,
+        46.73
+      ],
+      "exits": [
+        0,
+        0,
+        0
+      ]
+    }
+  }
+}

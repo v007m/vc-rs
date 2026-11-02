@@ -1,0 +1,10 @@
+    Checking ir v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/ir)
+    Checking tsstrip v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/tsstrip)
+    Checking arch-tests v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/arch-tests)
+crates/ir/src/program.rs:45:5: error: this could be a `const fn`
+crates/ir/src/program.rs:50:5: error: this could be a `const fn`
+crates/ir/src/values.rs:169:42: error: function call inside of `unwrap_or`: help: try: `unwrap_or_else(|| &rest[start..start + len + 2])`
+error: could not compile `ir` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+crates/arch-tests/tests/rules.rs:32:18: error: used `unwrap()` on a `Result` value
+error: could not compile `arch-tests` (test "rules") due to 1 previous error

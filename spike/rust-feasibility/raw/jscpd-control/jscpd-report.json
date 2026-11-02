@@ -1,0 +1,881 @@
+{
+  "statistics": {
+    "detectionDate": "2026-10-23T08:05:28.928Z",
+    "formats": {
+      "rust": {
+        "sources": {
+          "partb/crates/tsstrip/src/lib.rs": {
+            "lines": 115,
+            "tokens": 1470,
+            "sources": 1,
+            "clones": 1,
+            "duplicatedLines": 114,
+            "duplicatedTokens": 1470,
+            "percentage": 99.13,
+            "percentageTokens": 100,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/ports/src/lib.rs": {
+            "lines": 102,
+            "tokens": 779,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/ir/src/values.rs": {
+            "lines": 247,
+            "tokens": 1718,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/ir/src/program.rs": {
+            "lines": 138,
+            "tokens": 1518,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/ir/src/lib.rs": {
+            "lines": 13,
+            "tokens": 114,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/engine/src/tests.rs": {
+            "lines": 191,
+            "tokens": 2689,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/engine/src/setup_cache.rs": {
+            "lines": 55,
+            "tokens": 474,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/engine/src/scheduler.rs": {
+            "lines": 76,
+            "tokens": 1083,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/engine/src/lib.rs": {
+            "lines": 49,
+            "tokens": 363,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/engine/src/executor.rs": {
+            "lines": 48,
+            "tokens": 591,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/engine/src/assertions.rs": {
+            "lines": 21,
+            "tokens": 346,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/compiler/src/lib.rs": {
+            "lines": 71,
+            "tokens": 962,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/cli/tests/mock_server.rs": {
+            "lines": 59,
+            "tokens": 835,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/cli/src/main.rs": {
+            "lines": 32,
+            "tokens": 404,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/cli/src/lib.rs": {
+            "lines": 79,
+            "tokens": 804,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/arch-tests/tests/rules.rs": {
+            "lines": 75,
+            "tokens": 901,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/arch-tests/src/lib.rs": {
+            "lines": 119,
+            "tokens": 1351,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/adapters-store/src/lib.rs": {
+            "lines": 102,
+            "tokens": 1145,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/adapters-http/src/lib.rs": {
+            "lines": 83,
+            "tokens": 963,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/adapters-hooks/src/sandbox.rs": {
+            "lines": 141,
+            "tokens": 1977,
+            "sources": 1,
+            "clones": 3,
+            "duplicatedLines": 23,
+            "duplicatedTokens": 262,
+            "percentage": 16.31,
+            "percentageTokens": 13.25,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/adapters-hooks/src/marshal.rs": {
+            "lines": 78,
+            "tokens": 1419,
+            "sources": 1,
+            "clones": 3,
+            "duplicatedLines": 39,
+            "duplicatedTokens": 661,
+            "percentage": 50,
+            "percentageTokens": 46.58,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/adapters-hooks/src/lib.rs": {
+            "lines": 107,
+            "tokens": 1273,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/tsstrip/src/bin/tsstrip.rs": {
+            "lines": 12,
+            "tokens": 183,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/tsstrip/src/lib.rs": {
+            "lines": 115,
+            "tokens": 1470,
+            "sources": 1,
+            "clones": 1,
+            "duplicatedLines": 114,
+            "duplicatedTokens": 1470,
+            "percentage": 99.13,
+            "percentageTokens": 100,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hookbench/src/lib.rs": {
+            "lines": 248,
+            "tokens": 3348,
+            "sources": 1,
+            "clones": 2,
+            "duplicatedLines": 14,
+            "duplicatedTokens": 175,
+            "percentage": 5.65,
+            "percentageTokens": 5.23,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hook-qjs/src/marshal.rs": {
+            "lines": 76,
+            "tokens": 1232,
+            "sources": 1,
+            "clones": 3,
+            "duplicatedLines": 39,
+            "duplicatedTokens": 661,
+            "percentage": 51.32,
+            "percentageTokens": 53.65,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hook-qjs/src/main.rs": {
+            "lines": 147,
+            "tokens": 2204,
+            "sources": 1,
+            "clones": 2,
+            "duplicatedLines": 22,
+            "duplicatedTokens": 261,
+            "percentage": 14.97,
+            "percentageTokens": 11.84,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hook-deno/src/marshal.rs": {
+            "lines": 24,
+            "tokens": 389,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hook-deno/src/main.rs": {
+            "lines": 261,
+            "tokens": 4293,
+            "sources": 1,
+            "clones": 1,
+            "duplicatedLines": 13,
+            "duplicatedTokens": 174,
+            "percentage": 4.98,
+            "percentageTokens": 4.05,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hook-deno/src/loader.rs": {
+            "lines": 33,
+            "tokens": 369,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          }
+        },
+        "total": {
+          "lines": 2917,
+          "tokens": 36667,
+          "sources": 30,
+          "clones": 8,
+          "duplicatedLines": 189,
+          "duplicatedTokens": 2567,
+          "percentage": 6.48,
+          "percentageTokens": 7,
+          "newDuplicatedLines": 0,
+          "newClones": 0
+        }
+      },
+      "toml": {
+        "sources": {
+          "partb/crates/tsstrip/Cargo.toml": {
+            "lines": 14,
+            "tokens": 89,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/ports/Cargo.toml": {
+            "lines": 16,
+            "tokens": 78,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/ir/Cargo.toml": {
+            "lines": 15,
+            "tokens": 72,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/engine/Cargo.toml": {
+            "lines": 20,
+            "tokens": 95,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/compiler/Cargo.toml": {
+            "lines": 14,
+            "tokens": 66,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/cli/Cargo.toml": {
+            "lines": 29,
+            "tokens": 159,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/arch-tests/Cargo.toml": {
+            "lines": 14,
+            "tokens": 86,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/adapters-store/Cargo.toml": {
+            "lines": 16,
+            "tokens": 95,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/adapters-http/Cargo.toml": {
+            "lines": 17,
+            "tokens": 99,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "partb/crates/adapters-hooks/Cargo.toml": {
+            "lines": 22,
+            "tokens": 114,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/tsstrip/Cargo.toml": {
+            "lines": 7,
+            "tokens": 59,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hookbench/Cargo.toml": {
+            "lines": 9,
+            "tokens": 48,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hook-qjs/Cargo.toml": {
+            "lines": 9,
+            "tokens": 64,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hook-deno/Cargo.toml": {
+            "lines": 11,
+            "tokens": 96,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "parta/crates/hello/Cargo.toml": {
+            "lines": 5,
+            "tokens": 24,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          }
+        },
+        "total": {
+          "lines": 218,
+          "tokens": 1244,
+          "sources": 15,
+          "clones": 0,
+          "duplicatedLines": 0,
+          "duplicatedTokens": 0,
+          "percentage": 0,
+          "percentageTokens": 0,
+          "newDuplicatedLines": 0,
+          "newClones": 0
+        }
+      }
+    },
+    "total": {
+      "lines": 3135,
+      "tokens": 37911,
+      "sources": 45,
+      "clones": 8,
+      "duplicatedLines": 189,
+      "duplicatedTokens": 2567,
+      "percentage": 6.03,
+      "percentageTokens": 6.77,
+      "newDuplicatedLines": 0,
+      "newClones": 0
+    }
+  },
+  "duplicates": [
+    {
+      "format": "rust",
+      "lines": 115,
+      "fragment": "//! Load-time TypeScript -> JavaScript type stripping with oxc, plus stack-trace\n//! remapping through the generated source map.\nuse std::fmt;\nuse std::path::Path;\n\nuse oxc::allocator::Allocator;\nuse oxc::codegen::{Codegen, CodegenOptions};\nuse oxc::parser::Parser;\nuse oxc::semantic::SemanticBuilder;\nuse oxc::span::SourceType;\nuse oxc::transformer::{TransformOptions, Transformer};\nuse oxc_sourcemap::SourceMap;\n\n/// A hook module after type stripping.\npub struct StrippedModule {\n    /// Name used for the module inside the JS engine (the original `.ts` path).\n    pub name: String,\n    pub code: String,\n    pub source_map: SourceMap<'static>,\n}\n\n#[derive(Debug)]\npub struct StripError(pub String);\n\nimpl fmt::Display for StripError {\n    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {\n        f.write_str(&self.0)\n    }\n}\n\nimpl std::error::Error for StripError {}\n\n/// Parse `source` as TypeScript, remove all type syntax (including `import type`)\n/// and print ES2022+ JavaScript with a source map back to the `.ts` file.\n///\n/// # Errors\n/// Returns the rendered oxc diagnostics if the file does not parse or transform.\npub fn strip_types(path: &Path, source: &str) -> Result<StrippedModule, StripError> {\n    let allocator = Allocator::default();\n    let source_type = SourceType::from_path(path).map_err(|e| StripError(e.to_string()))?;\n    let parsed = Parser::new(&allocator, source, source_type).parse();\n    if !parsed.diagnostics.is_empty() {\n        return Err(render(&parsed.diagnostics, source));\n    }\n    let mut program = parsed.program;\n    let semantic = SemanticBuilder::new().build(&program);\n    let scoping = semantic.semantic.into_scoping();\n    let options = TransformOptions::default();\n    let transformed = Transformer::new(&allocator, path, &options).build_with_scoping(scoping, &mut program);\n    if !transformed.diagnostics.is_empty() {\n        return Err(render(&transformed.diagnostics, source));\n    }\n    let codegen_options = CodegenOptions { source_map_path: Some(path.to_path_buf()), ..CodegenOptions::default() };\n    let out = Codegen::new().with_options(codegen_options).build(&program);\n    let source_map = out.map.ok_or_else(|| StripError(\"no source map produced\".into()))?.into_owned();\n    Ok(StrippedModule { name: path.display().to_string(), code: out.code, source_map })\n}\n\nfn render(diags: &[oxc::diagnostics::OxcDiagnostic], source: &str) -> StripError {\n    let text: Vec<String> =\n        diags.iter().map(|d| format!(\"{:?}\", d.clone().with_source_code(source.to_string()))).collect();\n    StripError(text.join(\"\\n\"))\n}\n\nimpl StrippedModule {\n    /// Map a 1-based (line, column) in the generated JS back to the 1-based\n    /// position in the original TypeScript.\n    #[must_use]\n    pub fn original_position(&self, line: u32, col: u32) -> Option<(u32, u32)> {\n        let table = self.source_map.generate_lookup_table();\n        let token = self.source_map.lookup_token_approx(&table, line.checked_sub(1)?, col.saturating_sub(1))?;\n        Some((token.get_src_line() + 1, token.get_src_col() + 1))\n    }\n\n    /// Rewrite every `<name>:<line>:<col>` (or `<name>:<line>`) occurrence in a\n    /// JS stack trace so it points at the original `.ts` line/column.\n    #[must_use]\n    pub fn remap_stack(&self, stack: &str) -> String {\n        let mut out = String::with_capacity(stack.len());\n        let mut rest = stack;\n        while let Some(idx) = rest.find(&self.name) {\n            let (before, after_name_start) = rest.split_at(idx);\n            out.push_str(before);\n            out.push_str(&self.name);\n            let after = &after_name_start[self.name.len()..];\n            let (consumed, replacement) = self.remap_suffix(after);\n            out.push_str(&replacement);\n            rest = &after[consumed..];\n        }\n        out.push_str(rest);\n        out\n    }\n\n    fn remap_suffix(&self, after: &str) -> (usize, String) {\n        let (line, n1) = take_num(after);\n        let Some(line) = line else { return (0, String::new()) };\n        let (col, n2) = take_num(&after[n1..]);\n        let gen_col = col.unwrap_or(1);\n        match self.original_position(line, gen_col) {\n            Some((l, c)) if col.is_some() => (n1 + n2, format!(\":{l}:{c}\")),\n            Some((l, _)) => (n1, format!(\":{l}\")),\n            None => (0, String::new()),\n        }\n    }\n}\n\n/// Parse `:<digits>` at the start of `s`; returns the number and bytes consumed.\nfn take_num(s: &str) -> (Option<u32>, usize) {\n    let Some(tail) = s.strip_prefix(':') else { return (None, 0) };\n    let digits = tail.bytes().take_while(u8::is_ascii_digit).count();\n    if digits == 0 {\n        return (None, 0);\n    }\n    (tail[..digits].parse().ok(), digits + 1)\n}",
+      "tokens": 1470,
+      "firstFile": {
+        "name": "parta/crates/tsstrip/src/lib.rs",
+        "start": 1,
+        "end": 115,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 115,
+          "column": 2,
+          "position": 1470
+        }
+      },
+      "secondFile": {
+        "name": "partb/crates/tsstrip/src/lib.rs",
+        "start": 1,
+        "end": 115,
+        "startLoc": {
+          "line": 1,
+          "column": 1,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 115,
+          "column": 2,
+          "position": 1470
+        }
+      }
+    },
+    {
+      "format": "rust",
+      "lines": 7,
+      "fragment": ";\nuse std::sync::Arc;\nuse std::sync::atomic::{AtomicU64, Ordering};\nuse std::time::{Duration, Instant};\n\nuse hmac::{Hmac, Mac};\nuse serde_json",
+      "tokens": 64,
+      "firstFile": {
+        "name": "parta/crates/hookbench/src/lib.rs",
+        "start": 2,
+        "end": 8,
+        "startLoc": {
+          "line": 2,
+          "column": 31,
+          "position": 16
+        },
+        "endLoc": {
+          "line": 8,
+          "column": 15,
+          "position": 80
+        }
+      },
+      "secondFile": {
+        "name": "partb/crates/adapters-hooks/src/sandbox.rs",
+        "start": 3,
+        "end": 9,
+        "startLoc": {
+          "line": 3,
+          "column": 30,
+          "position": 13
+        },
+        "endLoc": {
+          "line": 9,
+          "column": 7,
+          "position": 77
+        }
+      }
+    },
+    {
+      "format": "rust",
+      "lines": 9,
+      "fragment": "}\n\npub fn hmac_sha256_hex(key: &str, data: &str) -> String {\n    let Ok(mut mac) = <Hmac<Sha256> as Mac>::new_from_slice(key.as_bytes()) else { return String::new() };\n    mac.update(data.as_bytes());\n    hex::encode(mac.finalize().into_bytes())\n}\n\npub",
+      "tokens": 111,
+      "firstFile": {
+        "name": "parta/crates/hookbench/src/lib.rs",
+        "start": 58,
+        "end": 66,
+        "startLoc": {
+          "line": 58,
+          "column": 1,
+          "position": 466
+        },
+        "endLoc": {
+          "line": 66,
+          "column": 4,
+          "position": 577
+        }
+      },
+      "secondFile": {
+        "name": "partb/crates/adapters-hooks/src/sandbox.rs",
+        "start": 22,
+        "end": 30,
+        "startLoc": {
+          "line": 22,
+          "column": 1,
+          "position": 207
+        },
+        "endLoc": {
+          "line": 30,
+          "column": 89,
+          "position": 318
+        }
+      }
+    },
+    {
+      "format": "rust",
+      "lines": 7,
+      "fragment": "}\n\npub fn json_to_js<'js>(ctx: &Ctx<'js>, v: &Json) -> rquickjs::Result<Value<'js>> {\n    Ok(match v {\n        Json::Null => Value::new_null(ctx.clone()),\n        Json::Bool(b) => Value::new_bool(ctx.clone(), *b),\n        Json::Number(n) => match",
+      "tokens": 112,
+      "firstFile": {
+        "name": "parta/crates/hook-qjs/src/marshal.rs",
+        "start": 25,
+        "end": 31,
+        "startLoc": {
+          "line": 25,
+          "column": 1,
+          "position": 339
+        },
+        "endLoc": {
+          "line": 31,
+          "column": 33,
+          "position": 451
+        }
+      },
+      "secondFile": {
+        "name": "partb/crates/adapters-hooks/src/marshal.rs",
+        "start": 24,
+        "end": 30,
+        "startLoc": {
+          "line": 24,
+          "column": 1,
+          "position": 441
+        },
+        "endLoc": {
+          "line": 30,
+          "column": 29,
+          "position": 553
+        }
+      }
+    },
+    {
+      "format": "rust",
+      "lines": 27,
+      "fragment": ",\n        Json::String(s) => s.as_str().into_js(ctx)?,\n        Json::Array(items) => {\n            let arr = Array::new(ctx.clone())?;\n            for (i, item) in items.iter().enumerate() {\n                arr.set(i, json_to_js(ctx, item)?)?;\n            }\n            arr.into_value()\n        }\n        Json::Object(map) => {\n            let obj = Object::new(ctx.clone())?;\n            for (k, item) in map {\n                obj.set(k.as_str(), json_to_js(ctx, item)?)?;\n            }\n            obj.into_value()\n        }\n    })\n}\n\npub fn js_to_json<'js>(ctx: &Ctx<'js>, v: &Value<'js>) -> rquickjs::Result<Json> {\n    Ok(match v.type_of() {\n        Type::Uninitialized | Type::Undefined | Type::Null => Json::Null,\n        Type::Bool => Json::Bool(v.as_bool().unwrap_or(false)),\n        Type::Int => Json::from(v.as_int().unwrap_or(0)),\n        Type::Float => Number::from_f64(v.as_float().unwrap_or(f64::NAN)).map_or(Json::Null, Json::Number),\n        Type::String => Json::String(v.as_string().map(rquickjs::String::to_string).transpose()?.unwrap_or_default()),\n        Type::Array => {",
+      "tokens": 437,
+      "firstFile": {
+        "name": "parta/crates/hook-qjs/src/marshal.rs",
+        "start": 34,
+        "end": 60,
+        "startLoc": {
+          "line": 34,
+          "column": 10,
+          "position": 539
+        },
+        "endLoc": {
+          "line": 60,
+          "column": 25,
+          "position": 976
+        }
+      },
+      "secondFile": {
+        "name": "partb/crates/adapters-hooks/src/marshal.rs",
+        "start": 33,
+        "end": 59,
+        "startLoc": {
+          "line": 33,
+          "column": 10,
+          "position": 635
+        },
+        "endLoc": {
+          "line": 59,
+          "column": 37,
+          "position": 1072
+        }
+      }
+    },
+    {
+      "format": "rust",
+      "lines": 8,
+      "fragment": "{\n            let obj = v.as_object().ok_or_else(|| Exception::throw_type(ctx, \"object\"))?;\n            let mut map = Map::new();\n            for prop in obj.props::<String, Value>() {\n                let (k, x) = prop?;\n                map.insert(k, js_to_json(ctx, &x)?);\n            }\n            Json",
+      "tokens": 112,
+      "firstFile": {
+        "name": "parta/crates/hook-qjs/src/marshal.rs",
+        "start": 65,
+        "end": 72,
+        "startLoc": {
+          "line": 65,
+          "column": 25,
+          "position": 1079
+        },
+        "endLoc": {
+          "line": 72,
+          "column": 17,
+          "position": 1191
+        }
+      },
+      "secondFile": {
+        "name": "partb/crates/adapters-hooks/src/marshal.rs",
+        "start": 70,
+        "end": 77,
+        "startLoc": {
+          "line": 70,
+          "column": 82,
+          "position": 1296
+        },
+        "endLoc": {
+          "line": 77,
+          "column": 7,
+          "position": 1408
+        }
+      }
+    },
+    {
+      "format": "rust",
+      "lines": 10,
+      "fragment": "}\n\nfn caught_text(e: &CaughtError<'_>) -> String {\n    match e {\n        CaughtError::Exception(ex) => format!(\"{}\\n{}\", ex.message().unwrap_or_default(), ex.stack().unwrap_or_default()),\n        other => other.to_string(),\n    }\n}\n\nimpl",
+      "tokens": 87,
+      "firstFile": {
+        "name": "parta/crates/hook-qjs/src/main.rs",
+        "start": 32,
+        "end": 41,
+        "startLoc": {
+          "line": 32,
+          "column": 1,
+          "position": 281
+        },
+        "endLoc": {
+          "line": 41,
+          "column": 5,
+          "position": 368
+        }
+      },
+      "secondFile": {
+        "name": "partb/crates/adapters-hooks/src/sandbox.rs",
+        "start": 71,
+        "end": 80,
+        "startLoc": {
+          "line": 71,
+          "column": 1,
+          "position": 708
+        },
+        "endLoc": {
+          "line": 80,
+          "column": 3,
+          "position": 795
+        }
+      }
+    },
+    {
+      "format": "rust",
+      "lines": 14,
+      "fragment": ");\n        Ok(())\n    }\n\n    fn before_request(&mut self, module: &Path, export: &str, request: &Json) -> Result<Json, HookError> {\n        self.invoke(module, export, request, None)\n    }\n\n    fn check(&mut self, module: &Path, export: &str, request: &Json, response: &Json) -> Result<CheckOutcome, HookError> {\n        self.invoke(module, export, request, Some(response)).map(|v| hookbench::check_outcome(&v))\n    }\n}\n\nfn micro",
+      "tokens": 174,
+      "firstFile": {
+        "name": "parta/crates/hook-deno/src/main.rs",
+        "start": 213,
+        "end": 226,
+        "startLoc": {
+          "line": 213,
+          "column": 54,
+          "position": 3206
+        },
+        "endLoc": {
+          "line": 226,
+          "column": 9,
+          "position": 3380
+        }
+      },
+      "secondFile": {
+        "name": "parta/crates/hook-qjs/src/main.rs",
+        "start": 124,
+        "end": 137,
+        "startLoc": {
+          "line": 124,
+          "column": 85,
+          "position": 1862
+        },
+        "endLoc": {
+          "line": 137,
+          "column": 8,
+          "position": 2036
+        }
+      }
+    }
+  ]
+}

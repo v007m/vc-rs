@@ -1,0 +1,670 @@
+
+== format
+
+== clippy (pedantic + nursery + workspace lints, warnings are errors)
+    Checking adapters-hooks v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-hooks)
+    Checking adapters-store v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-store)
+    Checking engine v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/engine)
+    Checking compiler v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/compiler)
+    Checking arch-tests v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/arch-tests)
+    Checking cli v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/cli)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.37s
+
+== tests (unit, architecture rules, end-to-end against the mock server)
+   Compiling adapters-hooks v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-hooks)
+   Compiling adapters-store v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/adapters-store)
+   Compiling engine v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/engine)
+   Compiling compiler v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/compiler)
+   Compiling cli v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/cli)
+   Compiling arch-tests v0.1.0 (/home/claude/vibranium-spike/rust-feasibility/partb/crates/arch-tests)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.78s
+     Running unittests src/lib.rs (target/debug/deps/adapters_hooks-36eca1923b1e648d)
+
+running 1 test
+test tests::sign_hook_adds_hmac_header ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/adapters_http-ac9899755609359c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/adapters_store-b63543ffa45e5f50)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/arch_tests-3229ddd391237db3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rules.rs (target/debug/deps/rules-7230b97d25fc9749)
+
+running 6 tests
+test domain_crates_avoid_primitive_obsession ... ok
+test primitive_obsession_heuristic_flags_examples ... ok
+test rule_checker_detects_forbidden_edges ... ok
+test static_detector_flags_examples ... ok
+test workspace_respects_dependency_rules ... ok
+test no_global_statics_anywhere ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running unittests src/lib.rs (target/debug/deps/cli-15b3c2a20e50f352)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/vibranium-8962aa9b53a9af09)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mock_server.rs (target/debug/deps/mock_server-48154c504d00ebad)
+
+running 1 test
+2026/10/23 08:35:39 mock listening on 127.0.0.1:39723
+test fifty_tests_sharing_a_file_setup_make_exactly_one_setup_request ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running unittests src/lib.rs (target/debug/deps/compiler-df6e84a354bd771e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/engine-29ce32e5ba40ccbf)
+
+running 7 tests
+test tests::assertions_hooks_and_auth_are_applied ... ok
+test tests::every_result_reaches_store_and_reporter ... ok
+test tests::failed_setup_is_memoized_and_errors_dependents ... ok
+test tests::fifty_tests_share_one_file_scoped_setup ... ok
+test tests::file_scope_runs_setup_once_per_file_and_run_scope_once ... ok
+test tests::store_failures_are_counted_not_fatal ... ok
+test tests::runs_with_concurrency_one_and_zero ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running unittests src/lib.rs (target/debug/deps/ir-9f3ecfaea7b6719b)
+
+running 2 tests
+test program::tests::rejects_nested_setup ... ok
+test program::tests::template_renders_known_and_keeps_unknown ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/ports-9e1d08debff0c1cf)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tsstrip-cff822e5460694bb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests adapters_hooks
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests adapters_http
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests adapters_store
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests arch_tests
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests cli
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests compiler
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ir
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ports
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tsstrip
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+== duplication (jscpd, >=50 tokens)
+Duplications detection: Found 0 exact clones with 0(0%) duplicated lines in 32 (2 formats) files.
+
+== supply chain (cargo-deny: advisories, licenses, bans, sources)
+warning[duplicate]: found 2 duplicate entries for crate 'hashbrown'
+   ┌─ /home/claude/vibranium-spike/rust-feasibility/partb/Cargo.lock:48:1
+   │  
+48 │ ╭ hashbrown 0.16.1 registry+https://github.com/rust-lang/crates.io-index
+49 │ │ hashbrown 0.17.1 registry+https://github.com/rust-lang/crates.io-index
+   │ ╰──────────────────────────────────────────────────────────────────────┘ lock entries
+   │  
+   ├ hashbrown v0.16.1
+     └── rsqlite-vfs v0.1.1
+         └── sqlite-wasm-rs v0.5.5
+             └── rusqlite v0.40.2
+                 └── adapters-store v0.1.0
+                     └── cli v0.1.0
+   ├ hashbrown v0.17.1
+     ├── hashlink v0.12.2
+     │   └── rusqlite v0.40.2
+     │       └── adapters-store v0.1.0
+     │           └── cli v0.1.0
+     ├── indexmap v2.14.2
+     │   └── oxc_transformer v0.155.0
+     │       ├── oxc v0.155.0
+     │       │   └── tsstrip v0.1.0
+     │       │       └── adapters-hooks v0.1.0
+     │       │           └── cli v0.1.0 (*)
+     │       └── oxc_transformer_plugins v0.155.0
+     │           └── oxc v0.155.0 (*)
+     ├── oxc_allocator v0.155.0
+     │   ├── oxc v0.155.0 (*)
+     │   ├── oxc_ast v0.155.0
+     │   │   ├── oxc v0.155.0 (*)
+     │   │   ├── oxc_ast_visit v0.155.0
+     │   │   │   ├── oxc_semantic v0.155.0
+     │   │   │   │   ├── oxc v0.155.0 (*)
+     │   │   │   │   ├── oxc_codegen v0.155.0
+     │   │   │   │   │   └── oxc v0.155.0 (*)
+     │   │   │   │   ├── oxc_transformer v0.155.0 (*)
+     │   │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+     │   │   │   │   └── oxc_traverse v0.155.0
+     │   │   │   │       ├── oxc_transformer v0.155.0 (*)
+     │   │   │   │       └── oxc_transformer_plugins v0.155.0 (*)
+     │   │   │   ├── oxc_transformer v0.155.0 (*)
+     │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+     │   │   │   └── oxc_traverse v0.155.0 (*)
+     │   │   ├── oxc_codegen v0.155.0 (*)
+     │   │   ├── oxc_ecmascript v0.155.0
+     │   │   │   ├── oxc_codegen v0.155.0 (*)
+     │   │   │   ├── oxc_parser v0.155.0
+     │   │   │   │   ├── oxc v0.155.0 (*)
+     │   │   │   │   └── oxc_transformer_plugins v0.155.0 (*)
+     │   │   │   ├── oxc_semantic v0.155.0 (*)
+     │   │   │   ├── oxc_transformer v0.155.0 (*)
+     │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+     │   │   │   └── oxc_traverse v0.155.0 (*)
+     │   │   ├── oxc_parser v0.155.0 (*)
+     │   │   ├── oxc_semantic v0.155.0 (*)
+     │   │   ├── oxc_transformer v0.155.0 (*)
+     │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+     │   │   └── oxc_traverse v0.155.0 (*)
+     │   ├── oxc_ast_visit v0.155.0 (*)
+     │   ├── oxc_codegen v0.155.0 (*)
+     │   ├── oxc_parser v0.155.0 (*)
+     │   ├── oxc_regular_expression v0.155.0
+     │   │   ├── oxc v0.155.0 (*)
+     │   │   ├── oxc_ast v0.155.0 (*)
+     │   │   ├── oxc_parser v0.155.0 (*)
+     │   │   └── oxc_transformer v0.155.0 (*)
+     │   ├── oxc_semantic v0.155.0 (*)
+     │   ├── oxc_span v0.155.0
+     │   │   ├── oxc v0.155.0 (*)
+     │   │   ├── oxc_ast v0.155.0 (*)
+     │   │   ├── oxc_ast_visit v0.155.0 (*)
+     │   │   ├── oxc_codegen v0.155.0 (*)
+     │   │   ├── oxc_diagnostics v0.155.0
+     │   │   │   ├── oxc v0.155.0 (*)
+     │   │   │   ├── oxc_ast v0.155.0 (*)
+     │   │   │   ├── oxc_parser v0.155.0 (*)
+     │   │   │   ├── oxc_regular_expression v0.155.0 (*)
+     │   │   │   ├── oxc_semantic v0.155.0 (*)
+     │   │   │   ├── oxc_transformer v0.155.0 (*)
+     │   │   │   └── oxc_transformer_plugins v0.155.0 (*)
+     │   │   ├── oxc_ecmascript v0.155.0 (*)
+     │   │   ├── oxc_parser v0.155.0 (*)
+     │   │   ├── oxc_regular_expression v0.155.0 (*)
+     │   │   ├── oxc_semantic v0.155.0 (*)
+     │   │   ├── oxc_syntax v0.155.0
+     │   │   │   ├── oxc v0.155.0 (*)
+     │   │   │   ├── oxc_ast v0.155.0 (*)
+     │   │   │   ├── oxc_ast_visit v0.155.0 (*)
+     │   │   │   ├── oxc_codegen v0.155.0 (*)
+     │   │   │   ├── oxc_compat v0.155.0
+     │   │   │   │   └── oxc_transformer v0.155.0 (*)
+     │   │   │   ├── oxc_ecmascript v0.155.0 (*)
+     │   │   │   ├── oxc_parser v0.155.0 (*)
+     │   │   │   ├── oxc_semantic v0.155.0 (*)
+     │   │   │   ├── oxc_transformer v0.155.0 (*)
+     │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+     │   │   │   └── oxc_traverse v0.155.0 (*)
+     │   │   ├── oxc_transformer v0.155.0 (*)
+     │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+     │   │   └── oxc_traverse v0.155.0 (*)
+     │   ├── oxc_str v0.155.0
+     │   │   ├── oxc v0.155.0 (*)
+     │   │   ├── oxc_ast v0.155.0 (*)
+     │   │   ├── oxc_codegen v0.155.0 (*)
+     │   │   ├── oxc_ecmascript v0.155.0 (*)
+     │   │   ├── oxc_parser v0.155.0 (*)
+     │   │   ├── oxc_regular_expression v0.155.0 (*)
+     │   │   ├── oxc_semantic v0.155.0 (*)
+     │   │   ├── oxc_span v0.155.0 (*)
+     │   │   ├── oxc_syntax v0.155.0 (*)
+     │   │   ├── oxc_transformer v0.155.0 (*)
+     │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+     │   │   └── oxc_traverse v0.155.0 (*)
+     │   ├── oxc_syntax v0.155.0 (*)
+     │   ├── oxc_transformer v0.155.0 (*)
+     │   ├── oxc_transformer_plugins v0.155.0 (*)
+     │   └── oxc_traverse v0.155.0 (*)
+     ├── oxc_str v0.155.0 (*)
+     └── rquickjs-core v0.14.0
+         └── rquickjs v0.14.0
+             └── adapters-hooks v0.1.0 (*)
+
+warning[duplicate]: found 2 duplicate entries for crate 'syn'
+    ┌─ /home/claude/vibranium-spike/rust-feasibility/partb/Cargo.lock:156:1
+    │  
+156 │ ╭ syn 2.0.119 registry+https://github.com/rust-lang/crates.io-index
+157 │ │ syn 3.0.9 registry+https://github.com/rust-lang/crates.io-index
+    │ ╰───────────────────────────────────────────────────────────────┘ lock entries
+    │  
+    ├ syn v2.0.119
+      ├── arch-tests v0.1.0
+      └── phf_macros v0.14.0
+          └── phf v0.14.0
+              ├── oxc_ast_macros v0.155.0
+              │   ├── oxc_ast v0.155.0
+              │   │   ├── oxc v0.155.0
+              │   │   │   └── tsstrip v0.1.0
+              │   │   │       └── adapters-hooks v0.1.0
+              │   │   │           └── cli v0.1.0
+              │   │   ├── oxc_ast_visit v0.155.0
+              │   │   │   ├── oxc_semantic v0.155.0
+              │   │   │   │   ├── oxc v0.155.0 (*)
+              │   │   │   │   ├── oxc_codegen v0.155.0
+              │   │   │   │   │   └── oxc v0.155.0 (*)
+              │   │   │   │   ├── oxc_transformer v0.155.0
+              │   │   │   │   │   ├── oxc v0.155.0 (*)
+              │   │   │   │   │   └── oxc_transformer_plugins v0.155.0
+              │   │   │   │   │       └── oxc v0.155.0 (*)
+              │   │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+              │   │   │   │   └── oxc_traverse v0.155.0
+              │   │   │   │       ├── oxc_transformer v0.155.0 (*)
+              │   │   │   │       └── oxc_transformer_plugins v0.155.0 (*)
+              │   │   │   ├── oxc_transformer v0.155.0 (*)
+              │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+              │   │   │   └── oxc_traverse v0.155.0 (*)
+              │   │   ├── oxc_codegen v0.155.0 (*)
+              │   │   ├── oxc_ecmascript v0.155.0
+              │   │   │   ├── oxc_codegen v0.155.0 (*)
+              │   │   │   ├── oxc_parser v0.155.0
+              │   │   │   │   ├── oxc v0.155.0 (*)
+              │   │   │   │   └── oxc_transformer_plugins v0.155.0 (*)
+              │   │   │   ├── oxc_semantic v0.155.0 (*)
+              │   │   │   ├── oxc_transformer v0.155.0 (*)
+              │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+              │   │   │   └── oxc_traverse v0.155.0 (*)
+              │   │   ├── oxc_parser v0.155.0 (*)
+              │   │   ├── oxc_semantic v0.155.0 (*)
+              │   │   ├── oxc_transformer v0.155.0 (*)
+              │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+              │   │   └── oxc_traverse v0.155.0 (*)
+              │   ├── oxc_regular_expression v0.155.0
+              │   │   ├── oxc v0.155.0 (*)
+              │   │   ├── oxc_ast v0.155.0 (*)
+              │   │   ├── oxc_parser v0.155.0 (*)
+              │   │   └── oxc_transformer v0.155.0 (*)
+              │   ├── oxc_span v0.155.0
+              │   │   ├── oxc v0.155.0 (*)
+              │   │   ├── oxc_ast v0.155.0 (*)
+              │   │   ├── oxc_ast_visit v0.155.0 (*)
+              │   │   ├── oxc_codegen v0.155.0 (*)
+              │   │   ├── oxc_diagnostics v0.155.0
+              │   │   │   ├── oxc v0.155.0 (*)
+              │   │   │   ├── oxc_ast v0.155.0 (*)
+              │   │   │   ├── oxc_parser v0.155.0 (*)
+              │   │   │   ├── oxc_regular_expression v0.155.0 (*)
+              │   │   │   ├── oxc_semantic v0.155.0 (*)
+              │   │   │   ├── oxc_transformer v0.155.0 (*)
+              │   │   │   └── oxc_transformer_plugins v0.155.0 (*)
+              │   │   ├── oxc_ecmascript v0.155.0 (*)
+              │   │   ├── oxc_parser v0.155.0 (*)
+              │   │   ├── oxc_regular_expression v0.155.0 (*)
+              │   │   ├── oxc_semantic v0.155.0 (*)
+              │   │   ├── oxc_syntax v0.155.0
+              │   │   │   ├── oxc v0.155.0 (*)
+              │   │   │   ├── oxc_ast v0.155.0 (*)
+              │   │   │   ├── oxc_ast_visit v0.155.0 (*)
+              │   │   │   ├── oxc_codegen v0.155.0 (*)
+              │   │   │   ├── oxc_compat v0.155.0
+              │   │   │   │   └── oxc_transformer v0.155.0 (*)
+              │   │   │   ├── oxc_ecmascript v0.155.0 (*)
+              │   │   │   ├── oxc_parser v0.155.0 (*)
+              │   │   │   ├── oxc_semantic v0.155.0 (*)
+              │   │   │   ├── oxc_transformer v0.155.0 (*)
+              │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+              │   │   │   └── oxc_traverse v0.155.0 (*)
+              │   │   ├── oxc_transformer v0.155.0 (*)
+              │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+              │   │   └── oxc_traverse v0.155.0 (*)
+              │   └── oxc_syntax v0.155.0 (*)
+              ├── oxc_regular_expression v0.155.0 (*)
+              └── oxc_syntax v0.155.0 (*)
+    ├ syn v3.0.9
+      ├── async-trait v0.1.92
+      │   ├── adapters-hooks v0.1.0
+      │   │   └── cli v0.1.0
+      │   ├── adapters-http v0.1.0
+      │   │   └── cli v0.1.0 (*)
+      │   ├── adapters-store v0.1.0
+      │   │   └── cli v0.1.0 (*)
+      │   ├── (dev) engine v0.1.0
+      │   │   └── cli v0.1.0 (*)
+      │   └── ports v0.1.0
+      │       ├── adapters-hooks v0.1.0 (*)
+      │       ├── adapters-http v0.1.0 (*)
+      │       ├── adapters-store v0.1.0 (*)
+      │       ├── cli v0.1.0 (*)
+      │       └── engine v0.1.0 (*)
+      ├── displaydoc v0.2.7
+      │   ├── icu_collections v2.4.0
+      │   │   ├── icu_normalizer v2.4.0
+      │   │   │   └── idna_adapter v1.2.2
+      │   │   │       └── idna v1.1.0
+      │   │   │           └── url v2.5.8
+      │   │   │               ├── reqwest v0.13.5
+      │   │   │               │   ├── adapters-http v0.1.0 (*)
+      │   │   │               │   └── (dev) cli v0.1.0 (*)
+      │   │   │               └── tower-http v0.6.11
+      │   │   │                   └── reqwest v0.13.5 (*)
+      │   │   ├── icu_properties v2.4.0
+      │   │   │   └── idna_adapter v1.2.2 (*)
+      │   │   └── icu_segmenter v2.4.0
+      │   │       └── textwrap v0.16.4
+      │   │           └── oxc_diagnostics v0.155.0
+      │   │               ├── oxc v0.155.0
+      │   │               │   └── tsstrip v0.1.0
+      │   │               │       └── adapters-hooks v0.1.0 (*)
+      │   │               ├── oxc_ast v0.155.0
+      │   │               │   ├── oxc v0.155.0 (*)
+      │   │               │   ├── oxc_ast_visit v0.155.0
+      │   │               │   │   ├── oxc_semantic v0.155.0
+      │   │               │   │   │   ├── oxc v0.155.0 (*)
+      │   │               │   │   │   ├── oxc_codegen v0.155.0
+      │   │               │   │   │   │   └── oxc v0.155.0 (*)
+      │   │               │   │   │   ├── oxc_transformer v0.155.0
+      │   │               │   │   │   │   ├── oxc v0.155.0 (*)
+      │   │               │   │   │   │   └── oxc_transformer_plugins v0.155.0
+      │   │               │   │   │   │       └── oxc v0.155.0 (*)
+      │   │               │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+      │   │               │   │   │   └── oxc_traverse v0.155.0
+      │   │               │   │   │       ├── oxc_transformer v0.155.0 (*)
+      │   │               │   │   │       └── oxc_transformer_plugins v0.155.0 (*)
+      │   │               │   │   ├── oxc_transformer v0.155.0 (*)
+      │   │               │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+      │   │               │   │   └── oxc_traverse v0.155.0 (*)
+      │   │               │   ├── oxc_codegen v0.155.0 (*)
+      │   │               │   ├── oxc_ecmascript v0.155.0
+      │   │               │   │   ├── oxc_codegen v0.155.0 (*)
+      │   │               │   │   ├── oxc_parser v0.155.0
+      │   │               │   │   │   ├── oxc v0.155.0 (*)
+      │   │               │   │   │   └── oxc_transformer_plugins v0.155.0 (*)
+      │   │               │   │   ├── oxc_semantic v0.155.0 (*)
+      │   │               │   │   ├── oxc_transformer v0.155.0 (*)
+      │   │               │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+      │   │               │   │   └── oxc_traverse v0.155.0 (*)
+      │   │               │   ├── oxc_parser v0.155.0 (*)
+      │   │               │   ├── oxc_semantic v0.155.0 (*)
+      │   │               │   ├── oxc_transformer v0.155.0 (*)
+      │   │               │   ├── oxc_transformer_plugins v0.155.0 (*)
+      │   │               │   └── oxc_traverse v0.155.0 (*)
+      │   │               ├── oxc_parser v0.155.0 (*)
+      │   │               ├── oxc_regular_expression v0.155.0
+      │   │               │   ├── oxc v0.155.0 (*)
+      │   │               │   ├── oxc_ast v0.155.0 (*)
+      │   │               │   ├── oxc_parser v0.155.0 (*)
+      │   │               │   └── oxc_transformer v0.155.0 (*)
+      │   │               ├── oxc_semantic v0.155.0 (*)
+      │   │               ├── oxc_transformer v0.155.0 (*)
+      │   │               └── oxc_transformer_plugins v0.155.0 (*)
+      │   ├── icu_locale_core v2.4.0
+      │   │   ├── icu_locale_fallback v2.4.0
+      │   │   │   └── icu_segmenter v2.4.0 (*)
+      │   │   ├── icu_properties v2.4.0 (*)
+      │   │   └── icu_provider v2.4.0
+      │   │       ├── icu_locale_fallback v2.4.0 (*)
+      │   │       ├── icu_normalizer v2.4.0 (*)
+      │   │       ├── icu_properties v2.4.0 (*)
+      │   │       └── icu_segmenter v2.4.0 (*)
+      │   ├── icu_properties v2.4.0 (*)
+      │   ├── icu_provider v2.4.0 (*)
+      │   ├── tinystr v0.8.5
+      │   │   ├── icu_locale_core v2.4.0 (*)
+      │   │   └── icu_locale_fallback v2.4.0 (*)
+      │   └── zerotrie v0.2.5
+      │       ├── icu_properties v2.4.0 (*)
+      │       ├── icu_provider v2.4.0 (*)
+      │       └── icu_segmenter v2.4.0 (*)
+      ├── oxc_ast_macros v0.155.0
+      │   ├── oxc_ast v0.155.0 (*)
+      │   ├── oxc_regular_expression v0.155.0 (*)
+      │   ├── oxc_span v0.155.0
+      │   │   ├── oxc v0.155.0 (*)
+      │   │   ├── oxc_ast v0.155.0 (*)
+      │   │   ├── oxc_ast_visit v0.155.0 (*)
+      │   │   ├── oxc_codegen v0.155.0 (*)
+      │   │   ├── oxc_diagnostics v0.155.0 (*)
+      │   │   ├── oxc_ecmascript v0.155.0 (*)
+      │   │   ├── oxc_parser v0.155.0 (*)
+      │   │   ├── oxc_regular_expression v0.155.0 (*)
+      │   │   ├── oxc_semantic v0.155.0 (*)
+      │   │   ├── oxc_syntax v0.155.0
+      │   │   │   ├── oxc v0.155.0 (*)
+      │   │   │   ├── oxc_ast v0.155.0 (*)
+      │   │   │   ├── oxc_ast_visit v0.155.0 (*)
+      │   │   │   ├── oxc_codegen v0.155.0 (*)
+      │   │   │   ├── oxc_compat v0.155.0
+      │   │   │   │   └── oxc_transformer v0.155.0 (*)
+      │   │   │   ├── oxc_ecmascript v0.155.0 (*)
+      │   │   │   ├── oxc_parser v0.155.0 (*)
+      │   │   │   ├── oxc_semantic v0.155.0 (*)
+      │   │   │   ├── oxc_transformer v0.155.0 (*)
+      │   │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+      │   │   │   └── oxc_traverse v0.155.0 (*)
+      │   │   ├── oxc_transformer v0.155.0 (*)
+      │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+      │   │   └── oxc_traverse v0.155.0 (*)
+      │   └── oxc_syntax v0.155.0 (*)
+      ├── serde_derive v1.0.229
+      │   └── serde v1.0.229
+      │       ├── cargo_metadata v0.23.1
+      │       │   └── arch-tests v0.1.0
+      │       ├── ir v0.1.0
+      │       │   ├── adapters-hooks v0.1.0 (*)
+      │       │   ├── adapters-http v0.1.0 (*)
+      │       │   ├── cli v0.1.0 (*)
+      │       │   ├── compiler v0.1.0
+      │       │   │   └── cli v0.1.0 (*)
+      │       │   ├── engine v0.1.0 (*)
+      │       │   └── ports v0.1.0 (*)
+      │       ├── oxc-browserslist v5.0.1
+      │       │   └── oxc_compat v0.155.0 (*)
+      │       ├── oxc_compat v0.155.0 (*)
+      │       ├── oxc_index v5.0.0
+      │       │   ├── oxc_codegen v0.155.0 (*)
+      │       │   ├── oxc_semantic v0.155.0 (*)
+      │       │   └── oxc_syntax v0.155.0 (*)
+      │       ├── oxc_sourcemap v9.0.0
+      │       │   ├── oxc_codegen v0.155.0 (*)
+      │       │   └── tsstrip v0.1.0 (*)
+      │       ├── oxc_transformer v0.155.0 (*)
+      │       ├── postcard v1.1.3
+      │       │   └── oxc-browserslist v5.0.1 (*)
+      │       └── smallvec v1.16.3
+      │           ├── hyper v1.12.0
+      │           │   ├── hyper-util v0.1.21
+      │           │   │   └── reqwest v0.13.5 (*)
+      │           │   └── reqwest v0.13.5 (*)
+      │           ├── icu_normalizer v2.4.0 (*)
+      │           ├── icu_segmenter v2.4.0 (*)
+      │           ├── idna v1.1.0 (*)
+      │           ├── oxc_codegen v0.155.0 (*)
+      │           ├── oxc_diagnostics v0.155.0 (*)
+      │           ├── oxc_semantic v0.155.0 (*)
+      │           ├── ropey v1.6.1
+      │           │   └── oxc_data_structures v0.155.0
+      │           │       ├── oxc_allocator v0.155.0
+      │           │       │   ├── oxc v0.155.0 (*)
+      │           │       │   ├── oxc_ast v0.155.0 (*)
+      │           │       │   ├── oxc_ast_visit v0.155.0 (*)
+      │           │       │   ├── oxc_codegen v0.155.0 (*)
+      │           │       │   ├── oxc_parser v0.155.0 (*)
+      │           │       │   ├── oxc_regular_expression v0.155.0 (*)
+      │           │       │   ├── oxc_semantic v0.155.0 (*)
+      │           │       │   ├── oxc_span v0.155.0 (*)
+      │           │       │   ├── oxc_str v0.155.0
+      │           │       │   │   ├── oxc v0.155.0 (*)
+      │           │       │   │   ├── oxc_ast v0.155.0 (*)
+      │           │       │   │   ├── oxc_codegen v0.155.0 (*)
+      │           │       │   │   ├── oxc_ecmascript v0.155.0 (*)
+      │           │       │   │   ├── oxc_parser v0.155.0 (*)
+      │           │       │   │   ├── oxc_regular_expression v0.155.0 (*)
+      │           │       │   │   ├── oxc_semantic v0.155.0 (*)
+      │           │       │   │   ├── oxc_span v0.155.0 (*)
+      │           │       │   │   ├── oxc_syntax v0.155.0 (*)
+      │           │       │   │   ├── oxc_transformer v0.155.0 (*)
+      │           │       │   │   ├── oxc_transformer_plugins v0.155.0 (*)
+      │           │       │   │   └── oxc_traverse v0.155.0 (*)
+      │           │       │   ├── oxc_syntax v0.155.0 (*)
+      │           │       │   ├── oxc_transformer v0.155.0 (*)
+      │           │       │   ├── oxc_transformer_plugins v0.155.0 (*)
+      │           │       │   └── oxc_traverse v0.155.0 (*)
+      │           │       ├── oxc_ast v0.155.0 (*)
+      │           │       ├── oxc_codegen v0.155.0 (*)
+      │           │       ├── oxc_ecmascript v0.155.0 (*)
+      │           │       ├── oxc_parser v0.155.0 (*)
+      │           │       ├── oxc_semantic v0.155.0 (*)
+      │           │       ├── oxc_transformer v0.155.0 (*)
+      │           │       └── oxc_traverse v0.155.0 (*)
+      │           └── rusqlite v0.40.2
+      │               └── adapters-store v0.1.0 (*)
+      ├── synstructure v0.14.0
+      │   ├── yoke-derive v0.8.4
+      │   │   └── yoke v0.8.4
+      │   │       ├── icu_collections v2.4.0 (*)
+      │   │       ├── icu_provider v2.4.0 (*)
+      │   │       ├── zerotrie v0.2.5 (*)
+      │   │       └── zerovec v0.11.9
+      │   │           ├── icu_collections v2.4.0 (*)
+      │   │           ├── icu_locale_core v2.4.0 (*)
+      │   │           ├── icu_locale_fallback v2.4.0 (*)
+      │   │           ├── icu_normalizer v2.4.0 (*)
+      │   │           ├── icu_properties v2.4.0 (*)
+      │   │           ├── icu_provider v2.4.0 (*)
+      │   │           ├── icu_segmenter v2.4.0 (*)
+      │   │           ├── potential_utf v0.1.6
+      │   │           │   ├── icu_collections v2.4.0 (*)
+      │   │           │   ├── icu_locale_fallback v2.4.0 (*)
+      │   │           │   └── icu_segmenter v2.4.0 (*)
+      │   │           └── tinystr v0.8.5 (*)
+      │   └── zerofrom-derive v0.1.8
+      │       └── zerofrom v0.1.8
+      │           ├── icu_collections v2.4.0 (*)
+      │           ├── icu_provider v2.4.0 (*)
+      │           ├── yoke v0.8.4 (*)
+      │           ├── zerotrie v0.2.5 (*)
+      │           └── zerovec v0.11.9 (*)
+      ├── thiserror-impl v2.0.21
+      │   └── thiserror v2.0.21
+      │       ├── cargo_metadata v0.23.1 (*)
+      │       ├── cli v0.1.0 (*)
+      │       ├── cobs v0.3.0
+      │       │   └── postcard v1.1.3 (*)
+      │       ├── engine v0.1.0 (*)
+      │       ├── ir v0.1.0 (*)
+      │       ├── oxc-browserslist v5.0.1 (*)
+      │       ├── ports v0.1.0 (*)
+      │       └── rsqlite-vfs v0.1.1
+      │           └── sqlite-wasm-rs v0.5.5
+      │               └── rusqlite v0.40.2 (*)
+      ├── tokio-macros v2.7.2
+      │   └── tokio v1.54.1
+      │       ├── adapters-hooks v0.1.0 (*)
+      │       ├── adapters-store v0.1.0 (*)
+      │       ├── cli v0.1.0 (*)
+      │       ├── engine v0.1.0 (*)
+      │       ├── hyper v1.12.0 (*)
+      │       ├── hyper-util v0.1.21 (*)
+      │       ├── reqwest v0.13.5 (*)
+      │       ├── tower v0.5.3
+      │       │   ├── reqwest v0.13.5 (*)
+      │       │   └── tower-http v0.6.11 (*)
+      │       └── wasm-bindgen-futures v0.4.79
+      │           └── reqwest v0.13.5 (*)
+      ├── wasm-bindgen-macro-support v0.2.129
+      │   └── wasm-bindgen-macro v0.2.129
+      │       └── wasm-bindgen v0.2.129
+      │           ├── js-sys v0.3.106
+      │           │   ├── oxc-browserslist v5.0.1 (*)
+      │           │   ├── reqwest v0.13.5 (*)
+      │           │   ├── sqlite-wasm-rs v0.5.5 (*)
+      │           │   ├── wasm-bindgen-futures v0.4.79 (*)
+      │           │   └── web-sys v0.3.106
+      │           │       └── reqwest v0.13.5 (*)
+      │           ├── reqwest v0.13.5 (*)
+      │           ├── sqlite-wasm-rs v0.5.5 (*)
+      │           ├── wasm-bindgen-futures v0.4.79 (*)
+      │           └── web-sys v0.3.106 (*)
+      ├── yoke-derive v0.8.4 (*)
+      ├── zerofrom-derive v0.1.8 (*)
+      └── zerovec-derive v0.11.7
+          └── zerovec v0.11.9 (*)
+
+advisories ok, bans ok, licenses ok, sources ok
+
+== unused dependencies (cargo-machete)
+Analyzing dependencies of crates in this directory...
+cargo-machete didn't find any unused dependencies in this directory. Good job!
+Done!
+
+all gates passed

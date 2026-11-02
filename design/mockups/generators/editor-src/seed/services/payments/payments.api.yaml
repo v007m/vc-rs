@@ -1,0 +1,21 @@
+id: payments
+name: Payments
+baseUrl: ${var.paymentsUrl}/api/v1
+auth: shopOauth
+
+apis:
+  - id: authorize
+    name: Authorize a card payment
+    method: POST
+    path: /authorizations
+    vars:
+      amount: 1000
+      token: tok_visa
+    body:
+      amount: ${var.amount | int}
+      currency: USD
+      token: ${var.token}
+    expect:
+      status: 201
+    save:
+      authorizationId: ${response.body.id}

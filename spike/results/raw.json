@@ -1,0 +1,1428 @@
+{
+  "build": {
+    "go": {
+      "cold_build_s (empty GOCACHE, includes deps+std)": 31.294487143,
+      "incremental_build_s (touch compiler.go)": 0.171941157,
+      "vet_s": 0.365731628
+    },
+    "rust": {
+      "cold_release_build_s (cargo clean, includes deps)": 185.326795558,
+      "incremental_check_s (cargo check, touch)": 0.510810692,
+      "incremental_debug_build_s (touch)": 1.437801532,
+      "incremental_release_build_s (touch compiler.rs)": 75.222466366
+    },
+    "ts": {
+      "bundle_s (bun build --target=node)": 0.098152035,
+      "compile_binary_s (bun build --compile)": 0.481217275,
+      "typecheck_s (tsc 7 --noEmit)": 0.753535276
+    }
+  },
+  "cel": {
+    "go": {
+      "median_ns_per_op": 3368.311107,
+      "runs_ns_per_op": [
+        3708.217284,
+        3518.008174,
+        3245.906461,
+        3185.309025,
+        3368.311107
+      ]
+    },
+    "rust": {
+      "median_ns_per_op": 4757.448167,
+      "runs_ns_per_op": [
+        4757.448167,
+        4716.622057,
+        4925.00095,
+        4070.071326,
+        4908.583237
+      ]
+    },
+    "ts-bun": {
+      "median_ns_per_op": 1290.420043,
+      "runs_ns_per_op": [
+        1505.945695,
+        1005.956132,
+        1302.244778,
+        1290.420043,
+        1245.119518
+      ]
+    },
+    "ts-node": {
+      "median_ns_per_op": 1448.297293,
+      "runs_ns_per_op": [
+        1503.273328,
+        1324.473604,
+        1144.307445,
+        1448.297293,
+        1647.573455
+      ]
+    }
+  },
+  "cel_supplementary": {
+    "go_cel_go_profile": "~37% of eval time in types.nativeToValue (lazy reflection-based wrapping of map[string]any on field access)",
+    "go_cel_go_variants_ns_per_op": {
+      "allocs_per_op": 20,
+      "body as structpb.Value once": [
+        4180,
+        4070,
+        4333
+      ],
+      "body pre-converted via DefaultTypeAdapter.NativeToValue once": [
+        3211,
+        3431,
+        3645
+      ],
+      "default/activation": 3544,
+      "default/map": 3305,
+      "optimize/activation": 3253,
+      "optimize/map": 3594
+    },
+    "note": "Investigations into whether CEL numbers are harness artifacts. Same expression and body as the main CEL benchmark.",
+    "rust_cel_0_15_variants_ns_per_op_300k_iters": {
+      "VariableResolver borrowing pre-converted Box<dyn Val> (final adapter)": [
+        5242,
+        5340
+      ],
+      "child scope per eval": [
+        11587,
+        9733,
+        8542
+      ],
+      "context built once, reused": [
+        4615,
+        4864,
+        4108
+      ],
+      "new Context + add_variable_from_value per eval (initial adapter)": [
+        8890,
+        10465,
+        8422
+      ]
+    },
+    "rust_note": "cel 0.15 converts Value->Box<dyn Val> by deep copy when a variable is added; the final adapter converts once per response and lends it via VariableResolver. Evaluation itself (~4.5us) is still slower than cel-go here.",
+    "ts_bun_bytecode_build_cel_ns_per_op": 1199
+  },
+  "compile": {
+    "go": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 0.631662,
+      "median_internal_ms": 335.8334,
+      "median_max_rss_mb": 68.16796875,
+      "median_wall_ms": 352.481073,
+      "runs": [
+        {
+          "cpu_s": 0.69022,
+          "internal_ms": 372.15903,
+          "max_rss_kb": 70184,
+          "wall_ms": 391.246809
+        },
+        {
+          "cpu_s": 0.660097,
+          "internal_ms": 341.429376,
+          "max_rss_kb": 69028,
+          "wall_ms": 358.636052
+        },
+        {
+          "cpu_s": 0.6229269999999999,
+          "internal_ms": 329.065785,
+          "max_rss_kb": 69088,
+          "wall_ms": 342.733191
+        },
+        {
+          "cpu_s": 0.577415,
+          "internal_ms": 307.033063,
+          "max_rss_kb": 69284,
+          "wall_ms": 320.3443
+        },
+        {
+          "cpu_s": 0.631662,
+          "internal_ms": 335.8334,
+          "max_rss_kb": 73128,
+          "wall_ms": 352.481073
+        },
+        {
+          "cpu_s": 0.6148129999999999,
+          "internal_ms": 326.911854,
+          "max_rss_kb": 70888,
+          "wall_ms": 346.478401
+        },
+        {
+          "cpu_s": 0.6847289999999999,
+          "internal_ms": 350.383009,
+          "max_rss_kb": 69804,
+          "wall_ms": 367.593353
+        }
+      ]
+    },
+    "go (GOMAXPROCS=1)": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 0.6053249999999999,
+      "median_internal_ms": 596.891757,
+      "median_max_rss_mb": 68.27734375,
+      "median_wall_ms": 611.549744,
+      "runs": [
+        {
+          "cpu_s": 0.558618,
+          "internal_ms": 546.098814,
+          "max_rss_kb": 69796,
+          "wall_ms": 562.442169
+        },
+        {
+          "cpu_s": 0.6053249999999999,
+          "internal_ms": 596.891757,
+          "max_rss_kb": 72864,
+          "wall_ms": 611.549744
+        },
+        {
+          "cpu_s": 0.600499,
+          "internal_ms": 583.632704,
+          "max_rss_kb": 72936,
+          "wall_ms": 598.536033
+        },
+        {
+          "cpu_s": 0.563686,
+          "internal_ms": 550.978578,
+          "max_rss_kb": 67620,
+          "wall_ms": 566.411373
+        },
+        {
+          "cpu_s": 0.6205989999999999,
+          "internal_ms": 618.940398,
+          "max_rss_kb": 69916,
+          "wall_ms": 636.51972
+        },
+        {
+          "cpu_s": 0.621074,
+          "internal_ms": 614.008996,
+          "max_rss_kb": 72224,
+          "wall_ms": 633.817326
+        },
+        {
+          "cpu_s": 0.643369,
+          "internal_ms": 630.678343,
+          "max_rss_kb": 67616,
+          "wall_ms": 646.685343
+        }
+      ]
+    },
+    "rust": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 0.7202789999999999,
+      "median_internal_ms": 362.29471,
+      "median_max_rss_mb": 68.44140625,
+      "median_wall_ms": 386.706732,
+      "runs": [
+        {
+          "cpu_s": 0.821001,
+          "internal_ms": 427.412956,
+          "max_rss_kb": 70056,
+          "wall_ms": 453.43229
+        },
+        {
+          "cpu_s": 0.7571479999999999,
+          "internal_ms": 377.877555,
+          "max_rss_kb": 70048,
+          "wall_ms": 401.697198
+        },
+        {
+          "cpu_s": 0.6747529999999999,
+          "internal_ms": 340.483125,
+          "max_rss_kb": 70084,
+          "wall_ms": 366.310518
+        },
+        {
+          "cpu_s": 0.7202789999999999,
+          "internal_ms": 362.29471,
+          "max_rss_kb": 70108,
+          "wall_ms": 386.706732
+        },
+        {
+          "cpu_s": 0.77613,
+          "internal_ms": 417.007045,
+          "max_rss_kb": 69992,
+          "wall_ms": 443.681459
+        },
+        {
+          "cpu_s": 0.680113,
+          "internal_ms": 337.750667,
+          "max_rss_kb": 70384,
+          "wall_ms": 363.83901
+        },
+        {
+          "cpu_s": 0.615987,
+          "internal_ms": 310.192926,
+          "max_rss_kb": 70220,
+          "wall_ms": 333.119523
+        }
+      ]
+    },
+    "rust (1 thread)": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 0.729222,
+      "median_internal_ms": 707.452929,
+      "median_max_rss_mb": 68.015625,
+      "median_wall_ms": 738.141246,
+      "runs": [
+        {
+          "cpu_s": 0.690531,
+          "internal_ms": 670.760728,
+          "max_rss_kb": 69872,
+          "wall_ms": 696.739865
+        },
+        {
+          "cpu_s": 0.776392,
+          "internal_ms": 757.956153,
+          "max_rss_kb": 69476,
+          "wall_ms": 784.711268
+        },
+        {
+          "cpu_s": 0.703899,
+          "internal_ms": 689.4059609999999,
+          "max_rss_kb": 69664,
+          "wall_ms": 717.559758
+        },
+        {
+          "cpu_s": 0.740881,
+          "internal_ms": 737.790791,
+          "max_rss_kb": 69548,
+          "wall_ms": 764.629372
+        },
+        {
+          "cpu_s": 0.743439,
+          "internal_ms": 713.221692,
+          "max_rss_kb": 69648,
+          "wall_ms": 751.574224
+        },
+        {
+          "cpu_s": 0.729222,
+          "internal_ms": 701.75714,
+          "max_rss_kb": 69872,
+          "wall_ms": 738.141246
+        },
+        {
+          "cpu_s": 0.707898,
+          "internal_ms": 707.452929,
+          "max_rss_kb": 69560,
+          "wall_ms": 734.187258
+        }
+      ]
+    },
+    "ts-bun (eager spans)": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 2.957997,
+      "median_internal_ms": 1865.7949039999999,
+      "median_max_rss_mb": 194.4921875,
+      "median_wall_ms": 1972.112988,
+      "runs": [
+        {
+          "cpu_s": 3.033512,
+          "internal_ms": 2026.2319269999998,
+          "max_rss_kb": 197404,
+          "wall_ms": 2118.034666
+        },
+        {
+          "cpu_s": 2.745445,
+          "internal_ms": 1751.684905,
+          "max_rss_kb": 201760,
+          "wall_ms": 1836.995065
+        },
+        {
+          "cpu_s": 2.736276,
+          "internal_ms": 1766.9995020000001,
+          "max_rss_kb": 197800,
+          "wall_ms": 1877.115005
+        },
+        {
+          "cpu_s": 3.040289,
+          "internal_ms": 1997.6474890000002,
+          "max_rss_kb": 204056,
+          "wall_ms": 2098.813867
+        },
+        {
+          "cpu_s": 3.099442,
+          "internal_ms": 1935.288779,
+          "max_rss_kb": 199704,
+          "wall_ms": 2020.960473
+        },
+        {
+          "cpu_s": 2.957997,
+          "internal_ms": 1865.7949039999999,
+          "max_rss_kb": 199160,
+          "wall_ms": 1972.112988
+        },
+        {
+          "cpu_s": 2.704071,
+          "internal_ms": 1765.188638,
+          "max_rss_kb": 196804,
+          "wall_ms": 1870.745447
+        }
+      ]
+    },
+    "ts-bun (lazy spans)": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 0.7657019999999999,
+      "median_internal_ms": 397.86997299999996,
+      "median_max_rss_mb": 91.84375,
+      "median_wall_ms": 491.959059,
+      "runs": [
+        {
+          "cpu_s": 0.692565,
+          "internal_ms": 357.086194,
+          "max_rss_kb": 94048,
+          "wall_ms": 431.477092
+        },
+        {
+          "cpu_s": 0.662072,
+          "internal_ms": 349.816642,
+          "max_rss_kb": 94712,
+          "wall_ms": 423.711523
+        },
+        {
+          "cpu_s": 0.756313,
+          "internal_ms": 397.86997299999996,
+          "max_rss_kb": 91820,
+          "wall_ms": 487.924941
+        },
+        {
+          "cpu_s": 0.7657019999999999,
+          "internal_ms": 387.80367,
+          "max_rss_kb": 92540,
+          "wall_ms": 496.2251
+        },
+        {
+          "cpu_s": 0.9408469999999999,
+          "internal_ms": 523.3967660000001,
+          "max_rss_kb": 90540,
+          "wall_ms": 604.814723
+        },
+        {
+          "cpu_s": 0.957686,
+          "internal_ms": 490.434075,
+          "max_rss_kb": 94500,
+          "wall_ms": 605.214382
+        },
+        {
+          "cpu_s": 0.8157289999999999,
+          "internal_ms": 415.939937,
+          "max_rss_kb": 94588,
+          "wall_ms": 491.959059
+        }
+      ]
+    },
+    "ts-node (eager spans)": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 3.108867,
+      "median_internal_ms": 2516.740316,
+      "median_max_rss_mb": 189.71484375,
+      "median_wall_ms": 2664.971359,
+      "runs": [
+        {
+          "cpu_s": 3.02751,
+          "internal_ms": 2454.307146,
+          "max_rss_kb": 196156,
+          "wall_ms": 2596.873362
+        },
+        {
+          "cpu_s": 3.565865,
+          "internal_ms": 2980.76875,
+          "max_rss_kb": 196056,
+          "wall_ms": 3146.14739
+        },
+        {
+          "cpu_s": 3.499239,
+          "internal_ms": 2855.102014,
+          "max_rss_kb": 192456,
+          "wall_ms": 3085.993542
+        },
+        {
+          "cpu_s": 3.0326649999999997,
+          "internal_ms": 2413.512439,
+          "max_rss_kb": 193204,
+          "wall_ms": 2565.243989
+        },
+        {
+          "cpu_s": 3.108867,
+          "internal_ms": 2516.740316,
+          "max_rss_kb": 195772,
+          "wall_ms": 2664.971359
+        },
+        {
+          "cpu_s": 3.037644,
+          "internal_ms": 2489.629964,
+          "max_rss_kb": 194216,
+          "wall_ms": 2635.324605
+        },
+        {
+          "cpu_s": 3.175846,
+          "internal_ms": 2619.452406,
+          "max_rss_kb": 194268,
+          "wall_ms": 2763.908736
+        }
+      ]
+    },
+    "ts-node (lazy spans)": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 0.7664749999999999,
+      "median_internal_ms": 465.617307,
+      "median_max_rss_mb": 120.109375,
+      "median_wall_ms": 601.362474,
+      "runs": [
+        {
+          "cpu_s": 0.749521,
+          "internal_ms": 446.21835599999997,
+          "max_rss_kb": 121720,
+          "wall_ms": 596.567964
+        },
+        {
+          "cpu_s": 0.7248729999999999,
+          "internal_ms": 431.76608000000004,
+          "max_rss_kb": 123024,
+          "wall_ms": 566.68246
+        },
+        {
+          "cpu_s": 0.795021,
+          "internal_ms": 485.348036,
+          "max_rss_kb": 122992,
+          "wall_ms": 642.201518
+        },
+        {
+          "cpu_s": 0.732455,
+          "internal_ms": 465.617307,
+          "max_rss_kb": 122776,
+          "wall_ms": 601.362474
+        },
+        {
+          "cpu_s": 0.821556,
+          "internal_ms": 510.06933399999997,
+          "max_rss_kb": 123308,
+          "wall_ms": 646.237963
+        },
+        {
+          "cpu_s": 0.7664749999999999,
+          "internal_ms": 454.95259599999997,
+          "max_rss_kb": 122888,
+          "wall_ms": 594.987483
+        },
+        {
+          "cpu_s": 0.811326,
+          "internal_ms": 517.039709,
+          "max_rss_kb": 123168,
+          "wall_ms": 653.863959
+        }
+      ]
+    }
+  },
+  "compile_variants_extra": {
+    "go (goccy, GOMAXPROCS=1)": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 1.4989590000000002,
+      "median_internal_ms": 1466.092296,
+      "median_max_rss_mb": 262.66015625,
+      "median_wall_ms": 1499.057752,
+      "runs": [
+        {
+          "cpu_s": 1.4989590000000002,
+          "internal_ms": 1466.092296,
+          "max_rss_kb": 254168,
+          "wall_ms": 1499.057752
+        },
+        {
+          "cpu_s": 1.547407,
+          "internal_ms": 1512.950759,
+          "max_rss_kb": 278380,
+          "wall_ms": 1543.289097
+        },
+        {
+          "cpu_s": 1.5155459999999998,
+          "internal_ms": 1514.636444,
+          "max_rss_kb": 257188,
+          "wall_ms": 1541.804602
+        },
+        {
+          "cpu_s": 1.290398,
+          "internal_ms": 1255.237559,
+          "max_rss_kb": 273612,
+          "wall_ms": 1286.136249
+        },
+        {
+          "cpu_s": 1.6214739999999999,
+          "internal_ms": 1581.983664,
+          "max_rss_kb": 271760,
+          "wall_ms": 1617.349772
+        },
+        {
+          "cpu_s": 1.3018319999999999,
+          "internal_ms": 1265.391714,
+          "max_rss_kb": 268192,
+          "wall_ms": 1298.681398
+        },
+        {
+          "cpu_s": 1.3995659999999999,
+          "internal_ms": 1384.271642,
+          "max_rss_kb": 268964,
+          "wall_ms": 1407.148938
+        }
+      ]
+    },
+    "go (goccy/go-yaml v1.19.2 parser, superseded)": {
+      "counts": {
+        "apis": 1000,
+        "files": 1000,
+        "givens": 300,
+        "tests": 5298
+      },
+      "median_cpu_s": 1.6423130000000001,
+      "median_internal_ms": 852.506214,
+      "median_max_rss_mb": 245.72265625,
+      "median_wall_ms": 875.746747,
+      "runs": [
+        {
+          "cpu_s": 1.742105,
+          "internal_ms": 884.57075,
+          "max_rss_kb": 272168,
+          "wall_ms": 911.15996
+        },
+        {
+          "cpu_s": 1.623631,
+          "internal_ms": 856.045855,
+          "max_rss_kb": 246556,
+          "wall_ms": 886.01809
+        },
+        {
+          "cpu_s": 1.440906,
+          "internal_ms": 741.454158,
+          "max_rss_kb": 251620,
+          "wall_ms": 772.864963
+        },
+        {
+          "cpu_s": 1.767387,
+          "internal_ms": 910.768771,
+          "max_rss_kb": 248544,
+          "wall_ms": 938.653607
+        },
+        {
+          "cpu_s": 1.6423130000000001,
+          "internal_ms": 829.764623,
+          "max_rss_kb": 262240,
+          "wall_ms": 861.580565
+        },
+        {
+          "cpu_s": 1.486196,
+          "internal_ms": 754.806336,
+          "max_rss_kb": 251232,
+          "wall_ms": 779.775232
+        },
+        {
+          "cpu_s": 1.674001,
+          "internal_ms": 852.506214,
+          "max_rss_kb": 265500,
+          "wall_ms": 875.746747
+        }
+      ]
+    }
+  },
+  "diagnostics": {
+    "go": {
+      "output": "error[E003]: duplicate id `users1.t220_0`\n  --> ../fixtures/broken/domain00/users1/tests/t220.test.yaml:2:7\n    |\n  2 | - id: users1.t220_0\n    |       ^^^^^^^^^^^^^\n  = note: first defined here (../fixtures/broken/domain00/users1/tests/t020.test.yaml:2:7)\n  = help: ids must be unique across all *.api.yaml, *.given.yaml and *.test.yaml files\n\nerror[E004]: unknown api `reviews0.creaet`\n  --> ../fixtures/broken/domain10/reviews0/tests/t010.test.yaml:3:8\n    |\n  3 |   api: reviews0.creaet\n    |        ^^^^^^^^^^^^^^^\n  = help: did you mean `reviews0.create`?\n\nerror[E002]: unknown field `exepct`\n  --> ../fixtures/broken/domain10/reviews1/tests/t030.test.yaml:7:3\n    |\n  7 |   exepct:\n    |   ^^^^^^\n  = help: did you mean `expect`?\n\nerror[E005]: dependency cycle between givens: seed050.shipments8_0 -> seed051.payments6_0 -> seed050.shipments8_0\n  --> ../fixtures/broken/domain11/givens/seeds051.given.yaml:6:13\n    |\n  6 |     parent: seed050.shipments8_0\n    |             ^^^^^^^^^^^^^^^^^^^^\n  = note: `seed050.shipments8_0` defined here (../fixtures/broken/domain10/givens/seeds050.given.yaml:2:7)\n  = note: `seed051.payments6_0` defined here (../fixtures/broken/domain11/givens/seeds051.given.yaml:2:7)\n  = help: break the cycle by removing one of the `uses` entries\n\n4 error(s) in 1000 files",
+      "rc": 1,
+      "wall_ms": 366.53989
+    },
+    "rust": {
+      "output": "error[E003]: duplicate id `users1.t220_0`\n  --> ../fixtures/broken/domain00/users1/tests/t220.test.yaml:2:7\n    |\n  2 | - id: users1.t220_0\n    |       ^^^^^^^^^^^^^\n  = note: first defined here (../fixtures/broken/domain00/users1/tests/t020.test.yaml:2:7)\n  = help: ids must be unique across all *.api.yaml, *.given.yaml and *.test.yaml files\n\nerror[E004]: unknown api `reviews0.creaet`\n  --> ../fixtures/broken/domain10/reviews0/tests/t010.test.yaml:3:8\n    |\n  3 |   api: reviews0.creaet\n    |        ^^^^^^^^^^^^^^^\n  = help: did you mean `reviews0.create`?\n\nerror[E002]: unknown field `exepct`\n  --> ../fixtures/broken/domain10/reviews1/tests/t030.test.yaml:7:3\n    |\n  7 |   exepct:\n    |   ^^^^^^\n  = help: did you mean `expect`?\n\nerror[E005]: dependency cycle between givens: seed050.shipments8_0 -> seed051.payments6_0 -> seed050.shipments8_0\n  --> ../fixtures/broken/domain11/givens/seeds051.given.yaml:6:13\n    |\n  6 |     parent: seed050.shipments8_0\n    |             ^^^^^^^^^^^^^^^^^^^^\n  = note: `seed050.shipments8_0` defined here (../fixtures/broken/domain10/givens/seeds050.given.yaml:2:7)\n  = note: `seed051.payments6_0` defined here (../fixtures/broken/domain11/givens/seeds051.given.yaml:2:7)\n  = help: break the cycle by removing one of the `uses` entries\n\n4 error(s) in 1000 files",
+      "rc": 1,
+      "wall_ms": 388.698353
+    },
+    "ts-bun": {
+      "output": "error[E003]: duplicate id `users1.t220_0`\n  --> ../fixtures/broken/domain00/users1/tests/t220.test.yaml:2:7\n    |\n  2 | - id: users1.t220_0\n    |       ^^^^^^^^^^^^^\n  = note: first defined here (../fixtures/broken/domain00/users1/tests/t020.test.yaml:2:7)\n  = help: ids must be unique across all *.api.yaml, *.given.yaml and *.test.yaml files\n\nerror[E004]: unknown api `reviews0.creaet`\n  --> ../fixtures/broken/domain10/reviews0/tests/t010.test.yaml:3:8\n    |\n  3 |   api: reviews0.creaet\n    |        ^^^^^^^^^^^^^^^\n  = help: did you mean `reviews0.create`?\n\nerror[E002]: tests.0.expect: Invalid input: expected object, received undefined\n  --> ../fixtures/broken/domain10/reviews1/tests/t030.test.yaml:2:3\n    |\n  2 | - id: reviews1.t030_0\n    |   ^^^^^^^^^^^^^^^^^^^\n\nerror[E002]: unknown field `exepct`\n  --> ../fixtures/broken/domain10/reviews1/tests/t030.test.yaml:7:3\n    |\n  7 |   exepct:\n    |   ^^^^^^\n  = help: did you mean `expect`?\n\nerror[E005]: dependency cycle between givens: seed050.shipments8_0 -> seed051.payments6_0 -> seed050.shipments8_0\n  --> ../fixtures/broken/domain11/givens/seeds051.given.yaml:6:13\n    |\n  6 |     parent: seed050.shipments8_0\n    |             ^^^^^^^^^^^^^^^^^^^^\n  = note: `seed050.shipments8_0` defined here (../fixtures/broken/domain10/givens/seeds050.given.yaml:2:7)\n  = note: `seed051.payments6_0` defined here (../fixtures/broken/domain11/givens/seeds051.given.yaml:2:7)\n  = help: break the cycle by removing one of the `uses` entries\n\n5 error(s) in 1000 files",
+      "rc": 1,
+      "wall_ms": 592.550963
+    }
+  },
+  "environment": {
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "date": "2026-10-22T16:24:25Z",
+    "fixture": {
+      "bytes": 3247064,
+      "files": 1000,
+      "yaml_lines": 165567
+    },
+    "kernel": "6.18.44-fc-v140",
+    "libraries": {
+      "go": [
+        "github.com/google/cel-go v0.30.0",
+        "github.com/goccy/go-yaml v1.19.2",
+        "github.com/go-playground/validator/v10 v10.29.0",
+        "github.com/santhosh-tekuri/jsonschema/v6 v6.0.2",
+        "golang.org/x/sync v0.19.0"
+      ],
+      "rust": [
+        "async-trait v0.1.92 (proc-macro)",
+        "base64 v0.23.1",
+        "cel v0.15.0",
+        "clap v4.6.7",
+        "futures v0.3.34",
+        "garde v0.23.0",
+        "jsonschema v0.60.0",
+        "rayon v1.12.0",
+        "regex v1.13.1",
+        "reqwest v0.13.5",
+        "serde v1.0.229",
+        "serde-saphyr v2.0.0",
+        "serde_json v1.0.154",
+        "sha2 v0.11.1",
+        "thiserror v2.0.21",
+        "tokio v1.54.1",
+        "vibranium v0.1.0 (/home/claude/vibranium-spike/rust)"
+      ],
+      "ts": {
+        "@marcbachmann/cel-js": "^8.0.0",
+        "ajv": "^8.20.0",
+        "js-yaml": "^5.5.0",
+        "undici": "^8.12.3",
+        "yaml": "^2.9.1",
+        "zod": "^4.6.7"
+      }
+    },
+    "nproc": 2,
+    "os": "Ubuntu 24.04.5 LTS",
+    "pinning": {
+      "client_cpu": "0",
+      "compile_and_cel": "unpinned (both cores, no mock running)",
+      "mock_cpu": "1"
+    },
+    "ram_mb": 8027,
+    "versions": {
+      "bun": "1.4.2",
+      "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
+      "go": "go version go1.24.7 linux/amd64",
+      "node": "v22.22.0",
+      "python": "Python 3.13.16",
+      "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+      "typescript": "Version 7.0.2"
+    }
+  },
+  "extensibility_probe": {
+    "bun_compiled_binary_imports_external_ts_hook_at_runtime": true
+  },
+  "go_toolchain_note": "Go 1.24.7 preinstalled; go.dev/dl and proxy.golang.org blocked, so no newer toolchain and deps were fetched GOPROXY=direct from GitHub with replace directives for vanity paths (golang.org/x, google.golang.org, cel.dev, go.yaml.in). validator pinned to v10.29.0 (v10.30 needs Go 1.26).",
+  "load": {
+    "go@1000": {
+      "cpu_ms_per_1k_req": 57.348303017848075,
+      "cpu_pct": 98.30388487767921,
+      "errors": 0,
+      "max_rss_mb": 121.4140625,
+      "p50Ms": 53.248,
+      "p99Ms": 111.616,
+      "rps": 17177.72840013313,
+      "runs": [
+        {
+          "cpu_ms_per_1k_req": 58.2051956745727,
+          "cpu_pct": 95.97499383514246,
+          "durationS": 30.044434258,
+          "errors": 0,
+          "max_rss_mb": 121.4140625,
+          "p50Ms": 55.296,
+          "p99Ms": 117.76,
+          "requests": 495951,
+          "rps": 16507.25041920009,
+          "vus": 1000,
+          "wall_ms": 30077.548168
+        },
+        {
+          "cpu_ms_per_1k_req": 55.54328145107506,
+          "cpu_pct": 98.30388487767921,
+          "durationS": 30.031579304,
+          "errors": 0,
+          "max_rss_mb": 118.3828125,
+          "p50Ms": 50.688,
+          "p99Ms": 110.592,
+          "requests": 532295,
+          "rps": 17724.50907798585,
+          "vus": 1000,
+          "wall_ms": 30075.526554
+        },
+        {
+          "cpu_ms_per_1k_req": 57.348303017848075,
+          "cpu_pct": 98.40015962157503,
+          "durationS": 30.027136766,
+          "errors": 0,
+          "max_rss_mb": 122.9140625,
+          "p50Ms": 53.248,
+          "p99Ms": 111.616,
+          "requests": 515798,
+          "rps": 17177.72840013313,
+          "vus": 1000,
+          "wall_ms": 30061.069122
+        }
+      ]
+    },
+    "go@5000": {
+      "cpu_ms_per_1k_req": 59.43526285258939,
+      "cpu_pct": 98.08186365207754,
+      "errors": 0,
+      "max_rss_mb": 533.66796875,
+      "p50Ms": 262.144,
+      "p99Ms": 540.672,
+      "rps": 16579.212679581906,
+      "runs": [
+        {
+          "cpu_ms_per_1k_req": 59.452855439618475,
+          "cpu_pct": 98.08186365207754,
+          "durationS": 30.151492092,
+          "errors": 0,
+          "max_rss_mb": 533.66796875,
+          "p50Ms": 262.144,
+          "p99Ms": 540.672,
+          "requests": 499888,
+          "rps": 16579.212679581906,
+          "vus": 5000,
+          "wall_ms": 30300.983172
+        },
+        {
+          "cpu_ms_per_1k_req": 57.85066634636062,
+          "cpu_pct": 98.51855777052506,
+          "durationS": 30.142936892,
+          "errors": 0,
+          "max_rss_mb": 525.20703125,
+          "p50Ms": 253.952,
+          "p99Ms": 540.672,
+          "requests": 516173,
+          "rps": 17124.1774432734,
+          "vus": 5000,
+          "wall_ms": 30309.976796
+        },
+        {
+          "cpu_ms_per_1k_req": 59.43526285258939,
+          "cpu_pct": 97.67108930592137,
+          "durationS": 30.164022047,
+          "errors": 0,
+          "max_rss_mb": 555.9140625,
+          "p50Ms": 266.24,
+          "p99Ms": 598.016,
+          "requests": 498207,
+          "rps": 16516.59713097013,
+          "vus": 5000,
+          "wall_ms": 30317.122713
+        }
+      ]
+    },
+    "rust@1000": {
+      "cpu_ms_per_1k_req": 32.88960864633647,
+      "cpu_pct": 97.83907811417826,
+      "errors": 0,
+      "max_rss_mb": 71.765625,
+      "p50Ms": 11.52,
+      "p99Ms": 151.552,
+      "rps": 29769.13467069589,
+      "runs": [
+        {
+          "cpu_ms_per_1k_req": 32.88960864633647,
+          "cpu_pct": 97.83907811417826,
+          "durationS": 30.030231308,
+          "errors": 0,
+          "max_rss_mb": 71.765625,
+          "p50Ms": 11.008,
+          "p99Ms": 155.648,
+          "requests": 893974,
+          "rps": 29769.13467069589,
+          "vus": 1000,
+          "wall_ms": 30051.852048
+        },
+        {
+          "cpu_ms_per_1k_req": 33.1246017767146,
+          "cpu_pct": 97.44767519148192,
+          "durationS": 30.047883186,
+          "errors": 0,
+          "max_rss_mb": 72.02734375,
+          "p50Ms": 12.032,
+          "p99Ms": 151.552,
+          "requests": 884554,
+          "rps": 29438.146924510613,
+          "vus": 1000,
+          "wall_ms": 30067.930243
+        },
+        {
+          "cpu_ms_per_1k_req": 31.642571129536613,
+          "cpu_pct": 98.20374194055447,
+          "durationS": 30.028258777,
+          "errors": 0,
+          "max_rss_mb": 69.71484375,
+          "p50Ms": 11.52,
+          "p99Ms": 151.552,
+          "requests": 932524,
+          "rps": 31054.88090152807,
+          "vus": 1000,
+          "wall_ms": 30047.181927
+        }
+      ]
+    },
+    "rust@5000": {
+      "cpu_ms_per_1k_req": 36.59101810266714,
+      "cpu_pct": 97.92081616702784,
+      "errors": 0,
+      "max_rss_mb": 296.17578125,
+      "p50Ms": 12.672,
+      "p99Ms": 819.2,
+      "rps": 26898.914995420448,
+      "runs": [
+        {
+          "cpu_ms_per_1k_req": 36.59101810266714,
+          "cpu_pct": 98.18977695067358,
+          "durationS": 30.196608307,
+          "errors": 0,
+          "max_rss_mb": 293.94921875,
+          "p50Ms": 12.8,
+          "p99Ms": 802.816,
+          "requests": 812256,
+          "rps": 26898.914995420448,
+          "vus": 5000,
+          "wall_ms": 30269.214294
+        },
+        {
+          "cpu_ms_per_1k_req": 36.781427242854484,
+          "cpu_pct": 97.92081616702784,
+          "durationS": 30.202420247,
+          "errors": 0,
+          "max_rss_mb": 296.17578125,
+          "p50Ms": 12.032,
+          "p99Ms": 819.2,
+          "requests": 806450,
+          "rps": 26701.50250889594,
+          "vus": 5000,
+          "wall_ms": 30292.212791
+        },
+        {
+          "cpu_ms_per_1k_req": 36.30340204912672,
+          "cpu_pct": 97.80732583166042,
+          "durationS": 30.280531635,
+          "errors": 0,
+          "max_rss_mb": 302.5546875,
+          "p50Ms": 12.672,
+          "p99Ms": 851.968,
+          "requests": 818007,
+          "rps": 27014.287921368592,
+          "vus": 5000,
+          "wall_ms": 30362.180693
+        }
+      ]
+    },
+    "ts-bun@1000": {
+      "cpu_ms_per_1k_req": 43.538307948713715,
+      "cpu_pct": 96.8613911943367,
+      "errors": 0,
+      "max_rss_mb": 80.9140625,
+      "p50Ms": 41.984,
+      "p99Ms": 86.016,
+      "rps": 22180.63918702903,
+      "runs": [
+        {
+          "cpu_ms_per_1k_req": 46.822897702540835,
+          "cpu_pct": 97.86635431501787,
+          "durationS": 30.039784926,
+          "errors": 0,
+          "max_rss_mb": 80.23046875,
+          "p50Ms": 45.056,
+          "p99Ms": 90.112,
+          "requests": 629478,
+          "rps": 20954.810480522945,
+          "vus": 1000,
+          "wall_ms": 30116.564785
+        },
+        {
+          "cpu_ms_per_1k_req": 43.538307948713715,
+          "cpu_pct": 96.40292836238557,
+          "durationS": 30.053732644,
+          "errors": 0,
+          "max_rss_mb": 80.9140625,
+          "p50Ms": 41.984,
+          "p99Ms": 86.016,
+          "requests": 666611,
+          "rps": 22180.63918702903,
+          "vus": 1000,
+          "wall_ms": 30106.05123
+        },
+        {
+          "cpu_ms_per_1k_req": 42.70082783882784,
+          "cpu_pct": 96.8613911943367,
+          "durationS": 30.025951319,
+          "errors": 0,
+          "max_rss_mb": 81.08984375,
+          "p50Ms": 41.472,
+          "p99Ms": 82.944,
+          "requests": 682500,
+          "rps": 22730.337258893895,
+          "vus": 1000,
+          "wall_ms": 30087.648588
+        }
+      ]
+    },
+    "ts-bun@5000": {
+      "cpu_ms_per_1k_req": 47.97939725372131,
+      "cpu_pct": 98.40881011069789,
+      "errors": 0,
+      "max_rss_mb": 123.921875,
+      "p50Ms": 233.472,
+      "p99Ms": 356.352,
+      "rps": 20558.26254927251,
+      "runs": [
+        {
+          "cpu_ms_per_1k_req": 50.35888436258725,
+          "cpu_pct": 98.68658989371991,
+          "durationS": 30.076283389,
+          "errors": 0,
+          "max_rss_mb": 126.9375,
+          "p50Ms": 247.808,
+          "p99Ms": 376.832,
+          "requests": 590622,
+          "rps": 19637.466250767277,
+          "vus": 5000,
+          "wall_ms": 30138.912523
+        },
+        {
+          "cpu_ms_per_1k_req": 47.186089240099875,
+          "cpu_pct": 98.32697651775037,
+          "durationS": 30.062552192,
+          "errors": 0,
+          "max_rss_mb": 123.921875,
+          "p50Ms": 229.376,
+          "p99Ms": 344.064,
+          "requests": 627543,
+          "rps": 20874.57498591875,
+          "vus": 5000,
+          "wall_ms": 30115.133251
+        },
+        {
+          "cpu_ms_per_1k_req": 47.97939725372131,
+          "cpu_pct": 98.40881011069789,
+          "durationS": 30.099868533000002,
+          "errors": 0,
+          "max_rss_mb": 123.1484375,
+          "p50Ms": 233.472,
+          "p99Ms": 356.352,
+          "requests": 618801,
+          "rps": 20558.26254927251,
+          "vus": 5000,
+          "wall_ms": 30169.757125
+        }
+      ]
+    },
+    "ts-node@1000": {
+      "cpu_ms_per_1k_req": 93.10459226533088,
+      "cpu_pct": 98.69669916771721,
+      "errors": 0,
+      "max_rss_mb": 223.921875,
+      "p50Ms": 84.992,
+      "p99Ms": 241.664,
+      "rps": 10699.297586686045,
+      "runs": [
+        {
+          "cpu_ms_per_1k_req": 93.10459226533088,
+          "cpu_pct": 98.69669916771721,
+          "durationS": 30.040289785000002,
+          "errors": 0,
+          "max_rss_mb": 223.921875,
+          "p50Ms": 84.992,
+          "p99Ms": 241.664,
+          "requests": 321410,
+          "rps": 10699.297586686045,
+          "vus": 1000,
+          "wall_ms": 30319.906595
+        }
+      ]
+    },
+    "ts-node@5000": {
+      "cpu_ms_per_1k_req": 128.4147840844805,
+      "cpu_pct": 98.45725692378434,
+      "errors": 0,
+      "max_rss_mb": 415.05859375,
+      "p50Ms": 573.44,
+      "p99Ms": 1441.792,
+      "rps": 7853.64380857556,
+      "runs": [
+        {
+          "cpu_ms_per_1k_req": 128.4147840844805,
+          "cpu_pct": 98.45725692378434,
+          "durationS": 30.385258845,
+          "errors": 0,
+          "max_rss_mb": 415.05859375,
+          "p50Ms": 573.44,
+          "p99Ms": 1441.792,
+          "requests": 238635,
+          "rps": 7853.64380857556,
+          "vus": 5000,
+          "wall_ms": 31124.43202
+        }
+      ]
+    }
+  },
+  "load_connection_notes": {
+    "bun_with_1000_sockets_4s_run": {
+      "note": "raising Bun socket cap lowered throughput vs default 256 (single client core)",
+      "p50Ms": 74.8,
+      "p99Ms": 131.1,
+      "rps": 13174
+    },
+    "measured_at_1000_vus_established_client_sockets": {
+      "go (MaxConnsPerHost=vus)": 1000,
+      "rust (reqwest pool_max_idle_per_host=vus, no hard cap)": 1716,
+      "ts-bun (BUN_CONFIG_MAX_HTTP_REQUESTS=1000)": 899,
+      "ts-bun (fetch default)": 256
+    }
+  },
+  "loc": {
+    "generator": {
+      "blanks": 35,
+      "code": 290,
+      "comments": 6,
+      "files": 1
+    },
+    "go": {
+      "blanks": 142,
+      "code": 1561,
+      "comments": 49,
+      "files": 9
+    },
+    "mock-server": {
+      "blanks": 14,
+      "code": 116,
+      "comments": 14,
+      "files": 1
+    },
+    "rust": {
+      "blanks": 152,
+      "code": 1344,
+      "comments": 38,
+      "files": 9
+    },
+    "ts": {
+      "blanks": 107,
+      "code": 876,
+      "comments": 47,
+      "files": 9
+    }
+  },
+  "proof": {
+    "go": {
+      "file_scoped_given_creates": 1,
+      "full_suite": {
+        "max_rss_mb": 87.21875,
+        "rc": 0,
+        "requests": 8181,
+        "summary": "tests: 5668 total, 5668 passed, 0 failed in 920.5 ms",
+        "wall_ms": 1657.746629
+      },
+      "mock_counts": {
+        "GET /proof-items/:id": 61,
+        "POST /proof-repeat": 5,
+        "POST /slow/file-seeds": 1,
+        "POST /slow/run-seeds": 1,
+        "POST /slow/test-seeds": 5
+      },
+      "pass": true,
+      "rc": 0,
+      "repeat5_requests": 5,
+      "run_scoped_given_creates": 1,
+      "summary": [
+        "tests: 66 total, 66 passed, 0 failed in 114.5 ms"
+      ],
+      "test_scoped_given_creates_for_repeat5": 5
+    },
+    "rust": {
+      "file_scoped_given_creates": 1,
+      "full_suite": {
+        "max_rss_mb": 80.8046875,
+        "rc": 0,
+        "requests": 8181,
+        "summary": "tests: 5668 total, 5668 passed, 0 failed in 502.1 ms",
+        "wall_ms": 1200.492398
+      },
+      "mock_counts": {
+        "GET /proof-items/:id": 61,
+        "POST /proof-repeat": 5,
+        "POST /slow/file-seeds": 1,
+        "POST /slow/run-seeds": 1,
+        "POST /slow/test-seeds": 5
+      },
+      "pass": true,
+      "rc": 0,
+      "repeat5_requests": 5,
+      "run_scoped_given_creates": 1,
+      "summary": [
+        "tests: 66 total, 66 passed, 0 failed in 110.1 ms"
+      ],
+      "test_scoped_given_creates_for_repeat5": 5
+    },
+    "ts-bun": {
+      "file_scoped_given_creates": 1,
+      "full_suite": {
+        "max_rss_mb": 110.4140625,
+        "rc": 0,
+        "requests": 8181,
+        "summary": "tests: 5668 total, 5668 passed, 0 failed in 747.9 ms",
+        "wall_ms": 1529.748807
+      },
+      "mock_counts": {
+        "GET /proof-items/:id": 61,
+        "POST /proof-repeat": 5,
+        "POST /slow/file-seeds": 1,
+        "POST /slow/run-seeds": 1,
+        "POST /slow/test-seeds": 5
+      },
+      "pass": true,
+      "rc": 0,
+      "repeat5_requests": 5,
+      "run_scoped_given_creates": 1,
+      "summary": [
+        "tests: 66 total, 66 passed, 0 failed in 124.7 ms"
+      ],
+      "test_scoped_given_creates_for_repeat5": 5
+    },
+    "ts-node": {
+      "file_scoped_given_creates": 1,
+      "full_suite": {
+        "max_rss_mb": 151.0234375,
+        "rc": 0,
+        "requests": 8181,
+        "summary": "tests: 5668 total, 5668 passed, 0 failed in 1593.1 ms",
+        "wall_ms": 2305.861874
+      },
+      "mock_counts": {
+        "GET /proof-items/:id": 61,
+        "POST /proof-repeat": 5,
+        "POST /slow/file-seeds": 1,
+        "POST /slow/run-seeds": 1,
+        "POST /slow/test-seeds": 5
+      },
+      "pass": true,
+      "rc": 0,
+      "repeat5_requests": 5,
+      "run_scoped_given_creates": 1,
+      "summary": [
+        "tests: 66 total, 66 passed, 0 failed in 190.3 ms"
+      ],
+      "test_scoped_given_creates_for_repeat5": 5
+    }
+  },
+  "scoring": {
+    "score_changes_tested": 36,
+    "scores": {
+      "go": {
+        "cel": 3,
+        "compile": 5,
+        "extensibility": 3,
+        "libraries": 5,
+        "load": 3,
+        "quality": 3
+      },
+      "rust": {
+        "cel": 2,
+        "compile": 5,
+        "extensibility": 3,
+        "libraries": 4,
+        "load": 5,
+        "quality": 5
+      },
+      "typescript": {
+        "cel": 5,
+        "compile": 4,
+        "extensibility": 5,
+        "libraries": 4,
+        "load": 4,
+        "quality": 4
+      }
+    },
+    "single_score_flips": [
+      {
+        "change": "typescript.quality -1",
+        "totals": {
+          "go": 74.0,
+          "rust": 81.0,
+          "typescript": 80.0
+        },
+        "winner": "rust"
+      }
+    ],
+    "totals": {
+      "go": 74.0,
+      "rust": 81.0,
+      "typescript": 86.0
+    },
+    "weight_shift_flips": [
+      {
+        "shift": "+10 quality, -10 extensibility",
+        "totals": {
+          "go": 74.0,
+          "rust": 85.0,
+          "typescript": 84.0
+        },
+        "winner": "rust"
+      },
+      {
+        "shift": "+10 quality, -10 cel",
+        "totals": {
+          "go": 74.0,
+          "rust": 87.0,
+          "typescript": 84.0
+        },
+        "winner": "rust"
+      },
+      {
+        "shift": "+10 libraries, -10 cel",
+        "totals": {
+          "go": 78.0,
+          "rust": 85.0,
+          "typescript": 84.0
+        },
+        "winner": "rust"
+      },
+      {
+        "shift": "+10 compile, -10 extensibility",
+        "totals": {
+          "go": 78.0,
+          "rust": 85.0,
+          "typescript": 84.0
+        },
+        "winner": "rust"
+      },
+      {
+        "shift": "+10 compile, -10 cel",
+        "totals": {
+          "go": 78.0,
+          "rust": 87.0,
+          "typescript": 84.0
+        },
+        "winner": "rust"
+      },
+      {
+        "shift": "+10 load, -10 extensibility",
+        "totals": {
+          "go": 74.0,
+          "rust": 85.0,
+          "typescript": 84.0
+        },
+        "winner": "rust"
+      },
+      {
+        "shift": "+10 load, -10 cel",
+        "totals": {
+          "go": 74.0,
+          "rust": 87.0,
+          "typescript": 84.0
+        },
+        "winner": "rust"
+      }
+    ],
+    "weight_shifts_tested": 30,
+    "weights": {
+      "cel": 10,
+      "compile": 10,
+      "extensibility": 20,
+      "libraries": 25,
+      "load": 5,
+      "quality": 30
+    }
+  },
+  "startup": {
+    "go": {
+      "artifact_bytes": 23590052,
+      "mean_ms": 10.101649250000001,
+      "median_ms": 9.514592,
+      "median_peak_rss_mb": 15.29296875,
+      "runs": 40,
+      "stddev_ms": 1.7753419854454877
+    },
+    "rust": {
+      "artifact_bytes": 16550944,
+      "mean_ms": 2.1463575500000003,
+      "median_ms": 2.099325,
+      "median_peak_rss_mb": 6.796875,
+      "runs": 40,
+      "stddev_ms": 0.1715319667796049
+    },
+    "ts-bun": {
+      "artifact_bytes": 85030368,
+      "mean_ms": 9.332791175,
+      "median_ms": 9.2611985,
+      "median_peak_rss_mb": 23.92578125,
+      "runs": 40,
+      "stddev_ms": 1.2072996067190802
+    },
+    "ts-node": {
+      "artifact_bytes": 2173963,
+      "mean_ms": 96.18244045,
+      "median_ms": 96.5419255,
+      "median_peak_rss_mb": 56.47265625,
+      "runs": 40,
+      "stddev_ms": 9.279191396983823
+    }
+  },
+  "startup_supplementary": {
+    "bun --compile without --bytecode, eager imports": 86.0,
+    "bun --compile without --bytecode, lazy imports": 44.5,
+    "bun hello-world --compile baseline": 4.4,
+    "final: --compile --bytecode --minify + lazy imports": 9.2611985
+  },
+  "ts_compile_supplementary": {
+    "js-yaml load of all 1000 files, node, ms": [
+      311,
+      135,
+      169
+    ],
+    "js-yaml load, bun, ms": [
+      219,
+      250,
+      247
+    ],
+    "note": "eager = yaml CST for every file (spans always available); lazy = js-yaml for data, yaml CST built only for files that produce a diagnostic. Same diagnostics output (diffed).",
+    "yaml(eemeli) parseDocument of all 1000 files, node, ms": [
+      2087,
+      1942
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+architecture violations:
+`engine` must not depend on `adapters-http`
+`ir` must not depend on `tsstrip`
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.15s

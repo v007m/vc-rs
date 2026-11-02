@@ -1,0 +1,1131 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><style>/* Vibranium web look: gradient + grain ground, flat chrome, one elevated content panel. */
+:root{
+  --bg1:#E4DEFA; --bg2:#EFE4F3; --bg3:#F9E5D8;
+  --ink:#1B1830; --ink2:#4F4B66; --ink3:#67637D;
+  --line:#ECE9F2; --line2:#DEDAE8; --hover:rgba(255,255,255,.55); --on:rgba(255,255,255,.82);
+  --panel:#FFFFFF; --panel2:#F8F7FB; --panel3:#F2F0F7;
+  --accent:#5440D6; --accentInk:#3B2BA8; --accentSoft:#EEEBFD;
+  --pass:#1A7148; --passSoft:#E3F2E9;
+  --fail:#B3261E; --failSoft:#FCE8E6;
+  --block:#8A5200; --blockSoft:#FBEED7;
+  --skip:#4F4B66; --skipSoft:#EEEDF3;
+  --flaky:#2459B8; --flakySoft:#E5EDFB;
+  --radius:14px; --shadow:0 1px 2px rgba(27,24,48,.06),0 12px 32px rgba(27,24,48,.11);
+  --font:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'Geist Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg1);-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:var(--accentInk)} a:hover{color:var(--accent)}
+
+/* ground */
+.app{min-height:100vh;display:flex;flex-direction:column;position:relative;isolation:isolate;
+  background:linear-gradient(140deg,var(--bg1) 0%,var(--bg2) 50%,var(--bg3) 100%);font-size:13.5px}
+.app::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background-image:url(file:///tmp/claude-0/-home-claude/80b4900a-8223-5c77-874b-c1dda2eeca25/scratchpad/vibmock/assets/noise.png);background-size:256px 256px;opacity:.55;mix-blend-mode:multiply}
+
+/* flat chrome */
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px 8px;min-height:52px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none}
+.crumbs{display:flex;align-items:center;gap:6px;color:var(--ink2);font-size:13px;flex-wrap:wrap}
+.crumbs b{color:var(--ink);font-weight:600}
+.grow{flex:1 1 auto}
+.search{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:9px;background:var(--hover);border:1px solid transparent;min-width:220px;flex:0 1 420px;color:var(--ink2)}
+.search input{border:0;background:transparent;outline:none;font:inherit;color:var(--ink);flex:1;min-width:0}
+.search:focus-within{background:var(--on);border-color:var(--line2)}
+.frame{flex:1 1 auto;display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 10px;min-height:0;align-items:stretch}
+.side{flex:0 1 232px;min-width:200px;display:flex;flex-direction:column;gap:2px;padding:4px 4px 12px}
+.navlabel{font-size:11.5px;font-weight:600;color:var(--ink2);padding:14px 10px 6px;letter-spacing:.02em}
+.navitem{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:13.5px;border:0;background:transparent;font-family:inherit;cursor:pointer;text-align:left;width:100%}
+.navitem:hover{background:var(--hover);color:var(--ink)}
+.navitem.on{background:var(--on);box-shadow:0 1px 1px rgba(27,24,48,.05);font-weight:500}
+.navitem .count{margin-left:auto;font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.navitem svg{flex:none}
+
+/* the one elevated surface */
+.panel{flex:999 1 620px;min-width:0;background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}
+.panel-body{padding:20px;display:flex;flex-direction:column;gap:20px;min-width:0}
+.section{display:flex;flex-direction:column;gap:10px;min-width:0}
+.section + .section{border-top:1px solid var(--line);padding-top:20px}
+.h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
+.h2{margin:0;font-size:15px;font-weight:600}
+.h3{margin:0;font-size:13px;font-weight:600;color:var(--ink2)}
+.muted{color:var(--ink2)} .subtle{color:var(--ink3)}
+.split{display:flex;flex-wrap:wrap;min-width:0}
+.split > .pane{min-width:0;display:flex;flex-direction:column}
+.vr{border-left:1px solid var(--line)}
+.well{background:var(--panel2);border-radius:10px;padding:12px 14px}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 13px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);font:500 13px var(--font);cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--panel2)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.primary:hover{background:#2D2945}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--panel3)}
+.app > .topbar .btn.ghost:hover, .side .btn.ghost:hover{background:var(--hover)}
+.btn.sm{height:28px;padding:0 10px;font-size:12.5px;border-radius:7px}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:0;background:transparent;color:var(--ink2);cursor:pointer}
+.iconbtn:hover{background:var(--panel3);color:var(--ink)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 12px;overflow-x:auto}
+.tab{height:38px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;font:500 13px var(--font);color:var(--ink2);cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+.seg{display:inline-flex;padding:2px;border-radius:9px;background:var(--panel3);gap:2px}
+.seg button{height:28px;padding:0 11px;border:0;border-radius:7px;background:transparent;font:500 12.5px var(--font);color:var(--ink2);cursor:pointer}
+.seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(27,24,48,.10)}
+.field{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--ink2);min-width:0}
+.input,.select,.textarea{height:34px;border:1px solid var(--line2);border-radius:8px;padding:0 10px;font:13px var(--font);color:var(--ink);background:var(--panel);min-width:0;width:100%}
+.input.mono,.textarea.mono{font-family:var(--mono);font-size:12.5px}
+.textarea{height:auto;padding:8px 10px;line-height:1.55;resize:vertical}
+.input:focus,.select:focus,.textarea:focus{outline:2px solid var(--accentSoft);border-color:var(--accent)}
+.input.err{border-color:var(--fail);background:#FFFBFA}
+.help{font-size:12px;font-weight:400;color:var(--ink2)}
+.help.err{color:var(--fail)}
+
+/* data */
+.mono{font-family:var(--mono);font-size:12.5px}
+.kbd{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:5px;background:var(--panel3);border:1px solid var(--line2);font:500 11.5px var(--mono);color:var(--ink2)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-weight:500;font-size:12px;color:var(--ink2);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr.sel td{background:var(--accentSoft)}
+.tbl tbody tr:hover td{background:var(--panel2)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.scrollx{overflow-x:auto;min-width:0}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--panel3);color:var(--ink2)}
+.pill.pass{background:var(--passSoft);color:var(--pass)} .pill.fail{background:var(--failSoft);color:var(--fail)}
+.pill.block{background:var(--blockSoft);color:var(--block)} .pill.skip{background:var(--skipSoft);color:var(--skip)}
+.pill.flaky{background:var(--flakySoft);color:var(--flaky)} .pill.accent{background:var(--accentSoft);color:var(--accentInk)}
+.method{display:inline-flex;justify-content:center;min-width:52px;height:20px;align-items:center;border-radius:5px;font:600 11px var(--mono)}
+.m-get{background:#E3F2E9;color:#1A7148} .m-post{background:#E5EDFB;color:#1F4FA8} .m-put{background:#FBEED7;color:#8A5200} .m-patch{background:#F3E8FB;color:#6B2EA3} .m-delete{background:#FCE8E6;color:#B3261E}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dot.pass{background:var(--pass)} .dot.fail{background:var(--fail)} .dot.block{background:var(--block)} .dot.skip{background:#9A96AD} .dot.flaky{background:var(--flaky)}
+
+/* code and YAML (light, inside the panel) */
+.code{font:12.5px/1.65 var(--mono);background:var(--panel2);border-radius:10px;padding:12px 0;overflow:auto;margin:0;color:var(--ink)}
+.code .ln{display:flex;white-space:pre;padding:0 14px 0 0}
+.code .ln .no{width:44px;flex:none;text-align:right;padding-right:14px;color:#8E8AA3;user-select:none}
+.code .ln.hl{background:#FFF6E0}
+.code .ln.err{background:var(--failSoft)}
+.y-key{color:#1F4FA8} .y-str{color:#2E6B33} .y-num{color:#A3470E} .y-tpl{color:#6B2EA3;background:#F3EEFD;border-radius:3px} .y-com{color:#7A7690;font-style:italic} .y-punc{color:#7A7690}
+.squig{text-decoration:underline wavy var(--fail);text-underline-offset:3px}
+.diag{display:flex;gap:10px;padding:10px 12px;border-radius:9px;font-size:13px;align-items:flex-start}
+.diag.error{background:var(--failSoft)} .diag.warn{background:var(--blockSoft)} .diag.info{background:var(--flakySoft)}
+.popover{background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:0 8px 28px rgba(27,24,48,.16);padding:4px;min-width:260px}
+.popover .opt{display:flex;gap:10px;align-items:center;padding:6px 10px;border-radius:7px;font-size:12.5px;cursor:pointer;border:0;background:transparent;width:100%;text-align:left;font-family:inherit;color:var(--ink)}
+.popover .opt.on,.popover .opt:hover{background:var(--accentSoft)}
+.scrim{position:fixed;inset:0;background:rgba(27,24,48,.28);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.modal{background:var(--panel);border-radius:16px;box-shadow:0 24px 64px rgba(27,24,48,.28);width:min(880px,100%);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column}
+
+/* phone */
+@media (max-width: 860px){
+  .side{flex:1 1 100%;flex-direction:row;overflow-x:auto;min-width:0;padding:0 2px 6px}
+  .side .navlabel{display:none}
+  .side .navitem{width:auto;flex:none}
+  .panel-body{padding:14px}
+  .search{flex:1 1 100%}
+  .vr{border-left:0;border-top:1px solid var(--line)}
+}
+
+/* ---- v2 additions: collapsible sidebar, fluid forms, no clipping ---- */
+.panel{container-type:inline-size}
+.side{transition:flex-basis .18s ease,min-width .18s ease}
+.side-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:2px 2px 4px}
+.side .navitem .label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side .ctx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.app.side-collapsed .side{flex:0 0 56px;min-width:56px;padding:4px 4px 12px}
+.app.side-collapsed .side .navitem{justify-content:center;padding:0;width:44px;height:36px;margin:0 auto}
+.app.side-collapsed .side .navitem .label,.app.side-collapsed .side .navitem .count,
+.app.side-collapsed .side .navlabel,.app.side-collapsed .side .ctx{display:none}
+.app.side-collapsed .side .side-head{justify-content:center}
+.project{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink2);min-width:0}
+.project b{color:var(--ink);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;background:var(--hover);font:500 12px var(--mono);color:var(--ink2);white-space:nowrap}
+/* layout helpers that use the full width */
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px 16px;align-items:start}
+.formgrid .span-all{grid-column:1/-1}
+.formgrid .field>.input,.formgrid .field>.select,.formgrid .field>.textarea{width:100%}
+.cluster{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
+.cluster>.grow{flex:1 1 220px;min-width:0}
+.panes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));min-width:0}
+.panes>*{min-width:0}
+.ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.wrap{overflow-wrap:anywhere;min-width:0}
+.btn,.pill,.tab,.seg button{max-width:100%}
+.btn .label{overflow:hidden;text-overflow:ellipsis}
+.tbl td{overflow-wrap:anywhere}
+.tbl td.nowrap,.tbl th{white-space:nowrap}
+@container (max-width: 760px){
+  .panes{grid-template-columns:1fr}
+  .vr{border-left:0;border-top:1px solid var(--line)}
+  .panel-head{padding:12px 14px}
+}
+@media (max-width: 860px){
+  .app.side-collapsed .side{flex:1 1 100%;min-width:0}
+  .app.side-collapsed .side .navitem .label{display:inline}
+  .side-head{display:none}
+}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+html{scroll-behavior:smooth}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.small{font-size:12px}
+.strong{font-weight:600}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.panel{position:relative}
+.panel .sr{left:0;top:0}
+code{font:500 12px var(--mono);background:var(--panel3);padding:1px 5px;border-radius:5px;color:var(--ink)}
+.tchip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 9px;border-radius:7px;background:var(--hover);font-size:12.5px;color:var(--ink);white-space:nowrap}
+.tchip.mono{font-size:12px}
+.topbar .btn{background:var(--on);border-color:transparent}
+.topbar .btn:hover{background:#fff}
+.topbar .btn.primary{background:var(--ink);color:#fff}
+.crumbs a{color:var(--ink2);text-decoration:none}
+.crumbs a:hover{color:var(--ink);text-decoration:underline}
+.sec{scroll-margin-top:12px}
+.sh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sh .grow{flex:1 1 auto}
+.tid{margin:0;font:600 24px/1.25 var(--mono);letter-spacing:-.01em;overflow-wrap:anywhere}
+.lede{margin:0;font-size:14.5px;line-height:1.55;max-width:980px;text-wrap:pretty}
+.kn{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.kn > div{padding:12px 16px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:3px}
+.kn > div:first-child{border-left:0;padding-left:0}
+.kn .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.d-bad{color:var(--fail)} .d-good{color:var(--pass)} .d-warn{color:var(--block)}
+.cmd{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:10px;padding:8px 8px 8px 14px;max-width:760px}
+.cmd code{background:transparent;padding:0;font-size:12.5px;flex:1;min-width:0;overflow-wrap:anywhere}
+.split2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr));gap:20px 32px}
+.pane{display:flex;flex-direction:column;gap:8px;min-width:0}
+.chk{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:10px;padding:10px 10px;border-bottom:1px solid var(--line);align-items:start;font-size:13px}
+.chk .dot{margin-top:5px}
+.chk.bad{background:var(--failSoft);border-radius:9px;border-bottom-color:transparent;margin:3px 0}
+.chk-main{display:flex;flex-direction:column;gap:4px;min-width:0}
+.chk-main .mono{overflow-wrap:anywhere}
+.eva{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px}
+.eva .bad{color:var(--fail)}
+.lnlink{font:500 12px var(--mono);color:var(--ink2);text-decoration:none;white-space:nowrap;padding:2px 6px;border-radius:6px}
+.lnlink:hover{background:var(--panel3);color:var(--accentInk)}
+.code .ln.add{background:var(--passSoft)}
+.code .ln{min-height:20px}
+.code.plain{padding:12px 14px;white-space:pre;max-height:420px}
+.srcnote{margin-left:28px;color:var(--fail);font:500 12px var(--font)}
+.code .y-plain{color:var(--ink)}
+.tl{min-width:900px;display:flex;flex-direction:column;gap:2px}
+.tl-axis,.tl-row{display:grid;grid-template-columns:360px minmax(0,1fr) 84px;gap:14px;align-items:center}
+.tl-axis{font-size:11.5px;color:var(--ink2);padding:0 10px 4px}
+.axis{position:relative;height:16px}
+.axis span{position:absolute;transform:translateX(-50%);font-variant-numeric:tabular-nums;white-space:nowrap}
+.axis span.verdict{color:var(--fail);font-weight:600}
+.tl-row{width:100%;border:0;background:transparent;padding:6px 10px;border-radius:8px;text-align:left;font:13px var(--font);color:var(--ink);cursor:pointer;min-height:34px}
+.tl-row:hover{background:var(--panel2)}
+.tl-row.sel{background:var(--accentSoft)}
+.tl-row.static{cursor:default}
+.tl-row.static:hover{background:transparent}
+.tl-row.sub .tl-name{padding-left:26px}
+.tl-name{display:flex;align-items:center;gap:7px;min-width:0;overflow:hidden}
+.tl-name .mono{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kind{display:inline-flex;align-items:center;height:19px;padding:0 7px;border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap}
+.k-life{background:var(--accentSoft);color:var(--accentInk)} .k-step{background:var(--panel3);color:var(--ink)} .k-expect{background:var(--failSoft);color:var(--fail)} .k-clean{background:var(--skipSoft);color:var(--skip)} .k-poll{background:transparent;color:var(--ink2);padding:0}
+.track{position:relative;height:12px;background:var(--panel3);border-radius:3px}
+.bar{position:absolute;top:0;height:12px;border-radius:3px;min-width:3px}
+.bar.life{background:#8D82E6} .bar.step{background:#4F4B66} .bar.bad{background:var(--fail)} .bar.clean{background:#A6A2B8} .bar.cache{background:transparent;border:1.5px dashed #8D82E6;height:12px}
+.tl-time{text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--ink2)}
+.exhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.exhead .url{font:500 12.5px var(--mono);overflow-wrap:anywhere;min-width:0}
+.exsplit{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(250px,1fr);gap:24px}
+.tabs{padding:0}
+.tabpanel{padding-top:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.phase{display:flex;height:16px;border-radius:5px;overflow:hidden;gap:2px;background:var(--panel3)}
+.phase span{display:block;min-width:4px}
+.ph-dns{background:#CFC8F7} .ph-connect{background:#A99BFF} .ph-tls{background:#7A6CE0} .ph-ttfb{background:#5440D6} .ph-dl{background:#2F2390}
+.plist{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 10px;font-size:13px;align-items:center}
+.plist .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:7px 16px;font-size:13px;margin:0}
+.kv dt{color:var(--ink2)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.gt{display:flex;flex-direction:column;font-size:13px}
+.gt .hd,.gt .tr{display:grid;align-items:center;column-gap:14px;padding:0 12px;border-bottom:1px solid var(--line)}
+.gt .hd{font-size:12px;font-weight:500;color:var(--ink2);min-height:34px}
+.gt .tr{min-height:42px;padding-top:7px;padding-bottom:7px}
+.gt .tr:hover{background:var(--panel2)}
+.gt .tr.sel{background:var(--accentSoft)}
+.gt .num{text-align:right;font-variant-numeric:tabular-nums}
+.cellname{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cellname .mono{overflow-wrap:anywhere}
+.t-life{min-width:980px}
+.t-life .hd,.t-life .tr{grid-template-columns:minmax(220px,1.4fr) 92px minmax(150px,1fr) minmax(220px,1.4fr) 70px 118px}
+.t-vars{min-width:860px}
+.t-vars .hd,.t-vars .tr{grid-template-columns:minmax(170px,1fr) minmax(250px,1.6fr) minmax(260px,1.5fr)}
+.t-clean{min-width:1000px}
+.t-clean .hd,.t-clean .tr{grid-template-columns:40px minmax(150px,1fr) minmax(170px,1fr) minmax(230px,1.5fr) 122px 64px 118px}
+.t-sim{min-width:860px}
+.t-sim .hd,.t-sim .tr{grid-template-columns:minmax(250px,1.5fr) minmax(200px,1.2fr) minmax(150px,.8fr) minmax(210px,1.2fr)}
+.runs{display:flex;gap:4px;flex-wrap:wrap}
+.runbtn{width:22px;height:22px;border-radius:5px;border:2px solid transparent;cursor:pointer;padding:0}
+.runbtn.pass{background:var(--pass)} .runbtn.fail{background:var(--fail)}
+.runbtn.sel{border-color:var(--ink);box-shadow:0 0 0 2px #fff inset}
+.commit{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+.commit:last-child{border-bottom:0}
+.navcheck{display:flex;align-items:center;gap:9px;min-height:32px;padding:0 10px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--ink)}
+.navcheck:hover{background:var(--hover)}
+.navcheck input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.expander{display:flex;align-items:center;gap:8px;width:100%;border:0;background:var(--panel3);border-radius:7px;padding:6px 12px;font:500 12.5px var(--font);color:var(--ink2);cursor:pointer;text-align:left}
+.expander:hover{color:var(--ink);background:var(--line2)}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink2)}
+.expander{white-space:normal}
+.navrow{display:flex;flex-direction:column;gap:2px}
+.side-head .navlabel{padding:0 8px}
+.runid,.acts{gap:6px}
+.narrow-only{display:none}
+.morewrap{position:relative}
+.morewrap .popover{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px}
+.morewrap .popover a.opt{text-decoration:none}
+.gt .tr > *{min-width:0;overflow-wrap:anywhere}
+.loadline{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-size:13px;color:var(--ink2);padding:6px 0}
+.loadline .mono{overflow-wrap:anywhere;min-width:0}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line2);border-top-color:var(--accent);animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.skel span{display:block;height:10px;border-radius:5px;background:var(--panel3);margin:8px 0}
+.about{font-size:12.5px;color:var(--ink2);line-height:1.55}
+@container (max-width: 960px){
+  .exsplit{grid-template-columns:minmax(0,1fr)}
+}
+@container (max-width: 760px){
+  .tl{min-width:0}
+  .tl-axis{display:none}
+  .tl-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"nm tm" "tr tr";row-gap:6px}
+  .tl-row .tl-name{grid-area:nm}
+  .tl-row .track{grid-area:tr}
+  .tl-row .tl-time{grid-area:tm}
+  .tl-row.sub .tl-name{padding-left:14px}
+  .tl-name{flex-wrap:wrap;row-gap:2px;overflow:visible}
+  .tl-name .mono{overflow:visible;white-space:normal;overflow-wrap:anywhere}
+  .tl-name .small{white-space:normal !important}
+  .tid{font-size:19px}
+}
+@container (max-width: 640px){
+  .kn > div{border-left:0;padding-left:0}
+}
+@media (max-width: 860px){
+  .app .side{flex-direction:column;overflow:visible;padding-bottom:4px}
+  .app .side .navrow{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .ctx{display:none}
+  .app.side-collapsed .side .navitem{width:auto;padding:0 10px;margin:0;height:32px}
+}
+@media (max-width: 760px){
+  .wide-only{display:none}
+  .narrow-only{display:inline-flex}
+}
+</style>
+</head><body>
+
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="Main.dc.html"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"></path><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>Vibranium</a>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>shop</span><span aria-hidden="true">/</span><a href="Main.dc.html">Run #482</a><span aria-hidden="true">/</span><span class="mono">orders.checkout</span><span aria-hidden="true">/</span><b class="mono">placesOrder</b>
+    </nav>
+    <div class="cluster runid">
+      <span class="pill fail"><span class="dot fail"></span>Failed</span>
+      <span class="tchip">profile staging</span>
+      <span class="tchip mono">main@a1c9e4f</span>
+      <span class="tchip">23 Oct 2026 14:02</span>
+      <span class="tchip">6.4 s</span>
+    </div>
+    <span class="grow"></span>
+    <div class="cluster acts">
+      <a class="btn" href="WebEditor.dc.html">Open in web UI</a>
+      <a class="btn wide-only" href="ctrf.json" download="run-482.ctrf.json">Download CTRF</a>
+      <div class="morewrap narrow-only">
+        <button class="btn" type="button" aria-expanded="false" aria-haspopup="true">More<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"></path></svg></button>
+        
+      </div>
+      <button class="btn primary" type="button"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8.5" height="9" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"></rect><path d="M3 11V3.6A1.6 1.6 0 0 1 4.6 2H10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>Copy rerun command</button>
+    </div>
+  </header>
+
+  <div class="frame">
+    <div class="side">
+      <div class="side-head">
+        <span class="navlabel">On this page</span>
+        <button class="iconbtn" type="button" aria-label="Collapse sidebar" title="Collapse sidebar" aria-expanded="true">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="2"></rect><path d="M6 3v10M10.5 6.5 9 8l1.5 1.5"></path></svg>
+          
+        </button>
+      </div>
+      <nav class="navrow" aria-label="Failure sections">
+      
+        <a class="navitem on" href="#summary" title="Summary"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5 8 3l5.5 5.5M4 7.5V13h8V7.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Summary</span><span class="count"></span></a>
+      
+        <a class="navitem " href="#checks" title="Checks"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Checks</span><span class="count">2 failed</span></a>
+      
+        <a class="navitem " href="#diff" title="Response diff"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Response diff</span><span class="count">+1 −1</span></a>
+      
+        <a class="navitem " href="#timeline" title="Timeline"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h7M2 8h11M2 12h5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Timeline</span><span class="count">14</span></a>
+      
+        <a class="navitem " href="#exchange" title="Exchange"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 5h9.5L10 2.5M13 11H3.5L6 13.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Exchange</span><span class="count"></span></a>
+      
+        <a class="navitem " href="#lifecycle" title="Lifecycle"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Lifecycle</span><span class="count">5</span></a>
+      
+        <a class="navitem " href="#vars" title="Vars"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5C4 2.5 4 3.5 4 5s-.5 3-2 3c1.5 0 2 1.5 2 3s0 2.5 1.5 2.5M10.5 2.5c1.5 0 1.5 1 1.5 2.5s.5 3 2 3c-1.5 0-2 1.5-2 3s0 2.5-1.5 2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Vars</span><span class="count">15</span></a>
+      
+        <a class="navitem " href="#cleanup" title="Cleanup"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 9h5.6l.7-9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Cleanup</span><span class="count">3</span></a>
+      
+        <a class="navitem " href="#history" title="History"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 9a5 5 0 1 1-10 0a5 5 0 1 1 10 0M8 6.5V9l1.8 1.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">History</span><span class="count">20 runs</span></a>
+      
+        <a class="navitem " href="#similar" title="Similar failures"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5h7v7h-7zM3.5 10.5v-7h7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Similar failures</span><span class="count">3</span></a>
+      
+        <a class="navitem " href="#source" title="Source"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span class="label">Source</span><span class="count"></span></a>
+      
+      </nav>
+      <div class="ctx">
+        <div class="navlabel">Show</div>
+        <label class="navcheck"><input type="checkbox">Only failed checks</label>
+        <label class="navcheck"><input type="checkbox" checked>Lifecycle in timeline</label>
+        <label class="navcheck"><input type="checkbox" checked>Each poll attempt</label>
+        <label class="navcheck"><input type="checkbox" checked>Cleanup in timeline</label>
+        <div class="navlabel">Other failures in #482</div>
+        <a class="navitem" href="Main.dc.html"><span class="dot fail" style="margin: 0 4px"></span><span class="mono" style="font-size: 12px">cancelsPaidOrder</span></a>
+        <a class="navitem" href="Main.dc.html"><span class="dot fail" style="margin: 0 4px"></span><span class="mono" style="font-size: 12px">placesGuestOrder</span></a>
+        <a class="navitem" href="Main.dc.html"><span class="dot fail" style="margin: 0 4px"></span><span class="mono" style="font-size: 12px">reordersPreviousCart</span></a>
+      </div>
+    </div>
+
+    <main class="panel">
+      <div class="panel-body">
+
+        <section id="summary" class="section sec" aria-labelledby="h-test">
+          <div class="row">
+            <span class="pill fail">2 of 7 checks failed</span>
+            <span class="pill">orders</span>
+            <span class="pill">checkout</span>
+            <span class="tchip" style="background: var(--panel3)">attempt 1 of 1 · failed checks are not retried</span>
+            <span class="tchip" style="background: var(--panel3)">instance 1 of 1</span>
+          </div>
+          <h1 id="h-test" class="tid">orders.checkout.placesOrder</h1>
+          <div class="muted">A cart with two items becomes a paid order · <span class="mono">services/orders/checkout.test.yaml:17</span> · started 14:02:30.600 · 6.4 s · worker 3 of 8</div>
+          <p class="lede"><code>total</code> came back <b>64.78</b> where <b>59.98</b> was expected. The order now carries a <code>tax</code> field of 4.80, exactly 8% of the cart, added in <code>a1c9e4f</code> “orders: add tax line” by priya. Three other checkout tests in this run fail the same way.</p>
+          <div class="cmd"><code>vc run orders.checkout.placesOrder --profile staging --seed 7f3a91c2</code><button type="button" class="btn sm">Copy</button></div>
+          <div class="kn">
+            <div><span class="small muted">Duration</span><span class="v">6.4 s</span><span class="small muted">median of last 19 runs 5.1 s</span></div>
+            <div><span class="small muted">Requests</span><span class="v">14</span><span class="small muted">4 lifecycle · 7 test · 3 cleanup</span></div>
+            <div><span class="small muted">Checks</span><span class="v">5 of 7 passed</span><span class="small d-bad">total and its CEL check failed</span></div>
+            <div><span class="small muted">Last passed</span><span class="v">run #481</span><span class="small muted">22 Oct 2026 · main@5be20d7</span></div>
+          </div>
+        </section>
+
+        <section id="checks" class="section sec" aria-labelledby="h-checks">
+          <div class="split2">
+            <div class="pane">
+              <div class="sh"><h2 id="h-checks" class="h2">Expect · checks</h2><span class="small muted">7 checks · lines 32–45 · select a line to find it in the source</span></div>
+              <div>
+                
+                  <div class="chk ">
+                    <span class="dot pass"></span>
+                    <div class="chk-main">
+                      <span class="sr">Passed</span>
+                      <span class="mono">status: 200</span>
+                      <span class="small muted">response of step fetch (poll 6)</span>
+                      
+                    </div>
+                    <a class="lnlink" href="#source">line 32</a>
+                  </div>
+                
+                  <div class="chk ">
+                    <span class="dot pass"></span>
+                    <div class="chk-main">
+                      <span class="sr">Passed</span>
+                      <span class="mono">body.schema: $file ../../schemas/orders/order.json</span>
+                      <span class="small muted">JSON Schema draft 2020-12 · 0 errors</span>
+                      
+                    </div>
+                    <a class="lnlink" href="#source">line 34</a>
+                  </div>
+                
+                  <div class="chk ">
+                    <span class="dot pass"></span>
+                    <div class="chk-main">
+                      <span class="sr">Passed</span>
+                      <span class="mono">body.match.items.length: 2</span>
+                      <span class="small muted">2 items</span>
+                      
+                    </div>
+                    <a class="lnlink" href="#source">line 38</a>
+                  </div>
+                
+                  <div class="chk ">
+                    <span class="dot pass"></span>
+                    <div class="chk-main">
+                      <span class="sr">Passed</span>
+                      <span class="mono">body.match.items.every.quantity: { gte: 1 }</span>
+                      <span class="small muted">both items have quantity 1</span>
+                      
+                    </div>
+                    <a class="lnlink" href="#source">line 39</a>
+                  </div>
+                
+                  <div class="chk bad">
+                    <span class="dot fail"></span>
+                    <div class="chk-main">
+                      <span class="sr">Failed</span>
+                      <span class="mono">body.match.total: ${var.orderTotal}</span>
+                      <span class="small muted">literal match after resolving the template</span>
+                      
+                        <div class="eva"><span>Expected <b class="mono">59.98</b> <span class="muted small">(var.orderTotal, saved by carts.addItem)</span></span><span>Actual <b class="mono bad">64.78</b></span></div>
+                      
+                    </div>
+                    <a class="lnlink" href="#source">line 41</a>
+                  </div>
+                
+                  <div class="chk bad">
+                    <span class="dot fail"></span>
+                    <div class="chk-main">
+                      <span class="sr">Failed</span>
+                      <span class="mono">cel · total equals sum of lines</span>
+                      <span class="small muted">body.total == body.items.map(i, i.price * i.quantity).sum()</span>
+                      
+                        <div class="eva"><span>Expected <b class="mono">true</b> <span class="muted small">(64.78 == 59.98)</span></span><span>Actual <b class="mono bad">false</b></span></div>
+                      
+                    </div>
+                    <a class="lnlink" href="#source">line 43</a>
+                  </div>
+                
+                  <div class="chk ">
+                    <span class="dot pass"></span>
+                    <div class="chk-main">
+                      <span class="sr">Passed</span>
+                      <span class="mono">custom · currency is consistent</span>
+                      <span class="small muted">hooks/checks.ts#currencyIsConsistent returned ok</span>
+                      
+                    </div>
+                    <a class="lnlink" href="#source">line 45</a>
+                  </div>
+                
+              </div>
+            </div>
+            <div id="diff" class="pane sec">
+              <div class="sh"><h2 class="h2">Response body diff</h2><span class="small muted">poll 6 against the last passing run #481</span></div>
+              <p class="small muted" style="margin: 0">Added fields in green, changed in red. Ids and timestamps are ignored.</p>
+              <div class="code" role="img" aria-label="Diff: tax 4.80 added; total changed from 59.98 to 64.78">
+                
+                  <span class="ln "><span class="no">1</span><span>{</span></span>
+                
+                  <span class="ln "><span class="no">2</span><span>  &quot;id&quot;: &quot;ord_8Kq2Tz&quot;,</span></span>
+                
+                  <span class="ln "><span class="no">3</span><span>  &quot;status&quot;: &quot;paid&quot;,</span></span>
+                
+                  <span class="ln "><span class="no">4</span><span>  &quot;currency&quot;: &quot;USD&quot;,</span></span>
+                
+                  <span class="ln "><span class="no">5</span><span>  &quot;items&quot;: [</span></span>
+                
+                  <span class="ln "><span class="no">6</span><span>    { &quot;sku&quot;: &quot;SKU-1&quot;, &quot;price&quot;: 19.99, &quot;quantity&quot;: 1 },</span></span>
+                
+                  <span class="ln "><span class="no">7</span><span>    { &quot;sku&quot;: &quot;SKU-2&quot;, &quot;price&quot;: 39.99, &quot;quantity&quot;: 1 }</span></span>
+                
+                  <span class="ln "><span class="no">8</span><span>  ],</span></span>
+                
+                  <span class="ln add"><span class="no">+</span><span>  &quot;tax&quot;: 4.80,</span></span>
+                
+                  <span class="ln err"><span class="no">−</span><span>  &quot;total&quot;: 59.98,</span></span>
+                
+                  <span class="ln add"><span class="no">+</span><span>  &quot;total&quot;: 64.78,</span></span>
+                
+                  <span class="ln "><span class="no">10</span><span>  &quot;createdAt&quot;: &quot;2026-10-23T14:02:31Z&quot;</span></span>
+                
+                  <span class="ln "><span class="no">11</span><span>}</span></span>
+                
+              </div>
+              <div class="small muted">Spec snapshot <span class="mono">openapi/orders.json</span> gained <span class="mono">Order.tax</span> in the same commit; run <span class="mono">vc sync orders</span> to review it.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="timeline" class="section sec" aria-labelledby="h-timeline">
+          <div class="sh"><h2 id="h-timeline" class="h2">What ran, in order</h2><span class="small muted">select a row to see its exchange below · 17 rows · axis 0–6.8 s</span></div>
+          <div class="scrollx">
+            <div class="tl" role="list" aria-label="Timeline of lifecycle actions, steps, checks and cleanup">
+              <div class="tl-axis" aria-hidden="true"><span>Action</span><div class="axis"><span style="left: 0%">0 s</span><span style="left: 14.7%">1 s</span><span style="left: 29.4%">2 s</span><span style="left: 44.1%">3 s</span><span style="left: 58.8%">4 s</span><span style="left: 73.5%">5 s</span><span class="verdict" style="left: 93.9%">6.4 s · verdict</span></div><span style="text-align: right">Time</span></div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-life">beforeAll</span><span class="mono">catalog</span><span class="small muted" style="white-space: nowrap">catalog.seedProducts · cache hit</span></span>
+                      <span class="track"><span class="bar cache" style="left: 0%; width: 1.2%"></span></span>
+                      <span class="tl-time">0 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-life">beforeEach</span><span class="mono">users.create</span><span class="small muted" style="white-space: nowrap">201 · saves userId</span></span>
+                      <span class="track"><span class="bar life" style="left: 0%; width: 2.4%"></span></span>
+                      <span class="tl-time">161 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-life">beforeEach</span><span class="mono">carts.create</span><span class="small muted" style="white-space: nowrap">201 · saves cartId</span></span>
+                      <span class="track"><span class="bar life" style="left: 2.4%; width: 1.7%"></span></span>
+                      <span class="tl-time">117 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-life">beforeEach</span><span class="mono">carts.addItem</span><span class="small muted" style="white-space: nowrap">SKU-1 · 201</span></span>
+                      <span class="track"><span class="bar life" style="left: 4.1%; width: 0.9%"></span></span>
+                      <span class="tl-time">64 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-life">beforeEach</span><span class="mono">carts.addItem</span><span class="small muted" style="white-space: nowrap">SKU-2 · saves orderTotal</span></span>
+                      <span class="track"><span class="bar life" style="left: 5.1%; width: 1%"></span></span>
+                      <span class="tl-time">68 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-step">step</span><span class="mono">place</span><span class="small muted" style="white-space: nowrap">orders.place · 201 · saves orderId</span></span>
+                      <span class="track"><span class="bar step" style="left: 6.1%; width: 4.6%"></span></span>
+                      <span class="tl-time">312 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-step">step</span><span class="mono">fetch</span><span class="small muted" style="white-space: nowrap">orders.get · poll ×6 until paid</span></span>
+                      <span class="track"><span class="bar step" style="left: 10.8%; width: 0.7%"></span><span class="bar step" style="left: 27%; width: 0.6%"></span><span class="bar step" style="left: 43.1%; width: 0.7%"></span><span class="bar step" style="left: 59.3%; width: 0.6%"></span><span class="bar step" style="left: 75.5%; width: 0.6%"></span><span class="bar bad" style="left: 91.7%; width: 2%"></span></span>
+                      <span class="tl-time">5.6 s</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row sub" aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-poll">poll 1</span><span class="mono">orders.get</span><span class="small muted" style="white-space: nowrap">pending</span></span>
+                      <span class="track"><span class="bar step" style="left: 10.8%; width: 0.7%"></span></span>
+                      <span class="tl-time">46 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row sub" aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-poll">poll 2</span><span class="mono">orders.get</span><span class="small muted" style="white-space: nowrap">pending</span></span>
+                      <span class="track"><span class="bar step" style="left: 27%; width: 0.6%"></span></span>
+                      <span class="tl-time">42 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row sub" aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-poll">poll 3</span><span class="mono">orders.get</span><span class="small muted" style="white-space: nowrap">pending</span></span>
+                      <span class="track"><span class="bar step" style="left: 43.1%; width: 0.7%"></span></span>
+                      <span class="tl-time">45 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row sub" aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-poll">poll 4</span><span class="mono">orders.get</span><span class="small muted" style="white-space: nowrap">pending</span></span>
+                      <span class="track"><span class="bar step" style="left: 59.3%; width: 0.6%"></span></span>
+                      <span class="tl-time">40 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row sub" aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-poll">poll 5</span><span class="mono">orders.get</span><span class="small muted" style="white-space: nowrap">pending · connection closed</span></span>
+                      <span class="track"><span class="bar step" style="left: 75.5%; width: 0.6%"></span></span>
+                      <span class="tl-time">44 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row sub sel" aria-pressed="true">
+                      <span class="tl-name"><span class="kind k-poll">poll 6</span><span class="mono">orders.get</span><span class="small muted" style="white-space: nowrap">paid · checks ran on this</span></span>
+                      <span class="track"><span class="bar bad" style="left: 91.7%; width: 2%"></span></span>
+                      <span class="tl-time">138 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                  
+                    <div class="tl-row static ">
+                      <span class="tl-name"><span class="kind k-expect">expect</span><span class="mono">7 checks</span><span class="small muted" style="white-space: nowrap">2 failed · on poll 6</span></span>
+                      <span class="track"><span class="bar bad" style="left: 93.8%; width: 0.1%"></span></span>
+                      <span class="tl-time">4 ms</span>
+                    </div>
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-clean">cleanup</span><span class="mono">orders.cancel</span><span class="small muted" style="white-space: nowrap">from orders.place · 200</span></span>
+                      <span class="track"><span class="bar clean" style="left: 94.1%; width: 3%"></span></span>
+                      <span class="tl-time">204 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-clean">cleanup</span><span class="mono">carts.delete</span><span class="small muted" style="white-space: nowrap">from carts.create · 204</span></span>
+                      <span class="track"><span class="bar clean" style="left: 97.1%; width: 0.7%"></span></span>
+                      <span class="tl-time">47 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+                <div role="listitem">
+                  
+                    <button type="button" class="tl-row " aria-pressed="false">
+                      <span class="tl-name"><span class="kind k-clean">cleanup</span><span class="mono">users.delete</span><span class="small muted" style="white-space: nowrap">from users.create · 204</span></span>
+                      <span class="track"><span class="bar clean" style="left: 97.9%; width: 0.8%"></span></span>
+                      <span class="tl-time">52 ms</span>
+                    </button>
+                  
+                  
+                </div>
+              
+            </div>
+          </div>
+        </section>
+
+        <section id="exchange" class="section sec" aria-labelledby="h-ex">
+          <div class="sh"><h2 id="h-ex" class="h2">Exchange</h2><span class="small muted">poll 6 · orders.get · paid · checks ran on this</span></div>
+          
+          
+          
+            <div class="exhead">
+              <span class="method m-get">GET</span>
+              <span class="url">https://orders.staging.shop.example/api/v1/orders/ord_8Kq2Tz</span>
+              <span class="pill pass">200 OK</span>
+              <span class="small muted">264 B · 138 ms · 14:02:36.834</span>
+            </div>
+            <div class="exsplit">
+              <div style="min-width: 0">
+                <div class="tabs" role="tablist" aria-label="Exchange views">
+                  
+                    <button type="button" role="tab" class="tab " aria-selected="false">Request</button>
+                  
+                    <button type="button" role="tab" class="tab on" aria-selected="true">Response</button>
+                  
+                    <button type="button" role="tab" class="tab " aria-selected="false">Headers</button>
+                  
+                    <button type="button" role="tab" class="tab " aria-selected="false">cURL</button>
+                  
+                </div>
+                <div class="tabpanel" role="tabpanel" aria-label="Response">
+                  
+                  
+                    <div class="small muted">Checks ran against this response; the poll stopped here because status matched paid</div>
+                    <pre class="code plain">HTTP/1.1 200 OK
+
+{
+  &quot;id&quot;: &quot;ord_8Kq2Tz&quot;,
+  &quot;status&quot;: &quot;paid&quot;,
+  &quot;currency&quot;: &quot;USD&quot;,
+  &quot;items&quot;: [
+    { &quot;sku&quot;: &quot;SKU-1&quot;, &quot;price&quot;: 19.99, &quot;quantity&quot;: 1 },
+    { &quot;sku&quot;: &quot;SKU-2&quot;, &quot;price&quot;: 39.99, &quot;quantity&quot;: 1 }
+  ],
+  &quot;tax&quot;: 4.80,
+  &quot;total&quot;: 64.78,
+  &quot;createdAt&quot;: &quot;2026-10-23T14:02:31Z&quot;
+}</pre>
+                  
+                  
+                  
+                </div>
+              </div>
+              <div class="pane" style="padding-top: 6px">
+                <h3 class="h3">Timing · 138 ms</h3>
+                <div class="phase" role="img" aria-label="DNS 2 ms, Connect 14 ms, TLS 31 ms, Waiting for first byte 88 ms, Download 3 ms; total 138 ms">
+                  <span class="ph-dns" style="flex: 2"></span><span class="ph-connect" style="flex: 14"></span><span class="ph-tls" style="flex: 31"></span><span class="ph-ttfb" style="flex: 88"></span><span class="ph-dl" style="flex: 3"></span>
+                </div>
+                <div class="plist">
+                  
+                    <span class="sw ph-dns"></span><span>DNS</span><span class="mono">2 ms</span>
+                  
+                    <span class="sw ph-connect"></span><span>Connect</span><span class="mono">14 ms</span>
+                  
+                    <span class="sw ph-tls"></span><span>TLS</span><span class="mono">31 ms</span>
+                  
+                    <span class="sw ph-ttfb"></span><span>Waiting for first byte</span><span class="mono">88 ms</span>
+                  
+                    <span class="sw ph-dl"></span><span>Download</span><span class="mono">3 ms</span>
+                  
+                </div>
+                <dl class="kv" style="margin-top: 8px">
+                  <dt>Sent</dt><dd class="mono">14:02:36.834</dd>
+                  <dt>Connection</dt><dd>new · TLS 1.3 · orders.staging.shop.example</dd>
+                  <dt>Request id</dt><dd class="mono small">9f1c2e7a-41b3-4c8f-a0d2-6b51f0e3c9aa</dd>
+                  <dt>Api</dt><dd class="mono">orders.get</dd>
+                  <dt>Saved</dt><dd class="mono small">—</dd>
+                </dl>
+              </div>
+            </div>
+          
+        </section>
+
+        <section id="lifecycle" class="section sec" aria-labelledby="h-life">
+          <div class="sh"><h2 id="h-life" class="h2">Lifecycle this test depended on</h2><span class="small muted">beforeAll ran once for the file; beforeEach ran again for this test</span></div>
+          <div class="scrollx">
+            <div class="gt t-life" role="table" aria-label="Lifecycle actions for this test">
+              <div class="hd" role="row"><span role="columnheader">Action</span><span role="columnheader">Block</span><span role="columnheader">Result</span><span role="columnheader">Saved for the test</span><span role="columnheader" class="num">Time</span><span role="columnheader"><span class="sr">Exchange</span></span></div>
+              
+                <div class="tr " role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">catalog</span><span class="small muted">catalog.seedProducts · cache for 12h</span></div>
+                  <span role="cell" class="mono small">beforeAll</span>
+                  <span role="cell"><span class="pill accent">cache hit</span></span>
+                  <span role="cell" class="mono small" style="overflow-wrap: anywhere">catalog.productIds = [SKU-1, SKU-2]</span>
+                  <span role="cell" class="num small">0 ms</span>
+                  <span role="cell"><a class="btn sm" href="#exchange">View exchange</a></span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">users.create</span><span class="small muted">POST /users</span></div>
+                  <span role="cell" class="mono small">beforeEach</span>
+                  <span role="cell"><span class="pill pass">201 Created</span></span>
+                  <span role="cell" class="mono small" style="overflow-wrap: anywhere">userId = usr_3Fq9Lm</span>
+                  <span role="cell" class="num small">161 ms</span>
+                  <span role="cell"><a class="btn sm" href="#exchange">View exchange</a></span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">carts.create</span><span class="small muted">POST /carts</span></div>
+                  <span role="cell" class="mono small">beforeEach</span>
+                  <span role="cell"><span class="pill pass">201 Created</span></span>
+                  <span role="cell" class="mono small" style="overflow-wrap: anywhere">cartId = crt_77Ah2c</span>
+                  <span role="cell" class="num small">117 ms</span>
+                  <span role="cell"><a class="btn sm" href="#exchange">View exchange</a></span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">carts.addItem</span><span class="small muted">forEach item 1 of 2 · sku SKU-1</span></div>
+                  <span role="cell" class="mono small">beforeEach</span>
+                  <span role="cell"><span class="pill pass">201 Created</span></span>
+                  <span role="cell" class="mono small" style="overflow-wrap: anywhere">orderTotal = 19.99</span>
+                  <span role="cell" class="num small">64 ms</span>
+                  <span role="cell"><a class="btn sm" href="#exchange">View exchange</a></span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <div class="cellname" role="cell"><span class="mono" style="font-weight: 500">carts.addItem</span><span class="small muted">forEach item 2 of 2 · sku SKU-2</span></div>
+                  <span role="cell" class="mono small">beforeEach</span>
+                  <span role="cell"><span class="pill pass">201 Created</span></span>
+                  <span role="cell" class="mono small" style="overflow-wrap: anywhere">orderTotal = 59.98 (used by the failed check)</span>
+                  <span role="cell" class="num small">68 ms</span>
+                  <span role="cell"><a class="btn sm" href="#exchange">View exchange</a></span>
+                </div>
+              
+            </div>
+          </div>
+        </section>
+
+        <section id="vars" class="section sec" aria-labelledby="h-vars">
+          <div class="sh"><h2 id="h-vars" class="h2">Vars resolved for this instance</h2><span class="small muted">value at the moment the checks ran · secrets redacted · fake data from seed 7f3a91c2</span></div>
+          <div class="scrollx">
+            <div class="gt t-vars" role="table" aria-label="Resolved vars">
+              <div class="hd" role="row"><span role="columnheader">Name</span><span role="columnheader">Value</span><span role="columnheader">Where it was set</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">ordersUrl</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">https://orders.staging.shop.example</span><span role="cell" class="small muted">profile staging · vibranium.config.yaml:15</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">usersUrl</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">https://users.staging.shop.example</span><span role="cell" class="small muted">profile staging · vibranium.config.yaml:14</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">cartsUrl</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">https://carts.staging.shop.example</span><span role="cell" class="small muted">profile staging · vibranium.config.yaml:16</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">catalog.productIds</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">[&quot;SKU-1&quot;, &quot;SKU-2&quot;]</span><span role="cell" class="small muted">beforeAll catalog · restored from cache (run #478)</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">name</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">Mirela Okafor</span><span role="cell" class="small muted">users.create vars · ${fake.person.fullName}</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">email</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">mirela.okafor42@example.test</span><span role="cell" class="small muted">users.create vars · ${fake.internet.email}</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">role</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">member</span><span role="cell" class="small muted">users.create vars · default</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">userId</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">usr_3Fq9Lm</span><span role="cell" class="small muted">saved by users.create · ${response.body.id}</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">cartId</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">crt_77Ah2c</span><span role="cell" class="small muted">saved by carts.create · ${response.body.id}</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">sku</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">SKU-1, then SKU-2</span><span role="cell" class="small muted">carts.addItem forEach · ${item}</span></div>
+              
+                <div class="tr sel" role="row"><span role="cell" class="mono small">orderTotal</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">59.98</span><span role="cell" class="small muted">saved by carts.addItem (2nd) · ${response.body.total}</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">orderId</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">ord_8Kq2Tz</span><span role="cell" class="small muted">saved by orders.place · ${response.body.id}</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">paymentMethod</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">pm_card_visa</span><span role="cell" class="small muted">orders.api.yaml · place vars default</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">secret.SHOP_CLIENT_SECRET</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">•••••••• (redacted)</span><span role="cell" class="small muted">varlock · .env.schema</span></div>
+              
+                <div class="tr " role="row"><span role="cell" class="mono small">auth shopOauth</span><span role="cell" class="mono small" style="overflow-wrap: anywhere">Bearer •••••••• (redacted)</span><span role="cell" class="small muted">oauth2 client credentials · fetched 14:02:11, reused</span></div>
+              
+            </div>
+          </div>
+        </section>
+
+        <section id="cleanup" class="section sec" aria-labelledby="h-clean">
+          <div class="sh"><h2 id="h-clean" class="h2">Cleanup after the test</h2><span class="small muted">3 registered · 3 ran · 0 failed · ran last-in, first-out after the verdict, not counted in 6.4 s</span></div>
+          <div class="scrollx">
+            <div class="gt t-clean" role="table" aria-label="Cleanup actions">
+              <div class="hd" role="row"><span role="columnheader">#</span><span role="columnheader">Action</span><span role="columnheader">Registered by</span><span role="columnheader">Request</span><span role="columnheader">Result</span><span role="columnheader" class="num">Time</span><span role="columnheader"><span class="sr">Exchange</span></span></div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="num small muted">1</span>
+                  <span role="cell" class="mono">orders.cancel</span>
+                  <span role="cell" class="small">orders.place</span>
+                  <span role="cell" class="mono small" style="overflow-wrap: anywhere">POST /orders/ord_8Kq2Tz/cancel</span>
+                  <span role="cell"><span class="pill pass">200 OK</span></span>
+                  <span role="cell" class="num small">204 ms</span>
+                  <span role="cell"><a class="btn sm" href="#exchange">View exchange</a></span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="num small muted">2</span>
+                  <span role="cell" class="mono">carts.delete</span>
+                  <span role="cell" class="small">carts.create</span>
+                  <span role="cell" class="mono small" style="overflow-wrap: anywhere">DELETE /carts/crt_77Ah2c</span>
+                  <span role="cell"><span class="pill pass">204 No Content</span></span>
+                  <span role="cell" class="num small">47 ms</span>
+                  <span role="cell"><a class="btn sm" href="#exchange">View exchange</a></span>
+                </div>
+              
+                <div class="tr " role="row">
+                  <span role="cell" class="num small muted">3</span>
+                  <span role="cell" class="mono">users.delete</span>
+                  <span role="cell" class="small">users.create</span>
+                  <span role="cell" class="mono small" style="overflow-wrap: anywhere">DELETE /users/usr_3Fq9Lm</span>
+                  <span role="cell"><span class="pill pass">204 No Content</span></span>
+                  <span role="cell" class="num small">52 ms</span>
+                  <span role="cell"><a class="btn sm" href="#exchange">View exchange</a></span>
+                </div>
+              
+            </div>
+          </div>
+        </section>
+
+        <section id="history" class="section sec" aria-labelledby="h-hist">
+          <div class="sh"><h2 id="h-hist" class="h2">History of this test</h2><span class="small muted">last 20 runs on profile staging · first failure in this run</span></div>
+          <div class="split2">
+            <div class="pane">
+              <svg viewBox="0 0 600 120" width="100%" role="img" aria-label="Duration of placesOrder over runs 463 to 482, between 4.6 and 6.4 seconds; passed in runs 463 to 481, failed in run 482" style="display: block; max-width: 640px">
+                <g stroke="#ECE9F2" stroke-width="1"><line x1="40" y1="20" x2="590" y2="20"></line><line x1="40" y1="55" x2="590" y2="55"></line><line x1="40" y1="90" x2="590" y2="90"></line></g>
+                <g font-family="Geist Mono, monospace" font-size="11" fill="#67637D"><text x="34" y="24" text-anchor="end">7 s</text><text x="34" y="59" text-anchor="end">5.5 s</text><text x="34" y="94" text-anchor="end">4 s</text><text x="50" y="112">#463</text><text x="590" y="112" text-anchor="end">#482</text></g>
+                <polyline points="50,64 78,71 107,60 135,69 164,53 192,62 221,74 249,67 277,41 306,57 334,69 363,62 391,48 419,67 448,76 476,60 505,55 533,64 562,69 590,34" fill="none" stroke="#8D82E6" stroke-width="2" stroke-linejoin="round"></polyline>
+                <path d="M46.5 64a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M74.5 71a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M103.5 60a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M131.5 69a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M160.5 53a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M188.5 62a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M217.5 74a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M245.5 67a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M273.5 41a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M302.5 57a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M330.5 69a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M359.5 62a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M387.5 48a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M415.5 67a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M444.5 76a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M472.5 60a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M501.5 55a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M529.5 64a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0M558.5 69a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0" fill="#1A7148"></path>
+                <path d="M585 34a5 5 0 1 0 10 0a5 5 0 1 0 -10 0" fill="#B3261E"></path>
+                <path d="M582 34a8 8 0 1 0 16 0a8 8 0 1 0 -16 0" fill="none" stroke="#1B1830" stroke-width="1.5"></path>
+              </svg>
+              <div class="runs" role="group" aria-label="Runs 463 to 482, select one">
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 463, passed, 5.1 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 464, passed, 4.8 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 465, passed, 5.3 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 466, passed, 4.9 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 467, passed, 5.6 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 468, passed, 5.2 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 469, passed, 4.7 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 470, passed, 5 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 471, passed, 6.1 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 472, passed, 5.4 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 473, passed, 4.9 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 474, passed, 5.2 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 475, passed, 5.8 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 476, passed, 5 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 477, passed, 4.6 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 478, passed, 5.3 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 479, passed, 5.5 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 480, passed, 5.1 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn pass" aria-label="Run 481, passed, 4.9 s" aria-pressed="false"></button>
+                
+                  <button type="button" class="runbtn fail sel" aria-label="Run 482, failed, 6.4 s" aria-pressed="true"></button>
+                
+              </div>
+              <div class="small">Run #482 · failed · 6.4 s · main@a1c9e4f · first failure, 2 of 7 checks</div>
+            </div>
+            <div class="pane">
+              <h3 class="h3">Commits between run #481 and #482</h3>
+              <div>
+                <div class="commit"><span class="pill fail" style="height: 20px">first bad</span><div><div><code>a1c9e4f</code> <b>orders: add tax line</b></div><div class="small muted">priya · 23 Oct 2026, 13:47 · services/orders/src/pricing.ts +18 −2 · openapi/orders.json +6</div></div></div>
+                <div class="commit"><span class="pill" style="height: 20px">unrelated</span><div><div><code>7d02b11</code> users: add rename and deactivate tests</div><div class="small muted">sarath · 23 Oct 2026, 11:20 · services/users/crud.test.yaml +38</div></div></div>
+                <div class="commit"><span class="pill" style="height: 20px">unrelated</span><div><div><code>c93e5f0</code> ci: bump runner image to ubuntu-24.04</div><div class="small muted">ana · 23 Oct 2026, 09:05 · .github/workflows/vibranium.yml +1 −1</div></div></div>
+              </div>
+              <div class="small muted">a1c9e4f is the only commit since #481 that touches <span class="mono">services/orders</span> or the files this test reads.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="similar" class="section sec" aria-labelledby="h-sim">
+          <div class="sh"><h2 id="h-sim" class="h2">Similar failures in this run</h2><span class="small muted">same expectation path and the same added field <span class="mono">tax</span></span></div>
+          <div class="scrollx">
+            <div class="gt t-sim" role="table" aria-label="Similar failures">
+              <div class="hd" role="row"><span role="columnheader">Test</span><span role="columnheader">Failed check</span><span role="columnheader">Expected → actual</span><span role="columnheader">Why it looks the same</span></div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><a class="mono" href="Main.dc.html">orders.checkout.cancelsPaidOrder</a><span class="small muted">A paid order can be cancelled and is refunded in full</span></div>
+                  <span role="cell" class="mono small">refund.amount: ${var.orderTotal}</span>
+                  <span role="cell" class="mono small"><span>59.98</span> → <b style="color: var(--fail)">64.78</b></span>
+                  <span role="cell" class="small muted">same orderTotal var · refund carries the tax</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><a class="mono" href="Main.dc.html">orders.checkout.placesGuestOrder</a><span class="small muted">A guest checkout without an account is accepted</span></div>
+                  <span role="cell" class="mono small">total: ${var.orderTotal}</span>
+                  <span role="cell" class="mono small"><span>39.99</span> → <b style="color: var(--fail)">43.19</b></span>
+                  <span role="cell" class="small muted">same check line · +8% · new tax field</span>
+                </div>
+              
+                <div class="tr" role="row">
+                  <div class="cellname" role="cell"><a class="mono" href="Main.dc.html">orders.checkout.reordersPreviousCart</a><span class="small muted">Reordering a past order rebuilds the same cart</span></div>
+                  <span role="cell" class="mono small">total: ${var.orderTotal}</span>
+                  <span role="cell" class="mono small"><span>59.98</span> → <b style="color: var(--fail)">64.78</b></span>
+                  <span role="cell" class="small muted">same check line · same diff (+tax)</span>
+                </div>
+              
+            </div>
+          </div>
+        </section>
+
+        <section id="source" class="section sec" aria-labelledby="h-src">
+          <div class="sh"><h2 id="h-src" class="h2">Source</h2><span class="small muted mono">services/orders/checkout.test.yaml</span><span class="small muted">· at main@a1c9e4f</span></div>
+          <div class="code" aria-label="Test source with failing lines marked">
+            
+              <span class="ln" style="padding: 2px 14px"><button type="button" class="expander"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>Show lines 1–16 · file header, beforeAll catalog, beforeEach</button></span>
+            
+            
+              <span class="ln "><span class="no">17</span><span class="y-plain">  </span><span class="y-punc">- </span><span class="y-key">id</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">placesOrder</span></span>
+            
+              <span class="ln "><span class="no">18</span><span class="y-plain">    </span><span class="y-key">name</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">A cart with two items becomes a paid order</span></span>
+            
+              <span class="ln "><span class="no">19</span><span class="y-plain">    </span><span class="y-key">steps</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">20</span><span class="y-plain">      </span><span class="y-punc">- </span><span class="y-key">id</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">place</span></span>
+            
+              <span class="ln "><span class="no">21</span><span class="y-plain">        </span><span class="y-key">call</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">orders.place</span></span>
+            
+              <span class="ln "><span class="no">22</span><span class="y-plain">      </span><span class="y-punc">- </span><span class="y-key">id</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">fetch</span></span>
+            
+              <span class="ln "><span class="no">23</span><span class="y-plain">        </span><span class="y-key">call</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">orders.get</span></span>
+            
+              <span class="ln "><span class="no">24</span><span class="y-plain">        </span><span class="y-key">poll</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">25</span><span class="y-plain">          </span><span class="y-key">until</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">26</span><span class="y-plain">            </span><span class="y-key">body</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">27</span><span class="y-plain">              </span><span class="y-key">match</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">28</span><span class="y-plain">                </span><span class="y-key">status</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">paid</span></span>
+            
+              <span class="ln "><span class="no">29</span><span class="y-plain">          </span><span class="y-key">every</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-num">1s</span></span>
+            
+              <span class="ln "><span class="no">30</span><span class="y-plain">          </span><span class="y-key">timeout</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-num">30s</span></span>
+            
+              <span class="ln "><span class="no">31</span><span class="y-plain">    </span><span class="y-key">expect</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">32</span><span class="y-plain">      </span><span class="y-key">status</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-num">200</span></span>
+            
+              <span class="ln "><span class="no">33</span><span class="y-plain">      </span><span class="y-key">body</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">34</span><span class="y-plain">        </span><span class="y-key">schema</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">35</span><span class="y-plain">          </span><span class="y-key">$file</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">../../schemas/orders/order.json</span></span>
+            
+              <span class="ln "><span class="no">36</span><span class="y-plain">        </span><span class="y-key">match</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">37</span><span class="y-plain">          </span><span class="y-key">items</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">38</span><span class="y-plain">            </span><span class="y-key">length</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-num">2</span></span>
+            
+              <span class="ln "><span class="no">39</span><span class="y-plain">            </span><span class="y-key">every</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">40</span><span class="y-plain">              </span><span class="y-key">quantity</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">{ gte: 1 }</span></span>
+            
+              <span class="ln err"><span class="no">41</span><span class="y-plain">          </span><span class="y-key">total</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-tpl">${var.orderTotal}</span><span class="srcnote">expected 59.98, got 64.78</span></span>
+            
+              <span class="ln "><span class="no">42</span><span class="y-plain">      </span><span class="y-key">cel</span><span class="y-punc">:</span></span>
+            
+              <span class="ln err"><span class="no">43</span><span class="y-plain">        </span><span class="y-key">total equals sum of lines</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">body.total == body.items.map(i, i.price * i.quantity).sum()</span><span class="srcnote">false</span></span>
+            
+              <span class="ln "><span class="no">44</span><span class="y-plain">      </span><span class="y-key">custom</span><span class="y-punc">:</span></span>
+            
+              <span class="ln "><span class="no">45</span><span class="y-plain">        </span><span class="y-key">currency is consistent</span><span class="y-punc">:</span><span class="y-plain"> </span><span class="y-str">hooks/checks.ts#currencyIsConsistent</span></span>
+            
+          </div>
+        </section>
+
+        <footer class="foot">
+          <span>Generated by Vibranium 2.0.0 from <span class="mono">.vibranium/reports/482/ctrf.json</span> · this page: <span class="mono">tests/orders.checkout.placesOrder.json</span> 19 KB, loaded when opened · exchange bodies stored because the test failed (up to 64 KB each)</span>
+          <span><a href="Main.dc.html">Back to run #482 overview</a></span>
+        </footer>
+      </div>
+    </main>
+  </div>
+</div>
+</body></html>

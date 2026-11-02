@@ -1,0 +1,36 @@
+// Named states for WebSettings (used by states.js and settings-test.js).
+const sec = (v, k) => v().secs.find((x) => x.key === k).pick();
+module.exports = {
+  WebSettings: [
+    ['general', () => {}],
+    ['general-edit', (c, v, t, ev) => { v().g.timeout.set(ev('ten seconds')); v().g.addHeader(); v().g.include[0].set(ev('services/**/*.api.yaml')); }],
+    ['profiles', (c, v) => { sec(v, 'profiles'); }],
+    ['profiles-refuse', (c, v) => { sec(v, 'profiles'); v().pr.rows[0].del(); }],
+    ['newprofile-bad', (c, v, t, ev) => { sec(v, 'profiles'); v().pr.openNew(); v().np.setName(ev('EU Staging')); }],
+    ['newprofile', (c, v, t, ev) => { sec(v, 'profiles'); v().pr.openNew(); v().np.setName(ev('eu')); v().np.setTitle(ev('EU region staging')); v().np.copyOpts[2].pick(); v().np.toggleDef({ target: { checked: true } }); }],
+    ['profiles-added', (c, v, t, ev) => { sec(v, 'profiles'); v().pr.openNew(); v().np.setName(ev('eu')); v().np.copyOpts[2].pick(); v().np.create(); v().mx.rows[4].cells[4].set(ev('shop-eu')); v().mx.rows[0].cells[1].set(ev('http://localhost:9080')); }],
+    ['diff', (c, v, t, ev) => { sec(v, 'profiles'); v().pr.openNew(); v().np.setName(ev('eu')); v().np.copyOpts[2].pick(); v().np.create(); v().mx.rows[4].cells[4].set(ev('shop-eu')); v().openDiff(); }],
+    ['delete-profile', (c, v) => { sec(v, 'profiles'); v().pr.rows[2].del(); }],
+    ['auth', (c, v) => { sec(v, 'auth'); }],
+    ['auth-test-ok', (c, v, t) => { sec(v, 'auth'); v().tst.profs[1].pick(); v().tst.run(); t.flush(); }],
+    ['auth-test-running', (c, v, t) => { sec(v, 'auth'); v().tst.profs[1].pick(); v().tst.run(); t.advance(500); }],
+    ['auth-test-prod', (c, v, t) => { sec(v, 'auth'); v().tst.profs[2].pick(); v().tst.run(); t.flush(); }],
+    ['auth-literal', (c, v, t, ev) => { sec(v, 'auth'); v().ad.fields[2].set(ev('s3cr3t-value')); }],
+    ['auth-flow', (c, v, t) => { sec(v, 'auth'); v().au.rows[1].pick(); v().tst.run(); t.flush(); }],
+    ['auth-delete-refused', (c, v) => { sec(v, 'auth'); v().ad.del(); }],
+    ['wizard1', (c, v) => { sec(v, 'auth'); v().au.openWizard(); }],
+    ['wizard2', (c, v, t, ev) => { sec(v, 'auth'); v().au.openWizard(); v().wz.types[2].pick(); v().wz.next(); v().wz.setName(ev('Billing sandbox key')); v().wz.fields[2].set(ev('sk_test_51Hx')); }],
+    ['wizard2-flow', (c, v, t, ev) => { sec(v, 'auth'); v().au.openWizard(); v().wz.types[6].pick(); v().wz.next(); v().wz.setName(ev('Admin login')); v().wfe.addStep(); }],
+    ['wizard3', (c, v, t, ev) => { sec(v, 'auth'); v().au.openWizard(); v().wz.types[2].pick(); v().wz.next(); v().wz.setName(ev('Billing sandbox key')); v().wz.fields[2].set(ev('${secret.BILLING_API_KEY}')); v().wz.next(); }],
+    ['wizard-created', (c, v, t, ev) => { sec(v, 'auth'); v().au.openWizard(); v().wz.types[2].pick(); v().wz.next(); v().wz.setName(ev('Billing sandbox key')); v().wz.fields[2].set(ev('${secret.BILLING_API_KEY}')); v().wz.next(); v().wz.create(); v().tst.run(); t.flush(); }],
+    ['secrets', (c, v) => { sec(v, 'secrets'); }],
+    ['secrets-add', (c, v, t, ev) => { sec(v, 'secrets'); v().sx.toggleAdd(); v().sx.ns.setName(ev('BILLING_API_KEY')); v().sx.ns.setDesc(ev('API key for the billing sandbox')); v().sx.ns.setRef(ev('op://shop-$VC_PROFILE/billing/api_key')); }],
+    ['secrets-checking', (c, v, t, ev) => { sec(v, 'secrets'); v().sx.toggleAdd(); v().sx.ns.setName(ev('BILLING_API_KEY')); v().sx.ns.setDesc(ev('API key for the billing sandbox')); v().sx.ns.setRef(ev('op://shop-$VC_PROFILE/billing/api_key')); v().sx.ns.add(); v().sx.check(); }],
+    ['secrets-checked', (c, v, t, ev) => { sec(v, 'secrets'); v().sx.toggleAdd(); v().sx.ns.setName(ev('BILLING_API_KEY')); v().sx.ns.setDesc(ev('API key for the billing sandbox')); v().sx.ns.setRef(ev('op://shop-$VC_PROFILE/billing/api_key')); v().sx.ns.add(); v().sx.check(); t.flush(); }],
+    ['reports', (c, v) => { sec(v, 'reports'); v().rp.bodies[1].pick(); }],
+    ['alerts', (c, v, t, ev) => { sec(v, 'alerts'); v().al.toggleAdd(); v().al.nc.setId(ev('releases')); v().al.nc.setTarget(ev('https://hooks.slack.com/T000/B000')); }],
+    ['alerts-sent', (c, v, t) => { sec(v, 'alerts'); v().al.sendProfs[0].pick(); v().al.send(); t.flush(); }],
+    ['agents', (c, v) => { sec(v, 'agents'); v().ag.methods[2].opts[1].pick(); }],
+    ['plugins', (c, v) => { sec(v, 'plugins'); v().pl.rows[1].remove(); }],
+  ]
+};

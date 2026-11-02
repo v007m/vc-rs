@@ -1,0 +1,26 @@
+# Snapshot written by vc import on 2026-10-14 from https://orders.staging.shop.example/v3/api-docs
+openapi: 3.0.3
+info:
+  title: Orders
+  version: 2.8.0
+paths:
+  /orders:
+    post:
+      operationId: placeOrder
+      responses:
+        "201":
+          description: Created
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      responses:
+        "200":
+          description: The order
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id, status, items, total]
+    OrderItem:
+      type: object
+      required: [sku, quantity, price]

@@ -1,0 +1,11 @@
+[package]
+name = "hook-deno"
+edition.workspace = true
+version.workspace = true
+[dependencies]
+tsstrip = { path = "../tsstrip" }
+hookbench = { path = "../hookbench" }
+deno_core = "0.413"
+deno_error = "=0.7.1"
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "time"] }

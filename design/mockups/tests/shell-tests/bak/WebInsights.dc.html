@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium · Insights</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="/_blob/1e69a6d642232c67587a282225e98669">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+sc-for,sc-if{display:contents}
+.dot.accent{background:var(--accent)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.navrow,.ctx,.ctxsec{display:flex;flex-direction:column;gap:2px}
+.ctxsec .navitem{height:30px;font-size:13px}
+.navitem .sw{width:16px;display:inline-flex;justify-content:center}
+.topsel{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink2)}
+.topsel select{height:30px;border:0;border-radius:8px;background:var(--hover);padding:0 8px;font:500 12.5px var(--font);color:var(--ink)}
+.popwrap{position:relative}
+.popwrap .popover{position:absolute;top:calc(100% + 6px);z-index:40}
+.pophead{padding:8px 10px 4px;font-size:11.5px;font-weight:600;color:var(--ink2)}
+.popnote{padding:6px 10px 8px;font-size:12px;color:var(--ink2);line-height:1.45}
+.avatar{width:32px;height:32px;border-radius:50%;border:0;background:var(--ink);color:#fff;font:600 13px var(--font);cursor:pointer}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border-bottom:1px solid var(--line)}
+.kpi{padding:14px 20px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:3px;min-width:0}
+.kpi:last-child{border-right:0}
+.kpi .v{font:600 24px var(--font);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:12px;color:var(--ink2)}
+.kpi .dl{font-size:12px;color:var(--ink2)}
+.kpi .dl.bad{color:var(--fail)}
+.row2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr));border-bottom:1px solid var(--line)}
+.row2 > section{min-width:0;padding:16px 20px 18px;display:flex;flex-direction:column;gap:10px}
+.row2 > section + section{border-left:1px solid var(--line)}
+.row3{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+.row3 > section,.row3 > div{min-width:0}
+.row3 > div{border-left:1px solid var(--line);display:flex;flex-direction:column}
+.row3 > div > section{padding:16px 20px 18px;display:flex;flex-direction:column;gap:10px}
+.row3 > div > section + section{border-top:1px solid var(--line)}
+.cov{padding:16px 20px 18px;display:flex;flex-direction:column;gap:12px}
+.shead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.shead .sub{font-size:12.5px;color:var(--ink2)}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.ax{font:11px var(--mono);fill:#67637D}
+.grid{stroke:#ECE9F2;stroke-width:1}
+.base{stroke:#CFCADB;stroke-width:1}
+.tip{position:absolute;top:0;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:8px;padding:6px 9px;font-size:12px;line-height:1.4;pointer-events:none;white-space:nowrap;box-shadow:0 6px 18px rgba(27,24,48,.25)}
+.tip b{font-weight:600}
+.clegend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink2);align-items:center}
+.clegend span{display:inline-flex;align-items:center;gap:6px}
+.sw-line{width:18px;height:2px;background:var(--accent);border-radius:1px}
+.sw-dash{width:18px;height:0;border-top:1.5px dashed #8E8AA3}
+.sw-mk{width:9px;height:9px;border-radius:50%;background:#C27A00;box-shadow:0 0 0 2px #fff}
+.lst{display:flex;flex-direction:column}
+.fl{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(90px,1fr) auto;gap:4px 14px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.fl:last-child{border-bottom:0}
+.fl .id{font:600 12px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fl .why{font-size:12px;color:var(--ink2)}
+.hbar{height:8px;border-radius:4px;background:var(--panel3);overflow:hidden;display:flex}
+.hbar span{display:block;height:8px;border-radius:4px}
+.acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.skipform{grid-column:1 / -1;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:8px 10px;background:var(--panel2);border-radius:10px}
+.skipform .field{flex:1 1 160px}
+.sa{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,2fr) 92px;gap:10px 14px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+.sa:last-child{border-bottom:0}
+.sa .id{display:flex;align-items:center;gap:6px;font:12px var(--mono);white-space:nowrap;overflow:hidden}
+.sa .id .method{min-width:44px;height:18px;font-size:10.5px}
+.sab{position:relative;height:10px;border-radius:5px;background:var(--panel3)}
+.sab .p95{position:absolute;left:0;top:0;height:10px;border-radius:5px;background:#CFC8F6}
+.sab .p50{position:absolute;left:0;top:0;height:10px;border-radius:5px;background:var(--accent)}
+.sa .n{text-align:right;font:12px var(--mono);font-variant-numeric:tabular-nums}
+.svcs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.svc{display:flex;flex-direction:column;gap:6px;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--panel);font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.svc:hover{background:var(--panel2)}
+.svc.on{border-color:var(--accent);background:var(--accentSoft)}
+.svc .top{display:flex;justify-content:space-between;gap:8px;font-size:12.5px}
+.svc .top b{font:600 12.5px var(--mono)}
+.svc .pc{font-weight:600;font-variant-numeric:tabular-nums}
+.svc .mini{font-size:11.5px;color:var(--ink2)}
+.ctools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.ctools .input{height:30px;max-width:240px;font-size:12.5px}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);cursor:pointer}
+.toggle input{width:16px;height:16px;accent-color:var(--accent);margin:0}
+.cvwrap{max-height:430px;overflow:auto;border-top:1px solid var(--line)}
+.cvin{min-width:680px}
+.cg{display:grid;grid-template-columns:minmax(200px,1.3fr) minmax(170px,1.2fr) 74px minmax(170px,1.3fr);gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line);font-size:12.5px}
+.cg.h{position:sticky;top:0;z-index:1;background:var(--panel);font-size:12px;font-weight:500;color:var(--ink2)}
+.cg.gap{background:#FFFAF0}
+.cg .id{display:flex;align-items:center;gap:7px;font:12px var(--mono);min-width:0}
+.cg .id .method{min-width:50px;height:18px;font-size:10.5px}
+.cg .pth{font:11.5px var(--mono);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.codes{display:flex;gap:4px;flex-wrap:wrap}
+.code-c{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:5px;font:500 11px var(--mono)}
+.code-c.ex{background:var(--passSoft);color:var(--pass)}
+.code-c.miss{background:transparent;color:var(--ink2);box-shadow:inset 0 0 0 1px #C9C4DA;text-decoration:line-through;text-decoration-color:#9A96AD}
+.code-c.undoc{background:var(--blockSoft);color:var(--block)}
+.tcount{font-size:12px}
+.tcount.none{color:var(--block);font-weight:600}
+.ex-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:9px 0;border-bottom:1px solid var(--line);align-items:center}
+.ex-row:last-child{border-bottom:0}
+.ex-row .id{font:600 12px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ex-row .why{font-size:12px;color:var(--ink2);grid-column:1}
+.ch{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.ch:last-child{border-bottom:0}
+.ch .id{font:600 12px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch .meta{grid-column:1 / -1;font-size:12px;color:var(--ink2)}
+.tbl-mini{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl-mini th{text-align:left;font-weight:500;font-size:12px;color:var(--ink2);padding:6px 8px;border-bottom:1px solid var(--line)}
+.tbl-mini td{padding:6px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+@media (max-width:1200px){
+  .row3{grid-template-columns:minmax(0,1fr)}
+  .row3 > div{border-left:0;border-top:1px solid var(--line)}
+}
+@media (max-width:1100px){
+  .row2 > section + section{border-left:0;border-top:1px solid var(--line)}
+}
+@media (max-width:860px){
+  .app .side{flex-direction:column;overflow:visible}
+  .app .side .navrow,.app .side .ctx{flex-direction:row;overflow-x:auto;gap:4px}
+  .app .side .ctxsec{flex-direction:row;flex:none;gap:4px}
+  .row2 > section,.cov,.row3 > div > section{padding:14px}
+  .kpi{padding:12px 14px}
+}
+</style>
+</helmet>
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="WebExplorer.dc.html"><svg width="22" height="22" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 25 8.5v11L14 26 3 19.5v-11Z" fill="none" stroke="#5440D6" stroke-width="2"/><path d="M9 10.5 14 18l5-7.5" fill="none" stroke="#1B1830" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Vibranium</a>
+    <div class="popwrap">
+      <button class="btn ghost sm" type="button" aria-expanded="{{projOpen}}" onClick="{{toggleProj}}">shop <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button>
+      <sc-if value="{{projOpen}}" hint-placeholder-val="{{ false }}">
+        <div class="popover" style="left: 0">
+          <div class="pophead">Project</div>
+          <button class="opt on" type="button" onClick="{{toggleProj}}"><span class="mono">shop</span><span class="subtle" style="margin-left: auto">~/code/shop · main</span></button>
+          <div class="popnote">Run <span class="mono">vc web</span> in another folder to open that project.</div>
+        </div>
+      </sc-if>
+    </div>
+    <label class="topsel"><span>Profile</span>
+      <select value="{{profile}}" onChange="{{setProfileSel}}"><option value="dev">dev</option><option value="staging">staging</option><option value="prod">prod</option></select>
+    </label>
+    <div class="grow"></div>
+    <label class="search"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.75"/><path d="m10.5 10.5 3.5 3.5"/></svg><span class="sr">Search tests, apis, files</span><input type="search" placeholder="Search tests, apis, files…"><span class="kbd">⌘K</span></label>
+    <a class="btn primary" href="WebRun.dc.html"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3v10l8.5-5z"/></svg>Run</a>
+    <div class="popwrap">
+      <button class="avatar" type="button" aria-label="Account: Sarath" aria-expanded="{{meOpen}}" onClick="{{toggleMe}}">S</button>
+      <sc-if value="{{meOpen}}" hint-placeholder-val="{{ false }}">
+        <div class="popover" style="right: 0">
+          <div class="pophead">Sarath</div>
+          <div class="popnote">Signed in as your git user. Quarantines and skips you make here are committed under this name.</div>
+        </div>
+      </sc-if>
+    </div>
+  </header>
+
+  <div class="frame">
+    <div class="side">
+      <nav class="navrow" aria-label="Main">
+        <a class="navitem" href="WebExplorer.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 4.5 1.5 1.5 2.5-3M2.5 11l1.5 1.5 2.5-3M9 5h4.5M9 11.5h4.5"/></svg>Tests<span class="count">412</span></a>
+        <a class="navitem" href="WebClient.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h9M8 4.5 11.5 8 8 11.5M14 3v10"/></svg>API client</a>
+        <a class="navitem" href="WebEditor.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13H3v-3zM9 4l3 3"/></svg>Editor</a>
+        <a class="navitem" href="WebRun.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M6.5 5.5v5l4-2.5z"/></svg>Runs</a>
+        <a class="navitem on" href="WebInsights.dc.html" aria-current="page"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 13.5h11M4.5 11V8M8 11V4M11.5 11V6.5"/></svg>Insights</a>
+        <a class="navitem" href="WebAgents.dc.html"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="10" height="8" rx="2"/><path d="M8 2.5V5M6 8.5v1.5M10 8.5v1.5"/></svg>Agents<span class="count">3</span></a>
+      </nav>
+      <div class="ctx">
+        <section class="ctxsec" aria-label="Time range">
+          <div class="navlabel">Time range</div>
+          <sc-for list="{{ranges}}" as="o" hint-placeholder-count="3">
+            <button class="navitem {{o.cls}}" type="button" aria-pressed="{{o.on}}" onClick="{{o.pick}}"><span class="sw"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="2"/><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3"/></svg></span>{{o.label}}<span class="count">{{o.count}}</span></button>
+          </sc-for>
+        </section>
+        <section class="ctxsec" aria-label="Profile">
+          <div class="navlabel">Profile</div>
+          <sc-for list="{{profiles}}" as="o" hint-placeholder-count="3">
+            <button class="navitem {{o.cls}}" type="button" aria-pressed="{{o.on}}" onClick="{{o.pick}}"><span class="sw"><span class="dot {{o.dot}}"></span></span>{{o.label}}<span class="count">{{o.count}}</span></button>
+          </sc-for>
+        </section>
+        <section class="ctxsec" aria-label="Branch">
+          <div class="navlabel">Branch</div>
+          <sc-for list="{{branches}}" as="o" hint-placeholder-count="3">
+            <button class="navitem {{o.cls}}" type="button" aria-pressed="{{o.on}}" onClick="{{o.pick}}"><span class="sw"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="3.5" r="1.5"/><circle cx="5" cy="12.5" r="1.5"/><circle cx="11" cy="6" r="1.5"/><path d="M5 5v6M11 7.5c0 2.5-3 2.5-5.5 4"/></svg></span><span class="mono" style="font-size: 12.5px">{{o.label}}</span><span class="count">{{o.count}}</span></button>
+          </sc-for>
+        </section>
+      </div>
+    </div>
+
+    <main class="panel" aria-labelledby="ins-title">
+      <div class="panel-head">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <h1 class="h1" id="ins-title" style="font-size: 19px">Insights</h1>
+          <div class="muted" style="font-size: 12.5px">{{scopeLine}}</div>
+        </div>
+        <div class="grow"></div>
+        <div class="seg" role="group" aria-label="Time range">
+          <sc-for list="{{ranges}}" as="o"><button type="button" class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}">{{o.short}}</button></sc-for>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><span class="l">Last run pass rate</span><span class="v">{{k.last}}</span><span class="dl {{k.lastCls}}">{{k.lastDelta}}</span></div>
+        <div class="kpi"><span class="l">Average pass rate</span><span class="v">{{k.avg}}</span><span class="dl">{{k.avgNote}}</span></div>
+        <div class="kpi"><span class="l">Median run duration</span><span class="v">{{k.dur}}</span><span class="dl">{{k.durNote}}</span></div>
+        <div class="kpi"><span class="l">Runs</span><span class="v">{{k.runs}}</span><span class="dl">{{k.runsNote}}</span></div>
+        <div class="kpi"><span class="l">Flaky tests</span><span class="v">{{k.flaky}}</span><span class="dl">passed only on retry in this range</span></div>
+        <div class="kpi"><span class="l">API coverage</span><span class="v">{{k.cov}}</span><span class="dl">{{k.covNote}}</span></div>
+      </div>
+
+      <div class="row2">
+        <section aria-labelledby="pr-h">
+          <div class="shead"><h2 class="h2" id="pr-h">Pass rate per run</h2><span class="sub">{{rangeLabel}} · y axis from 94%</span><div class="grow"></div><button class="btn sm ghost" type="button" aria-pressed="{{showTable}}" onClick="{{toggleTable}}">{{tableLabel}}</button></div>
+          <div class="chart" onMouseMove="{{movePass}}" onMouseLeave="{{leave}}">
+            <svg viewBox="0 0 600 214" role="img" aria-label="{{passAria}}">
+              <line class="grid" x1="44" y1="16" x2="588" y2="16"/><line class="grid" x1="44" y1="70.7" x2="588" y2="70.7"/><line class="grid" x1="44" y1="125.3" x2="588" y2="125.3"/><line class="base" x1="44" y1="180" x2="588" y2="180"/>
+              <text class="ax" x="38" y="20" text-anchor="end">100%</text><text class="ax" x="38" y="74.7" text-anchor="end">98%</text><text class="ax" x="38" y="129.3" text-anchor="end">96%</text><text class="ax" x="38" y="184" text-anchor="end">94%</text>
+              <text class="ax" x="44" y="202">{{xFirst}}</text><text class="ax" x="588" y="202" text-anchor="end">{{xLast}}</text>
+              <path d="{{passPath}}" fill="none" stroke="#5440D6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+              <path d="{{blockedMarks}}" fill="#C27A00" stroke="#FFFFFF" stroke-width="2"/>
+              <g opacity="{{hp.op}}"><line x1="{{hp.x}}" y1="12" x2="{{hp.x}}" y2="180" stroke="#8E8AA3" stroke-width="1"/><circle cx="{{hp.x}}" cy="{{hp.y}}" r="4.5" fill="#5440D6" stroke="#FFFFFF" stroke-width="2"/></g>
+              <circle cx="{{lastP.x}}" cy="{{lastP.y}}" r="4.5" fill="#5440D6" stroke="#FFFFFF" stroke-width="2"/>
+              <text x="{{lastP.tx}}" y="{{lastP.ty}}" text-anchor="end" style="font: 500 12px Geist, sans-serif" fill="#1B1830">{{lastP.label}}</text>
+            </svg>
+            <sc-if value="{{hp.on}}" hint-placeholder-val="{{ false }}"><div class="tip" style="left: {{hp.left}}%; top: {{hp.top}}px"><b>#{{hp.no}}</b> · {{hp.date}}<br>{{hp.val}}{{hp.extra}}</div></sc-if>
+          </div>
+          <div class="clegend"><span><span class="sw-line"></span>pass rate (passed ÷ tests)</span><span><span class="sw-mk"></span>run had blocked tests</span><span class="subtle">Hover for each run</span></div>
+        </section>
+        <section aria-labelledby="du-h">
+          <div class="shead"><h2 class="h2" id="du-h">Run duration</h2><span class="sub">{{rangeLabel}} · whole suite, wall clock</span></div>
+          <div class="chart" onMouseMove="{{moveDur}}" onMouseLeave="{{leave}}">
+            <svg viewBox="0 0 600 214" role="img" aria-label="{{durAria}}">
+              <line class="grid" x1="44" y1="16" x2="588" y2="16"/><line class="grid" x1="44" y1="57" x2="588" y2="57"/><line class="grid" x1="44" y1="98" x2="588" y2="98"/><line class="grid" x1="44" y1="139" x2="588" y2="139"/><line class="base" x1="44" y1="180" x2="588" y2="180"/>
+              <text class="ax" x="38" y="20" text-anchor="end">80 s</text><text class="ax" x="38" y="61" text-anchor="end">60 s</text><text class="ax" x="38" y="102" text-anchor="end">40 s</text><text class="ax" x="38" y="143" text-anchor="end">20 s</text><text class="ax" x="38" y="184" text-anchor="end">0</text>
+              <text class="ax" x="44" y="202">{{xFirst}}</text><text class="ax" x="588" y="202" text-anchor="end">{{xLast}}</text>
+              <line x1="44" y1="{{medY}}" x2="588" y2="{{medY}}" stroke="#8E8AA3" stroke-width="1.5" stroke-dasharray="4 4"/>
+              <path d="{{durPath}}" fill="none" stroke="#5440D6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+              <g opacity="{{hd.op}}"><line x1="{{hd.x}}" y1="12" x2="{{hd.x}}" y2="180" stroke="#8E8AA3" stroke-width="1"/><circle cx="{{hd.x}}" cy="{{hd.y}}" r="4.5" fill="#5440D6" stroke="#FFFFFF" stroke-width="2"/></g>
+              <text x="586" y="{{medLabelY}}" text-anchor="end" style="font: 500 12px Geist, sans-serif" fill="#4F4B66">median {{k.dur}}</text>
+            </svg>
+            <sc-if value="{{hd.on}}" hint-placeholder-val="{{ false }}"><div class="tip" style="left: {{hd.left}}%; top: {{hd.top}}px"><b>#{{hd.no}}</b> · {{hd.date}}<br>{{hd.val}}</div></sc-if>
+          </div>
+          <div class="clegend"><span><span class="sw-line"></span>duration per run</span><span><span class="sw-dash"></span>median over the range</span></div>
+        </section>
+      </div>
+
+      <sc-if value="{{showTable}}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 12px 20px; border-bottom: 1px solid #ECE9F2" class="scrollx">
+          <table class="tbl-mini" style="min-width: 480px">
+            <caption class="sr">Last 10 runs in the range</caption>
+            <thead><tr><th scope="col">Run</th><th scope="col">Date</th><th scope="col" class="num">Pass rate</th><th scope="col" class="num">Duration</th><th scope="col">Blocked tests</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">#{{t0.no}}</td><td>{{t0.date}}</td><td class="num">{{t0.pr}}</td><td class="num">{{t0.dur}}</td><td>{{t0.bl}}</td></tr>
+              <tr><td class="mono">#{{t1.no}}</td><td>{{t1.date}}</td><td class="num">{{t1.pr}}</td><td class="num">{{t1.dur}}</td><td>{{t1.bl}}</td></tr>
+              <tr><td class="mono">#{{t2.no}}</td><td>{{t2.date}}</td><td class="num">{{t2.pr}}</td><td class="num">{{t2.dur}}</td><td>{{t2.bl}}</td></tr>
+              <tr><td class="mono">#{{t3.no}}</td><td>{{t3.date}}</td><td class="num">{{t3.pr}}</td><td class="num">{{t3.dur}}</td><td>{{t3.bl}}</td></tr>
+              <tr><td class="mono">#{{t4.no}}</td><td>{{t4.date}}</td><td class="num">{{t4.pr}}</td><td class="num">{{t4.dur}}</td><td>{{t4.bl}}</td></tr>
+              <tr><td class="mono">#{{t5.no}}</td><td>{{t5.date}}</td><td class="num">{{t5.pr}}</td><td class="num">{{t5.dur}}</td><td>{{t5.bl}}</td></tr>
+              <tr><td class="mono">#{{t6.no}}</td><td>{{t6.date}}</td><td class="num">{{t6.pr}}</td><td class="num">{{t6.dur}}</td><td>{{t6.bl}}</td></tr>
+              <tr><td class="mono">#{{t7.no}}</td><td>{{t7.date}}</td><td class="num">{{t7.pr}}</td><td class="num">{{t7.dur}}</td><td>{{t7.bl}}</td></tr>
+              <tr><td class="mono">#{{t8.no}}</td><td>{{t8.date}}</td><td class="num">{{t8.pr}}</td><td class="num">{{t8.dur}}</td><td>{{t8.bl}}</td></tr>
+              <tr><td class="mono">#{{t9.no}}</td><td>{{t9.date}}</td><td class="num">{{t9.pr}}</td><td class="num">{{t9.dur}}</td><td>{{t9.bl}}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </sc-if>
+
+      <div class="row2">
+        <section aria-labelledby="fl-h">
+          <div class="shead"><h2 class="h2" id="fl-h">Flakiest tests</h2><span class="sub">runs that passed only on retry · {{rangeLabel}}</span></div>
+          <div class="lst">
+            <sc-for list="{{flaky}}" as="f" hint-placeholder-count="5">
+              <div class="fl">
+                <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                  <span class="id">{{f.id}}</span>
+                  <span class="why">{{f.why}}</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <div class="hbar" role="img" aria-label="{{f.aria}}"><span style="width: {{f.w}}%; background: #2459B8"></span></div>
+                  <span class="mono" style="font-size: 11.5px; color: #4F4B66">{{f.count}}</span>
+                </div>
+                <div class="acts">
+                  <sc-if value="{{f.isOpen}}" hint-placeholder-val="{{ true }}">
+                    <button class="btn sm" type="button" onClick="{{f.quarantine}}">Quarantine</button>
+                    <button class="btn sm" type="button" aria-expanded="{{f.formOpen}}" onClick="{{f.openSkip}}">Skip until…</button>
+                  </sc-if>
+                  <sc-if value="{{f.isDone}}" hint-placeholder-val="{{ false }}">
+                    <span class="pill {{f.pill}}">{{f.doneLabel}}</span>
+                    <button class="btn sm ghost" type="button" onClick="{{f.undo}}">Undo</button>
+                  </sc-if>
+                </div>
+                <sc-if value="{{f.formOpen}}" hint-placeholder-val="{{ false }}">
+                  <div class="skipform">
+                    <label class="field">Until<input class="input" type="date" value="{{skipUntil}}" onInput="{{onSkipUntil}}"></label>
+                    <label class="field" style="flex: 3 1 220px">Reason<input class="input" type="text" value="{{skipReason}}" onInput="{{onSkipReason}}"></label>
+                    <button class="btn sm primary" type="button" disabled="{{skipInvalid}}" onClick="{{f.applySkip}}">Write skip</button>
+                    <button class="btn sm" type="button" onClick="{{closeSkip}}">Cancel</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <p class="muted" style="margin: 0; font-size: 12px">Quarantine adds the <span class="mono">quarantine</span> tag: the test still runs and is reported, but does not fail the build. Skip writes <span class="mono">skip: {reason, until}</span> into the test.</p>
+        </section>
+        <section aria-labelledby="sa-h">
+          <div class="shead"><h2 class="h2" id="sa-h">Slowest APIs</h2><span class="sub">response time across all tests · {{rangeLabel}}</span></div>
+          <div class="clegend"><span><span class="sw-line" style="height: 8px; border-radius: 3px"></span>p50</span><span><span class="sw-line" style="height: 8px; border-radius: 3px; background: #CFC8F6"></span>p95</span><span class="subtle" style="margin-left: auto">p50 / p95 · calls</span></div>
+          <div class="lst">
+            <sc-for list="{{slow}}" as="a" hint-placeholder-count="8">
+              <div class="sa">
+                <a class="id" href="WebClient.dc.html" style="color: #1B1830; text-decoration: none"><span class="method m-{{a.m}}">{{a.M}}</span>{{a.id}}</a>
+                <div class="sab" role="img" aria-label="{{a.aria}}"><span class="p95" style="width: {{a.w95}}%"></span><span class="p50" style="width: {{a.w50}}%"></span></div>
+                <span class="n">{{a.label}}<br><span class="subtle" style="font-size: 11px">{{a.calls}}</span></span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </div>
+
+      <div class="row3">
+        <section class="cov" aria-labelledby="cv-h">
+          <div class="shead"><h2 class="h2" id="cv-h">API coverage</h2><span class="sub">every api in services/*/*.api.yaml and the openapi/ snapshots</span></div>
+          <div class="svcs">
+            <sc-for list="{{svcs}}" as="v" hint-placeholder-count="7">
+              <button class="svc {{v.cls}}" type="button" aria-pressed="{{v.on}}" onClick="{{v.pick}}">
+                <span class="top"><b>{{v.name}}</b><span class="pc">{{v.pct}}</span></span>
+                <span class="hbar" role="img" aria-label="{{v.aria}}"><span style="width: {{v.w}}%; background: #5440D6"></span></span>
+                <span class="mini">{{v.note}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div class="ctools">
+            <label class="toggle"><input type="checkbox" checked="{{gapsOnly}}" onChange="{{toggleGaps}}">Only gaps: untested or codes not exercised</label>
+            <div class="grow"></div>
+            <label style="display: contents"><span class="sr">Filter apis</span><input class="input" type="search" placeholder="Filter apis" value="{{covQ}}" onInput="{{onCovQ}}"></label>
+          </div>
+          <div class="clegend"><span><span class="code-c ex">201</span>exercised and documented</span><span><span class="code-c miss">409</span>documented, never exercised</span><span><span class="code-c undoc">503</span>seen, not documented</span></div>
+          <div class="cvwrap scrollx">
+            <div class="cvin">
+              <div class="cg h"><span>Api</span><span>Path · source</span><span>Tests</span><span>Status codes</span></div>
+              <sc-for list="{{covRows}}" as="r" hint-placeholder-count="10">
+                <div class="cg {{r.cls}}">
+                  <span class="id"><span class="method m-{{r.m}}">{{r.M}}</span>{{r.id}}</span>
+                  <span style="min-width: 0; display: flex; flex-direction: column; gap: 1px"><span class="pth">{{r.path}}</span><span class="subtle" style="font-size: 11.5px">{{r.src}}</span></span>
+                  <span class="tcount {{r.tcls}}">{{r.tests}}</span>
+                  <span class="codes"><sc-for list="{{r.codes}}" as="c"><span class="code-c {{c.c}}" title="{{c.title}}">{{c.t}}</span></sc-for></span>
+                </div>
+              </sc-for>
+              <sc-if value="{{noCov}}" hint-placeholder-val="{{ false }}"><div class="muted" style="padding: 20px 4px; font-size: 13px">No api matches. Clear the filter or turn off “Only gaps”.</div></sc-if>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+            <span class="muted" style="font-size: 12.5px">{{covSummary}}</span>
+            <div class="grow"></div>
+            <a class="btn sm" href="WebExplorer.dc.html">Write a test for an untested api</a>
+          </div>
+        </section>
+        <div>
+          <section aria-labelledby="ex-h">
+            <div class="shead"><h2 class="h2" id="ex-h">Skips expiring soon</h2><span class="sub">today is 23 Oct 2026</span></div>
+            <div class="lst">
+              <sc-for list="{{skips}}" as="x" hint-placeholder-count="3">
+                <div class="ex-row">
+                  <span class="id">{{x.id}}</span>
+                  <span class="pill {{x.pill}}">{{x.when}}</span>
+                  <span class="why">{{x.reason}}</span>
+                  <span style="display: flex; gap: 6px"><button class="btn sm" type="button" onClick="{{x.extend}}">{{x.extendLabel}}</button><a class="btn sm ghost" href="WebEditor.dc.html">Edit</a></span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+          <section aria-labelledby="chg-h">
+            <div class="shead"><h2 class="h2" id="chg-h">Tests changed recently</h2><span class="sub">from git · {{rangeLabel}}</span></div>
+            <div class="lst">
+              <sc-for list="{{changes}}" as="x" hint-placeholder-count="6">
+                <div class="ch">
+                  <span class="id">{{x.id}}</span>
+                  <span class="pill {{x.pill}}" style="height: 20px; font-size: 11.5px">{{x.kind}}</span>
+                  <span class="meta">{{x.what}} · <span class="mono">{{x.sha}}</span> · {{x.who}} · {{x.when}}</span>
+                </div>
+              </sc-for>
+              <sc-if value="{{noChanges}}" hint-placeholder-val="{{ false }}"><div class="muted" style="font-size: 13px; padding: 8px 0">No test changed in this range.</div></sc-if>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1680}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const D = { range: 30, profile: 'staging', branch: 'main', hover: -1, hoverChart: '', showTable: false, act: {}, skipFor: '', skipUntil: '2026-11-06', skipReason: 'flaky on staging, investigating', svc: '', gapsOnly: false, covQ: '', ext: {}, projOpen: false, meOpen: false };
+    const s = Object.assign({}, D, this.state || {});
+    const set = (o) => this.setState(o);
+    const R = s.range;
+
+    // deterministic run history
+    const N = { 7: 22, 30: 96, 90: 270 }[R];
+    const seedStr = s.profile + '/' + s.branch;
+    let seed = 7; for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
+    const rnd = () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const ALL = [];
+    for (let i = 0; i < 270; i++) {
+      const r = rnd();
+      let pr = 100 - (r < 0.55 ? 0 : r < 0.85 ? 0.24 + rnd() * 0.5 : 0.7 + rnd() * 1.1);
+      const blocked = rnd() > 0.93;
+      if (blocked) pr -= 0.6 + rnd() * 0.5;
+      let dur = 47.5 + (rnd() - 0.5) * 6 + (i < 150 ? 9 + (rnd() - 0.5) * 3 : 0);
+      if (s.profile === 'prod') { dur = dur * 0.18; }
+      if (s.profile === 'dev') { dur = dur * 1.12; }
+      ALL.push({ pr: Math.round(pr * 10) / 10, dur: Math.round(dur * 10) / 10, blocked });
+    }
+    if (s.profile === 'staging' && s.branch !== 'priya/tax-line') { ALL[269] = { pr: 96.1, dur: 48.2, blocked: true }; ALL[268] = { pr: 100, dur: 47.6, blocked: false }; }
+    const runs = ALL.slice(270 - N).map((r, i) => {
+      const no = 483 - N + i;
+      const daysAgo = Math.round(((N - 1 - i) * R) / N * 10) / 10;
+      const d = new Date(Date.UTC(2026, 9, 23) - daysAgo * 86400000);
+      const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return Object.assign({ no, date: d.getUTCDate() + ' ' + M[d.getUTCMonth()] }, r);
+    });
+    const X0 = 44, X1 = 588;
+    const xAt = (i) => X0 + (N === 1 ? 0 : (i / (N - 1)) * (X1 - X0));
+    const yPr = (v) => Math.max(10, Math.min(180, 16 + ((100 - v) / 6) * 164));
+    const yDu = (v) => 180 - (Math.min(v, 82) / 80) * 164;
+    const pathOf = (fy) => runs.map((r, i) => (i ? 'L' : 'M') + xAt(i).toFixed(1) + ' ' + fy(r).toFixed(1)).join(' ');
+    const passPath = pathOf((r) => yPr(r.pr));
+    const durPath = pathOf((r) => yDu(r.dur));
+    let blockedMarks = '';
+    runs.forEach((r, i) => { if (r.blocked) { const x = xAt(i), y = yPr(r.pr); blockedMarks += 'M' + (x - 4).toFixed(1) + ' ' + y.toFixed(1) + 'a4 4 0 1 0 8 0a4 4 0 1 0 -8 0'; } });
+    const sortedD = runs.map((r) => r.dur).sort((a, b) => a - b);
+    const med = sortedD[Math.floor(sortedD.length / 2)];
+    const avg = runs.reduce((a, r) => a + r.pr, 0) / N;
+    const last = runs[N - 1];
+    const prevAvg = runs.slice(0, N - 1).reduce((a, r) => a + r.pr, 0) / (N - 1);
+    const minR = runs.reduce((m, r) => (r.pr < m.pr ? r : m), runs[0]);
+
+    const hov = (kind) => (e) => {
+      try {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const vx = ((e.clientX - rect.left) / rect.width) * 600;
+        const i = Math.max(0, Math.min(N - 1, Math.round(((vx - X0) / (X1 - X0)) * (N - 1))));
+        if (i !== s.hover || s.hoverChart !== kind) set({ hover: i, hoverChart: kind });
+      } catch (err) { /* no layout available */ }
+    };
+    const hp = { on: false, op: 0, x: 0, y: 0, left: 0, top: 0, no: '', date: '', val: '', extra: '' };
+    const hd = Object.assign({}, hp);
+    if (s.hover >= 0 && s.hover < N) {
+      const r = runs[s.hover]; const x = xAt(s.hover);
+      const left = Math.max(12, Math.min(88, (x / 600) * 100));
+      if (s.hoverChart === 'pass') Object.assign(hp, { on: true, op: 1, x: x.toFixed(1), y: yPr(r.pr).toFixed(1), left, top: Math.max(0, yPr(r.pr) * 0.9 - 64), no: r.no, date: r.date, val: r.pr.toFixed(1) + '% passed', extra: r.blocked ? ' · had blocked tests' : '' });
+      if (s.hoverChart === 'dur') Object.assign(hd, { on: true, op: 1, x: x.toFixed(1), y: yDu(r.dur).toFixed(1), left, top: Math.max(0, yDu(r.dur) * 0.9 - 64), no: r.no, date: r.date, val: r.dur.toFixed(1) + ' s' });
+    }
+    const lx = xAt(N - 1), ly = yPr(last.pr);
+    const lastP = { x: lx.toFixed(1), y: ly.toFixed(1), tx: (lx - 10).toFixed(1), ty: (ly > 150 ? ly - 10 : ly + 18).toFixed(1), label: '#' + last.no + ' · ' + last.pr.toFixed(1) + '%' + (s.profile === 'staging' && last.pr < 97 ? ' · tax change a1c9e4f' : '') };
+    const tRows = {};
+    for (let j = 0; j < 10; j++) { const r = runs[N - 1 - j]; tRows['t' + j] = { no: r.no, date: r.date, pr: r.pr.toFixed(1) + '%', dur: r.dur.toFixed(1) + ' s', bl: r.blocked ? 'yes' : 'no' }; }
+
+    // flaky
+    const FL = [
+      ['catalog.search.fuzzyQueries', 'first try GET /catalog/search 500', [3, 9, 21]],
+      ['carts.pricing.appliesBulkDiscount', '409 Conflict when two addItem calls race', [2, 6, 11]],
+      ['orders.history.paginates', 'timeout at 10 s on page 3', [1, 4, 13]],
+      ['users.crud.renamesUser', '412 Precondition Failed, stale ETag', [0, 1, 4]],
+      ['orders.checkout.placesGuestOrder', 'poll timed out waiting for status: paid', [0, 1, 2]]
+    ];
+    const ri = R === 7 ? 0 : R === 30 ? 1 : 2;
+    const flMax = Math.max.apply(null, FL.map((f) => f[2][ri]));
+    const reasonOk = s.skipReason.trim().length >= 4;
+    const flaky = FL.filter((f) => f[2][ri] > 0).map((f) => {
+      const id = f[0]; const n = f[2][ri]; const a = s.act[id];
+      const setAct = (v) => { const act = Object.assign({}, s.act); if (v) act[id] = v; else delete act[id]; set({ act, skipFor: '' }); };
+      return {
+        id, why: 'typical failure: ' + f[1], w: Math.round((n / flMax) * 100), count: n + ' of ' + N + ' runs · ' + ((n / N) * 100).toFixed(1) + '%',
+        aria: id + ' passed on retry in ' + n + ' of ' + N + ' runs',
+        isOpen: !a, isDone: !!a, pill: a && a.kind === 'q' ? 'accent' : 'skip',
+        doneLabel: a ? (a.kind === 'q' ? 'quarantined · tag added' : 'skipped until ' + a.until) : '',
+        formOpen: !a && s.skipFor === id,
+        quarantine: () => setAct({ kind: 'q' }), undo: () => setAct(null),
+        openSkip: () => set({ skipFor: s.skipFor === id ? '' : id }),
+        applySkip: () => { if (reasonOk) setAct({ kind: 's', until: s.skipUntil || 'no end date' }); }
+      };
+    });
+
+    // slowest apis
+    const SA = [['orders.place', 'POST', 410, 1240, 5400], ['users.startExport', 'POST', 820, 1900, 310], ['catalog.search', 'GET', 230, 980, 8800], ['payments.authorize', 'POST', 380, 760, 2100], ['orders.cancel', 'POST', 300, 690, 900], ['carts.addItem', 'POST', 120, 410, 11200], ['geo.createLocationGroup', 'POST', 150, 380, 640], ['users.create', 'POST', 90, 240, 14900]];
+    const fct = R === 7 ? 1.08 : R === 30 ? 1 : 0.95;
+    const callsF = R === 7 ? 0.24 : R === 30 ? 1 : 2.9;
+    const saMax = Math.max.apply(null, SA.map((a) => a[3] * fct));
+    const fmtMs = (v) => (v >= 1000 ? (v / 1000).toFixed(2) + ' s' : Math.round(v) + ' ms');
+    const slow = SA.map((a) => ({ a, p50: a[2] * fct * (a[0] === 'orders.place' && R === 7 ? 1.06 : 1), p95: a[3] * fct })).sort((x, y) => y.p95 - x.p95).map(({ a, p50, p95 }) => ({
+      id: a[0], M: a[1], m: a[1].toLowerCase(), w50: ((p50 / saMax) * 100).toFixed(1), w95: ((p95 / saMax) * 100).toFixed(1),
+      label: fmtMs(p50) + ' / ' + fmtMs(p95), calls: Math.round(a[4] * callsF).toLocaleString('en-US') + ' calls',
+      aria: a[0] + ': p50 ' + fmtMs(p50) + ', p95 ' + fmtMs(p95)
+    }));
+
+    // coverage
+    const C = [
+      ['users', 'create', 'POST', '/users', 'api', 41, [201, 400, 409], [201, 400]],
+      ['users', 'get', 'GET', '/users/{userId}', 'api', 28, [200, 404], [200, 404]],
+      ['users', 'list', 'GET', '/users', 'api', 3, [200], [200]],
+      ['users', 'update', 'PUT', '/users/{userId}', 'api', 0, [200, 400, 404], []],
+      ['users', 'delete', 'DELETE', '/users/{userId}', 'api', 6, [200, 204, 404], [204]],
+      ['users', 'startExport', 'POST', '/users/exports', 'api', 2, [202], [202]],
+      ['users', 'exportStatus', 'GET', '/users/exports/{exportId}', 'api', 1, [200, 404], [200]],
+      ['users', 'deactivate', 'POST', '/users/{userId}/deactivate', 'api', 2, [200, 409], [200]],
+      ['users', 'rename', 'PATCH', '/users/{userId}/name', 'api', 1, [200, 400], [200]],
+      ['users', 'listSessions', 'GET', '/users/{userId}/sessions', 'spec', 0, [200, 404], []],
+      ['orders', 'place', 'POST', '/orders', 'api', 34, [201, 400, 402, 409], [201, 402]],
+      ['orders', 'get', 'GET', '/orders/{orderId}', 'api', 22, [200, 404], [200]],
+      ['orders', 'cancel', 'POST', '/orders/{orderId}/cancel', 'api', 4, [200, 409], [200]],
+      ['orders', 'refund', 'POST', '/orders/{orderId}/refund', 'api', 0, [200, 409, 422], []],
+      ['orders', 'export', 'GET', '/orders/export', 'spec', 0, [200], []],
+      ['carts', 'create', 'POST', '/carts', 'api', 31, [201], [201]],
+      ['carts', 'addItem', 'POST', '/carts/{cartId}/items', 'api', 29, [200, 404, 409], [200, 409]],
+      ['carts', 'get', 'GET', '/carts/{cartId}', 'api', 12, [200, 404], [200]],
+      ['carts', 'removeItem', 'DELETE', '/carts/{cartId}/items/{sku}', 'spec', 0, [204, 404], []],
+      ['catalog', 'seedProducts', 'POST', '/catalog/seed', 'api', 64, [201], [201, 503]],
+      ['catalog', 'getProduct', 'GET', '/catalog/products/{sku}', 'api', 9, [200, 404], [200, 404]],
+      ['catalog', 'search', 'GET', '/catalog/search', 'api', 17, [200, 400], [200, 500]],
+      ['catalog', 'createProduct', 'POST', '/catalog/products', 'api', 3, [201, 400], [201]],
+      ['catalog', 'archiveProduct', 'DELETE', '/catalog/products/{sku}', 'api', 1, [204, 404], [204]],
+      ['catalog', 'updatePrice', 'PATCH', '/catalog/products/{sku}/price', 'api', 1, [200], [200]],
+      ['geo', 'createCity', 'POST', '/geo/cities', 'api', 5, [201, 409], [201]],
+      ['geo', 'deleteCity', 'DELETE', '/geo/cities/{cityId}', 'api', 2, [204, 404], [204]],
+      ['geo', 'createLocationGroup', 'POST', '/geo/location-groups', 'api', 4, [201, 400], [201, 400]],
+      ['geo', 'listCities', 'GET', '/geo/cities', 'spec', 0, [200], []],
+      ['payments', 'authorize', 'POST', '/payments/authorizations', 'api', 8, [201, 402], [201, 402]],
+      ['payments', 'capture', 'POST', '/payments/authorizations/{authId}/capture', 'api', 0, [200, 409], []],
+      ['payments', 'void', 'DELETE', '/payments/authorizations/{authId}', 'spec', 0, [204], []]
+    ];
+    const SVC = ['users', 'orders', 'catalog', 'carts', 'geo', 'payments'];
+    const isGap = (c) => c[5] === 0 || c[6].some((x) => c[7].indexOf(x) < 0);
+    const stat = (list) => {
+      const t = list.filter((c) => c[5] > 0).length; let dc = 0, ec = 0;
+      list.forEach((c) => { dc += c[6].length; ec += c[6].filter((x) => c[7].indexOf(x) >= 0).length; });
+      return { t, n: list.length, pct: Math.round((t / list.length) * 100), dc, ec, untested: list.length - t };
+    };
+    const tot = stat(C);
+    const svcs = [{ key: '', name: 'all services' }].concat(SVC.map((k) => ({ key: k, name: k }))).map((v) => {
+      const st = stat(v.key ? C.filter((c) => c[0] === v.key) : C);
+      return { name: v.name, pct: st.pct + '%', w: st.pct, note: st.t + ' of ' + st.n + ' apis · ' + st.ec + '/' + st.dc + ' codes', aria: v.name + ': ' + st.t + ' of ' + st.n + ' apis tested', on: s.svc === v.key, cls: s.svc === v.key ? 'on' : '', pick: () => set({ svc: v.key }) };
+    });
+    const cq = s.covQ.trim().toLowerCase();
+    const covRows = C.filter((c) => (!s.svc || c[0] === s.svc) && (!s.gapsOnly || isGap(c)) && (!cq || (c[0] + '.' + c[1] + ' ' + c[3]).toLowerCase().indexOf(cq) >= 0))
+      .sort((a, b) => (a[5] === 0) === (b[5] === 0) ? 0 : (a[5] === 0 ? -1 : 1))
+      .map((c) => {
+        const codes = c[6].map((x) => ({ t: String(x), c: c[7].indexOf(x) >= 0 ? 'ex' : 'miss', title: c[7].indexOf(x) >= 0 ? 'documented and exercised' : 'documented, never exercised' }))
+          .concat(c[7].filter((x) => c[6].indexOf(x) < 0).map((x) => ({ t: String(x), c: 'undoc', title: 'returned in a run but not documented in the spec' })));
+        return { id: c[0] + '.' + c[1], M: c[2], m: c[2].toLowerCase(), path: c[3], src: c[4] === 'api' ? 'services/' + c[0] + '/' + c[0] + '.api.yaml' : 'only in openapi/' + c[0] + '.json, no api entry', tests: c[5] === 0 ? 'untested' : c[5] + (c[5] === 1 ? ' test' : ' tests'), tcls: c[5] === 0 ? 'none' : '', cls: c[5] === 0 ? 'gap' : '', codes };
+      });
+
+    // skips
+    const SK = [
+      ['catalog.search.sortsByRelevance', 'ranking model retrained weekly; re-baseline pending', '2026-11-01'],
+      ['orders.checkout.appliesCoupon', 'coupon service flaky on staging, see #212', '2026-11-15'],
+      ['carts.pricing.keepsCurrency', 'multi-currency carts are not built yet', '']
+    ];
+    const today = Date.UTC(2026, 9, 23);
+    const addDays = (iso, n) => { const d = new Date((iso ? Date.parse(iso + 'T00:00:00Z') : today) + n * 86400000); return d.toISOString().slice(0, 10); };
+    const skips = SK.map((x) => {
+      const until = s.ext[x[0]] || x[2];
+      const days = until ? Math.round((Date.parse(until + 'T00:00:00Z') - today) / 86400000) : null;
+      return {
+        id: x[0], reason: x[1], when: until ? 'until ' + until + ' · ' + days + ' days' : 'no end date · vc check warns',
+        pill: until ? (days <= 10 ? 'block' : 'skip') : 'fail',
+        extendLabel: until ? 'Extend 2 weeks' : 'Set end date',
+        extend: () => set({ ext: Object.assign({}, s.ext, { [x[0]]: addDays(until, 14) }) })
+      };
+    }).sort((a, b) => (a.when < b.when ? -1 : 1));
+
+    // changes
+    const CHG = [
+      ['users.crud.createsMember', 'added', 'pass', 'new test written by claude-code, reviewed', '7d41e0a', 'sarath', 0],
+      ['orders.checkout.totalsMatchLines', 'added', 'pass', 'cel check on line totals', '3e0b7c2', 'priya', 1],
+      ['orders.checkout.appliesCoupon', 'skip added', 'skip', 'skip until 2026-11-15', '5c2e9b1', 'priya', 2],
+      ['carts.pricing.appliesBulkDiscount', 'retry', 'flaky', 'retry: 2 added', 'e07c6d2', 'arun', 4],
+      ['catalog.search.sortsByRelevance', 'skip added', 'skip', 'skip until 2026-11-01', '91ab3f4', 'arun', 6],
+      ['geo.groups.createsLocationGroup', 'changed', 'accent', 'now reads datasets/capitals.csv', '2b8d1aa', 'sarath', 9],
+      ['catalog.admin.updatesPrice', 'added', 'pass', 'price change applies to new carts only', 'c4d19e0', 'priya', 12],
+      ['users.reports.exportFinishes', 'changed', 'accent', 'poll timeout 1m → 2m', '8aa0f13', 'sarath', 41]
+    ];
+    const changes = CHG.filter((c) => c[6] <= R).map((c) => ({ id: c[0], kind: c[1], pill: c[2], what: c[3], sha: c[4], who: c[5], when: c[6] === 0 ? 'today' : c[6] === 1 ? 'yesterday' : c[6] + ' days ago' }));
+
+    const rangeLabel = 'last ' + R + ' days';
+    const dl = last.pr - prevAvg;
+    return Object.assign({
+      projOpen: s.projOpen, meOpen: s.meOpen, profile: s.profile,
+      toggleProj: () => set({ projOpen: !s.projOpen, meOpen: false }), toggleMe: () => set({ meOpen: !s.meOpen, projOpen: false }),
+      setProfileSel: (e) => set({ profile: e.target.value, hover: -1 }),
+      ranges: [[7, '7 days', '7d', '22 runs'], [30, '30 days', '30d', '96 runs'], [90, '90 days', '90d', '270 runs']].map(([v, l, sh, c]) => ({ label: l, short: sh, count: c, on: R === v, cls: R === v ? 'on' : '', pick: () => set({ range: v, hover: -1 }) })),
+      profiles: [['dev', 'skip'], ['staging', 'accent'], ['prod', 'pass']].map(([p, dot]) => ({ label: p, dot, count: p === 'prod' ? 'smoke' : '', on: s.profile === p, cls: s.profile === p ? 'on' : '', pick: () => set({ profile: p, hover: -1 }) })),
+      branches: [['main', 'CI'], ['priya/tax-line', '3 runs'], ['all branches', '']].map(([b, c]) => ({ label: b, count: c, on: s.branch === b, cls: s.branch === b ? 'on' : '', pick: () => set({ branch: b, hover: -1 }) })),
+      scopeLine: 'shop · ' + s.profile + ' · ' + s.branch + ' · ' + rangeLabel + ' · ' + N + ' runs from CI and laptops, read from .vibranium/history.db',
+      rangeLabel,
+      k: {
+        last: last.pr.toFixed(1) + '%', lastCls: dl < -0.5 ? 'bad' : '', lastDelta: (dl >= 0 ? '+' : '') + dl.toFixed(1) + ' pts vs range average',
+        avg: avg.toFixed(1) + '%', avgNote: 'lowest ' + minR.pr.toFixed(1) + '% in #' + minR.no,
+        dur: med.toFixed(1) + ' s', durNote: 'last run ' + last.dur.toFixed(1) + ' s',
+        runs: String(N), runsNote: (N / R).toFixed(1) + ' per day',
+        flaky: String(flaky.length), cov: tot.pct + '%', covNote: tot.t + ' of ' + tot.n + ' apis · ' + tot.untested + ' untested'
+      },
+      passPath, durPath, blockedMarks, xFirst: '#' + runs[0].no + ' · ' + runs[0].date, xLast: '#' + last.no + ' · ' + last.date,
+      medY: yDu(med).toFixed(1), medLabelY: (yDu(med) - 6).toFixed(1),
+      passAria: 'Pass rate for ' + N + ' runs, ' + rangeLabel + ': average ' + avg.toFixed(1) + '%, lowest ' + minR.pr.toFixed(1) + '% in run ' + minR.no + ', last run ' + last.pr.toFixed(1) + '%.',
+      durAria: 'Run duration for ' + N + ' runs: median ' + med.toFixed(1) + ' seconds, last run ' + last.dur.toFixed(1) + ' seconds.',
+      movePass: hov('pass'), moveDur: hov('dur'), leave: () => set({ hover: -1, hoverChart: '' }), hp, hd, lastP,
+      showTable: s.showTable, tableLabel: s.showTable ? 'Hide table' : 'Show as table', toggleTable: () => set({ showTable: !s.showTable }),
+      flaky, skipUntil: s.skipUntil, skipReason: s.skipReason, onSkipUntil: (e) => set({ skipUntil: e.target.value }), onSkipReason: (e) => set({ skipReason: e.target.value }),
+      skipInvalid: !reasonOk, closeSkip: () => set({ skipFor: '' }),
+      slow, svcs, covRows, noCov: covRows.length === 0, gapsOnly: s.gapsOnly, toggleGaps: () => set({ gapsOnly: !s.gapsOnly }), covQ: s.covQ, onCovQ: (e) => set({ covQ: e.target.value }),
+      covSummary: tot.t + ' of ' + tot.n + ' apis tested · ' + tot.ec + ' of ' + tot.dc + ' documented status codes exercised · 2 codes seen that the spec does not document',
+      skips, changes, noChanges: changes.length === 0
+    }, tRows);
+  }
+}
+</script>
+</body>
+</html>

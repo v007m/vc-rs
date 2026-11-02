@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vibranium CLI · run one, some or all tests</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+.term{box-sizing:border-box;background:#0A0C10;color:#D7DAE0;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid #2C313C;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.bar{height:32px;flex:none;box-sizing:border-box;background:#1A1D24;border-bottom:1px solid #2C313C;position:relative;display:flex;align-items:center;gap:8px;padding:0 14px}
+.dot{width:12px;height:12px;border-radius:50%}
+.btitle{position:absolute;left:0;right:0;text-align:center;color:#8B92A0;font-size:12px;pointer-events:none}
+.body{flex:1;min-height:0;overflow:hidden;padding:14px 18px 16px}
+.ln{white-space:pre;line-height:20px}
+.dim{color:#8B92A0}.ok{color:#4FC27A}.bad{color:#F06A5D}.warn{color:#E5A13A}.info{color:#6AA2F5}.vio{color:#A99BFF}.b{font-weight:700}
+.k{color:#8FB8F0}.s{color:#C9D99A}.t{color:#E8B86D}
+.cur{background:#D7DAE0;color:#0A0C10}
+</style>
+</helmet>
+<div class="term" style="width: 1280px; height: 992px">
+  <div class="bar"><span class="dot" style="background: #F06A5D"></span><span class="dot" style="background: #E5A13A"></span><span class="dot" style="background: #4FC27A"></span><span class="btitle">zsh — shop</span></div>
+  <div class="body">
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc run users.crud.getsCreatedUser</div>
+    <div class="ln">  <span class="vio b">◆ vibranium</span> <span class="dim">2.0.0</span>  <span class="dim">run</span> #484  <span class="dim">profile</span> default  <span class="dim">·  1 test, repeat ×5  ·</span> services/users/users.test.yaml:14</div>
+    <div class="ln"> </div>
+    <div class="ln">    <span class="ok">✓</span> <span class="dim">before</span>   users.create ×5         <span class="ok">5/5</span>   <span class="dim">POST /users · avg 158ms</span></div>
+    <div class="ln">    <span class="ok">✓</span> getsCreatedUser <span class="dim">[1/5]</span>      <span class="dim">GET /users/u_93kd41ra</span>     <span class="ok">200</span>   41ms</div>
+    <div class="ln">    <span class="ok">✓</span> getsCreatedUser <span class="dim">[2/5]</span>      <span class="dim">GET /users/u_k2p7w0sd</span>     <span class="ok">200</span>   38ms</div>
+    <div class="ln">    <span class="ok">✓</span> getsCreatedUser <span class="dim">[3/5]</span>      <span class="dim">GET /users/u_c81hz3mq</span>     <span class="ok">200</span>   44ms</div>
+    <div class="ln">    <span class="ok">✓</span> getsCreatedUser <span class="dim">[4/5]</span>      <span class="dim">GET /users/u_0vjr5t2n</span>     <span class="ok">200</span>   39ms</div>
+    <div class="ln">    <span class="ok">✓</span> getsCreatedUser <span class="dim">[5/5]</span>      <span class="dim">GET /users/u_6ya3xe9b</span>     <span class="ok">200</span>   47ms</div>
+    <div class="ln">    <span class="ok">✓</span> <span class="dim">cleanup</span>  users.delete ×5         <span class="ok">5/5</span>   <span class="dim">DELETE /users/{id} · declared on users.create · avg 62ms</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="ok b">✓ 1 test passed</span> <span class="dim">(5/5 instances)  ·</span> 1.21s</div>
+    <div class="ln">  <span class="info">hint</span> vc watch users.crud.getsCreatedUser <span class="dim">reruns it every time you save the file</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="vio">~/shop</span> <span class="dim">❯</span> vc run -t checkout --profile staging</div>
+    <div class="ln">  <span class="vio b">◆ vibranium</span> <span class="dim">2.0.0</span>  <span class="dim">run</span> #485  <span class="dim">profile</span> staging  <span class="dim">tags</span> checkout</div>
+    <div class="ln">  <span class="dim">plan</span>  <span class="b">12 tests in 3 files</span>  <span class="dim">· lifecycle:</span> beforeRun admin <span class="dim">(cached, 3h left) ·</span> beforeAll catalog <span class="dim">·</span> beforeEach ×9</div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="ok">✓</span> <span class="dim">beforeRun</span>    admin             <span class="dim">shopOauth token from cache, expires in 3h 02m</span>                       0ms</div>
+    <div class="ln">  <span class="ok">✓</span> <span class="dim">beforeAll</span>    catalog           <span class="dim">catalog.createProduct ×3 → saves catalog.productIds</span>               412ms</div>
+    <div class="ln">  <span class="bad">✕</span> orders.checkout    <span class="ok">━━━━━━━━━━━━━━</span><span class="bad">━━</span><span class="warn">━━</span><span class="dim">━━</span>  10/10   <span class="ok">7✓</span> <span class="bad">1✕</span> <span class="warn">1⊘</span> <span class="dim">1↷</span>  <span class="info">(1↻)</span>     12.1s</div>
+    <div class="ln">  <span class="ok">✓</span> carts.pricing      <span class="ok">━━━━━━━━━━━━━━━━━━━━</span>  1/1     <span class="ok">1✓</span>                     1.4s</div>
+    <div class="ln">  <span class="ok">✓</span> catalog.stock      <span class="ok">━━━━━━━━━━━━━━━━━━━━</span>  1/1     <span class="ok">1✓</span>                     0.6s</div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">orders.checkout</span>  <span class="dim">services/orders/checkout.test.yaml</span></div>
+    <div class="ln">    <span class="bad">✕</span> placesOrder             <span class="dim">A cart with two items becomes a paid order</span>                                        6.4s</div>
+    <div class="ln">    <span class="warn">⊘</span> cancelsPaidOrder        <span class="dim">blocked: before</span> payments.authorize <span class="dim">returned</span> <span class="bad">503</span> <span class="dim">after 3 tries</span>                         –</div>
+    <div class="ln">    <span class="dim">↷</span> appliesCoupon           <span class="dim">skipped: coupon service flaky on staging, see #212 · until Nov 15</span>                     –</div>
+    <div class="ln">    <span class="info">↻</span> placesGuestOrder        <span class="dim">passed on retry 2/2 · first try got</span> <span class="bad">502</span> <span class="dim">from</span> payments.authorize                   3.0s</div>
+    <div class="ln">    <span class="ok">✓</span> 6 passed                <span class="dim">rejectsDeclinedCard, rejectsEmptyCart, keepsCartOnFailure, +3</span></div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="bad b">error[V5101]</span><span class="b">: expectation failed in</span> orders.checkout.placesOrder <span class="dim">· step</span> fetch <span class="dim">· GET /orders/ord_8Kq2Tz → 200 after poll ×6</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/orders/checkout.test.yaml:33:11</div>
+    <div class="ln">  <span class="info"> 32 │</span>         <span class="k">match</span>:</div>
+    <div class="ln">  <span class="info"> 33 │</span>           <span class="k">total</span>: <span class="s">${var.orderTotal}</span></div>
+    <div class="ln">  <span class="info">    │</span>           <span class="bad b">^^^^^^^^^^^^^^^^^^^^^^^^</span> <span class="bad">expected</span> <span class="ok">59.98</span> <span class="dim">(saved by</span> orders.place<span class="dim">)</span>  <span class="bad">actual</span> <span class="bad b">64.78</span></div>
+    <div class="ln">  <span class="info">    =</span> <span class="b">note</span>: response has a new field <span class="s">"tax"</span>: <span class="t">4.80</span> that orderTotal does not include</div>
+    <div class="ln"> </div>
+    <div class="ln"><span class="bad b">error[V5102]</span><span class="b">: cel check failed</span> <span class="s">"total equals sum of lines"</span></div>
+    <div class="ln">  <span class="info">  --&gt;</span> services/orders/checkout.test.yaml:35:13</div>
+    <div class="ln">  <span class="info"> 35 │</span>        <span class="k">total equals sum of lines</span>: <span class="s">body.total == body.items.map(i, i.price * i.quantity).sum()</span></div>
+    <div class="ln">  <span class="info">    │</span>                                   <span class="bad">64.78 == 59.98 → false</span></div>
+    <div class="ln"> </div>
+    <div class="ln">  <span class="b">Tests</span>    <span class="ok b">9 passed</span> <span class="dim">·</span> <span class="bad b">1 failed</span> <span class="dim">·</span> <span class="warn b">1 blocked</span> <span class="dim">·</span> <span class="b">1 skipped</span> <span class="dim">·</span> <span class="info b">1 flaky</span> <span class="dim">·</span> <span class="b">14.2s</span></div>
+    <div class="ln">  <span class="b">Reports</span>  .vibranium/reports/ <span class="dim">→</span> ctrf.json · junit.xml · report.html   <span class="dim">history →</span> .vibranium/history.db <span class="dim">(run #485)</span></div>
+    <div class="ln">  <span class="info">hint</span> vc run --failed <span class="dim">reruns the 1 failed + 1 blocked ·</span> vc report --open <span class="dim">shows every request and response</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":992}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+[package]
+name = "vibranium"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-trait = "0.1"
+base64 = "0.23.1"
+cel = { version = "0.15", features = ["json"] }
+clap = { version = "4", features = ["derive"] }
+futures = "0.3"
+garde = { version = "0.23", features = ["derive", "regex"] }
+jsonschema = { version = "0.60", default-features = false }
+rayon = "1"
+regex = "1.13.1"
+reqwest = { version = "0.13", default-features = false, features = ["json"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde-saphyr = { version = "2.0.0", features = ["garde"] }
+serde_json = "1"
+sha2 = "0.11.1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 4

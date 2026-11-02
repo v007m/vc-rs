@@ -1,0 +1,1 @@
+{"engine":"quickjs","marshal":"JsonText","mode":"bench","result":{"before_request_ns_median":44673.3385,"before_request_ns_runs":[46812.47043,44673.3385,44103.19907],"check_ns_median":73664.56797,"check_ns_runs":[73664.56797,74672.05046,70269.99149],"iterations":100000,"runs":3}}
