@@ -51,6 +51,37 @@ pub struct Reference {
     pub pipes: Vec<PipeCall>,
     /// The whole `${…}`.
     pub span: SourceSpan,
+    /// Written as a bare `status`, `headers` or `body`, short for `response.…` inside `expect`
+    /// (D125); `ns` is then [`Namespace::Response`] and the path starts with that name.
+    pub response_alias: bool,
+}
+
+/// How a YAML scalar is written, so positions in its decoded text can be mapped back to the file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ScalarStyle {
+    /// Unquoted.
+    Plain,
+    /// `'…'`; `escaped` when the source holds a `''`.
+    SingleQuoted {
+        /// The source holds a `''`.
+        escaped: bool,
+    },
+    /// `"…"`; `escaped` when the source holds a backslash.
+    DoubleQuoted {
+        /// The source holds a `\`.
+        escaped: bool,
+    },
+    /// A `|` or `>` block.
+    Block,
+}
+
+/// Where a scalar is written and how, the input to template parsing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ScalarSource {
+    /// The whole scalar in the file, quotes included.
+    pub span: SourceSpan,
+    /// How it is written.
+    pub style: ScalarStyle,
 }
 
 /// The root of a reference (D125).
@@ -177,7 +208,14 @@ mod tests {
 
     fn reference() -> Reference {
         let span = SourceSpan::new(SourceFileId::new(0), Pos::START, Pos::START);
-        Reference { ns: Namespace::Var, path: Path::default(), args: Vec::new(), pipes: Vec::new(), span }
+        Reference {
+            ns: Namespace::Var,
+            path: Path::default(),
+            args: Vec::new(),
+            pipes: Vec::new(),
+            span,
+            response_alias: false,
+        }
     }
 
     #[test]
