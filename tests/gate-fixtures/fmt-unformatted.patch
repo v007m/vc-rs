@@ -1,0 +1,13 @@
+# expect: GATE-FMT
+diff --git a/crates/planner/src/bin/gate_fixture.rs b/crates/planner/src/bin/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/bin/gate_fixture.rs
+@@ -0,0 +1,7 @@
++//! Gate fixture: code that rustfmt would reformat.
++
++fn   double( value:u32 )->u32{ value*2 }
++
++fn main() {
++    std::hint::black_box(vec![double(21)]);
++}

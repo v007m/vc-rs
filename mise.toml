@@ -11,3 +11,15 @@ cargo-deny = "0.20.2"
 [tasks.test]
 description = "Run every test and doctest in the workspace"
 run = ["cargo nextest run --workspace", "cargo test --workspace --doc"]
+
+[tasks.gates]
+description = "Run every quality gate (GATES_MUTANTS=1 adds mutation testing on the diff)"
+run = "scripts/gates.sh"
+
+[tasks."gates:selftest"]
+description = "Check that each gate rejects its bad-patch fixture in tests/gate-fixtures"
+run = "scripts/gates-selftest.sh"
+
+[tasks.commit-check]
+description = "Check conventional commits and refactor-only commits since a base ref (default origin/master)"
+run = "scripts/commit-check.sh"

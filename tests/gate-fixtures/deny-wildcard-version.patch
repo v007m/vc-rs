@@ -1,0 +1,11 @@
+# expect: GATE-DENY wildcard
+diff --git a/crates/apps/cli/Cargo.toml b/crates/apps/cli/Cargo.toml
+--- a/crates/apps/cli/Cargo.toml
++++ b/crates/apps/cli/Cargo.toml
+@@ -1,2 +1,6 @@
++# Gate fixture: a dependency with a wildcard version requirement.
++[target.'cfg(all())'.dependencies]
++clap = "*"
++
+ [package]
+ name = "vc-cli"

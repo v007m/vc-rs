@@ -1,0 +1,52 @@
+# expect: GATE-DUP Clone found
+diff --git a/crates/planner/src/bin/gate_fixture.rs b/crates/planner/src/bin/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/bin/gate_fixture.rs
+@@ -0,0 +1,20 @@
++//! Gate fixture: a block copied into another file.
++
++fn summarise(values: &[u64]) -> (u64, u64, u64) {
++    let mut smallest = u64::MAX;
++    let mut largest = 0;
++    let mut total = 0;
++    for value in values {
++        smallest = smallest.min(*value);
++        largest = largest.max(*value);
++        total += value;
++    }
++    if values.is_empty() {
++        smallest = 0;
++    }
++    (smallest, largest, total)
++}
++
++fn main() {
++    std::hint::black_box(vec![summarise(&[4, 8, 15])]);
++}
+diff --git a/crates/planner/src/bin/gate_fixture_copy.rs b/crates/planner/src/bin/gate_fixture_copy.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/bin/gate_fixture_copy.rs
+@@ -0,0 +1,21 @@
++//! Gate fixture: the copy of `gate_fixture.rs`'s block.
++
++fn summarise(values: &[u64]) -> (u64, u64, u64) {
++    let mut smallest = u64::MAX;
++    let mut largest = 0;
++    let mut total = 0;
++    for value in values {
++        smallest = smallest.min(*value);
++        largest = largest.max(*value);
++        total += value;
++    }
++    if values.is_empty() {
++        smallest = 0;
++    }
++    (smallest, largest, total)
++}
++
++fn main() {
++    let summary = summarise(&[16, 23, 42]);
++    std::hint::black_box(vec![summary.0, summary.1, summary.2]);
++}

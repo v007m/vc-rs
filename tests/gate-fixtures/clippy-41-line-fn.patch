@@ -1,0 +1,55 @@
+# expect: GATE-CLIPPY too many lines (41/40)
+diff --git a/crates/planner/src/bin/gate_fixture.rs b/crates/planner/src/bin/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/bin/gate_fixture.rs
+@@ -0,0 +1,49 @@
++//! Gate fixture: a function longer than 40 lines.
++
++fn sum(values: &[u64]) -> u64 {
++    let mut total = 0;
++    total += values.get(1).copied().unwrap_or(1);
++    total += values.get(2).copied().unwrap_or(2);
++    total += values.get(3).copied().unwrap_or(3);
++    total += values.get(4).copied().unwrap_or(4);
++    total += values.get(5).copied().unwrap_or(5);
++    total += values.get(6).copied().unwrap_or(6);
++    total += values.get(7).copied().unwrap_or(7);
++    total += values.get(8).copied().unwrap_or(8);
++    total += values.get(9).copied().unwrap_or(9);
++    total += values.get(10).copied().unwrap_or(10);
++    total += values.get(11).copied().unwrap_or(11);
++    total += values.get(12).copied().unwrap_or(12);
++    total += values.get(13).copied().unwrap_or(13);
++    total += values.get(14).copied().unwrap_or(14);
++    total += values.get(15).copied().unwrap_or(15);
++    total += values.get(16).copied().unwrap_or(16);
++    total += values.get(17).copied().unwrap_or(17);
++    total += values.get(18).copied().unwrap_or(18);
++    total += values.get(19).copied().unwrap_or(19);
++    total += values.get(20).copied().unwrap_or(20);
++    total += values.get(21).copied().unwrap_or(21);
++    total += values.get(22).copied().unwrap_or(22);
++    total += values.get(23).copied().unwrap_or(23);
++    total += values.get(24).copied().unwrap_or(24);
++    total += values.get(25).copied().unwrap_or(25);
++    total += values.get(26).copied().unwrap_or(26);
++    total += values.get(27).copied().unwrap_or(27);
++    total += values.get(28).copied().unwrap_or(28);
++    total += values.get(29).copied().unwrap_or(29);
++    total += values.get(30).copied().unwrap_or(30);
++    total += values.get(31).copied().unwrap_or(31);
++    total += values.get(32).copied().unwrap_or(32);
++    total += values.get(33).copied().unwrap_or(33);
++    total += values.get(34).copied().unwrap_or(34);
++    total += values.get(35).copied().unwrap_or(35);
++    total += values.get(36).copied().unwrap_or(36);
++    total += values.get(37).copied().unwrap_or(37);
++    total += values.get(38).copied().unwrap_or(38);
++    total += values.get(39).copied().unwrap_or(39);
++    total
++}
++
++fn main() {
++    std::hint::black_box(vec![sum(&[1, 2, 3])]);
++}

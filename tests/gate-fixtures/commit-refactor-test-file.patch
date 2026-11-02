@@ -1,0 +1,18 @@
+# expect: GATE-REFACTOR changes test assertions
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gate Fixture <gate-fixture@example.invalid>
+Date: Mon, 2 Nov 2026 00:00:00 +0000
+Subject: [PATCH] refactor: rename the planner smoke test
+
+Gate fixture: a refactor commit that changes a file under tests/.
+---
+diff --git a/crates/planner/tests/gate_fixture.rs b/crates/planner/tests/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/tests/gate_fixture.rs
+@@ -0,0 +1,2 @@
++#[test]
++fn plans_nothing_for_an_empty_selection() {}
+--
+2.50.0
+
