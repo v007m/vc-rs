@@ -402,6 +402,6 @@ new file mode 100644
 +// filler line 395
 +// filler line 396
 +// filler line 397
-+// filler line 398
-+// filler line 399
-+fn main() {}
++fn main() {
++    std::hint::black_box(vec![0_u8]);
++}

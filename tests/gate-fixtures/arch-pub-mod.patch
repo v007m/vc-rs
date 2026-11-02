@@ -11,5 +11,5 @@ new file mode 100644
 +}
 +
 +fn main() {
-+    std::hint::black_box(limits::RETRY_LIMIT);
++    std::hint::black_box(vec![limits::RETRY_LIMIT]);
 +}

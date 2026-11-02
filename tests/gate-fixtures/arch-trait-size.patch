@@ -3,7 +3,7 @@ diff --git a/crates/planner/src/bin/gate_fixture.rs b/crates/planner/src/bin/gat
 new file mode 100644
 --- /dev/null
 +++ b/crates/planner/src/bin/gate_fixture.rs
-@@ -0,0 +1,15 @@
+@@ -0,0 +1,17 @@
 +//! Gate fixture: a trait with eight methods (max seven).
 +
 +#[expect(dead_code, reason = "gate fixture: only the trait's size matters")]
@@ -18,4 +18,6 @@ new file mode 100644
 +    fn validate(&self);
 +}
 +
-+fn main() {}
++fn main() {
++    std::hint::black_box(vec![0_u8]);
++}
