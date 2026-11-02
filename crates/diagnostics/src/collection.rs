@@ -37,7 +37,8 @@ impl Diagnostics {
         self.0.is_empty()
     }
 
-    /// Puts the diagnostics in display order: by file, then position, then code.
+    /// Puts the diagnostics in display order: by file-table order (the compiler adds files in
+    /// path order), then position, then code.
     /// Diagnostics at the same place with the same code keep their order.
     pub fn sort(&mut self) {
         self.0.sort_by_key(|diagnostic| (diagnostic.primary.span, diagnostic.code));

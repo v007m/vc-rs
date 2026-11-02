@@ -488,7 +488,7 @@ The same declarations generate the JSON Schemas shipped for editors (`vc schema 
 ```rust
 pub struct Diagnostic {
     pub code: Code,                       // V2003
-    pub severity: Severity,               // Error | Warning | Info
+    pub severity: Severity,               // Info < Warning < Error; worst = max()
     pub message: String,                  // unknown api "orders#plcae"
     pub primary: Label,                   // span + short label under the caret
     pub secondary: Vec<Label>,            // other places involved (e.g. the earlier duplicate)
@@ -506,7 +506,7 @@ pub struct Fix {
 pub struct TextEdit { pub file: SourceFileId, pub range: Range<usize>, pub new_text: String }
 ```
 
-`Code` is a registry of associated consts (`Code::V2003`), each with its number, category (V1 to V5), default severity and title; `Code::ALL` lists them in numeric order and `"V2003".parse::<Code>()` looks one up. The table is the one under [Diagnostic codes](#diagnostic-codes); a failure or blocked result there has severity `Error`. Diagnostics are built step by step, taking the severity from the code:
+`Code` is a registry of associated consts (`Code::V2003`), each with its number, default severity and title, and a category (V1 to V5) derived from the number's first digit; `Code::ALL` lists them in numeric order and `"V2003".parse::<Code>()` looks one up. The table is the one under [Diagnostic codes](#diagnostic-codes); a failure or blocked result there has severity `Error`. Diagnostics are built step by step, taking the severity from the code:
 
 ```rust
 Diagnostic::new(Code::V2003, span, "unknown api \"orders#plcae\"")
@@ -514,7 +514,7 @@ Diagnostic::new(Code::V2003, span, "unknown api \"orders#plcae\"")
     .fix(Fix::certain("Replace with orders#place", vec![TextEdit::replace(span, "orders#place")]))
 ```
 
-A `Diagnostics` collection gathers them (`push`, `extend`, `has_errors`) and `sort()`s them by file, position and code for display. The JSON shape is the serde form of these types (camelCase keys, codes as `"V2003"`, severities in lowercase).
+A `Diagnostics` collection gathers them (`push`, `extend`, `has_errors`) and `sort()`s them for display by file-table order (the compiler adds files in path order), then position, then code. These types serialize with serde (camelCase keys, codes as `"V2003"`, severities in lowercase), but that is not yet the `vc check --json` shape: spans hold a `SourceFileId` index, and the JSON reporter (A2) replaces it with the file path.
 
 Diagnostics render through `miette` in the terminal, as JSON with `--json`, and over the engine API to the editors and the web UI, which show the same code, text and fixes.
 

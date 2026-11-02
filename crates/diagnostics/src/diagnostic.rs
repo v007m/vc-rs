@@ -23,6 +23,9 @@ impl Label {
 /// One problem found in the user's files or during a run, with what to do about it.
 ///
 /// Built with [`Diagnostic::new`] and the chained methods; the severity comes from the code.
+///
+/// The serde form is a base for reporters, not the `vc check --json` output: spans hold a
+/// `SourceFileId` index, which the JSON reporter replaces with the file path.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Diagnostic {
     /// The stable code: V2003.
@@ -137,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    fn serializes_to_the_json_shape() {
+    fn serializes_with_camel_case_keys_and_text_codes() {
         let diagnostic = Diagnostic::new(Code::V1004, span(4), "unknown key `tset`")
             .fix(Fix::certain("Rename to test", vec![TextEdit::replace(span(4), "test")]));
         let at = json!({"file": 0, "start": {"line": 4, "column": 3, "offset": 10}, "end": {"line": 4, "column": 7, "offset": 14}});

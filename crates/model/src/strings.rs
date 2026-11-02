@@ -50,7 +50,10 @@ impl StringTable {
         self.index.get(text).copied()
     }
 
-    /// The text behind `sym`, or `None` when `sym` is out of range (it came from another table).
+    /// The text behind `sym`, a symbol this table handed out.
+    ///
+    /// `None` when `sym` is past the end of the table. A symbol from another table is not
+    /// detected: it may resolve to unrelated text.
     #[must_use]
     pub fn resolve(&self, sym: Sym) -> Option<&str> {
         let index = usize::try_from(sym.0).ok()?;
@@ -110,7 +113,7 @@ mod tests {
     }
 
     #[test]
-    fn foreign_symbol_does_not_resolve() {
+    fn out_of_range_symbol_does_not_resolve() {
         let mut big = StringTable::new();
         big.intern("a").unwrap();
         let foreign = big.intern("b").unwrap();
