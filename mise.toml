@@ -23,3 +23,7 @@ run = "scripts/gates-selftest.sh"
 [tasks.commit-check]
 description = "Check conventional commits and refactor-only commits since a base ref (default origin/master)"
 run = "scripts/commit-check.sh"
+
+[tasks.mock]
+description = "Run the mock HTTP server (vc-mock-server); pass --port to change 18080"
+run = "cargo run -p vc-mock-server --"
