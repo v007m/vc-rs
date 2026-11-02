@@ -1,8 +1,6 @@
 use indexmap::IndexMap;
 
-use crate::{
-    Duration, FileId, Matcher, ProfileId, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
-};
+use crate::{Duration, FileId, Matcher, ProfileId, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs};
 
 /// `vibranium.config.yaml`: settings that are not tables of their own.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

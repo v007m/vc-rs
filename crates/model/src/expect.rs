@@ -1,4 +1,4 @@
-use crate::{ActionId, ApiId, Path, SourceSpan, StatusPattern, TemplateValue, TestId};
+use crate::{ActionId, ApiId, Duration, Path, Size, SourceSpan, StatusPattern, TemplateValue, TestId};
 
 /// The merged checks for one call: api, then test, then step, the more specific replacing a
 /// check with the same key; `cel` and `custom` checks are added instead (D123).
@@ -84,8 +84,14 @@ pub struct MatcherCall {
 /// A matcher's argument, already checked against the matcher's signature (V2306).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MatcherArg {
-    /// A value: a number, text, list or flag; durations and sizes are stored in ms and bytes.
+    /// A value: a number, text, list or flag.
     Value(TemplateValue),
+    /// A duration, for `gt`, `lt` and the like under `timing` and load latency thresholds.
+    Duration(Duration),
+    /// A size, for `gt`, `lt` and the like under `size`.
+    Size(Size),
+    /// The inclusive bounds of `between`.
+    Range(Box<[Self; 2]>),
     /// One nested matcher (`not`, `every`, `some`, `none`, `length`).
     Matcher(Box<Matcher>),
     /// Several nested matchers (`allOf`, `anyOf`).

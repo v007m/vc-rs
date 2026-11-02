@@ -27,10 +27,12 @@ mod test;
 mod units;
 
 pub use api::{Api, ApiGroup, BodySpec, PartSpec};
-pub use config::{AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, Profile};
+pub use config::{
+    AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, Profile,
+};
 pub use defs::{
-    AuthRef, CacheSpec, Examples, HookRef, Lifecycle, Loop, Method, Owner, Poll, RequestHooks, Retry, SaveSpec, Skip, Tag,
-    VarDefs,
+    AuthRef, CacheSpec, Examples, HookRef, Lifecycle, Loop, Method, Owner, Poll, RequestHooks, Retry, SaveSpec, Skip,
+    Tag, VarDefs,
 };
 pub use error::ModelError;
 pub use expect::{Check, CheckKind, Expect, Matcher, MatcherArg, MatcherCall, Origin};
@@ -40,9 +42,9 @@ pub use program::Program;
 pub use source::{ContentHash, FileKind, SourceFile, SourcePath};
 pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};
-pub use test::{Action, ActionKind, InlineRequest, Test, TestBody, TestFile};
 pub use template::{
     CelProgram, CelSource, Namespace, Part, Path, PipeCall, Reference, ScalarSource, ScalarStyle, Segment,
     StatusPattern, Template, TemplateValue,
 };
+pub use test::{Action, ActionKind, InlineRequest, Test, TestBody, TestFile};
 pub use units::{Duration, Size};

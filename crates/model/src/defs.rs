@@ -71,15 +71,15 @@ pub enum Loop {
     Repeat {
         /// How many times.
         times: u32,
-        /// Run the iterations at once.
-        parallel: bool,
+        /// Iterations at a time; 1 runs them in order.
+        parallel: u32,
     },
     /// Run the action once per item of a list.
     ForEach {
         /// The list: a template, a literal list or a dataset.
         items: TemplateValue,
-        /// Run the iterations at once.
-        parallel: bool,
+        /// Iterations at a time; 1 runs them in order.
+        parallel: u32,
     },
 }
 
