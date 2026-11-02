@@ -102,7 +102,7 @@ Third-party crates:
 | --- | --- | --- |
 | Async runtime | `tokio` 1, `tokio-util` 0.7 (cancellation tokens) | The standard; used by hyper, axum, reqwest |
 | HTTP client | `hyper` 1 + `hyper-util` 0.1 + `rustls` | Direct control of the connection, so DNS, connect, TLS, first-byte and download times can be measured; `reqwest` 0.13 for simple internal fetches (OpenAPI URLs) |
-| YAML with positions | `saphyr` 0.2 | YAML 1.2 with a marked tree (line and column for every node), needed for diagnostics and minimal-diff edits |
+| YAML with positions | `saphyr-parser` 0.3 | YAML 1.2 events with a span each (line and column in characters); `parser` builds its own `Node` tree from them, keeping scalar styles and key spans, which diagnostics and minimal-diff edits need. JSON goes through the same parser |
 | JSON | `serde` 1, `serde_json` 1 | Standard |
 | Template and pipe parsing | `winnow` 1 | Small, fast parser combinators with good error positions |
 | CEL | `cel-interpreter` 0.10 | The maintained Rust CEL implementation; wrapped so it can be swapped |
@@ -450,7 +450,7 @@ The compiler turns the project's files into a `Program` or a list of diagnostics
 | Stage | Input | Output | Notes |
 | --- | --- | --- | --- |
 | Discover (engine, not compiler) | project root, `paths` globs | source texts with BLAKE3 content hashes, through `SourceProvider` | `vc-adapter-system` walks with `ignore` (respects `.gitignore`); file kind from the suffix (D132, D133) |
-| Parse | changed files only | a marked tree per file (`parser::Node`, every node with its span) | `saphyr`; JSON goes through the same tree type |
+| Parse | changed files only | a marked tree per file (`parser::Node`, every node with its span) | `parser::parse(file, text) -> (Option<Node>, Diagnostics)` over `saphyr-parser` events; maps keep key order and key spans, scalars keep their text, style and YAML 1.2 core kind; columns count characters, offsets count bytes. JSON goes through the same parser, except that surrogate-pair `\u` escapes are refused (V1001) and a trailing comma is accepted |
 | Shape-check | marked trees | raw items per file kind, with unknown keys, wrong types and missing required keys reported | shapes are declared once (below) |
 | Compile parts | raw items | templates, pipes, CEL programs, matchers, durations, sizes | `template` crate; CEL type-checked against the namespaces available at that spot |
 | Link | all raw items | the `Program`: ID tables, references resolved, merged `expect`, test-level step defaults, var reachability | the only stage that sees every file at once |
@@ -983,7 +983,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | Code | Severity | Problem | Certain fix |
 | --- | --- | --- | --- |
 | V1001 | error | File is not valid YAML or JSON, or its suffix is not a known kind | — |
-| V1002 | error | YAML structure error (indentation, a mapping expected) | when one reading is possible |
+| V1002 | error | YAML structure error (indentation, a mapping expected), or YAML Vibranium does not accept: a duplicate key, an alias (`*x`), a tag (`!!str`), a key that is not text, a second document, nesting deeper than 128 | when one reading is possible |
 | V1003 | error | `syntaxVersion` newer than this Vibranium, or missing | — |
 | V1004 | error | Unknown key | rename when one known key is close |
 | V1005 | error | Required key missing | — |
@@ -1033,7 +1033,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V5110 | failure | Command exited non-zero | — |
 | V5111 | failure | Template failed to render at run time (missing path, wrong type) | — |
 
-V3204 is new: the skip-reason example that silently lost `see #212` showed that an unquoted `  # ` inside a value is an easy mistake, and the parser can see it (a comment that starts mid-value on a line whose value looks cut).
+V3204 is new: the skip-reason example that silently lost `see #212` showed that an unquoted `  # ` inside a value is an easy mistake, and the parser can see it (a comment that starts mid-value on a line whose value looks cut). The parser flags a one-line plain value followed by `  #` when the `#` is directly followed by a non-space (`#212`) or the value ends with a comma; the fix double-quotes the value and the comment together.
 
 ## Testing, budgets, build and release
 

@@ -47,8 +47,10 @@ axum = { version = "0.8.9", default-features = false, features = ["http1", "json
 cargo_metadata = "0.23.1"
 clap = { version = "4.6.7", features = ["derive"] }
 predicates = "3.1.4"
+proptest = { version = "1.12.0", default-features = false, features = ["std"] }
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+saphyr-parser = "0.3.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 syn = { version = "3.0.9", features = ["full", "visit"] }
