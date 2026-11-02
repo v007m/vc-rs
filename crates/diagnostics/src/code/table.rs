@@ -26,6 +26,12 @@ code_table! {
     V1003 = 1003, Error, "`syntaxVersion` newer than this Vibranium, or missing";
     V1004 = 1004, Error, "Unknown key";
     V1005 = 1005, Error, "Required key missing";
+    V1006 = 1006, Error, "Duplicate key in a map";
+    V1007 = 1007, Error, "YAML alias or anchor not supported";
+    V1008 = 1008, Error, "YAML tag not supported";
+    V1009 = 1009, Error, "Map key is not text";
+    V1010 = 1010, Error, "More than one YAML document in a file";
+    V1011 = 1011, Error, "Nesting deeper than 128 levels";
     // V2xxx: references and types
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";

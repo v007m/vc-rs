@@ -8,7 +8,7 @@ use vc_model::SourceSpan;
 enum ScanKind {
     /// The file's shape is wrong (V1002).
     Structure,
-    /// An alias names an anchor that does not exist; aliases are refused anyway (V1002).
+    /// An alias names an anchor that does not exist; aliases are refused anyway (V1007, D147).
     Alias,
 }
 
@@ -29,7 +29,8 @@ const SYNTAX_HELP: &str =
     "quote values that contain `: ` or ` #` or start with a special character such as `*`, `&` or `!`";
 const INDENT_HELP: &str = "check the indentation: a nested key needs more spaces than its parent, and siblings line up";
 
-/// The scanner stopped: V1002 when the message is about structure or an alias, V1001 otherwise.
+/// The scanner stopped: V1002 when the message is about structure, V1007 for an alias, V1001
+/// otherwise.
 pub fn scan_error(at: SourceSpan, info: &str) -> Diagnostic {
     match SCAN_KINDS.iter().find(|(needle, _)| info.contains(needle)).map(|&(_, kind)| kind) {
         Some(ScanKind::Structure) => {
@@ -44,7 +45,7 @@ pub fn scan_error(at: SourceSpan, info: &str) -> Diagnostic {
 
 /// A key repeated in one map; the first one is kept.
 pub fn duplicate_key(at: SourceSpan, first: SourceSpan, key: &str) -> Diagnostic {
-    Diagnostic::new(Code::V1002, at, format!("duplicate key `{key}`"))
+    Diagnostic::new(Code::V1006, at, format!("duplicate key `{key}`"))
         .label("defined again here")
         .secondary(first, "first defined here")
         .help("a key may appear once per map; remove one of them or merge their values")
@@ -52,35 +53,35 @@ pub fn duplicate_key(at: SourceSpan, first: SourceSpan, key: &str) -> Diagnostic
 
 /// A key written as a list or map.
 pub fn complex_key(at: SourceSpan) -> Diagnostic {
-    Diagnostic::new(Code::V1002, at, "a map key must be plain text, not a list or a map")
+    Diagnostic::new(Code::V1009, at, "a map key must be plain text, not a list or a map")
         .label("not text")
         .help("use a text key such as `name:`")
 }
 
 /// An alias (`*name`): rejected, so values are never shared or expanded behind the reader.
 pub fn alias(at: SourceSpan) -> Diagnostic {
-    Diagnostic::new(Code::V1002, at, "YAML aliases (`*name`) are not supported")
+    Diagnostic::new(Code::V1007, at, "YAML aliases (`*name`) are not supported")
         .label("alias")
         .help("write the value out, put shared values in `vars`, or reuse a payload with `$extend`")
 }
 
 /// A tag (`!name`, `!!str`) on a value.
 pub fn tag(at: SourceSpan) -> Diagnostic {
-    Diagnostic::new(Code::V1002, at, "YAML tags (`!name`, `!!str`) are not supported")
+    Diagnostic::new(Code::V1008, at, "YAML tags (`!name`, `!!str`) are not supported")
         .label("tagged value")
         .help("remove the tag; to keep a value as text, quote it")
 }
 
 /// A `---` starting a second document.
 pub fn second_document(at: SourceSpan) -> Diagnostic {
-    Diagnostic::new(Code::V1002, at, "a file holds one YAML document; this starts a second")
+    Diagnostic::new(Code::V1010, at, "a file holds one YAML document; this starts a second")
         .label("second document")
         .help("move the second document into its own file")
 }
 
 /// Nesting beyond the limit.
 pub fn too_deep(at: SourceSpan, limit: usize) -> Diagnostic {
-    Diagnostic::new(Code::V1002, at, format!("nested more than {limit} levels deep"))
+    Diagnostic::new(Code::V1011, at, format!("nested more than {limit} levels deep"))
         .label("too deep")
         .help("flatten the structure, or load deep data from a file with `$file`")
 }

@@ -80,6 +80,7 @@ fn json_goes_through_the_same_tree() {
     assert_eq!(ok("[1]\n").unwrap().items().len(), 1);
 }
 
+/// D148 replaces this with a dedicated JSON reader in M1 D.
 #[test]
 fn json_surrogate_pair_escapes_are_a_known_saphyr_gap() {
     let (root, diagnostics) = parse(SourceFileId::new(0), r#"{"a": "\ud83d\ude00"}"#);
@@ -124,10 +125,10 @@ fn structure_errors_from_the_scanner_are_v1002() {
 }
 
 #[test]
-fn an_alias_to_a_missing_anchor_is_the_alias_v1002() {
+fn an_alias_to_a_missing_anchor_is_v1007() {
     let (root, diagnostics) = parse(SourceFileId::new(0), "a: *missing\n");
     assert!(root.is_none());
-    assert_eq!(codes(&diagnostics), [Code::V1002]);
+    assert_eq!(codes(&diagnostics), [Code::V1007]);
     assert!(diagnostics.iter().next().unwrap().message.contains("aliases"));
 }
 
@@ -141,9 +142,9 @@ fn other_scanner_errors_are_v1001() {
 }
 
 #[test]
-fn every_duplicate_key_is_reported_with_both_places() {
+fn every_duplicate_key_is_v1006_with_both_places() {
     let (root, diagnostics) = parse(SourceFileId::new(0), "a: 1\nb: 2\na: 3\nb: 4\n");
-    assert_eq!(codes(&diagnostics), [Code::V1002, Code::V1002]);
+    assert_eq!(codes(&diagnostics), [Code::V1006, Code::V1006]);
     let first = diagnostics.iter().next().unwrap();
     assert_eq!(at(first.primary.span), ((3, 1, 10), (3, 2, 11)));
     assert_eq!(at(first.secondary[0].span), ((1, 1, 0), (1, 2, 1)));
@@ -153,25 +154,32 @@ fn every_duplicate_key_is_reported_with_both_places() {
 #[test]
 fn a_map_ends_at_its_last_source_entry_even_when_skipped() {
     let (root, diagnostics) = parse(SourceFileId::new(0), "a: 1\nb: 2\na: [x, y]\n");
-    assert_eq!(codes(&diagnostics), [Code::V1002]);
+    assert_eq!(codes(&diagnostics), [Code::V1006]);
     assert_eq!(at(root.unwrap().span), ((1, 1, 0), (3, 10, 19)));
 }
 
 #[test]
-fn aliases_tags_complex_keys_and_second_documents_are_v1002() {
+fn aliases_tags_complex_keys_and_second_documents_have_their_own_codes() {
     let cases = [
-        ("a: &x 1\nb: *x\n", ((2, 4, 11), (2, 6, 13))),
-        ("a: !!str 1\n", ((1, 4, 3), (1, 11, 10))),
-        ("? [a]\n: 1\n", ((1, 3, 2), (1, 6, 5))),
-        ("a: 1\n---\nb: 2\n", ((2, 1, 5), (2, 4, 8))),
+        ("a: &x 1\nb: *x\n", Code::V1007, ((2, 4, 11), (2, 6, 13))),
+        ("a: !!str 1\n", Code::V1008, ((1, 4, 3), (1, 11, 10))),
+        ("? [a]\n: 1\n", Code::V1009, ((1, 3, 2), (1, 6, 5))),
+        ("a: 1\n---\nb: 2\n", Code::V1010, ((2, 1, 5), (2, 4, 8))),
     ];
-    for (text, span) in cases {
+    for (text, code, span) in cases {
         let (root, diagnostics) = parse(SourceFileId::new(0), text);
         assert!(root.is_some(), "{text:?}");
-        assert_eq!(codes(&diagnostics), [Code::V1002], "{text:?}");
+        assert_eq!(codes(&diagnostics), [code], "{text:?}");
         assert_eq!(at(diagnostics.iter().next().unwrap().primary.span), span, "{text:?}");
     }
     assert!(parse(SourceFileId::new(0), "a: &x 1\n").1.is_empty());
+}
+
+#[test]
+fn the_alias_help_points_to_vars_and_extend() {
+    let (_, diagnostics) = parse(SourceFileId::new(0), "a: &x 1\nb: *x\n");
+    let help = diagnostics.iter().next().unwrap().help.join(" ");
+    assert!(help.contains("`vars`") && help.contains("`$extend`"), "{help}");
 }
 
 #[test]
@@ -201,11 +209,12 @@ fn a_wide_character_late_in_a_long_line_shifts_only_later_offsets() {
 }
 
 #[test]
-fn nesting_deeper_than_the_limit_is_refused() {
+fn nesting_deeper_than_the_limit_is_v1011() {
     let text = format!("{}{}", "[".repeat(200), "]".repeat(200));
     let (root, diagnostics) = parse(SourceFileId::new(0), &text);
     assert!(root.is_none());
-    assert_eq!(codes(&diagnostics), [Code::V1002]);
+    assert_eq!(codes(&diagnostics), [Code::V1011]);
+    assert!(ok(&format!("{}{}", "[".repeat(128), "]".repeat(128))).is_some());
 }
 
 #[test]

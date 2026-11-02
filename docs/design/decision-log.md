@@ -250,6 +250,14 @@ Round 17 additions (PR #1 review, 2 November 2026):
 | D142 | File-ID collapse scope | Only `*.api.yaml` files collapse a stem equal to their folder (`services/users/users.api.yaml` → `users`). Other kinds keep both words (`services/orders/orders.test.yaml` → `orders.orders`), so they never clash with the api file; V4003 suggests a better name | D139 collapse for every kind |
 | D143 | `http.retry` shape | `{ attempts: 0, on: [connect, timeout, 502, 503, 504], methods: [GET, HEAD, OPTIONS, PUT, DELETE], backoff: { base: 100ms, max: 2s, jitter: true } }`: off by default, idempotent methods only, exponential backoff with jitter. Set in config, overridable per api | D126 left the shape open |
 
+Round 19 additions (M1 parser review, 2 November 2026):
+
+| # | Decision | Choice | Supersedes |
+| --- | --- | --- | --- |
+| D147 | YAML aliases | YAML aliases (`*name`) are rejected (V1007), so values are never shared or expanded behind the reader and alias bombs cannot happen; the help points to `vars` or `$extend` for reuse. An anchor alone (`&name`) is ignored | Unspecified |
+| D148 | JSON reading | `.json` files are read by a dedicated span-keeping JSON reader into the same `Node` tree, added in M1 D when the compiler first reads `.json` files. Until then JSON goes through saphyr with its documented gaps (surrogate-pair `\u` escapes refused, a trailing comma accepted) | JSON via saphyr |
+| D149 | Parser diagnostic codes | One code per problem: V1006 duplicate key, V1007 alias or anchor not supported, V1008 tag not supported, V1009 map key not text, V1010 more than one document, V1011 nesting deeper than 128. V1002 keeps the remaining structure errors (indentation, a mapping expected) | V1002 for all YAML structure errors |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
