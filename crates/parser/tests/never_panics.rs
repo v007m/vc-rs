@@ -20,10 +20,10 @@ proptest! {
     }
 
     #[test]
-    fn every_certain_fix_still_parses(text in YAMLISH) {
+    fn every_fix_still_parses(text in YAMLISH) {
         let Ok(document) = Document::parse(SourceFileId::new(0), text.as_str()) else { return Ok(()) };
         let (_, diagnostics) = parse(SourceFileId::new(0), &text);
-        for fix in diagnostics.iter().flat_map(|d| &d.fixes).filter(|fix| fix.certain) {
+        for fix in diagnostics.iter().flat_map(|d| &d.fixes) {
             prop_assert!(document.apply(&fix.edits).is_ok(), "{:?}", fix.edits);
         }
     }

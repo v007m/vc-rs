@@ -1,11 +1,12 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use saphyr_parser::{Event, ScalarStyle as SaphyrStyle, ScanError, Span};
 use vc_diagnostics::Diagnostics;
 use vc_model::{Pos, SourceSpan};
 
-use crate::positions::Positions;
-use crate::{Entry, Node, Scalar, ScalarStyle, Value, cut, problems};
+use crate::positions::{self, Positions};
+use crate::{Entry, Node, Scalar, ScalarKind, ScalarStyle, Value, cut, problems};
 
 /// The deepest nesting accepted; deeper input is refused rather than risking the stack.
 const MAX_DEPTH: usize = 128;
@@ -19,15 +20,38 @@ pub enum Flow {
     Stop,
 }
 
+#[derive(Default)]
 enum KeyState {
+    #[default]
     Expect,
     Have(String, SourceSpan),
     Skip,
 }
 
-enum Frame {
-    Seq { start: SourceSpan, items: Vec<Node> },
-    Map { start: SourceSpan, entries: Vec<Entry>, key: KeyState },
+/// An open map: its entries so far, the key waiting for its value, and every key kept so far.
+#[derive(Default)]
+struct MapBody {
+    entries: Vec<Entry>,
+    key: KeyState,
+    seen: HashMap<String, SourceSpan>,
+}
+
+enum Body {
+    Seq(Vec<Node>),
+    Map(MapBody),
+}
+
+/// An open collection. `last` is the span of the last child read from the source, kept or not.
+struct Frame {
+    start: SourceSpan,
+    last: Option<SourceSpan>,
+    body: Body,
+}
+
+impl Frame {
+    const fn new(start: SourceSpan, body: Body) -> Self {
+        Self { start, last: None, body }
+    }
 }
 
 /// Builds a [`Node`] tree from saphyr's events, collecting every problem it can see.
@@ -48,25 +72,27 @@ impl<'t> Builder<'t> {
         Self { text, positions, stack: Vec::new(), root: None, documents: 0, failed: false, diagnostics }
     }
 
-    /// Takes one event.
+    /// Takes one event. Node spans leave out `&anchor` and `!tag`; tag diagnostics keep them.
     pub fn event(&mut self, event: Event<'_>, span: &Span) -> Flow {
         let at = self.positions.span(span);
         match event {
             Event::DocumentStart(_) => return self.document(at),
             Event::Scalar(text, style, _, tag) => {
                 self.check_tag(tag.is_some(), at);
-                self.scalar(text, style, at);
+                self.scalar(text, style, positions::without_properties(self.text, at));
             }
             Event::Alias(_) => {
                 self.diagnostics.push(problems::alias(at));
                 self.attach(Node { value: Value::Scalar(Scalar::new("", ScalarStyle::Plain)), span: at });
             }
             Event::SequenceStart(_, tag) => {
-                return self.open(tag.is_some(), Frame::Seq { start: at, items: Vec::new() });
+                self.check_tag(tag.is_some(), at);
+                return self.open(Frame::new(positions::without_properties(self.text, at), Body::Seq(Vec::new())));
             }
             Event::MappingStart(_, tag) => {
-                let frame = Frame::Map { start: at, entries: Vec::new(), key: KeyState::Expect };
-                return self.open(tag.is_some(), frame);
+                self.check_tag(tag.is_some(), at);
+                let body = Body::Map(MapBody::default());
+                return self.open(Frame::new(positions::without_properties(self.text, at), body));
             }
             Event::SequenceEnd | Event::MappingEnd => self.close(at),
             _ => {}
@@ -80,8 +106,8 @@ impl<'t> Builder<'t> {
         self.failed = true;
     }
 
-    /// The root (a null scalar for an empty file; `None` if the file could not be read) and the
-    /// diagnostics.
+    /// The root (a null scalar for an empty file; `None` after a scanner error or nesting
+    /// deeper than the limit) and the diagnostics.
     pub fn finish(self) -> (Option<Node>, Diagnostics) {
         if self.failed {
             return (None, self.diagnostics);
@@ -106,19 +132,18 @@ impl<'t> Builder<'t> {
         }
     }
 
+    /// Only plain text is checked for a cut at ` #`: a typed value such as `3 #max` is left alone.
     fn scalar(&mut self, text: Cow<'_, str>, style: SaphyrStyle, at: SourceSpan) {
         let scalar = Scalar::new(text, style_of(style));
-        if scalar.style == ScalarStyle::Plain {
+        if scalar.style == ScalarStyle::Plain && scalar.kind == ScalarKind::String {
             self.diagnostics.extend(cut::check(self.text, at));
         }
         self.attach(Node { value: Value::Scalar(scalar), span: at });
     }
 
-    fn open(&mut self, tagged: bool, frame: Frame) -> Flow {
-        let (Frame::Seq { start, .. } | Frame::Map { start, .. }) = &frame;
-        self.check_tag(tagged, *start);
+    fn open(&mut self, frame: Frame) -> Flow {
         if self.stack.len() >= MAX_DEPTH {
-            self.diagnostics.push(problems::too_deep(*start, MAX_DEPTH));
+            self.diagnostics.push(problems::too_deep(frame.start, MAX_DEPTH));
             self.failed = true;
             return Flow::Stop;
         }
@@ -127,30 +152,51 @@ impl<'t> Builder<'t> {
     }
 
     fn close(&mut self, end: SourceSpan) {
-        let node = match self.stack.pop() {
-            Some(Frame::Seq { start, items }) => {
-                let last = items.last().map(|item| item.span);
-                Node { span: collection_span(start, last, end), value: Value::Seq(items) }
-            }
-            Some(Frame::Map { start, entries, .. }) => {
-                let last = entries.last().map(|entry| entry.value.span);
-                Node { span: collection_span(start, last, end), value: Value::Map(entries) }
-            }
-            None => return,
+        let Some(Frame { start, last, body }) = self.stack.pop() else {
+            return;
         };
-        self.attach(node);
+        let value = match body {
+            Body::Seq(items) => Value::Seq(items),
+            Body::Map(map) => Value::Map(map.entries),
+        };
+        self.attach(Node { span: collection_span(start, last, end), value });
     }
 
     fn attach(&mut self, node: Node) {
-        match self.stack.last_mut() {
-            None => self.root = Some(node),
-            Some(Frame::Seq { items, .. }) => items.push(node),
-            Some(Frame::Map { entries, key, .. }) => match std::mem::replace(key, KeyState::Expect) {
-                KeyState::Expect => *key = key_state(node, entries, &mut self.diagnostics),
-                KeyState::Have(text, key_span) => entries.push(Entry { key: text, key_span, value: node }),
-                KeyState::Skip => {}
-            },
+        let Some(frame) = self.stack.last_mut() else {
+            self.root = Some(node);
+            return;
+        };
+        frame.last = Some(node.span);
+        match &mut frame.body {
+            Body::Seq(items) => items.push(node),
+            Body::Map(map) => map.take(node, &mut self.diagnostics),
         }
+    }
+}
+
+impl MapBody {
+    /// Takes `node` as the next key or as the value of the waiting key.
+    fn take(&mut self, node: Node, diagnostics: &mut Diagnostics) {
+        match std::mem::take(&mut self.key) {
+            KeyState::Expect => self.key = self.key_state(node, diagnostics),
+            KeyState::Have(key, key_span) => self.entries.push(Entry { key, key_span, value: node }),
+            KeyState::Skip => {}
+        }
+    }
+
+    /// Accepts `node` as the next key unless it is not text or repeats an earlier key.
+    fn key_state(&mut self, node: Node, diagnostics: &mut Diagnostics) -> KeyState {
+        let Value::Scalar(scalar) = node.value else {
+            diagnostics.push(problems::complex_key(node.span));
+            return KeyState::Skip;
+        };
+        if let Some(first) = self.seen.get(&scalar.text) {
+            diagnostics.push(problems::duplicate_key(node.span, *first, &scalar.text));
+            return KeyState::Skip;
+        }
+        self.seen.insert(scalar.text.clone(), node.span);
+        KeyState::Have(scalar.text, node.span)
     }
 }
 
@@ -158,19 +204,6 @@ impl<'t> Builder<'t> {
 fn collection_span(start: SourceSpan, last_child: Option<SourceSpan>, end: SourceSpan) -> SourceSpan {
     let end = if end.start == end.end { last_child.map_or(start.end, |last| last.end) } else { end.end };
     SourceSpan::new(start.file, start.start, end)
-}
-
-/// Accepts `node` as the next key unless it is not text or repeats an earlier key.
-fn key_state(node: Node, entries: &[Entry], diagnostics: &mut Diagnostics) -> KeyState {
-    let Value::Scalar(scalar) = node.value else {
-        diagnostics.push(problems::complex_key(node.span));
-        return KeyState::Skip;
-    };
-    if let Some(first) = entries.iter().find(|entry| entry.key == scalar.text) {
-        diagnostics.push(problems::duplicate_key(node.span, first.key_span, &scalar.text));
-        return KeyState::Skip;
-    }
-    KeyState::Have(scalar.text, node.span)
 }
 
 const fn style_of(style: SaphyrStyle) -> ScalarStyle {
