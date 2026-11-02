@@ -27,11 +27,6 @@ impl Positions {
         Self { file, wide, len: text.len() }
     }
 
-    /// The file spans are made for.
-    pub const fn file(&self) -> SourceFileId {
-        self.file
-    }
-
     fn offset(&self, index: usize) -> usize {
         let before = self.wide.partition_point(|&(at, _)| at < index);
         let extra = before.checked_sub(1).and_then(|last| self.wide.get(last)).map_or(0, |&(_, extra)| extra);

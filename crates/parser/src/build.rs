@@ -1,23 +1,31 @@
-use std::borrow::Cow;
+//! The [`Node`] tree, built from scalars and collection starts and ends whatever the syntax.
+
 use std::collections::HashMap;
 
-use saphyr_parser::{Event, ScalarStyle as SaphyrStyle, ScanError, Span};
-use vc_diagnostics::Diagnostics;
-use vc_model::{Pos, SourceSpan};
+use vc_diagnostics::{Diagnostic, Diagnostics};
+use vc_model::{Pos, SourceFileId, SourceSpan};
 
-use crate::positions::{self, Positions};
-use crate::{Entry, Node, Scalar, ScalarKind, ScalarStyle, Value, cut, problems};
+use crate::{Entry, Node, Scalar, ScalarStyle, Value, problems};
 
 /// The deepest nesting accepted; deeper input is refused rather than risking the stack.
 const MAX_DEPTH: usize = 128;
 
-/// Whether the event loop goes on.
+/// Whether the reader goes on.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Flow {
-    /// Take the next event.
+    /// Read on.
     Continue,
     /// Stop reading.
     Stop,
+}
+
+/// The kind of collection a reader opens.
+#[derive(Clone, Copy)]
+pub enum Shape {
+    /// A list.
+    Seq,
+    /// A map.
+    Map,
 }
 
 #[derive(Default)]
@@ -48,110 +56,54 @@ struct Frame {
     body: Body,
 }
 
-impl Frame {
-    const fn new(start: SourceSpan, body: Body) -> Self {
-        Self { start, last: None, body }
-    }
-}
-
-/// Builds a [`Node`] tree from saphyr's events, collecting every problem it can see.
-pub struct Builder<'t> {
-    text: &'t str,
-    positions: Positions,
+/// Builds a [`Node`] tree from what a reader finds, collecting every problem it can see. In a
+/// map, nodes alternate between key and value.
+pub struct Builder {
+    file: SourceFileId,
     stack: Vec<Frame>,
     root: Option<Node>,
-    documents: usize,
     failed: bool,
     diagnostics: Diagnostics,
 }
 
-impl<'t> Builder<'t> {
-    /// A builder for `text`, with spans in `positions`' file.
-    pub fn new(text: &'t str, positions: Positions) -> Self {
-        let diagnostics = Diagnostics::new();
-        Self { text, positions, stack: Vec::new(), root: None, documents: 0, failed: false, diagnostics }
+impl Builder {
+    /// A builder for spans in `file`.
+    pub fn new(file: SourceFileId) -> Self {
+        Self { file, stack: Vec::new(), root: None, failed: false, diagnostics: Diagnostics::new() }
     }
 
-    /// Takes one event. Node spans leave out `&anchor` and `!tag`; tag diagnostics keep them.
-    pub fn event(&mut self, event: Event<'_>, span: &Span) -> Flow {
-        let at = self.positions.span(span);
-        match event {
-            Event::DocumentStart(_) => return self.document(at),
-            Event::Scalar(text, style, _, tag) => {
-                self.check_tag(tag.is_some(), at);
-                self.scalar(text, style, positions::without_properties(self.text, at));
-            }
-            Event::Alias(_) => {
-                self.diagnostics.push(problems::alias(at));
-                self.attach(Node { value: Value::Scalar(Scalar::new("", ScalarStyle::Plain)), span: at });
-            }
-            Event::SequenceStart(_, tag) => {
-                self.check_tag(tag.is_some(), at);
-                return self.open(Frame::new(positions::without_properties(self.text, at), Body::Seq(Vec::new())));
-            }
-            Event::MappingStart(_, tag) => {
-                self.check_tag(tag.is_some(), at);
-                let body = Body::Map(MapBody::default());
-                return self.open(Frame::new(positions::without_properties(self.text, at), body));
-            }
-            Event::SequenceEnd | Event::MappingEnd => self.close(at),
-            _ => {}
-        }
-        Flow::Continue
+    /// Records a problem the tree survives.
+    pub fn report(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
     }
 
-    /// Records the error that stopped the scanner; the tree is dropped.
-    pub fn scan_error(&mut self, error: &ScanError) {
-        self.diagnostics.push(problems::scan_error(self.positions.char_at(error.marker()), error.info()));
+    /// Records the problem that stopped the reader; the tree is dropped.
+    pub fn fail(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
         self.failed = true;
     }
 
-    /// The root (a null scalar for an empty file; `None` after a scanner error or nesting
-    /// deeper than the limit) and the diagnostics.
-    pub fn finish(self) -> (Option<Node>, Diagnostics) {
-        if self.failed {
-            return (None, self.diagnostics);
-        }
-        let start = SourceSpan::new(self.positions.file(), Pos::START, Pos::START);
-        let empty = || Node { value: Value::Scalar(Scalar::new("", ScalarStyle::Plain)), span: start };
-        (Some(self.root.unwrap_or_else(empty)), self.diagnostics)
-    }
-
-    fn document(&mut self, at: SourceSpan) -> Flow {
-        self.documents += 1;
-        if self.documents == 1 {
-            return Flow::Continue;
-        }
-        self.diagnostics.push(problems::second_document(at));
-        Flow::Stop
-    }
-
-    fn check_tag(&mut self, tagged: bool, at: SourceSpan) {
-        if tagged {
-            self.diagnostics.push(problems::tag(at));
-        }
-    }
-
-    /// Only plain text is checked for a cut at ` #`: a typed value such as `3 #max` is left alone.
-    fn scalar(&mut self, text: Cow<'_, str>, style: SaphyrStyle, at: SourceSpan) {
-        let scalar = Scalar::new(text, style_of(style));
-        if scalar.style == ScalarStyle::Plain && scalar.kind == ScalarKind::String {
-            self.diagnostics.extend(cut::check(self.text, at));
-        }
+    /// Takes a scalar read at `at`.
+    pub fn scalar(&mut self, scalar: Scalar, at: SourceSpan) {
         self.attach(Node { value: Value::Scalar(scalar), span: at });
     }
 
-    fn open(&mut self, frame: Frame) -> Flow {
+    /// Opens a collection that starts at `at`; stops, dropping the tree, past the nesting limit.
+    pub fn open(&mut self, shape: Shape, at: SourceSpan) -> Flow {
         if self.stack.len() >= MAX_DEPTH {
-            self.diagnostics.push(problems::too_deep(frame.start, MAX_DEPTH));
-            self.failed = true;
+            self.fail(problems::too_deep(at, MAX_DEPTH));
             return Flow::Stop;
         }
-        self.stack.push(frame);
+        let body = match shape {
+            Shape::Seq => Body::Seq(Vec::new()),
+            Shape::Map => Body::Map(MapBody::default()),
+        };
+        self.stack.push(Frame { start: at, last: None, body });
         Flow::Continue
     }
 
-    fn close(&mut self, end: SourceSpan) {
+    /// Closes the innermost collection; `end` is its closing bracket, or empty for a block one.
+    pub fn close(&mut self, end: SourceSpan) {
         let Some(Frame { start, last, body }) = self.stack.pop() else {
             return;
         };
@@ -160,6 +112,17 @@ impl<'t> Builder<'t> {
             Body::Map(map) => Value::Map(map.entries),
         };
         self.attach(Node { span: collection_span(start, last, end), value });
+    }
+
+    /// The root (a null scalar for an empty file; `None` after a reader error or nesting deeper
+    /// than the limit) and the diagnostics.
+    pub fn finish(self) -> (Option<Node>, Diagnostics) {
+        if self.failed {
+            return (None, self.diagnostics);
+        }
+        let start = SourceSpan::new(self.file, Pos::START, Pos::START);
+        let empty = || Node { value: Value::Scalar(Scalar::new("", ScalarStyle::Plain)), span: start };
+        (Some(self.root.unwrap_or_else(empty)), self.diagnostics)
     }
 
     fn attach(&mut self, node: Node) {
@@ -204,14 +167,4 @@ impl MapBody {
 fn collection_span(start: SourceSpan, last_child: Option<SourceSpan>, end: SourceSpan) -> SourceSpan {
     let end = if end.start == end.end { last_child.map_or(start.end, |last| last.end) } else { end.end };
     SourceSpan::new(start.file, start.start, end)
-}
-
-const fn style_of(style: SaphyrStyle) -> ScalarStyle {
-    match style {
-        SaphyrStyle::Plain => ScalarStyle::Plain,
-        SaphyrStyle::SingleQuoted => ScalarStyle::SingleQuoted,
-        SaphyrStyle::DoubleQuoted => ScalarStyle::DoubleQuoted,
-        SaphyrStyle::Literal => ScalarStyle::Literal,
-        SaphyrStyle::Folded => ScalarStyle::Folded,
-    }
 }
