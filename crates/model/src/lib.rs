@@ -12,13 +12,17 @@
 //! ```
 
 mod error;
+mod files;
 mod ids;
+mod source;
 mod span;
 mod strings;
 mod units;
 
 pub use error::ModelError;
+pub use files::SourceFiles;
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
+pub use source::{ContentHash, FileKind, SourceFile, SourcePath};
 pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};
 pub use units::{Duration, Size};

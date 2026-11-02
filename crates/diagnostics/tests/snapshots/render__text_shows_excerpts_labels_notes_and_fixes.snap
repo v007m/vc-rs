@@ -1,0 +1,40 @@
+---
+source: crates/diagnostics/tests/render.rs
+expression: text
+---
+error[V2003]: unknown api "orders#plcae"
+ --> services/orders/checkout.test.yaml:4:11
+  |
+4 |     call: orders#plcae
+  |           ^^^^^^^^^^^^ not defined
+  = help: did you mean orders#place?
+  = fix: Replace with orders#place (certain)
+
+error[V2002]: unknown profile "stagng"
+ --> services/orders/checkout.test.yaml:5:16
+  |
+5 |     profiles: [stagng]
+  |                ^^^^^^ no such profile
+ ::: vibranium.config.yaml:3:9
+  |
+3 |   - id: staging
+  |         ------- a close match is defined here
+  = note: profiles are defined in vibranium.config.yaml
+  = fix: Replace with staging
+
+warning[V3205]: a body default reaches a GET step
+  --> services/orders/checkout.test.yaml:7:7
+   |
+ 6 |     body:
+   |     -----
+ 7 |       items:
+   |       ^^^^^^
+   |       ------
+ 8 |         - sku: A1
+   |         ^^^^^^^^^
+   |         ---------
+ 9 |           qty: 2
+   |           ^^^^^^ sent with GET orders#list
+   |           ------
+10 |       coupon: SAVE10
+   |       -------------- test-level default set here
