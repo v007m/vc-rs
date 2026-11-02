@@ -124,7 +124,8 @@ fn statuses_are_codes_or_classes() {
         (ok("1xx"), ok("2xx"), ok("5xx")),
         (StatusPattern::Class(1), StatusPattern::Class(2), StatusPattern::Class(5))
     );
-    for text in ["", "99", "099", "600", "2000", "+20", "0xx", "6xx", "22xx", "xx", "2XX", "+xx", "20x"] {
+    for text in ["", "99", "099", "600", "2000", "+20", "+99", "+1xx", "0xx", "6xx", "22xx", "xx", "2XX", "+xx", "20x"]
+    {
         let diagnostic = *parse_status(text, span()).unwrap_err();
         assert_eq!((diagnostic.code, diagnostic.primary.span), (Code::V2303, span()), "{text}");
     }

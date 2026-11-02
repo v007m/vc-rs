@@ -45,9 +45,9 @@ pub fn parse_size(text: &str, span: SourceSpan) -> Result<Size, Box<Diagnostic>>
 ///
 /// V2303 for anything else.
 pub fn parse_status(text: &str, span: SourceSpan) -> Result<StatusPattern, Box<Diagnostic>> {
-    let digits = |t: &&str| t.bytes().all(|b| b.is_ascii_digit());
-    let class = text.strip_suffix("xx").filter(|d| d.len() == 1 && digits(d)).and_then(|d| d.parse::<u8>().ok());
-    let code = Some(text).filter(|t| t.len() == 3 && digits(t)).and_then(|t| t.parse::<u16>().ok());
+    // One char that parses is a digit; three that parse into 100..=599 are three digits.
+    let class = text.strip_suffix("xx").filter(|d| d.len() == 1).and_then(|d| d.parse::<u8>().ok());
+    let code = Some(text).filter(|t| t.len() == 3).and_then(|t| t.parse::<u16>().ok());
     let class = class.filter(|c| (1..=5).contains(c));
     let code = code.filter(|c| (100..=599).contains(c));
     class.map(StatusPattern::Class).or_else(|| code.map(StatusPattern::Code)).ok_or_else(|| {
