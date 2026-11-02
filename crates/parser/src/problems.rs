@@ -37,10 +37,13 @@ pub fn scan_error(at: SourceSpan, info: &str) -> Diagnostic {
             Diagnostic::new(Code::V1002, at, info).label("the structure breaks here").help(INDENT_HELP)
         }
         Some(ScanKind::Alias) => alias(at),
-        None => {
-            Diagnostic::new(Code::V1001, at, format!("not valid YAML or JSON: {info}")).label("here").help(SYNTAX_HELP)
-        }
+        None => Diagnostic::new(Code::V1001, at, format!("not valid YAML: {info}")).label("here").help(SYNTAX_HELP),
     }
+}
+
+/// A JSON file breaks the grammar at `at`.
+pub fn json_syntax(at: SourceSpan, message: &str, help: &str) -> Diagnostic {
+    Diagnostic::new(Code::V1001, at, format!("not valid JSON: {message}")).label("here").help(help)
 }
 
 /// A key repeated in one map; the first one is kept.
