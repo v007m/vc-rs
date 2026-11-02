@@ -3,8 +3,11 @@
 use proptest::prelude::*;
 use serde_json::json;
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Namespace, Part, Pos, Reference, Segment, SourceFileId, SourceSpan, StringTable, Template};
-use vc_template::{parse, root_name};
+use vc_model::{
+    ModelError, Namespace, Part, Pos, Reference, ScalarSource, ScalarStyle, Segment, SourceFileId, SourceSpan,
+    StringTable, Template,
+};
+use vc_template::{TemplateError, parse, root_name};
 
 const LINE: u32 = 2;
 const COLUMN: u32 = 5;
@@ -27,12 +30,23 @@ fn cols(from: u32, to: u32) -> SourceSpan {
     SourceSpan::new(SourceFileId::new(0), at(from), at(to))
 }
 
+fn plain(text: &str) -> ScalarSource {
+    ScalarSource { span: scalar(text, 0), style: ScalarStyle::Plain }
+}
+
 fn ok(text: &str) -> Template {
-    parse(text, scalar(text, 0), &mut StringTable::new()).unwrap()
+    parse(text, plain(text), &mut StringTable::new()).unwrap()
+}
+
+fn syntax(result: Result<Template, TemplateError>) -> Diagnostic {
+    match result {
+        Err(TemplateError::Syntax(diagnostic)) => *diagnostic,
+        other => panic!("expected a syntax error, got {other:?}"),
+    }
 }
 
 fn err(text: &str) -> Diagnostic {
-    *parse(text, scalar(text, 0), &mut StringTable::new()).unwrap_err()
+    syntax(parse(text, plain(text), &mut StringTable::new()))
 }
 
 fn only_ref(text: &str) -> Reference {
@@ -110,7 +124,7 @@ fn escapes_and_lone_dollars_are_literal() {
 #[test]
 fn other_roots_are_step_ids() {
     let mut strings = StringTable::new();
-    let template = parse("${place.body.total}", scalar("${place.body.total}", 0), &mut strings).unwrap();
+    let template = parse("${place.body.total}", plain("${place.body.total}"), &mut strings).unwrap();
     let Namespace::Step(id) = template.single_ref().unwrap().ns else { panic!("expected a step") };
     assert_eq!(strings.resolve(id), Some("place"));
     assert_eq!(root_name(Namespace::Step(id)), None);
@@ -135,6 +149,7 @@ fn syntax_errors_point_at_the_character_where_parsing_stopped() {
         ("${var.}", 6, 7),
         ("${1abc}", 2, 3),
         ("${var.a[}", 8, 9),
+        ("${var.a[0}", 9, 10),
         ("${var.a[x]}", 8, 9),
         (r#"${var.a["x}"#, 11, 11),
         ("${var.x | }", 10, 11),
@@ -159,15 +174,20 @@ fn only_generators_take_arguments() {
 #[test]
 fn quoted_scalars_shift_by_the_quote_and_others_map_to_the_whole_scalar() {
     let text = "${var.x}";
-    let quoted = parse(text, scalar(text, 1), &mut StringTable::new()).unwrap();
-    assert_eq!(quoted.single_ref().unwrap().span, cols(1, 9));
-    let block =
-        SourceSpan::new(SourceFileId::new(0), Pos::new(LINE, COLUMN, OFFSET), Pos::new(LINE, COLUMN + 30, OFFSET + 30));
-    let escaped = parse(text, block, &mut StringTable::new()).unwrap();
-    assert_eq!(escaped.single_ref().unwrap().span, block);
-    let lines = SourceSpan::new(block.file, block.start, Pos::new(LINE + 1, 1, OFFSET + text.len()));
-    let folded = parse(text, lines, &mut StringTable::new()).unwrap();
-    assert_eq!(folded.single_ref().unwrap().span, lines);
+    let span_of = |span, style| parse(text, ScalarSource { span, style }, &mut StringTable::new()).unwrap();
+    let span_of = |span, style| span_of(span, style).single_ref().unwrap().span;
+    for style in [ScalarStyle::DoubleQuoted { escaped: false }, ScalarStyle::SingleQuoted { escaped: false }] {
+        assert_eq!(span_of(scalar(text, 1), style), cols(1, 9), "{style:?}");
+    }
+    for style in
+        [ScalarStyle::DoubleQuoted { escaped: true }, ScalarStyle::SingleQuoted { escaped: true }, ScalarStyle::Block]
+    {
+        assert_eq!(span_of(scalar(text, 1), style), scalar(text, 1), "{style:?}");
+    }
+    assert_eq!(span_of(scalar(text, 1), ScalarStyle::Plain), scalar(text, 1));
+    let lines =
+        SourceSpan::new(SourceFileId::new(0), scalar(text, 0).start, Pos::new(LINE + 1, 1, OFFSET + text.len()));
+    assert_eq!(span_of(lines, ScalarStyle::Plain), lines);
 }
 
 #[test]
@@ -183,14 +203,74 @@ fn columns_count_characters_and_offsets_count_bytes() {
     assert_eq!(unclosed.primary.span.start, Pos::new(LINE, COLUMN + 3, OFFSET + 4));
 }
 
+#[test]
+fn errors_say_what_the_innermost_rule_expected() {
+    let cases = [
+        ("${var.a[0}", "expected `]`"),
+        ("${var.a[x]}", "expected an index, `*` or a quoted key"),
+        ("${var.}", "expected a key after `.`"),
+        ("${}", "expected a root such as `var`"),
+        ("${var.x y}", "expected `}` or `|`"),
+        ("${var.x | }", "expected a pipe name"),
+        ("${var.x | take(}", "expected a literal, `,` or `)`"),
+        ("${var.x | take(007)}", "expected a number without leading zeros"),
+        ("${var.x | take(1.)}", "expected a digit after `.`"),
+        ("${var.x | take(-)}", "expected a digit"),
+        ("${var.x | take(1e)}", "expected a digit in the exponent"),
+        ("${var.x | take(1e999)}", "expected a number in range"),
+        (r#"${var.a["x}"#, "expected a closing `\"`"),
+    ];
+    for (text, expected) in cases {
+        assert_eq!(err(text).message, format!("invalid template: {expected}"), "{text}");
+    }
+}
+
+#[test]
+fn literal_numbers_are_json_numbers() {
+    let args = |text: &str| only_ref(&format!("${{var.x | f({text})}}")).pipes[0].args.clone();
+    assert_eq!(args("0, 12, -7"), [json!(0), json!(12), json!(-7)]);
+    assert_eq!(
+        args("0.5, -2.25, 1e3, 2E-2, 1.5e+2"),
+        [json!(0.5), json!(-2.25), json!(1000.0), json!(0.02), json!(150.0)]
+    );
+}
+
+#[test]
+fn bare_status_headers_and_body_are_response_aliases() {
+    for (text, path) in [
+        ("${status}", keys(&["status"])),
+        ("${headers.etag}", keys(&["headers", "etag"])),
+        ("${body.items[0]}", [keys(&["body", "items"]), vec![Segment::Index(0)]].concat()),
+    ] {
+        let reference = only_ref(text);
+        assert_eq!(
+            (reference.ns, reference.path.segments, reference.response_alias),
+            (Namespace::Response, path, true)
+        );
+    }
+    let full = only_ref("${response.status}");
+    assert_eq!((full.ns, full.path.segments, full.response_alias), (Namespace::Response, keys(&["status"]), false));
+    assert!(!only_ref("${var.status}").response_alias);
+}
+
+#[test]
+fn a_full_string_table_is_internal_not_syntax() {
+    let error = TemplateError::from(ModelError::StringTableFull(3));
+    assert!(matches!(error, TemplateError::Internal(ModelError::StringTableFull(3))));
+    assert_eq!(error.to_string(), ModelError::StringTableFull(3).to_string());
+    let syntax = TemplateError::Syntax(Box::new(err("${")));
+    assert_eq!(syntax.to_string(), err("${").message);
+}
+
 proptest! {
     #[test]
     fn parse_never_panics(text in "\\PC{0,60}", quotes in 0usize..3) {
-        let _ = parse(&text, scalar(&text, quotes), &mut StringTable::new());
+        let style = if quotes == 0 { ScalarStyle::Plain } else { ScalarStyle::DoubleQuoted { escaped: quotes > 1 } };
+        let _ = parse(&text, ScalarSource { span: scalar(&text, quotes), style }, &mut StringTable::new());
     }
 
     #[test]
     fn parse_never_panics_on_template_like_text(text in r#"[$${}a-z.|()'"\[\]*0-9, -]{0,40}"#) {
-        let _ = parse(&text, scalar(&text, 0), &mut StringTable::new());
+        let _ = parse(&text, plain(&text), &mut StringTable::new());
     }
 }

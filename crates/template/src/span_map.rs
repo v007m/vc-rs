@@ -1,13 +1,14 @@
 use std::ops::Range;
 
-use vc_model::{Pos, SourceSpan};
+use vc_model::{Pos, ScalarSource, ScalarStyle, SourceSpan};
 
 /// Maps byte ranges of a scalar's decoded text to spans in its source file.
 ///
-/// Exact when the scalar sits on one line and its source is the text itself (a plain scalar)
-/// or the text between two quotes (a quoted scalar without escapes). Otherwise, such as a
-/// block scalar, a folded line or a quoted scalar with escapes, every range maps to the whole
-/// scalar: the diagnostic points at the right value, not the right character.
+/// Exact only when the scalar sits on one line and its source is the text itself: a plain
+/// scalar, or a quoted one with no escapes (no `''` in single quotes, no backslash in double
+/// quotes). Otherwise, such as a block scalar, a folded line or an escaped quoted scalar, every
+/// range maps to the whole scalar: the diagnostic points at the right value, not the right
+/// character, and offers no edit.
 pub struct SpanMap<'a> {
     text: &'a str,
     scalar: SourceSpan,
@@ -15,11 +16,18 @@ pub struct SpanMap<'a> {
 }
 
 impl<'a> SpanMap<'a> {
-    /// The map for `text`, read from the scalar at `scalar`.
-    pub fn new(text: &'a str, scalar: SourceSpan) -> Self {
-        let source_len = scalar.byte_range().len();
+    /// The map for `text`, read from `source`.
+    pub fn new(text: &'a str, source: ScalarSource) -> Self {
+        let quotes = match source.style {
+            ScalarStyle::Plain => Some(0),
+            ScalarStyle::SingleQuoted { escaped: false } | ScalarStyle::DoubleQuoted { escaped: false } => Some(1),
+            ScalarStyle::SingleQuoted { escaped: true }
+            | ScalarStyle::DoubleQuoted { escaped: true }
+            | ScalarStyle::Block => None,
+        };
+        let scalar = source.span;
         let one_line = scalar.start.line == scalar.end.line;
-        let shift = [0, 1].into_iter().find(|quotes| one_line && source_len == text.len() + 2 * quotes);
+        let shift = quotes.filter(|quotes| one_line && scalar.byte_range().len() == text.len() + 2 * quotes);
         Self { text, scalar, shift }
     }
 

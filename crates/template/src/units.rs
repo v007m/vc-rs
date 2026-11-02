@@ -18,7 +18,7 @@ pub fn parse_duration(text: &str, span: SourceSpan) -> Result<Duration, Box<Diag
     let millis = with_unit(text, DURATION_UNITS).ok_or_else(|| {
         let diagnostic = Diagnostic::new(codes::UNIT, span, format!("invalid duration `{text}`"))
             .help("write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`");
-        let bare = !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit());
+        let bare = text.bytes().all(|b| b.is_ascii_digit()) && text.parse::<u64>().is_ok();
         let fix = Fix::certain(format!("Write {text}ms"), vec![TextEdit::replace(span, format!("{text}ms"))]);
         Box::new(if bare { diagnostic.fix(fix) } else { diagnostic })
     })?;

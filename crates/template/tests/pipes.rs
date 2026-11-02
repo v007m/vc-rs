@@ -2,15 +2,22 @@
 
 use serde_json::json;
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Pos, SourceFileId, SourceSpan, StringTable};
-use vc_template::{ArgType, PipeRegistry, PipeSignature, ValueType, parse};
+use vc_model::{Part, Pos, ScalarSource, ScalarStyle, SourceFileId, SourceSpan, StringTable};
+use vc_template::{ArgType, PipeRegistry, PipeSignature, TemplateError, ValueType, parse};
 
 /// Parses `${var.x | <pipes>}` on one plain line and returns its pipe calls.
 fn calls(pipes: &str) -> Vec<vc_model::PipeCall> {
     let text = format!("${{var.x | {pipes}}}");
     let end = Pos::new(1, 1 + u32::try_from(text.len()).unwrap(), text.len());
-    let scalar = SourceSpan::new(SourceFileId::new(0), Pos::START, end);
-    parse(&text, scalar, &mut StringTable::new()).unwrap().single_ref().unwrap().pipes.clone()
+    let span = SourceSpan::new(SourceFileId::new(0), Pos::START, end);
+    pipes_of(&text, ScalarSource { span, style: ScalarStyle::Plain })
+}
+
+fn pipes_of(text: &str, source: ScalarSource) -> Vec<vc_model::PipeCall> {
+    let Some(Part::Ref(reference)) = parse(text, source, &mut StringTable::new()).unwrap().parts.pop() else {
+        panic!("expected a trailing reference")
+    };
+    reference.pipes
 }
 
 fn chain(pipes: &str, input: ValueType) -> Result<ValueType, Box<Diagnostic>> {
@@ -62,7 +69,7 @@ fn wrong_argument_counts_and_types_are_v2308() {
         let diagnostic = chain_err(bad, ValueType::List);
         assert_eq!(
             (diagnostic.code, diagnostic.message.as_str()),
-            (Code::V2308, "argument 1 of pipe `take` must be Count")
+            (Code::V2308, "argument 1 of pipe `take` must be a whole number ≥ 0")
         );
     }
     assert!(chain("take(0)", ValueType::List).is_ok());
@@ -71,7 +78,7 @@ fn wrong_argument_counts_and_types_are_v2308() {
 #[test]
 fn a_pipe_given_the_wrong_type_is_v2304() {
     let diagnostic = chain_err("trim | take(1)", ValueType::Text);
-    assert_eq!((diagnostic.code, diagnostic.message.as_str()), (Code::V2304, "pipe `take` takes List, not Text"));
+    assert_eq!((diagnostic.code, diagnostic.message.as_str()), (Code::V2304, "pipe `take` takes a list, not text"));
     assert_eq!(chain_err("number", ValueType::Object).code, Code::V2304);
     assert_eq!(chain_err("number", ValueType::List).code, Code::V2304);
 }
@@ -90,7 +97,7 @@ fn value_types_accept_themselves_any_and_scalars() {
 fn plugins_register_pipes_under_their_prefix() {
     let mut registry = PipeRegistry::builtin();
     assert!(registry.get("acme.mask").is_none());
-    registry.register("acme.mask", PipeSignature::new(ValueType::Text, ValueType::Text, &[ArgType::Any]));
+    registry.register("acme.mask", PipeSignature::new(ValueType::Text, ValueType::Text, &[ArgType::Any])).unwrap();
     assert_eq!(registry.get("acme.mask").unwrap().signature.args, [ArgType::Any]);
     assert_eq!(registry.check_chain(&calls("acme.mask(\"*\")"), ValueType::Text).unwrap(), ValueType::Text);
     assert_eq!(registry.check(&calls("acme.mask(1)")[0]).unwrap().input, ValueType::Text);
@@ -98,11 +105,60 @@ fn plugins_register_pipes_under_their_prefix() {
 }
 
 #[test]
+fn registering_rejects_a_taken_name() {
+    let mut registry = PipeRegistry::builtin();
+    let signature = PipeSignature::new(ValueType::Text, ValueType::Text, &[]);
+    assert!(registry.register("acme.mask", signature).is_ok());
+    let duplicate = registry.register("acme.mask", signature).unwrap_err();
+    assert!(matches!(&duplicate, TemplateError::DuplicatePipe(name) if name == "acme.mask"));
+    assert_eq!(duplicate.to_string(), "pipe `acme.mask` is already registered");
+    assert!(registry.register("acme.text.mask", signature).is_ok());
+}
+
+#[test]
+fn registering_rejects_names_without_a_prefix() {
+    let mut registry = PipeRegistry::builtin();
+    let signature = PipeSignature::new(ValueType::Text, ValueType::Text, &[]);
+    for name in ["mask", "trim", "acme.", ".mask", "acme..mask", ""] {
+        let error = registry.register(name, signature).unwrap_err();
+        assert!(matches!(&error, TemplateError::UnprefixedPipe(n) if n == name), "{name}");
+    }
+    let message = registry.register("mask", signature).unwrap_err().to_string();
+    assert_eq!(message, "pipe `mask` needs a plugin prefix, such as `acme.mask`");
+}
+
+#[test]
+fn types_describe_themselves_in_the_syntax_reference_words() {
+    use ValueType::{Any, Bool, List, Number, Object, Scalar, Text};
+    let words: Vec<String> = [Any, Scalar, Text, Number, Bool, List, Object].iter().map(ToString::to_string).collect();
+    assert_eq!(
+        words,
+        ["any value", "text, a number or a boolean", "text", "a number", "a boolean", "a list", "an object"]
+    );
+    assert_eq!((ArgType::Any.to_string(), ArgType::Count.describe()), ("any literal".to_owned(), "a whole number ≥ 0"));
+}
+
+#[test]
 fn approximate_spans_get_help_but_no_fix() {
     let text = "${var.x | uper}";
     let block = SourceSpan::new(SourceFileId::new(0), Pos::START, Pos::new(3, 1, 40));
-    let pipes = parse(text, block, &mut StringTable::new()).unwrap().single_ref().unwrap().pipes.clone();
+    let pipes = pipes_of(text, ScalarSource { span: block, style: ScalarStyle::Block });
     let diagnostic = *PipeRegistry::builtin().check(&pipes[0]).unwrap_err();
     assert_eq!(diagnostic.primary.span, block);
     assert!(diagnostic.fixes.is_empty() && !diagnostic.help.is_empty());
+}
+
+#[test]
+fn escaped_quoted_scalars_never_get_a_fix() {
+    // `"\L\t${var.x | uper}"` decodes to 2 fewer bytes than its source: the length alone
+    // cannot tell it from an unescaped scalar.
+    let text = "\u{2028}\t${var.x | uper}";
+    let line = |len: usize| Pos::new(1, 1 + u32::try_from(len).unwrap(), len);
+    let source_len = text.len() + 2;
+    let span = SourceSpan::new(SourceFileId::new(0), Pos::START, line(source_len));
+    for style in [ScalarStyle::DoubleQuoted { escaped: true }, ScalarStyle::SingleQuoted { escaped: true }] {
+        let diagnostic = *PipeRegistry::builtin().check(&pipes_of(text, ScalarSource { span, style })[0]).unwrap_err();
+        assert_eq!(diagnostic.primary.span, span, "{style:?}");
+        assert!(diagnostic.fixes.is_empty() && diagnostic.help == ["did you mean `upper`?"], "{style:?}");
+    }
 }

@@ -1595,6 +1595,7 @@ dependencies = [
  "proptest",
  "serde_json",
  "strsim",
+ "thiserror",
  "vc-diagnostics",
  "vc-model",
  "winnow",

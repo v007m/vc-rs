@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::fmt;
 
 use serde_json::Value;
 use vc_diagnostics::{Diagnostic, Fix, TextEdit};
 use vc_model::PipeCall;
 
-use crate::codes;
+use crate::{TemplateError, codes};
 
 /// The type of a value as far as the compiler can tell before the run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -32,6 +33,26 @@ impl ValueType {
         let scalar = matches!(actual, Self::Text | Self::Number | Self::Bool);
         self == actual || self == Self::Any || actual == Self::Any || (self == Self::Scalar && scalar)
     }
+
+    /// The type in the syntax reference's words: `a list`, `text`.
+    #[must_use]
+    pub const fn describe(self) -> &'static str {
+        match self {
+            Self::Any => "any value",
+            Self::Scalar => "text, a number or a boolean",
+            Self::Text => "text",
+            Self::Number => "a number",
+            Self::Bool => "a boolean",
+            Self::List => "a list",
+            Self::Object => "an object",
+        }
+    }
+}
+
+impl fmt::Display for ValueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.describe())
+    }
 }
 
 /// The kind of literal a pipe argument must be.
@@ -46,6 +67,21 @@ pub enum ArgType {
 impl ArgType {
     fn accepts(self, value: &Value) -> bool {
         self == Self::Any || value.as_u64().is_some()
+    }
+
+    /// The argument kind in the syntax reference's words: `a whole number ≥ 0`.
+    #[must_use]
+    pub const fn describe(self) -> &'static str {
+        match self {
+            Self::Any => "any literal",
+            Self::Count => "a whole number ≥ 0",
+        }
+    }
+}
+
+impl fmt::Display for ArgType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.describe())
     }
 }
 
@@ -85,16 +121,26 @@ impl PipeRegistry {
     /// A registry holding the built-in pipes.
     #[must_use]
     pub fn builtin() -> Self {
-        let mut registry = Self::default();
-        for (name, signature) in crate::builtin_pipes::BUILTIN {
-            registry.register(*name, *signature);
-        }
-        registry
+        let pipes = crate::builtin_pipes::BUILTIN.iter();
+        Self { pipes: pipes.map(|(name, signature)| ((*name).to_owned(), PipeDef { signature: *signature })).collect() }
     }
 
-    /// Adds or replaces the pipe `name`.
-    pub fn register(&mut self, name: impl Into<String>, signature: PipeSignature) {
-        self.pipes.insert(name.into(), PipeDef { signature });
+    /// Adds a plugin pipe, named under its plugin's prefix: `acme.mask`.
+    ///
+    /// # Errors
+    ///
+    /// [`TemplateError::UnprefixedPipe`] for a name without a `prefix.`, and
+    /// [`TemplateError::DuplicatePipe`] for a name already registered.
+    pub fn register(&mut self, name: &str, signature: PipeSignature) -> Result<(), TemplateError> {
+        let words: Vec<&str> = name.split('.').collect();
+        if words.len() < 2 || words.contains(&"") {
+            return Err(TemplateError::UnprefixedPipe(name.to_owned()));
+        }
+        if self.pipes.contains_key(name) {
+            return Err(TemplateError::DuplicatePipe(name.to_owned()));
+        }
+        self.pipes.insert(name.to_owned(), PipeDef { signature });
+        Ok(())
     }
 
     /// The pipe `name`, if registered.
@@ -115,7 +161,7 @@ impl PipeRegistry {
             if signature.input.accepts(current) {
                 return Ok(signature.output);
             }
-            let message = format!("pipe `{}` takes {:?}, not {current:?}", call.name, signature.input);
+            let message = format!("pipe `{}` takes {}, not {current}", call.name, signature.input);
             Err(Box::new(Diagnostic::new(codes::PIPE_TYPE, call.span, message)))
         })
     }
@@ -134,7 +180,7 @@ impl PipeRegistry {
         }
         let bad = params.iter().zip(&call.args).enumerate().find(|(_, (param, arg))| !param.accepts(arg));
         bad.map_or(Ok(def.signature), |(index, (param, _))| {
-            let message = format!("argument {} of pipe `{}` must be {param:?}", index + 1, call.name);
+            let message = format!("argument {} of pipe `{}` must be {param}", index + 1, call.name);
             Err(Box::new(Diagnostic::new(codes::PIPE_CALL, call.span, message)))
         })
     }

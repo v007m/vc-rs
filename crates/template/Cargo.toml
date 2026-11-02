@@ -11,6 +11,7 @@ publish.workspace = true
 [dependencies]
 serde_json.workspace = true
 strsim.workspace = true
+thiserror.workspace = true
 vc-diagnostics.workspace = true
 vc-model.workspace = true
 winnow.workspace = true

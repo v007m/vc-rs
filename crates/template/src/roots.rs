@@ -1,5 +1,5 @@
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Namespace, Reference, StringTable, Sym};
+use vc_model::{Namespace, Reference, Segment, StringTable, Sym};
 
 use crate::codes;
 use crate::parse::root_name;
@@ -24,6 +24,7 @@ const LIMITED: &[(Namespace, Code, &str)] = &[
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Roots {
     added: Vec<Namespace>,
+    in_expect: bool,
 }
 
 impl Roots {
@@ -37,6 +38,13 @@ impl Roots {
     #[must_use]
     pub fn with_call(self) -> Self {
         self.with(&[Namespace::Response, Namespace::Request])
+    }
+
+    /// Inside `expect`: `response` and `request`, and bare `status`, `headers` and `body`
+    /// short for `response.…`.
+    #[must_use]
+    pub fn in_expect(self) -> Self {
+        Self { in_expect: true, ..self.with_call() }
     }
 
     /// Inside `forEach`: `item` and `iteration`.
@@ -73,8 +81,11 @@ impl Roots {
     /// # Errors
     ///
     /// V2102 for `item`, `example` or `iteration` outside its block, V2105 for any other root
-    /// not available here. Whether a step id names a step at all is the linker's check.
+    /// not available here, including a bare `status`, `headers` or `body` outside `expect`. Whether a step id names a step at all is the linker's check.
     pub fn check(&self, reference: &Reference, strings: &StringTable) -> Result<(), Box<Diagnostic>> {
+        if reference.response_alias && !self.in_expect {
+            return Err(Box::new(alias_outside_expect(reference)));
+        }
         let ns = reference.ns;
         if EVERYWHERE.contains(&ns) || self.added.contains(&ns) {
             return Ok(());
@@ -96,4 +107,13 @@ fn step_name(ns: Namespace, strings: &StringTable) -> Option<&str> {
         Namespace::Step(id) => strings.resolve(id),
         _ => None,
     }
+}
+
+fn alias_outside_expect(reference: &Reference) -> Diagnostic {
+    let name = match reference.path.segments.first() {
+        Some(Segment::Key(name)) => name.as_str(),
+        _ => "body",
+    };
+    let message = format!("bare `{name}` is short for `response.{name}` only inside expect");
+    Diagnostic::new(codes::ROOT_UNAVAILABLE, reference.span, message).help(format!("write `response.{name}`"))
 }

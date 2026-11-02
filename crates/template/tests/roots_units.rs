@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Pos, Reference, SourceFileId, SourceSpan, StatusPattern, StringTable};
+use vc_model::{Pos, Reference, ScalarSource, ScalarStyle, SourceFileId, SourceSpan, StatusPattern, StringTable};
 use vc_template::{Roots, parse, parse_duration, parse_size, parse_status};
 
 fn span() -> SourceSpan {
@@ -12,8 +12,8 @@ fn span() -> SourceSpan {
 
 fn reference(text: &str, strings: &mut StringTable) -> Reference {
     let end = Pos::new(1, 1 + u32::try_from(text.len()).unwrap(), text.len());
-    let scalar = SourceSpan::new(SourceFileId::new(0), Pos::START, end);
-    parse(text, scalar, strings).unwrap().single_ref().cloned().unwrap()
+    let span = SourceSpan::new(SourceFileId::new(0), Pos::START, end);
+    parse(text, ScalarSource { span, style: ScalarStyle::Plain }, strings).unwrap().single_ref().cloned().unwrap()
 }
 
 fn check(roots: &Roots, text: &str) -> Result<(), Box<Diagnostic>> {
@@ -40,6 +40,21 @@ fn call_roots_need_a_call() {
     assert_eq!(code(&Roots::new(), "${request.url}"), Code::V2105);
     assert!(check(&Roots::new().with_call(), "${response.status}").is_ok());
     assert!(check(&Roots::new().with_call(), "${request.url}").is_ok());
+}
+
+#[test]
+fn response_aliases_work_only_inside_expect() {
+    let expect = Roots::new().in_expect();
+    for text in ["${status}", "${headers.etag}", "${body.id}", "${response.body}", "${request.url}"] {
+        assert!(check(&expect, text).is_ok(), "{text}");
+    }
+    for roots in [Roots::new(), Roots::new().with_call()] {
+        let diagnostic = *check(&roots, "${body.id}").unwrap_err();
+        assert_eq!(diagnostic.code, Code::V2105);
+        assert_eq!(diagnostic.message, "bare `body` is short for `response.body` only inside expect");
+        assert_eq!(diagnostic.help, ["write `response.body`"]);
+    }
+    assert_eq!(code(&Roots::new().with_call(), "${status}"), Code::V2105);
 }
 
 #[test]
@@ -96,7 +111,18 @@ fn a_bare_number_gets_a_certain_fix() {
 
 #[test]
 fn bad_durations_have_no_fix() {
-    for text in ["", "ms", "2 s", "2sec", "1.5s", "-1s", "2S", "99999999999999999999h", "18446744073709551615h"] {
+    for text in [
+        "99999999999999999999",
+        "",
+        "ms",
+        "2 s",
+        "2sec",
+        "1.5s",
+        "-1s",
+        "2S",
+        "99999999999999999999h",
+        "18446744073709551615h",
+    ] {
         let diagnostic = *parse_duration(text, span()).unwrap_err();
         assert_eq!((diagnostic.code, diagnostic.fixes.len()), (Code::V2301, 0), "{text}");
         assert_eq!(diagnostic.primary.span, span());
