@@ -1566,6 +1566,11 @@ dependencies = [
 [[package]]
 name = "vc-compiler"
 version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vc-diagnostics",
+ "vc-model",
+]
 
 [[package]]
 name = "vc-diagnostics"
