@@ -409,7 +409,7 @@ pub struct Action {
     pub retry: Option<Retry>,
     pub keep: bool,                       // skip the api's cleanup
     pub cache: Option<CacheSpec>,         // for, check (an ActionId)
-    pub repeat: Option<Loop>,             // Repeat(n) | ForEach(TemplateValue), with parallel
+    pub repeat: Option<Loop>,             // Repeat(n) | ForEach(TemplateValue), each with parallel: u32 (iterations at a time; 1 runs them in order)
     pub span: SourceSpan,
 }
 
@@ -456,13 +456,16 @@ pub enum ScalarStyle { Plain, SingleQuoted { escaped: bool }, DoubleQuoted { esc
 pub enum TemplateValue {
     Null, Bool(bool), Number(serde_json::Number), String(Template),
     List(Vec<TemplateValue>), Map(IndexMap<String, TemplateValue>),
-    Cel(CelSource),                       // $cel: as written; the compiler checks it into a CelProgram (see CEL)
+    Cel(CelProgram),                      // $cel:, checked at compile time by CelCompiler::check (see CEL)
     Extend { base: Template, changes: Box<TemplateValue>, remove: Vec<Path> },
 }
 
 /// A $cel value or CEL check as written, and the checked form. Plain data: the evaluator lives in vc-template.
 pub struct CelSource { pub text: String, pub span: SourceSpan, pub style: ScalarStyle }
 pub struct CelProgram { pub source: CelSource, pub refs: Vec<Reference> } // every root it reads, in source order
+
+/// A matcher's argument, checked against the matcher's signature (V2306); durations and sizes are parsed by unit.
+pub enum MatcherArg { Value(TemplateValue), Duration(Duration), Size(Size), Range(Box<[MatcherArg; 2]>), Matcher(Box<Matcher>), Matchers(Vec<Matcher>) }
 
 /// Vars set at one level; the executor stacks levels at run time (see Vars, templates and CEL).
 pub struct VarDefs { pub values: IndexMap<VarName, TemplateValue>, pub by_profile: IndexMap<ProfileId, IndexMap<VarName, TemplateValue>> }
@@ -480,12 +483,12 @@ The compiler turns the project's files into a `Program` or a list of diagnostics
 | --- | --- | --- | --- |
 | Discover (engine, not compiler) | project root, `paths` globs | source texts with BLAKE3 content hashes, through `SourceProvider` | `vc-adapter-system` walks with `ignore` (respects `.gitignore`); file kind from the suffix (D132, D133) |
 | Parse | changed files only | a marked tree per file (`parser::Node`, every node with its span) | `parser::parse(file, syntax, text) -> (Option<Node>, Diagnostics)`, where `Syntax::of(path)` picks `Json` for a `.json` suffix (one table) and `Yaml` otherwise. Both readers feed one syntax-neutral builder: maps keep key order and key spans, scalars keep their text, style and YAML 1.2 core kind; columns count characters, offsets count bytes, and only `\n` starts a line. YAML is read from `saphyr-parser` events; a node's span starts at the value, after any `&anchor` or `!tag`. The root is `None` after a scanner error (V1001; V1002 for structure; V1007 for an alias to a missing anchor) and when nesting goes deeper than 128 (V1011); an empty file gives a null root. Problems the tree survives keep it and are reported: V1006 duplicate key, V1007 alias, V1008 tag, V1009 non-text key, V1010 second document. Scanner errors are coded from saphyr's message through one table, with a test per entry. JSON is read by a hand-written reader, strictly to RFC 8259 (D148): no comments, no trailing commas, no `True` or `+1`, and full `\u` escapes with surrogate pairs. A syntax error stops it with V1001, spanned on the offending character, escape or token, with a `help:` (a trailing comma: "remove the comma after the last item"; a lone surrogate: write both halves). Strings are double-quoted scalars whose span includes the quotes; numbers, `true`, `false` and `null` are plain. Duplicate keys (V1006), nesting (V1011), the empty file and a leading BOM behave as for YAML. `Document` edits keep to the file's syntax: in JSON, text is always written double-quoted, other kinds only as JSON literals, and `insert_entry` refuses an object (it is a flow map) |
-| Shape-check | marked trees | raw items per file kind, with unknown keys, wrong types and missing required keys reported | shapes are declared once (below) |
-| Compile parts | raw items | templates, pipes, CEL programs, matchers, durations, sizes | `template` crate; CEL parsed and its roots checked against the namespaces available at that spot |
+| Shape-check | marked trees | the leaves to compile, each with its type and the roots its spot sees, and the action ids the file declares | shapes are declared once (below). An empty file is an empty map. V1004 unknown key (did-you-mean; a certain fix when exactly one known key is close), V1005 missing required key, at the map's first key, V2302 wrong type (a quoted `"3"` or `"true"` where a number or flag goes gets a certain unquote fix; a word outside an enum gets did-you-mean), V2201 for a one-of group with none or several of its keys (a test's `call`/`steps`, an action's `call`/`test`/`function`/`command`), V1003 for a config without `syntaxVersion` or with one newer than supported. A diagnostic on a spot the parser already reported (an alias read as null) is dropped |
+| Compile parts | the leaves | a `Piece` per leaf, keyed by its span: `Template`, `Value` (a `TemplateValue`), `Duration`, `Size`, `Matcher` (statuses become `Matcher::Status`), `Cel` | `template` crate. Template roots and pipes are checked against the roots the spot sees (V2105, V2102, V2305, V2308); a value that is wholly a template is kept as one (`timeout: ${var.wait}`). Units V2301, statuses V2303. A map with a matcher key is `Matcher::All` of its calls, anything else `Equals`; the matcher table checks each argument (V2306, a `regex` compiled unless it holds `${`), and an unknown matcher key is V1004. A single-key `$cel` map and each `expect.cel` entry go through `CelCompiler::check` (not `prepare`) with the scope's roots plus the file's action ids as step roots; whether a step id names a step that can run first is the linker's. Each scalar's `ScalarStyle` comes from the parser's style and its exact text |
 | Link | all raw items | the `Program`: ID tables, references resolved, merged `expect`, test-level step defaults, var reachability | the only stage that sees every file at once |
 | Lint | the `Program` | warnings: naming conventions, expired skips, shared-value writes, cache in per-test blocks | each lint is a registered rule with a V-code |
 
-**Incremental.** The `CompileCache` keeps, per file hash, its parsed and shape-checked items; the compiler takes the previous one as input and returns the new one, and the engine reads and writes it as `.vibranium/cache/compile.bin` (D132). On the next run only changed files are parsed again; linking always runs over everything but is cheap (target: 1,000 files in under 100 ms warm, under 500 ms cold). The editor and `vc watch` keep the cache in memory.
+**Incremental.** The `CompileCache` keeps, per file, its `FileUnit` (kind, tree, pieces and per-file diagnostics), keyed by path, content hash and `SourceFileId`, plus the `StringTable` the units' symbols point into; the compiler takes the previous one as input and returns the new one, and the engine reads and writes it as `.vibranium/cache/compile.bin` (D132). On the next run only changed files are parsed again; linking always runs over everything but is cheap (target: 1,000 files in under 100 ms warm, under 500 ms cold). The editor and `vc watch` keep the cache in memory. The blob (layout version 2, compared on read; anything else reads as an empty cache) holds only each file's path, hash and number, so a cache read back from disk re-runs the per-file stages; two caches are equal when they remember the same files.
 
 **Discovery and the cache blob (ports).** Both are synchronous traits in `vc-interfaces`, each with a contract suite and an in-memory fake in `vc-testkit` (`MemorySources`, `MemoryCompileCache`):
 
@@ -497,17 +500,23 @@ The compiler turns the project's files into a `Program` or a list of diagnostics
 **One declaration per file shape.** Each file kind's keys are declared once in Rust, with type, default, description and an example:
 
 ```rust
-shape!(Test {
-    id: Id required "camelCase reference, e.g. createsMember",
-    name: Text "shown in reports",
-    call: ApiRef one_of(call, steps) "the api to call",
-    expect: Expect default(api) "added to the api's checks; matching keys replace them",
-    skip: Skip "a reason, or reason and until",
-    // … one line per key in the Syntax Reference
-});
+shape! {
+    test = Shape::new("testEntry", "One test: a call or steps, with checks", &[
+        key("id", Ty::Id).required().doc("Third-person verb, such as `rejectsDeclinedCard`").example("getsCreatedUser"),
+        key("call", Ty::Ref).doc("The api to call").example("users#get"),
+        key("steps", ACTIONS).doc("Several actions in order"),
+        key("repeat", Ty::Int).default("1").doc("Run the whole test this many times"),
+        // … one line per key in the Syntax Reference
+    ])
+    .mixins(&[request])
+    .one_of(&["call", "steps"], Code::V2201)
+    .scopes(&[("examples", Scope::EXAMPLES), ("repeat", Scope::LOOP)])
+}
 ```
 
-The same declarations generate the JSON Schemas shipped for editors (`vc schema export`), the reference tables in the docs, the hover text in editors and the web UI, and the shape-check stage, so the docs, the editors and the checker cannot drift apart.
+The tables are `const` data in `vc-compiler` (`shapes/`): a `Shape` has a title, a description, its keys, shared key sets it mixes in, an optional one-of group with its code and the roots its keys add for siblings (`examples`, `repeat`, `forEach`); a `Key` has a name, a `Ty`, `required`, a default, a description, an example and the scope it opens. `Ty` covers text, IDs, references, templates, integers, flags, durations, sizes, statuses, matchers, CEL, enums, lists, maps of a type, nested shapes and either-of. `shapes::reachable(root)` lists every shape a file reaches, breadth first.
+
+The same declarations generate the shape-check stage, the JSON Schemas shipped for editors (`vc schema export`) and the keys tables of the docs (`key_tables(kind)`: one `| Key | Type | Default | Purpose |` table per reachable shape), so the docs, the editors and the checker cannot drift apart. Each schema is draft 2020-12 with `$id` `https://raw.githubusercontent.com/v007m/vc-rs/master/schema/<kind>.schema.json`; the root is a closed object (`additionalProperties: false`, `required`, a one-of group as `oneOf` of `required`), nested shapes are `$defs` reached by `$ref`, and every property carries its description, its example under `examples`, and its default only when the declared default is a value of the key's type (a default such as "defaults.timeout" stays in the description).
 
 ### Linking in detail
 
@@ -1115,7 +1124,7 @@ V3204 is new: the skip-reason example that silently lost `see #212` showed that 
 | Layer | How | Where |
 | --- | --- | --- |
 | Pure logic (templates, pipes, matchers, var lookup, diff, edits) | Unit tests next to the code | each crate |
-| Compiler diagnostics | Golden files: a folder of small projects, each with the expected `vc check` output (`insta` snapshots, text and JSON) | `crates/compiler/tests/cases/` |
+| Compiler diagnostics | Golden files: a folder of small projects, `<case>/project/…`, each with the expected diagnostics as `insta` snapshots, `expected.txt.snap` (text renderer, no colour) and `expected.json.snap`; one case per code and a clean sample (`crates/compiler/tests/golden.rs`) | `crates/compiler/tests/cases/` |
 | `parser::edit` | Round trips: apply an edit, re-parse, compare with the expected file byte for byte; comments and formatting elsewhere unchanged | `crates/parser/tests/` |
 | Planner and executor invariants | `proptest` over generated programs with a fake transport: shared actions run at most once per key; every registered cleanup runs exactly once, newest first, also on cancellation; loops keep order under parallelism | `crates/executor/tests/` |
 | Adapters | One contract suite per interface trait that every adapter and test fake must pass (a transport suite, a store suite, …) (D112) | `crates/testkit` |
