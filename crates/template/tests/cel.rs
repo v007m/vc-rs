@@ -43,7 +43,10 @@ fn response(body: &Value) -> Activation {
 }
 
 fn eval(text: &str, body: &Value) -> Result<Value, ExprError> {
-    eval_with(text, &response(body).with(Namespace::Var, json!({"price": 2, "name": "ada"})))
+    eval_with(
+        text,
+        &response(body).with(Namespace::Var, json!({"price": 2, "name": "ada", "big": u64::MAX, "ratio": 0.5})),
+    )
 }
 
 fn key(name: &str) -> Segment {
@@ -134,6 +137,15 @@ fn syntax_errors_are_v2305_at_their_position() {
 }
 
 #[test]
+fn the_parser_internal_errors_are_never_shown() {
+    for text in ["x[", "a.b(", "(1", "a ? b", "", "1 ++ 2 ++ 3", "é é", "a.", "1 < ", "-"] {
+        let (code, message, _) = error(text);
+        assert_eq!(code, Code::V2305, "{text}");
+        assert!(!message.contains("Incomplete"), "{text}: {message}");
+    }
+}
+
+#[test]
 fn reserved_words_are_named() {
     assert_eq!(error("package + 1"), (Code::V2305, "invalid CEL: `package` is a reserved word".into(), 0..1));
     assert_eq!(error("var.a + _v_.b"), (Code::V2305, "`_v_` is reserved in CEL expressions".into(), 8..11));
@@ -165,6 +177,8 @@ fn evaluates_against_the_activation() {
         ("response.status == 200", json!(true)),
         ("response.headers.etag + var.name", json!("xada")),
         ("var.price * 2", json!(4)),
+        ("var.ratio * 2.0", json!(1.0)),
+        ("[var.big, var.big > 1u]", json!([u64::MAX, true])),
         ("response.body.items.map(i, i.price).sum()", json!(5)),
         ("response.body.items.filter(i, i.price > 2).size()", json!(1)),
         ("{'b': 1, 'a': [true, null]}", json!({"a": [true, null], "b": 1})),
