@@ -22,4 +22,12 @@ pub enum ArchError {
         /// The underlying error.
         source: syn::Error,
     },
+    /// A `mod name;` item has no `name.rs` or `name/mod.rs` file.
+    #[error("module `{name}` has no file in {dir}")]
+    Module {
+        /// The directory the module was looked for in.
+        dir: PathBuf,
+        /// The module name.
+        name: String,
+    },
 }

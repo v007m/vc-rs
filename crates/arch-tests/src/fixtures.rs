@@ -1,7 +1,8 @@
 use crate::{DepKind, Dependency, Origin, Package, Rule, SourceFile, Violation, Workspace};
 
 pub fn package(name: &str, deps: &[(&str, DepKind)]) -> Package {
-    let dependencies = deps.iter().map(|(dep, kind)| Dependency { name: (*dep).to_owned(), kind: *kind }).collect();
+    let dependencies =
+        deps.iter().map(|(dep, kind)| Dependency { name: (*dep).to_owned(), kind: *kind, rename: None }).collect();
     Package { name: name.to_owned(), manifest: format!("{}/Cargo.toml", dir(name)), dependencies }
 }
 

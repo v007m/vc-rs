@@ -89,6 +89,17 @@ impl Visit<'_> for PathWalker<'_> {
     }
 }
 
+/// The first segment of every path a `use` tree names: `a::{b, c as d}` gives `a`, `{x::y, z}` gives `x` and `z`.
+fn use_roots(tree: &UseTree) -> Vec<&syn::Ident> {
+    match tree {
+        UseTree::Path(path) => vec![&path.ident],
+        UseTree::Name(name) => vec![&name.ident],
+        UseTree::Rename(rename) => vec![&rename.ident],
+        UseTree::Group(group) => group.items.iter().flat_map(use_roots).collect(),
+        UseTree::Glob(_) => Vec::new(),
+    }
+}
+
 const fn is_pub(vis: &Visibility) -> bool {
     matches!(vis, Visibility::Public(_))
 }
@@ -129,9 +140,12 @@ impl Visit<'_> for PubApi {
     }
 
     fn visit_item_use(&mut self, item: &ItemUse) {
-        if let (true, UseTree::Path(path)) = (is_pub(&item.vis), &item.tree) {
-            let root = path.ident.to_string();
-            self.found.push((path.ident.span(), self.uses.get(&root).cloned().unwrap_or(root)));
+        if !is_pub(&item.vis) {
+            return;
+        }
+        for ident in use_roots(&item.tree) {
+            let root = ident.to_string();
+            self.found.push((ident.span(), self.uses.get(&root).cloned().unwrap_or(root)));
         }
     }
 }
@@ -160,8 +174,12 @@ mod tests {
             pub type T = Client;
             pub trait Tr { fn m(&self) -> Client; }
             pub use reqwest::Url;
+            pub use {reqwest::Proxy, hyper::Body};
+            pub use tokio as rt;
+            pub use serde;
             fn private(c: Client) {}
             impl S { pub fn new(c: Client) -> Self { todo() } fn hidden(c: Client) {} }";
-        assert_eq!(roots(src).len(), 7);
+        assert_eq!(roots(src)[5..10], ["reqwest", "reqwest", "hyper", "tokio", "serde"]);
+        assert_eq!(roots(src).len(), 11);
     }
 }

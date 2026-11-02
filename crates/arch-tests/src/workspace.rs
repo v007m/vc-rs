@@ -31,13 +31,15 @@ pub struct Dependency {
     pub name: String,
     /// Dependency section it is declared in.
     pub kind: DepKind,
+    /// The key it is declared under when that differs from the package (`h = { package = "http" }`).
+    pub rename: Option<String>,
 }
 
 impl Dependency {
-    /// The name the dependency is imported under in Rust code (`vc-model` is `vc_model`).
+    /// The name the dependency is imported under in Rust code (`vc-model` is `vc_model`, a rename wins).
     #[must_use]
     pub fn crate_ident(&self) -> String {
-        self.name.replace('-', "_")
+        self.rename.as_deref().unwrap_or(&self.name).replace('-', "_")
     }
 }
 
