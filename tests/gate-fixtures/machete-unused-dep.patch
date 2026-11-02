@@ -1,0 +1,11 @@
+# expect: GATE-MACHETE predicates
+diff --git a/crates/planner/Cargo.toml b/crates/planner/Cargo.toml
+--- a/crates/planner/Cargo.toml
++++ b/crates/planner/Cargo.toml
+@@ -1,2 +1,6 @@
++# Gate fixture: a dependency the crate never uses (machete skips dev and target tables).
++[dependencies.predicates]
++workspace = true
++
+ [package]
+ name = "vc-planner"

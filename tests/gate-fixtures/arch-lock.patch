@@ -1,0 +1,13 @@
+# expect: GATE-ARCH ARCH-LOCK
+diff --git a/crates/planner/src/bin/gate_fixture.rs b/crates/planner/src/bin/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/bin/gate_fixture.rs
+@@ -0,0 +1,7 @@
++//! Gate fixture: a lock outside the allow-listed token cache and redactor files.
++
++#[expect(clippy::disallowed_types, reason = "gate fixture: the arch rule must still catch it")]
++fn main() {
++    let count = std::sync::Mutex::new(std::env::args().count());
++    std::hint::black_box(count);
++}

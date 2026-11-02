@@ -1,0 +1,13 @@
+# expect: GATE-TEST adds_two_numbers
+diff --git a/crates/planner/tests/gate_fixture.rs b/crates/planner/tests/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/tests/gate_fixture.rs
+@@ -0,0 +1,7 @@
++//! Gate fixture: a failing test.
++
++#[test]
++fn adds_two_numbers() {
++    let parts = ["1", "1"];
++    assert_eq!(parts.concat(), "2");
++}

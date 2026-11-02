@@ -1,0 +1,15 @@
+# expect: GATE-ARCH ARCH-PUB-MOD
+diff --git a/crates/planner/src/bin/gate_fixture.rs b/crates/planner/src/bin/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/bin/gate_fixture.rs
+@@ -0,0 +1,9 @@
++//! Gate fixture: a public module instead of private modules and `pub use`.
++
++pub mod limits {
++    pub const RETRY_LIMIT: u8 = 3;
++}
++
++fn main() {
++    std::hint::black_box(vec![limits::RETRY_LIMIT]);
++}

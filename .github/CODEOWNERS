@@ -1,0 +1,9 @@
+# Gate and lint configuration needs the maintainer's review (D118). Coding agents do not edit these.
+/clippy.toml           @sarathm09
+/deny.toml             @sarathm09
+/Cargo.toml            @sarathm09
+/rust-toolchain.toml   @sarathm09
+/scripts/              @sarathm09
+/crates/arch-tests/    @sarathm09
+/tests/gate-fixtures/  @sarathm09
+/.github/              @sarathm09

@@ -1,0 +1,11 @@
+# expect: GATE-ARCH ARCH-LAYER
+diff --git a/crates/compiler/Cargo.toml b/crates/compiler/Cargo.toml
+--- a/crates/compiler/Cargo.toml
++++ b/crates/compiler/Cargo.toml
+@@ -1,2 +1,6 @@
++# Gate fixture: the pure compiler must not depend on vc-interfaces (D132).
++[dependencies.vc-interfaces]
++workspace = true
++
+ [package]
+ name = "vc-compiler"

@@ -1,0 +1,23 @@
+# expect: GATE-MUTANTS mutation score
+diff --git a/crates/planner/src/bin/gate_fixture.rs b/crates/planner/src/bin/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/bin/gate_fixture.rs
+@@ -0,0 +1,17 @@
++//! Gate fixture: logic whose only test checks nothing, so every mutant survives.
++
++const fn retries_allowed(requested: u32) -> u32 {
++    if requested > 5 { 5 } else { requested * 2 }
++}
++
++fn main() {
++    std::hint::black_box(vec![retries_allowed(3)]);
++}
++
++#[cfg(test)]
++mod tests {
++    #[test]
++    fn computes_retries() {
++        std::hint::black_box(super::retries_allowed(3));
++    }
++}

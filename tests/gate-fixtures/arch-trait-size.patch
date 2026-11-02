@@ -1,0 +1,23 @@
+# expect: GATE-ARCH ARCH-TRAIT-SIZE
+diff --git a/crates/planner/src/bin/gate_fixture.rs b/crates/planner/src/bin/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/bin/gate_fixture.rs
+@@ -0,0 +1,17 @@
++//! Gate fixture: a trait with eight methods (max seven).
++
++#[expect(dead_code, reason = "gate fixture: only the trait's size matters")]
++trait Planner {
++    fn select(&self);
++    fn order(&self);
++    fn expand(&self);
++    fn filter(&self);
++    fn group(&self);
++    fn limit(&self);
++    fn describe(&self);
++    fn validate(&self);
++}
++
++fn main() {
++    std::hint::black_box(vec![0_u8]);
++}

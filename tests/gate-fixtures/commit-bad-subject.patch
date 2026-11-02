@@ -1,0 +1,17 @@
+# expect: GATE-COMMIT not a conventional commit
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gate Fixture <gate-fixture@example.invalid>
+Date: Mon, 2 Nov 2026 00:00:00 +0000
+Subject: [PATCH] Added some planner notes
+
+Gate fixture: the subject has no conventional-commit type.
+---
+diff --git a/crates/planner/gate-fixture.txt b/crates/planner/gate-fixture.txt
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/gate-fixture.txt
+@@ -0,0 +1 @@
++Planner notes.
+--
+2.50.0
+

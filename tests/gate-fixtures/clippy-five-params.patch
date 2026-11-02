@@ -1,0 +1,15 @@
+# expect: GATE-CLIPPY too many arguments
+diff --git a/crates/planner/src/bin/gate_fixture.rs b/crates/planner/src/bin/gate_fixture.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/planner/src/bin/gate_fixture.rs
+@@ -0,0 +1,9 @@
++//! Gate fixture: a function with five parameters (the limit is three, clippy stops at four).
++
++const fn weighted(first: u32, second: u32, third: u32, fourth: u32, fifth: u32) -> u32 {
++    first + 2 * second + 3 * third + 4 * fourth + 5 * fifth
++}
++
++fn main() {
++    std::hint::black_box(vec![weighted(1, 2, 3, 4, 5)]);
++}
