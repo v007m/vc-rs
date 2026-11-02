@@ -1,7 +1,7 @@
-use vc_model::{SourceFileId, SourceFiles, SourceSpan};
+use vc_model::{SourceFiles, SourceSpan};
 
 use self::escape::escape;
-use self::excerpt::{Excerpt, Underline, excerpts, gutter_width};
+use self::excerpt::{Excerpt, FileExcerpts, Underline, excerpts, gutter_width};
 use super::{Render, path_of};
 use crate::{Diagnostic, Diagnostics, DiagnosticsError, Severity};
 
@@ -20,9 +20,10 @@ mod excerpt;
 ///    = fix: Replace with orders#place (certain)
 /// ```
 ///
-/// Secondary labels are underlined with `-`. Labels in one file whose lines overlap or touch
-/// share an excerpt; an excerpt in a different file from the one before it gets a `:::` line
-/// with its location. Control characters and bidi overrides in messages, labels, paths and
+/// Secondary labels are underlined with `-`. Excerpts are grouped by file, the primary's
+/// first: each file gets one location line (`-->`, then `:::` for the others) and its excerpts
+/// in line order with `...` between them. Labels whose lines overlap, touch or are one line
+/// apart share an excerpt. Control characters and bidi controls in messages, labels, paths and
 /// source lines are printed as visible stand-ins, so a file cannot drive the terminal. Colour
 /// is off unless [`TextRenderer::color`] turns it on; the CLI decides (a terminal, and no
 /// `NO_COLOR`).
@@ -44,7 +45,9 @@ impl Render for TextRenderer {
         let mut out = String::new();
         for diagnostic in diagnostics.iter() {
             check_edit_files(diagnostic, files)?;
-            Writer { files, paint: Paint(self.color), width: 1, out: &mut out }.diagnostic(diagnostic)?;
+            let excerpts = excerpts(diagnostic);
+            let width = gutter_width(&excerpts);
+            Writer { files, paint: Paint(self.color), width, out: &mut out }.diagnostic(diagnostic, &excerpts)?;
         }
         Ok(out)
     }
@@ -68,24 +71,27 @@ struct Writer<'a> {
 }
 
 impl Writer<'_> {
-    fn diagnostic(&mut self, diagnostic: &Diagnostic) -> Result<(), DiagnosticsError> {
+    fn diagnostic(&mut self, diagnostic: &Diagnostic, files: &[FileExcerpts<'_>]) -> Result<(), DiagnosticsError> {
         let tone = Tone::of(diagnostic.severity);
-        let excerpts = excerpts(diagnostic);
-        self.width = gutter_width(&excerpts);
         let head = self.paint.apply(&format!("{}[{}]", diagnostic.severity, diagnostic.code), tone);
         self.push(&format!("{head}: {}", escape(&diagnostic.message)));
-        let mut previous: Option<SourceFileId> = None;
-        for excerpt in &excerpts {
-            if previous != Some(excerpt.file) {
-                let arrow = if previous.is_none() { "-->" } else { ":::" };
-                self.location(arrow, &excerpt.anchor)?;
-            }
-            previous = Some(excerpt.file);
-            self.excerpt(excerpt, tone);
+        for (index, file) in files.iter().enumerate() {
+            self.location(if index == 0 { "-->" } else { ":::" }, &file.anchor)?;
+            self.file(file, tone);
         }
         self.trailers(diagnostic);
         self.out.push('\n');
         Ok(())
+    }
+
+    fn file(&mut self, file: &FileExcerpts<'_>, tone: Tone) {
+        self.gutter("", "");
+        for (index, excerpt) in file.excerpts.iter().enumerate() {
+            if index > 0 {
+                self.push(&self.paint.apply("...", Tone::Gutter));
+            }
+            self.excerpt(excerpt, tone);
+        }
     }
 
     fn location(&mut self, arrow: &str, span: &SourceSpan) -> Result<(), DiagnosticsError> {
@@ -97,7 +103,6 @@ impl Writer<'_> {
     }
 
     fn excerpt(&mut self, excerpt: &Excerpt<'_>, tone: Tone) {
-        self.gutter("", "");
         for line in excerpt.shown_lines() {
             match line {
                 Some(number) => self.source_line(excerpt, number, tone),

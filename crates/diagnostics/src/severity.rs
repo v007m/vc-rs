@@ -17,6 +17,18 @@ pub enum Severity {
     Error,
 }
 
+impl Severity {
+    /// The number of severities.
+    pub const COUNT: usize = 3;
+
+    /// The position in `Info`, `Warning`, `Error` order, from 0: an index into per-severity
+    /// arrays of [`Severity::COUNT`] entries.
+    #[must_use]
+    pub const fn index(self) -> usize {
+        self as usize
+    }
+}
+
 impl fmt::Display for Severity {
     /// The lowercase name, as in `error[V2003]`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -37,6 +49,13 @@ mod tests {
         let found = [Severity::Warning, Severity::Error, Severity::Info];
         assert_eq!(found.into_iter().max(), Some(Severity::Error));
         assert!(Severity::Info < Severity::Warning);
+    }
+
+    #[test]
+    fn index_follows_the_order() {
+        let indexes = [Severity::Info, Severity::Warning, Severity::Error].map(Severity::index);
+        assert_eq!(indexes, [0, 1, 2]);
+        assert_eq!(Severity::COUNT, indexes.len());
     }
 
     #[test]

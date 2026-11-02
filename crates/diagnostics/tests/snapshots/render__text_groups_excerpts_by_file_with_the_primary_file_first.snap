@@ -7,11 +7,10 @@ error[V2003]: unknown api
    |
  4 |     call: orders#plcae
    |           ^^^^^^^^^^^^ not defined
+...
+10 |       coupon: SAVE10
+   |       -------------- back in the test file
   ::: vibranium.config.yaml:3:9
    |
  3 |   - id: staging
    |         ------- in the config
-  ::: services/orders/checkout.test.yaml:10:7
-   |
-10 |       coupon: SAVE10
-   |       -------------- back in the test file

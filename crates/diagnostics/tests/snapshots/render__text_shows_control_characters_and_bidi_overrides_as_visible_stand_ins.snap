@@ -3,10 +3,10 @@ source: crates/diagnostics/tests/render.rs
 expression: text
 ---
 error[V2003]: bad ␛]0;title␇
- --> services/evil/x␛[31m.test.yaml:1:7
+ --> services/evil/x.test.yaml:1:7
   |
-1 | name: ␛[2Jboom�gnp.exe
-  |       ^^^^^^^^ �hidden
+1 | name: ␛[2Jboom␚gnp.exe
+  |       ^^^^^^^^ ␚hidden␚
   = note: a␍b
-  = help: ␡�
+  = help: ␡␚
   = fix: ␛[1A

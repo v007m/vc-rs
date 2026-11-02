@@ -7,11 +7,13 @@ use crate::{Diagnostic, Label};
 /// Spans covering more lines than this show their first two lines, `...`, and their last.
 const MAX_FULL_LINES: u32 = 4;
 
-/// One label to draw: its span, trimmed by [`trimmed`], and its text.
+/// One label to draw: its span, trimmed by [`trimmed`], its text, and its place among the
+/// diagnostic's labels (the primary is 0).
 pub(super) struct Mark<'a> {
     pub(super) span: SourceSpan,
     pub(super) text: &'a str,
     pub(super) primary: bool,
+    order: usize,
 }
 
 /// How to underline one line of a mark: `pad` before the carets, `width` carets, then `text`.
@@ -22,8 +24,8 @@ pub(super) struct Underline<'a> {
 }
 
 impl<'a> Mark<'a> {
-    fn new(label: &'a Label, primary: bool) -> Self {
-        Self { span: trimmed(label.span), text: &label.text, primary }
+    fn new(label: &'a Label, order: usize) -> Self {
+        Self { span: trimmed(label.span), text: &label.text, primary: order == 0, order }
     }
 
     fn lines(&self) -> Vec<u32> {
@@ -52,37 +54,22 @@ impl<'a> Mark<'a> {
     }
 }
 
-/// A run of lines from one file, with every mark that falls on them.
+/// A run of lines from one file, with every mark that falls on them, primary first.
 ///
-/// Marks in the same file whose lines overlap or touch share an excerpt, as in rustc. The
-/// `anchor` is the first mark's span, which the excerpt's location line points at.
+/// Marks whose lines overlap, touch or are one line apart share an excerpt, as in rustc.
 pub(super) struct Excerpt<'a> {
     pub(super) file: SourceFileId,
-    pub(super) anchor: SourceSpan,
-    first: u32,
     last: u32,
     marks: Vec<Mark<'a>>,
 }
 
 impl<'a> Excerpt<'a> {
     fn new(mark: Mark<'a>) -> Self {
-        let (first, last) = (mark.span.start.line, mark.span.end.line);
-        Self { file: mark.span.file, anchor: mark.span, first, last, marks: vec![mark] }
+        Self { file: mark.span.file, last: mark.span.end.line, marks: vec![mark] }
     }
 
-    fn touches(&self, mark: &Mark<'_>) -> bool {
-        mark.span.file == self.file
-            && mark.span.start.line <= self.last.saturating_add(1)
-            && mark.span.end.line.saturating_add(1) >= self.first
-    }
-
-    fn add(&mut self, mark: Mark<'a>) {
-        self.first = self.first.min(mark.span.start.line);
-        self.last = self.last.max(mark.span.end.line);
-        self.marks.push(mark);
-    }
-
-    /// The lines to show, in order; `None` stands for elided lines.
+    /// The lines to show, in order; `None` stands for two or more elided lines. A single
+    /// missing line is shown rather than elided.
     pub(super) fn shown_lines(&self) -> Vec<Option<u32>> {
         let mut lines: Vec<u32> = self.marks.iter().flat_map(Mark::lines).collect();
         lines.sort_unstable();
@@ -90,8 +77,10 @@ impl<'a> Excerpt<'a> {
         let mut shown = Vec::with_capacity(lines.len() + 1);
         let mut previous: Option<u32> = None;
         for line in lines {
-            if previous.is_some_and(|before| line > before + 1) {
-                shown.push(None);
+            match previous.map(|before| line - before) {
+                Some(2) => shown.push(Some(line - 1)),
+                Some(gap) if gap > 2 => shown.push(None),
+                _ => {}
             }
             shown.push(Some(line));
             previous = Some(line);
@@ -105,23 +94,51 @@ impl<'a> Excerpt<'a> {
     }
 }
 
-/// The excerpts of `diagnostic`: the primary label's first, then one per run of secondaries
-/// that does not touch an earlier excerpt.
-pub(super) fn excerpts(diagnostic: &Diagnostic) -> Vec<Excerpt<'_>> {
-    let secondary = diagnostic.secondary.iter().map(|label| Mark::new(label, false));
-    let mut excerpts: Vec<Excerpt<'_>> = Vec::new();
-    for mark in iter::once(Mark::new(&diagnostic.primary, true)).chain(secondary) {
-        match excerpts.iter_mut().find(|excerpt| excerpt.touches(&mark)) {
-            Some(excerpt) => excerpt.add(mark),
-            None => excerpts.push(Excerpt::new(mark)),
+/// The excerpts of one file, by line, and the span its location line points at: the first of
+/// the diagnostic's labels in that file.
+pub(super) struct FileExcerpts<'a> {
+    pub(super) anchor: SourceSpan,
+    pub(super) excerpts: Vec<Excerpt<'a>>,
+}
+
+/// The excerpts of `diagnostic`, grouped by file: the primary label's file first, then the
+/// others in the order their first label appears.
+pub(super) fn excerpts(diagnostic: &Diagnostic) -> Vec<FileExcerpts<'_>> {
+    let labels = iter::once(&diagnostic.primary).chain(&diagnostic.secondary);
+    let mut files: Vec<(SourceSpan, Vec<Mark<'_>>)> = Vec::new();
+    for mark in labels.enumerate().map(|(order, label)| Mark::new(label, order)) {
+        match files.iter_mut().find(|(anchor, _)| anchor.file == mark.span.file) {
+            Some((_, marks)) => marks.push(mark),
+            None => files.push((mark.span, vec![mark])),
         }
+    }
+    files.into_iter().map(|(anchor, marks)| FileExcerpts { anchor, excerpts: sweep(marks) }).collect()
+}
+
+/// One file's marks swept in line order into excerpts, merging each into the one before when
+/// it starts at most one line after that one ends.
+fn sweep(mut marks: Vec<Mark<'_>>) -> Vec<Excerpt<'_>> {
+    marks.sort_by_key(|mark| mark.span.start.line);
+    let mut excerpts: Vec<Excerpt<'_>> = Vec::new();
+    for mark in marks {
+        match excerpts.last_mut() {
+            Some(excerpt) if mark.span.start.line <= excerpt.last.saturating_add(2) => {
+                excerpt.last = excerpt.last.max(mark.span.end.line);
+                excerpt.marks.push(mark);
+            }
+            _ => excerpts.push(Excerpt::new(mark)),
+        }
+    }
+    for excerpt in &mut excerpts {
+        excerpt.marks.sort_by_key(|mark| mark.order);
     }
     excerpts
 }
 
 /// The width of the widest line number any excerpt shows.
-pub(super) fn gutter_width(excerpts: &[Excerpt<'_>]) -> usize {
-    excerpts.iter().map(|excerpt| excerpt.last).max().unwrap_or(1).to_string().len()
+pub(super) fn gutter_width(files: &[FileExcerpts<'_>]) -> usize {
+    let lasts = files.iter().flat_map(|file| &file.excerpts).map(|excerpt| excerpt.last);
+    lasts.max().unwrap_or(1).to_string().len()
 }
 
 /// `span` with its end on or after its start line, and an end at column 1 of a later line

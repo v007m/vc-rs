@@ -1,0 +1,15 @@
+---
+source: crates/diagnostics/tests/render.rs
+expression: text
+---
+error[V2003]: unknown api
+ --> services/orders/checkout.test.yaml:4:5
+  |
+4 |     call: orders#plcae
+  |     ^^^^^^^^^^^^^^^^^^ first
+5 |     profiles: [stagng]
+  |     ------------------
+6 |     body:
+  |     ---- joins them
+7 |       items:
+  |       ----- second
