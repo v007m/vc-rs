@@ -308,7 +308,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 | Command | Does |
 | --- | --- |
-| `vc check` | Compiles and links everything; prints errors and warnings with file, line and column; exits non-zero on errors; with --fix, previews and applies the certain fixes |
+| `vc check [--json] [paths...]` | Compiles and links everything; prints errors and warnings with file, line and column, then a summary (`1 error · 0 warnings · 3 files checked`); exits 2 on errors, 0 otherwise. With paths (files or folders, relative to the working folder), reports only on the files under them; the whole project is still compiled, so references into other files are checked. `--json` prints the diagnostics as JSON on stdout instead. With --fix, previews and applies the certain fixes. Run anywhere inside a project: it looks up from the working folder for `vibranium.config.yaml` |
 | `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions, with search and filters; `--json` for scripts and agents (D130) |
 | `vc explain <id>` | Shows one api or test fully resolved for the active profile: final URL, vars and where each came from, auth, merged `expect`, the lifecycle actions it triggers and the cleanups it registers |
 | `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request; `--json` for scripts and agents (D130) |
@@ -349,6 +349,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc mcp` | Starts the MCP server for AI agents |
 | `vc serve` | Starts the self-hosted team server (later release). For the local web UI of this project, use vc ui, which opens http://localhost:7420 |
 | `vc completion bash\|zsh\|fish\|powershell` | Prints shell completion, including test and api IDs |
+| `vc schema export [--out <dir>]` | Writes the JSON Schema of each file kind (config, api, test, load) for editors: one JSON object keyed by kind on stdout, or one `<kind>.schema.json` per kind in `<dir>`. Needs no project |
 
 ## Selecting what to run
 
