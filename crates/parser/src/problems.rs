@@ -3,20 +3,42 @@
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::SourceSpan;
 
-/// Scanner messages that describe the shape of the file (V1002) rather than broken syntax (V1001).
-const STRUCTURE_MESSAGES: &[&str] =
-    &["indentation", "did not find expected key", "expected '-' indicator", "mapping values"];
+/// What a scanner message means for Vibranium.
+#[derive(Clone, Copy)]
+enum ScanKind {
+    /// The file's shape is wrong (V1002).
+    Structure,
+    /// An alias names an anchor that does not exist; aliases are refused anyway (V1002).
+    Alias,
+}
+
+/// saphyr's errors carry only an English message, so the codes hang on these fragments of it.
+/// Every entry has a test in `tests/parse.rs`, so a saphyr upgrade that rewords one fails a test
+/// instead of silently changing a stable code. Anything not listed is V1001.
+const SCAN_KINDS: &[(&str, ScanKind)] = &[
+    ("mapping values are not allowed", ScanKind::Structure),
+    ("did not find expected key", ScanKind::Structure),
+    ("did not find expected '-' indicator", ScanKind::Structure),
+    ("did not find expected <document start>", ScanKind::Structure),
+    ("tabs disallowed", ScanKind::Structure),
+    ("simple key expect", ScanKind::Structure),
+    ("found unknown anchor", ScanKind::Alias),
+];
 
 const SYNTAX_HELP: &str =
     "quote values that contain `: ` or ` #` or start with a special character such as `*`, `&` or `!`";
 const INDENT_HELP: &str = "check the indentation: a nested key needs more spaces than its parent, and siblings line up";
 
-/// The scanner stopped: V1002 when the message is about structure, V1001 otherwise.
+/// The scanner stopped: V1002 when the message is about structure or an alias, V1001 otherwise.
 pub fn scan_error(at: SourceSpan, info: &str) -> Diagnostic {
-    if STRUCTURE_MESSAGES.iter().any(|needle| info.contains(needle)) {
-        Diagnostic::new(Code::V1002, at, info).label("the structure breaks here").help(INDENT_HELP)
-    } else {
-        Diagnostic::new(Code::V1001, at, format!("not valid YAML or JSON: {info}")).label("here").help(SYNTAX_HELP)
+    match SCAN_KINDS.iter().find(|(needle, _)| info.contains(needle)).map(|&(_, kind)| kind) {
+        Some(ScanKind::Structure) => {
+            Diagnostic::new(Code::V1002, at, info).label("the structure breaks here").help(INDENT_HELP)
+        }
+        Some(ScanKind::Alias) => alias(at),
+        None => {
+            Diagnostic::new(Code::V1001, at, format!("not valid YAML or JSON: {info}")).label("here").help(SYNTAX_HELP)
+        }
     }
 }
 

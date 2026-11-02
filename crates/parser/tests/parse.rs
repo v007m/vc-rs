@@ -102,13 +102,41 @@ fn broken_syntax_is_v1001_and_drops_the_tree() {
     assert_eq!(error.help.len(), 1);
 }
 
+/// One row per entry in the scanner-message table: a saphyr upgrade that rewords a message
+/// fails here instead of silently turning a V1002 into a V1001.
 #[test]
-fn indentation_and_mapping_errors_are_v1002() {
-    for (text, line) in [("a: b: c\n", 1), ("a:\n  b: 1\n c: 2\n", 3), ("- a\nb: 1\n", 2)] {
+fn structure_errors_from_the_scanner_are_v1002() {
+    let cases = [
+        ("a: b: c\n", "mapping values are not allowed"),
+        ("a:\n  b: 1\n c: 2\n", "did not find expected key"),
+        ("- a\nb: 1\n", "did not find expected '-' indicator"),
+        ("  - a\n -b\n", "did not find expected <document start>"),
+        ("a:\n\tb: 1\n", "tabs disallowed"),
+        ("a: 1\nb\nc: 2\n", "simple key expect"),
+    ];
+    for (text, message) in cases {
         let (root, diagnostics) = parse(SourceFileId::new(0), text);
         assert!(root.is_none(), "{text:?}");
         assert_eq!(codes(&diagnostics), [Code::V1002], "{text:?}");
-        assert_eq!(diagnostics.iter().next().unwrap().primary.span.start.line, line);
+        let error = diagnostics.iter().next().unwrap();
+        assert!(error.message.contains(message), "{text:?}: {}", error.message);
+    }
+}
+
+#[test]
+fn an_alias_to_a_missing_anchor_is_the_alias_v1002() {
+    let (root, diagnostics) = parse(SourceFileId::new(0), "a: *missing\n");
+    assert!(root.is_none());
+    assert_eq!(codes(&diagnostics), [Code::V1002]);
+    assert!(diagnostics.iter().next().unwrap().message.contains("aliases"));
+}
+
+#[test]
+fn other_scanner_errors_are_v1001() {
+    for text in ["[a\n", "a: 'x\n", "a: \"\\q\"\n"] {
+        let (root, diagnostics) = parse(SourceFileId::new(0), text);
+        assert!(root.is_none(), "{text:?}");
+        assert_eq!(codes(&diagnostics), [Code::V1001], "{text:?}");
     }
 }
 
@@ -120,6 +148,13 @@ fn every_duplicate_key_is_reported_with_both_places() {
     assert_eq!(at(first.primary.span), ((3, 1, 10), (3, 2, 11)));
     assert_eq!(at(first.secondary[0].span), ((1, 1, 0), (1, 2, 1)));
     assert_eq!(root.unwrap().get("a").unwrap().as_scalar().unwrap().text, "1");
+}
+
+#[test]
+fn a_map_ends_at_its_last_source_entry_even_when_skipped() {
+    let (root, diagnostics) = parse(SourceFileId::new(0), "a: 1\nb: 2\na: [x, y]\n");
+    assert_eq!(codes(&diagnostics), [Code::V1002]);
+    assert_eq!(at(root.unwrap().span), ((1, 1, 0), (3, 10, 19)));
 }
 
 #[test]
@@ -137,7 +172,32 @@ fn aliases_tags_complex_keys_and_second_documents_are_v1002() {
         assert_eq!(at(diagnostics.iter().next().unwrap().primary.span), span, "{text:?}");
     }
     assert!(parse(SourceFileId::new(0), "a: &x 1\n").1.is_empty());
-    assert_eq!(codes(&parse(SourceFileId::new(0), "a: *missing\n").1), [Code::V1001]);
+}
+
+#[test]
+fn node_spans_start_at_the_value_not_its_anchor_or_tag() {
+    let root = ok("a: &x 1\nb: &m\n  c: 2\n").unwrap();
+    assert_eq!(at(root.get("a").unwrap().span), ((1, 7, 6), (1, 8, 7)));
+    assert_eq!(at(root.get("b").unwrap().span).0, (3, 3, 16));
+    let (root, _) = parse(SourceFileId::new(0), "a: !!str 1\n");
+    assert_eq!(at(root.unwrap().get("a").unwrap().span), ((1, 10, 9), (1, 11, 10)));
+}
+
+#[test]
+fn a_cut_after_an_anchor_quotes_only_the_value() {
+    let (root, diagnostics) = parse(SourceFileId::new(0), "a: &x see #212\n");
+    assert_eq!(at(root.unwrap().get("a").unwrap().span), ((1, 7, 6), (1, 10, 9)));
+    let cut = diagnostics.iter().next().unwrap();
+    assert_eq!((cut.code, at(cut.primary.span)), (Code::V3204, ((1, 7, 6), (1, 15, 14))));
+    assert_eq!(cut.fixes[0].edits[0].range, 6..14);
+}
+
+#[test]
+fn a_wide_character_late_in_a_long_line_shifts_only_later_offsets() {
+    let text = format!("k: {}ő{}\nb: 1\n", "x".repeat(500), "y".repeat(10));
+    let root = ok(&text).unwrap();
+    assert_eq!(at(root.get("k").unwrap().span), ((1, 4, 3), (1, 515, 515)));
+    assert_eq!(at(root.entries()[1].key_span).0, (2, 1, 516));
 }
 
 #[test]
@@ -149,7 +209,7 @@ fn nesting_deeper_than_the_limit_is_refused() {
 }
 
 #[test]
-fn a_value_cut_at_a_hash_is_v3204_with_a_certain_quote_fix() {
+fn a_text_value_cut_at_a_hash_is_v3204_with_a_suggested_quote_fix() {
     let text = "reason: coupon flaky, see #212\nnext: ok  # fine\nlist: a, # b\n";
     let (root, diagnostics) = parse(SourceFileId::new(0), text);
     assert_eq!(root.unwrap().get("reason").unwrap().as_str(), Some("coupon flaky, see"));
@@ -157,7 +217,13 @@ fn a_value_cut_at_a_hash_is_v3204_with_a_certain_quote_fix() {
     let cut = diagnostics.iter().next().unwrap();
     assert_eq!(at(cut.primary.span), ((1, 9, 8), (1, 31, 30)));
     let fix = &cut.fixes[0];
-    assert!(fix.certain);
+    assert!(!fix.certain);
     assert_eq!((fix.edits[0].range.clone(), fix.edits[0].new_text.as_str()), (8..30, "\"coupon flaky, see #212\""));
     assert_eq!(diagnostics.iter().nth(1).unwrap().fixes[0].edits[0].new_text, "\"a, # b\"");
+}
+
+#[test]
+fn typed_values_followed_by_a_comment_are_never_v3204() {
+    let root = ok("retries: 3 #max\nenabled: true #flag\nratio: 1.5 #x\nnone: ~ #y\n").unwrap();
+    assert_eq!(root.get("retries").unwrap().as_scalar().unwrap().kind, Int);
 }

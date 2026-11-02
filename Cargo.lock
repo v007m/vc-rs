@@ -1424,6 +1424,7 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "saphyr-parser",
+ "thiserror",
  "vc-diagnostics",
  "vc-model",
 ]
