@@ -1,11 +1,11 @@
 use vc_diagnostics::TextEdit;
 use vc_model::{Pos, SourceFileId, SourceSpan};
-use vc_parser::{Document, ParserError, ScalarKind};
+use vc_parser::{Document, ParserError, ScalarKind, Syntax};
 
 const FILE: SourceFileId = SourceFileId::new(0);
 
 fn doc(text: &str) -> Result<Document, ParserError> {
-    Document::parse(FILE, text)
+    Document::parse(FILE, Syntax::Yaml, text)
 }
 
 /// Sets `key` of the root map to `value` and returns the new text.
@@ -116,7 +116,7 @@ fn nodes_from_another_or_an_older_document_are_refused() {
     let after = before.apply(&[before.set_scalar(node, "22").unwrap()]).unwrap();
     assert_eq!(after.set_scalar(node, "3").unwrap_err(), ParserError::BadRange { start: 3, end: 4 });
     assert!(matches!(after.insert_entry(before.root(), "b", "2"), Err(ParserError::BadRange { .. })));
-    let other_file = Document::parse(SourceFileId::new(1), "a: 1\n").unwrap();
+    let other_file = Document::parse(SourceFileId::new(1), Syntax::Yaml, "a: 1\n").unwrap();
     assert!(matches!(other_file.set_scalar(node, "3"), Err(ParserError::BadRange { .. })));
     assert!(before.set_scalar(node, "3").is_ok());
     let same_span = before.apply(&[before.set_scalar(node, "2").unwrap()]).unwrap();
@@ -171,5 +171,54 @@ fn apply_rejects_bad_ranges_and_results_that_do_not_parse() {
     assert!(matches!(before.apply(&overlapping), Err(ParserError::BadRange { .. })));
     let breaks = TextEdit::replace(span(3, 5), "[");
     assert!(matches!(before.apply(&[breaks]), Err(ParserError::Unparsable(_))));
-    assert!(matches!(Document::parse(FILE, "a: [\n"), Err(ParserError::Unparsable(_))));
+    assert!(matches!(Document::parse(FILE, Syntax::Yaml, "a: [\n"), Err(ParserError::Unparsable(_))));
+}
+
+fn json_doc(text: &str) -> Result<Document, ParserError> {
+    Document::parse(FILE, Syntax::Json, text)
+}
+
+/// Sets `key` of a JSON file's root object to `value` (as `kind` when given) and returns the new
+/// text, which must read back with that value.
+fn set_json(text: &str, key: &str, value: &str, kind: Option<ScalarKind>) -> Result<String, ParserError> {
+    let before = json_doc(text)?;
+    let node = before.root().get(key).ok_or_else(|| ParserError::Unparsable(format!("no key `{key}`")))?;
+    let edit = match kind {
+        Some(kind) => before.set_typed(node, value, kind)?,
+        None => before.set_scalar(node, value)?,
+    };
+    let after = before.apply(&[edit])?;
+    assert_eq!(after.root().get(key).and_then(|n| n.as_scalar()).map(|s| s.text.as_str()), Some(value));
+    Ok(after.text().to_owned())
+}
+
+#[test]
+fn json_edits_write_json() {
+    let text = "{\"name\": \"old\", \"n\": 1, \"on\": true, \"none\": null}";
+    assert_eq!(set_json(text, "name", "a: b\t\"c\"", None).unwrap(), text.replace("\"old\"", r#""a: b\t\"c\"""#));
+    assert_eq!(set_json(text, "name", "true", None).unwrap(), text.replace("\"old\"", "\"true\""));
+    assert_eq!(set_json(text, "n", "-2.5e3", Some(ScalarKind::Float)).unwrap(), text.replace(": 1,", ": -2.5e3,"));
+    assert_eq!(set_json(text, "n", "2", Some(ScalarKind::String)).unwrap(), text.replace(": 1,", ": \"2\","));
+    assert_eq!(set_json(text, "on", "false", None).unwrap(), text.replace("true", "false"));
+    assert_eq!(set_json(text, "none", "abc", None).unwrap(), text.replace("null", "\"abc\""));
+    assert_eq!(set_json(text, "none", "7", None).unwrap(), text.replace("null", "7"));
+}
+
+#[test]
+fn json_edits_refuse_yaml_only_spellings_and_insertions() {
+    let text = "{\"n\": 1, \"on\": true, \"none\": null, \"o\": {\"a\": 1}}";
+    let refused = |key, value: &str, kind| (set_json(text, key, value, kind).unwrap_err(), value.to_owned());
+    let not_of = |(error, value), kind| assert_eq!(error, ParserError::NotOfKind { value, kind });
+    not_of(refused("n", "0x1F", None), "an integer");
+    not_of(refused("n", "+1", None), "an integer");
+    not_of(refused("on", "True", None), "a boolean");
+    not_of(refused("none", "~", Some(ScalarKind::Null)), "null");
+    not_of(refused("n", ".5", Some(ScalarKind::Float)), "a float");
+    let before = json_doc(text).unwrap();
+    for map in [before.root(), before.root().get("o").unwrap()] {
+        assert!(matches!(before.insert_entry(map, "b", "2"), Err(ParserError::WrongNode { .. })));
+    }
+    let breaks = TextEdit::replace(before.root().get("n").unwrap().span, "1,");
+    assert!(matches!(before.apply(&[breaks]), Err(ParserError::Unparsable(_))));
+    assert!(matches!(Document::parse(FILE, Syntax::Json, "{\"a\": 1,}"), Err(ParserError::Unparsable(_))));
 }
