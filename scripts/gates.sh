@@ -27,7 +27,7 @@ tests() {
 gate GATE-FMT "formatting" cargo fmt --all --check
 gate GATE-CLIPPY "clippy pedantic + nursery, warnings are errors" \
   cargo clippy --workspace --all-targets --locked -- -D warnings
-gate GATE-ARCH "architecture rules" cargo nextest run -p vc-arch-tests --locked --no-tests=pass
+gate GATE-ARCH "architecture rules" cargo nextest run -p vc-arch-tests --locked
 gate GATE-DENY "licences, advisories, bans, sources" cargo deny check
 gate GATE-MACHETE "unused dependencies" cargo machete
 gate GATE-DUP "duplicated blocks of 10+ lines" duplication

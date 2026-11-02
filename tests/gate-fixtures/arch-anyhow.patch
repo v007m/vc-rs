@@ -1,0 +1,11 @@
+# expect: GATE-ARCH ARCH-ANYHOW
+diff --git a/crates/planner/Cargo.toml b/crates/planner/Cargo.toml
+--- a/crates/planner/Cargo.toml
++++ b/crates/planner/Cargo.toml
+@@ -1,2 +1,6 @@
++# Gate fixture: anyhow in a library crate (only vc-cli may use it).
++[dependencies.anyhow]
++version = "1.0.104"
++
+ [package]
+ name = "vc-planner"
