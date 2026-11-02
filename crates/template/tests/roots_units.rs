@@ -49,10 +49,10 @@ fn response_aliases_work_only_inside_expect() {
         assert!(check(&expect, text).is_ok(), "{text}");
     }
     for roots in [Roots::new(), Roots::new().with_call()] {
-        let diagnostic = *check(&roots, "${body.id}").unwrap_err();
+        let diagnostic = *check(&roots, "${headers.etag}").unwrap_err();
         assert_eq!(diagnostic.code, Code::V2105);
-        assert_eq!(diagnostic.message, "bare `body` is short for `response.body` only inside expect");
-        assert_eq!(diagnostic.help, ["write `response.body`"]);
+        assert_eq!(diagnostic.message, "bare `headers` is short for `response.headers` only inside expect");
+        assert_eq!(diagnostic.help, ["write `response.headers`"]);
     }
     assert_eq!(code(&Roots::new().with_call(), "${status}"), Code::V2105);
 }
