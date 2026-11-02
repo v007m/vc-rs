@@ -143,13 +143,26 @@ pub struct PipeCall {
     pub span: SourceSpan,
 }
 
-/// The source of a `$cel` computed value; the compiled program is added in a later milestone.
+/// The source of a `$cel` value or a CEL check, as written.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CelSource {
     /// The expression text.
     pub text: String,
     /// Where it was written.
     pub span: SourceSpan,
+    /// How the scalar is written, so positions in the text can be mapped back to the file.
+    pub style: ScalarStyle,
+}
+
+/// A CEL expression checked at compile time: it parses, and every root it reads is available
+/// where it is written (D125). `vc-template` prepares it into an evaluator at run start.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CelProgram {
+    /// The expression as written.
+    pub source: CelSource,
+    /// Each root the expression reads, with the fields and literal indexes selected after it
+    /// (`response.body.items[0]`), in source order; the linker checks step ids against these.
+    pub refs: Vec<Reference>,
 }
 
 /// A value that may hold templates anywhere inside: bodies, vars, saves.

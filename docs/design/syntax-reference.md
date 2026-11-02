@@ -97,7 +97,7 @@ To read inside a string of JSON, save it parsed first (`payload: ${response.body
 
 ### Computed values
 
-Where a value needs arithmetic or a choice, `$cel` computes it with the same CEL used in checks. Its variables are the roots above, wherever each is available (D125).
+Where a value needs arithmetic or a choice, `$cel` computes it with the same CEL used in checks. Its variables are the roots above, wherever each is available (D125), except `secret`, `fake`, `dataset` and `run`, which are V2105 in CEL: set a var from a template and read it as `var.<name>`. Whole numbers are CEL `int`s and decimals are `double`s, and CEL does not mix them in arithmetic: `var.price * 2` works when `price` is a whole number, and a decimal needs `var.price * 2.0` (comparisons such as `var.total > 100.0` work either way).
 
 ```yaml
 vars:
@@ -894,7 +894,7 @@ The first test replaces the api's `status: 201` and keeps its other checks, and 
 
 ### CEL in one minute
 
-CEL (Common Expression Language) is a small expression language from Google, also used for rules in Kubernetes, Firebase and Google Cloud. It reads like a JavaScript one-liner: `response.body.total > 0 && response.body.items.all(i, i.price > 0)`. It has no loops, network or file access, so an expression always finishes, cannot leak secrets and is type-checked by `vc check` before the run. The same expression behaves the same in every SDK. Useful parts: `size(x)`, `x.all(i, …)`, `x.exists(i, …)`, `x.map(i, …)`, `x.filter(i, …)`, `has(response.body.field)`, `matches(s, regex)`, `timestamp(…)`, `duration(…)`. The same language computes values with `$cel` (see Templates and references). Anything longer than a line belongs in a `custom` function.
+CEL (Common Expression Language) is a small expression language from Google, also used for rules in Kubernetes, Firebase and Google Cloud. It reads like a JavaScript one-liner: `response.body.total > 0 && response.body.items.all(i, i.price > 0)`. It has no loops, network or file access, so an expression always finishes (an evaluation that loops over more than a million elements in all is stopped), cannot leak secrets, and is checked by `vc check` before the run: its syntax, every root it reads, and literal regexes. The same expression behaves the same in every SDK. Useful parts: `size(x)`, `x.all(i, …)`, `x.exists(i, …)`, `x.map(i, …)`, `x.filter(i, …)`, `x.sum()` (vc adds it: an `int` for whole numbers, otherwise a `double`), `has(response.body.field)`, `matches(s, regex)`, `timestamp(…)`, `duration(…)`. The same language computes values with `$cel` (see Templates and references). Anything longer than a line belongs in a `custom` function.
 
 Matchers:
 
