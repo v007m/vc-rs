@@ -68,7 +68,8 @@ vibranium/
   sdks/                      typescript/ python/ go/ java/
   bench/
     mock/                    vc-mock-server: axum mock server; a library tests start in-process on port 0, plus a bin (D100)
-                             also generated projects and benchmarks
+                             (generated projects come from vc-testkit's generate_project; the benches live in
+                             crates/engine/benches and crates/apps/cli/benches)
   docs/                      reference docs, JSON Schemas for the file formats
 ```
 
@@ -1126,6 +1127,16 @@ V3204 is new: the skip-reason example that silently lost `see #212` showed that 
 ### Performance budgets
 
 Budgets are enforced in two ways (D120): instruction-count benches (`gungraun`) run on every PR and fail at a regression over 5%; wall-clock benches (`criterion`) run nightly against the targets below and open an issue on a breach.
+
+The compile benches check a 1,000-file project from `vc_testkit::generate_project(seed, files)`: a seeded, clock-free generator whose config, api and test files use vars, profiles, pipes, matchers, CEL, steps, loops, lifecycle blocks and cross-file references, and which `vc check` reports nothing on. Each bench runs `Engine::check` over in-memory sources three ways: cold (empty compile cache), warm (the cache from the same files) and changed (that cache, with the last file edited).
+
+| Bench | Tool | Where | Runs |
+| --- | --- | --- | --- |
+| `compile_instructions` | `gungraun`, Linux only (valgrind) | `crates/engine/benches` | `ci.yml` job `bench-instructions` on every PR, against a baseline from the base branch; with no baseline it passes with a notice |
+| `compile_wall` (`compile/cold_1000`, `warm_1000`, `changed_1000`) | `criterion` | `crates/engine/benches` | `mise run bench`; nightly |
+| `startup` (`startup/version`: `vc --version`) | `criterion` | `crates/apps/cli/benches` | `mise run bench`; nightly |
+
+`scripts/bench-budgets.sh` (`mise run bench:budgets`) holds the criterion medians to the targets below; the nightly `budgets` job runs it and opens an issue, or comments on the open one, on a breach.
 
 | Budget | Target |
 | --- | --- |

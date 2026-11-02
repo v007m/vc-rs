@@ -19,8 +19,13 @@ vc-engine.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
+criterion.workspace = true
 predicates.workspace = true
 tempfile.workspace = true
+
+[[bench]]
+name = "startup"
+harness = false
 
 [lints]
 workspace = true
