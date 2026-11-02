@@ -258,6 +258,14 @@ Round 18 additions (M1 template review, 2 November 2026):
 | D145 | Pipe call error code | New code V2308 "Unknown pipe or wrong pipe arguments": an unknown pipe name (with a did-you-mean fix when one is close), wrong arity or argument types. V2304 stays for a pipe or path that cannot apply to the value's type. V2307 is left unused | V2304 for unknown pipes |
 | D146 | Size unit base | Sizes are binary: `kb` = 1024 bytes, `mb` = 1024², `gb` = 1024³ | Unit base unspecified |
 
+Round 19 additions (M1 parser review, 2 November 2026):
+
+| # | Decision | Choice | Supersedes |
+| --- | --- | --- | --- |
+| D147 | YAML aliases | YAML aliases (`*name`) are rejected (V1007), so values are never shared or expanded behind the reader and alias bombs cannot happen; the help points to `vars` or `$extend` for reuse. An anchor alone (`&name`) is ignored | Unspecified |
+| D148 | JSON reading | `.json` files are read by a dedicated span-keeping JSON reader into the same `Node` tree, added in M1 D when the compiler first reads `.json` files. Until then JSON goes through saphyr with its documented gaps (surrogate-pair `\u` escapes refused, a trailing comma accepted) | JSON via saphyr |
+| D149 | Parser diagnostic codes | One code per problem: V1006 duplicate key, V1007 alias or anchor not supported, V1008 tag not supported, V1009 map key not text, V1010 more than one document, V1011 nesting deeper than 128. V1002 keeps the remaining structure errors (indentation, a mapping expected) | V1002 for all YAML structure errors |
+
 Round 20 additions (template answers, 2 November 2026):
 
 | # | Decision | Choice | Supersedes |
