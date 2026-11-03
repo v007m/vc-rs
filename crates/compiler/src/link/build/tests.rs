@@ -158,7 +158,7 @@ const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default
 
 const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
 
-const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n";
+const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n  - id: reusesTheWait\n    headers: {x-t: '1'}\n    expect: {status: 202}\n    steps:\n      - test: waitsForOrder\n        expect: {size: {lt: 1kb}}\n      - function: hooks/a.ts#check\n";
 
 fn more() -> Arc<Program> {
     let files = vec![
@@ -210,4 +210,15 @@ fn reads_skips_polls_and_body_and_function_checks() {
     assert_eq!((poll.every, poll.timeout, poll.until.checks.len()), (seconds(2), seconds(30), 1));
     let kinds: Vec<_> = call.expect.checks.iter().map(|check| check.kind).collect();
     assert_eq!(kinds, [CheckKind::Equals, CheckKind::Custom]);
+}
+
+#[test]
+fn test_steps_take_the_tests_defaults_and_function_steps_take_none() {
+    let program = more();
+    let reuses = test(&program, "orders.flow#reusesTheWait");
+    let [reuse, hook] = steps(&program, reuses)[..] else { panic!("two steps") };
+    assert!(matches!(reuse.kind, ActionKind::Test(_)));
+    assert_eq!(reuse.headers.keys().map(String::as_str).collect::<Vec<_>>(), ["x-t"]);
+    assert_eq!(checks(reuse), [(CheckKind::Status, 16, 't'), (CheckKind::Size, 19, 's')]);
+    assert!(hook.headers.is_empty() && hook.expect.checks.is_empty());
 }

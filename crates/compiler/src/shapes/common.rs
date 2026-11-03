@@ -91,8 +91,8 @@ shape! {
 shape! {
     poll = Shape::new("poll", "Re-send until `until` holds, then check `expect`", &[
         key("until", Ty::Obj(expect)).required().scope(Scope::CALL).doc("Checks that end the polling"),
-        key("every", Ty::Duration).doc("Pause between calls").example("2s"),
-        key("timeout", Ty::Duration).doc("Give up after this long").example("1m"),
+        key("every", Ty::Duration).required().doc("Pause between calls").example("2s"),
+        key("timeout", Ty::Duration).required().doc("Give up after this long").example("1m"),
     ])
 }
 

@@ -69,6 +69,7 @@ cases!(
     v1003_newer_version,
     v1004_unknown_key,
     v1005_missing_key,
+    v1005_poll_keys,
     v1006_duplicate_key,
     v1007_alias,
     v1008_tag,
