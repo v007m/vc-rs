@@ -59,6 +59,30 @@ fn a_check_from_the_saved_blob_reuses_every_unit() {
     assert_eq!(CompileCache::from_bytes(&saved).units(), 2);
 }
 
+/// A store holding a blob that refuses every save.
+struct ReadOnlyCache(Vec<u8>);
+
+impl CompileCacheStore for ReadOnlyCache {
+    fn load(&self) -> Result<Option<Vec<u8>>, CompileCacheError> {
+        Ok(Some(self.0.clone()))
+    }
+
+    fn save(&self, _bytes: &[u8]) -> Result<(), CompileCacheError> {
+        Err(CompileCacheError::Write { location: "read-only".to_owned(), reason: "no disk".to_owned() })
+    }
+}
+
+#[test]
+fn saves_the_cache_only_when_the_files_changed() {
+    let cold = MemoryCompileCache::new();
+    engine(&[CONFIG, GET_USER], Arc::new(cold.clone())).check(&CheckRequest::default()).unwrap();
+    let blob = cold.load().unwrap().unwrap();
+    let same = engine(&[CONFIG, GET_USER], Arc::new(ReadOnlyCache(blob.clone()))).check(&CheckRequest::default());
+    assert!(same.unwrap().notices.is_empty(), "nothing changed, so nothing is saved");
+    let changed = engine(&[CONFIG, USERS], Arc::new(ReadOnlyCache(blob))).check(&CheckRequest::default());
+    assert!(changed.unwrap().notices[0].contains("not saved"));
+}
+
 #[test]
 fn reports_unreadable_files_as_v1012_errors() {
     let report = engine(&[CONFIG, ("bad.api.yaml", &[0xff]), USERS], Arc::new(MemoryCompileCache::new()))

@@ -60,16 +60,24 @@ impl Engine {
         let found = found.map_err(|error| EngineError::Sources { reason: error.to_string() })?;
         let mut notices = Vec::new();
         let previous = self.previous_cache(&mut notices);
-        let compiled = compile(CompileInput { files: found.files, previous });
-        if let Err(error) = self.compile_cache.save(&compiled.cache.to_bytes()) {
-            notices.push(format!("the compile cache was not saved: {error}"));
-        }
+        let compiled = compile(CompileInput { files: found.files, previous: previous.clone() });
+        self.save_cache(&compiled.cache, &previous, &mut notices);
         let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
         add_problems(&found.problems, &mut diagnostics, &mut files);
         let selection = Selection::new(&request.paths, &files)?;
         let mut diagnostics = selection.keep(diagnostics, &files);
         diagnostics.sort();
         Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices })
+    }
+
+    /// Saves `cache` unless it remembers the same files as `previous`, which the store holds.
+    fn save_cache(&self, cache: &CompileCache, previous: &CompileCache, notices: &mut Vec<String>) {
+        if cache == previous {
+            return;
+        }
+        if let Err(error) = self.compile_cache.save(&cache.to_bytes()) {
+            notices.push(format!("the compile cache was not saved: {error}"));
+        }
     }
 
     fn previous_cache(&self, notices: &mut Vec<String>) -> CompileCache {

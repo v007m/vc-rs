@@ -9,7 +9,7 @@ use crate::stage::FileUnit;
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 3;
+const VERSION: u32 = 4;
 
 /// What the compiler keeps between runs so it can skip files that did not change (D132).
 ///
@@ -95,13 +95,19 @@ impl CompileCache {
         self.entries.iter().filter(|entry| entry.unit.is_some()).count()
     }
 
-    /// The cache as bytes: a magic number and the layout version, then a JSON body.
+    /// The cache as bytes: a magic number and the layout version, the length of a JSON header
+    /// and the header, then each stored unit's JSON, back to back.
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
-        let body = Body { strings: self.strings.texts().map(str::to_owned).collect(), entries: stored(&self.entries) };
+        let units: Vec<_> = self.entries.iter().map(unit_json).collect();
+        let entries = self.entries.iter().zip(&units).map(|(entry, unit)| stored(entry, unit.as_deref())).collect();
+        let body = Body { strings: self.strings.texts().map(str::to_owned).collect(), entries };
+        let header = serde_json::to_vec(&body).unwrap_or_default();
         let mut out = MAGIC.to_vec();
         out.extend(VERSION.to_le_bytes());
-        out.extend(serde_json::to_vec(&body).unwrap_or_default());
+        out.extend(u32::try_from(header.len()).unwrap_or(u32::MAX).to_le_bytes());
+        out.extend(header);
+        units.into_iter().flatten().for_each(|unit| out.extend(unit));
         out
     }
 
@@ -127,37 +133,42 @@ struct Stored {
     path: String,
     hash: [u8; 32],
     file: u32,
-    /// The unit as JSON text of its own: a unit too deeply nested for the JSON reader to take
-    /// back costs only its own file, not the whole cache. `None` for a unit with diagnostics.
-    unit: Option<String>,
+    /// The length of the unit's JSON among the units after the header: each unit is read on its
+    /// own, so one too deeply nested for the JSON reader to take back costs only its own file,
+    /// not the whole cache. `None` for a unit with diagnostics.
+    unit: Option<u32>,
 }
 
-fn stored(entries: &[CacheEntry]) -> Vec<Stored> {
-    entries
-        .iter()
-        .map(|entry| Stored {
-            path: entry.path.as_str().to_owned(),
-            hash: *entry.hash.as_bytes(),
-            file: entry.file.index(),
-            unit: entry.unit.as_deref().filter(|unit| unit.diagnostics.is_empty()).and_then(unit_text),
-        })
-        .collect()
+fn stored(entry: &CacheEntry, unit: Option<&[u8]>) -> Stored {
+    Stored {
+        path: entry.path.as_str().to_owned(),
+        hash: *entry.hash.as_bytes(),
+        file: entry.file.index(),
+        unit: unit.and_then(|unit| u32::try_from(unit.len()).ok()),
+    }
 }
 
-fn unit_text(unit: &FileUnit) -> Option<String> {
-    serde_json::to_string(unit).ok()
+/// The JSON of an entry's unit, when it is kept and has no diagnostics.
+fn unit_json(entry: &CacheEntry) -> Option<Vec<u8>> {
+    let unit = entry.unit.as_deref().filter(|unit| unit.diagnostics.is_empty())?;
+    serde_json::to_vec(unit).ok().filter(|json| u32::try_from(json.len()).is_ok())
 }
 
 fn decode(bytes: &[u8]) -> Option<CompileCache> {
     let rest = bytes.strip_prefix(MAGIC.as_slice())?;
-    let (version, json) = rest.split_first_chunk::<4>()?;
+    let (version, rest) = rest.split_first_chunk::<4>()?;
     if u32::from_le_bytes(*version) != VERSION {
         return None;
     }
+    let (length, rest) = rest.split_first_chunk::<4>()?;
+    let (json, mut units) = rest.split_at_checked(usize::try_from(u32::from_le_bytes(*length)).ok()?)?;
     let body: Body = serde_json::from_slice(json).ok()?;
     let strings = table(&body.strings)?;
-    let entries = body.entries.into_iter().map(entry).collect::<Option<Vec<_>>>()?;
-    Some(CompileCache::of(entries, strings))
+    let mut entries = Vec::with_capacity(body.entries.len());
+    for stored in &body.entries {
+        entries.push(entry(stored, &mut units)?);
+    }
+    units.is_empty().then(|| CompileCache::of(entries, strings))
 }
 
 /// The table `texts` came from: each text interned in order must get the next symbol.
@@ -172,9 +183,13 @@ fn table(texts: &[String]) -> Option<StringTable> {
     Some(table)
 }
 
-fn entry(stored: Stored) -> Option<CacheEntry> {
+/// The entry `stored` describes, its unit read off the front of `units`.
+fn entry(stored: &Stored, units: &mut &[u8]) -> Option<CacheEntry> {
     let path = SourcePath::new(&stored.path).ok()?;
-    let unit = stored.unit.and_then(|text| serde_json::from_str::<FileUnit>(&text).ok());
+    let length = stored.unit.map(usize::try_from).transpose().ok()?.unwrap_or(0);
+    let (json, rest) = units.split_at_checked(length)?;
+    *units = rest;
+    let unit = stored.unit.and_then(|_| serde_json::from_slice::<FileUnit>(json).ok());
     let (hash, file) = (ContentHash::new(stored.hash), SourceFileId::new(stored.file));
     Some(CacheEntry { path, hash, file, unit: unit.map(Arc::new) })
 }

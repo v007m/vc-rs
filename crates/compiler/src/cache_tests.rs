@@ -12,7 +12,7 @@ use crate::{CompileInput, Compiled, compile};
 const API: &str = "services/users/users.api.yaml";
 const API_TEXT: &str = "apis:\n  - id: getUser\n    path: /users/${var.userId}\n";
 const BAD: &str = "services/orders/orders.api.yaml";
-const HEADER: usize = MAGIC.len() + 4;
+const HEADER: usize = MAGIC.len() + 8;
 
 fn entry(path: &str, byte: u8, file: u32) -> CacheEntry {
     let unit = FileUnit { kind: None, root: None, parts: IndexMap::new(), diagnostics: Diagnostics::new() };
@@ -48,11 +48,13 @@ fn kept(cache: &CompileCache, path: &str, byte: u8, file: u32) -> Option<Arc<Fil
     cache.unit(&SourcePath::new(path).unwrap(), &ContentHash::new([byte; 32]), SourceFileId::new(file))
 }
 
-/// A blob with this version's header around `json`.
-fn blob(json: &str) -> Vec<u8> {
+/// A blob with this version's header around the header `json`, then `units`.
+fn blob(json: &str, units: &str) -> Vec<u8> {
     let mut bytes = MAGIC.to_vec();
     bytes.extend(VERSION.to_le_bytes());
+    bytes.extend(u32::try_from(json.len()).unwrap().to_le_bytes());
     bytes.extend(json.as_bytes());
+    bytes.extend(units.as_bytes());
     bytes
 }
 
@@ -99,7 +101,7 @@ fn finds_a_unit_only_for_the_same_path_hash_and_number() {
 
 #[test]
 fn another_version_reads_as_empty() {
-    for version in [1, 2] {
+    for version in [1, 2, 3] {
         let mut bytes = cache().to_bytes();
         bytes[MAGIC.len()] = version;
         assert!(CompileCache::from_bytes(&bytes).is_empty(), "version {version}");
@@ -121,16 +123,24 @@ fn damaged_bytes_read_as_empty() {
 
 #[test]
 fn a_path_or_string_table_that_does_not_read_back_reads_as_empty() {
-    assert_eq!(CompileCache::from_bytes(&blob(&body(r#"["a","b"]"#, "a.api.yaml"))).len(), 1);
-    assert!(CompileCache::from_bytes(&blob(&body("[]", "../a.api.yaml"))).is_empty());
-    assert!(CompileCache::from_bytes(&blob(&body(r#"["a","a"]"#, "a.api.yaml"))).is_empty());
+    assert_eq!(CompileCache::from_bytes(&blob(&body(r#"["a","b"]"#, "a.api.yaml"), "")).len(), 1);
+    assert!(CompileCache::from_bytes(&blob(&body("[]", "../a.api.yaml"), "")).is_empty());
+    assert!(CompileCache::from_bytes(&blob(&body(r#"["a","a"]"#, "a.api.yaml"), "")).is_empty());
 }
 
 #[test]
 fn a_unit_that_does_not_read_back_is_only_compiled_again() {
-    let json = body("[]", "a.api.yaml").replace(r#""unit":null"#, r#""unit":"{not json""#);
-    let read = CompileCache::from_bytes(&blob(&json));
+    let json = body("[]", "a.api.yaml").replace(r#""unit":null"#, r#""unit":9"#);
+    let read = CompileCache::from_bytes(&blob(&json, "{not json"));
     assert_eq!((read.len(), read.units()), (1, 0));
+}
+
+#[test]
+fn unit_lengths_that_do_not_match_the_units_read_as_empty() {
+    let json = body("[]", "a.api.yaml").replace(r#""unit":null"#, r#""unit":9"#);
+    assert!(CompileCache::from_bytes(&blob(&json, "{not jso")).is_empty(), "too short");
+    assert!(CompileCache::from_bytes(&blob(&json, "{not json}")).is_empty(), "too long");
+    assert!(CompileCache::from_bytes(&blob(&body("[]", "a.api.yaml"), "{}")).is_empty(), "left over");
 }
 
 fn codes(compiled: &Compiled) -> Vec<Code> {
