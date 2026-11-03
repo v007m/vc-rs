@@ -2380,6 +2380,8 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "http",
+ "proptest",
+ "serde_json",
  "tokio",
  "tower",
  "vc-diagnostics",
