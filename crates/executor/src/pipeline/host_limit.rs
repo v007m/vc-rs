@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 
 use http::Uri;
 use tokio::sync::{Semaphore, mpsc, oneshot};
 use tower::{Service, ServiceExt};
 use vc_interfaces::TransportError;
-use vc_model::Exchange;
 
-use super::{BoxFuture, Call, Hop};
+use super::{Call, Hop};
 
 /// A request for a host's semaphore, with where to send it.
 type Ask = (String, oneshot::Sender<Arc<Semaphore>>);
@@ -64,13 +62,7 @@ impl<S> HostLimit<S> {
 }
 
 impl<S: Hop> Service<Call> for HostLimit<S> {
-    type Response = Exchange;
-    type Error = TransportError;
-    type Future = BoxFuture<Result<Exchange, TransportError>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), TransportError>> {
-        Poll::Ready(Ok(()))
-    }
+    ready_service!();
 
     fn call(&mut self, call: Call) -> Self::Future {
         let (inner, limits) = (self.inner.clone(), self.limits.clone());
@@ -86,7 +78,8 @@ impl<S: Hop> Service<Call> for HostLimit<S> {
 /// `host:port` in lower case, with the scheme's default port when none is given.
 fn host_key(uri: &Uri) -> String {
     let host = uri.host().unwrap_or_default().to_ascii_lowercase();
-    let port = uri.port_u16().unwrap_or(if uri.scheme_str() == Some("https") { 443 } else { 80 });
+    let default = if uri.scheme_str() == Some("https") { 443 } else { 80 };
+    let port = uri.port_u16().unwrap_or(default);
     format!("{host}:{port}")
 }
 

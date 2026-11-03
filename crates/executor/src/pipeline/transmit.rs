@@ -1,12 +1,10 @@
 use std::fmt;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 
 use tower::Service;
-use vc_interfaces::{Transport, TransportError};
-use vc_model::Exchange;
+use vc_interfaces::Transport;
 
-use super::{BoxFuture, Call};
+use super::Call;
 
 /// The innermost service: hands the attempt to the [`Transport`].
 #[derive(Clone)]
@@ -29,13 +27,7 @@ impl fmt::Debug for Transmit {
 }
 
 impl Service<Call> for Transmit {
-    type Response = Exchange;
-    type Error = TransportError;
-    type Future = BoxFuture<Result<Exchange, TransportError>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), TransportError>> {
-        Poll::Ready(Ok(()))
-    }
+    ready_service!();
 
     fn call(&mut self, call: Call) -> Self::Future {
         let transport = Arc::clone(&self.transport);

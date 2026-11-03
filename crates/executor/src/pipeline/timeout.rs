@@ -1,10 +1,7 @@
-use std::task::{Context, Poll};
-
 use tower::{Service, ServiceExt};
 use vc_interfaces::TransportError;
-use vc_model::Exchange;
 
-use super::{BoxFuture, Call, Hop};
+use super::{Call, Hop};
 
 /// Cuts an attempt off after [`Call::timeout`] with [`TransportError::Timeout`] (V5104).
 #[derive(Clone, Debug)]
@@ -20,13 +17,7 @@ impl<S> Timeout<S> {
 }
 
 impl<S: Hop> Service<Call> for Timeout<S> {
-    type Response = Exchange;
-    type Error = TransportError;
-    type Future = BoxFuture<Result<Exchange, TransportError>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), TransportError>> {
-        Poll::Ready(Ok(()))
-    }
+    ready_service!();
 
     fn call(&mut self, call: Call) -> Self::Future {
         let inner = self.inner.clone();

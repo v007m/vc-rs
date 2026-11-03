@@ -1,5 +1,4 @@
 use std::convert::Infallible;
-use std::task::{Context, Poll};
 use std::time::Duration;
 
 use tokio::time::Instant;
@@ -7,7 +6,7 @@ use tower::{Service, ServiceExt};
 use vc_interfaces::TransportError;
 use vc_model::Exchange;
 
-use super::{BoxFuture, Call, Retried};
+use super::{Call, Retried};
 
 /// What the pipeline returns for one call.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -37,13 +36,7 @@ impl<S> Service<Call> for Timing<S>
 where
     S: Service<Call, Response = Retried, Error = Infallible, Future: Send> + Clone + Send + 'static,
 {
-    type Response = Delivery;
-    type Error = Infallible;
-    type Future = BoxFuture<Result<Delivery, Infallible>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Infallible>> {
-        Poll::Ready(Ok(()))
-    }
+    ready_service!(Delivery, Infallible);
 
     fn call(&mut self, call: Call) -> Self::Future {
         let inner = self.inner.clone();

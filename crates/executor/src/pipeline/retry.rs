@@ -1,15 +1,14 @@
 use std::convert::Infallible;
 use std::fmt;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 use std::time::Duration;
 
-use http::{Method, StatusCode};
+use http::Method;
 use tower::{Service, ServiceExt};
 use vc_interfaces::TransportError;
-use vc_model::{Exchange, RenderedRequest};
+use vc_model::{Exchange, RenderedRequest, StatusPattern};
 
-use super::{BoxFuture, Call, Hop};
+use super::{Call, Hop};
 
 /// One finished attempt, as a [`RetryPolicy`] sees it.
 #[derive(Clone, Copy, Debug)]
@@ -45,15 +44,16 @@ pub enum RetryOn {
     Connect,
     /// The attempt timed out (V5104).
     Timeout,
-    /// The response had this status.
-    Status(StatusCode),
+    /// The response status matched this code or class (`503`, `5xx`).
+    Status(StatusPattern),
 }
 
 impl RetryOn {
     fn matches(self, result: &Result<Exchange, TransportError>) -> bool {
         match (self, result) {
-            (Self::Connect, Err(TransportError::Connect { .. })) | (Self::Timeout, Err(TransportError::Timeout { .. })) => true,
-            (Self::Status(code), Ok(exchange)) => exchange.response.status == code,
+            (Self::Connect, Err(TransportError::Connect { .. }))
+            | (Self::Timeout, Err(TransportError::Timeout { .. })) => true,
+            (Self::Status(pattern), Ok(exchange)) => pattern.matches(exchange.response.status.as_u16()),
             _ => false,
         }
     }
@@ -63,7 +63,7 @@ impl RetryOn {
 /// connect failure, a timeout or a listed status, waiting `base`, `2 × base`, `4 × base`, …
 /// up to `max` between them.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HttpRetry {
+pub struct HttpRetryPolicy {
     /// Retries after the first attempt; 0 turns retry off.
     pub attempts: u32,
     /// What is retried.
@@ -76,9 +76,9 @@ pub struct HttpRetry {
     pub max: Duration,
 }
 
-impl Default for HttpRetry {
+impl Default for HttpRetryPolicy {
     fn default() -> Self {
-        let statuses = [StatusCode::BAD_GATEWAY, StatusCode::SERVICE_UNAVAILABLE, StatusCode::GATEWAY_TIMEOUT];
+        let statuses = [502, 503, 504].map(StatusPattern::Code);
         Self {
             attempts: 0,
             on: [RetryOn::Connect, RetryOn::Timeout].into_iter().chain(statuses.map(RetryOn::Status)).collect(),
@@ -89,14 +89,14 @@ impl Default for HttpRetry {
     }
 }
 
-impl HttpRetry {
+impl HttpRetryPolicy {
     fn backoff(&self, retries: u32) -> Duration {
         let factor = 1_u32.checked_shl(retries).unwrap_or(u32::MAX);
         self.base.saturating_mul(factor).min(self.max)
     }
 }
 
-impl RetryPolicy for HttpRetry {
+impl RetryPolicy for HttpRetryPolicy {
     fn delay(&self, attempt: &Attempted<'_>) -> Option<Duration> {
         let wanted = attempt.retries < self.attempts
             && self.methods.contains(&attempt.request.method)
@@ -135,13 +135,7 @@ impl<S: fmt::Debug> fmt::Debug for Retry<S> {
 }
 
 impl<S: Hop> Service<Call> for Retry<S> {
-    type Response = Retried;
-    type Error = Infallible;
-    type Future = BoxFuture<Result<Retried, Infallible>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Infallible>> {
-        Poll::Ready(Ok(()))
-    }
+    ready_service!(Retried, Infallible);
 
     fn call(&mut self, call: Call) -> Self::Future {
         let (inner, policy) = (self.inner.clone(), Arc::clone(&self.policy));

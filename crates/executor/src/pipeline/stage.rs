@@ -1,13 +1,12 @@
 use std::fmt;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use tower::{Service, ServiceExt};
 use vc_interfaces::TransportError;
-use vc_model::{Exchange, RenderedRequest};
+use vc_model::RenderedRequest;
 
-use super::{BoxFuture, Call, Hop};
+use super::{Call, Hop};
 
 /// Changes a request before it is sent: auth adds credentials, hooks run `beforeRequest`.
 #[async_trait]
@@ -52,13 +51,7 @@ impl<S: fmt::Debug> fmt::Debug for Stage<S> {
 }
 
 impl<S: Hop> Service<Call> for Stage<S> {
-    type Response = Exchange;
-    type Error = TransportError;
-    type Future = BoxFuture<Result<Exchange, TransportError>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), TransportError>> {
-        Poll::Ready(Ok(()))
-    }
+    ready_service!();
 
     fn call(&mut self, mut call: Call) -> Self::Future {
         let (inner, stage) = (self.inner.clone(), Arc::clone(&self.stage));

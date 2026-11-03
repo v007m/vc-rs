@@ -5,6 +5,24 @@
 //! inside retry and inside the per-host limit, so it limits each attempt and waiting for a
 //! permit does not count. Until M3 and M4 auth and hooks are [`Unchanged`] null objects.
 
+/// The associated types and `poll_ready` every pipeline service shares: it is always ready and
+/// returns a boxed future. With no arguments, the types of a [`Hop`]: one attempt, ending in an
+/// exchange or a transport error.
+macro_rules! ready_service {
+    () => {
+        ready_service!(vc_model::Exchange, vc_interfaces::TransportError);
+    };
+    ($response:ty, $error:ty) => {
+        type Response = $response;
+        type Error = $error;
+        type Future = $crate::BoxFuture<Result<$response, $error>>;
+
+        fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), $error>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+    };
+}
+
 mod host_limit;
 mod retry;
 mod stage;
@@ -22,7 +40,7 @@ use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::{Exchange, RenderedRequest};
 
 pub use host_limit::{HostLimit, HostLimits};
-pub use retry::{Attempted, HttpRetry, NoRetry, Retried, Retry, RetryOn, RetryPolicy};
+pub use retry::{Attempted, HttpRetryPolicy, NoRetry, Retried, Retry, RetryOn, RetryPolicy};
 pub use stage::{RequestStage, Stage, Unchanged};
 pub use timeout::Timeout;
 pub use timing::{Delivery, Timing};
@@ -43,9 +61,15 @@ pub struct Call {
 pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
 /// A service inside retry: it sends one attempt and returns the exchange or its error.
-pub trait Hop: Service<Call, Response = Exchange, Error = TransportError, Future: Send> + Clone + Send + 'static {}
+pub trait Hop:
+    Service<Call, Response = Exchange, Error = TransportError, Future: Send> + Clone + Send + 'static
+{
+}
 
-impl<S> Hop for S where S: Service<Call, Response = Exchange, Error = TransportError, Future: Send> + Clone + Send + 'static {}
+impl<S> Hop for S where
+    S: Service<Call, Response = Exchange, Error = TransportError, Future: Send> + Clone + Send + 'static
+{
+}
 
 /// The whole pipeline, as [`pipeline`] builds it.
 pub type Pipeline = Timing<Retry<Stage<Stage<HostLimit<Timeout<Transmit>>>>>>;
