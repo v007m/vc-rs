@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use vc_model::{
-    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Duration, Method, Origin, Owner, Program, Segment,
-    SourceFile, SourcePath, Test, TestBody,
+    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Duration, Examples, Method, Origin, Owner, Program,
+    Segment, SourceFile, SourcePath, Test, TestBody,
 };
 
 use crate::{CompileInput, compile};
@@ -223,4 +223,40 @@ fn test_steps_take_the_tests_defaults_and_function_steps_take_none() {
     assert_eq!(reuse.headers.keys().map(String::as_str).collect::<Vec<_>>(), ["x-t"]);
     assert_eq!(checks(reuse), [(CheckKind::Status, 16, 't'), (CheckKind::Size, 19, 's')]);
     assert!(hook.headers.is_empty() && hook.expect.checks.is_empty());
+}
+
+const ROWS: &str = "vars: {rows: [{page: 3}]}\ntests:\n  - id: listsEachPage\n    call: users#list\n    examples:\n      - {page: 1}\n      - {page: '${var.rows}'}\n  - id: listsFilePages\n    call: users#list\n    standalone: false\n    examples: {$file: data/pages.csv}\n  - id: listsVarPages\n    call: users#list\n    standalone: true\n    examples: ${var.rows}\n";
+
+fn rows() -> Arc<Program> {
+    let files = vec![
+        file("vibranium.config.yaml", CONFIG),
+        file("services/users/users.api.yaml", APIS),
+        file("services/users/rows.test.yaml", ROWS),
+    ];
+    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
+    assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
+    compiled.program.unwrap()
+}
+
+#[test]
+fn a_test_is_standalone_unless_it_says_otherwise() {
+    let program = program();
+    assert!(test(&program, "users.crud#listsUsers").standalone, "the shape's default is true");
+    let program = rows();
+    let standalone = |id: &str| test(&program, id).standalone;
+    let found = ["listsEachPage", "listsFilePages", "listsVarPages"].map(|id| standalone(&format!("users.rows#{id}")));
+    assert_eq!(found, [true, false, true]);
+}
+
+#[test]
+fn builds_examples_written_inline_from_a_file_or_from_a_template() {
+    assert_eq!(test(&program(), "users.crud#listsUsers").examples, None);
+    let built = rows();
+    let examples = |id: &str| test(&built, id).examples.clone();
+    let Some(Examples::Rows(rows)) = examples("users.rows#listsEachPage") else { panic!("inline rows") };
+    assert_eq!(rows.len(), 2);
+    assert!(matches!(examples("users.rows#listsFilePages"), Some(Examples::File(_))));
+    let Some(Examples::Template(template)) = examples("users.rows#listsVarPages") else { panic!("a template") };
+    assert!(template.single_ref().is_some());
 }

@@ -7,6 +7,7 @@ use vc_parser::Node;
 
 use super::{Lint, LintCx};
 use crate::link::{Source, actions, flag, list};
+use crate::shapes;
 
 /// Reports every call to a deprecated api.
 pub struct DeprecatedCalls;
@@ -24,7 +25,7 @@ impl Lint for DeprecatedCalls {
 
 impl DeprecatedCalls {
     fn deprecated(&self, cx: &LintCx<'_, '_>, source: &Source<'_>, call: &Node) -> Option<Diagnostic> {
-        let api = cx.api(source, call).filter(|api| flag(api, "deprecated"))?;
+        let api = cx.api(source, call).filter(|api| flag(shapes::api(), api, "deprecated"))?;
         let at = call.entry("call")?.value.span;
         let marked = api.entry("deprecated").map_or(api.span, |entry| entry.key_span);
         let diagnostic = Diagnostic::new(self.code(), at, "this api is deprecated").label("deprecated api");

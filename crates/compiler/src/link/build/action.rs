@@ -6,6 +6,7 @@ use vc_parser::Node;
 
 use super::{Build, Built, expect, read};
 use crate::link::project::{Source, text};
+use crate::shapes;
 
 /// The test a step takes its defaults from, and its node.
 pub type Defaults<'n> = Option<(TestId, &'n Node)>;
@@ -53,7 +54,7 @@ impl<'a> Build<'_, 'a> {
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             poll: poll.and_then(|poll| poll_of(source, poll, origin)),
             retry: read::retry(source, node).filter(|_| place.test.is_none()),
-            keep: read::flag(node, "keep"),
+            keep: read::flag(shapes::action(), node, "keep"),
             cache: None,
             repeat: None,
             span: node.span,

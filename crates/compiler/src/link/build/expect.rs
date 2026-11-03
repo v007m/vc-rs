@@ -6,6 +6,7 @@ use vc_parser::Node;
 use super::read;
 use crate::link::project::{Source, text};
 use crate::parts::Piece;
+use crate::shapes;
 
 /// The checks one level writes, each naming `origin`.
 pub fn read(source: &Source<'_>, node: Option<&Node>, origin: Origin) -> Expect {
@@ -20,7 +21,7 @@ pub fn read(source: &Source<'_>, node: Option<&Node>, origin: Origin) -> Expect 
     reader.keyed(CheckKind::Timing, node.get("timing"), |phase| Path { segments: vec![key(phase)] });
     reader.cel(node.get("cel"));
     reader.custom(node.get("custom"));
-    Expect { checks: reader.checks, replace: read::flag(node, "replace") }
+    Expect { checks: reader.checks, replace: read::flag(shapes::expect(), node, "replace") }
 }
 
 /// Merges `levels`, least specific first: a check replaces an earlier one with the same kind and

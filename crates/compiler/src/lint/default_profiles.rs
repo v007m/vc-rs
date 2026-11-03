@@ -5,6 +5,7 @@ use vc_parser::Node;
 
 use super::{Lint, LintCx};
 use crate::link::{flag, list, text};
+use crate::shapes;
 
 /// Reports every default profile after the first.
 pub struct DefaultProfiles;
@@ -16,7 +17,8 @@ impl Lint for DefaultProfiles {
 
     fn check(&self, cx: &LintCx<'_, '_>) -> Vec<Diagnostic> {
         let Some(config) = cx.project.config() else { return Vec::new() };
-        let defaults: Vec<&Node> = list(config.root, "profiles").iter().filter(|node| flag(node, "default")).collect();
+        let defaults: Vec<&Node> =
+            list(config.root, "profiles").iter().filter(|node| flag(shapes::profile(), node, "default")).collect();
         let [first, rest @ ..] = &defaults[..] else { return Vec::new() };
         rest.iter().map(|profile| self.again(first, profile)).collect()
     }
