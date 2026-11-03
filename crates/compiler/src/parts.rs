@@ -7,6 +7,7 @@
 //! CEL is checked whole, so it may read the `id` of any action in the same file.
 
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{
     CelProgram, CelSource, Duration, Matcher, Namespace, Part, Reference, ScalarSource, ScalarStyle, Size, SourceSpan,
@@ -23,7 +24,7 @@ use crate::shapes::{Scope, Unit};
 use crate::value;
 
 /// One compiled value, keyed by its node's span in a [`FileUnit`](crate::stage::FileUnit).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Piece {
     /// Text with templates.
     Template(Template),

@@ -1,0 +1,127 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2003_unknown_api/project
+---
+{
+  "summary": {
+    "errors": 4,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2003",
+      "severity": "error",
+      "message": "unknown api \"users#getUsr\"",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 3,
+          "column": 11,
+          "endLine": 3,
+          "endColumn": 23
+        },
+        "text": "no api has this ID"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `users#getUser`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with users#getUser",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/crud.test.yaml",
+              "range": {
+                "start": 34,
+                "end": 46
+              },
+              "newText": "users#getUser"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2003",
+      "severity": "error",
+      "message": "unknown api \"users.crud#listUsers\"",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 5,
+          "column": 11,
+          "endLine": 5,
+          "endColumn": 20
+        },
+        "text": "no api has this ID"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `users#listUsers`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with users#listUsers",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/crud.test.yaml",
+              "range": {
+                "start": 76,
+                "end": 85
+              },
+              "newText": "users#listUsers"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2003",
+      "severity": "error",
+      "message": "unknown test \"users.crud#listUser\"",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 8,
+          "column": 15,
+          "endLine": 8,
+          "endColumn": 34
+        },
+        "text": "no test has this ID"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean one of `users.crud#listsUsers`, `users.crud#getsUser`?"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2003",
+      "severity": "error",
+      "message": "unknown api \"orders#place\"",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 9,
+          "column": 15,
+          "endLine": 9,
+          "endColumn": 27
+        },
+        "text": "no api has this ID"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "check the file ID and the item's `id`; another file's item is `fileId#id`"
+      ],
+      "fixes": []
+    }
+  ]
+}

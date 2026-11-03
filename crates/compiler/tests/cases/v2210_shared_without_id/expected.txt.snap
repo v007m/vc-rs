@@ -1,0 +1,11 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2210_shared_without_id/project
+---
+error[V2210]: this beforeAll action saves values but has no `id`
+ --> services/users/crud.test.yaml:2:5
+  |
+2 |   - call: users#createUser
+  |     ^^^^ needs an `id`
+  = help: shared values are read as `${var.<id>.<name>}`; give the action an `id`
+  = fix: Add id: createUser (certain)

@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
 use vc_model::SourceSpan;
 
 use crate::Scalar;
 
 /// One node of a parsed file: a value and the span it was read from.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node {
     /// What the node holds.
     pub value: Value,
@@ -12,7 +13,7 @@ pub struct Node {
 }
 
 /// The value of a [`Node`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Value {
     /// Text, a number, a boolean or null.
     Scalar(Scalar),
@@ -23,7 +24,7 @@ pub enum Value {
 }
 
 /// One `key: value` pair of a map.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Entry {
     /// The key's text.
     pub key: String,

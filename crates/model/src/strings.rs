@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
+
 use crate::ModelError;
 
 /// An interned string: a 4-byte handle into a [`StringTable`].
 ///
 /// Cheap to copy and compare. Two symbols from the same table are equal exactly when their
 /// text is. They order by when their text was first interned, not alphabetically.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Sym(u32);
 
 /// The interned strings of one program.
@@ -60,6 +63,12 @@ impl StringTable {
         self.strings.get(index).map(AsRef::as_ref)
     }
 
+    /// Every string in the table, in symbol order: interning them in this order into an empty
+    /// table gives each one the same symbol again.
+    pub fn texts(&self) -> impl Iterator<Item = &str> {
+        self.strings.iter().map(AsRef::as_ref)
+    }
+
     /// How many distinct strings the table holds.
     #[must_use]
     pub const fn len(&self) -> usize {
@@ -100,6 +109,15 @@ mod tests {
         let b = table.intern("b").unwrap();
         let a = table.intern("a").unwrap();
         assert!(b < a);
+    }
+
+    #[test]
+    fn texts_come_in_symbol_order() {
+        let mut table = StringTable::new();
+        for text in ["b", "a", "b"] {
+            table.intern(text).unwrap();
+        }
+        assert_eq!(table.texts().collect::<Vec<_>>(), ["b", "a"]);
     }
 
     #[test]

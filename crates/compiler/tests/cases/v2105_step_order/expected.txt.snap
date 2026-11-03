@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2105_step_order/project
+---
+error[V2105]: `fetch` is not available here
+ --> services/users/crud.test.yaml:5:21
+  |
+5 |         vars: {id: "${fetch.body.id}"}
+  |                     ^^^^^^^^^^^^^^^^
+  = help: `fetch` is available only after that action, in the same test or block

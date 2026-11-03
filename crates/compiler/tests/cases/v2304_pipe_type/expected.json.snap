@@ -1,0 +1,51 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2304_pipe_type/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2304",
+      "severity": "error",
+      "message": "pipe `upper` takes text, not a number",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 8,
+          "column": 28,
+          "endLine": 8,
+          "endColumn": 33
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    },
+    {
+      "code": "V2304",
+      "severity": "error",
+      "message": "pipe `lower` takes text, not a list",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 9,
+          "column": 26,
+          "endLine": 9,
+          "endColumn": 31
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    }
+  ]
+}

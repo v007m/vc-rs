@@ -12,6 +12,7 @@
 //! ```
 
 mod api;
+mod builder;
 mod config;
 mod defs;
 mod error;
@@ -28,6 +29,7 @@ mod test;
 mod units;
 
 pub use api::{Api, ApiGroup, BodySpec, PartSpec};
+pub use builder::ProgramBuilder;
 pub use config::{
     AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, Profile,
 };

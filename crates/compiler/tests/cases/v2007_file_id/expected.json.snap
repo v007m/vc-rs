@@ -1,0 +1,49 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2007_file_id/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2007",
+      "severity": "error",
+      "message": "the file ID is `users` from its path, not `user`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 1,
+          "column": 5,
+          "endLine": 1,
+          "endColumn": 9
+        },
+        "text": "does not match the path"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "remove the `id:` key, or move the file to match it"
+      ],
+      "fixes": [
+        {
+          "title": "Write users",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 4,
+                "end": 8
+              },
+              "newText": "users"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

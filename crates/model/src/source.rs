@@ -1,6 +1,6 @@
 use std::fmt;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::ModelError;
 
@@ -99,7 +99,7 @@ impl ContentHash {
 ///
 /// Schemas, datasets and hooks have no kind: they are read because something refers to them
 /// (`$file`, `datasets`, `function:`), and that reference says what they are.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FileKind {
     /// `vibranium.config.yaml`: project settings, vars, profiles, auth.
