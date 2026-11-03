@@ -80,6 +80,7 @@ tempfile = "3.27.0"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["macros", "net", "rt", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
+tokio-util = "0.7.20"
 tower = { version = "0.5.3", default-features = false, features = ["util"] }
 tower-service = "0.3.3"
 tower-http = { version = "0.6.11", features = ["compression-br", "compression-gzip"] }

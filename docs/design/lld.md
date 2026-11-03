@@ -220,7 +220,7 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 | **Saga (compensation)** | Api `cleanup` as compensating actions, run in reverse | Undo without tests describing it |
 | **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `vc-interfaces`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `FileSystem`, `SourceProvider`, `CompileCacheStore`, `CommandRunner`, `Vcs`, `ConfigSource`, `ActionRunner` | The core never knows which library sits behind it |
 | **Strategy** | Action executors (call, test reuse, function, command); matchers; pipes; body encoders (JSON, form, multipart, file); retry and loop policies (sequential, parallel); the load mix selector; sync merge rules | Swap behaviour by kind without branching in the caller |
-| **Factory and registry** | One registry per kind of strategy or adapter, filled at start-up: `ActionExecutorFactory` (by action kind), `AuthProviderFactory` (by auth `type`), `ReporterFactory`, `NotifierFactory`, `ImporterFactory` (by source), `TransportFactory` (by URL scheme, ready for gRPC and WebSocket), `MatcherRegistry`, `PipeRegistry`, `LintRegistry` | Adding a kind is one new file plus one registration line; nothing else changes |
+| **Factory and registry** | One registry per kind of strategy or adapter, filled at start-up: `ActionExecutors` (by action kind), `AuthProviderFactory` (by auth `type`), `ReporterFactory`, `NotifierFactory`, `ImporterFactory` (by source), `TransportFactory` (by URL scheme, ready for gRPC and WebSocket), `MatcherRegistry`, `PipeRegistry`, `LintRegistry` | Adding a kind is one new file plus one registration line; nothing else changes |
 | **Builder** | `EngineBuilder` (the composition root that wires adapters into the engine); `ProgramBuilder` (the compiler accumulates, then `freeze()` gives the immutable `Program`); `RequestBuilder` (renders a request from an api, scope and auth); `PlanBuilder`; `Diagnostic::new(…)` with chained `label`, `help`, `fix`; test fixtures (`ProjectBuilder`, `ProgramBuilder::for_tests`); the SDKs' fluent builders | Objects with many optional parts are assembled step by step and checked once; required parts are enforced by typed builder states |
 | **Facade** | The `engine` crate: `compile`, `plan`, `run`, `call`, `sync`, `query` | Apps depend on one small surface |
 | **Observer (publish/subscribe)** | The event bus and its subscribers: history writer, reporters, console, TUI, web UI, MCP | Producers never know who listens |
@@ -654,22 +654,17 @@ This section details the workers and frames under the orchestrators described in
 The planner lists every shared action, so each frame creates its slots up front and fills them before any instance starts (D122):
 
 ```rust
-/// One per planned shared action (beforeRun or beforeAll), created up front.
-/// The frame owner runs the action once; every instance reads the same result.
-pub struct SharedSlot {
-    action: ActionId,
-    cell: tokio::sync::OnceCell<Result<Arc<SharedOutcome>, Arc<Failure>>>,
-}
+/// What a shared action left behind: its saved values, or its failure.
+pub type SharedResult = Result<Arc<Saved>, Arc<Failure>>;
 
-pub struct SharedOutcome {
-    pub saved: Saved,                  // values published under the action's id
-    pub cleanups: Vec<PendingCleanup>, // registered by its calls, run when the owner frame closes
-    pub finished_seq: u64,             // order of completion, so cleanups run newest first
-    pub from_cache: bool,
+/// One frame's shared actions (beforeRun, or a file's beforeAll): a slot per planned action,
+/// created up front, filled once by the worker that ran the action, read by every instance.
+pub struct SharedSlots {
+    slots: BTreeMap<ActionId, tokio::sync::OnceCell<SharedResult>>,
 }
 ```
 
-`OnceCell` makes each slot write-once, so it needs no lock. The slots live in a read-only map shared by `Arc`; a failed action stores its failure, and every instance whose needs include it is marked **blocked** with that failure attached; blocked instances are never retried (D126). Cleanups are returned as data and run by the frame's owner when it closes, so no task ever writes into another task's state.
+`OnceCell` makes each slot write-once, so it needs no lock. The slots live in a read-only map shared by `Arc` (`Scope { run, file }` hands both frames' slots to every action); the worker fills the slot before it reports the action done, so the machine starts instances only after their shared values are readable. Cleanups the action registered travel back in its `ActionReport` to the frame's machine, which runs them newest first when the frame closes; a failed action stores its failure, and every instance whose needs include it is marked **blocked** with that failure attached; blocked instances are never retried (D126). Cleanups are returned as data and run by the frame's owner when it closes, so no task ever writes into another task's state.
 
 ### One test instance
 
@@ -689,32 +684,36 @@ run_instance(instance):                           # repeated per attempt when th
 
 - **Call.** Resolve the effective auth (step, then api, then api file); render the request (method, URL from the api file's `baseUrl`, headers, query, body) against the scope; run `beforeRequest` hooks; send through the transport; run `afterResponse` hooks; evaluate the merged checks; if `poll` is set, repeat until `until` holds or its timeout passes; apply `save` (api saves, then the action's); if the status is 2xx, the api has `cleanup` and the action isn't `keep`, render the cleanup's vars against this response and push it onto the owner's cleanup stack.
 - **Test** (`test:` reuse). Run the reused test's calls in order inside the current frame, with each api's checks; the reused test's own test-level checks are skipped.
-- **Function / command.** Send the call to the hook thread or spawn the process through the `CommandRunner` trait (with a timeout and the run's environment); a non-zero exit (V5110) or a thrown error fails the action; a returned object becomes saved values. A dynamically saved value that a later template uses without a `provides:` declaration is V5108; a declared one the action did not return is V5109 (D128). The `function:` executor is registered in M4; until then the planner rejects `function:` actions.
+- **Function / command.** Send the call to the hook thread or spawn the process through the `CommandRunner` trait (with a timeout and the run's environment); a non-zero exit (V5110) or a thrown error fails the action; a returned object becomes saved values. A dynamically saved value that a later template uses without a `provides:` declaration is V5108; a declared one the action did not return is V5109 (D128). The `function:` executor is registered in M4. Until then `function:` and `command:` have no entry in the `ActionExecutors` registry, and `Executor::start` walks every action the plan can reach (through api cleanups and `test:` reuse, via `ActionExecutor::follows`) and refuses the plan with `ExecutorError::NoExecutor` before anything runs.
 - **Loops.** `repeat` and `forEach` expand into iterations run in a `JoinSet` under a semaphore of size `parallel` (default 1). Each iteration writes its saved values into slot `i` of a pre-sized list, so lists come out in iteration order however the iterations finish. On failure, the action waits for the iterations already running, keeps their cleanups, and reports the first failure.
 - **Retry.** A test's `retry` (or `defaults.retry`) re-runs the whole instance after `delay`, running its cleanups between attempts; a pass after a failure marks it **flaky** with every attempt recorded. A blocked instance is never retried. Transport-level retries are `http.retry`, in the request pipeline (D126).
 - **Cache.** If the action has `cache`, look in the cache store first (see Results, history store, cache store); a live hit restores saved values and registers no cleanup.
 
 ### Cancellation and timeouts
 
-A tree of `CancellationToken`s mirrors the frames (run → file → instance). Ctrl-C, `--bail` or a test timeout cancels the relevant subtree: no new requests start, in-flight requests get a grace period (default 5 s), then cleanups run under their own token and timeout so they are not cancelled with the work. A second Ctrl-C skips the grace period but still runs cleanups; a third exits immediately and lists the cleanups that did not run.
+A tree of `CancellationToken`s mirrors the frames (run → file → instance); each frame's `CancelTree` holds its own `work` token (a child of its parent's) plus two run-wide tokens, `hurry` and `abort`. Ctrl-C, `--bail` or a test timeout cancels the relevant subtree: no new instances start, and the action in flight gets a grace period (`RunOptions::grace`, default 5 s) before it is cut. Cleanups run outside the `work` token, so they are not cancelled with the work. A second Ctrl-C (`hurry`) ends the grace period but still runs cleanups; a third (`abort`) stops everything, and each frame emits `CleanupsAbandoned` with the cleanups that did not run. The run machine counts the interrupts (`RunHandle::interrupt`); the shells only carry out its `Cancel`, `SkipGrace` and `Abort` commands. A cut instance with no failure is reported skipped (reason `cancelled`); the run ends `Cancelled` and exits 130 (D127).
 
 ### Events
 
-Everything observable is an `Event` on a bounded channel with a run-wide sequence number:
+Everything observable is an `Event`, numbered with a run-wide sequence number by the `EventBus`:
 
 ```rust
 pub enum Event {
-    RunStarted { plan: PlanSummary }, FileStarted { file: FileId },
-    ActionStarted { action: ActionId, owner: OwnerKey }, ActionFinished { action: ActionId, outcome: ActionOutcome },
-    ExchangeCompleted { exchange: ExchangeRecord },   // request, response, timings, redacted
-    CheckEvaluated { check: CheckResult },             // expected, actual, pass, span
+    RunStarted { files: usize, instances: usize }, FileStarted { file: FileId },
+    FileFinished { file: FileId, totals: Totals },
+    ActionStarted { action: ActionId, owner: OwnerKey },
+    ActionFinished { action: ActionId, owner: OwnerKey, outcome: ActionOutcome },
     CleanupFinished { cleanup: CleanupRecord },
+    CleanupsAbandoned { owner: OwnerKey, cleanups: Vec<ActionId> }, // after a third Ctrl-C
     TestFinished { result: TestResult },               // passed | failed | blocked | skipped | flaky
-    RunFinished { totals: Totals },
+    RunFinished { status: RunStatus, totals: Totals },
+    // planned: ExchangeCompleted (request, response, timings, redacted), CheckEvaluated
 }
+pub struct Sequenced { pub seq: u64, pub event: Event }
+pub enum Feed { Event(Sequenced), Missed { count: u64 } }
 ```
 
-Subscribers (history writer, reporters, console, TUI, web UI, MCP) each get their own task fed by a fan-out task, so a slow subscriber is buffered and cannot slow the run; if a buffer overflows, that subscriber is told how many events it missed and reloads from the history store. Every event passes through the redactor before it leaves the executor; the redactor is executor logic, and the secrets adapter only supplies values (D106). `Event` is a `vc-model` type (D103).
+The bus is one fan-out task that owns the sequence number and the subscribers; `publish` never waits. Each subscriber (history writer, reporters, console, TUI, web UI, MCP) gets its own bounded `Feed` channel (`EventBus::subscribe(capacity)`), so a slow subscriber cannot slow the run: when its buffer is full the event is dropped for that subscriber only and counted, and once there is room it receives `Feed::Missed { count }` before the next event, then reloads from the history store. The run flushes the bus before `RunFinished` is reported. Every event passes through the redactor before it leaves the executor; the redactor is executor logic, and the secrets adapter only supplies values (D106). `Event` is a `vc-model` type (D103).
 
 ### Determinism
 

@@ -12,15 +12,17 @@ publish.workspace = true
 async-trait.workspace = true
 http.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 tower.workspace = true
+vc-diagnostics.workspace = true
 vc-interfaces.workspace = true
 vc-model.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
-vc-diagnostics.workspace = true
 vc-testkit.workspace = true
 
 [lints]
