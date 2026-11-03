@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2105_step_order/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`fetch` is not available here",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 5,
+          "column": 21,
+          "endLine": 5,
+          "endColumn": 37
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`fetch` is available only after that action, in the same test or block"
+      ],
+      "fixes": []
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+tests:
+  - id: listsUsers
+    call: users#listUsers

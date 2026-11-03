@@ -1,0 +1,9 @@
+profiles:
+  - id: dev
+    vars: {userId: 1}
+tests:
+  - id: getsUser
+    call: users#getUser
+    vars: {usrId: 1}
+    headers:
+      x-region: ${var.region}

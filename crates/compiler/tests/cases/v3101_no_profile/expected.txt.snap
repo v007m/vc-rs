@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3101_no_profile/project
+---
+error[V3101]: the config defines no profile
+ --> vibranium.config.yaml:1:1
+  |
+1 | syntaxVersion: 2
+  | ^^^^^^^^^^^^^ in this config
+  = help: add `profiles:` with one profile marked `default: true`, such as `- id: dev`

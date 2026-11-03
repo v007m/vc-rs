@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 /// A length of time written in a definition file (`250ms`, `2s`, `1m`).
 ///
 /// Plain data: the template crate parses the text; this type only carries the value.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Duration(std::time::Duration);
 
 impl Duration {
@@ -21,7 +23,7 @@ impl Duration {
 /// A number of bytes written in a definition file (`4kb`, `1mb`).
 ///
 /// Plain data: the template crate parses the text; this type only carries the value.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Size(u64);
 
 impl Size {

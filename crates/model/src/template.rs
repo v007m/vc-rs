@@ -1,11 +1,12 @@
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
 use crate::{SourceSpan, Sym};
 
 /// A string that may hold `${…}` references, parsed once at compile time:
 /// `"/users/${var.userId}"` is a literal part and a reference part.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Template {
     /// The literal text and references, in order; adjacent literals are merged.
     pub parts: Vec<Part>,
@@ -30,7 +31,7 @@ impl Template {
 }
 
 /// One piece of a [`Template`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Part {
     /// Text copied as is; `$${` has already been unescaped to `${`.
     Literal(String),
@@ -39,7 +40,7 @@ pub enum Part {
 }
 
 /// A `${namespace.path(args) | pipe | pipe(args)}` reference.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Reference {
     /// The root: `var`, `response`, a step id…
     pub ns: Namespace,
@@ -56,7 +57,7 @@ pub struct Reference {
 }
 
 /// How a YAML scalar is written, so positions in its decoded text can be mapped back to the file.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ScalarStyle {
     /// Unquoted.
     Plain,
@@ -75,7 +76,7 @@ pub enum ScalarStyle {
 }
 
 /// Where a scalar is written and how, the input to template parsing.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ScalarSource {
     /// The whole scalar in the file, quotes included.
     pub span: SourceSpan,
@@ -84,7 +85,7 @@ pub struct ScalarSource {
 }
 
 /// The root of a reference (D125).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Namespace {
     /// `var`: vars, call values, profile values and saved values.
     Var,
@@ -113,14 +114,14 @@ pub enum Namespace {
 }
 
 /// A path into a JSON value: `.body.items[-1]["x-id"]`.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Path {
     /// The steps, in order; empty means the value itself.
     pub segments: Vec<Segment>,
 }
 
 /// One step of a [`Path`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Segment {
     /// `.key` or `["quoted key"]`.
     Key(String),
@@ -131,7 +132,7 @@ pub enum Segment {
 }
 
 /// One pipe in a reference: `take(10)`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PipeCall {
     /// The registered name: `take`.
     pub name: String,
@@ -144,7 +145,7 @@ pub struct PipeCall {
 }
 
 /// The source of a `$cel` value or a CEL check, as written.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CelSource {
     /// The expression text.
     pub text: String,
@@ -156,7 +157,7 @@ pub struct CelSource {
 
 /// A CEL expression checked at compile time: it parses, and every root it reads is available
 /// where it is written (D125). `vc-template` prepares it into an evaluator at run start.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CelProgram {
     /// The expression as written.
     pub source: CelSource,
@@ -166,7 +167,7 @@ pub struct CelProgram {
 }
 
 /// A value that may hold templates anywhere inside: bodies, vars, saves.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TemplateValue {
     /// `null`.
     Null,
@@ -194,7 +195,7 @@ pub enum TemplateValue {
 }
 
 /// An expected status: one code (`201`) or a class (`2xx`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum StatusPattern {
     /// Exactly this code, 100 to 599.
     Code(u16),

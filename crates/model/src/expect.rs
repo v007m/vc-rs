@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{ActionId, ApiId, Duration, Path, Size, SourceSpan, StatusPattern, TemplateValue, TestId};
 
 /// The merged checks for one call: api, then test, then step, the more specific replacing a
@@ -60,7 +62,7 @@ pub enum Origin {
 }
 
 /// A literal (equals) or a set of matchers that must all pass.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Matcher {
     /// The value equals this one (deep for objects).
     Equals(TemplateValue),
@@ -71,7 +73,7 @@ pub enum Matcher {
 }
 
 /// One registered matcher with its argument, such as `gt: 0`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MatcherCall {
     /// The matcher's name as registered (`gt`, `every`, `format`).
     pub name: String,
@@ -82,7 +84,7 @@ pub struct MatcherCall {
 }
 
 /// A matcher's argument, already checked against the matcher's signature (V2306).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MatcherArg {
     /// A value: a number, text, list or flag.
     Value(TemplateValue),

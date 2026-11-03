@@ -1,0 +1,9 @@
+vars:
+  limit: 10
+  tags: [a, b]
+apis:
+  - id: listUsers
+    path: /users
+    query:
+      limit: ${var.limit | upper}
+      tags: ${var.tags | lower}

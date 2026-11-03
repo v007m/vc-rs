@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::SourceFileId;
 
@@ -8,7 +8,7 @@ use crate::SourceFileId;
 ///
 /// `line` and `column` are 1-based, the column counted in characters; `offset` is the 0-based
 /// byte offset. Positions order by line, then column.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Pos {
     /// The line, from 1.
     pub line: u32,
@@ -32,7 +32,7 @@ impl Pos {
 /// Where something came from: a file and a start and end position in it.
 ///
 /// Spans order by file, then start, then end, which is the order diagnostics are shown in.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SourceSpan {
     /// The file, as an index into the program's file table.
     pub file: SourceFileId,

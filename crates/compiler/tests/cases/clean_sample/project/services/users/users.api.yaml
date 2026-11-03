@@ -15,3 +15,5 @@ apis:
     body: {name: Ada, age: 36}
     expect:
       status: [201, 2xx]
+    save:
+      userId: ${response.body.id}

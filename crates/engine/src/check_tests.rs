@@ -1,15 +1,18 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use vc_compiler::CompileCache;
 use vc_diagnostics::Code;
 use vc_interfaces::{CompileCacheError, CompileCacheStore, SourceProvider};
 use vc_testkit::{MemoryCompileCache, MemorySources};
 
 use crate::{CheckRequest, Engine, EngineBuilder, EngineError};
 
-const CONFIG: (&str, &[u8]) = ("vibranium.config.yaml", b"syntaxVersion: 2\n");
+const CONFIG: (&str, &[u8]) =
+    ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n");
 const USERS: (&str, &[u8]) = ("services/users/users.api.yaml", b"apis: []\n");
 const ORDERS: (&str, &[u8]) = ("services/orders/orders.api.yaml", b"apis: []\n");
+const GET_USER: (&str, &[u8]) = ("services/users/users.api.yaml", b"apis:\n  - id: getUser\n    path: /users\n");
 
 fn engine(files: &[(&str, &[u8])], cache: Arc<dyn CompileCacheStore>) -> Engine {
     let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(files));
@@ -40,6 +43,44 @@ fn checks_a_clean_project_and_leaves_a_cache() {
     assert!(report.diagnostics.is_empty() && report.notices.is_empty());
     assert_eq!((report.checked, report.files.len()), (2, 2));
     assert!(cache.load().unwrap().is_some_and(|blob| !blob.is_empty()), "the next check gets a cache");
+}
+
+#[test]
+fn a_check_from_the_saved_blob_reuses_every_unit() {
+    let cold = MemoryCompileCache::new();
+    let first = engine(&[CONFIG, GET_USER], Arc::new(cold.clone())).check(&CheckRequest::default()).unwrap();
+    let blob = cold.load().unwrap().unwrap();
+    assert_eq!(CompileCache::from_bytes(&blob).units(), 2, "the blob holds every file's unit");
+    let warm = MemoryCompileCache::holding(Some(blob));
+    let second = engine(&[CONFIG, GET_USER], Arc::new(warm.clone())).check(&CheckRequest::default()).unwrap();
+    assert_eq!(second, first);
+    assert!(second.notices.is_empty(), "{:?}", second.notices);
+    let saved = warm.load().unwrap().unwrap();
+    assert_eq!(CompileCache::from_bytes(&saved).units(), 2);
+}
+
+/// A store holding a blob that refuses every save.
+struct ReadOnlyCache(Vec<u8>);
+
+impl CompileCacheStore for ReadOnlyCache {
+    fn load(&self) -> Result<Option<Vec<u8>>, CompileCacheError> {
+        Ok(Some(self.0.clone()))
+    }
+
+    fn save(&self, _bytes: &[u8]) -> Result<(), CompileCacheError> {
+        Err(CompileCacheError::Write { location: "read-only".to_owned(), reason: "no disk".to_owned() })
+    }
+}
+
+#[test]
+fn saves_the_cache_only_when_the_files_changed() {
+    let cold = MemoryCompileCache::new();
+    engine(&[CONFIG, GET_USER], Arc::new(cold.clone())).check(&CheckRequest::default()).unwrap();
+    let blob = cold.load().unwrap().unwrap();
+    let same = engine(&[CONFIG, GET_USER], Arc::new(ReadOnlyCache(blob.clone()))).check(&CheckRequest::default());
+    assert!(same.unwrap().notices.is_empty(), "nothing changed, so nothing is saved");
+    let changed = engine(&[CONFIG, USERS], Arc::new(ReadOnlyCache(blob))).check(&CheckRequest::default());
+    assert!(changed.unwrap().notices[0].contains("not saved"));
 }
 
 #[test]

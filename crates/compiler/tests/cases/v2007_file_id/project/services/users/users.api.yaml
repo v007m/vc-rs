@@ -1,0 +1,4 @@
+id: user
+apis:
+  - id: getUser
+    path: /users/1

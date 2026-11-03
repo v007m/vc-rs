@@ -1,9 +1,11 @@
 use std::fmt::Write as _;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{Syntax, json};
 
 /// How a scalar was written in the source.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ScalarStyle {
     /// Unquoted: `value`.
     Plain,
@@ -18,7 +20,7 @@ pub enum ScalarStyle {
 }
 
 /// What a scalar means under the YAML 1.2 core schema; only plain scalars can be anything but text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ScalarKind {
     /// `null`, `~` or nothing.
     Null,
@@ -33,7 +35,7 @@ pub enum ScalarKind {
 }
 
 /// A scalar value: its text as written (quotes removed and escapes applied), style and kind.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Scalar {
     /// The content: `0x1F` stays `0x1F`; the exact source bytes are the node's span.
     pub text: String,

@@ -1,0 +1,33 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2003_unknown_api/project
+---
+error[V2003]: unknown api "users#getUsr"
+ --> services/users/crud.test.yaml:3:11
+  |
+3 |     call: users#getUsr
+  |           ^^^^^^^^^^^^ no api has this ID
+  = help: did you mean `users#getUser`?
+  = fix: Replace with users#getUser (certain)
+
+error[V2003]: unknown api "users.crud#listUsers"
+ --> services/users/crud.test.yaml:5:11
+  |
+5 |     call: listUsers
+  |           ^^^^^^^^^ no api has this ID
+  = help: did you mean `users#listUsers`?
+  = fix: Replace with users#listUsers (certain)
+
+error[V2003]: unknown test "users.crud#listUser"
+ --> services/users/crud.test.yaml:8:15
+  |
+8 |       - test: users.crud#listUser
+  |               ^^^^^^^^^^^^^^^^^^^ no test has this ID
+  = help: did you mean one of `users.crud#listsUsers`, `users.crud#getsUser`?
+
+error[V2003]: unknown api "orders#place"
+ --> services/users/crud.test.yaml:9:15
+  |
+9 |       - call: orders#place
+  |               ^^^^^^^^^^^^ no api has this ID
+  = help: check the file ID and the item's `id`; another file's item is `fileId#id`

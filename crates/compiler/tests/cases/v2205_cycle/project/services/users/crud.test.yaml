@@ -1,0 +1,11 @@
+tests:
+  - id: signsUp
+    steps:
+      - test: logsIn
+  - id: logsIn
+    steps:
+      - call: users#getUser
+      - test: signsUp
+  - id: loopsOnItself
+    steps:
+      - test: loopsOnItself

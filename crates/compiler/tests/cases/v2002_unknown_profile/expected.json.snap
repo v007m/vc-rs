@@ -1,0 +1,85 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2002_unknown_profile/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "unknown auth `admn`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 1,
+          "column": 7,
+          "endLine": 1,
+          "endColumn": 11
+        },
+        "text": "the config has no such auth"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `admin`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with admin",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 6,
+                "end": 10
+              },
+              "newText": "admin"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "unknown profile `stagin`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 3,
+          "column": 9,
+          "endLine": 3,
+          "endColumn": 15
+        },
+        "text": "the config has no such profile"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `staging`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with staging",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 29,
+                "end": 35
+              },
+              "newText": "staging"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

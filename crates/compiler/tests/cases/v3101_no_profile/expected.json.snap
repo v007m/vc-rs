@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3101_no_profile/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V3101",
+      "severity": "error",
+      "message": "the config defines no profile",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 14
+        },
+        "text": "in this config"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add `profiles:` with one profile marked `default: true`, such as `- id: dev`"
+      ],
+      "fixes": []
+    }
+  ]
+}

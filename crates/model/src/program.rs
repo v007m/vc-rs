@@ -52,6 +52,11 @@ impl Program {
     pub fn str(&self, sym: Sym) -> Option<&str> {
         self.strings.resolve(sym)
     }
+
+    /// The strings, for the builder to add to.
+    pub(crate) const fn strings_mut(&mut self) -> &mut StringTable {
+        &mut self.strings
+    }
 }
 
 #[cfg(test)]

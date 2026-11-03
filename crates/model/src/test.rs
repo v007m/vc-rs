@@ -83,6 +83,10 @@ pub struct Action {
     pub vars: VarDefs,
     /// `auth`.
     pub auth: Option<AuthRef>,
+    /// `headers`, over the api's.
+    pub headers: IndexMap<String, Template>,
+    /// `query`, over the api's.
+    pub query: IndexMap<String, Template>,
     /// `body`, replacing the api's.
     pub body: Option<BodySpec>,
     /// Merged over the api's `expect` at compile time.

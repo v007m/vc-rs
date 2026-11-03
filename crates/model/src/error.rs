@@ -10,4 +10,7 @@ pub enum ModelError {
     /// The file table already holds as many files as a [`crate::SourceFileId`] can address.
     #[error("the file table is full ({0} files)")]
     FileTableFull(usize),
+    /// The program already holds as many actions as an [`crate::ActionId`] can address.
+    #[error("the action table is full ({0} actions)")]
+    ActionTableFull(usize),
 }
