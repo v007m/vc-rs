@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use vc_model::{
-    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Method, Origin, Owner, Program, Segment, SourceFile,
-    SourcePath, Test, TestBody,
+    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Duration, Method, Origin, Owner, Program, Segment,
+    SourceFile, SourcePath, Test, TestBody,
 };
 
 use crate::{CompileInput, compile};
@@ -61,7 +61,11 @@ fn builds_the_config_profiles_and_run_blocks() {
     assert_eq!((program.config.syntax_version, program.config.project.as_deref()), (2, Some("shop")));
     assert_eq!(program.config.vars.values.len(), 1);
     assert_eq!(program.config.reports_dir.as_deref(), Some("out"));
-    assert_eq!((program.config.redact_headers.len(), program.config.redact_fields.len()), (1, 1));
+    assert_eq!(
+        (&program.config.redact_headers[..], &program.config.redact_fields[..]),
+        (&["x-key".to_owned()][..], &["password".to_owned()][..])
+    );
+    assert_eq!(program.config.report_formats, ["ctrf"]);
     let profile = program.profiles.values().next().unwrap();
     assert!(profile.default && profile.vars.len() == 1);
     let [warm] = program.run_blocks.before_all[..] else { panic!("one beforeRun action") };
@@ -148,4 +152,62 @@ fn step_checks_merge_api_then_test_then_step() {
     assert_eq!(checks(first), expected);
     assert_eq!(checks(again), [(CheckKind::Size, 29, 's')]);
     assert_eq!(twice.expect.checks.len(), 2);
+}
+
+const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndefaults: {timeout: 5s, concurrency: 4, perHost: 2, headers: {x-d: '1'}}\nafterRun:\n  - function: hooks/a.ts#report\n";
+
+const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
+
+const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n";
+
+fn more() -> Arc<Program> {
+    let files = vec![
+        file("vibranium.config.yaml", MORE_CONFIG),
+        file("services/orders/orders.api.yaml", ORDERS),
+        file("services/orders/flow.test.yaml", FLOW),
+    ];
+    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    assert!(compiled.diagnostics.is_empty(), "{:?}", compiled.diagnostics);
+    compiled.program.unwrap()
+}
+
+fn seconds(secs: u64) -> Duration {
+    Duration::new(std::time::Duration::from_secs(secs))
+}
+
+#[test]
+fn builds_the_config_defaults_and_after_run() {
+    let program = more();
+    let defaults = &program.config.defaults;
+    assert_eq!((defaults.timeout, defaults.concurrency, defaults.per_host), (Some(seconds(5)), Some(4), Some(2)));
+    assert_eq!(defaults.headers.len(), 1);
+    assert_eq!(program.run_blocks.after_all.len(), 1);
+}
+
+#[test]
+fn reads_request_hooks_and_file_bodies() {
+    let program = more();
+    let group = program.api_groups.values().next().unwrap();
+    let [sign] = &group.hooks.before_request[..] else { panic!("one file hook") };
+    assert_eq!((sign.file.as_str(), sign.export.as_str()), ("hooks/a.ts", "sign"));
+    let (upload, mixed) = (&program.apis[&group.apis[0]], &program.apis[&group.apis[1]]);
+    assert_eq!(upload.hooks.after_response.len(), 1);
+    assert!(matches!(upload.body, BodySpec::File(_)));
+    assert!(matches!(mixed.body, BodySpec::Json(_)), "a `$file` map with other keys is JSON");
+}
+
+#[test]
+fn reads_skips_polls_and_body_and_function_checks() {
+    let program = more();
+    let file = program.test_files.values().next().unwrap();
+    let skip = file.skip.as_ref().unwrap();
+    assert_eq!((skip.reason.as_str(), skip.until.as_deref()), ("later", Some("2026-12-01")));
+    let waits = test(&program, "orders.flow#waitsForOrder");
+    assert_eq!(waits.skip.as_ref().map(|skip| skip.reason.as_str()), Some("flaky"));
+    let TestBody::Call(call) = waits.body else { panic!("expected a call") };
+    let call = action(&program, call);
+    let poll = call.poll.as_ref().unwrap();
+    assert_eq!((poll.every, poll.timeout, poll.until.checks.len()), (seconds(2), seconds(30), 1));
+    let kinds: Vec<_> = call.expect.checks.iter().map(|check| check.kind).collect();
+    assert_eq!(kinds, [CheckKind::Equals, CheckKind::Custom]);
 }
