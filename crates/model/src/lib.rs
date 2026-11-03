@@ -15,10 +15,13 @@ mod api;
 mod config;
 mod defs;
 mod error;
+mod event;
 mod exchange;
 mod expect;
 mod files;
 mod ids;
+mod outcome;
+mod plan;
 mod program;
 mod source;
 mod span;
@@ -36,10 +39,13 @@ pub use defs::{
     Tag, VarDefs,
 };
 pub use error::ModelError;
+pub use event::{Event, Feed, Sequenced};
 pub use exchange::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
 pub use expect::{Check, CheckKind, Expect, Matcher, MatcherArg, MatcherCall, Origin};
 pub use files::SourceFiles;
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
+pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};
+pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use program::Program;
 pub use source::{ContentHash, FileKind, SourceFile, SourcePath};
 pub use span::{Pos, SourceSpan};
