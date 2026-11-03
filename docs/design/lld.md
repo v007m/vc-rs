@@ -102,7 +102,7 @@ Third-party crates:
 | Need | Crate (version) | Why this one |
 | --- | --- | --- |
 | Async runtime | `tokio` 1, `tokio-util` 0.7 (cancellation tokens) | The standard; used by hyper, axum, reqwest |
-| HTTP client | `hyper` 1 + `hyper-util` 0.1 + `rustls` | Direct control of the connection, so DNS, connect, TLS, first-byte and download times can be measured; `reqwest` 0.13 for simple internal fetches (OpenAPI URLs) |
+| HTTP client | `hyper` 1 + `hyper-util` 0.1 + `rustls` 0.23 (`ring` provider) + `tokio-rustls` 0.26; `flate2`, `brotli-decompressor`, `zstd` for decoding | Direct control of the connection, so DNS, connect, TLS, first-byte and download times can be measured; `reqwest` 0.13 for simple internal fetches (OpenAPI URLs) |
 | YAML with positions | `saphyr-parser` 0.3 | YAML 1.2 events with a span each (line and column in characters); `parser` builds its own `Node` tree from them, keeping scalar styles and key spans, which diagnostics and minimal-diff edits need. `.json` files are read by `parser`'s own strict JSON reader into the same tree (D148), so no JSON library is needed |
 | JSON | `serde` 1, `serde_json` 1 | Standard |
 | Template and pipe parsing | `winnow` 1 | Small, fast parser combinators with good error positions |
@@ -130,8 +130,8 @@ Third-party crates:
 | Logging | `tracing` 0.1 | Structured logs; `--log` level per crate |
 | Errors | `thiserror` 2 (library crates), `anyhow` 1 (`vc-cli` only) | One typed error enum per library crate; context-rich errors only at the top (D136) |
 | Async traits | `async-trait` 0.1 | Async methods on `Arc<dyn Trait>` until native dyn-async is stable (D115, D136) |
-| Request middleware | `tower` 0.5 | The request pipeline as composable layers (D134, D136) |
-| DNS and certificates | `hickory-resolver`; `rustls-platform-verifier` when first used | Timed DNS with the system resolver as fallback; the OS certificate store, so corporate CAs work (D136) |
+| Request middleware | `tower` 0.5 (`util`) | The request pipeline as composable layers (D134, D136) |
+| DNS and certificates | `tokio::net::lookup_host`; `rustls-native-certs` 0.8 with rustls's webpki verifier | DNS is the system resolver, timed around tokio's lookup; roots are the OS certificate store, so corporate CAs work. `ring` rather than `aws-lc-rs`, whose licence carries an OpenSSL term (D136, D152) |
 | Regular expressions | `regex` 1 | The `regex` matcher and CEL `matches()` (D136) |
 | Small helpers | `smallvec` 1, `camino` 1, `strsim` 0.11 | Scope levels without allocation; UTF-8 paths; "did you mean" suggestions (D136) |
 | Lock-free swap | `arc-swap` 1 | The redactor's automaton is replaced without blocking readers (D113, D136) |
@@ -647,7 +647,7 @@ The executor runs a `Plan`. It is where concurrency, lifecycle blocks, shared va
 | Event writer tasks | subscriber | their own buffers | history store, reporters, console, UI stream |
 | Hook thread | process | the QuickJS runtime | instance workflows, via a request queue |
 
-This section details the workers and frames under the orchestrators described in Orchestration and design patterns. The run orchestrator runs the planned `beforeRun` actions to completion, and each file orchestrator runs its `beforeAll` before any of its instances start (D122); file orchestrators start in plan order; instances from different files run side by side, limited by `defaults.concurrency` (a semaphore) and by `defaults.perHost` (a semaphore per host inside the transport).
+This section details the workers and frames under the orchestrators described in Orchestration and design patterns. The run orchestrator runs the planned `beforeRun` actions to completion, and each file orchestrator runs its `beforeAll` before any of its instances start (D122); file orchestrators start in plan order; instances from different files run side by side, limited by `defaults.concurrency` (a semaphore) and by `defaults.perHost` (a semaphore per host in the request pipeline).
 
 ### Shared values without locks
 
@@ -792,17 +792,21 @@ pub trait Transport: Send + Sync {
     async fn send(&self, request: RenderedRequest, ctx: &SendContext) -> Result<Exchange, TransportError>;
 }
 
+pub struct SendContext { pub body_limit: Size }   // in-memory cap on the decoded body, default 64 MiB
+
 pub struct Exchange {
-    pub request: RenderedRequest,          // as sent, after hooks and auth
-    pub response: Response,                // status, headers, body bytes (capped), size
-    pub timing: Timing,                    // dns, connect, tls, first_byte, download, total
-    pub connection: ConnectionInfo,        // reused or new, protocol (h1, h2), remote address
+    pub request: RenderedRequest,          // method, uri, headers, body: as sent, after hooks and auth
+    pub response: HttpResponse,            // status, headers, decoded body (capped), wire_size
+    pub timing: Timing,                    // dns, connect, tls (None on a reused connection), first_byte, download, total
+    pub connection: ConnectionInfo,        // reused or new, protocol (Http1, Http2), remote address
 }
 ```
 
-The HTTP adapter is built on `hyper` 1 with `hyper-util`'s pooled client and a custom connector that times each phase: DNS through `hickory-resolver` (with the system resolver as fallback), TCP connect, the `rustls` handshake (platform certificate verifier, so corporate CAs work), then first byte and download measured around the body stream. HTTP/2 is negotiated by ALPN. A semaphore per host enforces `defaults.perHost`. Response bodies are read up to a cap (`history.maxBodySize` for storage, a much larger in-memory cap for checks) and decompressed (gzip, br, zstd). Proxy settings follow `HTTPS_PROXY`/`NO_PROXY`; client certificates and custom CA bundles are per-profile config.
+The wire types live in `vc-model` (`exchange.rs`) and use `http` and `bytes` types (D111); their `Debug` output shows header names but never values. `TransportError` (in `vc-interfaces`) is `InvalidRequest`, `Dns`, `Connect`, `Tls`, `Timeout` (V5104), `Protocol`, `BodyTooLarge` or `Decode`; all but `Timeout` are V5105. A status code is never an error.
 
-Around the transport, each request passes through `tower` layers in this order (D134, D141): timing → retry (on `refreshOn` and per `http.retry`, D143) → auth → `beforeRequest` hooks → per-host limit → timeout → transport. Auth sits inside retry, so a retried request gets fresh credentials. The timeout sits inside retry, so it limits each attempt and a timed-out attempt can be retried. Until M3 and M4 the auth and hook layers are null objects.
+The HTTP adapter (`HttpTransport::new(&HttpOptions)`, the only public constructor, called by `EngineBuilder`) is built on `hyper` 1 with `hyper-util`'s pooled client and a custom connector that times each phase: DNS through `tokio::net::lookup_host` (the system resolver; skipped for an IP literal), TCP connect, the proxy tunnel, and the `rustls` handshake (`ring` provider, roots from the OS store through `rustls-native-certs` plus `HttpOptions::extra_roots`, webpki verification always on; D152), then first byte and download measured around the body stream. HTTP/2 is negotiated by ALPN (`h2`, then `http/1.1`). The connector attaches a connect record to each new connection; the first response on it claims the record and reports the connect phases, and later responses on a pooled connection report `reused`. Response bodies are read up to `SendContext::body_limit` on the wire and again after decoding (gzip, x-gzip, deflate, br, zstd; stacked encodings are undone last first), so a small compressed body cannot expand without bound; `accept-encoding: gzip, br, zstd, deflate` is sent unless the request sets its own. Proxies come from `ProxyConfig::from_env`, which the engine calls with its environment source (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, upper case first): plain HTTP goes to the proxy in absolute form, HTTPS through a `CONNECT` tunnel, both with `Proxy-Authorization` from the proxy URL's credentials; only `http://` proxies are supported. Client certificates and per-profile CA bundles come later as per-profile config.
+
+Around the transport, each request passes through `tower` services in this order (D134, D141), built by `pipeline(PipelineParts)` in `vc-executor`: timing → retry (on `refreshOn` and per `http.retry`, D143) → auth → `beforeRequest` hooks → per-host limit → timeout → transport. Auth sits inside retry, so a retried request gets fresh credentials. The timeout (`Call::timeout`) sits inside retry and inside the per-host limit, so it limits each attempt, waiting for a permit does not count, and a timed-out attempt can be retried. Retry asks a `RetryPolicy` (`NoRetry`, or `HttpRetryPolicy` for `http.retry`: idempotent methods, connect failures, timeouts and listed statuses, exponential backoff capped at `max`; jitter comes with the `Random` port). Auth and hooks are `RequestStage`s; until M3 and M4 both are the `Unchanged` null object. The per-host limit (`defaults.perHost`) is a `HostLimits` actor task that owns the map from `host:port` to an `Arc<Semaphore>`, created on first use and handed out on each request; the permit is acquired outside the actor and held for the attempt. The map lives for one run, so it is bounded by the distinct hosts the run talks to. The timing service returns a `Delivery`: the last attempt's result, the attempt count and the wall time of the whole call.
 
 ### Auth
 
