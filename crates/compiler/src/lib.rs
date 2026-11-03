@@ -25,6 +25,7 @@ mod cache;
 mod compile;
 mod docs;
 mod link;
+mod lint;
 mod matchers;
 mod parts;
 mod schema;

@@ -1,0 +1,17 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3103_skip_reason/project
+---
+error[V3103]: `skip` needs a reason
+ --> services/users/crud.test.yaml:1:16
+  |
+1 | skip: {reason: ' '}
+  |                ^^^ no reason given
+  = help: say why, for the report: `skip: flaky upstream, see #123`
+
+error[V3103]: `skip` needs a reason
+ --> services/users/crud.test.yaml:5:11
+  |
+5 |     skip: ''
+  |           ^^ no reason given
+  = help: say why, for the report: `skip: flaky upstream, see #123`

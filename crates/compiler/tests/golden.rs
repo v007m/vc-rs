@@ -100,4 +100,11 @@ cases!(
     v2210_shared_without_id,
     v2304_pipe_type,
     v3101_no_profile,
+    v3102_default_profiles,
+    v3103_skip_reason,
+    v3201_shared_write,
+    v3202_test_cache,
+    v3203_deprecated_call,
+    v3205_body_on_read,
+    v3206_unused_default,
 );

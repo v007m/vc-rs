@@ -137,7 +137,7 @@ fn did_you_mean(
 }
 
 /// Every reference in a piece, in order.
-fn piece_refs<'p>(piece: &'p Piece, found: &mut Vec<&'p Reference>) {
+pub fn piece_refs<'p>(piece: &'p Piece, found: &mut Vec<&'p Reference>) {
     match piece {
         Piece::Template(template) => template_refs(&template.parts, found),
         Piece::Value(value) => value_refs(value, found),

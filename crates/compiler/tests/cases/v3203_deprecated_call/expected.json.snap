@@ -1,0 +1,45 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3203_deprecated_call/project
+---
+{
+  "summary": {
+    "errors": 0,
+    "warnings": 1,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V3203",
+      "severity": "warning",
+      "message": "this api is deprecated",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 3,
+          "column": 11,
+          "endLine": 3,
+          "endColumn": 32
+        },
+        "text": "deprecated api"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "services/users/users.api.yaml",
+            "line": 14,
+            "column": 5,
+            "endLine": 14,
+            "endColumn": 15
+          },
+          "text": "marked deprecated here"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "the operation left the spec; call the api that replaces it, or remove the call"
+      ],
+      "fixes": []
+    }
+  ]
+}

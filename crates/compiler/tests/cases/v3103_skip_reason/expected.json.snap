@@ -1,0 +1,55 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3103_skip_reason/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V3103",
+      "severity": "error",
+      "message": "`skip` needs a reason",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 1,
+          "column": 16,
+          "endLine": 1,
+          "endColumn": 19
+        },
+        "text": "no reason given"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "say why, for the report: `skip: flaky upstream, see #123`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V3103",
+      "severity": "error",
+      "message": "`skip` needs a reason",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 5,
+          "column": 11,
+          "endLine": 5,
+          "endColumn": 13
+        },
+        "text": "no reason given"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "say why, for the report: `skip: flaky upstream, see #123`"
+      ],
+      "fixes": []
+    }
+  ]
+}

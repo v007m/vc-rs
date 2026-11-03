@@ -1,0 +1,8 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+  - id: ci
+    default: true

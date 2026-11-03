@@ -24,7 +24,8 @@ fn program() -> Arc<Program> {
         file("services/users/crud.test.yaml", TESTS),
     ];
     let compiled = compile(CompileInput { files, ..CompileInput::default() });
-    assert!(compiled.diagnostics.is_empty(), "{:?}", compiled.diagnostics);
+    let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
+    assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()
 }
 
@@ -167,7 +168,8 @@ fn more() -> Arc<Program> {
         file("services/orders/flow.test.yaml", FLOW),
     ];
     let compiled = compile(CompileInput { files, ..CompileInput::default() });
-    assert!(compiled.diagnostics.is_empty(), "{:?}", compiled.diagnostics);
+    let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
+    assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()
 }
 

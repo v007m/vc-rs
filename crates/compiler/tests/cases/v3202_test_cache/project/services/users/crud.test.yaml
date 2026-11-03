@@ -1,0 +1,7 @@
+beforeEach:
+  - id: member
+    call: users#createUser
+    cache: {for: 1h}
+tests:
+  - id: getsUser
+    call: users#getUser

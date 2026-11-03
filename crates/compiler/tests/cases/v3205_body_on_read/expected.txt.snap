@@ -1,0 +1,13 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3205_body_on_read/project
+---
+warning[V3205]: the test's `body` is sent with `users#getUser`, a call that takes no body
+ --> services/users/crud.test.yaml:6:15
+  |
+3 |     body: {name: Ada}
+  |     ---- the test-level default
+...
+6 |       - call: users#getUser
+  |               ^^^^^^^^^^^^^ a GET or HEAD call
+  = help: move `body` onto the steps that send one

@@ -1,0 +1,59 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3206_unused_default/project
+---
+{
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V3206",
+      "severity": "warning",
+      "message": "no step uses the test-level `headers.x-trace`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 3,
+          "column": 15,
+          "endLine": 3,
+          "endColumn": 22
+        },
+        "text": "unused default"
+      },
+      "secondary": [],
+      "notes": [
+        "`call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none"
+      ],
+      "help": [
+        "remove it, or remove the steps' own values that replace it"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V3206",
+      "severity": "warning",
+      "message": "no step uses the test-level `expect`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 4,
+          "column": 22,
+          "endLine": 4,
+          "endColumn": 25
+        },
+        "text": "unused default"
+      },
+      "secondary": [],
+      "notes": [
+        "`call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none"
+      ],
+      "help": [
+        "remove it, or remove the steps' own values that replace it"
+      ],
+      "fixes": []
+    }
+  ]
+}
