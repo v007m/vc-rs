@@ -48,7 +48,9 @@ async fn serve(acceptor: TlsAcceptor, tcp: TcpStream) {
     let h2 = tls.get_ref().1.alpn_protocol() == Some(b"h2");
     let io = TokioIo::new(tls);
     if h2 {
-        let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new()).serve_connection(io, service_fn(hello)).await;
+        let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+            .serve_connection(io, service_fn(hello))
+            .await;
     } else {
         let _ = hyper::server::conn::http1::Builder::new().serve_connection(io, service_fn(hello)).await;
     }

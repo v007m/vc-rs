@@ -82,15 +82,15 @@ mod tests {
         let fake = FakeTransport::echo();
         let refused = TransportError::Connect { host: "fake.test:80".into(), reason: "refused".into() };
         let faults = vec![Fault::Fail(refused.clone()), Fault::Delay(Duration::from_secs(5)), Fault::Pass];
-        let faulty = FaultyTransport::new(Arc::new(fake.clone()), faults);
+        let transport = FaultyTransport::new(Arc::new(fake.clone()), faults);
         let ctx = SendContext::default();
-        assert_eq!(faulty.send(get(), &ctx).await.err(), Some(refused));
+        assert_eq!(transport.send(get(), &ctx).await.err(), Some(refused));
         assert_eq!(fake.calls(), 0, "a failure never reaches the inner transport");
         let started = tokio::time::Instant::now();
-        assert!(faulty.clone().send(get(), &ctx).await.is_ok());
+        assert!(transport.clone().send(get(), &ctx).await.is_ok());
         assert!(started.elapsed() >= Duration::from_secs(5));
-        assert!(faulty.send(get(), &ctx).await.is_ok());
-        assert!(faulty.send(get(), &ctx).await.is_ok(), "past the script every request passes");
+        assert!(transport.send(get(), &ctx).await.is_ok());
+        assert!(transport.send(get(), &ctx).await.is_ok(), "past the script every request passes");
         assert_eq!(fake.calls(), 3);
     }
 }

@@ -84,7 +84,10 @@ mod tests {
         let tls = HttpAdapterError::Tls { host: host.clone(), reason: reason.clone() };
         assert_eq!(TransportError::from(tls), TransportError::Tls { host: host.clone(), reason: reason.clone() });
         let tunnel = HttpAdapterError::Tunnel { host: host.clone(), reason: reason.clone() };
-        assert_eq!(TransportError::from(tunnel), TransportError::Connect { host: host.clone(), reason: reason.clone() });
+        assert_eq!(
+            TransportError::from(tunnel),
+            TransportError::Connect { host: host.clone(), reason: reason.clone() }
+        );
         let connect = HttpAdapterError::Connect { host: host.clone(), reason: reason.clone() };
         assert_eq!(TransportError::from(connect), TransportError::Connect { host, reason });
     }

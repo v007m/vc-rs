@@ -138,7 +138,10 @@ mod tests {
 
     #[test]
     fn messages_name_the_limits() {
-        assert_eq!(TransportError::Timeout { after: Duration::from_millis(250) }.to_string(), "no response within 250ms");
+        assert_eq!(
+            TransportError::Timeout { after: Duration::from_millis(250) }.to_string(),
+            "no response within 250ms"
+        );
         let large = TransportError::BodyTooLarge { limit: Size::from_bytes(10) };
         assert_eq!(large.to_string(), "the response body is larger than 10 bytes");
     }

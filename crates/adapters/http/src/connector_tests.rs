@@ -45,7 +45,10 @@ async fn an_ip_literal_needs_no_lookup_and_a_name_does() {
 #[tokio::test]
 async fn an_unknown_name_is_a_dns_error() {
     let error = resolve(&target("http://no-such-host.invalid/")).await.err();
-    assert!(matches!(error, Some(HttpAdapterError::Dns { ref host, .. }) if host == "no-such-host.invalid"), "{error:?}");
+    assert!(
+        matches!(error, Some(HttpAdapterError::Dns { ref host, .. }) if host == "no-such-host.invalid"),
+        "{error:?}"
+    );
 }
 
 #[tokio::test]

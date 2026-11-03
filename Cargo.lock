@@ -2282,9 +2282,11 @@ dependencies = [
  "hyper-util",
  "rustls",
  "rustls-native-certs",
+ "serde_json",
  "thiserror",
  "tokio",
  "tokio-rustls",
+ "tower-service",
  "vc-interfaces",
  "vc-mock-server",
  "vc-model",
@@ -2376,10 +2378,11 @@ dependencies = [
 name = "vc-executor"
 version = "0.1.0"
 dependencies = [
- "bytes",
+ "async-trait",
  "http",
  "tokio",
  "tower",
+ "vc-diagnostics",
  "vc-interfaces",
  "vc-model",
  "vc-testkit",

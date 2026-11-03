@@ -47,9 +47,15 @@ async fn large_with(encoding: &'static str) -> Result<Exchange, Box<dyn Error>> 
 async fn decodes_gzip_and_brotli_and_reports_the_wire_size() -> TestResult {
     for encoding in ["gzip", "br"] {
         let exchange = large_with(encoding).await?;
-        assert_eq!(exchange.response.headers.get(CONTENT_ENCODING).map(HeaderValue::as_bytes), Some(encoding.as_bytes()));
+        assert_eq!(
+            exchange.response.headers.get(CONTENT_ENCODING).map(HeaderValue::as_bytes),
+            Some(encoding.as_bytes())
+        );
         assert_eq!(json(&exchange)?["items"].as_array().map(Vec::len), Some(50), "{encoding}");
-        assert!(exchange.response.wire_size < exchange.response.body.len() as u64 / 10, "{encoding} compresses on the wire");
+        assert!(
+            exchange.response.wire_size < exchange.response.body.len() as u64 / 10,
+            "{encoding} compresses on the wire"
+        );
     }
     Ok(())
 }
@@ -57,7 +63,8 @@ async fn decodes_gzip_and_brotli_and_reports_the_wire_size() -> TestResult {
 #[tokio::test]
 async fn asks_for_compression_by_default() -> TestResult {
     let mock = MockServer::start().await?;
-    let exchange = send(&HttpTransport::new(&HttpOptions::default())?, get(&format!("{}/echo", mock.base_url()))?).await?;
+    let exchange =
+        send(&HttpTransport::new(&HttpOptions::default())?, get(&format!("{}/echo", mock.base_url()))?).await?;
     assert_eq!(json(&exchange)?["headers"]["accept-encoding"], "gzip, br, zstd, deflate");
     assert_eq!(exchange.request.headers.get(ACCEPT_ENCODING), None, "the exchange keeps the request as rendered");
     Ok(())
@@ -111,7 +118,7 @@ async fn a_cancelled_slow_request_leaves_the_transport_usable() -> TestResult {
 async fn sends_plain_http_through_the_proxy_in_absolute_form() -> TestResult {
     let mock = MockServer::start().await?;
     let lookup = |name: &str| (name == "HTTP_PROXY").then(|| format!("http://u:p@{}", mock.addr()));
-    let options = HttpOptions { proxy: ProxyConfig::from_env(&lookup), ..HttpOptions::default() };
+    let options = HttpOptions { proxy: ProxyConfig::from_env(lookup), ..HttpOptions::default() };
     let exchange = send(&HttpTransport::new(&options)?, get("http://api.invalid/echo?via=proxy")?).await?;
     let echoed = json(&exchange)?;
     assert_eq!(echoed["headers"]["host"], "api.invalid", "{echoed}");
@@ -124,7 +131,8 @@ async fn sends_plain_http_through_the_proxy_in_absolute_form() -> TestResult {
 #[tokio::test]
 async fn no_proxy_hosts_go_direct() -> TestResult {
     let mock = MockServer::start().await?;
-    let proxy = ProxyConfig { http: Some("http://127.0.0.1:9".into()), https: None, no_proxy: Some("127.0.0.1".into()) };
+    let proxy =
+        ProxyConfig { http: Some("http://127.0.0.1:9".into()), https: None, no_proxy: Some("127.0.0.1".into()) };
     let options = HttpOptions { proxy, ..HttpOptions::default() };
     let exchange = send(&HttpTransport::new(&options)?, get(&format!("{}/echo", mock.base_url()))?).await?;
     assert_eq!(exchange.response.status, StatusCode::OK);
@@ -142,7 +150,10 @@ async fn reports_connect_dns_and_invalid_url_errors_with_their_codes() -> TestRe
     let refused = send(&transport, get(&format!("http://{}/", closed_port().await?))?).await.err();
     assert!(matches!(refused, Some(TransportError::Connect { .. })), "{refused:?}");
     let unknown = send(&transport, get("http://no-such-host.invalid/")?).await.err();
-    assert!(matches!(unknown, Some(TransportError::Dns { ref host, .. }) if host == "no-such-host.invalid"), "{unknown:?}");
+    assert!(
+        matches!(unknown, Some(TransportError::Dns { ref host, .. }) if host == "no-such-host.invalid"),
+        "{unknown:?}"
+    );
     for url in ["/relative", "ftp://files.test/x"] {
         let error = send(&transport, get(url)?).await.err();
         assert!(matches!(error, Some(TransportError::InvalidRequest { .. })), "{url}: {error:?}");

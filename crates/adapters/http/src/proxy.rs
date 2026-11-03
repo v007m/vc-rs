@@ -17,7 +17,7 @@ impl ProxyConfig {
     /// Reads `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` through `lookup` (the environment, in
     /// production). The upper-case name wins over the lower-case one; empty values count as unset.
     #[must_use]
-    pub fn from_env(lookup: &dyn Fn(&str) -> Option<String>) -> Self {
+    pub fn from_env<F: Fn(&str) -> Option<String>>(lookup: F) -> Self {
         let read = |name: &str| {
             [name.to_owned(), name.to_lowercase()].iter().filter_map(|key| lookup(key)).find(|value| !value.is_empty())
         };
@@ -56,8 +56,9 @@ mod tests {
 
     #[test]
     fn reads_upper_case_names_before_lower_case_ones() {
-        let lookup = env(&[("HTTPS_PROXY", "http://upper:1"), ("https_proxy", "http://lower:1"), ("http_proxy", "http://p:2")]);
-        let config = ProxyConfig::from_env(&lookup);
+        let lookup =
+            env(&[("HTTPS_PROXY", "http://upper:1"), ("https_proxy", "http://lower:1"), ("http_proxy", "http://p:2")]);
+        let config = ProxyConfig::from_env(lookup);
         assert_eq!(config.https.as_deref(), Some("http://upper:1"));
         assert_eq!(config.http.as_deref(), Some("http://p:2"), "lower case is the fallback");
         assert_eq!(config.no_proxy, None);
@@ -65,14 +66,14 @@ mod tests {
 
     #[test]
     fn empty_values_count_as_unset() {
-        let config = ProxyConfig::from_env(&env(&[("HTTP_PROXY", ""), ("http_proxy", "http://p:2"), ("NO_PROXY", "")]));
+        let config = ProxyConfig::from_env(env(&[("HTTP_PROXY", ""), ("http_proxy", "http://p:2"), ("NO_PROXY", "")]));
         assert_eq!(config.http.as_deref(), Some("http://p:2"));
         assert_eq!(config.no_proxy, None);
     }
 
     #[test]
     fn no_environment_means_no_proxy() {
-        let config = ProxyConfig::from_env(&|_| None);
+        let config = ProxyConfig::from_env(|_: &str| None);
         assert_eq!(config, ProxyConfig::default());
         assert_eq!(proxy_for(&config, "https://api.example.com/"), None);
     }
@@ -84,7 +85,7 @@ mod tests {
             ("HTTPS_PROXY", "http://tunnel:3128"),
             ("NO_PROXY", "internal.test, 10.0.0.0/8"),
         ]);
-        let config = ProxyConfig::from_env(&lookup);
+        let config = ProxyConfig::from_env(lookup);
         assert_eq!(proxy_for(&config, "http://api.example.com/").as_deref(), Some("http://plain:3128/"));
         assert_eq!(proxy_for(&config, "https://api.example.com/").as_deref(), Some("http://tunnel:3128/"));
         assert_eq!(proxy_for(&config, "https://svc.internal.test/"), None, "subdomains match");

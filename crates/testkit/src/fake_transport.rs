@@ -25,7 +25,9 @@ pub struct FakeTransport {
 
 impl FakeTransport {
     /// Answers every request with `respond(request, call_index)`.
-    pub fn new(respond: impl Fn(&RenderedRequest, usize) -> Result<HttpResponse, TransportError> + Send + Sync + 'static) -> Self {
+    pub fn new(
+        respond: impl Fn(&RenderedRequest, usize) -> Result<HttpResponse, TransportError> + Send + Sync + 'static,
+    ) -> Self {
         Self { respond: Arc::new(respond), calls: Arc::new(AtomicUsize::new(0)) }
     }
 
