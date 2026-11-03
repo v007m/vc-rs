@@ -11,6 +11,8 @@ pub trait SourceProvider: Send + Sync {
     ///
     /// A file that cannot be used (unreadable, not UTF-8, a name a [`SourcePath`] refuses, a
     /// link out of the project) goes into [`Discovery::problems`] and the rest are still read.
+    /// The other files the filter keeps ([`SourceFilter::asset`]) are listed, not read, in
+    /// [`Discovery::assets`], so the compiler can check that a `$file:` path exists.
     ///
     /// # Errors
     ///
@@ -25,12 +27,16 @@ pub struct Discovery {
     pub files: Vec<SourceFile>,
     /// The definition files that could not be read, each naming its path.
     pub problems: Vec<SourceError>,
+    /// The other files a `$file:` may point at (schemas, specs, bodies), in path order; not read.
+    pub assets: Vec<SourcePath>,
 }
 
 impl Discovery {
-    /// Puts the files and the problems in path order, as [`SourceProvider::discover`] returns them.
+    /// Puts the files, problems and assets in path order, as [`SourceProvider::discover`]
+    /// returns them.
     pub fn sort(&mut self) {
         self.files.sort_by(|a, b| a.path.cmp(&b.path));
+        self.assets.sort();
         self.problems.sort_by(|a, b| a.path().cmp(&b.path()));
     }
 }

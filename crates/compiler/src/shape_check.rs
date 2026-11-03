@@ -3,6 +3,7 @@
 //! Values the next stage compiles (templates, units, matchers, CEL) are collected as leaves.
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
+use vc_model::Date;
 use vc_parser::{Entry, Node, ScalarKind, Value};
 
 use crate::shapes::{Key, Scope, Shape, Ty, Unit};
@@ -196,6 +197,7 @@ fn accepts(ty: Ty, node: &Node) -> bool {
         Ty::Obj(_) | Ty::MapOf(_) => matches!(node.value, Value::Map(_)),
         Ty::List(_) => matches!(node.value, Value::Seq(_)),
         Ty::Schema => matches!(node.value, Value::Map(_)) || node.as_str().is_some(),
+        Ty::Date => node.as_str().is_some_and(|text| Date::parse(text).is_some()),
         scalar => node.as_scalar().is_some_and(|value| scalar_accepts(scalar, value.kind)),
     }
 }

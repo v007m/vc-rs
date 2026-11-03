@@ -15,7 +15,7 @@
 //!
 //! let path = SourcePath::new("vibranium.config.yaml").unwrap();
 //! let file = SourceFile { path, text: "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n".to_owned(), hash: ContentHash::new([0; 32]) };
-//! let compiled = compile(CompileInput { files: vec![file], previous: CompileCache::new() });
+//! let compiled = compile(CompileInput { files: vec![file], previous: CompileCache::new(), ..CompileInput::default() });
 //! assert!(compiled.program.is_some() && !compiled.diagnostics.has_errors());
 //! let cache = CompileCache::from_bytes(&compiled.cache.to_bytes());
 //! assert_eq!(cache, compiled.cache);

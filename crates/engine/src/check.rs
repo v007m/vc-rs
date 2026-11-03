@@ -49,7 +49,8 @@ impl Engine {
     ///
     /// Uses the compile cache the previous check left, and leaves one for the next. A cache
     /// that cannot be read or written only adds a notice. A definition file that cannot be read
-    /// is reported as a V1012 error at its path.
+    /// is reported as a V1012 error at its path. The compiler is given today's date from the
+    /// clock, for expired skips (V3104), and the project's other files, for `$file` paths (V2004).
     ///
     /// # Errors
     ///
@@ -60,7 +61,13 @@ impl Engine {
         let found = found.map_err(|error| EngineError::Sources { reason: error.to_string() })?;
         let mut notices = Vec::new();
         let previous = self.previous_cache(&mut notices);
-        let compiled = compile(CompileInput { files: found.files, previous: previous.clone() });
+        let input = CompileInput {
+            files: found.files,
+            previous: previous.clone(),
+            today: Some(self.clock.today()),
+            assets: Some(found.assets.into_iter().collect()),
+        };
+        let compiled = compile(input);
         self.save_cache(&compiled.cache, &previous, &mut notices);
         let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
         add_problems(&found.problems, &mut diagnostics, &mut files);

@@ -57,6 +57,15 @@ impl SourceFilter {
         Some(if valid { Ok(path) } else { Err(SourceError::InvalidPath { path: path.to_string() }) })
     }
 
+    /// The path of a file at `relative` that is not a definition file but that a `$file:` may
+    /// point at; `None` for a definition file, a name a [`SourcePath`] refuses, or a file the
+    /// exclude globs leave out. Include globs pick definition files, so they do not apply.
+    #[must_use]
+    pub fn asset(&self, relative: &str) -> Option<SourcePath> {
+        let path = SourcePath::new(relative).ok()?;
+        (FileKind::from_path(&path).is_none() && !self.skips(path.as_str())).then_some(path)
+    }
+
     /// Whether `path` (a file or a folder, relative to the root) is excluded, by itself or
     /// through a folder it is in. A walker uses this to skip whole folders.
     #[must_use]
@@ -142,6 +151,16 @@ mod tests {
         assert_eq!(filter.select("k:v.json"), None, "a bad name is only reported on a definition file");
         let bad = filter.select("k:v.api.yaml");
         assert_eq!(bad, Some(Err(SourceError::InvalidPath { path: "k\u{fffd}v.api.yaml".to_owned() })));
+    }
+
+    #[test]
+    fn assets_are_the_other_files_the_excludes_keep() {
+        let filter = SourceFilter::new(&["services/**"], &["legacy"]).unwrap();
+        assert_eq!(filter.asset(r"openapi\users.yaml"), Some(SourcePath::new("openapi/users.yaml").unwrap()));
+        assert_eq!(filter.asset("services/users/users.api.yaml"), None, "a definition file is not an asset");
+        assert_eq!(filter.asset("legacy/user.json"), None);
+        assert_eq!(filter.asset(".vibranium/cache/compile.bin"), None);
+        assert_eq!(filter.asset("k:v.json"), None);
     }
 
     #[test]

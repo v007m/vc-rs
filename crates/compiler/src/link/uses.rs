@@ -122,8 +122,8 @@ impl<'p, 'a> Checker<'p, 'a> {
     }
 }
 
-/// Offers the one close name that is set, as a certain fix when the name's span is exact.
-fn did_you_mean(
+/// Offers the one close name that is known, as a certain fix when the name's span is exact.
+pub fn did_you_mean(
     diagnostic: Diagnostic,
     (source, reference, name): (&Source<'_>, &Reference, &str),
     known: &[&str],

@@ -10,9 +10,9 @@ publish.workspace = true
 
 [dependencies]
 vc-interfaces.workspace = true
+vc-model.workspace = true
 
 [dev-dependencies]
-vc-model.workspace = true
 vc-parser.workspace = true
 
 [lints]

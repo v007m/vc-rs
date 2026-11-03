@@ -4,7 +4,7 @@ use std::sync::Arc;
 use vc_compiler::CompileCache;
 use vc_diagnostics::Code;
 use vc_interfaces::{CompileCacheError, CompileCacheStore, SourceProvider};
-use vc_testkit::{MemoryCompileCache, MemorySources};
+use vc_testkit::{FixedClock, MemoryCompileCache, MemorySources};
 
 use crate::{CheckRequest, Engine, EngineBuilder, EngineError};
 
@@ -126,6 +126,39 @@ fn a_path_that_selects_nothing_is_an_error() {
     let engine = engine(&[CONFIG, USERS], Arc::new(MemoryCompileCache::new()));
     let error = engine.check(&request(&["services/users", "services/user"])).unwrap_err();
     assert_eq!(error, EngineError::NoFilesMatch { path: "services/user".to_owned() });
+}
+
+/// The codes and helps a check finds on 2026-11-03 in a users service holding `api`, a test
+/// skipped until 2026-11-02, and `data/user.json`.
+fn checked_on_a_fixed_day(api: &[u8]) -> Vec<(Code, Vec<String>)> {
+    let crud: &[u8] =
+        b"tests:\n  - id: makesUser\n    call: users#make\n    skip: {reason: flaky, until: 2026-11-02}\n";
+    let files = [
+        CONFIG,
+        ("services/users/users.api.yaml", api),
+        ("services/users/crud.test.yaml", crud),
+        ("services/users/data/user.json", b"{}"),
+    ];
+    let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&files));
+    let today = FixedClock(vc_model::Date::parse("2026-11-03").unwrap());
+    let builder = EngineBuilder::new(PathBuf::from("/project")).sources(sources).clock(Arc::new(today));
+    let engine = builder.compile_cache(Arc::new(MemoryCompileCache::new())).build().unwrap();
+    let report = engine.check(&CheckRequest::default()).unwrap();
+    report.diagnostics.iter().map(|found| (found.code, found.help.clone())).collect()
+}
+
+#[test]
+fn passes_today_to_the_compiler() {
+    let api = b"apis:\n  - id: make\n    method: POST\n    path: /users\n    body: {$file: data/user.json}\n";
+    let found = checked_on_a_fixed_day(api);
+    assert_eq!(found.iter().map(|(code, _)| *code).collect::<Vec<_>>(), [Code::V3104]);
+}
+
+#[test]
+fn passes_the_other_files_to_the_compiler() {
+    let api = b"apis:\n  - id: make\n    method: POST\n    path: /users\n    body: {$file: data/usr.json}\n";
+    let found = checked_on_a_fixed_day(api);
+    assert_eq!(found, [(Code::V2004, vec!["did you mean `data/user.json`?".to_owned()])]);
 }
 
 #[test]

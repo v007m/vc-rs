@@ -19,6 +19,8 @@ pub enum Ty {
     Duration,
     /// A size with its unit: `4kb` (binary, D146).
     Size,
+    /// A calendar day, `YYYY-MM-DD`.
+    Date,
     /// A status code, a class such as `2xx`, a list of them, or a matcher.
     Status,
     /// One of a fixed list of words.
@@ -252,6 +254,7 @@ const SIMPLE_NAMES: &[(&str, IsType)] = &[
     ("boolean", |ty| matches!(ty, Ty::Bool)),
     ("duration", |ty| matches!(ty, Ty::Duration)),
     ("size", |ty| matches!(ty, Ty::Size)),
+    ("date (YYYY-MM-DD)", |ty| matches!(ty, Ty::Date)),
     ("status", |ty| matches!(ty, Ty::Status)),
     ("value", |ty| matches!(ty, Ty::Value)),
     ("CEL expression", |ty| matches!(ty, Ty::Cel)),
@@ -293,6 +296,7 @@ mod tests {
         assert_eq!(Ty::Matcher(Unit::Plain).describe(), "value or matcher");
         assert_eq!(Ty::Cel.describe(), "CEL expression");
         assert_eq!(Ty::Status.describe(), "status");
+        assert_eq!(Ty::Date.describe(), "date (YYYY-MM-DD)");
     }
 
     #[test]

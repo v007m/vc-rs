@@ -93,6 +93,7 @@ fn of_type(ty: Ty) -> Value {
         Ty::Enum(words) => json!({ "enum": words }),
         Ty::Schema => json!({ "type": ["object", "string"] }),
         Ty::Status => json!({ "type": ["integer", "string", "array", "object"] }),
+        Ty::Date => json!({ "type": "string", "format": "date" }),
         Ty::Value | Ty::Matcher(_) => json!({}),
         Ty::List(item) => json!({ "type": "array", "items": of_type(*item) }),
         Ty::MapOf(value) => json!({ "type": "object", "additionalProperties": of_type(*value) }),

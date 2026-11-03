@@ -612,7 +612,7 @@ Notes on the example: `users#create` saves `userId` and declares its own cleanup
 
 ### Skipping
 
-`skip` parks a test, or a whole file when written at the top of the file, like JUnit's `@Disabled`. A reason is required and shows in every report, where the test is counted as **skipped**; `until` is optional, and after that date the test runs again and `vc check` warns that the skip expired. A skipped file's `beforeAll` and `afterAll` don't run. `vc run --include-skipped` runs skipped tests anyway; `vc skip` and `vc unskip` edit the YAML for you.
+`skip` parks a test, or a whole file when written at the top of the file, like JUnit's `@Disabled`. A reason is required and shows in every report, where the test is counted as **skipped**; `until` is optional and is a date written `YYYY-MM-DD` (UTC); after that day the test runs again and `vc check` warns that the skip expired (V3104). A skipped file's `beforeAll` and `afterAll` don't run. `vc run --include-skipped` runs skipped tests anyway; `vc skip` and `vc unskip` edit the YAML for you.
 
 ```yaml
   - id: appliesCoupon

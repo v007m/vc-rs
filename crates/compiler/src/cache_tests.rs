@@ -180,8 +180,9 @@ fn a_cache_read_back_from_bytes_does_not_parse_unchanged_files_again() {
     let previous = CompileCache::from_bytes(&first.cache.to_bytes());
     assert_eq!(previous.units(), 2);
     let files = vec![config.clone(), source(API, "nme: x\n", 1)];
-    let same_hash = compile(CompileInput { files, previous: previous.clone() });
+    let same_hash = compile(CompileInput { files, previous: previous.clone(), ..CompileInput::default() });
     assert_eq!(codes(&same_hash), codes(&first), "the stored unit was used, so the new text was not read");
-    let changed = compile(CompileInput { files: vec![config, source(API, "nme: x\n", 2)], previous });
+    let changed =
+        compile(CompileInput { files: vec![config, source(API, "nme: x\n", 2)], previous, ..CompileInput::default() });
     assert!(codes(&changed).contains(&Code::V1004));
 }

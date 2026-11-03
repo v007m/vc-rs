@@ -77,7 +77,7 @@ shape! {
 shape! {
     skip = Shape::new("skip", "Why and until when to skip", &[
         key("reason", Ty::Text).required().doc("Shown in reports").example("flaky upstream, see #123"),
-        key("until", Ty::Text).doc("Date after which the skip expires").example("2026-12-01"),
+        key("until", Ty::Date).doc("Last day of the skip; after it the test runs again and `vc check` warns (V3104)").example("2026-12-01"),
     ])
 }
 

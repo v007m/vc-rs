@@ -6,6 +6,7 @@
 //! - [`SourceProvider`]: finds and reads the project's definition files for the engine, which
 //!   hands them to the pure compiler (D132).
 //! - [`CompileCacheStore`]: keeps the compiler's cache between runs as one opaque blob.
+//! - [`Clock`]: today's date in UTC, for the lints that compare dates (an expired `skip`).
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -19,9 +20,11 @@
 //! ```
 
 mod cache;
+mod clock;
 mod filter;
 mod source;
 
 pub use cache::{CompileCacheError, CompileCacheStore};
+pub use clock::Clock;
 pub use filter::SourceFilter;
 pub use source::{Discovery, SourceError, SourceProvider, content_hash, source_file};

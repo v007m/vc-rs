@@ -14,12 +14,16 @@
 //! ```
 
 mod cache_suite;
+mod clock_suite;
+mod fixed_clock;
 mod generator;
 mod memory_cache;
 mod memory_sources;
 mod source_suite;
 
 pub use cache_suite::{MakeCompileCache, compile_cache_store_suite};
+pub use clock_suite::clock_suite;
+pub use fixed_clock::FixedClock;
 pub use generator::{GeneratedFile, GeneratedProject, generate_project};
 pub use memory_cache::MemoryCompileCache;
 pub use memory_sources::MemorySources;

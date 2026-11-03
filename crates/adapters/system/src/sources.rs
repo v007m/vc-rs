@@ -4,7 +4,7 @@ use ignore::{DirEntry, WalkBuilder};
 use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, source_file};
 use vc_model::SourcePath;
 
-/// Reads a project's definition files from disk.
+/// Reads a project's definition files from disk, and lists the other files as assets.
 ///
 /// Walks the root with `ignore`, so `.gitignore` (and `.ignore`) files are respected even
 /// outside a git repository; the user's global git excludes are not, so every machine finds
@@ -53,6 +53,7 @@ impl FsSources {
             },
             Some(Ok(path)) => found.problems.push(SourceError::InvalidPath { path: path.to_string() }),
             Some(Err(problem)) => found.problems.push(problem),
+            None if utf8 => found.assets.extend(filter.asset(&text)),
             None => {}
         }
     }

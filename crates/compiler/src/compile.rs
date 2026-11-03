@@ -1,20 +1,27 @@
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use vc_diagnostics::Diagnostics;
-use vc_model::{Program, SourceFile, SourceFileId, SourceFiles, StringTable};
+use vc_model::{Date, Program, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
 
 use crate::CompileCache;
 use crate::cache::CacheEntry;
 use crate::parts::Tools;
 use crate::{link, stage};
 
-/// What one compile needs: the project's files and the cache the previous compile returned.
+/// What one compile needs: the project's files, the cache the previous compile returned, and
+/// what the files cannot say themselves (today's date, the project's other files).
 #[derive(Clone, Debug, Default)]
 pub struct CompileInput {
     /// Every definition file, in any order; the compiler numbers them in path order.
     pub files: Vec<SourceFile>,
     /// The cache from the previous compile, or [`CompileCache::new`] when there is none.
     pub previous: CompileCache,
+    /// Today's date in UTC, for an expired `skip` (V3104); `None` leaves that lint out.
+    pub today: Option<Date>,
+    /// The project's other files, relative to the root, that a `$file:` may point at; the
+    /// definition files count without being listed. `None` leaves `$file` paths unchecked (V2004).
+    pub assets: Option<BTreeSet<SourcePath>>,
 }
 
 /// What one compile produced.
@@ -45,7 +52,8 @@ pub fn compile(input: CompileInput) -> Compiled {
     for unit in entries.iter().filter_map(|entry| entry.unit.as_deref()) {
         diagnostics.extend(unit.diagnostics.iter().cloned());
     }
-    let linked = link::link(&entries, &files, &strings);
+    let world = link::World { strings: &strings, today: input.today, assets: input.assets.as_ref() };
+    let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
     let program = linked.program;
     Compiled { program, diagnostics, files, cache: CompileCache::of(entries, strings) }
@@ -132,11 +140,15 @@ mod tests {
     fn reuses_the_units_of_unchanged_files() {
         let first = compile(CompileInput { files: vec![file("x.api.yaml", "name: x\n")], ..CompileInput::default() });
         let unit = kept(&first.cache, &first.files, SourceFileId::new(0)).unwrap();
-        let again = compile(CompileInput { files: vec![file("x.api.yaml", "name: x\n")], previous: first.cache });
+        let again = compile(CompileInput {
+            files: vec![file("x.api.yaml", "name: x\n")],
+            previous: first.cache,
+            ..CompileInput::default()
+        });
         assert!(Arc::ptr_eq(&unit, &kept(&again.cache, &again.files, SourceFileId::new(0)).unwrap()));
         let mut changed = file("x.api.yaml", "name: y\n");
         changed.hash = ContentHash::new([2; 32]);
-        let third = compile(CompileInput { files: vec![changed], previous: again.cache });
+        let third = compile(CompileInput { files: vec![changed], previous: again.cache, ..CompileInput::default() });
         assert!(!Arc::ptr_eq(&unit, &kept(&third.cache, &third.files, SourceFileId::new(0)).unwrap()));
     }
 }
