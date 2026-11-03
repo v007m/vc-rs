@@ -3,6 +3,7 @@
 //! and lint stages run over every unit on each compile.
 
 use indexmap::IndexMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use vc_diagnostics::{Diagnostic, Diagnostics};
 use vc_model::{FileKind, SourceFile, SourceFileId, SourceSpan, StringTable};
 use vc_parser::{Node, ScalarKind, Syntax, Value};
@@ -12,16 +13,31 @@ use crate::shape_check::{self, Walk};
 use crate::{shapes, version};
 
 /// One file after the per-file stages.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// The compile cache stores it without its diagnostics, so it stores only a unit that has none.
+/// The pieces are written as a list of span and piece pairs, since JSON keys are text.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileUnit {
     /// The file's kind, from its name.
     pub kind: Option<FileKind>,
     /// The parsed tree; `None` when the file does not parse or is of no known kind.
     pub root: Option<Node>,
     /// Each compiled value, keyed by the span of the node it was read from.
+    #[serde(serialize_with = "pairs_out", deserialize_with = "pairs_in")]
     pub parts: IndexMap<SourceSpan, Piece>,
     /// Every problem the per-file stages found.
+    #[serde(skip)]
     pub diagnostics: Diagnostics,
+}
+
+/// Writes the pieces as a list of `[span, piece]` pairs.
+fn pairs_out<S: Serializer>(parts: &IndexMap<SourceSpan, Piece>, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.collect_seq(parts)
+}
+
+/// Reads the pieces back from a list of `[span, piece]` pairs.
+fn pairs_in<'de, D: Deserializer<'de>>(deserializer: D) -> Result<IndexMap<SourceSpan, Piece>, D::Error> {
+    Vec::<(SourceSpan, Piece)>::deserialize(deserializer).map(|pairs| pairs.into_iter().collect())
 }
 
 /// Runs the per-file stages over `source`, numbered `id`; names are interned into `strings`.

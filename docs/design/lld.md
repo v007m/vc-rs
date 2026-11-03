@@ -402,6 +402,7 @@ pub struct Action {
     pub owner: Owner,                     // Run | File(FileId) | Instance (each/before/steps)
     pub vars: VarDefs,
     pub auth: Option<AuthRef>,
+    pub headers: IndexMap<String, Template>, pub query: IndexMap<String, Template>, // over the api's
     pub body: Option<BodySpec>,           // replaces the api's body
     pub expect: Expect,                   // merged over the api's expect at compile time
     pub save: SaveSpec,
@@ -488,7 +489,7 @@ The compiler turns the project's files into a `Program` or a list of diagnostics
 | Link | all raw items | the `Program`: ID tables, references resolved, merged `expect`, test-level step defaults, var reachability | the only stage that sees every file at once |
 | Lint | the `Program` | warnings: naming conventions, expired skips, shared-value writes, cache in per-test blocks | each lint is a registered rule with a V-code |
 
-**Incremental.** The `CompileCache` keeps, per file, its `FileUnit` (kind, tree, pieces and per-file diagnostics), keyed by path, content hash and `SourceFileId`, plus the `StringTable` the units' symbols point into; the compiler takes the previous one as input and returns the new one, and the engine reads and writes it as `.vibranium/cache/compile.bin` (D132). On the next run only changed files are parsed again; linking always runs over everything but is cheap (target: 1,000 files in under 100 ms warm, under 500 ms cold). The editor and `vc watch` keep the cache in memory. The blob (layout version 2, compared on read; anything else reads as an empty cache) holds only each file's path, hash and number, so a cache read back from disk re-runs the per-file stages; two caches are equal when they remember the same files.
+**Incremental.** The `CompileCache` keeps, per file, its `FileUnit` (kind, tree, pieces and per-file diagnostics), keyed by path, content hash and `SourceFileId`, plus the `StringTable` the units' symbols point into; the compiler takes the previous one as input and returns the new one, and the engine reads and writes it as `.vibranium/cache/compile.bin` (D132). On the next run only changed files are parsed again; linking always runs over everything but is cheap (target: 1,000 files in under 100 ms warm, under 500 ms cold). The editor and `vc watch` keep the cache in memory. The blob starts with `VCCC` and the layout version (3, a little-endian `u32`), then a `serde_json` body: the string table in symbol order, and per file its path, hash, number and `FileUnit` (tree and pieces, each unit as JSON text of its own so that one too deeply nested to read back costs only that file). Diagnostics are never stored: a unit that has any is stored without the unit, so its file is compiled again and reports them again. Any other version, a damaged blob, a path `SourcePath` refuses or a string table that does not re-intern to the same symbols reads as an empty cache, which only costs a full compile. So a warm run read back from disk re-runs the per-file stages of changed files only. Two caches are equal when they remember the same files.
 
 **Discovery and the cache blob (ports).** Both are synchronous traits in `vc-interfaces`, each with a contract suite and an in-memory fake in `vc-testkit` (`MemorySources`, `MemoryCompileCache`):
 

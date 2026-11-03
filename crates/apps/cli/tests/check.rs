@@ -6,9 +6,11 @@ use predicates::prelude::PredicateBooleanExt;
 use predicates::str::contains;
 use tempfile::TempDir;
 
-const CONFIG: (&str, &[u8]) = ("vibranium.config.yaml", b"syntaxVersion: 2\n");
+const CONFIG: (&str, &[u8]) =
+    ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n");
 const USERS: (&str, &[u8]) = ("services/users/users.api.yaml", b"apis: []\n");
 const BAD: (&str, &[u8]) = ("services/orders/orders.api.yaml", &[0xff, 0xfe]);
+const GET_USER: (&str, &[u8]) = ("services/users/users.api.yaml", b"apis:\n  - id: getUser\n    path: /users\n");
 
 fn project(files: &[(&str, &[u8])]) -> std::io::Result<TempDir> {
     let dir = tempfile::tempdir()?;
@@ -33,6 +35,18 @@ fn passes_a_clean_project_and_saves_the_compile_cache() {
     let dir = project(&[CONFIG, USERS]).unwrap();
     check(dir.path()).assert().success().stdout("0 errors · 0 warnings · 2 files checked\n").stderr("");
     assert!(dir.path().join(".vibranium/cache/compile.bin").is_file());
+}
+
+#[test]
+fn a_second_check_reads_the_compiled_files_back_from_the_cache() {
+    let dir = project(&[CONFIG, GET_USER]).unwrap();
+    let summary = "0 errors · 0 warnings · 2 files checked\n";
+    check(dir.path()).assert().success().stdout(summary).stderr("");
+    let blob = fs::read(dir.path().join(".vibranium/cache/compile.bin")).unwrap();
+    assert!(blob.starts_with(b"VCCC\x03\0\0\0"), "layout version 3");
+    let body = String::from_utf8_lossy(&blob[8..]);
+    assert!(body.contains("services/users/users.api.yaml") && body.contains("getUser"), "{body}");
+    check(dir.path()).assert().success().stdout(summary).stderr("");
 }
 
 #[test]

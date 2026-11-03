@@ -1088,6 +1088,8 @@ checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
 dependencies = [
  "equivalent",
  "hashbrown",
+ "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -2118,6 +2120,7 @@ dependencies = [
  "indexmap",
  "insta",
  "regex",
+ "serde",
  "serde_json",
  "strsim",
  "vc-diagnostics",
@@ -2197,6 +2200,7 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "saphyr-parser",
+ "serde",
  "thiserror",
  "vc-diagnostics",
  "vc-model",
