@@ -1,0 +1,9 @@
+tests:
+  - id: getsUser
+    call: users#getUsr
+  - id: listsUsers
+    call: listUsers
+  - id: reusesTheList
+    steps:
+      - test: users.crud#listUser
+      - call: orders#place

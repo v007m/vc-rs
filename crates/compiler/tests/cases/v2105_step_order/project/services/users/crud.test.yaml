@@ -1,0 +1,7 @@
+tests:
+  - id: readsTooEarly
+    steps:
+      - call: users#getUser
+        vars: {id: "${fetch.body.id}"}
+      - id: fetch
+        call: users#getUser

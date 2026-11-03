@@ -1,0 +1,17 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2205_cycle/project
+---
+error[V2205]: `test:` reuse forms a cycle: users.crud#logsIn → users.crud#signsUp → users.crud#logsIn
+ --> services/users/crud.test.yaml:4:15
+  |
+4 |       - test: logsIn
+  |               ^^^^^^ this reuse closes the cycle
+  = help: a test cannot reuse itself, directly or through other tests; move the shared steps into one test
+
+error[V2205]: `test:` reuse forms a cycle: users.crud#loopsOnItself → users.crud#loopsOnItself
+  --> services/users/crud.test.yaml:11:15
+   |
+11 |       - test: loopsOnItself
+   |               ^^^^^^^^^^^^^ this reuse closes the cycle
+   = help: a test cannot reuse itself, directly or through other tests; move the shared steps into one test

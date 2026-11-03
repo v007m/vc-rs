@@ -529,6 +529,13 @@ The same declarations generate the shape-check stage, the JSON Schemas shipped f
 6. **Lifecycle graph.** `test:` reuse forms a graph; cycles are V2205 with the whole chain. Shared actions without an `id` are V2210.
 7. **Types.** Pipes are checked against what each reference can hold (a `| number` on a value the api's schema says is an object is V2304). CEL is not type-checked until the interpreter has a checker (see Open questions).
 
+The link stage (`link/` in `vc-compiler`) runs over every file's unit on each compile, cached or not. It reads the units' trees and pieces through a `Project` (the files with a tree, their path-derived file IDs, and tables of apis and tests by full ID) and runs in two tiers:
+
+- **Always:** the ID tables (V2001, V2006, V2007), references (V2003 for `call`, `cleanup.call` and `test`; V2002 for `auth` and a file's `profiles` entries, against the config), and V3101 when the config defines no profile. References into a file the per-file stages could not read cleanly are not reported, since its items may be missing.
+- **Only when no file has an error of its own:** var reachability, `test:` cycles and shared actions without an `id`. The var walk follows run order: config vars, `beforeRun` (each action's saves shared under its `id`), then per test file its vars and `profiles`, `beforeAll` (shared the same way), `beforeEach`, and per test its vars, `before`, its call or steps, `after`. Every action's templates are checked with what ran before it plus its own vars; an api's templates (and its file's) are checked at each call site with the api's and its file's vars added, and a diagnostic in them points back at the `call:` that reached them. A level is a set of names for every profile plus names per profile; a var is V2101 for each configured profile no level sets it for. A name's type is known when every definition of it is a literal of one type, and only then are its pipes checked (V2304). A step root is V2105 unless an action with that `id` ran earlier in the same test or block. Apis no test calls are not walked yet, and neither are load files.
+
+Each reference is reported once, at its first spot. The moved-file fix for V2003 and the `$file`, `function`, dataset and generator references are not linked yet.
+
 ### Diagnostics and fixes
 
 ```rust
