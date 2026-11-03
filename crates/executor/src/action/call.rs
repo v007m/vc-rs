@@ -85,18 +85,21 @@ fn render(program: &Program, api: &Api) -> Result<RenderedRequest, Failure> {
 }
 
 fn literal(template: &Template) -> Result<String, Failure> {
-    let text = |part: &Part| match part {
+    template.parts.iter().map(text).collect()
+}
+
+fn text(part: &Part) -> Result<&str, Failure> {
+    match part {
         Part::Literal(text) => Ok(text.as_str()),
         Part::Ref(_) => Err(rendering("a template with references renders once runtime values land")),
-    };
-    template.parts.iter().map(text).collect()
+    }
 }
 
 fn rendering(message: &str) -> Failure {
     Failure::new(message).with_code(Code::V5111.to_string())
 }
 
-fn method(method: Method) -> http::Method {
+const fn method(method: Method) -> http::Method {
     match method {
         Method::Get => http::Method::GET,
         Method::Post => http::Method::POST,

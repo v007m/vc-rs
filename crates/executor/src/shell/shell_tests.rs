@@ -82,7 +82,7 @@ async fn run(fixture: Fixture, plan: Plan, options: RunOptions, interrupts: &[Du
     Outcome { summary, events, sent: sent.counts(), elapsed }
 }
 
-fn totals(passed: usize, failed: usize, blocked: usize, flaky: usize, skipped: usize) -> Totals {
+fn totals([passed, failed, blocked, flaky, skipped]: [usize; 5]) -> Totals {
     Totals { passed, failed, blocked, flaky, skipped }
 }
 
@@ -94,7 +94,7 @@ async fn fifty_instances_share_one_before_all_call() {
     let file = fixture.file;
     let plan = fixture.plan(&[setup], &[(test, 50)]);
     let outcome = run(fixture, plan, RunOptions { concurrency: 8, ..RunOptions::default() }, &[]).await;
-    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Passed, totals: totals(50, 0, 0, 0, 0) });
+    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Passed, totals: totals([50, 0, 0, 0, 0]) });
     assert_eq!(exit_code(outcome.summary), EXIT_PASSED);
     assert_eq!((outcome.sent("/setup"), outcome.sent("/users")), (1, 50));
     let started = Event::ActionStarted { action: setup, owner: OwnerKey::File(file) };
@@ -110,7 +110,7 @@ async fn a_failed_before_all_blocks_every_instance_that_needs_it() {
     let test = fixture.test(vec![get], None);
     let plan = fixture.plan(&[setup], &[(test, 50)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
-    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Failed, totals: totals(0, 0, 50, 0, 0) });
+    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Failed, totals: totals([0, 0, 50, 0, 0]) });
     assert_eq!(exit_code(outcome.summary), EXIT_FAILED);
     assert_eq!((outcome.sent("/fail"), outcome.sent("/users")), (1, 0));
 }
@@ -123,7 +123,7 @@ async fn cleanups_run_newest_first_when_the_test_fails() {
     let test = fixture.test(steps, None);
     let plan = fixture.plan(&[], &[(test, 1)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
-    assert_eq!(outcome.summary.totals, totals(0, 1, 0, 0, 0));
+    assert_eq!(outcome.summary.totals, totals([0, 1, 0, 0, 0]));
     assert_eq!(outcome.cleaned(), [second, first]);
     let failure = outcome.results()[0].failure.clone().map(|failure| failure.message);
     assert_eq!(failure.as_deref(), Some("expected a 2xx status, got 500 Internal Server Error"));
@@ -137,7 +137,7 @@ async fn cleanups_run_when_the_run_is_cancelled() {
     let test = fixture.test(steps, None);
     let plan = fixture.plan(&[], &[(test, 1)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[SECOND]).await;
-    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Cancelled, totals: totals(0, 0, 0, 0, 1) });
+    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Cancelled, totals: totals([0, 0, 0, 0, 1]) });
     assert_eq!(exit_code(outcome.summary), EXIT_CANCELLED);
     assert_eq!(outcome.cleaned(), [delete]);
     assert_eq!(outcome.sent("/never"), 0);
@@ -151,7 +151,7 @@ async fn a_test_that_passes_on_retry_is_flaky() {
     let test = fixture.test(vec![flaky], Some(Retry { attempts: 2, delay: vc_model::Duration::new(SECOND) }));
     let plan = fixture.plan(&[], &[(test, 1)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
-    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Passed, totals: totals(0, 0, 0, 1, 0) });
+    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Passed, totals: totals([0, 0, 0, 1, 0]) });
     let result = outcome.results()[0];
     assert_eq!((result.status, result.attempts, outcome.sent("/flaky")), (TestStatus::Flaky, 2, 2));
     assert_eq!(outcome.elapsed, SECOND, "the retry waited its delay");
@@ -164,7 +164,7 @@ async fn cancelling_during_a_retry_wait_gives_up_with_the_failure() {
     let test = fixture.test(vec![fail], Some(Retry { attempts: 3, delay: vc_model::Duration::new(10 * SECOND) }));
     let plan = fixture.plan(&[], &[(test, 1)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[SECOND]).await;
-    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Cancelled, totals: totals(0, 1, 0, 0, 0) });
+    assert_eq!(outcome.summary, RunSummary { status: RunStatus::Cancelled, totals: totals([0, 1, 0, 0, 0]) });
     assert_eq!((outcome.sent("/fail"), outcome.elapsed), (1, SECOND));
 }
 
@@ -202,7 +202,7 @@ async fn each_instance_runs_the_file_before_each_and_after_each() {
     let test = fixture.test(vec![get], None);
     let plan = fixture.plan(&[], &[(test, 3)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
-    assert_eq!(outcome.summary.totals, totals(3, 0, 0, 0, 0));
+    assert_eq!(outcome.summary.totals, totals([3, 0, 0, 0, 0]));
     assert_eq!((outcome.sent("/before"), outcome.sent("/users"), outcome.sent("/after")), (3, 3, 3));
 }
 
@@ -216,7 +216,7 @@ async fn run_lifecycle_actions_run_once_and_their_cleanups_run_last() {
     plan.before_run = vec![PlannedAction { action: login, needs: vc_model::Needs::default() }];
     plan.after_run = vec![report];
     let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
-    assert_eq!(outcome.summary.totals, totals(4, 0, 0, 0, 0));
+    assert_eq!(outcome.summary.totals, totals([4, 0, 0, 0, 0]));
     assert_eq!((outcome.sent("/session"), outcome.sent("/report"), outcome.sent("/session/end")), (1, 1, 1));
     assert_eq!(outcome.cleaned(), [delete]);
     let started = Event::ActionStarted { action: login, owner: OwnerKey::Run };
@@ -230,7 +230,9 @@ async fn a_plan_that_reaches_what_this_build_cannot_run_does_not_start() {
     let test = fixture.test(vec![hook], None);
     let plan = fixture.plan(&[], &[(test, 1)]);
     let mut unknown = plan.clone();
-    let other = vc_model::TestId::new(99);
+    let mut stranger = Fixture::new();
+    stranger.test(vec![], None);
+    let other = stranger.test(vec![], None);
     unknown.files[0].instances[0].test = other;
     let (executor, sent) = executor(fixture, RunOptions::default());
     let rejected = executor.start(Arc::new(plan), EventBus::spawn()).map(|_| ());

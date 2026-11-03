@@ -58,7 +58,8 @@ async fn an_abort_stops_work_and_cleanups() {
     let tree = CancelTree::new(GRACE);
     let (ran, ()) = tokio::join!(tree.guard(slow(7, ms(60_000))), later(ms(100), || tree.abort()));
     assert_eq!(ran, Ran::Aborted);
-    let (ran, ()) = tokio::join!(tree.child().cleanup(slow(7, ms(60_000))), async {});
+    let child = tree.child();
+    let (ran, ()) = tokio::join!(child.cleanup(slow(7, ms(60_000))), async {});
     assert_eq!(ran, Ran::Aborted, "abort is run-wide");
     assert_eq!(tree.guard(slow(7, ms(10))).await, Ran::Aborted);
     assert_eq!(CancelTree::new(GRACE).cleanup(slow(7, ms(10))).await, Ran::Done(7));

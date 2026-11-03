@@ -121,8 +121,8 @@ async fn an_action_without_an_executor_fails() {
     assert_eq!(failure(&report).map(|failure| failure.action), Some(Some(hook)));
 }
 
-#[test]
-fn the_check_follows_cleanups_and_reuse_to_every_reachable_action() {
+#[tokio::test]
+async fn the_check_follows_cleanups_and_reuse_to_every_reachable_action() {
     let mut fixture = Fixture::new();
     let hook = fixture.action(ActionKind::Function(HookRef { file: "hooks.ts".into(), export: "seed".into() }));
     let create = fixture.creating("/users", hook);

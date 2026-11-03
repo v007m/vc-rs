@@ -1,6 +1,7 @@
 //! The cancellation tree (run → file → instance) and the grace period.
 
 use std::future::Future;
+use std::pin::Pin;
 use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
@@ -75,11 +76,8 @@ impl CancelTree {
     /// Runs `work` unless the frame is already cancelled. Once cancelled, work in flight gets the
     /// grace period to finish.
     pub async fn guard<T>(&self, work: impl Future<Output = T>) -> Ran<T> {
-        if self.abort.is_cancelled() {
-            return Ran::Aborted;
-        }
-        if self.work.is_cancelled() {
-            return Ran::Cut;
+        if let Some(stopped) = self.stopped() {
+            return stopped;
         }
         let mut work = std::pin::pin!(work);
         tokio::select! {
@@ -88,10 +86,26 @@ impl CancelTree {
             out = &mut work => return Ran::Done(out),
             () = self.work.cancelled() => {}
         }
+        self.within_grace(work).await
+    }
+
+    /// How work would end that has not started yet, if the frame is stopped.
+    fn stopped<T>(&self) -> Option<Ran<T>> {
+        if self.abort.is_cancelled() {
+            Some(Ran::Aborted)
+        } else if self.work.is_cancelled() {
+            Some(Ran::Cut)
+        } else {
+            None
+        }
+    }
+
+    /// Lets cancelled work finish within the grace period, unless it is skipped or the run aborts.
+    async fn within_grace<T>(&self, work: Pin<&mut impl Future<Output = T>>) -> Ran<T> {
         tokio::select! {
             biased;
             () = self.abort.cancelled() => Ran::Aborted,
-            out = &mut work => Ran::Done(out),
+            out = work => Ran::Done(out),
             () = self.hurry.cancelled() => Ran::Cut,
             () = tokio::time::sleep(self.grace) => Ran::Cut,
         }

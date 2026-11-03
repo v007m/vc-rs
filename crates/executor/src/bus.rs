@@ -11,8 +11,9 @@ enum Message {
     Flush(oneshot::Sender<()>),
 }
 
-/// A handle to the event bus. Producers never wait: publishing goes to the fan-out task, which
-/// gives each event its run-wide sequence number and offers it to every subscriber's bounded
+/// A handle to the event bus.
+///
+/// Producers never wait: publishing goes to the fan-out task, which gives each event its run-wide sequence number and offers it to every subscriber's bounded
 /// buffer. A full buffer drops the event; the subscriber is told how many it missed
 /// ([`Feed::Missed`]) before its next event, and reloads them from the history store.
 #[derive(Clone, Debug)]
@@ -93,7 +94,9 @@ async fn fan_out(mut messages: UnboundedReceiver<Message>) {
             Message::Publish(event) => {
                 seq += 1;
                 let event = Sequenced { seq, event };
-                subscribers.iter_mut().for_each(|subscriber| subscriber.deliver(&event));
+                for subscriber in &mut subscribers {
+                    subscriber.deliver(&event);
+                }
             }
             Message::Flush(done) => {
                 for subscriber in &mut subscribers {

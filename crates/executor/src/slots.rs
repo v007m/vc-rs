@@ -11,8 +11,9 @@ use crate::{ActionReport, Saved};
 /// What a shared action left behind: its saved values, or its failure.
 pub type SharedResult = Result<Arc<Saved>, Arc<Failure>>;
 
-/// The results of one frame's shared actions (`beforeRun` or a file's `beforeAll`): a slot per
-/// planned action, created up front and filled once by the frame's owner task, then read by
+/// The results of one frame's shared actions (`beforeRun` or a file's `beforeAll`).
+///
+/// There is a slot per planned action, created up front and filled once by the frame's owner task, then read by
 /// every instance (D122). `OnceCell` makes each slot write-once, so no lock is needed (D113).
 #[derive(Debug, Default)]
 pub struct SharedSlots {
@@ -28,6 +29,7 @@ impl SharedSlots {
 
     /// Fills the slot of `action` from its report. Returns false when `action` has no slot or
     /// its slot is already filled; the first result stands.
+    #[must_use]
     pub fn fill(&self, action: ActionId, report: &ActionReport) -> bool {
         let result = match &report.outcome {
             ActionOutcome::Passed => Ok(Arc::new(report.saved.clone())),

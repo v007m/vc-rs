@@ -57,7 +57,7 @@ impl Crew {
         let outcome = match &ran {
             Ran::Done(report) => {
                 if let Some(slots) = slots {
-                    slots.fill(action, report);
+                    let _first = slots.fill(action, report);
                 }
                 report.outcome.clone()
             }

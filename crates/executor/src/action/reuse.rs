@@ -42,6 +42,7 @@ fn reused(program: &Program, action: &Action) -> Option<Vec<ActionId>> {
 }
 
 /// A test's call or steps, in order.
+#[must_use]
 pub fn body_actions(body: &TestBody) -> Vec<ActionId> {
     match body {
         TestBody::Call(action) => vec![*action],

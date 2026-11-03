@@ -7,6 +7,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
 use async_trait::async_trait;
+use indexmap::IndexMap;
 use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::{
     Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, ConnectionInfo, Exchange, Expect, FileId,
@@ -53,6 +54,8 @@ impl Fixture {
             owner: Owner::Instance,
             vars: VarDefs::default(),
             auth: None,
+            headers: IndexMap::default(),
+            query: IndexMap::default(),
             body: None,
             expect: Expect::default(),
             save: SaveSpec::default(),
@@ -198,7 +201,7 @@ impl Server {
 impl Transport for Server {
     async fn send(&self, request: RenderedRequest, _: &SendContext) -> Result<Exchange, TransportError> {
         let path = request.uri.path().to_owned();
-        self.sent.send(path.clone()).unwrap();
+        self.sent.send(path.clone()).ok();
         if path == "/slow" {
             tokio::time::sleep(SLOW).await;
         }

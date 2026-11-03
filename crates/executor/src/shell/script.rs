@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use std::sync::Arc;
 
 use vc_model::{ActionId, Lifecycle, Plan, Program, TestId};
@@ -12,8 +13,8 @@ pub type Scripts = BTreeMap<TestId, Arc<InstanceScript>>;
 pub fn scripts(program: &Program, plan: &Plan) -> Result<Scripts, ExecutorError> {
     let mut scripts = Scripts::new();
     for instance in plan.files.iter().flat_map(|file| &file.instances) {
-        if !scripts.contains_key(&instance.test) {
-            scripts.insert(instance.test, Arc::new(script(program, instance.test)?));
+        if let Entry::Vacant(entry) = scripts.entry(instance.test) {
+            entry.insert(Arc::new(script(program, instance.test)?));
         }
     }
     Ok(scripts)
