@@ -74,6 +74,7 @@ fn bytes_round_trip_with_the_units_and_names() {
     assert!(unit.root.is_some() && !unit.parts.is_empty() && unit.diagnostics.is_empty());
     assert_eq!(Some(&*unit), kept(&cache, API, 1, 0).as_deref());
     assert_eq!((cache.units(), read.units()), (2, 1));
+    assert_eq!((read.len(), read.is_empty(), CompileCache::new().len()), (2, false, 0));
     assert!(kept(&cache, BAD, 2, 1).is_some_and(|bad| !bad.diagnostics.is_empty()));
     assert!(kept(&read, BAD, 2, 1).is_none(), "a unit with diagnostics is compiled again");
     assert_eq!(CompileCache::from_bytes(&CompileCache::new().to_bytes()), CompileCache::new());
