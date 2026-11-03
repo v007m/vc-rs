@@ -19,6 +19,7 @@ mod error;
 mod expect;
 mod files;
 mod ids;
+mod json_text;
 mod program;
 mod source;
 mod span;

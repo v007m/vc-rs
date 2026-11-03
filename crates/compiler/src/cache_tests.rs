@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use vc_diagnostics::{Code, Diagnostics};
 use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath, StringTable};
 
-use super::{CacheEntry, CompileCache, MAGIC, VERSION};
+use super::{Body, CacheEntry, CompileCache, MAGIC, Stored, VERSION};
 use crate::parts::Tools;
 use crate::stage::{self, FileUnit};
 use crate::{CompileInput, Compiled, compile};
@@ -48,20 +48,21 @@ fn kept(cache: &CompileCache, path: &str, byte: u8, file: u32) -> Option<Arc<Fil
     cache.unit(&SourcePath::new(path).unwrap(), &ContentHash::new([byte; 32]), SourceFileId::new(file))
 }
 
-/// A blob with this version's header around the header `json`, then `units`.
-fn blob(json: &str, units: &str) -> Vec<u8> {
+/// A blob with this version's magic and version around `header`, then `units`.
+fn blob(header: &[u8], units: &[u8]) -> Vec<u8> {
     let mut bytes = MAGIC.to_vec();
     bytes.extend(VERSION.to_le_bytes());
-    bytes.extend(u32::try_from(json.len()).unwrap().to_le_bytes());
-    bytes.extend(json.as_bytes());
-    bytes.extend(units.as_bytes());
+    bytes.extend(u32::try_from(header.len()).unwrap().to_le_bytes());
+    bytes.extend(header);
+    bytes.extend(units);
     bytes
 }
 
-/// A blob body with the string table `strings` and one file at `path` with no unit.
-fn body(strings: &str, path: &str) -> String {
-    let hash = ["0"; 32].join(",");
-    format!(r#"{{"strings":{strings},"entries":[{{"path":"{path}","hash":[{hash}],"file":0,"unit":null}}]}}"#)
+/// A header with the string table `strings` and one file at `path` whose unit is `unit` bytes long.
+fn body(strings: &[&str], path: &str, unit: Option<u32>) -> Vec<u8> {
+    let stored = Stored { path: path.to_owned(), hash: [0; 32], file: 0, unit };
+    let strings = strings.iter().map(|text| (*text).to_owned()).collect();
+    postcard::to_stdvec(&Body { strings, entries: vec![stored] }).unwrap()
 }
 
 #[test]
@@ -76,6 +77,17 @@ fn bytes_round_trip_with_the_units_and_names() {
     assert!(kept(&cache, BAD, 2, 1).is_some_and(|bad| !bad.diagnostics.is_empty()));
     assert!(kept(&read, BAD, 2, 1).is_none(), "a unit with diagnostics is compiled again");
     assert_eq!(CompileCache::from_bytes(&CompileCache::new().to_bytes()), CompileCache::new());
+}
+
+#[test]
+fn bytes_round_trip_numbers_and_literal_arguments() {
+    let body = "    body:\n      age: 1.5\n      count: -3\n      name: \"${fake.lorem.words(5) | default('x')}\"\n";
+    let text = format!("apis:\n  - id: createUser\n    method: POST\n    path: /users\n{body}");
+    let cache = compiled(&[source(API, &text, 1)]);
+    let unit = kept(&cache, API, 1, 0).unwrap();
+    assert!(unit.diagnostics.is_empty(), "{:?}", unit.diagnostics);
+    let read = CompileCache::from_bytes(&cache.to_bytes());
+    assert_eq!(kept(&read, API, 1, 0).as_deref(), Some(&*unit));
 }
 
 #[test]
@@ -101,7 +113,7 @@ fn finds_a_unit_only_for_the_same_path_hash_and_number() {
 
 #[test]
 fn another_version_reads_as_empty() {
-    for version in [1, 2, 3] {
+    for version in [1, 2, 3, 4] {
         let mut bytes = cache().to_bytes();
         bytes[MAGIC.len()] = version;
         assert!(CompileCache::from_bytes(&bytes).is_empty(), "version {version}");
@@ -115,32 +127,42 @@ fn damaged_bytes_read_as_empty() {
     for cut in [0, 3, 7, HEADER + 1, bytes.len() - 1] {
         assert!(CompileCache::from_bytes(&bytes[..cut]).is_empty(), "cut at {cut}");
     }
-    let mut bad_json = bytes;
-    bad_json[HEADER] = b'x';
-    assert!(CompileCache::from_bytes(&bad_json).is_empty());
+    let mut bad_header = bytes.clone();
+    bad_header[HEADER] = 0xFF;
+    assert!(CompileCache::from_bytes(&bad_header).is_empty());
+    let mut long_header = bytes;
+    long_header[MAGIC.len() + 4] += 1;
+    assert!(CompileCache::from_bytes(&long_header).is_empty());
     assert!(CompileCache::from_bytes(b"not a cache at all").is_empty());
 }
 
 #[test]
 fn a_path_or_string_table_that_does_not_read_back_reads_as_empty() {
-    assert_eq!(CompileCache::from_bytes(&blob(&body(r#"["a","b"]"#, "a.api.yaml"), "")).len(), 1);
-    assert!(CompileCache::from_bytes(&blob(&body("[]", "../a.api.yaml"), "")).is_empty());
-    assert!(CompileCache::from_bytes(&blob(&body(r#"["a","a"]"#, "a.api.yaml"), "")).is_empty());
+    assert_eq!(CompileCache::from_bytes(&blob(&body(&["a", "b"], "a.api.yaml", None), &[])).len(), 1);
+    assert!(CompileCache::from_bytes(&blob(&body(&[], "../a.api.yaml", None), &[])).is_empty());
+    assert!(CompileCache::from_bytes(&blob(&body(&["a", "a"], "a.api.yaml", None), &[])).is_empty());
 }
 
 #[test]
 fn a_unit_that_does_not_read_back_is_only_compiled_again() {
-    let json = body("[]", "a.api.yaml").replace(r#""unit":null"#, r#""unit":9"#);
-    let read = CompileCache::from_bytes(&blob(&json, "{not json"));
+    let header = body(&[], "a.api.yaml", Some(9));
+    let read = CompileCache::from_bytes(&blob(&header, &[0xFF; 9]));
     assert_eq!((read.len(), read.units()), (1, 0));
+    let unit = postcard::to_stdvec(&*entry("a.api.yaml", 0, 0).unit.unwrap()).unwrap();
+    let mut trailing = unit.clone();
+    trailing.push(0);
+    let header = body(&[], "a.api.yaml", Some(u32::try_from(trailing.len()).unwrap()));
+    assert_eq!(CompileCache::from_bytes(&blob(&header, &trailing)).units(), 0, "bytes after the unit");
+    let header = body(&[], "a.api.yaml", Some(u32::try_from(unit.len()).unwrap()));
+    assert_eq!(CompileCache::from_bytes(&blob(&header, &unit)).units(), 1);
 }
 
 #[test]
 fn unit_lengths_that_do_not_match_the_units_read_as_empty() {
-    let json = body("[]", "a.api.yaml").replace(r#""unit":null"#, r#""unit":9"#);
-    assert!(CompileCache::from_bytes(&blob(&json, "{not jso")).is_empty(), "too short");
-    assert!(CompileCache::from_bytes(&blob(&json, "{not json}")).is_empty(), "too long");
-    assert!(CompileCache::from_bytes(&blob(&body("[]", "a.api.yaml"), "{}")).is_empty(), "left over");
+    let header = body(&[], "a.api.yaml", Some(9));
+    assert!(CompileCache::from_bytes(&blob(&header, &[0; 8])).is_empty(), "too short");
+    assert!(CompileCache::from_bytes(&blob(&header, &[0; 10])).is_empty(), "too long");
+    assert!(CompileCache::from_bytes(&blob(&body(&[], "a.api.yaml", None), &[0; 2])).is_empty(), "left over");
 }
 
 fn codes(compiled: &Compiled) -> Vec<Code> {
