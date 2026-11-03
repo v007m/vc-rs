@@ -90,7 +90,10 @@ pub struct ActionRequest {
 
 impl fmt::Debug for ActionRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ActionRequest").field("action", &self.action).field("owner", &self.owner).finish_non_exhaustive()
+        f.debug_struct("ActionRequest")
+            .field("action", &self.action)
+            .field("owner", &self.owner)
+            .finish_non_exhaustive()
     }
 }
 

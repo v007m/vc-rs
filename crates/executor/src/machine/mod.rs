@@ -11,7 +11,9 @@ use std::collections::BTreeMap;
 use vc_model::{ActionId, ActionOutcome, Event, Failure, Needs, OwnerKey, PlannedAction};
 
 pub use file::{FileCommand, FileInput, FileOrchestrator, FilePhase, Launch};
-pub use instance::{CANCELLED, InstanceCommand, InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Verdict};
+pub use instance::{
+    CANCELLED, InstanceCommand, InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Verdict,
+};
 pub use run::{RunCommand, RunInput, RunOrchestrator, RunPhase, RunSummary};
 
 /// Values an action saved, by name (filled by the vars runtime; empty until then).

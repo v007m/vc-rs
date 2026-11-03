@@ -35,6 +35,7 @@ pub fn roots(plan: &Plan, scripts: &Scripts) -> Vec<ActionId> {
     let shared = |planned: &[vc_model::PlannedAction]| planned.iter().map(|planned| planned.action).collect::<Vec<_>>();
     let run = shared(&plan.before_run).into_iter().chain(plan.after_run.iter().copied());
     let files = plan.files.iter().flat_map(|file| shared(&file.before_all).into_iter().chain(file.after_all.clone()));
-    let tests = scripts.values().flat_map(|script| script.before.iter().chain(&script.body).chain(&script.after).copied());
+    let tests =
+        scripts.values().flat_map(|script| script.before.iter().chain(&script.body).chain(&script.after).copied());
     run.chain(files).chain(tests).collect()
 }

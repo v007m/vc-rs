@@ -10,10 +10,10 @@ use async_trait::async_trait;
 use indexmap::IndexMap;
 use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::{
-    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, ConnectionInfo, Exchange, Expect, FileId,
-    Instance, InstanceId, Lifecycle, Method, Needs, Owner, Part, Plan, PlannedAction, PlannedFile, Pos, Program,
-    RenderedRequest, Retry, SaveSpec, SourceFileId, SourceFiles, SourceSpan, StringTable, Sym, Template,
-    Test, TestBody, TestFile, TestId, Timing, VarDefs,
+    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, ConnectionInfo, Exchange, Expect, FileId, Instance,
+    InstanceId, Lifecycle, Method, Needs, Owner, Part, Plan, PlannedAction, PlannedFile, Pos, Program, RenderedRequest,
+    Retry, SaveSpec, SourceFileId, SourceFiles, SourceSpan, StringTable, Sym, Template, Test, TestBody, TestFile,
+    TestId, Timing, VarDefs,
 };
 use vc_testkit::status;
 
@@ -39,7 +39,9 @@ impl Fixture {
         let base_url = Some(literal("http://api.test"));
         let apis = Vec::new();
         let (auth, headers, vars, hooks) = Default::default();
-        program.api_groups.insert(group, ApiGroup { id: group, name: None, base_url, auth, headers, vars, hooks, apis });
+        program
+            .api_groups
+            .insert(group, ApiGroup { id: group, name: None, base_url, auth, headers, vars, hooks, apis });
         let (tags, vars, lifecycle, tests) = Default::default();
         program.test_files.insert(file, TestFile { id: file, name: None, tags, vars, skip: None, lifecycle, tests });
         Self { program, file, group, names }
@@ -210,6 +212,11 @@ impl Transport for Server {
             "/flaky" if self.flaky.fetch_add(1, Ordering::SeqCst) == 0 => 503,
             _ => 200,
         };
-        Ok(Exchange { request, response: status(code), timing: Timing::default(), connection: ConnectionInfo::default() })
+        Ok(Exchange {
+            request,
+            response: status(code),
+            timing: Timing::default(),
+            connection: ConnectionInfo::default(),
+        })
     }
 }

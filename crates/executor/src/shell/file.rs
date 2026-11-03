@@ -24,7 +24,8 @@ pub async fn file(crew: Crew, job: FileJob) -> Totals {
     let scope = Scope { run: job.run, file: Arc::new(slots) };
     let owner = OwnerKey::File(job.file.id);
     let mut machine = FileOrchestrator::new(Arc::new(job.file), crew.window);
-    let mut shell = FileShell { crew, scope, owner, cancel: job.cancel, tasks: Tasks::new(), cancelled: false, aborted: false };
+    let mut shell =
+        FileShell { crew, scope, owner, cancel: job.cancel, tasks: Tasks::new(), cancelled: false, aborted: false };
     let mut inputs = VecDeque::from([FileInput::Start(job.failed)]);
     loop {
         while let Some(input) = inputs.pop_front() {

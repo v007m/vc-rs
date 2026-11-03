@@ -119,7 +119,8 @@ async fn a_failed_before_all_blocks_every_instance_that_needs_it() {
 async fn cleanups_run_newest_first_when_the_test_fails() {
     let mut fixture = Fixture::new();
     let (first, second) = (fixture.call("/users/1"), fixture.call("/users/2"));
-    let steps = vec![fixture.creating("/create/1", first), fixture.creating("/create/2", second), fixture.call("/fail")];
+    let steps =
+        vec![fixture.creating("/create/1", first), fixture.creating("/create/2", second), fixture.call("/fail")];
     let test = fixture.test(steps, None);
     let plan = fixture.plan(&[], &[(test, 1)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
@@ -172,12 +173,14 @@ async fn cancelling_during_a_retry_wait_gives_up_with_the_failure() {
 async fn a_third_interrupt_abandons_the_cleanups_left() {
     let mut fixture = Fixture::new();
     let (first, second) = (fixture.call("/slow"), fixture.call("/slow"));
-    let steps = vec![fixture.creating("/create/1", first), fixture.creating("/create/2", second), fixture.call("/slow")];
+    let steps =
+        vec![fixture.creating("/create/1", first), fixture.creating("/create/2", second), fixture.call("/slow")];
     let test = fixture.test(steps, None);
     let plan = fixture.plan(&[], &[(test, 1)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[SECOND, 2 * SECOND, 3 * SECOND]).await;
     assert_eq!(outcome.summary.status, RunStatus::Cancelled);
-    let abandoned = Event::CleanupsAbandoned { owner: OwnerKey::Instance(vc_model::InstanceId::new(0)), cleanups: vec![first] };
+    let abandoned =
+        Event::CleanupsAbandoned { owner: OwnerKey::Instance(vc_model::InstanceId::new(0)), cleanups: vec![first] };
     assert!(outcome.events.contains(&abandoned), "{:?}", outcome.events);
     assert_eq!((outcome.cleaned(), outcome.elapsed), (vec![], 3 * SECOND), "the cleanup in flight was stopped");
 }

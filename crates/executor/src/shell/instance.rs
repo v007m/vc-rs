@@ -103,7 +103,8 @@ impl InstanceShell {
     fn finish(&self, verdict: Verdict) -> TestStatus {
         let Verdict { status, attempts, failure, skip_reason } = verdict;
         let instance = &self.ticket.launch.instance;
-        let result = TestResult { test: instance.test, instance: Some(instance.id), status, attempts, failure, skip_reason };
+        let result =
+            TestResult { test: instance.test, instance: Some(instance.id), status, attempts, failure, skip_reason };
         self.crew.bus.publish(Event::TestFinished { result });
         self.crew.run.send(RunInput::Tested(status)).ok();
         status

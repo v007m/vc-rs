@@ -38,7 +38,8 @@ impl CallExecutor {
 
     async fn call(&self, request: &ActionRequest) -> Result<ActionReport, Failure> {
         let program = &request.cx.program;
-        let action = request.cx.action(request.action).ok_or_else(|| Failure::new("the action is not in the program"))?;
+        let action =
+            request.cx.action(request.action).ok_or_else(|| Failure::new("the action is not in the program"))?;
         let api = called(program, action).ok_or_else(|| Failure::new("the action calls no api in the program"))?;
         let timeout = api.timeout.map_or(DEFAULT_TIMEOUT, vc_model::Duration::get);
         let call = Call { request: render(program, api)?, timeout, ctx: SendContext::default() };
@@ -46,7 +47,8 @@ impl CallExecutor {
             Ok(delivery) => delivery,
             Err(never) => match never {},
         };
-        let exchange = delivery.result.map_err(|error| Failure::new(error.to_string()).with_code(error.code().to_string()))?;
+        let exchange =
+            delivery.result.map_err(|error| Failure::new(error.to_string()).with_code(error.code().to_string()))?;
         let status = exchange.response.status;
         if !status.is_success() {
             let failure = Failure::new(format!("expected a 2xx status, got {status}"));

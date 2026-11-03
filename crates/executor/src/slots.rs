@@ -61,9 +61,15 @@ mod tests {
         saved.saved.insert("userId".into(), json!(7));
         assert!(slots.fill(ActionId::new(1), &saved));
         assert!(!slots.fill(ActionId::new(1), &ActionReport::passed()), "the first result stands");
-        assert_eq!(slots.get(ActionId::new(1)).and_then(Result::ok).map(|saved| saved["userId"].clone()), Some(json!(7)));
+        assert_eq!(
+            slots.get(ActionId::new(1)).and_then(Result::ok).map(|saved| saved["userId"].clone()),
+            Some(json!(7))
+        );
         assert!(slots.fill(ActionId::new(2), &ActionReport::failed(Failure::new("down"))));
-        assert_eq!(slots.get(ActionId::new(2)).and_then(Result::err).map(|failure| failure.message.clone()), Some("down".into()));
+        assert_eq!(
+            slots.get(ActionId::new(2)).and_then(Result::err).map(|failure| failure.message.clone()),
+            Some("down".into())
+        );
         assert!(!slots.fill(ActionId::new(3), &ActionReport::passed()));
         assert_eq!(slots.get(ActionId::new(3)), None);
     }

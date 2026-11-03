@@ -61,7 +61,10 @@ async fn a_non_2xx_status_fails_the_call_without_a_cleanup() {
     let (server, _) = Server::new();
     let report = execute(fixture, standard(server), create).await;
     assert_eq!(code(&report), Some(Code::V5101.to_string().as_str()));
-    assert_eq!(failure(&report).map(|failure| (failure.action, failure.message.as_str())), Some((Some(create), "expected a 2xx status, got 500 Internal Server Error")));
+    assert_eq!(
+        failure(&report).map(|failure| (failure.action, failure.message.as_str())),
+        Some((Some(create), "expected a 2xx status, got 500 Internal Server Error"))
+    );
     assert_eq!(report.cleanups, vec![]);
 }
 
@@ -140,8 +143,17 @@ async fn the_check_follows_cleanups_and_reuse_to_every_reachable_action() {
 
 #[test]
 fn kind_tags_name_their_keys() {
-    let tags = [ActionKindTag::Call, ActionKindTag::Test, ActionKindTag::Function, ActionKindTag::Command, ActionKindTag::Inline];
+    let tags = [
+        ActionKindTag::Call,
+        ActionKindTag::Test,
+        ActionKindTag::Function,
+        ActionKindTag::Command,
+        ActionKindTag::Inline,
+    ];
     let names: Vec<_> = tags.iter().map(ToString::to_string).collect();
     assert_eq!(names, ["call", "test", "function", "command", "inline"]);
-    assert_eq!(format!("{:?}", ActionExecutors::new().with(ActionKindTag::Test, Arc::new(super::TestExecutor))), "{Test}");
+    assert_eq!(
+        format!("{:?}", ActionExecutors::new().with(ActionKindTag::Test, Arc::new(super::TestExecutor))),
+        "{Test}"
+    );
 }

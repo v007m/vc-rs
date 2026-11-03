@@ -78,7 +78,8 @@ impl Subscriber {
 
     /// Offers `event`, after any missed count; counts it as missed when there is no room.
     fn deliver(&mut self, event: &Sequenced) {
-        let room = self.settle() && !matches!(self.feed.try_send(Feed::Event(event.clone())), Err(TrySendError::Full(_)));
+        let room =
+            self.settle() && !matches!(self.feed.try_send(Feed::Event(event.clone())), Err(TrySendError::Full(_)));
         if !room {
             self.missed += 1;
         }

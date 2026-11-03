@@ -32,9 +32,9 @@ pub use error::ExecutorError;
 
 pub use exit::{EXIT_CANCELLED, EXIT_FAILED, EXIT_NOTHING_RAN, EXIT_PASSED, exit_code};
 pub use machine::{
-    ActionReport, CANCELLED, FailedActions, FileCommand, FileInput, FileOrchestrator, FilePhase, InstanceCommand, InstanceInput,
-    InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup, RunCommand, RunInput, RunOrchestrator,
-    RunPhase, RunSummary, Saved, Verdict,
+    ActionReport, CANCELLED, FailedActions, FileCommand, FileInput, FileOrchestrator, FilePhase, InstanceCommand,
+    InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup, RunCommand, RunInput,
+    RunOrchestrator, RunPhase, RunSummary, Saved, Verdict,
 };
 pub use pipeline::{
     Attempted, BoxFuture, Call, Delivery, Hop, HostLimit, HostLimits, HttpRetryPolicy, NoRetry, Pipeline,

@@ -75,7 +75,8 @@ impl RunShell {
             let run = Arc::clone(&self.scope.run);
             let job = FileJob { file: planned.clone(), failed: failed.clone(), run, cancel: self.cancel.child() };
             let crew = self.crew.clone();
-            self.tasks.spawn(async move { RunInput::FileDone(file(crew, job).await) }, RunInput::FileDone(Totals::default()));
+            self.tasks
+                .spawn(async move { RunInput::FileDone(file(crew, job).await) }, RunInput::FileDone(Totals::default()));
         }
     }
 
