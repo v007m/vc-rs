@@ -1,20 +1,55 @@
-use vc_model::{ContentHash, SourceFile, SourcePath};
+use std::sync::Arc;
+
+use vc_model::{ContentHash, SourceFileId, SourcePath, StringTable};
+
+use crate::stage::FileUnit;
 
 /// The first bytes of every cache blob.
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 /// What the compiler keeps between runs so it can skip files that did not change (D132).
 ///
 /// Opaque to its users: the engine only persists [`CompileCache::to_bytes`] and reads it back
 /// with [`CompileCache::from_bytes`]. A blob from another version, or a damaged one, reads as an
-/// empty cache, which only costs a full compile.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// empty cache, which only costs a full compile. In memory (`vc watch`, the editors) the cache
+/// also holds each file's parsed and compiled unit and the names they use, so an unchanged file
+/// is not parsed again; the bytes hold only paths, hashes and file numbers.
+#[derive(Clone, Debug, Default)]
 pub struct CompileCache {
-    entries: Vec<(SourcePath, ContentHash)>,
+    entries: Vec<CacheEntry>,
+    strings: StringTable,
 }
+
+/// One file the cache remembers.
+#[derive(Clone, Debug)]
+pub struct CacheEntry {
+    /// Where the file is.
+    pub path: SourcePath,
+    /// Its content hash.
+    pub hash: ContentHash,
+    /// Its number in the file table, which every span in its unit points to.
+    pub file: SourceFileId,
+    /// What the per-file stages made of it; `None` once read back from bytes.
+    pub unit: Option<Arc<FileUnit>>,
+}
+
+impl CacheEntry {
+    const fn key(&self) -> (&SourcePath, &ContentHash, SourceFileId) {
+        (&self.path, &self.hash, self.file)
+    }
+}
+
+/// Caches are equal when they remember the same files; units and names are a memo of those.
+impl PartialEq for CompileCache {
+    fn eq(&self, other: &Self) -> bool {
+        self.entries.iter().map(CacheEntry::key).eq(other.entries.iter().map(CacheEntry::key))
+    }
+}
+
+impl Eq for CompileCache {}
 
 impl CompileCache {
     /// An empty cache: the next compile starts from scratch.
@@ -23,9 +58,20 @@ impl CompileCache {
         Self::default()
     }
 
-    /// A cache remembering each file's path and hash.
-    pub(crate) fn of_files(files: &[SourceFile]) -> Self {
-        Self { entries: files.iter().map(|file| (file.path.clone(), file.hash)).collect() }
+    /// A cache of `entries`, whose units intern their names in `strings`.
+    pub(crate) const fn of(entries: Vec<CacheEntry>, strings: StringTable) -> Self {
+        Self { entries, strings }
+    }
+
+    /// The unit kept for the file at `path` with `hash`, numbered `file`.
+    pub(crate) fn unit(&self, path: &SourcePath, hash: &ContentHash, file: SourceFileId) -> Option<Arc<FileUnit>> {
+        let entry = self.entries.iter().find(|entry| entry.key() == (path, hash, file))?;
+        entry.unit.clone()
+    }
+
+    /// The names the kept units use; a compile that reuses them interns on top of these.
+    pub(crate) const fn strings(&self) -> &StringTable {
+        &self.strings
     }
 
     /// How many files the cache remembers.
@@ -45,11 +91,12 @@ impl CompileCache {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = MAGIC.to_vec();
         out.extend(VERSION.to_le_bytes());
-        for (path, hash) in &self.entries {
-            let text = path.as_str().as_bytes();
+        for entry in &self.entries {
+            let text = entry.path.as_str().as_bytes();
             out.extend(u32::try_from(text.len()).unwrap_or(u32::MAX).to_le_bytes());
             out.extend(text);
-            out.extend(hash.as_bytes());
+            out.extend(entry.hash.as_bytes());
+            out.extend(entry.file.index().to_le_bytes());
         }
         out
     }
@@ -71,9 +118,10 @@ fn decode(bytes: &[u8]) -> Option<CompileCache> {
         let len = usize::try_from(reader.u32()?).ok()?;
         let path = SourcePath::new(std::str::from_utf8(reader.take(len)?).ok()?).ok()?;
         let hash = ContentHash::new(reader.take(32)?.try_into().ok()?);
-        entries.push((path, hash));
+        let file = SourceFileId::new(reader.u32()?);
+        entries.push(CacheEntry { path, hash, file, unit: None });
     }
-    Some(CompileCache { entries })
+    Some(CompileCache::of(entries, StringTable::new()))
 }
 
 /// Reads a blob front to back; every read fails cleanly past the end.
@@ -93,30 +141,55 @@ impl<'a> Reader<'a> {
 
 #[cfg(test)]
 mod tests {
-    use vc_model::{ContentHash, SourceFile, SourcePath};
+    use std::sync::Arc;
 
-    use super::{CompileCache, MAGIC};
+    use indexmap::IndexMap;
+    use vc_diagnostics::Diagnostics;
+    use vc_model::{ContentHash, SourceFileId, SourcePath, StringTable};
+
+    use super::{CacheEntry, CompileCache, MAGIC};
+    use crate::stage::FileUnit;
+
+    fn entry(path: &str, byte: u8, file: u32) -> CacheEntry {
+        let unit = FileUnit { kind: None, root: None, parts: IndexMap::new(), diagnostics: Diagnostics::new() };
+        let path = SourcePath::new(path).unwrap();
+        CacheEntry {
+            path,
+            hash: ContentHash::new([byte; 32]),
+            file: SourceFileId::new(file),
+            unit: Some(Arc::new(unit)),
+        }
+    }
 
     fn cache() -> CompileCache {
-        let file = |path: &str, byte| SourceFile {
-            path: SourcePath::new(path).unwrap(),
-            text: String::new(),
-            hash: ContentHash::new([byte; 32]),
-        };
-        CompileCache::of_files(&[file("a.api.yaml", 1), file("services/b.test.yaml", 2)])
+        CompileCache::of(vec![entry("a.api.yaml", 1, 0), entry("services/b.test.yaml", 2, 1)], StringTable::new())
     }
 
     #[test]
-    fn bytes_round_trip() {
+    fn bytes_round_trip_without_the_units() {
         let cache = cache();
-        assert_eq!(CompileCache::from_bytes(&cache.to_bytes()), cache);
+        let read = CompileCache::from_bytes(&cache.to_bytes());
+        assert_eq!(read, cache);
+        let (path, hash) = (SourcePath::new("services/b.test.yaml").unwrap(), ContentHash::new([2; 32]));
+        assert!(cache.unit(&path, &hash, SourceFileId::new(1)).is_some());
+        assert!(read.unit(&path, &hash, SourceFileId::new(1)).is_none());
         assert_eq!(CompileCache::from_bytes(&CompileCache::new().to_bytes()), CompileCache::new());
+    }
+
+    #[test]
+    fn finds_a_unit_only_for_the_same_path_hash_and_number() {
+        let cache = cache();
+        let path = SourcePath::new("a.api.yaml").unwrap();
+        assert!(cache.unit(&path, &ContentHash::new([1; 32]), SourceFileId::new(0)).is_some());
+        assert!(cache.unit(&path, &ContentHash::new([9; 32]), SourceFileId::new(0)).is_none());
+        assert!(cache.unit(&path, &ContentHash::new([1; 32]), SourceFileId::new(1)).is_none());
+        assert_ne!(cache, CompileCache::new());
     }
 
     #[test]
     fn another_version_reads_as_empty() {
         let mut bytes = cache().to_bytes();
-        bytes[MAGIC.len()] = 2;
+        bytes[MAGIC.len()] = 1;
         assert!(CompileCache::from_bytes(&bytes).is_empty());
     }
 

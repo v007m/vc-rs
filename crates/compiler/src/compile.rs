@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
 use vc_diagnostics::Diagnostics;
-use vc_model::{Program, SourceFile, SourceFiles, StringTable};
+use vc_model::{Program, SourceFile, SourceFileId, SourceFiles, StringTable};
 
 use crate::CompileCache;
+use crate::cache::CacheEntry;
+use crate::parts::Tools;
+use crate::stage;
 
 /// What one compile needs: the project's files and the cache the previous compile returned.
 #[derive(Clone, Debug, Default)]
@@ -30,16 +33,38 @@ pub struct Compiled {
 /// Compiles `input` into a program, or into the diagnostics that stop one.
 ///
 /// Pure: the same input gives the same output, and nothing outside it is read or written.
+/// A file whose path, hash and number match the previous cache is not parsed again.
 #[must_use]
 pub fn compile(input: CompileInput) -> Compiled {
     let mut sources = input.files;
     sources.sort_by(|a, b| a.path.cmp(&b.path));
     sources.dedup_by(|later, first| later.path == first.path);
-    let cache = CompileCache::of_files(&sources);
     let files = file_table(sources);
-    let diagnostics = Diagnostics::new();
-    let program = (!diagnostics.has_errors()).then(|| Arc::new(Program::new(StringTable::new(), files.clone())));
-    Compiled { program, diagnostics, files, cache }
+    let (entries, strings) = units(&files, &input.previous);
+    let mut diagnostics = Diagnostics::new();
+    for unit in entries.iter().filter_map(|entry| entry.unit.as_deref()) {
+        diagnostics.extend(unit.diagnostics.iter().cloned());
+    }
+    let program = (!diagnostics.has_errors()).then(|| Arc::new(Program::new(strings.clone(), files.clone())));
+    Compiled { program, diagnostics, files, cache: CompileCache::of(entries, strings) }
+}
+
+/// Runs the per-file stages over every file the previous cache does not hold.
+fn units(files: &SourceFiles, previous: &CompileCache) -> (Vec<CacheEntry>, StringTable) {
+    let tools = Tools::new();
+    let mut strings = previous.strings().clone();
+    let mut entries = Vec::with_capacity(files.len());
+    for (file, source) in numbered(files) {
+        let kept = previous.unit(&source.path, &source.hash, file);
+        let unit = kept.unwrap_or_else(|| Arc::new(stage::unit(file, source, (&tools, &mut strings))));
+        entries.push(CacheEntry { path: source.path.clone(), hash: source.hash, file, unit: Some(unit) });
+    }
+    (entries, strings)
+}
+
+/// Each file with its number.
+fn numbered(files: &SourceFiles) -> impl Iterator<Item = (SourceFileId, &SourceFile)> {
+    (0..).map(SourceFileId::new).map_while(|id| Some((id, files.get(id)?)))
 }
 
 /// The files numbered in the order given. A table cannot overflow in practice (it holds
@@ -56,9 +81,19 @@ fn file_table(sources: Vec<SourceFile>) -> SourceFiles {
 
 #[cfg(test)]
 mod tests {
-    use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath};
+    use std::sync::Arc;
+
+    use vc_diagnostics::Code;
+    use vc_model::{ContentHash, SourceFile, SourceFileId, SourceFiles, SourcePath};
 
     use super::{CompileInput, compile};
+    use crate::CompileCache;
+    use crate::stage::FileUnit;
+
+    fn kept(cache: &CompileCache, files: &SourceFiles, file: SourceFileId) -> Option<Arc<FileUnit>> {
+        let source = files.get(file)?;
+        cache.unit(&source.path, &source.hash, file)
+    }
 
     fn file(path: &str, text: &str) -> SourceFile {
         SourceFile { path: SourcePath::new(path).unwrap(), text: text.to_owned(), hash: ContentHash::new([1; 32]) }
@@ -80,5 +115,26 @@ mod tests {
         assert_eq!(program.files, compiled.files);
         assert!(compiled.diagnostics.is_empty());
         assert_eq!(compiled.cache.len(), 1);
+    }
+
+    #[test]
+    fn holds_back_the_program_and_reports_each_file_on_errors() {
+        let files = vec![file("x.api.yaml", "nme: x\n"), file("y.api.yaml", "apis: {}\n")];
+        let compiled = compile(CompileInput { files, ..CompileInput::default() });
+        assert!(compiled.program.is_none());
+        let codes: Vec<_> = compiled.diagnostics.iter().map(|d| d.code).collect();
+        assert_eq!(codes, [Code::V1004, Code::V2302]);
+    }
+
+    #[test]
+    fn reuses_the_units_of_unchanged_files() {
+        let first = compile(CompileInput { files: vec![file("x.api.yaml", "name: x\n")], ..CompileInput::default() });
+        let unit = kept(&first.cache, &first.files, SourceFileId::new(0)).unwrap();
+        let again = compile(CompileInput { files: vec![file("x.api.yaml", "name: x\n")], previous: first.cache });
+        assert!(Arc::ptr_eq(&unit, &kept(&again.cache, &again.files, SourceFileId::new(0)).unwrap()));
+        let mut changed = file("x.api.yaml", "name: y\n");
+        changed.hash = ContentHash::new([2; 32]);
+        let third = compile(CompileInput { files: vec![changed], previous: again.cache });
+        assert!(!Arc::ptr_eq(&unit, &kept(&third.cache, &third.files, SourceFileId::new(0)).unwrap()));
     }
 }

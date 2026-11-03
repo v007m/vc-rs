@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1007_alias/project
+---
+error[V1007]: YAML aliases (`*name`) are not supported
+ --> services/users/users.api.yaml:6:14
+  |
+6 |     headers: *common
+  |              ^^^^^^^ alias
+  = help: write the value out, put shared values in `vars`, or reuse a payload with `$extend`

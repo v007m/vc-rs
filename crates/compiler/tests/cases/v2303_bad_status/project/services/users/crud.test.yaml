@@ -1,0 +1,6 @@
+tests:
+  - id: getsUser
+    name: Gets a user
+    call: users#getUser
+    expect:
+      status: 99x

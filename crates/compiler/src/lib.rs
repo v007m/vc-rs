@@ -5,6 +5,10 @@
 //! no errors), every diagnostic, the file table the diagnostics point into, and the cache to
 //! persist for the next run (D132). The compiler does no I/O.
 //!
+//! Each file goes through the per-file stages, parse → shape-check → compile parts, and the
+//! cache keeps the result for files that did not change. The shapes the shape-check uses also
+//! generate the editors' JSON Schemas ([`schemas`]) and the docs' keys tables ([`key_tables`]).
+//!
 //! ```
 //! use vc_compiler::{CompileCache, CompileInput, compile};
 //! use vc_model::{ContentHash, SourceFile, SourcePath};
@@ -19,8 +23,18 @@
 
 mod cache;
 mod compile;
+mod docs;
+mod matchers;
+mod parts;
 mod schema;
+mod shape_check;
+mod shapes;
+mod stage;
+mod suggest;
+mod value;
+mod version;
 
 pub use cache::CompileCache;
 pub use compile::{CompileInput, Compiled, compile};
+pub use docs::key_tables;
 pub use schema::{FileSchema, schemas};

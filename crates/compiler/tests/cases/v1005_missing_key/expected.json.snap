@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1005_missing_key/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1005",
+      "severity": "error",
+      "message": "an apiEntry needs `path`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 2,
+          "column": 5,
+          "endLine": 2,
+          "endColumn": 7
+        },
+        "text": "`path` is missing"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add `path: /users/${var.userId}`: Appended to `baseUrl`"
+      ],
+      "fixes": []
+    }
+  ]
+}

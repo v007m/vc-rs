@@ -1,0 +1,7 @@
+tests:
+  - id: getsUser
+    name: Gets a user
+    call: users#getUser
+    timeout: soon
+    expect:
+      size: {lt: 10 kilobytes}

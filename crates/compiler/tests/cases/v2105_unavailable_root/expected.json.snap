@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2105_unavailable_root/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`response` is not available here",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 1,
+          "column": 10,
+          "endLine": 1,
+          "endColumn": 30
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`response` is available once a call is made: in expect, save, poll and cleanup"
+      ],
+      "fixes": []
+    }
+  ]
+}

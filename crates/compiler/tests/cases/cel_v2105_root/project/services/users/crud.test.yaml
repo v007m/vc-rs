@@ -1,0 +1,5 @@
+tests:
+  - id: getsUser
+    name: Gets a user
+    call: users#getUser
+    vars: {token: {$cel: 'secret.apiKey'}}

@@ -1,0 +1,68 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_wrong_type/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "expected list of apiEntry, found a map",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 1,
+          "column": 7,
+          "endLine": 1,
+          "endColumn": 9
+        },
+        "text": "expected list of apiEntry"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    },
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "expected integer, found text",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 1,
+          "column": 16,
+          "endLine": 1,
+          "endColumn": 19
+        },
+        "text": "expected integer"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write `2` without quotes"
+      ],
+      "fixes": [
+        {
+          "title": "Write 2 without quotes",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 15,
+                "end": 18
+              },
+              "newText": "2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

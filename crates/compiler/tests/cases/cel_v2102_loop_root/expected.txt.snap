@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/cel_v2102_loop_root/project
+---
+error[V2102]: `item` is not available here
+ --> services/users/crud.test.yaml:6:18
+  |
+6 |       cel: {big: item.id > 1}
+  |                  ^^^^^^^
+  = help: `item` is available only inside forEach

@@ -1,0 +1,55 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2301_bad_unit/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2301",
+      "severity": "error",
+      "message": "invalid duration `soon`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 5,
+          "column": 14,
+          "endLine": 5,
+          "endColumn": 18
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2301",
+      "severity": "error",
+      "message": "invalid size `10 kilobytes`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 7,
+          "column": 18,
+          "endLine": 7,
+          "endColumn": 30
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write a whole number and a unit: `512b`, `4kb`, `1mb` or `2gb`"
+      ],
+      "fixes": []
+    }
+  ]
+}

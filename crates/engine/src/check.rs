@@ -49,7 +49,7 @@ impl Engine {
     ///
     /// Uses the compile cache the previous check left, and leaves one for the next. A cache
     /// that cannot be read or written only adds a notice. A definition file that cannot be read
-    /// is reported as a V1001 error at its path.
+    /// is reported as a V1012 error at its path.
     ///
     /// # Errors
     ///
