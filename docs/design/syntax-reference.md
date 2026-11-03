@@ -499,7 +499,7 @@ Each item in `tests`:
 | `body` | as an api's `body` | the api's | Replaces the api's body for this test |
 | `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
-| `poll` | `until`, `every`, `timeout` | — | Re-send until `until` (checks) holds, then check `expect` |
+| `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect` |
 | `examples` | list of maps, or `$file` | — | One test instance per row; values in `${example.*}` |
 | `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
