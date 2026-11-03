@@ -9,7 +9,7 @@ use crate::stage::FileUnit;
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 4;
+const VERSION: u32 = 5;
 
 /// What the compiler keeps between runs so it can skip files that did not change (D132).
 ///
@@ -95,14 +95,14 @@ impl CompileCache {
         self.entries.iter().filter(|entry| entry.unit.is_some()).count()
     }
 
-    /// The cache as bytes: a magic number and the layout version, the length of a JSON header
-    /// and the header, then each stored unit's JSON, back to back.
+    /// The cache as bytes: a magic number and the layout version, the length of a header and the
+    /// header, then each stored unit, back to back; header and units are `postcard` (D155).
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
-        let units: Vec<_> = self.entries.iter().map(unit_json).collect();
+        let units: Vec<_> = self.entries.iter().map(unit_bytes).collect();
         let entries = self.entries.iter().zip(&units).map(|(entry, unit)| stored(entry, unit.as_deref())).collect();
         let body = Body { strings: self.strings.texts().map(str::to_owned).collect(), entries };
-        let header = serde_json::to_vec(&body).unwrap_or_default();
+        let header = postcard::to_stdvec(&body).unwrap_or_default();
         let mut out = MAGIC.to_vec();
         out.extend(VERSION.to_le_bytes());
         out.extend(u32::try_from(header.len()).unwrap_or(u32::MAX).to_le_bytes());
@@ -133,9 +133,9 @@ struct Stored {
     path: String,
     hash: [u8; 32],
     file: u32,
-    /// The length of the unit's JSON among the units after the header: each unit is read on its
-    /// own, so one too deeply nested for the JSON reader to take back costs only its own file,
-    /// not the whole cache. `None` for a unit with diagnostics.
+    /// The length of the unit's bytes among the units after the header: each unit is read on its
+    /// own, so one that does not read back costs only its own file, not the whole cache. `None`
+    /// for a unit with diagnostics.
     unit: Option<u32>,
 }
 
@@ -148,10 +148,10 @@ fn stored(entry: &CacheEntry, unit: Option<&[u8]>) -> Stored {
     }
 }
 
-/// The JSON of an entry's unit, when it is kept and has no diagnostics.
-fn unit_json(entry: &CacheEntry) -> Option<Vec<u8>> {
+/// The bytes of an entry's unit, when it is kept and has no diagnostics.
+fn unit_bytes(entry: &CacheEntry) -> Option<Vec<u8>> {
     let unit = entry.unit.as_deref().filter(|unit| unit.diagnostics.is_empty())?;
-    serde_json::to_vec(unit).ok().filter(|json| u32::try_from(json.len()).is_ok())
+    postcard::to_stdvec(unit).ok().filter(|bytes| u32::try_from(bytes.len()).is_ok())
 }
 
 fn decode(bytes: &[u8]) -> Option<CompileCache> {
@@ -161,8 +161,8 @@ fn decode(bytes: &[u8]) -> Option<CompileCache> {
         return None;
     }
     let (length, rest) = rest.split_first_chunk::<4>()?;
-    let (json, mut units) = rest.split_at_checked(usize::try_from(u32::from_le_bytes(*length)).ok()?)?;
-    let body: Body = serde_json::from_slice(json).ok()?;
+    let (header, mut units) = rest.split_at_checked(usize::try_from(u32::from_le_bytes(*length)).ok()?)?;
+    let body: Body = read_all(header)?;
     let strings = table(&body.strings)?;
     let mut entries = Vec::with_capacity(body.entries.len());
     for stored in &body.entries {
@@ -187,11 +187,19 @@ fn table(texts: &[String]) -> Option<StringTable> {
 fn entry(stored: &Stored, units: &mut &[u8]) -> Option<CacheEntry> {
     let path = SourcePath::new(&stored.path).ok()?;
     let length = stored.unit.map(usize::try_from).transpose().ok()?.unwrap_or(0);
-    let (json, rest) = units.split_at_checked(length)?;
+    let (bytes, rest) = units.split_at_checked(length)?;
     *units = rest;
-    let unit = stored.unit.and_then(|_| serde_json::from_slice::<FileUnit>(json).ok());
+    let unit = stored.unit.and_then(|_| read_all::<FileUnit>(bytes));
     let (hash, file) = (ContentHash::new(stored.hash), SourceFileId::new(stored.file));
     Some(CacheEntry { path, hash, file, unit: unit.map(Arc::new) })
+}
+
+/// The value `bytes` hold, when they hold exactly one.
+fn read_all<'a, T: Deserialize<'a>>(bytes: &'a [u8]) -> Option<T> {
+    match postcard::take_from_bytes(bytes) {
+        Ok((value, [])) => Some(value),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

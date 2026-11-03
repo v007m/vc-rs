@@ -1,0 +1,19 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3206_unused_default/project
+---
+warning[V3206]: no step uses the test-level `headers.x-trace`
+ --> services/users/crud.test.yaml:3:15
+  |
+3 |     headers: {x-trace: '1', x-team: qa}
+  |               ^^^^^^^ unused default
+  = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+  = help: remove it, or remove the steps' own values that replace it
+
+warning[V3206]: no step uses the test-level `expect`
+ --> services/users/crud.test.yaml:4:22
+  |
+4 |     expect: {status: 201}
+  |                      ^^^ unused default
+  = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+  = help: remove it, or remove the steps' own values that replace it

@@ -20,6 +20,7 @@ use vc_parser::Node;
 
 use super::project::{Project, Source, list, text};
 use action::Place;
+pub use read::{flag, method};
 
 /// What a build step gives; it fails only when a table is full.
 type Built<T> = Result<T, ModelError>;

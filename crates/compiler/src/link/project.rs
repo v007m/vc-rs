@@ -1,8 +1,9 @@
 //! Every file the linker sees, with its file ID, its tree and its pieces in source order.
 
 use std::collections::{HashMap, HashSet};
+use std::ops::Range;
 
-use vc_model::{FileKind, Pos, SourceFile, SourceFileId, SourceSpan, StringTable};
+use vc_model::{FileKind, SourceFile, SourceFileId, SourceSpan, StringTable};
 use vc_parser::Node;
 
 use crate::parts::Piece;
@@ -74,13 +75,10 @@ impl<'a> Source<'a> {
         if written.contains('#') { written.to_owned() } else { self.full(written) }
     }
 
-    /// The span of the text `word` starting at byte `offset` on the line of `at`, if it is there.
-    pub fn word_at(&self, at: Pos, offset: usize, word: &str) -> Option<SourceSpan> {
-        let found = self.text.get(offset..offset + word.len())? == word;
-        let column = at.column + u32::try_from(self.text.get(at.offset..offset)?.chars().count()).ok()?;
-        let start = Pos::new(at.line, column, offset);
-        let end = Pos::new(at.line, column + u32::try_from(word.chars().count()).ok()?, offset + word.len());
-        found.then(|| SourceSpan::new(self.file, start, end))
+    /// The bytes of the text `word` starting at byte `offset`, if it is there.
+    pub fn word_at(&self, offset: usize, word: &str) -> Option<Range<usize>> {
+        let range = offset..offset + word.len();
+        (self.text.get(range.clone())? == word).then_some(range)
     }
 }
 

@@ -1,11 +1,12 @@
 //! Reads compiled pieces and plain scalars off a file's tree for the program build.
 
 use indexmap::IndexMap;
-use vc_model::{BodySpec, Duration, HookRef, Method, Retry, Skip, Tag, Template, TemplateValue};
+use vc_model::{BodySpec, Duration, Examples, HookRef, Method, Retry, Skip, Tag, Template, TemplateValue};
 use vc_parser::Node;
 
 use crate::link::project::{Source, list, text};
 use crate::parts::Piece;
+use crate::shapes::Shape;
 
 /// The methods an api may name, as written.
 const METHODS: [(&str, Method); 7] = [
@@ -59,9 +60,10 @@ pub fn number(node: &Node, key: &str) -> Option<u32> {
     text(node, key)?.parse().ok()
 }
 
-/// Whether `key` is `true`.
-pub fn flag(node: &Node, key: &str) -> bool {
-    text(node, key).is_some_and(|value| value.eq_ignore_ascii_case("true"))
+/// Whether `key` is `true`, taking the default `shape` declares for it when it is not written.
+pub fn flag(shape: &Shape, node: &Node, key: &str) -> bool {
+    let written = text(node, key).or_else(|| shape.find(key)?.default);
+    written.is_some_and(|value| value.eq_ignore_ascii_case("true"))
 }
 
 /// `key` as owned text.
@@ -121,6 +123,20 @@ pub fn body(source: &Source<'_>, node: &Node) -> Option<BodySpec> {
         TemplateValue::Map(map) => special(map),
         other => BodySpec::Json(other),
     })
+}
+
+/// `examples`: rows written inline, a single-key `$file` map, or a template that yields the rows.
+/// The rows of a `$file` or a dataset are read by the engine and passed to the planner (D132).
+pub fn examples(source: &Source<'_>, node: Option<&Node>) -> Option<Examples> {
+    match value(source, node?)? {
+        TemplateValue::List(rows) => Some(Examples::Rows(rows)),
+        TemplateValue::String(template) => Some(Examples::Template(template)),
+        TemplateValue::Map(map) => match special(map) {
+            BodySpec::File(template) => Some(Examples::File(template)),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 fn special(map: IndexMap<String, TemplateValue>) -> BodySpec {

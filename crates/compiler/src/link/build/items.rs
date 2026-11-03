@@ -10,6 +10,7 @@ use vc_parser::Node;
 use super::action::Place;
 use super::{Build, Built, expect, read};
 use crate::link::project::{Source, list, text};
+use crate::shapes;
 
 impl<'a> Build<'_, 'a> {
     /// The config, its profiles, and `beforeRun` and `afterRun`.
@@ -35,7 +36,12 @@ impl<'a> Build<'_, 'a> {
             let id = ProfileId::new(self.sym(id)?);
             let vars = self.values(source, profile.get("vars"))?;
             let name = read::owned(profile, "name");
-            self.builder.profile(Profile { id, name, default: read::flag(profile, "default"), vars });
+            self.builder.profile(Profile {
+                id,
+                name,
+                default: read::flag(shapes::profile(), profile, "default"),
+                vars,
+            });
         }
         let before_all = self.block(source, (list(root, "beforeRun"), Owner::Run))?;
         let after_all = self.block(source, (list(root, "afterRun"), Owner::Run))?;
@@ -96,7 +102,7 @@ impl<'a> Build<'_, 'a> {
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             cleanup,
             hooks: hooks(node),
-            deprecated: read::flag(node, "deprecated"),
+            deprecated: read::flag(shapes::api(), node, "deprecated"),
             span: node.span,
         }))
     }
@@ -139,12 +145,12 @@ impl<'a> Build<'_, 'a> {
             body,
             vars: self.vars(source, node)?,
             expect: expect::read(source, node.get("expect"), Origin::Test(id)),
-            examples: None,
+            examples: read::examples(source, node.get("examples")),
             repeat: read::number(node, "repeat").unwrap_or(1),
             retry: read::retry(source, node),
             timeout: read::duration(source, node, "timeout"),
             skip: read::skip(node),
-            standalone: read::flag(node, "standalone"),
+            standalone: read::flag(shapes::test(), node, "standalone"),
             span: node.span,
         }))
     }

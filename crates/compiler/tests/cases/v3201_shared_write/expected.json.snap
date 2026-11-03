@@ -1,0 +1,45 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3201_shared_write/project
+---
+{
+  "summary": {
+    "errors": 0,
+    "warnings": 1,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V3201",
+      "severity": "warning",
+      "message": "the call to `users#renameUser` changes a value shared from `beforeAll`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 7,
+          "column": 21,
+          "endLine": 7,
+          "endColumn": 41
+        },
+        "text": "shared with every test"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "services/users/crud.test.yaml",
+            "line": 2,
+            "column": 9,
+            "endLine": 2,
+            "endColumn": 15
+          },
+          "text": "shared from `beforeAll`"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "one test's change is seen by every test that reads it; make the resource in `before` or `beforeEach`"
+      ],
+      "fixes": []
+    }
+  ]
+}

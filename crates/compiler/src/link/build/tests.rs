@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use vc_model::{
-    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Duration, Method, Origin, Owner, Program, Segment,
-    SourceFile, SourcePath, Test, TestBody,
+    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Duration, Examples, Method, Origin, Owner, Program,
+    Segment, SourceFile, SourcePath, Test, TestBody,
 };
 
 use crate::{CompileInput, compile};
@@ -24,7 +24,8 @@ fn program() -> Arc<Program> {
         file("services/users/crud.test.yaml", TESTS),
     ];
     let compiled = compile(CompileInput { files, ..CompileInput::default() });
-    assert!(compiled.diagnostics.is_empty(), "{:?}", compiled.diagnostics);
+    let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
+    assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()
 }
 
@@ -158,7 +159,7 @@ const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default
 
 const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
 
-const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n";
+const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n  - id: reusesTheWait\n    headers: {x-t: '1'}\n    expect: {status: 202}\n    steps:\n      - test: waitsForOrder\n        expect: {size: {lt: 1kb}}\n      - function: hooks/a.ts#check\n";
 
 fn more() -> Arc<Program> {
     let files = vec![
@@ -167,7 +168,8 @@ fn more() -> Arc<Program> {
         file("services/orders/flow.test.yaml", FLOW),
     ];
     let compiled = compile(CompileInput { files, ..CompileInput::default() });
-    assert!(compiled.diagnostics.is_empty(), "{:?}", compiled.diagnostics);
+    let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
+    assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()
 }
 
@@ -210,4 +212,51 @@ fn reads_skips_polls_and_body_and_function_checks() {
     assert_eq!((poll.every, poll.timeout, poll.until.checks.len()), (seconds(2), seconds(30), 1));
     let kinds: Vec<_> = call.expect.checks.iter().map(|check| check.kind).collect();
     assert_eq!(kinds, [CheckKind::Equals, CheckKind::Custom]);
+}
+
+#[test]
+fn test_steps_take_the_tests_defaults_and_function_steps_take_none() {
+    let program = more();
+    let reuses = test(&program, "orders.flow#reusesTheWait");
+    let [reuse, hook] = steps(&program, reuses)[..] else { panic!("two steps") };
+    assert!(matches!(reuse.kind, ActionKind::Test(_)));
+    assert_eq!(reuse.headers.keys().map(String::as_str).collect::<Vec<_>>(), ["x-t"]);
+    assert_eq!(checks(reuse), [(CheckKind::Status, 16, 't'), (CheckKind::Size, 19, 's')]);
+    assert!(hook.headers.is_empty() && hook.expect.checks.is_empty());
+}
+
+const ROWS: &str = "vars: {rows: [{page: 3}]}\ntests:\n  - id: listsEachPage\n    call: users#list\n    examples:\n      - {page: 1}\n      - {page: '${var.rows}'}\n  - id: listsFilePages\n    call: users#list\n    standalone: false\n    examples: {$file: data/pages.csv}\n  - id: listsVarPages\n    call: users#list\n    standalone: true\n    examples: ${var.rows}\n";
+
+fn rows() -> Arc<Program> {
+    let files = vec![
+        file("vibranium.config.yaml", CONFIG),
+        file("services/users/users.api.yaml", APIS),
+        file("services/users/rows.test.yaml", ROWS),
+    ];
+    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
+    assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
+    compiled.program.unwrap()
+}
+
+#[test]
+fn a_test_is_standalone_unless_it_says_otherwise() {
+    let program = program();
+    assert!(test(&program, "users.crud#listsUsers").standalone, "the shape's default is true");
+    let program = rows();
+    let standalone = |id: &str| test(&program, id).standalone;
+    let found = ["listsEachPage", "listsFilePages", "listsVarPages"].map(|id| standalone(&format!("users.rows#{id}")));
+    assert_eq!(found, [true, false, true]);
+}
+
+#[test]
+fn builds_examples_written_inline_from_a_file_or_from_a_template() {
+    assert_eq!(test(&program(), "users.crud#listsUsers").examples, None);
+    let built = rows();
+    let examples = |id: &str| test(&built, id).examples.clone();
+    let Some(Examples::Rows(rows)) = examples("users.rows#listsEachPage") else { panic!("inline rows") };
+    assert_eq!(rows.len(), 2);
+    assert!(matches!(examples("users.rows#listsFilePages"), Some(Examples::File(_))));
+    let Some(Examples::Template(template)) = examples("users.rows#listsVarPages") else { panic!("a template") };
+    assert!(template.single_ref().is_some());
 }

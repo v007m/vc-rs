@@ -1,0 +1,3 @@
+apis:
+  - id: getOrder
+    path: /orders/1

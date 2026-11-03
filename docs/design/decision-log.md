@@ -281,6 +281,13 @@ Round 21 additions (M1/M2 dependency and code answers, 2 November 2026):
 | D153 | CEL time functions | `timestamp()` (RFC 3339) and `duration()` (Go-style `1h30m`) are our own functions registered like `sum()`, not the `cel` crate's `chrono` feature, whose dependencies fail `cargo deny`. Until they land (by M4) both are V2305 "not supported yet" | LLD open question |
 | D154 | Unreadable file code | New code V1012 "File cannot be read": unreadable, not UTF-8, a link outside the project root, or a name that is not a valid path, each with its own `help:`. V1001 stays for YAML/JSON syntax | V1001 for unreadable files |
 
+Round 22 additions (M1 linker answers, 3 November 2026):
+
+| # | Decision | Choice | Supersedes |
+| --- | --- | --- | --- |
+| D155 | Compile cache encoding | The compiled file units in `.vibranium/cache/compile.bin` are encoded with `postcard` (serde, binary), not JSON, to meet the warm budget (JSON decoding took ~120 ms of 160 ms for 1,000 files). The layout version is bumped; any other version reads as an empty cache | Cache layout 4 (JSON units) |
+| D156 | Poll defaults | `poll` has no defaults: `every` and `timeout` are both required next to `until`; a missing one is V1005 | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

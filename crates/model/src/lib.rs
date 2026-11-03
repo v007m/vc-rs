@@ -21,6 +21,7 @@ mod exchange;
 mod expect;
 mod files;
 mod ids;
+mod json_text;
 mod outcome;
 mod plan;
 mod program;

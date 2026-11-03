@@ -47,6 +47,7 @@ pub struct Reference {
     /// The path after the root: `.body.items[0].id`.
     pub path: Path,
     /// Literal arguments of a generator call, `${fake.lorem.words(5)}`; empty otherwise.
+    #[serde(serialize_with = "crate::json_text::out", deserialize_with = "crate::json_text::read")]
     pub args: Vec<Value>,
     /// The pipes applied left to right: `| int | default('x')`.
     pub pipes: Vec<PipeCall>,
@@ -137,6 +138,7 @@ pub struct PipeCall {
     /// The registered name: `take`.
     pub name: String,
     /// The literal arguments.
+    #[serde(serialize_with = "crate::json_text::out", deserialize_with = "crate::json_text::read")]
     pub args: Vec<Value>,
     /// The name alone, for did-you-mean fixes.
     pub name_span: SourceSpan,
@@ -174,7 +176,7 @@ pub enum TemplateValue {
     /// `true` or `false`.
     Bool(bool),
     /// A number.
-    Number(Number),
+    Number(#[serde(serialize_with = "crate::json_text::out", deserialize_with = "crate::json_text::read")] Number),
     /// A string, possibly with references.
     String(Template),
     /// A list.

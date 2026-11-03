@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3202_test_cache/project
+---
+warning[V3202]: `cache` on an action that runs for every test
+ --> services/users/crud.test.yaml:4:5
+  |
+4 |     cache: {for: 1h}
+  |     ^^^^^ cached per test
+  = help: `cache` reuses one result across runs; put the action in `beforeAll` or `beforeRun`

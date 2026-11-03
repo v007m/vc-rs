@@ -1,0 +1,13 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3102_default_profiles/project
+---
+error[V3102]: profile `ci` is a second default profile
+ --> vibranium.config.yaml:8:14
+  |
+5 |     default: true
+  |              ---- `dev` is the default
+...
+8 |     default: true
+  |              ^^^^ also `default: true`
+  = help: mark one profile `default: true`; pick another for a run with `--profile`
