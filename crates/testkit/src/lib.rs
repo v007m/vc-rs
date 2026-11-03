@@ -14,13 +14,21 @@
 //! ```
 
 mod cache_suite;
+mod fake_transport;
+mod faulty_transport;
 mod generator;
 mod memory_cache;
 mod memory_sources;
+mod recording_transport;
 mod source_suite;
+mod transport_suite;
 
 pub use cache_suite::{MakeCompileCache, compile_cache_store_suite};
+pub use fake_transport::{FakeTransport, Respond, status};
+pub use faulty_transport::{Fault, FaultyTransport};
 pub use generator::{GeneratedFile, GeneratedProject, generate_project};
 pub use memory_cache::MemoryCompileCache;
 pub use memory_sources::MemorySources;
+pub use recording_transport::{Recorded, RecordingTransport, Recordings};
 pub use source_suite::{MakeSources, source_provider_suite};
+pub use transport_suite::transport_suite;
