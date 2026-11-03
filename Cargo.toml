@@ -42,16 +42,25 @@ vc-testkit = { path = "crates/testkit" }
 vc-adapter-system = { path = "crates/adapters/system" }
 vc-adapter-http = { path = "crates/adapters/http" }
 vc-adapter-reporters = { path = "crates/adapters/reporters" }
+vc-mock-server = { path = "bench/mock" }
 anyhow = "1.0.104"
 assert_cmd = "2.2.2"
+async-trait = "0.1.92"
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "matched-path", "query", "tokio"] }
 blake3 = "1.8.7"
+brotli-decompressor = "6.2.0"
+bytes = "1.12.1"
 cargo_metadata = "0.23.1"
 cel = { version = "0.15.0", default-features = false, features = ["regex"] }
 clap = { version = "4.6.7", features = ["derive"] }
 criterion = { version = "0.8.2", default-features = false }
+flate2 = "1.1.10"
 globset = "0.4.21"
 gungraun = "0.20.0"
+http = "1.5.0"
+http-body-util = "0.1.5"
+hyper = { version = "1.12.0", features = ["client", "http1", "http2"] }
+hyper-util = { version = "0.1.21", features = ["client-legacy", "client-proxy", "http1", "http2", "tokio"] }
 ignore = "0.4.34"
 indexmap = "2.14.2"
 insta = { version = "1.49.0", default-features = false }
@@ -60,6 +69,8 @@ proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 proptest = "1.12.0"
 regex = "1.13.1"
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-native-certs = "0.8.5"
 saphyr-parser = "0.3.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
@@ -68,8 +79,12 @@ syn = { version = "3.0.9", features = ["full", "visit"] }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["macros", "net", "rt", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
+tower = { version = "0.5.3", default-features = false, features = ["util"] }
+tower-service = "0.3.3"
 tower-http = { version = "0.6.11", features = ["compression-br", "compression-gzip"] }
 winnow = "1.0.4"
+zstd = { version = "0.14.3", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

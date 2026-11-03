@@ -12,6 +12,7 @@
 //! ```
 
 mod error;
+mod exchange;
 mod files;
 mod ids;
 mod program;
@@ -22,6 +23,7 @@ mod template;
 mod units;
 
 pub use error::ModelError;
+pub use exchange::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
 pub use files::SourceFiles;
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
 pub use program::Program;

@@ -16,7 +16,10 @@ multiple-versions = "deny"
 wildcards = "deny"
 allow-wildcard-paths = true
 # Duplicate versions that cannot be avoided yet; each entry needs a reason.
-skip = []
+skip = [
+  { crate = "getrandom@0.2", reason = "ring 0.17 (rustls crypto provider); aws-lc-rs carries an OpenSSL licence term" },
+  { crate = "windows-sys@0.52", reason = "ring 0.17 (rustls crypto provider); aws-lc-rs carries an OpenSSL licence term" },
+]
 deny = [
   { name = "openssl-sys", reason = "rustls only" },
   { name = "v8", reason = "hooks run in QuickJS" },
