@@ -66,11 +66,10 @@ fn defs(source: &Source<'_>, vars: Option<&Node>) -> HashMap<String, Type> {
     entries.iter().map(|entry| (entry.key.clone(), source.piece(&entry.value).and_then(piece_type))).collect()
 }
 
-/// What a compiled value holds, when that is known without running.
-pub fn piece_type(piece: &Piece) -> Type {
+/// What a var's value holds, when that is known without running; a var is always a value.
+const fn piece_type(piece: &Piece) -> Type {
     match piece {
         Piece::Value(value) => value_type(value),
-        Piece::Template(template) => template.single_ref().is_none().then_some(ValueType::Text),
         _ => None,
     }
 }

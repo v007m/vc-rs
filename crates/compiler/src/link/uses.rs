@@ -132,8 +132,9 @@ fn did_you_mean(
     let diagnostic = diagnostic.help(format!("did you mean `{one}`?"));
     let at = reference.root_span.end;
     let exact = source.text.get(at.offset..=at.offset) == Some(".");
-    let Some(span) = source.word_at(at, at.offset + 1, name).filter(|_| exact) else { return diagnostic };
-    diagnostic.fix(Fix::certain(format!("Replace with {one}"), vec![TextEdit::replace(span, one)]))
+    let Some(range) = source.word_at(at.offset + 1, name).filter(|_| exact) else { return diagnostic };
+    let edit = TextEdit { file: source.file, range, new_text: one.to_owned() };
+    diagnostic.fix(Fix::certain(format!("Replace with {one}"), vec![edit]))
 }
 
 /// Every reference in a piece, in order.

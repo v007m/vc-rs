@@ -13,6 +13,9 @@ mod saves;
 mod shared;
 mod uses;
 
+#[cfg(test)]
+mod tests;
+
 use std::collections::HashSet;
 use std::sync::Arc;
 
