@@ -112,7 +112,8 @@ Third-party crates:
 | Diagnostics rendering | hand-written (`TextRenderer`, `JsonRenderer` in `vc-diagnostics`); `miette` dropped at M1 | Rustc-style text and the stable `vc check --json` shape. `miette` was dropped because a report holds one source text, so a secondary label in another file (the earlier duplicate, the profile in the config) needs a separate related report; fixes and the JSON shape (spans by path, a summary) would be ours either way; and it adds a colour and text-wrapping dependency tree under `multiple-versions = deny`. The renderer is about 400 lines |
 | Diffs | `similar` 3 | Line diffs for `--fix`, sync previews and the editor |
 | Interning, maps | `indexmap` 2, `smol_str` 0.3; interning is hand-written (`StringTable` in `vc-model`) | Cheap IDs, ordered maps, small strings; `lasso` 0.7 was dropped because it pins `hashbrown` 0.14 next to indexmap's 0.17, which `multiple-versions = deny` rejects |
-| Graphs | `petgraph` 0.8 | Cycle detection and topological order in the planner |
+| Graphs | `petgraph` 0.8 | Not a dependency yet: the linker's cycle check (V2205) covers the action graph, and the planner keeps project and file order. Added when an ordering needs a graph |
+| Selection | `globset` 0.4, `strsim` 0.11 | Glob selectors and did-you-mean suggestions in the planner |
 | Hashing | `blake3` 1 | File-hash cache, memo keys, body deduplication |
 | File walking and watching | `ignore` 0.4, `globset` 0.4, `notify` 9 | `.gitignore`-aware discovery; `paths.include` and `paths.exclude` globs (`SourceFilter`); `vc watch` |
 | SQLite | `rusqlite` 0.40 (bundled) | history.db and cache.db; no system dependency |
@@ -597,26 +598,45 @@ Everything that changes a definition file (`vc new`, `vc rename`, `--fix`, `vc s
 The planner decides what a run will do before anything is sent: which test instances, in which files, needing which lifecycle actions. `vc plan` prints this; `vc run` prints its first line. It is a pure function, so it is tested with property tests rather than against servers.
 
 ```rust
-// Pure: `$file` examples and datasets arrive preloaded in `options` (D132); `Plan` lives in vc-model (D103).
-pub fn plan(program: &Program, selection: &Selection, options: &RunOptions) -> Result<Plan, Vec<Diagnostic>>;
+// vc-planner. Pure: `$file`/template example row counts arrive preloaded in `options` (D132).
+pub fn plan(program: &Program, selection: &Selection, options: &PlanOptions) -> Result<Plan, PlanError>;
 
 pub struct Selection {
-    pub ids: Vec<IdPattern>,           // test ID, file ID, glob, test:row (D140)
-    pub paths: Vec<Utf8PathBuf>,
-    pub tags: TagExpr,                 // smoke,checkout & !slow
-    pub grep: Option<String>,
-    pub changed_since: Option<GitRef>, // resolved to file IDs by the engine through the `Vcs` trait before planning
-    pub failed_in: Option<RunId>,      // from history; arrives in M3 with the history store (D130)
+    pub ids: Vec<String>,                   // test ID, instance (`users.crud#getsUser:2`, D140), file ID, glob; a path is read as a path
+    pub paths: Vec<String>,                 // folders or test files, relative to the project root
+    pub tags: Vec<String>,                  // one expression per `-t`, all must hold: `smoke,checkout & !slow`
+    pub grep: Option<String>,               // substring of the full ID or name, ignoring case
+    pub changed: Option<BTreeSet<String>>,  // file IDs, resolved by the engine through the `Vcs` trait before planning
     pub include_skipped: bool,
 }
+// `failed_in` (rerun the failures of a run) arrives in M3 with the history store (D130).
 
-pub struct Plan {
-    pub profiles: Vec<ProfileId>,
-    pub run_actions: Vec<PlannedAction>,         // beforeRun actions, planned when any instance is selected (D122)
-    pub files: Vec<PlannedFile>,                 // in project order
-    pub skipped: Vec<SkippedTest>,               // reason, until; reported with the `Skipped` state, never run (D126)
-    pub instance_count: usize,
+pub struct PlanOptions {
+    pub repeat: Option<u32>,                     // `--repeat N`: replaces each test's own `repeat`
+    pub today: Option<String>,                   // YYYY-MM-DD for `skip.until`; None keeps every skip in force
+    pub example_rows: BTreeMap<TestId, u32>,     // row counts of `$file`/template examples, preloaded by the engine
 }
+
+pub enum PlanError {
+    Diagnostics(Vec<Diagnostic>),
+    UnknownSelector { selector: String, suggestions: Vec<String> },  // did-you-mean over test and file IDs (strsim)
+    NoSuchInstance { selector: String, count: u32 },
+    BadTagExpr { expr: String, reason: String },
+    BadGlob { pattern: String, reason: String },
+    RowsNotLoaded { test: String },               // the engine did not preload a test's example rows
+    NotSupportedYet { kind: &'static str, action: ActionId },  // `function:`/`command:` until M4
+}
+// `PlanError::help()` gives the `help:` line. An empty result is `Ok` with no instances; the engine maps it to exit 2.
+
+// vc-model (D103). The active profile is the engine's choice, not part of the plan.
+pub struct Plan {
+    pub before_run: Vec<PlannedAction>,  // planned only when the run has an instance (D122)
+    pub files: Vec<PlannedFile>,         // in project order, only files with an instance
+    pub after_run: Vec<ActionId>,
+    pub skipped: Vec<SkippedTest>,       // test and reason; reported with the `Skipped` state, never run (D126)
+}
+
+pub struct PlannedAction { pub action: ActionId, pub needs: Needs }  // a shared action, and the earlier ones it reads
 
 pub struct PlannedFile {
     pub id: FileId,
@@ -626,22 +646,24 @@ pub struct PlannedFile {
 }
 
 pub struct Instance {
+    pub id: InstanceId,              // numbered in plan order
     pub test: TestId,
-    pub example_row: Option<u32>,
-    pub repeat_index: u32,
-    pub needs: BitSet,                           // shared actions this instance reads: decides which are blocked by a failure
+    pub example_row: Option<u32>,    // 0-based
+    pub repeat_index: u32,           // 0-based
+    pub needs: Needs,                // shared actions this instance reads: decides which are blocked by a failure
 }
 ```
 
 How it works:
 
-1. **Select.** Apply the selectors to the test table: positional selectors are joined with "or", flags filter with "and". Skipped tests and files go to `skipped` unless `include_skipped`; an expired skip is ignored, so the test runs, and the lint already warned.
-2. **Expand instances.** For each selected test, create one instance per example row × repeat (dataset rows are counted at plan time; `$file` examples and dataset contents are preloaded by the engine and passed in, so the planner does no I/O (D132)).
-3. **Plan lifecycle and find what each instance needs.** `beforeRun` is planned when the run has a selected instance, and a file's `beforeAll` when that file has one; both run eagerly and finish before any instance starts (D122). The planner still walks each instance's templates (including those of the calls it makes and of `test:` actions it reuses) and records which shared actions it reads; this needs analysis decides which instances are blocked when a shared action fails. Laziness remains only in the token cache and in cache-store hits.
-4. **Order.** Files keep project order; instances keep file order. `petgraph` checks the action graph is acyclic (already guaranteed by the linker, re-asserted here). Concurrency is decided at run time by the scheduler, not by the plan.
-5. **Explain.** `Plan` renders to the plan line (`12 tests in 3 files · lifecycle: beforeRun admin (cached, 3h left) · beforeAll catalog · beforeEach ×9`), to a tree for `vc plan`, and to DOT for `vc plan --dot`.
+1. **Select.** Each positional selector is read by the first entry of a registry of selector kinds that claims it: a path (has `/` or ends in `.yaml`), a glob (has `*?[{`, matched against full test IDs and file IDs), an instance (`<testId>:<n>`), a test ID (has `#`), and otherwise a file ID. Each kind, tag term, `--grep` and `--changed` is a Specification; positional selectors are joined with "or", flags filter with "and". Tag expressions bind `!` tightest, then `&`, then `,`, so `smoke,checkout & !slow` is `smoke` or (`checkout` and not `slow`); a test's tags include its file's. `--changed` holds when the test's file changed or an api file it calls did. A selector that matches no test and names no test file is `UnknownSelector` with up to three suggestions. Tests with `standalone: false` are never planned on their own. Skipped tests and files go to `skipped` unless `include_skipped`; a file's skip wins over the test's; a skip whose `until` is before `today` is ignored, so the test runs, and the lint already warned.
+2. **Expand instances.** For each selected test, create one instance per example row × repeat, rows outermost; `--repeat` replaces the test's `repeat`. Inline rows are counted from the program; `$file` and template rows come counted in `PlanOptions` (D132). `:n` picks the nth instance in that order, from 1; a selector without `:n` for the same test picks all of them.
+3. **Plan lifecycle and find what each instance needs.** `beforeRun` is planned when the run has an instance, and a file's `beforeAll` when that file has one; both run eagerly and finish before any instance starts (D122). A Visitor (`Walker` + `Visit`) walks each instance's scope (config and profile vars, default headers, file vars, `beforeEach`/`afterEach`) and its test, following the calls it makes (api, api file, auth and cleanup) and the tests it reuses with `test:`. Every `${var.<id>.…}` whose `<id>` names a shared action in scope is a need; a file's `beforeAll` names shadow `beforeRun` names. Laziness remains only in the token cache and in cache-store hits.
+4. **Order.** Files keep project order; instances keep file order. The linker already guarantees the action graph is acyclic (V2205). Concurrency is decided at run time by the scheduler, not by the plan.
+5. **Refuse what cannot run yet.** A registry of unsupported kinds (`function:` and `command:` until M4) is checked over every planned action, in run order; the first one found is `NotSupportedYet`.
+6. **Explain.** `plan_line` gives the line `vc run` prints first (`6 tests in 2 files · lifecycle: beforeRun warm, cold · beforeAll prime, seed · beforeEach ×4 · 2 skipped`, where tests counts instances); `tree` the `vc plan` listing with each instance's needs; `json` the `vc plan --json` value; `dot` a DOT graph for `vc plan --dot` with one cluster per file and an edge per need; `explain` each planned test's requests with their checks and where each came from: api, test or step (D123).
 
-Property tests (`proptest` over generated programs): every instance's needs are planned; no lifecycle block is planned for a run or file without a selected instance; selection is idempotent; selecting by file equals selecting its test IDs.
+Tests: table tests per selector kind, expansion, skips and lifecycle over compiled YAML; insta snapshots of every render; property tests (`proptest` over generated projects): every instance's needs are planned; no lifecycle block is planned for a run or file without an instance; selecting the selected tests again selects them; selecting a file equals selecting its test IDs.
 
 ## Executor
 

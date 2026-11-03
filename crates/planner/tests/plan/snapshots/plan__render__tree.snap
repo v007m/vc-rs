@@ -1,0 +1,24 @@
+---
+source: crates/planner/tests/plan/render.rs
+expression: "tree(&program, &plan)"
+---
+beforeRun
+  warm
+  cold
+orders.checkout
+  beforeAll
+    prime
+  orders.checkout#paysOrder  needs: cold, prime
+  orders.checkout#voidsOrder
+users.crud
+  beforeAll
+    seed
+  users.crud#listsUsers [repeat 1]
+  users.crud#listsUsers [repeat 2]
+  users.crud#createsUser  needs: seed
+  users.crud#readsWarm  needs: warm
+afterRun
+  bye
+skipped
+  legacy.old#runsOld: retired
+  orders.checkout#refundsOrder: flaky

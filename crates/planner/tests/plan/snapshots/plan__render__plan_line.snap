@@ -1,0 +1,7 @@
+---
+source: crates/planner/tests/plan/render.rs
+expression: "lines.join(\"\\n\")"
+---
+6 tests in 2 files · lifecycle: beforeRun warm, cold · beforeAll prime, seed · beforeEach ×4 · 2 skipped
+1 test in 1 file · lifecycle: beforeRun warm, cold · beforeAll prime
+0 tests in 0 files · 1 skipped

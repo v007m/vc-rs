@@ -1,0 +1,27 @@
+---
+source: crates/planner/tests/plan/render.rs
+expression: "dot(&program, &plan)"
+---
+digraph plan {
+  rankdir=LR;
+  a0 [label="warm"];
+  a1 [label="cold"];
+  subgraph cluster_0 {
+    label="orders.checkout";
+    a4 [label="prime"];
+    i0 [label="orders.checkout#paysOrder"];
+    i1 [label="orders.checkout#voidsOrder"];
+  }
+  i0 -> a1;
+  i0 -> a4;
+  subgraph cluster_1 {
+    label="users.crud";
+    a8 [label="seed"];
+    i2 [label="users.crud#listsUsers [repeat 1]"];
+    i3 [label="users.crud#listsUsers [repeat 2]"];
+    i4 [label="users.crud#createsUser"];
+    i5 [label="users.crud#readsWarm"];
+  }
+  i4 -> a8;
+  i5 -> a0;
+}

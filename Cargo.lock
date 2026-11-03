@@ -2449,6 +2449,19 @@ dependencies = [
 [[package]]
 name = "vc-planner"
 version = "0.1.0"
+dependencies = [
+ "globset",
+ "indexmap",
+ "insta",
+ "proptest",
+ "serde",
+ "serde_json",
+ "strsim",
+ "thiserror",
+ "vc-compiler",
+ "vc-diagnostics",
+ "vc-model",
+]
 
 [[package]]
 name = "vc-template"

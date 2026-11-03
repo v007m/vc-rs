@@ -1,0 +1,102 @@
+---
+source: crates/planner/tests/plan/render.rs
+expression: "serde_json::to_string_pretty(&json(&program, &plan)).unwrap()"
+---
+{
+  "afterRun": [
+    {
+      "action": 2,
+      "label": "bye"
+    }
+  ],
+  "beforeRun": [
+    {
+      "action": 0,
+      "label": "warm"
+    },
+    {
+      "action": 1,
+      "label": "cold"
+    }
+  ],
+  "files": [
+    {
+      "afterAll": [],
+      "beforeAll": [
+        {
+          "action": 4,
+          "label": "prime"
+        }
+      ],
+      "id": "orders.checkout",
+      "instances": [
+        {
+          "id": 0,
+          "needs": [
+            1,
+            4
+          ],
+          "repeatIndex": 0,
+          "test": "orders.checkout#paysOrder"
+        },
+        {
+          "id": 1,
+          "needs": [],
+          "repeatIndex": 0,
+          "test": "orders.checkout#voidsOrder"
+        }
+      ]
+    },
+    {
+      "afterAll": [],
+      "beforeAll": [
+        {
+          "action": 8,
+          "label": "seed"
+        }
+      ],
+      "id": "users.crud",
+      "instances": [
+        {
+          "id": 2,
+          "needs": [],
+          "repeatIndex": 0,
+          "test": "users.crud#listsUsers"
+        },
+        {
+          "id": 3,
+          "needs": [],
+          "repeatIndex": 1,
+          "test": "users.crud#listsUsers"
+        },
+        {
+          "id": 4,
+          "needs": [
+            8
+          ],
+          "repeatIndex": 0,
+          "test": "users.crud#createsUser"
+        },
+        {
+          "id": 5,
+          "needs": [
+            0
+          ],
+          "repeatIndex": 0,
+          "test": "users.crud#readsWarm"
+        }
+      ]
+    }
+  ],
+  "instanceCount": 6,
+  "skipped": [
+    {
+      "reason": "retired",
+      "test": "legacy.old#runsOld"
+    },
+    {
+      "reason": "flaky",
+      "test": "orders.checkout#refundsOrder"
+    }
+  ]
+}
