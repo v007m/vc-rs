@@ -130,7 +130,8 @@ impl<'a> Globals<'a> {
             return None;
         }
         let message = format!("unknown {kind} `{name}`");
-        let diagnostic = Diagnostic::new(Code::V2002, node.span, message).label(format!("the config has no such {kind}"));
+        let diagnostic =
+            Diagnostic::new(Code::V2002, node.span, message).label(format!("the config has no such {kind}"));
         let mut names: Vec<&str> = known.iter().copied().collect();
         names.sort_unstable();
         if names.is_empty() {

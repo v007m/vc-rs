@@ -123,7 +123,11 @@ impl<'p, 'a> Checker<'p, 'a> {
 }
 
 /// Offers the one close name that is set, as a certain fix when the name's span is exact.
-fn did_you_mean(diagnostic: Diagnostic, (source, reference, name): (&Source<'_>, &Reference, &str), known: &[&str]) -> Diagnostic {
+fn did_you_mean(
+    diagnostic: Diagnostic,
+    (source, reference, name): (&Source<'_>, &Reference, &str),
+    known: &[&str],
+) -> Diagnostic {
     let [one] = suggest::close(name, known.iter().copied())[..] else { return diagnostic };
     let diagnostic = diagnostic.help(format!("did you mean `{one}`?"));
     let at = reference.root_span.end;

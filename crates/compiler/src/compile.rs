@@ -45,8 +45,9 @@ pub fn compile(input: CompileInput) -> Compiled {
     for unit in entries.iter().filter_map(|entry| entry.unit.as_deref()) {
         diagnostics.extend(unit.diagnostics.iter().cloned());
     }
-    diagnostics.extend(link::link(&entries, &files, &strings));
-    let program = (!diagnostics.has_errors()).then(|| Arc::new(Program::new(strings.clone(), files.clone())));
+    let linked = link::link(&entries, &files, &strings);
+    diagnostics.extend(linked.diagnostics);
+    let program = linked.program;
     Compiled { program, diagnostics, files, cache: CompileCache::of(entries, strings) }
 }
 

@@ -82,6 +82,7 @@ impl<'g> Walk<'g, '_> {
         chain.push(&edge.to);
         let message = format!("`test:` reuse forms a cycle: {}", chain.join(" → "));
         let diagnostic = Diagnostic::new(Code::V2205, edge.node.span, message).label("this reuse closes the cycle");
-        diagnostic.help("a test cannot reuse itself, directly or through other tests; move the shared steps into one test")
+        diagnostic
+            .help("a test cannot reuse itself, directly or through other tests; move the shared steps into one test")
     }
 }

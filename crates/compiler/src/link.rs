@@ -2,6 +2,7 @@
 //! files, follows each spot's vars per profile, and finds `test:` cycles; the build stage then
 //! turns the units into the program.
 
+mod build;
 mod cycles;
 mod flow;
 mod ids;
@@ -13,18 +14,28 @@ mod shared;
 mod uses;
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use vc_diagnostics::Diagnostics;
-use vc_model::{FileKind, SourceFiles, StringTable};
+use vc_model::{FileKind, Program, SourceFiles, StringTable};
 
 use crate::cache::CacheEntry;
 use project::{Project, Source, file_id};
 
-/// Links the units in `entries`, whose spans point into `files`; gives what it found.
+/// What linking found, and the program when nothing is an error.
+pub struct Linked {
+    /// The link stage's diagnostics.
+    pub diagnostics: Diagnostics,
+    /// The program, built only when no file and no link check has an error.
+    pub program: Option<Arc<Program>>,
+}
+
+/// Links the units in `entries`, whose spans point into `files`.
 ///
-/// The ID, reference and profile checks always run. The checks that follow vars and reuse run
-/// only when no file has an error of its own, since a broken file's items may be missing.
-pub fn link(entries: &[CacheEntry], files: &SourceFiles, strings: &StringTable) -> Diagnostics {
+/// The ID, reference and profile checks always run. The checks that follow vars and reuse run,
+/// and the program is built, only when no file has an error of its own, since a broken file's
+/// items may be missing.
+pub fn link(entries: &[CacheEntry], files: &SourceFiles, strings: &StringTable) -> Linked {
     let (sources, unreadable) = sources(entries, files);
     let clean = entries.iter().filter_map(|entry| entry.unit.as_deref()).all(|unit| !unit.diagnostics.has_errors());
     let project = Project::new(sources, strings, unreadable);
@@ -32,12 +43,14 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, strings: &StringTable) 
     ids::check(&project, &mut diagnostics);
     refs::check(&project, &mut diagnostics);
     diagnostics.extend(shared::profiles(&project));
-    if clean {
-        diagnostics.extend(flow::check(&project));
-        cycles::check(&project, &mut diagnostics);
-        shared::check(&project, &mut diagnostics);
+    if !clean {
+        return Linked { diagnostics, program: None };
     }
-    diagnostics
+    diagnostics.extend(flow::check(&project));
+    cycles::check(&project, &mut diagnostics);
+    shared::check(&project, &mut diagnostics);
+    let program = if diagnostics.has_errors() { None } else { build::program(&project, files.clone()) };
+    Linked { diagnostics, program }
 }
 
 /// The files with a tree, and the IDs of those the per-file stages could not read cleanly.
