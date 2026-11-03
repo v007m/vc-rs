@@ -180,8 +180,8 @@ pub enum TemplateValue {
     List(Vec<Self>),
     /// A map, in written order.
     Map(IndexMap<String, Self>),
-    /// A `$cel` computed value.
-    Cel(CelSource),
+    /// A `$cel` computed value, checked at compile time.
+    Cel(CelProgram),
     /// `$extend` a base value with `changes`, then delete the `$remove` paths.
     Extend {
         /// The value extended.

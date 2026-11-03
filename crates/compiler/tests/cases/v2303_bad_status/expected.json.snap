@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2303_bad_status/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2303",
+      "severity": "error",
+      "message": "invalid status `99x`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 6,
+          "column": 15,
+          "endLine": 6,
+          "endColumn": 18
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write a code from 100 to 599 or a class from 1xx to 5xx"
+      ],
+      "fixes": []
+    }
+  ]
+}

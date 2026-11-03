@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1009_complex_key/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1009",
+      "severity": "error",
+      "message": "a map key must be plain text, not a list or a map",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 1,
+          "column": 3,
+          "endLine": 1,
+          "endColumn": 9
+        },
+        "text": "not text"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "use a text key such as `name:`"
+      ],
+      "fixes": []
+    }
+  ]
+}

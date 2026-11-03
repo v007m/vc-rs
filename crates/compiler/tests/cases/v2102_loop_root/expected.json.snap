@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2102_loop_root/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2102",
+      "severity": "error",
+      "message": "`item` is not available here",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 5,
+          "column": 21,
+          "endLine": 5,
+          "endColumn": 31
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`item` is available only inside forEach"
+      ],
+      "fixes": []
+    }
+  ]
+}

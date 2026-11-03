@@ -1,0 +1,6 @@
+tests:
+  - id: getsUser
+    name: Gets a user
+  - id: listsUsers
+    call: users#listUsers
+    steps: []

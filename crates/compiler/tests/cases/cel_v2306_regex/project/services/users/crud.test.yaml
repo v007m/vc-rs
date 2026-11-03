@@ -1,0 +1,6 @@
+tests:
+  - id: getsUser
+    name: Gets a user
+    call: users#getUser
+    expect:
+      cel: {named: "response.body.name.matches('(')"}

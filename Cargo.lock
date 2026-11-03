@@ -2115,9 +2115,15 @@ dependencies = [
 name = "vc-compiler"
 version = "0.1.0"
 dependencies = [
+ "indexmap",
+ "insta",
+ "regex",
  "serde_json",
+ "strsim",
  "vc-diagnostics",
  "vc-model",
+ "vc-parser",
+ "vc-template",
 ]
 
 [[package]]

@@ -1,0 +1,23 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2306_matcher_arg/project
+---
+error[V2306]: `type` does not know `strng`
+ --> services/users/crud.test.yaml:8:22
+  |
+8 |           id: {type: strng}
+  |                      ^^^^^
+  = help: did you mean `string`?
+  = fix: Replace with string (certain)
+
+error[V2306]: `regex` has an invalid pattern: error: unclosed group
+ --> services/users/crud.test.yaml:9:25
+  |
+9 |           name: {regex: '('}
+  |                         ^^^
+
+error[V2306]: `between` needs exactly two values, low and high
+  --> services/users/crud.test.yaml:10:26
+   |
+10 |           age: {between: [1]}
+   |                          ^^^

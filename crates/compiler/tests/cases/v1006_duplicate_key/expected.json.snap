@@ -1,0 +1,45 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1006_duplicate_key/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1006",
+      "severity": "error",
+      "message": "duplicate key `name`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 2,
+          "column": 1,
+          "endLine": 2,
+          "endColumn": 5
+        },
+        "text": "defined again here"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "services/users/users.api.yaml",
+            "line": 1,
+            "column": 1,
+            "endLine": 1,
+            "endColumn": 5
+          },
+          "text": "first defined here"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "a key may appear once per map; remove one of them or merge their values"
+      ],
+      "fixes": []
+    }
+  ]
+}

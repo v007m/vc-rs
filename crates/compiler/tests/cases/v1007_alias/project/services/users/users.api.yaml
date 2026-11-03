@@ -1,0 +1,6 @@
+headers: &common
+  accept: application/json
+apis:
+  - id: getUser
+    path: /users
+    headers: *common

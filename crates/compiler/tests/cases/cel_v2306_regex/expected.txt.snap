@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/cel_v2306_regex/project
+---
+error[V2306]: invalid regex in `matches()`: error: unclosed group
+ --> services/users/crud.test.yaml:6:48
+  |
+6 |       cel: {named: "response.body.name.matches('(')"}
+  |                                                ^^^
+  = help: fix the pattern; `matches()` uses the same regex syntax as the `regex` matcher

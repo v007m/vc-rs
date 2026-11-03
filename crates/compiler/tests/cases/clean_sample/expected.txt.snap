@@ -1,0 +1,5 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/clean_sample/project
+---
+

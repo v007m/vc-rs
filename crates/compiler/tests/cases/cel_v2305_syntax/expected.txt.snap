@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/cel_v2305_syntax/project
+---
+error[V2305]: invalid CEL: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+ --> services/users/crud.test.yaml:6:36
+  |
+6 |       cel: {ok: 'response.status =='}
+  |                                    ^
+  = help: for example `response.body.items.size() > 0`

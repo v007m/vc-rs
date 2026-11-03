@@ -1,0 +1,49 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2308_unknown_pipe/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2308",
+      "severity": "error",
+      "message": "unknown pipe `trimm`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 1,
+          "column": 26,
+          "endLine": 1,
+          "endColumn": 31
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `trim`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with trim",
+          "certain": false,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 25,
+                "end": 30
+              },
+              "newText": "trim"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
