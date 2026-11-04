@@ -15,6 +15,7 @@ use crate::{ActionReport, Saved, SharedSlots};
 /// The instance's task owns its frame and absorbs each action's report into it; actions get a
 /// copy.
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub struct Frame {
     /// `beforeRun` results.
     pub run: Arc<SharedSlots>,

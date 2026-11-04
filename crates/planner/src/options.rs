@@ -9,6 +9,7 @@ use vc_model::TestId;
 /// Positional selectors (`ids` and `paths`) are joined with "or"; the flags (`tags`, `grep`,
 /// `changed`) then filter with "and". An empty selection selects every test.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
 pub struct Selection {
     /// Test IDs (`users.crud#getsUser`), instances (`users.crud#getsUser:2`), file IDs
     /// (`users.crud`) and globs over IDs (`users.*`). A path given here is treated as a path.
@@ -27,6 +28,7 @@ pub struct Selection {
 
 /// Run settings that change the plan.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
 pub struct PlanOptions {
     /// `--repeat N`: runs every selected test `N` times instead of its own `repeat`.
     pub repeat: Option<u32>,

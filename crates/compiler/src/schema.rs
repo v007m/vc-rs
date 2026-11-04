@@ -9,6 +9,7 @@ use crate::shapes::{self, Key, Shape, Ty};
 
 /// The JSON Schema of one kind of definition file, for editors (`vc schema export`).
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct FileSchema {
     /// The kind of file the schema describes.
     pub kind: FileKind,

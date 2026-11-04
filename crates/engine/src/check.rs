@@ -9,6 +9,10 @@ use crate::{Engine, EngineError};
 
 /// What `vc check` asks for.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct CheckRequest {
     /// Report only on files at or under these paths (relative to the project root, `/`
     /// separators); every file when empty. The whole project is compiled either way, so
@@ -18,6 +22,7 @@ pub struct CheckRequest {
 
 /// What a check found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct CheckReport {
     /// The diagnostics on the selected files, in display order.
     pub diagnostics: Diagnostics,

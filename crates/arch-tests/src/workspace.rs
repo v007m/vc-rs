@@ -5,6 +5,7 @@ use crate::{ArchError, SourceFile, loader};
 
 /// How a package uses a dependency.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(clippy::exhaustive_enums, reason = "internal gate crate; no external users")]
 pub enum DepKind {
     /// `[dependencies]`.
     Normal,
@@ -26,6 +27,7 @@ impl fmt::Display for DepKind {
 
 /// One dependency of a workspace package, internal or external.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "internal gate crate; no external users")]
 pub struct Dependency {
     /// Package name, such as `vc-model` or `serde`.
     pub name: String,
@@ -45,6 +47,7 @@ impl Dependency {
 
 /// A workspace member.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "internal gate crate; no external users")]
 pub struct Package {
     /// Package name, such as `vc-compiler`.
     pub name: String,

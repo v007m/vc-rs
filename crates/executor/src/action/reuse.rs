@@ -10,6 +10,7 @@ use crate::{ActionReport, Defined};
 /// at the first failure. The reused test's own `before`, `after` and test-level checks are not
 /// run.
 #[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
 pub struct TestExecutor;
 
 #[async_trait]

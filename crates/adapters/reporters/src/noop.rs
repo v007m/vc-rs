@@ -4,6 +4,7 @@ use vc_model::Event;
 
 /// A reporter that ignores everything, for runs nobody watches (the null object).
 #[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
 pub struct NoopReporter;
 
 #[async_trait]

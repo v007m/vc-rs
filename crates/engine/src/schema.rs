@@ -5,6 +5,7 @@ use crate::{Engine, EngineError};
 
 /// One kind's JSON Schema, ready to write to a file.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct SchemaFile {
     /// The kind of definition file the schema describes.
     pub kind: FileKind,

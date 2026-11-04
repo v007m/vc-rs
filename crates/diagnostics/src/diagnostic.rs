@@ -5,6 +5,7 @@ use crate::{Code, Fix, Severity};
 
 /// A place in a source file with a short text shown under it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[non_exhaustive]
 pub struct Label {
     /// The place.
     pub span: SourceSpan,
@@ -27,6 +28,10 @@ impl Label {
 /// The serde form is a base for reporters, not the `vc check --json` output: spans hold a
 /// `SourceFileId` index, which the JSON reporter replaces with the file path.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Diagnostic {
     /// The stable code: V2003.
     pub code: Code,

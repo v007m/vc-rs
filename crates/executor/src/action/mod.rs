@@ -20,6 +20,7 @@ pub use reuse::{TestExecutor, body_actions};
 
 /// The kind of an action, as the registry keys its executors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
 pub enum ActionKindTag {
     /// `call:` an api.
     Call,
@@ -78,6 +79,7 @@ pub trait ActionExecutor: Send + Sync {
 
 /// What an executor gets: the action, the frame it runs in, the program and the shared values.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct ActionRequest {
     /// The action to run.
     pub action: ActionId,
@@ -100,6 +102,7 @@ impl fmt::Debug for ActionRequest {
 
 /// What every action of a run shares: the immutable program, the executor registry and the
 /// run's values.
+#[non_exhaustive]
 pub struct ActionCx {
     /// The compiled program.
     pub program: Arc<Program>,

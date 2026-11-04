@@ -48,6 +48,7 @@ pub use transmit::Transmit;
 
 /// One request through the pipeline, with its per-attempt timeout and transport settings.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Call {
     /// The request as rendered from its template, before auth and hooks.
     pub request: RenderedRequest,
@@ -76,6 +77,7 @@ pub type Pipeline = Timing<Retry<Stage<Stage<HostLimit<Timeout<Transmit>>>>>>;
 
 /// What the pipeline is built from. [`PipelineParts::new`] fills in the null objects.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct PipelineParts {
     /// Sends each attempt.
     pub transport: Arc<dyn Transport>,

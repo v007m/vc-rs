@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 /// Failures while loading the workspace model.
 #[derive(Debug, thiserror::Error)]
+#[expect(clippy::exhaustive_enums, reason = "internal gate crate; no external users")]
 pub enum ArchError {
     /// `cargo metadata` failed or returned output that could not be read.
     #[error("cargo metadata failed: {0}")]

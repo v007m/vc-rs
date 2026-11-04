@@ -10,6 +10,7 @@ use crate::stats::Stats;
 use crate::store::Store;
 
 /// Entry point: starts a mock server on the current tokio runtime.
+#[non_exhaustive]
 pub struct MockServer;
 
 impl MockServer {

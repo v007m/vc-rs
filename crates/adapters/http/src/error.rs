@@ -5,6 +5,7 @@ use vc_interfaces::TransportError;
 /// The connect variants travel through hyper as its connector error and come back out as a
 /// [`TransportError`] with the same meaning.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum HttpAdapterError {
     /// An extra root certificate is not a valid DER certificate.
     #[error("extra root certificate {index} is invalid: {reason}")]

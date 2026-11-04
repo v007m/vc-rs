@@ -3,6 +3,10 @@ use vc_model::Date;
 
 /// A clock stopped on one day.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct FixedClock(pub Date);
 
 impl Clock for FixedClock {

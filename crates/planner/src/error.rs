@@ -8,6 +8,7 @@ use vc_model::ActionId;
 /// Selector problems carry the user's own text and no span: they come from the command line,
 /// not from a definition file. The CLI shows them as `error: …` with [`PlanError::help`].
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum PlanError {
     /// Problems found in the definitions themselves, with their codes and spans.
     #[error("the definitions have {} problem(s)", .0.len())]

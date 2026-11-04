@@ -9,6 +9,10 @@ use crate::SourceFileId;
 /// `line` and `column` are 1-based, the column counted in characters; `offset` is the 0-based
 /// byte offset. Positions order by line, then column.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Pos {
     /// The line, from 1.
     pub line: u32,
@@ -33,6 +37,10 @@ impl Pos {
 ///
 /// Spans order by file, then start, then end, which is the order diagnostics are shown in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct SourceSpan {
     /// The file, as an index into the program's file table.
     pub file: SourceFileId,

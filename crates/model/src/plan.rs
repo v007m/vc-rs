@@ -49,6 +49,10 @@ impl FromIterator<ActionId> for Needs {
 
 /// A shared lifecycle action in run order, with the earlier shared actions it needs.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct PlannedAction {
     /// The action.
     pub action: ActionId,
@@ -58,6 +62,10 @@ pub struct PlannedAction {
 
 /// One test instance to run.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Instance {
     /// Its position in the plan.
     pub id: InstanceId,
@@ -73,6 +81,10 @@ pub struct Instance {
 
 /// One test file to run: its `beforeAll`, instances and `afterAll`.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct PlannedFile {
     /// The test file.
     pub id: FileId,
@@ -86,6 +98,10 @@ pub struct PlannedFile {
 
 /// A selected test that will not run, with the reason shown in reports.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct SkippedTest {
     /// The test.
     pub test: TestId,
@@ -95,6 +111,10 @@ pub struct SkippedTest {
 
 /// What a run will do, made by the planner from the program and the selection (D103).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Plan {
     /// `beforeRun`, run in order before any file starts (D122).
     pub before_run: Vec<PlannedAction>,

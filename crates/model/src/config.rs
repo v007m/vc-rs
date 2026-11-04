@@ -4,6 +4,10 @@ use crate::{Duration, FileId, Matcher, ProfileId, StatusPattern, Sym, Template, 
 
 /// `vibranium.config.yaml`: settings that are not tables of their own.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Config {
     /// `syntaxVersion`.
     pub syntax_version: u32,
@@ -27,6 +31,10 @@ pub struct Config {
 
 /// `defaults`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Defaults {
     /// `timeout` per request.
     pub timeout: Option<Duration>,
@@ -40,6 +48,10 @@ pub struct Defaults {
 
 /// `http.retry`: retrying one request on a transport failure (D143); off by default.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct HttpRetry {
     /// Further attempts; 0 turns it off.
     pub attempts: u32,
@@ -59,6 +71,10 @@ pub struct HttpRetry {
 
 /// One entry of `profiles`.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Profile {
     /// `id`, lowercase.
     pub id: ProfileId,
@@ -72,6 +88,10 @@ pub struct Profile {
 
 /// One entry of `auth`.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct AuthDef {
     /// `id`.
     pub id: crate::AuthId,
@@ -87,6 +107,10 @@ pub struct AuthDef {
 
 /// One load file.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct LoadScenario {
     /// The file ID, from the path (D139).
     pub id: FileId,
@@ -108,6 +132,10 @@ pub struct LoadScenario {
 
 /// One entry of a load `mix`.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct MixEntry {
     /// `test`.
     pub test: TestId,
@@ -119,6 +147,10 @@ pub struct MixEntry {
 
 /// One entry of load `stages`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct LoadStage {
     /// `duration`.
     pub duration: Duration,
@@ -128,6 +160,10 @@ pub struct LoadStage {
 
 /// One entry of `datasets`.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Dataset {
     /// `id`.
     pub id: crate::DatasetId,
@@ -137,6 +173,10 @@ pub struct Dataset {
 
 /// One entry of `generators`: the generator kind and its settings.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct GeneratorDef {
     /// `id`.
     pub id: Sym,

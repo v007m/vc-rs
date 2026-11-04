@@ -23,6 +23,7 @@ use crate::{ActionCx, EventBus, ExecutorError, RedactingSink, RunInput, RunSumma
 
 /// How a run is carried out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
 pub struct RunOptions {
     /// The most test instances running at once, across files (`--concurrency`).
     pub concurrency: usize,

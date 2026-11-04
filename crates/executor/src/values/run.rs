@@ -20,6 +20,7 @@ pub type Defined = HashMap<String, TemplateValue>;
 /// What a run is given from outside the program: the active profiles, the random source
 /// (seeded by `--seed`), the environment snapshot and the fake-data generators.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct RunInputs {
     /// The active profiles, in order (later ones win); empty means the profiles marked
     /// `default: true`.

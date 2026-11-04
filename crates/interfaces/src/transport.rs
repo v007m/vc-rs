@@ -23,6 +23,10 @@ pub trait Transport: Send + Sync {
 
 /// Per-request settings a transport needs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct SendContext {
     /// The largest decoded body kept in memory; a larger one is [`TransportError::BodyTooLarge`].
     /// The cap applies after decoding, so a small compressed body cannot expand without bound.
@@ -42,6 +46,7 @@ impl Default for SendContext {
 
 /// Why no complete response arrived. Messages name hosts and reasons, never header values.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum TransportError {
     /// The request cannot be sent as given: no host, an unsupported scheme, a bad header.
     #[error("cannot send the request: {reason}")]

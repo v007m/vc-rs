@@ -34,6 +34,6 @@ const fn help(problem: &SourceError) -> Option<&'static str> {
             Some("rename the file: a name must be UTF-8 and hold no `:`, control or bidi characters")
         }
         SourceError::OutsideRoot { .. } => Some("copy the file into the project instead of linking to it"),
-        SourceError::InvalidGlob { .. } | SourceError::Root { .. } => None,
+        _ => None,
     }
 }

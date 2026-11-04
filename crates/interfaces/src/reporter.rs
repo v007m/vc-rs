@@ -30,7 +30,10 @@ pub trait Reporter: Send {
 
 /// How a run ended, handed to [`Reporter::finish`].
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "run result built and read across crates; every user is in this repo (D160)"
+)]
 pub struct RunSummary {
     /// How the run ended.
     pub status: RunStatus,
@@ -75,7 +78,10 @@ impl RunSummary {
 
 /// A file a reporter wrote.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "report result built and read across crates; every user is in this repo (D160)"
+)]
 pub struct Artifact {
     /// The reporter's registered name: `ctrf`, `junit`.
     pub reporter: String,

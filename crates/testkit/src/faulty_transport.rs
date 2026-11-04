@@ -8,6 +8,7 @@ use vc_model::{Exchange, RenderedRequest};
 
 /// What a [`FaultyTransport`] does to one request.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Fault {
     /// Passes the request on untouched.
     Pass,

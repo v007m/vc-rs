@@ -2,6 +2,10 @@ use crate::{ActionId, FileId, InstanceId, TestId};
 
 /// The frame an action runs in, which decides how long its saves and cleanups live.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum OwnerKey {
     /// `beforeRun` and `afterRun`.
     Run,
@@ -13,6 +17,10 @@ pub enum OwnerKey {
 
 /// Why an action, a test or a run did not pass.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Failure {
     /// The action that failed, when one did.
     pub action: Option<ActionId>,
@@ -44,6 +52,10 @@ impl Failure {
 
 /// How one action ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum ActionOutcome {
     /// Its request went through and its checks held.
     Passed,
@@ -64,6 +76,10 @@ impl ActionOutcome {
 
 /// How one test instance ended (D126).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum TestStatus {
     /// Every action passed.
     Passed,
@@ -79,6 +95,10 @@ pub enum TestStatus {
 
 /// How a whole run ended.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum RunStatus {
     /// No test failed or was blocked.
     Passed,
@@ -90,6 +110,10 @@ pub enum RunStatus {
 
 /// The result of one test instance, or of a skipped test.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct TestResult {
     /// The test.
     pub test: TestId,
@@ -108,6 +132,10 @@ pub struct TestResult {
 
 /// One cleanup that ran: a failed cleanup is reported (V5107) and changes no result.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct CleanupRecord {
     /// The cleanup action.
     pub action: ActionId,
@@ -119,6 +147,10 @@ pub struct CleanupRecord {
 
 /// Instance counts by status.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Totals {
     /// Passed.
     pub passed: usize,

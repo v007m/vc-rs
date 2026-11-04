@@ -7,6 +7,7 @@ use super::{ActionReport, FailedActions, PendingCleanup, SharedActions};
 
 /// Where a [`FileOrchestrator`] is; the index is the lifecycle action in flight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FilePhase {
     /// Waiting for `beforeRun` to finish.
     Waiting,
@@ -24,6 +25,7 @@ pub enum FilePhase {
 
 /// What the file shell feeds a [`FileOrchestrator`].
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FileInput {
     /// `beforeRun` finished; these run-level shared actions failed.
     Start(FailedActions),
@@ -43,6 +45,7 @@ pub enum FileInput {
 
 /// An instance to start, blocked when a shared action it needs failed.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Launch {
     /// The instance.
     pub instance: Instance,
@@ -52,6 +55,7 @@ pub struct Launch {
 
 /// What a [`FileOrchestrator`] asks its shell to do.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FileCommand {
     /// Run this lifecycle action and report [`FileInput::ActionDone`] or [`FileInput::ActionCut`].
     RunAction(ActionId),

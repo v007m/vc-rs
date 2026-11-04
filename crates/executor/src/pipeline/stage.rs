@@ -21,6 +21,7 @@ pub trait RequestStage: Send + Sync {
 
 /// The null stage: passes the request on as it is.
 #[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
 pub struct Unchanged;
 
 #[async_trait]

@@ -11,6 +11,7 @@ use crate::{CompileCache, link, stage};
 /// What one compile needs: the project's files, the cache the previous compile returned, and
 /// what the files cannot say themselves (today's date, the project's other files).
 #[derive(Clone, Debug, Default)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
 pub struct CompileInput {
     /// Every definition file, in any order; the compiler numbers them in path order.
     pub files: Vec<SourceFile>,
@@ -25,6 +26,7 @@ pub struct CompileInput {
 
 /// What one compile produced.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct Compiled {
     /// The frozen program; `Some` only when no diagnostic is an error.
     pub program: Option<Arc<Program>>,

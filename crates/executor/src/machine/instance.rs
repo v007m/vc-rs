@@ -10,6 +10,7 @@ pub const CANCELLED: &str = "cancelled";
 
 /// What one instance runs, flattened from its file and test.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct InstanceScript {
     /// The file's `beforeEach`, then the test's `before`: a failure blocks the instance.
     pub before: Vec<ActionId>,
@@ -23,6 +24,7 @@ pub struct InstanceScript {
 
 /// Where an [`InstanceWorkflow`] is; the index is the action in flight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum InstancePhase {
     /// Not started.
     Pending,
@@ -42,6 +44,7 @@ pub enum InstancePhase {
 
 /// What the instance shell feeds an [`InstanceWorkflow`].
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum InstanceInput {
     /// Shared lifecycle done and nothing it needs failed: start the first attempt.
     Start,
@@ -63,6 +66,7 @@ pub enum InstanceInput {
 
 /// What an [`InstanceWorkflow`] asks its shell to do.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum InstanceCommand {
     /// Run this action and report [`InstanceInput::ActionDone`] or [`InstanceInput::ActionCut`].
     RunAction(ActionId),
@@ -78,6 +82,7 @@ pub enum InstanceCommand {
 
 /// How an instance ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Verdict {
     /// The status (D126).
     pub status: TestStatus,

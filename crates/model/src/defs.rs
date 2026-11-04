@@ -4,6 +4,10 @@ use crate::{ActionId, AuthId, Duration, Expect, FileId, ProfileId, Template, Tem
 
 /// Vars set at one level; the executor stacks the levels at run time.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct VarDefs {
     /// `vars:` written at this level.
     pub values: IndexMap<VarName, TemplateValue>,
@@ -13,6 +17,7 @@ pub struct VarDefs {
 
 /// An HTTP method an api may use.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[expect(clippy::exhaustive_enums, reason = "closed set (D160)")]
 pub enum Method {
     /// `GET`, the default.
     #[default]
@@ -33,10 +38,18 @@ pub enum Method {
 
 /// A kebab-case tag, as written.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Tag(pub String);
 
 /// Why and until when a file or test is skipped.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Skip {
     /// The reason shown in reports.
     pub reason: String,
@@ -46,6 +59,10 @@ pub struct Skip {
 
 /// `retry` on a test: re-run the whole instance.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Retry {
     /// Further attempts after the first.
     pub attempts: u32,
@@ -55,6 +72,10 @@ pub struct Retry {
 
 /// `poll`: repeat the call until its `until` checks pass.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Poll {
     /// The checks that end the polling.
     pub until: Expect,
@@ -66,6 +87,10 @@ pub struct Poll {
 
 /// `repeat` or `forEach` on an action.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum Loop {
     /// Run the action this many times.
     Repeat {
@@ -85,6 +110,10 @@ pub enum Loop {
 
 /// `cache` on an action: reuse its saves across runs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct CacheSpec {
     /// How long a cached result stays valid.
     pub ttl: Duration,
@@ -94,6 +123,10 @@ pub struct CacheSpec {
 
 /// Which auth a call uses.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum AuthRef {
     /// Whatever the api file or config says.
     #[default]
@@ -111,6 +144,10 @@ pub enum AuthRef {
 
 /// A function in a hook file: `hooks/users.ts#makeUser`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct HookRef {
     /// The project-relative file.
     pub file: String,
@@ -120,6 +157,10 @@ pub struct HookRef {
 
 /// `save:` names and where each value comes from.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct SaveSpec {
     /// Var name to its template over the response.
     pub values: IndexMap<VarName, TemplateValue>,
@@ -127,6 +168,10 @@ pub struct SaveSpec {
 
 /// `beforeRequest` and `afterResponse` hooks.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct RequestHooks {
     /// Called with the request before it is sent.
     pub before_request: Vec<HookRef>,
@@ -136,6 +181,10 @@ pub struct RequestHooks {
 
 /// The rows a test runs once each.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum Examples {
     /// Rows written in the test.
     Rows(Vec<TemplateValue>),
@@ -147,6 +196,10 @@ pub enum Examples {
 
 /// The actions of a lifecycle block, in order.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Lifecycle {
     /// Once, before the first test of the file (or run).
     pub before_all: Vec<ActionId>,
@@ -160,6 +213,10 @@ pub struct Lifecycle {
 
 /// Who owns an action, which decides how long its saves live.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum Owner {
     /// `beforeRun` or `afterRun`.
     Run,

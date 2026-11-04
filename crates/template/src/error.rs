@@ -3,6 +3,7 @@ use vc_model::ModelError;
 
 /// What can go wrong in this crate.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum TemplateError {
     /// A template the user wrote does not parse; the diagnostic says where and why.
     #[error("{}", .0.message)]
@@ -21,6 +22,7 @@ pub enum TemplateError {
 /// Why a value could not be rendered at run time; the executor reports it as V5111.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error("{message}")]
+#[non_exhaustive]
 pub struct RenderError {
     /// What went wrong, with the path and the value found.
     pub message: String,

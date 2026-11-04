@@ -21,6 +21,7 @@ pub trait CompileCacheStore: Send + Sync {
 /// Why the compile cache could not be read or written. Neither stops a check: without a cache
 /// the compiler only does more work.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum CompileCacheError {
     /// Reading the blob failed.
     #[error("cannot read the compile cache at {location}: {reason}")]

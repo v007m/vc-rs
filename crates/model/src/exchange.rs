@@ -9,6 +9,10 @@ use http::{HeaderMap, Method, StatusCode, Uri};
 /// `Debug` prints header names and the body length, never header values or body bytes, because
 /// either can carry a secret before the redactor sees it.
 #[derive(Clone, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct RenderedRequest {
     /// The HTTP method.
     pub method: Method,
@@ -43,6 +47,10 @@ impl fmt::Debug for RenderedRequest {
 ///
 /// `Debug` hides header values and body bytes, like [`RenderedRequest`].
 #[derive(Clone, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct HttpResponse {
     /// The status code.
     pub status: StatusCode,
@@ -79,6 +87,10 @@ impl fmt::Debug for HeaderNames<'_> {
 /// `dns`, `connect` and `tls` are `None` when the phase did not happen: a reused connection, an
 /// IP-literal host (no DNS), or plain HTTP (no TLS).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Timing {
     /// Resolving the host name.
     pub dns: Option<std::time::Duration>,
@@ -96,6 +108,10 @@ pub struct Timing {
 
 /// The HTTP version an exchange used.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum Protocol {
     /// HTTP/1.1 (or 1.0).
     #[default]
@@ -106,6 +122,10 @@ pub enum Protocol {
 
 /// The connection an exchange went over.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct ConnectionInfo {
     /// `true` when a pooled connection was reused, so no DNS, connect or TLS time was spent.
     pub reused: bool,
@@ -117,6 +137,10 @@ pub struct ConnectionInfo {
 
 /// One request and its response, with timings: what a `Transport` returns.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Exchange {
     /// The request as sent, after hooks and auth.
     pub request: RenderedRequest,

@@ -101,6 +101,10 @@ impl ContentHash {
 /// (`$file`, `datasets`, `function:`), and that reference says what they are.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum FileKind {
     /// `vibranium.config.yaml`: project settings, vars, profiles, auth.
     Config,
@@ -153,6 +157,10 @@ fn path_matches(pattern: &str, path: &SourcePath) -> bool {
 
 /// One file as the engine read it: what the pure compiler is given instead of doing I/O (D132).
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct SourceFile {
     /// Where the file is, relative to the project root.
     pub path: SourcePath,

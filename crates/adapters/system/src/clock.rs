@@ -7,6 +7,10 @@ const SECONDS_PER_DAY: i64 = 86_400;
 
 /// The system clock: today's date in UTC.
 #[derive(Clone, Copy, Debug, Default)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "unit adapter built by the engine builder, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct SystemClock;
 
 impl Clock for SystemClock {

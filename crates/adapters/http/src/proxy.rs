@@ -3,6 +3,7 @@ use hyper_util::client::proxy::matcher::Matcher;
 /// Proxy settings: which proxy, if any, to use for `http` and `https` targets, and which hosts
 /// bypass it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
 pub struct ProxyConfig {
     /// The proxy URL for `http://` targets.
     pub http: Option<String>,

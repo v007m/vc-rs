@@ -18,6 +18,7 @@ const TESTS_PER_SERVICE: usize = suite::AREAS.len();
 
 /// One generated file: its project-relative path and its text.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct GeneratedFile {
     pub path: String,
     pub text: String,

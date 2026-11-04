@@ -11,6 +11,7 @@ mod tests;
 
 /// The area a diagnostic code belongs to; the first digit of the code (D88).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[expect(clippy::exhaustive_enums, reason = "closed set (D160)")]
 pub enum Category {
     /// V1xxx: the file cannot be read as the kind it claims to be.
     Syntax,

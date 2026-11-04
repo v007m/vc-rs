@@ -17,6 +17,7 @@ pub trait Chance {
 
 /// What a pipe gets besides the value: its literal arguments and the random source.
 #[derive(Clone, Copy)]
+#[non_exhaustive]
 pub struct PipeArgs<'a> {
     /// The literal arguments, in order; the compiler checked their count and kinds.
     pub args: &'a [Value],

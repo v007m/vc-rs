@@ -4,6 +4,10 @@ use crate::{ActionId, ActionOutcome, CheckResult, CleanupRecord, FileId, OwnerKe
 ///
 /// Check results leave the executor through its redactor; exchanges are added later.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum Event {
     /// The run started.
     RunStarted {
@@ -77,6 +81,10 @@ pub enum Event {
 
 /// An event with its run-wide sequence number, from 1.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Sequenced {
     /// The position in the run; a gap means a subscriber missed events.
     pub seq: u64,
@@ -86,6 +94,10 @@ pub struct Sequenced {
 
 /// What a subscriber receives.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum Feed {
     /// The next event.
     Event(Sequenced),

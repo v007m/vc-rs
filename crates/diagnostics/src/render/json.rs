@@ -11,6 +11,7 @@ use crate::{Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, Label, Severit
 /// Spans name the file by path, with 1-based lines and character columns; fix edits keep
 /// their byte ranges. The shape is documented in the LLD, "Diagnostics and fixes".
 #[derive(Clone, Copy, Debug, Default)]
+#[expect(clippy::exhaustive_structs, reason = "unit renderer other crates build; every user is in this repo (D160)")]
 pub struct JsonRenderer;
 
 impl Render for JsonRenderer {

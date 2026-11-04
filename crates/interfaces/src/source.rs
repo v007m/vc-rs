@@ -22,6 +22,10 @@ pub trait SourceProvider: Send + Sync {
 
 /// What one discovery found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Discovery {
     /// The files read, in path order.
     pub files: Vec<SourceFile>,
@@ -46,6 +50,7 @@ impl Discovery {
 /// Paths are relative to the project root with `/` separators. They are plain text, not
 /// [`SourcePath`]s, because some of them are exactly the names a `SourcePath` refuses.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum SourceError {
     /// The file exists but reading it failed.
     #[error("{path}: cannot be read: {reason}")]

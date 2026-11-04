@@ -1,5 +1,6 @@
 /// Why the engine could not do what it was asked.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum EngineError {
     /// No folder at or above the start folder holds a `vibranium.config.yaml`.
     #[error("no vibranium.config.yaml in {start} or any folder above it")]

@@ -7,6 +7,10 @@ use crate::{
 
 /// One api file: what its apis share.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct ApiGroup {
     /// The file ID, from the path (D139).
     pub id: FileId,
@@ -28,6 +32,10 @@ pub struct ApiGroup {
 
 /// One api: a request and the checks that always hold for it.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Api {
     /// `<fileId>#<id>` (D138).
     pub id: ApiId,
@@ -67,6 +75,10 @@ pub struct Api {
 
 /// A request body.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum BodySpec {
     /// No body.
     #[default]
@@ -96,6 +108,10 @@ pub enum BodySpec {
 
 /// One part of a multipart body.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum PartSpec {
     /// A field value.
     Value(TemplateValue),

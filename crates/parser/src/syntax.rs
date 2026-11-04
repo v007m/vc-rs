@@ -2,6 +2,7 @@ use vc_model::SourcePath;
 
 /// The language a file is written in, which picks its reader.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Syntax {
     /// YAML 1.2: every definition file, and any file without a known suffix.
     Yaml,

@@ -6,6 +6,7 @@ use super::{ActionReport, FailedActions, PendingCleanup, SharedActions};
 
 /// Where a [`RunOrchestrator`] is; the index is the lifecycle action in flight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RunPhase {
     /// Not started.
     Planned,
@@ -25,6 +26,7 @@ pub enum RunPhase {
 
 /// What the run shell feeds a [`RunOrchestrator`].
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RunInput {
     /// Start the run.
     Start,
@@ -46,6 +48,7 @@ pub enum RunInput {
 
 /// How a run ended: the input to the exit code (D127).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct RunSummary {
     /// How it ended.
     pub status: RunStatus,
@@ -55,6 +58,7 @@ pub struct RunSummary {
 
 /// What a [`RunOrchestrator`] asks its shell to do.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RunCommand {
     /// Run this lifecycle action and report [`RunInput::ActionDone`] or [`RunInput::ActionCut`].
     RunAction(ActionId),

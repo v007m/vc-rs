@@ -108,6 +108,8 @@ todo = "deny"
 unimplemented = "deny"
 dbg_macro = "deny"
 panic = "deny"
+exhaustive_enums = "deny"
+exhaustive_structs = "deny"
 
 [profile.release]
 lto = "thin"

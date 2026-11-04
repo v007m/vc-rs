@@ -7,6 +7,7 @@ use vc_model::{Exchange, RenderedRequest};
 
 /// One request a [`RecordingTransport`] passed on, and what came back.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Recorded {
     /// The request as given.
     pub request: RenderedRequest,

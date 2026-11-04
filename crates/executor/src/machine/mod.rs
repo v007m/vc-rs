@@ -27,6 +27,7 @@ pub type FailedActions = BTreeMap<ActionId, Failure>;
 /// A compensating action registered by a successful call (the api's `cleanup`), run when the
 /// owning frame closes, newest first.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct PendingCleanup {
     /// The cleanup action.
     pub action: ActionId,
@@ -50,6 +51,7 @@ impl PendingCleanup {
 
 /// What a worker reports when an action finishes.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ActionReport {
     /// How it ended.
     pub outcome: ActionOutcome,

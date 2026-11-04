@@ -5,6 +5,10 @@ use crate::Scalar;
 
 /// One node of a parsed file: a value and the span it was read from.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Node {
     /// What the node holds.
     pub value: Value,
@@ -14,6 +18,10 @@ pub struct Node {
 
 /// The value of a [`Node`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum Value {
     /// Text, a number, a boolean or null.
     Scalar(Scalar),
@@ -25,6 +33,7 @@ pub enum Value {
 
 /// One `key: value` pair of a map.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Entry {
     /// The key's text.
     pub key: String,

@@ -12,6 +12,7 @@ use super::{Call, Hop};
 
 /// One finished attempt, as a [`RetryPolicy`] sees it.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct Attempted<'a> {
     /// The request as rendered (before auth and hooks).
     pub request: &'a RenderedRequest,
@@ -29,6 +30,7 @@ pub trait RetryPolicy: Send + Sync {
 
 /// The null policy: every result is final.
 #[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
 pub struct NoRetry;
 
 impl RetryPolicy for NoRetry {
@@ -39,6 +41,7 @@ impl RetryPolicy for NoRetry {
 
 /// What makes an attempt worth retrying.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RetryOn {
     /// The connection could not be opened (V5105 `Connect`).
     Connect,
@@ -63,6 +66,7 @@ impl RetryOn {
 /// connect failure, a timeout or a listed status, waiting `base`, `2 × base`, `4 × base`, …
 /// up to `max` between them.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
 pub struct HttpRetryPolicy {
     /// Retries after the first attempt; 0 turns retry off.
     pub attempts: u32,
@@ -107,6 +111,7 @@ impl RetryPolicy for HttpRetryPolicy {
 
 /// The last attempt's result and how many attempts were made.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Retried {
     /// How the last attempt ended.
     pub result: Result<Exchange, TransportError>,

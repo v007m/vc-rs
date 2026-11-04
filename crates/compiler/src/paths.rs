@@ -5,6 +5,7 @@ use vc_parser::{Node, Syntax};
 
 /// The discovery globs the project's config writes.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct SourceGlobs {
     /// `paths.include`; empty to read every definition file.
     pub include: Vec<String>,

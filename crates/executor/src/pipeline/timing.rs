@@ -10,6 +10,7 @@ use super::{Call, Retried};
 
 /// What the pipeline returns for one call.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Delivery {
     /// How the last attempt ended.
     pub result: Result<Exchange, TransportError>,

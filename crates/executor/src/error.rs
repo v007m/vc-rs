@@ -4,6 +4,7 @@ use crate::ActionKindTag;
 
 /// Why a run cannot start, or ended without a result.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum ExecutorError {
     /// The plan reaches an action the program does not have.
     #[error("the plan reaches action {} that the program does not have", .0.index())]

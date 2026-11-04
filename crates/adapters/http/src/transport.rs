@@ -21,6 +21,7 @@ use crate::{HttpAdapterError, ProxyConfig, body, tls};
 
 /// How the HTTP transport is set up. The engine builds it from config and the environment.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
 pub struct HttpOptions {
     /// Which proxy to use, if any.
     pub proxy: ProxyConfig,

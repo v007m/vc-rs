@@ -10,6 +10,7 @@ use crate::{TemplateError, codes};
 
 /// The type of a value as far as the compiler can tell before the run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ValueType {
     /// Not known until run time; fits everywhere.
     Any,
@@ -58,6 +59,7 @@ impl fmt::Display for ValueType {
 
 /// The kind of literal a pipe argument must be.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ArgType {
     /// Any literal.
     Any,
@@ -88,6 +90,7 @@ impl fmt::Display for ArgType {
 
 /// What a pipe takes and gives.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct PipeSignature {
     /// One entry per argument, in order.
     pub args: &'static [ArgType],
@@ -107,6 +110,7 @@ impl PipeSignature {
 
 /// One registered pipe: what it takes and gives, and what it does at run time.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct PipeDef {
     /// What it takes and gives.
     pub signature: PipeSignature,
