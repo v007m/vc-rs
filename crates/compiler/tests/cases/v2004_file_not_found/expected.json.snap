@@ -4,7 +4,7 @@ input_file: crates/compiler/tests/cases/v2004_file_not_found/project
 ---
 {
   "summary": {
-    "errors": 3,
+    "errors": 4,
     "warnings": 0,
     "infos": 0
   },
@@ -95,6 +95,42 @@ input_file: crates/compiler/tests/cases/v2004_file_not_found/project
               "range": {
                 "start": 381,
                 "end": 403
+              },
+              "newText": "../../schemas/user.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2004",
+      "severity": "error",
+      "message": "`$file` names ../../schema/user.json, which is not in the project",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 24,
+          "column": 25,
+          "endLine": 24,
+          "endColumn": 49
+        },
+        "text": "no file at schema/user.json"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `../../schemas/user.json`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with ../../schemas/user.json",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 489,
+                "end": 511
               },
               "newText": "../../schemas/user.json"
             }

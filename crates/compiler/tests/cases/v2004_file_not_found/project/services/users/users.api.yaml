@@ -17,3 +17,8 @@ apis:
     expect:
       body:
         schema: {$file: ../../schema/user.json}
+  - id: listUsers
+    path: /users
+    expect:
+      body:
+        schema: {$file: '../../schema/user.json'}

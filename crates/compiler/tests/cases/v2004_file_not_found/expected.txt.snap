@@ -24,3 +24,11 @@ error[V2004]: `$file` names ../../schema/user.json, which is not in the project
    |                         ^^^^^^^^^^^^^^^^^^^^^^ no file at schema/user.json
    = help: did you mean `../../schemas/user.json`?
    = fix: Replace with ../../schemas/user.json (certain)
+
+error[V2004]: `$file` names ../../schema/user.json, which is not in the project
+  --> services/users/users.api.yaml:24:25
+   |
+24 |         schema: {$file: '../../schema/user.json'}
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^ no file at schema/user.json
+   = help: did you mean `../../schemas/user.json`?
+   = fix: Replace with ../../schemas/user.json (certain)

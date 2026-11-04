@@ -91,6 +91,14 @@ fn a_skip_whose_until_has_passed_is_reported_with_a_fix_that_removes_it() {
 }
 
 #[test]
+fn removing_a_skip_removes_a_comment_after_it_too() {
+    let compiled = expired("2026-11-03", "2026-01-31  # see 212");
+    let text = &compiled.files.get(vc_model::SourceFileId::new(0)).unwrap().text;
+    let removed: Vec<&str> = compiled.diagnostics.iter().map(|d| &text[d.fixes[0].edits[0].range.clone()]).collect();
+    assert_eq!(removed, ["    skip:\n      reason: flaky\n      until: 2026-01-31  # see 212\n"]);
+}
+
+#[test]
 fn a_skip_until_today_or_later_or_with_no_date_given_is_not_reported() {
     assert!(expired("2026-11-03", "2027-01-01").diagnostics.is_empty());
     assert_eq!(found(&tests("  - id: a\n    call: users#get\n    skip: {reason: x, until: 2020-01-01}\n")), []);
