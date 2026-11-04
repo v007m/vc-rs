@@ -59,6 +59,17 @@ fn a_step_id_can_be_read_after_that_step_runs() {
 }
 
 #[test]
+fn a_cache_check_reads_what_its_action_saved() {
+    let check = "    cache:\n      for: 1h\n      check:\n        call: users#put\n";
+    let shared =
+        format!("beforeAll:\n  - id: made\n    call: users#make\n{check}        vars: {{id: '${{var.made.id}}'}}\n");
+    let gets = tests("  - id: gets\n    call: users#get\n");
+    assert_eq!(found(&format!("{shared}{gets}")), []);
+    assert_eq!(found(&format!("beforeEach:\n  - call: users#make\n{check}{gets}")), []);
+    assert_eq!(found(&format!("beforeEach:\n  - call: users#get\n{check}{gets}")), [(Code::V2101, 11)]);
+}
+
+#[test]
 fn pipes_are_checked_against_the_type_every_definition_agrees_on() {
     let text = format!(
         "vars: {{on: true, map: {{a: 1}}, text: abc, copy: '${{var.on}}', n: 1}}\n{}",
