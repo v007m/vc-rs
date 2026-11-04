@@ -613,7 +613,11 @@ pub struct Selection {
     pub include_skipped: bool,
 }
 // `failed_in` (rerun the failures of a run) arrives in M3 with the history store (D130).
+```
 
+`changed` comes from `Vcs::changed(base) -> Result<Vec<SourcePath>, VcsError>` (in `vc-interfaces`): the files that differ from `base` (committed since it, staged, in the working tree only, or deleted) and the untracked files that are not ignored, relative to the project root and sorted. The engine maps each path to its file ID with `SourcePath::file_id` (the config and files of no kind give none). Every implementation first checks the ref with `checked_ref` (letters, digits and `/ . _ - + ~ ^ @ { }`, no leading `-`, no `..`), else `VcsError::InvalidRef`. `GitVcs` in `vc-adapter-system` runs `git -C <root> rev-parse --verify <base>^{commit}` (so it never falls into `diff --no-index` outside a repository), then `git diff --name-only -z --no-renames --relative --end-of-options <base> --` and `git ls-files --others --exclude-standard -z`, each argument passed on its own with no shell and `core.fsmonitor` off; a `git` that cannot be started is `Unavailable`, and one that fails (no repository, unknown ref) is `Failed` with git's message. `vc-testkit` has `FakeVcs` and `vcs_suite`.
+
+```rust
 pub struct PlanOptions {
     pub repeat: Option<u32>,                     // `--repeat N`: replaces each test's own `repeat`
     pub today: Option<String>,                   // YYYY-MM-DD for `skip.until`; None keeps every skip in force

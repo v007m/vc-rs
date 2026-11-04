@@ -12,6 +12,7 @@
 mod clock;
 mod compile_cache;
 mod environment;
+mod git;
 mod random;
 mod root;
 mod sources;
@@ -19,6 +20,7 @@ mod sources;
 pub use clock::SystemClock;
 pub use compile_cache::FsCompileCache;
 pub use environment::SystemEnvironment;
+pub use git::GitVcs;
 pub use random::SeededRandom;
 pub use root::{CONFIG_FILE, find_project_root};
 pub use sources::FsSources;
