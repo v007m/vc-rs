@@ -69,7 +69,7 @@ fn builds_the_config_profiles_and_run_blocks() {
     assert_eq!(program.config.report_formats, ["ctrf"]);
     let profile = program.profiles.values().next().unwrap();
     assert!(profile.default && profile.vars.len() == 1);
-    let [warm] = program.run_blocks.before_all[..] else { panic!("one beforeRun action") };
+    let [warm] = program.run_blocks.before_run[..] else { panic!("one beforeRun action") };
     assert_eq!(action(&program, warm).owner, Owner::Run);
     assert_eq!(action(&program, warm).id.map(|id| name(&program, id)), Some("warm"));
 }
@@ -183,7 +183,7 @@ fn builds_the_config_defaults_and_after_run() {
     let defaults = &program.config.defaults;
     assert_eq!((defaults.timeout, defaults.concurrency, defaults.per_host), (Some(seconds(5)), Some(4), Some(2)));
     assert_eq!(defaults.headers.len(), 1);
-    assert_eq!(program.run_blocks.after_all.len(), 1);
+    assert_eq!(program.run_blocks.after_run.len(), 1);
 }
 
 #[test]

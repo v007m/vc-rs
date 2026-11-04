@@ -44,9 +44,9 @@ impl<'p> PlanBuilder<'p> {
             return Plan { skipped, ..Plan::default() };
         }
         let blocks = &self.program.run_blocks;
-        let before_run = self.run.plan(self.program, &blocks.before_all);
+        let before_run = self.run.plan(self.program, &blocks.before_run);
         let files = files.into_iter().map(|(id, instances)| self.file(id, instances)).collect();
-        Plan { before_run, files, after_run: blocks.after_all.clone(), skipped }
+        Plan { before_run, files, after_run: blocks.after_run.clone(), skipped }
     }
 
     fn file(&self, id: vc_model::FileId, mut instances: Vec<Instance>) -> PlannedFile {

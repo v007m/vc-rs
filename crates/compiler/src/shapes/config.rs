@@ -7,6 +7,9 @@ use super::common::{ACTIONS, METHODS, TEMPLATES, TEXTS, VARS};
 use super::types;
 use super::types::{Scope, Shape, Ty};
 
+/// The report files `reports.formats` can name; html comes in M3.
+const REPORT_FORMATS: &[&str] = &["ctrf", "junit", "html"];
+
 /// The auth types (see Authentication).
 const AUTH_TYPES: &[&str] = &[
     "basic",
@@ -160,7 +163,7 @@ shape! {
 shape! {
     reports = Shape::new("reports", "Report formats and folder", &[
         types::key("dir", Ty::Text).doc("Output folder"),
-        types::key("formats", TEXTS).default("[ctrf]").doc("Report formats"),
+        types::key("formats", Ty::List(&Ty::Enum(REPORT_FORMATS))).default("[ctrf]").doc("Report formats"),
         types::key("html", Ty::Obj(html)).doc("HTML report settings"),
     ])
 }

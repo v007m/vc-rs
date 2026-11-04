@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 
 use crate::{
-    Action, Api, ApiGroup, ApiId, AuthDef, AuthId, Config, Dataset, DatasetId, FileId, GeneratorDef, Lifecycle,
-    LoadScenario, Profile, ProfileId, SourceFiles, StringTable, Sym, Test, TestFile, TestId,
+    Action, Api, ApiGroup, ApiId, AuthDef, AuthId, Config, Dataset, DatasetId, FileId, GeneratorDef, LoadScenario,
+    Profile, ProfileId, RunBlocks, SourceFiles, StringTable, Sym, Test, TestFile, TestId,
 };
 
 /// Everything `vc check` produced, frozen and shared read-only as `Arc<Program>`.
@@ -31,7 +31,7 @@ pub struct Program {
     /// Every action anywhere, by [`crate::ActionId`].
     pub actions: Vec<Action>,
     /// `beforeRun` and `afterRun`.
-    pub run_blocks: Lifecycle,
+    pub run_blocks: RunBlocks,
     /// One entry per load file.
     pub loads: IndexMap<FileId, LoadScenario>,
     /// `datasets`.

@@ -15,6 +15,7 @@
 
 mod cache_suite;
 mod clock_suite;
+mod config_source_suite;
 mod fake_random;
 mod fake_transport;
 mod faulty_transport;
@@ -31,6 +32,7 @@ mod transport_suite;
 
 pub use cache_suite::{MakeCompileCache, compile_cache_store_suite};
 pub use clock_suite::clock_suite;
+pub use config_source_suite::config_source_suite;
 pub use fake_random::{MemoryEnvironment, ScriptedRandom};
 pub use fake_transport::{FakeTransport, Respond, status};
 pub use faulty_transport::{Fault, FaultyTransport};

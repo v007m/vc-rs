@@ -1,5 +1,6 @@
 //! Instance expansion: each selected test becomes one instance per example row × repeat, or a
-//! skipped entry (D126). Files keep project order and tests keep file order.
+//! skipped entry (D126). Files plan in path order (the compiler
+//! sorts its sources) and tests keep file order.
 
 use std::collections::BTreeMap;
 

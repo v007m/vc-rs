@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use vc_model::{Examples, Program, Template, TemplateValue};
+use vc_model::Program;
 use vc_planner::{PlanError, PlanOptions, Selection};
 
 use crate::common;
@@ -11,12 +11,22 @@ fn options(change: impl FnOnce(&mut PlanOptions)) -> PlanOptions {
     options
 }
 
-fn with_examples(examples: Examples) -> Program {
-    let mut program = common::project();
-    let test = common::test_id(&program, "users.crud#listsUsers");
-    // The compiler drops inline `examples` (with m1-lint); remove when that lands.
-    program.tests[&test].examples = Some(examples);
-    program
+const ROWS: &str = "name: Rows
+tests:
+  - id: listsPages
+    call: users#list
+    repeat: 2
+    examples:
+      - {page: 1}
+      - {page: 2}
+  - id: listsFilePages
+    call: users#list
+    repeat: 2
+    examples: {$file: data/pages.csv}
+";
+
+fn with_examples() -> Program {
+    common::project_with(&[("services/users/rows.test.yaml", ROWS)])
 }
 
 #[test]
@@ -36,29 +46,37 @@ fn repeat_runs_each_test_that_many_times_and_the_flag_overrides_it() {
 }
 
 #[test]
+fn files_plan_in_path_order_whatever_order_they_were_read_in() {
+    let program = common::project_with(&[("services/accounts/a.test.yaml", "name: A\ntests:\n  - id: listsA\n    call: users#list\n")]);
+    let plan = common::planned(&program, &Selection::default());
+    let files: Vec<&str> = plan.files.iter().map(|file| common::name(&program, file.id.sym())).collect();
+    assert_eq!(files, ["accounts.a", "orders.checkout", "users.crud"]);
+}
+
+#[test]
 fn example_rows_multiply_repeats_with_rows_outermost() {
-    let program = with_examples(Examples::Rows(vec![TemplateValue::Null, TemplateValue::Null]));
-    let plan = common::planned(&program, &common::ids(&["users.crud#listsUsers"]));
+    let program = with_examples();
+    let plan = common::planned(&program, &common::ids(&["users.rows#listsPages"]));
     assert_eq!(
-        common::slots(&program, &plan, "users.crud#listsUsers"),
+        common::slots(&program, &plan, "users.rows#listsPages"),
         [(Some(0), 0), (Some(0), 1), (Some(1), 0), (Some(1), 1)]
     );
-    let third = common::planned(&program, &common::ids(&["users.crud#listsUsers:3"]));
-    assert_eq!(common::slots(&program, &third, "users.crud#listsUsers"), [(Some(1), 0)]);
+    let third = common::planned(&program, &common::ids(&["users.rows#listsPages:3"]));
+    assert_eq!(common::slots(&program, &third, "users.rows#listsPages"), [(Some(1), 0)]);
 }
 
 #[test]
 fn rows_from_a_file_come_preloaded_in_the_options() {
-    let program = with_examples(Examples::File(Template::default()));
-    let selection = common::ids(&["users.crud#listsUsers"]);
+    let program = with_examples();
+    let selection = common::ids(&["users.rows#listsFilePages"]);
     assert_eq!(
         common::try_plan(&program, &selection),
-        Err(PlanError::RowsNotLoaded { test: "users.crud#listsUsers".into() })
+        Err(PlanError::RowsNotLoaded { test: "users.rows#listsFilePages".into() })
     );
-    let test = common::test_id(&program, "users.crud#listsUsers");
+    let test = common::test_id(&program, "users.rows#listsFilePages");
     let loaded = options(|options| options.example_rows = BTreeMap::from([(test, 1)]));
     let plan = vc_planner::plan(&program, &selection, &loaded).unwrap();
-    assert_eq!(common::slots(&program, &plan, "users.crud#listsUsers"), [(Some(0), 0), (Some(0), 1)]);
+    assert_eq!(common::slots(&program, &plan, "users.rows#listsFilePages"), [(Some(0), 0), (Some(0), 1)]);
 }
 
 #[test]

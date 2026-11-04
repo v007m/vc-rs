@@ -323,7 +323,7 @@ pub struct Program {
     pub test_files: IndexMap<FileId, TestFile>,
     pub tests: IndexMap<TestId, Test>,
     pub actions: Vec<Action>,                        // every action anywhere, by ActionId
-    pub run_blocks: Lifecycle,                       // beforeRun / afterRun
+    pub run_blocks: RunBlocks,                       // beforeRun / afterRun
     pub loads: IndexMap<FileId, LoadScenario>,
     pub datasets: IndexMap<DatasetId, Dataset>,
     pub generators: IndexMap<Sym, GeneratorDef>,

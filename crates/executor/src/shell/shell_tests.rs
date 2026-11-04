@@ -277,3 +277,22 @@ async fn each_check_is_reported_before_its_action_finishes() {
     let code = outcome.results()[0].failure.as_ref().and_then(|failure| failure.code.clone());
     assert_eq!(code, Some(Code::V5101.to_string()));
 }
+
+#[tokio::test(start_paused = true)]
+async fn an_interrupter_cancels_the_run_after_finish_took_the_handle() {
+    let mut fixture = Fixture::new();
+    let steps = vec![fixture.call("/slow"), fixture.call("/never")];
+    let test = fixture.test(steps, None);
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let (executor, sent) = executor(fixture, RunOptions::default());
+    let handle = executor.start(Arc::new(plan), EventBus::spawn()).unwrap();
+    let interrupter = handle.interrupter();
+    let stop = tokio::spawn(async move {
+        time::sleep(SECOND).await;
+        interrupter.interrupt();
+    });
+    let summary = handle.finish().await.unwrap();
+    stop.await.unwrap();
+    assert_eq!(summary.status, RunStatus::Cancelled);
+    assert_eq!(sent.counts().get("/never"), None);
+}

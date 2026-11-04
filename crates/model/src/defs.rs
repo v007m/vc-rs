@@ -211,6 +211,19 @@ pub struct Lifecycle {
     pub after_each: Vec<ActionId>,
 }
 
+/// The config's `beforeRun` and `afterRun` actions, in order.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct RunBlocks {
+    /// Once, before the first file of the run.
+    pub before_run: Vec<ActionId>,
+    /// Once, after the last file.
+    pub after_run: Vec<ActionId>,
+}
+
 /// Who owns an action, which decides how long its saves live.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[expect(

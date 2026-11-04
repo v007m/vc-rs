@@ -17,14 +17,18 @@ use super::fake::FakeData;
 /// The var definitions of one level, by name, with the active profiles applied.
 pub type Defined = HashMap<String, TemplateValue>;
 
-/// What a run is given from outside the program: the active profiles, the random source
-/// (seeded by `--seed`), the environment snapshot and the fake-data generators.
+/// What a run is given from outside the program: the active profiles, the `--set vars.*`
+/// values, the random source (seeded by `--seed`), the environment snapshot and the fake-data
+/// generators.
 #[derive(Clone)]
 #[non_exhaustive]
 pub struct RunInputs {
     /// The active profiles, in order (later ones win); empty means the profiles marked
     /// `default: true`.
     pub profiles: Vec<ProfileId>,
+    /// Config vars set from outside (`--set vars.region=eu`), layered over the config's vars
+    /// and the profiles' vars; a file, api or test that defines the var still wins.
+    pub vars: Defined,
     /// Draws for fake data and the `random` and `shuffle` pipes.
     pub random: Arc<dyn Random>,
     /// What `${env.X}` reads.
@@ -37,13 +41,19 @@ impl RunInputs {
     /// Inputs with the default profiles and the placeholder fake data.
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
-        Self { profiles: Vec::new(), random, environment, fakes: FakeData::placeholder() }
+        Self { profiles: Vec::new(), vars: Defined::new(), random, environment, fakes: FakeData::placeholder() }
     }
 
     /// The same inputs with `profiles` active, in order.
     #[must_use]
     pub fn with_profiles(self, profiles: Vec<ProfileId>) -> Self {
         Self { profiles, ..self }
+    }
+
+    /// The same inputs with `vars` layered over the config's vars.
+    #[must_use]
+    pub fn with_vars(self, vars: Defined) -> Self {
+        Self { vars, ..self }
     }
 }
 
@@ -80,7 +90,7 @@ impl RunValues {
         let layer = |defs: &VarDefs| Arc::new(layered(program, defs, &active));
         Self {
             profiles: active.iter().filter_map(|profile| program.str(profile.sym()).map(str::to_owned)).collect(),
-            config: Arc::new(config(program, &active)),
+            config: Arc::new(config(program, &active, &inputs.vars)),
             api_files: program.api_groups.iter().map(|(id, group)| (*id, layer(&group.vars))).collect(),
             apis: program.apis.iter().map(|(id, api)| (*id, layer(&api.vars))).collect(),
             test_files: program.test_files.iter().map(|(id, file)| (*id, layer(&file.vars))).collect(),
@@ -163,12 +173,14 @@ fn layered(program: &Program, defs: &VarDefs, active: &[ProfileId]) -> Defined {
     values
 }
 
-/// The config's vars, with each active profile's `vars` layered over them in order.
-fn config(program: &Program, active: &[ProfileId]) -> Defined {
+/// The config's vars, with each active profile's `vars` layered over them in order, then the
+/// vars set from outside.
+fn config(program: &Program, active: &[ProfileId], set: &Defined) -> Defined {
     let mut values = layered(program, &program.config.vars, active);
     for profile in active.iter().filter_map(|profile| program.profiles.get(profile)) {
         values.extend(named(program, &profile.vars));
     }
+    values.extend(set.iter().map(|(name, value)| (name.clone(), value.clone())));
     values
 }
 
