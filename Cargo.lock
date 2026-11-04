@@ -2341,6 +2341,19 @@ dependencies = [
 [[package]]
 name = "vc-adapter-reporters"
 version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "insta",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "vc-compiler",
+ "vc-diagnostics",
+ "vc-interfaces",
+ "vc-model",
+ "vc-planner",
+ "vc-testkit",
+]
 
 [[package]]
 name = "vc-adapter-system"

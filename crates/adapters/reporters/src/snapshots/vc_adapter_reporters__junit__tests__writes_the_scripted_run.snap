@@ -1,0 +1,38 @@
+---
+source: crates/adapters/reporters/src/junit_tests.rs
+expression: xml
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="vibranium" tests="6" failures="1" errors="1" skipped="1" time="2.500">
+  <testsuite name="users.crud" tests="6" failures="1" errors="1" skipped="1" time="0.750">
+    <testcase name="users.crud#getsUser" classname="users.crud" time="0.150" file="services/users/crud.test.yaml" line="7"/>
+    <testcase name="users.crud#rejectsBadEmail [row 1]" classname="users.crud" time="0.150" file="services/users/crud.test.yaml" line="11">
+      <failure message="expected 400, got 201" type="V5101">  error[V5101]: expect.status
+    --&gt; services/users/crud.test.yaml:18:7
+     |
+  18 |       status: 400
+     |       ^^^^^^^^^^^ expected 400, got 201
+  error[V5101]: expect.body.match.errors[0].field
+    --&gt; services/users/crud.test.yaml:21:11
+     |
+  21 |           errors[0].field: email
+     |           ^^^^^^^^^^^^^^^^^^^^^^ expected &quot;email&quot;, got &quot;e\u001b[2Jmail&quot;
+     = diff:
+       - email
+       + e�[2Jmail
+</failure>
+    </testcase>
+    <testcase name="users.crud#rejectsBadEmail [row 2]" classname="users.crud" time="0.000" file="services/users/crud.test.yaml" line="11">
+      <error message="needs seed, which failed" type="V5106">  error[V5106]: needs seed, which failed
+     = at: seed
+</error>
+    </testcase>
+    <testcase name="users.crud#listsUsers [repeat 1]" classname="users.crud" time="0.300" file="services/users/crud.test.yaml" line="22">
+      <system-out>flaky: passed after 2 attempts; the failed attempt: expected 200, got 503</system-out>
+    </testcase>
+    <testcase name="users.crud#listsUsers [repeat 2]" classname="users.crud" time="0.150" file="services/users/crud.test.yaml" line="22"/>
+    <testcase name="users.crud#parksLegacy" classname="users.crud" time="0.000" file="services/users/crud.test.yaml" line="25">
+      <skipped message="rewrite pending"/>
+    </testcase>
+  </testsuite>
+</testsuites>
