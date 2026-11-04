@@ -2,6 +2,7 @@
 //! registry.
 
 mod call;
+mod looping;
 mod request;
 mod reuse;
 
@@ -12,7 +13,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
-use crate::{ActionReport, ExecutorError, Frame, PipelineParts, RunInputs, RunValues};
+use crate::{ActionReport, ExecutorError, Frame, PipelineParts, Redactor, RunInputs, RunValues};
 
 pub use call::CallExecutor;
 pub use reuse::TestExecutor;
@@ -107,6 +108,8 @@ pub struct ActionCx {
     pub executors: Arc<ActionExecutors>,
     /// The var definitions with the active profiles applied, the pipes and the run's inputs.
     pub values: RunValues,
+    /// Masks what must not leave the executor, built from the config's `redact`.
+    pub redactor: Arc<Redactor>,
 }
 
 impl ActionCx {
@@ -114,7 +117,8 @@ impl ActionCx {
     #[must_use]
     pub fn new(program: Arc<Program>, executors: Arc<ActionExecutors>, inputs: RunInputs) -> Self {
         let values = RunValues::new(&program, inputs);
-        Self { program, executors, values }
+        let redactor = Arc::new(Redactor::new(&program.config.redact_headers));
+        Self { program, executors, values, redactor }
     }
 
     /// The action behind `id`.
@@ -159,13 +163,17 @@ impl ActionExecutors {
         self
     }
 
-    /// Runs `request` with the executor for its kind; an action with none fails.
+    /// Runs `request` with the executor for its kind, once per turn when the action has
+    /// `repeat` or `forEach`; an action with no executor fails.
     pub async fn execute(&self, request: ActionRequest) -> ActionReport {
         let id = request.action;
-        let kind = request.cx.action(id).map(|action| ActionKindTag::of(&action.kind));
-        match kind.and_then(|kind| self.by_kind.get(&kind)) {
-            Some(executor) => executor.execute(request).await,
-            None => ActionReport::failed(Failure::new("no executor runs this action").at(id)),
+        let action = request.cx.action(id);
+        let (kind, spec) =
+            (action.map(|action| ActionKindTag::of(&action.kind)), action.and_then(|a| a.repeat.clone()));
+        match (kind.and_then(|kind| self.by_kind.get(&kind)), spec) {
+            (Some(executor), Some(spec)) => looping::iterate(Arc::clone(executor), request, &spec).await,
+            (Some(executor), None) => executor.execute(request).await,
+            (None, _) => ActionReport::failed(Failure::new("no executor runs this action").at(id)),
         }
     }
 

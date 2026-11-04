@@ -16,12 +16,14 @@
 mod action;
 mod bus;
 mod cancel;
+mod check;
 mod error;
 mod exit;
 #[cfg(test)]
 mod fixture;
 mod machine;
 mod pipeline;
+mod redactor;
 mod shell;
 mod slots;
 mod values;
@@ -32,6 +34,7 @@ pub use action::{
 pub use bus::EventBus;
 pub use error::ExecutorError;
 
+pub use check::{Arguments, Judge, MatcherFn, MatcherRegistry};
 pub use exit::{EXIT_CANCELLED, EXIT_FAILED, EXIT_NOTHING_RAN, EXIT_PASSED, exit_code};
 pub use machine::{
     ActionReport, CANCELLED, FailedActions, FileCommand, FileInput, FileOrchestrator, FilePhase, InstanceCommand,
@@ -43,7 +46,8 @@ pub use pipeline::{
     PipelineParts, RequestStage, Retried, Retry, RetryOn, RetryPolicy, Stage, Timeout, Timing, Transmit, Unchanged,
     pipeline,
 };
+pub use redactor::{MASKED, RedactingSink, Redactor};
 pub use shell::{Executor, RunHandle, RunOptions};
 pub use slots::{SharedResult, SharedSlots};
 use values::Render;
-pub use values::{Defined, FakeData, FakeFn, Frame, RunInputs, RunValues};
+pub use values::{Defined, FakeData, FakeFn, Frame, Iteration, RunInputs, RunValues};

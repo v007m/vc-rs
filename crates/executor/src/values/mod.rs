@@ -8,7 +8,7 @@ mod run;
 mod scope;
 
 pub use fake::{FakeData, FakeFn};
-pub use frame::Frame;
+pub use frame::{Frame, Iteration};
 pub use render::Render;
 pub use run::{Defined, RunInputs, RunValues};
 

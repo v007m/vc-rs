@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde_json::Value;
-use vc_model::{ActionId, Instance, Program, Sym};
+use vc_model::{ActionId, FileId, Instance, Program, Sym};
 
 use super::run::Defined;
 use crate::{ActionReport, Saved, SharedSlots};
@@ -33,6 +33,23 @@ pub struct Frame {
     pub given: Option<Arc<Saved>>,
     /// The vars of each `test:` reuse the action runs inside, outermost first.
     pub callers: Vec<Arc<Defined>>,
+    /// Inside a `test:` reuse, the reused test's file, whose vars its steps read in place of the
+    /// action owner's.
+    pub test_file: Option<FileId>,
+    /// Inside a `repeat` or `forEach` loop, the turn the action runs as.
+    pub iteration: Option<Arc<Iteration>>,
+}
+
+/// One turn of a `repeat` or `forEach` loop.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Iteration {
+    /// Which turn, from 1.
+    pub index: usize,
+    /// How many turns the loop has.
+    pub count: usize,
+    /// In a `forEach`, the element this turn runs with.
+    pub item: Option<Value>,
 }
 
 impl Frame {

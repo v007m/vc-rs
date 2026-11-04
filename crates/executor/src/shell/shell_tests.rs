@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::time::{Instant, sleep_until};
+use vc_diagnostics::Code;
 use vc_model::{
     ActionId, ActionKind, Event, Feed, HookRef, OwnerKey, Plan, PlannedAction, Retry, RunStatus, TestResult,
     TestStatus, Totals,
@@ -127,7 +128,7 @@ async fn cleanups_run_newest_first_when_the_test_fails() {
     assert_eq!(outcome.summary.totals, totals([0, 1, 0, 0, 0]));
     assert_eq!(outcome.cleaned(), [second, first]);
     let failure = outcome.results()[0].failure.clone().map(|failure| failure.message);
-    assert_eq!(failure.as_deref(), Some("expected a 2xx status, got 500 Internal Server Error"));
+    assert_eq!(failure.as_deref(), Some("status: expected [\"2xx\"], got 500"));
 }
 
 #[tokio::test(start_paused = true)]
@@ -244,4 +245,34 @@ async fn a_plan_that_reaches_what_this_build_cannot_run_does_not_start() {
     assert_eq!(missing, Err(ExecutorError::UnknownTest(other)));
     assert_eq!(sent.counts().len(), 0);
     assert!(format!("{executor:?}").contains("concurrency: 16"));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_test_past_its_timeout_fails_and_each_attempt_gets_the_whole_timeout() {
+    let mut fixture = Fixture::new();
+    let slow = fixture.call("/slow");
+    let test = fixture.test(vec![slow], Some(Retry { attempts: 1, delay: vc_model::Duration::new(SECOND) }));
+    fixture.test_mut(test).timeout = Some(vc_model::Duration::new(2 * SECOND));
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
+    assert_eq!(outcome.summary.totals, totals([0, 1, 0, 0, 0]));
+    let result = outcome.results()[0];
+    let code = result.failure.as_ref().and_then(|failure| failure.code.clone());
+    assert_eq!((result.attempts, code), (2, Some(Code::V5104.to_string())));
+    assert_eq!((outcome.sent("/slow"), outcome.elapsed), (2, 5 * SECOND), "2 s, the 1 s delay, then 2 s");
+}
+
+#[tokio::test(start_paused = true)]
+async fn each_check_is_reported_before_its_action_finishes() {
+    let mut fixture = Fixture::new();
+    let fail = fixture.call("/fail");
+    let test = fixture.test(vec![fail], None);
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
+    let at = |wanted: fn(&Event) -> bool| outcome.events.iter().position(wanted);
+    let checked = at(|event| matches!(event, Event::CheckEvaluated { check, .. } if !check.passed));
+    let finished = at(|event| matches!(event, Event::ActionFinished { .. }));
+    assert!(checked.is_some() && checked < finished, "{:#?}", outcome.events);
+    let code = outcome.results()[0].failure.as_ref().and_then(|failure| failure.code.clone());
+    assert_eq!(code, Some(Code::V5101.to_string()));
 }

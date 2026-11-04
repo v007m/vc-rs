@@ -130,8 +130,12 @@ impl Scope {
     }
 }
 
-/// The test file whose vars apply: the file of a `beforeAll`, or the instance's test's file.
+/// The test file whose vars apply: a reused test's, the file of a `beforeAll`, or the
+/// instance's test's file.
 fn test_file(program: &Program, owner: OwnerKey, frame: &Frame) -> Option<FileId> {
+    if frame.test_file.is_some() {
+        return frame.test_file;
+    }
     match owner {
         OwnerKey::File(file) => Some(file),
         OwnerKey::Instance(_) => {

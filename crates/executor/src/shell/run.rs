@@ -50,7 +50,7 @@ struct RunShell {
 
 impl RunShell {
     fn job(&self, action: ActionId) -> Job {
-        Job { action, owner: OwnerKey::Run, frame: self.frame.clone() }
+        Job { action, owner: OwnerKey::Run, frame: self.frame.clone(), deadline: None }
     }
 
     fn carry_out(&mut self, command: RunCommand) -> Option<RunSummary> {

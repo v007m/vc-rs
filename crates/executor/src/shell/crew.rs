@@ -2,19 +2,21 @@ use std::sync::Arc;
 
 use tokio::sync::Semaphore;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::time::{self, Instant};
+use vc_diagnostics::Code;
 use vc_model::{ActionId, ActionOutcome, CleanupRecord, Event, Failure, OwnerKey};
 
 use super::script::Scripts;
 use crate::cancel::{CancelTree, Ran};
-use crate::{ActionCx, ActionReport, ActionRequest, CANCELLED, EventBus, Frame, RunInput, Saved, SharedSlots};
+use crate::{ActionCx, ActionReport, ActionRequest, CANCELLED, Frame, RedactingSink, RunInput, Saved, SharedSlots};
 
 /// What every worker of a run shares.
 #[derive(Clone)]
 pub struct Crew {
     /// The program and the action executors.
     pub cx: Arc<ActionCx>,
-    /// Where events go.
-    pub bus: EventBus,
+    /// Where events go, masked by the run's redactor.
+    pub bus: RedactingSink,
     /// Each planned test's actions.
     pub scripts: Arc<Scripts>,
     /// Bounds the instances running at once, across files.
@@ -30,6 +32,8 @@ pub struct Job {
     pub action: ActionId,
     pub owner: OwnerKey,
     pub frame: Frame,
+    /// When the attempt it belongs to must be done by (the test's `timeout`); cleanups have none.
+    pub deadline: Option<Instant>,
 }
 
 impl Job {
@@ -53,14 +57,17 @@ impl Job {
 }
 
 impl Crew {
-    /// Runs an action under `cancel`, with its started and finished events. A shared action's
-    /// result fills its slot.
+    /// Runs an action under `cancel`, with its started, check and finished events. A shared
+    /// action's result fills its slot.
     pub async fn act(&self, job: Job, cancel: &CancelTree) -> Ran<ActionReport> {
         let (action, owner, slots) = (job.action, job.owner, job.slots());
         self.bus.publish(Event::ActionStarted { action, owner });
-        let ran = cancel.guard(self.cx.executors.execute(job.request(&self.cx))).await;
+        let ran = cancel.guard(self.execute(job)).await;
         let outcome = match &ran {
             Ran::Done(report) => {
+                for check in &report.checks {
+                    self.bus.publish(Event::CheckEvaluated { action, owner, check: Box::new(check.clone()) });
+                }
                 if let Some(slots) = slots {
                     let _first = slots.fill(action, report);
                 }
@@ -70,6 +77,18 @@ impl Crew {
         };
         self.bus.publish(Event::ActionFinished { action, owner, outcome });
         ran
+    }
+
+    /// Runs `job`'s action; past the job's deadline (the test's `timeout`) it is dropped and
+    /// fails with V5104.
+    async fn execute(&self, job: Job) -> ActionReport {
+        let (action, deadline) = (job.action, job.deadline);
+        let work = self.cx.executors.execute(job.request(&self.cx));
+        let Some(deadline) = deadline else { return work.await };
+        time::timeout_at(deadline, work).await.unwrap_or_else(|_| {
+            let failure = Failure::new("the test ran past its `timeout`").with_code(Code::V5104.to_string());
+            ActionReport::failed(failure.at(action))
+        })
     }
 
     /// Runs a cleanup: cancellation does not stop it, an abort does.

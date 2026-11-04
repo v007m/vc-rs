@@ -9,7 +9,7 @@ mod run;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use vc_model::{ActionId, ActionOutcome, Event, Failure, Needs, OwnerKey, PlannedAction};
+use vc_model::{ActionId, ActionOutcome, CheckResult, Event, Failure, Needs, OwnerKey, PlannedAction};
 
 pub use file::{FileCommand, FileInput, FileOrchestrator, FilePhase, Launch};
 pub use instance::{
@@ -61,6 +61,8 @@ pub struct ActionReport {
     pub fakes: Saved,
     /// The response of its last call, for `${<id>.…}` in later actions.
     pub response: Option<Arc<serde_json::Value>>,
+    /// Its evaluated checks, in order, each reported as a `CheckEvaluated` event.
+    pub checks: Vec<CheckResult>,
 }
 
 impl ActionReport {
@@ -73,6 +75,7 @@ impl ActionReport {
             saved: Saved::new(),
             fakes: Saved::new(),
             response: None,
+            checks: Vec::new(),
         }
     }
 

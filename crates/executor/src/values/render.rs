@@ -1,7 +1,8 @@
 //! Renders one action's templates against its scope and bound roots (LLD "Vars, templates and
 //! CEL at run time").
 
-use std::collections::HashMap;
+use std::cell::OnceCell;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
@@ -11,25 +12,31 @@ use vc_template::{Activation, CelCompiler, Chance, RenderError, Renderer, Resolv
 
 use super::run::RunValues;
 use super::scope::{Found, Scope};
-use crate::{ActionRequest, Frame, Saved};
+use crate::{ActionRequest, Frame, Redactor, Saved};
 
 /// How many vars a definition may pass through before the lookup gives up on a loop.
 const MAX_DEPTH: usize = 16;
+
+/// The fake vars drawn by this render, one slot per var not drawn yet, kept in name order.
+type Drawn = BTreeMap<String, OnceCell<Value>>;
 
 /// One action's renderer: its scope, the roots bound so far (`run`, `iteration`, `example`, step
 /// ids, then `request` and `response`) and the fake-data memo.
 pub struct Render<'a> {
     values: &'a RunValues,
     program: &'a Program,
+    redactor: &'a Redactor,
     scope: Scope,
     roots: HashMap<Namespace, Arc<Value>>,
     memo: Saved,
+    drawn: Drawn,
     chance: RandomChance<'a>,
 }
 
 impl<'a> Render<'a> {
-    /// The renderer for `request`'s action. Vars defined as one `${fake.…}` that the frame has not
-    /// generated yet are generated now, in name order, so each is drawn once per instance.
+    /// The renderer for `request`'s action. A var defined as one `${fake.…}` that the frame has not
+    /// drawn yet is drawn when first rendered, so each is drawn once per instance and unused ones
+    /// draw nothing.
     ///
     /// # Errors
     ///
@@ -39,17 +46,20 @@ impl<'a> Render<'a> {
         let mut render = Self {
             values: &cx.values,
             program: &cx.program,
+            redactor: &cx.redactor,
             scope: Scope::of(request),
             roots: HashMap::new(),
             memo: Saved::clone(&request.frame.fakes),
+            drawn: Drawn::new(),
             chance: RandomChance(cx.values.inputs().random.as_ref()),
         };
         render.bind(Namespace::Run, json!({ "profiles": render.values.profiles() }));
         for (id, response) in request.frame.steps.iter() {
             render.roots.insert(Namespace::Step(*id), Arc::clone(response));
         }
-        render.memoize();
+        render.drawn = render.fake_vars();
         render.bind_instance(&request.frame)?;
+        render.bind_iteration(&request.frame);
         Ok(render)
     }
 
@@ -95,24 +105,38 @@ impl<'a> Render<'a> {
         self.values
     }
 
-    /// The fake-data memo, for the frame to keep.
-    pub fn into_memo(self) -> Saved {
-        self.memo
+    /// The run's redactor, which masks check results before they leave the action.
+    pub const fn redactor(&self) -> &'a Redactor {
+        self.redactor
     }
 
-    fn memoize(&mut self) {
-        for name in self.scope.defined_names() {
-            if self.memo.contains_key(&name) {
-                continue;
-            }
-            let Some((level, Found::Defined(def))) = self.scope.find(self.program, &name, 0) else { continue };
-            if !is_fake(def) {
-                continue;
-            }
-            if let Ok(value) = self.defined(def, &Within { name: &name, level, depth: 1 }) {
-                self.memo.insert(name, value);
-            }
+    /// The fake-data memo, for the frame to keep: the frame's draws and the ones made here.
+    pub fn into_memo(self) -> Saved {
+        let mut memo = self.memo;
+        memo.extend(self.drawn.into_iter().filter_map(|(name, slot)| Some((name, slot.into_inner()?))));
+        memo
+    }
+
+    /// An empty slot for each var whose closest definition is one `${fake.…}` the frame has not drawn.
+    fn fake_vars(&self) -> Drawn {
+        let fresh = self.scope.defined_names().into_iter().filter(|name| !self.memo.contains_key(name));
+        let fakes = fresh.filter(
+            |name| matches!(self.scope.find(self.program, name, 0), Some((_, Found::Defined(def))) if is_fake(def)),
+        );
+        fakes.map(|name| (name, OnceCell::new())).collect()
+    }
+
+    /// A fake var's value: the frame's draw, this render's, or a new draw kept for the next read.
+    fn fake_var(&self, def: &TemplateValue, within: &Within<'_>) -> Result<Value, RenderError> {
+        if let Some(value) = self.memo.get(within.name) {
+            return Ok(value.clone());
         }
+        let Some(slot) = self.drawn.get(within.name) else { return self.defined(def, within) };
+        if let Some(value) = slot.get() {
+            return Ok(value.clone());
+        }
+        let value = self.defined(def, within)?;
+        Ok(slot.get_or_init(|| value).clone())
     }
 
     /// Binds `iteration` and the instance's `example` row.
@@ -132,6 +156,16 @@ impl<'a> Render<'a> {
         Ok(())
     }
 
+    /// Binds the loop turn the frame runs in, if any: `iteration`, and `item` in a `forEach`. A
+    /// loop's `iteration` hides a repeated test's.
+    fn bind_iteration(&mut self, frame: &Frame) {
+        let Some(turn) = &frame.iteration else { return };
+        self.bind(Namespace::Iteration, json!({ "index": turn.index, "count": turn.count }));
+        if let Some(item) = &turn.item {
+            self.bind(Namespace::Item, item.clone());
+        }
+    }
+
     /// The value of `var.<name>`, looking from the closest level unless `within` is the
     /// definition of the same name, which continues past its own level.
     fn var(&self, name: &str, within: Option<&Within<'_>>) -> Result<Value, RenderError> {
@@ -143,12 +177,11 @@ impl<'a> Render<'a> {
         }
         let found = self.scope.find(self.program, name, from);
         let (level, found) = found.ok_or_else(|| RenderError::missing(format!("`var.{name}` is not set")))?;
+        let within = Within { name, level, depth: depth + 1 };
         match found {
             Found::Value(value) => Ok(value),
-            Found::Defined(def) => self.memo.get(name).filter(|_| is_fake(def)).map_or_else(
-                || self.defined(def, &Within { name, level, depth: depth + 1 }),
-                |value| Ok(value.clone()),
-            ),
+            Found::Defined(def) if is_fake(def) => self.fake_var(def, &within),
+            Found::Defined(def) => self.defined(def, &within),
         }
     }
 

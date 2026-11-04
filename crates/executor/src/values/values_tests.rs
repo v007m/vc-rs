@@ -117,6 +117,30 @@ fn a_fake_var_is_drawn_once_per_instance_and_an_inline_fake_each_time() {
     assert_eq!(render_one(&cx, action, frame, &single), Ok(kept.clone()), "the frame keeps it");
 }
 
+/// Renders `${var.userId} ${fake.string.uuid}` with `userId` and `extra` as action vars, and
+/// returns the text and the memo it leaves.
+fn draws_with(extra: &[(&str, &str)]) -> (Value, Saved) {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let mut vars = vec![("userId", "${fake.string.uuid}")];
+    vars.extend_from_slice(extra);
+    fixture.action_mut(action).vars.values = fixture.vars(&vars);
+    let probe = fixture.value("${var.userId} ${fake.string.uuid}");
+    let cx = fixture.cx(ActionExecutors::new());
+    let request = ActionRequest { action, owner: OwnerKey::Run, cx, frame: Frame::default() };
+    let render = Render::new(&request).unwrap();
+    (render.value(&probe).unwrap(), render.into_memo())
+}
+
+#[test]
+fn a_fake_var_is_drawn_only_when_first_rendered() {
+    let (plain, plain_memo) = draws_with(&[]);
+    let (spare, spare_memo) = draws_with(&[("aaaId", "${fake.string.uuid}"), ("spareId", "${fake.string.uuid}")]);
+    assert_eq!(plain, spare, "unused fake vars draw nothing");
+    assert_eq!(spare_memo.keys().collect::<Vec<_>>(), ["userId"], "only the rendered var is kept");
+    assert_eq!(plain_memo, spare_memo);
+}
+
 #[test]
 fn a_missing_var_reaches_the_default_pipe_and_otherwise_fails() {
     let mut fixture = Fixture::new();

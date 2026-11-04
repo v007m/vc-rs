@@ -60,7 +60,7 @@ async fn a_non_2xx_status_fails_the_call_without_a_cleanup() {
     assert_eq!(code(&report), Some(Code::V5101.to_string().as_str()));
     assert_eq!(
         failure(&report).map(|failure| (failure.action, failure.message.as_str())),
-        Some((Some(create), "expected a 2xx status, got 500 Internal Server Error"))
+        Some((Some(create), "status: expected [\"2xx\"], got 500"))
     );
     assert_eq!(report.cleanups, vec![]);
 }

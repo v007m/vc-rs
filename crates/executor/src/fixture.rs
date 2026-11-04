@@ -23,8 +23,28 @@ use crate::{ActionCx, ActionExecutors, RunInputs};
 
 /// Words every fixture interns up front, so templates parsed later share the program's symbols
 /// for var names and step ids.
-pub const WORDS: &[&str] =
-    &["created", "fetched", "user", "userId", "email", "name", "token", "region", "greeting", "dev", "prod", "page"];
+pub const WORDS: &[&str] = &[
+    "created",
+    "fetched",
+    "user",
+    "userId",
+    "email",
+    "name",
+    "token",
+    "region",
+    "greeting",
+    "dev",
+    "prod",
+    "page",
+    "orders.flow",
+    "code",
+    "n",
+    "path",
+    "cities",
+    "gone",
+    "aaaId",
+    "spareId",
+];
 
 /// How long `/slow` takes to answer.
 pub const SLOW: Duration = Duration::from_secs(60);
@@ -148,6 +168,14 @@ impl Fixture {
         id
     }
 
+    /// A new, empty test file whose id is `word`, one of [`WORDS`].
+    pub fn test_file(&mut self, word: &str) -> FileId {
+        let id = FileId::new(self.sym(word));
+        let (name, tags, vars, skip, lifecycle, tests) = Default::default();
+        self.program.test_files.insert(id, TestFile { id, name, tags, vars, skip, lifecycle, tests });
+        id
+    }
+
     /// `text` parsed as a template; its step roots must be among [`WORDS`].
     pub fn template(&self, text: &str) -> Template {
         let source = ScalarSource { span: span(), style: ScalarStyle::Plain };
@@ -255,7 +283,7 @@ pub fn literal(text: &str) -> Template {
     Template { parts: vec![Part::Literal(text.to_owned())] }
 }
 
-fn span() -> SourceSpan {
+pub fn span() -> SourceSpan {
     SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0))
 }
 

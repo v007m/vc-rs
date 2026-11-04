@@ -44,7 +44,7 @@ pub use defs::{
 pub use error::ModelError;
 pub use event::{Event, Feed, Sequenced};
 pub use exchange::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
-pub use expect::{Check, CheckKind, Expect, Matcher, MatcherArg, MatcherCall, Origin};
+pub use expect::{Check, CheckKind, CheckResult, Expect, Matcher, MatcherArg, MatcherCall, Origin};
 pub use files::SourceFiles;
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
 pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};

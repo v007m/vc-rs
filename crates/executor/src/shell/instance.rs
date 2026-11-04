@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
 
+use tokio::time::Instant;
 use vc_model::{ActionId, Event, OwnerKey, TestResult, TestStatus};
 
 use super::crew::{Crew, Job};
@@ -21,7 +22,8 @@ pub async fn instance(crew: Crew, ticket: Ticket) -> TestStatus {
     let _permit = Arc::clone(&crew.limit).acquire_owned().await.ok();
     let script = crew.scripts.get(&ticket.launch.instance.test).cloned().unwrap_or_default();
     let frame = Frame { instance: Some(Arc::new(ticket.launch.instance.clone())), ..ticket.frame.clone() };
-    let mut shell = InstanceShell { crew, ticket, frame };
+    let mut shell = InstanceShell { crew, ticket, frame, deadline: None };
+    shell.start_attempt();
     let mut workflow = InstanceWorkflow::new(script);
     let mut inputs = VecDeque::from([shell.first_input()]);
     while let Some(input) = inputs.pop_front() {
@@ -41,9 +43,17 @@ struct InstanceShell {
     ticket: Ticket,
     /// What the instance's actions have left so far.
     frame: Frame,
+    /// When the current attempt must be done by, from the test's `timeout`.
+    deadline: Option<Instant>,
 }
 
 impl InstanceShell {
+    /// Starts the attempt's clock: each attempt gets the test's whole `timeout`.
+    fn start_attempt(&mut self) {
+        let test = self.crew.cx.program.tests.get(&self.ticket.launch.instance.test);
+        self.deadline = test.and_then(|test| test.timeout).map(|timeout| Instant::now() + timeout.get());
+    }
+
     fn first_input(&self) -> InstanceInput {
         match &self.ticket.launch.block {
             Some(failure) => InstanceInput::Block(failure.clone()),
@@ -57,7 +67,7 @@ impl InstanceShell {
     }
 
     fn job(&self, action: ActionId) -> Job {
-        Job { action, owner: self.owner(), frame: self.frame.clone() }
+        Job { action, owner: self.owner(), frame: self.frame.clone(), deadline: self.deadline }
     }
 
     async fn carry_out(
@@ -72,7 +82,9 @@ impl InstanceShell {
             }
             InstanceCommand::Wait(delay) => {
                 self.frame.restart();
-                inputs.push_back(self.wait(delay).await);
+                let due = self.wait(delay).await;
+                self.start_attempt();
+                inputs.push_back(due);
             }
             InstanceCommand::Abandon(cleanups) => {
                 self.crew.bus.publish(Event::CleanupsAbandoned { owner: self.owner(), cleanups });

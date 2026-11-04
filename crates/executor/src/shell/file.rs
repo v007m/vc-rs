@@ -52,7 +52,7 @@ struct FileShell {
 
 impl FileShell {
     fn job(&self, action: ActionId) -> Job {
-        Job { action, owner: self.owner, frame: self.frame.clone() }
+        Job { action, owner: self.owner, frame: self.frame.clone(), deadline: None }
     }
 
     fn carry_out(&mut self, command: FileCommand) -> Option<Totals> {

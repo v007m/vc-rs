@@ -19,7 +19,7 @@ use vc_model::Plan;
 use self::crew::Crew;
 use self::run::{RunFrame, run};
 use crate::cancel::CancelTree;
-use crate::{ActionCx, EventBus, ExecutorError, RunInput, RunSummary};
+use crate::{ActionCx, EventBus, ExecutorError, RedactingSink, RunInput, RunSummary};
 
 /// How a run is carried out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,7 +73,7 @@ impl Executor {
         let concurrency = self.options.concurrency.max(1);
         let crew = Crew {
             cx: Arc::clone(&self.cx),
-            bus,
+            bus: RedactingSink::new(bus, Arc::clone(&self.cx.redactor)),
             scripts: Arc::new(scripts),
             limit: Arc::new(Semaphore::new(concurrency)),
             window: concurrency,

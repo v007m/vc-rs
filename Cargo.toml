@@ -44,6 +44,7 @@ vc-adapter-http = { path = "crates/adapters/http" }
 vc-adapter-reporters = { path = "crates/adapters/reporters" }
 vc-mock-server = { path = "bench/mock" }
 anyhow = "1.0.104"
+arc-swap = "1.7.1"
 assert_cmd = "2.2.2"
 async-trait = "0.1.92"
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "matched-path", "query", "tokio"] }
@@ -77,6 +78,7 @@ rustls-native-certs = "0.8.5"
 saphyr-parser = "0.3.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
+similar = "2.7.0"
 smallvec = "1.16.4"
 strsim = "0.11.1"
 syn = { version = "3.0.9", features = ["full", "visit"] }

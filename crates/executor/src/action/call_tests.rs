@@ -1,16 +1,23 @@
 use std::sync::Arc;
+use std::time::Duration as StdDuration;
 
 use bytes::Bytes;
-use http::header::CONTENT_TYPE;
+use http::header::{AUTHORIZATION, CONTENT_TYPE};
 use http::{HeaderMap, HeaderValue, StatusCode};
 use indexmap::IndexMap;
 use serde_json::{Value, json};
+use tokio::time::Instant;
 use vc_diagnostics::Code;
-use vc_model::{ActionId, ActionKind, BodySpec, HttpResponse, Method, OwnerKey, Path, Segment, TemplateValue};
+use vc_model::{
+    ActionId, ActionKind, BodySpec, Check, CheckKind, Expect, HttpResponse, Matcher, Method, Origin, OwnerKey, Path,
+    Poll, Segment, StatusPattern, TemplateValue,
+};
 use vc_testkit::{FakeTransport, Recorded, RecordingTransport, status};
 
-use crate::fixture::{Fixture, literal};
-use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts, Saved};
+use crate::fixture::{Fixture, Server, literal, span};
+use crate::{
+    ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, MASKED, PendingCleanup, PipelineParts, Saved,
+};
 
 fn json_response(code: u16, body: &Value) -> HttpResponse {
     let body = Bytes::from(body.to_string());
@@ -26,11 +33,21 @@ async fn send(
     frame: Frame,
     answers: Vec<HttpResponse>,
 ) -> (ActionReport, Vec<Recorded>) {
+    send_as(fixture, (action, OwnerKey::Run), frame, answers).await
+}
+
+/// As [`send`], with `action` owned by `owner`.
+async fn send_as(
+    fixture: Fixture,
+    (action, owner): (ActionId, OwnerKey),
+    frame: Frame,
+    answers: Vec<HttpResponse>,
+) -> (ActionReport, Vec<Recorded>) {
     let fake = FakeTransport::scripted(answers.into_iter().map(Ok).collect());
     let (transport, recordings) = RecordingTransport::new(Arc::new(fake));
     let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(transport), HostLimits::spawn(8)));
     let cx = fixture.cx(executors);
-    let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame };
+    let request = ActionRequest { action, owner, cx: Arc::clone(&cx), frame };
     let report = cx.executors.execute(request).await;
     (report, recordings.take())
 }
@@ -218,4 +235,128 @@ async fn a_reuse_runs_its_steps_with_their_saves_step_ids_and_its_callers_vars()
     assert_eq!(sent.get(1).map(|recorded| recorded.request.uri.path()), Some("/users/7/7/eu/n"));
     assert_eq!(report.saved, saved(json!({ "userId": 7 })));
     assert_eq!(report.response.map(|response| response["body"].clone()), Some(json!({ "ok": true })));
+}
+
+#[tokio::test]
+async fn a_reused_test_s_steps_read_its_own_file_vars_not_the_caller_s() {
+    let mut fixture = Fixture::new();
+    let get = fixture.call("/users");
+    fixture.api_mut(get).path = fixture.template("/users/${var.region}");
+    let reused = fixture.test(vec![get], None);
+    let other = fixture.test_file("orders.flow");
+    fixture.test_mut(reused).file = other;
+    let (theirs, ours) = (fixture.vars(&[("region", "reused")]), fixture.vars(&[("region", "caller")]));
+    fixture.program.test_files.get_mut(&other).unwrap().vars.values = theirs;
+    let file = fixture.file;
+    fixture.program.test_files.get_mut(&file).unwrap().vars.values = ours;
+    let reuse = fixture.action(ActionKind::Test(reused));
+    let answers = vec![json_response(200, &json!({}))];
+    let (report, sent) = send_as(fixture, (reuse, OwnerKey::File(file)), Frame::default(), answers).await;
+    assert_eq!(report.outcome.failure(), None);
+    assert_eq!(sent.first().map(|recorded| recorded.request.uri.path()), Some("/users/reused"));
+}
+
+/// A check of `kind` on `target` written on `action`.
+fn expecting(kind: CheckKind, target: Option<&str>, matcher: Matcher) -> impl Fn(ActionId) -> Check {
+    let target = target.map(|key| Path { segments: vec![Segment::Key(key.to_owned())] });
+    move |action| Check {
+        kind,
+        target: target.clone(),
+        matcher: matcher.clone(),
+        origin: Origin::Action(action),
+        span: span(),
+    }
+}
+
+#[tokio::test]
+async fn the_api_s_default_status_check_is_2xx_unless_the_action_checks_the_status() {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/users");
+    let ActionKind::Call(api) = fixture.action_mut(call).kind else { unreachable!("a call") };
+    let (report, _) = send(fixture, call, Frame::default(), vec![status(500)]).await;
+    assert_eq!(code(&report), Some(Code::V5101.to_string()));
+    let check = &report.checks[0];
+    assert_eq!(
+        (check.kind, check.origin, check.passed, check.actual.clone()),
+        (CheckKind::Status, Origin::Api(api), false, Some(json!(500)))
+    );
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/users");
+    let status_500 = expecting(CheckKind::Status, None, Matcher::Status(vec![StatusPattern::Code(500)]));
+    fixture.action_mut(call).expect.checks = vec![status_500(call)];
+    fixture.action_mut(call).save.values = fixture.vars(&[("code", "${response.status}")]);
+    let (report, _) = send(fixture, call, Frame::default(), vec![status(500)]).await;
+    assert_eq!((report.outcome.failure(), report.checks.len()), (None, 1));
+    assert_eq!(report.saved, saved(json!({ "code": 500 })));
+}
+
+#[tokio::test]
+async fn a_failed_check_fails_the_call_skips_its_saves_and_keeps_its_cleanup() {
+    let (mut fixture, create, delete) = creating(&[]);
+    let body = TemplateValue::Map([("id".to_owned(), TemplateValue::Number(8.into()))].into());
+    fixture.action_mut(create).expect.checks = vec![expecting(CheckKind::Equals, None, Matcher::Equals(body))(create)];
+    fixture.action_mut(create).save.values = fixture.vars(&[("userId", "${response.body.id}")]);
+    let (report, _) = send(fixture, create, Frame::default(), vec![json_response(201, &json!({ "id": 7 }))]).await;
+    let failure = report.outcome.failure().cloned().unwrap_or_else(|| unreachable!("the body differs"));
+    assert_eq!((failure.code, failure.action), (Some(Code::V5101.to_string()), Some(create)));
+    assert!(failure.message.contains("+  \"id\": 7"), "{}", failure.message);
+    assert_eq!((report.saved, report.cleanups), (Saved::new(), vec![PendingCleanup::new(delete)]));
+    assert_eq!(report.checks.iter().map(|check| check.passed).collect::<Vec<_>>(), [true, false]);
+}
+
+#[tokio::test]
+async fn a_masked_header_never_shows_in_a_check_or_a_failure() {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/users");
+    fixture.program.config.redact_headers = vec!["X-Session".to_owned()];
+    let header =
+        |name| expecting(CheckKind::Header, Some(name), Matcher::Equals(TemplateValue::String(literal("x"))))(call);
+    fixture.action_mut(call).expect.checks = vec![header("authorization"), header("x-session")];
+    let mut response = status(200);
+    response.headers.insert(AUTHORIZATION, HeaderValue::from_static("Bearer s3cret"));
+    response.headers.insert("x-session", HeaderValue::from_static("s3ssion"));
+    let (report, _) = send(fixture, call, Frame::default(), vec![response]).await;
+    let failure = report.outcome.failure().map(|failure| failure.message.clone()).unwrap_or_default();
+    assert!(failure.contains(MASKED) && !failure.contains("s3cret"), "{failure}");
+    let shown = format!("{:?}", report.checks);
+    assert!(!shown.contains("s3cret") && !shown.contains("s3ssion"), "{shown}");
+}
+
+#[tokio::test(start_paused = true)]
+async fn poll_sends_until_its_checks_hold_or_its_timeout_passes() {
+    let polling = || {
+        let mut fixture = Fixture::new();
+        let call = fixture.call("/jobs");
+        let ok = expecting(CheckKind::Status, None, Matcher::Status(vec![StatusPattern::Code(200)]));
+        let secs = |secs| vc_model::Duration::new(StdDuration::from_secs(secs));
+        let until = Expect { checks: vec![ok(call)], replace: false };
+        fixture.action_mut(call).poll = Some(Poll { until, every: secs(1), timeout: secs(3) });
+        (fixture, call)
+    };
+    let (fixture, call) = polling();
+    let (report, sent) = send(fixture, call, Frame::default(), vec![status(503), status(202), status(200)]).await;
+    assert_eq!((report.outcome.failure(), sent.len()), (None, 3));
+    let (fixture, call) = polling();
+    let (report, sent) = send(fixture, call, Frame::default(), vec![status(503)]).await;
+    let failure = report.outcome.failure().cloned().unwrap_or_else(|| unreachable!("never 200"));
+    assert_eq!((failure.code, sent.len()), (Some(Code::V5104.to_string()), 4));
+    assert!(failure.message.starts_with("`poll.until` did not hold within 3s: status"), "{}", failure.message);
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_request_timeout_is_the_api_s_else_the_config_default() {
+    for (api, config, waited) in [(Some(1), Some(2), 1), (None, Some(2), 2)] {
+        let mut fixture = Fixture::new();
+        let call = fixture.call("/slow");
+        let secs = |secs: Option<u64>| secs.map(|secs| vc_model::Duration::new(StdDuration::from_secs(secs)));
+        (fixture.api_mut(call).timeout, fixture.program.config.defaults.timeout) = (secs(api), secs(config));
+        let (server, _) = Server::new();
+        let executors = ActionExecutors::standard(PipelineParts::new(server, HostLimits::spawn(8)));
+        let cx = fixture.cx(executors);
+        let start = Instant::now();
+        let request =
+            ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
+        let report = cx.executors.execute(request).await;
+        assert_eq!((code(&report), start.elapsed()), (Some(Code::V5104.to_string()), StdDuration::from_secs(waited)));
+    }
 }

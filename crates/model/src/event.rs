@@ -1,9 +1,8 @@
-use crate::{ActionId, ActionOutcome, CleanupRecord, FileId, OwnerKey, RunStatus, TestResult, Totals};
+use crate::{ActionId, ActionOutcome, CheckResult, CleanupRecord, FileId, OwnerKey, RunStatus, TestResult, Totals};
 
 /// Everything observable about a run, in the order it happened (D103).
 ///
-/// Exchanges and check results are added with the redactor and the checks; until then no
-/// request or response data leaves the executor.
+/// Check results leave the executor through its redactor; exchanges are added later.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
     /// The run started.
@@ -40,6 +39,15 @@ pub enum Event {
         owner: OwnerKey,
         /// How it ended.
         outcome: ActionOutcome,
+    },
+    /// A call's check was evaluated; the redactor has masked it.
+    CheckEvaluated {
+        /// The call.
+        action: ActionId,
+        /// The frame it ran in.
+        owner: OwnerKey,
+        /// The check and how it went.
+        check: Box<CheckResult>,
     },
     /// A cleanup ran.
     CleanupFinished {

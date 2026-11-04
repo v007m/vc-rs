@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use vc_model::{Action, ActionId, ActionKind, ActionOutcome, Failure, Program, TestBody};
+use vc_model::{Action, ActionId, ActionKind, ActionOutcome, Failure, Program, Test, TestBody};
 
 use super::{ActionExecutor, ActionRequest};
 use crate::{ActionReport, Defined};
@@ -15,12 +15,14 @@ pub struct TestExecutor;
 #[async_trait]
 impl ActionExecutor for TestExecutor {
     async fn execute(&self, request: ActionRequest) -> ActionReport {
-        let Some(steps) = request.cx.action(request.action).and_then(|action| reused(&request.cx.program, action))
-        else {
+        let program = &request.cx.program;
+        let Some(test) = request.cx.action(request.action).and_then(|action| reused_test(program, action)) else {
             return ActionReport::failed(Failure::new("the action reuses no test in the program").at(request.action));
         };
+        let steps = body_actions(&test.body);
         let mut frame = request.frame.clone();
         frame.callers.extend(callers(&request));
+        frame.test_file = Some(test.file);
         let mut report = ActionReport::passed();
         for action in steps {
             let step = ActionRequest { action, frame: frame.clone(), ..request.clone() };
@@ -29,6 +31,7 @@ impl ActionExecutor for TestExecutor {
             report.cleanups.extend(step.cleanups);
             report.saved.extend(step.saved);
             report.fakes.extend(step.fakes);
+            report.checks.extend(step.checks);
             report.response = step.response.or(report.response);
             if let ActionOutcome::Failed(failure) = step.outcome {
                 report.outcome = ActionOutcome::Failed(failure);
@@ -56,8 +59,13 @@ fn callers(request: &ActionRequest) -> Vec<Arc<Defined>> {
 
 /// The actions of the test `action` reuses.
 fn reused(program: &Program, action: &Action) -> Option<Vec<ActionId>> {
+    reused_test(program, action).map(|test| body_actions(&test.body))
+}
+
+/// The test `action` reuses.
+fn reused_test<'p>(program: &'p Program, action: &Action) -> Option<&'p Test> {
     let ActionKind::Test(test) = &action.kind else { return None };
-    Some(body_actions(&program.tests.get(test)?.body))
+    program.tests.get(test)
 }
 
 /// A test's call or steps, in order.
