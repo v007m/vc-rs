@@ -2,8 +2,8 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use vc_adapter_system::{FsCompileCache, FsSources, SystemClock};
-use vc_interfaces::{Clock, CompileCacheStore, SourceProvider};
+use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, SystemClock};
+use vc_interfaces::{Clock, CompileCacheStore, Environment, SourceProvider, Transport, Vcs};
 
 use crate::EngineError;
 
@@ -14,13 +14,16 @@ pub struct EngineBuilder {
     sources: Option<Arc<dyn SourceProvider>>,
     compile_cache: Option<Arc<dyn CompileCacheStore>>,
     clock: Option<Arc<dyn Clock>>,
+    environment: Option<Arc<dyn Environment>>,
+    transport: Option<Arc<dyn Transport>>,
+    vcs: Option<Arc<dyn Vcs>>,
 }
 
 impl EngineBuilder {
     /// A builder for the project whose root is `root`.
     #[must_use]
     pub const fn new(root: PathBuf) -> Self {
-        Self { root, sources: None, compile_cache: None, clock: None }
+        Self { root, sources: None, compile_cache: None, clock: None, environment: None, transport: None, vcs: None }
     }
 
     /// A builder for the nearest project at or above `start`: the first folder holding a
@@ -56,6 +59,28 @@ impl EngineBuilder {
         self
     }
 
+    /// Reads `${env.X}` and the `VIB_*` settings from `environment` instead of the process
+    /// environment and the project's `.env` file.
+    #[must_use]
+    pub fn environment(mut self, environment: Arc<dyn Environment>) -> Self {
+        self.environment = Some(environment);
+        self
+    }
+
+    /// Sends requests through `transport` instead of HTTP.
+    #[must_use]
+    pub fn transport(mut self, transport: Arc<dyn Transport>) -> Self {
+        self.transport = Some(transport);
+        self
+    }
+
+    /// Asks `vcs` which files changed (`--changed`) instead of git.
+    #[must_use]
+    pub fn vcs(mut self, vcs: Arc<dyn Vcs>) -> Self {
+        self.vcs = Some(vcs);
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -70,7 +95,9 @@ impl EngineBuilder {
         };
         let compile_cache = self.compile_cache.unwrap_or_else(|| Arc::new(FsCompileCache::new(&self.root)));
         let clock = self.clock.unwrap_or_else(|| Arc::new(SystemClock));
-        Ok(Engine { root: self.root, sources, compile_cache, clock })
+        let vcs = self.vcs.unwrap_or_else(|| Arc::new(GitVcs::new(&self.root)));
+        let (environment, transport) = (self.environment, self.transport);
+        Ok(Engine { root: self.root, sources, compile_cache, clock, environment, transport, vcs })
     }
 }
 
@@ -86,6 +113,9 @@ pub struct Engine {
     pub(crate) sources: Arc<dyn SourceProvider>,
     pub(crate) compile_cache: Arc<dyn CompileCacheStore>,
     pub(crate) clock: Arc<dyn Clock>,
+    pub(crate) environment: Option<Arc<dyn Environment>>,
+    pub(crate) transport: Option<Arc<dyn Transport>>,
+    pub(crate) vcs: Arc<dyn Vcs>,
 }
 
 impl Engine {

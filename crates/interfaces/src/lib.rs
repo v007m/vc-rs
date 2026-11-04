@@ -10,7 +10,9 @@
 //!   timings; auth, retry, timeout and per-host limits are executor layers around it (D141).
 //! - [`Random`]: the seeded random source for the `random` and `shuffle` pipes and fake data.
 //! - [`Environment`]: the process environment for `${env.NAME}`.
-//! - [`Clock`]: today's date in UTC, for the lints that compare dates (an expired `skip`).
+//! - [`Clock`]: today's date in UTC, for the lints that compare dates (an expired `skip`), and
+//!   the time a run started.
+//! - [`ConfigSource`]: one config layer above the project's files: `.env`, `VIB_*`, `--set` (D129).
 //! - [`Reporter`]: turns the run's events into console output or a report file (D43).
 //!
 //! ```
@@ -26,6 +28,7 @@
 
 mod cache;
 mod clock;
+mod config;
 mod environment;
 mod filter;
 mod random;
@@ -36,6 +39,7 @@ mod vcs;
 
 pub use cache::{CompileCacheError, CompileCacheStore};
 pub use clock::Clock;
+pub use config::{ConfigEntry, ConfigSource, ConfigSourceError};
 pub use environment::Environment;
 pub use filter::SourceFilter;
 pub use random::Random;

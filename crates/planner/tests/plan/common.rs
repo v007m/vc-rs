@@ -99,17 +99,12 @@ tests:
     skip: {reason: own}
 ";
 
-/// Compiles `files`, every test standalone.
+/// Compiles `files`.
 pub fn compile_files(files: &[(&str, &str)]) -> Program {
     let files = files.iter().map(|(path, text)| source(path, text)).collect();
     let compiled = vc_compiler::compile(CompileInput { files, ..CompileInput::default() });
     let Some(program) = compiled.program else { panic!("{:?}", compiled.diagnostics) };
-    let mut program = Arc::unwrap_or_clone(program);
-    // The compiler reads a missing `standalone` as false (with m1-lint); remove when that lands.
-    for test in program.tests.values_mut() {
-        test.standalone = true;
-    }
-    program
+    Arc::unwrap_or_clone(program)
 }
 
 fn source(path: &str, text: &str) -> SourceFile {

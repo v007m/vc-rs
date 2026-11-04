@@ -99,6 +99,13 @@ impl RunHandle {
         self.inbox.send(RunInput::Interrupt).ok();
     }
 
+    /// A handle that interrupts this run like [`RunHandle::interrupt`], kept after
+    /// [`RunHandle::finish`] takes the handle, for a Ctrl-C handler.
+    #[must_use]
+    pub fn interrupter(&self) -> RunInterrupter {
+        RunInterrupter { inbox: self.inbox.clone() }
+    }
+
     /// Waits for the run to finish.
     ///
     /// # Errors
@@ -106,6 +113,19 @@ impl RunHandle {
     /// [`ExecutorError::Stopped`] when the run task ended without a summary.
     pub async fn finish(self) -> Result<RunSummary, ExecutorError> {
         self.task.await.map_err(|_| ExecutorError::Stopped)
+    }
+}
+
+/// Interrupts a run from anywhere, such as a Ctrl-C handler: see [`RunHandle::interrupt`].
+#[derive(Clone, Debug)]
+pub struct RunInterrupter {
+    inbox: UnboundedSender<RunInput>,
+}
+
+impl RunInterrupter {
+    /// One Ctrl-C, as [`RunHandle::interrupt`]; nothing once the run has finished.
+    pub fn interrupt(&self) {
+        self.inbox.send(RunInput::Interrupt).ok();
     }
 }
 

@@ -309,9 +309,9 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | Command | Does |
 | --- | --- |
 | `vc check [--json] [paths...]` | Compiles and links everything; prints errors and warnings with file, line and column, then a summary (`1 error · 0 warnings · 3 files checked`); exits 2 on errors, 0 otherwise. With paths (files or folders, relative to the working folder), reports only on the files under them; the whole project is still compiled, so references into other files are checked. `--json` prints the diagnostics as JSON on stdout instead. With --fix, previews and applies the certain fixes. Run anywhere inside a project: it looks up from the working folder for `vibranium.config.yaml` |
-| `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions, with search and filters; `--json` for scripts and agents (D130) |
+| `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions: one line per item (full ID, name, tags, `(skipped)`), or `--json` (`id`, `name`, `path`, `tags`, `skipped`) for scripts and agents (D130). `tests` takes the selectors and flags of `vc run` and lists the skipped tests too; `--skipped` lists only those. `apis` and `files` always list everything |
 | `vc explain <id>` | Shows one api or test fully resolved for the active profile: final URL, vars and where each came from, auth, merged `expect`, the lifecycle actions it triggers and the cleanups it registers |
-| `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request; `--json` for scripts and agents (D130) |
+| `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request: the plan line, then a tree of lifecycle blocks and test instances. Takes the selectors, `--profile`, `--set` and `--repeat` of `vc run`; `--json` for scripts and agents (D130), `--dot` for a Graphviz graph |
 | `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …) with a wrong and a right example |
 
 **Run**
@@ -351,6 +351,12 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc completion bash\|zsh\|fish\|powershell` | Prints shell completion, including test and api IDs |
 | `vc schema export [--out <dir>]` | Writes the JSON Schema of each file kind (config, api, test, load) for editors: one JSON object keyed by kind on stdout, or one `<kind>.schema.json` per kind in `<dir>`. Needs no project |
 
+## Global flags
+
+| Flag | Does |
+| --- | --- |
+| `--project <dir>` | Works on the project in `<dir>`, or in the nearest folder above it with a `vibranium.config.yaml`, instead of the one around the working folder. Relative paths, path selectors and `vc schema export --out` then start at the project root. Goes before or after the command (`vc --project api-tests run`, `vc run --project api-tests`). A missing folder, or one with no config above it, exits 2 with a hint. It has no short form and no environment variable |
+
 ## Selecting what to run
 
 `vc run` with no arguments runs every test. Arguments and flags narrow it down, and they combine: positional selectors are joined with "or", flags filter the result with "and".
@@ -363,15 +369,17 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | a file ID | every test in one file | `vc run users.crud` |
 | a glob over IDs | matching tests | `vc run 'users.*' 'orders.checkout#places*'` |
 | a path | every test file under a folder, or one file | `vc run services/orders/` |
-| `-t`, `--tag` | tests with a tag; `!` excludes, `,` means or | `vc run -t smoke,checkout -t '!slow'` |
+| `-t`, `--tag` | tests with a tag; `!` excludes, `,` means or. A test's tags are its file's tags plus its own | `vc run -t smoke,checkout -t '!slow'` |
 | `-g`, `--grep` | tests whose ID or name contains text | `vc run -g export` |
-| `--changed [ref]` | tests in files git reports as changed since a ref, plus tests that call apis in changed api files (D130) | `vc run --changed origin/main` |
+| `--changed [ref]` | tests in files git reports as changed since a ref, plus tests that call apis in changed api files (D130). With no ref, the working tree against `HEAD`: uncommitted and untracked files. A changed `vibranium.config.yaml` or `.env.schema` selects every test (D179) | `vc run --changed origin/main` |
 | `--failed` | the tests that failed or were blocked in the last run | `vc run --failed` |
 | `--include-skipped` | also runs tests marked `skip` | `vc run users.crud --include-skipped` |
 
 A full ID joins the file ID and the item ID with `#` (`users.crud#getsCreatedUser`); a bare dotted word is always a file ID (D138). A `#` inside a word is not a comment in bash, zsh, fish or PowerShell, so selectors work unquoted; quote them only under zsh's `extendedglob` option. Web UI URLs percent-encode it (`%23`).
 
-Useful run flags: `--profile staging,eu` (profiles, later wins), `--bail` (stop at the first failure), `--repeat 20` (repeat every selected test, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data), `--set key=value` (override one config value for this run, D129), `--no-cache` (ignore cached lifecycle data), `--reporter spec|dots|json` (console format), `--report html,junit` (files to write).
+Useful run flags: `--profile staging,eu` (profiles, as a comma list or repeated; later wins), `--bail` (start no more tests after the first failure), `--repeat 20` (run every selected test this many times instead of its own `repeat`, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data; a failing run prints the seed it used), `--set key=value` (override one config value for this run, D129), `--no-cache` (ignore cached lifecycle data), `--reporter spec|json` (console format; `dots` comes later), `--report ctrf,junit` (files to write, as a comma list or repeated, over the config's `reports.formats`; `ctrf` when neither names any; `html` comes later), `--out <dir>` (where the report files go, over the config's `reports.dir`). `plan`, `run` and `list` exit 2 when they refuse to start: errors in the definitions, an empty selection, or an unknown flag value.
+
+`--set` takes `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats` and `vars.<name>`; any other key exits 2 and lists these.
 
 Selecting a few tests never runs other files' setup. Running one checkout test runs the config's `beforeRun` (it runs for any run that selects a test), its own file's `beforeAll` and its `beforeEach`; other files' `beforeAll` blocks don't run. `beforeRun` and `beforeAll` finish before any selected test starts (D122). `vc plan` prints this before you run, and the first line of `vc run` output repeats it:
 

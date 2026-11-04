@@ -1,9 +1,10 @@
 //! Engine facade and composition root: the only crate apps import.
 //!
 //! [`EngineBuilder`] is the one place that names the concrete adapters; apps get an
-//! [`Engine`] and call it. So far the engine checks a project ([`Engine::check`]) and exports
-//! the editor schemas ([`Engine::schema_export`]). The model and diagnostics types apps need
-//! are re-exported here (D108).
+//! [`Engine`] and call it. So far the engine checks a project ([`Engine::check`]), plans and
+//! runs its tests ([`Engine::plan`], [`Engine::run`]), lists its definitions
+//! ([`Engine::list`]) and exports the editor schemas ([`Engine::schema_export`]). The model and
+//! diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
 //! use vc_engine::Engine;
@@ -15,13 +16,29 @@
 mod builder;
 mod check;
 mod error;
+mod interrupt;
+mod list;
+mod plan;
+mod ports;
 mod problems;
+mod project;
+mod reporting;
+mod request;
+mod run;
+#[cfg(test)]
+mod sample;
 mod schema;
 mod selection;
+mod settings;
 
 pub use builder::{Engine, EngineBuilder};
 pub use check::{CheckReport, CheckRequest};
 pub use error::EngineError;
+pub use interrupt::{Interrupter, Interrupts, interrupts};
+pub use list::{ListReport, Listed};
+pub use plan::PlanReport;
+pub use request::{ListKind, ListRequest, PlanRequest, RunRequest, SelectRequest};
+pub use run::RunReport;
 pub use schema::SchemaFile;
 pub use vc_diagnostics::{Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
 pub use vc_model::{FileKind, SourceFiles};

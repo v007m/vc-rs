@@ -3,7 +3,7 @@
 use indexmap::IndexMap;
 use vc_model::{
     Api, ApiGroup, ApiId, Config, Defaults, FileId, HttpRetry, Lifecycle, Origin, Owner, Profile, ProfileId,
-    RequestHooks, SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
+    RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
 };
 use vc_parser::Node;
 
@@ -45,9 +45,9 @@ impl<'a> Build<'_, 'a> {
                 vars,
             });
         }
-        let before_all = self.block(source, (project::list(root, "beforeRun"), Owner::Run))?;
-        let after_all = self.block(source, (project::list(root, "afterRun"), Owner::Run))?;
-        self.builder.run_blocks(Lifecycle { before_all, after_all, ..Lifecycle::default() });
+        let before_run = self.block(source, (project::list(root, "beforeRun"), Owner::Run))?;
+        let after_run = self.block(source, (project::list(root, "afterRun"), Owner::Run))?;
+        self.builder.run_blocks(RunBlocks { before_run, after_run });
         Ok(())
     }
 

@@ -55,6 +55,21 @@ fn profiles_layer_over_the_config_in_order() {
 }
 
 #[test]
+fn vars_set_from_outside_win_over_the_config_and_its_profiles() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let prod = ProfileId::new(fixture.sym("prod"));
+    fixture.program.config.vars.values = fixture.vars(&[("region", "eu"), ("page", "free")]);
+    let vars = fixture.vars(&[("region", "us")]);
+    fixture.program.profiles.insert(prod, Profile { id: prod, name: None, default: true, vars });
+    let probe = TemplateValue::List(vec![fixture.value("${var.region}"), fixture.value("${var.page}")]);
+    let set = std::iter::once(("region".to_owned(), TemplateValue::String(fixture::literal("ap")))).collect();
+    let inputs = fixture::inputs(&[]).with_vars(set);
+    let cx = Arc::new(ActionCx::new(Arc::new(fixture.program), Arc::new(ActionExecutors::new()), inputs));
+    assert_eq!(run_level(&cx, action, &probe), Ok(json!(["ap", "free"])));
+}
+
+#[test]
 fn a_var_defined_from_itself_reads_the_next_level_out() {
     let mut fixture = Fixture::new();
     let action = fixture.call("/users");

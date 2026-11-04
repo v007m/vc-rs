@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use crate::{
-    Action, ActionId, Api, ApiGroup, Config, Lifecycle, ModelError, Profile, Program, SourceFiles, StringTable, Sym,
+    Action, ActionId, Api, ApiGroup, Config, ModelError, Profile, Program, RunBlocks, SourceFiles, StringTable, Sym,
     Test, TestFile,
 };
 
@@ -79,7 +79,7 @@ impl ProgramBuilder {
     }
 
     /// Sets the config's `beforeRun` and `afterRun` actions.
-    pub fn run_blocks(&mut self, blocks: Lifecycle) {
+    pub fn run_blocks(&mut self, blocks: RunBlocks) {
         self.program.run_blocks = blocks;
     }
 

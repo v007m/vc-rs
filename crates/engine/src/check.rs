@@ -1,9 +1,6 @@
-use vc_compiler::{CompileCache, CompileInput, SourceGlobs};
 use vc_diagnostics::{Diagnostics, Summary};
-use vc_interfaces::{Discovery, SourceFilter};
 use vc_model::SourceFiles;
 
-use crate::problems;
 use crate::selection::Selection;
 use crate::{Engine, EngineError};
 
@@ -63,65 +60,13 @@ impl Engine {
     /// parse;
     /// [`EngineError::NoFilesMatch`] when a requested path selects no definition file.
     pub fn check(&self, request: &CheckRequest) -> Result<CheckReport, EngineError> {
-        let found = self.discover()?;
-        let mut notices = Vec::new();
-        let previous = self.previous_cache(&mut notices);
-        let input = CompileInput {
-            files: found.files,
-            previous: previous.clone(),
-            today: Some(self.clock.today()),
-            assets: Some(found.assets.into_iter().collect()),
-        };
-        let compiled = vc_compiler::compile(input);
-        self.save_cache(&compiled.cache, &previous, &mut notices);
-        let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
-        problems::add_problems(&found.problems, &mut diagnostics, &mut files);
+        let compiled = self.compiled()?;
+        let (diagnostics, files) = (compiled.diagnostics, compiled.files);
         let selection = Selection::new(&request.paths, &files)?;
         let mut diagnostics = selection.keep(diagnostics, &files);
         diagnostics.sort();
-        Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices })
+        Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices: compiled.notices })
     }
-
-    /// The project's files, found with the config's `paths` globs: discovery runs again with
-    /// them only when the config writes some.
-    fn discover(&self) -> Result<Discovery, EngineError> {
-        let found = self.walk(&SourceFilter::default())?;
-        let globs = SourceGlobs::of(&found.files);
-        if globs.is_default() {
-            return Ok(found);
-        }
-        let filter = SourceFilter::written(&globs.include, globs.exclude.as_deref()).map_err(sources_error)?;
-        self.walk(&filter)
-    }
-
-    fn walk(&self, filter: &SourceFilter) -> Result<Discovery, EngineError> {
-        self.sources.discover(filter).map_err(sources_error)
-    }
-
-    /// Saves `cache` unless it remembers the same files as `previous`, which the store holds.
-    fn save_cache(&self, cache: &CompileCache, previous: &CompileCache, notices: &mut Vec<String>) {
-        if cache == previous {
-            return;
-        }
-        if let Err(error) = self.compile_cache.save(&cache.to_bytes()) {
-            notices.push(format!("the compile cache was not saved: {error}"));
-        }
-    }
-
-    fn previous_cache(&self, notices: &mut Vec<String>) -> CompileCache {
-        match self.compile_cache.load() {
-            Ok(Some(bytes)) => CompileCache::from_bytes(&bytes),
-            Ok(None) => CompileCache::new(),
-            Err(error) => {
-                notices.push(format!("the compile cache was not used: {error}"));
-                CompileCache::new()
-            }
-        }
-    }
-}
-
-fn sources_error(error: impl std::fmt::Display) -> EngineError {
-    EngineError::Sources { reason: error.to_string() }
 }
 
 #[cfg(test)]

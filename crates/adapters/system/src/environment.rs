@@ -26,6 +26,16 @@ impl SystemEnvironment {
     pub fn from_vars(vars: impl IntoIterator<Item = (String, String)>) -> Self {
         Self { vars: vars.into_iter().collect() }
     }
+
+    /// This environment, with `fallback` filling the names it does not set: the project's
+    /// `.env` under the process environment.
+    #[must_use]
+    pub fn with_fallback(mut self, fallback: impl IntoIterator<Item = (String, String)>) -> Self {
+        for (name, value) in fallback {
+            self.vars.entry(name).or_insert(value);
+        }
+        self
+    }
 }
 
 impl Environment for SystemEnvironment {
@@ -58,5 +68,14 @@ mod tests {
             assert_eq!(captured.var(&name), std::env::var(&name).ok(), "{name}");
         }
         assert_eq!(captured.var("VC_SURELY_NOT_SET_9F2C"), None);
+    }
+
+    #[test]
+    fn a_fallback_fills_only_the_names_the_environment_does_not_set() {
+        let own = SystemEnvironment::from_vars([("TOKEN".to_owned(), "process".to_owned())]);
+        let fallback = [("TOKEN".to_owned(), "dotenv".to_owned()), ("BASE".to_owned(), "x".to_owned())];
+        let merged = own.with_fallback(fallback);
+        assert_eq!(merged.var("TOKEN").as_deref(), Some("process"));
+        assert_eq!(merged.var("BASE").as_deref(), Some("x"));
     }
 }

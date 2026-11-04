@@ -6,9 +6,10 @@ mod explain;
 mod json;
 mod tree;
 
+use std::collections::HashSet;
 use std::fmt::Write as _;
 
-use vc_model::{ActionId, ActionKind, Instance, Plan, Program, Sym};
+use vc_model::{ActionId, ActionKind, Instance, Plan, PlannedFile, Program, Sym};
 
 pub use self::dot::dot;
 pub use self::explain::explain;
@@ -16,12 +17,13 @@ pub use self::json::json;
 pub use self::tree::tree;
 
 /// The one-line summary `vc run` prints first:
-/// `12 tests in 3 files · lifecycle: beforeRun admin · beforeAll catalog · beforeEach ×9`.
+/// `4 tests in 3 files · lifecycle: beforeRun admin · beforeAll catalog · beforeEach ×9 calls`.
 ///
-/// The engine appends what only it knows, such as cache hits.
+/// It counts tests, not instances: an example row or a repeat adds `beforeEach` calls, not tests.
+/// The engine appends what only it knows, such as the profiles and cache hits.
 #[must_use]
 pub fn plan_line(program: &Program, plan: &Plan) -> String {
-    let mut line = format!("{} in {}", count(plan.instance_count(), "test"), count(plan.files.len(), "file"));
+    let mut line = format!("{} in {}", count(test_count(plan), "test"), count(plan.files.len(), "file"));
     let lifecycle = lifecycle(program, plan);
     if !lifecycle.is_empty() {
         line.push_str(" · lifecycle: ");
@@ -48,16 +50,23 @@ fn lifecycle(program: &Program, plan: &Plan) -> Vec<String> {
     if !all.is_empty() {
         parts.push(format!("beforeAll {}", all.join(", ")));
     }
-    let each = plan.files.iter().filter(|file| has_before_each(program, file.id)).map(|file| file.instances.len());
-    let each: usize = each.sum();
+    let each: usize = plan.files.iter().map(|file| before_each_calls(program, file)).sum();
     if each > 0 {
-        parts.push(format!("beforeEach ×{each}"));
+        parts.push(format!("beforeEach ×{each} calls"));
     }
     parts
 }
 
-fn has_before_each(program: &Program, file: vc_model::FileId) -> bool {
-    program.test_files.get(&file).is_some_and(|file| !file.lifecycle.before_each.is_empty())
+/// Distinct tests in the plan; example rows and repeats of one test count once.
+fn test_count(plan: &Plan) -> usize {
+    let tests: HashSet<_> = plan.files.iter().flat_map(|file| &file.instances).map(|instance| instance.test).collect();
+    tests.len()
+}
+
+/// How many times the file's `beforeEach` actions run: once per action per instance.
+fn before_each_calls(program: &Program, file: &PlannedFile) -> usize {
+    let actions = program.test_files.get(&file.id).map_or(0, |test_file| test_file.lifecycle.before_each.len());
+    actions.saturating_mul(file.instances.len())
 }
 
 fn count(n: usize, noun: &str) -> String {

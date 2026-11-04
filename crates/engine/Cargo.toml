@@ -11,14 +11,21 @@ publish.workspace = true
 [dependencies]
 serde_json.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
+vc-adapter-http.workspace = true
+vc-adapter-reporters.workspace = true
 vc-adapter-system.workspace = true
 vc-compiler.workspace = true
 vc-diagnostics.workspace = true
+vc-executor.workspace = true
 vc-interfaces.workspace = true
 vc-model.workspace = true
+vc-planner.workspace = true
+vc-template.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
+vc-mock-server.workspace = true
 vc-testkit.workspace = true
 
 # gungraun needs valgrind, so its instruction-count bench only builds and runs on Linux (D120).
