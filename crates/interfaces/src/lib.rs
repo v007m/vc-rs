@@ -8,6 +8,8 @@
 //! - [`CompileCacheStore`]: keeps the compiler's cache between runs as one opaque blob.
 //! - [`Transport`]: sends one rendered request and returns the [`vc_model::Exchange`] with its
 //!   timings; auth, retry, timeout and per-host limits are executor layers around it (D141).
+//! - [`Random`]: the seeded random source for the `random` and `shuffle` pipes and fake data.
+//! - [`Environment`]: the process environment for `${env.NAME}`.
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -21,11 +23,15 @@
 //! ```
 
 mod cache;
+mod environment;
 mod filter;
+mod random;
 mod source;
 mod transport;
 
 pub use cache::{CompileCacheError, CompileCacheStore};
+pub use environment::Environment;
 pub use filter::SourceFilter;
+pub use random::Random;
 pub use source::{Discovery, SourceError, SourceProvider, content_hash, source_file};
 pub use transport::{SendContext, Transport, TransportError};
