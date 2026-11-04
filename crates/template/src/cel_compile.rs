@@ -9,6 +9,7 @@ use vc_model::{CelProgram, CelSource, Path, Reference, ScalarSource, StringTable
 use crate::cel_eval::{self, CelExpr};
 use crate::cel_lex::{self, VAR_ALIAS};
 use crate::cel_refs::{self, Problem, Root};
+use crate::cel_time;
 use crate::expr::Expr;
 use crate::parse;
 use crate::span_map::SpanMap;
@@ -39,10 +40,13 @@ pub struct CelCompiler {
 }
 
 impl CelCompiler {
-    /// A compiler with CEL's standard library, plus `sum()`.
+    /// A compiler with CEL's standard library, plus `sum()`, `timestamp()` and `duration()`.
     #[must_use]
     pub fn new() -> Self {
-        Self { env: Arc::new(Env::stdlib()) }
+        let mut env = Env::stdlib();
+        // Built without the `chrono` feature, the standard library declares no time functions.
+        drop(cel_time::register(&mut env));
+        Self { env: Arc::new(env) }
     }
 
     /// Checks that `source` parses and that every root it reads is available where it is written.
@@ -50,8 +54,8 @@ impl CelCompiler {
     ///
     /// # Errors
     ///
-    /// [`TemplateError::Syntax`] with V2305 when the expression does not parse or calls
-    /// `timestamp()` or `duration()`, which are not supported yet; V2306 for a literal regex
+    /// [`TemplateError::Syntax`] with V2305 when the expression does not parse or gives
+    /// `timestamp()` or `duration()` a literal that is not a timestamp or a duration; V2306 for a literal regex
     /// given to `matches()` that does not compile; V2105 or V2102 for a root not available
     /// here, as for templates, and V2105 for `secret`, `fake`, `dataset` and `run`, which CEL
     /// cannot read. [`TemplateError::Internal`] when `strings` is full.
@@ -133,10 +137,9 @@ fn reference(root: Root, map: &SpanMap<'_>, strings: &mut StringTable) -> Result
 
 fn reject(problem: Problem, map: &SpanMap<'_>) -> TemplateError {
     match problem {
-        Problem::Unsupported(name, range) => {
-            let message = format!("`{name}()` is not supported yet");
-            let help = "CEL in vc has no timestamp or duration functions yet; compare ISO-8601 strings instead";
-            syntax(Diagnostic::new(codes::TEMPLATE_SYNTAX, map.span(range), message).help(help))
+        Problem::BadTime(reason, range) => {
+            let help = "write a timestamp as RFC 3339 (`2024-05-01T12:30:00Z`) and a duration as `1h30m` or `1.5s`";
+            syntax(Diagnostic::new(codes::TEMPLATE_SYNTAX, map.span(range), reason).help(help))
         }
         Problem::BadRegex(reason, range) => {
             let message = format!("invalid regex in `matches()`: {reason}");

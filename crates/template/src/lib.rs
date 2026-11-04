@@ -30,6 +30,7 @@ mod cel_compile;
 mod cel_eval;
 mod cel_lex;
 mod cel_refs;
+mod cel_time;
 mod codes;
 mod error;
 mod expr;
@@ -43,6 +44,7 @@ mod render;
 mod roots;
 mod select;
 mod span_map;
+mod time;
 mod units;
 
 pub use cel_compile::CelCompiler;

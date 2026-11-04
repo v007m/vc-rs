@@ -8,13 +8,12 @@ use cel::common::ast::{
 use vc_model::Segment;
 
 use crate::cel_lex::VAR_ALIAS;
+use crate::{cel_time, time};
 
 /// Words CEL resolves itself: type names and the `optional` namespace.
 const BUILTINS: &[&str] =
     &["bool", "bytes", "double", "dyn", "int", "list", "map", "null_type", "optional", "string", "type", "uint"];
 
-/// Functions the interpreter is built without (the `chrono` feature fails `cargo deny`).
-const UNSUPPORTED: &[&str] = &["timestamp", "duration"];
 
 /// The function whose second argument (or first, called on a string) is a regex.
 const MATCHES: &str = "matches";
@@ -38,8 +37,8 @@ pub struct Root {
 /// A call `vc check` rejects.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Problem {
-    /// A standard function the interpreter does not have: its name.
-    Unsupported(String, Range<usize>),
+    /// A literal given to `timestamp()` or `duration()` that is not one, with the reason.
+    BadTime(String, Range<usize>),
     /// A literal pattern given to `matches()` that is not a valid regex, with the reason.
     BadRegex(String, Range<usize>),
 }
@@ -70,7 +69,7 @@ impl Walk<'_> {
         }
         match &expr.expr {
             Expr::Select(select) => self.expr(&select.operand),
-            Expr::Call(call) => self.call(expr, call),
+            Expr::Call(call) => self.call(call),
             Expr::Comprehension(comprehension) => self.comprehension(comprehension),
             Expr::List(list) => list.elements.iter().try_for_each(|element| self.expr(element)),
             Expr::Map(map) => self.entries(&map.entries),
@@ -79,14 +78,11 @@ impl Walk<'_> {
         }
     }
 
-    fn call(&mut self, expr: &IdedExpr, call: &CallExpr) -> Result<(), Problem> {
-        if UNSUPPORTED.contains(&call.func_name.as_str()) {
-            let open = self.start(expr);
-            let start = open.saturating_sub(call.func_name.len());
-            return Err(Problem::Unsupported(call.func_name.clone(), start..open));
-        }
-        if call.func_name == MATCHES {
-            self.regex(call)?;
+    fn call(&mut self, call: &CallExpr) -> Result<(), Problem> {
+        match call.func_name.as_str() {
+            MATCHES => self.regex(call)?,
+            cel_time::TIMESTAMP | cel_time::DURATION => self.time(call)?,
+            _ => {}
         }
         call.target.iter().map(AsRef::as_ref).chain(&call.args).try_for_each(|arg| self.expr(arg))
     }
@@ -100,6 +96,19 @@ impl Walk<'_> {
             let reason = error.to_string().lines().last().unwrap_or_default().trim().to_owned();
             Problem::BadRegex(reason, self.range(*id))
         })
+    }
+
+    /// Checks a literal given to `timestamp()` or `duration()`.
+    fn time(&self, call: &CallExpr) -> Result<(), Problem> {
+        let Some(IdedExpr { id, expr: Expr::Literal(LiteralValue::String(text)) }) = call.args.first() else {
+            return Ok(());
+        };
+        let checked = if call.func_name == cel_time::TIMESTAMP {
+            time::parse_timestamp(text.inner()).map(drop)
+        } else {
+            time::parse_duration(text.inner()).map(drop)
+        };
+        checked.map_err(|reason| Problem::BadTime(reason, self.range(*id)))
     }
 
     fn comprehension(&mut self, comprehension: &ComprehensionExpr) -> Result<(), Problem> {
@@ -131,10 +140,6 @@ impl Walk<'_> {
         let range = ident.start..self.end(expr).max(ident.end);
         let name = if name == VAR_ALIAS { "var" } else { name };
         self.roots.push(Root { name: name.to_owned(), path: chain.path, range, ident });
-    }
-
-    fn start(&self, expr: &IdedExpr) -> usize {
-        self.range(expr.id).start
     }
 
     /// The bytes of a token the parser recorded: an identifier or a literal.
