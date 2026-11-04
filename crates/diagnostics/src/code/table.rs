@@ -55,6 +55,7 @@ code_table! {
     V2305 = 2305, Error, "Template or CEL does not parse";
     V2306 = 2306, Error, "Matcher argument invalid";
     V2308 = 2308, Error, "Unknown pipe or wrong pipe arguments";
+    V2309 = 2309, Error, "fromRegExp pattern not supported";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";
@@ -83,4 +84,5 @@ code_table! {
     V5109 = 5109, Error, "A value declared in `provides` was not saved";
     V5110 = 5110, Error, "Command exited non-zero";
     V5111 = 5111, Error, "Template failed to render at run time";
+    V5112 = 5112, Error, "Dataset row missing a column";
 }

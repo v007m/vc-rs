@@ -11,8 +11,14 @@ pub type PipeFn = fn(&Value, &PipeArgs<'_>) -> Result<Value, String>;
 
 /// A source of random choices; seeded by `--seed` so a run can be repeated.
 pub trait Chance {
+    /// The next random number.
+    fn next_u64(&self) -> u64;
+
     /// A number from `0` up to, but not including, `bound`; `0` when `bound` is `0`.
-    fn below(&self, bound: usize) -> usize;
+    fn below(&self, bound: usize) -> usize {
+        let draw = self.next_u64().checked_rem(u64::try_from(bound).unwrap_or(u64::MAX));
+        draw.and_then(|draw| usize::try_from(draw).ok()).unwrap_or(0)
+    }
 }
 
 /// What a pipe gets besides the value: its literal arguments and the random source.
