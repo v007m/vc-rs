@@ -689,6 +689,8 @@ Any `call` or `test` action can run several times without being written several 
 | `forEach: <list>` | once per element of a literal list, a list-valued template (`${var.cities}`) or a `$file` with a CSV, JSON or YAML list | `${item}` is the element (`${item.name}` for a row), plus `iteration` |
 | `parallel: 5` | up to 5 iterations at a time | default `1`: one after another, in order |
 
+Write one of `repeat` and `forEach` on an action; when both are written, `forEach` is used.
+
 Every name saved inside a loop collects a list, one entry per iteration in iteration order, even when iterations run in parallel. `${var.cities[*].id}` reads one field from every entry. Each successful iteration registers its own cleanup. If an iteration fails, the action fails once the iterations in flight finish, and the cleanups of the ones that succeeded still run.
 
 `repeat` on a test is different: it runs the whole test that many times and reports each instance.

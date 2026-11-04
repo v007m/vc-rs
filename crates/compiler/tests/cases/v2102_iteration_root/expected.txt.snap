@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2102_iteration_root/project
+---
+error[V2102]: `iteration` is not available here
+ --> services/users/crud.test.yaml:8:26
+  |
+8 |         vars: {userId: 'u${iteration.index}'}
+  |                          ^^^^^^^^^^^^^^^^^^
+  = help: `iteration` is available only inside repeat, forEach or a repeated test

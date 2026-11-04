@@ -2,6 +2,7 @@
 //! registry.
 
 mod call;
+mod http_retry;
 mod looping;
 mod request;
 mod reuse;

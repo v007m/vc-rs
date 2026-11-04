@@ -161,6 +161,7 @@ fn list(group: FileId, id: ApiId) -> Api {
         save,
         hooks,
         timeout: None,
+        http_retry: None,
         cleanup: None,
         deprecated: false,
         span: span(),

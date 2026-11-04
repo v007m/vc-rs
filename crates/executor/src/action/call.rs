@@ -13,10 +13,11 @@ use vc_model::{
     Namespace, Origin, Poll, Program, StatusPattern,
 };
 
+use super::http_retry;
 use super::request;
 use super::{ActionExecutor, ActionRequest};
 use crate::check::{self, Judge, MatcherRegistry, Subject};
-use crate::{ActionReport, Call, PendingCleanup, PipelineParts, Render, Saved};
+use crate::{ActionReport, Call, PendingCleanup, Pipeline, PipelineParts, Render, Saved};
 
 /// The per-attempt limit when neither the api nor the config's `defaults` sets a `timeout`.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -42,7 +43,8 @@ impl std::fmt::Debug for CallExecutor {
 }
 
 impl CallExecutor {
-    /// An executor that sends through a pipeline built from `parts` and judges with the
+    /// An executor that sends through a pipeline built from `parts`, with the retry of each call
+    /// set by its api's or the config's `http.retry` (D143), and judges with the
     /// standard matchers.
     #[must_use]
     pub fn new(parts: PipelineParts) -> Self {
@@ -57,9 +59,11 @@ impl CallExecutor {
         let mut render = Render::new(request).map_err(request::failed)?;
         let timeout = timeout(render.program(), api);
         let call = Call { request: request::rendered(&render, api, action)?, timeout, ctx: SendContext::default() };
+        let retry = http_retry::policy(render.program(), api, &request.cx.values.inputs().random);
+        let pipeline = crate::pipeline(PipelineParts { retry, ..self.parts.clone() });
         let exchange = match &action.poll {
-            Some(poll) => self.poll(&mut render, call, poll).await?,
-            None => self.send(call).await?,
+            Some(poll) => self.poll(&mut render, (&pipeline, call), poll).await?,
+            None => send(&pipeline, call).await?,
         };
         let response = bind(&mut render, &exchange);
         let checks = self.judge(&render, &expected(action, api), subject(&response, &exchange));
@@ -76,10 +80,15 @@ impl CallExecutor {
 
     /// Sends `call` until `poll.until` holds, waiting `poll.every` between sends; the first
     /// exchange that holds is the call's.
-    async fn poll(&self, render: &mut Render<'_>, call: Call, poll: &Poll) -> Result<Exchange, Failure> {
+    async fn poll(
+        &self,
+        render: &mut Render<'_>,
+        (pipeline, call): (&Pipeline, Call),
+        poll: &Poll,
+    ) -> Result<Exchange, Failure> {
         let deadline = Instant::now() + poll.timeout.get();
         loop {
-            let exchange = self.send(call.clone()).await?;
+            let exchange = send(pipeline, call.clone()).await?;
             let response = bind(render, &exchange);
             let Some(failure) = check::verdict(&self.judge(render, &poll.until.checks, subject(&response, &exchange)))
             else {
@@ -99,15 +108,15 @@ impl CallExecutor {
         let results = check::evaluate(&Judge::new(&self.matchers, render), checks, subject);
         results.into_iter().map(|result| render.redactor().check(result)).collect()
     }
+}
 
-    /// Sends `call`; a transport error fails it.
-    async fn send(&self, call: Call) -> Result<Exchange, Failure> {
-        let delivery = match crate::pipeline(self.parts.clone()).oneshot(call).await {
-            Ok(delivery) => delivery,
-            Err(never) => match never {},
-        };
-        delivery.result.map_err(|error| Failure::new(error.to_string()).with_code(error.code().to_string()))
-    }
+/// Sends `call` through `pipeline`; a transport error fails it.
+async fn send(pipeline: &Pipeline, call: Call) -> Result<Exchange, Failure> {
+    let delivery = match pipeline.clone().oneshot(call).await {
+        Ok(delivery) => delivery,
+        Err(never) => match never {},
+    };
+    delivery.result.map_err(|error| Failure::new(error.to_string()).with_code(error.code().to_string()))
 }
 
 #[async_trait]

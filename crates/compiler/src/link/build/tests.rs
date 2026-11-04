@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use vc_model::{
-    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Duration, Examples, Method, Origin, Owner, Program,
-    Segment, SourceFile, SourcePath, Test, TestBody,
+    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Duration, Examples, Loop, Method, Origin, Owner,
+    Program, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test, TestBody,
 };
 
 use crate::CompileInput;
@@ -228,11 +228,13 @@ fn test_steps_take_the_tests_defaults_and_function_steps_take_none() {
 const ROWS: &str = "vars: {rows: [{page: 3}]}\ntests:\n  - id: listsEachPage\n    call: users#list\n    examples:\n      - {page: 1}\n      - {page: '${var.rows}'}\n  - id: listsFilePages\n    call: users#list\n    standalone: false\n    examples: {$file: data/pages.csv}\n  - id: listsVarPages\n    call: users#list\n    standalone: true\n    examples: ${var.rows}\n";
 
 fn rows() -> Arc<Program> {
-    let files = vec![
-        file("vibranium.config.yaml", CONFIG),
-        file("services/users/users.api.yaml", APIS),
-        file("services/users/rows.test.yaml", ROWS),
-    ];
+    with_tests("services/users/rows.test.yaml", ROWS)
+}
+
+/// The config and the users apis, with one test file.
+fn with_tests(path: &str, text: &str) -> Arc<Program> {
+    let files =
+        vec![file("vibranium.config.yaml", CONFIG), file("services/users/users.api.yaml", APIS), file(path, text)];
     let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
     assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
@@ -259,4 +261,57 @@ fn builds_examples_written_inline_from_a_file_or_from_a_template() {
     assert!(matches!(examples("users.rows#listsFilePages"), Some(Examples::File(_))));
     let Some(Examples::Template(template)) = examples("users.rows#listsVarPages") else { panic!("a template") };
     assert!(template.single_ref().is_some());
+}
+
+const LOOPS: &str = "beforeEach:\n  - call: users#create\n    forEach: [a, b]\n    parallel: 2\n    vars: {name: '${item}'}\ntests:\n  - id: listsTwice\n    call: users#list\n    repeat: 2\n  - id: createsMany\n    steps:\n      - call: users#create\n        repeat: 3\n        vars: {n: '${iteration.index}'}\n      - call: users#list\n";
+
+#[test]
+fn lowers_repeat_and_for_each_on_actions_but_not_a_tests_repeat() {
+    let program = with_tests("services/users/loops.test.yaml", LOOPS);
+    let file = program.test_files.values().next().unwrap();
+    let seed = action(&program, file.lifecycle.before_each[0]);
+    let Some(Loop::ForEach { items: TemplateValue::List(items), parallel: 2 }) = &seed.repeat else {
+        panic!("a forEach over a literal list, two at a time: {:?}", seed.repeat)
+    };
+    assert_eq!(items.len(), 2);
+    let twice = test(&program, "users.loops#listsTwice");
+    let TestBody::Call(call) = twice.body else { panic!("expected a call") };
+    assert_eq!((twice.repeat, &action(&program, call).repeat), (2, &None), "a test's repeat stays on the test");
+    let [many, list] = steps(&program, test(&program, "users.loops#createsMany"))[..] else { panic!("two steps") };
+    assert_eq!(many.repeat, Some(Loop::Repeat { times: 3, parallel: 1 }));
+    assert_eq!(list.repeat, None);
+}
+
+const RETRY_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nhttp:\n  retry:\n    attempts: 2\n    on: [connect, 503]\n    backoff: {base: 50ms, jitter: false}\n";
+
+const RETRY_APIS: &str = "apis:\n  - id: list\n    path: /users\n  - id: put\n    method: PUT\n    path: /users\n    http:\n      retry: {methods: [PUT, PATCH], backoff: {max: 1s}}\n";
+
+#[test]
+fn http_retry_takes_the_configs_keys_and_an_apis_keys_over_them() {
+    let files = vec![file("vibranium.config.yaml", RETRY_CONFIG), file("services/users/users.api.yaml", RETRY_APIS)];
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
+    let program = compiled.program.unwrap();
+    let retry = &program.config.http_retry;
+    assert_eq!(
+        (retry.attempts, &retry.on_status[..], &retry.on_transport[..]),
+        (2, &[StatusPattern::Code(503)][..], &["connect".to_owned()][..])
+    );
+    let millis = |ms| Duration::new(std::time::Duration::from_millis(ms));
+    assert_eq!((retry.base, retry.max, retry.jitter, retry.methods.len()), (millis(50), seconds(2), false, 5));
+    let api = |id: &str| program.apis.values().find(|api| name(&program, api.id.sym()) == id).unwrap();
+    assert_eq!(api("users#list").http_retry, None, "an api without `http` uses the config's");
+    let put = api("users#put").http_retry.clone().unwrap();
+    assert_eq!(
+        (put.attempts, &put.methods[..], put.base, put.max),
+        (2, &[Method::Put, Method::Patch][..], millis(50), seconds(1))
+    );
+    assert!(!put.jitter);
+}
+
+#[test]
+fn for_each_wins_over_repeat_when_both_are_written() {
+    let text = "tests:\n  - id: createsEach\n    steps:\n      - call: users#create\n        forEach: ['${var.baseUrl}']\n        repeat: 4\n";
+    let program = with_tests("services/users/both.test.yaml", text);
+    let [each] = steps(&program, test(&program, "users.both#createsEach"))[..] else { panic!("one step") };
+    assert!(matches!(each.repeat, Some(Loop::ForEach { parallel: 1, .. })), "{:?}", each.repeat);
 }

@@ -180,7 +180,8 @@ pub fn rendering(message: &str) -> Failure {
     Failure::new(message).with_code(Code::V5111.to_string())
 }
 
-const fn method(method: Method) -> http::Method {
+/// The `http` crate's name for `method`.
+pub const fn method(method: Method) -> http::Method {
     match method {
         Method::Get => http::Method::GET,
         Method::Post => http::Method::POST,

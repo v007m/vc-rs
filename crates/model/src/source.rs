@@ -147,6 +147,31 @@ impl FileKind {
     pub fn from_path(path: &SourcePath) -> Option<Self> {
         KIND_PATTERNS.iter().find(|(pattern, _)| path_matches(pattern, path)).map(|&(_, kind)| kind)
     }
+
+    /// The ID of a file of this kind at `path`: the root folder and kind suffix dropped, the rest
+    /// joined with dots, and an api file named like its folder collapsed (D139, D142).
+    #[must_use]
+    pub fn file_id(self, path: &str) -> String {
+        let path = ["services/", "load/"].iter().find_map(|root| path.strip_prefix(root)).unwrap_or(path);
+        let suffix = format!(".{}.yaml", self.name());
+        let path = path.strip_suffix(&suffix).unwrap_or(path);
+        let mut words: Vec<&str> = path.split('/').collect();
+        let collapses = self == Self::Api && words.len() > 1 && words[words.len() - 1] == words[words.len() - 2];
+        if collapses {
+            words.pop();
+        }
+        words.join(".")
+    }
+}
+
+impl SourcePath {
+    /// The ID of the file at this path, as `--changed` matches it; `None` for the config and for
+    /// a path of no kind.
+    #[must_use]
+    pub fn file_id(&self) -> Option<String> {
+        let kind = FileKind::from_path(self).filter(|kind| *kind != FileKind::Config)?;
+        Some(kind.file_id(self.as_str()))
+    }
 }
 
 fn path_matches(pattern: &str, path: &SourcePath) -> bool {
@@ -267,6 +292,19 @@ mod tests {
         for kind in FileKind::ALL {
             assert_eq!(serde_json::to_value(kind).unwrap(), kind.name());
         }
+    }
+
+    #[test]
+    fn a_path_names_the_file_id_of_its_kind() {
+        let id = |path: &str| SourcePath::new(path).unwrap().file_id();
+        assert_eq!(id("services/users/users.api.yaml").as_deref(), Some("users"));
+        assert_eq!(id("services/users/admin.api.yaml").as_deref(), Some("users.admin"));
+        assert_eq!(id("services/users/users.test.yaml").as_deref(), Some("users.users"));
+        assert_eq!(id("services/payments/refunds/partial.test.yaml").as_deref(), Some("payments.refunds.partial"));
+        assert_eq!(id("load/checkout.load.yaml").as_deref(), Some("checkout"));
+        assert_eq!(id("users.api.yaml").as_deref(), Some("users"));
+        assert_eq!(id("vibranium.config.yaml"), None);
+        assert_eq!(id("datasets/cities.csv"), None);
     }
 
     #[test]

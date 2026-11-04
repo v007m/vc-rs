@@ -1,6 +1,8 @@
 use indexmap::IndexMap;
 
-use crate::{Duration, FileId, Matcher, ProfileId, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs};
+use crate::{
+    Duration, FileId, Matcher, Method, ProfileId, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
+};
 
 /// `vibranium.config.yaml`: settings that are not tables of their own.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -46,8 +48,9 @@ pub struct Defaults {
     pub headers: IndexMap<String, Template>,
 }
 
-/// `http.retry`: retrying one request on a transport failure (D143); off by default.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// `http.retry`: retrying one request on a transport failure (D143); off by default, and the
+/// default of every other key is D143's.
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -60,13 +63,29 @@ pub struct HttpRetry {
     /// `connect` and `timeout` in `on`.
     pub on_transport: Vec<String>,
     /// Methods that are retried.
-    pub methods: Vec<crate::Method>,
+    pub methods: Vec<Method>,
     /// `backoff.base`.
     pub base: Duration,
     /// `backoff.max`.
     pub max: Duration,
     /// `backoff.jitter`.
     pub jitter: bool,
+}
+
+impl Default for HttpRetry {
+    /// `{ attempts: 0, on: [connect, timeout, 502, 503, 504], methods: [GET, HEAD, OPTIONS, PUT,
+    /// DELETE], backoff: { base: 100ms, max: 2s, jitter: true } }` (D143).
+    fn default() -> Self {
+        Self {
+            attempts: 0,
+            on_status: [502, 503, 504].map(StatusPattern::Code).to_vec(),
+            on_transport: vec!["connect".to_owned(), "timeout".to_owned()],
+            methods: vec![Method::Get, Method::Head, Method::Options, Method::Put, Method::Delete],
+            base: Duration::new(std::time::Duration::from_millis(100)),
+            max: Duration::new(std::time::Duration::from_secs(2)),
+            jitter: true,
+        }
+    }
 }
 
 /// One entry of `profiles`.
@@ -192,7 +211,12 @@ mod tests {
 
     #[test]
     fn http_retry_is_off_by_default() {
-        assert_eq!(HttpRetry::default().attempts, 0);
+        let retry = HttpRetry::default();
+        assert_eq!(
+            (retry.attempts, retry.on_status.len(), retry.on_transport.len(), retry.methods.len()),
+            (0, 3, 2, 5)
+        );
+        assert_eq!((retry.base.get().as_millis(), retry.max.get().as_millis(), retry.jitter), (100, 2000, true));
         assert_eq!(Config::default().syntax_version, 0);
     }
 }

@@ -3,6 +3,7 @@
 
 mod action;
 mod expect;
+mod http_retry;
 mod items;
 mod read;
 #[cfg(test)]
@@ -13,8 +14,8 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use vc_model::{
-    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, ModelError, Origin, Owner, ProfileId, Program, ProgramBuilder,
-    SourceFiles, Sym, TemplateValue, VarDefs, VarName,
+    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, HttpRetry, ModelError, Origin, Owner, ProfileId, Program,
+    ProgramBuilder, SourceFiles, Sym, TemplateValue, VarDefs, VarName,
 };
 use vc_parser::Node;
 
@@ -29,7 +30,7 @@ type Built<T> = Result<T, ModelError>;
 /// The program, or `None` when a table overflowed.
 pub fn program(project: &Project<'_>, files: SourceFiles) -> Option<Arc<Program>> {
     let builder = ProgramBuilder::new(project.strings.clone(), files);
-    let mut build = Build { project, builder, api_expects: HashMap::new() };
+    let mut build = Build { project, builder, api_expects: HashMap::new(), http_retry: HttpRetry::default() };
     build.all().ok()?;
     Some(build.builder.freeze())
 }
@@ -39,6 +40,8 @@ struct Build<'p, 'a> {
     builder: ProgramBuilder,
     /// Every api's own checks, by full ID, read before any call merges them.
     api_expects: HashMap<ApiId, Expect>,
+    /// The config's `http.retry`, which an api's keys replace (D143).
+    http_retry: HttpRetry,
 }
 
 impl<'a> Build<'_, 'a> {

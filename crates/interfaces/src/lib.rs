@@ -35,6 +35,7 @@ mod random;
 mod reporter;
 mod source;
 mod transport;
+mod vcs;
 
 pub use cache::{CompileCacheError, CompileCacheStore};
 pub use clock::Clock;
@@ -45,3 +46,4 @@ pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
 pub use source::{Discovery, SourceError, SourceProvider, content_hash, source_file};
 pub use transport::{SendContext, Transport, TransportError};
+pub use vcs::{Vcs, VcsError, checked_ref};

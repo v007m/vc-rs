@@ -2,13 +2,13 @@
 
 use indexmap::IndexMap;
 use vc_model::{
-    Api, ApiGroup, ApiId, Config, Defaults, FileId, Lifecycle, Origin, Owner, Profile, ProfileId, RequestHooks, RunBlocks,
-    SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
+    Api, ApiGroup, ApiId, Config, Defaults, FileId, HttpRetry, Lifecycle, Origin, Owner, Profile, ProfileId,
+    RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
 };
 use vc_parser::Node;
 
 use super::action::Place;
-use super::{Build, Built, expect, read};
+use super::{Build, Built, expect, http_retry, read};
 use crate::link::project;
 use crate::link::project::Source;
 use crate::shapes;
@@ -20,11 +20,12 @@ impl<'a> Build<'_, 'a> {
         let defaults = root.get("defaults");
         let reports = root.get("reports");
         let redact = root.get("redact");
+        self.http_retry = http_retry::over(source, root, &HttpRetry::default()).unwrap_or_default();
         let config = Config {
             syntax_version: read::number(root, "syntaxVersion").unwrap_or_default(),
             project: read::owned(root, "project"),
             defaults: defaults.map(|defaults| Self::defaults(source, defaults)).unwrap_or_default(),
-            http_retry: vc_model::HttpRetry::default(),
+            http_retry: self.http_retry.clone(),
             vars: VarDefs { values: self.values(source, root.get("vars"))?, by_profile: IndexMap::new() },
             reports_dir: reports.and_then(|reports| read::owned(reports, "dir")),
             report_formats: reports.map(|reports| read::texts(reports, "formats")).unwrap_or_default(),
@@ -100,6 +101,7 @@ impl<'a> Build<'_, 'a> {
             body: node.get("body").and_then(|body| read::body(source, body)).unwrap_or_default(),
             auth: self.auth(source, node)?.unwrap_or_default(),
             timeout: read::duration(source, node, "timeout"),
+            http_retry: http_retry::over(source, node, &self.http_retry),
             expect: self.api_expects.get(&id).cloned().unwrap_or_default(),
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             cleanup,

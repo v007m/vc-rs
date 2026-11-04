@@ -1,0 +1,20 @@
+name: Cities
+tests:
+  - id: createsEachCity
+    steps:
+      - call: geo#createCity
+        forEach: ${var.cities}
+        parallel: 2
+        vars:
+          cityName: ${item}
+          rank: ${iteration.index}
+      - call: geo#createCity
+        repeat: 3
+        vars:
+          cityName: City ${iteration.index} of ${iteration.count}
+          rank: ${iteration.index}
+  - id: getsACityTwice
+    call: geo#getCity
+    repeat: 2
+    vars:
+      cityId: city-${iteration.index}

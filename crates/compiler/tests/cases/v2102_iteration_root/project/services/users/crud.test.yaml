@@ -1,0 +1,8 @@
+tests:
+  - id: getsUsers
+    steps:
+      - call: users#getUser
+        repeat: 2
+        vars: {userId: 'u${iteration.index}'}
+      - call: users#getUser
+        vars: {userId: 'u${iteration.index}'}
