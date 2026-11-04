@@ -15,9 +15,11 @@ const DOT_ENV: &str = ".env";
 /// The origin `--set` entries carry.
 const SET_FLAG: &str = "--set";
 
-/// The project's `.env` file: `NAME=value` lines, `#` comments, an optional `export ` and
-/// optional quotes. Its `VIB_*` lines are settings; every line is also an environment variable
-/// for `${env.NAME}`, under the process environment ([`DotEnv::vars`]).
+/// The project's `.env` file.
+///
+/// It holds `NAME=value` lines, `#` comments, an optional `export ` and optional quotes. Its
+/// `VIB_*` lines are settings; every line is also an environment variable for `${env.NAME}`,
+/// under the process environment ([`DotEnv::vars`]).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DotEnv {
     vars: Vec<(String, String)>,
@@ -36,7 +38,9 @@ impl DotEnv {
         match std::fs::symlink_metadata(&path) {
             Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Self::default()),
             Err(error) => return Err(unreadable(error.to_string())),
-            Ok(meta) if meta.file_type().is_symlink() => return Err(unreadable("it is a link, which is not followed".to_owned())),
+            Ok(meta) if meta.file_type().is_symlink() => {
+                return Err(unreadable("it is a link, which is not followed".to_owned()));
+            }
             Ok(_) => {}
         }
         let text = std::fs::read_to_string(&path).map_err(|error| unreadable(error.to_string()))?;
@@ -63,9 +67,8 @@ impl DotEnv {
 
 impl ConfigSource for DotEnv {
     fn entries(&self) -> Result<Vec<ConfigEntry>, ConfigSourceError> {
-        let setting = |(name, value): &(String, String)| {
-            vib_key(name).map(|key| ConfigEntry::new(key, value.clone(), DOT_ENV))
-        };
+        let setting =
+            |(name, value): &(String, String)| vib_key(name).map(|key| ConfigEntry::new(key, value.clone(), DOT_ENV));
         Ok(self.vars.iter().filter_map(setting).collect())
     }
 }
@@ -86,9 +89,8 @@ impl VibVars {
 
 impl ConfigSource for VibVars {
     fn entries(&self) -> Result<Vec<ConfigEntry>, ConfigSourceError> {
-        let set = |&(name, key): &(&str, &str)| {
-            self.environment.var(name).map(|value| ConfigEntry::new(key, value, name))
-        };
+        let set =
+            |&(name, key): &(&str, &str)| self.environment.var(name).map(|value| ConfigEntry::new(key, value, name));
         Ok(VIB_VARS.iter().filter_map(set).collect())
     }
 }
@@ -102,7 +104,7 @@ pub struct SetFlags {
 impl SetFlags {
     /// The layer the `flags` give, each one `key=value`.
     #[must_use]
-    pub fn new(flags: Vec<String>) -> Self {
+    pub const fn new(flags: Vec<String>) -> Self {
         Self { flags }
     }
 }
@@ -136,10 +138,7 @@ fn assignment(line: &str, origin: &str) -> Result<(String, String), ConfigSource
 
 /// `value` without one pair of matching quotes around it.
 fn unquoted(value: &str) -> &str {
-    ['"', '\'']
-        .iter()
-        .find_map(|quote| value.strip_prefix(*quote)?.strip_suffix(*quote))
-        .unwrap_or(value)
+    ['"', '\''].iter().find_map(|quote| value.strip_prefix(*quote)?.strip_suffix(*quote)).unwrap_or(value)
 }
 
 #[cfg(test)]

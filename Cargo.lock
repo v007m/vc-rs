@@ -2385,8 +2385,12 @@ dependencies = [
  "clap",
  "criterion",
  "predicates",
+ "serde_json",
  "tempfile",
+ "tokio",
  "vc-engine",
+ "vc-mock-server",
+ "vc-testkit",
 ]
 
 [[package]]
@@ -2425,11 +2429,18 @@ dependencies = [
  "gungraun",
  "serde_json",
  "thiserror",
+ "tokio",
+ "vc-adapter-http",
+ "vc-adapter-reporters",
  "vc-adapter-system",
  "vc-compiler",
  "vc-diagnostics",
+ "vc-executor",
  "vc-interfaces",
+ "vc-mock-server",
  "vc-model",
+ "vc-planner",
+ "vc-template",
  "vc-testkit",
 ]
 

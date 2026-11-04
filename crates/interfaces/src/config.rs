@@ -19,9 +19,10 @@ impl ConfigEntry {
     }
 }
 
-/// One config layer above the project's own files (D129): `.env`, the `VIB_*` environment
-/// variables, `--set`. The engine reads the layers lowest first, so a later entry for the same
-/// key wins, and every value keeps its origin.
+/// One config layer above the project's own files (D129).
+///
+/// The layers are `.env`, the `VIB_*` environment variables and `--set`. The engine reads them
+/// lowest first, so a later entry for the same key wins, and every value keeps its origin.
 pub trait ConfigSource: Send + Sync {
     /// The layer's settings, in the order written.
     ///

@@ -47,7 +47,10 @@ fn repeat_runs_each_test_that_many_times_and_the_flag_overrides_it() {
 
 #[test]
 fn files_plan_in_path_order_whatever_order_they_were_read_in() {
-    let program = common::project_with(&[("services/accounts/a.test.yaml", "name: A\ntests:\n  - id: listsA\n    call: users#list\n")]);
+    let program = common::project_with(&[(
+        "services/accounts/a.test.yaml",
+        "name: A\ntests:\n  - id: listsA\n    call: users#list\n",
+    )]);
     let plan = common::planned(&program, &Selection::default());
     let files: Vec<&str> = plan.files.iter().map(|file| common::name(&program, file.id.sym())).collect();
     assert_eq!(files, ["accounts.a", "orders.checkout", "users.crud"]);

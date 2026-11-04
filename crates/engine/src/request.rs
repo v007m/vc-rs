@@ -17,7 +17,8 @@ pub struct SelectRequest {
     pub tags: Vec<String>,
     /// Text the test's full ID or name contains, ignoring case.
     pub grep: Option<String>,
-    /// `--changed [ref]`: only files changed since the ref (`Some("")` for the default).
+    /// `--changed [ref]`: only files changed since the ref (`Some("")` for `HEAD`, the
+    /// uncommitted and untracked changes); every file when the config or `.env.schema` changed.
     pub changed: Option<String>,
     /// Plans skipped tests instead of reporting them as skipped.
     pub include_skipped: bool,

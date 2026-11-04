@@ -19,6 +19,9 @@ pub struct Compiled {
     pub notices: Vec<String>,
 }
 
+/// A program without errors, and the compile's notices.
+type Valid = (Arc<Program>, Vec<String>);
+
 impl Engine {
     /// Reads the whole project and compiles it, through the compile cache.
     ///
@@ -42,16 +45,16 @@ impl Engine {
         Ok(Compiled { program: compiled.program, diagnostics, files, notices })
     }
 
-    /// The compiled program, for the commands that need one.
+    /// The compiled program, for the commands that need one, and the compile's notices.
     ///
     /// # Errors
     ///
     /// [`EngineError::Invalid`] with every diagnostic when any is an error, and the errors of
     /// [`Engine::compiled`].
-    pub(crate) fn program(&self) -> Result<Arc<Program>, EngineError> {
+    pub(crate) fn program(&self) -> Result<Valid, EngineError> {
         let compiled = self.compiled()?;
         match compiled.program {
-            Some(program) if !compiled.diagnostics.has_errors() => Ok(program),
+            Some(program) if !compiled.diagnostics.has_errors() => Ok((program, compiled.notices)),
             _ => Err(invalid(compiled.diagnostics, compiled.files, compiled.notices)),
         }
     }

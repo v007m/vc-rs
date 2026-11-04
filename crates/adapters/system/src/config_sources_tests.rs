@@ -69,7 +69,8 @@ fn vib_vars_meet_the_config_source_contract_and_read_vib_profile() {
 fn set_flags_meet_the_config_source_contract_and_keep_their_order() {
     let flags = SetFlags::new(vec!["defaults.concurrency=4".into(), "vars.userId = 7".into()]);
     config_source_suite(&flags);
-    let expected = [ConfigEntry::new("defaults.concurrency", "4", "--set"), ConfigEntry::new("vars.userId", "7", "--set")];
+    let expected =
+        [ConfigEntry::new("defaults.concurrency", "4", "--set"), ConfigEntry::new("vars.userId", "7", "--set")];
     assert_eq!(flags.entries().unwrap(), expected);
 }
 
