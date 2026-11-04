@@ -166,3 +166,22 @@ fn finds_no_project_without_a_config() {
     let missing = std::env::temp_dir().join("vc-engine-tests-no-such-folder");
     assert!(matches!(EngineBuilder::for_project(&missing), Err(EngineError::NoProject { .. })));
 }
+
+#[test]
+fn the_config_paths_decide_which_files_are_read() {
+    let config: &[u8] = b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\npaths:\n  include: [services/**]\n  exclude: [services/legacy]\n";
+    let broken = ("services/legacy/old.api.yaml", b"apis: [\n".as_slice());
+    let outside = ("other/other.api.yaml", b"apis: [\n".as_slice());
+    let files = [("vibranium.config.yaml", config), USERS, broken, outside];
+    let report = engine(&files, Arc::new(MemoryCompileCache::new())).check(&CheckRequest::default()).unwrap();
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    assert_eq!(report.checked, 2, "the config and the included service");
+}
+
+#[test]
+fn a_paths_glob_that_does_not_parse_is_an_error() {
+    let config: &[u8] = b"syntaxVersion: 2\npaths:\n  include: ['services/[a']\n";
+    let files = [("vibranium.config.yaml", config), USERS];
+    let error = engine(&files, Arc::new(MemoryCompileCache::new())).check(&CheckRequest::default()).unwrap_err();
+    assert!(matches!(error, EngineError::Sources { reason } if reason.contains("services/[a")));
+}

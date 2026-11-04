@@ -33,11 +33,27 @@ impl SourceFilter {
         Ok(Self { include, exclude })
     }
 
-    /// Whether discovery reads the file at `path`.
+    /// A filter from the config's globs: written `exclude` globs replace the default ones,
+    /// and `None` keeps them.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::InvalidGlob`] for the first glob that does not parse.
+    pub fn written<S: AsRef<str>>(include: &[S], exclude: Option<&[S]>) -> Result<Self, SourceError> {
+        let include: Vec<&str> = include.iter().map(AsRef::as_ref).collect();
+        let exclude =
+            exclude.map_or_else(|| DEFAULT_EXCLUDE.to_vec(), |globs| globs.iter().map(AsRef::as_ref).collect());
+        Self::new(&include, &exclude)
+    }
+
+    /// Whether discovery reads the file at `path`. Include globs pick the other definition
+    /// files; the root config is always read, since it says how to read the rest.
     #[must_use]
     pub fn allows(&self, path: &SourcePath) -> bool {
         let text = path.as_str();
-        self.include.as_ref().is_none_or(|include| include.is_match(text)) && !self.skips(text)
+        let included =
+            |include: &GlobSet| include.is_match(text) || FileKind::from_path(path) == Some(FileKind::Config);
+        self.include.as_ref().is_none_or(included) && !self.skips(text)
     }
 
     /// What discovery does with the file at `relative` (relative to the root, `/` or `\`
@@ -130,6 +146,25 @@ mod tests {
         let filter = SourceFilter::new(&[], &["legacy"]).unwrap();
         assert!(allows(&filter, "node_modules/x.api.yaml"));
         assert!(!allows(&filter, "legacy/x.api.yaml"));
+    }
+
+    #[test]
+    fn include_globs_always_keep_the_root_config() {
+        let filter = SourceFilter::new(&["services/**"], &[]).unwrap();
+        assert!(allows(&filter, "vibranium.config.yaml"));
+        assert!(!allows(&filter, "other/vibranium.config.yaml"), "only the root config is a config");
+        let excluded = SourceFilter::new(&["services/**"], &["vibranium.config.yaml"]).unwrap();
+        assert!(!allows(&excluded, "vibranium.config.yaml"), "an exclude still applies");
+    }
+
+    #[test]
+    fn written_globs_keep_the_default_excludes_unless_they_write_their_own() {
+        let kept = SourceFilter::written(&["services/**"], None).unwrap();
+        assert!(allows(&kept, "services/a.api.yaml") && !allows(&kept, "services/node_modules/a.api.yaml"));
+        assert!(!allows(&kept, "other/a.api.yaml"));
+        let own = SourceFilter::written(&[], Some(&["legacy"])).unwrap();
+        assert!(allows(&own, "services/node_modules/a.api.yaml") && !allows(&own, "legacy/a.api.yaml"));
+        assert!(SourceFilter::written(&["[a"], None).is_err());
     }
 
     #[test]
