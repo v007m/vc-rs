@@ -32,11 +32,11 @@ pub struct CelSpan(pub Duration);
 ///
 /// When `env` already declares one of them.
 pub fn register(env: &mut Env) -> Result<(), DeclarationError> {
-    let string = || vec![STRING_TYPE.clone()];
+    let string = || vec![STRING_TYPE.to_owned()];
     env.add_overload(TIMESTAMP, "timestamp(string)", string(), read_timestamp)?;
     env.add_overload(DURATION, "duration(string)", string(), read_duration)?;
-    env.add_overload("string", "string(google.protobuf.Timestamp)", vec![TIMESTAMP_TYPE.clone()], write)?;
-    env.add_overload("string", "string(google.protobuf.Duration)", vec![DURATION_TYPE.clone()], write)
+    env.add_overload("string", "string(google.protobuf.Timestamp)", vec![TIMESTAMP_TYPE.to_owned()], write)?;
+    env.add_overload("string", "string(google.protobuf.Duration)", vec![DURATION_TYPE.to_owned()], write)
 }
 
 /// The JSON form of a timestamp or a duration: its `string()`.
@@ -56,18 +56,21 @@ fn argument<'a>(args: &'a [CowVal<'_, '_>], function: &str) -> Result<&'a str, E
         .ok_or_else(|| ExecutionError::function_error(function, format!("{function}() takes a string")))
 }
 
+#[expect(clippy::needless_pass_by_value, reason = "cel's `Function` type takes the arguments by value")]
 fn read_timestamp<'b, 'v>(args: Vec<CowVal<'b, 'v>>) -> Result<CowVal<'b, 'v>, ExecutionError> {
     let text = argument(&args, TIMESTAMP)?;
     let time = time::parse_timestamp(text).map_err(|error| ExecutionError::function_error(TIMESTAMP, error))?;
     Ok(CowVal::owned(CelTime(time)))
 }
 
+#[expect(clippy::needless_pass_by_value, reason = "cel's `Function` type takes the arguments by value")]
 fn read_duration<'b, 'v>(args: Vec<CowVal<'b, 'v>>) -> Result<CowVal<'b, 'v>, ExecutionError> {
     let text = argument(&args, DURATION)?;
     let span = time::parse_duration(text).map_err(|error| ExecutionError::function_error(DURATION, error))?;
     Ok(CowVal::owned(CelSpan(span)))
 }
 
+#[expect(clippy::needless_pass_by_value, reason = "cel's `Function` type takes the arguments by value")]
 fn write<'b, 'v>(args: Vec<CowVal<'b, 'v>>) -> Result<CowVal<'b, 'v>, ExecutionError> {
     let shown = args.first().and_then(|arg| text(arg.as_ref()));
     let shown = shown.ok_or_else(|| ExecutionError::function_error("string", "string() of an unknown value"))?;

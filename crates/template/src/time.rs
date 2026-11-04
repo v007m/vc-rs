@@ -26,12 +26,6 @@ impl Timestamp {
         if nanos < FIRST || nanos > LAST { None } else { Some(Self(nanos)) }
     }
 
-    /// Nanoseconds since the epoch.
-    #[must_use]
-    pub const fn nanos(self) -> i128 {
-        self.0
-    }
-
     /// `self + span`, when the result is in range.
     #[must_use]
     pub const fn plus(self, span: Duration) -> Option<Self> {
@@ -50,12 +44,6 @@ impl Duration {
     #[must_use]
     pub fn from_nanos(nanos: i128) -> Option<Self> {
         i64::try_from(nanos).ok().map(|_| Self(nanos))
-    }
-
-    /// The length in nanoseconds.
-    #[must_use]
-    pub const fn nanos(self) -> i128 {
-        self.0
     }
 
     /// `self + other`, when it fits.

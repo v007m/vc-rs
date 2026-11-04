@@ -14,7 +14,6 @@ use crate::{cel_time, time};
 const BUILTINS: &[&str] =
     &["bool", "bytes", "double", "dyn", "int", "list", "map", "null_type", "optional", "string", "type", "uint"];
 
-
 /// The function whose second argument (or first, called on a string) is a regex.
 const MATCHES: &str = "matches";
 
