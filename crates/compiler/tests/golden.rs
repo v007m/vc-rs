@@ -97,6 +97,8 @@ cases!(
     v2308_unknown_pipe,
     v2105_unavailable_root,
     v2102_loop_root,
+    v2102_iteration_root,
+    loops_clean,
     cel_v2305_syntax,
     cel_v2306_regex,
     cel_v2105_root,

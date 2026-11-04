@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use http::Method;
 use tower::{Service, ServiceExt};
-use vc_interfaces::TransportError;
+use vc_interfaces::{Random, TransportError};
 use vc_model::{Exchange, RenderedRequest, StatusPattern};
 
 use super::{Call, Hop};
@@ -107,6 +107,46 @@ impl RetryPolicy for HttpRetryPolicy {
             && self.on.iter().any(|on| on.matches(attempt.result));
         wanted.then(|| self.backoff(attempt.retries))
     }
+}
+
+/// Spreads another policy's waits (`backoff.jitter`, D143).
+///
+/// Each wait is drawn evenly between half of it and all of it from the run's [`Random`], so
+/// calls that failed together do not all retry at the same moment, and `--seed` repeats the
+/// draws.
+#[derive(Clone)]
+pub struct Jittered {
+    inner: Arc<dyn RetryPolicy>,
+    random: Arc<dyn Random>,
+}
+
+impl Jittered {
+    /// `inner`'s waits, spread with draws from `random`.
+    #[must_use]
+    pub fn new(inner: Arc<dyn RetryPolicy>, random: Arc<dyn Random>) -> Self {
+        Self { inner, random }
+    }
+}
+
+impl fmt::Debug for Jittered {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Jittered").finish_non_exhaustive()
+    }
+}
+
+impl RetryPolicy for Jittered {
+    fn delay(&self, attempt: &Attempted<'_>) -> Option<Duration> {
+        let wait = self.inner.delay(attempt)?;
+        Some(spread(wait, self.random.next_u64()))
+    }
+}
+
+/// A wait between half of `wait` and all of it, picked by `draw`.
+fn spread(wait: Duration, draw: u64) -> Duration {
+    let half = wait / 2;
+    let rest = u64::try_from(wait.saturating_sub(half).as_nanos()).unwrap_or(u64::MAX);
+    let extra = draw.checked_rem(rest.saturating_add(1)).unwrap_or_default();
+    half.saturating_add(Duration::from_nanos(extra))
 }
 
 /// The last attempt's result and how many attempts were made.

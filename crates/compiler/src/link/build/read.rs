@@ -1,7 +1,7 @@
 //! Reads compiled pieces and plain scalars off a file's tree for the program build.
 
 use indexmap::IndexMap;
-use vc_model::{BodySpec, Duration, Examples, HookRef, Method, Retry, Skip, Tag, Template, TemplateValue};
+use vc_model::{BodySpec, Duration, Examples, HookRef, Loop, Method, Retry, Skip, Tag, Template, TemplateValue};
 use vc_parser::Node;
 
 use crate::link::project;
@@ -84,8 +84,12 @@ pub fn tags(node: &Node) -> Vec<Tag> {
 
 /// `method`, `GET` when it is left out.
 pub fn method(node: &Node) -> Method {
-    let written = project::text(node, "method").unwrap_or_default();
-    METHODS.iter().find(|(name, _)| *name == written).map_or(Method::Get, |(_, method)| *method)
+    method_named(project::text(node, "method").unwrap_or_default()).unwrap_or(Method::Get)
+}
+
+/// The method written as `name`, such as `GET`.
+pub fn method_named(name: &str) -> Option<Method> {
+    METHODS.iter().find(|(written, _)| *written == name).map(|(_, method)| *method)
 }
 
 /// `skip`: a reason, or a reason with an end date.
@@ -102,6 +106,16 @@ pub fn retry(source: &Source<'_>, node: &Node) -> Option<Retry> {
     let retry = node.get("retry")?;
     let delay = duration(source, retry, "delay").unwrap_or_else(|| Duration::new(std::time::Duration::ZERO));
     Some(Retry { attempts: number(retry, "attempts")?, delay })
+}
+
+/// `forEach` or `repeat` on an action, `parallel` iterations at a time (1 when not written);
+/// `forEach` wins when both are written.
+pub fn looping(source: &Source<'_>, node: &Node) -> Option<Loop> {
+    let parallel = number(node, "parallel").unwrap_or(1);
+    if let Some(items) = node.get("forEach") {
+        return Some(Loop::ForEach { items: value(source, items)?, parallel });
+    }
+    Some(Loop::Repeat { times: number(node, "repeat")?, parallel })
 }
 
 /// A `path#export` function reference.

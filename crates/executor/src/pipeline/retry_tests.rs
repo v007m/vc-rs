@@ -1,10 +1,11 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use http::{Method, Uri};
 use vc_interfaces::TransportError;
 use vc_model::{ConnectionInfo, Exchange, RenderedRequest, StatusPattern, Timing};
 
-use super::{Attempted, HttpRetryPolicy, NoRetry, RetryOn, RetryPolicy};
+use super::{Attempted, HttpRetryPolicy, Jittered, NoRetry, RetryOn, RetryPolicy};
 
 fn request(method: Method) -> RenderedRequest {
     RenderedRequest::new(method, Uri::from_static("http://api.test/x"))
@@ -80,6 +81,13 @@ fn a_status_entry_matches_only_responses_with_that_status() {
     assert!(!RetryOn::Status(StatusPattern::Code(502)).matches(&connect_failed()));
     assert!(!RetryOn::Connect.matches(&Ok(exchange(502))));
     assert!(!RetryOn::Timeout.matches(&connect_failed()));
+}
+
+#[test]
+fn a_jittered_policy_debugs_as_its_name() {
+    let random = Arc::new(vc_testkit::ScriptedRandom::new([0]));
+    let jittered = Jittered::new(Arc::new(NoRetry), random);
+    assert_eq!(format!("{jittered:?}"), "Jittered { .. }");
 }
 
 #[test]

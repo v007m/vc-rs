@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 
 use crate::{
-    ActionId, ApiId, AuthRef, Duration, Expect, FileId, Method, Path, RequestHooks, SaveSpec, SourceSpan, Template,
-    TemplateValue, VarDefs,
+    ActionId, ApiId, AuthRef, Duration, Expect, FileId, HttpRetry, Method, Path, RequestHooks, SaveSpec, SourceSpan,
+    Template, TemplateValue, VarDefs,
 };
 
 /// One api file: what its apis share.
@@ -59,6 +59,8 @@ pub struct Api {
     pub auth: AuthRef,
     /// `timeout`.
     pub timeout: Option<Duration>,
+    /// `http.retry`, its keys over the config's; `None` when the api writes none (D143).
+    pub http_retry: Option<HttpRetry>,
     /// `expect`; `status: 2xx` when none is written.
     pub expect: Expect,
     /// `save`.

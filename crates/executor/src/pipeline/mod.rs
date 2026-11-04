@@ -40,7 +40,7 @@ use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::{Exchange, RenderedRequest};
 
 pub use host_limit::{HostLimit, HostLimits};
-pub use retry::{Attempted, HttpRetryPolicy, NoRetry, Retried, Retry, RetryOn, RetryPolicy};
+pub use retry::{Attempted, HttpRetryPolicy, Jittered, NoRetry, Retried, Retry, RetryOn, RetryPolicy};
 pub use stage::{RequestStage, Stage, Unchanged};
 pub use timeout::Timeout;
 pub use timing::{Delivery, Timing};
@@ -83,7 +83,8 @@ pub struct PipelineParts {
     pub transport: Arc<dyn Transport>,
     /// The per-host semaphores, shared by every pipeline of a run.
     pub limits: HostLimits,
-    /// Decides whether a failed attempt is retried (`http.retry`).
+    /// Decides whether a failed attempt is retried; the call executor sets it per api from
+    /// `http.retry`.
     pub retry: Arc<dyn RetryPolicy>,
     /// Adds credentials (M3).
     pub auth: Arc<dyn RequestStage>,

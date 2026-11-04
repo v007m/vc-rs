@@ -42,7 +42,7 @@ pub use machine::{
     RunOrchestrator, RunPhase, RunSummary, Saved, Verdict,
 };
 pub use pipeline::{
-    Attempted, BoxFuture, Call, Delivery, Hop, HostLimit, HostLimits, HttpRetryPolicy, NoRetry, Pipeline,
+    Attempted, BoxFuture, Call, Delivery, Hop, HostLimit, HostLimits, HttpRetryPolicy, Jittered, NoRetry, Pipeline,
     PipelineParts, RequestStage, Retried, Retry, RetryOn, RetryPolicy, Stage, Timeout, Timing, Transmit, Unchanged,
     pipeline,
 };

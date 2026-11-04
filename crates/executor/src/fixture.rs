@@ -129,6 +129,7 @@ impl Fixture {
             body: BodySpec::None,
             auth,
             timeout: None,
+            http_retry: None,
             expect,
             save,
             cleanup,

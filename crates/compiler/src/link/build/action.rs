@@ -19,7 +19,8 @@ pub struct Place<'n> {
     /// The test whose `auth`, `headers`, `query`, `body`, `poll` and `expect` are this step's
     /// defaults (D124).
     pub defaults: Defaults<'n>,
-    /// Set when the node is a test with `call`: its vars, checks and retry belong to the test.
+    /// Set when the node is a test with `call`: its vars, checks, retry and repeat belong to the
+    /// test.
     pub test: Option<TestId>,
 }
 
@@ -57,7 +58,7 @@ impl<'a> Build<'_, 'a> {
             retry: read::retry(source, node).filter(|_| place.test.is_none()),
             keep: read::flag(shapes::action(), node, "keep"),
             cache: None,
-            repeat: None,
+            repeat: read::looping(source, node).filter(|_| place.test.is_none()),
             span: node.span,
         }))
     }
