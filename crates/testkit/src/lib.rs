@@ -23,7 +23,9 @@ mod generator;
 mod memory_cache;
 mod memory_sources;
 mod random_suite;
+mod recording_reporter;
 mod recording_transport;
+mod reporter_suite;
 mod source_suite;
 mod transport_suite;
 
@@ -37,6 +39,8 @@ pub use generator::{GeneratedFile, GeneratedProject, generate_project};
 pub use memory_cache::MemoryCompileCache;
 pub use memory_sources::MemorySources;
 pub use random_suite::{MakeEnvironment, MakeRandom, environment_suite, random_suite};
+pub use recording_reporter::{RecordingReporter, ReportLog, Reported};
 pub use recording_transport::{Recorded, RecordingTransport, Recordings};
+pub use reporter_suite::{MakeReporter, reporter_suite};
 pub use source_suite::{MakeSources, source_provider_suite};
 pub use transport_suite::transport_suite;
