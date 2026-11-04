@@ -6,7 +6,8 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::FileKind;
 use vc_parser::Node;
 
-use super::project::{Item, Project, Source, actions, list};
+use super::project;
+use super::project::{Item, Project, Source};
 use crate::suggest;
 
 /// At most this many names in a "did you mean one of" help.
@@ -35,7 +36,7 @@ pub fn check(project: &Project<'_>, diagnostics: &mut Diagnostics) {
             diagnostics.extend(globals.auth(node));
         }
         diagnostics.extend(globals.auth(source.root));
-        for profile in list(source.root, "profiles").iter().filter(|_| source.kind != FileKind::Config) {
+        for profile in project::list(source.root, "profiles").iter().filter(|_| source.kind != FileKind::Config) {
             diagnostics.extend(profile.get("id").and_then(|id| globals.profile(id)));
         }
     }
@@ -44,8 +45,8 @@ pub fn check(project: &Project<'_>, diagnostics: &mut Diagnostics) {
 /// Every node that may hold `call`, `test`, `cleanup` or `auth`: actions, tests, apis and load
 /// mix entries.
 fn callers<'a>(source: &Source<'a>) -> Vec<&'a Node> {
-    let mut nodes = actions(source);
-    nodes.extend(["tests", "apis", "mix"].iter().flat_map(|key| list(source.root, key)));
+    let mut nodes = project::actions(source);
+    nodes.extend(["tests", "apis", "mix"].iter().flat_map(|key| project::list(source.root, key)));
     nodes
 }
 
@@ -104,7 +105,7 @@ impl<'a> Globals<'a> {
     fn of(project: &Project<'a>) -> Self {
         let config = project.config().filter(|config| !config.broken);
         let ids = |key: &str| -> HashSet<&'a str> {
-            let items = config.map(|config| list(config.root, key)).unwrap_or_default();
+            let items = config.map(|config| project::list(config.root, key)).unwrap_or_default();
             items.iter().filter_map(|item| item.get("id")?.as_scalar()).map(|id| id.text.as_str()).collect()
         };
         Self { auth: ids("auth"), profiles: ids("profiles"), known: config.is_some() }

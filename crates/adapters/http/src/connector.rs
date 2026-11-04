@@ -12,9 +12,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tower_service::Service;
 
-use crate::HttpAdapterError;
 use crate::stream::{Conn, ConnectRecord, Stream};
-use crate::tls;
+use crate::{HttpAdapterError, tls};
 
 /// The largest proxy reply head to a CONNECT that is read before giving up.
 const MAX_TUNNEL_REPLY: usize = 8 * 1024;

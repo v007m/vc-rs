@@ -10,14 +10,13 @@ use async_trait::async_trait;
 use indexmap::IndexMap;
 use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::{
-    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, ConnectionInfo, Exchange, Expect, FileId, Instance,
-    InstanceId, Lifecycle, Method, Needs, Owner, Part, Plan, PlannedAction, PlannedFile, Pos, Program, RenderedRequest,
-    Retry, SaveSpec, SourceFileId, SourceFiles, SourceSpan, StringTable, Sym, Template, Test, TestBody, TestFile,
-    TestId, Timing, VarDefs,
+    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, CelSource, ConnectionInfo, Exchange, Expect, FileId,
+    Instance, InstanceId, Lifecycle, Method, Needs, Owner, Part, Plan, PlannedAction, PlannedFile, Pos, Program,
+    RenderedRequest, Retry, SaveSpec, ScalarSource, ScalarStyle, SourceFileId, SourceFiles, SourceSpan, StringTable,
+    Sym, Template, TemplateValue, Test, TestBody, TestFile, TestId, Timing, VarDefs, VarName,
 };
-use vc_model::{CelSource, ScalarSource, ScalarStyle, TemplateValue, VarName};
 use vc_template::{CelCompiler, Roots};
-use vc_testkit::{MemoryEnvironment, ScriptedRandom, status};
+use vc_testkit::{MemoryEnvironment, ScriptedRandom};
 
 use crate::{ActionCx, ActionExecutors, RunInputs};
 
@@ -328,7 +327,7 @@ impl Transport for Server {
         };
         Ok(Exchange {
             request,
-            response: status(code),
+            response: vc_testkit::status(code),
             timing: Timing::default(),
             connection: ConnectionInfo::default(),
         })

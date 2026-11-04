@@ -6,7 +6,8 @@ use serde_json::Number;
 use vc_model::TemplateValue;
 use vc_parser::{Entry, Scalar, ScalarKind, Value};
 
-use crate::parts::{At, Cx, cel, template};
+use crate::parts;
+use crate::parts::{At, Cx};
 
 /// The key of a computed value: `{ $cel: var.price * 2 }`.
 const CEL_KEY: &str = "$cel";
@@ -27,7 +28,7 @@ fn map(cx: &mut Cx<'_>, at: At<'_>, entries: &[Entry]) -> Option<TemplateValue> 
     if let [only] = entries
         && only.key == CEL_KEY
     {
-        return cel(cx, at.child(&only.value)).map(TemplateValue::Cel);
+        return parts::cel(cx, at.child(&only.value)).map(TemplateValue::Cel);
     }
     let lowered: Vec<_> = entries.iter().map(|entry| (&entry.key, lower(cx, at.child(&entry.value)))).collect();
     let mut values = IndexMap::with_capacity(lowered.len());
@@ -45,7 +46,7 @@ fn scalar_value(cx: &mut Cx<'_>, at: At<'_>, scalar: &Scalar) -> Option<Template
         ScalarKind::Float => scalar.text.parse().ok().and_then(Number::from_f64).map(TemplateValue::Number),
         ScalarKind::String => None,
     };
-    typed.or_else(|| template(cx, at).map(TemplateValue::String))
+    typed.or_else(|| parts::template(cx, at).map(TemplateValue::String))
 }
 
 /// A YAML 1.2 integer: decimal, `0x` hex or `0o` octal; `None` past the 64-bit range.

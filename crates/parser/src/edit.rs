@@ -6,8 +6,9 @@
 use vc_diagnostics::TextEdit;
 use vc_model::{SourceFileId, SourceSpan};
 
-use crate::scalar::{Spelling, resolve_in, write_text};
-use crate::{Node, ParserError, ScalarKind, ScalarStyle, Syntax, Value, parse};
+use crate::scalar;
+use crate::scalar::Spelling;
+use crate::{Node, ParserError, ScalarKind, ScalarStyle, Syntax, Value};
 
 /// A parsed file kept with its text, so changes to its tree become edits on that text.
 ///
@@ -47,7 +48,7 @@ impl Document {
     /// [`ParserError::Unparsable`] when the text has a parse error; warnings are accepted.
     pub fn parse(file: SourceFileId, syntax: Syntax, text: impl Into<String>) -> Result<Self, ParserError> {
         let text = text.into();
-        let (root, diagnostics) = parse(file, syntax, &text);
+        let (root, diagnostics) = crate::parse(file, syntax, &text);
         let error = diagnostics.iter().find(|d| d.is_error()).map(|d| d.message.clone());
         match (root, error) {
             (Some(root), None) => Ok(Self { file, syntax, text, root }),
@@ -77,7 +78,7 @@ impl Document {
     /// As [`Document::set_typed`].
     pub fn set_scalar(&self, node: &Node, value: &str) -> Result<TextEdit, ParserError> {
         let kind = match node.as_scalar().map_or(ScalarKind::String, |scalar| scalar.kind) {
-            ScalarKind::Null => resolve_in(self.syntax, value),
+            ScalarKind::Null => scalar::resolve_in(self.syntax, value),
             kind => kind,
         };
         self.set_typed(node, value, kind)
@@ -137,7 +138,8 @@ impl Document {
         } else {
             newline
         };
-        let new_text = format!("{lead}{indent}{}: {}{newline}", write_text(key, false), write_text(value, false));
+        let new_text =
+            format!("{lead}{indent}{}: {}{newline}", scalar::write_text(key, false), scalar::write_text(value, false));
         Ok(TextEdit { file: self.file, range: at..at, new_text })
     }
 

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use vc_model::{ActionId, ActionOutcome, Failure, Retry, TestStatus};
 
-use super::{ActionReport, PendingCleanup, newest_first};
+use super::{ActionReport, PendingCleanup};
 
 /// The reason a cancelled instance reports as skipped.
 pub const CANCELLED: &str = "cancelled";
@@ -255,7 +255,7 @@ impl InstanceWorkflow {
         self.cancelled = true;
         self.cut_short |= self.phase != InstancePhase::Cleanup;
         if !self.cleanups.is_empty() {
-            out.push(InstanceCommand::Abandon(newest_first(&self.cleanups)));
+            out.push(InstanceCommand::Abandon(super::newest_first(&self.cleanups)));
             self.cleanups.clear();
         }
         self.conclude(out);

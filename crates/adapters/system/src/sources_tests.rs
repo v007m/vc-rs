@@ -3,7 +3,6 @@ use std::path::Path;
 
 use tempfile::TempDir;
 use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
-use vc_testkit::source_provider_suite;
 
 use super::FsSources;
 
@@ -28,7 +27,7 @@ fn paths(found: &Discovery) -> Vec<&str> {
 #[test]
 fn meets_the_source_provider_contract() {
     let mut dirs = Vec::new();
-    source_provider_suite(&mut |files| {
+    vc_testkit::source_provider_suite(&mut |files| {
         let dir = project(files);
         let sources = FsSources::new(dir.path()).unwrap();
         dirs.push(dir);

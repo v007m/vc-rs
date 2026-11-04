@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use vc_engine::{CheckRequest, Engine, EngineBuilder};
 use vc_interfaces::CompileCacheStore;
-use vc_testkit::{GeneratedProject, MemoryCompileCache, generate_project};
+use vc_testkit::{GeneratedProject, MemoryCompileCache};
 
 /// How many files the project has; the budgets are stated for this size.
 const FILES: usize = 1_000;
@@ -35,7 +35,7 @@ pub struct Bench {
 impl Bench {
     /// Generates the project and checks it once to fill the cache.
     pub fn prepare() -> Self {
-        let project = generate_project(SEED, FILES);
+        let project = vc_testkit::generate_project(SEED, FILES);
         let changed = project.with_one_file_changed();
         let store = MemoryCompileCache::new();
         check(&build(&project, Arc::new(store.clone())));

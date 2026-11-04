@@ -1,6 +1,7 @@
 use std::fmt::Write as _;
 
-use super::rng::{Rng, fill};
+use super::rng;
+use super::rng::Rng;
 
 /// The settings, the shared `pageSize` var and the `vars:` key the service URLs follow.
 const HEAD: &str = "syntaxVersion: 2
@@ -60,7 +61,7 @@ pub fn render(services: &[String], rng: &mut Rng) -> String {
         for name in services {
             let _ = writeln!(text, "      {name}Url: https://{name}.staging.example.test");
         }
-        text.push_str(&fill(RUN_BLOCKS, &[("first", first), ("word", rng.word())]));
+        text.push_str(&rng::fill(RUN_BLOCKS, &[("first", first), ("word", rng.word())]));
     }
     text
 }

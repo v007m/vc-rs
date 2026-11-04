@@ -1,5 +1,5 @@
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
-use vc_interfaces::{SourceError, content_hash};
+use vc_interfaces::SourceError;
 use vc_model::{Pos, SourceFile, SourceFiles, SourcePath, SourceSpan};
 
 /// What a diagnostic names when a problem has no usable path.
@@ -13,7 +13,10 @@ pub fn add_problems(problems: &[SourceError], diagnostics: &mut Diagnostics, fil
     for problem in problems {
         let path = problem.path().and_then(|path| SourcePath::lossy(path).ok());
         let Some(path) = path.or_else(|| SourcePath::new(PROJECT).ok()) else { continue };
-        let Ok(id) = files.push(SourceFile { path, text: String::new(), hash: content_hash(&[]) }) else { break };
+        let Ok(id) = files.push(SourceFile { path, text: String::new(), hash: vc_interfaces::content_hash(&[]) })
+        else {
+            break;
+        };
         let start = Pos::new(1, 1, 0);
         let mut diagnostic = Diagnostic::new(Code::V1012, SourceSpan::new(id, start, start), problem.to_string());
         if let Some(help) = help(problem) {

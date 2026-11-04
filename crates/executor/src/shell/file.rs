@@ -4,7 +4,8 @@ use std::sync::Arc;
 use vc_model::{ActionId, OwnerKey, PlannedFile, TestStatus, Totals};
 
 use super::crew::{Crew, Job};
-use super::instance::{Ticket, instance};
+use super::instance;
+use super::instance::Ticket;
 use super::tasks::Tasks;
 use crate::cancel::CancelTree;
 use crate::{FailedActions, FileCommand, FileInput, FileOrchestrator, Frame, Launch, SharedSlots};
@@ -71,7 +72,7 @@ impl FileShell {
     fn launch(&mut self, launch: Launch) {
         let ticket = Ticket { launch, frame: self.frame.clone(), cancel: self.cancel.child() };
         let crew = self.crew.clone();
-        let work = async move { FileInput::InstanceDone(instance(crew, ticket).await) };
+        let work = async move { FileInput::InstanceDone(instance::instance(crew, ticket).await) };
         self.tasks.spawn(work, FileInput::InstanceDone(TestStatus::Failed));
     }
 

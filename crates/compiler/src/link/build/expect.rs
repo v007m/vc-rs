@@ -4,7 +4,8 @@ use vc_model::{Check, CheckKind, Expect, Matcher, Origin, Path, Segment, SourceS
 use vc_parser::Node;
 
 use super::read;
-use crate::link::project::{Source, text};
+use crate::link::project;
+use crate::link::project::Source;
 use crate::parts::Piece;
 use crate::shapes;
 
@@ -88,7 +89,7 @@ impl Reader<'_, '_> {
     /// A function check, by `path#export`; it holds when the function passes.
     fn custom(&mut self, node: Option<&Node>) {
         for item in node.map(Node::items).unwrap_or_default() {
-            let Some(function) = text(item, "function") else { continue };
+            let Some(function) = project::text(item, "function") else { continue };
             let target = Some(Path { segments: vec![key(function)] });
             self.push((CheckKind::Custom, target), Matcher::Equals(TemplateValue::Bool(true)), item.span);
         }

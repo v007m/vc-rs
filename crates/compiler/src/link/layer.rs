@@ -7,7 +7,8 @@ use vc_model::TemplateValue;
 use vc_parser::Node;
 use vc_template::ValueType;
 
-use super::project::{Source, list, text};
+use super::project;
+use super::project::Source;
 use crate::parts::Piece;
 
 /// What a definition holds, when it is a literal; `None` when it is only known at run time.
@@ -29,8 +30,8 @@ impl Layer {
     /// The `vars` of `node`, and the `vars` of each entry in its `profiles` list.
     pub fn vars(source: &Source<'_>, node: &Node) -> Self {
         let mut layer = Self { all: defs(source, node.get("vars")), by_profile: HashMap::new() };
-        for profile in list(node, "profiles") {
-            let Some(id) = text(profile, "id") else { continue };
+        for profile in project::list(node, "profiles") {
+            let Some(id) = project::text(profile, "id") else { continue };
             layer.by_profile.entry(id.to_owned()).or_default().extend(defs(source, profile.get("vars")));
         }
         layer

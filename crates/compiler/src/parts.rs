@@ -14,14 +14,12 @@ use vc_model::{
     StringTable, Sym, Template, TemplateValue,
 };
 use vc_parser::{Node, Value};
-use vc_template::{
-    CelCompiler, PipeRegistry, Roots, TemplateError, ValueType, parse_duration, parse_size, parse_status,
-};
+use vc_template::{CelCompiler, PipeRegistry, Roots, TemplateError, ValueType};
 
-use crate::matchers;
-use crate::shape_check::{Leaf, LeafTy, Walk, at};
+use crate::shape_check;
+use crate::shape_check::{Leaf, LeafTy, Walk};
 use crate::shapes::{Scope, Unit};
-use crate::value;
+use crate::{matchers, value};
 
 /// One compiled value, keyed by its node's span in a [`FileUnit`](crate::stage::FileUnit).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,7 +85,7 @@ impl At<'_> {
 pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan, Piece> {
     let mut pieces = IndexMap::new();
     for leaf in &walk.leaves {
-        let Some(node) = at(root, &leaf.path) else { continue };
+        let Some(node) = shape_check::at(root, &leaf.path) else { continue };
         if let Some(piece) = piece(cx, At { node, scope: leaf.scope }, leaf) {
             pieces.insert(node.span, piece);
         }
@@ -98,8 +96,8 @@ pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan
 fn piece(cx: &mut Cx<'_>, at: At<'_>, leaf: &Leaf) -> Option<Piece> {
     match leaf.ty {
         LeafTy::Template => template(cx, at).map(Piece::Template),
-        LeafTy::Duration => unit(cx, at, |text, span| parse_duration(text, span).map(Piece::Duration)),
-        LeafTy::Size => unit(cx, at, |text, span| parse_size(text, span).map(Piece::Size)),
+        LeafTy::Duration => unit(cx, at, |text, span| vc_template::parse_duration(text, span).map(Piece::Duration)),
+        LeafTy::Size => unit(cx, at, |text, span| vc_template::parse_size(text, span).map(Piece::Size)),
         LeafTy::Status => status(cx, at).map(Piece::Matcher),
         LeafTy::Matcher(unit) => matchers::matcher(cx, at, unit).map(Piece::Matcher),
         LeafTy::Cel => cel(cx, at).map(Piece::Cel),
@@ -135,7 +133,7 @@ fn status_pattern(cx: &mut Cx<'_>, node: &Node) -> Option<vc_model::StatusPatter
         cx.push(Diagnostic::new(Code::V2302, node.span, message));
         return None;
     };
-    cx.check(parse_status(&scalar.text, node.span))
+    cx.check(vc_template::parse_status(&scalar.text, node.span))
 }
 
 /// A template, with its roots and pipe chains checked.

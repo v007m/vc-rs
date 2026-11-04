@@ -6,7 +6,7 @@ mod scripted;
 mod track;
 
 use axum::Router;
-use axum::middleware::from_fn_with_state;
+use axum::middleware;
 use tower_http::compression::CompressionLayer;
 
 use crate::store::Store;
@@ -20,6 +20,6 @@ pub fn router(store: &Store) -> Router {
         .merge(auth::routes(store))
         .merge(echo::routes())
         .merge(scripted::routes(store))
-        .route_layer(from_fn_with_state(store.clone(), track::track));
+        .route_layer(middleware::from_fn_with_state(store.clone(), track::track));
     counted.merge(admin::routes(store)).layer(CompressionLayer::new())
 }

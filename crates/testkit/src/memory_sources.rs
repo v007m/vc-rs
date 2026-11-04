@@ -1,4 +1,4 @@
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, source_file};
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
 
 /// A project held in memory: each file a relative path and its bytes.
 ///
@@ -20,7 +20,10 @@ impl SourceProvider for MemorySources {
     fn discover(&self, filter: &SourceFilter) -> Result<Discovery, SourceError> {
         let mut discovery = Discovery::default();
         for (relative, bytes) in &self.files {
-            match filter.select(relative).map(|path| path.and_then(|path| source_file(path, bytes.clone()))) {
+            match filter
+                .select(relative)
+                .map(|path| path.and_then(|path| vc_interfaces::source_file(path, bytes.clone())))
+            {
                 Some(Ok(file)) => discovery.files.push(file),
                 Some(Err(problem)) => discovery.problems.push(problem),
                 None => discovery.assets.extend(filter.asset(relative)),

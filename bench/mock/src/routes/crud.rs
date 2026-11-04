@@ -1,7 +1,7 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing;
 use axum::{Json, Router};
 use serde_json::{Map, Value};
 
@@ -20,8 +20,8 @@ struct Crud {
 pub fn routes(store: &Store, kind: &'static str) -> Router {
     let crud = Crud { store: store.clone(), kind };
     Router::new()
-        .route(&format!("/{kind}"), get(list).post(create))
-        .route(&format!("/{kind}/{{id}}"), get(read).put(replace).patch(merge).delete(remove))
+        .route(&format!("/{kind}"), routing::get(list).post(create))
+        .route(&format!("/{kind}/{{id}}"), routing::get(read).put(replace).patch(merge).delete(remove))
         .with_state(crud)
 }
 

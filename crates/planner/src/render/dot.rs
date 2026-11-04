@@ -5,8 +5,6 @@ use std::fmt::Write as _;
 
 use vc_model::{Needs, Plan, Program};
 
-use super::{action_label, instance_label, name, repeats};
-
 /// The plan as a Graphviz `digraph`.
 #[must_use]
 pub fn dot(program: &Program, plan: &Plan) -> String {
@@ -15,18 +13,19 @@ pub fn dot(program: &Program, plan: &Plan) -> String {
         let _ = writeln!(
             out,
             "  {}",
-            node(&format!("a{}", planned.action.index()), &action_label(program, planned.action))
+            node(&format!("a{}", planned.action.index()), &super::action_label(program, planned.action))
         );
         edges(&mut out, &format!("a{}", planned.action.index()), &planned.needs);
     }
     for (index, file) in plan.files.iter().enumerate() {
-        let _ = writeln!(out, "  subgraph cluster_{index} {{\n    label={};", quote(name(program, file.id.sym())));
+        let _ =
+            writeln!(out, "  subgraph cluster_{index} {{\n    label={};", quote(super::name(program, file.id.sym())));
         for planned in &file.before_all {
-            let line = node(&format!("a{}", planned.action.index()), &action_label(program, planned.action));
+            let line = node(&format!("a{}", planned.action.index()), &super::action_label(program, planned.action));
             let _ = writeln!(out, "    {line}");
         }
         for instance in &file.instances {
-            let label = instance_label(program, instance, repeats(&file.instances, instance));
+            let label = super::instance_label(program, instance, super::repeats(&file.instances, instance));
             let _ = writeln!(out, "    {}", node(&format!("i{}", instance.id.index()), &label));
         }
         out.push_str("  }\n");

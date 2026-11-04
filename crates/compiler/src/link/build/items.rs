@@ -9,7 +9,8 @@ use vc_parser::Node;
 
 use super::action::Place;
 use super::{Build, Built, expect, read};
-use crate::link::project::{Source, list, text};
+use crate::link::project;
+use crate::link::project::Source;
 use crate::shapes;
 
 impl<'a> Build<'_, 'a> {
@@ -31,8 +32,8 @@ impl<'a> Build<'_, 'a> {
             redact_fields: redact.map(|redact| read::texts(redact, "fields")).unwrap_or_default(),
         };
         self.builder.config(config);
-        for profile in list(root, "profiles") {
-            let Some(id) = text(profile, "id") else { continue };
+        for profile in project::list(root, "profiles") {
+            let Some(id) = project::text(profile, "id") else { continue };
             let id = ProfileId::new(self.sym(id)?);
             let vars = self.values(source, profile.get("vars"))?;
             let name = read::owned(profile, "name");
@@ -43,8 +44,8 @@ impl<'a> Build<'_, 'a> {
                 vars,
             });
         }
-        let before_all = self.block(source, (list(root, "beforeRun"), Owner::Run))?;
-        let after_all = self.block(source, (list(root, "afterRun"), Owner::Run))?;
+        let before_all = self.block(source, (project::list(root, "beforeRun"), Owner::Run))?;
+        let after_all = self.block(source, (project::list(root, "afterRun"), Owner::Run))?;
         self.builder.run_blocks(Lifecycle { before_all, after_all, ..Lifecycle::default() });
         Ok(())
     }
@@ -63,7 +64,7 @@ impl<'a> Build<'_, 'a> {
         let root = source.root;
         let group = FileId::new(self.sym(source.id.as_deref().unwrap_or_default())?);
         let mut apis = Vec::new();
-        for node in list(root, "apis") {
+        for node in project::list(root, "apis") {
             let Some(api) = self.api(source, node, group)? else { continue };
             apis.push(api.id);
             self.builder.api(api);
@@ -77,7 +78,8 @@ impl<'a> Build<'_, 'a> {
     }
 
     fn api(&mut self, source: &Source<'a>, node: &Node, group: FileId) -> Built<Option<Api>> {
-        let (Some(id), Some(path)) = (text(node, "id"), node.get("path").and_then(|path| read::template(source, path)))
+        let (Some(id), Some(path)) =
+            (project::text(node, "id"), node.get("path").and_then(|path| read::template(source, path)))
         else {
             return Ok(None);
         };
@@ -112,13 +114,13 @@ impl<'a> Build<'_, 'a> {
         let root = source.root;
         let file = FileId::new(self.sym(source.id.as_deref().unwrap_or_default())?);
         let lifecycle = Lifecycle {
-            before_all: self.block(source, (list(root, "beforeAll"), Owner::File(file)))?,
-            after_all: self.block(source, (list(root, "afterAll"), Owner::File(file)))?,
-            before_each: self.block(source, (list(root, "beforeEach"), Owner::Instance))?,
-            after_each: self.block(source, (list(root, "afterEach"), Owner::Instance))?,
+            before_all: self.block(source, (project::list(root, "beforeAll"), Owner::File(file)))?,
+            after_all: self.block(source, (project::list(root, "afterAll"), Owner::File(file)))?,
+            before_each: self.block(source, (project::list(root, "beforeEach"), Owner::Instance))?,
+            after_each: self.block(source, (project::list(root, "afterEach"), Owner::Instance))?,
         };
         let mut tests = Vec::new();
-        for node in list(root, "tests") {
+        for node in project::list(root, "tests") {
             let Some(test) = self.test(source, node, file)? else { continue };
             tests.push(test.id);
             self.builder.test(test);
@@ -130,11 +132,11 @@ impl<'a> Build<'_, 'a> {
     }
 
     fn test(&mut self, source: &Source<'a>, node: &Node, file: FileId) -> Built<Option<Test>> {
-        let Some(id) = text(node, "id") else { return Ok(None) };
+        let Some(id) = project::text(node, "id") else { return Ok(None) };
         let id = TestId::new(self.sym(&source.full(id))?);
-        let before = self.block(source, (list(node, "before"), Owner::Instance))?;
+        let before = self.block(source, (project::list(node, "before"), Owner::Instance))?;
         let Some(body) = self.body(source, node, id)? else { return Ok(None) };
-        let after = self.block(source, (list(node, "after"), Owner::Instance))?;
+        let after = self.block(source, (project::list(node, "after"), Owner::Instance))?;
         Ok(Some(Test {
             id,
             file,
@@ -164,7 +166,7 @@ impl<'a> Build<'_, 'a> {
             return Ok(Some(TestBody::Call(self.builder.action(action)?)));
         }
         let place = Place { owner: Owner::Instance, defaults: Some((id, node)), test: None };
-        let steps = list(node, "steps");
+        let steps = project::list(node, "steps");
         let mut ids = Vec::with_capacity(steps.len());
         for (index, step) in steps.iter().enumerate() {
             let Some(mut action) = self.action(source, step, &place)? else { continue };

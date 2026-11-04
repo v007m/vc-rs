@@ -30,7 +30,6 @@ pub use uses::piece_refs;
 
 use crate::cache::CacheEntry;
 use crate::lint::{LintCx, LintRegistry};
-use project::file_id;
 
 /// What linking found, and the program when nothing is an error.
 pub struct Linked {
@@ -89,7 +88,11 @@ fn sources<'a>(entries: &'a [CacheEntry], files: &'a SourceFiles) -> (Vec<Source
         let (Some(unit), Some(file)) = (entry.unit.as_deref(), files.get(entry.file)) else { continue };
         let Some(kind) = unit.kind else { continue };
         if unit.diagnostics.has_errors() {
-            unreadable.insert(if kind == FileKind::Config { String::new() } else { file_id(file.path.as_str(), kind) });
+            unreadable.insert(if kind == FileKind::Config {
+                String::new()
+            } else {
+                project::file_id(file.path.as_str(), kind)
+            });
         }
         sources.extend(Source::new(entry.file, file, unit));
     }

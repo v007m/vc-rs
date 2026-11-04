@@ -3,7 +3,7 @@
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use serde_json::{Number, Value};
 
 /// Applies a pipe to a value.
@@ -115,7 +115,7 @@ pub fn trim(value: &Value, _: &PipeArgs<'_>) -> Result<Value, String> {
 
 /// `urlEncode`: percent-encodes all but the RFC 3986 unreserved characters.
 pub fn url_encode(value: &Value, _: &PipeArgs<'_>) -> Result<Value, String> {
-    text(value).map(|text| Value::String(utf8_percent_encode(text, UNRESERVED).to_string()))
+    text(value).map(|text| Value::String(percent_encoding::utf8_percent_encode(text, UNRESERVED).to_string()))
 }
 
 /// `default(x)`: a missing or `null` value → `x`.

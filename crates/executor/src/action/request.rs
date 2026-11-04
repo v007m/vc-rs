@@ -7,11 +7,11 @@ use bytes::Bytes;
 use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderName, HeaderValue, Uri};
 use indexmap::IndexMap;
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
 use vc_model::{Action, Api, BodySpec, Exchange, Failure, Method, RenderedRequest, Template, Timing};
-use vc_template::{RenderError, extend, to_text};
+use vc_template::RenderError;
 
 use crate::Render;
 
@@ -62,13 +62,13 @@ fn query(render: &Render<'_>, api: &Api, action: &Action) -> Result<String, Fail
             value => vec![value],
         };
         let items = items.iter().filter(|item| !item.is_null());
-        pairs.extend(items.map(|item| format!("{}={}", encode(key), encode(&to_text(item)))));
+        pairs.extend(items.map(|item| format!("{}={}", encode(key), encode(&vc_template::to_text(item)))));
     }
     Ok(pairs.join("&"))
 }
 
 fn encode(text: &str) -> String {
-    utf8_percent_encode(text, UNRESERVED).to_string()
+    percent_encoding::utf8_percent_encode(text, UNRESERVED).to_string()
 }
 
 /// The config's default headers, then the api file's, the api's and the action's; a later one
@@ -94,7 +94,7 @@ fn header_value(render: &Render<'_>, template: &Template) -> Result<Option<Heade
     if value.is_null() {
         return Ok(None);
     }
-    let text = to_text(&value);
+    let text = vc_template::to_text(&value);
     let value = HeaderValue::try_from(text.as_str());
     value.map(Some).map_err(|error| rendering(&format!("`{text}` is not a header value: {error}")))
 }
@@ -111,7 +111,7 @@ fn body(render: &Render<'_>, spec: &BodySpec) -> Result<Option<Body>, Failure> {
         BodySpec::Base64(template) => (decode(&render.text(template).map_err(failed)?)?, OCTETS),
         BodySpec::Extend { base, changes, remove } => {
             let base = render.template(base).map_err(failed)?;
-            let merged = extend(base, render.value(changes).map_err(failed)?, remove);
+            let merged = vc_template::extend(base, render.value(changes).map_err(failed)?, remove);
             (Bytes::from(merged.to_string()), JSON)
         }
         BodySpec::File(_) | BodySpec::Form(_) | BodySpec::Multipart(_) => {

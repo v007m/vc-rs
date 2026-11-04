@@ -9,8 +9,7 @@ use tokio::task::{Id, JoinSet};
 use vc_diagnostics::Code;
 use vc_model::{ActionOutcome, Failure, Loop};
 
-use super::request;
-use super::{ActionExecutor, ActionRequest};
+use super::{ActionExecutor, ActionRequest, request};
 use crate::{ActionReport, Frame, Iteration, Render, Saved};
 
 /// Runs `request`'s action once per turn of `spec` with `executor`. Once a turn fails no more

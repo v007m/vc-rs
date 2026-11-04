@@ -5,7 +5,8 @@ use vc_model::{Action, ActionKind, ApiId, AuthRef, BodySpec, Expect, Origin, Own
 use vc_parser::Node;
 
 use super::{Build, Built, expect, read};
-use crate::link::project::{Source, text};
+use crate::link::project;
+use crate::link::project::Source;
 use crate::shapes;
 
 /// The test a step takes its defaults from, and its node.
@@ -40,7 +41,7 @@ impl<'a> Build<'_, 'a> {
         let expect = self.checks(source, (node, &kind), (origin, defaults));
         let poll = node.get("poll").or_else(|| defaults.and_then(|(_, test)| test.get("poll")));
         let vars = if place.test.is_some() { VarDefs::default() } else { self.vars(source, node)? };
-        let id = text(node, "id").filter(|_| place.test.is_none()).map(|id| self.sym(id)).transpose()?;
+        let id = project::text(node, "id").filter(|_| place.test.is_none()).map(|id| self.sym(id)).transpose()?;
         Ok(Some(Action {
             id,
             kind,
@@ -63,13 +64,13 @@ impl<'a> Build<'_, 'a> {
 
     /// `call`, `test`, `function` or `command`.
     fn kind(&mut self, source: &Source<'a>, node: &Node) -> Built<Option<ActionKind>> {
-        if let Some(call) = text(node, "call") {
+        if let Some(call) = project::text(node, "call") {
             return Ok(Some(ActionKind::Call(ApiId::new(self.sym(&source.resolve(call))?))));
         }
-        if let Some(test) = text(node, "test") {
+        if let Some(test) = project::text(node, "test") {
             return Ok(Some(ActionKind::Test(TestId::new(self.sym(&source.resolve(test))?))));
         }
-        if let Some(function) = text(node, "function") {
+        if let Some(function) = project::text(node, "function") {
             return Ok(Some(ActionKind::Function(read::hook(function))));
         }
         let command = node.get("command").and_then(|command| read::template(source, command));

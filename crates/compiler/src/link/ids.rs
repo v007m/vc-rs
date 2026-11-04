@@ -6,7 +6,8 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{FileKind, SourceSpan};
 use vc_parser::Node;
 
-use super::project::{Project, Source, actions, list};
+use super::project;
+use super::project::{Project, Source};
 
 /// The root names no `id` may take (D128, D137).
 const RESERVED: [&str; 11] =
@@ -23,7 +24,7 @@ pub fn declared<'a>(source: &Source<'a>) -> Vec<&'a Node> {
         FileKind::Config => &CONFIG_ITEMS,
         FileKind::Load => &[],
     };
-    let nodes = items.iter().flat_map(|key| list(source.root, key)).chain(actions(source));
+    let nodes = items.iter().flat_map(|key| project::list(source.root, key)).chain(project::actions(source));
     let mut ids: Vec<&Node> = nodes.filter_map(|node| node.get("id")).collect();
     ids.sort_by_key(|node| node.span.start.offset);
     ids

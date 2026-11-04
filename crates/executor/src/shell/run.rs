@@ -5,7 +5,8 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use vc_model::{ActionId, OwnerKey, Plan, Totals};
 
 use super::crew::{Crew, Job};
-use super::file::{FileJob, file};
+use super::file;
+use super::file::FileJob;
 use super::tasks::Tasks;
 use crate::cancel::CancelTree;
 use crate::{FailedActions, Frame, RunCommand, RunInput, RunOrchestrator, RunSummary, SharedSlots};
@@ -78,8 +79,10 @@ impl RunShell {
             let run = Arc::clone(&self.frame.run);
             let job = FileJob { file: planned.clone(), failed: failed.clone(), run, cancel: self.cancel.child() };
             let crew = self.crew.clone();
-            self.tasks
-                .spawn(async move { RunInput::FileDone(file(crew, job).await) }, RunInput::FileDone(Totals::default()));
+            self.tasks.spawn(
+                async move { RunInput::FileDone(file::file(crew, job).await) },
+                RunInput::FileDone(Totals::default()),
+            );
         }
     }
 

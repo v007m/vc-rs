@@ -1,7 +1,6 @@
 //! The built-in pipes (LLD "Rendering", syntax reference "Converting types with pipes").
 
-use crate::pipe_fns as run;
-use crate::{ArgType, PipeDef, PipeSignature, ValueType};
+use crate::{ArgType, PipeDef, PipeSignature, ValueType, pipe_fns as run};
 
 const NONE: &[ArgType] = &[];
 

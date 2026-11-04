@@ -7,8 +7,9 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{FileKind, SourceSpan};
 use vc_parser::Node;
 
-use super::ids::declared;
-use super::project::{Project, Source, list, text};
+use super::ids;
+use super::project;
+use super::project::{Project, Source};
 use super::saves::Saves;
 
 /// V2210 for every shared action without an `id` that saves something.
@@ -20,8 +21,8 @@ pub fn check(project: &Project<'_>, diagnostics: &mut Diagnostics) {
             FileKind::Test => "beforeAll",
             FileKind::Api | FileKind::Load => continue,
         };
-        let taken: HashSet<&str> = declared(source).iter().filter_map(|node| node.as_str()).collect();
-        for action in list(source.root, key).iter().filter(|action| action.get("id").is_none()) {
+        let taken: HashSet<&str> = ids::declared(source).iter().filter_map(|node| node.as_str()).collect();
+        for action in project::list(source.root, key).iter().filter(|action| action.get("id").is_none()) {
             let names = saves.action(source, action);
             if !names.is_empty() {
                 diagnostics.push(missing_id(source, (action, key), &taken));
@@ -46,14 +47,14 @@ fn missing_id(source: &Source<'_>, (action, block): (&Node, &str), taken: &HashS
 
 /// The ID an action would take: the short ID of the api it calls or the test it reuses.
 fn derived(action: &Node) -> Option<&str> {
-    let written = text(action, "call").or_else(|| text(action, "test"))?;
+    let written = project::text(action, "call").or_else(|| project::text(action, "test"))?;
     Some(written.rsplit('#').next().unwrap_or(written))
 }
 
 /// V3101 when the config defines no profile.
 pub fn profiles(project: &Project<'_>) -> Option<Diagnostic> {
     let config = project.config().filter(|config| !config.broken)?;
-    if !list(config.root, "profiles").is_empty() {
+    if !project::list(config.root, "profiles").is_empty() {
         return None;
     }
     let root = config.root;

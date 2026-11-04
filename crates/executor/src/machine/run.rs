@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use vc_model::{ActionId, Event, OwnerKey, Plan, RunStatus, SkippedTest, TestResult, TestStatus, Totals};
 
-use super::{ActionReport, FailedActions, PendingCleanup, SharedActions, newest_first};
+use super::{ActionReport, FailedActions, PendingCleanup, SharedActions};
 
 /// Where a [`RunOrchestrator`] is; the index is the lifecycle action in flight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -265,7 +265,7 @@ impl RunOrchestrator {
         self.aborted = true;
         out.push(RunCommand::Abort);
         if !self.cleanups.is_empty() {
-            let cleanups = newest_first(&self.cleanups);
+            let cleanups = super::newest_first(&self.cleanups);
             out.push(RunCommand::Emit(Event::CleanupsAbandoned { owner: OwnerKey::Run, cleanups }));
             self.cleanups.clear();
         }

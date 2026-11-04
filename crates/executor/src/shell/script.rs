@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use vc_model::{ActionId, Lifecycle, Plan, Program, TestId};
 
-use crate::{ExecutorError, InstanceScript, body_actions};
+use crate::{ExecutorError, InstanceScript};
 
 /// Each planned test's actions, built once per run and shared by its instances.
 pub type Scripts = BTreeMap<TestId, Arc<InstanceScript>>;
@@ -27,7 +27,7 @@ fn script(program: &Program, id: TestId) -> Result<InstanceScript, ExecutorError
     let each = |pick: fn(&Lifecycle) -> &Vec<ActionId>| lifecycle.map(pick).cloned().unwrap_or_default();
     let before = each(|blocks| &blocks.before_each).into_iter().chain(test.before.iter().copied()).collect();
     let after = test.after.iter().copied().chain(each(|blocks| &blocks.after_each)).collect();
-    Ok(InstanceScript { before, body: body_actions(&test.body), after, retry: test.retry })
+    Ok(InstanceScript { before, body: crate::body_actions(&test.body), after, retry: test.retry })
 }
 
 /// Every action the run starts directly: the shared lifecycle and each script.

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use ignore::{DirEntry, WalkBuilder};
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, source_file};
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
 use vc_model::SourcePath;
 
 /// Reads a project's definition files from disk, and lists the other files as assets.
@@ -66,7 +66,7 @@ impl FsSources {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
         let bytes = std::fs::read(&target).map_err(failed)?;
-        source_file(path, bytes)
+        vc_interfaces::source_file(path, bytes)
     }
 }
 

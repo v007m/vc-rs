@@ -1,7 +1,7 @@
 //! The config's `paths.include` and `paths.exclude`, which decide what discovery reads.
 
 use vc_model::{FileKind, SourceFile, SourceFileId};
-use vc_parser::{Node, Syntax, parse};
+use vc_parser::{Node, Syntax};
 
 /// The discovery globs the project's config writes.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -29,7 +29,7 @@ impl SourceGlobs {
 }
 
 fn read(config: &SourceFile) -> Option<SourceGlobs> {
-    let (node, _) = parse(SourceFileId::new(0), Syntax::of(&config.path), &config.text);
+    let (node, _) = vc_parser::parse(SourceFileId::new(0), Syntax::of(&config.path), &config.text);
     let node = node?;
     let paths = node.get("paths")?;
     Some(SourceGlobs { include: texts(paths, "include").unwrap_or_default(), exclude: texts(paths, "exclude") })

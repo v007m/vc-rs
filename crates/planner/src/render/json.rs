@@ -4,8 +4,6 @@ use serde::Serialize;
 use serde_json::Value;
 use vc_model::{ActionId, InstanceId, Needs, Plan, PlannedAction, PlannedFile, Program};
 
-use super::{action_label, name};
-
 /// The plan as JSON.
 #[must_use]
 pub fn json(program: &Program, plan: &Plan) -> Value {
@@ -17,7 +15,7 @@ pub fn json(program: &Program, plan: &Plan) -> Value {
         skipped: plan
             .skipped
             .iter()
-            .map(|skipped| SkippedView { test: name(program, skipped.test.sym()), reason: &skipped.reason })
+            .map(|skipped| SkippedView { test: super::name(program, skipped.test.sym()), reason: &skipped.reason })
             .collect(),
     };
     serde_json::to_value(view).unwrap_or(Value::Null)
@@ -70,13 +68,13 @@ struct SkippedView<'p> {
 fn file_view<'p>(program: &'p Program, file: &'p PlannedFile) -> FileView<'p> {
     let instances = file.instances.iter().map(|instance| InstanceView {
         id: instance.id,
-        test: name(program, instance.test.sym()),
+        test: super::name(program, instance.test.sym()),
         example_row: instance.example_row,
         repeat_index: instance.repeat_index,
         needs: ids(&instance.needs),
     });
     FileView {
-        id: name(program, file.id.sym()),
+        id: super::name(program, file.id.sym()),
         before_all: planned(program, &file.before_all),
         instances: instances.collect(),
         after_all: after(program, &file.after_all),
@@ -86,15 +84,18 @@ fn file_view<'p>(program: &'p Program, file: &'p PlannedFile) -> FileView<'p> {
 fn planned(program: &Program, actions: &[PlannedAction]) -> Vec<ActionView> {
     let view = |planned: &PlannedAction| ActionView {
         action: planned.action,
-        label: action_label(program, planned.action),
+        label: super::action_label(program, planned.action),
         needs: ids(&planned.needs),
     };
     actions.iter().map(view).collect()
 }
 
 fn after(program: &Program, actions: &[ActionId]) -> Vec<ActionView> {
-    let view =
-        |action: &ActionId| ActionView { action: *action, label: action_label(program, *action), needs: Vec::new() };
+    let view = |action: &ActionId| ActionView {
+        action: *action,
+        label: super::action_label(program, *action),
+        needs: Vec::new(),
+    };
     actions.iter().map(view).collect()
 }
 

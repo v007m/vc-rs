@@ -1,6 +1,7 @@
 //! The `vc` binary (also installed as `vibranium`).
 
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic;
+use std::panic::AssertUnwindSafe;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
@@ -36,7 +37,7 @@ enum SchemaCommand {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    let result = catch_unwind(AssertUnwindSafe(|| run(cli)));
+    let result = panic::catch_unwind(AssertUnwindSafe(|| run(cli)));
     outcome::finish(result.unwrap_or_else(|_| Err(anyhow::anyhow!("vc stopped unexpectedly"))))
 }
 

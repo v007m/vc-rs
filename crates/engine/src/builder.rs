@@ -2,7 +2,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use vc_adapter_system::{FsCompileCache, FsSources, SystemClock, find_project_root};
+use vc_adapter_system::{FsCompileCache, FsSources, SystemClock};
 use vc_interfaces::{Clock, CompileCacheStore, SourceProvider};
 
 use crate::EngineError;
@@ -30,7 +30,7 @@ impl EngineBuilder {
     ///
     /// [`EngineError::NoProject`] when there is none.
     pub fn for_project(start: &Path) -> Result<Self, EngineError> {
-        find_project_root(start)
+        vc_adapter_system::find_project_root(start)
             .map(Self::new)
             .ok_or_else(|| EngineError::NoProject { start: start.display().to_string() })
     }

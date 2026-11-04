@@ -13,10 +13,10 @@ use vc_model::{
     Namespace, Origin, Poll, Program, StatusPattern,
 };
 
-use super::request::{failed, received, rendered, sent};
+use super::request;
 use super::{ActionExecutor, ActionRequest};
 use crate::check::{self, Judge, MatcherRegistry, Subject};
-use crate::{ActionReport, Call, PendingCleanup, PipelineParts, Render, Saved, pipeline};
+use crate::{ActionReport, Call, PendingCleanup, PipelineParts, Render, Saved};
 
 /// The per-attempt limit when neither the api nor the config's `defaults` sets a `timeout`.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -54,9 +54,9 @@ impl CallExecutor {
             request.cx.action(request.action).ok_or_else(|| Failure::new("the action is not in the program"))?;
         let api = called(&request.cx.program, action)
             .ok_or_else(|| Failure::new("the action calls no api in the program"))?;
-        let mut render = Render::new(request).map_err(failed)?;
+        let mut render = Render::new(request).map_err(request::failed)?;
         let timeout = timeout(render.program(), api);
-        let call = Call { request: rendered(&render, api, action)?, timeout, ctx: SendContext::default() };
+        let call = Call { request: request::rendered(&render, api, action)?, timeout, ctx: SendContext::default() };
         let exchange = match &action.poll {
             Some(poll) => self.poll(&mut render, call, poll).await?,
             None => self.send(call).await?,
@@ -102,7 +102,7 @@ impl CallExecutor {
 
     /// Sends `call`; a transport error fails it.
     async fn send(&self, call: Call) -> Result<Exchange, Failure> {
-        let delivery = match pipeline(self.parts.clone()).oneshot(call).await {
+        let delivery = match crate::pipeline(self.parts.clone()).oneshot(call).await {
             Ok(delivery) => delivery,
             Err(never) => match never {},
         };
@@ -137,9 +137,9 @@ fn timeout(program: &Program, api: &Api) -> Duration {
 
 /// Binds `response` and `request` for the checks, saves and cleanup vars; returns the response.
 fn bind(render: &mut Render<'_>, exchange: &Exchange) -> Arc<Value> {
-    let response = Arc::new(received(exchange));
+    let response = Arc::new(request::received(exchange));
     render.bind(Namespace::Response, Value::clone(&response));
-    render.bind(Namespace::Request, sent(&exchange.request));
+    render.bind(Namespace::Request, request::sent(&exchange.request));
     response
 }
 
@@ -165,7 +165,7 @@ fn saves(render: &Render<'_>, api: &Api, action: &Action) -> Result<Saved, Failu
     let mut saved = Saved::new();
     for (name, value) in api.save.values.iter().chain(&action.save.values) {
         let name = render.program().str(name.sym()).unwrap_or_default().to_owned();
-        saved.insert(name, render.value(value).map_err(failed)?);
+        saved.insert(name, render.value(value).map_err(request::failed)?);
     }
     Ok(saved)
 }
@@ -178,7 +178,7 @@ fn cleanup(render: &Render<'_>, api: &Api) -> Result<Option<PendingCleanup>, Fai
     defined.sort_unstable_by_key(|(name, _)| *name);
     let mut vars = Saved::new();
     for (name, value) in defined {
-        vars.insert(name.clone(), render.value(value).map_err(failed)?);
+        vars.insert(name.clone(), render.value(value).map_err(request::failed)?);
     }
     Ok(Some(PendingCleanup::new(action).with_vars(vars)))
 }

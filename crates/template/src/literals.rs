@@ -4,10 +4,9 @@
 use serde_json::Value;
 use vc_diagnostics::{Diagnostic, Fix, TextEdit};
 
-use crate::TemplateError;
-use crate::codes;
 use crate::grammar::{ArgProblem, RawArg};
 use crate::span_map::SpanMap;
+use crate::{TemplateError, codes};
 
 /// The values of `args`, or V2305 for the first one that is not an argument.
 pub fn values(args: Vec<RawArg>, map: &SpanMap<'_>) -> Result<Vec<Value>, TemplateError> {

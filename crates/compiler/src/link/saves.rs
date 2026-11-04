@@ -5,7 +5,8 @@ use std::collections::{HashMap, HashSet};
 
 use vc_parser::Node;
 
-use super::project::{Item, Project, Source, TEST_BLOCKS, list, text};
+use super::project;
+use super::project::{Item, Project, Source, TEST_BLOCKS};
 
 /// The keys of a map node.
 pub fn keys(node: Option<&Node>) -> Vec<String> {
@@ -14,12 +15,12 @@ pub fn keys(node: Option<&Node>) -> Vec<String> {
 
 /// The api an action or test calls.
 pub fn called<'a>(project: &Project<'a>, (source, node): (&Source<'_>, &Node)) -> Option<Item<'a>> {
-    project.apis.get(&source.resolve(text(node, "call")?)).copied()
+    project.apis.get(&source.resolve(project::text(node, "call")?)).copied()
 }
 
 /// The test a `test:` action reuses.
 pub fn reused<'a>(project: &Project<'a>, (source, node): (&Source<'_>, &Node)) -> Option<(String, Item<'a>)> {
-    let full = source.resolve(text(node, "test")?);
+    let full = source.resolve(project::text(node, "test")?);
     project.tests.get(&full).map(|item| (full, *item))
 }
 
@@ -39,7 +40,7 @@ impl<'p, 'a> Saves<'p, 'a> {
     /// The names `node`, an action or a test with `call`, saves.
     pub fn action(&mut self, source: &Source<'_>, node: &Node) -> Vec<String> {
         let mut names = keys(node.get("save"));
-        names.extend(list(node, "provides").iter().filter_map(|name| name.as_str()).map(str::to_owned));
+        names.extend(project::list(node, "provides").iter().filter_map(|name| name.as_str()).map(str::to_owned));
         if let Some(api) = called(self.project, (source, node)) {
             names.extend(keys(api.node.get("save")));
         }
@@ -59,7 +60,7 @@ impl<'p, 'a> Saves<'p, 'a> {
         }
         let project = self.project;
         let source = project.source(item);
-        let blocks = TEST_BLOCKS.iter().flat_map(|key| list(item.node, key));
+        let blocks = TEST_BLOCKS.iter().flat_map(|key| project::list(item.node, key));
         let mut names: Vec<String> = Vec::new();
         for action in blocks.chain([item.node]) {
             names.extend(self.action(source, action));

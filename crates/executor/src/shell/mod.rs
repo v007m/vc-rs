@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 use vc_model::Plan;
 
 use self::crew::Crew;
-use self::run::{RunFrame, run};
+use self::run::RunFrame;
 use crate::cancel::CancelTree;
 use crate::{ActionCx, EventBus, ExecutorError, RedactingSink, RunInput, RunSummary};
 
@@ -80,7 +80,7 @@ impl Executor {
             run: inbox.clone(),
         };
         let frame = RunFrame { inbox: inputs, cancel: CancelTree::new(self.options.grace), bail: self.options.bail };
-        Ok(RunHandle { inbox, task: tokio::spawn(run(crew, plan, frame)) })
+        Ok(RunHandle { inbox, task: tokio::spawn(run::run(crew, plan, frame)) })
     }
 }
 

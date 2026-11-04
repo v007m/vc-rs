@@ -3,7 +3,7 @@ use std::sync::Arc;
 use vc_model::{ActionId, Event, Failure, Instance, OwnerKey, PlannedFile, TestResult, TestStatus, Totals};
 
 use super::instance::CANCELLED;
-use super::{ActionReport, FailedActions, PendingCleanup, SharedActions, newest_first};
+use super::{ActionReport, FailedActions, PendingCleanup, SharedActions};
 
 /// Where a [`FileOrchestrator`] is; the index is the lifecycle action in flight.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -241,7 +241,7 @@ impl FileOrchestrator {
         self.cancelled = true;
         self.aborted = true;
         if !self.cleanups.is_empty() {
-            let cleanups = newest_first(&self.cleanups);
+            let cleanups = super::newest_first(&self.cleanups);
             out.push(FileCommand::Emit(Event::CleanupsAbandoned { owner: self.shared.owner, cleanups }));
             self.cleanups.clear();
         }

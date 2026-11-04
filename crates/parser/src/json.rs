@@ -6,7 +6,8 @@ use vc_diagnostics::Diagnostics;
 use vc_model::SourceFileId;
 
 use crate::build::{Builder, Flow, Shape};
-use crate::scan::{Cursor, Fault, shown};
+use crate::scan;
+use crate::scan::{Cursor, Fault};
 use crate::{Node, Scalar, ScalarStyle, json_string, problems};
 
 /// The JSON words.
@@ -214,7 +215,7 @@ impl Reader<'_> {
     fn unexpected(&mut self, expect: &Expect) -> Halt {
         let message = self.cursor.peek().map_or_else(
             || format!("the file ends before {}", expect.what),
-            |c| format!("expected {}, found `{}`", expect.what, shown(&c.to_string())),
+            |c| format!("expected {}, found `{}`", expect.what, scan::shown(&c.to_string())),
         );
         self.halt(&Fault { at: self.cursor.here(), message, help: expect.help })
     }

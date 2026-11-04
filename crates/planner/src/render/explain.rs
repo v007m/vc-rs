@@ -6,8 +6,7 @@ use std::fmt::Write as _;
 
 use vc_model::{Check, CheckKind, Matcher, Origin, Path, Plan, Program, Segment, StatusPattern};
 
-use super::{action_label, name};
-use crate::visit::body_actions;
+use crate::visit;
 
 /// Each planned test once, in plan order, with its checks.
 #[must_use]
@@ -16,9 +15,9 @@ pub fn explain(program: &Program, plan: &Plan) -> String {
     let mut seen = BTreeSet::new();
     let tests = plan.files.iter().flat_map(|file| &file.instances).map(|instance| instance.test);
     for test in tests.filter(|test| seen.insert(*test)).filter_map(|test| program.tests.get(&test)) {
-        let _ = writeln!(out, "{}", name(program, test.id.sym()));
-        for action in body_actions(&test.body) {
-            let _ = writeln!(out, "  {}", action_label(program, action));
+        let _ = writeln!(out, "{}", super::name(program, test.id.sym()));
+        for action in visit::body_actions(&test.body) {
+            let _ = writeln!(out, "  {}", super::action_label(program, action));
             let checks = usize::try_from(action.index()).ok().and_then(|at| program.actions.get(at));
             for check in checks.iter().flat_map(|action| &action.expect.checks) {
                 let _ = writeln!(out, "    {}  ({})", check_text(check), origin(program, check.origin));
@@ -84,8 +83,8 @@ fn status(pattern: StatusPattern) -> String {
 
 fn origin(program: &Program, origin: Origin) -> String {
     match origin {
-        Origin::Api(api) => format!("api {}", name(program, api.sym())),
-        Origin::Test(test) => format!("test {}", name(program, test.sym())),
-        Origin::Action(action) => format!("step {}", action_label(program, action)),
+        Origin::Api(api) => format!("api {}", super::name(program, api.sym())),
+        Origin::Test(test) => format!("test {}", super::name(program, test.sym())),
+        Origin::Action(action) => format!("step {}", super::action_label(program, action)),
     }
 }

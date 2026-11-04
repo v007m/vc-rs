@@ -4,10 +4,9 @@ use std::sync::Arc;
 use vc_diagnostics::Diagnostics;
 use vc_model::{Date, Program, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
 
-use crate::CompileCache;
 use crate::cache::CacheEntry;
 use crate::parts::Tools;
-use crate::{link, stage};
+use crate::{CompileCache, link, stage};
 
 /// What one compile needs: the project's files, the cache the previous compile returned, and
 /// what the files cannot say themselves (today's date, the project's other files).

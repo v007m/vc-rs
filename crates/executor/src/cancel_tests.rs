@@ -1,7 +1,8 @@
 use std::cell::Cell;
 use std::time::Duration;
 
-use tokio::time::{Instant, sleep};
+use tokio::time;
+use tokio::time::Instant;
 
 use super::{CancelTree, Ran};
 
@@ -12,12 +13,12 @@ const fn ms(millis: u64) -> Duration {
 }
 
 async fn slow(value: u32, after: Duration) -> u32 {
-    sleep(after).await;
+    time::sleep(after).await;
     value
 }
 
 async fn later(after: Duration, action: impl FnOnce()) {
-    sleep(after).await;
+    time::sleep(after).await;
     action();
 }
 

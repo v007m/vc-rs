@@ -1,5 +1,4 @@
 use serde_json::{Map, Value};
-use vc_compiler::schemas;
 use vc_model::FileKind;
 
 use crate::{Engine, EngineError};
@@ -23,7 +22,7 @@ impl Engine {
     ///
     /// [`EngineError::Schema`] when a schema cannot be written as JSON.
     pub fn schema_export() -> Result<Vec<SchemaFile>, EngineError> {
-        schemas()
+        vc_compiler::schemas()
             .into_iter()
             .map(|schema| {
                 let file_name = format!("{}.schema.json", schema.kind.name());
@@ -39,7 +38,7 @@ impl Engine {
     /// [`EngineError::Schema`] when the schemas cannot be written as JSON.
     pub fn schema_bundle() -> Result<String, EngineError> {
         let bundle: Map<String, Value> =
-            schemas().into_iter().map(|schema| (schema.kind.name().to_owned(), schema.schema)).collect();
+            vc_compiler::schemas().into_iter().map(|schema| (schema.kind.name().to_owned(), schema.schema)).collect();
         pretty(&Value::Object(bundle))
     }
 }

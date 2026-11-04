@@ -7,7 +7,8 @@ use vc_model::Date;
 use vc_parser::Entry;
 
 use super::{Lint, LintCx};
-use crate::link::{Source, list};
+use crate::link;
+use crate::link::Source;
 
 /// Reports every `skip` whose `until` is before today; needs today's date, so it finds nothing
 /// when the caller gave none.
@@ -22,7 +23,7 @@ impl Lint for ExpiredSkips {
         let Some(today) = cx.today else { return Vec::new() };
         let mut found = Vec::new();
         for source in cx.test_files() {
-            let skippable = std::iter::once(source.root).chain(list(source.root, "tests"));
+            let skippable = std::iter::once(source.root).chain(link::list(source.root, "tests"));
             found.extend(skippable.filter_map(|node| self.expired(source, node.entry("skip")?, today)));
         }
         found

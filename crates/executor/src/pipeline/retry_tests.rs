@@ -3,7 +3,6 @@ use std::time::Duration;
 use http::{Method, Uri};
 use vc_interfaces::TransportError;
 use vc_model::{ConnectionInfo, Exchange, RenderedRequest, StatusPattern, Timing};
-use vc_testkit::status;
 
 use super::{Attempted, HttpRetryPolicy, NoRetry, RetryOn, RetryPolicy};
 
@@ -12,7 +11,7 @@ fn request(method: Method) -> RenderedRequest {
 }
 
 fn exchange(code: u16) -> Exchange {
-    let response = status(code);
+    let response = vc_testkit::status(code);
     Exchange {
         request: request(Method::GET),
         response,

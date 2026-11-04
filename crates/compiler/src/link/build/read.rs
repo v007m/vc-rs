@@ -4,7 +4,8 @@ use indexmap::IndexMap;
 use vc_model::{BodySpec, Duration, Examples, HookRef, Method, Retry, Skip, Tag, Template, TemplateValue};
 use vc_parser::Node;
 
-use crate::link::project::{Source, list, text};
+use crate::link::project;
+use crate::link::project::Source;
 use crate::parts::Piece;
 use crate::shapes::Shape;
 
@@ -57,23 +58,23 @@ pub fn templates(source: &Source<'_>, node: &Node, key: &str) -> IndexMap<String
 
 /// `key` as a whole number.
 pub fn number(node: &Node, key: &str) -> Option<u32> {
-    text(node, key)?.parse().ok()
+    project::text(node, key)?.parse().ok()
 }
 
 /// Whether `key` is `true`, taking the default `shape` declares for it when it is not written.
 pub fn flag(shape: &Shape, node: &Node, key: &str) -> bool {
-    let written = text(node, key).or_else(|| shape.find(key)?.default);
+    let written = project::text(node, key).or_else(|| shape.find(key)?.default);
     written.is_some_and(|value| value.eq_ignore_ascii_case("true"))
 }
 
 /// `key` as owned text.
 pub fn owned(node: &Node, key: &str) -> Option<String> {
-    text(node, key).map(str::to_owned)
+    project::text(node, key).map(str::to_owned)
 }
 
 /// The texts of the list under `key`.
 pub fn texts(node: &Node, key: &str) -> Vec<String> {
-    list(node, key).iter().filter_map(|item| item.as_scalar()).map(|scalar| scalar.text.clone()).collect()
+    project::list(node, key).iter().filter_map(|item| item.as_scalar()).map(|scalar| scalar.text.clone()).collect()
 }
 
 /// The tags under `tags`.
@@ -83,7 +84,7 @@ pub fn tags(node: &Node) -> Vec<Tag> {
 
 /// `method`, `GET` when it is left out.
 pub fn method(node: &Node) -> Method {
-    let written = text(node, "method").unwrap_or_default();
+    let written = project::text(node, "method").unwrap_or_default();
     METHODS.iter().find(|(name, _)| *name == written).map_or(Method::Get, |(_, method)| *method)
 }
 
@@ -111,7 +112,7 @@ pub fn hook(written: &str) -> HookRef {
 
 /// The functions listed under `key`.
 pub fn hooks(node: &Node, key: &str) -> Vec<HookRef> {
-    list(node, key).iter().filter_map(|item| text(item, "function")).map(hook).collect()
+    project::list(node, key).iter().filter_map(|item| project::text(item, "function")).map(hook).collect()
 }
 
 /// The request body at `node`: text, `$file`, `$base64`, or JSON.

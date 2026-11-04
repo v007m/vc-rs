@@ -4,8 +4,6 @@ use std::fmt::Write as _;
 
 use vc_model::{ActionId, Needs, Plan, PlannedAction, PlannedFile, Program};
 
-use super::{action_label, instance_label, name, repeats};
-
 /// The plan as an indented tree, two spaces a level.
 #[must_use]
 pub fn tree(program: &Program, plan: &Plan) -> String {
@@ -18,7 +16,7 @@ pub fn tree(program: &Program, plan: &Plan) -> String {
     if !plan.skipped.is_empty() {
         out.line(0, "skipped");
         for skipped in &plan.skipped {
-            out.line(1, &format!("{}: {}", name(program, skipped.test.sym()), skipped.reason));
+            out.line(1, &format!("{}: {}", super::name(program, skipped.test.sym()), skipped.reason));
         }
     }
     out.text
@@ -31,10 +29,10 @@ struct Tree<'p> {
 
 impl Tree<'_> {
     fn file(&mut self, file: &PlannedFile) {
-        self.line(0, name(self.program, file.id.sym()));
+        self.line(0, super::name(self.program, file.id.sym()));
         self.planned("beforeAll", &file.before_all, 1);
         for instance in &file.instances {
-            let label = instance_label(self.program, instance, repeats(&file.instances, instance));
+            let label = super::instance_label(self.program, instance, super::repeats(&file.instances, instance));
             let needs = self.needs(&instance.needs);
             self.line(1, &format!("{label}{needs}"));
         }
@@ -48,7 +46,7 @@ impl Tree<'_> {
         self.line(depth, block);
         for planned in actions {
             let needs = self.needs(&planned.needs);
-            self.line(depth + 1, &format!("{}{needs}", action_label(self.program, planned.action)));
+            self.line(depth + 1, &format!("{}{needs}", super::action_label(self.program, planned.action)));
         }
     }
 
@@ -58,13 +56,13 @@ impl Tree<'_> {
         }
         self.line(depth, block);
         for action in actions {
-            self.line(depth + 1, &action_label(self.program, *action));
+            self.line(depth + 1, &super::action_label(self.program, *action));
         }
     }
 
     /// `  needs: warm, seed`, or nothing.
     fn needs(&self, needs: &Needs) -> String {
-        let labels: Vec<_> = needs.iter().map(|action| action_label(self.program, action)).collect();
+        let labels: Vec<_> = needs.iter().map(|action| super::action_label(self.program, action)).collect();
         if labels.is_empty() { String::new() } else { format!("  needs: {}", labels.join(", ")) }
     }
 

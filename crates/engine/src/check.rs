@@ -1,9 +1,9 @@
-use vc_compiler::{CompileCache, CompileInput, SourceGlobs, compile};
+use vc_compiler::{CompileCache, CompileInput, SourceGlobs};
 use vc_diagnostics::{Diagnostics, Summary};
 use vc_interfaces::{Discovery, SourceFilter};
 use vc_model::SourceFiles;
 
-use crate::problems::add_problems;
+use crate::problems;
 use crate::selection::Selection;
 use crate::{Engine, EngineError};
 
@@ -67,10 +67,10 @@ impl Engine {
             today: Some(self.clock.today()),
             assets: Some(found.assets.into_iter().collect()),
         };
-        let compiled = compile(input);
+        let compiled = vc_compiler::compile(input);
         self.save_cache(&compiled.cache, &previous, &mut notices);
         let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
-        add_problems(&found.problems, &mut diagnostics, &mut files);
+        problems::add_problems(&found.problems, &mut diagnostics, &mut files);
         let selection = Selection::new(&request.paths, &files)?;
         let mut diagnostics = selection.keep(diagnostics, &files);
         diagnostics.sort();

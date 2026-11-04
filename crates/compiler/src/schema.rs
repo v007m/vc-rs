@@ -4,7 +4,6 @@
 use serde_json::{Map, Value, json};
 use vc_model::{FileKind, SourceFileId};
 use vc_parser::{Node, ScalarKind, Syntax};
-use vc_template::{parse_duration, parse_size};
 
 use crate::shapes::{self, Key, Shape, Ty};
 
@@ -117,8 +116,8 @@ fn fits(ty: Ty, node: &Node) -> bool {
         Ty::Int => kind == Some(ScalarKind::Int),
         Ty::Bool => kind == Some(ScalarKind::Bool),
         Ty::Enum(words) => node.as_str().is_some_and(|text| words.contains(&text)),
-        Ty::Duration => node.as_str().is_some_and(|text| parse_duration(text, span).is_ok()),
-        Ty::Size => node.as_str().is_some_and(|text| parse_size(text, span).is_ok()),
+        Ty::Duration => node.as_str().is_some_and(|text| vc_template::parse_duration(text, span).is_ok()),
+        Ty::Size => node.as_str().is_some_and(|text| vc_template::parse_size(text, span).is_ok()),
         Ty::List(item) => node.as_scalar().is_none() && node.items().iter().all(|node| fits(*item, node)),
         Ty::Obj(_) => !node.entries().is_empty(),
         Ty::Either(alternatives) => alternatives.iter().any(|ty| fits(*ty, node)),

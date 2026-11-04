@@ -9,11 +9,10 @@ use vc_model::{CelProgram, CelSource, Path, Reference, ScalarSource, StringTable
 use crate::cel_eval::{self, CelExpr};
 use crate::cel_lex::{self, VAR_ALIAS};
 use crate::cel_refs::{self, Problem, Root};
-use crate::codes;
 use crate::expr::Expr;
-use crate::parse::namespace;
+use crate::parse;
 use crate::span_map::SpanMap;
-use crate::{Roots, TemplateError};
+use crate::{Roots, TemplateError, codes};
 
 /// Roots of `${…}` templates that CEL cannot read (D125: CEL's activation has no such roots).
 const TEMPLATE_ONLY: &[&str] = &["secret", "fake", "dataset", "run"];
@@ -127,7 +126,7 @@ fn reference(root: Root, map: &SpanMap<'_>, strings: &mut StringTable) -> Result
                     set a var from a `${…}` template and read it as `var.<name>`";
         return Err(syntax(Diagnostic::new(codes::ROOT_UNAVAILABLE, span, message).help(help)));
     }
-    let ns = namespace(&root.name, strings)?;
+    let ns = parse::namespace(&root.name, strings)?;
     let root_span = map.span(root.ident);
     Ok(Reference { ns, path: Path { segments: root.path }, args: Vec::new(), pipes: Vec::new(), span, root_span })
 }

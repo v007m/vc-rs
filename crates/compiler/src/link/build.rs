@@ -18,7 +18,8 @@ use vc_model::{
 };
 use vc_parser::Node;
 
-use super::project::{Project, Source, list, text};
+use super::project;
+use super::project::{Project, Source};
 use action::Place;
 pub use read::{flag, method};
 
@@ -61,8 +62,8 @@ impl<'a> Build<'_, 'a> {
 
     /// Reads every api's own `expect` under its full ID.
     fn api_checks(&mut self, source: &Source<'a>) -> Built<()> {
-        for node in list(source.root, "apis") {
-            let Some(id) = text(node, "id") else { continue };
+        for node in project::list(source.root, "apis") {
+            let Some(id) = project::text(node, "id") else { continue };
             let id = ApiId::new(self.sym(&source.full(id))?);
             self.api_expects.insert(id, expect::read(source, node.get("expect"), Origin::Api(id)));
         }
@@ -77,8 +78,8 @@ impl<'a> Build<'_, 'a> {
     fn vars(&mut self, source: &Source<'a>, node: &Node) -> Built<VarDefs> {
         let values = self.values(source, node.get("vars"))?;
         let mut by_profile = IndexMap::new();
-        for profile in list(node, "profiles") {
-            let Some(id) = text(profile, "id") else { continue };
+        for profile in project::list(node, "profiles") {
+            let Some(id) = project::text(profile, "id") else { continue };
             by_profile.insert(ProfileId::new(self.sym(id)?), self.values(source, profile.get("vars"))?);
         }
         Ok(VarDefs { values, by_profile })
@@ -97,7 +98,7 @@ impl<'a> Build<'_, 'a> {
     /// `auth`: an ID, `none`, or an ID with vars.
     fn auth(&mut self, source: &Source<'a>, node: &Node) -> Built<Option<AuthRef>> {
         let Some(auth) = node.get("auth") else { return Ok(None) };
-        let Some(id) = auth.as_scalar().map(|id| id.text.as_str()).or_else(|| text(auth, "id")) else {
+        let Some(id) = auth.as_scalar().map(|id| id.text.as_str()).or_else(|| project::text(auth, "id")) else {
             return Ok(None);
         };
         if id == "none" {

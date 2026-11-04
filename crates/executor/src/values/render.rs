@@ -8,7 +8,7 @@ use std::sync::Arc;
 use serde_json::{Map, Value, json};
 use vc_interfaces::Random;
 use vc_model::{CelProgram, Examples, Namespace, Program, Reference, Segment, Template, TemplateValue};
-use vc_template::{Activation, CelCompiler, Chance, RenderError, Renderer, Resolve, root_name, select};
+use vc_template::{Activation, CelCompiler, Chance, RenderError, Renderer, Resolve};
 
 use super::run::RunValues;
 use super::scope::{Found, Scope};
@@ -192,7 +192,7 @@ impl<'a> Render<'a> {
     fn label(&self, ns: Namespace) -> String {
         match ns {
             Namespace::Step(id) => self.program.str(id).unwrap_or("step").to_owned(),
-            other => root_name(other).unwrap_or("root").to_owned(),
+            other => vc_template::root_name(other).unwrap_or("root").to_owned(),
         }
     }
 }
@@ -238,18 +238,18 @@ impl Resolve for Lookup<'_> {
         match reference.ns {
             Namespace::Var => {
                 let (name, rest) = named("var", reference)?;
-                select(&format!("var.{name}"), &self.render.var(name, self.within)?, rest)
+                vc_template::select(&format!("var.{name}"), &self.render.var(name, self.within)?, rest)
             }
             Namespace::Env => {
                 let (name, rest) = named("env", reference)?;
-                select(&format!("env.{name}"), &self.env(name)?, rest)
+                vc_template::select(&format!("env.{name}"), &self.env(name)?, rest)
             }
             Namespace::Fake => self.fake(reference),
             ns => {
                 let label = self.render.label(ns);
                 let value = self.render.roots.get(&ns);
                 let value = value.ok_or_else(|| RenderError::invalid(format!("`{label}` has no value here")))?;
-                select(&label, value, &reference.path.segments)
+                vc_template::select(&label, value, &reference.path.segments)
             }
         }
     }

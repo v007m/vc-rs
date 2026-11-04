@@ -8,7 +8,8 @@ use vc_model::{Action, Check, Origin, Program, SourceSpan, Test, TestBody};
 use vc_parser::Node;
 
 use super::{Lint, LintCx};
-use crate::link::{Source, list, text};
+use crate::link;
+use crate::link::Source;
 
 /// The defaults a step's own value replaces.
 const REPLACED: [&str; 3] = ["auth", "body", "poll"];
@@ -28,7 +29,7 @@ impl Lint for UnusedDefaults {
         let built = Built::new(cx.program);
         let mut found = Vec::new();
         for (source, test) in cx.tests().filter(|(_, test)| test.get("steps").is_some()) {
-            let takers: Vec<&Node> = list(test, "steps").iter().filter(|step| takes(step)).collect();
+            let takers: Vec<&Node> = link::list(test, "steps").iter().filter(|step| takes(step)).collect();
             let mut unused = replaced(test, &takers);
             unused.extend(merged(test, &takers));
             unused.extend(built.checks(source, test));
@@ -86,7 +87,7 @@ impl<'p> Built<'p> {
 
     /// The test-level checks of `test` that no step's merged checks kept.
     fn checks(&self, source: &Source<'_>, test: &Node) -> Vec<(SourceSpan, String)> {
-        let Some(built) = text(test, "id").and_then(|id| self.tests.get(source.full(id).as_str())) else {
+        let Some(built) = link::text(test, "id").and_then(|id| self.tests.get(source.full(id).as_str())) else {
             return Vec::new();
         };
         let TestBody::Steps(ids) = &built.body else { return Vec::new() };

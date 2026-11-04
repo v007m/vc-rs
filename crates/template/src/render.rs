@@ -4,9 +4,9 @@
 use serde_json::{Map, Value};
 use vc_model::{CelProgram, Part, PipeCall, Reference, Template, TemplateValue};
 
-use crate::merge::extend;
+use crate::merge;
 use crate::pipe_fns::{Chance, PipeArgs};
-use crate::select::preview;
+use crate::select;
 use crate::{PipeRegistry, RenderError};
 
 /// Gives the value of each reference and CEL expression a template holds.
@@ -88,7 +88,7 @@ impl<'a> Renderer<'a> {
             TemplateValue::Map(entries) => Value::Object(self.object(entries.iter())?),
             TemplateValue::Cel(program) => self.resolve.evaluate(program)?,
             TemplateValue::Extend { base, changes, remove } => {
-                extend(self.template(base)?, self.value(changes)?, remove)
+                merge::extend(self.template(base)?, self.value(changes)?, remove)
             }
         })
     }
@@ -119,8 +119,9 @@ impl<'a> Renderer<'a> {
         let name = &call.name;
         let def = self.pipes.get(name).ok_or_else(|| RenderError::invalid(format!("unknown pipe `{name}`")))?;
         let args = PipeArgs { args: &call.args, chance: self.resolve.chance() };
-        (def.apply)(value, &args)
-            .map_err(|reason| RenderError::invalid(format!("pipe `{name}` cannot take {}: {reason}", preview(value))))
+        (def.apply)(value, &args).map_err(|reason| {
+            RenderError::invalid(format!("pipe `{name}` cannot take {}: {reason}", select::preview(value)))
+        })
     }
 }
 

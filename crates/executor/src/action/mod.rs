@@ -16,8 +16,7 @@ use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 use crate::{ActionReport, ExecutorError, Frame, PipelineParts, Redactor, RunInputs, RunValues};
 
 pub use call::CallExecutor;
-pub use reuse::TestExecutor;
-pub use reuse::body_actions;
+pub use reuse::{TestExecutor, body_actions};
 
 /// The kind of an action, as the registry keys its executors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

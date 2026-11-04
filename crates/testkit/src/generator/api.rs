@@ -1,4 +1,5 @@
-use super::rng::{Rng, fill, title};
+use super::rng;
+use super::rng::Rng;
 
 /// File-level keys and the create, read and list apis every service has.
 const CORE: &str = "name: %title% service
@@ -121,13 +122,16 @@ const VERBS: &[&str] =
 /// The api file of service `svc`.
 pub fn render(svc: &str, rng: &mut Rng) -> String {
     let qty = rng.between(1, 9).to_string();
-    let values = [("svc", svc), ("title", &title(svc)), ("word", rng.word()), ("qty", &qty)];
-    let mut text = fill(CORE, &values);
-    text.push_str(&fill(CHANGES, &values));
+    let values = [("svc", svc), ("title", &rng::title(svc)), ("word", rng.word()), ("qty", &qty)];
+    let mut text = rng::fill(CORE, &values);
+    text.push_str(&rng::fill(CHANGES, &values));
     let count = rng.between(2, 6);
     for index in rng.subset(VERBS.len(), count) {
         let verb = VERBS[index];
-        text.push_str(&fill(ACTION, &[("svc", svc), ("verb", verb), ("title", &title(verb)), ("word", rng.word())]));
+        text.push_str(&rng::fill(
+            ACTION,
+            &[("svc", svc), ("verb", verb), ("title", &rng::title(verb)), ("word", rng.word())],
+        ));
     }
     text
 }

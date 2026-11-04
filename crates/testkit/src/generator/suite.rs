@@ -1,6 +1,7 @@
 use super::Service;
 use super::cases::{CASES, PREPARE};
-use super::rng::{Rng, fill, title};
+use super::rng;
+use super::rng::Rng;
 
 /// The areas a service's test files cover, in order; the first one is always `crud`.
 pub const AREAS: &[&str] = &["crud", "search", "lifecycle", "errors"];
@@ -46,7 +47,7 @@ pub fn render(service: &Service<'_>, area: usize, rng: &mut Rng) -> String {
         ("svc", service.name),
         ("other", service.other),
         ("first", service.first),
-        ("title", &title(service.name)),
+        ("title", &rng::title(service.name)),
         ("area", area_name),
         ("each", &each),
         ("word", rng.word()),
@@ -55,13 +56,13 @@ pub fn render(service: &Service<'_>, area: usize, rng: &mut Rng) -> String {
         ("page", &numbers[2]),
         ("count", &numbers[3]),
     ];
-    let mut text = fill(HEAD, &values);
+    let mut text = rng::fill(HEAD, &values);
     if area == 0 {
-        text.push_str(&fill(PREPARE, &values));
+        text.push_str(&rng::fill(PREPARE, &values));
     }
     let count = rng.between(6, 10);
     for index in rng.subset(CASES.len(), count) {
-        text.push_str(&fill(CASES[index], &values));
+        text.push_str(&rng::fill(CASES[index], &values));
     }
     text
 }
