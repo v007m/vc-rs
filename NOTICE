@@ -2,3 +2,6 @@ Vibranium
 Copyright 2026 Sarath S Menon and the Vibranium contributors
 
 This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+docs/style/google-rust-style-guide.md is a copy of the Google Rust Style Guide,
+Copyright Google LLC, licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/).

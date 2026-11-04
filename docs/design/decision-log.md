@@ -288,6 +288,16 @@ Round 22 additions (M1 linker answers, 3 November 2026):
 | D155 | Compile cache encoding | The compiled file units in `.vibranium/cache/compile.bin` are encoded with `postcard` (serde, binary), not JSON, to meet the warm budget (JSON decoding took ~120 ms of 160 ms for 1,000 files). The layout version is bumped; any other version reads as an empty cache | Cache layout 4 (JSON units) |
 | D156 | Poll defaults | `poll` has no defaults: `every` and `timeout` are both required next to `until`; a missing one is V1005 | — |
 
+Round 23 additions (Google Rust Style Guide, 4 November 2026):
+
+| # | Decision | Choice | Supersedes |
+| --- | --- | --- | --- |
+| D157 | Coding style | The Google Rust Style Guide, copied unchanged to `docs/style/google-rust-style-guide.md` (CC BY 3.0, attributed in `NOTICE`), is the project's coding style. The project rules (CLAUDE.md, the LLD's gates) win where they differ, and the guide's Chrome-only rules (small crates, flat layout, no async, no threads) do not apply | — |
+| D158 | Trait objects and generics | Stored, long-lived dependencies (ports, registries, anything that picks an implementation at run time) stay `Arc<dyn Trait>`. A parameter used only during the call takes a generic or `impl Trait` (`impl AsRef<str>`, `impl IntoIterator`, closures). The ports do I/O, so dynamic dispatch costs nothing measurable, and registries need mixed types | D115 "generics only where a bench proves the need" |
+| D159 | Imports | One module per `use` line; no glob imports except `use super::*` in an inline test module and `pub use submodule::*` in a non-leaf module; free functions are called through their module (`check::evaluate(..)`), while types and traits are imported and used unqualified. The existing code is converted in one `refactor:` commit | Unspecified |
+| D160 | Exhaustive public types | Public enums and public structs whose fields are all public are `#[non_exhaustive]`, with the guide's exceptions: closed sets (`Severity`, `ScalarStyle`), two-state enums, and options structs callers fill with `..Default::default()`. Each exception carries `#[expect(clippy::exhaustive_enums, reason = "...")]` (or `exhaustive_structs`). Code in other crates builds such types through constructors and matches them with a wildcard arm | Unspecified |
+| D161 | Style lints | `clippy::exhaustive_enums` and `clippy::exhaustive_structs` are added to `[workspace.lints]`, so D160 is machine-checked; the rest of the guide is a review item | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

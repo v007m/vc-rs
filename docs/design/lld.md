@@ -159,7 +159,7 @@ The feasibility spike showed that Rust's borrow checker stays out of the way whe
 9. **Small functions.** At most 40 lines, cognitive complexity at most 10, at most 3 parameters excluding `self` (group the rest into a context struct) (D109).
 10. **Small files and traits.** A source file has at most 400 lines and a trait at most 7 methods; generated and test files are exempt (D114).
 11. **A facade per crate.** Library crates keep their modules private and `pub use` the public items in `lib.rs`; no `pub mod`, except in the generated `vc-contracts`.
-12. **Inject trait objects.** Dependencies are passed as `Arc<dyn Trait>`; async methods use `async-trait`, because `async fn` in a trait is still not dyn-compatible on Rust 1.99 (checked at M0); generics only where a bench proves the need (D115).
+12. **Inject trait objects.** Stored dependencies are passed as `Arc<dyn Trait>`; async methods use `async-trait`, because `async fn` in a trait is still not dyn-compatible on Rust 1.99 (checked at M0). A parameter used only during the call takes a generic or `impl Trait` (D115, D158).
 13. **Errors per crate.** Each library crate has its own `thiserror` enum; `anyhow` is used only in `vc-cli`.
 14. **Contract suites.** Every interface trait has one contract suite in `vc-testkit`, and every adapter or fake that implements the trait runs it (D112).
 15. **Conventional commits, tidy first.** `refactor:` commits stay apart from behaviour changes and never change test assertions; CI fails one that does (D116).
@@ -239,7 +239,7 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 
 ### Rules that keep coupling loose
 
-- **Depend on interfaces.** Core crates take `Arc<dyn Trait>` through constructors, with generics only where a bench proves the need (D115); only `EngineBuilder` names concrete adapter types. `arch-tests` fails if a core crate's public signature mentions an adapter type.
+- **Depend on interfaces.** Core crates take `Arc<dyn Trait>` through constructors, and generics or `impl Trait` only for call-scoped parameters (D158); only `EngineBuilder` names concrete adapter types. `arch-tests` fails if a core crate's public signature mentions an adapter type.
 - **Small interfaces.** Traits are split by who uses them (`HistoryWriter` for the writer task, `HistoryReader` for queries; `Transport` knows nothing of auth), so no consumer depends on methods it doesn't call.
 - **Data crosses boundaries, behaviour doesn't.** Between crates only `vc-model` types (including `Plan` and `Event`, D103) and `vc-interfaces` traits are shared; no crate reaches into another's internals (`pub(crate)` by default).
 - **Tell, don't ask, and no train wrecks.** Workers receive the data they need in the command; a function that reaches through `a.b().c().d()` gets that value passed in instead (Law of Demeter, enforced in review).
