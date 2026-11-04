@@ -1,0 +1,11 @@
+tests:
+  - id: getsUser
+    call: users#getUser
+    skip:
+      reason: flaky upstream, see 212
+      until: 2026-11-02
+  - id: listsUsers
+    call: users#listUsers
+    skip:
+      reason: waiting on paging, see 340
+      until: 2026-11-03

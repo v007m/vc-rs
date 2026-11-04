@@ -1,0 +1,114 @@
+use indexmap::IndexMap;
+
+use crate::{
+    ActionId, ApiId, AuthRef, Duration, Expect, FileId, Method, Path, RequestHooks, SaveSpec, SourceSpan, Template,
+    TemplateValue, VarDefs,
+};
+
+/// One api file: what its apis share.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ApiGroup {
+    /// The file ID, from the path (D139).
+    pub id: FileId,
+    /// `name`.
+    pub name: Option<String>,
+    /// `baseUrl`.
+    pub base_url: Option<Template>,
+    /// `auth` for every api in the file.
+    pub auth: AuthRef,
+    /// `headers` for every api in the file.
+    pub headers: IndexMap<String, Template>,
+    /// `vars` and `profiles.<id>.vars`.
+    pub vars: VarDefs,
+    /// `beforeRequest` and `afterResponse` for every api in the file.
+    pub hooks: RequestHooks,
+    /// The apis, in file order.
+    pub apis: Vec<ApiId>,
+}
+
+/// One api: a request and the checks that always hold for it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Api {
+    /// `<fileId>#<id>` (D138).
+    pub id: ApiId,
+    /// `name`.
+    pub name: Option<String>,
+    /// Its api file: base URL, auth and headers come from there.
+    pub group: FileId,
+    /// `method`.
+    pub method: Method,
+    /// `path`.
+    pub path: Template,
+    /// The api's default vars.
+    pub vars: VarDefs,
+    /// `query`.
+    pub query: IndexMap<String, Template>,
+    /// `headers`.
+    pub headers: IndexMap<String, Template>,
+    /// `body`.
+    pub body: BodySpec,
+    /// `auth`.
+    pub auth: AuthRef,
+    /// `timeout`.
+    pub timeout: Option<Duration>,
+    /// `expect`; `status: 2xx` when none is written.
+    pub expect: Expect,
+    /// `save`.
+    pub save: SaveSpec,
+    /// `cleanup`: a call action with vars templated over the response.
+    pub cleanup: Option<ActionId>,
+    /// `beforeRequest` and `afterResponse`.
+    pub hooks: RequestHooks,
+    /// `deprecated`.
+    pub deprecated: bool,
+    /// The whole item.
+    pub span: SourceSpan,
+}
+
+/// A request body.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum BodySpec {
+    /// No body.
+    #[default]
+    None,
+    /// Nested YAML or JSON with templates inside.
+    Json(TemplateValue),
+    /// A text body.
+    Text(Template),
+    /// `$file`: the file's bytes.
+    File(Template),
+    /// `$base64`: decoded bytes.
+    Base64(Template),
+    /// `$extend` another payload, with changes and removals.
+    Extend {
+        /// The payload extended.
+        base: Template,
+        /// Values changed or added.
+        changes: TemplateValue,
+        /// `$remove` paths.
+        remove: Vec<Path>,
+    },
+    /// Form fields, chosen by `content-type`.
+    Form(IndexMap<String, TemplateValue>),
+    /// Multipart parts, chosen by `content-type`.
+    Multipart(IndexMap<String, PartSpec>),
+}
+
+/// One part of a multipart body.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PartSpec {
+    /// A field value.
+    Value(TemplateValue),
+    /// A file part.
+    File(Template),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BodySpec;
+
+    #[test]
+    fn a_body_defaults_to_none() {
+        assert_eq!(BodySpec::default(), BodySpec::None);
+    }
+}

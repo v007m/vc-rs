@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1007_alias/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1007",
+      "severity": "error",
+      "message": "YAML aliases (`*name`) are not supported",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 6,
+          "column": 14,
+          "endLine": 6,
+          "endColumn": 21
+        },
+        "text": "alias"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write the value out, put shared values in `vars`, or reuse a payload with `$extend`"
+      ],
+      "fixes": []
+    }
+  ]
+}

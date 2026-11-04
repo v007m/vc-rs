@@ -1,7 +1,11 @@
 use std::fmt::Write as _;
 
+use serde::{Deserialize, Serialize};
+
+use crate::{Syntax, json};
+
 /// How a scalar was written in the source.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ScalarStyle {
     /// Unquoted: `value`.
     Plain,
@@ -16,7 +20,7 @@ pub enum ScalarStyle {
 }
 
 /// What a scalar means under the YAML 1.2 core schema; only plain scalars can be anything but text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ScalarKind {
     /// `null`, `~` or nothing.
     Null,
@@ -31,7 +35,7 @@ pub enum ScalarKind {
 }
 
 /// A scalar value: its text as written (quotes removed and escapes applied), style and kind.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Scalar {
     /// The content: `0x1F` stays `0x1F`; the exact source bytes are the node's span.
     pub text: String,
@@ -119,10 +123,19 @@ impl ScalarKind {
     }
 }
 
-/// How a new value is written in place of an old one: the old value's quote style, the kind the
-/// new one must read back as, and whether it sits inside a flow collection (`[..]` or `{..}`).
+/// The kind `text` reads back as when written plain in `syntax`. JSON has no plain text, so
+/// there anything but a JSON number, `true`, `false` or `null` is text.
+pub fn resolve_in(syntax: Syntax, text: &str) -> ScalarKind {
+    if syntax == Syntax::Json && !json::is_literal(text) { ScalarKind::String } else { resolve(text) }
+}
+
+/// How a new value is written in place of an old one: the file's syntax, the old value's quote
+/// style, the kind the new one must read back as, and whether it sits inside a flow collection
+/// (`[..]` or `{..}`).
 #[derive(Clone, Copy, Debug)]
 pub struct Spelling {
+    /// The file's syntax.
+    pub syntax: Syntax,
     /// The quote style written before; kept for text.
     pub style: ScalarStyle,
     /// The kind the written value reads back as.
@@ -135,9 +148,13 @@ impl Spelling {
     /// `text` written to read back as `kind`, or `None` when it cannot. Text keeps a quoted
     /// style (single quotes fall back to double for control characters) and stays plain when
     /// YAML reads it back as the same text; other kinds are written plain and must resolve to
-    /// that kind, so an empty value is refused (write `null`).
+    /// that kind, so an empty value is refused (write `null`). In JSON, text is always
+    /// double-quoted and other kinds must be JSON numbers, `true`, `false` or `null`.
     #[must_use]
     pub fn write(self, text: &str) -> Option<String> {
+        if self.syntax == Syntax::Json {
+            return write_json(self.kind, text);
+        }
         if self.kind != ScalarKind::String {
             return (!text.is_empty() && resolve(text) == self.kind).then(|| text.to_owned());
         }
@@ -147,6 +164,13 @@ impl Spelling {
             _ => write_text(text, self.flow),
         })
     }
+}
+
+fn write_json(kind: ScalarKind, text: &str) -> Option<String> {
+    if kind == ScalarKind::String {
+        return Some(double_quote(text));
+    }
+    (json::is_literal(text) && resolve(text) == kind).then(|| text.to_owned())
 }
 
 /// Text in the house style: plain when YAML reads it back as the same text, otherwise
@@ -176,7 +200,7 @@ fn single_quote(text: &str) -> String {
     format!("'{}'", text.replace('\'', "''"))
 }
 
-/// `text` as a double-quoted YAML scalar.
+/// `text` as a double-quoted YAML scalar, which is also a JSON string.
 pub fn double_quote(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + 2);
     out.push('"');
@@ -198,7 +222,8 @@ pub fn double_quote(text: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{ScalarKind as K, ScalarStyle, Spelling, double_quote, resolve, write_text};
+    use super::{ScalarKind as K, ScalarStyle, Spelling, double_quote, resolve, resolve_in, write_text};
+    use crate::Syntax;
 
     fn render(text: &str) -> String {
         write_text(text, false)
@@ -266,7 +291,7 @@ mod tests {
 
     #[test]
     fn spelling_keeps_the_quote_style_and_the_kind() {
-        let spell = |style, kind, text| Spelling { style, kind, flow: false }.write(text);
+        let spell = |style, kind, text| Spelling { syntax: Syntax::Yaml, style, kind, flow: false }.write(text);
         assert_eq!(spell(ScalarStyle::SingleQuoted, K::String, "it's").as_deref(), Some("'it''s'"));
         assert_eq!(spell(ScalarStyle::SingleQuoted, K::String, "a\nb").as_deref(), Some("\"a\\nb\""));
         assert_eq!(spell(ScalarStyle::DoubleQuoted, K::String, "x").as_deref(), Some("\"x\""));
@@ -276,6 +301,29 @@ mod tests {
         assert_eq!(spell(ScalarStyle::Plain, K::Int, "abc"), None);
         assert_eq!(spell(ScalarStyle::Plain, K::Null, ""), None);
         assert_eq!(spell(ScalarStyle::Plain, K::Null, "~").as_deref(), Some("~"));
+    }
+
+    #[test]
+    fn json_spelling_quotes_text_and_takes_only_json_literals() {
+        let spell = |style, kind, text| Spelling { syntax: Syntax::Json, style, kind, flow: true }.write(text);
+        assert_eq!(spell(ScalarStyle::Plain, K::String, "x, y").as_deref(), Some("\"x, y\""));
+        assert_eq!(spell(ScalarStyle::DoubleQuoted, K::String, "a\"b").as_deref(), Some("\"a\\\"b\""));
+        assert_eq!(spell(ScalarStyle::Plain, K::Int, "-3").as_deref(), Some("-3"));
+        assert_eq!(spell(ScalarStyle::Plain, K::Float, "1e3").as_deref(), Some("1e3"));
+        assert_eq!(spell(ScalarStyle::Plain, K::Null, "null").as_deref(), Some("null"));
+        assert_eq!(spell(ScalarStyle::Plain, K::Bool, "false").as_deref(), Some("false"));
+        for (kind, text) in [(K::Int, "0x1F"), (K::Null, "~"), (K::Bool, "True"), (K::Float, "1."), (K::Int, "1.5")] {
+            assert_eq!(spell(ScalarStyle::Plain, kind, text), None, "{text:?}");
+        }
+    }
+
+    #[test]
+    fn json_reads_anything_but_a_json_literal_as_text() {
+        assert_eq!(resolve_in(Syntax::Json, "~"), K::String);
+        assert_eq!(resolve_in(Syntax::Json, "0x1F"), K::String);
+        assert_eq!(resolve_in(Syntax::Json, "12"), K::Int);
+        assert_eq!(resolve_in(Syntax::Json, "null"), K::Null);
+        assert_eq!(resolve_in(Syntax::Yaml, "~"), K::Null);
     }
 
     #[test]

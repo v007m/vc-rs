@@ -1,0 +1,45 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3102_default_profiles/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V3102",
+      "severity": "error",
+      "message": "profile `ci` is a second default profile",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 8,
+          "column": 14,
+          "endLine": 8,
+          "endColumn": 18
+        },
+        "text": "also `default: true`"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "vibranium.config.yaml",
+            "line": 5,
+            "column": 14,
+            "endLine": 5,
+            "endColumn": 18
+          },
+          "text": "`dev` is the default"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "mark one profile `default: true`; pick another for a run with `--profile`"
+      ],
+      "fixes": []
+    }
+  ]
+}

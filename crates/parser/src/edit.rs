@@ -6,16 +6,16 @@
 use vc_diagnostics::TextEdit;
 use vc_model::{SourceFileId, SourceSpan};
 
-use crate::scalar::{Spelling, resolve, write_text};
-use crate::{Node, ParserError, ScalarKind, ScalarStyle, Value, parse};
+use crate::scalar::{Spelling, resolve_in, write_text};
+use crate::{Node, ParserError, ScalarKind, ScalarStyle, Syntax, Value, parse};
 
 /// A parsed file kept with its text, so changes to its tree become edits on that text.
 ///
 /// ```
 /// use vc_model::SourceFileId;
-/// use vc_parser::Document;
+/// use vc_parser::{Document, Syntax};
 ///
-/// let doc = Document::parse(SourceFileId::new(0), "id: getsUser  # keep me\nname: Gets a user\n").unwrap();
+/// let doc = Document::parse(SourceFileId::new(0), Syntax::Yaml, "id: getsUser  # keep me\nname: Gets a user\n").unwrap();
 /// let edit = doc.set_scalar(doc.root().get("name").unwrap(), "Gets one user").unwrap();
 /// let changed = doc.apply(&[edit]).unwrap();
 /// assert_eq!(changed.text(), "id: getsUser  # keep me\nname: Gets one user\n");
@@ -23,6 +23,7 @@ use crate::{Node, ParserError, ScalarKind, ScalarStyle, Value, parse};
 #[derive(Clone, Debug)]
 pub struct Document {
     file: SourceFileId,
+    syntax: Syntax,
     text: String,
     root: Node,
 }
@@ -39,16 +40,17 @@ const EMPTY: ParserError =
     ParserError::WrongNode { expected: "a value, or a `key:` with nothing after it", found: "an empty value" };
 
 impl Document {
-    /// Parses `text`. An empty file is a document whose root is null.
+    /// Parses `text` as `syntax`; edits keep to that syntax and are checked by its reader. An
+    /// empty file is a document whose root is null.
     ///
     /// # Errors
     /// [`ParserError::Unparsable`] when the text has a parse error; warnings are accepted.
-    pub fn parse(file: SourceFileId, text: impl Into<String>) -> Result<Self, ParserError> {
+    pub fn parse(file: SourceFileId, syntax: Syntax, text: impl Into<String>) -> Result<Self, ParserError> {
         let text = text.into();
-        let (root, diagnostics) = parse(file, &text);
+        let (root, diagnostics) = parse(file, syntax, &text);
         let error = diagnostics.iter().find(|d| d.is_error()).map(|d| d.message.clone());
         match (root, error) {
-            (Some(root), None) => Ok(Self { file, text, root }),
+            (Some(root), None) => Ok(Self { file, syntax, text, root }),
             (_, error) => Err(ParserError::Unparsable(error.unwrap_or_default())),
         }
     }
@@ -67,14 +69,15 @@ impl Document {
 
     /// Replaces the plain or quoted scalar `node` with `value`, keeping its kind: text stays text
     /// in its quote style (plain text is quoted only when YAML needs it), and a number or boolean
-    /// must be given as one. A null takes the kind `value` reads as. An empty value (`key:` with
-    /// nothing after it) is filled in after its colon. Use [`Document::set_typed`] to change kind.
+    /// must be given as one. A null takes the kind `value` reads as (in JSON, text unless it is a
+    /// JSON literal). An empty value (`key:` with nothing after it) is filled in after its colon.
+    /// Use [`Document::set_typed`] to change kind.
     ///
     /// # Errors
     /// As [`Document::set_typed`].
     pub fn set_scalar(&self, node: &Node, value: &str) -> Result<TextEdit, ParserError> {
         let kind = match node.as_scalar().map_or(ScalarKind::String, |scalar| scalar.kind) {
-            ScalarKind::Null => resolve(value),
+            ScalarKind::Null => resolve_in(self.syntax, value),
             kind => kind,
         };
         self.set_typed(node, value, kind)
@@ -86,21 +89,25 @@ impl Document {
     /// # Errors
     /// [`ParserError::BadRange`] when `node` is not part of this document,
     /// [`ParserError::WrongNode`] when it is a collection, a block scalar, an empty root or an
-    /// empty list item, and [`ParserError::NotOfKind`] when `value` cannot read back as `kind`.
+    /// empty list item, [`ParserError::NotOfKind`] when `value` cannot read back as `kind`, and
+    /// [`ParserError::Unparsable`] when the edited text would not parse (the reader rejects
+    /// `:\ta` though it reads `:\t:%`, so an edit is checked, not assumed).
     pub fn set_typed(&self, node: &Node, value: &str, kind: ScalarKind) -> Result<TextEdit, ParserError> {
         let place = self.locate(node)?;
         let style = match node.as_scalar() {
             Some(scalar) if !matches!(scalar.style, ScalarStyle::Literal | ScalarStyle::Folded) => scalar.style,
             _ => return Err(ParserError::WrongNode { expected: "a plain or quoted scalar", found: node.kind_name() }),
         };
-        let spelling = Spelling { style, kind, flow: place.in_flow };
+        let spelling = Spelling { syntax: self.syntax, style, kind, flow: place.in_flow };
         let text = spelling
             .write(value)
             .ok_or_else(|| ParserError::NotOfKind { value: value.to_owned(), kind: kind.name() })?;
-        if node.span.start.offset == node.span.end.offset {
-            return self.fill_empty(place, &text);
-        }
-        Ok(TextEdit::replace(node.span, text))
+        let edit = if node.span.start.offset == node.span.end.offset {
+            self.fill_empty(place, &text)?
+        } else {
+            TextEdit::replace(node.span, text)
+        };
+        self.apply(std::slice::from_ref(&edit)).map(|_| edit)
     }
 
     /// Adds `key: value` as the last entry of the block map `map`, lined up with its keys, on the
@@ -109,7 +116,8 @@ impl Document {
     ///
     /// # Errors
     /// [`ParserError::BadRange`] when `map` is not part of this document,
-    /// [`ParserError::WrongNode`] when it is not a block map with at least one entry, and
+    /// [`ParserError::WrongNode`] when it is not a block map with at least one entry (so every
+    /// JSON object, which is a flow map, is refused), and
     /// [`ParserError::DuplicateKey`] when it already has `key`.
     pub fn insert_entry(&self, map: &Node, key: &str, value: &str) -> Result<TextEdit, ParserError> {
         self.locate(map)?;
@@ -152,7 +160,7 @@ impl Document {
             cursor = end;
         }
         out.push_str(self.text.get(cursor..).unwrap_or_default());
-        Self::parse(self.file, out)
+        Self::parse(self.file, self.syntax, out)
     }
 
     /// Finds `target` in this document's tree, so a node from another or an older document is

@@ -97,7 +97,7 @@ To read inside a string of JSON, save it parsed first (`payload: ${response.body
 
 ### Computed values
 
-Where a value needs arithmetic or a choice, `$cel` computes it with the same CEL used in checks. Its variables are the roots above, wherever each is available (D125).
+Where a value needs arithmetic or a choice, `$cel` computes it with the same CEL used in checks. Its variables are the roots above, wherever each is available (D125), except `secret`, `fake`, `dataset` and `run`, which are V2105 in CEL: set a var from a template and read it as `var.<name>`. Whole numbers are CEL `int`s and decimals are `double`s, and CEL does not mix them in arithmetic: `var.price * 2` works when `price` is a whole number, and a decimal needs `var.price * 2.0` (comparisons such as `var.total > 100.0` work either way).
 
 ```yaml
 vars:
@@ -121,7 +121,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | --- | --- | --- | --- |
 | `syntaxVersion` | integer | required, `2` | File-format version (see Files at a glance) |
 | `project` | string | folder name | Display name in reports and on the server |
-| `paths.include`, `paths.exclude` | lists of globs | everything except `node_modules` and `.vibranium` | Where definition files are found |
+| `paths.include`, `paths.exclude` | lists of globs | everything except `node_modules` and `.vibranium` | Where definition files are found; written excludes replace the default ones, and `vibranium.config.yaml` itself is always read |
 | `defaults.timeout` | duration | `30s` | Per request |
 | `defaults.concurrency` | integer | `16` | Test instances in flight |
 | `defaults.perHost` | integer | `8` | Connections per host |
@@ -499,7 +499,7 @@ Each item in `tests`:
 | `body` | as an api's `body` | the api's | Replaces the api's body for this test |
 | `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
-| `poll` | `until`, `every`, `timeout` | — | Re-send until `until` (checks) holds, then check `expect` |
+| `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect` |
 | `examples` | list of maps, or `$file` | — | One test instance per row; values in `${example.*}` |
 | `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
@@ -507,7 +507,7 @@ Each item in `tests`:
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
 
-With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every step, and a step's own value wins (D124). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205) and when no step uses a default (V3206).
+With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every `call` and `test:` step, and a step's own value wins; `function` and `command` steps take none (D124). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205) and when no step uses a default (V3206).
 
 ```yaml
   - id: renamesUser
@@ -612,7 +612,7 @@ Notes on the example: `users#create` saves `userId` and declares its own cleanup
 
 ### Skipping
 
-`skip` parks a test, or a whole file when written at the top of the file, like JUnit's `@Disabled`. A reason is required and shows in every report, where the test is counted as **skipped**; `until` is optional, and after that date the test runs again and `vc check` warns that the skip expired. A skipped file's `beforeAll` and `afterAll` don't run. `vc run --include-skipped` runs skipped tests anyway; `vc skip` and `vc unskip` edit the YAML for you.
+`skip` parks a test, or a whole file when written at the top of the file, like JUnit's `@Disabled`. A reason is required and shows in every report, where the test is counted as **skipped**; `until` is optional and is a date written `YYYY-MM-DD` (UTC); after that day the test runs again and `vc check` warns that the skip expired (V3104). A skipped file's `beforeAll` and `afterAll` don't run. `vc run --include-skipped` runs skipped tests anyway; `vc skip` and `vc unskip` edit the YAML for you.
 
 ```yaml
   - id: appliesCoupon
@@ -894,7 +894,7 @@ The first test replaces the api's `status: 201` and keeps its other checks, and 
 
 ### CEL in one minute
 
-CEL (Common Expression Language) is a small expression language from Google, also used for rules in Kubernetes, Firebase and Google Cloud. It reads like a JavaScript one-liner: `response.body.total > 0 && response.body.items.all(i, i.price > 0)`. It has no loops, network or file access, so an expression always finishes, cannot leak secrets and is type-checked by `vc check` before the run. The same expression behaves the same in every SDK. Useful parts: `size(x)`, `x.all(i, …)`, `x.exists(i, …)`, `x.map(i, …)`, `x.filter(i, …)`, `has(response.body.field)`, `matches(s, regex)`, `timestamp(…)`, `duration(…)`. The same language computes values with `$cel` (see Templates and references). Anything longer than a line belongs in a `custom` function.
+CEL (Common Expression Language) is a small expression language from Google, also used for rules in Kubernetes, Firebase and Google Cloud. It reads like a JavaScript one-liner: `response.body.total > 0 && response.body.items.all(i, i.price > 0)`. It has no loops, network or file access, so an expression always finishes (an evaluation that loops over more than a million elements in all is stopped), cannot leak secrets, and is checked by `vc check` before the run: its syntax, every root it reads, and literal regexes. The same expression behaves the same in every SDK. Useful parts: `size(x)`, `x.all(i, …)`, `x.exists(i, …)`, `x.map(i, …)`, `x.filter(i, …)`, `x.sum()` (vc adds it: an `int` for whole numbers, otherwise a `double`), `has(response.body.field)`, `matches(s, regex)`, `timestamp(…)`, `duration(…)`. The same language computes values with `$cel` (see Templates and references). Anything longer than a line belongs in a `custom` function.
 
 Matchers:
 

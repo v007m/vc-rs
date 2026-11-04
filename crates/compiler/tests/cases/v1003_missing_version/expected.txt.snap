@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1003_missing_version/project
+---
+error[V1003]: a config needs `syntaxVersion`
+ --> vibranium.config.yaml:1:1
+  |
+1 | project: shop
+  | ^^^^^^^ `syntaxVersion` is missing
+  = help: add `syntaxVersion: 2`: File-format version

@@ -1,0 +1,87 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2306_matcher_arg/project
+---
+{
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2306",
+      "severity": "error",
+      "message": "`type` does not know `strng`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 8,
+          "column": 22,
+          "endLine": 8,
+          "endColumn": 27
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `string`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with string",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/crud.test.yaml",
+              "range": {
+                "start": 130,
+                "end": 135
+              },
+              "newText": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2306",
+      "severity": "error",
+      "message": "`regex` has an invalid pattern: error: unclosed group",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 9,
+          "column": 25,
+          "endLine": 9,
+          "endColumn": 28
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    },
+    {
+      "code": "V2306",
+      "severity": "error",
+      "message": "`between` needs exactly two values, low and high",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 10,
+          "column": 26,
+          "endLine": 10,
+          "endColumn": 29
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    }
+  ]
+}

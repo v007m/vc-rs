@@ -1,0 +1,13 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3201_shared_write/project
+---
+warning[V3201]: the call to `users#renameUser` changes a value shared from `beforeAll`
+ --> services/users/crud.test.yaml:7:21
+  |
+2 |   - id: member
+  |         ------ shared from `beforeAll`
+...
+7 |     vars: {userId: '${var.member.userId}'}
+  |                     ^^^^^^^^^^^^^^^^^^^^ shared with every test
+  = help: one test's change is seen by every test that reads it; make the resource in `before` or `beforeEach`

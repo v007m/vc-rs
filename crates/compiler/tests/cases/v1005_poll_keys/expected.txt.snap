@@ -1,0 +1,17 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1005_poll_keys/project
+---
+error[V1005]: a poll needs `every`
+ --> services/orders/status.test.yaml:5:7
+  |
+5 |       until:
+  |       ^^^^^ `every` is missing
+  = help: add `every: 2s`: Pause between calls
+
+error[V1005]: a poll needs `timeout`
+ --> services/orders/status.test.yaml:5:7
+  |
+5 |       until:
+  |       ^^^^^ `timeout` is missing
+  = help: add `timeout: 1m`: Give up after this long

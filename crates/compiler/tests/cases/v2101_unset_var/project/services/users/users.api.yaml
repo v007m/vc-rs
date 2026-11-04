@@ -1,0 +1,3 @@
+apis:
+  - id: getUser
+    path: /users/${var.userId}

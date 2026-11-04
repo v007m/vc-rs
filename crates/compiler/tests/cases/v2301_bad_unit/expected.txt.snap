@@ -1,0 +1,17 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2301_bad_unit/project
+---
+error[V2301]: invalid duration `soon`
+ --> services/users/crud.test.yaml:5:14
+  |
+5 |     timeout: soon
+  |              ^^^^
+  = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+
+error[V2301]: invalid size `10 kilobytes`
+ --> services/users/crud.test.yaml:7:18
+  |
+7 |       size: {lt: 10 kilobytes}
+  |                  ^^^^^^^^^^^^
+  = help: write a whole number and a unit: `512b`, `4kb`, `1mb` or `2gb`

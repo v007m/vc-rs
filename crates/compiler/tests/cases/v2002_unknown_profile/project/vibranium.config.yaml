@@ -1,0 +1,10 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+auth:
+  - id: admin
+    type: bearer
+    token: ${secret.ADMIN_TOKEN}

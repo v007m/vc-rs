@@ -1,0 +1,93 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2103_example_column/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2103",
+      "severity": "error",
+      "message": "${example.emial} names no column of this test's examples",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 10,
+          "column": 14,
+          "endLine": 10,
+          "endColumn": 30
+        },
+        "text": "no row has `emial`"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "services/users/crud.test.yaml",
+            "line": 4,
+            "column": 7,
+            "endLine": 7,
+            "endColumn": 17
+          },
+          "text": "the rows"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "the columns are `email`, `name`",
+        "did you mean `email`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with email",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/crud.test.yaml",
+              "range": {
+                "start": 184,
+                "end": 189
+              },
+              "newText": "email"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2103",
+      "severity": "error",
+      "message": "${example.title} names no column of this test's examples",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 20,
+          "column": 13,
+          "endLine": 20,
+          "endColumn": 29
+        },
+        "text": "no row has `title`"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "services/users/crud.test.yaml",
+            "line": 16,
+            "column": 7,
+            "endLine": 16,
+            "endColumn": 35
+          },
+          "text": "the rows"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "the columns are `name`"
+      ],
+      "fixes": []
+    }
+  ]
+}

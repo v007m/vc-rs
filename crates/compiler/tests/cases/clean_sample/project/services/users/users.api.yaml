@@ -1,0 +1,19 @@
+name: Users
+baseUrl: ${var.baseUrl}
+headers:
+  accept: application/json
+apis:
+  - id: getUser
+    method: GET
+    path: /users/${var.userId}
+    timeout: 5s
+    expect:
+      status: 200
+  - id: createUser
+    method: POST
+    path: /users
+    body: {name: Ada, age: 36}
+    expect:
+      status: [201, 2xx]
+    save:
+      userId: ${response.body.id}

@@ -1,0 +1,49 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2210_shared_without_id/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2210",
+      "severity": "error",
+      "message": "this beforeAll action saves values but has no `id`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 2,
+          "column": 5,
+          "endLine": 2,
+          "endColumn": 9
+        },
+        "text": "needs an `id`"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "shared values are read as `${var.<id>.<name>}`; give the action an `id`"
+      ],
+      "fixes": [
+        {
+          "title": "Add id: createUser",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/crud.test.yaml",
+              "range": {
+                "start": 15,
+                "end": 15
+              },
+              "newText": "id: createUser\n    "
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

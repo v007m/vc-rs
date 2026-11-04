@@ -1,0 +1,4 @@
+project: shop
+profiles:
+  - id: dev
+    default: true

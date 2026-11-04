@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/cel_v2105_root/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`secret` is not available in CEL",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 5,
+          "column": 27,
+          "endLine": 5,
+          "endColumn": 40
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "CEL reads response, request, var, env, item, iteration, example and step ids; set a var from a `${…}` template and read it as `var.<name>`"
+      ],
+      "fixes": []
+    }
+  ]
+}

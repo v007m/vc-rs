@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1008_tag/project
+---
+error[V1008]: YAML tags (`!name`, `!!str`) are not supported
+ --> services/users/users.api.yaml:1:7
+  |
+1 | name: !!str Users
+  |       ^^^^^^^^^^^ tagged value
+  = help: remove the tag; to keep a value as text, quote it

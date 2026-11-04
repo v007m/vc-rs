@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2102_loop_root/project
+---
+error[V2102]: `item` is not available here
+ --> services/users/crud.test.yaml:5:21
+  |
+5 |     vars: {userId: '${item.id}'}
+  |                     ^^^^^^^^^^
+  = help: `item` is available only inside forEach

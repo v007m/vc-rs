@@ -32,6 +32,7 @@ code_table! {
     V1009 = 1009, Error, "Map key is not text";
     V1010 = 1010, Error, "More than one YAML document in a file";
     V1011 = 1011, Error, "Nesting deeper than 128 levels";
+    V1012 = 1012, Error, "File cannot be read (permissions, not UTF-8, outside the project, bad name)";
     // V2xxx: references and types
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";

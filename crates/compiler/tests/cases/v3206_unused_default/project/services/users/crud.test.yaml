@@ -1,0 +1,12 @@
+tests:
+  - id: createsTwice
+    headers: {x-trace: '1', x-team: qa}
+    expect: {status: 201}
+    steps:
+      - call: users#createUser
+        headers: {x-trace: '2'}
+        expect: {status: 200}
+      - call: users#createUser
+        headers: {x-trace: '3'}
+        expect: {status: 202}
+      - function: hooks/users.ts#check

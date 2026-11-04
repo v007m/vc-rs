@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/cel_v2105_root/project
+---
+error[V2105]: `secret` is not available in CEL
+ --> services/users/crud.test.yaml:5:27
+  |
+5 |     vars: {token: {$cel: 'secret.apiKey'}}
+  |                           ^^^^^^^^^^^^^
+  = help: CEL reads response, request, var, env, item, iteration, example and step ids; set a var from a `${…}` template and read it as `var.<name>`

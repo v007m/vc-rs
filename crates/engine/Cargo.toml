@@ -8,5 +8,30 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+vc-adapter-system.workspace = true
+vc-compiler.workspace = true
+vc-diagnostics.workspace = true
+vc-interfaces.workspace = true
+vc-model.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+vc-testkit.workspace = true
+
+# gungraun needs valgrind, so its instruction-count bench only builds and runs on Linux (D120).
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+gungraun.workspace = true
+
+[[bench]]
+name = "compile_wall"
+harness = false
+
+[[bench]]
+name = "compile_instructions"
+harness = false
+
 [lints]
 workspace = true

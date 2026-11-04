@@ -1,0 +1,3 @@
+tests:
+  - id: listsLegacyUsers
+    call: users#listLegacyUsers

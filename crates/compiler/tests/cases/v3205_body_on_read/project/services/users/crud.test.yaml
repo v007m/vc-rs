@@ -1,0 +1,6 @@
+tests:
+  - id: createsThenReads
+    body: {name: Ada}
+    steps:
+      - call: users#createUser
+      - call: users#getUser

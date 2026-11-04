@@ -1,0 +1,6 @@
+tests:
+  - id: waitsForShipping
+    call: orders#getOrder
+    poll:
+      until:
+        status: 200

@@ -1,0 +1,3 @@
+apis:
+  - id: request
+    path: /users/1

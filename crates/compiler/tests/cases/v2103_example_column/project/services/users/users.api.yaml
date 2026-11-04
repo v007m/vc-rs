@@ -1,0 +1,7 @@
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      email: ${var.email}
+      name: ${var.name}

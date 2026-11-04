@@ -1,0 +1,19 @@
+name: User CRUD
+tags: [smoke]
+beforeAll:
+  - id: seed
+    call: users#createUser
+tests:
+  - id: getsUser
+    name: Gets a user
+    call: users#getUser
+    vars: {userId: '${var.seed.userId | trim}', next: {$cel: 'var.seed.userId + 1'}}
+    expect:
+      status: 200
+      size: {lt: 10kb}
+      timing: {total: {lt: 1s}}
+      body:
+        match:
+          id: {type: string, length: {gt: 3}}
+          tags: {every: {in: [a, b]}}
+      cel: {named: response.body.name == 'Ada'}

@@ -1,0 +1,12 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3104_expired_skip/project
+---
+warning[V3104]: this skip expired after 2026-11-02
+ --> services/users/crud.test.yaml:6:14
+  |
+6 |       until: 2026-11-02
+  |              ^^^^^^^^^^ today is 2026-11-03
+  = note: an expired skip is ignored, so the test runs again
+  = help: remove the skip, or move `until` later if the reason still holds
+  = fix: Remove the skip (certain)

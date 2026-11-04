@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1009_complex_key/project
+---
+error[V1009]: a map key must be plain text, not a list or a map
+ --> services/users/users.api.yaml:1:3
+  |
+1 | ? [a, b]
+  |   ^^^^^^ not text
+  = help: use a text key such as `name:`

@@ -1,0 +1,3 @@
+apis:
+  - id: listUsers
+    path: /users

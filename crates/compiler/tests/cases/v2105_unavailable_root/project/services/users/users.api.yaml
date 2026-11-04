@@ -1,0 +1,2 @@
+baseUrl: ${response.body.url}
+apis: []

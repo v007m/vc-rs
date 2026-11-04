@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1002_structure/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1002",
+      "severity": "error",
+      "message": "while parsing a block collection, did not find expected '-' indicator",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 3,
+          "column": 4,
+          "endLine": 3,
+          "endColumn": 5
+        },
+        "text": "the structure breaks here"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "check the indentation: a nested key needs more spaces than its parent, and siblings line up"
+      ],
+      "fixes": []
+    }
+  ]
+}

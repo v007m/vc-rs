@@ -1,0 +1,5 @@
+beforeAll:
+  - call: users#createUser
+tests:
+  - id: createsUser
+    call: users#createUser

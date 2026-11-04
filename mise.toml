@@ -27,3 +27,15 @@ run = "scripts/commit-check.sh"
 [tasks.mock]
 description = "Run the mock HTTP server (vc-mock-server); pass --port to change 18080"
 run = "cargo run -p vc-mock-server --"
+
+[tasks.bench]
+description = "Run the wall-clock benches (criterion): compile of a 1,000-file project and vc --version"
+run = ["cargo bench -p vc-engine --bench compile_wall", "cargo bench -p vc-cli --bench startup"]
+
+[tasks."bench:budgets"]
+description = "Hold the last criterion medians to the D120 budgets (needs jq); run after mise run bench"
+run = "scripts/bench-budgets.sh"
+
+[tasks."bench:instructions"]
+description = "Run the instruction-count benches (gungraun; Linux with valgrind and gungraun-runner)"
+run = "cargo bench -p vc-engine --bench compile_instructions"

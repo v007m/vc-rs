@@ -1,0 +1,24 @@
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      $file: data/usr.json
+    expect:
+      body:
+        schema: {$file: '../../schemas/user.json#/definitions/user'}
+  - id: importUsers
+    method: POST
+    path: /users/import
+    body:
+      $file: ../../fixtures/users.csv
+  - id: getUser
+    path: /users/1
+    expect:
+      body:
+        schema: {$file: ../../schema/user.json}
+  - id: listUsers
+    path: /users
+    expect:
+      body:
+        schema: {$file: '../../schema/user.json'}

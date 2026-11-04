@@ -1,0 +1,7 @@
+beforeAll:
+  - id: member
+    call: users#createUser
+tests:
+  - id: renamesMember
+    call: users#renameUser
+    vars: {userId: '${var.member.userId}'}

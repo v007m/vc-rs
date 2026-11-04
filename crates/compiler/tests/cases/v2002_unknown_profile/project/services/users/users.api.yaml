@@ -1,0 +1,7 @@
+auth: admn
+profiles:
+  - id: stagin
+    vars: {userId: 2}
+apis:
+  - id: getUser
+    path: /users/1

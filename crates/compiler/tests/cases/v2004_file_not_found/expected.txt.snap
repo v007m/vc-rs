@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2004_file_not_found/project
+---
+error[V2004]: `$file` names data/usr.json, which is not in the project
+ --> services/users/users.api.yaml:6:14
+  |
+6 |       $file: data/usr.json
+  |              ^^^^^^^^^^^^^ no file at services/users/data/usr.json
+  = help: did you mean `data/user.json`?
+  = fix: Replace with data/user.json (certain)
+
+error[V2004]: `$file` names ../../fixtures/users.csv, which is not in the project
+  --> services/users/users.api.yaml:14:14
+   |
+14 |       $file: ../../fixtures/users.csv
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^ no file at fixtures/users.csv
+   = help: `$file` paths are relative to the file that holds them, here services/users
+
+error[V2004]: `$file` names ../../schema/user.json, which is not in the project
+  --> services/users/users.api.yaml:19:25
+   |
+19 |         schema: {$file: ../../schema/user.json}
+   |                         ^^^^^^^^^^^^^^^^^^^^^^ no file at schema/user.json
+   = help: did you mean `../../schemas/user.json`?
+   = fix: Replace with ../../schemas/user.json (certain)
+
+error[V2004]: `$file` names ../../schema/user.json, which is not in the project
+  --> services/users/users.api.yaml:24:25
+   |
+24 |         schema: {$file: '../../schema/user.json'}
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^ no file at schema/user.json
+   = help: did you mean `../../schemas/user.json`?
+   = fix: Replace with ../../schemas/user.json (certain)

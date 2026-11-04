@@ -68,7 +68,8 @@ vibranium/
   sdks/                      typescript/ python/ go/ java/
   bench/
     mock/                    vc-mock-server: axum mock server; a library tests start in-process on port 0, plus a bin (D100)
-                             also generated projects and benchmarks
+                             (generated projects come from vc-testkit's generate_project; the benches live in
+                             crates/engine/benches and crates/apps/cli/benches)
   docs/                      reference docs, JSON Schemas for the file formats
 ```
 
@@ -102,10 +103,11 @@ Third-party crates:
 | --- | --- | --- |
 | Async runtime | `tokio` 1, `tokio-util` 0.7 (cancellation tokens) | The standard; used by hyper, axum, reqwest |
 | HTTP client | `hyper` 1 + `hyper-util` 0.1 + `rustls` | Direct control of the connection, so DNS, connect, TLS, first-byte and download times can be measured; `reqwest` 0.13 for simple internal fetches (OpenAPI URLs) |
-| YAML with positions | `saphyr-parser` 0.3 | YAML 1.2 events with a span each (line and column in characters); `parser` builds its own `Node` tree from them, keeping scalar styles and key spans, which diagnostics and minimal-diff edits need. JSON goes through the same parser until M1 D adds a dedicated JSON reader (D148) |
+| YAML with positions | `saphyr-parser` 0.3 | YAML 1.2 events with a span each (line and column in characters); `parser` builds its own `Node` tree from them, keeping scalar styles and key spans, which diagnostics and minimal-diff edits need. `.json` files are read by `parser`'s own strict JSON reader into the same tree (D148), so no JSON library is needed |
 | JSON | `serde` 1, `serde_json` 1 | Standard |
+| Compile cache encoding | `postcard` 1 (`use-std` only) | Compact binary serde format for `compile.bin` (D155); a warm 1,000-file compile went from 161 ms with JSON to 71 ms |
 | Template and pipe parsing | `winnow` 1 | Small, fast parser combinators with good error positions |
-| CEL | `cel-interpreter` 0.10 | The maintained Rust CEL implementation; wrapped so it can be swapped |
+| CEL | `cel` 0.15 (formerly `cel-interpreter`), `regex` feature only | The maintained Rust CEL implementation; wrapped behind `Expr` so it can be swapped. Its `chrono` and `json` features fail `cargo deny` (see Open questions) |
 | JSON Schema | `jsonschema` 0.60 | Body schema checks and file-format validation |
 | Fake data | `fake` 5 | Faker-style generators; names mapped to the Faker JS catalogue used in templates |
 | Diagnostics rendering | hand-written (`TextRenderer`, `JsonRenderer` in `vc-diagnostics`); `miette` dropped at M1 | Rustc-style text and the stable `vc check --json` shape. `miette` was dropped because a report holds one source text, so a secondary label in another file (the earlier duplicate, the profile in the config) needs a separate related report; fixes and the JSON shape (spans by path, a summary) would be ours either way; and it adds a colour and text-wrapping dependency tree under `multiple-versions = deny`. The renderer is about 400 lines |
@@ -113,7 +115,7 @@ Third-party crates:
 | Interning, maps | `indexmap` 2, `smol_str` 0.3; interning is hand-written (`StringTable` in `vc-model`) | Cheap IDs, ordered maps, small strings; `lasso` 0.7 was dropped because it pins `hashbrown` 0.14 next to indexmap's 0.17, which `multiple-versions = deny` rejects |
 | Graphs | `petgraph` 0.8 | Cycle detection and topological order in the planner |
 | Hashing | `blake3` 1 | File-hash cache, memo keys, body deduplication |
-| File walking and watching | `ignore` 0.4, `notify` 9 | `.gitignore`-aware discovery; `vc watch` |
+| File walking and watching | `ignore` 0.4, `globset` 0.4, `notify` 9 | `.gitignore`-aware discovery; `paths.include` and `paths.exclude` globs (`SourceFilter`); `vc watch` |
 | SQLite | `rusqlite` 0.40 (bundled) | history.db and cache.db; no system dependency |
 | Keychain and encryption | `keyring` 4, `chacha20poly1305` 0.11 | Cache encryption key in the OS keychain |
 | Secret redaction | `aho-corasick` 1 | Fast multi-string replacement over every output |
@@ -135,7 +137,7 @@ Third-party crates:
 | Small helpers | `smallvec` 1, `camino` 1, `strsim` 0.11 | Scope levels without allocation; UTF-8 paths; "did you mean" suggestions (D136) |
 | Lock-free swap | `arc-swap` 1 | The redactor's automaton is replaced without blocking readers (D113, D136) |
 | Embedding, compression, secret memory | `rust-embed`, `zstd`, `zeroize`, each when first used | Web UI in the binary; stored bodies and `zstd` responses; secrets zeroed on drop (D136) |
-| Testing | `insta` 1, `proptest` 1, `assert_cmd` 2 | Golden files for diagnostics and reports; property tests for the planner; e2e tests on the real `vc` binary (D136) |
+| Testing | `insta` 1, `proptest` 1, `assert_cmd` 2, `tempfile` 3 | Golden files for diagnostics and reports; property tests for the planner; e2e tests on the real `vc` binary (D136) |
 | Benchmarks | `gungraun`, `criterion` | Instruction-count benches on PRs; wall-clock benches nightly (D120, D136) |
 | Packaging | `cargo-dist` 0.32 | Release binaries, install scripts, Homebrew tap |
 
@@ -217,7 +219,7 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 | --- | --- | --- |
 | **Orchestrator + state machine** | `RunOrchestrator`, `FileOrchestrator`, `InstanceWorkflow`; also the load stage controller and the HAR import wizard | One place decides and holds state; workers stay simple and testable |
 | **Saga (compensation)** | Api `cleanup` as compensating actions, run in reverse | Undo without tests describing it |
-| **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `vc-interfaces`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `FileSystem`, `SourceProvider`, `CommandRunner`, `Vcs`, `ConfigSource`, `ActionRunner` | The core never knows which library sits behind it |
+| **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `vc-interfaces`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `FileSystem`, `SourceProvider`, `CompileCacheStore`, `CommandRunner`, `Vcs`, `ConfigSource`, `ActionRunner` | The core never knows which library sits behind it |
 | **Strategy** | Action executors (call, test reuse, function, command); matchers; pipes; body encoders (JSON, form, multipart, file); retry and loop policies (sequential, parallel); the load mix selector; sync merge rules | Swap behaviour by kind without branching in the caller |
 | **Factory and registry** | One registry per kind of strategy or adapter, filled at start-up: `ActionExecutorFactory` (by action kind), `AuthProviderFactory` (by auth `type`), `ReporterFactory`, `NotifierFactory`, `ImporterFactory` (by source), `TransportFactory` (by URL scheme, ready for gRPC and WebSocket), `MatcherRegistry`, `PipeRegistry`, `LintRegistry` | Adding a kind is one new file plus one registration line; nothing else changes |
 | **Builder** | `EngineBuilder` (the composition root that wires adapters into the engine); `ProgramBuilder` (the compiler accumulates, then `freeze()` gives the immutable `Program`); `RequestBuilder` (renders a request from an api, scope and auth); `PlanBuilder`; `Diagnostic::new(…)` with chained `label`, `help`, `fix`; test fixtures (`ProjectBuilder`, `ProgramBuilder::for_tests`); the SDKs' fluent builders | Objects with many optional parts are assembled step by step and checked once; required parts are enforced by typed builder states |
@@ -401,6 +403,7 @@ pub struct Action {
     pub owner: Owner,                     // Run | File(FileId) | Instance (each/before/steps)
     pub vars: VarDefs,
     pub auth: Option<AuthRef>,
+    pub headers: IndexMap<String, Template>, pub query: IndexMap<String, Template>, // over the api's
     pub body: Option<BodySpec>,           // replaces the api's body
     pub expect: Expect,                   // merged over the api's expect at compile time
     pub save: SaveSpec,
@@ -408,7 +411,7 @@ pub struct Action {
     pub retry: Option<Retry>,
     pub keep: bool,                       // skip the api's cleanup
     pub cache: Option<CacheSpec>,         // for, check (an ActionId)
-    pub repeat: Option<Loop>,             // Repeat(n) | ForEach(TemplateValue), with parallel
+    pub repeat: Option<Loop>,             // Repeat(n) | ForEach(TemplateValue), each with parallel: u32 (iterations at a time; 1 runs them in order)
     pub span: SourceSpan,
 }
 
@@ -455,9 +458,16 @@ pub enum ScalarStyle { Plain, SingleQuoted { escaped: bool }, DoubleQuoted { esc
 pub enum TemplateValue {
     Null, Bool(bool), Number(serde_json::Number), String(Template),
     List(Vec<TemplateValue>), Map(IndexMap<String, TemplateValue>),
-    Cel(CelSource),                       // $cel: source text and span; the compiled program is added with CEL
+    Cel(CelProgram),                      // $cel:, checked at compile time by CelCompiler::check (see CEL)
     Extend { base: Template, changes: Box<TemplateValue>, remove: Vec<Path> },
 }
+
+/// A $cel value or CEL check as written, and the checked form. Plain data: the evaluator lives in vc-template.
+pub struct CelSource { pub text: String, pub span: SourceSpan, pub style: ScalarStyle }
+pub struct CelProgram { pub source: CelSource, pub refs: Vec<Reference> } // every root it reads, in source order
+
+/// A matcher's argument, checked against the matcher's signature (V2306); durations and sizes are parsed by unit.
+pub enum MatcherArg { Value(TemplateValue), Duration(Duration), Size(Size), Range(Box<[MatcherArg; 2]>), Matcher(Box<Matcher>), Matchers(Vec<Matcher>) }
 
 /// Vars set at one level; the executor stacks levels at run time (see Vars, templates and CEL).
 pub struct VarDefs { pub values: IndexMap<VarName, TemplateValue>, pub by_profile: IndexMap<ProfileId, IndexMap<VarName, TemplateValue>> }
@@ -474,28 +484,41 @@ The compiler turns the project's files into a `Program` or a list of diagnostics
 | Stage | Input | Output | Notes |
 | --- | --- | --- | --- |
 | Discover (engine, not compiler) | project root, `paths` globs | source texts with BLAKE3 content hashes, through `SourceProvider` | `vc-adapter-system` walks with `ignore` (respects `.gitignore`); file kind from the suffix (D132, D133) |
-| Parse | changed files only | a marked tree per file (`parser::Node`, every node with its span) | `parser::parse(file, text) -> (Option<Node>, Diagnostics)` over `saphyr-parser` events; maps keep key order and key spans, scalars keep their text, style and YAML 1.2 core kind; columns count characters, offsets count bytes; a node's span starts at the value, after any `&anchor` or `!tag`. The root is `None` after a scanner error (V1001; V1002 for structure; V1007 for an alias to a missing anchor) and when nesting goes deeper than 128 (V1011); an empty file gives a null root. Problems the tree survives keep it and are reported: V1006 duplicate key, V1007 alias, V1008 tag, V1009 non-text key, V1010 second document. Scanner errors are coded from saphyr's message through one table, with a test per entry. JSON goes through the same parser for now, except that surrogate-pair `\u` escapes are refused (V1001) and a trailing comma is accepted; M1 D replaces this with a dedicated span-keeping JSON reader for `.json` files into the same `Node` tree (D148) |
-| Shape-check | marked trees | raw items per file kind, with unknown keys, wrong types and missing required keys reported | shapes are declared once (below) |
-| Compile parts | raw items | templates, pipes, CEL programs, matchers, durations, sizes | `template` crate; CEL type-checked against the namespaces available at that spot |
-| Link | all raw items | the `Program`: ID tables, references resolved, merged `expect`, test-level step defaults, var reachability | the only stage that sees every file at once |
-| Lint | the `Program` | warnings: naming conventions, expired skips, shared-value writes, cache in per-test blocks | each lint is a registered rule with a V-code |
+| Parse | changed files only | a marked tree per file (`parser::Node`, every node with its span) | `parser::parse(file, syntax, text) -> (Option<Node>, Diagnostics)`, where `Syntax::of(path)` picks `Json` for a `.json` suffix (one table) and `Yaml` otherwise. Both readers feed one syntax-neutral builder: maps keep key order and key spans, scalars keep their text, style and YAML 1.2 core kind; columns count characters, offsets count bytes, and only `\n` starts a line. YAML is read from `saphyr-parser` events; a node's span starts at the value, after any `&anchor` or `!tag`. The root is `None` after a scanner error (V1001; V1002 for structure; V1007 for an alias to a missing anchor) and when nesting goes deeper than 128 (V1011); an empty file gives a null root. Problems the tree survives keep it and are reported: V1006 duplicate key, V1007 alias, V1008 tag, V1009 non-text key, V1010 second document. Scanner errors are coded from saphyr's message through one table, with a test per entry. JSON is read by a hand-written reader, strictly to RFC 8259 (D148): no comments, no trailing commas, no `True` or `+1`, and full `\u` escapes with surrogate pairs. A syntax error stops it with V1001, spanned on the offending character, escape or token, with a `help:` (a trailing comma: "remove the comma after the last item"; a lone surrogate: write both halves). Strings are double-quoted scalars whose span includes the quotes; numbers, `true`, `false` and `null` are plain. Duplicate keys (V1006), nesting (V1011), the empty file and a leading BOM behave as for YAML. `Document` edits keep to the file's syntax: in JSON, text is always written double-quoted, other kinds only as JSON literals, and `insert_entry` refuses an object (it is a flow map) |
+| Shape-check | marked trees | the leaves to compile, each with its type and the roots its spot sees, and the action ids the file declares | shapes are declared once (below). An empty file is an empty map. V1004 unknown key (did-you-mean; a certain fix when exactly one known key is close), V1005 missing required key, at the map's first key, V2302 wrong type (a quoted `"3"` or `"true"` where a number or flag goes gets a certain unquote fix; a word outside an enum gets did-you-mean), V2201 for a one-of group with none or several of its keys (a test's `call`/`steps`, an action's `call`/`test`/`function`/`command`), V1003 for a config without `syntaxVersion` or with one newer than supported. A diagnostic on a spot the parser already reported (an alias read as null) is dropped |
+| Compile parts | the leaves | a `Piece` per leaf, keyed by its span: `Template`, `Value` (a `TemplateValue`), `Duration`, `Size`, `Matcher` (statuses become `Matcher::Status`), `Cel` | `template` crate. Template roots and pipes are checked against the roots the spot sees (V2105, V2102, V2305, V2308); a value that is wholly a template is kept as one (`timeout: ${var.wait}`). Units V2301, statuses V2303. A map with a matcher key is `Matcher::All` of its calls, anything else `Equals`; the matcher table checks each argument (V2306, a `regex` compiled unless it holds `${`), and an unknown matcher key is V1004. A single-key `$cel` map and each `expect.cel` entry go through `CelCompiler::check` (not `prepare`) with the scope's roots plus the file's action ids as step roots; whether a step id names a step that can run first is the linker's. Each scalar's `ScalarStyle` comes from the parser's style and its exact text |
+| Link | all raw items | the `Program`: ID tables, references resolved, merged `expect`, test-level step defaults, var reachability | the only stage that sees every file at once; the program is built through `ProgramBuilder` → `freeze()` only when no file and no link check has an error |
+| Lint | the linked trees and the `Program` | lifecycle diagnostics (V3xxx) | runs in `link()` only once the program is built; each lint is a `Lint` (`code`, `check`) in a file of its own under `lint/`, listed once in `LintRegistry::builtin()`. A lint error (V3102, V3103) drops the program |
 
-**Incremental.** The `CompileCache` keeps, per file hash, its parsed and shape-checked items; the compiler takes the previous one as input and returns the new one, and the engine reads and writes it as `.vibranium/cache/compile.bin` (D132). On the next run only changed files are parsed again; linking always runs over everything but is cheap (target: 1,000 files in under 100 ms warm, under 500 ms cold). The editor and `vc watch` keep the cache in memory.
+**Incremental.** The `CompileCache` keeps, per file, its `FileUnit` (kind, tree, pieces and per-file diagnostics), keyed by path, content hash and `SourceFileId`, plus the `StringTable` the units' symbols point into; the compiler takes the previous one as input and returns the new one, and the engine reads and writes it as `.vibranium/cache/compile.bin` (D132). On the next run only changed files are parsed again; linking always runs over everything but is cheap (target: 1,000 files in under 100 ms warm, under 500 ms cold). The editor and `vc watch` keep the cache in memory. The blob starts with `VCCC` and the layout version (6, a little-endian `u32`), then the length of a header (a little-endian `u32`) and the header: the compiler release that wrote it (`CARGO_PKG_VERSION`), the string table in symbol order, and per file its path, hash, number and the byte length of its stored unit. Each stored `FileUnit` (tree and pieces) follows on its own, back to back in file order, so one that does not read back costs only that file. Header and units are `postcard` (D155): a compact binary serde format, with no field names or escaping to write or read. The JSON values inside templates (`Number`, literal arguments) are self-describing, which postcard cannot read back, so a binary format stores them as their JSON text; JSON output still shows them as they are. A unit must use all of its bytes. Lengths that do not add up to the blob read as a damaged blob. `vc check` saves the cache only when it remembers other files than the one it loaded, or would store other units (so a unit that did not read back is written again). Diagnostics are never stored: a unit that has any is stored without the unit, so its file is compiled again and reports them again. Any other version or release, a damaged blob, a path `SourcePath` refuses or a string table that does not re-intern to the same symbols reads as an empty cache, which only costs a full compile. So a warm run read back from disk re-runs the per-file stages of changed files only. Two caches are equal when they remember the same files and would store the same units. The entries are in path order, so a unit is found by binary search.
+
+**Discovery and the cache blob (ports).** Both are synchronous traits in `vc-interfaces`, each with a contract suite and an in-memory fake in `vc-testkit` (`MemorySources`, `MemoryCompileCache`):
+
+- `SourceProvider::discover(&SourceFilter) -> Result<Discovery, SourceError>` returns the definition files (names with a `FileKind`) in path order, each read and hashed by `source_file`, the paths of the project's other files (`assets`, not read; the excludes apply, the include globs do not, so `$file` can name a JSON body or schema anywhere in the project), plus one `SourceError` per file it could not use (unreadable, not UTF-8, a name a `SourcePath` refuses, a link out of the project); only a root that cannot be searched fails the call. `SourceFilter` holds the `paths.include` and `paths.exclude` globs (`globset`, `*` stays within one folder, an exclude that matches a folder drops everything in it); `.vibranium/` and `.git/` are always left out, and `node_modules/` unless the config writes its own excludes; include globs never leave out the root `vibranium.config.yaml`. The engine discovers with the default filter, reads the config's globs with the pure `vc_compiler::SourceGlobs::of`, and discovers again with `SourceFilter::written` only when the config writes `paths`; a glob that does not parse fails the check (`EngineError::Sources`).
+- `CompileCacheStore::load() -> Result<Option<Vec<u8>>, _>` and `save(&[u8])` hold the opaque `CompileCache` blob. The engine treats a failed load or save as a notice (`warning:` on stderr), never as a failed check.
+- `vc-adapter-system` implements them as `FsSources` (the `ignore` walker: `.gitignore` and `.ignore` respected even outside a repository, the user's global excludes not; links to folders not followed; a linked file read only when its resolved path is inside the root, otherwise `OutsideRoot`) and `FsCompileCache` (temp file, `sync_all`, rename; refuses to go through a link at `.vibranium`, `.vibranium/cache` or the blob). `find_project_root` walks up from the start folder to the first `vibranium.config.yaml`.
+- The engine turns each discovery problem into a V1001 error on an empty placeholder file at that path, so it renders like any other diagnostic and the check fails.
 
 **One declaration per file shape.** Each file kind's keys are declared once in Rust, with type, default, description and an example:
 
 ```rust
-shape!(Test {
-    id: Id required "camelCase reference, e.g. createsMember",
-    name: Text "shown in reports",
-    call: ApiRef one_of(call, steps) "the api to call",
-    expect: Expect default(api) "added to the api's checks; matching keys replace them",
-    skip: Skip "a reason, or reason and until",
-    // … one line per key in the Syntax Reference
-});
+shape! {
+    test = Shape::new("testEntry", "One test: a call or steps, with checks", &[
+        key("id", Ty::Id).required().doc("Third-person verb, such as `rejectsDeclinedCard`").example("getsCreatedUser"),
+        key("call", Ty::Ref).doc("The api to call").example("users#get"),
+        key("steps", ACTIONS).doc("Several actions in order"),
+        key("repeat", Ty::Int).default("1").doc("Run the whole test this many times"),
+        // … one line per key in the Syntax Reference
+    ])
+    .mixins(&[request])
+    .one_of(&["call", "steps"], Code::V2201)
+    .scopes(&[("examples", Scope::EXAMPLES), ("repeat", Scope::LOOP)])
+}
 ```
 
-The same declarations generate the JSON Schemas shipped for editors (`vc schema export`), the reference tables in the docs, the hover text in editors and the web UI, and the shape-check stage, so the docs, the editors and the checker cannot drift apart.
+The tables are `const` data in `vc-compiler` (`shapes/`): a `Shape` has a title, a description, its keys, shared key sets it mixes in, an optional one-of group with its code and the roots its keys add for siblings (`examples`, `repeat`, `forEach`); a `Key` has a name, a `Ty`, `required`, a default, a description, an example and the scope it opens. `Ty` covers text, IDs, references, templates, integers, flags, durations, sizes, statuses, matchers, CEL, enums, lists, maps of a type, nested shapes and either-of. `shapes::reachable(root)` lists every shape a file reaches, breadth first.
+
+The same declarations generate the shape-check stage, the JSON Schemas shipped for editors (`vc schema export`) and the keys tables of the docs (`key_tables(kind)`: one `| Key | Type | Default | Purpose |` table per reachable shape), so the docs, the editors and the checker cannot drift apart. Each schema is draft 2020-12 with `$id` `https://raw.githubusercontent.com/v007m/vc-rs/master/schema/<kind>.schema.json`; the root is a closed object (`additionalProperties: false`, `required`, a one-of group as `oneOf` of `required`), nested shapes are `$defs` reached by `$ref`, and every property carries its description, its example under `examples`, and its default only when the declared default is a value of the key's type (a default such as "defaults.timeout" stays in the description).
 
 ### Linking in detail
 
@@ -505,7 +528,18 @@ The same declarations generate the JSON Schemas shipped for editors (`vc schema 
 4. **Test-level step defaults.** A test's `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every step, and the step's own value wins. A body default that reaches a GET or HEAD step is V3205; a default no step uses is V3206. A test-level `save` reads the last step's response (D124).
 5. **Var reachability.** For each template, the linker walks the levels that can supply a var at that spot (call vars, earlier saves in the same test, beforeAll saves under their action id, file vars, beforeRun saves, the api's defaults, the api file, config), separately for every profile. A `function:` or `test:` action may declare `provides: [x]`, and the linker trusts that declaration (D128). A var that no level provides for some profile is V2101, naming the profiles where it is missing and the places it could be set. A template root that is not available at that spot (D125) is V2105.
 6. **Lifecycle graph.** `test:` reuse forms a graph; cycles are V2205 with the whole chain. Shared actions without an `id` are V2210.
-7. **Types.** Pipes and CEL are checked against what each reference can hold (a `| number` on a value the api's schema says is an object is V2304).
+7. **Types.** Pipes are checked against what each reference can hold (a `| number` on a value the api's schema says is an object is V2304). CEL is not type-checked until the interpreter has a checker (see Open questions).
+
+The link stage (`link/` in `vc-compiler`) runs over every file's unit on each compile, cached or not. It reads the units' trees and pieces through a `Project` (the files with a tree, their path-derived file IDs, and tables of apis and tests by full ID) and runs in two tiers:
+
+- **Always:** the ID tables (V2001, V2006, V2007), references (V2003 for `call`, `cleanup.call` and `test`; V2002 for `auth` and a file's `profiles` entries, against the config), `$file` paths (V2004, below), example columns (V2103: a `${example.x}` in a test whose `examples` is an inline list of maps, where no row has `x`; rows from a `$file` or a dataset are known only at run time), and V3101 when the config defines no profile. References into a file the per-file stages could not read cleanly are not reported, since its items may be missing.
+- **Only when no file has an error of its own:** var reachability, `test:` cycles and shared actions without an `id`. The var walk follows run order: config vars, `beforeRun` (each action's saves shared under its `id`), then per test file its vars and `profiles`, `beforeAll` (shared the same way), `beforeEach`, and per test its vars, `before`, its call or steps, `after`. Every action's templates are checked with what ran before it plus its own vars; its `cache.check` is checked as an action that runs after it, so it also sees the action's saves, by name and under the action's `id` (`${var.admin.userId}`); an api's templates (and its file's) are checked at each call site with the api's and its file's vars added, and a diagnostic in them points back at the `call:` that reached them. A level is a set of names for every profile plus names per profile; a var is V2101 for each configured profile no level sets it for. A name's type is known when every definition of it is a literal of one type, and only then are its pipes checked (V2304). A step root is V2105 unless an action with that `id` ran earlier in the same test or block. Apis no test calls are not walked yet, and neither are load files.
+
+The lint stage (`lint/` in `vc-compiler`) then runs over the same trees and the built program. M1 checks V3102 (a second `default: true` profile, with the first as a secondary label), V3103 (a blank `skip` reason, on a file or a test), V3201 (a `PUT`, `PATCH` or `DELETE` call, outside `beforeAll`, whose `vars`, `auth`, `headers`, `query` or `body` read `var.<id>` of a `beforeRun` or `beforeAll` action), V3202 (`cache` on an action in `beforeEach`, `afterEach`, `before`, the steps or `after`), V3203 (a `call`, step or `cleanup.call` to a `deprecated` api), V3205 (a test `body` reaching a GET or HEAD `call` step without its own `body`) and V3206 (a test's `auth`, `body` or `poll` that every `call` and `test:` step sets itself, a `headers` or `query` name every such step sets, or a test-level check no step's merged checks kept; a test whose steps are all `function` or `command` uses none). It also checks V3104 (a `skip` whose `until` date is before today, on a file or a test; the certain fix removes the skip when it is written in block style on its own lines). The compiler stays pure: the engine reads today's date in UTC from the `Clock` port (`SystemClock`, or `FixedClock` in tests) and passes it in `CompileInput::today`; without one, V3104 is not checked. `until` is a `Ty::Date` (`YYYY-MM-DD`), so a malformed date is V2302. V3101 stays in the link stage and V3204 is the parser's. Apart from V3104, none of these has a certain fix.
+
+Each reference is reported once, at its first spot. A `$file` path (the value of a map whose only key is `$file`) is resolved against the folder of the file that holds it, after dropping a `#/pointer`, and must name a definition file or one of the discovery's `assets` (`CompileInput::assets`; `None` skips the check); a path that leads out of the project or names no file is V2004, with the close paths (written relative to that folder) as "did you mean", and a certain fix when exactly one is close. A path holding a template is known only at run time and is not checked. The moved-file fix for V2003 and the `function`, dataset and generator references are not linked yet; V2005 (hook export) is linked with hooks in M4, and its golden case lands then.
+
+When nothing is an error, `link/build` fills a `ProgramBuilder` (in `vc-model`: `new(strings, files)`, `intern`, one adder per table, `action(…) -> ActionId`, `freeze() -> Arc<Program>`) from the same trees and pieces. Every api's own checks are read first, by `ApiId`; then the config (its `defaults`, `vars`, `reports`, `redact`), its profiles and `beforeRun`/`afterRun` (owner `Run`), every api file (its group, its apis in file order, each `cleanup` as an action), and every test file (`beforeAll`/`afterAll` owned by the file, `beforeEach`/`afterEach`, `before`, `after` and steps by the instance). Checks are keyed as follows: `status`, `size` and body `equals` by kind alone; `headers` by the lower-cased name; `body.match` by its path (`items[*].price`); `timing` by phase; `cel` by label and `custom` by `path#export` (these two always append). A call action's checks are the api's, then (for a step) the test's, then its own, merged as in item 3; a `test:` step's are the test's, then its own; a `function` or `command` action keeps only its own. Test-level defaults reach `call` and `test:` steps, never `function` or `command` steps (D124). Headers and query merge by name over the test's; `auth`, `body` and `poll` replace. A test with `call` becomes one action whose checks carry the test's origin, while its vars and `retry` stay on the `Test`. The test-level `save` is added to the last step's saves, the step's own names winning. A body that is text is `Text`; a single-key `$file` or `$base64` map is `File` or `Base64`; anything else is `Json`. `poll` has no defaults: `until`, `every` and `timeout` are all required, so a missing one is V1005 (D156). A flag that is not written takes the default its shape declares, so a test is `standalone` unless it says `false`. `examples` becomes `Rows` for an inline list, `File` for a single-key `$file` map and `Template` for a template such as `${dataset.capitals}`; the engine reads the file or dataset and passes the rows to the planner (D132). Not built yet: auth definitions, datasets, generators, load files, `http.retry`, loops (`repeat`/`forEach` on actions), `cache`, and `body.schema` checks.
 
 ### Diagnostics and fixes
 
@@ -736,18 +770,30 @@ Config values are layered once, lowest first: built-in defaults < user config < 
 
 ### CEL
 
-`cel-interpreter` is wrapped behind a small trait so it can be replaced:
+The `cel` crate is private to `vc-template`, behind a small trait so it can be replaced. Checking and evaluating are split so that `vc-model` stays plain data and the compiler stays pure:
 
 ```rust
-pub trait Expr: Send + Sync {
-    fn eval(&self, activation: &Activation) -> Result<Value, ExprError>;
+impl CelCompiler {
+    /// Pure, used by the compiler: parses the source and checks every root it reads.
+    pub fn check(&self, source: &CelSource, roots: &Roots, strings: &mut StringTable) -> Result<CelProgram, TemplateError>;
+    /// Used by the executor at run start: turns a checked program into an evaluator.
+    pub fn prepare(&self, program: &CelProgram) -> Result<Arc<dyn Expr>, TemplateError>;
 }
-// Activation roots (D125): response (status, headers, body, timing), request, var (D53), env, item,
-// iteration, example, and each step id. There are no bare status/headers/body aliases (D150).
-// A root not available at that spot is a compile error (V2105).
+pub trait Expr: Send + Sync + Debug {
+    fn eval(&self, activation: &Activation) -> Result<serde_json::Value, ExprError>;
+}
+/// One evaluation's roots (D125): response (status, headers, body, timing), request, var (D53), env,
+/// item, iteration, example and each step id, as JSON; plus the step limit (default 1,000,000).
+pub struct Activation { /* roots: HashMap<Namespace, Arc<Value>>, step_limit */ }
+pub enum ExprError { Eval(String), StepLimit(u64), MissingRoot(String), Unrepresentable(String) }
 ```
 
-Expressions are compiled and type-checked once by the compiler. At run time each evaluation gets a fresh activation built from the response and scope. Two additions to the standard library are registered: `sum()` on lists of numbers and `matches()` with the same regex engine as the `regex` matcher. Evaluation has a step limit, so a pathological expression fails instead of hanging.
+- **Check (compile time).** `check` parses the expression and walks it for roots: an identifier followed by fields and literal indexes becomes a `Reference` with its path and exact span, and comprehension variables and type names are skipped. Each reference goes through the same `Roots::check` as templates, so an unavailable root is V2105 or V2102, and a bare `status`, `headers` or `body` is V2105 with the certain `response.` fix (D150). `secret`, `fake`, `dataset` and `run` are V2105 "not available in CEL": CEL's activation has no such roots (D125), so the help says to set a var from a template and read `var.<name>`. A parse error is V2305 at the parser's position, with the parser's internal "Incomplete …" errors dropped. `timestamp()` and `duration()` are V2305 "not supported yet" (see Open questions), so they never fail silently at run time. A literal pattern given to `matches()` that does not compile is V2306, as for the `regex` matcher. `cel-rust` has no type checker, so a call to an unknown function or a type mismatch is only found at run time.
+- **Prepare (run start).** The executor (M2) prepares every `CelProgram` once per run into its own table keyed by the program's position in the `Program`; the `Program` itself holds only data. `prepare` re-parses the source, binds each root the program reads to its `Namespace`, and wraps every comprehension's range in a counting call (below).
+- **Evaluate.** Each evaluation builds a fresh CEL context from the activation: only the roots the program reads are converted from JSON, every integer that fits becomes an `int` (CEL has no arithmetic across `int`, `uint` and `double`), and the result is converted back to JSON with map keys as sorted strings. Bytes, NaN and infinities have no JSON form (`ExprError::Unrepresentable`).
+- **Standard library additions.** `sum()` on a list of numbers is an `int` when every element is one (overflow is an error) and a `double` otherwise; `[]` sums to 0. `matches()` is the interpreter's own, built on the same `regex` crate as the `regex` matcher.
+- **Step limit.** CEL's only loops are comprehensions (`all`, `exists`, `map`, `filter`). Every comprehension's range is passed through a hidden `@steps` function that adds the range's size to a counter local to that evaluation and fails with `ExprError::StepLimit` past the activation's limit, so a nested pathological expression fails instead of hanging. List and string building outside comprehensions is not counted.
+- **The word `var`.** CEL reserves `var`, which is one of our roots. Before parsing, every `var` outside strings and comments and not after a `.` is renamed in place to `_v_`, a word of the same length, so every offset still matches the source. Writing `_v_` yourself is V2305.
 
 ## HTTP transport, auth and secrets
 
@@ -980,6 +1026,8 @@ Every interface is a thin adapter over the `engine` facade, so a capability adde
 
 `clap` derive commands as listed in the CLI and Developer Workflow doc; global flags `--profile`, `--json`, `--project`, `--log`. Console output is written by the console reporter (spec, dots, json) and the diagnostics `TextRenderer`; colour and progress bars switch off when stdout is not a terminal. Exit codes follow that doc (0 pass, 1 failed or blocked, 2 nothing ran, 3 load threshold, 4 sync drift), plus 130 when cancelled and 70 for an internal error, which prints a report hint and writes a redacted debug bundle (D127). `vc-cli` owns `main` and dispatches `vc tui`, `vc mcp` and `vc ui` to their app crates (D110). `vc completion <shell>` generates static completion plus a dynamic hook (`vc __complete`) that lists project IDs.
 
+So far (M1) the CLI has `vc check [--json] [paths…]` and `vc schema export [--out <dir>]`. `vc check` finds the project from the working folder (`EngineBuilder::for_project`), calls `Engine::check(CheckRequest { paths })` and prints the report with `TextRenderer` (colour only on a terminal without `NO_COLOR`) followed by a summary line, or with `JsonRenderer` under `--json`. Paths are resolved against the working folder and must lie in the project. `vc schema export` needs no project: `Engine::schema_bundle()` prints one object keyed by kind, `Engine::schema_export()` gives the `<kind>.schema.json` files for `--out`. Everything a user can fix (no project, a path outside it or with no definition files, an unwritable `--out`) prints `error: …` and exits 2; any other error or a panic exits 70 with the "please report" hint.
+
 ### TUI (`apps/tui`)
 
 `ratatui` with `crossterm`, one screen per tab (Run, Explore, History, Load, Import). It subscribes to the same event stream as the console reporter and uses `Edit`/`Check` for in-place editing; it never blocks the UI thread on I/O (the engine runs on the tokio runtime and sends redraw messages).
@@ -1018,7 +1066,7 @@ Third-party plugins are separate processes speaking JSON-RPC 2.0 over stdio, wit
 
 ## Diagnostic codes
 
-Codes are stable once released: a code is never reused for a different problem, and each has a `vc explain` page with a wrong and a right example (written in `crates/diagnostics/explain/Vxxxx.md`, checked by a test that compiles both examples). The first release ships these; new ones are added at the end of their range.
+Codes are stable once released: a code is never reused for a different problem, and each has a `vc explain` page with a wrong and a right example (written in `crates/diagnostics/explain/Vxxxx.md`: a `## Wrong` and a `## Right` section, each a small project with one fenced block per file whose first line is `# file: <path>`; `crates/engine/tests/explain.rs` checks every V1–V3 code has a page, the wrong project reports the code, and the right one reports neither it nor any error). The first release ships these; new ones are added at the end of their range.
 
 | Code | Severity | Problem | Certain fix |
 | --- | --- | --- | --- |
@@ -1033,6 +1081,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V1009 | error | Map key is not text (a list or map) (D149) | — |
 | V1010 | error | More than one YAML document in a file (D149) | — |
 | V1011 | error | Nesting deeper than 128 levels (D149) | — |
+| V1012 | error | File cannot be read: permissions, not UTF-8, a link outside the project root, or a name that is not a valid path (D154) | — |
 | V2001 | error | Duplicate ID | — |
 | V2002 | error | Unknown auth, profile, dataset or generator | close match |
 | V2003 | error | Unknown api or test | close match; after a file move, the moved file's new ID (D139) |
@@ -1051,8 +1100,8 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V2302 | error | Wrong value type (`"3"` for an integer) | convert |
 | V2303 | error | Invalid status code or class | — |
 | V2304 | error | Pipe or path cannot apply to that value's type | — |
-| V2305 | error | Template or CEL does not parse (unclosed `${`, empty `${}`, bad path segment, malformed pipe arguments; D144) | — |
-| V2306 | error | Matcher argument invalid (bad regex, `between` with one value) | — |
+| V2305 | error | Template or CEL does not parse (unclosed `${`, empty `${}`, bad path segment, malformed pipe arguments; D144); CEL `timestamp()` or `duration()`, not supported yet (own functions by M4, D153) | — |
+| V2306 | error | Matcher argument invalid (bad regex, `between` with one value); also a literal regex given to CEL `matches()` | — |
 | V2308 | error | Unknown pipe or wrong pipe arguments (arity, argument type; D145) | the closest pipe name, when one is close |
 | V3101 | error | No profile defined, or no active profile for this run | add `default: true` to the only profile |
 | V3102 | error | More than one default profile | — |
@@ -1089,22 +1138,32 @@ V3204 is new: the skip-reason example that silently lost `see #212` showed that 
 | Layer | How | Where |
 | --- | --- | --- |
 | Pure logic (templates, pipes, matchers, var lookup, diff, edits) | Unit tests next to the code | each crate |
-| Compiler diagnostics | Golden files: a folder of small projects, each with the expected `vc check` output (`insta` snapshots, text and JSON) | `crates/compiler/tests/cases/` |
+| Compiler diagnostics | Golden files: a folder of small projects, `<case>/project/…`, each with the expected diagnostics as `insta` snapshots, `expected.txt.snap` (text renderer, no colour) and `expected.json.snap`; one case per code and a clean sample (`crates/compiler/tests/golden.rs`) | `crates/compiler/tests/cases/` |
 | `parser::edit` | Round trips: apply an edit, re-parse, compare with the expected file byte for byte; comments and formatting elsewhere unchanged | `crates/parser/tests/` |
 | Planner and executor invariants | `proptest` over generated programs with a fake transport: shared actions run at most once per key; every registered cleanup runs exactly once, newest first, also on cancellation; loops keep order under parallelism | `crates/executor/tests/` |
 | Adapters | One contract suite per interface trait that every adapter and test fake must pass (a transport suite, a store suite, …) (D112) | `crates/testkit` |
 | End to end | `vc` run with `assert_cmd` against the in-repo mock server (`vc-mock-server`, started in-process on port 0 so each test has its own), whose request counter proves the lifecycle guarantees (50 tests sharing a `beforeAll` send 1 request) (D100) | `bench/mock/`, `tests/e2e/` |
 | Interfaces | CLI output snapshots; TUI rendered to a test backend; web UI with Playwright against `vc ui` and the mock server | `apps/*/tests/`, `web/tests/` |
-| Docs | Every example YAML in the docs is extracted and compiled in CI | `docs/tests/` |
+| Docs | Every YAML block in `docs/design/*.md` is checked: whole files (first line `# <path>`, or the first block under a `### `<path>`` heading) are checked per doc as one project with no errors, except unknown names a doc defines in files it does not show (V2002, V2003, V2004, V2101); other blocks must parse; `yaml skip` opts out | `crates/engine/tests/docs_examples.rs` |
 | Public API | `cargo public-api` snapshots for `vc-model`, `vc-interfaces` and `vc-engine`, from the end of M2 (D117) | each crate |
 
 ### Performance budgets
 
 Budgets are enforced in two ways (D120): instruction-count benches (`gungraun`) run on every PR and fail at a regression over 5%; wall-clock benches (`criterion`) run nightly against the targets below and open an issue on a breach.
 
+The compile benches check a 1,000-file project from `vc_testkit::generate_project(seed, files)`: a seeded, clock-free generator whose config, api and test files use vars, profiles, pipes, matchers, CEL, steps, loops, lifecycle blocks and cross-file references, and which `vc check` reports nothing on. Each bench runs `Engine::check` over in-memory sources three ways: cold (empty compile cache), warm (the cache from the same files) and changed (that cache, with the last file edited).
+
+| Bench | Tool | Where | Runs |
+| --- | --- | --- | --- |
+| `compile_instructions` | `gungraun`, Linux only (valgrind) | `crates/engine/benches` | `ci.yml` job `bench-instructions` on every PR, against a baseline from the base branch; with no baseline it passes with a notice |
+| `compile_wall` (`compile/cold_1000`, `warm_1000`, `changed_1000`) | `criterion` | `crates/engine/benches` | `mise run bench`; nightly |
+| `startup` (`startup/version`: `vc --version`) | `criterion` | `crates/apps/cli/benches` | `mise run bench`; nightly |
+
+`scripts/bench-budgets.sh` (`mise run bench:budgets`) holds the criterion medians to the targets below; the nightly `budgets` job runs it and opens an issue, or comments on the open one, on a breach.
+
 | Budget | Target |
 | --- | --- |
-| Compile and link 1,000 definition files | under 500 ms cold, under 100 ms warm |
+| Compile and link 1,000 definition files | under 500 ms cold, under 100 ms warm (measured with the postcard cache and the M1 lints: 168 ms cold, 71 ms warm, 82 ms with one file changed) |
 | Overhead per request outside the network (render, checks, events) | under 50 µs at p50 |
 | Hook call | under 50 µs at p50 for a `beforeRequest` hook |
 | History write | 10,000 test results committed in under 1 s |
@@ -1148,7 +1207,7 @@ None of these block M0–M2; each has a default the plan assumes until decided.
 | Question | Default assumed | Decide by |
 | --- | --- | --- |
 | Varlock's exact CLI contract for loading values as JSON per environment (flag names, exit codes) | Call `varlock load` with JSON output once per run; wrap it behind `SecretProvider` so a change stays in one adapter | M3, after testing against the current Varlock release |
-| `cel-interpreter` gaps (macros, timestamps, error positions) compared with cel-go | Use it behind the `Expr` trait; add missing functions locally; contribute fixes upstream | M1 |
+| Other `cel` 0.15 gaps compared with cel-go | No type checker, so unknown functions and type mismatches surface at run time, not in `vc check`; `var` is a reserved word (worked around by renaming, see CEL); no two-variable comprehensions; mixed `int`/`double` arithmetic is an error (`1.5 * 2`), while comparisons across them work; the crate uses `lazy_static` and `parking_lot` internally, and `Context::add_variable_from_value` has an internal `unwrap` (fine for JSON values) | Keep it behind `Expr`; add missing functions locally; contribute a checker and fixes upstream | M4 |
 | Faker catalogue parity: the Rust `fake` crate's generators versus the Faker JS names used in templates | A mapping table from Faker JS names to `fake` generators; unmapped names are a V2002 error listing what exists | M4 |
 | Web UI framework | Decided by Sarath: Svelte with SvelteKit (static adapter), built by Vite | M9 kickoff |
 | Where the documentation site and JSON Schemas are hosted | The GitHub repository (raw URLs) until a domain exists; SchemaStore entries point there | v2.0 release |

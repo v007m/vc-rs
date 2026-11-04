@@ -1,0 +1,55 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1005_poll_keys/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1005",
+      "severity": "error",
+      "message": "a poll needs `every`",
+      "primary": {
+        "span": {
+          "path": "services/orders/status.test.yaml",
+          "line": 5,
+          "column": 7,
+          "endLine": 5,
+          "endColumn": 12
+        },
+        "text": "`every` is missing"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add `every: 2s`: Pause between calls"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1005",
+      "severity": "error",
+      "message": "a poll needs `timeout`",
+      "primary": {
+        "span": {
+          "path": "services/orders/status.test.yaml",
+          "line": 5,
+          "column": 7,
+          "endLine": 5,
+          "endColumn": 12
+        },
+        "text": "`timeout` is missing"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add `timeout: 1m`: Give up after this long"
+      ],
+      "fixes": []
+    }
+  ]
+}

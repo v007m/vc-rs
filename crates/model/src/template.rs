@@ -1,11 +1,12 @@
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 
 use crate::{SourceSpan, Sym};
 
 /// A string that may hold `${…}` references, parsed once at compile time:
 /// `"/users/${var.userId}"` is a literal part and a reference part.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Template {
     /// The literal text and references, in order; adjacent literals are merged.
     pub parts: Vec<Part>,
@@ -30,7 +31,7 @@ impl Template {
 }
 
 /// One piece of a [`Template`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Part {
     /// Text copied as is; `$${` has already been unescaped to `${`.
     Literal(String),
@@ -39,13 +40,14 @@ pub enum Part {
 }
 
 /// A `${namespace.path(args) | pipe | pipe(args)}` reference.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Reference {
     /// The root: `var`, `response`, a step id…
     pub ns: Namespace,
     /// The path after the root: `.body.items[0].id`.
     pub path: Path,
     /// Literal arguments of a generator call, `${fake.lorem.words(5)}`; empty otherwise.
+    #[serde(serialize_with = "crate::json_text::out", deserialize_with = "crate::json_text::read")]
     pub args: Vec<Value>,
     /// The pipes applied left to right: `| int | default('x')`.
     pub pipes: Vec<PipeCall>,
@@ -56,7 +58,7 @@ pub struct Reference {
 }
 
 /// How a YAML scalar is written, so positions in its decoded text can be mapped back to the file.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ScalarStyle {
     /// Unquoted.
     Plain,
@@ -75,7 +77,7 @@ pub enum ScalarStyle {
 }
 
 /// Where a scalar is written and how, the input to template parsing.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ScalarSource {
     /// The whole scalar in the file, quotes included.
     pub span: SourceSpan,
@@ -84,7 +86,7 @@ pub struct ScalarSource {
 }
 
 /// The root of a reference (D125).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Namespace {
     /// `var`: vars, call values, profile values and saved values.
     Var,
@@ -113,14 +115,14 @@ pub enum Namespace {
 }
 
 /// A path into a JSON value: `.body.items[-1]["x-id"]`.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Path {
     /// The steps, in order; empty means the value itself.
     pub segments: Vec<Segment>,
 }
 
 /// One step of a [`Path`].
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Segment {
     /// `.key` or `["quoted key"]`.
     Key(String),
@@ -131,11 +133,12 @@ pub enum Segment {
 }
 
 /// One pipe in a reference: `take(10)`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PipeCall {
     /// The registered name: `take`.
     pub name: String,
     /// The literal arguments.
+    #[serde(serialize_with = "crate::json_text::out", deserialize_with = "crate::json_text::read")]
     pub args: Vec<Value>,
     /// The name alone, for did-you-mean fixes.
     pub name_span: SourceSpan,
@@ -143,32 +146,45 @@ pub struct PipeCall {
     pub span: SourceSpan,
 }
 
-/// The source of a `$cel` computed value; the compiled program is added in a later milestone.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// The source of a `$cel` value or a CEL check, as written.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CelSource {
     /// The expression text.
     pub text: String,
     /// Where it was written.
     pub span: SourceSpan,
+    /// How the scalar is written, so positions in the text can be mapped back to the file.
+    pub style: ScalarStyle,
+}
+
+/// A CEL expression checked at compile time: it parses, and every root it reads is available
+/// where it is written (D125). `vc-template` prepares it into an evaluator at run start.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CelProgram {
+    /// The expression as written.
+    pub source: CelSource,
+    /// Each root the expression reads, with the fields and literal indexes selected after it
+    /// (`response.body.items[0]`), in source order; the linker checks step ids against these.
+    pub refs: Vec<Reference>,
 }
 
 /// A value that may hold templates anywhere inside: bodies, vars, saves.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TemplateValue {
     /// `null`.
     Null,
     /// `true` or `false`.
     Bool(bool),
     /// A number.
-    Number(Number),
+    Number(#[serde(serialize_with = "crate::json_text::out", deserialize_with = "crate::json_text::read")] Number),
     /// A string, possibly with references.
     String(Template),
     /// A list.
     List(Vec<Self>),
     /// A map, in written order.
     Map(IndexMap<String, Self>),
-    /// A `$cel` computed value.
-    Cel(CelSource),
+    /// A `$cel` computed value, checked at compile time.
+    Cel(CelProgram),
     /// `$extend` a base value with `changes`, then delete the `$remove` paths.
     Extend {
         /// The value extended.
@@ -181,7 +197,7 @@ pub enum TemplateValue {
 }
 
 /// An expected status: one code (`201`) or a class (`2xx`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum StatusPattern {
     /// Exactly this code, 100 to 599.
     Code(u16),

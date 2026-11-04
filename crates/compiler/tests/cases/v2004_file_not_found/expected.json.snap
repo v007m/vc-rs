@@ -1,0 +1,142 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2004_file_not_found/project
+---
+{
+  "summary": {
+    "errors": 4,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2004",
+      "severity": "error",
+      "message": "`$file` names data/usr.json, which is not in the project",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 6,
+          "column": 14,
+          "endLine": 6,
+          "endColumn": 27
+        },
+        "text": "no file at services/users/data/usr.json"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `data/user.json`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with data/user.json",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 82,
+                "end": 95
+              },
+              "newText": "data/user.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2004",
+      "severity": "error",
+      "message": "`$file` names ../../fixtures/users.csv, which is not in the project",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 14,
+          "column": 14,
+          "endLine": 14,
+          "endColumn": 38
+        },
+        "text": "no file at fixtures/users.csv"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`$file` paths are relative to the file that holds them, here services/users"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2004",
+      "severity": "error",
+      "message": "`$file` names ../../schema/user.json, which is not in the project",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 19,
+          "column": 25,
+          "endLine": 19,
+          "endColumn": 47
+        },
+        "text": "no file at schema/user.json"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `../../schemas/user.json`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with ../../schemas/user.json",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 381,
+                "end": 403
+              },
+              "newText": "../../schemas/user.json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2004",
+      "severity": "error",
+      "message": "`$file` names ../../schema/user.json, which is not in the project",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 24,
+          "column": 25,
+          "endLine": 24,
+          "endColumn": 49
+        },
+        "text": "no file at schema/user.json"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `../../schemas/user.json`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with ../../schemas/user.json",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 489,
+                "end": 511
+              },
+              "newText": "../../schemas/user.json"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
