@@ -73,9 +73,9 @@ Each item has a default the plan assumes. Ask before relying on it past the mile
 | Docs and JSON Schema hosting | GitHub raw URLs on `master` of `v007m/vc-rs`, e.g. `https://raw.githubusercontent.com/v007m/vc-rs/master/schema/<kind>.schema.json`, plus SchemaStore entries | v2.0 release |
 | Staging agent policy: should PATCH and definition edits also need approval? | `approve: [PUT, PATCH, DELETE]`, `writeDefinitions: ask` | M7 |
 | Review of the LLD and a click-through of the mockups in Play mode | Treat both as accepted | Before M2 and M9 |
-| Default secrets provider: Varlock or plain env | — | M3 kick-off |
-| Notifiers: v2.0 (PRD) or M8 (LLD) | — | M3 kick-off |
-| Does `vc demo` reuse the mock server (`bench/mock`)? | — | M5 kick-off |
+| Default secrets provider: Varlock or plain env | Decided: plain env, Varlock opt-in (D163) | M3 kick-off |
+| Notifiers: v2.0 (PRD) or M8 (LLD) | Decided: M8 (D164) | M3 kick-off |
+| Does `vc demo` reuse the mock server (`bench/mock`)? | Decided: no, a separate `vc-demo` crate (D175) | M5 kick-off |
 
 The open questions in the LLD are listed in its last section:
 - the Varlock CLI contract (M3);
