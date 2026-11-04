@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use crate::{
-    Action, ActionId, Api, ApiGroup, Config, ModelError, Profile, Program, RunBlocks, SourceFiles, StringTable, Sym,
-    Test, TestFile,
+    Action, ActionId, Api, ApiGroup, AuthDef, Config, ModelError, Profile, Program, RunBlocks, SourceFiles,
+    StringTable, Sym, Test, TestFile,
 };
 
 /// Accumulates a [`Program`]; nothing can change it after [`ProgramBuilder::freeze`].
@@ -37,6 +37,11 @@ impl ProgramBuilder {
     /// Adds a profile, keeping the first one with its ID.
     pub fn profile(&mut self, profile: Profile) {
         self.program.profiles.entry(profile.id).or_insert(profile);
+    }
+
+    /// Adds an auth definition, keeping the first one with its ID.
+    pub fn auth(&mut self, auth: AuthDef) {
+        self.program.auth.entry(auth.id).or_insert(auth);
     }
 
     /// Adds an api file.

@@ -1,0 +1,71 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2106_undeclared_secret/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2106",
+      "severity": "error",
+      "message": "`${secret.API_TOKN}` is not declared in `.env.schema`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 5,
+          "column": 29,
+          "endLine": 5,
+          "endColumn": 47
+        },
+        "text": "API_TOKN is not in .env.schema"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add the line `API_TOKN=` to `.env.schema` at the project root, or fix the name",
+        "did you mean `API_TOKEN`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with API_TOKEN",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 91,
+                "end": 99
+              },
+              "newText": "API_TOKEN"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2106",
+      "severity": "error",
+      "message": "`${secret.SESSION_KEY}` is not declared in `.env.schema`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 7,
+          "column": 16,
+          "endLine": 7,
+          "endColumn": 37
+        },
+        "text": "SESSION_KEY is not in .env.schema"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "add the line `SESSION_KEY=` to `.env.schema` at the project root, or fix the name"
+      ],
+      "fixes": []
+    }
+  ]
+}

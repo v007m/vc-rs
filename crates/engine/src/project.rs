@@ -37,6 +37,7 @@ impl Engine {
             previous: previous.clone(),
             today: Some(self.clock.today()),
             assets: Some(found.assets.into_iter().collect()),
+            secret_schema: None,
         };
         let compiled = vc_compiler::compile(input);
         self.save_cache(&compiled.cache, &previous, &mut notices);

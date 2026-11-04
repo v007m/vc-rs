@@ -176,6 +176,8 @@ impl<'p, V: Visit> Walker<'p, V> {
         if let Some(def) = self.program.auth.get(id) {
             self.values(def.settings.values());
             self.vars(&def.vars);
+            self.templates(def.expires_in.iter());
+            self.actions(&def.steps);
         }
     }
 

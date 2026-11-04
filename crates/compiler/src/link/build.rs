@@ -2,6 +2,7 @@
 //! each action merged with what it inherits (D123, D124).
 
 mod action;
+mod auth;
 mod expect;
 mod http_retry;
 mod items;
@@ -28,9 +29,10 @@ pub use read::{flag, method};
 type Built<T> = Result<T, ModelError>;
 
 /// The program, or `None` when a table overflowed.
-pub fn program(project: &Project<'_>, files: SourceFiles) -> Option<Arc<Program>> {
+pub fn program(project: &Project<'_>, files: SourceFiles, secrets: &[String]) -> Option<Arc<Program>> {
     let builder = ProgramBuilder::new(project.strings.clone(), files);
-    let mut build = Build { project, builder, api_expects: HashMap::new(), http_retry: HttpRetry::default() };
+    let (api_expects, http_retry) = (HashMap::new(), HttpRetry::default());
+    let mut build = Build { project, builder, api_expects, http_retry, secrets };
     build.all().ok()?;
     Some(build.builder.freeze())
 }
@@ -42,6 +44,8 @@ struct Build<'p, 'a> {
     api_expects: HashMap<ApiId, Expect>,
     /// The config's `http.retry`, which an api's keys replace (D143).
     http_retry: HttpRetry,
+    /// The secret names `.env.schema` declares (D165).
+    secrets: &'p [String],
 }
 
 impl<'a> Build<'_, 'a> {
@@ -53,6 +57,7 @@ impl<'a> Build<'_, 'a> {
         }
         for source in of(FileKind::Config) {
             self.config(source)?;
+            self.auth_defs(source)?;
         }
         for source in of(FileKind::Api) {
             self.api_file(source)?;

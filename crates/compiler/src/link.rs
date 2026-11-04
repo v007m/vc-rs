@@ -12,6 +12,7 @@ mod layer;
 mod project;
 mod refs;
 mod saves;
+mod secrets;
 mod shared;
 mod uses;
 
@@ -48,6 +49,8 @@ pub struct World<'w> {
     pub today: Option<Date>,
     /// The project's other files, for `$file` paths; `None` leaves them unchecked.
     pub assets: Option<&'w BTreeSet<SourcePath>>,
+    /// The secret names `.env.schema` declares; `None` leaves V2106 and V2107 out.
+    pub secrets: Option<&'w [String]>,
 }
 
 /// Links the units in `entries`, whose spans point into `files`.
@@ -66,13 +69,18 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(world.assets.map(|assets| assets::check(&project, files, assets)).unwrap_or_default());
     diagnostics.extend(columns::check(&project));
     diagnostics.extend(shared::profiles(&project));
+    diagnostics.extend(world.secrets.map(|declared| secrets::check(&project, declared)).unwrap_or_default());
     if !clean {
         return Linked { diagnostics, program: None };
     }
     diagnostics.extend(flow::check(&project));
     cycles::check(&project, &mut diagnostics);
     shared::check(&project, &mut diagnostics);
-    let program = if diagnostics.has_errors() { None } else { build::program(&project, files.clone()) };
+    let program = if diagnostics.has_errors() {
+        None
+    } else {
+        build::program(&project, files.clone(), world.secrets.unwrap_or_default())
+    };
     if let Some(program) = &program {
         diagnostics.extend(LintRegistry::builtin().run(&LintCx { project: &project, program, today: world.today }));
     }

@@ -8,7 +8,7 @@ use vc_model::{
 use vc_parser::Node;
 
 use super::action::Place;
-use super::{Build, Built, expect, http_retry, read};
+use super::{Build, Built, auth, expect, http_retry, read};
 use crate::link::project;
 use crate::link::project::Source;
 use crate::shapes;
@@ -31,8 +31,9 @@ impl<'a> Build<'_, 'a> {
             report_formats: reports.map(|reports| read::texts(reports, "formats")).unwrap_or_default(),
             redact_headers: redact.map(|redact| read::texts(redact, "headers")).unwrap_or_default(),
             redact_fields: redact.map(|redact| read::texts(redact, "fields")).unwrap_or_default(),
+            ..Config::default()
         };
-        self.builder.config(config);
+        self.builder.config(auth::with_secrets(config, source, self.secrets));
         for profile in project::list(root, "profiles") {
             let Some(id) = project::text(profile, "id") else { continue };
             let id = ProfileId::new(self.sym(id)?);

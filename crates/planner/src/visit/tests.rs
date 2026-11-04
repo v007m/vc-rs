@@ -119,13 +119,19 @@ const ACTION: &[(&str, Place)] = &[
     ("auth settings", |f, _, c| {
         let id = AuthId::new(f.sym("admin"));
         let settings = IndexMap::from([("token".into(), value())]);
-        let def = AuthDef { id, name: None, kind: "bearer".into(), settings, vars: VarDefs::default() };
+        let def = AuthDef { settings, ..AuthDef::new(id, "bearer") };
         f.program.auth.insert(id, def);
         f.action_mut(c).auth = Some(AuthRef::Use { id, vars: VarDefs::default() });
     }),
     ("auth def vars", |f, _, c| {
         let id = AuthId::new(f.sym("admin"));
-        let def = AuthDef { id, name: None, kind: "bearer".into(), settings: IndexMap::new(), vars: vars(f) };
+        let def = AuthDef { vars: vars(f), ..AuthDef::new(id, "bearer") };
+        f.program.auth.insert(id, def);
+        f.action_mut(c).auth = Some(AuthRef::Use { id, vars: VarDefs::default() });
+    }),
+    ("auth expiresIn", |f, _, c| {
+        let id = AuthId::new(f.sym("admin"));
+        let def = AuthDef { expires_in: Some(testing::read("warm")), ..AuthDef::new(id, "flow") };
         f.program.auth.insert(id, def);
         f.action_mut(c).auth = Some(AuthRef::Use { id, vars: VarDefs::default() });
     }),

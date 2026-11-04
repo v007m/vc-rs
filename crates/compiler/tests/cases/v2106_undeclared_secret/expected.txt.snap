@@ -1,0 +1,19 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2106_undeclared_secret/project
+---
+error[V2106]: `${secret.API_TOKN}` is not declared in `.env.schema`
+ --> services/users/users.api.yaml:5:29
+  |
+5 |       authorization: Bearer ${secret.API_TOKN}
+  |                             ^^^^^^^^^^^^^^^^^^ API_TOKN is not in .env.schema
+  = help: add the line `API_TOKN=` to `.env.schema` at the project root, or fix the name
+  = help: did you mean `API_TOKEN`?
+  = fix: Replace with API_TOKEN (certain)
+
+error[V2106]: `${secret.SESSION_KEY}` is not declared in `.env.schema`
+ --> services/users/users.api.yaml:7:16
+  |
+7 |       x-other: ${secret.SESSION_KEY}
+  |                ^^^^^^^^^^^^^^^^^^^^^ SESSION_KEY is not in .env.schema
+  = help: add the line `SESSION_KEY=` to `.env.schema` at the project root, or fix the name
