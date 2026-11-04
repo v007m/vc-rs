@@ -160,6 +160,12 @@ fn edits_refuse_the_wrong_kind_of_node() {
 }
 
 #[test]
+fn a_scalar_edit_whose_text_would_not_parse_is_refused() {
+    assert!(matches!(set(":\t:%", "", "a"), Err(ParserError::Unparsable(_))));
+    assert_eq!(set(": :%", "", "a").unwrap(), ": a");
+}
+
+#[test]
 fn apply_rejects_bad_ranges_and_results_that_do_not_parse() {
     let before = doc("a: é\n").unwrap();
     let span = |start, end| SourceSpan::new(FILE, Pos::new(1, 1, start), Pos::new(1, 1, end));

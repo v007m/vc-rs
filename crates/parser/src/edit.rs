@@ -89,7 +89,9 @@ impl Document {
     /// # Errors
     /// [`ParserError::BadRange`] when `node` is not part of this document,
     /// [`ParserError::WrongNode`] when it is a collection, a block scalar, an empty root or an
-    /// empty list item, and [`ParserError::NotOfKind`] when `value` cannot read back as `kind`.
+    /// empty list item, [`ParserError::NotOfKind`] when `value` cannot read back as `kind`, and
+    /// [`ParserError::Unparsable`] when the edited text would not parse (the reader rejects
+    /// `:\ta` though it reads `:\t:%`, so an edit is checked, not assumed).
     pub fn set_typed(&self, node: &Node, value: &str, kind: ScalarKind) -> Result<TextEdit, ParserError> {
         let place = self.locate(node)?;
         let style = match node.as_scalar() {
@@ -100,10 +102,12 @@ impl Document {
         let text = spelling
             .write(value)
             .ok_or_else(|| ParserError::NotOfKind { value: value.to_owned(), kind: kind.name() })?;
-        if node.span.start.offset == node.span.end.offset {
-            return self.fill_empty(place, &text);
-        }
-        Ok(TextEdit::replace(node.span, text))
+        let edit = if node.span.start.offset == node.span.end.offset {
+            self.fill_empty(place, &text)?
+        } else {
+            TextEdit::replace(node.span, text)
+        };
+        self.apply(std::slice::from_ref(&edit)).map(|_| edit)
     }
 
     /// Adds `key: value` as the last entry of the block map `map`, lined up with its keys, on the
