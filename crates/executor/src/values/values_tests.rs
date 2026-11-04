@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use serde_json::{Value, json};
-use vc_model::{ActionId, Examples, Instance, InstanceId, Needs, OwnerKey, Profile, ProfileId, TemplateValue};
+use vc_model::{
+    ActionId, Examples, GeneratorDef, Instance, InstanceId, Needs, OwnerKey, Profile, ProfileId, TemplateValue,
+};
 use vc_template::RenderError;
 
 use super::{Frame, Render};
@@ -155,6 +157,24 @@ fn a_fake_var_is_drawn_only_when_first_rendered() {
     assert_eq!(plain, spare, "unused fake vars draw nothing");
     assert_eq!(spare_memo.keys().collect::<Vec<_>>(), ["userId"], "only the rendered var is kept");
     assert_eq!(plain_memo, spare_memo);
+}
+
+#[test]
+fn a_named_generator_calls_its_built_in_and_dates_follow_the_run_start() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let id = fixture.sym("code");
+    let generator = GeneratorDef { id, fake: "string.fromRegExp".to_owned(), args: vec![json!("[A-C]{3}")] };
+    fixture.program.generators.insert(id, generator);
+    let (named, recent) = (fixture.value("${fake.code}"), fixture.value("${fake.date.recent}"));
+    let unknown = fixture.value("${fake.person.age}");
+    let cx = fixture.cx_with(ActionExecutors::new(), fixture::inputs(&[]).with_started_at(86_400_000));
+    let code = run_level(&cx, action, &named).unwrap();
+    let letters = |code: &str| code.len() == 3 && code.chars().all(|letter| ('A'..='C').contains(&letter));
+    assert!(code.as_str().is_some_and(letters), "{code}");
+    let date = run_level(&cx, action, &recent).unwrap();
+    assert!(date.as_str().is_some_and(|date| date.starts_with("1970-01-01T")), "{date}");
+    assert!(run_level(&cx, action, &unknown).unwrap_err().message.contains("is not a generator"));
 }
 
 #[test]

@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use serde_json::Value;
 
 use crate::{
     Duration, FileId, Matcher, Method, ProfileId, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
@@ -190,7 +191,7 @@ pub struct Dataset {
     pub file: String,
 }
 
-/// One entry of `generators`: the generator kind and its settings.
+/// One entry of `generators`, lowered to the built-in `${fake.…}` it calls (D174).
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
@@ -199,10 +200,10 @@ pub struct Dataset {
 pub struct GeneratorDef {
     /// `id`.
     pub id: Sym,
-    /// The kind key, such as `fromRegExp` or `oneOf`.
-    pub kind: String,
-    /// Its value.
-    pub settings: TemplateValue,
+    /// The built-in generator it calls, such as `string.fromRegExp` for a `fromRegExp`.
+    pub fake: String,
+    /// The built-in's arguments, from the settings.
+    pub args: Vec<Value>,
 }
 
 #[cfg(test)]

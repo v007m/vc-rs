@@ -10,9 +10,7 @@ use indexmap::IndexMap;
 use serde_json::Value;
 use vc_interfaces::{Environment, Random};
 use vc_model::{ActionId, ApiId, FileId, ProfileId, Program, TemplateValue, TestId, VarDefs, VarName};
-use vc_template::PipeRegistry;
-
-use super::fake::FakeData;
+use vc_template::{FakeRegistry, PipeRegistry};
 
 /// The var definitions of one level, by name, with the active profiles applied.
 pub type Defined = HashMap<String, TemplateValue>;
@@ -34,14 +32,24 @@ pub struct RunInputs {
     /// What `${env.X}` reads.
     pub environment: Arc<dyn Environment>,
     /// What `${fake.…}` generates.
-    pub fakes: FakeData,
+    pub fakes: FakeRegistry,
+    /// When the run started, in milliseconds since 1970; `date.past` and the other dates are
+    /// relative to it, so a seeded run repeats.
+    pub started_ms: u64,
 }
 
 impl RunInputs {
-    /// Inputs with the default profiles and the placeholder fake data.
+    /// Inputs with the default profiles, the built-in generators and a start at 1970.
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
-        Self { profiles: Vec::new(), vars: Defined::new(), random, environment, fakes: FakeData::placeholder() }
+        let (profiles, vars, fakes) = (Vec::new(), Defined::new(), FakeRegistry::builtin());
+        Self { profiles, vars, random, environment, fakes, started_ms: 0 }
+    }
+
+    /// The same inputs with the run starting at `started_ms`, for the generated dates.
+    #[must_use]
+    pub fn with_started_at(self, started_ms: u64) -> Self {
+        Self { started_ms, ..self }
     }
 
     /// The same inputs with `profiles` active, in order.

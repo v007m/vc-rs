@@ -8,7 +8,7 @@ use std::sync::Arc;
 use serde_json::{Map, Value, json};
 use vc_interfaces::Random;
 use vc_model::{CelProgram, Examples, Namespace, Program, Reference, Segment, Template, TemplateValue};
-use vc_template::{Activation, CelCompiler, Chance, RenderError, Renderer, Resolve};
+use vc_template::{Activation, CelCompiler, Chance, FakeCx, RenderError, Renderer, Resolve};
 
 use super::run::RunValues;
 use super::scope::{Found, Scope};
@@ -221,9 +221,8 @@ impl Within<'_> {
 struct RandomChance<'a>(&'a dyn Random);
 
 impl Chance for RandomChance<'_> {
-    fn below(&self, bound: usize) -> usize {
-        let draw = self.0.next_u64().checked_rem(u64::try_from(bound).unwrap_or(u64::MAX));
-        draw.and_then(|draw| usize::try_from(draw).ok()).unwrap_or(0)
+    fn next_u64(&self) -> u64 {
+        self.0.next_u64()
     }
 }
 
@@ -280,7 +279,11 @@ impl Lookup<'_> {
         });
         let name = keys.collect::<Vec<_>>().join(".");
         let inputs = self.render.values.inputs();
-        inputs.fakes.generate(&name, inputs.random.as_ref(), &reference.args).map_err(RenderError::invalid)
+        let cx = FakeCx::new(self.chance(), inputs.started_ms);
+        let program = self.render.program;
+        let named = program.generators.values().find(|def| program.str(def.id) == Some(name.as_str()));
+        let (name, args) = named.map_or((name.as_str(), reference.args.as_slice()), |def| (&def.fake, &def.args));
+        inputs.fakes.generate(name, args, &cx).map_err(RenderError::invalid)
     }
 
     /// The `var` root of a `$cel` value: each var it reads that is set.

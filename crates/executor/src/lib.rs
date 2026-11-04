@@ -50,4 +50,4 @@ pub use redactor::{MASKED, RedactingSink, Redactor};
 pub use shell::{Executor, RunHandle, RunInterrupter, RunOptions};
 pub use slots::{SharedResult, SharedSlots};
 use values::Render;
-pub use values::{Defined, FakeData, FakeFn, Frame, Iteration, RunInputs, RunValues};
+pub use values::{Defined, Frame, Iteration, RunInputs, RunValues};

@@ -6,6 +6,7 @@ mod assets;
 mod build;
 mod columns;
 mod cycles;
+mod fakes;
 mod flow;
 mod ids;
 mod layer;
@@ -65,6 +66,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     refs::check(&project, &mut diagnostics);
     diagnostics.extend(world.assets.map(|assets| assets::check(&project, files, assets)).unwrap_or_default());
     diagnostics.extend(columns::check(&project));
+    diagnostics.extend(fakes::check(&project));
     diagnostics.extend(shared::profiles(&project));
     if !clean {
         return Linked { diagnostics, program: None };

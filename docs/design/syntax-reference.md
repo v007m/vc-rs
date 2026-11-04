@@ -1087,6 +1087,9 @@ Rules:
 - A var defined as `${fake.…}` is generated once per test instance, or once per loop iteration, and every `${var.…}` read of it gets the same value: put it in `vars` once (`email: ${fake.internet.email}`) and use `${var.email}` (D131).
 - A `${fake.…}` written inline in a field generates a new value every time it is rendered (D131).
 - `vc run --seed 42` makes generated data repeatable; the seed is printed in every report and with every failure (D131).
+- A name that is not a generator is V2002, with the close names and the list of generators. Wrong arguments are V2302: `string.alphanumeric`, `lorem.words` and `lorem.paragraphs` take one count up to 10,000 (defaults 1, 3 and 3); `number.int` takes two whole numbers, the first no larger (default 0 to 9,007,199,254,740,991); `number.float` and `commerce.price` take two numbers (defaults 0 to 1 and 1 to 1000); `helpers.arrayElement` takes one or more values; the rest take none.
+- What they give: `number.int` and `number.float` are numbers, `commerce.price` is a number with two decimals, `helpers.arrayElement` is the argument it picked, and everything else is text. Dates are RFC 3339 in UTC, counted from the run's start: `date.recent` within the day before, `date.past` within the year before, `date.future` within the year after. Text is in English.
+- `string.fromRegExp` (and a `fromRegExp` generator) follows a bounded subset of regex: literals, escapes (`\d`, `\w`, `\s`, `\D`, `\W`, `\S`, `\.`), `.` (printable ASCII), classes and ranges (`[A-Z0-9_]`, `[^,]`), groups (`(…)`, `(?:…)`), alternation (`a|b`), and quantifiers (`?`, `*`, `+`, `{n}`, `{n,m}`, `{n,}`). An open repeat adds at most 16 copies; a count is at most 256 and the text at most 10,000 characters; groups nest at most 32 deep; `^` and `$` only at the ends. Lookarounds, backreferences, `\b`, named groups and Unicode classes are V2309.
 
 Named generators, for settings you reuse, are declared once in `vibranium.config.yaml` and used in the same `fake` namespace:
 
@@ -1105,7 +1108,7 @@ generators:
       words: 500
 ```
 
-Then `${fake.teamName}`, `${fake.quantity}`. A named generator cannot reuse a Faker module name such as `person`.
+Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind: `fromRegExp` (a pattern, as `string.fromRegExp`), `oneOf` (a list, as `helpers.arrayElement`), `int` (`min` and `max`, either optional, as `number.int`) or `lorem` (`words`, as `lorem.words`). None is V1005; several, or settings of the wrong shape, are V2302. A named generator takes no arguments (`${fake.quantity(2)}` is V2302) and cannot reuse a Faker module name such as `person` (V2006).
 
 ### Datasets
 

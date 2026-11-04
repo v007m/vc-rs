@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use crate::{
-    Action, ActionId, Api, ApiGroup, Config, ModelError, Profile, Program, RunBlocks, SourceFiles, StringTable, Sym,
-    Test, TestFile,
+    Action, ActionId, Api, ApiGroup, Config, GeneratorDef, ModelError, Profile, Program, RunBlocks, SourceFiles,
+    StringTable, Sym, Test, TestFile,
 };
 
 /// Accumulates a [`Program`]; nothing can change it after [`ProgramBuilder::freeze`].
@@ -76,6 +76,11 @@ impl ProgramBuilder {
         let id = self.next_action()?;
         self.program.actions.push(action);
         Ok(id)
+    }
+
+    /// Adds a named generator, keeping the first one with its ID.
+    pub fn generator(&mut self, generator: GeneratorDef) {
+        self.program.generators.entry(generator.id).or_insert(generator);
     }
 
     /// Sets the config's `beforeRun` and `afterRun` actions.

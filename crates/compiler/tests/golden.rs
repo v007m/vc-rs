@@ -124,4 +124,10 @@ cases!(
     v3203_deprecated_call,
     v3205_body_on_read,
     v3206_unused_default,
+    fakes_clean,
+    v1005_generator_kind,
+    v2002_unknown_fake,
+    v2006_generator_module,
+    v2302_fake_args,
+    v2309_from_reg_exp,
 );

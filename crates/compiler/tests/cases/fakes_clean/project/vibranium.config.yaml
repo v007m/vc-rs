@@ -1,0 +1,17 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+generators:
+  - id: teamName
+    fromRegExp: "[A-Z][a-z]{4,12} Team"
+  - id: visibility
+    oneOf: [PRIVATE, PUBLIC]
+  - id: quantity
+    int:
+      min: 1
+      max: 5
+  - id: longBio
+    lorem:
+      words: 500
