@@ -20,6 +20,10 @@
 //!
 //! [`CelCompiler::check`] checks a CEL expression into a [`vc_model::CelProgram`] at compile
 //! time; [`CelCompiler::prepare`] turns it into an [`Expr`] evaluated against an [`Activation`].
+//!
+//! At run time a [`Renderer`] renders templates and template values against a [`Resolve`],
+//! which gives the value of each root; [`select`] follows a path into a value, and [`extend`]
+//! applies `$extend` and `$remove`. A failure is a [`RenderError`].
 
 mod builtin_pipes;
 mod cel_compile;
@@ -31,16 +35,24 @@ mod error;
 mod expr;
 mod grammar;
 mod literals;
+mod merge;
 mod parse;
+mod pipe_fns;
 mod pipes;
+mod render;
 mod roots;
+mod select;
 mod span_map;
 mod units;
 
 pub use cel_compile::CelCompiler;
-pub use error::TemplateError;
+pub use error::{RenderError, TemplateError};
 pub use expr::{Activation, DEFAULT_STEP_LIMIT, Expr, ExprError};
+pub use merge::extend;
 pub use parse::{parse, root_name};
+pub use pipe_fns::{Chance, PipeArgs, PipeFn};
 pub use pipes::{ArgType, PipeDef, PipeRegistry, PipeSignature, ValueType};
+pub use render::{Renderer, Resolve, to_text};
 pub use roots::Roots;
+pub use select::{path_text, preview, select};
 pub use units::{parse_duration, parse_size, parse_status};

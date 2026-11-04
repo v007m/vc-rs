@@ -17,3 +17,27 @@ pub enum TemplateError {
     #[error("pipe `{0}` needs a plugin prefix, such as `acme.{0}`")]
     UnprefixedPipe(String),
 }
+
+/// Why a value could not be rendered at run time; the executor reports it as V5111.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{message}")]
+pub struct RenderError {
+    /// What went wrong, with the path and the value found.
+    pub message: String,
+    /// Set when the value is absent, so a `default` pipe may stand in for it.
+    pub missing: bool,
+}
+
+impl RenderError {
+    /// A value that is not there.
+    #[must_use]
+    pub fn missing(message: impl Into<String>) -> Self {
+        Self { message: message.into(), missing: true }
+    }
+
+    /// A value that is there but cannot be used.
+    #[must_use]
+    pub fn invalid(message: impl Into<String>) -> Self {
+        Self { message: message.into(), missing: false }
+    }
+}

@@ -2501,7 +2501,9 @@ dependencies = [
 name = "vc-template"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "cel",
+ "percent-encoding",
  "proptest",
  "regex",
  "serde_json",
