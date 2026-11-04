@@ -1,5 +1,6 @@
 //! Golden cases: each `tests/cases/<case>/project` is compiled, and its diagnostics, rendered
 //! as text and as JSON, are compared with the case's `expected.txt.snap` and `expected.json.snap`.
+//! Definition files are compiled; every other file in the project is an asset `$file` may name.
 //! `cargo insta review` updates them after a deliberate change.
 
 use std::error::Error;
@@ -8,9 +9,12 @@ use std::path::Path;
 
 use vc_compiler::{CompileCache, CompileInput, compile};
 use vc_diagnostics::{JsonRenderer, Render, TextRenderer};
-use vc_model::{ContentHash, SourceFile, SourcePath};
+use vc_model::{ContentHash, Date, FileKind, SourceFile, SourcePath};
 
 type Outcome = Result<(), Box<dyn Error>>;
+
+/// The day every case is compiled on, so expired skips (V3104) do not depend on the calendar.
+const TODAY: &str = "2026-11-03";
 
 /// Every file under `dir`, with its path relative to `root`.
 fn read_tree(root: &Path, dir: &Path, files: &mut Vec<SourceFile>) -> Outcome {
@@ -31,9 +35,17 @@ fn read_tree(root: &Path, dir: &Path, files: &mut Vec<SourceFile>) -> Outcome {
 fn golden(case: &str) -> Outcome {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cases").join(case);
     let project = dir.join("project");
-    let mut files = Vec::new();
-    read_tree(&project, &project, &mut files)?;
-    let mut compiled = compile(CompileInput { files, previous: CompileCache::new() });
+    let mut read = Vec::new();
+    read_tree(&project, &project, &mut read)?;
+    let (files, others): (Vec<_>, Vec<_>) =
+        read.into_iter().partition(|file| FileKind::from_path(&file.path).is_some());
+    let input = CompileInput {
+        files,
+        previous: CompileCache::new(),
+        today: Date::parse(TODAY),
+        assets: Some(others.into_iter().map(|file| file.path).collect()),
+    };
+    let mut compiled = compile(input);
     compiled.diagnostics.sort();
     let text = TextRenderer::default().render(&compiled.diagnostics, &compiled.files)?;
     let json = JsonRenderer.render(&compiled.diagnostics, &compiled.files)?;
@@ -93,8 +105,10 @@ cases!(
     v2002_unknown_profile,
     v2003_unknown_api,
     v2006_reserved_id,
+    v2004_file_not_found,
     v2007_file_id,
     v2101_unset_var,
+    v2103_example_column,
     v2105_step_order,
     v2205_cycle,
     v2210_shared_without_id,
@@ -102,6 +116,7 @@ cases!(
     v3101_no_profile,
     v3102_default_profiles,
     v3103_skip_reason,
+    v3104_expired_skip,
     v3201_shared_write,
     v3202_test_cache,
     v3203_deprecated_call,

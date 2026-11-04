@@ -10,7 +10,7 @@ use fixture::{Bench, Scenario};
 #[cfg(target_os = "linux")]
 use gungraun::prelude::*;
 
-/// Each argument is built before the measured part starts, so only the check is counted.
+// Each argument is built before the measured part starts, so only the check is counted.
 #[cfg(target_os = "linux")]
 #[library_benchmark]
 #[bench::cold_1000(Bench::prepare().engine(Scenario::Cold))]

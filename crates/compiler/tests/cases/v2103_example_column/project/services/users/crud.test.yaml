@@ -1,0 +1,22 @@
+tests:
+  - id: rejectsBadEmail
+    examples:
+      - email: no-at-sign
+        name: Ann
+      - email: ""
+        name: Bo
+    call: users#createUser
+    vars:
+      email: ${example.emial}
+      name: ${example.name}
+    expect:
+      status: 400
+  - id: rejectsLongName
+    examples:
+      - name: aaaaaaaaaaaaaaaaaaaa
+    call: users#createUser
+    vars:
+      email: a@b.co
+      name: ${example.title}
+    expect:
+      status: 400

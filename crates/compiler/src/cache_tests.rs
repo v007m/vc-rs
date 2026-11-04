@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use vc_diagnostics::{Code, Diagnostics};
 use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath, StringTable};
 
-use super::{Body, CacheEntry, CompileCache, MAGIC, Stored, VERSION};
+use super::{BUILD, Body, CacheEntry, CompileCache, MAGIC, Stored, VERSION};
 use crate::parts::Tools;
 use crate::stage::{self, FileUnit};
 use crate::{CompileInput, Compiled, compile};
@@ -28,7 +28,8 @@ fn source(path: &str, text: &str, byte: u8) -> SourceFile {
     SourceFile { path: SourcePath::new(path).unwrap(), text: text.to_owned(), hash: ContentHash::new([byte; 32]) }
 }
 
-/// A cache of `sources` run through the per-file stages, numbered in order, with a few names
+/// A cache of `sources` (give them in path order, as a compile does) run through the per-file
+/// stages, numbered in order, with a few names
 /// interned first so the string table is not empty.
 fn compiled(sources: &[SourceFile]) -> CompileCache {
     let (tools, mut strings) = (Tools::new(), StringTable::new());
@@ -62,21 +63,21 @@ fn blob(header: &[u8], units: &[u8]) -> Vec<u8> {
 fn body(strings: &[&str], path: &str, unit: Option<u32>) -> Vec<u8> {
     let stored = Stored { path: path.to_owned(), hash: [0; 32], file: 0, unit };
     let strings = strings.iter().map(|text| (*text).to_owned()).collect();
-    postcard::to_stdvec(&Body { strings, entries: vec![stored] }).unwrap()
+    postcard::to_stdvec(&Body { build: BUILD.to_owned(), strings, entries: vec![stored] }).unwrap()
 }
 
 #[test]
 fn bytes_round_trip_with_the_units_and_names() {
-    let cache = compiled(&[source(API, API_TEXT, 1), source(BAD, "nme: x\n", 2)]);
+    let cache = compiled(&[source(BAD, "nme: x\n", 2), source(API, API_TEXT, 1)]);
     let read = CompileCache::from_bytes(&cache.to_bytes());
     assert_eq!(read, cache);
-    let unit = kept(&read, API, 1, 0).unwrap();
+    let unit = kept(&read, API, 1, 1).unwrap();
     assert!(unit.root.is_some() && !unit.parts.is_empty() && unit.diagnostics.is_empty());
-    assert_eq!(Some(&*unit), kept(&cache, API, 1, 0).as_deref());
+    assert_eq!(Some(&*unit), kept(&cache, API, 1, 1).as_deref());
     assert_eq!((cache.units(), read.units()), (2, 1));
     assert_eq!((read.len(), read.is_empty(), CompileCache::new().len()), (2, false, 0));
-    assert!(kept(&cache, BAD, 2, 1).is_some_and(|bad| !bad.diagnostics.is_empty()));
-    assert!(kept(&read, BAD, 2, 1).is_none(), "a unit with diagnostics is compiled again");
+    assert!(kept(&cache, BAD, 2, 0).is_some_and(|bad| !bad.diagnostics.is_empty()));
+    assert!(kept(&read, BAD, 2, 0).is_none(), "a unit with diagnostics is compiled again");
     assert_eq!(CompileCache::from_bytes(&CompileCache::new().to_bytes()), CompileCache::new());
 }
 
@@ -114,11 +115,45 @@ fn finds_a_unit_only_for_the_same_path_hash_and_number() {
 
 #[test]
 fn another_version_reads_as_empty() {
-    for version in [1, 2, 3, 4] {
+    for version in [1, 2, 3, 4, 5] {
         let mut bytes = cache().to_bytes();
         bytes[MAGIC.len()] = version;
         assert!(CompileCache::from_bytes(&bytes).is_empty(), "version {version}");
     }
+}
+
+#[test]
+fn a_blob_from_another_release_reads_as_empty() {
+    let stored = Stored { path: "a.api.yaml".to_owned(), hash: [0; 32], file: 0, unit: None };
+    let other = Body { build: "0.0.0-other".to_owned(), strings: Vec::new(), entries: vec![stored] };
+    assert!(CompileCache::from_bytes(&blob(&postcard::to_stdvec(&other).unwrap(), &[])).is_empty());
+    assert_eq!(CompileCache::from_bytes(&blob(&body(&[], "a.api.yaml", None), &[])).len(), 1);
+}
+
+#[test]
+fn finds_each_unit_by_its_path_in_path_order() {
+    let cache = cache();
+    assert!(kept(&cache, "services/b.test.yaml", 2, 1).is_some());
+    assert!(kept(&cache, "services/b.test.yaml", 2, 0).is_none());
+    assert!(kept(&cache, "m.api.yaml", 1, 0).is_none() && kept(&cache, "z.api.yaml", 2, 1).is_none());
+}
+
+#[test]
+fn a_cache_whose_unit_did_not_read_back_differs_from_a_fresh_compile() {
+    let fresh = compiled(&[source(API, API_TEXT, 1)]);
+    let mut bytes = fresh.to_bytes();
+    let last = bytes.len() - 1;
+    bytes[last] ^= 0xFF;
+    let damaged = CompileCache::from_bytes(&bytes);
+    assert_eq!((damaged.len(), damaged.units()), (1, 0));
+    assert_ne!(damaged, fresh, "so the check saves the fresh cache");
+    assert_eq!(CompileCache::from_bytes(&fresh.to_bytes()), fresh);
+    let with_errors = compiled(&[source(BAD, "nme: x\n", 2)]);
+    assert_eq!(
+        CompileCache::from_bytes(&with_errors.to_bytes()),
+        with_errors,
+        "units with diagnostics are never stored"
+    );
 }
 
 #[test]
@@ -180,8 +215,9 @@ fn a_cache_read_back_from_bytes_does_not_parse_unchanged_files_again() {
     let previous = CompileCache::from_bytes(&first.cache.to_bytes());
     assert_eq!(previous.units(), 2);
     let files = vec![config.clone(), source(API, "nme: x\n", 1)];
-    let same_hash = compile(CompileInput { files, previous: previous.clone() });
+    let same_hash = compile(CompileInput { files, previous: previous.clone(), ..CompileInput::default() });
     assert_eq!(codes(&same_hash), codes(&first), "the stored unit was used, so the new text was not read");
-    let changed = compile(CompileInput { files: vec![config, source(API, "nme: x\n", 2)], previous });
+    let changed =
+        compile(CompileInput { files: vec![config, source(API, "nme: x\n", 2)], previous, ..CompileInput::default() });
     assert!(codes(&changed).contains(&Code::V1004));
 }

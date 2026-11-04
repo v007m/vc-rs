@@ -25,6 +25,10 @@ fn paths(discovery: &Discovery) -> Vec<&str> {
     discovery.files.iter().map(|file| file.path.as_str()).collect()
 }
 
+fn asset_paths(discovery: &Discovery) -> Vec<&str> {
+    discovery.assets.iter().map(vc_model::SourcePath::as_str).collect()
+}
+
 fn finds_definition_files_in_path_order(make: &mut MakeSources<'_>) {
     let provider = make(&[
         ("vibranium.config.yaml", CONFIG),
@@ -43,6 +47,7 @@ fn finds_definition_files_in_path_order(make: &mut MakeSources<'_>) {
     ];
     assert_eq!(paths(&found), expected, "only definition files, in path order");
     assert_eq!(found.problems, []);
+    assert_eq!(asset_paths(&found), ["README.md", "schemas/user.json"], "the other files are listed as assets");
     let api = &found.files[2];
     assert_eq!((api.text.as_bytes(), api.hash), (API, content_hash(API)), "text and BLAKE3 hash of the bytes");
 }
@@ -53,13 +58,19 @@ fn applies_the_filter(make: &mut MakeSources<'_>) {
         ("legacy/old.api.yaml", API),
         ("node_modules/pkg/x.api.yaml", API),
         (".vibranium/cache/x.api.yaml", API),
+        ("legacy/body.json", b"{}"),
+        ("node_modules/pkg/package.json", b"{}"),
     ]);
     let all = discover(provider.as_ref(), &SourceFilter::default());
     assert_eq!(paths(&all), ["legacy/old.api.yaml", "services/a.api.yaml"], "node_modules and .vibranium left out");
-    let include = SourceFilter::new(&["services/**"], &[]).unwrap_or_default();
-    assert_eq!(paths(&discover(provider.as_ref(), &include)), ["services/a.api.yaml"]);
-    let exclude = SourceFilter::new(&[], &["legacy"]).unwrap_or_default();
-    assert_eq!(paths(&discover(provider.as_ref(), &exclude)), ["node_modules/pkg/x.api.yaml", "services/a.api.yaml"]);
+    assert_eq!(asset_paths(&all), ["legacy/body.json"]);
+    let include = discover(provider.as_ref(), &SourceFilter::new(&["services/**"], &[]).unwrap_or_default());
+    assert_eq!(paths(&include), ["services/a.api.yaml"]);
+    let assets = ["legacy/body.json", "node_modules/pkg/package.json"];
+    assert_eq!(asset_paths(&include), assets, "include globs pick definition files only; no default excludes");
+    let exclude = discover(provider.as_ref(), &SourceFilter::new(&[], &["legacy"]).unwrap_or_default());
+    assert_eq!(paths(&exclude), ["node_modules/pkg/x.api.yaml", "services/a.api.yaml"]);
+    assert_eq!(asset_paths(&exclude), ["node_modules/pkg/package.json"]);
 }
 
 fn reports_files_that_are_not_utf8(make: &mut MakeSources<'_>) {

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use vc_compiler::CompileCache;
 use vc_diagnostics::Code;
 use vc_interfaces::{CompileCacheError, CompileCacheStore, SourceProvider};
-use vc_testkit::{MemoryCompileCache, MemorySources};
+use vc_testkit::{FixedClock, MemoryCompileCache, MemorySources};
 
 use crate::{CheckRequest, Engine, EngineBuilder, EngineError};
 
@@ -128,8 +128,60 @@ fn a_path_that_selects_nothing_is_an_error() {
     assert_eq!(error, EngineError::NoFilesMatch { path: "services/user".to_owned() });
 }
 
+/// The codes and helps a check finds on 2026-11-03 in a users service holding `api`, a test
+/// skipped until 2026-11-02, and `data/user.json`.
+fn checked_on_a_fixed_day(api: &[u8]) -> Vec<(Code, Vec<String>)> {
+    let crud: &[u8] =
+        b"tests:\n  - id: makesUser\n    call: users#make\n    skip: {reason: flaky, until: 2026-11-02}\n";
+    let files = [
+        CONFIG,
+        ("services/users/users.api.yaml", api),
+        ("services/users/crud.test.yaml", crud),
+        ("services/users/data/user.json", b"{}"),
+    ];
+    let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&files));
+    let today = FixedClock(vc_model::Date::parse("2026-11-03").unwrap());
+    let builder = EngineBuilder::new(PathBuf::from("/project")).sources(sources).clock(Arc::new(today));
+    let engine = builder.compile_cache(Arc::new(MemoryCompileCache::new())).build().unwrap();
+    let report = engine.check(&CheckRequest::default()).unwrap();
+    report.diagnostics.iter().map(|found| (found.code, found.help.clone())).collect()
+}
+
+#[test]
+fn passes_today_to_the_compiler() {
+    let api = b"apis:\n  - id: make\n    method: POST\n    path: /users\n    body: {$file: data/user.json}\n";
+    let found = checked_on_a_fixed_day(api);
+    assert_eq!(found.iter().map(|(code, _)| *code).collect::<Vec<_>>(), [Code::V3104]);
+}
+
+#[test]
+fn passes_the_other_files_to_the_compiler() {
+    let api = b"apis:\n  - id: make\n    method: POST\n    path: /users\n    body: {$file: data/usr.json}\n";
+    let found = checked_on_a_fixed_day(api);
+    assert_eq!(found, [(Code::V2004, vec!["did you mean `data/user.json`?".to_owned()])]);
+}
+
 #[test]
 fn finds_no_project_without_a_config() {
     let missing = std::env::temp_dir().join("vc-engine-tests-no-such-folder");
     assert!(matches!(EngineBuilder::for_project(&missing), Err(EngineError::NoProject { .. })));
+}
+
+#[test]
+fn the_config_paths_decide_which_files_are_read() {
+    let config: &[u8] = b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\npaths:\n  include: [services/**]\n  exclude: [services/legacy]\n";
+    let broken = ("services/legacy/old.api.yaml", b"apis: [\n".as_slice());
+    let outside = ("other/other.api.yaml", b"apis: [\n".as_slice());
+    let files = [("vibranium.config.yaml", config), USERS, broken, outside];
+    let report = engine(&files, Arc::new(MemoryCompileCache::new())).check(&CheckRequest::default()).unwrap();
+    assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+    assert_eq!(report.checked, 2, "the config and the included service");
+}
+
+#[test]
+fn a_paths_glob_that_does_not_parse_is_an_error() {
+    let config: &[u8] = b"syntaxVersion: 2\npaths:\n  include: ['services/[a']\n";
+    let files = [("vibranium.config.yaml", config), USERS];
+    let error = engine(&files, Arc::new(MemoryCompileCache::new())).check(&CheckRequest::default()).unwrap_err();
+    assert!(matches!(error, EngineError::Sources { reason } if reason.contains("services/[a")));
 }

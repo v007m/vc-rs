@@ -23,7 +23,7 @@ impl SourceProvider for MemorySources {
             match filter.select(relative).map(|path| path.and_then(|path| source_file(path, bytes.clone()))) {
                 Some(Ok(file)) => discovery.files.push(file),
                 Some(Err(problem)) => discovery.problems.push(problem),
-                None => {}
+                None => discovery.assets.extend(filter.asset(relative)),
             }
         }
         discovery.sort();

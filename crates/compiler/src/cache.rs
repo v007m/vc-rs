@@ -9,7 +9,11 @@ use crate::stage::FileUnit;
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 5;
+const VERSION: u32 = 6;
+
+/// The compiler release that wrote a blob; a blob from another release is ignored, so a check
+/// added or fixed in a new release is not hidden by units an older compiler kept.
+const BUILD: &str = env!("CARGO_PKG_VERSION");
 
 /// What the compiler keeps between runs so it can skip files that did not change (D132).
 ///
@@ -39,12 +43,16 @@ pub struct CacheEntry {
 }
 
 impl CacheEntry {
-    const fn key(&self) -> (&SourcePath, &ContentHash, SourceFileId) {
-        (&self.path, &self.hash, self.file)
+    /// The file and whether its bytes would hold its unit: a unit with diagnostics is not stored.
+    fn key(&self) -> (&SourcePath, &ContentHash, SourceFileId, bool) {
+        let stored = self.unit.as_deref().is_some_and(|unit| unit.diagnostics.is_empty());
+        (&self.path, &self.hash, self.file, stored)
     }
 }
 
-/// Caches are equal when they remember the same files; units and names are a memo of those.
+/// Caches are equal when they remember the same files and would store the same units; the
+/// units and names themselves are a memo of those. A cache read back with a unit that did not
+/// decode differs from the one a compile makes, so it is saved again and heals.
 impl PartialEq for CompileCache {
     fn eq(&self, other: &Self) -> bool {
         self.entries.iter().map(CacheEntry::key).eq(other.entries.iter().map(CacheEntry::key))
@@ -65,9 +73,11 @@ impl CompileCache {
         Self { entries, strings }
     }
 
-    /// The unit kept for the file at `path` with `hash`, numbered `file`.
+    /// The unit kept for the file at `path` with `hash`, numbered `file`. The entries are in
+    /// path order, as a compile makes them, so the search is a binary one.
     pub(crate) fn unit(&self, path: &SourcePath, hash: &ContentHash, file: SourceFileId) -> Option<Arc<FileUnit>> {
-        let entry = self.entries.iter().find(|entry| entry.key() == (path, hash, file))?;
+        let at = self.entries.binary_search_by(|entry| entry.path.cmp(path)).ok()?;
+        let entry = self.entries.get(at).filter(|entry| entry.hash == *hash && entry.file == file)?;
         entry.unit.clone()
     }
 
@@ -101,7 +111,8 @@ impl CompileCache {
     pub fn to_bytes(&self) -> Vec<u8> {
         let units: Vec<_> = self.entries.iter().map(unit_bytes).collect();
         let entries = self.entries.iter().zip(&units).map(|(entry, unit)| stored(entry, unit.as_deref())).collect();
-        let body = Body { strings: self.strings.texts().map(str::to_owned).collect(), entries };
+        let body =
+            Body { build: BUILD.to_owned(), strings: self.strings.texts().map(str::to_owned).collect(), entries };
         let header = postcard::to_stdvec(&body).unwrap_or_default();
         let mut out = MAGIC.to_vec();
         out.extend(VERSION.to_le_bytes());
@@ -121,6 +132,8 @@ impl CompileCache {
 /// The blob after its header.
 #[derive(Serialize, Deserialize)]
 struct Body {
+    /// The compiler release that wrote the blob.
+    build: String,
     /// The string table, in symbol order.
     strings: Vec<String>,
     /// The files, in the cache's order.
@@ -162,7 +175,7 @@ fn decode(bytes: &[u8]) -> Option<CompileCache> {
     }
     let (length, rest) = rest.split_first_chunk::<4>()?;
     let (header, mut units) = rest.split_at_checked(usize::try_from(u32::from_le_bytes(*length)).ok()?)?;
-    let body: Body = read_all(header)?;
+    let body: Body = read_all(header).filter(|body: &Body| body.build == BUILD)?;
     let strings = table(&body.strings)?;
     let mut entries = Vec::with_capacity(body.entries.len());
     for stored in &body.entries {

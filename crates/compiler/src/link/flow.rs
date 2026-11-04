@@ -23,6 +23,10 @@ pub fn check(project: &Project<'_>) -> Diagnostics {
     flow.checker.diagnostics
 }
 
+/// The parts of an action checked on their own: its blocks, and its `cache`, whose `check`
+/// runs after the action and sees what it saved (under its `id` too).
+const ACTION_PARTS: [&str; 4] = ["before", "steps", "after", "cache"];
+
 /// Whether a block's saves are shared under the action's `id` or kept as plain names.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Saved {
@@ -102,11 +106,17 @@ impl<'p, 'a> Flow<'p, 'a> {
         let own = scope.with(Layer::vars(source, node));
         let api = called(self.checker.project, (source, node));
         let inner = api.map_or_else(|| own.clone(), |api| own.with(self.api_layer(api)));
-        self.spot(source, (node, &holes(node, &TEST_BLOCKS)), &inner);
+        self.spot(source, (node, &holes(node, &ACTION_PARTS)), &inner);
         if let Some(api) = api {
             self.api(api, &inner, call_site(node));
         }
-        self.saves.action(source, node)
+        let saved = self.saves.action(source, node);
+        if let Some(check) = node.get("cache").and_then(|cache| cache.get("check")) {
+            let mut cached = saved.clone();
+            cached.extend(text(node, "id").map(str::to_owned));
+            self.action(source, check, &own.with(Layer::names(cached)));
+        }
+        saved
     }
 
     /// The api's templates, from one call site; then its `cleanup`, which also sees its saves.

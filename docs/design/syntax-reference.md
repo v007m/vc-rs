@@ -121,7 +121,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | --- | --- | --- | --- |
 | `syntaxVersion` | integer | required, `2` | File-format version (see Files at a glance) |
 | `project` | string | folder name | Display name in reports and on the server |
-| `paths.include`, `paths.exclude` | lists of globs | everything except `node_modules` and `.vibranium` | Where definition files are found |
+| `paths.include`, `paths.exclude` | lists of globs | everything except `node_modules` and `.vibranium` | Where definition files are found; written excludes replace the default ones, and `vibranium.config.yaml` itself is always read |
 | `defaults.timeout` | duration | `30s` | Per request |
 | `defaults.concurrency` | integer | `16` | Test instances in flight |
 | `defaults.perHost` | integer | `8` | Connections per host |
@@ -612,7 +612,7 @@ Notes on the example: `users#create` saves `userId` and declares its own cleanup
 
 ### Skipping
 
-`skip` parks a test, or a whole file when written at the top of the file, like JUnit's `@Disabled`. A reason is required and shows in every report, where the test is counted as **skipped**; `until` is optional, and after that date the test runs again and `vc check` warns that the skip expired. A skipped file's `beforeAll` and `afterAll` don't run. `vc run --include-skipped` runs skipped tests anyway; `vc skip` and `vc unskip` edit the YAML for you.
+`skip` parks a test, or a whole file when written at the top of the file, like JUnit's `@Disabled`. A reason is required and shows in every report, where the test is counted as **skipped**; `until` is optional and is a date written `YYYY-MM-DD` (UTC); after that day the test runs again and `vc check` warns that the skip expired (V3104). A skipped file's `beforeAll` and `afterAll` don't run. `vc run --include-skipped` runs skipped tests anyway; `vc skip` and `vc unskip` edit the YAML for you.
 
 ```yaml
   - id: appliesCoupon

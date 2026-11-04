@@ -38,7 +38,7 @@ impl FsCompileCache {
             match fs::symlink_metadata(&folder) {
                 Ok(meta) if meta.is_dir() => {}
                 Ok(_) => return Err(io::Error::other(format!("{} is not a plain folder", folder.display()))),
-                Err(error) if error.kind() == ErrorKind::NotFound && create => fs::create_dir(&folder)?,
+                Err(error) if error.kind() == ErrorKind::NotFound && create => make_folder(&folder)?,
                 Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
                 Err(error) => return Err(error),
             }
@@ -92,6 +92,18 @@ fn temp_name() -> String {
     format!("{FILE}.{}.{nanos}.tmp", std::process::id())
 }
 
+/// Creates `folder`. Another run that creates it first is fine, as long as what it made is a
+/// plain folder.
+fn make_folder(folder: &Path) -> io::Result<()> {
+    match fs::create_dir(folder) {
+        Err(error) if error.kind() == ErrorKind::AlreadyExists => {
+            let plain = fs::symlink_metadata(folder)?.is_dir();
+            if plain { Ok(()) } else { Err(io::Error::other(format!("{} is not a plain folder", folder.display()))) }
+        }
+        made => made,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -99,7 +111,7 @@ mod tests {
     use vc_interfaces::CompileCacheStore;
     use vc_testkit::compile_cache_store_suite;
 
-    use super::FsCompileCache;
+    use super::{FsCompileCache, make_folder};
 
     #[test]
     fn meets_the_compile_cache_store_contract() {
@@ -121,6 +133,26 @@ mod tests {
         let names: Vec<_> =
             fs::read_dir(dir.path().join(".vibranium/cache")).unwrap().map(|e| e.unwrap().file_name()).collect();
         assert_eq!(names, ["compile.bin"], "no temporary file is left behind");
+    }
+
+    #[test]
+    fn a_folder_another_run_made_first_is_used() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join(".vibranium");
+        make_folder(&folder).unwrap();
+        make_folder(&folder).unwrap();
+        fs::write(dir.path().join("file"), b"").unwrap();
+        assert!(make_folder(&dir.path().join("file")).is_err(), "a file in the way is refused");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_another_run_made_first_is_refused() {
+        use std::os::unix::fs::symlink;
+        let outside = tempfile::tempdir().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        symlink(outside.path(), dir.path().join(".vibranium")).unwrap();
+        assert!(make_folder(&dir.path().join(".vibranium")).is_err());
     }
 
     #[test]

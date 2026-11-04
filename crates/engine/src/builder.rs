@@ -2,8 +2,8 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use vc_adapter_system::{FsCompileCache, FsSources, find_project_root};
-use vc_interfaces::{CompileCacheStore, SourceProvider};
+use vc_adapter_system::{FsCompileCache, FsSources, SystemClock, find_project_root};
+use vc_interfaces::{Clock, CompileCacheStore, SourceProvider};
 
 use crate::EngineError;
 
@@ -13,13 +13,14 @@ pub struct EngineBuilder {
     root: PathBuf,
     sources: Option<Arc<dyn SourceProvider>>,
     compile_cache: Option<Arc<dyn CompileCacheStore>>,
+    clock: Option<Arc<dyn Clock>>,
 }
 
 impl EngineBuilder {
     /// A builder for the project whose root is `root`.
     #[must_use]
     pub const fn new(root: PathBuf) -> Self {
-        Self { root, sources: None, compile_cache: None }
+        Self { root, sources: None, compile_cache: None, clock: None }
     }
 
     /// A builder for the nearest project at or above `start`: the first folder holding a
@@ -48,6 +49,13 @@ impl EngineBuilder {
         self
     }
 
+    /// Takes today's date from `clock` instead of the system clock.
+    #[must_use]
+    pub fn clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = Some(clock);
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -61,7 +69,8 @@ impl EngineBuilder {
             ),
         };
         let compile_cache = self.compile_cache.unwrap_or_else(|| Arc::new(FsCompileCache::new(&self.root)));
-        Ok(Engine { root: self.root, sources, compile_cache })
+        let clock = self.clock.unwrap_or_else(|| Arc::new(SystemClock));
+        Ok(Engine { root: self.root, sources, compile_cache, clock })
     }
 }
 
@@ -76,6 +85,7 @@ pub struct Engine {
     root: PathBuf,
     pub(crate) sources: Arc<dyn SourceProvider>,
     pub(crate) compile_cache: Arc<dyn CompileCacheStore>,
+    pub(crate) clock: Arc<dyn Clock>,
 }
 
 impl Engine {

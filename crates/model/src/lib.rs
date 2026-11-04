@@ -14,6 +14,7 @@
 mod api;
 mod builder;
 mod config;
+mod date;
 mod defs;
 mod error;
 mod event;
@@ -37,6 +38,7 @@ pub use builder::ProgramBuilder;
 pub use config::{
     AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, Profile,
 };
+pub use date::Date;
 pub use defs::{
     AuthRef, CacheSpec, Examples, HookRef, Lifecycle, Loop, Method, Owner, Poll, RequestHooks, Retry, SaveSpec, Skip,
     Tag, VarDefs,

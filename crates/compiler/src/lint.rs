@@ -4,6 +4,7 @@
 mod body_on_read;
 mod default_profiles;
 mod deprecated_calls;
+mod expired_skips;
 mod shared_writes;
 mod skip_reasons;
 mod test_cache;
@@ -12,7 +13,7 @@ mod tests;
 mod unused_defaults;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
-use vc_model::{FileKind, Program};
+use vc_model::{Date, FileKind, Program};
 use vc_parser::Node;
 
 use crate::link::{Project, Source, list, text};
@@ -23,6 +24,8 @@ pub struct LintCx<'p, 'a> {
     pub project: &'p Project<'a>,
     /// The program built from them.
     pub program: &'p Program,
+    /// Today's date in UTC, when the caller knows it.
+    pub today: Option<Date>,
 }
 
 /// One lifecycle rule.
@@ -44,6 +47,7 @@ impl LintRegistry {
         let lints: Vec<Box<dyn Lint>> = vec![
             Box::new(default_profiles::DefaultProfiles),
             Box::new(skip_reasons::SkipReasons),
+            Box::new(expired_skips::ExpiredSkips),
             Box::new(shared_writes::SharedWrites),
             Box::new(test_cache::TestCache),
             Box::new(deprecated_calls::DeprecatedCalls),

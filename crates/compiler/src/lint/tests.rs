@@ -38,7 +38,7 @@ fn tests(body: &str) -> String {
 #[test]
 fn the_registry_holds_one_lint_per_lifecycle_code() {
     let codes: Vec<Code> = LintRegistry::builtin().lints.iter().map(|lint| lint.code()).collect();
-    assert_eq!(codes.len(), 7);
+    assert_eq!(codes.len(), 8);
     assert_eq!(codes.iter().collect::<HashSet<_>>().len(), codes.len());
     assert!(codes.iter().all(|code| code.category() == Category::Lifecycle));
 }
@@ -64,6 +64,54 @@ fn a_blank_skip_reason_is_reported_and_a_written_one_is_not() {
         "  - id: a\n    call: users#get\n    skip: ''\n  - id: b\n    call: users#get\n    skip: flaky upstream\n  - id: c\n    call: users#get\n    skip: {reason: see 212}\n"
     );
     assert_eq!(found(&text), [(Code::V3103, 2), (Code::V3103, 6)]);
+}
+
+/// A file skipped until `file_until`, holding a test skipped until `test_until`, compiled on 2026-11-03.
+fn expired(file_until: &str, test_until: &str) -> crate::Compiled {
+    let text = format!(
+        "name: Crud\nskip: {{reason: down, until: {file_until}}}\ntests:\n  - id: a\n    call: users#get\n    skip:\n      reason: flaky\n      until: {test_until}\n  - id: b\n    call: users#get\n"
+    );
+    let mut input = input(CONFIG, &text);
+    input.today = vc_model::Date::parse("2026-11-03");
+    compile(input)
+}
+
+#[test]
+fn a_skip_whose_until_has_passed_is_reported_with_a_fix_that_removes_it() {
+    let compiled = expired("2026-11-02", "2026-01-31");
+    let found: Vec<_> = compiled.diagnostics.iter().map(|d| (d.code, d.primary.span.start.line)).collect();
+    assert_eq!(found, [(Code::V3104, 2), (Code::V3104, 8)]);
+    let text = &compiled.files.get(vc_model::SourceFileId::new(0)).unwrap().text;
+    let removed: Vec<&str> = compiled.diagnostics.iter().map(|d| &text[d.fixes[0].edits[0].range.clone()]).collect();
+    assert_eq!(
+        removed,
+        ["skip: {reason: down, until: 2026-11-02}\n", "    skip:\n      reason: flaky\n      until: 2026-01-31\n"]
+    );
+    assert!(compiled.program.is_some(), "an expired skip is a warning");
+}
+
+#[test]
+fn removing_a_skip_removes_a_comment_after_it_too() {
+    let compiled = expired("2026-11-03", "2026-01-31  # see 212");
+    let text = &compiled.files.get(vc_model::SourceFileId::new(0)).unwrap().text;
+    let removed: Vec<&str> = compiled.diagnostics.iter().map(|d| &text[d.fixes[0].edits[0].range.clone()]).collect();
+    assert_eq!(removed, ["    skip:\n      reason: flaky\n      until: 2026-01-31  # see 212\n"]);
+}
+
+#[test]
+fn a_skip_until_today_or_later_or_with_no_date_given_is_not_reported() {
+    assert!(expired("2026-11-03", "2027-01-01").diagnostics.is_empty());
+    assert_eq!(found(&tests("  - id: a\n    call: users#get\n    skip: {reason: x, until: 2020-01-01}\n")), []);
+}
+
+#[test]
+fn a_skip_on_a_line_it_shares_has_no_fix() {
+    let text = "name: Crud\ntests:\n  - {id: a, call: users#get, skip: {reason: x, until: 2020-01-01}}\n";
+    let mut input = input(CONFIG, text);
+    input.today = vc_model::Date::parse("2026-11-03");
+    let compiled = compile(input);
+    let found: Vec<_> = compiled.diagnostics.iter().map(|d| (d.code, d.fixes.len())).collect();
+    assert_eq!(found, [(Code::V3104, 0)]);
 }
 
 #[test]
@@ -129,13 +177,17 @@ fn defaults_of_a_test_whose_steps_take_none_are_unused() {
     assert_eq!(found(&text), [(Code::V3206, 4), (Code::V3206, 5)]);
 }
 
-fn compiled(config: &str, tests: &str) -> crate::Compiled {
+fn input(config: &str, tests: &str) -> CompileInput {
     let files = vec![
         file("vibranium.config.yaml", config),
         file("services/users/users.api.yaml", APIS),
         file("services/users/crud.test.yaml", tests),
     ];
-    compile(CompileInput { files, ..CompileInput::default() })
+    CompileInput { files, ..CompileInput::default() }
+}
+
+fn compiled(config: &str, tests: &str) -> crate::Compiled {
+    compile(input(config, tests))
 }
 
 #[test]

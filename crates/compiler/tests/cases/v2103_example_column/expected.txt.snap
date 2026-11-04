@@ -1,0 +1,31 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2103_example_column/project
+---
+error[V2103]: ${example.emial} names no column of this test's examples
+  --> services/users/crud.test.yaml:10:14
+   |
+ 4 |       - email: no-at-sign
+   |       -------------------
+ 5 |         name: Ann
+   |         ---------
+ 6 |       - email: ""
+   |       -----------
+ 7 |         name: Bo
+   |         -------- the rows
+...
+10 |       email: ${example.emial}
+   |              ^^^^^^^^^^^^^^^^ no row has `emial`
+   = help: the columns are `email`, `name`
+   = help: did you mean `email`?
+   = fix: Replace with email (certain)
+
+error[V2103]: ${example.title} names no column of this test's examples
+  --> services/users/crud.test.yaml:20:13
+   |
+16 |       - name: aaaaaaaaaaaaaaaaaaaa
+   |       ---------------------------- the rows
+...
+20 |       name: ${example.title}
+   |             ^^^^^^^^^^^^^^^^ no row has `title`
+   = help: the columns are `name`

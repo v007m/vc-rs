@@ -43,7 +43,7 @@ fn a_second_check_reads_the_compiled_files_back_from_the_cache() {
     let summary = "0 errors · 0 warnings · 2 files checked\n";
     check(dir.path()).assert().success().stdout(summary).stderr("");
     let blob = fs::read(dir.path().join(".vibranium/cache/compile.bin")).unwrap();
-    assert!(blob.starts_with(b"VCCC\x05\0\0\0"), "layout version 5");
+    assert!(blob.starts_with(b"VCCC\x06\0\0\0"), "layout version 6");
     let body = String::from_utf8_lossy(&blob[12..]);
     assert!(body.contains("services/users/users.api.yaml") && body.contains("getUser"), "{body}");
     check(dir.path()).assert().success().stdout(summary).stderr("");

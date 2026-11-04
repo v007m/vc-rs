@@ -1,6 +1,6 @@
-use vc_compiler::{CompileCache, CompileInput, compile};
+use vc_compiler::{CompileCache, CompileInput, SourceGlobs, compile};
 use vc_diagnostics::{Diagnostics, Summary};
-use vc_interfaces::SourceFilter;
+use vc_interfaces::{Discovery, SourceFilter};
 use vc_model::SourceFiles;
 
 use crate::problems::add_problems;
@@ -49,18 +49,25 @@ impl Engine {
     ///
     /// Uses the compile cache the previous check left, and leaves one for the next. A cache
     /// that cannot be read or written only adds a notice. A definition file that cannot be read
-    /// is reported as a V1012 error at its path.
+    /// is reported as a V1012 error at its path. The compiler is given today's date from the
+    /// clock, for expired skips (V3104), and the project's other files, for `$file` paths (V2004).
     ///
     /// # Errors
     ///
-    /// [`EngineError::Sources`] when the project cannot be searched;
+    /// [`EngineError::Sources`] when the project cannot be searched or a `paths` glob does not
+    /// parse;
     /// [`EngineError::NoFilesMatch`] when a requested path selects no definition file.
     pub fn check(&self, request: &CheckRequest) -> Result<CheckReport, EngineError> {
-        let found = self.sources.discover(&SourceFilter::default());
-        let found = found.map_err(|error| EngineError::Sources { reason: error.to_string() })?;
+        let found = self.discover()?;
         let mut notices = Vec::new();
         let previous = self.previous_cache(&mut notices);
-        let compiled = compile(CompileInput { files: found.files, previous: previous.clone() });
+        let input = CompileInput {
+            files: found.files,
+            previous: previous.clone(),
+            today: Some(self.clock.today()),
+            assets: Some(found.assets.into_iter().collect()),
+        };
+        let compiled = compile(input);
         self.save_cache(&compiled.cache, &previous, &mut notices);
         let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
         add_problems(&found.problems, &mut diagnostics, &mut files);
@@ -68,6 +75,22 @@ impl Engine {
         let mut diagnostics = selection.keep(diagnostics, &files);
         diagnostics.sort();
         Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices })
+    }
+
+    /// The project's files, found with the config's `paths` globs: discovery runs again with
+    /// them only when the config writes some.
+    fn discover(&self) -> Result<Discovery, EngineError> {
+        let found = self.walk(&SourceFilter::default())?;
+        let globs = SourceGlobs::of(&found.files);
+        if globs.is_default() {
+            return Ok(found);
+        }
+        let filter = SourceFilter::written(&globs.include, globs.exclude.as_deref()).map_err(sources_error)?;
+        self.walk(&filter)
+    }
+
+    fn walk(&self, filter: &SourceFilter) -> Result<Discovery, EngineError> {
+        self.sources.discover(filter).map_err(sources_error)
     }
 
     /// Saves `cache` unless it remembers the same files as `previous`, which the store holds.
@@ -90,6 +113,10 @@ impl Engine {
             }
         }
     }
+}
+
+fn sources_error(error: impl std::fmt::Display) -> EngineError {
+    EngineError::Sources { reason: error.to_string() }
 }
 
 #[cfg(test)]
