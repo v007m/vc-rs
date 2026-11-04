@@ -11,6 +11,7 @@
 //! - [`Random`]: the seeded random source for the `random` and `shuffle` pipes and fake data.
 //! - [`Environment`]: the process environment for `${env.NAME}`.
 //! - [`Clock`]: today's date in UTC, for the lints that compare dates (an expired `skip`).
+//! - [`Reporter`]: turns the run's events into console output or a report file (D43).
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -28,6 +29,7 @@ mod clock;
 mod environment;
 mod filter;
 mod random;
+mod reporter;
 mod source;
 mod transport;
 
@@ -36,5 +38,6 @@ pub use clock::Clock;
 pub use environment::Environment;
 pub use filter::SourceFilter;
 pub use random::Random;
+pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
 pub use source::{Discovery, SourceError, SourceProvider, content_hash, source_file};
 pub use transport::{SendContext, Transport, TransportError};

@@ -1,0 +1,459 @@
+---
+source: crates/adapters/reporters/src/ctrf_tests.rs
+expression: "serde_json::to_string_pretty(&document).unwrap()"
+---
+{
+  "reportFormat": "CTRF",
+  "results": {
+    "extra": {
+      "abandoned": [],
+      "cleanups": [
+        {
+          "action": "seed",
+          "failure": {
+            "action": null,
+            "code": "V5107",
+            "message": "410 gone"
+          },
+          "owner": {
+            "file": "users.crud",
+            "kind": "file"
+          },
+          "status": "failed"
+        }
+      ],
+      "lifecycle": [
+        {
+          "action": "seed",
+          "checks": [],
+          "failure": null,
+          "owner": {
+            "file": "users.crud",
+            "kind": "file"
+          },
+          "status": "passed"
+        }
+      ],
+      "profiles": [
+        "dev"
+      ],
+      "status": "failed",
+      "totals": {
+        "blocked": 1,
+        "failed": 1,
+        "flaky": 1,
+        "passed": 2,
+        "skipped": 1
+      }
+    },
+    "summary": {
+      "failed": 2,
+      "other": 0,
+      "passed": 3,
+      "pending": 0,
+      "skipped": 1,
+      "start": 1793750400000,
+      "stop": 1793750402500,
+      "tests": 6
+    },
+    "tests": [
+      {
+        "duration": 150,
+        "extra": {
+          "attempts": 1,
+          "blockedBy": null,
+          "checks": [
+            {
+              "actual": 200,
+              "code": null,
+              "diff": null,
+              "error": null,
+              "expected": 200,
+              "key": "status",
+              "location": {
+                "column": 14,
+                "line": 10,
+                "path": "services/users/crud.test.yaml"
+              },
+              "origin": "test users.crud#getsUser",
+              "passed": true
+            }
+          ],
+          "failure": null,
+          "file": "users.crud",
+          "id": "users.crud#getsUser",
+          "instance": 0,
+          "skipReason": null,
+          "steps": [
+            {
+              "action": "call users#get",
+              "checks": [
+                {
+                  "actual": 200,
+                  "code": null,
+                  "diff": null,
+                  "error": null,
+                  "expected": 200,
+                  "key": "status",
+                  "location": {
+                    "column": 14,
+                    "line": 10,
+                    "path": "services/users/crud.test.yaml"
+                  },
+                  "origin": "test users.crud#getsUser",
+                  "passed": true
+                }
+              ],
+              "failure": null,
+              "owner": {
+                "instance": 0,
+                "kind": "instance"
+              },
+              "status": "passed"
+            }
+          ]
+        },
+        "filePath": "services/users/crud.test.yaml",
+        "flaky": false,
+        "line": 7,
+        "name": "users.crud#getsUser",
+        "rawStatus": "passed",
+        "retries": 0,
+        "start": 1793750400000,
+        "status": "passed",
+        "stop": 1793750400150,
+        "tags": [
+          "smoke",
+          "read"
+        ]
+      },
+      {
+        "duration": 150,
+        "extra": {
+          "attempts": 1,
+          "blockedBy": null,
+          "checks": [
+            {
+              "actual": 201,
+              "code": "V5101",
+              "diff": null,
+              "error": null,
+              "expected": 400,
+              "key": "status",
+              "location": {
+                "column": 7,
+                "line": 18,
+                "path": "services/users/crud.test.yaml"
+              },
+              "origin": "test users.crud#rejectsBadEmail",
+              "passed": false
+            },
+            {
+              "actual": "e\u001b[2Jmail",
+              "code": "V5101",
+              "diff": "- email\n+ e\u001b[2Jmail",
+              "error": null,
+              "expected": "email",
+              "key": "body.match.errors[0].field",
+              "location": {
+                "column": 11,
+                "line": 21,
+                "path": "services/users/crud.test.yaml"
+              },
+              "origin": "test users.crud#rejectsBadEmail",
+              "passed": false
+            }
+          ],
+          "failure": {
+            "action": "call users#create",
+            "code": "V5101",
+            "message": "expected 400, got 201"
+          },
+          "file": "users.crud",
+          "id": "users.crud#rejectsBadEmail",
+          "instance": 1,
+          "skipReason": null,
+          "steps": [
+            {
+              "action": "call users#create",
+              "checks": [
+                {
+                  "actual": 201,
+                  "code": "V5101",
+                  "diff": null,
+                  "error": null,
+                  "expected": 400,
+                  "key": "status",
+                  "location": {
+                    "column": 7,
+                    "line": 18,
+                    "path": "services/users/crud.test.yaml"
+                  },
+                  "origin": "test users.crud#rejectsBadEmail",
+                  "passed": false
+                },
+                {
+                  "actual": "e\u001b[2Jmail",
+                  "code": "V5101",
+                  "diff": "- email\n+ e\u001b[2Jmail",
+                  "error": null,
+                  "expected": "email",
+                  "key": "body.match.errors[0].field",
+                  "location": {
+                    "column": 11,
+                    "line": 21,
+                    "path": "services/users/crud.test.yaml"
+                  },
+                  "origin": "test users.crud#rejectsBadEmail",
+                  "passed": false
+                }
+              ],
+              "failure": {
+                "action": "call users#create",
+                "code": "V5101",
+                "message": "expected 400, got 201"
+              },
+              "owner": {
+                "instance": 1,
+                "kind": "instance"
+              },
+              "status": "failed"
+            }
+          ]
+        },
+        "filePath": "services/users/crud.test.yaml",
+        "flaky": false,
+        "line": 11,
+        "message": "expected 400, got 201",
+        "name": "users.crud#rejectsBadEmail [row 1]",
+        "rawStatus": "failed",
+        "retries": 0,
+        "start": 1793750400300,
+        "status": "failed",
+        "stop": 1793750400450,
+        "tags": [
+          "smoke"
+        ]
+      },
+      {
+        "duration": 0,
+        "extra": {
+          "attempts": 0,
+          "blockedBy": "seed",
+          "checks": [],
+          "failure": {
+            "action": "seed",
+            "code": "V5106",
+            "message": "needs seed, which failed"
+          },
+          "file": "users.crud",
+          "id": "users.crud#rejectsBadEmail",
+          "instance": 2,
+          "skipReason": null,
+          "steps": []
+        },
+        "filePath": "services/users/crud.test.yaml",
+        "flaky": false,
+        "line": 11,
+        "message": "needs seed, which failed",
+        "name": "users.crud#rejectsBadEmail [row 2]",
+        "rawStatus": "blocked",
+        "retries": 0,
+        "start": 0,
+        "status": "failed",
+        "stop": 0,
+        "tags": [
+          "smoke"
+        ]
+      },
+      {
+        "duration": 300,
+        "extra": {
+          "attempts": 2,
+          "blockedBy": null,
+          "checks": [
+            {
+              "actual": 503,
+              "code": "V5101",
+              "diff": null,
+              "error": null,
+              "expected": 200,
+              "key": "status",
+              "location": {
+                "column": 14,
+                "line": 10,
+                "path": "services/users/crud.test.yaml"
+              },
+              "origin": "test users.crud#listsUsers",
+              "passed": false
+            },
+            {
+              "actual": 200,
+              "code": null,
+              "diff": null,
+              "error": null,
+              "expected": 200,
+              "key": "status",
+              "location": {
+                "column": 14,
+                "line": 10,
+                "path": "services/users/crud.test.yaml"
+              },
+              "origin": "test users.crud#listsUsers",
+              "passed": true
+            }
+          ],
+          "failure": {
+            "action": "call users#get",
+            "code": "V5101",
+            "message": "expected 200, got 503"
+          },
+          "file": "users.crud",
+          "id": "users.crud#listsUsers",
+          "instance": 3,
+          "skipReason": null,
+          "steps": [
+            {
+              "action": "call users#get",
+              "checks": [
+                {
+                  "actual": 503,
+                  "code": "V5101",
+                  "diff": null,
+                  "error": null,
+                  "expected": 200,
+                  "key": "status",
+                  "location": {
+                    "column": 14,
+                    "line": 10,
+                    "path": "services/users/crud.test.yaml"
+                  },
+                  "origin": "test users.crud#listsUsers",
+                  "passed": false
+                }
+              ],
+              "failure": {
+                "action": "call users#get",
+                "code": "V5101",
+                "message": "expected 200, got 503"
+              },
+              "owner": {
+                "instance": 3,
+                "kind": "instance"
+              },
+              "status": "failed"
+            },
+            {
+              "action": "call users#get",
+              "checks": [
+                {
+                  "actual": 200,
+                  "code": null,
+                  "diff": null,
+                  "error": null,
+                  "expected": 200,
+                  "key": "status",
+                  "location": {
+                    "column": 14,
+                    "line": 10,
+                    "path": "services/users/crud.test.yaml"
+                  },
+                  "origin": "test users.crud#listsUsers",
+                  "passed": true
+                }
+              ],
+              "failure": null,
+              "owner": {
+                "instance": 3,
+                "kind": "instance"
+              },
+              "status": "passed"
+            }
+          ]
+        },
+        "filePath": "services/users/crud.test.yaml",
+        "flaky": true,
+        "line": 22,
+        "message": "expected 200, got 503",
+        "name": "users.crud#listsUsers [repeat 1]",
+        "rawStatus": "flaky",
+        "retries": 1,
+        "start": 1793750400750,
+        "status": "passed",
+        "stop": 1793750401050,
+        "tags": [
+          "smoke"
+        ]
+      },
+      {
+        "duration": 150,
+        "extra": {
+          "attempts": 1,
+          "blockedBy": null,
+          "checks": [],
+          "failure": null,
+          "file": "users.crud",
+          "id": "users.crud#listsUsers",
+          "instance": 4,
+          "skipReason": null,
+          "steps": [
+            {
+              "action": "call users#get",
+              "checks": [],
+              "failure": null,
+              "owner": {
+                "instance": 4,
+                "kind": "instance"
+              },
+              "status": "passed"
+            }
+          ]
+        },
+        "filePath": "services/users/crud.test.yaml",
+        "flaky": false,
+        "line": 22,
+        "name": "users.crud#listsUsers [repeat 2]",
+        "rawStatus": "passed",
+        "retries": 0,
+        "start": 1793750401200,
+        "status": "passed",
+        "stop": 1793750401350,
+        "tags": [
+          "smoke"
+        ]
+      },
+      {
+        "duration": 0,
+        "extra": {
+          "attempts": 0,
+          "blockedBy": null,
+          "checks": [],
+          "failure": null,
+          "file": "users.crud",
+          "id": "users.crud#parksLegacy",
+          "instance": null,
+          "skipReason": "rewrite pending",
+          "steps": []
+        },
+        "filePath": "services/users/crud.test.yaml",
+        "flaky": false,
+        "line": 25,
+        "message": "rewrite pending",
+        "name": "users.crud#parksLegacy",
+        "rawStatus": "skipped",
+        "retries": 0,
+        "start": 0,
+        "status": "skipped",
+        "stop": 0,
+        "tags": [
+          "smoke"
+        ]
+      }
+    ],
+    "tool": {
+      "name": "vibranium",
+      "version": "0.1.0"
+    }
+  },
+  "specVersion": "0.2.0"
+}
