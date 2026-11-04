@@ -12,9 +12,11 @@ publish.workspace = true
 async-trait.workspace = true
 blake3.workspace = true
 globset.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 vc-diagnostics.workspace = true
 vc-model.workspace = true
+zeroize.workspace = true
 
 [lints]
 workspace = true

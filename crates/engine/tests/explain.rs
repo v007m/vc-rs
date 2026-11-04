@@ -20,8 +20,10 @@ use vc_diagnostics::{Code, Diagnostics, Severity};
 /// The languages an example block may be written in.
 const LANGUAGES: [&str; 2] = ["yaml", "json"];
 
-/// V2005 (hook export not found) is linked with hooks in M4; its page lands then.
-const LATER: [Code; 1] = [Code::V2005];
+/// V2005 (hook export not found) is linked with hooks in M4; its page lands then. V2106 and
+/// V2107 need `.env.schema`, which reaches the compiler as `CompileInput::secret_schema` once
+/// the engine reads it from the project root; their pages land with that wiring.
+const LATER: [Code; 3] = [Code::V2005, Code::V2106, Code::V2107];
 
 fn page_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../diagnostics/explain")
