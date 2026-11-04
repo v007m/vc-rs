@@ -9,7 +9,9 @@
 //! So far: the request pipeline (D141), `tower` services around the [`vc_interfaces::Transport`]
 //! built by [`pipeline`]: timing, retry ([`HttpRetryPolicy`], D143), auth and `beforeRequest` hooks
 //! ([`RequestStage`], null objects until M3 and M4), the per-host limit ([`HostLimits`]) and the
-//! per-attempt timeout.
+//! per-attempt timeout. Runtime values: [`RunValues`] holds the var definitions of each level with
+//! the active profiles applied once per run; each action reads its [`Frame`] and renders through
+//! a renderer, so a `call:` sends the real request and saves values for later actions.
 
 mod action;
 mod bus;
@@ -22,10 +24,10 @@ mod machine;
 mod pipeline;
 mod shell;
 mod slots;
+mod values;
 
 pub use action::{
-    ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, CallExecutor, Scope, TestExecutor,
-    body_actions,
+    ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, CallExecutor, TestExecutor, body_actions,
 };
 pub use bus::EventBus;
 pub use error::ExecutorError;
@@ -43,3 +45,5 @@ pub use pipeline::{
 };
 pub use shell::{Executor, RunHandle, RunOptions};
 pub use slots::{SharedResult, SharedSlots};
+use values::Render;
+pub use values::{Defined, FakeData, FakeFn, Frame, RunInputs, RunValues};

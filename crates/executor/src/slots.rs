@@ -43,6 +43,11 @@ impl SharedSlots {
     pub fn get(&self, action: ActionId) -> Option<SharedResult> {
         self.slots.get(&action)?.get().cloned()
     }
+
+    /// The saves of each action that passed, in action order.
+    pub fn passed(&self) -> impl Iterator<Item = (ActionId, Arc<Saved>)> + '_ {
+        self.slots.iter().filter_map(|(id, slot)| Some((*id, Arc::clone(slot.get()?.as_ref().ok()?))))
+    }
 }
 
 #[cfg(test)]

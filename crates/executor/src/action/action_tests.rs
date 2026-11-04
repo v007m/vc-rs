@@ -2,23 +2,20 @@ use std::sync::Arc;
 
 use vc_diagnostics::Code;
 use vc_interfaces::{Transport, TransportError};
-use vc_model::{
-    ActionId, ActionKind, ActionOutcome, Failure, HookRef, Namespace, OwnerKey, Part, Path, Reference, SourceFileId,
-    SourceSpan, Template,
-};
+use vc_model::{ActionId, ActionKind, ActionOutcome, Failure, HookRef, OwnerKey};
 use vc_testkit::{FakeTransport, status};
 
-use super::{ActionCx, ActionExecutors, ActionKindTag, ActionRequest, Scope};
+use super::{ActionExecutors, ActionKindTag, ActionRequest};
 use crate::fixture::{Fixture, Server};
-use crate::{ActionReport, ExecutorError, HostLimits, PendingCleanup, PipelineParts};
+use crate::{ActionReport, ExecutorError, Frame, HostLimits, PendingCleanup, PipelineParts};
 
 fn standard(transport: Arc<dyn Transport>) -> ActionExecutors {
     ActionExecutors::standard(PipelineParts::new(transport, HostLimits::spawn(8)))
 }
 
 async fn execute(fixture: Fixture, executors: ActionExecutors, action: ActionId) -> ActionReport {
-    let cx = Arc::new(ActionCx { program: Arc::new(fixture.program), executors: Arc::new(executors) });
-    let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(&cx), scope: Scope::default() };
+    let cx = fixture.cx(executors);
+    let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
     cx.executors.execute(request).await
 }
 
@@ -38,7 +35,7 @@ async fn a_2xx_call_passes_and_registers_the_api_cleanup() {
     let (server, sent) = Server::new();
     let report = execute(fixture, standard(server), create).await;
     assert_eq!(report.outcome, ActionOutcome::Passed);
-    assert_eq!(report.cleanups, vec![PendingCleanup { action: delete }]);
+    assert_eq!(report.cleanups, vec![PendingCleanup::new(delete)]);
     assert_eq!(sent.counts().get("/users"), Some(&1));
 }
 
@@ -78,18 +75,14 @@ async fn a_transport_error_fails_the_call_with_its_code() {
 }
 
 #[tokio::test]
-async fn a_template_with_references_does_not_render_yet() {
+async fn a_var_that_is_not_set_fails_the_call_before_it_is_sent() {
     let mut fixture = Fixture::new();
     let get = fixture.call("/users");
-    let span = SourceSpan::new(SourceFileId::new(0), vc_model::Pos::new(1, 1, 0), vc_model::Pos::new(1, 1, 0));
-    let reference =
-        Reference { ns: Namespace::Var, path: Path::default(), args: vec![], pipes: vec![], span, root_span: span };
-    for api in fixture.program.apis.values_mut() {
-        api.path = Template { parts: vec![Part::Literal("/users/".into()), Part::Ref(reference.clone())] };
-    }
+    fixture.api_mut(get).path = fixture.template("/users/${var.userId}");
     let fake = FakeTransport::scripted(vec![Ok(status(200))]);
     let report = execute(fixture, standard(Arc::new(fake.clone())), get).await;
     assert_eq!(code(&report), Some(Code::V5111.to_string().as_str()));
+    assert_eq!(failure(&report).map(|failure| failure.message.as_str()), Some("`var.userId` is not set"));
     assert_eq!(fake.calls(), 0);
 }
 
@@ -111,7 +104,7 @@ async fn test_reuse_runs_the_reused_steps_until_one_fails() {
     let (server, sent) = Server::new();
     let report = execute(fixture, standard(server), reuse).await;
     assert!(failure(&report).is_some());
-    assert_eq!(report.cleanups, vec![PendingCleanup { action: delete }], "cleanups so far are kept");
+    assert_eq!(report.cleanups, vec![PendingCleanup::new(delete)], "cleanups so far are kept");
     let counts = sent.counts();
     assert_eq!((counts.get("/users"), counts.get("/fail"), counts.get("/never")), (Some(&1), Some(&1), None));
 }

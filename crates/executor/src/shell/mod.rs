@@ -14,12 +14,12 @@ use std::time::Duration;
 use tokio::sync::Semaphore;
 use tokio::sync::mpsc::{self, UnboundedSender};
 use tokio::task::JoinHandle;
-use vc_model::{Plan, Program};
+use vc_model::Plan;
 
 use self::crew::Crew;
 use self::run::{RunFrame, run};
 use crate::cancel::CancelTree;
-use crate::{ActionCx, ActionExecutors, EventBus, ExecutorError, RunInput, RunSummary};
+use crate::{ActionCx, EventBus, ExecutorError, RunInput, RunSummary};
 
 /// How a run is carried out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -52,10 +52,10 @@ impl std::fmt::Debug for Executor {
 }
 
 impl Executor {
-    /// An executor for `program`.
+    /// An executor for the program, executors and run values of `cx`.
     #[must_use]
-    pub fn new(program: Arc<Program>, executors: Arc<ActionExecutors>, options: RunOptions) -> Self {
-        Self { cx: Arc::new(ActionCx { program, executors }), options }
+    pub const fn new(cx: Arc<ActionCx>, options: RunOptions) -> Self {
+        Self { cx, options }
     }
 
     /// Starts running `plan`, publishing its events on `bus`. Call it from within a Tokio
@@ -111,3 +111,7 @@ impl RunHandle {
 #[cfg(test)]
 #[path = "shell_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "flow_tests.rs"]
+mod flow_tests;

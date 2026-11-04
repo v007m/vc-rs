@@ -699,7 +699,7 @@ pub struct SharedSlots {
 }
 ```
 
-`OnceCell` makes each slot write-once, so it needs no lock. The slots live in a read-only map shared by `Arc` (`Scope { run, file }` hands both frames' slots to every action); the worker fills the slot before it reports the action done, so the machine starts instances only after their shared values are readable. Cleanups the action registered travel back in its `ActionReport` to the frame's machine, which runs them newest first when the frame closes; a failed action stores its failure, and every instance whose needs include it is marked **blocked** with that failure attached; blocked instances are never retried (D126). Cleanups are returned as data and run by the frame's owner when it closes, so no task ever writes into another task's state.
+`OnceCell` makes each slot write-once, so it needs no lock. The slots live in a read-only map shared by `Arc` (each action's `Frame` carries the run's and the file's slots); the worker fills the slot before it reports the action done, so the machine starts instances only after their shared values are readable. Cleanups the action registered travel back in its `ActionReport` to the frame's machine, which runs them newest first when the frame closes; a failed action stores its failure, and every instance whose needs include it is marked **blocked** with that failure attached; blocked instances are never retried (D126). Cleanups are returned as data and run by the frame's owner when it closes, so no task ever writes into another task's state.
 
 ### One test instance
 
@@ -717,8 +717,8 @@ run_instance(instance):                           # repeated per attempt when th
 
 `run_action` dispatches on the action kind:
 
-- **Call.** Resolve the effective auth (step, then api, then api file); render the request (method, URL from the api file's `baseUrl`, headers, query, body) against the scope; run `beforeRequest` hooks; send through the transport; run `afterResponse` hooks; evaluate the merged checks; if `poll` is set, repeat until `until` holds or its timeout passes; apply `save` (api saves, then the action's); if the status is 2xx, the api has `cleanup` and the action isn't `keep`, render the cleanup's vars against this response and push it onto the owner's cleanup stack.
-- **Test** (`test:` reuse). Run the reused test's calls in order inside the current frame, with each api's checks; the reused test's own test-level checks are skipped.
+- **Call.** Resolve the effective auth (step, then api, then api file); render the request (method, URL from the api file's `baseUrl`, headers, query, body) against the scope; run `beforeRequest` hooks; send through the transport; run `afterResponse` hooks; evaluate the merged checks; if `poll` is set, repeat until `until` holds or its timeout passes; apply `save` (api saves, then the action's); if the status is 2xx, the api has `cleanup` and the action isn't `keep`, render the cleanup's vars against this response and push it onto the owner's cleanup stack. A call run as a cleanup registers none. A save that fails fails the action but keeps its cleanup, since the server already created what it cleans up; a cleanup var that fails to render fails the action with no cleanup. Header, query and body levels merge config defaults < api file < api < action, a null value removing a header or query key and a list repeating a query key; a JSON or `$extend` body defaults to `application/json`, text to `text/plain; charset=utf-8` and `$base64` to `application/octet-stream`. `$file`, form and multipart bodies are V5111 until they land.
+- **Test** (`test:` reuse). Run the reused test's calls in order inside a copy of the current frame, with each api's checks; the steps see the reused test's vars and the reusing action's vars (which win) as call levels, and each step's saves and step id; the reused test's own test-level checks are skipped.
 - **Function / command.** Send the call to the hook thread or spawn the process through the `CommandRunner` trait (with a timeout and the run's environment); a non-zero exit (V5110) or a thrown error fails the action; a returned object becomes saved values. A dynamically saved value that a later template uses without a `provides:` declaration is V5108; a declared one the action did not return is V5109 (D128). The `function:` executor is registered in M4. Until then `function:` and `command:` have no entry in the `ActionExecutors` registry, and `Executor::start` walks every action the plan can reach (through api cleanups and `test:` reuse, via `ActionExecutor::follows`) and refuses the plan with `ExecutorError::NoExecutor` before anything runs.
 - **Loops.** `repeat` and `forEach` expand into iterations run in a `JoinSet` under a semaphore of size `parallel` (default 1). Each iteration writes its saved values into slot `i` of a pre-sized list, so lists come out in iteration order however the iterations finish. On failure, the action waits for the iterations already running, keeps their cleanups, and reports the first failure.
 - **Retry.** A test's `retry` (or `defaults.retry`) re-runs the whole instance after `delay`, running its cleanups between attempts; a pass after a failure marks it **flaky** with every attempt recorded. A blocked instance is never retried. Transport-level retries are `http.retry`, in the request pipeline (D126).
@@ -761,23 +761,27 @@ Templates were parsed at compile time; at run time they are only rendered agains
 ### The scope
 
 ```rust
-/// The levels a ${var.x} lookup walks, closest first. Each level is a cheap shared map.
+/// The levels a ${var.x} lookup walks, closest first, built per action from its frame.
 pub struct Scope {
     levels: SmallVec<[Level; 10]>,
 }
 pub enum Level {
-    Call(Arc<Values>),          // vars on this call or action
-    Saved(Arc<Values>),         // saved earlier in this test instance (beforeEach, before, steps)
-    File(Arc<Values>),          // beforeAll saves, published under action ids
-    TestFile(Arc<Values>),      // the test file's vars, with profile overrides applied
-    Run(Arc<Values>),           // beforeRun saves, under action ids
-    Api(Arc<Values>),           // the api's defaults
-    ApiFile(Arc<Values>),       // the api file's vars
-    Config(Arc<Values>),        // config vars with active profiles applied in order
+    Call(Arc<Defined>),         // vars on the call: the action's, then each reusing action's and
+                                // reused test's (innermost first), then the instance's test
+    Given(Arc<Saved>),          // a cleanup's vars, rendered when registered; replace its own
+    Saved(Arc<Saved>),          // saved earlier in this test instance (beforeEach, before, steps)
+    File(Arc<SharedSlots>),     // beforeAll saves, published under action ids
+    TestFile(Arc<Defined>),     // the test file's vars
+    Run(Arc<SharedSlots>),      // beforeRun saves, under action ids
+    Api(Arc<Defined>),          // the api's vars
+    ApiFile(Arc<Defined>),      // the api file's vars
+    Config(Arc<Defined>),       // config vars with active profiles applied in order
 }
 ```
 
-Config values are layered once, lowest first: built-in defaults < user config < `vibranium.config.yaml` < profiles in the order given < `.env` < `VIB_*` variables < `--set`. Each layer is a `ConfigSource`, and every value keeps its origin, so `vc config explain` can say where it came from (D129). Profile overrides are applied when the program is loaded for a run, not on every lookup: for each level that has `profiles`, the active profiles' values are layered over the base values once. A lookup walks the levels and returns the first hit; the linker has already proven every reference resolves for the active profiles, so a miss at run time is an internal error, not a user error.
+What an action reads comes from its `Frame` (`vc-executor`): the run's and file's `SharedSlots`, the instance being run, its saved values, step-id values (`created.body.id`) and drawn fakes, the callers' vars (`test:` reuse), and a cleanup's given vars. The task that owns the frame absorbs each `ActionReport` into it (`Frame::absorb`); a retry starts from a fresh frame (`Frame::restart`). Every run-wide input is in `ActionCx::new(program, executors, RunInputs)`: `RunInputs` carries the `Random` and `Environment` ports and the chosen profiles, and `RunValues` is built from them once per run: each level's var definitions with the active profiles' values layered over the base values (by-profile config values, then each profile's own vars, in the order given; with no profiles chosen, the profiles marked `default`), the `PipeRegistry` and the `FakeData` registry (a placeholder with `string.uuid` only until the full catalogue lands). `Executor::new(cx, options)` takes the same `Arc<ActionCx>`.
+
+Config values are layered once, lowest first: built-in defaults < user config < `vibranium.config.yaml` < profiles in the order given < `.env` < `VIB_*` variables < `--set`. Each layer is a `ConfigSource`, and every value keeps its origin, so `vc config explain` can say where it came from (D129). Profile overrides are applied when the program is loaded for a run, not on every lookup. A lookup walks the levels and returns the first hit. A var defined from itself (`greeting: ${var.greeting} there`) reads the next level out, and a chain deeper than 16 vars fails, so vars that refer to each other cannot loop. A miss renders as a V5111 failure of the action (``var.userId` is not set``) that the `default` pipe may stand in for; until the linker checks references against the levels an action can see, a miss is a user error, not an internal one. `env.X` reads the `Environment` port; `run.profiles`, `iteration` and `example` (inline rows only) are bound from the inputs and the instance.
 
 ### Rendering
 
@@ -811,7 +815,7 @@ pub enum ExprError { Eval(String), StepLimit(u64), MissingRoot(String), Unrepres
 ```
 
 - **Check (compile time).** `check` parses the expression and walks it for roots: an identifier followed by fields and literal indexes becomes a `Reference` with its path and exact span, and comprehension variables and type names are skipped. Each reference goes through the same `Roots::check` as templates, so an unavailable root is V2105 or V2102, and a bare `status`, `headers` or `body` is V2105 with the certain `response.` fix (D150). `secret`, `fake`, `dataset` and `run` are V2105 "not available in CEL": CEL's activation has no such roots (D125), so the help says to set a var from a template and read `var.<name>`. A parse error is V2305 at the parser's position, with the parser's internal "Incomplete …" errors dropped. `timestamp()` and `duration()` are V2305 "not supported yet" (see Open questions), so they never fail silently at run time. A literal pattern given to `matches()` that does not compile is V2306, as for the `regex` matcher. `cel-rust` has no type checker, so a call to an unknown function or a type mismatch is only found at run time.
-- **Prepare (run start).** The executor (M2) prepares every `CelProgram` once per run into its own table keyed by the program's position in the `Program`; the `Program` itself holds only data. `prepare` re-parses the source, binds each root the program reads to its `Namespace`, and wraps every comprehension's range in a counting call (below).
+- **Prepare (run start).** The executor (M2) prepares every `CelProgram` once per run into its own table keyed by the program's position in the `Program`; the `Program` itself holds only data. `prepare` re-parses the source, binds each root the program reads to its `Namespace`, and wraps every comprehension's range in a counting call (below). For now the executor prepares a `$cel` value each time it is evaluated; the per-run table comes when profiling shows the cost.
 - **Evaluate.** Each evaluation builds a fresh CEL context from the activation: only the roots the program reads are converted from JSON, every integer that fits becomes an `int` (CEL has no arithmetic across `int`, `uint` and `double`), and the result is converted back to JSON with map keys as sorted strings. Bytes, NaN and infinities have no JSON form (`ExprError::Unrepresentable`).
 - **Standard library additions.** `sum()` on a list of numbers is an `int` when every element is one (overflow is an error) and a `double` otherwise; `[]` sums to 0. `matches()` is the interpreter's own, built on the same `regex` crate as the `regex` matcher.
 - **Step limit.** CEL's only loops are comprehensions (`all`, `exists`, `map`, `filter`). Every comprehension's range is passed through a hidden `@steps` function that adds the range's size to a counter local to that evaluation and fails with `ExprError::StepLimit` past the activation's limit, so a nested pathological expression fails instead of hanging. List and string building outside comprehensions is not counted.

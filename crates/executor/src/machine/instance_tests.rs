@@ -158,7 +158,7 @@ fn cancel_in_flight_lets_the_action_finish_then_runs_cleanups_and_skips() {
     let (workflow, commands) = in_body().transition(InstanceInput::Cancelled);
     assert_eq!(commands.len(), 0);
     let (workflow, commands) = workflow.transition(InstanceInput::ActionDone(passing_with(&[101])));
-    assert_eq!(commands, [InstanceCommand::RunCleanup(PendingCleanup { action: acts(&[101])[0] })]);
+    assert_eq!(commands, [InstanceCommand::RunCleanup(PendingCleanup::new(acts(&[101])[0]))]);
     let (workflow, _) = workflow.transition(InstanceInput::CleanupDone);
     let (workflow, commands) = workflow.transition(InstanceInput::CleanupDone);
     assert_eq!(workflow.phase(), InstancePhase::Done(TestStatus::Skipped));
@@ -177,7 +177,7 @@ fn a_failure_reported_after_cancel_is_kept_and_not_retried() {
 #[test]
 fn a_cut_action_runs_cleanups_and_skips() {
     let (workflow, commands) = in_body().transition(InstanceInput::ActionCut);
-    assert_eq!(commands, [InstanceCommand::RunCleanup(PendingCleanup { action: acts(&[100])[0] })]);
+    assert_eq!(commands, [InstanceCommand::RunCleanup(PendingCleanup::new(acts(&[100])[0]))]);
     let (workflow, _) = workflow.transition(InstanceInput::CleanupDone);
     assert_eq!(workflow.phase(), InstancePhase::Done(TestStatus::Skipped));
 }

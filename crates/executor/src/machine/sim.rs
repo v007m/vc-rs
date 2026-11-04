@@ -34,7 +34,7 @@ pub fn fail(index: u32) -> ActionReport {
 
 /// A passed report that registers cleanups `cleanups`, oldest first.
 pub fn passing_with(cleanups: &[u32]) -> ActionReport {
-    let cleanups = cleanups.iter().map(|&n| PendingCleanup { action: act(n) }).collect();
+    let cleanups = cleanups.iter().map(|&n| PendingCleanup::new(act(n))).collect();
     ActionReport { cleanups, ..ActionReport::passed() }
 }
 

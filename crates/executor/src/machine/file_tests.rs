@@ -131,7 +131,7 @@ fn cancel_skips_unlaunched_instances_and_after_all_but_runs_cleanups() {
     let skipped = commands.iter().filter(|c| matches!(c, FileCommand::Emit(Event::TestFinished { .. }))).count();
     assert_eq!(skipped, 2);
     assert!(!commands.contains(&FileCommand::RunAction(act(2))));
-    assert!(commands.contains(&FileCommand::RunCleanup(PendingCleanup { action: act(100) })));
+    assert!(commands.contains(&FileCommand::RunCleanup(PendingCleanup::new(act(100)))));
     let (file, commands) = file.transition(FileInput::CleanupDone);
     assert_eq!(file.phase(), FilePhase::Done);
     let totals = finished(&commands);
@@ -154,7 +154,7 @@ fn cancel_during_before_all_stops_after_the_action_in_flight() {
     let (cancelled, _) = file.clone().transition(FileInput::Cancelled);
     let (done, commands) = cancelled.transition(FileInput::ActionDone(passing_with(&[100])));
     assert!(!commands.contains(&FileCommand::RunAction(act(2))));
-    assert!(commands.contains(&FileCommand::RunCleanup(PendingCleanup { action: act(100) })));
+    assert!(commands.contains(&FileCommand::RunCleanup(PendingCleanup::new(act(100)))));
     let (_, commands) = done.transition(FileInput::CleanupDone);
     assert_eq!(finished(&commands).skipped, 1);
     let (cut, commands) = file.transition(FileInput::ActionCut);

@@ -6,7 +6,7 @@ use vc_model::{ActionId, ActionOutcome, CleanupRecord, Event, Failure, OwnerKey}
 
 use super::script::Scripts;
 use crate::cancel::{CancelTree, Ran};
-use crate::{ActionCx, ActionReport, ActionRequest, CANCELLED, EventBus, RunInput, Scope, SharedSlots};
+use crate::{ActionCx, ActionReport, ActionRequest, CANCELLED, EventBus, Frame, RunInput, Saved, SharedSlots};
 
 /// What every worker of a run shares.
 #[derive(Clone)]
@@ -29,21 +29,26 @@ pub struct Crew {
 pub struct Job {
     pub action: ActionId,
     pub owner: OwnerKey,
-    pub scope: Scope,
+    pub frame: Frame,
 }
 
 impl Job {
     /// The slots a shared action of this frame fills; instance actions fill none.
     fn slots(&self) -> Option<Arc<SharedSlots>> {
         match self.owner {
-            OwnerKey::Run => Some(Arc::clone(&self.scope.run)),
-            OwnerKey::File(_) => Some(Arc::clone(&self.scope.file)),
+            OwnerKey::Run => Some(Arc::clone(&self.frame.run)),
+            OwnerKey::File(_) => Some(Arc::clone(&self.frame.file)),
             OwnerKey::Instance(_) => None,
         }
     }
 
+    /// The same job running as a cleanup with `vars`.
+    pub fn cleaning(self, vars: &Arc<Saved>) -> Self {
+        Self { frame: self.frame.cleaning(vars), ..self }
+    }
+
     fn request(self, cx: &Arc<ActionCx>) -> ActionRequest {
-        ActionRequest { action: self.action, owner: self.owner, cx: Arc::clone(cx), scope: self.scope }
+        ActionRequest { action: self.action, owner: self.owner, cx: Arc::clone(cx), frame: self.frame }
     }
 }
 

@@ -7,6 +7,7 @@ mod instance;
 mod run;
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use vc_model::{ActionId, ActionOutcome, Event, Failure, Needs, OwnerKey, PlannedAction};
 
@@ -16,7 +17,7 @@ pub use instance::{
 };
 pub use run::{RunCommand, RunInput, RunOrchestrator, RunPhase, RunSummary};
 
-/// Values an action saved, by name (filled by the vars runtime; empty until then).
+/// Values an action saved, by name.
 pub type Saved = serde_json::Map<String, serde_json::Value>;
 
 /// The shared lifecycle actions that failed, with their failures; instances and later shared
@@ -25,10 +26,26 @@ pub type FailedActions = BTreeMap<ActionId, Failure>;
 
 /// A compensating action registered by a successful call (the api's `cleanup`), run when the
 /// owning frame closes, newest first.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PendingCleanup {
     /// The cleanup action.
     pub action: ActionId,
+    /// Its vars, rendered against the registering call's response; they stand in for its own.
+    pub vars: Arc<Saved>,
+}
+
+impl PendingCleanup {
+    /// A cleanup of `action` with no vars.
+    #[must_use]
+    pub fn new(action: ActionId) -> Self {
+        Self { action, vars: Arc::default() }
+    }
+
+    /// The same cleanup with `vars`.
+    #[must_use]
+    pub fn with_vars(self, vars: Saved) -> Self {
+        Self { vars: Arc::new(vars), ..self }
+    }
 }
 
 /// What a worker reports when an action finishes.
@@ -40,13 +57,23 @@ pub struct ActionReport {
     pub cleanups: Vec<PendingCleanup>,
     /// Values it saved.
     pub saved: Saved,
+    /// Vars defined as one `${fake.…}` that it generated, kept for the rest of the instance.
+    pub fakes: Saved,
+    /// The response of its last call, for `${<id>.…}` in later actions.
+    pub response: Option<Arc<serde_json::Value>>,
 }
 
 impl ActionReport {
     /// A passed action with no cleanups and no saved values.
     #[must_use]
     pub fn passed() -> Self {
-        Self { outcome: ActionOutcome::Passed, cleanups: Vec::new(), saved: Saved::new() }
+        Self {
+            outcome: ActionOutcome::Passed,
+            cleanups: Vec::new(),
+            saved: Saved::new(),
+            fakes: Saved::new(),
+            response: None,
+        }
     }
 
     /// A failed action.

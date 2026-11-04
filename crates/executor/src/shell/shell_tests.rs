@@ -53,7 +53,7 @@ impl Outcome {
 fn executor(fixture: Fixture, options: RunOptions) -> (Executor, crate::fixture::Sent) {
     let (server, sent) = Server::new();
     let executors = ActionExecutors::standard(PipelineParts::new(server, HostLimits::spawn(64)));
-    (Executor::new(Arc::new(fixture.program), Arc::new(executors), options), sent)
+    (Executor::new(fixture.cx(executors), options), sent)
 }
 
 /// Runs `plan`, interrupting at each of `interrupts` (from the start), and collects every event.

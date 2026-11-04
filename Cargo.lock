@@ -2416,17 +2416,24 @@ name = "vc-executor"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64",
+ "bytes",
  "http",
  "indexmap",
+ "percent-encoding",
  "proptest",
  "serde_json",
+ "smallvec",
  "thiserror",
  "tokio",
  "tokio-util",
  "tower",
+ "vc-adapter-http",
  "vc-diagnostics",
  "vc-interfaces",
+ "vc-mock-server",
  "vc-model",
+ "vc-template",
  "vc-testkit",
 ]
 

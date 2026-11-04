@@ -15,7 +15,16 @@ use vc_model::{
     Retry, SaveSpec, SourceFileId, SourceFiles, SourceSpan, StringTable, Sym, Template, Test, TestBody, TestFile,
     TestId, Timing, VarDefs,
 };
-use vc_testkit::status;
+use vc_model::{CelSource, ScalarSource, ScalarStyle, TemplateValue, VarName};
+use vc_template::{CelCompiler, Roots};
+use vc_testkit::{MemoryEnvironment, ScriptedRandom, status};
+
+use crate::{ActionCx, ActionExecutors, RunInputs};
+
+/// Words every fixture interns up front, so templates parsed later share the program's symbols
+/// for var names and step ids.
+pub const WORDS: &[&str] =
+    &["created", "fetched", "user", "userId", "email", "name", "token", "region", "greeting", "dev", "prod", "page"];
 
 /// How long `/slow` takes to answer.
 pub const SLOW: Duration = Duration::from_secs(60);
@@ -27,6 +36,7 @@ pub struct Fixture {
     pub file: FileId,
     group: FileId,
     names: Vec<Sym>,
+    strings: StringTable,
 }
 
 impl Fixture {
@@ -35,6 +45,8 @@ impl Fixture {
         let group = FileId::new(strings.intern("users").unwrap());
         let file = FileId::new(strings.intern("users.crud").unwrap());
         let names = (0..64).map(|n| strings.intern(&format!("users#n{n}")).unwrap()).rev().collect();
+        let _: Vec<Sym> = WORDS.iter().map(|word| strings.intern(word).unwrap()).collect();
+        let kept = strings.clone();
         let mut program = Program::new(strings, SourceFiles::new());
         let base_url = Some(literal("http://api.test"));
         let apis = Vec::new();
@@ -44,7 +56,7 @@ impl Fixture {
             .insert(group, ApiGroup { id: group, name: None, base_url, auth, headers, vars, hooks, apis });
         let (tags, vars, lifecycle, tests) = Default::default();
         program.test_files.insert(file, TestFile { id: file, name: None, tags, vars, skip: None, lifecycle, tests });
-        Self { program, file, group, names }
+        Self { program, file, group, names, strings: kept }
     }
 
     /// A new action of `kind`.
@@ -136,6 +148,75 @@ impl Fixture {
         id
     }
 
+    /// `text` parsed as a template; its step roots must be among [`WORDS`].
+    pub fn template(&self, text: &str) -> Template {
+        let source = ScalarSource { span: span(), style: ScalarStyle::Plain };
+        vc_template::parse(text, source, &mut self.strings.clone()).unwrap()
+    }
+
+    /// `text` parsed as a template value.
+    pub fn value(&self, text: &str) -> TemplateValue {
+        TemplateValue::String(self.template(text))
+    }
+
+    /// `text` checked as a `$cel` value.
+    pub fn cel(&self, text: &str) -> TemplateValue {
+        let source = CelSource { text: text.to_owned(), span: span(), style: ScalarStyle::Plain };
+        let roots = Roots::new().with_call();
+        TemplateValue::Cel(CelCompiler::new().check(&source, &roots, &mut self.strings.clone()).unwrap())
+    }
+
+    /// The symbol of one of [`WORDS`].
+    pub fn sym(&self, word: &str) -> Sym {
+        self.strings.get(word).unwrap()
+    }
+
+    /// The var named by one of [`WORDS`].
+    pub fn var(&self, word: &str) -> VarName {
+        VarName::new(self.sym(word))
+    }
+
+    /// Var definitions from `(name, template)` pairs.
+    pub fn vars(&self, pairs: &[(&str, &str)]) -> IndexMap<VarName, TemplateValue> {
+        pairs.iter().map(|(name, text)| (self.var(name), self.value(text))).collect()
+    }
+
+    /// Headers or query parameters from `(name, template)` pairs.
+    pub fn templates(&self, pairs: &[(&str, &str)]) -> IndexMap<String, Template> {
+        pairs.iter().map(|(name, text)| ((*name).to_owned(), self.template(text))).collect()
+    }
+
+    /// The action `id`, to change.
+    pub fn action_mut(&mut self, id: ActionId) -> &mut Action {
+        &mut self.program.actions[usize::try_from(id.index()).unwrap()]
+    }
+
+    /// The api a `call:` action calls, to change.
+    pub fn api_mut(&mut self, call: ActionId) -> &mut Api {
+        let ActionKind::Call(api) = self.action_mut(call).kind else { unreachable!("not a call") };
+        self.program.apis.get_mut(&api).unwrap()
+    }
+
+    /// The api file `users`, to change.
+    pub fn group_mut(&mut self) -> &mut ApiGroup {
+        self.program.api_groups.get_mut(&self.group).unwrap()
+    }
+
+    /// The test `id`, to change.
+    pub fn test_mut(&mut self, id: TestId) -> &mut Test {
+        self.program.tests.get_mut(&id).unwrap()
+    }
+
+    /// What a run of the program shares, with the default inputs.
+    pub fn cx(self, executors: ActionExecutors) -> Arc<ActionCx> {
+        self.cx_with(executors, inputs(&[]))
+    }
+
+    /// What a run of the program shares, given `inputs`.
+    pub fn cx_with(self, executors: ActionExecutors, inputs: RunInputs) -> Arc<ActionCx> {
+        Arc::new(ActionCx::new(Arc::new(self.program), Arc::new(executors), inputs))
+    }
+
     /// Changes the lifecycle of `users.crud`.
     pub fn lifecycle(&mut self, change: impl FnOnce(&mut Lifecycle)) {
         if let Some(file) = self.program.test_files.get_mut(&self.file) {
@@ -163,6 +244,11 @@ impl Fixture {
         let file = PlannedFile { id: self.file, before_all, instances, after_all: Vec::new() };
         Plan { before_run: Vec::new(), files: vec![file], after_run: Vec::new(), skipped: Vec::new() }
     }
+}
+
+/// Run inputs with a seeded random source and `env` as the environment.
+pub fn inputs(env: &[(&str, &str)]) -> RunInputs {
+    RunInputs::new(Arc::new(ScriptedRandom::seeded(1)), Arc::new(MemoryEnvironment::new(env)))
 }
 
 pub fn literal(text: &str) -> Template {

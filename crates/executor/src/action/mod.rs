@@ -2,6 +2,7 @@
 //! registry.
 
 mod call;
+mod request;
 mod reuse;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,7 +12,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
-use crate::{ActionReport, ExecutorError, PipelineParts, SharedSlots};
+use crate::{ActionReport, ExecutorError, Frame, PipelineParts, RunInputs, RunValues};
 
 pub use call::CallExecutor;
 pub use reuse::TestExecutor;
@@ -84,8 +85,8 @@ pub struct ActionRequest {
     pub owner: OwnerKey,
     /// The program and the executors, for nested actions.
     pub cx: Arc<ActionCx>,
-    /// The shared lifecycle values it can read.
-    pub scope: Scope,
+    /// What it can read from the frame that runs it.
+    pub frame: Frame,
 }
 
 impl fmt::Debug for ActionRequest {
@@ -97,29 +98,30 @@ impl fmt::Debug for ActionRequest {
     }
 }
 
-/// What every action of a run shares: the immutable program and the executor registry.
+/// What every action of a run shares: the immutable program, the executor registry and the
+/// run's values.
 pub struct ActionCx {
     /// The compiled program.
     pub program: Arc<Program>,
     /// The executors, by kind.
     pub executors: Arc<ActionExecutors>,
+    /// The var definitions with the active profiles applied, the pipes and the run's inputs.
+    pub values: RunValues,
 }
 
 impl ActionCx {
+    /// What the actions of a run of `program` share, given `inputs`.
+    #[must_use]
+    pub fn new(program: Arc<Program>, executors: Arc<ActionExecutors>, inputs: RunInputs) -> Self {
+        let values = RunValues::new(&program, inputs);
+        Self { program, executors, values }
+    }
+
     /// The action behind `id`.
     #[must_use]
     pub fn action(&self, id: ActionId) -> Option<&Action> {
         self.program.actions.get(usize::try_from(id.index()).ok()?)
     }
-}
-
-/// The shared lifecycle values an action can read: `beforeRun` and its file's `beforeAll`.
-#[derive(Clone, Debug, Default)]
-pub struct Scope {
-    /// `beforeRun` results.
-    pub run: Arc<SharedSlots>,
-    /// The file's `beforeAll` results; empty for run-level actions.
-    pub file: Arc<SharedSlots>,
 }
 
 /// The action executors by kind (a registry filled at start-up).

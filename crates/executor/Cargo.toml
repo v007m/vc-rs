@@ -10,8 +10,13 @@ publish.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+base64.workspace = true
+bytes.workspace = true
 http.workspace = true
+indexmap.workspace = true
+percent-encoding.workspace = true
 serde_json.workspace = true
+smallvec.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
@@ -19,11 +24,13 @@ tower.workspace = true
 vc-diagnostics.workspace = true
 vc-interfaces.workspace = true
 vc-model.workspace = true
+vc-template.workspace = true
 
 [dev-dependencies]
-indexmap.workspace = true
 proptest.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
+vc-adapter-http.workspace = true
+vc-mock-server.workspace = true
 vc-testkit.workspace = true
 
 [lints]

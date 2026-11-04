@@ -51,9 +51,9 @@ fn before_run_then_files_then_after_run_then_cleanups_then_report() {
     let start_files = log.iter().position(|c| matches!(c, RunCommand::StartFiles(_)));
     assert!(position(&log, &RunCommand::RunAction(act(2))) < start_files);
     assert!(start_files < position(&log, &RunCommand::RunAction(act(3))));
-    let first_cleanup = position(&log, &RunCommand::RunCleanup(PendingCleanup { action: act(101) }));
+    let first_cleanup = position(&log, &RunCommand::RunCleanup(PendingCleanup::new(act(101))));
     assert!(position(&log, &RunCommand::RunAction(act(3))) < first_cleanup);
-    assert!(first_cleanup < position(&log, &RunCommand::RunCleanup(PendingCleanup { action: act(100) })));
+    assert!(first_cleanup < position(&log, &RunCommand::RunCleanup(PendingCleanup::new(act(100)))));
     let report = log.iter().position(|c| matches!(c, RunCommand::Report(_)));
     assert!(log.iter().position(|c| matches!(c, RunCommand::Emit(Event::RunFinished { .. }))) < report);
     assert_eq!(finish(&log), RunSummary { status: RunStatus::Passed, totals: passed(2) });
@@ -111,7 +111,7 @@ fn the_first_interrupt_cancels_skips_after_run_and_still_cleans_up() {
     let (run, commands) = running().transition(RunInput::Interrupt);
     assert_eq!(commands, [RunCommand::Cancel]);
     let (run, commands) = run.transition(RunInput::FileDone(Totals { skipped: 1, ..Totals::default() }));
-    assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup { action: act(100) })]);
+    assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup::new(act(100)))]);
     let (run, commands) = run.transition(RunInput::CleanupDone);
     assert!(matches!(
         &commands[..],
@@ -154,7 +154,7 @@ fn a_cut_lifecycle_action_moves_on() {
     assert_eq!(run.phase(), RunPhase::Running);
     let (run, _) = running().transition(RunInput::FileDone(Totals::default()));
     let (run, commands) = run.transition(RunInput::ActionCut);
-    assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup { action: act(100) })]);
+    assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup::new(act(100)))]);
     assert_eq!(run.phase(), RunPhase::CleaningUp);
 }
 

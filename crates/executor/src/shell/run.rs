@@ -8,7 +8,7 @@ use super::crew::{Crew, Job};
 use super::file::{FileJob, file};
 use super::tasks::Tasks;
 use crate::cancel::CancelTree;
-use crate::{FailedActions, RunCommand, RunInput, RunOrchestrator, RunSummary, Scope, SharedSlots};
+use crate::{FailedActions, Frame, RunCommand, RunInput, RunOrchestrator, RunSummary, SharedSlots};
 
 /// The run's own frame: its inbox (interrupts and test verdicts), its cancellation root and
 /// whether the first failure stops it.
@@ -22,9 +22,10 @@ pub struct RunFrame {
 /// worker per shared action, cleanup and file.
 pub async fn run(crew: Crew, plan: Arc<Plan>, frame: RunFrame) -> RunSummary {
     let slots = SharedSlots::new(plan.before_run.iter().map(|planned| planned.action));
-    let scope = Scope { run: Arc::new(slots), file: Arc::default() };
+    let frame_values = Frame { run: Arc::new(slots), ..Frame::default() };
     let mut machine = RunOrchestrator::new(Arc::clone(&plan), frame.bail);
-    let mut shell = RunShell { crew, plan, scope, cancel: frame.cancel, tasks: Tasks::new(), inbox: frame.inbox };
+    let mut shell =
+        RunShell { crew, plan, frame: frame_values, cancel: frame.cancel, tasks: Tasks::new(), inbox: frame.inbox };
     let mut inputs = VecDeque::from([RunInput::Start]);
     loop {
         while let Some(input) = inputs.pop_front() {
@@ -41,7 +42,7 @@ pub async fn run(crew: Crew, plan: Arc<Plan>, frame: RunFrame) -> RunSummary {
 struct RunShell {
     crew: Crew,
     plan: Arc<Plan>,
-    scope: Scope,
+    frame: Frame,
     cancel: CancelTree,
     tasks: Tasks<RunInput>,
     inbox: UnboundedReceiver<RunInput>,
@@ -49,13 +50,15 @@ struct RunShell {
 
 impl RunShell {
     fn job(&self, action: ActionId) -> Job {
-        Job { action, owner: OwnerKey::Run, scope: self.scope.clone() }
+        Job { action, owner: OwnerKey::Run, frame: self.frame.clone() }
     }
 
     fn carry_out(&mut self, command: RunCommand) -> Option<RunSummary> {
         match command {
             RunCommand::RunAction(action) => self.tasks.act(&self.crew, self.job(action), &self.cancel),
-            RunCommand::RunCleanup(cleanup) => self.tasks.clean(&self.crew, self.job(cleanup.action), &self.cancel),
+            RunCommand::RunCleanup(cleanup) => {
+                self.tasks.clean(&self.crew, self.job(cleanup.action).cleaning(&cleanup.vars), &self.cancel);
+            }
             RunCommand::StartFiles(failed) => self.start_files(&failed),
             RunCommand::Emit(event) => self.crew.bus.publish(event),
             RunCommand::Cancel => self.cancel.cancel(),
@@ -72,7 +75,7 @@ impl RunShell {
 
     fn start_files(&mut self, failed: &FailedActions) {
         for planned in &self.plan.files {
-            let run = Arc::clone(&self.scope.run);
+            let run = Arc::clone(&self.frame.run);
             let job = FileJob { file: planned.clone(), failed: failed.clone(), run, cancel: self.cancel.child() };
             let crew = self.crew.clone();
             self.tasks
