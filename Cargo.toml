@@ -91,6 +91,7 @@ tower = { version = "0.5.3", default-features = false, features = ["util"] }
 tower-service = "0.3.3"
 tower-http = { version = "0.6.11", features = ["compression-br", "compression-gzip"] }
 winnow = "1.0.4"
+zeroize = "1.9.1"
 zstd = { version = "0.14.3", default-features = false }
 
 [workspace.lints.rust]

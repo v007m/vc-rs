@@ -45,6 +45,8 @@ code_table! {
     V2102 = 2102, Error, "`${item}`, `${example}` or `${iteration}` used outside its block";
     V2103 = 2103, Error, "Unknown example or dataset column";
     V2105 = 2105, Error, "Template or CEL root not available at that spot";
+    V2106 = 2106, Error, "`${secret.X}` names a secret `.env.schema` does not declare";
+    V2107 = 2107, Error, "`${env.X}` names a secret declared in `.env.schema`";
     V2201 = 2201, Error, "Exactly one of `call` or `steps` needed";
     V2205 = 2205, Error, "Cycle through `test:` reuse";
     V2210 = 2210, Error, "Shared action saves values but has no `id`";
@@ -83,4 +85,5 @@ code_table! {
     V5109 = 5109, Error, "A value declared in `provides` was not saved";
     V5110 = 5110, Error, "Command exited non-zero";
     V5111 = 5111, Error, "Template failed to render at run time";
+    V5114 = 5114, Error, "Credentials could not be obtained";
 }
