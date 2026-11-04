@@ -265,6 +265,7 @@ fn kind(error: &ExprError) -> &'static str {
         ExprError::StepLimit(_) => "step limit",
         ExprError::MissingRoot(_) => "missing root",
         ExprError::Unrepresentable(_) => "unrepresentable",
+        _ => "other",
     }
 }
 
