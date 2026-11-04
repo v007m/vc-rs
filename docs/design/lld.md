@@ -1066,7 +1066,7 @@ Third-party plugins are separate processes speaking JSON-RPC 2.0 over stdio, wit
 
 ## Diagnostic codes
 
-Codes are stable once released: a code is never reused for a different problem, and each has a `vc explain` page with a wrong and a right example (written in `crates/diagnostics/explain/Vxxxx.md`, checked by a test that compiles both examples). The first release ships these; new ones are added at the end of their range.
+Codes are stable once released: a code is never reused for a different problem, and each has a `vc explain` page with a wrong and a right example (written in `crates/diagnostics/explain/Vxxxx.md`: a `## Wrong` and a `## Right` section, each a small project with one fenced block per file whose first line is `# file: <path>`; `crates/engine/tests/explain.rs` checks every V1–V3 code has a page, the wrong project reports the code, and the right one reports neither it nor any error). The first release ships these; new ones are added at the end of their range.
 
 | Code | Severity | Problem | Certain fix |
 | --- | --- | --- | --- |
@@ -1144,7 +1144,7 @@ V3204 is new: the skip-reason example that silently lost `see #212` showed that 
 | Adapters | One contract suite per interface trait that every adapter and test fake must pass (a transport suite, a store suite, …) (D112) | `crates/testkit` |
 | End to end | `vc` run with `assert_cmd` against the in-repo mock server (`vc-mock-server`, started in-process on port 0 so each test has its own), whose request counter proves the lifecycle guarantees (50 tests sharing a `beforeAll` send 1 request) (D100) | `bench/mock/`, `tests/e2e/` |
 | Interfaces | CLI output snapshots; TUI rendered to a test backend; web UI with Playwright against `vc ui` and the mock server | `apps/*/tests/`, `web/tests/` |
-| Docs | Every example YAML in the docs is extracted and compiled in CI | `docs/tests/` |
+| Docs | Every YAML block in `docs/design/*.md` is checked: whole files (first line `# <path>`, or the first block under a `### `<path>`` heading) are checked per doc as one project with no errors, except unknown names a doc defines in files it does not show (V2002, V2003, V2004, V2101); other blocks must parse; `yaml skip` opts out | `crates/engine/tests/docs_examples.rs` |
 | Public API | `cargo public-api` snapshots for `vc-model`, `vc-interfaces` and `vc-engine`, from the end of M2 (D117) | each crate |
 
 ### Performance budgets

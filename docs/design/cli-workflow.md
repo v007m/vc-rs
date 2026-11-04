@@ -536,8 +536,7 @@ source:
   openapi: https://users.staging.shop.example/v3/api-docs
   headers:                          # only for a spec behind auth
     authorization: Bearer ${secret.SPEC_TOKEN}
-  include:                          # optional: one spec, several api files
-    tags: [users]
+  include: [users]                  # optional: only these tags, so one spec can feed several api files
 ```
 
 ### Do you need to keep a copy of the spec?
@@ -584,7 +583,9 @@ Like JUnit's `@Disabled`, `skip` parks a test without deleting it. A skipped tes
     skip:
       reason: "coupon service flaky on staging, see #212"   # quoted: an unquoted # starts a YAML comment
       until: 2026-11-15
+```
 
+```yaml
 # a whole file: put skip at the top of the file
 id: orders.coupons
 skip: coupon service is being rewritten
