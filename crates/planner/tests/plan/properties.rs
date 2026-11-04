@@ -4,11 +4,12 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-use proptest::prelude::*;
+use proptest::prelude::{ProptestConfig, Strategy, prop, prop_assert, prop_assert_eq, proptest};
 use vc_model::{Plan, Program};
-use vc_planner::{Selection, plan};
+use vc_planner::Selection;
 
-use crate::common::{USERS, compile_files, name, today};
+use crate::common;
+use crate::common::USERS;
 
 const CONFIG: &str = "syntaxVersion: 2\nprofiles: [{id: dev, default: true}]\nvars: {baseUrl: 'http://x'}\nbeforeRun:\n  - id: warm\n    call: users#list\n";
 const TAGS: &[&str] = &["a", "b", "c"];
@@ -29,13 +30,13 @@ struct GenFile {
 }
 
 fn gen_test() -> impl Strategy<Value = GenTest> {
-    (prop::collection::btree_set(0..TAGS.len(), 0..3), 1..3_u32, 0..3_u8, any::<bool>())
+    (prop::collection::btree_set(0..TAGS.len(), 0..3), 1..3_u32, 0..3_u8, prop::arbitrary::any::<bool>())
         .prop_map(|(tags, repeat, reads, skip)| GenTest { tags, repeat, reads, skip })
 }
 
 fn gen_files() -> impl Strategy<Value = Vec<GenFile>> {
-    let file =
-        (any::<bool>(), prop::collection::vec(gen_test(), 1..4)).prop_map(|(shared, tests)| GenFile { shared, tests });
+    let file = (prop::arbitrary::any::<bool>(), prop::collection::vec(gen_test(), 1..4))
+        .prop_map(|(shared, tests)| GenFile { shared, tests });
     prop::collection::vec(file, 1..4)
 }
 
@@ -70,13 +71,13 @@ fn generated(files: &[GenFile]) -> Program {
         files.iter().enumerate().map(|(at, file)| (format!("services/g{at}/t.test.yaml"), yaml(at, file))).collect();
     let mut sources = vec![("vibranium.config.yaml", CONFIG), ("services/users/users.api.yaml", USERS)];
     sources.extend(texts.iter().map(|(path, text)| (path.as_str(), text.as_str())));
-    compile_files(&sources)
+    common::compile_files(&sources)
 }
 
 /// Test IDs, file IDs and a glob, for picking selectors from.
 fn pool(program: &Program) -> Vec<String> {
-    let tests = program.tests.keys().map(|test| name(program, test.sym()).to_owned());
-    let files = program.test_files.keys().map(|file| name(program, file.sym()).to_owned());
+    let tests = program.tests.keys().map(|test| common::name(program, test.sym()).to_owned());
+    let files = program.test_files.keys().map(|file| common::name(program, file.sym()).to_owned());
     tests.chain(files).chain(["g*".to_owned()]).collect()
 }
 
@@ -88,13 +89,13 @@ fn selection(program: &Program, picks: &[usize], expr: Option<usize>, include_sk
 }
 
 fn run(program: &Program, selection: &Selection) -> Plan {
-    plan(program, selection, &today()).unwrap()
+    vc_planner::plan(program, selection, &common::today()).unwrap()
 }
 
 fn planned_tests(program: &Program, plan: &Plan) -> Vec<String> {
     let mut tests: Vec<String> = Vec::new();
     for instance in plan.files.iter().flat_map(|file| &file.instances) {
-        let test = name(program, instance.test.sym()).to_owned();
+        let test = common::name(program, instance.test.sym()).to_owned();
         if !tests.contains(&test) {
             tests.push(test);
         }
@@ -160,8 +161,8 @@ proptest! {
     fn selecting_a_file_is_selecting_its_tests(files in gen_files(), pick in 0..4_usize, include_skipped: bool) {
         let program = generated(&files);
         let file = program.test_files.values().nth(pick % program.test_files.len()).unwrap();
-        let by_file = Selection { ids: vec![name(&program, file.id.sym()).to_owned()], include_skipped, ..Selection::default() };
-        let tests = file.tests.iter().map(|test| name(&program, test.sym()).to_owned()).collect();
+        let by_file = Selection { ids: vec![common::name(&program, file.id.sym()).to_owned()], include_skipped, ..Selection::default() };
+        let tests = file.tests.iter().map(|test| common::name(&program, test.sym()).to_owned()).collect();
         let by_tests = Selection { ids: tests, include_skipped, ..Selection::default() };
         prop_assert_eq!(run(&program, &by_file), run(&program, &by_tests));
     }

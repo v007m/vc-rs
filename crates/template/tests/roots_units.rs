@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{Pos, Reference, ScalarSource, ScalarStyle, SourceFileId, SourceSpan, StatusPattern, StringTable};
-use vc_template::{Roots, parse, parse_duration, parse_size, parse_status};
+use vc_template::Roots;
 
 fn span() -> SourceSpan {
     SourceSpan::new(SourceFileId::new(0), Pos::new(4, 9, 50), Pos::new(4, 14, 55))
@@ -13,7 +13,11 @@ fn span() -> SourceSpan {
 fn reference(text: &str, strings: &mut StringTable) -> Reference {
     let end = Pos::new(1, 1 + u32::try_from(text.len()).unwrap(), text.len());
     let span = SourceSpan::new(SourceFileId::new(0), Pos::START, end);
-    parse(text, ScalarSource { span, style: ScalarStyle::Plain }, strings).unwrap().single_ref().cloned().unwrap()
+    vc_template::parse(text, ScalarSource { span, style: ScalarStyle::Plain }, strings)
+        .unwrap()
+        .single_ref()
+        .cloned()
+        .unwrap()
 }
 
 fn check(roots: &Roots, text: &str) -> Result<(), Box<Diagnostic>> {
@@ -71,7 +75,7 @@ fn bare_response_fields_with_approximate_spans_get_no_fix() {
     let text = "${body.id}";
     let span = SourceSpan::new(SourceFileId::new(0), Pos::START, Pos::new(3, 1, 40));
     let mut strings = StringTable::new();
-    let template = parse(text, ScalarSource { span, style: ScalarStyle::Block }, &mut strings).unwrap();
+    let template = vc_template::parse(text, ScalarSource { span, style: ScalarStyle::Block }, &mut strings).unwrap();
     let diagnostic = *Roots::new().check(template.single_ref().unwrap(), &strings).unwrap_err();
     assert_eq!((diagnostic.code, diagnostic.primary.span, diagnostic.fixes.len()), (Code::V2105, span, 0));
 }
@@ -111,7 +115,7 @@ fn step_roots_need_that_step() {
 
 #[test]
 fn durations_take_a_unit() {
-    let ok = |text| parse_duration(text, span()).unwrap().get();
+    let ok = |text| vc_template::parse_duration(text, span()).unwrap().get();
     assert_eq!(ok("250ms"), Duration::from_millis(250));
     assert_eq!(ok("2s"), Duration::from_secs(2));
     assert_eq!(ok("3m"), Duration::from_secs(180));
@@ -121,7 +125,7 @@ fn durations_take_a_unit() {
 
 #[test]
 fn a_bare_number_gets_a_certain_fix() {
-    let diagnostic = *parse_duration("500", span()).unwrap_err();
+    let diagnostic = *vc_template::parse_duration("500", span()).unwrap_err();
     assert_eq!((diagnostic.code, diagnostic.message.as_str()), (Code::V2301, "invalid duration `500`"));
     let [fix] = &diagnostic.fixes[..] else { panic!("expected one fix") };
     assert!(fix.certain);
@@ -142,7 +146,7 @@ fn bad_durations_have_no_fix() {
         "99999999999999999999h",
         "18446744073709551615h",
     ] {
-        let diagnostic = *parse_duration(text, span()).unwrap_err();
+        let diagnostic = *vc_template::parse_duration(text, span()).unwrap_err();
         assert_eq!((diagnostic.code, diagnostic.fixes.len()), (Code::V2301, 0), "{text}");
         assert_eq!(diagnostic.primary.span, span());
     }
@@ -150,17 +154,17 @@ fn bad_durations_have_no_fix() {
 
 #[test]
 fn sizes_are_binary() {
-    let ok = |text| parse_size(text, span()).unwrap().bytes();
+    let ok = |text| vc_template::parse_size(text, span()).unwrap().bytes();
     assert_eq!((ok("512b"), ok("4kb"), ok("1mb"), ok("2gb")), (512, 4096, 1_048_576, 2_147_483_648));
     for text in ["4", "4k", "4KB", "kb", "4 kb", "18446744073709551615kb"] {
-        let diagnostic = *parse_size(text, span()).unwrap_err();
+        let diagnostic = *vc_template::parse_size(text, span()).unwrap_err();
         assert_eq!((diagnostic.code, diagnostic.message.clone()), (Code::V2301, format!("invalid size `{text}`")));
     }
 }
 
 #[test]
 fn statuses_are_codes_or_classes() {
-    let ok = |text| parse_status(text, span()).unwrap();
+    let ok = |text| vc_template::parse_status(text, span()).unwrap();
     assert_eq!(
         (ok("201"), ok("100"), ok("599")),
         (StatusPattern::Code(201), StatusPattern::Code(100), StatusPattern::Code(599))
@@ -171,7 +175,7 @@ fn statuses_are_codes_or_classes() {
     );
     for text in ["", "99", "099", "600", "2000", "+20", "+99", "+1xx", "0xx", "6xx", "22xx", "xx", "2XX", "+xx", "20x"]
     {
-        let diagnostic = *parse_status(text, span()).unwrap_err();
+        let diagnostic = *vc_template::parse_status(text, span()).unwrap_err();
         assert_eq!((diagnostic.code, diagnostic.primary.span), (Code::V2303, span()), "{text}");
     }
 }

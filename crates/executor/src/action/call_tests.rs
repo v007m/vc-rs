@@ -12,9 +12,10 @@ use vc_model::{
     ActionId, ActionKind, BodySpec, Check, CheckKind, Expect, HttpResponse, Matcher, Method, Origin, OwnerKey, Path,
     Poll, Segment, StatusPattern, TemplateValue,
 };
-use vc_testkit::{FakeTransport, Recorded, RecordingTransport, status};
+use vc_testkit::{FakeTransport, Recorded, RecordingTransport};
 
-use crate::fixture::{Fixture, Server, literal, span};
+use crate::fixture;
+use crate::fixture::{Fixture, Server};
 use crate::{
     ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, MASKED, PendingCleanup, PipelineParts, Saved,
 };
@@ -82,7 +83,7 @@ async fn the_request_is_rendered_from_every_level_of_the_scope() {
     let action_query = fixture.templates(&[("page", "3"), ("q", "${var.name}")]);
     let action_headers = fixture.templates(&[("x-api", "action")]);
     (fixture.action_mut(call).query, fixture.action_mut(call).headers) = (action_query, action_headers);
-    let (report, sent) = send(fixture, call, Frame::default(), vec![status(201)]).await;
+    let (report, sent) = send(fixture, call, Frame::default(), vec![vc_testkit::status(201)]).await;
     assert_eq!(report.outcome.failure(), None);
     let request = &sent[0].request;
     assert_eq!(
@@ -102,7 +103,7 @@ async fn a_list_repeats_its_query_key_and_unreserved_characters_stay() {
     let tags = TemplateValue::List(vec![fixture.value("a-b_c.d~e"), TemplateValue::Null, fixture.value("x&y=z")]);
     fixture.action_mut(call).vars.values = [(fixture.var("greeting"), tags)].into();
     fixture.api_mut(call).query = fixture.templates(&[("tag s", "${var.greeting}")]);
-    let (_, sent) = send(fixture, call, Frame::default(), vec![status(200)]).await;
+    let (_, sent) = send(fixture, call, Frame::default(), vec![vc_testkit::status(200)]).await;
     let uri = sent[0].request.uri.to_string();
     assert_eq!(uri, "http://api.test/users?fixed=1&tag%20s=a-b_c.d~e&tag%20s=x%26y%3Dz");
 }
@@ -118,7 +119,7 @@ async fn sent_body(
     let body = body(&mut fixture);
     fixture.api_mut(call).headers = fixture.templates(headers);
     fixture.api_mut(call).body = body;
-    let (report, sent) = send(fixture, call, Frame::default(), vec![status(200)]).await;
+    let (report, sent) = send(fixture, call, Frame::default(), vec![vc_testkit::status(200)]).await;
     let recorded = sent.first().ok_or_else(|| code(&report))?;
     let kind = recorded.request.headers.get(CONTENT_TYPE).and_then(|kind| kind.to_str().ok()).unwrap_or_default();
     Ok((recorded.request.body.clone(), kind.to_owned()))
@@ -133,9 +134,9 @@ async fn each_body_kind_sets_its_content_type_unless_one_is_given() {
     let text =
         sent_body(|fixture| BodySpec::Text(fixture.template("hi ${var.greeting | default('there')}")), &[]).await;
     assert_eq!(text, Ok((Bytes::from("hi there"), "text/plain; charset=utf-8".to_owned())));
-    let bytes = sent_body(|_| BodySpec::Base64(literal(" aGk= ")), &[("content-type", "image/png")]).await;
+    let bytes = sent_body(|_| BodySpec::Base64(fixture::literal(" aGk= ")), &[("content-type", "image/png")]).await;
     assert_eq!(bytes, Ok((Bytes::from("hi"), "image/png".to_owned())));
-    let raw = sent_body(|_| BodySpec::Base64(literal("aGk=")), &[]).await;
+    let raw = sent_body(|_| BodySpec::Base64(fixture::literal("aGk=")), &[]).await;
     assert_eq!(raw, Ok((Bytes::from("hi"), "application/octet-stream".to_owned())));
     let extended = sent_body(
         |fixture| {
@@ -152,8 +153,8 @@ async fn each_body_kind_sets_its_content_type_unless_one_is_given() {
 #[tokio::test]
 async fn bodies_and_headers_that_cannot_be_built_fail_before_sending() {
     let v5111 = Err(Some(Code::V5111.to_string()));
-    assert_eq!(sent_body(|_| BodySpec::Base64(literal("not base64!")), &[]).await, v5111);
-    assert_eq!(sent_body(|_| BodySpec::File(literal("avatar.png")), &[]).await, v5111);
+    assert_eq!(sent_body(|_| BodySpec::Base64(fixture::literal("not base64!")), &[]).await, v5111);
+    assert_eq!(sent_body(|_| BodySpec::File(fixture::literal("avatar.png")), &[]).await, v5111);
     assert_eq!(sent_body(|_| BodySpec::Form(IndexMap::new()), &[]).await, v5111);
     assert_eq!(sent_body(|_| BodySpec::Multipart(IndexMap::new()), &[]).await, v5111);
     assert_eq!(sent_body(|_| BodySpec::None, &[("x-bad", "line\nbreak")]).await, v5111);
@@ -201,7 +202,7 @@ async fn the_cleanup_is_registered_with_its_vars_rendered_against_the_response()
 async fn a_call_run_as_a_cleanup_registers_none() {
     let (fixture, create, _) = creating(&[]);
     let frame = Frame::default().cleaning(&Arc::new(Saved::new()));
-    let (report, _) = send(fixture, create, frame, vec![status(201)]).await;
+    let (report, _) = send(fixture, create, frame, vec![vc_testkit::status(201)]).await;
     assert_eq!((report.outcome.failure(), report.cleanups), (None, vec![]));
 }
 
@@ -264,7 +265,7 @@ fn expecting(kind: CheckKind, target: Option<&str>, matcher: Matcher) -> impl Fn
         target: target.clone(),
         matcher: matcher.clone(),
         origin: Origin::Action(action),
-        span: span(),
+        span: fixture::span(),
     }
 }
 
@@ -273,7 +274,7 @@ async fn the_api_s_default_status_check_is_2xx_unless_the_action_checks_the_stat
     let mut fixture = Fixture::new();
     let call = fixture.call("/users");
     let ActionKind::Call(api) = fixture.action_mut(call).kind else { unreachable!("a call") };
-    let (report, _) = send(fixture, call, Frame::default(), vec![status(500)]).await;
+    let (report, _) = send(fixture, call, Frame::default(), vec![vc_testkit::status(500)]).await;
     assert_eq!(code(&report), Some(Code::V5101.to_string()));
     let check = &report.checks[0];
     assert_eq!(
@@ -285,7 +286,7 @@ async fn the_api_s_default_status_check_is_2xx_unless_the_action_checks_the_stat
     let status_500 = expecting(CheckKind::Status, None, Matcher::Status(vec![StatusPattern::Code(500)]));
     fixture.action_mut(call).expect.checks = vec![status_500(call)];
     fixture.action_mut(call).save.values = fixture.vars(&[("code", "${response.status}")]);
-    let (report, _) = send(fixture, call, Frame::default(), vec![status(500)]).await;
+    let (report, _) = send(fixture, call, Frame::default(), vec![vc_testkit::status(500)]).await;
     assert_eq!((report.outcome.failure(), report.checks.len()), (None, 1));
     assert_eq!(report.saved, saved(json!({ "code": 500 })));
 }
@@ -309,10 +310,11 @@ async fn a_masked_header_never_shows_in_a_check_or_a_failure() {
     let mut fixture = Fixture::new();
     let call = fixture.call("/users");
     fixture.program.config.redact_headers = vec!["X-Session".to_owned()];
-    let header =
-        |name| expecting(CheckKind::Header, Some(name), Matcher::Equals(TemplateValue::String(literal("x"))))(call);
+    let header = |name| {
+        expecting(CheckKind::Header, Some(name), Matcher::Equals(TemplateValue::String(fixture::literal("x"))))(call)
+    };
     fixture.action_mut(call).expect.checks = vec![header("authorization"), header("x-session")];
-    let mut response = status(200);
+    let mut response = vc_testkit::status(200);
     response.headers.insert(AUTHORIZATION, HeaderValue::from_static("Bearer s3cret"));
     response.headers.insert("x-session", HeaderValue::from_static("s3ssion"));
     let (report, _) = send(fixture, call, Frame::default(), vec![response]).await;
@@ -334,10 +336,16 @@ async fn poll_sends_until_its_checks_hold_or_its_timeout_passes() {
         (fixture, call)
     };
     let (fixture, call) = polling();
-    let (report, sent) = send(fixture, call, Frame::default(), vec![status(503), status(202), status(200)]).await;
+    let (report, sent) = send(
+        fixture,
+        call,
+        Frame::default(),
+        vec![vc_testkit::status(503), vc_testkit::status(202), vc_testkit::status(200)],
+    )
+    .await;
     assert_eq!((report.outcome.failure(), sent.len()), (None, 3));
     let (fixture, call) = polling();
-    let (report, sent) = send(fixture, call, Frame::default(), vec![status(503)]).await;
+    let (report, sent) = send(fixture, call, Frame::default(), vec![vc_testkit::status(503)]).await;
     let failure = report.outcome.failure().cloned().unwrap_or_else(|| unreachable!("never 200"));
     assert_eq!((failure.code, sent.len()), (Some(Code::V5104.to_string()), 4));
     assert!(failure.message.starts_with("`poll.until` did not hold within 3s: status"), "{}", failure.message);

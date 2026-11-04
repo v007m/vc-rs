@@ -24,7 +24,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use support::{Block, Outcome};
-use vc_compiler::{CompileInput, compile};
+use vc_compiler::CompileInput;
 use vc_diagnostics::{Code, Diagnostic, Severity};
 use vc_engine::SourceFiles;
 use vc_model::{ContentHash, FileKind, SourceFile, SourcePath};
@@ -59,7 +59,7 @@ fn whole_path(heading: &str, block: &Block) -> Option<String> {
 fn parse_errors(text: &str) -> Outcome<Vec<Code>> {
     let path = SourcePath::new("fragment.yaml")?;
     let file = SourceFile { path, text: text.to_owned(), hash: ContentHash::new([0; 32]) };
-    let compiled = compile(CompileInput { files: vec![file], ..CompileInput::default() });
+    let compiled = vc_compiler::compile(CompileInput { files: vec![file], ..CompileInput::default() });
     Ok(compiled.diagnostics.iter().map(|found| found.code).filter(|code| code.number() < 2000).collect())
 }
 

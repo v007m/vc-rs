@@ -7,7 +7,7 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use vc_compiler::{CompileCache, CompileInput, compile};
+use vc_compiler::{CompileCache, CompileInput};
 use vc_diagnostics::{JsonRenderer, Render, TextRenderer};
 use vc_model::{ContentHash, Date, FileKind, SourceFile, SourcePath};
 
@@ -45,7 +45,7 @@ fn golden(case: &str) -> Outcome {
         today: Date::parse(TODAY),
         assets: Some(others.into_iter().map(|file| file.path).collect()),
     };
-    let mut compiled = compile(input);
+    let mut compiled = vc_compiler::compile(input);
     compiled.diagnostics.sort();
     let text = TextRenderer::default().render(&compiled.diagnostics, &compiled.files)?;
     let json = JsonRenderer.render(&compiled.diagnostics, &compiled.files)?;

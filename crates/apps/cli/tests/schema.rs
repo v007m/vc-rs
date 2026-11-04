@@ -1,7 +1,7 @@
 use std::fs;
 
 use assert_cmd::cargo::cargo_bin_cmd;
-use predicates::str::contains;
+use predicates::str;
 
 const KINDS: [&str; 4] = ["config", "api", "test", "load"];
 
@@ -22,7 +22,12 @@ fn writes_one_file_per_kind_with_out() {
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("schema");
     let mut vc = cargo_bin_cmd!("vc");
-    vc.args(["schema", "export", "--out"]).arg(&out).assert().success().stdout("").stderr(contains("wrote 4 schemas"));
+    vc.args(["schema", "export", "--out"])
+        .arg(&out)
+        .assert()
+        .success()
+        .stdout("")
+        .stderr(str::contains("wrote 4 schemas"));
     for kind in KINDS {
         let text = fs::read_to_string(out.join(format!("{kind}.schema.json"))).unwrap();
         assert!(text.contains("\"$schema\"") && text.ends_with("}\n"), "{text}");
@@ -35,5 +40,5 @@ fn refuses_an_out_folder_it_cannot_create() {
     let file = dir.path().join("taken");
     fs::write(&file, b"").unwrap();
     let mut vc = cargo_bin_cmd!("vc");
-    vc.args(["schema", "export", "--out"]).arg(&file).assert().code(2).stderr(contains("error: "));
+    vc.args(["schema", "export", "--out"]).arg(&file).assert().code(2).stderr(str::contains("error: "));
 }

@@ -10,7 +10,7 @@ use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::{
     ActionId, ConnectionInfo, Exchange, HttpResponse, Loop, OwnerKey, RenderedRequest, TemplateValue, Timing,
 };
-use vc_testkit::{FakeTransport, status};
+use vc_testkit::FakeTransport;
 
 use crate::fixture::Fixture;
 use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PendingCleanup, PipelineParts};
@@ -26,7 +26,7 @@ impl Transport for Paths {
         let wait = path.rsplit('/').next().and_then(|last| last.parse::<u64>().ok()).unwrap_or(0);
         tokio::time::sleep(Duration::from_millis(wait * 10)).await;
         let body = Bytes::from(json!({ "path": path }).to_string());
-        let response = HttpResponse { wire_size: body.len() as u64, body, ..status(200) };
+        let response = HttpResponse { wire_size: body.len() as u64, body, ..vc_testkit::status(200) };
         Ok(Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() })
     }
 }
@@ -112,7 +112,7 @@ async fn a_failed_turn_starts_no_more_and_keeps_the_cleanups_of_the_turns_that_r
     let create = fixture.creating("/users", delete);
     fixture.action_mut(create).save.values = fixture.vars(&[("n", "${iteration.index}")]);
     fixture.action_mut(create).repeat = Some(Loop::Repeat { times: 4, parallel: 1 });
-    let transport = FakeTransport::scripted([201, 201, 500, 201].map(|code| Ok(status(code))).to_vec());
+    let transport = FakeTransport::scripted([201, 201, 500, 201].map(|code| Ok(vc_testkit::status(code))).to_vec());
     let report = run(fixture, create, Arc::new(transport.clone())).await;
     let failure = report.outcome.failure().cloned().unwrap_or_else(|| unreachable!("the third turn fails"));
     assert!(failure.message.starts_with("iteration 3: "), "{}", failure.message);

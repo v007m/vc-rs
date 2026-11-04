@@ -7,12 +7,13 @@ use vc_model::{
 };
 
 use crate::needs::Shared;
-use crate::testing::{Fixture, read, span};
+use crate::testing;
+use crate::testing::Fixture;
 
 type Place = fn(&mut Fixture, TestId, ActionId);
 
 fn value() -> TemplateValue {
-    TemplateValue::String(read("warm"))
+    TemplateValue::String(testing::read("warm"))
 }
 
 fn token(fixture: &Fixture) -> VarName {
@@ -26,7 +27,7 @@ fn vars(fixture: &Fixture) -> VarDefs {
 /// A new `call: users#list` that sends a header reading `warm`.
 fn reader(fixture: &mut Fixture) -> ActionId {
     let action = fixture.call(None);
-    fixture.action_mut(action).headers.insert("a".into(), read("warm"));
+    fixture.action_mut(action).headers.insert("a".into(), testing::read("warm"));
     action
 }
 
@@ -36,13 +37,13 @@ fn expect(matcher: Matcher) -> Expect {
         target: None,
         matcher,
         origin: Origin::Action(ActionId::new(0)),
-        span: span(),
+        span: testing::span(),
     };
     Expect { checks: vec![check], replace: false }
 }
 
 fn call_with(arg: MatcherArg) -> Matcher {
-    Matcher::All(vec![MatcherCall { name: "equals".into(), arg, span: span() }])
+    Matcher::All(vec![MatcherCall { name: "equals".into(), arg, span: testing::span() }])
 }
 
 fn inline(url: Template, headers: IndexMap<String, Template>) -> InlineRequest {
@@ -62,30 +63,31 @@ fn needs_warm(place: Place) -> bool {
 }
 
 const ACTION: &[(&str, Place)] = &[
-    ("header", |f, _, c| _ = f.action_mut(c).headers.insert("a".into(), read("warm"))),
-    ("query", |f, _, c| _ = f.action_mut(c).query.insert("a".into(), read("warm"))),
+    ("header", |f, _, c| _ = f.action_mut(c).headers.insert("a".into(), testing::read("warm"))),
+    ("query", |f, _, c| _ = f.action_mut(c).query.insert("a".into(), testing::read("warm"))),
     ("var", |f, _, c| f.action_mut(c).vars = vars(f)),
     ("save", |f, _, c| {
         let name = token(f);
         f.action_mut(c).save.values.insert(name, value());
     }),
     ("json body", |f, _, c| f.action_mut(c).body = Some(BodySpec::Json(value()))),
-    ("text body", |f, _, c| f.action_mut(c).body = Some(BodySpec::Text(read("warm")))),
-    ("file body", |f, _, c| f.action_mut(c).body = Some(BodySpec::File(read("warm")))),
-    ("base64 body", |f, _, c| f.action_mut(c).body = Some(BodySpec::Base64(read("warm")))),
+    ("text body", |f, _, c| f.action_mut(c).body = Some(BodySpec::Text(testing::read("warm")))),
+    ("file body", |f, _, c| f.action_mut(c).body = Some(BodySpec::File(testing::read("warm")))),
+    ("base64 body", |f, _, c| f.action_mut(c).body = Some(BodySpec::Base64(testing::read("warm")))),
     ("form body", |f, _, c| f.action_mut(c).body = Some(BodySpec::Form(IndexMap::from([("a".into(), value())])))),
     ("extend base", |f, _, c| {
         let changes = TemplateValue::Null;
-        f.action_mut(c).body = Some(BodySpec::Extend { base: read("warm"), changes, remove: Vec::new() });
+        f.action_mut(c).body = Some(BodySpec::Extend { base: testing::read("warm"), changes, remove: Vec::new() });
     }),
     ("extend changes", |f, _, c| {
-        f.action_mut(c).body = Some(BodySpec::Extend { base: read("x"), changes: value(), remove: Vec::new() });
+        f.action_mut(c).body =
+            Some(BodySpec::Extend { base: testing::read("x"), changes: value(), remove: Vec::new() });
     }),
     ("multipart value", |f, _, c| {
         f.action_mut(c).body = Some(BodySpec::Multipart(IndexMap::from([("a".into(), PartSpec::Value(value()))])));
     }),
     ("multipart file", |f, _, c| {
-        let part = PartSpec::File(read("warm"));
+        let part = PartSpec::File(testing::read("warm"));
         f.action_mut(c).body = Some(BodySpec::Multipart(IndexMap::from([("a".into(), part)])));
     }),
     ("equals", |f, _, c| f.action_mut(c).expect = expect(Matcher::Equals(value()))),
@@ -130,20 +132,21 @@ const ACTION: &[(&str, Place)] = &[
 ];
 
 const KINDS: &[(&str, Place)] = &[
-    ("command", |f, _, c| f.action_mut(c).kind = ActionKind::Command(read("warm"))),
-    ("inline url", |f, _, c| f.action_mut(c).kind = ActionKind::Inline(inline(read("warm"), IndexMap::new()))),
+    ("command", |f, _, c| f.action_mut(c).kind = ActionKind::Command(testing::read("warm"))),
+    ("inline url", |f, _, c| f.action_mut(c).kind = ActionKind::Inline(inline(testing::read("warm"), IndexMap::new()))),
     ("inline header", |f, _, c| {
-        f.action_mut(c).kind = ActionKind::Inline(inline(read("x"), IndexMap::from([("a".into(), read("warm"))])));
+        f.action_mut(c).kind =
+            ActionKind::Inline(inline(testing::read("x"), IndexMap::from([("a".into(), testing::read("warm"))])));
     }),
     ("inline body", |f, _, c| {
-        let mut request = inline(read("x"), IndexMap::new());
+        let mut request = inline(testing::read("x"), IndexMap::new());
         request.body = BodySpec::Json(value());
         f.action_mut(c).kind = ActionKind::Inline(request);
     }),
     ("reused call", |f, _, c| {
         let reused = f.test("b", &[]);
         let call = ActionId::new(c.index() + 1);
-        f.action_mut(call).headers.insert("a".into(), read("warm"));
+        f.action_mut(call).headers.insert("a".into(), testing::read("warm"));
         f.action_mut(c).kind = ActionKind::Test(reused);
     }),
     ("reused vars", |f, _, c| {
@@ -166,8 +169,8 @@ const SCOPE: &[(&str, Place)] = &[
         let row = TemplateValue::Map(IndexMap::from([("a".into(), value())]));
         f.test_mut(t).examples = Some(Examples::Rows(vec![row]));
     }),
-    ("example file", |f, t, _| f.test_mut(t).examples = Some(Examples::File(read("warm")))),
-    ("example template", |f, t, _| f.test_mut(t).examples = Some(Examples::Template(read("warm")))),
+    ("example file", |f, t, _| f.test_mut(t).examples = Some(Examples::File(testing::read("warm")))),
+    ("example template", |f, t, _| f.test_mut(t).examples = Some(Examples::Template(testing::read("warm")))),
     ("before", |f, t, _| {
         let before = reader(f);
         f.test_mut(t).before.push(before);
@@ -186,38 +189,40 @@ const SCOPE: &[(&str, Place)] = &[
     }),
     ("file var", |f, _, _| f.file_mut().vars = vars(f)),
     ("config var", |f, _, _| f.program.config.vars = vars(f)),
-    ("config header", |f, _, _| _ = f.program.config.defaults.headers.insert("a".into(), read("warm"))),
+    ("config header", |f, _, _| _ = f.program.config.defaults.headers.insert("a".into(), testing::read("warm"))),
     ("profile", |f, _, _| {
         let id = ProfileId::new(f.sym("dev"));
         let vars = IndexMap::from([(token(f), value())]);
         f.program.profiles.insert(id, Profile { id, name: None, default: true, vars });
     }),
     ("cel", |f, t, _| {
-        let refs =
-            read("warm").parts.into_iter().filter_map(|part| if let Part::Ref(r) = part { Some(r) } else { None });
-        let source = CelSource { text: "x".into(), span: span(), style: ScalarStyle::Plain };
+        let refs = testing::read("warm")
+            .parts
+            .into_iter()
+            .filter_map(|part| if let Part::Ref(r) = part { Some(r) } else { None });
+        let source = CelSource { text: "x".into(), span: testing::span(), style: ScalarStyle::Plain };
         let cel = TemplateValue::Cel(CelProgram { source, refs: refs.collect() });
         let name = token(f);
         f.test_mut(t).vars.values.insert(name, cel);
     }),
     ("extend value", |f, t, _| {
         let changes = Box::new(TemplateValue::Null);
-        let extend = TemplateValue::Extend { base: read("warm"), changes, remove: Vec::new() };
+        let extend = TemplateValue::Extend { base: testing::read("warm"), changes, remove: Vec::new() };
         let name = token(f);
         f.test_mut(t).vars.values.insert(name, extend);
     }),
     ("extend value changes", |f, t, _| {
-        let extend = TemplateValue::Extend { base: read("x"), changes: Box::new(value()), remove: Vec::new() };
+        let extend = TemplateValue::Extend { base: testing::read("x"), changes: Box::new(value()), remove: Vec::new() };
         let name = token(f);
         f.test_mut(t).vars.values.insert(name, extend);
     }),
 ];
 
 const API: &[(&str, Place)] = &[
-    ("api path", |f, _, _| f.program.apis[0].path = read("warm")),
+    ("api path", |f, _, _| f.program.apis[0].path = testing::read("warm")),
     ("api var", |f, _, _| f.program.apis[0].vars = vars(f)),
-    ("api query", |f, _, _| _ = f.program.apis[0].query.insert("a".into(), read("warm"))),
-    ("api header", |f, _, _| _ = f.program.apis[0].headers.insert("a".into(), read("warm"))),
+    ("api query", |f, _, _| _ = f.program.apis[0].query.insert("a".into(), testing::read("warm"))),
+    ("api header", |f, _, _| _ = f.program.apis[0].headers.insert("a".into(), testing::read("warm"))),
     ("api body", |f, _, _| f.program.apis[0].body = BodySpec::Json(value())),
     ("api expect", |f, _, _| f.program.apis[0].expect = expect(Matcher::Equals(value()))),
     ("api save", |f, _, _| {
@@ -226,8 +231,8 @@ const API: &[(&str, Place)] = &[
     }),
     ("api auth", |f, _, _| f.program.apis[0].auth = AuthRef::Use { id: AuthId::new(f.sym("admin")), vars: vars(f) }),
     ("api cleanup", |f, _, _| f.program.apis[0].cleanup = Some(reader(f))),
-    ("base url", |f, _, _| f.program.api_groups[0].base_url = Some(read("warm"))),
-    ("group header", |f, _, _| _ = f.program.api_groups[0].headers.insert("a".into(), read("warm"))),
+    ("base url", |f, _, _| f.program.api_groups[0].base_url = Some(testing::read("warm"))),
+    ("group header", |f, _, _| _ = f.program.api_groups[0].headers.insert("a".into(), testing::read("warm"))),
     ("group var", |f, _, _| f.program.api_groups[0].vars = vars(f)),
     ("group auth", |f, _, _| {
         f.program.api_groups[0].auth = AuthRef::Use { id: AuthId::new(f.sym("admin")), vars: vars(f) };
@@ -256,9 +261,9 @@ fn a_function_reads_nothing() {
     }));
 }
 
-/// `read("warm")` with its reference changed by `change`.
+/// `testing::read("warm")` with its reference changed by `change`.
 fn changed(change: fn(&mut vc_model::Reference)) -> Template {
-    let mut template = read("warm");
+    let mut template = testing::read("warm");
     for part in &mut template.parts {
         if let Part::Ref(reference) = part {
             change(reference);
@@ -270,7 +275,7 @@ fn changed(change: fn(&mut vc_model::Reference)) -> Template {
 #[test]
 fn only_var_reads_keyed_by_a_shared_name_are_needs() {
     let reads: [fn() -> Template; 3] = [
-        || read("seed"),
+        || testing::read("seed"),
         || changed(|reference| reference.ns = Namespace::Env),
         || changed(|reference| reference.path.segments[0] = Segment::Index(0)),
     ];

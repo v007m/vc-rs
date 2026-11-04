@@ -7,9 +7,9 @@
 
 use std::sync::Arc;
 
-use vc_compiler::{CompileInput, compile};
+use vc_compiler::CompileInput;
 use vc_model::{ActionId, ContentHash, Plan, Program, SourceFile, SourcePath, Sym, TestId};
-use vc_planner::{PlanError, PlanOptions, Selection, plan};
+use vc_planner::{PlanError, PlanOptions, Selection};
 
 pub const CONFIG: &str = "syntaxVersion: 2
 profiles:
@@ -102,7 +102,7 @@ tests:
 /// Compiles `files`, every test standalone.
 pub fn compile_files(files: &[(&str, &str)]) -> Program {
     let files = files.iter().map(|(path, text)| source(path, text)).collect();
-    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    let compiled = vc_compiler::compile(CompileInput { files, ..CompileInput::default() });
     let Some(program) = compiled.program else { panic!("{:?}", compiled.diagnostics) };
     let mut program = Arc::unwrap_or_clone(program);
     // The compiler reads a missing `standalone` as false (with m1-lint); remove when that lands.
@@ -139,7 +139,7 @@ pub fn today() -> PlanOptions {
 }
 
 pub fn try_plan(program: &Program, selection: &Selection) -> Result<Plan, PlanError> {
-    plan(program, selection, &today())
+    vc_planner::plan(program, selection, &today())
 }
 
 pub fn planned(program: &Program, selection: &Selection) -> Plan {

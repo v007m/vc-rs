@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::time::{Instant, sleep_until};
+use tokio::time;
+use tokio::time::Instant;
 use vc_diagnostics::Code;
 use vc_model::{
     ActionId, ActionKind, Event, Feed, HookRef, OwnerKey, Plan, PlannedAction, Retry, RunStatus, TestResult,
@@ -13,7 +14,7 @@ use super::{Executor, RunOptions};
 use crate::fixture::{Fixture, Server};
 use crate::{
     ActionExecutors, ActionKindTag, EXIT_CANCELLED, EXIT_FAILED, EXIT_PASSED, EventBus, ExecutorError, HostLimits,
-    PipelineParts, RunSummary, exit_code,
+    PipelineParts, RunSummary,
 };
 
 const SECOND: Duration = Duration::from_secs(1);
@@ -65,7 +66,7 @@ async fn run(fixture: Fixture, plan: Plan, options: RunOptions, interrupts: &[Du
     let start = Instant::now();
     let handle = executor.start(Arc::new(plan), bus.clone()).unwrap();
     for &at in interrupts {
-        sleep_until(start + at).await;
+        time::sleep_until(start + at).await;
         handle.interrupt();
     }
     let summary = handle.finish().await.unwrap();
@@ -96,7 +97,7 @@ async fn fifty_instances_share_one_before_all_call() {
     let plan = fixture.plan(&[setup], &[(test, 50)]);
     let outcome = run(fixture, plan, RunOptions { concurrency: 8, ..RunOptions::default() }, &[]).await;
     assert_eq!(outcome.summary, RunSummary { status: RunStatus::Passed, totals: totals([50, 0, 0, 0, 0]) });
-    assert_eq!(exit_code(outcome.summary), EXIT_PASSED);
+    assert_eq!(crate::exit_code(outcome.summary), EXIT_PASSED);
     assert_eq!((outcome.sent("/setup"), outcome.sent("/users")), (1, 50));
     let started = Event::ActionStarted { action: setup, owner: OwnerKey::File(file) };
     assert_eq!(outcome.events.iter().filter(|event| **event == started).count(), 1);
@@ -112,7 +113,7 @@ async fn a_failed_before_all_blocks_every_instance_that_needs_it() {
     let plan = fixture.plan(&[setup], &[(test, 50)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
     assert_eq!(outcome.summary, RunSummary { status: RunStatus::Failed, totals: totals([0, 0, 50, 0, 0]) });
-    assert_eq!(exit_code(outcome.summary), EXIT_FAILED);
+    assert_eq!(crate::exit_code(outcome.summary), EXIT_FAILED);
     assert_eq!((outcome.sent("/fail"), outcome.sent("/users")), (1, 0));
 }
 
@@ -140,7 +141,7 @@ async fn cleanups_run_when_the_run_is_cancelled() {
     let plan = fixture.plan(&[], &[(test, 1)]);
     let outcome = run(fixture, plan, RunOptions::default(), &[SECOND]).await;
     assert_eq!(outcome.summary, RunSummary { status: RunStatus::Cancelled, totals: totals([0, 0, 0, 0, 1]) });
-    assert_eq!(exit_code(outcome.summary), EXIT_CANCELLED);
+    assert_eq!(crate::exit_code(outcome.summary), EXIT_CANCELLED);
     assert_eq!(outcome.cleaned(), [delete]);
     assert_eq!(outcome.sent("/never"), 0);
     assert_eq!(outcome.elapsed, 6 * SECOND, "the slow call had the 5 s grace period");

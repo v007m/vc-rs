@@ -7,7 +7,8 @@ use vc_model::{ActionId, Examples, Instance, InstanceId, Needs, OwnerKey, Profil
 use vc_template::RenderError;
 
 use super::{Frame, Render};
-use crate::fixture::{Fixture, inputs, literal};
+use crate::fixture;
+use crate::fixture::Fixture;
 use crate::{ActionCx, ActionExecutors, ActionReport, ActionRequest, Saved, SharedSlots};
 
 /// Renders `probe` for `action` in `frame`, owned by `owner`.
@@ -47,9 +48,9 @@ fn profiles_layer_over_the_config_in_order() {
     let probe = TemplateValue::List(vec![fixture.value("${var.region}"), fixture.value("${run.profiles}")]);
     let program = Arc::new(fixture.program);
     let cx = |inputs| Arc::new(ActionCx::new(Arc::clone(&program), Arc::new(ActionExecutors::new()), inputs));
-    let default = run_level(&cx(inputs(&[])), action, &probe);
+    let default = run_level(&cx(fixture::inputs(&[])), action, &probe);
     assert_eq!(default, Ok(json!(["eu", ["dev"]])));
-    let chosen = run_level(&cx(inputs(&[]).with_profiles(vec![dev, prod])), action, &probe);
+    let chosen = run_level(&cx(fixture::inputs(&[]).with_profiles(vec![dev, prod])), action, &probe);
     assert_eq!(chosen, Ok(json!(["us", ["dev", "prod"]])), "a profile's vars win over by-profile config vars");
 }
 
@@ -157,7 +158,7 @@ fn env_reads_the_environment_port() {
     let mut fixture = Fixture::new();
     let action = fixture.call("/users");
     let (set, unset) = (fixture.value("Bearer ${env.TOKEN}"), fixture.value("${env.NOPE}"));
-    let cx = fixture.cx_with(ActionExecutors::new(), inputs(&[("TOKEN", "t-1")]));
+    let cx = fixture.cx_with(ActionExecutors::new(), fixture::inputs(&[("TOKEN", "t-1")]));
     assert_eq!(run_level(&cx, action, &set), Ok(json!("Bearer t-1")));
     let error = run_level(&cx, action, &unset).unwrap_err();
     assert_eq!((error.missing, error.message.as_str()), (true, "`env.NOPE` is not set"));
@@ -169,7 +170,7 @@ fn cel_values_read_vars_env_and_bound_roots() {
     let action = fixture.call("/users");
     fixture.action_mut(action).vars.values = [(fixture.var("page"), TemplateValue::Number(2.into()))].into();
     let probe = fixture.cel("var.page + 1 + size(env.TOKEN) + (has(var.email) ? 100 : 0)");
-    let cx = fixture.cx_with(ActionExecutors::new(), inputs(&[("TOKEN", "abc")]));
+    let cx = fixture.cx_with(ActionExecutors::new(), fixture::inputs(&[("TOKEN", "abc")]));
     assert_eq!(run_level(&cx, action, &probe), Ok(json!(6)));
 }
 
@@ -178,8 +179,8 @@ fn an_instance_binds_its_iteration_and_example_row() {
     let mut fixture = Fixture::new();
     let action = fixture.call("/users");
     let test = fixture.test(vec![action], None);
-    let rows =
-        ["a", "b"].map(|name| TemplateValue::Map([("name".to_owned(), TemplateValue::String(literal(name)))].into()));
+    let rows = ["a", "b"]
+        .map(|name| TemplateValue::Map([("name".to_owned(), TemplateValue::String(fixture::literal(name)))].into()));
     fixture.test_mut(test).examples = Some(Examples::Rows(rows.to_vec()));
     fixture.test_mut(test).repeat = 3;
     let probe = fixture.value("${example.name}:${iteration.index}/${iteration.count}");
@@ -196,7 +197,7 @@ fn examples_from_a_file_do_not_render_yet() {
     let mut fixture = Fixture::new();
     let action = fixture.call("/users");
     let test = fixture.test(vec![action], None);
-    fixture.test_mut(test).examples = Some(Examples::File(literal("rows.csv")));
+    fixture.test_mut(test).examples = Some(Examples::File(fixture::literal("rows.csv")));
     let probe = fixture.value("x");
     let cx = fixture.cx(ActionExecutors::new());
     let instance =

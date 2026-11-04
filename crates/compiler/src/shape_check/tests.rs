@@ -2,15 +2,16 @@ use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{FileKind, SourceFileId};
 use vc_parser::{Node, Syntax};
 
-use super::{LeafTy, Walk, at, check};
-use crate::shapes::{Scope, Unit, root};
+use super::{LeafTy, Walk};
+use crate::shapes;
+use crate::shapes::{Scope, Unit};
 
 fn tree(text: &str) -> Node {
     vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, text).0.unwrap()
 }
 
 fn walk(kind: FileKind, text: &str) -> Walk {
-    check(&tree(text), root(kind))
+    super::check(&tree(text), shapes::root(kind))
 }
 
 fn only(walk: &Walk) -> &Diagnostic {
@@ -101,8 +102,11 @@ fn collects_leaves_with_their_scopes() {
     assert!(status.scope.has(Scope::CALL.with(Scope::EXAMPLES)));
     assert!(!walk.leaves[0].scope.has(Scope::EXAMPLES), "examples does not see itself");
     let tree = tree(text);
-    assert_eq!(at(&tree, &status.path).and_then(Node::as_scalar).map(|scalar| scalar.text.as_str()), Some("200"));
-    assert!(at(&tree, &[0, 0, 0, 0, 0]).is_none());
+    assert_eq!(
+        super::at(&tree, &status.path).and_then(Node::as_scalar).map(|scalar| scalar.text.as_str()),
+        Some("200")
+    );
+    assert!(super::at(&tree, &[0, 0, 0, 0, 0]).is_none());
 }
 
 #[test]
@@ -115,7 +119,7 @@ fn records_the_ids_of_actions() {
 fn takes_the_first_alternative_that_fits() {
     let walk = walk(FileKind::Api, "auth: {id: shopOauth, vars: {a: 1}}\napis: [{id: a, path: /, auth: none}]\n");
     assert!(walk.diagnostics.is_empty(), "{:?}", walk.diagnostics);
-    let wrong = super::check(&tree("auth: [x]\n"), root(FileKind::Api));
+    let wrong = super::check(&tree("auth: [x]\n"), shapes::root(FileKind::Api));
     assert_eq!(only(&wrong).message, "expected reference or authUse, found a list");
 }
 

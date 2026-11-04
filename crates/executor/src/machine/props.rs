@@ -4,10 +4,10 @@ use std::collections::{BTreeSet, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 
-use proptest::prelude::*;
+use proptest::prelude::{Just, Strategy, prop, prop_assert, prop_assert_eq, prop_oneof, proptest};
 use vc_model::{ActionId, ActionOutcome, Event, Plan, Retry, TestStatus, Totals};
 
-use super::sim::{act, acts, drive_file, drive_run, fail, instance, passing_with, planned, planned_file};
+use super::sim;
 use super::{
     ActionReport, FileCommand, FileInput, FileOrchestrator, InstanceCommand, InstanceInput, InstanceScript,
     InstanceWorkflow, RunCommand, RunInput, RunOrchestrator,
@@ -46,13 +46,13 @@ impl Responder {
             Answer::Pass => ActionReport::passed(),
             Answer::Fail => {
                 self.failed.insert(action);
-                fail(action.index())
+                sim::fail(action.index())
             }
             Answer::Register(count) => {
                 let first = 1000 + u32::try_from(self.registered.len()).unwrap();
                 let ids: Vec<u32> = (first..first + count).collect();
                 self.registered.extend(&ids);
-                passing_with(&ids)
+                sim::passing_with(&ids)
             }
         }
     }
@@ -111,9 +111,9 @@ impl Probe {
 
 fn script() -> impl Strategy<Value = InstanceScript> {
     (0u32..3, 0u32..4, 0u32..3, prop::option::of(0u32..3)).prop_map(|(before, body, after, retry)| InstanceScript {
-        before: (1..=before).map(act).collect(),
-        body: (10..10 + body).map(act).collect(),
-        after: (20..20 + after).map(act).collect(),
+        before: (1..=before).map(sim::act).collect(),
+        body: (10..10 + body).map(sim::act).collect(),
+        after: (20..20 + after).map(sim::act).collect(),
         retry: retry.map(|attempts| Retry { attempts, delay: vc_model::Duration::new(Duration::from_millis(10)) }),
     })
 }
@@ -136,7 +136,7 @@ proptest! {
     fn instance_cleanups_close_once_and_blocked_attempts_never_retry(
         script in script(),
         answers in answers(),
-        interrupt in prop::option::of((0usize..30, any::<bool>())),
+        interrupt in prop::option::of((0usize..30, prop::arbitrary::any::<bool>())),
     ) {
         let retry = script.retry.map_or(0, |r| r.attempts);
         let mut probe = Probe { responder: Responder::new(answers), log: Vec::new(), blocked_attempt: false, retried_blocked: false };
@@ -165,7 +165,7 @@ proptest! {
 
 /// `count` `beforeAll` actions (IDs 1..), each needing the one before it when its flag is set.
 fn before_all() -> impl Strategy<Value = Vec<bool>> {
-    prop::collection::vec(any::<bool>(), 0..4)
+    prop::collection::vec(prop::arbitrary::any::<bool>(), 0..4)
 }
 
 fn failed_shared(log: &[FileCommand], responder: &Responder) -> BTreeSet<ActionId> {
@@ -188,12 +188,12 @@ proptest! {
     ) {
         let shared: Vec<_> = chain.iter().zip(1u32..).map(|(&linked, id)| {
             let needs = if linked && id > 1 { vec![id - 1] } else { Vec::new() };
-            planned(id, &needs)
+            sim::planned(id, &needs)
         }).collect();
-        let instances: Vec<_> = needs.iter().zip(0u32..).map(|(need, id)| instance(id, need.as_slice())).collect();
-        let file = planned_file(shared, instances.clone(), &[9]);
+        let instances: Vec<_> = needs.iter().zip(0u32..).map(|(need, id)| sim::instance(id, need.as_slice())).collect();
+        let file = sim::planned_file(shared, instances.clone(), &[9]);
         let mut responder = Responder::new(answers);
-        let trace = drive_file(FileOrchestrator::new(file, window), &mut |a| responder.respond(a), &mut |launch| {
+        let trace = sim::drive_file(FileOrchestrator::new(file, window), &mut |a| responder.respond(a), &mut |launch| {
             if launch.block.is_some() { TestStatus::Blocked } else { TestStatus::Passed }
         });
         let last_shared = trace.log.iter().rposition(|c| matches!(c, FileCommand::RunAction(a) if a.index() < 9));
@@ -214,9 +214,9 @@ proptest! {
 
     #[test]
     fn files_start_only_after_before_run(count in 0u32..4, files in 0usize..3, answers in answers()) {
-        let plan = Plan { before_run: (1..=count).map(|id| planned(id, &[])).collect(), files: vec![(*planned_file(vec![], vec![instance(0, &[])], &[])).clone(); files], ..Plan::default() };
+        let plan = Plan { before_run: (1..=count).map(|id| sim::planned(id, &[])).collect(), files: vec![(*sim::planned_file(vec![], vec![sim::instance(0, &[])], &[])).clone(); files], ..Plan::default() };
         let mut responder = Responder::new(answers);
-        let log = drive_run(RunOrchestrator::new(Arc::new(plan), false), &mut |a| responder.respond(a), &vec![Totals::default(); files]);
+        let log = sim::drive_run(RunOrchestrator::new(Arc::new(plan), false), &mut |a| responder.respond(a), &vec![Totals::default(); files]);
         let start = log.iter().position(|c| matches!(c, RunCommand::StartFiles(_)));
         let last_before = log.iter().rposition(|c| matches!(c, RunCommand::RunAction(_)));
         prop_assert!(files == 0 || last_before < start);
@@ -231,8 +231,8 @@ fn instance_input() -> impl Strategy<Value = InstanceInput> {
         Just(InstanceInput::Start),
         Just(InstanceInput::Block(vc_model::Failure::new("x"))),
         Just(InstanceInput::ActionDone(ActionReport::passed())),
-        Just(InstanceInput::ActionDone(fail(1))),
-        Just(InstanceInput::ActionDone(passing_with(&[100]))),
+        Just(InstanceInput::ActionDone(sim::fail(1))),
+        Just(InstanceInput::ActionDone(sim::passing_with(&[100]))),
         Just(InstanceInput::ActionCut),
         Just(InstanceInput::CleanupDone),
         Just(InstanceInput::RetryDue),
@@ -245,7 +245,7 @@ fn file_input() -> impl Strategy<Value = FileInput> {
     prop_oneof![
         Just(FileInput::Start(super::FailedActions::new())),
         Just(FileInput::ActionDone(ActionReport::passed())),
-        Just(FileInput::ActionDone(passing_with(&[100]))),
+        Just(FileInput::ActionDone(sim::passing_with(&[100]))),
         Just(FileInput::ActionCut),
         Just(FileInput::CleanupDone),
         Just(FileInput::InstanceDone(TestStatus::Passed)),
@@ -258,7 +258,7 @@ fn run_input() -> impl Strategy<Value = RunInput> {
     prop_oneof![
         Just(RunInput::Start),
         Just(RunInput::ActionDone(ActionReport::passed())),
-        Just(RunInput::ActionDone(passing_with(&[100]))),
+        Just(RunInput::ActionDone(sim::passing_with(&[100]))),
         Just(RunInput::ActionCut),
         Just(RunInput::CleanupDone),
         Just(RunInput::Tested(TestStatus::Failed)),
@@ -271,7 +271,7 @@ fn run_input() -> impl Strategy<Value = RunInput> {
 proptest! {
     #[test]
     fn any_input_sequence_finishes_an_instance_at_most_once(inputs in prop::collection::vec(instance_input(), 0..40)) {
-        let script = InstanceScript { before: acts(&[1]), body: acts(&[10, 11]), after: acts(&[20]), retry: Some(Retry { attempts: 2, delay: vc_model::Duration::default() }) };
+        let script = InstanceScript { before: sim::acts(&[1]), body: sim::acts(&[10, 11]), after: sim::acts(&[20]), retry: Some(Retry { attempts: 2, delay: vc_model::Duration::default() }) };
         let mut workflow = InstanceWorkflow::new(Arc::new(script));
         let mut finishes = 0;
         for input in inputs {
@@ -286,7 +286,7 @@ proptest! {
 
     #[test]
     fn any_input_sequence_finishes_a_file_at_most_once(inputs in prop::collection::vec(file_input(), 0..40)) {
-        let file = planned_file(vec![planned(1, &[])], (0..3).map(|i| instance(i, &[])).collect(), &[2]);
+        let file = sim::planned_file(vec![sim::planned(1, &[])], (0..3).map(|i| sim::instance(i, &[])).collect(), &[2]);
         let mut file = FileOrchestrator::new(file, 2);
         let mut finishes = 0;
         for input in inputs {
@@ -301,7 +301,7 @@ proptest! {
 
     #[test]
     fn any_input_sequence_finishes_a_run_at_most_once(inputs in prop::collection::vec(run_input(), 0..40)) {
-        let plan = Plan { before_run: vec![planned(1, &[])], files: vec![(*planned_file(vec![], vec![], &[])).clone(); 2], after_run: acts(&[2]), ..Plan::default() };
+        let plan = Plan { before_run: vec![sim::planned(1, &[])], files: vec![(*sim::planned_file(vec![], vec![], &[])).clone(); 2], after_run: sim::acts(&[2]), ..Plan::default() };
         let mut run = RunOrchestrator::new(Arc::new(plan), true);
         let mut finishes = 0;
         for input in inputs {

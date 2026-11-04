@@ -3,7 +3,7 @@
 use serde_json::{Value, json};
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{Part, Pos, ScalarSource, ScalarStyle, SourceFileId, SourceSpan, StringTable};
-use vc_template::{ArgType, PipeArgs, PipeDef, PipeRegistry, PipeSignature, TemplateError, ValueType, parse};
+use vc_template::{ArgType, PipeArgs, PipeDef, PipeRegistry, PipeSignature, TemplateError, ValueType};
 
 #[expect(clippy::unnecessary_wraps, reason = "a pipe has the `PipeFn` signature")]
 fn mask(_: &Value, _: &PipeArgs<'_>) -> Result<Value, String> {
@@ -19,7 +19,8 @@ fn calls(pipes: &str) -> Vec<vc_model::PipeCall> {
 }
 
 fn pipes_of(text: &str, source: ScalarSource) -> Vec<vc_model::PipeCall> {
-    let Some(Part::Ref(reference)) = parse(text, source, &mut StringTable::new()).unwrap().parts.pop() else {
+    let Some(Part::Ref(reference)) = vc_template::parse(text, source, &mut StringTable::new()).unwrap().parts.pop()
+    else {
         panic!("expected a trailing reference")
     };
     reference.pipes

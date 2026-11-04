@@ -13,7 +13,6 @@ use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_mock_server::MockServer;
 use vc_model::{Exchange, Protocol, RenderedRequest, Size};
-use vc_testkit::transport_suite;
 
 type TestResult = Result<(), Box<dyn Error>>;
 
@@ -32,7 +31,7 @@ fn json(exchange: &Exchange) -> Result<Value, Box<dyn Error>> {
 #[tokio::test]
 async fn meets_the_transport_contract() -> TestResult {
     let mock = MockServer::start().await?;
-    transport_suite(&HttpTransport::new(&HttpOptions::default())?, &mock.base_url()).await;
+    vc_testkit::transport_suite(&HttpTransport::new(&HttpOptions::default())?, &mock.base_url()).await;
     Ok(())
 }
 

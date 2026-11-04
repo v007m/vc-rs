@@ -1,9 +1,9 @@
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{Pos, SourceFileId, SourcePath, SourceSpan};
-use vc_parser::{Node, ScalarKind, ScalarStyle, Syntax, Value, parse};
+use vc_parser::{Node, ScalarKind, ScalarStyle, Syntax, Value};
 
 fn json(text: &str) -> (Option<Node>, Diagnostics) {
-    parse(SourceFileId::new(0), Syntax::Json, text)
+    vc_parser::parse(SourceFileId::new(0), Syntax::Json, text)
 }
 
 fn ok(text: &str) -> Option<Node> {
@@ -148,7 +148,7 @@ fn blank_files_are_a_null_root_as_in_yaml() {
     for text in ["", " \r\n\t", "\u{feff}"] {
         let root = ok(text).unwrap();
         assert_eq!(kind(&root), Some(ScalarKind::Null));
-        assert_eq!(root, parse(SourceFileId::new(0), Syntax::Yaml, "").0.unwrap());
+        assert_eq!(root, vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, "").0.unwrap());
     }
 }
 
@@ -220,7 +220,7 @@ fn json_and_yaml_for_the_same_data_give_the_same_tree() {
 }"#;
     let yaml_text = "id: getsUser\nretries: 2\nratio: -0.5e3\non: true\nnone: null\n\
         tags:\n  - a b\n  - 😀\n  - \"é\\n\"\nempty:\n  list: []\n  map: {}\nnested:\n  - k: 1\n  - [false]\n";
-    let (yaml, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, yaml_text);
+    let (yaml, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, yaml_text);
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
     assert_eq!(plain(&ok(json_text).unwrap()), plain(&yaml.unwrap()));
 }

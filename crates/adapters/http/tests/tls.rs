@@ -9,7 +9,7 @@ use bytes::Bytes;
 use http::{Method, Request, Response, StatusCode, Uri};
 use http_body_util::Full;
 use hyper::body::Incoming;
-use hyper::service::service_fn;
+use hyper::service;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use rustls::ServerConfig;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
@@ -49,10 +49,10 @@ async fn serve(acceptor: TlsAcceptor, tcp: TcpStream) {
     let io = TokioIo::new(tls);
     if h2 {
         let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
-            .serve_connection(io, service_fn(hello))
+            .serve_connection(io, service::service_fn(hello))
             .await;
     } else {
-        let _ = hyper::server::conn::http1::Builder::new().serve_connection(io, service_fn(hello)).await;
+        let _ = hyper::server::conn::http1::Builder::new().serve_connection(io, service::service_fn(hello)).await;
     }
 }
 

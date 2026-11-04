@@ -1,4 +1,4 @@
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, content_hash};
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
 
 /// Builds a provider over a project holding these files (relative path, bytes).
 pub type MakeSources<'a> = dyn FnMut(&[(&str, &[u8])]) -> Box<dyn SourceProvider> + 'a;
@@ -49,7 +49,11 @@ fn finds_definition_files_in_path_order(make: &mut MakeSources<'_>) {
     assert_eq!(found.problems, []);
     assert_eq!(asset_paths(&found), ["README.md", "schemas/user.json"], "the other files are listed as assets");
     let api = &found.files[2];
-    assert_eq!((api.text.as_bytes(), api.hash), (API, content_hash(API)), "text and BLAKE3 hash of the bytes");
+    assert_eq!(
+        (api.text.as_bytes(), api.hash),
+        (API, vc_interfaces::content_hash(API)),
+        "text and BLAKE3 hash of the bytes"
+    );
 }
 
 fn applies_the_filter(make: &mut MakeSources<'_>) {

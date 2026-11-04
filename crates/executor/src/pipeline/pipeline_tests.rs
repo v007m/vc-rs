@@ -9,9 +9,9 @@ use tower::ServiceExt;
 use vc_diagnostics::Code;
 use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::RenderedRequest;
-use vc_testkit::{FakeTransport, Fault, FaultyTransport, status};
+use vc_testkit::{FakeTransport, Fault, FaultyTransport};
 
-use super::{Call, Delivery, HostLimits, HttpRetryPolicy, PipelineParts, RequestStage, pipeline};
+use super::{Call, Delivery, HostLimits, HttpRetryPolicy, PipelineParts, RequestStage};
 
 const SECOND: Duration = Duration::from_secs(1);
 
@@ -21,7 +21,7 @@ fn call(url: &'static str) -> Call {
 }
 
 async fn run(parts: PipelineParts, call: Call) -> Delivery {
-    match pipeline(parts).oneshot(call).await {
+    match super::pipeline(parts).oneshot(call).await {
         Ok(delivery) => delivery,
         Err(never) => match never {},
     }
@@ -40,7 +40,7 @@ fn retrying(transport: Arc<dyn Transport>, attempts: u32) -> PipelineParts {
 
 #[tokio::test(start_paused = true)]
 async fn sends_one_attempt_by_default() {
-    let fake = FakeTransport::scripted(vec![Ok(status(503))]);
+    let fake = FakeTransport::scripted(vec![Ok(vc_testkit::status(503))]);
     let delivery =
         run(PipelineParts::new(Arc::new(fake.clone()), HostLimits::spawn(8)), call("http://api.test/x")).await;
     assert_eq!(delivery.result.map(|exchange| exchange.response.status), Ok(StatusCode::SERVICE_UNAVAILABLE));
@@ -49,7 +49,11 @@ async fn sends_one_attempt_by_default() {
 
 #[tokio::test(start_paused = true)]
 async fn retries_with_backoff_and_times_the_whole_call() {
-    let fake = FakeTransport::scripted(vec![Ok(status(503)), Ok(status(502)), Ok(status(200))]);
+    let fake = FakeTransport::scripted(vec![
+        Ok(vc_testkit::status(503)),
+        Ok(vc_testkit::status(502)),
+        Ok(vc_testkit::status(200)),
+    ]);
     let delivery = run(retrying(Arc::new(fake.clone()), 3), call("http://api.test/x")).await;
     assert_eq!(delivery.result.map(|exchange| exchange.response.status), Ok(StatusCode::OK));
     assert_eq!((delivery.attempts, fake.calls()), (3, 3));
@@ -91,7 +95,7 @@ impl RequestStage for Mark {
 #[tokio::test(start_paused = true)]
 async fn auth_runs_before_hooks_on_every_attempt() {
     let (auth, hooks) = (Arc::new(Mark("auth;", AtomicUsize::new(0))), Arc::new(Mark("hooks;", AtomicUsize::new(0))));
-    let fake = FakeTransport::scripted(vec![Ok(status(503)), Ok(status(200))]);
+    let fake = FakeTransport::scripted(vec![Ok(vc_testkit::status(503)), Ok(vc_testkit::status(200))]);
     let parts = PipelineParts { auth: auth.clone(), hooks: hooks.clone(), ..retrying(Arc::new(fake), 1) };
     let delivery = run(parts, call("http://api.test/x")).await;
     let sent = delivery.result.map(|exchange| exchange.request.headers.get("x-stages").cloned());
@@ -154,7 +158,8 @@ async fn waiting_for_a_permit_does_not_count_against_the_timeout() {
 
 #[tokio::test]
 async fn debug_output_names_every_layer() {
-    let shown = format!("{:?}", pipeline(PipelineParts::new(Arc::new(FakeTransport::echo()), HostLimits::spawn(1))));
+    let shown =
+        format!("{:?}", super::pipeline(PipelineParts::new(Arc::new(FakeTransport::echo()), HostLimits::spawn(1))));
     for layer in ["Timing", "Retry", "Stage", "HostLimit", "Timeout", "Transmit"] {
         assert!(shown.contains(layer), "{layer} missing from {shown}");
     }

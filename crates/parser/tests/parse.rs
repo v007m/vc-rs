@@ -1,10 +1,10 @@
 use ScalarKind::{Bool, Float, Int, Null, String};
 use vc_diagnostics::{Code, Diagnostics};
 use vc_model::{Pos, SourceFileId, SourceSpan};
-use vc_parser::{Node, ScalarKind, ScalarStyle, Syntax, parse};
+use vc_parser::{Node, ScalarKind, ScalarStyle, Syntax};
 
 fn ok(text: &str) -> Option<Node> {
-    let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, text);
+    let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, text);
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
     root
 }
@@ -78,7 +78,7 @@ fn an_empty_file_is_a_null_root() {
 
 #[test]
 fn broken_syntax_is_v1001_and_drops_the_tree() {
-    let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, "a: \"unterminated\n");
+    let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, "a: \"unterminated\n");
     assert!(root.is_none());
     let error = diagnostics.iter().next().unwrap();
     assert_eq!((error.code, at(error.primary.span)), (Code::V1001, ((1, 4, 3), (1, 5, 4))));
@@ -98,7 +98,7 @@ fn structure_errors_from_the_scanner_are_v1002() {
         ("a: 1\nb\nc: 2\n", "simple key expect"),
     ];
     for (text, message) in cases {
-        let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, text);
+        let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, text);
         assert!(root.is_none(), "{text:?}");
         assert_eq!(codes(&diagnostics), [Code::V1002], "{text:?}");
         let error = diagnostics.iter().next().unwrap();
@@ -108,7 +108,7 @@ fn structure_errors_from_the_scanner_are_v1002() {
 
 #[test]
 fn an_alias_to_a_missing_anchor_is_v1007() {
-    let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, "a: *missing\n");
+    let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, "a: *missing\n");
     assert!(root.is_none());
     assert_eq!(codes(&diagnostics), [Code::V1007]);
     assert!(diagnostics.iter().next().unwrap().message.contains("aliases"));
@@ -117,7 +117,7 @@ fn an_alias_to_a_missing_anchor_is_v1007() {
 #[test]
 fn other_scanner_errors_are_v1001() {
     for text in ["[a\n", "a: 'x\n", "a: \"\\q\"\n"] {
-        let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, text);
+        let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, text);
         assert!(root.is_none(), "{text:?}");
         assert_eq!(codes(&diagnostics), [Code::V1001], "{text:?}");
     }
@@ -125,7 +125,7 @@ fn other_scanner_errors_are_v1001() {
 
 #[test]
 fn every_duplicate_key_is_v1006_with_both_places() {
-    let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, "a: 1\nb: 2\na: 3\nb: 4\n");
+    let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, "a: 1\nb: 2\na: 3\nb: 4\n");
     assert_eq!(codes(&diagnostics), [Code::V1006, Code::V1006]);
     let first = diagnostics.iter().next().unwrap();
     assert_eq!(at(first.primary.span), ((3, 1, 10), (3, 2, 11)));
@@ -135,7 +135,7 @@ fn every_duplicate_key_is_v1006_with_both_places() {
 
 #[test]
 fn a_map_ends_at_its_last_source_entry_even_when_skipped() {
-    let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, "a: 1\nb: 2\na: [x, y]\n");
+    let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, "a: 1\nb: 2\na: [x, y]\n");
     assert_eq!(codes(&diagnostics), [Code::V1006]);
     assert_eq!(at(root.unwrap().span), ((1, 1, 0), (3, 10, 19)));
 }
@@ -149,17 +149,17 @@ fn aliases_tags_complex_keys_and_second_documents_have_their_own_codes() {
         ("a: 1\n---\nb: 2\n", Code::V1010, ((2, 1, 5), (2, 4, 8))),
     ];
     for (text, code, span) in cases {
-        let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, text);
+        let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, text);
         assert!(root.is_some(), "{text:?}");
         assert_eq!(codes(&diagnostics), [code], "{text:?}");
         assert_eq!(at(diagnostics.iter().next().unwrap().primary.span), span, "{text:?}");
     }
-    assert!(parse(SourceFileId::new(0), Syntax::Yaml, "a: &x 1\n").1.is_empty());
+    assert!(vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, "a: &x 1\n").1.is_empty());
 }
 
 #[test]
 fn the_alias_help_points_to_vars_and_extend() {
-    let (_, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, "a: &x 1\nb: *x\n");
+    let (_, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, "a: &x 1\nb: *x\n");
     let help = diagnostics.iter().next().unwrap().help.join(" ");
     assert!(help.contains("`vars`") && help.contains("`$extend`"), "{help}");
 }
@@ -169,13 +169,13 @@ fn node_spans_start_at_the_value_not_its_anchor_or_tag() {
     let root = ok("a: &x 1\nb: &m\n  c: 2\n").unwrap();
     assert_eq!(at(root.get("a").unwrap().span), ((1, 7, 6), (1, 8, 7)));
     assert_eq!(at(root.get("b").unwrap().span).0, (3, 3, 16));
-    let (root, _) = parse(SourceFileId::new(0), Syntax::Yaml, "a: !!str 1\n");
+    let (root, _) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, "a: !!str 1\n");
     assert_eq!(at(root.unwrap().get("a").unwrap().span), ((1, 10, 9), (1, 11, 10)));
 }
 
 #[test]
 fn a_cut_after_an_anchor_quotes_only_the_value() {
-    let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, "a: &x see #212\n");
+    let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, "a: &x see #212\n");
     assert_eq!(at(root.unwrap().get("a").unwrap().span), ((1, 7, 6), (1, 10, 9)));
     let cut = diagnostics.iter().next().unwrap();
     assert_eq!((cut.code, at(cut.primary.span)), (Code::V3204, ((1, 7, 6), (1, 15, 14))));
@@ -193,7 +193,7 @@ fn a_wide_character_late_in_a_long_line_shifts_only_later_offsets() {
 #[test]
 fn nesting_deeper_than_the_limit_is_v1011() {
     let text = format!("{}{}", "[".repeat(200), "]".repeat(200));
-    let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, &text);
+    let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, &text);
     assert!(root.is_none());
     assert_eq!(codes(&diagnostics), [Code::V1011]);
     assert!(ok(&format!("{}{}", "[".repeat(128), "]".repeat(128))).is_some());
@@ -202,7 +202,7 @@ fn nesting_deeper_than_the_limit_is_v1011() {
 #[test]
 fn a_text_value_cut_at_a_hash_is_v3204_with_a_suggested_quote_fix() {
     let text = "reason: coupon flaky, see #212\nnext: ok  # fine\nlist: a, # b\n";
-    let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, text);
+    let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, text);
     assert_eq!(root.unwrap().get("reason").unwrap().as_str(), Some("coupon flaky, see"));
     assert_eq!(codes(&diagnostics), [Code::V3204, Code::V3204]);
     let cut = diagnostics.iter().next().unwrap();

@@ -5,7 +5,7 @@ use vc_model::{
     Segment, SourceFile, SourcePath, Test, TestBody,
 };
 
-use crate::{CompileInput, compile};
+use crate::CompileInput;
 
 const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n    vars: {region: eu}\nauth:\n  - id: admin\n    type: bearer\n    token: t\nbeforeRun:\n  - id: warm\n    call: users#list\nreports: {dir: out, formats: [ctrf]}\nredact: {headers: [x-key], fields: [password]}\n";
 
@@ -23,7 +23,7 @@ fn program() -> Arc<Program> {
         file("services/users/users.api.yaml", APIS),
         file("services/users/crud.test.yaml", TESTS),
     ];
-    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
     assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()
@@ -167,7 +167,7 @@ fn more() -> Arc<Program> {
         file("services/orders/orders.api.yaml", ORDERS),
         file("services/orders/flow.test.yaml", FLOW),
     ];
-    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
     assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()
@@ -233,7 +233,7 @@ fn rows() -> Arc<Program> {
         file("services/users/users.api.yaml", APIS),
         file("services/users/rows.test.yaml", ROWS),
     ];
-    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
     assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()

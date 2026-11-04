@@ -5,8 +5,8 @@ use vc_model::{
 };
 use vc_template::RenderError;
 
-use super::{Arguments, Judge, MatcherRegistry, Subject, evaluate, verdict};
-use crate::fixture::literal;
+use super::{Arguments, Judge, MatcherRegistry, Subject};
+use crate::fixture;
 
 /// Renders literals only; any reference fails.
 struct Literal;
@@ -39,7 +39,7 @@ fn template(value: Value) -> TemplateValue {
         Value::Null => TemplateValue::Null,
         Value::Bool(flag) => TemplateValue::Bool(flag),
         Value::Number(number) => TemplateValue::Number(number),
-        Value::String(text) => TemplateValue::String(literal(&text)),
+        Value::String(text) => TemplateValue::String(fixture::literal(&text)),
         Value::Array(items) => TemplateValue::List(items.into_iter().map(template).collect()),
         Value::Object(fields) => {
             TemplateValue::Map(fields.into_iter().map(|(key, value)| (key, template(value))).collect())
@@ -287,7 +287,7 @@ fn response() -> Value {
 
 fn results(checks: &[Check]) -> Vec<vc_model::CheckResult> {
     let response = response();
-    judge(|judge| evaluate(judge, checks, Subject { response: &response, size: 40 }))
+    judge(|judge| super::evaluate(judge, checks, Subject { response: &response, size: 40 }))
 }
 
 #[test]
@@ -305,7 +305,7 @@ fn each_check_reads_its_part_of_the_response() {
     assert!(results.iter().all(|result| result.passed && result.code.is_none()), "{results:#?}");
     assert_eq!(results[1].actual, Some(json!("application/json")));
     assert_eq!(results[4].actual, Some(json!(40)));
-    assert_eq!(verdict(&results), None);
+    assert_eq!(super::verdict(&results), None);
 }
 
 #[test]
@@ -321,10 +321,10 @@ fn a_failed_check_reports_expected_actual_a_diff_and_its_code() {
     assert_eq!(results[1].expected, json!({"id": "u2"}));
     let diff = results[1].diff.clone().unwrap_or_default();
     assert!(diff.contains("-  \"id\": \"u2\"") && diff.contains("+  \"id\": \"u1\""), "{diff}");
-    let failure = verdict(&results).unwrap();
+    let failure = super::verdict(&results).unwrap();
     assert_eq!(failure.code.as_deref(), Some("V5101"));
     assert_eq!(failure.message, "match.missing: expected {\"exists\":true}, got nothing");
-    let second = verdict(&results[1..]).unwrap();
+    let second = super::verdict(&results[1..]).unwrap();
     assert!(second.message.starts_with("equals: expected {\"id\":\"u2\"}, got {") && second.message.contains(&diff));
 }
 
@@ -341,7 +341,7 @@ fn cel_and_custom_checks_fail_with_their_own_codes() {
     let codes: Vec<_> = results.iter().map(|result| result.code.clone().unwrap_or_default()).collect();
     assert_eq!(codes, ["V5102", "V5103", "V5101", "V5102", "V5101"]);
     assert_eq!((results[0].expected.clone(), results[0].actual.clone()), (json!(true), Some(json!(false))));
-    let failure = verdict(&results[1..]).unwrap();
+    let failure = super::verdict(&results[1..]).unwrap();
     assert_eq!(
         failure.message,
         "custom[\"hooks/checks.ts#isSorted\"]: custom checks arrive with the hook bridge in M4"

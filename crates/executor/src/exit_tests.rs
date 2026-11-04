@@ -1,6 +1,6 @@
 use vc_model::{RunStatus, Totals};
 
-use super::{EXIT_CANCELLED, EXIT_FAILED, EXIT_NOTHING_RAN, EXIT_PASSED, exit_code};
+use super::{EXIT_CANCELLED, EXIT_FAILED, EXIT_NOTHING_RAN, EXIT_PASSED};
 use crate::RunSummary;
 
 fn summary(status: RunStatus, totals: Totals) -> RunSummary {
@@ -26,6 +26,6 @@ fn exit_codes_follow_d127() {
         (summary(RunStatus::Cancelled, one(|t| t.failed = 1)), EXIT_CANCELLED),
     ];
     for (summary, code) in cases {
-        assert_eq!(exit_code(summary), code, "{summary:?}");
+        assert_eq!(super::exit_code(summary), code, "{summary:?}");
     }
 }

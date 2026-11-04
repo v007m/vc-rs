@@ -4,7 +4,7 @@ use http::{HeaderValue, Uri};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-use super::{Target, open, resolve, tunnel};
+use super::Target;
 use crate::HttpAdapterError;
 
 fn target(uri: &'static str) -> Target {
@@ -36,15 +36,15 @@ fn an_https_proxy_is_refused() {
 
 #[tokio::test]
 async fn an_ip_literal_needs_no_lookup_and_a_name_does() {
-    let (addresses, dns) = resolve(&target("http://127.0.0.1:9/")).await.unwrap();
+    let (addresses, dns) = super::resolve(&target("http://127.0.0.1:9/")).await.unwrap();
     assert_eq!((addresses, dns), (vec![SocketAddr::from((Ipv4Addr::LOCALHOST, 9))], None));
-    let (addresses, dns) = resolve(&target("http://localhost:9/")).await.unwrap();
+    let (addresses, dns) = super::resolve(&target("http://localhost:9/")).await.unwrap();
     assert!(!addresses.is_empty() && dns.is_some());
 }
 
 #[tokio::test]
 async fn an_unknown_name_is_a_dns_error() {
-    let error = resolve(&target("http://no-such-host.invalid/")).await.err();
+    let error = super::resolve(&target("http://no-such-host.invalid/")).await.err();
     assert!(
         matches!(error, Some(HttpAdapterError::Dns { ref host, .. }) if host == "no-such-host.invalid"),
         "{error:?}"
@@ -56,10 +56,10 @@ async fn a_closed_port_is_a_connect_error_and_an_open_one_is_timed() {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let address = listener.local_addr().unwrap();
     let open_target = Target { host: "127.0.0.1".into(), port: address.port(), tls: false };
-    let (_stream, record) = open(&open_target).await.unwrap();
+    let (_stream, record) = super::open(&open_target).await.unwrap();
     assert_eq!((record.remote, record.dns, record.tls), (address, None, None));
     drop(listener);
-    let error = open(&open_target).await.err();
+    let error = super::open(&open_target).await.err();
     assert!(matches!(error, Some(HttpAdapterError::Connect { ref host, .. }) if *host == open_target.authority()));
 }
 
@@ -82,7 +82,7 @@ async fn tunnel_sends_connect_with_auth_and_accepts_a_200() {
     let (address, seen) = proxy(b"HTTP/1.1 200 Connection established\r\n\r\n").await;
     let mut stream = TcpStream::connect(address).await.unwrap();
     let auth = HeaderValue::from_static("Basic dTpw");
-    tunnel(&mut stream, &target("https://api.test:8443/"), Some(&auth)).await.unwrap();
+    super::tunnel(&mut stream, &target("https://api.test:8443/"), Some(&auth)).await.unwrap();
     let head = seen.await.unwrap();
     assert!(head.starts_with("CONNECT api.test:8443 HTTP/1.1\r\nHost: api.test:8443\r\n"), "{head}");
     assert!(head.contains("Proxy-Authorization: Basic dTpw\r\n") && head.ends_with("\r\n\r\n"), "{head}");
@@ -92,7 +92,7 @@ async fn tunnel_sends_connect_with_auth_and_accepts_a_200() {
 async fn tunnel_reports_a_refusal_with_its_status_line() {
     let (address, _seen) = proxy(b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n").await;
     let mut stream = TcpStream::connect(address).await.unwrap();
-    let error = tunnel(&mut stream, &target("https://api.test/"), None).await.err();
+    let error = super::tunnel(&mut stream, &target("https://api.test/"), None).await.err();
     let expected = HttpAdapterError::Tunnel {
         host: "api.test:443".into(),
         reason: "HTTP/1.1 407 Proxy Authentication Required".into(),
@@ -104,6 +104,6 @@ async fn tunnel_reports_a_refusal_with_its_status_line() {
 async fn tunnel_gives_up_on_a_proxy_that_closes_early() {
     let (address, _seen) = proxy(b"HTTP/1.1 200 OK\r\n").await;
     let mut stream = TcpStream::connect(address).await.unwrap();
-    let error = tunnel(&mut stream, &target("https://api.test/"), None).await.err();
+    let error = super::tunnel(&mut stream, &target("https://api.test/"), None).await.err();
     assert!(matches!(error, Some(HttpAdapterError::Tunnel { .. })), "{error:?}");
 }

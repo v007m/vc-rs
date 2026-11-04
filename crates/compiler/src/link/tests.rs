@@ -1,8 +1,8 @@
 use vc_diagnostics::{Category, Code, Diagnostic};
 use vc_model::{ContentHash, FileKind, SourceFile, SourcePath};
 
-use super::project::file_id;
-use crate::{CompileInput, compile};
+use super::project;
+use crate::CompileInput;
 
 const CONFIG: &str =
     "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
@@ -21,7 +21,7 @@ fn diagnostics(config: &str, apis: &str, tests: &str) -> Vec<Diagnostic> {
         file("services/users/users.api.yaml", apis),
         file("services/users/crud.test.yaml", tests),
     ];
-    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     compiled.diagnostics.iter().filter(|found| found.code.category() != Category::Lifecycle).cloned().collect()
 }
 
@@ -140,9 +140,12 @@ fn references_into_a_file_that_could_not_be_read_are_not_reported() {
 
 #[test]
 fn a_file_id_drops_the_root_and_suffix_and_collapses_an_api_named_like_its_folder() {
-    assert_eq!(file_id("services/users/users.api.yaml", FileKind::Api), "users");
-    assert_eq!(file_id("services/users/admin.api.yaml", FileKind::Api), "users.admin");
-    assert_eq!(file_id("services/users/users.test.yaml", FileKind::Test), "users.users");
-    assert_eq!(file_id("services/payments/refunds/partial.test.yaml", FileKind::Test), "payments.refunds.partial");
-    assert_eq!(file_id("load/checkout.load.yaml", FileKind::Load), "checkout");
+    assert_eq!(project::file_id("services/users/users.api.yaml", FileKind::Api), "users");
+    assert_eq!(project::file_id("services/users/admin.api.yaml", FileKind::Api), "users.admin");
+    assert_eq!(project::file_id("services/users/users.test.yaml", FileKind::Test), "users.users");
+    assert_eq!(
+        project::file_id("services/payments/refunds/partial.test.yaml", FileKind::Test),
+        "payments.refunds.partial"
+    );
+    assert_eq!(project::file_id("load/checkout.load.yaml", FileKind::Load), "checkout");
 }

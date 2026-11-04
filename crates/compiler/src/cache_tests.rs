@@ -7,7 +7,7 @@ use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath, StringTable};
 use super::{BUILD, Body, CacheEntry, CompileCache, MAGIC, Stored, VERSION};
 use crate::parts::Tools;
 use crate::stage::{self, FileUnit};
-use crate::{CompileInput, Compiled, compile};
+use crate::{CompileInput, Compiled};
 
 const API: &str = "services/users/users.api.yaml";
 const API_TEXT: &str = "apis:\n  - id: getUser\n    path: /users/${var.userId}\n";
@@ -210,14 +210,18 @@ fn a_cache_read_back_from_bytes_does_not_parse_unchanged_files_again() {
     const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n";
     let config = source("vibranium.config.yaml", CONFIG, 0);
     let api = "apis:\n  - id: getUser\n    path: /users\n";
-    let first = compile(CompileInput { files: vec![config.clone(), source(API, api, 1)], ..CompileInput::default() });
+    let first =
+        crate::compile(CompileInput { files: vec![config.clone(), source(API, api, 1)], ..CompileInput::default() });
     assert!(!codes(&first).contains(&Code::V1004));
     let previous = CompileCache::from_bytes(&first.cache.to_bytes());
     assert_eq!(previous.units(), 2);
     let files = vec![config.clone(), source(API, "nme: x\n", 1)];
-    let same_hash = compile(CompileInput { files, previous: previous.clone(), ..CompileInput::default() });
+    let same_hash = crate::compile(CompileInput { files, previous: previous.clone(), ..CompileInput::default() });
     assert_eq!(codes(&same_hash), codes(&first), "the stored unit was used, so the new text was not read");
-    let changed =
-        compile(CompileInput { files: vec![config, source(API, "nme: x\n", 2)], previous, ..CompileInput::default() });
+    let changed = crate::compile(CompileInput {
+        files: vec![config, source(API, "nme: x\n", 2)],
+        previous,
+        ..CompileInput::default()
+    });
     assert!(codes(&changed).contains(&Code::V1004));
 }

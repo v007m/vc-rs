@@ -1,7 +1,7 @@
 use vc_diagnostics::{Code, Diagnostics};
 use vc_model::{FileKind, Matcher, MatcherArg, ScalarStyle, SourceFileId, StatusPattern, StringTable, TemplateValue};
 
-use super::{Piece, Tools, style};
+use super::{Piece, Tools};
 use crate::stage::FileUnit;
 
 fn unit(kind: FileKind, text: &str) -> FileUnit {
@@ -125,11 +125,11 @@ fn lowers_values_with_their_types() {
 #[test]
 fn maps_scalar_styles_for_exact_spans() {
     use vc_parser::ScalarStyle as Parsed;
-    assert_eq!(style(Parsed::Plain, "a"), ScalarStyle::Plain);
-    assert_eq!(style(Parsed::SingleQuoted, "'it''s'"), ScalarStyle::SingleQuoted { escaped: true });
-    assert_eq!(style(Parsed::SingleQuoted, "''"), ScalarStyle::SingleQuoted { escaped: false });
-    assert_eq!(style(Parsed::DoubleQuoted, "\"a\\n\""), ScalarStyle::DoubleQuoted { escaped: true });
-    assert_eq!(style(Parsed::DoubleQuoted, "\"a\""), ScalarStyle::DoubleQuoted { escaped: false });
-    assert_eq!(style(Parsed::Literal, "|\n a"), ScalarStyle::Block);
-    assert_eq!(style(Parsed::Folded, ">\n a"), ScalarStyle::Block);
+    assert_eq!(super::style(Parsed::Plain, "a"), ScalarStyle::Plain);
+    assert_eq!(super::style(Parsed::SingleQuoted, "'it''s'"), ScalarStyle::SingleQuoted { escaped: true });
+    assert_eq!(super::style(Parsed::SingleQuoted, "''"), ScalarStyle::SingleQuoted { escaped: false });
+    assert_eq!(super::style(Parsed::DoubleQuoted, "\"a\\n\""), ScalarStyle::DoubleQuoted { escaped: true });
+    assert_eq!(super::style(Parsed::DoubleQuoted, "\"a\""), ScalarStyle::DoubleQuoted { escaped: false });
+    assert_eq!(super::style(Parsed::Literal, "|\n a"), ScalarStyle::Block);
+    assert_eq!(super::style(Parsed::Folded, ">\n a"), ScalarStyle::Block);
 }

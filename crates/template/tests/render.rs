@@ -2,16 +2,13 @@
 
 use std::collections::HashMap;
 
-use proptest::prelude::*;
+use proptest::prelude::{Just, Strategy, prop, prop_assert_eq, prop_oneof, proptest};
 use serde_json::{Value, json};
 use vc_model::{
     CelProgram, CelSource, Namespace, Path, Pos, Reference, ScalarSource, ScalarStyle, Segment, SourceFileId,
     SourceSpan, StringTable, Template, TemplateValue,
 };
-use vc_template::{
-    Activation, CelCompiler, Chance, PipeRegistry, RenderError, Renderer, Resolve, Roots, extend, parse, path_text,
-    preview, select, to_text,
-};
+use vc_template::{Activation, CelCompiler, Chance, PipeRegistry, RenderError, Renderer, Resolve, Roots};
 
 /// Always picks `pick`, wrapped to the bound.
 struct Fixed(usize);
@@ -42,7 +39,7 @@ impl Resolve for Values {
     fn resolve(&self, reference: &Reference) -> Result<Value, RenderError> {
         let root = self.roots.get(&reference.ns).ok_or_else(|| RenderError::invalid("no such root"))?;
         let label = format!("{:?}", reference.ns).to_lowercase();
-        select(&label, root, &reference.path.segments)
+        vc_template::select(&label, root, &reference.path.segments)
     }
 
     fn evaluate(&self, program: &CelProgram) -> Result<Value, RenderError> {
@@ -62,7 +59,8 @@ fn span(text: &str) -> SourceSpan {
 }
 
 fn template(text: &str) -> Template {
-    parse(text, ScalarSource { span: span(text), style: ScalarStyle::Plain }, &mut StringTable::new()).unwrap()
+    vc_template::parse(text, ScalarSource { span: span(text), style: ScalarStyle::Plain }, &mut StringTable::new())
+        .unwrap()
 }
 
 fn render_with(text: &str, values: &Values) -> Result<Value, RenderError> {
@@ -120,15 +118,15 @@ fn a_missing_path_names_the_path_and_the_value_where_it_stops() {
 #[test]
 fn paths_print_as_written_and_previews_are_cut() {
     let path = [Segment::Key("a".into()), Segment::Key("first name".into()), Segment::Index(-1), Segment::All];
-    assert_eq!(path_text(&path), r#".a["first name"][-1][*]"#);
-    assert_eq!(path_text(&[Segment::Key("_x9".into()), Segment::Key("9x".into())]), r#"._x9["9x"]"#);
-    assert_eq!(path_text(&[Segment::Key(String::new())]), r#"[""]"#);
+    assert_eq!(vc_template::path_text(&path), r#".a["first name"][-1][*]"#);
+    assert_eq!(vc_template::path_text(&[Segment::Key("_x9".into()), Segment::Key("9x".into())]), r#"._x9["9x"]"#);
+    assert_eq!(vc_template::path_text(&[Segment::Key(String::new())]), r#"[""]"#);
     let long = Value::String("é".repeat(200));
-    let shown = preview(&long);
+    let shown = vc_template::preview(&long);
     assert_eq!(shown.chars().count(), 121);
     assert!(shown.ends_with('…') && shown.starts_with("\"é"));
-    assert_eq!(preview(&json!([1])), "[1]");
-    assert_eq!(select("x", &json!({"a": 1}), &[]), Ok(json!({"a": 1})));
+    assert_eq!(vc_template::preview(&json!([1])), "[1]");
+    assert_eq!(vc_template::select("x", &json!({"a": 1}), &[]), Ok(json!({"a": 1})));
 }
 
 #[test]
@@ -138,7 +136,7 @@ fn text_joins_literals_with_values_as_text() {
     assert_eq!(render_with("$${var.n}", &values), Ok(json!("${var.n}")));
     assert_eq!(render_with("${var.o}", &values), Ok(json!({"a": 1})));
     assert_eq!(render_with("", &values), Ok(json!("")));
-    assert_eq!(to_text(&json!(true)), "true");
+    assert_eq!(vc_template::to_text(&json!(true)), "true");
 }
 
 #[test]
@@ -297,21 +295,21 @@ fn extend_merges_deeply_and_removes_what_it_finds() {
         Path { segments: vec![key("f"), key("h"), key("i")] },
     ];
     let expected = json!({"a": {"b": null, "c": [2, 3], "g": 2}, "d": [{}, 5], "f": {"h": 1}});
-    assert_eq!(extend(base, changes, &remove), expected);
-    let cleared = extend(
+    assert_eq!(vc_template::extend(base, changes, &remove), expected);
+    let cleared = vc_template::extend(
         json!({"l": [1, 2], "m": {"n": 1}}),
         json!({}),
         &[Path { segments: vec![key("l"), Segment::All] }, Path { segments: vec![key("m"), Segment::All] }],
     );
     assert_eq!(cleared, json!({"l": [], "m": {"n": 1}}));
-    assert_eq!(extend(json!([1]), json!({"a": 1}), &[]), json!({"a": 1}));
+    assert_eq!(vc_template::extend(json!([1]), json!({"a": 1}), &[]), json!({"a": 1}));
 }
 
 fn json_value() -> impl Strategy<Value = Value> {
     let leaf = prop_oneof![
         Just(Value::Null),
-        any::<bool>().prop_map(Value::Bool),
-        any::<i64>().prop_map(Value::from),
+        prop::arbitrary::any::<bool>().prop_map(Value::Bool),
+        prop::arbitrary::any::<i64>().prop_map(Value::from),
         "[a-z ]{0,8}".prop_map(Value::String),
     ];
     leaf.prop_recursive(3, 16, 4, |inner| {
@@ -331,7 +329,7 @@ proptest! {
 
     #[test]
     fn text_around_a_reference_makes_text(value in json_value()) {
-        let expected = Value::String(format!("<{}>", to_text(&value)));
+        let expected = Value::String(format!("<{}>", vc_template::to_text(&value)));
         prop_assert_eq!(render_with("<${var.v}>", &Values::var(&value)), Ok(expected));
     }
 
@@ -343,7 +341,7 @@ proptest! {
     }
 
     #[test]
-    fn take_and_shuffle_keep_elements(items in prop::collection::vec(any::<i64>(), 0..8), pick in 0usize..9) {
+    fn take_and_shuffle_keep_elements(items in prop::collection::vec(prop::arbitrary::any::<i64>(), 0..8), pick in 0usize..9) {
         let mut values = Values::var(&Value::from(items.clone()));
         values.chance = Fixed(pick);
         let shuffled = render_with("${var.v | shuffle}", &values).unwrap();

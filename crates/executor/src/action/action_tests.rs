@@ -3,7 +3,7 @@ use std::sync::Arc;
 use vc_diagnostics::Code;
 use vc_interfaces::{Transport, TransportError};
 use vc_model::{ActionId, ActionKind, ActionOutcome, Failure, HookRef, OwnerKey};
-use vc_testkit::{FakeTransport, status};
+use vc_testkit::FakeTransport;
 
 use super::{ActionExecutors, ActionKindTag, ActionRequest};
 use crate::fixture::{Fixture, Server};
@@ -79,7 +79,7 @@ async fn a_var_that_is_not_set_fails_the_call_before_it_is_sent() {
     let mut fixture = Fixture::new();
     let get = fixture.call("/users");
     fixture.api_mut(get).path = fixture.template("/users/${var.userId}");
-    let fake = FakeTransport::scripted(vec![Ok(status(200))]);
+    let fake = FakeTransport::scripted(vec![Ok(vc_testkit::status(200))]);
     let report = execute(fixture, standard(Arc::new(fake.clone())), get).await;
     assert_eq!(code(&report), Some(Code::V5111.to_string().as_str()));
     assert_eq!(failure(&report).map(|failure| failure.message.as_str()), Some("`var.userId` is not set"));

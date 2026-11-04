@@ -5,11 +5,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use vc_engine::{CheckRequest, EngineBuilder};
-use vc_testkit::{MemoryCompileCache, generate_project};
+use vc_testkit::MemoryCompileCache;
 
 #[test]
 fn a_generated_project_checks_without_diagnostics() {
-    let project = generate_project(11, 60);
+    let project = vc_testkit::generate_project(11, 60);
     let engine = EngineBuilder::new(PathBuf::from("/generated"))
         .sources(Arc::new(project.sources()))
         .compile_cache(Arc::new(MemoryCompileCache::new()))
