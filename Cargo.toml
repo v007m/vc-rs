@@ -14,6 +14,8 @@ members = [
   "crates/adapters/system",
   "crates/adapters/http",
   "crates/adapters/reporters",
+  "crates/adapters/secrets",
+  "crates/adapters/auth",
   "crates/apps/cli",
   "crates/arch-tests",
   "bench/mock",
@@ -42,6 +44,8 @@ vc-testkit = { path = "crates/testkit" }
 vc-adapter-system = { path = "crates/adapters/system" }
 vc-adapter-http = { path = "crates/adapters/http" }
 vc-adapter-reporters = { path = "crates/adapters/reporters" }
+vc-adapter-secrets = { path = "crates/adapters/secrets" }
+vc-adapter-auth = { path = "crates/adapters/auth" }
 vc-mock-server = { path = "bench/mock" }
 anyhow = "1.0.104"
 arc-swap = "1.7.1"
@@ -72,6 +76,7 @@ predicates = "3.1.4"
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 proptest = "1.12.0"
 regex = "1.13.1"
+ring = "0.17.14"
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-native-certs = "0.8.5"
