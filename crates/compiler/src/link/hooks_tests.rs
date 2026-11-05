@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{ContentHash, SourceFile, SourcePath};
+use vc_model::{ContentHash, HookRef, RedactRule, SourceFile, SourcePath};
 
 use crate::{CompileInput, Compiled};
 
@@ -118,4 +118,24 @@ fn every_kind_of_reference_is_linked_and_a_broken_file_only_reports_v1013() {
     let mut found = hook_codes(&compiled);
     found.sort_unstable();
     assert_eq!(found, [(Code::V1013, 1), (Code::V2004, 3), (Code::V2004, 8), (Code::V2004, 12)]);
+}
+
+#[test]
+fn a_redact_rule_function_is_linked_from_the_project_root() {
+    let config = format!("{CONFIG}redact:\n  rules:\n    - function: hooks/mask.ts#cards\n    - function: hooks/mask.ts#nope\n");
+    let mut files = vec![file("vibranium.config.yaml", &config), file("services/users/users.api.yaml", "apis: []\n")];
+    let first = crate::compile(CompileInput { files: files.clone(), ..CompileInput::default() });
+    assert_eq!(first.hooks_wanted, [SourcePath::new("hooks/mask.ts").unwrap()]);
+    files.push(file("hooks/mask.ts", "export const cards = (text: string) => text;\n"));
+    let second = crate::compile(CompileInput { files, ..CompileInput::default() });
+    assert_eq!(hook_codes(&second), [(Code::V2005, 9)]);
+    let config = &crate::compile(CompileInput {
+        files: vec![file("vibranium.config.yaml", &format!("{CONFIG}redact:\n  rules:\n    - function: hooks/mask.ts#cards\n")), file("hooks/mask.ts", "export const cards = 1;\n")],
+        ..CompileInput::default()
+    })
+    .program
+    .unwrap()
+    .config;
+    let cards = HookRef { file: "hooks/mask.ts".to_owned(), export: "cards".to_owned() };
+    assert_eq!(config.redact_rules, [RedactRule::Function(cards)]);
 }

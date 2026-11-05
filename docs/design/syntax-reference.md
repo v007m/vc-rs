@@ -142,7 +142,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends |
 | `alerts` | list | none | Notifications |
 | `plugins` | list | none | Third-party plugins |
-| `redact` | `headers`, `fields`, `rules` | auth headers and secrets | Extra values to mask; `rules` are your own `regex` or `cel` masks (see Secrets) |
+| `redact` | `headers`, `fields`, `rules` | auth headers and secrets | Extra values to mask; `rules` are your own `regex`, `cel` or `function` masks (see Secrets) |
 | `beforeRun`, `afterRun` | lists of actions | none | Run-level lifecycle blocks (see Lifecycle blocks) |
 
 ```yaml
@@ -1083,9 +1083,10 @@ redact:
   rules:
     - regex: '\d{3}-\d{2}-\d{4}'       # each match becomes ••••
     - cel: item.name == 'ssn'          # a JSON field whose rule is true is masked whole
+    - function: hooks/redact.ts#maskCards   # a hook masks what it chooses
 ```
 
-A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`). Rules fail closed: a regex that does not compile masks every text, and a CEL rule that errors masks the field.
+A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that is given each text and JSON field and runs within its hook budget (D185). Rules fail closed: a regex that does not compile masks every text, a CEL rule that errors masks the field, and so does a hook that throws or overruns.
 
 The requests and responses kept in `history.db` and reports are masked the same way before they are stored: the URL (path and query, where a secret also counts in its percent-encoded form), every header and both bodies. Bodies are cut at `history.maxBodySize` only after masking, so a cut never leaves part of a secret showing.
 

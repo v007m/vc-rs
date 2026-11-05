@@ -1,6 +1,6 @@
 //! `secrets` and `redact`: where `${secret.*}` values come from and what else the redactor masks.
 
-use crate::CelProgram;
+use crate::{CelProgram, HookRef};
 
 /// The provider `secrets.provider` names when the config does not say (D163).
 pub const DEFAULT_SECRETS_PROVIDER: &str = "env";
@@ -52,6 +52,8 @@ pub enum RedactRule {
     Regex(String),
     /// `cel`: a JSON field whose `name` and `value` make the expression true is masked.
     Cel(CelProgram),
+    /// `function`: a hook function that masks each text and JSON field, within its budget.
+    Function(HookRef),
 }
 
 /// The names a `.env.schema` declares: each `NAME=` line, with or without a value or an

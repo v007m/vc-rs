@@ -76,11 +76,13 @@ impl MaskRule for CelRule {
     }
 }
 
-/// The rule a `redact.rules` entry describes.
+/// The rule a `redact.rules` entry describes. A `function` rule masks every text until the
+/// redactor can await a hook (D185).
 pub fn rule(rule: &RedactRule) -> Arc<dyn MaskRule> {
     match rule {
         RedactRule::Regex(pattern) => Arc::new(RegexRule::new(pattern)),
         RedactRule::Cel(program) => Arc::new(CelRule::new(program)),
+        RedactRule::Function(_) => Arc::new(RegexRule(None)),
     }
 }
 

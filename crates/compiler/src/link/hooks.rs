@@ -55,10 +55,12 @@ pub fn link(
     linker.finish()
 }
 
-/// Every `function` value in `source`: of an action, a request hook or a custom check.
+/// Every `function` value in `source`: of an action, a request hook, a custom check or a
+/// redact rule.
 fn functions<'a>(source: &Source<'a>) -> Vec<&'a Node> {
     let mut holders = project::actions(source);
     holders.extend(["tests", "apis"].iter().flat_map(|key| project::list(source.root, key)));
+    holders.extend(source.root.get("redact").map(|redact| project::list(redact, "rules")).unwrap_or_default());
     holders.push(source.root);
     let checks: Vec<&Node> =
         holders.iter().filter_map(|holder| holder.get("cache").and_then(|cache| cache.get("check"))).collect();
