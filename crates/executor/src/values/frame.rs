@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde_json::Value;
-use vc_model::{ActionId, FileId, Instance, Program, Sym};
+use vc_model::{Action, ActionId, ActionKind, FileId, Instance, Program, Sym};
 
 use super::run::Defined;
 use crate::{ActionReport, Saved, SharedSlots};
@@ -25,6 +25,9 @@ pub struct Frame {
     pub instance: Option<Arc<Instance>>,
     /// Values saved earlier in the instance; the latest wins.
     pub saved: Arc<Saved>,
+    /// The saved values a `function:` or `test:` action left without declaring them in
+    /// `provides`, by name, with that action; reading one is a V5108 warning (D186).
+    pub origins: Arc<BTreeMap<String, ActionId>>,
     /// The last response of each earlier action with an `id`, by that id.
     pub steps: Arc<BTreeMap<Sym, Arc<Value>>>,
     /// Vars defined as one `${fake.…}`, generated once per instance (D131).
@@ -58,16 +61,32 @@ impl Frame {
     pub fn absorb(&mut self, program: &Program, action: ActionId, report: &ActionReport) {
         Arc::make_mut(&mut self.saved).extend(report.saved.clone());
         Arc::make_mut(&mut self.fakes).extend(report.fakes.clone());
-        let id =
-            program.actions.get(usize::try_from(action.index()).unwrap_or(usize::MAX)).and_then(|action| action.id);
-        if let (Some(id), Some(response)) = (id, &report.response) {
+        let saver = program.actions.get(usize::try_from(action.index()).unwrap_or(usize::MAX));
+        if let (Some(id), Some(response)) = (saver.and_then(|saver| saver.id), &report.response) {
             Arc::make_mut(&mut self.steps).insert(id, Arc::clone(response));
+        }
+        if !report.saved.is_empty() {
+            self.trace(program, (action, saver), &report.saved);
+        }
+    }
+
+    /// Notes which of `saved` its saver left undeclared; a name saved again by any other action
+    /// is no longer undeclared.
+    fn trace(&mut self, program: &Program, (action, saver): (ActionId, Option<&Action>), saved: &Saved) {
+        let origins = Arc::make_mut(&mut self.origins);
+        for name in saved.keys() {
+            if saver.is_some_and(|saver| undeclared(program, saver, name)) {
+                origins.insert(name.clone(), action);
+            } else {
+                origins.remove(name);
+            }
         }
     }
 
     /// Forgets what the instance's earlier actions left, for a new attempt.
     pub fn restart(&mut self) {
         self.saved = Arc::default();
+        self.origins = Arc::default();
         self.steps = Arc::default();
         self.fakes = Arc::default();
     }
@@ -77,4 +96,11 @@ impl Frame {
     pub fn cleaning(&self, vars: &Arc<Saved>) -> Self {
         Self { given: Some(Arc::clone(vars)), ..self.clone() }
     }
+}
+
+/// Whether `saver` is a `function:` or `test:` action that saves `name` without declaring it in
+/// `provides`.
+fn undeclared(program: &Program, saver: &Action, name: &str) -> bool {
+    let dynamic = matches!(saver.kind, ActionKind::Function(_) | ActionKind::Test(_));
+    dynamic && !saver.provides.iter().any(|declared| program.str(declared.sym()) == Some(name))
 }

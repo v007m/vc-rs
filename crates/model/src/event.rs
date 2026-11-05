@@ -1,5 +1,5 @@
 use crate::{
-    ActionId, ActionOutcome, CheckResult, CleanupRecord, Exchange, FileId, OwnerKey, RunStatus, TestResult, Totals,
+    ActionId, ActionOutcome, CheckResult, CleanupRecord, Exchange, Failure, FileId, OwnerKey, RunStatus, TestResult, Totals,
 };
 
 /// Everything observable about a run, in the order it happened (D103).
@@ -64,6 +64,17 @@ pub enum Event {
         owner: OwnerKey,
         /// The check and how it went.
         check: Box<CheckResult>,
+    },
+    /// An action read a value that an earlier `function:` or `test:` action saved without
+    /// declaring it in `provides` (V5108, D186); the run goes on. Published before the action's
+    /// `ActionFinished`; the redactor has masked it.
+    Warned {
+        /// The action that read the value.
+        action: ActionId,
+        /// The frame it ran in.
+        owner: OwnerKey,
+        /// The warning, at the action that saved the value.
+        warning: Failure,
     },
     /// A cleanup ran.
     CleanupFinished {
