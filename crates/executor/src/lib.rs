@@ -22,6 +22,7 @@ mod exit;
 #[cfg(test)]
 mod fixture;
 mod machine;
+mod mask;
 mod pipeline;
 mod redactor;
 mod shell;
@@ -29,13 +30,15 @@ mod slots;
 mod values;
 
 pub use action::{
-    ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, CallExecutor, TestExecutor, body_actions,
+    ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, AuthKey, CallExecutor, InlineExecutor,
+    NoAuth, TestExecutor, TokenCache, body_actions,
 };
 pub use bus::EventBus;
 pub use error::ExecutorError;
 
 pub use check::{Arguments, Judge, MatcherFn, MatcherRegistry};
 pub use exit::{EXIT_CANCELLED, EXIT_FAILED, EXIT_NOTHING_RAN, EXIT_PASSED, exit_code};
+pub use mask::{CelRule, MaskRule, RegexRule};
 pub use machine::{
     ActionReport, CANCELLED, FailedActions, FileCommand, FileInput, FileOrchestrator, FilePhase, InstanceCommand,
     InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup, RunCommand, RunInput,

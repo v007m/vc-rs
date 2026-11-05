@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use serde_json::Value;
-use vc_interfaces::{Environment, Random};
+use vc_interfaces::{Environment, Random, Secrets};
 use vc_model::{ActionId, ApiId, FileId, ProfileId, Program, TemplateValue, TestId, VarDefs, VarName};
 use vc_template::PipeRegistry;
 
@@ -35,13 +35,16 @@ pub struct RunInputs {
     pub environment: Arc<dyn Environment>,
     /// What `${fake.…}` generates.
     pub fakes: FakeData,
+    /// What `${secret.X}` reads; every value is masked in all output.
+    pub secrets: Secrets,
 }
 
 impl RunInputs {
     /// Inputs with the default profiles and the placeholder fake data.
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
-        Self { profiles: Vec::new(), vars: Defined::new(), random, environment, fakes: FakeData::placeholder() }
+        let (profiles, vars, fakes) = (Vec::new(), Defined::new(), FakeData::placeholder());
+        Self { profiles, vars, random, environment, fakes, secrets: Secrets::new() }
     }
 
     /// The same inputs with `profiles` active, in order.
@@ -55,6 +58,12 @@ impl RunInputs {
     pub fn with_vars(self, vars: Defined) -> Self {
         Self { vars, ..self }
     }
+
+    /// The same inputs with `secrets` for `${secret.X}`.
+    #[must_use]
+    pub fn with_secrets(self, secrets: Secrets) -> Self {
+        Self { secrets, ..self }
+    }
 }
 
 impl fmt::Debug for RunInputs {
@@ -65,6 +74,7 @@ impl fmt::Debug for RunInputs {
 
 /// The run's values, built once when the run starts.
 pub struct RunValues {
+    active: Vec<ProfileId>,
     profiles: Vec<String>,
     config: Arc<Defined>,
     api_files: HashMap<FileId, Arc<Defined>>,
@@ -73,6 +83,7 @@ pub struct RunValues {
     tests: HashMap<TestId, Arc<Defined>>,
     actions: Vec<Arc<Defined>>,
     pipes: PipeRegistry,
+    secrets: Arc<Value>,
     inputs: RunInputs,
 }
 
@@ -97,6 +108,8 @@ impl RunValues {
             tests: program.tests.iter().map(|(id, test)| (*id, layer(&test.vars))).collect(),
             actions: program.actions.iter().map(|action| layer(&action.vars)).collect(),
             pipes: PipeRegistry::builtin(),
+            secrets: Arc::new(inputs.secrets.iter().map(|(name, secret)| (name, secret.expose())).collect()),
+            active,
             inputs,
         }
     }
@@ -144,6 +157,19 @@ impl RunValues {
     }
 
     /// The pipes templates apply.
+    /// `defs` with the active profiles applied, for vars that are not on a level of the
+    /// program (an auth definition's and its use site's).
+    #[must_use]
+    pub fn layer(&self, program: &Program, defs: &VarDefs) -> Defined {
+        layered(program, defs, &self.active)
+    }
+
+    /// The `secret` root: every secret by name.
+    #[must_use]
+    pub fn secrets(&self) -> Arc<Value> {
+        Arc::clone(&self.secrets)
+    }
+
     #[must_use]
     pub const fn pipes(&self) -> &PipeRegistry {
         &self.pipes

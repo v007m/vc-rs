@@ -9,9 +9,11 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+aho-corasick.workspace = true
 arc-swap.workspace = true
 async-trait.workspace = true
 base64.workspace = true
+blake3.workspace = true
 bytes.workspace = true
 http.workspace = true
 indexmap.workspace = true

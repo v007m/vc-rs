@@ -1,0 +1,137 @@
+//! The run's token cache: one write-once slot per auth key, so requests that need the same
+//! credentials at the same moment wait for one fetch (D113, D168).
+
+use std::collections::HashMap;
+use std::fmt;
+use std::future::Future;
+use std::hash::{BuildHasher, RandomState};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
+
+use serde_json::Value;
+use tokio::sync::OnceCell;
+use tokio::time::Instant;
+use vc_interfaces::{AuthError, Credentials};
+
+/// What a slot holds: the credentials (or why there are none) and when they go stale.
+#[derive(Clone)]
+struct Cached {
+    result: Result<Credentials, AuthError>,
+    stale_at: Option<Instant>,
+}
+
+impl Cached {
+    fn stale(&self) -> bool {
+        self.stale_at.is_some_and(|at| Instant::now() >= at)
+    }
+}
+
+type Slot = Arc<OnceCell<Cached>>;
+
+/// The cache key of one auth with its resolved vars and settings: a BLAKE3 hash keyed with a
+/// random per-run key, so no plain hash of a secret value ever exists (D168).
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AuthKey([u8; 32]);
+
+impl fmt::Debug for AuthKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("AuthKey(..)")
+    }
+}
+
+/// The run's credentials by [`AuthKey`]. The map's lock is only ever held to find or replace a
+/// slot, never across an `await`; each slot is filled once by the first request that needs it.
+pub struct TokenCache {
+    key: [u8; 32],
+    slots: Mutex<HashMap<AuthKey, Slot>>,
+}
+
+impl fmt::Debug for TokenCache {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TokenCache").finish_non_exhaustive()
+    }
+}
+
+impl Default for TokenCache {
+    fn default() -> Self {
+        Self::new(random_key())
+    }
+}
+
+impl TokenCache {
+    /// A cache hashing with `key`.
+    #[must_use]
+    pub fn new(key: [u8; 32]) -> Self {
+        Self { key, slots: Mutex::default() }
+    }
+
+    /// The key of auth `id` with its resolved `vars` and `settings`.
+    #[must_use]
+    pub fn key(&self, id: &str, vars: &Value, settings: &Value) -> AuthKey {
+        let mut hasher = blake3::Hasher::new_keyed(&self.key);
+        for part in [Value::from(id), vars.clone(), settings.clone()] {
+            let bytes = part.to_string();
+            hasher.update(&u64::try_from(bytes.len()).unwrap_or(u64::MAX).to_le_bytes());
+            hasher.update(bytes.as_bytes());
+        }
+        AuthKey(*hasher.finalize().as_bytes())
+    }
+
+    /// The credentials for `key`, fetched once with `fetch` and again once they are within
+    /// `refresh_before` of expiring.
+    pub async fn get<F, Fut>(&self, key: AuthKey, refresh_before: Duration, fetch: F) -> Result<Credentials, AuthError>
+    where
+        F: Fn() -> Fut,
+        Fut: Future<Output = Result<Credentials, AuthError>>,
+    {
+        let fill = || async { cached(fetch().await, refresh_before) };
+        let slot = self.slot(key);
+        let found = slot.get_or_init(fill).await;
+        if !found.stale() {
+            return found.result.clone();
+        }
+        self.replace(key, &slot);
+        self.slot(key).get_or_init(fill).await.result.clone()
+    }
+
+    /// Forgets the credentials for `key`, so the next request fetches them again.
+    pub fn invalidate(&self, key: AuthKey) {
+        drop(self.lock().remove(&key));
+    }
+
+    fn slot(&self, key: AuthKey) -> Slot {
+        Arc::clone(self.lock().entry(key).or_default())
+    }
+
+    /// Drops `stale` unless another request has already replaced it.
+    fn replace(&self, key: AuthKey, stale: &Slot) {
+        let mut slots = self.lock();
+        if slots.get(&key).is_some_and(|current| Arc::ptr_eq(current, stale)) {
+            slots.remove(&key);
+        }
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<AuthKey, Slot>> {
+        self.slots.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+fn cached(result: Result<Credentials, AuthError>, refresh_before: Duration) -> Cached {
+    let lifetime = result.as_ref().ok().and_then(|credentials| credentials.expires_in);
+    let stale_at = lifetime.map(|lifetime| Instant::now() + lifetime.saturating_sub(refresh_before));
+    Cached { result, stale_at }
+}
+
+/// A key from the process's random hasher seeds: unpredictable, and never written anywhere.
+fn random_key() -> [u8; 32] {
+    let state = RandomState::new();
+    let mut key = [0; 32];
+    for (index, chunk) in key.chunks_exact_mut(8).enumerate() {
+        chunk.copy_from_slice(&state.hash_one(index).to_le_bytes());
+    }
+    key
+}
+
+#[cfg(test)]
+#[path = "token_cache_tests.rs"]
+mod tests;

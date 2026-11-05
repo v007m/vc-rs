@@ -47,6 +47,7 @@ vc-adapter-reporters = { path = "crates/adapters/reporters" }
 vc-adapter-secrets = { path = "crates/adapters/secrets" }
 vc-adapter-auth = { path = "crates/adapters/auth" }
 vc-mock-server = { path = "bench/mock" }
+aho-corasick = "1.1.5"
 anyhow = "1.0.104"
 arc-swap = "1.7.1"
 assert_cmd = "2.2.2"

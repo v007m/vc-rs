@@ -54,6 +54,7 @@ impl<'a> Render<'a> {
             chance: RandomChance(cx.values.inputs().random.as_ref()),
         };
         render.bind(Namespace::Run, json!({ "profiles": render.values.profiles() }));
+        render.roots.insert(Namespace::Secret, render.values.secrets());
         for (id, response) in request.frame.steps.iter() {
             render.roots.insert(Namespace::Step(*id), Arc::clone(response));
         }
@@ -61,6 +62,14 @@ impl<'a> Render<'a> {
         render.bind_instance(&request.frame)?;
         render.bind_iteration(&request.frame);
         Ok(render)
+    }
+
+    /// The same render with `given` found before every other level: an auth definition's
+    /// vars while its settings render.
+    #[must_use]
+    pub fn with_given(mut self, given: Arc<Saved>) -> Self {
+        self.scope.give(given);
+        self
     }
 
     /// Binds `ns` to `value` for the renders that follow.
@@ -269,6 +278,10 @@ impl Resolve for Lookup<'_> {
 
 impl Lookup<'_> {
     fn env(&self, name: &str) -> Result<Value, RenderError> {
+        if self.render.program.config.secrets.declares(name) {
+            let message = format!("`env.{name}` is a declared secret; use `${{secret.{name}}}` so it is masked");
+            return Err(RenderError::invalid(message));
+        }
         let value = self.render.values.inputs().environment.var(name);
         value.map(Value::String).ok_or_else(|| RenderError::missing(format!("`env.{name}` is not set")))
     }

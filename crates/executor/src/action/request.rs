@@ -10,7 +10,7 @@ use indexmap::IndexMap;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
-use vc_model::{Action, Api, BodySpec, Exchange, Failure, Method, RenderedRequest, Template, Timing};
+use vc_model::{Action, Api, BodySpec, Exchange, Failure, InlineRequest, Method, RenderedRequest, Template, Timing};
 use vc_template::RenderError;
 
 use crate::Render;
@@ -26,7 +26,23 @@ const OCTETS: &str = "application/octet-stream";
 pub fn rendered(render: &Render<'_>, api: &Api, action: &Action) -> Result<RenderedRequest, Failure> {
     let mut request = RenderedRequest::new(method(api.method), uri(render, api, action)?);
     request.headers = headers(render, api, action)?;
-    if let Some((body, kind)) = body(render, action.body.as_ref().unwrap_or(&api.body))? {
+    with_body(render, request, action.body.as_ref().unwrap_or(&api.body))
+}
+
+/// The request an inline step (a `flow` auth's) sends: its method, URL, headers and body as
+/// written, with the config's default headers under its own.
+pub fn inline(render: &Render<'_>, inline: &InlineRequest) -> Result<RenderedRequest, Failure> {
+    let url = render.text(&inline.url).map_err(failed)?;
+    let uri = url.parse::<Uri>().map_err(|error| rendering(&format!("`{url}` is not a URL: {error}")))?;
+    let mut request = RenderedRequest::new(method(inline.method), uri);
+    let levels = [&render.program().config.defaults.headers, &inline.headers];
+    request.headers = header_levels(render, levels.into_iter().flatten())?;
+    with_body(render, request, &inline.body)
+}
+
+/// `request` with the body `spec` renders to, and the `content-type` it implies unless one is set.
+fn with_body(render: &Render<'_>, mut request: RenderedRequest, spec: &BodySpec) -> Result<RenderedRequest, Failure> {
+    if let Some((body, kind)) = body(render, spec)? {
         request.body = body;
         if !request.headers.contains_key(CONTENT_TYPE) {
             request.headers.insert(CONTENT_TYPE, HeaderValue::from_static(kind));
@@ -67,7 +83,8 @@ fn query(render: &Render<'_>, api: &Api, action: &Action) -> Result<String, Fail
     Ok(pairs.join("&"))
 }
 
-fn encode(text: &str) -> String {
+/// `text` percent-encoded for a query.
+pub fn encode(text: &str) -> String {
     percent_encoding::utf8_percent_encode(text, UNRESERVED).to_string()
 }
 
@@ -77,8 +94,17 @@ fn headers(render: &Render<'_>, api: &Api, action: &Action) -> Result<HeaderMap,
     let program = render.program();
     let group = program.api_groups.get(&api.group).map(|group| &group.headers);
     let levels = [Some(&program.config.defaults.headers), group, Some(&api.headers), Some(&action.headers)];
+    header_levels(render, levels.into_iter().flatten().flatten())
+}
+
+/// `templates` rendered in order into one map; a later one replaces an earlier one, and a
+/// null value removes it.
+fn header_levels<'t>(
+    render: &Render<'_>,
+    templates: impl Iterator<Item = (&'t String, &'t Template)>,
+) -> Result<HeaderMap, Failure> {
     let mut headers = HeaderMap::new();
-    for (name, template) in levels.into_iter().flatten().flatten() {
+    for (name, template) in templates {
         let name = HeaderName::try_from(name.as_str())
             .map_err(|error| rendering(&format!("`{name}` is not a header name: {error}")))?;
         match header_value(render, template)? {
