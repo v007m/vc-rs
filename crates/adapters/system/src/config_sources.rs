@@ -6,8 +6,20 @@ use std::sync::Arc;
 
 use vc_interfaces::{ConfigEntry, ConfigSource, ConfigSourceError, Environment};
 
-/// The `VIB_*` variables a run reads, and the setting each one sets.
-const VIB_VARS: &[(&str, &str)] = &[("VIB_PROFILE", "profile")];
+/// The `VIB_*` variables a run reads, and the setting each one sets: the `--set` key upper-snaked
+/// (D182).
+const VIB_VARS: &[(&str, &str)] = &[
+    ("VIB_PROFILE", "profile"),
+    ("VIB_DEFAULTS_CONCURRENCY", "defaults.concurrency"),
+    ("VIB_DEFAULTS_PER_HOST", "defaults.perHost"),
+    ("VIB_DEFAULTS_TIMEOUT", "defaults.timeout"),
+    ("VIB_REPORTS_DIR", "reports.dir"),
+    ("VIB_REPORTS_FORMATS", "reports.formats"),
+];
+
+/// The prefix of the variables that set config vars, each named exactly as written:
+/// `VIB_VAR_userId` sets `vars.userId` (D182).
+const VIB_VAR: &str = "VIB_VAR_";
 
 /// The file at the project root that holds the `.env` layer.
 const DOT_ENV: &str = ".env";
@@ -73,7 +85,8 @@ impl ConfigSource for DotEnv {
     }
 }
 
-/// The `VIB_*` variables of the process environment, such as `VIB_PROFILE=staging`.
+/// The `VIB_*` variables of the process environment, such as `VIB_PROFILE=staging` and
+/// `VIB_VAR_userId=7` (D182); each entry's origin is the variable's name.
 #[derive(Clone)]
 pub struct VibVars {
     environment: Arc<dyn Environment>,
@@ -89,9 +102,13 @@ impl VibVars {
 
 impl ConfigSource for VibVars {
     fn entries(&self) -> Result<Vec<ConfigEntry>, ConfigSourceError> {
-        let set =
-            |&(name, key): &(&str, &str)| self.environment.var(name).map(|value| ConfigEntry::new(key, value, name));
-        Ok(VIB_VARS.iter().filter_map(set).collect())
+        let fixed = VIB_VARS.iter().map(|(name, _)| (*name).to_owned());
+        let vars = self.environment.names().into_iter().filter(|name| name.starts_with(VIB_VAR));
+        let set = |name: String| {
+            let value = self.environment.var(&name)?;
+            Some(ConfigEntry::new(vib_key(&name)?, value, name))
+        };
+        Ok(fixed.chain(vars).filter_map(set).collect())
     }
 }
 
@@ -120,8 +137,11 @@ impl ConfigSource for SetFlags {
 }
 
 /// The setting a `VIB_*` variable sets, if it is one.
-fn vib_key(name: &str) -> Option<&'static str> {
-    VIB_VARS.iter().find(|(var, _)| *var == name).map(|(_, key)| *key)
+fn vib_key(name: &str) -> Option<String> {
+    if let Some(var) = name.strip_prefix(VIB_VAR).filter(|var| !var.is_empty()) {
+        return Some(format!("vars.{var}"));
+    }
+    VIB_VARS.iter().find(|(var, _)| *var == name).map(|(_, key)| (*key).to_owned())
 }
 
 /// `line` read as `NAME=value`, without an `export ` before it or quotes around the value.

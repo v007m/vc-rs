@@ -3,6 +3,7 @@
 
 mod auth;
 mod call;
+mod command;
 mod http_retry;
 mod inline;
 mod looping;
@@ -21,6 +22,7 @@ use crate::{ActionReport, ExecutorError, Frame, PipelineParts, Redactor, RunInpu
 
 pub use auth::{AuthKey, NoAuth, TokenCache};
 pub use call::CallExecutor;
+pub use command::CommandExecutor;
 pub use inline::InlineExecutor;
 pub use reuse::{TestExecutor, body_actions};
 
@@ -169,7 +171,8 @@ impl ActionExecutors {
     }
 
     /// `call:` and inline requests through the request pipeline built from `parts`, and `test:`
-    /// reuse. `function:` is registered in M4; `command:` when its runner lands.
+    /// reuse. `command:` needs a runner, so the engine adds a [`CommandExecutor`]; `function:`
+    /// is registered in M4.
     #[must_use]
     pub fn standard(parts: PipelineParts) -> Self {
         Self::new()

@@ -1,5 +1,6 @@
 //! Action kinds this milestone cannot run, refused at plan time. The executor's missing-executor
-//! check stays as the backstop. M4 deletes the entries here when hooks and commands arrive.
+//! check stays as the backstop. `command:` runs since M2 (D181); M4 deletes `function:` when
+//! hooks arrive.
 
 use vc_model::{Action, ActionId, ActionKind, Plan, Program};
 
@@ -12,10 +13,8 @@ struct Unsupported {
     is: fn(&ActionKind) -> bool,
 }
 
-const UNSUPPORTED: &[Unsupported] = &[
-    Unsupported { key: "function", is: |kind| matches!(kind, ActionKind::Function(_)) },
-    Unsupported { key: "command", is: |kind| matches!(kind, ActionKind::Command(_)) },
-];
+const UNSUPPORTED: &[Unsupported] =
+    &[Unsupported { key: "function", is: |kind| matches!(kind, ActionKind::Function(_)) }];
 
 /// The one place a [`PlanError::NotSupportedYet`] is made.
 const fn not_supported_yet(key: &'static str, action: ActionId) -> PlanError {
@@ -76,7 +75,7 @@ mod tests {
     }
 
     #[test]
-    fn refuses_the_first_function_or_command_in_run_order() {
+    fn refuses_the_first_function_in_run_order() {
         let mut fixture = Fixture::new();
         let plan = planned(&mut fixture, ActionKind::Function(HookRef { file: "a.ts".into(), export: "f".into() }));
         fixture.action_mut(ActionId::new(1)).kind = ActionKind::Command(read("warm"));
@@ -85,13 +84,16 @@ mod tests {
     }
 
     #[test]
-    fn finds_a_command_inside_an_instance_and_passes_calls() {
+    fn finds_a_function_inside_an_instance_and_passes_calls_and_commands() {
         let mut fixture = Fixture::new();
-        let call = ActionKind::Call(fixture.api);
-        let plan = planned(&mut fixture, call);
+        let plan = planned(&mut fixture, ActionKind::Command(read("warm")));
         assert_eq!(check(&fixture.program, &plan), Ok(()));
-        fixture.action_mut(ActionId::new(1)).kind = ActionKind::Command(read("warm"));
+        let call = ActionKind::Call(fixture.api);
+        fixture.action_mut(ActionId::new(0)).kind = call;
+        assert_eq!(check(&fixture.program, &plan), Ok(()));
+        fixture.action_mut(ActionId::new(1)).kind =
+            ActionKind::Function(HookRef { file: "a.ts".into(), export: "f".into() });
         let error = check(&fixture.program, &plan);
-        assert_eq!(error, Err(PlanError::NotSupportedYet { kind: "command", action: ActionId::new(1) }));
+        assert_eq!(error, Err(PlanError::NotSupportedYet { kind: "function", action: ActionId::new(1) }));
     }
 }

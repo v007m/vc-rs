@@ -2390,6 +2390,8 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "ignore",
+ "rustix",
+ "saphyr-parser",
  "tempfile",
  "tokio",
  "vc-interfaces",

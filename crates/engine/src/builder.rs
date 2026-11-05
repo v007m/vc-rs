@@ -2,8 +2,8 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, SystemClock};
-use vc_interfaces::{Clock, CompileCacheStore, Environment, SourceProvider, Transport, Vcs};
+use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, ProcessRunner, SystemClock};
+use vc_interfaces::{Clock, CommandRunner, CompileCacheStore, Environment, SourceProvider, Transport, Vcs};
 
 use crate::EngineError;
 
@@ -17,13 +17,25 @@ pub struct EngineBuilder {
     environment: Option<Arc<dyn Environment>>,
     transport: Option<Arc<dyn Transport>>,
     vcs: Option<Arc<dyn Vcs>>,
+    commands: Option<Arc<dyn CommandRunner>>,
+    user_config: Option<PathBuf>,
 }
 
 impl EngineBuilder {
     /// A builder for the project whose root is `root`.
     #[must_use]
     pub const fn new(root: PathBuf) -> Self {
-        Self { root, sources: None, compile_cache: None, clock: None, environment: None, transport: None, vcs: None }
+        Self {
+            root,
+            sources: None,
+            compile_cache: None,
+            clock: None,
+            environment: None,
+            transport: None,
+            vcs: None,
+            commands: None,
+            user_config: None,
+        }
     }
 
     /// A builder for the nearest project at or above `start`: the first folder holding a
@@ -59,8 +71,9 @@ impl EngineBuilder {
         self
     }
 
-    /// Reads `${env.X}` and the `VIB_*` settings from `environment` instead of the process
-    /// environment and the project's `.env` file.
+    /// Reads `${env.X}`, the `VIB_*` settings and the user config's folder from `environment`
+    /// instead of the process environment; the project's `.env` file still fills what it does
+    /// not set.
     #[must_use]
     pub fn environment(mut self, environment: Arc<dyn Environment>) -> Self {
         self.environment = Some(environment);
@@ -81,6 +94,20 @@ impl EngineBuilder {
         self
     }
 
+    /// Runs `command:` actions with `commands` instead of the system shell.
+    #[must_use]
+    pub fn commands(mut self, commands: Arc<dyn CommandRunner>) -> Self {
+        self.commands = Some(commands);
+        self
+    }
+
+    /// Reads the user config from `path` instead of `~/.config/vibranium/config.yaml`.
+    #[must_use]
+    pub fn user_config(mut self, path: PathBuf) -> Self {
+        self.user_config = Some(path);
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -96,8 +123,19 @@ impl EngineBuilder {
         let compile_cache = self.compile_cache.unwrap_or_else(|| Arc::new(FsCompileCache::new(&self.root)));
         let clock = self.clock.unwrap_or_else(|| Arc::new(SystemClock));
         let vcs = self.vcs.unwrap_or_else(|| Arc::new(GitVcs::new(&self.root)));
-        let (environment, transport) = (self.environment, self.transport);
-        Ok(Engine { root: self.root, sources, compile_cache, clock, environment, transport, vcs })
+        let commands = self.commands.unwrap_or_else(|| Arc::new(ProcessRunner::new()));
+        let (environment, transport, user_config) = (self.environment, self.transport, self.user_config);
+        Ok(Engine {
+            root: self.root,
+            sources,
+            compile_cache,
+            clock,
+            environment,
+            transport,
+            vcs,
+            commands,
+            user_config,
+        })
     }
 }
 
@@ -116,6 +154,8 @@ pub struct Engine {
     pub(crate) environment: Option<Arc<dyn Environment>>,
     pub(crate) transport: Option<Arc<dyn Transport>>,
     pub(crate) vcs: Arc<dyn Vcs>,
+    pub(crate) commands: Arc<dyn CommandRunner>,
+    pub(crate) user_config: Option<PathBuf>,
 }
 
 impl Engine {

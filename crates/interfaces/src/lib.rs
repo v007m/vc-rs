@@ -12,7 +12,8 @@
 //! - [`Environment`]: the process environment for `${env.NAME}`.
 //! - [`Clock`]: today's date in UTC, for the lints that compare dates (an expired `skip`), and
 //!   the time a run started.
-//! - [`ConfigSource`]: one config layer above the project's files: `.env`, `VIB_*`, `--set` (D129).
+//! - [`ConfigSource`]: one config layer around the project's files: the user config, `.env`,
+//!   `VIB_*`, `--set` (D129).
 //! - [`Reporter`]: turns the run's events into console output or a report file (D43).
 //! - [`SecretProvider`]: resolves the `${secret.*}` names `.env.schema` declares, once per run
 //!   (D163, D165).

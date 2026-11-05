@@ -22,3 +22,4 @@ pub use build::plan;
 pub use error::PlanError;
 pub use options::{PlanOptions, Selection};
 pub use render::{dot, explain, json, plan_line, tree};
+pub use select::{select_apis, select_files};

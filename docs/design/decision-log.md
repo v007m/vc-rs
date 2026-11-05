@@ -322,6 +322,13 @@ Round 24 additions (combined M3–M5 kick-off, 5 November 2026):
 | D179 | `--changed` | With no ref, `--changed` compares the working tree against HEAD: uncommitted and untracked files. `--changed <ref>` compares against that ref. A changed `vibranium.config.yaml` or `.env.schema` selects every test | — |
 | D180 | Defaults taken | History in SQLite WAL with one writer. `vc explain X` treats X as a code when it matches `V\d{4}`, and as an ID otherwise. `vc watch` uses notify with a 200 ms debounce over the compile cache. `vc fmt` takes key order from the shape definitions. V4 lints are warnings, with no new `lints:` key, and `check --fix` applies only certain fixes. CLI `--var` wins over the PRD's `--with`. The LLD milestone order wins over the PRD release column. Completion uses `clap_complete` plus a hidden `vc __complete` | — |
 
+Round 25 additions (orchestrator defaults during M2 finish, 5 November 2026):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D181 | `command:` safety | A `command:` line is run by `sh -c` (unix) or `cmd /C` (Windows) in the project root, with the process environment plus `.env` and the run's vars. Each interpolated `${…}` value is quoted as one POSIX word on unix; on Windows a value holding `& \| < > ^ % ! " ( )` or a newline fails the action (V5111). Captured stdout and stderr keep the last 64 KiB each and pass through the redactor; a non-zero exit is V5110 with the exit code and the last lines. A timeout kills the whole process group | — |
+| D182 | `VIB_*` names | Settings map by upper-snaking the `--set` key (`VIB_PROFILE`, `VIB_DEFAULTS_CONCURRENCY`, `VIB_DEFAULTS_PER_HOST`, `VIB_DEFAULTS_TIMEOUT`, `VIB_REPORTS_DIR`, `VIB_REPORTS_FORMATS`); vars use `VIB_VAR_<name>` with the name exactly as written (`VIB_VAR_userId`), because upper-snaking a camelCase name loses information | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

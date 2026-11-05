@@ -34,6 +34,33 @@ fn lists_apis_and_files() {
 }
 
 #[test]
+fn apis_and_files_take_selectors() {
+    let select = |ids: &[&str], kind| ListRequest {
+        kind,
+        select: SelectRequest { ids: ids.iter().map(|id| (*id).to_owned()).collect(), ..SelectRequest::default() },
+        ..ListRequest::default()
+    };
+    assert_eq!(ids(&select(&["users"], ListKind::Apis)), ["users#list"]);
+    assert_eq!(ids(&select(&["users#*"], ListKind::Apis)), ["users#list"]);
+    assert_eq!(ids(&select(&["users.*"], ListKind::Files)), ["users.crud"]);
+    assert_eq!(ids(&select(&["services/orders"], ListKind::Files)), ["orders.flow"]);
+    let error = engine(FakeVcs::default()).list(&select(&["users.crud"], ListKind::Apis)).unwrap_err();
+    assert!(error.to_string().contains("no api or api file matches `users.crud`"), "{error}");
+}
+
+#[test]
+fn files_filter_by_tag_and_apis_refuse_one() {
+    let tagged = |kind| ListRequest {
+        kind,
+        select: SelectRequest { tags: vec!["smoke".into()], ..SelectRequest::default() },
+        ..ListRequest::default()
+    };
+    assert_eq!(ids(&tagged(ListKind::Files)), ["users.crud"]);
+    let error = engine(FakeVcs::default()).list(&tagged(ListKind::Apis)).unwrap_err();
+    assert!(error.to_string().contains("apis have no tags"), "{error}");
+}
+
+#[test]
 fn the_text_and_json_carry_every_field() {
     let report = engine(FakeVcs::default()).list(&ListRequest::default()).unwrap();
     let text = report.text();
