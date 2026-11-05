@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
+use bytes::Bytes;
+use http::header::AUTHORIZATION;
+use http::{HeaderMap, HeaderValue, StatusCode};
 use serde_json::{Value, json};
 use vc_model::{
-    ActionId, ActionOutcome, CheckKind, CheckResult, CleanupRecord, Config, Event, Failure, Feed, Origin, OwnerKey,
-    Path, Pos, RedactRule, Segment, SourceFileId, SourceSpan, TestId, TestResult, TestStatus,
+    ActionId, ActionOutcome, CheckKind, CheckResult, CleanupRecord, Config, ConnectionInfo, Event, Exchange, Failure,
+    Feed, HttpResponse, Origin, OwnerKey, Path, Pos, RedactRule, RenderedRequest, Segment, SourceFileId, SourceSpan,
+    TestId, TestResult, TestStatus, Timing,
 };
 
 use super::{MASKED, RedactingSink, Redactor};
@@ -142,4 +146,39 @@ fn masks_failures_in_action_test_and_cleanup_events() {
     }
     let passed = Event::ActionFinished { action, owner, outcome: ActionOutcome::Passed };
     assert_eq!(redactor.event(passed.clone()), passed);
+}
+
+fn exchange(uri: &str, body: &str) -> Exchange {
+    let mut request = RenderedRequest::new(http::Method::POST, uri.parse().unwrap());
+    request.headers.insert(AUTHORIZATION, HeaderValue::from_static("Bearer tok-abcdef"));
+    request.body = Bytes::from(body.to_owned());
+    let mut headers = HeaderMap::new();
+    headers.insert("x-echo", HeaderValue::from_static("key s3cr3t-key for 123-45-6789"));
+    let response = HttpResponse { status: StatusCode::OK, headers, body: Bytes::from(body.to_owned()), wire_size: 0 };
+    Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() }
+}
+
+fn shown(headers: &HeaderMap) -> String {
+    headers.values().map(|value| value.to_str().unwrap_or_default()).collect::<Vec<_>>().join(" ")
+}
+
+#[test]
+fn masks_an_exchange_url_headers_and_both_bodies() {
+    let redactor = configured();
+    redactor.hide_values(["p@ss word"]);
+    let (action, owner) = (ActionId::new(0), OwnerKey::Run);
+    let uri = "https://api.test/k/s3cr3t-key?pw=p%40ss%20word";
+    let sent = exchange(uri, r#"{"password":"pw-1","ssn":"123-45-6789"}"#);
+    let Event::Exchanged { exchange: masked, .. } =
+        redactor.event(Event::Exchanged { action, owner, exchange: Box::new(sent) })
+    else {
+        panic!("not an exchange")
+    };
+    let (request, response) = (&masked.request, &masked.response);
+    let bodies = format!("{:?} {:?}", request.body, response.body);
+    let text = format!("{} {bodies} {} {}", request.uri, shown(&request.headers), shown(&response.headers));
+    for leak in ["s3cr3t-key", "p%40ss", "pw-1", "123-45-6789", "tok-abcdef"] {
+        assert!(!text.contains(leak), "{leak} in {text}");
+    }
+    assert_eq!((request.headers[AUTHORIZATION].to_str().unwrap(), response.status), (MASKED, StatusCode::OK));
 }

@@ -1087,6 +1087,8 @@ redact:
 
 A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`). Rules fail closed: a regex that does not compile masks every text, and a CEL rule that errors masks the field.
 
+The requests and responses kept in `history.db` and reports are masked the same way before they are stored: the URL (path and query, where a secret also counts in its percent-encoded form), every header and both bodies. Bodies are cut at `history.maxBodySize` only after masking, so a cut never leaves part of a secret showing.
+
 ## Generators and datasets
 
 `${fake.*}` generates realistic data from the Faker catalogue, by Faker's own names; generators that take settings accept literal arguments.

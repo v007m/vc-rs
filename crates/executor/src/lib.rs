@@ -18,6 +18,7 @@ mod bus;
 mod cancel;
 mod check;
 mod error;
+mod exchange_mask;
 mod exit;
 #[cfg(test)]
 mod fixture;

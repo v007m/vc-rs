@@ -26,6 +26,8 @@ pub use command::CommandExecutor;
 pub use inline::InlineExecutor;
 pub use reuse::{TestExecutor, body_actions};
 
+pub(crate) use request::encode;
+
 /// The kind of an action, as the registry keys its executors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]

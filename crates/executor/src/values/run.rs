@@ -156,7 +156,6 @@ impl RunValues {
         self.actions.get(usize::try_from(id.index()).ok()?).cloned()
     }
 
-    /// The pipes templates apply.
     /// `defs` with the active profiles applied, for vars that are not on a level of the
     /// program (an auth definition's and its use site's).
     #[must_use]
@@ -170,6 +169,7 @@ impl RunValues {
         Arc::clone(&self.secrets)
     }
 
+    /// The pipes templates apply.
     #[must_use]
     pub const fn pipes(&self) -> &PipeRegistry {
         &self.pipes

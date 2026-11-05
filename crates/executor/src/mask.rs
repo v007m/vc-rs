@@ -137,7 +137,15 @@ impl Masks {
         self.headers.contains(name)
     }
 
-    fn without_values(&self, text: &str) -> String {
+    /// Whether one of the hidden values is among `bytes`.
+    #[must_use]
+    pub fn finds_value(&self, bytes: &[u8]) -> bool {
+        self.finder.as_ref().is_some_and(|finder| finder.is_match(bytes))
+    }
+
+    /// `text` with every hidden value masked, and no rule applied.
+    #[must_use]
+    pub fn without_values(&self, text: &str) -> String {
         let Some(finder) = &self.finder else { return text.to_owned() };
         let mut masked = String::with_capacity(text.len());
         finder.replace_all_with(text, &mut masked, |_, _, masked| {

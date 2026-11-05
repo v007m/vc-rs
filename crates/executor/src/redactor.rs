@@ -75,10 +75,13 @@ impl Redactor {
         self.masks.rcu(|masks| masks.with_fields(&added));
     }
 
-    /// Masks `values` wherever they appear from now on: secrets when the run starts,
-    /// credentials as they arrive. Values under four characters are left alone.
+    /// Masks `values` wherever they appear from now on, also as a URL's query encodes them:
+    /// secrets when the run starts, credentials as they arrive. Values under four characters
+    /// are left alone.
     pub fn hide_values(&self, values: impl IntoIterator<Item = impl AsRef<str>>) {
-        let added: Vec<String> = values.into_iter().map(|value| value.as_ref().to_owned()).collect();
+        let encoded = |value: &str| Some(crate::action::encode(value)).filter(|encoded| encoded != value);
+        let both = |value: &str| [Some(value.to_owned()), encoded(value)].into_iter().flatten();
+        let added: Vec<String> = values.into_iter().flat_map(|value| both(value.as_ref())).collect();
         if !added.is_empty() {
             self.masks.rcu(|masks| masks.with_values(&added));
         }
@@ -110,6 +113,10 @@ impl Redactor {
                 result.failure = result.failure.map(|failure| self.failure(failure));
                 result.skip_reason = result.skip_reason.map(|reason| self.text(&reason));
                 Event::TestFinished { result }
+            }
+            Event::Exchanged { action, owner, exchange } => {
+                let exchange = self.masking(|masking| crate::exchange_mask::exchange(masking, *exchange));
+                Event::Exchanged { action, owner, exchange: Box::new(exchange) }
             }
             Event::CleanupFinished { mut cleanup } => {
                 cleanup.outcome = self.outcome(cleanup.outcome);
