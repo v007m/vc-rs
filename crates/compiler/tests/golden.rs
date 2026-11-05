@@ -33,6 +33,9 @@ fn read_tree(root: &Path, dir: &Path, files: &mut Vec<SourceFile>) -> Outcome {
     Ok(())
 }
 
+/// The file at a case's project root that declares its secret names (D165).
+const SECRET_SCHEMA: &str = ".env.schema";
+
 fn golden(case: &str) -> Outcome {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cases").join(case);
     let project = dir.join("project");
@@ -61,7 +64,9 @@ fn compile(read: Vec<SourceFile>) -> Compiled {
     let (files, mut others): (Vec<_>, Vec<_>) =
         read.into_iter().partition(|file| FileKind::from_path(&file.path).is_some());
     let assets = Some(others.iter().map(|file| file.path.clone()).collect());
-    let mut input = CompileInput { files, previous: CompileCache::new(), today: Date::parse(TODAY), assets };
+    let secret_schema = others.iter().find(|file| file.path.as_str() == SECRET_SCHEMA).cloned();
+    let today = Date::parse(TODAY);
+    let mut input = CompileInput { files, previous: CompileCache::new(), today, assets, secret_schema };
     loop {
         let compiled = vc_compiler::compile(input.clone());
         let data = compiled.data_wanted.iter().map(|data| &data.path);
@@ -126,6 +131,8 @@ cases!(
     v2101_unset_var,
     v2103_example_column,
     v2105_step_order,
+    v2106_undeclared_secret,
+    v2107_env_secret,
     v2205_cycle,
     v2210_shared_without_id,
     v2304_pipe_type,

@@ -10,7 +10,7 @@ use tokio::time::Instant;
 use vc_diagnostics::Code;
 use vc_model::{
     ActionId, ActionKind, BodySpec, Check, CheckKind, Expect, HttpResponse, Matcher, Method, Origin, OwnerKey, Path,
-    Poll, Segment, StatusPattern, TemplateValue,
+    Poll, Segment, Size, StatusPattern, TemplateValue,
 };
 use vc_testkit::{FakeTransport, Recorded, RecordingTransport};
 
@@ -236,6 +236,19 @@ async fn a_reuse_runs_its_steps_with_their_saves_step_ids_and_its_callers_vars()
     assert_eq!(sent.get(1).map(|recorded| recorded.request.uri.path()), Some("/users/7/7/eu/n"));
     assert_eq!(report.saved, saved(json!({ "userId": 7 })));
     assert_eq!(report.response.map(|response| response["body"].clone()), Some(json!({ "ok": true })));
+    assert_eq!(report.exchanges.len(), 2, "a reuse reports each step's exchange");
+}
+
+#[tokio::test]
+async fn the_exchange_is_reported_with_its_bodies_cut_at_the_history_limit() {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/users");
+    fixture.api_mut(call).body = BodySpec::Json(fixture.value("abcdefghij"));
+    fixture.program.config.history.max_body_size = Size::from_bytes(4);
+    let (report, _) = send(fixture, call, Frame::default(), vec![json_response(200, &json!({ "id": 7 }))]).await;
+    let [exchange] = report.exchanges.as_slice() else { panic!("one exchange: {:?}", report.exchanges) };
+    assert_eq!((exchange.request.body.as_ref(), exchange.response.body.as_ref()), (&b"\"abc"[..], &b"{\"id"[..]));
+    assert_eq!(report.response.map(|response| response["body"].clone()), Some(json!({ "id": 7 })));
 }
 
 #[tokio::test]

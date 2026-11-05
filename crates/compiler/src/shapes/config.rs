@@ -16,6 +16,7 @@ const AUTH_TYPES: &[&str] = &[
     "bearer",
     "apiKey",
     "oauth2ClientCredentials",
+    "oauth2Password",
     "oauth2AuthorizationCode",
     "oauth2Refresh",
     "flow",
@@ -33,7 +34,7 @@ shape! {
         types::key("profiles", Ty::List(&Ty::Obj(profile))).default("required, at least one (V3101)")
             .doc("Named sets of var overrides"),
         types::key("auth", Ty::List(&Ty::Obj(auth))).doc("Auth definitions"),
-        types::key("secrets", Ty::Obj(secrets)).default("Varlock with `.env.schema`").doc("Where `${secret.*}` comes from"),
+        types::key("secrets", Ty::Obj(secrets)).default("`env` with `.env.schema`").doc("Where `${secret.*}` comes from"),
         types::key("generators", Ty::List(&Ty::Obj(generator))).doc("Named fake-data generators"),
         types::key("datasets", Ty::Obj(datasets)).default("every file in `datasets/`").doc("Your own data lists"),
         types::key("reports", Ty::Obj(reports)).default("CTRF only").doc("Output formats and folder"),
@@ -79,15 +80,15 @@ shape! {
         types::key("name", Ty::Template).doc("Display name; for `apiKey`, the header or query name"),
         types::key("type", Ty::Enum(AUTH_TYPES)).required().doc("The scheme"),
         types::key("vars", VARS).doc("Values for the auth's templates"),
-        types::key("username", Ty::Template).doc("`basic`"),
-        types::key("password", Ty::Template).doc("`basic`"),
+        types::key("username", Ty::Template).doc("`basic`, `oauth2Password`"),
+        types::key("password", Ty::Template).doc("`basic`, `oauth2Password`"),
         types::key("token", Ty::Template).doc("`bearer`: a fixed token"),
         types::key("in", Ty::Enum(&["header", "query"])).doc("`apiKey`: where the key goes"),
         types::key("value", Ty::Template).doc("`apiKey`: the key"),
         types::key("tokenUrl", Ty::Template).doc("`oauth2*`: token endpoint"),
         types::key("authorizeUrl", Ty::Template).doc("`oauth2AuthorizationCode`: authorize endpoint"),
         types::key("clientId", Ty::Template).doc("`oauth2*`: client ID"),
-        types::key("clientSecret", Ty::Template).doc("`oauth2ClientCredentials`: client secret"),
+        types::key("clientSecret", Ty::Template).doc("`oauth2*`: client secret, where the server wants one"),
         types::key("refreshToken", Ty::Template).doc("`oauth2Refresh`: long-lived refresh token"),
         types::key("scopes", TEXTS).doc("`oauth2*`: scopes requested"),
         types::key("audience", Ty::Template).doc("`oauth2ClientCredentials`: audience"),
@@ -127,8 +128,8 @@ shape! {
 
 shape! {
     secrets = Shape::new("secrets", "Where secrets come from", &[
-        types::key("provider", Ty::Text).default("varlock").doc("The secrets provider"),
-        types::key("schema", Ty::Text).default(".env.schema").doc("The schema file"),
+        types::key("provider", Ty::Enum(&["env", "varlock"])).default("env").doc("The secrets provider (D163)"),
+        types::key("schema", Ty::Text).default(".env.schema").doc("The file that declares the secret names"),
     ])
 }
 
@@ -184,16 +185,9 @@ shape! {
 
 shape! {
     history = Shape::new("history", "Run history and retention", &[
-        types::key("bodies", Ty::Text).default("failures").doc("Which bodies are kept"),
-        types::key("maxBodySize", Ty::Size).doc("Largest body kept").example("1mb"),
-        types::key("retain", Ty::Obj(retain)).doc("How much history is kept"),
-    ])
-}
-
-shape! {
-    retain = Shape::new("retain", "How much history is kept", &[
-        types::key("runs", Ty::Int).doc("Runs kept"),
-        types::key("days", Ty::Int).doc("Days kept"),
+        types::key("bodies", Ty::Enum(&["none", "failures", "all"])).default("failures").doc("Which exchanges keep their bodies"),
+        types::key("maxBodySize", Ty::Size).default("64kb").doc("A longer body is cut to this size").example("1mb"),
+        types::key("keep", Ty::Either(&[Ty::Int, Ty::Enum(&["all"])])).default("50").doc("Runs kept after each run, or `all`"),
     ])
 }
 
@@ -218,5 +212,14 @@ shape! {
     redact = Shape::new("redact", "Extra values to mask", &[
         types::key("headers", TEXTS).doc("Header names"),
         types::key("fields", TEXTS).doc("Body field names"),
+        types::key("rules", Ty::List(&Ty::Obj(redact_rule))).doc("Your own masking rules (D171)"),
+    ])
+}
+
+shape! {
+    redact_rule = Shape::new("redactRule", "One masking rule; write `regex` or `cel`", &[
+        types::key("regex", Ty::Text).doc("Masks every match in any text").example("\"\\d{3}-\\d{2}-\\d{4}\""),
+        types::key("cel", Ty::Cel).scope(Scope::FOR_EACH)
+            .doc("Masks a JSON field when true; `item.name` and `item.value` are the field").example("item.name == 'ssn'"),
     ])
 }

@@ -1,0 +1,51 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2107_env_secret/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2107",
+      "severity": "error",
+      "message": "`${env.API_TOKEN}` reads a secret that `.env.schema` declares",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 5,
+          "column": 29,
+          "endLine": 5,
+          "endColumn": 45
+        },
+        "text": "API_TOKEN is a secret"
+      },
+      "secondary": [],
+      "notes": [
+        "a declared secret is reachable only as `${secret.X}`, so it is masked everywhere"
+      ],
+      "help": [
+        "write `${secret.API_TOKEN}`"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with secret.API_TOKEN",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 84,
+                "end": 87
+              },
+              "newText": "secret"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

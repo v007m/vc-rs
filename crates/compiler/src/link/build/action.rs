@@ -4,7 +4,7 @@
 use vc_model::{Action, ActionKind, ApiId, AuthRef, BodySpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs, VarName};
 use vc_parser::Node;
 
-use super::{Build, Built, expect, read};
+use super::{Build, Built, auth, expect, read};
 use crate::link::project;
 use crate::link::project::Source;
 use crate::shapes;
@@ -74,6 +74,9 @@ impl<'a> Build<'_, 'a> {
         }
         if let Some(function) = project::text(node, "function") {
             return Ok(Some(ActionKind::Function(read::hook(source, function))));
+        }
+        if let Some(request) = auth::inline(source, node) {
+            return Ok(Some(ActionKind::Inline(Box::new(request))));
         }
         let command = node.get("command").and_then(|command| read::template(source, command));
         Ok(command.map(ActionKind::Command))

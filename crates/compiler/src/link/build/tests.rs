@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use vc_model::{
-    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Duration, Examples, Loop, Method, Origin, Owner,
-    Program, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test, TestBody,
+    Action, ActionKind, AuthRef, Bodies, BodySpec, CheckKind, ContentHash, Duration, Examples, Keep, Loop, Method,
+    Origin, Owner, Program, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test, TestBody,
 };
 
 use crate::CompileInput;
 
-const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n    vars: {region: eu}\nauth:\n  - id: admin\n    type: bearer\n    token: t\nbeforeRun:\n  - id: warm\n    call: users#list\nreports: {dir: out, formats: [ctrf]}\nredact: {headers: [x-key], fields: [password]}\n";
+const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n    vars: {region: eu}\nauth:\n  - id: admin\n    type: bearer\n    token: t\nbeforeRun:\n  - id: warm\n    call: users#list\nreports: {dir: out, formats: [ctrf]}\nredact: {headers: [x-key], fields: [password]}\nhistory: {bodies: all, maxBodySize: 1kb, keep: 7}\n";
 
 const APIS: &str = "name: Users\nbaseUrl: ${var.baseUrl}\nheaders: {accept: json}\nvars: {page: 1}\nprofiles:\n  - id: dev\n    vars: {page: 2}\napis:\n  - id: list\n    path: /users\n    expect: {status: 200}\n  - id: create\n    method: POST\n    path: /users\n    body: {name: Ada}\n    expect:\n      status: 201\n      headers: {Content-Type: {contains: json}}\n      cel: {named: response.body.name == 'Ada'}\n    save: {userId: '${response.body.id}'}\n    cleanup: {call: remove, vars: {id: '${response.body.id}'}}\n  - id: remove\n    method: DELETE\n    path: /users/${var.id}\n    deprecated: true\n";
 
@@ -67,6 +67,8 @@ fn builds_the_config_profiles_and_run_blocks() {
         (&["x-key".to_owned()][..], &["password".to_owned()][..])
     );
     assert_eq!(program.config.report_formats, ["ctrf"]);
+    let history = program.config.history;
+    assert_eq!((history.bodies, history.max_body_size.bytes(), history.keep), (Bodies::All, 1024, Keep::Runs(7)));
     let profile = program.profiles.values().next().unwrap();
     assert!(profile.default && profile.vars.len() == 1);
     let [warm] = program.run_blocks.before_run[..] else { panic!("one beforeRun action") };

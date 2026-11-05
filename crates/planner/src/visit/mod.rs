@@ -124,7 +124,7 @@ impl<'p, V: Visit> Walker<'p, V> {
             ActionKind::Command(template) => self.template(template),
             ActionKind::Inline(inline) => {
                 self.template(&inline.url);
-                self.templates(inline.headers.values());
+                self.templates(inline.query.values().chain(inline.headers.values()));
                 self.body(&inline.body);
             }
             ActionKind::Function(_) => {}
@@ -176,6 +176,8 @@ impl<'p, V: Visit> Walker<'p, V> {
         if let Some(def) = self.program.auth.get(id) {
             self.values(def.settings.values());
             self.vars(&def.vars);
+            self.templates(def.expires_in.iter());
+            self.actions(&def.steps);
         }
     }
 

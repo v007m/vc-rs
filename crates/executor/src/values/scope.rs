@@ -123,6 +123,11 @@ impl Scope {
         self.push(group.and_then(|group| values.api_file(group)).map(Level::ApiFile));
     }
 
+    /// Puts `given` in front of every other level.
+    pub fn give(&mut self, given: Arc<Saved>) {
+        self.levels.insert(0, Level::Given(given));
+    }
+
     fn push(&mut self, level: Option<Level>) {
         self.levels.extend(level);
     }

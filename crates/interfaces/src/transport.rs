@@ -4,6 +4,8 @@ use async_trait::async_trait;
 use vc_diagnostics::Code;
 use vc_model::{Exchange, RenderedRequest, Size};
 
+use crate::AuthError;
+
 /// Sends one rendered request and returns the exchange with its timings.
 ///
 /// It knows nothing of auth, retries, timeouts or per-host limits: those are layers of the
@@ -104,14 +106,19 @@ pub enum TransportError {
         /// What went wrong.
         reason: String,
     },
+    /// The auth layer could not obtain credentials for the request (V5114).
+    #[error("credentials could not be obtained: {0}")]
+    Credentials(AuthError),
 }
 
 impl TransportError {
-    /// The diagnostic code a failed step reports: V5104 for a timeout, V5105 for the rest.
+    /// The diagnostic code a failed step reports: V5104 for a timeout, V5114 for credentials
+    /// and V5105 for the rest.
     #[must_use]
     pub const fn code(&self) -> Code {
         match self {
             Self::Timeout { .. } => Code::V5104,
+            Self::Credentials(_) => Code::V5114,
             _ => Code::V5105,
         }
     }
@@ -125,6 +132,7 @@ mod tests {
     use vc_model::Size;
 
     use super::{SendContext, TransportError};
+    use crate::AuthError;
 
     #[test]
     fn a_timeout_is_v5104_and_everything_else_v5105() {
@@ -139,6 +147,13 @@ mod tests {
             TransportError::Decode { encoding: "gzip".into(), reason: "r".into() },
         ];
         assert!(others.iter().all(|e| e.code() == Code::V5105));
+    }
+
+    #[test]
+    fn missing_credentials_are_v5114_and_say_why() {
+        let error = TransportError::Credentials(AuthError::Rejected { auth: "svc".into(), status: 401 });
+        assert_eq!(error.code(), Code::V5114);
+        assert_eq!(error.to_string(), "credentials could not be obtained: the token endpoint for `svc` answered 401");
     }
 
     #[test]

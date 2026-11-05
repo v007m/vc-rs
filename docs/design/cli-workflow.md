@@ -24,7 +24,7 @@ Every command that writes a file compiles the result first and refuses to write 
 ```
 shop/
   vibranium.config.yaml              project settings with defaults, one profile
-  .env.schema                        secret names (none yet), for Varlock
+  .env.schema                        secret names (none yet), one NAME= line each
   .gitignore                         adds .vibranium/
   services/sample/sample.api.yaml    four reference apis, annotated
   services/sample/basics.test.yaml   four reference tests, annotated
@@ -90,8 +90,8 @@ profiles:
 #     clientSecret: ${secret.CLIENT_SECRET}
 
 secrets:
-  provider: varlock        # 1Password, Vault, AWS, env and more, via .env.schema
-  schema: .env.schema
+  provider: env            # environment and .env; varlock adds 1Password, Vault, AWS and more
+  schema: .env.schema      # declares the secret names
 
 reports:
   dir: .vibranium/reports
@@ -99,10 +99,8 @@ reports:
 
 history:
   bodies: failures         # store request/response bodies for failures only
-  maxBodySize: 4kb
-  retain:
-    runs: 500
-    days: 90
+  maxBodySize: 4kb         # cut longer bodies (default 64kb)
+  keep: 50                 # runs kept after each run, or `all`
 ```
 
 Any value here can be set from several places. Layers apply lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line, so `vc run --set defaults.timeout=60s` wins over everything else for one run. A setting's `VIB_*` variable is its `--set` key upper-snaked (`VIB_DEFAULTS_PER_HOST=4`, `VIB_REPORTS_DIR=out`), and a var's is `VIB_VAR_<name>` with the name as written (`VIB_VAR_userId=7`, D182). The user config is `$XDG_CONFIG_HOME/vibranium/config.yaml` (else `~/.config/…`, or `%APPDATA%` on Windows); its `profile`, `defaults`, `reports` and `vars` count only where the project's config is silent. `vc config explain <key>` shows the value and the layer that set it (D129).
@@ -256,7 +254,7 @@ Tests and apis are the definitions; everything else is something they point at.
 | `datasets/` | Your own rows of data: CSV, JSON or YAML | `examples`, `forEach` and `vars`, by dataset name | `examples: ${dataset.capitals}` |
 | `hooks/` | Code: lifecycle functions, request signing, custom checks | `function: path#export` | `function: ../../hooks/sign.ts#addUploadSignature` |
 | `openapi/` | Snapshots of each spec as it was at the last import or sync; written only by `vc import` and `vc sync` | `vc sync`, as the merge base | `openapi/users.yaml` |
-| `.env.schema` | Secret names and where each comes from (Varlock) | `${secret.X}` anywhere | `${secret.SHOP_CLIENT_SECRET}` |
+| `.env.schema` | Secret names (`NAME=` lines), and where each comes from when Varlock is the provider | `${secret.X}` anywhere | `${secret.SHOP_CLIENT_SECRET}` |
 | `vibranium.lock` | Approved plugin permissions | `vc plugin add` | — |
 | `.vibranium/` | Reports, `history.db`, `cache.db`; generated, git-ignored | `vc report`, `vc history`, the TUI and web UI | `.vibranium/reports/report.html` |
 

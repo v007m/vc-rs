@@ -28,7 +28,7 @@ pub use types::{Key, Scope, Shape, ShapeFn, Ty, Unit};
 
 pub use api::api;
 pub use common::{action, expect};
-pub use config::profile;
+pub use config::{auth, profile};
 pub use test::test;
 
 /// The root shape of each file kind, in [`FileKind::ALL`] order.

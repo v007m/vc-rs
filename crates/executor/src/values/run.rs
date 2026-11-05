@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use serde_json::{Map, Value};
-use vc_interfaces::{Environment, Random};
+use vc_interfaces::{Environment, Random, Secrets};
 use vc_model::{ActionId, ApiId, FileId, ProfileId, Program, TemplateValue, TestId, VarDefs, VarName};
 use vc_template::{FakeRegistry, PipeRegistry};
 
@@ -36,6 +36,8 @@ pub struct RunInputs {
     /// When the run started, in milliseconds since 1970; `date.past` and the other dates are
     /// relative to it, so a seeded run repeats.
     pub started_ms: u64,
+    /// What `${secret.X}` reads; every value is masked in all output.
+    pub secrets: Secrets,
 }
 
 impl RunInputs {
@@ -43,7 +45,7 @@ impl RunInputs {
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
         let (profiles, vars, fakes) = (Vec::new(), Defined::new(), FakeRegistry::builtin());
-        Self { profiles, vars, random, environment, fakes, started_ms: 0 }
+        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets: Secrets::new() }
     }
 
     /// The same inputs with the run starting at `started_ms`, for the generated dates.
@@ -63,6 +65,12 @@ impl RunInputs {
     pub fn with_vars(self, vars: Defined) -> Self {
         Self { vars, ..self }
     }
+
+    /// The same inputs with `secrets` for `${secret.X}`.
+    #[must_use]
+    pub fn with_secrets(self, secrets: Secrets) -> Self {
+        Self { secrets, ..self }
+    }
 }
 
 impl fmt::Debug for RunInputs {
@@ -73,6 +81,7 @@ impl fmt::Debug for RunInputs {
 
 /// The run's values, built once when the run starts.
 pub struct RunValues {
+    active: Vec<ProfileId>,
     profiles: Vec<String>,
     config: Arc<Defined>,
     api_files: HashMap<FileId, Arc<Defined>>,
@@ -82,6 +91,7 @@ pub struct RunValues {
     actions: Vec<Arc<Defined>>,
     datasets: Arc<Value>,
     pipes: PipeRegistry,
+    secrets: Arc<Value>,
     inputs: RunInputs,
 }
 
@@ -107,6 +117,8 @@ impl RunValues {
             actions: program.actions.iter().map(|action| layer(&action.vars)).collect(),
             datasets: Arc::new(datasets(program)),
             pipes: PipeRegistry::builtin(),
+            secrets: Arc::new(inputs.secrets.iter().map(|(name, secret)| (name, secret.expose())).collect()),
+            active,
             inputs,
         }
     }
@@ -151,6 +163,19 @@ impl RunValues {
     #[must_use]
     pub fn action(&self, id: ActionId) -> Option<Arc<Defined>> {
         self.actions.get(usize::try_from(id.index()).ok()?).cloned()
+    }
+
+    /// `defs` with the active profiles applied, for vars that are not on a level of the
+    /// program (an auth definition's and its use site's).
+    #[must_use]
+    pub fn layer(&self, program: &Program, defs: &VarDefs) -> Defined {
+        layered(program, defs, &self.active)
+    }
+
+    /// The `secret` root: every secret by name.
+    #[must_use]
+    pub fn secrets(&self) -> Arc<Value> {
+        Arc::clone(&self.secrets)
     }
 
     /// The `dataset` root: each loaded dataset's rows, by ID (D173).

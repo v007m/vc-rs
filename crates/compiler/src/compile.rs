@@ -23,6 +23,9 @@ pub struct CompileInput {
     /// The project's other files, relative to the root, that a `$file:` may point at; the
     /// definition files count without being listed. `None` leaves `$file` paths unchecked (V2004).
     pub assets: Option<BTreeSet<SourcePath>>,
+    /// The project root's `.env.schema`, which declares the secret names (D165); `None` leaves
+    /// undeclared `${secret.X}` (V2106) and `${env.X}` of a secret (V2107) unchecked.
+    pub secret_schema: Option<SourceFile>,
 }
 
 /// What one compile produced.
@@ -65,7 +68,13 @@ pub fn compile(input: CompileInput) -> Compiled {
     for unit in entries.iter().filter_map(|entry| entry.unit.as_deref()) {
         diagnostics.extend(unit.diagnostics.iter().cloned());
     }
-    let world = link::World { strings: &strings, today: input.today, assets: input.assets.as_ref() };
+    let declared = input.secret_schema.map(|schema| vc_model::schema_names(&schema.text));
+    let world = link::World {
+        strings: &strings,
+        today: input.today,
+        assets: input.assets.as_ref(),
+        secrets: declared.as_deref(),
+    };
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
     let (program, data_wanted, hooks_wanted) = (linked.program, linked.data_wanted, linked.hooks_wanted);

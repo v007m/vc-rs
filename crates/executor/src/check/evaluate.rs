@@ -97,7 +97,7 @@ fn pending(message: &str, code: Code) -> Outcome {
 }
 
 /// A unified diff of two objects or lists as pretty JSON; `None` for anything else.
-fn diff(expected: &Value, actual: &Value) -> Option<String> {
+pub fn diff(expected: &Value, actual: &Value) -> Option<String> {
     let structured = |value: &Value| value.is_object() || value.is_array();
     if !structured(expected) || !structured(actual) {
         return None;

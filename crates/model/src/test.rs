@@ -142,7 +142,7 @@ pub enum ActionKind {
     /// `command:` a shell command.
     Command(Template),
     /// A request written in place, in flow auth steps only.
-    Inline(InlineRequest),
+    Inline(Box<InlineRequest>),
 }
 
 /// A request written in place in a flow auth.
@@ -156,6 +156,8 @@ pub struct InlineRequest {
     pub method: Method,
     /// `url`.
     pub url: Template,
+    /// `query`, appended to the URL.
+    pub query: IndexMap<String, Template>,
     /// `headers`.
     pub headers: IndexMap<String, Template>,
     /// `body`.

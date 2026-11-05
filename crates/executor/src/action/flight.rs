@@ -3,14 +3,15 @@
 
 use std::sync::Arc;
 
-use serde_json::{Value, json};
+use serde_json::json;
 use tokio::sync::watch;
 use tokio::time::{self, Instant};
 use tower::ServiceExt;
 use vc_diagnostics::Code;
 use vc_interfaces::TransportError;
-use vc_model::{Check, CheckKind, CheckResult, Exchange, Failure, HookRef, Namespace, Poll, RequestHooks};
+use vc_model::{Check, CheckKind, CheckResult, Exchange, Failure, HookRef, Poll, RequestHooks};
 
+use super::call::{bind, subject};
 use super::hooks::{self, HookBridge, HookStage};
 use super::request;
 use crate::check::{self, Judge, MatcherRegistry, Subject};
@@ -107,17 +108,4 @@ impl Flight {
         let refused = if matches!(error, TransportError::InvalidRequest { .. }) { refusal() } else { None };
         refused.unwrap_or_else(|| Failure::new(error.to_string()).with_code(error.code().to_string()))
     }
-}
-
-/// Binds `response` and `request` for the checks, saves and cleanup vars; returns the response.
-pub fn bind(render: &mut Render<'_>, exchange: &Exchange) -> Arc<Value> {
-    let response = Arc::new(request::received(exchange));
-    render.bind(Namespace::Response, Value::clone(&response));
-    render.bind(Namespace::Request, request::sent(&exchange.request));
-    response
-}
-
-/// What the checks read of `exchange`, with `response` as bound.
-pub fn subject<'s>(response: &'s Value, exchange: &Exchange) -> Subject<'s> {
-    Subject { response, size: u64::try_from(exchange.response.body.len()).unwrap_or(u64::MAX) }
 }
