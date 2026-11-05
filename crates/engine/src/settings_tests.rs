@@ -63,9 +63,13 @@ fn an_unknown_key_or_a_bad_value_names_its_layer() {
     let error = Settings::resolve(&[&layer("--set", &[("colour", "red")])], &[]).unwrap_err();
     assert_eq!(error.to_string(), "--set: `colour`: not a setting");
     assert!(error.help().is_some_and(|help| help.contains("vars.<name>")), "{error:?}");
-    for (key, value) in
-        [("defaults.concurrency", "0"), ("defaults.perHost", "x"), ("defaults.timeout", "soon"), ("reports.dir", " "), ("reports.html.layout", "x")]
-    {
+    for (key, value) in [
+        ("defaults.concurrency", "0"),
+        ("defaults.perHost", "x"),
+        ("defaults.timeout", "soon"),
+        ("reports.dir", " "),
+        ("reports.html.layout", "x"),
+    ] {
         let error = Settings::resolve(&[&layer("VIB_PROFILE", &[(key, value)])], &[]).unwrap_err();
         assert!(matches!(&error, EngineError::Setting { origin, .. } if origin == "VIB_PROFILE"), "{error:?}");
     }

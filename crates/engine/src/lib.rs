@@ -41,7 +41,7 @@ pub use error::EngineError;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use plan::PlanReport;
-pub use request::{ListKind, ListRequest, PlanRequest, RunRequest, SelectRequest};
+pub use request::{ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest};
 pub use run::RunReport;
 pub use schema::SchemaFile;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};

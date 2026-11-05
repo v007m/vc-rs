@@ -33,7 +33,8 @@ fn refusal(result: Result<Chosen, EngineError>) -> (String, Option<String>) {
 fn defaults_to_spec_and_ctrf_under_the_reports_folder() {
     let chosen = choose(None, &Settings::default(), &program(&[], None)).unwrap();
     let dir = PathBuf::from("/p/.vibranium/reports");
-    let expected = Chosen { console: "spec".into(), files: vec!["ctrf".into()], dir, per_run: true, single_file: false };
+    let expected =
+        Chosen { console: "spec".into(), files: vec!["ctrf".into()], dir, per_run: true, single_file: false };
     assert_eq!(chosen, expected);
 }
 

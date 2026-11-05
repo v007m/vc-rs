@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
-use vc_engine::ReportRequest;
+use vc_engine::{ReportFlags, ReportRequest};
 
 use crate::Outcome;
 use crate::project;
@@ -32,9 +32,11 @@ pub fn run(args: &ReportArgs, project: Option<&Path>) -> anyhow::Result<Outcome>
     };
     let request = ReportRequest {
         run: args.run.clone(),
-        formats: args.formats.clone(),
-        out: args.out.as_ref().map(|out| std::env::current_dir().map(|cwd| cwd.join(out))).transpose()?,
-        single_file: args.single_file,
+        files: ReportFlags {
+            formats: args.formats.clone(),
+            out: args.out.as_ref().map(|out| std::env::current_dir().map(|cwd| cwd.join(out))).transpose()?,
+            single_file: args.single_file,
+        },
     };
     let written = match located.engine.report(&request) {
         Ok(written) => written,

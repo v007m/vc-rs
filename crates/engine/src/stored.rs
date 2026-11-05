@@ -12,7 +12,7 @@ use vc_model::{Date, Program};
 use crate::history::history_error;
 use crate::reporting::{self, Chosen};
 use crate::settings::{Named, Settings};
-use crate::{Engine, EngineError};
+use crate::{Engine, EngineError, ReportFlags};
 
 /// Milliseconds in a day, for the start times.
 const DAY_MS: u64 = 86_400_000;
@@ -28,12 +28,9 @@ const REPORT: &str = "html";
 pub struct ReportRequest {
     /// `last` or a run number; `last` when empty.
     pub run: String,
-    /// `--format`: the report files, `html` when empty. Each may be a comma list.
-    pub formats: Vec<String>,
-    /// `--out`: where they go, over `.vibranium/reports/<run>/`.
-    pub out: Option<PathBuf>,
-    /// `--single-file`: the HTML report as one self-contained file.
-    pub single_file: bool,
+    /// `--format` (`html` when empty), `--out` (over `.vibranium/reports/<run>/`) and
+    /// `--single-file`.
+    pub files: ReportFlags,
 }
 
 /// The report files `vc report` wrote.
@@ -93,9 +90,8 @@ impl Engine {
         let which = if request.run.is_empty() { "last" } else { request.run.as_str() };
         let row = self.stored_run(which)?;
         let snapshot = self.snapshot(&row)?;
-        let chosen = report_choice(request)?.under(self.root()).flat(request.out.is_some());
-        let formats = reporting::formats(&chosen)?;
-        let (artifacts, notices) = reporting::render(&formats, &snapshot, &chosen.dir_for(Some(row.id)));
+        let chosen = report_choice(&request.files)?.under(self.root()).flat(request.files.out.is_some());
+        let (artifacts, notices) = chosen.render(&snapshot, row.id)?;
         let files = artifacts.into_iter().map(|artifact| artifact.path).collect();
         Ok(ReportFiles { run: row.id.get(), files, notices })
     }
@@ -114,18 +110,18 @@ impl Engine {
     }
 }
 
-/// The formats and folder `request` asks for, checked as `--format` names.
-fn report_choice(request: &ReportRequest) -> Result<Chosen, EngineError> {
+/// The formats and folder `flags` ask for, checked as `--format` names.
+fn report_choice(flags: &ReportFlags) -> Result<Chosen, EngineError> {
     let mut names: Vec<String> =
-        request.formats.iter().flat_map(|names| names.split(',')).map(|name| name.trim().to_owned()).collect();
+        flags.formats.iter().flat_map(|names| names.split(',')).map(|name| name.trim().to_owned()).collect();
     names.retain(|name| !name.is_empty());
     if names.is_empty() {
         names.push(REPORT.to_owned());
     }
     let settings = Settings {
         formats: Some(Named { names, origin: "--format".to_owned() }),
-        reports_dir: request.out.as_ref().map(|out| out.to_string_lossy().into_owned()),
-        html_single_file: Some(request.single_file),
+        reports_dir: flags.out.as_ref().map(|out| out.to_string_lossy().into_owned()),
+        html_single_file: Some(flags.single_file),
         ..Settings::default()
     };
     reporting::choose(None, &settings, &Program::default())
@@ -181,7 +177,7 @@ fn run_line(run: &RunRow) -> String {
         "{} passed · {} failed · {} blocked · {} skipped",
         totals.passed, totals.failed, totals.blocked, totals.skipped
     );
-    let mut line = format!("{:>5}  {}  {:<9}  {counts}", run.id, started(run.start.started_ms), status(run));
+    let mut line = format!("{:>5}  {}  {:<9}  {counts}", run.id.get(), started(run.start.started_ms), status(run));
     if !run.start.profiles.is_empty() {
         let _ = write!(line, "  profile {}", run.start.profiles.join(","));
     }

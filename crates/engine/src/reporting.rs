@@ -46,6 +46,12 @@ const REPORTS_DIR: &str = ".vibranium/reports";
 /// The origin of values from the project's config.
 const CONFIG: &str = "vibranium.config.yaml";
 
+/// The report formats a run or `vc report` writes.
+type Formats = Vec<Arc<dyn Format>>;
+
+/// The files a render wrote, and why any were not.
+type Rendered = (Vec<Artifact>, Vec<String>);
+
 /// The reporters a run uses and where its report files go.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Chosen {
@@ -79,6 +85,29 @@ impl Chosen {
             Some(run) if self.per_run => self.dir.join(run.to_string()),
             _ => self.dir.clone(),
         }
+    }
+
+    /// The formats it names, the HTML report laid out as it says.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Internal`] when a checked name is not registered.
+    fn formats(&self) -> Result<Formats, EngineError> {
+        let layout = if self.single_file { HtmlLayout::Single } else { HtmlLayout::Folder };
+        let registry = FormatRegistry::builtin(layout);
+        let get =
+            |name: &String| registry.get(name).map_err(|error| EngineError::Internal { reason: error.to_string() });
+        self.files.iter().map(get).collect()
+    }
+
+    /// Renders `snapshot` of history run `run` in every format it names, into
+    /// [`Chosen::dir_for`]: the files written, and why any were not.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Internal`] when a checked name is not registered.
+    pub(crate) fn render(&self, snapshot: &RunSnapshot, run: RunId) -> Result<Rendered, EngineError> {
+        Ok(render(&self.formats()?, snapshot, &self.dir_for(Some(run))))
     }
 }
 
@@ -143,7 +172,7 @@ pub struct Setup {
 pub struct Reporters {
     console: Box<dyn Reporter>,
     recorder: Recorder,
-    formats: Vec<Arc<dyn Format>>,
+    formats: Formats,
     chosen: Chosen,
     history: Option<Recording>,
     keep: Keep,
@@ -165,7 +194,7 @@ impl Reporters {
             ReporterContext::new(setup.program, setup.plan, destination).color(color).headline(setup.headline);
         let internal = |error: ReportError| EngineError::Internal { reason: error.to_string() };
         let console = ReporterRegistry::builtin().create(&chosen.console, &context).map_err(internal)?;
-        let formats = formats(&chosen)?;
+        let formats = chosen.formats()?;
         let recorder = Recorder::new(&context);
         let problems = BTreeSet::new();
         Ok(Self { console, recorder, formats, chosen, history, keep, seed: setup.seed, problems })
@@ -205,7 +234,7 @@ impl Reporters {
         let (artifacts, failed) = render(&formats, &snapshot, &dir);
         problems.extend(failed);
         if let Some(history) = history
-            && let Err(error) = close(history, &run, &snapshot, keep).await
+            && let Err(error) = close(history, keep, (&run, &snapshot)).await
         {
             problems.insert(format!("history: {error}"));
         }
@@ -216,20 +245,8 @@ impl Reporters {
     }
 }
 
-/// The formats `chosen` names, the HTML report laid out as it says.
-///
-/// # Errors
-///
-/// [`EngineError::Internal`] when a checked name is not registered.
-pub fn formats(chosen: &Chosen) -> Result<Vec<Arc<dyn Format>>, EngineError> {
-    let layout = if chosen.single_file { HtmlLayout::Single } else { HtmlLayout::Folder };
-    let registry = FormatRegistry::builtin(layout);
-    let get = |name: &String| registry.get(name).map_err(|error| EngineError::Internal { reason: error.to_string() });
-    chosen.files.iter().map(get).collect()
-}
-
 /// Renders `snapshot` in every format into `dir`: the files written, and why any were not.
-pub fn render(formats: &[Arc<dyn Format>], snapshot: &RunSnapshot, dir: &Path) -> (Vec<Artifact>, Vec<String>) {
+fn render(formats: &[Arc<dyn Format>], snapshot: &RunSnapshot, dir: &Path) -> Rendered {
     let destination = FsDestination::new(dir);
     let (mut artifacts, mut problems) = (Vec::new(), Vec::new());
     for format in formats {
@@ -241,8 +258,8 @@ pub fn render(formats: &[Arc<dyn Format>], snapshot: &RunSnapshot, dir: &Path) -
     (artifacts, problems)
 }
 
-/// Closes `history`'s run as `run` ended, with `snapshot` for `vc report`, then prunes.
-async fn close(history: Recording, run: &RunSummary, snapshot: &RunSnapshot, keep: Keep) -> Result<(), String> {
+/// Closes `history`'s run as `run` ended, with `snapshot` for `vc report`, then prunes to `keep`.
+async fn close(history: Recording, keep: Keep, (run, snapshot): (&RunSummary, &RunSnapshot)) -> Result<(), String> {
     let snapshot = snapshot.to_json().map_err(|error| error.to_string())?;
     let finished_ms = run.started_ms.saturating_add(u64::try_from(run.duration.as_millis()).unwrap_or(u64::MAX));
     let end = RunEnd { status: run.status, totals: run.totals, finished_ms, snapshot };

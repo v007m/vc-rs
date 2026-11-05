@@ -21,8 +21,11 @@ pub struct EngineBuilder {
     vcs: Option<Arc<dyn Vcs>>,
     commands: Option<Arc<dyn CommandRunner>>,
     user_config: Option<PathBuf>,
-    history: Option<(Arc<dyn HistoryWriter>, Arc<dyn HistoryReader>)>,
+    history: Option<HistoryPorts>,
 }
+
+/// The history's writer and reader, given together.
+type HistoryPorts = (Arc<dyn HistoryWriter>, Arc<dyn HistoryReader>);
 
 impl EngineBuilder {
     /// A builder for the project whose root is `root`.

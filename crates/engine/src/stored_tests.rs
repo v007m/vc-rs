@@ -6,7 +6,7 @@ use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{FakeVcs, MemoryHistory};
 
 use super::{ReportRequest, report_choice, started};
-use crate::{Engine, sample};
+use crate::{Engine, ReportFlags, sample};
 
 /// 2026-11-05 10:22 UTC.
 const STARTED: u64 = 1_793_874_120_000;
@@ -28,7 +28,8 @@ fn engine() -> Engine {
         message: Some("expected 400, got 201".into()),
         ..TestRow::default()
     };
-    let passed = TestRow { test_id: "users.crud#listsUsers".into(), status: Some(TestStatus::Passed), ..TestRow::default() };
+    let passed =
+        TestRow { test_id: "users.crud#listsUsers".into(), status: Some(TestStatus::Passed), ..TestRow::default() };
     history.record(first, vec![Row::Test(failed), Row::Test(passed)]).unwrap();
     let totals = Totals { passed: 1, failed: 1, ..Totals::default() };
     let end = RunEnd { status: RunStatus::Failed, totals, finished_ms: STARTED + 1_000, snapshot: Vec::new() };
@@ -44,7 +45,10 @@ fn lists_the_runs_newest_first() {
     let lines: Vec<&str> = text.lines().collect();
     assert_eq!(lines.len(), 2, "{text}");
     assert!(lines[0].starts_with("    2  2026-11-05 10:23Z  running"), "{text}");
-    assert!(lines[1].contains("failed     1 passed · 1 failed · 0 blocked · 0 skipped  profile staging  users.crud"), "{text}");
+    assert!(
+        lines[1].contains("failed     1 passed · 1 failed · 0 blocked · 0 skipped  profile staging  users.crud"),
+        "{text}"
+    );
     let json = report.json();
     assert_eq!((json[1]["id"].as_u64(), json[1]["status"].as_str()), (Some(1), Some("failed")));
     assert_eq!(json[1]["totals"]["failed"], 1);
@@ -69,14 +73,14 @@ fn reports_need_a_stored_snapshot() {
 
 #[test]
 fn report_formats_default_to_html_and_go_in_the_run_folder() {
-    let chosen = report_choice(&ReportRequest::default()).unwrap();
+    let chosen = report_choice(&ReportFlags::default()).unwrap();
     assert_eq!((chosen.files, chosen.single_file), (vec!["html".to_owned()], false));
-    let request = ReportRequest { formats: vec!["ctrf, junit".into()], single_file: true, ..ReportRequest::default() };
-    let chosen = report_choice(&request).unwrap();
+    let flags = ReportFlags { formats: vec!["ctrf, junit".into()], single_file: true, ..ReportFlags::default() };
+    let chosen = report_choice(&flags).unwrap();
     assert_eq!((chosen.files.len(), chosen.single_file), (2, true));
-    let request = ReportRequest { out: Some("/tmp/r".into()), ..ReportRequest::default() };
-    assert_eq!(report_choice(&request).unwrap().flat(true).dir, PathBuf::from("/tmp/r"));
-    let bad = ReportRequest { formats: vec!["spec".into()], ..ReportRequest::default() };
+    let flags = ReportFlags { out: Some("/tmp/r".into()), ..ReportFlags::default() };
+    assert_eq!(report_choice(&flags).unwrap().flat(true).dir, PathBuf::from("/tmp/r"));
+    let bad = ReportFlags { formats: vec!["spec".into()], ..ReportFlags::default() };
     assert_eq!(report_choice(&bad).unwrap_err().to_string(), "--format: `spec` is a console format");
 }
 

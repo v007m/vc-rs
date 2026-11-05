@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
-use vc_engine::{Engine, EngineError, RunReport, RunRequest};
+use vc_engine::{Engine, EngineError, ReportFlags, RunReport, RunRequest};
 
 use crate::Outcome;
 use crate::check::use_color;
@@ -57,10 +57,12 @@ pub fn run(args: &RunArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         bail: args.bail,
         concurrency: args.concurrency,
         console: args.reporter.clone(),
-        reports: args.reports.clone(),
-        out: args.out.as_ref().map(|out| std::env::current_dir().map(|cwd| cwd.join(out))).transpose()?,
+        files: ReportFlags {
+            formats: args.reports.clone(),
+            out: args.out.as_ref().map(|out| std::env::current_dir().map(|cwd| cwd.join(out))).transpose()?,
+            single_file: args.single_file,
+        },
         color: use_color(&std::io::stdout()),
-        single_file: args.single_file,
         failed: args.failed,
     };
     let report = match execute(&located.engine, &request)? {

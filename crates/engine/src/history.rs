@@ -97,7 +97,11 @@ impl Engine {
         })?;
         let found = self.history_reader().run(wanted).map_err(|error| history_error(&error))?;
         found.ok_or_else(|| EngineError::History {
-            reason: if which == "last" { "no run is stored yet".to_owned() } else { format!("no run {which} is stored") },
+            reason: if which == "last" {
+                "no run is stored yet".to_owned()
+            } else {
+                format!("no run {which} is stored")
+            },
             help: Some("`vc history` lists the stored runs".to_owned()),
         })
     }

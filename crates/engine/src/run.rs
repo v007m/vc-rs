@@ -79,11 +79,9 @@ impl Engine {
         seed: u64,
     ) -> Result<(Reporters, Option<String>), EngineError> {
         let chosen = reporting::choose(request.console.as_deref(), &prepared.settings, &prepared.program)?;
-        let chosen = chosen.under(self.root()).flat(request.out.is_some());
-        let mut selector = history::selector(&request.plan.select);
-        if request.failed {
-            selector = format!("--failed {selector}").trim_end().to_owned();
-        }
+        let chosen = chosen.under(self.root()).flat(request.files.out.is_some());
+        let selector = history::selector(&request.plan.select);
+        let selector = if request.failed { format!("--failed {selector}").trim_end().to_owned() } else { selector };
         let start = RunStart {
             kind: "run".to_owned(),
             started_ms: self.clock.now_ms(),
@@ -135,13 +133,13 @@ fn flags(request: &RunRequest) -> Vec<ConfigEntry> {
     if let Some(concurrency) = request.concurrency {
         flags.push(ConfigEntry::new("defaults.concurrency", concurrency.to_string(), "--concurrency"));
     }
-    if !request.reports.is_empty() {
-        flags.push(ConfigEntry::new("reports.formats", request.reports.join(","), "--report"));
+    if !request.files.formats.is_empty() {
+        flags.push(ConfigEntry::new("reports.formats", request.files.formats.join(","), "--report"));
     }
-    if request.single_file {
+    if request.files.single_file {
         flags.push(ConfigEntry::new("reports.html.layout", "single", "--single-file"));
     }
-    if let Some(out) = &request.out {
+    if let Some(out) = &request.files.out {
         flags.push(ConfigEntry::new("reports.dir", out.to_string_lossy(), "--out"));
     }
     flags
