@@ -18,9 +18,13 @@ fn masks() -> Masks {
 }
 
 fn sent(uri: &str, headers: HeaderMap, body: &[u8]) -> Exchange {
-    let request = RenderedRequest { method: Method::POST, uri: uri.parse().unwrap(), headers, body: Bytes::copy_from_slice(body) };
-    let response =
-        HttpResponse { status: StatusCode::OK, headers: HeaderMap::new(), body: Bytes::new(), wire_size: 0 };
+    let request = RenderedRequest {
+        method: Method::POST,
+        uri: uri.parse().unwrap(),
+        headers,
+        body: Bytes::copy_from_slice(body),
+    };
+    let response = HttpResponse { status: StatusCode::OK, headers: HeaderMap::new(), body: Bytes::new(), wire_size: 0 };
     Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() }
 }
 

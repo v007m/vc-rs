@@ -159,7 +159,7 @@ fn exchange(uri: &str, body: &str) -> Exchange {
 }
 
 fn shown(headers: &HeaderMap) -> String {
-    headers.values().map(|value| value.to_str().unwrap_or_default()).collect::<Vec<_>>().join(" ")
+    headers.values().map(|value| String::from_utf8_lossy(value.as_bytes()).into_owned()).collect::<Vec<_>>().join(" ")
 }
 
 #[test]
@@ -180,5 +180,5 @@ fn masks_an_exchange_url_headers_and_both_bodies() {
     for leak in ["s3cr3t-key", "p%40ss", "pw-1", "123-45-6789", "tok-abcdef"] {
         assert!(!text.contains(leak), "{leak} in {text}");
     }
-    assert_eq!((request.headers[AUTHORIZATION].to_str().unwrap(), response.status), (MASKED, StatusCode::OK));
+    assert_eq!((request.headers[AUTHORIZATION].as_bytes(), response.status), (MASKED.as_bytes(), StatusCode::OK));
 }

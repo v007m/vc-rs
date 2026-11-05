@@ -50,7 +50,7 @@ fn masked_whole(uri: &Uri) -> Uri {
 fn headers(masking: &Masking<'_>, headers: &HeaderMap) -> HeaderMap {
     let mut masked = HeaderMap::with_capacity(headers.len());
     for (name, value) in headers {
-        let shown = Some(value).filter(|_| !masking.masks.hides_header(name.as_str()));
+        let shown = (!masking.masks.hides_header(name.as_str())).then_some(value);
         let text = shown.and_then(|value| value.to_str().ok()).map(|text| masking.text(text));
         let mut value = text.and_then(|text| HeaderValue::try_from(text).ok()).unwrap_or_else(masked_value);
         value.set_sensitive(true);
@@ -69,18 +69,16 @@ fn body(masking: &Masking<'_>, body: &Bytes) -> Bytes {
     let Ok(text) = std::str::from_utf8(body) else {
         return if masking.masks.finds_value(body) { Bytes::from_static(MASKED.as_bytes()) } else { body.clone() };
     };
-    let masked = match serde_json::from_str::<Value>(text) {
-        Ok(json) => json_text(masking, json, text),
-        Err(_) => masking.text(text),
-    };
+    let parsed = serde_json::from_str::<Value>(text);
+    let masked = parsed.map_or_else(|_| masking.text(text), |json| json_text(masking, &json, text));
     if masked == text { body.clone() } else { Bytes::from(masked) }
 }
 
 /// The JSON `json` (written as `text`) with its hidden fields and rule matches masked, then
 /// with any secret value left in a key or a number masked as text.
-fn json_text(masking: &Masking<'_>, json: Value, text: &str) -> String {
+fn json_text(masking: &Masking<'_>, json: &Value, text: &str) -> String {
     let masked = masking.value(json.clone());
-    let written = if masked == json { text.to_owned() } else { masked.to_string() };
+    let written = if masked == *json { text.to_owned() } else { masked.to_string() };
     masking.masks.without_values(&written)
 }
 
