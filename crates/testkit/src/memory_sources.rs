@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
 use vc_model::SourcePath;
 
@@ -38,7 +36,10 @@ impl SourceProvider for MemorySources {
 
     fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError> {
         let mut discovery = Discovery::default();
-        for path in paths.iter().collect::<BTreeSet<_>>() {
+        let mut unique = paths.to_vec();
+        unique.sort();
+        unique.dedup();
+        for path in &unique {
             match self.read_one(path) {
                 Ok(file) => discovery.files.push(file),
                 Err(problem) => discovery.problems.push(problem),
