@@ -35,7 +35,11 @@ impl Resolver for HookLoader {
             return Ok(STD.to_owned());
         }
         if !(name.starts_with("./") || name.starts_with("../")) {
-            return Err(Error::new_resolving_message(base, name, "only `vibranium:std` and relative paths can be imported"));
+            return Err(Error::new_resolving_message(
+                base,
+                name,
+                "only `vibranium:std` and relative paths can be imported",
+            ));
         }
         join(base, name)
             .and_then(|path| import_paths(&path).into_iter().find(|candidate| self.0.has_module(candidate)))

@@ -8,7 +8,8 @@ use crate::Saved;
 /// V5109 naming what `action` declares in `provides` but did not save; `None` when it saved all.
 pub fn unsaved(program: &Program, action: &Action, saved: &Saved) -> Option<Failure> {
     let names = action.provides.iter().filter_map(|name| program.str(name.sym()));
-    let missing: Vec<String> = names.filter(|name| !saved.contains_key(*name)).map(|name| format!("`{name}`")).collect();
+    let missing: Vec<String> =
+        names.filter(|name| !saved.contains_key(*name)).map(|name| format!("`{name}`")).collect();
     if missing.is_empty() {
         return None;
     }

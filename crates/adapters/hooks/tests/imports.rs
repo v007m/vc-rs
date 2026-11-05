@@ -48,9 +48,15 @@ async fn a_hook_cannot_import_outside_relative_paths_and_the_standard_library() 
     let runner = QuickJsHooks::new();
     let modules = HookModules::new(BTreeMap::from([(
         "hooks/bad.ts".to_owned(),
-        HookModule { js: "import fs from 'node:fs';\nexport function go() { return 1; }\n".to_owned(), lines: vec![1, 2] },
+        HookModule {
+            js: "import fs from 'node:fs';\nexport function go() { return 1; }\n".to_owned(),
+            lines: vec![1, 2],
+        },
     )]));
     let hook = HookRef { file: "hooks/bad.ts".to_owned(), export: "go".to_owned() };
     let refused = runner.call(HookCall::new(modules, hook, Value::Null)).await;
-    assert!(matches!(&refused, Err(HookError::Threw { message, .. }) if message.contains("vibranium:std")), "{refused:?}");
+    assert!(
+        matches!(&refused, Err(HookError::Threw { message, .. }) if message.contains("vibranium:std")),
+        "{refused:?}"
+    );
 }

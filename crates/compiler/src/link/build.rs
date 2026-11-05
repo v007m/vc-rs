@@ -16,8 +16,8 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use vc_model::{
-    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, HookModules, HttpRetry, ModelError, Origin, Owner, ProfileId, Program,
-    ProgramBuilder, SourceFiles, Sym, TemplateValue, VarDefs, VarName,
+    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, HookModules, HttpRetry, ModelError, Origin, Owner, ProfileId,
+    Program, ProgramBuilder, SourceFiles, Sym, TemplateValue, VarDefs, VarName,
 };
 use vc_parser::Node;
 

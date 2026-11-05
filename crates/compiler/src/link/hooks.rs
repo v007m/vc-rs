@@ -199,7 +199,8 @@ impl<'a> Linker<'a> {
         };
         let diagnostic = Diagnostic::new(Code::V2005, at.node.span, message).label("not exported");
         if known.is_empty() {
-            return diagnostic.help(format!("{} has no value exports; export the function: `export function …`", at.file));
+            return diagnostic
+                .help(format!("{} has no value exports; export the function: `export function …`", at.file));
         }
         if at.export.is_empty() {
             return diagnostic.help(format!("name one after a `#`: {}", suggest::quoted(&known)));

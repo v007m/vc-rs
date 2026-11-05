@@ -8,8 +8,8 @@ use vc_interfaces::HookRunner;
 use vc_model::{Action, ActionId, ActionKind, Failure, Program};
 
 use super::hooks::{self, HookBridge};
-use super::{provides, request};
 use super::{ActionExecutor, ActionRequest};
+use super::{provides, request};
 use crate::{ActionReport, Render, Saved};
 
 /// Runs `function:` actions through a [`HookRunner`].

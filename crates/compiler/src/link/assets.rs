@@ -100,7 +100,11 @@ fn missing(source: &Source<'_>, node: &Node, known: &Known<'_>) -> Option<Diagno
 }
 
 /// The close paths as help, with a certain fix when exactly one is close.
-pub fn hint(diagnostic: Diagnostic, (source, node, written): (&Source<'_>, &Node, &str), known: &Known<'_>) -> Diagnostic {
+pub fn hint(
+    diagnostic: Diagnostic,
+    (source, node, written): (&Source<'_>, &Node, &str),
+    known: &Known<'_>,
+) -> Diagnostic {
     let candidates: Vec<String> = known.paths.iter().map(|path| relative(&known.folder, path)).collect();
     let mut close = suggest::close(written, candidates.iter().map(String::as_str));
     close.truncate(MAX_SUGGESTIONS);

@@ -28,8 +28,12 @@ impl ModuleDef for Std {
     }
 
     fn evaluate<'js>(ctx: &Ctx<'js>, exports: &Exports<'js>) -> rquickjs::Result<()> {
-        exports.export("hmacSha256Hex", Function::new(ctx.clone(), |key: String, data: String| hmac_sha256_hex(&key, &data))?)?;
-        exports.export("sha256Hex", Function::new(ctx.clone(), |data: String| hex(&Sha256::digest(data.as_bytes())))?)?;
+        exports.export(
+            "hmacSha256Hex",
+            Function::new(ctx.clone(), |key: String, data: String| hmac_sha256_hex(&key, &data))?,
+        )?;
+        exports
+            .export("sha256Hex", Function::new(ctx.clone(), |data: String| hex(&Sha256::digest(data.as_bytes())))?)?;
         exports.export("base64Encode", Function::new(ctx.clone(), |text: String| STANDARD.encode(text))?)?;
         let decode = |ctx: Ctx<'_>, text: String| thrown(&ctx, base64_decode(&text));
         exports.export("base64Decode", Function::new(ctx.clone(), decode)?)?;

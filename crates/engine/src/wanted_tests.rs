@@ -53,7 +53,9 @@ fn a_chain_still_wanting_files_after_eight_rounds_is_a_clear_error() {
     let Err(EngineError::Sources { reason }) = project(&chain(8)).check(&CheckRequest::default()) else {
         panic!("nine files deep is one round too many");
     };
-    assert!(reason.contains("after 8 rounds") && reason.ends_with("hooks/h8.ts; a hook's imports may be nested too deep"));
+    assert!(
+        reason.contains("after 8 rounds") && reason.ends_with("hooks/h8.ts; a hook's imports may be nested too deep")
+    );
 }
 
 #[test]
@@ -62,7 +64,10 @@ fn a_wanted_file_that_cannot_be_read_is_v1012_once() {
     let report = project(&hooks).check(&CheckRequest::default()).unwrap();
     let codes: Vec<Code> = report.diagnostics.iter().map(|found| found.code).collect();
     assert_eq!(codes, [Code::V1012]);
-    assert_eq!(report.files.get(report.diagnostics.iter().next().unwrap().primary.span.file).unwrap().path.as_str(), "hooks/h0.ts");
+    assert_eq!(
+        report.files.get(report.diagnostics.iter().next().unwrap().primary.span.file).unwrap().path.as_str(),
+        "hooks/h0.ts"
+    );
 }
 
 #[test]

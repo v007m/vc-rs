@@ -170,7 +170,10 @@ mod tests {
         let full = classify(error("InternalError: out of memory", ""), &call(), CALM);
         assert_eq!(full, HookError::Overran { limit: Limit::Memory, line: None });
         let null = Seen { fired: false, memory_full: true };
-        assert!(matches!(classify(Thrown::Value(None), &call(), null), HookError::Overran { limit: Limit::Memory, .. }));
+        assert!(matches!(
+            classify(Thrown::Value(None), &call(), null),
+            HookError::Overran { limit: Limit::Memory, .. }
+        ));
         assert!(matches!(classify(Thrown::Value(None), &call(), CALM), HookError::Threw { .. }));
         assert_eq!(classify(Thrown::Missing, &call(), CALM), HookError::NotFound { hook: "hooks/a.ts#go".into() });
         assert_eq!(classify(Thrown::Bad("x".into()), &call(), CALM), HookError::BadValue { what: "x".into() });

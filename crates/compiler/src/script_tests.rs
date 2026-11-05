@@ -4,7 +4,8 @@ use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath};
 use super::{Script, is_script, position, strip};
 
 fn run(path: &str, text: &str) -> (Option<Script>, vc_diagnostics::Diagnostics) {
-    let file = SourceFile { path: SourcePath::new(path).unwrap(), text: text.to_owned(), hash: ContentHash::new([0; 32]) };
+    let file =
+        SourceFile { path: SourcePath::new(path).unwrap(), text: text.to_owned(), hash: ContentHash::new([0; 32]) };
     strip(SourceFileId::new(3), &file)
 }
 

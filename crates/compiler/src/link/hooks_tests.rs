@@ -41,7 +41,9 @@ fn only(compiled: &Compiled, code: Code) -> &Diagnostic {
 }
 
 fn tests(function: &str) -> String {
-    format!("tests:\n  - id: getsUser\n    call: users#get\n    expect:\n      custom:\n        - function: {function}\n")
+    format!(
+        "tests:\n  - id: getsUser\n    call: users#get\n    expect:\n      custom:\n        - function: {function}\n"
+    )
 }
 
 #[test]
@@ -63,7 +65,8 @@ fn wants_each_hook_file_reached_until_all_are_given_then_keeps_their_modules() {
 
 #[test]
 fn a_missing_export_is_v2005_with_the_close_one_as_a_fix() {
-    let compiled = compile(&tests("../../hooks/sign.ts#chek"), &[("hooks/sign.ts", SIGN), ("hooks/util.ts", UTIL)], &[]);
+    let compiled =
+        compile(&tests("../../hooks/sign.ts#chek"), &[("hooks/sign.ts", SIGN), ("hooks/util.ts", UTIL)], &[]);
     let found = only(&compiled, Code::V2005);
     assert_eq!(found.primary.span.start.line, 6);
     assert_eq!(found.help, ["did you mean `check`?"]);
@@ -75,7 +78,8 @@ fn a_missing_export_is_v2005_with_the_close_one_as_a_fix() {
 
 #[test]
 fn a_star_export_hides_which_names_a_file_has() {
-    let given = [("hooks/sign.ts", "export * from \"./util.ts\";\nexport function sign() {}\n"), ("hooks/util.ts", UTIL)];
+    let given =
+        [("hooks/sign.ts", "export * from \"./util.ts\";\nexport function sign() {}\n"), ("hooks/util.ts", UTIL)];
     assert_eq!(hook_codes(&compile(&tests("../../hooks/sign.ts#anything"), &given, &[])), []);
 }
 
@@ -122,7 +126,8 @@ fn every_kind_of_reference_is_linked_and_a_broken_file_only_reports_v1013() {
 
 #[test]
 fn a_redact_rule_function_is_linked_from_the_project_root() {
-    let config = format!("{CONFIG}redact:\n  rules:\n    - function: hooks/mask.ts#cards\n    - function: hooks/mask.ts#nope\n");
+    let config =
+        format!("{CONFIG}redact:\n  rules:\n    - function: hooks/mask.ts#cards\n    - function: hooks/mask.ts#nope\n");
     let mut files = vec![file("vibranium.config.yaml", &config), file("services/users/users.api.yaml", "apis: []\n")];
     let first = crate::compile(CompileInput { files: files.clone(), ..CompileInput::default() });
     assert_eq!(first.hooks_wanted, [SourcePath::new("hooks/mask.ts").unwrap()]);
@@ -130,7 +135,10 @@ fn a_redact_rule_function_is_linked_from_the_project_root() {
     let second = crate::compile(CompileInput { files, ..CompileInput::default() });
     assert_eq!(hook_codes(&second), [(Code::V2005, 9)]);
     let config = &crate::compile(CompileInput {
-        files: vec![file("vibranium.config.yaml", &format!("{CONFIG}redact:\n  rules:\n    - function: hooks/mask.ts#cards\n")), file("hooks/mask.ts", "export const cards = 1;\n")],
+        files: vec![
+            file("vibranium.config.yaml", &format!("{CONFIG}redact:\n  rules:\n    - function: hooks/mask.ts#cards\n")),
+            file("hooks/mask.ts", "export const cards = 1;\n"),
+        ],
         ..CompileInput::default()
     })
     .program

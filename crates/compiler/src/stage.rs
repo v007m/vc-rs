@@ -51,7 +51,9 @@ pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &m
     }
     let (root, mut diagnostics) = parse(id, source);
     let kind = source.kind();
-    let Some(file_kind) = kind else { return FileUnit { kind, root, parts: IndexMap::new(), script: None, diagnostics } };
+    let Some(file_kind) = kind else {
+        return FileUnit { kind, root, parts: IndexMap::new(), script: None, diagnostics };
+    };
     let Some(root) = root.map(empty_as_map) else {
         return FileUnit { kind, root: None, parts: IndexMap::new(), script: None, diagnostics };
     };

@@ -1,7 +1,9 @@
 //! One action, with the test-level defaults a step inherits (D124) and its checks merged over
 //! the api's (D123).
 
-use vc_model::{Action, ActionKind, ApiId, AuthRef, BodySpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs, VarName};
+use vc_model::{
+    Action, ActionKind, ApiId, AuthRef, BodySpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs, VarName,
+};
 use vc_parser::Node;
 
 use super::{Build, Built, auth, expect, read};

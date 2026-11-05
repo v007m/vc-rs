@@ -124,9 +124,8 @@ impl Loaded {
     /// A new context with `secret(name)`, and `call`'s entry module evaluated in it.
     fn load(runtime: &Runtime, call: &HookCall, state: &Rc<CallState>) -> Result<Self, Thrown> {
         let context = Context::full(runtime).map_err(|error| Thrown::Other(error.to_string()))?;
-        let namespace = context.with(|ctx| {
-            evaluate(&ctx, call, Rc::clone(state)).map_err(|fault| Thrown::read(&ctx, fault))
-        })?;
+        let namespace =
+            context.with(|ctx| evaluate(&ctx, call, Rc::clone(state)).map_err(|fault| Thrown::read(&ctx, fault)))?;
         Ok(Self { namespace, context })
     }
 

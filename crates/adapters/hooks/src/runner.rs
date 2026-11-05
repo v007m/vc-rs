@@ -133,7 +133,8 @@ mod tests {
         )]));
         let call = |export: &str| {
             let hook = HookRef { file: "hooks/stall.ts".into(), export: export.into() };
-            HookCall::new(modules.clone(), hook, Value::Null).with_budget(Budget::new(Duration::from_millis(50), 64 << 20))
+            HookCall::new(modules.clone(), hook, Value::Null)
+                .with_budget(Budget::new(Duration::from_millis(50), 64 << 20))
         };
         let runner = QuickJsHooks::with(Settings { grace: Duration::from_millis(100), interrupts: false });
         let started = Instant::now();

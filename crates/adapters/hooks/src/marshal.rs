@@ -57,7 +57,9 @@ fn convert(value: &Value<'_>, depth: usize) -> Result<Json, Fault> {
         Type::Bool => Ok(Json::Bool(value.as_bool().unwrap_or_default())),
         Type::Int => Ok(Json::from(value.as_int().unwrap_or_default())),
         Type::Float => number(value.as_float().unwrap_or(f64::NAN)),
-        Type::String => Ok(Json::String(value.as_string().map(rquickjs::String::to_string).transpose()?.unwrap_or_default())),
+        Type::String => {
+            Ok(Json::String(value.as_string().map(rquickjs::String::to_string).transpose()?.unwrap_or_default()))
+        }
         Type::Array => array(value, depth),
         Type::Object => object(value, depth),
         other => Err(Fault::Bad(format!("a value of type `{}`", other.as_str()))),
@@ -115,7 +117,10 @@ mod tests {
 
     #[test]
     fn reads_json_back_and_names_what_is_not_json() {
-        assert_eq!(round_trip("({a: [1, 2.5, 'x', null, undefined], b: undefined, c: 2 ** 40})"), Ok(json!({"a": [1, 2.5, "x", null, null], "c": 1_099_511_627_776_i64})));
+        assert_eq!(
+            round_trip("({a: [1, 2.5, 'x', null, undefined], b: undefined, c: 2 ** 40})"),
+            Ok(json!({"a": [1, 2.5, "x", null, null], "c": 1_099_511_627_776_i64}))
+        );
         assert_eq!(round_trip("undefined"), Ok(Json::Null));
         assert!(round_trip("(() => 1)").is_err_and(|what| what.contains("function")));
         assert!(round_trip("1 / 0").is_err_and(|what| what.contains("finite")));

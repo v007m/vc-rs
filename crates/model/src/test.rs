@@ -2,8 +2,7 @@ use indexmap::IndexMap;
 
 use crate::{
     ApiId, AuthRef, BodySpec, CacheSpec, Duration, Examples, Expect, FileId, HookRef, Lifecycle, Loop, Method, Owner,
-    Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs,
-    VarName,
+    Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs, VarName,
 };
 
 /// One test file: what its tests share.
