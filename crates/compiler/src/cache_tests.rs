@@ -176,7 +176,11 @@ fn damaged_bytes_read_as_empty() {
 fn a_path_or_string_table_that_does_not_read_back_reads_as_empty() {
     assert_eq!(CompileCache::from_bytes(&blob(&body(&["a", "b"], "a.api.yaml", None), &[])).len(), 1);
     assert!(CompileCache::from_bytes(&blob(&body(&[], "/a.api.yaml", None), &[])).is_empty());
-    assert_eq!(CompileCache::from_bytes(&blob(&body(&[], "../shared/a.csv", None), &[])).len(), 1, "data may be outside");
+    assert_eq!(
+        CompileCache::from_bytes(&blob(&body(&[], "../shared/a.csv", None), &[])).len(),
+        1,
+        "data may be outside"
+    );
     assert!(CompileCache::from_bytes(&blob(&body(&["a", "a"], "a.api.yaml", None), &[])).is_empty());
 }
 
