@@ -1,6 +1,7 @@
-//! The redaction gate: a secret sent in a header, the query and a JSON body, and a `redact.fields`
-//! password, never reach the history or a report file, even where `history.maxBodySize` cuts a
-//! body in the middle of one (the executor masks first, then cuts).
+//! The redaction gate: a token sent in a `redact.headers` header, the query and a JSON body
+//! (masked there by a `redact.rules` regex), and a `redact.fields` password, never reach the
+//! history or a report file, even where `history.maxBodySize` cuts a body in the middle of one
+//! (masked first, then cut: D184).
 
 use std::fs;
 use std::path::Path;
@@ -18,31 +19,33 @@ const WINDOW: usize = 6;
 const CONFIG: (&str, &str) = (
     "vibranium.config.yaml",
     "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\n\
-     redact: {fields: [password]}\nhistory: {bodies: all, maxBodySize: 1kb}\n",
+     redact: {headers: [x-api-key], fields: [password], rules: [{regex: 'Sx7Q-[0-9A-Za-z-]{19}'}]}\n\
+     history: {bodies: all, maxBodySize: 1kb}\n",
 );
 
 const API: (&str, &str) = (
     "services/echo/echo.api.yaml",
-    "baseUrl: ${var.baseUrl}\napis:\n  - id: send\n    method: POST\n    path: /echo\n    vars: {pad: x}\n\
-     \x20   headers: {x-api-key: '${secret.API_TOKEN}'}\n    query: {key: '${secret.API_TOKEN}'}\n\
-     \x20   body: {pad: '${var.pad}', password: Pw9-Qz7x-Lm4k-Rt2v, token: '${secret.API_TOKEN}'}\n\
+    "baseUrl: ${var.baseUrl}\napis:\n  - id: send\n    method: POST\n    path: /echo\n\
+     \x20   vars: {pad: x, token: Sx7Q-9vLk-Tz3W-8pRn-Mq2D}\n    headers: {x-api-key: '${var.token}'}\n    query: {key: '${var.token}'}\n\
+     \x20   body: {pad: '${var.pad}', password: Pw9-Qz7x-Lm4k-Rt2v, token: '${var.token}'}\n\
      \x20   expect: {status: 500}\n",
 );
 
 /// One row per padding length, so the 1kb cut sweeps across the password and the secret in both
 /// the request body and the echoed response.
 fn tests() -> String {
-    let rows: String = (930..1020).step_by(3).map(|pad| format!("      - pad: {}\n", "p".repeat(pad))).collect();
-    format!("tests:\n  - id: sendsTheSecret\n    examples:\n{rows}    call: echo#send\n    vars: {{pad: '${{example.pad}}'}}\n")
+    let rows =
+        (930..1020).step_by(3).map(|pad| format!("      - pad: {}\n", "p".repeat(pad))).collect::<Vec<_>>().concat();
+    format!(
+        "tests:\n  - id: sendsTheSecret\n    examples:\n{rows}    call: echo#send\n    vars: {{pad: '${{example.pad}}'}}\n"
+    )
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn no_secret_reaches_the_history_or_a_report() {
     let server = MockServer::start().await.unwrap();
     let tests = tests();
-    let schema = (".env.schema", "API_TOKEN=\n");
-    let env = format!("API_TOKEN={SECRET}\n");
-    let project = Project::new(&[CONFIG, API, schema, (".env", &env), ("services/echo/send.test.yaml", &tests)]);
+    let project = Project::new(&[CONFIG, API, ("services/echo/send.test.yaml", &tests)]);
     let run = project.run(&server.base_url(), &["--report", "ctrf,junit,html"]).output().unwrap();
     assert_eq!(run.status.code(), Some(1), "{}", said(&run));
     let again = project.vc(&["report", "1", "--format", "ctrf,junit,html", "--out", "again"]).output().unwrap();
@@ -56,7 +59,8 @@ async fn no_secret_reaches_the_history_or_a_report() {
     assert!(seen.iter().any(|(name, _)| name.ends_with("index.html")), "the HTML report was written");
     for (name, text) in &seen {
         for value in [SECRET, PASSWORD] {
-            let leak = value.as_bytes().windows(WINDOW).find(|part| text.as_bytes().windows(WINDOW).any(|w| w == *part));
+            let leak =
+                value.as_bytes().windows(WINDOW).find(|part| text.as_bytes().windows(WINDOW).any(|w| w == *part));
             assert!(leak.is_none(), "{name} holds part of a secret: {:?}", leak.map(String::from_utf8_lossy));
         }
     }
@@ -90,10 +94,14 @@ fn cell(value: ValueRef<'_>) -> String {
     }
 }
 
-/// Every file under `dir`, as text: the history files' raw bytes and each report file.
+/// Every file under `dir`, as text: the history files' raw bytes and each report file. The
+/// compile cache is left out: it holds the project's own source, where the values are written.
 fn files(dir: &Path, seen: &mut Vec<(String, String)>) {
     for entry in fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();
+        if path.ends_with(".vibranium/cache") {
+            continue;
+        }
         if path.is_dir() {
             files(&path, seen);
         } else {

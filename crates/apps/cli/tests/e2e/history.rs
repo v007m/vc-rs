@@ -3,6 +3,7 @@
 //! again, and `vc run --failed` reruns what failed under the same profiles.
 
 use std::fs;
+use std::path::PathBuf;
 
 use serde_json::Value;
 use vc_mock_server::MockServer;
@@ -35,12 +36,18 @@ async fn stores_each_run_and_reruns_what_failed() {
 
     let runs = json(&project.vc(&["history", "--json"]).output().unwrap());
     assert_eq!(runs.as_array().map(Vec::len), Some(2), "{runs:#}");
-    assert_eq!((&runs[0]["id"], &runs[0]["selector"], &runs[0]["profiles"][0]), (&2.into(), &"--failed".into(), &"dev".into()));
+    assert_eq!(
+        (&runs[0]["id"], &runs[0]["selector"], &runs[0]["profiles"][0]),
+        (&2.into(), &"--failed".into(), &"dev".into())
+    );
     assert_eq!((&runs[1]["status"], &runs[1]["totals"]["passed"]), (&"failed".into(), &1.into()));
 
     let shown = project.vc(&["history", "show", "1"]).output().unwrap();
     let text = String::from_utf8_lossy(&shown.stdout);
-    assert!(text.contains("failed   users.mixed#wantsAnError") && text.contains("skipped  users.mixed#isParked"), "{text}");
+    assert!(
+        text.contains("failed   users.mixed#wantsAnError") && text.contains("skipped  users.mixed#isParked"),
+        "{text}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -53,7 +60,8 @@ async fn writes_a_stored_runs_report_again_and_prunes() {
     let written = project.vc(&["report", "1", "--single-file"]).output().unwrap();
     assert_eq!(written.status.code(), Some(0), "{}", said(&written));
     let page = project.path().join(".vibranium/reports/1/report.html");
-    assert_eq!(String::from_utf8_lossy(&written.stdout).trim(), page.display().to_string());
+    let printed = PathBuf::from(String::from_utf8_lossy(&written.stdout).trim());
+    assert_eq!(printed.canonicalize().unwrap(), page.canonicalize().unwrap());
     assert!(fs::read_to_string(&page).unwrap().contains("<title>Vibranium run 1</title>"));
 
     let folder = project.vc(&["report", "--format", "html,junit", "--out", "again"]).output().unwrap();
