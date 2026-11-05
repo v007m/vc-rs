@@ -110,6 +110,24 @@ async fn a_value_that_does_not_render_runs_nothing() {
     assert!(specs.try_recv().is_err());
 }
 
+#[tokio::test]
+async fn a_fake_var_the_line_draws_is_kept_for_the_instance() {
+    let mut fixture = Fixture::new();
+    fixture.program.config.vars.values = fixture.vars(&[("userId", "${fake.string.uuid}")]);
+    let (commands, specs) = runner(Ok(exiting(0, "")));
+    let report = run(fixture, "seed ${var.userId}", commands).await;
+    let drawn = report.fakes.get("userId").and_then(|id| id.as_str()).unwrap_or_default().to_owned();
+    assert_eq!(drawn.len(), 36, "{:?}", report.fakes);
+    assert!(specs.try_recv().unwrap().args[1].contains(&drawn));
+}
+
+#[test]
+fn debug_shows_the_root_and_not_the_env() {
+    let (commands, _) = runner(Ok(exiting(0, "")));
+    let executor = CommandExecutor::new(commands, PathBuf::from("/project"), vec![("TOKEN".into(), "s3cret".into())]);
+    assert_eq!(format!("{executor:?}"), "CommandExecutor { root: \"/project\", .. }");
+}
+
 #[test]
 fn a_posix_word_is_single_quoted_with_quotes_escaped() {
     assert_eq!(posix_word("a b; exit 7").unwrap(), "'a b; exit 7'");

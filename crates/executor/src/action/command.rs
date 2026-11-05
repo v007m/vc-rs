@@ -96,7 +96,7 @@ impl ActionExecutor for CommandExecutor {
     }
 
     fn follows(&self, _program: &Program, _action: &Action) -> Vec<ActionId> {
-        Vec::new()
+        vec![]
     }
 }
 
