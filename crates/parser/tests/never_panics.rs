@@ -47,6 +47,18 @@ proptest! {
     }
 
     #[test]
+    fn csv_spans_stay_inside_the_text(text in "[a-c,\"\n\ré ]{0,48}") {
+        let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Csv, &text);
+        prop_assert!(root.is_some() || diagnostics.has_errors());
+        for diagnostic in diagnostics.iter() {
+            prop_assert!(text.get(diagnostic.primary.span.byte_range()).is_some());
+        }
+        for row in root.iter().flat_map(Node::items) {
+            prop_assert!(text.get(row.span.byte_range()).is_some());
+        }
+    }
+
+    #[test]
     fn parse_never_panics_on_yaml_shaped_text(text in YAMLISH) {
         let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, &text);
         prop_assert!(root.is_some() || diagnostics.has_errors());
