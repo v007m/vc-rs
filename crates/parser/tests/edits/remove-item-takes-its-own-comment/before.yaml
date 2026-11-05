@@ -1,0 +1,6 @@
+apis:
+  - id: list
+    path: /users
+  # makes one
+  - id: create
+    path: /users

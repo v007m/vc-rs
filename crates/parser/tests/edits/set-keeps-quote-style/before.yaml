@@ -1,0 +1,3 @@
+apis:
+  - id: create
+    path: '/users'

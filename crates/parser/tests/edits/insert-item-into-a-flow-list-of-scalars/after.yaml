@@ -1,0 +1,4 @@
+tests:
+  - id: listsUsers
+    tags: [smoke, fast, slow-network]  # keep
+    call: users#list

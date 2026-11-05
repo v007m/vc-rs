@@ -1,0 +1,4 @@
+tests:
+  - id: listsUsers
+    tags: [smoke, fast]  # keep
+    call: users#list

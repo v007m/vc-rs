@@ -1,0 +1,3 @@
+op: set
+at: apis.0.path
+value: /members/${var.id}

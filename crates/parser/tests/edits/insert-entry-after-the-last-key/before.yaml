@@ -1,0 +1,5 @@
+tests:
+  - id: listsUsers  # first
+    call: users#list
+  - id: getsUser
+    call: users#get

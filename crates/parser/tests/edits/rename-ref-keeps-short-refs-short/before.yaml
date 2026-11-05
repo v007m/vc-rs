@@ -1,0 +1,7 @@
+tests:
+  - id: createsUser
+    call: users#create
+  - id: createsTwice
+    steps:
+      - test: createsUser
+      - test: users.crud#createsUser

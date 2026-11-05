@@ -1,0 +1,4 @@
+baseUrl: ${var.baseUrl}
+apis:
+  - id: list
+    path: /users

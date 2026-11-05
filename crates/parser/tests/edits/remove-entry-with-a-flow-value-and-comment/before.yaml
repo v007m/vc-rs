@@ -1,0 +1,4 @@
+tests:
+  - id: listsUsers
+    skip: {reason: flaky}  # mine
+    call: users#list

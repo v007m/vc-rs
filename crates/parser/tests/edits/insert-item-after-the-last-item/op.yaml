@@ -1,0 +1,6 @@
+op: insertItem
+at: apis
+value: |
+  id: deactivate
+  method: POST
+  path: /users/${var.id}/deactivate
