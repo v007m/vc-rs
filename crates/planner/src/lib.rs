@@ -15,7 +15,6 @@ mod render;
 mod select;
 #[cfg(test)]
 mod testing;
-mod unsupported;
 mod visit;
 
 pub use build::plan;

@@ -33,6 +33,7 @@ code_table! {
     V1010 = 1010, Error, "More than one YAML document in a file";
     V1011 = 1011, Error, "Nesting deeper than 128 levels";
     V1012 = 1012, Error, "File cannot be read (permissions, not UTF-8, outside the project, bad name)";
+    V1013 = 1013, Error, "Hook file is not valid TypeScript or JavaScript";
     // V2xxx: references and types
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";
@@ -41,6 +42,7 @@ code_table! {
     V2005 = 2005, Error, "Hook export not found";
     V2006 = 2006, Error, "Reserved ID";
     V2007 = 2007, Error, "File ID doesn't match its path";
+    V2008 = 2008, Error, "Hook import not allowed";
     V2101 = 2101, Error, "Var used but never set for some profile";
     V2102 = 2102, Error, "`${item}`, `${example}` or `${iteration}` used outside its block";
     V2103 = 2103, Error, "Unknown example or dataset column";
@@ -88,4 +90,6 @@ code_table! {
     V5111 = 5111, Error, "Template failed to render at run time";
     V5112 = 5112, Error, "Dataset row missing a column";
     V5114 = 5114, Error, "Credentials could not be obtained";
+    V5115 = 5115, Error, "Hook threw or returned a value that is not JSON";
+    V5116 = 5116, Error, "Hook ran past its time or memory budget";
 }

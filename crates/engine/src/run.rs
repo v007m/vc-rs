@@ -75,14 +75,17 @@ impl Engine {
         Ok(RunReport { exit: vc_executor::exit_code(summary), seed, notices })
     }
 
-    /// The executor for `prepared`: HTTP through the per-host limits, `command:` through the
-    /// command runner, the active profiles and the `--set vars.*` values.
+    /// The executor for `prepared`: HTTP through the per-host limits, hooks through the hook
+    /// runner, `command:` through the command runner, the active profiles and the `--set vars.*` values.
     fn executor(&self, prepared: &Prepared, random: Arc<dyn Random>, bail: bool) -> Result<Executor, EngineError> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let per_host = settings.per_host.or(defaults.per_host).unwrap_or(PER_HOST);
         let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
         let transport = self.transport(prepared.environment.as_ref())?;
-        let parts = PipelineParts::new(transport, HostLimits::spawn(widen(per_host)));
+        let mut parts = PipelineParts::new(transport, HostLimits::spawn(widen(per_host)));
+        if let Some(hooks) = self.hook_runner(&prepared.program) {
+            parts = parts.with_hook_runner(hooks);
+        }
         let inputs = RunInputs::new(random, Arc::clone(&prepared.environment))
             .with_profiles(prepared.profiles.clone())
             .with_vars(vars(&settings.vars));

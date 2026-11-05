@@ -1,0 +1,11 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 52
+input_file: crates/compiler/tests/cases/hooks_clean/project
+---
+error[V2210]: this beforeAll action saves values but has no `id`
+ --> services/orders/list.test.yaml:2:5
+  |
+2 |   - function: ../../hooks/seed.ts#seedOrders
+  |     ^^^^^^^^ needs an `id`
+  = help: shared values are read as `${var.<id>.<name>}`; give the action an `id`

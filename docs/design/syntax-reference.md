@@ -647,7 +647,7 @@ An action is one entry in a lifecycle block or in a test's `steps`. Most actions
 | `function: path#export` | Runs a function from a code file | Work no api does: seeding a database, reading a mailbox; it may return an object whose fields are saved |
 | `command: <shell command>` | Runs a command through `sh -c` (`cmd /C` on Windows) in the project root; a non-zero exit fails the action (V5110), and its output is attached to the report (details below) | Starting services, `docker compose up -d --wait` |
 
-**`command:` safety (D181).** The text you write runs as written; each `${…}` in it is quoted. On unix every rendered value becomes one POSIX word in single quotes (a `'` inside is written `'\''`), so `--set "vars.word=it's; touch x"` echoes that text and runs nothing else. On Windows a value is wrapped in double quotes, and a value holding any of `& | < > ^ % ! " ( )` or a newline fails the action with V5111 before anything runs; pass such a value through an environment variable instead. The child's environment is the process environment, plus the `.env` lines the process does not set, plus `VIB_VAR_<name>` for each config var; it is never logged. It keeps the last 64 KiB of stdout and of stderr, both passing through the redactor, and a V5110 failure shows the exit code and the last 20 lines. The limit is `defaults.timeout` (30 s when unset); past it the whole process group is killed (unix) and the action fails with V5104. Ctrl-C ends the command the same way. `function:` is not supported until M4.
+**`command:` safety (D181).** The text you write runs as written; each `${…}` in it is quoted. On unix every rendered value becomes one POSIX word in single quotes (a `'` inside is written `'\''`), so `--set "vars.word=it's; touch x"` echoes that text and runs nothing else. On Windows a value is wrapped in double quotes, and a value holding any of `& | < > ^ % ! " ( )` or a newline fails the action with V5111 before anything runs; pass such a value through an environment variable instead. The child's environment is the process environment, plus the `.env` lines the process does not set, plus `VIB_VAR_<name>` for each config var; it is never logged. It keeps the last 64 KiB of stdout and of stderr, both passing through the redactor, and a V5110 failure shows the exit code and the last 20 lines. The limit is `defaults.timeout` (30 s when unset); past it the whole process group is killed (unix) and the action fails with V5104. Ctrl-C ends the command the same way.
 
 `call` and `test` actions also take `id`, `vars`, `auth`, `headers`, `query`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars` and `timeout` (so far a `command` uses `defaults.timeout`; its own `timeout` is not read yet). `function` and `test` actions may also declare `provides` (below).
 
@@ -872,7 +872,7 @@ beforeEach:
 | `size` | matcher on body size | `size: {lt: 100kb}` |
 | `timing.<phase>` | matcher on `dns`, `connect`, `tls`, `firstByte`, `download`, `total` | `total: {lt: 500ms}` |
 | `cel.<label>` | CEL expression that must be true; variables are the roots available there (see Templates and references); write `response.body`, not `body` (D125, D150) | `has items: size(response.body.items) > 0` |
-| `custom` | list of functions, `- function: path#export` | `- function: hooks/checks.ts#isSorted` |
+| `custom` | list of functions, `- function: path#export` | `- function: ../../hooks/checks.ts#isSorted` |
 | `replace` | `true` | Drop every inherited check and keep only the ones written here (D123) | `replace: true` |
 
 Merging (D123): checks are inherited from the api, then the test, then the step, and the more specific level wins. Each check is keyed by its kind and leaf path, such as `status`, `headers.content-type` or `body.$.id`; a check with the same key replaces the inherited one, and every other inherited check still applies. `cel` and `custom` checks are never replaced, only added. `replace: true` drops everything inherited. That is how a negative test expects 400 from an api whose normal result is 201.
@@ -1199,7 +1199,15 @@ datasets:
 
 ## Functions and request hooks
 
-Code runs in two kinds of places. In lifecycle blocks and steps, a `function:` or `command:` action runs at that point (see Lifecycle blocks). On api files and apis, request hooks run around every request. Every entry is `function: path#exportName`, a function in a code file.
+Code runs in two kinds of places. In lifecycle blocks and steps, a `function:` or `command:` action runs at that point (see Lifecycle blocks). On api files and apis, request hooks run around every request. Every entry is `function: path#exportName`, a function in a code file. The path is relative to the file that holds the entry, like a `$file` path, and ends in `.ts`, `.mts`, `.js` or `.mjs`.
+
+`vc check` reads every hook file a `function:` reaches (D172): one that does not parse is V1013, a path to no file is V2004 (with a fix when one hook file has a close name), an export the file does not have is V2005 (with a fix when one export has a close name; a file with `export * from` is not checked), and a file that is not a hook file is V2008. Types are stripped before a hook runs; errors at run time name the TypeScript line. A hook file may import only:
+
+- other hook files in the project, by a path starting `./` or `../`, relative to the importing file; the extension may be left off, and `./util.js` finds `util.ts`;
+- `vibranium:std`, the helpers a hook may use: `hmacSha256Hex`, `sha256Hex`, `base64Encode`, `base64Decode`, `urlEncode`, `urlDecode`;
+- types, with `import type { … } from "@vibranium/sdk"`, which is removed with the other types.
+
+Packages, `node:` modules and `import()` are V2008: hooks run inside the engine, not in Node.
 
 | Where | Key | The function receives |
 | --- | --- | --- |

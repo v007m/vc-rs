@@ -3,8 +3,12 @@
 
 mod call;
 mod command;
+mod flight;
+mod function;
+mod hooks;
 mod http_retry;
 mod looping;
+mod provides;
 mod request;
 mod reuse;
 
@@ -19,6 +23,7 @@ use crate::{ActionReport, ExecutorError, Frame, PipelineParts, Redactor, RunInpu
 
 pub use call::CallExecutor;
 pub use command::CommandExecutor;
+pub use function::FunctionExecutor;
 pub use reuse::{TestExecutor, body_actions};
 
 /// The kind of an action, as the registry keys its executors.
@@ -152,13 +157,16 @@ impl ActionExecutors {
         Self::default()
     }
 
-    /// `call:` through the request pipeline built from `parts`, and `test:` reuse. `command:`
-    /// needs a runner, so the engine adds a [`CommandExecutor`]; `function:` is registered in M4.
+    /// `call:` through the request pipeline built from `parts`, `test:` reuse, and `function:`
+    /// through the parts' hook runner. `command:` needs a runner, so the engine adds a
+    /// [`CommandExecutor`].
     #[must_use]
     pub fn standard(parts: PipelineParts) -> Self {
+        let functions = FunctionExecutor::new(parts.hook_runner.clone());
         Self::new()
             .with(ActionKindTag::Call, Arc::new(CallExecutor::new(parts)))
             .with(ActionKindTag::Test, Arc::new(TestExecutor))
+            .with(ActionKindTag::Function, Arc::new(functions))
     }
 
     /// The registry with `executor` running actions of `kind`.

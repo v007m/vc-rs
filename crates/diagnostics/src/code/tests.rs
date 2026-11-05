@@ -24,7 +24,7 @@ fn table_has_every_category_and_the_round_15_to_17_codes() {
     let categories: BTreeSet<Category> = Code::ALL.iter().map(|code| code.category()).collect();
     assert_eq!(categories.len(), 5);
     for added in
-        ["V2006", "V2007", "V2105", "V3205", "V3206", "V5108", "V5109", "V5110", "V5111", "V2106", "V2107", "V5114"]
+        ["V2006", "V2007", "V2105", "V3205", "V3206", "V5108", "V5109", "V5110", "V5111", "V2106", "V2107", "V5114", "V1013", "V2008", "V5115", "V5116"]
     {
         assert!(added.parse::<Code>().is_ok(), "{added}");
     }

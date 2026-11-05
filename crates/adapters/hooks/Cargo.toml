@@ -1,0 +1,27 @@
+[package]
+name = "vc-adapter-hooks"
+description = "Hook runner: TypeScript hooks, stripped by the compiler, run in a sandboxed QuickJS thread."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+base64.workspace = true
+hmac.workspace = true
+rquickjs.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+vc-diagnostics.workspace = true
+vc-interfaces.workspace = true
+vc-model.workspace = true
+
+[dev-dependencies]
+vc-testkit.workspace = true
+
+[lints]
+workspace = true

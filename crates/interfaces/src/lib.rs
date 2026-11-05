@@ -22,6 +22,7 @@
 //!   `flow` definition's steps for it (D106).
 //! - [`Browser`] and [`Keychain`]: the browser sign-in and the stored refresh token of
 //!   `oauth2AuthorizationCode`.
+//! - [`HookRunner`]: runs a hook function in a sandbox within a time and memory [`Budget`] (D172).
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -42,6 +43,7 @@ mod command;
 mod config;
 mod environment;
 mod filter;
+mod hooks;
 mod keychain;
 mod random;
 mod reporter;
@@ -58,6 +60,7 @@ pub use command::{CommandError, CommandOutput, CommandRunner, CommandSpec};
 pub use config::{ConfigEntry, ConfigSource, ConfigSourceError};
 pub use environment::Environment;
 pub use filter::SourceFilter;
+pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
 pub use keychain::{Keychain, KeychainError};
 pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};

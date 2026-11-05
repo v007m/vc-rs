@@ -1,7 +1,7 @@
 //! Golden cases: each `tests/cases/<case>/project` is compiled, and its diagnostics, rendered
 //! as text and as JSON, are compared with the case's `expected.txt.snap` and `expected.json.snap`.
 //! Definition files are compiled; every other file in the project is an asset `$file` may name.
-//! Like the engine, the harness then compiles again with the data files the first compile wanted.
+//! Like the engine, the harness then compiles again with the data and hook files a compile wanted.
 //! `cargo insta review` updates them after a deliberate change.
 
 use std::error::Error;
@@ -55,20 +55,25 @@ fn golden(case: &str) -> Outcome {
     Ok(())
 }
 
-/// Compiles the definition files in `read`, then again with the data files that compile wanted.
+/// Compiles the definition files in `read`, then again with the data and hook files that compile
+/// wanted, until it wants no more.
 fn compile(read: Vec<SourceFile>) -> Compiled {
-    let (files, others): (Vec<_>, Vec<_>) =
+    let (files, mut others): (Vec<_>, Vec<_>) =
         read.into_iter().partition(|file| FileKind::from_path(&file.path).is_some());
     let assets = Some(others.iter().map(|file| file.path.clone()).collect());
-    let input = CompileInput { files, previous: CompileCache::new(), today: Date::parse(TODAY), assets };
-    let compiled = vc_compiler::compile(input.clone());
-    let wanted = |file: &SourceFile| compiled.data_wanted.iter().any(|data| data.path == file.path);
-    let data: Vec<SourceFile> = others.into_iter().filter(wanted).collect();
-    if data.is_empty() {
-        return compiled;
+    let mut input = CompileInput { files, previous: CompileCache::new(), today: Date::parse(TODAY), assets };
+    loop {
+        let compiled = vc_compiler::compile(input.clone());
+        let data = compiled.data_wanted.iter().map(|data| &data.path);
+        let wanted: Vec<SourcePath> = data.chain(&compiled.hooks_wanted).cloned().collect();
+        let (read, rest): (Vec<_>, Vec<_>) = others.into_iter().partition(|file| wanted.contains(&file.path));
+        if read.is_empty() {
+            return compiled;
+        }
+        others = rest;
+        input.files.extend(read);
+        input.previous = compiled.cache;
     }
-    let files = input.files.into_iter().chain(data).collect();
-    vc_compiler::compile(CompileInput { files, previous: compiled.cache, ..input })
 }
 
 macro_rules! cases {
@@ -145,4 +150,7 @@ cases!(
     v1012_dataset_outside,
     v2002_unknown_dataset,
     v2103_dataset_column,
+    hooks_clean,
+    v2005_hook_export,
+    v2008_hook_import,
 );

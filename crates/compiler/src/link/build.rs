@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use vc_model::{
-    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, HttpRetry, ModelError, Origin, Owner, ProfileId, Program,
+    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, HookModules, HttpRetry, ModelError, Origin, Owner, ProfileId, Program,
     ProgramBuilder, SourceFiles, Sym, TemplateValue, VarDefs, VarName,
 };
 use vc_parser::Node;
@@ -30,8 +30,9 @@ pub use read::{flag, method};
 type Built<T> = Result<T, ModelError>;
 
 /// The program, or `None` when a table overflowed.
-pub fn program((project, data): (&Project<'_>, &Data<'_>), files: SourceFiles) -> Option<Arc<Program>> {
-    let builder = ProgramBuilder::new(project.strings.clone(), files);
+pub fn program((project, data): (&Project<'_>, &Data<'_>), files: SourceFiles, hooks: HookModules) -> Option<Arc<Program>> {
+    let mut builder = ProgramBuilder::new(project.strings.clone(), files);
+    builder.hooks(hooks);
     let mut build = Build { project, data, builder, api_expects: HashMap::new(), http_retry: HttpRetry::default() };
     build.all().ok()?;
     Some(build.builder.freeze())

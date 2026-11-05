@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use crate::{
-    Action, ActionId, Api, ApiGroup, Config, Dataset, GeneratorDef, ModelError, Profile, Program, RunBlocks,
-    SourceFiles, StringTable, Sym, Test, TestFile,
+    Action, ActionId, Api, ApiGroup, Config, Dataset, GeneratorDef, HookModules, ModelError, Profile, Program,
+    RunBlocks, SourceFiles, StringTable, Sym, Test, TestFile,
 };
 
 /// Accumulates a [`Program`]; nothing can change it after [`ProgramBuilder::freeze`].
@@ -93,6 +93,11 @@ impl ProgramBuilder {
         self.program.run_blocks = blocks;
     }
 
+    /// Sets the hook files the program refers to (D172).
+    pub fn hooks(&mut self, hooks: HookModules) {
+        self.program.hooks = hooks;
+    }
+
     /// The finished program, shared read-only from here on.
     #[must_use]
     pub fn freeze(self) -> Arc<Program> {
@@ -126,6 +131,7 @@ mod tests {
             poll: None,
             retry: None,
             keep: false,
+            provides: vec![],
             cache: None,
             repeat: None,
             span: SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0)),

@@ -15,7 +15,7 @@ const BAD: &str = "services/orders/orders.api.yaml";
 const HEADER: usize = MAGIC.len() + 8;
 
 fn entry(path: &str, byte: u8, file: u32) -> CacheEntry {
-    let unit = FileUnit { kind: None, root: None, parts: IndexMap::new(), diagnostics: Diagnostics::new() };
+    let unit = FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, diagnostics: Diagnostics::new() };
     let path = SourcePath::new(path).unwrap();
     CacheEntry { path, hash: ContentHash::new([byte; 32]), file: SourceFileId::new(file), unit: Some(Arc::new(unit)) }
 }

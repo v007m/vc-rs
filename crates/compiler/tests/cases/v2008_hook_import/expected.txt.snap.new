@@ -1,0 +1,46 @@
+---
+source: crates/compiler/tests/golden.rs
+assertion_line: 52
+input_file: crates/compiler/tests/cases/v2008_hook_import/project
+---
+error[V2008]: a hook can import only files, by relative path, and `vibranium:std`, not node:crypto
+ --> hooks/sign.ts:1:28
+  |
+1 | import { createHmac } from "node:crypto";
+  |                            ^^^^^^^^^^^^^ not allowed
+  = help: hooks run in the engine, not Node: `vibranium:std` has the helpers a hook may use
+
+error[V2008]: a hook can import only files, by relative path, and `vibranium:std`, not axios
+ --> hooks/sign.ts:3:19
+  |
+3 | import axios from "axios";
+  |                   ^^^^^^^ not allowed
+  = help: hooks run without packages: put the code in a file in the project and import it by path
+
+error[V2004]: ./headers is not in the project
+ --> hooks/sign.ts:4:24
+  |
+4 | import { header } from "./headers";
+  |                        ^^^^^^^^^^^ no file at hooks/headers
+  = help: an import path is relative to the file that imports it
+
+error[V2008]: a hook cannot load a module with `import()`
+ --> hooks/sign.ts:7:34
+  |
+7 |   const { extra } = await import("./extra.ts");
+  |                                  ^^^^^^^^^^^^ dynamic import
+  = help: import it at the top of the file instead
+
+error[V2008]: ../../hooks/sign.cjs is not a TypeScript or JavaScript module
+ --> services/orders/orders.api.yaml:3:15
+  |
+3 |   - function: ../../hooks/sign.cjs#sign
+  |               ^^^^^^^^^^^^^^^^^^^^^^^^^ not a hook file
+  = help: hook files are ES modules ending in .ts, .mts, .js or .mjs
+
+error[V2004]: ../../hook/sign.ts is not in the project
+ --> services/orders/orders.api.yaml:4:15
+  |
+4 |   - function: ../../hook/sign.ts#sign
+  |               ^^^^^^^^^^^^^^^^^^^^^^^ no file at hook/sign.ts
+  = help: did you mean one of `../../hooks/sign.ts`, `../../hooks/extra.ts`?

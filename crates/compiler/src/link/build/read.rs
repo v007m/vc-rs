@@ -4,6 +4,7 @@ use indexmap::IndexMap;
 use vc_model::{BodySpec, Duration, Examples, HookRef, Loop, Method, Retry, Skip, Tag, Template, TemplateValue};
 use vc_parser::Node;
 
+use crate::link::assets;
 use crate::link::project;
 use crate::link::project::Source;
 use crate::parts::Piece;
@@ -118,15 +119,17 @@ pub fn looping(source: &Source<'_>, node: &Node) -> Option<Loop> {
     Some(Loop::Repeat { times: number(node, "repeat")?, parallel })
 }
 
-/// A `path#export` function reference.
-pub fn hook(written: &str) -> HookRef {
+/// A `path#export` function reference, with the path made project-relative (D172).
+pub fn hook(source: &Source<'_>, written: &str) -> HookRef {
     let (file, export) = written.split_once('#').unwrap_or((written, ""));
-    HookRef { file: file.to_owned(), export: export.to_owned() }
+    let file = assets::resolve(&assets::folder(source.path), file).unwrap_or_else(|| file.to_owned());
+    HookRef { file, export: export.to_owned() }
 }
 
 /// The functions listed under `key`.
-pub fn hooks(node: &Node, key: &str) -> Vec<HookRef> {
-    project::list(node, key).iter().filter_map(|item| project::text(item, "function")).map(hook).collect()
+pub fn hooks(source: &Source<'_>, node: &Node, key: &str) -> Vec<HookRef> {
+    let written = project::list(node, key).iter().filter_map(|item| project::text(item, "function"));
+    written.map(|written| hook(source, written)).collect()
 }
 
 /// The request body at `node`: text, `$file`, `$base64`, or JSON.

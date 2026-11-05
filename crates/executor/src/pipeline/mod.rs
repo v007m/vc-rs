@@ -3,7 +3,8 @@
 //!
 //! Auth and hooks sit inside retry, so a retried request is prepared again. The timeout sits
 //! inside retry and inside the per-host limit, so it limits each attempt and waiting for a
-//! permit does not count. Until M3 and M4 auth and hooks are [`Unchanged`] null objects.
+//! permit does not count. Until M3 auth is an [`Unchanged`] null object; the call executor sets
+//! the hooks stage of each call from its api's `beforeRequest` hooks.
 
 /// The associated types and `poll_ready` every pipeline service shares: it is always ready and
 /// returns a boxed future. With no arguments, the types of a [`Hop`]: one attempt, ending in an
@@ -36,7 +37,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tower::Service;
-use vc_interfaces::{SendContext, Transport, TransportError};
+use vc_interfaces::{HookRunner, SendContext, Transport, TransportError};
 use vc_model::{Exchange, RenderedRequest};
 
 pub use host_limit::{HostLimit, HostLimits};
@@ -88,15 +89,25 @@ pub struct PipelineParts {
     pub retry: Arc<dyn RetryPolicy>,
     /// Adds credentials (M3).
     pub auth: Arc<dyn RequestStage>,
-    /// Runs `beforeRequest` hooks (M4).
+    /// Runs `beforeRequest` hooks; the call executor sets it per call from the api's hooks.
     pub hooks: Arc<dyn RequestStage>,
+    /// Runs hooks (D172): request hooks, custom checks and `function:` actions. With none, any
+    /// hook that runs fails with V5115.
+    pub hook_runner: Option<Arc<dyn HookRunner>>,
 }
 
 impl PipelineParts {
-    /// Parts with no retry, no auth and no hooks.
+    /// Parts with no retry, no auth, no hooks and no hook runner.
     #[must_use]
     pub fn new(transport: Arc<dyn Transport>, limits: HostLimits) -> Self {
-        Self { transport, limits, retry: Arc::new(NoRetry), auth: Arc::new(Unchanged), hooks: Arc::new(Unchanged) }
+        let (retry, auth, hooks) = (Arc::new(NoRetry), Arc::new(Unchanged), Arc::new(Unchanged));
+        Self { transport, limits, retry, auth, hooks, hook_runner: None }
+    }
+
+    /// These parts, running hooks with `runner`.
+    #[must_use]
+    pub fn with_hook_runner(self, runner: Arc<dyn HookRunner>) -> Self {
+        Self { hook_runner: Some(runner), ..self }
     }
 }
 

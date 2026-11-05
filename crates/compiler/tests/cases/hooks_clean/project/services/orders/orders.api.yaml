@@ -1,0 +1,7 @@
+beforeRequest:
+  - function: ../../hooks/sign.ts#sign
+apis:
+  - id: listOrders
+    path: /orders
+    afterResponse:
+      - function: ../../hooks/log.mjs#record

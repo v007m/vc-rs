@@ -1,7 +1,7 @@
 //! One action, with the test-level defaults a step inherits (D124) and its checks merged over
 //! the api's (D123).
 
-use vc_model::{Action, ActionKind, ApiId, AuthRef, BodySpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs};
+use vc_model::{Action, ActionKind, ApiId, AuthRef, BodySpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs, VarName};
 use vc_parser::Node;
 
 use super::{Build, Built, expect, read};
@@ -57,6 +57,7 @@ impl<'a> Build<'_, 'a> {
             poll: poll.and_then(|poll| poll_of(source, poll, origin)),
             retry: read::retry(source, node).filter(|_| place.test.is_none()),
             keep: read::flag(shapes::action(), node, "keep"),
+            provides: self.provides(node)?,
             cache: None,
             repeat: self.looping(source, node).filter(|_| place.test.is_none()),
             span: node.span,
@@ -72,7 +73,7 @@ impl<'a> Build<'_, 'a> {
             return Ok(Some(ActionKind::Test(TestId::new(self.sym(&source.resolve(test))?))));
         }
         if let Some(function) = project::text(node, "function") {
-            return Ok(Some(ActionKind::Function(read::hook(function))));
+            return Ok(Some(ActionKind::Function(read::hook(source, function))));
         }
         let command = node.get("command").and_then(|command| read::template(source, command));
         Ok(command.map(ActionKind::Command))
@@ -111,6 +112,12 @@ impl<'a> Build<'_, 'a> {
         let test = defaults.map(|(id, test)| expect::read(source, test.get("expect"), Origin::Test(id)));
         let empty = Expect::default();
         expect::merge(&[api.unwrap_or(&empty), test.as_ref().unwrap_or(&empty), &own])
+    }
+
+    /// `provides`: the names the action says it saves (D128).
+    fn provides(&mut self, node: &Node) -> Built<Vec<VarName>> {
+        let names = project::list(node, "provides").iter().filter_map(Node::as_str);
+        names.map(|name| Ok(VarName::new(self.sym(name)?))).collect()
     }
 }
 

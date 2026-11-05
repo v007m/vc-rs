@@ -9,6 +9,7 @@ use vc_model::{FileKind, SourceFile, SourceFileId, SourceSpan, StringTable};
 use vc_parser::{Node, ScalarKind, Syntax, Value};
 
 use crate::parts::{self, Cx, Piece, Tools};
+use crate::script::{self, Script};
 use crate::shape_check::{self, Walk};
 use crate::{shapes, version};
 
@@ -25,6 +26,8 @@ pub struct FileUnit {
     /// Each compiled value, keyed by the span of the node it was read from.
     #[serde(serialize_with = "pairs_out", deserialize_with = "pairs_in")]
     pub parts: IndexMap<SourceSpan, Piece>,
+    /// A hook file, stripped (D172); `None` for any other file.
+    pub script: Option<Script>,
     /// Every problem the per-file stages found.
     #[serde(skip)]
     pub diagnostics: Diagnostics,
@@ -42,11 +45,15 @@ fn pairs_in<'de, D: Deserializer<'de>>(deserializer: D) -> Result<IndexMap<Sourc
 
 /// Runs the per-file stages over `source`, numbered `id`; names are interned into `strings`.
 pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &mut StringTable)) -> FileUnit {
+    if script::is_script(source.path.as_str()) {
+        let (script, diagnostics) = script::strip(id, source);
+        return FileUnit { kind: None, root: None, parts: IndexMap::new(), script, diagnostics };
+    }
     let (root, mut diagnostics) = parse(id, source);
     let kind = source.kind();
-    let Some(file_kind) = kind else { return FileUnit { kind, root, parts: IndexMap::new(), diagnostics } };
+    let Some(file_kind) = kind else { return FileUnit { kind, root, parts: IndexMap::new(), script: None, diagnostics } };
     let Some(root) = root.map(empty_as_map) else {
-        return FileUnit { kind, root: None, parts: IndexMap::new(), diagnostics };
+        return FileUnit { kind, root: None, parts: IndexMap::new(), script: None, diagnostics };
     };
     let walk = shape(&root, file_kind);
     let steps = walk.steps.iter().filter_map(|step| strings.intern(step).ok()).collect();
@@ -55,7 +62,7 @@ pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &m
     let later = walk.diagnostics.into_iter().chain(cx.diagnostics);
     let fresh: Vec<Diagnostic> = later.filter(|later| !reported(&diagnostics, later)).collect();
     diagnostics.extend(fresh);
-    FileUnit { kind, root: Some(root), parts, diagnostics }
+    FileUnit { kind, root: Some(root), parts, script: None, diagnostics }
 }
 
 /// The parse stage: the one place the compiler calls the parser.
@@ -127,6 +134,15 @@ mod tests {
         assert!(other.root.is_some() && other.diagnostics.is_empty() && other.kind.is_none() && other.parts.is_empty());
         let rows = run("datasets/cities.csv", "city\nUlm\n");
         assert!(rows.root.is_some_and(|root| root.items().len() == 1) && rows.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn strips_a_hook_file_instead_of_parsing_it() {
+        let hook = run("hooks/sign.ts", "export const sign = (x: number): number => x;\n");
+        assert!(hook.root.is_none() && hook.kind.is_none() && hook.diagnostics.is_empty());
+        assert_eq!(hook.script.map(|script| script.exports), Some(vec!["sign".to_owned()]));
+        assert_eq!(codes(&run("hooks/bad.js", "export const = 1;\n")), [Code::V1013]);
+        assert!(run("datasets/notes.yaml", "- a\n").script.is_none());
     }
 
     #[test]

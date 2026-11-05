@@ -9,6 +9,7 @@ mod cycles;
 mod data;
 mod fakes;
 mod flow;
+mod hooks;
 mod ids;
 mod layer;
 mod project;
@@ -43,6 +44,7 @@ pub struct Linked {
     pub program: Option<Arc<Program>>,
     /// The data files the project names that were not given (D173).
     pub data_wanted: Vec<DataWanted>,
+    pub hooks_wanted: Vec<SourcePath>,
 }
 
 /// What linking is told besides the units: the names they share, and what the files cannot say.
@@ -69,6 +71,9 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     let project = Project::new(sources, world.strings, unreadable);
     let (data, mut diagnostics) = Data::new(&project, (entries, files), world.assets);
     let data_wanted = data.wanted(&project, world.assets);
+    let hooks = hooks::link(&project, (entries, files), world.assets);
+    let hooks_wanted = hooks.wanted;
+    diagnostics.extend(hooks.diagnostics);
     ids::check(&project, &mut diagnostics);
     refs::check(&project, &mut diagnostics);
     diagnostics.extend(world.assets.map(|assets| assets::check(&project, files, assets)).unwrap_or_default());
@@ -77,17 +82,18 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(fakes::check(&project));
     diagnostics.extend(shared::profiles(&project));
     if !clean {
-        return Linked { diagnostics, program: None, data_wanted };
+        return Linked { diagnostics, program: None, data_wanted, hooks_wanted };
     }
     diagnostics.extend(flow::check(&project));
     cycles::check(&project, &mut diagnostics);
     shared::check(&project, &mut diagnostics);
-    let program = if diagnostics.has_errors() { None } else { build::program((&project, &data), files.clone()) };
+    let program =
+        if diagnostics.has_errors() { None } else { build::program((&project, &data), files.clone(), hooks.modules) };
     if let Some(program) = &program {
         diagnostics.extend(LintRegistry::builtin().run(&LintCx { project: &project, program, today: world.today }));
     }
     let program = program.filter(|_| !diagnostics.has_errors());
-    Linked { diagnostics, program, data_wanted }
+    Linked { diagnostics, program, data_wanted, hooks_wanted }
 }
 
 /// The files with a tree, and the IDs of those the per-file stages could not read cleanly.

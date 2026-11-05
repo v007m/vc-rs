@@ -30,6 +30,7 @@ mod matchers;
 mod parts;
 mod paths;
 mod schema;
+mod script;
 mod shape_check;
 mod shapes;
 mod stage;

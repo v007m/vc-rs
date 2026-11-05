@@ -97,6 +97,15 @@ impl<'a> Render<'a> {
         Renderer::new(self.values.pipes(), &Lookup { render: self, within: None }).text(template)
     }
 
+    /// Every var in scope that renders, by name: the `vars` a hook gets.
+    pub fn vars(&self) -> Value {
+        let rendered = self.scope.names().into_iter().filter_map(|name| {
+            let value = self.var(&name, None).ok()?;
+            Some((name, value))
+        });
+        Value::Object(rendered.collect())
+    }
+
     /// The program the action belongs to.
     pub const fn program(&self) -> &'a Program {
         self.program

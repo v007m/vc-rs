@@ -95,6 +95,7 @@ impl Fixture {
             poll: None,
             retry: None,
             keep: false,
+            provides: vec![],
             cache: None,
             repeat: None,
             span: span(),

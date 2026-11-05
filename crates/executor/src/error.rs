@@ -12,8 +12,8 @@ pub enum ExecutorError {
     /// The plan names a test the program does not have.
     #[error("the plan names a test the program does not have ({0:?})")]
     UnknownTest(TestId),
-    /// No executor is registered for this kind of action: `function:` until M4 (the planner
-    /// rejects those actions first).
+    /// No executor is registered for this kind of action, as when an embedder builds the
+    /// registry without one.
     #[error("action {} is a `{kind}` action, which this build cannot run yet", .action.index())]
     NoExecutor {
         /// The action.

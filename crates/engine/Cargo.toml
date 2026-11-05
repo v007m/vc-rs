@@ -12,6 +12,7 @@ publish.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+vc-adapter-hooks.workspace = true
 vc-adapter-http.workspace = true
 vc-adapter-reporters.workspace = true
 vc-adapter-system.workspace = true

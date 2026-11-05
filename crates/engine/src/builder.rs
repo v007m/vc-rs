@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, ProcessRunner, SystemClock};
-use vc_interfaces::{Clock, CommandRunner, CompileCacheStore, Environment, SourceProvider, Transport, Vcs};
+use vc_interfaces::{
+    Clock, CommandRunner, CompileCacheStore, Environment, HookRunner, SourceProvider, Transport, Vcs,
+};
 
 use crate::EngineError;
 
@@ -18,6 +20,7 @@ pub struct EngineBuilder {
     transport: Option<Arc<dyn Transport>>,
     vcs: Option<Arc<dyn Vcs>>,
     commands: Option<Arc<dyn CommandRunner>>,
+    hooks: Option<Arc<dyn HookRunner>>,
     user_config: Option<PathBuf>,
 }
 
@@ -34,6 +37,7 @@ impl EngineBuilder {
             transport: None,
             vcs: None,
             commands: None,
+            hooks: None,
             user_config: None,
         }
     }
@@ -101,6 +105,13 @@ impl EngineBuilder {
         self
     }
 
+    /// Runs hooks with `hooks` instead of `QuickJS`.
+    #[must_use]
+    pub fn hooks(mut self, hooks: Arc<dyn HookRunner>) -> Self {
+        self.hooks = Some(hooks);
+        self
+    }
+
     /// Reads the user config from `path` instead of `~/.config/vibranium/config.yaml`.
     #[must_use]
     pub fn user_config(mut self, path: PathBuf) -> Self {
@@ -124,7 +135,8 @@ impl EngineBuilder {
         let clock = self.clock.unwrap_or_else(|| Arc::new(SystemClock));
         let vcs = self.vcs.unwrap_or_else(|| Arc::new(GitVcs::new(&self.root)));
         let commands = self.commands.unwrap_or_else(|| Arc::new(ProcessRunner::new()));
-        let (environment, transport, user_config) = (self.environment, self.transport, self.user_config);
+        let (environment, transport, hooks, user_config) =
+            (self.environment, self.transport, self.hooks, self.user_config);
         Ok(Engine {
             root: self.root,
             sources,
@@ -134,6 +146,7 @@ impl EngineBuilder {
             transport,
             vcs,
             commands,
+            hooks,
             user_config,
         })
     }
@@ -155,6 +168,7 @@ pub struct Engine {
     pub(crate) transport: Option<Arc<dyn Transport>>,
     pub(crate) vcs: Arc<dyn Vcs>,
     pub(crate) commands: Arc<dyn CommandRunner>,
+    pub(crate) hooks: Option<Arc<dyn HookRunner>>,
     pub(crate) user_config: Option<PathBuf>,
 }
 

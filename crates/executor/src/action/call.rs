@@ -3,21 +3,19 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::Value;
-use tokio::time::{self, Instant};
-use tower::ServiceExt;
-use vc_diagnostics::Code;
 use vc_interfaces::SendContext;
 use vc_model::{
-    Action, ActionId, ActionKind, ActionOutcome, Api, Check, CheckKind, CheckResult, Exchange, Failure, Matcher,
-    Namespace, Origin, Poll, Program, StatusPattern,
+    Action, ActionId, ActionKind, ActionOutcome, Api, Check, CheckKind, Failure, Matcher, Origin, Program,
+    StatusPattern,
 };
 
+use super::flight::{self, Flight};
+use super::hooks::{self, HookBridge};
 use super::http_retry;
 use super::request;
 use super::{ActionExecutor, ActionRequest};
-use crate::check::{self, Judge, MatcherRegistry, Subject};
-use crate::{ActionReport, Call, PendingCleanup, Pipeline, PipelineParts, Render, Saved};
+use crate::check::{self, MatcherRegistry};
+use crate::{ActionReport, Call, PendingCleanup, PipelineParts, Render, Saved};
 
 /// The per-attempt limit when neither the api nor the config's `defaults` sets a `timeout`.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -59,14 +57,14 @@ impl CallExecutor {
         let mut render = Render::new(request).map_err(request::failed)?;
         let timeout = timeout(render.program(), api);
         let call = Call { request: request::rendered(&render, api, action)?, timeout, ctx: SendContext::default() };
-        let retry = http_retry::policy(render.program(), api, &request.cx.values.inputs().random);
-        let pipeline = crate::pipeline(PipelineParts { retry, ..self.parts.clone() });
+        let trip = self.flight(&render, api);
         let exchange = match &action.poll {
-            Some(poll) => self.poll(&mut render, (&pipeline, call), poll).await?,
-            None => send(&pipeline, call).await?,
+            Some(poll) => trip.poll(&mut render, (call, poll)).await?,
+            None => trip.send(call).await?,
         };
-        let response = bind(&mut render, &exchange);
-        let checks = self.judge(&render, &expected(action, api), subject(&response, &exchange));
+        let response = flight::bind(&mut render, &exchange);
+        let expected = expected(action, api);
+        let checks = trip.judge(&mut render, (&*expected, flight::subject(&response, &exchange))).await;
         let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
         let cleanups = if registers { cleanup(&render, api)? } else { None };
         let saved = check::verdict(&checks).map_or_else(|| saves(&render, api, action), Err);
@@ -78,45 +76,15 @@ impl CallExecutor {
         Ok(ActionReport { response: Some(response), fakes: render.into_memo(), ..report })
     }
 
-    /// Sends `call` until `poll.until` holds, waiting `poll.every` between sends; the first
-    /// exchange that holds is the call's.
-    async fn poll(
-        &self,
-        render: &mut Render<'_>,
-        (pipeline, call): (&Pipeline, Call),
-        poll: &Poll,
-    ) -> Result<Exchange, Failure> {
-        let deadline = Instant::now() + poll.timeout.get();
-        loop {
-            let exchange = send(pipeline, call.clone()).await?;
-            let response = bind(render, &exchange);
-            let Some(failure) = check::verdict(&self.judge(render, &poll.until.checks, subject(&response, &exchange)))
-            else {
-                return Ok(exchange);
-            };
-            if Instant::now() + poll.every.get() > deadline {
-                let message = format!("`poll.until` did not hold within {:?}: {}", poll.timeout.get(), failure.message);
-                return Err(Failure::new(message).with_code(Code::V5104.to_string()));
-            }
-            time::sleep(poll.every.get()).await;
-        }
+    /// The call's flight: the pipeline from these parts with the api's retry (D143) and request
+    /// hooks, judged with these matchers.
+    fn flight(&self, render: &Render<'_>, api: &Api) -> Flight {
+        let program = render.program();
+        let retry = http_retry::policy(program, api, &render.values().inputs().random);
+        let bridge = HookBridge::new(self.parts.hook_runner.clone(), program);
+        let parts = PipelineParts { retry, ..self.parts.clone() };
+        Flight::new(parts, (hooks::request_hooks(program, api), bridge), Arc::clone(&self.matchers))
     }
-
-    /// Evaluates `checks` against `subject`, masked by the run's redactor so neither the results
-    /// nor a failure built from them shows a masked header.
-    fn judge(&self, render: &Render<'_>, checks: &[Check], subject: Subject<'_>) -> Vec<CheckResult> {
-        let results = check::evaluate(&Judge::new(&self.matchers, render), checks, subject);
-        results.into_iter().map(|result| render.redactor().check(result)).collect()
-    }
-}
-
-/// Sends `call` through `pipeline`; a transport error fails it.
-async fn send(pipeline: &Pipeline, call: Call) -> Result<Exchange, Failure> {
-    let delivery = match pipeline.clone().oneshot(call).await {
-        Ok(delivery) => delivery,
-        Err(never) => match never {},
-    };
-    delivery.result.map_err(|error| Failure::new(error.to_string()).with_code(error.code().to_string()))
 }
 
 #[async_trait]
@@ -142,18 +110,6 @@ fn called<'p>(program: &'p Program, action: &Action) -> Option<&'p Api> {
 /// The per-attempt limit: the api's `timeout`, else the config's `defaults.timeout`.
 fn timeout(program: &Program, api: &Api) -> Duration {
     api.timeout.or(program.config.defaults.timeout).map_or(DEFAULT_TIMEOUT, vc_model::Duration::get)
-}
-
-/// Binds `response` and `request` for the checks, saves and cleanup vars; returns the response.
-fn bind(render: &mut Render<'_>, exchange: &Exchange) -> Arc<Value> {
-    let response = Arc::new(request::received(exchange));
-    render.bind(Namespace::Response, Value::clone(&response));
-    render.bind(Namespace::Request, request::sent(&exchange.request));
-    response
-}
-
-fn subject<'s>(response: &'s Value, exchange: &Exchange) -> Subject<'s> {
-    Subject { response, size: u64::try_from(exchange.response.body.len()).unwrap_or(u64::MAX) }
 }
 
 /// The action's merged checks, after the api's default `status: 2xx` when none checks the

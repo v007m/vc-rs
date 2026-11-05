@@ -67,7 +67,8 @@ fn query(render: &Render<'_>, api: &Api, action: &Action) -> Result<String, Fail
     Ok(pairs.join("&"))
 }
 
-fn encode(text: &str) -> String {
+/// `text` percent-encoded for a query, leaving only the unreserved characters.
+pub fn encode(text: &str) -> String {
     percent_encoding::utf8_percent_encode(text, UNRESERVED).to_string()
 }
 

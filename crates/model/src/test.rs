@@ -3,6 +3,7 @@ use indexmap::IndexMap;
 use crate::{
     ApiId, AuthRef, BodySpec, CacheSpec, Duration, Examples, Expect, FileId, HookRef, Lifecycle, Loop, Method, Owner,
     Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs,
+    VarName,
 };
 
 /// One test file: what its tests share.
@@ -115,6 +116,8 @@ pub struct Action {
     pub retry: Option<Retry>,
     /// `keep`: skip the api's cleanup.
     pub keep: bool,
+    /// `provides`: the names a `function:` or `test:` action says it saves (D128).
+    pub provides: Vec<VarName>,
     /// `cache`.
     pub cache: Option<CacheSpec>,
     /// `repeat` or `forEach`.

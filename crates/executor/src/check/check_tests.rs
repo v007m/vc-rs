@@ -344,7 +344,7 @@ fn cel_and_custom_checks_fail_with_their_own_codes() {
     let failure = super::verdict(&results[1..]).unwrap();
     assert_eq!(
         failure.message,
-        "custom[\"hooks/checks.ts#isSorted\"]: custom checks arrive with the hook bridge in M4"
+        "custom[\"hooks/checks.ts#isSorted\"]: the custom check's function did not run"
     );
     assert!(results[4].error.as_deref().is_some_and(|error| error.contains("missing")));
 }

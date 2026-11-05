@@ -1,16 +1,18 @@
 //! End-to-end runs of the real `vc` binary against an in-process mock server: lifecycle blocks
 //! and cleanups, retries, polls, loops, the per-host limit, the config layers, `--changed`,
-//! `command:` actions and the report files. Each test gets its own project, home folder and
+//! `command:` actions, hooks, computed bodies and the report files. Each test gets its own project, home folder and
 //! server.
 
 #![cfg(test)]
 
 mod changed;
 mod command;
+mod hooks;
 mod layers;
 mod lifecycle;
 mod reports;
 mod scheduling;
+mod values;
 
 use std::fs;
 use std::path::Path;
