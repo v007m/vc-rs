@@ -7,8 +7,9 @@ use vc_model::{Keep, Totals};
 
 /// A run history held in memory.
 ///
-/// A small thread owns it, so the writer and the reader share it without a lock. Clones talk to the same thread, so a test can hand one to the engine
-/// as its writer and keep another to read what it stored.
+/// A small thread owns it, so the writer and the reader share it without a lock. Clones talk to
+/// the same thread, so a test can hand one to the engine as its writer and keep another to read
+/// what it stored. Unlike the SQLite writer it stores rows before `record` returns.
 #[derive(Clone, Debug)]
 pub struct MemoryHistory {
     requests: Sender<Request>,
@@ -17,7 +18,7 @@ pub struct MemoryHistory {
 #[derive(Debug)]
 enum Request {
     Begin(RunStart, Sender<RunId>),
-    Record(RunId, Vec<Row>),
+    Record(RunId, Vec<Row>, Sender<()>),
     Finish(RunId, RunEnd, Sender<()>),
     Prune(Keep, Sender<usize>),
     Runs(usize, Sender<Vec<RunRow>>),
@@ -45,7 +46,10 @@ impl State {
     fn handle(&mut self, request: Request) {
         match request {
             Request::Begin(start, reply) => drop(reply.send(self.begin(start))),
-            Request::Record(run, rows) => self.record(run, rows),
+            Request::Record(run, rows, reply) => {
+                self.record(run, rows);
+                reply.send(()).ok();
+            }
             Request::Finish(run, end, reply) => {
                 self.finish(run, end);
                 reply.send(()).ok();
@@ -141,7 +145,7 @@ impl HistoryWriter for MemoryHistory {
     }
 
     fn record(&self, run: RunId, rows: Vec<Row>) -> Result<(), HistoryError> {
-        self.requests.send(Request::Record(run, rows)).map_err(|_| HistoryError::Stopped)
+        self.ask(|reply| Request::Record(run, rows, reply))
     }
 
     fn finish(&self, run: RunId, end: RunEnd) -> Result<(), HistoryError> {
