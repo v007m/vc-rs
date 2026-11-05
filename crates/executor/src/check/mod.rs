@@ -8,7 +8,7 @@ mod registry;
 mod shape;
 mod text;
 
-pub use evaluate::{Subject, evaluate, verdict};
+pub use evaluate::{Subject, diff, evaluate, verdict};
 pub use registry::{Arguments, Judge, MatcherFn, MatcherRegistry};
 
 #[cfg(test)]

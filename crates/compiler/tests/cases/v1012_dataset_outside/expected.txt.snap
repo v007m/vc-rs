@@ -1,0 +1,24 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1012_dataset_outside/project
+---
+error[V1012]: the dataset file `../shared-data/x.csv` is outside the project
+  --> vibranium.config.yaml:12:13
+   |
+12 |       file: ../shared-data/x.csv
+   |             ^^^^^^^^^^^^^^^^^^^^ not under the project or an allowed root
+   = help: paths are relative to the project root; add a folder outside it to `datasets.allowRoots`
+
+error[V1012]: the dataset file `../shared/../secrets/x.csv` is outside the project
+  --> vibranium.config.yaml:14:13
+   |
+14 |       file: ../shared/../secrets/x.csv
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^ not under the project or an allowed root
+   = help: paths are relative to the project root; add a folder outside it to `datasets.allowRoots`
+
+error[V1012]: the dataset file `/etc/passwd` is not a relative path to a file
+  --> vibranium.config.yaml:16:13
+   |
+16 |       file: /etc/passwd
+   |             ^^^^^^^^^^^ not under the project or an allowed root
+   = help: paths are relative to the project root; add a folder outside it to `datasets.allowRoots`

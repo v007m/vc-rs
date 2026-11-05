@@ -305,6 +305,39 @@ fn lowers_repeat_and_for_each_on_actions_but_not_a_tests_repeat() {
     assert_eq!(list.repeat, None);
 }
 
+const DATA: &str = "tests:\n  - id: listsEachCity\n    call: users#list\n    examples: ${dataset.cities}\n  - id: listsFileRows\n    call: users#list\n    examples: {$file: rows.yaml}\n  - id: createsEachCity\n    steps:\n      - call: users#create\n        forEach: ${dataset.cities}\n        vars: {name: '${item.city}'}\n";
+
+/// The users apis and [`DATA`], with the data files when `given`.
+fn data(given: bool) -> crate::Compiled {
+    let data =
+        [file("datasets/cities.csv", "city,n\nOslo,1\nKöln,2\n"), file("services/users/rows.yaml", "- {page: 1}\n")];
+    let assets = Some(data.iter().map(|file| file.path.clone()).collect());
+    let mut files = vec![file("vibranium.config.yaml", CONFIG), file("services/users/users.api.yaml", APIS)];
+    files.push(file("services/users/data.test.yaml", DATA));
+    files.extend(data.into_iter().filter(|_| given));
+    crate::compile(CompileInput { files, assets, ..CompileInput::default() })
+}
+
+#[test]
+fn rows_from_a_given_dataset_or_file_are_built_as_literal_rows() {
+    let wanted = data(false);
+    let paths: Vec<&str> = wanted.data_wanted.iter().map(|data| data.path.as_str()).collect();
+    assert_eq!(paths, ["datasets/cities.csv", "services/users/rows.yaml"]);
+    let program = wanted.program.unwrap();
+    assert!(matches!(test(&program, "users.data#listsEachCity").examples, Some(Examples::Template(_))));
+    let compiled = data(true);
+    assert_eq!((compiled.data_wanted.len(), compiled.diagnostics.has_errors()), (0, false));
+    let program = compiled.program.unwrap();
+    let examples = |id: &str| test(&program, id).examples.clone();
+    let rows = |found| if let Some(Examples::Rows(rows)) = found { rows.len() } else { 0 };
+    assert_eq!((rows(examples("users.data#listsEachCity")), rows(examples("users.data#listsFileRows"))), (2, 1));
+    let [each] = steps(&program, test(&program, "users.data#createsEachCity"))[..] else { panic!("one step") };
+    let Some(Loop::ForEach { items: TemplateValue::List(items), .. }) = &each.repeat else { panic!("{each:?}") };
+    let cities = program.datasets.values().next().unwrap();
+    assert_eq!((items.len(), cities.file.as_str(), cities.rows.len()), (2, "datasets/cities.csv", 2));
+    assert_eq!(cities.rows[1]["city"], "Köln");
+}
+
 const RETRY_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nhttp:\n  retry:\n    attempts: 2\n    on: [connect, 503]\n    backoff: {base: 50ms, jitter: false}\n";
 
 const RETRY_APIS: &str = "apis:\n  - id: list\n    path: /users\n  - id: put\n    method: PUT\n    path: /users\n    http:\n      retry: {methods: [PUT, PATCH], backoff: {max: 1s}}\n";

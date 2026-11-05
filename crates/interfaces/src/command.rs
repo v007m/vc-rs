@@ -102,12 +102,13 @@ impl CommandOutput {
         Self { status, stdout: stdout.into(), stderr: Vec::new(), truncated: false }
     }
 
-    /// This output with both streams cut to `cap` bytes, marked truncated when either was longer.
+    /// This output with each stream cut to its last `cap` bytes, as the runner keeps them,
+    /// marked truncated when either was longer.
     #[must_use]
     pub fn capped(mut self, cap: usize) -> Self {
         self.truncated |= self.stdout.len() > cap || self.stderr.len() > cap;
-        self.stdout.truncate(cap);
-        self.stderr.truncate(cap);
+        tail(&mut self.stdout, cap);
+        tail(&mut self.stderr, cap);
         self
     }
 
@@ -116,6 +117,11 @@ impl CommandOutput {
     pub fn success(&self) -> bool {
         self.status == Some(0)
     }
+}
+
+/// Drops all but the last `cap` bytes of `stream`.
+fn tail(stream: &mut Vec<u8>, cap: usize) {
+    stream.drain(..stream.len().saturating_sub(cap));
 }
 
 impl fmt::Debug for CommandOutput {
@@ -185,11 +191,11 @@ mod tests {
         assert!(output.success() && !CommandOutput::new(Some(1), []).success() && !CommandOutput::default().success());
         assert!(!output.clone().capped(14).truncated && output.clone().capped(14).stdout.len() == 14);
         let mut noisy = output.capped(4);
-        assert!(noisy.truncated && noisy.stdout == b"{\"A\"");
+        assert!(noisy.truncated && noisy.stdout == b"3t\"}");
         noisy.stderr = b"12345".to_vec();
         noisy.truncated = false;
         let noisy = noisy.capped(4);
-        assert!(noisy.truncated && noisy.stderr == b"1234");
+        assert!(noisy.truncated && noisy.stderr == b"2345" && noisy.stdout == b"3t\"}");
     }
 
     #[test]

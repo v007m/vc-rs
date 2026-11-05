@@ -1,9 +1,13 @@
 use indexmap::IndexMap;
+use serde_json::Value;
 
 use crate::{
-    Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, StatusPattern, Sym, Template, TemplateValue, TestId,
-    VarDefs,
+    ActionId, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule, SecretsConfig,
+    StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
 };
+
+/// How long before expiry credentials are fetched again when `refreshBefore` is not written.
+const REFRESH_BEFORE: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// `vibranium.config.yaml`: settings that are not tables of their own.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -32,6 +36,10 @@ pub struct Config {
     pub redact_headers: Vec<String>,
     /// `redact.fields`.
     pub redact_fields: Vec<String>,
+    /// `redact.rules` (D171).
+    pub redact_rules: Vec<RedactRule>,
+    /// `secrets`, with the names `.env.schema` declares (D163, D165).
+    pub secrets: SecretsConfig,
     /// `history` (D170).
     pub history: HistoryConfig,
 }
@@ -118,15 +126,45 @@ pub struct Profile {
 )]
 pub struct AuthDef {
     /// `id`.
-    pub id: crate::AuthId,
+    pub id: AuthId,
     /// `name`.
     pub name: Option<String>,
     /// `type`, as registered (`basic`, `bearer`, `apiKey`, `oauth2ClientCredentials`, `flow`, …).
     pub kind: String,
-    /// The type's own keys, templates compiled.
+    /// The type's own keys, templates compiled: everything but the keys below.
     pub settings: IndexMap<String, TemplateValue>,
     /// `vars`.
     pub vars: VarDefs,
+    /// `steps` of a `flow`, in order; each is an action owned by the run.
+    pub steps: Vec<ActionId>,
+    /// `expiresIn`: when the credentials go stale; `None` keeps them for the run unless the
+    /// token response says otherwise.
+    pub expires_in: Option<Template>,
+    /// `refreshBefore`: fetch again this long before expiry.
+    pub refresh_before: Duration,
+    /// `refreshOn`: statuses that fetch the credentials again and retry the request once.
+    pub refresh_on: Vec<u16>,
+    /// `cache`: keep the credentials across runs, encrypted (not in M3).
+    pub cache: bool,
+}
+
+impl AuthDef {
+    /// A definition of `kind` with no settings, vars or steps, and the default refresh rules.
+    #[must_use]
+    pub fn new(id: AuthId, kind: impl Into<String>) -> Self {
+        Self {
+            id,
+            name: None,
+            kind: kind.into(),
+            settings: IndexMap::new(),
+            vars: VarDefs::default(),
+            steps: Vec::new(),
+            expires_in: None,
+            refresh_before: Duration::new(REFRESH_BEFORE),
+            refresh_on: vec![401],
+            cache: false,
+        }
+    }
 }
 
 /// One load file.
@@ -182,20 +220,22 @@ pub struct LoadStage {
     pub users: u32,
 }
 
-/// One entry of `datasets`.
+/// One dataset (D173): a file under `datasets/`, or an entry of `datasets.files`, with its rows.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
 )]
 pub struct Dataset {
-    /// `id`.
+    /// `id`, or the file's path under `datasets/` with dots for slashes and no extension.
     pub id: crate::DatasetId,
-    /// `file`.
+    /// The file, relative to the project root (`../shared/cities.csv` under an allowed root).
     pub file: String,
+    /// Every row, in file order; a CSV row is a map of text cells.
+    pub rows: Vec<serde_json::Value>,
 }
 
-/// One entry of `generators`: the generator kind and its settings.
+/// One entry of `generators`, lowered to the built-in `${fake.…}` it calls (D174).
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
@@ -204,10 +244,10 @@ pub struct Dataset {
 pub struct GeneratorDef {
     /// `id`.
     pub id: Sym,
-    /// The kind key, such as `fromRegExp` or `oneOf`.
-    pub kind: String,
-    /// Its value.
-    pub settings: TemplateValue,
+    /// The built-in generator it calls, such as `string.fromRegExp` for a `fromRegExp`.
+    pub fake: String,
+    /// The built-in's arguments, from the settings.
+    pub args: Vec<Value>,
 }
 
 #[cfg(test)]

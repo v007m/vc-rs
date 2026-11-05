@@ -1,0 +1,6 @@
+apis:
+  - id: createCity
+    method: POST
+    path: /cities
+    body:
+      name: ${var.cityName}

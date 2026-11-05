@@ -1,0 +1,4 @@
+baseUrl: https://api.example.com
+vars:
+  code: ${fake.string.fromRegExp('\d+\b')}
+apis: []

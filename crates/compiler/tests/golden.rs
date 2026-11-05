@@ -1,13 +1,14 @@
 //! Golden cases: each `tests/cases/<case>/project` is compiled, and its diagnostics, rendered
 //! as text and as JSON, are compared with the case's `expected.txt.snap` and `expected.json.snap`.
 //! Definition files are compiled; every other file in the project is an asset `$file` may name.
+//! Like the engine, the harness then compiles again with the data files the first compile wanted.
 //! `cargo insta review` updates them after a deliberate change.
 
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use vc_compiler::{CompileCache, CompileInput};
+use vc_compiler::{CompileCache, CompileInput, Compiled};
 use vc_diagnostics::{JsonRenderer, Render, TextRenderer};
 use vc_model::{ContentHash, Date, FileKind, SourceFile, SourcePath};
 
@@ -32,20 +33,15 @@ fn read_tree(root: &Path, dir: &Path, files: &mut Vec<SourceFile>) -> Outcome {
     Ok(())
 }
 
+/// The file at a case's project root that declares its secret names (D165).
+const SECRET_SCHEMA: &str = ".env.schema";
+
 fn golden(case: &str) -> Outcome {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/cases").join(case);
     let project = dir.join("project");
     let mut read = Vec::new();
     read_tree(&project, &project, &mut read)?;
-    let (files, others): (Vec<_>, Vec<_>) =
-        read.into_iter().partition(|file| FileKind::from_path(&file.path).is_some());
-    let input = CompileInput {
-        files,
-        previous: CompileCache::new(),
-        today: Date::parse(TODAY),
-        assets: Some(others.into_iter().map(|file| file.path).collect()),
-    };
-    let mut compiled = vc_compiler::compile(input);
+    let mut compiled = compile(read);
     compiled.diagnostics.sort();
     let text = TextRenderer::default().render(&compiled.diagnostics, &compiled.files)?;
     let json = JsonRenderer.render(&compiled.diagnostics, &compiled.files)?;
@@ -60,6 +56,24 @@ fn golden(case: &str) -> Outcome {
         insta::assert_snapshot!("expected.json", json);
     });
     Ok(())
+}
+
+/// Compiles the definition files in `read`, then again with the data files that compile wanted.
+fn compile(read: Vec<SourceFile>) -> Compiled {
+    let (files, others): (Vec<_>, Vec<_>) =
+        read.into_iter().partition(|file| FileKind::from_path(&file.path).is_some());
+    let assets = Some(others.iter().map(|file| file.path.clone()).collect());
+    let secret_schema = others.iter().find(|file| file.path.as_str() == SECRET_SCHEMA).cloned();
+    let today = Date::parse(TODAY);
+    let input = CompileInput { files, previous: CompileCache::new(), today, assets, secret_schema };
+    let compiled = vc_compiler::compile(input.clone());
+    let wanted = |file: &SourceFile| compiled.data_wanted.iter().any(|data| data.path == file.path);
+    let data: Vec<SourceFile> = others.into_iter().filter(wanted).collect();
+    if data.is_empty() {
+        return compiled;
+    }
+    let files = input.files.into_iter().chain(data).collect();
+    vc_compiler::compile(CompileInput { files, previous: compiled.cache, ..input })
 }
 
 macro_rules! cases {
@@ -112,6 +126,8 @@ cases!(
     v2101_unset_var,
     v2103_example_column,
     v2105_step_order,
+    v2106_undeclared_secret,
+    v2107_env_secret,
     v2205_cycle,
     v2210_shared_without_id,
     v2304_pipe_type,
@@ -124,4 +140,16 @@ cases!(
     v3203_deprecated_call,
     v3205_body_on_read,
     v3206_unused_default,
+    fakes_clean,
+    v1005_generator_kind,
+    v2002_unknown_fake,
+    v2006_generator_module,
+    v2302_fake_args,
+    v2309_from_reg_exp,
+    datasets_clean,
+    v1001_csv_dataset,
+    v1002_dataset_not_rows,
+    v1012_dataset_outside,
+    v2002_unknown_dataset,
+    v2103_dataset_column,
 );

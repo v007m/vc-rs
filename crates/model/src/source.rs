@@ -52,6 +52,37 @@ impl SourcePath {
         Self::new(&replaced)
     }
 
+    /// The path of a data file (D173), which may sit outside the project under one of the
+    /// config's `datasets.allowRoots`: like [`SourcePath::new`], but a `..` part cancels the
+    /// part before it, and the ones left over lead the path (`../shared/cities.csv`).
+    ///
+    /// # Errors
+    ///
+    /// What [`SourcePath::new`] rejects, other than `..` parts.
+    pub fn data(text: &str) -> Result<Self, ModelError> {
+        let slashed = text.replace('\\', "/");
+        let mut parts: Vec<&str> = Vec::new();
+        for part in slashed.split('/').filter(|part| !part.is_empty() && *part != ".") {
+            if part == ".." && parts.last().is_some_and(|last| *last != "..") {
+                parts.pop();
+            } else {
+                parts.push(part);
+            }
+        }
+        let climbs = parts.iter().take_while(|part| **part == "..").count();
+        let named = slashed.rsplit('/').next().is_some_and(|last| !matches!(last, "" | "." | ".."));
+        match Self::new(&parts.get(climbs..).unwrap_or_default().join("/")) {
+            Ok(inside) if named && !slashed.starts_with('/') => Ok(Self("../".repeat(climbs) + inside.as_str())),
+            _ => Err(ModelError::InvalidSourcePath(text.to_owned())),
+        }
+    }
+
+    /// Whether the path leads out of the project root (`../shared/cities.csv`).
+    #[must_use]
+    pub fn is_outside(&self) -> bool {
+        self.0.starts_with("../")
+    }
+
     /// The path as text.
     #[must_use]
     pub fn as_str(&self) -> &str {
@@ -142,9 +173,13 @@ impl FileKind {
 
     /// The kind of the file at `path`, or `None` when it matches no kind.
     ///
-    /// Only the root `vibranium.config.yaml` is [`FileKind::Config`]; one in a folder has no kind.
+    /// Only the root `vibranium.config.yaml` is [`FileKind::Config`]; one in a folder has no kind,
+    /// and neither has a file outside the project.
     #[must_use]
     pub fn from_path(path: &SourcePath) -> Option<Self> {
+        if path.is_outside() {
+            return None;
+        }
         KIND_PATTERNS.iter().find(|(pattern, _)| path_matches(pattern, path)).map(|&(_, kind)| kind)
     }
 
@@ -305,6 +340,18 @@ mod tests {
         assert_eq!(id("users.api.yaml").as_deref(), Some("users"));
         assert_eq!(id("vibranium.config.yaml"), None);
         assert_eq!(id("datasets/cities.csv"), None);
+    }
+
+    #[test]
+    fn data_paths_may_climb_out_of_the_project_but_nothing_else() {
+        let data = |text: &str| SourcePath::data(text).map(|path| (path.to_string(), path.is_outside()));
+        assert_eq!(data(r"..\shared\cities.csv").unwrap(), ("../shared/cities.csv".to_owned(), true));
+        assert_eq!(data("datasets/x/../../../a/./b.csv").unwrap(), ("../a/b.csv".to_owned(), true));
+        assert_eq!(data("datasets//cities.csv").unwrap(), ("datasets/cities.csv".to_owned(), false));
+        for bad in ["", "..", "../", "a/..", "/etc/x.csv", "../a/", "../C:/x.csv", "../a\u{202e}.csv", "a/."] {
+            assert!(SourcePath::data(bad).is_err(), "{bad:?} was accepted");
+        }
+        assert_eq!(FileKind::from_path(&SourcePath::data("../shared/users.api.yaml").unwrap()), None);
     }
 
     #[test]

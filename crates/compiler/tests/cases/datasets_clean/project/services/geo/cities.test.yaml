@@ -1,0 +1,27 @@
+tests:
+  - id: createsEachCity
+    call: geo#createCity
+    examples: ${dataset.cities}
+    vars:
+      cityName: ${example.name} (${example.country})
+  - id: createsFileCities
+    call: geo#createCity
+    examples: {$file: rows.yaml}
+    vars:
+      cityName: ${example.name}
+  - id: createsCapitals
+    call: geo#createCity
+    examples: ${dataset.capitals}
+    vars:
+      cityName: ${example.name}
+  - id: createsWorldCities
+    call: geo#createCity
+    examples: ${dataset.worldCities}
+    vars:
+      cityName: ${example.anyColumn}
+  - id: createsAdminCities
+    steps:
+      - call: geo#createCity
+        forEach: ${dataset.users.admins}
+        vars:
+          cityName: ${item.name}

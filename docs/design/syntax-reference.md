@@ -135,14 +135,14 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `vars` | map | — | Project-wide values |
 | `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles) |
 | `auth` | list | — | Auth definitions (see Authentication) |
-| `secrets` | `provider`, `schema` | Varlock with `.env.schema` | Where `${secret.*}` comes from |
+| `secrets` | `provider`, `schema` | `env` with `.env.schema` | Where `${secret.*}` comes from |
 | `generators` | list | — | Named fake-data generators |
-| `datasets` | list | every file in `datasets/` | Your own data lists |
+| `datasets` | `allowRoots`, `files` | every file in `datasets/` | Your own data lists: `files` lists data kept outside `datasets/` (each `id`, `file`), and `allowRoots` the folders outside the project those files may be in (see Datasets) |
 | `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file) |
 | `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends |
 | `alerts` | list | none | Notifications |
 | `plugins` | list | none | Third-party plugins |
-| `redact` | `headers`, `fields` | auth headers and secrets | Extra values to mask |
+| `redact` | `headers`, `fields`, `rules` | auth headers and secrets | Extra values to mask; `rules` are your own `regex` or `cel` masks (see Secrets) |
 | `beforeRun`, `afterRun` | lists of actions | none | Run-level lifecycle blocks (see Lifecycle blocks) |
 
 ```yaml
@@ -199,7 +199,7 @@ auth:
     scopes: [users.read, users.write, orders.write]
 
 secrets:
-  provider: varlock
+  provider: varlock    # opt-in; the default is env
   schema: .env.schema
 
 reports:
@@ -986,9 +986,12 @@ Auth definitions live in `vibranium.config.yaml` under `auth`, are written once,
 | `basic` | `username`, `password` |  |
 | `bearer` | `token` | A fixed token |
 | `apiKey` | `in` (`header` or `query`), `name`, `value` |  |
-| `oauth2ClientCredentials` | `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `audience`, `cache` | Token shared for the run, refreshed before expiry |
-| `oauth2AuthorizationCode` | `authorizeUrl`, `tokenUrl`, `clientId`, `scopes`, `pkce`, `redirectPort` | Opens a browser once; refresh token kept in the OS keychain |
-| `oauth2Refresh` | `tokenUrl`, `clientId`, `refreshToken` | For CI with a long-lived refresh token |
+| `oauth2ClientCredentials` | `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `audience` | Token shared for the run, refreshed before expiry |
+| `oauth2Password` | `tokenUrl`, `clientId`, `clientSecret`, `username`, `password`, `scopes`, `audience` | The resource-owner password grant, for test users |
+| `oauth2AuthorizationCode` | `authorizeUrl`, `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `audience`, `pkce`, `redirectPort` | Opens a browser once; refresh token kept in the OS keychain |
+| `oauth2Refresh` | `tokenUrl`, `clientId`, `clientSecret`, `refreshToken`, `scopes`, `audience` | For CI with a long-lived refresh token |
+
+The `oauth2*` types post to `tokenUrl` with the client in HTTP Basic when `clientSecret` is set, and as a `client_id` form field when it is not (a public client). A refused token request fails the call with V5114, naming the endpoint's status but never its body.
 | `flow` | `steps`, `apply`, `expiresIn`, `refreshBefore`, `refreshOn`, `cache` | Any sequence of requests that ends in credentials (below) |
 | `plugin` | `plugin`, `config` | Custom schemes through an auth plugin |
 
@@ -1004,7 +1007,7 @@ auth:
 
 ### Multi-step auth with `flow`
 
-A `flow` runs steps, then applies what they saved to every request that uses it. Its steps use the same syntax as test steps; a step either `call`s an api by ID or describes its request inline with the api fields (`method`, `url`, `headers`, `body`, `expect`, `save`), so login endpoints need no api file of their own.
+A `flow` runs steps, then applies what they saved to every request that uses it. Each step describes its request inline with the api fields (`method`, `url`, `query`, `headers`, `body`, `expect`, `save`), so login endpoints need no api file of their own. A step that `call`s an api by ID is not supported yet. The steps run in a frame of their own that starts with the definition's `vars`; each step's `save` values are visible to the later steps, `apply` and `expiresIn`, and nowhere else.
 
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
@@ -1013,7 +1016,7 @@ A `flow` runs steps, then applies what they saved to every request that uses it.
 | `expiresIn` | duration (a template is fine) | never | When the credentials go stale |
 | `refreshBefore` | duration | `1m` | Re-run the flow this long before expiry |
 | `refreshOn` | list of status codes | `[401]` | Re-run the flow once and retry the request when a response has one of these |
-| `cache` | boolean | `false` | `true` keeps the credentials in `.vibranium/cache.db`, encrypted, and reuses them across runs until they expire |
+| `cache` | boolean | `false` | `true` keeps the credentials in `.vibranium/cache.db`, encrypted, and reuses them across runs until they expire (not built yet: today credentials last one run) |
 
 ```yaml
 # vibranium.config.yaml (excerpt)
@@ -1065,11 +1068,27 @@ auth:
     expiresIn: ${var.expiresIn}s
 ```
 
-The same definition serves every profile: under `--profile prod` it logs in to `id.shop.example` as tenant `acme`. Within a run the flow runs once for each set of `vars`, before the first request that needs it, and again when it expires or a response matches `refreshOn`; tests that need it at the same moment wait for that one login. If a step fails, every test using it is reported as blocked by it, with the failing request and response; credentials and saved values are redacted in all output.
+The same definition serves every profile: under `--profile prod` it logs in to `id.shop.example` as tenant `acme`. Within a run the flow runs once for each set of `vars`, before the first request that needs it, and again when it expires or a response matches `refreshOn`; tests that need it at the same moment wait for that one login. If a step fails, every call that uses it fails with V5114, naming the step and its code but not its request or response, and the failure is kept for the rest of the run, so the flow is not retried by each test. Credentials, and the token after a scheme such as `Bearer`, are redacted in all output from the moment they arrive.
 
 ## Secrets
 
-`secrets` defaults to `provider: varlock` with `schema: .env.schema`. Secrets are named in `.env.schema` and resolved by Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). `provider: env` reads plain environment variables instead. Every `${secret.*}` value is redacted everywhere, including inside response bodies.
+`secrets` defaults to `provider: env` with `schema: .env.schema` (D163). Each secret is declared in `.env.schema` as a `NAME=` line (comments and `# @…` annotations are allowed), and `env` resolves the declared names from the process environment, with the project's `.env` filling the ones it does not set. `provider: varlock` is opt-in: it runs `varlock load` and takes the names from Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). A missing secret fails the run with V5114.
+
+`vc check` checks names against `.env.schema`: a `${secret.X}` it does not declare is V2106 (with the closest declared name as the fix), and a `${env.X}` that reads a declared secret is V2107, because it would bypass the redactor (the certain fix is `${secret.X}`).
+
+Every `${secret.*}` value of four characters or more is redacted everywhere it appears, including inside response bodies, and shows as `••••`. So are the values of `Authorization`, `Cookie`, `Set-Cookie` and `redact.headers`, and the JSON fields named in `redact.fields`, at any depth. `redact.rules` add masks of your own, applied after those:
+
+```yaml
+redact:
+  fields: [password]
+  rules:
+    - regex: '\d{3}-\d{2}-\d{4}'       # each match becomes ••••
+    - cel: item.name == 'ssn'          # a JSON field whose rule is true is masked whole
+```
+
+A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`). Rules fail closed: a regex that does not compile masks every text, and a CEL rule that errors masks the field.
+
+The requests and responses kept in `history.db` and reports are masked the same way before they are stored: the URL (path and query, where a secret also counts in its percent-encoded form), every header and both bodies. Bodies are cut at `history.maxBodySize` only after masking, so a cut never leaves part of a secret showing.
 
 ## Generators and datasets
 
@@ -1092,6 +1111,9 @@ Rules:
 - A var defined as `${fake.…}` is generated once per test instance, or once per loop iteration, and every `${var.…}` read of it gets the same value: put it in `vars` once (`email: ${fake.internet.email}`) and use `${var.email}` (D131).
 - A `${fake.…}` written inline in a field generates a new value every time it is rendered (D131).
 - `vc run --seed 42` makes generated data repeatable; the seed is printed in every report and with every failure (D131).
+- A name that is not a generator is V2002, with the close names and the list of generators. Wrong arguments are V2302: `string.alphanumeric`, `lorem.words` and `lorem.paragraphs` take one count up to 10,000 (defaults 1, 3 and 3); `number.int` takes two whole numbers, the first no larger (default 0 to 9,007,199,254,740,991); `number.float` and `commerce.price` take two numbers (defaults 0 to 1 and 1 to 1000); `helpers.arrayElement` takes one or more values; the rest take none.
+- What they give: `number.int` and `number.float` are numbers, `commerce.price` is a number with two decimals, `helpers.arrayElement` is the argument it picked, and everything else is text. Dates are RFC 3339 in UTC, counted from the run's start: `date.recent` within the day before, `date.past` within the year before, `date.future` within the year after. Text is in English.
+- `string.fromRegExp` (and a `fromRegExp` generator) follows a bounded subset of regex: literals, escapes (`\d`, `\w`, `\s`, `\D`, `\W`, `\S`, `\.`), `.` (printable ASCII), classes and ranges (`[A-Z0-9_]`, `[^,]`), groups (`(…)`, `(?:…)`), alternation (`a|b`), and quantifiers (`?`, `*`, `+`, `{n}`, `{n,m}`, `{n,}`). An open repeat adds at most 16 copies; a count is at most 256 and the text at most 10,000 characters; groups nest at most 32 deep; `^` and `$` only at the ends. Lookarounds, backreferences, `\b`, named groups and Unicode classes are V2309.
 
 Named generators, for settings you reuse, are declared once in `vibranium.config.yaml` and used in the same `fake` namespace:
 
@@ -1110,11 +1132,11 @@ generators:
       words: 500
 ```
 
-Then `${fake.teamName}`, `${fake.quantity}`. A named generator cannot reuse a Faker module name such as `person`.
+Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind: `fromRegExp` (a pattern, as `string.fromRegExp`), `oneOf` (a list, as `helpers.arrayElement`), `int` (`min` and `max`, either optional, as `number.int`) or `lorem` (`words`, as `lorem.words`). None is V1005; several, or settings of the wrong shape, are V2302. A named generator takes no arguments (`${fake.quantity(2)}` is V2302) and cannot reuse a Faker module name such as `person` (V2006).
 
 ### Datasets
 
-A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its file, so `datasets/capitals.csv` is `capitals`; files kept elsewhere are listed under `datasets` in the config. `${dataset.capitals}` is the whole list, and there are three ways to use it.
+A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its path, so `datasets/capitals.csv` is `capitals` and `datasets/users/admins.json` is `users.admins`; files kept elsewhere are listed under `datasets.files` in the config, and an entry there wins over a file with the same ID. `${dataset.capitals}` is the whole list, and there are three ways to use it.
 
 ```
 # datasets/capitals.csv
@@ -1177,13 +1199,21 @@ Rules:
 - `random` and `shuffle` follow `--seed`, so a run can be repeated exactly.
 - CSV cells are text: convert with a pipe (`${item.population | int}`), or use JSON or YAML when the data has types.
 - A dataset is read once per run and never changed by it.
+- `examples` and `forEach` may also read a file next to the test: `examples: { $file: rows.yaml }`.
+- `vc check` reads the rows of `${dataset.<id>}` and `$file` written alone: an `${example.…}` column no row has is V2103, and a `${dataset.…}` that names no dataset is V2002. A CSV record with the wrong number of cells is V1001, a column named twice V1006, and a JSON or YAML dataset that is not a list V1002. A row without a column it reads fails at run time with V5112.
 
 ```yaml
-# vibranium.config.yaml: a dataset kept outside datasets/
+# vibranium.config.yaml: datasets kept outside datasets/
 datasets:
-  - id: worldCities
-    file: ../shared-data/world-cities.csv
+  allowRoots: [../shared-data]
+  files:
+    - id: worldCities
+      file: ../shared-data/world-cities.csv
+    - id: smokeUsers
+      file: fixtures/smoke-users.yaml
 ```
+
+`file` is relative to the project root. A file outside the project must be inside one of `allowRoots` (also relative to the project root), after `..` and symbolic links are resolved; any other path is V1012, so a dataset cannot read `/etc/passwd` or climb out through a link.
 
 ## Functions and request hooks
 
@@ -1270,7 +1300,7 @@ This small shop project uses every file kind; the interface mockups show the sam
 ```
 shop/
   vibranium.config.yaml        # vars, profiles, auth, beforeRun (shown above)
-  .env.schema                  # secret names for Varlock
+  .env.schema                  # secret names (NAME= lines)
   openapi/
     users.yaml
     orders.yaml

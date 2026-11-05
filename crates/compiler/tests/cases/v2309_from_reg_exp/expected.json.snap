@@ -1,0 +1,51 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2309_from_reg_exp/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2309",
+      "severity": "error",
+      "message": "`fake.string.fromRegExp` cannot make text for this pattern: `\\b` is not supported; escape only punctuation, or use `\\d`, `\\w` or `\\s`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 3,
+          "column": 9,
+          "endLine": 3,
+          "endColumn": 43
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    },
+    {
+      "code": "V2309",
+      "severity": "error",
+      "message": "generator `teamCode` cannot make text for this pattern: lookarounds and named groups `(?…)` are not supported; use `(…)` or `(?:…)`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 8,
+          "column": 17,
+          "endLine": 8,
+          "endColumn": 32
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    }
+  ]
+}

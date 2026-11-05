@@ -18,10 +18,12 @@ mod bus;
 mod cancel;
 mod check;
 mod error;
+mod exchange_mask;
 mod exit;
 #[cfg(test)]
 mod fixture;
 mod machine;
+mod mask;
 mod pipeline;
 mod redactor;
 mod shell;
@@ -29,8 +31,8 @@ mod slots;
 mod values;
 
 pub use action::{
-    ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, CallExecutor, CommandExecutor,
-    TestExecutor, body_actions,
+    ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, AuthKey, CallExecutor, CommandExecutor,
+    InlineExecutor, NoAuth, TestExecutor, TokenCache, body_actions,
 };
 pub use bus::EventBus;
 pub use error::ExecutorError;
@@ -42,6 +44,7 @@ pub use machine::{
     InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup, RunCommand, RunInput,
     RunOrchestrator, RunPhase, RunSummary, Saved, Verdict,
 };
+pub use mask::{CelRule, MaskRule, RegexRule};
 pub use pipeline::{
     Attempted, BoxFuture, Call, Delivery, Hop, HostLimit, HostLimits, HttpRetryPolicy, Jittered, NoRetry, Pipeline,
     PipelineParts, RequestStage, Retried, Retry, RetryOn, RetryPolicy, Stage, Timeout, Timing, Transmit, Unchanged,
@@ -51,4 +54,4 @@ pub use redactor::{MASKED, RedactingSink, Redactor};
 pub use shell::{Executor, RunHandle, RunInterrupter, RunOptions};
 pub use slots::{SharedResult, SharedSlots};
 use values::Render;
-pub use values::{Defined, FakeData, FakeFn, Frame, Iteration, RunInputs, RunValues};
+pub use values::{Defined, Frame, Iteration, RunInputs, RunValues};

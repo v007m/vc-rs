@@ -1,0 +1,54 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_fake_args/project
+---
+error[V2302]: `fake.number.int` takes nothing or two whole numbers, min then max
+ --> services/users/users.api.yaml:3:9
+  |
+3 |   size: ${fake.number.int('a')}
+  |         ^^^^^^^^^^^^^^^^^^^^^^^
+
+error[V2302]: `fake.lorem.words` takes nothing or one whole number from 0 to 10000
+ --> services/users/users.api.yaml:4:10
+  |
+4 |   words: ${fake.lorem.words(5, 6)}
+  |          ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[V2302]: `fake.location.city` takes no arguments
+ --> services/users/users.api.yaml:5:9
+  |
+5 |   city: ${fake.location.city(1)}
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[V2302]: `fake.teamCode` is a named generator and takes no arguments
+ --> services/users/users.api.yaml:6:9
+  |
+6 |   code: ${fake.teamCode(2)}
+  |         ^^^^^^^^^^^^^^^^^^^
+
+error[V2304]: pipe `upper` takes text, not a number
+ --> services/users/users.api.yaml:7:30
+  |
+7 |   count: ${fake.number.int | upper}
+  |                              ^^^^^
+
+error[V2302]: generator `quantity` takes nothing or two whole numbers, min then max
+  --> vibranium.config.yaml:9:7
+   |
+ 9 |       min: 5
+   |       ^^^^^^
+10 |       max: 1
+   |       ^^^^^^
+
+error[V2302]: a generator has one kind, but this one has several
+  --> vibranium.config.yaml:11:5
+   |
+11 |   - id: label
+   |     ^^^^^^^^^
+12 |     oneOf: [a, b]
+   |     ^^^^^^^^^^^^^
+13 |     lorem:
+   |     ^^^^^^
+14 |       words: 3
+   |       ^^^^^^^^
+   = help: write one of `fromRegExp`, `oneOf`, `int`, `lorem`

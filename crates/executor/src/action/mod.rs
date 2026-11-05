@@ -1,9 +1,11 @@
 //! Action executors (strategies), one per kind of action, chosen by the [`ActionExecutors`]
 //! registry.
 
+mod auth;
 mod call;
 mod command;
 mod http_retry;
+mod inline;
 mod looping;
 mod request;
 mod reuse;
@@ -13,13 +15,18 @@ use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use vc_interfaces::AuthProvider;
 use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
 use crate::{ActionReport, ExecutorError, Frame, PipelineParts, Redactor, RunInputs, RunValues};
 
+pub use auth::{AuthKey, NoAuth, TokenCache};
 pub use call::CallExecutor;
 pub use command::CommandExecutor;
+pub use inline::InlineExecutor;
 pub use reuse::{TestExecutor, body_actions};
+
+pub use request::encode;
 
 /// The kind of an action, as the registry keys its executors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -113,17 +120,30 @@ pub struct ActionCx {
     pub executors: Arc<ActionExecutors>,
     /// The var definitions with the active profiles applied, the pipes and the run's inputs.
     pub values: RunValues,
-    /// Masks what must not leave the executor, built from the config's `redact`.
+    /// Masks what must not leave the executor, built from the config's `redact` and told every
+    /// secret value.
     pub redactor: Arc<Redactor>,
+    /// Obtains credentials for each auth type.
+    auth: Arc<dyn AuthProvider>,
+    /// The run's credentials, fetched once per auth and set of vars.
+    tokens: Arc<TokenCache>,
 }
 
 impl ActionCx {
     /// What the actions of a run of `program` share, given `inputs`.
     #[must_use]
     pub fn new(program: Arc<Program>, executors: Arc<ActionExecutors>, inputs: RunInputs) -> Self {
+        let redactor = Redactor::for_config(&program.config);
+        redactor.hide_values(inputs.secrets.iter().map(|(_, secret)| secret.expose()));
         let values = RunValues::new(&program, inputs);
-        let redactor = Arc::new(Redactor::new(&program.config.redact_headers));
-        Self { program, executors, values, redactor }
+        let (auth, tokens) = (Arc::new(NoAuth), Arc::new(TokenCache::default()));
+        Self { program, executors, values, redactor: Arc::new(redactor), auth, tokens }
+    }
+
+    /// The same context obtaining credentials through `provider` (the auth registry).
+    #[must_use]
+    pub fn with_auth(self, provider: Arc<dyn AuthProvider>) -> Self {
+        Self { auth: provider, ..self }
     }
 
     /// The action behind `id`.
@@ -152,11 +172,13 @@ impl ActionExecutors {
         Self::default()
     }
 
-    /// `call:` through the request pipeline built from `parts`, and `test:` reuse. `command:`
-    /// needs a runner, so the engine adds a [`CommandExecutor`]; `function:` is registered in M4.
+    /// `call:` and inline requests through the request pipeline built from `parts`, and `test:`
+    /// reuse. `command:` needs a runner, so the engine adds a [`CommandExecutor`]; `function:`
+    /// is registered in M4.
     #[must_use]
     pub fn standard(parts: PipelineParts) -> Self {
         Self::new()
+            .with(ActionKindTag::Inline, Arc::new(InlineExecutor::new(parts.clone())))
             .with(ActionKindTag::Call, Arc::new(CallExecutor::new(parts)))
             .with(ActionKindTag::Test, Arc::new(TestExecutor))
     }

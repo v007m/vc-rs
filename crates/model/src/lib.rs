@@ -27,6 +27,7 @@ mod json_text;
 mod outcome;
 mod plan;
 mod program;
+mod secrets;
 mod source;
 mod span;
 mod strings;
@@ -54,6 +55,7 @@ pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileI
 pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};
 pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use program::Program;
+pub use secrets::{DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, RedactRule, SecretsConfig, schema_names};
 pub use source::{ContentHash, FileKind, SourceFile, SourcePath};
 pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};

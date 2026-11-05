@@ -1,0 +1,16 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+generators:
+  - id: quantity
+    int:
+      min: 5
+      max: 1
+  - id: label
+    oneOf: [a, b]
+    lorem:
+      words: 3
+  - id: teamCode
+    fromRegExp: "[A-Z]{3}"

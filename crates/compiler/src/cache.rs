@@ -9,7 +9,7 @@ use crate::stage::FileUnit;
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 6;
+const VERSION: u32 = 9;
 
 /// The compiler release that wrote a blob; a blob from another release is ignored, so a check
 /// added or fixed in a new release is not hidden by units an older compiler kept.
@@ -198,7 +198,7 @@ fn table(texts: &[String]) -> Option<StringTable> {
 
 /// The entry `stored` describes, its unit read off the front of `units`.
 fn entry(stored: &Stored, units: &mut &[u8]) -> Option<CacheEntry> {
-    let path = SourcePath::new(&stored.path).ok()?;
+    let path = SourcePath::data(&stored.path).ok()?;
     let length = stored.unit.map(usize::try_from).transpose().ok()?.unwrap_or(0);
     let (bytes, rest) = units.split_at_checked(length)?;
     *units = rest;

@@ -46,12 +46,27 @@ impl<'p, 'a> Flow<'p, 'a> {
     fn config(&mut self, source: &'p Source<'a>) -> Scope<'a> {
         let root = source.root;
         let base = Scope::default().with(Layer::vars(source, root));
-        self.spot(source, (root, &project::holes(root, &RUN_BLOCKS)), &base);
+        let mut keys = vec!["auth"];
+        keys.extend(RUN_BLOCKS);
+        self.spot(source, (root, &project::holes(root, &keys)), &base);
+        self.auth(source, &base);
         let mut before = base.clone();
         let shared = self.block(source, project::list(root, "beforeRun"), (&mut before, Saved::Shared));
         let run = base.with(shared);
         self.block(source, project::list(root, "afterRun"), (&mut run.clone(), Saved::Plain));
         run
+    }
+
+    /// Each `auth` entry with its own vars; its `steps` run in order and `apply` sees their saves.
+    fn auth(&mut self, source: &'p Source<'a>, base: &Scope<'a>) {
+        for entry in project::list(source.root, "auth") {
+            let mut scope = base.with(Layer::vars(source, entry));
+            self.spot(source, (entry, &project::holes(entry, &["steps", "apply"])), &scope);
+            self.block(source, project::list(entry, "steps"), (&mut scope, Saved::Plain));
+            if let Some(apply) = entry.get("apply") {
+                self.spot(source, (apply, &[]), &scope);
+            }
+        }
     }
 
     /// A test file: its values, its lifecycle blocks and its tests.

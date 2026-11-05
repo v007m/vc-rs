@@ -136,3 +136,7 @@ mod tests;
 #[cfg(test)]
 #[path = "flow_tests.rs"]
 mod flow_tests;
+
+#[cfg(test)]
+#[path = "redaction_tests.rs"]
+mod redaction;

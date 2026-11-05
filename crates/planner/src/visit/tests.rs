@@ -46,8 +46,8 @@ fn call_with(arg: MatcherArg) -> Matcher {
     Matcher::All(vec![MatcherCall { name: "equals".into(), arg, span: testing::span() }])
 }
 
-fn inline(url: Template, headers: IndexMap<String, Template>) -> InlineRequest {
-    InlineRequest { method: Method::Get, url, headers, body: BodySpec::None }
+fn inline(url: Template, headers: IndexMap<String, Template>) -> Box<InlineRequest> {
+    Box::new(InlineRequest { method: Method::Get, url, query: IndexMap::new(), headers, body: BodySpec::None })
 }
 
 /// Whether test `a` needs the `beforeRun` action `warm` once `place` puts a read of it somewhere.
@@ -119,13 +119,19 @@ const ACTION: &[(&str, Place)] = &[
     ("auth settings", |f, _, c| {
         let id = AuthId::new(f.sym("admin"));
         let settings = IndexMap::from([("token".into(), value())]);
-        let def = AuthDef { id, name: None, kind: "bearer".into(), settings, vars: VarDefs::default() };
+        let def = AuthDef { settings, ..AuthDef::new(id, "bearer") };
         f.program.auth.insert(id, def);
         f.action_mut(c).auth = Some(AuthRef::Use { id, vars: VarDefs::default() });
     }),
     ("auth def vars", |f, _, c| {
         let id = AuthId::new(f.sym("admin"));
-        let def = AuthDef { id, name: None, kind: "bearer".into(), settings: IndexMap::new(), vars: vars(f) };
+        let def = AuthDef { vars: vars(f), ..AuthDef::new(id, "bearer") };
+        f.program.auth.insert(id, def);
+        f.action_mut(c).auth = Some(AuthRef::Use { id, vars: VarDefs::default() });
+    }),
+    ("auth expiresIn", |f, _, c| {
+        let id = AuthId::new(f.sym("admin"));
+        let def = AuthDef { expires_in: Some(testing::read("warm")), ..AuthDef::new(id, "flow") };
         f.program.auth.insert(id, def);
         f.action_mut(c).auth = Some(AuthRef::Use { id, vars: VarDefs::default() });
     }),
@@ -137,6 +143,11 @@ const KINDS: &[(&str, Place)] = &[
     ("inline header", |f, _, c| {
         f.action_mut(c).kind =
             ActionKind::Inline(inline(testing::read("x"), IndexMap::from([("a".into(), testing::read("warm"))])));
+    }),
+    ("inline query", |f, _, c| {
+        let mut request = inline(testing::read("x"), IndexMap::new());
+        request.query = IndexMap::from([("q".into(), testing::read("warm"))]);
+        f.action_mut(c).kind = ActionKind::Inline(request);
     }),
     ("inline body", |f, _, c| {
         let mut request = inline(testing::read("x"), IndexMap::new());

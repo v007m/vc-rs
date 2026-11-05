@@ -10,12 +10,12 @@ use vc_model::{
 };
 use vc_template::{Activation, CelCompiler, Chance, PipeRegistry, RenderError, Renderer, Resolve, Roots};
 
-/// Always picks `pick`, wrapped to the bound.
-struct Fixed(usize);
+/// Always draws the same number, so every pick is that number wrapped to the bound.
+struct Fixed(u64);
 
 impl Chance for Fixed {
-    fn below(&self, bound: usize) -> usize {
-        self.0.checked_rem(bound).unwrap_or(0)
+    fn next_u64(&self) -> u64 {
+        self.0
     }
 }
 
@@ -341,7 +341,7 @@ proptest! {
     }
 
     #[test]
-    fn take_and_shuffle_keep_elements(items in prop::collection::vec(prop::arbitrary::any::<i64>(), 0..8), pick in 0usize..9) {
+    fn take_and_shuffle_keep_elements(items in prop::collection::vec(prop::arbitrary::any::<i64>(), 0..8), pick in 0u64..9) {
         let mut values = Values::var(&Value::from(items.clone()));
         values.chance = Fixed(pick);
         let shuffled = render_with("${var.v | shuffle}", &values).unwrap();

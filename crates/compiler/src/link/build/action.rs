@@ -4,7 +4,7 @@
 use vc_model::{Action, ActionKind, ApiId, AuthRef, BodySpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs};
 use vc_parser::Node;
 
-use super::{Build, Built, expect, read};
+use super::{Build, Built, auth, expect, read};
 use crate::link::project;
 use crate::link::project::Source;
 use crate::shapes;
@@ -58,7 +58,7 @@ impl<'a> Build<'_, 'a> {
             retry: read::retry(source, node).filter(|_| place.test.is_none()),
             keep: read::flag(shapes::action(), node, "keep"),
             cache: None,
-            repeat: read::looping(source, node).filter(|_| place.test.is_none()),
+            repeat: self.looping(source, node).filter(|_| place.test.is_none()),
             span: node.span,
         }))
     }
@@ -73,6 +73,9 @@ impl<'a> Build<'_, 'a> {
         }
         if let Some(function) = project::text(node, "function") {
             return Ok(Some(ActionKind::Function(read::hook(function))));
+        }
+        if let Some(request) = auth::inline(source, node) {
+            return Ok(Some(ActionKind::Inline(Box::new(request))));
         }
         let command = node.get("command").and_then(|command| read::template(source, command));
         Ok(command.map(ActionKind::Command))

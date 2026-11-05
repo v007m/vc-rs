@@ -2,6 +2,7 @@ mod admin;
 mod auth;
 mod crud;
 mod echo;
+mod oauth;
 mod scripted;
 mod track;
 
@@ -19,6 +20,7 @@ pub fn router(store: &Store) -> Router {
         .merge(crud::routes(store, "orders"))
         .merge(auth::routes(store))
         .merge(echo::routes())
+        .merge(oauth::routes(store))
         .merge(scripted::routes(store))
         .route_layer(middleware::from_fn_with_state(store.clone(), track::track));
     counted.merge(admin::routes(store)).layer(CompressionLayer::new())

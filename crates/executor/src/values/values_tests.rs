@@ -3,10 +3,14 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use serde_json::{Value, json};
-use vc_model::{ActionId, Examples, Instance, InstanceId, Needs, OwnerKey, Profile, ProfileId, TemplateValue};
+use vc_diagnostics::Code;
+use vc_model::{
+    ActionId, Dataset, DatasetId, Examples, GeneratorDef, Instance, InstanceId, Needs, OwnerKey, Profile, ProfileId,
+    TemplateValue,
+};
 use vc_template::RenderError;
 
-use super::{Frame, Render};
+use super::{Frame, Iteration, Render};
 use crate::fixture;
 use crate::fixture::Fixture;
 use crate::{ActionCx, ActionExecutors, ActionReport, ActionRequest, Saved, SharedSlots};
@@ -169,6 +173,24 @@ fn a_fake_var_is_drawn_only_when_first_rendered() {
 }
 
 #[test]
+fn a_named_generator_calls_its_built_in_and_dates_follow_the_run_start() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let id = fixture.sym("code");
+    let generator = GeneratorDef { id, fake: "string.fromRegExp".to_owned(), args: vec![json!("[A-C]{3}")] };
+    fixture.program.generators.insert(id, generator);
+    let (named, recent) = (fixture.value("${fake.code}"), fixture.value("${fake.date.recent}"));
+    let unknown = fixture.value("${fake.person.age}");
+    let cx = fixture.cx_with(ActionExecutors::new(), fixture::inputs(&[]).with_started_at(86_400_000));
+    let code = run_level(&cx, action, &named).unwrap();
+    let letters = |code: &str| code.len() == 3 && code.chars().all(|letter| ('A'..='C').contains(&letter));
+    assert!(code.as_str().is_some_and(letters), "{code}");
+    let date = run_level(&cx, action, &recent).unwrap();
+    assert!(date.as_str().is_some_and(|date| date.starts_with("1970-01-01T")), "{date}");
+    assert!(run_level(&cx, action, &unknown).unwrap_err().message.contains("is not a generator"));
+}
+
+#[test]
 fn a_missing_var_reaches_the_default_pipe_and_otherwise_fails() {
     let mut fixture = Fixture::new();
     let action = fixture.call("/users");
@@ -261,4 +283,32 @@ fn a_cleanup_reads_its_given_vars_instead_of_its_own() {
     let cx = fixture.cx(ActionExecutors::new());
     let frame = Frame::default().cleaning(&saved(&[("userId", json!(42))]));
     assert_eq!(render_one(&cx, action, frame, &probe), Ok(json!(42)));
+}
+
+#[test]
+fn datasets_are_read_by_their_dotted_ids() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    for (word, rows) in [("cities", json!([{"name": "Oslo"}])), ("users.crud", json!([1, 2]))] {
+        let id = DatasetId::new(fixture.sym(word));
+        let rows = rows.as_array().cloned().unwrap_or_default();
+        fixture.program.datasets.insert(id, Dataset { id, file: format!("datasets/{word}.csv"), rows });
+    }
+    let probe = fixture.value("${dataset.cities[0].name}/${dataset.users.crud[1]}");
+    assert_eq!(run_level(&fixture.cx(ActionExecutors::new()), action, &probe), Ok(json!("Oslo/2")));
+}
+
+#[test]
+fn a_row_without_the_column_read_is_v5112_unless_a_default_stands_in() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let (probe, fallback, other) =
+        (fixture.value("${item.name}"), fixture.value("${item.name | default('-')}"), fixture.value("${run.nope}"));
+    let cx = fixture.cx(ActionExecutors::new());
+    let turn = Iteration { index: 1, count: 1, item: Some(json!({"country": "NO"})) };
+    let frame = || Frame { iteration: Some(Arc::new(turn.clone())), ..Frame::default() };
+    let error = render_one(&cx, action, frame(), &probe).unwrap_err();
+    assert_eq!((error.code, error.missing), (Some(Code::V5112), true), "{}", error.message);
+    assert_eq!(render_one(&cx, action, frame(), &fallback), Ok(json!("-")));
+    assert_eq!(render_one(&cx, action, frame(), &other).unwrap_err().code, None, "only rows are V5112");
 }

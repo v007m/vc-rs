@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2002_unknown_dataset/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "`dataset.citys` names no dataset",
+      "primary": {
+        "span": {
+          "path": "services/geo/cities.test.yaml",
+          "line": 4,
+          "column": 15,
+          "endLine": 4,
+          "endColumn": 31
+        },
+        "text": "no dataset has this ID"
+      },
+      "secondary": [],
+      "notes": [
+        "the datasets are `cities`; a dataset is a file under `datasets/` or an entry of `datasets.files` in the config"
+      ],
+      "help": [],
+      "fixes": []
+    }
+  ]
+}

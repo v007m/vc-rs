@@ -1,0 +1,7 @@
+apis:
+  - id: getUser
+    path: /users/1
+    headers:
+      authorization: Bearer ${secret.API_TOKN}
+      x-db: ${secret.DB_PASSWORD}
+      x-other: ${secret.SESSION_KEY}

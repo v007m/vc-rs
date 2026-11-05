@@ -5,6 +5,7 @@ use vc_diagnostics::Diagnostics;
 use vc_model::{Date, Program, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
 
 use crate::cache::CacheEntry;
+use crate::link::DataWanted;
 use crate::parts::Tools;
 use crate::{CompileCache, link, stage};
 
@@ -22,6 +23,9 @@ pub struct CompileInput {
     /// The project's other files, relative to the root, that a `$file:` may point at; the
     /// definition files count without being listed. `None` leaves `$file` paths unchecked (V2004).
     pub assets: Option<BTreeSet<SourcePath>>,
+    /// The project root's `.env.schema`, which declares the secret names (D165); `None` leaves
+    /// undeclared `${secret.X}` (V2106) and `${env.X}` of a secret (V2107) unchecked.
+    pub secret_schema: Option<SourceFile>,
 }
 
 /// What one compile produced.
@@ -36,6 +40,12 @@ pub struct Compiled {
     pub files: SourceFiles,
     /// The cache to persist and pass to the next compile.
     pub cache: CompileCache,
+    /// The data files the project names that were not in [`CompileInput::files`] (D173): every
+    /// file under `datasets/` that [`CompileInput::assets`] lists, each `datasets.files` entry,
+    /// and each literal `$file` an `examples` or `forEach` reads. The engine reads them (an
+    /// outside one only while its canonical path stays under its root, else V1012) and compiles
+    /// again with them; until then their rows are unchecked and read at run time.
+    pub data_wanted: Vec<DataWanted>,
 }
 
 /// Compiles `input` into a program, or into the diagnostics that stop one.
@@ -53,11 +63,17 @@ pub fn compile(input: CompileInput) -> Compiled {
     for unit in entries.iter().filter_map(|entry| entry.unit.as_deref()) {
         diagnostics.extend(unit.diagnostics.iter().cloned());
     }
-    let world = link::World { strings: &strings, today: input.today, assets: input.assets.as_ref() };
+    let declared = input.secret_schema.map(|schema| vc_model::schema_names(&schema.text));
+    let world = link::World {
+        strings: &strings,
+        today: input.today,
+        assets: input.assets.as_ref(),
+        secrets: declared.as_deref(),
+    };
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
-    let program = linked.program;
-    Compiled { program, diagnostics, files, cache: CompileCache::of(entries, strings) }
+    let (program, data_wanted) = (linked.program, linked.data_wanted);
+    Compiled { program, diagnostics, files, cache: CompileCache::of(entries, strings), data_wanted }
 }
 
 /// Runs the per-file stages over every file the previous cache does not hold.
