@@ -1,5 +1,6 @@
-//! Example columns: `${example.x}` in a test whose inline `examples` rows have no `x` (V2103).
-//! Rows from a `$file` or a template are only known at run time, so they are not checked.
+//! Example columns: `${example.x}` in a test whose `examples` rows have no `x` (V2103). The rows
+//! are written inline, or come from a dataset or `$file` the compile was given (D173); rows from
+//! any other template are only known at run time, so they are not checked.
 
 use std::collections::{BTreeSet, HashSet};
 
@@ -7,6 +8,7 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{FileKind, Namespace, Reference, Segment, SourceSpan};
 use vc_parser::{Node, Value};
 
+use super::data::Data;
 use super::project;
 use super::project::{Project, Source};
 use super::uses;
@@ -18,21 +20,22 @@ struct Rows<'a> {
     columns: BTreeSet<&'a str>,
 }
 
-/// Checks every `${example.…}` of every test with inline rows.
-pub fn check(project: &Project<'_>) -> Diagnostics {
+/// Checks every `${example.…}` of every test whose rows are known.
+pub fn check(project: &Project<'_>, data: &Data<'_>) -> Diagnostics {
     let mut diagnostics = Diagnostics::new();
     for source in project.sources.iter().filter(|source| source.kind == FileKind::Test) {
         for test in project::list(source.root, "tests") {
-            let Some(rows) = test.get("examples").and_then(rows) else { continue };
+            let Some(examples) = test.get("examples") else { continue };
+            let Some(rows) = rows(examples, data.rows_at(source, examples).unwrap_or(examples)) else { continue };
             diagnostics.extend(unknown(source, test, &rows));
         }
     }
     diagnostics
 }
 
-/// The rows, when `examples` is a list of maps.
-fn rows(examples: &Node) -> Option<Rows<'_>> {
-    let Value::Seq(rows) = &examples.value else { return None };
+/// The rows, when `rows` is a list of maps; `examples` is where they are named.
+fn rows<'a>(examples: &Node, rows: &'a Node) -> Option<Rows<'a>> {
+    let Value::Seq(rows) = &rows.value else { return None };
     if !rows.iter().all(|row| matches!(row.value, Value::Map(_))) {
         return None;
     }

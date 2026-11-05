@@ -133,7 +133,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `auth` | list | — | Auth definitions (see Authentication) |
 | `secrets` | `provider`, `schema` | Varlock with `.env.schema` | Where `${secret.*}` comes from |
 | `generators` | list | — | Named fake-data generators |
-| `datasets` | list | every file in `datasets/` | Your own data lists |
+| `datasets` | `allowRoots`, `files` | every file in `datasets/` | Your own data lists: `files` lists data kept outside `datasets/` (each `id`, `file`), and `allowRoots` the folders outside the project those files may be in (see Datasets) |
 | `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file) |
 | `history` | `bodies`, `maxBodySize`, `retain` | SQLite, bodies of failures only | Run history and retention |
 | `alerts` | list | none | Notifications |
@@ -1112,7 +1112,7 @@ Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind
 
 ### Datasets
 
-A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its file, so `datasets/capitals.csv` is `capitals`; files kept elsewhere are listed under `datasets` in the config. `${dataset.capitals}` is the whole list, and there are three ways to use it.
+A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its path, so `datasets/capitals.csv` is `capitals` and `datasets/users/admins.json` is `users.admins`; files kept elsewhere are listed under `datasets.files` in the config, and an entry there wins over a file with the same ID. `${dataset.capitals}` is the whole list, and there are three ways to use it.
 
 ```
 # datasets/capitals.csv
@@ -1175,13 +1175,21 @@ Rules:
 - `random` and `shuffle` follow `--seed`, so a run can be repeated exactly.
 - CSV cells are text: convert with a pipe (`${item.population | int}`), or use JSON or YAML when the data has types.
 - A dataset is read once per run and never changed by it.
+- `examples` and `forEach` may also read a file next to the test: `examples: { $file: rows.yaml }`.
+- `vc check` reads the rows of `${dataset.<id>}` and `$file` written alone: an `${example.…}` column no row has is V2103, and a `${dataset.…}` that names no dataset is V2002. A CSV record with the wrong number of cells is V1001, a column named twice V1006, and a JSON or YAML dataset that is not a list V1002. A row without a column it reads fails at run time with V5112.
 
 ```yaml
-# vibranium.config.yaml: a dataset kept outside datasets/
+# vibranium.config.yaml: datasets kept outside datasets/
 datasets:
-  - id: worldCities
-    file: ../shared-data/world-cities.csv
+  allowRoots: [../shared-data]
+  files:
+    - id: worldCities
+      file: ../shared-data/world-cities.csv
+    - id: smokeUsers
+      file: fixtures/smoke-users.yaml
 ```
+
+`file` is relative to the project root. A file outside the project must be inside one of `allowRoots` (also relative to the project root), after `..` and symbolic links are resolved; any other path is V1012, so a dataset cannot read `/etc/passwd` or climb out through a link.
 
 ## Functions and request hooks
 

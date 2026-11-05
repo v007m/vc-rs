@@ -40,5 +40,6 @@ mod version;
 pub use cache::CompileCache;
 pub use compile::{CompileInput, Compiled, compile};
 pub use docs::key_tables;
+pub use link::DataWanted;
 pub use paths::SourceGlobs;
 pub use schema::{FileSchema, schemas};

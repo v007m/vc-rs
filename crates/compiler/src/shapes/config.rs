@@ -35,7 +35,7 @@ shape! {
         types::key("auth", Ty::List(&Ty::Obj(auth))).doc("Auth definitions"),
         types::key("secrets", Ty::Obj(secrets)).default("Varlock with `.env.schema`").doc("Where `${secret.*}` comes from"),
         types::key("generators", Ty::List(&Ty::Obj(generator))).doc("Named fake-data generators"),
-        types::key("datasets", Ty::List(&Ty::Obj(dataset))).default("every file in `datasets/`").doc("Your own data lists"),
+        types::key("datasets", Ty::Obj(datasets)).default("every file in `datasets/`").doc("Your own data lists"),
         types::key("reports", Ty::Obj(reports)).default("CTRF only").doc("Output formats and folder"),
         types::key("history", Ty::Obj(history)).doc("Run history and retention"),
         types::key("alerts", Ty::List(&Ty::Obj(alert))).doc("Notifications"),
@@ -151,6 +151,14 @@ shape! {
 
 shape! {
     lorem = Shape::new("lorem", "Placeholder text", &[types::key("words", Ty::Int).doc("How many words")])
+}
+
+shape! {
+    datasets = Shape::new("datasets", "Data lists beyond the files in `datasets/`", &[
+        types::key("allowRoots", TEXTS).doc("Folders outside the project that `files` may read, from the project root")
+            .example("[../shared-data]"),
+        types::key("files", Ty::List(&Ty::Obj(dataset))).doc("Data lists kept outside `datasets/`"),
+    ])
 }
 
 shape! {

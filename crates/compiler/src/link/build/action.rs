@@ -58,7 +58,7 @@ impl<'a> Build<'_, 'a> {
             retry: read::retry(source, node).filter(|_| place.test.is_none()),
             keep: read::flag(shapes::action(), node, "keep"),
             cache: None,
-            repeat: read::looping(source, node).filter(|_| place.test.is_none()),
+            repeat: self.looping(source, node).filter(|_| place.test.is_none()),
             span: node.span,
         }))
     }

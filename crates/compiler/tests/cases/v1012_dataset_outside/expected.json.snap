@@ -1,0 +1,76 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1012_dataset_outside/project
+---
+{
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1012",
+      "severity": "error",
+      "message": "the dataset file `../shared-data/x.csv` is outside the project",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 12,
+          "column": 13,
+          "endLine": 12,
+          "endColumn": 33
+        },
+        "text": "not under the project or an allowed root"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "paths are relative to the project root; add a folder outside it to `datasets.allowRoots`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1012",
+      "severity": "error",
+      "message": "the dataset file `../shared/../secrets/x.csv` is outside the project",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 14,
+          "column": 13,
+          "endLine": 14,
+          "endColumn": 39
+        },
+        "text": "not under the project or an allowed root"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "paths are relative to the project root; add a folder outside it to `datasets.allowRoots`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1012",
+      "severity": "error",
+      "message": "the dataset file `/etc/passwd` is not a relative path to a file",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 16,
+          "column": 13,
+          "endLine": 16,
+          "endColumn": 24
+        },
+        "text": "not under the project or an allowed root"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "paths are relative to the project root; add a folder outside it to `datasets.allowRoots`"
+      ],
+      "fixes": []
+    }
+  ]
+}

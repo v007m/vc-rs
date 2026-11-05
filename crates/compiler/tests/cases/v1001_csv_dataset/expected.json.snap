@@ -1,0 +1,55 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1001_csv_dataset/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1001",
+      "severity": "error",
+      "message": "not valid CSV: this row has 1 cells, but the header has 2",
+      "primary": {
+        "span": {
+          "path": "datasets/cities.csv",
+          "line": 3,
+          "column": 1,
+          "endLine": 3,
+          "endColumn": 9
+        },
+        "text": "here"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "a CSV dataset is a header row of column names, then one line per row with as many cells"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V1006",
+      "severity": "error",
+      "message": "the column `name` is named twice",
+      "primary": {
+        "span": {
+          "path": "datasets/towns.csv",
+          "line": 1,
+          "column": 1,
+          "endLine": 1,
+          "endColumn": 10
+        },
+        "text": "in this header"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "give every column of a CSV dataset its own name"
+      ],
+      "fixes": []
+    }
+  ]
+}

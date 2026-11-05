@@ -3,8 +3,8 @@
 use indexmap::IndexMap;
 use vc_diagnostics::Diagnostics;
 use vc_model::{
-    Api, ApiGroup, ApiId, Config, Defaults, FileId, GeneratorDef, HttpRetry, Lifecycle, Origin, Owner, Profile,
-    ProfileId, RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
+    Api, ApiGroup, ApiId, Config, Defaults, Examples, FileId, GeneratorDef, HttpRetry, Lifecycle, Origin, Owner,
+    Profile, ProfileId, RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
 };
 use vc_parser::Node;
 use vc_template::FakeRegistry;
@@ -163,7 +163,10 @@ impl<'a> Build<'_, 'a> {
             body,
             vars: self.vars(source, node)?,
             expect: expect::read(source, node.get("expect"), Origin::Test(id)),
-            examples: read::examples(source, node.get("examples")),
+            examples: self
+                .rows(source, node.get("examples"))
+                .map(Examples::Rows)
+                .or_else(|| read::examples(source, node.get("examples"))),
             repeat: read::number(node, "repeat").unwrap_or(1),
             retry: read::retry(source, node),
             timeout: read::duration(source, node, "timeout"),

@@ -8,7 +8,9 @@ fn csv(text: &str) -> (Option<Node>, Diagnostics) {
 
 /// Each row as `column=cell` pairs.
 fn rows(root: &Node) -> Vec<Vec<String>> {
-    let pairs = |row: &Node| row.entries().iter().map(|e| format!("{}={}", e.key, e.value.as_str().unwrap_or_default())).collect();
+    let pairs = |row: &Node| {
+        row.entries().iter().map(|e| format!("{}={}", e.key, e.value.as_str().unwrap_or_default())).collect()
+    };
     root.items().iter().map(pairs).collect()
 }
 

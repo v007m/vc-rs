@@ -2,7 +2,7 @@
 //! Faker generator or a named one (V2002), the literal arguments fit it (V2302, V2309 for a
 //! `fromRegExp` pattern), and its pipes take the type it gives (V2304).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{Namespace, Reference, Segment};
@@ -12,7 +12,6 @@ use vc_template::{FakeCall, FakeError, FakeRegistry, PipeRegistry, ValueType};
 use super::project;
 use super::project::{Project, Source};
 use super::uses;
-use crate::parts::Piece;
 use crate::schema;
 use crate::suggest;
 
@@ -39,13 +38,8 @@ pub fn check(project: &Project<'_>) -> Diagnostics {
     let named = named.into_iter().filter_map(|named| Some((named.id.to_owned(), fakes.get(named.call.name)?.output)));
     let known = Known { named: named.collect(), fakes, pipes: PipeRegistry::builtin() };
     for source in &project.sources {
-        let mut found = Vec::new();
-        let pieces = source.pieces(source.root.span, &[]).filter(|piece| !matches!(piece, Piece::Cel(_)));
-        pieces.for_each(|piece| uses::piece_refs(piece, &mut found));
-        let mut seen = HashSet::new();
-        let fakes =
-            found.into_iter().filter(|reference| reference.ns == Namespace::Fake && seen.insert(reference.span));
-        diagnostics.extend(fakes.filter_map(|reference| self::reference(source, reference, &known)));
+        let fakes = uses::references(source, Namespace::Fake);
+        diagnostics.extend(fakes.into_iter().filter_map(|reference| self::reference(source, reference, &known)));
     }
     diagnostics
 }

@@ -13,8 +13,8 @@ use super::project::{Project, Source};
 const RESERVED: [&str; 11] =
     ["var", "env", "secret", "response", "request", "example", "item", "iteration", "fake", "dataset", "run"];
 
-/// The config lists whose items have IDs.
-const CONFIG_ITEMS: [&str; 5] = ["profiles", "auth", "datasets", "generators", "plugins"];
+/// The config lists whose items have IDs; `datasets.files` is the other one.
+const CONFIG_ITEMS: [&str; 4] = ["profiles", "auth", "generators", "plugins"];
 
 /// Every `id` value node a file declares, in file order.
 pub fn declared<'a>(source: &Source<'a>) -> Vec<&'a Node> {
@@ -24,7 +24,10 @@ pub fn declared<'a>(source: &Source<'a>) -> Vec<&'a Node> {
         FileKind::Config => &CONFIG_ITEMS,
         FileKind::Load => &[],
     };
-    let nodes = items.iter().flat_map(|key| project::list(source.root, key)).chain(project::actions(source));
+    let datasets = source.root.get("datasets").filter(|_| source.kind == FileKind::Config);
+    let datasets = datasets.map(|datasets| project::list(datasets, "files")).unwrap_or_default();
+    let nodes = items.iter().flat_map(|key| project::list(source.root, key)).chain(datasets);
+    let nodes = nodes.chain(project::actions(source));
     let mut ids: Vec<&Node> = nodes.filter_map(|node| node.get("id")).collect();
     ids.sort_by_key(|node| node.span.start.offset);
     ids

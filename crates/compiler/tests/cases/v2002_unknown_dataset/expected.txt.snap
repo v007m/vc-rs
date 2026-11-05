@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2002_unknown_dataset/project
+---
+error[V2002]: `dataset.citys` names no dataset
+ --> services/geo/cities.test.yaml:4:15
+  |
+4 |     examples: ${dataset.citys}
+  |               ^^^^^^^^^^^^^^^^ no dataset has this ID
+  = note: the datasets are `cities`; a dataset is a file under `datasets/` or an entry of `datasets.files` in the config

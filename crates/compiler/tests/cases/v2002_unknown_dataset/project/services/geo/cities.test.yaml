@@ -1,0 +1,10 @@
+tests:
+  - id: createsEachCity
+    call: geo#createCity
+    examples: ${dataset.citys}
+    vars:
+      cityName: ${example.name}
+  - id: createsFirstCity
+    call: geo#createCity
+    vars:
+      cityName: ${dataset.cities[0].name}
