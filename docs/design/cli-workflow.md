@@ -24,7 +24,7 @@ Every command that writes a file compiles the result first and refuses to write 
 ```
 shop/
   vibranium.config.yaml              project settings with defaults, one profile
-  .env.schema                        secret names (none yet), for Varlock
+  .env.schema                        secret names (none yet), one NAME= line each
   .gitignore                         adds .vibranium/
   services/sample/sample.api.yaml    four reference apis, annotated
   services/sample/basics.test.yaml   four reference tests, annotated
@@ -90,8 +90,8 @@ profiles:
 #     clientSecret: ${secret.CLIENT_SECRET}
 
 secrets:
-  provider: varlock        # 1Password, Vault, AWS, env and more, via .env.schema
-  schema: .env.schema
+  provider: env            # environment and .env; varlock adds 1Password, Vault, AWS and more
+  schema: .env.schema      # declares the secret names
 
 reports:
   dir: .vibranium/reports
@@ -256,7 +256,7 @@ Tests and apis are the definitions; everything else is something they point at.
 | `datasets/` | Your own rows of data: CSV, JSON or YAML | `examples`, `forEach` and `vars`, by dataset name | `examples: ${dataset.capitals}` |
 | `hooks/` | Code: lifecycle functions, request signing, custom checks | `function: path#export` | `function: ../../hooks/sign.ts#addUploadSignature` |
 | `openapi/` | Snapshots of each spec as it was at the last import or sync; written only by `vc import` and `vc sync` | `vc sync`, as the merge base | `openapi/users.yaml` |
-| `.env.schema` | Secret names and where each comes from (Varlock) | `${secret.X}` anywhere | `${secret.SHOP_CLIENT_SECRET}` |
+| `.env.schema` | Secret names (`NAME=` lines), and where each comes from when Varlock is the provider | `${secret.X}` anywhere | `${secret.SHOP_CLIENT_SECRET}` |
 | `vibranium.lock` | Approved plugin permissions | `vc plugin add` | — |
 | `.vibranium/` | Reports, `history.db`, `cache.db`; generated, git-ignored | `vc report`, `vc history`, the TUI and web UI | `.vibranium/reports/report.html` |
 
