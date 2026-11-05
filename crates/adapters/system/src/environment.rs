@@ -1,6 +1,6 @@
 //! The environment snapshot (D133).
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use vc_interfaces::Environment;
 
@@ -8,7 +8,7 @@ use vc_interfaces::Environment;
 /// UTF-8 are left out.
 #[derive(Clone, Debug, Default)]
 pub struct SystemEnvironment {
-    vars: HashMap<String, String>,
+    vars: BTreeMap<String, String>,
 }
 
 impl SystemEnvironment {
@@ -52,9 +52,7 @@ impl Environment for SystemEnvironment {
     }
 
     fn names(&self) -> Vec<String> {
-        let mut names: Vec<String> = self.vars.keys().cloned().collect();
-        names.sort_unstable();
-        names
+        self.vars.keys().cloned().collect()
     }
 }
 
