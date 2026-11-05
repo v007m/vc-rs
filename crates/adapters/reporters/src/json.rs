@@ -50,6 +50,9 @@ impl JsonReporter {
                 let fields = with(self.action(*action, *owner), json!({"check": encode::check(names, check)}));
                 ("checkEvaluated", fields)
             }
+            Event::Warned { action, owner, warning } => {
+                ("warned", with(self.action(*action, *owner), json!({"warning": encode::failure(names, warning)})))
+            }
             Event::CleanupFinished { cleanup } => {
                 ("cleanupFinished", json!({"cleanup": encode::cleanup(names, cleanup)}))
             }

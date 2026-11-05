@@ -150,6 +150,11 @@ impl Scope {
         names
     }
 
+    /// Whether the level at `at` holds the values saved earlier in the test instance.
+    pub fn is_saved(&self, at: usize) -> bool {
+        matches!(self.levels.get(at), Some(Level::Saved(_)))
+    }
+
     /// The first level from `from` on that has `name`, with its position.
     pub fn find(&self, program: &Program, name: &str, from: usize) -> Option<(usize, Found<'_>)> {
         let mut levels = self.levels.iter().enumerate().skip(from);

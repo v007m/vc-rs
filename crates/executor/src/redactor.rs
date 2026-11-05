@@ -118,6 +118,7 @@ impl Redactor {
                 let exchange = self.masking(|masking| crate::exchange_mask::exchange(masking, *exchange));
                 Event::Exchanged { action, owner, exchange: Box::new(exchange) }
             }
+            Event::Warned { action, owner, warning } => Event::Warned { action, owner, warning: self.failure(warning) },
             Event::CleanupFinished { mut cleanup } => {
                 cleanup.outcome = self.outcome(cleanup.outcome);
                 Event::CleanupFinished { cleanup }

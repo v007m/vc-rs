@@ -75,7 +75,14 @@ impl CallExecutor {
             Ok(saved) => report.saved = saved,
             Err(failure) => report.outcome = ActionOutcome::Failed(failure),
         }
-        Ok(ActionReport { response: Some(response), fakes: render.into_memo(), exchanges: vec![exchange], ..report })
+        let warnings = render.warnings();
+        Ok(ActionReport {
+            response: Some(response),
+            fakes: render.into_memo(),
+            exchanges: vec![exchange],
+            warnings,
+            ..report
+        })
     }
 
     /// The call's flight: the pipeline from these parts with the api's retry (D143), auth and

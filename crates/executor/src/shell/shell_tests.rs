@@ -279,6 +279,28 @@ async fn each_check_is_reported_before_its_action_finishes() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn reading_a_value_a_reused_test_left_undeclared_warns_and_the_run_goes_on() {
+    let mut fixture = Fixture::new();
+    let seed = fixture.call("/seed");
+    fixture.action_mut(seed).save.values = fixture.vars(&[("token", "t")]);
+    let inner = fixture.test(vec![seed], None);
+    let reuse = fixture.action(ActionKind::Test(inner));
+    let read = fixture.call("/users");
+    fixture.api_mut(read).path = fixture.template("/users/${var.token}");
+    let test = fixture.test(vec![reuse, read], None);
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
+    let warned: Vec<_> = (outcome.events.iter())
+        .filter_map(|event| match event {
+            Event::Warned { action, warning, .. } => Some((*action, warning.action, warning.code.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(warned, [(read, Some(reuse), Some(Code::V5108.to_string()))]);
+    assert_eq!((outcome.summary.totals, outcome.sent("/users/t")), (totals([1, 0, 0, 0, 0]), 1));
+}
+
+#[tokio::test(start_paused = true)]
 async fn an_interrupter_cancels_the_run_after_finish_took_the_handle() {
     let mut fixture = Fixture::new();
     let steps = vec![fixture.call("/slow"), fixture.call("/never")];

@@ -118,6 +118,7 @@ fn gather(slots: Vec<Option<ActionReport>>) -> ActionReport {
         gathered.cleanups.extend(report.cleanups);
         gathered.checks.extend(report.checks);
         gathered.exchanges.extend(report.exchanges);
+        gathered.warnings.extend(report.warnings);
         gathered.response = report.response.or(gathered.response);
         for (name, value) in report.saved {
             if let Value::Array(list) = lists.entry(name).or_insert_with(|| Value::Array(Vec::new())) {

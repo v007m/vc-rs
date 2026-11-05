@@ -57,7 +57,8 @@ impl InlineExecutor {
             Ok(saved) => report.saved = saved,
             Err(failure) => report.outcome = ActionOutcome::Failed(failure),
         }
-        Ok(ActionReport { response: Some(response), fakes: render.into_memo(), ..report })
+        let warnings = render.warnings();
+        Ok(ActionReport { response: Some(response), fakes: render.into_memo(), warnings, ..report })
     }
 }
 

@@ -140,7 +140,8 @@ fn masks_failures_in_action_test_and_cleanup_events() {
     let tested = Event::TestFinished { result };
     let cleanup = CleanupRecord { action, owner, outcome: ActionOutcome::Failed(failure()) };
     let cleaned = Event::CleanupFinished { cleanup };
-    for event in [finished, tested, cleaned] {
+    let warned = Event::Warned { action, owner, warning: failure() };
+    for event in [finished, tested, cleaned, warned] {
         let text = format!("{:?}", redactor.event(event));
         assert!(!text.contains("s3cr3t-key") && text.contains(MASKED) && text.contains("V5101"), "{text}");
     }

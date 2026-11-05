@@ -41,6 +41,19 @@ async fn reports_a_destination_that_refuses_to_print() {
     assert_eq!(reporter.finish(&testing::summary()).await, Err(refused));
 }
 
+#[tokio::test]
+async fn prints_a_warning_with_its_action() {
+    let (capture, captured) = Capture::new();
+    let mut reporter = JsonReporter::new(&testing::context(capture));
+    let warning = vc_model::Failure::new("undeclared").with_code("V5108").at(vc_model::ActionId::new(0));
+    let owner = vc_model::OwnerKey::Run;
+    reporter.on_event(&vc_model::Event::Warned { action: vc_model::ActionId::new(0), owner, warning }).await.unwrap();
+    let line: Value = serde_json::from_str(captured.take().0.trim_end()).unwrap();
+    assert_eq!(line["event"], "warned");
+    assert_eq!((&line["warning"]["code"], &line["warning"]["message"]), (&json!("V5108"), &json!("undeclared")));
+    assert_eq!(line["action"], line["warning"]["action"]);
+}
+
 #[test]
 fn merges_objects_and_keeps_anything_else() {
     assert_eq!(with(json!({"a": 1}), json!({"b": 2, "a": 3})), json!({"a": 3, "b": 2}));

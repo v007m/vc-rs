@@ -84,7 +84,7 @@ code_table! {
     V5105 = 5105, Error, "Transport error";
     V5106 = 5106, Error, "A lifecycle action this test needs failed";
     V5107 = 5107, Warning, "Cleanup failed";
-    V5108 = 5108, Error, "A dynamically saved value is used but not declared in `provides`";
+    V5108 = 5108, Warning, "A dynamically saved value is used but not declared in `provides`";
     V5109 = 5109, Error, "A value declared in `provides` was not saved";
     V5110 = 5110, Error, "Command exited non-zero";
     V5111 = 5111, Error, "Template failed to render at run time";

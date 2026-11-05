@@ -1,5 +1,6 @@
 use crate::{
-    ActionId, ActionOutcome, CheckResult, CleanupRecord, Exchange, Failure, FileId, OwnerKey, RunStatus, TestResult, Totals,
+    ActionId, ActionOutcome, CheckResult, CleanupRecord, Exchange, Failure, FileId, OwnerKey, RunStatus, TestResult,
+    Totals,
 };
 
 /// Everything observable about a run, in the order it happened (D103).

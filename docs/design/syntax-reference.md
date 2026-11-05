@@ -652,7 +652,7 @@ An action is one entry in a lifecycle block or in a test's `steps`. Most actions
 
 In `beforeRun` and `beforeAll` every action that produces values needs an `id`, and everything it saves, including its api's `save`, is shared under that id: `${var.catalog.productIds}`. In per-test blocks and steps, saved names are plain (`${var.userId}`), as for any step.
 
-A `function:` or `test:` action can't always be read ahead of time to see what it saves, so it may declare `provides: [name, …]`; `vc check` then counts those names as set when it looks for vars that are never set (V2101). At run time, using a name such an action saved without declaring it is V5108, and a declared name it did not save is V5109 (D128).
+A `function:` or `test:` action can't always be read ahead of time to see what it saves, so it may declare `provides: [name, …]`; `vc check` then counts those names as set when it looks for vars that are never set (V2101). At run time, using a name such an action saved without declaring it is a V5108 warning (the run goes on, D186), and a declared name it did not save is V5109 (D128).
 
 ```yaml
 # services/orders/checkout.test.yaml (excerpt)

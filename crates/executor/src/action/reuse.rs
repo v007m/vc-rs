@@ -35,6 +35,7 @@ impl ActionExecutor for TestExecutor {
             report.fakes.extend(step.fakes);
             report.checks.extend(step.checks);
             report.exchanges.extend(step.exchanges);
+            report.warnings.extend(step.warnings);
             report.response = step.response.or(report.response);
             if let ActionOutcome::Failed(failure) = step.outcome {
                 report.outcome = ActionOutcome::Failed(failure);

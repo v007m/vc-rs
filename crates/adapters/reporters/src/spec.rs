@@ -51,6 +51,10 @@ impl SpecReporter {
                 self.lifecycle(*action, *owner, outcome)
             }
             Event::CleanupFinished { cleanup } => self.cleanup(cleanup),
+            Event::Warned { warning, .. } => {
+                let line = format!("{}: {}", warning.code.as_deref().unwrap_or("warning"), warning.message);
+                format!("{} {}\n", self.paint("!", Tone::Warn), text::sanitize(&line))
+            }
             Event::CleanupsAbandoned { owner, cleanups } => {
                 let actions: Vec<String> = cleanups.iter().map(|action| self.names.action(*action)).collect();
                 let line = format!("cleanups abandoned for {}: {}", self.names.owner(*owner), actions.join(", "));

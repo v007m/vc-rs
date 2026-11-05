@@ -71,6 +71,9 @@ impl Crew {
                 for check in &report.checks {
                     self.bus.publish(Event::CheckEvaluated { action, owner, check: Box::new(check.clone()) });
                 }
+                for warning in &report.warnings {
+                    self.bus.publish(Event::Warned { action, owner, warning: warning.clone() });
+                }
                 if let Some(slots) = slots {
                     let _first = slots.fill(action, report);
                 }

@@ -5,8 +5,8 @@ use indexmap::IndexMap;
 use serde_json::{Value, json};
 use vc_diagnostics::Code;
 use vc_model::{
-    ActionId, Dataset, DatasetId, Examples, GeneratorDef, Instance, InstanceId, Needs, OwnerKey, Profile, ProfileId,
-    TemplateValue,
+    ActionId, ActionKind, Dataset, DatasetId, Examples, GeneratorDef, HookRef, Instance, InstanceId, Needs, OwnerKey,
+    Profile, ProfileId, TemplateValue,
 };
 use vc_template::RenderError;
 
@@ -311,4 +311,49 @@ fn a_row_without_the_column_read_is_v5112_unless_a_default_stands_in() {
     assert_eq!((error.code, error.missing), (Some(Code::V5112), true), "{}", error.message);
     assert_eq!(render_one(&cx, action, frame(), &fallback), Ok(json!("-")));
     assert_eq!(render_one(&cx, action, frame(), &other).unwrap_err().code, None, "only rows are V5112");
+}
+
+/// The run after a `seed` function saved `token`, `userId` (declared) and `n`: its context, the
+/// seed and a call, the frame and `probe` parsed.
+fn seeded(probe: &str) -> (Arc<ActionCx>, (ActionId, ActionId), Frame, TemplateValue) {
+    let mut fixture = Fixture::new();
+    let seed = fixture.action(ActionKind::Function(HookRef { file: "hooks.ts".into(), export: "seed".into() }));
+    fixture.action_mut(seed).provides = vec![fixture.var("userId")];
+    let (call, probe) = (fixture.call("/users"), fixture.value(probe));
+    let cx = fixture.cx(ActionExecutors::new());
+    let left = saved(&[("token", json!("t")), ("userId", json!("u")), ("n", json!(2))]);
+    let mut frame = Frame::default();
+    frame.absorb(&cx.program, seed, &ActionReport { saved: Saved::clone(&left), ..ActionReport::passed() });
+    (cx, (seed, call), frame, probe)
+}
+
+#[test]
+fn reading_a_value_a_function_saved_undeclared_is_one_v5108_warning() {
+    let (cx, (seed, call), frame, probe) = seeded("${var.token}-${var.userId}");
+    let request = ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame };
+    let render = Render::new(&request).unwrap();
+    assert_eq!(render.value(&probe), Ok(json!("t-u")));
+    assert_eq!(render.value(&probe), Ok(json!("t-u")));
+    let warnings = render.warnings();
+    let found: Vec<_> = warnings.iter().map(|warning| (warning.code.clone(), warning.action)).collect();
+    assert_eq!(found, [(Some(Code::V5108.to_string()), Some(seed))], "`n` is not read; `userId` is declared");
+    assert_eq!(
+        warnings[0].message,
+        "`var.token` was saved by a `function:` step that does not declare it; add `provides: [token]` to that step"
+    );
+    let hook = Render::new(&request).unwrap();
+    assert_eq!((hook.vars()["n"].clone(), hook.warnings()), (json!(2), vec![]), "a hook's vars are not reads");
+}
+
+#[test]
+fn a_value_saved_again_by_a_call_is_no_longer_undeclared() {
+    let (cx, (_, call), mut frame, probe) = seeded("${var.token}");
+    let again = ActionReport { saved: Saved::clone(&saved(&[("token", json!("c"))])), ..ActionReport::passed() };
+    frame.absorb(&cx.program, call, &again);
+    let request = ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: frame.clone() };
+    let render = Render::new(&request).unwrap();
+    assert_eq!(render.value(&probe), Ok(json!("c")));
+    assert_eq!(render.warnings(), []);
+    frame.restart();
+    assert!(frame.origins.is_empty(), "a new attempt forgets where values came from");
 }

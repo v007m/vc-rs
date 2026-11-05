@@ -73,7 +73,8 @@ impl CommandExecutor {
         if !output.success() {
             return Err(exited(&output));
         }
-        Ok(ActionReport { fakes: render.into_memo(), ..ActionReport::passed() })
+        let warnings = render.warnings();
+        Ok(ActionReport { fakes: render.into_memo(), warnings, ..ActionReport::passed() })
     }
 
     fn spec(&self, render: &Render<'_>, template: &Template, action: &Action) -> Result<CommandSpec, Failure> {
