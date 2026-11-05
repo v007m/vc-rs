@@ -3,8 +3,8 @@
 use std::collections::BTreeSet;
 
 use serde_json::{Value, json};
-use vc_model::{Api, Program, SourceFile, SourceFileId, Sym, Test, TestId};
-use vc_planner::PlanOptions;
+use vc_model::{Api, Program, SourceFileId, Sym, Test, TestId};
+use vc_planner::{PlanError, PlanOptions};
 
 use crate::{Engine, EngineError, ListKind, ListRequest};
 
@@ -67,19 +67,19 @@ fn line(item: &Listed) -> String {
 }
 
 impl Engine {
-    /// Lists the tests `request` selects (skipped ones included), every api, or every
-    /// definition file.
+    /// Lists the tests (skipped ones included), the apis or the definition files `request`
+    /// selects.
     ///
     /// # Errors
     ///
     /// [`EngineError::Invalid`] when the project has errors, and [`EngineError::Selection`]
-    /// when a selector cannot be read or matches nothing.
+    /// when a selector cannot be read or matches nothing, or a tag filters apis.
     pub fn list(&self, request: &ListRequest) -> Result<ListReport, EngineError> {
         let (program, notices) = self.program()?;
         let items = match request.kind {
             ListKind::Tests => self.tests(&program, request)?,
-            ListKind::Apis => apis(&program),
-            ListKind::Files => files(&program),
+            ListKind::Apis => self.apis(&program, request)?,
+            ListKind::Files => self.files(&program, request)?,
         };
         Ok(ListReport { items, notices })
     }
@@ -88,14 +88,40 @@ impl Engine {
     fn tests(&self, program: &Program, request: &ListRequest) -> Result<Vec<Listed>, EngineError> {
         let selection = self.selection(&request.select)?;
         let options = PlanOptions { today: Some(self.clock.today().to_string()), ..PlanOptions::default() };
-        let plan = vc_planner::plan(program, &selection, &options)
-            .map_err(|error| EngineError::Selection { reason: error.to_string(), help: error.help() })?;
+        let plan = vc_planner::plan(program, &selection, &options).map_err(|error| selection_error(&error))?;
         let skipped: BTreeSet<TestId> = plan.skipped.iter().map(|skipped| skipped.test).collect();
         let runs: BTreeSet<TestId> = plan.files.iter().flat_map(|file| &file.instances).map(|i| i.test).collect();
         let picked = program.tests.values().filter(|test| runs.contains(&test.id) || skipped.contains(&test.id));
         let listed = picked.map(|test| listed_test(program, test, skipped.contains(&test.id)));
         Ok(listed.filter(|test| !request.skipped || test.skipped).collect())
     }
+
+    /// The selected apis. They have no tags, so `-t` is refused rather than listing nothing.
+    fn apis(&self, program: &Program, request: &ListRequest) -> Result<Vec<Listed>, EngineError> {
+        if !request.select.tags.is_empty() {
+            let help = Some("list the tests or files with `-t`, or select apis by ID, file or path".to_owned());
+            return Err(EngineError::Selection { reason: "apis have no tags".into(), help });
+        }
+        let selection = self.selection(&request.select)?;
+        let ids = vc_planner::select_apis(program, &selection).map_err(|error| selection_error(&error))?;
+        let api = |api: &Api| Listed {
+            name: api.name.clone(),
+            ..listed(program, api.span.file, text(program, api.id.sym()))
+        };
+        Ok(ids.iter().filter_map(|id| program.apis.get(id)).map(api).collect())
+    }
+
+    /// The selected definition files.
+    fn files(&self, program: &Program, request: &ListRequest) -> Result<Vec<Listed>, EngineError> {
+        let selection = self.selection(&request.select)?;
+        let ids = vc_planner::select_files(program, &selection).map_err(|error| selection_error(&error))?;
+        let file = |id: &SourceFileId| Some(listed(program, *id, program.files.get(*id)?.path.file_id()?));
+        Ok(ids.iter().filter_map(file).collect())
+    }
+}
+
+fn selection_error(error: &PlanError) -> EngineError {
+    EngineError::Selection { reason: error.to_string(), help: error.help() }
 }
 
 fn listed_test(program: &Program, test: &Test, skipped: bool) -> Listed {
@@ -116,24 +142,10 @@ fn listed_test(program: &Program, test: &Test, skipped: bool) -> Listed {
     }
 }
 
-fn apis(program: &Program) -> Vec<Listed> {
-    let api = |api: &Api| Listed {
-        id: text(program, api.id.sym()),
-        name: api.name.clone(),
-        path: program.files.get(api.span.file).map(|f| f.path.as_str().to_owned()).unwrap_or_default(),
-        tags: Vec::new(),
-        skipped: false,
-    };
-    program.apis.values().map(api).collect()
-}
-
-fn files(program: &Program) -> Vec<Listed> {
-    let all = (0..).map(SourceFileId::new).map_while(|id| program.files.get(id));
-    let listed = |file: &SourceFile| {
-        let id = file.path.file_id()?;
-        Some(Listed { id, name: None, path: file.path.as_str().to_owned(), tags: Vec::new(), skipped: false })
-    };
-    all.filter_map(listed).collect()
+/// An unnamed, untagged, unskipped definition `id` in `file`.
+fn listed(program: &Program, file: SourceFileId, id: String) -> Listed {
+    let path = program.files.get(file).map(|f| f.path.as_str().to_owned()).unwrap_or_default();
+    Listed { id, name: None, path, tags: Vec::new(), skipped: false }
 }
 
 fn text(program: &Program, sym: Sym) -> String {
