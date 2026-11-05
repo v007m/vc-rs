@@ -329,6 +329,13 @@ Round 25 additions (orchestrator defaults during M2 finish, 5 November 2026):
 | D181 | `command:` safety | A `command:` line is run by `sh -c` (unix) or `cmd /C` (Windows) in the project root, with the process environment plus `.env` and the run's vars. Each interpolated `${…}` value is quoted as one POSIX word on unix; on Windows a value holding `& \| < > ^ % ! " ( )` or a newline fails the action (V5111). Captured stdout and stderr keep the last 64 KiB each and pass through the redactor; a non-zero exit is V5110 with the exit code and the last lines. A timeout kills the whole process group | — |
 | D182 | `VIB_*` names | Settings map by upper-snaking the `--set` key (`VIB_PROFILE`, `VIB_DEFAULTS_CONCURRENCY`, `VIB_DEFAULTS_PER_HOST`, `VIB_DEFAULTS_TIMEOUT`, `VIB_REPORTS_DIR`, `VIB_REPORTS_FORMATS`); vars use `VIB_VAR_<name>` with the name exactly as written (`VIB_VAR_userId`), because upper-snaking a camelCase name loses information | — |
 
+Round 26 additions (5 November 2026):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D183 | `syn` 2 alongside `syn` 3 (Sarath) | `deny.toml` skips `syn@2`: oxc's `oxc_ast_macros` (hook analysis, D172) needs `phf_macros`, which every release builds on `syn` 2, and the `gungraun` dev-dependency uses it too. `syn` is build-time only, so the shipped binary is unaffected. Drop the skip once `phf_macros` moves to `syn` 3 | D135 (in part) |
+| D184 | Mask, then cut | `Event::Exchanged` carries full transport-capped bodies; `Redactor::event` masks the URL, headers and both bodies; only the history rows, run snapshot and report formats cut a body to `history.maxBodySize`, after masking, on a UTF-8 boundary, marking it truncated. Cutting first would let a secret split by the cut, or a JSON field past it, escape masking | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
