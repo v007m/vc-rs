@@ -26,6 +26,7 @@ const APPLY: &str = "apply";
 
 /// The provider a run has until the engine gives it one: it knows no auth type.
 #[derive(Clone, Copy, Debug, Default)]
+#[non_exhaustive]
 pub struct NoAuth;
 
 #[async_trait]
@@ -48,7 +49,11 @@ pub struct Prepared {
 /// # Errors
 ///
 /// A V5111 [`Failure`] when the definition's vars or settings do not render.
-pub fn prepare(request: &ActionRequest, render: &Render<'_>, call: (&Api, &Action)) -> Result<Option<Prepared>, Failure> {
+pub fn prepare(
+    request: &ActionRequest,
+    render: &Render<'_>,
+    call: (&Api, &Action),
+) -> Result<Option<Prepared>, Failure> {
     let program = render.program();
     let Some((def, vars)) = chosen(program, call) else { return Ok(None) };
     let given = Arc::new(given(render, def, vars)?);

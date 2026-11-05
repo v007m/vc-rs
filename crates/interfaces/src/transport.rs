@@ -153,10 +153,7 @@ mod tests {
     fn missing_credentials_are_v5114_and_say_why() {
         let error = TransportError::Credentials(AuthError::Rejected { auth: "svc".into(), status: 401 });
         assert_eq!(error.code(), Code::V5114);
-        assert_eq!(
-            error.to_string(),
-            "credentials could not be obtained: the token endpoint for `svc` answered 401"
-        );
+        assert_eq!(error.to_string(), "credentials could not be obtained: the token endpoint for `svc` answered 401");
     }
 
     #[test]

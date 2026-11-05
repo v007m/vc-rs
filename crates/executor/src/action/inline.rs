@@ -17,8 +17,10 @@ use crate::{ActionReport, Call, PipelineParts, Render};
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Runs inline requests through the request pipeline, with no auth and the pipeline's own
-/// retry. It judges the step's `expect` (with a default `status: 2xx` when none checks the
-/// status) and, when every check holds, saves the step's `save` values.
+/// retry.
+///
+/// It judges the step's `expect` (with a default `status: 2xx` when none checks the status)
+/// and, when every check holds, saves the step's `save` values.
 #[derive(Clone)]
 pub struct InlineExecutor {
     parts: PipelineParts,

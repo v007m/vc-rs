@@ -8,9 +8,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::Value;
 use vc_interfaces::{ActionRunner, AuthError, Credentials, Secret};
-use vc_model::{
-    ActionId, ActionOutcome, AuthDef, OwnerKey, Pos, SourceFileId, SourceSpan, Template, TemplateValue,
-};
+use vc_model::{ActionId, ActionOutcome, AuthDef, OwnerKey, Pos, SourceFileId, SourceSpan, Template, TemplateValue};
 use vc_template::RenderError;
 
 use super::APPLY;
@@ -80,7 +78,9 @@ impl FlowRunner {
         credentials.query = pairs(&applied, "query");
         credentials.cookies = pairs(&applied, "cookies");
         credentials.expires_in = match &self.expires_in {
-            Some(template) => Some(self.lifetime(&render.template(template).map_err(|error| self.unrendered(&error))?)?),
+            Some(template) => {
+                Some(self.lifetime(&render.template(template).map_err(|error| self.unrendered(&error))?)?)
+            }
             None => None,
         };
         Ok(credentials)
@@ -118,7 +118,7 @@ fn lifetime(value: &Value) -> Option<Duration> {
         Value::Number(seconds) => seconds.as_u64().map(Duration::from_secs),
         Value::String(text) => {
             let span = SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0));
-            vc_template::parse_duration(text.trim(), span).ok().map(|duration| duration.get())
+            vc_template::parse_duration(text.trim(), span).ok().map(vc_model::Duration::get)
         }
         _ => None,
     }

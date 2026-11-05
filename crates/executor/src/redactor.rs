@@ -48,9 +48,10 @@ impl Redactor {
     /// A redactor for the config's `redact` settings: its headers, fields and rules.
     #[must_use]
     pub fn for_config(config: &Config) -> Self {
-        let redactor = config.redact_rules.iter().fold(Self::new(&config.redact_headers), |redactor, rule| {
-            redactor.with_rule(mask::rule(rule))
-        });
+        let redactor = config
+            .redact_rules
+            .iter()
+            .fold(Self::new(&config.redact_headers), |redactor, rule| redactor.with_rule(mask::rule(rule)));
         redactor.hide_fields(&config.redact_fields);
         redactor
     }
@@ -114,7 +115,12 @@ impl Redactor {
                 cleanup.outcome = self.outcome(cleanup.outcome);
                 Event::CleanupFinished { cleanup }
             }
-            other => other,
+            unmasked @ (Event::RunStarted { .. }
+            | Event::FileStarted { .. }
+            | Event::FileFinished { .. }
+            | Event::ActionStarted { .. }
+            | Event::CleanupsAbandoned { .. }
+            | Event::RunFinished { .. }) => unmasked,
         }
     }
 

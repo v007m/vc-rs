@@ -6,11 +6,11 @@ use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderValue, StatusCode};
 use serde_json::{Map, Value, json};
 use vc_interfaces::{
-    AuthError, AuthProvider, AuthRequest, Credentials, SendContext, Secret, Secrets, Transport, TransportError,
+    AuthError, AuthProvider, AuthRequest, Credentials, Secret, Secrets, SendContext, Transport, TransportError,
 };
 use vc_model::{
-    AuthDef, AuthId, AuthRef, BodySpec, Check, CheckKind, ConnectionInfo, Event, Exchange, Feed, HttpResponse,
-    Matcher, Method, Origin, RedactRule, RenderedRequest, TemplateValue, Timing, VarDefs,
+    AuthDef, AuthId, AuthRef, BodySpec, Check, CheckKind, ConnectionInfo, Event, Exchange, Feed, HttpResponse, Matcher,
+    Method, Origin, RedactRule, RenderedRequest, TemplateValue, Timing, VarDefs,
 };
 
 use super::{Executor, RunOptions};
@@ -104,9 +104,9 @@ async fn no_event_shows_a_secret_a_token_a_hidden_field_or_a_rule_match() {
         .filter_map(|feed| if let Feed::Event(sequenced) = feed { Some(sequenced.event) } else { None })
         .collect();
     let checked = events.iter().any(|event| matches!(event, Event::CheckEvaluated { .. }));
-    let text = format!("{events:?}");
+    let shown = format!("{events:?}");
     for leak in LEAKS {
-        assert!(!text.contains(leak), "{leak} leaked");
+        assert!(!shown.contains(leak), "{leak} leaked");
     }
-    assert!(checked && text.contains(crate::MASKED));
+    assert!(checked && shown.contains(crate::MASKED));
 }

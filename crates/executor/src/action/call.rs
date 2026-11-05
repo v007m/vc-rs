@@ -14,8 +14,8 @@ use vc_model::{
 };
 
 use super::request;
-use super::{auth, http_retry};
 use super::{ActionExecutor, ActionRequest};
+use super::{auth, http_retry};
 use crate::check::{self, Judge, MatcherRegistry, Subject};
 use crate::{ActionReport, Call, PendingCleanup, Pipeline, PipelineParts, Render, Saved};
 
@@ -61,13 +61,15 @@ impl CallExecutor {
         let call = Call { request: request::rendered(&render, api, action)?, timeout, ctx: SendContext::default() };
         let retry = http_retry::policy(render.program(), api, &request.cx.values.inputs().random);
         let prepared = auth::prepare(request, &render, (api, action))?;
-        let pipeline = crate::pipeline(auth::added(PipelineParts { retry, ..self.parts.clone() }, &request.cx, prepared));
+        let pipeline =
+            crate::pipeline(auth::added(PipelineParts { retry, ..self.parts.clone() }, &request.cx, prepared));
         let exchange = match &action.poll {
             Some(poll) => self.poll(&mut render, (&pipeline, call), poll).await?,
             None => send(&pipeline, call).await?,
         };
         let response = bind(&mut render, &exchange);
-        let checks = self.judge(&render, &expected(action, (Origin::Api(api.id), api.span)), subject(&response, &exchange));
+        let checks =
+            self.judge(&render, &expected(action, (Origin::Api(api.id), api.span)), subject(&response, &exchange));
         let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
         let cleanups = if registers { cleanup(&render, api)? } else { None };
         let saved = check::verdict(&checks).map_or_else(|| saves(&render, &[&api.save, &action.save]), Err);
@@ -168,7 +170,7 @@ pub fn subject<'s>(response: &'s Value, exchange: &Exchange) -> Subject<'s> {
 
 /// The action's merged checks, after a default `status: 2xx` from `origin` when none checks
 /// the status.
-pub fn expected<'a>(action: &'a Action, (origin, span): (Origin, SourceSpan)) -> Cow<'a, [Check]> {
+pub fn expected(action: &Action, (origin, span): (Origin, SourceSpan)) -> Cow<'_, [Check]> {
     let checks = &action.expect.checks;
     if checks.iter().any(|check| check.kind == CheckKind::Status) {
         return Cow::Borrowed(checks);

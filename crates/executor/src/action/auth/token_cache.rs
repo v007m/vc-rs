@@ -1,5 +1,9 @@
 //! The run's token cache: one write-once slot per auth key, so requests that need the same
 //! credentials at the same moment wait for one fetch (D113, D168).
+#![expect(
+    clippy::disallowed_types,
+    reason = "the token cache is one of the three places shared mutable state is allowed; the lock is never held across an await"
+)]
 
 use std::collections::HashMap;
 use std::fmt;
@@ -79,10 +83,14 @@ impl TokenCache {
 
     /// The credentials for `key`, fetched once with `fetch` and again once they are within
     /// `refresh_before` of expiring.
+    ///
+    /// # Errors
+    ///
+    /// The error `fetch` gave, kept for the rest of the run like a success.
     pub async fn get<F, Fut>(&self, key: AuthKey, refresh_before: Duration, fetch: F) -> Result<Credentials, AuthError>
     where
-        F: Fn() -> Fut,
-        Fut: Future<Output = Result<Credentials, AuthError>>,
+        F: Fn() -> Fut + Sync,
+        Fut: Future<Output = Result<Credentials, AuthError>> + Send,
     {
         let fill = || async { cached(fetch().await, refresh_before) };
         let slot = self.slot(key);
@@ -126,7 +134,7 @@ fn cached(result: Result<Credentials, AuthError>, refresh_before: Duration) -> C
 fn random_key() -> [u8; 32] {
     let state = RandomState::new();
     let mut key = [0; 32];
-    for (index, chunk) in key.chunks_exact_mut(8).enumerate() {
+    for (index, chunk) in key.as_chunks_mut::<8>().0.iter_mut().enumerate() {
         chunk.copy_from_slice(&state.hash_one(index).to_le_bytes());
     }
     key

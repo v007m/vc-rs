@@ -42,7 +42,7 @@ impl AuthStage {
 
     async fn fetch(&self) -> Result<Credentials, AuthError> {
         let credentials = self.provider.credentials(&self.prepared.request).await?;
-        self.redactor.hide_values(credentials.values());
+        self.redactor.hide_values(hidden(&credentials));
         self.redactor.hide_headers(credentials.headers.iter().map(|(name, _)| name));
         Ok(credentials)
     }
@@ -58,6 +58,13 @@ impl RequestStage for AuthStage {
             TransportError::Credentials(AuthError::Malformed { auth, missing })
         })
     }
+}
+
+/// What the redactor must mask once `credentials` arrive: each value, and the token after a
+/// scheme such as `Bearer `, which can show up on its own (in the response that issued it).
+fn hidden(credentials: &Credentials) -> Vec<&str> {
+    let tokens = credentials.values().filter_map(|value| value.split_once(' ').map(|(_, token)| token.trim()));
+    credentials.values().chain(tokens).collect()
 }
 
 /// `request` with `credentials` on it, or `None` when one of them cannot go in a request.
@@ -92,7 +99,9 @@ fn with_query(uri: &Uri, added: &[(String, Secret)]) -> Option<Uri> {
     let mut url = uri.to_string();
     for (name, value) in added {
         url.push(if url.contains('?') { '&' } else { '?' });
-        url.push_str(&format!("{}={}", request::encode(name), request::encode(value.expose())));
+        url.push_str(&request::encode(name));
+        url.push('=');
+        url.push_str(&request::encode(value.expose()));
     }
     url.parse().ok()
 }

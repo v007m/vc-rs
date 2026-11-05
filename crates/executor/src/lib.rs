@@ -38,12 +38,12 @@ pub use error::ExecutorError;
 
 pub use check::{Arguments, Judge, MatcherFn, MatcherRegistry};
 pub use exit::{EXIT_CANCELLED, EXIT_FAILED, EXIT_NOTHING_RAN, EXIT_PASSED, exit_code};
-pub use mask::{CelRule, MaskRule, RegexRule};
 pub use machine::{
     ActionReport, CANCELLED, FailedActions, FileCommand, FileInput, FileOrchestrator, FilePhase, InstanceCommand,
     InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup, RunCommand, RunInput,
     RunOrchestrator, RunPhase, RunSummary, Saved, Verdict,
 };
+pub use mask::{CelRule, MaskRule, RegexRule};
 pub use pipeline::{
     Attempted, BoxFuture, Call, Delivery, Hop, HostLimit, HostLimits, HttpRetryPolicy, Jittered, NoRetry, Pipeline,
     PipelineParts, RequestStage, Retried, Retry, RetryOn, RetryPolicy, Stage, Timeout, Timing, Transmit, Unchanged,

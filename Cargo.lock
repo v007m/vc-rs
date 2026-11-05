@@ -2481,9 +2481,11 @@ dependencies = [
 name = "vc-executor"
 version = "0.1.0"
 dependencies = [
+ "aho-corasick",
  "arc-swap",
  "async-trait",
  "base64",
+ "blake3",
  "bytes",
  "http",
  "indexmap",

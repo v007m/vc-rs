@@ -7,7 +7,10 @@ use vc_interfaces::{AuthError, Credentials};
 
 use super::TokenCache;
 
-fn counting(calls: &Arc<AtomicUsize>, lifetime: Option<Duration>) -> impl Fn() -> std::future::Ready<Result<Credentials, AuthError>> {
+fn counting(
+    calls: &Arc<AtomicUsize>,
+    lifetime: Option<Duration>,
+) -> impl Fn() -> std::future::Ready<Result<Credentials, AuthError>> {
     let calls = Arc::clone(calls);
     move || {
         let turn = calls.fetch_add(1, Ordering::SeqCst);
@@ -39,8 +42,7 @@ async fn concurrent_requests_share_one_fetch() {
     let calls = Arc::new(AtomicUsize::new(0));
     let key = cache.key("svc", &json!({}), &json!({}));
     let fetch = counting(&calls, None);
-    let (first, second) =
-        tokio::join!(cache.get(key, Duration::ZERO, &fetch), cache.get(key, Duration::ZERO, &fetch));
+    let (first, second) = tokio::join!(cache.get(key, Duration::ZERO, &fetch), cache.get(key, Duration::ZERO, &fetch));
     assert_eq!((token(&first.unwrap()), token(&second.unwrap())), ("Bearer t0", "Bearer t0"));
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
