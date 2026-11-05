@@ -62,7 +62,8 @@ impl<'a> Build<'_, 'a> {
 pub fn inline(source: &Source<'_>, node: &Node) -> Option<InlineRequest> {
     let url = read::template(source, node.get("url")?)?;
     let body = node.get("body").and_then(|body| read::body(source, body)).unwrap_or_default();
-    Some(InlineRequest { method: read::method(node), url, headers: read::templates(source, node, "headers"), body })
+    let (query, headers) = (read::templates(source, node, "query"), read::templates(source, node, "headers"));
+    Some(InlineRequest { method: read::method(node), url, query, headers, body })
 }
 
 /// `secrets`, with the names the schema declares.

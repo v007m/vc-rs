@@ -46,8 +46,8 @@ fn call_with(arg: MatcherArg) -> Matcher {
     Matcher::All(vec![MatcherCall { name: "equals".into(), arg, span: testing::span() }])
 }
 
-fn inline(url: Template, headers: IndexMap<String, Template>) -> InlineRequest {
-    InlineRequest { method: Method::Get, url, headers, body: BodySpec::None }
+fn inline(url: Template, headers: IndexMap<String, Template>) -> Box<InlineRequest> {
+    Box::new(InlineRequest { method: Method::Get, url, query: IndexMap::new(), headers, body: BodySpec::None })
 }
 
 /// Whether test `a` needs the `beforeRun` action `warm` once `place` puts a read of it somewhere.
@@ -143,6 +143,11 @@ const KINDS: &[(&str, Place)] = &[
     ("inline header", |f, _, c| {
         f.action_mut(c).kind =
             ActionKind::Inline(inline(testing::read("x"), IndexMap::from([("a".into(), testing::read("warm"))])));
+    }),
+    ("inline query", |f, _, c| {
+        let mut request = inline(testing::read("x"), IndexMap::new());
+        request.query = IndexMap::from([("q".into(), testing::read("warm"))]);
+        f.action_mut(c).kind = ActionKind::Inline(request);
     }),
     ("inline body", |f, _, c| {
         let mut request = inline(testing::read("x"), IndexMap::new());

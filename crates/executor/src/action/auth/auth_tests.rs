@@ -111,10 +111,10 @@ async fn calls_carry_the_credentials_fetched_once_for_the_run() {
     assert!(run(&cx, call).await.outcome.failure().is_none());
     assert!(run(&cx, call).await.outcome.failure().is_none());
     let sent = recordings.take();
-    assert_eq!(sent.iter().map(|recorded| header(recorded, &AUTHORIZATION)).collect::<Vec<_>>(), [
-        Some("Bearer t-1".to_owned()),
-        Some("Bearer t-1".to_owned())
-    ]);
+    assert_eq!(
+        sent.iter().map(|recorded| header(recorded, &AUTHORIZATION)).collect::<Vec<_>>(),
+        [Some("Bearer t-1".to_owned()), Some("Bearer t-1".to_owned())]
+    );
     assert!(sent[0].request.headers.get(AUTHORIZATION).is_some_and(HeaderValue::is_sensitive));
     assert_eq!(issuer.fetched(), 1);
 }
@@ -135,7 +135,7 @@ fn the_closest_auth_that_does_not_inherit_is_chosen() {
     program.api_groups[&group].auth = uses(id, IndexMap::new());
     assert_eq!(chosen_vars(program, call), Some((id, 0)));
     let given = fixture.vars(&[("token", "api")]);
-    fixture.api_mut(call).auth = uses(id, given.clone());
+    fixture.api_mut(call).auth = uses(id, given);
     assert_eq!(chosen_vars(&fixture.program, call), Some((id, 1)));
     fixture.action_mut(call).auth = Some(AuthRef::None);
     assert_eq!(chosen_vars(&fixture.program, call), None);
@@ -153,7 +153,8 @@ async fn use_site_vars_win_and_each_set_of_vars_has_its_own_credentials() {
     fixture.api_mut(first).auth = uses(id, fixture.vars(&[("token", "alice")]));
     fixture.api_mut(second).auth = uses(id, fixture.vars(&[("token", "bob")]));
     let issuer = Arc::new(Issuer::default());
-    let (cx, recordings) = context(fixture, Arc::clone(&issuer) as Arc<dyn AuthProvider>, vec![vc_testkit::status(200); 3]);
+    let (cx, recordings) =
+        context(fixture, Arc::clone(&issuer) as Arc<dyn AuthProvider>, vec![vc_testkit::status(200); 3]);
     for call in [first, second, first] {
         assert!(run(&cx, call).await.outcome.failure().is_none());
     }
@@ -169,7 +170,8 @@ async fn a_refresh_on_status_fetches_again_and_retries_once() {
     let call = fixture.call("/users");
     fixture.api_mut(call).auth = uses(id, IndexMap::new());
     let issuer = Arc::new(Issuer::default());
-    let answers = vec![vc_testkit::status(401), vc_testkit::status(200), vc_testkit::status(401), vc_testkit::status(401)];
+    let answers =
+        vec![vc_testkit::status(401), vc_testkit::status(200), vc_testkit::status(401), vc_testkit::status(401)];
     let (cx, recordings) = context(fixture, Arc::clone(&issuer) as Arc<dyn AuthProvider>, answers);
     assert!(run(&cx, call).await.outcome.failure().is_none());
     assert!(run(&cx, call).await.outcome.failure().is_some());
@@ -190,7 +192,7 @@ async fn credentials_that_cannot_be_obtained_fail_the_call_with_v5114_before_sen
     assert_eq!(code(&report), Some(Code::V5114.to_string()));
     let message = &report.outcome.failure().unwrap().message;
     assert!(message.contains("svc") && !message.contains("hunter22"), "{message}");
-    assert!(recordings.take().is_empty());
+    assert_eq!(recordings.take().len(), 0);
 }
 
 #[tokio::test]
@@ -234,7 +236,7 @@ async fn credentials_that_cannot_go_on_a_request_fail_with_v5114() {
     fixture.api_mut(call).auth = uses(id, IndexMap::new());
     let (cx, recordings) = context(fixture, Arc::new(Unusable), vec![vc_testkit::status(200)]);
     assert_eq!(code(&run(&cx, call).await), Some(Code::V5114.to_string()));
-    assert!(recordings.take().is_empty());
+    assert_eq!(recordings.take().len(), 0);
 }
 
 /// A `flow` auth `svc` whose one inline step (`login`) posts the `user` var to `/login` and
@@ -243,12 +245,13 @@ fn flow(fixture: &mut Fixture, expires_in: Option<&str>) -> AuthId {
     let id = AuthId::new(fixture.sym("svc"));
     let body = TemplateValue::Map([("user".to_owned(), fixture.value("${var.user}"))].into());
     let url = fixture.template("http://id.test/login");
-    let login = fixture.action(ActionKind::Inline(InlineRequest {
+    let login = fixture.action(ActionKind::Inline(Box::new(InlineRequest {
         method: Method::Post,
         url,
+        query: IndexMap::new(),
         headers: IndexMap::new(),
         body: BodySpec::Json(body),
-    }));
+    })));
     fixture.action_mut(login).id = Some(fixture.sym("login"));
     fixture.action_mut(login).save.values = fixture.vars(&[("token", "${response.body.access_token}")]);
     let mut def = AuthDef::new(id, "flow");
@@ -293,6 +296,11 @@ async fn a_failing_flow_step_fails_the_call_naming_the_step_but_not_its_response
     assert_eq!(recordings.take().len(), 1);
 }
 
+/// The vars a `flow` runner gets from the definition: `user` is `ada`.
+fn ada() -> Arc<Saved> {
+    Arc::new(Saved::from_iter([("user".to_owned(), json!("ada"))]))
+}
+
 #[tokio::test]
 async fn a_flow_renders_when_its_credentials_expire() {
     for (expires_in, seconds) in [("${var.token}", 90), ("2m", 120)] {
@@ -301,7 +309,7 @@ async fn a_flow_renders_when_its_credentials_expire() {
         let def = fixture.program.auth[&id].clone();
         let answers = vec![json_response(200, &json!({"access_token": 90}))];
         let (cx, _) = context(fixture, Arc::new(Issuer::default()), answers);
-        let runner = FlowRunner::new(Arc::clone(&cx), &def, Arc::new(Saved::new()));
+        let runner = FlowRunner::new(Arc::clone(&cx), &def, ada());
         let credentials = vc_interfaces::ActionRunner::run(&runner).await.unwrap();
         assert_eq!(credentials.expires_in, Some(Duration::from_secs(seconds)));
     }
@@ -314,11 +322,11 @@ async fn a_flow_fails_on_an_expiry_that_is_no_duration_or_an_empty_list_of_steps
     let mut def = fixture.program.auth[&id].clone();
     let answers = vec![json_response(200, &json!({"access_token": "t"}))];
     let (cx, _) = context(fixture, Arc::new(Issuer::default()), answers);
-    let runner = FlowRunner::new(Arc::clone(&cx), &def, Arc::new(Saved::new()));
+    let runner = FlowRunner::new(Arc::clone(&cx), &def, ada());
     let error = vc_interfaces::ActionRunner::run(&runner).await.unwrap_err();
     assert!(matches!(&error, AuthError::Flow { reason, .. } if reason.contains("expiresIn")), "{error}");
     def.steps.clear();
-    let runner = FlowRunner::new(cx, &def, Arc::new(Saved::new()));
+    let runner = FlowRunner::new(cx, &def, ada());
     let error = vc_interfaces::ActionRunner::run(&runner).await.unwrap_err();
     assert!(matches!(&error, AuthError::Flow { reason, .. } if reason.contains("no steps")), "{error}");
 }

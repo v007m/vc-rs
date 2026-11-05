@@ -5,7 +5,7 @@ use vc_model::{
 
 use crate::{CompileInput, Compiled};
 
-const CONFIG: &str = "syntaxVersion: 2\nvars: {idUrl: https://id.test, ttl: 60}\nprofiles:\n  - id: dev\n    default: true\nsecrets: {provider: varlock}\nredact:\n  rules:\n    - regex: '\\d{3}-\\d{4}'\n    - cel: item.name == 'ssn'\nauth:\n  - id: svc\n    type: oauth2ClientCredentials\n    tokenUrl: ${var.idUrl}/token\n    clientId: shop\n    clientSecret: ${secret.CLIENT_SECRET}\n    scopes: [read, write]\n    refreshBefore: 30s\n    refreshOn: [401, 419]\n  - id: login\n    type: flow\n    name: Partner login\n    vars: {user: ada}\n    expiresIn: ${var.ttl}s\n    cache: true\n    steps:\n      - id: token\n        method: POST\n        url: ${var.idUrl}/login\n        headers: {content-type: application/json}\n        body: {user: '${var.user}'}\n        save: {accessToken: '${response.body.token}'}\n    apply:\n      headers: {authorization: 'Bearer ${var.accessToken}'}\n  - id: key\n    type: apiKey\n    in: header\n    name: x-api-key\n    value: k\n    pkce: true\n    redirectPort: 8123\n";
+const CONFIG: &str = "syntaxVersion: 2\nvars: {idUrl: https://id.test, ttl: 60}\nprofiles:\n  - id: dev\n    default: true\nsecrets: {provider: varlock}\nredact:\n  rules:\n    - regex: '\\d{3}-\\d{4}'\n    - cel: item.name == 'ssn'\nauth:\n  - id: svc\n    type: oauth2ClientCredentials\n    tokenUrl: ${var.idUrl}/token\n    clientId: shop\n    clientSecret: ${secret.CLIENT_SECRET}\n    scopes: [read, write]\n    refreshBefore: 30s\n    refreshOn: [401, 419]\n  - id: login\n    type: flow\n    name: Partner login\n    vars: {user: ada}\n    expiresIn: ${var.ttl}s\n    cache: true\n    steps:\n      - id: token\n        method: POST\n        url: ${var.idUrl}/login\n        query: {as: '${var.user}'}\n        headers: {content-type: application/json}\n        body: {user: '${var.user}'}\n        save: {accessToken: '${response.body.token}'}\n    apply:\n      headers: {authorization: 'Bearer ${var.accessToken}'}\n  - id: key\n    type: apiKey\n    in: header\n    name: x-api-key\n    value: k\n    pkce: true\n    redirectPort: 8123\n";
 
 const SCHEMA: &str = "# @sensitive\nCLIENT_SECRET=\nAPI_TOKEN=\n";
 
@@ -79,6 +79,15 @@ fn a_flow_builds_its_steps_as_inline_run_actions() {
     assert!(request.headers.contains_key("content-type"));
     assert!(matches!(request.body, vc_model::BodySpec::Json(_)));
     assert_eq!(action.save.values.len(), 1);
+}
+
+#[test]
+fn a_flow_step_keeps_its_query() {
+    let program = program();
+    let step = def(&program, "login").steps[0];
+    let action = &program.actions[usize::try_from(step.index()).unwrap()];
+    let ActionKind::Inline(request) = &action.kind else { panic!("inline: {:?}", action.kind) };
+    assert_eq!(request.query.keys().collect::<Vec<_>>(), ["as"]);
 }
 
 #[test]

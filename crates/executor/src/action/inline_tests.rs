@@ -31,10 +31,11 @@ fn inline(fixture: &mut Fixture, url: &str) -> ActionId {
     let request = InlineRequest {
         method: Method::Post,
         url: fixture.template(url),
+        query: fixture.templates(&[("by", "${var.name}")]),
         headers: fixture.templates(&[("x-step", "${var.name}")]),
         body: BodySpec::Text(fixture.template("hi ${var.name}")),
     };
-    let action = fixture.action(ActionKind::Inline(request));
+    let action = fixture.action(ActionKind::Inline(Box::new(request)));
     fixture.action_mut(action).vars.values = fixture.vars(&[("name", "ada")]);
     action
 }
@@ -50,7 +51,10 @@ async fn an_inline_request_is_sent_as_written_and_saves_when_its_checks_hold() {
     assert_eq!(report.saved.get("token"), Some(&json!("abc")));
     assert_eq!(report.response.as_deref().and_then(|response| response.get("status")), Some(&json!(201)));
     let request = &sent[0].request;
-    assert_eq!((request.method.as_str(), request.uri.to_string()), ("POST", "http://id.test/login?as=ada".into()));
+    assert_eq!(
+        (request.method.as_str(), request.uri.to_string()),
+        ("POST", "http://id.test/login?as=ada&by=ada".into())
+    );
     assert_eq!(request.headers.get("x-step").unwrap(), "ada");
     assert_eq!(request.headers.get("x-trace").unwrap(), "t");
     assert_eq!(request.headers.get(CONTENT_TYPE).unwrap(), "text/plain; charset=utf-8");
@@ -75,7 +79,7 @@ async fn an_inline_url_that_does_not_parse_fails_before_sending() {
     let action = inline(&mut fixture, "http://bad host/");
     let (report, sent) = send(fixture, action, vec![]).await;
     assert!(report.outcome.failure().is_some_and(|failure| failure.message.contains("is not a URL")));
-    assert!(sent.is_empty());
+    assert_eq!(sent.len(), 0);
 }
 
 #[tokio::test]
@@ -85,7 +89,7 @@ async fn the_inline_executor_runs_only_inline_actions_and_follows_nothing() {
     let parts = PipelineParts::new(Arc::new(FakeTransport::scripted(Vec::new())), HostLimits::spawn(1));
     let executor = super::InlineExecutor::new(parts);
     let action = fixture.program.actions[0].clone();
-    assert!(crate::ActionExecutor::follows(&executor, &fixture.program, &action).is_empty());
+    assert_eq!(crate::ActionExecutor::follows(&executor, &fixture.program, &action).len(), 0);
     let cx = fixture.cx(ActionExecutors::new());
     let request = ActionRequest { action: call, owner: OwnerKey::Run, cx, frame: Frame::default() };
     let report = crate::ActionExecutor::execute(&executor, request).await;

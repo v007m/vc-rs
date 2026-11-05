@@ -29,11 +29,11 @@ pub fn rendered(render: &Render<'_>, api: &Api, action: &Action) -> Result<Rende
     with_body(render, request, action.body.as_ref().unwrap_or(&api.body))
 }
 
-/// The request an inline step (a `flow` auth's) sends: its method, URL, headers and body as
-/// written, with the config's default headers under its own.
+/// The request an inline step (a `flow` auth's) sends: its method, URL, query, headers and
+/// body as written, with the config's default headers under its own.
 pub fn inline(render: &Render<'_>, inline: &InlineRequest) -> Result<RenderedRequest, Failure> {
     let url = render.text(&inline.url).map_err(failed)?;
-    let uri = url.parse::<Uri>().map_err(|error| rendering(&format!("`{url}` is not a URL: {error}")))?;
+    let uri = with_query(url, &query(render, [&inline.query])?)?;
     let mut request = RenderedRequest::new(method(inline.method), uri);
     let levels = [&render.program().config.defaults.headers, &inline.headers];
     request.headers = header_levels(render, levels.into_iter().flatten())?;
@@ -58,19 +58,23 @@ fn uri(render: &Render<'_>, api: &Api, action: &Action) -> Result<Uri, Failure> 
     for template in base.into_iter().chain([&api.path]) {
         url.push_str(&render.text(template).map_err(failed)?);
     }
-    let query = query(render, api, action)?;
+    with_query(url, &query(render, [&api.query, &action.query])?)
+}
+
+/// `url` with `query` appended, parsed.
+fn with_query(mut url: String, query: &str) -> Result<Uri, Failure> {
     if !query.is_empty() {
         url.push(if url.contains('?') { '&' } else { '?' });
-        url.push_str(&query);
+        url.push_str(query);
     }
     url.parse::<Uri>().map_err(|error| rendering(&format!("`{url}` is not a URL: {error}")))
 }
 
-/// The api's query with the action's over it; a null value leaves its key out and a list
-/// repeats it.
-fn query(render: &Render<'_>, api: &Api, action: &Action) -> Result<String, Failure> {
-    let mut merged: IndexMap<&str, &Template> = api.query.iter().map(|(key, value)| (key.as_str(), value)).collect();
-    merged.extend(action.query.iter().map(|(key, value)| (key.as_str(), value)));
+/// The query `levels` make, each over the ones before it; a null value leaves its key out and
+/// a list repeats it.
+fn query<const N: usize>(render: &Render<'_>, levels: [&IndexMap<String, Template>; N]) -> Result<String, Failure> {
+    let merged: IndexMap<&str, &Template> =
+        levels.into_iter().flatten().map(|(key, value)| (key.as_str(), value)).collect();
     let mut pairs = Vec::new();
     for (key, template) in merged {
         let items = match render.template(template).map_err(failed)? {

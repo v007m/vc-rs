@@ -75,7 +75,7 @@ impl<'a> Build<'_, 'a> {
             return Ok(Some(ActionKind::Function(read::hook(function))));
         }
         if let Some(request) = auth::inline(source, node) {
-            return Ok(Some(ActionKind::Inline(request)));
+            return Ok(Some(ActionKind::Inline(Box::new(request))));
         }
         let command = node.get("command").and_then(|command| read::template(source, command));
         Ok(command.map(ActionKind::Command))
