@@ -37,7 +37,7 @@ pub struct Check {
 }
 
 /// The kinds of check, one per `expect` key.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_enums,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -64,7 +64,7 @@ pub enum CheckKind {
 }
 
 /// The level a check was written at.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_enums,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -131,7 +131,7 @@ pub enum MatcherArg {
 
 /// One evaluated check, reported on its own: where it was written, what it expected, what came
 /// back and, for objects and lists that differ, a line diff.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"

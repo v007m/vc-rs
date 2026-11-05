@@ -336,6 +336,13 @@ Round 26 additions (5 November 2026):
 | D183 | `syn` 2 alongside `syn` 3 (Sarath) | `deny.toml` skips `syn@2`: oxc's `oxc_ast_macros` (hook analysis, D172) needs `phf_macros`, which every release builds on `syn` 2, and the `gungraun` dev-dependency uses it too. `syn` is build-time only, so the shipped binary is unaffected. Drop the skip once `phf_macros` moves to `syn` 3 | D135 (in part) |
 | D184 | Mask, then cut | `Event::Exchanged` carries full transport-capped bodies; `Redactor::event` masks the URL, headers and both bodies; only the history rows, run snapshot and report formats cut a body to `history.maxBodySize`, after masking, on a UTF-8 boundary, marking it truncated. Cutting first would let a secret split by the cut, or a JSON field past it, escape masking | — |
 
+Round 27 additions (5 November 2026):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D185 | Async redactor (Sarath) | `MaskRule`, `Redactor::event` and `RedactingSink::publish` become async, so a `function:` redact rule (D171) can call the `HookRunner` within its hook budget without blocking the runtime. The built-in secret masking stays first and synchronous; user rules run after it in config order. Hook redact rules ship in M4 | — |
+| D186 | V5108 in M4 (Sarath) | V5108 ships in M4 with V5109: each dynamically saved value carries its origin action, so a read of a value that a `function:`/`test:` action saved without declaring it in `provides` emits a V5108 warning event and the run continues | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

@@ -1,19 +1,14 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use vc_interfaces::{Artifact, ReportError};
-use vc_testkit::reporter_suite;
 
 use super::*;
 use crate::testing::{self, Broken, Capture};
 
-/// The XML the scripted run writes.
-async fn written() -> String {
+/// The XML `snapshot` renders to.
+fn rendered(snapshot: &RunSnapshot) -> String {
     let (capture, captured) = Capture::new();
-    let context = testing::context(capture);
-    let mut reporter = JunitReporter::new(&context);
-    let events = testing::script(&context.program(), context.plan());
-    let artifacts = testing::run(&mut reporter, &events, &testing::summary()).await;
+    let artifacts = JunitFormat.render(snapshot, capture.as_ref()).unwrap();
     assert_eq!(artifacts, [Artifact::new("junit", PathBuf::from("out/junit.xml"))]);
     let (printed, mut saved) = captured.take();
     assert!(printed.is_empty(), "the file reporter prints nothing");
@@ -23,22 +18,21 @@ async fn written() -> String {
     text
 }
 
-#[tokio::test]
-async fn passes_the_reporter_suite() {
-    let (capture, _captured) = Capture::new();
-    reporter_suite(&mut || Box::new(JunitReporter::new(&testing::context(capture.clone())))).await;
+/// The XML the scripted run writes.
+fn written() -> String {
+    rendered(&testing::snapshot())
 }
 
-#[tokio::test]
-async fn writes_the_scripted_run() {
-    let xml = written().await;
+#[test]
+fn writes_the_scripted_run() {
+    let xml = written();
     assert!(!xml.contains('\u{1b}'), "the response's escape character is replaced");
     insta::assert_snapshot!(xml);
 }
 
-#[tokio::test]
-async fn counts_blocked_tests_as_errors_and_writes_each_outcome() {
-    let xml = written().await;
+#[test]
+fn counts_blocked_tests_as_errors_and_writes_each_outcome() {
+    let xml = written();
     let suites = r#"<testsuites name="vibranium" tests="6" failures="1" errors="1" skipped="1" time="2.500">"#;
     assert!(xml.contains(suites), "{xml}");
     assert!(xml.contains(r#"<testsuite name="users.crud" tests="6" failures="1" errors="1" skipped="1""#), "{xml}");
@@ -54,40 +48,26 @@ async fn counts_blocked_tests_as_errors_and_writes_each_outcome() {
     assert_eq!(xml.matches("<testcase ").count(), 6);
 }
 
-#[tokio::test]
-async fn puts_tests_of_files_that_never_started_in_their_own_suite() {
-    let (capture, captured) = Capture::new();
+#[test]
+fn puts_tests_of_files_that_never_started_in_their_own_suite() {
+    let (capture, _captured) = Capture::new();
     let context = testing::context(capture);
-    let mut reporter = JunitReporter::new(&context);
     let events = testing::script(&context.program(), context.plan());
-    let finished = events.into_iter().filter(|e| matches!(e, vc_model::Event::TestFinished { .. }));
-    testing::run(&mut reporter, &finished.collect::<Vec<_>>(), &testing::summary()).await;
-    let xml = captured.take().1.remove(0).1;
+    let finished: Vec<_> = events.into_iter().filter(|e| matches!(e, vc_model::Event::TestFinished { .. })).collect();
+    let xml = rendered(&testing::record(&context, &finished).1);
     assert_eq!(xml.matches("<testsuite ").count(), 1, "{xml}");
     assert_eq!(xml.matches("<testcase ").count(), 6, "{xml}");
 }
 
 #[test]
 fn notes_a_flaky_test_without_a_failure_plainly() {
-    let (capture, _captured) = Capture::new();
-    let context = testing::context(capture);
-    let reporter = JunitReporter::new(&context);
-    let test = *context.program().tests.keys().next().unwrap();
-    let result = vc_model::TestResult {
-        test,
-        instance: None,
-        status: vc_model::TestStatus::Flaky,
-        attempts: 3,
-        failure: None,
-        skip_reason: None,
-    };
-    let record = TestRecord { result, steps: Vec::new(), start: None, stop: std::time::Duration::ZERO };
-    assert_eq!(reporter.outcome(&record), "      <system-out>flaky: passed after 3 attempts</system-out>\n");
+    let mut view = testing::snapshot().tests.remove(3);
+    view.attempts = 3;
+    assert_eq!(flaky(&view, ""), "flaky: passed after 3 attempts");
 }
 
-#[tokio::test]
-async fn reports_a_file_it_cannot_save() {
-    let mut reporter = JunitReporter::new(&testing::context(Arc::new(Broken)));
+#[test]
+fn reports_a_file_it_cannot_save() {
     let refused = ReportError::Write { location: "junit.xml".into(), reason: "read-only".into() };
-    assert_eq!(reporter.finish(&testing::summary()).await, Err(refused));
+    assert_eq!(JunitFormat.render(&testing::snapshot(), &Broken), Err(refused));
 }

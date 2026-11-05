@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{ActionId, FileId, InstanceId, TestId};
 
 /// The frame an action runs in, which decides how long its saves and cleanups live.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_enums,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -16,7 +18,7 @@ pub enum OwnerKey {
 }
 
 /// Why an action, a test or a run did not pass.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -51,7 +53,7 @@ impl Failure {
 }
 
 /// How one action ended.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_enums,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -75,7 +77,7 @@ impl ActionOutcome {
 }
 
 /// How one test instance ended (D126).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_enums,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -94,7 +96,7 @@ pub enum TestStatus {
 }
 
 /// How a whole run ended.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_enums,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -109,7 +111,7 @@ pub enum RunStatus {
 }
 
 /// The result of one test instance, or of a skipped test.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -131,7 +133,7 @@ pub struct TestResult {
 }
 
 /// One cleanup that ran: a failed cleanup is reported (V5107) and changes no result.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
@@ -146,7 +148,7 @@ pub struct CleanupRecord {
 }
 
 /// Instance counts by status.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"

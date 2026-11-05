@@ -8,7 +8,7 @@ use tower::ServiceExt;
 use vc_interfaces::SendContext;
 use vc_model::{
     Action, ActionId, ActionKind, ActionOutcome, Api, Check, CheckKind, CheckResult, Exchange, Failure, Matcher,
-    Namespace, Origin, Program, SaveSpec, Size, SourceSpan, StatusPattern,
+    Namespace, Origin, Program, SaveSpec, SourceSpan, StatusPattern,
 };
 
 use super::flight::Flight;
@@ -75,8 +75,7 @@ impl CallExecutor {
             Ok(saved) => report.saved = saved,
             Err(failure) => report.outcome = ActionOutcome::Failed(failure),
         }
-        let exchanges = vec![kept(exchange, render.program().config.history.max_body_size)];
-        Ok(ActionReport { response: Some(response), fakes: render.into_memo(), exchanges, ..report })
+        Ok(ActionReport { response: Some(response), fakes: render.into_memo(), exchanges: vec![exchange], ..report })
     }
 
     /// The call's flight: the pipeline from these parts with the api's retry (D143), auth and
@@ -143,14 +142,6 @@ pub fn bind(render: &mut Render<'_>, exchange: &Exchange) -> Arc<Value> {
     render.bind(Namespace::Response, Value::clone(&response));
     render.bind(Namespace::Request, request::sent(&exchange.request));
     response
-}
-
-/// `exchange` with each body cut to `max` bytes, as it leaves the executor.
-fn kept(mut exchange: Exchange, max: Size) -> Exchange {
-    let max = usize::try_from(max.bytes()).unwrap_or(usize::MAX);
-    exchange.request.body.truncate(max);
-    exchange.response.body.truncate(max);
-    exchange
 }
 
 /// What the checks read of `exchange`, with `response` as bound.

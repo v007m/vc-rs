@@ -203,8 +203,9 @@ secrets:
   schema: .env.schema
 
 reports:
-  dir: .vibranium/reports
+  dir: .vibranium/reports          # each run's files go in <dir>/<run>/
   formats: [ctrf, junit, html]
+  html: {layout: folder}           # or single: one self-contained report.html
 
 history:
   bodies: failures

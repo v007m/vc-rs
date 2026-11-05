@@ -22,6 +22,9 @@
 //!   `flow` definition's steps for it (D106).
 //! - [`Browser`] and [`Keychain`]: the browser sign-in and the stored refresh token of
 //!   `oauth2AuthorizationCode`.
+//! - [`HistoryWriter`] and [`HistoryReader`]: the run history in `.vibranium/history.db`; the
+//!   writer stores redacted rows and the report snapshot, the reader answers `vc history`,
+//!   `vc report` and `vc run --failed` (D167, D170).
 //! - [`HookRunner`]: runs a hook function in a sandbox within a time and memory [`Budget`] (D172).
 //!
 //! ```
@@ -43,6 +46,7 @@ mod command;
 mod config;
 mod environment;
 mod filter;
+mod history;
 mod hooks;
 mod keychain;
 mod random;
@@ -60,6 +64,10 @@ pub use command::{CommandError, CommandOutput, CommandRunner, CommandSpec};
 pub use config::{ConfigEntry, ConfigSource, ConfigSourceError};
 pub use environment::Environment;
 pub use filter::SourceFilter;
+pub use history::{
+    CheckRow, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart,
+    TestRow, TimingRow,
+};
 pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
 pub use keychain::{Keychain, KeychainError};
 pub use random::Random;

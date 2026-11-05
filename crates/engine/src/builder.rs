@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, ProcessRunner, SystemClock};
 use vc_interfaces::{
-    Clock, CommandRunner, CompileCacheStore, Environment, HookRunner, SourceProvider, Transport, Vcs,
+    Clock, CommandRunner, CompileCacheStore, Environment, HistoryReader, HistoryWriter, HookRunner, SourceProvider,
+    Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -22,7 +23,11 @@ pub struct EngineBuilder {
     commands: Option<Arc<dyn CommandRunner>>,
     hooks: Option<Arc<dyn HookRunner>>,
     user_config: Option<PathBuf>,
+    history: Option<HistoryPorts>,
 }
+
+/// The history's writer and reader, given together.
+type HistoryPorts = (Arc<dyn HistoryWriter>, Arc<dyn HistoryReader>);
 
 impl EngineBuilder {
     /// A builder for the project whose root is `root`.
@@ -39,6 +44,7 @@ impl EngineBuilder {
             commands: None,
             hooks: None,
             user_config: None,
+            history: None,
         }
     }
 
@@ -119,6 +125,14 @@ impl EngineBuilder {
         self
     }
 
+    /// Keeps the run history in `writer` and reads it from `reader` instead of
+    /// `.vibranium/history.db`.
+    #[must_use]
+    pub fn history(mut self, writer: Arc<dyn HistoryWriter>, reader: Arc<dyn HistoryReader>) -> Self {
+        self.history = Some((writer, reader));
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -137,6 +151,7 @@ impl EngineBuilder {
         let commands = self.commands.unwrap_or_else(|| Arc::new(ProcessRunner::new()));
         let (environment, transport, hooks, user_config) =
             (self.environment, self.transport, self.hooks, self.user_config);
+        let (history, history_reader) = self.history.unzip();
         Ok(Engine {
             root: self.root,
             sources,
@@ -148,6 +163,8 @@ impl EngineBuilder {
             commands,
             hooks,
             user_config,
+            history,
+            history_reader,
         })
     }
 }
@@ -170,6 +187,8 @@ pub struct Engine {
     pub(crate) commands: Arc<dyn CommandRunner>,
     pub(crate) hooks: Option<Arc<dyn HookRunner>>,
     pub(crate) user_config: Option<PathBuf>,
+    pub(crate) history: Option<Arc<dyn HistoryWriter>>,
+    pub(crate) history_reader: Option<Arc<dyn HistoryReader>>,
 }
 
 impl Engine {

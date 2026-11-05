@@ -52,7 +52,7 @@ vibranium/
       auth/                  auth types (`AuthTypes` registry): basic, bearer, apiKey, OAuth 2.0 grants, flow; the token cache is in the executor
       secrets/               environment (the default, D163) and Varlock providers (`SecretProviders` registry); they supply values, the redactor is in the executor (D106)
       hooks/                 QuickJS thread, TypeScript stripping (oxc)
-      store/                 history.db and cache.db (SQLite)
+      store/                 history.db (`SqliteHistory` writer thread, `SqliteHistoryReader`) and cache.db (SQLite)
       reporters/             CTRF, JUnit, HTML (folder and single), console
       notifiers/             webhook, Slack, Teams, PagerDuty, email
       importers/             OpenAPI, HAR, cURL, Postman, Bruno, v1
@@ -118,7 +118,7 @@ Third-party crates:
 | Selection | `globset` 0.4, `strsim` 0.11 | Glob selectors and did-you-mean suggestions in the planner |
 | Hashing | `blake3` 1 | File-hash cache, memo keys, body deduplication |
 | File walking and watching | `ignore` 0.4, `globset` 0.4, `notify` 9 | `.gitignore`-aware discovery; `paths.include` and `paths.exclude` globs (`SourceFilter`); `vc watch` |
-| SQLite | `rusqlite` 0.40 (bundled) | history.db and cache.db; no system dependency |
+| SQLite | `rusqlite` 0.41 (bundled; `libsqlite3-sys` 0.39) | history.db and cache.db in `vc-adapter-store`; no system dependency. Bodies and snapshots are compressed with the `zstd` already used for decoding |
 | Keychain and encryption | `keyring` 4, `chacha20poly1305` 0.11 | Cache encryption key in the OS keychain |
 | Secret redaction | `aho-corasick` 1 | Fast multi-string replacement over every output |
 | TypeScript hooks | `rquickjs` 0.14 (`loader` feature; `vc-adapter-hooks`), `oxc` 0.155 (`oxc_allocator`, `oxc_ast`, `oxc_codegen`, `oxc_diagnostics`, `oxc_parser`, `oxc_semantic`, `oxc_span`, `oxc_syntax`, `oxc_transformer`; `vc-compiler`); `hmac` 0.13, `sha2` 0.11, `base64` 0.23 for `vibranium:std` | Measured in the spike: 4.2 MB, about 20 µs per call |
@@ -744,7 +744,7 @@ pub enum Event {
     RunStarted { files: usize, instances: usize }, FileStarted { file: FileId },
     FileFinished { file: FileId, totals: Totals },
     ActionStarted { action: ActionId, owner: OwnerKey },
-    Exchanged { action: ActionId, owner: OwnerKey, exchange: Box<Exchange> }, // a call's request and response, redacted, bodies cut at history.maxBodySize; before its checks
+    Exchanged { action: ActionId, owner: OwnerKey, exchange: Box<Exchange> }, // a call's request and response, whole, then redacted (history and reports cut bodies at history.maxBodySize afterwards); before its checks
     CheckEvaluated { action: ActionId, owner: OwnerKey, check: Box<CheckResult> }, // each, in order, before ActionFinished
     ActionFinished { action: ActionId, owner: OwnerKey, outcome: ActionOutcome },
     CleanupFinished { cleanup: CleanupRecord },
@@ -938,13 +938,15 @@ CREATE TABLE runs (
   id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, finished_at INTEGER,
   profiles TEXT NOT NULL, selector TEXT NOT NULL, git_commit TEXT, git_branch TEXT,
   seed INTEGER, vc_version TEXT NOT NULL, config_hash TEXT NOT NULL,
-  passed INTEGER, failed INTEGER, blocked INTEGER, skipped INTEGER, flaky INTEGER, kind TEXT NOT NULL -- run | load | adhoc | agent
+  passed INTEGER, failed INTEGER, blocked INTEGER, skipped INTEGER, flaky INTEGER,
+  kind TEXT NOT NULL,              -- run | load | adhoc | agent
+  status TEXT                      -- passed | failed | cancelled; NULL while running or when the process died
 );
 CREATE TABLE test_results (
   id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
   test_id TEXT NOT NULL, example_row INTEGER, repeat_index INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL, duration_ms REAL NOT NULL, attempts INTEGER NOT NULL DEFAULT 1,
-  blocked_by TEXT, skip_reason TEXT, skip_until TEXT
+  blocked_by TEXT, skip_reason TEXT, skip_until TEXT, message TEXT
 );
 CREATE TABLE checks (
   test_result_id INTEGER NOT NULL REFERENCES test_results(id) ON DELETE CASCADE,
@@ -952,22 +954,32 @@ CREATE TABLE checks (
   origin TEXT NOT NULL, file TEXT NOT NULL, line INTEGER NOT NULL
 );
 CREATE TABLE exchanges (
-  id INTEGER PRIMARY KEY, test_result_id INTEGER REFERENCES test_results(id) ON DELETE CASCADE,
-  run_id INTEGER NOT NULL, action TEXT NOT NULL, api_id TEXT, method TEXT NOT NULL, url TEXT NOT NULL,
+  id INTEGER PRIMARY KEY, test_result_id INTEGER REFERENCES test_results(id) ON DELETE CASCADE,  -- NULL: a lifecycle exchange
+  run_id INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE, action TEXT NOT NULL, api_id TEXT, method TEXT NOT NULL, url TEXT NOT NULL,
   status INTEGER, dns_ms REAL, connect_ms REAL, tls_ms REAL, first_byte_ms REAL, download_ms REAL, total_ms REAL,
   request_headers TEXT, response_headers TEXT, request_body BLOB, response_body BLOB, body_truncated INTEGER
 );
 CREATE TABLE load_intervals (
-  run_id INTEGER NOT NULL, test_id TEXT NOT NULL, second INTEGER NOT NULL,
+  run_id INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE, test_id TEXT NOT NULL, second INTEGER NOT NULL,
   count INTEGER NOT NULL, errors INTEGER NOT NULL, histogram BLOB NOT NULL  -- HdrHistogram V2 encoding
 );
 CREATE TABLE agent_actions (
   id INTEGER PRIMARY KEY, at INTEGER NOT NULL, agent TEXT NOT NULL, tool TEXT NOT NULL,
   profile TEXT, arguments TEXT NOT NULL, result TEXT NOT NULL, approved_by TEXT
 );
+CREATE TABLE snapshots (           -- the report snapshot of a finished run (D167), zstd
+  run_id INTEGER PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE, data BLOB NOT NULL
+);
+CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
 CREATE INDEX test_results_by_test ON test_results(test_id, run_id);
+CREATE INDEX test_results_by_run ON test_results(run_id);
+CREATE INDEX exchanges_by_run ON exchanges(run_id);
 CREATE INDEX runs_by_time ON runs(started_at);
 ```
+
+The ports are `HistoryWriter` (`begin`, `record`, `finish`, `prune`) and `HistoryReader` (`runs`, `run`, `tests`, `snapshot`) in `vc-interfaces`; `vc-adapter-store` implements them as `SqliteHistory` (the writer thread, fed by a channel) and `SqliteHistoryReader` (a read-only connection per query; a missing file is an empty history), and `vc-testkit` has `MemoryHistory` with `history_writer_suite` and `history_reader_suite`. Rows reach the writer already redacted and cut; the writer never masks. A failed batch commit does not stop the run: the next `finish` reports it once. Foreign keys are on, so pruning a run deletes its tests, checks, exchanges and snapshot.
+
+In the engine, `Engine::run` begins a run (`kind`, start time, profiles, selectors as typed, seed, `vc` version) before the executor starts and binds its number to `${run.id}` (0 when the history cannot be opened: the run then goes unrecorded with a notice, and its report files go straight into `reports.dir`). The reporter fan-out hands each event to a `Recorder`, which gives back the rows it completes for `Recording::record`; when the run ends the engine renders the report formats from the recorder's `RunSnapshot` into `<reports.dir>/<run>/` (or `--out` as is), then `finish`es the run with the snapshot and prunes on a blocking thread. `Engine::history`, `Engine::stored` and `Engine::prune_history` serve `vc history`; `Engine::report` reads a snapshot back and renders it again through the same `FormatRegistry`. `vc run --failed` reads the last run's failed and blocked rows and selects them, as `<test>:<n>` instances for an `examples` row (n counted as the planner counts row × repeat), under the last run's profiles.
 
 Bodies are stored per `history.bodies` (default: failures only), cut at `history.maxBodySize` and compressed with zstd. Retention (`history.keep`, default 50 runs, D170) deletes the oldest runs when a run ends. Schema changes go through numbered migrations stored in the file. The same `HistoryStore` trait has a Postgres adapter for the self-hosted server.
 

@@ -65,8 +65,8 @@ pub struct ActionReport {
     pub response: Option<Arc<serde_json::Value>>,
     /// Its evaluated checks, in order, each reported as a `CheckEvaluated` event.
     pub checks: Vec<CheckResult>,
-    /// Its calls' exchanges, bodies cut at `history.maxBodySize`, each reported as an
-    /// `Exchanged` event before the checks.
+    /// Its calls' exchanges, whole, each reported as an `Exchanged` event before the checks;
+    /// the redactor masks them, and only history and reports cut the bodies afterwards.
     pub exchanges: Vec<Exchange>,
     /// Reads of values a `function:` or `test:` action saved without declaring them in
     /// `provides`, each a V5108 warning at the action that saved the value (D186), reported as a

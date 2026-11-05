@@ -28,6 +28,8 @@ pub struct Settings {
     pub reports_dir: Option<String>,
     /// `reports.formats`.
     pub formats: Option<Named>,
+    /// `reports.html.layout`: whether the HTML report is one file (`single`) or a folder.
+    pub html_single_file: Option<bool>,
     /// `vars.<name>`, in the order set.
     pub vars: Vec<(String, String)>,
 }
@@ -43,6 +45,7 @@ const KEYS: &[(&str, Apply)] = &[
     ("defaults.timeout", timeout),
     ("reports.dir", reports_dir),
     ("reports.formats", formats),
+    ("reports.html.layout", html_layout),
 ];
 
 /// The prefix of the keys that set config vars.
@@ -141,6 +144,16 @@ fn reports_dir(settings: &mut Settings, entry: &ConfigEntry) -> Result<(), Strin
 #[expect(clippy::unnecessary_wraps, reason = "every key has the `Apply` signature")]
 fn formats(settings: &mut Settings, entry: &ConfigEntry) -> Result<(), String> {
     settings.formats = Some(named(entry));
+    Ok(())
+}
+
+fn html_layout(settings: &mut Settings, entry: &ConfigEntry) -> Result<(), String> {
+    let single = match entry.value.trim() {
+        "single" => true,
+        "folder" => false,
+        other => return Err(format!("`{other}` is not `folder` or `single`")),
+    };
+    settings.html_single_file = Some(single);
     Ok(())
 }
 

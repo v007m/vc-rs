@@ -240,14 +240,15 @@ async fn a_reuse_runs_its_steps_with_their_saves_step_ids_and_its_callers_vars()
 }
 
 #[tokio::test]
-async fn the_exchange_is_reported_with_its_bodies_cut_at_the_history_limit() {
+async fn the_exchange_is_reported_whole_so_the_redactor_masks_it_before_any_cut() {
     let mut fixture = Fixture::new();
     let call = fixture.call("/users");
     fixture.api_mut(call).body = BodySpec::Json(fixture.value("abcdefghij"));
     fixture.program.config.history.max_body_size = Size::from_bytes(4);
     let (report, _) = send(fixture, call, Frame::default(), vec![json_response(200, &json!({ "id": 7 }))]).await;
     let [exchange] = report.exchanges.as_slice() else { panic!("one exchange: {:?}", report.exchanges) };
-    assert_eq!((exchange.request.body.as_ref(), exchange.response.body.as_ref()), (&b"\"abc"[..], &b"{\"id"[..]));
+    let bodies = (exchange.request.body.as_ref(), exchange.response.body.as_ref());
+    assert_eq!(bodies, (&b"\"abcdefghij\""[..], &b"{\"id\":7}"[..]));
     assert_eq!(report.response.map(|response| response["body"].clone()), Some(json!({ "id": 7 })));
 }
 

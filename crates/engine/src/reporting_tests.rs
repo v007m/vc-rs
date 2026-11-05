@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use vc_interfaces::RunId;
 use vc_model::Program;
 
 use super::Chosen;
@@ -32,7 +33,27 @@ fn refusal(result: Result<Chosen, EngineError>) -> (String, Option<String>) {
 fn defaults_to_spec_and_ctrf_under_the_reports_folder() {
     let chosen = choose(None, &Settings::default(), &program(&[], None)).unwrap();
     let dir = PathBuf::from("/p/.vibranium/reports");
-    assert_eq!(chosen, Chosen { console: "spec".into(), files: vec!["ctrf".into()], dir });
+    let expected =
+        Chosen { console: "spec".into(), files: vec!["ctrf".into()], dir, per_run: true, single_file: false };
+    assert_eq!(chosen, expected);
+}
+
+#[test]
+fn each_run_gets_its_own_folder_unless_out_is_given() {
+    let chosen = choose(None, &Settings::default(), &program(&[], None)).unwrap();
+    let run = Some(RunId::new(42));
+    assert_eq!(chosen.dir_for(run), PathBuf::from("/p/.vibranium/reports/42"));
+    assert_eq!(chosen.dir_for(None), PathBuf::from("/p/.vibranium/reports"), "no history, no run folder");
+    assert_eq!(chosen.flat(true).dir_for(run), PathBuf::from("/p/.vibranium/reports"));
+}
+
+#[test]
+fn the_html_layout_comes_from_a_layer_else_the_config() {
+    let mut config = program(&["html"], None);
+    config.config.html_single_file = true;
+    assert!(choose(None, &Settings::default(), &config).unwrap().single_file);
+    let folder = Settings { html_single_file: Some(false), ..Settings::default() };
+    assert!(!choose(None, &folder, &config).unwrap().single_file);
 }
 
 #[test]
@@ -53,8 +74,6 @@ fn a_flag_wins_over_the_config_and_an_absolute_out_stays() {
 fn a_planned_reporter_is_not_supported_yet() {
     let (reason, help) = refusal(choose(Some("dots"), &Settings::default(), &program(&[], None)));
     assert_eq!((reason.as_str(), help), ("--reporter: `dots` is not supported yet", None));
-    let (reason, _) = refusal(choose(None, &Settings::default(), &program(&["html"], None)));
-    assert_eq!(reason, "vibranium.config.yaml: `html` is not supported yet");
 }
 
 #[test]
@@ -74,5 +93,5 @@ fn an_unknown_name_lists_the_known_ones() {
     assert_eq!(help.as_deref(), Some("the console formats are spec, json"));
     let (reason, help) = refusal(choose(None, &flag(&["xml"]), &program(&[], None)));
     assert_eq!(reason, "--report: no report format `xml`");
-    assert_eq!(help.as_deref(), Some("the report formats are ctrf, junit"));
+    assert_eq!(help.as_deref(), Some("the report formats are ctrf, junit, html"));
 }

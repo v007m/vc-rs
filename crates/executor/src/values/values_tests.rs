@@ -59,6 +59,17 @@ fn profiles_layer_over_the_config_in_order() {
 }
 
 #[test]
+fn run_id_is_the_history_run_number() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let probe = fixture.value("user-${run.id}");
+    let inputs = fixture::inputs(&[]).with_run_id(483);
+    assert!(format!("{inputs:?}").contains("run_id: 483"), "{inputs:?}");
+    let cx = Arc::new(ActionCx::new(Arc::new(fixture.program), Arc::new(ActionExecutors::new()), inputs));
+    assert_eq!(run_level(&cx, action, &probe), Ok(json!("user-483")));
+}
+
+#[test]
 fn vars_set_from_outside_win_over_the_config_and_its_profiles() {
     let mut fixture = Fixture::new();
     let action = fixture.call("/users");

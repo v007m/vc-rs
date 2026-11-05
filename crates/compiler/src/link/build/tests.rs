@@ -7,7 +7,7 @@ use vc_model::{
 
 use crate::CompileInput;
 
-const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n    vars: {region: eu}\nauth:\n  - id: admin\n    type: bearer\n    token: t\nbeforeRun:\n  - id: warm\n    call: users#list\nreports: {dir: out, formats: [ctrf]}\nredact: {headers: [x-key], fields: [password]}\nhistory: {bodies: all, maxBodySize: 1kb, keep: 7}\n";
+const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n    vars: {region: eu}\nauth:\n  - id: admin\n    type: bearer\n    token: t\nbeforeRun:\n  - id: warm\n    call: users#list\nreports: {dir: out, formats: [ctrf], html: {layout: single}}\nredact: {headers: [x-key], fields: [password]}\nhistory: {bodies: all, maxBodySize: 1kb, keep: 7}\n";
 
 const APIS: &str = "name: Users\nbaseUrl: ${var.baseUrl}\nheaders: {accept: json}\nvars: {page: 1}\nprofiles:\n  - id: dev\n    vars: {page: 2}\napis:\n  - id: list\n    path: /users\n    expect: {status: 200}\n  - id: create\n    method: POST\n    path: /users\n    body: {name: Ada}\n    expect:\n      status: 201\n      headers: {Content-Type: {contains: json}}\n      cel: {named: response.body.name == 'Ada'}\n    save: {userId: '${response.body.id}'}\n    cleanup: {call: remove, vars: {id: '${response.body.id}'}}\n  - id: remove\n    method: DELETE\n    path: /users/${var.id}\n    deprecated: true\n";
 
@@ -67,13 +67,19 @@ fn builds_the_config_profiles_and_run_blocks() {
         (&["x-key".to_owned()][..], &["password".to_owned()][..])
     );
     assert_eq!(program.config.report_formats, ["ctrf"]);
-    let history = program.config.history;
-    assert_eq!((history.bodies, history.max_body_size.bytes(), history.keep), (Bodies::All, 1024, Keep::Runs(7)));
     let profile = program.profiles.values().next().unwrap();
     assert!(profile.default && profile.vars.len() == 1);
     let [warm] = program.run_blocks.before_run[..] else { panic!("one beforeRun action") };
     assert_eq!(action(&program, warm).owner, Owner::Run);
     assert_eq!(action(&program, warm).id.map(|id| name(&program, id)), Some("warm"));
+}
+
+#[test]
+fn builds_the_report_and_history_settings() {
+    let program = program();
+    assert!(program.config.html_single_file);
+    let history = program.config.history;
+    assert_eq!((history.bodies, history.max_body_size.bytes(), history.keep), (Bodies::All, 1024, Keep::Runs(7)));
 }
 
 #[test]
@@ -229,6 +235,26 @@ fn test_steps_take_the_tests_defaults_and_function_steps_take_none() {
 }
 
 const ROWS: &str = "vars: {rows: [{page: 3}]}\ntests:\n  - id: listsEachPage\n    call: users#list\n    examples:\n      - {page: 1}\n      - {page: '${var.rows}'}\n  - id: listsFilePages\n    call: users#list\n    standalone: false\n    examples: {$file: data/pages.csv}\n  - id: listsVarPages\n    call: users#list\n    standalone: true\n    examples: ${var.rows}\n";
+
+/// The config alone, with `extra` appended to a minimal one.
+fn config_with(extra: &str) -> Arc<Program> {
+    let text = format!("syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n{extra}");
+    let files = vec![file("vibranium.config.yaml", &text)];
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
+    let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
+    assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
+    compiled.program.unwrap()
+}
+
+#[test]
+fn history_keeps_every_run_or_falls_back_to_the_defaults() {
+    let all = config_with("history: {keep: all}\nreports: {html: {layout: folder}}\n");
+    assert_eq!(all.config.history.keep, Keep::All);
+    assert_eq!(all.config.history.bodies, Bodies::Failures, "unwritten keys keep their defaults");
+    assert!(!all.config.html_single_file);
+    let none = config_with("");
+    assert_eq!((none.config.history.max_body_size.bytes(), none.config.history.keep), (64 * 1024, Keep::Runs(50)));
+}
 
 fn rows() -> Arc<Program> {
     with_tests("services/users/rows.test.yaml", ROWS)

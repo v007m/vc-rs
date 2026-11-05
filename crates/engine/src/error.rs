@@ -61,6 +61,14 @@ pub enum EngineError {
         /// What to do instead.
         help: Option<String>,
     },
+    /// The run history cannot be read or written, or holds no such run.
+    #[error("history: {reason}")]
+    History {
+        /// What is wrong.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
     /// Something inside the engine failed; this is a bug to report, not a user error.
     #[error("{reason}")]
     Internal {
@@ -77,7 +85,10 @@ impl EngineError {
             Self::NoProject { .. } => {
                 Some("run it inside a project, pass `--project <dir>`, or create one with `vc init`".to_owned())
             }
-            Self::Selection { help, .. } | Self::Setting { help, .. } | Self::Reporter { help, .. } => help.clone(),
+            Self::Selection { help, .. }
+            | Self::Setting { help, .. }
+            | Self::Reporter { help, .. }
+            | Self::History { help, .. } => help.clone(),
             _ => None,
         }
     }

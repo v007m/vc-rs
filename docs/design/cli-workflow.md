@@ -333,8 +333,11 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 | Command | Does |
 | --- | --- |
-| `vc history [query]` | Past runs, failures, flaky tests, trends; `vc history compare 481 482` |
-| `vc report [run] --format html\|junit\|ctrf [--open]` | Writes a report for any stored run |
+| `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors |
+| `vc history show [run\|last] [--json]` | One stored run and the tests in it that did not pass, with why |
+| `vc history prune [--keep N]` | Drops the oldest runs beyond `N` (else the config's `history.keep`); a run also prunes when it ends |
+| `vc history [query]`, `vc history compare 481 482` | Failures, flaky tests and trends across runs (later) |
+| `vc report [run\|last] [--format html,junit,ctrf] [--out DIR] [--single-file]` | Writes a stored run's report files again from its snapshot (D167), `html` when `--format` names none, into `.vibranium/reports/<run>/` unless `--out` says; prints each file. `--open` comes later |
 | `vc cache list\|clear [id]` | Shows or clears cached lifecycle data (clearing runs its cleanup) |
 | `vc config explain <key>` | Shows a config value and which layer set it (D129) |
 | `vc plugin add\|list\|remove` | Manages plugins and their permissions |
@@ -370,14 +373,14 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `-t`, `--tag` | tests with a tag; `!` excludes, `,` means or. A test's tags are its file's tags plus its own | `vc run -t smoke,checkout -t '!slow'` |
 | `-g`, `--grep` | tests whose ID or name contains text | `vc run -g export` |
 | `--changed [ref]` | tests in files git reports as changed since a ref, plus tests that call apis in changed api files (D130). With no ref, the working tree against `HEAD`: uncommitted and untracked files. A changed `vibranium.config.yaml` or `.env.schema` selects every test (D179) | `vc run --changed origin/main` |
-| `--failed` | the tests that failed or were blocked in the last run | `vc run --failed` |
+| `--failed` | the tests that failed or were blocked in the last run, under its profiles unless `--profile` names some; a failed `examples` row reruns as its own instances. Takes no other selector; exits 2 when no run is stored or the last one had nothing to rerun | `vc run --failed` |
 | `--include-skipped` | also runs tests marked `skip` | `vc run users.crud --include-skipped` |
 
 A full ID joins the file ID and the item ID with `#` (`users.crud#getsCreatedUser`); a bare dotted word is always a file ID (D138). A `#` inside a word is not a comment in bash, zsh, fish or PowerShell, so selectors work unquoted; quote them only under zsh's `extendedglob` option. Web UI URLs percent-encode it (`%23`).
 
-Useful run flags: `--profile staging,eu` (profiles, as a comma list or repeated; later wins), `--bail` (start no more tests after the first failure), `--repeat 20` (run every selected test this many times instead of its own `repeat`, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data; a failing run prints the seed it used), `--set key=value` (override one config value for this run, D129), `--no-cache` (ignore cached lifecycle data), `--reporter spec|json` (console format; `dots` comes later), `--report ctrf,junit` (files to write, as a comma list or repeated, over the config's `reports.formats`; `ctrf` when neither names any; `html` comes later), `--out <dir>` (where the report files go, over the config's `reports.dir`). `plan`, `run` and `list` exit 2 when they refuse to start: errors in the definitions, an empty selection, or an unknown flag value.
+Useful run flags: `--profile staging,eu` (profiles, as a comma list or repeated; later wins), `--bail` (start no more tests after the first failure), `--repeat 20` (run every selected test this many times instead of its own `repeat`, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data; a failing run prints the seed it used), `--set key=value` (override one config value for this run, D129), `--no-cache` (ignore cached lifecycle data), `--reporter spec|json` (console format; `dots` comes later), `--report ctrf,junit,html` (files to write, as a comma list or repeated, over the config's `reports.formats`; `ctrf` when neither names any), `--out <dir>` (where the report files go, as they are, over the config's `reports.dir`; without it each run's files go in `<reports.dir>/<run>/`, named by the run's number in the history), `--single-file` (the HTML report as one self-contained `report.html`, over `reports.html.layout`). Every run is stored in `.vibranium/history.db` (D170); a history that cannot be opened leaves the run unrecorded with a warning and its files straight in `reports.dir`. `plan`, `run` and `list` exit 2 when they refuse to start: errors in the definitions, an empty selection, or an unknown flag value.
 
-`--set` takes `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats` and `vars.<name>`; any other key exits 2 and lists these.
+`--set` takes `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats`, `reports.html.layout` and `vars.<name>`; any other key exits 2 and lists these.
 
 Selecting a few tests never runs other files' setup. Running one checkout test runs the config's `beforeRun` (it runs for any run that selects a test), its own file's `beforeAll` and its `beforeEach`; other files' `beforeAll` blocks don't run. `beforeRun` and `beforeAll` finish before any selected test starts (D122). `vc plan` prints this before you run, and the first line of `vc run` output repeats it:
 

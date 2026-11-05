@@ -1,33 +1,34 @@
-//! The JSON shapes the `json` and `ctrf` reporters share.
+//! The shapes the `json` reporter and the run snapshot share, built from events and names.
 
 use serde_json::{Value, json};
 use vc_model::{ActionOutcome, CheckResult, CleanupRecord, Exchange, Failure, Origin, OwnerKey, RunStatus, Totals};
 
 use crate::collect::StepRecord;
-use crate::names::{self, Location, Names};
+use crate::names::{self, Names};
+use crate::view::{CheckView, CleanupView, FailureView, OwnerView, StepView};
 
 /// `{"kind": "file", "file": "users.crud"}`.
-pub fn owner(names: &Names, owner: OwnerKey) -> Value {
+pub fn owner(names: &Names, owner: OwnerKey) -> OwnerView {
     match owner {
-        OwnerKey::Run => json!({"kind": "run"}),
-        OwnerKey::File(file) => json!({"kind": "file", "file": names.file(file)}),
-        OwnerKey::Instance(instance) => json!({"kind": "instance", "instance": instance.index()}),
+        OwnerKey::Run => OwnerView::Run,
+        OwnerKey::File(file) => OwnerView::File { file: names.file(file).to_owned() },
+        OwnerKey::Instance(instance) => OwnerView::Instance { instance: instance.index() },
     }
 }
 
 /// A check with the `expect` key it was written under and where.
-pub fn check(names: &Names, check: &CheckResult) -> Value {
-    json!({
-        "key": names::check_label(check),
-        "passed": check.passed,
-        "expected": check.expected,
-        "actual": check.actual,
-        "diff": check.diff,
-        "error": check.error,
-        "code": check.code,
-        "origin": origin(names, check.origin),
-        "location": location(names.location(check.span)),
-    })
+pub fn check(names: &Names, check: &CheckResult) -> CheckView {
+    CheckView {
+        key: names::check_label(check),
+        passed: check.passed,
+        expected: check.expected.clone(),
+        actual: check.actual.clone(),
+        diff: check.diff.clone(),
+        error: check.error.clone(),
+        code: check.code.clone(),
+        origin: origin(names, check.origin),
+        location: names.location(check.span),
+    }
 }
 
 /// Where an expectation was written: `api users#create`, `test users.crud#getsUser`.
@@ -39,47 +40,41 @@ pub fn origin(names: &Names, origin: Origin) -> String {
     }
 }
 
-/// `{"path": …, "line": …, "column": …}`, or null.
-pub fn location(location: Option<Location>) -> Value {
-    location.map_or(Value::Null, |at| json!({"path": at.path, "line": at.line, "column": at.column}))
-}
-
 /// `{"message": …, "code": …, "action": …}`.
-pub fn failure(names: &Names, failure: &Failure) -> Value {
-    json!({
-        "message": failure.message,
-        "code": failure.code,
-        "action": failure.action.map(|action| names.action(action)),
-    })
+pub fn failure(names: &Names, failure: &Failure) -> FailureView {
+    FailureView {
+        message: failure.message.clone(),
+        code: failure.code.clone(),
+        action: failure.action.map(|action| names.action(action)),
+    }
 }
 
 /// `"passed"`, or the failure.
-pub fn outcome(names: &Names, outcome: &ActionOutcome) -> (&'static str, Value) {
-    outcome.failure().map_or(("passed", Value::Null), |failed| ("failed", failure(names, failed)))
+pub fn outcome(names: &Names, outcome: &ActionOutcome) -> (&'static str, Option<FailureView>) {
+    outcome.failure().map_or(("passed", None), |failed| ("failed", Some(failure(names, failed))))
 }
 
 /// An action that ran, its outcome and checks.
-pub fn step(names: &Names, step: &StepRecord) -> Value {
+pub fn step(names: &Names, step: &StepRecord) -> StepView {
     let (status, failed) = outcome(names, &step.outcome);
-    let checks: Vec<Value> = step.checks.iter().map(|c| check(names, c)).collect();
-    json!({
-        "action": names.action(step.action),
-        "owner": owner(names, step.owner),
-        "status": status,
-        "failure": failed,
-        "checks": checks,
-    })
+    StepView {
+        action: names.action(step.action),
+        owner: owner(names, step.owner),
+        status: status.to_owned(),
+        failure: failed,
+        checks: step.checks.iter().map(|c| check(names, c)).collect(),
+    }
 }
 
 /// A cleanup that ran.
-pub fn cleanup(names: &Names, cleanup: &CleanupRecord) -> Value {
+pub fn cleanup(names: &Names, cleanup: &CleanupRecord) -> CleanupView {
     let (status, failed) = outcome(names, &cleanup.outcome);
-    json!({
-        "action": names.action(cleanup.action),
-        "owner": owner(names, cleanup.owner),
-        "status": status,
-        "failure": failed,
-    })
+    CleanupView {
+        action: names.action(cleanup.action),
+        owner: owner(names, cleanup.owner),
+        status: status.to_owned(),
+        failure: failed,
+    }
 }
 
 /// An exchange's method, URL, status and total time; headers and bodies stay in the history.
@@ -92,7 +87,7 @@ pub fn exchange(exchange: &Exchange) -> Value {
     })
 }
 
-/// Every status's count.
+/// Counts by status.
 pub fn totals(totals: Totals) -> Value {
     json!({
         "passed": totals.passed,

@@ -8,10 +8,12 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 mod check;
+mod history;
 mod list;
 mod outcome;
 mod plan;
 mod project;
+mod report;
 mod run;
 mod schema;
 mod select;
@@ -40,6 +42,10 @@ enum Command {
     Run(run::RunArgs),
     /// Lists the tests, apis or definition files.
     List(list::ListArgs),
+    /// Lists the stored runs, shows one, or drops the oldest.
+    History(history::HistoryArgs),
+    /// Writes the report files of a stored run again.
+    Report(report::ReportArgs),
     /// Works with the JSON Schemas editors use for definition files.
     #[command(subcommand)]
     Schema(SchemaCommand),
@@ -64,6 +70,8 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Plan(args) => plan::run(&args, project),
         Command::Run(args) => run::run(&args, project),
         Command::List(args) => list::run(&args, project),
+        Command::History(args) => history::run(&args, project),
+        Command::Report(args) => report::run(&args, project),
         Command::Schema(SchemaCommand::Export(args)) => schema::export(&args, project),
     }
 }
