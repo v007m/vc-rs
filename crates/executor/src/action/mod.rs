@@ -2,6 +2,7 @@
 //! registry.
 
 mod auth;
+mod cached;
 mod call;
 mod command;
 mod http_retry;
@@ -15,12 +16,13 @@ use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use vc_interfaces::AuthProvider;
+use vc_interfaces::{AuthProvider, CacheStore};
 use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
 use crate::{ActionReport, ExecutorError, Frame, PipelineParts, Redactor, RunInputs, RunValues};
 
 pub use auth::{AuthKey, NoAuth, TokenCache};
+pub use cached::CachedExecutor;
 pub use call::CallExecutor;
 pub use command::CommandExecutor;
 pub use inline::InlineExecutor;
@@ -127,6 +129,8 @@ pub struct ActionCx {
     auth: Arc<dyn AuthProvider>,
     /// The run's credentials, fetched once per auth and set of vars.
     tokens: Arc<TokenCache>,
+    /// The cross-run cache, when the run has one.
+    cache: Option<Arc<dyn CacheStore>>,
 }
 
 impl ActionCx {
@@ -137,13 +141,19 @@ impl ActionCx {
         redactor.hide_values(inputs.secrets.iter().map(|(_, secret)| secret.expose()));
         let values = RunValues::new(&program, inputs);
         let (auth, tokens) = (Arc::new(NoAuth), Arc::new(TokenCache::default()));
-        Self { program, executors, values, redactor: Arc::new(redactor), auth, tokens }
+        Self { program, executors, values, redactor: Arc::new(redactor), auth, tokens, cache: None }
     }
 
     /// The same context obtaining credentials through `provider` (the auth registry).
     #[must_use]
     pub fn with_auth(self, provider: Arc<dyn AuthProvider>) -> Self {
         Self { auth: provider, ..self }
+    }
+
+    /// The same context keeping `cache:`d results in `store` between runs.
+    #[must_use]
+    pub fn with_cache(self, store: Arc<dyn CacheStore>) -> Self {
+        Self { cache: Some(store), ..self }
     }
 
     /// The action behind `id`.
@@ -173,14 +183,14 @@ impl ActionExecutors {
     }
 
     /// `call:` and inline requests through the request pipeline built from `parts`, and `test:`
-    /// reuse. `command:` needs a runner, so the engine adds a [`CommandExecutor`]; `function:`
+    /// reuse, both through the cross-run cache ([`CachedExecutor`]). `command:` needs a runner, so the engine adds a [`CommandExecutor`]; `function:`
     /// is registered in M4.
     #[must_use]
     pub fn standard(parts: PipelineParts) -> Self {
         Self::new()
             .with(ActionKindTag::Inline, Arc::new(InlineExecutor::new(parts.clone())))
-            .with(ActionKindTag::Call, Arc::new(CallExecutor::new(parts)))
-            .with(ActionKindTag::Test, Arc::new(TestExecutor))
+            .with(ActionKindTag::Call, Arc::new(CachedExecutor::new(Arc::new(CallExecutor::new(parts)))))
+            .with(ActionKindTag::Test, Arc::new(CachedExecutor::new(Arc::new(TestExecutor))))
     }
 
     /// The registry with `executor` running actions of `kind`.

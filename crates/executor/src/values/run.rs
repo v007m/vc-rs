@@ -140,6 +140,12 @@ impl RunValues {
         Value::from(self.profiles.clone())
     }
 
+    /// The active profiles' names, in order.
+    #[must_use]
+    pub fn profile_names(&self) -> &[String] {
+        &self.profiles
+    }
+
     /// The config's vars.
     #[must_use]
     pub fn config(&self) -> Arc<Defined> {
