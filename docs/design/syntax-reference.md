@@ -139,7 +139,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `generators` | list | — | Named fake-data generators |
 | `datasets` | list | every file in `datasets/` | Your own data lists |
 | `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file) |
-| `history` | `bodies`, `maxBodySize`, `retain` | SQLite, bodies of failures only | Run history and retention |
+| `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends |
 | `alerts` | list | none | Notifications |
 | `plugins` | list | none | Third-party plugins |
 | `redact` | `headers`, `fields` | auth headers and secrets | Extra values to mask |
@@ -209,9 +209,7 @@ reports:
 history:
   bodies: failures
   maxBodySize: 4kb
-  retain:
-    runs: 500
-    days: 90
+  keep: 50
 
 alerts:
   - on: [failure, recovery, flaky, threshold]

@@ -65,6 +65,9 @@ impl Crew {
         let ran = cancel.guard(self.execute(job)).await;
         let outcome = match &ran {
             Ran::Done(report) => {
+                for exchange in &report.exchanges {
+                    self.bus.publish(Event::Exchanged { action, owner, exchange: Box::new(exchange.clone()) });
+                }
                 for check in &report.checks {
                     self.bus.publish(Event::CheckEvaluated { action, owner, check: Box::new(check.clone()) });
                 }

@@ -743,13 +743,13 @@ pub enum Event {
     RunStarted { files: usize, instances: usize }, FileStarted { file: FileId },
     FileFinished { file: FileId, totals: Totals },
     ActionStarted { action: ActionId, owner: OwnerKey },
+    Exchanged { action: ActionId, owner: OwnerKey, exchange: Box<Exchange> }, // a call's request and response, redacted, bodies cut at history.maxBodySize; before its checks
     CheckEvaluated { action: ActionId, owner: OwnerKey, check: Box<CheckResult> }, // each, in order, before ActionFinished
     ActionFinished { action: ActionId, owner: OwnerKey, outcome: ActionOutcome },
     CleanupFinished { cleanup: CleanupRecord },
     CleanupsAbandoned { owner: OwnerKey, cleanups: Vec<ActionId> }, // after a third Ctrl-C
     TestFinished { result: TestResult },               // passed | failed | blocked | skipped | flaky
     RunFinished { status: RunStatus, totals: Totals },
-    // planned: ExchangeCompleted (request, response, timings, redacted)
 }
 pub struct Sequenced { pub seq: u64, pub event: Event }
 pub enum Feed { Event(Sequenced), Missed { count: u64 } }
@@ -959,7 +959,7 @@ CREATE INDEX test_results_by_test ON test_results(test_id, run_id);
 CREATE INDEX runs_by_time ON runs(started_at);
 ```
 
-Bodies are stored per `history.bodies` (default: failures only), cut at `history.maxBodySize` and compressed with zstd. Retention (`history.retain`) deletes old runs at the start of a run. Schema changes go through numbered migrations stored in the file. The same `HistoryStore` trait has a Postgres adapter for the self-hosted server.
+Bodies are stored per `history.bodies` (default: failures only), cut at `history.maxBodySize` and compressed with zstd. Retention (`history.keep`, default 50 runs, D170) deletes the oldest runs when a run ends. Schema changes go through numbered migrations stored in the file. The same `HistoryStore` trait has a Postgres adapter for the self-hosted server.
 
 ### Cache store (`.vibranium/cache.db`)
 

@@ -176,16 +176,9 @@ shape! {
 
 shape! {
     history = Shape::new("history", "Run history and retention", &[
-        types::key("bodies", Ty::Text).default("failures").doc("Which bodies are kept"),
-        types::key("maxBodySize", Ty::Size).doc("Largest body kept").example("1mb"),
-        types::key("retain", Ty::Obj(retain)).doc("How much history is kept"),
-    ])
-}
-
-shape! {
-    retain = Shape::new("retain", "How much history is kept", &[
-        types::key("runs", Ty::Int).doc("Runs kept"),
-        types::key("days", Ty::Int).doc("Days kept"),
+        types::key("bodies", Ty::Enum(&["none", "failures", "all"])).default("failures").doc("Which exchanges keep their bodies"),
+        types::key("maxBodySize", Ty::Size).default("64kb").doc("A longer body is cut to this size").example("1mb"),
+        types::key("keep", Ty::Either(&[Ty::Int, Ty::Enum(&["all"])])).default("50").doc("Runs kept after each run, or `all`"),
     ])
 }
 

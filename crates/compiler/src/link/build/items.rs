@@ -2,8 +2,8 @@
 
 use indexmap::IndexMap;
 use vc_model::{
-    Api, ApiGroup, ApiId, Config, Defaults, FileId, HttpRetry, Lifecycle, Origin, Owner, Profile, ProfileId,
-    RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
+    Api, ApiGroup, ApiId, Bodies, Config, Defaults, FileId, HistoryConfig, HttpRetry, Keep, Lifecycle, Origin, Owner,
+    Profile, ProfileId, RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
 };
 use vc_parser::Node;
 
@@ -31,6 +31,7 @@ impl<'a> Build<'_, 'a> {
             report_formats: reports.map(|reports| read::texts(reports, "formats")).unwrap_or_default(),
             redact_headers: redact.map(|redact| read::texts(redact, "headers")).unwrap_or_default(),
             redact_fields: redact.map(|redact| read::texts(redact, "fields")).unwrap_or_default(),
+            history: root.get("history").map(|history| Self::history(source, history)).unwrap_or_default(),
         };
         self.builder.config(config);
         for profile in project::list(root, "profiles") {
@@ -57,6 +58,19 @@ impl<'a> Build<'_, 'a> {
             concurrency: read::number(node, "concurrency"),
             per_host: read::number(node, "perHost"),
             headers: read::templates(source, node, "headers"),
+        }
+    }
+
+    fn history(source: &Source<'_>, node: &Node) -> HistoryConfig {
+        let defaults = HistoryConfig::default();
+        let keep = match project::text(node, "keep") {
+            Some("all") => Keep::All,
+            written => written.and_then(|text| text.parse().ok()).map_or(defaults.keep, Keep::Runs),
+        };
+        HistoryConfig {
+            bodies: project::text(node, "bodies").and_then(Bodies::parse).unwrap_or(defaults.bodies),
+            max_body_size: read::size(source, node, "maxBodySize").unwrap_or(defaults.max_body_size),
+            keep,
         }
     }
 

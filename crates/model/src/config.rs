@@ -1,7 +1,8 @@
 use indexmap::IndexMap;
 
 use crate::{
-    Duration, FileId, Matcher, Method, ProfileId, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
+    Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, StatusPattern, Sym, Template, TemplateValue, TestId,
+    VarDefs,
 };
 
 /// `vibranium.config.yaml`: settings that are not tables of their own.
@@ -29,6 +30,8 @@ pub struct Config {
     pub redact_headers: Vec<String>,
     /// `redact.fields`.
     pub redact_fields: Vec<String>,
+    /// `history` (D170).
+    pub history: HistoryConfig,
 }
 
 /// `defaults`.
