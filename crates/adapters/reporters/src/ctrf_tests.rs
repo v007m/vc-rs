@@ -36,7 +36,12 @@ fn has_every_field_ctrf_requires() {
     for key in ["tests", "passed", "failed", "pending", "skipped", "other", "start", "stop"] {
         assert!(summary[key].is_u64(), "summary.{key} is a count: {summary}");
     }
-    let tests = results["tests"].as_array().unwrap();
+}
+
+#[test]
+fn gives_each_test_the_fields_ctrf_requires() {
+    let document = written();
+    let (summary, tests) = (&document["results"]["summary"], document["results"]["tests"].as_array().unwrap());
     assert_eq!(summary["tests"].as_u64(), Some(6));
     assert_eq!(tests.len(), 6);
     for test in tests {
@@ -46,6 +51,12 @@ fn has_every_field_ctrf_requires() {
         assert!(test["duration"].is_u64(), "{test}");
         assert!(test["extra"].is_object(), "{test}");
     }
+}
+
+#[test]
+fn counts_the_tests_in_the_summary() {
+    let document = written();
+    let (summary, tests) = (&document["results"]["summary"], document["results"]["tests"].as_array().unwrap());
     let counted = |status: &str| tests.iter().filter(|t| t["status"] == status).count();
     assert_eq!(summary["passed"].as_u64(), Some(u64::try_from(counted("passed")).unwrap()));
     assert_eq!(summary["failed"].as_u64(), Some(u64::try_from(counted("failed")).unwrap()));

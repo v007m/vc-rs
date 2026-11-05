@@ -1,7 +1,6 @@
 use std::io::Read as _;
 use std::path::PathBuf;
 
-use base64::Engine as _;
 use flate2::read::GzDecoder;
 use serde_json::Value;
 use vc_interfaces::Artifact;

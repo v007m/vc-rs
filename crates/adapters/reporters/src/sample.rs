@@ -18,7 +18,9 @@ const FAILING: usize = 10;
 pub fn sample_snapshot(tests: usize) -> RunSnapshot {
     let views: Vec<TestView> = (0..tests).map(test).collect();
     let mut totals = Totals::default();
-    views.iter().for_each(|view| totals.add(view.status));
+    for view in &views {
+        totals.add(view.status);
+    }
     let files = (0..tests.div_ceil(PER_FILE)).map(file).collect();
     let run = RunFacts {
         id: 1,
@@ -77,7 +79,13 @@ fn step(id: &str, failed: bool) -> StepView {
         location: None,
     };
     let status = if failed { "failed" } else { "passed" };
-    StepView { action: "call".to_owned(), owner: OwnerView::Run, status: status.to_owned(), failure: None, checks: vec![check] }
+    StepView {
+        action: "call".to_owned(),
+        owner: OwnerView::Run,
+        status: status.to_owned(),
+        failure: None,
+        checks: vec![check],
+    }
 }
 
 fn exchange(index: usize) -> ExchangeView {

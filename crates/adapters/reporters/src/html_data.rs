@@ -18,7 +18,8 @@ const HASH_LEN: usize = 32;
 pub fn entries(snapshot: &RunSnapshot) -> Vec<(String, Value)> {
     let files = files(snapshot);
     let mut bodies = BTreeMap::new();
-    let mut entries = vec![("summary".to_owned(), summary(snapshot, &files)), ("index".to_owned(), index(snapshot, &files))];
+    let mut entries =
+        vec![("summary".to_owned(), summary(snapshot, &files)), ("index".to_owned(), index(snapshot, &files))];
     for (number, shard) in snapshot.tests.chunks(SHARD).enumerate() {
         let tests: Map<String, Value> = shard
             .iter()
@@ -62,12 +63,11 @@ fn summary(snapshot: &RunSnapshot, files: &[String]) -> Value {
 
 /// Lifecycle actions, cleanups and abandoned cleanups as one list of lines.
 fn lifecycle(snapshot: &RunSnapshot) -> Vec<Value> {
-    let line = |label: String, status: &str, message: Option<&String>| {
-        json!({"label": label, "status": status, "message": message})
-    };
-    let steps = snapshot.lifecycle.iter().map(|step| {
-        line(step.action.clone(), &step.status, step.failure.as_ref().map(|failed| &failed.message))
-    });
+    let line = |label: String, status: &str, message: Option<&String>| json!({"label": label, "status": status, "message": message});
+    let steps = snapshot
+        .lifecycle
+        .iter()
+        .map(|step| line(step.action.clone(), &step.status, step.failure.as_ref().map(|failed| &failed.message)));
     let cleanups = snapshot.cleanups.iter().map(|cleanup| {
         let message = cleanup.failure.as_ref().map(|failed| &failed.message);
         line(format!("cleanup {}", cleanup.action), &cleanup.status, message)

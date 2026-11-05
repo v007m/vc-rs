@@ -248,7 +248,15 @@ mod tests {
 
     fn facts() -> RunFacts {
         let totals = Totals::default();
-        RunFacts { id: 7, status: RunStatus::Passed, totals, started_ms: 1, duration_ms: 2, profiles: vec![], seed: None }
+        RunFacts {
+            id: 7,
+            status: RunStatus::Passed,
+            totals,
+            started_ms: 1,
+            duration_ms: 2,
+            profiles: vec![],
+            seed: None,
+        }
     }
 
     #[test]

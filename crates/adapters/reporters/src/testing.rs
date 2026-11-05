@@ -142,7 +142,8 @@ pub fn exchange(request: &str, response: &str) -> Exchange {
     let mut answer = vc_testkit::status(201);
     answer.headers.insert("x-raw", HeaderValue::from_bytes(b"caf\xe9").unwrap());
     answer.body = response.to_owned().into();
-    let timing = Timing { dns: Some(Duration::from_micros(1_500)), total: Duration::from_millis(12), ..Timing::default() };
+    let timing =
+        Timing { dns: Some(Duration::from_micros(1_500)), total: Duration::from_millis(12), ..Timing::default() };
     Exchange { request: sent, response: answer, timing, connection: ConnectionInfo::default() }
 }
 

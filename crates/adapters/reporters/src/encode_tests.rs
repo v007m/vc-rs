@@ -30,7 +30,10 @@ fn encodes_owners_and_origins() {
     let file = names.program().tests[&test].file;
     assert_eq!(json!(owner(&names, OwnerKey::Run)), json!({"kind": "run"}));
     assert_eq!(json!(owner(&names, OwnerKey::File(file))), json!({"kind": "file", "file": "users.crud"}));
-    assert_eq!(json!(owner(&names, OwnerKey::Instance(InstanceId::new(2)))), json!({"kind": "instance", "instance": 2}));
+    assert_eq!(
+        json!(owner(&names, OwnerKey::Instance(InstanceId::new(2)))),
+        json!({"kind": "instance", "instance": 2})
+    );
     let api = *names.program().apis.keys().next().unwrap();
     assert_eq!(origin(&names, Origin::Api(api)), "api users#get");
     assert_eq!(origin(&names, Origin::Test(test)), "test users.crud#getsUser");

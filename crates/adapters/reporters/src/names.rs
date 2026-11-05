@@ -12,7 +12,6 @@ pub use crate::view::Location;
 /// Text shown for an ID the program does not know.
 const UNKNOWN: &str = "?";
 
-
 /// Turns the IDs in events into the text reports show, from the program and the plan.
 ///
 /// IDs the program does not know are shown as `?` (or by their index), never an error.
