@@ -1,0 +1,24 @@
+[package]
+name = "vc-adapter-store"
+description = "Store adapter: the run history in .vibranium/history.db (SQLite)."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+vc-interfaces.workspace = true
+vc-model.workspace = true
+zstd.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+vc-testkit.workspace = true
+
+[lints]
+workspace = true

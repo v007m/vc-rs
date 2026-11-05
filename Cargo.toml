@@ -14,6 +14,7 @@ members = [
   "crates/adapters/system",
   "crates/adapters/http",
   "crates/adapters/reporters",
+  "crates/adapters/store",
   "crates/apps/cli",
   "crates/arch-tests",
   "bench/mock",
@@ -42,6 +43,7 @@ vc-testkit = { path = "crates/testkit" }
 vc-adapter-system = { path = "crates/adapters/system" }
 vc-adapter-http = { path = "crates/adapters/http" }
 vc-adapter-reporters = { path = "crates/adapters/reporters" }
+vc-adapter-store = { path = "crates/adapters/store" }
 vc-mock-server = { path = "bench/mock" }
 anyhow = "1.0.104"
 arc-swap = "1.7.1"
@@ -75,6 +77,7 @@ regex = "1.13.1"
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-native-certs = "0.8.5"
+rusqlite = { version = "0.41.1", features = ["bundled"] }
 rustix = { version = "1.1.6", default-features = false, features = ["process", "std"] }
 saphyr-parser = "0.3.3"
 serde = { version = "1.0.229", features = ["derive"] }
