@@ -35,5 +35,6 @@ check compile/cold_1000 500
 check compile/warm_1000 100
 check compile/changed_1000 0
 check startup/version 20
+check report/html_10k 1000
 
 exit "$failed"

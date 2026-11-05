@@ -7,8 +7,10 @@
 
 mod changed;
 mod command;
+mod history;
 mod layers;
 mod lifecycle;
+mod redaction;
 mod reports;
 mod scheduling;
 

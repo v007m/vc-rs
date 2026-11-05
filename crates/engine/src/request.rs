@@ -58,12 +58,28 @@ pub struct RunRequest {
     pub concurrency: Option<u32>,
     /// `--reporter`: the console format, `spec` when `None`.
     pub console: Option<String>,
-    /// `--report`: the report files, over `reports.formats`. Each may be a comma list.
-    pub reports: Vec<String>,
-    /// `--out`: the report folder, over `reports.dir`; absolute, or relative to the root.
-    pub out: Option<PathBuf>,
+    /// `--report`, `--out` and `--single-file`: the report files, over `reports.*`.
+    pub files: ReportFlags,
     /// Whether the console output is coloured.
     pub color: bool,
+    /// `--failed`: the failed and blocked tests of the last run instead of the selection, under
+    /// its profiles unless `plan` names some.
+    pub failed: bool,
+}
+
+/// Which report files a run or `vc report` writes, and where.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built by the apps with `..Default::default()`; every user is in this repo (D160)"
+)]
+pub struct ReportFlags {
+    /// `--report` or `--format`: the formats. Each may be a comma list.
+    pub formats: Vec<String>,
+    /// `--out`: the report folder; absolute, or relative to the root.
+    pub out: Option<PathBuf>,
+    /// `--single-file`: the HTML report as one self-contained file.
+    pub single_file: bool,
 }
 
 /// What `vc list` lists.

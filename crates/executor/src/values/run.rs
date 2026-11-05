@@ -38,6 +38,8 @@ pub struct RunInputs {
     pub started_ms: u64,
     /// What `${secret.X}` reads; every value is masked in all output.
     pub secrets: Secrets,
+    /// `${run.id}`: the run's number in the history; 0 when the history is not kept.
+    pub run_id: u64,
 }
 
 impl RunInputs {
@@ -45,7 +47,7 @@ impl RunInputs {
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
         let (profiles, vars, fakes) = (Vec::new(), Defined::new(), FakeRegistry::builtin());
-        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets: Secrets::new() }
+        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets: Secrets::new(), run_id: 0 }
     }
 
     /// The same inputs with the run starting at `started_ms`, for the generated dates.
@@ -66,6 +68,12 @@ impl RunInputs {
         Self { vars, ..self }
     }
 
+    /// The same inputs as history run `run_id`.
+    #[must_use]
+    pub fn with_run_id(self, run_id: u64) -> Self {
+        Self { run_id, ..self }
+    }
+
     /// The same inputs with `secrets` for `${secret.X}`.
     #[must_use]
     pub fn with_secrets(self, secrets: Secrets) -> Self {
@@ -75,7 +83,10 @@ impl RunInputs {
 
 impl fmt::Debug for RunInputs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RunInputs").field("profiles", &self.profiles).finish_non_exhaustive()
+        f.debug_struct("RunInputs")
+            .field("profiles", &self.profiles)
+            .field("run_id", &self.run_id)
+            .finish_non_exhaustive()
     }
 }
 

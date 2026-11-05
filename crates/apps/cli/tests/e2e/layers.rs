@@ -48,9 +48,9 @@ async fn the_user_config_counts_only_where_the_project_is_silent() {
     fs::write(user.join("config.yaml"), "reports:\n  dir: from-user\n  formats: [junit]\nvars:\n  word: user\n")
         .unwrap();
     project.run(&server.base_url(), &[]).assert().code(0);
-    assert!(project.path().join("from-user/junit.xml").is_file(), "the user's reports setting applies");
+    assert!(project.path().join("from-user/1/junit.xml").is_file(), "the user's reports setting applies");
     project.run(&server.base_url(), &[]).env("VIB_REPORTS_DIR", "from-vib").assert().code(0);
-    assert!(project.path().join("from-vib/junit.xml").is_file(), "`VIB_REPORTS_DIR` beats the user config");
+    assert!(project.path().join("from-vib/2/junit.xml").is_file(), "`VIB_REPORTS_DIR` beats the user config");
 }
 
 #[test]

@@ -10,7 +10,7 @@ use vc_diagnostics::Code;
 use vc_interfaces::SendContext;
 use vc_model::{
     Action, ActionId, ActionKind, ActionOutcome, Api, Check, CheckKind, CheckResult, Exchange, Failure, Matcher,
-    Namespace, Origin, Poll, Program, SaveSpec, Size, SourceSpan, StatusPattern,
+    Namespace, Origin, Poll, Program, SaveSpec, SourceSpan, StatusPattern,
 };
 
 use super::request;
@@ -78,8 +78,7 @@ impl CallExecutor {
             Ok(saved) => report.saved = saved,
             Err(failure) => report.outcome = ActionOutcome::Failed(failure),
         }
-        let exchanges = vec![kept(exchange, render.program().config.history.max_body_size)];
-        Ok(ActionReport { response: Some(response), fakes: render.into_memo(), exchanges, ..report })
+        Ok(ActionReport { response: Some(response), fakes: render.into_memo(), exchanges: vec![exchange], ..report })
     }
 
     /// Sends `call` until `poll.until` holds, waiting `poll.every` between sends; the first
@@ -163,14 +162,6 @@ pub fn bind(render: &mut Render<'_>, exchange: &Exchange) -> Arc<Value> {
     render.bind(Namespace::Response, Value::clone(&response));
     render.bind(Namespace::Request, request::sent(&exchange.request));
     response
-}
-
-/// `exchange` with each body cut to `max` bytes, as it leaves the executor.
-fn kept(mut exchange: Exchange, max: Size) -> Exchange {
-    let max = usize::try_from(max.bytes()).unwrap_or(usize::MAX);
-    exchange.request.body.truncate(max);
-    exchange.response.body.truncate(max);
-    exchange
 }
 
 pub fn subject<'s>(response: &'s Value, exchange: &Exchange) -> Subject<'s> {

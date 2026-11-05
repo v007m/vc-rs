@@ -14,7 +14,8 @@ pub trait Destination: Send + Sync + Debug {
     /// [`ReportError::Write`] when the console cannot be written, a closed pipe for one.
     fn print(&self, text: &str) -> Result<(), ReportError>;
 
-    /// Saves a whole report file called `name` and returns where it is.
+    /// Saves a whole report file called `name`, which may name a subfolder (`data/index.js`),
+    /// and returns where it is.
     ///
     /// # Errors
     ///
@@ -44,7 +45,8 @@ impl Destination for FsDestination {
 
     fn save(&self, name: &str, contents: &[u8]) -> Result<PathBuf, ReportError> {
         let path = self.dir.join(name);
-        fs::create_dir_all(&self.dir).map_err(|e| write_error(&shown(&self.dir), &e))?;
+        let dir = path.parent().unwrap_or(&self.dir);
+        fs::create_dir_all(dir).map_err(|e| write_error(&shown(dir), &e))?;
         fs::write(&path, contents).map_err(|e| write_error(&shown(&path), &e))?;
         Ok(path)
     }
@@ -74,6 +76,8 @@ mod tests {
         assert_eq!(saved, dir.join("ctrf.json"));
         assert_eq!(fs::read(&saved).unwrap(), b"{}");
         FsDestination::new(&dir).print("").unwrap();
+        let nested = FsDestination::new(&dir).save("data/tests/0.js", b"x").unwrap();
+        assert_eq!(fs::read(nested).unwrap(), b"x");
     }
 
     #[test]

@@ -1,29 +1,46 @@
-//! Reporters: console, CTRF and `JUnit` XML.
+//! Reporters and report files: console, CTRF, `JUnit` XML and HTML.
 //!
-//! Every reporter implements `vc_interfaces::Reporter` and is built by name from the
-//! [`ReporterRegistry`] (D43): `spec` and `json` print to the console, `ctrf` writes the
-//! canonical `ctrf.json` and `junit` writes `junit.xml`. A reporter gets the program, the plan,
-//! where to write ([`Destination`], [`FsDestination`] on disk), whether to colour and a
-//! [`Stopwatch`] through one [`ReporterContext`]; [`NoopReporter`] reports nothing.
+//! Console reporters implement `vc_interfaces::Reporter` and are built by name from the
+//! [`ReporterRegistry`] (D43): `spec` and `json` print as the run goes. A reporter gets the
+//! program, the plan, where to write ([`Destination`], [`FsDestination`] on disk), whether to
+//! colour and a [`Stopwatch`] through one [`ReporterContext`]; [`NoopReporter`] reports nothing.
+//!
+//! A [`Recorder`] follows the same events and gives the history its rows and, at the end, the
+//! run's [`RunSnapshot`] (D167). The report files are [`Format`]s from the [`FormatRegistry`]:
+//! `ctrf` writes the canonical `ctrf.json`, `junit` writes `junit.xml` and `html` the HTML
+//! report (D169), each rendered from a snapshot, so `vc report` renders them again later.
 
 mod collect;
 mod context;
 mod ctrf;
 mod destination;
 mod encode;
+mod exchange;
 mod failure;
+mod format;
+mod html;
+mod html_data;
 mod json;
 mod junit;
 mod names;
 mod noop;
+mod record;
 mod registry;
+mod rows;
+mod sample;
 mod spec;
 #[cfg(test)]
 mod testing;
 mod text;
+mod view;
 mod xml;
 
 pub use context::{Color, ReporterContext, Stopwatch, SystemStopwatch};
 pub use destination::{Destination, FsDestination};
+pub use format::{Format, FormatRegistry, HtmlLayout};
 pub use noop::NoopReporter;
+pub use record::Recorder;
 pub use registry::{ReporterFactory, ReporterRegistry};
+#[doc(hidden)]
+pub use sample::sample_snapshot;
+pub use view::{RunFacts, RunSnapshot};

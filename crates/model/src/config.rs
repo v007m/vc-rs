@@ -30,6 +30,8 @@ pub struct Config {
     pub reports_dir: Option<String>,
     /// `reports.formats`.
     pub report_formats: Vec<String>,
+    /// `reports.html.layout: single`: the HTML report as one self-contained file.
+    pub html_single_file: bool,
     /// `redact.headers`.
     pub redact_headers: Vec<String>,
     /// `redact.fields`.
