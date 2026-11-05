@@ -1,14 +1,18 @@
 //! The config, profiles, api files and test files, with their apis and tests.
 
 use indexmap::IndexMap;
+use vc_diagnostics::Diagnostics;
 use vc_model::{
-    Api, ApiGroup, ApiId, Bodies, Config, Defaults, FileId, HistoryConfig, HttpRetry, Keep, Lifecycle, Origin, Owner,
-    Profile, ProfileId, RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
+    Api, ApiGroup, ApiId, Bodies, Config, Defaults, Examples, FileId, GeneratorDef, HistoryConfig, HttpRetry, Keep,
+    Lifecycle, Origin, Owner, Profile, ProfileId, RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId,
+    VarDefs,
 };
 use vc_parser::Node;
+use vc_template::FakeRegistry;
 
 use super::action::Place;
 use super::{Build, Built, auth, expect, http_retry, read};
+use crate::link::fakes;
 use crate::link::project;
 use crate::link::project::Source;
 use crate::shapes;
@@ -50,6 +54,17 @@ impl<'a> Build<'_, 'a> {
         let before_run = self.block(source, (project::list(root, "beforeRun"), Owner::Run))?;
         let after_run = self.block(source, (project::list(root, "afterRun"), Owner::Run))?;
         self.builder.run_blocks(RunBlocks { before_run, after_run });
+        self.generators(source)
+    }
+
+    /// The named `generators`, as the built-in calls they make (D174); the link checks have
+    /// already reported any that do not lower.
+    fn generators(&mut self, source: &Source<'a>) -> Built<()> {
+        let mut rejected = Diagnostics::new();
+        for named in fakes::lower(source, &FakeRegistry::builtin(), &mut rejected) {
+            let id = self.sym(named.id)?;
+            self.builder.generator(GeneratorDef { id, fake: named.call.name.to_owned(), args: named.call.args });
+        }
         Ok(())
     }
 
@@ -164,7 +179,10 @@ impl<'a> Build<'_, 'a> {
             body,
             vars: self.vars(source, node)?,
             expect: expect::read(source, node.get("expect"), Origin::Test(id)),
-            examples: read::examples(source, node.get("examples")),
+            examples: self
+                .rows(source, node.get("examples"))
+                .map(Examples::Rows)
+                .or_else(|| read::examples(source, node.get("examples"))),
             repeat: read::number(node, "repeat").unwrap_or(1),
             retry: read::retry(source, node),
             timeout: read::duration(source, node, "timeout"),

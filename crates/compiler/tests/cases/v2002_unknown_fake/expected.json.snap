@@ -1,0 +1,72 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2002_unknown_fake/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "`fake.person.fulName` is not a generator",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 3,
+          "column": 10,
+          "endLine": 3,
+          "endColumn": 32
+        },
+        "text": "no generator has this name"
+      },
+      "secondary": [],
+      "notes": [
+        "the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`"
+      ],
+      "help": [],
+      "fixes": []
+    },
+    {
+      "code": "V2002",
+      "severity": "error",
+      "message": "`fake.internet.emial` is not a generator",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 4,
+          "column": 10,
+          "endLine": 4,
+          "endColumn": 32
+        },
+        "text": "no generator has this name"
+      },
+      "secondary": [],
+      "notes": [
+        "the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`"
+      ],
+      "help": [
+        "did you mean `internet.email`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with internet.email",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/users.api.yaml",
+              "range": {
+                "start": 87,
+                "end": 101
+              },
+              "newText": "internet.email"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -7,12 +7,10 @@ use std::fmt;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use vc_interfaces::{Environment, Random, Secrets};
 use vc_model::{ActionId, ApiId, FileId, ProfileId, Program, TemplateValue, TestId, VarDefs, VarName};
-use vc_template::PipeRegistry;
-
-use super::fake::FakeData;
+use vc_template::{FakeRegistry, PipeRegistry};
 
 /// The var definitions of one level, by name, with the active profiles applied.
 pub type Defined = HashMap<String, TemplateValue>;
@@ -34,17 +32,26 @@ pub struct RunInputs {
     /// What `${env.X}` reads.
     pub environment: Arc<dyn Environment>,
     /// What `${fake.…}` generates.
-    pub fakes: FakeData,
+    pub fakes: FakeRegistry,
+    /// When the run started, in milliseconds since 1970; `date.past` and the other dates are
+    /// relative to it, so a seeded run repeats.
+    pub started_ms: u64,
     /// What `${secret.X}` reads; every value is masked in all output.
     pub secrets: Secrets,
 }
 
 impl RunInputs {
-    /// Inputs with the default profiles and the placeholder fake data.
+    /// Inputs with the default profiles, the built-in generators and a start at 1970.
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
-        let (profiles, vars, fakes) = (Vec::new(), Defined::new(), FakeData::placeholder());
-        Self { profiles, vars, random, environment, fakes, secrets: Secrets::new() }
+        let (profiles, vars, fakes) = (Vec::new(), Defined::new(), FakeRegistry::builtin());
+        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets: Secrets::new() }
+    }
+
+    /// The same inputs with the run starting at `started_ms`, for the generated dates.
+    #[must_use]
+    pub fn with_started_at(self, started_ms: u64) -> Self {
+        Self { started_ms, ..self }
     }
 
     /// The same inputs with `profiles` active, in order.
@@ -82,6 +89,7 @@ pub struct RunValues {
     test_files: HashMap<FileId, Arc<Defined>>,
     tests: HashMap<TestId, Arc<Defined>>,
     actions: Vec<Arc<Defined>>,
+    datasets: Arc<Value>,
     pipes: PipeRegistry,
     secrets: Arc<Value>,
     inputs: RunInputs,
@@ -107,6 +115,7 @@ impl RunValues {
             test_files: program.test_files.iter().map(|(id, file)| (*id, layer(&file.vars))).collect(),
             tests: program.tests.iter().map(|(id, test)| (*id, layer(&test.vars))).collect(),
             actions: program.actions.iter().map(|action| layer(&action.vars)).collect(),
+            datasets: Arc::new(datasets(program)),
             pipes: PipeRegistry::builtin(),
             secrets: Arc::new(inputs.secrets.iter().map(|(name, secret)| (name, secret.expose())).collect()),
             active,
@@ -169,6 +178,12 @@ impl RunValues {
         Arc::clone(&self.secrets)
     }
 
+    /// The `dataset` root: each loaded dataset's rows, by ID (D173).
+    #[must_use]
+    pub fn datasets(&self) -> Arc<Value> {
+        Arc::clone(&self.datasets)
+    }
+
     /// The pipes templates apply.
     #[must_use]
     pub const fn pipes(&self) -> &PipeRegistry {
@@ -208,6 +223,30 @@ fn config(program: &Program, active: &[ProfileId], set: &Defined) -> Defined {
     }
     values.extend(set.iter().map(|(name, value)| (name.clone(), value.clone())));
     values
+}
+
+/// Each dataset's rows, nested by the dots of its ID: `users.seed` is `{users: {seed: rows}}`.
+fn datasets(program: &Program) -> Value {
+    let mut root = Map::new();
+    for dataset in program.datasets.values() {
+        let Some(id) = program.str(dataset.id.sym()) else { continue };
+        nest(&mut root, id, Value::from(dataset.rows.clone()));
+    }
+    Value::Object(root)
+}
+
+/// Puts `value` at the dotted `path` of `map`, unless another dataset already holds that place.
+fn nest(map: &mut Map<String, Value>, path: &str, value: Value) {
+    match path.split_once('.') {
+        None => {
+            map.entry(path).or_insert(value);
+        }
+        Some((head, rest)) => {
+            if let Value::Object(inner) = map.entry(head).or_insert_with(|| Value::Object(Map::new())) {
+                nest(inner, rest, value);
+            }
+        }
+    }
 }
 
 fn named(program: &Program, values: &IndexMap<VarName, TemplateValue>) -> Defined {

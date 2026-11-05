@@ -38,7 +38,7 @@ pub fn check(project: &Project<'_>, files: &SourceFiles, assets: &BTreeSet<Sourc
 }
 
 /// The folders `path` is in, outermost first.
-fn folder(path: &str) -> Vec<&str> {
+pub fn folder(path: &str) -> Vec<&str> {
     let mut parts: Vec<&str> = path.split('/').collect();
     parts.pop();
     parts
@@ -57,7 +57,7 @@ fn file_refs<'n>(node: &'n Node, found: &mut Vec<&'n Node>) {
 }
 
 /// The path `written` names from `folder`, or `None` when it leads out of the project.
-fn resolve(folder: &[&str], written: &str) -> Option<String> {
+pub fn resolve(folder: &[&str], written: &str) -> Option<String> {
     let mut parts = folder.to_vec();
     for part in written.split('/').filter(|part| !part.is_empty() && *part != ".") {
         if part == ".." {

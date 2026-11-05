@@ -20,7 +20,7 @@ use crate::{shapes, version};
 pub struct FileUnit {
     /// The file's kind, from its name.
     pub kind: Option<FileKind>,
-    /// The parsed tree; `None` when the file does not parse or is of no known kind.
+    /// The parsed tree; `None` when the file does not parse. A file of no kind (a dataset) only parses.
     pub root: Option<Node>,
     /// Each compiled value, keyed by the span of the node it was read from.
     #[serde(serialize_with = "pairs_out", deserialize_with = "pairs_in")]
@@ -44,7 +44,8 @@ fn pairs_in<'de, D: Deserializer<'de>>(deserializer: D) -> Result<IndexMap<Sourc
 pub fn unit(id: SourceFileId, source: &SourceFile, (tools, strings): (&Tools, &mut StringTable)) -> FileUnit {
     let (root, mut diagnostics) = parse(id, source);
     let kind = source.kind();
-    let (Some(root), Some(file_kind)) = (root.map(empty_as_map), kind) else {
+    let Some(file_kind) = kind else { return FileUnit { kind, root, parts: IndexMap::new(), diagnostics } };
+    let Some(root) = root.map(empty_as_map) else {
         return FileUnit { kind, root: None, parts: IndexMap::new(), diagnostics };
     };
     let walk = shape(&root, file_kind);
@@ -119,11 +120,13 @@ mod tests {
     }
 
     #[test]
-    fn stops_after_a_parse_error_and_skips_files_of_no_kind() {
+    fn stops_after_a_parse_error_and_only_parses_files_of_no_kind() {
         let broken = run("services/users/users.api.yaml", "a: [\n");
         assert!(broken.root.is_none() && codes(&broken) == [Code::V1001]);
-        let other = run("notes.yaml", "anything: 1\n");
-        assert!(other.root.is_none() && other.diagnostics.is_empty() && other.kind.is_none());
+        let other = run("datasets/notes.yaml", "- anything: 1\n");
+        assert!(other.root.is_some() && other.diagnostics.is_empty() && other.kind.is_none() && other.parts.is_empty());
+        let rows = run("datasets/cities.csv", "city\nUlm\n");
+        assert!(rows.root.is_some_and(|root| root.items().len() == 1) && rows.diagnostics.is_empty());
     }
 
     #[test]

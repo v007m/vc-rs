@@ -6,9 +6,10 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
+use vc_diagnostics::Code;
 use vc_interfaces::Random;
 use vc_model::{CelProgram, Examples, Namespace, Program, Reference, Segment, Template, TemplateValue};
-use vc_template::{Activation, CelCompiler, Chance, RenderError, Renderer, Resolve};
+use vc_template::{Activation, CelCompiler, Chance, FakeCx, RenderError, Renderer, Resolve};
 
 use super::run::RunValues;
 use super::scope::{Found, Scope};
@@ -20,8 +21,8 @@ const MAX_DEPTH: usize = 16;
 /// The fake vars drawn by this render, one slot per var not drawn yet, kept in name order.
 type Drawn = BTreeMap<String, OnceCell<Value>>;
 
-/// One action's renderer: its scope, the roots bound so far (`run`, `iteration`, `example`, step
-/// ids, then `request` and `response`) and the fake-data memo.
+/// One action's renderer: its scope, the roots bound so far (`run`, `dataset`, `iteration`,
+/// `example`, step ids, then `request` and `response`) and the fake-data memo.
 pub struct Render<'a> {
     values: &'a RunValues,
     program: &'a Program,
@@ -55,6 +56,7 @@ impl<'a> Render<'a> {
         };
         render.bind(Namespace::Run, json!({ "profiles": render.values.profiles() }));
         render.roots.insert(Namespace::Secret, render.values.secrets());
+        render.roots.insert(Namespace::Dataset, render.values.datasets());
         for (id, response) in request.frame.steps.iter() {
             render.roots.insert(Namespace::Step(*id), Arc::clone(response));
         }
@@ -212,6 +214,16 @@ fn is_fake(def: &TemplateValue) -> bool {
     template.single_ref().is_some_and(|reference| reference.ns == Namespace::Fake)
 }
 
+/// V5112 when an `example` or `item` row is a map without the column `reference` reads (D173).
+fn row_column(error: RenderError, (ns, row): (Namespace, &Value), reference: &Reference) -> RenderError {
+    let Some(Segment::Key(column)) = reference.path.segments.first() else { return error };
+    let rows = matches!(ns, Namespace::Example | Namespace::Item);
+    match row {
+        Value::Object(row) if rows && !row.contains_key(column.as_str()) => error.coded(Code::V5112),
+        _ => error,
+    }
+}
+
 /// The var definition being rendered.
 struct Within<'n> {
     name: &'n str,
@@ -230,9 +242,8 @@ impl Within<'_> {
 struct RandomChance<'a>(&'a dyn Random);
 
 impl Chance for RandomChance<'_> {
-    fn below(&self, bound: usize) -> usize {
-        let draw = self.0.next_u64().checked_rem(u64::try_from(bound).unwrap_or(u64::MAX));
-        draw.and_then(|draw| usize::try_from(draw).ok()).unwrap_or(0)
+    fn next_u64(&self) -> u64 {
+        self.0.next_u64()
     }
 }
 
@@ -258,7 +269,8 @@ impl Resolve for Lookup<'_> {
                 let label = self.render.label(ns);
                 let value = self.render.roots.get(&ns);
                 let value = value.ok_or_else(|| RenderError::invalid(format!("`{label}` has no value here")))?;
-                vc_template::select(&label, value, &reference.path.segments)
+                let selected = vc_template::select(&label, value, &reference.path.segments);
+                selected.map_err(|error| row_column(error, (ns, value), reference))
             }
         }
     }
@@ -293,7 +305,11 @@ impl Lookup<'_> {
         });
         let name = keys.collect::<Vec<_>>().join(".");
         let inputs = self.render.values.inputs();
-        inputs.fakes.generate(&name, inputs.random.as_ref(), &reference.args).map_err(RenderError::invalid)
+        let cx = FakeCx::new(self.chance(), inputs.started_ms);
+        let program = self.render.program;
+        let named = program.generators.values().find(|def| program.str(def.id) == Some(name.as_str()));
+        let (name, args) = named.map_or((name.as_str(), reference.args.as_slice()), |def| (&def.fake, &def.args));
+        inputs.fakes.generate(name, args, &cx).map_err(RenderError::invalid)
     }
 
     /// The `var` root of a `$cel` value: each var it reads that is set.

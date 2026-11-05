@@ -137,7 +137,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `auth` | list | — | Auth definitions (see Authentication) |
 | `secrets` | `provider`, `schema` | `env` with `.env.schema` | Where `${secret.*}` comes from |
 | `generators` | list | — | Named fake-data generators |
-| `datasets` | list | every file in `datasets/` | Your own data lists |
+| `datasets` | `allowRoots`, `files` | every file in `datasets/` | Your own data lists: `files` lists data kept outside `datasets/` (each `id`, `file`), and `allowRoots` the folders outside the project those files may be in (see Datasets) |
 | `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file) |
 | `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends |
 | `alerts` | list | none | Notifications |
@@ -1110,6 +1110,9 @@ Rules:
 - A var defined as `${fake.…}` is generated once per test instance, or once per loop iteration, and every `${var.…}` read of it gets the same value: put it in `vars` once (`email: ${fake.internet.email}`) and use `${var.email}` (D131).
 - A `${fake.…}` written inline in a field generates a new value every time it is rendered (D131).
 - `vc run --seed 42` makes generated data repeatable; the seed is printed in every report and with every failure (D131).
+- A name that is not a generator is V2002, with the close names and the list of generators. Wrong arguments are V2302: `string.alphanumeric`, `lorem.words` and `lorem.paragraphs` take one count up to 10,000 (defaults 1, 3 and 3); `number.int` takes two whole numbers, the first no larger (default 0 to 9,007,199,254,740,991); `number.float` and `commerce.price` take two numbers (defaults 0 to 1 and 1 to 1000); `helpers.arrayElement` takes one or more values; the rest take none.
+- What they give: `number.int` and `number.float` are numbers, `commerce.price` is a number with two decimals, `helpers.arrayElement` is the argument it picked, and everything else is text. Dates are RFC 3339 in UTC, counted from the run's start: `date.recent` within the day before, `date.past` within the year before, `date.future` within the year after. Text is in English.
+- `string.fromRegExp` (and a `fromRegExp` generator) follows a bounded subset of regex: literals, escapes (`\d`, `\w`, `\s`, `\D`, `\W`, `\S`, `\.`), `.` (printable ASCII), classes and ranges (`[A-Z0-9_]`, `[^,]`), groups (`(…)`, `(?:…)`), alternation (`a|b`), and quantifiers (`?`, `*`, `+`, `{n}`, `{n,m}`, `{n,}`). An open repeat adds at most 16 copies; a count is at most 256 and the text at most 10,000 characters; groups nest at most 32 deep; `^` and `$` only at the ends. Lookarounds, backreferences, `\b`, named groups and Unicode classes are V2309.
 
 Named generators, for settings you reuse, are declared once in `vibranium.config.yaml` and used in the same `fake` namespace:
 
@@ -1128,11 +1131,11 @@ generators:
       words: 500
 ```
 
-Then `${fake.teamName}`, `${fake.quantity}`. A named generator cannot reuse a Faker module name such as `person`.
+Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind: `fromRegExp` (a pattern, as `string.fromRegExp`), `oneOf` (a list, as `helpers.arrayElement`), `int` (`min` and `max`, either optional, as `number.int`) or `lorem` (`words`, as `lorem.words`). None is V1005; several, or settings of the wrong shape, are V2302. A named generator takes no arguments (`${fake.quantity(2)}` is V2302) and cannot reuse a Faker module name such as `person` (V2006).
 
 ### Datasets
 
-A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its file, so `datasets/capitals.csv` is `capitals`; files kept elsewhere are listed under `datasets` in the config. `${dataset.capitals}` is the whole list, and there are three ways to use it.
+A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its path, so `datasets/capitals.csv` is `capitals` and `datasets/users/admins.json` is `users.admins`; files kept elsewhere are listed under `datasets.files` in the config, and an entry there wins over a file with the same ID. `${dataset.capitals}` is the whole list, and there are three ways to use it.
 
 ```
 # datasets/capitals.csv
@@ -1195,13 +1198,21 @@ Rules:
 - `random` and `shuffle` follow `--seed`, so a run can be repeated exactly.
 - CSV cells are text: convert with a pipe (`${item.population | int}`), or use JSON or YAML when the data has types.
 - A dataset is read once per run and never changed by it.
+- `examples` and `forEach` may also read a file next to the test: `examples: { $file: rows.yaml }`.
+- `vc check` reads the rows of `${dataset.<id>}` and `$file` written alone: an `${example.…}` column no row has is V2103, and a `${dataset.…}` that names no dataset is V2002. A CSV record with the wrong number of cells is V1001, a column named twice V1006, and a JSON or YAML dataset that is not a list V1002. A row without a column it reads fails at run time with V5112.
 
 ```yaml
-# vibranium.config.yaml: a dataset kept outside datasets/
+# vibranium.config.yaml: datasets kept outside datasets/
 datasets:
-  - id: worldCities
-    file: ../shared-data/world-cities.csv
+  allowRoots: [../shared-data]
+  files:
+    - id: worldCities
+      file: ../shared-data/world-cities.csv
+    - id: smokeUsers
+      file: fixtures/smoke-users.yaml
 ```
+
+`file` is relative to the project root. A file outside the project must be inside one of `allowRoots` (also relative to the project root), after `..` and symbolic links are resolved; any other path is V1012, so a dataset cannot read `/etc/passwd` or climb out through a link.
 
 ## Functions and request hooks
 

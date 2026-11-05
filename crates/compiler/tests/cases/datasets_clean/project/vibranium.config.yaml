@@ -1,0 +1,12 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+datasets:
+  allowRoots: [../shared]
+  files:
+    - id: worldCities
+      file: ../shared/world.csv
+    - id: capitals
+      file: data/capitals.yaml

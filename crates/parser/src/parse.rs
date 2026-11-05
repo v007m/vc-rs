@@ -1,9 +1,13 @@
 use vc_diagnostics::Diagnostics;
 use vc_model::SourceFileId;
 
-use crate::{Node, Syntax, json, yaml};
+use crate::{Node, Syntax, csv, json, yaml};
 
-/// Parses one YAML or JSON file into a [`Node`] tree, collecting every problem it can find.
+/// Parses one YAML, JSON or CSV file into a [`Node`] tree, collecting every problem it can find.
+///
+/// A CSV file (a dataset, D173) gives a list with one map per row after the header, from column
+/// name to the cell's text; a short or long row, or text that is not UTF-8, is V1001, and a
+/// column named twice is V1006. Every cell of a row spans the whole row.
 ///
 /// Both syntaxes give the same tree: maps keep key order and key spans, scalars keep their
 /// text, style and YAML 1.2 core kind. The root is `None` when the reader stops on an error
@@ -33,5 +37,6 @@ pub fn parse(file: SourceFileId, syntax: Syntax, text: &str) -> (Option<Node>, D
     match syntax {
         Syntax::Yaml => yaml::read(file, text),
         Syntax::Json => json::read(file, text),
+        Syntax::Csv => csv::read(file, text),
     }
 }

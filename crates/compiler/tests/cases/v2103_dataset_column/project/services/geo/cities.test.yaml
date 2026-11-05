@@ -1,0 +1,11 @@
+tests:
+  - id: createsEachCity
+    call: geo#createCity
+    examples: ${dataset.cities}
+    vars:
+      cityName: ${example.nmae}
+  - id: createsFileCities
+    call: geo#createCity
+    examples: {$file: rows.yaml}
+    vars:
+      cityName: ${example.country}

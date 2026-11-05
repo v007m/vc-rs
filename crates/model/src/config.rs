@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use serde_json::Value;
 
 use crate::{
     ActionId, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule, SecretsConfig,
@@ -217,20 +218,22 @@ pub struct LoadStage {
     pub users: u32,
 }
 
-/// One entry of `datasets`.
+/// One dataset (D173): a file under `datasets/`, or an entry of `datasets.files`, with its rows.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
 )]
 pub struct Dataset {
-    /// `id`.
+    /// `id`, or the file's path under `datasets/` with dots for slashes and no extension.
     pub id: crate::DatasetId,
-    /// `file`.
+    /// The file, relative to the project root (`../shared/cities.csv` under an allowed root).
     pub file: String,
+    /// Every row, in file order; a CSV row is a map of text cells.
+    pub rows: Vec<serde_json::Value>,
 }
 
-/// One entry of `generators`: the generator kind and its settings.
+/// One entry of `generators`, lowered to the built-in `${fake.…}` it calls (D174).
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
@@ -239,10 +242,10 @@ pub struct Dataset {
 pub struct GeneratorDef {
     /// `id`.
     pub id: Sym,
-    /// The kind key, such as `fromRegExp` or `oneOf`.
-    pub kind: String,
-    /// Its value.
-    pub settings: TemplateValue,
+    /// The built-in generator it calls, such as `string.fromRegExp` for a `fromRegExp`.
+    pub fake: String,
+    /// The built-in's arguments, from the settings.
+    pub args: Vec<Value>,
 }
 
 #[cfg(test)]

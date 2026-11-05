@@ -155,14 +155,14 @@ fn reserved_words_are_named() {
 }
 
 #[test]
-fn time_functions_are_not_supported_yet() {
-    assert_eq!(
-        error("timestamp('2024-01-01T00:00:00Z')"),
-        (Code::V2305, "`timestamp()` is not supported yet".into(), 0..9)
+fn literal_times_are_checked() {
+    let (code, message, span) = error("timestamp('2024-02-30T00:00:00Z') < var.t");
+    assert_eq!((code, message.as_str(), span), (Code::V2305, "`2024-02-30T00:00:00Z` is not a calendar date", 10..32));
+    assert_eq!(error("1 < 2 || duration('1d') == x").1, "`1d` is not a duration such as `1h30m` or `1.5s`");
+    assert_eq!(error("1 < 2 || duration('1d') == x").2, 18..22);
+    assert!(
+        check("timestamp(var.t) < timestamp('2024-01-01T00:00:00Z') + duration('1h') && var.t.timestamp()").is_ok()
     );
-    assert_eq!(error("1 < 2 || duration('1s') == x").0, Code::V2305);
-    assert_eq!(error("1 < 2 || duration('1s') == x").2, 9..17);
-    assert_eq!(error("var.t.timestamp()").1, "`timestamp()` is not supported yet");
 }
 
 #[test]
