@@ -7,10 +7,12 @@ use std::fmt;
 
 use vc_model::{Keep, RunStatus, TestStatus, Totals};
 
-/// Stores runs as they happen. One writer task owns the store; calls only queue work for it,
-/// except [`HistoryWriter::begin`], [`HistoryWriter::finish`] and [`HistoryWriter::prune`],
-/// which wait for it. `vc-testkit` has a memory fake, and every implementation runs
-/// `history_writer_suite` (D112).
+/// Stores runs as they happen.
+///
+/// One writer task owns the store; calls only queue work for it, except
+/// [`HistoryWriter::begin`], [`HistoryWriter::finish`] and [`HistoryWriter::prune`], which wait
+/// for it. `vc-testkit` has a memory fake, and every implementation runs `history_writer_suite`
+/// (D112).
 pub trait HistoryWriter: Send + Sync {
     /// Opens a run and gives its new ID, greater than every earlier one.
     ///
@@ -100,7 +102,10 @@ impl fmt::Display for RunId {
 
 /// Which run a query means.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[expect(clippy::exhaustive_enums, reason = "history row built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
 pub enum RunRef {
     /// The newest run.
     Last,
@@ -121,7 +126,10 @@ impl RunRef {
 
 /// What is known of a run when it starts.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[expect(clippy::exhaustive_structs, reason = "history row built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
 pub struct RunStart {
     /// `run`, `load`, `adhoc` or `agent`.
     pub kind: String,
@@ -145,7 +153,10 @@ pub struct RunStart {
 
 /// How a run ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[expect(clippy::exhaustive_structs, reason = "history row built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
 pub struct RunEnd {
     /// Its status.
     pub status: RunStatus,
@@ -159,7 +170,10 @@ pub struct RunEnd {
 
 /// A stored run.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[expect(clippy::exhaustive_structs, reason = "history row built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
 pub struct RunRow {
     /// Its ID.
     pub id: RunId,
@@ -175,7 +189,10 @@ pub struct RunRow {
 
 /// One result the writer stores.
 #[derive(Clone, Debug, PartialEq)]
-#[expect(clippy::exhaustive_enums, reason = "history row built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
 pub enum Row {
     /// A test instance's result, with its checks and exchanges.
     Test(TestRow),
@@ -185,7 +202,10 @@ pub enum Row {
 
 /// A test instance's result.
 #[derive(Clone, Debug, Default, PartialEq)]
-#[expect(clippy::exhaustive_structs, reason = "history row built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
 pub struct TestRow {
     /// Its full ID: `users.crud#getsUser`.
     pub test_id: String,
@@ -213,7 +233,10 @@ pub struct TestRow {
 
 /// One check of a test.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[expect(clippy::exhaustive_structs, reason = "history row built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
 pub struct CheckRow {
     /// Its label: `status`, `body.match.total`.
     pub kind: String,
@@ -235,7 +258,10 @@ pub struct CheckRow {
 
 /// A request and its response, redacted, bodies cut.
 #[derive(Clone, Debug, Default, PartialEq)]
-#[expect(clippy::exhaustive_structs, reason = "history row built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
 pub struct ExchangeRow {
     /// The action that sent it.
     pub action: String,
@@ -263,7 +289,10 @@ pub struct ExchangeRow {
 
 /// An exchange's timings, in milliseconds.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-#[expect(clippy::exhaustive_structs, reason = "history row built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
 pub struct TimingRow {
     /// The DNS lookup, when there was one.
     pub dns_ms: Option<f64>,

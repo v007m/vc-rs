@@ -86,7 +86,7 @@ ring = "0.17.14"
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-native-certs = "0.8.5"
-rusqlite = { version = "0.41.1", features = ["bundled"] }
+rusqlite = { version = "0.41.1", features = ["bundled", "fallible_uint"] }
 rustix = { version = "1.1.6", default-features = false, features = ["process", "std"] }
 saphyr-parser = "0.3.3"
 serde = { version = "1.0.229", features = ["derive"] }

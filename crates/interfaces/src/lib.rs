@@ -63,8 +63,8 @@ pub use config::{ConfigEntry, ConfigSource, ConfigSourceError};
 pub use environment::Environment;
 pub use filter::SourceFilter;
 pub use history::{
-    CheckRow, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow,
-    RunStart, TestRow, TimingRow,
+    CheckRow, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart,
+    TestRow, TimingRow,
 };
 pub use keychain::{Keychain, KeychainError};
 pub use random::Random;

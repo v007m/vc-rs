@@ -20,14 +20,14 @@ pub fn history_reader_suite(make: &mut MakeHistory<'_>) {
     leaves_exchanges_out_of_tests(make);
 }
 
-/// A run started with `profiles`.
+/// A run started with `profiles`, its seed past `i64::MAX` as half of all seeds are.
 fn start(profiles: &[&str]) -> RunStart {
     RunStart {
         kind: "run".into(),
         started_ms: 1_700_000_000_000,
         profiles: profiles.iter().map(|&profile| profile.to_owned()).collect(),
         selector: "users".into(),
-        seed: Some(7),
+        seed: Some(u64::MAX - 7),
         git_commit: Some("abc123".into()),
         git_branch: Some("main".into()),
         vc_version: "2.0.0".into(),

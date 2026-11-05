@@ -67,14 +67,19 @@ fn builds_the_config_profiles_and_run_blocks() {
         (&["x-key".to_owned()][..], &["password".to_owned()][..])
     );
     assert_eq!(program.config.report_formats, ["ctrf"]);
-    assert!(program.config.html_single_file);
-    let history = program.config.history;
-    assert_eq!((history.bodies, history.max_body_size.bytes(), history.keep), (Bodies::All, 1024, Keep::Runs(7)));
     let profile = program.profiles.values().next().unwrap();
     assert!(profile.default && profile.vars.len() == 1);
     let [warm] = program.run_blocks.before_run[..] else { panic!("one beforeRun action") };
     assert_eq!(action(&program, warm).owner, Owner::Run);
     assert_eq!(action(&program, warm).id.map(|id| name(&program, id)), Some("warm"));
+}
+
+#[test]
+fn builds_the_report_and_history_settings() {
+    let program = program();
+    assert!(program.config.html_single_file);
+    let history = program.config.history;
+    assert_eq!((history.bodies, history.max_body_size.bytes(), history.keep), (Bodies::All, 1024, Keep::Runs(7)));
 }
 
 #[test]

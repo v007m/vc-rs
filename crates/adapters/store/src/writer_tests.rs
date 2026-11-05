@@ -10,8 +10,11 @@ use vc_testkit::{history_reader_suite, history_writer_suite};
 use super::SqliteHistory;
 use crate::SqliteHistoryReader;
 
+/// The two halves of one history.
+type Halves = (Box<dyn HistoryWriter>, Box<dyn HistoryReader>);
+
 /// A writer and a reader of a fresh history in a directory `dirs` keeps alive.
-fn fresh(dirs: &mut Vec<TempDir>) -> (Box<dyn HistoryWriter>, Box<dyn HistoryReader>) {
+fn fresh(dirs: &mut Vec<TempDir>) -> Halves {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join(".vibranium/history.db");
     dirs.push(dir);

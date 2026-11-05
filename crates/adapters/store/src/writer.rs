@@ -15,9 +15,11 @@ const BATCH_WAIT: Duration = Duration::from_millis(200);
 /// Queued rows are committed once there are this many.
 const BATCH_ROWS: usize = 500;
 
-/// The history writer: one thread owns the connection, and every call sends it a request, so
-/// there is a single writer without a lock (D170). Dropping every handle commits what is
-/// queued and ends the thread.
+/// The history writer.
+///
+/// One thread owns the connection, and every call sends it a request, so there is a single
+/// writer without a lock (D170). Dropping every handle commits what is queued and ends the
+/// thread.
 #[derive(Clone, Debug)]
 pub struct SqliteHistory {
     requests: Sender<Request>,
@@ -39,7 +41,8 @@ impl SqliteHistory {
     /// [`HistoryError`] when the file cannot be created, opened or migrated.
     pub fn open(path: &Path) -> Result<Self, HistoryError> {
         let connection = schema::open_for_writing(path)?;
-        let mut actor = Actor { connection, location: Location::of(path), queued: Vec::new(), since: None, failure: None };
+        let mut actor =
+            Actor { connection, location: Location::of(path), queued: Vec::new(), since: None, failure: None };
         let (requests, inbox) = mpsc::channel();
         std::thread::spawn(move || actor.serve(&inbox));
         Ok(Self { requests })
@@ -84,10 +87,10 @@ struct Actor {
 impl Actor {
     fn serve(&mut self, inbox: &Receiver<Request>) {
         loop {
-            let next = match self.since {
-                Some(since) => inbox.recv_timeout(BATCH_WAIT.saturating_sub(since.elapsed())),
-                None => inbox.recv().map_err(|_| RecvTimeoutError::Disconnected),
-            };
+            let next = self.since.map_or_else(
+                || inbox.recv().map_err(|_| RecvTimeoutError::Disconnected),
+                |since| inbox.recv_timeout(BATCH_WAIT.saturating_sub(since.elapsed())),
+            );
             match next {
                 Ok(request) => self.handle(request),
                 Err(RecvTimeoutError::Timeout) => self.commit(),
@@ -101,12 +104,12 @@ impl Actor {
             Request::Record(run, rows) => self.queue(run, rows),
             Request::Begin(start, reply) => {
                 self.commit();
-                drop(reply.send(insert::begin(&self.connection, &start).map_err(|error| self.location.error(error))));
+                drop(reply.send(insert::begin(&self.connection, &start).map_err(|error| self.location.error(&error))));
             }
             Request::Finish(run, end, reply) => drop(reply.send(self.finish(run, &end))),
             Request::Prune(keep, reply) => {
                 self.commit();
-                drop(reply.send(insert::prune(&self.connection, keep).map_err(|error| self.location.error(error))));
+                drop(reply.send(insert::prune(&self.connection, keep).map_err(|error| self.location.error(&error))));
             }
         }
     }
@@ -131,7 +134,7 @@ impl Actor {
             transaction.commit()
         });
         if let Err(error) = committed {
-            self.failure.get_or_insert(self.location.error(error));
+            self.failure.get_or_insert_with(|| self.location.error(&error));
         }
     }
 
@@ -141,7 +144,7 @@ impl Actor {
             insert::finish(&transaction, run, end)?;
             transaction.commit()
         });
-        let finished = finished.map_err(|error| self.location.error(error));
+        let finished = finished.map_err(|error| self.location.error(&error));
         self.failure.take().map_or(finished, Err)
     }
 }

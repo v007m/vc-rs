@@ -61,7 +61,7 @@ pub fn open_for_writing(path: &Path) -> Result<Connection, HistoryError> {
     }
     let mut connection = Connection::open(path).map_err(|error| location.open(&error))?;
     configure(&connection).map_err(|error| location.open(&error))?;
-    migrate(&mut connection).map_err(|error| location.error(error))?;
+    migrate(&mut connection).map_err(|error| location.error(&error))?;
     Ok(connection)
 }
 
@@ -110,7 +110,8 @@ mod tests {
         let path = dir.path().join(".vibranium/history.db");
         drop(open_for_writing(&path).unwrap());
         let connection = open_for_writing(&path).unwrap();
-        let versions: u64 = connection.query_row("SELECT COUNT(*) FROM schema_migrations", [], |row| row.get(0)).unwrap();
+        let versions: u64 =
+            connection.query_row("SELECT COUNT(*) FROM schema_migrations", [], |row| row.get(0)).unwrap();
         assert_eq!(versions, u64::try_from(MIGRATIONS.len()).unwrap());
         let mode: String = connection.query_row("PRAGMA journal_mode", [], |row| row.get(0)).unwrap();
         assert_eq!(mode, "wal");

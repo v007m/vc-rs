@@ -1,10 +1,13 @@
 use std::sync::mpsc::{self, Sender};
 
-use vc_interfaces::{HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart, TestRow};
+use vc_interfaces::{
+    HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart, TestRow,
+};
 use vc_model::{Keep, Totals};
 
-/// A run history held in memory by a small thread that owns it, so the writer and the reader
-/// share it without a lock. Clones talk to the same thread, so a test can hand one to the engine
+/// A run history held in memory.
+///
+/// A small thread owns it, so the writer and the reader share it without a lock. Clones talk to the same thread, so a test can hand one to the engine
 /// as its writer and keep another to read what it stored.
 #[derive(Clone, Debug)]
 pub struct MemoryHistory {
@@ -45,26 +48,33 @@ impl State {
             Request::Record(run, rows) => self.record(run, rows),
             Request::Finish(run, end, reply) => {
                 self.finish(run, end);
-                drop(reply.send(()));
+                reply.send(()).ok();
             }
             Request::Prune(keep, reply) => drop(reply.send(self.prune(keep))),
-            Request::Runs(limit, reply) => drop(reply.send(self.runs.iter().rev().take(limit).map(|run| run.row.clone()).collect())),
+            Request::Runs(limit, reply) => {
+                drop(reply.send(self.runs.iter().rev().take(limit).map(|run| run.row.clone()).collect()));
+            }
             Request::Run(which, reply) => drop(reply.send(self.find(which).map(|run| run.row.clone()))),
             Request::Tests(run, reply) => drop(reply.send(self.tests(run))),
-            Request::Snapshot(run, reply) => drop(reply.send(self.find(RunRef::Id(run)).and_then(|run| run.snapshot.clone()))),
+            Request::Snapshot(run, reply) => {
+                drop(reply.send(self.find(RunRef::Id(run)).and_then(|run| run.snapshot.clone())));
+            }
         }
     }
 
     fn begin(&mut self, start: RunStart) -> RunId {
         self.next += 1;
-        let row = RunRow { id: RunId::new(self.next), start, finished_ms: None, status: None, totals: Totals::default() };
+        let row =
+            RunRow { id: RunId::new(self.next), start, finished_ms: None, status: None, totals: Totals::default() };
         self.runs.push(Stored { row, tests: Vec::new(), snapshot: None });
         RunId::new(self.next)
     }
 
     fn record(&mut self, run: RunId, rows: Vec<Row>) {
         if let Some(stored) = self.runs.iter_mut().find(|stored| stored.row.id == run) {
-            stored.tests.extend(rows.into_iter().filter_map(|row| if let Row::Test(test) = row { Some(test) } else { None }));
+            stored
+                .tests
+                .extend(rows.into_iter().filter_map(|row| if let Row::Test(test) = row { Some(test) } else { None }));
         }
     }
 
@@ -104,7 +114,9 @@ impl MemoryHistory {
         let (requests, inbox) = mpsc::channel();
         std::thread::spawn(move || {
             let mut state = State::default();
-            inbox.into_iter().for_each(|request| state.handle(request));
+            for request in inbox {
+                state.handle(request);
+            }
         });
         Self { requests }
     }

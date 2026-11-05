@@ -38,9 +38,11 @@ impl Location {
     }
 
     /// A statement failed: another process holding the lock past the timeout, or anything else.
-    pub fn error(&self, error: rusqlite::Error) -> HistoryError {
+    pub fn error(&self, error: &rusqlite::Error) -> HistoryError {
         match error.sqlite_error_code() {
-            Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked) => HistoryError::Busy { location: self.0.clone() },
+            Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked) => {
+                HistoryError::Busy { location: self.0.clone() }
+            }
             _ => HistoryError::Failed { reason: error.to_string() },
         }
     }
@@ -102,13 +104,13 @@ mod tests {
     use vc_interfaces::HistoryError;
     use vc_model::{RunStatus, TestStatus};
 
-    use super::{
-        Location, compress, decompress, run_status, run_status_text, test_status, test_status_text,
-    };
+    use super::{Location, compress, decompress, run_status, run_status_text, test_status, test_status_text};
 
     #[test]
     fn statuses_read_back_as_written() {
-        for status in [TestStatus::Passed, TestStatus::Failed, TestStatus::Blocked, TestStatus::Flaky, TestStatus::Skipped] {
+        for status in
+            [TestStatus::Passed, TestStatus::Failed, TestStatus::Blocked, TestStatus::Flaky, TestStatus::Skipped]
+        {
             assert_eq!(test_status(test_status_text(status)), Some(status));
         }
         for status in [RunStatus::Passed, RunStatus::Failed, RunStatus::Cancelled] {
@@ -128,8 +130,8 @@ mod tests {
     fn a_lock_held_too_long_says_so() {
         let location = Location::of(std::path::Path::new(".vibranium/history.db"));
         let busy = rusqlite::Error::SqliteFailure(ffi::Error::new(ffi::SQLITE_BUSY), None);
-        assert_eq!(location.error(busy), HistoryError::Busy { location: ".vibranium/history.db".into() });
-        let other = location.error(rusqlite::Error::InvalidQuery);
+        assert_eq!(location.error(&busy), HistoryError::Busy { location: ".vibranium/history.db".into() });
+        let other = location.error(&rusqlite::Error::InvalidQuery);
         assert!(matches!(other, HistoryError::Failed { .. }));
     }
 }

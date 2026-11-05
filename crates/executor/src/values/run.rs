@@ -83,7 +83,10 @@ impl RunInputs {
 
 impl fmt::Debug for RunInputs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RunInputs").field("profiles", &self.profiles).field("run_id", &self.run_id).finish_non_exhaustive()
+        f.debug_struct("RunInputs")
+            .field("profiles", &self.profiles)
+            .field("run_id", &self.run_id)
+            .finish_non_exhaustive()
     }
 }
 

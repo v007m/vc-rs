@@ -22,7 +22,7 @@ pub fn begin(connection: &Connection, start: &RunStart) -> rusqlite::Result<RunI
             &start.selector,
             &start.git_commit,
             &start.git_branch,
-            start.seed,
+            start.seed.map(u64::cast_signed),
             &start.vc_version,
             &start.config_hash,
             &start.kind,
@@ -59,7 +59,10 @@ pub fn finish(transaction: &Transaction<'_>, run: RunId, end: &RunEnd) -> rusqli
             totals.flaky,
         ),
     )?;
-    transaction.execute("INSERT OR REPLACE INTO snapshots (run_id, data) VALUES (?1, ?2)", (run.get(), compress(&end.snapshot)?))?;
+    transaction.execute(
+        "INSERT OR REPLACE INTO snapshots (run_id, data) VALUES (?1, ?2)",
+        (run.get(), compress(&end.snapshot)?),
+    )?;
     Ok(())
 }
 
@@ -70,23 +73,24 @@ pub fn prune(connection: &Connection, keep: Keep) -> rusqlite::Result<usize> {
 }
 
 fn test(transaction: &Transaction<'_>, run: RunId, test: &TestRow) -> rusqlite::Result<()> {
-    transaction.prepare_cached(
-        "INSERT INTO test_results (run_id, test_id, example_row, repeat_index, status, duration_ms, attempts,
+    transaction
+        .prepare_cached(
+            "INSERT INTO test_results (run_id, test_id, example_row, repeat_index, status, duration_ms, attempts,
                                    blocked_by, skip_reason, message)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-    )?
-    .execute((
-        run.get(),
-        &test.test_id,
-        test.example_row,
-        test.repeat_index,
-        test.status.map_or("failed", test_status_text),
-        test.duration_ms,
-        test.attempts,
-        &test.blocked_by,
-        &test.skip_reason,
-        &test.message,
-    ))?;
+        )?
+        .execute((
+            run.get(),
+            &test.test_id,
+            test.example_row,
+            test.repeat_index,
+            test.status.map_or("failed", test_status_text),
+            test.duration_ms,
+            test.attempts,
+            &test.blocked_by,
+            &test.skip_reason,
+            &test.message,
+        ))?;
     let id = transaction.last_insert_rowid();
     test.checks.iter().try_for_each(|check| self::check(transaction, id, check))?;
     test.exchanges.iter().try_for_each(|exchange| self::exchange(transaction, Owner { run, test: Some(id) }, exchange))

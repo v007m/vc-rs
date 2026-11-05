@@ -29,7 +29,7 @@ impl SqliteHistoryReader {
     /// Runs `query` on a fresh read-only connection, or answers the default with no file.
     fn read<T: Default>(&self, query: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> Result<T, HistoryError> {
         let Some(connection) = schema::open_for_reading(&self.path)? else { return Ok(T::default()) };
-        query(&connection).map_err(|error| Location::of(&self.path).error(error))
+        query(&connection).map_err(|error| Location::of(&self.path).error(&error))
     }
 }
 
@@ -62,7 +62,9 @@ impl HistoryReader for SqliteHistoryReader {
                  FROM test_results WHERE run_id = ?1 ORDER BY id",
             )?;
             let tests = statement.query_map([run.get()], |row| Ok((row.get::<_, i64>(0)?, test_row(row)?)))?;
-            tests.map(|test| test.map(|(id, test)| TestRow { checks: checks.remove(&id).unwrap_or_default(), ..test })).collect()
+            tests
+                .map(|test| test.map(|(id, test)| TestRow { checks: checks.remove(&id).unwrap_or_default(), ..test }))
+                .collect()
         })
     }
 
@@ -83,7 +85,7 @@ fn run_row(row: &SqlRow<'_>) -> rusqlite::Result<RunRow> {
         selector: row.get(4)?,
         git_commit: row.get(5)?,
         git_branch: row.get(6)?,
-        seed: row.get(7)?,
+        seed: row.get::<_, Option<i64>>(7)?.map(i64::cast_unsigned),
         vc_version: row.get(8)?,
         config_hash: row.get(9)?,
         kind: row.get(10)?,
