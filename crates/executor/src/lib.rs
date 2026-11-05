@@ -44,7 +44,7 @@ pub use machine::{
     InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup, RunCommand, RunInput,
     RunOrchestrator, RunPhase, RunSummary, Saved, Verdict,
 };
-pub use mask::{CelRule, MaskRule, RegexRule};
+pub use mask::{CelRule, MaskRule, MaskRuleMaker, MaskRules, RedactRuleKind, RegexRule};
 pub use pipeline::{
     Attempted, BoxFuture, Call, Delivery, Hop, HostLimit, HostLimits, HttpRetryPolicy, Jittered, NoRetry, Pipeline,
     PipelineParts, RequestStage, Retried, Retry, RetryOn, RetryPolicy, Stage, Timeout, Timing, Transmit, Unchanged,

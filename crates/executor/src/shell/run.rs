@@ -32,7 +32,7 @@ pub async fn run(crew: Crew, plan: Arc<Plan>, frame: RunFrame) -> RunSummary {
         while let Some(input) = inputs.pop_front() {
             let commands;
             (machine, commands) = machine.transition(input);
-            if let Some(summary) = commands.into_iter().find_map(|command| shell.carry_out(command)) {
+            if let Some(summary) = shell.carry_out_all(commands).await {
                 return summary;
             }
         }
@@ -54,14 +54,24 @@ impl RunShell {
         Job { action, owner: OwnerKey::Run, frame: self.frame.clone(), deadline: None }
     }
 
-    fn carry_out(&mut self, command: RunCommand) -> Option<RunSummary> {
+    /// Carries out `commands` in order, up to the one that finishes the run.
+    async fn carry_out_all(&mut self, commands: Vec<RunCommand>) -> Option<RunSummary> {
+        for command in commands {
+            if let Some(summary) = self.carry_out(command).await {
+                return Some(summary);
+            }
+        }
+        None
+    }
+
+    async fn carry_out(&mut self, command: RunCommand) -> Option<RunSummary> {
         match command {
             RunCommand::RunAction(action) => self.tasks.act(&self.crew, self.job(action), &self.cancel),
             RunCommand::RunCleanup(cleanup) => {
                 self.tasks.clean(&self.crew, self.job(cleanup.action).cleaning(&cleanup.vars), &self.cancel);
             }
             RunCommand::StartFiles(failed) => self.start_files(&failed),
-            RunCommand::Emit(event) => self.crew.bus.publish(event),
+            RunCommand::Emit(event) => self.crew.bus.publish(event).await,
             RunCommand::Cancel => self.cancel.cancel(),
             RunCommand::SkipGrace => self.cancel.skip_grace(),
             RunCommand::Abort => {

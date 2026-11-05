@@ -61,15 +61,15 @@ impl Crew {
     /// action's result fills its slot.
     pub async fn act(&self, job: Job, cancel: &CancelTree) -> Ran<ActionReport> {
         let (action, owner, slots) = (job.action, job.owner, job.slots());
-        self.bus.publish(Event::ActionStarted { action, owner });
+        self.bus.publish(Event::ActionStarted { action, owner }).await;
         let ran = cancel.guard(self.execute(job)).await;
         let outcome = match &ran {
             Ran::Done(report) => {
                 for exchange in &report.exchanges {
-                    self.bus.publish(Event::Exchanged { action, owner, exchange: Box::new(exchange.clone()) });
+                    self.bus.publish(Event::Exchanged { action, owner, exchange: Box::new(exchange.clone()) }).await;
                 }
                 for check in &report.checks {
-                    self.bus.publish(Event::CheckEvaluated { action, owner, check: Box::new(check.clone()) });
+                    self.bus.publish(Event::CheckEvaluated { action, owner, check: Box::new(check.clone()) }).await;
                 }
                 if let Some(slots) = slots {
                     let _first = slots.fill(action, report);
@@ -78,7 +78,7 @@ impl Crew {
             }
             Ran::Cut | Ran::Aborted => ActionOutcome::Failed(Failure::new(CANCELLED).at(action)),
         };
-        self.bus.publish(Event::ActionFinished { action, owner, outcome });
+        self.bus.publish(Event::ActionFinished { action, owner, outcome }).await;
         ran
     }
 
@@ -100,7 +100,7 @@ impl Crew {
         let ran = cancel.cleanup(self.cx.executors.execute(job.request(&self.cx))).await;
         if let Ran::Done(report) = &ran {
             let cleanup = CleanupRecord { action, owner, outcome: report.outcome.clone() };
-            self.bus.publish(Event::CleanupFinished { cleanup });
+            self.bus.publish(Event::CleanupFinished { cleanup }).await;
         }
         ran
     }

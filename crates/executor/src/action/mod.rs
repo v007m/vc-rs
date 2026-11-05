@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use vc_interfaces::AuthProvider;
 use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
-use crate::{ActionReport, ExecutorError, Frame, PipelineParts, Redactor, RunInputs, RunValues};
+use crate::{ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues};
 
 pub use auth::{AuthKey, NoAuth, TokenCache};
 pub use call::CallExecutor;
@@ -144,6 +144,14 @@ impl ActionCx {
     #[must_use]
     pub fn with_auth(self, provider: Arc<dyn AuthProvider>) -> Self {
         Self { auth: provider, ..self }
+    }
+
+    /// The same context making the config's `redact.rules` through `rules`: how a run adds a
+    /// rule kind beyond `regex` and `cel` (a `function:` rule, M4). The secrets stay hidden.
+    #[must_use]
+    pub fn with_mask_rules(self, rules: &MaskRules) -> Self {
+        let redactor = Arc::new(self.redactor.with_rules(rules.for_config(&self.program.config)));
+        Self { redactor, ..self }
     }
 
     /// The action behind `id`.
