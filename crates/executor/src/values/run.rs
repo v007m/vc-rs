@@ -7,7 +7,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use indexmap::IndexMap;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use vc_interfaces::{Environment, Random};
 use vc_model::{ActionId, ApiId, FileId, ProfileId, Program, TemplateValue, TestId, VarDefs, VarName};
 use vc_template::{FakeRegistry, PipeRegistry};
@@ -80,6 +80,7 @@ pub struct RunValues {
     test_files: HashMap<FileId, Arc<Defined>>,
     tests: HashMap<TestId, Arc<Defined>>,
     actions: Vec<Arc<Defined>>,
+    datasets: Arc<Value>,
     pipes: PipeRegistry,
     inputs: RunInputs,
 }
@@ -104,6 +105,7 @@ impl RunValues {
             test_files: program.test_files.iter().map(|(id, file)| (*id, layer(&file.vars))).collect(),
             tests: program.tests.iter().map(|(id, test)| (*id, layer(&test.vars))).collect(),
             actions: program.actions.iter().map(|action| layer(&action.vars)).collect(),
+            datasets: Arc::new(datasets(program)),
             pipes: PipeRegistry::builtin(),
             inputs,
         }
@@ -151,6 +153,12 @@ impl RunValues {
         self.actions.get(usize::try_from(id.index()).ok()?).cloned()
     }
 
+    /// The `dataset` root: each loaded dataset's rows, by ID (D173).
+    #[must_use]
+    pub fn datasets(&self) -> Arc<Value> {
+        Arc::clone(&self.datasets)
+    }
+
     /// The pipes templates apply.
     #[must_use]
     pub const fn pipes(&self) -> &PipeRegistry {
@@ -190,6 +198,30 @@ fn config(program: &Program, active: &[ProfileId], set: &Defined) -> Defined {
     }
     values.extend(set.iter().map(|(name, value)| (name.clone(), value.clone())));
     values
+}
+
+/// Each dataset's rows, nested by the dots of its ID: `users.seed` is `{users: {seed: rows}}`.
+fn datasets(program: &Program) -> Value {
+    let mut root = Map::new();
+    for dataset in program.datasets.values() {
+        let Some(id) = program.str(dataset.id.sym()) else { continue };
+        nest(&mut root, id, Value::from(dataset.rows.clone()));
+    }
+    Value::Object(root)
+}
+
+/// Puts `value` at the dotted `path` of `map`, unless another dataset already holds that place.
+fn nest(map: &mut Map<String, Value>, path: &str, value: Value) {
+    match path.split_once('.') {
+        None => {
+            map.entry(path).or_insert(value);
+        }
+        Some((head, rest)) => {
+            if let Value::Object(inner) = map.entry(head).or_insert_with(|| Value::Object(Map::new())) {
+                nest(inner, rest, value);
+            }
+        }
+    }
 }
 
 fn named(program: &Program, values: &IndexMap<VarName, TemplateValue>) -> Defined {

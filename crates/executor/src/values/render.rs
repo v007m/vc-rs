@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
+use vc_diagnostics::Code;
 use vc_interfaces::Random;
 use vc_model::{CelProgram, Examples, Namespace, Program, Reference, Segment, Template, TemplateValue};
 use vc_template::{Activation, CelCompiler, Chance, FakeCx, RenderError, Renderer, Resolve};
@@ -20,8 +21,8 @@ const MAX_DEPTH: usize = 16;
 /// The fake vars drawn by this render, one slot per var not drawn yet, kept in name order.
 type Drawn = BTreeMap<String, OnceCell<Value>>;
 
-/// One action's renderer: its scope, the roots bound so far (`run`, `iteration`, `example`, step
-/// ids, then `request` and `response`) and the fake-data memo.
+/// One action's renderer: its scope, the roots bound so far (`run`, `dataset`, `iteration`,
+/// `example`, step ids, then `request` and `response`) and the fake-data memo.
 pub struct Render<'a> {
     values: &'a RunValues,
     program: &'a Program,
@@ -54,6 +55,7 @@ impl<'a> Render<'a> {
             chance: RandomChance(cx.values.inputs().random.as_ref()),
         };
         render.bind(Namespace::Run, json!({ "profiles": render.values.profiles() }));
+        render.roots.insert(Namespace::Dataset, render.values.datasets());
         for (id, response) in request.frame.steps.iter() {
             render.roots.insert(Namespace::Step(*id), Arc::clone(response));
         }
@@ -203,6 +205,16 @@ fn is_fake(def: &TemplateValue) -> bool {
     template.single_ref().is_some_and(|reference| reference.ns == Namespace::Fake)
 }
 
+/// V5112 when an `example` or `item` row is a map without the column `reference` reads (D173).
+fn row_column(error: RenderError, (ns, row): (Namespace, &Value), reference: &Reference) -> RenderError {
+    let Some(Segment::Key(column)) = reference.path.segments.first() else { return error };
+    let rows = matches!(ns, Namespace::Example | Namespace::Item);
+    match row {
+        Value::Object(row) if rows && !row.contains_key(column.as_str()) => error.coded(Code::V5112),
+        _ => error,
+    }
+}
+
 /// The var definition being rendered.
 struct Within<'n> {
     name: &'n str,
@@ -248,7 +260,8 @@ impl Resolve for Lookup<'_> {
                 let label = self.render.label(ns);
                 let value = self.render.roots.get(&ns);
                 let value = value.ok_or_else(|| RenderError::invalid(format!("`{label}` has no value here")))?;
-                vc_template::select(&label, value, &reference.path.segments)
+                let selected = vc_template::select(&label, value, &reference.path.segments);
+                selected.map_err(|error| row_column(error, (ns, value), reference))
             }
         }
     }

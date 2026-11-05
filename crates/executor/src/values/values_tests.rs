@@ -3,12 +3,14 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use serde_json::{Value, json};
+use vc_diagnostics::Code;
 use vc_model::{
-    ActionId, Examples, GeneratorDef, Instance, InstanceId, Needs, OwnerKey, Profile, ProfileId, TemplateValue,
+    ActionId, Dataset, DatasetId, Examples, GeneratorDef, Instance, InstanceId, Needs, OwnerKey, Profile, ProfileId,
+    TemplateValue,
 };
 use vc_template::RenderError;
 
-use super::{Frame, Render};
+use super::{Frame, Iteration, Render};
 use crate::fixture;
 use crate::fixture::Fixture;
 use crate::{ActionCx, ActionExecutors, ActionReport, ActionRequest, Saved, SharedSlots};
@@ -270,4 +272,32 @@ fn a_cleanup_reads_its_given_vars_instead_of_its_own() {
     let cx = fixture.cx(ActionExecutors::new());
     let frame = Frame::default().cleaning(&saved(&[("userId", json!(42))]));
     assert_eq!(render_one(&cx, action, frame, &probe), Ok(json!(42)));
+}
+
+#[test]
+fn datasets_are_read_by_their_dotted_ids() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    for (word, rows) in [("cities", json!([{"name": "Oslo"}])), ("users.crud", json!([1, 2]))] {
+        let id = DatasetId::new(fixture.sym(word));
+        let rows = rows.as_array().cloned().unwrap_or_default();
+        fixture.program.datasets.insert(id, Dataset { id, file: format!("datasets/{word}.csv"), rows });
+    }
+    let probe = fixture.value("${dataset.cities[0].name}/${dataset.users.crud[1]}");
+    assert_eq!(run_level(&fixture.cx(ActionExecutors::new()), action, &probe), Ok(json!("Oslo/2")));
+}
+
+#[test]
+fn a_row_without_the_column_read_is_v5112_unless_a_default_stands_in() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let (probe, fallback, other) =
+        (fixture.value("${item.name}"), fixture.value("${item.name | default('-')}"), fixture.value("${run.nope}"));
+    let cx = fixture.cx(ActionExecutors::new());
+    let turn = Iteration { index: 1, count: 1, item: Some(json!({"country": "NO"})) };
+    let frame = || Frame { iteration: Some(Arc::new(turn.clone())), ..Frame::default() };
+    let error = render_one(&cx, action, frame(), &probe).unwrap_err();
+    assert_eq!((error.code, error.missing), (Some(Code::V5112), true), "{}", error.message);
+    assert_eq!(render_one(&cx, action, frame(), &fallback), Ok(json!("-")));
+    assert_eq!(render_one(&cx, action, frame(), &other).unwrap_err().code, None, "only rows are V5112");
 }

@@ -170,9 +170,9 @@ fn timing(timing: &Timing) -> Value {
     Value::Object(map)
 }
 
-/// A template that did not render, as a V5111 failure.
+/// A template that did not render, as a failure under its code, V5111 unless it has one.
 pub fn failed(error: RenderError) -> Failure {
-    Failure::new(error.message).with_code(Code::V5111.to_string())
+    Failure::new(error.message).with_code(error.code.unwrap_or(Code::V5111).to_string())
 }
 
 /// A request that cannot be built, as a V5111 failure.
