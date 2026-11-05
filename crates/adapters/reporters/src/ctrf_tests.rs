@@ -1,20 +1,15 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use serde_json::Value;
 use vc_interfaces::{Artifact, ReportError};
-use vc_testkit::reporter_suite;
 
 use super::*;
 use crate::testing::{self, Broken, Capture};
 
 /// The document the scripted run writes.
-async fn written() -> Value {
+fn written() -> Value {
     let (capture, captured) = Capture::new();
-    let context = testing::context(capture);
-    let mut reporter = CtrfReporter::new(&context);
-    let events = testing::script(&context.program(), context.plan());
-    let artifacts = testing::run(&mut reporter, &events, &testing::summary()).await;
+    let artifacts = CtrfFormat.render(&testing::snapshot(), capture.as_ref()).unwrap();
     assert_eq!(artifacts, [Artifact::new("ctrf", PathBuf::from("out/ctrf.json"))]);
     let (printed, saved) = captured.take();
     assert!(printed.is_empty(), "the file reporter prints nothing");
@@ -23,22 +18,16 @@ async fn written() -> Value {
     serde_json::from_str(&saved[0].1).unwrap()
 }
 
-#[tokio::test]
-async fn passes_the_reporter_suite() {
-    let (capture, _captured) = Capture::new();
-    reporter_suite(&mut || Box::new(CtrfReporter::new(&testing::context(capture.clone())))).await;
-}
-
-#[tokio::test]
-async fn writes_the_scripted_run() {
-    let document = written().await;
+#[test]
+fn writes_the_scripted_run() {
+    let document = written();
     insta::assert_snapshot!(serde_json::to_string_pretty(&document).unwrap());
 }
 
 /// The fields the CTRF schema (ctrf-io/ctrf, `schema/ctrf.schema.json`, spec 0.2.0) requires.
-#[tokio::test]
-async fn has_every_field_ctrf_requires() {
-    let document = written().await;
+#[test]
+fn has_every_field_ctrf_requires() {
+    let document = written();
     assert_eq!(document["reportFormat"], "CTRF");
     assert_eq!(document["specVersion"], "0.2.0", "the ctrf-io/ctrf spec and schema version");
     let results = &document["results"];
@@ -63,9 +52,9 @@ async fn has_every_field_ctrf_requires() {
     assert_eq!(summary["skipped"].as_u64(), Some(u64::try_from(counted("skipped")).unwrap()));
 }
 
-#[tokio::test]
-async fn keeps_vibranium_statuses_and_the_blocking_action() {
-    let document = written().await;
+#[test]
+fn keeps_vibranium_statuses_and_the_blocking_action() {
+    let document = written();
     let tests = document["results"]["tests"].as_array().unwrap();
     let raw: Vec<&str> = tests.iter().map(|t| t["rawStatus"].as_str().unwrap()).collect();
     assert_eq!(raw, ["passed", "failed", "blocked", "flaky", "passed", "skipped"]);
@@ -78,9 +67,8 @@ async fn keeps_vibranium_statuses_and_the_blocking_action() {
     assert_eq!(tests[2]["start"], 0, "a test that never ran has no start");
 }
 
-#[tokio::test]
-async fn reports_a_file_it_cannot_save() {
-    let mut reporter = CtrfReporter::new(&testing::context(Arc::new(Broken)));
+#[test]
+fn reports_a_file_it_cannot_save() {
     let refused = ReportError::Write { location: "ctrf.json".into(), reason: "read-only".into() };
-    assert_eq!(reporter.finish(&testing::summary()).await, Err(refused));
+    assert_eq!(CtrfFormat.render(&testing::snapshot(), &Broken), Err(refused));
 }

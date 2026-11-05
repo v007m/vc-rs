@@ -7,19 +7,11 @@ use vc_model::{
     Sym, TestId, TestResult,
 };
 
+pub use crate::view::Location;
+
 /// Text shown for an ID the program does not know.
 const UNKNOWN: &str = "?";
 
-/// Where a span points, as people read it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Location {
-    /// The project-relative file path.
-    pub path: String,
-    /// The line, from 1.
-    pub line: u32,
-    /// The column, from 1.
-    pub column: u32,
-}
 
 /// Turns the IDs in events into the text reports show, from the program and the plan.
 ///
@@ -84,6 +76,17 @@ impl Names {
         label
     }
 
+    /// The example row and repeat index of a result's instance; `(None, 0)` without one.
+    pub fn slot(&self, result: &TestResult) -> (Option<u32>, u32) {
+        result.instance.and_then(|id| self.instances.get(&id)).copied().unwrap_or((None, 0))
+    }
+
+    /// The api a `call` action calls.
+    pub fn api_of(&self, action: ActionId) -> Option<String> {
+        let found = usize::try_from(action.index()).ok().and_then(|at| self.program.actions.get(at))?;
+        if let ActionKind::Call(api) = &found.kind { Some(self.text(api.sym()).to_owned()) } else { None }
+    }
+
     /// An action as people know it: its `id`, else what it runs (`call users#create`).
     pub fn action(&self, action: ActionId) -> String {
         let found = usize::try_from(action.index()).ok().and_then(|at| self.program.actions.get(at));
@@ -136,6 +139,15 @@ impl Names {
 
 /// The `expect` key a check was written under: `status`, `body.match.items[*].price`.
 pub fn check_label(check: &CheckResult) -> String {
+    match check_parts(check) {
+        (key, Some(target)) => format!("{key}.{target}"),
+        (key, None) => key.to_owned(),
+    }
+}
+
+/// The `expect` key of a check and the path it targets, when the key takes one:
+/// `("body.match", Some("errors[0].field"))`.
+pub fn check_parts(check: &CheckResult) -> (&'static str, Option<String>) {
     let target = check.target.as_ref().map(|path| path_text(&path.segments)).unwrap_or_default();
     let (key, with_target) = match check.kind {
         CheckKind::Status => ("status", false),
@@ -148,7 +160,7 @@ pub fn check_label(check: &CheckResult) -> String {
         CheckKind::Cel => ("cel", true),
         CheckKind::Custom => ("custom", false),
     };
-    if with_target && !target.is_empty() { format!("{key}.{target}") } else { key.to_owned() }
+    (key, (with_target && !target.is_empty()).then_some(target))
 }
 
 /// A path as written: `items[*].price`.

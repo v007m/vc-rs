@@ -11,17 +11,18 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
+use http::{HeaderValue, Method, Uri};
 use serde_json::{Value, json};
 use vc_compiler::CompileInput;
-use vc_interfaces::{Artifact, ReportError, Reporter, RunSummary};
+use vc_interfaces::{Artifact, ReportError, Reporter, Row, RunSummary};
 use vc_model::{
-    ActionId, ActionOutcome, CheckKind, CheckResult, CleanupRecord, ContentHash, Event, Failure, InstanceId, Origin,
-    OwnerKey, Path, Plan, Program, RunStatus, Segment, SourceFile, SourceFileId, SourcePath, SourceSpan, TestBody,
-    TestId, TestResult, TestStatus, Totals,
+    ActionId, ActionOutcome, CheckKind, CheckResult, CleanupRecord, ConnectionInfo, ContentHash, Event, Exchange,
+    Failure, InstanceId, Origin, OwnerKey, Path, Plan, Program, RenderedRequest, RunStatus, Segment, SourceFile,
+    SourceFileId, SourcePath, SourceSpan, TestBody, TestId, TestResult, TestStatus, Timing, Totals,
 };
 use vc_planner::{PlanOptions, Selection};
 
-use crate::{Destination, ReporterContext, Stopwatch};
+use crate::{Destination, Recorder, ReporterContext, RunFacts, RunSnapshot, Stopwatch};
 
 const CONFIG: &str = "syntaxVersion: 2
 profiles:
@@ -104,6 +105,20 @@ pub async fn run(reporter: &mut dyn Reporter, events: &[Event], summary: &RunSum
     reporter.finish(summary).await.unwrap()
 }
 
+/// Records `events` and returns the history rows and the snapshot of run 7, ended as [`summary`].
+pub fn record(context: &ReporterContext, events: &[Event]) -> (Vec<Row>, RunSnapshot) {
+    let mut recorder = Recorder::new(context);
+    let rows = events.iter().flat_map(|event| recorder.take(event)).collect();
+    (rows, recorder.finish(RunFacts::of(7, &summary())))
+}
+
+/// The snapshot of the scripted run.
+pub fn snapshot() -> RunSnapshot {
+    let (capture, _captured) = Capture::new();
+    let context = context(capture);
+    record(&context, &script(&context.program(), context.plan())).1
+}
+
 /// The summary the script ends with: one of each status, two passes, on profile `dev`.
 pub fn summary() -> RunSummary {
     RunSummary::new(RunStatus::Failed, totals())
@@ -116,6 +131,19 @@ fn totals() -> Totals {
     let statuses = [TestStatus::Passed, TestStatus::Failed, TestStatus::Blocked, TestStatus::Flaky];
     statuses.into_iter().chain([TestStatus::Passed, TestStatus::Skipped]).for_each(|s| totals.add(s));
     totals
+}
+
+/// A `POST` with `request` as its body, answered 201 with `response`, a non-UTF-8 header and
+/// 1.5ms of DNS in 12ms.
+pub fn exchange(request: &str, response: &str) -> Exchange {
+    let mut sent = RenderedRequest::new(Method::POST, Uri::from_static("http://localhost/users"));
+    sent.headers.insert("authorization", HeaderValue::from_static("Bearer ***"));
+    sent.body = request.to_owned().into();
+    let mut answer = vc_testkit::status(201);
+    answer.headers.insert("x-raw", HeaderValue::from_bytes(b"caf\xe9").unwrap());
+    answer.body = response.to_owned().into();
+    let timing = Timing { dns: Some(Duration::from_micros(1_500)), total: Duration::from_millis(12), ..Timing::default() };
+    Exchange { request: sent, response: answer, timing, connection: ConnectionInfo::default() }
 }
 
 /// A stopwatch that moves on 150ms every time it is read.

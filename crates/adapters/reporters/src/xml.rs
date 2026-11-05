@@ -1,7 +1,6 @@
 //! Just enough XML for `JUnit` reports: escaped text and elements.
 
 use std::fmt::Write as _;
-use std::time::Duration;
 
 /// `text` safe inside an element or a quoted attribute: markup characters escaped, and
 /// characters XML 1.0 cannot hold (most control characters) replaced with U+FFFD.
@@ -47,15 +46,13 @@ fn start(tag: &str, attrs: &[(&str, String)]) -> String {
     out
 }
 
-/// Seconds with millisecond precision, as `JUnit` writes times: `0.150`.
-pub fn seconds(time: Duration) -> String {
-    format!("{:.3}", time.as_secs_f64())
+/// Milliseconds as seconds, the way `JUnit` writes times: `0.150`.
+pub fn seconds(millis: u64) -> String {
+    format!("{}.{:03}", millis / 1_000, millis % 1_000)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use super::*;
 
     #[test]
@@ -88,8 +85,9 @@ mod tests {
 
     #[test]
     fn writes_seconds_to_the_millisecond() {
-        assert_eq!(seconds(Duration::from_millis(150)), "0.150");
-        assert_eq!(seconds(Duration::from_millis(2_500)), "2.500");
-        assert_eq!(seconds(Duration::ZERO), "0.000");
+        assert_eq!(seconds(150), "0.150");
+        assert_eq!(seconds(2_500), "2.500");
+        assert_eq!(seconds(0), "0.000");
+        assert_eq!(seconds(61_007), "61.007");
     }
 }
