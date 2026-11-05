@@ -1,4 +1,5 @@
 use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
+use vc_model::SourcePath;
 
 /// Builds a provider over a project holding these files (relative path, bytes).
 pub type MakeSources<'a> = dyn FnMut(&[(&str, &[u8])]) -> Box<dyn SourceProvider> + 'a;
@@ -10,6 +11,7 @@ pub fn source_provider_suite(make: &mut MakeSources<'_>) {
     applies_the_filter(make);
     reports_files_that_are_not_utf8(make);
     finds_nothing_in_an_empty_project(make);
+    reads_any_file_by_path(make);
 }
 
 const CONFIG: &[u8] = b"syntaxVersion: 2\n";
@@ -92,4 +94,34 @@ fn reports_files_that_are_not_utf8(make: &mut MakeSources<'_>) {
 fn finds_nothing_in_an_empty_project(make: &mut MakeSources<'_>) {
     let provider = make(&[]);
     assert_eq!(discover(provider.as_ref(), &SourceFilter::default()), Discovery::default());
+}
+
+fn reads_any_file_by_path(make: &mut MakeSources<'_>) {
+    let provider = make(&[
+        ("vibranium.config.yaml", CONFIG),
+        ("hooks/sign.ts", b"export const a = 1;\n"),
+        ("datasets/users.json", b"[]"),
+        ("datasets/bad.csv", &[0xff]),
+    ]);
+    let wanted = ["hooks/sign.ts", "datasets/users.json", "datasets/bad.csv", "datasets/gone.json", "hooks/sign.ts"];
+    let wanted: Vec<SourcePath> = wanted.iter().filter_map(|path| SourcePath::new(path).ok()).collect();
+    let result = provider.read(&wanted);
+    assert_eq!(result.as_ref().err(), None, "read failed");
+    let found = result.unwrap_or_default();
+    assert_eq!(paths(&found), ["datasets/users.json", "hooks/sign.ts"], "any kind, in path order, each once");
+    assert_eq!(found.files.get(1).map(|file| file.text.as_str()), Some("export const a = 1;\n"));
+    let problems: Vec<(Option<&str>, bool)> =
+        found.problems.iter().map(|problem| (problem.path(), matches!(problem, SourceError::NotUtf8 { .. }))).collect();
+    assert_eq!(problems, [(Some("datasets/bad.csv"), true), (Some("datasets/gone.json"), false)], "the rest are read");
+    assert!(
+        matches!(found.problems.get(1), Some(SourceError::Read { .. })),
+        "a missing file is a read problem: {:?}",
+        found.problems
+    );
+    assert_eq!(asset_paths(&found), Vec::<&str>::new(), "nothing is listed");
+    assert_eq!(
+        discover(provider.as_ref(), &SourceFilter::default()).files.len(),
+        1,
+        "discover still reads only definitions"
+    );
 }

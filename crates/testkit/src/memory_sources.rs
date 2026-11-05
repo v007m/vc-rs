@@ -1,4 +1,7 @@
+use std::collections::BTreeSet;
+
 use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
+use vc_model::SourcePath;
 
 /// A project held in memory: each file a relative path and its bytes.
 ///
@@ -31,6 +34,28 @@ impl SourceProvider for MemorySources {
         }
         discovery.sort();
         Ok(discovery)
+    }
+
+    fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError> {
+        let mut discovery = Discovery::default();
+        for path in paths.iter().collect::<BTreeSet<_>>() {
+            match self.read_one(path) {
+                Ok(file) => discovery.files.push(file),
+                Err(problem) => discovery.problems.push(problem),
+            }
+        }
+        discovery.sort();
+        Ok(discovery)
+    }
+}
+
+impl MemorySources {
+    /// The file at `path`, or why it cannot be read.
+    fn read_one(&self, path: &SourcePath) -> Result<vc_model::SourceFile, SourceError> {
+        let held = self.files.iter().find(|(relative, _)| relative == path.as_str());
+        let missing = || SourceError::Read { path: path.to_string(), reason: "no such file".to_owned() };
+        let (_, bytes) = held.ok_or_else(missing)?;
+        vc_interfaces::source_file(path.clone(), bytes.clone())
     }
 }
 
