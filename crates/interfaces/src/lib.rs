@@ -3,7 +3,7 @@
 //! Each trait is owned by the code that calls it and implemented by an adapter (and by a fake
 //! in `vc-testkit`, which also holds the contract suite every implementation runs, D112). So far:
 //!
-//! - [`SourceProvider`]: finds and reads the project's definition files for the engine, which
+//! - [`SourceProvider`]: finds and reads the project's files for the engine, which
 //!   hands them to the pure compiler (D132).
 //! - [`CompileCacheStore`]: keeps the compiler's cache between runs as one opaque blob.
 //! - [`Transport`]: sends one rendered request and returns the [`vc_model::Exchange`] with its

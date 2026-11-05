@@ -4,7 +4,8 @@ use ignore::{DirEntry, WalkBuilder};
 use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
 use vc_model::SourcePath;
 
-/// Reads a project's definition files from disk, and lists the other files as assets.
+/// Reads a project's definition files from disk, and lists the other files as assets; reads
+/// any file by path on request.
 ///
 /// Walks the root with `ignore`, so `.gitignore` (and `.ignore`) files are respected even
 /// outside a git repository; the user's global git excludes are not, so every machine finds
@@ -47,7 +48,7 @@ impl FsSources {
         }
         let Some((text, utf8)) = relative(&self.root, entry.path()) else { return };
         match filter.select(&text) {
-            Some(Ok(path)) if utf8 => match self.read(path, entry.path()) {
+            Some(Ok(path)) if utf8 => match self.load(path, entry.path()) {
                 Ok(file) => found.files.push(file),
                 Err(problem) => found.problems.push(problem),
             },
@@ -59,7 +60,7 @@ impl FsSources {
     }
 
     /// Reads the file through its resolved path, so a link cannot lead out of the root.
-    fn read(&self, path: SourcePath, on_disk: &Path) -> Result<vc_model::SourceFile, SourceError> {
+    fn load(&self, path: SourcePath, on_disk: &Path) -> Result<vc_model::SourceFile, SourceError> {
         let failed = |error: std::io::Error| SourceError::Read { path: path.to_string(), reason: error.to_string() };
         let target = std::fs::canonicalize(on_disk).map_err(failed)?;
         if !target.starts_with(&self.root) {
@@ -85,6 +86,21 @@ impl SourceProvider for FsSources {
         found.sort();
         Ok(found)
     }
+
+    fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError> {
+        if let Err(error) = std::fs::read_dir(&self.root) {
+            return Err(root_error(&self.root, &error));
+        }
+        let mut found = Discovery::default();
+        for path in unique(paths) {
+            match self.load(path.clone(), &self.root.join(path.as_str())) {
+                Ok(file) => found.files.push(file),
+                Err(problem) => found.problems.push(problem),
+            }
+        }
+        found.sort();
+        Ok(found)
+    }
 }
 
 impl FsSources {
@@ -104,6 +120,11 @@ fn relative(root: &Path, path: &Path) -> Option<(String, bool)> {
     }
     let utf8 = parts.iter().all(|part| part.to_str().is_some());
     Some((parts.iter().map(|part| part.to_string_lossy()).collect::<Vec<_>>().join("/"), utf8))
+}
+
+/// `paths` in order, each once.
+fn unique(paths: &[SourcePath]) -> std::collections::BTreeSet<&SourcePath> {
+    paths.iter().collect()
 }
 
 fn error_path(error: &ignore::Error) -> Option<&Path> {
