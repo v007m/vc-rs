@@ -1,5 +1,6 @@
 beforeAll:
-  - function: ../../hooks/seed.ts#seedOrders
+  - id: seed
+    function: ../../hooks/seed.ts#seedOrders
     provides: [orderId]
 tests:
   - id: listsSortedOrders

@@ -61,9 +61,10 @@ impl HookModules {
 /// The extensions an import may leave out, tried in this order (D172).
 const EXTENSIONS: [&str; 4] = [".ts", ".mts", ".js", ".mjs"];
 
-/// The hook files an import of the project path `path` may mean, in the order they are tried:
-/// the path itself, the path with an extension added, or, for a `.js` or `.mjs` path, the
-/// TypeScript file it is compiled from (D172).
+/// The hook files an import of the project path `path` may mean, in the order they are tried.
+///
+/// They are the path itself, the path with an extension added, or, for a `.js` or `.mjs` path,
+/// the TypeScript file it is compiled from (D172).
 #[must_use]
 pub fn import_paths(path: &str) -> Vec<String> {
     let mut found = vec![path.to_owned()];

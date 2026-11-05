@@ -32,16 +32,26 @@ pub type MakeHookRunner<'a> = dyn FnMut() -> Box<dyn HookRunner> + Send + 'a;
 pub async fn hook_runner_suite(make: &mut MakeHookRunner<'_>) {
     let runner = make();
     let runner = runner.as_ref();
+    assert_values(runner).await;
+    assert_overruns(runner).await;
+    assert_eq!(value(runner, "echo", json!(1)).await, Ok(json!(1)), "the runner recovers after an overrun");
+    assert_secret_is_read(runner).await;
+    assert_failures(runner).await;
+}
+
+/// JSON goes in and comes out, and a promise is awaited.
+async fn assert_values(runner: &dyn HookRunner) {
     assert_eq!(value(runner, "echo", json!({"a": [1, "two", null]})).await, Ok(json!({"a": [1, "two", null]})));
     assert_eq!(value(runner, "later", json!({"n": 2})).await, Ok(json!({"doubled": 4})), "a promise is awaited");
+}
+
+/// A throw, a missing export and a value that is not JSON each fail as their own error.
+async fn assert_failures(runner: &dyn HookRunner) {
     let threw = value(runner, "boom", Value::Null).await;
     assert!(
         matches!(&threw, Err(HookError::Threw { message, line: Some(14) }) if message.contains("bad input")),
         "a throw names its message and TypeScript line: {threw:?}"
     );
-    assert_overruns(runner).await;
-    assert_eq!(value(runner, "echo", json!(1)).await, Ok(json!(1)), "the runner recovers after an overrun");
-    assert_secret_is_read(runner).await;
     let missing = value(runner, "nope", Value::Null).await;
     assert!(matches!(missing, Err(HookError::NotFound { .. })), "a missing export: {missing:?}");
     let callable = value(runner, "callable", Value::Null).await;

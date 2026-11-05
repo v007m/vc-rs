@@ -90,11 +90,10 @@ pub fn classify(thrown: Thrown, call: &HookCall, seen: Seen) -> HookError {
         Thrown::Error { message, .. } if message.ends_with("out of memory") => {
             HookError::Overran { limit: Limit::Memory, line }
         }
-        Thrown::Error { message, .. } => HookError::Threw { message, line },
+        Thrown::Error { message, .. } | Thrown::Other(message) => HookError::Threw { message, line },
         Thrown::Value(text) => HookError::Threw { message: text.unwrap_or_else(|| "null".to_owned()), line },
         Thrown::Bad(what) => HookError::BadValue { what },
         Thrown::Missing => HookError::NotFound { hook: format!("{}#{}", call.hook.file, call.hook.export) },
-        Thrown::Other(message) => HookError::Threw { message, line },
     }
 }
 

@@ -43,10 +43,7 @@ impl fmt::Debug for FakeHooks {
 impl HookRunner for FakeHooks {
     async fn call(&self, call: HookCall) -> Result<HookOutput, HookError> {
         let hook = format!("{}#{}", call.hook.file, call.hook.export);
-        match self.scripts.get(&hook) {
-            Some(script) => script(&call),
-            None => Err(HookError::NotFound { hook }),
-        }
+        self.scripts.get(&hook).map_or_else(|| Err(HookError::NotFound { hook }), |script| script(&call))
     }
 }
 

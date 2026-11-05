@@ -1,9 +1,8 @@
 ---
 source: crates/compiler/tests/golden.rs
-assertion_line: 52
 input_file: crates/compiler/tests/cases/v2005_hook_export/project
 ---
-error[V2005]: ../../hooks/sign.ts exports no function ``
+error[V2005]: the reference to ../../hooks/sign.ts names no function after the `#`
  --> services/orders/list.test.yaml:6:21
   |
 6 |         - function: "../../hooks/sign.ts#"

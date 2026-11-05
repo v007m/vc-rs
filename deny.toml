@@ -19,6 +19,7 @@ allow-wildcard-paths = true
 skip = [
   { crate = "getrandom@0.2", reason = "ring 0.17 (rustls crypto provider); aws-lc-rs carries an OpenSSL licence term" },
   { crate = "windows-sys@0.52", reason = "ring 0.17 (rustls crypto provider); aws-lc-rs carries an OpenSSL licence term" },
+  { crate = "syn@2", reason = "phf_macros via oxc_ast_macros (hook analysis, D172) and the gungraun dev-dep are on syn 2 (D183)" },
 ]
 deny = [
   { name = "openssl-sys", reason = "rustls only" },

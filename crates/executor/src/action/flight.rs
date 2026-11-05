@@ -91,7 +91,7 @@ impl Flight {
     /// Evaluates `checks` against `subject`, running the custom ones with `{response, vars}`,
     /// masked by the run's redactor so neither the results nor a failure built from them shows
     /// a masked header.
-    pub async fn judge(&self, render: &mut Render<'_>, (checks, subject): (&[Check], Subject<'_>)) -> Vec<CheckResult> {
+    pub async fn judge(&self, render: &Render<'_>, (checks, subject): (&[Check], Subject<'_>)) -> Vec<CheckResult> {
         let mut results = check::evaluate(&Judge::new(&self.matchers, render), checks, subject);
         if checks.iter().any(|check| check.kind == CheckKind::Custom) {
             let input = json!({ "response": subject.response, "vars": render.vars() });

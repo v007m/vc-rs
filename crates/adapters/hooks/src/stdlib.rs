@@ -20,7 +20,7 @@ const EXPORTS: [&str; 6] = ["hmacSha256Hex", "sha256Hex", "base64Encode", "base6
 pub struct Std;
 
 impl ModuleDef for Std {
-    fn declare<'js>(declarations: &Declarations<'js>) -> rquickjs::Result<()> {
+    fn declare(declarations: &Declarations<'_>) -> rquickjs::Result<()> {
         for name in EXPORTS {
             declarations.declare(name)?;
         }
@@ -47,13 +47,13 @@ fn thrown(ctx: &Ctx<'_>, result: Result<String, &'static str>) -> rquickjs::Resu
 
 /// HMAC-SHA256 of `data` keyed with `key`, as lowercase hex.
 pub fn hmac_sha256_hex(key: &str, data: &str) -> String {
-    match Hmac::<Sha256>::new_from_slice(key.as_bytes()) {
-        Ok(mut mac) => {
+    Hmac::<Sha256>::new_from_slice(key.as_bytes()).map_or_else(
+        |_| String::new(),
+        |mut mac| {
             mac.update(data.as_bytes());
             hex(&mac.finalize().into_bytes())
-        }
-        Err(_) => String::new(),
-    }
+        },
+    )
 }
 
 /// `bytes` as lowercase hex.

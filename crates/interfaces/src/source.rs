@@ -18,6 +18,19 @@ pub trait SourceProvider: Send + Sync {
     ///
     /// [`SourceError::Root`] when the project cannot be searched at all.
     fn discover(&self, filter: &SourceFilter) -> Result<Discovery, SourceError>;
+
+    /// The files at `paths`, whatever their kind, read and hashed with [`source_file`], in
+    /// path order. The engine reads with it the data and hook files the compiler wants, which
+    /// [`Self::discover`] only lists as assets.
+    ///
+    /// A path that cannot be used (missing, unreadable, not UTF-8, a link out of the project)
+    /// goes into [`Discovery::problems`] and the rest are still read; a path given twice is
+    /// read once. [`Discovery::assets`] stays empty.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::Root`] when the project cannot be read at all.
+    fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError>;
 }
 
 /// What one discovery found.

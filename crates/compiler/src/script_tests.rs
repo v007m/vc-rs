@@ -81,7 +81,7 @@ fn only_es_module_suffixes_are_hook_files() {
 fn positions_count_lines_and_characters() {
     let text = "ab\nçd\n";
     assert_eq!((position(text, 0).line, position(text, 0).column), (1, 1));
-    assert_eq!((position(text, 5).line, position(text, 5).column), (2, 3));
+    assert_eq!((position(text, 5).line, position(text, 5).column), (2, 2));
     assert_eq!(position(text, 4).offset, 3, "inside a character, the start of it");
     assert_eq!(position(text, 99).offset, text.len());
 }

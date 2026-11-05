@@ -65,7 +65,7 @@ fn wants_each_hook_file_reached_until_all_are_given_then_keeps_their_modules() {
 fn a_missing_export_is_v2005_with_the_close_one_as_a_fix() {
     let compiled = compile(&tests("../../hooks/sign.ts#chek"), &[("hooks/sign.ts", SIGN), ("hooks/util.ts", UTIL)], &[]);
     let found = only(&compiled, Code::V2005);
-    assert_eq!(found.primary.span.start.line, 7);
+    assert_eq!(found.primary.span.start.line, 6);
     assert_eq!(found.help, ["did you mean `check`?"]);
     let edit = &found.fixes[0].edits[0];
     assert_eq!((edit.new_text.as_str(), edit.range.len()), ("check", 4), "only the export is replaced");
@@ -89,7 +89,7 @@ fn a_hook_path_to_no_file_is_v2004_and_to_a_data_file_is_v2008() {
     let outside = compile(&tests("../../../sign.ts#check"), &[], &listed);
     assert_eq!(only(&outside, Code::V2004).primary.text, "leads out of the project");
     let data = compile(&tests("../../datasets/a.json#check"), &[], &listed);
-    assert_eq!(hook_codes(&data), [(Code::V2008, 7)]);
+    assert_eq!(hook_codes(&data), [(Code::V2008, 6)]);
 }
 
 #[test]
@@ -101,6 +101,7 @@ fn a_hook_imports_only_relative_files_and_the_standard_module() {
         "import _ from \"lodash\";\n",
         "import { pick } from \"./gone.ts\";\n",
         "export const check: Hook = async () => [readFileSync, _, pick, hmacSha256Hex, await import(\"./util.ts\")];\n",
+        "export const sign = check;\n",
     );
     let compiled = compile(&tests("../../hooks/sign.ts#check"), &[("hooks/sign.ts", sign)], &["hooks/util.ts"]);
     let mut found = hook_codes(&compiled);

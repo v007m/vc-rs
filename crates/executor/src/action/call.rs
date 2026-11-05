@@ -66,7 +66,7 @@ impl CallExecutor {
         };
         let response = bind(&mut render, &exchange);
         let expected = expected(action, (Origin::Api(api.id), api.span));
-        let checks = trip.judge(&mut render, (&*expected, subject(&response, &exchange))).await;
+        let checks = trip.judge(&render, (&*expected, subject(&response, &exchange))).await;
         let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
         let cleanups = if registers { cleanup(&render, api)? } else { None };
         let saved = check::verdict(&checks).map_or_else(|| saves(&render, &[&api.save, &action.save]), Err);

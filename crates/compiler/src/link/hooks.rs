@@ -190,7 +190,11 @@ impl<'a> Linker<'a> {
     /// V2005: the file does not export the function named.
     fn unexported(&self, at: &Reference<'_, '_>, script: &Script) -> Diagnostic {
         let known: Vec<&str> = script.exports.iter().map(String::as_str).collect();
-        let message = format!("{} exports no function `{}`", at.file, at.export);
+        let message = if at.export.is_empty() {
+            format!("the reference to {} names no function after the `#`", at.file)
+        } else {
+            format!("{} exports no function `{}`", at.file, at.export)
+        };
         let diagnostic = Diagnostic::new(Code::V2005, at.node.span, message).label("not exported");
         if known.is_empty() {
             return diagnostic.help(format!("{} has no value exports; export the function: `export function …`", at.file));

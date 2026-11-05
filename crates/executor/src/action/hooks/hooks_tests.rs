@@ -253,11 +253,11 @@ async fn a_function_action_fails_with_the_runner_s_code_or_without_a_runner() {
 async fn a_name_declared_in_provides_and_not_saved_is_v5109() {
     let mut fixture = Fixture::new();
     let seed = fixture.action(ActionKind::Function(hook("seed")));
-    fixture.action_mut(seed).provides = vec![fixture.var("token"), fixture.var("orderId"), fixture.var("userId")];
+    fixture.action_mut(seed).provides = vec![fixture.var("token"), fixture.var("email"), fixture.var("userId")];
     let hooks = FakeHooks::new().on(&named("seed"), |_: &HookCall| Ok(HookOutput::new(json!({"token": "t"}))));
     let (report, _) = run(fixture, seed, Some(hooks)).await;
     assert_eq!(code(&report).as_deref(), Some("V5109"));
-    assert_eq!(message(&report), "declared in `provides` but not saved: `orderId`, `userId`");
+    assert_eq!(message(&report), "declared in `provides` but not saved: `email`, `userId`");
     assert_eq!(report.outcome.failure().and_then(|failure| failure.action), Some(seed));
 }
 

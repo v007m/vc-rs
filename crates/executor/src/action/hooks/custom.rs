@@ -49,7 +49,7 @@ fn settle(result: &mut CheckResult, returned: Result<Value, HookError>) {
 }
 
 /// V5103 when the function threw, as a check that did not hold; the runner's code otherwise.
-fn code_of(error: &HookError) -> Code {
+const fn code_of(error: &HookError) -> Code {
     if matches!(error, HookError::Threw { .. }) { Code::V5103 } else { error.code() }
 }
 
