@@ -10,6 +10,17 @@ const FIRST: i128 = -62_135_596_800 * NANOS;
 const LAST: i128 = 253_402_300_800 * NANOS - 1;
 /// Digits of a fraction that count; Go's parser drops the rest too.
 const FRACTION_DIGITS: usize = 18;
+/// Duration units and their length in nanoseconds; Go spells microseconds three ways.
+const UNITS: [(&str, i128); 8] = [
+    ("ns", 1),
+    ("us", 1_000),
+    ("\u{b5}s", 1_000),
+    ("\u{3bc}s", 1_000),
+    ("ms", 1_000_000),
+    ("s", NANOS),
+    ("m", 60 * NANOS),
+    ("h", 3600 * NANOS),
+];
 
 /// An instant: nanoseconds since `1970-01-01T00:00:00Z`, in CEL's range of years 1 to 9999.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -117,16 +128,8 @@ fn component(text: &str) -> Option<(i128, &str)> {
     let (number, rest) = text.split_at(number_end);
     let unit_end = rest.find(|c: char| c.is_ascii_digit() || c == '.').unwrap_or(rest.len());
     let (unit, rest) = rest.split_at(unit_end);
-    let scale = match unit {
-        "ns" => 1,
-        "us" | "\u{b5}s" | "\u{3bc}s" => 1_000,
-        "ms" => 1_000_000,
-        "s" => NANOS,
-        "m" => 60 * NANOS,
-        "h" => 3600 * NANOS,
-        _ => return None,
-    };
-    Some((scaled(number, scale)?, rest))
+    let (_, scale) = UNITS.iter().find(|(name, _)| *name == unit)?;
+    Some((scaled(number, *scale)?, rest))
 }
 
 /// `number` (digits, an optional `.` and digits) times `scale`.

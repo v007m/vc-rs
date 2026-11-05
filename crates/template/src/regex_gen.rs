@@ -244,6 +244,7 @@ impl Parser<'_> {
         } else {
             char
         };
+        self.set_syntax(char)?;
         let ranged = self.peek() == Some('-') && self.chars.get(self.at + 1).is_some_and(|next| *next != ']');
         if !ranged {
             return Ok(vec![(low, low)]);
@@ -257,6 +258,19 @@ impl Parser<'_> {
             return Err(format!("the range `{low}-{high}` is out of order"));
         }
         Ok(vec![(low, high)])
+    }
+
+    /// Rejects the regex crate's class syntax this parser does not read: a nested `[…]` and `&&`, `--`, `~~`.
+    fn set_syntax(&self, char: char) -> Result<(), String> {
+        let (next, after) = (self.peek(), self.chars.get(self.at + 1).copied());
+        if char == '[' || (next == Some('-') && after == Some('[')) {
+            return Err("a `[` inside a class must be escaped as `\\[`; nested classes are not supported".to_owned());
+        }
+        let operator = matches!(char, '&' | '-' | '~') && next == Some(char);
+        if operator || (next == Some('-') && after == Some('-')) {
+            return Err("`&&`, `--` and `~~` inside a class are set operations, which are not supported".to_owned());
+        }
+        Ok(())
     }
 
     /// After `\`: the piece, and the character when it is one.
