@@ -27,6 +27,14 @@ impl SystemEnvironment {
         Self { vars: vars.into_iter().collect() }
     }
 
+    /// A snapshot of `environment`, such as one a test injected, so `.env` can fill under it.
+    #[must_use]
+    pub fn snapshot(environment: &dyn Environment) -> Self {
+        Self::from_vars(
+            environment.names().into_iter().filter_map(|name| Some((name.clone(), environment.var(&name)?))),
+        )
+    }
+
     /// This environment, with `fallback` filling the names it does not set: the project's
     /// `.env` under the process environment.
     #[must_use]
@@ -41,6 +49,12 @@ impl SystemEnvironment {
 impl Environment for SystemEnvironment {
     fn var(&self, name: &str) -> Option<String> {
         self.vars.get(name).cloned()
+    }
+
+    fn names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.vars.keys().cloned().collect();
+        names.sort_unstable();
+        names
     }
 }
 
@@ -77,5 +91,13 @@ mod tests {
         let merged = own.with_fallback(fallback);
         assert_eq!(merged.var("TOKEN").as_deref(), Some("process"));
         assert_eq!(merged.var("BASE").as_deref(), Some("x"));
+    }
+
+    #[test]
+    fn a_snapshot_copies_another_environment() {
+        let injected = vc_testkit::MemoryEnvironment::new(&[("A", "1"), ("B", "2")]);
+        let copy = SystemEnvironment::snapshot(&injected);
+        assert_eq!(copy.names(), ["A", "B"]);
+        assert_eq!(copy.var("B").as_deref(), Some("2"));
     }
 }

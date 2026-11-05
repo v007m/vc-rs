@@ -50,6 +50,12 @@ impl Environment for MemoryEnvironment {
     fn var(&self, name: &str) -> Option<String> {
         self.vars.get(name).cloned()
     }
+
+    fn names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.vars.keys().cloned().collect();
+        names.sort_unstable();
+        names
+    }
 }
 
 #[cfg(test)]

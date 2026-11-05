@@ -72,8 +72,8 @@ impl PlanReport {
     }
 }
 
-/// A planned run: the program with the settings applied, the plan, the active profiles and the
-/// environment the run reads.
+/// A planned run: the program with the settings applied, the plan, the active profiles, the
+/// environment the run reads and the `.env` variables a `command:` adds to it.
 pub struct Prepared {
     pub program: Arc<Program>,
     pub plan: Arc<Plan>,
@@ -82,6 +82,8 @@ pub struct Prepared {
     pub names: Vec<String>,
     pub notices: Vec<String>,
     pub environment: Arc<dyn Environment>,
+    /// The `.env` variables the process environment does not set.
+    pub dot_env: Vec<(String, String)>,
 }
 
 impl Prepared {
@@ -113,8 +115,7 @@ impl Engine {
         if !request.profiles.is_empty() {
             flags.insert(0, ConfigEntry::new("profile", request.profiles.join(","), "--profile"));
         }
-        let Layered { settings, environment } = self.layered(&request.sets, &flags)?;
-        let (mut program, notices) = self.program()?;
+        let Layered { mut program, notices, settings, environment, dot_env } = self.layered(&request.sets, &flags)?;
         if let Some(timeout) = settings.timeout {
             Arc::make_mut(&mut program).config.defaults.timeout = Some(timeout);
         }
@@ -123,7 +124,7 @@ impl Engine {
         let options =
             PlanOptions { repeat: request.repeat, today: Some(self.clock.today().to_string()), ..Default::default() };
         let plan = vc_planner::plan(&program, &selection, &options).map_err(|error| plan_error(error, &program))?;
-        Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment })
+        Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment, dot_env })
     }
 
     /// The planner's selection for `select`, with `--changed` asked of the vcs.

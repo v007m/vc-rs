@@ -30,6 +30,7 @@ mod sample;
 mod schema;
 mod selection;
 mod settings;
+mod user;
 
 pub use builder::{Engine, EngineBuilder};
 pub use check::{CheckReport, CheckRequest};
