@@ -140,6 +140,10 @@ impl Default for MemoryHistory {
 }
 
 impl HistoryWriter for MemoryHistory {
+    fn prune(&self, keep: Keep) -> Result<usize, HistoryError> {
+        self.ask(|reply| Request::Prune(keep, reply))
+    }
+
     fn begin(&self, start: &RunStart) -> Result<RunId, HistoryError> {
         self.ask(|reply| Request::Begin(start.clone(), reply))
     }
@@ -150,10 +154,6 @@ impl HistoryWriter for MemoryHistory {
 
     fn finish(&self, run: RunId, end: RunEnd) -> Result<(), HistoryError> {
         self.ask(|reply| Request::Finish(run, end, reply))
-    }
-
-    fn prune(&self, keep: Keep) -> Result<usize, HistoryError> {
-        self.ask(|reply| Request::Prune(keep, reply))
     }
 }
 
