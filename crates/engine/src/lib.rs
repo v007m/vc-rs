@@ -31,6 +31,7 @@ mod schema;
 mod selection;
 mod settings;
 mod user;
+mod wanted;
 
 pub use builder::{Engine, EngineBuilder};
 pub use check::{CheckReport, CheckRequest};
