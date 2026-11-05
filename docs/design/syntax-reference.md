@@ -117,6 +117,10 @@ Reserved names: no `id` (test, api, action, step, dataset…) can be a root name
 
 Settings are layered, lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line. Every value keeps the layer it came from, and `vc config explain <key>` prints it (D129).
 
+- **User config.** `$XDG_CONFIG_HOME/vibranium/config.yaml`, else `$HOME/.config/vibranium/config.yaml` (`%APPDATA%\vibranium\config.yaml` on Windows). Only its `profile`, `defaults`, `reports` and `vars` keys are settings, and each counts only where `vibranium.config.yaml` and its profiles leave the value unset; other keys are preferences that commands read. A file that cannot be read or is not YAML stops the command with exit 2 and names the file.
+- **`VIB_*` names (D182).** A setting's variable is its `--set` key upper-snaked: `VIB_PROFILE`, `VIB_DEFAULTS_CONCURRENCY`, `VIB_DEFAULTS_PER_HOST`, `VIB_DEFAULTS_TIMEOUT`, `VIB_REPORTS_DIR`, `VIB_REPORTS_FORMATS`. A var uses `VIB_VAR_<name>`, with the name exactly as written (`VIB_VAR_userId`). A `VIB_*` line in `.env` sets the same thing one layer lower.
+- **`.env`.** Read from the project root, also when the environment is injected (tests, the MCP server). Its other lines fill `${env.X}` only for names the process environment does not set.
+
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `syntaxVersion` | integer | required, `2` | File-format version (see Files at a glance) |
@@ -641,9 +645,11 @@ An action is one entry in a lifecycle block or in a test's `steps`. Most actions
 | `call: <api>` | Calls an api with its base URL, auth, checks, saves and cleanup | Almost everything |
 | `test: <test>` | Runs another test's calls in order, each with its api's checks; that test's own test-level `expect` is not checked | A multi-step flow that already exists as a test (see Reusing a multi-step flow) |
 | `function: path#export` | Runs a function from a code file | Work no api does: seeding a database, reading a mailbox; it may return an object whose fields are saved |
-| `command: <shell command>` | Runs a command; a non-zero exit fails the action, and its output is attached to the report | Starting services, `docker compose up -d --wait` |
+| `command: <shell command>` | Runs a command through `sh -c` (`cmd /C` on Windows) in the project root; a non-zero exit fails the action (V5110), and its output is attached to the report (details below) | Starting services, `docker compose up -d --wait` |
 
-`call` and `test` actions also take `id`, `vars`, `auth`, `headers`, `query`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars` and `timeout`. `function` and `test` actions may also declare `provides` (below).
+**`command:` safety (D181).** The text you write runs as written; each `${…}` in it is quoted. On unix every rendered value becomes one POSIX word in single quotes (a `'` inside is written `'\''`), so `--set "vars.word=it's; touch x"` echoes that text and runs nothing else. On Windows a value is wrapped in double quotes, and a value holding any of `& | < > ^ % ! " ( )` or a newline fails the action with V5111 before anything runs; pass such a value through an environment variable instead. The child's environment is the process environment, plus the `.env` lines the process does not set, plus `VIB_VAR_<name>` for each config var; it is never logged. It keeps the last 64 KiB of stdout and of stderr, both passing through the redactor, and a V5110 failure shows the exit code and the last 20 lines. The limit is `defaults.timeout` (30 s when unset); past it the whole process group is killed (unix) and the action fails with V5104. Ctrl-C ends the command the same way. `function:` is not supported until M4.
+
+`call` and `test` actions also take `id`, `vars`, `auth`, `headers`, `query`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars` and `timeout` (so far a `command` uses `defaults.timeout`; its own `timeout` is not read yet). `function` and `test` actions may also declare `provides` (below).
 
 In `beforeRun` and `beforeAll` every action that produces values needs an `id`, and everything it saves, including its api's `save`, is shared under that id: `${var.catalog.productIds}`. In per-test blocks and steps, saved names are plain (`${var.userId}`), as for any step.
 

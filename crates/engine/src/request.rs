@@ -91,7 +91,7 @@ pub enum ListKind {
 pub struct ListRequest {
     /// What to list.
     pub kind: ListKind,
-    /// The tests to list; only tests take selectors so far.
+    /// What to list: tests, apis (no tags) or definition files.
     pub select: SelectRequest,
     /// `--skipped`: only the skipped tests.
     pub skipped: bool,

@@ -1,4 +1,4 @@
-//! The ports a run needs beyond the builder's: the config layers above the project's files, the
+//! The ports a run needs beyond the builder's: the config layers around the project's files, the
 //! environment, the transport and the random source. Each is the injected one when the builder
 //! was given it, else the system or HTTP adapter.
 
@@ -6,39 +6,52 @@ use std::hash::{BuildHasher as _, Hasher as _, RandomState};
 use std::sync::Arc;
 
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
-use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemEnvironment, VibVars};
+use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemEnvironment, UserConfig, VibVars};
 use vc_interfaces::{ConfigEntry, Environment, Random, Transport};
+use vc_model::Program;
 
 use crate::settings::{self, Settings};
+use crate::user::UnderProject;
 use crate::{Engine, EngineError};
 
-/// The settings of a run and the environment its `${env.X}` reads.
+/// The compiled program, the settings of a run and the environment its `${env.X}` reads.
 pub struct Layered {
+    pub program: Arc<Program>,
+    pub notices: Vec<String>,
     pub settings: Settings,
     pub environment: Arc<dyn Environment>,
+    /// The `.env` variables the process environment does not set, for a `command:`'s child.
+    pub dot_env: Vec<(String, String)>,
 }
 
 impl Engine {
-    /// The settings `.env`, the `VIB_*` variables, `flags` and `--set` give (D129), in that
-    /// order, and the run's environment: the process environment over the `.env` file.
+    /// Compiles the project, then reads the settings the user config, `.env`, the `VIB_*`
+    /// variables, `flags` and `--set` give (D129), in that order, and the run's environment:
+    /// the process environment (or the injected one) over the `.env` file.
     ///
     /// # Errors
     ///
-    /// [`EngineError::Setting`] when a layer cannot be read or sets something unknown.
+    /// [`EngineError::Invalid`] when the project has errors, and [`EngineError::Setting`] when a
+    /// layer cannot be read or sets something unknown.
     pub(crate) fn layered(&self, sets: &[String], flags: &[ConfigEntry]) -> Result<Layered, EngineError> {
-        let dot_env = match &self.environment {
-            Some(_) => DotEnv::default(),
-            None => DotEnv::read(self.root()).map_err(|error| settings::source_error(&error))?,
-        };
+        let (program, notices) = self.program()?;
+        let dot_env = DotEnv::read(self.root()).map_err(|error| settings::source_error(&error))?;
         let process = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
+        let user = self.user_layer(process.as_ref())?;
         let vib = VibVars::new(Arc::clone(&process));
         let set = SetFlags::new(sets.to_vec());
-        let settings = Settings::resolve(&[&dot_env, &vib, &set], flags)?;
-        let environment: Arc<dyn Environment> = match &self.environment {
-            Some(injected) => Arc::clone(injected),
-            None => Arc::new(SystemEnvironment::capture().with_fallback(dot_env.vars().to_vec())),
-        };
-        Ok(Layered { settings, environment })
+        let settings = Settings::resolve(&[&UnderProject::new(&user, &program), &dot_env, &vib, &set], flags)?;
+        let unset = |(name, _): &&(String, String)| process.var(name).is_none();
+        let dot_env: Vec<(String, String)> = dot_env.vars().iter().filter(unset).cloned().collect();
+        let environment = SystemEnvironment::snapshot(process.as_ref()).with_fallback(dot_env.clone());
+        Ok(Layered { program, notices, settings, environment: Arc::new(environment), dot_env })
+    }
+
+    /// The user config: the builder's path, else the default one `environment` names.
+    fn user_layer(&self, environment: &dyn Environment) -> Result<UserConfig, EngineError> {
+        let path = self.user_config.clone().or_else(|| UserConfig::default_path(environment));
+        path.map_or_else(|| Ok(UserConfig::default()), |path| UserConfig::read(&path))
+            .map_err(|error| settings::source_error(&error))
     }
 
     /// The transport requests go through: HTTP, through the proxy the environment names.

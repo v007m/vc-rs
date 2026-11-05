@@ -7,7 +7,8 @@ pub struct ConfigEntry {
     pub key: String,
     /// The value as text; the engine reads it as the key's type.
     pub value: String,
-    /// Where it was set, for messages and `vc config explain`: `.env`, `VIB_PROFILE`, `--set`.
+    /// Where it was set, for messages and `vc config explain`: the user config's path, `.env`,
+    /// `VIB_PROFILE`, `--set`.
     pub origin: String,
 }
 
@@ -19,10 +20,11 @@ impl ConfigEntry {
     }
 }
 
-/// One config layer above the project's own files (D129).
+/// One config layer around the project's own files (D129).
 ///
-/// The layers are `.env`, the `VIB_*` environment variables and `--set`. The engine reads them
-/// lowest first, so a later entry for the same key wins, and every value keeps its origin.
+/// The layers are the user config (below the project's files), then `.env`, the `VIB_*`
+/// environment variables and `--set` (above them). The engine reads them lowest first, so a
+/// later entry for the same key wins, and every value keeps its origin.
 pub trait ConfigSource: Send + Sync {
     /// The layer's settings, in the order written.
     ///

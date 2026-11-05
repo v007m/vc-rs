@@ -35,5 +35,7 @@ pub fn environment_suite(make: &mut MakeEnvironment<'_>) {
     assert_eq!(environment.var("Mixed_case").as_deref(), Some("x"));
     assert_eq!(environment.var("api_host"), None, "names are case-sensitive");
     assert_eq!(environment.var("MISSING"), None);
+    assert_eq!(environment.names(), ["API_HOST", "EMPTY", "Mixed_case"], "every name, sorted");
     assert_eq!(make(&[]).var("API_HOST"), None);
+    assert_eq!(make(&[]).names(), Vec::<String>::new());
 }

@@ -2,6 +2,7 @@
 //! registry.
 
 mod call;
+mod command;
 mod http_retry;
 mod looping;
 mod request;
@@ -17,6 +18,7 @@ use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 use crate::{ActionReport, ExecutorError, Frame, PipelineParts, Redactor, RunInputs, RunValues};
 
 pub use call::CallExecutor;
+pub use command::CommandExecutor;
 pub use reuse::{TestExecutor, body_actions};
 
 /// The kind of an action, as the registry keys its executors.
@@ -150,8 +152,8 @@ impl ActionExecutors {
         Self::default()
     }
 
-    /// `call:` through the request pipeline built from `parts`, and `test:` reuse. `function:`
-    /// is registered in M4; `command:` when its runner lands.
+    /// `call:` through the request pipeline built from `parts`, and `test:` reuse. `command:`
+    /// needs a runner, so the engine adds a [`CommandExecutor`]; `function:` is registered in M4.
     #[must_use]
     pub fn standard(parts: PipelineParts) -> Self {
         Self::new()

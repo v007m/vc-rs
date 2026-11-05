@@ -23,7 +23,7 @@ enum Kind {
 pub struct ListArgs {
     /// What to list.
     kind: Kind,
-    /// The tests to list; apis and files are always listed in full.
+    /// What to list; apis take every selector but `-t`.
     #[command(flatten)]
     select: SelectArgs,
     /// Lists only the skipped tests.

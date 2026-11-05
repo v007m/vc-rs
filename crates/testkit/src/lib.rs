@@ -13,10 +13,13 @@
 //! source_provider_suite(&mut |files| Box::new(MemorySources::new(files)) as Box<dyn SourceProvider>);
 //! ```
 
+mod auth_suite;
 mod cache_suite;
 mod clock_suite;
 mod config_source_suite;
+mod fake_auth;
 mod fake_random;
+mod fake_secrets;
 mod fake_transport;
 mod fake_vcs;
 mod faulty_transport;
@@ -28,14 +31,18 @@ mod random_suite;
 mod recording_reporter;
 mod recording_transport;
 mod reporter_suite;
+mod secrets_suite;
 mod source_suite;
 mod transport_suite;
 mod vcs_suite;
 
+pub use auth_suite::{action_runner_suite, auth_provider_suite, browser_suite, keychain_suite};
 pub use cache_suite::{MakeCompileCache, compile_cache_store_suite};
 pub use clock_suite::clock_suite;
 pub use config_source_suite::config_source_suite;
+pub use fake_auth::{FakeAuth, FixedFlow, MemoryKeychain, RecordingBrowser};
 pub use fake_random::{MemoryEnvironment, ScriptedRandom};
+pub use fake_secrets::{Answer, FakeCommands, MemorySecrets};
 pub use fake_transport::{FakeTransport, Respond, status};
 pub use fake_vcs::FakeVcs;
 pub use faulty_transport::{Fault, FaultyTransport};
@@ -47,6 +54,7 @@ pub use random_suite::{MakeEnvironment, MakeRandom, environment_suite, random_su
 pub use recording_reporter::{RecordingReporter, ReportLog, Reported};
 pub use recording_transport::{Recorded, RecordingTransport, Recordings};
 pub use reporter_suite::{MakeReporter, reporter_suite};
+pub use secrets_suite::{MakeSecretProvider, command_runner_suite, secret_provider_suite};
 pub use source_suite::{MakeSources, source_provider_suite};
 pub use transport_suite::transport_suite;
 pub use vcs_suite::{MakeVcs, VcsHistory, vcs_suite};

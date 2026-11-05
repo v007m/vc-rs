@@ -79,3 +79,33 @@ fn a_set_flag_without_a_value_is_malformed() {
     let error = SetFlags::new(vec!["concurrency".into()]).entries().unwrap_err();
     assert_eq!(error.to_string(), "--set: `concurrency` is not key=value");
 }
+
+#[test]
+fn every_setting_has_a_vib_name_and_vars_keep_their_case() {
+    let environment = Arc::new(MemoryEnvironment::new(&[
+        ("VIB_DEFAULTS_CONCURRENCY", "4"),
+        ("VIB_DEFAULTS_PER_HOST", "2"),
+        ("VIB_DEFAULTS_TIMEOUT", "3s"),
+        ("VIB_REPORTS_DIR", "out"),
+        ("VIB_REPORTS_FORMATS", "ctrf,junit"),
+        ("VIB_VAR_userId", "7"),
+        ("VIB_VAR_", "nameless"),
+        ("VIB_UNKNOWN", "x"),
+    ]));
+    let expected = [
+        ConfigEntry::new("defaults.concurrency", "4", "VIB_DEFAULTS_CONCURRENCY"),
+        ConfigEntry::new("defaults.perHost", "2", "VIB_DEFAULTS_PER_HOST"),
+        ConfigEntry::new("defaults.timeout", "3s", "VIB_DEFAULTS_TIMEOUT"),
+        ConfigEntry::new("reports.dir", "out", "VIB_REPORTS_DIR"),
+        ConfigEntry::new("reports.formats", "ctrf,junit", "VIB_REPORTS_FORMATS"),
+        ConfigEntry::new("vars.userId", "7", "VIB_VAR_userId"),
+    ];
+    assert_eq!(VibVars::new(environment).entries().unwrap(), expected);
+}
+
+#[test]
+fn a_dot_env_sets_vars_through_vib_var_names() {
+    let env = DotEnv::parse("VIB_VAR_who=dotenv\nVIB_DEFAULTS_PER_HOST=3\n").unwrap();
+    let expected = [ConfigEntry::new("vars.who", "dotenv", ".env"), ConfigEntry::new("defaults.perHost", "3", ".env")];
+    assert_eq!(env.entries().unwrap(), expected);
+}

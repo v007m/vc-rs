@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use tokio::sync::mpsc::Receiver;
 use vc_executor::{
-    ActionCx, ActionExecutors, Defined, EventBus, Executor, ExecutorError, HostLimits, PipelineParts, RunHandle,
-    RunInputs, RunOptions,
+    ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
+    PipelineParts, RunHandle, RunInputs, RunOptions,
 };
 use vc_interfaces::{ConfigEntry, Random, RunSummary};
 use vc_model::{Feed, Part, Template, TemplateValue};
@@ -75,8 +75,8 @@ impl Engine {
         Ok(RunReport { exit: vc_executor::exit_code(summary), seed, notices })
     }
 
-    /// The executor for `prepared`: HTTP through the per-host limits, the active profiles and
-    /// the `--set vars.*` values.
+    /// The executor for `prepared`: HTTP through the per-host limits, `command:` through the
+    /// command runner, the active profiles and the `--set vars.*` values.
     fn executor(&self, prepared: &Prepared, random: Arc<dyn Random>, bail: bool) -> Result<Executor, EngineError> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let per_host = settings.per_host.or(defaults.per_host).unwrap_or(PER_HOST);
@@ -86,7 +86,10 @@ impl Engine {
         let inputs = RunInputs::new(random, Arc::clone(&prepared.environment))
             .with_profiles(prepared.profiles.clone())
             .with_vars(vars(&settings.vars));
-        let cx = ActionCx::new(Arc::clone(&prepared.program), Arc::new(ActionExecutors::standard(parts)), inputs);
+        let root = self.root().to_path_buf();
+        let commands = CommandExecutor::new(Arc::clone(&self.commands), root, prepared.dot_env.clone());
+        let executors = ActionExecutors::standard(parts).with(ActionKindTag::Command, Arc::new(commands));
+        let cx = ActionCx::new(Arc::clone(&prepared.program), Arc::new(executors), inputs);
         let options = RunOptions { concurrency: widen(concurrency), bail, ..RunOptions::default() };
         Ok(Executor::new(Arc::new(cx), options))
     }
@@ -148,7 +151,7 @@ fn executor_error(error: &ExecutorError) -> EngineError {
     match error {
         ExecutorError::NoExecutor { .. } => EngineError::Selection {
             reason: error.to_string(),
-            help: Some("leave the `command:` action out of the selected tests and lifecycle blocks".to_owned()),
+            help: Some("leave the `function:` action out of the selected tests and lifecycle blocks".to_owned()),
         },
         _ => EngineError::Internal { reason: error.to_string() },
     }

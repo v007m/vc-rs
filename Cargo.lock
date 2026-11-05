@@ -2397,8 +2397,12 @@ dependencies = [
 name = "vc-adapter-system"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "ignore",
+ "rustix",
+ "saphyr-parser",
  "tempfile",
+ "tokio",
  "vc-interfaces",
  "vc-model",
  "vc-testkit",
@@ -2518,9 +2522,11 @@ dependencies = [
  "async-trait",
  "blake3",
  "globset",
+ "serde_json",
  "thiserror",
  "vc-diagnostics",
  "vc-model",
+ "zeroize",
 ]
 
 [[package]]

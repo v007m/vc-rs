@@ -13,11 +13,13 @@ pub enum PlanError {
     /// Problems found in the definitions themselves, with their codes and spans.
     #[error("the definitions have {} problem(s)", .0.len())]
     Diagnostics(Vec<Diagnostic>),
-    /// A positional selector matched no test and names no test file.
-    #[error("no test or test file matches `{selector}`")]
+    /// A positional selector matched nothing and names no file.
+    #[error("no {items} matches `{selector}`")]
     UnknownSelector {
         /// The selector as given.
         selector: String,
+        /// What it was asked to match: `test or test file`, `api or api file`, `definition file`.
+        items: &'static str,
         /// Test and file IDs close to it, closest first.
         suggestions: Vec<String>,
     },
@@ -73,7 +75,7 @@ impl PlanError {
             Self::BadTagExpr { .. } => {
                 Some("`,` means or, `&` means and, `!` excludes: `smoke,checkout & !slow`".into())
             }
-            Self::NotSupportedYet { .. } => Some("`function:` and `command:` actions arrive in M4".into()),
+            Self::NotSupportedYet { .. } => Some("`function:` actions arrive in M4".into()),
             Self::Diagnostics(_) | Self::BadGlob { .. } | Self::RowsNotLoaded { .. } => None,
         }
     }
@@ -87,13 +89,16 @@ mod tests {
 
     #[test]
     fn help_suggests_the_closest_id_and_names_the_milestone() {
-        let unknown =
-            PlanError::UnknownSelector { selector: "users.crd".into(), suggestions: vec!["users.crud".into()] };
+        let unknown = PlanError::UnknownSelector {
+            selector: "users.crd".into(),
+            items: "test",
+            suggestions: vec!["users.crud".into()],
+        };
         assert_eq!(unknown.help().as_deref(), Some("did you mean `users.crud`?"));
-        let none = PlanError::UnknownSelector { selector: "zzz".into(), suggestions: Vec::new() };
+        let none = PlanError::UnknownSelector { selector: "zzz".into(), items: "test", suggestions: Vec::new() };
         assert_eq!(none.help(), None);
-        let m4 = PlanError::NotSupportedYet { kind: "command", action: ActionId::new(0) };
-        assert_eq!(m4.to_string(), "`command:` actions are not supported yet");
+        let m4 = PlanError::NotSupportedYet { kind: "function", action: ActionId::new(0) };
+        assert_eq!(m4.to_string(), "`function:` actions are not supported yet");
         assert!(m4.help().is_some_and(|help| help.contains("M4")));
         let row = PlanError::NoSuchInstance { selector: "a.b#c:4".into(), count: 3 };
         assert_eq!(row.help().as_deref(), Some("pick an instance from 1 to 3"));
