@@ -43,6 +43,9 @@ impl JsonReporter {
                 let fields = with(self.action(*action, *owner), json!({"status": status, "failure": failure}));
                 ("actionFinished", fields)
             }
+            Event::Exchanged { action, owner, exchange } => {
+                ("exchanged", with(self.action(*action, *owner), encode::exchange(exchange)))
+            }
             Event::CheckEvaluated { action, owner, check } => {
                 let fields = with(self.action(*action, *owner), json!({"check": encode::check(names, check)}));
                 ("checkEvaluated", fields)

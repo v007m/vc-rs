@@ -9,7 +9,7 @@ mod run;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use vc_model::{ActionId, ActionOutcome, CheckResult, Event, Failure, Needs, OwnerKey, PlannedAction};
+use vc_model::{ActionId, ActionOutcome, CheckResult, Event, Exchange, Failure, Needs, OwnerKey, PlannedAction};
 
 pub use file::{FileCommand, FileInput, FileOrchestrator, FilePhase, Launch};
 pub use instance::{
@@ -65,6 +65,9 @@ pub struct ActionReport {
     pub response: Option<Arc<serde_json::Value>>,
     /// Its evaluated checks, in order, each reported as a `CheckEvaluated` event.
     pub checks: Vec<CheckResult>,
+    /// Its calls' exchanges, bodies cut at `history.maxBodySize`, each reported as an
+    /// `Exchanged` event before the checks.
+    pub exchanges: Vec<Exchange>,
 }
 
 impl ActionReport {
@@ -78,6 +81,7 @@ impl ActionReport {
             fakes: Saved::new(),
             response: None,
             checks: Vec::new(),
+            exchanges: Vec::new(),
         }
     }
 

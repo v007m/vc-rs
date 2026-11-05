@@ -1,7 +1,7 @@
 //! The JSON shapes the `json` and `ctrf` reporters share.
 
 use serde_json::{Value, json};
-use vc_model::{ActionOutcome, CheckResult, CleanupRecord, Failure, Origin, OwnerKey, RunStatus, Totals};
+use vc_model::{ActionOutcome, CheckResult, CleanupRecord, Exchange, Failure, Origin, OwnerKey, RunStatus, Totals};
 
 use crate::collect::StepRecord;
 use crate::names::{self, Location, Names};
@@ -79,6 +79,16 @@ pub fn cleanup(names: &Names, cleanup: &CleanupRecord) -> Value {
         "owner": owner(names, cleanup.owner),
         "status": status,
         "failure": failed,
+    })
+}
+
+/// An exchange's method, URL, status and total time; headers and bodies stay in the history.
+pub fn exchange(exchange: &Exchange) -> Value {
+    json!({
+        "method": exchange.request.method.as_str(),
+        "url": exchange.request.uri.to_string(),
+        "status": exchange.response.status.as_u16(),
+        "ms": u64::try_from(exchange.timing.total.as_millis()).unwrap_or(u64::MAX),
     })
 }
 

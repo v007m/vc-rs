@@ -1,10 +1,12 @@
 use std::time::Duration;
 
+use http::{Method, Uri};
 use serde_json::json;
 use vc_interfaces::{Artifact, Reporter, RunSummary};
 use vc_model::{
-    ActionId, ActionOutcome, CheckKind, CheckResult, CleanupRecord, Event, Failure, FileId, InstanceId, ModelError,
-    Origin, OwnerKey, Pos, RunStatus, SourceFileId, SourceSpan, StringTable, TestId, TestResult, TestStatus, Totals,
+    ActionId, ActionOutcome, CheckKind, CheckResult, CleanupRecord, ConnectionInfo, Event, Exchange, Failure, FileId,
+    InstanceId, ModelError, Origin, OwnerKey, Pos, RenderedRequest, RunStatus, SourceFileId, SourceSpan, StringTable,
+    TestId, TestResult, TestStatus, Timing, Totals,
 };
 
 /// Builds a fresh reporter.
@@ -96,6 +98,7 @@ fn actions(ids: Ids) -> Vec<Event> {
         Event::ActionStarted { action: setup, owner: OwnerKey::File(file) },
         Event::ActionFinished { action: setup, owner: OwnerKey::File(file), outcome: ActionOutcome::Passed },
         Event::ActionStarted { action: call, owner },
+        Event::Exchanged { action: call, owner, exchange: Box::new(exchange()) },
         Event::CheckEvaluated { action: call, owner, check: Box::new(failed_check(test)) },
         Event::ActionFinished { action: call, owner, outcome: ActionOutcome::Failed(call_failure(ids)) },
         Event::CleanupFinished { cleanup },
@@ -121,6 +124,13 @@ fn results(ids: Ids) -> Vec<Event> {
         finished(TestStatus::Flaky, Some(2), Some(call_failure(ids))),
         finished(TestStatus::Skipped, None, None),
     ]
+}
+
+/// A `GET` answered with 500.
+fn exchange() -> Exchange {
+    let request = RenderedRequest::new(Method::GET, Uri::from_static("http://localhost/users/1"));
+    let response = crate::status(500);
+    Exchange { request, response, timing: Timing::default(), connection: ConnectionInfo::default() }
 }
 
 fn failed_check(test: TestId) -> CheckResult {

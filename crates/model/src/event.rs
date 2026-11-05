@@ -1,8 +1,10 @@
-use crate::{ActionId, ActionOutcome, CheckResult, CleanupRecord, FileId, OwnerKey, RunStatus, TestResult, Totals};
+use crate::{
+    ActionId, ActionOutcome, CheckResult, CleanupRecord, Exchange, FileId, OwnerKey, RunStatus, TestResult, Totals,
+};
 
 /// Everything observable about a run, in the order it happened (D103).
 ///
-/// Check results leave the executor through its redactor; exchanges are added later.
+/// Check results and exchanges leave the executor through its redactor.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_enums,
@@ -43,6 +45,16 @@ pub enum Event {
         owner: OwnerKey,
         /// How it ended.
         outcome: ActionOutcome,
+    },
+    /// A call sent a request and got a response; the redactor has masked it, and its bodies are
+    /// cut at `history.maxBodySize`. A polled call reports the exchange its checks judged.
+    Exchanged {
+        /// The call.
+        action: ActionId,
+        /// The frame it ran in.
+        owner: OwnerKey,
+        /// The request as sent and the response as received, with timings.
+        exchange: Box<Exchange>,
     },
     /// A call's check was evaluated; the redactor has masked it.
     CheckEvaluated {

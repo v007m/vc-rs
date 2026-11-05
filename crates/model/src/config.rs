@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 
 use crate::{
-    ActionId, AuthId, Duration, FileId, Matcher, Method, ProfileId, RedactRule, SecretsConfig, StatusPattern, Sym,
-    Template, TemplateValue, TestId, VarDefs,
+    ActionId, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule, SecretsConfig,
+    StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
 };
 
 /// How long before expiry credentials are fetched again when `refreshBefore` is not written.
@@ -37,6 +37,8 @@ pub struct Config {
     pub redact_rules: Vec<RedactRule>,
     /// `secrets`, with the names `.env.schema` declares (D163, D165).
     pub secrets: SecretsConfig,
+    /// `history` (D170).
+    pub history: HistoryConfig,
 }
 
 /// `defaults`.

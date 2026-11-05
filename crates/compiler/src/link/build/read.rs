@@ -1,7 +1,7 @@
 //! Reads compiled pieces and plain scalars off a file's tree for the program build.
 
 use indexmap::IndexMap;
-use vc_model::{BodySpec, Duration, Examples, HookRef, Loop, Method, Retry, Skip, Tag, Template, TemplateValue};
+use vc_model::{BodySpec, Duration, Examples, HookRef, Loop, Method, Retry, Size, Skip, Tag, Template, TemplateValue};
 use vc_parser::Node;
 
 use crate::link::project;
@@ -46,6 +46,14 @@ pub fn template(source: &Source<'_>, node: &Node) -> Option<Template> {
 pub fn duration(source: &Source<'_>, node: &Node, key: &str) -> Option<Duration> {
     match source.piece(node.get(key)?)? {
         Piece::Duration(duration) => Some(*duration),
+        _ => None,
+    }
+}
+
+/// The size under `key`.
+pub fn size(source: &Source<'_>, node: &Node, key: &str) -> Option<Size> {
+    match source.piece(node.get(key)?)? {
+        Piece::Size(size) => Some(*size),
         _ => None,
     }
 }
