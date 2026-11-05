@@ -53,7 +53,8 @@ impl<'a> Render<'a> {
             drawn: Drawn::new(),
             chance: RandomChance(cx.values.inputs().random.as_ref()),
         };
-        render.bind(Namespace::Run, json!({ "profiles": render.values.profiles() }));
+        let run = json!({ "id": render.values.inputs().run_id, "profiles": render.values.profiles() });
+        render.bind(Namespace::Run, run);
         for (id, response) in request.frame.steps.iter() {
             render.roots.insert(Namespace::Step(*id), Arc::clone(response));
         }

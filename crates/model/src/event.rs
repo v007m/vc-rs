@@ -46,8 +46,9 @@ pub enum Event {
         /// How it ended.
         outcome: ActionOutcome,
     },
-    /// A call sent a request and got a response; the redactor has masked it, and its bodies are
-    /// cut at `history.maxBodySize`. A polled call reports the exchange its checks judged.
+    /// A call sent a request and got a response, whole; the redactor has masked it. History and
+    /// reports cut its bodies at `history.maxBodySize` only after that, so a cut never splits a
+    /// secret before it is masked. A polled call reports the exchange its checks judged.
     Exchanged {
         /// The call.
         action: ActionId,

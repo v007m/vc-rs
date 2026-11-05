@@ -29,6 +29,9 @@ impl<'a> Build<'_, 'a> {
             vars: VarDefs { values: self.values(source, root.get("vars"))?, by_profile: IndexMap::new() },
             reports_dir: reports.and_then(|reports| read::owned(reports, "dir")),
             report_formats: reports.map(|reports| read::texts(reports, "formats")).unwrap_or_default(),
+            html_single_file: reports
+                .and_then(|reports| reports.get("html"))
+                .is_some_and(|html| project::text(html, "layout") == Some("single")),
             redact_headers: redact.map(|redact| read::texts(redact, "headers")).unwrap_or_default(),
             redact_fields: redact.map(|redact| read::texts(redact, "fields")).unwrap_or_default(),
             history: root.get("history").map(|history| Self::history(source, history)).unwrap_or_default(),

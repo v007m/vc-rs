@@ -35,13 +35,15 @@ pub struct RunInputs {
     pub environment: Arc<dyn Environment>,
     /// What `${fake.…}` generates.
     pub fakes: FakeData,
+    /// `${run.id}`: the run's number in the history; 0 when the history is not kept.
+    pub run_id: u64,
 }
 
 impl RunInputs {
     /// Inputs with the default profiles and the placeholder fake data.
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
-        Self { profiles: Vec::new(), vars: Defined::new(), random, environment, fakes: FakeData::placeholder() }
+        Self { profiles: Vec::new(), vars: Defined::new(), random, environment, fakes: FakeData::placeholder(), run_id: 0 }
     }
 
     /// The same inputs with `profiles` active, in order.
@@ -55,11 +57,17 @@ impl RunInputs {
     pub fn with_vars(self, vars: Defined) -> Self {
         Self { vars, ..self }
     }
+
+    /// The same inputs as history run `run_id`.
+    #[must_use]
+    pub fn with_run_id(self, run_id: u64) -> Self {
+        Self { run_id, ..self }
+    }
 }
 
 impl fmt::Debug for RunInputs {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RunInputs").field("profiles", &self.profiles).finish_non_exhaustive()
+        f.debug_struct("RunInputs").field("profiles", &self.profiles).field("run_id", &self.run_id).finish_non_exhaustive()
     }
 }
 
