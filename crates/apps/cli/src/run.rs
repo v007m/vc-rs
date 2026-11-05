@@ -24,13 +24,20 @@ pub struct RunArgs {
     /// The console format: `spec` (the default) or `json`.
     #[arg(long, value_name = "FORMAT")]
     reporter: Option<String>,
-    /// The report files to write, as a comma list or repeated: `ctrf`, `junit`. Over the
-    /// config's `reports.formats`; `ctrf` when neither names any.
+    /// The report files to write, as a comma list or repeated: `ctrf`, `junit`, `html`. Over
+    /// the config's `reports.formats`; `ctrf` when neither names any.
     #[arg(long = "report", value_name = "FORMATS")]
     reports: Vec<String>,
-    /// The folder the report files go in, over the config's `reports.dir`.
+    /// The folder the report files go in, as they are, over the config's `reports.dir`; else
+    /// each run's files go in `<reports.dir>/<run>/`.
     #[arg(long, value_name = "DIR")]
     out: Option<PathBuf>,
+    /// Writes the HTML report as one self-contained file, over `reports.html.layout`.
+    #[arg(long)]
+    single_file: bool,
+    /// Runs the tests that failed or were blocked in the last run, under its profiles.
+    #[arg(long)]
+    failed: bool,
 }
 
 /// `vc run [selectors] [flags]`: exit 0 passed, 1 failed or blocked, 2 nothing ran, 130
@@ -53,6 +60,8 @@ pub fn run(args: &RunArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         reports: args.reports.clone(),
         out: args.out.as_ref().map(|out| std::env::current_dir().map(|cwd| cwd.join(out))).transpose()?,
         color: use_color(&std::io::stdout()),
+        single_file: args.single_file,
+        failed: args.failed,
     };
     let report = match execute(&located.engine, &request)? {
         Ok(report) => report,

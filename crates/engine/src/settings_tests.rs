@@ -47,12 +47,14 @@ fn every_key_reads_its_value() {
         ("defaults.timeout", "2s"),
         ("reports.dir", "out"),
         ("reports.formats", "ctrf,junit"),
+        ("reports.html.layout", "single"),
     ];
     let settings = Settings::resolve(&[&layer("--set", &pairs)], &[]).unwrap();
     assert_eq!(settings.per_host, Some(3));
     assert_eq!(settings.timeout.map(vc_model::Duration::get), Some(Duration::from_secs(2)));
     assert_eq!(settings.reports_dir.as_deref(), Some("out"));
     assert_eq!(settings.formats.map(|formats| formats.names), Some(vec!["ctrf".into(), "junit".into()]));
+    assert_eq!(settings.html_single_file, Some(true));
     assert_eq!(Settings::resolve(&[], &[]).unwrap(), Settings::default());
 }
 
@@ -62,7 +64,7 @@ fn an_unknown_key_or_a_bad_value_names_its_layer() {
     assert_eq!(error.to_string(), "--set: `colour`: not a setting");
     assert!(error.help().is_some_and(|help| help.contains("vars.<name>")), "{error:?}");
     for (key, value) in
-        [("defaults.concurrency", "0"), ("defaults.perHost", "x"), ("defaults.timeout", "soon"), ("reports.dir", " ")]
+        [("defaults.concurrency", "0"), ("defaults.perHost", "x"), ("defaults.timeout", "soon"), ("reports.dir", " "), ("reports.html.layout", "x")]
     {
         let error = Settings::resolve(&[&layer("VIB_PROFILE", &[(key, value)])], &[]).unwrap_err();
         assert!(matches!(&error, EngineError::Setting { origin, .. } if origin == "VIB_PROFILE"), "{error:?}");

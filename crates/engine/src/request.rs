@@ -64,6 +64,11 @@ pub struct RunRequest {
     pub out: Option<PathBuf>,
     /// Whether the console output is coloured.
     pub color: bool,
+    /// `--single-file`: the HTML report as one self-contained file.
+    pub single_file: bool,
+    /// `--failed`: the failed and blocked tests of the last run instead of the selection, under
+    /// its profiles unless `plan` names some.
+    pub failed: bool,
 }
 
 /// What `vc list` lists.

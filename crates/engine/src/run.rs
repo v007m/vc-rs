@@ -9,12 +9,12 @@ use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
     PipelineParts, RunHandle, RunInputs, RunOptions,
 };
-use vc_interfaces::{ConfigEntry, Random, RunSummary};
+use vc_interfaces::{ConfigEntry, Random, RunId, RunStart, RunSummary};
 use vc_model::{Feed, Part, Template, TemplateValue};
 
-use crate::plan::Prepared;
+use crate::plan::{Extra, Prepared};
 use crate::reporting::{self, Reporters, Setup};
-use crate::{Engine, EngineError, Interrupts, RunRequest, ports};
+use crate::{Engine, EngineError, Interrupts, RunRequest, history, ports};
 
 /// Room for this many events between the bus and the reporters before they miss some.
 const FEED: usize = 65_536;
@@ -43,21 +43,15 @@ impl Engine {
     ///
     /// The errors of [`Engine::plan`]; [`EngineError::Reporter`] for a reporter that is unknown,
     /// given to the wrong flag or not built yet; [`EngineError::Selection`] when the plan
-    /// reaches an action this build cannot run.
+    /// reaches an action this build cannot run; with `--failed`, [`EngineError::History`] when
+    /// no run is stored and [`EngineError::Selection`] when the last one had nothing to rerun.
     pub async fn run(&self, request: &RunRequest, interrupts: Interrupts) -> Result<RunReport, EngineError> {
-        let prepared = self.prepare(&request.plan, flags(request))?;
-        let chosen = reporting::choose(request.console.as_deref(), &prepared.settings, &prepared.program)?;
-        let chosen = chosen.under(self.root());
+        let (plan, rerun) = self.rerun(request)?;
+        let prepared = self.prepare(&plan, Extra { flags: flags(request), rerun })?;
         let (seed, random) = ports::random(request.seed);
-        let executor = self.executor(&prepared, random, request.bail)?;
-        let headline = format!("plan  {}", prepared.report().line());
-        let setup = Setup {
-            program: Arc::clone(&prepared.program),
-            plan: Arc::clone(&prepared.plan),
-            headline,
-            color: request.color,
-        };
-        let reporters = Reporters::create(&chosen, setup)?;
+        let (reporters, unrecorded) = self.reporters(request, &prepared, seed)?;
+        let run_id = reporters.run_id().map_or(0, RunId::get);
+        let executor = self.executor(&prepared, inputs(&prepared, random, run_id), request.bail)?;
         let bus = EventBus::spawn();
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
         let started = self.clock.now_ms();
@@ -71,21 +65,52 @@ impl Engine {
         let run =
             RunSummary::new(summary.status, summary.totals).timed(started, elapsed).profiles(prepared.names.clone());
         let mut notices = prepared.notices;
+        notices.extend(unrecorded);
         notices.extend(fanout.reporters.finish(run).await);
         Ok(RunReport { exit: vc_executor::exit_code(summary), seed, notices })
     }
 
+    /// The reporters `request` chooses, recording into the history; a history that cannot be
+    /// opened leaves the run unrecorded, with a notice saying so.
+    fn reporters(
+        &self,
+        request: &RunRequest,
+        prepared: &Prepared,
+        seed: u64,
+    ) -> Result<(Reporters, Option<String>), EngineError> {
+        let chosen = reporting::choose(request.console.as_deref(), &prepared.settings, &prepared.program)?;
+        let chosen = chosen.under(self.root()).flat(request.out.is_some());
+        let mut selector = history::selector(&request.plan.select);
+        if request.failed {
+            selector = format!("--failed {selector}").trim_end().to_owned();
+        }
+        let start = RunStart {
+            kind: "run".to_owned(),
+            started_ms: self.clock.now_ms(),
+            profiles: prepared.names.clone(),
+            selector,
+            seed: Some(seed),
+            vc_version: env!("CARGO_PKG_VERSION").to_owned(),
+            ..RunStart::default()
+        };
+        let (recording, notice) = match self.recording(&start) {
+            Ok(recording) => (Some(recording), None),
+            Err(error) => (None, Some(format!("history: {error}; this run is not recorded"))),
+        };
+        let headline = format!("plan  {}", prepared.report().line());
+        let (program, plan) = (Arc::clone(&prepared.program), Arc::clone(&prepared.plan));
+        let setup = Setup { program, plan, headline, color: request.color, seed };
+        Ok((Reporters::create(chosen, setup, recording)?, notice))
+    }
+
     /// The executor for `prepared`: HTTP through the per-host limits, `command:` through the
-    /// command runner, the active profiles and the `--set vars.*` values.
-    fn executor(&self, prepared: &Prepared, random: Arc<dyn Random>, bail: bool) -> Result<Executor, EngineError> {
+    /// command runner, with `inputs`.
+    fn executor(&self, prepared: &Prepared, inputs: RunInputs, bail: bool) -> Result<Executor, EngineError> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let per_host = settings.per_host.or(defaults.per_host).unwrap_or(PER_HOST);
         let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
         let transport = self.transport(prepared.environment.as_ref())?;
         let parts = PipelineParts::new(transport, HostLimits::spawn(widen(per_host)));
-        let inputs = RunInputs::new(random, Arc::clone(&prepared.environment))
-            .with_profiles(prepared.profiles.clone())
-            .with_vars(vars(&settings.vars));
         let root = self.root().to_path_buf();
         let commands = CommandExecutor::new(Arc::clone(&self.commands), root, prepared.dot_env.clone());
         let executors = ActionExecutors::standard(parts).with(ActionKindTag::Command, Arc::new(commands));
@@ -93,6 +118,15 @@ impl Engine {
         let options = RunOptions { concurrency: widen(concurrency), bail, ..RunOptions::default() };
         Ok(Executor::new(Arc::new(cx), options))
     }
+}
+
+/// What the run's templates read besides the definitions: the random values, the environment,
+/// the active profiles, the `--set vars.*` values and the history's run number.
+fn inputs(prepared: &Prepared, random: Arc<dyn Random>, run_id: u64) -> RunInputs {
+    RunInputs::new(random, Arc::clone(&prepared.environment))
+        .with_profiles(prepared.profiles.clone())
+        .with_vars(vars(&prepared.settings.vars))
+        .with_run_id(run_id)
 }
 
 /// The run flags that are settings, as the layer between `VIB_*` and `--set` (D129).
@@ -103,6 +137,9 @@ fn flags(request: &RunRequest) -> Vec<ConfigEntry> {
     }
     if !request.reports.is_empty() {
         flags.push(ConfigEntry::new("reports.formats", request.reports.join(","), "--report"));
+    }
+    if request.single_file {
+        flags.push(ConfigEntry::new("reports.html.layout", "single", "--single-file"));
     }
     if let Some(out) = &request.out {
         flags.push(ConfigEntry::new("reports.dir", out.to_string_lossy(), "--out"));

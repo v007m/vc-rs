@@ -5,10 +5,11 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use serde_json::Value;
-use vc_interfaces::{ConfigEntry, Environment, VcsError};
+use vc_interfaces::{ConfigEntry, Environment, TestRow, VcsError};
 use vc_model::{Plan, ProfileId, Program, SourcePath};
 use vc_planner::{PlanError, PlanOptions, Selection};
 
+use crate::failed;
 use crate::ports::Layered;
 use crate::project::invalid;
 use crate::settings::{Named, Settings};
@@ -86,6 +87,14 @@ pub struct Prepared {
     pub dot_env: Vec<(String, String)>,
 }
 
+/// What `vc run` adds to a plan request: its flags that are settings, and the results
+/// `--failed` runs again.
+#[derive(Default)]
+pub struct Extra {
+    pub flags: Vec<ConfigEntry>,
+    pub rerun: Vec<TestRow>,
+}
+
 impl Prepared {
     /// The plan as `vc plan` shows it.
     pub fn report(&self) -> PlanReport {
@@ -107,11 +116,12 @@ impl Engine {
     /// setting or an unknown profile, and [`EngineError::Selection`] when a selector cannot be
     /// read, matches nothing, or `--changed` cannot ask git.
     pub fn plan(&self, request: &PlanRequest) -> Result<PlanReport, EngineError> {
-        Ok(self.prepare(request, Vec::new())?.report())
+        Ok(self.prepare(request, Extra::default())?.report())
     }
 
     /// Reads the settings, compiles, applies the settings, picks the profiles and plans.
-    pub(crate) fn prepare(&self, request: &PlanRequest, mut flags: Vec<ConfigEntry>) -> Result<Prepared, EngineError> {
+    pub(crate) fn prepare(&self, request: &PlanRequest, extra: Extra) -> Result<Prepared, EngineError> {
+        let Extra { mut flags, rerun } = extra;
         if !request.profiles.is_empty() {
             flags.insert(0, ConfigEntry::new("profile", request.profiles.join(","), "--profile"));
         }
@@ -120,7 +130,10 @@ impl Engine {
             Arc::make_mut(&mut program).config.defaults.timeout = Some(timeout);
         }
         let (profiles, names) = profiles(&program, settings.profiles.as_ref())?;
-        let selection = self.selection(&request.select)?;
+        let mut selection = self.selection(&request.select)?;
+        if !rerun.is_empty() {
+            selection.ids = failed::selectors(&program, &rerun, request.repeat)?;
+        }
         let options =
             PlanOptions { repeat: request.repeat, today: Some(self.clock.today().to_string()), ..Default::default() };
         let plan = vc_planner::plan(&program, &selection, &options).map_err(|error| plan_error(error, &program))?;

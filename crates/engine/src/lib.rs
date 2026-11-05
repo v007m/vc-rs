@@ -16,6 +16,8 @@
 mod builder;
 mod check;
 mod error;
+mod failed;
+mod history;
 mod interrupt;
 mod list;
 mod plan;
@@ -30,6 +32,7 @@ mod sample;
 mod schema;
 mod selection;
 mod settings;
+mod stored;
 mod user;
 
 pub use builder::{Engine, EngineBuilder};
@@ -41,5 +44,6 @@ pub use plan::PlanReport;
 pub use request::{ListKind, ListRequest, PlanRequest, RunRequest, SelectRequest};
 pub use run::RunReport;
 pub use schema::SchemaFile;
+pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
 pub use vc_diagnostics::{Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
 pub use vc_model::{FileKind, SourceFiles};

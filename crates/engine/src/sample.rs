@@ -26,6 +26,11 @@ const ORDERS: (&str, &[u8]) =
 
 /// An engine over the sample project, with `vcs` for `--changed`.
 pub fn engine(vcs: impl Vcs + 'static) -> Engine {
+    builder(vcs).build().unwrap()
+}
+
+/// The builder of [`engine`], for a test that adds ports.
+pub fn builder(vcs: impl Vcs + 'static) -> EngineBuilder {
     let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&[CONFIG, USERS, CRUD, ORDERS]));
     EngineBuilder::new(PathBuf::from("/project"))
         .sources(sources)
@@ -33,6 +38,4 @@ pub fn engine(vcs: impl Vcs + 'static) -> Engine {
         .clock(Arc::new(FixedClock(Date::new(2026, 11, 5).unwrap())))
         .environment(Arc::new(MemoryEnvironment::new(&[])))
         .vcs(Arc::new(vcs))
-        .build()
-        .unwrap()
 }
