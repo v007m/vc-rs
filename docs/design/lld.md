@@ -92,7 +92,7 @@ Dependency rules: the crates form a layered graph with no cycles, enforced by `a
 | L6 | `vc-tui`, `vc-mcp`, `vc-server` | engine, which re-exports the model types they need (plus contracts for mcp and server) (D108) |
 | L7 | `vc-cli` (bin `vc`) | engine, tui, mcp, server: the only app→app edges (D110) |
 | — | `vc-testkit` | model, interfaces; used only as a dev-dependency (D112) |
-| — | `vc-arch-tests`, `vc-mock-server` | no workspace crates |
+| — | `vc-arch-tests`, `vc-mock-server`, `vc-demo` | no workspace crates |
 
 Every edge points to a strictly lower layer; adapters never depend on each other or on the core logic crates. `arch-tests` asserts the whole table (crates for later milestones included, so adding them does not touch gate files), rejects unknown crates, and checks dev-dependency edges for cycles. Public items in `vc-model` and `vc-interfaces` may name only types from std, serde/serde_json, indexmap, smol_str, bytes and `http` (D111).
 

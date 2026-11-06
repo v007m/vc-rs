@@ -51,6 +51,27 @@ impl Drop for Watch {
     }
 }
 
+/// The summary line `vc run users.crud` prints.
+fn run_summary(project: &Project) -> String {
+    let output = project.vc(&["run", "users.crud"]).output().unwrap();
+    let text = String::from_utf8_lossy(&output.stdout).into_owned();
+    text.lines().find(|line| line.contains(" passed")).unwrap_or_else(|| panic!("no summary:\n{text}")).to_owned()
+}
+
+/// `line` with every number written as `#`, so two runs' timings compare equal.
+fn shape(line: &str) -> String {
+    let mut shaped = String::new();
+    for c in line.chars() {
+        let digit = c.is_ascii_digit() || (c == '.' && shaped.ends_with('#'));
+        if !digit {
+            shaped.push(c);
+        } else if !shaped.ends_with('#') {
+            shaped.push('#');
+        }
+    }
+    shaped
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn runs_once_then_again_when_a_test_file_is_saved() {
     let server = MockServer::start().await.unwrap();
@@ -59,6 +80,7 @@ async fn runs_once_then_again_when_a_test_file_is_saved() {
     let watch = Watch::start(&project, &["watch", "users.crud"]);
     let first = watch.next_summary().unwrap_or_else(|| panic!("no first run"));
     assert!(first.starts_with("2 passed"), "{first}");
+    assert_eq!(shape(&first), shape(&run_summary(&project)), "watch prints the summary `vc run` prints");
     let more = format!("{}  - id: listsAgain\n    call: users#list\n", CRUD.1);
     project.write(CRUD.0, &more);
     let second = watch.next_summary().unwrap_or_else(|| panic!("no run after the save"));

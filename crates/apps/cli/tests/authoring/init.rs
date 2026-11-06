@@ -87,7 +87,7 @@ fn leaves_an_existing_project_alone() {
     let mine = "syntaxVersion: 2\nprofiles:\n  - id: dev  # mine\n";
     let project = Project::new(&[("vibranium.config.yaml", mine)]);
     let output = project.vc(&["init"]).output().unwrap();
-    assert!(!output.status.success(), "{}", said(&output));
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
     assert!(said(&output).contains("vibranium.config.yaml"), "names the file it would overwrite");
     assert_eq!(project.read("vibranium.config.yaml"), mine);
     assert!(!project.exists("services/sample"));

@@ -58,7 +58,7 @@ How much more is written is a personal preference in `~/.config/vibranium/config
 # ─ Project config ─────────────────────────────────────────────
 # One per project, at the root: profiles, project-wide vars, auth,
 # secrets and run settings. Only syntaxVersion and one profile are required.
-# Reference: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#project-config
+# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#project-config
 # See where a value comes from: vc config explain defaults.timeout
 # ─────────────────────────────────────────────────────────────
 syntaxVersion: 2
@@ -112,7 +112,7 @@ Any value here can be set from several places. Layers apply lowest to highest: b
 # ─ Api file: sample ───────────────────────────────────────────
 # How to call one service. Tests call each api by its full ID, sample#<id>.
 # Safe to delete once you have your own api files.
-# Reference: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#api-files
+# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
 # Try one: vc call sample#listUsers
 # ─────────────────────────────────────────────────────────────
 id: sample
@@ -169,7 +169,7 @@ apis:
 # ─ Test file: sample.basics ───────────────────────────────────
 # Tests call apis and state what they expect.
 # Run this file: vc run sample.basics    One test: vc run sample.basics#createsUser
-# Reference: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#tests
+# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#tests
 # ─────────────────────────────────────────────────────────────
 id: sample.basics
 name: Sample tests
@@ -227,10 +227,12 @@ tests:
       status: 400
 ```
 
+`rejectsMissingEmail` expects 400 although `sample#createUser` expects 201: expect checks merge by kind and leaf path, and the more specific level replaces the other (D123).
+
 With `brief` comments, `vc new api users#deactivate` adds a single line above the new item:
 
 ```yaml
-  # users#deactivate · POST /users/{id}/deactivate · keys: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#api-files
+  # users#deactivate · POST /users/{id}/deactivate · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
   - id: deactivate
     method: POST
     path: /users/${var.id}/deactivate
