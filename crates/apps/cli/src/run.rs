@@ -9,6 +9,7 @@ use crate::project;
 use crate::select::PlanArgs;
 
 #[derive(Args)]
+#[expect(clippy::struct_excessive_bools, reason = "each bool is one independent command-line flag")]
 pub struct RunArgs {
     #[command(flatten)]
     plan: PlanArgs,
@@ -38,6 +39,9 @@ pub struct RunArgs {
     /// Runs the tests that failed or were blocked in the last run, under its profiles.
     #[arg(long)]
     failed: bool,
+    /// Runs `cache:` actions every time, neither reading nor writing the cross-run cache.
+    #[arg(long)]
+    no_cache: bool,
 }
 
 /// `vc run [selectors] [flags]`: exit 0 passed, 1 failed or blocked, 2 nothing ran, 130
@@ -64,6 +68,7 @@ pub fn run(args: &RunArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         },
         color: use_color(&std::io::stdout()),
         failed: args.failed,
+        no_cache: args.no_cache,
     };
     let report = match execute(&located.engine, &request)? {
         Ok(report) => report,

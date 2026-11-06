@@ -107,6 +107,13 @@ impl<'a> Render<'a> {
         Renderer::new(self.values.pipes(), &Lookup { render: self, within: None }).text(template)
     }
 
+    /// `names` as the action sees them, leaving out any that do not render and the fake ones,
+    /// which differ every run: what keys a `cache:`d action.
+    pub fn vars<'n>(&self, names: impl IntoIterator<Item = &'n String>) -> Saved {
+        let plain = |name: &&String| !matches!(self.scope.find(self.program, name, 0), Some((_, Found::Defined(def))) if is_fake(def));
+        names.into_iter().filter(plain).filter_map(|name| Some((name.clone(), self.var(name, None).ok()?))).collect()
+    }
+
     /// The program the action belongs to.
     pub const fn program(&self) -> &'a Program {
         self.program

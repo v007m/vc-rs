@@ -239,7 +239,8 @@ fn instance(test: &TestRow) -> String {
 }
 
 /// A Unix-milliseconds time as `2026-11-05 10:22Z`.
-fn started(ms: u64) -> String {
+/// A Unix time in milliseconds as `2026-11-05 09:30Z`.
+pub fn started(ms: u64) -> String {
     let days = i64::try_from(ms / DAY_MS).unwrap_or(i64::MAX);
     let minutes = (ms % DAY_MS) / 60_000;
     let date = Date::from_unix_days(days).map_or_else(String::new, |date| date.to_string());

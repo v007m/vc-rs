@@ -53,8 +53,8 @@ impl Engine {
         let (seed, random) = ports::random(request.seed);
         let (reporters, unrecorded) = self.reporters(request, &prepared, seed)?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
-        let inputs = inputs(&prepared, random, run_id).with_secrets(secrets);
-        let executor = self.executor(&prepared, inputs, request.bail)?;
+        let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
+        let (executor, swept) = self.executor(&prepared, inputs, request).await?;
         let bus = EventBus::spawn();
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
         let started = self.clock.now_ms();
@@ -69,6 +69,7 @@ impl Engine {
             RunSummary::new(summary.status, summary.totals).timed(started, elapsed).profiles(prepared.names.clone());
         let mut notices = prepared.notices;
         notices.extend(unrecorded);
+        notices.extend(swept);
         notices.extend(fanout.reporters.finish(run).await);
         Ok(RunReport { exit: vc_executor::exit_code(summary), seed, notices })
     }
@@ -104,25 +105,38 @@ impl Engine {
         Ok((Reporters::create(chosen, setup, recording)?, notice))
     }
 
-    /// The executor for `prepared`: HTTP through the per-host limits, `command:` through the
-    /// command runner, with `inputs`.
-    fn executor(&self, prepared: &Prepared, inputs: RunInputs, bail: bool) -> Result<Executor, EngineError> {
+    /// The executor for `prepared` with `inputs`, keeping `cache:`d results in the cross-run
+    /// cache unless `request` says `--no-cache`, and the cache's notices.
+    async fn executor(
+        &self,
+        prepared: &Prepared,
+        inputs: RunInputs,
+        request: &RunRequest,
+    ) -> Result<(Executor, Vec<String>), EngineError> {
+        let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
+        let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
+        let cx = ActionCx::new(Arc::clone(&prepared.program), self.executors(prepared)?, inputs);
+        let (cx, notices) = if request.no_cache { (Arc::new(cx), Vec::new()) } else { self.cached(cx, prepared).await };
+        let options = RunOptions { concurrency: widen(concurrency), bail: request.bail, ..RunOptions::default() };
+        Ok((Executor::new(cx, options), notices))
+    }
+
+    /// The action executors for `prepared`: HTTP through the per-host limits, `command:`
+    /// through the command runner.
+    pub(crate) fn executors(&self, prepared: &Prepared) -> Result<Arc<ActionExecutors>, EngineError> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let per_host = settings.per_host.or(defaults.per_host).unwrap_or(PER_HOST);
-        let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
         let transport = self.transport(prepared.environment.as_ref())?;
         let parts = PipelineParts::new(transport, HostLimits::spawn(widen(per_host)));
         let root = self.root().to_path_buf();
         let commands = CommandExecutor::new(Arc::clone(&self.commands), root, prepared.dot_env.clone());
-        let executors = ActionExecutors::standard(parts).with(ActionKindTag::Command, Arc::new(commands));
-        let cx = ActionCx::new(Arc::clone(&prepared.program), Arc::new(executors), inputs);
-        let options = RunOptions { concurrency: widen(concurrency), bail, ..RunOptions::default() };
-        Ok(Executor::new(Arc::new(cx), options))
+        Ok(Arc::new(ActionExecutors::standard(parts).with(ActionKindTag::Command, Arc::new(commands))))
     }
 }
 
 /// What the run's templates read besides the definitions: the random values, the environment,
-/// the active profiles, the `--set vars.*` values and the history's run number.
+/// the active profiles, the `--set vars.*` values and the history's run number. The caller adds
+/// the run's start.
 fn inputs(prepared: &Prepared, random: Arc<dyn Random>, run_id: u64) -> RunInputs {
     RunInputs::new(random, Arc::clone(&prepared.environment))
         .with_profiles(prepared.profiles.clone())

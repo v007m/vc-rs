@@ -5,6 +5,7 @@
 
 #![cfg(test)]
 
+mod cache;
 mod changed;
 mod command;
 mod history;

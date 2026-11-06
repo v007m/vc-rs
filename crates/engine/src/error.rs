@@ -69,6 +69,14 @@ pub enum EngineError {
         /// What to do instead, when the engine knows.
         help: Option<String>,
     },
+    /// The cross-run cache has no key or cannot be opened or read.
+    #[error("cache: {reason}")]
+    Cache {
+        /// What is wrong.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
     /// An authoring change was refused, so nothing was written: it would add an error, or it
     /// breaks a naming convention, or what it names does not exist.
     #[error("{reason}")]
@@ -98,6 +106,7 @@ impl EngineError {
             | Self::Setting { help, .. }
             | Self::Reporter { help, .. }
             | Self::History { help, .. }
+            | Self::Cache { help, .. }
             | Self::Edit { help, .. } => help.clone(),
             _ => None,
         }

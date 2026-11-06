@@ -53,16 +53,44 @@ CREATE INDEX exchanges_by_run ON exchanges(run_id);
 CREATE INDEX runs_by_time ON runs(started_at);
 "];
 
+/// Why a file could not be opened: before its migrations, or while applying them.
+pub enum OpenError {
+    /// The folder, the file or its settings.
+    Open(String),
+    /// A migration step.
+    Migrate(rusqlite::Error),
+}
+
+impl OpenError {
+    /// What went wrong, for an error message.
+    pub fn reason(&self) -> String {
+        match self {
+            Self::Open(reason) => reason.clone(),
+            Self::Migrate(error) => error.to_string(),
+        }
+    }
+}
+
+/// Opens (creating it and its folder if needed) the SQLite file at `path` in WAL mode, with
+/// every step of `migrations` it has not had yet applied.
+pub fn open_migrated(path: &Path, migrations: &[&str]) -> Result<Connection, OpenError> {
+    let open = |error: &dyn std::fmt::Display| OpenError::Open(error.to_string());
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| open(&error))?;
+    }
+    let mut connection = Connection::open(path).map_err(|error| open(&error))?;
+    configure(&connection).map_err(|error| open(&error))?;
+    migrate(&mut connection, migrations).map_err(OpenError::Migrate)?;
+    Ok(connection)
+}
+
 /// Opens (creating it if needed) the history at `path` for writing, in WAL mode, migrated.
 pub fn open_for_writing(path: &Path) -> Result<Connection, HistoryError> {
     let location = Location::of(path);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|error| location.open(&error))?;
-    }
-    let mut connection = Connection::open(path).map_err(|error| location.open(&error))?;
-    configure(&connection).map_err(|error| location.open(&error))?;
-    migrate(&mut connection).map_err(|error| location.error(&error))?;
-    Ok(connection)
+    open_migrated(path, MIGRATIONS).map_err(|error| match error {
+        OpenError::Open(reason) => location.open(&reason),
+        OpenError::Migrate(error) => location.error(&error),
+    })
 }
 
 /// Opens the history at `path` read-only, or `None` when there is none yet.
@@ -84,14 +112,14 @@ fn configure(connection: &Connection) -> rusqlite::Result<()> {
     connection.pragma_update(None, "foreign_keys", "ON")
 }
 
-/// Applies every step the file has not had yet, each in its own transaction.
-fn migrate(connection: &mut Connection) -> rusqlite::Result<()> {
+/// Applies every step of `migrations` the file has not had yet, each in its own transaction.
+fn migrate(connection: &mut Connection, migrations: &[&str]) -> rusqlite::Result<()> {
     connection.execute_batch(
         "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)",
     )?;
     let applied: u64 =
         connection.query_row("SELECT COALESCE(MAX(version), 0) FROM schema_migrations", [], |row| row.get(0))?;
-    for (version, step) in (1_u64..).zip(MIGRATIONS).skip(usize::try_from(applied).unwrap_or(usize::MAX)) {
+    for (version, step) in (1_u64..).zip(migrations).skip(usize::try_from(applied).unwrap_or(usize::MAX)) {
         let transaction = connection.transaction()?;
         transaction.execute_batch(step)?;
         transaction.execute("INSERT INTO schema_migrations VALUES (?1, ?2)", (version, now_ms()))?;
