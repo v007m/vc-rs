@@ -1087,7 +1087,7 @@ redact:
     - function: hooks/redact.ts#maskCards   # a hook masks what it chooses
 ```
 
-A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that is given each text and JSON field and runs within its hook budget (D185). Rules fail closed: a regex that does not compile masks every text, a CEL rule that errors masks the field, and so does a hook that throws or overruns.
+A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that runs within its hook budget (D185) and is given each piece of output whole, `{ text }` for a text or `{ json }` for a JSON value, and returns it masked (a string for a text). Rules fail closed: a regex that does not compile masks every text, a CEL rule that errors masks the field, and a hook that throws, overruns or returns a text that is not a string masks the whole piece.
 
 The requests and responses kept in `history.db` and reports are masked the same way before they are stored: the URL (path and query, where a secret also counts in its percent-encoded form), every header and both bodies. Bodies are cut at `history.maxBodySize` only after masking, so a cut never leaves part of a secret showing.
 

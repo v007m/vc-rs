@@ -7,7 +7,7 @@ use std::time::Duration;
 use tokio::sync::mpsc::Receiver;
 use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
-    PipelineParts, RunHandle, RunInputs, RunOptions,
+    MaskRules, PipelineParts, RunHandle, RunInputs, RunOptions,
 };
 use vc_interfaces::{ConfigEntry, Random, RunId, RunStart, RunSummary};
 use vc_model::{Feed, Part, Template, TemplateValue};
@@ -104,21 +104,23 @@ impl Engine {
         Ok((Reporters::create(chosen, setup, recording)?, notice))
     }
 
-    /// The executor for `prepared`: HTTP through the per-host limits, hooks through the hook
-    /// runner, `command:` through the command runner, with `inputs`.
+    /// The executor for `prepared`: HTTP through the per-host limits, hooks and `function:` redact
+    /// rules through the hook runner, `command:` through the command runner, with `inputs`.
     fn executor(&self, prepared: &Prepared, inputs: RunInputs, bail: bool) -> Result<Executor, EngineError> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let per_host = settings.per_host.or(defaults.per_host).unwrap_or(PER_HOST);
         let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
         let transport = self.transport(prepared.environment.as_ref())?;
         let mut parts = PipelineParts::new(transport, HostLimits::spawn(widen(per_host)));
-        if let Some(hooks) = self.hook_runner(&prepared.program) {
+        let hooks = self.hook_runner(&prepared.program);
+        if let Some(hooks) = hooks.clone() {
             parts = parts.with_hook_runner(hooks);
         }
+        let rules = MaskRules::standard().with_hooks(hooks, &prepared.program);
         let root = self.root().to_path_buf();
         let commands = CommandExecutor::new(Arc::clone(&self.commands), root, prepared.dot_env.clone());
         let executors = ActionExecutors::standard(parts).with(ActionKindTag::Command, Arc::new(commands));
-        let cx = ActionCx::new(Arc::clone(&prepared.program), Arc::new(executors), inputs);
+        let cx = ActionCx::new(Arc::clone(&prepared.program), Arc::new(executors), inputs).with_mask_rules(&rules);
         let options = RunOptions { concurrency: widen(concurrency), bail, ..RunOptions::default() };
         Ok(Executor::new(Arc::new(cx), options))
     }

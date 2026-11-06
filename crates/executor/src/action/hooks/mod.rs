@@ -1,7 +1,9 @@
 //! The bridge to the [`HookRunner`] port (D172): an api's `beforeRequest` and `afterResponse`
-//! hooks, custom checks and `function:` actions all call hooks through a [`HookBridge`].
+//! hooks, custom checks, `function:` actions and `function:` redact rules all call hooks through
+//! a [`HookBridge`].
 
 mod custom;
+mod redact;
 mod stage;
 
 use std::sync::Arc;
