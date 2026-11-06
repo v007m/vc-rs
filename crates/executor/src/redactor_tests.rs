@@ -12,6 +12,7 @@ use vc_model::{
 
 use super::{MASKED, RedactingSink, Redactor};
 use crate::EventBus;
+use crate::mask::MaskRules;
 
 fn result(kind: CheckKind, header: &str, actual: Option<Value>) -> CheckResult {
     let span = SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0));
@@ -75,8 +76,8 @@ async fn the_sink_masks_check_events_and_passes_the_rest() {
     let sink = RedactingSink::new(bus, Arc::new(Redactor::new(&[])));
     let (action, owner) = (ActionId::new(0), OwnerKey::Run);
     let check = result(CheckKind::Header, "authorization", Some(json!("Bearer actual")));
-    sink.publish(Event::CheckEvaluated { action, owner, check: Box::new(check) });
-    sink.publish(Event::ActionStarted { action, owner });
+    sink.publish(Event::CheckEvaluated { action, owner, check: Box::new(check) }).await;
+    sink.publish(Event::ActionStarted { action, owner }).await;
     sink.flush().await;
     let Some(Feed::Event(first)) = feed.recv().await else { panic!("no event") };
     let Event::CheckEvaluated { check, .. } = first.event else { panic!("{first:?}") };
@@ -97,21 +98,57 @@ fn configured() -> Redactor {
     redactor
 }
 
-#[test]
-fn masks_secret_values_hidden_fields_and_rule_matches_in_a_check() {
-    let redactor = configured();
+fn leaky_check() -> CheckResult {
     let mut check = result(CheckKind::Equals, "body", Some(json!({"password": "pw-1", "ssn": "123-45-6789"})));
     check.expected = json!({"password": "pw-2", "key": "k=s3cr3t-key"});
     check.diff = Some("pw-1 pw-2".to_owned());
     check.error = Some("sent s3cr3t-key for 123-45-6789".to_owned());
-    let masked = redactor.check(check);
+    check
+}
+
+fn assert_masked(masked: CheckResult, leaks: &[&str]) {
     let text = format!("{masked:?}");
-    for leak in ["pw-1", "pw-2", "s3cr3t-key", "123-45-6789"] {
+    for leak in leaks {
         assert!(!text.contains(leak), "{leak} in {text}");
     }
     assert_eq!(masked.expected["password"], json!(MASKED));
     assert!(masked.diff.is_some_and(|diff| diff.contains(MASKED)));
     assert!(masked.error.is_some_and(|error| error.contains(MASKED)));
+}
+
+#[test]
+fn a_check_gets_the_built_in_masking_without_the_rules() {
+    let masked = configured().check(leaky_check());
+    assert!(format!("{masked:?}").contains("123-45-6789"));
+    assert_masked(masked, &["pw-1", "pw-2", "s3cr3t-key"]);
+}
+
+#[tokio::test]
+async fn a_check_event_gets_the_built_in_masking_and_the_rules() {
+    let (action, owner) = (ActionId::new(0), OwnerKey::Run);
+    let event = configured().event(Event::CheckEvaluated { action, owner, check: Box::new(leaky_check()) }).await;
+    let Event::CheckEvaluated { check, .. } = event else { panic!("{event:?}") };
+    assert_masked(*check, &["pw-1", "pw-2", "s3cr3t-key", "123-45-6789"]);
+    let header = result(CheckKind::Header, "authorization", Some(json!("Bearer actual")));
+    let event = configured().event(Event::CheckEvaluated { action, owner, check: Box::new(header) }).await;
+    let Event::CheckEvaluated { check, .. } = event else { panic!("{event:?}") };
+    assert_eq!((check.expected, check.actual), (json!(MASKED), Some(json!(MASKED))));
+}
+
+#[tokio::test]
+async fn with_rules_keeps_the_masks_told_so_far_and_applies_only_the_new_rules() {
+    let redactor = configured();
+    let rules = MaskRules::standard()
+        .for_config(&Config { redact_rules: vec![RedactRule::Regex("pw-\\d".to_owned())], ..Config::default() });
+    let swapped = redactor.with_rules(rules);
+    let failure = Failure::new("s3cr3t-key pw-1 123-45-6789");
+    let (action, owner) = (ActionId::new(0), OwnerKey::Run);
+    let event = Event::ActionFinished { action, owner, outcome: ActionOutcome::Failed(failure) };
+    let Event::ActionFinished { outcome: ActionOutcome::Failed(masked), .. } = swapped.event(event).await else {
+        panic!("not a failure")
+    };
+    assert_eq!(masked.message, format!("{MASKED} {MASKED} 123-45-6789"));
+    assert_eq!(format!("{swapped:?}").matches("rules: 1").count(), 1);
 }
 
 #[test]
@@ -123,8 +160,8 @@ fn a_check_without_a_diff_gets_none_after_masking() {
     assert!(!redactor.text("key s3cr3t-key").contains("s3cr3t-key"));
 }
 
-#[test]
-fn masks_failures_in_action_test_and_cleanup_events() {
+#[tokio::test]
+async fn masks_failures_in_action_test_and_cleanup_events() {
     let redactor = configured();
     let failure = || Failure { code: Some("V5101".to_owned()), ..Failure::new("got s3cr3t-key") };
     let (action, owner) = (ActionId::new(0), OwnerKey::Run);
@@ -142,11 +179,11 @@ fn masks_failures_in_action_test_and_cleanup_events() {
     let cleaned = Event::CleanupFinished { cleanup };
     let warned = Event::Warned { action, owner, warning: failure() };
     for event in [finished, tested, cleaned, warned] {
-        let text = format!("{:?}", redactor.event(event));
+        let text = format!("{:?}", redactor.event(event).await);
         assert!(!text.contains("s3cr3t-key") && text.contains(MASKED) && text.contains("V5101"), "{text}");
     }
     let passed = Event::ActionFinished { action, owner, outcome: ActionOutcome::Passed };
-    assert_eq!(redactor.event(passed.clone()), passed);
+    assert_eq!(redactor.event(passed.clone()).await, passed);
 }
 
 fn exchange(uri: &str, body: &str) -> Exchange {
@@ -163,15 +200,15 @@ fn shown(headers: &HeaderMap) -> String {
     headers.values().map(|value| String::from_utf8_lossy(value.as_bytes()).into_owned()).collect::<Vec<_>>().join(" ")
 }
 
-#[test]
-fn masks_an_exchange_url_headers_and_both_bodies() {
+#[tokio::test]
+async fn masks_an_exchange_url_headers_and_both_bodies() {
     let redactor = configured();
     redactor.hide_values(["p@ss word"]);
     let (action, owner) = (ActionId::new(0), OwnerKey::Run);
     let uri = "https://api.test/k/s3cr3t-key?pw=p%40ss%20word";
     let sent = exchange(uri, r#"{"password":"pw-1","ssn":"123-45-6789"}"#);
     let Event::Exchanged { exchange: masked, .. } =
-        redactor.event(Event::Exchanged { action, owner, exchange: Box::new(sent) })
+        redactor.event(Event::Exchanged { action, owner, exchange: Box::new(sent) }).await
     else {
         panic!("not an exchange")
     };

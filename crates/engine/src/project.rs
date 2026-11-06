@@ -6,7 +6,7 @@ use std::sync::Arc;
 use vc_compiler::{CompileCache, CompileInput, SourceGlobs};
 use vc_diagnostics::Diagnostics;
 use vc_interfaces::{Discovery, SourceFilter};
-use vc_model::{Program, SourceFiles};
+use vc_model::{DEFAULT_SECRETS_SCHEMA, Program, SourceFile, SourceFiles, SourcePath};
 
 use crate::{CheckReport, Engine, EngineError, problems};
 
@@ -27,11 +27,12 @@ impl Engine {
     /// data and hook files the compile wanted ([`Engine::compile_wanted`]).
     ///
     /// The compiler is given today's date from the clock, for expired skips (V3104), and the
-    /// project's other files, for `$file` paths (V2004). A definition or wanted file that cannot
-    /// be read is a V1012 error at its path; a cache that cannot be read or written only adds a
-    /// notice.
+    /// project's other files, for `$file` paths (V2004), and `.env.schema`, for the secret names
+    /// (V2106, V2107). A definition file, wanted file or schema that cannot be read is a V1012
+    /// error at its path; a cache that cannot be read or written only adds a notice.
     pub(crate) fn compiled(&self) -> Result<Compiled, EngineError> {
-        let found = self.discover()?;
+        let mut found = self.discover()?;
+        let secret_schema = self.secret_schema(&mut found);
         let mut notices = Vec::new();
         let previous = self.previous_cache(&mut notices);
         let input = CompileInput {
@@ -39,7 +40,7 @@ impl Engine {
             previous: previous.clone(),
             today: Some(self.clock.today()),
             assets: Some(found.assets.into_iter().collect()),
-            secret_schema: None,
+            secret_schema,
         };
         let (compiled, unread) = self.compile_wanted(input)?;
         self.save_cache(&compiled.cache, &previous, &mut notices);
@@ -73,6 +74,25 @@ impl Engine {
         }
         let filter = SourceFilter::written(&globs.include, globs.exclude.as_deref()).map_err(sources_error)?;
         self.walk(&filter)
+    }
+
+    /// `.env.schema` at the project root, read when discovery listed it (D165). A schema that
+    /// cannot be read joins `found`'s problems, so it is a V1012 error rather than no schema.
+    fn secret_schema(&self, found: &mut Discovery) -> Option<SourceFile> {
+        let path = SourcePath::new(DEFAULT_SECRETS_SCHEMA).ok()?;
+        if !found.assets.contains(&path) {
+            return None;
+        }
+        match self.sources.read(&[path]) {
+            Ok(mut read) => {
+                found.problems.append(&mut read.problems);
+                read.files.pop()
+            }
+            Err(error) => {
+                found.problems.push(error);
+                None
+            }
+        }
     }
 
     fn walk(&self, filter: &SourceFilter) -> Result<Discovery, EngineError> {

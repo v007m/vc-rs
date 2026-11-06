@@ -17,12 +17,8 @@ use std::path::PathBuf;
 use support::Outcome;
 use vc_diagnostics::{Code, Diagnostics, Severity};
 
-/// The languages an example block may be written in.
-const LANGUAGES: [&str; 3] = ["yaml", "json", "ts"];
-
-/// V2106 and V2107 need `.env.schema`, which reaches the compiler as `CompileInput::secret_schema` once
-/// the engine reads it from the project root; their pages land with that wiring.
-const LATER: [Code; 2] = [Code::V2106, Code::V2107];
+/// The languages an example block may be written in: `ts` is a hook's, `dotenv` is `.env.schema`'s.
+const LANGUAGES: [&str; 4] = ["yaml", "json", "ts", "dotenv"];
 
 fn page_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../diagnostics/explain")
@@ -33,7 +29,7 @@ fn page(code: Code) -> Outcome<String> {
 }
 
 fn explained() -> impl Iterator<Item = Code> {
-    Code::ALL.iter().copied().filter(|code| code.number() < 4000 && !LATER.contains(code))
+    Code::ALL.iter().copied().filter(|code| code.number() < 4000)
 }
 
 /// The files of the section headed `## <section>`.

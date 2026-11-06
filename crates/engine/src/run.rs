@@ -41,17 +41,20 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// The errors of [`Engine::plan`]; [`EngineError::Reporter`] for a reporter that is unknown,
+    /// The errors of [`Engine::plan`]; [`EngineError::Setting`] when the declared secrets
+    /// cannot be loaded; [`EngineError::Reporter`] for a reporter that is unknown,
     /// given to the wrong flag or not built yet; [`EngineError::Selection`] when the plan
     /// reaches an action this build cannot run; with `--failed`, [`EngineError::History`] when
     /// no run is stored and [`EngineError::Selection`] when the last one had nothing to rerun.
     pub async fn run(&self, request: &RunRequest, interrupts: Interrupts) -> Result<RunReport, EngineError> {
         let (plan, rerun) = self.rerun(request)?;
         let prepared = self.prepare(&plan, Extra { flags: flags(request), rerun })?;
+        let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let (seed, random) = ports::random(request.seed);
         let (reporters, unrecorded) = self.reporters(request, &prepared, seed)?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
-        let executor = self.executor(&prepared, inputs(&prepared, random, run_id), request.bail)?;
+        let inputs = inputs(&prepared, random, run_id).with_secrets(secrets);
+        let executor = self.executor(&prepared, inputs, request.bail)?;
         let bus = EventBus::spawn();
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
         let started = self.clock.now_ms();

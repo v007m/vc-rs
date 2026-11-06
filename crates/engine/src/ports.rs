@@ -1,15 +1,16 @@
 //! The ports a run needs beyond the builder's: the config layers around the project's files, the
-//! environment, the transport, the hook runner and the random source. Each is the injected one when the builder
-//! was given it, else the system or HTTP adapter.
+//! environment, the transport, the hook runner, the secrets and the random source. Each is the
+//! injected one when the builder was given it, else the system, HTTP or secrets adapter.
 
 use std::hash::{BuildHasher as _, Hasher as _, RandomState};
 use std::sync::Arc;
 
 use vc_adapter_hooks::QuickJsHooks;
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
+use vc_adapter_secrets::SecretProviders;
 use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemEnvironment, UserConfig, VibVars};
-use vc_interfaces::{ConfigEntry, Environment, HookRunner, Random, Transport};
-use vc_model::Program;
+use vc_interfaces::{ConfigEntry, Environment, HookRunner, Random, SecretError, SecretQuery, Secrets, Transport};
+use vc_model::{Program, SecretsConfig};
 
 use crate::settings::{self, Settings};
 use crate::user::UnderProject;
@@ -70,6 +71,32 @@ impl Engine {
             HttpTransport::new(&options).map_err(|error| EngineError::Internal { reason: error.to_string() })?;
         Ok(Arc::new(transport))
     }
+
+    /// The secrets `.env.schema` declares, from the provider `secrets.provider` names (D163):
+    /// `env` reads them from the run's `environment`, `varlock` runs through the command runner.
+    /// Nothing is loaded when nothing is declared.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Setting`] when the provider is unknown or cannot load them.
+    pub(crate) async fn secrets(
+        &self,
+        config: &SecretsConfig,
+        environment: &Arc<dyn Environment>,
+    ) -> Result<Secrets, EngineError> {
+        if config.declared.is_empty() {
+            return Ok(Secrets::new());
+        }
+        let commands = Arc::clone(&self.commands);
+        let providers = SecretProviders::standard(Arc::clone(environment), commands, self.root().to_path_buf());
+        let provider = providers.get(&config.provider).map_err(|error| secret_error(&error))?;
+        provider.load(&SecretQuery::new(config.declared.iter().cloned())).await.map_err(|error| secret_error(&error))
+    }
+}
+
+/// A provider's failure, which never carries a secret value, as the `secrets` setting's.
+fn secret_error(error: &SecretError) -> EngineError {
+    EngineError::Setting { origin: "secrets".to_owned(), reason: error.to_string(), help: None }
 }
 
 impl Engine {

@@ -87,9 +87,9 @@ impl InstanceShell {
                 inputs.push_back(due);
             }
             InstanceCommand::Abandon(cleanups) => {
-                self.crew.bus.publish(Event::CleanupsAbandoned { owner: self.owner(), cleanups });
+                self.crew.bus.publish(Event::CleanupsAbandoned { owner: self.owner(), cleanups }).await;
             }
-            InstanceCommand::Finish(verdict) => return Some(self.finish(verdict)),
+            InstanceCommand::Finish(verdict) => return Some(self.finish(verdict).await),
         }
         None
     }
@@ -128,12 +128,12 @@ impl InstanceShell {
         }
     }
 
-    fn finish(&self, verdict: Verdict) -> TestStatus {
+    async fn finish(&self, verdict: Verdict) -> TestStatus {
         let Verdict { status, attempts, failure, skip_reason } = verdict;
         let instance = &self.ticket.launch.instance;
         let result =
             TestResult { test: instance.test, instance: Some(instance.id), status, attempts, failure, skip_reason };
-        self.crew.bus.publish(Event::TestFinished { result });
+        self.crew.bus.publish(Event::TestFinished { result }).await;
         self.crew.run.send(RunInput::Tested(status)).ok();
         status
     }
