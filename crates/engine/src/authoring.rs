@@ -118,6 +118,7 @@ impl Opened<'_> {
             path: self.file.path.to_string(),
             before: Some(self.file.text.clone()),
             after: after.text().to_owned(),
+            moved_from: None,
         })
     }
 }

@@ -17,6 +17,9 @@ pub struct FileChange {
     pub before: Option<String>,
     /// Its text after the change.
     pub after: String,
+    /// Where the file was before a move (`vc rename` of a file ID); written to `path`, then
+    /// removed from here.
+    pub moved_from: Option<String>,
 }
 
 /// What an authoring command would write. The engine never writes it: the app shows it, asks
@@ -36,7 +39,8 @@ impl FileChange {
     pub fn diff(&self) -> String {
         let before = self.before.as_deref().unwrap_or_default();
         let diff = similar::TextDiff::from_lines(before, &self.after);
-        let old = if self.before.is_some() { format!("a/{}", self.path) } else { "/dev/null".to_owned() };
+        let was = self.moved_from.as_ref().unwrap_or(&self.path);
+        let old = if self.before.is_some() { format!("a/{was}") } else { "/dev/null".to_owned() };
         diff.unified_diff().context_radius(3).header(&old, &format!("b/{}", self.path)).to_string()
     }
 }
@@ -56,12 +60,16 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Sources`] naming the first file that could not be written; the files
-    /// before it are written.
+    /// before it are written. A moved file is written at its new path before the old one is
+    /// removed.
     pub fn write(&self, changes: &Changes) -> Result<(), EngineError> {
         let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
         for change in &changes.files {
             let path = SourcePath::new(&change.path).map_err(internal)?;
             writer.write(&path, &change.after).map_err(sources_error)?;
+            if let Some(was) = &change.moved_from {
+                writer.remove(&SourcePath::new(was).map_err(internal)?).map_err(sources_error)?;
+            }
         }
         Ok(())
     }
@@ -84,7 +92,8 @@ impl Engine {
     }
 }
 
-/// `files` with each change in place: a changed file replaced, a new one added.
+/// `files` with each change in place: a changed file replaced, a new one added, a moved one
+/// taken from where it was.
 ///
 /// # Errors
 ///
@@ -93,7 +102,7 @@ pub fn overlay(files: &mut Vec<SourceFile>, changes: &[FileChange]) -> Result<()
     for change in changes {
         let path = SourcePath::new(&change.path).map_err(internal)?;
         let file = vc_interfaces::source_file(path, change.after.clone().into_bytes()).map_err(internal)?;
-        files.retain(|old| old.path != file.path);
+        files.retain(|old| old.path != file.path && Some(old.path.as_str()) != change.moved_from.as_deref());
         files.push(file);
     }
     Ok(())
@@ -124,7 +133,8 @@ mod tests {
     use super::{Changes, FileChange};
 
     fn change(before: Option<&str>, after: &str) -> FileChange {
-        FileChange { path: "services/a/b.test.yaml".to_owned(), before: before.map(str::to_owned), after: after.to_owned() }
+        let (path, before, after) = ("services/a/b.test.yaml".to_owned(), before.map(str::to_owned), after.to_owned());
+        FileChange { path, before, after, moved_from: None }
     }
 
     #[test]
@@ -132,6 +142,12 @@ mod tests {
         let diff = change(Some("a: 1\nb: 2\n"), "a: 1\nb: 3\n").diff();
         assert!(diff.contains("--- a/services/a/b.test.yaml\n+++ b/services/a/b.test.yaml\n"), "{diff}");
         assert!(diff.contains("-b: 2\n+b: 3\n") && diff.contains(" a: 1\n"), "{diff}");
+    }
+
+    #[test]
+    fn a_moved_file_diffs_from_where_it_was() {
+        let moved = FileChange { moved_from: Some("services/a/old.test.yaml".to_owned()), ..change(Some("a: 1\n"), "a: 2\n") };
+        assert!(moved.diff().contains("--- a/services/a/old.test.yaml\n+++ b/services/a/b.test.yaml\n"), "{}", moved.diff());
     }
 
     #[test]

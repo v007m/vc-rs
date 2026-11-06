@@ -43,6 +43,13 @@ pub trait SourceWriter: Send + Sync {
     /// [`SourceError::OutsideRoot`] when `path` leads through a link out of the project, and
     /// [`SourceError::Write`] when the system refuses.
     fn write(&self, path: &SourcePath, text: &str) -> Result<(), SourceError>;
+
+    /// Removes the file at `path`, which a move (`vc rename` of a file ID) left behind.
+    ///
+    /// # Errors
+    ///
+    /// As [`SourceWriter::write`].
+    fn remove(&self, path: &SourcePath) -> Result<(), SourceError>;
 }
 
 /// What one discovery found.

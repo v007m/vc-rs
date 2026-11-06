@@ -26,14 +26,13 @@ impl Lint for FileNames {
 impl FileNames {
     fn file(&self, source: &Source<'_>) -> Option<Diagnostic> {
         let id = source.id.as_deref()?;
-        if id.split('.').all(|word| naming::is_lower_word(word, true)) {
+        if naming::is_file_id(id) {
             return None;
         }
-        let better: Vec<String> = id.split('.').map(naming::tag).collect();
         let spot = source.root.entries().first().map_or(source.root.span, |entry| entry.key_span);
         let message = format!("the file ID `{id}` is not lower case");
         let diagnostic = Diagnostic::new(self.code(), spot, message).label("in this file's path");
-        let help = format!("move it with `vc rename {id} {}`, which updates every reference", better.join("."));
+        let help = format!("move it with `vc rename {id} {}`, which updates every reference", naming::file_id(id));
         Some(diagnostic.help(help))
     }
 }

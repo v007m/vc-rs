@@ -45,6 +45,18 @@ pub fn is_lower_word(name: &str, dashes: bool) -> bool {
     name.starts_with(|c: char| c.is_ascii_lowercase()) && name.chars().all(allowed)
 }
 
+/// Whether `id` is a file ID: lower-case words, dashes allowed, joined with dots (`users.crud`).
+#[must_use]
+pub fn is_file_id(id: &str) -> bool {
+    id.split('.').all(|word| is_lower_word(word, true))
+}
+
+/// `text` as a file ID, each dotted word as a tag: `Users.CRUD` gives `users.crud`.
+#[must_use]
+pub fn file_id(text: &str) -> String {
+    text.split('.').map(tag).collect::<Vec<_>>().join(".")
+}
+
 /// The words of `text`: runs of letters and digits, split again where a capital follows a
 /// lower-case letter or a digit.
 fn words(text: &str) -> Vec<String> {
@@ -67,7 +79,7 @@ fn words(text: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{camel_id, is_camel_id, is_lower_word, is_tag, tag};
+    use super::{camel_id, file_id, is_camel_id, is_file_id, is_lower_word, is_tag, tag};
 
     #[test]
     fn derives_camel_case_ids() {
@@ -98,5 +110,13 @@ mod tests {
     fn checks_lower_words() {
         assert!(is_lower_word("dev", false) && is_lower_word("eu2", false) && is_lower_word("a-b", true));
         assert!(!is_lower_word("Dev", false) && !is_lower_word("a-b", false) && !is_lower_word("CRUD", true));
+    }
+
+    #[test]
+    fn checks_and_derives_file_ids() {
+        assert!(is_file_id("users.crud") && is_file_id("payments.refunds.partial") && is_file_id("slow-api"));
+        assert!(!is_file_id("users.CRUD") && !is_file_id("users..crud") && !is_file_id("Users"));
+        assert_eq!(file_id("Users.CRUD"), "users.crud");
+        assert_eq!(file_id("users.SlowApi"), "users.slow-api");
     }
 }

@@ -6,7 +6,7 @@
 //! ([`Engine::list`]), lists and clears the cross-run cache ([`Engine::cache_list`],
 //! [`Engine::cache_clear`]), exports the editor schemas ([`Engine::schema_export`]) and works out
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
-//! [`Engine::unskip`], [`Engine::write`]). The model and
+//! [`Engine::unskip`], [`Engine::rename`], [`Engine::write`]). The model and
 //! diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
@@ -31,6 +31,7 @@ mod plan;
 mod ports;
 mod problems;
 mod project;
+mod rename;
 mod reporting;
 mod request;
 mod run;

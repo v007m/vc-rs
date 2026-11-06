@@ -71,6 +71,16 @@ fn writes_a_file_with_its_folders_and_replaces_one() {
 }
 
 #[test]
+fn removes_a_file_and_names_one_that_is_not_there() {
+    let dir = project(&[("services/old/old.api.yaml", b"apis: []\n")]);
+    let sources = FsSources::new(dir.path()).unwrap();
+    let path = SourcePath::new("services/old/old.api.yaml").unwrap();
+    sources.remove(&path).unwrap();
+    assert!(!dir.path().join("services/old/old.api.yaml").exists());
+    assert!(matches!(sources.remove(&path), Err(SourceError::Write { path, .. }) if path == "services/old/old.api.yaml"));
+}
+
+#[test]
 fn a_write_the_system_refuses_names_its_file() {
     let dir = project(&[("taken", b"a file, not a folder")]);
     let sources = FsSources::new(dir.path()).unwrap();
@@ -149,6 +159,9 @@ mod unix {
         }
         assert_eq!(fs::read_to_string(outside.path().join("services/x.api.yaml")).unwrap(), "kept\n");
         assert!(!outside.path().join("services/new").exists());
+        let removed = sources.remove(&SourcePath::new("services/x.api.yaml").unwrap());
+        assert_eq!(removed, Err(SourceError::OutsideRoot { path: "services/x.api.yaml".to_owned() }));
+        assert!(outside.path().join("services/x.api.yaml").exists());
     }
 
     #[test]

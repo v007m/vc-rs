@@ -61,7 +61,7 @@ fn changed_file(files: &SourceFiles, id: SourceFileId, taken: &[&TextEdit]) -> R
     let edits: Vec<TextEdit> = taken.iter().filter(|edit| edit.file == id).map(|&edit| edit.clone()).collect();
     let document = Document::parse(id, Syntax::of(&file.path), file.text.as_str()).map_err(internal)?;
     let after = document.apply(&edits).map_err(internal)?;
-    Ok(FileChange { path: file.path.to_string(), before: Some(file.text.clone()), after: after.text().to_owned() })
+    Ok(FileChange { path: file.path.to_string(), before: Some(file.text.clone()), after: after.text().to_owned(), moved_from: None })
 }
 
 /// Whether two edits touch the same bytes of one file; two insertions at one place overlap.
