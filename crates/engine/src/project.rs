@@ -8,6 +8,7 @@ use vc_diagnostics::Diagnostics;
 use vc_interfaces::{Discovery, SourceFilter};
 use vc_model::{DEFAULT_SECRETS_SCHEMA, Program, SourceFile, SourceFiles, SourcePath};
 
+use crate::edit::{self, FileChange};
 use crate::{CheckReport, Engine, EngineError, problems};
 
 /// The project as compiled: the program when nothing stops one, every diagnostic (discovery
@@ -30,10 +31,17 @@ impl Engine {
     /// (V2106, V2107). A definition file or schema that cannot be read is a V1012 error at its
     /// path; a cache that cannot be read or written only adds a notice.
     pub(crate) fn compiled(&self) -> Result<Compiled, EngineError> {
+        self.compiled_with(&[])
+    }
+
+    /// As [`Engine::compiled`], with `changes` in place of the files they change; the cache is
+    /// then read but not saved, since the files on disk did not change.
+    pub(crate) fn compiled_with(&self, changes: &[FileChange]) -> Result<Compiled, EngineError> {
         let mut found = self.discover()?;
         let secret_schema = self.secret_schema(&mut found);
         let mut notices = Vec::new();
         let previous = self.previous_cache(&mut notices);
+        edit::overlay(&mut found.files, changes)?;
         let input = CompileInput {
             files: found.files,
             previous: previous.clone(),
@@ -42,7 +50,9 @@ impl Engine {
             secret_schema,
         };
         let compiled = vc_compiler::compile(input);
-        self.save_cache(&compiled.cache, &previous, &mut notices);
+        if changes.is_empty() {
+            self.save_cache(&compiled.cache, &previous, &mut notices);
+        }
         let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
         problems::add_problems(&found.problems, &mut diagnostics, &mut files);
         Ok(Compiled { program: compiled.program, diagnostics, files, notices })

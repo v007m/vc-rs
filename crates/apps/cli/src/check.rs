@@ -10,13 +10,17 @@ use crate::project;
 #[derive(Args)]
 pub struct CheckArgs {
     /// Prints the diagnostics as JSON on stdout, for scripts, editors and agents.
-    #[arg(long)]
+    #[arg(long, conflicts_with = "fix")]
     json: bool,
+    /// Shows the certain fixes as a diff and applies them when you confirm.
+    #[arg(long)]
+    fix: bool,
     /// Reports only on files at or under these paths; the whole project is compiled either way.
     paths: Vec<PathBuf>,
 }
 
-/// `vc check [--json] [paths…]`: exit 0 without errors, 2 with errors or when it cannot start.
+/// `vc check [--json | --fix] [paths…]`: exit 0 without errors, 2 with errors or when it cannot
+/// start.
 pub fn run(args: &CheckArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let located = match project::locate(project)? {
         Ok(located) => located,
@@ -26,6 +30,9 @@ pub fn run(args: &CheckArgs, project: Option<&Path>) -> anyhow::Result<Outcome> 
         Ok(paths) => paths,
         Err(reason) => return Ok(Outcome::Refused(reason)),
     };
+    if args.fix {
+        return crate::fix::run(&located.engine, CheckRequest { paths });
+    }
     let report = match located.engine.check(&CheckRequest { paths }) {
         Ok(report) => report,
         Err(error) => return Ok(Outcome::Refused(error.to_string())),
@@ -34,7 +41,12 @@ pub fn run(args: &CheckArgs, project: Option<&Path>) -> anyhow::Result<Outcome> 
         eprintln!("warning: {notice}");
     }
     print(&report, args.json)?;
-    Ok(if report.has_errors() { Outcome::Failed } else { Outcome::Done })
+    Ok(outcome(&report))
+}
+
+/// Exit 2 when the report has errors, else 0.
+pub fn outcome(report: &CheckReport) -> Outcome {
+    if report.has_errors() { Outcome::Failed } else { Outcome::Done }
 }
 
 /// The diagnostics on stdout, as text with the summary line or as JSON.

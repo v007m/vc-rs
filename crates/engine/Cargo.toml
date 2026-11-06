@@ -10,6 +10,7 @@ publish.workspace = true
 
 [dependencies]
 serde_json.workspace = true
+similar.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 vc-adapter-http.workspace = true
@@ -22,6 +23,7 @@ vc-diagnostics.workspace = true
 vc-executor.workspace = true
 vc-interfaces.workspace = true
 vc-model.workspace = true
+vc-parser.workspace = true
 vc-planner.workspace = true
 vc-template.workspace = true
 

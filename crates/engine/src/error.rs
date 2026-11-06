@@ -69,6 +69,15 @@ pub enum EngineError {
         /// What to do instead, when the engine knows.
         help: Option<String>,
     },
+    /// An authoring change was refused, so nothing was written: it would add an error, or it
+    /// breaks a naming convention, or what it names does not exist.
+    #[error("{reason}")]
+    Edit {
+        /// What is wrong.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
     /// Something inside the engine failed; this is a bug to report, not a user error.
     #[error("{reason}")]
     Internal {
@@ -88,7 +97,8 @@ impl EngineError {
             Self::Selection { help, .. }
             | Self::Setting { help, .. }
             | Self::Reporter { help, .. }
-            | Self::History { help, .. } => help.clone(),
+            | Self::History { help, .. }
+            | Self::Edit { help, .. } => help.clone(),
             _ => None,
         }
     }

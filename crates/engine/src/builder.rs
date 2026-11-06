@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, ProcessRunner, SystemClock};
 use vc_interfaces::{
-    Clock, CommandRunner, CompileCacheStore, Environment, HistoryReader, HistoryWriter, SourceProvider, Transport, Vcs,
+    Clock, CommandRunner, CompileCacheStore, Environment, HistoryReader, HistoryWriter, SourceProvider, SourceWriter,
+    Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -14,6 +15,7 @@ use crate::EngineError;
 pub struct EngineBuilder {
     root: PathBuf,
     sources: Option<Arc<dyn SourceProvider>>,
+    writer: Option<Arc<dyn SourceWriter>>,
     compile_cache: Option<Arc<dyn CompileCacheStore>>,
     clock: Option<Arc<dyn Clock>>,
     environment: Option<Arc<dyn Environment>>,
@@ -34,6 +36,7 @@ impl EngineBuilder {
         Self {
             root,
             sources: None,
+            writer: None,
             compile_cache: None,
             clock: None,
             environment: None,
@@ -61,6 +64,14 @@ impl EngineBuilder {
     #[must_use]
     pub fn sources(mut self, sources: Arc<dyn SourceProvider>) -> Self {
         self.sources = Some(sources);
+        self
+    }
+
+    /// Writes the definition files authoring commands change with `writer` instead of into the
+    /// project folder.
+    #[must_use]
+    pub fn writer(mut self, writer: Arc<dyn SourceWriter>) -> Self {
+        self.writer = Some(writer);
         self
     }
 
@@ -129,12 +140,12 @@ impl EngineBuilder {
     ///
     /// [`EngineError::Sources`] when the project folder cannot be opened.
     pub fn build(self) -> Result<Engine, EngineError> {
+        let folder = FsSources::new(&self.root);
         let sources: Arc<dyn SourceProvider> = match self.sources {
             Some(sources) => sources,
-            None => Arc::new(
-                FsSources::new(&self.root).map_err(|error| EngineError::Sources { reason: error.to_string() })?,
-            ),
+            None => Arc::new(folder.clone().map_err(|error| EngineError::Sources { reason: error.to_string() })?),
         };
+        let writer = self.writer.or_else(|| folder.ok().map(|folder| Arc::new(folder) as Arc<dyn SourceWriter>));
         let compile_cache = self.compile_cache.unwrap_or_else(|| Arc::new(FsCompileCache::new(&self.root)));
         let clock = self.clock.unwrap_or_else(|| Arc::new(SystemClock));
         let vcs = self.vcs.unwrap_or_else(|| Arc::new(GitVcs::new(&self.root)));
@@ -144,6 +155,7 @@ impl EngineBuilder {
         Ok(Engine {
             root: self.root,
             sources,
+            writer,
             compile_cache,
             clock,
             environment,
@@ -167,6 +179,8 @@ impl fmt::Debug for EngineBuilder {
 pub struct Engine {
     root: PathBuf,
     pub(crate) sources: Arc<dyn SourceProvider>,
+    /// `None` only when the sources were given and the root is not a folder to write into.
+    pub(crate) writer: Option<Arc<dyn SourceWriter>>,
     pub(crate) compile_cache: Arc<dyn CompileCacheStore>,
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) environment: Option<Arc<dyn Environment>>,

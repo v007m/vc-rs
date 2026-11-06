@@ -33,6 +33,18 @@ pub trait SourceProvider: Send + Sync {
     fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError>;
 }
 
+/// Writes the definition files authoring commands change (D107). The engine calls it only with
+/// text its compile guard passed; the implementation knows the project root.
+pub trait SourceWriter: Send + Sync {
+    /// Replaces the file at `path` with `text`, or creates it with the folders it needs.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::OutsideRoot`] when `path` leads through a link out of the project, and
+    /// [`SourceError::Write`] when the system refuses.
+    fn write(&self, path: &SourcePath, text: &str) -> Result<(), SourceError>;
+}
+
 /// What one discovery found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[expect(
@@ -68,6 +80,14 @@ pub enum SourceError {
     /// The file exists but reading it failed.
     #[error("{path}: cannot be read: {reason}")]
     Read {
+        /// The file.
+        path: String,
+        /// What the system said.
+        reason: String,
+    },
+    /// Writing the file failed.
+    #[error("{path}: cannot be written: {reason}")]
+    Write {
         /// The file.
         path: String,
         /// What the system said.
@@ -115,6 +135,7 @@ impl SourceError {
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::Read { path, .. }
+            | Self::Write { path, .. }
             | Self::NotUtf8 { path }
             | Self::InvalidPath { path }
             | Self::OutsideRoot { path } => Some(path),

@@ -3,7 +3,8 @@
 //! [`EngineBuilder`] is the one place that names the concrete adapters; apps get an
 //! [`Engine`] and call it. So far the engine checks a project ([`Engine::check`]), plans and
 //! runs its tests ([`Engine::plan`], [`Engine::run`]), lists its definitions
-//! ([`Engine::list`]) and exports the editor schemas ([`Engine::schema_export`]). The model and
+//! ([`Engine::list`]), exports the editor schemas ([`Engine::schema_export`]) and works out
+//! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::write`]). The model and
 //! diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
@@ -15,8 +16,10 @@
 
 mod builder;
 mod check;
+mod edit;
 mod error;
 mod failed;
+mod fix;
 mod history;
 mod interrupt;
 mod list;
@@ -37,7 +40,9 @@ mod user;
 
 pub use builder::{Engine, EngineBuilder};
 pub use check::{CheckReport, CheckRequest};
+pub use edit::{Changes, FileChange};
 pub use error::EngineError;
+pub use fix::FixReport;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use plan::PlanReport;

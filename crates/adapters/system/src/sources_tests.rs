@@ -2,7 +2,8 @@ use std::fs;
 use std::path::Path;
 
 use tempfile::TempDir;
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter};
+use vc_model::SourcePath;
 
 use super::FsSources;
 
@@ -59,12 +60,31 @@ fn a_missing_root_is_an_error() {
     assert!(matches!(sources.discover(&SourceFilter::default()), Err(SourceError::Root { .. })));
 }
 
+#[test]
+fn writes_a_file_with_its_folders_and_replaces_one() {
+    let dir = project(&[("users.api.yaml", b"apis: []\n")]);
+    let sources = FsSources::new(dir.path()).unwrap();
+    sources.write(&SourcePath::new("users.api.yaml").unwrap(), "apis: {}\n").unwrap();
+    sources.write(&SourcePath::new("services/new/new.test.yaml").unwrap(), "tests: []\n").unwrap();
+    assert_eq!(fs::read_to_string(dir.path().join("users.api.yaml")).unwrap(), "apis: {}\n");
+    assert_eq!(fs::read_to_string(dir.path().join("services/new/new.test.yaml")).unwrap(), "tests: []\n");
+}
+
+#[test]
+fn a_write_the_system_refuses_names_its_file() {
+    let dir = project(&[("taken", b"a file, not a folder")]);
+    let sources = FsSources::new(dir.path()).unwrap();
+    let refused = sources.write(&SourcePath::new("taken/x.api.yaml").unwrap(), "");
+    assert!(matches!(refused, Err(SourceError::Write { path, .. }) if path == "taken/x.api.yaml"));
+}
+
 #[cfg(unix)]
 mod unix {
     use std::fs;
     use std::os::unix::fs::{PermissionsExt, symlink};
 
-    use vc_interfaces::SourceError;
+    use vc_interfaces::{SourceError, SourceWriter};
+    use vc_model::SourcePath;
 
     use super::{FsSources, discover, paths, project};
 
@@ -114,6 +134,21 @@ mod unix {
         fs::set_permissions(&locked, fs::Permissions::from_mode(0o600)).unwrap();
         assert_eq!(paths(&found), ["ok.api.yaml"]);
         assert!(matches!(&found.problems[..], [SourceError::Read { path, .. }] if path == "locked.api.yaml"));
+    }
+
+    #[test]
+    fn refuses_to_write_through_a_link_out_of_the_root() {
+        let outside = project(&[("services/x.api.yaml", b"kept\n")]);
+        let dir = project(&[]);
+        symlink(outside.path().join("services"), dir.path().join("services")).unwrap();
+        symlink(outside.path().join("services/x.api.yaml"), dir.path().join("x.api.yaml")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        for path in ["services/x.api.yaml", "services/new/y.api.yaml", "x.api.yaml"] {
+            let refused = sources.write(&SourcePath::new(path).unwrap(), "changed\n");
+            assert_eq!(refused, Err(SourceError::OutsideRoot { path: path.to_owned() }), "{path}");
+        }
+        assert_eq!(fs::read_to_string(outside.path().join("services/x.api.yaml")).unwrap(), "kept\n");
+        assert!(!outside.path().join("services/new").exists());
     }
 
     #[test]

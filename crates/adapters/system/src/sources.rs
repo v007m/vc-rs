@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use ignore::{DirEntry, WalkBuilder};
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter};
 use vc_model::SourcePath;
 
 /// Reads a project's definition files from disk, and lists the other files as assets; reads
@@ -100,6 +100,23 @@ impl SourceProvider for FsSources {
         }
         found.sort();
         Ok(found)
+    }
+}
+
+impl SourceWriter for FsSources {
+    /// Writes only inside the root: a folder or file that is a link out of it is refused before
+    /// anything is created.
+    fn write(&self, path: &SourcePath, text: &str) -> Result<(), SourceError> {
+        let failed = |error: std::io::Error| SourceError::Write { path: path.to_string(), reason: error.to_string() };
+        let target = self.root.join(path.as_str());
+        let existing = target.ancestors().find(|at| at.symlink_metadata().is_ok()).unwrap_or(&self.root);
+        if !std::fs::canonicalize(existing).map_err(failed)?.starts_with(&self.root) {
+            return Err(SourceError::OutsideRoot { path: path.to_string() });
+        }
+        if let Some(folder) = target.parent() {
+            std::fs::create_dir_all(folder).map_err(failed)?;
+        }
+        std::fs::write(&target, text).map_err(failed)
     }
 }
 

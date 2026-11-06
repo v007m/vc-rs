@@ -5,6 +5,8 @@
 //!
 //! - [`SourceProvider`]: finds and reads the project's files for the engine, which
 //!   hands them to the pure compiler (D132).
+//! - [`SourceWriter`]: writes the definition files authoring commands change, after the
+//!   engine's compile guard passed them (D107).
 //! - [`CompileCacheStore`]: keeps the compiler's cache between runs as one opaque blob.
 //! - [`Transport`]: sends one rendered request and returns the [`vc_model::Exchange`] with its
 //!   timings; auth, retry, timeout and per-host limits are executor layers around it (D141).
@@ -70,6 +72,6 @@ pub use keychain::{Keychain, KeychainError};
 pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
-pub use source::{Discovery, SourceError, SourceProvider, content_hash, source_file};
+pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
 pub use transport::{SendContext, Transport, TransportError};
 pub use vcs::{Vcs, VcsError, checked_ref};

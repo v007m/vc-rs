@@ -1,6 +1,7 @@
 use vc_diagnostics::{Diagnostics, Summary};
 use vc_model::SourceFiles;
 
+use crate::project::Compiled;
 use crate::selection::Selection;
 use crate::{Engine, EngineError};
 
@@ -60,7 +61,11 @@ impl Engine {
     /// parse;
     /// [`EngineError::NoFilesMatch`] when a requested path selects no definition file.
     pub fn check(&self, request: &CheckRequest) -> Result<CheckReport, EngineError> {
-        let compiled = self.compiled()?;
+        Self::report(self.compiled()?, request)
+    }
+
+    /// The diagnostics of `compiled` on the files `request` selects.
+    pub(crate) fn report(compiled: Compiled, request: &CheckRequest) -> Result<CheckReport, EngineError> {
         let (diagnostics, files) = (compiled.diagnostics, compiled.files);
         let selection = Selection::new(&request.paths, &files)?;
         let mut diagnostics = selection.keep(diagnostics, &files);
