@@ -3,7 +3,9 @@
 /// At most this many suggestions are given.
 const MAX: usize = 3;
 
-/// The names within `len / 3` edits (at least one) of `wanted`, ignoring case, closest first.
+/// The names within `len / 3` edits (at least one) of `wanted`, ignoring case, closest first;
+/// at most three.
+#[must_use]
 pub fn closest<'n>(wanted: &str, names: impl Iterator<Item = &'n str>) -> Vec<String> {
     let wanted = wanted.to_lowercase();
     let reach = (wanted.chars().count() / 3).max(1);

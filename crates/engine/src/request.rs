@@ -1,4 +1,4 @@
-//! What apps ask the engine to plan, run and list.
+//! What apps ask the engine to plan, run, list and explain.
 
 use std::path::PathBuf;
 
@@ -115,4 +115,36 @@ pub struct ListRequest {
     pub select: SelectRequest,
     /// `--skipped`: only the skipped tests.
     pub skipped: bool,
+}
+
+/// What `vc explain <id>` and `vc config explain <key>` resolve against.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built by the apps with `..Default::default()`; every user is in this repo (D160)"
+)]
+pub struct ExplainRequest {
+    /// `--profile`, in order; later ones win. Each may be a comma list.
+    pub profiles: Vec<String>,
+    /// `--set key=value`, in order; the top config layer (D129).
+    pub sets: Vec<String>,
+}
+
+/// What `vc call <apiId>` sends: one api, ad hoc, with no `beforeRun` or `beforeAll` (D178).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built by the apps with `..Default::default()`; every user is in this repo (D160)"
+)]
+pub struct CallRequest {
+    /// The api's full ID, `users#list`.
+    pub api: String,
+    /// `--var name=value`, in order; each beats the vars the api and the config define.
+    pub vars: Vec<String>,
+    /// `--keep`: the api's cleanup does not run afterwards.
+    pub keep: bool,
+    /// `--profile`, in order; later ones win. Each may be a comma list.
+    pub profiles: Vec<String>,
+    /// `--set key=value`, in order; the top config layer (D129).
+    pub sets: Vec<String>,
 }

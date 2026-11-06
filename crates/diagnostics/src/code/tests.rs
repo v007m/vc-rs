@@ -65,3 +65,20 @@ fn category_comes_from_the_first_digit() {
 fn serializes_as_its_text() {
     assert_eq!(serde_json::to_string(&Code::V1004).unwrap(), r#""V1004""#);
 }
+
+#[test]
+fn a_page_is_its_markdown_and_its_text_drops_the_marks() {
+    let page = Code::V2003.explanation().unwrap();
+    assert!(page.starts_with("# V2003: Unknown api or test\n"));
+    let text = Code::V2003.explain();
+    assert!(text.starts_with("V2003: Unknown api or test\n"), "{text}");
+    assert!(text.contains("\nWrong\n") && text.contains("\nRight\n"), "{text}");
+    assert!(text.contains("\n    # file: services/users/crud.test.yaml\n"), "examples are indented:\n{text}");
+    assert!(!text.contains("```") && !text.contains("## "), "{text}");
+}
+
+#[test]
+fn a_code_without_a_page_explains_with_its_title() {
+    assert_eq!(Code::V2005.explanation(), None);
+    assert_eq!(Code::V2005.explain(), "V2005: Hook export not found\n");
+}

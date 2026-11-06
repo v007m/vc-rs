@@ -38,7 +38,7 @@ pub struct Settings {
 type Apply = fn(&mut Settings, &ConfigEntry) -> Result<(), String>;
 
 /// Every key a layer may set, but the `vars.` ones.
-const KEYS: &[(&str, Apply)] = &[
+pub const KEYS: &[(&str, Apply)] = &[
     ("profile", profile),
     ("defaults.concurrency", concurrency),
     ("defaults.perHost", per_host),
@@ -59,16 +59,19 @@ impl Settings {
     ///
     /// [`EngineError::Setting`] when a layer cannot be read, or sets an unknown key or a value
     /// that does not fit.
+    #[cfg(test)]
     pub fn resolve(layers: &[&dyn ConfigSource], flags: &[ConfigEntry]) -> Result<Self, EngineError> {
+        Self::applied(&ordered(layers, flags)?)
+    }
+
+    /// The settings `entries` give, in order, later ones winning.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Setting`] for an unknown key or a value that does not fit.
+    pub fn applied(entries: &[ConfigEntry]) -> Result<Self, EngineError> {
         let mut settings = Self::default();
-        let (top, below) = layers.split_last().map_or((None, layers), |(top, below)| (Some(*top), below));
-        for layer in below {
-            settings.apply_all(&entries(*layer)?)?;
-        }
-        settings.apply_all(flags)?;
-        if let Some(top) = top {
-            settings.apply_all(&entries(top)?)?;
-        }
+        settings.apply_all(entries)?;
         Ok(settings)
     }
 
@@ -93,6 +96,25 @@ impl Settings {
         };
         apply(self, entry).map_err(|reason| setting(reason, None))
     }
+}
+
+/// Every entry `layers` set, lowest first, with `flags` between the last two layers: the order
+/// later entries win in.
+///
+/// # Errors
+///
+/// [`EngineError::Setting`] when a layer cannot be read.
+pub fn ordered(layers: &[&dyn ConfigSource], flags: &[ConfigEntry]) -> Result<Vec<ConfigEntry>, EngineError> {
+    let (top, below) = layers.split_last().map_or((None, layers), |(top, below)| (Some(*top), below));
+    let mut ordered = Vec::new();
+    for layer in below {
+        ordered.extend(entries(*layer)?);
+    }
+    ordered.extend_from_slice(flags);
+    if let Some(top) = top {
+        ordered.extend(entries(top)?);
+    }
+    Ok(ordered)
 }
 
 fn entries(layer: &dyn ConfigSource) -> Result<Vec<ConfigEntry>, EngineError> {

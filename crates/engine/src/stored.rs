@@ -191,6 +191,7 @@ fn run_json(run: &RunRow) -> Value {
     let totals = &run.totals;
     json!({
         "id": run.id.get(),
+        "kind": run.start.kind,
         "startedMs": run.start.started_ms,
         "finishedMs": run.finished_ms,
         "status": status(run),

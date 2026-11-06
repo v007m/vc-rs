@@ -23,6 +23,8 @@ pub struct Layered {
     pub environment: Arc<dyn Environment>,
     /// The `.env` variables the process environment does not set, for a `command:`'s child.
     pub dot_env: Vec<(String, String)>,
+    /// Every entry the layers set, lowest first: what `vc config explain` shows.
+    pub entries: Vec<ConfigEntry>,
 }
 
 impl Engine {
@@ -41,11 +43,12 @@ impl Engine {
         let user = self.user_layer(process.as_ref())?;
         let vib = VibVars::new(Arc::clone(&process));
         let set = SetFlags::new(sets.to_vec());
-        let settings = Settings::resolve(&[&UnderProject::new(&user, &program), &dot_env, &vib, &set], flags)?;
+        let entries = settings::ordered(&[&UnderProject::new(&user, &program), &dot_env, &vib, &set], flags)?;
+        let settings = Settings::applied(&entries)?;
         let unset = |(name, _): &&(String, String)| process.var(name).is_none();
         let dot_env: Vec<(String, String)> = dot_env.vars().iter().filter(unset).cloned().collect();
         let environment = SystemEnvironment::snapshot(process.as_ref()).with_fallback(dot_env.clone());
-        Ok(Layered { program, notices, settings, environment: Arc::new(environment), dot_env })
+        Ok(Layered { program, notices, settings, environment: Arc::new(environment), dot_env, entries })
     }
 
     /// The user config: the builder's path, else the default one `environment` names.

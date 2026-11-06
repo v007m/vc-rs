@@ -204,7 +204,7 @@ fn cleanup_of(program: &Program, api: &str) -> Option<ActionId> {
 /// The settings and environment of `layered` with nothing planned, for actions run outside a
 /// run.
 fn unplanned(layered: Layered) -> Prepared {
-    let Layered { program, notices, settings, environment, dot_env } = layered;
+    let Layered { program, notices, settings, environment, dot_env, .. } = layered;
     let (plan, profiles, names) = (Arc::new(Plan::default()), Vec::new(), Vec::new());
     Prepared { program, plan, settings, profiles, names, notices, environment, dot_env }
 }

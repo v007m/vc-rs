@@ -3,7 +3,8 @@
 //! [`EngineBuilder`] is the one place that names the concrete adapters; apps get an
 //! [`Engine`] and call it. So far the engine checks a project ([`Engine::check`]), plans and
 //! runs its tests ([`Engine::plan`], [`Engine::run`]), lists its definitions
-//! ([`Engine::list`]), lists and clears the cross-run cache ([`Engine::cache_list`],
+//! ([`Engine::list`]), explains a test, api or setting ([`Engine::explain`],
+//! [`Engine::config_explain`]), lists and clears the cross-run cache ([`Engine::cache_list`],
 //! [`Engine::cache_clear`]) and exports the editor schemas ([`Engine::schema_export`]). The model and
 //! diagnostics types apps need are re-exported here (D108).
 //!
@@ -16,8 +17,12 @@
 
 mod builder;
 mod cache;
+mod call;
 mod check;
+mod complete;
+mod config_explain;
 mod error;
+mod explain;
 mod failed;
 mod history;
 mod interrupt;
@@ -34,19 +39,23 @@ mod sample;
 mod schema;
 mod selection;
 mod settings;
+mod shown;
 mod stored;
 mod user;
 
 pub use builder::{Engine, EngineBuilder};
 pub use cache::CacheReport;
+pub use call::CallReport;
 pub use check::{CheckReport, CheckRequest};
+pub use complete::CompleteKind;
 pub use error::EngineError;
+pub use explain::ExplainReport;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use plan::PlanReport;
-pub use request::{ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest};
+pub use request::{CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest};
 pub use run::RunReport;
 pub use schema::SchemaFile;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
-pub use vc_diagnostics::{Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
+pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
 pub use vc_model::{FileKind, SourceFiles};
