@@ -158,7 +158,7 @@ pub fn checked(text: &str) -> Result<Named<'_>, EngineError> {
 }
 
 /// `from` when it names an api, or the refusal with the close ones.
-fn called<'f>(project: &Authoring, from: &'f str) -> Result<&'f str, EngineError> {
+pub fn called<'f>(project: &Authoring, from: &'f str) -> Result<&'f str, EngineError> {
     let named = Named::parse(from);
     let found = project.find(FileKind::Api, named.file).map(|found| project.open(found)).transpose()?;
     let known = found.as_ref().zip(named.item).is_some_and(|(opened, id)| item(opened.document.root(), "apis", id).is_some());
@@ -260,7 +260,7 @@ pub fn block(indent: &str, yaml: &str) -> String {
 }
 
 /// A camelCase ID as a sentence: `listsUsers` becomes `Lists users`.
-fn sentence(id: &str) -> String {
+pub fn sentence(id: &str) -> String {
     let mut out = String::with_capacity(id.len() + 4);
     for (at, c) in id.chars().enumerate() {
         match (at, c.is_uppercase()) {

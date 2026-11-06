@@ -7,7 +7,7 @@
 //! [`Engine::cache_clear`]), exports the editor schemas ([`Engine::schema_export`]) and works out
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
 //! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_test`],
-//! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
+//! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`], [`Engine::save_call_as_test`],
 //! [`Engine::write`]). The model and diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
@@ -41,6 +41,7 @@ mod rename;
 mod reporting;
 mod request;
 mod run;
+mod save_call;
 #[cfg(test)]
 mod sample;
 mod schema;
@@ -65,6 +66,7 @@ pub use list::{ListReport, Listed};
 pub use plan::PlanReport;
 pub use request::{ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest};
 pub use run::RunReport;
+pub use save_call::CallAsTest;
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};

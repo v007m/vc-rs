@@ -300,7 +300,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
 | `vc new file api\|test\|load <fileId>` | Creates an empty file of that kind with its header filled in |
-| `vc call <apiId> [--var k=v] [--save-as-test <testId>]` | Calls one api ad hoc with project auth and the active profile; optionally saves the call as a test with expectations taken from the response |
+| `vc call <apiId> [--var k=v] [--save-as-test <testId> [--expect-field body.<path>]...]` | Calls one api ad hoc with project auth and the active profile; optionally saves the call as a test expecting its status and the named body fields |
 | `vc fmt [--strip-comments] [paths]` | Rewrites definition files in the house style (block YAML, key order, quoting) and keeps comments; `--strip-comments` drops the one-line comments `vc new` wrote above its items. Refuses, writing nothing, a file that does not parse or that formatting would change in meaning; exits 2 then, 0 otherwise |
 | `vc rename <oldId> <newId>` | Renames an api, test, file, var, auth or dataset ID and updates every reference; moves the file when a file ID changes |
 
@@ -480,12 +480,12 @@ A `name` in an example row labels that instance in reports, so a failure reads "
 
 ### Capturing a real call
 
-`vc call` sends one request with the project's auth and active profile and prints the response. Adding `--save-as-test` writes it as a test, with expectations suggested from what came back (status, schema when known, the fields you name with `--expect-field`); the web and terminal UIs offer the same with checkboxes.
+`vc call` sends one request with the project's auth and active profile and prints the response. Adding `--save-as-test` writes it as a test, expecting what came back: the status, and the body fields you name with `--expect-field body.<path>` at the values they had (no schema is inferred, D176); the web and terminal UIs offer the same with checkboxes.
 
 ```
 $ vc call users#deactivate --var id=u_7f3k29qp --profile staging --save-as-test users.crud#deactivatesUser
 200 OK · 148 ms · api expect passed
-✓ wrote users.crud#deactivatesUser to services/users/crud.test.yaml:72 (expects status 200, schema User)
+✓ wrote users.crud#deactivatesUser to services/users/crud.test.yaml:72
 ```
 
 ### Importing from a HAR file
