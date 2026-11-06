@@ -65,6 +65,9 @@ pub struct RunRequest {
     /// `--failed`: the failed and blocked tests of the last run instead of the selection, under
     /// its profiles unless `plan` names some.
     pub failed: bool,
+    /// `--no-cache`: `cache:` actions neither read nor write the cross-run cache, and no
+    /// expired entry is cleaned up.
+    pub no_cache: bool,
 }
 
 /// Which report files a run or `vc report` writes, and where.

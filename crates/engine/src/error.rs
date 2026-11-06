@@ -69,6 +69,14 @@ pub enum EngineError {
         /// What to do instead, when the engine knows.
         help: Option<String>,
     },
+    /// The cross-run cache has no key or cannot be opened or read.
+    #[error("cache: {reason}")]
+    Cache {
+        /// What is wrong.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
     /// Something inside the engine failed; this is a bug to report, not a user error.
     #[error("{reason}")]
     Internal {
@@ -88,7 +96,8 @@ impl EngineError {
             Self::Selection { help, .. }
             | Self::Setting { help, .. }
             | Self::Reporter { help, .. }
-            | Self::History { help, .. } => help.clone(),
+            | Self::History { help, .. }
+            | Self::Cache { help, .. } => help.clone(),
             _ => None,
         }
     }

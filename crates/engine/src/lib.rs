@@ -14,6 +14,7 @@
 //! ```
 
 mod builder;
+mod cache;
 mod check;
 mod error;
 mod failed;
@@ -36,6 +37,7 @@ mod stored;
 mod user;
 
 pub use builder::{Engine, EngineBuilder};
+pub use cache::CacheReport;
 pub use check::{CheckReport, CheckRequest};
 pub use error::EngineError;
 pub use interrupt::{Interrupter, Interrupts, interrupts};

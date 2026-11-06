@@ -1192,6 +1192,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V5110 | failure | Command exited non-zero | — |
 | V5111 | failure | Template failed to render at run time (missing path, wrong type) | — |
 | V5112 | failure | A dataset or example row has no column a template reads (D173) | — |
+| V5113 | warning | No cache key: neither `VIB_CACHE_KEY` nor the OS keychain gives one, so the cross-run cache is off and `cache:` actions run every time (a run notice, not a failure) | — |
 | V5114 | failure | Credentials could not be obtained: a token endpoint refused or was unreachable, a token response or `flow` step failed, an auth type or secret provider is unknown, or a secret did not load. Each cause has its own help; the message never holds a secret value or a token body | — |
 V3204 is new: the skip-reason example that silently lost `see #212` showed that an unquoted `  # ` inside a value is an easy mistake, and the parser can see it (a comment that starts mid-value on a line whose value looks cut). The parser flags a one-line plain value that resolves to text, followed by `  #` when the `#` is directly followed by a non-space (`#212`) or the value ends with a comma; typed values (`retries: 3 #max`, `enabled: true #flag`) are never flagged. The fix double-quotes the value and the comment together; it is a suggestion, not a certain fix, because the `#` may really start a comment.
 
