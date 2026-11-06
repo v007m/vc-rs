@@ -313,9 +313,12 @@ fn a_row_without_the_column_read_is_v5112_unless_a_default_stands_in() {
     assert_eq!(render_one(&cx, action, frame(), &other).unwrap_err().code, None, "only rows are V5112");
 }
 
+/// A run's context, its seed and call actions, the frame and a parsed probe.
+type Seeded = (Arc<ActionCx>, (ActionId, ActionId), Frame, TemplateValue);
+
 /// The run after a `seed` function saved `token`, `userId` (declared) and `n`: its context, the
 /// seed and a call, the frame and `probe` parsed.
-fn seeded(probe: &str) -> (Arc<ActionCx>, (ActionId, ActionId), Frame, TemplateValue) {
+fn seeded(probe: &str) -> Seeded {
     let mut fixture = Fixture::new();
     let seed = fixture.action(ActionKind::Function(HookRef { file: "hooks.ts".into(), export: "seed".into() }));
     fixture.action_mut(seed).provides = vec![fixture.var("userId")];
@@ -342,7 +345,7 @@ fn reading_a_value_a_function_saved_undeclared_is_one_v5108_warning() {
         "`var.token` was saved by a `function:` step that does not declare it; add `provides: [token]` to that step"
     );
     let hook = Render::new(&request).unwrap();
-    assert_eq!((hook.vars()["n"].clone(), hook.warnings()), (json!(2), vec![]), "a hook's vars are not reads");
+    assert_eq!((hook.hook_vars()["n"].clone(), hook.warnings()), (json!(2), vec![]), "a hook's vars are not reads");
 }
 
 #[test]

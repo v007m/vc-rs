@@ -91,14 +91,22 @@ impl Flight {
     /// Evaluates `checks` against `subject`, running the custom ones with `{response, vars}`,
     /// masked by the run's redactor so neither the results nor a failure built from them shows
     /// a masked header.
-    pub async fn judge(&self, render: &Render<'_>, (checks, subject): (&[Check], Subject<'_>)) -> Vec<CheckResult> {
+    /// The render is read before the hooks run, so the future does not hold it.
+    pub fn judge<'f>(
+        &'f self,
+        render: &Render<'f>,
+        (checks, subject): (&'f [Check], Subject<'_>),
+    ) -> impl Future<Output = Vec<CheckResult>> + Send + use<'f> {
         let mut results = check::evaluate(&Judge::new(&self.matchers, render), checks, subject);
-        if checks.iter().any(|check| check.kind == CheckKind::Custom) {
-            let input = json!({ "response": subject.response, "vars": render.vars() });
-            hooks::judge(&self.bridge, checks, (results.as_mut_slice(), &input)).await;
+        let custom = checks.iter().any(|check| check.kind == CheckKind::Custom);
+        let input = custom.then(|| json!({ "response": subject.response, "vars": render.hook_vars() }));
+        let (bridge, redactor) = (&self.bridge, render.redactor());
+        async move {
+            if let Some(input) = input {
+                hooks::judge(bridge, checks, (results.as_mut_slice(), &input)).await;
+            }
+            results.into_iter().map(|result| redactor.check(result)).collect()
         }
-        let redactor = render.redactor();
-        results.into_iter().map(|result| redactor.check(result)).collect()
     }
 
     /// A transport error as a failure; a refused attempt is the failure of the hook that

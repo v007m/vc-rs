@@ -377,3 +377,14 @@ fn for_each_wins_over_repeat_when_both_are_written() {
     let [each] = steps(&program, test(&program, "users.both#createsEach"))[..] else { panic!("one step") };
     assert!(matches!(each.repeat, Some(Loop::ForEach { parallel: 1, .. })), "{:?}", each.repeat);
 }
+
+#[test]
+fn lowers_cache_with_its_check_built_before_the_action() {
+    let text = "beforeAll:\n  - id: admin\n    call: users#create\n    cache: {for: 12h, check: {call: users#list}}\ntests:\n  - id: listsUsers\n    call: users#list\n";
+    let program = with_tests("services/users/cached.test.yaml", text);
+    let admin = program.test_files.values().next().unwrap().lifecycle.before_all[0];
+    let Some(cache) = action(&program, admin).cache else { panic!("a cache") };
+    let check = cache.check.unwrap();
+    assert_eq!((cache.ttl, check < admin), (seconds(12 * 3600), true));
+    assert!(matches!(action(&program, check).kind, ActionKind::Call(_)));
+}

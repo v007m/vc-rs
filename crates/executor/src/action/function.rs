@@ -44,7 +44,7 @@ impl FunctionExecutor {
             return Err(Failure::new("the action calls no function"));
         };
         let render = Render::new(request).map_err(request::failed)?;
-        let input = json!({ "vars": render.vars(), "run": { "profiles": render.values().profiles() } });
+        let input = json!({ "vars": render.hook_vars(), "run": { "profiles": render.values().profiles() } });
         let fakes = render.into_memo();
         let bridge = HookBridge::new(self.runner.clone(), &request.cx.program);
         let returned = bridge.call(hook, input).await.map_err(|error| hooks::failure(hook, &error))?;

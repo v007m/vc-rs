@@ -2,7 +2,8 @@
 //! the api's (D123).
 
 use vc_model::{
-    Action, ActionKind, ApiId, AuthRef, BodySpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs, VarName,
+    Action, ActionKind, ApiId, AuthRef, BodySpec, CacheSpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs,
+    VarName,
 };
 use vc_parser::Node;
 
@@ -38,6 +39,7 @@ impl<'a> Build<'_, 'a> {
     /// The action at `node`, or `None` when it names nothing to run.
     pub fn action(&mut self, source: &Source<'a>, node: &Node, place: &Place<'_>) -> Built<Option<Action>> {
         let Some(kind) = self.kind(source, node)? else { return Ok(None) };
+        let cache = self.cache(source, node, place.owner)?;
         let origin = place.test.map_or(self.builder.next_action().map(Origin::Action)?, Origin::Test);
         let defaults = place.defaults.filter(|_| matches!(kind, ActionKind::Call(_) | ActionKind::Test(_)));
         let request = self.request(source, node, defaults.map(|(_, test)| test))?;
@@ -60,7 +62,7 @@ impl<'a> Build<'_, 'a> {
             retry: read::retry(source, node).filter(|_| place.test.is_none()),
             keep: read::flag(shapes::action(), node, "keep"),
             provides: self.provides(node)?,
-            cache: None,
+            cache,
             repeat: self.looping(source, node).filter(|_| place.test.is_none()),
             span: node.span,
         }))
@@ -82,6 +84,19 @@ impl<'a> Build<'_, 'a> {
         }
         let command = node.get("command").and_then(|command| read::template(source, command));
         Ok(command.map(ActionKind::Command))
+    }
+
+    /// `cache`: how long the action's saves are reused, and its `check`, built before the
+    /// action itself so the action's checks take the next action ID.
+    fn cache(&mut self, source: &Source<'a>, node: &Node, owner: Owner) -> Built<Option<CacheSpec>> {
+        let Some(cache) = node.get("cache") else { return Ok(None) };
+        let Some(ttl) = read::duration(source, cache, "for") else { return Ok(None) };
+        let place = Place { owner, defaults: None, test: None };
+        let check = match cache.get("check") {
+            Some(check) => self.action(source, check, &place)?.map(|check| self.builder.action(check)).transpose()?,
+            None => None,
+        };
+        Ok(Some(CacheSpec { ttl, check }))
     }
 
     /// The step's own request parts, over the test's defaults; headers and query merge by name.

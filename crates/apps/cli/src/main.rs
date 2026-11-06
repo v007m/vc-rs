@@ -7,6 +7,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+mod cache;
 mod check;
 mod history;
 mod list;
@@ -46,6 +47,8 @@ enum Command {
     History(history::HistoryArgs),
     /// Writes the report files of a stored run again.
     Report(report::ReportArgs),
+    /// Lists or clears the cross-run cache of `cache:` actions.
+    Cache(cache::CacheArgs),
     /// Works with the JSON Schemas editors use for definition files.
     #[command(subcommand)]
     Schema(SchemaCommand),
@@ -72,6 +75,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::List(args) => list::run(&args, project),
         Command::History(args) => history::run(&args, project),
         Command::Report(args) => report::run(&args, project),
+        Command::Cache(args) => cache::run(&args, project),
         Command::Schema(SchemaCommand::Export(args)) => schema::export(&args, project),
     }
 }

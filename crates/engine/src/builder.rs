@@ -2,10 +2,11 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, ProcessRunner, SystemClock};
 use vc_interfaces::{
-    Clock, CommandRunner, CompileCacheStore, Environment, HistoryReader, HistoryWriter, HookRunner, SourceProvider,
-    Transport, Vcs,
+    CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, HistoryReader, HistoryWriter, HookRunner,
+    Keychain, SourceProvider, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -24,6 +25,8 @@ pub struct EngineBuilder {
     hooks: Option<Arc<dyn HookRunner>>,
     user_config: Option<PathBuf>,
     history: Option<HistoryPorts>,
+    keychain: Option<Arc<dyn Keychain>>,
+    cache: Option<Arc<dyn CacheStore>>,
 }
 
 /// The history's writer and reader, given together.
@@ -45,6 +48,8 @@ impl EngineBuilder {
             hooks: None,
             user_config: None,
             history: None,
+            keychain: None,
+            cache: None,
         }
     }
 
@@ -133,6 +138,20 @@ impl EngineBuilder {
         self
     }
 
+    /// Keeps the cross-run cache's key in `keychain` instead of the OS keychain.
+    #[must_use]
+    pub fn keychain(mut self, keychain: Arc<dyn Keychain>) -> Self {
+        self.keychain = Some(keychain);
+        self
+    }
+
+    /// Keeps the cross-run cache in `store` instead of `.vibranium/cache.db`, with no key.
+    #[must_use]
+    pub fn cache(mut self, store: Arc<dyn CacheStore>) -> Self {
+        self.cache = Some(store);
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -152,6 +171,9 @@ impl EngineBuilder {
         let (environment, transport, hooks, user_config) =
             (self.environment, self.transport, self.hooks, self.user_config);
         let (history, history_reader) = self.history.unzip();
+        let keychain =
+            self.keychain.or_else(|| OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>));
+        let cache = self.cache;
         Ok(Engine {
             root: self.root,
             sources,
@@ -165,6 +187,8 @@ impl EngineBuilder {
             user_config,
             history,
             history_reader,
+            keychain,
+            cache,
         })
     }
 }
@@ -189,6 +213,8 @@ pub struct Engine {
     pub(crate) user_config: Option<PathBuf>,
     pub(crate) history: Option<Arc<dyn HistoryWriter>>,
     pub(crate) history_reader: Option<Arc<dyn HistoryReader>>,
+    pub(crate) keychain: Option<Arc<dyn Keychain>>,
+    pub(crate) cache: Option<Arc<dyn CacheStore>>,
 }
 
 impl Engine {

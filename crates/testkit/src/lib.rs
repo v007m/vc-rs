@@ -13,6 +13,7 @@
 //! source_provider_suite(&mut |files| Box::new(MemorySources::new(files)) as Box<dyn SourceProvider>);
 //! ```
 
+mod action_cache_suite;
 mod auth_suite;
 mod cache_suite;
 mod clock_suite;
@@ -28,6 +29,7 @@ mod fixed_clock;
 mod generator;
 mod history_suite;
 mod hooks_suite;
+mod memory_action_cache;
 mod memory_cache;
 mod memory_history;
 mod memory_sources;
@@ -40,6 +42,7 @@ mod source_suite;
 mod transport_suite;
 mod vcs_suite;
 
+pub use action_cache_suite::{MakeCacheStore, cache_store_suite};
 pub use auth_suite::{action_runner_suite, auth_provider_suite, browser_suite, keychain_suite};
 pub use cache_suite::{MakeCompileCache, compile_cache_store_suite};
 pub use clock_suite::clock_suite;
@@ -55,6 +58,7 @@ pub use fixed_clock::FixedClock;
 pub use generator::{GeneratedFile, GeneratedProject, generate_project};
 pub use history_suite::{MakeHistory, history_reader_suite, history_writer_suite};
 pub use hooks_suite::{MakeHookRunner, SUITE_HOOKS, SUITE_JS, hook_runner_suite};
+pub use memory_action_cache::MemoryCacheStore;
 pub use memory_cache::MemoryCompileCache;
 pub use memory_history::MemoryHistory;
 pub use memory_sources::MemorySources;

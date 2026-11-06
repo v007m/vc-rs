@@ -89,6 +89,7 @@ code_table! {
     V5110 = 5110, Error, "Command exited non-zero";
     V5111 = 5111, Error, "Template failed to render at run time";
     V5112 = 5112, Error, "Dataset row missing a column";
+    V5113 = 5113, Warning, "No cache key: the cross-run cache is off";
     V5114 = 5114, Error, "Credentials could not be obtained";
     V5115 = 5115, Error, "Hook threw or returned a value that is not JSON";
     V5116 = 5116, Error, "Hook ran past its time or memory budget";

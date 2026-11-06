@@ -806,10 +806,12 @@ Data that is slow or rate-limited to create can outlive a run. `cache` on a `cal
 
 Rules:
 
-- The cache key is the api (or test), its resolved `vars` and the profile, so `users#create` with `role: admin` and with `role: member` are cached separately.
-- A cached action's cleanup does not run at the end of the run. It runs when the entry expires (at the start of the next run that finds it expired) or on `vc cache clear`.
-- Cached values that came from secrets or auth are encrypted with a key kept in the OS keychain; where there is no keychain, as in most CI, set `VIB_CACHE_KEY`.
-- `vc run --no-cache` ignores the cache for one run; `vc cache list` shows the entries and when they expire.
+- The cache key is the api (or test), the action's own resolved `vars` and the active profiles, so `users#create` with `role: admin` and with `role: member` are cached separately. Vars that read `fake.*` are left out of the key, so a fresh fake name does not defeat the cache.
+- A hit returns only what the action saved; no request is made and nothing is checked. `cache.check` runs first, seeing the cached values both by name and under the action's `id` (`${var.admin.userId}`); when the check fails, the action runs again and its new result replaces the entry.
+- Only a result that passed is stored, and only when each cleanup it registered is its api's `cleanup`; anything else runs every time.
+- A cached action's cleanup does not run at the end of the run. It runs, under the profiles the entry was made with, when the entry expires (at the start of the next run that finds it expired) or on `vc cache clear [id]`. A cleanup that fails is a warning, not a failure.
+- The whole entry is encrypted (ChaCha20-Poly1305). The key is `VIB_CACHE_KEY` (64 hex digits) when it is set, else the one the OS keychain holds, generated and stored there on first use. Where there is neither, as in most CI, the cache is off: `cache` actions run every time and the run prints warning V5113. An entry sealed under another key, or changed on disk, reads as a miss.
+- `vc run --no-cache` neither reads nor writes the cache for one run, and cleans up no expired entry; `vc cache list` shows the entries and when they expire.
 - `cache` belongs in `beforeRun` and `beforeAll`. On a per-test action `vc check` warns, because every test instance would share one cached object.
 
 ```yaml

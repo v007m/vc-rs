@@ -32,8 +32,8 @@ mod slots;
 mod values;
 
 pub use action::{
-    ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, AuthKey, CallExecutor, CommandExecutor,
-    FunctionExecutor, InlineExecutor, NoAuth, TestExecutor, TokenCache, body_actions,
+    ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, AuthKey, CachedExecutor, CallExecutor,
+    CommandExecutor, FunctionExecutor, InlineExecutor, NoAuth, TestExecutor, TokenCache, body_actions,
 };
 pub use bus::EventBus;
 pub use error::ExecutorError;

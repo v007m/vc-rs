@@ -25,6 +25,8 @@
 //! - [`HistoryWriter`] and [`HistoryReader`]: the run history in `.vibranium/history.db`; the
 //!   writer stores redacted rows and the report snapshot, the reader answers `vc history`,
 //!   `vc report` and `vc run --failed` (D167, D170).
+//! - [`CacheStore`]: the cross-run cache in `.vibranium/cache.db`, what a `cache:`d action
+//!   saved and the cleanups that undo it, encrypted at rest by the store.
 //! - [`HookRunner`]: runs a hook function in a sandbox within a time and memory [`Budget`] (D172).
 //!
 //! ```
@@ -38,6 +40,7 @@
 //! assert_eq!(file.hash, content_hash(b"apis: []\n"));
 //! ```
 
+mod action_cache;
 mod auth;
 mod browser;
 mod cache;
@@ -56,6 +59,7 @@ mod source;
 mod transport;
 mod vcs;
 
+pub use action_cache::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, CachedCleanup, CachedValues};
 pub use auth::{ActionRunner, AuthError, AuthProvider, AuthRequest, Credentials};
 pub use browser::{Browser, BrowserError};
 pub use cache::{CompileCacheError, CompileCacheStore};
