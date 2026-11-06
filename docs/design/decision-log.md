@@ -342,6 +342,7 @@ Round 27 additions (5 November 2026):
 | --- | --- | --- | --- |
 | D185 | Async redactor (Sarath) | `MaskRule`, `Redactor::event` and `RedactingSink::publish` become async, so a `function:` redact rule (D171) can call the `HookRunner` within its hook budget without blocking the runtime. The built-in secret masking stays first and synchronous; user rules run after it in config order. Hook redact rules ship in M4 | — |
 | D186 | V5108 in M4 (Sarath) | V5108 ships in M4 with V5109: each dynamically saved value carries its origin action, so a read of a value that a `function:`/`test:` action saved without declaring it in `provides` emits a V5108 warning event and the run continues | — |
+| D187 | Keychain backends | `OsKeychain` uses `keyring-core` with one native store per target: the macOS keychain, the Windows credential manager, and the Linux kernel keyutils session keyring (no D-Bus). Other targets have no keychain, so `VIB_CACHE_KEY` applies. `keyring` 4's default Linux store pulls in `zbus` 5, whose `zvariant`/`zbus_names` crates carry unmaintained advisories (RUSTSEC-2026-0370..0372) and add `syn` 2 users. On Linux the key lasts one login session; a lost key makes cache entries miss, never fail | LLD crate table (`keyring` 4) |
 
 ## Open
 
