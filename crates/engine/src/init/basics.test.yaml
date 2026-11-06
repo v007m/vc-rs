@@ -1,0 +1,59 @@
+# ─ Test file: sample.basics ───────────────────────────────────
+# Tests call apis and state what they expect.
+# Run this file: vc run sample.basics    One test: vc run sample.basics#createsUser
+# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#tests
+# ─────────────────────────────────────────────────────────────
+id: sample.basics
+name: Sample tests
+tags: [sample]
+
+beforeAll:                 # once, before this file's tests
+  - command: vc demo start --port 7421 --detach
+afterAll:                  # once, after them
+  - command: vc demo stop --port 7421
+
+tests:
+  # The smallest test: call an api and check the status.
+  - id: listsUsers
+    name: Lists users
+    call: sample#listUsers
+    expect:
+      status: 200
+
+  # Checks on the body. The api's own check (status 201) applies too,
+  # and createUser's cleanup deletes the user afterwards.
+  - id: createsUser
+    name: Creates a user with the given email
+    call: sample#createUser
+    vars:
+      email: ada@example.com
+    expect:
+      body:
+        match:
+          email: ada@example.com
+          id:
+            type: string
+
+  # Data from setup: before runs createUser, which saves userId.
+  - id: getsCreatedUser
+    name: Returns the user that was just created
+    before:
+      - call: sample#createUser
+    call: sample#getUser
+    expect:
+      status: 200
+      body:
+        match:
+          id: ${var.userId}
+      timing:
+        total:
+          lt: 500ms
+
+  # A negative test: stating a status replaces the api's expected 201.
+  - id: rejectsMissingEmail
+    name: Rejects a user without an email
+    call: sample#createUser
+    body:
+      name: No Email
+    expect:
+      status: 400

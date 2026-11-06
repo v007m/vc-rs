@@ -13,6 +13,7 @@ mod check;
 mod fix;
 mod fmt;
 mod history;
+mod init;
 mod list;
 mod new;
 mod outcome;
@@ -41,6 +42,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Creates a project that runs green offline: config, sample apis and tests, folders.
+    Init(init::InitArgs),
     /// Compiles and links every definition file and prints its errors and warnings.
     Check(check::CheckArgs),
     /// Shows what a run would do, in order, without sending a request.
@@ -85,6 +88,7 @@ fn main() -> ExitCode {
 fn run(cli: Cli) -> anyhow::Result<Outcome> {
     let project = cli.project.as_deref();
     match cli.command {
+        Command::Init(args) => init::run(&args, project),
         Command::Check(args) => check::run(&args, project),
         Command::Plan(args) => plan::run(&args, project),
         Command::Run(args) => run::run(&args, project),

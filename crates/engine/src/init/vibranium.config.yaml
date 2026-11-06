@@ -1,0 +1,46 @@
+# ─ Project config ─────────────────────────────────────────────
+# One per project, at the root: profiles, project-wide vars, auth,
+# secrets and run settings. Only syntaxVersion and one profile are required.
+# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#project-config
+# See where a value comes from: vc config explain defaults.timeout
+# ─────────────────────────────────────────────────────────────
+syntaxVersion: 2
+project: {project}
+
+defaults:
+  timeout: 30s            # per request
+  concurrency: 16         # test instances running at once
+  perHost: 8              # open connections per host
+  headers:
+    accept: application/json
+    user-agent: vibranium/2
+
+vars:
+  sampleUrl: http://localhost:7421    # the demo service used by services/sample
+
+profiles:
+  - id: default
+    default: true
+    # vars:                # override vars for this profile
+    #   sampleUrl: https://sample.staging.example
+  # - id: staging          # add one per environment; select with --profile staging
+
+# auth:                    # how requests prove who they are
+#   - id: myOauth
+#     type: oauth2ClientCredentials
+#     tokenUrl: ${var.identityUrl}/oauth/token
+#     clientId: ${secret.CLIENT_ID}
+#     clientSecret: ${secret.CLIENT_SECRET}
+
+secrets:
+  provider: env            # environment and .env; varlock adds 1Password, Vault, AWS and more
+  schema: .env.schema      # declares the secret names
+
+reports:
+  dir: .vibranium/reports
+  formats: [ctrf, junit, html]
+
+history:
+  bodies: failures         # store request/response bodies for failures only
+  maxBodySize: 4kb         # cut longer bodies (default 64kb)
+  keep: 50                 # runs kept after each run, or `all`

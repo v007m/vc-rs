@@ -7,8 +7,8 @@
 //! [`Engine::cache_clear`]), exports the editor schemas ([`Engine::schema_export`]) and works out
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
 //! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_test`],
-//! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::write`]). The model and
-//! diagnostics types apps need are re-exported here (D108).
+//! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
+//! [`Engine::write`]). The model and diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
 //! use vc_engine::Engine;
@@ -30,6 +30,7 @@ mod failed;
 mod fix;
 mod format;
 mod history;
+mod init;
 mod interrupt;
 mod list;
 mod plan;
@@ -58,6 +59,7 @@ pub use create_auth::{NewAuth, auth_fields};
 pub use edit::{Changes, FileChange};
 pub use error::EngineError;
 pub use fix::FixReport;
+pub use init::INIT_FOLDERS;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use plan::PlanReport;
