@@ -14,21 +14,20 @@ use crate::mask::Masking;
 const MASKED_IN_URL: &str = "%E2%80%A2%E2%80%A2%E2%80%A2%E2%80%A2";
 
 /// `exchange` with its URL, headers and bodies masked; its timing and connection are kept.
-#[must_use]
-pub fn exchange(masking: &Masking<'_>, mut exchange: Exchange) -> Exchange {
-    exchange.request.uri = uri(masking, &exchange.request.uri);
-    exchange.request.headers = headers(masking, &exchange.request.headers);
-    exchange.request.body = body(masking, &exchange.request.body);
-    exchange.response.headers = headers(masking, &exchange.response.headers);
-    exchange.response.body = body(masking, &exchange.response.body);
+pub async fn exchange(masking: &Masking<'_>, mut exchange: Exchange) -> Exchange {
+    exchange.request.uri = uri(masking, &exchange.request.uri).await;
+    exchange.request.headers = headers(masking, &exchange.request.headers).await;
+    exchange.request.body = body(masking, &exchange.request.body).await;
+    exchange.response.headers = headers(masking, &exchange.response.headers).await;
+    exchange.response.body = body(masking, &exchange.response.body).await;
     exchange
 }
 
 /// `uri` with what it must not show masked; one that no longer parses keeps only its scheme
 /// and host.
-fn uri(masking: &Masking<'_>, uri: &Uri) -> Uri {
+async fn uri(masking: &Masking<'_>, uri: &Uri) -> Uri {
     let shown = uri.to_string();
-    let masked = masking.text(&shown);
+    let masked = masking.text(&shown).await;
     if masked == shown {
         return uri.clone();
     }
@@ -47,11 +46,14 @@ fn masked_whole(uri: &Uri) -> Uri {
 
 /// `headers` with a masked header's every value replaced, and the rest masked as text; a
 /// value that is not text is replaced too.
-fn headers(masking: &Masking<'_>, headers: &HeaderMap) -> HeaderMap {
+async fn headers(masking: &Masking<'_>, headers: &HeaderMap) -> HeaderMap {
     let mut masked = HeaderMap::with_capacity(headers.len());
     for (name, value) in headers {
         let shown = (!masking.masks.hides_header(name.as_str())).then_some(value);
-        let text = shown.and_then(|value| value.to_str().ok()).map(|text| masking.text(text));
+        let text = match shown.and_then(|value| value.to_str().ok()) {
+            Some(text) => Some(masking.text(text).await),
+            None => None,
+        };
         let mut value = text.and_then(|text| HeaderValue::try_from(text).ok()).unwrap_or_else(masked_value);
         value.set_sensitive(true);
         masked.append(name.clone(), value);
@@ -65,19 +67,21 @@ fn masked_value() -> HeaderValue {
 
 /// `body` masked: JSON field by field and then as text, other text as text, and bytes that
 /// are not text replaced whole when a secret value is among them.
-fn body(masking: &Masking<'_>, body: &Bytes) -> Bytes {
+async fn body(masking: &Masking<'_>, body: &Bytes) -> Bytes {
     let Ok(text) = std::str::from_utf8(body) else {
         return if masking.masks.finds_value(body) { Bytes::from_static(MASKED.as_bytes()) } else { body.clone() };
     };
-    let parsed = serde_json::from_str::<Value>(text);
-    let masked = parsed.map_or_else(|_| masking.text(text), |json| json_text(masking, &json, text));
+    let masked = match serde_json::from_str::<Value>(text) {
+        Ok(json) => json_text(masking, &json, text).await,
+        Err(_) => masking.text(text).await,
+    };
     if masked == text { body.clone() } else { Bytes::from(masked) }
 }
 
 /// The JSON `json` (written as `text`) with its hidden fields and rule matches masked, then
 /// with any secret value left in a key or a number masked as text.
-fn json_text(masking: &Masking<'_>, json: &Value, text: &str) -> String {
-    let masked = masking.value(json.clone());
+async fn json_text(masking: &Masking<'_>, json: &Value, text: &str) -> String {
+    let masked = masking.value(json.clone()).await;
     let written = if masked == *json { text.to_owned() } else { masked.to_string() };
     masking.masks.without_values(&written)
 }
