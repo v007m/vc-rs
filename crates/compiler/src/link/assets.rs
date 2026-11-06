@@ -5,6 +5,7 @@
 use std::collections::BTreeSet;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
+pub use vc_model::resolve_path as resolve;
 use vc_model::{SourceFileId, SourceFiles, SourcePath};
 use vc_parser::{Node, Value};
 
@@ -61,19 +62,6 @@ fn file_refs<'n>(node: &'n Node, found: &mut Vec<&'n Node>) {
         Value::Seq(items) => items.iter().for_each(|item| file_refs(item, found)),
         Value::Scalar(_) => {}
     }
-}
-
-/// The path `written` names from `folder`, or `None` when it leads out of the project.
-pub fn resolve(folder: &[&str], written: &str) -> Option<String> {
-    let mut parts = folder.to_vec();
-    for part in written.split('/').filter(|part| !part.is_empty() && *part != ".") {
-        if part == ".." {
-            parts.pop()?;
-        } else {
-            parts.push(part);
-        }
-    }
-    Some(parts.join("/"))
 }
 
 /// `path` as written from `folder`: `../data/user.json`.

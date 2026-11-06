@@ -125,6 +125,32 @@ pub struct Action {
     pub span: SourceSpan,
 }
 
+impl Action {
+    /// An action of `kind` written at `span`, run by its instance, with nothing else set.
+    #[must_use]
+    pub fn new(kind: ActionKind, span: SourceSpan) -> Self {
+        Self {
+            id: None,
+            kind,
+            owner: Owner::Instance,
+            vars: VarDefs::default(),
+            auth: None,
+            headers: IndexMap::new(),
+            query: IndexMap::new(),
+            body: None,
+            expect: Expect::default(),
+            save: SaveSpec::default(),
+            poll: None,
+            retry: None,
+            keep: false,
+            provides: Vec::new(),
+            cache: None,
+            repeat: None,
+            span,
+        }
+    }
+}
+
 /// The kinds of action.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[expect(

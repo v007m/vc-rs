@@ -116,31 +116,13 @@ mod tests {
 
     use super::ProgramBuilder;
     use crate::{
-        Action, ActionKind, ApiId, Expect, Owner, Pos, Profile, ProfileId, SaveSpec, SourceFileId, SourceFiles,
-        SourceSpan, StringTable, VarDefs,
+        Action, ActionKind, ApiId, Pos, Profile, ProfileId, SourceFileId, SourceFiles, SourceSpan, StringTable,
     };
 
     fn action(builder: &mut ProgramBuilder) -> Action {
         let api = ApiId::new(builder.intern("users#get").unwrap());
-        Action {
-            id: None,
-            kind: ActionKind::Call(api),
-            owner: Owner::Instance,
-            vars: VarDefs::default(),
-            auth: None,
-            headers: IndexMap::new(),
-            query: IndexMap::new(),
-            body: None,
-            expect: Expect::default(),
-            save: SaveSpec::default(),
-            poll: None,
-            retry: None,
-            keep: false,
-            provides: vec![],
-            cache: None,
-            repeat: None,
-            span: SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0)),
-        }
+        let span = SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0));
+        Action::new(ActionKind::Call(api), span)
     }
 
     #[test]

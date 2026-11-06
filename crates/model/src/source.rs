@@ -238,6 +238,21 @@ impl SourceFile {
     }
 }
 
+/// The project path `written` names from `folder` (its parts, outermost first): `.` and empty
+/// parts are dropped and `..` climbs; `None` when it climbs out of the project.
+#[must_use]
+pub fn resolve_path(folder: &[&str], written: &str) -> Option<String> {
+    let mut parts = folder.to_vec();
+    for part in written.split('/').filter(|part| !part.is_empty() && *part != ".") {
+        if part == ".." {
+            parts.pop()?;
+        } else {
+            parts.push(part);
+        }
+    }
+    Some(parts.join("/"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{ContentHash, FileKind, SourcePath};

@@ -58,7 +58,7 @@ pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, Te
 pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use program::Program;
 pub use secrets::{DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, RedactRule, SecretsConfig, schema_names};
-pub use source::{ContentHash, FileKind, SourceFile, SourcePath};
+pub use source::{ContentHash, FileKind, SourceFile, SourcePath, resolve_path};
 pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};
 pub use template::{

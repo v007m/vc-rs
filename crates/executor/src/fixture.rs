@@ -10,10 +10,10 @@ use async_trait::async_trait;
 use indexmap::IndexMap;
 use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::{
-    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, CelSource, ConnectionInfo, Exchange, Expect, FileId,
-    Instance, InstanceId, Lifecycle, Method, Needs, Owner, Part, Plan, PlannedAction, PlannedFile, Pos, Program,
-    RenderedRequest, Retry, SaveSpec, ScalarSource, ScalarStyle, SourceFileId, SourceFiles, SourceSpan, StringTable,
-    Sym, Template, TemplateValue, Test, TestBody, TestFile, TestId, Timing, VarDefs, VarName,
+    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, CelSource, ConnectionInfo, Exchange, FileId,
+    Instance, InstanceId, Lifecycle, Method, Needs, Part, Plan, PlannedAction, PlannedFile, Pos, Program,
+    RenderedRequest, Retry, ScalarSource, ScalarStyle, SourceFileId, SourceFiles, SourceSpan, StringTable, Sym,
+    Template, TemplateValue, Test, TestBody, TestFile, TestId, Timing, VarName,
 };
 use vc_template::{CelCompiler, Roots};
 use vc_testkit::{MemoryEnvironment, ScriptedRandom};
@@ -83,25 +83,7 @@ impl Fixture {
     /// A new action of `kind`.
     pub fn action(&mut self, kind: ActionKind) -> ActionId {
         let id = ActionId::new(u32::try_from(self.program.actions.len()).unwrap());
-        self.program.actions.push(Action {
-            id: None,
-            kind,
-            owner: Owner::Instance,
-            vars: VarDefs::default(),
-            auth: None,
-            headers: IndexMap::default(),
-            query: IndexMap::default(),
-            body: None,
-            expect: Expect::default(),
-            save: SaveSpec::default(),
-            poll: None,
-            retry: None,
-            keep: false,
-            provides: vec![],
-            cache: None,
-            repeat: None,
-            span: span(),
-        });
+        self.program.actions.push(Action::new(kind, span()));
         id
     }
 

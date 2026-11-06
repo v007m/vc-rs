@@ -7,7 +7,7 @@ use rquickjs::loader::{ImportAttributes, Loader, Resolver};
 use rquickjs::module::Declared;
 use rquickjs::{Ctx, Error, Module};
 
-use vc_model::import_paths;
+use vc_model::{import_paths, resolve_path};
 
 use crate::state::CallState;
 use crate::stdlib::{STD, Std};
@@ -65,15 +65,8 @@ impl Loader for HookLoader {
 /// `name` (relative) from the folder of `base`, both project-relative; `None` when it climbs out
 /// of the project.
 fn join(base: &str, name: &str) -> Option<String> {
-    let mut parts: Vec<&str> = base.rsplit_once('/').map_or_else(Vec::new, |(folder, _)| folder.split('/').collect());
-    for part in name.split('/').filter(|part| !part.is_empty() && *part != ".") {
-        if part == ".." {
-            parts.pop()?;
-        } else {
-            parts.push(part);
-        }
-    }
-    Some(parts.join("/"))
+    let folder: Vec<&str> = base.rsplit_once('/').map_or_else(Vec::new, |(folder, _)| folder.split('/').collect());
+    resolve_path(&folder, name)
 }
 
 #[cfg(test)]

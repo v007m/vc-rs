@@ -3315,7 +3315,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "tokio",
- "vc-diagnostics",
  "vc-interfaces",
  "vc-model",
  "vc-testkit",
