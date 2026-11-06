@@ -1,10 +1,12 @@
 //! Structural changes as minimal text edits that keep comments, quoting and spacing (D107).
 //!
 //! Setting a scalar and adding an entry live here; list items and new entries in `items`,
-//! removal in `remove`, reference renames in `refs`, and undo in `command`. The compile guard
-//! that refuses an edit adding an error lives in the engine.
+//! removal in `remove`, reference renames in `refs`, undo in `command`, and the whole file in
+//! the house style in `format`. The compile guard that refuses an edit adding an error lives in
+//! the engine.
 
 mod command;
+mod format;
 mod items;
 mod refs;
 mod remove;
@@ -17,6 +19,7 @@ use crate::scalar::Spelling;
 use crate::{Entry, Node, ParserError, ScalarKind, ScalarStyle, Syntax, Value};
 
 pub use command::EditCommand;
+pub use format::FormatRules;
 pub use refs::references;
 
 /// A parsed file kept with its text, so changes to its tree become edits on that text.

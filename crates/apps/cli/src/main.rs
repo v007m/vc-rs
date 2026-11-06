@@ -11,6 +11,7 @@ mod cache;
 mod changes;
 mod check;
 mod fix;
+mod fmt;
 mod history;
 mod list;
 mod new;
@@ -58,6 +59,8 @@ enum Command {
     New(new::NewArgs),
     /// Renames an api, test or file ID and every reference to it.
     Rename(rename::RenameArgs),
+    /// Rewrites definition files in the house style, keeping their comments.
+    Fmt(fmt::FmtArgs),
     /// Skips a test or test file, with a reason and an optional end date.
     Skip(skip::SkipArgs),
     /// Removes the skip of a test or test file.
@@ -91,6 +94,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Cache(args) => cache::run(&args, project),
         Command::New(args) => new::run(args, project),
         Command::Rename(args) => rename::run(&args, project),
+        Command::Fmt(args) => fmt::run(&args, project),
         Command::Skip(args) => skip::skip(&args, project),
         Command::Unskip(args) => skip::unskip(&args, project),
         Command::Schema(SchemaCommand::Export(args)) => schema::export(&args, project),

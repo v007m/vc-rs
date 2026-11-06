@@ -5,7 +5,7 @@
 //! and CSV datasets by readers of their own; a file's [`Syntax`] comes from its suffix. Nothing outside this crate
 //! sees `saphyr`. [`Document`] turns structural changes into
 //! [`TextEdit`](vc_diagnostics::TextEdit)s on the original text and checks that the result
-//! parses again (D107).
+//! parses again (D107), or writes a whole file in the house style ([`Document::format`]).
 
 mod build;
 mod csv;
@@ -23,7 +23,7 @@ mod scan;
 mod syntax;
 mod yaml;
 
-pub use edit::{Document, EditCommand, references};
+pub use edit::{Document, EditCommand, FormatRules, references};
 pub use error::ParserError;
 pub use node::{Entry, Node, Value};
 pub use parse::parse;

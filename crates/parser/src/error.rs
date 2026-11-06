@@ -35,4 +35,7 @@ pub enum ParserError {
         /// The byte after the last.
         end: usize,
     },
+    /// The file cannot be written in the house style without changing what it says.
+    #[error("it cannot be formatted: {0}")]
+    Unformattable(String),
 }

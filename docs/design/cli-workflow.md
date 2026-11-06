@@ -301,7 +301,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
 | `vc new file api\|test\|load <fileId>` | Creates an empty file of that kind with its header filled in |
 | `vc call <apiId> [--var k=v] [--save-as-test <testId>]` | Calls one api ad hoc with project auth and the active profile; optionally saves the call as a test with expectations taken from the response |
-| `vc fmt [paths]` | Rewrites files in the house style (nested YAML, key order, quoting) |
+| `vc fmt [--strip-comments] [paths]` | Rewrites definition files in the house style (block YAML, key order, quoting) and keeps comments; `--strip-comments` drops the one-line comments `vc new` wrote above its items. Refuses, writing nothing, a file that does not parse or that formatting would change in meaning; exits 2 then, 0 otherwise |
 | `vc rename <oldId> <newId>` | Renames an api, test, file, var, auth or dataset ID and updates every reference; moves the file when a file ID changes |
 
 **Check and explore**

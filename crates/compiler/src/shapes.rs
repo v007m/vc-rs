@@ -57,6 +57,35 @@ pub fn reachable(root: &'static Shape) -> Vec<&'static Shape> {
     found
 }
 
+/// The keys, in the order the shape declares them, of the map at `path` in a file of `kind`;
+/// a path segment is a key, or `-` for a list item. `None` for a map whose keys are data
+/// (`vars`, `query`, `body`), which keeps the author's order, or a path the shapes do not reach.
+#[must_use]
+pub fn key_order(kind: FileKind, path: &[&str]) -> Option<Vec<&'static str>> {
+    let start = ROOTS.iter().find(|(k, _)| *k == kind).map_or(Ty::Obj(config::config), |(_, shape)| Ty::Obj(*shape));
+    let shape = match path.iter().try_fold(start, |ty, segment| step(ty, segment))? {
+        Ty::Obj(shape) => shape,
+        Ty::Either(alternatives) => alternatives.iter().find_map(|ty| object(*ty))?,
+        _ => return None,
+    };
+    Some(shape().all_keys().map(|key| key.name).collect())
+}
+
+/// The shape of `ty` when it is a map with declared keys.
+const fn object(ty: Ty) -> Option<ShapeFn> {
+    if let Ty::Obj(shape) = ty { Some(shape) } else { None }
+}
+
+/// The type one step into a value of type `ty`: under the key `segment`, or a list item for `-`.
+fn step(ty: Ty, segment: &str) -> Option<Ty> {
+    match (ty, segment == "-") {
+        (Ty::Obj(shape), false) => shape().find(segment).map(|key| key.ty),
+        (Ty::List(inner), true) | (Ty::MapOf(inner), false) => Some(*inner),
+        (Ty::Either(alternatives), _) => alternatives.iter().find_map(|ty| step(*ty, segment)),
+        _ => None,
+    }
+}
+
 fn nested(ty: Ty, found: &mut Vec<&'static Shape>) {
     match ty {
         Ty::Obj(shape) if !found.iter().any(|known| known.title == shape().title) => found.push(shape()),
@@ -72,7 +101,22 @@ mod tests {
 
     use vc_model::FileKind;
 
-    use super::{Scope, reachable, root};
+    use super::{Scope, key_order, reachable, root};
+
+    #[test]
+    fn orders_the_keys_of_declared_maps_only() {
+        let api = key_order(FileKind::Api, &["apis", "-"]).unwrap_or_default();
+        assert_eq!(api.get(..4), Some(&["id", "name", "method", "path"][..]));
+        let test = key_order(FileKind::Test, &["tests", "-"]).unwrap_or_default();
+        let at = |name| test.iter().position(|key| *key == name);
+        assert!(at("name") < at("call") && at("call").is_some());
+        let expect = key_order(FileKind::Api, &["apis", "-", "expect"]).unwrap_or_default();
+        assert!(expect.contains(&"status"));
+        assert!(key_order(FileKind::Api, &["apis", "-", "vars"]).is_none());
+        assert!(key_order(FileKind::Api, &["apis", "-", "body", "name"]).is_none());
+        assert!(key_order(FileKind::Test, &["nope"]).is_none());
+        assert!(key_order(FileKind::Config, &[]).is_some_and(|keys| keys.contains(&"syntaxVersion")));
+    }
 
     #[test]
     fn every_shape_has_unique_documented_keys() {

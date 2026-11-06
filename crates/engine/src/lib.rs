@@ -7,7 +7,7 @@
 //! [`Engine::cache_clear`]), exports the editor schemas ([`Engine::schema_export`]) and works out
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
 //! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_test`],
-//! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::write`]). The model and
+//! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::write`]). The model and
 //! diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
@@ -28,6 +28,7 @@ mod edit;
 mod error;
 mod failed;
 mod fix;
+mod format;
 mod history;
 mod interrupt;
 mod list;
