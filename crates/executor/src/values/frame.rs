@@ -70,12 +70,12 @@ impl Frame {
         }
     }
 
-    /// Notes which of `saved` its saver left undeclared; a name saved again by any other action
-    /// is no longer undeclared.
-    fn trace(&mut self, program: &Program, (action, saver): (ActionId, Option<&Action>), saved: &Saved) {
+    /// Notes which of `saved` its saving action (`step`) left undeclared; a name saved again by
+    /// any other action is no longer undeclared.
+    fn trace(&mut self, program: &Program, (action, step): (ActionId, Option<&Action>), saved: &Saved) {
         let origins = Arc::make_mut(&mut self.origins);
         for name in saved.keys() {
-            if saver.is_some_and(|saver| undeclared(program, saver, name)) {
+            if step.is_some_and(|step| undeclared(program, step, name)) {
                 origins.insert(name.clone(), action);
             } else {
                 origins.remove(name);

@@ -98,7 +98,7 @@ fn export_name(entry: &ExportEntry<'_>) -> Option<String> {
 /// The JavaScript, with the TypeScript line of the first mapped token on each line.
 fn module(generated: CodegenReturn<'_>) -> HookModule {
     let mut lines = vec![0; generated.code.lines().count()];
-    for map in &generated.map {
+    if let Some(map) = &generated.map {
         for token in map.get_tokens() {
             let slot = usize::try_from(token.get_dst_line()).ok().and_then(|line| lines.get_mut(line));
             if let Some(slot) = slot.filter(|slot| **slot == 0) {

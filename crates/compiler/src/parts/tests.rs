@@ -123,6 +123,18 @@ fn lowers_values_with_their_types() {
 }
 
 #[test]
+fn lowers_an_extended_map_to_its_base_changes_and_removed_paths() {
+    let unit = unit_with("    body: {$extend: '${var.order}', city: Pune, $remove: [id, shipping.geo]}\n");
+    assert!(unit.diagnostics.is_empty(), "{:?}", unit.diagnostics);
+    let Piece::Value(TemplateValue::Extend { changes, remove, .. }) = pieces(&unit)[0] else { panic!() };
+    let TemplateValue::Map(changes) = changes.as_ref() else { panic!("{changes:?}") };
+    assert_eq!(changes.keys().collect::<Vec<_>>(), ["city"]);
+    assert_eq!(remove.iter().map(|path| path.segments.len()).collect::<Vec<_>>(), [1, 2]);
+    let bad = unit_with("    body: {$extend: '${var.order}', $remove: id}\n");
+    assert_eq!(codes(&bad.diagnostics), [Code::V2302]);
+}
+
+#[test]
 fn maps_scalar_styles_for_exact_spans() {
     use vc_parser::ScalarStyle as Parsed;
     assert_eq!(super::style(Parsed::Plain, "a"), ScalarStyle::Plain);

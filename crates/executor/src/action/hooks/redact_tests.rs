@@ -1,5 +1,6 @@
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
 
 use serde_json::{Value, json};
 use vc_interfaces::{HookCall, HookError, HookOutput, HookRunner, Limit};
@@ -26,13 +27,13 @@ fn made(hooks: Option<FakeHooks>) -> Arc<dyn MaskRule> {
 }
 
 /// A hook that masks every `4111…` card number it is given, in a text or in a JSON value.
-fn cards(call: &HookCall) -> Result<HookOutput, HookError> {
+fn cards(call: &HookCall) -> HookOutput {
     let masked = |text: &str| text.replace("4111111111111111", "[card]");
     let value = match (&call.input["text"], &call.input["json"]) {
         (Value::String(text), _) => json!(masked(text)),
         (_, json) => serde_json::from_str(&masked(&json.to_string())).unwrap_or(Value::Null),
     };
-    Ok(HookOutput::new(value))
+    HookOutput::new(value)
 }
 
 #[tokio::test]
@@ -41,7 +42,7 @@ async fn a_hook_masks_a_text_and_a_json_value_each_given_whole() {
     let counted = Arc::clone(&calls);
     let hooks = FakeHooks::new().on(MASK, move |call| {
         counted.fetch_add(1, Ordering::SeqCst);
-        cards(call)
+        Ok(cards(call))
     });
     let rule = made(Some(hooks));
     assert_eq!(rule.text("paid with 4111111111111111".to_owned()).await, "paid with [card]");
@@ -83,11 +84,10 @@ async fn the_standard_rules_alone_mask_a_function_rule_whole_and_with_hooks_keep
 
 #[tokio::test]
 async fn the_hook_runs_after_the_built_in_masking_so_it_never_sees_a_secret() {
-    let seen = Arc::new(Mutex::new(Vec::new()));
-    let log = Arc::clone(&seen);
+    let (log, seen) = mpsc::channel();
     let hooks = FakeHooks::new().on(MASK, move |call| {
-        log.lock().map(|mut seen| seen.push(call.input.to_string())).ok();
-        cards(call)
+        log.send(call.input.to_string()).ok();
+        Ok(cards(call))
     });
     let runner = Some(Arc::new(hooks) as Arc<dyn HookRunner>);
     let config = Config { redact_rules: vec![rule()], ..Config::default() };
@@ -101,6 +101,7 @@ async fn the_hook_runs_after_the_built_in_masking_so_it_never_sees_a_secret() {
         panic!("not a failure")
     };
     assert_eq!(masked.message, format!("key {MASKED} card [card]"));
-    let seen = seen.lock().map(|seen| seen.join("\n")).unwrap_or_default();
+    drop(redactor);
+    let seen = seen.try_iter().collect::<Vec<_>>().join("\n");
     assert!(!seen.is_empty() && !seen.contains("s3cr3t-key"), "{seen}");
 }

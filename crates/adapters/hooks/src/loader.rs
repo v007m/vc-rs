@@ -66,13 +66,11 @@ impl Loader for HookLoader {
 /// of the project.
 fn join(base: &str, name: &str) -> Option<String> {
     let mut parts: Vec<&str> = base.rsplit_once('/').map_or_else(Vec::new, |(folder, _)| folder.split('/').collect());
-    for part in name.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                parts.pop()?;
-            }
-            word => parts.push(word),
+    for part in name.split('/').filter(|part| !part.is_empty() && *part != ".") {
+        if part == ".." {
+            parts.pop()?;
+        } else {
+            parts.push(part);
         }
     }
     Some(parts.join("/"))

@@ -63,7 +63,9 @@ async fn hooks_sign_the_request_save_values_and_judge_the_response() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_hook_past_its_time_or_memory_budget_is_stopped_with_its_line() {
     let server = MockServer::start().await.unwrap();
-    let spin = "export function spin(): boolean {\n  let n: number = 0;\n  while (true) {\n    n += 1;\n  }\n}\n";
+    // QuickJS stops a loop at its back-edge, where a frame's line is its first, unless a native
+    // call such as `concat` is running; nearly all of this loop's time is inside `concat`.
+    let spin = "export function spin(): boolean {\n  let n: number = 0;\n  while (true) {\n    n = [n].concat([1]).length;\n  }\n}\n";
     let hog = "export function hog(): boolean {\n  const kept: number[][] = [];\n  for (;;) {\n    kept.push(new Array(1 << 16).fill(7));\n  }\n}\n";
     let test = concat!(
         "tests:\n  - id: spins\n    call: signed#echo\n",

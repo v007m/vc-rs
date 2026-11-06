@@ -48,14 +48,16 @@ async fn assert_values(runner: &dyn HookRunner) {
 /// A throw, a missing export and a value that is not JSON each fail as their own error.
 async fn assert_failures(runner: &dyn HookRunner) {
     let threw = value(runner, "boom", Value::Null).await;
-    assert!(
-        matches!(&threw, Err(HookError::Threw { message, line: Some(14) }) if message.contains("bad input")),
-        "a throw names its message and TypeScript line: {threw:?}"
-    );
+    assert!(names_its_line(&threw), "a throw names its message and TypeScript line: {threw:?}");
     let missing = value(runner, "nope", Value::Null).await;
     assert!(matches!(missing, Err(HookError::NotFound { .. })), "a missing export: {missing:?}");
     let callable = value(runner, "callable", Value::Null).await;
     assert!(matches!(callable, Err(HookError::BadValue { .. })), "a function is not JSON: {callable:?}");
+}
+
+/// Whether `threw` is the `boom` hook's throw, with its message and TypeScript line.
+fn names_its_line(threw: &Result<Value, HookError>) -> bool {
+    matches!(threw, Err(HookError::Threw { message, line: Some(14) }) if message.contains("bad input"))
 }
 
 /// Both budgets stop a call.

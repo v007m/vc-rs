@@ -117,7 +117,7 @@ async fn without_a_runner_any_hook_fails_with_v5115() {
     let (report, sent) = run(fixture, call, None).await;
     assert_eq!(code(&report).as_deref(), Some("V5115"));
     assert!(message(&report).contains("no hook runner"));
-    assert!(sent.is_empty());
+    assert_eq!(sent.len(), 0, "nothing is sent");
 }
 
 #[tokio::test]
