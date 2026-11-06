@@ -1,6 +1,9 @@
 //! `vc new api|test|auth|file` append to the file the ID derives from (D139), keep every byte
 //! they do not add, and refuse an ID that breaks the conventions with a suggested one (D87).
 
+use std::time::Duration;
+
+use assert_cmd::cargo::cargo_bin;
 use vc_mock_server::MockServer;
 
 use crate::{CONFIG, CRUD, Project, USERS, checks_clean, said, schema_line};
@@ -102,14 +105,58 @@ fn new_test_refuses_an_unknown_api() {
     assert!(!project.exists(CRUD.0));
 }
 
-#[test]
-fn new_auth_adds_an_auth_to_the_config() {
-    let project = Project::new(&[CONFIG]);
-    let output = project.vc(&["new", "auth", "partnerToken", "--type", "bearer"]).write_stdin("\n").output().unwrap();
-    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+/// Asserts `vc new auth` succeeded and appended `partnerToken` to the config, keeping its bytes.
+fn added_partner_token(project: &Project, output: &std::process::Output) {
+    assert_eq!(output.status.code(), Some(0), "{}", said(output));
     let config = project.read(CONFIG.0);
     assert!(config.starts_with(CONFIG.1), "the config's bytes are kept:\n{config}");
     assert!(config.contains("id: partnerToken") && config.contains("type: bearer"), "{config}");
+}
+
+#[test]
+fn new_auth_without_a_terminal_takes_flags_and_never_prompts() {
+    let project = Project::new(&[CONFIG]);
+    let mut vc = project.vc(&["new", "auth", "partnerToken", "--type", "bearer"]);
+    let output = vc.write_stdin("").timeout(Duration::from_secs(20)).output().unwrap();
+    added_partner_token(&project, &output);
+    assert!(!said(&output).contains('?'), "no prompt when stdin is not a terminal:\n{}", said(&output));
+}
+
+#[test]
+fn new_auth_with_json_never_prompts() {
+    let project = Project::new(&[CONFIG]);
+    let mut vc = project.vc(&["new", "auth", "partnerToken", "--type", "bearer", "--json"]);
+    let output = vc.write_stdin("").timeout(Duration::from_secs(20)).output().unwrap();
+    added_partner_token(&project, &output);
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).unwrap_or_else(|e| panic!("{e}: {}", said(&output)));
+    assert!(json.is_object(), "{json}");
+}
+
+/// `vc <args>` on a pseudo-terminal through `script(1)`, with `answers` typed in.
+#[cfg(unix)]
+fn on_a_terminal(project: &Project, args: &[&str], answers: &str) -> std::process::Output {
+    let vc = cargo_bin!("vc").display().to_string();
+    let command = std::iter::once(vc).chain(args.iter().map(|arg| (*arg).to_owned())).collect::<Vec<_>>();
+    let mut script = std::process::Command::new("script");
+    if cfg!(target_os = "macos") {
+        script.args(["-q", "/dev/null"]).args(&command);
+    } else {
+        script.args(["-qec", &command.join(" "), "/dev/null"]);
+    }
+    let mut script = assert_cmd::Command::from_std(script);
+    let base = project.process(&[]);
+    script.current_dir(project.path()).envs(base.get_envs().filter_map(|(k, v)| v.map(|v| (k, v))));
+    script.write_stdin(answers).timeout(Duration::from_secs(20)).output().unwrap()
+}
+
+#[cfg(unix)]
+#[test]
+fn new_auth_on_a_terminal_prompts_for_what_the_flags_leave_out() {
+    let project = Project::new(&[CONFIG]);
+    let output = on_a_terminal(&project, &["new", "auth", "partnerToken"], "bearer\n\n\n\n");
+    added_partner_token(&project, &output);
+    assert!(said(&output).contains("?"), "asks on a terminal:\n{}", said(&output));
 }
 
 #[test]
