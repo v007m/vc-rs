@@ -23,7 +23,7 @@ mod scan;
 mod syntax;
 mod yaml;
 
-pub use edit::Document;
+pub use edit::{Document, EditCommand};
 pub use error::ParserError;
 pub use node::{Entry, Node, Value};
 pub use parse::parse;

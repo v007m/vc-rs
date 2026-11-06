@@ -15,11 +15,14 @@
 //! `at` is a dotted path from the root; a number steps into a list. Every result must parse
 //! again, and every edit, as an `EditCommand`, must undo back to the original bytes.
 
+#![cfg(test)]
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use vc_diagnostics::TextEdit;
 use vc_model::SourceFileId;
-use vc_parser::{Document, Node, Syntax};
+use vc_parser::{Document, EditCommand, Node, Syntax};
 
 const FILE: SourceFileId = SourceFileId::new(0);
 
@@ -59,30 +62,45 @@ fn field<'c>(case: &'c Case, key: &str) -> Result<&'c str, String> {
 
 /// The node at the dotted path `at`.
 fn node<'d>(doc: &'d Document, at: &str) -> Result<&'d Node, String> {
-    let step = |node: &'d Node, step: &str| match step.parse::<usize>() {
-        Ok(index) => node.items().get(index),
-        Err(_) => node.get(step),
+    let step = |node: &'d Node, step: &str| {
+        step.parse::<usize>().map_or_else(|_| node.get(step), |index| node.items().get(index))
     };
     let mut steps = at.split('.').filter(|step| !step.is_empty());
-    steps.try_fold(doc.root(), |at_node, s| step(at_node, s)).ok_or_else(|| format!("no node at `{at}`"))
+    steps.try_fold(doc.root(), step).ok_or_else(|| format!("no node at `{at}`"))
+}
+
+/// The case's edits on `before`.
+fn edits(case: &Case, before: &Document) -> Result<Vec<TextEdit>, String> {
+    let op = field(case, "op")?;
+    if op == "renameRef" {
+        let made = before.rename_refs(field(case, "fileId")?, field(case, "from")?, field(case, "to")?);
+        return made.map_err(|e| e.to_string());
+    }
+    let target = node(before, field(case, "at").unwrap_or_default())?;
+    let made = match op {
+        "set" => before.set_scalar(target, field(case, "value")?),
+        "insert" => before.insert_entry(target, field(case, "key")?, field(case, "value")?),
+        "insertItem" => before.insert_item(target, field(case, "value")?),
+        "remove" => before.remove(target),
+        other => return Err(format!("no op `{other}`")),
+    };
+    made.map(|edit| vec![edit]).map_err(|e| e.to_string())
 }
 
 /// Applies the case's edit to `before` and returns the new text.
 fn edit(case: &Case) -> Result<String, String> {
     let before = yaml(case.before.clone())?;
-    let target = node(&before, field(case, "at").unwrap_or_default())?;
-    let made = match field(case, "op")? {
-        "set" => before.set_scalar(target, field(case, "value")?),
-        "insert" => before.insert_entry(target, field(case, "key")?, field(case, "value")?),
-        other => return Err(format!("`{other}` is not built yet (M5)")),
-    };
-    let edit = made.map_err(|e| e.to_string())?;
-    before.apply(&[edit]).map(|after| after.text().to_owned()).map_err(|e| e.to_string())
+    let made = edits(case, &before)?;
+    before.apply(&made).map(|after| after.text().to_owned()).map_err(|e| e.to_string())
 }
 
 /// Applies the case's edit as an `EditCommand`, then its inverse, and returns the text.
 fn edit_then_undo(case: &Case) -> Result<String, String> {
-    Err(format!("{}: `EditCommand` and its inverse are not built yet (M5)", case.name))
+    let before = yaml(case.before.clone())?;
+    let command = EditCommand::new(edits(case, &before)?);
+    let (after, undo) = command.apply(&before).map_err(|e| e.to_string())?;
+    let (back, _) = undo.apply(&after).map_err(|e| e.to_string())?;
+    Ok(back.text().to_owned())
 }
 
 /// Runs `check` on every case and lists the ones that went wrong.

@@ -77,3 +77,25 @@ fn advance(from: Pos, skipped: &str) -> Pos {
         if c == '\n' { Pos::new(pos.line + 1, 1, offset) } else { Pos::new(pos.line, pos.column + 1, offset) }
     })
 }
+
+/// `span` cut back to the closing quote when it holds a quoted scalar; the scanner's span of
+/// one runs on over the spaces and comment after it.
+pub fn to_closing_quote(text: &str, span: SourceSpan) -> SourceSpan {
+    let rest = text.get(span.start.offset..span.end.offset).unwrap_or_default();
+    let Some(quote) = rest.chars().next().filter(|c| matches!(c, '\'' | '"')) else {
+        return span;
+    };
+    let mut escaped = false;
+    let mut chars = rest.char_indices().skip(1).peekable();
+    while let Some((at, c)) = chars.next() {
+        if quote == '"' && (escaped || c == '\\') {
+            escaped = !escaped;
+        } else if c == quote && quote == '\'' && chars.peek().is_some_and(|&(_, next)| next == '\'') {
+            chars.next();
+        } else if c == quote {
+            let quoted = rest.get(..=at).unwrap_or_default();
+            return SourceSpan::new(span.file, span.start, advance(span.start, quoted));
+        }
+    }
+    span
+}

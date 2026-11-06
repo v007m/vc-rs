@@ -45,7 +45,8 @@ impl Reader<'_> {
             Event::DocumentStart(_) => return self.document(at),
             Event::Scalar(text, style, _, tag) => {
                 self.check_tag(tag.is_some(), at);
-                self.scalar(text, style, positions::without_properties(self.text, at));
+                let at = positions::to_closing_quote(self.text, positions::without_properties(self.text, at));
+                self.scalar(text, style, at);
             }
             Event::Alias(_) => {
                 self.builder.report(problems::alias(at));
