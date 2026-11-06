@@ -13,6 +13,7 @@ mod check;
 mod fix;
 mod history;
 mod list;
+mod new;
 mod outcome;
 mod plan;
 mod project;
@@ -53,6 +54,8 @@ enum Command {
     Report(report::ReportArgs),
     /// Lists or clears the cross-run cache of `cache:` actions.
     Cache(cache::CacheArgs),
+    /// Adds an api, test or auth definition, or creates an empty definition file.
+    New(new::NewArgs),
     /// Renames an api, test or file ID and every reference to it.
     Rename(rename::RenameArgs),
     /// Skips a test or test file, with a reason and an optional end date.
@@ -86,6 +89,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::History(args) => history::run(&args, project),
         Command::Report(args) => report::run(&args, project),
         Command::Cache(args) => cache::run(&args, project),
+        Command::New(args) => new::run(args, project),
         Command::Rename(args) => rename::run(&args, project),
         Command::Skip(args) => skip::skip(&args, project),
         Command::Unskip(args) => skip::unskip(&args, project),

@@ -6,7 +6,8 @@
 //! ([`Engine::list`]), lists and clears the cross-run cache ([`Engine::cache_list`],
 //! [`Engine::cache_clear`]), exports the editor schemas ([`Engine::schema_export`]) and works out
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
-//! [`Engine::unskip`], [`Engine::rename`], [`Engine::write`]). The model and
+//! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_test`],
+//! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::write`]). The model and
 //! diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
@@ -20,6 +21,9 @@ mod authoring;
 mod builder;
 mod cache;
 mod check;
+mod create;
+mod create_api;
+mod create_auth;
 mod edit;
 mod error;
 mod failed;
@@ -47,6 +51,9 @@ mod user;
 pub use builder::{Engine, EngineBuilder};
 pub use cache::CacheReport;
 pub use check::{CheckReport, CheckRequest};
+pub use create::{Added, NewTest};
+pub use create_api::NewApi;
+pub use create_auth::{NewAuth, auth_fields};
 pub use edit::{Changes, FileChange};
 pub use error::EngineError;
 pub use fix::FixReport;

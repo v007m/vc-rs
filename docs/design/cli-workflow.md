@@ -296,7 +296,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc init [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, `.env.schema`, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi`, also runs the import below |
 | `vc import openapi <url-or-file> --id <fileId> [--tests] [--negative] [--auth]` | Creates an api file from a spec (one api per operation), saves the spec snapshot, adds a base-URL var to the config, and optionally generates tests |
 | `vc import har\|postman\|bruno\|http\|v1 <path>` | Converts browser HAR recordings (see Importing from a HAR file), other tools' collections, or Vibranium v1 projects |
-| `vc new api <fileId#apiId> [--method] [--path] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--from-curl`, method, URL, headers and body come from the curl command |
+| `vc new api <fileId#apiId> [--method] [--path \| --url <full-url>] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--url`, the origin becomes a base-URL var and the rest the path and query (D177); with `--from-curl` (M6, D176), method, URL, headers and body come from the curl command |
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
 | `vc new file api\|test\|load <fileId>` | Creates an empty file of that kind with its header filled in |
@@ -395,7 +395,7 @@ plan  1 test · lifecycle: beforeAll catalog (cached, 3h left) · beforeEach ×3
 
 ### A new api
 
-`vc new api <fileId>#<apiId>` appends to the api file with that ID, creating it if none exists at the path its ID derives from (D139): the ID's words become folders and the last word the file name, and a one-word ID gets its own folder (`users` → `services/users/users.api.yaml`, `payments.refunds` → `services/payments/refunds.api.yaml`). Path parameters become vars, so `{id}` is written as `${var.id}`:
+`vc new api <fileId>#<apiId>` appends to the api file with that ID, creating it if none exists at the path its ID derives from (D139): the ID's words become folders and the last word the file name, and a one-word ID gets its own folder (`users` → `services/users/users.api.yaml`, `payments.refunds` → `services/payments/refunds.api.yaml`). Path parameters become vars, so `{id}` is written as `${var.id}`, and the method is written only when it is not GET. With `--url https://api.example.com/users?q=ann` instead of `--path`, the origin becomes a config var named after the file ID's last word (`searchUrl`), or the var that already holds it, and the new file's `baseUrl`; the rest becomes the path and `query` (D177):
 
 ```
 $ vc new api users#deactivate --method POST --path /users/{id}/deactivate

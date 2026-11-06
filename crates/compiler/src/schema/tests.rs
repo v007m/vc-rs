@@ -28,6 +28,12 @@ fn has_one_object_schema_per_kind() {
 }
 
 #[test]
+fn a_created_file_names_its_schema_on_its_first_line() {
+    let line = super::schema_line(FileKind::Api);
+    assert_eq!(line, format!("# yaml-language-server: $schema={}", schema(FileKind::Api)["$id"].as_str().unwrap()));
+}
+
+#[test]
 fn describes_keys_with_types_defaults_and_examples() {
     let config = schema(FileKind::Config);
     assert_eq!(config["required"], json!(["syntaxVersion"]));

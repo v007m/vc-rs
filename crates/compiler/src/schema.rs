@@ -20,6 +20,12 @@ pub struct FileSchema {
 /// Where the published schemas live; `<kind>.schema.json` is appended.
 const BASE_URL: &str = "https://raw.githubusercontent.com/v007m/vc-rs/master/schema/";
 
+/// The first line of every file of `kind` Vibranium creates, which points editors at its schema.
+#[must_use]
+pub fn schema_line(kind: FileKind) -> String {
+    format!("# yaml-language-server: $schema={BASE_URL}{}.schema.json", kind.name())
+}
+
 /// One schema per [`FileKind`], in [`FileKind::ALL`] order.
 #[must_use]
 pub fn schemas() -> Vec<FileSchema> {

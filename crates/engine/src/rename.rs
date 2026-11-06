@@ -137,7 +137,7 @@ fn moved_path(kind: FileKind, old: &SourcePath, to: &str) -> Result<SourcePath, 
 }
 
 /// The ID of every item in a list at the top of `root`: the file's one namespace.
-fn item_ids(root: &Node) -> Vec<&str> {
+pub fn item_ids(root: &Node) -> Vec<&str> {
     let items = root.entries().iter().flat_map(|entry| entry.value.items());
     items.filter_map(|item| item.get("id")?.as_str()).collect()
 }

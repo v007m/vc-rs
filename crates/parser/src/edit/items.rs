@@ -63,6 +63,40 @@ impl Document {
         self.apply(std::slice::from_ref(&edit)).map(|_| edit)
     }
 
+    /// Adds `key: value` (written as text) as the last entry of the YAML flow map `map`:
+    /// `{a: 1}` becomes `{a: 1, key: value}`, and `{}` becomes `{key: value}`.
+    ///
+    /// ```
+    /// use vc_model::SourceFileId;
+    /// use vc_parser::{Document, Syntax};
+    ///
+    /// let doc = Document::parse(SourceFileId::new(0), Syntax::Yaml, "vars: {a: 'x'}  # keep\n").unwrap();
+    /// let edit = doc.insert_flow_entry(doc.root().get("vars").unwrap(), "bUrl", "https://b.example").unwrap();
+    /// assert_eq!(doc.apply(&[edit]).unwrap().text(), "vars: {a: 'x', bUrl: https://b.example}  # keep\n");
+    /// ```
+    ///
+    /// # Errors
+    /// [`ParserError::BadRange`] when `map` is not part of this document,
+    /// [`ParserError::WrongNode`] when it is not a YAML flow map,
+    /// [`ParserError::DuplicateKey`] when it already has `key`, and
+    /// [`ParserError::Unparsable`] when the result does not parse.
+    pub fn insert_flow_entry(&self, map: &Node, key: &str, value: &str) -> Result<TextEdit, ParserError> {
+        self.locate(map)?;
+        let (Value::Map(entries), Syntax::Yaml, true) = (&map.value, self.syntax, self.is_flow(map)) else {
+            return Err(ParserError::WrongNode { expected: "a YAML flow map", found: map.kind_name() });
+        };
+        if entries.iter().any(|entry| entry.key == key) {
+            return Err(ParserError::DuplicateKey(key.to_owned()));
+        }
+        let pair = format!("{}: {}", scalar::write_text(key, true), scalar::write_text(value, true));
+        let (at, new_text) = match entries.last() {
+            Some(last) => (last.value.span.end.offset, format!(", {pair}")),
+            None => (map.span.end.offset.saturating_sub(1), pair),
+        };
+        let edit = TextEdit { file: self.file, range: at..at, new_text };
+        self.apply(std::slice::from_ref(&edit)).map(|_| edit)
+    }
+
     /// Adds `key: value` (written as text) as the first entry of the block map `map`, on the
     /// line of its first key: for the root, after any comment lines at the top of the file.
     ///
