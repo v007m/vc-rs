@@ -1,7 +1,8 @@
 //! The redaction gate: a token sent in a `redact.headers` header, the query and a JSON body
 //! (masked there by a `redact.rules` regex), and a `redact.fields` password, never reach the
 //! history or a report file, even where `history.maxBodySize` cuts a body in the middle of one
-//! (masked first, then cut: D184).
+//! (masked first, then cut: D184). A `${secret.X}` the environment gives is sent, and shows
+//! nowhere either.
 
 use std::fs;
 use std::path::Path;
@@ -57,13 +58,49 @@ async fn no_secret_reaches_the_history_or_a_report() {
     files(project.path().join(".vibranium").as_path(), &mut seen);
     files(project.path().join("again").as_path(), &mut seen);
     assert!(seen.iter().any(|(name, _)| name.ends_with("index.html")), "the HTML report was written");
-    for (name, text) in &seen {
-        for value in [SECRET, PASSWORD] {
+    assert_hidden(&seen, &[SECRET, PASSWORD]);
+}
+
+/// No run of [`WINDOW`] characters of any of `values` shows in any of `seen`.
+fn assert_hidden(seen: &[(String, String)], values: &[&str]) {
+    for (name, text) in seen {
+        for value in values {
             let leak =
                 value.as_bytes().windows(WINDOW).find(|part| text.as_bytes().windows(WINDOW).any(|w| w == *part));
             assert!(leak.is_none(), "{name} holds part of a secret: {:?}", leak.map(String::from_utf8_lossy));
         }
     }
+}
+
+const TOKEN: &str = "Kd4R-8wNq-Yb6T-2hVz-Jc5M";
+
+/// An api sending `${secret.API_TOKEN}` in a header no rule names, the query and the body.
+const SECRET_API: (&str, &str) = (
+    "services/echo/echo.api.yaml",
+    "baseUrl: ${var.baseUrl}\napis:\n  - id: send\n    method: POST\n    path: /echo\n\
+     \x20   headers: {x-trace: '${secret.API_TOKEN}'}\n    query: {key: '${secret.API_TOKEN}'}\n\
+     \x20   body: {token: '${secret.API_TOKEN}'}\n",
+);
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_secret_from_the_environment_is_sent_and_shown_nowhere() {
+    let server = MockServer::start().await.unwrap();
+    let config = (
+        "vibranium.config.yaml",
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\nhistory: {bodies: all}\n",
+    );
+    let test = ("services/echo/send.test.yaml", "tests:\n  - id: sendsTheToken\n    call: echo#send\n");
+    let project = Project::new(&[config, SECRET_API, test, (".env.schema", "# the api's token\nAPI_TOKEN=\n")]);
+    let mut vc = project.run(&server.base_url(), &["--report", "ctrf,junit,html"]);
+    let run = vc.env("API_TOKEN", TOKEN).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "the secret was resolved and sent: {}", said(&run));
+
+    let history = history_text(&project.path().join(".vibranium/history.db"));
+    assert!(history.contains("••••"), "the exchange was stored, masked");
+    let mut seen = vec![("history.db rows".to_owned(), history), ("vc output".to_owned(), said(&run))];
+    files(project.path().join(".vibranium").as_path(), &mut seen);
+    assert!(seen.iter().any(|(name, _)| name.ends_with("index.html")), "the HTML report was written");
+    assert_hidden(&seen, &[TOKEN]);
 }
 
 /// Every text and blob cell of every table, blobs unpacked when they are zstd frames.

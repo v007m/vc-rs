@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use vc_diagnostics::Code;
 use vc_interfaces::{Transport, TransportError};
-use vc_model::{ActionId, ActionKind, ActionOutcome, Failure, HookRef, OwnerKey};
+use vc_model::{ActionId, ActionKind, ActionOutcome, Event, Failure, HookRef, OwnerKey, RedactRule};
 use vc_testkit::FakeTransport;
 
 use super::{ActionExecutors, ActionKindTag, ActionRequest};
 use crate::fixture::{Fixture, Server};
-use crate::{ActionReport, ExecutorError, Frame, HostLimits, PendingCleanup, PipelineParts};
+use crate::{ActionReport, ExecutorError, Frame, HostLimits, MASKED, MaskRules, PendingCleanup, PipelineParts};
 
 fn standard(transport: Arc<dyn Transport>) -> ActionExecutors {
     ActionExecutors::standard(PipelineParts::new(transport, HostLimits::spawn(8)))
@@ -149,4 +149,20 @@ fn kind_tags_name_their_keys() {
         format!("{:?}", ActionExecutors::new().with(ActionKindTag::Test, Arc::new(super::TestExecutor))),
         "{Test}"
     );
+}
+
+#[tokio::test]
+async fn mask_rules_make_the_config_rules_and_keep_the_secrets_told() {
+    let mut fixture = Fixture::new();
+    fixture.program.config.redact_rules = vec![RedactRule::Regex("pw-\\d".to_owned())];
+    let cx = Arc::into_inner(fixture.cx(ActionExecutors::new())).unwrap();
+    cx.redactor.hide_values(["s3cr3t-key"]);
+    let event = |message: &str| {
+        let outcome = ActionOutcome::Failed(Failure::new(message));
+        Event::ActionFinished { action: ActionId::new(0), owner: OwnerKey::Run, outcome }
+    };
+    assert_eq!(cx.redactor.event(event("pw-1 ok")).await, event(&format!("{MASKED} ok")));
+    let blind = cx.with_mask_rules(&MaskRules::default());
+    assert_eq!(blind.redactor.event(event("ok")).await, event(MASKED));
+    assert_eq!(blind.redactor.text("s3cr3t-key"), MASKED);
 }

@@ -32,7 +32,7 @@ pub async fn file(crew: Crew, job: FileJob) -> Totals {
         while let Some(input) = inputs.pop_front() {
             let commands;
             (machine, commands) = machine.transition(input);
-            if let Some(totals) = commands.into_iter().find_map(|command| shell.carry_out(command)) {
+            if let Some(totals) = shell.carry_out_all(commands).await {
                 return totals;
             }
         }
@@ -56,14 +56,24 @@ impl FileShell {
         Job { action, owner: self.owner, frame: self.frame.clone(), deadline: None }
     }
 
-    fn carry_out(&mut self, command: FileCommand) -> Option<Totals> {
+    /// Carries out `commands` in order, up to the one that finishes the file.
+    async fn carry_out_all(&mut self, commands: Vec<FileCommand>) -> Option<Totals> {
+        for command in commands {
+            if let Some(totals) = self.carry_out(command).await {
+                return Some(totals);
+            }
+        }
+        None
+    }
+
+    async fn carry_out(&mut self, command: FileCommand) -> Option<Totals> {
         match command {
             FileCommand::RunAction(action) => self.tasks.act(&self.crew, self.job(action), &self.cancel),
             FileCommand::RunCleanup(cleanup) => {
                 self.tasks.clean(&self.crew, self.job(cleanup.action).cleaning(&cleanup.vars), &self.cancel);
             }
             FileCommand::Launch(launch) => self.launch(launch),
-            FileCommand::Emit(event) => self.crew.bus.publish(event),
+            FileCommand::Emit(event) => self.crew.bus.publish(event).await,
             FileCommand::Finish(totals) => return Some(totals),
         }
         None

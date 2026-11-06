@@ -6,8 +6,9 @@ use http::{HeaderMap, Method, StatusCode, Uri};
 
 /// A request with every template rendered, ready to send (plain data, D111).
 ///
-/// `Debug` prints header names and the body length, never header values or body bytes, because
-/// either can carry a secret before the redactor sees it.
+/// `Debug` prints header names and the body length, never header values or body bytes, and the
+/// URL without its user info or query, because any of them can carry a secret before the
+/// redactor sees it.
 #[derive(Clone, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
@@ -36,7 +37,7 @@ impl fmt::Debug for RenderedRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RenderedRequest")
             .field("method", &self.method)
-            .field("uri", &self.uri)
+            .field("uri", &UriShown(&self.uri))
             .field("headers", &HeaderNames(&self.headers))
             .field("body_len", &self.body.len())
             .finish()
@@ -79,6 +80,27 @@ struct HeaderNames<'a>(&'a HeaderMap);
 impl fmt::Debug for HeaderNames<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(self.0.keys().map(http::HeaderName::as_str)).finish()
+    }
+}
+
+/// Prints a URL's scheme, host, port and path; a query shows only as `?<hidden>`, and user info
+/// never shows.
+struct UriShown<'a>(&'a Uri);
+
+impl fmt::Debug for UriShown<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let uri = self.0;
+        if let (Some(scheme), Some(host)) = (uri.scheme_str(), uri.host()) {
+            write!(f, "{scheme}://{host}")?;
+        }
+        if let Some(port) = uri.port_u16() {
+            write!(f, ":{port}")?;
+        }
+        f.write_str(uri.path())?;
+        if uri.query().is_some() {
+            f.write_str("?<hidden>")?;
+        }
+        Ok(())
     }
 }
 
@@ -185,6 +207,18 @@ mod tests {
         let text = format!("{response:?}");
         assert!(text.contains("200") && text.contains("authorization") && text.contains("wire_size: 7"), "{text}");
         assert!(!text.contains("s3cret") && !text.contains("token=abc"), "{text}");
+    }
+
+    #[test]
+    fn debug_shows_the_url_without_its_query_or_user_info() {
+        let uri = Uri::from_static("https://bob:pw-1@api.test:8443/users/7?token=s3cret&x=1");
+        let text = format!("{:?}", RenderedRequest::new(Method::GET, uri));
+        assert!(text.contains("uri: https://api.test:8443/users/7?<hidden>,"), "{text}");
+        assert!(!text.contains("s3cret") && !text.contains("pw-1") && !text.contains("bob"), "{text}");
+        let plain = format!("{:?}", RenderedRequest::new(Method::GET, Uri::from_static("http://h/p")));
+        assert!(plain.contains("uri: http://h/p,"), "{plain}");
+        let relative = format!("{:?}", RenderedRequest::new(Method::GET, Uri::from_static("/p?q=1")));
+        assert!(relative.contains("uri: /p?<hidden>,"), "{relative}");
     }
 
     #[test]
