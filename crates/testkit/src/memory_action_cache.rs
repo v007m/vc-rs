@@ -9,9 +9,10 @@ type Entries = BTreeMap<CacheKey, CacheEntry>;
 /// A job the store's thread runs against its entries.
 type Job = Box<dyn FnOnce(&mut Entries) + Send>;
 
-/// A cross-run cache held in memory by a small thread that owns the entries, so the store is
-/// shared without a lock. Clones talk to the same thread, so a test can keep one to look at
-/// what the executor cached.
+/// A cross-run cache held in memory.
+///
+/// A small thread owns the entries, so the store is shared without a lock. Clones talk to the
+/// same thread, so a test can keep one to look at what the executor cached.
 #[derive(Clone, Debug)]
 pub struct MemoryCacheStore {
     jobs: Sender<Job>,
@@ -31,7 +32,10 @@ impl MemoryCacheStore {
         Self { jobs }
     }
 
-    fn ask<T: Send + 'static>(&self, job: impl FnOnce(&mut Entries) -> T + Send + 'static) -> Result<T, CacheStoreError> {
+    fn ask<T: Send + 'static>(
+        &self,
+        job: impl FnOnce(&mut Entries) -> T + Send + 'static,
+    ) -> Result<T, CacheStoreError> {
         let (reply, answer) = mpsc::channel();
         let sent = self.jobs.send(Box::new(move |entries| drop(reply.send(job(entries)))));
         sent.ok().and_then(|()| answer.recv().ok()).ok_or(CacheStoreError::Stopped)
@@ -59,7 +63,9 @@ impl CacheStore for MemoryCacheStore {
     }
 
     fn list(&self) -> Result<Vec<CacheListing>, CacheStoreError> {
-        self.ask(|entries| oldest_first(entries.values().cloned().collect()).into_iter().map(|entry| entry.listing).collect())
+        self.ask(|entries| {
+            oldest_first(entries.values().cloned().collect()).into_iter().map(|entry| entry.listing).collect()
+        })
     }
 
     fn clear(&self, label: Option<&str>) -> Result<Vec<CacheEntry>, CacheStoreError> {

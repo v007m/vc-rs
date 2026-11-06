@@ -8,8 +8,9 @@ use vc_model::{Action, ActionId, ActionKind, ActionOutcome, CacheSpec, Program};
 use super::{ActionExecutor, ActionRequest};
 use crate::{ActionReport, PendingCleanup, Render, Saved};
 
-/// Runs `call:` and `test:` actions with `cache:` through the cross-run cache (a decorator
-/// around the kind's executor). A live entry under the action's key stands in for the action
+/// Runs `call:` and `test:` actions with `cache:` through the cross-run cache.
+///
+/// A decorator around the kind's executor. A live entry under the action's key stands in for the action
 /// once its `cache.check` passes; otherwise the action runs and, when it passes, its saves and
 /// cleanups are stored for `cache.for`. A stored action's cleanups run when its entry expires
 /// or is cleared, not when its frame closes. Without a store, or for an action without

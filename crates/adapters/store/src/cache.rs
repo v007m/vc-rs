@@ -24,11 +24,12 @@ const COLUMNS: &str = "key, label, profiles, created_at, expires_at, saved, clea
 /// A job the store's thread runs against its connection.
 type Job = Box<dyn FnOnce(&mut Shelf) + Send>;
 
-/// The cross-run cache in `.vibranium/cache.db` (SQLite). One thread owns the connection and
-/// runs the jobs each call sends it, so there is a single writer without a lock. Saved values
-/// and cleanups are sealed with ChaCha20-Poly1305 under the cache key, bound to their row and
-/// column; a row that no longer opens (another key, a changed byte) reads as a miss and is
-/// dropped.
+/// The cross-run cache in `.vibranium/cache.db` (SQLite).
+///
+/// One thread owns the connection and runs the jobs each call sends it, so there is a single
+/// writer without a lock. Saved values and cleanups are sealed with ChaCha20-Poly1305 under the
+/// cache key, bound to their row and column; a row that no longer opens (another key, a
+/// changed byte) reads as a miss and is dropped.
 #[derive(Clone, Debug)]
 pub struct SqliteCache {
     jobs: Sender<Job>,
@@ -41,8 +42,10 @@ impl SqliteCache {
     ///
     /// [`CacheStoreError::Open`] when the file cannot be created, opened or migrated.
     pub fn open(path: &Path, secret: &CacheSecret) -> Result<Self, CacheStoreError> {
-        let open_error =
-            |error: schema::OpenError| CacheStoreError::Open { location: path.display().to_string(), reason: error.reason() };
+        let open_error = |error: schema::OpenError| CacheStoreError::Open {
+            location: path.display().to_string(),
+            reason: error.reason(),
+        };
         let connection = schema::open_migrated(path, MIGRATIONS).map_err(open_error)?;
         let mut shelf = Shelf { connection, sealer: Sealer::new(secret) };
         let (jobs, inbox) = mpsc::channel::<Job>();
@@ -85,10 +88,8 @@ impl CacheStore for SqliteCache {
     }
 
     fn clear(&self, label: Option<&str>) -> Result<Vec<CacheEntry>, CacheStoreError> {
-        match label.map(str::to_owned) {
-            Some(label) => self.ask(move |shelf| shelf.take("label = ?1", label)),
-            None => self.ask(|shelf| shelf.take("1 = ?1", 1_i64)),
-        }
+        let label = label.map(str::to_owned);
+        self.ask(move |shelf| shelf.take("?1 IS NULL OR label = ?1", label))
     }
 }
 
@@ -101,7 +102,8 @@ struct Shelf {
 impl Shelf {
     fn get(&self, key: CacheKey, now_ms: u64) -> rusqlite::Result<Option<CacheEntry>> {
         let sql = format!("SELECT {COLUMNS} FROM entries WHERE key = ?1 AND expires_at > ?2");
-        let row = self.connection.query_row(&sql, params![key.bytes(), now_ms], |row| entry(&self.sealer, row)).optional()?;
+        let row =
+            self.connection.query_row(&sql, params![key.bytes(), now_ms], |row| entry(&self.sealer, row)).optional()?;
         match row {
             Some(None) => self.forget(key).map(|()| None),
             other => Ok(other.flatten()),
@@ -114,7 +116,8 @@ impl Shelf {
         let cleanups = self.sealed(key, Columns::Cleanups, &encode_cleanups(&entry.cleanups))?;
         let listing = &entry.listing;
         let sql = format!("INSERT OR REPLACE INTO entries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)");
-        let values = params![key, listing.label, listing.profiles, listing.created_ms, listing.expires_ms, saved, cleanups];
+        let values =
+            params![key, listing.label, listing.profiles, listing.created_ms, listing.expires_ms, saved, cleanups];
         self.connection.execute(&sql, values).map(drop)
     }
 

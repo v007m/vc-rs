@@ -2,6 +2,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, ProcessRunner, SystemClock};
 use vc_interfaces::{
     CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, HistoryReader, HistoryWriter, Keychain,
@@ -160,7 +161,9 @@ impl EngineBuilder {
         let commands = self.commands.unwrap_or_else(|| Arc::new(ProcessRunner::new()));
         let (environment, transport, user_config) = (self.environment, self.transport, self.user_config);
         let (history, history_reader) = self.history.unzip();
-        let (keychain, cache) = (self.keychain, self.cache);
+        let keychain =
+            self.keychain.or_else(|| OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>));
+        let cache = self.cache;
         Ok(Engine {
             root: self.root,
             sources,

@@ -15,7 +15,12 @@ pub fn cache_store_suite(make: &mut MakeCacheStore<'_>) {
 fn entry(seed: u8, label: &str, created_ms: u64) -> CacheEntry {
     CacheEntry {
         key: CacheKey::new([seed; 32]),
-        listing: CacheListing { label: label.into(), profiles: "dev".into(), created_ms, expires_ms: created_ms + 1000 },
+        listing: CacheListing {
+            label: label.into(),
+            profiles: "dev".into(),
+            created_ms,
+            expires_ms: created_ms + 1000,
+        },
         saved: values(&json!({"userId": seed, "token": "tok-secret"})),
         cleanups: vec![CachedCleanup { api: label.into(), vars: values(&json!({"userId": seed})) }],
     }
@@ -52,7 +57,10 @@ fn hides_and_takes_expired_entries(make: &mut MakeCacheStore<'_>) {
     assert_eq!(store.get(&CacheKey::new([1; 32]), 1000), Ok(None), "an entry is gone once it expires");
     let expired = store.take_expired(1000);
     assert_eq!(expired.as_ref().map(|taken| labels(taken)), Ok(vec!["users#create"]));
-    assert_eq!(expired.map(|mut taken| taken.pop().map(|entry| entry.cleanups)), Ok(Some(entry(1, "users#create", 0).cleanups)));
+    assert_eq!(
+        expired.map(|mut taken| taken.pop().map(|entry| entry.cleanups)),
+        Ok(Some(entry(1, "users#create", 0).cleanups))
+    );
     assert_eq!(store.take_expired(1000), Ok(Vec::new()), "taking removes them");
     assert_eq!(store.list().map(|listed| listed.len()), Ok(1), "live entries stay");
 }
@@ -65,7 +73,10 @@ fn lists_and_clears_by_label(make: &mut MakeCacheStore<'_>) {
     let listed = store.list().map(|listed| listed.into_iter().map(|listing| listing.created_ms).collect::<Vec<_>>());
     assert_eq!(listed, Ok(vec![100, 200, 300]), "listed oldest first");
     let cleared = store.clear(Some("users#create"));
-    assert_eq!(cleared.map(|taken| taken.iter().map(|entry| entry.listing.created_ms).collect::<Vec<_>>()), Ok(vec![200, 300]));
+    assert_eq!(
+        cleared.map(|taken| taken.iter().map(|entry| entry.listing.created_ms).collect::<Vec<_>>()),
+        Ok(vec![200, 300])
+    );
     assert_eq!(store.clear(None).as_ref().map(|taken| labels(taken)), Ok(vec!["orders#create"]));
     assert_eq!(store.list(), Ok(Vec::new()), "clearing everything empties the store");
 }

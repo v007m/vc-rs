@@ -1,4 +1,5 @@
 use std::fmt;
+use std::fmt::Write as _;
 
 use chacha20poly1305::aead::{Aead, Generate, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, KeyInit, Nonce};
@@ -36,8 +37,8 @@ impl CacheSecret {
             return None;
         }
         let mut bytes = Zeroizing::new([0_u8; 32]);
-        for (byte, pair) in bytes.iter_mut().zip(text.chunks_exact(2)) {
-            let [high, low] = pair else { return None };
+        let (pairs, _) = text.as_chunks::<2>();
+        for (byte, [high, low]) in bytes.iter_mut().zip(pairs) {
             *byte = (hex(*high)? << 4) | hex(*low)?;
         }
         Some(Self(bytes))
@@ -46,7 +47,11 @@ impl CacheSecret {
     /// The key as 64 hex digits, for the keychain.
     #[must_use]
     pub fn to_hex(&self) -> Zeroizing<String> {
-        Zeroizing::new(self.0.iter().map(|byte| format!("{byte:02x}")).collect())
+        let mut text = Zeroizing::new(String::with_capacity(64));
+        for byte in self.0.iter() {
+            let _ = write!(text, "{byte:02x}");
+        }
+        text
     }
 }
 
@@ -105,7 +110,10 @@ mod tests {
     fn keys_are_64_hex_digits() {
         let secret = CacheSecret::parse(HEX);
         assert_eq!(secret.as_ref().map(|secret| secret.to_hex().to_string()).as_deref(), Some(HEX));
-        assert_eq!(CacheSecret::parse(&HEX.to_uppercase()).map(|secret| secret.to_hex().to_string()).as_deref(), Some(HEX));
+        assert_eq!(
+            CacheSecret::parse(&HEX.to_uppercase()).map(|secret| secret.to_hex().to_string()).as_deref(),
+            Some(HEX)
+        );
         assert!(CacheSecret::parse(&HEX[2..]).is_none(), "too short");
         assert!(CacheSecret::parse(&format!("zz{}", &HEX[2..])).is_none(), "not hex");
         assert_eq!(format!("{:?}", CacheSecret::new([7; 32])), "CacheSecret(••••)");
@@ -113,18 +121,18 @@ mod tests {
 
     #[test]
     fn opens_only_what_it_sealed_under_the_same_key_and_data() {
-        let sealer = Sealer::new(&CacheSecret::new([1; 32]));
-        let sealed = sealer.seal(b"row", b"tok-secret").unwrap_or_default();
+        let crypt = Sealer::new(&CacheSecret::new([1; 32]));
+        let sealed = crypt.seal(b"row", b"tok-secret").unwrap_or_default();
         assert!(!sealed.windows(10).any(|window| window == b"tok-secret"), "nothing in the clear");
-        assert_eq!(sealer.open(b"row", &sealed).map(|plain| plain.to_vec()), Some(b"tok-secret".to_vec()));
-        assert_eq!(sealer.open(b"other row", &sealed), None, "bound to its row");
+        assert_eq!(crypt.open(b"row", &sealed).map(|plain| plain.to_vec()), Some(b"tok-secret".to_vec()));
+        assert_eq!(crypt.open(b"other row", &sealed), None, "bound to its row");
         assert_eq!(Sealer::new(&CacheSecret::new([2; 32])).open(b"row", &sealed), None, "another key");
         let mut changed = sealed.clone();
         if let Some(last) = changed.last_mut() {
             *last ^= 1;
         }
-        assert_eq!(sealer.open(b"row", &changed), None, "changed");
-        assert_eq!(sealer.open(b"row", &sealed[..5]), None, "too short");
+        assert_eq!(crypt.open(b"row", &changed), None, "changed");
+        assert_eq!(crypt.open(b"row", &sealed[..5]), None, "too short");
     }
 
     #[test]

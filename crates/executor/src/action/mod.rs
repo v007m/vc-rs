@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use vc_interfaces::{AuthProvider, CacheStore};
 use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
-use crate::{ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues};
+use crate::{ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues, Saved};
 
 pub use auth::{AuthKey, NoAuth, TokenCache};
 pub use cached::CachedExecutor;
@@ -101,6 +101,15 @@ pub struct ActionRequest {
     pub cx: Arc<ActionCx>,
     /// What it can read from the frame that runs it.
     pub frame: Frame,
+}
+
+impl ActionRequest {
+    /// A run-level request for the cleanup `action` with its given `vars`, outside any test:
+    /// how a cleanup stored by the cross-run cache runs when its entry goes.
+    #[must_use]
+    pub fn cleanup(cx: &Arc<ActionCx>, action: ActionId, vars: &Arc<Saved>) -> Self {
+        Self { action, owner: OwnerKey::Run, cx: Arc::clone(cx), frame: Frame::default().cleaning(vars) }
+    }
 }
 
 impl fmt::Debug for ActionRequest {

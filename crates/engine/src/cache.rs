@@ -13,9 +13,9 @@ use serde_json::{Value, json};
 
 use vc_adapter_store::{CacheSecret, SqliteCache};
 use vc_diagnostics::Code;
-use vc_executor::{ActionCx, ActionRequest, Frame, RunInputs};
+use vc_executor::{ActionCx, ActionRequest, RunInputs};
 use vc_interfaces::{CacheEntry, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Environment, Secret};
-use vc_model::{ActionId, OwnerKey, Plan, Program};
+use vc_model::{ActionId, Plan, Program};
 
 use crate::plan::Prepared;
 use crate::ports::{self, Layered};
@@ -76,13 +76,16 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// [`EngineError::Cache`] when there is no key or the cache cannot be written, and the
-    /// errors of compiling the project.
+    /// [`EngineError::Cache`] when there is no key or the cache cannot be written,
+    /// [`EngineError::Setting`] when the declared secrets cannot be loaded, and the errors of
+    /// compiling the project.
     pub async fn cache_clear(&self, label: Option<&str>) -> Result<(usize, Vec<String>), EngineError> {
         let layered = self.layered(&[], &[])?;
         let store = self.cache_store(layered.environment.as_ref())?;
         let prepared = unplanned(layered);
+        let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment))
+            .with_secrets(secrets)
             .with_started_at(self.clock.now_ms());
         let cx = Arc::new(ActionCx::new(Arc::clone(&prepared.program), self.executors(&prepared)?, inputs));
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
@@ -107,14 +110,13 @@ impl Engine {
         }
         let keychain = self.keychain.as_ref().ok_or_else(|| no_key(&format!("no `{KEY_VAR}` and no OS keychain")))?;
         let unusable = |reason: String| no_key(&format!("the OS keychain cannot be used: {reason}"));
-        match keychain.get(SERVICE, ACCOUNT).map_err(|error| unusable(error.reason))? {
-            Some(stored) => CacheSecret::parse(stored.expose()).ok_or_else(|| unusable("its key is damaged".to_owned())),
-            None => {
-                let fresh = CacheSecret::generate().ok_or_else(|| unusable("no random bytes for a key".to_owned()))?;
-                keychain.set(SERVICE, ACCOUNT, &Secret::new(fresh.to_hex().as_str())).map_err(|e| unusable(e.reason))?;
-                Ok(fresh)
-            }
+        let stored = keychain.get(SERVICE, ACCOUNT).map_err(|error| unusable(error.reason))?;
+        if let Some(stored) = stored {
+            return CacheSecret::parse(stored.expose()).ok_or_else(|| unusable("its key is damaged".to_owned()));
         }
+        let fresh = CacheSecret::generate().ok_or_else(|| unusable("no random bytes for a key".to_owned()))?;
+        keychain.set(SERVICE, ACCOUNT, &Secret::new(fresh.to_hex().as_str())).map_err(|e| unusable(e.reason))?;
+        Ok(fresh)
     }
 }
 
@@ -177,7 +179,8 @@ impl<'c> Cleaner<'c> {
     /// the host its entry was made on.
     fn under(&self, profiles: &str) -> Arc<ActionCx> {
         let program = &self.cx.program;
-        let named = |name: &str| program.profiles.values().find(|p| program.str(p.id.sym()) == Some(name)).map(|p| p.id);
+        let named =
+            |name: &str| program.profiles.values().find(|p| program.str(p.id.sym()) == Some(name)).map(|p| p.id);
         let ids = profiles.split(',').filter(|name| !name.is_empty()).filter_map(named).collect();
         let inputs = self.cx.values.inputs().clone().with_profiles(ids);
         Arc::new(ActionCx::new(Arc::clone(program), Arc::clone(&self.cx.executors), inputs))
@@ -188,8 +191,7 @@ impl<'c> Cleaner<'c> {
 async fn run_cleanup(cx: &Arc<ActionCx>, cleanup: &CachedCleanup) -> Result<(), String> {
     let action = cleanup_of(&cx.program, &cleanup.api)
         .ok_or_else(|| format!("`{}` no longer has a `cleanup`, so what it made is left in place", cleanup.api))?;
-    let frame = Frame::default().cleaning(&Arc::new(cleanup.vars.clone()));
-    let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(cx), frame };
+    let request = ActionRequest::cleanup(cx, action, &Arc::new(cleanup.vars.clone()));
     let report = cx.executors.execute(request).await;
     report.outcome.failure().map_or(Ok(()), |failure| Err(failure.message.clone()))
 }
@@ -224,3 +226,7 @@ fn off(error: &EngineError) -> String {
     let help = error.help().map(|help| format!(" ({help})")).unwrap_or_default();
     format!("{error}; `cache:` actions run every time this run{help}")
 }
+
+#[cfg(test)]
+#[path = "cache_tests.rs"]
+mod tests;

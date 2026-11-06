@@ -47,6 +47,7 @@ pub struct PlanRequest {
     clippy::exhaustive_structs,
     reason = "built by the apps with `..Default::default()`; every user is in this repo (D160)"
 )]
+#[expect(clippy::struct_excessive_bools, reason = "each bool is one `vc run` flag, independent of the others")]
 pub struct RunRequest {
     /// What runs, and with which profiles and settings.
     pub plan: PlanRequest,

@@ -3,7 +3,8 @@
 //! [`EngineBuilder`] is the one place that names the concrete adapters; apps get an
 //! [`Engine`] and call it. So far the engine checks a project ([`Engine::check`]), plans and
 //! runs its tests ([`Engine::plan`], [`Engine::run`]), lists its definitions
-//! ([`Engine::list`]) and exports the editor schemas ([`Engine::schema_export`]). The model and
+//! ([`Engine::list`]), lists and clears the cross-run cache ([`Engine::cache_list`],
+//! [`Engine::cache_clear`]) and exports the editor schemas ([`Engine::schema_export`]). The model and
 //! diagnostics types apps need are re-exported here (D108).
 //!
 //! ```

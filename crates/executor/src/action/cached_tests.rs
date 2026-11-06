@@ -133,7 +133,10 @@ fn the_check_is_reached_from_the_cached_action() {
     let (program, create) = creating("eu", Some("/users/${var.userId}"));
     let action = &program.actions[usize::try_from(create.index()).unwrap()];
     let check = action.cache.and_then(|spec| spec.check);
-    assert_eq!(CachedExecutor::new(Arc::new(TestExecutor)).follows(&program, action), check.into_iter().collect::<Vec<_>>());
+    assert_eq!(
+        CachedExecutor::new(Arc::new(TestExecutor)).follows(&program, action),
+        check.into_iter().collect::<Vec<_>>()
+    );
 }
 
 #[test]

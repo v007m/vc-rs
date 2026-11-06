@@ -70,14 +70,20 @@ impl CacheKey {
 
 impl fmt::Debug for CacheKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let head = self.0.iter().take(4).map(|byte| format!("{byte:02x}")).collect::<String>();
-        write!(f, "CacheKey({head}…)")
+        f.write_str("CacheKey(")?;
+        for byte in self.0.iter().take(4) {
+            write!(f, "{byte:02x}")?;
+        }
+        f.write_str("…)")
     }
 }
 
 /// A cached result.
-#[derive(Clone, PartialEq)]
-#[expect(clippy::exhaustive_structs, reason = "cache entry built and read across crates; every user is in this repo (D160)")]
+#[derive(Clone, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "cache entry built and read across crates; every user is in this repo (D160)"
+)]
 pub struct CacheEntry {
     /// Its key.
     pub key: CacheKey,
@@ -103,7 +109,10 @@ impl fmt::Debug for CacheEntry {
 
 /// What `vc cache list` shows of an entry.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[expect(clippy::exhaustive_structs, reason = "cache entry built and read across crates; every user is in this repo (D160)")]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "cache entry built and read across crates; every user is in this repo (D160)"
+)]
 pub struct CacheListing {
     /// The api or test ID it caches: `users#create`.
     pub label: String,
@@ -117,8 +126,11 @@ pub struct CacheListing {
 
 /// A cleanup kept with an entry: the api whose `cleanup` it is, by full ID, since action IDs
 /// change between compiles, and the vars it runs with.
-#[derive(Clone, PartialEq)]
-#[expect(clippy::exhaustive_structs, reason = "cache entry built and read across crates; every user is in this repo (D160)")]
+#[derive(Clone, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "cache entry built and read across crates; every user is in this repo (D160)"
+)]
 pub struct CachedCleanup {
     /// The full ID of the api whose `cleanup` runs: `users#create`.
     pub api: String,
