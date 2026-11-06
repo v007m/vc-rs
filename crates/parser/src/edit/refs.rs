@@ -40,9 +40,7 @@ impl Document {
     /// [`ParserError::Unparsable`] when an edited reference would not parse.
     pub fn rename_refs(&self, file_id: &str, from: &str, to: &str) -> Result<Vec<TextEdit>, ParserError> {
         let rename = Rename { file_id, from, to };
-        let mut found = Vec::new();
-        references(&self.root, &mut found);
-        found
+        references(&self.root)
             .into_iter()
             .filter_map(|node| node.as_str().and_then(|text| rename.renamed(text)).map(|text| (node, text)))
             .map(|(node, text)| self.set_typed(node, &text, ScalarKind::String))
@@ -65,17 +63,25 @@ impl Rename<'_> {
     }
 }
 
-/// Every text value of a reference key under `node`, outside data.
-fn references<'n>(node: &'n Node, found: &mut Vec<&'n Node>) {
+/// Every text value of a `call` or `test` key under `node`, in file order, without looking into
+/// data (`vars`, `body`, `expect`, ...): the references to an api or a test.
+#[must_use]
+pub fn references(node: &Node) -> Vec<&Node> {
+    let mut found = Vec::new();
+    collect(node, &mut found);
+    found
+}
+
+fn collect<'n>(node: &'n Node, found: &mut Vec<&'n Node>) {
     for item in node.items() {
-        references(item, found);
+        collect(item, found);
     }
     for entry in node.entries() {
         let key = entry.key.as_str();
         if REFERENCES.contains(&key) && entry.value.as_str().is_some() {
             found.push(&entry.value);
         } else if !DATA.contains(&key) {
-            references(&entry.value, found);
+            collect(&entry.value, found);
         }
     }
 }

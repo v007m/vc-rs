@@ -5,6 +5,8 @@ mod body_on_read;
 mod default_profiles;
 mod deprecated_calls;
 mod expired_skips;
+mod item_ids;
+mod names;
 mod shared_writes;
 mod skip_reasons;
 mod test_cache;
@@ -54,6 +56,17 @@ impl LintRegistry {
             Box::new(deprecated_calls::DeprecatedCalls),
             Box::new(body_on_read::BodyOnRead),
             Box::new(unused_defaults::UnusedDefaults),
+        ];
+        Self { lints }
+    }
+
+    /// The naming-convention lints (V4, D180): warnings, each a registry entry like the rest.
+    pub fn conventions() -> Self {
+        let lints: Vec<Box<dyn Lint>> = vec![
+            Box::new(item_ids::TestIds),
+            Box::new(item_ids::ApiIds),
+            Box::new(names::FileNames),
+            Box::new(names::Labels),
         ];
         Self { lints }
     }

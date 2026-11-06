@@ -17,6 +17,7 @@ use crate::scalar::Spelling;
 use crate::{Entry, Node, ParserError, ScalarKind, ScalarStyle, Syntax, Value};
 
 pub use command::EditCommand;
+pub use refs::references;
 
 /// A parsed file kept with its text, so changes to its tree become edits on that text.
 ///

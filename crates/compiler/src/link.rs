@@ -92,7 +92,9 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
         build::program((&project, &data), files.clone(), world.secrets.unwrap_or_default())
     };
     if let Some(program) = &program {
-        diagnostics.extend(LintRegistry::builtin().run(&LintCx { project: &project, program, today: world.today }));
+        let cx = LintCx { project: &project, program, today: world.today };
+        diagnostics.extend(LintRegistry::builtin().run(&cx));
+        diagnostics.extend(LintRegistry::conventions().run(&cx));
     }
     let program = program.filter(|_| !diagnostics.has_errors());
     Linked { diagnostics, program, data_wanted }
