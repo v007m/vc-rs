@@ -20,6 +20,7 @@ mod report;
 mod run;
 mod schema;
 mod select;
+mod skip;
 
 use outcome::Outcome;
 
@@ -51,6 +52,10 @@ enum Command {
     Report(report::ReportArgs),
     /// Lists or clears the cross-run cache of `cache:` actions.
     Cache(cache::CacheArgs),
+    /// Skips a test or test file, with a reason and an optional end date.
+    Skip(skip::SkipArgs),
+    /// Removes the skip of a test or test file.
+    Unskip(skip::UnskipArgs),
     /// Works with the JSON Schemas editors use for definition files.
     #[command(subcommand)]
     Schema(SchemaCommand),
@@ -78,6 +83,8 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::History(args) => history::run(&args, project),
         Command::Report(args) => report::run(&args, project),
         Command::Cache(args) => cache::run(&args, project),
+        Command::Skip(args) => skip::skip(&args, project),
+        Command::Unskip(args) => skip::unskip(&args, project),
         Command::Schema(SchemaCommand::Export(args)) => schema::export(&args, project),
     }
 }

@@ -5,7 +5,8 @@
 //! runs its tests ([`Engine::plan`], [`Engine::run`]), lists its definitions
 //! ([`Engine::list`]), lists and clears the cross-run cache ([`Engine::cache_list`],
 //! [`Engine::cache_clear`]), exports the editor schemas ([`Engine::schema_export`]) and works out
-//! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::write`]). The model and
+//! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
+//! [`Engine::unskip`], [`Engine::write`]). The model and
 //! diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
@@ -15,6 +16,7 @@
 //! assert_eq!(schemas[0].file_name, "config.schema.json");
 //! ```
 
+mod authoring;
 mod builder;
 mod cache;
 mod check;
@@ -37,6 +39,7 @@ mod sample;
 mod schema;
 mod selection;
 mod settings;
+mod skip;
 mod stored;
 mod user;
 
@@ -52,6 +55,7 @@ pub use plan::PlanReport;
 pub use request::{ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest};
 pub use run::RunReport;
 pub use schema::SchemaFile;
+pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
 pub use vc_diagnostics::{Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
 pub use vc_model::{FileKind, SourceFiles};

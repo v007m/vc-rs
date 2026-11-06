@@ -27,5 +27,5 @@ pub use edit::{Document, EditCommand, references};
 pub use error::ParserError;
 pub use node::{Entry, Node, Value};
 pub use parse::parse;
-pub use scalar::{Scalar, ScalarKind, ScalarStyle};
+pub use scalar::{Scalar, ScalarKind, ScalarStyle, write_text};
 pub use syntax::Syntax;

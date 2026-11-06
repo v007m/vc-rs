@@ -2,7 +2,9 @@
 
 use std::io::{BufRead, Write};
 
-use vc_engine::Changes;
+use vc_engine::{Changes, Engine, EngineError};
+
+use crate::Outcome;
 
 /// Each changed file as a unified diff, on stdout.
 pub fn preview(changes: &Changes) -> anyhow::Result<()> {
@@ -12,6 +14,20 @@ pub fn preview(changes: &Changes) -> anyhow::Result<()> {
     }
     out.flush()?;
     Ok(())
+}
+
+/// Writes the changes a guarded engine call `made` and prints `done` on stdout; a refusal is
+/// the outcome as it is, and nothing is written.
+pub fn write(engine: &Engine, made: Result<Changes, EngineError>, done: &str) -> Outcome {
+    let changes = match made {
+        Ok(changes) => changes,
+        Err(error) => return Outcome::Engine(error),
+    };
+    if let Err(error) = engine.write(&changes) {
+        return Outcome::Engine(error);
+    }
+    println!("{done}");
+    Outcome::Done
 }
 
 /// Asks `question` on stderr and reads the answer from stdin: yes only for `y` or `yes`, in
