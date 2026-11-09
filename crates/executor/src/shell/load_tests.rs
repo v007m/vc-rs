@@ -113,3 +113,32 @@ async fn a_test_outside_the_plan_fails_without_a_request() {
     assert!(!report.passed && report.calls.is_empty() && report.failure.is_some());
     assert!(sent.counts().is_empty());
 }
+
+#[tokio::test]
+async fn finish_runs_every_cleanup_an_owner_registered() {
+    let mut fixture = Fixture::new();
+    let (undo_a, undo_b) = (fixture.call("/cleanup/a"), fixture.call("/cleanup/b"));
+    let seeds = [fixture.creating("/seed/a", undo_a), fixture.creating("/seed/b", undo_b)];
+    let browse = fixture.call("/browse");
+    let test = fixture.test(vec![browse], None);
+    let (iterations, sent) = prepare(fixture, (&seeds, &[test]), false).await;
+    iterations.unwrap().finish().await;
+    let counts = sent.counts();
+    assert_eq!((counts.get("/cleanup/a"), counts.get("/cleanup/b")), (Some(&1), Some(&1)), "{counts:?}");
+}
+
+#[tokio::test]
+async fn an_iteration_reads_what_its_file_before_all_saved() {
+    let mut fixture = Fixture::new();
+    let seed = fixture.call("/seed");
+    fixture.action_mut(seed).id = Some(fixture.sym("user"));
+    fixture.action_mut(seed).save.values = fixture.vars(&[("token", "t")]);
+    let read = fixture.call("/users");
+    fixture.api_mut(read).path = fixture.template("/users/${var.user.token}");
+    let test = fixture.test(vec![read], None);
+    let (iterations, sent) = prepare(fixture, (&[seed], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert!(report.passed, "{report:?}");
+    let counts = sent.counts();
+    assert_eq!((counts.get("/seed"), counts.get("/users/t")), (Some(&1), Some(&1)), "{counts:?}");
+}
