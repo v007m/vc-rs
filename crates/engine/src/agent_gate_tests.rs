@@ -4,7 +4,7 @@ use vc_interfaces::{Approvals as _, Verdict};
 use vc_model::Method;
 use vc_testkit::{FakeVcs, MemoryApprovals, MemoryHistory, MemorySources};
 
-use super::{api_methods, plan_methods};
+use super::{api_reach, plan_reach};
 use crate::plan::Extra;
 use crate::sample::builder;
 use crate::{Engine, EngineError, PlanRequest, RunRequest, SelectRequest, interrupts};
@@ -22,9 +22,14 @@ const FLOW: (&str, &[u8]) = (
     b"beforeEach:\n  - call: users#touch\ntests:\n  - id: createsUser\n    call: users#create\n  - id: reusesCreate\n    steps:\n      - test: users.flow#createsUser\n      - call: users#list\n",
 );
 
+const SEED: (&str, &[u8]) = (
+    "services/users/seed.test.yaml",
+    b"tests:\n  - id: seedsUsers\n    steps:\n      - command: echo seeded\n      - call: users#list\n",
+);
+
 fn engine(queue: &MemoryApprovals) -> Engine {
     builder(FakeVcs::default())
-        .sources(Arc::new(MemorySources::new(&[CONFIG, USERS, FLOW])))
+        .sources(Arc::new(MemorySources::new(&[CONFIG, USERS, FLOW, SEED])))
         .history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new()))
         .approvals(Arc::new(queue.clone()), Arc::new(queue.clone()))
         .build()
@@ -41,8 +46,9 @@ fn agent_run(profile: &str, ids: &[&str]) -> RunRequest {
 fn a_plan_sends_the_methods_of_every_action_it_reaches_once() {
     let engine = engine(&MemoryApprovals::new());
     let prepared = engine.prepare(&PlanRequest::default(), Extra::default()).unwrap();
-    let methods = plan_methods(&prepared.program, &prepared.plan);
-    assert_eq!(methods, [Method::Patch, Method::Post, Method::Delete, Method::Get]);
+    let reached = plan_reach(&prepared.program, &prepared.plan);
+    assert_eq!(reached.methods, [Method::Patch, Method::Post, Method::Delete, Method::Get]);
+    assert_eq!(reached.code, ["users.seed#seedsUsers: command `echo seeded`"]);
 }
 
 #[test]
@@ -51,7 +57,8 @@ fn an_api_sends_its_method_then_its_cleanups() {
     let prepared = engine.prepare(&PlanRequest::default(), Extra::default()).unwrap();
     let program = &prepared.program;
     let create = program.apis.values().find(|api| program.str(api.id.sym()) == Some("users#create")).unwrap();
-    assert_eq!(api_methods(program, create.id), [Method::Post, Method::Delete]);
+    let reached = api_reach(program, create.id);
+    assert_eq!((reached.methods, reached.code), (vec![Method::Post, Method::Delete], Vec::<String>::new()));
 }
 
 #[tokio::test]
@@ -78,4 +85,27 @@ async fn an_agents_run_asks_once_for_every_method_its_plan_sends() {
     assert_eq!(asked[0].request.summary, "run 1 test users.flow#createsUser");
     assert_eq!(asked[0].request.methods, [Method::Post, Method::Delete]);
     assert_eq!(asked[0].request.tool, "run_tests");
+}
+
+#[tokio::test]
+async fn an_agents_run_that_reaches_a_command_asks_and_names_it() {
+    let queue = MemoryApprovals::answering(Verdict::Deny);
+    let refused = engine(&queue).run(&agent_run("staging", &["users.seed#seedsUsers"]), interrupts().1).await;
+    let Err(EngineError::Refused { reason, .. }) = refused else { panic!("{refused:?}") };
+    assert_eq!(reason, "request 1 was denied");
+    let asked = queue.list(false).unwrap();
+    assert_eq!(asked.len(), 1);
+    assert_eq!(asked[0].request.methods, []);
+    let summary = "run 1 test users.seed#seedsUsers; runs users.seed#seedsUsers: command `echo seeded`";
+    assert_eq!(asked[0].request.summary, summary);
+}
+
+#[tokio::test]
+async fn a_persons_run_is_not_gated_even_when_it_runs_code() {
+    let queue = MemoryApprovals::new();
+    let engine = engine(&queue);
+    let request = RunRequest { agent: None, ..agent_run("staging", &["users.seed#seedsUsers"]) };
+    let prepared = engine.prepare(&request.plan, Extra::default()).unwrap();
+    assert!(engine.run_gate(&request, &prepared).await.unwrap().is_none());
+    assert_eq!(queue.list(false).unwrap(), []);
 }

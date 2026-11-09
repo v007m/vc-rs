@@ -1186,7 +1186,8 @@ In the engine, `policy.rs` judges and `approvals.rs` gates:
     - each method is allowed when it is in `call`, asks when it is in `approve`, and is refused otherwise;
     - `writes` follows `writeDefinitions`.
   - A project with no profile is judged under the default policy, which allows reads only.
-  - `Permission::Ask { profile, methods, writes }` names the active profiles comma-joined. It becomes `Allow` when every method has a standing rule for those profiles and that tool, and nothing is written.
+  - `Permission::Ask { profile, methods, writes, code }` names the active profiles comma-joined. It becomes `Allow` when every method has a standing rule for those profiles and that tool, and nothing is written.
+  - A call whose reach holds a `command:` or `function:` action (an agent's run, or a `call_api` whose cleanup chain reaches one) always asks, even when `run` and every method are allowed, and no standing rule skips that ask (D202). `AgentCall.code` and `Ask.code` name each such action as `<test or block>: command `<text>`` or `function `<file>#<export>``, and the approval's summary lists them. A person's run is not gated.
 - `admit(&AgentCall, wait) -> Admission`: `Allowed { approved_by }` or `Refused { reason }`.
   - An `Ask` creates the request with the arguments redacted by the config's built-in masking, and waits (`APPROVAL_WAIT`, 10 minutes).
   - A denial or a wait that runs out is a refusal. A refusal is logged at once; the caller logs an allowed call with `record_agent_action(call, AgentOutcome)` when it ends.

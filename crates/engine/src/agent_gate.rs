@@ -1,6 +1,7 @@
 //! The agent policy's gate on what an agent sends (D178, D195): the methods a call or a run
-//! would send, its cleanups included, judged and, where the policy asks, approved before
-//! anything goes out; and the log entry once it is done.
+//! would send, its cleanups included, and the `command:` and `function:` actions it would run
+//! (D202), judged and, where the policy asks, approved before anything goes out; and the log
+//! entry once it is done.
 
 use std::collections::BTreeSet;
 
@@ -10,6 +11,7 @@ use vc_model::{ActionId, ActionKind, ApiId, Method, Plan, Program, TestBody, Tes
 use crate::approvals::{APPROVAL_WAIT, Admission, AgentOutcome};
 use crate::plan::Prepared;
 use crate::policy::AgentCall;
+use crate::shown::Shown;
 use crate::{Engine, EngineError, RunRequest, history};
 
 /// The tool an agent's run is judged and logged as.
@@ -35,8 +37,8 @@ impl Engine {
         }
     }
 
-    /// For an agent's run, the gate on `run` and every method `prepared`'s plan sends, one
-    /// approval for the whole run; `None` for a person's run, which is not gated.
+    /// For an agent's run, the gate on `run`, every method `prepared`'s plan sends and the code
+    /// it runs, one approval for the whole run; `None` for a person's run, which is not gated.
     ///
     /// # Errors
     ///
@@ -50,11 +52,13 @@ impl Engine {
         let count = prepared.plan.instance_count();
         let selector = history::selector(&request.plan.select);
         let tests = if count == 1 { "test" } else { "tests" };
+        let reached = plan_reach(&prepared.program, &prepared.plan);
         let call = AgentCall {
             agent: agent.clone(),
             tool: RUN_TOOL.to_owned(),
             profiles: request.plan.profiles.clone(),
-            methods: plan_methods(&prepared.program, &prepared.plan),
+            methods: reached.methods,
+            code: reached.code,
             runs: true,
             summary: format!("run {count} {tests} {selector}").trim_end().to_owned(),
             arguments: json!({"select": selector, "profiles": request.plan.profiles}),
@@ -76,37 +80,50 @@ impl Engine {
     }
 }
 
-/// The methods `api` sends, then those of its cleanup, in order, each once.
-pub fn api_methods(program: &Program, api: ApiId) -> Vec<Method> {
-    let mut reach = Reach { program, methods: Vec::new(), seen: BTreeSet::new() };
-    reach.api(api);
-    reach.methods
+/// What a call or a run reaches: the methods it sends and the code it runs, in order, each once.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Reached {
+    pub methods: Vec<Method>,
+    /// Each `command:` and `function:` action, named by the test or block it sits in and what
+    /// it runs.
+    pub code: Vec<String>,
 }
 
-/// The methods every action `plan` runs would send, in plan order, each once.
-pub fn plan_methods(program: &Program, plan: &Plan) -> Vec<Method> {
-    let mut reach = Reach { program, methods: Vec::new(), seen: BTreeSet::new() };
+/// What `api` reaches, then its cleanup.
+pub fn api_reach(program: &Program, api: ApiId) -> Reached {
+    let mut reach = Reach::new(program, program.str(api.sym()).unwrap_or_default());
+    reach.api(api);
+    reach.reached
+}
+
+/// What every action `plan` runs reaches, in plan order.
+pub fn plan_reach(program: &Program, plan: &Plan) -> Reached {
+    let mut reach = Reach::new(program, "beforeRun");
     reach.actions(plan.before_run.iter().map(|planned| planned.action));
     for file in &plan.files {
-        reach.actions(file.before_all.iter().map(|planned| planned.action));
+        let name = program.str(file.id.sym()).unwrap_or_default();
+        reach.at(format!("{name} beforeAll"), file.before_all.iter().map(|planned| planned.action));
         let each = program.test_files.get(&file.id).map(|found| &found.lifecycle);
-        reach.actions(each.iter().flat_map(|each| each.before_each.iter().copied()));
+        reach.at(format!("{name} beforeEach"), each.iter().flat_map(|each| each.before_each.iter().copied()));
         for instance in &file.instances {
             reach.test(instance.test);
         }
-        reach.actions(each.iter().flat_map(|each| each.after_each.iter().copied()));
-        reach.actions(file.after_all.iter().copied());
+        reach.at(format!("{name} afterEach"), each.iter().flat_map(|each| each.after_each.iter().copied()));
+        reach.at(format!("{name} afterAll"), file.after_all.iter().copied());
     }
-    reach.actions(plan.after_run.iter().copied());
-    reach.methods
+    reach.at("afterRun".to_owned(), plan.after_run.iter().copied());
+    reach.reached
 }
 
-/// A walk over the actions a run reaches, collecting the methods they send.
+/// A walk over the actions a run reaches, collecting the methods they send and the code they
+/// run.
 struct Reach<'p> {
     program: &'p Program,
-    methods: Vec<Method>,
+    reached: Reached,
     /// The apis and tests walked so far, so a cleanup or `test:` action that loops back stops.
     seen: BTreeSet<Seen>,
+    /// Where the walk is, a lifecycle block or a test's ID, to name the code it finds.
+    place: String,
 }
 
 /// An api or test the walk has reached.
@@ -116,7 +133,16 @@ enum Seen {
     Test(TestId),
 }
 
-impl Reach<'_> {
+impl<'p> Reach<'p> {
+    fn new(program: &'p Program, place: &str) -> Self {
+        Self { program, reached: Reached::default(), seen: BTreeSet::new(), place: place.to_owned() }
+    }
+
+    fn at(&mut self, place: String, ids: impl Iterator<Item = ActionId>) {
+        self.place = place;
+        self.actions(ids);
+    }
+
     fn actions(&mut self, ids: impl Iterator<Item = ActionId>) {
         for id in ids {
             self.action(id);
@@ -128,7 +154,19 @@ impl Reach<'_> {
         match found.map(|action| &action.kind) {
             Some(ActionKind::Call(api)) => self.api(*api),
             Some(ActionKind::Test(test)) => self.test(*test),
-            _ => {}
+            Some(ActionKind::Command(command)) => {
+                let text = Shown { program: self.program, vars: &[] }.template(command);
+                self.code(&format!("command `{text}`"));
+            }
+            Some(ActionKind::Function(hook)) => self.code(&format!("function `{}#{}`", hook.file, hook.export)),
+            Some(ActionKind::Inline(_)) | None => {}
+        }
+    }
+
+    fn code(&mut self, what: &str) {
+        let named = format!("{}: {what}", self.place);
+        if !self.reached.code.contains(&named) {
+            self.reached.code.push(named);
         }
     }
 
@@ -137,8 +175,8 @@ impl Reach<'_> {
         if !self.seen.insert(Seen::Api(id)) {
             return;
         }
-        if !self.methods.contains(&api.method) {
-            self.methods.push(api.method);
+        if !self.reached.methods.contains(&api.method) {
+            self.reached.methods.push(api.method);
         }
         if let Some(cleanup) = api.cleanup {
             self.action(cleanup);
@@ -150,12 +188,14 @@ impl Reach<'_> {
         if !self.seen.insert(Seen::Test(id)) {
             return;
         }
+        let outer = std::mem::replace(&mut self.place, self.program.str(id.sym()).unwrap_or_default().to_owned());
         self.actions(test.before.iter().copied());
         match &test.body {
             TestBody::Call(action) => self.action(*action),
             TestBody::Steps(steps) => self.actions(steps.iter().copied()),
         }
         self.actions(test.after.iter().copied());
+        self.place = outer;
     }
 }
 

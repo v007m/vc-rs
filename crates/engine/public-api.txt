@@ -111,6 +111,7 @@ impl core::marker::StructuralPartialEq for vc_engine::ListKind
 pub enum vc_engine::Permission
 pub vc_engine::Permission::Allow
 pub vc_engine::Permission::Ask
+pub vc_engine::Permission::Ask::code: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::Permission::Ask::methods: alloc::vec::Vec<vc_model::defs::Method>
 pub vc_engine::Permission::Ask::profile: alloc::string::String
 pub vc_engine::Permission::Ask::writes: bool
@@ -169,6 +170,7 @@ impl core::marker::StructuralPartialEq for vc_engine::Added
 pub struct vc_engine::AgentCall
 pub vc_engine::AgentCall::agent: alloc::string::String
 pub vc_engine::AgentCall::arguments: serde_json::value::Value
+pub vc_engine::AgentCall::code: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::AgentCall::methods: alloc::vec::Vec<vc_model::defs::Method>
 pub vc_engine::AgentCall::profiles: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::AgentCall::runs: bool

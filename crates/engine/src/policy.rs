@@ -5,7 +5,9 @@
 //! restrictive answer wins: `run` for a call that runs tests, each method it sends against
 //! `call` (allowed) and `approve` (asks), and `writeDefinitions` for a call that writes. A
 //! profile without an `agents` block allows reads only. A person's "always allow" for the
-//! profiles, tool and method turns a method that asks into one that is allowed.
+//! profiles, tool and method turns a method that asks into one that is allowed. A call that
+//! would run a `command:` or `function:` action always asks, and no always-allow skips that
+//! (D202).
 
 use std::sync::Arc;
 
@@ -39,6 +41,9 @@ pub struct AgentCall {
     pub runs: bool,
     /// Whether the call writes definition files (`agents.writeDefinitions`).
     pub writes: bool,
+    /// The `command:` and `function:` actions the call would run, each with where it sits and
+    /// what it runs; any of them makes the call ask (D202).
+    pub code: Vec<String>,
     /// One line for a person: what would run, be sent or be written.
     pub summary: String,
     /// The call's arguments, as the agent sent them; redacted before they are stored.
@@ -64,6 +69,8 @@ pub enum Permission {
         methods: Vec<Method>,
         /// Whether the write needs approval (`writeDefinitions: ask`).
         writes: bool,
+        /// The code the call would run, which always needs approval (D202).
+        code: Vec<String>,
     },
 }
 
@@ -110,9 +117,13 @@ impl Engine {
         self.standing(judge(&policies, call, profile), &call.tool)
     }
 
-    /// `permission`, allowed instead when it asks only for methods a person always allows.
+    /// `permission`, allowed instead when it asks only for methods a person always allows; a
+    /// call that runs code still asks (D202).
     fn standing(&self, permission: Permission, tool: &str) -> Result<Permission, EngineError> {
-        let Permission::Ask { profile, methods, writes: false } = &permission else { return Ok(permission) };
+        let Permission::Ask { profile, methods, writes: false, code } = &permission else { return Ok(permission) };
+        if !code.is_empty() {
+            return Ok(permission);
+        }
         for &method in methods {
             let rule = StandingRule { profile: profile.clone(), tool: tool.to_owned(), method };
             if !self.approval_queue().always_allowed(&rule).map_err(|error| store_error(&error))? {
@@ -132,7 +143,8 @@ enum Level {
 }
 
 /// The policy's answer for `call` under `policies` (name, rules), before always-allow rules;
-/// `profile` names them all for an approval.
+/// `profile` names them all for an approval. Code to run asks even when every field is
+/// allowed (D202).
 pub fn judge(policies: &[(&str, &AgentPolicy)], call: &AgentCall, profile: String) -> Permission {
     if call.runs
         && let Some(name) = refusing(policies, |policy| if policy.run { Level::Allow } else { Level::Refuse })
@@ -155,7 +167,11 @@ pub fn judge(policies: &[(&str, &AgentPolicy)], call: &AgentCall, profile: Strin
         return Permission::Refuse { rule: format!("{name}: agents.writeDefinitions is false") };
     }
     let writes = matches!(writes, Some((Level::Ask, _)));
-    if methods.is_empty() && !writes { Permission::Allow } else { Permission::Ask { profile, methods, writes } }
+    if methods.is_empty() && !writes && call.code.is_empty() {
+        Permission::Allow
+    } else {
+        Permission::Ask { profile, methods, writes, code: call.code.clone() }
+    }
 }
 
 /// The most restrictive level among `policies` for one field, and the first profile at it.

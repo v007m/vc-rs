@@ -70,8 +70,8 @@ impl Engine {
         let admission = match permission {
             Permission::Allow => Admission::Allowed { approved_by: None },
             Permission::Refuse { rule } => Admission::Refused { reason: rule },
-            Permission::Ask { profile, methods, .. } => {
-                let (agent, tool, summary) = (call.agent.clone(), call.tool.clone(), call.summary.clone());
+            Permission::Ask { profile, methods, code, .. } => {
+                let (agent, tool, summary) = (call.agent.clone(), call.tool.clone(), with_code(&call.summary, &code));
                 let request = ApprovalRequest { agent, tool, profile, methods, summary, arguments: arguments.clone() };
                 self.ask(&request, wait).await?
             }
@@ -188,6 +188,11 @@ pub fn store_error(error: &ApprovalError) -> EngineError {
         reason: error.to_string(),
         help: Some("`vc approvals` lists the waiting requests".to_owned()),
     }
+}
+
+/// `summary`, then each `command:` and `function:` action the call would run (D202).
+fn with_code(summary: &str, code: &[String]) -> String {
+    if code.is_empty() { summary.to_owned() } else { format!("{summary}; runs {}", code.join("; ")) }
 }
 
 #[cfg(test)]

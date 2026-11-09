@@ -14,7 +14,7 @@ use vc_model::{
     VarDefs,
 };
 
-use crate::agent_gate::{Gated, api_methods};
+use crate::agent_gate::{Gated, Reached, api_reach};
 use crate::explain::did_you_mean;
 use crate::history::Recording;
 use crate::plan::{self, Prepared, profile_flag};
@@ -87,10 +87,10 @@ impl Engine {
     async fn gate(&self, request: &CallRequest, program: &Program) -> Result<Option<Gated>, EngineError> {
         let Some(agent) = &request.agent else { return Ok(None) };
         let api = program.apis.values().find(|api| program.str(api.id.sym()) == Some(request.api.as_str()));
-        let methods = match api {
-            Some(api) if request.keep => vec![api.method],
-            Some(api) => api_methods(program, api.id),
-            None => vec![Method::Get],
+        let reached = match api {
+            Some(api) if request.keep => Reached { methods: vec![api.method], code: Vec::new() },
+            Some(api) => api_reach(program, api.id),
+            None => Reached { methods: vec![Method::Get], code: Vec::new() },
         };
         let vars: Map<String, Value> = request
             .vars
@@ -102,8 +102,9 @@ impl Engine {
             agent: agent.clone(),
             tool: CALL_TOOL.to_owned(),
             profiles: request.profiles.clone(),
-            summary: format!("{} {}", methods.first().map_or("GET", |method| method.name()), request.api),
-            methods,
+            summary: format!("{} {}", reached.methods.first().map_or("GET", |method| method.name()), request.api),
+            methods: reached.methods,
+            code: reached.code,
             arguments: json!({"api": request.api, "vars": vars, "keep": request.keep}),
             ..AgentCall::default()
         };
