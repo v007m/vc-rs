@@ -282,6 +282,19 @@ async fn after_actions_get_their_own_limit_once_the_test_ran_past_its_timeout() 
     assert!(passed(after) && passed(each), "the attempt's deadline has passed, yet both run: {:?}", outcome.events);
 }
 
+#[tokio::test(start_paused = true)]
+async fn an_after_action_without_its_own_timeout_is_limited_only_by_its_requests() {
+    let mut fixture = Fixture::new();
+    let (step, after) = (fixture.call("/users"), fixture.call("/slow"));
+    fixture.api_mut(after).timeout = Some(vc_model::Duration::new(90 * SECOND));
+    let test = fixture.test(vec![step], None);
+    fixture.test_mut(test).after = vec![after];
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
+    assert_eq!(outcome.summary.totals, totals([1, 0, 0, 0, 0]), "no 30 s default cuts it: {:?}", outcome.results());
+    assert_eq!(outcome.elapsed, crate::fixture::SLOW);
+}
+
 /// A reuse of `[create, /slow]`, where `create` registers `delete`; and `delete`.
 fn creating_then_slow(fixture: &mut Fixture) -> (ActionId, ActionId) {
     let delete = fixture.call("/users/delete");

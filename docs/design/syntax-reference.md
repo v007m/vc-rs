@@ -507,7 +507,7 @@ Each item in `tests`:
 | `examples` | list of maps, or `$file` | — | One test instance per row; values in `${example.*}` |
 | `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
-| `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: each gets its own `timeout`, else `defaults.timeout` |
+| `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
 

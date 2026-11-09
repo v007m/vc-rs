@@ -7,7 +7,7 @@ use vc_model::{ActionId, Event, OwnerKey, TestResult, TestStatus};
 use super::crew::{Crew, Deadline, Job};
 use crate::cancel::{CancelTree, Ran};
 use crate::{
-    Frame, InstanceCommand, InstanceInput, InstanceScript, InstanceWorkflow, Launch, RunInput, Verdict, own_limit,
+    Frame, InstanceCommand, InstanceInput, InstanceScript, InstanceWorkflow, Launch, RunInput, Verdict,
 };
 
 /// One instance to run: what the file launched, the shared values it reads and its frame.
@@ -73,14 +73,15 @@ impl InstanceShell {
         Job { action, owner: self.owner(), frame: self.frame.clone(), deadline: self.deadline(action) }
     }
 
-    /// The attempt's deadline, or for an `after` or `afterEach` action its own limit from now:
-    /// they always run, so the attempt's passing deadline must not cut them.
+    /// The attempt's deadline, or for an `after` or `afterEach` action only its own `timeout`
+    /// from now (D192): they always run, so the attempt's passing deadline must not cut them,
+    /// and without a `timeout` only their requests' own limits bound them.
     fn deadline(&self, action: ActionId) -> Option<Deadline> {
         if !self.script.after.contains(&action) {
             return self.deadline;
         }
-        let cx = &self.crew.cx;
-        cx.action(action).map(|found| Deadline::after(own_limit(&cx.program, found)))
+        let timeout = self.crew.cx.action(action).and_then(|found| found.timeout)?;
+        Some(Deadline::after(timeout.get()))
     }
 
     async fn carry_out(
