@@ -5,11 +5,12 @@ use bytes::Bytes;
 use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderValue, StatusCode};
 use serde_json::{Value, json};
+use tokio::sync::mpsc;
 use vc_interfaces::{CacheEntry, CacheStore, CachedCleanup, Clock};
 use vc_model::{ActionId, CacheSpec, Date, Duration, HttpResponse, OwnerKey, Program};
 use vc_testkit::{FakeTransport, MemoryCacheStore, Recorded, RecordingTransport};
 
-use super::{CachedExecutor, Replaced, RunCache, key};
+use super::{CachedExecutor, RunCache, key};
 use crate::fixture::{self, Fixture};
 use crate::{
     ActionCx, ActionExecutor, ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PipelineParts, Saved,
@@ -77,7 +78,7 @@ async fn run(
     (report, sent)
 }
 
-/// [`run`], also giving the entries fresh results replaced, left for the run's end.
+/// [`run`], also giving the tombstones of the entries fresh results replaced, left for the run's end.
 async fn replacing(
     (program, action): &(Arc<Program>, ActionId),
     (store, at): (Option<&MemoryCacheStore>, u64),
@@ -88,17 +89,15 @@ async fn replacing(
     let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(transport), HostLimits::spawn(8)));
     let inputs = fixture::inputs(&[]).with_started_at(0);
     let cx = ActionCx::new(Arc::clone(program), Arc::new(executors), inputs);
-    let (cx, mut replaced) = match store {
-        Some(store) => {
-            let (cache, replaced) = RunCache::new(Arc::new(store.clone()), Arc::new(StoppedClock(at)));
-            (cx.with_cache(cache), Some(replaced))
-        }
-        None => (cx, None),
+    let (replaced, mut waiting) = mpsc::unbounded_channel();
+    let cx = match store {
+        Some(store) => cx.with_cache(RunCache::new(Arc::new(store.clone()), Arc::new(StoppedClock(at)), replaced)),
+        None => cx,
     };
     let cx = Arc::new(cx);
     let request = ActionRequest { action: *action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
     let report = cx.executors.execute(request).await;
-    (report, recordings.take(), replaced.as_mut().map(Replaced::take).unwrap_or_default())
+    (report, recordings.take(), std::iter::from_fn(|| waiting.try_recv().ok()).collect())
 }
 
 #[tokio::test]
@@ -151,7 +150,9 @@ async fn the_check_reads_the_cached_saves_and_a_failed_check_reruns_the_action_a
         "the old entry's cleanup waits for the run's end, as another instance may still use what it made"
     );
     let cleanup = CachedCleanup { api: "users#n1".into(), vars: saved(json!({ "userId": 7 })) };
-    assert_eq!(replaced.into_iter().map(|entry| entry.cleanups).collect::<Vec<_>>(), vec![vec![cleanup]]);
+    assert_eq!(replaced.iter().map(|entry| entry.cleanups.clone()).collect::<Vec<_>>(), vec![vec![cleanup]]);
+    let buried = store.take_expired(1_002).unwrap();
+    assert_eq!(buried, replaced, "until its cleanups run, the old entry stays in the store, expired");
     let kept: Saved = store.take_expired(u64::MAX).unwrap().into_iter().flat_map(|entry| entry.saved).collect();
     assert_eq!(kept, saved(json!({ "userId": 8 })), "the fresh entry is the one kept");
 }

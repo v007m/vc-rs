@@ -72,13 +72,25 @@ fn hex(digit: u8) -> Option<u8> {
 pub struct Sealer {
     cipher: ChaCha20Poly1305,
     nonce_key: Zeroizing<[u8; 32]>,
+    tag_key: Zeroizing<[u8; 32]>,
 }
 
 impl Sealer {
     /// A sealer for `secret`.
     pub fn new(secret: &CacheSecret) -> Self {
         let nonce_key = Zeroizing::new(blake3::derive_key("vibranium cache.db nonce v1", secret.0.as_slice()));
-        Self { cipher: ChaCha20Poly1305::new(&(*secret.0).into()), nonce_key }
+        let tag_key = Zeroizing::new(blake3::derive_key("vibranium cache.db tag v1", secret.0.as_slice()));
+        Self { cipher: ChaCha20Poly1305::new(&(*secret.0).into()), nonce_key, tag_key }
+    }
+
+    /// A keyed blake3 hash of `parts`, each length-prefixed: equal only for equal parts, and
+    /// telling nothing about them without the key.
+    pub fn tag(&self, parts: &[&[u8]]) -> [u8; 32] {
+        let mut hasher = blake3::Hasher::new_keyed(&self.tag_key);
+        for part in parts {
+            hasher.update(&u64::try_from(part.len()).unwrap_or(u64::MAX).to_le_bytes()).update(part);
+        }
+        *hasher.finalize().as_bytes()
     }
 
     /// `plain`, bound to `aad`, as nonce then cipher text; `None` only if the cipher refuses.

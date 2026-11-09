@@ -47,7 +47,7 @@ impl Engine {
     /// given to the wrong flag or not built yet; [`EngineError::Selection`] when the plan
     /// reaches an action this build cannot run; with `--failed`, [`EngineError::History`] when
     /// no run is stored and [`EngineError::Selection`] when the last one had nothing to rerun.
-    pub async fn run(&self, request: &RunRequest, interrupts: Interrupts) -> Result<RunReport, EngineError> {
+    pub async fn run(&self, request: &RunRequest, mut interrupts: Interrupts) -> Result<RunReport, EngineError> {
         let (plan, rerun) = self.rerun(request)?;
         let prepared = self.prepare(&plan, Extra { flags: flags(request), rerun })?;
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
@@ -59,18 +59,22 @@ impl Engine {
         let bus = EventBus::spawn();
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
         let started = self.clock.now_ms();
-        let handle = executor.start(Arc::clone(&prepared.plan), bus.clone()).map_err(|e| executor_error(&e))?;
-        let summary = pump(handle, &mut fanout, interrupts).await?;
+        let ran = match executor.start(Arc::clone(&prepared.plan), bus.clone()) {
+            Ok(handle) => pump(handle, &mut fanout, &mut interrupts).await,
+            Err(error) => Err(executor_error(&error)),
+        };
         bus.flush().await;
         while let Ok(next) = fanout.feed.try_recv() {
             fanout.reporters.on(next).await;
         }
+        let swept = sweep.finish(&mut interrupts).await;
+        let summary = ran?;
         let elapsed = Duration::from_millis(self.clock.now_ms().saturating_sub(started));
         let run =
             RunSummary::new(summary.status, summary.totals).timed(started, elapsed).profiles(prepared.names.clone());
         let mut notices = prepared.notices;
         notices.extend(unrecorded);
-        notices.extend(sweep.finish().await);
+        notices.extend(swept);
         notices.extend(fanout.reporters.finish(run).await);
         Ok(RunReport { exit: vc_executor::exit_code(summary), seed, notices })
     }
@@ -193,7 +197,7 @@ struct Fanout {
 async fn pump(
     handle: RunHandle,
     fanout: &mut Fanout,
-    mut interrupts: Interrupts,
+    interrupts: &mut Interrupts,
 ) -> Result<vc_executor::RunSummary, EngineError> {
     let interrupter = handle.interrupter();
     let finish = handle.finish();
@@ -202,7 +206,7 @@ async fn pump(
         tokio::select! {
             biased;
             summary = &mut finish => return summary.map_err(|e| executor_error(&e)),
-            Some(()) = interrupts.inbox.recv() => interrupter.interrupt(),
+            Some(()) = interrupts.next() => interrupter.interrupt(),
             Some(next) = fanout.feed.recv() => fanout.reporters.on(next).await,
         }
     }

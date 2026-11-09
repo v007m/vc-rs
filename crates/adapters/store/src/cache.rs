@@ -79,6 +79,11 @@ impl CacheStore for SqliteCache {
         self.ask(move |shelf| shelf.put(&entry))
     }
 
+    fn remove(&self, key: &CacheKey) -> Result<(), CacheStoreError> {
+        let key = *key;
+        self.ask(move |shelf| shelf.forget(key))
+    }
+
     fn take_expired(&self, now_ms: u64) -> Result<Vec<CacheEntry>, CacheStoreError> {
         self.ask(move |shelf| shelf.take("expires_at <= ?1", now_ms))
     }
@@ -110,23 +115,20 @@ impl Shelf {
         }
     }
 
-    /// Stores `fresh` in place of the row under its key; gives back the entry that row held,
-    /// live or expired, when it still opens, so its cleanups can run.
+    /// Stores `fresh` in place of the row under its key, and the entry that row held, live or
+    /// expired, as a tombstone when it still opens; gives back the tombstone.
     fn put(&mut self, fresh: &CacheEntry) -> rusqlite::Result<Option<CacheEntry>> {
-        let key = fresh.key.bytes();
-        let saved = self.sealed(key, Columns::Saved, &encode_values(&fresh.saved))?;
-        let cleanups = self.sealed(key, Columns::Cleanups, &encode_cleanups(&fresh.cleanups))?;
         let Self { connection, sealer } = self;
         let transaction = connection.transaction()?;
         let read = format!("SELECT {COLUMNS} FROM entries WHERE key = ?1");
-        let replaced = transaction.query_row(&read, [key], |row| entry(sealer, row)).optional()?;
-        let listing = &fresh.listing;
-        let write = format!("INSERT OR REPLACE INTO entries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)");
-        let values =
-            params![key, listing.label, listing.profiles, listing.created_ms, listing.expires_ms, saved, cleanups];
-        transaction.execute(&write, values)?;
+        let replaced = transaction.query_row(&read, [fresh.key.bytes()], |row| entry(sealer, row)).optional()?;
+        write(&transaction, sealer, fresh)?;
+        let buried = replaced.flatten().map(|old| tombstone(sealer, old, fresh.listing.created_ms));
+        if let Some(buried) = &buried {
+            write(&transaction, sealer, buried)?;
+        }
         transaction.commit()?;
-        Ok(replaced.flatten())
+        Ok(buried)
     }
 
     /// Removes the rows `filter` picks and gives back the ones that still open, oldest first.
@@ -154,11 +156,38 @@ impl Shelf {
     fn forget(&self, key: CacheKey) -> rusqlite::Result<()> {
         self.connection.execute("DELETE FROM entries WHERE key = ?1", [key.bytes()]).map(drop)
     }
+}
 
-    fn sealed(&self, key: &[u8; 32], column: Columns, plain: &[u8]) -> rusqlite::Result<Vec<u8>> {
-        let sealed = self.sealer.seal(&column.aad(key), plain);
-        sealed.ok_or_else(|| rusqlite::Error::ToSqlConversionFailure("the cache cipher refused a value".into()))
-    }
+/// Writes `entry` over the row under its key, its values sealed.
+fn write(connection: &Connection, sealer: &Sealer, entry: &CacheEntry) -> rusqlite::Result<()> {
+    let key = entry.key.bytes();
+    let saved = sealed(sealer, &Columns::Saved.aad(key), &encode_values(&entry.saved))?;
+    let cleanups = sealed(sealer, &Columns::Cleanups.aad(key), &encode_cleanups(&entry.cleanups))?;
+    let listing = &entry.listing;
+    let sql = format!("INSERT OR REPLACE INTO entries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)");
+    let values = params![key, listing.label, listing.profiles, listing.created_ms, listing.expires_ms, saved, cleanups];
+    connection.execute(&sql, values).map(drop)
+}
+
+/// `replaced` as a tombstone: expired at `made_ms`, when the entry replacing it was made, under
+/// a key the sealer derives from the entry, so two tombstones share a key only when they would
+/// clean up the same thing.
+fn tombstone(sealer: &Sealer, replaced: CacheEntry, made_ms: u64) -> CacheEntry {
+    let parts = [
+        replaced.key.bytes().as_slice(),
+        &replaced.listing.created_ms.to_le_bytes(),
+        &encode_values(&replaced.saved),
+        &encode_cleanups(&replaced.cleanups),
+    ];
+    let key = CacheKey::new(sealer.tag(&parts));
+    let expires_ms = replaced.listing.expires_ms.min(made_ms);
+    CacheEntry { key, listing: CacheListing { expires_ms, ..replaced.listing }, ..replaced }
+}
+
+fn sealed(sealer: &Sealer, aad: &[u8], plain: &[u8]) -> rusqlite::Result<Vec<u8>> {
+    sealer
+        .seal(aad, plain)
+        .ok_or_else(|| rusqlite::Error::ToSqlConversionFailure("the cache cipher refused a value".into()))
 }
 
 /// The entry in `row`; `None` when its values no longer open or decode.

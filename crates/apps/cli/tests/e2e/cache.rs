@@ -71,6 +71,9 @@ async fn a_replaced_entry_is_cleaned_up_after_every_test_and_a_failed_cleanup_wa
     assert_eq!((stats.count("POST /users"), stats.count("DELETE /users/{id}")), (2, 2), "{stats:?}");
     let stderr = String::from_utf8_lossy(&run.stderr);
     assert!(stderr.contains("warning: cache: the cleanup of users#create failed"), "{stderr}");
+    let listed = keyed(&project, &["cache", "list", "--json"]).output().unwrap();
+    let listed: Value = serde_json::from_slice(&listed.stdout).unwrap();
+    assert_eq!(listed.as_array().map(Vec::len), Some(1), "the replaced entry's tombstone is gone: {listed}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
