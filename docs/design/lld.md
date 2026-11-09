@@ -1317,6 +1317,8 @@ V3204 is new: the skip-reason example that silently lost `see #212` showed that 
 | Docs | Every YAML block in `docs/design/*.md` is checked: whole files (first line `# <path>`, or the first block under a `### `<path>`` heading) are checked per doc as one project with no errors, except unknown names a doc defines in files it does not show (V2002, V2003, V2004, V2101); other blocks must parse; `yaml skip` opts out | `crates/engine/tests/docs_examples.rs` |
 | Public API | `cargo public-api` snapshots for `vc-model`, `vc-interfaces` and `vc-engine`, from the end of M2 (D117): `mise run public-api` regenerates them and `mise run public-api:check` fails on drift | `crates/<crate>/public-api.txt` |
 
+`.config/nextest.toml` caps every test: one running past 60 s is reported as slow, and one past 5 minutes is ended and fails, so a hang (such as a child holding a pipe open on Windows) costs minutes, not the CI job's six hours.
+
 ### Performance budgets
 
 Budgets are enforced in two ways (D120): instruction-count benches (`gungraun`) run on every PR and fail at a regression over 5%; wall-clock benches (`criterion`) run nightly against the targets below and open an issue on a breach.
