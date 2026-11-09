@@ -5,7 +5,6 @@ mod cases;
 mod draft;
 #[cfg(test)]
 mod fixture;
-mod naming;
 mod swagger;
 mod upgrade;
 mod values;

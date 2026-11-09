@@ -7,8 +7,9 @@ use serde_json::{Value, json};
 use vc_interfaces::{DraftApi, DraftGroup, ImportNote, ImportOptions};
 use vc_model::Method;
 
-use super::naming::{camel, from_route};
 use super::values::{body, generated, sample};
+use crate::naming::{camel, from_route};
+use crate::url::split_origin;
 
 /// One spec, read for one draft.
 pub struct Reader<'a> {
@@ -221,13 +222,6 @@ fn expand(url: &str, variables: &oas3::Map<String, oas3::spec::ServerVariable>) 
     variables
         .iter()
         .fold(url.to_owned(), |url, (name, variable)| url.replace(&format!("{{{name}}}"), &variable.default))
-}
-
-/// `scheme://host` and the path after it, for a URL.
-fn split_origin(url: &str) -> Option<(&str, &str)> {
-    let (scheme, rest) = url.split_once("://")?;
-    let end = rest.find('/').map_or(url.len(), |at| scheme.len() + 3 + at);
-    url.split_at_checked(end)
 }
 
 #[cfg(test)]

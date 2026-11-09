@@ -84,7 +84,7 @@ pub fn body(doc: &Value, schema: &Value) -> (Value, IndexMap<String, Value>) {
     let mut vars = IndexMap::new();
     for field in required {
         let Some(field_schema) = properties.get(&field) else { continue };
-        let var = crate::openapi::naming::camel(&field);
+        let var = crate::naming::camel(&field);
         vars.insert(var.clone(), generated(doc, &field, field_schema));
         body.insert(field, json!(format!("${{var.{var}}}")));
     }

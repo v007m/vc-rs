@@ -16,3 +16,6 @@ mod registry;
 
 pub use openapi::OpenApiImporter;
 pub use registry::{ImporterFactory, ImporterRegistry};
+
+mod naming;
+mod url;

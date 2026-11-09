@@ -6,7 +6,7 @@ use serde_json::Value;
 use vc_interfaces::{DraftApi, DraftTest};
 
 use super::draft::{Reader, Route};
-use super::naming::{capitalised, third_person};
+use crate::naming::{capitalised, third_person};
 
 impl Reader<'_> {
     /// The tests for `apis`, made from `routes` in the same order.
