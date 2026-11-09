@@ -2,10 +2,10 @@
 //! written as vars; from a full URL, the origin becomes a base-URL var in the config (D177).
 
 use vc_compiler::camel_id;
-use vc_model::FileKind;
+use vc_model::{FileKind, SourceFile, SourceFileId};
 use vc_parser::{Node, write_text};
 
-use crate::authoring::{Authoring, refused};
+use crate::authoring::{Authoring, Opened, refused};
 use crate::create::{DOCS, NewItem, checked};
 use crate::edit::{FileChange, internal};
 use crate::{Added, Engine, EngineError};
@@ -109,13 +109,23 @@ pub fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, V
 /// The config var that holds `origin`: one already set to it, or `<last word>Url` with the
 /// change that adds it to the config's `vars`.
 pub fn base_var(project: &Authoring, file: &str, origin: &str) -> Result<(String, Option<FileChange>), EngineError> {
+    let (change, name) = base_var_in(&Authoring::open(config(project)?)?, file, origin)?;
+    Ok((name, change))
+}
+
+/// The project's config file.
+pub fn config(project: &Authoring) -> Result<(SourceFileId, &SourceFile), EngineError> {
     let config = project.entries().find(|(_, found)| found.kind() == Some(FileKind::Config));
-    let opened = Authoring::open(config.ok_or_else(|| internal("a project without its config"))?)?;
+    config.ok_or_else(|| internal("a project without its config"))
+}
+
+/// As [`base_var`], in the config `opened`.
+pub fn base_var_in(opened: &Opened<'_>, file: &str, origin: &str) -> Result<(Option<FileChange>, String), EngineError> {
     let (document, root) = (&opened.document, opened.document.root());
     let vars = root.get("vars");
     let entries = vars.map(Node::entries).unwrap_or_default();
     if let Some(same) = entries.iter().find(|entry| entry.value.as_str() == Some(origin)) {
-        return Ok((same.key.clone(), None));
+        return Ok((None, same.key.clone()));
     }
     let name = format!("{}Url", camel_id(file.rsplit('.').next().unwrap_or(file)));
     if entries.iter().any(|entry| entry.key == name) {
@@ -128,7 +138,7 @@ pub fn base_var(project: &Authoring, file: &str, origin: &str) -> Result<(String
     );
     let edit =
         added.map_err(|error| refused(format!("cannot add `{name}` to the config: {error}"), "add it by hand"))?;
-    Ok((name, Some(opened.change(&[edit])?)))
+    Ok((Some(opened.change(&[edit])?), name))
 }
 
 /// The api's YAML: its ID, its method unless GET, its path with vars, and its query.
