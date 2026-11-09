@@ -260,6 +260,8 @@ impl core::fmt::Debug for vc_engine::Engine
 pub fn vc_engine::Engine::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct vc_engine::EngineBuilder
 impl vc_engine::EngineBuilder
+pub fn vc_engine::EngineBuilder::auth(self, alloc::rcs::arc::Arc<dyn vc_interfaces::auth::AuthProvider>) -> Self
+pub fn vc_engine::EngineBuilder::browser(self, alloc::rcs::arc::Arc<dyn vc_interfaces::browser::Browser>) -> Self
 pub fn vc_engine::EngineBuilder::build(self) -> core::result::Result<vc_engine::Engine, vc_engine::EngineError>
 pub fn vc_engine::EngineBuilder::cache(self, alloc::rcs::arc::Arc<dyn vc_interfaces::action_cache::CacheStore>) -> Self
 pub fn vc_engine::EngineBuilder::clock(self, alloc::rcs::arc::Arc<dyn vc_interfaces::clock::Clock>) -> Self

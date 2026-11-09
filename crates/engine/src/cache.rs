@@ -87,11 +87,7 @@ impl Engine {
         let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment))
             .with_secrets(secrets)
             .with_started_at(self.clock.now_ms());
-        let cx = Arc::new(ActionCx::new(
-            Arc::clone(&prepared.program),
-            self.executors(&prepared, self.hook_runner(&prepared.program))?,
-            inputs,
-        ));
+        let cx = Arc::new(self.action_cx(&prepared, inputs)?);
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
         let count = cleared.len();
         Ok((count, Cleaner::new(&cx).clean(cleared).await))
@@ -187,7 +183,7 @@ impl<'c> Cleaner<'c> {
             |name: &str| program.profiles.values().find(|p| program.str(p.id.sym()) == Some(name)).map(|p| p.id);
         let ids = profiles.split(',').filter(|name| !name.is_empty()).filter_map(named).collect();
         let inputs = self.cx.values.inputs().clone().with_profiles(ids);
-        Arc::new(ActionCx::new(Arc::clone(program), Arc::clone(&self.cx.executors), inputs))
+        Arc::new(ActionCx::new(Arc::clone(program), Arc::clone(&self.cx.executors), inputs).with_auth(self.cx.auth()))
     }
 }
 

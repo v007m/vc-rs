@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use vc_interfaces::HistoryReader as _;
 use vc_model::{HttpResponse, RenderedRequest, RunStatus};
-use vc_testkit::{FakeTransport, FakeVcs, MemoryHistory, MemorySources, RecordingTransport, Recordings, status};
+use vc_testkit::{
+    FakeAuth, FakeTransport, FakeVcs, MemoryHistory, MemoryKeychain, MemorySources, RecordingBrowser,
+    RecordingTransport, Recordings, status,
+};
 
 use crate::sample::builder;
 use crate::{CallRequest, Engine, EngineError};
@@ -109,4 +112,97 @@ async fn a_var_without_a_name_is_refused() {
         let Err(EngineError::Setting { origin, .. }) = engine.call(&request).await else { panic!("{var} refused") };
         assert_eq!(origin, "--var");
     }
+}
+
+/// A project whose `users#me` uses the bearer auth `svc`, whose token is `abc`.
+const AUTHED: [(&str, &[u8]); 2] = [
+    (
+        "vibranium.config.yaml",
+        b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\nauth:\n  - id: svc\n    type: bearer\n    token: abc\n",
+    ),
+    ("services/users/users.api.yaml", b"baseUrl: ${var.baseUrl}\napis:\n  - id: me\n    path: /me\n    auth: svc\n"),
+];
+
+/// The `authorization` header `users#me` went out with, from an engine `finish` completes.
+async fn authorized(finish: impl FnOnce(crate::EngineBuilder) -> crate::EngineBuilder) -> Option<String> {
+    let (transport, recordings) = RecordingTransport::new(Arc::new(FakeTransport::new(|_, _| Ok(status(200)))));
+    let engine = finish(builder(FakeVcs::default()))
+        .sources(Arc::new(MemorySources::new(&AUTHED)))
+        .transport(Arc::new(transport))
+        .history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new()))
+        .build()
+        .unwrap();
+    assert_eq!(engine.call(&call("users#me")).await.unwrap().exit, 0);
+    let sent = recordings.take();
+    sent[0].request.headers.get("authorization").and_then(|value| value.to_str().ok()).map(str::to_owned)
+}
+
+#[tokio::test]
+async fn a_call_gets_its_credentials_from_the_standard_auth_types() {
+    assert_eq!(authorized(|engine| engine).await.as_deref(), Some("Bearer abc"));
+}
+
+#[tokio::test]
+async fn the_builder_auth_replaces_the_standard_types() {
+    let fake = FakeAuth::new(&["bearer"]);
+    let given = fake.clone();
+    assert_eq!(authorized(|engine| engine.auth(Arc::new(given))).await.as_deref(), Some("Bearer bearer-1"));
+    assert_eq!(fake.calls(), 1);
+}
+
+/// A project whose `users#me` signs in with `oauth2AuthorizationCode` at `http://id`.
+const SIGNED_IN: [(&str, &[u8]); 2] = [
+    (
+        "vibranium.config.yaml",
+        b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\nauth:\n  - id: web\n    type: oauth2AuthorizationCode\n    authorizeUrl: http://id/authorize\n    tokenUrl: http://id/token\n    clientId: cli\n",
+    ),
+    ("services/users/users.api.yaml", b"baseUrl: ${var.baseUrl}\napis:\n  - id: me\n    path: /me\n    auth: web\n"),
+];
+
+/// Plays the user in the browser: takes the authorize URL the engine opened and follows its
+/// redirect with a code and the URL's `state`.
+async fn sign_in(mut urls: tokio::sync::mpsc::UnboundedReceiver<String>) -> String {
+    let url = urls.recv().await.unwrap();
+    let query = url.split_once('?').unwrap().1.to_owned();
+    let field = |key: &str| query.split('&').find_map(|pair| pair.strip_prefix(&format!("{key}="))).unwrap().to_owned();
+    let (redirect, state) = (field("redirect_uri"), field("state"));
+    let port = redirect.strip_prefix("http%3A%2F%2F127.0.0.1%3A").unwrap().split('%').next().unwrap().to_owned();
+    tokio::task::spawn_blocking(move || {
+        let mut stream = std::net::TcpStream::connect(format!("127.0.0.1:{port}")).unwrap();
+        let target = format!("GET /callback?code=c0de&state={state} HTTP/1.1\r\nhost: localhost\r\n\r\n");
+        std::io::Write::write_all(&mut stream, target.as_bytes()).unwrap();
+        let mut answer = String::new();
+        std::io::Read::read_to_string(&mut stream, &mut answer).unwrap();
+        assert!(answer.starts_with("HTTP/1.1 200 OK"), "{answer}");
+    })
+    .await
+    .unwrap();
+    url
+}
+
+#[tokio::test]
+async fn a_sign_in_opens_the_builder_browser() {
+    let (transport, recordings) = RecordingTransport::new(Arc::new(FakeTransport::new(|request, _| {
+        let mut response = status(200);
+        if request.uri.path() == "/token" {
+            response.body = r#"{"access_token":"t0k3n","token_type":"bearer","expires_in":3600}"#.into();
+        }
+        Ok(response)
+    })));
+    let (browser, urls) = RecordingBrowser::new();
+    let engine = builder(FakeVcs::default())
+        .sources(Arc::new(MemorySources::new(&SIGNED_IN)))
+        .transport(Arc::new(transport))
+        .browser(Arc::new(browser))
+        .keychain(Arc::new(MemoryKeychain::new()))
+        .history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new()))
+        .build()
+        .unwrap();
+    let request = call("users#me");
+    let (report, url) = tokio::join!(engine.call(&request), sign_in(urls));
+    assert_eq!(report.unwrap().exit, 0);
+    assert!(url.starts_with("http://id/authorize?"), "{url}");
+    let sent = recordings.take();
+    let me = sent.iter().find(|record| record.request.uri.path() == "/me").unwrap();
+    assert_eq!(me.request.headers.get("authorization").unwrap(), "Bearer t0k3n");
 }

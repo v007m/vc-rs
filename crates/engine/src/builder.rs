@@ -5,8 +5,8 @@ use std::sync::Arc;
 use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
-    CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, FileWatcher, HistoryReader, HistoryWriter,
-    HookRunner, Keychain, SourceProvider, SourceWriter, Transport, Vcs,
+    AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, FileWatcher,
+    HistoryReader, HistoryWriter, HookRunner, Keychain, SourceProvider, SourceWriter, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -29,6 +29,8 @@ pub struct EngineBuilder {
     keychain: Option<Arc<dyn Keychain>>,
     cache: Option<Arc<dyn CacheStore>>,
     watcher: Option<Arc<dyn FileWatcher>>,
+    auth: Option<Arc<dyn AuthProvider>>,
+    browser: Option<Arc<dyn Browser>>,
 }
 
 /// The history's writer and reader, given together.
@@ -54,6 +56,8 @@ impl EngineBuilder {
             keychain: None,
             cache: None,
             watcher: None,
+            auth: None,
+            browser: None,
         }
     }
 
@@ -172,6 +176,21 @@ impl EngineBuilder {
         self
     }
 
+    /// Obtains credentials through `auth` instead of the standard auth types (D106).
+    #[must_use]
+    pub fn auth(mut self, auth: Arc<dyn AuthProvider>) -> Self {
+        self.auth = Some(auth);
+        self
+    }
+
+    /// Opens the `oauth2AuthorizationCode` sign-in page with `browser` instead of the system
+    /// browser.
+    #[must_use]
+    pub fn browser(mut self, browser: Arc<dyn Browser>) -> Self {
+        self.browser = Some(browser);
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -193,7 +212,7 @@ impl EngineBuilder {
         let (history, history_reader) = self.history.unzip();
         let keychain =
             self.keychain.or_else(|| OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>));
-        let (cache, watcher) = (self.cache, self.watcher);
+        let (cache, watcher, auth, browser) = (self.cache, self.watcher, self.auth, self.browser);
         let watcher = watcher.unwrap_or_else(|| Arc::new(NotifyWatcher::new(&self.root)));
         Ok(Engine {
             root: self.root,
@@ -212,6 +231,8 @@ impl EngineBuilder {
             keychain,
             cache,
             watcher,
+            auth,
+            browser,
         })
     }
 }
@@ -241,6 +262,8 @@ pub struct Engine {
     pub(crate) keychain: Option<Arc<dyn Keychain>>,
     pub(crate) cache: Option<Arc<dyn CacheStore>>,
     pub(crate) watcher: Arc<dyn FileWatcher>,
+    pub(crate) auth: Option<Arc<dyn AuthProvider>>,
+    pub(crate) browser: Option<Arc<dyn Browser>>,
 }
 
 impl Engine {

@@ -1,15 +1,19 @@
 //! The ports a run needs beyond the builder's: the config layers around the project's files, the
-//! environment, the transport, the hook runner, the secrets and the random source. Each is the
-//! injected one when the builder was given it, else the system, HTTP or secrets adapter.
+//! environment, the transport, the auth types, the hook runner, the secrets and the random
+//! source. Each is the injected one when the builder was given it, else the system, HTTP, auth
+//! or secrets adapter.
 
 use std::hash::{BuildHasher as _, Hasher as _, RandomState};
 use std::sync::Arc;
 
+use vc_adapter_auth::AuthTypes;
 use vc_adapter_hooks::QuickJsHooks;
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_adapter_secrets::SecretProviders;
-use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemEnvironment, UserConfig, VibVars};
-use vc_interfaces::{ConfigEntry, Environment, HookRunner, Random, SecretError, SecretQuery, Secrets, Transport};
+use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
+use vc_interfaces::{
+    AuthProvider, ConfigEntry, Environment, HookRunner, Random, SecretError, SecretQuery, Secrets, Transport,
+};
 use vc_model::{Program, SecretsConfig};
 
 use crate::settings::{self, Settings};
@@ -73,6 +77,17 @@ impl Engine {
         let transport =
             HttpTransport::new(&options).map_err(|error| EngineError::Internal { reason: error.to_string() })?;
         Ok(Arc::new(transport))
+    }
+
+    /// The auth types a run obtains credentials through (D106): the builder's, else the
+    /// standard registry, its token endpoints reached through `transport`, a sign-in opened in
+    /// the system browser and refresh tokens kept in the keychain.
+    pub(crate) fn auth(&self, transport: Arc<dyn Transport>) -> Arc<dyn AuthProvider> {
+        if let Some(auth) = &self.auth {
+            return Arc::clone(auth);
+        }
+        let browser = self.browser.clone().unwrap_or_else(|| Arc::new(SystemBrowser::new(Arc::clone(&self.commands))));
+        Arc::new(AuthTypes::standard(transport, browser, self.keychain.clone()))
     }
 
     /// The secrets `.env.schema` declares, from the provider `secrets.provider` names (D163):

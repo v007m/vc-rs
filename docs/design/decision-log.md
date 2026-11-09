@@ -352,6 +352,8 @@ Round 28 additions (9 November 2026):
 | D189 | Params rule and foreign traits (Sarath) | ARCH-PARAMS skips functions in an `impl <Trait> for X` whose trait is declared outside the workspace, because the upstream crate fixes the signature (rquickjs `Resolver::resolve` takes 4). Impls of workspace traits and inherent functions still count | D109 (in part) |
 | D190 | `notify` and CC0 (Sarath) | `deny.toml` allows `CC0-1.0` (a public-domain dedication, used by `notify`). `vc watch` uses `notify` 8.2.1 behind the `FileWatcher` port in `vc-adapter-system`, as D180 says; its other dependencies add no duplicate versions | — |
 | D191 | When an api's `save` runs (Sarath) | An api-level `save` runs only when the response status matches the api's `saveOn:` status matcher (same syntax as `expect.status`: `201`, `2xx`, `[200, 201]`). `saveOn` defaults to the api's own `expect.status`, or `2xx` when it has none. A test that expects another status (such as a 400) therefore skips the api's saves, the same way cleanup is not registered. Test-level and step-level `save` are unaffected | D62 (in part: "applies to every caller") |
+| D192 | Action `timeout` (Sarath) | `timeout` on an action is that action's own limit: a `command`'s process timeout, a `function`'s run budget, a `call`'s per-attempt request timeout (it wins over the api's and `defaults.timeout`), and a reused `test`'s whole-test limit. Without it, each kind keeps its current source | — |
+| D193 | Short-lived tokens | A cached credential counts as stale when its remaining life is under `min(refreshBefore, lifetime / 2)`, so a token that lives no longer than `refreshBefore` is not refetched at once. The request that fetched a credential always uses it | — |
 
 ## Open
 

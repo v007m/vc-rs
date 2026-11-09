@@ -7,7 +7,7 @@ use std::iter;
 use std::sync::Arc;
 
 use serde_json::Value;
-use vc_executor::{ActionCx, ActionReport, ActionRequest, Frame, MaskRules, Saved};
+use vc_executor::{ActionCx, ActionReport, ActionRequest, Frame, Saved};
 use vc_interfaces::{ConfigEntry, RunEnd, RunStart};
 use vc_model::{
     Action, ActionId, ActionKind, ActionOutcome, Api, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals, VarDefs,
@@ -55,10 +55,7 @@ impl Engine {
         let run_id = recording.as_ref().map_or(0, |recording| recording.id().get());
         let inputs = run::inputs(&prepared, ports::random(None).1, run_id);
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
-        let hooks = self.hook_runner(&prepared.program);
-        let rules = MaskRules::standard().with_hooks(hooks.clone(), &prepared.program);
-        let executors = self.executors(&prepared, hooks)?;
-        let cx = Arc::new(ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules));
+        let cx = Arc::new(self.action_cx(&prepared, inputs)?);
         let mut sent = ActionRequest::cleanup(&cx, action, &Arc::new(Saved::new()));
         sent.frame = Frame::default();
         sent.frame.saved = Arc::new(given);
