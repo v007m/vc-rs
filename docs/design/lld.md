@@ -179,7 +179,7 @@ The feasibility spike showed that Rust's borrow checker stays out of the way whe
 | Dependencies | A licence outside the allow-list, a known vulnerability, a duplicate version (`multiple-versions = deny`, with a skip list), a banned crate (`openssl-sys`, `v8`, `deno_core`), an unknown registry or git source, an unused dependency (D135) | `cargo-deny`, `cargo-machete` |
 | Formatting | Unformatted code | `cargo fmt --check` |
 | Tests | Any failing test or doctest (D135) | `cargo nextest run --workspace` plus `cargo test --doc` |
-| Mutation score | Below 85% caught mutants in `executor`, `planner`, `template` and `compiler`: on the diff in PRs, the full run nightly (D119) | `cargo-mutants` |
+| Mutation score | Below 85% caught mutants in `executor`, `planner`, `template` and `compiler`: on the diff in PRs (the commits since the PR's previous run, D205), the full run nightly (D119) | `cargo-mutants` |
 | Performance | An instruction-count bench regresses by more than 5% on a PR (D120) | `gungraun` |
 | Commits | A commit message that is not a conventional commit, or a `refactor:` commit that changes test assertions (D116) | `scripts/commit-check.sh` |
 

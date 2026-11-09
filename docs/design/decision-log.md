@@ -381,6 +381,12 @@ Round 31 additions (9 November 2026, M7 agent policy review):
 | D203 | Request hooks and the agent policy (Sarath) | D202 covers `command:` and `function:` actions only. Request hooks (`function:` entries on an api file or api that run around each request) do not force an ask when an agent's call or run reaches them: they are written by a person, run in the sandboxed QuickJS engine with no file, process or shell access, and an agent cannot write files under `hooks/` | — (clarifies D202) |
 | D204 | Agent calls that fail before the policy gate (Sarath) | An agent call that fails before the policy gate (a bad selection, a compile error) still gets an `agent_actions` row, with outcome `failed: <reason>`, so the log records every call an agent made | — |
 
+Round 32 additions (9 November 2026, CI for batch PRs):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D205 | Mutation testing on batch PRs (Sarath) | On a PR update (`synchronize`), CI's mutation step measures only the commits pushed since the PR's previous head (`github.event.before`); a PR's first run, or a rewritten history, measures against the base branch. A batch PR's whole diff (2,748 mutants on PR #11) does not fit in GitHub's 6-hour job limit. Commits in a push whose run was cancelled by a newer push are covered by the author's local `GATES_MUTANTS=1` run, which every lane does before landing | D119 (PR mutants on the whole diff against the base) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
