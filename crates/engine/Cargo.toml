@@ -21,6 +21,7 @@ vc-adapter-hooks.workspace = true
 vc-adapter-http.workspace = true
 vc-adapter-importers.workspace = true
 vc-adapter-notifiers.workspace = true
+vc-adapter-plugins.workspace = true
 vc-adapter-reporters.workspace = true
 vc-adapter-secrets.workspace = true
 vc-adapter-store.workspace = true

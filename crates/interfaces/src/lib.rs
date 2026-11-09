@@ -39,6 +39,8 @@
 //!   or `PagerDuty` channel at the end of a run; a failure is a V5117 warning.
 //! - [`PluginHost`]: one running plugin, called over JSON-RPC within a deadline, given only the
 //!   secrets its [`PluginManifest`] declares.
+//! - [`PluginStore`]: fetches a plugin for `vc plugin add`, installs it under
+//!   `.vibranium/plugins/`, and reads `vibranium.lock` and the installed manifests.
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -68,6 +70,7 @@ mod import;
 mod keychain;
 mod notifier;
 mod plugin;
+mod plugin_store;
 mod random;
 mod reporter;
 mod secrets;
@@ -105,6 +108,7 @@ pub use plugin::{
     CALL_DEADLINE, DEADLINE_PASSED, INITIALIZE_DEADLINE, PERMISSION_DENIED, PluginError, PluginHost, PluginKind,
     PluginManifest, PluginPermissions,
 };
+pub use plugin_store::{Fetched, LOCK_FILE, MANIFEST_FILE, PLUGINS_DIR, PluginStore, PluginStoreError};
 pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};

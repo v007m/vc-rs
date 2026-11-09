@@ -1284,7 +1284,43 @@ alerts:
           routingKey: ${secret.PD_ROUTING_KEY}
 ```
 
-`vc plugin add` shows the permissions a plugin asks for (network hosts, secrets, files); the approved list is recorded in `vibranium.lock`. Alert channels: `webhook`, `slack`, `teams`, `pagerduty`, `email`.
+`vc plugin add` shows the permissions a plugin asks for (network hosts, secrets, files); the approved list is recorded in `vibranium.lock`. A source is `npm:<package>[@<range>]` or `path:<folder>` (relative to the project root); the plugin is installed to `.vibranium/plugins/<id>/`.
+
+Every plugin has a `vibranium-plugin.yaml` at the top of its folder. `id` is a camelCase word, `kind` is one of `reporter`, `auth`, `importer`, `executor`, and `entry` is the program the host starts, never through a shell:
+
+```yaml
+id: htmlReport
+version: 1.2.0
+kind: reporter
+entry:
+  command: node
+  args: [dist/index.js]
+permissions:
+  network: [reports.acme.io]
+  secrets: [reportToken]
+  files: [reports/]
+```
+
+`vibranium.lock` is written by `vc plugin add` and `vc plugin remove` and committed with the project. A run refuses a plugin whose installed manifest asks for more than its entry grants:
+
+```yaml
+# The plugins `vc plugin add` approved, with what each may reach. Written by vc; commit it and
+# review changes to it like code. A run refuses a plugin that asks for more than this grants.
+lockVersion: 1
+plugins:
+  - id: htmlReport
+    source: npm:@acme/vibranium-html@^1
+    resolved: "@acme/vibranium-html@1.2.0"
+    integrity: sha512-…
+    permissions:
+      network: [reports.acme.io]
+      secrets: [reportToken]
+      files: [reports/]
+```
+
+`integrity` is npm's hash for an `npm:` source and a `blake3-…` hash over the folder's files for a `path:` one.
+
+Alert channels: `webhook`, `slack`, `teams`, `pagerduty`, `email`.
 
 ## v1 to v2
 

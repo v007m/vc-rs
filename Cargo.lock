@@ -4244,6 +4244,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "vc-adapter-plugins"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "serde_json",
+ "tempfile",
+ "vc-interfaces",
+ "vc-testkit",
+]
+
+[[package]]
 name = "vc-adapter-reporters"
 version = "0.1.0"
 dependencies = [
@@ -4403,6 +4414,7 @@ name = "vc-engine"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "axum",
  "criterion",
  "gungraun",
  "http",
@@ -4417,6 +4429,8 @@ dependencies = [
  "vc-adapter-hooks",
  "vc-adapter-http",
  "vc-adapter-importers",
+ "vc-adapter-notifiers",
+ "vc-adapter-plugins",
  "vc-adapter-reporters",
  "vc-adapter-secrets",
  "vc-adapter-store",

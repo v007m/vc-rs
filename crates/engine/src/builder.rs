@@ -2,12 +2,13 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use vc_adapter_plugins::FsPluginStore;
 use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
     AgentActionWriter, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore,
-    Environment, FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, SourceProvider,
-    SourceWriter, Transport, Vcs,
+    Environment, FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStore,
+    SourceProvider, SourceWriter, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -34,6 +35,7 @@ pub struct EngineBuilder {
     auth: Option<Arc<dyn AuthProvider>>,
     browser: Option<Arc<dyn Browser>>,
     notifiers: Option<Arc<dyn NotifierFactory>>,
+    plugins: Option<Arc<dyn PluginStore>>,
 }
 
 /// The history's writer and reader, given together.
@@ -66,6 +68,7 @@ impl EngineBuilder {
             auth: None,
             browser: None,
             notifiers: None,
+            plugins: None,
         }
     }
 
@@ -214,6 +217,13 @@ impl EngineBuilder {
         self
     }
 
+    /// Keeps plugins in `store` instead of `.vibranium/plugins/` and `vibranium.lock`.
+    #[must_use]
+    pub fn plugins(mut self, store: Arc<dyn PluginStore>) -> Self {
+        self.plugins = Some(store);
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -236,6 +246,7 @@ impl EngineBuilder {
         let (cache, watcher, auth, browser) = (self.cache, self.watcher, self.auth, self.browser);
         let watcher = watcher.unwrap_or_else(|| Arc::new(NotifyWatcher::new(&self.root)));
         Ok(Engine {
+            plugins: self.plugins.unwrap_or_else(|| Arc::new(FsPluginStore::new(&self.root))),
             root: self.root,
             sources,
             writer,
@@ -289,6 +300,7 @@ pub struct Engine {
     pub(crate) auth: Option<Arc<dyn AuthProvider>>,
     pub(crate) browser: Option<Arc<dyn Browser>>,
     pub(crate) notifiers: Option<Arc<dyn NotifierFactory>>,
+    pub(crate) plugins: Arc<dyn PluginStore>,
 }
 
 impl Engine {

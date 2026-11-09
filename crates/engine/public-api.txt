@@ -10,6 +10,9 @@ pub use vc_engine::Event
 pub use vc_engine::FileKind
 pub use vc_engine::JsonRenderer
 pub use vc_engine::Method
+pub use vc_engine::PluginKind
+pub use vc_engine::PluginManifest
+pub use vc_engine::PluginPermissions
 pub use vc_engine::Render
 pub use vc_engine::SourceFiles
 pub use vc_engine::SourcePath
@@ -144,6 +147,20 @@ pub fn vc_engine::Permission::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::Permission
 pub fn vc_engine::Permission::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::Permission
+#[non_exhaustive] pub enum vc_engine::PluginState
+pub vc_engine::PluginState::AsksForMore(alloc::vec::Vec<alloc::string::String>)
+pub vc_engine::PluginState::NotApproved
+pub vc_engine::PluginState::NotInConfig
+pub vc_engine::PluginState::NotInstalled
+pub vc_engine::PluginState::Ready
+impl core::clone::Clone for vc_engine::PluginState
+pub fn vc_engine::PluginState::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::PluginState
+impl core::cmp::PartialEq for vc_engine::PluginState
+pub fn vc_engine::PluginState::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::PluginState
+pub fn vc_engine::PluginState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::PluginState
 pub enum vc_engine::SyncMode
 pub vc_engine::SyncMode::Check
 pub vc_engine::SyncMode::DryRun
@@ -369,6 +386,12 @@ pub fn vc_engine::Engine::new_test(&self, &vc_engine::NewTest) -> core::result::
 impl vc_engine::Engine
 pub fn vc_engine::Engine::plan(&self, &vc_engine::PlanRequest) -> core::result::Result<vc_engine::PlanReport, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::plugin_approve(&self, &vc_engine::PluginOffer) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
+pub fn vc_engine::Engine::plugin_decline(&self, &vc_engine::PluginOffer)
+pub fn vc_engine::Engine::plugin_fetch(&self, &str) -> core::result::Result<vc_engine::PluginOffer, vc_engine::EngineError>
+pub fn vc_engine::Engine::plugin_list(&self) -> core::result::Result<alloc::vec::Vec<vc_engine::PluginListing>, vc_engine::EngineError>
+pub fn vc_engine::Engine::plugin_remove(&self, &str) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::policy_check(&self, &vc_engine::AgentCall) -> core::result::Result<vc_engine::Permission, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::prune_history(&self, core::option::Option<u32>) -> core::result::Result<usize, vc_engine::EngineError>
@@ -413,6 +436,7 @@ pub fn vc_engine::EngineBuilder::hooks(self, alloc::rcs::arc::Arc<dyn vc_interfa
 pub fn vc_engine::EngineBuilder::keychain(self, alloc::rcs::arc::Arc<dyn vc_interfaces::keychain::Keychain>) -> Self
 pub const fn vc_engine::EngineBuilder::new(std::path::PathBuf) -> Self
 pub fn vc_engine::EngineBuilder::notifiers(self, alloc::rcs::arc::Arc<dyn vc_interfaces::notifier::NotifierFactory>) -> Self
+pub fn vc_engine::EngineBuilder::plugins(self, alloc::rcs::arc::Arc<dyn vc_interfaces::plugin_store::PluginStore>) -> Self
 pub fn vc_engine::EngineBuilder::sources(self, alloc::rcs::arc::Arc<dyn vc_interfaces::source::SourceProvider>) -> Self
 pub fn vc_engine::EngineBuilder::transport(self, alloc::rcs::arc::Arc<dyn vc_interfaces::transport::Transport>) -> Self
 pub fn vc_engine::EngineBuilder::user_config(self, std::path::PathBuf) -> Self
@@ -723,6 +747,33 @@ pub fn vc_engine::PlanRequest::default() -> Self
 impl core::fmt::Debug for vc_engine::PlanRequest
 pub fn vc_engine::PlanRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::PlanRequest
+#[non_exhaustive] pub struct vc_engine::PluginListing
+pub vc_engine::PluginListing::granted: vc_interfaces::plugin::PluginPermissions
+pub vc_engine::PluginListing::id: alloc::string::String
+pub vc_engine::PluginListing::manifest: core::option::Option<vc_interfaces::plugin::PluginManifest>
+pub vc_engine::PluginListing::source: alloc::string::String
+pub vc_engine::PluginListing::state: vc_engine::PluginState
+impl core::clone::Clone for vc_engine::PluginListing
+pub fn vc_engine::PluginListing::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::PluginListing
+impl core::cmp::PartialEq for vc_engine::PluginListing
+pub fn vc_engine::PluginListing::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::PluginListing
+pub fn vc_engine::PluginListing::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::PluginListing
+#[non_exhaustive] pub struct vc_engine::PluginOffer
+pub vc_engine::PluginOffer::integrity: alloc::string::String
+pub vc_engine::PluginOffer::manifest: vc_interfaces::plugin::PluginManifest
+pub vc_engine::PluginOffer::resolved: alloc::string::String
+pub vc_engine::PluginOffer::source: alloc::string::String
+impl core::clone::Clone for vc_engine::PluginOffer
+pub fn vc_engine::PluginOffer::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::PluginOffer
+impl core::cmp::PartialEq for vc_engine::PluginOffer
+pub fn vc_engine::PluginOffer::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::PluginOffer
+pub fn vc_engine::PluginOffer::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::PluginOffer
 #[non_exhaustive] pub struct vc_engine::ReportFiles
 pub vc_engine::ReportFiles::files: alloc::vec::Vec<std::path::PathBuf>
 pub vc_engine::ReportFiles::notices: alloc::vec::Vec<alloc::string::String>
