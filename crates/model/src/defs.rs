@@ -57,7 +57,8 @@ pub struct Skip {
     pub until: Option<String>,
 }
 
-/// `retry` on a test: re-run the whole instance.
+/// `retry` on a test (re-run the whole instance), in `defaults` (every test that writes none) or on
+/// an action (re-run the action).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,

@@ -980,6 +980,7 @@ pub struct vc_model::Defaults
 pub vc_model::Defaults::concurrency: core::option::Option<u32>
 pub vc_model::Defaults::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
 pub vc_model::Defaults::per_host: core::option::Option<u32>
+pub vc_model::Defaults::retry: core::option::Option<vc_model::Retry>
 pub vc_model::Defaults::timeout: core::option::Option<vc_model::Duration>
 impl core::clone::Clone for vc_model::Defaults
 pub fn vc_model::Defaults::clone(&self) -> Self

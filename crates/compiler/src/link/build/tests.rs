@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use vc_model::{
     Action, ActionKind, AuthRef, Bodies, BodySpec, CheckKind, ContentHash, Duration, Examples, Keep, Loop, Matcher,
-    Method, Origin, Owner, Program, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test, TestBody,
+    Method, Origin, Owner, Program, Retry, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test, TestBody,
 };
 
 use crate::CompileInput;
@@ -167,7 +167,7 @@ fn step_checks_merge_api_then_test_then_step() {
     assert_eq!(twice.expect.checks.len(), 2);
 }
 
-const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndefaults: {timeout: 5s, concurrency: 4, perHost: 2, headers: {x-d: '1'}}\nafterRun:\n  - function: hooks/a.ts#report\n";
+const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndefaults: {timeout: 5s, concurrency: 4, perHost: 2, retry: {attempts: 3, delay: 1s}, headers: {x-d: '1'}}\nafterRun:\n  - function: hooks/a.ts#report\n";
 
 const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: ../../hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
 
@@ -195,6 +195,7 @@ fn builds_the_config_defaults_and_after_run() {
     let defaults = &program.config.defaults;
     assert_eq!((defaults.timeout, defaults.concurrency, defaults.per_host), (Some(seconds(5)), Some(4), Some(2)));
     assert_eq!(defaults.headers.len(), 1);
+    assert_eq!(defaults.retry, Some(Retry { attempts: 3, delay: seconds(1) }));
     assert_eq!(program.run_blocks.after_run.len(), 1);
 }
 

@@ -20,14 +20,16 @@ pub fn scripts(program: &Program, plan: &Plan) -> Result<Scripts, ExecutorError>
     Ok(scripts)
 }
 
-/// `beforeEach` and `before`, then the call or steps, then `after` and `afterEach`.
+/// `beforeEach` and `before`, then the call or steps, then `after` and `afterEach`; the test's
+/// `retry`, else `defaults.retry` (D126).
 fn script(program: &Program, id: TestId) -> Result<InstanceScript, ExecutorError> {
     let test = program.tests.get(&id).ok_or(ExecutorError::UnknownTest(id))?;
     let lifecycle = program.test_files.get(&test.file).map(|file| &file.lifecycle);
     let each = |pick: fn(&Lifecycle) -> &Vec<ActionId>| lifecycle.map(pick).cloned().unwrap_or_default();
     let before = each(|blocks| &blocks.before_each).into_iter().chain(test.before.iter().copied()).collect();
     let after = test.after.iter().copied().chain(each(|blocks| &blocks.after_each)).collect();
-    Ok(InstanceScript { before, body: crate::body_actions(&test.body), after, retry: test.retry })
+    let retry = test.retry.or(program.config.defaults.retry);
+    Ok(InstanceScript { before, body: crate::body_actions(&test.body), after, retry })
 }
 
 /// Every action the run starts directly: the shared lifecycle and each script.
