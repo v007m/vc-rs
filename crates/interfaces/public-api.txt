@@ -854,6 +854,7 @@ pub vc_interfaces::ImportDraft::groups: alloc::vec::Vec<vc_interfaces::DraftGrou
 pub vc_interfaces::ImportDraft::notes: alloc::vec::Vec<vc_interfaces::ImportNote>
 pub vc_interfaces::ImportDraft::secrets: alloc::vec::Vec<vc_interfaces::SecretFinding>
 pub vc_interfaces::ImportDraft::snapshot: core::option::Option<serde_json::value::Value>
+pub vc_interfaces::ImportDraft::summary: core::option::Option<alloc::string::String>
 impl core::clone::Clone for vc_interfaces::ImportDraft
 pub fn vc_interfaces::ImportDraft::clone(&self) -> Self
 impl core::cmp::Eq for vc_interfaces::ImportDraft

@@ -94,6 +94,8 @@ pub struct ImportDraft {
     pub secrets: Vec<SecretFinding>,
     /// Things the user should know: skipped entries, guesses.
     pub notes: Vec<ImportNote>,
+    /// HAR: what was read and filtered, one line (`read 46 entries · filtered 21 static, …`).
+    pub summary: Option<String>,
     /// `OpenAPI`: the bundled 3.1 document, saved as the sync snapshot `openapi/<fileId>.yaml`.
     pub snapshot: Option<Value>,
 }

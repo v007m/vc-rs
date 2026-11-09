@@ -10,12 +10,12 @@ mod ids;
 mod secret;
 
 use async_trait::async_trait;
-use vc_interfaces::{ImportDraft, ImportError, ImportNote, ImportOptions, ImportSource, Importer};
+use vc_interfaces::{ImportDraft, ImportError, ImportOptions, ImportSource, Importer};
 
 /// Reads a HAR file into draft api files, one per origin it calls.
 ///
-/// Static assets, `OPTIONS` preflights and third-party sites are filtered out, and a note at
-/// `the recording` counts them. A credential header or cookie is never written; a secret in a
+/// Static assets, `OPTIONS` preflights and third-party sites are filtered out, and the draft's
+/// summary counts them. A credential header or cookie is never written; a secret in a
 /// query, body or path becomes a `${secret.NAME}` reference listed in the draft's secrets. With
 /// `flow`, the draft's flow calls them in recorded order, chaining values from the responses.
 #[derive(Debug, Default)]
@@ -36,7 +36,7 @@ impl Importer for HarImporter {
             let steps = steps.filter_map(|(recorded, entry)| Some((recorded?, &entry.response)));
             draft.flow = Some(flow::flow(id, &first.file_id, steps));
         }
-        draft.notes.insert(0, ImportNote { at: "the recording".to_owned(), message: kept.summary });
+        draft.summary = Some(kept.summary);
         Ok(draft)
     }
 }

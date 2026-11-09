@@ -133,8 +133,7 @@ async fn what_is_filtered_merged_or_left_out_is_noted() {
         ["authorization", "cookie"]
             .map(|name| format!("{at}: header {name}: never written; it maps to the file's auth"))
     };
-    let mut expected =
-        vec!["the recording: read 12 entries · filtered 3 static, 1 third-party, 1 OPTIONS → 7 requests".to_owned()];
+    let mut expected = Vec::new();
     for at in ["POST /v1/carts", "POST /v1/carts/${var.cartId}/items", "GET /v1/carts/${var.cartId}", "GET /v1/orders"]
     {
         expected.extend(headers(at));
@@ -145,7 +144,7 @@ async fn what_is_filtered_merged_or_left_out_is_noted() {
 
 async fn summary(opts: ImportOptions) -> Option<String> {
     let draft = HarImporter.read(&source(SAMPLE), &opts).await.ok()?;
-    draft.notes.first().map(|note| note.message.clone())
+    draft.summary
 }
 
 #[tokio::test]
