@@ -282,6 +282,41 @@ async fn after_actions_get_their_own_limit_once_the_test_ran_past_its_timeout() 
     assert!(passed(after) && passed(each), "the attempt's deadline has passed, yet both run: {:?}", outcome.events);
 }
 
+/// A reuse of `[create, /slow]`, where `create` registers `delete`; and `delete`.
+fn creating_then_slow(fixture: &mut Fixture) -> (ActionId, ActionId) {
+    let delete = fixture.call("/users/delete");
+    let steps = vec![fixture.creating("/users", delete), fixture.call("/slow")];
+    let flow = fixture.test(steps, None);
+    (fixture.action(ActionKind::Test(flow)), delete)
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_test_past_its_timeout_in_a_reuse_cleans_up_the_steps_that_finished() {
+    let mut fixture = Fixture::new();
+    let (reuse, delete) = creating_then_slow(&mut fixture);
+    let test = fixture.test(vec![reuse], None);
+    fixture.test_mut(test).timeout = Some(vc_model::Duration::new(2 * SECOND));
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
+    assert_eq!(outcome.summary.totals, totals([0, 1, 0, 0, 0]));
+    assert_eq!((outcome.cleaned(), outcome.sent("/users/delete")), (vec![delete], 1));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_reuse_past_its_own_timeout_keeps_the_cleanups_of_the_reuse_it_dropped() {
+    let mut fixture = Fixture::new();
+    let (inner, delete) = creating_then_slow(&mut fixture);
+    let flow = fixture.test(vec![inner], None);
+    let outer = fixture.action(ActionKind::Test(flow));
+    fixture.action_mut(outer).timeout = Some(vc_model::Duration::new(2 * SECOND));
+    let test = fixture.test(vec![outer], None);
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
+    let code = outcome.results()[0].failure.as_ref().and_then(|failure| failure.code.clone());
+    assert_eq!((outcome.summary.totals, code), (totals([0, 1, 0, 0, 0]), Some(Code::V5104.to_string())));
+    assert_eq!((outcome.cleaned(), outcome.sent("/users/delete")), (vec![delete], 1));
+}
+
 #[tokio::test(start_paused = true)]
 async fn each_check_is_reported_before_its_action_finishes() {
     let mut fixture = Fixture::new();

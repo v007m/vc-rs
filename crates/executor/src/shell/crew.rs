@@ -9,7 +9,10 @@ use vc_model::{ActionId, ActionOutcome, CleanupRecord, Event, Failure, OwnerKey}
 
 use super::script::Scripts;
 use crate::cancel::{CancelTree, Ran};
-use crate::{ActionCx, ActionReport, ActionRequest, CANCELLED, Frame, RedactingSink, RunInput, Saved, SharedSlots};
+use crate::{
+    ActionCx, ActionReport, ActionRequest, CANCELLED, CleanupCollector, Frame, RedactingSink, RunInput, Saved,
+    SharedSlots,
+};
 
 /// What every worker of a run shares.
 #[derive(Clone)]
@@ -110,15 +113,22 @@ impl Crew {
         }
     }
 
-    /// Runs `job`'s action; past the job's deadline it is dropped and fails with V5104.
+    /// Runs `job`'s action; past the job's deadline it is dropped and fails with V5104, keeping
+    /// the cleanups its finished parts handed over.
     async fn execute(&self, job: Job) -> ActionReport {
         let (action, deadline) = (job.action, job.deadline);
+        let mut kept = CleanupCollector::under(job.frame.sink.clone());
+        let job = Job { frame: kept.frame(&job.frame), ..job };
         let work = self.cx.executors.execute(job.request(&self.cx));
-        let Some(deadline) = deadline else { return work.await };
-        time::timeout_at(deadline.at, work).await.unwrap_or_else(|_| {
-            let failure = Failure::new(deadline.past).with_code(Code::V5104.to_string());
-            ActionReport::failed(failure.at(action))
-        })
+        let mut report = match deadline {
+            None => work.await,
+            Some(deadline) => time::timeout_at(deadline.at, work).await.unwrap_or_else(|_| {
+                let failure = Failure::new(deadline.past).with_code(Code::V5104.to_string());
+                ActionReport::failed(failure.at(action))
+            }),
+        };
+        report.cleanups = kept.take(report.cleanups);
+        report
     }
 
     /// Runs a cleanup: cancellation does not stop it, an abort does.

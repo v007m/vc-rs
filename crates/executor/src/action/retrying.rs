@@ -5,19 +5,28 @@
 use vc_model::{ActionOutcome, Retry};
 
 use super::{ActionExecutors, ActionRequest};
-use crate::{ActionReport, PendingCleanup};
+use crate::{ActionReport, CleanupCollector, PendingCleanup};
 
 /// Runs `request` with `executors`, again after each failure while `retry` allows.
 pub async fn attempt(executors: &ActionExecutors, request: ActionRequest, retry: Retry) -> ActionReport {
-    let mut report = executors.once(request.clone()).await;
+    let mut report = one_attempt(executors, &request).await;
     for _ in 0..retry.attempts {
         if !matches!(report.outcome, ActionOutcome::Failed(_)) {
             break;
         }
         undo(executors, &request, &report.cleanups).await;
         tokio::time::sleep(retry.delay.get()).await;
-        report = executors.once(request.clone()).await;
+        report = one_attempt(executors, &request).await;
     }
+    report
+}
+
+/// One attempt, with every cleanup it registered in its report, those its parts handed over
+/// included, so a failed attempt undoes them all; dropped, it hands them to the frame's sink.
+async fn one_attempt(executors: &ActionExecutors, request: &ActionRequest) -> ActionReport {
+    let mut kept = CleanupCollector::under(request.frame.sink.clone());
+    let mut report = executors.once(ActionRequest { frame: kept.frame(&request.frame), ..request.clone() }).await;
+    report.cleanups = kept.take(report.cleanups);
     report
 }
 

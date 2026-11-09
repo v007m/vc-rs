@@ -10,10 +10,11 @@ use vc_diagnostics::Code;
 use vc_model::{ActionOutcome, Failure, Loop};
 
 use super::{ActionExecutor, ActionRequest, request};
-use crate::{ActionReport, Frame, Iteration, Render, Saved};
+use crate::{ActionReport, CleanupSink, Frame, Iteration, Render, Saved};
 
 /// Runs `request`'s action once per turn of `spec` with `executor`. Once a turn fails no more
-/// start; the action fails when the turns in flight finish, keeping their cleanups.
+/// start; the action fails when the turns in flight finish, keeping their cleanups: in turn
+/// order, or, under the frame's sink, handed over as each turn finishes.
 pub async fn iterate(executor: Arc<dyn ActionExecutor>, request: ActionRequest, spec: &Loop) -> ActionReport {
     let turns = match turns(&request, spec) {
         Ok(turns) => turns,
@@ -81,9 +82,16 @@ impl Running {
         !self.failed
     }
 
+    /// Starts a turn. Under a sink the turn hands its cleanups over the moment it finishes, so
+    /// they outlive the loop being dropped; without one they wait in its slot.
     fn start(&mut self, slot: usize, turn: ActionRequest) {
         let executor = Arc::clone(&self.executor);
-        let task = self.tasks.spawn(async move { executor.execute(turn).await });
+        let sink = turn.frame.sink.clone();
+        let task = self.tasks.spawn(async move {
+            let mut report = executor.execute(turn).await;
+            report.cleanups = CleanupSink::keep(sink.as_ref(), report.cleanups);
+            report
+        });
         self.slot_of.insert(task.id(), slot);
     }
 

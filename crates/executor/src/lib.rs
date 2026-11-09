@@ -31,11 +31,12 @@ mod shell;
 mod slots;
 mod values;
 
-use action::own_limit;
 pub use action::{
     ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, AuthKey, CachedExecutor, CallExecutor,
-    CommandExecutor, FunctionExecutor, InlineExecutor, Lease, NoAuth, TestExecutor, TokenCache, body_actions,
+    CleanupSink, CommandExecutor, FunctionExecutor, InlineExecutor, Lease, NoAuth, TestExecutor, TokenCache,
+    body_actions,
 };
+use action::{CleanupCollector, own_limit};
 pub use bus::EventBus;
 pub use error::ExecutorError;
 

@@ -7,7 +7,7 @@ use serde_json::Value;
 use vc_model::{Action, ActionId, ActionKind, FileId, Instance, Program, Sym};
 
 use super::run::Defined;
-use crate::{ActionReport, Saved, SharedSlots};
+use crate::{ActionReport, CleanupSink, Saved, SharedSlots};
 
 /// What an action can read from its frame.
 ///
@@ -42,6 +42,9 @@ pub struct Frame {
     pub test_file: Option<FileId>,
     /// Inside a `repeat` or `forEach` loop, the turn the action runs as.
     pub iteration: Option<Arc<Iteration>>,
+    /// Where nested actions hand their cleanups as each finishes, so an action dropped past a
+    /// `timeout` keeps those its finished parts registered.
+    pub sink: Option<CleanupSink>,
 }
 
 /// One turn of a `repeat` or `forEach` loop.

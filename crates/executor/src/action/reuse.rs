@@ -6,14 +6,15 @@ use vc_diagnostics::Code;
 use vc_model::{Action, ActionId, ActionKind, ActionOutcome, Failure, Program, Test, TestBody};
 
 use super::{ActionExecutor, ActionRequest, provides};
-use crate::{ActionReport, Defined};
+use crate::{ActionReport, CleanupCollector, Defined};
 
 /// Runs `test:` reuse: the reused test's call or steps, in order, in the current frame.
 ///
 /// It stops at the first failure. The reused test's own `before`, `after` and test-level checks
 /// are not run. The reusing action's own `timeout` limits the whole reuse (D192): the step
-/// running when it passes is dropped and fails with V5104, and the steps before it keep their
-/// cleanups.
+/// running when it passes is dropped and fails with V5104. Each step's cleanups are handed to
+/// the reuse's [`CleanupCollector`] as it finishes, as are those of a dropped step's finished
+/// parts, so none is lost, and neither are the reuse's own when a caller's deadline drops it.
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
 pub struct TestExecutor;
@@ -28,7 +29,8 @@ impl ActionExecutor for TestExecutor {
         let steps = body_actions(&test.body);
         let declared = request.cx.action(request.action);
         let deadline = declared.and_then(|action| action.timeout).map(|limit| Instant::now() + limit.get());
-        let mut frame = request.frame.clone();
+        let mut kept = CleanupCollector::under(request.frame.sink.clone());
+        let mut frame = kept.frame(&request.frame);
         frame.callers.extend(callers(&request));
         frame.test_file = Some(test.file);
         let mut report = ActionReport::passed();
@@ -36,7 +38,7 @@ impl ActionExecutor for TestExecutor {
             let step = ActionRequest { action, frame: frame.clone(), ..request.clone() };
             let step = within(deadline, request.cx.executors.execute(step), request.action).await;
             frame.absorb(&request.cx.program, action, &step);
-            report.cleanups.extend(step.cleanups);
+            kept.hand(step.cleanups);
             report.saved.extend(step.saved);
             report.fakes.extend(step.fakes);
             report.checks.extend(step.checks);
@@ -45,9 +47,11 @@ impl ActionExecutor for TestExecutor {
             report.response = step.response.or(report.response);
             if let ActionOutcome::Failed(failure) = step.outcome {
                 report.outcome = ActionOutcome::Failed(failure);
+                report.cleanups = kept.take(Vec::new());
                 return report;
             }
         }
+        report.cleanups = kept.take(Vec::new());
         let unsaved = declared.and_then(|action| provides::unsaved(program, action, &report.saved));
         report.outcome = unsaved.map_or(report.outcome, |failure| ActionOutcome::Failed(failure.at(request.action)));
         report

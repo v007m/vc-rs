@@ -6,7 +6,7 @@ use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanu
 use vc_model::{Action, ActionId, ActionKind, ActionOutcome, CacheSpec, Program};
 
 use super::{ActionExecutor, ActionRequest};
-use crate::{ActionReport, PendingCleanup, Render, Saved};
+use crate::{ActionReport, CleanupCollector, PendingCleanup, Render, Saved};
 
 /// Runs `call:` and `test:` actions with `cache:` through the cross-run cache.
 ///
@@ -59,9 +59,12 @@ impl CachedExecutor {
 
     /// Runs the action and, when it passes, stores its saves and cleanups; stored cleanups
     /// leave the report, so they wait for the entry to expire instead of the frame to close.
+    /// Its parts hand their cleanups to a collector of its own, so every one can be stored.
     async fn miss(&self, request: ActionRequest, cacheable: Cacheable) -> ActionReport {
         let program = Arc::clone(&request.cx.program);
-        let mut report = self.inner.execute(request).await;
+        let mut kept = CleanupCollector::under(request.frame.sink.clone());
+        let mut report = self.inner.execute(ActionRequest { frame: kept.frame(&request.frame), ..request }).await;
+        report.cleanups = kept.take(report.cleanups);
         if !matches!(report.outcome, ActionOutcome::Passed) {
             return report;
         }

@@ -15,6 +15,7 @@ mod provides;
 mod request;
 mod retrying;
 mod reuse;
+mod sink;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -34,6 +35,7 @@ pub use command::CommandExecutor;
 pub use function::FunctionExecutor;
 pub use inline::InlineExecutor;
 pub use reuse::{TestExecutor, body_actions};
+pub use sink::{CleanupCollector, CleanupSink};
 
 pub use request::encode;
 
