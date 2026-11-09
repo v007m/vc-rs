@@ -30,6 +30,7 @@ mod save_call;
 mod schema;
 mod select;
 mod skip;
+mod watch;
 
 use outcome::Outcome;
 
@@ -55,6 +56,8 @@ enum Command {
     Plan(plan::PlanCommandArgs),
     /// Runs the selected tests.
     Run(run::RunArgs),
+    /// Runs the selected tests, then again whenever a file they read is saved.
+    Watch(run::RunArgs),
     /// Lists the tests, apis or definition files.
     List(list::ListArgs),
     /// Lists the stored runs, shows one, or drops the oldest.
@@ -111,6 +114,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Check(args) => check::run(&args, project),
         Command::Plan(args) => plan::run(&args, project),
         Command::Run(args) => run::run(&args, project),
+        Command::Watch(args) => watch::run(&args, project),
         Command::List(args) => list::run(&args, project),
         Command::History(args) => history::run(&args, project),
         Command::Report(args) => report::run(&args, project),

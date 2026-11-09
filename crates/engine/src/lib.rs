@@ -57,6 +57,7 @@ mod shown;
 mod skip;
 mod stored;
 mod user;
+mod watch;
 
 pub use builder::{Engine, EngineBuilder};
 pub use cache::CacheReport;
@@ -83,4 +84,4 @@ pub use schema::SchemaFile;
 pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
 pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
-pub use vc_model::{FileKind, SourceFiles};
+pub use vc_model::{FileKind, SourceFiles, SourcePath};

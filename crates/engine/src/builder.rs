@@ -3,10 +3,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use vc_adapter_secrets::OsKeychain;
-use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, ProcessRunner, SystemClock};
+use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
-    CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, HistoryReader, HistoryWriter, Keychain,
-    SourceProvider, SourceWriter, Transport, Vcs,
+    CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, FileWatcher, HistoryReader, HistoryWriter,
+    Keychain, SourceFilter, SourceProvider, SourceWriter, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -27,6 +27,7 @@ pub struct EngineBuilder {
     history: Option<HistoryPorts>,
     keychain: Option<Arc<dyn Keychain>>,
     cache: Option<Arc<dyn CacheStore>>,
+    watcher: Option<Arc<dyn FileWatcher>>,
 }
 
 /// The history's writer and reader, given together.
@@ -50,6 +51,7 @@ impl EngineBuilder {
             history: None,
             keychain: None,
             cache: None,
+            watcher: None,
         }
     }
 
@@ -153,6 +155,14 @@ impl EngineBuilder {
         self
     }
 
+    /// Learns which files were saved from `watcher` instead of the OS's file events
+    /// (`vc watch`).
+    #[must_use]
+    pub fn watcher(mut self, watcher: Arc<dyn FileWatcher>) -> Self {
+        self.watcher = Some(watcher);
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -173,7 +183,8 @@ impl EngineBuilder {
         let (history, history_reader) = self.history.unzip();
         let keychain =
             self.keychain.or_else(|| OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>));
-        let cache = self.cache;
+        let (cache, watcher) = (self.cache, self.watcher);
+        let watcher = watcher.unwrap_or_else(|| Arc::new(NotifyWatcher::new(&self.root, SourceFilter::default())));
         Ok(Engine {
             root: self.root,
             sources,
@@ -189,6 +200,7 @@ impl EngineBuilder {
             history_reader,
             keychain,
             cache,
+            watcher,
         })
     }
 }
@@ -216,6 +228,7 @@ pub struct Engine {
     pub(crate) history_reader: Option<Arc<dyn HistoryReader>>,
     pub(crate) keychain: Option<Arc<dyn Keychain>>,
     pub(crate) cache: Option<Arc<dyn CacheStore>>,
+    pub(crate) watcher: Arc<dyn FileWatcher>,
 }
 
 impl Engine {

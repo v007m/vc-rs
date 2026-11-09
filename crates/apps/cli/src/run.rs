@@ -1,11 +1,12 @@
 use std::path::{Path, PathBuf};
 
 use clap::Args;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use vc_engine::{Engine, EngineError, ReportFlags, RunReport, RunRequest};
 
 use crate::Outcome;
 use crate::check::use_color;
-use crate::project;
+use crate::project::{self, Located};
 use crate::select::PlanArgs;
 
 #[derive(Args)]
@@ -51,50 +52,81 @@ pub fn run(args: &RunArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         Ok(located) => located,
         Err(outcome) => return Ok(outcome),
     };
-    let plan = match args.plan.request(&located) {
-        Ok(plan) => plan,
+    let request = match args.request(&located)? {
+        Ok(request) => request,
         Err(reason) => return Ok(Outcome::Refused(reason)),
     };
-    let request = RunRequest {
-        plan,
-        seed: args.seed,
-        bail: args.bail,
-        concurrency: args.concurrency,
-        console: args.reporter.clone(),
-        files: ReportFlags {
-            formats: args.reports.clone(),
-            out: args.out.as_ref().map(|out| std::env::current_dir().map(|cwd| cwd.join(out))).transpose()?,
-            single_file: args.single_file,
-        },
-        color: use_color(&std::io::stdout()),
-        failed: args.failed,
-        no_cache: args.no_cache,
-    };
-    let report = match execute(&located.engine, &request)? {
-        Ok(report) => report,
-        Err(error) => return Ok(Outcome::Engine(error)),
-    };
+    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+    let (stop, mut stops) = tokio::sync::mpsc::unbounded_channel();
+    let report = runtime.block_on(async {
+        let signals = tokio::spawn(ctrl_c(stop));
+        let report = execute(&located.engine, &request, &mut stops).await;
+        signals.abort();
+        report
+    });
+    Ok(report.map_or_else(Outcome::Engine, |report| finished(&report)))
+}
+
+impl RunArgs {
+    /// What these flags ask of the engine; `Ok(Err(reason))` when a selector cannot be read.
+    pub fn request(&self, located: &Located) -> anyhow::Result<Result<RunRequest, String>> {
+        let plan = match self.plan.request(located) {
+            Ok(plan) => plan,
+            Err(reason) => return Ok(Err(reason)),
+        };
+        let out = self.out.as_ref().map(|out| std::env::current_dir().map(|cwd| cwd.join(out))).transpose()?;
+        Ok(Ok(RunRequest {
+            plan,
+            seed: self.seed,
+            bail: self.bail,
+            concurrency: self.concurrency,
+            console: self.reporter.clone(),
+            files: ReportFlags { formats: self.reports.clone(), out, single_file: self.single_file },
+            color: use_color(&std::io::stdout()),
+            failed: self.failed,
+            no_cache: self.no_cache,
+        }))
+    }
+}
+
+/// Sends one value on `stop` for each Ctrl-C, until no one listens.
+pub async fn ctrl_c(stop: UnboundedSender<()>) {
+    while tokio::signal::ctrl_c().await.is_ok() {
+        if stop.send(()).is_err() {
+            return;
+        }
+    }
+}
+
+/// Runs `request`; each value on `stops` (a Ctrl-C) interrupts the run.
+pub async fn execute(
+    engine: &Engine,
+    request: &RunRequest,
+    stops: &mut UnboundedReceiver<()>,
+) -> Result<RunReport, EngineError> {
+    let (interrupter, interrupts) = vc_engine::interrupts();
+    let run = engine.run(request, interrupts);
+    tokio::pin!(run);
+    loop {
+        tokio::select! {
+            report = &mut run => return report,
+            Some(()) = stops.recv() => interrupter.interrupt(),
+        }
+    }
+}
+
+/// Prints the run's notes, and ends with the run's exit code.
+pub fn finished(report: &RunReport) -> Outcome {
+    notes(report);
+    Outcome::Exit(report.exit)
+}
+
+/// Prints the run's notices, and the seed of a failed run.
+pub fn notes(report: &RunReport) {
     for notice in &report.notices {
         eprintln!("warning: {notice}");
     }
     if report.exit == 1 {
         eprintln!("seed {}: pass `--seed {}` to run with the same generated data", report.seed, report.seed);
     }
-    Ok(Outcome::Exit(report.exit))
-}
-
-/// Runs `request` on a Tokio runtime; each Ctrl-C interrupts the run.
-fn execute(engine: &Engine, request: &RunRequest) -> anyhow::Result<Result<RunReport, EngineError>> {
-    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    Ok(runtime.block_on(async {
-        let (interrupter, interrupts) = vc_engine::interrupts();
-        let signals = tokio::spawn(async move {
-            while tokio::signal::ctrl_c().await.is_ok() {
-                interrupter.interrupt();
-            }
-        });
-        let report = engine.run(request, interrupts).await;
-        signals.abort();
-        report
-    }))
 }

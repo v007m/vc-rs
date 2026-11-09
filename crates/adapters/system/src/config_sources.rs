@@ -22,7 +22,7 @@ const VIB_VARS: &[(&str, &str)] = &[
 const VIB_VAR: &str = "VIB_VAR_";
 
 /// The file at the project root that holds the `.env` layer.
-const DOT_ENV: &str = ".env";
+pub const DOT_ENV: &str = ".env";
 
 /// The origin `--set` entries carry.
 const SET_FLAG: &str = "--set";

@@ -73,3 +73,36 @@ fn a_changed_config_or_env_schema_selects_every_test() {
         assert_eq!(engine(vcs).plan(&changed("main")).unwrap().instance_count(), 3, "{shared}");
     }
 }
+
+fn saved(paths: &[&str]) -> PlanRequest {
+    let saved = paths.iter().map(|path| vc_model::SourcePath::new(path).unwrap()).collect();
+    PlanRequest { select: SelectRequest { saved: Some(saved), ..SelectRequest::default() }, ..PlanRequest::default() }
+}
+
+#[test]
+fn saved_keeps_the_saved_files_and_the_tests_calling_a_saved_api() {
+    let engine = engine(FakeVcs::default());
+    assert_eq!(engine.plan(&saved(&["services/orders/flow.test.yaml"])).unwrap().instance_count(), 1);
+    assert_eq!(engine.plan(&saved(&["services/users/users.api.yaml"])).unwrap().instance_count(), 3);
+}
+
+#[test]
+fn saved_stands_in_for_changed() {
+    let mut request = saved(&["services/orders/flow.test.yaml"]);
+    request.select.changed = Some("-x".to_owned());
+    assert_eq!(engine(FakeVcs::default()).plan(&request).unwrap().instance_count(), 1);
+}
+
+#[test]
+fn a_saved_config_env_or_env_schema_selects_every_test() {
+    for shared in ["vibranium.config.yaml", ".env.schema", ".env"] {
+        let request = saved(&[shared, "services/orders/flow.test.yaml"]);
+        assert_eq!(engine(FakeVcs::default()).plan(&request).unwrap().instance_count(), 3, "{shared}");
+    }
+}
+
+#[test]
+fn a_changed_env_is_not_shared() {
+    let vcs = FakeVcs::new("main", &[".env", "services/orders/flow.test.yaml"]);
+    assert_eq!(engine(vcs).plan(&changed("main")).unwrap().instance_count(), 1);
+}

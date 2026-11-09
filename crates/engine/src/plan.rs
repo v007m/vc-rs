@@ -19,6 +19,8 @@ use crate::{Engine, EngineError, PlanRequest, SelectRequest};
 const DEFAULT_BASE: &str = "HEAD";
 /// Files every test reads: a change to one selects every test.
 const SHARED: &[&str] = &["vibranium.config.yaml", ".env.schema"];
+/// What a save in `vc watch` selects every test for: the shared files and the local `.env`.
+const SAVED_SHARED: &[&str] = &["vibranium.config.yaml", ".env.schema", ".env"];
 
 /// What a run would do, without sending a request.
 #[derive(Clone, Debug)]
@@ -139,11 +141,13 @@ impl Engine {
         Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment, dot_env })
     }
 
-    /// The planner's selection for `select`, with `--changed` asked of the vcs.
+    /// The planner's selection for `select`, with `--changed` asked of the vcs; `vc watch`'s
+    /// saved files stand in for `--changed`.
     pub(crate) fn selection(&self, select: &SelectRequest) -> Result<Selection, EngineError> {
-        let changed = match select.changed.as_deref() {
-            Some(base) => self.changed(base)?,
-            None => None,
+        let changed = match (&select.saved, select.changed.as_deref()) {
+            (Some(saved), _) => affected(saved, SAVED_SHARED),
+            (None, Some(base)) => self.changed(base)?,
+            (None, None) => None,
         };
         Ok(Selection {
             ids: select.ids.clone(),
@@ -160,11 +164,16 @@ impl Engine {
     fn changed(&self, base: &str) -> Result<Option<BTreeSet<String>>, EngineError> {
         let base = if base.is_empty() { DEFAULT_BASE } else { base };
         let paths = self.vcs.changed(base).map_err(|error| vcs_error(&error))?;
-        if paths.iter().any(|path| SHARED.contains(&path.as_str())) {
-            return Ok(None);
-        }
-        Ok(Some(paths.iter().filter_map(SourcePath::file_id).collect()))
+        Ok(affected(&paths, SHARED))
     }
+}
+
+/// The IDs of the definition files among `paths`; `None`, every file, when one is `shared`.
+fn affected(paths: &[SourcePath], shared: &[&str]) -> Option<BTreeSet<String>> {
+    if paths.iter().any(|path| shared.contains(&path.as_str())) {
+        return None;
+    }
+    Some(paths.iter().filter_map(SourcePath::file_id).collect())
 }
 
 /// `--profile`'s entry, when profiles are named: a comma list of them all, in order.

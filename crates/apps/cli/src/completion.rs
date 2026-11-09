@@ -77,7 +77,7 @@ compdef _vc_ids vc
 "#;
 
 const FISH_HOOK: &str = r"
-complete -c vc -f -n '__fish_seen_subcommand_from run plan list explain call skip unskip rename' -a '(vc __complete (commandline -opc)[2] (commandline -ct))'
+complete -c vc -f -n '__fish_seen_subcommand_from run watch plan list explain call skip unskip rename' -a '(vc __complete (commandline -opc)[2] (commandline -ct))'
 complete -c vc -l profile -x -a '(vc __complete --profile (commandline -ct))'
 complete -c vc -s t -l tag -x -a '(vc __complete --tag (commandline -ct))'
 ";

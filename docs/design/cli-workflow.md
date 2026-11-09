@@ -319,7 +319,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | Command | Does |
 | --- | --- |
 | `vc run [selector...]` | Runs tests (see Selecting what to run) |
-| `vc watch [selector...]` | Re-runs the affected tests whenever a definition, dataset, schema or hook file is saved |
+| `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; Ctrl-C ends it with exit 130 |
 | `vc load <scenarioId>` | Runs a load scenario with live metrics |
 | `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping) |
 
@@ -700,6 +700,6 @@ A typical CI job:
 
 - **Autocomplete and validation in YAML.** `vc init` adds a JSON Schema hint to each file, so VS Code, JetBrains IDEs and Neovim (via the YAML language server) complete keys and flag mistakes as you type. A language server (`vc lsp`), which also completes api and test IDs and vars and jumps to definitions, follows in a later release.
 - **Shell completion.** `vc completion zsh` (or bash, fish, powershell) completes commands, flags, and the project's own api, test, file and tag IDs, so `vc run users.c<Tab>` works.
-- **Watch mode.** `vc watch` re-runs only the tests affected by a save: editing an api file re-runs the tests that call it, editing a dataset re-runs the tests that read it.
+- **Watch mode.** `vc watch` re-runs only the tests affected by a save: editing a test file re-runs its tests, editing an api file re-runs the tests that call it, and editing the config, `.env` or `.env.schema` re-runs them all. Saving a dataset, schema or hook file does not re-run anything yet.
 - **One-keystroke loops in the TUI.** `vc tui` offers the same selectors with search, `r` to re-run, `f` for failures only, and inline editing with checks before saving.
 - **Explain anything.** `vc explain orders.checkout#placesOrder` shows the test exactly as it will run for the active profile: URLs, every var with the level that set it, auth, the merged checks and the lifecycle work around it. It is the first thing to try when a value isn't what you expected.

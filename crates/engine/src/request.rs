@@ -2,6 +2,8 @@
 
 use std::path::PathBuf;
 
+use vc_model::SourcePath;
+
 /// Which tests a command selects (cli-workflow "Selectors"); everything when empty.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[expect(
@@ -20,6 +22,9 @@ pub struct SelectRequest {
     /// `--changed [ref]`: only files changed since the ref (`Some("")` for `HEAD`, the
     /// uncommitted and untracked changes); every file when the config or `.env.schema` changed.
     pub changed: Option<String>,
+    /// `vc watch`: only the files [`crate::Engine::watch`] reported saved, and the tests that
+    /// call an api in one; every file when the config, `.env` or `.env.schema` was saved.
+    pub saved: Option<Vec<SourcePath>>,
     /// Plans skipped tests instead of reporting them as skipped.
     pub include_skipped: bool,
 }
