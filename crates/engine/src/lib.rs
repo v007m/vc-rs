@@ -10,7 +10,9 @@
 //! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_test`],
 //! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
 //! [`Engine::save_call_as_test`], [`Engine::write`]), and imports specs and keeps api files in
-//! step with them ([`Engine::import`], [`Engine::sync`]).
+//! step with them ([`Engine::import`], [`Engine::sync`]). Agent calls pass the profiles' agent
+//! policy and, when it asks, the approval queue ([`Engine::policy_check`], [`Engine::admit`],
+//! [`Engine::approvals_list`], [`Engine::approvals_decide`]).
 //! Load is a stub that says it is not built yet ([`Engine::load`]). The model and diagnostics
 //! types apps need are re-exported here (D108).
 //!
@@ -21,6 +23,7 @@
 //! assert_eq!(schemas[0].file_name, "config.schema.json");
 //! ```
 
+mod approvals;
 mod authoring;
 mod builder;
 mod cache;
@@ -46,6 +49,7 @@ mod interrupt;
 mod list;
 mod load;
 mod plan;
+mod policy;
 mod ports;
 mod problems;
 mod project;
@@ -73,6 +77,7 @@ mod wanted;
 mod watch;
 mod yaml_out;
 
+pub use approvals::{APPROVAL_WAIT, Admission, AgentOutcome};
 pub use builder::{Engine, EngineBuilder};
 pub use cache::CacheReport;
 pub use call::CallReport;
@@ -91,6 +96,7 @@ pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use load::{LoadReport, LoadRequest};
 pub use plan::PlanReport;
+pub use policy::{AgentCall, Permission};
 pub use request::{
     CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
 };
@@ -102,4 +108,5 @@ pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
-pub use vc_model::{FileKind, SourceFiles, SourcePath};
+pub use vc_interfaces::{Approval, ApprovalId, ApprovalRequest, ApprovalStatus, Verdict};
+pub use vc_model::{FileKind, Method, SourceFiles, SourcePath};

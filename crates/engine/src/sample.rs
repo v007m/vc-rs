@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use vc_interfaces::{SourceProvider, Vcs};
 use vc_model::Date;
-use vc_testkit::{FixedClock, MemoryCompileCache, MemoryEnvironment, MemorySources};
+use vc_testkit::{FakeVcs, FixedClock, MemoryApprovals, MemoryCompileCache, MemoryEnvironment, MemorySources};
 
 use crate::{Engine, EngineBuilder};
 
@@ -23,6 +23,29 @@ const CRUD: (&str, &[u8]) = (
 );
 const ORDERS: (&str, &[u8]) =
     ("services/orders/flow.test.yaml", b"tests:\n  - id: listsOrders\n    call: users#list\n");
+
+/// A config whose profiles have the `agents` blocks of the reference's example, and a bare one.
+const AGENTS: &[u8] = b"syntaxVersion: 2
+vars: {baseUrl: 'http://x'}
+redact: {fields: [password]}
+profiles:
+  - id: dev
+    default: true
+    agents: {run: true, call: [GET, POST, PUT, DELETE], writeDefinitions: true}
+  - id: staging
+    agents: {run: true, call: [GET, POST], approve: [PUT, PATCH, DELETE], writeDefinitions: ask}
+  - id: prod
+    agents: {call: [GET], approve: [POST]}
+  - id: bare
+";
+
+/// An engine over a project with the profiles of [`AGENTS`], keeping its approval queue and
+/// agent log in `queue`.
+pub fn agent_engine(queue: &MemoryApprovals) -> Engine {
+    let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&[("vibranium.config.yaml", AGENTS)]));
+    let ports = (Arc::new(queue.clone()), Arc::new(queue.clone()));
+    builder(FakeVcs::default()).sources(sources).approvals(ports.0, ports.1).build().unwrap()
+}
 
 /// An engine over the sample project, with `vcs` for `--changed`.
 pub fn engine(vcs: impl Vcs + 'static) -> Engine {

@@ -5,8 +5,9 @@ use std::sync::Arc;
 use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
-    AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, FileWatcher,
-    HistoryReader, HistoryWriter, HookRunner, Keychain, SourceProvider, SourceWriter, Transport, Vcs,
+    AgentActionWriter, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore,
+    Environment, FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, SourceProvider, SourceWriter,
+    Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -26,6 +27,7 @@ pub struct EngineBuilder {
     hooks: Option<Arc<dyn HookRunner>>,
     user_config: Option<PathBuf>,
     history: Option<HistoryPorts>,
+    approvals: Option<ApprovalPorts>,
     keychain: Option<Arc<dyn Keychain>>,
     cache: Option<Arc<dyn CacheStore>>,
     watcher: Option<Arc<dyn FileWatcher>>,
@@ -35,6 +37,9 @@ pub struct EngineBuilder {
 
 /// The history's writer and reader, given together.
 type HistoryPorts = (Arc<dyn HistoryWriter>, Arc<dyn HistoryReader>);
+
+/// The approval queue and the agent call log, given together.
+type ApprovalPorts = (Arc<dyn Approvals>, Arc<dyn AgentActionWriter>);
 
 impl EngineBuilder {
     /// A builder for the project whose root is `root`.
@@ -53,6 +58,7 @@ impl EngineBuilder {
             hooks: None,
             user_config: None,
             history: None,
+            approvals: None,
             keychain: None,
             cache: None,
             watcher: None,
@@ -154,6 +160,14 @@ impl EngineBuilder {
         self
     }
 
+    /// Keeps the agent approval queue in `queue` and logs agent calls to `log` instead of
+    /// `.vibranium/history.db` (D195).
+    #[must_use]
+    pub fn approvals(mut self, queue: Arc<dyn Approvals>, log: Arc<dyn AgentActionWriter>) -> Self {
+        self.approvals = Some((queue, log));
+        self
+    }
+
     /// Keeps the cross-run cache's key in `keychain` instead of the OS keychain.
     #[must_use]
     pub fn keychain(mut self, keychain: Arc<dyn Keychain>) -> Self {
@@ -228,6 +242,7 @@ impl EngineBuilder {
             user_config,
             history,
             history_reader,
+            approvals: self.approvals,
             keychain,
             cache,
             watcher,
@@ -259,6 +274,7 @@ pub struct Engine {
     pub(crate) user_config: Option<PathBuf>,
     pub(crate) history: Option<Arc<dyn HistoryWriter>>,
     pub(crate) history_reader: Option<Arc<dyn HistoryReader>>,
+    pub(crate) approvals: Option<ApprovalPorts>,
     pub(crate) keychain: Option<Arc<dyn Keychain>>,
     pub(crate) cache: Option<Arc<dyn CacheStore>>,
     pub(crate) watcher: Arc<dyn FileWatcher>,

@@ -1166,7 +1166,7 @@ Every tool call goes through a policy check, done in the engine so that every ro
 
 Decisions are made in the web UI's AI agents page, or with `vc approvals` / `vc approve <id>` in any terminal. Because both processes share `history.db`, a stdio agent and a separate `vc ui` see the same queue; `notify` on the database file wakes the waiting call. Every call is logged to `agent_actions`, with arguments redacted.
 
-The engine is to reach the queue and the log through two `vc-interfaces` ports. `vc_adapter_store::SqliteApprovals` implements both over `history.db` (its migration 2 holds the tables): each call opens its own connection, so every process on the project shares one queue, and a wait wakes on file events in the database's folder and looks again every second in case one was missed. `vc_testkit::MemoryApprovals` implements both in memory and runs `approvals_suite` and `agent_action_writer_suite`:
+The engine reaches the queue and the log through two `vc-interfaces` ports. `vc_adapter_store::SqliteApprovals` implements both over `history.db` (its migration 2 holds the tables): each call opens its own connection, so every process on the project shares one queue, and a wait wakes on file events in the database's folder and looks again every second in case one was missed. `vc_testkit::MemoryApprovals` implements both in memory and runs `approvals_suite` and `agent_action_writer_suite`:
 
 - `Approvals`: `list(pending_only)`, `create(ApprovalRequest)`, `decide(Decision)`, `wait(id, timeout)` and `always_allowed(StandingRule)`.
   - An `ApprovalRequest` holds the agent, the tool, the profile, the methods that need approval, a one-line summary and the redacted arguments.
@@ -1176,6 +1176,22 @@ The engine is to reach the queue and the log through two `vc-interfaces` ports. 
 - `AgentActionWriter::record(AgentAction)`: the agent, the tool, the profile, the redacted arguments, the result and who approved it.
 
 The engine redacts the arguments before it calls either port.
+
+In the engine, `policy.rs` judges and `approvals.rs` gates:
+
+- `policy_check(&AgentCall) -> Permission`.
+  - An `AgentCall` holds the agent, the tool, `--profile`, the methods it would send, whether it runs tests or writes files, a summary and the arguments.
+  - The pure `judge` takes each active profile's `AgentPolicy` and judges each field on its own; the most restrictive profile wins (`Refuse` < `Ask` < `Allow`):
+    - `runs` needs `run`;
+    - each method is allowed when it is in `call`, asks when it is in `approve`, and is refused otherwise;
+    - `writes` follows `writeDefinitions`.
+  - A project with no profile is judged under the default policy, which allows reads only.
+  - `Permission::Ask { profile, methods, writes }` names the active profiles comma-joined. It becomes `Allow` when every method has a standing rule for those profiles and that tool, and nothing is written.
+- `admit(&AgentCall, wait) -> Admission`: `Allowed { approved_by }` or `Refused { reason }`.
+  - An `Ask` creates the request with the arguments redacted by the config's built-in masking, and waits (`APPROVAL_WAIT`, 10 minutes).
+  - A denial or a wait that runs out is a refusal. A refusal is logged at once; the caller logs an allowed call with `record_agent_action(call, AgentOutcome)` when it ends.
+- `approvals_list(pending_only)` and `approvals_decide(id, verdict)` back `vc approvals` and `vc approve`. The decider is the OS user (`USER`/`USERNAME`).
+- `EngineBuilder::approvals(queue, log)` replaces the default `SqliteApprovals` over `.vibranium/history.db`. `vc_testkit::MemoryApprovals` is the in-memory pair: `answering(verdict)` decides each request at once.
 
 ### Web server and web UI (`apps/server`, `web/`)
 

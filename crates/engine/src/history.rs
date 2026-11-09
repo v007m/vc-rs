@@ -119,7 +119,7 @@ impl Engine {
         self.history_reader.clone().unwrap_or_else(|| Arc::new(SqliteHistoryReader::new(&self.history_path())))
     }
 
-    fn history_path(&self) -> PathBuf {
+    pub(crate) fn history_path(&self) -> PathBuf {
         self.root().join(HISTORY)
     }
 }
