@@ -4,10 +4,12 @@ use std::sync::Arc;
 
 use vc_adapter_importers::ImporterRegistry;
 use vc_adapter_system::SystemEnvironment;
-use vc_interfaces::{ImportOptions, ImportSource, SpecFetcher as _};
+use vc_interfaces::{ImportOptions, ImportSource, RecordingFilter, SpecFetcher as _};
 
 use crate::authoring::refused;
 use crate::fetch::ProjectFetcher;
+use crate::import_homes::Home;
+use crate::import_recorded::{Recording, recorded};
 use crate::{Changes, Engine, EngineError, import_write};
 
 /// What `vc import <kind> <url-or-file>` reads and what it makes of it.
@@ -33,8 +35,26 @@ pub struct ImportRequest {
     pub include: Vec<String>,
     /// `--only`: only these operation IDs.
     pub only: Vec<String>,
-    /// `--profile`, in order; the profile whose vars render `source.headers`.
+    /// `--profile`, in order; the profile whose vars render `source.headers`, and, for a
+    /// recording, the base URLs its hosts are matched against.
     pub profiles: Vec<String>,
+    /// `--flow <[fileId#]testId>`: a test replaying the recording.
+    pub flow: Option<String>,
+    /// What a recording keeps that its filter would drop.
+    pub keep: Keep,
+}
+
+/// What a recording keeps that its filter would drop.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built by the apps with `..Default::default()`; every user is in this repo (D160)"
+)]
+pub struct Keep {
+    /// `--include-host`: hosts kept though they are third-party.
+    pub hosts: Vec<String>,
+    /// `--keep-static`: static assets (scripts, styles, images, fonts) are kept.
+    pub assets: bool,
 }
 
 impl Engine {
@@ -44,6 +64,10 @@ impl Engine {
     ///
     /// The spec is read once; the snapshot is not a definition file, so the guard does not
     /// compile it. What the importer could not carry over is in the titles, `at: message`.
+    ///
+    /// A recording (a draft with no spec snapshot: HAR, curl) is merged instead: each host goes
+    /// to the api file whose base URL renders to it under `request.profiles`, reusing its apis,
+    /// and the secrets it references are declared in `.env.schema`.
     ///
     /// # Errors
     ///
@@ -58,8 +82,15 @@ impl Engine {
             refused(error.to_string(), &format!("the importers are {}", kinds.join(", ")))
         })?;
         let source = ImportSource { location: request.source.clone(), bytes };
-        let draft =
-            importer.read(&source, &options(request)).await.map_err(|error| refused(error.to_string(), READ_HELP))?;
+        let homes = self.homes(&request.profiles);
+        let mut opts = options(request);
+        opts.recording.hosts = hosts(&homes);
+        let draft = importer.read(&source, &opts).await.map_err(|error| refused(error.to_string(), READ_HELP))?;
+        if draft.snapshot.is_none() {
+            let schema = self.secrets_schema();
+            let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref() };
+            return self.guarded(&project, recorded(&recording, &draft, &request.source)?);
+        }
         let (changes, snapshots) = import_write::drafted(&project, &draft, request)?;
         let mut guarded = self.guarded(&project, changes)?;
         guarded.files.extend(snapshots);
@@ -89,8 +120,27 @@ fn options(request: &ImportRequest) -> ImportOptions {
         auth: request.auth,
         include: request.include.clone(),
         only: request.only.clone(),
-        ..ImportOptions::default()
+        flow: request.flow.clone(),
+        recording: RecordingFilter {
+            include_hosts: request.keep.hosts.clone(),
+            keep_static: request.keep.assets,
+            ..RecordingFilter::default()
+        },
     }
+}
+
+/// The hosts the project's api files point at, without their ports, each once: what a
+/// recording keeps as first-party.
+fn hosts(homes: &[Home]) -> Vec<String> {
+    let mut hosts: Vec<String> = Vec::new();
+    for home in homes {
+        let authority = home.origin.split_once("://").map_or(home.origin.as_str(), |(_, rest)| rest);
+        let host = authority.rsplit_once(':').map_or(authority, |(host, _)| host);
+        if !hosts.iter().any(|known| known == host) {
+            hosts.push(host.to_owned());
+        }
+    }
+    hosts
 }
 
 #[cfg(test)]

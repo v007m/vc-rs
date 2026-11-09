@@ -501,7 +501,9 @@ impl core::marker::StructuralPartialEq for vc_engine::HistoryReport
 pub struct vc_engine::ImportRequest
 pub vc_engine::ImportRequest::auth: bool
 pub vc_engine::ImportRequest::file_id: core::option::Option<alloc::string::String>
+pub vc_engine::ImportRequest::flow: core::option::Option<alloc::string::String>
 pub vc_engine::ImportRequest::include: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::ImportRequest::keep: vc_engine::Keep
 pub vc_engine::ImportRequest::kind: alloc::string::String
 pub vc_engine::ImportRequest::negative: bool
 pub vc_engine::ImportRequest::only: alloc::vec::Vec<alloc::string::String>
@@ -528,6 +530,19 @@ pub fn vc_engine::Interrupter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core
 pub struct vc_engine::Interrupts
 impl core::fmt::Debug for vc_engine::Interrupts
 pub fn vc_engine::Interrupts::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct vc_engine::Keep
+pub vc_engine::Keep::assets: bool
+pub vc_engine::Keep::hosts: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_engine::Keep
+pub fn vc_engine::Keep::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::Keep
+impl core::cmp::PartialEq for vc_engine::Keep
+pub fn vc_engine::Keep::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::Keep
+pub fn vc_engine::Keep::default() -> Self
+impl core::fmt::Debug for vc_engine::Keep
+pub fn vc_engine::Keep::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::Keep
 #[non_exhaustive] pub struct vc_engine::ListReport
 pub vc_engine::ListReport::items: alloc::vec::Vec<vc_engine::Listed>
 pub vc_engine::ListReport::notices: alloc::vec::Vec<alloc::string::String>

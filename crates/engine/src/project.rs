@@ -36,13 +36,15 @@ impl Engine {
     }
 
     /// As [`Engine::compiled`], with `changes` in place of the files they change; the cache is
-    /// then read but not saved, since the files on disk did not change.
+    /// then read but not saved, since the files on disk did not change. A change to
+    /// `.env.schema` is the schema the compile reads.
     pub(crate) fn compiled_with(&self, changes: &[FileChange]) -> Result<Compiled, EngineError> {
         let mut found = self.discover()?;
-        let secret_schema = self.secret_schema(&mut found);
+        let (schema, definitions) = schema_change(changes)?;
+        let secret_schema = schema.or_else(|| self.secret_schema(&mut found));
         let mut notices = Vec::new();
         let previous = self.previous_cache(&mut notices);
-        edit::overlay(&mut found.files, changes)?;
+        edit::overlay(&mut found.files, &definitions)?;
         let input = CompileInput {
             files: found.files,
             previous: previous.clone(),
@@ -110,6 +112,13 @@ impl Engine {
         }
     }
 
+    /// `.env.schema` as it is now, for an import to add the secret names it references; none
+    /// when the project has none or it cannot be read.
+    pub(crate) fn secrets_schema(&self) -> Option<SourceFile> {
+        let path = SourcePath::new(DEFAULT_SECRETS_SCHEMA).ok()?;
+        self.sources.read(&[path]).ok()?.files.pop()
+    }
+
     fn walk(&self, filter: &SourceFilter) -> Result<Discovery, EngineError> {
         self.sources.discover(filter).map_err(sources_error)
     }
@@ -146,6 +155,19 @@ pub fn invalid(diagnostics: Diagnostics, files: SourceFiles, notices: Vec<String
 
 pub fn sources_error(error: impl std::fmt::Display) -> EngineError {
     EngineError::Sources { reason: error.to_string() }
+}
+
+/// The `.env.schema` a set of changes writes, and the other changes.
+type SchemaSplit = (Option<SourceFile>, Vec<FileChange>);
+
+/// The `.env.schema` that `changes` write, and the other changes.
+fn schema_change(changes: &[FileChange]) -> Result<SchemaSplit, EngineError> {
+    let (schema, definitions): (Vec<_>, Vec<_>) =
+        changes.iter().cloned().partition(|change| change.path == DEFAULT_SECRETS_SCHEMA);
+    let Some(change) = schema.into_iter().next_back() else { return Ok((None, definitions)) };
+    let path = SourcePath::new(&change.path).map_err(edit::internal)?;
+    let file = vc_interfaces::source_file(path, change.after.into_bytes()).map_err(edit::internal)?;
+    Ok((Some(file), definitions))
 }
 
 /// The filter of the `paths` globs the config in `found` writes; none when it writes none.

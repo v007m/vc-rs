@@ -66,12 +66,12 @@ fn group_files(
     Ok(files)
 }
 
-fn new_file(kind: FileKind, id: &str, text: &str) -> Result<FileChange, EngineError> {
+pub fn new_file(kind: FileKind, id: &str, text: &str) -> Result<FileChange, EngineError> {
     let path = derived_path(kind, id)?.to_string();
     Ok(FileChange { path, before: None, after: format!("{}{text}", header(kind, id)), moved_from: None })
 }
 
-fn api_file(group: &DraftGroup, base: &str, synced: Option<&ImportRequest>) -> String {
+pub fn api_file(group: &DraftGroup, base: &str, synced: Option<&ImportRequest>) -> String {
     let mut out = String::new();
     entry(&mut out, 0, ("id", &json!(group.file_id)));
     if let Some(name) = &group.name {
