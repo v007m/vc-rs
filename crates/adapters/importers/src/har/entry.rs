@@ -37,17 +37,19 @@ pub struct PostData {
     pub text: Option<String>,
 }
 
-/// The response, as far as filtering needs it.
+/// The response, as far as filtering and chaining need it.
 #[derive(Deserialize)]
 pub struct Response {
     pub content: Content,
 }
 
-/// The response body's type.
+/// The response body and its type; `encoding` is set when the text is not the body as sent.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Content {
     pub mime_type: Option<String>,
+    pub text: Option<String>,
+    pub encoding: Option<String>,
 }
 
 /// The entries of a HAR 1.2 or 1.3 file, in recorded order.

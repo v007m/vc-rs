@@ -89,6 +89,7 @@ fn options(request: &ImportRequest) -> ImportOptions {
         auth: request.auth,
         include: request.include.clone(),
         only: request.only.clone(),
+        flow: None,
     }
 }
 

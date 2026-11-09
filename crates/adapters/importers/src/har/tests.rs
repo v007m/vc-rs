@@ -1,6 +1,9 @@
 use indexmap::IndexMap;
 use serde_json::{Value, json};
-use vc_interfaces::{DraftApi, ImportDraft, ImportError, ImportNote, ImportOptions, ImportSource, Importer, SecretFinding};
+use vc_interfaces::{
+    DraftApi, DraftFlow, DraftStep, ImportDraft, ImportError, ImportNote, ImportOptions, ImportSource, Importer,
+    SecretFinding,
+};
 use vc_model::Method;
 use vc_testkit::importer_suite;
 
@@ -9,14 +12,15 @@ use super::HarImporter;
 const SAMPLE: &str = include_str!("../../fixtures/shop.har");
 
 /// The values the sample recorded that must never be written: a bearer token, a session
-/// cookie, an api key, a nonce, a card token and a password.
-const RECORDED: [&str; 6] = [
+/// cookie, an api key, a nonce, a card token, a password and a token a response gave back.
+const RECORDED: [&str; 7] = [
     "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1XzdmM2sifQ.Q2xvc2VkU2Vzc2lvbjQ",
     "s3ss10nC00k1e",
     "pk_9Rt2Lm8Qx4Vz7Nb3Kc6Wd1Hy",
     "Xk9pQ2mZ7vR4tL8wB3nY6cH1",
     "tok_visa",
     "hunter2",
+    "Zq8Wv3Lp5Rt7Ny2Kb4Hd6Fj9",
 ];
 
 fn source(text: &str) -> ImportSource {
@@ -26,6 +30,16 @@ fn source(text: &str) -> ImportSource {
 async fn read(text: &str) -> Result<ImportDraft, ImportError> {
     let opts = ImportOptions { file_id: "recorded".to_owned(), ..ImportOptions::default() };
     HarImporter.read(&source(text), &opts).await
+}
+
+async fn read_flow(id: &str) -> Option<DraftFlow> {
+    let opts = ImportOptions { flow: Some(id.to_owned()), ..ImportOptions::default() };
+    HarImporter.read(&source(SAMPLE), &opts).await.ok().and_then(|draft| draft.flow)
+}
+
+fn step(call: &str, vars: &[(&str, Value)], save: &[(&str, &str)]) -> DraftStep {
+    let save = save.iter().map(|(name, template)| ((*name).to_owned(), (*template).to_owned())).collect();
+    DraftStep { call: call.to_owned(), vars: map(vars), save }
 }
 
 fn map(pairs: &[(&str, Value)]) -> IndexMap<String, Value> {
@@ -127,8 +141,28 @@ async fn what_is_filtered_merged_or_left_out_is_noted() {
 }
 
 #[tokio::test]
+async fn the_flow_replays_the_recording_with_values_chained_from_responses() {
+    let cart = || ("cartId", json!("${var.cartId}"));
+    let steps = vec![
+        step("shop#createCart", &[], &[("cartId", "${response.body.id}")]),
+        step("shop#addItem", &[cart()], &[]),
+        step("shop#addItem", &[cart(), ("sku", json!("sku_blu17")), ("quantity", json!(2))], &[]),
+        step("shop#getCart", &[cart()], &[]),
+        step("pay#createPayment", &[cart()], &[("orderId", "${response.body.order.id}")]),
+        step("shop#cancelOrder", &[("orderId", json!("${var.orderId}"))], &[]),
+        step("shop#listOrders", &[], &[]),
+    ];
+    let expected = DraftFlow { file_id: "shop.checkout".to_owned(), test_id: "replaysCheckout".to_owned(), steps };
+    assert_eq!(read_flow("shop.checkout#replaysCheckout").await, Some(expected));
+    let bare = read_flow("replaysCheckout").await.map(|flow| (flow.file_id, flow.test_id));
+    assert_eq!(bare, Some(("shop.recorded".to_owned(), "replaysCheckout".to_owned())));
+    assert_eq!(read(SAMPLE).await.ok().and_then(|draft| draft.flow), None);
+}
+
+#[tokio::test]
 async fn a_recorded_secret_never_reaches_the_draft_or_its_notes() {
-    let draft = read(SAMPLE).await;
+    let opts = ImportOptions { flow: Some("shop.checkout#replaysCheckout".to_owned()), ..ImportOptions::default() };
+    let draft = HarImporter.read(&source(SAMPLE), &opts).await;
     let notes = draft.as_ref().map(|draft| draft.notes.clone()).unwrap_or_default();
     let notes: Vec<_> = notes.iter().map(|note| format!("{} {}", note.at, note.message)).collect();
     let output = format!("{draft:?}\n{}", notes.join("\n"));

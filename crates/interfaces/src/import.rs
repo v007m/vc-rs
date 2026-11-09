@@ -57,6 +57,8 @@ pub struct ImportOptions {
     pub include: Vec<String>,
     /// `--only`: only these operation IDs; all when empty.
     pub only: Vec<String>,
+    /// HAR `--flow`: the test replaying the recording, `<fileId>#<testId>`; none when not asked.
+    pub flow: Option<String>,
 }
 
 /// An importer's result: the api files to write, and what the user should know.

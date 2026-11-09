@@ -11,6 +11,7 @@ use vc_model::Method;
 
 use super::entry::Request;
 use super::filter::host;
+use super::flow::Recorded;
 use super::ids::api_id;
 use super::secret::{Found, Secrets};
 use crate::body::{Body, Scrub, read};
@@ -22,13 +23,15 @@ use crate::url::{pairs, path_and_query, split_origin};
 /// What a note says in place of a credential header.
 const DROPPED: &str = "never written; it maps to the file's auth";
 
-/// The draft for `requests`; `fallback` names a file whose host has no word to name it by.
-pub fn draft<'r>(requests: impl IntoIterator<Item = &'r Request>, fallback: &str) -> ImportDraft {
+/// The draft for `requests`, and what each one called, in order (none for a request that is
+/// not an api's); `fallback` names a file whose host has no word to name it by.
+pub fn draft<'r>(
+    requests: impl IntoIterator<Item = &'r Request>,
+    fallback: &str,
+) -> (ImportDraft, Vec<Option<Recorded>>) {
     let mut drafting = Drafting::default();
-    for request in requests {
-        drafting.add(request, fallback);
-    }
-    drafting.done()
+    let recorded = requests.into_iter().map(|request| drafting.add(request, fallback)).collect();
+    (drafting.done(), recorded)
 }
 
 /// One api file being drafted, and how often each of its apis was recorded.
@@ -47,26 +50,28 @@ struct Drafting {
 }
 
 impl Drafting {
-    /// Adds the api `request` calls to the file for its origin, or merges it into a kept one.
-    fn add(&mut self, request: &Request, fallback: &str) {
-        let Some((origin, rest)) = split_origin(&request.url) else { return };
+    /// Adds the api `request` calls to the file for its origin, or merges it into a kept one;
+    /// the notes of a merged request are left out, since the kept one has them.
+    fn add(&mut self, request: &Request, fallback: &str) -> Option<Recorded> {
+        let (origin, rest) = split_origin(&request.url)?;
         let origin = self.without_user(origin);
         let at = self.group(&origin, fallback);
-        let Some(group) = self.groups.get_mut(at) else { return };
-        let before = self.found.secrets.len();
+        let group = self.groups.get_mut(at)?;
         let mut secrets = Secrets { file: &group.draft.file_id, at: request.method.clone(), found: &mut self.found };
         let api = api(request, rest, &mut secrets);
         let at = secrets.at;
-        match api {
-            Ok(api) if group.merged(&api) => {
-                self.found.secrets.truncate(before);
-                self.found.notes.clear();
-                return;
+        let recorded = match api {
+            Ok(api) => Some(group.record(api)),
+            Err(message) => {
+                self.found.notes.push(message);
+                None
             }
-            Ok(api) => group.keep(api),
-            Err(message) => self.found.notes.push(message),
+        };
+        if recorded.as_ref().is_some_and(|(_, merged)| *merged) {
+            self.found.notes.clear();
         }
         self.notes.extend(self.found.notes.drain(..).map(|message| ImportNote { at: at.clone(), message }));
+        recorded.map(|(recorded, _)| recorded)
     }
 
     /// `origin` without a user and password, which only a note mentions.
@@ -112,22 +117,24 @@ impl Drafting {
 }
 
 impl Group {
-    /// Whether `api` has the method and path of a kept api, counted as recorded once more.
-    fn merged(&mut self, api: &DraftApi) -> bool {
+    /// What `api` called: a kept api with its method and path, counted as recorded once more
+    /// (`true`), else `api` itself, kept with a free ID.
+    fn record(&mut self, mut api: DraftApi) -> (Recorded, bool) {
         let same = self.draft.apis.iter().position(|kept| (kept.method, &kept.path) == (api.method, &api.path));
-        if let Some(count) = same.and_then(|at| self.recorded.get_mut(at)) {
+        if let Some(at) = same
+            && let (Some(kept), Some(count)) = (self.draft.apis.get(at), self.recorded.get_mut(at))
+        {
             *count += 1;
-            return true;
+            let call = format!("{}#{}", self.draft.file_id, kept.id);
+            return (Recorded { call, vars: api.vars, defaults: kept.vars.clone() }, true);
         }
-        false
-    }
-
-    /// Keeps `api`, with a free ID.
-    fn keep(&mut self, mut api: DraftApi) {
         let apis = &self.draft.apis;
         api.id = free(&api.id, apis.len(), |id| apis.iter().any(|kept| kept.id == id));
+        let call = format!("{}#{}", self.draft.file_id, api.id);
+        let recorded = Recorded { call, vars: api.vars.clone(), defaults: api.vars.clone() };
         self.draft.apis.push(api);
         self.recorded.push(1);
+        (recorded, false)
     }
 }
 
