@@ -1,6 +1,6 @@
 //! `expect` blocks as checks, and the merge of the levels a call inherits (D123).
 
-use vc_model::{Check, CheckKind, Expect, Matcher, Origin, Path, Segment, SourceSpan, TemplateValue};
+use vc_model::{Check, CheckKind, Expect, Matcher, Origin, Path, Segment, SourceSpan, StatusPattern, TemplateValue};
 use vc_parser::Node;
 
 use super::read;
@@ -128,6 +128,18 @@ fn bracket(text: &str) -> (Option<Segment>, &str) {
         _ => inner.parse().map_or_else(|_| key(inner), Segment::Index),
     };
     (Some(segment), &text[end + 1..])
+}
+
+/// When an api's `save` runs (D191): its `saveOn` at `node`, else the status its `expect`
+/// checks, else `2xx`.
+pub fn save_on(source: &Source<'_>, node: Option<&Node>, expect: &Expect) -> Matcher {
+    let written = node.and_then(|node| match source.piece(node) {
+        Some(Piece::Matcher(matcher)) => Some(matcher.clone()),
+        _ => None,
+    });
+    let status = expect.checks.iter().find(|check| check.kind == CheckKind::Status);
+    let expected = status.map(|check| check.matcher.clone());
+    written.or(expected).unwrap_or_else(|| Matcher::Status(vec![StatusPattern::Class(2)]))
 }
 
 /// The checks under `until`, for `poll`.

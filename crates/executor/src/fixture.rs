@@ -11,9 +11,9 @@ use indexmap::IndexMap;
 use vc_interfaces::{SendContext, Transport, TransportError};
 use vc_model::{
     Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, CelSource, ConnectionInfo, Exchange, Expect, FileId,
-    Instance, InstanceId, Lifecycle, Method, Needs, Owner, Part, Plan, PlannedAction, PlannedFile, Pos, Program,
-    RenderedRequest, Retry, SaveSpec, ScalarSource, ScalarStyle, SourceFileId, SourceFiles, SourceSpan, StringTable,
-    Sym, Template, TemplateValue, Test, TestBody, TestFile, TestId, Timing, VarDefs, VarName,
+    Instance, InstanceId, Lifecycle, Matcher, Method, Needs, Owner, Part, Plan, PlannedAction, PlannedFile, Pos, Program,
+    RenderedRequest, Retry, SaveSpec, ScalarSource, ScalarStyle, SourceFileId, SourceFiles, SourceSpan, StatusPattern,
+    StringTable, Sym, Template, TemplateValue, Test, TestBody, TestFile, TestId, Timing, VarDefs, VarName,
 };
 use vc_template::{CelCompiler, Roots};
 use vc_testkit::{MemoryEnvironment, ScriptedRandom};
@@ -134,6 +134,7 @@ impl Fixture {
             http_retry: None,
             expect,
             save,
+            save_on: Matcher::Status(vec![StatusPattern::Class(2)]),
             cleanup,
             hooks,
             deprecated: false,

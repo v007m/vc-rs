@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use vc_diagnostics::Code;
 use vc_interfaces::{Transport, TransportError};
-use vc_model::{ActionId, ActionKind, ActionOutcome, Event, Failure, HookRef, OwnerKey, RedactRule};
+use vc_model::{
+    ActionId, ActionKind, ActionOutcome, Check, CheckKind, Event, Failure, HookRef, Matcher, Origin, OwnerKey,
+    RedactRule, StatusPattern,
+};
 use vc_testkit::FakeTransport;
 
 use super::{ActionExecutors, ActionKindTag, ActionRequest};
@@ -63,6 +66,24 @@ async fn a_non_2xx_status_fails_the_call_without_a_cleanup() {
         Some((Some(create), "status: expected [\"2xx\"], got 500"))
     );
     assert_eq!(report.cleanups, vec![]);
+}
+
+#[tokio::test]
+async fn the_api_s_save_runs_only_on_a_status_its_save_on_matches() {
+    for (save_on, saved) in [(StatusPattern::Class(2), None), (StatusPattern::Class(4), Some(400))] {
+        let mut fixture = Fixture::new();
+        let call = fixture.call("/users");
+        let matcher = Matcher::Status(vec![StatusPattern::Code(400)]);
+        let span = crate::fixture::span();
+        let check = Check { kind: CheckKind::Status, target: None, matcher, origin: Origin::Action(call), span };
+        fixture.action_mut(call).expect.checks = vec![check];
+        fixture.api_mut(call).save.values = fixture.vars(&[("code", "${response.status}")]);
+        fixture.api_mut(call).save_on = Matcher::Status(vec![save_on]);
+        let transport = FakeTransport::scripted(vec![Ok(vc_testkit::status(400))]);
+        let report = execute(fixture, standard(Arc::new(transport)), call).await;
+        assert_eq!(failure(&report), None, "a call expecting 400 does not fail on the api's save");
+        assert_eq!(report.saved.get("code").and_then(serde_json::Value::as_u64), saved, "{save_on:?}");
+    }
 }
 
 #[tokio::test]

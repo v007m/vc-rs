@@ -44,6 +44,7 @@ shape! {
         types::key("http", Ty::Obj(common::http)).doc("Transport retry for this api; keys replace the config's (D143)"),
         types::key("expect", Ty::Obj(common::expect)).default("status: 2xx").scope(Scope::CALL).doc("Checks that hold on every call"),
         types::key("save", VARS).scope(Scope::CALL).doc("Values every caller gets as vars"),
+        types::key("saveOn", Ty::Status).default("expect.status, else 2xx").scope(Scope::CALL).doc("The statuses on which `save` runs (D191)").example("201"),
         types::key("cleanup", Ty::Obj(common::cleanup)).scope(Scope::CALL).doc("How to undo a successful call"),
         types::key("operationId", Ty::Text).doc("Link to the OpenAPI operation, kept by sync"),
         types::key("beforeRequest", HOOKS).doc("Functions run before this api's requests, after the file's"),

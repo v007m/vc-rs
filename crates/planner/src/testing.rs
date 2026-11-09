@@ -5,9 +5,9 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use vc_model::{
-    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, ContentHash, Expect, FileId, Method, Namespace,
-    Owner, Part, Path, Pos, Program, Reference, SaveSpec, Segment, SourceFile, SourceFiles, SourcePath, SourceSpan,
-    StringTable, Sym, Tag, Template, Test, TestBody, TestFile, TestId, VarDefs,
+    Action, ActionId, ActionKind, Api, ApiGroup, ApiId, BodySpec, ContentHash, Expect, FileId, Matcher, Method,
+    Namespace, Owner, Part, Path, Pos, Program, Reference, SaveSpec, Segment, SourceFile, SourceFiles, SourcePath,
+    SourceSpan, StatusPattern, StringTable, Sym, Tag, Template, Test, TestBody, TestFile, TestId, VarDefs,
 };
 
 /// Every name the fixture can use.
@@ -159,6 +159,7 @@ fn list(group: FileId, id: ApiId) -> Api {
         auth,
         expect,
         save,
+        save_on: Matcher::Status(vec![StatusPattern::Class(2)]),
         hooks,
         timeout: None,
         http_retry: None,

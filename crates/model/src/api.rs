@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 
 use crate::{
-    ActionId, ApiId, AuthRef, Duration, Expect, FileId, HttpRetry, Method, Path, RequestHooks, SaveSpec, SourceSpan,
-    Template, TemplateValue, VarDefs,
+    ActionId, ApiId, AuthRef, Duration, Expect, FileId, HttpRetry, Matcher, Method, Path, RequestHooks, SaveSpec,
+    SourceSpan, Template, TemplateValue, VarDefs,
 };
 
 /// One api file: what its apis share.
@@ -65,6 +65,9 @@ pub struct Api {
     pub expect: Expect,
     /// `save`.
     pub save: SaveSpec,
+    /// `saveOn`: the statuses on which `save` runs; the api's `expect.status`, else `2xx`, when
+    /// none is written (D191).
+    pub save_on: Matcher,
     /// `cleanup`: a call action with vars templated over the response.
     pub cleanup: Option<ActionId>,
     /// `beforeRequest` and `afterResponse`.

@@ -122,6 +122,8 @@ impl<'a> Build<'_, 'a> {
             Some(cleanup) => self.block(source, (std::slice::from_ref(cleanup), Owner::Instance))?.first().copied(),
             None => None,
         };
+        let expect = self.api_expects.get(&id).cloned().unwrap_or_default();
+        let save_on = expect::save_on(source, node.get("saveOn"), &expect);
         Ok(Some(Api {
             id,
             name: read::owned(node, "name"),
@@ -135,8 +137,9 @@ impl<'a> Build<'_, 'a> {
             auth: self.auth(source, node)?.unwrap_or_default(),
             timeout: read::duration(source, node, "timeout"),
             http_retry: http_retry::over(source, node, &self.http_retry),
-            expect: self.api_expects.get(&id).cloned().unwrap_or_default(),
+            expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
+            save_on,
             cleanup,
             hooks: hooks(node),
             deprecated: read::flag(shapes::api(), node, "deprecated"),

@@ -39,11 +39,11 @@ async fn list() -> Json<Value> {
 }
 
 /// `POST /users`: 201 with the next ID, as text, and the posted name and email. Without an email,
-/// 400 with a null ID: the sample's `createUser` saves `response.body.id` whenever its checks hold.
+/// 400 with only the error: the sample's `createUser` saves `response.body.id` on a 201 alone (D191).
 async fn create(State(next): State<Arc<AtomicU64>>, body: Bytes) -> Response {
     let posted: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
     let Some(email) = posted.get("email").filter(|email| email.is_string()).cloned() else {
-        return (StatusCode::BAD_REQUEST, Json(json!({"id": null, "error": "a user needs an email"}))).into_response();
+        return (StatusCode::BAD_REQUEST, Json(json!({"error": "a user needs an email"}))).into_response();
     };
     let name = posted.get("name").cloned().unwrap_or_else(|| json!("someone"));
     let id = next.fetch_add(1, Ordering::Relaxed).to_string();

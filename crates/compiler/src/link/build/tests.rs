@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
 use vc_model::{
-    Action, ActionKind, AuthRef, Bodies, BodySpec, CheckKind, ContentHash, Duration, Examples, Keep, Loop, Method,
-    Origin, Owner, Program, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test, TestBody,
+    Action, ActionKind, AuthRef, Bodies, BodySpec, CheckKind, ContentHash, Duration, Examples, Keep, Loop, Matcher,
+    Method, Origin, Owner, Program, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test, TestBody,
 };
 
 use crate::CompileInput;
 
 const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n    vars: {region: eu}\nauth:\n  - id: admin\n    type: bearer\n    token: t\nbeforeRun:\n  - id: warm\n    call: users#list\nreports: {dir: out, formats: [ctrf], html: {layout: single}}\nredact: {headers: [x-key], fields: [password]}\nhistory: {bodies: all, maxBodySize: 1kb, keep: 7}\n";
 
-const APIS: &str = "name: Users\nbaseUrl: ${var.baseUrl}\nheaders: {accept: json}\nvars: {page: 1}\nprofiles:\n  - id: dev\n    vars: {page: 2}\napis:\n  - id: list\n    path: /users\n    expect: {status: 200}\n  - id: create\n    method: POST\n    path: /users\n    body: {name: Ada}\n    expect:\n      status: 201\n      headers: {Content-Type: {contains: json}}\n      cel: {named: response.body.name == 'Ada'}\n    save: {userId: '${response.body.id}'}\n    cleanup: {call: remove, vars: {id: '${response.body.id}'}}\n  - id: remove\n    method: DELETE\n    path: /users/${var.id}\n    deprecated: true\n";
+const APIS: &str = "name: Users\nbaseUrl: ${var.baseUrl}\nheaders: {accept: json}\nvars: {page: 1}\nprofiles:\n  - id: dev\n    vars: {page: 2}\napis:\n  - id: list\n    path: /users\n    expect: {status: 200}\n  - id: create\n    method: POST\n    path: /users\n    body: {name: Ada}\n    expect:\n      status: 201\n      headers: {Content-Type: {contains: json}}\n      cel: {named: response.body.name == 'Ada'}\n    save: {userId: '${response.body.id}'}\n    cleanup: {call: remove, vars: {id: '${response.body.id}'}}\n  - id: remove\n    method: DELETE\n    path: /users/${var.id}\n    saveOn: [200, 404]\n    deprecated: true\n";
 
 const TESTS: &str = "name: Crud\ntags: [smoke]\nbeforeAll:\n  - id: seed\n    call: users#create\nbeforeEach:\n  - function: hooks/a.ts#reset\ntests:\n  - id: listsUsers\n    call: users#list\n    vars: {limit: 2}\n    retry: {attempts: 2}\n    repeat: 3\n    expect: {status: 202}\n  - id: createsTwice\n    auth: admin\n    headers: {x-a: '1', x-b: '2'}\n    body: {name: Bo}\n    expect: {status: 299, size: {lt: 1kb}}\n    save: {last: '${response.status}'}\n    steps:\n      - call: users#create\n        headers: {x-b: '3'}\n        expect: {status: 201, cel: {more: response.body.name == 'Bo'}}\n      - id: again\n        call: users#create\n        auth: none\n        body: {name: Cy}\n        expect: {replace: true, size: {lt: 2kb}}\n        save: {last: '${response.body.id}'}\n      - function: hooks/a.ts#check\n";
 
@@ -92,7 +92,10 @@ fn builds_api_groups_with_their_apis_and_cleanups() {
     assert_eq!((create.method, name(&program, create.id.sym())), (Method::Post, "users#create"));
     assert!(matches!(create.body, BodySpec::Json(_)));
     assert_eq!(create.save.values.len(), 1);
-    assert!(program.apis[&group.apis[2]].deprecated);
+    let remove = &program.apis[&group.apis[2]];
+    assert!(remove.deprecated);
+    assert_eq!(remove.save_on, Matcher::Status(vec![StatusPattern::Code(200), StatusPattern::Code(404)]), "saveOn");
+    assert_eq!(create.save_on, Matcher::Status(vec![StatusPattern::Code(201)]), "D191: its expect.status");
     let header = create.expect.checks.iter().find(|check| check.kind == CheckKind::Header).unwrap();
     assert_eq!(header.target.as_ref().unwrap().segments, [Segment::Key("content-type".into())]);
 }
@@ -203,6 +206,7 @@ fn reads_request_hooks_and_file_bodies() {
     let (upload, mixed) = (&program.apis[&group.apis[0]], &program.apis[&group.apis[1]]);
     assert_eq!(upload.hooks.after_response.len(), 1);
     assert!(matches!(upload.body, BodySpec::File(_)));
+    assert_eq!(upload.save_on, Matcher::Status(vec![StatusPattern::Class(2)]), "D191: 2xx when no status is expected");
     assert!(matches!(mixed.body, BodySpec::Json(_)), "a `$file` map with other keys is JSON");
 }
 

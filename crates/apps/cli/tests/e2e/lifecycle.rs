@@ -1,4 +1,5 @@
-//! `beforeAll` runs once per file, and cleanups run newest first on a pass, a failure and Ctrl-C.
+//! `beforeAll` runs once per file, cleanups run newest first on a pass, a failure and Ctrl-C, and
+//! an api's `save` runs only on a status its `saveOn` matches (D191).
 
 use vc_mock_server::MockServer;
 
@@ -52,6 +53,22 @@ async fn cleanups_run_newest_first_after_a_failure() {
     let project = Project::new(&[CONFIG, USERS, ORDERS, ("services/users/both.test.yaml", &test)]);
     let output = project.run(&server.base_url(), &["--reporter", "json"]).assert().code(1).get_output().clone();
     newest_first(&cleanups(&output.stdout));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_test_expecting_400_skips_the_apis_save_unless_its_save_on_says_400() {
+    let server = MockServer::start().await.unwrap();
+    let apis = concat!(
+        "baseUrl: ${var.baseUrl}\napis:\n  - id: answer\n    path: /status/${var.code}\n    vars: {code: 200}\n",
+        "    save: {answerId: '${response.body.id}'}\n",
+    );
+    let test = "tests:\n  - id: rejectsBadCode\n    call: codes#answer\n    vars: {code: 400}\n    expect: {status: 400}\n";
+    let saving = format!("{apis}    saveOn: 4xx\n");
+    for (apis, exit) in [(apis, 0), (saving.as_str(), 1)] {
+        let files = [CONFIG, ("services/codes/codes.api.yaml", apis), ("services/codes/rejects.test.yaml", test)];
+        let output = Project::new(&files).run(&server.base_url(), &[]).output().unwrap();
+        assert_eq!(output.status.code(), Some(exit), "{}", crate::said(&output));
+    }
 }
 
 #[cfg(unix)]

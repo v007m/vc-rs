@@ -29,7 +29,8 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 /// the merged checks, with the api's default `status: 2xx` when none checks the status. On a
 /// 2xx response it registers the api's `cleanup` with its vars rendered against the response,
 /// whatever the checks say, unless the action is `keep` or is itself a cleanup. Only when every
-/// check holds does it save the api's and then the action's `save` values.
+/// check holds does it save the api's `save` values, when the status matches the api's `saveOn`
+/// (D191), and then the action's.
 #[derive(Clone)]
 pub struct CallExecutor {
     parts: PipelineParts,
@@ -72,7 +73,8 @@ impl CallExecutor {
             self.judge(&render, &expected(action, (Origin::Api(api.id), api.span)), subject(&response, &exchange));
         let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
         let cleanups = if registers { cleanup(&render, api)? } else { None };
-        let saved = check::verdict(&checks).map_or_else(|| saves(&render, &[&api.save, &action.save]), Err);
+        let specs: Vec<_> = self.api_saves(&render, api, &exchange).into_iter().chain([&action.save]).collect();
+        let saved = check::verdict(&checks).map_or_else(|| saves(&render, &specs), Err);
         let mut report = ActionReport { cleanups: cleanups.into_iter().collect(), checks, ..ActionReport::passed() };
         match saved {
             Ok(saved) => report.saved = saved,
@@ -103,6 +105,13 @@ impl CallExecutor {
             }
             time::sleep(poll.every.get()).await;
         }
+    }
+
+    /// The api's `save`, when the response's status matches its `saveOn` (D191).
+    fn api_saves<'a>(&self, render: &Render<'_>, api: &'a Api, exchange: &Exchange) -> Option<&'a SaveSpec> {
+        let status = Value::from(exchange.response.status.as_u16());
+        let judge = Judge::new(&self.matchers, render);
+        (judge.matches(&api.save_on, Some(&status)) == Ok(true)).then_some(&api.save)
     }
 
     fn judge(&self, render: &Render<'_>, checks: &[Check], subject: Subject<'_>) -> Vec<CheckResult> {
