@@ -12,6 +12,9 @@ mod load_tests;
 mod read;
 mod rows;
 #[cfg(test)]
+mod schema_tests;
+mod schemas;
+#[cfg(test)]
 mod tests;
 
 use std::collections::HashMap;
@@ -80,6 +83,7 @@ impl<'a> Build<'_, 'a> {
         for source in of(FileKind::Load) {
             self.load_file(source)?;
         }
+        self.schemas();
         self.datasets()
     }
 

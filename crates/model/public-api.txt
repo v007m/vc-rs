@@ -1542,6 +1542,7 @@ pub vc_model::Program::hooks: vc_model::HookModules
 pub vc_model::Program::loads: indexmap::map::IndexMap<vc_model::FileId, vc_model::LoadScenario>
 pub vc_model::Program::profiles: indexmap::map::IndexMap<vc_model::ProfileId, vc_model::Profile>
 pub vc_model::Program::run_blocks: vc_model::RunBlocks
+pub vc_model::Program::schemas: indexmap::map::IndexMap<alloc::string::String, serde_json::value::Value>
 pub vc_model::Program::test_files: indexmap::map::IndexMap<vc_model::FileId, vc_model::TestFile>
 pub vc_model::Program::tests: indexmap::map::IndexMap<vc_model::TestId, vc_model::Test>
 impl vc_model::Program
@@ -1570,6 +1571,7 @@ pub fn vc_model::ProgramBuilder::new(vc_model::StringTable, vc_model::SourceFile
 pub fn vc_model::ProgramBuilder::next_action(&self) -> core::result::Result<vc_model::ActionId, vc_model::ModelError>
 pub fn vc_model::ProgramBuilder::profile(&mut self, vc_model::Profile)
 pub fn vc_model::ProgramBuilder::run_blocks(&mut self, vc_model::RunBlocks)
+pub fn vc_model::ProgramBuilder::schema(&mut self, alloc::string::String, serde_json::value::Value)
 pub fn vc_model::ProgramBuilder::test(&mut self, vc_model::Test)
 pub fn vc_model::ProgramBuilder::test_file(&mut self, vc_model::TestFile)
 impl core::default::Default for vc_model::ProgramBuilder

@@ -1,6 +1,7 @@
 //! Datasets (D173): every CSV, JSON or YAML file under `datasets/`, and every entry of the
 //! config's `datasets.files`, by ID; and the rows a test's `examples` or an action's `forEach`
-//! reads, from `${dataset.<id>}` or a literal `$file`.
+//! reads, from `${dataset.<id>}` or a literal `$file`; and the JSON Schema files `body.schema`
+//! names (D201).
 //!
 //! The compiler does no I/O (D132): the engine reads the data files the compile asks for
 //! ([`DataWanted`]) and compiles again with them in [`crate::CompileInput::files`]. Until a file is
@@ -15,6 +16,7 @@ use vc_model::{FileKind, Namespace, Reference, Segment, SourceFiles, SourcePath}
 use vc_parser::{Node, Value};
 
 use super::assets;
+use super::body_schema;
 use super::project;
 use super::project::{Project, Source};
 use super::uses;
@@ -99,15 +101,21 @@ impl<'a> Data<'a> {
         self.sets.iter().filter_map(move |(id, set)| Some((id.as_str(), set.path.as_str(), rows(set)?)))
     }
 
+    /// The tree of the data file at `path`, when the compile was given it.
+    pub fn file(&self, path: &str) -> Option<&'a Node> {
+        self.given.get(path).copied()
+    }
+
     /// The data files the project names and the compile was not given.
     pub fn wanted(&self, project: &Project<'_>, assets: Option<&BTreeSet<SourcePath>>) -> Vec<DataWanted> {
         let mut wanted: BTreeMap<String, Option<SourcePath>> = BTreeMap::new();
         wanted.extend(self.sets.values().map(|set| (set.path.clone(), set.root.clone())));
         for source in &project.sources {
-            for node in loops(source) {
-                let path = self.path_at(source, node).filter(|path| assets.is_some_and(|assets| listed(assets, path)));
-                wanted.extend(path.map(|path| (path, None)));
-            }
+            let rows = loops(source).into_iter().filter_map(|node| self.path_at(source, node));
+            let schemas =
+                body_schema::nodes(source.root).into_iter().filter_map(|node| body_schema::path(source, node));
+            let known = rows.chain(schemas).filter(|path| assets.is_some_and(|assets| listed(assets, path)));
+            wanted.extend(known.map(|path| (path, None)));
         }
         let missing = wanted.into_iter().filter(|(path, _)| !self.given.contains_key(path.as_str()));
         missing.filter_map(|(path, root)| Some(DataWanted { path: SourcePath::data(&path).ok()?, root })).collect()

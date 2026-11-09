@@ -1,4 +1,5 @@
 use indexmap::IndexMap;
+use serde_json::Value;
 
 use crate::{
     Action, Api, ApiGroup, ApiId, AuthDef, AuthId, Config, Dataset, DatasetId, FileId, GeneratorDef, HookModules,
@@ -40,6 +41,10 @@ pub struct Program {
     pub generators: IndexMap<Sym, GeneratorDef>,
     /// Every hook file a `function:`, hook or custom check refers to, with its imports (D172).
     pub hooks: HookModules,
+    /// The JSON Schemas `body.schema` checks name (D201): a schema file's whole document by its
+    /// project path, or one written inline by `<file>:<line>:<column>`. A check's key may add a
+    /// `#/pointer` into the document; a file the compile was not given is missing.
+    pub schemas: IndexMap<String, Value>,
 }
 
 impl Program {

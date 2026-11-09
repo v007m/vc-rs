@@ -1,9 +1,12 @@
 //! `expect` blocks as checks, and the merge of the levels a call inherits (D123).
 
-use vc_model::{Check, CheckKind, Expect, Matcher, Origin, Path, Segment, SourceSpan, StatusPattern, TemplateValue};
+use vc_model::{
+    Check, CheckKind, Expect, Matcher, Origin, Part, Path, Segment, SourceSpan, StatusPattern, Template, TemplateValue,
+};
 use vc_parser::Node;
 
 use super::read;
+use crate::link::body_schema;
 use crate::link::project;
 use crate::link::project::Source;
 use crate::parts::Piece;
@@ -16,6 +19,7 @@ pub fn read(source: &Source<'_>, node: Option<&Node>, origin: Origin) -> Expect 
     reader.matcher(CheckKind::Status, node.get("status"), None);
     reader.keyed(CheckKind::Header, node.get("headers"), |name| Path { segments: vec![key(&name.to_lowercase())] });
     let body = node.get("body");
+    reader.schema(body.and_then(|body| body.get("schema")));
     reader.keyed(CheckKind::Match, body.and_then(|body| body.get("match")), path);
     reader.equals(body.and_then(|body| body.get("equals")));
     reader.matcher(CheckKind::Size, node.get("size"), None);
@@ -67,6 +71,13 @@ impl Reader<'_, '_> {
         for entry in node.map(Node::entries).unwrap_or_default() {
             self.matcher(kind, Some(&entry.value), Some(target(&entry.key)));
         }
+    }
+
+    /// A JSON Schema check, naming its schema by its key in the program (D201).
+    fn schema(&mut self, node: Option<&Node>) {
+        let Some(node) = node else { return };
+        let key = TemplateValue::String(Template { parts: vec![Part::Literal(body_schema::key(self.source, node))] });
+        self.push((CheckKind::Schema, None), Matcher::Equals(key), node.span);
     }
 
     fn equals(&mut self, node: Option<&Node>) {

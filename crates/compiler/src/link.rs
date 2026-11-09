@@ -3,6 +3,7 @@
 //! turns the units into the program, and the lint stage checks the lifecycle rules over both.
 
 mod assets;
+mod body_schema;
 mod build;
 mod columns;
 mod cycles;

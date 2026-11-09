@@ -108,6 +108,11 @@ impl ProgramBuilder {
         self.program.hooks = hooks;
     }
 
+    /// Adds the JSON Schema a `body.schema` check names by `key`, keeping the first one (D201).
+    pub fn schema(&mut self, key: String, schema: serde_json::Value) {
+        self.program.schemas.entry(key).or_insert(schema);
+    }
+
     /// The finished program, shared read-only from here on.
     #[must_use]
     pub fn freeze(self) -> Arc<Program> {

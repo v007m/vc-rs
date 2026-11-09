@@ -47,7 +47,8 @@ pub enum CheckKind {
     Status,
     /// `headers.<name>`.
     Header,
-    /// `body.schema`.
+    /// `body.schema`: the matcher is the literal key of the schema in [`crate::Program::schemas`],
+    /// with any `#/pointer` inside it (D201).
     Schema,
     /// `body.match.<path>`.
     Match,
