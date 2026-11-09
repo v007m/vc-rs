@@ -1,4 +1,5 @@
-//! `vc rename <old> <new>`: an api, test or file ID and every reference to it (D87).
+//! `vc rename <old> <new>`: an api, test, file, var, auth or dataset ID and every reference to
+//! it (D87).
 
 use std::path::Path;
 
@@ -8,9 +9,11 @@ use crate::{Outcome, changes, project};
 
 #[derive(Args)]
 pub struct RenameArgs {
-    /// The api or test (`users#create`), or the file (`users.crud`), to rename.
+    /// The api or test (`users#create`), the file (`users.crud`), or the var, auth or dataset
+    /// with its kind (`var.userId`, `auth.partnerToken`, `dataset.capitals`), to rename.
     old: String,
-    /// Its new ID: an item keeps its file (`users#createUser`); a new file ID moves the file.
+    /// Its new ID: an item keeps its file (`users#createUser`); a new file ID moves the file; a
+    /// var, auth or dataset keeps its kind (`var.accountId`).
     new: String,
 }
 

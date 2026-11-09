@@ -302,7 +302,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc new file api\|test\|load <fileId>` | Creates an empty file of that kind with its header filled in |
 | `vc call <apiId> [--var k=v] [--keep] [--save-as-test <testId> [--expect-field body.<path>]...]` | Calls one api ad hoc with project auth and the active profile (`--profile`, `--set` as for `vc run`), then runs the api's cleanup unless `--keep`; `beforeRun` and `beforeAll` are skipped and the call is stored in the history as `adhoc`. Exits 1 when the api's `expect` fails, 2 for an unknown api (with the closest) or a `--var` that is not `name=value`. Optionally saves the call as a test expecting its status and the named body fields (a missing field exits 2 and writes nothing) |
 | `vc fmt [--strip-comments] [paths]` | Rewrites definition files in the house style (block YAML, key order, quoting) and keeps comments; `--strip-comments` drops the one-line comments `vc new` wrote above its items. Refuses, writing nothing, a file that does not parse or that formatting would change in meaning; exits 2 then, 0 otherwise |
-| `vc rename <oldId> <newId>` | Renames an api, test, file, var, auth or dataset ID and updates every reference; moves the file when a file ID changes |
+| `vc rename <oldId> <newId>` | Renames an api, test, file, var, auth or dataset ID and updates every reference; moves the file when a file ID changes. A var, auth or dataset is written with its kind: `vc rename var.userId var.accountId`, `auth.partnerToken`, `dataset.capitals`; a dataset named by its path under `datasets/` is renamed by moving its file |
 
 **Check and explore**
 

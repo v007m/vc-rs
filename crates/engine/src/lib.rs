@@ -44,6 +44,7 @@ mod ports;
 mod problems;
 mod project;
 mod rename;
+mod rename_name;
 mod reporting;
 mod request;
 mod run;

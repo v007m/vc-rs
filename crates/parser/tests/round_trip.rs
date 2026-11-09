@@ -70,12 +70,24 @@ fn node<'d>(doc: &'d Document, at: &str) -> Result<&'d Node, String> {
 }
 
 /// The case's edits on `before`.
+/// The edits of a rename case, or `None` for another operation.
+fn renames(case: &Case, before: &Document) -> Option<Result<Vec<TextEdit>, String>> {
+    let names = || Ok::<_, String>((field(case, "from")?, field(case, "to")?));
+    let made = match field(case, "op").ok()? {
+        "renameRef" => names().and_then(|(from, to)| Ok(before.rename_refs(field(case, "fileId")?, from, to))),
+        "renameVar" => names().map(|(from, to)| before.rename_var(from, to)),
+        "renameDataset" => names().map(|(from, to)| before.rename_dataset(from, to)),
+        "renameAuth" => names().map(|(from, to)| before.rename_auth(from, to)),
+        _ => return None,
+    };
+    Some(made.and_then(|made| made.map_err(|e| e.to_string())))
+}
+
 fn edits(case: &Case, before: &Document) -> Result<Vec<TextEdit>, String> {
-    let op = field(case, "op")?;
-    if op == "renameRef" {
-        let made = before.rename_refs(field(case, "fileId")?, field(case, "from")?, field(case, "to")?);
-        return made.map_err(|e| e.to_string());
+    if let Some(made) = renames(case, before) {
+        return made;
     }
+    let op = field(case, "op")?;
     let target = node(before, field(case, "at").unwrap_or_default())?;
     let made = match op {
         "set" => before.set_scalar(target, field(case, "value")?),
@@ -111,7 +123,7 @@ fn failures(check: impl Fn(&Case) -> Result<(), String>) -> Vec<String> {
 #[test]
 fn there_is_a_case_for_every_operation() {
     let ops: Vec<String> = cases().iter().filter_map(|case| field(case, "op").ok().map(str::to_owned)).collect();
-    for op in ["set", "insert", "insertItem", "remove", "renameRef"] {
+    for op in ["set", "insert", "insertItem", "remove", "renameRef", "renameVar", "renameDataset", "renameAuth"] {
         assert!(ops.iter().any(|seen| seen == op), "no case for `{op}`");
     }
 }

@@ -1,5 +1,6 @@
 //! `vc rename`: an api or test ID, or a file ID, renamed with every reference to it (D87). A
-//! new file ID moves the file to the path that ID derives (D139).
+//! new file ID moves the file to the path that ID derives (D139). Vars, auths and datasets are
+//! renamed in `rename_name`.
 
 use vc_compiler::{camel_id, file_id, is_camel_id, is_file_id};
 use vc_diagnostics::TextEdit;
@@ -8,6 +9,7 @@ use vc_parser::{Document, Node};
 
 use crate::authoring::{Authoring, Named, Opened, item, refused};
 use crate::edit::{Changes, FileChange, internal};
+use crate::rename_name::renamed_name;
 use crate::{Engine, EngineError};
 
 /// The kinds of file whose items `vc rename` renames, each with the list that holds them.
@@ -21,8 +23,9 @@ type Renames = [(String, String)];
 
 impl Engine {
     /// The change that renames `from` to `to` and every reference to it: an api or test
-    /// (`users#create` to `users#createUser`), or a file (`users.crud` to `users.accounts`),
-    /// which then moves to the path its new ID derives.
+    /// (`users#create` to `users#createUser`), a file (`users.crud` to `users.accounts`), which
+    /// then moves to the path its new ID derives, or a var, auth or dataset written with its
+    /// kind (`var.userId` to `var.accountId`, `auth.…`, `dataset.…`).
     ///
     /// # Errors
     ///
@@ -31,16 +34,24 @@ impl Engine {
     /// the guard refuses.
     pub fn rename(&self, from: &str, to: &str) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
-        let files = match (Named::parse(from).item, Named::parse(to).item) {
-            (Some(_), Some(_)) => rename_item(&project, from, to)?,
-            (None, None) => rename_file(&project, from, to)?,
-            _ => {
-                let help = "rename an item to an item (`users#list` to `users#listAll`) or a file to a file \
-                            (`users.crud` to `users.accounts`)";
-                return Err(refused(format!("`{from}` and `{to}` are not the same kind of ID"), help));
-            }
-        };
+        let files = renamed(&project, from, to)?;
         self.guarded(&project, Changes { files, titles: vec![format!("Rename {from} to {to}")] })
+    }
+}
+
+/// The changes that rename `from` to `to`, by the kind of ID `from` is.
+fn renamed(project: &Authoring, from: &str, to: &str) -> Result<Vec<FileChange>, EngineError> {
+    if let Some(files) = renamed_name(project, from, to) {
+        return files;
+    }
+    match (Named::parse(from).item, Named::parse(to).item) {
+        (Some(_), Some(_)) => rename_item(project, from, to),
+        (None, None) => rename_file(project, from, to),
+        _ => {
+            let help = "rename an item to an item (`users#list` to `users#listAll`) or a file to a file \
+                        (`users.crud` to `users.accounts`)";
+            Err(refused(format!("`{from}` and `{to}` are not the same kind of ID"), help))
+        }
     }
 }
 

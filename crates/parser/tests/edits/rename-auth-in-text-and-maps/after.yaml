@@ -1,0 +1,8 @@
+auth: partnerLogin
+apis:
+  - id: list
+    auth: {id: partnerLogin, vars: {scope: read}}
+  - id: open
+    auth: none
+  - id: other
+    auth: "partnerTokens"  # another one
