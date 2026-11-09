@@ -142,6 +142,20 @@ async fn a_failing_api_breaches_the_error_rate_and_is_counted_by_kind() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn an_abort_on_breach_stops_the_run_early_and_exits_3() {
+    let mut file = scenario("breaksUsers", "{duration: 1m, users: 2}");
+    file.extend_from_slice(b"abortOn: [errorRate]\n");
+    let (engine, seen) = engine(CONFIG, &file);
+    let (_interrupter, interrupts) = interrupts();
+    let report = load(&engine, interrupts, None).await;
+    assert_eq!((report.exit, report.ending), (3, LoadEnding::Aborted), "{report:?}");
+    assert!(report.seconds < 60 && report.errors > 0, "{report:?}");
+    assert!(report.text().starts_with("users.peak aborted after "), "{}", report.text());
+    assert_eq!(report.json()["ending"].as_str(), Some("aborted"));
+    assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Failed))));
+}
+
+#[tokio::test(start_paused = true)]
 async fn a_failed_before_run_blocks_the_users() {
     let (engine, seen) = engine(BLOCKED, &scenario("listsUsers", "{duration: 3s, users: 2}"));
     let (_interrupter, interrupts) = interrupts();
