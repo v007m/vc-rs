@@ -19,6 +19,7 @@ clap_complete.workspace = true
 tokio.workspace = true
 vc-engine.workspace = true
 vc-mcp.workspace = true
+vc-tui.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 rustix.workspace = true
