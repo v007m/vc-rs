@@ -57,6 +57,7 @@ mod list;
 mod load;
 mod load_live;
 mod load_report;
+mod migrate;
 mod plan;
 mod policy;
 mod ports;

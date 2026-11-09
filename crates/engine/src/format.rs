@@ -2,12 +2,13 @@
 //! (D180): block YAML with a 2-space indent and keys in the order of the shape definitions. It
 //! keeps comments, and with `strip_comments` drops the one-line comments `vc new` wrote.
 
-use vc_model::FileKind;
+use vc_interfaces::source_file;
+use vc_model::{FileKind, SourceFileId, SourcePath};
 use vc_parser::FormatRules;
 
 use crate::authoring::{Authoring, refused};
 use crate::create::DOCS;
-use crate::edit::{Changes, FileChange};
+use crate::edit::{Changes, FileChange, internal};
 use crate::{Engine, EngineError};
 
 /// The house style of one kind of file.
@@ -62,6 +63,13 @@ impl Engine {
         }
         if changes.is_empty() { Ok(changes) } else { self.guarded(&project, changes) }
     }
+}
+
+/// `text`, a new file at `path` of kind `kind`, in the house style.
+pub fn house_style(path: SourcePath, kind: FileKind, text: &str) -> Result<String, EngineError> {
+    let file = source_file(path, text.as_bytes().to_vec()).map_err(internal)?;
+    let opened = Authoring::open((SourceFileId::new(0), &file))?;
+    opened.document.format(&HouseStyle { kind, strip: false }).map_err(internal)
 }
 
 /// Whether `file` is `wanted` or inside the folder `wanted`; an empty `wanted` is the root.

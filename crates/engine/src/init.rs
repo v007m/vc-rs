@@ -15,7 +15,7 @@ use crate::{Engine, EngineError};
 const CONFIG: &str = include_str!("init/vibranium.config.yaml");
 const SAMPLE_API: &str = include_str!("init/sample.api.yaml");
 const SAMPLE_TESTS: &str = include_str!("init/basics.test.yaml");
-const ENV_SCHEMA: &str = include_str!("init/env.schema");
+pub const ENV_SCHEMA: &str = include_str!("init/env.schema");
 const GITIGNORE: &str = ".gitignore";
 const IGNORED: &str = ".vibranium/";
 
@@ -79,7 +79,7 @@ impl Engine {
     }
 
     /// The paths among `paths` that hold a file now.
-    fn existing<'p>(&self, paths: impl Iterator<Item = &'p str>) -> Result<Vec<String>, EngineError> {
+    pub(crate) fn existing<'p>(&self, paths: impl Iterator<Item = &'p str>) -> Result<Vec<String>, EngineError> {
         let paths = paths.map(SourcePath::new).collect::<Result<Vec<_>, _>>().map_err(internal)?;
         let read = self.sources.read(&paths).map_err(sources_error)?;
         Ok(read.files.iter().map(|file| file.path.to_string()).collect())
@@ -87,7 +87,7 @@ impl Engine {
 }
 
 /// A new file at `path` holding `text`.
-fn created(path: &str, text: &str) -> FileChange {
+pub fn created(path: &str, text: &str) -> FileChange {
     FileChange { path: path.to_owned(), before: None, after: text.to_owned(), moved_from: None }
 }
 

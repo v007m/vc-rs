@@ -356,6 +356,8 @@ pub fn vc_engine::Engine::list(&self, &vc_engine::ListRequest) -> core::result::
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::load(&self, &vc_engine::LoadRequest, vc_engine::LoadWatch) -> core::result::Result<vc_engine::LoadReport, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::migrate_v1(&self, &str) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::new_api(&self, &vc_engine::NewApi) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::new_api_from_curl(&self, &str, &str) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
