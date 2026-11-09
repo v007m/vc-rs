@@ -52,6 +52,9 @@ struct TestArgs {
     /// Also the failure cases built from the api's body schema.
     #[arg(long)]
     negative: bool,
+    /// Also a test calling the api with `auth: none`, expecting 401.
+    #[arg(long)]
+    auth: bool,
 }
 
 #[derive(Args)]
@@ -94,7 +97,8 @@ pub fn run(args: NewArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
             written(engine, engine.new_api(&request), false)
         }
         NewCommand::Test(args) => {
-            written(engine, engine.new_test(&NewTest { id: args.id, from: args.from, negative: args.negative }), false)
+            let TestArgs { id, from, negative, auth } = args;
+            written(engine, engine.new_test(&NewTest { id, from, negative, auth }), false)
         }
         NewCommand::Auth(args) => auth(engine, args)?,
         NewCommand::File(args) => written(engine, engine.new_file(args.kind.into(), &args.id), false),

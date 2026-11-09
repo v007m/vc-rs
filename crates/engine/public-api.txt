@@ -429,6 +429,7 @@ impl core::fmt::Debug for vc_engine::NewAuth
 pub fn vc_engine::NewAuth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::NewAuth
 pub struct vc_engine::NewTest
+pub vc_engine::NewTest::auth: bool
 pub vc_engine::NewTest::from: alloc::string::String
 pub vc_engine::NewTest::id: alloc::string::String
 pub vc_engine::NewTest::negative: bool
