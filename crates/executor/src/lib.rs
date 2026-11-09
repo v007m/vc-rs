@@ -13,6 +13,7 @@
 //! through the [`vc_interfaces::HookRunner`] in [`PipelineParts::hook_runner`] (D172). Runtime values: [`RunValues`] holds the var definitions of each level with
 //! the active profiles applied once per run; each action reads its [`Frame`] and renders through
 //! a renderer, so a `call:` sends the real request and saves values for later actions.
+//! [`Iterations`] is the seam the load engine drives: one test instance at a time, per user.
 
 mod action;
 mod bus;
@@ -23,6 +24,7 @@ mod exchange_mask;
 mod exit;
 #[cfg(test)]
 mod fixture;
+mod iterations;
 mod machine;
 mod mask;
 mod pipeline;
@@ -42,6 +44,7 @@ pub use error::ExecutorError;
 
 pub use check::{Arguments, Judge, MatcherFn, MatcherRegistry};
 pub use exit::{EXIT_CANCELLED, EXIT_FAILED, EXIT_NOTHING_RAN, EXIT_PASSED, exit_code};
+pub use iterations::{IterationCall, IterationReport, Iterations};
 pub use machine::{
     ActionReport, CANCELLED, FailedActions, FileCommand, FileInput, FileOrchestrator, FilePhase, InstanceCommand,
     InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Launch, PendingCleanup, RunCommand, RunInput,
