@@ -2,6 +2,8 @@
 //! rule is a [`Lint`] in a file of its own, listed once in [`LintRegistry::builtin`].
 
 mod body_on_read;
+#[cfg(test)]
+mod convention_tests;
 mod default_profiles;
 mod deprecated_calls;
 mod expired_skips;

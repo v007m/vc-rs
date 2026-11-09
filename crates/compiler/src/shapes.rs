@@ -102,7 +102,7 @@ mod tests {
 
     use vc_model::FileKind;
 
-    use super::{Scope, key_order, reachable, root};
+    use super::{Scope, Ty, key_order, reachable, root, step};
 
     #[test]
     fn orders_the_keys_of_declared_maps_only() {
@@ -117,6 +117,13 @@ mod tests {
         assert!(key_order(FileKind::Api, &["apis", "-", "body", "name"]).is_none());
         assert!(key_order(FileKind::Test, &["nope"]).is_none());
         assert!(key_order(FileKind::Config, &[]).is_some_and(|keys| keys.contains(&"syntaxVersion")));
+    }
+
+    #[test]
+    fn orders_the_map_alternative_of_a_key_that_takes_either() {
+        assert_eq!(key_order(FileKind::Test, &["tests", "-", "skip"]), Some(vec!["reason", "until"]));
+        assert!(matches!(step(super::common::SKIP, "reason"), Some(Ty::Text)));
+        assert!(step(super::common::SKIP, "-").is_none());
     }
 
     #[test]
