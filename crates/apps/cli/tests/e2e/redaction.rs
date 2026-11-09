@@ -62,7 +62,7 @@ async fn no_secret_reaches_the_history_or_a_report() {
 }
 
 /// No run of [`WINDOW`] characters of any of `values` shows in any of `seen`.
-fn assert_hidden(seen: &[(String, String)], values: &[&str]) {
+pub fn assert_hidden(seen: &[(String, String)], values: &[&str]) {
     for (name, text) in seen {
         for value in values {
             let leak =
@@ -104,7 +104,7 @@ async fn a_secret_from_the_environment_is_sent_and_shown_nowhere() {
 }
 
 /// Every text and blob cell of every table, blobs unpacked when they are zstd frames.
-fn history_text(path: &Path) -> String {
+pub fn history_text(path: &Path) -> String {
     let db = rusqlite::Connection::open(path).unwrap();
     let mut tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").unwrap();
     let names: Vec<String> = tables.query_map([], |row| row.get(0)).unwrap().map(Result::unwrap).collect();
@@ -133,7 +133,7 @@ fn cell(value: ValueRef<'_>) -> String {
 
 /// Every file under `dir`, as text: the history files' raw bytes and each report file. The
 /// compile cache is left out: it holds the project's own source, where the values are written.
-fn files(dir: &Path, seen: &mut Vec<(String, String)>) {
+pub fn files(dir: &Path, seen: &mut Vec<(String, String)>) {
     for entry in fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();
         if path.ends_with(".vibranium/cache") {
