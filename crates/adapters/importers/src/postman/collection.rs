@@ -212,6 +212,12 @@ pub fn script(events: &[Event], listen: &str) -> Option<String> {
     Some(event.script.as_ref()?.text()).filter(|text| !text.trim().is_empty())
 }
 
+/// The enabled parameters that have a name, each with its value, else empty.
+pub fn enabled(params: &[Param]) -> Vec<(String, String)> {
+    let params = params.iter().filter(|param| !param.disabled);
+    params.filter_map(|param| Some((param.key.clone()?, param.value.clone().unwrap_or_default()))).collect()
+}
+
 fn walk<'c>(items: &'c [Item], auth: Option<&'c Auth>, walked: &mut Walked<'c>) {
     for item in items {
         let auth = item.auth.as_ref().or(auth);

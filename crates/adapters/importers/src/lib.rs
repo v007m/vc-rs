@@ -14,6 +14,7 @@
 //! ```
 
 mod body;
+mod collected;
 mod curl;
 mod har;
 mod http;

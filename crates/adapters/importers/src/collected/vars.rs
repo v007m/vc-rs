@@ -7,7 +7,6 @@
 use indexmap::IndexMap;
 use serde_json::{Value, json};
 
-use super::collection::Variable;
 use crate::body::Scrub;
 use crate::naming::camel;
 use crate::secret::Secrets;
@@ -20,7 +19,7 @@ const DEPTH: usize = 8;
 /// What the origin of a collection whose base URL has no value is.
 pub const UNKNOWN_ORIGIN: &str = "http://localhost";
 
-/// Postman's dynamic variables, by the generator that makes the same kind of value.
+/// The dynamic variables a collection can use, by the generator that makes the same kind of value.
 const DYNAMIC: [(&str, &str); 16] = [
     ("$guid", "string.uuid"),
     ("$randomUUID", "string.uuid"),
@@ -47,18 +46,8 @@ pub struct Values {
 }
 
 impl Values {
-    /// The values of `variables`; `saved` are the vars a script sets, which need none.
-    pub fn new(variables: &[Variable], saved: Vec<String>) -> Self {
-        let text = |value: &Value| match value {
-            Value::String(text) => Some(text.clone()),
-            Value::Number(_) | Value::Bool(_) => Some(value.to_string()),
-            _ => None,
-        };
-        let values = variables
-            .iter()
-            .filter_map(|variable| Some((variable.key.clone()?, text(variable.value.as_ref()?)?)))
-            .filter(|(_, value)| !value.is_empty())
-            .collect();
+    /// The variables with a value; `saved` are the vars a script sets, which need none.
+    pub const fn new(values: IndexMap<String, String>, saved: Vec<String>) -> Self {
         Self { values, saved }
     }
 

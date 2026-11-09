@@ -1,5 +1,5 @@
 //! The collection as one test (`--flow`): a step per request, in collection order. A step saves
-//! what its test script saves, and a later step that calls an api with a var of that name sends
+//! what its request saves, and a later step that calls an api with a var of that name sends
 //! the saved value, so the test replays with fresh data.
 
 use indexmap::IndexMap;
