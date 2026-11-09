@@ -6,9 +6,7 @@ use vc_model::{ActionId, Event, OwnerKey, TestResult, TestStatus};
 
 use super::crew::{Crew, Deadline, Job};
 use crate::cancel::{CancelTree, Ran};
-use crate::{
-    Frame, InstanceCommand, InstanceInput, InstanceScript, InstanceWorkflow, Launch, RunInput, Verdict,
-};
+use crate::{Frame, InstanceCommand, InstanceInput, InstanceScript, InstanceWorkflow, Launch, RunInput, Verdict};
 
 /// One instance to run: what the file launched, the shared values it reads and its frame.
 pub struct Ticket {
