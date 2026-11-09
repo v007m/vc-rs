@@ -59,6 +59,24 @@ pub struct ImportOptions {
     pub only: Vec<String>,
     /// HAR `--flow`: the test replaying the recording, `<fileId>#<testId>`; none when not asked.
     pub flow: Option<String>,
+    /// HAR: which recorded calls are the project's.
+    pub recording: RecordingFilter,
+}
+
+/// Which calls in a recording are the project's; the rest are noise.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct RecordingFilter {
+    /// The hosts the active profiles' base URLs render to, whose sites are the project's; the
+    /// site of the recording's first call when empty.
+    pub hosts: Vec<String>,
+    /// `--include-host`: hosts kept whatever their site.
+    pub include_hosts: Vec<String>,
+    /// `--keep-static`: static files are kept.
+    pub keep_static: bool,
 }
 
 /// An importer's result: the api files to write, and what the user should know.

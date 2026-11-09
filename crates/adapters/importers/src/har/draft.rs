@@ -205,9 +205,10 @@ fn query_of(query: &str, secrets: &mut Secrets<'_>) -> IndexMap<String, String> 
 /// a letter, else `fallback`, else `recorded`.
 fn file_id(origin: &str, fallback: &str) -> String {
     let host = host(origin).unwrap_or_default();
-    let label = host.split('.').filter(|label| !matches!(*label, "www" | "api")).find(|label| {
-        label.starts_with(|c: char| c.is_ascii_alphabetic())
-    });
+    let label = host
+        .split('.')
+        .filter(|label| !matches!(*label, "www" | "api"))
+        .find(|label| label.starts_with(|c: char| c.is_ascii_alphabetic()));
     let word = label.map(|label| label.chars().filter(char::is_ascii_alphanumeric).collect::<String>());
     let fallback = if fallback.is_empty() { "recorded" } else { fallback };
     word.unwrap_or_else(|| fallback.to_owned())

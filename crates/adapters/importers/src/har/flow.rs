@@ -26,9 +26,10 @@ const ITEMS: usize = 10;
 /// The flow `id` (`<fileId>#<testId>`; a bare test ID goes in `<fallback>.recorded`) replaying
 /// `steps`, each request with what came back.
 pub fn flow<'r>(id: &str, fallback: &str, steps: impl IntoIterator<Item = (Recorded, &'r Response)>) -> DraftFlow {
-    let (file_id, test_id) = id
-        .split_once('#')
-        .map_or_else(|| (format!("{fallback}.recorded"), id.to_owned()), |(file, test)| (file.to_owned(), test.to_owned()));
+    let (file_id, test_id) = id.split_once('#').map_or_else(
+        || (format!("{fallback}.recorded"), id.to_owned()),
+        |(file, test)| (file.to_owned(), test.to_owned()),
+    );
     let mut chain = Chain::default();
     for (recorded, response) in steps {
         chain.step(recorded, response);
@@ -120,5 +121,6 @@ fn id_key(at: &str) -> bool {
 
 /// Whether `key` can follow a `.` in a template.
 fn plain(key: &str) -> bool {
-    key.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    key.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+        && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }

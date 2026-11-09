@@ -878,9 +878,11 @@ impl core::marker::StructuralPartialEq for vc_interfaces::ImportNote
 pub struct vc_interfaces::ImportOptions
 pub vc_interfaces::ImportOptions::auth: bool
 pub vc_interfaces::ImportOptions::file_id: alloc::string::String
+pub vc_interfaces::ImportOptions::flow: core::option::Option<alloc::string::String>
 pub vc_interfaces::ImportOptions::include: alloc::vec::Vec<alloc::string::String>
 pub vc_interfaces::ImportOptions::negative: bool
 pub vc_interfaces::ImportOptions::only: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::ImportOptions::recording: vc_interfaces::RecordingFilter
 pub vc_interfaces::ImportOptions::tests: bool
 impl core::clone::Clone for vc_interfaces::ImportOptions
 pub fn vc_interfaces::ImportOptions::clone(&self) -> Self
@@ -934,6 +936,20 @@ pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -
 impl core::fmt::Display for vc_interfaces::KeychainError
 pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::KeychainError
+pub struct vc_interfaces::RecordingFilter
+pub vc_interfaces::RecordingFilter::hosts: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::RecordingFilter::include_hosts: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::RecordingFilter::keep_static: bool
+impl core::clone::Clone for vc_interfaces::RecordingFilter
+pub fn vc_interfaces::RecordingFilter::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::RecordingFilter
+impl core::cmp::PartialEq for vc_interfaces::RecordingFilter
+pub fn vc_interfaces::RecordingFilter::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::RecordingFilter
+pub fn vc_interfaces::RecordingFilter::default() -> Self
+impl core::fmt::Debug for vc_interfaces::RecordingFilter
+pub fn vc_interfaces::RecordingFilter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::RecordingFilter
 pub struct vc_interfaces::RunEnd
 pub vc_interfaces::RunEnd::finished_ms: u64
 pub vc_interfaces::RunEnd::snapshot: alloc::vec::Vec<u8>

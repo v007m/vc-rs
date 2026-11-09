@@ -1,15 +1,18 @@
 //! The noise in a recording: static assets (by extension and response type), `OPTIONS`
-//! preflights, and calls to third-party sites. The project's own site is the one the first
-//! entry calls; a site is a host's last two labels, so a public suffix such as `co.uk` is not
-//! told apart.
+//! preflights, and calls to third-party sites. The project's own sites are those of the hosts
+//! its base URLs render to, else the one the first entry calls; a site is a host's last two
+//! labels, so a public suffix such as `co.uk` is not told apart. `--include-host` keeps a
+//! host whatever its site, and `--keep-static` keeps static files.
+
+use vc_interfaces::RecordingFilter;
 
 use super::entry::Entry;
 use crate::url::{path_and_query, split_origin};
 
 /// The extensions of files a page loads rather than calls.
 const STATIC_EXTENSIONS: [&str; 23] = [
-    "js", "mjs", "css", "map", "html", "htm", "png", "jpg", "jpeg", "gif", "svg", "ico", "webp", "avif", "bmp",
-    "woff", "woff2", "ttf", "otf", "eot", "mp4", "webm", "mp3",
+    "js", "mjs", "css", "map", "html", "htm", "png", "jpg", "jpeg", "gif", "svg", "ico", "webp", "avif", "bmp", "woff",
+    "woff2", "ttf", "otf", "eot", "mp4", "webm", "mp3",
 ];
 
 /// Words in the response types of files a page loads rather than calls.
@@ -29,14 +32,32 @@ pub struct Kept {
     pub summary: String,
 }
 
+/// What is not noise: the project's sites, the hosts kept whatever their site, and whether
+/// static files are kept.
+pub struct Rules {
+    sites: Vec<String>,
+    include: Vec<String>,
+    keep_static: bool,
+}
+
+impl Rules {
+    /// The rules `filter` asks for.
+    pub fn new(filter: &RecordingFilter) -> Self {
+        let lower = |hosts: &[String]| hosts.iter().map(|host| host.to_ascii_lowercase()).collect::<Vec<_>>();
+        let sites = lower(&filter.hosts).iter().map(|host| site(host)).collect();
+        Self { sites, include: lower(&filter.include_hosts), keep_static: filter.keep_static }
+    }
+}
+
 /// The entries of `entries` that call the project's apis.
-pub fn kept(entries: Vec<Entry>) -> Kept {
+pub fn kept(entries: Vec<Entry>, rules: &Rules) -> Kept {
     let read = entries.len();
-    let home = entries.iter().find_map(|entry| host(&entry.request.url)).map(|host| site(&host));
+    let first = || entries.iter().find_map(|entry| host(&entry.request.url)).map(|host| site(&host));
+    let homes = if rules.sites.is_empty() { first().into_iter().collect() } else { rules.sites.clone() };
     let mut counts = [0_usize; 3];
     let mut kept = Vec::new();
     for entry in entries {
-        match noise(&entry, home.as_deref()).and_then(|noise| counts.get_mut(noise as usize)) {
+        match noise(&entry, &homes, rules).and_then(|noise| counts.get_mut(noise as usize)) {
             Some(count) => *count += 1,
             None => kept.push(entry),
         }
@@ -49,16 +70,17 @@ pub fn kept(entries: Vec<Entry>) -> Kept {
     Kept { entries: kept, summary }
 }
 
-fn noise(entry: &Entry, home: Option<&str>) -> Option<Noise> {
+fn noise(entry: &Entry, homes: &[String], rules: &Rules) -> Option<Noise> {
     let url = &entry.request.url;
-    if !(url.starts_with("http://") || url.starts_with("https://")) || asset(entry) {
+    if !(url.starts_with("http://") || url.starts_with("https://")) || (!rules.keep_static && asset(entry)) {
         return Some(Noise::Static);
     }
     if entry.request.method.eq_ignore_ascii_case("OPTIONS") {
         return Some(Noise::Preflight);
     }
-    let site = host(url).map(|host| site(&host));
-    (site.as_deref() != home).then_some(Noise::ThirdParty)
+    let host = host(url).unwrap_or_default();
+    let home = rules.include.contains(&host) || homes.contains(&site(&host));
+    (!home).then_some(Noise::ThirdParty)
 }
 
 /// Whether `entry` fetched a static file, told by its path's extension or its response type.

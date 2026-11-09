@@ -91,7 +91,7 @@ pub use history::{
 pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
 pub use import::{
     DraftApi, DraftFlow, DraftGroup, DraftStep, DraftTest, ImportDraft, ImportError, ImportNote, ImportOptions,
-    ImportSource, Importer, SecretFinding,
+    ImportSource, Importer, RecordingFilter, SecretFinding,
 };
 pub use keychain::{Keychain, KeychainError};
 pub use random::Random;

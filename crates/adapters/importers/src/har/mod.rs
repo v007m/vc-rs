@@ -26,7 +26,7 @@ pub struct HarImporter;
 impl Importer for HarImporter {
     async fn read(&self, source: &ImportSource, opts: &ImportOptions) -> Result<ImportDraft, ImportError> {
         let invalid = |reason: String| ImportError::Invalid { location: source.location.clone(), reason };
-        let kept = filter::kept(entry::entries(&source.bytes).map_err(invalid)?);
+        let kept = filter::kept(entry::entries(&source.bytes).map_err(invalid)?, &filter::Rules::new(&opts.recording));
         let (mut draft, recorded) = draft::draft(kept.entries.iter().map(|entry| &entry.request), &opts.file_id);
         let Some(first) = draft.groups.first() else {
             return Err(invalid(format!("it records no call to an api: {}", kept.summary)));

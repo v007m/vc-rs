@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use serde_json::{Value, json};
 use vc_interfaces::{
     DraftApi, DraftFlow, DraftStep, ImportDraft, ImportError, ImportNote, ImportOptions, ImportSource, Importer,
-    SecretFinding,
+    RecordingFilter, SecretFinding,
 };
 use vc_model::Method;
 use vc_testkit::importer_suite;
@@ -65,7 +65,8 @@ fn json_api(id: &str, path: &str, vars: &[(&str, Value)], body: Value) -> DraftA
 
 fn shop_apis() -> Vec<DraftApi> {
     let cart = ("cartId", json!("crt_8Kq2Tz"));
-    let create = json_api("createCart", "/v1/carts", &[("currency", json!("EUR"))], json!({"currency": "${var.currency}"}));
+    let create =
+        json_api("createCart", "/v1/carts", &[("currency", json!("EUR"))], json!({"currency": "${var.currency}"}));
     let add = json_api(
         "addItem",
         "/v1/carts/${var.cartId}/items",
@@ -129,15 +130,38 @@ async fn what_is_filtered_merged_or_left_out_is_noted() {
     let notes = read(SAMPLE).await.unwrap_or_default().notes;
     let notes: Vec<_> = notes.iter().map(|ImportNote { at, message }| format!("{at}: {message}")).collect();
     let headers = |at: &str| {
-        ["authorization", "cookie"].map(|name| format!("{at}: header {name}: never written; it maps to the file's auth"))
+        ["authorization", "cookie"]
+            .map(|name| format!("{at}: header {name}: never written; it maps to the file's auth"))
     };
     let mut expected =
         vec!["the recording: read 12 entries · filtered 3 static, 1 third-party, 1 OPTIONS → 7 requests".to_owned()];
-    for at in ["POST /v1/carts", "POST /v1/carts/${var.cartId}/items", "GET /v1/carts/${var.cartId}", "GET /v1/orders"] {
+    for at in ["POST /v1/carts", "POST /v1/carts/${var.cartId}/items", "GET /v1/carts/${var.cartId}", "GET /v1/orders"]
+    {
         expected.extend(headers(at));
     }
     expected.push("POST /v1/carts/${var.cartId}/items: recorded 2 times, merged into one api".to_owned());
     assert_eq!(notes, expected);
+}
+
+async fn summary(opts: ImportOptions) -> Option<String> {
+    let draft = HarImporter.read(&source(SAMPLE), &opts).await.ok()?;
+    draft.notes.first().map(|note| note.message.clone())
+}
+
+#[tokio::test]
+async fn the_project_hosts_include_hosts_and_keep_static_decide_what_is_noise() {
+    let filtered = |counts: &str| Some(format!("read 12 entries · filtered {counts} requests"));
+    let hosts = |hosts: &[&str]| hosts.iter().map(|host| (*host).to_owned()).collect::<Vec<_>>();
+    let with = |recording: RecordingFilter| ImportOptions { recording, ..ImportOptions::default() };
+    let own = with(RecordingFilter { hosts: hosts(&["API.shop.test"]), ..RecordingFilter::default() });
+    assert_eq!(summary(own).await, filtered("3 static, 1 third-party, 1 OPTIONS → 7"));
+    let other = with(RecordingFilter { hosts: hosts(&["www.google-analytics.com"]), ..RecordingFilter::default() });
+    assert_eq!(summary(other).await, filtered("3 static, 7 third-party, 1 OPTIONS → 1"));
+    let include =
+        with(RecordingFilter { include_hosts: hosts(&["WWW.google-analytics.com"]), ..RecordingFilter::default() });
+    assert_eq!(summary(include).await, filtered("3 static, 0 third-party, 1 OPTIONS → 8"));
+    let assets = with(RecordingFilter { keep_static: true, ..RecordingFilter::default() });
+    assert_eq!(summary(assets).await, filtered("0 static, 1 third-party, 1 OPTIONS → 10"));
 }
 
 #[tokio::test]
@@ -191,6 +215,7 @@ async fn a_file_that_is_not_a_har_or_calls_no_api_is_invalid() {
     assert!(reason("{\"log\": 1}").await.starts_with("it is not a HAR 1.2 or 1.3 file: "));
     let only_assets: String = SAMPLE.lines().take(5).chain(SAMPLE.lines().skip(16)).collect::<Vec<_>>().join("\n");
     let only_assets = only_assets.replacen("}},\n  ]", "}}\n  ]", 1);
-    let expected = "it records no call to an api: read 1 entries · filtered 1 static, 0 third-party, 0 OPTIONS → 0 requests";
+    let expected =
+        "it records no call to an api: read 1 entries · filtered 1 static, 0 third-party, 0 OPTIONS → 0 requests";
     assert_eq!(reason(&only_assets).await, expected);
 }
