@@ -87,6 +87,7 @@ insta = { version = "1.49.0", default-features = false }
 keyring-core = "1.0.1"
 linux-keyutils-keyring-store = "1.0.0"
 notify = "=8.2.1"
+oas3 = { version = "0.22.0", default-features = false }
 oxc_allocator = "0.155.0"
 oxc_ast = "0.155.0"
 oxc_codegen = "0.155.0"

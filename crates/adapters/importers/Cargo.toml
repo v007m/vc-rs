@@ -9,11 +9,14 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+async-trait.workspace = true
+indexmap.workspace = true
+oas3.workspace = true
+serde_json.workspace = true
 vc-interfaces.workspace = true
+vc-model.workspace = true
 
 [dev-dependencies]
-async-trait.workspace = true
-serde_json.workspace = true
 tokio.workspace = true
 vc-testkit.workspace = true
 

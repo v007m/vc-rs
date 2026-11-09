@@ -8,9 +8,11 @@
 //! ```
 //! use vc_adapter_importers::ImporterRegistry;
 //!
-//! assert_eq!(ImporterRegistry::builtin().names().count(), 0);
+//! assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["openapi"]);
 //! ```
 
+mod openapi;
 mod registry;
 
+pub use openapi::OpenApiImporter;
 pub use registry::{ImporterFactory, ImporterRegistry};

@@ -1,0 +1,92 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Petstore", "version": "1.0.0" },
+  "servers": [{ "url": "https://petstore.test/v1" }],
+  "security": [{ "apiKey": [] }],
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "listPets",
+        "summary": "List pets",
+        "tags": ["pets"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "tag", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pets",
+            "content": {
+              "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Pet" } } }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create_pet",
+        "summary": "Create a pet",
+        "tags": ["pets"],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NewPet" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "The new pet",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } }
+          }
+        }
+      }
+    },
+    "/pets/{petId}": {
+      "parameters": [
+        { "name": "petId", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1 } }
+      ],
+      "get": {
+        "operationId": "getPet",
+        "summary": "Get a pet",
+        "tags": ["pets"],
+        "responses": {
+          "200": {
+            "description": "The pet",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } }
+          },
+          "404": { "description": "No such pet" }
+        }
+      },
+      "delete": {
+        "tags": ["pets"],
+        "security": [],
+        "responses": { "204": { "description": "Gone" } }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "tags": ["ops"],
+        "security": [],
+        "responses": { "200": { "description": "Up" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "apiKey": { "type": "apiKey", "in": "header", "name": "x-api-key" } },
+    "schemas": {
+      "NewPet": {
+        "type": "object",
+        "required": ["name"],
+        "properties": { "name": { "type": "string" }, "tag": { "type": ["string", "null"] } }
+      },
+      "Pet": {
+        "allOf": [
+          { "$ref": "#/components/schemas/NewPet" },
+          {
+            "type": "object",
+            "required": ["id"],
+            "properties": { "id": { "type": "integer", "exclusiveMinimum": 0 } }
+          }
+        ]
+      }
+    }
+  }
+}
