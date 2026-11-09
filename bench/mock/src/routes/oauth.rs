@@ -31,10 +31,10 @@ pub fn routes(store: &Store) -> Router {
         .with_state(store.clone())
 }
 
+/// Takes the token URL's query and the client's headers together.
 async fn token(
     State(store): State<Store>,
-    Query(query): Query<Fields>,
-    headers: HeaderMap,
+    (Query(query), headers): (Query<Fields>, HeaderMap),
     Form(fields): Form<Fields>,
 ) -> Response {
     if !known_client(&headers, &fields) {
