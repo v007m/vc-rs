@@ -86,7 +86,11 @@ async fn the_request_that_fetched_a_credential_uses_it_however_short_its_life() 
     let fetch = counting(&calls, Some(Duration::ZERO));
     assert_eq!(token(&cache.get(key, Duration::from_secs(60), &fetch).await.unwrap()), "Bearer t0");
     assert_eq!(calls.load(Ordering::SeqCst), 1);
-    assert_eq!(token(&cache.get(key, Duration::from_secs(60), &fetch).await.unwrap()), "Bearer t1", "stale for the next");
+    assert_eq!(
+        token(&cache.get(key, Duration::from_secs(60), &fetch).await.unwrap()),
+        "Bearer t1",
+        "stale for the next"
+    );
 }
 
 #[tokio::test]
