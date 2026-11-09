@@ -345,6 +345,14 @@ Round 27 additions (5 November 2026):
 | D187 | Keychain backends | `OsKeychain` uses `keyring-core` with one native store per target: the macOS keychain, the Windows credential manager, and the Linux kernel keyutils session keyring (no D-Bus). Other targets have no keychain, so `VIB_CACHE_KEY` applies. `keyring` 4's default Linux store pulls in `zbus` 5, whose `zvariant`/`zbus_names` crates carry unmaintained advisories (RUSTSEC-2026-0370..0372) and add `syn` 2 users. On Linux the key lasts one login session; a lost key makes cache entries miss, never fail | LLD crate table (`keyring` 4) |
 | D188 | `vc-demo` binary (Sarath) | `vc-demo` ships its own binary next to `vc`; `vc demo start` launches it by path (the directory of the current executable, then `PATH`), and `--detach` writes the pidfile that `vc demo stop` reads. `vc-cli` gains no dependency on `vc-demo`, so the app edges stay cli → {tui, mcp, server} (D110). Installers ship both binaries | D175 (in part: "re-launches the current executable") |
 
+Round 28 additions (9 November 2026):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D189 | Params rule and foreign traits (Sarath) | ARCH-PARAMS skips functions in an `impl <Trait> for X` whose trait is declared outside the workspace, because the upstream crate fixes the signature (rquickjs `Resolver::resolve` takes 4). Impls of workspace traits and inherent functions still count | D109 (in part) |
+| D190 | `notify` and CC0 (Sarath) | `deny.toml` allows `CC0-1.0` (a public-domain dedication, used by `notify`). `vc watch` uses `notify` 8.2.1 behind the `FileWatcher` port in `vc-adapter-system`, as D180 says; its other dependencies add no duplicate versions | — |
+| D191 | When an api's `save` runs (Sarath) | An api-level `save` runs only when the response status matches the api's `saveOn:` status matcher (same syntax as `expect.status`: `201`, `2xx`, `[200, 201]`). `saveOn` defaults to the api's own `expect.status`, or `2xx` when it has none. A test that expects another status (such as a 400) therefore skips the api's saves, the same way cleanup is not registered. Test-level and step-level `save` are unaffected | D62 (in part: "applies to every caller") |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
