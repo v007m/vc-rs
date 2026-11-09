@@ -1077,7 +1077,13 @@ Importers get the documents a file refers to through the `SpecFetcher` port (`fe
 - **Chaining.** Values that appear in a response and later in a request (an ID returned by one call and used in a later URL or body) become `save` entries and `${var.…}` references in the flow, which is how the recorded session replays with fresh data.
 - **Secrets.** `Authorization` and cookies are dropped and mapped to the file's auth. Query or body fields with secret-like names, or high-entropy values, become `${secret.NAME}` references, with an entry proposed for `.env.schema`.
 
-cURL, Postman (collection v2.1), Bruno and Vibranium v1 importers use the same draft form, each in its own module.
+### cURL
+
+- **Reading.** The file is read as bash reads a command line: words split at blanks, `'…'`, `"…"` and `$'…'` quotes, backslash escapes, line continuations and `#` comments. Each unquoted `curl` word starts a command, which ends at the next `curl` or at an operator (`|`, `;`, `&`, `>`, an unescaped line break), so a `$` prompt or a `| jq .` is read past. Each option is an entry of one table (`--long`, `-s` with bundles such as `-sXPOST`); one with no api form (output, timeouts, TLS, verbosity) is read past, an unknown one is noted.
+- **Mapping.** The method is `-X`, else HEAD for `-I`, POST when data is sent in a body, GET otherwise. The first command's origin becomes the base-URL var `<fileId>Url`; a command calling another origin is skipped with a note. Path segments that look like IDs become vars by the HAR rule (`/users/u_7f3k` → `${var.userId}`, in `path_vars.rs`, shared with HAR). The query, and `-G` data, become the api's query, decoded. JSON data keeps its shape, each top-level field a var with the command's value as its default; form data and `-F` fields become body maps with their content type; other data is text. A second command with the same method and templated path is noted, not drafted again. There is no spec to sync, so the api file has no `source` and no snapshot is written.
+- **Credentials.** `authorization`, cookies and other secret-named headers, `-u`, `-b`, `--oauth2-bearer`, a URL's user and password, and secret-named query and body fields (`secrets.rs`) are never written: a body field is written empty, the rest left out, and a note names each one, never its value. `-d @file` and `-F name=@file` files are not read.
+
+Postman (collection v2.1), Bruno and Vibranium v1 importers use the same draft form, each in its own module.
 
 ## Load engine
 

@@ -8,7 +8,7 @@
 //! ```
 //! use vc_adapter_importers::ImporterRegistry;
 //!
-//! assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["openapi"]);
+//! assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["curl", "openapi"]);
 //! ```
 
 mod curl;

@@ -12,7 +12,7 @@ use crate::{Outcome, changes, project};
 /// `vc import …`.
 #[derive(Args)]
 pub struct ImportArgs {
-    /// The kind of file: `openapi`, `har`, `postman`, `bruno` or `http`.
+    /// The kind of file: `openapi`, `curl`, `har`, `postman`, `bruno` or `http`.
     kind: String,
     /// The URL or path of the spec or recording.
     source: String,

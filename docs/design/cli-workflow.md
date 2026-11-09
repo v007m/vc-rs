@@ -287,7 +287,7 @@ One service per folder keeps an api file next to the tests that use it, and test
 
 ## Commands
 
-Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text. `vc load` and `vc migrate v1` take their arguments but are not built yet: each exits 2 with `error: <command> is not built yet`. `vc import` reads only `openapi` so far; another kind exits 2, naming the importers there are.
+Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text. `vc load` and `vc migrate v1` take their arguments but are not built yet: each exits 2 with `error: <command> is not built yet`. `vc import` reads only `openapi` and `curl` so far; another kind exits 2, naming the importers there are.
 
 **Start and author**
 
@@ -295,6 +295,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | --- | --- |
 | `vc init [--no-sample] [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, the sample api and test files (not with `--no-sample`), `.env.schema` when there is none, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi`, then runs `vc import openapi` on it (when the import is refused, the project stays written and the import can be run again). A definition file it would write that exists already (a project is here) is named and nothing is written: exit 2 |
 | `vc import openapi <url-or-file> [--id <fileId>] [--tests] [--negative] [--auth] [--include <tag-or-path>]… [--only <operationId>]…` | Creates an api file from a spec (one api per operation), saves the spec snapshot `openapi/<fileId>.yaml`, adds a base-URL var to the config, and optionally generates tests in `<fileId>.openapi` (`services/<fileId>/openapi.test.yaml`). Without `--id` the file ID is the spec's file name up to its first dot. What the spec holds that has no api form is listed after the change. An api file that exists is refused (use `vc sync`), and so is a result that would not compile: exit 2, nothing written |
+| `vc import curl <file> [--id <fileId>]` | Creates an api file from a file of curl commands, as browser dev tools and API docs copy them: one api per distinct method and path, all calling one origin, which becomes a base-URL var. IDs in a path become vars; JSON body fields become api vars with the command's values as defaults; form and `-F` data become body maps. A credential (`authorization` and other secret-named headers, cookies, `-u`, a URL's user, secret-named query and body fields) is never written: the notes after the change name each one left out, without its value |
 | `vc import har\|postman\|bruno\|http <path>` | Converts browser HAR recordings (see Importing from a HAR file) or other tools' collections |
 | `vc new api <fileId#apiId> [--method] [--path \| --url <full-url>] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--url`, the origin becomes a base-URL var and the rest the path and query (D177); with `--from-curl` (M6, D176), method, URL, headers and body come from the curl command |
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
@@ -417,7 +418,7 @@ $ vc new api --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v
     -H "content-type: application/json" -H "authorization: Bearer eyJ…" -d "{\"name\":\"Ada\"}"'
 ? Api ID  users#rename
 ✓ added users#rename to services/users/users.api.yaml:91
-  host matches var usersUrl (profile staging) · path id u_7f3k → ${var.id} · body name → var name, default "Ada"
+  host matches var usersUrl (profile staging) · path id u_7f3k → ${var.userId} · body name → var name, default "Ada"
   authorization header dropped: the file already uses auth shopOauth
 ```
 

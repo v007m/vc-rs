@@ -25,7 +25,7 @@ pub fn drafted(
     let mut files = Vec::new();
     let mut snapshots = Vec::new();
     for group in &draft.groups {
-        files.extend(group_files(project, group, request)?);
+        files.extend(group_files(project, group, draft.snapshot.as_ref().map(|_| request))?);
         snapshots.extend(draft.snapshot.as_ref().map(|doc| snapshot(&group.file_id, &request.source, doc)));
     }
     files.sort_by(|a, b| a.path.cmp(&b.path));
@@ -35,10 +35,11 @@ pub fn drafted(
     Ok((Changes { files, titles }, snapshots))
 }
 
+/// `synced` is the request whose spec the api file's `source` names; none for a draft of no spec.
 fn group_files(
     project: &Authoring,
     group: &DraftGroup,
-    request: &ImportRequest,
+    synced: Option<&ImportRequest>,
 ) -> Result<Vec<FileChange>, EngineError> {
     let id = &group.file_id;
     if project.find(FileKind::Api, id).is_some() {
@@ -54,7 +55,7 @@ fn group_files(
         base = base.replace(&format!("${{var.{draft_var}}}"), &format!("${{var.{var}}}"));
         files.extend(change);
     }
-    files.push(new_file(FileKind::Api, id, &api_file(group, &base, request))?);
+    files.push(new_file(FileKind::Api, id, &api_file(group, &base, synced))?);
     if !group.tests.is_empty() {
         let tests_id = format!("{id}.{TESTS}");
         if project.find(FileKind::Test, &tests_id).is_some() {
@@ -70,17 +71,19 @@ fn new_file(kind: FileKind, id: &str, text: &str) -> Result<FileChange, EngineEr
     Ok(FileChange { path, before: None, after: format!("{}{text}", header(kind, id)), moved_from: None })
 }
 
-fn api_file(group: &DraftGroup, base: &str, request: &ImportRequest) -> String {
+fn api_file(group: &DraftGroup, base: &str, synced: Option<&ImportRequest>) -> String {
     let mut out = String::new();
     entry(&mut out, 0, ("id", &json!(group.file_id)));
     if let Some(name) = &group.name {
         entry(&mut out, 0, ("name", &json!(name)));
     }
     entry(&mut out, 0, ("baseUrl", &json!(base)));
-    out.push_str("source:\n");
-    entry(&mut out, 2, (&request.kind, &json!(request.source)));
-    if !request.include.is_empty() {
-        entry(&mut out, 2, ("include", &json!(request.include)));
+    if let Some(request) = synced {
+        out.push_str("source:\n");
+        entry(&mut out, 2, (&request.kind, &json!(request.source)));
+        if !request.include.is_empty() {
+            entry(&mut out, 2, ("include", &json!(request.include)));
+        }
     }
     out.push_str("\napis:\n");
     group.apis.iter().for_each(|item| api(&mut out, item));
