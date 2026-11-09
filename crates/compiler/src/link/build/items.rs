@@ -41,6 +41,7 @@ impl<'a> Build<'_, 'a> {
             history: root.get("history").map(|history| Self::history(source, history)).unwrap_or_default(),
             ..Config::default()
         };
+        let config = self.alerts_and_plugins(source, config)?;
         self.builder.config(auth::with_secrets(config, source, self.secrets));
         self.profiles(source)?;
         let before_run = self.block(source, (project::list(root, "beforeRun"), Owner::Run))?;
