@@ -4392,6 +4392,7 @@ dependencies = [
  "gungraun",
  "http",
  "indexmap 2.14.2",
+ "rustix",
  "serde_json",
  "similar",
  "tempfile",

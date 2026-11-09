@@ -38,8 +38,8 @@ description = "Run the mock HTTP server (vc-mock-server); pass --port to change 
 run = "cargo run -p vc-mock-server --"
 
 [tasks.bench]
-description = "Run the wall-clock benches (criterion): compile of a 1,000-file project, per-request overhead, vc --version and a 10,000-test HTML report"
-run = ["cargo bench -p vc-engine --bench compile_wall", "cargo bench -p vc-engine --bench request_overhead", "cargo bench -p vc-cli --bench startup", "cargo bench -p vc-adapter-reporters --bench html_10k"]
+description = "Run the wall-clock benches (criterion): compile of a 1,000-file project, per-request overhead, 5,000 load users, vc --version and a 10,000-test HTML report"
+run = ["cargo bench -p vc-engine --bench compile_wall", "cargo bench -p vc-engine --bench request_overhead", "cargo bench -p vc-engine --bench load_5k", "cargo bench -p vc-cli --bench startup", "cargo bench -p vc-adapter-reporters --bench html_10k"]
 
 [tasks."bench:budgets"]
 description = "Hold the last criterion medians to the D120 budgets (needs jq); run after mise run bench"

@@ -44,6 +44,10 @@ vc-testkit.workspace = true
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gungraun.workspace = true
 
+# The load bench reads the process CPU clock (`clock_gettime`), so it builds and runs on Unix.
+[target.'cfg(unix)'.dev-dependencies]
+rustix = { workspace = true, features = ["time"] }
+
 [[bench]]
 name = "compile_wall"
 harness = false
@@ -54,6 +58,10 @@ harness = false
 
 [[bench]]
 name = "request_overhead"
+harness = false
+
+[[bench]]
+name = "load_5k"
 harness = false
 
 [lints]

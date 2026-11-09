@@ -1331,8 +1331,11 @@ The compile benches check a 1,000-file project from `vc_testkit::generate_projec
 | `compile_wall` (`compile/cold_1000`, `warm_1000`, `changed_1000`) | `criterion` | `crates/engine/benches` | `mise run bench`; nightly |
 | `request_overhead` (`request/overhead`: per request outside the network) | `criterion` | `crates/engine/benches` | `mise run bench`; nightly |
 | `startup` (`startup/version`: `vc --version`) | `criterion` | `crates/apps/cli/benches` | `mise run bench`; nightly |
+| `load_5k` (`load/5k_users`: tool CPU per second of a 5,000-user run), Unix only | `criterion` | `crates/engine/benches` | `mise run bench`; nightly |
 
 `request_overhead` runs one test whose `call` step repeats 500 and then 1,000 times, one at a time, against the in-process mock server. The transport is wrapped to time each send. The bench takes the run's time less its transport time, and divides the difference between the two runs by 500, so the run's fixed cost (compile, plan, reports) cancels out.
+
+`load_5k` runs a scenario of 5,000 users, each sending one `POST /echo` and then thinking for 1 s, for a 1 s ramp and 15 s at full load. The mock server runs in a child process (the bench binary started again), so the process CPU clock (`clock_gettime(CLOCK_PROCESS_CPUTIME_ID)`) counts only the tool. A sample is the tool's CPU time divided by the run's wall time, so its median in ms is thousandths of a core and the budget of 70% of 8 cores is 5,600 ms. A run that exits non-zero or averages under 4,500 iterations a second fails the bench, because a tool that falls behind its users would look cheap. The bench raises the soft open-file limit to 10,240 first.
 
 `scripts/bench-budgets.sh` (`mise run bench:budgets`) holds the criterion medians to the targets below; the nightly `budgets` job runs it and opens an issue, or comments on the open one, on a breach.
 
