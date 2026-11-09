@@ -9,7 +9,8 @@
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
 //! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_test`],
 //! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
-//! [`Engine::save_call_as_test`], [`Engine::write`]), and imports specs ([`Engine::import`]).
+//! [`Engine::save_call_as_test`], [`Engine::write`]), and imports specs and keeps api files in
+//! step with them ([`Engine::import`], [`Engine::sync`]).
 //! Load is a stub that says it is not built yet ([`Engine::load`]). The model and diagnostics
 //! types apps need are re-exported here (D108).
 //!
@@ -62,6 +63,11 @@ mod settings;
 mod shown;
 mod skip;
 mod stored;
+mod sync;
+mod sync_apply;
+mod sync_plan;
+mod sync_rules;
+mod sync_snapshot;
 mod user;
 mod wanted;
 mod watch;
@@ -93,5 +99,7 @@ pub use save_call::CallAsTest;
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
+pub use sync::{SyncMode, SyncReport, SyncRequest};
+pub use sync_plan::SyncSide;
 pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
 pub use vc_model::{FileKind, SourceFiles, SourcePath};

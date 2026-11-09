@@ -28,6 +28,17 @@ pub fn body(out: &mut String, indent: usize, value: &Value) {
     }
 }
 
+/// `value` as a fragment for `parser::edit`: a scalar as it is written, a collection as its
+/// lines at no indent.
+pub fn fragment(value: &Value) -> String {
+    if !nested(value) {
+        return scalar(value);
+    }
+    let mut out = String::new();
+    body(&mut out, 0, value);
+    out
+}
+
 /// A list item at `indent` made of `fields` in their order (a JSON map's keys are sorted):
 /// `- id: …` then the rest below it.
 pub fn fields_item(out: &mut String, indent: usize, fields: &[(&str, Value)]) {
@@ -77,7 +88,14 @@ fn scalar(value: &Value) -> String {
 mod tests {
     use serde_json::json;
 
-    use super::{body, entry, fields_item};
+    use super::{body, entry, fields_item, fragment};
+
+    #[test]
+    fn a_fragment_is_a_scalar_or_lines_at_no_indent() {
+        assert_eq!(fragment(&json!("true")), "\"true\"");
+        assert_eq!(fragment(&json!({})), "{}");
+        assert_eq!(fragment(&json!({ "a": 1, "b": [2] })), "a: 1\nb:\n  - 2\n");
+    }
 
     #[test]
     fn an_item_keeps_its_fields_in_order() {

@@ -421,7 +421,7 @@ JSON pasted as is works too:
     body: {"name": "${var.name}", "tags": ["renamed"]}
 ```
 
-OpenAPI import and sync (`vc import openapi`, `vc sync users`) are described in the Vibranium v2 CLI and Developer Workflow doc. In short: the spec can be a URL or a file, JSON or YAML (Swagger 2.0 is converted). Every import and sync saves a snapshot to `openapi/<fileId>.yaml`, which you commit; sync uses it as the merge base. Sync updates `method`, `path`, parameter vars and `operationId`, and never touches names, `expect`, `save`, `cleanup`, hooks or defaults you wrote. Conflicts are reported instead of overwritten, and an operation removed from the spec leaves its api in place with `deprecated: true`.
+OpenAPI import and sync (`vc import openapi`, `vc sync users`) are described in the Vibranium v2 CLI and Developer Workflow doc. In short: the spec can be a URL or a file, JSON or YAML (Swagger 2.0 is converted). Every import and sync saves a snapshot to `openapi/<fileId>.yaml`, which you commit; sync uses it as the merge base. Sync updates `method`, `path`, each `query` entry and the `content-type` header, and never touches IDs, names, `body`, `expect`, `save`, `cleanup`, hooks or defaults you wrote. Conflicts are reported instead of overwritten, and an operation removed from the spec leaves its api in place with `deprecated: true`.
 
 ### Reusing a payload with changes
 

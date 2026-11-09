@@ -86,6 +86,33 @@ impl core::fmt::Debug for vc_engine::ListKind
 pub fn vc_engine::ListKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_engine::ListKind
 impl core::marker::StructuralPartialEq for vc_engine::ListKind
+pub enum vc_engine::SyncMode
+pub vc_engine::SyncMode::Check
+pub vc_engine::SyncMode::DryRun
+pub vc_engine::SyncMode::Write
+impl core::clone::Clone for vc_engine::SyncMode
+pub fn vc_engine::SyncMode::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::SyncMode
+impl core::cmp::PartialEq for vc_engine::SyncMode
+pub fn vc_engine::SyncMode::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::SyncMode
+pub fn vc_engine::SyncMode::default() -> Self
+impl core::fmt::Debug for vc_engine::SyncMode
+pub fn vc_engine::SyncMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_engine::SyncMode
+impl core::marker::StructuralPartialEq for vc_engine::SyncMode
+pub enum vc_engine::SyncSide
+pub vc_engine::SyncSide::Mine
+pub vc_engine::SyncSide::Spec
+impl core::clone::Clone for vc_engine::SyncSide
+pub fn vc_engine::SyncSide::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::SyncSide
+impl core::cmp::PartialEq for vc_engine::SyncSide
+pub fn vc_engine::SyncSide::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::SyncSide
+pub fn vc_engine::SyncSide::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_engine::SyncSide
+impl core::marker::StructuralPartialEq for vc_engine::SyncSide
 #[non_exhaustive] pub struct vc_engine::Added
 pub vc_engine::Added::changes: vc_engine::Changes
 pub vc_engine::Added::id: alloc::string::String
@@ -258,6 +285,8 @@ pub fn vc_engine::Engine::schema_export() -> core::result::Result<alloc::vec::Ve
 impl vc_engine::Engine
 pub fn vc_engine::Engine::skip(&self, &vc_engine::SkipRequest) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 pub fn vc_engine::Engine::unskip(&self, &str) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
+impl vc_engine::Engine
+pub async fn vc_engine::Engine::sync(&self, &vc_engine::SyncRequest) -> core::result::Result<vc_engine::SyncReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::watch(&self) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -650,6 +679,34 @@ pub fn vc_engine::StoredRun::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::StoredRun
 pub fn vc_engine::StoredRun::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::StoredRun
+#[non_exhaustive] pub struct vc_engine::SyncReport
+pub vc_engine::SyncReport::changes: vc_engine::Changes
+pub vc_engine::SyncReport::conflicts: usize
+pub vc_engine::SyncReport::drift: bool
+impl core::clone::Clone for vc_engine::SyncReport
+pub fn vc_engine::SyncReport::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::SyncReport
+impl core::cmp::PartialEq for vc_engine::SyncReport
+pub fn vc_engine::SyncReport::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::SyncReport
+pub fn vc_engine::SyncReport::default() -> Self
+impl core::fmt::Debug for vc_engine::SyncReport
+pub fn vc_engine::SyncReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::SyncReport
+pub struct vc_engine::SyncRequest
+pub vc_engine::SyncRequest::files: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::SyncRequest::mode: vc_engine::SyncMode
+pub vc_engine::SyncRequest::settle: alloc::vec::Vec<(alloc::string::String, vc_engine::SyncSide)>
+impl core::clone::Clone for vc_engine::SyncRequest
+pub fn vc_engine::SyncRequest::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::SyncRequest
+impl core::cmp::PartialEq for vc_engine::SyncRequest
+pub fn vc_engine::SyncRequest::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::SyncRequest
+pub fn vc_engine::SyncRequest::default() -> Self
+impl core::fmt::Debug for vc_engine::SyncRequest
+pub fn vc_engine::SyncRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::SyncRequest
 pub const vc_engine::INIT_FOLDERS: [&str; 5]
 pub fn vc_engine::auth_fields(&str) -> &'static [&'static str]
 pub fn vc_engine::interrupts() -> (vc_engine::Interrupter, vc_engine::Interrupts)
