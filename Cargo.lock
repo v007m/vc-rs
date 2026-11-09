@@ -3843,12 +3843,15 @@ dependencies = [
 name = "vc-adapter-store"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "blake3",
  "chacha20poly1305",
+ "notify",
  "rusqlite",
  "serde",
  "serde_json",
  "tempfile",
+ "tokio",
  "vc-interfaces",
  "vc-model",
  "vc-testkit",

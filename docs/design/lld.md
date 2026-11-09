@@ -1166,7 +1166,7 @@ Every tool call goes through a policy check, done in the engine so that every ro
 
 Decisions are made in the web UI's AI agents page, or with `vc approvals` / `vc approve <id>` in any terminal. Because both processes share `history.db`, a stdio agent and a separate `vc ui` see the same queue; `notify` on the database file wakes the waiting call. Every call is logged to `agent_actions`, with arguments redacted.
 
-The engine is to reach the queue and the log through two `vc-interfaces` ports, kept over `history.db` (its migration 2 holds the tables); `vc_testkit::MemoryApprovals` implements both in memory and runs `approvals_suite` and `agent_action_writer_suite`:
+The engine is to reach the queue and the log through two `vc-interfaces` ports. `vc_adapter_store::SqliteApprovals` implements both over `history.db` (its migration 2 holds the tables): each call opens its own connection, so every process on the project shares one queue, and a wait wakes on file events in the database's folder and looks again every second in case one was missed. `vc_testkit::MemoryApprovals` implements both in memory and runs `approvals_suite` and `agent_action_writer_suite`:
 
 - `Approvals`: `list(pending_only)`, `create(ApprovalRequest)`, `decide(Decision)`, `wait(id, timeout)` and `always_allowed(StandingRule)`.
   - An `ApprovalRequest` holds the agent, the tool, the profile, the methods that need approval, a one-line summary and the redacted arguments.
