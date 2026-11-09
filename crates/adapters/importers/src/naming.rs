@@ -72,6 +72,15 @@ pub fn free(base: &str, count: usize, taken: impl Fn(&str) -> bool) -> String {
     names.find(|name| !taken(name)).unwrap_or_else(|| base.to_owned())
 }
 
+/// The file and test ID of a flow named `id`: `<fileId>#<testId>`, or a bare test ID in
+/// `<fallback>.recorded`.
+pub fn flow_id(id: &str, fallback: &str) -> (String, String) {
+    id.split_once('#').map_or_else(
+        || (format!("{fallback}.recorded"), id.to_owned()),
+        |(file, test)| (file.to_owned(), test.to_owned()),
+    )
+}
+
 fn lowered(word: &str) -> String {
     let mut chars = word.chars();
     chars.next().map(|first| first.to_ascii_lowercase().to_string() + chars.as_str()).unwrap_or_default()

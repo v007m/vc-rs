@@ -15,8 +15,10 @@
 mod body;
 mod curl;
 mod har;
+mod ids;
 mod naming;
 mod openapi;
+mod origin;
 mod path_vars;
 mod registry;
 mod secret;

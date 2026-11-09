@@ -5,22 +5,20 @@
 //! written, and secrets become references (see [`super::secret`]).
 
 use indexmap::IndexMap;
-use serde_json::{Value, json};
+use serde_json::Value;
 use vc_interfaces::{DraftApi, DraftGroup, ImportDraft, ImportNote};
 use vc_model::Method;
 
 use super::entry::Request;
 use super::flow::Recorded;
-use super::ids::api_id;
 use crate::body::{Body, Scrub, Sent, read};
-use crate::naming::{camel, file_id, free};
+use crate::ids::api_id;
+use crate::naming::free;
+use crate::origin::{group, without_user};
 use crate::path_vars::templated;
-use crate::secret::{Found, Secrets};
+use crate::secret::{DROPPED, Found, Secrets};
 use crate::secrets::credential;
 use crate::url::{pairs, path_and_query, split_origin};
-
-/// What a note says in place of a credential header.
-const DROPPED: &str = "never written; it maps to the file's auth";
 
 /// The draft for `requests`, and what each one called, in order (none for a request that is
 /// not an api's); `fallback` names a file whose host has no word to name it by.
@@ -53,7 +51,7 @@ impl Drafting {
     /// the notes of a merged request are left out, since the kept one has them.
     fn add(&mut self, request: &Request, fallback: &str) -> Option<Recorded> {
         let (origin, rest) = split_origin(&request.url)?;
-        let origin = self.without_user(origin);
+        let origin = without_user(origin, &mut self.found.notes);
         let at = self.group(&origin, fallback);
         let group = self.groups.get_mut(at)?;
         let mut secrets = Secrets { file: &group.draft.file_id, at: request.method.clone(), found: &mut self.found };
@@ -73,29 +71,13 @@ impl Drafting {
         recorded.map(|(recorded, _)| recorded)
     }
 
-    /// `origin` without a user and password, which only a note mentions.
-    fn without_user(&mut self, origin: &str) -> String {
-        let Some((scheme, authority)) = origin.split_once("://") else { return origin.to_owned() };
-        let Some((_, host)) = authority.rsplit_once('@') else { return origin.to_owned() };
-        self.found.notes.push(format!("the URL's user and password: {DROPPED}"));
-        format!("{scheme}://{host}")
-    }
-
     /// The index of the group for `origin`, added with a free file ID when it is new.
     fn group(&mut self, origin: &str, fallback: &str) -> usize {
         if let Some(at) = self.groups.iter().position(|group| group.origin == origin) {
             return at;
         }
-        let file_id = free(&file_id(origin, fallback), self.groups.len(), |id| {
-            self.groups.iter().any(|group| group.draft.file_id == id)
-        });
-        let var = format!("{}Url", camel(&file_id));
-        let draft = DraftGroup {
-            base_url: Some(format!("${{var.{var}}}")),
-            config_vars: IndexMap::from([(var, json!(origin))]),
-            file_id,
-            ..DraftGroup::default()
-        };
+        let taken: Vec<&str> = self.groups.iter().map(|group| group.draft.file_id.as_str()).collect();
+        let draft = group(origin, fallback, &taken);
         self.groups.push(Group { origin: origin.to_owned(), draft, recorded: Vec::new() });
         self.groups.len() - 1
     }

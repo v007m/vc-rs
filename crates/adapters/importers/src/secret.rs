@@ -10,6 +10,9 @@ use vc_interfaces::SecretFinding;
 use crate::body::Scrub;
 use crate::path_vars::identifier;
 
+/// What a note says in place of a credential header.
+pub const DROPPED: &str = "never written; it maps to the file's auth";
+
 /// What one request left out: the secrets that replaced values, and notes.
 #[derive(Default)]
 pub struct Found {

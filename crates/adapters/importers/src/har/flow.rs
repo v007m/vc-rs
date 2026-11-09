@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use vc_interfaces::{DraftFlow, DraftStep};
 
 use super::entry::Response;
+use crate::naming::flow_id;
 use crate::path_vars::identifier;
 
 /// One kept request: the api it calls (`shop#addItem`), the vars it sent and the api's own.
@@ -26,10 +27,7 @@ const ITEMS: usize = 10;
 /// The flow `id` (`<fileId>#<testId>`; a bare test ID goes in `<fallback>.recorded`) replaying
 /// `steps`, each request with what came back.
 pub fn flow<'r>(id: &str, fallback: &str, steps: impl IntoIterator<Item = (Recorded, &'r Response)>) -> DraftFlow {
-    let (file_id, test_id) = id.split_once('#').map_or_else(
-        || (format!("{fallback}.recorded"), id.to_owned()),
-        |(file, test)| (file.to_owned(), test.to_owned()),
-    );
+    let (file_id, test_id) = flow_id(id, fallback);
     let mut chain = Chain::default();
     for (recorded, response) in steps {
         chain.step(recorded, response);
