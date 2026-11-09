@@ -52,14 +52,41 @@ async fn credentials_are_fetched_again_once_within_refresh_before_of_expiry() {
     let cache = TokenCache::new([0; 32]);
     let calls = Arc::new(AtomicUsize::new(0));
     let key = cache.key("svc", &json!({}), &json!({}));
-    let fetch = counting(&calls, Some(Duration::from_secs(90)));
+    let fetch = counting(&calls, Some(Duration::from_secs(150)));
     let refresh = Duration::from_secs(60);
     assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t0");
-    tokio::time::advance(Duration::from_secs(29)).await;
+    tokio::time::advance(Duration::from_secs(89)).await;
     assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t0");
     tokio::time::advance(Duration::from_secs(1)).await;
     assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t1");
     assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_token_living_no_longer_than_refresh_before_is_refreshed_at_half_its_life() {
+    let cache = TokenCache::new([0; 32]);
+    let calls = Arc::new(AtomicUsize::new(0));
+    let key = cache.key("svc", &json!({}), &json!({}));
+    let fetch = counting(&calls, Some(Duration::from_secs(40)));
+    let refresh = Duration::from_secs(60);
+    assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t0");
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "one fetch for the first use, not two");
+    tokio::time::advance(Duration::from_secs(19)).await;
+    assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t0");
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t1");
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn the_request_that_fetched_a_credential_uses_it_however_short_its_life() {
+    let cache = TokenCache::new([0; 32]);
+    let calls = Arc::new(AtomicUsize::new(0));
+    let key = cache.key("svc", &json!({}), &json!({}));
+    let fetch = counting(&calls, Some(Duration::ZERO));
+    assert_eq!(token(&cache.get(key, Duration::from_secs(60), &fetch).await.unwrap()), "Bearer t0");
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    assert_eq!(token(&cache.get(key, Duration::from_secs(60), &fetch).await.unwrap()), "Bearer t1", "stale for the next");
 }
 
 #[tokio::test]

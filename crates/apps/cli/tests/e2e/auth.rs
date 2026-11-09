@@ -1,8 +1,9 @@
 //! Every auth type a run can use without a browser, composed by the engine (D106): fixed
 //! credentials (`bearer` from a secret, `basic`, `apiKey` in a header and the query), a token
-//! endpoint shared by every test (`oauth2ClientCredentials`), a `refreshOn` 401 that fetches the
-//! token again once, and a `flow` of requests. `oauth2AuthorizationCode` needs a browser, so the
-//! engine's unit tests sign in through a fake one instead.
+//! endpoint shared by every test (`oauth2ClientCredentials`), a short-lived token that is still
+//! fetched once (D193), a `refreshOn` 401 that fetches the token again once, and a `flow` of
+//! requests. `oauth2AuthorizationCode` needs a browser, so the engine's unit tests sign in
+//! through a fake one instead.
 
 use vc_mock_server::MockServer;
 
@@ -88,6 +89,16 @@ async fn every_test_shares_one_client_credentials_login() {
     assert_eq!(run.status.code(), Some(0), "{}", said(&run));
     let stats = server.stats().await.unwrap();
     assert_eq!((stats.logins, stats.count("GET /auth/me")), (1, 6));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_token_living_less_than_refresh_before_is_fetched_once() {
+    let server = MockServer::start().await.unwrap();
+    let client = CLIENT.replace("/oauth/token", "/oauth/token?expiresIn=30");
+    let run = project(&client, ME, &calling_me(6)).run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let stats = server.stats().await.unwrap();
+    assert_eq!((stats.logins, stats.count("GET /auth/me")), (1, 6), "half of 30s is not over (D193)");
 }
 
 #[tokio::test(flavor = "multi_thread")]

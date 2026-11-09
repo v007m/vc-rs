@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::future::Future;
 use std::hash::{BuildHasher, RandomState};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -82,7 +83,8 @@ impl TokenCache {
     }
 
     /// The credentials for `key`, fetched once with `fetch` and again once they are within
-    /// `refresh_before` of expiring.
+    /// `refresh_before`, capped at half their lifetime, of expiring (D193). The request that
+    /// fetched them always uses them, however short their life.
     ///
     /// # Errors
     ///
@@ -92,10 +94,14 @@ impl TokenCache {
         F: Fn() -> Fut + Sync,
         Fut: Future<Output = Result<Credentials, AuthError>> + Send,
     {
-        let fill = || async { cached(fetch().await, refresh_before) };
+        let fetched = AtomicBool::new(false);
+        let fill = || async {
+            fetched.store(true, Ordering::Relaxed);
+            cached(fetch().await, refresh_before)
+        };
         let slot = self.slot(key);
         let found = slot.get_or_init(fill).await;
-        if !found.stale() {
+        if fetched.load(Ordering::Relaxed) || !found.stale() {
             return found.result.clone();
         }
         self.replace(key, &slot);
@@ -126,7 +132,7 @@ impl TokenCache {
 
 fn cached(result: Result<Credentials, AuthError>, refresh_before: Duration) -> Cached {
     let lifetime = result.as_ref().ok().and_then(|credentials| credentials.expires_in);
-    let stale_at = lifetime.map(|lifetime| Instant::now() + lifetime.saturating_sub(refresh_before));
+    let stale_at = lifetime.map(|lifetime| Instant::now() + lifetime.saturating_sub(refresh_before.min(lifetime / 2)));
     Cached { result, stale_at }
 }
 
