@@ -63,6 +63,6 @@ pub use recording_reporter::{RecordingReporter, ReportLog, Reported};
 pub use recording_transport::{Recorded, RecordingTransport, Recordings};
 pub use reporter_suite::{MakeReporter, reporter_suite};
 pub use secrets_suite::{MakeSecretProvider, command_runner_suite, secret_provider_suite};
-pub use source_suite::{MakeSources, source_provider_suite};
+pub use source_suite::{MakeSources, MakeWriter, source_provider_suite, source_writer_suite};
 pub use transport_suite::transport_suite;
 pub use vcs_suite::{MakeVcs, VcsHistory, vcs_suite};

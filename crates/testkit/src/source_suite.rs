@@ -1,4 +1,4 @@
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter};
 use vc_model::SourcePath;
 
 /// Builds a provider over a project holding these files (relative path, bytes).
@@ -123,5 +123,47 @@ fn reads_any_file_by_path(make: &mut MakeSources<'_>) {
         discover(provider.as_ref(), &SourceFilter::default()).files.len(),
         1,
         "discover still reads only definitions"
+    );
+}
+
+/// Builds a writer, and a provider that reads the same project, over a project holding these
+/// files (relative path, bytes).
+pub type MakeWriter<'a> = dyn FnMut(&[(&str, &[u8])]) -> (Box<dyn SourceWriter>, Box<dyn SourceProvider>) + 'a;
+
+/// The contract every [`SourceWriter`] meets (D107): a write replaces a file or creates it with
+/// its folders, a remove takes it away, and removing a file that is not there names its path.
+pub fn source_writer_suite(make: &mut MakeWriter<'_>) {
+    writes_a_file_with_its_folders_and_replaces_one(make);
+    removes_a_file_and_names_one_that_is_not_there(make);
+}
+
+/// Writes `text` at `path` and says what the writer answered.
+fn write(writer: &dyn SourceWriter, path: &str, text: &str) -> Result<(), SourceError> {
+    let path = SourcePath::new(path).map_err(|_| SourceError::InvalidPath { path: path.to_owned() })?;
+    writer.write(&path, text)
+}
+
+fn writes_a_file_with_its_folders_and_replaces_one(make: &mut MakeWriter<'_>) {
+    let (writer, provider) = make(&[("users.api.yaml", b"apis: []\n")]);
+    assert_eq!(write(writer.as_ref(), "users.api.yaml", "apis: {}\n"), Ok(()), "replaces a file");
+    assert_eq!(write(writer.as_ref(), "services/new/new.test.yaml", "tests: []\n"), Ok(()), "creates one");
+    let wanted = ["users.api.yaml", "services/new/new.test.yaml"];
+    let wanted: Vec<SourcePath> = wanted.iter().filter_map(|path| SourcePath::new(path).ok()).collect();
+    let found = provider.read(&wanted).unwrap_or_default();
+    let texts: Vec<(&str, &str)> = found.files.iter().map(|file| (file.path.as_str(), file.text.as_str())).collect();
+    let expected = [("services/new/new.test.yaml", "tests: []\n"), ("users.api.yaml", "apis: {}\n")];
+    assert_eq!(texts, expected, "reads back what was written");
+}
+
+fn removes_a_file_and_names_one_that_is_not_there(make: &mut MakeWriter<'_>) {
+    let (writer, provider) = make(&[("services/old/old.api.yaml", b"apis: []\n"), ("kept.api.yaml", API)]);
+    let Ok(path) = SourcePath::new("services/old/old.api.yaml") else { return };
+    assert_eq!(writer.remove(&path), Ok(()), "removes a file");
+    let left = discover(provider.as_ref(), &SourceFilter::default());
+    assert_eq!(paths(&left), ["kept.api.yaml"], "the rest stay");
+    let again = writer.remove(&path);
+    assert!(
+        matches!(&again, Err(SourceError::Write { path, .. }) if path == "services/old/old.api.yaml"),
+        "a file that is not there names its path: {again:?}"
     );
 }

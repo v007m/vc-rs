@@ -61,23 +61,16 @@ fn a_missing_root_is_an_error() {
 }
 
 #[test]
-fn writes_a_file_with_its_folders_and_replaces_one() {
-    let dir = project(&[("users.api.yaml", b"apis: []\n")]);
-    let sources = FsSources::new(dir.path()).unwrap();
-    sources.write(&SourcePath::new("users.api.yaml").unwrap(), "apis: {}\n").unwrap();
-    sources.write(&SourcePath::new("services/new/new.test.yaml").unwrap(), "tests: []\n").unwrap();
-    assert_eq!(fs::read_to_string(dir.path().join("users.api.yaml")).unwrap(), "apis: {}\n");
-    assert_eq!(fs::read_to_string(dir.path().join("services/new/new.test.yaml")).unwrap(), "tests: []\n");
-}
-
-#[test]
-fn removes_a_file_and_names_one_that_is_not_there() {
-    let dir = project(&[("services/old/old.api.yaml", b"apis: []\n")]);
-    let sources = FsSources::new(dir.path()).unwrap();
-    let path = SourcePath::new("services/old/old.api.yaml").unwrap();
-    sources.remove(&path).unwrap();
-    assert!(!dir.path().join("services/old/old.api.yaml").exists());
-    assert!(matches!(sources.remove(&path), Err(SourceError::Write { path, .. }) if path == "services/old/old.api.yaml"));
+fn meets_the_source_writer_contract() {
+    let mut dirs = Vec::new();
+    vc_testkit::source_writer_suite(&mut |files| {
+        let dir = project(files);
+        let writer = FsSources::new(dir.path()).unwrap();
+        let reader = FsSources::new(dir.path()).unwrap();
+        dirs.push(dir);
+        (Box::new(writer), Box::new(reader))
+    });
+    assert!(!dirs.is_empty(), "the suite built writers");
 }
 
 #[test]
