@@ -1156,7 +1156,16 @@ M5 stream B adds these commands:
 
 ### MCP (`apps/mcp`)
 
-`rmcp` server exposed as `vc mcp` (stdio, started by the agent) and at `/mcp` on the local web server (streamable HTTP). Tools map to engine methods: `list_definitions`, `search`, `get_definition`, `check`, `run_tests`, `explain_failure`, `query_history`, `call_api`, `write_definition`.
+`rmcp` server exposed as `vc mcp [--profile] [--set]` (stdio, started by the agent; M7) and later at `/mcp` on the local web server (streamable HTTP). `rmcp` is built with only `server` and `transport-io`, and the tool schemas are written by hand (D197).
+
+- `VcServer` (`server.rs`) implements `rmcp::ServerHandler`: `tools/list` comes from the `Tools` registry, `tools/call` looks the tool up by name (an unknown name is a JSON-RPC invalid-params error) and runs it. The agent is the name the client gives in `initialize` (`agent` when none).
+- Each tool is a `Tool` (`name`, `description`, `schema`, `reads`, async `call(&Cx, &Args) -> Value`), one struct per tool, kept in `Tools::standard()`. `Cx` holds the engine, the agent and the `--profile`/`--set` layers `vc mcp` was started with: an agent cannot pick its own profile.
+- The tools and the engine method each maps to:
+  - reading (`read.rs`, `history.rs`): `list_definitions {kind?, ids?, tags?}` → `list`; `search {query}` → `list` over tests and apis, matching ID or name ignoring case; `get_definition {id}` → `explain`; `check {paths?}` → `check` with the `JsonRenderer` diagnostics and a summary; `query_history {limit?, run?}` → `history` or `stored`; `explain_failure {test, run?}` → the test's rows in `stored` beside `explain`.
+  - acting (`act.rs`): `run_tests {ids?, tags?, grep?}` → `run` with `RunRequest.agent`; `call_api {api, vars?, keep?}` → `call` with `CallRequest.agent`; `write_definition {path, text}` → `write_definition`.
+- Every result is structured content (a JSON object). An error is a tool result with `isError` set and `{kind, reason, help}`: `kind` is `refused` (the policy or a person said no), `arguments` (a bad argument) or `error`.
+- Reading tools are logged to `agent_actions` by the server (`ok` or `failed: …`); the acting ones are gated and logged by the engine.
+- `vc mcp` writes nothing but the protocol to stdout: an agent's run is quiet (`Setup.quiet`), so the console reporter prints nothing while the report files are still saved.
 
 Every tool call goes through a policy check, done in the engine so that every route is covered. The check reads the active profile's `agents` rules, and it either:
 
