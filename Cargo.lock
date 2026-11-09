@@ -4074,6 +4074,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "vc-engine",
+ "vc-mcp",
  "vc-mock-server",
  "vc-testkit",
  "zstd",

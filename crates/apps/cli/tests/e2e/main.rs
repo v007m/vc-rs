@@ -19,6 +19,7 @@ mod hooks;
 mod import;
 mod layers;
 mod lifecycle;
+mod mcp;
 mod redaction;
 mod reports;
 mod scheduling;
