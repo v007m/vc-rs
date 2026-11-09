@@ -34,6 +34,12 @@ jobs:
           # The LLD's mutation floor applies to the diff on every PR; the full run is nightly.
           GATES_MUTANTS: ${{ github.event_name == 'pull_request' && '1' || '0' }}
           GATES_BASE: origin/${{ github.base_ref || 'master' }}
+      # D117: the public API of vc-model, vc-interfaces and vc-engine matches its snapshot.
+      # cargo-public-api reads rustdoc JSON, which needs a nightly toolchain.
+      - name: public-api
+        run: |
+          rustup toolchain install nightly --profile minimal
+          mise run public-api:check
       - if: github.event_name == 'pull_request'
         run: scripts/commit-check.sh "origin/${{ github.base_ref }}"
 

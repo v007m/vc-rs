@@ -7,6 +7,7 @@ cargo-deny = "0.20.2"
 "cargo:cargo-nextest" = "0.9.150"
 "cargo:cargo-machete" = "0.9.2"
 "cargo:cargo-mutants" = "27.1.0"
+"cargo:cargo-public-api" = "0.52.0"
 
 [tasks.test]
 description = "Run every test and doctest in the workspace"
@@ -24,13 +25,21 @@ run = "scripts/gates-selftest.sh"
 description = "Check conventional commits and refactor-only commits since a base ref (default origin/master)"
 run = "scripts/commit-check.sh"
 
+[tasks."public-api"]
+description = "Regenerate the public API snapshots of vc-model, vc-interfaces and vc-engine (D117; needs rustup's nightly)"
+run = "for c in model interfaces engine; do cargo public-api -p vc-$c -ss > crates/$c/public-api.txt || exit 1; done"
+
+[tasks."public-api:check"]
+description = "Fail when the public API of vc-model, vc-interfaces or vc-engine differs from its snapshot (D117)"
+run = "for c in model interfaces engine; do cargo public-api -p vc-$c -ss | diff -u crates/$c/public-api.txt - || exit 1; done"
+
 [tasks.mock]
 description = "Run the mock HTTP server (vc-mock-server); pass --port to change 18080"
 run = "cargo run -p vc-mock-server --"
 
 [tasks.bench]
-description = "Run the wall-clock benches (criterion): compile of a 1,000-file project, vc --version and a 10,000-test HTML report"
-run = ["cargo bench -p vc-engine --bench compile_wall", "cargo bench -p vc-cli --bench startup", "cargo bench -p vc-adapter-reporters --bench html_10k"]
+description = "Run the wall-clock benches (criterion): compile of a 1,000-file project, per-request overhead, vc --version and a 10,000-test HTML report"
+run = ["cargo bench -p vc-engine --bench compile_wall", "cargo bench -p vc-engine --bench request_overhead", "cargo bench -p vc-cli --bench startup", "cargo bench -p vc-adapter-reporters --bench html_10k"]
 
 [tasks."bench:budgets"]
 description = "Hold the last criterion medians to the D120 budgets (needs jq); run after mise run bench"

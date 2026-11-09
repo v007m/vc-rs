@@ -1,0 +1,2051 @@
+pub mod vc_model
+pub enum vc_model::ActionKind
+pub vc_model::ActionKind::Call(vc_model::ApiId)
+pub vc_model::ActionKind::Command(vc_model::Template)
+pub vc_model::ActionKind::Function(vc_model::HookRef)
+pub vc_model::ActionKind::Inline(alloc::boxed::Box<vc_model::InlineRequest>)
+pub vc_model::ActionKind::Test(vc_model::TestId)
+impl core::clone::Clone for vc_model::ActionKind
+pub fn vc_model::ActionKind::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ActionKind
+impl core::cmp::PartialEq for vc_model::ActionKind
+pub fn vc_model::ActionKind::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ActionKind
+pub fn vc_model::ActionKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::ActionKind
+pub enum vc_model::ActionOutcome
+pub vc_model::ActionOutcome::Failed(vc_model::Failure)
+pub vc_model::ActionOutcome::Passed
+impl vc_model::ActionOutcome
+pub const fn vc_model::ActionOutcome::failure(&self) -> core::option::Option<&vc_model::Failure>
+impl core::clone::Clone for vc_model::ActionOutcome
+pub fn vc_model::ActionOutcome::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ActionOutcome
+impl core::cmp::PartialEq for vc_model::ActionOutcome
+pub fn vc_model::ActionOutcome::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ActionOutcome
+pub fn vc_model::ActionOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::ActionOutcome
+impl serde_core::ser::Serialize for vc_model::ActionOutcome
+pub fn vc_model::ActionOutcome::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ActionOutcome
+pub fn vc_model::ActionOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::AuthRef
+pub vc_model::AuthRef::Inherit
+pub vc_model::AuthRef::None
+pub vc_model::AuthRef::Use
+pub vc_model::AuthRef::Use::id: vc_model::AuthId
+pub vc_model::AuthRef::Use::vars: vc_model::VarDefs
+impl core::clone::Clone for vc_model::AuthRef
+pub fn vc_model::AuthRef::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::AuthRef
+impl core::cmp::PartialEq for vc_model::AuthRef
+pub fn vc_model::AuthRef::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::AuthRef
+pub fn vc_model::AuthRef::default() -> Self
+impl core::fmt::Debug for vc_model::AuthRef
+pub fn vc_model::AuthRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::AuthRef
+pub enum vc_model::Bodies
+pub vc_model::Bodies::All
+pub vc_model::Bodies::Failures
+pub vc_model::Bodies::None
+impl vc_model::Bodies
+pub fn vc_model::Bodies::parse(&str) -> core::option::Option<Self>
+impl core::clone::Clone for vc_model::Bodies
+pub fn vc_model::Bodies::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Bodies
+impl core::cmp::PartialEq for vc_model::Bodies
+pub fn vc_model::Bodies::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Bodies
+pub fn vc_model::Bodies::default() -> Self
+impl core::fmt::Debug for vc_model::Bodies
+pub fn vc_model::Bodies::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Bodies
+pub fn vc_model::Bodies::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Bodies
+impl core::marker::StructuralPartialEq for vc_model::Bodies
+impl serde_core::ser::Serialize for vc_model::Bodies
+pub fn vc_model::Bodies::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Bodies
+pub fn vc_model::Bodies::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::BodySpec
+pub vc_model::BodySpec::Base64(vc_model::Template)
+pub vc_model::BodySpec::Extend
+pub vc_model::BodySpec::Extend::base: vc_model::Template
+pub vc_model::BodySpec::Extend::changes: vc_model::TemplateValue
+pub vc_model::BodySpec::Extend::remove: alloc::vec::Vec<vc_model::Path>
+pub vc_model::BodySpec::File(vc_model::Template)
+pub vc_model::BodySpec::Form(indexmap::map::IndexMap<alloc::string::String, vc_model::TemplateValue>)
+pub vc_model::BodySpec::Json(vc_model::TemplateValue)
+pub vc_model::BodySpec::Multipart(indexmap::map::IndexMap<alloc::string::String, vc_model::PartSpec>)
+pub vc_model::BodySpec::None
+pub vc_model::BodySpec::Text(vc_model::Template)
+impl core::clone::Clone for vc_model::BodySpec
+pub fn vc_model::BodySpec::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::BodySpec
+impl core::cmp::PartialEq for vc_model::BodySpec
+pub fn vc_model::BodySpec::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::BodySpec
+pub fn vc_model::BodySpec::default() -> Self
+impl core::fmt::Debug for vc_model::BodySpec
+pub fn vc_model::BodySpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::BodySpec
+pub enum vc_model::CheckKind
+pub vc_model::CheckKind::Cel
+pub vc_model::CheckKind::Custom
+pub vc_model::CheckKind::Equals
+pub vc_model::CheckKind::Header
+pub vc_model::CheckKind::Match
+pub vc_model::CheckKind::Schema
+pub vc_model::CheckKind::Size
+pub vc_model::CheckKind::Status
+pub vc_model::CheckKind::Timing
+impl core::clone::Clone for vc_model::CheckKind
+pub fn vc_model::CheckKind::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::CheckKind
+impl core::cmp::PartialEq for vc_model::CheckKind
+pub fn vc_model::CheckKind::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::CheckKind
+pub fn vc_model::CheckKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::CheckKind
+pub fn vc_model::CheckKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::CheckKind
+impl core::marker::StructuralPartialEq for vc_model::CheckKind
+impl serde_core::ser::Serialize for vc_model::CheckKind
+pub fn vc_model::CheckKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::CheckKind
+pub fn vc_model::CheckKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::Event
+pub vc_model::Event::ActionFinished
+pub vc_model::Event::ActionFinished::action: vc_model::ActionId
+pub vc_model::Event::ActionFinished::outcome: vc_model::ActionOutcome
+pub vc_model::Event::ActionFinished::owner: vc_model::OwnerKey
+pub vc_model::Event::ActionStarted
+pub vc_model::Event::ActionStarted::action: vc_model::ActionId
+pub vc_model::Event::ActionStarted::owner: vc_model::OwnerKey
+pub vc_model::Event::CheckEvaluated
+pub vc_model::Event::CheckEvaluated::action: vc_model::ActionId
+pub vc_model::Event::CheckEvaluated::check: alloc::boxed::Box<vc_model::CheckResult>
+pub vc_model::Event::CheckEvaluated::owner: vc_model::OwnerKey
+pub vc_model::Event::CleanupFinished
+pub vc_model::Event::CleanupFinished::cleanup: vc_model::CleanupRecord
+pub vc_model::Event::CleanupsAbandoned
+pub vc_model::Event::CleanupsAbandoned::cleanups: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::Event::CleanupsAbandoned::owner: vc_model::OwnerKey
+pub vc_model::Event::Exchanged
+pub vc_model::Event::Exchanged::action: vc_model::ActionId
+pub vc_model::Event::Exchanged::exchange: alloc::boxed::Box<vc_model::Exchange>
+pub vc_model::Event::Exchanged::owner: vc_model::OwnerKey
+pub vc_model::Event::FileFinished
+pub vc_model::Event::FileFinished::file: vc_model::FileId
+pub vc_model::Event::FileFinished::totals: vc_model::Totals
+pub vc_model::Event::FileStarted
+pub vc_model::Event::FileStarted::file: vc_model::FileId
+pub vc_model::Event::RunFinished
+pub vc_model::Event::RunFinished::status: vc_model::RunStatus
+pub vc_model::Event::RunFinished::totals: vc_model::Totals
+pub vc_model::Event::RunStarted
+pub vc_model::Event::RunStarted::files: usize
+pub vc_model::Event::RunStarted::instances: usize
+pub vc_model::Event::TestFinished
+pub vc_model::Event::TestFinished::result: vc_model::TestResult
+pub vc_model::Event::Warned
+pub vc_model::Event::Warned::action: vc_model::ActionId
+pub vc_model::Event::Warned::owner: vc_model::OwnerKey
+pub vc_model::Event::Warned::warning: vc_model::Failure
+impl core::clone::Clone for vc_model::Event
+pub fn vc_model::Event::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Event
+impl core::cmp::PartialEq for vc_model::Event
+pub fn vc_model::Event::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Event
+pub fn vc_model::Event::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Event
+pub enum vc_model::Examples
+pub vc_model::Examples::File(vc_model::Template)
+pub vc_model::Examples::Rows(alloc::vec::Vec<vc_model::TemplateValue>)
+pub vc_model::Examples::Template(vc_model::Template)
+impl core::clone::Clone for vc_model::Examples
+pub fn vc_model::Examples::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Examples
+impl core::cmp::PartialEq for vc_model::Examples
+pub fn vc_model::Examples::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Examples
+pub fn vc_model::Examples::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Examples
+pub enum vc_model::Feed
+pub vc_model::Feed::Event(vc_model::Sequenced)
+pub vc_model::Feed::Missed
+pub vc_model::Feed::Missed::count: u64
+impl core::clone::Clone for vc_model::Feed
+pub fn vc_model::Feed::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Feed
+impl core::cmp::PartialEq for vc_model::Feed
+pub fn vc_model::Feed::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Feed
+pub fn vc_model::Feed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Feed
+pub enum vc_model::FileKind
+pub vc_model::FileKind::Api
+pub vc_model::FileKind::Config
+pub vc_model::FileKind::Load
+pub vc_model::FileKind::Test
+impl vc_model::FileKind
+pub const vc_model::FileKind::ALL: [Self; 4]
+pub fn vc_model::FileKind::file_id(self, &str) -> alloc::string::String
+pub fn vc_model::FileKind::from_path(&vc_model::SourcePath) -> core::option::Option<Self>
+pub const fn vc_model::FileKind::name(self) -> &'static str
+impl core::clone::Clone for vc_model::FileKind
+pub fn vc_model::FileKind::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::FileKind
+impl core::cmp::Ord for vc_model::FileKind
+pub fn vc_model::FileKind::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::FileKind
+pub fn vc_model::FileKind::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::FileKind
+pub fn vc_model::FileKind::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::FileKind
+pub fn vc_model::FileKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::FileKind
+pub fn vc_model::FileKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::FileKind
+impl core::marker::StructuralPartialEq for vc_model::FileKind
+impl serde_core::ser::Serialize for vc_model::FileKind
+pub fn vc_model::FileKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::FileKind
+pub fn vc_model::FileKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::Keep
+pub vc_model::Keep::All
+pub vc_model::Keep::Runs(u32)
+impl core::clone::Clone for vc_model::Keep
+pub fn vc_model::Keep::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Keep
+impl core::cmp::PartialEq for vc_model::Keep
+pub fn vc_model::Keep::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Keep
+pub fn vc_model::Keep::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Keep
+pub fn vc_model::Keep::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Keep
+impl core::marker::StructuralPartialEq for vc_model::Keep
+impl serde_core::ser::Serialize for vc_model::Keep
+pub fn vc_model::Keep::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Keep
+pub fn vc_model::Keep::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::Loop
+pub vc_model::Loop::ForEach
+pub vc_model::Loop::ForEach::items: vc_model::TemplateValue
+pub vc_model::Loop::ForEach::parallel: u32
+pub vc_model::Loop::Repeat
+pub vc_model::Loop::Repeat::parallel: u32
+pub vc_model::Loop::Repeat::times: u32
+impl core::clone::Clone for vc_model::Loop
+pub fn vc_model::Loop::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Loop
+impl core::cmp::PartialEq for vc_model::Loop
+pub fn vc_model::Loop::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Loop
+pub fn vc_model::Loop::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Loop
+pub enum vc_model::Matcher
+pub vc_model::Matcher::All(alloc::vec::Vec<vc_model::MatcherCall>)
+pub vc_model::Matcher::Equals(vc_model::TemplateValue)
+pub vc_model::Matcher::Status(alloc::vec::Vec<vc_model::StatusPattern>)
+impl core::clone::Clone for vc_model::Matcher
+pub fn vc_model::Matcher::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Matcher
+impl core::cmp::PartialEq for vc_model::Matcher
+pub fn vc_model::Matcher::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Matcher
+pub fn vc_model::Matcher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Matcher
+impl serde_core::ser::Serialize for vc_model::Matcher
+pub fn vc_model::Matcher::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Matcher
+pub fn vc_model::Matcher::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::MatcherArg
+pub vc_model::MatcherArg::Duration(vc_model::Duration)
+pub vc_model::MatcherArg::Matcher(alloc::boxed::Box<vc_model::Matcher>)
+pub vc_model::MatcherArg::Matchers(alloc::vec::Vec<vc_model::Matcher>)
+pub vc_model::MatcherArg::Range(alloc::boxed::Box<[Self; 2]>)
+pub vc_model::MatcherArg::Size(vc_model::Size)
+pub vc_model::MatcherArg::Value(vc_model::TemplateValue)
+impl core::clone::Clone for vc_model::MatcherArg
+pub fn vc_model::MatcherArg::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::MatcherArg
+impl core::cmp::PartialEq for vc_model::MatcherArg
+pub fn vc_model::MatcherArg::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::MatcherArg
+pub fn vc_model::MatcherArg::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::MatcherArg
+impl serde_core::ser::Serialize for vc_model::MatcherArg
+pub fn vc_model::MatcherArg::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::MatcherArg
+pub fn vc_model::MatcherArg::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::Method
+pub vc_model::Method::Delete
+pub vc_model::Method::Get
+pub vc_model::Method::Head
+pub vc_model::Method::Options
+pub vc_model::Method::Patch
+pub vc_model::Method::Post
+pub vc_model::Method::Put
+impl core::clone::Clone for vc_model::Method
+pub fn vc_model::Method::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Method
+impl core::cmp::PartialEq for vc_model::Method
+pub fn vc_model::Method::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Method
+pub fn vc_model::Method::default() -> Self
+impl core::fmt::Debug for vc_model::Method
+pub fn vc_model::Method::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Method
+pub fn vc_model::Method::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Method
+impl core::marker::StructuralPartialEq for vc_model::Method
+#[non_exhaustive] pub enum vc_model::ModelError
+pub vc_model::ModelError::ActionTableFull(usize)
+pub vc_model::ModelError::FileTableFull(usize)
+pub vc_model::ModelError::InvalidSourcePath(alloc::string::String)
+pub vc_model::ModelError::StringTableFull(usize)
+impl core::clone::Clone for vc_model::ModelError
+pub fn vc_model::ModelError::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ModelError
+impl core::cmp::PartialEq for vc_model::ModelError
+pub fn vc_model::ModelError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_model::ModelError
+impl core::fmt::Debug for vc_model::ModelError
+pub fn vc_model::ModelError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_model::ModelError
+pub fn vc_model::ModelError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::ModelError
+pub enum vc_model::Namespace
+pub vc_model::Namespace::Dataset
+pub vc_model::Namespace::Env
+pub vc_model::Namespace::Example
+pub vc_model::Namespace::Fake
+pub vc_model::Namespace::Item
+pub vc_model::Namespace::Iteration
+pub vc_model::Namespace::Request
+pub vc_model::Namespace::Response
+pub vc_model::Namespace::Run
+pub vc_model::Namespace::Secret
+pub vc_model::Namespace::Step(vc_model::Sym)
+pub vc_model::Namespace::Var
+impl core::clone::Clone for vc_model::Namespace
+pub fn vc_model::Namespace::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Namespace
+impl core::cmp::PartialEq for vc_model::Namespace
+pub fn vc_model::Namespace::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Namespace
+pub fn vc_model::Namespace::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Namespace
+pub fn vc_model::Namespace::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Namespace
+impl core::marker::StructuralPartialEq for vc_model::Namespace
+impl serde_core::ser::Serialize for vc_model::Namespace
+pub fn vc_model::Namespace::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Namespace
+pub fn vc_model::Namespace::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::Origin
+pub vc_model::Origin::Action(vc_model::ActionId)
+pub vc_model::Origin::Api(vc_model::ApiId)
+pub vc_model::Origin::Test(vc_model::TestId)
+impl core::clone::Clone for vc_model::Origin
+pub fn vc_model::Origin::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Origin
+impl core::cmp::PartialEq for vc_model::Origin
+pub fn vc_model::Origin::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Origin
+pub fn vc_model::Origin::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Origin
+pub fn vc_model::Origin::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Origin
+impl core::marker::StructuralPartialEq for vc_model::Origin
+impl serde_core::ser::Serialize for vc_model::Origin
+pub fn vc_model::Origin::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Origin
+pub fn vc_model::Origin::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::Owner
+pub vc_model::Owner::File(vc_model::FileId)
+pub vc_model::Owner::Instance
+pub vc_model::Owner::Run
+impl core::clone::Clone for vc_model::Owner
+pub fn vc_model::Owner::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Owner
+impl core::cmp::PartialEq for vc_model::Owner
+pub fn vc_model::Owner::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Owner
+pub fn vc_model::Owner::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Owner
+pub fn vc_model::Owner::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Owner
+impl core::marker::StructuralPartialEq for vc_model::Owner
+pub enum vc_model::OwnerKey
+pub vc_model::OwnerKey::File(vc_model::FileId)
+pub vc_model::OwnerKey::Instance(vc_model::InstanceId)
+pub vc_model::OwnerKey::Run
+impl core::clone::Clone for vc_model::OwnerKey
+pub fn vc_model::OwnerKey::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::OwnerKey
+impl core::cmp::Ord for vc_model::OwnerKey
+pub fn vc_model::OwnerKey::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::OwnerKey
+pub fn vc_model::OwnerKey::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::OwnerKey
+pub fn vc_model::OwnerKey::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::OwnerKey
+pub fn vc_model::OwnerKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::OwnerKey
+pub fn vc_model::OwnerKey::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::OwnerKey
+impl core::marker::StructuralPartialEq for vc_model::OwnerKey
+impl serde_core::ser::Serialize for vc_model::OwnerKey
+pub fn vc_model::OwnerKey::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::OwnerKey
+pub fn vc_model::OwnerKey::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::Part
+pub vc_model::Part::Literal(alloc::string::String)
+pub vc_model::Part::Ref(vc_model::Reference)
+impl core::clone::Clone for vc_model::Part
+pub fn vc_model::Part::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Part
+impl core::cmp::PartialEq for vc_model::Part
+pub fn vc_model::Part::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Part
+pub fn vc_model::Part::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Part
+impl serde_core::ser::Serialize for vc_model::Part
+pub fn vc_model::Part::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Part
+pub fn vc_model::Part::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::PartSpec
+pub vc_model::PartSpec::File(vc_model::Template)
+pub vc_model::PartSpec::Value(vc_model::TemplateValue)
+impl core::clone::Clone for vc_model::PartSpec
+pub fn vc_model::PartSpec::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::PartSpec
+impl core::cmp::PartialEq for vc_model::PartSpec
+pub fn vc_model::PartSpec::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::PartSpec
+pub fn vc_model::PartSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::PartSpec
+pub enum vc_model::Protocol
+pub vc_model::Protocol::Http1
+pub vc_model::Protocol::Http2
+impl core::clone::Clone for vc_model::Protocol
+pub fn vc_model::Protocol::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Protocol
+impl core::cmp::PartialEq for vc_model::Protocol
+pub fn vc_model::Protocol::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Protocol
+pub fn vc_model::Protocol::default() -> Self
+impl core::fmt::Debug for vc_model::Protocol
+pub fn vc_model::Protocol::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Protocol
+pub fn vc_model::Protocol::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Protocol
+impl core::marker::StructuralPartialEq for vc_model::Protocol
+pub enum vc_model::RedactRule
+pub vc_model::RedactRule::Cel(vc_model::CelProgram)
+pub vc_model::RedactRule::Function(vc_model::HookRef)
+pub vc_model::RedactRule::Regex(alloc::string::String)
+impl core::clone::Clone for vc_model::RedactRule
+pub fn vc_model::RedactRule::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::RedactRule
+impl core::cmp::PartialEq for vc_model::RedactRule
+pub fn vc_model::RedactRule::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::RedactRule
+pub fn vc_model::RedactRule::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::RedactRule
+pub enum vc_model::RunStatus
+pub vc_model::RunStatus::Cancelled
+pub vc_model::RunStatus::Failed
+pub vc_model::RunStatus::Passed
+impl core::clone::Clone for vc_model::RunStatus
+pub fn vc_model::RunStatus::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::RunStatus
+impl core::cmp::PartialEq for vc_model::RunStatus
+pub fn vc_model::RunStatus::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::RunStatus
+pub fn vc_model::RunStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::RunStatus
+pub fn vc_model::RunStatus::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::RunStatus
+impl core::marker::StructuralPartialEq for vc_model::RunStatus
+impl serde_core::ser::Serialize for vc_model::RunStatus
+pub fn vc_model::RunStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::RunStatus
+pub fn vc_model::RunStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::ScalarStyle
+pub vc_model::ScalarStyle::Block
+pub vc_model::ScalarStyle::DoubleQuoted
+pub vc_model::ScalarStyle::DoubleQuoted::escaped: bool
+pub vc_model::ScalarStyle::Plain
+pub vc_model::ScalarStyle::SingleQuoted
+pub vc_model::ScalarStyle::SingleQuoted::escaped: bool
+impl core::clone::Clone for vc_model::ScalarStyle
+pub fn vc_model::ScalarStyle::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ScalarStyle
+impl core::cmp::PartialEq for vc_model::ScalarStyle
+pub fn vc_model::ScalarStyle::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ScalarStyle
+pub fn vc_model::ScalarStyle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::ScalarStyle
+pub fn vc_model::ScalarStyle::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::ScalarStyle
+impl core::marker::StructuralPartialEq for vc_model::ScalarStyle
+impl serde_core::ser::Serialize for vc_model::ScalarStyle
+pub fn vc_model::ScalarStyle::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ScalarStyle
+pub fn vc_model::ScalarStyle::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::Segment
+pub vc_model::Segment::All
+pub vc_model::Segment::Index(i64)
+pub vc_model::Segment::Key(alloc::string::String)
+impl core::clone::Clone for vc_model::Segment
+pub fn vc_model::Segment::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Segment
+impl core::cmp::PartialEq for vc_model::Segment
+pub fn vc_model::Segment::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Segment
+pub fn vc_model::Segment::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Segment
+impl serde_core::ser::Serialize for vc_model::Segment
+pub fn vc_model::Segment::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Segment
+pub fn vc_model::Segment::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::StatusPattern
+pub vc_model::StatusPattern::Class(u8)
+pub vc_model::StatusPattern::Code(u16)
+impl vc_model::StatusPattern
+pub fn vc_model::StatusPattern::matches(self, u16) -> bool
+impl core::clone::Clone for vc_model::StatusPattern
+pub fn vc_model::StatusPattern::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::StatusPattern
+impl core::cmp::PartialEq for vc_model::StatusPattern
+pub fn vc_model::StatusPattern::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::StatusPattern
+pub fn vc_model::StatusPattern::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::StatusPattern
+pub fn vc_model::StatusPattern::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::StatusPattern
+impl core::marker::StructuralPartialEq for vc_model::StatusPattern
+impl serde_core::ser::Serialize for vc_model::StatusPattern
+pub fn vc_model::StatusPattern::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::StatusPattern
+pub fn vc_model::StatusPattern::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::TemplateValue
+pub vc_model::TemplateValue::Bool(bool)
+pub vc_model::TemplateValue::Cel(vc_model::CelProgram)
+pub vc_model::TemplateValue::Extend
+pub vc_model::TemplateValue::Extend::base: vc_model::Template
+pub vc_model::TemplateValue::Extend::changes: alloc::boxed::Box<Self>
+pub vc_model::TemplateValue::Extend::remove: alloc::vec::Vec<vc_model::Path>
+pub vc_model::TemplateValue::List(alloc::vec::Vec<Self>)
+pub vc_model::TemplateValue::Map(indexmap::map::IndexMap<alloc::string::String, Self>)
+pub vc_model::TemplateValue::Null
+pub vc_model::TemplateValue::Number(serde_json::number::Number)
+pub vc_model::TemplateValue::String(vc_model::Template)
+impl core::clone::Clone for vc_model::TemplateValue
+pub fn vc_model::TemplateValue::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::TemplateValue
+impl core::cmp::PartialEq for vc_model::TemplateValue
+pub fn vc_model::TemplateValue::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::TemplateValue
+pub fn vc_model::TemplateValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::TemplateValue
+impl serde_core::ser::Serialize for vc_model::TemplateValue
+pub fn vc_model::TemplateValue::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::TemplateValue
+pub fn vc_model::TemplateValue::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::TestBody
+pub vc_model::TestBody::Call(vc_model::ActionId)
+pub vc_model::TestBody::Steps(alloc::vec::Vec<vc_model::ActionId>)
+impl core::clone::Clone for vc_model::TestBody
+pub fn vc_model::TestBody::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::TestBody
+impl core::cmp::PartialEq for vc_model::TestBody
+pub fn vc_model::TestBody::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::TestBody
+pub fn vc_model::TestBody::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::TestBody
+pub enum vc_model::TestStatus
+pub vc_model::TestStatus::Blocked
+pub vc_model::TestStatus::Failed
+pub vc_model::TestStatus::Flaky
+pub vc_model::TestStatus::Passed
+pub vc_model::TestStatus::Skipped
+impl core::clone::Clone for vc_model::TestStatus
+pub fn vc_model::TestStatus::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::TestStatus
+impl core::cmp::PartialEq for vc_model::TestStatus
+pub fn vc_model::TestStatus::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::TestStatus
+pub fn vc_model::TestStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::TestStatus
+pub fn vc_model::TestStatus::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::TestStatus
+impl core::marker::StructuralPartialEq for vc_model::TestStatus
+impl serde_core::ser::Serialize for vc_model::TestStatus
+pub fn vc_model::TestStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::TestStatus
+pub fn vc_model::TestStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Action
+pub vc_model::Action::auth: core::option::Option<vc_model::AuthRef>
+pub vc_model::Action::body: core::option::Option<vc_model::BodySpec>
+pub vc_model::Action::cache: core::option::Option<vc_model::CacheSpec>
+pub vc_model::Action::expect: vc_model::Expect
+pub vc_model::Action::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::Action::id: core::option::Option<vc_model::Sym>
+pub vc_model::Action::keep: bool
+pub vc_model::Action::kind: vc_model::ActionKind
+pub vc_model::Action::owner: vc_model::Owner
+pub vc_model::Action::poll: core::option::Option<vc_model::Poll>
+pub vc_model::Action::provides: alloc::vec::Vec<vc_model::VarName>
+pub vc_model::Action::query: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::Action::repeat: core::option::Option<vc_model::Loop>
+pub vc_model::Action::retry: core::option::Option<vc_model::Retry>
+pub vc_model::Action::save: vc_model::SaveSpec
+pub vc_model::Action::span: vc_model::SourceSpan
+pub vc_model::Action::vars: vc_model::VarDefs
+impl vc_model::Action
+pub fn vc_model::Action::new(vc_model::ActionKind, vc_model::SourceSpan) -> Self
+impl core::clone::Clone for vc_model::Action
+pub fn vc_model::Action::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Action
+impl core::cmp::PartialEq for vc_model::Action
+pub fn vc_model::Action::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Action
+pub fn vc_model::Action::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Action
+pub struct vc_model::ActionId(_)
+impl vc_model::ActionId
+pub const fn vc_model::ActionId::index(self) -> u32
+pub const fn vc_model::ActionId::new(u32) -> Self
+impl core::clone::Clone for vc_model::ActionId
+pub fn vc_model::ActionId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ActionId
+impl core::cmp::Ord for vc_model::ActionId
+pub fn vc_model::ActionId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::ActionId
+pub fn vc_model::ActionId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::ActionId
+pub fn vc_model::ActionId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::ActionId
+pub fn vc_model::ActionId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::ActionId
+pub fn vc_model::ActionId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::iter::traits::collect::FromIterator<vc_model::ActionId> for vc_model::Needs
+pub fn vc_model::Needs::from_iter<I: core::iter::traits::collect::IntoIterator<Item = vc_model::ActionId>>(I) -> Self
+impl core::marker::Copy for vc_model::ActionId
+impl core::marker::StructuralPartialEq for vc_model::ActionId
+impl serde_core::ser::Serialize for vc_model::ActionId
+pub fn vc_model::ActionId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ActionId
+pub fn vc_model::ActionId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Api
+pub vc_model::Api::auth: vc_model::AuthRef
+pub vc_model::Api::body: vc_model::BodySpec
+pub vc_model::Api::cleanup: core::option::Option<vc_model::ActionId>
+pub vc_model::Api::deprecated: bool
+pub vc_model::Api::expect: vc_model::Expect
+pub vc_model::Api::group: vc_model::FileId
+pub vc_model::Api::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::Api::hooks: vc_model::RequestHooks
+pub vc_model::Api::http_retry: core::option::Option<vc_model::HttpRetry>
+pub vc_model::Api::id: vc_model::ApiId
+pub vc_model::Api::method: vc_model::Method
+pub vc_model::Api::name: core::option::Option<alloc::string::String>
+pub vc_model::Api::path: vc_model::Template
+pub vc_model::Api::query: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::Api::save: vc_model::SaveSpec
+pub vc_model::Api::save_on: vc_model::Matcher
+pub vc_model::Api::span: vc_model::SourceSpan
+pub vc_model::Api::timeout: core::option::Option<vc_model::Duration>
+pub vc_model::Api::vars: vc_model::VarDefs
+impl core::clone::Clone for vc_model::Api
+pub fn vc_model::Api::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Api
+impl core::cmp::PartialEq for vc_model::Api
+pub fn vc_model::Api::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Api
+pub fn vc_model::Api::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Api
+pub struct vc_model::ApiGroup
+pub vc_model::ApiGroup::apis: alloc::vec::Vec<vc_model::ApiId>
+pub vc_model::ApiGroup::auth: vc_model::AuthRef
+pub vc_model::ApiGroup::base_url: core::option::Option<vc_model::Template>
+pub vc_model::ApiGroup::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::ApiGroup::hooks: vc_model::RequestHooks
+pub vc_model::ApiGroup::id: vc_model::FileId
+pub vc_model::ApiGroup::name: core::option::Option<alloc::string::String>
+pub vc_model::ApiGroup::vars: vc_model::VarDefs
+impl core::clone::Clone for vc_model::ApiGroup
+pub fn vc_model::ApiGroup::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ApiGroup
+impl core::cmp::PartialEq for vc_model::ApiGroup
+pub fn vc_model::ApiGroup::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ApiGroup
+pub fn vc_model::ApiGroup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::ApiGroup
+pub struct vc_model::ApiId(_)
+impl vc_model::ApiId
+pub const fn vc_model::ApiId::new(vc_model::Sym) -> Self
+pub const fn vc_model::ApiId::sym(self) -> vc_model::Sym
+impl core::clone::Clone for vc_model::ApiId
+pub fn vc_model::ApiId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ApiId
+impl core::cmp::Ord for vc_model::ApiId
+pub fn vc_model::ApiId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::ApiId
+pub fn vc_model::ApiId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::ApiId
+pub fn vc_model::ApiId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::ApiId
+pub fn vc_model::ApiId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::ApiId
+pub fn vc_model::ApiId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::ApiId
+impl core::marker::StructuralPartialEq for vc_model::ApiId
+impl serde_core::ser::Serialize for vc_model::ApiId
+pub fn vc_model::ApiId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ApiId
+pub fn vc_model::ApiId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::AuthDef
+pub vc_model::AuthDef::cache: bool
+pub vc_model::AuthDef::expires_in: core::option::Option<vc_model::Template>
+pub vc_model::AuthDef::id: vc_model::AuthId
+pub vc_model::AuthDef::kind: alloc::string::String
+pub vc_model::AuthDef::name: core::option::Option<alloc::string::String>
+pub vc_model::AuthDef::refresh_before: vc_model::Duration
+pub vc_model::AuthDef::refresh_on: alloc::vec::Vec<u16>
+pub vc_model::AuthDef::settings: indexmap::map::IndexMap<alloc::string::String, vc_model::TemplateValue>
+pub vc_model::AuthDef::steps: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::AuthDef::vars: vc_model::VarDefs
+impl vc_model::AuthDef
+pub fn vc_model::AuthDef::new(vc_model::AuthId, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_model::AuthDef
+pub fn vc_model::AuthDef::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::AuthDef
+impl core::cmp::PartialEq for vc_model::AuthDef
+pub fn vc_model::AuthDef::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::AuthDef
+pub fn vc_model::AuthDef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::AuthDef
+pub struct vc_model::AuthId(_)
+impl vc_model::AuthId
+pub const fn vc_model::AuthId::new(vc_model::Sym) -> Self
+pub const fn vc_model::AuthId::sym(self) -> vc_model::Sym
+impl core::clone::Clone for vc_model::AuthId
+pub fn vc_model::AuthId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::AuthId
+impl core::cmp::Ord for vc_model::AuthId
+pub fn vc_model::AuthId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::AuthId
+pub fn vc_model::AuthId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::AuthId
+pub fn vc_model::AuthId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::AuthId
+pub fn vc_model::AuthId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::AuthId
+pub fn vc_model::AuthId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::AuthId
+impl core::marker::StructuralPartialEq for vc_model::AuthId
+impl serde_core::ser::Serialize for vc_model::AuthId
+pub fn vc_model::AuthId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::AuthId
+pub fn vc_model::AuthId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::CacheSpec
+pub vc_model::CacheSpec::check: core::option::Option<vc_model::ActionId>
+pub vc_model::CacheSpec::ttl: vc_model::Duration
+impl core::clone::Clone for vc_model::CacheSpec
+pub fn vc_model::CacheSpec::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::CacheSpec
+impl core::cmp::PartialEq for vc_model::CacheSpec
+pub fn vc_model::CacheSpec::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::CacheSpec
+pub fn vc_model::CacheSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::CacheSpec
+impl core::marker::StructuralPartialEq for vc_model::CacheSpec
+pub struct vc_model::CelProgram
+pub vc_model::CelProgram::refs: alloc::vec::Vec<vc_model::Reference>
+pub vc_model::CelProgram::source: vc_model::CelSource
+impl core::clone::Clone for vc_model::CelProgram
+pub fn vc_model::CelProgram::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::CelProgram
+impl core::cmp::PartialEq for vc_model::CelProgram
+pub fn vc_model::CelProgram::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::CelProgram
+pub fn vc_model::CelProgram::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::CelProgram
+impl serde_core::ser::Serialize for vc_model::CelProgram
+pub fn vc_model::CelProgram::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::CelProgram
+pub fn vc_model::CelProgram::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::CelSource
+pub vc_model::CelSource::span: vc_model::SourceSpan
+pub vc_model::CelSource::style: vc_model::ScalarStyle
+pub vc_model::CelSource::text: alloc::string::String
+impl core::clone::Clone for vc_model::CelSource
+pub fn vc_model::CelSource::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::CelSource
+impl core::cmp::PartialEq for vc_model::CelSource
+pub fn vc_model::CelSource::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::CelSource
+pub fn vc_model::CelSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::CelSource
+impl serde_core::ser::Serialize for vc_model::CelSource
+pub fn vc_model::CelSource::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::CelSource
+pub fn vc_model::CelSource::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Check
+pub vc_model::Check::kind: vc_model::CheckKind
+pub vc_model::Check::matcher: vc_model::Matcher
+pub vc_model::Check::origin: vc_model::Origin
+pub vc_model::Check::span: vc_model::SourceSpan
+pub vc_model::Check::target: core::option::Option<vc_model::Path>
+impl core::clone::Clone for vc_model::Check
+pub fn vc_model::Check::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Check
+impl core::cmp::PartialEq for vc_model::Check
+pub fn vc_model::Check::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Check
+pub fn vc_model::Check::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Check
+pub struct vc_model::CheckResult
+pub vc_model::CheckResult::actual: core::option::Option<serde_json::value::Value>
+pub vc_model::CheckResult::code: core::option::Option<alloc::string::String>
+pub vc_model::CheckResult::diff: core::option::Option<alloc::string::String>
+pub vc_model::CheckResult::error: core::option::Option<alloc::string::String>
+pub vc_model::CheckResult::expected: serde_json::value::Value
+pub vc_model::CheckResult::kind: vc_model::CheckKind
+pub vc_model::CheckResult::origin: vc_model::Origin
+pub vc_model::CheckResult::passed: bool
+pub vc_model::CheckResult::span: vc_model::SourceSpan
+pub vc_model::CheckResult::target: core::option::Option<vc_model::Path>
+impl core::clone::Clone for vc_model::CheckResult
+pub fn vc_model::CheckResult::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::CheckResult
+impl core::cmp::PartialEq for vc_model::CheckResult
+pub fn vc_model::CheckResult::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::CheckResult
+pub fn vc_model::CheckResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::CheckResult
+impl serde_core::ser::Serialize for vc_model::CheckResult
+pub fn vc_model::CheckResult::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::CheckResult
+pub fn vc_model::CheckResult::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::CleanupRecord
+pub vc_model::CleanupRecord::action: vc_model::ActionId
+pub vc_model::CleanupRecord::outcome: vc_model::ActionOutcome
+pub vc_model::CleanupRecord::owner: vc_model::OwnerKey
+impl core::clone::Clone for vc_model::CleanupRecord
+pub fn vc_model::CleanupRecord::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::CleanupRecord
+impl core::cmp::PartialEq for vc_model::CleanupRecord
+pub fn vc_model::CleanupRecord::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::CleanupRecord
+pub fn vc_model::CleanupRecord::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::CleanupRecord
+impl serde_core::ser::Serialize for vc_model::CleanupRecord
+pub fn vc_model::CleanupRecord::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::CleanupRecord
+pub fn vc_model::CleanupRecord::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Config
+pub vc_model::Config::defaults: vc_model::Defaults
+pub vc_model::Config::history: vc_model::HistoryConfig
+pub vc_model::Config::html_single_file: bool
+pub vc_model::Config::http_retry: vc_model::HttpRetry
+pub vc_model::Config::project: core::option::Option<alloc::string::String>
+pub vc_model::Config::redact_fields: alloc::vec::Vec<alloc::string::String>
+pub vc_model::Config::redact_headers: alloc::vec::Vec<alloc::string::String>
+pub vc_model::Config::redact_rules: alloc::vec::Vec<vc_model::RedactRule>
+pub vc_model::Config::report_formats: alloc::vec::Vec<alloc::string::String>
+pub vc_model::Config::reports_dir: core::option::Option<alloc::string::String>
+pub vc_model::Config::secrets: vc_model::SecretsConfig
+pub vc_model::Config::syntax_version: u32
+pub vc_model::Config::vars: vc_model::VarDefs
+impl core::clone::Clone for vc_model::Config
+pub fn vc_model::Config::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Config
+impl core::cmp::PartialEq for vc_model::Config
+pub fn vc_model::Config::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Config
+pub fn vc_model::Config::default() -> Self
+impl core::fmt::Debug for vc_model::Config
+pub fn vc_model::Config::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Config
+pub struct vc_model::ConnectionInfo
+pub vc_model::ConnectionInfo::protocol: vc_model::Protocol
+pub vc_model::ConnectionInfo::remote: core::option::Option<core::net::socket_addr::SocketAddr>
+pub vc_model::ConnectionInfo::reused: bool
+impl core::clone::Clone for vc_model::ConnectionInfo
+pub fn vc_model::ConnectionInfo::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ConnectionInfo
+impl core::cmp::PartialEq for vc_model::ConnectionInfo
+pub fn vc_model::ConnectionInfo::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::ConnectionInfo
+pub fn vc_model::ConnectionInfo::default() -> Self
+impl core::fmt::Debug for vc_model::ConnectionInfo
+pub fn vc_model::ConnectionInfo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::ConnectionInfo
+impl core::marker::StructuralPartialEq for vc_model::ConnectionInfo
+pub struct vc_model::ContentHash(_)
+impl vc_model::ContentHash
+pub const fn vc_model::ContentHash::as_bytes(&self) -> &[u8; 32]
+pub const fn vc_model::ContentHash::new([u8; 32]) -> Self
+impl core::clone::Clone for vc_model::ContentHash
+pub fn vc_model::ContentHash::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ContentHash
+impl core::cmp::Ord for vc_model::ContentHash
+pub fn vc_model::ContentHash::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::ContentHash
+pub fn vc_model::ContentHash::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::ContentHash
+pub fn vc_model::ContentHash::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::ContentHash
+pub fn vc_model::ContentHash::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::ContentHash
+pub fn vc_model::ContentHash::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::ContentHash
+impl core::marker::StructuralPartialEq for vc_model::ContentHash
+pub struct vc_model::Dataset
+pub vc_model::Dataset::file: alloc::string::String
+pub vc_model::Dataset::id: vc_model::DatasetId
+pub vc_model::Dataset::rows: alloc::vec::Vec<serde_json::value::Value>
+impl core::clone::Clone for vc_model::Dataset
+pub fn vc_model::Dataset::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Dataset
+impl core::cmp::PartialEq for vc_model::Dataset
+pub fn vc_model::Dataset::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Dataset
+pub fn vc_model::Dataset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Dataset
+pub struct vc_model::DatasetId(_)
+impl vc_model::DatasetId
+pub const fn vc_model::DatasetId::new(vc_model::Sym) -> Self
+pub const fn vc_model::DatasetId::sym(self) -> vc_model::Sym
+impl core::clone::Clone for vc_model::DatasetId
+pub fn vc_model::DatasetId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::DatasetId
+impl core::cmp::Ord for vc_model::DatasetId
+pub fn vc_model::DatasetId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::DatasetId
+pub fn vc_model::DatasetId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::DatasetId
+pub fn vc_model::DatasetId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::DatasetId
+pub fn vc_model::DatasetId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::DatasetId
+pub fn vc_model::DatasetId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::DatasetId
+impl core::marker::StructuralPartialEq for vc_model::DatasetId
+impl serde_core::ser::Serialize for vc_model::DatasetId
+pub fn vc_model::DatasetId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::DatasetId
+pub fn vc_model::DatasetId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Date
+impl vc_model::Date
+pub const vc_model::Date::UNIX_EPOCH: Self
+pub const fn vc_model::Date::day(self) -> u8
+pub fn vc_model::Date::from_unix_days(i64) -> core::option::Option<Self>
+pub const fn vc_model::Date::month(self) -> u8
+pub fn vc_model::Date::new(u16, u8, u8) -> core::option::Option<Self>
+pub fn vc_model::Date::parse(&str) -> core::option::Option<Self>
+pub const fn vc_model::Date::year(self) -> u16
+impl core::clone::Clone for vc_model::Date
+pub fn vc_model::Date::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Date
+impl core::cmp::Ord for vc_model::Date
+pub fn vc_model::Date::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::Date
+pub fn vc_model::Date::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::Date
+pub fn vc_model::Date::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::Date
+pub fn vc_model::Date::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_model::Date
+pub fn vc_model::Date::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Date
+pub fn vc_model::Date::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Date
+impl core::marker::StructuralPartialEq for vc_model::Date
+impl serde_core::ser::Serialize for vc_model::Date
+pub fn vc_model::Date::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Date
+pub fn vc_model::Date::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Defaults
+pub vc_model::Defaults::concurrency: core::option::Option<u32>
+pub vc_model::Defaults::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::Defaults::per_host: core::option::Option<u32>
+pub vc_model::Defaults::timeout: core::option::Option<vc_model::Duration>
+impl core::clone::Clone for vc_model::Defaults
+pub fn vc_model::Defaults::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Defaults
+impl core::cmp::PartialEq for vc_model::Defaults
+pub fn vc_model::Defaults::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Defaults
+pub fn vc_model::Defaults::default() -> Self
+impl core::fmt::Debug for vc_model::Defaults
+pub fn vc_model::Defaults::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Defaults
+pub struct vc_model::Duration(_)
+impl vc_model::Duration
+pub const fn vc_model::Duration::get(self) -> core::time::Duration
+pub const fn vc_model::Duration::new(core::time::Duration) -> Self
+impl core::clone::Clone for vc_model::Duration
+pub fn vc_model::Duration::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Duration
+impl core::cmp::Ord for vc_model::Duration
+pub fn vc_model::Duration::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::Duration
+pub fn vc_model::Duration::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::Duration
+pub fn vc_model::Duration::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::default::Default for vc_model::Duration
+pub fn vc_model::Duration::default() -> Self
+impl core::fmt::Debug for vc_model::Duration
+pub fn vc_model::Duration::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Duration
+pub fn vc_model::Duration::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Duration
+impl core::marker::StructuralPartialEq for vc_model::Duration
+impl serde_core::ser::Serialize for vc_model::Duration
+pub fn vc_model::Duration::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Duration
+pub fn vc_model::Duration::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Exchange
+pub vc_model::Exchange::connection: vc_model::ConnectionInfo
+pub vc_model::Exchange::request: vc_model::RenderedRequest
+pub vc_model::Exchange::response: vc_model::HttpResponse
+pub vc_model::Exchange::timing: vc_model::Timing
+impl core::clone::Clone for vc_model::Exchange
+pub fn vc_model::Exchange::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Exchange
+impl core::cmp::PartialEq for vc_model::Exchange
+pub fn vc_model::Exchange::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Exchange
+pub fn vc_model::Exchange::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Exchange
+pub struct vc_model::Expect
+pub vc_model::Expect::checks: alloc::vec::Vec<vc_model::Check>
+pub vc_model::Expect::replace: bool
+impl core::clone::Clone for vc_model::Expect
+pub fn vc_model::Expect::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Expect
+impl core::cmp::PartialEq for vc_model::Expect
+pub fn vc_model::Expect::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Expect
+pub fn vc_model::Expect::default() -> Self
+impl core::fmt::Debug for vc_model::Expect
+pub fn vc_model::Expect::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Expect
+pub struct vc_model::Failure
+pub vc_model::Failure::action: core::option::Option<vc_model::ActionId>
+pub vc_model::Failure::code: core::option::Option<alloc::string::String>
+pub vc_model::Failure::message: alloc::string::String
+impl vc_model::Failure
+pub fn vc_model::Failure::at(self, vc_model::ActionId) -> Self
+pub fn vc_model::Failure::new(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn vc_model::Failure::with_code(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_model::Failure
+pub fn vc_model::Failure::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Failure
+impl core::cmp::PartialEq for vc_model::Failure
+pub fn vc_model::Failure::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Failure
+pub fn vc_model::Failure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Failure
+impl serde_core::ser::Serialize for vc_model::Failure
+pub fn vc_model::Failure::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Failure
+pub fn vc_model::Failure::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::FileId(_)
+impl vc_model::FileId
+pub const fn vc_model::FileId::new(vc_model::Sym) -> Self
+pub const fn vc_model::FileId::sym(self) -> vc_model::Sym
+impl core::clone::Clone for vc_model::FileId
+pub fn vc_model::FileId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::FileId
+impl core::cmp::Ord for vc_model::FileId
+pub fn vc_model::FileId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::FileId
+pub fn vc_model::FileId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::FileId
+pub fn vc_model::FileId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::FileId
+pub fn vc_model::FileId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::FileId
+pub fn vc_model::FileId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::FileId
+impl core::marker::StructuralPartialEq for vc_model::FileId
+impl serde_core::ser::Serialize for vc_model::FileId
+pub fn vc_model::FileId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::FileId
+pub fn vc_model::FileId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::GeneratorDef
+pub vc_model::GeneratorDef::args: alloc::vec::Vec<serde_json::value::Value>
+pub vc_model::GeneratorDef::fake: alloc::string::String
+pub vc_model::GeneratorDef::id: vc_model::Sym
+impl core::clone::Clone for vc_model::GeneratorDef
+pub fn vc_model::GeneratorDef::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::GeneratorDef
+impl core::cmp::PartialEq for vc_model::GeneratorDef
+pub fn vc_model::GeneratorDef::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::GeneratorDef
+pub fn vc_model::GeneratorDef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::GeneratorDef
+pub struct vc_model::HistoryConfig
+pub vc_model::HistoryConfig::bodies: vc_model::Bodies
+pub vc_model::HistoryConfig::keep: vc_model::Keep
+pub vc_model::HistoryConfig::max_body_size: vc_model::Size
+impl core::clone::Clone for vc_model::HistoryConfig
+pub fn vc_model::HistoryConfig::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HistoryConfig
+impl core::cmp::PartialEq for vc_model::HistoryConfig
+pub fn vc_model::HistoryConfig::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::HistoryConfig
+pub fn vc_model::HistoryConfig::default() -> Self
+impl core::fmt::Debug for vc_model::HistoryConfig
+pub fn vc_model::HistoryConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::HistoryConfig
+impl core::marker::StructuralPartialEq for vc_model::HistoryConfig
+impl serde_core::ser::Serialize for vc_model::HistoryConfig
+pub fn vc_model::HistoryConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::HistoryConfig
+pub fn vc_model::HistoryConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::HookModule
+pub vc_model::HookModule::js: alloc::string::String
+pub vc_model::HookModule::lines: alloc::vec::Vec<u32>
+impl vc_model::HookModule
+pub fn vc_model::HookModule::ts_line(&self, u32) -> core::option::Option<u32>
+impl core::clone::Clone for vc_model::HookModule
+pub fn vc_model::HookModule::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HookModule
+impl core::cmp::PartialEq for vc_model::HookModule
+pub fn vc_model::HookModule::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::HookModule
+pub fn vc_model::HookModule::default() -> Self
+impl core::fmt::Debug for vc_model::HookModule
+pub fn vc_model::HookModule::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::HookModule
+impl serde_core::ser::Serialize for vc_model::HookModule
+pub fn vc_model::HookModule::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::HookModule
+pub fn vc_model::HookModule::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::HookModules(_)
+impl vc_model::HookModules
+pub fn vc_model::HookModules::get(&self, &str) -> core::option::Option<&vc_model::HookModule>
+pub fn vc_model::HookModules::is_empty(&self) -> bool
+pub fn vc_model::HookModules::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&str, &vc_model::HookModule)>
+pub fn vc_model::HookModules::new(alloc::collections::btree::map::BTreeMap<alloc::string::String, vc_model::HookModule>) -> Self
+impl core::clone::Clone for vc_model::HookModules
+pub fn vc_model::HookModules::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HookModules
+impl core::cmp::PartialEq for vc_model::HookModules
+pub fn vc_model::HookModules::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::HookModules
+pub fn vc_model::HookModules::default() -> Self
+impl core::fmt::Debug for vc_model::HookModules
+pub fn vc_model::HookModules::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::HookModules
+pub struct vc_model::HookRef
+pub vc_model::HookRef::export: alloc::string::String
+pub vc_model::HookRef::file: alloc::string::String
+impl core::clone::Clone for vc_model::HookRef
+pub fn vc_model::HookRef::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HookRef
+impl core::cmp::PartialEq for vc_model::HookRef
+pub fn vc_model::HookRef::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::HookRef
+pub fn vc_model::HookRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::HookRef
+pub fn vc_model::HookRef::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for vc_model::HookRef
+pub struct vc_model::HttpResponse
+pub vc_model::HttpResponse::body: bytes::bytes::Bytes
+pub vc_model::HttpResponse::headers: http::header::map::HeaderMap
+pub vc_model::HttpResponse::status: http::status::StatusCode
+pub vc_model::HttpResponse::wire_size: u64
+impl core::clone::Clone for vc_model::HttpResponse
+pub fn vc_model::HttpResponse::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HttpResponse
+impl core::cmp::PartialEq for vc_model::HttpResponse
+pub fn vc_model::HttpResponse::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::HttpResponse
+pub fn vc_model::HttpResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::HttpResponse
+pub struct vc_model::HttpRetry
+pub vc_model::HttpRetry::attempts: u32
+pub vc_model::HttpRetry::base: vc_model::Duration
+pub vc_model::HttpRetry::jitter: bool
+pub vc_model::HttpRetry::max: vc_model::Duration
+pub vc_model::HttpRetry::methods: alloc::vec::Vec<vc_model::Method>
+pub vc_model::HttpRetry::on_status: alloc::vec::Vec<vc_model::StatusPattern>
+pub vc_model::HttpRetry::on_transport: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_model::HttpRetry
+pub fn vc_model::HttpRetry::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::HttpRetry
+impl core::cmp::PartialEq for vc_model::HttpRetry
+pub fn vc_model::HttpRetry::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::HttpRetry
+pub fn vc_model::HttpRetry::default() -> Self
+impl core::fmt::Debug for vc_model::HttpRetry
+pub fn vc_model::HttpRetry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::HttpRetry
+pub struct vc_model::InlineRequest
+pub vc_model::InlineRequest::body: vc_model::BodySpec
+pub vc_model::InlineRequest::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::InlineRequest::method: vc_model::Method
+pub vc_model::InlineRequest::query: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::InlineRequest::url: vc_model::Template
+impl core::clone::Clone for vc_model::InlineRequest
+pub fn vc_model::InlineRequest::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::InlineRequest
+impl core::cmp::PartialEq for vc_model::InlineRequest
+pub fn vc_model::InlineRequest::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::InlineRequest
+pub fn vc_model::InlineRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::InlineRequest
+pub struct vc_model::Instance
+pub vc_model::Instance::example_row: core::option::Option<u32>
+pub vc_model::Instance::id: vc_model::InstanceId
+pub vc_model::Instance::needs: vc_model::Needs
+pub vc_model::Instance::repeat_index: u32
+pub vc_model::Instance::test: vc_model::TestId
+impl core::clone::Clone for vc_model::Instance
+pub fn vc_model::Instance::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Instance
+impl core::cmp::PartialEq for vc_model::Instance
+pub fn vc_model::Instance::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Instance
+pub fn vc_model::Instance::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Instance
+pub struct vc_model::InstanceId(_)
+impl vc_model::InstanceId
+pub const fn vc_model::InstanceId::index(self) -> u32
+pub const fn vc_model::InstanceId::new(u32) -> Self
+impl core::clone::Clone for vc_model::InstanceId
+pub fn vc_model::InstanceId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::InstanceId
+impl core::cmp::Ord for vc_model::InstanceId
+pub fn vc_model::InstanceId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::InstanceId
+pub fn vc_model::InstanceId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::InstanceId
+pub fn vc_model::InstanceId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::InstanceId
+pub fn vc_model::InstanceId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::InstanceId
+pub fn vc_model::InstanceId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::InstanceId
+impl core::marker::StructuralPartialEq for vc_model::InstanceId
+impl serde_core::ser::Serialize for vc_model::InstanceId
+pub fn vc_model::InstanceId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::InstanceId
+pub fn vc_model::InstanceId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Lifecycle
+pub vc_model::Lifecycle::after_all: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::Lifecycle::after_each: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::Lifecycle::before_all: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::Lifecycle::before_each: alloc::vec::Vec<vc_model::ActionId>
+impl core::clone::Clone for vc_model::Lifecycle
+pub fn vc_model::Lifecycle::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Lifecycle
+impl core::cmp::PartialEq for vc_model::Lifecycle
+pub fn vc_model::Lifecycle::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Lifecycle
+pub fn vc_model::Lifecycle::default() -> Self
+impl core::fmt::Debug for vc_model::Lifecycle
+pub fn vc_model::Lifecycle::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Lifecycle
+pub struct vc_model::LoadScenario
+pub vc_model::LoadScenario::abort_on: alloc::vec::Vec<alloc::string::String>
+pub vc_model::LoadScenario::full_checks: bool
+pub vc_model::LoadScenario::id: vc_model::FileId
+pub vc_model::LoadScenario::mix: alloc::vec::Vec<vc_model::MixEntry>
+pub vc_model::LoadScenario::name: core::option::Option<alloc::string::String>
+pub vc_model::LoadScenario::stages: alloc::vec::Vec<vc_model::LoadStage>
+pub vc_model::LoadScenario::think_time: (vc_model::Duration, vc_model::Duration)
+pub vc_model::LoadScenario::thresholds: indexmap::map::IndexMap<alloc::string::String, vc_model::Matcher>
+impl core::clone::Clone for vc_model::LoadScenario
+pub fn vc_model::LoadScenario::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::LoadScenario
+impl core::cmp::PartialEq for vc_model::LoadScenario
+pub fn vc_model::LoadScenario::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::LoadScenario
+pub fn vc_model::LoadScenario::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::LoadScenario
+pub struct vc_model::LoadStage
+pub vc_model::LoadStage::duration: vc_model::Duration
+pub vc_model::LoadStage::users: u32
+impl core::clone::Clone for vc_model::LoadStage
+pub fn vc_model::LoadStage::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::LoadStage
+impl core::cmp::PartialEq for vc_model::LoadStage
+pub fn vc_model::LoadStage::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::LoadStage
+pub fn vc_model::LoadStage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::LoadStage
+impl core::marker::StructuralPartialEq for vc_model::LoadStage
+pub struct vc_model::MatcherCall
+pub vc_model::MatcherCall::arg: vc_model::MatcherArg
+pub vc_model::MatcherCall::name: alloc::string::String
+pub vc_model::MatcherCall::span: vc_model::SourceSpan
+impl core::clone::Clone for vc_model::MatcherCall
+pub fn vc_model::MatcherCall::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::MatcherCall
+impl core::cmp::PartialEq for vc_model::MatcherCall
+pub fn vc_model::MatcherCall::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::MatcherCall
+pub fn vc_model::MatcherCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::MatcherCall
+impl serde_core::ser::Serialize for vc_model::MatcherCall
+pub fn vc_model::MatcherCall::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::MatcherCall
+pub fn vc_model::MatcherCall::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::MixEntry
+pub vc_model::MixEntry::test: vc_model::TestId
+pub vc_model::MixEntry::thresholds: indexmap::map::IndexMap<alloc::string::String, vc_model::Matcher>
+pub vc_model::MixEntry::weight: u32
+impl core::clone::Clone for vc_model::MixEntry
+pub fn vc_model::MixEntry::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::MixEntry
+impl core::cmp::PartialEq for vc_model::MixEntry
+pub fn vc_model::MixEntry::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::MixEntry
+pub fn vc_model::MixEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::MixEntry
+pub struct vc_model::Needs(_)
+impl vc_model::Needs
+pub fn vc_model::Needs::contains(&self, vc_model::ActionId) -> bool
+pub fn vc_model::Needs::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = vc_model::ActionId> + '_
+impl core::clone::Clone for vc_model::Needs
+pub fn vc_model::Needs::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Needs
+impl core::cmp::PartialEq for vc_model::Needs
+pub fn vc_model::Needs::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Needs
+pub fn vc_model::Needs::default() -> Self
+impl core::fmt::Debug for vc_model::Needs
+pub fn vc_model::Needs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::iter::traits::collect::FromIterator<vc_model::ActionId> for vc_model::Needs
+pub fn vc_model::Needs::from_iter<I: core::iter::traits::collect::IntoIterator<Item = vc_model::ActionId>>(I) -> Self
+impl core::marker::StructuralPartialEq for vc_model::Needs
+pub struct vc_model::Path
+pub vc_model::Path::segments: alloc::vec::Vec<vc_model::Segment>
+impl core::clone::Clone for vc_model::Path
+pub fn vc_model::Path::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Path
+impl core::cmp::PartialEq for vc_model::Path
+pub fn vc_model::Path::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Path
+pub fn vc_model::Path::default() -> Self
+impl core::fmt::Debug for vc_model::Path
+pub fn vc_model::Path::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Path
+impl serde_core::ser::Serialize for vc_model::Path
+pub fn vc_model::Path::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Path
+pub fn vc_model::Path::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::PipeCall
+pub vc_model::PipeCall::args: alloc::vec::Vec<serde_json::value::Value>
+pub vc_model::PipeCall::name: alloc::string::String
+pub vc_model::PipeCall::name_span: vc_model::SourceSpan
+pub vc_model::PipeCall::span: vc_model::SourceSpan
+impl core::clone::Clone for vc_model::PipeCall
+pub fn vc_model::PipeCall::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::PipeCall
+impl core::cmp::PartialEq for vc_model::PipeCall
+pub fn vc_model::PipeCall::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::PipeCall
+pub fn vc_model::PipeCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::PipeCall
+impl serde_core::ser::Serialize for vc_model::PipeCall
+pub fn vc_model::PipeCall::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::PipeCall
+pub fn vc_model::PipeCall::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Plan
+pub vc_model::Plan::after_run: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::Plan::before_run: alloc::vec::Vec<vc_model::PlannedAction>
+pub vc_model::Plan::files: alloc::vec::Vec<vc_model::PlannedFile>
+pub vc_model::Plan::skipped: alloc::vec::Vec<vc_model::SkippedTest>
+impl vc_model::Plan
+pub fn vc_model::Plan::instance_count(&self) -> usize
+impl core::clone::Clone for vc_model::Plan
+pub fn vc_model::Plan::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Plan
+impl core::cmp::PartialEq for vc_model::Plan
+pub fn vc_model::Plan::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Plan
+pub fn vc_model::Plan::default() -> Self
+impl core::fmt::Debug for vc_model::Plan
+pub fn vc_model::Plan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Plan
+pub struct vc_model::PlannedAction
+pub vc_model::PlannedAction::action: vc_model::ActionId
+pub vc_model::PlannedAction::needs: vc_model::Needs
+impl core::clone::Clone for vc_model::PlannedAction
+pub fn vc_model::PlannedAction::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::PlannedAction
+impl core::cmp::PartialEq for vc_model::PlannedAction
+pub fn vc_model::PlannedAction::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::PlannedAction
+pub fn vc_model::PlannedAction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::PlannedAction
+pub struct vc_model::PlannedFile
+pub vc_model::PlannedFile::after_all: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::PlannedFile::before_all: alloc::vec::Vec<vc_model::PlannedAction>
+pub vc_model::PlannedFile::id: vc_model::FileId
+pub vc_model::PlannedFile::instances: alloc::vec::Vec<vc_model::Instance>
+impl core::clone::Clone for vc_model::PlannedFile
+pub fn vc_model::PlannedFile::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::PlannedFile
+impl core::cmp::PartialEq for vc_model::PlannedFile
+pub fn vc_model::PlannedFile::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::PlannedFile
+pub fn vc_model::PlannedFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::PlannedFile
+pub struct vc_model::Poll
+pub vc_model::Poll::every: vc_model::Duration
+pub vc_model::Poll::timeout: vc_model::Duration
+pub vc_model::Poll::until: vc_model::Expect
+impl core::clone::Clone for vc_model::Poll
+pub fn vc_model::Poll::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Poll
+impl core::cmp::PartialEq for vc_model::Poll
+pub fn vc_model::Poll::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Poll
+pub fn vc_model::Poll::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Poll
+pub struct vc_model::Pos
+pub vc_model::Pos::column: u32
+pub vc_model::Pos::line: u32
+pub vc_model::Pos::offset: usize
+impl vc_model::Pos
+pub const vc_model::Pos::START: Self
+pub const fn vc_model::Pos::new(u32, u32, usize) -> Self
+impl core::clone::Clone for vc_model::Pos
+pub fn vc_model::Pos::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Pos
+impl core::cmp::Ord for vc_model::Pos
+pub fn vc_model::Pos::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::Pos
+pub fn vc_model::Pos::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::Pos
+pub fn vc_model::Pos::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::Pos
+pub fn vc_model::Pos::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Pos
+pub fn vc_model::Pos::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Pos
+impl core::marker::StructuralPartialEq for vc_model::Pos
+impl serde_core::ser::Serialize for vc_model::Pos
+pub fn vc_model::Pos::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Pos
+pub fn vc_model::Pos::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Profile
+pub vc_model::Profile::default: bool
+pub vc_model::Profile::id: vc_model::ProfileId
+pub vc_model::Profile::name: core::option::Option<alloc::string::String>
+pub vc_model::Profile::vars: indexmap::map::IndexMap<vc_model::VarName, vc_model::TemplateValue>
+impl core::clone::Clone for vc_model::Profile
+pub fn vc_model::Profile::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Profile
+impl core::cmp::PartialEq for vc_model::Profile
+pub fn vc_model::Profile::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Profile
+pub fn vc_model::Profile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Profile
+pub struct vc_model::ProfileId(_)
+impl vc_model::ProfileId
+pub const fn vc_model::ProfileId::new(vc_model::Sym) -> Self
+pub const fn vc_model::ProfileId::sym(self) -> vc_model::Sym
+impl core::clone::Clone for vc_model::ProfileId
+pub fn vc_model::ProfileId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ProfileId
+impl core::cmp::Ord for vc_model::ProfileId
+pub fn vc_model::ProfileId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::ProfileId
+pub fn vc_model::ProfileId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::ProfileId
+pub fn vc_model::ProfileId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::ProfileId
+pub fn vc_model::ProfileId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::ProfileId
+pub fn vc_model::ProfileId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::ProfileId
+impl core::marker::StructuralPartialEq for vc_model::ProfileId
+impl serde_core::ser::Serialize for vc_model::ProfileId
+pub fn vc_model::ProfileId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ProfileId
+pub fn vc_model::ProfileId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Program
+pub vc_model::Program::actions: alloc::vec::Vec<vc_model::Action>
+pub vc_model::Program::api_groups: indexmap::map::IndexMap<vc_model::FileId, vc_model::ApiGroup>
+pub vc_model::Program::apis: indexmap::map::IndexMap<vc_model::ApiId, vc_model::Api>
+pub vc_model::Program::auth: indexmap::map::IndexMap<vc_model::AuthId, vc_model::AuthDef>
+pub vc_model::Program::config: vc_model::Config
+pub vc_model::Program::datasets: indexmap::map::IndexMap<vc_model::DatasetId, vc_model::Dataset>
+pub vc_model::Program::files: vc_model::SourceFiles
+pub vc_model::Program::generators: indexmap::map::IndexMap<vc_model::Sym, vc_model::GeneratorDef>
+pub vc_model::Program::hooks: vc_model::HookModules
+pub vc_model::Program::loads: indexmap::map::IndexMap<vc_model::FileId, vc_model::LoadScenario>
+pub vc_model::Program::profiles: indexmap::map::IndexMap<vc_model::ProfileId, vc_model::Profile>
+pub vc_model::Program::run_blocks: vc_model::RunBlocks
+pub vc_model::Program::test_files: indexmap::map::IndexMap<vc_model::FileId, vc_model::TestFile>
+pub vc_model::Program::tests: indexmap::map::IndexMap<vc_model::TestId, vc_model::Test>
+impl vc_model::Program
+pub fn vc_model::Program::new(vc_model::StringTable, vc_model::SourceFiles) -> Self
+pub fn vc_model::Program::str(&self, vc_model::Sym) -> core::option::Option<&str>
+impl core::clone::Clone for vc_model::Program
+pub fn vc_model::Program::clone(&self) -> Self
+impl core::default::Default for vc_model::Program
+pub fn vc_model::Program::default() -> Self
+impl core::fmt::Debug for vc_model::Program
+pub fn vc_model::Program::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct vc_model::ProgramBuilder
+impl vc_model::ProgramBuilder
+pub fn vc_model::ProgramBuilder::action(&mut self, vc_model::Action) -> core::result::Result<vc_model::ActionId, vc_model::ModelError>
+pub fn vc_model::ProgramBuilder::api(&mut self, vc_model::Api)
+pub fn vc_model::ProgramBuilder::api_group(&mut self, vc_model::ApiGroup)
+pub fn vc_model::ProgramBuilder::auth(&mut self, vc_model::AuthDef)
+pub fn vc_model::ProgramBuilder::config(&mut self, vc_model::Config)
+pub fn vc_model::ProgramBuilder::dataset(&mut self, vc_model::Dataset)
+pub fn vc_model::ProgramBuilder::freeze(self) -> alloc::rcs::arc::Arc<vc_model::Program>
+pub fn vc_model::ProgramBuilder::generator(&mut self, vc_model::GeneratorDef)
+pub fn vc_model::ProgramBuilder::hooks(&mut self, vc_model::HookModules)
+pub fn vc_model::ProgramBuilder::intern(&mut self, &str) -> core::result::Result<vc_model::Sym, vc_model::ModelError>
+pub fn vc_model::ProgramBuilder::new(vc_model::StringTable, vc_model::SourceFiles) -> Self
+pub fn vc_model::ProgramBuilder::next_action(&self) -> core::result::Result<vc_model::ActionId, vc_model::ModelError>
+pub fn vc_model::ProgramBuilder::profile(&mut self, vc_model::Profile)
+pub fn vc_model::ProgramBuilder::run_blocks(&mut self, vc_model::RunBlocks)
+pub fn vc_model::ProgramBuilder::test(&mut self, vc_model::Test)
+pub fn vc_model::ProgramBuilder::test_file(&mut self, vc_model::TestFile)
+impl core::default::Default for vc_model::ProgramBuilder
+pub fn vc_model::ProgramBuilder::default() -> Self
+impl core::fmt::Debug for vc_model::ProgramBuilder
+pub fn vc_model::ProgramBuilder::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct vc_model::Reference
+pub vc_model::Reference::args: alloc::vec::Vec<serde_json::value::Value>
+pub vc_model::Reference::ns: vc_model::Namespace
+pub vc_model::Reference::path: vc_model::Path
+pub vc_model::Reference::pipes: alloc::vec::Vec<vc_model::PipeCall>
+pub vc_model::Reference::root_span: vc_model::SourceSpan
+pub vc_model::Reference::span: vc_model::SourceSpan
+impl core::clone::Clone for vc_model::Reference
+pub fn vc_model::Reference::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Reference
+impl core::cmp::PartialEq for vc_model::Reference
+pub fn vc_model::Reference::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Reference
+pub fn vc_model::Reference::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Reference
+impl serde_core::ser::Serialize for vc_model::Reference
+pub fn vc_model::Reference::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Reference
+pub fn vc_model::Reference::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::RenderedRequest
+pub vc_model::RenderedRequest::body: bytes::bytes::Bytes
+pub vc_model::RenderedRequest::headers: http::header::map::HeaderMap
+pub vc_model::RenderedRequest::method: http::method::Method
+pub vc_model::RenderedRequest::uri: http::uri::Uri
+impl vc_model::RenderedRequest
+pub fn vc_model::RenderedRequest::new(http::method::Method, http::uri::Uri) -> Self
+impl core::clone::Clone for vc_model::RenderedRequest
+pub fn vc_model::RenderedRequest::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::RenderedRequest
+impl core::cmp::PartialEq for vc_model::RenderedRequest
+pub fn vc_model::RenderedRequest::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::RenderedRequest
+pub fn vc_model::RenderedRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::RenderedRequest
+pub struct vc_model::RequestHooks
+pub vc_model::RequestHooks::after_response: alloc::vec::Vec<vc_model::HookRef>
+pub vc_model::RequestHooks::before_request: alloc::vec::Vec<vc_model::HookRef>
+impl core::clone::Clone for vc_model::RequestHooks
+pub fn vc_model::RequestHooks::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::RequestHooks
+impl core::cmp::PartialEq for vc_model::RequestHooks
+pub fn vc_model::RequestHooks::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::RequestHooks
+pub fn vc_model::RequestHooks::default() -> Self
+impl core::fmt::Debug for vc_model::RequestHooks
+pub fn vc_model::RequestHooks::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::RequestHooks
+pub struct vc_model::Retry
+pub vc_model::Retry::attempts: u32
+pub vc_model::Retry::delay: vc_model::Duration
+impl core::clone::Clone for vc_model::Retry
+pub fn vc_model::Retry::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Retry
+impl core::cmp::PartialEq for vc_model::Retry
+pub fn vc_model::Retry::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Retry
+pub fn vc_model::Retry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::Retry
+impl core::marker::StructuralPartialEq for vc_model::Retry
+pub struct vc_model::RunBlocks
+pub vc_model::RunBlocks::after_run: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::RunBlocks::before_run: alloc::vec::Vec<vc_model::ActionId>
+impl core::clone::Clone for vc_model::RunBlocks
+pub fn vc_model::RunBlocks::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::RunBlocks
+impl core::cmp::PartialEq for vc_model::RunBlocks
+pub fn vc_model::RunBlocks::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::RunBlocks
+pub fn vc_model::RunBlocks::default() -> Self
+impl core::fmt::Debug for vc_model::RunBlocks
+pub fn vc_model::RunBlocks::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::RunBlocks
+pub struct vc_model::SaveSpec
+pub vc_model::SaveSpec::values: indexmap::map::IndexMap<vc_model::VarName, vc_model::TemplateValue>
+impl core::clone::Clone for vc_model::SaveSpec
+pub fn vc_model::SaveSpec::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::SaveSpec
+impl core::cmp::PartialEq for vc_model::SaveSpec
+pub fn vc_model::SaveSpec::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::SaveSpec
+pub fn vc_model::SaveSpec::default() -> Self
+impl core::fmt::Debug for vc_model::SaveSpec
+pub fn vc_model::SaveSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::SaveSpec
+pub struct vc_model::ScalarSource
+pub vc_model::ScalarSource::span: vc_model::SourceSpan
+pub vc_model::ScalarSource::style: vc_model::ScalarStyle
+impl core::clone::Clone for vc_model::ScalarSource
+pub fn vc_model::ScalarSource::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ScalarSource
+impl core::cmp::PartialEq for vc_model::ScalarSource
+pub fn vc_model::ScalarSource::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ScalarSource
+pub fn vc_model::ScalarSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::ScalarSource
+pub fn vc_model::ScalarSource::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::ScalarSource
+impl core::marker::StructuralPartialEq for vc_model::ScalarSource
+impl serde_core::ser::Serialize for vc_model::ScalarSource
+pub fn vc_model::ScalarSource::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::ScalarSource
+pub fn vc_model::ScalarSource::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::SecretsConfig
+pub vc_model::SecretsConfig::declared: alloc::vec::Vec<alloc::string::String>
+pub vc_model::SecretsConfig::provider: alloc::string::String
+pub vc_model::SecretsConfig::schema: alloc::string::String
+impl vc_model::SecretsConfig
+pub fn vc_model::SecretsConfig::declares(&self, &str) -> bool
+impl core::clone::Clone for vc_model::SecretsConfig
+pub fn vc_model::SecretsConfig::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::SecretsConfig
+impl core::cmp::PartialEq for vc_model::SecretsConfig
+pub fn vc_model::SecretsConfig::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::SecretsConfig
+pub fn vc_model::SecretsConfig::default() -> Self
+impl core::fmt::Debug for vc_model::SecretsConfig
+pub fn vc_model::SecretsConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::SecretsConfig
+pub struct vc_model::Sequenced
+pub vc_model::Sequenced::event: vc_model::Event
+pub vc_model::Sequenced::seq: u64
+impl core::clone::Clone for vc_model::Sequenced
+pub fn vc_model::Sequenced::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Sequenced
+impl core::cmp::PartialEq for vc_model::Sequenced
+pub fn vc_model::Sequenced::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Sequenced
+pub fn vc_model::Sequenced::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Sequenced
+pub struct vc_model::Size(_)
+impl vc_model::Size
+pub const fn vc_model::Size::bytes(self) -> u64
+pub const fn vc_model::Size::from_bytes(u64) -> Self
+impl core::clone::Clone for vc_model::Size
+pub fn vc_model::Size::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Size
+impl core::cmp::Ord for vc_model::Size
+pub fn vc_model::Size::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::Size
+pub fn vc_model::Size::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::Size
+pub fn vc_model::Size::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::default::Default for vc_model::Size
+pub fn vc_model::Size::default() -> Self
+impl core::fmt::Debug for vc_model::Size
+pub fn vc_model::Size::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Size
+pub fn vc_model::Size::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Size
+impl core::marker::StructuralPartialEq for vc_model::Size
+impl serde_core::ser::Serialize for vc_model::Size
+pub fn vc_model::Size::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Size
+pub fn vc_model::Size::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Skip
+pub vc_model::Skip::reason: alloc::string::String
+pub vc_model::Skip::until: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vc_model::Skip
+pub fn vc_model::Skip::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Skip
+impl core::cmp::PartialEq for vc_model::Skip
+pub fn vc_model::Skip::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Skip
+pub fn vc_model::Skip::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Skip
+pub struct vc_model::SkippedTest
+pub vc_model::SkippedTest::reason: alloc::string::String
+pub vc_model::SkippedTest::test: vc_model::TestId
+impl core::clone::Clone for vc_model::SkippedTest
+pub fn vc_model::SkippedTest::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::SkippedTest
+impl core::cmp::PartialEq for vc_model::SkippedTest
+pub fn vc_model::SkippedTest::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::SkippedTest
+pub fn vc_model::SkippedTest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::SkippedTest
+pub struct vc_model::SourceFile
+pub vc_model::SourceFile::hash: vc_model::ContentHash
+pub vc_model::SourceFile::path: vc_model::SourcePath
+pub vc_model::SourceFile::text: alloc::string::String
+impl vc_model::SourceFile
+pub fn vc_model::SourceFile::kind(&self) -> core::option::Option<vc_model::FileKind>
+impl core::clone::Clone for vc_model::SourceFile
+pub fn vc_model::SourceFile::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::SourceFile
+impl core::cmp::PartialEq for vc_model::SourceFile
+pub fn vc_model::SourceFile::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::SourceFile
+pub fn vc_model::SourceFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::SourceFile
+pub struct vc_model::SourceFileId(_)
+impl vc_model::SourceFileId
+pub const fn vc_model::SourceFileId::index(self) -> u32
+pub const fn vc_model::SourceFileId::new(u32) -> Self
+impl core::clone::Clone for vc_model::SourceFileId
+pub fn vc_model::SourceFileId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::SourceFileId
+impl core::cmp::Ord for vc_model::SourceFileId
+pub fn vc_model::SourceFileId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::SourceFileId
+pub fn vc_model::SourceFileId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::SourceFileId
+pub fn vc_model::SourceFileId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::SourceFileId
+pub fn vc_model::SourceFileId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::SourceFileId
+pub fn vc_model::SourceFileId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::SourceFileId
+impl core::marker::StructuralPartialEq for vc_model::SourceFileId
+impl serde_core::ser::Serialize for vc_model::SourceFileId
+pub fn vc_model::SourceFileId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::SourceFileId
+pub fn vc_model::SourceFileId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::SourceFiles
+impl vc_model::SourceFiles
+pub fn vc_model::SourceFiles::get(&self, vc_model::SourceFileId) -> core::option::Option<&vc_model::SourceFile>
+pub const fn vc_model::SourceFiles::is_empty(&self) -> bool
+pub const fn vc_model::SourceFiles::len(&self) -> usize
+pub fn vc_model::SourceFiles::line(&self, vc_model::SourceFileId, u32) -> core::option::Option<&str>
+pub fn vc_model::SourceFiles::new() -> Self
+pub fn vc_model::SourceFiles::position(&self, vc_model::SourceFileId, usize) -> core::option::Option<vc_model::Pos>
+pub fn vc_model::SourceFiles::push(&mut self, vc_model::SourceFile) -> core::result::Result<vc_model::SourceFileId, vc_model::ModelError>
+impl core::clone::Clone for vc_model::SourceFiles
+pub fn vc_model::SourceFiles::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::SourceFiles
+impl core::cmp::PartialEq for vc_model::SourceFiles
+pub fn vc_model::SourceFiles::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::SourceFiles
+pub fn vc_model::SourceFiles::default() -> Self
+impl core::fmt::Debug for vc_model::SourceFiles
+pub fn vc_model::SourceFiles::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::SourceFiles
+pub struct vc_model::SourcePath(_)
+impl vc_model::SourcePath
+pub fn vc_model::SourcePath::as_str(&self) -> &str
+pub fn vc_model::SourcePath::data(&str) -> core::result::Result<Self, vc_model::ModelError>
+pub fn vc_model::SourcePath::file_name(&self) -> &str
+pub fn vc_model::SourcePath::is_outside(&self) -> bool
+pub fn vc_model::SourcePath::lossy(&str) -> core::result::Result<Self, vc_model::ModelError>
+pub fn vc_model::SourcePath::new(&str) -> core::result::Result<Self, vc_model::ModelError>
+impl vc_model::SourcePath
+pub fn vc_model::SourcePath::file_id(&self) -> core::option::Option<alloc::string::String>
+impl core::clone::Clone for vc_model::SourcePath
+pub fn vc_model::SourcePath::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::SourcePath
+impl core::cmp::Ord for vc_model::SourcePath
+pub fn vc_model::SourcePath::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::SourcePath
+pub fn vc_model::SourcePath::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::SourcePath
+pub fn vc_model::SourcePath::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::SourcePath
+pub fn vc_model::SourcePath::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_model::SourcePath
+pub fn vc_model::SourcePath::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::SourcePath
+pub fn vc_model::SourcePath::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for vc_model::SourcePath
+impl serde_core::ser::Serialize for vc_model::SourcePath
+pub fn vc_model::SourcePath::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct vc_model::SourceSpan
+pub vc_model::SourceSpan::end: vc_model::Pos
+pub vc_model::SourceSpan::file: vc_model::SourceFileId
+pub vc_model::SourceSpan::start: vc_model::Pos
+impl vc_model::SourceSpan
+pub const fn vc_model::SourceSpan::byte_range(&self) -> core::ops::range::Range<usize>
+pub fn vc_model::SourceSpan::new(vc_model::SourceFileId, vc_model::Pos, vc_model::Pos) -> Self
+impl core::clone::Clone for vc_model::SourceSpan
+pub fn vc_model::SourceSpan::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::SourceSpan
+impl core::cmp::Ord for vc_model::SourceSpan
+pub fn vc_model::SourceSpan::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::SourceSpan
+pub fn vc_model::SourceSpan::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::SourceSpan
+pub fn vc_model::SourceSpan::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::SourceSpan
+pub fn vc_model::SourceSpan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::SourceSpan
+pub fn vc_model::SourceSpan::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::SourceSpan
+impl core::marker::StructuralPartialEq for vc_model::SourceSpan
+impl serde_core::ser::Serialize for vc_model::SourceSpan
+pub fn vc_model::SourceSpan::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::SourceSpan
+pub fn vc_model::SourceSpan::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::StringTable
+impl vc_model::StringTable
+pub fn vc_model::StringTable::get(&self, &str) -> core::option::Option<vc_model::Sym>
+pub fn vc_model::StringTable::intern(&mut self, &str) -> core::result::Result<vc_model::Sym, vc_model::ModelError>
+pub const fn vc_model::StringTable::is_empty(&self) -> bool
+pub const fn vc_model::StringTable::len(&self) -> usize
+pub fn vc_model::StringTable::new() -> Self
+pub fn vc_model::StringTable::resolve(&self, vc_model::Sym) -> core::option::Option<&str>
+pub fn vc_model::StringTable::texts(&self) -> impl core::iter::traits::iterator::Iterator<Item = &str>
+impl core::clone::Clone for vc_model::StringTable
+pub fn vc_model::StringTable::clone(&self) -> Self
+impl core::default::Default for vc_model::StringTable
+pub fn vc_model::StringTable::default() -> Self
+impl core::fmt::Debug for vc_model::StringTable
+pub fn vc_model::StringTable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct vc_model::Sym(_)
+impl core::clone::Clone for vc_model::Sym
+pub fn vc_model::Sym::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Sym
+impl core::cmp::Ord for vc_model::Sym
+pub fn vc_model::Sym::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::Sym
+pub fn vc_model::Sym::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::Sym
+pub fn vc_model::Sym::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::Sym
+pub fn vc_model::Sym::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Sym
+pub fn vc_model::Sym::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::Sym
+impl core::marker::StructuralPartialEq for vc_model::Sym
+impl serde_core::ser::Serialize for vc_model::Sym
+pub fn vc_model::Sym::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Sym
+pub fn vc_model::Sym::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Tag(pub alloc::string::String)
+impl core::clone::Clone for vc_model::Tag
+pub fn vc_model::Tag::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Tag
+impl core::cmp::PartialEq for vc_model::Tag
+pub fn vc_model::Tag::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Tag
+pub fn vc_model::Tag::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::Tag
+pub fn vc_model::Tag::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for vc_model::Tag
+pub struct vc_model::Template
+pub vc_model::Template::parts: alloc::vec::Vec<vc_model::Part>
+impl vc_model::Template
+pub const fn vc_model::Template::preserves_type(&self) -> bool
+pub const fn vc_model::Template::single_ref(&self) -> core::option::Option<&vc_model::Reference>
+impl core::clone::Clone for vc_model::Template
+pub fn vc_model::Template::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Template
+impl core::cmp::PartialEq for vc_model::Template
+pub fn vc_model::Template::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Template
+pub fn vc_model::Template::default() -> Self
+impl core::fmt::Debug for vc_model::Template
+pub fn vc_model::Template::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Template
+impl serde_core::ser::Serialize for vc_model::Template
+pub fn vc_model::Template::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Template
+pub fn vc_model::Template::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Test
+pub vc_model::Test::after: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::Test::before: alloc::vec::Vec<vc_model::ActionId>
+pub vc_model::Test::body: vc_model::TestBody
+pub vc_model::Test::examples: core::option::Option<vc_model::Examples>
+pub vc_model::Test::expect: vc_model::Expect
+pub vc_model::Test::file: vc_model::FileId
+pub vc_model::Test::id: vc_model::TestId
+pub vc_model::Test::name: core::option::Option<alloc::string::String>
+pub vc_model::Test::repeat: u32
+pub vc_model::Test::retry: core::option::Option<vc_model::Retry>
+pub vc_model::Test::skip: core::option::Option<vc_model::Skip>
+pub vc_model::Test::span: vc_model::SourceSpan
+pub vc_model::Test::standalone: bool
+pub vc_model::Test::tags: alloc::vec::Vec<vc_model::Tag>
+pub vc_model::Test::timeout: core::option::Option<vc_model::Duration>
+pub vc_model::Test::vars: vc_model::VarDefs
+impl core::clone::Clone for vc_model::Test
+pub fn vc_model::Test::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Test
+impl core::cmp::PartialEq for vc_model::Test
+pub fn vc_model::Test::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Test
+pub fn vc_model::Test::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Test
+pub struct vc_model::TestFile
+pub vc_model::TestFile::id: vc_model::FileId
+pub vc_model::TestFile::lifecycle: vc_model::Lifecycle
+pub vc_model::TestFile::name: core::option::Option<alloc::string::String>
+pub vc_model::TestFile::skip: core::option::Option<vc_model::Skip>
+pub vc_model::TestFile::tags: alloc::vec::Vec<vc_model::Tag>
+pub vc_model::TestFile::tests: alloc::vec::Vec<vc_model::TestId>
+pub vc_model::TestFile::vars: vc_model::VarDefs
+impl core::clone::Clone for vc_model::TestFile
+pub fn vc_model::TestFile::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::TestFile
+impl core::cmp::PartialEq for vc_model::TestFile
+pub fn vc_model::TestFile::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::TestFile
+pub fn vc_model::TestFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::TestFile
+pub struct vc_model::TestId(_)
+impl vc_model::TestId
+pub const fn vc_model::TestId::new(vc_model::Sym) -> Self
+pub const fn vc_model::TestId::sym(self) -> vc_model::Sym
+impl core::clone::Clone for vc_model::TestId
+pub fn vc_model::TestId::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::TestId
+impl core::cmp::Ord for vc_model::TestId
+pub fn vc_model::TestId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::TestId
+pub fn vc_model::TestId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::TestId
+pub fn vc_model::TestId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::TestId
+pub fn vc_model::TestId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::TestId
+pub fn vc_model::TestId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::TestId
+impl core::marker::StructuralPartialEq for vc_model::TestId
+impl serde_core::ser::Serialize for vc_model::TestId
+pub fn vc_model::TestId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::TestId
+pub fn vc_model::TestId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::TestResult
+pub vc_model::TestResult::attempts: u32
+pub vc_model::TestResult::failure: core::option::Option<vc_model::Failure>
+pub vc_model::TestResult::instance: core::option::Option<vc_model::InstanceId>
+pub vc_model::TestResult::skip_reason: core::option::Option<alloc::string::String>
+pub vc_model::TestResult::status: vc_model::TestStatus
+pub vc_model::TestResult::test: vc_model::TestId
+impl core::clone::Clone for vc_model::TestResult
+pub fn vc_model::TestResult::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::TestResult
+impl core::cmp::PartialEq for vc_model::TestResult
+pub fn vc_model::TestResult::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::TestResult
+pub fn vc_model::TestResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::TestResult
+impl serde_core::ser::Serialize for vc_model::TestResult
+pub fn vc_model::TestResult::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::TestResult
+pub fn vc_model::TestResult::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::Timing
+pub vc_model::Timing::connect: core::option::Option<core::time::Duration>
+pub vc_model::Timing::dns: core::option::Option<core::time::Duration>
+pub vc_model::Timing::download: core::time::Duration
+pub vc_model::Timing::first_byte: core::time::Duration
+pub vc_model::Timing::tls: core::option::Option<core::time::Duration>
+pub vc_model::Timing::total: core::time::Duration
+impl core::clone::Clone for vc_model::Timing
+pub fn vc_model::Timing::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Timing
+impl core::cmp::PartialEq for vc_model::Timing
+pub fn vc_model::Timing::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Timing
+pub fn vc_model::Timing::default() -> Self
+impl core::fmt::Debug for vc_model::Timing
+pub fn vc_model::Timing::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::Timing
+impl core::marker::StructuralPartialEq for vc_model::Timing
+pub struct vc_model::Totals
+pub vc_model::Totals::blocked: usize
+pub vc_model::Totals::failed: usize
+pub vc_model::Totals::flaky: usize
+pub vc_model::Totals::passed: usize
+pub vc_model::Totals::skipped: usize
+impl vc_model::Totals
+pub const fn vc_model::Totals::add(&mut self, vc_model::TestStatus)
+pub const fn vc_model::Totals::failures(&self) -> usize
+pub const fn vc_model::Totals::merge(&mut self, Self)
+pub const fn vc_model::Totals::total(&self) -> usize
+impl core::clone::Clone for vc_model::Totals
+pub fn vc_model::Totals::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Totals
+impl core::cmp::PartialEq for vc_model::Totals
+pub fn vc_model::Totals::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::Totals
+pub fn vc_model::Totals::default() -> Self
+impl core::fmt::Debug for vc_model::Totals
+pub fn vc_model::Totals::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::Totals
+impl core::marker::StructuralPartialEq for vc_model::Totals
+impl serde_core::ser::Serialize for vc_model::Totals
+pub fn vc_model::Totals::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Totals
+pub fn vc_model::Totals::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::VarDefs
+pub vc_model::VarDefs::by_profile: indexmap::map::IndexMap<vc_model::ProfileId, indexmap::map::IndexMap<vc_model::VarName, vc_model::TemplateValue>>
+pub vc_model::VarDefs::values: indexmap::map::IndexMap<vc_model::VarName, vc_model::TemplateValue>
+impl core::clone::Clone for vc_model::VarDefs
+pub fn vc_model::VarDefs::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::VarDefs
+impl core::cmp::PartialEq for vc_model::VarDefs
+pub fn vc_model::VarDefs::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::VarDefs
+pub fn vc_model::VarDefs::default() -> Self
+impl core::fmt::Debug for vc_model::VarDefs
+pub fn vc_model::VarDefs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::VarDefs
+pub struct vc_model::VarName(_)
+impl vc_model::VarName
+pub const fn vc_model::VarName::new(vc_model::Sym) -> Self
+pub const fn vc_model::VarName::sym(self) -> vc_model::Sym
+impl core::clone::Clone for vc_model::VarName
+pub fn vc_model::VarName::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::VarName
+impl core::cmp::Ord for vc_model::VarName
+pub fn vc_model::VarName::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_model::VarName
+pub fn vc_model::VarName::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_model::VarName
+pub fn vc_model::VarName::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_model::VarName
+pub fn vc_model::VarName::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_model::VarName
+pub fn vc_model::VarName::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_model::VarName
+impl core::marker::StructuralPartialEq for vc_model::VarName
+impl serde_core::ser::Serialize for vc_model::VarName
+pub fn vc_model::VarName::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::VarName
+pub fn vc_model::VarName::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const vc_model::DEFAULT_KEEP: u32
+pub const vc_model::DEFAULT_MAX_BODY: vc_model::Size
+pub const vc_model::DEFAULT_SECRETS_PROVIDER: &str
+pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
+pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
+pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>
+pub fn vc_model::schema_names(&str) -> alloc::vec::Vec<alloc::string::String>
