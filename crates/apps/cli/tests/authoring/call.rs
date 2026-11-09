@@ -3,7 +3,7 @@
 //! `beforeAll`, and with `--save-as-test` writes a test that expects the status it got (D176).
 
 use serde_json::Value;
-use vc_mock_server::MockServer;
+use vc_mock_server::{MockHandle, MockServer};
 
 use crate::{CONFIG, CRUD, Project, USERS, checks_clean, said};
 
@@ -14,7 +14,7 @@ const ECHO: (&str, &str) = (
     "baseUrl: ${var.baseUrl}\napis:\n  - id: send\n    method: POST\n    path: /echo\n    vars: {word: none}\n    body: {word: '${var.word}'}\n",
 );
 
-async fn served(files: &[(&str, &str)]) -> (MockServer, Project) {
+async fn served(files: &[(&str, &str)]) -> (MockHandle, Project) {
     let server = MockServer::start().await.unwrap();
     let project = Project::new(files);
     project.serve_from(&server.base_url());
@@ -91,7 +91,7 @@ async fn save_as_test_writes_the_status_and_no_schema_and_the_test_passes() {
     );
     let text = project.read(CRUD.0);
     assert!(text.contains("  - id: listsUsers\n") && text.contains("users#list"), "{text}");
-    assert!(text.contains("status: 200") && !text.contains("schema"), "D176: status only:\n{text}");
+    assert!(text.contains("status: 200") && !text.contains("schema:"), "D176: status only, no schema check:\n{text}");
     checks_clean(&project);
     project.vc(&["run", "users.crud"]).assert().code(0);
 }
@@ -107,7 +107,7 @@ async fn save_as_test_writes_each_expect_field_asked_for() {
         "--save-as-test",
         "echo.round#echoesWord",
         "--expect-field",
-        "body.word",
+        "body.body.word",
     ];
     project.vc(&args).assert().code(0);
     let text = project.read("services/echo/round.test.yaml");

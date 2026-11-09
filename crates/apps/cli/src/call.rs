@@ -10,6 +10,7 @@ use vc_engine::{CallReport, CallRequest};
 use crate::Outcome;
 use crate::explain::LayerArgs;
 use crate::project;
+use crate::save_call::{self, Made, SaveArgs};
 
 #[derive(Args)]
 pub struct CallArgs {
@@ -24,6 +25,8 @@ pub struct CallArgs {
     keep: bool,
     #[command(flatten)]
     layers: LayerArgs,
+    #[command(flatten)]
+    save: SaveArgs,
 }
 
 /// `vc call <apiId> [--var] [--keep] [--profile] [--set]`: exit 0 the api's expect held, 1 it
@@ -39,7 +42,11 @@ pub fn run(args: &CallArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         Err(error) => return Ok(Outcome::Engine(error)),
     };
     shown(&report)?;
-    Ok(if report.exit == 0 { Outcome::Done } else { Outcome::Exit(report.exit) })
+    if report.exit != 0 {
+        return Ok(Outcome::Exit(report.exit));
+    }
+    let made = Made { api: &args.api, vars: &args.vars, report: &report };
+    Ok(save_call::save(&located.engine, &args.save, &made).unwrap_or(Outcome::Done))
 }
 
 impl CallArgs {

@@ -10,7 +10,7 @@ use crate::create::{Added, DOCS, NewItem, called, checked, sentence};
 use crate::{Engine, EngineError};
 
 /// A call made, to save as a test.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[expect(
     clippy::exhaustive_structs,
     reason = "built in other crates, shared across the workspace; every user is in this repo (D160)"
@@ -20,15 +20,16 @@ pub struct CallAsTest {
     pub id: String,
     /// The api called: `users#list`.
     pub api: String,
-    /// The vars given on the command line, as written.
-    pub vars: Vec<(String, String)>,
-    /// The status it got.
-    pub status: u16,
-    /// The response body, when it was JSON.
-    pub body: Option<Value>,
+    /// The `--var name=value`s given on the command line, as written.
+    pub vars: Vec<String>,
+    /// The response as `vc call` saw it (`status`, `headers`, `body`): [`crate::CallReport`]'s.
+    pub response: Option<Value>,
     /// The fields to expect as they came back: `body.word`, `body.items[0].id`.
     pub fields: Vec<String>,
 }
+
+/// A `body.match` key and the value it expects, written as YAML.
+type Expected = (String, String);
 
 impl Engine {
     /// The change that appends `call` as a test to the test file its ID derives from, creating
@@ -42,22 +43,38 @@ impl Engine {
         let named = checked(&call.id)?;
         let project = self.authoring()?;
         let api = called(&project, &call.api)?;
-        let fields = call.fields.iter().map(|field| expected(field, call.body.as_ref())).collect::<Result<Vec<_>, _>>()?;
-        let yaml = test_yaml(call, named.item.unwrap_or_default(), &fields);
+        let response = call.response.as_ref();
+        let status =
+            response.and_then(|response| response.get("status")?.as_u64()).and_then(|code| u16::try_from(code).ok());
+        let status =
+            status.ok_or_else(|| refused(format!("{api} got no response to save"), "call it again once it answers"))?;
+        let body = response.and_then(|response| response.get("body"));
+        let fields = call.fields.iter().map(|field| expected(field, body)).collect::<Result<Vec<_>, _>>()?;
+        let yaml = test_yaml(call, named.item.unwrap_or_default(), (status, &fields));
         let comment = format!("# {} · saved from vc call {api} · keys: {DOCS}#tests", call.id);
-        let new = NewItem { kind: FileKind::Test, list: "tests", named, yaml, comment, root: String::new(), also: Vec::new() };
+        let new = NewItem {
+            kind: FileKind::Test,
+            list: "tests",
+            named,
+            yaml,
+            comment,
+            root: String::new(),
+            also: Vec::new(),
+        };
         self.added(&project, new)
     }
 }
 
 /// The test `id` for `call`, unindented: its vars, the status and the `fields` it expects.
-fn test_yaml(call: &CallAsTest, id: &str, fields: &[(String, String)]) -> String {
-    let mut lines = vec![format!("id: {id}"), format!("name: {}", write_text(&sentence(id), false)), format!("call: {}", call.api)];
+fn test_yaml(call: &CallAsTest, id: &str, (status, fields): (u16, &[Expected])) -> String {
+    let mut lines =
+        vec![format!("id: {id}"), format!("name: {}", write_text(&sentence(id), false)), format!("call: {}", call.api)];
     if !call.vars.is_empty() {
         lines.push("vars:".to_owned());
-        lines.extend(call.vars.iter().map(|(name, value)| format!("  {}: {}", write_text(name, false), write_text(value, false))));
+        let vars = call.vars.iter().filter_map(|var| var.split_once('='));
+        lines.extend(vars.map(|(name, value)| format!("  {}: {}", write_text(name, false), write_text(value, false))));
     }
-    lines.extend(["expect:".to_owned(), format!("  status: {}", call.status)]);
+    lines.extend(["expect:".to_owned(), format!("  status: {status}")]);
     if !fields.is_empty() {
         lines.extend(["  body:".to_owned(), "    match:".to_owned()]);
         lines.extend(fields.iter().map(|(path, value)| format!("      {}: {value}", write_text(path, false))));
@@ -66,7 +83,7 @@ fn test_yaml(call: &CallAsTest, id: &str, fields: &[(String, String)]) -> String
 }
 
 /// The `body.match` key of `field` and the value `body` has there, written as YAML.
-fn expected(field: &str, body: Option<&Value>) -> Result<(String, String), EngineError> {
+fn expected(field: &str, body: Option<&Value>) -> Result<Expected, EngineError> {
     let help = "name a field in the JSON body: `--expect-field body.id` or `body.items[0].id`";
     let path = field.strip_prefix("body.").ok_or_else(|| refused(format!("`{field}` is not a body field"), help))?;
     let segments = segments(path).ok_or_else(|| refused(format!("`{field}` is not a body path"), help))?;
