@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt as _};
-use tokio::process::{Child, Command};
+use tokio::process::{Child, ChildStderr, ChildStdout, Command};
 use vc_interfaces::{CommandError, CommandOutput, CommandRunner, CommandSpec};
 
 /// How much is read from a stream at a time.
@@ -21,8 +21,10 @@ const DRAIN: Duration = Duration::from_millis(200);
 /// It reads stdout and stderr as they come and keeps the last `output_cap` bytes of each, so a
 /// chatty program never fills memory. The run ends when the program exits; what its streams
 /// still hold is read for [`DRAIN`] more, so a process it left in the background never holds
-/// the run open. On unix the program leads a process group of its own,
-/// and a timeout, or dropping the run, kills the whole group; elsewhere it kills the program.
+/// the run open. That process keeps running: a detached task reads and discards what it writes
+/// later, so it never dies writing to a closed pipe. On unix the program leads a process group
+/// of its own, and a timeout, or dropping the run, kills the whole group; elsewhere it kills the
+/// program.
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
 pub struct ProcessRunner;
@@ -96,12 +98,13 @@ const fn kill_group(_leader: u32) {}
 
 /// Reads both streams while the program runs, and what they hold once it exits.
 async fn collect(child: &mut Child, cap: usize) -> std::io::Result<CommandOutput> {
-    let (stdout, stderr) = (child.stdout.take(), child.stderr.take());
+    let (mut stdout, mut stderr) = (child.stdout.take(), child.stderr.take());
     let (mut out, mut err) = (Tail::new(cap), Tail::new(cap));
     let status = {
-        let reading = pin!(async { tokio::join!(out.read(stdout), err.read(stderr)) });
+        let reading = pin!(async { tokio::join!(out.read(stdout.as_mut()), err.read(stderr.as_mut())) });
         exited(child, reading).await
     };
+    discard_rest(stdout, stderr);
     let ((stdout, out_cut), (stderr, err_cut)) = (out.finish(), err.finish());
     let mut output = CommandOutput::new(status?.code(), stdout);
     output.stderr = stderr;
@@ -123,6 +126,17 @@ async fn exited(
     }
 }
 
+/// Reads what the streams still carry to their end in a detached task and drops it: a process
+/// left in the background may write long after the run, and must not die of a closed pipe.
+fn discard_rest(stdout: Option<ChildStdout>, stderr: Option<ChildStderr>) {
+    async fn discard(stream: Option<impl AsyncRead + Unpin>) {
+        if let Some(mut stream) = stream {
+            tokio::io::copy(&mut stream, &mut tokio::io::sink()).await.ok();
+        }
+    }
+    drop(tokio::spawn(async move { tokio::join!(discard(stdout), discard(stderr)) }));
+}
+
 /// The last `cap` bytes read from a stream, and whether anything before them was dropped.
 struct Tail {
     kept: Vec<u8>,
@@ -136,8 +150,8 @@ impl Tail {
     }
 
     /// Reads `stream` to its end, keeping its tail.
-    async fn read(&mut self, stream: Option<impl AsyncRead + Unpin>) {
-        let Some(mut stream) = stream else { return };
+    async fn read(&mut self, stream: Option<&mut (impl AsyncRead + Unpin)>) {
+        let Some(stream) = stream else { return };
         let mut chunk = vec![0; CHUNK];
         let room = self.cap.saturating_mul(2).max(CHUNK);
         while let Ok(read @ 1..) = stream.read(&mut chunk).await {
@@ -166,7 +180,7 @@ fn trim(kept: &mut Vec<u8>, cap: usize) -> bool {
 mod tests {
     use std::time::Duration;
 
-    use vc_interfaces::{CommandError, CommandRunner, CommandSpec};
+    use vc_interfaces::{CommandError, CommandOutput, CommandRunner, CommandSpec};
     use vc_testkit::command_runner_suite;
 
     use super::{ProcessRunner, trim};
@@ -219,19 +233,40 @@ mod tests {
         assert!(!whole.truncated && whole.stdout == b"small\n");
     }
 
+    /// Runs `line`, which leaves a process in the background and writes its pid to `child`;
+    /// gives the run's output, how long it took and whether that process is alive `later`.
     #[cfg(unix)]
-    #[tokio::test]
-    async fn the_run_ends_when_the_program_exits_though_a_background_process_holds_its_output() {
+    async fn leaving_one_behind(line: &str, later: Duration) -> (CommandOutput, Duration, bool) {
         let dir = tempfile::tempdir().unwrap();
-        let line = "sleep 30 & echo $! > child; echo started";
         let spec = shell(line, dir.path()).with_timeout(Duration::from_secs(10));
         let started = std::time::Instant::now();
         let output = ProcessRunner::new().run(&spec).await;
+        let took = started.elapsed();
+        tokio::time::sleep(later).await;
         let child = std::fs::read_to_string(dir.path().join("child")).unwrap();
+        let alive = ProcessRunner::new().run(&shell(&format!("kill -0 {}", child.trim()), dir.path())).await;
         ProcessRunner::new().run(&shell(&format!("kill {}", child.trim()), dir.path())).await.unwrap();
-        let output = output.unwrap();
+        (output.unwrap(), took, alive.unwrap().status == Some(0))
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn the_run_ends_when_the_program_exits_though_a_background_process_holds_its_output() {
+        let line = "sleep 30 & echo $! > child; echo started";
+        let (output, took, alive) = leaving_one_behind(line, Duration::ZERO).await;
         assert_eq!((output.status, output.stdout), (Some(0), b"started\n".to_vec()));
-        assert!(started.elapsed() < Duration::from_secs(5), "waited {:?} for the background sleep", started.elapsed());
+        assert!(took < Duration::from_secs(5), "waited {took:?} for the background sleep");
+        assert!(alive, "a clean exit leaves the background process running");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_background_process_that_writes_after_the_run_keeps_running() {
+        let line = "(sleep 1; echo late; echo late >&2; exec sleep 30) & echo $! > child; echo started";
+        let (output, took, alive) = leaving_one_behind(line, Duration::from_millis(1500)).await;
+        assert_eq!((output.status, output.stdout), (Some(0), b"started\n".to_vec()));
+        assert!(took < Duration::from_secs(1), "the run waited {took:?} for the background process");
+        assert!(alive, "writing to the run's pipes after it ended killed the background process");
     }
 
     #[cfg(unix)]
