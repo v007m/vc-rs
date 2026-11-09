@@ -34,6 +34,8 @@ pub struct RunReport {
     pub seed: u64,
     /// Problems that did not change the result, such as a report that could not be written.
     pub notices: Vec<String>,
+    /// The run's number in the history, when it is recorded.
+    pub run: Option<u64>,
 }
 
 impl Engine {
@@ -77,7 +79,7 @@ impl Engine {
         notices.extend(fanout.reporters.finish(run).await);
         let exit = vc_executor::exit_code(summary);
         self.settle(admitted, exit == 0)?;
-        Ok(RunReport { exit, seed, notices })
+        Ok(RunReport { exit, seed, notices, run: Some(run_id).filter(|id| *id > 0) })
     }
 
     /// The reporters `request` chooses, recording into the history; a history that cannot be
