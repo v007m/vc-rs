@@ -1,13 +1,16 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use bytes::Bytes;
 use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderValue, StatusCode};
 use serde_json::{Value, json};
+use tokio::time::Instant;
+use vc_diagnostics::Code;
 use vc_model::{ActionId, ActionKind, BodySpec, CheckKind, HttpResponse, InlineRequest, Method, Origin, OwnerKey};
 use vc_testkit::{FakeTransport, Recorded, RecordingTransport};
 
-use crate::fixture::Fixture;
+use crate::fixture::{Fixture, Server};
 use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PipelineParts};
 
 fn json_response(code: u16, body: &Value) -> HttpResponse {
@@ -71,6 +74,21 @@ async fn an_inline_request_fails_on_a_status_other_than_2xx_and_saves_nothing() 
     let (report, _) = send(fixture, action, vec![json_response(500, &json!({"token": "abc"}))]).await;
     assert_eq!(report.outcome.failure().and_then(|failure| failure.action), Some(action));
     assert!(report.saved.is_empty());
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_inline_request_is_limited_by_its_own_timeout_first() {
+    let mut fixture = Fixture::new();
+    fixture.program.config.defaults.timeout = Some(vc_model::Duration::new(Duration::from_secs(20)));
+    let action = inline(&mut fixture, "http://id.test/slow");
+    fixture.action_mut(action).timeout = Some(vc_model::Duration::new(Duration::from_secs(2)));
+    let executors = ActionExecutors::standard(PipelineParts::new(Server::new().0, HostLimits::spawn(8)));
+    let cx = fixture.cx(executors);
+    let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
+    let start = Instant::now();
+    let report = cx.executors.execute(request).await;
+    let code = report.outcome.failure().and_then(|failure| failure.code.clone());
+    assert_eq!((code, start.elapsed()), (Some(Code::V5104.to_string()), Duration::from_secs(2)));
 }
 
 #[tokio::test]

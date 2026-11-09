@@ -1,7 +1,6 @@
 //! Inline requests: a `flow` auth's steps, written with the api fields in place of a `call:`.
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use vc_interfaces::SendContext;
@@ -11,13 +10,10 @@ use super::call::{bind, expected, judge, saves, send, subject};
 use super::request;
 use super::{ActionExecutor, ActionRequest};
 use crate::check::{self, MatcherRegistry};
-use crate::{ActionReport, Call, PipelineParts, Render};
-
-/// The per-attempt limit when the config's `defaults` sets no `timeout`.
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+use crate::{ActionReport, Call, PipelineParts, Render, own_limit};
 
 /// Runs inline requests through the request pipeline, with no auth and the pipeline's own
-/// retry.
+/// retry. Each attempt's limit is the step's own `timeout`, else `defaults.timeout` (D192).
 ///
 /// It judges the step's `expect` (with a default `status: 2xx` when none checks the status)
 /// and, when every check holds, saves the step's `save` values.
@@ -46,7 +42,7 @@ impl InlineExecutor {
             request.cx.action(request.action).ok_or_else(|| Failure::new("the action is not in the program"))?;
         let ActionKind::Inline(inline) = &action.kind else { return Err(Failure::new("the action is not inline")) };
         let mut render = Render::new(request).map_err(request::failed)?;
-        let timeout = render.program().config.defaults.timeout.map_or(DEFAULT_TIMEOUT, vc_model::Duration::get);
+        let timeout = own_limit(render.program(), action);
         let call = Call { request: request::inline(&render, inline)?, timeout, ctx: SendContext::default() };
         let exchange = send(&crate::pipeline(self.parts.clone()), call).await?;
         let response = bind(&mut render, &exchange);

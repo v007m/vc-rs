@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use vc_diagnostics::Code;
@@ -11,10 +10,7 @@ use vc_model::{Action, ActionId, ActionKind, Failure, Namespace, Part, Path, Pro
 
 use super::request;
 use super::{ActionExecutor, ActionRequest};
-use crate::{ActionReport, Render};
-
-/// How long a command may run when the config's `defaults` sets no `timeout`.
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+use crate::{ActionReport, Render, own_limit};
 
 /// How much of each stream a `command:` keeps: its last 64 KiB (D181).
 const KEPT: usize = 64 * 1024;
@@ -40,7 +36,7 @@ const SHELL: (&str, &str, Word) = if cfg!(windows) { ("cmd", "/C", cmd_word) } e
 /// as written; each `${…}` is rendered and quoted as one word. The child gets `env` (the
 /// `.env` values the process does not set) and the run's config vars as `VIB_VAR_<name>`, over
 /// the process environment. A non-zero exit fails the action (V5110) with the exit code and the
-/// last lines of output; the limit is the config's `defaults.timeout` (V5104).
+/// last lines of output; the limit is the action's own `timeout`, else the config's `defaults.timeout` (V5104).
 #[derive(Clone)]
 pub struct CommandExecutor {
     runner: Arc<dyn CommandRunner>,
@@ -79,11 +75,9 @@ impl CommandExecutor {
 
     fn spec(&self, render: &Render<'_>, template: &Template, action: &Action) -> Result<CommandSpec, Failure> {
         let (shell, flag, _) = SHELL;
-        let timeout = action.timeout.or_else(|| render.program().config.defaults.timeout);
-        let timeout = timeout.map_or(DEFAULT_TIMEOUT, vc_model::Duration::get);
         let mut spec = CommandSpec::new(shell, [flag.to_owned(), line(render, template)?])
             .in_dir(self.root.clone())
-            .with_timeout(timeout)
+            .with_timeout(own_limit(render.program(), action))
             .with_output_cap(KEPT);
         spec.env.extend(self.env.iter().cloned());
         spec.env.extend(exported(render, action));
