@@ -3792,6 +3792,7 @@ dependencies = [
  "async-trait",
  "indexmap",
  "oas3",
+ "percent-encoding",
  "serde_json",
  "tokio",
  "vc-interfaces",

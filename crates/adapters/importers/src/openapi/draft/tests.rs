@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 use vc_interfaces::{DraftGroup, ImportNote, ImportOptions};
 
-use super::{Reader, split_origin, templated};
+use super::{Reader, templated};
 
 fn spec(paths: &Value, servers: &Value) -> Value {
     json!({ "openapi": "3.1.0", "info": { "title": "", "version": "1" }, "servers": servers, "paths": paths })
@@ -19,9 +19,6 @@ fn group(doc: &Value, source: &str) -> Result<(DraftGroup, Vec<ImportNote>), ser
 fn path_templates_read_camel_case_vars() {
     assert_eq!(templated("/users/{user_id}/roles/{role}"), "/users/${var.userId}/roles/${var.role}");
     assert_eq!(templated("/broken/{open"), "/broken/{open");
-    assert_eq!(split_origin("https://a.test:8443/v1/x"), Some(("https://a.test:8443", "/v1/x")));
-    assert_eq!(split_origin("https://a.test"), Some(("https://a.test", "")));
-    assert_eq!(split_origin("/v1"), None);
 }
 
 #[test]

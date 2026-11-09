@@ -31,6 +31,19 @@ pub fn third_person(id: &str) -> String {
     verb + rest
 }
 
+/// The singular of an English plural, as far as a path needs it (`orders` gives `order`,
+/// `categories` gives `category`, `addresses` gives `address`); `status`, `class` and other
+/// words stay as they are.
+pub fn singular(word: &str) -> String {
+    if let Some(stem) = word.strip_suffix("ies") {
+        return format!("{stem}y");
+    }
+    let es = ["sses", "xes", "ches", "shes", "zes"].iter().any(|end| word.ends_with(end));
+    let plain = word.ends_with('s') && !["ss", "us", "is"].iter().any(|end| word.ends_with(end));
+    let cut = if es { 2 } else { usize::from(plain) };
+    word.get(..word.len() - cut).unwrap_or(word).to_owned()
+}
+
 /// `word` with its first letter in capitals.
 pub fn capitalised(word: &str) -> String {
     let mut chars = word.chars();
@@ -44,7 +57,7 @@ fn lowered(word: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{camel, from_route, third_person};
+    use super::{camel, from_route, singular, third_person};
 
     #[test]
     fn ids_are_camel_case_whatever_the_spec_wrote() {
@@ -70,5 +83,14 @@ mod tests {
         assert_eq!(third_person("copyUser"), "copiesUser");
         assert_eq!(third_person("deployApp"), "deploysApp");
         assert_eq!(third_person("list"), "lists");
+    }
+
+    #[test]
+    fn plurals_in_a_path_read_as_singular() {
+        let read: Vec<_> = ["orders", "categories", "addresses", "boxes", "batches", "status", "class", "me"]
+            .iter()
+            .map(|word| singular(word))
+            .collect();
+        assert_eq!(read, ["order", "category", "address", "box", "batch", "status", "class", "me"]);
     }
 }

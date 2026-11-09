@@ -1,4 +1,4 @@
-//! Importers that read foreign files (`OpenAPI`, HAR) into drafts of definition files.
+//! Importers that read foreign files (`OpenAPI`, curl commands, HAR) into drafts of definition files.
 //!
 //! Each kind is an entry of the [`ImporterRegistry`], built by an [`ImporterFactory`] over the
 //! [`vc_interfaces::SpecFetcher`] the engine passes for the documents a file refers to. The
@@ -11,11 +11,14 @@
 //! assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["openapi"]);
 //! ```
 
+mod curl;
+mod naming;
 mod openapi;
+mod path_vars;
 mod registry;
+mod secrets;
+mod url;
 
+pub use curl::CurlImporter;
 pub use openapi::OpenApiImporter;
 pub use registry::{ImporterFactory, ImporterRegistry};
-
-mod naming;
-mod url;
