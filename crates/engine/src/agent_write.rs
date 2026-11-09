@@ -1,7 +1,8 @@
 //! `write_definition`: an agent writes one api, test or load file (D195). The text passes the
 //! compile guard (D107) first, then the profiles' `writeDefinitions` rule, so nothing that would
 //! break the project is ever put to a person for approval, and nothing is written without it.
-//! The config is never written this way: it holds the very rules that judge the agent.
+//! The config is never written this way: it holds the very rules that judge the agent. A write
+//! that fails before the gate is logged as `failed: <reason>` (D204).
 
 use serde_json::json;
 use vc_model::{FileKind, SourcePath};
@@ -45,22 +46,28 @@ impl Engine {
     /// policy refuses it or no one approves it in time; [`EngineError::Sources`] when it cannot
     /// be written.
     pub async fn write_definition(&self, request: &WriteRequest) -> Result<Changes, EngineError> {
-        let path = definition_path(&request.path)?;
-        let project = self.authoring()?;
-        let changes = self.guarded(&project, changes(&project, &path, &request.text))?;
         let call = AgentCall {
             agent: request.agent.clone(),
             tool: WRITE_TOOL.to_owned(),
             profiles: request.profiles.clone(),
             writes: true,
-            summary: format!("write {path}"),
-            arguments: json!({"path": path, "text": request.text}),
+            summary: format!("write {}", request.path),
+            arguments: json!({"path": request.path, "text": request.text}),
             ..AgentCall::default()
         };
+        let changes = self.before_gate(Some(&call), self.guarded_write(request))?;
         let gated = self.gated(call).await?;
         let written = self.write(&changes);
         self.settle(Some(gated), written.is_ok())?;
         written.map(|()| changes)
+    }
+
+    /// The change `request` makes, once the path is a definition file and the compile guard
+    /// passes it.
+    fn guarded_write(&self, request: &WriteRequest) -> Result<Changes, EngineError> {
+        let path = definition_path(&request.path)?;
+        let project = self.authoring()?;
+        self.guarded(&project, changes(&project, &path, &request.text))
     }
 }
 

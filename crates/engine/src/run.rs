@@ -12,6 +12,7 @@ use vc_executor::{
 use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Transport};
 use vc_model::{Feed, Part, Template, TemplateValue};
 
+use crate::agent_gate::run_call;
 use crate::cache::Sweep;
 use crate::plan::{Extra, Prepared};
 use crate::reporting::{self, Reporters, Setup};
@@ -50,8 +51,9 @@ impl Engine {
     /// reaches an action this build cannot run; with `--failed`, [`EngineError::History`] when
     /// no run is stored and [`EngineError::Selection`] when the last one had nothing to rerun.
     pub async fn run(&self, request: &RunRequest, mut interrupts: Interrupts) -> Result<RunReport, EngineError> {
-        let (plan, rerun) = self.rerun(request)?;
-        let prepared = self.prepare(&plan, Extra { flags: flags(request), rerun })?;
+        let planned =
+            self.rerun(request).and_then(|(plan, rerun)| self.prepare(&plan, Extra { flags: flags(request), rerun }));
+        let prepared = self.before_gate(run_call(request).as_ref(), planned)?;
         let admitted = self.run_gate(request, &prepared).await?;
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let (seed, random) = ports::random(request.seed);

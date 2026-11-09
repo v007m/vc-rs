@@ -109,3 +109,17 @@ async fn a_persons_run_is_not_gated_even_when_it_runs_code() {
     assert!(engine.run_gate(&request, &prepared).await.unwrap().is_none());
     assert_eq!(queue.list(false).unwrap(), []);
 }
+
+#[tokio::test]
+async fn an_agents_run_that_fails_before_the_gate_is_logged_and_a_persons_is_not() {
+    let queue = MemoryApprovals::new();
+    let engine = engine(&queue);
+    let failed = engine.run(&agent_run("staging", &["users.flow#nope"]), interrupts().1).await;
+    let Err(EngineError::Selection { reason, .. }) = failed else { panic!("{failed:?}") };
+    let logged = queue.actions();
+    assert_eq!((logged[0].tool.as_str(), logged[0].result.clone()), ("run_tests", format!("failed: {reason}")));
+    assert!(logged[0].arguments.contains("users.flow#nope"), "{}", logged[0].arguments);
+    let person = RunRequest { agent: None, ..agent_run("staging", &["users.flow#nope"]) };
+    assert!(engine.run(&person, interrupts().1).await.is_err());
+    assert_eq!(queue.actions().len(), 1);
+}

@@ -1201,6 +1201,7 @@ In the engine, `policy.rs` judges and `approvals.rs` gates:
 - `admit(&AgentCall, wait) -> Admission`: `Allowed { approved_by }` or `Refused { reason }`.
   - An `Ask` creates the request with the arguments redacted by the config's built-in masking, and waits (`APPROVAL_WAIT`, 10 minutes).
   - A denial or a wait that runs out is a refusal. A refusal is logged at once; the caller logs an allowed call with `record_agent_action(call, AgentOutcome)` when it ends.
+  - An agent's `run_tests`, `call_api` or `write_definition` that fails before the gate (a bad selection, an unknown api, a project that does not compile, a path that is not a definition file) is still logged, as `failed: <reason>` (`before_gate`, D204).
 - `approvals_list(pending_only)` and `approvals_decide(id, verdict)` back `vc approvals` and `vc approve`. The decider is the OS user (`USER`/`USERNAME`).
 - `EngineBuilder::approvals(queue, log)` replaces the default `SqliteApprovals` over `.vibranium/history.db`. `vc_testkit::MemoryApprovals` is the in-memory pair: `answering(verdict)` decides each request at once.
 - `call(&CallRequest)` with `agent: Some(name)` is gated as the tool `call_api` with the api's method and, unless `keep`, the methods of its cleanup chain (D178). A refusal is `EngineError::Refused { reason, help }` and nothing is sent.

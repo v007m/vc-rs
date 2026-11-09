@@ -58,6 +58,7 @@ async fn a_write_that_would_break_the_project_is_refused_before_anyone_is_asked(
     let Err(EngineError::Edit { reason, .. }) = refused else { panic!("{refused:?}") };
     assert!(reason.starts_with("nothing was written"), "{reason}");
     assert_eq!(queue.list(false).unwrap(), []);
+    assert_eq!(queue.actions()[0].result, format!("failed: {reason}"));
     assert!(!exists(dir.path()));
 }
 
@@ -87,5 +88,13 @@ async fn only_api_test_and_load_files_in_the_project_can_be_written() {
         let Err(EngineError::Edit { reason, .. }) = refused else { panic!("{path}: {refused:?}") };
         assert_eq!(reason, said);
     }
-    assert_eq!(queue.actions(), []);
+    let logged: Vec<String> = queue.actions().into_iter().map(|action| action.result).collect();
+    assert_eq!(
+        logged,
+        [
+            "failed: an agent cannot write vibranium.config.yaml",
+            "failed: `../crud.test.yaml` is not a path in the project",
+            "failed: `notes.md` is not a definition file",
+        ]
+    );
 }

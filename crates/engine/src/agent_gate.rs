@@ -1,7 +1,7 @@
 //! The agent policy's gate on what an agent sends (D178, D195): the methods a call or a run
 //! would send, its cleanups included, and the `command:` and `function:` actions it would run
 //! (D202), judged and, where the policy asks, approved before anything goes out; and the log
-//! entry once it is done.
+//! entry once it is done, or once it fails before the gate (D204).
 
 use std::collections::BTreeSet;
 
@@ -48,23 +48,32 @@ impl Engine {
         request: &RunRequest,
         prepared: &Prepared,
     ) -> Result<Option<Gated>, EngineError> {
-        let Some(agent) = &request.agent else { return Ok(None) };
+        let Some(call) = run_call(request) else { return Ok(None) };
         let count = prepared.plan.instance_count();
-        let selector = history::selector(&request.plan.select);
         let tests = if count == 1 { "test" } else { "tests" };
+        let selector = history::selector(&request.plan.select);
         let reached = plan_reach(&prepared.program, &prepared.plan);
-        let call = AgentCall {
-            agent: agent.clone(),
-            tool: RUN_TOOL.to_owned(),
-            profiles: request.plan.profiles.clone(),
-            methods: reached.methods,
-            code: reached.code,
-            runs: true,
-            summary: format!("run {count} {tests} {selector}").trim_end().to_owned(),
-            arguments: json!({"select": selector, "profiles": request.plan.profiles}),
-            ..AgentCall::default()
-        };
+        let summary = format!("run {count} {tests} {selector}").trim_end().to_owned();
+        let call = AgentCall { methods: reached.methods, code: reached.code, runs: true, summary, ..call };
         self.gated(call).await.map(Some)
+    }
+
+    /// `before`, the work an agent's `call` does before the gate; when it fails, the call is
+    /// logged as `failed: <reason>` (D204). A person's call (`None`) is not logged.
+    ///
+    /// # Errors
+    ///
+    /// `before`'s error; as [`Engine::record_agent_action`] when it cannot be logged.
+    pub(crate) fn before_gate<T>(
+        &self,
+        call: Option<&AgentCall>,
+        before: Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        if let (Some(call), Err(error)) = (call, &before) {
+            let outcome = AgentOutcome { result: format!("failed: {error}"), approved_by: None };
+            self.record_agent_action(call, &outcome)?;
+        }
+        before
     }
 
     /// Logs a gated call as `ok` when it `passed`, else `failed`; a person's call (`None`) is
@@ -78,6 +87,20 @@ impl Engine {
         let result = if passed { "ok" } else { "failed" }.to_owned();
         self.record_agent_action(&call, &AgentOutcome { result, approved_by })
     }
+}
+
+/// An agent's run as the log names it before its plan is known; `None` for a person's run.
+pub fn run_call(request: &RunRequest) -> Option<AgentCall> {
+    let agent = request.agent.as_ref()?;
+    let selector = history::selector(&request.plan.select);
+    Some(AgentCall {
+        agent: agent.clone(),
+        tool: RUN_TOOL.to_owned(),
+        profiles: request.plan.profiles.clone(),
+        summary: format!("run {selector}").trim_end().to_owned(),
+        arguments: json!({"select": selector, "profiles": request.plan.profiles}),
+        ..AgentCall::default()
+    })
 }
 
 /// What a call or a run reaches: the methods it sends and the code it runs, in order, each once.

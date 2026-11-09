@@ -52,9 +52,7 @@ impl Engine {
     /// [`EngineError::Selection`] when no api has that ID, [`EngineError::Setting`] for a
     /// `--var` that is not `name=value` or a bad setting, and the errors of loading the project.
     pub async fn call(&self, request: &CallRequest) -> Result<CallReport, EngineError> {
-        let given = given(&request.vars)?;
-        let mut prepared = self.adhoc(request)?;
-        let action = adhoc_action(&mut prepared.program, &request.api, request.keep)?;
+        let (given, mut prepared, action) = self.before_gate(agent_call(request).as_ref(), self.adhoc_call(request))?;
         let admitted = self.gate(request, &prepared.program).await?;
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let mut notices = std::mem::take(&mut prepared.notices);
@@ -85,30 +83,23 @@ impl Engine {
     ///
     /// [`EngineError::Refused`] when the policy refuses it or no one approves it in time.
     async fn gate(&self, request: &CallRequest, program: &Program) -> Result<Option<Gated>, EngineError> {
-        let Some(agent) = &request.agent else { return Ok(None) };
+        let Some(call) = agent_call(request) else { return Ok(None) };
         let api = program.apis.values().find(|api| program.str(api.id.sym()) == Some(request.api.as_str()));
         let reached = match api {
             Some(api) if request.keep => Reached { methods: vec![api.method], code: Vec::new() },
             Some(api) => api_reach(program, api.id),
             None => Reached { methods: vec![Method::Get], code: Vec::new() },
         };
-        let vars: Map<String, Value> = request
-            .vars
-            .iter()
-            .filter_map(|var| var.split_once('='))
-            .map(|(name, value)| (name.to_owned(), Value::String(value.to_owned())))
-            .collect();
-        let call = AgentCall {
-            agent: agent.clone(),
-            tool: CALL_TOOL.to_owned(),
-            profiles: request.profiles.clone(),
-            summary: format!("{} {}", reached.methods.first().map_or("GET", |method| method.name()), request.api),
-            methods: reached.methods,
-            code: reached.code,
-            arguments: json!({"api": request.api, "vars": vars, "keep": request.keep}),
-            ..AgentCall::default()
-        };
-        self.gated(call).await.map(Some)
+        let summary = format!("{} {}", reached.methods.first().map_or("GET", |method| method.name()), request.api);
+        self.gated(AgentCall { summary, methods: reached.methods, code: reached.code, ..call }).await.map(Some)
+    }
+
+    /// The `--var` values, the settings and the api's action, all before the gate.
+    fn adhoc_call(&self, request: &CallRequest) -> Result<(Saved, Prepared, ActionId), EngineError> {
+        let given = given(&request.vars)?;
+        let mut prepared = self.adhoc(request)?;
+        let action = adhoc_action(&mut prepared.program, &request.api, request.keep)?;
+        Ok((given, prepared, action))
     }
 
     /// The layered settings and active profiles of `request`, with nothing planned.
@@ -149,6 +140,25 @@ impl Engine {
 }
 
 /// `--var name=value`, each as a string value.
+/// An agent's call as the log names it before the api is found; `None` for a person's call.
+fn agent_call(request: &CallRequest) -> Option<AgentCall> {
+    let agent = request.agent.as_ref()?;
+    let vars: Map<String, Value> = request
+        .vars
+        .iter()
+        .filter_map(|var| var.split_once('='))
+        .map(|(name, value)| (name.to_owned(), Value::String(value.to_owned())))
+        .collect();
+    Some(AgentCall {
+        agent: agent.clone(),
+        tool: CALL_TOOL.to_owned(),
+        profiles: request.profiles.clone(),
+        summary: request.api.clone(),
+        arguments: json!({"api": request.api, "vars": vars, "keep": request.keep}),
+        ..AgentCall::default()
+    })
+}
+
 fn given(vars: &[String]) -> Result<Saved, EngineError> {
     let mut given = Saved::new();
     for var in vars {

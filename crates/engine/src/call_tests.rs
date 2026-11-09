@@ -272,3 +272,15 @@ async fn an_agents_call_is_judged_on_its_cleanup_too() {
     assert_eq!(reason, "dev: agents.call and agents.approve leave out DELETE");
     assert_eq!(sent(&recordings), Vec::<String>::new());
 }
+
+#[tokio::test]
+async fn an_agents_call_that_fails_before_the_gate_is_logged() {
+    let queue = MemoryApprovals::new();
+    let (engine, recordings) = agent_project(&queue);
+    let failed = engine.call(&agent_call("users#nope", "dev")).await;
+    let Err(EngineError::Selection { reason, .. }) = failed else { panic!("{failed:?}") };
+    assert_eq!(sent(&recordings), Vec::<String>::new());
+    let logged = queue.actions();
+    assert_eq!((logged[0].tool.as_str(), logged[0].result.clone()), ("call_api", format!("failed: {reason}")));
+    assert!(logged[0].arguments.contains("users#nope"), "{}", logged[0].arguments);
+}
