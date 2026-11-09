@@ -108,3 +108,34 @@ async fn a_recorded_session_imports_into_its_api_file_and_replays_green() {
     let run = project.vc(&["run", flow]).output().unwrap();
     assert_eq!(run.status.code(), Some(0), "{}\n{}", said(&run), texts.join("\n"));
 }
+
+/// A collection whose base URL is the mock server's, `http://127.0.0.1:7421`.
+const COLLECTION: &str = include_str!("../fixtures/mock.postman.json");
+
+/// The token the collection holds, which must never be written or printed.
+const COLLECTION_TOKEN: &str = "e2eCollectionToken8Rk3Wn5Qz";
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_postman_collection_imports_into_its_api_file_and_its_flow_runs_green() {
+    let server = MockServer::start().await.unwrap();
+    let config = CONFIG.1.replace("baseUrl: 'http://x'", &format!("baseUrl: '{}'", server.base_url()));
+    let project = Project::new(&[(CONFIG.0, &config), USERS]);
+    project.write("mock.postman.json", &COLLECTION.replace("http://127.0.0.1:7421", &server.base_url()));
+    let flow = "users.collection#signsUpAndRenames";
+    let preview =
+        project.vc(&["import", "postman", "mock.postman.json", "--flow", flow, "--dry-run"]).output().unwrap();
+    assert_eq!(preview.status.code(), Some(0), "{}", said(&preview));
+    assert!(!project.path().join("services/users/collection.test.yaml").exists());
+    let output = project.vc(&["import", "postman", "mock.postman.json", "--flow", flow]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    assert!(said(&output).contains("collection Mock · 3 requests"), "{}", said(&output));
+    let written = ["services/users/users.api.yaml", "services/users/collection.test.yaml", CONFIG.0];
+    let texts: Vec<_> =
+        written.iter().map(|file| std::fs::read_to_string(project.path().join(file)).unwrap()).collect();
+    for text in texts.iter().chain([&said(&preview), &said(&output)]) {
+        assert!(!text.contains(COLLECTION_TOKEN), "{text}");
+    }
+    project.vc(&["check"]).assert().code(0);
+    let run = project.vc(&["run", flow]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}\n{}", said(&run), texts.join("\n"));
+}

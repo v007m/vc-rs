@@ -1,0 +1,29 @@
+{
+  "info": {"name": "Mock", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{apiToken}}", "type": "string"}]},
+  "variable": [
+    {"key": "baseUrl", "value": "http://127.0.0.1:7421"},
+    {"key": "apiToken", "value": "e2eCollectionToken8Rk3Wn5Qz"}
+  ],
+  "item": [
+    {
+      "name": "Sign up",
+      "event": [{"listen": "test", "script": {"exec": ["pm.collectionVariables.set(\"userId\", pm.response.json().id);"]}}],
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Api-Token", "value": "e2eCollectionToken8Rk3Wn5Qz"}],
+        "url": "{{baseUrl}}/users",
+        "body": {"mode": "raw", "raw": "{\"name\": \"ann\"}"}
+      }
+    },
+    {"name": "Get user", "request": {"method": "GET", "url": "{{baseUrl}}/users/{{userId}}"}},
+    {
+      "name": "Rename user",
+      "request": {
+        "method": "PATCH",
+        "url": {"raw": "{{baseUrl}}/users/:userId", "host": ["{{baseUrl}}"], "path": ["users", ":userId"], "variable": [{"key": "userId", "value": "{{userId}}"}]},
+        "body": {"mode": "raw", "raw": "{\"name\": \"Ann Lee\"}", "options": {"raw": {"language": "json"}}}
+      }
+    }
+  ]
+}
