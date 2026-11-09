@@ -12,15 +12,16 @@ use http::{HeaderName, HeaderValue, Uri};
 use vc_interfaces::{AuthError, AuthProvider, Credentials, Secret, TransportError};
 use vc_model::RenderedRequest;
 
-use super::{AuthKey, Prepared, TokenCache};
+use super::{Lease, Prepared, TokenCache};
 use crate::action::request;
 use crate::{Attempted, Redactor, RequestStage, RetryPolicy};
 
 /// Puts the credentials of one auth on each request, fetching them through the run's
-/// [`TokenCache`]; whatever it fetches is masked from then on.
+/// [`TokenCache`] under the call's [`Lease`]; whatever it fetches is masked from then on.
 pub struct AuthStage {
     prepared: Prepared,
     tokens: Arc<TokenCache>,
+    lease: Arc<Lease>,
     provider: Arc<dyn AuthProvider>,
     redactor: Arc<Redactor>,
 }
@@ -34,10 +35,10 @@ impl fmt::Debug for AuthStage {
 impl AuthStage {
     pub fn new(
         prepared: Prepared,
-        tokens: Arc<TokenCache>,
+        (tokens, lease): (Arc<TokenCache>, Arc<Lease>),
         (provider, redactor): (Arc<dyn AuthProvider>, Arc<Redactor>),
     ) -> Self {
-        Self { prepared, tokens, provider, redactor }
+        Self { prepared, tokens, lease, provider, redactor }
     }
 
     async fn fetch(&self) -> Result<Credentials, AuthError> {
@@ -51,8 +52,9 @@ impl AuthStage {
 #[async_trait]
 impl RequestStage for AuthStage {
     async fn apply(&self, request: RenderedRequest) -> Result<RenderedRequest, TransportError> {
-        let (key, before) = (self.prepared.key, self.prepared.refresh_before);
-        let credentials = self.tokens.get(key, before, || self.fetch()).await.map_err(TransportError::Credentials)?;
+        let before = self.prepared.refresh_before;
+        let credentials =
+            self.tokens.get(&self.lease, before, || self.fetch()).await.map_err(TransportError::Credentials)?;
         attach(request, &credentials).ok_or_else(|| {
             let (auth, missing) = (self.prepared.request.auth.clone(), "usable header, cookie or query value".into());
             TransportError::Credentials(AuthError::Malformed { auth, missing })
@@ -107,12 +109,12 @@ fn with_query(uri: &Uri, added: &[(String, Secret)]) -> Option<Uri> {
 }
 
 /// The retry of a call that uses auth: when a response has one of the `refreshOn` statuses
-/// it drops the credentials and retries at once, a single time per call; otherwise the
-/// call's own retry decides.
+/// it drops the credentials the call used, unless another request has already fetched them
+/// again, and retries at once, a single time per call; otherwise the call's own retry decides.
 pub struct RefreshOn {
     inner: Arc<dyn RetryPolicy>,
     tokens: Arc<TokenCache>,
-    key: AuthKey,
+    lease: Arc<Lease>,
     statuses: Vec<u16>,
     fired: AtomicBool,
 }
@@ -124,8 +126,12 @@ impl fmt::Debug for RefreshOn {
 }
 
 impl RefreshOn {
-    pub fn new(inner: Arc<dyn RetryPolicy>, (tokens, key): (Arc<TokenCache>, AuthKey), statuses: Vec<u16>) -> Self {
-        Self { inner, tokens, key, statuses, fired: AtomicBool::new(false) }
+    pub fn new(
+        inner: Arc<dyn RetryPolicy>,
+        (tokens, lease): (Arc<TokenCache>, Arc<Lease>),
+        statuses: Vec<u16>,
+    ) -> Self {
+        Self { inner, tokens, lease, statuses, fired: AtomicBool::new(false) }
     }
 }
 
@@ -133,7 +139,7 @@ impl RetryPolicy for RefreshOn {
     fn delay(&self, attempt: &Attempted<'_>) -> Option<Duration> {
         let status = attempt.result.as_ref().ok().map(|exchange| exchange.response.status.as_u16());
         if status.is_some_and(|status| self.statuses.contains(&status)) && !self.fired.swap(true, Ordering::SeqCst) {
-            self.tokens.invalidate(self.key);
+            self.tokens.invalidate(&self.lease);
             return Some(Duration::ZERO);
         }
         self.inner.delay(attempt)

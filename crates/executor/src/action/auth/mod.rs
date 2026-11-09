@@ -19,7 +19,7 @@ use crate::{ActionCx, ActionRequest, PipelineParts, Render, Saved};
 
 use flow::FlowRunner;
 use stage::{AuthStage, RefreshOn};
-pub use token_cache::{AuthKey, TokenCache};
+pub use token_cache::{AuthKey, Lease, TokenCache};
 
 /// The setting a `flow` keeps its `apply` in; it renders after the steps, not before.
 const APPLY: &str = "apply";
@@ -69,13 +69,13 @@ pub fn prepare(
 }
 
 /// `parts` with `prepared` put in: the auth stage, and a retry that fetches the credentials
-/// again once when a response has a `refreshOn` status.
+/// again once when a response has a `refreshOn` status, sharing one [`Lease`].
 #[must_use]
 pub fn added(parts: PipelineParts, cx: &ActionCx, prepared: Option<Prepared>) -> PipelineParts {
     let Some(prepared) = prepared else { return parts };
-    let tokens = Arc::clone(&cx.tokens);
-    let retry = RefreshOn::new(parts.retry, (Arc::clone(&tokens), prepared.key), prepared.refresh_on.clone());
-    let stage = AuthStage::new(prepared, tokens, (Arc::clone(&cx.auth), Arc::clone(&cx.redactor)));
+    let (tokens, lease) = (Arc::clone(&cx.tokens), Arc::new(Lease::new(prepared.key)));
+    let retry = RefreshOn::new(parts.retry, (Arc::clone(&tokens), Arc::clone(&lease)), prepared.refresh_on.clone());
+    let stage = AuthStage::new(prepared, (tokens, lease), (Arc::clone(&cx.auth), Arc::clone(&cx.redactor)));
     PipelineParts { retry: Arc::new(retry), auth: Arc::new(stage), ..parts }
 }
 

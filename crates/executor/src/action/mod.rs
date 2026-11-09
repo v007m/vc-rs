@@ -26,7 +26,7 @@ use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
 use crate::{ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues, Saved};
 
-pub use auth::{AuthKey, NoAuth, TokenCache};
+pub use auth::{AuthKey, Lease, NoAuth, TokenCache};
 pub use cached::CachedExecutor;
 pub use call::CallExecutor;
 pub use command::CommandExecutor;

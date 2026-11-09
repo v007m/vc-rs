@@ -5,7 +5,7 @@ use std::time::Duration;
 use serde_json::json;
 use vc_interfaces::{AuthError, Credentials};
 
-use super::TokenCache;
+use super::{Lease, TokenCache};
 
 fn counting(
     calls: &Arc<AtomicUsize>,
@@ -42,7 +42,9 @@ async fn concurrent_requests_share_one_fetch() {
     let calls = Arc::new(AtomicUsize::new(0));
     let key = cache.key("svc", &json!({}), &json!({}));
     let fetch = counting(&calls, None);
-    let (first, second) = tokio::join!(cache.get(key, Duration::ZERO, &fetch), cache.get(key, Duration::ZERO, &fetch));
+    let (one, other) = (Lease::new(key), Lease::new(key));
+    let (first, second) =
+        tokio::join!(cache.get(&one, Duration::ZERO, &fetch), cache.get(&other, Duration::ZERO, &fetch));
     assert_eq!((token(&first.unwrap()), token(&second.unwrap())), ("Bearer t0", "Bearer t0"));
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
@@ -51,14 +53,14 @@ async fn concurrent_requests_share_one_fetch() {
 async fn credentials_are_fetched_again_once_within_refresh_before_of_expiry() {
     let cache = TokenCache::new([0; 32]);
     let calls = Arc::new(AtomicUsize::new(0));
-    let key = cache.key("svc", &json!({}), &json!({}));
+    let lease = Lease::new(cache.key("svc", &json!({}), &json!({})));
     let fetch = counting(&calls, Some(Duration::from_secs(150)));
     let refresh = Duration::from_secs(60);
-    assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t0");
+    assert_eq!(token(&cache.get(&lease, refresh, &fetch).await.unwrap()), "Bearer t0");
     tokio::time::advance(Duration::from_secs(89)).await;
-    assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t0");
+    assert_eq!(token(&cache.get(&lease, refresh, &fetch).await.unwrap()), "Bearer t0");
     tokio::time::advance(Duration::from_secs(1)).await;
-    assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t1");
+    assert_eq!(token(&cache.get(&lease, refresh, &fetch).await.unwrap()), "Bearer t1");
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 
@@ -66,15 +68,15 @@ async fn credentials_are_fetched_again_once_within_refresh_before_of_expiry() {
 async fn a_token_living_no_longer_than_refresh_before_is_refreshed_at_half_its_life() {
     let cache = TokenCache::new([0; 32]);
     let calls = Arc::new(AtomicUsize::new(0));
-    let key = cache.key("svc", &json!({}), &json!({}));
+    let lease = Lease::new(cache.key("svc", &json!({}), &json!({})));
     let fetch = counting(&calls, Some(Duration::from_secs(40)));
     let refresh = Duration::from_secs(60);
-    assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t0");
+    assert_eq!(token(&cache.get(&lease, refresh, &fetch).await.unwrap()), "Bearer t0");
     assert_eq!(calls.load(Ordering::SeqCst), 1, "one fetch for the first use, not two");
     tokio::time::advance(Duration::from_secs(19)).await;
-    assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t0");
+    assert_eq!(token(&cache.get(&lease, refresh, &fetch).await.unwrap()), "Bearer t0");
     tokio::time::advance(Duration::from_secs(1)).await;
-    assert_eq!(token(&cache.get(key, refresh, &fetch).await.unwrap()), "Bearer t1");
+    assert_eq!(token(&cache.get(&lease, refresh, &fetch).await.unwrap()), "Bearer t1");
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 
@@ -82,12 +84,12 @@ async fn a_token_living_no_longer_than_refresh_before_is_refreshed_at_half_its_l
 async fn the_request_that_fetched_a_credential_uses_it_however_short_its_life() {
     let cache = TokenCache::new([0; 32]);
     let calls = Arc::new(AtomicUsize::new(0));
-    let key = cache.key("svc", &json!({}), &json!({}));
+    let lease = Lease::new(cache.key("svc", &json!({}), &json!({})));
     let fetch = counting(&calls, Some(Duration::ZERO));
-    assert_eq!(token(&cache.get(key, Duration::from_secs(60), &fetch).await.unwrap()), "Bearer t0");
+    assert_eq!(token(&cache.get(&lease, Duration::from_secs(60), &fetch).await.unwrap()), "Bearer t0");
     assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert_eq!(
-        token(&cache.get(key, Duration::from_secs(60), &fetch).await.unwrap()),
+        token(&cache.get(&lease, Duration::from_secs(60), &fetch).await.unwrap()),
         "Bearer t1",
         "stale for the next"
     );
@@ -97,15 +99,33 @@ async fn the_request_that_fetched_a_credential_uses_it_however_short_its_life() 
 async fn a_failure_is_kept_for_the_run_until_invalidated() {
     let cache = TokenCache::new([0; 32]);
     let calls = Arc::new(AtomicUsize::new(0));
-    let key = cache.key("svc", &json!({}), &json!({}));
+    let lease = Lease::new(cache.key("svc", &json!({}), &json!({})));
     let fail = || {
         calls.fetch_add(1, Ordering::SeqCst);
         std::future::ready(Err(AuthError::Rejected { auth: "svc".into(), status: 401 }))
     };
-    assert!(cache.get(key, Duration::ZERO, &fail).await.is_err());
-    assert!(cache.get(key, Duration::ZERO, &fail).await.is_err());
+    assert!(cache.get(&lease, Duration::ZERO, &fail).await.is_err());
+    assert!(cache.get(&lease, Duration::ZERO, &fail).await.is_err());
     assert_eq!(calls.load(Ordering::SeqCst), 1);
-    cache.invalidate(key);
+    cache.invalidate(&lease);
     let fetch = counting(&calls, None);
-    assert_eq!(token(&cache.get(key, Duration::ZERO, &fetch).await.unwrap()), "Bearer t1");
+    assert_eq!(token(&cache.get(&lease, Duration::ZERO, &fetch).await.unwrap()), "Bearer t1");
+}
+
+#[tokio::test]
+async fn a_request_drops_only_the_credentials_it_used() {
+    let cache = TokenCache::new([0; 32]);
+    let calls = Arc::new(AtomicUsize::new(0));
+    let key = cache.key("svc", &json!({}), &json!({}));
+    let fetch = counting(&calls, None);
+    let (one, other) = (Lease::new(key), Lease::new(key));
+    assert_eq!(token(&cache.get(&one, Duration::ZERO, &fetch).await.unwrap()), "Bearer t0");
+    assert_eq!(token(&cache.get(&other, Duration::ZERO, &fetch).await.unwrap()), "Bearer t0");
+    cache.invalidate(&one);
+    assert_eq!(token(&cache.get(&one, Duration::ZERO, &fetch).await.unwrap()), "Bearer t1");
+    cache.invalidate(&other);
+    assert_eq!(token(&cache.get(&other, Duration::ZERO, &fetch).await.unwrap()), "Bearer t1", "t1 is not t0");
+    cache.invalidate(&Lease::new(key));
+    assert_eq!(token(&cache.get(&other, Duration::ZERO, &fetch).await.unwrap()), "Bearer t1", "it held nothing");
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
 }

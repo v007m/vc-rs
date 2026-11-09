@@ -44,6 +44,35 @@ impl fmt::Debug for AuthKey {
     }
 }
 
+/// The slot one call last took its credentials from, so that a `refreshOn` response drops
+/// that slot and never one another request has filled again since (compare-and-invalidate).
+pub struct Lease {
+    key: AuthKey,
+    held: Mutex<Option<Slot>>,
+}
+
+impl fmt::Debug for Lease {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Lease").finish_non_exhaustive()
+    }
+}
+
+impl Lease {
+    /// A lease on the credentials for `key` that holds no slot yet.
+    #[must_use]
+    pub fn new(key: AuthKey) -> Self {
+        Self { key, held: Mutex::default() }
+    }
+
+    fn hold(&self, slot: Slot) {
+        *self.held.lock().unwrap_or_else(PoisonError::into_inner) = Some(slot);
+    }
+
+    fn held(&self) -> Option<Slot> {
+        self.held.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+}
+
 /// The run's credentials by [`AuthKey`]. The map's lock is only ever held to find or replace a
 /// slot, never across an `await`; each slot is filled once by the first request that needs it.
 pub struct TokenCache {
@@ -82,14 +111,15 @@ impl TokenCache {
         AuthKey(*hasher.finalize().as_bytes())
     }
 
-    /// The credentials for `key`, fetched once with `fetch` and again once they are within
+    /// The credentials for the lease's key, fetched once with `fetch` and again once they are within
     /// `refresh_before`, capped at half their lifetime, of expiring (D193). The request that
-    /// fetched them always uses them, however short their life.
+    /// fetched them always uses them, however short their life. `lease` holds the slot they
+    /// came from.
     ///
     /// # Errors
     ///
     /// The error `fetch` gave, kept for the rest of the run like a success.
-    pub async fn get<F, Fut>(&self, key: AuthKey, refresh_before: Duration, fetch: F) -> Result<Credentials, AuthError>
+    pub async fn get<F, Fut>(&self, lease: &Lease, refresh_before: Duration, fetch: F) -> Result<Credentials, AuthError>
     where
         F: Fn() -> Fut + Sync,
         Fut: Future<Output = Result<Credentials, AuthError>> + Send,
@@ -99,18 +129,22 @@ impl TokenCache {
             fetched.store(true, Ordering::Relaxed);
             cached(fetch().await, refresh_before)
         };
-        let slot = self.slot(key);
-        let found = slot.get_or_init(fill).await;
-        if fetched.load(Ordering::Relaxed) || !found.stale() {
-            return found.result.clone();
+        let mut slot = self.slot(lease.key);
+        if slot.get_or_init(fill).await.stale() && !fetched.load(Ordering::Relaxed) {
+            self.replace(lease.key, &slot);
+            slot = self.slot(lease.key);
         }
-        self.replace(key, &slot);
-        self.slot(key).get_or_init(fill).await.result.clone()
+        let result = slot.get_or_init(fill).await.result.clone();
+        lease.hold(slot);
+        result
     }
 
-    /// Forgets the credentials for `key`, so the next request fetches them again.
-    pub fn invalidate(&self, key: AuthKey) {
-        drop(self.lock().remove(&key));
+    /// Forgets the credentials `lease` last took, so the next request fetches them again,
+    /// unless another request has already fetched them again since.
+    pub fn invalidate(&self, lease: &Lease) {
+        if let Some(held) = lease.held() {
+            self.replace(lease.key, &held);
+        }
     }
 
     fn slot(&self, key: AuthKey) -> Slot {
