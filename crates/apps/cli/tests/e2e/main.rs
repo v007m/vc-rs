@@ -20,10 +20,10 @@ mod import;
 mod layers;
 mod lifecycle;
 mod mcp;
+mod migrate;
 mod redaction;
 mod reports;
 mod scheduling;
-mod stubs;
 mod values;
 
 #[path = "../common/project.rs"]

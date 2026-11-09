@@ -153,7 +153,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Approvals(args) => approvals::list(&args, project),
         Command::Approve(args) => approvals::approve(&args, project),
         Command::Load(args) => load::run(&args, project),
-        Command::Migrate(command) => Ok(migrate::run(&command)),
+        Command::Migrate(command) => migrate::run(&command, project),
         Command::Mcp(args) => mcp::run(&args, project),
         Command::Demo(args) => demo::run(&args),
         Command::Completion(args) => completion::run(&args),

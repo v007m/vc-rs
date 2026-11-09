@@ -1288,7 +1288,7 @@ alerts:
 
 ## v1 to v2
 
-Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc migrate v1` performs these conversions and lists anything it could not convert (JavaScript asserts beyond the common shapes and `scripts`) in its report, with a `# TODO(vc migrate)` comment in the output (D200).
+Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc migrate v1` performs these conversions and lists anything it could not convert (JavaScript asserts beyond the common shapes and `scripts`) in its report, with a `# TODO(vc migrate)` comment in the output (D200). It inlines a v1 `schema` reference as `expect.body.schema`, and gives a var that only a v1 script set an empty value with a TODO; a dropped `delay`, `async`, `timing.wait` or repeat delay is listed as a note.
 
 | v1 construct | Problem | v2 replacement |
 | --- | --- | --- |
