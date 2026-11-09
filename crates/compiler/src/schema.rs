@@ -133,6 +133,7 @@ fn fits(ty: Ty, node: &Node) -> bool {
 }
 
 /// A YAML value as JSON, with YAML 1.2 core types.
+#[must_use]
 pub fn to_json(node: &Node) -> Value {
     match &node.value {
         vc_parser::Value::Seq(items) => items.iter().map(to_json).collect(),

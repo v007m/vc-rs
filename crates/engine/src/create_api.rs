@@ -108,7 +108,7 @@ fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, Vec<F
 
 /// The config var that holds `origin`: one already set to it, or `<last word>Url` with the
 /// change that adds it to the config's `vars`.
-fn base_var(project: &Authoring, file: &str, origin: &str) -> Result<(String, Option<FileChange>), EngineError> {
+pub fn base_var(project: &Authoring, file: &str, origin: &str) -> Result<(String, Option<FileChange>), EngineError> {
     let config = project.entries().find(|(_, found)| found.kind() == Some(FileKind::Config));
     let opened = Authoring::open(config.ok_or_else(|| internal("a project without its config"))?)?;
     let (document, root) = (&opened.document, opened.document.root());

@@ -9,8 +9,9 @@
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
 //! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_test`],
 //! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
-//! [`Engine::save_call_as_test`], [`Engine::write`]). Load is a stub that says it is not built
-//! yet ([`Engine::load`]). The model and diagnostics types apps need are re-exported here (D108).
+//! [`Engine::save_call_as_test`], [`Engine::write`]), and imports specs ([`Engine::import`]).
+//! Load is a stub that says it is not built yet ([`Engine::load`]). The model and diagnostics
+//! types apps need are re-exported here (D108).
 //!
 //! ```
 //! use vc_engine::Engine;
@@ -33,9 +34,12 @@ mod edit;
 mod error;
 mod explain;
 mod failed;
+mod fetch;
 mod fix;
 mod format;
 mod history;
+mod import;
+mod import_write;
 mod init;
 mod interrupt;
 mod list;
@@ -61,6 +65,7 @@ mod stored;
 mod user;
 mod wanted;
 mod watch;
+mod yaml_out;
 
 pub use builder::{Engine, EngineBuilder};
 pub use cache::CacheReport;
@@ -74,6 +79,7 @@ pub use edit::{Changes, FileChange};
 pub use error::EngineError;
 pub use explain::ExplainReport;
 pub use fix::FixReport;
+pub use import::ImportRequest;
 pub use init::INIT_FOLDERS;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};

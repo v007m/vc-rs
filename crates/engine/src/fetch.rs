@@ -1,0 +1,77 @@
+//! The importers' [`SpecFetcher`]: a URL through the transport, a path through the project's
+//! sources (so nothing outside the project is read), YAML and JSON read with `vc-parser`.
+
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use serde_json::Value;
+use vc_diagnostics::Diagnostics;
+use vc_interfaces::{FetchError, SendContext, SourceProvider, SpecFetcher, Transport};
+use vc_model::{RenderedRequest, SourceFileId, SourcePath};
+use vc_parser::Syntax;
+
+/// Fetches specs for one import or sync.
+pub struct ProjectFetcher {
+    pub sources: Arc<dyn SourceProvider>,
+    pub transport: Arc<dyn Transport>,
+}
+
+#[async_trait]
+impl SpecFetcher for ProjectFetcher {
+    async fn fetch(&self, location: &str) -> Result<Vec<u8>, FetchError> {
+        if location.contains("://") { self.get(location).await } else { self.read(location) }
+    }
+
+    fn decode(&self, location: &str, bytes: &[u8]) -> Result<Value, FetchError> {
+        let undecodable = |reason: String| FetchError::Undecodable { location: location.to_owned(), reason };
+        let text = std::str::from_utf8(bytes).map_err(|error| undecodable(error.to_string()))?;
+        let (node, diagnostics) = vc_parser::parse(SourceFileId::new(0), syntax(text), text);
+        if let Some(error) = first_error(&diagnostics) {
+            return Err(undecodable(error));
+        }
+        let doc = node.map(|node| vc_compiler::to_json(&node)).filter(|doc| !doc.is_null());
+        doc.ok_or_else(|| undecodable("it is empty".to_owned()))
+    }
+}
+
+impl ProjectFetcher {
+    async fn get(&self, location: &str) -> Result<Vec<u8>, FetchError> {
+        let failed = |reason: String| FetchError::Failed { location: location.to_owned(), reason };
+        let uri = location.parse().map_err(|error: http::uri::InvalidUri| failed(error.to_string()))?;
+        let request = RenderedRequest::new(http::Method::GET, uri);
+        let exchange =
+            self.transport.send(request, &SendContext::default()).await.map_err(|error| failed(error.to_string()))?;
+        let status = exchange.response.status;
+        if !status.is_success() {
+            return Err(failed(format!("the server answered {status}")));
+        }
+        Ok(exchange.response.body.to_vec())
+    }
+
+    fn read(&self, location: &str) -> Result<Vec<u8>, FetchError> {
+        let not_allowed = || FetchError::NotAllowed { location: location.to_owned() };
+        let path = SourcePath::new(location).map_err(|_| not_allowed())?;
+        let mut found = self
+            .sources
+            .read(&[path])
+            .map_err(|error| FetchError::Failed { location: location.to_owned(), reason: error.to_string() })?;
+        if let Some(problem) = found.problems.first() {
+            return Err(FetchError::Failed { location: location.to_owned(), reason: problem.to_string() });
+        }
+        found.files.pop().map(|file| file.text.as_bytes().to_vec()).ok_or_else(not_allowed)
+    }
+}
+
+/// JSON when the text starts like JSON, else YAML: a spec is told apart by its content, not
+/// its name.
+fn syntax(text: &str) -> Syntax {
+    if text.trim_start().starts_with(['{', '[']) { Syntax::Json } else { Syntax::Yaml }
+}
+
+fn first_error(diagnostics: &Diagnostics) -> Option<String> {
+    diagnostics.iter().find(|diagnostic| diagnostic.is_error()).map(|diagnostic| diagnostic.message.clone())
+}
+
+#[cfg(test)]
+#[path = "fetch_tests.rs"]
+mod tests;
