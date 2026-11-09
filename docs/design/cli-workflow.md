@@ -287,7 +287,7 @@ One service per folder keeps an api file next to the tests that use it, and test
 
 ## Commands
 
-Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text. `vc load` and `vc migrate v1` take their arguments but are not built yet: each exits 2 with `error: <command> is not built yet`. `vc import` reads only `openapi` and `curl` so far; another kind exits 2, naming the importers there are.
+Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text. `vc migrate v1` takes its arguments but is not built yet: it exits 2 with `error: vc migrate v1 <path> is not built yet`. `vc import` reads only `openapi` and `curl` so far; another kind exits 2, naming the importers there are.
 
 **Start and author**
 
@@ -321,7 +321,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | --- | --- |
 | `vc run [selector...]` | Runs tests (see Selecting what to run) |
 | `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; Ctrl-C ends it with exit 130 |
-| `vc load <scenarioId>` | Runs a load scenario with live metrics |
+| `vc load <scenarioId>` | Runs a load scenario: `beforeRun` and `beforeAll` once, a live line each second on stderr, then the summary (`--json` for the report as JSON). Exit 0 within thresholds, 1 blocked by a shared action, 2 unknown scenario, 3 a threshold breached, 130 cancelled |
 | `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping) |
 
 **Keep in sync**
