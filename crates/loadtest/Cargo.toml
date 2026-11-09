@@ -1,0 +1,23 @@
+[package]
+name = "vc-loadtest"
+description = "Load engine: stage control, the weighted mix, latency recording and thresholds."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+hdrhistogram.workspace = true
+indexmap.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+vc-executor.workspace = true
+vc-model.workspace = true
+
+[dev-dependencies]
+vc-template.workspace = true
+
+[lints]
+workspace = true

@@ -962,7 +962,7 @@ CREATE TABLE exchanges (
 );
 CREATE TABLE load_intervals (
   run_id INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE, test_id TEXT NOT NULL, second INTEGER NOT NULL,
-  count INTEGER NOT NULL, errors INTEGER NOT NULL, histogram BLOB NOT NULL  -- HdrHistogram V2 encoding
+  count INTEGER NOT NULL, errors INTEGER NOT NULL, histogram BLOB NOT NULL  -- uncompressed HdrHistogram V2 encoding, cookie 0x1c849313
 );
 CREATE TABLE agent_actions (
   id INTEGER PRIMARY KEY, at INTEGER NOT NULL, agent TEXT NOT NULL, tool TEXT NOT NULL,
@@ -1085,8 +1085,8 @@ The load engine reuses the executor's action runner, so a test behaves the same 
 
 - **Model.** A closed model of virtual users. A stage controller adjusts the number of user tasks once per second toward the stage target (linear ramp from the previous stage's count). Each user task loops: pick a test from the mix by weight (a precomputed alias table), run one instance of it with `checks: api` or `full`, then sleep the think time.
 - **Lifecycle.** `beforeRun` and each mixed file's `beforeAll` run once before the first stage, through the same shared slots as a functional run; `beforeEach`, `before` and cleanups run inside every iteration and are counted separately from the mix.
-- **Measuring.** Each iteration records latency from its scheduled start, not from when the request was actually sent, so a tool that falls behind cannot hide a slow server (coordinated omission). Per test and per api, each second gets an `hdrhistogram` (1 µs to 60 s, 3 significant digits); a recorder task merges them and writes one row per test per second. Errors are counted by status and api, with the first five exchanges of each kind kept as samples.
-- **Thresholds.** Thresholds are evaluated every second on a rolling window and at the end. A breach of an `abortOn` metric cancels the run through the same cancellation tree; cleanups still run.
+- **Measuring.** Each iteration records latency from its scheduled start, not from when the request was actually sent, so a tool that falls behind cannot hide a slow server (coordinated omission). User tasks send each iteration to a recorder task as a `Sample` (test, second, latency, failed); the recorder keeps one `hdrhistogram` per test and per api per second (1 µs to 60 s, 3 significant digits) and writes one row per test per second. A histogram is about 140 KB, so users send samples, not histograms. Errors are counted by status and api, with the first five exchanges of each kind kept as samples.
+- **Thresholds.** Thresholds are evaluated every second on a rolling window and at the end: rolling thresholds use the last 10 s (`WINDOW_SECONDS`); the final verdict uses the whole run. A rolling breach of an `abortOn` metric cancels the run through the same cancellation tree; cleanups still run. Exit code 3 comes only from the final evaluation.
 - **Capacity.** The target is 5,000 users on one 8-core machine at under 70% tool CPU. Users are lightweight tokio tasks; connection reuse comes from the transport's pool; event detail drops to aggregates (no per-exchange events) above 50 users unless `--trace` asks otherwise.
 - **Live view.** The CLI, TUI and web UI subscribe to a once-per-second summary event (users, rps, p50, p95, p99, errors, threshold state).
 

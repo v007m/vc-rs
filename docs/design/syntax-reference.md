@@ -944,8 +944,19 @@ A load file turns existing tests into a traffic mix; it adds no request or check
 | `stages` | list | required | Each: `duration`, `users`; users ramp from the previous stage's count |
 | `thinkTime` | duration, or `min` and `max` | `0s` | Pause between iterations |
 | `checks` | `api` \| `full` | `api` | `full` evaluates every test's `expect`; `api` evaluates only the apis' own `expect`, to keep the tool fast |
-| `thresholds` | map of metric → matcher | — | `p50`, `p90`, `p95`, `p99`, `max`, `errorRate`, `rps` |
-| `abortOn` | list of metrics | `[]` | Stop early when one of these thresholds is breached |
+| `thresholds` | map of metric → matcher | — | `p50`, `p90`, `p95`, `p99`, `max`, `errorRate`, `rps`; rolling thresholds use the last 10 s; the final verdict uses the whole run |
+| `abortOn` | list of metrics | `[]` | Stop early when one of these thresholds is breached on the rolling window; exit code 3 comes from the final verdict |
+
+The metrics count one sample per iteration of a mix test, timed from its scheduled start, so a tool that falls behind cannot hide a slow server. Scenario `thresholds` cover every mix test together; a mix entry's `thresholds` cover only that test. Requests made by `beforeEach` and `before` are not samples.
+
+| Metric | Measures |
+| --- | --- |
+| `p50`, `p90`, `p95`, `p99` | Latency percentile, in ms (written as a duration: `lt: 800ms`) |
+| `max` | Slowest iteration, in ms |
+| `errorRate` | Failed iterations ÷ iterations; errorRate takes `1%` or a share such as `0.01` |
+| `rps` | Iterations per second |
+
+Each test's iterations and errors are stored per second, as one row per test per second.
 
 Lifecycle blocks work as in functional runs: `beforeRun` and the `beforeAll` of every file in the mix run once, before the first stage. `beforeEach` and `before` run in every iteration; their requests count toward the load but are reported apart from the mix. Cleanups registered during an iteration run at its end.
 

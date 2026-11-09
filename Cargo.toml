@@ -9,6 +9,7 @@ members = [
   "crates/planner",
   "crates/interfaces",
   "crates/executor",
+  "crates/loadtest",
   "crates/engine",
   "crates/testkit",
   "crates/adapters/system",
@@ -43,6 +44,7 @@ vc-compiler = { path = "crates/compiler" }
 vc-planner = { path = "crates/planner" }
 vc-interfaces = { path = "crates/interfaces" }
 vc-executor = { path = "crates/executor" }
+vc-loadtest = { path = "crates/loadtest" }
 vc-engine = { path = "crates/engine" }
 vc-testkit = { path = "crates/testkit" }
 vc-adapter-system = { path = "crates/adapters/system" }
@@ -76,6 +78,7 @@ fake = { version = "5.1.0", default-features = false }
 flate2 = "1.1.10"
 globset = "0.4.21"
 gungraun = "0.20.0"
+hdrhistogram = { version = "7.6", default-features = false }
 hmac = "0.13.0"
 http = "1.5.0"
 http-body-util = "0.1.5"
