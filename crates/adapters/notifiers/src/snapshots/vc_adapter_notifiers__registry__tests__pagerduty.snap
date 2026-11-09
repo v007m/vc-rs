@@ -1,0 +1,38 @@
+---
+source: crates/adapters/notifiers/src/registry_tests.rs
+expression: "serde_json::to_string_pretty(&body).unwrap()"
+---
+{
+  "dedup_key": "shop#staging+eu",
+  "event_action": "trigger",
+  "payload": {
+    "custom_details": {
+      "breaches": [
+        "errorRate",
+        "p95 of checkout.flow#paysOrder"
+      ],
+      "failures": [
+        {
+          "message": "expected 200, got <500> & more",
+          "test": "users.crud#getsUser"
+        },
+        {
+          "message": "blocked: `beforeAll` seedUsers failed",
+          "test": "users.crud#rejectsBadEmail:2"
+        }
+      ],
+      "moreFailures": 0,
+      "profiles": [
+        "staging",
+        "eu"
+      ],
+      "project": "shop",
+      "report": "reports/ctrf.json",
+      "trigger": "failure"
+    },
+    "severity": "error",
+    "source": "shop",
+    "summary": "shop: run failed (staging+eu) — 7 passed, 1 failed, 1 blocked, 1 flaky, 2 skipped"
+  },
+  "routing_key": "r0ut1ng-key"
+}

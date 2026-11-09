@@ -1046,6 +1046,20 @@ When a run ends, `engine/src/alerts.rs` decides which rules fire. It is pure: `d
   - `recovery`: the previous run failed, this one was not cancelled, nothing breached, and none of its tests failed.
 - The `Notice` lists the failures that rule sees, the breaches and the report.
 
+`vc-adapter-notifiers` sends a notice. `NotifierRegistry` maps each channel kind to a `Payload`: the URL from the channel's settings, and the JSON it posts there through the run's `Transport`.
+- `webhook {url}` posts the run's CTRF summary, with the notice under `results.extra`.
+- `slack {webhook, channel}` posts a Block Kit message.
+- `teams {webhook}` posts an Adaptive Card 1.4.
+- `pagerduty {routingKey, severity, url}` posts an Events API v2 event:
+  - `dedup_key` is `<project>#<profiles>`;
+  - a `recovery` resolves the event; any other trigger raises it;
+  - `severity` defaults to `error`, and `url` to `https://events.pagerduty.com/v2/enqueue`.
+- A message lists at most ten failures, each cut to 200 characters, and counts the rest.
+- Errors are V5117:
+  - a settings error names the key, never its value;
+  - a refused post gives `HTTP <status>`;
+  - a transport error has the URL's path, which often holds the hook's secret, replaced with `/…`.
+
 ## Import and sync: OpenAPI and HAR
 
 All importers produce the same intermediate form and hand it to `parser::edit` (with the engine's compile guard, D107), so every import respects the naming conventions, writes the documentation header and never reformats existing text.
