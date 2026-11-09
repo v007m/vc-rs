@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::time::Duration;
 
-use notify::{Event, RecursiveMode, Watcher as _};
+use notify::event::ModifyKind;
+use notify::{Event, EventKind, RecursiveMode, Watcher as _};
 use vc_interfaces::{FileWatcher, SourceFilter, WatchError};
 use vc_model::{DEFAULT_SECRETS_SCHEMA, SourcePath};
 
@@ -23,7 +24,9 @@ type Events = Receiver<notify::Result<Event>>;
 /// A batch holds the definition files the watch's filter lets through, and the root `.env` and
 /// `.env.schema`; other files, and folders the filter skips (`.vibranium/`, `.git/`), are
 /// never reported, so a run's own reports and caches do not start another run. Reading a
-/// file is not a save. Once the receiver is dropped, the watch ends at the next file event.
+/// file is not a save. A folder created or moved in is read when its batch goes out, so the
+/// files saved into it before the OS watched it are reported too. Once the receiver is dropped,
+/// the watch ends at the next batch.
 #[derive(Clone, Debug)]
 pub struct NotifyWatcher {
     root: PathBuf,
@@ -86,19 +89,68 @@ impl Saved {
         }
         self.filter.select(&text)?.ok()
     }
+
+    /// The folders `event` created or moved in under the root that the filter does not skip.
+    fn folders<'a>(&'a self, event: &'a Event) -> impl Iterator<Item = PathBuf> + 'a {
+        let arrived = matches!(event.kind, EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(_)));
+        event.paths.iter().filter(move |path| arrived && path.is_dir() && !self.skips(path)).cloned()
+    }
+
+    fn skips(&self, folder: &Path) -> bool {
+        let rest = self.roots.iter().find_map(|root| folder.strip_prefix(root).ok());
+        rest.and_then(Path::to_str).is_none_or(|text| self.filter.skips(&text.replace('\\', "/")))
+    }
+
+    /// The saves to report among the files under `folder`.
+    fn inside(&self, folder: &Path) -> Vec<SourcePath> {
+        let walk = ignore::WalkBuilder::new(folder).standard_filters(false).follow_links(false).build();
+        let files = walk.flatten().filter(|entry| entry.file_type().is_some_and(|kind| kind.is_file()));
+        files.filter_map(|entry| self.path(entry.path())).collect()
+    }
+}
+
+/// The saves of one burst: the paths reported, and the folders created or moved in. inotify
+/// (Linux) starts watching a new folder only after reporting it, so a file saved into it at
+/// once has no event of its own; the folders are read when the burst ends, after the OS
+/// watches them.
+#[derive(Default)]
+struct Burst {
+    paths: BTreeSet<SourcePath>,
+    folders: BTreeSet<PathBuf>,
+}
+
+impl Burst {
+    fn is_empty(&self) -> bool {
+        self.paths.is_empty() && self.folders.is_empty()
+    }
+
+    fn add(&mut self, saved: &Saved, event: &Event) {
+        self.paths.extend(saved.of(event));
+        self.folders.extend(saved.folders(event));
+    }
+
+    /// The burst's saves in path order, each once; the burst is empty after.
+    fn take(&mut self, saved: &Saved) -> Vec<SourcePath> {
+        let mut paths = std::mem::take(&mut self.paths);
+        for folder in std::mem::take(&mut self.folders) {
+            paths.extend(saved.inside(&folder));
+        }
+        paths.into_iter().collect()
+    }
 }
 
 /// Collects saved paths until the files have been quiet for [`DEBOUNCE`], then sends them as
 /// one batch, in path order and each once; ends when the events stop or the batches' receiver
-/// is gone. Events with nothing to report never start a batch.
+/// is gone. Events with nothing to report never start a batch, and an empty batch is not sent.
 fn debounce(events: &Events, batches: &Sender<Vec<SourcePath>>, saved: &Saved) {
-    let mut batch = BTreeSet::new();
+    let mut burst = Burst::default();
     loop {
-        match next(events, batch.is_empty()) {
-            Ok(Ok(event)) => batch.extend(saved.of(&event)),
+        match next(events, burst.is_empty()) {
+            Ok(Ok(event)) => burst.add(saved, &event),
             Ok(Err(_)) => {}
             Err(RecvTimeoutError::Timeout) => {
-                if batches.send(std::mem::take(&mut batch).into_iter().collect()).is_err() {
+                let batch = burst.take(saved);
+                if !batch.is_empty() && batches.send(batch).is_err() {
                     return;
                 }
             }

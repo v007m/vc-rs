@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
 
-use notify::event::{AccessKind, CreateKind, ModifyKind};
+use notify::event::{AccessKind, CreateKind, ModifyKind, RenameMode};
 use notify::{Event, EventKind};
 use vc_interfaces::{FileWatcher, SourceFilter};
 use vc_model::SourcePath;
@@ -102,6 +102,29 @@ fn write(root: &Path, path: &str, text: &str) {
     let file = root.join(path);
     fs::create_dir_all(file.parent().unwrap()).unwrap();
     fs::write(file, text).unwrap();
+}
+
+#[test]
+fn a_new_folder_is_read_for_the_files_saved_before_it_was_watched() {
+    let dir = tempfile::tempdir().unwrap();
+    for path in ["services/users/users.api.yaml", "services/users/notes.md", "payments/refunds.test.yaml"] {
+        write(dir.path(), path, "tests: []\n");
+    }
+    write(dir.path(), "node_modules/x/a.test.yaml", "tests: []\n");
+    let (events, raw) = mpsc::channel();
+    let (send, batches) = mpsc::channel();
+    let saved = Saved::new(dir.path(), SourceFilter::default());
+    let worker = std::thread::spawn(move || debounce(&raw, &send, &saved));
+    let arrived = |kind, path: &str| Ok(Event::new(kind).add_path(dir.path().join(path)));
+    events.send(arrived(EventKind::Create(CreateKind::Folder), "services")).unwrap();
+    events.send(arrived(EventKind::Modify(ModifyKind::Name(RenameMode::To)), "payments")).unwrap();
+    events.send(arrived(EventKind::Create(CreateKind::Folder), "node_modules")).unwrap();
+    let expected = ["payments/refunds.test.yaml", "services/users/users.api.yaml"];
+    assert_eq!(texts(&batches.recv_timeout(WAIT).unwrap()), expected);
+    events.send(arrived(EventKind::Create(CreateKind::Folder), "node_modules/x")).unwrap();
+    drop(events);
+    worker.join().unwrap();
+    assert!(batches.recv().is_err(), "a skipped folder sends no batch");
 }
 
 #[test]
