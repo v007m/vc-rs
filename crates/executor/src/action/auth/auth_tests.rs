@@ -9,10 +9,12 @@ use http::{HeaderMap, HeaderValue, StatusCode};
 use indexmap::IndexMap;
 use serde_json::{Value, json};
 use vc_diagnostics::Code;
-use vc_interfaces::{AuthError, AuthProvider, AuthRequest, Credentials, Secret};
+use vc_interfaces::{
+    AuthError, AuthProvider, AuthRequest, Credentials, Secret, SendContext, Transport, TransportError,
+};
 use vc_model::{
-    ActionKind, AuthDef, AuthId, AuthRef, BodySpec, HttpResponse, InlineRequest, Method, OwnerKey, TemplateValue,
-    VarDefs, VarName,
+    ActionKind, AuthDef, AuthId, AuthRef, BodySpec, Exchange, HttpResponse, InlineRequest, Method, OwnerKey,
+    RenderedRequest, TemplateValue, VarDefs, VarName,
 };
 use vc_testkit::{FakeTransport, Recorded, RecordingTransport};
 
@@ -81,9 +83,13 @@ fn context(
 ) -> (Arc<ActionCx>, vc_testkit::Recordings) {
     let fake = FakeTransport::scripted(answers.into_iter().map(Ok).collect());
     let (transport, recordings) = RecordingTransport::new(Arc::new(fake));
-    let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(transport), HostLimits::spawn(8)));
-    let cx = ActionCx::new(Arc::new(fixture.program), Arc::new(executors), fixture::inputs(&[])).with_auth(provider);
-    (Arc::new(cx), recordings)
+    (over(fixture, provider, Arc::new(transport)), recordings)
+}
+
+/// A run's context sending through `transport`, with `provider` for auth.
+fn over(fixture: Fixture, provider: Arc<dyn AuthProvider>, transport: Arc<dyn Transport>) -> Arc<ActionCx> {
+    let executors = ActionExecutors::standard(PipelineParts::new(transport, HostLimits::spawn(8)));
+    Arc::new(ActionCx::new(Arc::new(fixture.program), Arc::new(executors), fixture::inputs(&[])).with_auth(provider))
 }
 
 async fn run(cx: &Arc<ActionCx>, action: vc_model::ActionId) -> ActionReport {
@@ -179,6 +185,50 @@ async fn a_refresh_on_status_fetches_again_and_retries_once() {
     let bearer = |n: usize| Some(format!("Bearer t-{n}"));
     assert_eq!(sent, [bearer(1), bearer(2), bearer(2), bearer(3)]);
     assert_eq!(issuer.fetched(), 3);
+}
+
+/// Holds each request carrying `Bearer t-1` until all have come, then answers them 401 one
+/// at a time, each once the one before has been retried with a new token, which gets 200.
+struct RejectedInTurn {
+    barrier: tokio::sync::Barrier,
+    turn: tokio::sync::Semaphore,
+    inner: FakeTransport,
+}
+
+#[async_trait]
+impl Transport for RejectedInTurn {
+    async fn send(&self, request: RenderedRequest, ctx: &SendContext) -> Result<Exchange, TransportError> {
+        if request.headers.get(AUTHORIZATION).is_some_and(|value| value == "Bearer t-1") {
+            if !self.barrier.wait().await.is_leader() {
+                self.turn.acquire().await.unwrap().forget();
+            }
+        } else {
+            self.turn.add_permits(1);
+        }
+        self.inner.send(request, ctx).await
+    }
+}
+
+#[tokio::test]
+async fn concurrent_refresh_on_statuses_fetch_the_credentials_again_once() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "bearer");
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, IndexMap::new());
+    let issuer = Arc::new(Issuer::default());
+    let inner = FakeTransport::new(|request, _| {
+        let stale = request.headers.get(AUTHORIZATION).is_some_and(|value| value == "Bearer t-1");
+        Ok(vc_testkit::status(if stale { 401 } else { 200 }))
+    });
+    let transport =
+        RejectedInTurn { barrier: tokio::sync::Barrier::new(4), turn: tokio::sync::Semaphore::new(0), inner };
+    let cx = over(fixture, Arc::clone(&issuer) as Arc<dyn AuthProvider>, Arc::new(transport));
+    let calls = async { tokio::join!(run(&cx, call), run(&cx, call), run(&cx, call), run(&cx, call)) };
+    let reports = tokio::time::timeout(Duration::from_secs(10), calls).await.unwrap();
+    for report in [reports.0, reports.1, reports.2, reports.3] {
+        assert!(report.outcome.failure().is_none(), "{report:?}");
+    }
+    assert_eq!(issuer.fetched(), 2, "one fetch for the run and one after the four 401s");
 }
 
 #[tokio::test]

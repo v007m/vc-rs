@@ -39,6 +39,17 @@ async fn each_grant_issues_a_token_that_auth_me_accepts() -> TestResult {
 }
 
 #[tokio::test]
+async fn expires_in_on_the_token_url_sets_the_lifetime() -> TestResult {
+    let mock = Mock::start().await?;
+    let request = mock.request(Method::POST, "/oauth/token?expiresIn=30").header(AUTHORIZATION, CLIENT);
+    let response =
+        request.header(CONTENT_TYPE, "application/x-www-form-urlencoded").body("grant_type=client_credentials");
+    let issued: Value = response.send().await?.json().await?;
+    assert_eq!(issued["expires_in"].as_u64(), Some(30));
+    Ok(())
+}
+
+#[tokio::test]
 async fn unknown_clients_wrong_passwords_and_unknown_grants_are_refused() -> TestResult {
     let mock = Mock::start().await?;
     let (status, body) = token(&mock, Some("Basic eDp5"), "grant_type=client_credentials").await?;

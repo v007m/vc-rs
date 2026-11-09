@@ -23,7 +23,7 @@ type Fields = BTreeMap<String, String>;
 /// An OAuth 2.0 authorization server: `POST /oauth/token` answers the `client_credentials`,
 /// `password`, `refresh_token` and `authorization_code` grants, and `GET /oauth/authorize`
 /// signs in at once and redirects to `redirect_uri` with a code and the `state`.
-/// Its access tokens work on `/auth/me`.
+/// Its access tokens work on `/auth/me` and last an hour, or `?expiresIn=` seconds.
 pub fn routes(store: &Store) -> Router {
     Router::new()
         .route("/oauth/token", routing::post(token))
@@ -31,12 +31,17 @@ pub fn routes(store: &Store) -> Router {
         .with_state(store.clone())
 }
 
-async fn token(State(store): State<Store>, headers: HeaderMap, Form(fields): Form<Fields>) -> Response {
+/// Takes the token URL's query and the client's headers together.
+async fn token(
+    State(store): State<Store>,
+    (Query(query), headers): (Query<Fields>, HeaderMap),
+    Form(fields): Form<Fields>,
+) -> Response {
     if !known_client(&headers, &fields) {
         return refused(StatusCode::UNAUTHORIZED, "invalid_client");
     }
     match grant(&store, &fields).await {
-        Ok(Some(refresh)) => issue(&store, refresh).await.unwrap_or_else(IntoResponse::into_response),
+        Ok(Some(refresh)) => issue(&store, refresh, lifetime(&query)).await.unwrap_or_else(IntoResponse::into_response),
         Ok(None) => refused(StatusCode::BAD_REQUEST, "invalid_grant"),
         Err(error) => error.into_response(),
     }
@@ -77,10 +82,10 @@ async fn grant(store: &Store, fields: &Fields) -> Result<Option<bool>, MockError
     }
 }
 
-async fn issue(store: &Store, refresh: bool) -> Result<Response, MockError> {
+async fn issue(store: &Store, refresh: bool, expires_in: u64) -> Result<Response, MockError> {
     let (access, refresh) =
         store.call(move |state| (state.sessions.login(), refresh.then(|| state.sessions.refresh_token()))).await?;
-    let mut body = json!({ "access_token": access, "token_type": "Bearer", "expires_in": EXPIRES_IN_SECS });
+    let mut body = json!({ "access_token": access, "token_type": "Bearer", "expires_in": expires_in });
     if let (Some(refresh), Value::Object(map)) = (refresh, &mut body) {
         map.insert("refresh_token".to_owned(), Value::String(refresh));
     }
@@ -99,6 +104,11 @@ async fn authorize(State(store): State<Store>, Query(query): Query<Fields>) -> R
         }
         Err(error) => error.into_response(),
     }
+}
+
+/// The `expiresIn` the token URL's query asks for, else an hour.
+fn lifetime(query: &Fields) -> u64 {
+    query.get("expiresIn").and_then(|secs| secs.parse().ok()).unwrap_or(EXPIRES_IN_SECS)
 }
 
 fn known_client(headers: &HeaderMap, fields: &Fields) -> bool {
