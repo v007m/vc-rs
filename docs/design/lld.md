@@ -157,7 +157,7 @@ The feasibility spike showed that Rust's borrow checker stays out of the way whe
 6. **No panics in library code.** `unwrap`, `expect`, `panic!`, `todo!` and `dbg!` are denied by lint; errors are values (`Result`) with a diagnostic code where a user can act on them.
 7. **Kinds are registries, not `match` on strings.** Matchers, pipes, auth types, reporters, importers and notifiers register by name in a table built at start-up, so adding one touches one file plus one registry line (the *Refactoring* "switch statements" and "shotgun surgery" smells).
 8. **Distinct types for distinct things.** IDs, durations, sizes and file paths are newtypes, not bare strings or numbers.
-9. **Small functions.** At most 40 lines, cognitive complexity at most 10, at most 3 parameters excluding `self` (group the rest into a context struct) (D109).
+9. **Small functions.** At most 40 lines, cognitive complexity at most 10, at most 3 parameters excluding `self` (group the rest into a context struct) (D109). Methods of an `impl` of a trait declared outside the workspace (std or a third-party crate, such as rquickjs's `Resolver::resolve`) are exempt from the parameter limit, since upstream fixes their signatures (D189).
 10. **Small files and traits.** A source file has at most 400 lines and a trait at most 7 methods; generated and test files are exempt (D114).
 11. **A facade per crate.** Library crates keep their modules private and `pub use` the public items in `lib.rs`; no `pub mod`, except in the generated `vc-contracts`.
 12. **Inject trait objects.** Stored dependencies are passed as `Arc<dyn Trait>`; async methods use `async-trait`, because `async fn` in a trait is still not dyn-compatible on Rust 1.99 (checked at M0). A parameter used only during the call takes a generic or `impl Trait` (D115, D158).
@@ -170,7 +170,7 @@ The feasibility spike showed that Rust's borrow checker stays out of the way whe
 | Gate | Fails when | Tool |
 | --- | --- | --- |
 | Lints | Any warning from clippy `pedantic` and `nursery`, plus the denied lints above; `cognitive_complexity` is switched on explicitly because current Clippy leaves it out of pedantic | `cargo clippy --all-targets -- -D warnings` |
-| Function size | A function over 40 lines or complexity over 10, or more than 3 parameters (`too-many-arguments-threshold = 4`) (D109) | `clippy.toml` thresholds, `arch-tests` |
+| Function size | A function over 40 lines or complexity over 10, or more than 3 parameters (`too-many-arguments-threshold = 4`) (D109); `ARCH-PARAMS` skips impls of non-workspace traits (D189) | `clippy.toml` thresholds, `arch-tests` |
 | Duplication | A copied block of 10 lines or more (D135) | `jscpd` |
 | Architecture | A crate imports something the layer table forbids, or a rule above is broken: `static` state, a lock outside the D113 allow-list, `pub mod` in a library crate, more than 3 parameters, a file over 400 lines, a trait over 7 methods, an external type outside the D111 allow-list, `anyhow` outside `vc-cli`, `vc-testkit` as a normal dependency, an interface impl without its contract suite | `arch-tests` (cargo metadata plus a syntax scan); each failure prints a stable rule ID |
 | Dependencies | A licence outside the allow-list, a known vulnerability, a duplicate version (`multiple-versions = deny`, with a skip list), a banned crate (`openssl-sys`, `v8`, `deno_core`), an unknown registry or git source, an unused dependency (D135) | `cargo-deny`, `cargo-machete` |
