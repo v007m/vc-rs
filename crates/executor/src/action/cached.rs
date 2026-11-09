@@ -6,14 +6,14 @@ use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanu
 use vc_model::{Action, ActionId, ActionKind, ActionOutcome, CacheSpec, Program};
 
 use super::{ActionExecutor, ActionRequest};
-use crate::{ActionReport, CleanupCollector, PendingCleanup, Render, Saved};
+use crate::{ActionCx, ActionReport, CleanupCollector, PendingCleanup, Render, Saved};
 
 /// Runs `call:` and `test:` actions with `cache:` through the cross-run cache.
 ///
 /// A decorator around the kind's executor. A live entry under the action's key stands in for the action
 /// once its `cache.check` passes; otherwise the action runs and, when it passes, its saves and
-/// cleanups are stored for `cache.for`. A stored action's cleanups run when its entry expires
-/// or is cleared, not when its frame closes. Without a store, or for an action without
+/// cleanups are stored for `cache.for`. A stored action's cleanups run when its entry expires,
+/// is cleared or is replaced by a fresh one, not when its frame closes. Without a store, or for an action without
 /// `cache:`, it only runs the wrapped executor; a store that fails never fails the action.
 #[derive(Clone)]
 pub struct CachedExecutor {
@@ -59,20 +59,22 @@ impl CachedExecutor {
 
     /// Runs the action and, when it passes, stores its saves and cleanups; stored cleanups
     /// leave the report, so they wait for the entry to expire instead of the frame to close.
-    /// Its parts hand their cleanups to a collector of its own, so every one can be stored.
+    /// Its parts hand their cleanups to a collector of its own, so every one can be stored. The
+    /// entry it replaces (its check failed, or it expired since the run began) is cleaned up.
     async fn miss(&self, request: ActionRequest, cacheable: Cacheable) -> ActionReport {
-        let program = Arc::clone(&request.cx.program);
+        let cx = Arc::clone(&request.cx);
         let mut kept = CleanupCollector::under(request.frame.sink.clone());
         let mut report = self.inner.execute(ActionRequest { frame: kept.frame(&request.frame), ..request }).await;
         report.cleanups = kept.take(report.cleanups);
         if !matches!(report.outcome, ActionOutcome::Passed) {
             return report;
         }
-        let cleanups = report.cleanups.iter().map(|cleanup| stored_cleanup(&program, cleanup));
+        let cleanups = report.cleanups.iter().map(|cleanup| stored_cleanup(&cx.program, cleanup));
         let Some(cleanups) = cleanups.collect::<Option<Vec<_>>>() else { return report };
         let entry = CacheEntry { saved: report.saved.clone(), cleanups, ..cacheable.entry };
-        if cacheable.store.put(entry).is_ok() {
+        if let Ok(replaced) = cacheable.store.put(entry) {
             report.cleanups.clear();
+            clean_replaced(&cx, replaced).await;
         }
         report
     }
@@ -91,6 +93,16 @@ impl ActionExecutor for CachedExecutor {
     fn follows(&self, program: &Program, action: &Action) -> Vec<ActionId> {
         let check = action.cache.as_ref().and_then(|spec| spec.check);
         self.inner.follows(program, action).into_iter().chain(check).collect()
+    }
+}
+
+/// Runs the cleanups of `replaced`, newest first, as its expiry would have. The fresh entry
+/// passed, so a cleanup that fails leaves what it made in place without failing the action.
+async fn clean_replaced(cx: &Arc<ActionCx>, replaced: Option<CacheEntry>) {
+    for cleanup in replaced.into_iter().flat_map(|entry| entry.cleanups).rev() {
+        if let Some(request) = ActionRequest::stored_cleanup(cx, &cleanup) {
+            drop(cx.executors.execute(request).await);
+        }
     }
 }
 

@@ -15,7 +15,7 @@ use vc_adapter_store::{CacheSecret, SqliteCache};
 use vc_diagnostics::Code;
 use vc_executor::{ActionCx, ActionRequest, RunInputs};
 use vc_interfaces::{CacheEntry, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Environment, Secret};
-use vc_model::{ActionId, Plan, Program};
+use vc_model::Plan;
 
 use crate::plan::Prepared;
 use crate::ports::{self, Layered};
@@ -189,16 +189,10 @@ impl<'c> Cleaner<'c> {
 
 /// Runs one stored cleanup: its api's `cleanup` with the stored vars.
 async fn run_cleanup(cx: &Arc<ActionCx>, cleanup: &CachedCleanup) -> Result<(), String> {
-    let action = cleanup_of(&cx.program, &cleanup.api)
+    let request = ActionRequest::stored_cleanup(cx, cleanup)
         .ok_or_else(|| format!("`{}` no longer has a `cleanup`, so what it made is left in place", cleanup.api))?;
-    let request = ActionRequest::cleanup(cx, action, &Arc::new(cleanup.vars.clone()));
     let report = cx.executors.execute(request).await;
     report.outcome.failure().map_or(Ok(()), |failure| Err(failure.message.clone()))
-}
-
-/// The `cleanup` action of the api whose full ID is `api`.
-fn cleanup_of(program: &Program, api: &str) -> Option<ActionId> {
-    program.apis.values().find(|found| program.str(found.id.sym()) == Some(api)).and_then(|found| found.cleanup)
 }
 
 /// The settings and environment of `layered` with nothing planned, for actions run outside a

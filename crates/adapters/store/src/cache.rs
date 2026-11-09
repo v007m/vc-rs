@@ -75,7 +75,7 @@ impl CacheStore for SqliteCache {
         self.ask(move |shelf| shelf.get(key, now_ms))
     }
 
-    fn put(&self, entry: CacheEntry) -> Result<(), CacheStoreError> {
+    fn put(&self, entry: CacheEntry) -> Result<Option<CacheEntry>, CacheStoreError> {
         self.ask(move |shelf| shelf.put(&entry))
     }
 
@@ -110,15 +110,23 @@ impl Shelf {
         }
     }
 
-    fn put(&self, entry: &CacheEntry) -> rusqlite::Result<()> {
-        let key = entry.key.bytes();
-        let saved = self.sealed(key, Columns::Saved, &encode_values(&entry.saved))?;
-        let cleanups = self.sealed(key, Columns::Cleanups, &encode_cleanups(&entry.cleanups))?;
-        let listing = &entry.listing;
-        let sql = format!("INSERT OR REPLACE INTO entries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)");
+    /// Stores `fresh` in place of the row under its key; gives back the entry that row held,
+    /// live or expired, when it still opens, so its cleanups can run.
+    fn put(&mut self, fresh: &CacheEntry) -> rusqlite::Result<Option<CacheEntry>> {
+        let key = fresh.key.bytes();
+        let saved = self.sealed(key, Columns::Saved, &encode_values(&fresh.saved))?;
+        let cleanups = self.sealed(key, Columns::Cleanups, &encode_cleanups(&fresh.cleanups))?;
+        let Self { connection, sealer } = self;
+        let transaction = connection.transaction()?;
+        let read = format!("SELECT {COLUMNS} FROM entries WHERE key = ?1");
+        let replaced = transaction.query_row(&read, [key], |row| entry(sealer, row)).optional()?;
+        let listing = &fresh.listing;
+        let write = format!("INSERT OR REPLACE INTO entries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)");
         let values =
             params![key, listing.label, listing.profiles, listing.created_ms, listing.expires_ms, saved, cleanups];
-        self.connection.execute(&sql, values).map(drop)
+        transaction.execute(&write, values)?;
+        transaction.commit()?;
+        Ok(replaced.flatten())
     }
 
     /// Removes the rows `filter` picks and gives back the ones that still open, oldest first.

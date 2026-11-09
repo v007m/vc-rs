@@ -23,7 +23,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use vc_interfaces::{AuthProvider, CacheStore};
+use vc_interfaces::{AuthProvider, CacheStore, CachedCleanup};
 use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
 use crate::{ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues, Saved};
@@ -127,6 +127,15 @@ impl ActionRequest {
     #[must_use]
     pub fn cleanup(cx: &Arc<ActionCx>, action: ActionId, vars: &Arc<Saved>) -> Self {
         Self { action, owner: OwnerKey::Run, cx: Arc::clone(cx), frame: Frame::default().cleaning(vars) }
+    }
+
+    /// A run-level request for the cleanup the cross-run cache stored as `cleanup`: its api's
+    /// `cleanup` with the stored vars; `None` when that api no longer has one.
+    #[must_use]
+    pub fn stored_cleanup(cx: &Arc<ActionCx>, cleanup: &CachedCleanup) -> Option<Self> {
+        let program = &cx.program;
+        let api = program.apis.values().find(|api| program.str(api.id.sym()) == Some(cleanup.api.as_str()))?;
+        Some(Self::cleanup(cx, api.cleanup?, &Arc::new(cleanup.vars.clone())))
     }
 }
 

@@ -54,8 +54,8 @@ impl CacheStore for MemoryCacheStore {
         self.ask(move |entries| entries.get(&key).filter(|entry| entry.listing.expires_ms > now_ms).cloned())
     }
 
-    fn put(&self, entry: CacheEntry) -> Result<(), CacheStoreError> {
-        self.ask(move |entries| drop(entries.insert(entry.key, entry)))
+    fn put(&self, entry: CacheEntry) -> Result<Option<CacheEntry>, CacheStoreError> {
+        self.ask(move |entries| entries.insert(entry.key, entry))
     }
 
     fn take_expired(&self, now_ms: u64) -> Result<Vec<CacheEntry>, CacheStoreError> {

@@ -30,8 +30,11 @@ fn values(value: &serde_json::Value) -> CachedValues {
     value.as_object().cloned().unwrap_or_default()
 }
 
-fn put(store: &dyn CacheStore, entry: CacheEntry) {
-    assert_eq!(store.put(entry), Ok(()), "put failed");
+/// Puts `entry` and gives back the entry it replaced.
+fn put(store: &dyn CacheStore, entry: CacheEntry) -> Option<CacheEntry> {
+    let put = store.put(entry);
+    assert!(put.is_ok(), "put failed: {put:?}");
+    put.ok().flatten()
 }
 
 fn labels(entries: &[CacheEntry]) -> Vec<&str> {
@@ -42,12 +45,17 @@ fn gives_back_live_entries_whole(make: &mut MakeCacheStore<'_>) {
     let store = make();
     let key = CacheKey::new([1; 32]);
     assert_eq!(store.get(&key, 0), Ok(None), "an empty store has nothing");
-    put(store.as_ref(), entry(1, "users#create", 100));
+    assert_eq!(put(store.as_ref(), entry(1, "users#create", 100)), None, "a first put replaces nothing");
     assert_eq!(store.get(&key, 500), Ok(Some(entry(1, "users#create", 100))), "an entry comes back as it was put");
     let mut newer = entry(1, "users#create", 200);
     newer.saved = values(&json!({"userId": 9}));
-    put(store.as_ref(), newer.clone());
+    let replaced = put(store.as_ref(), newer.clone());
+    assert_eq!(replaced, Some(entry(1, "users#create", 100)), "a put gives back the entry it replaced");
     assert_eq!(store.get(&key, 500), Ok(Some(newer)), "a put replaces the entry under its key");
+    let mut later = entry(1, "users#create", 5000);
+    later.saved = values(&json!({"userId": 7}));
+    let expired = put(store.as_ref(), later).map(|entry| entry.listing.created_ms);
+    assert_eq!(expired, Some(200), "an expired entry put over comes back too");
 }
 
 fn hides_and_takes_expired_entries(make: &mut MakeCacheStore<'_>) {

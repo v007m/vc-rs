@@ -31,13 +31,14 @@ fn created(id: u64) -> Vec<HttpResponse> {
     vec![json_response(201, &json!({ "id": id }))]
 }
 
-/// A `POST /users` (api `users#n1`) saving `userId`, whose api's cleanup (`users#n0`) deletes
-/// it. The action has the id `created`, the var `region` and `cache: { for: 1s }`, with a
+/// A `POST /users` (api `users#n1`) saving `userId`, whose api's cleanup (`users#n0`, to
+/// `/users/${var.userId}`) deletes it. The action has the id `created`, the var `region` and `cache: { for: 1s }`, with a
 /// `check` calling `check_path` when given.
 fn creating(region: &str, check_path: Option<&str>) -> (Arc<Program>, ActionId) {
     let mut fixture = Fixture::new();
     let delete = fixture.call("/users");
     fixture.action_mut(delete).vars.values = fixture.vars(&[("userId", "${response.body.id}")]);
+    fixture.api_mut(delete).path = fixture.template("/users/${var.userId}");
     let create = fixture.creating("/users", delete);
     fixture.action_mut(create).id = Some(fixture.sym("created"));
     fixture.action_mut(create).vars.values = fixture.vars(&[("region", region)]);
@@ -106,7 +107,7 @@ async fn other_vars_miss_and_a_failed_action_is_not_stored() {
 }
 
 #[tokio::test]
-async fn the_check_reads_the_cached_saves_and_a_failed_check_runs_the_action_again() {
+async fn the_check_reads_the_cached_saves_and_a_failed_check_reruns_the_action_and_cleans_the_old_entry() {
     let store = MemoryCacheStore::new();
     let target = creating("eu", Some("/users/${var.userId}/${var.created.userId}"));
     let (_, sent) = run(&target, (Some(&store), 1_000), created(7)).await;
@@ -114,9 +115,13 @@ async fn the_check_reads_the_cached_saves_and_a_failed_check_runs_the_action_aga
     let (hit, sent) = run(&target, (Some(&store), 1_001), vec![json_response(200, &json!({}))]).await;
     let paths: Vec<_> = sent.iter().map(|recorded| recorded.request.uri.path().to_owned()).collect();
     assert_eq!((hit.saved, paths), (saved(json!({ "userId": 7 })), vec!["/users/7/7".to_owned()]));
-    let answers = vec![json_response(404, &json!({})), json_response(201, &json!({ "id": 8 }))];
+    let answers =
+        vec![json_response(404, &json!({})), json_response(201, &json!({ "id": 8 })), json_response(204, &json!({}))];
     let (rerun, sent) = run(&target, (Some(&store), 1_002), answers).await;
-    assert_eq!((rerun.saved, sent.len()), (saved(json!({ "userId": 8 })), 2));
+    let paths: Vec<_> = sent.iter().map(|recorded| recorded.request.uri.path().to_owned()).collect();
+    assert_eq!((rerun.saved, paths), (saved(json!({ "userId": 8 })), vec!["/users/7/7", "/users", "/users/7"]));
+    let kept: Saved = store.take_expired(u64::MAX).unwrap().into_iter().flat_map(|entry| entry.saved).collect();
+    assert_eq!(kept, saved(json!({ "userId": 8 })), "the fresh entry is the one kept");
 }
 
 #[tokio::test]
