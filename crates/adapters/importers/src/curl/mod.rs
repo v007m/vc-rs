@@ -5,6 +5,9 @@ mod draft;
 mod options;
 mod shell;
 
+pub use self::draft::draft;
+pub use self::options::Request;
+
 use async_trait::async_trait;
 use vc_interfaces::{ImportDraft, ImportError, ImportOptions, ImportSource, Importer};
 
@@ -26,7 +29,7 @@ impl Importer for CurlImporter {
         if requests.is_empty() {
             return Err(invalid("it holds no curl command".to_owned()));
         }
-        draft::draft(&requests, opts).map_err(invalid)
+        draft::draft(&requests, opts, "curl").map_err(invalid)
     }
 }
 

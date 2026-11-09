@@ -16,15 +16,15 @@ use crate::url::{pairs, path_and_query, split_origin};
 /// What to tell the user in place of a credential.
 const LEFT_OUT: &str = "a credential is never written; add it with `vc new auth`";
 
-/// The draft for `requests`.
+/// The draft for `requests`; a request that gives no api is noted as `<word> <n>`.
 ///
 /// # Errors
 ///
 /// The first note, when no request gives an api.
-pub fn draft(requests: &[Request], opts: &ImportOptions) -> Result<ImportDraft, String> {
+pub fn draft(requests: &[Request], opts: &ImportOptions, word: &str) -> Result<ImportDraft, String> {
     let mut drafting = Drafting::default();
     for (at, request) in requests.iter().enumerate() {
-        drafting.add(request, &format!("curl {}", at + 1));
+        drafting.add(request, &format!("{word} {}", at + 1));
     }
     let Drafting { origin, apis, notes } = drafting;
     let Some(origin) = origin.filter(|_| !apis.is_empty()) else {
@@ -103,6 +103,7 @@ fn drafted(request: &Request, found: &mut Vec<String>) -> Result<(String, DraftA
     let data = request.data.iter().filter(|_| request.get).map(String::as_str);
     let api = DraftApi {
         id: from_route(method.name(), &path.path.replace("${var.", "{")),
+        name: request.name.clone(),
         method,
         query: query_of(std::iter::once(query).chain(data), found),
         vars: path.vars.into_iter().chain(body.vars).collect(),

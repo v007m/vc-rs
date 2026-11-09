@@ -8,6 +8,8 @@ use super::shell::Word;
 /// What one curl command sends, as its options give it.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Request {
+    /// What the api is called, when the source names it (a `.http` request's title).
+    pub name: Option<String>,
     /// `-X`.
     pub method: Option<String>,
     /// The first URL.
