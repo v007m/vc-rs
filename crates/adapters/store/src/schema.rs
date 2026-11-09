@@ -10,7 +10,8 @@ use crate::codec::{Location, now_ms};
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The schema, one numbered step per entry; a step never changes once released.
-const MIGRATIONS: &[&str] = &[r"
+const MIGRATIONS: &[&str] = &[
+    r"
 CREATE TABLE runs (
   id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, finished_at INTEGER,
   profiles TEXT NOT NULL, selector TEXT NOT NULL, git_commit TEXT, git_branch TEXT,
@@ -51,7 +52,21 @@ CREATE INDEX test_results_by_test ON test_results(test_id, run_id);
 CREATE INDEX test_results_by_run ON test_results(run_id);
 CREATE INDEX exchanges_by_run ON exchanges(run_id);
 CREATE INDEX runs_by_time ON runs(started_at);
-"];
+",
+    r"
+CREATE TABLE approvals (
+  id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL, agent TEXT NOT NULL, tool TEXT NOT NULL,
+  profile TEXT NOT NULL, methods TEXT NOT NULL, summary TEXT NOT NULL, arguments TEXT NOT NULL,
+  status TEXT NOT NULL, decided_at INTEGER, decided_by TEXT
+);
+CREATE INDEX approvals_by_status ON approvals(status, id);
+CREATE TABLE approval_rules (
+  profile TEXT NOT NULL, tool TEXT NOT NULL, method TEXT NOT NULL,
+  created_at INTEGER NOT NULL, created_by TEXT NOT NULL,
+  PRIMARY KEY (profile, tool, method)
+);
+",
+];
 
 /// Why a file could not be opened: before its migrations, or while applying them.
 pub enum OpenError {
@@ -143,6 +158,20 @@ mod tests {
         assert_eq!(versions, u64::try_from(MIGRATIONS.len()).unwrap());
         let mode: String = connection.query_row("PRAGMA journal_mode", [], |row| row.get(0)).unwrap();
         assert_eq!(mode, "wal");
+    }
+
+    #[test]
+    fn step_two_adds_the_approval_queue_to_an_existing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("history.db");
+        drop(super::open_migrated(&path, &MIGRATIONS[..1]).ok().unwrap());
+        let connection = open_for_writing(&path).unwrap();
+        let tables: u64 = connection
+            .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name IN ('approvals', 'approval_rules')", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(tables, 2);
     }
 
     #[test]
