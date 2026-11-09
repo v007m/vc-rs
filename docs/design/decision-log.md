@@ -355,6 +355,16 @@ Round 28 additions (9 November 2026):
 | D192 | Action `timeout` (Sarath) | `timeout` on an action is that action's own limit: a `command`'s process timeout, a `function`'s run budget, a `call`'s per-attempt request timeout (it wins over the api's and `defaults.timeout`), and a reused `test`'s whole-test limit. Without it, each kind keeps its current source | — |
 | D193 | Short-lived tokens | A cached credential counts as stale when its remaining life is under `min(refreshBefore, lifetime / 2)`, so a token that lives no longer than `refreshBefore` is not refetched at once. The request that fetched a credential always uses it | — |
 
+Round 29 additions (9 November 2026, M6–M7 kick-off):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D194 | v1 migrator name (Sarath) | The v1 → v2 migrator is `vc migrate v1 <path>`, built on the importer and draft pipeline. `vc migrate` with no argument stays the `syntaxVersion` upgrade. cli-workflow's `vc import v1` is renamed | — |
+| D195 | Agent policy semantics (Sarath) | The staging example requires approval for `PUT`, `PATCH`, `DELETE`, and `writeDefinitions: ask` goes through the same approval flow. A profile with no `agents` block allows only reads (list, search, get, check, query history). With several active profiles, the most restrictive rule wins for each field. `run_tests` is gated by `run` plus the methods its planned tests send, with one approval per run. "Always allow" (D92) is kept in history.db per profile, tool and method, and never edits YAML | — |
+| D196 | Load and `perHost` (Sarath) | A load run ignores `defaults.perHost` unless the load file sets its own | — |
+| D197 | MCP build (Sarath) | `vc-mcp` uses rmcp (features `server` and `transport-io` only) with hand-written tool schemas taken from engine types. The vc-contracts proto waits for its first consumer, M9's web API (D101). M7 ships stdio only; `/mcp` over HTTP comes with the web server in M9 | — |
+| D198 | M7 scope edges | M7 load output is the live summary, `load_intervals` and a JSON summary; the HTML load report comes with the web UI (M9). The published agent skill (PRD R26) moves to M8. `hdrhistogram` is used without default features. HAR and OpenAPI parsing use maintained crates only if they pass cargo-deny; otherwise hand-written serde structs over vc-parser output, with the choice logged when the spike ends | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

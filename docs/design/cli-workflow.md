@@ -295,7 +295,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | --- | --- |
 | `vc init [--no-sample] [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, the sample api and test files (not with `--no-sample`), `.env.schema` when there is none, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi` (not built yet), also runs the import below. A definition file it would write that exists already (a project is here) is named and nothing is written: exit 2 |
 | `vc import openapi <url-or-file> --id <fileId> [--tests] [--negative] [--auth]` | Creates an api file from a spec (one api per operation), saves the spec snapshot, adds a base-URL var to the config, and optionally generates tests |
-| `vc import har\|postman\|bruno\|http\|v1 <path>` | Converts browser HAR recordings (see Importing from a HAR file), other tools' collections, or Vibranium v1 projects |
+| `vc import har\|postman\|bruno\|http <path>` | Converts browser HAR recordings (see Importing from a HAR file) or other tools' collections |
 | `vc new api <fileId#apiId> [--method] [--path \| --url <full-url>] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--url`, the origin becomes a base-URL var and the rest the path and query (D177); with `--from-curl` (M6, D176), method, URL, headers and body come from the curl command |
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
@@ -330,6 +330,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc sync [fileId...] [--dry-run] [--check]` | Merges OpenAPI changes into api files (see OpenAPI import and sync) |
 | `vc sync <fileId> --take spec\|mine <apiId>`, `--resolved <apiId>` | Settles a sync conflict |
 | `vc migrate` | Upgrades files to a newer `syntaxVersion` |
+| `vc migrate v1 <path>` | Converts a Vibranium v1 project into v2 files (D194) |
 
 **Results and housekeeping**
 
