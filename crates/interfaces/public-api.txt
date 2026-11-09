@@ -270,6 +270,7 @@ pub fn vc_interfaces::ReportError::fmt(&self, &mut core::fmt::Formatter<'_>) -> 
 impl core::marker::StructuralPartialEq for vc_interfaces::ReportError
 pub enum vc_interfaces::Row
 pub vc_interfaces::Row::Exchange(vc_interfaces::ExchangeRow)
+pub vc_interfaces::Row::Interval(vc_interfaces::IntervalRow)
 pub vc_interfaces::Row::Test(vc_interfaces::TestRow)
 impl core::clone::Clone for vc_interfaces::Row
 pub fn vc_interfaces::Row::clone(&self) -> Self
@@ -902,6 +903,22 @@ pub fn vc_interfaces::ImportSource::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_interfaces::ImportSource
 pub fn vc_interfaces::ImportSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::ImportSource
+pub struct vc_interfaces::IntervalRow
+pub vc_interfaces::IntervalRow::count: u64
+pub vc_interfaces::IntervalRow::errors: u64
+pub vc_interfaces::IntervalRow::histogram: alloc::vec::Vec<u8>
+pub vc_interfaces::IntervalRow::second: u64
+pub vc_interfaces::IntervalRow::test_id: alloc::string::String
+impl core::clone::Clone for vc_interfaces::IntervalRow
+pub fn vc_interfaces::IntervalRow::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::IntervalRow
+impl core::cmp::PartialEq for vc_interfaces::IntervalRow
+pub fn vc_interfaces::IntervalRow::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::IntervalRow
+pub fn vc_interfaces::IntervalRow::default() -> Self
+impl core::fmt::Debug for vc_interfaces::IntervalRow
+pub fn vc_interfaces::IntervalRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::IntervalRow
 #[non_exhaustive] pub struct vc_interfaces::KeychainError
 pub vc_interfaces::KeychainError::reason: alloc::string::String
 impl vc_interfaces::KeychainError

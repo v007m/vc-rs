@@ -1,7 +1,9 @@
 //! The shapes the `json` reporter and the run snapshot share, built from events and names.
 
 use serde_json::{Value, json};
-use vc_model::{ActionOutcome, CheckResult, CleanupRecord, Exchange, Failure, Origin, OwnerKey, RunStatus, Totals};
+use vc_model::{
+    ActionOutcome, CheckResult, CleanupRecord, Event, Exchange, Failure, Origin, OwnerKey, RunStatus, Totals,
+};
 
 use crate::collect::StepRecord;
 use crate::names::{self, Names};
@@ -105,6 +107,22 @@ pub const fn run_status(status: RunStatus) -> &'static str {
         RunStatus::Failed => "failed",
         RunStatus::Cancelled => "cancelled",
     }
+}
+
+/// A load run's second as the live view shows it; any other event is empty.
+pub fn tick(event: &Event) -> Value {
+    let Event::LoadTick { second, users, rps, p50, p95, p99, errors, breaching } = event else { return json!({}) };
+    let ms = |latency: &std::time::Duration| latency.as_secs_f64() * 1000.0;
+    json!({
+        "second": second,
+        "users": users,
+        "rps": rps,
+        "p50Ms": ms(p50),
+        "p95Ms": ms(p95),
+        "p99Ms": ms(p99),
+        "errors": errors,
+        "breaching": breaching,
+    })
 }
 
 #[cfg(test)]

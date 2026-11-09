@@ -14,8 +14,8 @@
 //! policy and, when it asks, the approval queue ([`Engine::policy_check`], [`Engine::admit`],
 //! [`Engine::approvals_list`], [`Engine::approvals_decide`]); an agent's `vc call`, run and
 //! definition write are gated so ([`Engine::write_definition`]).
-//! Load is a stub that says it is not built yet ([`Engine::load`]). The model and diagnostics
-//! types apps need are re-exported here (D108).
+//! A load scenario runs its stages and judges its thresholds ([`Engine::load`]). The model and
+//! diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
 //! use vc_engine::Engine;
@@ -52,6 +52,8 @@ mod init;
 mod interrupt;
 mod list;
 mod load;
+mod load_live;
+mod load_report;
 mod plan;
 mod policy;
 mod ports;
@@ -99,7 +101,7 @@ pub use import::ImportRequest;
 pub use init::INIT_FOLDERS;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
-pub use load::{LoadReport, LoadRequest};
+pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadWatch};
 pub use plan::PlanReport;
 pub use policy::{AgentCall, Permission};
 pub use request::{
@@ -114,4 +116,4 @@ pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
 pub use vc_interfaces::{Approval, ApprovalId, ApprovalRequest, ApprovalStatus, Verdict};
-pub use vc_model::{FileKind, Method, SourceFiles, SourcePath};
+pub use vc_model::{Event, FileKind, Method, SourceFiles, SourcePath};

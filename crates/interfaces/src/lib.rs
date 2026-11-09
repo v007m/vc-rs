@@ -85,8 +85,8 @@ pub use environment::Environment;
 pub use fetch::{FetchError, SpecFetcher, resolve_reference};
 pub use filter::SourceFilter;
 pub use history::{
-    CheckRow, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart,
-    TestRow, TimingRow,
+    CheckRow, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunId, RunRef, RunRow,
+    RunStart, TestRow, TimingRow,
 };
 pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
 pub use import::{

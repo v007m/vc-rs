@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     ActionId, ActionOutcome, CheckResult, CleanupRecord, Exchange, Failure, FileId, OwnerKey, RunStatus, TestResult,
     Totals,
@@ -101,6 +103,27 @@ pub enum Event {
         status: RunStatus,
         /// Every instance by status.
         totals: Totals,
+    },
+    /// One second of a load run closed: what the live view shows. Its numbers are over the
+    /// rolling window (the last 10 s), the users over the run so far.
+    LoadTick {
+        /// The second of the run that closed, from 1.
+        second: u64,
+        /// The virtual users running.
+        users: u32,
+        /// Iterations per second, rounded.
+        rps: u64,
+        /// The median iteration latency.
+        p50: Duration,
+        /// The 95th percentile latency.
+        p95: Duration,
+        /// The 99th percentile latency.
+        p99: Duration,
+        /// Failed iterations.
+        errors: u64,
+        /// The names of the thresholds failing in the rolling window, such as `p95` or
+        /// `errorRate`; a test's own threshold is `<test>: <metric>`.
+        breaching: Vec<String>,
     },
 }
 

@@ -28,6 +28,7 @@ vc-compiler.workspace = true
 vc-diagnostics.workspace = true
 vc-executor.workspace = true
 vc-interfaces.workspace = true
+vc-loadtest.workspace = true
 vc-model.workspace = true
 vc-parser.workspace = true
 vc-planner.workspace = true

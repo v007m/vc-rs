@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use rusqlite::Connection;
 use tempfile::TempDir;
-use vc_interfaces::{ExchangeRow, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunStart, TestRow};
+use vc_interfaces::{ExchangeRow, HistoryReader, HistoryWriter, IntervalRow, Row, RunEnd, RunId, RunStart, TestRow};
 use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{history_reader_suite, history_writer_suite};
 
@@ -32,6 +32,9 @@ fn passes_the_history_reader_suite() {
     let mut dirs = Vec::new();
     history_reader_suite(&mut || fresh(&mut dirs));
 }
+
+/// A stored load interval: run, test, second, count, errors and histogram.
+type Stored = (i64, String, i64, i64, i64, Vec<u8>);
 
 fn passed(test_id: &str) -> Row {
     Row::Test(TestRow { test_id: test_id.into(), status: Some(TestStatus::Passed), attempts: 1, ..TestRow::default() })
@@ -92,6 +95,26 @@ fn bodies_are_stored_compressed_and_lifecycle_exchanges_belong_to_the_run() {
     assert_eq!(owner, None);
     assert_eq!(writer.prune(vc_model::Keep::Runs(0)).unwrap(), 1);
     assert_eq!(count(&path, "exchanges"), 0, "a pruned run's lifecycle exchanges go with it");
+}
+
+#[test]
+fn a_load_interval_is_stored_with_its_histogram() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("history.db");
+    let writer = SqliteHistory::open(&path).unwrap();
+    let run = writer.begin(&RunStart { kind: "load".into(), ..RunStart::default() }).unwrap();
+    let interval =
+        IntervalRow { test_id: "a.f#browses".into(), second: 3, count: 40, errors: 2, histogram: vec![1, 2, 3] };
+    writer.record(run, vec![Row::Interval(interval)]).unwrap();
+    let end = RunEnd { status: RunStatus::Passed, totals: Totals::default(), finished_ms: 1, snapshot: Vec::new() };
+    writer.finish(run, end).unwrap();
+    let connection = Connection::open(&path).unwrap();
+    let stored: Stored = connection
+        .query_row("SELECT run_id, test_id, second, count, errors, histogram FROM load_intervals", [], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?))
+        })
+        .unwrap();
+    assert_eq!(stored, (run.get().cast_signed(), "a.f#browses".to_owned(), 3, 40, 2, vec![1, 2, 3]));
 }
 
 #[test]

@@ -6,6 +6,7 @@ pub use vc_engine::ApprovalStatus
 pub use vc_engine::Code
 pub use vc_engine::Diagnostics
 pub use vc_engine::DiagnosticsError
+pub use vc_engine::Event
 pub use vc_engine::FileKind
 pub use vc_engine::JsonRenderer
 pub use vc_engine::Method
@@ -108,6 +109,24 @@ impl core::fmt::Debug for vc_engine::ListKind
 pub fn vc_engine::ListKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_engine::ListKind
 impl core::marker::StructuralPartialEq for vc_engine::ListKind
+#[non_exhaustive] pub enum vc_engine::LoadEnding
+pub vc_engine::LoadEnding::Aborted
+pub vc_engine::LoadEnding::Blocked
+pub vc_engine::LoadEnding::Cancelled
+pub vc_engine::LoadEnding::Finished
+impl vc_engine::LoadEnding
+pub const fn vc_engine::LoadEnding::as_str(self) -> &'static str
+impl core::clone::Clone for vc_engine::LoadEnding
+pub fn vc_engine::LoadEnding::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::LoadEnding
+impl core::cmp::PartialEq for vc_engine::LoadEnding
+pub fn vc_engine::LoadEnding::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::LoadEnding
+pub fn vc_engine::LoadEnding::default() -> Self
+impl core::fmt::Debug for vc_engine::LoadEnding
+pub fn vc_engine::LoadEnding::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_engine::LoadEnding
+impl core::marker::StructuralPartialEq for vc_engine::LoadEnding
 pub enum vc_engine::Permission
 pub vc_engine::Permission::Allow
 pub vc_engine::Permission::Ask
@@ -335,7 +354,7 @@ pub fn vc_engine::Engine::init(&self, bool) -> core::result::Result<vc_engine::C
 impl vc_engine::Engine
 pub fn vc_engine::Engine::list(&self, &vc_engine::ListRequest) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
 impl vc_engine::Engine
-pub async fn vc_engine::Engine::load(&self, &vc_engine::LoadRequest) -> core::result::Result<vc_engine::LoadReport, vc_engine::EngineError>
+pub async fn vc_engine::Engine::load(&self, &vc_engine::LoadRequest, vc_engine::LoadWatch) -> core::result::Result<vc_engine::LoadReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::new_api(&self, &vc_engine::NewApi) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -399,6 +418,20 @@ pub fn vc_engine::EngineBuilder::watcher(self, alloc::rcs::arc::Arc<dyn vc_inter
 pub fn vc_engine::EngineBuilder::writer(self, alloc::rcs::arc::Arc<dyn vc_interfaces::source::SourceWriter>) -> Self
 impl core::fmt::Debug for vc_engine::EngineBuilder
 pub fn vc_engine::EngineBuilder::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct vc_engine::ErrorKind
+pub vc_engine::ErrorKind::api: core::option::Option<alloc::string::String>
+pub vc_engine::ErrorKind::count: u64
+pub vc_engine::ErrorKind::status: core::option::Option<u16>
+impl core::clone::Clone for vc_engine::ErrorKind
+pub fn vc_engine::ErrorKind::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::ErrorKind
+impl core::cmp::PartialEq for vc_engine::ErrorKind
+pub fn vc_engine::ErrorKind::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::ErrorKind
+pub fn vc_engine::ErrorKind::default() -> Self
+impl core::fmt::Debug for vc_engine::ErrorKind
+pub fn vc_engine::ErrorKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::ErrorKind
 #[non_exhaustive] pub struct vc_engine::ExplainReport
 pub vc_engine::ExplainReport::notices: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::ExplainReport::text: alloc::string::String
@@ -539,11 +572,42 @@ pub fn vc_engine::Listed::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::Listed
 pub fn vc_engine::Listed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::Listed
+#[non_exhaustive] pub struct vc_engine::LoadBreach
+pub vc_engine::LoadBreach::actual: f64
+pub vc_engine::LoadBreach::metric: alloc::string::String
+pub vc_engine::LoadBreach::test: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vc_engine::LoadBreach
+pub fn vc_engine::LoadBreach::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_engine::LoadBreach
+pub fn vc_engine::LoadBreach::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::LoadBreach
+pub fn vc_engine::LoadBreach::default() -> Self
+impl core::fmt::Debug for vc_engine::LoadBreach
+pub fn vc_engine::LoadBreach::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::LoadBreach
 #[non_exhaustive] pub struct vc_engine::LoadReport
+pub vc_engine::LoadReport::blocked: core::option::Option<alloc::string::String>
+pub vc_engine::LoadReport::breaches: alloc::vec::Vec<vc_engine::LoadBreach>
+pub vc_engine::LoadReport::ending: vc_engine::LoadEnding
+pub vc_engine::LoadReport::error_kinds: alloc::vec::Vec<vc_engine::ErrorKind>
+pub vc_engine::LoadReport::errors: u64
 pub vc_engine::LoadReport::exit: u8
+pub vc_engine::LoadReport::iterations: u64
+pub vc_engine::LoadReport::max_ms: f64
+pub vc_engine::LoadReport::notices: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::LoadReport::p50_ms: f64
+pub vc_engine::LoadReport::p95_ms: f64
+pub vc_engine::LoadReport::p99_ms: f64
+pub vc_engine::LoadReport::rps: f64
+pub vc_engine::LoadReport::run_id: core::option::Option<u64>
+pub vc_engine::LoadReport::scenario: alloc::string::String
+pub vc_engine::LoadReport::seconds: u64
+pub vc_engine::LoadReport::seed: u64
+impl vc_engine::LoadReport
+pub fn vc_engine::LoadReport::json(&self) -> serde_json::value::Value
+pub fn vc_engine::LoadReport::text(&self) -> alloc::string::String
 impl core::clone::Clone for vc_engine::LoadReport
 pub fn vc_engine::LoadReport::clone(&self) -> Self
-impl core::cmp::Eq for vc_engine::LoadReport
 impl core::cmp::PartialEq for vc_engine::LoadReport
 pub fn vc_engine::LoadReport::eq(&self, &Self) -> bool
 impl core::default::Default for vc_engine::LoadReport
@@ -565,6 +629,11 @@ pub fn vc_engine::LoadRequest::default() -> Self
 impl core::fmt::Debug for vc_engine::LoadRequest
 pub fn vc_engine::LoadRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::LoadRequest
+pub struct vc_engine::LoadWatch
+pub vc_engine::LoadWatch::interrupts: vc_engine::Interrupts
+pub vc_engine::LoadWatch::ticks: core::option::Option<tokio::sync::mpsc::bounded::Sender<vc_model::event::Event>>
+impl core::fmt::Debug for vc_engine::LoadWatch
+pub fn vc_engine::LoadWatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct vc_engine::NewApi
 pub vc_engine::NewApi::id: alloc::string::String
 pub vc_engine::NewApi::method: core::option::Option<alloc::string::String>

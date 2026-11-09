@@ -86,3 +86,22 @@ fn encodes_totals_and_run_statuses() {
     assert_eq!(run_status(RunStatus::Failed), "failed");
     assert_eq!(run_status(RunStatus::Cancelled), "cancelled");
 }
+
+#[test]
+fn encodes_a_load_tick_in_milliseconds() {
+    let ms = std::time::Duration::from_micros;
+    let event = Event::LoadTick {
+        second: 4,
+        users: 20,
+        rps: 57,
+        p50: ms(12_500),
+        p95: ms(40_000),
+        p99: ms(81_000),
+        errors: 1,
+        breaching: vec!["p95".to_owned()],
+    };
+    let encoded = json!({"second": 4, "users": 20, "rps": 57, "p50Ms": 12.5, "p95Ms": 40.0, "p99Ms": 81.0,
+        "errors": 1, "breaching": ["p95"]});
+    assert_eq!(tick(&event), encoded);
+    assert_eq!(tick(&Event::RunStarted { files: 1, instances: 1 }), json!({}));
+}

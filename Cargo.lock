@@ -4154,6 +4154,7 @@ dependencies = [
  "vc-diagnostics",
  "vc-executor",
  "vc-interfaces",
+ "vc-loadtest",
  "vc-mock-server",
  "vc-model",
  "vc-parser",
@@ -4213,13 +4214,17 @@ dependencies = [
 name = "vc-loadtest"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "hdrhistogram",
  "indexmap",
  "serde_json",
  "thiserror",
+ "tokio",
  "vc-executor",
+ "vc-interfaces",
  "vc-model",
  "vc-template",
+ "vc-testkit",
 ]
 
 [[package]]

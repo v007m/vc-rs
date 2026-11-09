@@ -43,6 +43,11 @@ impl Interrupts {
         next
     }
 
+    /// How many interrupts have come so far.
+    pub(crate) const fn seen(&self) -> u8 {
+        self.seen
+    }
+
     /// Ready once the third interrupt has come, at once if it came during the run, so the
     /// cleanups still to run are abandoned; never, if every [`Interrupter`] goes first.
     pub(crate) async fn abandoned(&mut self) {

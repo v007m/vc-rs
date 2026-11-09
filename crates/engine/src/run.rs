@@ -235,7 +235,7 @@ fn widen(count: u32) -> usize {
 }
 
 /// An action this build cannot run is the user's to avoid; anything else is a bug.
-fn executor_error(error: &ExecutorError) -> EngineError {
+pub fn executor_error(error: &ExecutorError) -> EngineError {
     match error {
         ExecutorError::NoExecutor { .. } => EngineError::Selection {
             reason: error.to_string(),

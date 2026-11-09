@@ -1,5 +1,5 @@
 use rusqlite::{Connection, Transaction};
-use vc_interfaces::{CheckRow, ExchangeRow, Row, RunEnd, RunId, RunStart, TestRow};
+use vc_interfaces::{CheckRow, ExchangeRow, IntervalRow, Row, RunEnd, RunId, RunStart, TestRow};
 use vc_model::Keep;
 
 use crate::codec::{compress, json, run_status_text, test_status_text};
@@ -37,6 +37,7 @@ pub fn rows(transaction: &Transaction<'_>, run: RunId, rows: &[Row]) -> rusqlite
         match row {
             Row::Test(test) => self::test(transaction, run, test)?,
             Row::Exchange(exchange) => self::exchange(transaction, Owner { run, test: None }, exchange)?,
+            Row::Interval(interval) => self::interval(transaction, run, interval)?,
         }
     }
     Ok(())
@@ -94,6 +95,23 @@ fn test(transaction: &Transaction<'_>, run: RunId, test: &TestRow) -> rusqlite::
     let id = transaction.last_insert_rowid();
     test.checks.iter().try_for_each(|check| self::check(transaction, id, check))?;
     test.exchanges.iter().try_for_each(|exchange| self::exchange(transaction, Owner { run, test: Some(id) }, exchange))
+}
+
+fn interval(transaction: &Transaction<'_>, run: RunId, interval: &IntervalRow) -> rusqlite::Result<()> {
+    transaction
+        .prepare_cached(
+            "INSERT INTO load_intervals (run_id, test_id, second, count, errors, histogram)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        )?
+        .execute((
+            run.get(),
+            &interval.test_id,
+            interval.second.cast_signed(),
+            interval.count.cast_signed(),
+            interval.errors.cast_signed(),
+            &interval.histogram,
+        ))
+        .map(drop)
 }
 
 fn check(transaction: &Transaction<'_>, test: i64, check: &CheckRow) -> rusqlite::Result<()> {

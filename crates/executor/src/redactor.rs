@@ -142,7 +142,8 @@ impl Redactor {
             | Event::FileFinished { .. }
             | Event::ActionStarted { .. }
             | Event::CleanupsAbandoned { .. }
-            | Event::RunFinished { .. }) => unmasked,
+            | Event::RunFinished { .. }
+            | Event::LoadTick { .. }) => unmasked,
         }
     }
 }

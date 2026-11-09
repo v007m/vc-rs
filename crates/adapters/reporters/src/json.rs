@@ -64,6 +64,7 @@ impl JsonReporter {
             Event::RunFinished { status, totals } => {
                 ("runFinished", json!({"status": encode::run_status(*status), "totals": encode::totals(*totals)}))
             }
+            tick @ Event::LoadTick { .. } => ("loadTick", encode::tick(tick)),
         };
         with(json!({"event": kind}), fields)
     }

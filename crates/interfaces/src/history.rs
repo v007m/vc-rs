@@ -198,6 +198,27 @@ pub enum Row {
     Test(TestRow),
     /// An exchange of a lifecycle block, which belongs to no test.
     Exchange(ExchangeRow),
+    /// One second of one test of a load run.
+    Interval(IntervalRow),
+}
+
+/// One second of one test of a load run: its iterations and their latencies.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "history row built and read across crates; every user is in this repo (D160)"
+)]
+pub struct IntervalRow {
+    /// The test's full ID: `checkout.flow#buysOneItem`.
+    pub test_id: String,
+    /// The second of the run the iterations ended in, from 1.
+    pub second: u64,
+    /// How many iterations ended in it.
+    pub count: u64,
+    /// How many of them failed.
+    pub errors: u64,
+    /// Their latencies, as an encoded HDR histogram.
+    pub histogram: Vec<u8>,
 }
 
 /// A test instance's result.

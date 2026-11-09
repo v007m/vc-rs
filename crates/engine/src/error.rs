@@ -133,8 +133,3 @@ impl EngineError {
         matches!(self, Self::Internal { .. })
     }
 }
-
-/// The error for a designed command or method that is not built yet.
-pub fn not_built(feature: &str) -> EngineError {
-    EngineError::NotBuilt { feature: feature.to_owned() }
-}
