@@ -4247,9 +4247,11 @@ dependencies = [
 name = "vc-adapter-plugins"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "blake3",
  "serde_json",
  "tempfile",
+ "tokio",
  "vc-interfaces",
  "vc-testkit",
 ]
