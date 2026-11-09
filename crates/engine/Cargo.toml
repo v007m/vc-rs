@@ -29,6 +29,7 @@ vc-planner.workspace = true
 vc-template.workspace = true
 
 [dev-dependencies]
+async-trait.workspace = true
 criterion.workspace = true
 vc-mock-server.workspace = true
 vc-testkit.workspace = true
@@ -43,6 +44,10 @@ harness = false
 
 [[bench]]
 name = "compile_instructions"
+harness = false
+
+[[bench]]
+name = "request_overhead"
 harness = false
 
 [lints]

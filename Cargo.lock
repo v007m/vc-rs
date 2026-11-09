@@ -3598,6 +3598,7 @@ dependencies = [
 name = "vc-engine"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "criterion",
  "gungraun",
  "serde_json",

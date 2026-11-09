@@ -1242,7 +1242,7 @@ V3204 is new: the skip-reason example that silently lost `see #212` showed that 
 | End to end | `vc` run with `assert_cmd` against the in-repo mock server (`vc-mock-server`, started in-process on port 0 so each test has its own), whose request counter proves the lifecycle guarantees (50 tests sharing a `beforeAll` send 1 request) (D100) | `bench/mock/`, `tests/e2e/` |
 | Interfaces | CLI output snapshots; TUI rendered to a test backend; web UI with Playwright against `vc ui` and the mock server | `apps/*/tests/`, `web/tests/` |
 | Docs | Every YAML block in `docs/design/*.md` is checked: whole files (first line `# <path>`, or the first block under a `### `<path>`` heading) are checked per doc as one project with no errors, except unknown names a doc defines in files it does not show (V2002, V2003, V2004, V2101); other blocks must parse; `yaml skip` opts out | `crates/engine/tests/docs_examples.rs` |
-| Public API | `cargo public-api` snapshots for `vc-model`, `vc-interfaces` and `vc-engine`, from the end of M2 (D117) | each crate |
+| Public API | `cargo public-api` snapshots for `vc-model`, `vc-interfaces` and `vc-engine`, from the end of M2 (D117): `mise run public-api` regenerates them and `mise run public-api:check` fails on drift | `crates/<crate>/public-api.txt` |
 
 ### Performance budgets
 
@@ -1254,7 +1254,10 @@ The compile benches check a 1,000-file project from `vc_testkit::generate_projec
 | --- | --- | --- | --- |
 | `compile_instructions` | `gungraun`, Linux only (valgrind) | `crates/engine/benches` | `ci.yml` job `bench-instructions` on every PR, against a baseline from the base branch; with no baseline it passes with a notice |
 | `compile_wall` (`compile/cold_1000`, `warm_1000`, `changed_1000`) | `criterion` | `crates/engine/benches` | `mise run bench`; nightly |
+| `request_overhead` (`request/overhead`: per request outside the network) | `criterion` | `crates/engine/benches` | `mise run bench`; nightly |
 | `startup` (`startup/version`: `vc --version`) | `criterion` | `crates/apps/cli/benches` | `mise run bench`; nightly |
+
+`request_overhead` runs one test whose `call` step repeats 500 and then 1,000 times, one at a time, against the in-process mock server. The transport is wrapped to time each send. The bench takes the run's time less its transport time, and divides the difference between the two runs by 500, so the run's fixed cost (compile, plan, reports) cancels out.
 
 `scripts/bench-budgets.sh` (`mise run bench:budgets`) holds the criterion medians to the targets below; the nightly `budgets` job runs it and opens an issue, or comments on the open one, on a breach.
 
