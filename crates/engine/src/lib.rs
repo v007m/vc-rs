@@ -57,6 +57,7 @@ mod shown;
 mod skip;
 mod stored;
 mod user;
+mod wanted;
 mod watch;
 
 pub use builder::{Engine, EngineBuilder};

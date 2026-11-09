@@ -142,11 +142,10 @@ fn each_instance_needs_the_shared_actions_it_reads() {
 }
 
 #[test]
-fn a_function_or_command_cannot_be_planned_yet() {
+fn a_function_action_is_planned_like_any_other() {
     let each =
         "name: Hooks\nbeforeEach:\n  - function: hooks/a.ts#reset\ntests:\n  - id: listsAgain\n    call: users#list\n";
     let program = common::project_with(&[("services/users/hooks.test.yaml", each)]);
-    let error = common::try_plan(&program, &common::ids(&["users.hooks"])).unwrap_err();
-    assert!(matches!(error, PlanError::NotSupportedYet { kind: "function", .. }), "{error:?}");
-    assert!(common::try_plan(&program, &common::ids(&["users.crud"])).is_ok(), "only planned actions are checked");
+    let plan = common::try_plan(&program, &common::ids(&["users.hooks"]));
+    assert!(plan.is_ok_and(|plan| plan.files.len() == 1), "a `function:` action no longer stops the plan");
 }

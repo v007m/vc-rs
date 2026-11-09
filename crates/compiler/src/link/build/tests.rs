@@ -94,8 +94,6 @@ fn builds_api_groups_with_their_apis_and_cleanups() {
     assert_eq!(create.save.values.len(), 1);
     let remove = &program.apis[&group.apis[2]];
     assert!(remove.deprecated);
-    assert_eq!(remove.save_on, Matcher::Status(vec![StatusPattern::Code(200), StatusPattern::Code(404)]), "saveOn");
-    assert_eq!(create.save_on, Matcher::Status(vec![StatusPattern::Code(201)]), "D191: its expect.status");
     let header = create.expect.checks.iter().find(|check| check.kind == CheckKind::Header).unwrap();
     assert_eq!(header.target.as_ref().unwrap().segments, [Segment::Key("content-type".into())]);
 }
@@ -109,6 +107,9 @@ fn an_apis_cleanup_calls_another_api_with_its_vars() {
     let ActionKind::Call(target) = cleanup.kind else { panic!("cleanup calls an api") };
     assert_eq!(name(&program, target.sym()), "users#remove");
     assert_eq!(cleanup.vars.values.len(), 1);
+    let remove = &program.apis[&group.apis[2]];
+    assert_eq!(remove.save_on, Matcher::Status(vec![StatusPattern::Code(200), StatusPattern::Code(404)]), "saveOn");
+    assert_eq!(create.save_on, Matcher::Status(vec![StatusPattern::Code(201)]), "D191: its expect.status");
 }
 
 #[test]
@@ -168,7 +169,7 @@ fn step_checks_merge_api_then_test_then_step() {
 
 const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndefaults: {timeout: 5s, concurrency: 4, perHost: 2, headers: {x-d: '1'}}\nafterRun:\n  - function: hooks/a.ts#report\n";
 
-const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
+const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: ../../hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
 
 const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n  - id: reusesTheWait\n    headers: {x-t: '1'}\n    expect: {status: 202}\n    steps:\n      - test: waitsForOrder\n        expect: {size: {lt: 1kb}}\n      - function: hooks/a.ts#check\n";
 
@@ -204,7 +205,8 @@ fn reads_request_hooks_and_file_bodies() {
     let [sign] = &group.hooks.before_request[..] else { panic!("one file hook") };
     assert_eq!((sign.file.as_str(), sign.export.as_str()), ("hooks/a.ts", "sign"));
     let (upload, mixed) = (&program.apis[&group.apis[0]], &program.apis[&group.apis[1]]);
-    assert_eq!(upload.hooks.after_response.len(), 1);
+    let [log] = &upload.hooks.after_response[..] else { panic!("one api hook") };
+    assert_eq!(log.file, "services/orders/hooks/a.ts", "a hook path is relative to the file holding it");
     assert!(matches!(upload.body, BodySpec::File(_)));
     assert_eq!(upload.save_on, Matcher::Status(vec![StatusPattern::Class(2)]), "D191: 2xx when no status is expected");
     assert!(matches!(mixed.body, BodySpec::Json(_)), "a `$file` map with other keys is JSON");

@@ -87,7 +87,11 @@ impl Engine {
         let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment))
             .with_secrets(secrets)
             .with_started_at(self.clock.now_ms());
-        let cx = Arc::new(ActionCx::new(Arc::clone(&prepared.program), self.executors(&prepared)?, inputs));
+        let cx = Arc::new(ActionCx::new(
+            Arc::clone(&prepared.program),
+            self.executors(&prepared, self.hook_runner(&prepared.program))?,
+            inputs,
+        ));
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
         let count = cleared.len();
         Ok((count, Cleaner::new(&cx).clean(cleared).await))

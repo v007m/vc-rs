@@ -217,9 +217,11 @@ shape! {
 }
 
 shape! {
-    redact_rule = Shape::new("redactRule", "One masking rule; write `regex` or `cel`", &[
+    redact_rule = Shape::new("redactRule", "One masking rule; write `regex`, `cel` or `function`", &[
         types::key("regex", Ty::Text).doc("Masks every match in any text").example("\"\\d{3}-\\d{2}-\\d{4}\""),
         types::key("cel", Ty::Cel).scope(Scope::FOR_EACH)
             .doc("Masks a JSON field when true; `item.name` and `item.value` are the field").example("item.name == 'ssn'"),
+        types::key("function", Ty::Ref).doc("`path#export` of a hook that masks texts and fields")
+            .example("hooks/redact.ts#maskCards"),
     ])
 }

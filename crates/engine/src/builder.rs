@@ -6,7 +6,7 @@ use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
     CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, FileWatcher, HistoryReader, HistoryWriter,
-    Keychain, SourceFilter, SourceProvider, SourceWriter, Transport, Vcs,
+    HookRunner, Keychain, SourceFilter, SourceProvider, SourceWriter, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -23,6 +23,7 @@ pub struct EngineBuilder {
     transport: Option<Arc<dyn Transport>>,
     vcs: Option<Arc<dyn Vcs>>,
     commands: Option<Arc<dyn CommandRunner>>,
+    hooks: Option<Arc<dyn HookRunner>>,
     user_config: Option<PathBuf>,
     history: Option<HistoryPorts>,
     keychain: Option<Arc<dyn Keychain>>,
@@ -47,6 +48,7 @@ impl EngineBuilder {
             transport: None,
             vcs: None,
             commands: None,
+            hooks: None,
             user_config: None,
             history: None,
             keychain: None,
@@ -126,6 +128,13 @@ impl EngineBuilder {
         self
     }
 
+    /// Runs hooks with `hooks` instead of `QuickJS`.
+    #[must_use]
+    pub fn hooks(mut self, hooks: Arc<dyn HookRunner>) -> Self {
+        self.hooks = Some(hooks);
+        self
+    }
+
     /// Reads the user config from `path` instead of `~/.config/vibranium/config.yaml`.
     #[must_use]
     pub fn user_config(mut self, path: PathBuf) -> Self {
@@ -179,7 +188,8 @@ impl EngineBuilder {
         let clock = self.clock.unwrap_or_else(|| Arc::new(SystemClock));
         let vcs = self.vcs.unwrap_or_else(|| Arc::new(GitVcs::new(&self.root)));
         let commands = self.commands.unwrap_or_else(|| Arc::new(ProcessRunner::new()));
-        let (environment, transport, user_config) = (self.environment, self.transport, self.user_config);
+        let (environment, transport, hooks, user_config) =
+            (self.environment, self.transport, self.hooks, self.user_config);
         let (history, history_reader) = self.history.unzip();
         let keychain =
             self.keychain.or_else(|| OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>));
@@ -195,6 +205,7 @@ impl EngineBuilder {
             transport,
             vcs,
             commands,
+            hooks,
             user_config,
             history,
             history_reader,
@@ -223,6 +234,7 @@ pub struct Engine {
     pub(crate) transport: Option<Arc<dyn Transport>>,
     pub(crate) vcs: Arc<dyn Vcs>,
     pub(crate) commands: Arc<dyn CommandRunner>,
+    pub(crate) hooks: Option<Arc<dyn HookRunner>>,
     pub(crate) user_config: Option<PathBuf>,
     pub(crate) history: Option<Arc<dyn HistoryWriter>>,
     pub(crate) history_reader: Option<Arc<dyn HistoryReader>>,

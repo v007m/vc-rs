@@ -46,6 +46,11 @@ pub struct Compiled {
     /// outside one only while its canonical path stays under its root, else V1012) and compiles
     /// again with them; until then their rows are unchecked and read at run time.
     pub data_wanted: Vec<DataWanted>,
+    /// The hook files the project's `function:` references reach, directly or through relative
+    /// imports, that were not in [`CompileInput::files`] (D172). The engine reads them and
+    /// compiles again with them, until none is wanted; until then their exports are unchecked
+    /// and [`Program::hooks`] lacks them.
+    pub hooks_wanted: Vec<SourcePath>,
 }
 
 /// Compiles `input` into a program, or into the diagnostics that stop one.
@@ -72,8 +77,9 @@ pub fn compile(input: CompileInput) -> Compiled {
     };
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
-    let (program, data_wanted) = (linked.program, linked.data_wanted);
-    Compiled { program, diagnostics, files, cache: CompileCache::of(entries, strings), data_wanted }
+    let (program, data_wanted, hooks_wanted) = (linked.program, linked.data_wanted, linked.hooks_wanted);
+    let cache = CompileCache::of(entries, strings);
+    Compiled { program, diagnostics, files, cache, data_wanted, hooks_wanted }
 }
 
 /// Runs the per-file stages over every file the previous cache does not hold.

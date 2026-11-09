@@ -6,7 +6,7 @@ use tokio::time;
 use tokio::time::Instant;
 use vc_diagnostics::Code;
 use vc_model::{
-    ActionId, ActionKind, Event, Feed, HookRef, OwnerKey, Plan, PlannedAction, Retry, RunStatus, TestResult,
+    ActionId, ActionKind, Event, Feed, OwnerKey, Plan, PlannedAction, Retry, RunStatus, Template, TestResult,
     TestStatus, Totals,
 };
 
@@ -231,8 +231,8 @@ async fn run_lifecycle_actions_run_once_and_their_cleanups_run_last() {
 #[tokio::test]
 async fn a_plan_that_reaches_what_this_build_cannot_run_does_not_start() {
     let mut fixture = Fixture::new();
-    let hook = fixture.action(ActionKind::Function(HookRef { file: "hooks.ts".into(), export: "seed".into() }));
-    let test = fixture.test(vec![hook], None);
+    let command = fixture.action(ActionKind::Command(Template { parts: vec![] }));
+    let test = fixture.test(vec![command], None);
     let plan = fixture.plan(&[], &[(test, 1)]);
     let mut unknown = plan.clone();
     let mut stranger = Fixture::new();
@@ -241,7 +241,7 @@ async fn a_plan_that_reaches_what_this_build_cannot_run_does_not_start() {
     unknown.files[0].instances[0].test = other;
     let (executor, sent) = executor(fixture, RunOptions::default());
     let rejected = executor.start(Arc::new(plan), EventBus::spawn()).map(|_| ());
-    assert_eq!(rejected, Err(ExecutorError::NoExecutor { action: hook, kind: ActionKindTag::Function }));
+    assert_eq!(rejected, Err(ExecutorError::NoExecutor { action: command, kind: ActionKindTag::Command }));
     let missing = executor.start(Arc::new(unknown), EventBus::spawn()).map(|_| ());
     assert_eq!(missing, Err(ExecutorError::UnknownTest(other)));
     assert_eq!(sent.counts().len(), 0);
@@ -276,6 +276,28 @@ async fn each_check_is_reported_before_its_action_finishes() {
     assert!(checked.is_some() && checked < finished, "{:#?}", outcome.events);
     let code = outcome.results()[0].failure.as_ref().and_then(|failure| failure.code.clone());
     assert_eq!(code, Some(Code::V5101.to_string()));
+}
+
+#[tokio::test(start_paused = true)]
+async fn reading_a_value_a_reused_test_left_undeclared_warns_and_the_run_goes_on() {
+    let mut fixture = Fixture::new();
+    let seed = fixture.call("/seed");
+    fixture.action_mut(seed).save.values = fixture.vars(&[("token", "t")]);
+    let inner = fixture.test(vec![seed], None);
+    let reuse = fixture.action(ActionKind::Test(inner));
+    let read = fixture.call("/users");
+    fixture.api_mut(read).path = fixture.template("/users/${var.token}");
+    let test = fixture.test(vec![reuse, read], None);
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
+    let warned: Vec<_> = (outcome.events.iter())
+        .filter_map(|event| match event {
+            Event::Warned { action, warning, .. } => Some((*action, warning.action, warning.code.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(warned, [(read, Some(reuse), Some(Code::V5108.to_string()))]);
+    assert_eq!((outcome.summary.totals, outcome.sent("/users/t")), (totals([1, 0, 0, 0, 0]), 1));
 }
 
 #[tokio::test(start_paused = true)]

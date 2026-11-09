@@ -1,7 +1,6 @@
 //! Why a plan could not be made.
 
 use vc_diagnostics::Diagnostic;
-use vc_model::ActionId;
 
 /// Why [`plan`](crate::plan) refused a selection or a program.
 ///
@@ -53,14 +52,6 @@ pub enum PlanError {
         /// The test's full ID.
         test: String,
     },
-    /// A planned action has a kind this milestone cannot run yet.
-    #[error("`{kind}:` actions are not supported yet")]
-    NotSupportedYet {
-        /// The action kind's YAML key: `function` or `command`.
-        kind: &'static str,
-        /// The action.
-        action: ActionId,
-    },
 }
 
 impl PlanError {
@@ -75,7 +66,6 @@ impl PlanError {
             Self::BadTagExpr { .. } => {
                 Some("`,` means or, `&` means and, `!` excludes: `smoke,checkout & !slow`".into())
             }
-            Self::NotSupportedYet { .. } => Some("`function:` actions arrive in M4".into()),
             Self::Diagnostics(_) | Self::BadGlob { .. } | Self::RowsNotLoaded { .. } => None,
         }
     }
@@ -83,12 +73,10 @@ impl PlanError {
 
 #[cfg(test)]
 mod tests {
-    use vc_model::ActionId;
-
     use super::PlanError;
 
     #[test]
-    fn help_suggests_the_closest_id_and_names_the_milestone() {
+    fn help_suggests_the_closest_id() {
         let unknown = PlanError::UnknownSelector {
             selector: "users.crd".into(),
             items: "test",
@@ -97,9 +85,6 @@ mod tests {
         assert_eq!(unknown.help().as_deref(), Some("did you mean `users.crud`?"));
         let none = PlanError::UnknownSelector { selector: "zzz".into(), items: "test", suggestions: Vec::new() };
         assert_eq!(none.help(), None);
-        let m4 = PlanError::NotSupportedYet { kind: "function", action: ActionId::new(0) };
-        assert_eq!(m4.to_string(), "`function:` actions are not supported yet");
-        assert!(m4.help().is_some_and(|help| help.contains("M4")));
         let row = PlanError::NoSuchInstance { selector: "a.b#c:4".into(), count: 3 };
         assert_eq!(row.help().as_deref(), Some("pick an instance from 1 to 3"));
         assert!(PlanError::BadTagExpr { expr: "!".into(), reason: "empty".into() }.help().is_some());

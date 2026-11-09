@@ -13,6 +13,7 @@ serde_json.workspace = true
 similar.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+vc-adapter-hooks.workspace = true
 vc-adapter-http.workspace = true
 vc-adapter-reporters.workspace = true
 vc-adapter-secrets.workspace = true

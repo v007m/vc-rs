@@ -1,0 +1,11 @@
+beforeAll:
+  - id: seed
+    function: ../../hooks/seed.ts#seedOrders
+    provides: [orderId]
+tests:
+  - id: listsSortedOrders
+    call: orders#listOrders
+    expect:
+      status: 200
+      custom:
+        - function: ../../hooks/checks.ts#isSorted

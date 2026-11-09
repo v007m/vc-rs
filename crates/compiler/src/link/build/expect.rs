@@ -90,7 +90,8 @@ impl Reader<'_, '_> {
     fn custom(&mut self, node: Option<&Node>) {
         for item in node.map(Node::items).unwrap_or_default() {
             let Some(function) = project::text(item, "function") else { continue };
-            let target = Some(Path { segments: vec![key(function)] });
+            let hook = read::hook(self.source, function);
+            let target = Some(Path { segments: vec![key(&format!("{}#{}", hook.file, hook.export))] });
             self.push((CheckKind::Custom, target), Matcher::Equals(TemplateValue::Bool(true)), item.span);
         }
     }

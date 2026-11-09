@@ -342,10 +342,7 @@ fn cel_and_custom_checks_fail_with_their_own_codes() {
     assert_eq!(codes, ["V5102", "V5103", "V5101", "V5102", "V5101"]);
     assert_eq!((results[0].expected.clone(), results[0].actual.clone()), (json!(true), Some(json!(false))));
     let failure = super::verdict(&results[1..]).unwrap();
-    assert_eq!(
-        failure.message,
-        "custom[\"hooks/checks.ts#isSorted\"]: custom checks arrive with the hook bridge in M4"
-    );
+    assert_eq!(failure.message, "custom[\"hooks/checks.ts#isSorted\"]: the custom check's function did not run");
     assert!(results[4].error.as_deref().is_some_and(|error| error.contains("missing")));
 }
 

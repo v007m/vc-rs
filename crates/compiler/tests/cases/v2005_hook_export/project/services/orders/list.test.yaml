@@ -1,0 +1,7 @@
+tests:
+  - id: listsOrders
+    call: orders#listOrders
+    expect:
+      custom:
+        - function: "../../hooks/sign.ts#"
+        - function: ../../hooks/types.ts#Shape

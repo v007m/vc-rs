@@ -7,9 +7,10 @@
 //! each action kind runs through the [`ActionExecutors`] registry.
 //!
 //! So far: the request pipeline (D141), `tower` services around the [`vc_interfaces::Transport`]
-//! built by [`pipeline`]: timing, retry ([`HttpRetryPolicy`], D143), auth and `beforeRequest` hooks
-//! ([`RequestStage`], null objects until M3 and M4), the per-host limit ([`HostLimits`]) and the
-//! per-attempt timeout. Runtime values: [`RunValues`] holds the var definitions of each level with
+//! built by [`pipeline`]: timing, retry ([`HttpRetryPolicy`], D143), auth (a [`RequestStage`] null
+//! object until M3), each api's `beforeRequest` hooks, the per-host limit ([`HostLimits`]) and the
+//! per-attempt timeout. Hooks, custom checks and `function:` actions ([`FunctionExecutor`]) run
+//! through the [`vc_interfaces::HookRunner`] in [`PipelineParts::hook_runner`] (D172). Runtime values: [`RunValues`] holds the var definitions of each level with
 //! the active profiles applied once per run; each action reads its [`Frame`] and renders through
 //! a renderer, so a `call:` sends the real request and saves values for later actions.
 
@@ -32,7 +33,7 @@ mod values;
 
 pub use action::{
     ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, AuthKey, CachedExecutor, CallExecutor,
-    CommandExecutor, InlineExecutor, NoAuth, TestExecutor, TokenCache, body_actions,
+    CommandExecutor, FunctionExecutor, InlineExecutor, NoAuth, TestExecutor, TokenCache, body_actions,
 };
 pub use bus::EventBus;
 pub use error::ExecutorError;

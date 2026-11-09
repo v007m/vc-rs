@@ -1,0 +1,91 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2005_hook_export/project
+---
+{
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2005",
+      "severity": "error",
+      "message": "the reference to ../../hooks/sign.ts names no function after the `#`",
+      "primary": {
+        "span": {
+          "path": "services/orders/list.test.yaml",
+          "line": 6,
+          "column": 21,
+          "endLine": 6,
+          "endColumn": 43
+        },
+        "text": "not exported"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "name one after a `#`: `sign`, `verify`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2005",
+      "severity": "error",
+      "message": "../../hooks/types.ts exports no function `Shape`",
+      "primary": {
+        "span": {
+          "path": "services/orders/list.test.yaml",
+          "line": 7,
+          "column": 21,
+          "endLine": 7,
+          "endColumn": 47
+        },
+        "text": "not exported"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "../../hooks/types.ts has no value exports; export the function: `export function …`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2005",
+      "severity": "error",
+      "message": "../../hooks/sign.ts exports no function `sing`",
+      "primary": {
+        "span": {
+          "path": "services/orders/orders.api.yaml",
+          "line": 2,
+          "column": 15,
+          "endLine": 2,
+          "endColumn": 39
+        },
+        "text": "not exported"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `sign`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with sign",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/orders/orders.api.yaml",
+              "range": {
+                "start": 49,
+                "end": 53
+              },
+              "newText": "sign"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

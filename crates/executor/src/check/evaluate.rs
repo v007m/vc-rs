@@ -75,7 +75,7 @@ fn outcome(judge: &Judge<'_>, check: &Check, subject: Subject<'_>) -> Outcome {
         CheckKind::Size => matched(judge, check, Some(Value::from(subject.size))),
         CheckKind::Cel => cel(judge, &check.matcher),
         CheckKind::Schema => pending("JSON Schema checks arrive in a later milestone", Code::V5101),
-        CheckKind::Custom => pending("custom checks arrive with the hook bridge in M4", Code::V5103),
+        CheckKind::Custom => pending("the custom check's function did not run", Code::V5103),
     }
 }
 

@@ -3,6 +3,7 @@
 
 use vc_model::{
     Action, ActionKind, ApiId, AuthRef, BodySpec, CacheSpec, Expect, Origin, Owner, Poll, SaveSpec, TestId, VarDefs,
+    VarName,
 };
 use vc_parser::Node;
 
@@ -60,6 +61,7 @@ impl<'a> Build<'_, 'a> {
             poll: poll.and_then(|poll| poll_of(source, poll, origin)),
             retry: read::retry(source, node).filter(|_| place.test.is_none()),
             keep: read::flag(shapes::action(), node, "keep"),
+            provides: self.provides(node)?,
             cache,
             repeat: self.looping(source, node).filter(|_| place.test.is_none()),
             span: node.span,
@@ -75,7 +77,7 @@ impl<'a> Build<'_, 'a> {
             return Ok(Some(ActionKind::Test(TestId::new(self.sym(&source.resolve(test))?))));
         }
         if let Some(function) = project::text(node, "function") {
-            return Ok(Some(ActionKind::Function(read::hook(function))));
+            return Ok(Some(ActionKind::Function(read::hook(source, function))));
         }
         if let Some(request) = auth::inline(source, node) {
             return Ok(Some(ActionKind::Inline(Box::new(request))));
@@ -130,6 +132,12 @@ impl<'a> Build<'_, 'a> {
         let test = defaults.map(|(id, test)| expect::read(source, test.get("expect"), Origin::Test(id)));
         let empty = Expect::default();
         expect::merge(&[api.unwrap_or(&empty), test.as_ref().unwrap_or(&empty), &own])
+    }
+
+    /// `provides`: the names the action says it saves (D128).
+    fn provides(&mut self, node: &Node) -> Built<Vec<VarName>> {
+        let names = project::list(node, "provides").iter().filter_map(Node::as_str);
+        names.map(|name| Ok(VarName::new(self.sym(name)?))).collect()
     }
 }
 

@@ -64,6 +64,19 @@ impl Level {
             Self::Given(_) | Self::Saved(_) | Self::File(_) | Self::Run(_) => None,
         }
     }
+
+    fn saved(&self) -> Option<&Saved> {
+        match self {
+            Self::Given(saved) | Self::Saved(saved) => Some(saved),
+            Self::Call(_)
+            | Self::TestFile(_)
+            | Self::Api(_)
+            | Self::ApiFile(_)
+            | Self::Config(_)
+            | Self::File(_)
+            | Self::Run(_) => None,
+        }
+    }
 }
 
 /// The saves of the shared action whose id is `name`, as one object.
@@ -126,6 +139,20 @@ impl Scope {
         names.sort_unstable();
         names.dedup();
         names
+    }
+
+    /// Every name a level defines or holds a saved value for, sorted, once each.
+    pub fn names(&self) -> Vec<String> {
+        let mut names = self.defined_names();
+        names.extend(self.levels.iter().filter_map(Level::saved).flat_map(|saved| saved.keys().cloned()));
+        names.sort_unstable();
+        names.dedup();
+        names
+    }
+
+    /// Whether the level at `at` holds the values saved earlier in the test instance.
+    pub fn is_saved(&self, at: usize) -> bool {
+        matches!(self.levels.get(at), Some(Level::Saved(_)))
     }
 
     /// The first level from `from` on that has `name`, with its position.

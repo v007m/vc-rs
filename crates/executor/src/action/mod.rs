@@ -5,9 +5,13 @@ mod auth;
 mod cached;
 mod call;
 mod command;
+mod flight;
+mod function;
+mod hooks;
 mod http_retry;
 mod inline;
 mod looping;
+mod provides;
 mod request;
 mod reuse;
 
@@ -25,6 +29,7 @@ pub use auth::{AuthKey, NoAuth, TokenCache};
 pub use cached::CachedExecutor;
 pub use call::CallExecutor;
 pub use command::CommandExecutor;
+pub use function::FunctionExecutor;
 pub use inline::InlineExecutor;
 pub use reuse::{TestExecutor, body_actions};
 
@@ -200,14 +205,16 @@ impl ActionExecutors {
     }
 
     /// `call:` and inline requests through the request pipeline built from `parts`, and `test:`
-    /// reuse, both through the cross-run cache ([`CachedExecutor`]). `command:` needs a runner, so the engine adds a [`CommandExecutor`]; `function:`
-    /// is registered in M4.
+    /// reuse, both through the cross-run cache ([`CachedExecutor`]), and `function:` through the
+    /// parts' hook runner. `command:` needs a runner, so the engine adds a [`CommandExecutor`].
     #[must_use]
     pub fn standard(parts: PipelineParts) -> Self {
+        let functions = FunctionExecutor::new(parts.hook_runner.clone());
         Self::new()
             .with(ActionKindTag::Inline, Arc::new(InlineExecutor::new(parts.clone())))
             .with(ActionKindTag::Call, Arc::new(CachedExecutor::new(Arc::new(CallExecutor::new(parts)))))
             .with(ActionKindTag::Test, Arc::new(CachedExecutor::new(Arc::new(TestExecutor))))
+            .with(ActionKindTag::Function, Arc::new(functions))
     }
 
     /// The registry with `executor` running actions of `kind`.

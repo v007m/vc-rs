@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 
 use crate::{
     ApiId, AuthRef, BodySpec, CacheSpec, Duration, Examples, Expect, FileId, HookRef, Lifecycle, Loop, Method, Owner,
-    Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs,
+    Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs, VarName,
 };
 
 /// One test file: what its tests share.
@@ -115,12 +115,40 @@ pub struct Action {
     pub retry: Option<Retry>,
     /// `keep`: skip the api's cleanup.
     pub keep: bool,
+    /// `provides`: the names a `function:` or `test:` action says it saves (D128).
+    pub provides: Vec<VarName>,
     /// `cache`.
     pub cache: Option<CacheSpec>,
     /// `repeat` or `forEach`.
     pub repeat: Option<Loop>,
     /// The whole entry.
     pub span: SourceSpan,
+}
+
+impl Action {
+    /// An action of `kind` written at `span`, run by its instance, with nothing else set.
+    #[must_use]
+    pub fn new(kind: ActionKind, span: SourceSpan) -> Self {
+        Self {
+            id: None,
+            kind,
+            owner: Owner::Instance,
+            vars: VarDefs::default(),
+            auth: None,
+            headers: IndexMap::new(),
+            query: IndexMap::new(),
+            body: None,
+            expect: Expect::default(),
+            save: SaveSpec::default(),
+            poll: None,
+            retry: None,
+            keep: false,
+            provides: Vec::new(),
+            cache: None,
+            repeat: None,
+            span,
+        }
+    }
 }
 
 /// The kinds of action.

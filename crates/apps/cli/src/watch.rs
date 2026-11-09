@@ -4,8 +4,8 @@ use std::sync::mpsc::Receiver;
 use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
 use vc_engine::{Engine, RunRequest, SourcePath};
 
-use crate::{Outcome, outcome, project};
 use crate::run::{self, RunArgs};
+use crate::{Outcome, outcome, project};
 
 /// The exit code of a watch ended with Ctrl-C (D127).
 const CANCELLED: u8 = 130;
@@ -67,7 +67,11 @@ impl Inbox {
 }
 
 /// Runs, then runs again on each save, until Ctrl-C.
-async fn watch(engine: &Engine, mut request: RunRequest, batches: Receiver<Vec<SourcePath>>) -> anyhow::Result<Outcome> {
+async fn watch(
+    engine: &Engine,
+    mut request: RunRequest,
+    batches: Receiver<Vec<SourcePath>>,
+) -> anyhow::Result<Outcome> {
     let mut inbox = Inbox::new(batches);
     loop {
         match run::execute(engine, &request, &mut inbox.stops).await {

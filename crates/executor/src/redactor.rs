@@ -130,6 +130,9 @@ impl Redactor {
                 let exchange = Box::new(crate::exchange_mask::exchange(&masking, *exchange).await);
                 Event::Exchanged { action, owner, exchange }
             }
+            Event::Warned { action, owner, warning } => {
+                Event::Warned { action, owner, warning: failed(&masking, warning).await }
+            }
             Event::CleanupFinished { mut cleanup } => {
                 cleanup.outcome = outcome_masked(&masking, cleanup.outcome).await;
                 Event::CleanupFinished { cleanup }

@@ -9,7 +9,7 @@ use crate::stage::FileUnit;
 const MAGIC: &[u8; 4] = b"VCCC";
 
 /// The layout version; a blob with any other version is ignored.
-const VERSION: u32 = 9;
+const VERSION: u32 = 11;
 
 /// The compiler release that wrote a blob; a blob from another release is ignored, so a check
 /// added or fixed in a new release is not hidden by units an older compiler kept.

@@ -18,11 +18,8 @@ use std::path::PathBuf;
 use support::Outcome;
 use vc_diagnostics::{Code, Diagnostics, Severity};
 
-/// The languages an example block may be written in: `dotenv` is `.env.schema`'s.
-const LANGUAGES: [&str; 3] = ["yaml", "json", "dotenv"];
-
-/// V2005 (hook export not found) is linked with hooks in M4; its page lands then.
-const LATER: [Code; 1] = [Code::V2005];
+/// The languages an example block may be written in: `ts` is a hook's, `dotenv` is `.env.schema`'s.
+const LANGUAGES: [&str; 4] = ["yaml", "json", "ts", "dotenv"];
 
 fn page_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../diagnostics/explain")
@@ -34,7 +31,7 @@ fn page(code: Code) -> Outcome<String> {
 
 /// Every code with a page.
 fn paged() -> impl Iterator<Item = Code> {
-    Code::ALL.iter().copied().filter(|code| !LATER.contains(code))
+    Code::ALL.iter().copied()
 }
 
 /// The codes whose examples `check` can confirm.

@@ -79,6 +79,17 @@ async fn shows_abandoned_cleanups_and_lifecycle_failures() {
 }
 
 #[tokio::test]
+async fn shows_a_warning_with_its_code_as_it_happens() {
+    let (mut reporter, captured, _) = spec(Color::Plain);
+    let warning = vc_model::Failure::new("`var.token` was saved\u{1b}[2J undeclared").with_code("V5108");
+    let warned = Event::Warned { action: ActionId::new(0), owner: OwnerKey::Run, warning };
+    reporter.on_event(&warned).await.unwrap();
+    let printed = captured.take().0;
+    assert!(!printed.contains('\u{1b}'), "{printed:?}");
+    assert!(printed.starts_with("! V5108: `var.token` was saved"), "{printed:?}");
+}
+
+#[tokio::test]
 async fn sums_up_cancelled_runs_and_any_profiles() {
     let totals = Totals { passed: 3, ..Totals::default() };
     let cancelled = RunSummary::new(RunStatus::Cancelled, totals).timed(0, Duration::from_millis(840));

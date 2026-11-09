@@ -1,0 +1,7 @@
+beforeRequest:
+  - function: ../../hooks/sign.ts#sign
+  - function: ../../hooks/sign.cjs#sign
+  - function: ../../hook/sign.ts#sign
+apis:
+  - id: listOrders
+    path: /orders

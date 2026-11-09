@@ -2,6 +2,7 @@
 //! the scope a `${var.x}` lookup walks and the renderer that answers references.
 
 mod frame;
+mod reads;
 mod render;
 mod run;
 mod scope;

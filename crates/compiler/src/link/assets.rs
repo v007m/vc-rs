@@ -5,6 +5,7 @@
 use std::collections::BTreeSet;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
+pub use vc_model::resolve_path as resolve;
 use vc_model::{SourceFileId, SourceFiles, SourcePath};
 use vc_parser::{Node, Value};
 
@@ -15,17 +16,16 @@ use crate::suggest;
 const MAX_SUGGESTIONS: usize = 3;
 
 /// The project's files, and the folder of the file being checked.
-struct Known<'k> {
-    paths: BTreeSet<&'k str>,
-    folder: Vec<&'k str>,
+pub struct Known<'k> {
+    pub paths: BTreeSet<&'k str>,
+    pub folder: Vec<&'k str>,
+    /// What the paths are, for the help: "`$file` paths".
+    pub what: &'static str,
 }
 
 /// Checks every `$file` path against the definition files and `assets`.
 pub fn check(project: &Project<'_>, files: &SourceFiles, assets: &BTreeSet<SourcePath>) -> Diagnostics {
-    let mut paths: BTreeSet<&str> = assets.iter().map(SourcePath::as_str).collect();
-    let numbered = (0..).map(SourceFileId::new).map_while(|id| files.get(id));
-    paths.extend(numbered.map(|file| file.path.as_str()));
-    let mut known = Known { paths, folder: Vec::new() };
+    let mut known = Known { paths: paths(files, assets), folder: Vec::new(), what: "`$file` paths" };
     let mut diagnostics = Diagnostics::new();
     for source in &project.sources {
         let Some(file) = files.get(source.file) else { continue };
@@ -35,6 +35,14 @@ pub fn check(project: &Project<'_>, files: &SourceFiles, assets: &BTreeSet<Sourc
         diagnostics.extend(found.into_iter().filter_map(|node| missing(source, node, &known)));
     }
     diagnostics
+}
+
+/// Every path in the project: the assets listed and the files given.
+pub fn paths<'k>(files: &'k SourceFiles, assets: &'k BTreeSet<SourcePath>) -> BTreeSet<&'k str> {
+    let mut paths: BTreeSet<&str> = assets.iter().map(SourcePath::as_str).collect();
+    let numbered = (0..).map(SourceFileId::new).map_while(|id| files.get(id));
+    paths.extend(numbered.map(|file| file.path.as_str()));
+    paths
 }
 
 /// The folders `path` is in, outermost first.
@@ -54,19 +62,6 @@ fn file_refs<'n>(node: &'n Node, found: &mut Vec<&'n Node>) {
         Value::Seq(items) => items.iter().for_each(|item| file_refs(item, found)),
         Value::Scalar(_) => {}
     }
-}
-
-/// The path `written` names from `folder`, or `None` when it leads out of the project.
-pub fn resolve(folder: &[&str], written: &str) -> Option<String> {
-    let mut parts = folder.to_vec();
-    for part in written.split('/').filter(|part| !part.is_empty() && *part != ".") {
-        if part == ".." {
-            parts.pop()?;
-        } else {
-            parts.push(part);
-        }
-    }
-    Some(parts.join("/"))
 }
 
 /// `path` as written from `folder`: `../data/user.json`.
@@ -93,14 +88,18 @@ fn missing(source: &Source<'_>, node: &Node, known: &Known<'_>) -> Option<Diagno
 }
 
 /// The close paths as help, with a certain fix when exactly one is close.
-fn hint(diagnostic: Diagnostic, (source, node, written): (&Source<'_>, &Node, &str), known: &Known<'_>) -> Diagnostic {
+pub fn hint(
+    diagnostic: Diagnostic,
+    (source, node, written): (&Source<'_>, &Node, &str),
+    known: &Known<'_>,
+) -> Diagnostic {
     let candidates: Vec<String> = known.paths.iter().map(|path| relative(&known.folder, path)).collect();
     let mut close = suggest::close(written, candidates.iter().map(String::as_str));
     close.truncate(MAX_SUGGESTIONS);
     match close.as_slice() {
         [] => {
             let place = if known.folder.is_empty() { "the project root".to_owned() } else { known.folder.join("/") };
-            diagnostic.help(format!("`$file` paths are relative to the file that holds them, here {place}"))
+            diagnostic.help(format!("{} are relative to the file that holds them, here {place}", known.what))
         }
         [one] => {
             let diagnostic = diagnostic.help(format!("did you mean `{one}`?"));

@@ -87,6 +87,9 @@ fn redact_rule(source: &Source<'_>, rule: &Node) -> Option<RedactRule> {
     if let Some(regex) = read::owned(rule, "regex") {
         return Some(RedactRule::Regex(regex));
     }
+    if let Some(function) = project::text(rule, "function") {
+        return Some(RedactRule::Function(read::hook(source, function)));
+    }
     match source.piece(rule.get("cel")?)? {
         Piece::Cel(program) => Some(RedactRule::Cel(program.clone())),
         _ => None,

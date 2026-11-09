@@ -133,6 +133,8 @@ pub enum RedactRuleKind {
     Regex,
     /// `cel:`.
     Cel,
+    /// `function:`, a hook (M4, [`MaskRules::with_hooks`]).
+    Function,
 }
 
 impl RedactRuleKind {
@@ -142,6 +144,7 @@ impl RedactRuleKind {
         match rule {
             RedactRule::Regex(_) => Self::Regex,
             RedactRule::Cel(_) => Self::Cel,
+            RedactRule::Function(_) => Self::Function,
         }
     }
 }
@@ -151,7 +154,7 @@ impl RedactRuleKind {
 pub type MaskRuleMaker = Arc<dyn Fn(&RedactRule) -> Option<Arc<dyn MaskRule>> + Send + Sync>;
 
 /// The mask rule makers by kind (a registry filled at start-up). `regex` and `cel` are built
-/// in; a `function:` rule registers its maker here (M4).
+/// in; [`MaskRules::with_hooks`] adds the `function:` maker.
 #[derive(Clone, Default)]
 pub struct MaskRules {
     by_kind: BTreeMap<RedactRuleKind, MaskRuleMaker>,
@@ -169,11 +172,11 @@ impl MaskRules {
     pub fn standard() -> Self {
         let regex: MaskRuleMaker = Arc::new(|rule| match rule {
             RedactRule::Regex(pattern) => Some(Arc::new(RegexRule::new(pattern))),
-            RedactRule::Cel(_) => None,
+            RedactRule::Cel(_) | RedactRule::Function(_) => None,
         });
         let cel: MaskRuleMaker = Arc::new(|rule| match rule {
             RedactRule::Cel(program) => Some(Arc::new(CelRule::new(program))),
-            RedactRule::Regex(_) => None,
+            RedactRule::Regex(_) | RedactRule::Function(_) => None,
         });
         Self::default().with(RedactRuleKind::Regex, regex).with(RedactRuleKind::Cel, cel)
     }

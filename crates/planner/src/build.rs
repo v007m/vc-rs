@@ -1,5 +1,4 @@
-//! `plan`: select, expand, plan the lifecycle and each instance's needs, then refuse what cannot
-//! run yet.
+//! `plan`: select, expand, then plan the lifecycle and each instance's needs.
 
 use std::collections::HashMap;
 
@@ -7,7 +6,7 @@ use vc_model::{Instance, Lifecycle, Needs, Plan, PlannedFile, Program, TestId};
 
 use crate::expand::{Expanded, Expander};
 use crate::needs::Shared;
-use crate::{PlanError, PlanOptions, Selection, select, unsupported};
+use crate::{PlanError, PlanOptions, Selection, select};
 
 /// Plans a run of `selection` over `program`.
 ///
@@ -17,13 +16,11 @@ use crate::{PlanError, PlanOptions, Selection, select, unsupported};
 /// # Errors
 ///
 /// A [`PlanError`] when a selector cannot be read or matches nothing, a `:n` instance does not
-/// exist, preloaded example rows are missing, or a planned action cannot run yet.
+/// exist or preloaded example rows are missing.
 pub fn plan(program: &Program, selection: &Selection, options: &PlanOptions) -> Result<Plan, PlanError> {
     let picked = select::select(program, selection)?;
     let expanded = Expander::new(program, options, selection.include_skipped).expand(&picked)?;
-    let plan = PlanBuilder::new(program).build(expanded);
-    unsupported::check(program, &plan)?;
-    Ok(plan)
+    Ok(PlanBuilder::new(program).build(expanded))
 }
 
 /// Assembles a [`Plan`] from expanded instances: lifecycle blocks only where an instance runs

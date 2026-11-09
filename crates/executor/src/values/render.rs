@@ -8,9 +8,10 @@ use std::sync::Arc;
 use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
 use vc_interfaces::Random;
-use vc_model::{CelProgram, Examples, Namespace, Program, Reference, Segment, Template, TemplateValue};
+use vc_model::{CelProgram, Examples, Failure, Namespace, Program, Reference, Segment, Template, TemplateValue};
 use vc_template::{Activation, CelCompiler, Chance, FakeCx, RenderError, Renderer, Resolve};
 
+use super::reads::Reads;
 use super::run::RunValues;
 use super::scope::{Found, Scope};
 use crate::{ActionRequest, Frame, Redactor, Saved};
@@ -31,6 +32,7 @@ pub struct Render<'a> {
     roots: HashMap<Namespace, Arc<Value>>,
     memo: Saved,
     drawn: Drawn,
+    reads: Reads,
     chance: RandomChance<'a>,
 }
 
@@ -52,6 +54,7 @@ impl<'a> Render<'a> {
             roots: HashMap::new(),
             memo: Saved::clone(&request.frame.fakes),
             drawn: Drawn::new(),
+            reads: Reads::of(&request.frame),
             chance: RandomChance(cx.values.inputs().random.as_ref()),
         };
         let run = json!({ "id": render.values.inputs().run_id, "profiles": render.values.profiles() });
@@ -105,6 +108,22 @@ impl<'a> Render<'a> {
     /// As [`Self::value`].
     pub fn text(&self, template: &Template) -> Result<String, RenderError> {
         Renderer::new(self.values.pipes(), &Lookup { render: self, within: None }).text(template)
+    }
+
+    /// Every var in scope that renders, by name: the `vars` a hook gets.
+    /// They are not reads of undeclared saved values (V5108): the hook may not use them.
+    pub fn hook_vars(&self) -> Value {
+        let rendered = self.scope.names().into_iter().filter_map(|name| {
+            let value = self.var(&name, None).ok()?;
+            Some((name, value))
+        });
+        self.reads.quietly(|| Value::Object(rendered.collect()))
+    }
+
+    /// A V5108 warning for each saved value this render read that a `function:` or `test:`
+    /// action saved without declaring it in `provides` (D186).
+    pub fn warnings(&self) -> Vec<Failure> {
+        self.reads.warnings(self.program)
     }
 
     /// `names` as the action sees them, leaving out any that do not render and the fake ones,
@@ -196,6 +215,9 @@ impl<'a> Render<'a> {
         }
         let found = self.scope.find(self.program, name, from);
         let (level, found) = found.ok_or_else(|| RenderError::missing(format!("`var.{name}` is not set")))?;
+        if self.scope.is_saved(level) {
+            self.reads.note(name);
+        }
         let within = Within { name, level, depth: depth + 1 };
         match found {
             Found::Value(value) => Ok(value),

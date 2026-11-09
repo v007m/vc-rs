@@ -20,6 +20,8 @@ pub const TEST_BLOCKS: [&str; 3] = ["before", "steps", "after"];
 pub struct Source<'a> {
     /// Its number.
     pub file: SourceFileId,
+    /// Its project path.
+    pub path: &'a str,
     /// Its text, for exact spans.
     pub text: &'a str,
     /// Its kind.
@@ -42,7 +44,7 @@ impl<'a> Source<'a> {
         pieces.sort_by_key(|(start, end, _)| (*start, *end));
         let id = (kind != FileKind::Config).then(|| file_id(source.path.as_str(), kind));
         let broken = unit.diagnostics.has_errors();
-        Some(Self { file, text: &source.text, kind, root, id, broken, pieces })
+        Some(Self { file, path: source.path.as_str(), text: &source.text, kind, root, id, broken, pieces })
     }
 
     /// The pieces inside `span`, minus those inside any of `holes`.

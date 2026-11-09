@@ -1,7 +1,7 @@
 //! End-to-end runs of the real `vc` binary against an in-process mock server: lifecycle blocks
 //! and cleanups, retries, polls, loops, the per-host limit, the config layers, `--changed`,
-//! `command:` actions, the report files, `vc call`, `vc explain` and the completion scripts.
-//! Each test gets its own project, home folder and server.
+//! `command:` actions, hooks, computed bodies, the report files, `vc call`, `vc explain` and the
+//! completion scripts. Each test gets its own project, home folder and server.
 
 #![cfg(test)]
 
@@ -13,11 +13,13 @@ mod completion;
 mod demo;
 mod explain;
 mod history;
+mod hooks;
 mod layers;
 mod lifecycle;
 mod redaction;
 mod reports;
 mod scheduling;
+mod values;
 
 #[path = "../common/project.rs"]
 mod project;

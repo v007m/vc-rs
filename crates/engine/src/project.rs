@@ -24,12 +24,13 @@ pub struct Compiled {
 type Valid = (Arc<Program>, Vec<String>);
 
 impl Engine {
-    /// Reads the whole project and compiles it, through the compile cache.
+    /// Reads the whole project and compiles it, through the compile cache, then again with the
+    /// data and hook files the compile wanted ([`Engine::compile_wanted`]).
     ///
     /// The compiler is given today's date from the clock, for expired skips (V3104), and the
     /// project's other files, for `$file` paths (V2004), and `.env.schema`, for the secret names
-    /// (V2106, V2107). A definition file or schema that cannot be read is a V1012 error at its
-    /// path; a cache that cannot be read or written only adds a notice.
+    /// (V2106, V2107). A definition file, wanted file or schema that cannot be read is a V1012
+    /// error at its path; a cache that cannot be read or written only adds a notice.
     pub(crate) fn compiled(&self) -> Result<Compiled, EngineError> {
         self.compiled_with(&[])
     }
@@ -49,12 +50,13 @@ impl Engine {
             assets: Some(found.assets.into_iter().collect()),
             secret_schema,
         };
-        let compiled = vc_compiler::compile(input);
+        let (compiled, unread) = self.compile_wanted(input)?;
         if changes.is_empty() {
             self.save_cache(&compiled.cache, &previous, &mut notices);
         }
         let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
         problems::add_problems(&found.problems, &mut diagnostics, &mut files);
+        problems::add_problems(&unread, &mut diagnostics, &mut files);
         Ok(Compiled { program: compiled.program, diagnostics, files, notices })
     }
 

@@ -65,12 +65,7 @@ impl Crew {
         let ran = cancel.guard(self.execute(job)).await;
         let outcome = match &ran {
             Ran::Done(report) => {
-                for exchange in &report.exchanges {
-                    self.bus.publish(Event::Exchanged { action, owner, exchange: Box::new(exchange.clone()) }).await;
-                }
-                for check in &report.checks {
-                    self.bus.publish(Event::CheckEvaluated { action, owner, check: Box::new(check.clone()) }).await;
-                }
+                self.publish_report((action, owner), report).await;
                 if let Some(slots) = slots {
                     let _first = slots.fill(action, report);
                 }
@@ -80,6 +75,19 @@ impl Crew {
         };
         self.bus.publish(Event::ActionFinished { action, owner, outcome }).await;
         ran
+    }
+
+    /// Publishes what `report` holds for the action: its exchanges, checks and warnings.
+    async fn publish_report(&self, (action, owner): (ActionId, OwnerKey), report: &ActionReport) {
+        for exchange in &report.exchanges {
+            self.bus.publish(Event::Exchanged { action, owner, exchange: Box::new(exchange.clone()) }).await;
+        }
+        for check in &report.checks {
+            self.bus.publish(Event::CheckEvaluated { action, owner, check: Box::new(check.clone()) }).await;
+        }
+        for warning in &report.warnings {
+            self.bus.publish(Event::Warned { action, owner, warning: warning.clone() }).await;
+        }
     }
 
     /// Runs `job`'s action; past the job's deadline (the test's `timeout`) it is dropped and

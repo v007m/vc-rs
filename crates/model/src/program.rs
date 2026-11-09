@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 
 use crate::{
-    Action, Api, ApiGroup, ApiId, AuthDef, AuthId, Config, Dataset, DatasetId, FileId, GeneratorDef, LoadScenario,
-    Profile, ProfileId, RunBlocks, SourceFiles, StringTable, Sym, Test, TestFile, TestId,
+    Action, Api, ApiGroup, ApiId, AuthDef, AuthId, Config, Dataset, DatasetId, FileId, GeneratorDef, HookModules,
+    LoadScenario, Profile, ProfileId, RunBlocks, SourceFiles, StringTable, Sym, Test, TestFile, TestId,
 };
 
 /// Everything `vc check` produced, frozen and shared read-only as `Arc<Program>`.
@@ -38,6 +38,8 @@ pub struct Program {
     pub datasets: IndexMap<DatasetId, Dataset>,
     /// `generators`.
     pub generators: IndexMap<Sym, GeneratorDef>,
+    /// Every hook file a `function:`, hook or custom check refers to, with its imports (D172).
+    pub hooks: HookModules,
 }
 
 impl Program {

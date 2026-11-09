@@ -9,6 +9,7 @@ mod cycles;
 mod data;
 mod fakes;
 mod flow;
+mod hooks;
 mod ids;
 mod layer;
 mod project;
@@ -27,7 +28,7 @@ use std::sync::Arc;
 use vc_diagnostics::Diagnostics;
 use vc_model::{Date, FileKind, Program, SourceFiles, SourcePath, StringTable};
 
-pub use build::{flag, method};
+pub use build::{body_path, flag, method};
 pub use data::DataWanted;
 pub use project::{Project, Source, TEST_BLOCKS, actions, list, text};
 pub use uses::piece_refs;
@@ -44,6 +45,7 @@ pub struct Linked {
     pub program: Option<Arc<Program>>,
     /// The data files the project names that were not given (D173).
     pub data_wanted: Vec<DataWanted>,
+    pub hooks_wanted: Vec<SourcePath>,
 }
 
 /// What linking is told besides the units: the names they share, and what the files cannot say.
@@ -72,6 +74,9 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     let project = Project::new(sources, world.strings, unreadable);
     let (data, mut diagnostics) = Data::new(&project, (entries, files), world.assets);
     let data_wanted = data.wanted(&project, world.assets);
+    let hooks = hooks::link(&project, (entries, files), world.assets);
+    let hooks_wanted = hooks.wanted;
+    diagnostics.extend(hooks.diagnostics);
     ids::check(&project, &mut diagnostics);
     refs::check(&project, &mut diagnostics);
     diagnostics.extend(world.assets.map(|assets| assets::check(&project, files, assets)).unwrap_or_default());
@@ -81,7 +86,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     diagnostics.extend(shared::profiles(&project));
     diagnostics.extend(world.secrets.map(|declared| secrets::check(&project, declared)).unwrap_or_default());
     if !clean {
-        return Linked { diagnostics, program: None, data_wanted };
+        return Linked { diagnostics, program: None, data_wanted, hooks_wanted };
     }
     diagnostics.extend(flow::check(&project));
     cycles::check(&project, &mut diagnostics);
@@ -89,7 +94,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     let program = if diagnostics.has_errors() {
         None
     } else {
-        build::program((&project, &data), files.clone(), world.secrets.unwrap_or_default())
+        build::program((&project, &data), (files.clone(), hooks.modules), world.secrets.unwrap_or_default())
     };
     if let Some(program) = &program {
         let cx = LintCx { project: &project, program, today: world.today };
@@ -97,7 +102,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
         diagnostics.extend(LintRegistry::conventions().run(&cx));
     }
     let program = program.filter(|_| !diagnostics.has_errors());
-    Linked { diagnostics, program, data_wanted }
+    Linked { diagnostics, program, data_wanted, hooks_wanted }
 }
 
 /// The files with a tree, and the IDs of those the per-file stages could not read cleanly.

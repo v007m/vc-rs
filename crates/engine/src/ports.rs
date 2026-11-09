@@ -1,14 +1,15 @@
 //! The ports a run needs beyond the builder's: the config layers around the project's files, the
-//! environment, the transport, the secrets and the random source. Each is the injected one when
-//! the builder was given it, else the system, HTTP or secrets adapter.
+//! environment, the transport, the hook runner, the secrets and the random source. Each is the
+//! injected one when the builder was given it, else the system, HTTP or secrets adapter.
 
 use std::hash::{BuildHasher as _, Hasher as _, RandomState};
 use std::sync::Arc;
 
+use vc_adapter_hooks::QuickJsHooks;
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_adapter_secrets::SecretProviders;
 use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemEnvironment, UserConfig, VibVars};
-use vc_interfaces::{ConfigEntry, Environment, Random, SecretError, SecretQuery, Secrets, Transport};
+use vc_interfaces::{ConfigEntry, Environment, HookRunner, Random, SecretError, SecretQuery, Secrets, Transport};
 use vc_model::{Program, SecretsConfig};
 
 use crate::settings::{self, Settings};
@@ -99,6 +100,17 @@ impl Engine {
 /// A provider's failure, which never carries a secret value, as the `secrets` setting's.
 fn secret_error(error: &SecretError) -> EngineError {
     EngineError::Setting { origin: "secrets".to_owned(), reason: error.to_string(), help: None }
+}
+
+impl Engine {
+    /// The runner of `program`'s hooks: the injected one, else `QuickJS`; none when it has no
+    /// hook files, so a run without hooks starts no hook thread.
+    pub(crate) fn hook_runner(&self, program: &Program) -> Option<Arc<dyn HookRunner>> {
+        if program.hooks.is_empty() {
+            return None;
+        }
+        Some(self.hooks.clone().unwrap_or_else(|| Arc::new(QuickJsHooks::new())))
+    }
 }
 
 /// The seed of the run's random source, `seed` or a fresh one, and the source.

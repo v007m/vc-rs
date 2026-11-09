@@ -30,6 +30,7 @@
 //! - [`CacheStore`]: the cross-run cache in `.vibranium/cache.db`, what a `cache:`d action
 //!   saved and the cleanups that undo it, encrypted at rest by the store.
 //! - [`FileWatcher`]: the batches of saved project files `vc watch` re-runs on (D180).
+//! - [`HookRunner`]: runs a hook function in a sandbox within a time and memory [`Budget`] (D172).
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -52,6 +53,7 @@ mod config;
 mod environment;
 mod filter;
 mod history;
+mod hooks;
 mod keychain;
 mod random;
 mod reporter;
@@ -74,6 +76,7 @@ pub use history::{
     CheckRow, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart,
     TestRow, TimingRow,
 };
+pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
 pub use keychain::{Keychain, KeychainError};
 pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};

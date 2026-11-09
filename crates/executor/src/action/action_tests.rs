@@ -4,7 +4,7 @@ use vc_diagnostics::Code;
 use vc_interfaces::{Transport, TransportError};
 use vc_model::{
     ActionId, ActionKind, ActionOutcome, Check, CheckKind, Event, Failure, HookRef, Matcher, Origin, OwnerKey,
-    RedactRule, StatusPattern,
+    RedactRule, StatusPattern, Template,
 };
 use vc_testkit::FakeTransport;
 
@@ -141,13 +141,13 @@ async fn an_action_without_an_executor_fails() {
 #[tokio::test]
 async fn the_check_follows_cleanups_and_reuse_to_every_reachable_action() {
     let mut fixture = Fixture::new();
-    let hook = fixture.action(ActionKind::Function(HookRef { file: "hooks.ts".into(), export: "seed".into() }));
-    let create = fixture.creating("/users", hook);
+    let command = fixture.action(ActionKind::Command(Template { parts: vec![] }));
+    let create = fixture.creating("/users", command);
     let reused = fixture.test(vec![create], None);
     let reuse = fixture.action(ActionKind::Test(reused));
     let executors = standard(Arc::new(FakeTransport::echo()));
     assert_eq!(executors.check(&fixture.program, vec![]), Ok(()));
-    let rejected = Err(ExecutorError::NoExecutor { action: hook, kind: ActionKindTag::Function });
+    let rejected = Err(ExecutorError::NoExecutor { action: command, kind: ActionKindTag::Command });
     assert_eq!(executors.check(&fixture.program, vec![reuse, reuse]), rejected);
     let missing = ActionId::new(99);
     assert_eq!(executors.check(&fixture.program, vec![missing]), Err(ExecutorError::UnknownAction(missing)));

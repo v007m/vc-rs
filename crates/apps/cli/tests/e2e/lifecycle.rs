@@ -62,7 +62,8 @@ async fn a_test_expecting_400_skips_the_apis_save_unless_its_save_on_says_400() 
         "baseUrl: ${var.baseUrl}\napis:\n  - id: answer\n    path: /status/${var.code}\n    vars: {code: 200}\n",
         "    save: {answerId: '${response.body.id}'}\n",
     );
-    let test = "tests:\n  - id: rejectsBadCode\n    call: codes#answer\n    vars: {code: 400}\n    expect: {status: 400}\n";
+    let test =
+        "tests:\n  - id: rejectsBadCode\n    call: codes#answer\n    vars: {code: 400}\n    expect: {status: 400}\n";
     let saving = format!("{apis}    saveOn: 4xx\n");
     for (apis, exit) in [(apis, 0), (saving.as_str(), 1)] {
         let files = [CONFIG, ("services/codes/codes.api.yaml", apis), ("services/codes/rejects.test.yaml", test)];

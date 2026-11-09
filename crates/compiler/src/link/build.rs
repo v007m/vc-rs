@@ -16,8 +16,8 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use vc_model::{
-    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, HttpRetry, ModelError, Origin, Owner, ProfileId, Program,
-    ProgramBuilder, SourceFiles, Sym, TemplateValue, VarDefs, VarName,
+    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, HookModules, HttpRetry, ModelError, Origin, Owner, ProfileId,
+    Program, ProgramBuilder, SourceFiles, Sym, TemplateValue, VarDefs, VarName,
 };
 use vc_parser::Node;
 
@@ -25,6 +25,7 @@ use super::data::Data;
 use super::project;
 use super::project::{Project, Source};
 use action::Place;
+pub use expect::path as body_path;
 pub use read::{flag, method};
 
 /// What a build step gives; it fails only when a table is full.
@@ -33,10 +34,11 @@ type Built<T> = Result<T, ModelError>;
 /// The program, or `None` when a table overflowed.
 pub fn program(
     (project, data): (&Project<'_>, &Data<'_>),
-    files: SourceFiles,
+    (files, hooks): (SourceFiles, HookModules),
     secrets: &[String],
 ) -> Option<Arc<Program>> {
-    let builder = ProgramBuilder::new(project.strings.clone(), files);
+    let mut builder = ProgramBuilder::new(project.strings.clone(), files);
+    builder.hooks(hooks);
     let (api_expects, http_retry) = (HashMap::new(), HttpRetry::default());
     let mut build = Build { project, data, builder, api_expects, http_retry, secrets };
     build.all().ok()?;

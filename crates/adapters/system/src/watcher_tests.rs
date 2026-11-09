@@ -7,6 +7,7 @@ use notify::event::{AccessKind, CreateKind, ModifyKind};
 use notify::{Event, EventKind};
 use vc_interfaces::{FileWatcher, SourceFilter};
 use vc_model::SourcePath;
+use vc_testkit::file_watcher_suite;
 
 use super::{NotifyWatcher, Saved, debounce};
 
@@ -63,7 +64,7 @@ fn leaves_out_other_files_skipped_folders_and_paths_outside_the_root() {
 #[test]
 fn reading_a_file_is_not_a_save() {
     let read = Event::new(EventKind::Access(AccessKind::Any)).add_path("/project/a.test.yaml".into());
-    assert!(saved().of(&read).is_empty());
+    assert_eq!(saved().of(&read), Vec::<SourcePath>::new());
     let created = Event::new(EventKind::Create(CreateKind::File)).add_path("/project/a.test.yaml".into());
     assert_eq!(texts(&saved().of(&created)), ["a.test.yaml"]);
 }
@@ -104,15 +105,10 @@ fn write(root: &Path, path: &str, text: &str) {
 }
 
 #[test]
-fn reports_a_file_saved_on_disk() {
+fn passes_the_file_watcher_suite() {
     let dir = tempfile::tempdir().unwrap();
-    write(dir.path(), "vibranium.config.yaml", "syntaxVersion: 2\n");
-    let batches = NotifyWatcher::new(dir.path(), SourceFilter::default()).watch().unwrap();
-    std::thread::sleep(Duration::from_millis(100));
-    write(dir.path(), ".vibranium/reports/run.json", "{}");
-    write(dir.path(), "services/users/crud.test.yaml", "tests: []\n");
-    let batch = batches.recv_timeout(WAIT).unwrap();
-    assert_eq!(texts(&batch), ["services/users/crud.test.yaml"]);
+    let watcher = NotifyWatcher::new(dir.path(), SourceFilter::default());
+    file_watcher_suite(&watcher, &mut |path, text| write(dir.path(), path, text));
 }
 
 #[test]

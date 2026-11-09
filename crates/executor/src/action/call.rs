@@ -4,15 +4,15 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::Value;
-use tokio::time::{self, Instant};
 use tower::ServiceExt;
-use vc_diagnostics::Code;
 use vc_interfaces::SendContext;
 use vc_model::{
     Action, ActionId, ActionKind, ActionOutcome, Api, Check, CheckKind, CheckResult, Exchange, Failure, Matcher,
-    Namespace, Origin, Poll, Program, SaveSpec, SourceSpan, StatusPattern,
+    Namespace, Origin, Program, SaveSpec, SourceSpan, StatusPattern,
 };
 
+use super::flight::Flight;
+use super::hooks::{self, HookBridge};
 use super::request;
 use super::{ActionExecutor, ActionRequest};
 use super::{auth, http_retry};
@@ -60,17 +60,14 @@ impl CallExecutor {
         let mut render = Render::new(request).map_err(request::failed)?;
         let timeout = timeout(render.program(), api);
         let call = Call { request: request::rendered(&render, api, action)?, timeout, ctx: SendContext::default() };
-        let retry = http_retry::policy(render.program(), api, &request.cx.values.inputs().random);
-        let prepared = auth::prepare(request, &render, (api, action))?;
-        let pipeline =
-            crate::pipeline(auth::added(PipelineParts { retry, ..self.parts.clone() }, &request.cx, prepared));
+        let trip = self.flight(request, &render, (api, action))?;
         let exchange = match &action.poll {
-            Some(poll) => self.poll(&mut render, (&pipeline, call), poll).await?,
-            None => send(&pipeline, call).await?,
+            Some(poll) => trip.poll(&mut render, (call, poll)).await?,
+            None => trip.send(call).await?,
         };
         let response = bind(&mut render, &exchange);
-        let checks =
-            self.judge(&render, &expected(action, (Origin::Api(api.id), api.span)), subject(&response, &exchange));
+        let expected = expected(action, (Origin::Api(api.id), api.span));
+        let checks = trip.judge(&render, (&*expected, subject(&response, &exchange))).await;
         let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
         let cleanups = if registers { cleanup(&render, api)? } else { None };
         let specs: Vec<_> = self.api_saves(&render, api, &exchange).into_iter().chain([&action.save]).collect();
@@ -80,31 +77,14 @@ impl CallExecutor {
             Ok(saved) => report.saved = saved,
             Err(failure) => report.outcome = ActionOutcome::Failed(failure),
         }
-        Ok(ActionReport { response: Some(response), fakes: render.into_memo(), exchanges: vec![exchange], ..report })
-    }
-
-    /// Sends `call` until `poll.until` holds, waiting `poll.every` between sends; the first
-    /// exchange that holds is the call's.
-    async fn poll(
-        &self,
-        render: &mut Render<'_>,
-        (pipeline, call): (&Pipeline, Call),
-        poll: &Poll,
-    ) -> Result<Exchange, Failure> {
-        let deadline = Instant::now() + poll.timeout.get();
-        loop {
-            let exchange = send(pipeline, call.clone()).await?;
-            let response = bind(render, &exchange);
-            let Some(failure) = check::verdict(&self.judge(render, &poll.until.checks, subject(&response, &exchange)))
-            else {
-                return Ok(exchange);
-            };
-            if Instant::now() + poll.every.get() > deadline {
-                let message = format!("`poll.until` did not hold within {:?}: {}", poll.timeout.get(), failure.message);
-                return Err(Failure::new(message).with_code(Code::V5104.to_string()));
-            }
-            time::sleep(poll.every.get()).await;
-        }
+        let warnings = render.warnings();
+        Ok(ActionReport {
+            response: Some(response),
+            fakes: render.into_memo(),
+            exchanges: vec![exchange],
+            warnings,
+            ..report
+        })
     }
 
     /// The api's `save`, when the response's status matches its `saveOn` (D191).
@@ -114,8 +94,15 @@ impl CallExecutor {
         (judge.matches(&api.save_on, Some(&status)) == Ok(true)).then_some(&api.save)
     }
 
-    fn judge(&self, render: &Render<'_>, checks: &[Check], subject: Subject<'_>) -> Vec<CheckResult> {
-        judge(&self.matchers, render, (checks, subject))
+    /// The call's flight: the pipeline from these parts with the api's retry (D143), auth and
+    /// request hooks, judged with these matchers.
+    fn flight(&self, request: &ActionRequest, render: &Render<'_>, call: (&Api, &Action)) -> Result<Flight, Failure> {
+        let program = render.program();
+        let retry = http_retry::policy(program, call.0, &request.cx.values.inputs().random);
+        let prepared = auth::prepare(request, render, call)?;
+        let parts = auth::added(PipelineParts { retry, ..self.parts.clone() }, &request.cx, prepared);
+        let bridge = HookBridge::new(self.parts.hook_runner.clone(), program);
+        Ok(Flight::new(parts, (hooks::request_hooks(program, call.0), bridge), Arc::clone(&self.matchers)))
     }
 }
 
@@ -173,6 +160,7 @@ pub fn bind(render: &mut Render<'_>, exchange: &Exchange) -> Arc<Value> {
     response
 }
 
+/// What the checks read of `exchange`, with `response` as bound.
 pub fn subject<'s>(response: &'s Value, exchange: &Exchange) -> Subject<'s> {
     Subject { response, size: u64::try_from(exchange.response.body.len()).unwrap_or(u64::MAX) }
 }

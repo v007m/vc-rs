@@ -151,6 +151,7 @@ mod tests {
             tags: vec!["smoke".into()],
             grep: Some("email".into()),
             changed: Some(String::new()),
+            saved: None,
             include_skipped: false,
         };
         assert_eq!(selector(&select), "users.crud services/orders -t smoke --grep email --changed");

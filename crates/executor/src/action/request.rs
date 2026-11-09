@@ -87,7 +87,7 @@ fn query<const N: usize>(render: &Render<'_>, levels: [&IndexMap<String, Templat
     Ok(pairs.join("&"))
 }
 
-/// `text` percent-encoded for a query.
+/// `text` percent-encoded for a query, leaving only the unreserved characters.
 pub fn encode(text: &str) -> String {
     percent_encoding::utf8_percent_encode(text, UNRESERVED).to_string()
 }

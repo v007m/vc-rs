@@ -106,7 +106,7 @@ impl<'a> Build<'_, 'a> {
         let base_url = root.get("baseUrl").and_then(|url| read::template(source, url));
         let auth = self.auth(source, root)?.unwrap_or_default();
         let headers = read::templates(source, root, "headers");
-        let (name, vars, hooks) = (read::owned(root, "name"), self.vars(source, root)?, hooks(root));
+        let (name, vars, hooks) = (read::owned(root, "name"), self.vars(source, root)?, hooks(source, root));
         self.builder.api_group(ApiGroup { id: group, name, base_url, auth, headers, vars, hooks, apis });
         Ok(())
     }
@@ -141,7 +141,7 @@ impl<'a> Build<'_, 'a> {
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             save_on,
             cleanup,
-            hooks: hooks(node),
+            hooks: hooks(source, node),
             deprecated: read::flag(shapes::api(), node, "deprecated"),
             span: node.span,
         }))
@@ -222,9 +222,9 @@ impl<'a> Build<'_, 'a> {
     }
 }
 
-fn hooks(node: &Node) -> RequestHooks {
+fn hooks(source: &Source<'_>, node: &Node) -> RequestHooks {
     RequestHooks {
-        before_request: read::hooks(node, "beforeRequest"),
-        after_response: read::hooks(node, "afterResponse"),
+        before_request: read::hooks(source, node, "beforeRequest"),
+        after_response: read::hooks(source, node, "afterResponse"),
     }
 }

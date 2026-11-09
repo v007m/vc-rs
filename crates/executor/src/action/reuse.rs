@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use vc_model::{Action, ActionId, ActionKind, ActionOutcome, Failure, Program, Test, TestBody};
 
-use super::{ActionExecutor, ActionRequest};
+use super::{ActionExecutor, ActionRequest, provides};
 use crate::{ActionReport, Defined};
 
 /// Runs `test:` reuse: the reused test's call or steps, in order, in the current frame, stopping
@@ -21,6 +21,7 @@ impl ActionExecutor for TestExecutor {
             return ActionReport::failed(Failure::new("the action reuses no test in the program").at(request.action));
         };
         let steps = body_actions(&test.body);
+        let declared = request.cx.action(request.action);
         let mut frame = request.frame.clone();
         frame.callers.extend(callers(&request));
         frame.test_file = Some(test.file);
@@ -34,12 +35,15 @@ impl ActionExecutor for TestExecutor {
             report.fakes.extend(step.fakes);
             report.checks.extend(step.checks);
             report.exchanges.extend(step.exchanges);
+            report.warnings.extend(step.warnings);
             report.response = step.response.or(report.response);
             if let ActionOutcome::Failed(failure) = step.outcome {
                 report.outcome = ActionOutcome::Failed(failure);
-                break;
+                return report;
             }
         }
+        let unsaved = declared.and_then(|action| provides::unsaved(program, action, &report.saved));
+        report.outcome = unsaved.map_or(report.outcome, |failure| ActionOutcome::Failed(failure.at(request.action)));
         report
     }
 
