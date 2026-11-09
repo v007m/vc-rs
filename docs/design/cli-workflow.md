@@ -296,7 +296,8 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc init [--no-sample] [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, the sample api and test files (not with `--no-sample`), `.env.schema` when there is none, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi`, then runs `vc import openapi` on it (when the import is refused, the project stays written and the import can be run again). A definition file it would write that exists already (a project is here) is named and nothing is written: exit 2 |
 | `vc import openapi <url-or-file> [--id <fileId>] [--tests] [--negative] [--auth] [--include <tag-or-path>]… [--only <operationId>]…` | Creates an api file from a spec (one api per operation), saves the spec snapshot `openapi/<fileId>.yaml`, adds a base-URL var to the config, and optionally generates tests in `<fileId>.openapi` (`services/<fileId>/openapi.test.yaml`). Without `--id` the file ID is the spec's file name up to its first dot. What the spec holds that has no api form is listed after the change. An api file that exists is refused (use `vc sync`), and so is a result that would not compile: exit 2, nothing written |
 | `vc import curl <file> [--id <fileId>]` | Creates an api file from a file of curl commands, as browser dev tools and API docs copy them: one api per distinct method and path, all calling one origin, which becomes a base-URL var. IDs in a path become vars; JSON body fields become api vars with the command's values as defaults; form and `-F` data become body maps. A credential (`authorization` and other secret-named headers, cookies, `-u`, a URL's user, secret-named query and body fields) is never written: the notes after the change name each one left out, without its value |
-| `vc import har\|postman\|bruno\|http <path>` | Converts browser HAR recordings (see Importing from a HAR file) or other tools' collections |
+| `vc import har <file> [--flow <fileId#testId>] [--include-host <host>]… [--keep-static] [--profile <ids>] [--dry-run]` | Turns a browser recording into apis in the api files whose base URLs its hosts render to (new files for unknown hosts), credentials dropped and secrets made `${secret.…}` references, plus with `--flow` a test replaying it (see Importing from a HAR file). `--dry-run` prints the plan and the diffs without writing. A result that would not compile is refused: exit 2, nothing written |
+| `vc import postman\|bruno\|http <path>` | Converts other tools' collections |
 | `vc new api <fileId#apiId> [--method] [--path \| --url <full-url>] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--url`, the origin becomes a base-URL var and the rest the path and query (D177); with `--from-curl '<curl>'` (M6, D176), the method, URL, query, content type and body come from one curl command and no credential is written |
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
@@ -505,28 +506,30 @@ $ vc import har ~/Downloads/checkout-session.har --flow orders.checkout#recorded
 What the import does, in order:
 
 1. **Filters noise.** It drops static assets, third-party hosts (analytics, CDNs) and `OPTIONS` preflights; `--include-host` and `--keep-static` override this.
-2. **Maps hosts to api files.** Each host goes to the api file whose `baseUrl` resolves to it for the active profile; an unknown host creates a new file following the naming conventions.
+2. **Maps hosts to api files.** Each host goes to the api file whose `baseUrl` renders to it under the active profile (`--profile`), the longest base path winning; an unknown host creates a new api file named by the conventions (`api.shop.test` → `shop`), with a base-URL var such as `shopUrl` added to the config. A new host whose file ID already has an api file pointing elsewhere is refused: pass the `--profile` whose vars point that file there, or rename the file first.
 3. **Turns requests into apis.**
    - IDs come from the method and path (`POST /carts/{id}/items` → `addItem`).
    - IDs and UUIDs in paths become vars (`/orders/ord_8Kq2Tz` → `/orders/${var.orderId}`).
    - Repeated calls are merged into one api.
-   - A request matching an existing api is reused rather than duplicated.
+   - A request with the method and path shape of an existing api is reused rather than duplicated; the rest are appended to the file, the base URL's path taken off theirs.
    - Body fields become api vars, with the recorded values as defaults.
-4. **Removes secrets.** Authorization headers and session cookies are never written. They map to the file's auth definition, or to a suggested new one, and API keys in query strings become `${secret.…}` references with a reminder to add them to `.env.schema`.
-5. **Optionally writes a flow test** (`--flow <testId>`). This is one test whose steps replay the session, with values chained: the order ID saved from the place response feeds the next get.
-6. **Checks before writing.** `--dry-run` prints the plan and the diff of every file without writing.
+4. **Removes secrets.** Authorization headers and cookies are never written. They map to the file's auth, or the line suggests one (`vc new auth payAuth --type bearer`). Query or body fields with secret-like names, and high-entropy values, become `${secret.<FILE>_<FIELD>}` references (`${secret.PAY_API_KEY}`), declared in `.env.schema` when the project has one; otherwise the line says what to add to it. A recorded value never reaches a written file, the output or the dry-run diff.
+5. **Optionally writes a flow test** (`--flow <fileId>#<testId>`, or a bare test ID for `<firstFile>.recorded`). This is one test whose steps replay the session, with values chained: the cart ID saved from the create response feeds the next calls. Its calls point at the apis reused or added, with their var names. A test ID the file already has is refused.
+6. **Checks before writing.** The result must compile, or nothing is written. `--dry-run` prints the same lines and the diff of every file without writing.
 
 ```
-read 46 entries · filtered 21 static, 6 third-party, 5 OPTIONS → 14 requests
-  users.staging.shop.example     → users     (existing)   2 matched, 1 new
-  carts.staging.shop.example     → carts     (existing)   3 matched (addItem merged ×3)
-  orders.staging.shop.example    → orders    (existing)   2 matched
-  payments.staging.shop.example  → payments  (existing)   1 matched, 1 new
-secrets  authorization → auth shopOauth · cookie session dropped · query api_key → ${secret.PAYMENTS_KEY}
-✓ updated 2 api files · flow orders.checkout#recordedCheckout (6 steps)
+$ vc import har checkout-session.har --flow shop.checkout#replaysCheckout
+✓ imported checkout-session.har
+read 12 entries · filtered 3 static, 1 third-party, 1 OPTIONS → 7 requests
+  api.shop.test → shop (existing)  1 matched, 4 new · auth shopToken
+  pay.shop.test → pay (new)  1 new · no auth yet: `vc new auth payAuth --type bearer`
+secrets  header authorization, cookie dropped → each file's auth · body field token → ${secret.PAY_TOKEN} · body field nonce → ${secret.PAY_NONCE} · query api_key → ${secret.PAY_API_KEY} · body field password → ${secret.SHOP_PASSWORD}
+.env.schema  declares PAY_TOKEN, PAY_NONCE, PAY_API_KEY, SHOP_PASSWORD
+flow shop.checkout#replaysCheckout (7 steps)
+POST /v1/carts/${var.cartId}/items: recorded 2 times, merged into one api
 ```
 
-A host that no api file's `baseUrl` resolves to becomes a new api file named by the conventions, with a base-URL var added to the config for the active profile.
+The lines after the first are the plan: what was read and filtered, where each host went (`existing` or `new`, apis matched and added), what became a secret reference, what `.env.schema` gains, the flow test, then the importer's notes, one line per message (`GET /a and 2 more: …` when several places share it).
 
 ## OpenAPI import and sync
 

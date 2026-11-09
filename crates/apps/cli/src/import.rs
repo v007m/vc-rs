@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use clap::Args;
-use vc_engine::{Engine, ImportRequest, SyncMode, SyncReport, SyncRequest, SyncSide};
+use vc_engine::{Engine, ImportRequest, Keep, SyncMode, SyncReport, SyncRequest, SyncSide};
 
 use crate::project::Located;
 use crate::{Outcome, changes, project};
@@ -20,6 +20,28 @@ pub struct ImportArgs {
     /// out.
     #[arg(long = "id", value_name = "FILE_ID")]
     file_id: Option<String>,
+    #[command(flatten)]
+    tests: TestArgs,
+    /// Only the operations with this tag or path prefix; repeat for more.
+    #[arg(long, value_name = "TAG_OR_PATH")]
+    include: Vec<String>,
+    /// Only the operation with this operation ID; repeat for more.
+    #[arg(long, value_name = "OPERATION_ID")]
+    only: Vec<String>,
+    /// The active profiles whose vars fill `source.headers`, and whose base URLs a recording's
+    /// hosts are matched against, as a comma list or repeated.
+    #[arg(long = "profile", value_name = "IDS")]
+    profiles: Vec<String>,
+    #[command(flatten)]
+    recording: RecordingArgs,
+    /// Prints the plan and the diff of every file without writing.
+    #[arg(long)]
+    dry_run: bool,
+}
+
+/// The tests `vc import` writes besides the api file.
+#[derive(Args)]
+struct TestArgs {
     /// Also writes a happy-path test per api.
     #[arg(long)]
     tests: bool,
@@ -29,15 +51,20 @@ pub struct ImportArgs {
     /// Also writes a test per secured api that expects 401 without auth.
     #[arg(long)]
     auth: bool,
-    /// Only the operations with this tag or path prefix; repeat for more.
-    #[arg(long, value_name = "TAG_OR_PATH")]
-    include: Vec<String>,
-    /// Only the operation with this operation ID; repeat for more.
-    #[arg(long, value_name = "OPERATION_ID")]
-    only: Vec<String>,
-    /// The active profiles whose vars fill `source.headers`, as a comma list or repeated.
-    #[arg(long = "profile", value_name = "IDS")]
-    profiles: Vec<String>,
+}
+
+/// What `vc import` makes of a recording: its flow test and what its filter keeps.
+#[derive(Args)]
+struct RecordingArgs {
+    /// Also writes a test replaying the recording, as `fileId#testId` or a bare test ID.
+    #[arg(long, value_name = "TEST_ID")]
+    flow: Option<String>,
+    /// Keeps a recording's calls to this third-party host; repeat for more.
+    #[arg(long = "include-host", value_name = "HOST")]
+    include_hosts: Vec<String>,
+    /// Keeps a recording's static assets (scripts, styles, images, fonts).
+    #[arg(long)]
+    keep_static: bool,
 }
 
 /// `vc sync …`.
@@ -75,13 +102,18 @@ pub fn import(args: &ImportArgs, project: Option<&Path>) -> anyhow::Result<Outco
         kind: args.kind.clone(),
         source,
         file_id: args.file_id.clone(),
-        tests: args.tests,
-        negative: args.negative,
-        auth: args.auth,
+        tests: args.tests.tests,
+        negative: args.tests.negative,
+        auth: args.tests.auth,
         include: args.include.clone(),
         only: args.only.clone(),
         profiles: args.profiles.clone(),
+        flow: args.recording.flow.clone(),
+        keep: Keep { hosts: args.recording.include_hosts.clone(), assets: args.recording.keep_static },
     };
+    if args.dry_run {
+        return previewed(&located.engine, &request);
+    }
     imported(&located.engine, &request)
 }
 
@@ -101,15 +133,38 @@ pub fn openapi(project: Option<&Path>, source: &str) -> anyhow::Result<Outcome> 
 fn imported(engine: &Engine, request: &ImportRequest) -> anyhow::Result<Outcome> {
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     let made = runtime.block_on(engine.import(request));
-    let notes: Vec<String> =
-        made.as_ref().map(|made| made.titles.iter().skip(1).cloned().collect()).unwrap_or_default();
+    let notes = made.as_ref().map(|made| lines(request, &made.titles)).unwrap_or_default();
     let outcome = changes::write(engine, made, &format!("✓ imported {}", request.source));
     if matches!(outcome, Outcome::Done) {
         for note in &notes {
-            println!("  not imported: {note}");
+            println!("{note}");
         }
     }
     Ok(outcome)
+}
+
+/// `vc import --dry-run`: the plan's lines, then the diff of every file; nothing is written.
+fn previewed(engine: &Engine, request: &ImportRequest) -> anyhow::Result<Outcome> {
+    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+    let made = match runtime.block_on(engine.import(request)) {
+        Ok(made) => made,
+        Err(error) => return Ok(Outcome::Engine(error)),
+    };
+    println!("{}", made.titles.first().map_or("", String::as_str));
+    for line in lines(request, &made.titles) {
+        println!("{line}");
+    }
+    changes::preview(&made).map(|()| Outcome::Done)
+}
+
+/// The lines after the first title: a spec's notes say what was not imported; a recording's
+/// lines are its plan, printed as they are.
+fn lines(request: &ImportRequest, titles: &[String]) -> Vec<String> {
+    let rest = titles.iter().skip(1);
+    if request.kind == "openapi" {
+        return rest.map(|note| format!("  not imported: {note}")).collect();
+    }
+    rest.cloned().collect()
 }
 
 /// A URL as given; a path from the working folder (the project root with `--project`) as a
