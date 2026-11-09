@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use vc_interfaces::{ImportError, Importer, SpecFetcher};
 
-use crate::{CurlImporter, OpenApiImporter};
+use crate::{CurlImporter, HarImporter, OpenApiImporter};
 
 /// Builds one importer over the fetcher for the documents a file refers to.
 pub type ImporterFactory = Arc<dyn Fn(Arc<dyn SpecFetcher>) -> Box<dyn Importer> + Send + Sync>;
@@ -22,11 +22,12 @@ impl ImporterRegistry {
         Self::default()
     }
 
-    /// A registry with every built-in importer: `curl` and `openapi`.
+    /// A registry with every built-in importer: `curl`, `har` and `openapi`.
     #[must_use]
     pub fn builtin() -> Self {
         let mut registry = Self::new();
         registry.register("curl", Arc::new(|_| Box::new(CurlImporter)));
+        registry.register("har", Arc::new(|_| Box::new(HarImporter)));
         registry.register("openapi", Arc::new(|fetcher| Box::new(OpenApiImporter::new(fetcher))));
         registry
     }
@@ -104,6 +105,6 @@ mod tests {
         let expected = ImportError::UnknownKind { kind: "postman".to_owned(), known: vec!["fake".to_owned()] };
         assert_eq!(error, Some(expected));
         assert_eq!(format!("{:?}", registry()), r#"ImporterRegistry { kinds: ["fake"] }"#);
-        assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["curl", "openapi"]);
+        assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["curl", "har", "openapi"]);
     }
 }

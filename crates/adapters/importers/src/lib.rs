@@ -8,11 +8,12 @@
 //! ```
 //! use vc_adapter_importers::ImporterRegistry;
 //!
-//! assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["curl", "openapi"]);
+//! assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["curl", "har", "openapi"]);
 //! ```
 
 mod body;
 mod curl;
+mod har;
 mod naming;
 mod openapi;
 mod path_vars;
@@ -21,5 +22,6 @@ mod secrets;
 mod url;
 
 pub use curl::CurlImporter;
+pub use har::HarImporter;
 pub use openapi::OpenApiImporter;
 pub use registry::{ImporterFactory, ImporterRegistry};

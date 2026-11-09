@@ -1,0 +1,213 @@
+//! Kept requests as draft api files: one per origin, named after its host's first label other
+//! than `www` and `api`, with the origin a base-URL var. Each request becomes an api (IDs in its
+//! path as vars, its query, its body read by the shared body rules); one with the method and
+//! templated path of a kept api is merged into it. Credential headers and cookies are never
+//! written, and secrets become references (see [`super::secret`]).
+
+use indexmap::IndexMap;
+use serde_json::{Value, json};
+use vc_interfaces::{DraftApi, DraftGroup, ImportDraft, ImportNote};
+use vc_model::Method;
+
+use super::entry::Request;
+use super::filter::host;
+use super::ids::api_id;
+use super::secret::{Found, Secrets};
+use crate::body::{Body, Scrub, read};
+use crate::naming::camel;
+use crate::path_vars::templated;
+use crate::secrets::credential;
+use crate::url::{pairs, path_and_query, split_origin};
+
+/// What a note says in place of a credential header.
+const DROPPED: &str = "never written; it maps to the file's auth";
+
+/// The draft for `requests`; `fallback` names a file whose host has no word to name it by.
+pub fn draft<'r>(requests: impl IntoIterator<Item = &'r Request>, fallback: &str) -> ImportDraft {
+    let mut drafting = Drafting::default();
+    for request in requests {
+        drafting.add(request, fallback);
+    }
+    drafting.done()
+}
+
+/// One api file being drafted, and how often each of its apis was recorded.
+struct Group {
+    origin: String,
+    draft: DraftGroup,
+    recorded: Vec<usize>,
+}
+
+/// The api files drafted so far, the secrets found and what the user should know.
+#[derive(Default)]
+struct Drafting {
+    groups: Vec<Group>,
+    found: Found,
+    notes: Vec<ImportNote>,
+}
+
+impl Drafting {
+    /// Adds the api `request` calls to the file for its origin, or merges it into a kept one.
+    fn add(&mut self, request: &Request, fallback: &str) {
+        let Some((origin, rest)) = split_origin(&request.url) else { return };
+        let origin = self.without_user(origin);
+        let at = self.group(&origin, fallback);
+        let Some(group) = self.groups.get_mut(at) else { return };
+        let before = self.found.secrets.len();
+        let mut secrets = Secrets { file: &group.draft.file_id, at: request.method.clone(), found: &mut self.found };
+        let api = api(request, rest, &mut secrets);
+        let at = secrets.at;
+        match api {
+            Ok(api) if group.merged(&api) => {
+                self.found.secrets.truncate(before);
+                self.found.notes.clear();
+                return;
+            }
+            Ok(api) => group.keep(api),
+            Err(message) => self.found.notes.push(message),
+        }
+        self.notes.extend(self.found.notes.drain(..).map(|message| ImportNote { at: at.clone(), message }));
+    }
+
+    /// `origin` without a user and password, which only a note mentions.
+    fn without_user(&mut self, origin: &str) -> String {
+        let Some((scheme, authority)) = origin.split_once("://") else { return origin.to_owned() };
+        let Some((_, host)) = authority.rsplit_once('@') else { return origin.to_owned() };
+        self.found.notes.push(format!("the URL's user and password: {DROPPED}"));
+        format!("{scheme}://{host}")
+    }
+
+    /// The index of the group for `origin`, added with a free file ID when it is new.
+    fn group(&mut self, origin: &str, fallback: &str) -> usize {
+        if let Some(at) = self.groups.iter().position(|group| group.origin == origin) {
+            return at;
+        }
+        let file_id = free(&file_id(origin, fallback), self.groups.len(), |id| {
+            self.groups.iter().any(|group| group.draft.file_id == id)
+        });
+        let var = format!("{}Url", camel(&file_id));
+        let draft = DraftGroup {
+            base_url: Some(format!("${{var.{var}}}")),
+            config_vars: IndexMap::from([(var, json!(origin))]),
+            file_id,
+            ..DraftGroup::default()
+        };
+        self.groups.push(Group { origin: origin.to_owned(), draft, recorded: Vec::new() });
+        self.groups.len() - 1
+    }
+
+    /// The draft: groups with an api, each api recorded more than once noted as merged.
+    fn done(self) -> ImportDraft {
+        let mut notes = self.notes;
+        let mut groups = Vec::new();
+        for group in self.groups.into_iter().filter(|group| !group.draft.apis.is_empty()) {
+            for (api, count) in group.draft.apis.iter().zip(&group.recorded).filter(|(_, count)| **count > 1) {
+                let at = format!("{} {}", api.method.name(), api.path);
+                notes.push(ImportNote { at, message: format!("recorded {count} times, merged into one api") });
+            }
+            groups.push(group.draft);
+        }
+        ImportDraft { groups, secrets: self.found.secrets, notes, ..ImportDraft::default() }
+    }
+}
+
+impl Group {
+    /// Whether `api` has the method and path of a kept api, counted as recorded once more.
+    fn merged(&mut self, api: &DraftApi) -> bool {
+        let same = self.draft.apis.iter().position(|kept| (kept.method, &kept.path) == (api.method, &api.path));
+        if let Some(count) = same.and_then(|at| self.recorded.get_mut(at)) {
+            *count += 1;
+            return true;
+        }
+        false
+    }
+
+    /// Keeps `api`, with a free ID.
+    fn keep(&mut self, mut api: DraftApi) {
+        let apis = &self.draft.apis;
+        api.id = free(&api.id, apis.len(), |id| apis.iter().any(|kept| kept.id == id));
+        self.draft.apis.push(api);
+        self.recorded.push(1);
+    }
+}
+
+/// The api `request` sends to the path and query in `rest`, scrubbed of secrets.
+fn api(request: &Request, rest: &str, secrets: &mut Secrets<'_>) -> Result<DraftApi, String> {
+    let (path, query) = path_and_query(rest);
+    let path = path.split('/').map(|segment| secrets.text("path segment", segment)).collect::<Vec<_>>().join("/");
+    let path = templated(if path.is_empty() { "/" } else { &path });
+    let name = request.method.to_ascii_uppercase();
+    secrets.at = format!("{name} {}", path.path);
+    let method = Method::named(&name).ok_or_else(|| format!("an api cannot use {name}"))?;
+    note_headers(request, secrets);
+    let body = body(request, &path.vars, secrets);
+    let vars = path.vars.into_iter().chain(body.vars).map(|(name, value)| {
+        let value = secrets.value(&format!("body field {name}"), value);
+        (name, value)
+    });
+    Ok(DraftApi {
+        id: api_id(method, &path.path),
+        method,
+        vars: vars.collect(),
+        query: query_of(query, secrets),
+        path: path.path,
+        body: body.value.map(|value| secrets.value("body", value)),
+        content_type: body.content_type,
+        ..DraftApi::default()
+    })
+}
+
+/// A note for each header named like a credential, `cookie` among them.
+fn note_headers(request: &Request, secrets: &mut Secrets<'_>) {
+    let mut named: Vec<String> = Vec::new();
+    for header in &request.headers {
+        let name = header.name.to_ascii_lowercase();
+        if credential(&name) && !named.contains(&name) {
+            named.push(name);
+        }
+    }
+    for name in named {
+        secrets.note(format!("header {name}: {DROPPED}"));
+    }
+}
+
+/// The recorded body, read by the shared rules; a multipart one is left out with a note.
+fn body(request: &Request, taken: &IndexMap<String, Value>, secrets: &mut Secrets<'_>) -> Body {
+    let Some(data) = &request.post_data else { return Body::default() };
+    let Some(text) = data.text.as_deref().filter(|text| !text.is_empty()) else { return Body::default() };
+    if data.mime_type.to_ascii_lowercase().starts_with("multipart/") {
+        secrets.note("a multipart body is not imported, so it is left out".to_owned());
+        return Body::default();
+    }
+    let content_type = Some(data.mime_type.as_str()).filter(|kind| !kind.is_empty());
+    read(text, content_type.unwrap_or("text/plain"), taken, secrets)
+}
+
+/// The query's pairs, decoded; a credential or a random value becomes a secret reference.
+fn query_of(query: &str, secrets: &mut Secrets<'_>) -> IndexMap<String, String> {
+    let mut read = IndexMap::new();
+    for (name, value) in pairs(query) {
+        let place = format!("query {name}");
+        let value = if credential(&name) { secrets.reference(&place) } else { secrets.text(&place, &value) };
+        read.insert(name, value);
+    }
+    read
+}
+
+/// The file ID for `origin`: its host's first label other than `www` and `api` that starts with
+/// a letter, else `fallback`, else `recorded`.
+fn file_id(origin: &str, fallback: &str) -> String {
+    let host = host(origin).unwrap_or_default();
+    let label = host.split('.').filter(|label| !matches!(*label, "www" | "api")).find(|label| {
+        label.starts_with(|c: char| c.is_ascii_alphabetic())
+    });
+    let word = label.map(|label| label.chars().filter(char::is_ascii_alphanumeric).collect::<String>());
+    let fallback = if fallback.is_empty() { "recorded" } else { fallback };
+    word.unwrap_or_else(|| fallback.to_owned())
+}
+
+/// `base`, or `base2`, `base3`… when `taken`; `count` bounds how many are taken.
+fn free(base: &str, count: usize, taken: impl Fn(&str) -> bool) -> String {
+    let mut names = (1..=count + 1).map(|n| if n == 1 { base.to_owned() } else { format!("{base}{n}") });
+    names.find(|name| !taken(name)).unwrap_or_else(|| base.to_owned())
+}

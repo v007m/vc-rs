@@ -126,7 +126,7 @@ Third-party crates:
 | Secret redaction | `aho-corasick` 1 | Fast multi-string replacement over every output |
 | TypeScript hooks | `rquickjs` 0.14, `oxc` 0.155 | Measured in the spike: 4.2 MB, about 20 µs per call |
 | OpenAPI | `oas3` 0.22, `default-features = false` (D199) | One 3.1 model; Swagger 2.0 and 3.0 are up-converted first |
-| HAR | `har` 0.9 | HAR 1.2 parsing |
+| HAR | `har` 0.9 | HAR 1.2 and 1.3 parsing |
 | Load statistics | `hdrhistogram` 7 | Latency histograms without coordinated-omission bias |
 | CLI | `clap` 4 | Derive-based commands, shell completion |
 | Terminal UI | `ratatui` 0.30, `crossterm` 0.29 | The standard Rust TUI stack |
@@ -1068,14 +1068,14 @@ Importers get the documents a file refers to through the `SpecFetcher` port (`fe
 
 ### HAR
 
-- **Reading** with the `har` crate (HAR 1.2).
-- **Filtering.** Static assets are found by MIME type and extension, third-party hosts by comparison with the hosts the active profile's base-URL vars resolve to, and preflights by method.
-- **Host mapping.** Each remaining host maps to the api file whose rendered `baseUrl` matches it; an unknown host becomes a new api file, named by the conventions, with a base-URL var added for the active profile.
-- **Path templating.** Path segments that look like identifiers (UUIDs, numeric IDs, prefixed IDs such as `ord_8Kq2Tz`, long hex) become vars named after the preceding segment (`/orders/{x}` → `orderId`). Requests that differ only in those segments are merged into one api.
+- **Reading** with the `har` crate (HAR 1.2 and 1.3), into private serde structs that keep only what drafting needs (method, URL, header names, the request body, the response type); none derives `Debug`, so a recorded value cannot reach a log. `HarImporter` is the registry's `har` entry (`importers/src/har/`).
+- **Filtering.** Static assets are found by MIME type and extension (and any scheme other than http and https), third-party hosts by comparison with the hosts the active profile's base-URL vars resolve to, and preflights by method. A project with no base-URL var compares with the site of the recording's first entry. A site is a host's last two labels (an IP address or `localhost` whole); public suffixes such as `co.uk` are not handled, since there is no public-suffix list. The first note, at `the recording`, counts them: `read 12 entries · filtered 3 static, 1 third-party, 1 OPTIONS → 7 requests`.
+- **Host mapping.** Each remaining host maps to the api file whose rendered `baseUrl` matches it; an unknown host becomes a new api file, named by the conventions, with a base-URL var added for the active profile. Its file ID is the host's first label other than `www` and `api` (`api.shop.test` → `shop`, `pay.shop.test` → `pay`), with `2`, `3`… added when taken; its var is `<fileId>Url`. A user and password in the URL are dropped with a note.
+- **Path templating.** Path segments that look like identifiers (UUIDs, numeric IDs, prefixed IDs such as `ord_8Kq2Tz`, long hex) become vars named after the preceding segment (`/orders/{x}` → `orderId`). Requests that differ only in those segments are merged into one api, noted `recorded 2 times, merged into one api`. An api's ID says what the call does: `getCart`, `listOrders`, `createOrder`, `addItem` (`POST /carts/{id}/items`), `cancelOrder` (`POST /orders/{id}/cancel`); another method or shape is named by its route.
 - **Matching.** A request whose method and templated path equal an existing api is reused, not duplicated.
 - **Body vars.** Body fields become api vars, with the recorded values as defaults.
 - **Chaining.** Values that appear in a response and later in a request (an ID returned by one call and used in a later URL or body) become `save` entries and `${var.…}` references in the flow, which is how the recorded session replays with fresh data.
-- **Secrets.** `Authorization` and cookies are dropped and mapped to the file's auth. Query or body fields with secret-like names, or high-entropy values, become `${secret.NAME}` references, with an entry proposed for `.env.schema`.
+- **Secrets.** `Authorization` and cookies are dropped and mapped to the file's auth, with a note per header and no value. Query or body fields with secret-like names (the shared `secrets::credential` rule), or high-entropy values in a path, query or body (24 or more characters with lower case, upper case and digits, at least 16 of them different, and not shaped like an ID), become `${secret.NAME}` references, named `<FILE>_<FIELD>` in upper snake case (`PAY_API_KEY`), each listed in the draft's `secrets` with where it was found, which is the entry proposed for `.env.schema`. A recorded value never reaches a written file, a note, the dry-run diff or `Debug` output; a test greps them all for the sample's recorded values.
 
 ### cURL
 
