@@ -1,0 +1,267 @@
+// The Engine service: what the web UI calls over Connect (D101). Each RPC is a thin adapter
+// over one engine facade method; RPCs are added as the screens that need them are built.
+syntax = "proto3";
+
+package vibranium.engine.v1;
+
+import "vibranium/engine/v1/events.proto";
+import "vibranium/results/v1/results.proto";
+
+// The engine of one project, opened by `vc ui`.
+service EngineService {
+  // The project's name and profiles.
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  // The tests, apis or files a selection matches, as `vc list` lists them.
+  rpc ListDefinitions(ListDefinitionsRequest) returns (ListDefinitionsResponse);
+  // The project's diagnostics, as `vc check` reports them.
+  rpc Check(CheckRequest) returns (CheckResponse);
+  // Runs a selection and streams its events, then its report. Closing the stream cancels the
+  // run as one Ctrl-C does: cleanups still run.
+  rpc Run(RunRequest) returns (stream RunResponse);
+  // A project file's text, for the editor.
+  rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
+  // Saves a project file the editor changed, unless it changed on disk since it was read.
+  rpc WriteFile(WriteFileRequest) returns (WriteFileResponse);
+  // The agents' approval requests, newest first.
+  rpc ListApprovals(ListApprovalsRequest) returns (ListApprovalsResponse);
+  // Approves or denies an agent's request.
+  rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
+  // What agents did through MCP, newest first.
+  rpc ListAgentActions(ListAgentActionsRequest) returns (ListAgentActionsResponse);
+}
+
+// Which tests or apis to act on, as `vc run` selects them.
+message Selection {
+  // Full IDs, file IDs or `#id` selectors.
+  repeated string ids = 1;
+  // Files or folders, relative to the project root.
+  repeated string paths = 2;
+  repeated string tags = 3;
+  // Only tests whose name contains this text.
+  optional string grep = 4;
+  // Only tests in files changed since this git ref.
+  optional string changed = 5;
+  // Also select skipped tests.
+  bool include_skipped = 6;
+}
+
+message GetProjectRequest {}
+
+message GetProjectResponse {
+  // The project folder's name.
+  string name = 1;
+  // The profiles the config defines.
+  repeated string profiles = 2;
+  // The profile a run uses when none is chosen.
+  optional string default_profile = 3;
+  string vc_version = 4;
+}
+
+// What to list.
+enum DefinitionKind {
+  DEFINITION_KIND_UNSPECIFIED = 0;
+  DEFINITION_KIND_TESTS = 1;
+  DEFINITION_KIND_APIS = 2;
+  DEFINITION_KIND_FILES = 3;
+}
+
+message ListDefinitionsRequest {
+  // Tests when unspecified.
+  DefinitionKind kind = 1;
+  Selection selection = 2;
+  // List skipped tests too.
+  bool skipped = 3;
+}
+
+// A test, an api or a file.
+message Definition {
+  // The full ID, or the file ID for a file.
+  string id = 1;
+  optional string name = 2;
+  // The file it is in, relative to the project root.
+  string path = 3;
+  repeated string tags = 4;
+  bool skipped = 5;
+}
+
+message ListDefinitionsResponse {
+  repeated Definition definitions = 1;
+  repeated string notices = 2;
+}
+
+message CheckRequest {
+  // Only these files or folders; the whole project when empty.
+  repeated string paths = 1;
+}
+
+// How bad a diagnostic is.
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_WARNING = 2;
+  SEVERITY_ERROR = 3;
+}
+
+// A span with what it points at.
+message Label {
+  vibranium.results.v1.Span span = 1;
+  string text = 2;
+}
+
+// One change to a file's text, by byte offsets.
+message TextEdit {
+  string file = 1;
+  uint32 start = 2;
+  uint32 end = 3;
+  string new_text = 4;
+}
+
+// A fix for a diagnostic.
+message Fix {
+  string title = 1;
+  // Safe to apply without asking: `vc check --fix` applies it.
+  bool certain = 2;
+  repeated TextEdit edits = 3;
+}
+
+// A problem the compiler found, as `vc check` reports it.
+message Diagnostic {
+  // Such as `V2001`.
+  string code = 1;
+  Severity severity = 2;
+  string message = 3;
+  Label primary = 4;
+  repeated Label secondary = 5;
+  repeated string notes = 6;
+  repeated string help = 7;
+  repeated Fix fixes = 8;
+}
+
+message CheckResponse {
+  repeated Diagnostic diagnostics = 1;
+  // How many files were checked.
+  uint32 checked = 2;
+  repeated string notices = 3;
+}
+
+message RunRequest {
+  Selection selection = 1;
+  // Profiles to layer, in order; the default profile when empty.
+  repeated string profiles = 2;
+  // `key=value` overrides, as `--set` gives them.
+  repeated string sets = 3;
+  // Run each selected test this many times.
+  optional uint32 repeat = 4;
+  // Replay a run with its seed.
+  optional uint64 seed = 5;
+  // Stop at the first failure.
+  bool bail = 6;
+  optional uint32 concurrency = 7;
+  // Run only the tests that failed in the last run.
+  bool failed = 8;
+  // Ignore the action cache.
+  bool no_cache = 9;
+}
+
+message RunResponse {
+  RunEvent event = 1;
+}
+
+message ReadFileRequest {
+  // Relative to the project root.
+  string path = 1;
+}
+
+message ReadFileResponse {
+  string text = 1;
+  // The digest of the text read, to send back with a write.
+  string digest = 2;
+}
+
+message WriteFileRequest {
+  // Relative to the project root.
+  string path = 1;
+  string text = 2;
+  // The digest the file had when it was read; the write fails if the file changed since.
+  // Absent for a new file, which must not exist yet.
+  optional string expected_digest = 3;
+}
+
+message WriteFileResponse {
+  // The digest of the text written.
+  string digest = 1;
+  // The diagnostics of the project with the file saved.
+  repeated Diagnostic diagnostics = 2;
+}
+
+// Where an approval request stands.
+enum ApprovalStatus {
+  APPROVAL_STATUS_UNSPECIFIED = 0;
+  APPROVAL_STATUS_PENDING = 1;
+  APPROVAL_STATUS_APPROVED = 2;
+  APPROVAL_STATUS_DENIED = 3;
+  APPROVAL_STATUS_EXPIRED = 4;
+}
+
+// What a person decided.
+enum Verdict {
+  VERDICT_UNSPECIFIED = 0;
+  VERDICT_APPROVE = 1;
+  // Approve, and every later request for this profile, tool and method.
+  VERDICT_ALWAYS_ALLOW = 2;
+  VERDICT_DENY = 3;
+}
+
+// An agent's request to do something its policy holds for a person.
+message Approval {
+  uint64 id = 1;
+  string agent = 2;
+  // The MCP tool it called.
+  string tool = 3;
+  string profile = 4;
+  // The HTTP methods the call would send.
+  repeated string methods = 5;
+  string summary = 6;
+  // The tool's arguments, as JSON text, secrets masked.
+  string arguments = 7;
+  uint64 created_ms = 8;
+  ApprovalStatus status = 9;
+  optional string decided_by = 10;
+}
+
+message ListApprovalsRequest {
+  bool pending_only = 1;
+}
+
+message ListApprovalsResponse {
+  repeated Approval approvals = 1;
+}
+
+message DecideApprovalRequest {
+  uint64 id = 1;
+  Verdict verdict = 2;
+}
+
+message DecideApprovalResponse {
+  ApprovalStatus status = 1;
+}
+
+// A tool call an agent made.
+message AgentAction {
+  string agent = 1;
+  string tool = 2;
+  optional string profile = 3;
+  // As JSON text, secrets masked.
+  string arguments = 4;
+  string result = 5;
+  optional string approved_by = 6;
+}
+
+message ListAgentActionsRequest {
+  // At most this many; all when 0.
+  uint32 limit = 1;
+}
+
+message ListAgentActionsResponse {
+  repeated AgentAction actions = 1;
+}

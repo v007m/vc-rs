@@ -1,0 +1,10 @@
+# The wire contract (D101): `buf lint` and `buf breaking` check every package here.
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE
