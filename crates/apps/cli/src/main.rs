@@ -91,6 +91,8 @@ enum Command {
     Call(call::CallArgs),
     /// Creates an api file from an `OpenAPI` spec, a HAR recording or another tool's collection.
     Import(import::ImportArgs),
+    /// Merges spec changes into api files, keeping your edits.
+    Sync(import::SyncArgs),
     /// Runs a load scenario with live metrics.
     Load(load::LoadArgs),
     /// Converts a project from an older format.
@@ -139,6 +141,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Config(command) => explain::config(&command, project),
         Command::Call(args) => call::run(&args, project),
         Command::Import(args) => import::import(&args, project),
+        Command::Sync(args) => import::sync(&args, project),
         Command::Load(args) => load::run(&args, project),
         Command::Migrate(command) => Ok(migrate::run(&command)),
         Command::Demo(args) => demo::run(&args),

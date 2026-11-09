@@ -327,7 +327,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 | Command | Does |
 | --- | --- |
-| `vc sync [fileId...] [--dry-run] [--check]` | Merges OpenAPI changes into api files (see OpenAPI import and sync) |
+| `vc sync [fileId...] [--dry-run] [--check] [--take spec\|mine <apiId>]… [--resolved <apiId>]…` | Merges OpenAPI changes into api files (see OpenAPI import and sync) |
 | `vc sync <fileId> --take spec\|mine <apiId>`, `--resolved <apiId>` | Settles a sync conflict |
 | `vc migrate` | Upgrades files to a newer `syntaxVersion` |
 | `vc migrate v1 <path>` | Converts a Vibranium v1 project into v2 files (D194) |
@@ -568,24 +568,26 @@ You don't keep one yourself, but Vibranium does: every import and sync writes `o
 | changed | unchanged | The api is updated from the spec |
 | changed | changed the same way | Nothing to do |
 | changed | changed differently | Conflict: reported, the api is left as it is, until `--take spec`, `--take mine` or `--resolved` |
-| new operation | — | New api added (and its tests, with `--tests`) |
+| new operation | — | New api added (its tests are not drafted yet) |
 | operation removed | — | The api is kept and marked `deprecated: true`; `vc check` warns where tests still call it |
 
-- **What sync owns:** `method`, `path`, path and query parameters (as vars), `operationId` and the request content type. It never touches IDs, names, `expect`, `save`, `cleanup`, hooks or the defaults you set. When the spec adds a required body field, sync tells you rather than rewriting your body.
+- **What sync owns:** `method`, `path`, each `query` entry and the `content-type` header. A value it takes from the spec that reads a var the api lacks (`${var.cursor}`) brings that var with the spec's default. It never touches IDs, names, `body`, `expect`, `save`, `cleanup`, hooks or the defaults you set, and does not yet write tests for new operations. A change it cannot make in the file as written (taking an entry out of a `{..}` map) is refused, naming the api, for you to make by hand.
+- **Which files:** `vc sync` with no file IDs syncs every api file with a `source` key; a file named that has none is refused.
+- **Conflicts:** an api whose field both sides changed differently, or a new operation whose ID the file already uses, is left as it is and listed with how to settle it. `--take spec <apiId>` takes the spec's values; `--take mine <apiId>` keeps yours; after editing by hand, `--resolved <apiId>` keeps the file as it is. Until then its snapshot entry stays as it was, together with the old snapshot's components it may refer to, so the next sync shows the same conflict. A conflict does not change the exit code of `vc sync`; under `--check` it exits 4, like drift.
 - **Matching:** apis are matched to operations by `operationId`, so you can rename an api ID freely. New IDs come from the operationId in camelCase; without one, from the method and path (`POST /users/{id}/deactivate` → `postUsersIdDeactivate`).
-- **Previewing and CI:** `vc sync --dry-run` prints the changes without writing anything. `vc sync --check` writes nothing and exits with code 4 when any spec has changed since its snapshot (D127), so a CI job can flag drift before tests start failing.
+- **Previewing and CI:** `vc sync --dry-run` prints the changes and their diffs without writing anything. `vc sync --check` prints them, writes nothing and exits with code 4 when any spec has changed since its snapshot (D127), so a CI job can flag drift before tests start failing.
 
 ```
 $ vc sync users
-fetched https://users.staging.shop.example/v3/api-docs (OpenAPI 3.0.3, 8 operations)
-  ↑ users#list     query param cursor → var cursor
-  ↑ users#get      path /users/{id} → /users/{userId}
-  + users#restore  new operation POST /users/{userId}/restore
-  = users#create   kept your edit (header x-idempotency-key)
-  ! users#update   conflict: spec changed PUT → PATCH, you changed the path
-                   resolve: vc sync users --take spec users#update | --take mine | edit, then --resolved
-  - users#legacyImport  removed from the spec → kept, marked deprecated
-snapshot openapi/users.yaml updated · 1 conflict left
+fetched https://users.staging.shop.example/v3/api-docs (8 operations)
+  ↑ users#list query cursor none → ${var.cursor}
+  ↑ users#get path /users/${var.id} → /users/${var.userId}
+  + users#restoreUser new operation POST /users/${var.userId}/restore
+  = users#create kept your content type
+  ! users#update conflict: the spec and the file both changed method
+    resolve: vc sync users --take spec users#update | --take mine users#update | edit, then --resolved users#update
+  - users#legacyImport removed from the spec: kept, marked deprecated
+✓ synced · snapshot openapi/users.yaml updated · 1 conflict left
 ```
 
 ## Skipping tests and files
@@ -681,7 +683,7 @@ Console formats: `spec` (above, the default in a terminal), `dots` (compact), `j
 | 1 | At least one test failed or was blocked |
 | 2 | Nothing ran: `vc check` errors, an empty selection, or no active profile |
 | 3 | A load threshold was breached |
-| 4 | `vc sync --check` found drift |
+| 4 | `vc sync --check` found drift or a conflict left unsettled; a plain `vc sync` that leaves conflicts exits 0 |
 | 70 | Internal error in Vibranium: prints a "please report" hint and the path of a redacted debug bundle to attach (D127) |
 | 130 | Cancelled by a signal (Ctrl-C); cleanups have run (D127) |
 

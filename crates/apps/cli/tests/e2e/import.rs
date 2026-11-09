@@ -1,5 +1,6 @@
 //! `vc import openapi` writes an api file, its tests, the base-URL var and the snapshot from a
-//! served spec, and they compile and run; `vc init --from-openapi` imports into a new project.
+//! served spec, and they compile and run; `vc init --from-openapi` imports into a new project;
+//! `vc sync` merges the next version of the spec.
 
 use vc_mock_server::MockServer;
 
@@ -34,6 +35,32 @@ async fn init_from_openapi_imports_into_the_new_project() {
     assert_eq!(output.status.code(), Some(0), "{}", said(&output));
     assert!(project.path().join("services/users/users.api.yaml").is_file(), "{}", said(&output));
     project.vc(&["check"]).assert().code(0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn sync_merges_a_changed_spec_and_check_reports_drift() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG]);
+    let v1 = format!("{}/openapi/users-v1.yaml", server.base_url());
+    project.vc(&["import", "openapi", &v1, "--id", "users"]).assert().code(0);
+    project.vc(&["sync", "--check"]).assert().code(0);
+    let api_path = project.path().join("services/users/users.api.yaml");
+    let api = std::fs::read_to_string(&api_path).unwrap();
+    std::fs::write(&api_path, api.replace("users-v1.yaml", "users-v2.yaml")).unwrap();
+    project.vc(&["sync", "--check"]).assert().code(4);
+    let preview = project.vc(&["sync", "users", "--dry-run"]).output().unwrap();
+    assert_eq!(preview.status.code(), Some(0), "{}", said(&preview));
+    assert!(said(&preview).contains("+ users#updateUser new operation PATCH /users/${var.id}"), "{}", said(&preview));
+    assert!(!std::fs::read_to_string(&api_path).unwrap().contains("updateUser"));
+    let synced = project.vc(&["sync", "users"]).output().unwrap();
+    assert_eq!(synced.status.code(), Some(0), "{}", said(&synced));
+    assert!(said(&synced).contains("- users#deleteUser removed from the spec"), "{}", said(&synced));
+    let api = std::fs::read_to_string(&api_path).unwrap();
+    assert!(api.contains("operationId: updateUser") && api.contains("deprecated: true"), "{api}");
+    project.vc(&["check"]).assert().code(0);
+    project.vc(&["sync", "--check"]).assert().code(0);
+    let unknown = project.vc(&["sync", "users", "--take", "theirs", "users#getUser"]).output().unwrap();
+    assert_eq!(unknown.status.code(), Some(2), "{}", said(&unknown));
 }
 
 #[test]
