@@ -1017,7 +1017,7 @@ A `flow` runs steps, then applies what they saved to every request that uses it.
 | `steps` | list of steps | required | The requests that produce credentials |
 | `apply.headers`, `apply.query`, `apply.cookies` | maps of templates | — | What is added to each request |
 | `expiresIn` | duration (a template is fine) | never | When the credentials go stale |
-| `refreshBefore` | duration | `1m` | Re-run the flow this long before expiry |
+| `refreshBefore` | duration | `1m` | Re-run the flow this long before expiry, capped at half the credential's lifetime (D193) |
 | `refreshOn` | list of status codes | `[401]` | Re-run the flow once and retry the request when a response has one of these |
 | `cache` | boolean | `false` | `true` keeps the credentials in `.vibranium/cache.db`, encrypted, and reuses them across runs until they expire (not built yet: today credentials last one run) |
 
