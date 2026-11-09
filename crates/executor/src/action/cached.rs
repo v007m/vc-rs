@@ -45,7 +45,7 @@ impl CachedExecutor {
     /// The cached saves, if a live entry holds them and its check passes. The check reads them
     /// as saved values, and under the action's `id` (`${var.admin.userId}`).
     async fn hit(request: &ActionRequest, cacheable: &Cacheable) -> Option<Saved> {
-        let entry = cacheable.store.get(&cacheable.entry.key, now_ms(request)).ok()??;
+        let entry = cacheable.store.get(&cacheable.entry.key, cacheable.entry.listing.created_ms).ok()??;
         let Some(check) = cacheable.spec.check else { return Some(entry.saved) };
         let mut frame = request.frame.clone();
         let saved = Arc::make_mut(&mut frame.saved);
@@ -107,9 +107,10 @@ async fn clean_replaced(cx: &Arc<ActionCx>, replaced: Option<CacheEntry>) {
 }
 
 /// The action as cached, when it has `cache:` and the run has a store. Its key holds the vars
-/// the action writes, rendered.
+/// the action writes, rendered; the clock's now is both when the entry is made and the time
+/// a stored one must still be live at.
 fn cacheable(request: &ActionRequest) -> Option<Cacheable> {
-    let store = request.cx.cache.clone()?;
+    let (store, clock) = request.cx.cache.clone()?;
     let action = request.cx.action(request.action)?;
     let spec = action.cache?;
     let program = &request.cx.program;
@@ -117,7 +118,7 @@ fn cacheable(request: &ActionRequest) -> Option<Cacheable> {
     let own = request.cx.values.action(request.action).unwrap_or_default();
     let vars = Render::new(request).ok()?.vars(own.keys());
     let profiles = request.cx.values.profile_names().join(",");
-    let created_ms = now_ms(request);
+    let created_ms = clock.now_ms();
     let expires_ms = created_ms.saturating_add(u64::try_from(spec.ttl.get().as_millis()).unwrap_or(u64::MAX));
     let key = key(&label, &vars, &profiles);
     let listing = CacheListing { label, profiles, created_ms, expires_ms };
@@ -145,11 +146,6 @@ fn key(label: &str, vars: &Saved, profiles: &str) -> CacheKey {
         hasher.update(&u64::try_from(part.len()).unwrap_or(u64::MAX).to_le_bytes()).update(part.as_bytes());
     }
     CacheKey::new(*hasher.finalize().as_bytes())
-}
-
-/// The run's start, which every cache read and write of the run uses as now.
-fn now_ms(request: &ActionRequest) -> u64 {
-    request.cx.values.inputs().started_ms
 }
 
 /// `cleanup` as stored: by the api whose `cleanup` it is, since action IDs change between

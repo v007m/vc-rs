@@ -5,8 +5,8 @@ use bytes::Bytes;
 use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderValue, StatusCode};
 use serde_json::{Value, json};
-use vc_interfaces::{CacheStore, CachedCleanup};
-use vc_model::{ActionId, CacheSpec, Duration, HttpResponse, OwnerKey, Program};
+use vc_interfaces::{CacheStore, CachedCleanup, Clock};
+use vc_model::{ActionId, CacheSpec, Date, Duration, HttpResponse, OwnerKey, Program};
 use vc_testkit::{FakeTransport, MemoryCacheStore, Recorded, RecordingTransport};
 
 use super::{CachedExecutor, key};
@@ -53,8 +53,21 @@ fn creating(region: &str, check_path: Option<&str>) -> (Arc<Program>, ActionId) 
     (Arc::new(fixture.program), create)
 }
 
-/// Runs `action` as a run starting at `at` with `store` as its cache, against a transport
-/// answering `answers` in turn.
+/// A clock stopped at the given ms past the epoch.
+struct StoppedClock(u64);
+
+impl Clock for StoppedClock {
+    fn today(&self) -> Date {
+        Date::new(2026, 11, 9).unwrap()
+    }
+
+    fn now_ms(&self) -> u64 {
+        self.0
+    }
+}
+
+/// Runs `action` with `store` as its cache and the clock at `at`, against a transport
+/// answering `answers` in turn. The run itself started at 0, so expiry goes by the clock.
 async fn run(
     (program, action): &(Arc<Program>, ActionId),
     (store, at): (Option<&MemoryCacheStore>, u64),
@@ -63,10 +76,10 @@ async fn run(
     let fake = FakeTransport::scripted(answers.into_iter().map(Ok).collect());
     let (transport, recordings) = RecordingTransport::new(Arc::new(fake));
     let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(transport), HostLimits::spawn(8)));
-    let inputs = fixture::inputs(&[]).with_started_at(at);
+    let inputs = fixture::inputs(&[]).with_started_at(0);
     let cx = ActionCx::new(Arc::clone(program), Arc::new(executors), inputs);
     let cx = Arc::new(match store {
-        Some(store) => cx.with_cache(Arc::new(store.clone())),
+        Some(store) => cx.with_cache(Arc::new(store.clone()), Arc::new(StoppedClock(at))),
         None => cx,
     });
     let request = ActionRequest { action: *action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };

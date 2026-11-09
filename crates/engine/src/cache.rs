@@ -49,7 +49,7 @@ impl Engine {
             Ok(store) => store,
             Err(error) => return (Arc::new(cx), vec![off(&error)]),
         };
-        let cx = Arc::new(cx.with_cache(Arc::clone(&store)));
+        let cx = Arc::new(cx.with_cache(Arc::clone(&store), Arc::clone(&self.clock)));
         let notices = match store.take_expired(cx.values.inputs().started_ms) {
             Ok(expired) => Cleaner::new(&cx).clean(expired).await,
             Err(error) => vec![off(&store_error(&error))],
