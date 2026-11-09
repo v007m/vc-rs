@@ -287,14 +287,14 @@ One service per folder keeps an api file next to the tests that use it, and test
 
 ## Commands
 
-Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text. `vc load` and `vc migrate v1` take their arguments but are not built yet: each exits 2 with `error: <command> is not built yet`.
+Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text. `vc load` and `vc migrate v1` take their arguments but are not built yet: each exits 2 with `error: <command> is not built yet`. `vc import` reads only `openapi` so far; another kind exits 2, naming the importers there are.
 
 **Start and author**
 
 | Command | Does |
 | --- | --- |
-| `vc init [--no-sample] [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, the sample api and test files (not with `--no-sample`), `.env.schema` when there is none, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi` (not built yet), also runs the import below. A definition file it would write that exists already (a project is here) is named and nothing is written: exit 2 |
-| `vc import openapi <url-or-file> --id <fileId> [--tests] [--negative] [--auth]` | Creates an api file from a spec (one api per operation), saves the spec snapshot, adds a base-URL var to the config, and optionally generates tests |
+| `vc init [--no-sample] [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, the sample api and test files (not with `--no-sample`), `.env.schema` when there is none, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi`, then runs `vc import openapi` on it (when the import is refused, the project stays written and the import can be run again). A definition file it would write that exists already (a project is here) is named and nothing is written: exit 2 |
+| `vc import openapi <url-or-file> [--id <fileId>] [--tests] [--negative] [--auth] [--include <tag-or-path>]… [--only <operationId>]…` | Creates an api file from a spec (one api per operation), saves the spec snapshot `openapi/<fileId>.yaml`, adds a base-URL var to the config, and optionally generates tests in `<fileId>.openapi` (`services/<fileId>/openapi.test.yaml`). Without `--id` the file ID is the spec's file name up to its first dot. What the spec holds that has no api form is listed after the change. An api file that exists is refused (use `vc sync`), and so is a result that would not compile: exit 2, nothing written |
 | `vc import har\|postman\|bruno\|http <path>` | Converts browser HAR recordings (see Importing from a HAR file) or other tools' collections |
 | `vc new api <fileId#apiId> [--method] [--path \| --url <full-url>] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--url`, the origin becomes a base-URL var and the rest the path and query (D177); with `--from-curl` (M6, D176), method, URL, headers and body come from the curl command |
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
@@ -535,7 +535,7 @@ An api file can be generated from an OpenAPI spec and kept in step with it, whil
 | Source | Works | Notes |
 | --- | --- | --- |
 | URL | `vc import openapi https://users.staging.shop.example/v3/api-docs` | The usual case for Spring, FastAPI, NestJS and others that serve their spec; private URLs take headers (below) |
-| File in your repo or next to it | `vc import openapi ../backend/openapi.json` | For monorepos, or a spec checked in by the backend team |
+| File in your repo | `vc import openapi specs/openapi.json` | For monorepos, or a spec checked in by the backend team; the path is from the working folder and must be inside the project (a file outside it is refused) |
 | JSON or YAML | both | Detected from content, not the extension |
 | OpenAPI 3.0, 3.1, or Swagger 2.0 | all | Swagger 2.0 is converted to OpenAPI 3.1 on import |
 | A spec split over several files | yes | `$ref`s to other files are resolved and bundled |
@@ -556,7 +556,7 @@ source:
 
 ### Do you need to keep a copy of the spec?
 
-You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; generated tests also point their schemas into it. Runs never need the spec or the network to reach it.
+You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; generated tests are to point their schemas into it (not drafted yet). Runs never need the spec or the network to reach it.
 
 ### What sync does
 

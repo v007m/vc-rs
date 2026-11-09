@@ -12,10 +12,14 @@ pub struct InitArgs {
     /// Writes the config and folders only, without the sample api and test files.
     #[arg(long)]
     no_sample: bool,
+    /// Then imports this `OpenAPI` spec, a URL or a path in the project, as `vc import openapi`.
+    #[arg(long, value_name = "URL_OR_FILE")]
+    from_openapi: Option<String>,
 }
 
-/// `vc init [--no-sample]`: exit 0 once written, 2 when a project is here already, and then
-/// nothing is written.
+/// `vc init [--no-sample] [--from-openapi <url-or-file>]`: exit 0 once written, 2 when a
+/// project is here already, and then nothing is written. The import runs once the project is
+/// written; when it is refused, the project stays and `vc import openapi` can be run again.
 pub fn run(args: &InitArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let cwd = std::env::current_dir()?;
     let root = project.map_or_else(|| cwd.clone(), |dir| cwd.join(dir));
@@ -39,6 +43,9 @@ pub fn run(args: &InitArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         println!("  {}", file.path);
     }
     println!("  {}/", INIT_FOLDERS.join("/  "));
+    if let Some(source) = &args.from_openapi {
+        return crate::import::openapi(project, source);
+    }
     println!("next: {}", if args.no_sample { "vc new api <service>#<id> --path /…" } else { "vc run" });
     Ok(Outcome::Done)
 }

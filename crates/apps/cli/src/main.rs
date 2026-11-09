@@ -17,6 +17,7 @@ mod explain;
 mod fix;
 mod fmt;
 mod history;
+mod import;
 mod init;
 mod list;
 mod load;
@@ -88,6 +89,8 @@ enum Command {
     Config(explain::ConfigCommand),
     /// Sends one api ad hoc and prints the response.
     Call(call::CallArgs),
+    /// Creates an api file from an `OpenAPI` spec, a HAR recording or another tool's collection.
+    Import(import::ImportArgs),
     /// Runs a load scenario with live metrics.
     Load(load::LoadArgs),
     /// Converts a project from an older format.
@@ -135,6 +138,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Explain(args) => explain::run(&args, project),
         Command::Config(command) => explain::config(&command, project),
         Command::Call(args) => call::run(&args, project),
+        Command::Import(args) => import::import(&args, project),
         Command::Load(args) => load::run(&args, project),
         Command::Migrate(command) => Ok(migrate::run(&command)),
         Command::Demo(args) => demo::run(&args),

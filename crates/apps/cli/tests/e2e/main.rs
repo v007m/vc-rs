@@ -15,6 +15,7 @@ mod demo;
 mod explain;
 mod history;
 mod hooks;
+mod import;
 mod layers;
 mod lifecycle;
 mod redaction;
