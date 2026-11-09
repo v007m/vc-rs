@@ -5,6 +5,7 @@
 
 #![cfg(test)]
 
+mod approvals;
 mod auth;
 mod cache;
 mod call;

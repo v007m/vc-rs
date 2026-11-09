@@ -352,6 +352,8 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | --- | --- |
 | `vc tui` | Opens the terminal UI |
 | `vc mcp` | Starts the MCP server for AI agents |
+| `vc approvals [--all]` | Lists the agent calls waiting for a person (D195), newest first: `#<id>  <agent>  <tool>  <profile>  <summary>`, or `no requests waiting`; `--all` also lists the decided and expired ones, each with its status. A waiting agent is refused after 10 minutes |
+| `vc approve <id> [--always \| --deny]` | Approves a waiting agent call once; `--always` also allows calls like it (same profiles, tool and method) from now on, kept in `history.db`, never in YAML (D195); `--deny` refuses it. The waiting agent wakes at once. The decision is recorded under the OS user (`USER`/`USERNAME`). An unknown or already decided request exits 2 |
 | `vc serve` | Starts the self-hosted team server (later release). For the local web UI of this project, use vc ui, which opens http://localhost:7420 |
 | `vc completion bash\|zsh\|fish\|powershell` | Prints shell completion, including test and api IDs: the commands and flags, plus a hook that asks the hidden `vc __complete <command> <word>` for the project's file, test and api IDs, profiles and tags (nothing outside a project) |
 | `vc demo start [--port 7421] [--detach]`, `vc demo stop [--port]` | Starts the demo service the sample calls (the `vc-demo` binary installed next to `vc`); `--detach` returns once it answers and keeps a pidfile in the temp folder, which `stop` uses. Stopping when none runs exits 0 and says so |

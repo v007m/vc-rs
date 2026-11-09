@@ -7,6 +7,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+mod approvals;
 mod cache;
 mod call;
 mod changes;
@@ -93,6 +94,10 @@ enum Command {
     Import(import::ImportArgs),
     /// Merges spec changes into api files, keeping your edits.
     Sync(import::SyncArgs),
+    /// Lists the agent calls waiting for a person's approval.
+    Approvals(approvals::ApprovalsArgs),
+    /// Approves or denies an agent call that is waiting.
+    Approve(approvals::ApproveArgs),
     /// Runs a load scenario with live metrics.
     Load(load::LoadArgs),
     /// Converts a project from an older format.
@@ -142,6 +147,8 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Call(args) => call::run(&args, project),
         Command::Import(args) => import::import(&args, project),
         Command::Sync(args) => import::sync(&args, project),
+        Command::Approvals(args) => approvals::list(&args, project),
+        Command::Approve(args) => approvals::approve(&args, project),
         Command::Load(args) => load::run(&args, project),
         Command::Migrate(command) => Ok(migrate::run(&command)),
         Command::Demo(args) => demo::run(&args),

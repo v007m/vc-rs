@@ -1,0 +1,95 @@
+//! `vc approvals` and `vc approve <id>`: the agent calls waiting for a person (D195).
+
+use std::path::Path;
+
+use clap::Args;
+use vc_engine::{Approval, ApprovalId, ApprovalStatus, Verdict};
+
+use crate::{Outcome, project};
+
+/// `vc approvals`.
+#[derive(Args)]
+pub struct ApprovalsArgs {
+    /// Also lists the requests already decided or expired.
+    #[arg(long)]
+    all: bool,
+}
+
+/// `vc approve <id>`.
+#[derive(Args)]
+pub struct ApproveArgs {
+    /// The request to decide, as `vc approvals` lists it.
+    id: u64,
+    /// Also allows calls like it (same profile, tool and method) from now on (D195).
+    #[arg(long, conflicts_with = "deny")]
+    always: bool,
+    /// Refuses the call instead.
+    #[arg(long)]
+    deny: bool,
+}
+
+/// `vc approvals [--all]`: exit 0 listed, 2 the history cannot be read.
+pub fn list(args: &ApprovalsArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
+    let located = match project::locate(project)? {
+        Ok(located) => located,
+        Err(outcome) => return Ok(outcome),
+    };
+    Ok(match located.engine.approvals_list(!args.all) {
+        Ok(approvals) if approvals.is_empty() => {
+            println!("{}", if args.all { "no requests" } else { "no requests waiting" });
+            Outcome::Done
+        }
+        Ok(approvals) => {
+            for approval in &approvals {
+                println!("{}", row(approval, args.all));
+            }
+            Outcome::Done
+        }
+        Err(error) => Outcome::Engine(error),
+    })
+}
+
+/// `vc approve <id> [--always | --deny]`: exit 0 decided, 2 unknown or already decided.
+pub fn approve(args: &ApproveArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
+    let located = match project::locate(project)? {
+        Ok(located) => located,
+        Err(outcome) => return Ok(outcome),
+    };
+    let verdict = match (args.always, args.deny) {
+        (true, _) => Verdict::AlwaysAllow,
+        (_, true) => Verdict::Deny,
+        _ => Verdict::Approve,
+    };
+    Ok(match located.engine.approvals_decide(ApprovalId::new(args.id), verdict) {
+        Ok(_) => {
+            println!("{}", decided(args.id, verdict));
+            Outcome::Done
+        }
+        Err(error) => Outcome::Engine(error),
+    })
+}
+
+/// `#3  claude  call_api  staging  DELETE users#remove`, with the status when `all`.
+fn row(approval: &Approval, all: bool) -> String {
+    let request = &approval.request;
+    let line =
+        format!("#{}  {}  {}  {}  {}", approval.id, request.agent, request.tool, request.profile, request.summary);
+    if all { format!("{line}  ({})", status(approval.status)) } else { line }
+}
+
+const fn status(status: ApprovalStatus) -> &'static str {
+    match status {
+        ApprovalStatus::Pending => "waiting",
+        ApprovalStatus::Approved => "approved",
+        ApprovalStatus::Denied => "denied",
+        ApprovalStatus::Expired => "expired",
+    }
+}
+
+fn decided(id: u64, verdict: Verdict) -> String {
+    match verdict {
+        Verdict::Approve => format!("✓ approved request #{id}"),
+        Verdict::AlwaysAllow => format!("✓ approved request #{id}, and calls like it from now on"),
+        Verdict::Deny => format!("✓ denied request #{id}"),
+    }
+}
