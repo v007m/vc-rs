@@ -1135,7 +1135,7 @@ M5 stream B adds these commands:
   - `Ids`: both, after `explain`.
   - `Profiles` and `Tags`: completed after the last comma.
   - Outside a project, or in one with errors, it prints nothing.
-- **`vc demo start|stop`** spawns the `vc-demo` binary, looked up next to `vc` first and then on `PATH`. `--detach` writes `vibranium-demo-<port>.pid` in the temp folder and waits until the port answers. `stop` sends SIGTERM (taskkill on Windows) and removes the pidfile. When no demo is running, it exits 0 and names the port.
+- **`vc demo start|stop`** spawns the `vc-demo` binary, looked up next to `vc` first and then on `PATH`. `--detach` writes `vibranium-demo-<port>.pid` in the temp folder and waits until the port answers. The demo runs with null stdio in a process group of its own; on Windows it is also created with `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`. It still inherits `vc`'s inheritable handles there, because std has no stable `inherit_handles` and `unsafe` is forbidden. So a caller that reads `vc`'s pipes to their end waits until `stop`; the `command:` action stops reading shortly after `vc` exits. `stop` sends SIGTERM (taskkill on Windows) and removes the pidfile. When no demo is running, it exits 0 and names the port.
 - **`vc call <apiId>`** calls `Engine::call(&CallRequest { api, vars, keep, profiles, sets })`:
   - The engine layers the settings, but it builds no plan, so `beforeRun` and `beforeAll` never run.
   - It appends one run-owned `Call` action, which carries the api's own `expect`, to a copy of the program.

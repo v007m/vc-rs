@@ -125,12 +125,29 @@ fn answers(port: u16) -> bool {
     TcpStream::connect_timeout(&SocketAddr::from((Ipv4Addr::LOCALHOST, port)), POLL).is_ok()
 }
 
-/// No terminal: the demo outlives `vc`, and on Unix a Ctrl-C to the shell does not reach it.
+/// No terminal: the demo outlives `vc`, and a Ctrl-C to the shell does not reach it (its own
+/// process group; on Windows also no console).
+///
+/// On Windows the demo still inherits every inheritable handle of `vc`, including the pipes a
+/// caller reads `vc`'s output from: std has no stable way to stop that (`inherit_handles`,
+/// rust-lang/rust#146407) and the workspace forbids `unsafe`. A caller that reads those pipes to
+/// the end waits until `vc demo stop`; the `command:` action does not, it stops reading shortly
+/// after `vc` exits.
 fn detached(command: &mut Command) {
     command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(command, 0);
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(command, DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
 }
+
+/// `DETACHED_PROCESS`: the demo gets no console, so closing `vc`'s window leaves it running.
+#[cfg(windows)]
+const DETACHED_PROCESS: u32 = 0x0000_0008;
+
+/// `CREATE_NEW_PROCESS_GROUP`: a Ctrl-C in `vc`'s console does not reach the demo.
+#[cfg(windows)]
+const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
 
 #[cfg(unix)]
 fn terminate(pid: u32) -> bool {
