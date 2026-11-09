@@ -4,7 +4,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-use vc_model::{Check, CheckKind, Matcher, Origin, Path, Plan, Program, Segment, StatusPattern};
+use vc_model::{Check, CheckKind, Expect, Matcher, Origin, Path, Plan, Program, Segment, StatusPattern};
 
 use crate::visit;
 
@@ -19,12 +19,18 @@ pub fn explain(program: &Program, plan: &Plan) -> String {
         for action in visit::body_actions(&test.body) {
             let _ = writeln!(out, "  {}", super::action_label(program, action));
             let checks = usize::try_from(action.index()).ok().and_then(|at| program.actions.get(at));
-            for check in checks.iter().flat_map(|action| &action.expect.checks) {
-                let _ = writeln!(out, "    {}  ({})", check_text(check), origin(program, check.origin));
+            for line in checks.iter().flat_map(|action| check_lines(program, &action.expect)) {
+                let _ = writeln!(out, "    {line}");
             }
         }
     }
     out
+}
+
+/// Each check of `expect` on a line, with where it came from: `status: 201  (api users#create)`.
+#[must_use]
+pub fn check_lines(program: &Program, expect: &Expect) -> Vec<String> {
+    expect.checks.iter().map(|check| format!("{}  ({})", check_text(check), origin(program, check.origin))).collect()
 }
 
 /// `header content-type: contains` or `status: 200, 2xx`.

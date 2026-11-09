@@ -300,7 +300,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
 | `vc new file api\|test\|load <fileId>` | Creates an empty file of that kind with its header filled in |
-| `vc call <apiId> [--var k=v] [--save-as-test <testId> [--expect-field body.<path>]...]` | Calls one api ad hoc with project auth and the active profile; optionally saves the call as a test expecting its status and the named body fields |
+| `vc call <apiId> [--var k=v] [--keep] [--save-as-test <testId> [--expect-field body.<path>]...]` | Calls one api ad hoc with project auth and the active profile (`--profile`, `--set` as for `vc run`), then runs the api's cleanup unless `--keep`; `beforeRun` and `beforeAll` are skipped and the call is stored in the history as `adhoc`. Exits 1 when the api's `expect` fails, 2 for an unknown api (with the closest) or a `--var` that is not `name=value`. Optionally saves the call as a test expecting its status and the named body fields (a missing field exits 2 and writes nothing) |
 | `vc fmt [--strip-comments] [paths]` | Rewrites definition files in the house style (block YAML, key order, quoting) and keeps comments; `--strip-comments` drops the one-line comments `vc new` wrote above its items. Refuses, writing nothing, a file that does not parse or that formatting would change in meaning; exits 2 then, 0 otherwise |
 | `vc rename <oldId> <newId>` | Renames an api, test, file, var, auth or dataset ID and updates every reference; moves the file when a file ID changes |
 
@@ -310,9 +310,9 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | --- | --- |
 | `vc check [--json] [paths...]` | Compiles and links everything; prints errors and warnings with file, line and column, then a summary (`1 error · 0 warnings · 3 files checked`); exits 2 on errors, 0 otherwise. With paths (files or folders, relative to the working folder), reports only on the files under them; the whole project is still compiled, so references into other files are checked. `--json` prints the diagnostics as JSON on stdout instead. With `--fix`, prints each certain fix as a unified diff, asks `Apply N fixes? [y/N]` and on yes writes them and checks again; the exit code is that of the final check. Nothing is written when you decline, when there are no certain fixes, or when the fixes would add an error. Run anywhere inside a project: it looks up from the working folder for `vibranium.config.yaml` |
 | `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions: one line per item (full ID, name, tags, `(skipped)`), or `--json` (`id`, `name`, `path`, `tags`, `skipped`) for scripts and agents (D130). `tests` takes the selectors and flags of `vc run` and lists the skipped tests too; `--skipped` lists only those. `apis` take the same positional selectors, `--grep` and `--changed` (an api file ID such as `users` names its apis; `-t` is refused, as apis have no tags), and `files` take them all, a file's tags being its test file's |
-| `vc explain <id>` | Shows one api or test fully resolved for the active profile: final URL, vars and where each came from, auth, merged `expect`, the lifecycle actions it triggers and the cleanups it registers |
+| `vc explain <id> [--profile] [--set]` | Shows one api or test fully resolved for the active profile: final URL, vars and where each came from, auth, merged `expect`, the lifecycle actions it triggers and the cleanups it registers. An unknown ID exits 2 and names the closest |
 | `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request: the plan line, then a tree of lifecycle blocks and test instances. Takes the selectors, `--profile`, `--set` and `--repeat` of `vc run`; `--json` for scripts and agents (D130), `--dot` for a Graphviz graph |
-| `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …) with a wrong and a right example |
+| `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …) with a wrong and a right example. The pages are built into the binary, so it works outside a project; an unknown code exits 2 |
 
 **Run**
 
@@ -335,13 +335,13 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 | Command | Does |
 | --- | --- |
-| `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors |
+| `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors; `--json` also gives each run's `kind` (`run`, `adhoc`) |
 | `vc history show [run\|last] [--json]` | One stored run and the tests in it that did not pass, with why |
 | `vc history prune [--keep N]` | Drops the oldest runs beyond `N` (else the config's `history.keep`); a run also prunes when it ends |
 | `vc history [query]`, `vc history compare 481 482` | Failures, flaky tests and trends across runs (later) |
 | `vc report [run\|last] [--format html,junit,ctrf] [--out DIR] [--single-file]` | Writes a stored run's report files again from its snapshot (D167), `html` when `--format` names none, into `.vibranium/reports/<run>/` unless `--out` says; prints each file. `--open` comes later |
 | `vc cache list\|clear [id]` | Shows the cached lifecycle data (`--json` for scripts) or clears it, all of it or one action's (`users#create`), running each entry's cleanup under its profiles; a cleanup that fails is a warning. Needs the cache key (`VIB_CACHE_KEY` or the OS keychain) |
-| `vc config explain <key>` | Shows a config value and which layer set it (D129) |
+| `vc config explain <key> [--profile] [--set]` | Shows a config value and which layer set it, then each value it replaced (`defaults.timeout = 1m  (--set)`, `  over 30s  (built-in)`; D129). Takes the `--set` keys; an unknown key exits 2 and names the closest |
 | `vc plugin add\|list\|remove` | Manages plugins and their permissions |
 
 **Other interfaces**
@@ -351,7 +351,8 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc tui` | Opens the terminal UI |
 | `vc mcp` | Starts the MCP server for AI agents |
 | `vc serve` | Starts the self-hosted team server (later release). For the local web UI of this project, use vc ui, which opens http://localhost:7420 |
-| `vc completion bash\|zsh\|fish\|powershell` | Prints shell completion, including test and api IDs |
+| `vc completion bash\|zsh\|fish\|powershell` | Prints shell completion, including test and api IDs: the commands and flags, plus a hook that asks the hidden `vc __complete <command> <word>` for the project's file, test and api IDs, profiles and tags (nothing outside a project) |
+| `vc demo start [--port 7421] [--detach]`, `vc demo stop [--port]` | Starts the demo service the sample calls (the `vc-demo` binary installed next to `vc`); `--detach` returns once it answers and keeps a pidfile in the temp folder, which `stop` uses. Stopping when none runs exits 0 and says so |
 | `vc schema export [--out <dir>]` | Writes the JSON Schema of each file kind (config, api, test, load) for editors: one JSON object keyed by kind on stdout, or one `<kind>.schema.json` per kind in `<dir>`. Needs no project |
 
 ## Global flags
@@ -487,6 +488,8 @@ $ vc call users#deactivate --var id=u_7f3k29qp --profile staging --save-as-test 
 200 OK · 148 ms · api expect passed
 ✓ wrote users.crud#deactivatesUser to services/users/crud.test.yaml:72
 ```
+
+Without `--save-as-test` it prints the status line, then the body (indented when it is JSON) and, when the api's `expect` fails, the failed check after `✗`; secrets are masked as in reports. `--var` values are strings and beat the vars the api and the config define. A cleanup that fails is a warning; it does not change the exit code.
 
 ### Importing from a HAR file
 

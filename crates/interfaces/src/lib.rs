@@ -29,6 +29,7 @@
 //!   `vc report` and `vc run --failed` (D167, D170).
 //! - [`CacheStore`]: the cross-run cache in `.vibranium/cache.db`, what a `cache:`d action
 //!   saved and the cleanups that undo it, encrypted at rest by the store.
+//! - [`FileWatcher`]: the batches of saved project files `vc watch` re-runs on (D180).
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -58,6 +59,7 @@ mod secrets;
 mod source;
 mod transport;
 mod vcs;
+mod watch;
 
 pub use action_cache::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, CachedCleanup, CachedValues};
 pub use auth::{ActionRunner, AuthError, AuthProvider, AuthRequest, Credentials};
@@ -79,3 +81,4 @@ pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
 pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
 pub use transport::{SendContext, Transport, TransportError};
 pub use vcs::{Vcs, VcsError, checked_ref};
+pub use watch::{FileWatcher, WatchError};

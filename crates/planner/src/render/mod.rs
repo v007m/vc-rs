@@ -12,7 +12,7 @@ use std::fmt::Write as _;
 use vc_model::{ActionId, ActionKind, Instance, Plan, PlannedFile, Program, Sym};
 
 pub use self::dot::dot;
-pub use self::explain::explain;
+pub use self::explain::{check_lines, explain};
 pub use self::json::json;
 pub use self::tree::tree;
 
@@ -78,8 +78,9 @@ fn name(program: &Program, sym: Sym) -> &str {
     program.str(sym).unwrap_or("?")
 }
 
-/// An action as people know it: its `id`, else what it does.
-fn action_label(program: &Program, id: ActionId) -> String {
+/// An action as people know it: its `id`, else what it does: `call users#create`.
+#[must_use]
+pub fn action_label(program: &Program, id: ActionId) -> String {
     let Some(action) = usize::try_from(id.index()).ok().and_then(|at| program.actions.get(at)) else {
         return format!("action {}", id.index());
     };

@@ -6,6 +6,8 @@ mod spec;
 mod suggest;
 mod tags;
 
+pub use suggest::closest;
+
 use std::collections::BTreeMap;
 
 use vc_model::{ApiId, FileId, Program, SourceFileId, TestId};

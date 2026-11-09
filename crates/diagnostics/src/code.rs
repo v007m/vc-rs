@@ -5,6 +5,7 @@ use serde::{Serialize, Serializer};
 
 use crate::{DiagnosticsError, Severity};
 
+mod explain;
 mod table;
 #[cfg(test)]
 mod tests;

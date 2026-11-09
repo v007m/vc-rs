@@ -40,9 +40,9 @@ const ROLES: &[(&str, Role)] = &[
 /// The console format when none is given.
 const CONSOLE: &str = "spec";
 /// The report files when neither a flag, a layer nor the config names any.
-const FILES: &[&str] = &["ctrf"];
+pub(crate) const FILES: &[&str] = &["ctrf"];
 /// Where reports go when nothing says, under the project root.
-const REPORTS_DIR: &str = ".vibranium/reports";
+pub(crate) const REPORTS_DIR: &str = ".vibranium/reports";
 /// The origin of values from the project's config.
 const CONFIG: &str = "vibranium.config.yaml";
 

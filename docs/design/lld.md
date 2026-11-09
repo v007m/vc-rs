@@ -63,6 +63,7 @@ vibranium/
       tui/                   ratatui screens
       mcp/                   MCP server (rmcp)
       server/                axum: Connect-protocol API, embedded web UI, MCP over HTTP
+      demo/                  vc-demo: the `/users` and `/echo` service the `vc init` sample calls; its own binary, shipped next to vc (D175, D188)
     arch-tests/              dependency and design-rule checks
   web/                       web UI: TypeScript, svelte/sveltekit (built, then embedded)
   sdks/                      typescript/ python/ go/ java/
@@ -92,7 +93,7 @@ Dependency rules: the crates form a layered graph with no cycles, enforced by `a
 | L6 | `vc-tui`, `vc-mcp`, `vc-server` | engine, which re-exports the model types they need (plus contracts for mcp and server) (D108) |
 | L7 | `vc-cli` (bin `vc`) | engine, tui, mcp, server: the only app→app edges (D110) |
 | — | `vc-testkit` | model, interfaces; used only as a dev-dependency (D112) |
-| — | `vc-arch-tests`, `vc-mock-server`, `vc-demo` | no workspace crates |
+| — | `vc-arch-tests`, `vc-mock-server`, `vc-demo` | no workspace crates; `vc demo` runs the `vc-demo` binary, so `vc-cli` does not depend on it (D188) |
 
 Every edge points to a strictly lower layer; adapters never depend on each other or on the core logic crates. `arch-tests` asserts the whole table (crates for later milestones included, so adding them does not touch gate files), rejects unknown crates, and checks dev-dependency edges for cycles. Public items in `vc-model` and `vc-interfaces` may name only types from std, serde/serde_json, indexmap, smol_str, bytes and `http` (D111).
 
@@ -221,7 +222,7 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 | --- | --- | --- |
 | **Orchestrator + state machine** | `RunOrchestrator`, `FileOrchestrator`, `InstanceWorkflow`; also the load stage controller and the HAR import wizard | One place decides and holds state; workers stay simple and testable |
 | **Saga (compensation)** | Api `cleanup` as compensating actions, run in reverse | Undo without tests describing it |
-| **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `vc-interfaces`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `Environment`, `FileSystem`, `SourceProvider`, `SourceWriter`, `CompileCacheStore`, `CommandRunner`, `Vcs`, `ConfigSource`, `ActionRunner` | The core never knows which library sits behind it |
+| **Ports and adapters** (hexagonal) | Every outside dependency is a trait in `vc-interfaces`: `Transport`, `AuthProvider`, `SecretProvider`, `HookRunner`, `HistoryWriter`, `HistoryReader`, `CacheStore`, `Reporter`, `Notifier`, `Importer`, `Clock`, `Random`, `Environment`, `FileSystem`, `SourceProvider`, `SourceWriter`, `CompileCacheStore`, `CommandRunner`, `Vcs`, `ConfigSource`, `ActionRunner`, `FileWatcher` | The core never knows which library sits behind it |
 | **Strategy** | Action executors (call, test reuse, function, command); matchers; pipes; body encoders (JSON, form, multipart, file); retry and loop policies (sequential, parallel); the load mix selector; sync merge rules | Swap behaviour by kind without branching in the caller |
 | **Factory and registry** | One registry per kind of strategy or adapter, filled at start-up: `ActionExecutors` (by action kind), `AuthProviderFactory` (by auth `type`), `ReporterFactory`, `NotifierFactory`, `ImporterFactory` (by source), `TransportFactory` (by URL scheme, ready for gRPC and WebSocket), `MatcherRegistry`, `PipeRegistry`, `LintRegistry` | Adding a kind is one new file plus one registration line; nothing else changes |
 | **Builder** | `EngineBuilder` (the composition root that wires adapters into the engine); `ProgramBuilder` (the compiler accumulates, then `freeze()` gives the immutable `Program`); `RequestBuilder` (renders a request from an api, scope and auth); `PlanBuilder`; `Diagnostic::new(…)` with chained `label`, `help`, `fix`; test fixtures (`ProjectBuilder`, `ProgramBuilder::for_tests`); the SDKs' fluent builders | Objects with many optional parts are assembled step by step and checked once; required parts are enforced by typed builder states |
@@ -1090,6 +1091,28 @@ Every interface is a thin adapter over the `engine` facade, so a capability adde
 `clap` derive commands as listed in the CLI and Developer Workflow doc; the global flag `--project <dir>` (the others are per command). Console output is written by the console reporter (spec, dots, json) and the diagnostics `TextRenderer`; colour and progress bars switch off when stdout is not a terminal. Exit codes follow that doc (0 pass, 1 failed or blocked, 2 nothing ran, 3 load threshold, 4 sync drift), plus 130 when cancelled and 70 for an internal error, which prints a report hint and writes a redacted debug bundle (D127). `vc-cli` owns `main` and dispatches `vc tui`, `vc mcp` and `vc ui` to their app crates (D110). `vc completion <shell>` generates static completion plus a dynamic hook (`vc __complete`) that lists project IDs.
 
 So far (M2) the CLI has `vc check [--json] [paths…]`, `vc schema export [--out <dir>]`, `vc plan`, `vc run` and `vc list`. `vc check` finds the project from the working folder (`EngineBuilder::for_project`), calls `Engine::check(CheckRequest { paths })` and prints the report with `TextRenderer` (colour only on a terminal without `NO_COLOR`) followed by a summary line, or with `JsonRenderer` under `--json`. Paths are resolved against the working folder, or the project root under `--project`, and must lie in the project. `vc schema export` needs no project: `Engine::schema_bundle()` prints one object keyed by kind, `Engine::schema_export()` gives the `<kind>.schema.json` files for `--out`. `vc plan`, `vc run` and `vc list` take the selectors of cli-workflow's "Selecting what to run" (a selector naming an existing file or folder is a project path, anything else an ID) and build a `PlanRequest` (`--profile`, `--set`, `--repeat`) or `ListRequest`. `Engine::plan` resolves the settings in layers (D129: built-in < user config < config < profiles < `.env` < `VIB_*` < `--set`, each value keeping its origin; `EngineBuilder::user_config(path)` replaces the default user-config path for tests), asks the `Vcs` port for `--changed` (D179), compiles and plans. `Engine::run` runs that plan on a Tokio runtime the CLI owns, fans the event stream out to the console reporter (`spec`, `json`) and the file reporters (`--report` over `reports.formats`, into `--out` over `reports.dir`), lets the file reporters finish first so the console can print their paths, and returns the exit code; Ctrl-C reaches the executor through the `Interrupter` from `vc_engine::interrupts()` (exit 130). `command:` actions run through the `CommandRunner` port (`EngineBuilder::commands`, `ProcessRunner` by default, D181). `vc list apis` and `vc list files` take the same selectors as `vc list tests` (`select_apis`, `select_files` in `vc-planner`); apis have no tags, so `-t` with `list apis` is a selection error. The end-to-end suite (`crates/apps/cli/tests/e2e`) runs the real binary against `vc-mock-server`. A failing run prints its seed. Everything a user can fix (no project, a missing `--project` folder, an unknown profile, `--set` key or reporter, an empty selection, a path outside it or with no definition files, an unwritable `--out`) prints `error: …` and exits 2; any other error or a panic exits 70 with the "please report" hint.
+
+M5 stream B adds these commands:
+
+- **`vc explain <code>`** prints `Code::explain()`, the page from `crates/diagnostics/explain/<code>.md`, which is built into the binary with `include_str!`. Headings lose their `#`s and example lines are indented without their fences. It needs no project. A code with no page yet prints its title alone.
+- **`vc explain <id>`** calls `Engine::explain(target, &ExplainRequest { profiles, sets })`. It resolves the settings as `vc plan` does, then shows the api or test for the active profile: the request line with the final URL, vars with their level, auth, the merged `expect`, steps, and lifecycle and cleanup.
+- **`vc config explain <key>`** calls `Engine::config_explain`. It lists the layer that set the value, then each value it replaced (`  over 30s  (built-in)`). An unknown key is an `EngineError::Selection` with the closest key.
+- **`vc completion <shell>`** writes the `clap_complete` script for bash, zsh, fish or PowerShell, plus a short hook. The hook calls the hidden `vc __complete <command|flag> <word>`, which prints `Engine::complete(CompleteKind, prefix)`, one candidate per line:
+  - `Tests`: file and test IDs, after `run`, `plan` and `list`.
+  - `Apis`: api file and api IDs, after `call`.
+  - `Ids`: both, after `explain`.
+  - `Profiles` and `Tags`: completed after the last comma.
+  - Outside a project, or in one with errors, it prints nothing.
+- **`vc demo start|stop`** spawns the `vc-demo` binary, looked up next to `vc` first and then on `PATH`. `--detach` writes `vibranium-demo-<port>.pid` in the temp folder and waits until the port answers. `stop` sends SIGTERM (taskkill on Windows) and removes the pidfile. When no demo is running, it exits 0 and names the port.
+- **`vc call <apiId>`** calls `Engine::call(&CallRequest { api, vars, keep, profiles, sets })`:
+  - The engine layers the settings, but it builds no plan, so `beforeRun` and `beforeAll` never run.
+  - It appends one run-owned `Call` action, which carries the api's own `expect`, to a copy of the program.
+  - It runs that action through the executor with the `--var` values in the frame's saved scope.
+  - It then runs the cleanups the action registered unless `--keep`, last first. A cleanup failure becomes a notice.
+  - It records a history run of kind `adhoc`, with the api ID as its selector and one passed or failed instance.
+  - It returns a `CallReport`: `exit` (0 or 1), `text` (status line, masked body, `✗` failure), `notices`, and `response`. `response` is the masked response value that `--save-as-test` reads.
+
+`vc watch` is not built yet. Its port is `FileWatcher` in `vc-interfaces`. `watch()` returns a channel of debounced batches of saved `SourcePath`s, filtered by the `SourceFilter`.
 
 ### TUI (`apps/tui`)
 

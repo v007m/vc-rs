@@ -1,5 +1,6 @@
-//! Every V1–V3 code has an explain page, `crates/diagnostics/explain/<code>.md`, and its
-//! examples do what the page says.
+//! Every code has an explain page, `crates/diagnostics/explain/<code>.md`, built into the
+//! binary, and the examples of the V1–V3 pages do what the page says (V4 lints and V5 run-time
+//! results are not reported by `check`).
 //!
 //! A page starts with `# <code>: <title>` (the code's title), then one paragraph, then a
 //! `## Wrong` and a `## Right` section. Each section is a small project: one fenced block per
@@ -31,8 +32,14 @@ fn page(code: Code) -> Outcome<String> {
     Ok(fs::read_to_string(page_dir().join(format!("{code}.md")))?)
 }
 
+/// Every code with a page.
+fn paged() -> impl Iterator<Item = Code> {
+    Code::ALL.iter().copied().filter(|code| !LATER.contains(code))
+}
+
+/// The codes whose examples `check` can confirm.
 fn explained() -> impl Iterator<Item = Code> {
-    Code::ALL.iter().copied().filter(|code| code.number() < 4000 && !LATER.contains(code))
+    paged().filter(|code| code.number() < 4000)
 }
 
 /// The files of the section headed `## <section>`.
@@ -56,19 +63,21 @@ fn codes(diagnostics: &Diagnostics) -> Vec<Code> {
 }
 
 #[test]
-fn every_v1_to_v3_code_has_a_page_and_every_page_a_code() -> Outcome<()> {
+fn every_code_has_a_page_and_every_page_a_code() -> Outcome<()> {
     let entries = fs::read_dir(page_dir())?.collect::<Result<Vec<_>, _>>()?;
     let mut pages: Vec<String> = entries.iter().map(|entry| entry.file_name().to_string_lossy().into_owned()).collect();
     pages.sort();
-    let expected: Vec<String> = explained().map(|code| format!("{code}.md")).collect();
+    let expected: Vec<String> = paged().map(|code| format!("{code}.md")).collect();
     assert_eq!(pages, expected);
     Ok(())
 }
 
 #[test]
-fn each_page_is_titled_with_its_code() -> Outcome<()> {
-    for code in explained() {
-        assert_eq!(page(code)?.lines().next(), Some(format!("# {code}: {}", code.title()).as_str()));
+fn each_page_is_titled_with_its_code_and_built_in() -> Outcome<()> {
+    for code in paged() {
+        let page = page(code)?;
+        assert_eq!(page.lines().next(), Some(format!("# {code}: {}", code.title()).as_str()));
+        assert_eq!(code.explanation(), Some(page.as_str()), "{code} is in the binary");
     }
     Ok(())
 }

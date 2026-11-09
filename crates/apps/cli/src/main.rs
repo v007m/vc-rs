@@ -8,8 +8,12 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 mod cache;
+mod call;
 mod changes;
 mod check;
+mod completion;
+mod demo;
+mod explain;
 mod fix;
 mod fmt;
 mod history;
@@ -71,6 +75,20 @@ enum Command {
     /// Works with the JSON Schemas editors use for definition files.
     #[command(subcommand)]
     Schema(SchemaCommand),
+    /// Explains a diagnostic code, or a test or api as the active profile resolves it.
+    Explain(explain::ExplainArgs),
+    /// Shows where a config value comes from.
+    #[command(subcommand)]
+    Config(explain::ConfigCommand),
+    /// Sends one api ad hoc and prints the response.
+    Call(call::CallArgs),
+    /// Starts or stops the demo service the `vc init` sample calls.
+    Demo(demo::DemoArgs),
+    /// Prints the shell completion script for bash, zsh, fish or powershell.
+    Completion(completion::CompletionArgs),
+    /// The test and api IDs, profiles and tags the completion scripts offer.
+    #[command(name = "__complete", hide = true)]
+    Complete(completion::CompleteArgs),
 }
 
 #[derive(Subcommand)]
@@ -102,5 +120,11 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Skip(args) => skip::skip(&args, project),
         Command::Unskip(args) => skip::unskip(&args, project),
         Command::Schema(SchemaCommand::Export(args)) => schema::export(&args, project),
+        Command::Explain(args) => explain::run(&args, project),
+        Command::Config(command) => explain::config(&command, project),
+        Command::Call(args) => call::run(&args, project),
+        Command::Demo(args) => demo::run(&args),
+        Command::Completion(args) => completion::run(&args),
+        Command::Complete(args) => completion::complete(&args, project),
     }
 }
