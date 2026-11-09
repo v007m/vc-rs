@@ -24,10 +24,7 @@ pub async fn attempt(executors: &ActionExecutors, request: ActionRequest, retry:
 /// One attempt, with every cleanup it registered in its report, those its parts handed over
 /// included, so a failed attempt undoes them all; dropped, it hands them to the frame's sink.
 async fn one_attempt(executors: &ActionExecutors, request: &ActionRequest) -> ActionReport {
-    let mut kept = CleanupCollector::under(request.frame.sink.clone());
-    let mut report = executors.once(ActionRequest { frame: kept.frame(&request.frame), ..request.clone() }).await;
-    report.cleanups = kept.take(report.cleanups);
-    report
+    CleanupCollector::around(request, |request| executors.once(request)).await
 }
 
 /// Runs a failed attempt's `cleanups` newest first in `request`'s frame; how they end changes

@@ -117,18 +117,15 @@ impl Crew {
     /// the cleanups its finished parts handed over.
     async fn execute(&self, job: Job) -> ActionReport {
         let (action, deadline) = (job.action, job.deadline);
-        let mut kept = CleanupCollector::under(job.frame.sink.clone());
-        let job = Job { frame: kept.frame(&job.frame), ..job };
-        let work = self.cx.executors.execute(job.request(&self.cx));
-        let mut report = match deadline {
-            None => work.await,
-            Some(deadline) => time::timeout_at(deadline.at, work).await.unwrap_or_else(|_| {
+        let run = |request| async move {
+            let work = self.cx.executors.execute(request);
+            let Some(deadline) = deadline else { return work.await };
+            time::timeout_at(deadline.at, work).await.unwrap_or_else(|_| {
                 let failure = Failure::new(deadline.past).with_code(Code::V5104.to_string());
                 ActionReport::failed(failure.at(action))
-            }),
+            })
         };
-        report.cleanups = kept.take(report.cleanups);
-        report
+        CleanupCollector::around(&job.request(&self.cx), run).await
     }
 
     /// Runs a cleanup: cancellation does not stop it, an abort does.

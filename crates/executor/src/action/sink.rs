@@ -4,7 +4,8 @@
 
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-use crate::{Frame, PendingCleanup};
+use super::ActionRequest;
+use crate::{ActionReport, Frame, PendingCleanup};
 
 /// Where the actions of a frame hand their cleanups; cloned into each nested frame.
 #[derive(Clone, Debug)]
@@ -30,6 +31,19 @@ pub struct CleanupCollector {
 }
 
 impl CleanupCollector {
+    /// Runs `run` on `request` with a collector of its own as the frame's sink. The report
+    /// carries every cleanup handed over, oldest first, then its own; dropped, the collector
+    /// hands them to `request`'s sink.
+    pub async fn around<F>(request: &ActionRequest, run: impl FnOnce(ActionRequest) -> F) -> ActionReport
+    where
+        F: Future<Output = ActionReport>,
+    {
+        let mut kept = Self::under(request.frame.sink.clone());
+        let mut report = run(ActionRequest { frame: kept.frame(&request.frame), ..request.clone() }).await;
+        report.cleanups = kept.take(report.cleanups);
+        report
+    }
+
     /// A collector that hands what is left on to `parent` when dropped.
     pub fn under(parent: Option<CleanupSink>) -> Self {
         let (sender, inbox) = mpsc::unbounded_channel();

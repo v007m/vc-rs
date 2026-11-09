@@ -63,9 +63,7 @@ impl CachedExecutor {
     /// entry it replaces (its check failed, or it expired since the run began) is cleaned up.
     async fn miss(&self, request: ActionRequest, cacheable: Cacheable) -> ActionReport {
         let cx = Arc::clone(&request.cx);
-        let mut kept = CleanupCollector::under(request.frame.sink.clone());
-        let mut report = self.inner.execute(ActionRequest { frame: kept.frame(&request.frame), ..request }).await;
-        report.cleanups = kept.take(report.cleanups);
+        let mut report = CleanupCollector::around(&request, |request| self.inner.execute(request)).await;
         if !matches!(report.outcome, ActionOutcome::Passed) {
             return report;
         }
