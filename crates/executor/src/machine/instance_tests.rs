@@ -181,7 +181,10 @@ fn a_failure_reported_after_cancel_is_kept_and_not_retried() {
 
 #[test]
 fn a_cut_action_runs_cleanups_and_skips() {
-    let (workflow, commands) = in_body().transition(InstanceInput::ActionCut);
+    let kept = PendingCleanup::new(sim::acts(&[101])[0]);
+    let (workflow, commands) = in_body().transition(InstanceInput::ActionCut(vec![kept.clone()]));
+    assert_eq!(commands, [InstanceCommand::RunCleanup(kept)], "the cut action's own cleanup, newest, first");
+    let (workflow, commands) = workflow.transition(InstanceInput::CleanupDone);
     assert_eq!(commands, [InstanceCommand::RunCleanup(PendingCleanup::new(sim::acts(&[100])[0]))]);
     let (workflow, _) = workflow.transition(InstanceInput::CleanupDone);
     assert_eq!(workflow.phase(), InstancePhase::Done(TestStatus::Skipped));
@@ -209,7 +212,7 @@ fn cancel_while_waiting_to_retry_keeps_the_failure() {
 #[test]
 fn a_cut_retry_reports_the_earlier_failure() {
     let (workflow, _) = waiting().transition(InstanceInput::RetryDue);
-    let (workflow, commands) = workflow.transition(InstanceInput::ActionCut);
+    let (workflow, commands) = workflow.transition(InstanceInput::ActionCut(Vec::new()));
     assert_eq!(workflow.phase(), InstancePhase::Done(TestStatus::Failed));
     assert!(matches!(&commands[..], [InstanceCommand::Finish(v)] if v.attempts == 2 && v.failure.is_some()));
 }

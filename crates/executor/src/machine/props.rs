@@ -10,7 +10,7 @@ use vc_model::{ActionId, ActionOutcome, Event, Plan, Retry, TestStatus, Totals};
 use super::sim;
 use super::{
     ActionReport, FileCommand, FileInput, FileOrchestrator, InstanceCommand, InstanceInput, InstanceScript,
-    InstanceWorkflow, RunCommand, RunInput, RunOrchestrator,
+    InstanceWorkflow, PendingCleanup, RunCommand, RunInput, RunOrchestrator,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -233,7 +233,8 @@ fn instance_input() -> impl Strategy<Value = InstanceInput> {
         Just(InstanceInput::ActionDone(ActionReport::passed())),
         Just(InstanceInput::ActionDone(sim::fail(1))),
         Just(InstanceInput::ActionDone(sim::passing_with(&[100]))),
-        Just(InstanceInput::ActionCut),
+        Just(InstanceInput::ActionCut(Vec::new())),
+        Just(InstanceInput::ActionCut(vec![PendingCleanup::new(sim::act(101))])),
         Just(InstanceInput::CleanupDone),
         Just(InstanceInput::RetryDue),
         Just(InstanceInput::Cancelled),
@@ -246,7 +247,8 @@ fn file_input() -> impl Strategy<Value = FileInput> {
         Just(FileInput::Start(super::FailedActions::new())),
         Just(FileInput::ActionDone(ActionReport::passed())),
         Just(FileInput::ActionDone(sim::passing_with(&[100]))),
-        Just(FileInput::ActionCut),
+        Just(FileInput::ActionCut(Vec::new())),
+        Just(FileInput::ActionCut(vec![PendingCleanup::new(sim::act(101))])),
         Just(FileInput::CleanupDone),
         Just(FileInput::InstanceDone(TestStatus::Passed)),
         Just(FileInput::Cancelled),
@@ -259,7 +261,8 @@ fn run_input() -> impl Strategy<Value = RunInput> {
         Just(RunInput::Start),
         Just(RunInput::ActionDone(ActionReport::passed())),
         Just(RunInput::ActionDone(sim::passing_with(&[100]))),
-        Just(RunInput::ActionCut),
+        Just(RunInput::ActionCut(Vec::new())),
+        Just(RunInput::ActionCut(vec![PendingCleanup::new(sim::act(101))])),
         Just(RunInput::CleanupDone),
         Just(RunInput::Tested(TestStatus::Failed)),
         Just(RunInput::FileDone(Totals::default())),

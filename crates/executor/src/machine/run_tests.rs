@@ -144,18 +144,18 @@ fn an_interrupt_during_before_run_starts_the_files_so_they_report_skips() {
     let (run, _) = run.transition(RunInput::Interrupt);
     let (run, commands) = run.transition(RunInput::ActionDone(ActionReport::passed()));
     assert!(matches!(&commands[..], [RunCommand::StartFiles(_)]));
-    let (cut, commands) = run.transition(RunInput::ActionCut);
+    let (cut, commands) = run.transition(RunInput::ActionCut(Vec::new()));
     assert!(commands.is_empty() && cut.phase() == RunPhase::Running);
 }
 
 #[test]
 fn a_cut_lifecycle_action_moves_on() {
     let (run, _) = RunOrchestrator::new(plan(&[(1, &[])], 1, &[]), false).transition(RunInput::Start);
-    let (run, commands) = run.transition(RunInput::ActionCut);
+    let (run, commands) = run.transition(RunInput::ActionCut(Vec::new()));
     assert!(matches!(&commands[..], [RunCommand::StartFiles(_)]));
     assert_eq!(run.phase(), RunPhase::Running);
     let (run, _) = running().transition(RunInput::FileDone(Totals::default()));
-    let (run, commands) = run.transition(RunInput::ActionCut);
+    let (run, commands) = run.transition(RunInput::ActionCut(Vec::new()));
     assert_eq!(commands, [RunCommand::RunCleanup(PendingCleanup::new(sim::act(100)))]);
     assert_eq!(run.phase(), RunPhase::CleaningUp);
 }

@@ -52,8 +52,9 @@ pub enum InstanceInput {
     Block(Failure),
     /// The action in flight finished.
     ActionDone(ActionReport),
-    /// The action in flight was cut off by cancellation, with no result.
-    ActionCut,
+    /// The action in flight was cut off by cancellation, with no result but the cleanups its
+    /// finished parts registered.
+    ActionCut(Vec<PendingCleanup>),
     /// The cleanup in flight finished; its outcome changes no result.
     CleanupDone,
     /// The `retry` delay passed.
@@ -148,7 +149,10 @@ impl InstanceWorkflow {
             (Pending, InstanceInput::Block(failure)) => self.finish(TestStatus::Blocked, Some(failure), out),
             (Pending, InstanceInput::Cancelled | InstanceInput::Abort) => self.finish_cancelled(out),
             (Before(_) | Body(_) | After(_), InstanceInput::ActionDone(report)) => self.action_done(report, out),
-            (Before(_) | Body(_) | After(_), InstanceInput::ActionCut) => self.cut(out),
+            (Before(_) | Body(_) | After(_), InstanceInput::ActionCut(kept)) => {
+                self.cleanups.extend(kept);
+                self.cut(out);
+            }
             (Cleanup, InstanceInput::CleanupDone) => self.next_cleanup(out),
             (Waiting, InstanceInput::Cancelled) => self.give_up_retrying(out),
             (_, InstanceInput::Cancelled) => self.cancelled = true,

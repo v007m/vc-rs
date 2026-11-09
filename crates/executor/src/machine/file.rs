@@ -31,8 +31,9 @@ pub enum FileInput {
     Start(FailedActions),
     /// The lifecycle action in flight finished.
     ActionDone(ActionReport),
-    /// The lifecycle action in flight was cut off by cancellation.
-    ActionCut,
+    /// The lifecycle action in flight was cut off by cancellation, with the cleanups its
+    /// finished parts registered.
+    ActionCut(Vec<PendingCleanup>),
     /// The cleanup in flight finished.
     CleanupDone,
     /// A launched instance finished.
@@ -125,7 +126,10 @@ impl FileOrchestrator {
             (Done, _) => {}
             (Waiting, FileInput::Start(failed)) => self.start(failed, out),
             (BeforeAll(_) | AfterAll(_), FileInput::ActionDone(report)) => self.action_done(report, out),
-            (BeforeAll(_) | AfterAll(_), FileInput::ActionCut) => self.wind_down(out),
+            (BeforeAll(_) | AfterAll(_), FileInput::ActionCut(kept)) => {
+                self.cleanups.extend(kept);
+                self.wind_down(out);
+            }
             (Running, FileInput::InstanceDone(status)) => self.instance_done(status, out),
             (CleaningUp, FileInput::CleanupDone) => self.next_cleanup(out),
             (_, FileInput::Cancelled) => self.cancel(out),

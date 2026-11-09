@@ -38,10 +38,22 @@ impl CleanupCollector {
     where
         F: Future<Output = ActionReport>,
     {
-        let mut kept = Self::under(request.frame.sink.clone());
-        let mut report = run(ActionRequest { frame: kept.frame(&request.frame), ..request.clone() }).await;
-        report.cleanups = kept.take(report.cleanups);
+        let (mut report, mut handed) = Self::gather(request, run).await;
+        handed.append(&mut report.cleanups);
+        report.cleanups = handed;
         report
+    }
+
+    /// What `run` on `request` gives, with a collector of its own as the frame's sink, and the
+    /// cleanups handed over to it, oldest first; dropped, the collector hands them to
+    /// `request`'s sink.
+    pub async fn gather<F: Future>(
+        request: &ActionRequest,
+        run: impl FnOnce(ActionRequest) -> F,
+    ) -> (F::Output, Vec<PendingCleanup>) {
+        let mut kept = Self::under(request.frame.sink.clone());
+        let output = run(ActionRequest { frame: kept.frame(&request.frame), ..request.clone() }).await;
+        (output, kept.take(Vec::new()))
     }
 
     /// A collector that hands what is left on to `parent` when dropped.

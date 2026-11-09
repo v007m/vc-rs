@@ -32,8 +32,9 @@ pub enum RunInput {
     Start,
     /// The lifecycle action in flight finished.
     ActionDone(ActionReport),
-    /// The lifecycle action in flight was cut off by cancellation.
-    ActionCut,
+    /// The lifecycle action in flight was cut off by cancellation, with the cleanups its
+    /// finished parts registered.
+    ActionCut(Vec<PendingCleanup>),
     /// The cleanup in flight finished.
     CleanupDone,
     /// An instance ended with this status (for `--bail`).
@@ -136,8 +137,7 @@ impl RunOrchestrator {
             (Finished(_), _) => {}
             (Planned, RunInput::Start) => self.start(out),
             (BeforeRun(_) | AfterRun(_), RunInput::ActionDone(report)) => self.action_done(report, out),
-            (BeforeRun(_), RunInput::ActionCut) => self.start_files(out),
-            (AfterRun(_), RunInput::ActionCut) => self.clean_up(out),
+            (BeforeRun(_) | AfterRun(_), RunInput::ActionCut(kept)) => self.action_cut(kept, out),
             (Running, RunInput::FileDone(totals)) => self.file_done(totals, out),
             (CleaningUp, RunInput::CleanupDone) => self.next_cleanup(out),
             (Reporting, RunInput::Reported) => self.finish(out),
@@ -185,6 +185,12 @@ impl RunOrchestrator {
             }
             _ => {}
         }
+    }
+
+    /// A cut `beforeRun` action starts the files; a cut `afterRun` one, the cleanups.
+    fn action_cut(&mut self, kept: Vec<PendingCleanup>, out: &mut Vec<RunCommand>) {
+        self.cleanups.extend(kept);
+        if matches!(self.phase, RunPhase::BeforeRun(_)) { self.start_files(out) } else { self.clean_up(out) }
     }
 
     /// Files start even after a cancel, so that each reports its instances as skipped.

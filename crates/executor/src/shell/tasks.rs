@@ -5,12 +5,12 @@ use tokio::task::{Id, JoinSet};
 
 use super::crew::{Crew, Job};
 use crate::cancel::{CancelTree, Ran};
-use crate::{ActionReport, FileInput, RunInput};
+use crate::{ActionReport, FileInput, PendingCleanup, RunInput};
 
 /// The inputs a frame's workers report for shared actions and cleanups.
 pub trait FrameInput: Send + 'static {
-    /// A shared action ended (or was cut off).
-    fn acted(ran: Ran<ActionReport>) -> Self;
+    /// A shared action ended, or was cut off with the cleanups `kept` from its finished parts.
+    fn acted(ran: Ran<ActionReport>, kept: Vec<PendingCleanup>) -> Self;
     /// A cleanup ended.
     fn cleaned() -> Self;
 }
@@ -19,10 +19,10 @@ pub trait FrameInput: Send + 'static {
 macro_rules! frame_input {
     ($($input:ty),+) => {$(
         impl FrameInput for $input {
-            fn acted(ran: Ran<ActionReport>) -> Self {
+            fn acted(ran: Ran<ActionReport>, kept: Vec<PendingCleanup>) -> Self {
                 match ran {
                     Ran::Done(report) => Self::ActionDone(report),
-                    Ran::Cut | Ran::Aborted => Self::ActionCut,
+                    Ran::Cut | Ran::Aborted => Self::ActionCut(kept),
                 }
             }
 
@@ -72,7 +72,11 @@ impl<I: FrameInput> Tasks<I> {
     /// Runs a shared action of the frame.
     pub fn act(&mut self, crew: &Crew, job: Job, cancel: &CancelTree) {
         let (crew, cancel) = (crew.clone(), cancel.clone());
-        self.spawn(async move { I::acted(crew.act(job, &cancel).await) }, I::acted(Ran::Cut));
+        let work = async move {
+            let (ran, kept) = crew.act(job, &cancel).await;
+            I::acted(ran, kept)
+        };
+        self.spawn(work, I::acted(Ran::Cut, Vec::new()));
     }
 
     /// Runs a cleanup of the frame.

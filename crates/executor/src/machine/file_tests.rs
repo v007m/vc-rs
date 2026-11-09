@@ -171,7 +171,7 @@ fn cancel_during_before_all_stops_after_the_action_in_flight() {
     assert!(commands.contains(&FileCommand::RunCleanup(PendingCleanup::new(sim::act(100)))));
     let (_, commands) = done.transition(FileInput::CleanupDone);
     assert_eq!(finished(&commands).skipped, 1);
-    let (cut, commands) = file.transition(FileInput::ActionCut);
+    let (cut, commands) = file.transition(FileInput::ActionCut(Vec::new()));
     assert_eq!(cut.phase(), FilePhase::Done);
     assert_eq!(finished(&commands).skipped, 1);
 }

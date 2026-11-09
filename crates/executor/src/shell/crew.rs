@@ -10,8 +10,8 @@ use vc_model::{ActionId, ActionOutcome, CleanupRecord, Event, Failure, OwnerKey}
 use super::script::Scripts;
 use crate::cancel::{CancelTree, Ran};
 use crate::{
-    ActionCx, ActionReport, ActionRequest, CANCELLED, CleanupCollector, Frame, RedactingSink, RunInput, Saved,
-    SharedSlots,
+    ActionCx, ActionReport, ActionRequest, CANCELLED, CleanupCollector, Frame, PendingCleanup, RedactingSink, RunInput,
+    Saved, SharedSlots,
 };
 
 /// What every worker of a run shares.
@@ -81,11 +81,13 @@ impl Job {
 
 impl Crew {
     /// Runs an action under `cancel`, with its started, check and finished events. A shared
-    /// action's result fills its slot.
-    pub async fn act(&self, job: Job, cancel: &CancelTree) -> Ran<ActionReport> {
-        let (action, owner, slots) = (job.action, job.owner, job.slots());
+    /// action's result fills its slot. Cut off or aborted, it gives back the cleanups its
+    /// finished parts registered; done, its report holds them.
+    pub async fn act(&self, job: Job, cancel: &CancelTree) -> (Ran<ActionReport>, Vec<PendingCleanup>) {
+        let (action, owner, slots, deadline) = (job.action, job.owner, job.slots(), job.deadline);
         self.bus.publish(Event::ActionStarted { action, owner }).await;
-        let ran = cancel.guard(self.execute(job)).await;
+        let work = |request| cancel.guard(self.execute(request, deadline));
+        let (ran, kept) = merged(CleanupCollector::gather(&job.request(&self.cx), work).await);
         let outcome = match &ran {
             Ran::Done(report) => {
                 self.publish_report((action, owner), report).await;
@@ -97,7 +99,7 @@ impl Crew {
             Ran::Cut | Ran::Aborted => ActionOutcome::Failed(Failure::new(CANCELLED).at(action)),
         };
         self.bus.publish(Event::ActionFinished { action, owner, outcome }).await;
-        ran
+        (ran, kept)
     }
 
     /// Publishes what `report` holds for the action: its exchanges, checks and warnings.
@@ -113,19 +115,16 @@ impl Crew {
         }
     }
 
-    /// Runs `job`'s action; past the job's deadline it is dropped and fails with V5104, keeping
-    /// the cleanups its finished parts handed over.
-    async fn execute(&self, job: Job) -> ActionReport {
-        let (action, deadline) = (job.action, job.deadline);
-        let run = |request| async move {
-            let work = self.cx.executors.execute(request);
-            let Some(deadline) = deadline else { return work.await };
-            time::timeout_at(deadline.at, work).await.unwrap_or_else(|_| {
-                let failure = Failure::new(deadline.past).with_code(Code::V5104.to_string());
-                ActionReport::failed(failure.at(action))
-            })
-        };
-        CleanupCollector::around(&job.request(&self.cx), run).await
+    /// Runs `request`'s action; past `deadline` it is dropped and fails with V5104, the
+    /// cleanups of its finished parts handed to the frame's sink.
+    async fn execute(&self, request: ActionRequest, deadline: Option<Deadline>) -> ActionReport {
+        let action = request.action;
+        let work = self.cx.executors.execute(request);
+        let Some(deadline) = deadline else { return work.await };
+        time::timeout_at(deadline.at, work).await.unwrap_or_else(|_| {
+            let failure = Failure::new(deadline.past).with_code(Code::V5104.to_string());
+            ActionReport::failed(failure.at(action))
+        })
     }
 
     /// Runs a cleanup: cancellation does not stop it, an abort does.
@@ -138,4 +137,13 @@ impl Crew {
         }
         ran
     }
+}
+
+/// A done action's report with the `kept` cleanups first and nothing left over; otherwise the
+/// cleanups `kept` are left over.
+fn merged((ran, mut kept): (Ran<ActionReport>, Vec<PendingCleanup>)) -> (Ran<ActionReport>, Vec<PendingCleanup>) {
+    let Ran::Done(mut report) = ran else { return (ran, kept) };
+    kept.append(&mut report.cleanups);
+    report.cleanups = kept;
+    (Ran::Done(report), Vec::new())
 }

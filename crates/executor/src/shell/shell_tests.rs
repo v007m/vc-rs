@@ -303,6 +303,17 @@ async fn a_test_past_its_timeout_in_a_reuse_cleans_up_the_steps_that_finished() 
 }
 
 #[tokio::test(start_paused = true)]
+async fn a_reuse_cut_by_cancellation_cleans_up_the_steps_that_finished() {
+    let mut fixture = Fixture::new();
+    let (reuse, delete) = creating_then_slow(&mut fixture);
+    let test = fixture.test(vec![reuse], None);
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[SECOND]).await;
+    assert_eq!(outcome.summary.status, RunStatus::Cancelled);
+    assert_eq!((outcome.cleaned(), outcome.sent("/users/delete")), (vec![delete], 1));
+}
+
+#[tokio::test(start_paused = true)]
 async fn a_reuse_past_its_own_timeout_keeps_the_cleanups_of_the_reuse_it_dropped() {
     let mut fixture = Fixture::new();
     let (inner, delete) = creating_then_slow(&mut fixture);

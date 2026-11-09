@@ -110,14 +110,14 @@ impl InstanceShell {
     /// Runs an action and takes in what it left; once the frame is cancelled the workflow hears
     /// so before the result.
     async fn act(&mut self, action: ActionId) -> Vec<InstanceInput> {
-        let ran = self.crew.act(self.job(action), &self.ticket.cancel).await;
+        let (ran, kept) = self.crew.act(self.job(action), &self.ticket.cancel).await;
         let cancelled = self.ticket.cancel.is_cancelled().then_some(InstanceInput::Cancelled);
         let result = match ran {
             Ran::Done(report) => {
                 self.frame.absorb(&self.crew.cx.program, action, &report);
                 InstanceInput::ActionDone(report)
             }
-            Ran::Cut => InstanceInput::ActionCut,
+            Ran::Cut => InstanceInput::ActionCut(kept),
             Ran::Aborted => return vec![InstanceInput::Abort],
         };
         cancelled.into_iter().chain([result]).collect()
