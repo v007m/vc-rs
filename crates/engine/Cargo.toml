@@ -20,6 +20,7 @@ vc-adapter-auth.workspace = true
 vc-adapter-hooks.workspace = true
 vc-adapter-http.workspace = true
 vc-adapter-importers.workspace = true
+vc-adapter-notifiers.workspace = true
 vc-adapter-reporters.workspace = true
 vc-adapter-secrets.workspace = true
 vc-adapter-store.workspace = true
@@ -35,6 +36,7 @@ vc-planner.workspace = true
 vc-template.workspace = true
 
 [dev-dependencies]
+axum.workspace = true
 criterion.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }

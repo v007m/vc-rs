@@ -1,4 +1,4 @@
-//! `vc run`: plan, execute, and fan the events out to the reporters.
+//! `vc run`: plan, execute, fan the events out to the reporters, and send the alerts.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -16,7 +16,7 @@ use crate::agent_gate::run_call;
 use crate::cache::Sweep;
 use crate::plan::{Extra, Prepared};
 use crate::reporting::{self, Reporters, Setup};
-use crate::{Engine, EngineError, Interrupts, RunRequest, history, ports};
+use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify, ports};
 
 /// Room for this many events between the bus and the reporters before they miss some.
 const FEED: usize = 65_536;
@@ -72,16 +72,14 @@ impl Engine {
         let (seed, random) = ports::random(request.seed);
         let (reporters, unrecorded) = self.reporters(request, &prepared, seed)?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
+        let alerting = self.alerting(&prepared, &secrets, run_id)?;
         let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
         let (executor, sweep) = self.executor(&prepared, inputs, request).await?;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
         let started = self.clock.now_ms();
-        let ran = match executor.start(Arc::clone(&prepared.plan), bus.clone()) {
-            Ok(handle) => pump(handle, &mut fanout, interrupts).await,
-            Err(error) => Err(executor_error(&error)),
-        };
+        let ran = pump(executor.start(Arc::clone(&prepared.plan), bus.clone()), &mut fanout, interrupts).await;
         bus.flush().await;
         fanout.drain().await;
         let swept = sweep.finish(interrupts).await;
@@ -92,7 +90,9 @@ impl Engine {
         let mut notices = prepared.notices;
         notices.extend(unrecorded);
         notices.extend(swept);
-        notices.extend(fanout.reporters.finish(run).await);
+        let (problems, ending) = fanout.reporters.finish(run.clone()).await;
+        notices.extend(problems);
+        notices.extend(notify::send(alerting, run, ending).await);
         let exit = vc_executor::exit_code(summary);
         let report = RunReport { exit, seed, notices, run: Some(run_id).filter(|id| *id > 0) };
         if let Some(watching) = watching {
@@ -223,13 +223,14 @@ impl Fanout {
     }
 }
 
-/// Waits for the run to finish, handing events to the reporters and interrupts to the run as
-/// they come.
+/// Waits for the run `handle` started to finish, handing events to the reporters and interrupts
+/// to the run as they come.
 async fn pump(
-    handle: RunHandle,
+    handle: Result<RunHandle, ExecutorError>,
     fanout: &mut Fanout,
     interrupts: &mut Interrupts,
 ) -> Result<vc_executor::RunSummary, EngineError> {
+    let handle = handle.map_err(|error| executor_error(&error))?;
     let interrupter = handle.interrupter();
     let finish = handle.finish();
     tokio::pin!(finish);

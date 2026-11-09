@@ -13,6 +13,7 @@ use vc_interfaces::{Artifact, ReportError, Reporter, RunEnd, RunId, RunSummary};
 use vc_model::{Feed, Keep, Plan, Program};
 
 use crate::EngineError;
+use crate::alerts::{Ending, Watch};
 use crate::history::Recording;
 use crate::settings::{Named, Settings};
 
@@ -180,6 +181,8 @@ pub struct Reporters {
     keep: Keep,
     seed: u64,
     problems: BTreeSet<String>,
+    /// What the `alerts` rules read, when there are any.
+    watch: Option<Watch>,
 }
 
 impl Reporters {
@@ -192,6 +195,7 @@ impl Reporters {
         let destination = Arc::new(FsDestination::new(&chosen.dir).quiet(setup.quiet));
         let color = if setup.color { Color::Ansi } else { Color::Plain };
         let keep = setup.program.config.history.keep;
+        let watch = (!setup.program.config.alerts.is_empty()).then(|| Watch::of(&setup.program));
         let context =
             ReporterContext::new(setup.program, setup.plan, destination).color(color).headline(setup.headline);
         let internal = |error: ReportError| EngineError::Internal { reason: error.to_string() };
@@ -199,7 +203,7 @@ impl Reporters {
         let formats = chosen.formats()?;
         let recorder = Recorder::new(&context);
         let problems = BTreeSet::new();
-        Ok(Self { console, recorder, formats, chosen, history, keep, seed: setup.seed, problems })
+        Ok(Self { console, recorder, formats, chosen, history, keep, seed: setup.seed, problems, watch })
     }
 
     /// The run's number in the history, when it is recorded.
@@ -221,20 +225,25 @@ impl Reporters {
             self.problems.insert(error.to_string());
         }
         let rows = self.recorder.take(&event);
+        if let Some(watch) = self.watch.as_mut() {
+            watch.see(&rows);
+        }
         if let Some(Err(error)) = self.history.as_ref().map(|history| history.record(rows)) {
             self.problems.insert(format!("history: {error}"));
         }
     }
 
     /// Writes the report files and closes the run in the history, then ends the console with
-    /// the files' paths; the problems, one line each.
-    pub async fn finish(self, run: RunSummary) -> Vec<String> {
-        let Self { mut console, recorder, formats, chosen, history, keep, seed, mut problems } = self;
+    /// the files' paths: the problems, one line each, and what the alerts read.
+    pub async fn finish(self, run: RunSummary) -> (Vec<String>, Ending) {
+        let Self { mut console, recorder, formats, chosen, history, keep, seed, mut problems, watch } = self;
         let id = history.as_ref().map_or(0, |history| history.id().get());
         let snapshot = recorder.finish(RunFacts { seed: Some(seed), ..RunFacts::of(id, &run) });
         let dir = chosen.dir_for(history.as_ref().map(Recording::id));
         let (artifacts, failed) = render(&formats, &snapshot, &dir);
         problems.extend(failed);
+        let report = artifacts.first().map(|artifact| artifact.path.clone());
+        let ending = watch.map(|watch| watch.ending(report)).unwrap_or_default();
         if let Some(history) = history
             && let Err(error) = close(history, keep, (&run, &snapshot)).await
         {
@@ -243,7 +252,7 @@ impl Reporters {
         if let Err(error) = console.finish(&run.artifacts(artifacts)).await {
             problems.insert(error.to_string());
         }
-        problems.into_iter().collect()
+        (problems.into_iter().collect(), ending)
     }
 }
 

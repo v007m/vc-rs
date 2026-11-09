@@ -41,11 +41,17 @@ impl NotifierRegistry {
     /// The standard channels, posting through `transport`.
     #[must_use]
     pub fn standard(transport: Arc<dyn Transport>) -> Self {
-        Self::new(transport)
-            .with("webhook", Arc::new(Webhook))
-            .with("slack", Arc::new(Slack))
-            .with("teams", Arc::new(Teams))
-            .with("pagerduty", Arc::new(PagerDuty))
+        standard()
+            .into_iter()
+            .fold(Self::new(transport), |registry, (channel, payload)| registry.with(channel, payload))
+    }
+
+    /// The names of the standard channels, sorted, for a check that sends nothing.
+    #[must_use]
+    pub fn standard_channels() -> Vec<String> {
+        let mut channels = standard().map(|(channel, _)| channel.to_owned()).to_vec();
+        channels.sort_unstable();
+        channels
     }
 
     /// These channels, with `channel` added or replaced.
@@ -54,6 +60,19 @@ impl NotifierRegistry {
         self.by_channel.insert(channel.to_owned(), payload);
         self
     }
+}
+
+/// A channel kind's name and its payload.
+type Channel = (&'static str, Arc<dyn Payload>);
+
+/// Each standard channel kind and its payload.
+fn standard() -> [Channel; 4] {
+    [
+        ("webhook", Arc::new(Webhook)),
+        ("slack", Arc::new(Slack)),
+        ("teams", Arc::new(Teams)),
+        ("pagerduty", Arc::new(PagerDuty)),
+    ]
 }
 
 impl fmt::Debug for NotifierRegistry {

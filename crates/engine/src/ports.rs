@@ -9,10 +9,12 @@ use std::sync::Arc;
 use vc_adapter_auth::AuthTypes;
 use vc_adapter_hooks::QuickJsHooks;
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
+use vc_adapter_notifiers::NotifierRegistry;
 use vc_adapter_secrets::SecretProviders;
 use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
 use vc_interfaces::{
-    AuthProvider, ConfigEntry, Environment, HookRunner, Random, SecretError, SecretQuery, Secrets, Transport,
+    AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, Random, SecretError, SecretQuery, Secrets,
+    Transport,
 };
 use vc_model::{Program, SecretsConfig};
 
@@ -88,6 +90,18 @@ impl Engine {
         }
         let browser = self.browser.clone().unwrap_or_else(|| Arc::new(SystemBrowser::new(Arc::clone(&self.commands))));
         Arc::new(AuthTypes::standard(transport, browser, self.keychain.clone()))
+    }
+
+    /// The alert channels (D106): the builder's, else the standard ones, posting through
+    /// `transport`.
+    pub(crate) fn notifiers(&self, transport: Arc<dyn Transport>) -> Arc<dyn NotifierFactory> {
+        self.notifiers.clone().unwrap_or_else(|| Arc::new(NotifierRegistry::standard(transport)))
+    }
+
+    /// The alert channel kinds a run can send to, for `vc check`: the builder's, else the
+    /// standard ones.
+    pub(crate) fn channels(&self) -> Vec<String> {
+        self.notifiers.as_ref().map_or_else(NotifierRegistry::standard_channels, |notifiers| notifiers.channels())
     }
 
     /// The secrets `.env.schema` declares, from the provider `secrets.provider` names (D163):
