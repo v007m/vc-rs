@@ -26,6 +26,7 @@
 
 mod agent_gate;
 mod agent_write;
+mod alerts;
 mod approvals;
 mod authoring;
 mod builder;

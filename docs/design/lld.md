@@ -1033,6 +1033,21 @@ pub trait Reporter: Send {
 
 The HTML reporter writes the folder layout from the Technical Design: `index.html` plus `data/summary.js`, `data/index.js`, `data/tests/<shard>.js` and `data/bodies/<hash>.js`, each data file a single `VIB.load(key, json)` call so it loads from `file://`. Test details are sharded by test (one file per test, or per 50 instances for very repetitive tests); bodies are deduplicated by BLAKE3 hash. The single-file layout embeds the same data as gzip and base64 per test and inflates it lazily. The report's front end is a separate small TypeScript bundle in `web/report/`, built at release time and embedded in the binary, sharing components with the web UI's run view.
 
+### Alerts
+
+The config's `alerts` lower to `Config.alerts`, a list of `Alert { on, profiles, tags, notify }` (vc-model). `on` holds `AlertTrigger`s and defaults to `[failure]`; empty `profiles` or `tags` match every run or test. `notify` holds `AlertChannel { kind, settings }`, one per key of each entry, in written order. The settings stay a `TemplateValue` until the run ends, so `${secret.X}` is rendered only then. `plugins` lower to `Config.plugins`, a list of `PluginRef { id, source, config }`.
+
+When a run ends, `engine/src/alerts.rs` decides which rules fire. It is pure: `decide(rules, &Finished, previous)` returns one `Fired { rule, notice }` per rule that fires.
+- `Finished` holds the project, the `RunSummary`, each test's `Ended { test, tags, status, message }`, the load breaches and the report path.
+- `previous` is the status of the previous run.
+- A rule whose `profiles` share none of the run's is skipped. Otherwise the rule sees only the tests its `tags` pick.
+- It fires for the first trigger in `on` that happened, tried in this order:
+  - `failure`: a test it sees failed or was blocked;
+  - `threshold`: a load threshold was breached, whatever the tags;
+  - `flaky`: a test it sees passed on a retry;
+  - `recovery`: the previous run failed, this one was not cancelled, nothing breached, and none of its tests failed.
+- The `Notice` lists the failures that rule sees, the breaches and the report.
+
 ## Import and sync: OpenAPI and HAR
 
 All importers produce the same intermediate form and hand it to `parser::edit` (with the engine's compile guard, D107), so every import respects the naming conventions, writes the documentation header and never reformats existing text.
