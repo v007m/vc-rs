@@ -66,7 +66,7 @@ impl CallExecutor {
             None => trip.send(call).await?,
         };
         let response = bind(&mut render, &exchange);
-        let expected = expected(action, (Origin::Api(api.id), api.span));
+        let expected = judged(request, action, api);
         let checks = trip.judge(&render, (&*expected, subject(&response, &exchange))).await;
         let registers = !action.keep && request.frame.given.is_none() && exchange.response.status.is_success();
         let cleanups = if registers { cleanup(&render, api)? } else { None };
@@ -142,7 +142,8 @@ impl ActionExecutor for CallExecutor {
     }
 }
 
-fn called<'p>(program: &'p Program, action: &Action) -> Option<&'p Api> {
+/// The api a `call:` action calls; `None` for any other action.
+pub fn called<'p>(program: &'p Program, action: &Action) -> Option<&'p Api> {
     let ActionKind::Call(api) = &action.kind else { return None };
     program.apis.get(api)
 }
@@ -167,12 +168,27 @@ pub fn subject<'s>(response: &'s Value, exchange: &Exchange) -> Subject<'s> {
     Subject { response, size: u64::try_from(exchange.response.body.len()).unwrap_or(u64::MAX) }
 }
 
+/// The checks a call judges: all of the action's merged ones, or with `checks: api` in a load
+/// iteration only those from the api's own `expect`; either way after a default `status: 2xx`.
+fn judged<'a>(request: &ActionRequest, action: &'a Action, api: &Api) -> Cow<'a, [Check]> {
+    let origin = (Origin::Api(api.id), api.span);
+    if !request.frame.api_checks_only {
+        return expected(action, origin);
+    }
+    let own = action.expect.checks.iter().filter(|check| matches!(check.origin, Origin::Api(_))).cloned().collect();
+    defaulted(Cow::Owned(own), origin)
+}
+
 /// The action's merged checks, after a default `status: 2xx` from `origin` when none checks
 /// the status.
-pub fn expected(action: &Action, (origin, span): (Origin, SourceSpan)) -> Cow<'_, [Check]> {
-    let checks = &action.expect.checks;
+pub fn expected(action: &Action, origin: (Origin, SourceSpan)) -> Cow<'_, [Check]> {
+    defaulted(Cow::Borrowed(&action.expect.checks), origin)
+}
+
+/// `checks` after a default `status: 2xx` from `origin` when none checks the status.
+fn defaulted(checks: Cow<'_, [Check]>, (origin, span): (Origin, SourceSpan)) -> Cow<'_, [Check]> {
     if checks.iter().any(|check| check.kind == CheckKind::Status) {
-        return Cow::Borrowed(checks);
+        return checks;
     }
     let matcher = Matcher::Status(vec![StatusPattern::Class(2)]);
     let status = Check { kind: CheckKind::Status, target: None, matcher, origin, span };

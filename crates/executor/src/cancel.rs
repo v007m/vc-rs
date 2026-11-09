@@ -17,9 +17,10 @@ pub enum Ran<T> {
     Aborted,
 }
 
-/// One frame's cancellation: `work` stops new work and starts the grace period for work in
-/// flight; `hurry` ends the grace period (a second Ctrl-C); `abort` stops everything, cleanups
-/// included (a third). A child frame gets a child `work` token, so cancelling a frame cancels its
+/// One frame's cancellation.
+///
+/// `work` stops new work and starts the grace period for work in flight; `hurry` ends the grace
+/// period (a second Ctrl-C); `abort` stops everything, cleanups included (a third). A child frame gets a child `work` token, so cancelling a frame cancels its
 /// subtree; `hurry` and `abort` are run-wide.
 #[derive(Clone, Debug)]
 pub struct CancelTree {

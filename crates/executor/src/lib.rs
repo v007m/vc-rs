@@ -13,7 +13,8 @@
 //! through the [`vc_interfaces::HookRunner`] in [`PipelineParts::hook_runner`] (D172). Runtime values: [`RunValues`] holds the var definitions of each level with
 //! the active profiles applied once per run; each action reads its [`Frame`] and renders through
 //! a renderer, so a `call:` sends the real request and saves values for later actions.
-//! [`Iterations`] is the seam the load engine drives: one test instance at a time, per user.
+//! [`Iterations`] is the seam the load engine drives: one test instance at a time, per user;
+//! [`ProgramIterations`] runs the program's tests through it, the shared lifecycle once.
 
 mod action;
 mod bus;
@@ -38,9 +39,9 @@ pub use action::{
     CleanupSink, CommandExecutor, FunctionExecutor, InlineExecutor, Lease, NoAuth, RunCache, TestExecutor, TokenCache,
     body_actions,
 };
-use action::{CleanupCollector, own_limit};
+use action::{CleanupCollector, called, own_limit};
 pub use bus::EventBus;
-pub use cancel::{CancelTree, Ran};
+pub use cancel::CancelTree;
 pub use error::ExecutorError;
 
 pub use check::{Arguments, Judge, MatcherFn, MatcherRegistry, Schemas};
@@ -58,7 +59,7 @@ pub use pipeline::{
     pipeline,
 };
 pub use redactor::{MASKED, RedactingSink, Redactor};
-pub use shell::{Executor, RunHandle, RunInterrupter, RunOptions};
+pub use shell::{Executor, IterationSetup, ProgramIterations, RunHandle, RunInterrupter, RunOptions};
 pub use slots::{SharedResult, SharedSlots};
 use values::Render;
 pub use values::{Defined, Frame, Iteration, RunInputs, RunValues};

@@ -1,9 +1,11 @@
 //! The pure state machines that decide a run: [`RunOrchestrator`], [`FileOrchestrator`] and
 //! [`InstanceWorkflow`]. Each is `transition(state, input) -> (state, commands)` with no I/O, no
 //! clock and no async; the shells in `crate::shell` carry out the commands and feed back inputs.
+//! A load run's shared lifecycle is a fixed order, so [`LoadLifecycle`] gives it as a list.
 
 mod file;
 mod instance;
+mod lifecycle;
 mod run;
 
 use std::collections::BTreeMap;
@@ -15,6 +17,7 @@ pub use file::{FileCommand, FileInput, FileOrchestrator, FilePhase, Launch};
 pub use instance::{
     CANCELLED, InstanceCommand, InstanceInput, InstancePhase, InstanceScript, InstanceWorkflow, Verdict,
 };
+pub use lifecycle::{LifecycleStep, LoadLifecycle};
 pub use run::{RunCommand, RunInput, RunOrchestrator, RunPhase, RunSummary};
 
 /// Values an action saved, by name.

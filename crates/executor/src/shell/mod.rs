@@ -4,6 +4,7 @@
 mod crew;
 mod file;
 mod instance;
+mod load;
 mod run;
 mod script;
 mod tasks;
@@ -17,6 +18,7 @@ use tokio::task::JoinHandle;
 use vc_model::Plan;
 
 use self::crew::Crew;
+pub use self::load::{IterationSetup, ProgramIterations};
 use self::run::RunFrame;
 use crate::cancel::CancelTree;
 use crate::{ActionCx, EventBus, ExecutorError, RedactingSink, RunInput, RunSummary};

@@ -21,6 +21,15 @@ pub enum ExecutorError {
         /// Its kind.
         kind: ActionKindTag,
     },
+    /// A load run's `beforeRun` or `beforeAll` action failed, or was cut, so no iteration can
+    /// run.
+    #[error("the shared action {} failed: {message}", .action.index())]
+    SharedFailed {
+        /// The action.
+        action: ActionId,
+        /// Its failure.
+        message: String,
+    },
     /// The run task stopped without a result.
     #[error("the run stopped without a result")]
     Stopped,

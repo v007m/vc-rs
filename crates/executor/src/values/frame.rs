@@ -45,6 +45,10 @@ pub struct Frame {
     /// Where nested actions hand their cleanups as each finishes, so an action dropped past a
     /// `timeout` keeps those its finished parts registered.
     pub sink: Option<CleanupSink>,
+    /// A load iteration with `checks: api`: a call evaluates only its api's own `expect`, not
+    /// the test's or the step's. The default-2xx rule still holds: when that `expect` checks no
+    /// status, the call is judged by `status: 2xx` first, as every call is.
+    pub api_checks_only: bool,
 }
 
 /// One turn of a `repeat` or `forEach` loop.
