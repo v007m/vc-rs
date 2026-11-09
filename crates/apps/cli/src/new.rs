@@ -40,6 +40,9 @@ struct ApiArgs {
     /// A full URL; its origin becomes a base-URL var in the config.
     #[arg(long)]
     url: Option<String>,
+    /// A copied curl command: its method, URL, query and body; a credential is never written.
+    #[arg(long, value_name = "CURL", conflicts_with_all = ["method", "path", "url"])]
+    from_curl: Option<String>,
 }
 
 #[derive(Args)]
@@ -92,10 +95,7 @@ pub fn run(args: NewArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     };
     let engine = &located.engine;
     Ok(match args.what {
-        NewCommand::Api(args) => {
-            let request = NewApi { id: args.id, method: args.method, path: args.path, url: args.url };
-            written(engine, engine.new_api(&request), false)
-        }
+        NewCommand::Api(args) => api(engine, args)?,
         NewCommand::Test(args) => {
             let TestArgs { id, from, negative, auth } = args;
             written(engine, engine.new_test(&NewTest { id, from, negative, auth }), false)
@@ -103,6 +103,25 @@ pub fn run(args: NewArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
         NewCommand::Auth(args) => auth(engine, args)?,
         NewCommand::File(args) => written(engine, engine.new_file(args.kind.into(), &args.id), false),
     })
+}
+
+/// `vc new api`: from the flags, or from `--from-curl`, with a line for each note on what the
+/// command sent that was left out.
+fn api(engine: &Engine, args: ApiArgs) -> anyhow::Result<Outcome> {
+    let Some(curl) = args.from_curl else {
+        let request = NewApi { id: args.id, method: args.method, path: args.path, url: args.url };
+        return Ok(written(engine, engine.new_api(&request), false));
+    };
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+    let made = runtime.block_on(engine.new_api_from_curl(&args.id, &curl));
+    let notes: Vec<String> =
+        made.as_ref().map(|added| added.changes.titles.iter().skip(1).cloned().collect()).unwrap_or_default();
+    let outcome = written(engine, made, false);
+    let shown = if matches!(outcome, Outcome::Done) { notes.as_slice() } else { &[] };
+    for note in shown {
+        println!("  {note}");
+    }
+    Ok(outcome)
 }
 
 /// `vc new auth`: the type and fields from the flags, and on a terminal (without `--json`)

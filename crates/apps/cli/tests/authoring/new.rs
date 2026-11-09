@@ -56,6 +56,25 @@ fn new_api_from_a_full_url_splits_out_a_base_url_var() {
     checks_clean(&project);
 }
 
+/// D176: a copied curl command gives the method, URL, query and body; a credential is named in a
+/// note and never written.
+#[test]
+fn new_api_from_curl_writes_what_the_command_sends_but_no_credential() {
+    let project = Project::new(&[CONFIG]);
+    let curl = "curl -X PATCH https://api.shop.test/users/u_7f3k -H 'authorization: Bearer eyJhbGciOi' \\\n  \
+                -H 'content-type: application/json' -d '{\"name\":\"Ada\"}'";
+    let output = project.vc(&["new", "api", "shop#renamesUser", "--from-curl", curl]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.starts_with("✓ added shop#renamesUser to services/shop/shop.api.yaml:"), "{stdout}");
+    assert!(stdout.contains("  PATCH /users/${var.userId}: header authorization: "), "{stdout}");
+    let text = project.read("services/shop/shop.api.yaml");
+    assert!(text.contains("    method: PATCH\n    path: /users/${var.userId}\n"), "{text}");
+    let written = format!("{text}{}", project.read(CONFIG.0));
+    assert!(!written.contains("eyJhbGciOi") && !stdout.contains("eyJhbGciOi"), "{written}");
+    checks_clean(&project);
+}
+
 #[test]
 fn new_api_refuses_an_id_that_breaks_the_convention_and_suggests_one() {
     let project = Project::new(&[CONFIG, USERS]);

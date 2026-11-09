@@ -337,6 +337,8 @@ pub async fn vc_engine::Engine::load(&self, &vc_engine::LoadRequest) -> core::re
 impl vc_engine::Engine
 pub fn vc_engine::Engine::new_api(&self, &vc_engine::NewApi) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
 impl vc_engine::Engine
+pub async fn vc_engine::Engine::new_api_from_curl(&self, &str, &str) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::new_auth(&self, &vc_engine::NewAuth) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::new_file(&self, vc_model::source::FileKind, &str) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>

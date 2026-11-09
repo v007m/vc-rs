@@ -7,8 +7,8 @@
 //! [`Engine::config_explain`]), lists and clears the cross-run cache ([`Engine::cache_list`],
 //! [`Engine::cache_clear`]), exports the editor schemas ([`Engine::schema_export`]) and works out
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
-//! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_test`],
-//! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
+//! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_api_from_curl`],
+//! [`Engine::new_test`], [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
 //! [`Engine::save_call_as_test`], [`Engine::write`]), and imports specs and keeps api files in
 //! step with them ([`Engine::import`], [`Engine::sync`]). Agent calls pass the profiles' agent
 //! policy and, when it asks, the approval queue ([`Engine::policy_check`], [`Engine::admit`],
@@ -37,6 +37,7 @@ mod config_explain;
 mod create;
 mod create_api;
 mod create_auth;
+mod create_curl;
 mod edit;
 mod error;
 mod explain;

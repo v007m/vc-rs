@@ -92,7 +92,7 @@ fn split(url: &str) -> Result<Target<'_>, EngineError> {
 
 /// The root lines of a new api file for `origin`, and the config change that adds its var.
 /// An existing file must already take its base URL from that var.
-fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, Vec<FileChange>), EngineError> {
+pub fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, Vec<FileChange>), EngineError> {
     let (name, change) = base_var(project, file, origin)?;
     let wanted = format!("${{var.{name}}}");
     if let Some(found) = project.find(FileKind::Api, file) {

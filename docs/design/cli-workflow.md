@@ -297,7 +297,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc import openapi <url-or-file> [--id <fileId>] [--tests] [--negative] [--auth] [--include <tag-or-path>]… [--only <operationId>]…` | Creates an api file from a spec (one api per operation), saves the spec snapshot `openapi/<fileId>.yaml`, adds a base-URL var to the config, and optionally generates tests in `<fileId>.openapi` (`services/<fileId>/openapi.test.yaml`). Without `--id` the file ID is the spec's file name up to its first dot. What the spec holds that has no api form is listed after the change. An api file that exists is refused (use `vc sync`), and so is a result that would not compile: exit 2, nothing written |
 | `vc import curl <file> [--id <fileId>]` | Creates an api file from a file of curl commands, as browser dev tools and API docs copy them: one api per distinct method and path, all calling one origin, which becomes a base-URL var. IDs in a path become vars; JSON body fields become api vars with the command's values as defaults; form and `-F` data become body maps. A credential (`authorization` and other secret-named headers, cookies, `-u`, a URL's user, secret-named query and body fields) is never written: the notes after the change name each one left out, without its value |
 | `vc import har\|postman\|bruno\|http <path>` | Converts browser HAR recordings (see Importing from a HAR file) or other tools' collections |
-| `vc new api <fileId#apiId> [--method] [--path \| --url <full-url>] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--url`, the origin becomes a base-URL var and the rest the path and query (D177); with `--from-curl` (M6, D176), method, URL, headers and body come from the curl command |
+| `vc new api <fileId#apiId> [--method] [--path \| --url <full-url>] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--url`, the origin becomes a base-URL var and the rest the path and query (D177); with `--from-curl '<curl>'` (M6, D176), the method, URL, query, content type and body come from one curl command and no credential is written |
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
 | `vc new file api\|test\|load <fileId>` | Creates an empty file of that kind with its header filled in |
@@ -416,17 +416,16 @@ $ vc new api users#deactivate --method POST --path /users/{id}/deactivate
 From a curl command, copied from browser dev tools or API docs, Vibranium also fills in what it can read:
 
 ```
-$ vc new api --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v1/users/u_7f3k \
+$ vc new api users#rename --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v1/users/u_7f3k \
     -H "content-type: application/json" -H "authorization: Bearer eyJ…" -d "{\"name\":\"Ada\"}"'
-? Api ID  users#rename
 ✓ added users#rename to services/users/users.api.yaml:91
-  host matches var usersUrl (profile staging) · path id u_7f3k → ${var.userId} · body name → var name, default "Ada"
-  authorization header dropped: the file already uses auth shopOauth
+  PATCH /api/v1/users/${var.userId}: header authorization: a credential is never written; add it with `vc new auth`
 ```
 
-- The host is matched against the base-URL vars of the active profile; an unknown host adds a new var.
-- IDs in the path become vars; body fields become api vars with the curl's values as defaults, so tests can override them.
-- Credentials in headers are never written to YAML: if the file has an auth definition it is used, otherwise the command suggests `vc new auth`.
+- The origin is matched against the config's vars, as with `--url`: a var that already holds it is used, otherwise a new `<last word>Url` var is added.
+- IDs in the path become vars (`u_7f3k` → `${var.userId}`); the fields of a JSON body become api vars with the curl's values as defaults, so tests can override them. The query, form data and the content type are kept too.
+- Credentials (`authorization`, cookies, `-u`, secret-named headers, query and body fields) are never written to YAML: each is named in a note, never its value, and a body field is written empty. An api file's own `auth` still applies.
+- One command per call; for a file of them, use `vc import curl <file>`.
 
 ### Generated tests
 
