@@ -1,9 +1,9 @@
 use indexmap::IndexMap;
 use vc_model::{
-    ActionId, ActionKind, AuthDef, AuthId, AuthRef, BodySpec, CacheSpec, CelProgram, CelSource, Check, CheckKind,
-    Duration, Examples, Expect, HookRef, InlineRequest, Loop, Matcher, MatcherArg, MatcherCall, Method, Namespace,
-    Origin, Part, PartSpec, Poll, Profile, ProfileId, ScalarStyle, Segment, Size, Template, TemplateValue, TestId,
-    VarDefs, VarName,
+    ActionId, ActionKind, AgentPolicy, AuthDef, AuthId, AuthRef, BodySpec, CacheSpec, CelProgram, CelSource, Check,
+    CheckKind, Duration, Examples, Expect, HookRef, InlineRequest, Loop, Matcher, MatcherArg, MatcherCall, Method,
+    Namespace, Origin, Part, PartSpec, Poll, Profile, ProfileId, ScalarStyle, Segment, Size, Template, TemplateValue,
+    TestId, VarDefs, VarName,
 };
 
 use crate::needs::Shared;
@@ -204,7 +204,7 @@ const SCOPE: &[(&str, Place)] = &[
     ("profile", |f, _, _| {
         let id = ProfileId::new(f.sym("dev"));
         let vars = IndexMap::from([(token(f), value())]);
-        f.program.profiles.insert(id, Profile { id, name: None, default: true, vars });
+        f.program.profiles.insert(id, Profile { id, name: None, default: true, vars, agents: AgentPolicy::default() });
     }),
     ("cel", |f, t, _| {
         let refs = testing::read("warm")

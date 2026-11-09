@@ -592,6 +592,21 @@ impl serde_core::ser::Serialize for vc_model::TestStatus
 pub fn vc_model::TestStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::TestStatus
 pub fn vc_model::TestStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub enum vc_model::WriteDefinitions
+pub vc_model::WriteDefinitions::Allow
+pub vc_model::WriteDefinitions::Ask
+pub vc_model::WriteDefinitions::Deny
+impl core::clone::Clone for vc_model::WriteDefinitions
+pub fn vc_model::WriteDefinitions::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::WriteDefinitions
+impl core::cmp::PartialEq for vc_model::WriteDefinitions
+pub fn vc_model::WriteDefinitions::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::WriteDefinitions
+pub fn vc_model::WriteDefinitions::default() -> Self
+impl core::fmt::Debug for vc_model::WriteDefinitions
+pub fn vc_model::WriteDefinitions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::WriteDefinitions
+impl core::marker::StructuralPartialEq for vc_model::WriteDefinitions
 pub struct vc_model::Action
 pub vc_model::Action::auth: core::option::Option<vc_model::AuthRef>
 pub vc_model::Action::body: core::option::Option<vc_model::BodySpec>
@@ -646,6 +661,21 @@ impl serde_core::ser::Serialize for vc_model::ActionId
 pub fn vc_model::ActionId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::ActionId
 pub fn vc_model::ActionId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::AgentPolicy
+pub vc_model::AgentPolicy::approve: alloc::vec::Vec<vc_model::Method>
+pub vc_model::AgentPolicy::call: alloc::vec::Vec<vc_model::Method>
+pub vc_model::AgentPolicy::run: bool
+pub vc_model::AgentPolicy::write_definitions: vc_model::WriteDefinitions
+impl core::clone::Clone for vc_model::AgentPolicy
+pub fn vc_model::AgentPolicy::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::AgentPolicy
+impl core::cmp::PartialEq for vc_model::AgentPolicy
+pub fn vc_model::AgentPolicy::eq(&self, &Self) -> bool
+impl core::default::Default for vc_model::AgentPolicy
+pub fn vc_model::AgentPolicy::default() -> Self
+impl core::fmt::Debug for vc_model::AgentPolicy
+pub fn vc_model::AgentPolicy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::AgentPolicy
 pub struct vc_model::Api
 pub vc_model::Api::auth: vc_model::AuthRef
 pub vc_model::Api::body: vc_model::BodySpec
@@ -659,6 +689,7 @@ pub vc_model::Api::http_retry: core::option::Option<vc_model::HttpRetry>
 pub vc_model::Api::id: vc_model::ApiId
 pub vc_model::Api::method: vc_model::Method
 pub vc_model::Api::name: core::option::Option<alloc::string::String>
+pub vc_model::Api::operation_id: core::option::Option<alloc::string::String>
 pub vc_model::Api::path: vc_model::Template
 pub vc_model::Api::query: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
 pub vc_model::Api::save: vc_model::SaveSpec
@@ -682,6 +713,7 @@ pub vc_model::ApiGroup::headers: indexmap::map::IndexMap<alloc::string::String, 
 pub vc_model::ApiGroup::hooks: vc_model::RequestHooks
 pub vc_model::ApiGroup::id: vc_model::FileId
 pub vc_model::ApiGroup::name: core::option::Option<alloc::string::String>
+pub vc_model::ApiGroup::source: core::option::Option<vc_model::ApiSource>
 pub vc_model::ApiGroup::vars: vc_model::VarDefs
 impl core::clone::Clone for vc_model::ApiGroup
 pub fn vc_model::ApiGroup::clone(&self) -> Self
@@ -714,6 +746,18 @@ impl serde_core::ser::Serialize for vc_model::ApiId
 pub fn vc_model::ApiId::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::ApiId
 pub fn vc_model::ApiId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct vc_model::ApiSource
+pub vc_model::ApiSource::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
+pub vc_model::ApiSource::include: alloc::vec::Vec<alloc::string::String>
+pub vc_model::ApiSource::openapi: alloc::string::String
+impl core::clone::Clone for vc_model::ApiSource
+pub fn vc_model::ApiSource::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::ApiSource
+impl core::cmp::PartialEq for vc_model::ApiSource
+pub fn vc_model::ApiSource::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::ApiSource
+pub fn vc_model::ApiSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::ApiSource
 pub struct vc_model::AuthDef
 pub vc_model::AuthDef::cache: bool
 pub vc_model::AuthDef::expires_in: core::option::Option<vc_model::Template>
@@ -1449,6 +1493,7 @@ pub fn vc_model::Pos::serialize<__S>(&self, __S) -> core::result::Result<<__S as
 impl<'de> serde_core::de::Deserialize<'de> for vc_model::Pos
 pub fn vc_model::Pos::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::Profile
+pub vc_model::Profile::agents: vc_model::AgentPolicy
 pub vc_model::Profile::default: bool
 pub vc_model::Profile::id: vc_model::ProfileId
 pub vc_model::Profile::name: core::option::Option<alloc::string::String>
@@ -1520,6 +1565,7 @@ pub fn vc_model::ProgramBuilder::freeze(self) -> alloc::rcs::arc::Arc<vc_model::
 pub fn vc_model::ProgramBuilder::generator(&mut self, vc_model::GeneratorDef)
 pub fn vc_model::ProgramBuilder::hooks(&mut self, vc_model::HookModules)
 pub fn vc_model::ProgramBuilder::intern(&mut self, &str) -> core::result::Result<vc_model::Sym, vc_model::ModelError>
+pub fn vc_model::ProgramBuilder::load(&mut self, vc_model::LoadScenario)
 pub fn vc_model::ProgramBuilder::new(vc_model::StringTable, vc_model::SourceFiles) -> Self
 pub fn vc_model::ProgramBuilder::next_action(&self) -> core::result::Result<vc_model::ActionId, vc_model::ModelError>
 pub fn vc_model::ProgramBuilder::profile(&mut self, vc_model::Profile)

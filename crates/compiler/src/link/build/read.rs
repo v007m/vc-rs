@@ -1,13 +1,17 @@
 //! Reads compiled pieces and plain scalars off a file's tree for the program build.
 
 use indexmap::IndexMap;
-use vc_model::{BodySpec, Duration, Examples, HookRef, Loop, Method, Retry, Size, Skip, Tag, Template, TemplateValue};
+use vc_model::{
+    AgentPolicy, ApiSource, BodySpec, Duration, Examples, HookRef, Loop, Method, Retry, Size, Skip, Tag, Template,
+    TemplateValue, WriteDefinitions,
+};
 use vc_parser::Node;
 
 use crate::link::assets;
 use crate::link::project;
 use crate::link::project::Source;
 use crate::parts::Piece;
+use crate::shapes;
 use crate::shapes::Shape;
 
 /// The methods an api may name, as written.
@@ -20,6 +24,10 @@ const METHODS: [(&str, Method); 7] = [
     ("HEAD", Method::Head),
     ("OPTIONS", Method::Options),
 ];
+
+/// The values `writeDefinitions` may take, as written.
+const WRITES: [(&str, WriteDefinitions); 3] =
+    [("true", WriteDefinitions::Allow), ("ask", WriteDefinitions::Ask), ("false", WriteDefinitions::Deny)];
 
 /// Makes a body of one kind from its template.
 type MakeBody = fn(Template) -> BodySpec;
@@ -99,6 +107,34 @@ pub fn method(node: &Node) -> Method {
 /// The method written as `name`, such as `GET`.
 pub fn method_named(name: &str) -> Option<Method> {
     METHODS.iter().find(|(written, _)| *written == name).map(|(_, method)| *method)
+}
+
+/// The methods of the list under `key`; the shape check has reported any other text.
+pub fn methods(node: &Node, key: &str) -> Vec<Method> {
+    texts(node, key).iter().filter_map(|name| method_named(name)).collect()
+}
+
+/// A profile's `agents` rules; reads only when there is no `agents` block (D195).
+pub fn agents(node: Option<&Node>) -> AgentPolicy {
+    let Some(node) = node else { return AgentPolicy::default() };
+    let written = project::text(node, "writeDefinitions").unwrap_or_default();
+    let write = WRITES.iter().find(|(name, _)| name.eq_ignore_ascii_case(written));
+    AgentPolicy {
+        run: flag(shapes::agents(), node, "run"),
+        call: methods(node, "call"),
+        approve: methods(node, "approve"),
+        write_definitions: write.map_or(WriteDefinitions::Deny, |(_, write)| *write),
+    }
+}
+
+/// An api file's `source`: the API spec it syncs from.
+pub fn api_source(source: &Source<'_>, root: &Node) -> Option<ApiSource> {
+    let node = root.get("source")?;
+    Some(ApiSource {
+        openapi: owned(node, "openapi")?,
+        headers: templates(source, node, "headers"),
+        include: texts(node, "include"),
+    })
 }
 
 /// `skip`: a reason, or a reason with an end date.

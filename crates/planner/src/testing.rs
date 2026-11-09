@@ -44,9 +44,10 @@ impl Fixture {
             (FileId::new(names["users"]), FileId::new(names["users.crud"]), ApiId::new(names["users#list"]));
         let (auth, headers, vars, hooks) = Default::default();
         let base_url = None;
-        program
-            .api_groups
-            .insert(group, ApiGroup { id: group, name: None, base_url, auth, headers, vars, hooks, apis: vec![api] });
+        program.api_groups.insert(
+            group,
+            ApiGroup { id: group, name: None, base_url, auth, headers, vars, hooks, source: None, apis: vec![api] },
+        );
         program.apis.insert(api, list(group, api));
         let (tags, vars, lifecycle, tests) = Default::default();
         program.test_files.insert(file, TestFile { id: file, name: None, tags, vars, skip: None, lifecycle, tests });
@@ -167,6 +168,7 @@ fn list(group: FileId, id: ApiId) -> Api {
         http_retry: None,
         cleanup: None,
         deprecated: false,
+        operation_id: None,
         span: span(),
     }
 }

@@ -11,6 +11,7 @@
 //! let test: TestId = api;
 //! ```
 
+mod agents;
 mod api;
 mod builder;
 mod config;
@@ -36,7 +37,8 @@ mod template;
 mod test;
 mod units;
 
-pub use api::{Api, ApiGroup, BodySpec, PartSpec};
+pub use agents::{AgentPolicy, WriteDefinitions};
+pub use api::{Api, ApiGroup, ApiSource, BodySpec, PartSpec};
 pub use builder::ProgramBuilder;
 pub use config::{
     AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, Profile,

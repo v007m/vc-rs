@@ -26,8 +26,25 @@ pub struct ApiGroup {
     pub vars: VarDefs,
     /// `beforeRequest` and `afterResponse` for every api in the file.
     pub hooks: RequestHooks,
+    /// `source`: the API spec the file syncs from.
+    pub source: Option<ApiSource>,
     /// The apis, in file order.
     pub apis: Vec<ApiId>,
+}
+
+/// An api file's `source`: the API spec `vc sync` reads.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct ApiSource {
+    /// `openapi`: a URL or a project-relative file, JSON or YAML, as written.
+    pub openapi: String,
+    /// `headers` sent when fetching a protected URL.
+    pub headers: IndexMap<String, Template>,
+    /// `include`: only operations with one of these tags; every operation when empty.
+    pub include: Vec<String>,
 }
 
 /// One api: a request and the checks that always hold for it.
@@ -74,6 +91,8 @@ pub struct Api {
     pub hooks: RequestHooks,
     /// `deprecated`.
     pub deprecated: bool,
+    /// `operationId`: the spec operation the api was imported from, kept by sync.
+    pub operation_id: Option<String>,
     /// The whole item.
     pub span: SourceSpan,
 }

@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use crate::{
-    Action, ActionId, Api, ApiGroup, AuthDef, Config, Dataset, GeneratorDef, HookModules, ModelError, Profile, Program,
-    RunBlocks, SourceFiles, StringTable, Sym, Test, TestFile,
+    Action, ActionId, Api, ApiGroup, AuthDef, Config, Dataset, GeneratorDef, HookModules, LoadScenario, ModelError,
+    Profile, Program, RunBlocks, SourceFiles, StringTable, Sym, Test, TestFile,
 };
 
 /// Accumulates a [`Program`]; nothing can change it after [`ProgramBuilder::freeze`].
@@ -88,6 +88,11 @@ impl ProgramBuilder {
         self.program.generators.entry(generator.id).or_insert(generator);
     }
 
+    /// Adds a load scenario, keeping the first one with its ID.
+    pub fn load(&mut self, scenario: LoadScenario) {
+        self.program.loads.entry(scenario.id).or_insert(scenario);
+    }
+
     /// Adds a dataset, keeping the first one with its ID.
     pub fn dataset(&mut self, dataset: Dataset) {
         self.program.datasets.entry(dataset.id).or_insert(dataset);
@@ -116,7 +121,8 @@ mod tests {
 
     use super::ProgramBuilder;
     use crate::{
-        Action, ActionKind, ApiId, Pos, Profile, ProfileId, SourceFileId, SourceFiles, SourceSpan, StringTable,
+        Action, ActionKind, AgentPolicy, ApiId, Pos, Profile, ProfileId, SourceFileId, SourceFiles, SourceSpan,
+        StringTable,
     };
 
     fn action(builder: &mut ProgramBuilder) -> Action {
@@ -133,8 +139,9 @@ mod tests {
         assert_eq!(builder.action(first.clone()).unwrap().index(), 0);
         assert_eq!(builder.action(first).unwrap().index(), 1);
         let id = ProfileId::new(builder.intern("dev").unwrap());
-        builder.profile(Profile { id, name: None, default: true, vars: IndexMap::new() });
-        builder.profile(Profile { id, name: Some("again".into()), default: false, vars: IndexMap::new() });
+        let profile = Profile { id, name: None, default: true, vars: IndexMap::new(), agents: AgentPolicy::default() };
+        builder.profile(profile.clone());
+        builder.profile(Profile { name: Some("again".into()), default: false, ..profile });
         let program = builder.freeze();
         assert_eq!(program.actions.len(), 2);
         assert_eq!(program.profiles.len(), 1);

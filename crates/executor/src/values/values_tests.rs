@@ -5,8 +5,8 @@ use indexmap::IndexMap;
 use serde_json::{Value, json};
 use vc_diagnostics::Code;
 use vc_model::{
-    ActionId, ActionKind, Dataset, DatasetId, Examples, GeneratorDef, HookRef, Instance, InstanceId, Needs, OwnerKey,
-    Profile, ProfileId, TemplateValue,
+    ActionId, ActionKind, AgentPolicy, Dataset, DatasetId, Examples, GeneratorDef, HookRef, Instance, InstanceId,
+    Needs, OwnerKey, Profile, ProfileId, TemplateValue,
 };
 use vc_template::RenderError;
 
@@ -47,8 +47,14 @@ fn profiles_layer_over_the_config_in_order() {
     fixture.program.config.vars.values = fixture.vars(&[("region", "eu")]);
     fixture.program.config.vars.by_profile.insert(prod, by_profile);
     let vars = fixture.vars(&[("region", "us")]);
-    fixture.program.profiles.insert(prod, Profile { id: prod, name: None, default: false, vars });
-    fixture.program.profiles.insert(dev, Profile { id: dev, name: None, default: true, vars: IndexMap::new() });
+    fixture
+        .program
+        .profiles
+        .insert(prod, Profile { id: prod, name: None, default: false, vars, agents: AgentPolicy::default() });
+    fixture.program.profiles.insert(
+        dev,
+        Profile { id: dev, name: None, default: true, vars: IndexMap::new(), agents: AgentPolicy::default() },
+    );
     let probe = TemplateValue::List(vec![fixture.value("${var.region}"), fixture.value("${run.profiles}")]);
     let program = Arc::new(fixture.program);
     let cx = |inputs| Arc::new(ActionCx::new(Arc::clone(&program), Arc::new(ActionExecutors::new()), inputs));
@@ -76,7 +82,10 @@ fn vars_set_from_outside_win_over_the_config_and_its_profiles() {
     let prod = ProfileId::new(fixture.sym("prod"));
     fixture.program.config.vars.values = fixture.vars(&[("region", "eu"), ("page", "free")]);
     let vars = fixture.vars(&[("region", "us")]);
-    fixture.program.profiles.insert(prod, Profile { id: prod, name: None, default: true, vars });
+    fixture
+        .program
+        .profiles
+        .insert(prod, Profile { id: prod, name: None, default: true, vars, agents: AgentPolicy::default() });
     let probe = TemplateValue::List(vec![fixture.value("${var.region}"), fixture.value("${var.page}")]);
     let set = std::iter::once(("region".to_owned(), TemplateValue::String(fixture::literal("ap")))).collect();
     let inputs = fixture::inputs(&[]).with_vars(set);

@@ -260,6 +260,7 @@ Profiles replace environments and work like Spring Boot profiles. In Vibranium, 
 - **Every run has an active profile.** Name it with `--profile staging` (or `VIB_PROFILE=staging`); otherwise the profile marked `default: true` applies. A project with no profiles, or a run with none active, is a `vc check` error.
 - **Several profiles apply in order, later ones winning:** `--profile staging,eu`.
 - **Profiles override vars at each level.** The config's `profiles` override config `vars`. Any api or test file can carry its own `profiles` list to override that file's `vars`; a profile id used there must exist in the config, so a typo is an error, not a silent no-op.
+- **A config profile's `agents` block says what an AI agent may do under it** (MCP or the web UI, D195): `run` (bool, default `false`) lets it run tests; `call` lists the methods its requests send without asking and `approve` those sent once a person approves (both default `[]`); `writeDefinitions` is `true`, `false` (default) or `ask`, which goes through the same approval flow. A profile with no `agents` block allows only reads: list, search, get, check and query history. With several active profiles, the most restrictive rule wins for each field.
 
 ```yaml
 # services/orders/checkout.test.yaml (excerpt)

@@ -6,6 +6,9 @@ mod auth;
 mod expect;
 mod http_retry;
 mod items;
+mod load;
+#[cfg(test)]
+mod load_tests;
 mod read;
 mod rows;
 #[cfg(test)]
@@ -73,6 +76,9 @@ impl<'a> Build<'_, 'a> {
         }
         for source in of(FileKind::Test) {
             self.test_file(source)?;
+        }
+        for source in of(FileKind::Load) {
+            self.load_file(source)?;
         }
         self.datasets()
     }

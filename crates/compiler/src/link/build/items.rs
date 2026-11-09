@@ -42,22 +42,28 @@ impl<'a> Build<'_, 'a> {
             ..Config::default()
         };
         self.builder.config(auth::with_secrets(config, source, self.secrets));
-        for profile in project::list(root, "profiles") {
-            let Some(id) = project::text(profile, "id") else { continue };
-            let id = ProfileId::new(self.sym(id)?);
-            let vars = self.values(source, profile.get("vars"))?;
-            let name = read::owned(profile, "name");
-            self.builder.profile(Profile {
-                id,
-                name,
-                default: read::flag(shapes::profile(), profile, "default"),
-                vars,
-            });
-        }
+        self.profiles(source)?;
         let before_run = self.block(source, (project::list(root, "beforeRun"), Owner::Run))?;
         let after_run = self.block(source, (project::list(root, "afterRun"), Owner::Run))?;
         self.builder.run_blocks(RunBlocks { before_run, after_run });
         self.generators(source)
+    }
+
+    /// The config's `profiles`, with their `vars` and `agents` rules.
+    fn profiles(&mut self, source: &Source<'a>) -> Built<()> {
+        for profile in project::list(source.root, "profiles") {
+            let Some(id) = project::text(profile, "id") else { continue };
+            let id = ProfileId::new(self.sym(id)?);
+            let vars = self.values(source, profile.get("vars"))?;
+            self.builder.profile(Profile {
+                id,
+                name: read::owned(profile, "name"),
+                default: read::flag(shapes::profile(), profile, "default"),
+                vars,
+                agents: read::agents(profile.get("agents")),
+            });
+        }
+        Ok(())
     }
 
     /// The named `generators`, as the built-in calls they make (D174); the link checks have
@@ -108,7 +114,8 @@ impl<'a> Build<'_, 'a> {
         let auth = self.auth(source, root)?.unwrap_or_default();
         let headers = read::templates(source, root, "headers");
         let (name, vars, hooks) = (read::owned(root, "name"), self.vars(source, root)?, hooks(source, root));
-        self.builder.api_group(ApiGroup { id: group, name, base_url, auth, headers, vars, hooks, apis });
+        let source = read::api_source(source, root);
+        self.builder.api_group(ApiGroup { id: group, name, base_url, auth, headers, vars, hooks, source, apis });
         Ok(())
     }
 
@@ -144,6 +151,7 @@ impl<'a> Build<'_, 'a> {
             cleanup,
             hooks: hooks(source, node),
             deprecated: read::flag(shapes::api(), node, "deprecated"),
+            operation_id: read::owned(node, "operationId"),
             span: node.span,
         }))
     }

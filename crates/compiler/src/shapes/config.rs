@@ -70,7 +70,17 @@ shape! {
         types::key("name", Ty::Text).doc("Shown in reports"),
         types::key("default", Ty::Bool).default("false").doc("Active when no profile is named"),
         types::key("vars", VARS).doc("Values that replace the config's vars"),
-        types::key("agents", Ty::Value).doc("What agents may do under this profile"),
+        types::key("agents", Ty::Obj(agents)).doc("What agents may do under this profile; reads only when left out (D195)"),
+    ])
+}
+
+shape! {
+    agents = Shape::new("agents", "What an agent may do under a profile (D195)", &[
+        types::key("run", Ty::Bool).default("false").doc("Run tests, within `call` and `approve`"),
+        types::key("call", Ty::List(&Ty::Enum(METHODS))).default("[]").doc("Methods sent without asking").example("[GET, POST]"),
+        types::key("approve", Ty::List(&Ty::Enum(METHODS))).default("[]").doc("Methods sent once a person approves"),
+        types::key("writeDefinitions", Ty::Either(&[Ty::Bool, Ty::Enum(&["ask"])])).default("false")
+            .doc("Change definition files: `true`, `false` or `ask`"),
     ])
 }
 

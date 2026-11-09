@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 use serde_json::Value;
 
 use crate::{
-    ActionId, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule, Retry, SecretsConfig,
-    StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
+    ActionId, AgentPolicy, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule, Retry,
+    SecretsConfig, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
 };
 
 /// How long before expiry credentials are fetched again when `refreshBefore` is not written.
@@ -118,6 +118,8 @@ pub struct Profile {
     pub default: bool,
     /// `vars`.
     pub vars: IndexMap<crate::VarName, TemplateValue>,
+    /// `agents`; reads only when the profile has no `agents` block (D195).
+    pub agents: AgentPolicy,
 }
 
 /// One entry of `auth`.

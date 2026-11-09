@@ -353,6 +353,7 @@ pub struct Api {
     pub cleanup: Option<ActionId>,        // a CALL action with vars templated over the response
     pub hooks: RequestHooks,
     pub deprecated: bool,
+    pub operation_id: Option<String>,     // the OpenAPI operation it came from, kept by sync
     pub span: SourceSpan,
 }
 
@@ -477,7 +478,7 @@ pub enum MatcherArg { Value(TemplateValue), Duration(Duration), Size(Size), Rang
 pub struct VarDefs { pub values: IndexMap<VarName, TemplateValue>, pub by_profile: IndexMap<ProfileId, IndexMap<VarName, TemplateValue>> }
 ```
 
-The remaining entities (`ApiGroup`, `Profile`, `AuthDef`, `LoadScenario`, `Dataset`, `Config`) are direct translations of the keys tables in the Syntax Reference, one field per key, with durations and sizes already parsed and every template already compiled.
+The remaining entities (`ApiGroup`, `Profile`, `AuthDef`, `LoadScenario`, `Dataset`, `Config`) are direct translations of the keys tables in the Syntax Reference, one field per key, with durations and sizes already parsed and every template already compiled. Three are typed beyond that: `ApiGroup.source` is an `ApiSource { openapi, headers, include }`; `Profile.agents` is an `AgentPolicy { run, call: Vec<Method>, approve: Vec<Method>, write_definitions: WriteDefinitions }` (`Deny | Ask | Allow`), whose default, a profile with no `agents` block, allows only reads (D195); and each load file compiles into `Program.loads` as a `LoadScenario` (its `mix` tests resolved to `TestId`s, an unknown one is V2003; a fixed `thinkTime` is both ends of the range; `checks: full` sets `full_checks`).
 
 ## Compiler
 

@@ -72,9 +72,10 @@ impl Fixture {
         let base_url = Some(literal("http://api.test"));
         let apis = Vec::new();
         let (auth, headers, vars, hooks) = Default::default();
-        program
-            .api_groups
-            .insert(group, ApiGroup { id: group, name: None, base_url, auth, headers, vars, hooks, apis });
+        program.api_groups.insert(
+            group,
+            ApiGroup { id: group, name: None, base_url, auth, headers, vars, hooks, source: None, apis },
+        );
         let (tags, vars, lifecycle, tests) = Default::default();
         program.test_files.insert(file, TestFile { id: file, name: None, tags, vars, skip: None, lifecycle, tests });
         Self { program, file, group, names, strings: kept }
@@ -121,6 +122,7 @@ impl Fixture {
             cleanup,
             hooks,
             deprecated: false,
+            operation_id: None,
             span: span(),
         };
         self.program.apis.insert(id, api);
