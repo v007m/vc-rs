@@ -1,10 +1,11 @@
 //! `vc import openapi` writes an api file, its tests, the base-URL var and the snapshot from a
 //! served spec, and they compile and run; `vc init --from-openapi` imports into a new project;
-//! `vc sync` merges the next version of the spec.
+//! `vc sync` merges the next version of the spec; a HAR recorded against the mock server
+//! imports into its api file and its flow replays green.
 
 use vc_mock_server::MockServer;
 
-use crate::{CONFIG, Project, said};
+use crate::{CONFIG, Project, USERS, said};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn an_imported_spec_compiles_and_its_tests_run() {
@@ -69,4 +70,41 @@ fn a_spec_path_outside_the_project_is_refused() {
     let output = project.vc(&["import", "openapi", "../elsewhere/openapi.yaml"]).output().unwrap();
     assert_eq!(output.status.code(), Some(2), "{}", said(&output));
     assert!(said(&output).contains("give a URL, or a path inside the project"), "{}", said(&output));
+}
+
+/// A session recorded against the mock server, its origin `http://127.0.0.1:7421`.
+const RECORDED: &str = include_str!("../fixtures/mock.har");
+
+/// The bearer token the recording sent, which must never be written or printed.
+const TOKEN: &str = "e2eRecordedToken7Hq2Lm9Px4";
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_recorded_session_imports_into_its_api_file_and_replays_green() {
+    let server = MockServer::start().await.unwrap();
+    let config = CONFIG.1.replace("baseUrl: 'http://x'", &format!("baseUrl: '{}'", server.base_url()));
+    let project = Project::new(&[(CONFIG.0, &config), USERS]);
+    project.write("recorded.har", &RECORDED.replace("http://127.0.0.1:7421", &server.base_url()));
+    let flow = "users.recorded#replaysSignup";
+    let preview = project.vc(&["import", "har", "recorded.har", "--flow", flow, "--dry-run"]).output().unwrap();
+    assert_eq!(preview.status.code(), Some(0), "{}", said(&preview));
+    assert!(!project.path().join("services/users/recorded.test.yaml").exists());
+    let output = project.vc(&["import", "har", "recorded.har", "--flow", flow]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    let host = server.base_url().replace("http://", "");
+    for line in [
+        "read 9 entries · filtered 1 static, 1 third-party, 1 OPTIONS → 6 requests".to_owned(),
+        format!("  {host} → users (existing)  1 matched, 5 new"),
+        "flow users.recorded#replaysSignup (6 steps)".to_owned(),
+    ] {
+        assert!(said(&output).contains(&line), "{line} not in {}", said(&output));
+    }
+    let written = ["services/users/users.api.yaml", "services/users/recorded.test.yaml", CONFIG.0];
+    let texts: Vec<_> =
+        written.iter().map(|file| std::fs::read_to_string(project.path().join(file)).unwrap()).collect();
+    for text in texts.iter().chain([&said(&preview), &said(&output)]) {
+        assert!(!text.contains(TOKEN), "{text}");
+    }
+    project.vc(&["check"]).assert().code(0);
+    let run = project.vc(&["run", flow]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}\n{}", said(&run), texts.join("\n"));
 }
