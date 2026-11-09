@@ -2,12 +2,13 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::time::Instant;
 use vc_model::{ActionId, Event, OwnerKey, TestResult, TestStatus};
 
-use super::crew::{Crew, Job};
+use super::crew::{Crew, Deadline, Job};
 use crate::cancel::{CancelTree, Ran};
-use crate::{Frame, InstanceCommand, InstanceInput, InstanceWorkflow, Launch, RunInput, Verdict};
+use crate::{
+    Frame, InstanceCommand, InstanceInput, InstanceScript, InstanceWorkflow, Launch, RunInput, Verdict, own_limit,
+};
 
 /// One instance to run: what the file launched, the shared values it reads and its frame.
 pub struct Ticket {
@@ -22,7 +23,7 @@ pub async fn instance(crew: Crew, ticket: Ticket) -> TestStatus {
     let _permit = Arc::clone(&crew.limit).acquire_owned().await.ok();
     let script = crew.scripts.get(&ticket.launch.instance.test).cloned().unwrap_or_default();
     let frame = Frame { instance: Some(Arc::new(ticket.launch.instance.clone())), ..ticket.frame.clone() };
-    let mut shell = InstanceShell { crew, ticket, frame, deadline: None };
+    let mut shell = InstanceShell { crew, ticket, frame, script: Arc::clone(&script), deadline: None };
     shell.start_attempt();
     let mut workflow = InstanceWorkflow::new(script);
     let mut inputs = VecDeque::from([shell.first_input()]);
@@ -43,15 +44,17 @@ struct InstanceShell {
     ticket: Ticket,
     /// What the instance's actions have left so far.
     frame: Frame,
+    /// The instance's actions, to tell its `after` ones.
+    script: Arc<InstanceScript>,
     /// When the current attempt must be done by, from the test's `timeout`.
-    deadline: Option<Instant>,
+    deadline: Option<Deadline>,
 }
 
 impl InstanceShell {
     /// Starts the attempt's clock: each attempt gets the test's whole `timeout`.
     fn start_attempt(&mut self) {
         let test = self.crew.cx.program.tests.get(&self.ticket.launch.instance.test);
-        self.deadline = test.and_then(|test| test.timeout).map(|timeout| Instant::now() + timeout.get());
+        self.deadline = test.and_then(|test| test.timeout).map(|timeout| Deadline::attempt(timeout.get()));
     }
 
     fn first_input(&self) -> InstanceInput {
@@ -67,7 +70,17 @@ impl InstanceShell {
     }
 
     fn job(&self, action: ActionId) -> Job {
-        Job { action, owner: self.owner(), frame: self.frame.clone(), deadline: self.deadline }
+        Job { action, owner: self.owner(), frame: self.frame.clone(), deadline: self.deadline(action) }
+    }
+
+    /// The attempt's deadline, or for an `after` or `afterEach` action its own limit from now:
+    /// they always run, so the attempt's passing deadline must not cut them.
+    fn deadline(&self, action: ActionId) -> Option<Deadline> {
+        if !self.script.after.contains(&action) {
+            return self.deadline;
+        }
+        let cx = &self.crew.cx;
+        cx.action(action).map(|found| Deadline::after(own_limit(&cx.program, found)))
     }
 
     async fn carry_out(

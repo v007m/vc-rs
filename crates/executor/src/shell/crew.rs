@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::sync::Semaphore;
 use tokio::sync::mpsc::UnboundedSender;
@@ -32,8 +33,27 @@ pub struct Job {
     pub action: ActionId,
     pub owner: OwnerKey,
     pub frame: Frame,
-    /// When the attempt it belongs to must be done by (the test's `timeout`); cleanups have none.
-    pub deadline: Option<Instant>,
+    /// When it must be done by; cleanups have none.
+    pub deadline: Option<Deadline>,
+}
+
+/// When a job must be done by, and what its V5104 failure says it ran past.
+#[derive(Clone, Copy, Debug)]
+pub struct Deadline {
+    pub at: Instant,
+    pub past: &'static str,
+}
+
+impl Deadline {
+    /// An attempt's: the test's `timeout` from now.
+    pub fn attempt(timeout: Duration) -> Self {
+        Self { at: Instant::now() + timeout, past: "the test ran past its `timeout`" }
+    }
+
+    /// An `after` or `afterEach` action's own, `limit` from now (D192).
+    pub fn after(limit: Duration) -> Self {
+        Self { at: Instant::now() + limit, past: "the `after` action ran past its own `timeout`" }
+    }
 }
 
 impl Job {
@@ -90,14 +110,13 @@ impl Crew {
         }
     }
 
-    /// Runs `job`'s action; past the job's deadline (the test's `timeout`) it is dropped and
-    /// fails with V5104.
+    /// Runs `job`'s action; past the job's deadline it is dropped and fails with V5104.
     async fn execute(&self, job: Job) -> ActionReport {
         let (action, deadline) = (job.action, job.deadline);
         let work = self.cx.executors.execute(job.request(&self.cx));
         let Some(deadline) = deadline else { return work.await };
-        time::timeout_at(deadline, work).await.unwrap_or_else(|_| {
-            let failure = Failure::new("the test ran past its `timeout`").with_code(Code::V5104.to_string());
+        time::timeout_at(deadline.at, work).await.unwrap_or_else(|_| {
+            let failure = Failure::new(deadline.past).with_code(Code::V5104.to_string());
             ActionReport::failed(failure.at(action))
         })
     }

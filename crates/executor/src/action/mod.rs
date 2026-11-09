@@ -19,6 +19,7 @@ mod reuse;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use vc_interfaces::{AuthProvider, CacheStore};
@@ -35,6 +36,15 @@ pub use inline::InlineExecutor;
 pub use reuse::{TestExecutor, body_actions};
 
 pub use request::encode;
+
+/// How long an action may run when neither it nor the config's `defaults` sets a `timeout`.
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// An action's own limit (D192): its `timeout`, else the config's `defaults.timeout`, else 30 s.
+#[must_use]
+pub fn own_limit(program: &Program, action: &Action) -> Duration {
+    action.timeout.or(program.config.defaults.timeout).map_or(DEFAULT_TIMEOUT, vc_model::Duration::get)
+}
 
 /// The kind of an action, as the registry keys its executors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -6,8 +6,8 @@ use tokio::time;
 use tokio::time::Instant;
 use vc_diagnostics::Code;
 use vc_model::{
-    ActionId, ActionKind, Event, Feed, OwnerKey, Plan, PlannedAction, Retry, RunStatus, Template, TestResult,
-    TestStatus, Totals,
+    ActionId, ActionKind, ActionOutcome, Event, Feed, OwnerKey, Plan, PlannedAction, Retry, RunStatus, Template,
+    TestResult, TestStatus, Totals,
 };
 
 use super::{Executor, RunOptions};
@@ -261,6 +261,25 @@ async fn a_test_past_its_timeout_fails_and_each_attempt_gets_the_whole_timeout()
     let code = result.failure.as_ref().and_then(|failure| failure.code.clone());
     assert_eq!((result.attempts, code), (2, Some(Code::V5104.to_string())));
     assert_eq!((outcome.sent("/slow"), outcome.elapsed), (2, 5 * SECOND), "2 s, the 1 s delay, then 2 s");
+}
+
+#[tokio::test(start_paused = true)]
+async fn after_actions_get_their_own_limit_once_the_test_ran_past_its_timeout() {
+    let mut fixture = Fixture::new();
+    let (slow, after, each) = (fixture.call("/slow"), fixture.call("/after"), fixture.call("/after-each"));
+    fixture.lifecycle(|blocks| blocks.after_each = vec![each]);
+    let test = fixture.test(vec![slow], None);
+    fixture.test_mut(test).timeout = Some(vc_model::Duration::new(2 * SECOND));
+    fixture.test_mut(test).after = vec![after];
+    let plan = fixture.plan(&[], &[(test, 1)]);
+    let outcome = run(fixture, plan, RunOptions::default(), &[]).await;
+    assert_eq!(outcome.summary.totals, totals([0, 1, 0, 0, 0]));
+    let passed = |action| {
+        outcome.events.iter().any(|event| {
+            matches!(event, Event::ActionFinished { action: done, outcome: ActionOutcome::Passed, .. } if *done == action)
+        })
+    };
+    assert!(passed(after) && passed(each), "the attempt's deadline has passed, yet both run: {:?}", outcome.events);
 }
 
 #[tokio::test(start_paused = true)]
