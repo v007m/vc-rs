@@ -365,6 +365,12 @@ Round 29 additions (9 November 2026, M6–M7 kick-off):
 | D197 | MCP build (Sarath) | `vc-mcp` uses rmcp (features `server` and `transport-io` only) with hand-written tool schemas taken from engine types. The vc-contracts proto waits for its first consumer, M9's web API (D101). M7 ships stdio only; `/mcp` over HTTP comes with the web server in M9 | — |
 | D198 | M7 scope edges | M7 load output is the live summary, `load_intervals` and a JSON summary; the HTML load report comes with the web UI (M9). The published agent skill (PRD R26) moves to M8. `hdrhistogram` is used without default features. HAR and OpenAPI parsing use maintained crates only if they pass cargo-deny; otherwise hand-written serde structs over vc-parser output, with the choice logged when the spike ends | — |
 
+Round 30 additions (9 November 2026, M6–M7 dependency spike):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D199 | Import and load crates (spike result, per D198) | All candidates pass cargo-deny with no new duplicate versions and no deny.toml change. Used: `har` 0.9, `oas3` 0.22 with `default-features = false` (its default `preserve-order` would switch `serde_json::Map` to IndexMap across the workspace and change JSON key order), `hdrhistogram` 7.6 without default features, `rmcp` per D197. `openapiv3` is not used: OpenAPI 3.0 is up-converted to 3.1 (like Swagger 2.0) and read with `oas3`, so there is one OpenAPI model. YAML specs go vc-parser → `serde_json::Value` → `oas3` | LLD crate table (`openapiv3` for 3.0) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

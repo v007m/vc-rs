@@ -123,7 +123,7 @@ Third-party crates:
 | Keychain and encryption | `keyring-core` 1 with one native store per system (`apple-native-keyring-store`, `windows-native-keyring-store`, `linux-keyutils-keyring-store`), `chacha20poly1305` 0.11 | Cache encryption key in the OS keychain (`OsKeychain`); cache entries sealed with ChaCha20-Poly1305 in `vc-adapter-store` |
 | Secret redaction | `aho-corasick` 1 | Fast multi-string replacement over every output |
 | TypeScript hooks | `rquickjs` 0.14, `oxc` 0.155 | Measured in the spike: 4.2 MB, about 20 µs per call |
-| OpenAPI | `oas3` 0.22 (3.1) and `openapiv3` 2 (3.0) | Both versions; Swagger 2.0 converted first |
+| OpenAPI | `oas3` 0.22, `default-features = false` (D199) | One 3.1 model; Swagger 2.0 and 3.0 are up-converted first |
 | HAR | `har` 0.9 | HAR 1.2 parsing |
 | Load statistics | `hdrhistogram` 7 | Latency histograms without coordinated-omission bias |
 | CLI | `clap` 4 | Derive-based commands, shell completion |
@@ -1037,7 +1037,7 @@ pub struct DraftApi { pub id: Sym, pub method: Method, pub path: Template, pub v
 
 ### OpenAPI
 
-- **Reading.** Fetch the URL (with `source.headers`, rendered against the active profile) or read the file; detect JSON or YAML by content; detect the version from `openapi`/`swagger`. Swagger 2.0 is converted to 3.1 first (a mechanical mapping of `definitions`, `parameters`, `consumes`/`produces`); 3.0 is read with `openapiv3`, 3.1 with `oas3`. External `$ref`s are fetched and bundled.
+- **Reading.** Fetch the URL (with `source.headers`, rendered against the active profile) or read the file; detect JSON or YAML by content; detect the version from `openapi`/`swagger`. Swagger 2.0 is converted to 3.1 first (a mechanical mapping of `definitions`, `parameters`, `consumes`/`produces`), and 3.0 is up-converted to 3.1 the same way (`nullable`, `exclusiveMinimum`/`exclusiveMaximum`, `example`); everything is then read with `oas3` (D199). YAML goes through vc-parser to `serde_json::Value` first. External `$ref`s are fetched and bundled.
 - **Snapshot.** The bundled 3.1 document is written to `openapi/<fileId>.yaml` in a canonical form (keys sorted the way the spec orders them, YAML block style), so it diffs well.
 - **Mapping.** One api per operation (filtered by `source.include` tags or path prefixes); ID from `operationId` in camelCase or from method and path; path parameters become `${var.name}`; query parameters become vars with the spec's defaults; required body fields become vars with generators matched to type and format; the success response's schema becomes a `$file` reference into the snapshot.
 - **Three-way sync.** For each api matched by `operationId`, compare the fields sync owns (method, path, parameter vars, request content type) across base (the old snapshot), theirs (the new spec) and mine (the api file). The rule table in the CLI doc decides each field; conflicts produce a diagnostic with `--take spec`, `--take mine` and `--resolved` fixes. The snapshot is updated for every api that merged cleanly; a conflicted api keeps its old snapshot entry until it is resolved, so the next sync sees the same conflict. `--check` runs everything except writing and exits 4 on drift.
