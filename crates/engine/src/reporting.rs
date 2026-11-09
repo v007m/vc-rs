@@ -1,20 +1,22 @@
-//! The run's reporters (D43): one console format, fed in run order from the event bus, and the
-//! report files, rendered from the run's snapshot once it ends (D167).
+//! The run's reporters (D43): one console format, fed in run order from the event bus, the
+//! report files, rendered from the run's snapshot once it ends (D167), and the reporter plugins
+//! `reports.formats` names (G6), fed the same events.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use vc_adapter_reporters::{
-    Color, Format, FormatRegistry, FsDestination, HtmlLayout, Recorder, ReporterContext, ReporterRegistry, RunFacts,
-    RunSnapshot,
+    Color, Format, FormatRegistry, FsDestination, HtmlLayout, PluginReporter, Recorder, ReporterContext,
+    ReporterRegistry, RunFacts, RunSnapshot,
 };
-use vc_interfaces::{Artifact, ReportError, Reporter, RunEnd, RunId, RunSummary};
-use vc_model::{Feed, Keep, Plan, Program};
+use vc_interfaces::{Artifact, PluginKind, ReportError, Reporter, RunEnd, RunId, RunSummary};
+use vc_model::{Event, Feed, Keep, Plan, Program};
 
 use crate::EngineError;
 use crate::alerts::{Ending, Watch};
 use crate::history::Recording;
+use crate::plugin_hosts::Hosts;
 use crate::settings::{Named, Settings};
 
 /// What a reporter name is for.
@@ -63,6 +65,8 @@ pub struct Chosen {
     pub per_run: bool,
     /// Whether the HTML report is one self-contained file.
     pub single_file: bool,
+    /// The reporter plugins it names, by ID.
+    pub plugins: Vec<String>,
 }
 
 impl Chosen {
@@ -113,9 +117,10 @@ impl Chosen {
 }
 
 /// Picks the console format (`--reporter`, else `spec`), the report files (`--report`, a layer,
-/// else the config's `reports.formats`, else `ctrf`), their folder (`--out`, a layer, else
-/// the config's `reports.dir`, else `.vibranium/reports`), which may be relative, and the HTML
-/// layout (`--single-file`, a layer, else the config's `reports.html.layout`).
+/// else the config's `reports.formats`, else `ctrf`) and the reporter plugins among them, their
+/// folder (`--out`, a layer, else the config's `reports.dir`, else `.vibranium/reports`), which
+/// may be relative, and the HTML layout (`--single-file`, a layer, else the config's
+/// `reports.html.layout`).
 ///
 /// # Errors
 ///
@@ -128,12 +133,14 @@ pub fn choose(console: Option<&str>, settings: &Settings, program: &Program) -> 
     let named = settings.formats.clone().unwrap_or(config);
     let files =
         if named.names.is_empty() { FILES.iter().map(|name| (*name).to_owned()).collect() } else { named.names };
+    let configured = |name: &String| program.config.plugins.iter().any(|plugin| program.str(plugin.id) == Some(name));
+    let (plugins, files): (Vec<String>, Vec<String>) = files.into_iter().partition(configured);
     for file in &files {
         check(file, &named.origin, Role::File)?;
     }
     let dir = settings.reports_dir.as_deref().or(program.config.reports_dir.as_deref()).unwrap_or(REPORTS_DIR);
     let single_file = settings.html_single_file.unwrap_or(program.config.html_single_file);
-    Ok(Chosen { console: console.to_owned(), files, dir: PathBuf::from(dir), per_run: true, single_file })
+    Ok(Chosen { console: console.to_owned(), files, dir: PathBuf::from(dir), per_run: true, single_file, plugins })
 }
 
 /// Whether `name`, given by `origin`, is a reporter of role `wanted`.
@@ -168,6 +175,8 @@ pub struct Setup {
     pub seed: u64,
     /// Whether the console prints nothing, for a run an agent started over stdio.
     pub quiet: bool,
+    /// The run's plugins, among them the reporter plugins the choice names.
+    pub plugins: Hosts,
 }
 
 /// The run's reporters, its record and its report files, and the problems they had; a report
@@ -183,6 +192,8 @@ pub struct Reporters {
     problems: BTreeSet<String>,
     /// What the `alerts` rules read, when there are any.
     watch: Option<Watch>,
+    /// The reporter plugins still taking events.
+    plugins: Vec<PluginReporter>,
 }
 
 impl Reporters {
@@ -192,6 +203,7 @@ impl Reporters {
     ///
     /// [`EngineError::Internal`] when a checked name is not registered.
     pub fn create(chosen: Chosen, setup: Setup, history: Option<Recording>) -> Result<Self, EngineError> {
+        let (plugins, problems) = plugins(&chosen, &setup, history.as_ref().map(Recording::id));
         let destination = Arc::new(FsDestination::new(&chosen.dir).quiet(setup.quiet));
         let color = if setup.color { Color::Ansi } else { Color::Plain };
         let keep = setup.program.config.history.keep;
@@ -202,8 +214,7 @@ impl Reporters {
         let console = ReporterRegistry::builtin().create(&chosen.console, &context).map_err(internal)?;
         let formats = chosen.formats()?;
         let recorder = Recorder::new(&context);
-        let problems = BTreeSet::new();
-        Ok(Self { console, recorder, formats, chosen, history, keep, seed: setup.seed, problems, watch })
+        Ok(Self { console, recorder, formats, chosen, history, keep, seed: setup.seed, problems, watch, plugins })
     }
 
     /// The run's number in the history, when it is recorded.
@@ -224,6 +235,7 @@ impl Reporters {
         if let Err(error) = self.console.on_event(&event).await {
             self.problems.insert(error.to_string());
         }
+        self.feed(&event).await;
         let rows = self.recorder.take(&event);
         if let Some(watch) = self.watch.as_mut() {
             watch.see(&rows);
@@ -233,14 +245,31 @@ impl Reporters {
         }
     }
 
+    /// Hands `event` to each reporter plugin; one that fails is dropped, and named once.
+    async fn feed(&mut self, event: &Event) {
+        let mut kept = Vec::with_capacity(self.plugins.len());
+        for mut plugin in std::mem::take(&mut self.plugins) {
+            match plugin.on_event(event).await {
+                Ok(()) => kept.push(plugin),
+                Err(error) => {
+                    self.problems.insert(format!("{error}; its report is not written"));
+                }
+            }
+        }
+        self.plugins = kept;
+    }
+
     /// Writes the report files and closes the run in the history, then ends the console with
     /// the files' paths: the problems, one line each, and what the alerts read.
     pub async fn finish(self, run: RunSummary) -> (Vec<String>, Ending) {
-        let Self { mut console, recorder, formats, chosen, history, keep, seed, mut problems, watch } = self;
+        let Self { mut console, recorder, formats, chosen, history, keep, seed, mut problems, watch, plugins } = self;
         let id = history.as_ref().map_or(0, |history| history.id().get());
         let snapshot = recorder.finish(RunFacts { seed: Some(seed), ..RunFacts::of(id, &run) });
         let dir = chosen.dir_for(history.as_ref().map(Recording::id));
-        let (artifacts, failed) = render(&formats, &snapshot, &dir);
+        let (mut artifacts, failed) = render(&formats, &snapshot, &dir);
+        problems.extend(failed);
+        let (written, failed) = finish(plugins, &run).await;
+        artifacts.extend(written);
         problems.extend(failed);
         let report = artifacts.first().map(|artifact| artifact.path.clone());
         let ending = watch.map(|watch| watch.ending(report)).unwrap_or_default();
@@ -254,6 +283,35 @@ impl Reporters {
         }
         (problems.into_iter().collect(), ending)
     }
+}
+
+/// The reporter plugins `chosen` names, writing into its folder for history run `run`, and why
+/// any cannot report.
+fn plugins(chosen: &Chosen, setup: &Setup, run: Option<RunId>) -> (Vec<PluginReporter>, BTreeSet<String>) {
+    let destination = Arc::new(FsDestination::new(chosen.dir_for(run)));
+    let context = ReporterContext::new(Arc::clone(&setup.program), Arc::clone(&setup.plan), destination);
+    let (mut reporters, mut problems) = (Vec::new(), BTreeSet::new());
+    for id in &chosen.plugins {
+        match setup.plugins.get(id, PluginKind::Reporter) {
+            Ok(host) => reporters.push(PluginReporter::new(host, &context)),
+            Err(reason) => {
+                problems.insert(format!("{reason}; its report is not written"));
+            }
+        }
+    }
+    (reporters, problems)
+}
+
+/// Ends each reporter plugin with `run`: the files they wrote, and why any did not.
+async fn finish(plugins: Vec<PluginReporter>, run: &RunSummary) -> Rendered {
+    let (mut artifacts, mut problems) = (Vec::new(), Vec::new());
+    for mut plugin in plugins {
+        match plugin.finish(run).await {
+            Ok(written) => artifacts.extend(written),
+            Err(error) => problems.push(error.to_string()),
+        }
+    }
+    (artifacts, problems)
 }
 
 /// Renders `snapshot` in every format into `dir`: the files written, and why any were not.

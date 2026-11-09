@@ -45,6 +45,9 @@ pub vc_interfaces::AuthError::Malformed::missing: alloc::string::String
 pub vc_interfaces::AuthError::Missing
 pub vc_interfaces::AuthError::Missing::auth: alloc::string::String
 pub vc_interfaces::AuthError::Missing::key: alloc::string::String
+pub vc_interfaces::AuthError::Plugin
+pub vc_interfaces::AuthError::Plugin::auth: alloc::string::String
+pub vc_interfaces::AuthError::Plugin::reason: alloc::string::String
 pub vc_interfaces::AuthError::Rejected
 pub vc_interfaces::AuthError::Rejected::auth: alloc::string::String
 pub vc_interfaces::AuthError::Rejected::status: u16

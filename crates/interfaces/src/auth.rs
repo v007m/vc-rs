@@ -180,6 +180,14 @@ pub enum AuthError {
         /// The step's failure, redacted.
         reason: String,
     },
+    /// An auth plugin failed or returned no credentials.
+    #[error("the `{auth}` auth plugin failed: {reason}")]
+    Plugin {
+        /// The definition's ID.
+        auth: String,
+        /// What went wrong.
+        reason: String,
+    },
 }
 
 impl AuthError {
@@ -200,6 +208,7 @@ impl AuthError {
             Self::Unknown { .. } => "use one of the auth types in the syntax reference",
             Self::Browser { .. } => "sign in again; the browser must reach the localhost redirect",
             Self::Flow { .. } => "run the flow's steps on their own and check each one's response",
+            Self::Plugin { .. } => "check `plugin` names an auth plugin in `plugins:` and run `vc plugin list`",
         }
     }
 }

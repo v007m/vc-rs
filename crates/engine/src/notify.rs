@@ -155,7 +155,7 @@ impl Resolve for Lookup<'_> {
 }
 
 /// The random source of settings, which have no random values.
-struct Steady;
+pub struct Steady;
 
 impl Chance for Steady {
     fn next_u64(&self) -> u64 {

@@ -5,7 +5,7 @@ use std::io::IsTerminal;
 use std::path::Path;
 
 use clap::{Args, Subcommand};
-use vc_engine::{Engine, PluginListing, PluginOffer, PluginPermissions, PluginState};
+use vc_engine::{Engine, PluginListing, PluginOffer, PluginPermissions};
 
 use crate::{Outcome, changes, project};
 
@@ -117,18 +117,7 @@ fn row(plugin: &PluginListing) -> String {
         .as_ref()
         .map_or_else(|| "-".to_owned(), |manifest| format!("{} {}", manifest.kind.name(), manifest.version));
     let granted = reach(&plugin.granted);
-    format!("{}  {kind}  {}  {}  may reach: {granted}", plugin.id, plugin.source, state(&plugin.state))
-}
-
-fn state(state: &PluginState) -> String {
-    match state {
-        PluginState::Ready => "ready".to_owned(),
-        PluginState::NotInstalled => "not installed: `vc plugin add` it again".to_owned(),
-        PluginState::NotApproved => "not approved: `vc plugin add` it".to_owned(),
-        PluginState::AsksForMore(more) => format!("asks for more: {}; `vc plugin add` it again", more.join(", ")),
-        PluginState::NotInConfig => "not in the config: `vc plugin remove` it".to_owned(),
-        _ => "unknown".to_owned(),
-    }
+    format!("{}  {kind}  {}  {}  may reach: {granted}", plugin.id, plugin.source, plugin.state)
 }
 
 /// `network api.acme.io, secret reportToken`, or `nothing`.

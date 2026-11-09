@@ -160,6 +160,8 @@ impl core::cmp::PartialEq for vc_engine::PluginState
 pub fn vc_engine::PluginState::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::PluginState
 pub fn vc_engine::PluginState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_engine::PluginState
+pub fn vc_engine::PluginState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::PluginState
 pub enum vc_engine::SyncMode
 pub vc_engine::SyncMode::Check

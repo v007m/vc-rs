@@ -41,6 +41,7 @@ fn every_cause_is_v5114_with_its_own_help() {
         AuthError::Unknown { kind: "kerberos".into() },
         AuthError::Browser { auth: auth(), reason: "state mismatch".into() },
         AuthError::Flow { auth: auth(), reason: "step login failed".into() },
+        AuthError::Plugin { auth: auth(), reason: "no auth plugin `acmeSso` is ready".into() },
     ];
     assert!(causes.iter().all(|cause| cause.code() == Code::V5114));
     let mut helps: Vec<_> = causes.iter().map(AuthError::help).collect();

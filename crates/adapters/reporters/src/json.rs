@@ -29,6 +29,13 @@ impl JsonReporter {
         self.destination.print(&format!("{value}\n"))
     }
 
+    /// `event` as its line, after the collector has seen it (a `testFinished` line reads the
+    /// test it collected).
+    pub fn event(&mut self, event: &Event) -> Value {
+        self.collector.take(event);
+        self.encode(event)
+    }
+
     fn encode(&self, event: &Event) -> Value {
         let names = &self.names;
         let (kind, fields) = match event {
@@ -93,24 +100,28 @@ impl JsonReporter {
 #[async_trait]
 impl Reporter for JsonReporter {
     async fn on_event(&mut self, event: &Event) -> Result<(), ReportError> {
-        self.collector.take(event);
-        self.line(&self.encode(event))
+        let line = self.event(event);
+        self.line(&line)
     }
 
     async fn finish(&mut self, run: &RunSummary) -> Result<Vec<Artifact>, ReportError> {
-        let artifacts: Vec<Value> =
-            run.artifacts.iter().map(|a| json!({"reporter": a.reporter, "path": a.path})).collect();
-        self.line(&json!({
-            "event": "summary",
-            "status": encode::run_status(run.status),
-            "totals": encode::totals(run.totals),
-            "startedMs": run.started_ms,
-            "durationMs": text::millis(run.duration),
-            "profiles": run.profiles,
-            "artifacts": artifacts,
-        }))?;
+        self.line(&summary(run))?;
         Ok(Vec::new())
     }
+}
+
+/// The `summary` line: how the run ended, its totals and the files its reporters wrote.
+pub fn summary(run: &RunSummary) -> Value {
+    let artifacts: Vec<Value> = run.artifacts.iter().map(|a| json!({"reporter": a.reporter, "path": a.path})).collect();
+    json!({
+        "event": "summary",
+        "status": encode::run_status(run.status),
+        "totals": encode::totals(run.totals),
+        "startedMs": run.started_ms,
+        "durationMs": text::millis(run.duration),
+        "profiles": run.profiles,
+        "artifacts": artifacts,
+    })
 }
 
 /// `base` with the keys of `more` added.
