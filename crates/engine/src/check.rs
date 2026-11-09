@@ -1,6 +1,7 @@
 use vc_diagnostics::{Diagnostics, Summary};
 use vc_model::SourceFiles;
 
+use crate::check_alerts;
 use crate::project::Compiled;
 use crate::selection::Selection;
 use crate::{Engine, EngineError};
@@ -54,6 +55,7 @@ impl Engine {
     /// that cannot be read or written only adds a notice. A definition file that cannot be read
     /// is reported as a V1012 error at its path. The compiler is given today's date from the
     /// clock, for expired skips (V3104), and the project's other files, for `$file` paths (V2004).
+    /// An `alerts` channel no notifier builds is a V5117 warning.
     ///
     /// # Errors
     ///
@@ -61,7 +63,9 @@ impl Engine {
     /// parse;
     /// [`EngineError::NoFilesMatch`] when a requested path selects no definition file.
     pub fn check(&self, request: &CheckRequest) -> Result<CheckReport, EngineError> {
-        Self::selected(self.compiled()?, request)
+        let mut compiled = self.compiled()?;
+        compiled.diagnostics.extend(check_alerts::unknown_channels(&compiled.files, &self.channels()));
+        Self::selected(compiled, request)
     }
 
     /// The diagnostics of `compiled` on the files `request` selects.

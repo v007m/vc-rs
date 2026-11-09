@@ -1,9 +1,11 @@
 //! Which `alerts` rules fire when a run ends, and the notice each sends. Pure: the run's end
 //! hands in what happened and the previous run's status, and gets the notices back.
-#![cfg_attr(not(test), expect(dead_code, reason = "the run's end sends these from the next commit"))]
 
-use vc_interfaces::{Notice, NoticeFailure, RunSummary};
-use vc_model::{Alert, AlertTrigger, RunStatus, Tag, TestStatus};
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use vc_interfaces::{Notice, NoticeFailure, Row, RunSummary};
+use vc_model::{Alert, AlertTrigger, Program, RunStatus, Tag, Test, TestStatus};
 
 /// The order triggers are tried in: a rule sends one notice per run, for the first that fires.
 const PRECEDENCE: [AlertTrigger; 4] =
@@ -35,6 +37,56 @@ pub struct Finished {
     pub breaches: Vec<String>,
     /// Where the run's main report was written.
     pub report: Option<String>,
+}
+
+/// What the reporters saw of a run that alerts read: each test's result and the main report.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Ending {
+    /// Every test's result, in the order they ended.
+    pub tests: Vec<Ended>,
+    /// The first report file written.
+    pub report: Option<PathBuf>,
+}
+
+/// What alerts watch of a run as its rows are recorded: every test's tags by full ID, its
+/// file's included, and each result so far.
+#[derive(Clone, Debug, Default)]
+pub struct Watch {
+    tags: HashMap<String, Vec<Tag>>,
+    ended: Vec<Ended>,
+}
+
+impl Watch {
+    /// Watches a run of `program`'s tests.
+    pub fn of(program: &Program) -> Self {
+        let file = |test: &Test| program.test_files.get(&test.file).map(|file| file.tags.as_slice());
+        let tags = |test: &Test| test.tags.iter().chain(file(test).unwrap_or_default()).cloned().collect();
+        let named = |test: &Test| Some((program.str(test.id.sym())?.to_owned(), tags(test)));
+        Self { tags: program.tests.values().filter_map(named).collect(), ended: Vec::new() }
+    }
+
+    /// Notes the test results among `rows`.
+    pub fn see(&mut self, rows: &[Row]) {
+        let ended = rows.iter().filter_map(|row| self.ended(row)).collect::<Vec<_>>();
+        self.ended.extend(ended);
+    }
+
+    /// What it saw, with the run's main report.
+    pub fn ending(self, report: Option<PathBuf>) -> Ending {
+        Ending { tests: self.ended, report }
+    }
+
+    /// The test result `row` holds: `None` for any other row, or a test that has not ended. A
+    /// row of `examples` is named `<test>:<n>`, counting from 1.
+    fn ended(&self, row: &Row) -> Option<Ended> {
+        let Row::Test(row) = row else { return None };
+        let status = row.status?;
+        let test = row.example_row.map_or_else(|| row.test_id.clone(), |n| format!("{}:{}", row.test_id, n + 1));
+        let blocked = row.blocked_by.as_ref().map(|by| format!("blocked by {by}"));
+        let message = row.message.clone().or(blocked).unwrap_or_default();
+        let tags = self.tags.get(&row.test_id).cloned().unwrap_or_default();
+        Some(Ended { test, tags, status, message })
+    }
 }
 
 /// A rule that fired, and the notice it sends to each of its channels.

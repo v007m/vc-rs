@@ -1060,6 +1060,25 @@ When a run ends, `engine/src/alerts.rs` decides which rules fire. It is pure: `d
   - a refused post gives `HTTP <status>`;
   - a transport error has the URL's path, which often holds the hook's secret, replaced with `/…`.
 
+`vc run` sends the alerts once the reporters finish (`engine/src/notify.rs`):
+- `Reporters` hands each recorded row to a `Watch`. A `Watch` notes each test's result, with its own tags and its file's.
+  - An example row is named `<test>:<n>`, counting from 1.
+  - A blocked test's message is `blocked by <id>`.
+- `finish` returns an `Ending`: the results and the first report file, which the notice gives relative to the project root.
+- `previous` is the status of the last finished `run` in the history under the same profiles, searching the last 50 runs.
+- `vc run` has no load breaches, so `threshold` never fires there.
+- The notice's `project` is the config's `project`, else the root folder's name.
+- Each channel's settings are rendered when the run ends.
+  - Only `${secret.X}` and `${env.X}` are read.
+  - Reading a declared secret through `env` is refused, so the secret stays masked.
+- The channels come from `EngineBuilder::notifiers`, else `NotifierRegistry::standard` over the run's transport.
+- Every channel that cannot be built or sent to adds a `V5117: <reason>` line to `RunReport.notices`; the exit code is unchanged.
+
+`vc check` warns V5117 at each `alerts[].notify[]` key that names no channel the engine knows (`engine/src/check_alerts.rs`).
+- The engine knows the builder's notifier channels, else `NotifierRegistry::standard_channels()`.
+- The help gives the close names, else the full list.
+- The compiler stays pure: it does not know the channel kinds.
+
 ## Import and sync: OpenAPI and HAR
 
 All importers produce the same intermediate form and hand it to `parser::edit` (with the engine's compile guard, D107), so every import respects the naming conventions, writes the documentation header and never reformats existing text.

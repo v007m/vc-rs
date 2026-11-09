@@ -55,6 +55,7 @@ async fn posted(channel: &str, settings: &Value, notice: &Notice) -> (String, St
 async fn every_standard_channel_meets_the_contract() {
     let registry = accepting();
     assert_eq!(registry.channels(), ["pagerduty", "slack", "teams", "webhook"]);
+    assert_eq!(NotifierRegistry::standard_channels(), registry.channels(), "a check knows them without a transport");
     for (channel, settings, bad) in channels() {
         notifier_factory_suite(&registry, &ChannelCase::new(channel, settings.clone(), bad));
         notifier_suite(&mut || registry.create(channel, &settings).unwrap()).await;
