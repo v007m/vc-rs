@@ -27,6 +27,7 @@ mod migrate;
 mod new;
 mod outcome;
 mod plan;
+mod plugin;
 mod project;
 mod rename;
 mod report;
@@ -104,6 +105,8 @@ enum Command {
     /// Converts a project from an older format.
     #[command(subcommand)]
     Migrate(migrate::MigrateCommand),
+    /// Manages plugins and their permissions.
+    Plugin(plugin::PluginArgs),
     /// Starts the MCP server for AI agents, over stdio.
     Mcp(mcp::McpArgs),
     /// Starts or stops the demo service the `vc init` sample calls.
@@ -154,6 +157,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Approve(args) => approvals::approve(&args, project),
         Command::Load(args) => load::run(&args, project),
         Command::Migrate(command) => migrate::run(&command, project),
+        Command::Plugin(args) => plugin::run(&args, project),
         Command::Mcp(args) => mcp::run(&args, project),
         Command::Demo(args) => demo::run(&args),
         Command::Completion(args) => completion::run(&args),

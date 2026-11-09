@@ -1304,6 +1304,7 @@ Third-party plugins are separate processes speaking JSON-RPC 2.0 over stdio, wit
 - **Network and files.** Permissions are declared and shown at install. Where the OS allows (Landlock on Linux), file and network limits are also enforced on the plugin process.
 - **Failures.** A plugin that exceeds its deadline or crashes fails only the work that used it.
 - **Port.** `PluginHost` in `vc-interfaces` is one running plugin: `manifest()` and `call(method, params, deadline)`, with `INITIALIZE_DEADLINE` (5 s) and `CALL_DEADLINE` (30 s). A `PluginError` is V5118 and keeps its JSON-RPC code (`PERMISSION_DENIED` −32001, `DEADLINE_PASSED` −32002). `PluginPermissions::beyond` lists what a manifest asks for past what `vibranium.lock` granted. `FakePlugin` in `vc-testkit` answers from scripts and keeps only the declared secrets; every host runs `plugin_host_suite`.
+- **Install and lock.** `PluginStore` in `vc-interfaces` fetches a source into `.vibranium/plugins/.staged/` (`npm pack` and `tar` for `npm:`, a copy for `path:`), installs it to `.vibranium/plugins/<id>/`, discards or uninstalls it, and reads `vibranium.lock` and the installed manifests; `FsPluginStore` in `vc-adapter-plugins` is the one implementation. The engine parses the manifest and the lock (`plugin_manifest`, `plugin_lock`) and writes the config item and the lock as `Changes`, the config through the compile guard (`Engine::plugin_fetch`, `plugin_approve`, `plugin_decline`, `plugin_list`, `plugin_remove`).
 
 ## Diagnostic codes
 

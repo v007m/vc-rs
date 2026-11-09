@@ -21,6 +21,7 @@ members = [
   "crates/adapters/auth",
   "crates/adapters/importers",
   "crates/adapters/notifiers",
+  "crates/adapters/plugins",
   "crates/apps/mcp",
   "crates/apps/cli",
   "crates/apps/demo",
@@ -58,6 +59,7 @@ vc-adapter-secrets = { path = "crates/adapters/secrets" }
 vc-adapter-auth = { path = "crates/adapters/auth" }
 vc-adapter-importers = { path = "crates/adapters/importers" }
 vc-adapter-notifiers = { path = "crates/adapters/notifiers" }
+vc-adapter-plugins = { path = "crates/adapters/plugins" }
 vc-mcp = { path = "crates/apps/mcp" }
 vc-mock-server = { path = "bench/mock" }
 aho-corasick = "1.1.5"
