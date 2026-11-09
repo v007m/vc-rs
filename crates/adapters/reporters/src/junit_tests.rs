@@ -71,3 +71,11 @@ fn reports_a_file_it_cannot_save() {
     let refused = ReportError::Write { location: "junit.xml".into(), reason: "read-only".into() };
     assert_eq!(JunitFormat.render(&testing::snapshot(), &Broken), Err(refused));
 }
+
+#[test]
+fn names_the_suites_after_the_project() {
+    let mut snapshot = testing::snapshot();
+    snapshot.project = Some("shop".to_owned());
+    let xml = rendered(&snapshot);
+    assert!(xml.contains(r#"<testsuites name="shop" tests="6""#), "{xml}");
+}

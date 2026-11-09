@@ -12,6 +12,9 @@ use vc_model::{RunStatus, TestStatus, Totals};
 /// The snapshot layout; a snapshot of another version is refused, not misread.
 const VERSION: u32 = 1;
 
+/// The name the reports give a run whose config has no `project`.
+const DEFAULT_PROJECT: &str = "vibranium";
+
 /// Where something is in the project's sources.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Location {
@@ -183,6 +186,9 @@ impl RunFacts {
 pub struct RunSnapshot {
     version: u32,
     pub(crate) run: RunFacts,
+    /// The config's `project`; a snapshot from before it was kept has none.
+    #[serde(default)]
+    pub(crate) project: Option<String>,
     pub(crate) files: Vec<String>,
     pub(crate) tests: Vec<TestView>,
     pub(crate) lifecycle: Vec<StepView>,
@@ -193,6 +199,7 @@ pub struct RunSnapshot {
 /// The parts of a snapshot the recorder gathers, before the run facts are known.
 #[derive(Debug, Default)]
 pub struct Gathered {
+    pub project: Option<String>,
     pub files: Vec<String>,
     pub tests: Vec<TestView>,
     pub lifecycle: Vec<StepView>,
@@ -202,8 +209,13 @@ pub struct Gathered {
 
 impl RunSnapshot {
     pub(crate) fn new(run: RunFacts, gathered: Gathered) -> Self {
-        let Gathered { files, tests, lifecycle, cleanups, abandoned } = gathered;
-        Self { version: VERSION, run, files, tests, lifecycle, cleanups, abandoned }
+        let Gathered { project, files, tests, lifecycle, cleanups, abandoned } = gathered;
+        Self { version: VERSION, run, project, files, tests, lifecycle, cleanups, abandoned }
+    }
+
+    /// The project's display name: the config's `project`, else `vibranium`.
+    pub(crate) fn project(&self) -> &str {
+        self.project.as_deref().unwrap_or(DEFAULT_PROJECT)
     }
 
     /// The run this snapshot is of.

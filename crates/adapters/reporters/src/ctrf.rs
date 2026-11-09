@@ -35,6 +35,7 @@ fn document(snapshot: &RunSnapshot) -> Value {
         "specVersion": SPEC_VERSION,
         "results": {
             "tool": {"name": "vibranium", "version": env!("CARGO_PKG_VERSION")},
+            "environment": {"appName": snapshot.project()},
             "summary": summary(run),
             "tests": tests,
             "extra": extra(snapshot),

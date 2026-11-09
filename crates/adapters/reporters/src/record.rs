@@ -19,6 +19,7 @@ use crate::{Color, ReporterContext, RunSnapshot, encode, failure, rows, text};
 /// bodies are kept at all.
 #[derive(Debug)]
 pub struct Recorder {
+    project: Option<String>,
     names: Names,
     collector: Collector,
     keeping: Keeping,
@@ -35,6 +36,7 @@ impl Recorder {
         let history = program.config.history;
         let max_body = usize::try_from(history.max_body_size.bytes()).unwrap_or(usize::MAX);
         Self {
+            project: program.config.project.clone(),
             names: Names::new(program, context.plan()),
             collector: Collector::new(context.clock()),
             keeping: Keeping { bodies: history.bodies, max_body },
@@ -70,6 +72,7 @@ impl Recorder {
             owner: encode::owner(names, *owner),
         });
         let gathered = Gathered {
+            project: self.project,
             files: collector.files.iter().map(|file| names.file(*file).to_owned()).collect(),
             lifecycle: collector.lifecycle.iter().map(|step| encode::step(names, step)).collect(),
             cleanups: collector.cleanups.iter().map(|cleanup| encode::cleanup(names, cleanup)).collect(),
