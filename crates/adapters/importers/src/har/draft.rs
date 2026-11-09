@@ -14,7 +14,7 @@ use super::filter::host;
 use super::flow::Recorded;
 use super::ids::api_id;
 use super::secret::{Found, Secrets};
-use crate::body::{Body, Scrub, read};
+use crate::body::{Body, Scrub, Sent, read};
 use crate::naming::camel;
 use crate::path_vars::templated;
 use crate::secrets::credential;
@@ -187,7 +187,7 @@ fn body(request: &Request, taken: &IndexMap<String, Value>, secrets: &mut Secret
         return Body::default();
     }
     let content_type = Some(data.mime_type.as_str()).filter(|kind| !kind.is_empty());
-    read(text, content_type.unwrap_or("text/plain"), taken, secrets)
+    read(&Sent { data: text, content_type: content_type.unwrap_or("text/plain") }, taken, secrets)
 }
 
 /// The query's pairs, decoded; a credential or a random value becomes a secret reference.

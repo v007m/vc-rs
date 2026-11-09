@@ -32,11 +32,17 @@ type Reader = fn(&str, &IndexMap<String, Value>, &mut dyn Scrub) -> Body;
 /// The readers by a word their content type holds; any other type is text.
 const READERS: [(&str, Reader); 2] = [("json", json), ("x-www-form-urlencoded", form)];
 
-/// The body `data` of `content_type` gives; `taken` holds the path's vars.
-pub fn read(data: &str, content_type: &str, taken: &IndexMap<String, Value>, scrub: &mut dyn Scrub) -> Body {
-    let lower = content_type.to_ascii_lowercase();
+/// A body as a request sent it: its data and content type.
+pub struct Sent<'a> {
+    pub data: &'a str,
+    pub content_type: &'a str,
+}
+
+/// The body `sent` gives; `taken` holds the path's vars.
+pub fn read(sent: &Sent<'_>, taken: &IndexMap<String, Value>, scrub: &mut dyn Scrub) -> Body {
+    let lower = sent.content_type.to_ascii_lowercase();
     let read = READERS.iter().find(|(word, _)| lower.contains(word)).map_or(text as Reader, |(_, read)| *read);
-    Body { content_type: Some(content_type.to_owned()), ..read(data, taken, scrub) }
+    Body { content_type: Some(sent.content_type.to_owned()), ..read(sent.data, taken, scrub) }
 }
 
 fn text(data: &str, _: &IndexMap<String, Value>, _: &mut dyn Scrub) -> Body {

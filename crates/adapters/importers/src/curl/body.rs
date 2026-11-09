@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use serde_json::{Map, Value, json};
 
 use super::options::Request;
-use crate::body::{Body, Scrub, field, read};
+use crate::body::{Body, Scrub, Sent, field, read};
 
 /// What a body field holding a credential is told by.
 const LEFT_OUT: &str = "a credential is never written, so it is empty";
@@ -33,7 +33,7 @@ pub fn body(request: &Request, taken: &IndexMap<String, Value>, found: &mut Vec<
     if request.get || request.data.is_empty() {
         return Body::default();
     }
-    read(&request.data.join("&"), &content_type(request), taken, scrub)
+    read(&Sent { data: &request.data.join("&"), content_type: &content_type(request) }, taken, scrub)
 }
 
 /// The `content-type` header, else JSON for `--json`, else the form type curl sends `-d` as.
