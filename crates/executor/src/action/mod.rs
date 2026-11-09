@@ -26,7 +26,9 @@ use async_trait::async_trait;
 use vc_interfaces::{AuthProvider, CachedCleanup};
 use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
-use crate::{ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues, Saved};
+use crate::{
+    ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues, Saved, Schemas,
+};
 
 pub use auth::{AuthKey, Lease, NoAuth, TokenCache};
 pub use cached::{CachedExecutor, RunCache};
@@ -167,6 +169,8 @@ pub struct ActionCx {
     tokens: Arc<TokenCache>,
     /// The cross-run cache, when the run has one.
     cache: Option<RunCache>,
+    /// The JSON Schemas the program's `body.schema` checks name, compiled once for the run (D201).
+    schemas: Schemas,
 }
 
 impl ActionCx {
@@ -177,7 +181,8 @@ impl ActionCx {
         redactor.hide_values(inputs.secrets.iter().map(|(_, secret)| secret.expose()));
         let values = RunValues::new(&program, inputs);
         let (auth, tokens) = (Arc::new(NoAuth), Arc::new(TokenCache::default()));
-        Self { program, executors, values, redactor: Arc::new(redactor), auth, tokens, cache: None }
+        let schemas = Schemas::compile(&program);
+        Self { program, executors, values, redactor: Arc::new(redactor), auth, tokens, cache: None, schemas }
     }
 
     /// The same context obtaining credentials through `provider` (the auth registry).
@@ -205,6 +210,12 @@ impl ActionCx {
     pub fn with_mask_rules(self, rules: &MaskRules) -> Self {
         let redactor = Arc::new(self.redactor.with_rules(rules.for_config(&self.program.config)));
         Self { redactor, ..self }
+    }
+
+    /// The run's compiled JSON Schemas, by the key each `body.schema` check names.
+    #[must_use]
+    pub const fn schemas(&self) -> &Schemas {
+        &self.schemas
     }
 
     /// The action behind `id`.

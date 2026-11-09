@@ -5,7 +5,10 @@ use similar::TextDiff;
 use vc_diagnostics::Code;
 use vc_model::{Check, CheckKind, CheckResult, Failure, Matcher};
 
-use super::Judge;
+use super::{Judge, schema};
+
+/// How many of the ways a body breaks its schema a failed `body.schema` check reports.
+const SHOWN: usize = 5;
 
 /// What a call's checks read: the response as `${response}` binds it, and the body's size in
 /// bytes.
@@ -74,7 +77,7 @@ fn outcome(judge: &Judge<'_>, check: &Check, subject: Subject<'_>) -> Outcome {
         CheckKind::Match | CheckKind::Equals => matched(judge, check, at("body")),
         CheckKind::Size => matched(judge, check, Some(Value::from(subject.size))),
         CheckKind::Cel => cel(judge, &check.matcher),
-        CheckKind::Schema => pending("JSON Schema checks arrive in a later milestone", Code::V5101),
+        CheckKind::Schema => schema_check(judge, check, subject.response.get("body")),
         CheckKind::Custom => pending("the custom check's function did not run", Code::V5103),
     }
 }
@@ -90,6 +93,24 @@ fn cel(judge: &Judge<'_>, matcher: &Matcher) -> Outcome {
     let actual = judge.render(expression);
     let verdict = actual.as_ref().map(|value| *value == Value::Bool(true)).map_err(Clone::clone);
     Outcome { actual: actual.ok(), expected: Ok(Value::Bool(true)), verdict, code: Code::V5102 }
+}
+
+/// A `body.schema` check: the body must match the JSON Schema the check names (D201). Up to
+/// [`SHOWN`] of the ways it does not are reported.
+fn schema_check(judge: &Judge<'_>, check: &Check, body: Option<&Value>) -> Outcome {
+    let Some(key) = schema::key(check) else { return pending("a schema check names one schema", Code::V5101) };
+    let verdict = judge.schema(key, body.unwrap_or(&Value::Null)).and_then(|broken| reported(&broken));
+    Outcome { actual: body.cloned(), expected: Ok(Value::String(key.to_owned())), verdict, code: Code::V5101 }
+}
+
+/// Holds when nothing is `broken`; otherwise fails with the first [`SHOWN`] reasons.
+fn reported(broken: &[String]) -> Result<bool, String> {
+    if broken.is_empty() {
+        return Ok(true);
+    }
+    let shown = broken.iter().take(SHOWN).map(String::as_str).collect::<Vec<_>>().join("; ");
+    let more = broken.len().saturating_sub(SHOWN);
+    Err(if more == 0 { shown } else { format!("{shown} (and {more} more)") })
 }
 
 fn pending(message: &str, code: Code) -> Outcome {

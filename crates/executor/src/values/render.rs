@@ -14,7 +14,7 @@ use vc_template::{Activation, CelCompiler, Chance, FakeCx, RenderError, Renderer
 use super::reads::Reads;
 use super::run::RunValues;
 use super::scope::{Found, Scope};
-use crate::{ActionRequest, Frame, Redactor, Saved};
+use crate::{ActionRequest, Frame, Redactor, Saved, Schemas};
 
 /// How many vars a definition may pass through before the lookup gives up on a loop.
 const MAX_DEPTH: usize = 16;
@@ -28,6 +28,7 @@ pub struct Render<'a> {
     values: &'a RunValues,
     program: &'a Program,
     redactor: &'a Redactor,
+    schemas: &'a Schemas,
     scope: Scope,
     roots: HashMap<Namespace, Arc<Value>>,
     memo: Saved,
@@ -50,6 +51,7 @@ impl<'a> Render<'a> {
             values: &cx.values,
             program: &cx.program,
             redactor: &cx.redactor,
+            schemas: cx.schemas(),
             scope: Scope::of(request),
             roots: HashMap::new(),
             memo: Saved::clone(&request.frame.fakes),
@@ -146,6 +148,11 @@ impl<'a> Render<'a> {
     /// The run's redactor, which masks check results before they leave the action.
     pub const fn redactor(&self) -> &'a Redactor {
         self.redactor
+    }
+
+    /// The run's compiled JSON Schemas, for `body.schema` checks (D201).
+    pub const fn schemas(&self) -> &'a Schemas {
+        self.schemas
     }
 
     /// The fake-data memo, for the frame to keep: the frame's draws and the ones made here.

@@ -358,3 +358,14 @@ fn only_a_failed_equals_between_two_objects_or_lists_carries_a_diff() {
     let diffs: Vec<_> = results.iter().map(|result| result.diff.is_some()).collect();
     assert_eq!(diffs, [false, false, false, true]);
 }
+
+#[test]
+fn a_schema_check_without_the_run_s_schemas_fails_as_not_loaded() {
+    let key = Matcher::Equals(TemplateValue::String(fixture::literal("schemas/user.json")));
+    let results = results(&[check(CheckKind::Schema, &[], key)]);
+    let error = results[0].error.as_deref();
+    assert_eq!(
+        (error, results[0].code.as_deref()),
+        (Some("no schema is loaded for `schemas/user.json`"), Some("V5101"))
+    );
+}

@@ -1,9 +1,9 @@
 //! The CTRF and `JUnit` files of a run with a pass, a failure, a skip and a flaky pass.
 //!
-//! No pure-Rust JSON Schema validator fits `deny.toml` (`boon` and `jsonschema` bring a second
-//! `base64`), and no pure-Rust XSD validator exists, so both files are checked structurally:
-//! CTRF against the required fields and enums of its schema, `JUnit` for well-nested tags and
-//! the attributes CI tools read.
+//! The CTRF schema is not vendored (`jsonschema` serves `body.schema` checks, D201) and no
+//! pure-Rust XSD validator exists, so both files are checked structurally: CTRF against the
+//! required fields and enums of its schema, `JUnit` for well-nested tags and the attributes CI
+//! tools read.
 
 use std::fs;
 

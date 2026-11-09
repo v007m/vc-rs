@@ -19,11 +19,24 @@ pub trait Arguments {
     ///
     /// A [`RenderError`] when a reference in it cannot be rendered.
     fn render(&self, value: &TemplateValue) -> Result<Value, RenderError>;
+
+    /// What `body` breaks the JSON Schema named `key` with (D201); none when it matches.
+    ///
+    /// # Errors
+    ///
+    /// A message when no schema was loaded for `key` or it is not a valid JSON Schema.
+    fn schema(&self, key: &str, _body: &Value) -> Result<Vec<String>, String> {
+        Err(format!("no schema is loaded for `{key}`"))
+    }
 }
 
 impl Arguments for Render<'_> {
     fn render(&self, value: &TemplateValue) -> Result<Value, RenderError> {
         self.value(value)
+    }
+
+    fn schema(&self, key: &str, body: &Value) -> Result<Vec<String>, String> {
+        self.schemas().check(key, body)
     }
 }
 
@@ -109,6 +122,15 @@ impl<'j> Judge<'j> {
     fn call(&self, call: &MatcherCall, actual: Option<&Value>) -> Result<bool, String> {
         let matcher = self.registry.get(&call.name).ok_or_else(|| format!("no matcher is named `{}`", call.name))?;
         matcher(self, actual, &call.arg)
+    }
+
+    /// What `body` breaks the JSON Schema named `key` with (D201); none when it matches.
+    ///
+    /// # Errors
+    ///
+    /// A message when no schema was loaded for `key` or it is not a valid JSON Schema.
+    pub fn schema(&self, key: &str, body: &Value) -> Result<Vec<String>, String> {
+        self.args.schema(key, body)
     }
 
     /// `value`, rendered.
