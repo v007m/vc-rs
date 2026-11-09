@@ -125,7 +125,8 @@ impl<'d> Writer<'d> {
 
     /// `key:` and its value, from where the caller left the line.
     fn entry(&mut self, entry: &'d Entry, indent: usize) {
-        let written = self.doc.text.get(entry.key_span.byte_range()).filter(|key| !key.is_empty() && !key.contains('\n'));
+        let written =
+            self.doc.text.get(entry.key_span.byte_range()).filter(|key| !key.is_empty() && !key.contains('\n'));
         let key = written.map_or_else(|| scalar::write_text(&entry.key, false), str::to_owned);
         self.out.push_str(&key);
         self.out.push(':');
@@ -209,10 +210,30 @@ impl<'d> Writer<'d> {
             Value::Seq(_) => "[]".to_owned(),
             Value::Scalar(scalar) if scalar.kind != ScalarKind::String => source.to_owned(),
             Value::Scalar(scalar) if matches!(scalar.style, ScalarStyle::Literal | ScalarStyle::Folded) => {
-                self.block_scalar(source, indent)
+                self.block_scalar(self.block_source(node), indent)
             }
             Value::Scalar(scalar) => scalar::write_text(&scalar.text, false),
         }
+    }
+
+    /// A block scalar as written from its `|` or `>` header, which its span may leave out: the
+    /// last word before any comment on the last line above the span.
+    fn block_source(&self, node: &Node) -> &str {
+        let range = node.span.byte_range();
+        let text = &self.doc.text;
+        let source = text.get(range.clone()).unwrap_or_default();
+        if source.starts_with(['|', '>']) {
+            return source;
+        }
+        let above = text.get(..range.start).unwrap_or_default().trim_end();
+        let line_start = above.rfind('\n').map_or(0, |at| at + 1);
+        let line = above.get(line_start..).unwrap_or_default();
+        let code = line.split(" #").next().unwrap_or_default().trim_end();
+        let word = code.rsplit([' ', '\t']).next().unwrap_or_default();
+        if !word.starts_with(['|', '>']) {
+            return source;
+        }
+        text.get(line_start + code.len() - word.len()..range.end).unwrap_or(source)
     }
 
     /// A block scalar's header line as written, and its lines moved to `indent`.
@@ -340,9 +361,12 @@ fn multi_line_scalars(doc: &Document, node: &Node, found: &mut Vec<Range<usize>>
 fn same(before: &Node, after: &Node) -> bool {
     match (&before.value, &after.value) {
         (Value::Scalar(old), Value::Scalar(new)) => old.text == new.text && old.kind == new.kind,
-        (Value::Seq(old), Value::Seq(new)) => old.len() == new.len() && old.iter().zip(new).all(|(old, new)| same(old, new)),
+        (Value::Seq(old), Value::Seq(new)) => {
+            old.len() == new.len() && old.iter().zip(new).all(|(old, new)| same(old, new))
+        }
         (Value::Map(old), Value::Map(new)) => {
-            let found = |entry: &Entry| new.iter().any(|other| other.key == entry.key && same(&entry.value, &other.value));
+            let found =
+                |entry: &Entry| new.iter().any(|other| other.key == entry.key && same(&entry.value, &other.value));
             old.len() == new.len() && old.iter().all(found)
         }
         _ => false,
