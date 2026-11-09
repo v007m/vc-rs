@@ -17,8 +17,12 @@ use crate::{Engine, EngineError};
 pub const DOCS: &str = "https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md";
 
 /// The reference section of each kind of file.
-const SECTIONS: [(FileKind, &str); 4] =
-    [(FileKind::Config, "project-config"), (FileKind::Api, "api-files"), (FileKind::Test, "tests"), (FileKind::Load, "load-files")];
+const SECTIONS: [(FileKind, &str); 4] = [
+    (FileKind::Config, "project-config"),
+    (FileKind::Api, "api-files"),
+    (FileKind::Test, "tests"),
+    (FileKind::Load, "load-files"),
+];
 
 /// What a `vc new` command adds, ready to write.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -94,7 +98,15 @@ impl Engine {
         let id = named.item.unwrap_or_default();
         let yaml = format!("id: {id}\nname: {}\ncall: {api}", write_text(&sentence(id), false));
         let comment = format!("# {} · calls {api} · keys: {DOCS}#tests", request.id);
-        let new = NewItem { kind: FileKind::Test, list: "tests", named, yaml, comment, root: String::new(), also: Vec::new() };
+        let new = NewItem {
+            kind: FileKind::Test,
+            list: "tests",
+            named,
+            yaml,
+            comment,
+            root: String::new(),
+            also: Vec::new(),
+        };
         self.added(&project, new)
     }
 
@@ -116,18 +128,24 @@ impl Engine {
         let project = self.authoring()?;
         let path = derived_path(kind, id)?.to_string();
         let there = project.find(kind, id).map(|(_, file)| file.path.to_string());
-        if let Some(there) = there.or_else(|| project.entries().any(|(_, file)| file.path.as_str() == path).then(|| path.clone())) {
-            return Err(refused(format!("there is already a file at {there}"), "it is never overwritten; pick another ID"));
+        if let Some(there) =
+            there.or_else(|| project.entries().any(|(_, file)| file.path.as_str() == path).then(|| path.clone()))
+        {
+            return Err(refused(
+                format!("there is already a file at {there}"),
+                "it is never overwritten; pick another ID",
+            ));
         }
         let change = FileChange { path: path.clone(), before: None, after: header(kind, id), moved_from: None };
-        let changes = self.guarded(&project, Changes { files: vec![change], titles: vec![format!("Create {path}")] })?;
+        let changes =
+            self.guarded(&project, Changes { files: vec![change], titles: vec![format!("Create {path}")] })?;
         Ok(Added { changes, id: id.to_owned(), path, line: 1 })
     }
 
     /// `new` added to its file, with the command's other changes, through the guard.
     pub(crate) fn added(&self, project: &Authoring, new: NewItem<'_>) -> Result<Added, EngineError> {
         let (change, line) = match project.find(new.kind, new.named.file) {
-            Some(found) => append(&project.open(found)?, &new)?,
+            Some(found) => append(&Authoring::open(found)?, &new)?,
             None => create(&new)?,
         };
         let (id, path) = (format!("{}#{}", new.named.file, new.named.item.unwrap_or_default()), change.path.clone());
@@ -143,7 +161,10 @@ impl Engine {
 pub fn checked(text: &str) -> Result<Named<'_>, EngineError> {
     let named = Named::parse(text);
     let Some(item) = named.item else {
-        return Err(refused(format!("`{text}` names a file, not an item"), &format!("add the item's ID: `{text}#newItem`")));
+        return Err(refused(
+            format!("`{text}` names a file, not an item"),
+            &format!("add the item's ID: `{text}#newItem`"),
+        ));
     };
     let help = format!(
         "did you mean `{}#{}`? File IDs are dotted lower-case words, item IDs camelCase",
@@ -160,8 +181,9 @@ pub fn checked(text: &str) -> Result<Named<'_>, EngineError> {
 /// `from` when it names an api, or the refusal with the close ones.
 pub fn called<'f>(project: &Authoring, from: &'f str) -> Result<&'f str, EngineError> {
     let named = Named::parse(from);
-    let found = project.find(FileKind::Api, named.file).map(|found| project.open(found)).transpose()?;
-    let known = found.as_ref().zip(named.item).is_some_and(|(opened, id)| item(opened.document.root(), "apis", id).is_some());
+    let found = project.find(FileKind::Api, named.file).map(Authoring::open).transpose()?;
+    let known =
+        found.as_ref().zip(named.item).is_some_and(|(opened, id)| item(opened.document.root(), "apis", id).is_some());
     if known { Ok(from) } else { Err(Authoring::unknown("api", from, &project.known(FileKind::Api, "apis"))) }
 }
 
@@ -200,20 +222,34 @@ fn append(opened: &Opened<'_>, new: &NewItem<'_>) -> Result<(FileChange, usize),
     let id = new.named.item.unwrap_or_default();
     if item_ids(opened.document.root()).contains(&id) {
         let full = format!("{}#{id}", new.named.file);
-        return Err(refused(format!("`{full}` already exists"), &format!("pick another ID, or `vc rename {full}` first")));
+        return Err(refused(
+            format!("`{full}` already exists"),
+            &format!("pick another ID, or `vc rename {full}` first"),
+        ));
     }
-    commented_item(opened, new.list, &new.yaml, &new.comment)
+    commented_item(opened, &ListItem { list: new.list, yaml: &new.yaml, comment: &new.comment })
 }
 
-/// The change that adds the item `yaml` to the list `list` of `opened`, with `comment` on the
-/// line above it, and the line of its `- id:`.
-pub fn commented_item(opened: &Opened<'_>, list: &str, yaml: &str, comment: &str) -> Result<(FileChange, usize), EngineError> {
+/// A list item to add: the list, the item's YAML and the comment on the line above it.
+pub struct ListItem<'a> {
+    pub list: &'a str,
+    pub yaml: &'a str,
+    pub comment: &'a str,
+}
+
+/// The change that adds `new` to its list in `opened`, and the line of its `- id:`.
+pub fn commented_item(opened: &Opened<'_>, new: &ListItem<'_>) -> Result<(FileChange, usize), EngineError> {
+    let ListItem { list, yaml, comment } = *new;
     let document = &opened.document;
     let root = document.root();
-    let cannot = |error: vc_parser::ParserError| refused(format!("cannot add to {}: {error}", opened.file.path), "add it by hand");
+    let cannot = |error: vc_parser::ParserError| {
+        refused(format!("cannot add to {}: {error}", opened.file.path), "add it by hand")
+    };
     let edit = match root.get(list) {
         Some(items) => document.insert_item(items, yaml).map_err(cannot)?,
-        None if root.entries().is_empty() && root.items().is_empty() => appended(document, &format!("{list}:\n{}", block("  ", yaml))),
+        None if root.entries().is_empty() && root.items().is_empty() => {
+            appended(document, &format!("{list}:\n{}", block("  ", yaml)))
+        }
         None => document.insert_yaml(root, list, &block("", yaml)).map_err(cannot)?,
     };
     let (edit, dash) = commented(edit, comment)?;
@@ -255,8 +291,11 @@ fn line_of(document: &Document, edit: &TextEdit, dash: usize) -> usize {
 /// The item `yaml` as block-list lines after `indent`: `- ` before the first, two spaces
 /// before the rest.
 pub fn block(indent: &str, yaml: &str) -> String {
-    let lines = yaml.lines().enumerate();
-    lines.map(|(at, line)| format!("{indent}{}{line}\n", if at == 0 { "- " } else { "  " })).collect()
+    let mut out = String::with_capacity(yaml.len() + 4);
+    for (at, line) in yaml.lines().enumerate() {
+        out.extend([indent, if at == 0 { "- " } else { "  " }, line, "\n"]);
+    }
+    out
 }
 
 /// A camelCase ID as a sentence: `listsUsers` becomes `Lists users`.

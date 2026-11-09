@@ -10,7 +10,7 @@ use crate::{Engine, EngineError, ExplainRequest};
 
 const CONFIG: (&str, &[u8]) = (
     "vibranium.config.yaml",
-    b"syntaxVersion: 2\ndefaults: {timeout: 20s, concurrency: 4}\nreports: {dir: out, formats: [ctrf, html], html: {layout: single}}\nprofiles:\n  - id: dev\n    default: true\n    vars: {baseUrl: 'http://dev'}\n  - id: qa\n    default: true\nvars:\n  baseUrl: http://x\n",
+    b"syntaxVersion: 2\ndefaults: {timeout: 20s, concurrency: 4}\nreports: {dir: out, formats: [ctrf, html], html: {layout: single}}\nprofiles:\n  - id: dev\n    default: true\n    vars: {baseUrl: 'http://dev'}\n  - id: qa\nvars:\n  baseUrl: http://x\n",
 );
 
 fn project(environment: &[(&str, &str)]) -> Engine {
@@ -38,15 +38,19 @@ fn a_setting_shows_its_value_over_the_ones_it_replaced() {
 #[test]
 fn each_setting_reads_the_config() {
     let engine = project(&[]);
-    let first = |key: &str| explained(&engine, key, &ExplainRequest::default()).lines().next().unwrap_or_default().to_owned();
-    assert_eq!(first("profile"), "profile = dev,qa  (vibranium.config.yaml)");
+    let first =
+        |key: &str| explained(&engine, key, &ExplainRequest::default()).lines().next().unwrap_or_default().to_owned();
+    assert_eq!(first("profile"), "profile = dev  (vibranium.config.yaml)");
     assert_eq!(first("defaults.concurrency"), "defaults.concurrency = 4  (vibranium.config.yaml)");
     assert_eq!(first("defaults.perHost"), "defaults.perHost = 8  (built-in)");
     assert_eq!(first("reports.dir"), "reports.dir = out  (vibranium.config.yaml)");
     assert_eq!(first("reports.formats"), "reports.formats = ctrf,html  (vibranium.config.yaml)");
     assert_eq!(first("reports.html.layout"), "reports.html.layout = single  (vibranium.config.yaml)");
     let named = ExplainRequest { profiles: vec!["qa".into()], ..ExplainRequest::default() };
-    assert_eq!(explained(&engine, "profile", &named), "profile = qa  (--profile)\n  over dev,qa  (vibranium.config.yaml)\n");
+    assert_eq!(
+        explained(&engine, "profile", &named),
+        "profile = qa  (--profile)\n  over dev  (vibranium.config.yaml)\n"
+    );
 }
 
 #[test]
@@ -60,7 +64,7 @@ fn a_var_shows_the_level_of_each_value() {
 fn an_unknown_key_is_refused_with_the_closest_ones() {
     let engine = project(&[]);
     let error = engine.config_explain("defaults.timout", &ExplainRequest::default()).unwrap_err();
-    let help = Some("did you mean `defaults.timeout`?".to_owned());
+    let help = Some("did you mean `defaults.timeout` or `defaults.perHost`?".to_owned());
     assert_eq!(error, EngineError::Selection { reason: "no setting `defaults.timout`".into(), help });
     let error = engine.config_explain("vars.baseUlr", &ExplainRequest::default()).unwrap_err();
     assert_eq!(error.help().as_deref(), Some("did you mean `vars.baseUrl`?"));
@@ -75,5 +79,8 @@ fn the_built_in_values_are_the_engines() {
     assert_eq!(built_in("defaults.perHost"), Some(PER_HOST.to_string().as_str()));
     assert_eq!(built_in("reports.dir"), Some(REPORTS_DIR));
     assert_eq!(built_in("reports.formats"), Some(FILES.join(",").as_str()));
-    assert_eq!((duration(std::time::Duration::from_millis(250)), duration(std::time::Duration::from_secs(20))), ("250ms".to_owned(), "20s".to_owned()));
+    assert_eq!(
+        (duration(std::time::Duration::from_millis(250)), duration(std::time::Duration::from_secs(20))),
+        ("250ms".to_owned(), "20s".to_owned())
+    );
 }

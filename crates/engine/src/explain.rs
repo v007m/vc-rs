@@ -11,9 +11,9 @@ use crate::shown::{self, Shown, Var};
 use crate::{Engine, EngineError, ExplainRequest};
 
 /// The config file, as the level its vars come from.
-pub(crate) const CONFIG: &str = "vibranium.config.yaml";
+pub const CONFIG: &str = "vibranium.config.yaml";
 /// The prefix of the settings that set config vars.
-pub(crate) const VARS: &str = "vars.";
+pub const VARS: &str = "vars.";
 
 /// What `vc explain` or `vc config explain` shows.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -45,7 +45,7 @@ impl Engine {
 }
 
 /// The program, the active profiles and the settings a definition is explained under.
-pub(crate) struct Explainer<'a> {
+pub struct Explainer<'a> {
     pub program: &'a Program,
     pub active: &'a [ProfileId],
     pub names: &'a [String],
@@ -63,7 +63,7 @@ impl Explainer<'_> {
         let mut out = self.header(id, api.name.as_deref());
         let mut vars = self.config_vars();
         self.api_vars(api, &mut vars);
-        self.request(api, &vars, &api.expect, &mut out);
+        out.push_str(&self.request(api, &vars, &api.expect));
         Ok(out)
     }
 
@@ -98,13 +98,14 @@ impl Explainer<'_> {
             }
             self.level(&mut vars, &test.vars, "test");
             self.level(&mut vars, &action.vars, "call");
-            self.request(api, &vars, &action.expect, &mut out);
+            out.push_str(&self.request(api, &vars, &action.expect));
         }
         out
     }
 
     /// The method and URL, the vars, the checks and the cleanup of a call to `api`.
-    fn request(&self, api: &Api, vars: &[Var], expect: &Expect, out: &mut String) {
+    fn request(&self, api: &Api, vars: &[Var], expect: &Expect) -> String {
+        let mut out = String::new();
         let shown = Shown { program: self.program, vars };
         let base = self.program.api_groups.get(&api.group).and_then(|group| group.base_url.as_ref());
         let base = base.map(|base| shown.template(base)).unwrap_or_default();
@@ -120,6 +121,7 @@ impl Explainer<'_> {
         if let Some(cleanup) = api.cleanup {
             let _ = writeln!(out, "  cleanup  {}", self.cleanup(cleanup));
         }
+        out
     }
 
     /// The config's vars, each active profile's over them, then the settings' (D129).
@@ -129,7 +131,10 @@ impl Explainer<'_> {
         for profile in self.active.iter().filter_map(|id| self.program.profiles.get(id)) {
             let origin = format!("profile {}", self.text(profile.id.sym()));
             for (name, value) in &profile.vars {
-                shown::set(&mut vars, Var { name: self.text(name.sym()), value: value.clone(), origin: origin.clone() });
+                shown::set(
+                    &mut vars,
+                    Var { name: self.text(name.sym()), value: value.clone(), origin: origin.clone() },
+                );
             }
         }
         for entry in self.entries {
@@ -185,11 +190,14 @@ fn method(api: &Api) -> String {
 fn unknown(program: &Program, id: &str) -> EngineError {
     let tests = program.tests.keys().map(|test| test.sym());
     let names = tests.chain(program.apis.keys().map(|api| api.sym())).filter_map(|sym| program.str(sym));
-    EngineError::Selection { reason: format!("no test or api `{id}`"), help: did_you_mean(&vc_planner::closest(id, names)) }
+    EngineError::Selection {
+        reason: format!("no test or api `{id}`"),
+        help: did_you_mean(&vc_planner::closest(id, names)),
+    }
 }
 
 /// `did you mean `a` or `b`?`, when there is anything near.
-pub(crate) fn did_you_mean(near: &[String]) -> Option<String> {
+pub fn did_you_mean(near: &[String]) -> Option<String> {
     let near: Vec<String> = near.iter().map(|name| format!("`{name}`")).collect();
     (!near.is_empty()).then(|| format!("did you mean {}?", near.join(" or ")))
 }

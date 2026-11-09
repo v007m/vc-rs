@@ -71,11 +71,10 @@ impl Authoring {
     /// # Errors
     ///
     /// [`EngineError::Edit`] when it does not parse.
-    pub fn open(&self, (id, file): (SourceFileId, &SourceFile)) -> Result<Opened<'_>, EngineError> {
-        let document = Document::parse(id, Syntax::of(&file.path), file.text.as_str()).map_err(|error| refused(
-            format!("{} does not parse: {error}", file.path),
-            "fix it first; `vc check` shows where",
-        ))?;
+    pub fn open((id, file): (SourceFileId, &SourceFile)) -> Result<Opened<'_>, EngineError> {
+        let document = Document::parse(id, Syntax::of(&file.path), file.text.as_str()).map_err(|error| {
+            refused(format!("{} does not parse: {error}", file.path), "fix it first; `vc check` shows where")
+        })?;
         Ok(Opened { file, document })
     }
 
@@ -100,7 +99,10 @@ impl Authoring {
         let help = match close.as_slice() {
             [] => format!("`vc list {what}s` lists them"),
             [one] => format!("did you mean `{one}`?"),
-            several => format!("did you mean one of {}?", several.iter().map(|id| format!("`{id}`")).collect::<Vec<_>>().join(", ")),
+            several => format!(
+                "did you mean one of {}?",
+                several.iter().map(|id| format!("`{id}`")).collect::<Vec<_>>().join(", ")
+            ),
         };
         refused(format!("there is no {what} `{wanted}`"), &help)
     }

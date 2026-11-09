@@ -39,7 +39,11 @@ impl Lint for ApiIds {
 }
 
 /// The warning for an item whose ID is not camelCase; `name` is its `name:`, if any.
-fn badly_named(cx: &LintCx<'_, '_>, code: Code, (source, item, name): (&Source<'_>, &Node, Option<&str>)) -> Option<Diagnostic> {
+fn badly_named(
+    cx: &LintCx<'_, '_>,
+    code: Code,
+    (source, item, name): (&Source<'_>, &Node, Option<&str>),
+) -> Option<Diagnostic> {
     let node = item.get("id")?;
     let id = node.as_scalar()?.text.as_str();
     if naming::is_camel_id(id) {

@@ -49,7 +49,8 @@ fn rename_item(project: &Authoring, from: &str, to: &str) -> Result<Vec<FileChan
     let (old, new) = (Named::parse(from), Named::parse(to));
     let new_id = new.item.unwrap_or_default();
     if old.file != new.file {
-        let help = format!("rename it to `{}#{new_id}`; `vc rename {} <file ID>` moves a whole file", old.file, old.file);
+        let help =
+            format!("rename it to `{}#{new_id}`; `vc rename {} <file ID>` moves a whole file", old.file, old.file);
         return Err(refused(format!("`{to}` is in another file than `{from}`"), &help));
     }
     if !is_camel_id(new_id) {
@@ -58,7 +59,8 @@ fn rename_item(project: &Authoring, from: &str, to: &str) -> Result<Vec<FileChan
     }
     let (opened, list) = defining(project, from)?;
     let defined = item(opened.document.root(), list, old.item.unwrap_or_default());
-    let id_node = defined.and_then(|found| found.get("id")).ok_or_else(|| internal(format!("`{from}` went missing")))?;
+    let id_node =
+        defined.and_then(|found| found.get("id")).ok_or_else(|| internal(format!("`{from}` went missing")))?;
     if item_ids(opened.document.root()).contains(&new_id) {
         return Err(refused(format!("`{to}` is already taken"), &format!("pick another ID, or rename `{to}` first")));
     }
@@ -77,7 +79,7 @@ fn defining<'p>(project: &'p Authoring, from: &str) -> Result<(Opened<'p>, &'sta
     let wanted = named.item.unwrap_or_default();
     for (kind, list) in LISTS {
         let Some(found) = project.find(kind, named.file) else { continue };
-        let opened = project.open(found)?;
+        let opened = Authoring::open(found)?;
         if item(opened.document.root(), list, wanted).is_some() {
             return Ok((opened, list));
         }
@@ -103,14 +105,15 @@ fn rename_file(project: &Authoring, from: &str, to: &str) -> Result<Vec<FileChan
     if project.entries().any(|(_, file)| file.path == path) {
         return Err(refused(format!("there is already a file at {path}"), "pick another file ID"));
     }
-    let opened = project.open(found)?;
+    let opened = Authoring::open(found)?;
     let ids = item_ids(opened.document.root());
     let renames: Vec<(String, String)> = ids.iter().map(|id| (format!("{from}#{id}"), format!("{to}#{id}"))).collect();
     let mut edits = renamed_refs(&opened.document, to, &renames)?;
     if let Some(id) = opened.document.root().get("id") {
         edits.push(opened.document.set_scalar(id, to).map_err(internal)?);
     }
-    let moved = FileChange { path: path.to_string(), moved_from: Some(found.1.path.to_string()), ..opened.change(&edits)? };
+    let moved =
+        FileChange { path: path.to_string(), moved_from: Some(found.1.path.to_string()), ..opened.change(&edits)? };
     let mut files = vec![moved];
     files.extend(referrers(project, &found.1.path, &renames)?);
     files.sort_by(|a, b| a.path.cmp(&b.path));
@@ -155,7 +158,7 @@ fn renamed_refs(document: &Document, file_id: &str, renames: &Renames) -> Result
 fn referrers(project: &Authoring, own: &SourcePath, renames: &Renames) -> Result<Vec<FileChange>, EngineError> {
     let mut files = Vec::new();
     for found in project.entries().filter(|(_, file)| &file.path != own && file.kind().is_some()) {
-        let opened = project.open(found)?;
+        let opened = Authoring::open(found)?;
         let edits = renamed_refs(&opened.document, &found.1.path.file_id().unwrap_or_default(), renames)?;
         if !edits.is_empty() {
             files.push(opened.change(&edits)?);
@@ -177,12 +180,24 @@ mod tests {
     #[test]
     fn a_moved_file_keeps_its_root_folder_and_layout() {
         let test = FileKind::Test;
-        assert_eq!(moved(test, "services/users/crud.test.yaml", "users.accounts").as_deref(), Some("services/users/accounts.test.yaml"));
-        assert_eq!(moved(test, "services/users/crud.test.yaml", "billing").as_deref(), Some("services/billing.test.yaml"));
+        assert_eq!(
+            moved(test, "services/users/crud.test.yaml", "users.accounts").as_deref(),
+            Some("services/users/accounts.test.yaml")
+        );
+        assert_eq!(
+            moved(test, "services/users/crud.test.yaml", "billing").as_deref(),
+            Some("services/billing.test.yaml")
+        );
         let api = FileKind::Api;
-        assert_eq!(moved(api, "services/users/users.api.yaml", "people").as_deref(), Some("services/people/people.api.yaml"));
+        assert_eq!(
+            moved(api, "services/users/users.api.yaml", "people").as_deref(),
+            Some("services/people/people.api.yaml")
+        );
         assert_eq!(moved(api, "services/users.api.yaml", "people").as_deref(), Some("services/people.api.yaml"));
-        assert_eq!(moved(FileKind::Load, "load/peak.load.yaml", "busy.peak").as_deref(), Some("load/busy/peak.load.yaml"));
+        assert_eq!(
+            moved(FileKind::Load, "load/peak.load.yaml", "busy.peak").as_deref(),
+            Some("load/busy/peak.load.yaml")
+        );
     }
 
     #[test]

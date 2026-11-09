@@ -57,8 +57,9 @@ pub fn reachable(root: &'static Shape) -> Vec<&'static Shape> {
     found
 }
 
-/// The keys, in the order the shape declares them, of the map at `path` in a file of `kind`;
-/// a path segment is a key, or `-` for a list item. `None` for a map whose keys are data
+/// The keys of the map at `path` in a file of `kind`, in the order the shape declares them.
+///
+/// A path segment is a key, or `-` for a list item. `None` for a map whose keys are data
 /// (`vars`, `query`, `body`), which keeps the author's order, or a path the shapes do not reach.
 #[must_use]
 pub fn key_order(kind: FileKind, path: &[&str]) -> Option<Vec<&'static str>> {

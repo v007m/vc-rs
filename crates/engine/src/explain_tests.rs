@@ -64,7 +64,7 @@ fn the_sample_names_its_definitions() {
 #[test]
 fn an_unknown_id_is_refused_with_the_closest_ones() {
     let error = engine(FakeVcs::default()).explain("users.crud#listUsers", &ExplainRequest::default()).unwrap_err();
-    let help = Some("did you mean `users.crud#listsUsers`?".to_owned());
+    let help = Some("did you mean `users.crud#listsUsers` or `users.crud#skipsUsers`?".to_owned());
     assert_eq!(error, EngineError::Selection { reason: "no test or api `users.crud#listUsers`".into(), help });
     let error = engine(FakeVcs::default()).explain("zzz", &ExplainRequest::default()).unwrap_err();
     assert_eq!(error.help(), None);

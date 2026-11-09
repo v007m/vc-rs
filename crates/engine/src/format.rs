@@ -5,7 +5,7 @@
 use vc_model::FileKind;
 use vc_parser::FormatRules;
 
-use crate::authoring::refused;
+use crate::authoring::{Authoring, refused};
 use crate::create::DOCS;
 use crate::edit::{Changes, FileChange};
 use crate::{Engine, EngineError};
@@ -38,16 +38,26 @@ impl Engine {
     pub fn fmt(&self, paths: &[String], strip_comments: bool) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
         let mut changes = Changes::default();
-        let wanted = project.entries().filter(|(_, file)| paths.is_empty() || paths.iter().any(|path| under(file.path.as_str(), path)));
+        let wanted = project
+            .entries()
+            .filter(|(_, file)| paths.is_empty() || paths.iter().any(|path| under(file.path.as_str(), path)));
         for (id, file) in wanted {
             let Some(kind) = file.kind() else { continue };
-            let opened = project.open((id, file))?;
+            let opened = Authoring::open((id, file))?;
             let after = opened.document.format(&HouseStyle { kind, strip: strip_comments }).map_err(|error| {
-                refused(format!("{}: {error}", file.path), "format it by hand, or move the comment out of the `[..]` or `{..}`")
+                refused(
+                    format!("{}: {error}", file.path),
+                    "format it by hand, or move the comment out of the `[..]` or `{..}`",
+                )
             })?;
             if after != file.text.as_str() {
                 changes.titles.push(format!("Format {}", file.path));
-                changes.files.push(FileChange { path: file.path.to_string(), before: Some(file.text.clone()), after, moved_from: None });
+                changes.files.push(FileChange {
+                    path: file.path.to_string(),
+                    before: Some(file.text.clone()),
+                    after,
+                    moved_from: None,
+                });
             }
         }
         if changes.is_empty() { Ok(changes) } else { self.guarded(&project, changes) }

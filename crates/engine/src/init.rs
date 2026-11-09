@@ -46,7 +46,8 @@ impl Engine {
             return Err(refused(format!("{path} already exists"), help));
         }
         let project = self.authoring()?;
-        let name = self.root().file_name().map_or_else(|| "project".to_owned(), |name| name.to_string_lossy().into_owned());
+        let name =
+            self.root().file_name().map_or_else(|| "project".to_owned(), |name| name.to_string_lossy().into_owned());
         let files = wanted.iter().map(|(path, kind, text)| created(path, &definition(*kind, text, &name))).collect();
         let titles = wanted.iter().map(|(path, _, _)| format!("Create {path}")).collect();
         let mut changes = self.guarded(&project, Changes { files, titles })?;

@@ -123,7 +123,8 @@ impl Engine {
     pub(crate) fn prepare(&self, request: &PlanRequest, extra: Extra) -> Result<Prepared, EngineError> {
         let Extra { mut flags, rerun } = extra;
         flags.splice(0..0, profile_flag(&request.profiles));
-        let Layered { mut program, notices, settings, environment, dot_env, .. } = self.layered(&request.sets, &flags)?;
+        let Layered { mut program, notices, settings, environment, dot_env, .. } =
+            self.layered(&request.sets, &flags)?;
         if let Some(timeout) = settings.timeout {
             Arc::make_mut(&mut program).config.defaults.timeout = Some(timeout);
         }
@@ -167,7 +168,7 @@ impl Engine {
 }
 
 /// `--profile`'s entry, when profiles are named: a comma list of them all, in order.
-pub(crate) fn profile_flag(profiles: &[String]) -> Option<ConfigEntry> {
+pub fn profile_flag(profiles: &[String]) -> Option<ConfigEntry> {
     (!profiles.is_empty()).then(|| ConfigEntry::new("profile", profiles.join(","), "--profile"))
 }
 
@@ -175,7 +176,7 @@ pub(crate) fn profile_flag(profiles: &[String]) -> Option<ConfigEntry> {
 /// The active profiles: their IDs, and their names for the plan line.
 type Active = (Vec<ProfileId>, Vec<String>);
 
-pub(crate) fn profiles(program: &Program, named: Option<&Named>) -> Result<Active, EngineError> {
+pub fn profiles(program: &Program, named: Option<&Named>) -> Result<Active, EngineError> {
     let Some(named) = named.filter(|named| !named.names.is_empty()) else {
         return defaults(program);
     };

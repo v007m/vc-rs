@@ -26,8 +26,10 @@ fn format(text: &str, strip: bool) -> Result<String, ParserError> {
 
 #[test]
 fn moves_comments_with_their_items_and_keeps_line_comments() {
-    let text = "# top\napis:\n  # first\n  - path: /a  # here\n    id: a\n\n  # made by vc\n  - {id: b, path: /b}\n# end\n";
-    let tidy = "# top\napis:\n  # first\n  - id: a\n    path: /a  # here\n\n  # made by vc\n  - id: b\n    path: /b\n# end\n";
+    let text =
+        "# top\napis:\n  # first\n  - path: /a  # here\n    id: a\n\n  # made by vc\n  - {id: b, path: /b}\n# end\n";
+    let tidy =
+        "# top\napis:\n  # first\n  - id: a\n    path: /a  # here\n\n  # made by vc\n  - id: b\n    path: /b\n# end\n";
     assert_eq!(format(text, false), Ok(tidy.to_owned()));
     assert_eq!(format(tidy, false), Ok(tidy.to_owned()), "formatting twice changes nothing");
     let stripped = format(text, true).unwrap_or_default();

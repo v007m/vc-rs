@@ -1,6 +1,7 @@
 use serde_json::{Number, json};
 use vc_model::{
-    Namespace, Part, Path, PipeCall, Pos, Program, Reference, Segment, SourceFileId, SourceSpan, Template, TemplateValue,
+    Namespace, Part, Path, PipeCall, Pos, Program, Reference, Segment, SourceFileId, SourceSpan, Template,
+    TemplateValue,
 };
 
 use super::{Shown, Var, literal, set};
@@ -11,7 +12,14 @@ fn nowhere() -> SourceSpan {
 
 fn reference(ns: Namespace, keys: &[&str]) -> Reference {
     let segments = keys.iter().map(|key| Segment::Key((*key).to_owned())).collect();
-    Reference { ns, path: Path { segments }, args: Vec::new(), pipes: Vec::new(), span: nowhere(), root_span: nowhere() }
+    Reference {
+        ns,
+        path: Path { segments },
+        args: Vec::new(),
+        pipes: Vec::new(),
+        span: nowhere(),
+        root_span: nowhere(),
+    }
 }
 
 fn template(parts: Vec<Part>) -> TemplateValue {
@@ -25,7 +33,8 @@ fn var(name: &str, value: TemplateValue) -> Var {
 #[test]
 fn plain_vars_are_filled_in_and_other_references_shown_as_written() {
     let program = Program::default();
-    let pipe = PipeCall { name: "default".into(), args: vec![json!("x"), json!(2)], name_span: nowhere(), span: nowhere() };
+    let pipe =
+        PipeCall { name: "default".into(), args: vec![json!("x"), json!(2)], name_span: nowhere(), span: nowhere() };
     let piped = Reference { pipes: vec![pipe], ..reference(Namespace::Var, &["host"]) };
     let fake = Reference { args: vec![json!(5)], ..reference(Namespace::Fake, &["lorem", "words"]) };
     let value = template(vec![
@@ -39,7 +48,8 @@ fn plain_vars_are_filled_in_and_other_references_shown_as_written() {
     ]);
     let vars = [var("host", literal("api"))];
     let shown = Shown { program: &program, vars: &vars };
-    let expected = "http://api${var.unset}${var.host | default('x', 2)}${response.body.id}${var.host.name}${fake.lorem.words(5)}";
+    let expected =
+        "http://api${var.unset}${var.host | default('x', 2)}${response.body.id}${var.host.name}${fake.lorem.words(5)}";
     assert_eq!(shown.value(&value), expected);
 }
 
@@ -57,7 +67,10 @@ fn values_of_every_kind_show_as_written() {
     let program = Program::default();
     let shown = Shown { program: &program, vars: &[] };
     let pairs = [("on".to_owned(), TemplateValue::Bool(true)), ("none".to_owned(), TemplateValue::Null)];
-    let list = TemplateValue::List(vec![TemplateValue::Number(Number::from(7)), TemplateValue::Map(pairs.into_iter().collect())]);
+    let list = TemplateValue::List(vec![
+        TemplateValue::Number(Number::from(7)),
+        TemplateValue::Map(pairs.into_iter().collect()),
+    ]);
     assert_eq!(shown.value(&list), "[7, {on: true, none: null}]");
 }
 

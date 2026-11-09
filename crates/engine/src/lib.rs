@@ -47,9 +47,9 @@ mod rename;
 mod reporting;
 mod request;
 mod run;
-mod save_call;
 #[cfg(test)]
 mod sample;
+mod save_call;
 mod schema;
 mod selection;
 mod settings;
@@ -74,7 +74,9 @@ pub use init::INIT_FOLDERS;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use plan::PlanReport;
-pub use request::{CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest};
+pub use request::{
+    CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
+};
 pub use run::RunReport;
 pub use save_call::CallAsTest;
 pub use schema::SchemaFile;

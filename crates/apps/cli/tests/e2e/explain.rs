@@ -57,7 +57,11 @@ fn config_explain_names_the_layer_that_won() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.starts_with("vars.baseUrl = http://y  (--set)\n"), "{stdout}");
     assert!(stdout.contains("over http://x  (vibranium.config.yaml)"), "{stdout}");
-    project.vc(&["config", "explain", "defaults.timeout"]).assert().code(0).stdout("defaults.timeout = 30s  (built-in)\n");
+    project
+        .vc(&["config", "explain", "defaults.timeout"])
+        .assert()
+        .code(0)
+        .stdout("defaults.timeout = 30s  (built-in)\n");
 }
 
 #[test]

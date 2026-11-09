@@ -21,8 +21,11 @@ const BUILT_IN: &str = "built-in";
 /// What `vibranium.config.yaml` sets a key to, if anything.
 type Written = fn(&Program) -> Option<String>;
 
+/// A key, its built-in value and what the config sets it to.
+type Setting = (&'static str, Option<&'static str>, Written);
+
 /// Each key with its built-in value and what the project's config sets it to.
-const SETTINGS: &[(&str, Option<&str>, Written)] = &[
+const SETTINGS: &[Setting] = &[
     ("profile", None, default_profiles),
     ("defaults.concurrency", Some("16"), concurrency),
     ("defaults.perHost", Some("8"), per_host),
@@ -125,8 +128,12 @@ fn unknown(explainer: &Explainer<'_>, key: &str) -> EngineError {
 }
 
 fn default_profiles(program: &Program) -> Option<String> {
-    let names: Vec<&str> =
-        program.profiles.values().filter(|profile| profile.default).filter_map(|profile| program.str(profile.id.sym())).collect();
+    let names: Vec<&str> = program
+        .profiles
+        .values()
+        .filter(|profile| profile.default)
+        .filter_map(|profile| program.str(profile.id.sym()))
+        .collect();
     (!names.is_empty()).then(|| names.join(","))
 }
 

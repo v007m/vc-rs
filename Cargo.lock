@@ -565,6 +565,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.6.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037e2a1a92236d0aff7e845093f64661d6df4c02c9fcc61a60e9e1d736fa392f"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2711,9 +2720,11 @@ dependencies = [
  "anyhow",
  "assert_cmd",
  "clap",
+ "clap_complete",
  "criterion",
  "predicates",
  "rusqlite",
+ "rustix",
  "serde_json",
  "tempfile",
  "tokio",
@@ -2741,6 +2752,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "vc-demo"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "clap",
+ "serde_json",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "vc-diagnostics"
 version = "0.1.0"
 dependencies = [
@@ -2758,6 +2780,7 @@ dependencies = [
  "criterion",
  "gungraun",
  "serde_json",
+ "similar",
  "thiserror",
  "tokio",
  "vc-adapter-http",
@@ -2771,6 +2794,7 @@ dependencies = [
  "vc-interfaces",
  "vc-mock-server",
  "vc-model",
+ "vc-parser",
  "vc-planner",
  "vc-template",
  "vc-testkit",

@@ -14,7 +14,6 @@ use vc_model::{ApiId, FileId, Program, SourceFileId, TestId};
 
 use self::kinds::Positional;
 use self::spec::{AllOf, BoxSpec, Candidate, Changed, Grep, Item, Spec};
-pub use self::suggest::closest;
 use crate::{PlanError, Selection};
 
 /// Which instances of a selected test to plan.

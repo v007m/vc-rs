@@ -61,11 +61,11 @@ impl Engine {
     /// parse;
     /// [`EngineError::NoFilesMatch`] when a requested path selects no definition file.
     pub fn check(&self, request: &CheckRequest) -> Result<CheckReport, EngineError> {
-        Self::report(self.compiled()?, request)
+        Self::selected(self.compiled()?, request)
     }
 
     /// The diagnostics of `compiled` on the files `request` selects.
-    pub(crate) fn report(compiled: Compiled, request: &CheckRequest) -> Result<CheckReport, EngineError> {
+    pub(crate) fn selected(compiled: Compiled, request: &CheckRequest) -> Result<CheckReport, EngineError> {
         let (diagnostics, files) = (compiled.diagnostics, compiled.files);
         let selection = Selection::new(&request.paths, &files)?;
         let mut diagnostics = selection.keep(diagnostics, &files);

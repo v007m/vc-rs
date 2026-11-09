@@ -28,7 +28,7 @@ impl Engine {
     pub fn fix(&self, request: &CheckRequest) -> Result<FixReport, EngineError> {
         let compiled = self.compiled()?;
         let before = compiled.diagnostics.clone();
-        let report = Self::report(compiled, request)?;
+        let report = Self::selected(compiled, request)?;
         let changes = certain_fixes(&report.diagnostics, &report.files)?;
         if !changes.is_empty() {
             self.guard(&before, &changes)?;
@@ -61,7 +61,12 @@ fn changed_file(files: &SourceFiles, id: SourceFileId, taken: &[&TextEdit]) -> R
     let edits: Vec<TextEdit> = taken.iter().filter(|edit| edit.file == id).map(|&edit| edit.clone()).collect();
     let document = Document::parse(id, Syntax::of(&file.path), file.text.as_str()).map_err(internal)?;
     let after = document.apply(&edits).map_err(internal)?;
-    Ok(FileChange { path: file.path.to_string(), before: Some(file.text.clone()), after: after.text().to_owned(), moved_from: None })
+    Ok(FileChange {
+        path: file.path.to_string(),
+        before: Some(file.text.clone()),
+        after: after.text().to_owned(),
+        moved_from: None,
+    })
 }
 
 /// Whether two edits touch the same bytes of one file; two insertions at one place overlap.

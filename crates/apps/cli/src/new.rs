@@ -134,7 +134,8 @@ fn ask(question: &str) -> anyhow::Result<String> {
 fn written(engine: &Engine, made: Result<Added, EngineError>, json: bool) -> Outcome {
     match made {
         Ok(added) => {
-            let done = if json { added.json() } else { format!("✓ added {} to {}:{}", added.id, added.path, added.line) };
+            let done =
+                if json { added.json() } else { format!("✓ added {} to {}:{}", added.id, added.path, added.line) };
             changes::write(engine, Ok(added.changes), &done)
         }
         Err(error) => Outcome::Engine(error),

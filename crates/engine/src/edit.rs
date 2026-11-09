@@ -48,7 +48,7 @@ impl FileChange {
 impl Changes {
     /// Whether nothing would change.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.files.is_empty()
     }
 }
@@ -117,8 +117,10 @@ fn same_error(old: &Diagnostic, new: &Diagnostic) -> bool {
 fn refusal(error: &Diagnostic, files: &SourceFiles) -> EngineError {
     let span = error.primary.span;
     let path = files.get(span.file).map_or_else(String::new, |file| file.path.to_string());
-    let reason =
-        format!("nothing was written: the change would add error[{}] at {path}:{}: {}", error.code, span.start.line, error.message);
+    let reason = format!(
+        "nothing was written: the change would add error[{}] at {path}:{}: {}",
+        error.code, span.start.line, error.message
+    );
     let help = error.help.first().cloned().or_else(|| Some("run `vc check` to see the project's problems".to_owned()));
     EngineError::Edit { reason, help }
 }
@@ -146,8 +148,13 @@ mod tests {
 
     #[test]
     fn a_moved_file_diffs_from_where_it_was() {
-        let moved = FileChange { moved_from: Some("services/a/old.test.yaml".to_owned()), ..change(Some("a: 1\n"), "a: 2\n") };
-        assert!(moved.diff().contains("--- a/services/a/old.test.yaml\n+++ b/services/a/b.test.yaml\n"), "{}", moved.diff());
+        let moved =
+            FileChange { moved_from: Some("services/a/old.test.yaml".to_owned()), ..change(Some("a: 1\n"), "a: 2\n") };
+        assert!(
+            moved.diff().contains("--- a/services/a/old.test.yaml\n+++ b/services/a/b.test.yaml\n"),
+            "{}",
+            moved.diff()
+        );
     }
 
     #[test]

@@ -47,7 +47,8 @@ impl Engine {
             return Err(refused(format!("`{}` is already skipped", request.target), &help));
         }
         let edit = skip_edit(&opened, host, request)?;
-        let changes = Changes { files: vec![opened.change(&[edit])?], titles: vec![format!("Skip {}", request.target)] };
+        let changes =
+            Changes { files: vec![opened.change(&[edit])?], titles: vec![format!("Skip {}", request.target)] };
         self.guarded(&project, changes)
     }
 
@@ -59,10 +60,13 @@ impl Engine {
     pub fn unskip(&self, target_text: &str) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
         let opened = target(&project, target_text)?;
-        let skip = host(&opened, target_text)?
-            .get("skip")
-            .ok_or_else(|| refused(format!("`{target_text}` is not skipped"), "`vc list tests --skipped` lists the skips"))?;
-        let edit = opened.document.remove(skip).map_err(|error| refused(format!("cannot remove this skip: {error}"), "remove it by hand"))?;
+        let skip = host(&opened, target_text)?.get("skip").ok_or_else(|| {
+            refused(format!("`{target_text}` is not skipped"), "`vc list tests --skipped` lists the skips")
+        })?;
+        let edit = opened
+            .document
+            .remove(skip)
+            .map_err(|error| refused(format!("cannot remove this skip: {error}"), "remove it by hand"))?;
         let changes = Changes { files: vec![opened.change(&[edit])?], titles: vec![format!("Unskip {target_text}")] };
         self.guarded(&project, changes)
     }
@@ -71,24 +75,23 @@ impl Engine {
 /// The test file `text` names, opened.
 fn target<'p>(project: &'p Authoring, text: &str) -> Result<Opened<'p>, EngineError> {
     let named = Named::parse(text);
-    match project.find(FileKind::Test, named.file) {
-        Some(found) => project.open(found),
-        None => Err(Authoring::unknown("test", text, &project.known(FileKind::Test, "tests"))),
-    }
+    project
+        .find(FileKind::Test, named.file)
+        .map_or_else(|| Err(Authoring::unknown("test", text, &project.known(FileKind::Test, "tests"))), Authoring::open)
 }
 
 /// The map that holds the skip: the test `text` names, or the file's root for a file ID.
 fn host<'d>(opened: &'d Opened<'_>, text: &str) -> Result<&'d Node, EngineError> {
     let root = opened.document.root();
-    match Named::parse(text).item {
-        None => Ok(root),
-        Some(id) => item(root, "tests", id).ok_or_else(|| {
+    Named::parse(text).item.map_or(Ok(root), |id| {
+        item(root, "tests", id).ok_or_else(|| {
             let ids = root.get("tests").map(Node::items).unwrap_or_default().iter();
             let file = Named::parse(text).file;
-            let known: Vec<String> = ids.filter_map(|test| test.get("id")?.as_str().map(|id| format!("{file}#{id}"))).collect();
+            let known: Vec<String> =
+                ids.filter_map(|test| test.get("id")?.as_str().map(|id| format!("{file}#{id}"))).collect();
             Authoring::unknown("test", text, &known)
-        }),
-    }
+        })
+    })
 }
 
 /// The edit that adds the skip to `host`.

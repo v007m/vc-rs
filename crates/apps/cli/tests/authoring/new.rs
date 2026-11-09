@@ -1,6 +1,8 @@
 //! `vc new api|test|auth|file` append to the file the ID derives from (D139), keep every byte
 //! they do not add, and refuse an ID that breaks the conventions with a suggested one (D87).
 
+use std::io::Write as _;
+use std::process::Stdio;
 use std::time::Duration;
 
 use assert_cmd::cargo::cargo_bin;
@@ -144,10 +146,17 @@ fn on_a_terminal(project: &Project, args: &[&str], answers: &str) -> std::proces
     } else {
         script.args(["-qec", &command.join(" "), "/dev/null"]);
     }
-    let mut script = assert_cmd::Command::from_std(script);
     let base = project.process(&[]);
     script.current_dir(project.path()).envs(base.get_envs().filter_map(|(k, v)| v.map(|v| (k, v))));
-    script.write_stdin(answers).timeout(Duration::from_secs(20)).output().unwrap()
+    script.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = script.spawn().unwrap();
+    // macOS `script` sends the end of input to the terminal at once when its input closes, ahead
+    // of the answers still unread; so the answers' pipe stays open until `vc` is done.
+    let mut input = child.stdin.take().unwrap();
+    input.write_all(answers.as_bytes()).unwrap();
+    let output = child.wait_with_output().unwrap();
+    drop(input);
+    output
 }
 
 #[cfg(unix)]
@@ -156,7 +165,7 @@ fn new_auth_on_a_terminal_prompts_for_what_the_flags_leave_out() {
     let project = Project::new(&[CONFIG]);
     let output = on_a_terminal(&project, &["new", "auth", "partnerToken"], "bearer\n\n\n\n");
     added_partner_token(&project, &output);
-    assert!(said(&output).contains("?"), "asks on a terminal:\n{}", said(&output));
+    assert!(said(&output).contains('?'), "asks on a terminal:\n{}", said(&output));
 }
 
 #[test]

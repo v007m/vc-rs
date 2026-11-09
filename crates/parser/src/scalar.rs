@@ -178,6 +178,7 @@ fn write_json(kind: ScalarKind, text: &str) -> Option<String> {
 
 /// Text in the house style: plain when YAML reads it back as the same text, otherwise
 /// double-quoted with escapes. `flow` is true inside `[..]` or `{..}`.
+#[must_use]
 pub fn write_text(text: &str, flow: bool) -> String {
     if needs_quotes(text, flow) { double_quote(text) } else { text.to_owned() }
 }

@@ -44,7 +44,8 @@ impl Shown<'_> {
                 format!("[{}]", items.join(", "))
             }
             TemplateValue::Map(map) => {
-                let pairs: Vec<String> = map.iter().map(|(key, item)| format!("{key}: {}", self.value_at(item, depth))).collect();
+                let pairs: Vec<String> =
+                    map.iter().map(|(key, item)| format!("{key}: {}", self.value_at(item, depth))).collect();
                 format!("{{{}}}", pairs.join(", "))
             }
             TemplateValue::Cel(_) => "$cel(…)".to_owned(),
@@ -83,7 +84,8 @@ impl Shown<'_> {
             Namespace::Step(sym) => self.program.str(sym).unwrap_or("?"),
             other => vc_template::root_name(other).unwrap_or("?"),
         };
-        let pipes: String = reference.pipes.iter().map(|pipe| format!(" | {}{}", pipe.name, args(&pipe.args))).collect();
+        let pipes: String =
+            reference.pipes.iter().flat_map(|pipe| [" | ".to_owned(), pipe.name.clone(), args(&pipe.args)]).collect();
         let path = vc_template::path_text(&reference.path.segments);
         format!("${{{root}{path}{}{pipes}}}", args(&reference.args))
     }

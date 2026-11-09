@@ -31,7 +31,7 @@ pub fn run(args: &CheckArgs, project: Option<&Path>) -> anyhow::Result<Outcome> 
         Err(reason) => return Ok(Outcome::Refused(reason)),
     };
     if args.fix {
-        return crate::fix::run(&located.engine, CheckRequest { paths });
+        return crate::fix::run(&located.engine, &CheckRequest { paths });
     }
     let report = match located.engine.check(&CheckRequest { paths }) {
         Ok(report) => report,

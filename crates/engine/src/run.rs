@@ -19,9 +19,9 @@ use crate::{Engine, EngineError, Interrupts, RunRequest, history, ports};
 /// Room for this many events between the bus and the reporters before they miss some.
 const FEED: usize = 65_536;
 /// Test instances at once, when neither a flag nor the config says.
-pub(crate) const CONCURRENCY: u32 = 16;
+pub const CONCURRENCY: u32 = 16;
 /// Requests at once to one host, when neither a layer nor the config says.
-pub(crate) const PER_HOST: u32 = 8;
+pub const PER_HOST: u32 = 8;
 
 /// How a run ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -137,7 +137,7 @@ impl Engine {
 /// What the run's templates read besides the definitions: the random values, the environment,
 /// the active profiles, the `--set vars.*` values and the history's run number. The caller adds
 /// the run's start.
-pub(crate) fn inputs(prepared: &Prepared, random: Arc<dyn Random>, run_id: u64) -> RunInputs {
+pub fn inputs(prepared: &Prepared, random: Arc<dyn Random>, run_id: u64) -> RunInputs {
     RunInputs::new(random, Arc::clone(&prepared.environment))
         .with_profiles(prepared.profiles.clone())
         .with_vars(vars(&prepared.settings.vars))

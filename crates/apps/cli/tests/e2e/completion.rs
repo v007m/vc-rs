@@ -3,10 +3,8 @@
 
 use crate::{CONFIG, Project, USERS, said};
 
-const CRUD: (&str, &str) = (
-    "services/users/crud.test.yaml",
-    "tests:\n  - id: listsUsers\n    tags: [smoke]\n    call: users#list\n",
-);
+const CRUD: (&str, &str) =
+    ("services/users/crud.test.yaml", "tests:\n  - id: listsUsers\n    tags: [smoke]\n    call: users#list\n");
 
 #[test]
 fn each_shell_gets_a_script_that_asks_for_the_ids() {

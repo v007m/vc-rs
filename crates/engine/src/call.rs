@@ -72,7 +72,8 @@ impl Engine {
     /// The layered settings and active profiles of `request`, with nothing planned.
     fn adhoc(&self, request: &CallRequest) -> Result<Prepared, EngineError> {
         let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
-        let Layered { mut program, notices, settings, environment, dot_env, .. } = self.layered(&request.sets, &flags)?;
+        let Layered { mut program, notices, settings, environment, dot_env, .. } =
+            self.layered(&request.sets, &flags)?;
         if let Some(timeout) = settings.timeout {
             Arc::make_mut(&mut program).config.defaults.timeout = Some(timeout);
         }
@@ -90,7 +91,9 @@ impl Engine {
             vc_version: env!("CARGO_PKG_VERSION").to_owned(),
             ..RunStart::default()
         };
-        self.recording(&start).map_err(|error| notices.push(format!("history: {error}; this call is not recorded"))).ok()
+        self.recording(&start)
+            .map_err(|error| notices.push(format!("history: {error}; this call is not recorded")))
+            .ok()
     }
 
     async fn closed(&self, recording: Recording, passed: bool, program: &Program) -> Option<String> {
@@ -189,10 +192,10 @@ fn body(cx: &ActionCx, bytes: &[u8]) -> String {
     if bytes.is_empty() {
         return String::new();
     }
-    let text = match serde_json::from_slice::<Value>(bytes) {
-        Ok(json) => serde_json::to_string_pretty(&cx.redactor.value(json)).unwrap_or_default(),
-        Err(_) => cx.redactor.text(&String::from_utf8_lossy(bytes)),
-    };
+    let text = serde_json::from_slice::<Value>(bytes).map_or_else(
+        |_| cx.redactor.text(&String::from_utf8_lossy(bytes)),
+        |json| serde_json::to_string_pretty(&cx.redactor.value(json)).unwrap_or_default(),
+    );
     format!("{}\n", text.trim_end())
 }
 

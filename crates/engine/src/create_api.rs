@@ -74,7 +74,9 @@ fn target(request: &NewApi) -> Result<Target<'_>, EngineError> {
 
 /// A full URL as its origin, path and query; a fragment is dropped.
 fn split(url: &str) -> Result<Target<'_>, EngineError> {
-    let bad = || refused(format!("`{url}` is not a full URL"), "give its scheme and host: `--url https://api.example.com/users`");
+    let bad = || {
+        refused(format!("`{url}` is not a full URL"), "give its scheme and host: `--url https://api.example.com/users`")
+    };
     let url = url.split('#').next().unwrap_or(url);
     let host = url.find("://").ok_or_else(bad)? + 3;
     let end = url.get(host..).and_then(|rest| rest.find(['/', '?'])).map_or(url.len(), |at| host + at);
@@ -91,7 +93,7 @@ fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, Vec<F
     let (name, change) = base_var(project, file, origin)?;
     let wanted = format!("${{var.{name}}}");
     if let Some(found) = project.find(FileKind::Api, file) {
-        let opened = project.open(found)?;
+        let opened = Authoring::open(found)?;
         let base = opened.document.root().get("baseUrl").and_then(Node::as_str).unwrap_or("none");
         if base != wanted {
             let help = format!("use `--path` to add to {}, or another file ID for {origin}", found.1.path);
@@ -105,7 +107,7 @@ fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, Vec<F
 /// change that adds it to the config's `vars`.
 fn base_var(project: &Authoring, file: &str, origin: &str) -> Result<(String, Option<FileChange>), EngineError> {
     let config = project.entries().find(|(_, found)| found.kind() == Some(FileKind::Config));
-    let opened = project.open(config.ok_or_else(|| internal("a project without its config"))?)?;
+    let opened = Authoring::open(config.ok_or_else(|| internal("a project without its config"))?)?;
     let (document, root) = (&opened.document, opened.document.root());
     let vars = root.get("vars");
     let entries = vars.map(Node::entries).unwrap_or_default();
@@ -117,11 +119,12 @@ fn base_var(project: &Authoring, file: &str, origin: &str) -> Result<(String, Op
         let help = format!("set `vars.{name}` to {origin}, or add the api by `--path`");
         return Err(refused(format!("the config var `{name}` holds another URL"), &help));
     }
-    let added = match vars {
-        Some(vars) => document.insert_flow_entry(vars, &name, origin).or_else(|_| document.insert_entry(vars, &name, origin)),
-        None => document.insert_yaml(root, "vars", &format!("{name}: {}", write_text(origin, false))),
-    };
-    let edit = added.map_err(|error| refused(format!("cannot add `{name}` to the config: {error}"), "add it by hand"))?;
+    let added = vars.map_or_else(
+        || document.insert_yaml(root, "vars", &format!("{name}: {}", write_text(origin, false))),
+        |vars| document.insert_flow_entry(vars, &name, origin).or_else(|_| document.insert_entry(vars, &name, origin)),
+    );
+    let edit =
+        added.map_err(|error| refused(format!("cannot add `{name}` to the config: {error}"), "add it by hand"))?;
     Ok((name, Some(opened.change(&[edit])?)))
 }
 
@@ -131,7 +134,9 @@ fn api_yaml(id: &str, method: &str, target: &Target<'_>) -> String {
     lines.extend((method != "GET").then(|| format!("method: {}", write_text(method, false))));
     lines.push(format!("path: {}", write_text(&as_vars(target.path), false)));
     lines.extend((!target.query.is_empty()).then(|| "query:".to_owned()));
-    lines.extend(target.query.iter().map(|(key, value)| format!("  {}: {}", write_text(key, false), write_text(value, false))));
+    lines.extend(
+        target.query.iter().map(|(key, value)| format!("  {}: {}", write_text(key, false), write_text(value, false))),
+    );
     lines.join("\n")
 }
 

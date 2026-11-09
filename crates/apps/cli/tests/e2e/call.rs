@@ -3,7 +3,7 @@
 //! history as `adhoc`, skips `beforeRun` and `beforeAll`, and exits 1 when the api's expect fails.
 
 use serde_json::Value;
-use vc_mock_server::MockServer;
+use vc_mock_server::{MockHandle, MockServer};
 
 use crate::{CONFIG, Project, USERS, said};
 
@@ -15,7 +15,7 @@ const ECHO: (&str, &str) = (
 );
 
 /// A project whose config points at a fresh mock server, with `extra` appended to the config.
-async fn served(files: &[(&str, &str)], extra: &str) -> (MockServer, Project) {
+async fn served(files: &[(&str, &str)], extra: &str) -> (MockHandle, Project) {
     let server = MockServer::start().await.unwrap();
     let config = format!("{}{extra}", CONFIG.1.replace("http://x", &server.base_url()));
     let project = Project::new(files);
@@ -71,7 +71,9 @@ async fn records_the_call_in_history_as_adhoc() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_failed_api_expect_exits_1() {
-    let failing = USERS.1.replace("    path: /users\n  - id: create", "    path: /users\n    expect: {status: 418}\n  - id: create");
+    let failing = USERS
+        .1
+        .replace("    path: /users\n  - id: create", "    path: /users\n    expect: {status: 418}\n  - id: create");
     let (_server, project) = served(&[(USERS.0, &failing)], "").await;
     let output = project.vc(&["call", "users#list"]).output().unwrap();
     assert_eq!(output.status.code(), Some(1), "{}", said(&output));

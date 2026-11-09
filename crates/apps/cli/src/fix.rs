@@ -6,8 +6,8 @@ use vc_engine::{CheckRequest, Engine};
 use crate::{Outcome, changes, check};
 
 /// Exit 0 when the project has no errors afterwards, 2 when it still has some.
-pub fn run(engine: &Engine, request: CheckRequest) -> anyhow::Result<Outcome> {
-    let fixed = match engine.fix(&request) {
+pub fn run(engine: &Engine, request: &CheckRequest) -> anyhow::Result<Outcome> {
+    let fixed = match engine.fix(request) {
         Ok(fixed) => fixed,
         Err(error) => return Ok(Outcome::Engine(error)),
     };
@@ -18,16 +18,16 @@ pub fn run(engine: &Engine, request: CheckRequest) -> anyhow::Result<Outcome> {
     }
     changes::preview(&fixed.changes)?;
     let count = fixed.changes.titles.len();
-    let fixes = if count == 1 { "1 fix".to_owned() } else { format!("{count} fixes") };
-    if !changes::confirm(&format!("Apply {fixes}?"))? {
+    let wording = if count == 1 { "1 fix".to_owned() } else { format!("{count} fixes") };
+    if !changes::confirm(&format!("Apply {wording}?"))? {
         eprintln!("nothing changed");
         return Ok(check::outcome(&fixed.report));
     }
     if let Err(error) = engine.write(&fixed.changes) {
         return Ok(Outcome::Engine(error));
     }
-    eprintln!("✓ applied {fixes}");
-    match engine.check(&request) {
+    eprintln!("✓ applied {wording}");
+    match engine.check(request) {
         Ok(report) => {
             check::print(&report, false)?;
             Ok(check::outcome(&report))

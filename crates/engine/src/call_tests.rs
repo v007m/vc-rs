@@ -24,7 +24,8 @@ fn answer(request: &RenderedRequest, _: usize) -> HttpResponse {
 }
 
 fn project() -> (Engine, Recordings, Arc<MemoryHistory>) {
-    let (transport, recordings) = RecordingTransport::new(Arc::new(FakeTransport::new(|request, call| Ok(answer(request, call)))));
+    let (transport, recordings) =
+        RecordingTransport::new(Arc::new(FakeTransport::new(|request, call| Ok(answer(request, call)))));
     let history = Arc::new(MemoryHistory::new());
     let engine = builder(FakeVcs::default())
         .sources(Arc::new(MemorySources::new(&[CONFIG, USERS])))
@@ -74,7 +75,7 @@ async fn a_failed_expect_exits_1_and_says_why() {
     let report = engine.call(&call("users#teapot")).await.unwrap();
     assert_eq!(report.exit, 1);
     assert!(report.text.starts_with("200 OK · 0 ms · api expect failed\n"), "{}", report.text);
-    assert!(report.text.contains("✗ status: expected 418"), "{}", report.text);
+    assert!(report.text.contains("✗ status: expected [418], got 200"), "{}", report.text);
     let runs = history.runs(10).unwrap();
     assert_eq!(runs.len(), 1);
     assert_eq!((runs[0].start.kind.as_str(), runs[0].status), ("adhoc", Some(RunStatus::Failed)));
@@ -86,7 +87,10 @@ async fn a_passed_call_is_recorded_as_passed() {
     let (engine, _, history) = project();
     engine.call(&call("users#list")).await.unwrap();
     let runs = history.runs(10).unwrap();
-    assert_eq!((runs[0].status, runs[0].totals.passed, runs[0].start.profiles.clone()), (Some(RunStatus::Passed), 1, vec!["dev".to_owned()]));
+    assert_eq!(
+        (runs[0].status, runs[0].totals.passed, runs[0].start.profiles.clone()),
+        (Some(RunStatus::Passed), 1, vec!["dev".to_owned()])
+    );
 }
 
 #[tokio::test]
@@ -94,7 +98,7 @@ async fn an_unknown_api_names_the_closest() {
     let (engine, recordings, _) = project();
     let Err(EngineError::Selection { reason, help }) = engine.call(&call("users#lst")).await else { panic!("refused") };
     assert_eq!((reason.as_str(), help.as_deref()), ("no api `users#lst`", Some("did you mean `users#list`?")));
-    assert!(sent(&recordings).is_empty());
+    assert_eq!(sent(&recordings).len(), 0);
 }
 
 #[tokio::test]
