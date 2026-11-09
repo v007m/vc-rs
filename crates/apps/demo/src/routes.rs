@@ -68,25 +68,35 @@ async fn remove(Path(_id): Path<String>) -> StatusCode {
 /// `ANY /echo`: the request's method, path, query, headers and body as JSON.
 async fn echo(request: Request<Body>) -> Response {
     let (parts, body) = request.into_parts();
-    match body::to_bytes(body, BODY_LIMIT).await {
-        Ok(bytes) => Json(describe(&parts, &bytes)).into_response(),
-        Err(error) => (StatusCode::BAD_REQUEST, error.to_string()).into_response(),
-    }
+    let bytes = match body::to_bytes(body, BODY_LIMIT).await {
+        Ok(bytes) => bytes,
+        Err(error) => return (StatusCode::BAD_REQUEST, error.to_string()).into_response(),
+    };
+    let echoed = json!({
+        "method": parts.method.as_str(),
+        "path": parts.uri.path(),
+        "query": query_of(&parts),
+        "headers": headers_of(&parts),
+        "body": body_of(&bytes),
+    });
+    Json(echoed).into_response()
 }
 
-fn describe(parts: &Parts, body: &Bytes) -> Value {
-    let query = Query::<BTreeMap<String, String>>::try_from_uri(&parts.uri).map(|query| query.0).unwrap_or_default();
-    let headers: BTreeMap<&str, String> = parts
-        .headers
-        .iter()
-        .map(|(name, value)| (name.as_str(), String::from_utf8_lossy(value.as_bytes()).into_owned()))
-        .collect();
-    let body = if body.is_empty() {
-        Value::Null
-    } else {
-        serde_json::from_slice(body).unwrap_or_else(|_| Value::String(String::from_utf8_lossy(body).into_owned()))
-    };
-    json!({"method": parts.method.as_str(), "path": parts.uri.path(), "query": query, "headers": headers, "body": body})
+fn query_of(parts: &Parts) -> BTreeMap<String, String> {
+    Query::try_from_uri(&parts.uri).map(|query| query.0).unwrap_or_default()
+}
+
+fn headers_of(parts: &Parts) -> BTreeMap<&str, String> {
+    let text = |value: &[u8]| String::from_utf8_lossy(value).into_owned();
+    parts.headers.iter().map(|(name, value)| (name.as_str(), text(value.as_bytes()))).collect()
+}
+
+/// The body as JSON, as text when it is not JSON, or null when there is none.
+fn body_of(bytes: &Bytes) -> Value {
+    if bytes.is_empty() {
+        return Value::Null;
+    }
+    serde_json::from_slice(bytes).unwrap_or_else(|_| Value::String(String::from_utf8_lossy(bytes).into_owned()))
 }
 
 #[cfg(test)]

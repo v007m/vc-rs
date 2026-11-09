@@ -70,6 +70,13 @@ pub struct NewItem<'t> {
     pub also: Vec<FileChange>,
 }
 
+impl<'t> NewItem<'t> {
+    /// A test `named`, appended to the `tests` of its file, with nothing else changed.
+    pub const fn test(named: Named<'t>, yaml: String, comment: String) -> Self {
+        Self { kind: FileKind::Test, list: "tests", named, yaml, comment, root: String::new(), also: Vec::new() }
+    }
+}
+
 impl Added {
     /// What was added, as one JSON object: `{"added": …, "path": …, "line": …}`.
     #[must_use]
@@ -98,16 +105,7 @@ impl Engine {
         let id = named.item.unwrap_or_default();
         let yaml = format!("id: {id}\nname: {}\ncall: {api}", write_text(&sentence(id), false));
         let comment = format!("# {} · calls {api} · keys: {DOCS}#tests", request.id);
-        let new = NewItem {
-            kind: FileKind::Test,
-            list: "tests",
-            named,
-            yaml,
-            comment,
-            root: String::new(),
-            also: Vec::new(),
-        };
-        self.added(&project, new)
+        self.added(&project, NewItem::test(named, yaml, comment))
     }
 
     /// The change that creates the empty file of `kind` with the ID `id`, holding only its

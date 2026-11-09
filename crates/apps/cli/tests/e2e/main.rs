@@ -19,13 +19,15 @@ mod redaction;
 mod reports;
 mod scheduling;
 
-use std::fs;
+#[path = "../common/project.rs"]
+mod project;
+
 use std::path::Path;
 
 use assert_cmd::Command;
 use assert_cmd::cargo::cargo_bin_cmd;
+pub(crate) use project::Project;
 use serde_json::Value;
-use tempfile::TempDir;
 
 /// The config every project starts from: a default profile and the base URL `--set` replaces.
 pub(crate) const CONFIG: (&str, &str) = (
@@ -71,37 +73,7 @@ pub(crate) const SCRIPTED: (&str, &str) = (
     ),
 );
 
-/// A project on disk and a home folder of its own, so no user config leaks in.
-pub(crate) struct Project {
-    root: TempDir,
-    home: TempDir,
-}
-
 impl Project {
-    /// A project holding `files`.
-    pub(crate) fn new(files: &[(&str, &str)]) -> Self {
-        let project = Self { root: tempfile::tempdir().unwrap(), home: tempfile::tempdir().unwrap() };
-        for (path, text) in files {
-            project.write(path, text);
-        }
-        project
-    }
-
-    pub(crate) fn path(&self) -> &Path {
-        self.root.path()
-    }
-
-    pub(crate) fn home(&self) -> &Path {
-        self.home.path()
-    }
-
-    /// Writes `text` to `path` under the project root.
-    pub(crate) fn write(&self, path: &str, text: &str) {
-        let file = self.path().join(path);
-        fs::create_dir_all(file.parent().unwrap()).unwrap();
-        fs::write(file, text).unwrap();
-    }
-
     /// `vc <args>` in the project, with no colour, its own home and no `VIB_*` from outside.
     pub(crate) fn vc(&self, args: &[&str]) -> Command {
         let mut vc = cargo_bin_cmd!("vc");

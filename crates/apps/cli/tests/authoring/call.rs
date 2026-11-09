@@ -1,6 +1,7 @@
-//! `vc call` sends one api ad hoc with the active profile and auth (D130, D178): it runs the
-//! api's cleanup unless `--keep`, records the call in history as `adhoc`, skips `beforeRun` and
-//! `beforeAll`, and with `--save-as-test` writes a test that expects the status it got (D176).
+//! `vc call` sends one api ad hoc with the active profile and auth (D130, D178): it records the
+//! call in history as `adhoc`, skips `beforeRun` and `beforeAll`, and with `--save-as-test`
+//! writes a test that expects the status it got (D176). The cleanup and `--keep` are tested in
+//! `e2e/call.rs`.
 
 use serde_json::Value;
 use vc_mock_server::{MockHandle, MockServer};
@@ -35,17 +36,6 @@ async fn vars_on_the_command_line_reach_the_request() {
     let output = project.vc(&["call", "echo#send", "--var", "word=hello"]).output().unwrap();
     assert_eq!(output.status.code(), Some(0), "{}", said(&output));
     assert!(String::from_utf8_lossy(&output.stdout).contains("hello"), "the body is printed: {}", said(&output));
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn runs_the_cleanup_afterwards_unless_kept() {
-    let (server, project) = served(&[CONFIG, USERS]).await;
-    project.vc(&["call", "users#create"]).assert().code(0);
-    let stats = server.stats().await.unwrap();
-    assert_eq!((stats.count("POST /users"), stats.count("DELETE /users/{id}")), (1, 1), "{stats:?}");
-    project.vc(&["call", "users#create", "--keep"]).assert().code(0);
-    let stats = server.stats().await.unwrap();
-    assert_eq!((stats.count("POST /users"), stats.count("DELETE /users/{id}")), (2, 1), "{stats:?}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

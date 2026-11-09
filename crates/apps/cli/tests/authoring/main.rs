@@ -20,13 +20,15 @@ mod rename;
 mod skip;
 mod watch;
 
+#[path = "../common/project.rs"]
+mod project;
+
 use std::ffi::OsString;
 use std::fs;
-use std::path::Path;
 
 use assert_cmd::Command;
 use assert_cmd::cargo::cargo_bin;
-use tempfile::TempDir;
+pub(crate) use project::Project;
 
 /// A config with one profile and the base URL tests point at their server.
 pub(crate) const CONFIG: (&str, &str) = (
@@ -68,36 +70,10 @@ pub(crate) fn schema_line(kind: &str) -> String {
     )
 }
 
-/// A project on disk and a home folder of its own, so no user config leaks in.
-pub(crate) struct Project {
-    root: TempDir,
-    home: TempDir,
-}
-
 impl Project {
-    /// A project holding `files`.
-    pub(crate) fn new(files: &[(&str, &str)]) -> Self {
-        let project = Self { root: tempfile::tempdir().unwrap(), home: tempfile::tempdir().unwrap() };
-        for (path, text) in files {
-            project.write(path, text);
-        }
-        project
-    }
-
     /// An empty folder, for `vc init`.
     pub(crate) fn empty() -> Self {
         Self::new(&[])
-    }
-
-    pub(crate) fn path(&self) -> &Path {
-        self.root.path()
-    }
-
-    /// Writes `text` to `path` under the project root.
-    pub(crate) fn write(&self, path: &str, text: &str) {
-        let file = self.path().join(path);
-        fs::create_dir_all(file.parent().unwrap()).unwrap();
-        fs::write(file, text).unwrap();
     }
 
     /// The text of `path` under the project root.
@@ -125,7 +101,7 @@ impl Project {
     pub(crate) fn process(&self, args: &[&str]) -> std::process::Command {
         let mut vc = std::process::Command::new(cargo_bin!("vc"));
         vc.current_dir(self.path()).args(args).env("NO_COLOR", "1").env("PATH", path_with_vc());
-        vc.env("HOME", self.home.path()).env("XDG_CONFIG_HOME", self.home.path()).env_remove("APPDATA");
+        vc.env("HOME", self.home()).env("XDG_CONFIG_HOME", self.home()).env_remove("APPDATA");
         for (name, _) in std::env::vars_os() {
             if name.to_string_lossy().starts_with("VIB_") {
                 vc.env_remove(name);

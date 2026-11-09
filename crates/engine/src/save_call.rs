@@ -2,7 +2,7 @@
 //! got and the body fields named with `--expect-field`, and no inferred schema (D176).
 
 use serde_json::Value;
-use vc_model::{FileKind, Segment};
+use vc_model::Segment;
 use vc_parser::write_text;
 
 use crate::authoring::refused;
@@ -52,16 +52,7 @@ impl Engine {
         let fields = call.fields.iter().map(|field| expected(field, body)).collect::<Result<Vec<_>, _>>()?;
         let yaml = test_yaml(call, named.item.unwrap_or_default(), (status, &fields));
         let comment = format!("# {} · saved from vc call {api} · keys: {DOCS}#tests", call.id);
-        let new = NewItem {
-            kind: FileKind::Test,
-            list: "tests",
-            named,
-            yaml,
-            comment,
-            root: String::new(),
-            also: Vec::new(),
-        };
-        self.added(&project, new)
+        self.added(&project, NewItem::test(named, yaml, comment))
     }
 }
 
