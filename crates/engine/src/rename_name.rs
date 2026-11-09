@@ -10,6 +10,9 @@ use crate::EngineError;
 use crate::authoring::{Authoring, Opened, item, refused};
 use crate::edit::{FileChange, internal};
 
+/// The edits that rename `from` to `to` in one document.
+type Renames = fn(&Document, &str, &str) -> Result<Vec<TextEdit>, ParserError>;
+
 /// A kind of name `vc rename` renames, written `<prefix>.<name>`: a registry entry.
 struct NameKind {
     /// The word before the name: `var`, `auth` or `dataset`.
@@ -24,7 +27,7 @@ struct NameKind {
     valid: fn(&str) -> bool,
     /// The edits that rename `from` to `to` in one document: references and, for a var, the
     /// keys that define it.
-    edits: fn(&Document, &str, &str) -> Result<Vec<TextEdit>, ParserError>,
+    edits: Renames,
 }
 
 /// Every kind of name `vc rename` renames besides items and files.

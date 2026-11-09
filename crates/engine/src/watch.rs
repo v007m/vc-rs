@@ -61,7 +61,8 @@ mod tests {
 
     #[test]
     fn watches_through_the_config_s_paths_as_discovery_does() {
-        let config = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\npaths:\n  exclude: [services/legacy]\n";
+        let config =
+            "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\npaths:\n  exclude: [services/legacy]\n";
         let files: [(&str, &[u8]); 1] = [("vibranium.config.yaml", config.as_bytes())];
         let saved = OneBatch(Some(vec!["services/legacy/old.test.yaml", "services/users/crud.test.yaml"]));
         let engine = EngineBuilder::new(PathBuf::from("/project"))

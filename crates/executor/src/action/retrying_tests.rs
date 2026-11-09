@@ -9,8 +9,8 @@ use crate::action::{ActionExecutors, ActionRequest};
 use crate::fixture::{Fixture, Server};
 use crate::{ActionReport, Frame, HostLimits, PendingCleanup, PipelineParts};
 
-fn retry(attempts: u32, millis: u64) -> Option<Retry> {
-    Some(Retry { attempts, delay: Duration::new(std::time::Duration::from_millis(millis)) })
+fn retry(attempts: u32, millis: u64) -> Retry {
+    Retry { attempts, delay: Duration::new(std::time::Duration::from_millis(millis)) }
 }
 
 async fn execute(fixture: Fixture, transport: Arc<dyn Transport>, action: ActionId) -> ActionReport {
@@ -22,7 +22,7 @@ async fn execute(fixture: Fixture, transport: Arc<dyn Transport>, action: Action
 /// A call of `path` with `retry`.
 fn retried(fixture: &mut Fixture, path: &str, attempts: u32) -> ActionId {
     let call = fixture.call(path);
-    fixture.action_mut(call).retry = retry(attempts, 0);
+    fixture.action_mut(call).retry = Some(retry(attempts, 0));
     call
 }
 
@@ -30,7 +30,7 @@ fn retried(fixture: &mut Fixture, path: &str, attempts: u32) -> ActionId {
 async fn a_failed_action_runs_again_after_its_delay_and_passes() {
     let mut fixture = Fixture::new();
     let call = fixture.call("/flaky");
-    fixture.action_mut(call).retry = retry(2, 50);
+    fixture.action_mut(call).retry = Some(retry(2, 50));
     let (server, sent) = Server::new();
     let started = Instant::now();
     let report = execute(fixture, server, call).await;
@@ -78,7 +78,7 @@ async fn the_failed_attempt_s_cleanups_run_before_the_next_attempt() {
     let matcher = Matcher::Status(vec![StatusPattern::Code(201)]);
     let check = Check { kind: CheckKind::Status, target: None, matcher, origin: Origin::Action(create), span };
     fixture.action_mut(create).expect.checks = vec![check];
-    fixture.action_mut(create).retry = retry(1, 0);
+    fixture.action_mut(create).retry = Some(retry(1, 0));
     let script = [200, 200, 201].map(|code| Ok(vc_testkit::status(code))).to_vec();
     let transport = FakeTransport::scripted(script);
     let report = execute(fixture, Arc::new(transport.clone()), create).await;

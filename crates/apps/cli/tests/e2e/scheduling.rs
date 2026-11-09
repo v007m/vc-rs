@@ -22,8 +22,11 @@ async fn a_pass_after_a_failed_attempt_is_flaky() {
 #[tokio::test(flavor = "multi_thread")]
 async fn defaults_retry_applies_unless_the_test_writes_its_own() {
     let server = MockServer::start().await.unwrap();
-    let config = ("vibranium.config.yaml", "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n\
-                  vars: {baseUrl: 'http://x'}\ndefaults: {retry: {attempts: 2, delay: 10ms}}\n");
+    let config = (
+        "vibranium.config.yaml",
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n\
+                  vars: {baseUrl: 'http://x'}\ndefaults: {retry: {attempts: 2, delay: 10ms}}\n",
+    );
     let test = "tests:\n  - id: passesThroughDefaults\n    call: scripted#flaky\n    vars: {key: a}\n\
                 \x20   expect: {status: 200}\n  - id: failsWithItsOwn\n    call: scripted#flaky\n    vars: {key: b}\n\
                 \x20   expect: {status: 200}\n    retry: {attempts: 0}\n";

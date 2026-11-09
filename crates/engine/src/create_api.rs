@@ -56,7 +56,10 @@ impl Engine {
         let method = request.method.as_deref().unwrap_or("GET").to_ascii_uppercase();
         let yaml = api_yaml(named.item.unwrap_or_default(), &method, &target);
         let comment = format!("# {} · {method} {} · keys: {DOCS}#api-files", request.id, target.path);
-        self.added(&project, NewItem { kind: FileKind::Api, list: "apis", named, yaml, comment, root, also, next: None })
+        self.added(
+            &project,
+            NewItem { kind: FileKind::Api, list: "apis", named, yaml, comment, root, also, next: None },
+        )
     }
 }
 

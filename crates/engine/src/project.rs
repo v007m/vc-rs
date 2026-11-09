@@ -78,10 +78,7 @@ impl Engine {
     /// them only when the config writes some.
     fn discover(&self) -> Result<Discovery, EngineError> {
         let found = self.walk(&SourceFilter::default())?;
-        match written_filter(&found)? {
-            Some(filter) => self.walk(&filter),
-            None => Ok(found),
-        }
+        written_filter(&found)?.map_or(Ok(found), |filter| self.walk(&filter))
     }
 
     /// The filter discovery uses: the config's `paths` globs, or the default one when it writes

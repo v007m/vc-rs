@@ -78,8 +78,8 @@ pub struct NewItem<'t> {
 impl<'t> NewItem<'t> {
     /// A test `named`, appended to the `tests` of its file, with nothing else changed.
     pub const fn test(named: Named<'t>, yaml: String, comment: String) -> Self {
-        let (root, also) = (String::new(), Vec::new());
-        Self { kind: FileKind::Test, list: "tests", named, yaml, comment, root, also, next: None }
+        let (kind, list, next) = (FileKind::Test, "tests", None);
+        Self { kind, list, named, yaml, comment, root: String::new(), also: Vec::new(), next }
     }
 }
 

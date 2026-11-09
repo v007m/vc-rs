@@ -87,9 +87,9 @@ fn renaming_a_var_updates_its_keys_and_every_reference() {
 
 #[test]
 fn renaming_an_auth_updates_the_config_and_every_auth_key() {
-    let config = format!("{}auth:\n  - id: partnerToken\n    type: bearer\n    token: ${{env.TOKEN}}\n", CONFIG.1);
+    let config = format!("{}auth:\n  - id: partnerToken\n    type: bearer\n    token: ${{secret.TOKEN}}\n", CONFIG.1);
     let users = USERS.1.replace("  - id: list\n", "  - id: list\n    auth: partnerToken\n");
-    let project = Project::new(&[(CONFIG.0, &config), (USERS.0, &users), CRUD]);
+    let project = Project::new(&[(CONFIG.0, &config), (USERS.0, &users), CRUD, (".env.schema", "TOKEN=\n")]);
     let refused = project.vc(&["rename", "auth.partnerToken", "auth.none"]).output().unwrap();
     assert!(!refused.status.success(), "{}", said(&refused));
     project.vc(&["rename", "auth.partnerToken", "auth.partnerLogin"]).assert().code(0);
@@ -101,7 +101,8 @@ fn renaming_an_auth_updates_the_config_and_every_auth_key() {
 #[test]
 fn renaming_a_listed_dataset_updates_its_entry_and_every_reference() {
     let config = format!("{}datasets:\n  files:\n    - id: capitals\n      file: data/capitals.csv\n", CONFIG.1);
-    let by_city = "  - id: listsByCity\n    name: Lists by city\n    examples: ${dataset.capitals}\n    call: users#list\n";
+    let by_city =
+        "  - id: listsByCity\n    name: Lists by city\n    examples: ${dataset.capitals}\n    call: users#list\n";
     let crud = format!("{}{by_city}", CRUD.1);
     let files = [(CONFIG.0, config.as_str()), USERS, (CRUD.0, &crud), ("data/capitals.csv", "name\nParis\n")];
     let project = Project::new(&files);

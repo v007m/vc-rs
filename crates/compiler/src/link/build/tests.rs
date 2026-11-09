@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use vc_model::{
     Action, ActionKind, AuthRef, Bodies, BodySpec, CheckKind, ContentHash, Duration, Examples, Keep, Loop, Matcher,
-    Method, Origin, Owner, Program, Retry, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test, TestBody,
+    Method, Origin, Owner, Program, Retry, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test,
+    TestBody,
 };
 
 use crate::CompileInput;

@@ -142,7 +142,7 @@ fn text_nodes<'n>(node: &'n Node, cel: bool, found: &mut Vec<(&'n Node, bool)>) 
 /// Where in `raw` the token is written as a name: inside a `${…}` reference, or anywhere when
 /// `raw` is CEL.
 fn matches(raw: &str, token: &Token<'_>, cel: bool) -> Vec<Range<usize>> {
-    let spans = if cel { vec![0..raw.len()] } else { references(raw) };
+    let spans = if cel { std::iter::once(0..raw.len()).collect() } else { references(raw) };
     let mut found = Vec::new();
     for span in spans {
         let Some(part) = raw.get(span.clone()) else { continue };
