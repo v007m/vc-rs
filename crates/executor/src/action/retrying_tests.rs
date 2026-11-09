@@ -3,11 +3,11 @@ use std::time::Instant;
 
 use vc_interfaces::Transport;
 use vc_model::{ActionId, ActionOutcome, Check, CheckKind, Duration, Matcher, Origin, OwnerKey, Retry, StatusPattern};
-use vc_testkit::FakeTransport;
+use vc_testkit::{FakeTransport, RecordingTransport};
 
 use crate::action::{ActionExecutors, ActionRequest};
 use crate::fixture::{Fixture, Server};
-use crate::{ActionReport, Frame, HostLimits, PendingCleanup, PipelineParts};
+use crate::{ActionReport, Frame, HostLimits, PipelineParts};
 
 fn retry(attempts: u32, millis: u64) -> Retry {
     Retry { attempts, delay: Duration::new(std::time::Duration::from_millis(millis)) }
@@ -67,12 +67,15 @@ async fn an_action_without_retry_runs_once_and_fails() {
     assert_eq!(sent.counts().get("/fail"), Some(&1));
 }
 
-/// The first create answers 200 where 201 is expected: it registers its cleanup and fails. The
-/// cleanup takes the second response, so the retried create gets the 201.
+/// The first create answers 200 where 201 is expected: it registers its cleanup, with the
+/// status as its var, and fails. The cleanup takes the second response, in its own frame, so the
+/// retried create gets the 201.
 #[tokio::test]
 async fn the_failed_attempt_s_cleanups_run_before_the_next_attempt() {
     let mut fixture = Fixture::new();
-    let delete = fixture.call("/users/1");
+    let delete = fixture.call("/users");
+    fixture.api_mut(delete).path = fixture.template("/users/${var.code}");
+    fixture.action_mut(delete).vars.values = fixture.vars(&[("code", "${response.status}")]);
     let create = fixture.creating("/users", delete);
     let span = crate::fixture::span();
     let matcher = Matcher::Status(vec![StatusPattern::Code(201)]);
@@ -80,9 +83,11 @@ async fn the_failed_attempt_s_cleanups_run_before_the_next_attempt() {
     fixture.action_mut(create).expect.checks = vec![check];
     fixture.action_mut(create).retry = Some(retry(1, 0));
     let script = [200, 200, 201].map(|code| Ok(vc_testkit::status(code))).to_vec();
-    let transport = FakeTransport::scripted(script);
-    let report = execute(fixture, Arc::new(transport.clone()), create).await;
+    let (transport, recordings) = RecordingTransport::new(Arc::new(FakeTransport::scripted(script)));
+    let report = execute(fixture, Arc::new(transport), create).await;
     assert_eq!(report.outcome, ActionOutcome::Passed);
-    assert_eq!(report.cleanups, vec![PendingCleanup::new(delete)], "only the passing attempt's cleanup is left");
-    assert_eq!(transport.calls(), 3);
+    let cleanups: Vec<_> = report.cleanups.iter().map(|cleanup| cleanup.action).collect();
+    assert_eq!(cleanups, [delete], "only the passing attempt's cleanup is left");
+    let paths: Vec<_> = recordings.take().iter().map(|sent| sent.request.uri.path().to_owned()).collect();
+    assert_eq!(paths, ["/users", "/users/200", "/users"]);
 }
