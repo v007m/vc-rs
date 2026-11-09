@@ -373,6 +373,12 @@ Round 30 additions (9 November 2026, M6–M7 dependency and v1 spikes):
 | D200 | `vc migrate v1` conversions (spike of the v1 source) | Anything with no v2 form is left out of the output, listed in the migrate report, and marked with a `# TODO(vc migrate)` comment that keeps the v1 text: JavaScript asserts beyond the common shapes (equality → `body.match`, `.length`, `.every`/`.filter(...).length >= 1` → `every`/`some`), and all `scripts`. Built-in v1 datasets become Faker calls with a note (names → `person.fullName`, countries → `location.country`, the rest → `lorem.word`); their contents are not copied. `{lorem_N}` (N characters) becomes a named `fromRegExp` generator `[a-z]{N}`. A string is a generator only if it has regex metacharacters; `[A\|B]` becomes `arrayElement(A, B)` with a note that v1 read it as a character class. `repeat-until` becomes `poll` with `every` = `repeat-delay` or 1s and `timeout` = repeat × every, or 30s. `delay`, `repeat-delay` on a plain repeat, `async` and `timing.wait` are dropped with a note. `cache: true` becomes a `beforeAll` call with `save` (same run, as in v1). Account `variables` become file vars on the test files that use that account | — |
 | D201 | JSON Schema validator (Sarath) | `body.schema` uses `jsonschema` 0.61 with `default-features = false` (no remote or file `$ref` resolution; `$schema` picks draft-04 to 2020-12, 2020-12 when absent). deny.toml gains a scoped `[[licenses.exceptions]]` allowing MIT-0 for `borrow-or-share` only, and skips, each with a reason, for the duplicates it brings (`getrandom@0.3`, the older `r-efi`, `bit-set@0.8`, `bit-vec@0.8`, `num-bigint@0.4`), in the commit that adds the crate | — |
 
+Round 31 additions (9 November 2026, M7 agent policy review):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D202 | Agent runs that execute code (Sarath) | An agent's run (`run_tests`, and `call_api` when its chain reaches one) whose plan contains any `command:` or `function:` action always asks for approval, even when `run` and every method are allowed; a standing "always allow" rule never skips this ask. The approval request names each such action and its command or function. Runs started by a person are unchanged. Closes the path where `writeDefinitions` plus `run` would let an agent write and run a shell command | D195 (`run_tests` gated by `run` plus methods only) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
