@@ -1,7 +1,9 @@
 //! Running programs (D163, D181): arguments as a list, never through a shell of its own.
 
 use std::io::ErrorKind;
-use std::process::Stdio;
+use std::pin::{Pin, pin};
+use std::process::{ExitStatus, Stdio};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt as _};
@@ -10,11 +12,16 @@ use vc_interfaces::{CommandError, CommandOutput, CommandRunner, CommandSpec};
 
 /// How much is read from a stream at a time.
 const CHUNK: usize = 8 * 1024;
+/// How long the streams are still read once the program has exited: a process it left running
+/// in the background may hold them open.
+const DRAIN: Duration = Duration::from_millis(200);
 
 /// A [`CommandRunner`] that starts the program itself, with stdin closed.
 ///
 /// It reads stdout and stderr as they come and keeps the last `output_cap` bytes of each, so a
-/// chatty program never fills memory. On unix the program leads a process group of its own,
+/// chatty program never fills memory. The run ends when the program exits; what its streams
+/// still hold is read for [`DRAIN`] more, so a process it left in the background never holds
+/// the run open. On unix the program leads a process group of its own,
 /// and a timeout, or dropping the run, kills the whole group; elsewhere it kills the program.
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
@@ -87,31 +94,65 @@ fn kill_group(leader: u32) {
 #[cfg(not(unix))]
 const fn kill_group(_leader: u32) {}
 
-/// Reads both streams to their end, then waits for the exit.
+/// Reads both streams while the program runs, and what they hold once it exits.
 async fn collect(child: &mut Child, cap: usize) -> std::io::Result<CommandOutput> {
     let (stdout, stderr) = (child.stdout.take(), child.stderr.take());
-    let ((stdout, out_cut), (stderr, err_cut), status) =
-        tokio::join!(tail(stdout, cap), tail(stderr, cap), child.wait());
+    let (mut out, mut err) = (Tail::new(cap), Tail::new(cap));
+    let status = {
+        let reading = pin!(async { tokio::join!(out.read(stdout), err.read(stderr)) });
+        exited(child, reading).await
+    };
+    let ((stdout, out_cut), (stderr, err_cut)) = (out.finish(), err.finish());
     let mut output = CommandOutput::new(status?.code(), stdout);
     output.stderr = stderr;
     output.truncated = out_cut || err_cut;
     Ok(output)
 }
 
-/// The last `cap` bytes of `stream`, and whether anything before them was dropped.
-async fn tail(stream: Option<impl AsyncRead + Unpin>, cap: usize) -> (Vec<u8>, bool) {
-    let Some(mut stream) = stream else { return (Vec::new(), false) };
-    let (mut kept, mut cut) = (Vec::new(), false);
-    let mut chunk = vec![0; CHUNK];
-    let room = cap.saturating_mul(2).max(CHUNK);
-    while let Ok(read @ 1..) = stream.read(&mut chunk).await {
-        kept.extend_from_slice(chunk.get(..read).unwrap_or_default());
-        if kept.len() > room {
-            cut |= trim(&mut kept, cap);
+/// The program's exit status, once it exits and `reading` ends or has had [`DRAIN`] more.
+async fn exited(
+    child: &mut Child,
+    mut reading: Pin<&mut impl Future<Output = ((), ())>>,
+) -> std::io::Result<ExitStatus> {
+    tokio::select! {
+        status = child.wait() => {
+            tokio::time::timeout(DRAIN, reading).await.ok();
+            status
+        }
+        ((), ()) = &mut reading => child.wait().await,
+    }
+}
+
+/// The last `cap` bytes read from a stream, and whether anything before them was dropped.
+struct Tail {
+    kept: Vec<u8>,
+    cut: bool,
+    cap: usize,
+}
+
+impl Tail {
+    const fn new(cap: usize) -> Self {
+        Self { kept: Vec::new(), cut: false, cap }
+    }
+
+    /// Reads `stream` to its end, keeping its tail.
+    async fn read(&mut self, stream: Option<impl AsyncRead + Unpin>) {
+        let Some(mut stream) = stream else { return };
+        let mut chunk = vec![0; CHUNK];
+        let room = self.cap.saturating_mul(2).max(CHUNK);
+        while let Ok(read @ 1..) = stream.read(&mut chunk).await {
+            self.kept.extend_from_slice(chunk.get(..read).unwrap_or_default());
+            if self.kept.len() > room {
+                self.cut |= trim(&mut self.kept, self.cap);
+            }
         }
     }
-    cut |= trim(&mut kept, cap);
-    (kept, cut)
+
+    /// The tail kept, and whether anything before it was dropped.
+    fn finish(mut self) -> (Vec<u8>, bool) {
+        let cut = trim(&mut self.kept, self.cap);
+        (self.kept, self.cut || cut)
+    }
 }
 
 /// Drops the front of `kept` past `cap` bytes; whether it dropped any.
@@ -176,6 +217,21 @@ mod tests {
         assert!(output.stdout.ends_with(b"aaend\n") && output.stderr == b"err\n" && output.truncated);
         let whole = ProcessRunner::new().run(&shell("echo small", dir.path())).await.unwrap();
         assert!(!whole.truncated && whole.stdout == b"small\n");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn the_run_ends_when_the_program_exits_though_a_background_process_holds_its_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let line = "sleep 30 & echo $! > child; echo started";
+        let spec = shell(line, dir.path()).with_timeout(Duration::from_secs(10));
+        let started = std::time::Instant::now();
+        let output = ProcessRunner::new().run(&spec).await;
+        let child = std::fs::read_to_string(dir.path().join("child")).unwrap();
+        ProcessRunner::new().run(&shell(&format!("kill {}", child.trim()), dir.path())).await.unwrap();
+        let output = output.unwrap();
+        assert_eq!((output.status, output.stdout), (Some(0), b"started\n".to_vec()));
+        assert!(started.elapsed() < Duration::from_secs(5), "waited {:?} for the background sleep", started.elapsed());
     }
 
     #[cfg(unix)]
