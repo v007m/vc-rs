@@ -148,6 +148,9 @@ impl fmt::Debug for ActionRequest {
     }
 }
 
+/// The cross-run cache and the clock its entries are made and expire by.
+type RunCache = (Arc<dyn CacheStore>, Arc<dyn Clock>);
+
 /// What every action of a run shares: the immutable program, the executor registry and the
 /// run's values.
 #[non_exhaustive]
@@ -167,7 +170,7 @@ pub struct ActionCx {
     tokens: Arc<TokenCache>,
     /// The cross-run cache, when the run has one, and the clock its entries are made and
     /// expire by.
-    cache: Option<(Arc<dyn CacheStore>, Arc<dyn Clock>)>,
+    cache: Option<RunCache>,
 }
 
 impl ActionCx {

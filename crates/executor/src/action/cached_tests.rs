@@ -132,7 +132,10 @@ async fn the_check_reads_the_cached_saves_and_a_failed_check_reruns_the_action_a
         vec![json_response(404, &json!({})), json_response(201, &json!({ "id": 8 })), json_response(204, &json!({}))];
     let (rerun, sent) = run(&target, (Some(&store), 1_002), answers).await;
     let paths: Vec<_> = sent.iter().map(|recorded| recorded.request.uri.path().to_owned()).collect();
-    assert_eq!((rerun.saved, paths), (saved(json!({ "userId": 8 })), vec!["/users/7/7", "/users", "/users/7"]));
+    assert_eq!(
+        (rerun.saved, paths),
+        (saved(json!({ "userId": 8 })), ["/users/7/7", "/users", "/users/7"].map(String::from).to_vec())
+    );
     let kept: Saved = store.take_expired(u64::MAX).unwrap().into_iter().flat_map(|entry| entry.saved).collect();
     assert_eq!(kept, saved(json!({ "userId": 8 })), "the fresh entry is the one kept");
 }
