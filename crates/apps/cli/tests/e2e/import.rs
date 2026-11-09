@@ -1,7 +1,8 @@
 //! `vc import openapi` writes an api file, its tests, the base-URL var and the snapshot from a
 //! served spec, and they compile and run; `vc init --from-openapi` imports into a new project;
-//! `vc sync` merges the next version of the spec; a HAR recorded against the mock server
-//! imports into its api file and its flow replays green.
+//! `vc sync` merges the next version of the spec; a HAR recorded against the mock server, and a
+//! Postman or Bruno collection calling it, import into its api file and their flows run green;
+//! a Bruno collection folder is refused with how to export it.
 
 use vc_mock_server::MockServer;
 
@@ -109,33 +110,71 @@ async fn a_recorded_session_imports_into_its_api_file_and_replays_green() {
     assert_eq!(run.status.code(), Some(0), "{}\n{}", said(&run), texts.join("\n"));
 }
 
-/// A collection whose base URL is the mock server's, `http://127.0.0.1:7421`.
-const COLLECTION: &str = include_str!("../fixtures/mock.postman.json");
+/// A collection exported from an api client, whose base URL is the mock server's,
+/// `http://127.0.0.1:7421`.
+struct Collection {
+    kind: &'static str,
+    file: &'static str,
+    text: &'static str,
+    /// The token it holds, which must never be written or printed.
+    token: &'static str,
+}
 
-/// The token the collection holds, which must never be written or printed.
-const COLLECTION_TOKEN: &str = "e2eCollectionToken8Rk3Wn5Qz";
+const POSTMAN: Collection = Collection {
+    kind: "postman",
+    file: "mock.postman.json",
+    text: include_str!("../fixtures/mock.postman.json"),
+    token: "e2eCollectionToken8Rk3Wn5Qz",
+};
 
-#[tokio::test(flavor = "multi_thread")]
-async fn a_postman_collection_imports_into_its_api_file_and_its_flow_runs_green() {
+const BRUNO: Collection = Collection {
+    kind: "bruno",
+    file: "mock.bruno.json",
+    text: include_str!("../fixtures/mock.bruno.json"),
+    token: "e2eBrunoToken5Vd8Kq2Jx6Wm",
+};
+
+/// Imports `collection` with `--flow`, previewed first, and runs the flow against the mock server.
+async fn imports_and_runs_green(collection: &Collection) {
     let server = MockServer::start().await.unwrap();
     let config = CONFIG.1.replace("baseUrl: 'http://x'", &format!("baseUrl: '{}'", server.base_url()));
     let project = Project::new(&[(CONFIG.0, &config), USERS]);
-    project.write("mock.postman.json", &COLLECTION.replace("http://127.0.0.1:7421", &server.base_url()));
+    project.write(collection.file, &collection.text.replace("http://127.0.0.1:7421", &server.base_url()));
     let flow = "users.collection#signsUpAndRenames";
-    let preview =
-        project.vc(&["import", "postman", "mock.postman.json", "--flow", flow, "--dry-run"]).output().unwrap();
+    let args = ["import", collection.kind, collection.file, "--flow", flow];
+    let preview = project.vc(&args).arg("--dry-run").output().unwrap();
     assert_eq!(preview.status.code(), Some(0), "{}", said(&preview));
     assert!(!project.path().join("services/users/collection.test.yaml").exists());
-    let output = project.vc(&["import", "postman", "mock.postman.json", "--flow", flow]).output().unwrap();
+    let output = project.vc(&args).output().unwrap();
     assert_eq!(output.status.code(), Some(0), "{}", said(&output));
     assert!(said(&output).contains("collection Mock · 3 requests"), "{}", said(&output));
     let written = ["services/users/users.api.yaml", "services/users/collection.test.yaml", CONFIG.0];
     let texts: Vec<_> =
         written.iter().map(|file| std::fs::read_to_string(project.path().join(file)).unwrap()).collect();
     for text in texts.iter().chain([&said(&preview), &said(&output)]) {
-        assert!(!text.contains(COLLECTION_TOKEN), "{text}");
+        assert!(!text.contains(collection.token), "{text}");
     }
     project.vc(&["check"]).assert().code(0);
     let run = project.vc(&["run", flow]).output().unwrap();
     assert_eq!(run.status.code(), Some(0), "{}\n{}", said(&run), texts.join("\n"));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_postman_collection_imports_into_its_api_file_and_its_flow_runs_green() {
+    imports_and_runs_green(&POSTMAN).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_bruno_export_imports_into_its_api_file_and_its_flow_runs_green() {
+    imports_and_runs_green(&BRUNO).await;
+}
+
+#[test]
+fn a_bruno_collection_folder_is_refused_with_how_to_export_it() {
+    let project = Project::new(&[CONFIG, ("bruno/mock/sign-up.bru", "meta {\n  name: Sign up\n}\n")]);
+    let output = project.vc(&["import", "bruno", "bruno/mock"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
+    for line in ["it is a folder, not a file", "export the collection as JSON from Bruno"] {
+        assert!(said(&output).contains(line), "{line} not in {}", said(&output));
+    }
 }

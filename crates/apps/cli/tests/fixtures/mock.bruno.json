@@ -1,0 +1,43 @@
+{
+  "version": "1",
+  "name": "Mock",
+  "root": {"request": {"auth": {"mode": "bearer", "bearer": {"token": "{{apiToken}}"}}}},
+  "environments": [
+    {
+      "name": "Local",
+      "variables": [
+        {"name": "baseUrl", "value": "http://127.0.0.1:7421", "enabled": true, "secret": false, "type": "text"},
+        {"name": "apiToken", "value": "e2eBrunoToken5Vd8Kq2Jx6Wm", "enabled": true, "secret": true, "type": "text"}
+      ]
+    }
+  ],
+  "items": [
+    {
+      "type": "http",
+      "name": "Sign up",
+      "seq": 1,
+      "request": {
+        "url": "{{baseUrl}}/users",
+        "method": "POST",
+        "headers": [
+          {"name": "Content-Type", "value": "application/json", "enabled": true},
+          {"name": "X-Api-Token", "value": "e2eBrunoToken5Vd8Kq2Jx6Wm", "enabled": true}
+        ],
+        "body": {"mode": "json", "json": "{\"name\": \"ann\"}"},
+        "vars": {"res": [{"name": "userId", "value": "res.body.id", "enabled": true}]}
+      }
+    },
+    {"type": "http", "name": "Get user", "seq": 2, "request": {"url": "{{baseUrl}}/users/{{userId}}", "method": "GET"}},
+    {
+      "type": "http",
+      "name": "Rename user",
+      "seq": 3,
+      "request": {
+        "url": "{{baseUrl}}/users/:userId",
+        "method": "PATCH",
+        "params": [{"name": "userId", "value": "{{userId}}", "type": "path", "enabled": true}],
+        "body": {"mode": "json", "json": "{\"name\": \"Ann Lee\"}"}
+      }
+    }
+  ]
+}
