@@ -1,6 +1,6 @@
 [package]
 name = "vc-adapter-importers"
-description = "Importers that read foreign files (OpenAPI, curl commands, HAR) into drafts of definition files."
+description = "Importers that read foreign files (OpenAPI, curl commands, HAR, Postman collections) into drafts of definition files."
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true

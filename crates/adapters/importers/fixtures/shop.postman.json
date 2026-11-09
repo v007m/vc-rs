@@ -1,0 +1,126 @@
+{
+  "info": {
+    "_postman_id": "5b0f4c1e-2a7d-4f3b-9c8e-1d6a3b5e7f90",
+    "name": "Shop",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{apiToken}}", "type": "string"}]},
+  "event": [{"listen": "prerequest", "script": {"type": "text/javascript", "exec": ["pm.request.headers.add({key: 'X-Trace', value: '1'});"]}}],
+  "variable": [
+    {"key": "baseUrl", "value": "https://api.shop.test/v1"},
+    {"key": "payUrl", "value": "https://pay.shop.test"},
+    {"key": "apiToken", "value": "Rt7Ny2Kb4Hd6Fj9Zq8Wv3Lp5"},
+    {"key": "payKey", "value": "Lp5Rt7Ny2Kb4Hd6Fj9Zq8Wv3"},
+    {"key": "currency", "value": "EUR"},
+    {"key": "quantity", "value": "2"}
+  ],
+  "item": [
+    {
+      "name": "Carts",
+      "item": [
+        {
+          "name": "Create cart",
+          "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+            "pm.test('created', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set(\"cartId\", pm.response.json().id);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Accept", "value": "application/json"}],
+            "url": {"raw": "{{baseUrl}}/carts", "host": ["{{baseUrl}}"], "path": ["carts"]},
+            "body": {"mode": "raw", "raw": "{\n  \"currency\": \"{{currency}}\"\n}"}
+          }
+        },
+        {
+          "name": "Add item",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/carts/:cartId/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["carts", ":cartId", "items"],
+              "variable": [{"key": "cartId", "value": "{{cartId}}"}]
+            },
+            "body": {"mode": "raw", "raw": "{\"sku\": \"sku_red42\", \"quantity\": {{quantity}}}", "options": {"raw": {"language": "json"}}}
+          }
+        },
+        {
+          "name": "Get cart",
+          "event": [{"listen": "prerequest", "script": {"exec": ["console.log('fetching the cart');"]}}],
+          "request": {"method": "GET", "url": "{{baseUrl}}/carts/{{cartId}}"}
+        }
+      ]
+    },
+    {
+      "name": "Checkout",
+      "auth": {"type": "apikey", "apikey": [
+        {"key": "key", "value": "api_key", "type": "string"},
+        {"key": "value", "value": "{{payKey}}", "type": "string"},
+        {"key": "in", "value": "query", "type": "string"}
+      ]},
+      "item": [
+        {
+          "name": "Pay",
+          "event": [{"listen": "test", "script": {"exec": "var data = pm.response.json();\npm.environment.set(\"orderId\", data.order.id);"}}],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{payUrl}}/payments?currency={{currency}}",
+              "host": ["{{payUrl}}"],
+              "path": ["payments"],
+              "query": [{"key": "currency", "value": "{{currency}}"}]
+            },
+            "body": {"mode": "urlencoded", "urlencoded": [
+              {"key": "cartId", "value": "{{cartId}}"},
+              {"key": "nonce", "value": "Xk9pQ2mZ7vR4tL8wB3nY6cH1"},
+              {"key": "email", "value": "{{$randomEmail}}"},
+              {"key": "coupon", "value": "WELCOME", "disabled": true}
+            ]}
+          }
+        },
+        {
+          "name": "Upload receipt",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{payUrl}}/payments/:paymentId/receipt",
+              "host": ["{{payUrl}}"],
+              "path": ["payments", ":paymentId", "receipt"],
+              "variable": [{"key": "paymentId", "value": "pay_3Hs8Lw"}]
+            },
+            "body": {"mode": "formdata", "formdata": [{"key": "file", "type": "file", "src": "receipt.pdf"}]}
+          }
+        }
+      ]
+    },
+    {"name": "Health", "request": "{{baseUrl}}/health"},
+    {
+      "name": "Search",
+      "request": {
+        "method": "GET",
+        "auth": {"type": "noauth"},
+        "url": {
+          "protocol": "https",
+          "host": ["api", "shop", "test"],
+          "path": ["v1", "products"],
+          "query": [
+            {"key": "q", "value": "red"},
+            {"key": "limit", "value": "10", "disabled": true},
+            {"key": "access_token", "value": "{{apiToken}}"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "auth": {"type": "noauth"},
+        "header": [{"key": "Authorization", "value": "Basic YW5uOmh1bnRlcjI="}, {"key": "X-Request-Id", "value": "req-1"}],
+        "url": "{{baseUrl}}/login",
+        "body": {"mode": "raw", "raw": "{\"username\": \"ann\", \"password\": \"hunter2\"}", "options": {"raw": {"language": "json"}}}
+      }
+    }
+  ]
+}
