@@ -37,6 +37,7 @@ vc-template.workspace = true
 [dev-dependencies]
 criterion.workspace = true
 tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 vc-mock-server.workspace = true
 vc-testkit.workspace = true
 
