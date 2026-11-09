@@ -7,7 +7,6 @@ mod entry;
 mod filter;
 mod flow;
 mod ids;
-mod secret;
 
 use async_trait::async_trait;
 use vc_interfaces::{ImportDraft, ImportError, ImportOptions, ImportSource, Importer};

@@ -1,4 +1,7 @@
-//! Names in a draft: camelCase IDs and vars, and the third-person verbs tests are named with.
+//! Names in a draft: camelCase IDs and vars, the third-person verbs tests are named with, and
+//! the file ID an origin gives.
+
+use crate::url::host;
 
 /// `text` in camelCase: words split at anything not a letter or digit, the first lowercased,
 /// the rest capitalised (`get_user`, `GetUser` and `users.get-user` give `getUser`,
@@ -48,6 +51,25 @@ pub fn singular(word: &str) -> String {
 pub fn capitalised(word: &str) -> String {
     let mut chars = word.chars();
     chars.next().map(|first| first.to_ascii_uppercase().to_string() + chars.as_str()).unwrap_or_default()
+}
+
+/// The file ID for `origin`: its host's first label other than `www` and `api` that starts with
+/// a letter, else `fallback`, else `recorded`.
+pub fn file_id(origin: &str, fallback: &str) -> String {
+    let host = host(origin).unwrap_or_default();
+    let label = host
+        .split('.')
+        .filter(|label| !matches!(*label, "www" | "api"))
+        .find(|label| label.starts_with(|c: char| c.is_ascii_alphabetic()));
+    let word = label.map(|label| label.chars().filter(char::is_ascii_alphanumeric).collect::<String>());
+    let fallback = if fallback.is_empty() { "recorded" } else { fallback };
+    word.unwrap_or_else(|| fallback.to_owned())
+}
+
+/// `base`, or `base2`, `base3`… when `taken`; `count` bounds how many are taken.
+pub fn free(base: &str, count: usize, taken: impl Fn(&str) -> bool) -> String {
+    let mut names = (1..=count + 1).map(|n| if n == 1 { base.to_owned() } else { format!("{base}{n}") });
+    names.find(|name| !taken(name)).unwrap_or_else(|| base.to_owned())
 }
 
 fn lowered(word: &str) -> String {

@@ -18,6 +18,7 @@ mod naming;
 mod openapi;
 mod path_vars;
 mod registry;
+mod secret;
 mod secrets;
 mod url;
 

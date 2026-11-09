@@ -10,13 +10,12 @@ use vc_interfaces::{DraftApi, DraftGroup, ImportDraft, ImportNote};
 use vc_model::Method;
 
 use super::entry::Request;
-use super::filter::host;
 use super::flow::Recorded;
 use super::ids::api_id;
-use super::secret::{Found, Secrets};
 use crate::body::{Body, Scrub, Sent, read};
-use crate::naming::camel;
+use crate::naming::{camel, file_id, free};
 use crate::path_vars::templated;
+use crate::secret::{Found, Secrets};
 use crate::secrets::credential;
 use crate::url::{pairs, path_and_query, split_origin};
 
@@ -199,23 +198,4 @@ fn query_of(query: &str, secrets: &mut Secrets<'_>) -> IndexMap<String, String> 
         read.insert(name, value);
     }
     read
-}
-
-/// The file ID for `origin`: its host's first label other than `www` and `api` that starts with
-/// a letter, else `fallback`, else `recorded`.
-fn file_id(origin: &str, fallback: &str) -> String {
-    let host = host(origin).unwrap_or_default();
-    let label = host
-        .split('.')
-        .filter(|label| !matches!(*label, "www" | "api"))
-        .find(|label| label.starts_with(|c: char| c.is_ascii_alphabetic()));
-    let word = label.map(|label| label.chars().filter(char::is_ascii_alphanumeric).collect::<String>());
-    let fallback = if fallback.is_empty() { "recorded" } else { fallback };
-    word.unwrap_or_else(|| fallback.to_owned())
-}
-
-/// `base`, or `base2`, `base3`… when `taken`; `count` bounds how many are taken.
-fn free(base: &str, count: usize, taken: impl Fn(&str) -> bool) -> String {
-    let mut names = (1..=count + 1).map(|n| if n == 1 { base.to_owned() } else { format!("{base}{n}") });
-    names.find(|name| !taken(name)).unwrap_or_else(|| base.to_owned())
 }

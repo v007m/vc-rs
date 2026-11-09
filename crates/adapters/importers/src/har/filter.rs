@@ -7,7 +7,7 @@
 use vc_interfaces::RecordingFilter;
 
 use super::entry::Entry;
-use crate::url::{path_and_query, split_origin};
+use crate::url::{host, path_and_query, split_origin};
 
 /// The extensions of files a page loads rather than calls.
 const STATIC_EXTENSIONS: [&str; 23] = [
@@ -91,17 +91,6 @@ fn asset(entry: &Entry) -> bool {
     let typed = entry.response.content.mime_type.as_deref().map(str::to_ascii_lowercase).unwrap_or_default();
     extension.is_some_and(|extension| STATIC_EXTENSIONS.contains(&extension.as_str()))
         || STATIC_TYPES.iter().any(|word| typed.contains(word))
-}
-
-/// The lower-case host of `url`, without a user or a port.
-pub fn host(url: &str) -> Option<String> {
-    let (origin, _) = split_origin(url)?;
-    let (_, authority) = origin.split_once("://")?;
-    let authority = authority.rsplit('@').next().unwrap_or(authority);
-    let host = authority
-        .strip_prefix('[')
-        .map_or_else(|| authority.split(':').next().unwrap_or(authority), |v6| v6.split(']').next().unwrap_or(v6));
-    Some(host.to_ascii_lowercase()).filter(|host| !host.is_empty())
 }
 
 /// The site `host` belongs to: its last two labels, or the whole of an address or `localhost`.

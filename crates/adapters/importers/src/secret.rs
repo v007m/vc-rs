@@ -1,4 +1,4 @@
-//! Secrets in a recording. A body field named like a credential, and any word too random to be
+//! Secrets in what an importer reads (a recording, a collection). A body field named like a credential, and any word too random to be
 //! anything else (24 or more characters with lower case, upper case and digits, at least 16 of
 //! them different, and not shaped like an ID), become a `${secret.NAME}` reference, named
 //! `<FILE>_<FIELD>` in upper snake case. The value is dropped: only the place it was found is

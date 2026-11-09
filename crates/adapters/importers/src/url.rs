@@ -23,6 +23,17 @@ pub fn pairs(query: &str) -> impl Iterator<Item = (String, String)> + '_ {
     })
 }
 
+/// The lower-case host of `url`, without a user or a port.
+pub fn host(url: &str) -> Option<String> {
+    let (origin, _) = split_origin(url)?;
+    let (_, authority) = origin.split_once("://")?;
+    let authority = authority.rsplit('@').next().unwrap_or(authority);
+    let host = authority
+        .strip_prefix('[')
+        .map_or_else(|| authority.split(':').next().unwrap_or(authority), |v6| v6.split(']').next().unwrap_or(v6));
+    Some(host.to_ascii_lowercase()).filter(|host| !host.is_empty())
+}
+
 fn decoded(text: &str) -> String {
     percent_decode_str(&text.replace('+', " ")).decode_utf8_lossy().into_owned()
 }
