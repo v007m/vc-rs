@@ -1,45 +1,12 @@
 use std::time::Duration as StdDuration;
 
 use indexmap::IndexMap;
-use serde_json::{Number, Value};
-use vc_executor::{Arguments, Judge, MatcherRegistry};
-use vc_model::{
-    Duration, FileId, LoadScenario, Matcher, MatcherArg, MatcherCall, MixEntry, Pos, SourceFileId, SourceSpan,
-    StringTable, TemplateValue, TestId,
-};
-use vc_template::RenderError;
+use vc_executor::{Judge, MatcherRegistry};
+use vc_model::{Duration, FileId, LoadScenario, Matcher, MatcherArg, MixEntry, StringTable, TemplateValue, TestId};
 
 use super::{Breach, aborts, breaches};
+use crate::test_support::{Literals, call, number, thresholds, under_ms};
 use crate::{Interval, LoadError, Recorder, Sample, Totals, WINDOW_SECONDS, Window};
-
-/// Thresholds hold only literal arguments here.
-struct Literals;
-
-impl Arguments for Literals {
-    fn render(&self, value: &TemplateValue) -> Result<Value, RenderError> {
-        match value {
-            TemplateValue::Number(number) => Ok(Value::Number(number.clone())),
-            _ => Err(RenderError::invalid("not a number")),
-        }
-    }
-}
-
-fn call(name: &str, arg: MatcherArg) -> Matcher {
-    let span = SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0));
-    Matcher::All(vec![MatcherCall { name: name.to_owned(), arg, span }])
-}
-
-fn under_ms(millis: u64) -> Matcher {
-    call("lt", MatcherArg::Duration(Duration::new(StdDuration::from_millis(millis))))
-}
-
-fn number(name: &str, value: f64) -> Matcher {
-    call(name, MatcherArg::Value(TemplateValue::Number(Number::from_f64(value).unwrap())))
-}
-
-fn thresholds(entries: &[(&str, Matcher)]) -> IndexMap<String, Matcher> {
-    entries.iter().map(|(metric, matcher)| ((*metric).to_owned(), matcher.clone())).collect()
-}
 
 struct Fixture {
     fast: TestId,

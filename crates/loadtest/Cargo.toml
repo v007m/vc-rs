@@ -13,11 +13,16 @@ hdrhistogram.workspace = true
 indexmap.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 vc-executor.workspace = true
+vc-interfaces.workspace = true
 vc-model.workspace = true
 
 [dev-dependencies]
+async-trait.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
 vc-template.workspace = true
+vc-testkit.workspace = true
 
 [lints]
 workspace = true

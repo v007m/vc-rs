@@ -40,6 +40,7 @@ pub use action::{
 };
 use action::{CleanupCollector, own_limit};
 pub use bus::EventBus;
+pub use cancel::{CancelTree, Ran};
 pub use error::ExecutorError;
 
 pub use check::{Arguments, Judge, MatcherFn, MatcherRegistry, Schemas};
