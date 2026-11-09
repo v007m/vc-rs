@@ -4229,6 +4229,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "vc-adapter-notifiers"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "http",
+ "insta",
+ "serde_json",
+ "tokio",
+ "vc-interfaces",
+ "vc-model",
+ "vc-testkit",
+]
+
+[[package]]
 name = "vc-adapter-reporters"
 version = "0.1.0"
 dependencies = [

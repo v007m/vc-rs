@@ -1,0 +1,47 @@
+---
+source: crates/adapters/notifiers/src/registry_tests.rs
+expression: "serde_json::to_string_pretty(&body).unwrap()"
+---
+{
+  "reportFormat": "CTRF",
+  "results": {
+    "extra": {
+      "breaches": [
+        "errorRate",
+        "p95 of checkout.flow#paysOrder"
+      ],
+      "failures": [
+        {
+          "message": "expected 200, got <500> & more",
+          "test": "users.crud#getsUser"
+        },
+        {
+          "message": "blocked: `beforeAll` seedUsers failed",
+          "test": "users.crud#rejectsBadEmail:2"
+        }
+      ],
+      "moreFailures": 0,
+      "profiles": [
+        "staging",
+        "eu"
+      ],
+      "project": "shop",
+      "report": "reports/ctrf.json",
+      "trigger": "failure"
+    },
+    "summary": {
+      "failed": 2,
+      "other": 0,
+      "passed": 8,
+      "pending": 0,
+      "skipped": 2,
+      "start": 1767225600000,
+      "stop": 1767225604210,
+      "tests": 12
+    },
+    "tool": {
+      "name": "vibranium"
+    }
+  },
+  "specVersion": "0.2.0"
+}
