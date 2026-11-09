@@ -23,13 +23,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use vc_interfaces::{AuthProvider, CacheStore, CachedCleanup, Clock};
+use vc_interfaces::{AuthProvider, CachedCleanup};
 use vc_model::{Action, ActionId, ActionKind, Failure, OwnerKey, Program};
 
 use crate::{ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues, Saved};
 
 pub use auth::{AuthKey, Lease, NoAuth, TokenCache};
-pub use cached::CachedExecutor;
+pub use cached::{CachedExecutor, Replaced, RunCache};
 pub use call::CallExecutor;
 pub use command::CommandExecutor;
 pub use function::FunctionExecutor;
@@ -148,9 +148,6 @@ impl fmt::Debug for ActionRequest {
     }
 }
 
-/// The cross-run cache and the clock its entries are made and expire by.
-type RunCache = (Arc<dyn CacheStore>, Arc<dyn Clock>);
-
 /// What every action of a run shares: the immutable program, the executor registry and the
 /// run's values.
 #[non_exhaustive]
@@ -168,8 +165,7 @@ pub struct ActionCx {
     auth: Arc<dyn AuthProvider>,
     /// The run's credentials, fetched once per auth and set of vars.
     tokens: Arc<TokenCache>,
-    /// The cross-run cache, when the run has one, and the clock its entries are made and
-    /// expire by.
+    /// The cross-run cache, when the run has one.
     cache: Option<RunCache>,
 }
 
@@ -196,11 +192,11 @@ impl ActionCx {
         Arc::clone(&self.auth)
     }
 
-    /// The same context keeping `cache:`d results in `store` between runs, made and expired
-    /// at the time `clock` gives as each action runs.
+    /// The same context keeping `cache:`d results in `cache` between runs, made and expired at
+    /// the time its clock gives as each action runs.
     #[must_use]
-    pub fn with_cache(self, store: Arc<dyn CacheStore>, clock: Arc<dyn Clock>) -> Self {
-        Self { cache: Some((store, clock)), ..self }
+    pub fn with_cache(self, cache: RunCache) -> Self {
+        Self { cache: Some(cache), ..self }
     }
 
     /// The same context making the config's `redact.rules` through `rules`: how a run adds a

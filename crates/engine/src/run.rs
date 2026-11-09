@@ -12,6 +12,7 @@ use vc_executor::{
 use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Transport};
 use vc_model::{Feed, Part, Template, TemplateValue};
 
+use crate::cache::Sweep;
 use crate::plan::{Extra, Prepared};
 use crate::reporting::{self, Reporters, Setup};
 use crate::{Engine, EngineError, Interrupts, RunRequest, history, ports};
@@ -54,7 +55,7 @@ impl Engine {
         let (reporters, unrecorded) = self.reporters(request, &prepared, seed)?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
-        let (executor, swept) = self.executor(&prepared, inputs, request).await?;
+        let (executor, sweep) = self.executor(&prepared, inputs, request).await?;
         let bus = EventBus::spawn();
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
         let started = self.clock.now_ms();
@@ -69,7 +70,7 @@ impl Engine {
             RunSummary::new(summary.status, summary.totals).timed(started, elapsed).profiles(prepared.names.clone());
         let mut notices = prepared.notices;
         notices.extend(unrecorded);
-        notices.extend(swept);
+        notices.extend(sweep.finish().await);
         notices.extend(fanout.reporters.finish(run).await);
         Ok(RunReport { exit: vc_executor::exit_code(summary), seed, notices })
     }
@@ -106,19 +107,19 @@ impl Engine {
     }
 
     /// The executor for `prepared` with `inputs`, keeping `cache:`d results in the cross-run
-    /// cache unless `request` says `--no-cache`, and the cache's notices.
+    /// cache unless `request` says `--no-cache`, and what the cache leaves for the run's end.
     async fn executor(
         &self,
         prepared: &Prepared,
         inputs: RunInputs,
         request: &RunRequest,
-    ) -> Result<(Executor, Vec<String>), EngineError> {
+    ) -> Result<(Executor, Sweep), EngineError> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
         let cx = self.action_cx(prepared, inputs)?;
-        let (cx, notices) = if request.no_cache { (Arc::new(cx), Vec::new()) } else { self.cached(cx, prepared).await };
+        let sweep = if request.no_cache { Sweep::off(cx, Vec::new()) } else { self.cached(cx, prepared).await };
         let options = RunOptions { concurrency: widen(concurrency), bail: request.bail, ..RunOptions::default() };
-        Ok((Executor::new(cx, options), notices))
+        Ok((Executor::new(sweep.cx(), options), sweep))
     }
 
     /// What the actions of `prepared` share with `inputs`: the action executors and the auth

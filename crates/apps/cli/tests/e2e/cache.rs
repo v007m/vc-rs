@@ -13,6 +13,9 @@ const KEY: &str = "00112233445566778899aabbccddeeff00112233445566778899aabbccdde
 
 const LISTS: (&str, &str) = ("services/users/lists.test.yaml", "tests:\n  - id: listsUsers\n    call: users#list\n");
 
+/// A `cache:` whose check always fails, so every run makes a fresh admin that replaces the entry.
+const CHECKED: &str = "{for: 1h, check: {call: users#list, expect: {status: 404}}}";
+
 /// A config whose `beforeRun` makes an admin user once an hour.
 fn config(base: &str) -> String {
     format!(
@@ -50,6 +53,24 @@ async fn a_cached_before_run_is_made_once_and_cleaned_up_on_clear() {
     keyed(&project, &["cache", "clear"]).assert().code(0).stdout("cleared 1 entry\n");
     assert_eq!(server.stats().await.unwrap().count("DELETE /users/{id}"), 1, "clearing runs the cleanup");
     keyed(&project, &["cache", "list"]).assert().code(0).stdout("the cache is empty\n");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_replaced_entry_is_cleaned_up_after_every_test_and_a_failed_cleanup_warns() {
+    let server = MockServer::start().await.unwrap();
+    let failing = config(&server.base_url()).replace("{for: 1h}", CHECKED);
+    let removes = (
+        "services/users/removal.test.yaml",
+        "tests:\n  - id: removesTheFirstAdmin\n    call: users#remove\n    vars: {userId: 1}\n",
+    );
+    let project = Project::new(&[("vibranium.config.yaml", &failing), USERS, LISTS, removes]);
+    keyed(&project, &["run", "users.lists"]).assert().code(0);
+    let run = keyed(&project, &["run"]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "the first admin outlives the run's tests: {}", said(&run));
+    let stats = server.stats().await.unwrap();
+    assert_eq!((stats.count("POST /users"), stats.count("DELETE /users/{id}")), (2, 2), "{stats:?}");
+    let stderr = String::from_utf8_lossy(&run.stderr);
+    assert!(stderr.contains("warning: cache: the cleanup of users#create failed"), "{stderr}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

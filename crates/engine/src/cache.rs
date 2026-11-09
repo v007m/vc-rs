@@ -1,5 +1,6 @@
 //! The cross-run cache (`.vibranium/cache.db`): opening it under its key, running the cleanups
-//! of the entries that expired or were cleared, and `vc cache list` and `vc cache clear`.
+//! of the entries that expired, were cleared or were replaced, and `vc cache list` and
+//! `vc cache clear`.
 //!
 //! The key is `VIB_CACHE_KEY` when it is set, else the one the OS keychain holds, made and
 //! stored there on first use. With neither, the cache is off for the run: `cache:` actions run
@@ -13,7 +14,7 @@ use serde_json::{Value, json};
 
 use vc_adapter_store::{CacheSecret, SqliteCache};
 use vc_diagnostics::Code;
-use vc_executor::{ActionCx, ActionRequest, RunInputs};
+use vc_executor::{ActionCx, ActionRequest, Replaced, RunCache, RunInputs};
 use vc_interfaces::{CacheEntry, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Environment, Secret};
 use vc_model::Plan;
 
@@ -37,24 +38,54 @@ const KEY_VAR: &str = "VIB_CACHE_KEY";
 const SERVICE: &str = "vibranium";
 const ACCOUNT: &str = "cache-key";
 
+/// A run's context and what its cache leaves for the run's end: the notices of its start, and
+/// the entries fresh results replace during the run, whose cleanups wait until every test is
+/// done, since another instance may still use what they made.
+pub struct Sweep {
+    cx: Arc<ActionCx>,
+    notices: Vec<String>,
+    replaced: Option<Replaced>,
+}
+
+impl Sweep {
+    /// `cx` without the cache, and `notices` saying why.
+    pub fn off(cx: ActionCx, notices: Vec<String>) -> Self {
+        Self { cx: Arc::new(cx), notices, replaced: None }
+    }
+
+    /// The context the run's actions share.
+    pub fn cx(&self) -> Arc<ActionCx> {
+        Arc::clone(&self.cx)
+    }
+
+    /// Runs the cleanups of the entries replaced during the run as their expiry would have;
+    /// the notices of the run's start, then one per cleanup that failed.
+    pub async fn finish(mut self) -> Vec<String> {
+        let replaced = self.replaced.as_mut().map(Replaced::take).unwrap_or_default();
+        self.notices.extend(Cleaner::new(&self.cx).clean(replaced).await);
+        self.notices
+    }
+}
+
 impl Engine {
     /// `cx` keeping `cache:`d results in the cross-run cache, once the cleanups of the entries
-    /// expired at the run's start have run, and the notices of a cache that is off or failed.
+    /// expired at the run's start have run, with the notices of a cache that is off or failed.
     /// A program with no `cache:` action leaves the cache, and the keychain, alone.
-    pub(crate) async fn cached(&self, cx: ActionCx, prepared: &Prepared) -> (Arc<ActionCx>, Vec<String>) {
+    pub(crate) async fn cached(&self, cx: ActionCx, prepared: &Prepared) -> Sweep {
         if !prepared.program.actions.iter().any(|action| action.cache.is_some()) {
-            return (Arc::new(cx), Vec::new());
+            return Sweep::off(cx, Vec::new());
         }
         let store = match self.cache_store(prepared.environment.as_ref()) {
             Ok(store) => store,
-            Err(error) => return (Arc::new(cx), vec![off(&error)]),
+            Err(error) => return Sweep::off(cx, vec![off(&error)]),
         };
-        let cx = Arc::new(cx.with_cache(Arc::clone(&store), Arc::clone(&self.clock)));
+        let (cache, replaced) = RunCache::new(Arc::clone(&store), Arc::clone(&self.clock));
+        let cx = Arc::new(cx.with_cache(cache));
         let notices = match store.take_expired(cx.values.inputs().started_ms) {
             Ok(expired) => Cleaner::new(&cx).clean(expired).await,
             Err(error) => vec![off(&store_error(&error))],
         };
-        (cx, notices)
+        Sweep { cx, notices, replaced: Some(replaced) }
     }
 
     /// Every cache entry, oldest first: what `vc cache list` shows.

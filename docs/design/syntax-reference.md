@@ -459,7 +459,7 @@ An api that creates something says once how to undo it. Every call with a 2xx st
 | a test's steps, `before` or `beforeEach` | after the test's `after` and `afterEach`, whether the test passed or not |
 | the file's `beforeAll` | after the file's `afterAll` |
 | the config's `beforeRun` | after `afterRun` |
-| an action with `cache` | when the cache entry expires, or on `vc cache clear`; not at the end of the run |
+| an action with `cache` | when the cache entry expires, when a fresh result replaces it (at the end of that run), or on `vc cache clear`; not at the end of the run that made it |
 
 Cleanups also run after Ctrl-C. A failed cleanup is reported but does not change test results; the cleanup call itself never registers a cleanup.
 
@@ -808,9 +808,9 @@ Data that is slow or rate-limited to create can outlive a run. `cache` on a `cal
 Rules:
 
 - The cache key is the api (or test), the action's own resolved `vars` and the active profiles, so `users#create` with `role: admin` and with `role: member` are cached separately. Vars that read `fake.*` are left out of the key, so a fresh fake name does not defeat the cache.
-- A hit returns only what the action saved; no request is made and nothing is checked. `cache.check` runs first, seeing the cached values both by name and under the action's `id` (`${var.admin.userId}`); when the check fails, the action runs again, its new result replaces the entry and the old entry's cleanup runs.
+- A hit returns only what the action saved; no request is made and nothing is checked. `cache.check` runs first, seeing the cached values both by name and under the action's `id` (`${var.admin.userId}`); when the check fails, the action runs again, its new result replaces the entry and the old entry's cleanup runs at the end of that run, after every test, since another test may still be using what it made.
 - Only a result that passed is stored, and only when each cleanup it registered is its api's `cleanup`; anything else runs every time.
-- A cached action's cleanup does not run at the end of the run. It runs, under the profiles the entry was made with, when the entry expires (at the start of the next run that finds it expired), when a fresh result replaces it, or on `vc cache clear [id]`. A cleanup that fails is a warning, not a failure.
+- A cached action's cleanup does not run at the end of the run. It runs, under the profiles the entry was made with, when the entry expires (at the start of the next run that finds it expired), when a fresh result replaces it (at the end of that run), or on `vc cache clear [id]`. A cleanup that fails is a warning, not a failure.
 - The whole entry is encrypted (ChaCha20-Poly1305). The key is `VIB_CACHE_KEY` (64 hex digits) when it is set, else the one the OS keychain holds, generated and stored there on first use. Where there is neither, as in most CI, the cache is off: `cache` actions run every time and the run prints warning V5113. An entry sealed under another key, or changed on disk, reads as a miss.
 - `vc run --no-cache` neither reads nor writes the cache for one run, and cleans up no expired entry; `vc cache list` shows the entries and when they expire.
 - `cache` belongs in `beforeRun` and `beforeAll`. On a per-test action `vc check` warns, because every test instance would share one cached object.

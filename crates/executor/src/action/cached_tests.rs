@@ -5,11 +5,11 @@ use bytes::Bytes;
 use http::header::CONTENT_TYPE;
 use http::{HeaderMap, HeaderValue, StatusCode};
 use serde_json::{Value, json};
-use vc_interfaces::{CacheStore, CachedCleanup, Clock};
+use vc_interfaces::{CacheEntry, CacheStore, CachedCleanup, Clock};
 use vc_model::{ActionId, CacheSpec, Date, Duration, HttpResponse, OwnerKey, Program};
 use vc_testkit::{FakeTransport, MemoryCacheStore, Recorded, RecordingTransport};
 
-use super::{CachedExecutor, key};
+use super::{CachedExecutor, Replaced, RunCache, key};
 use crate::fixture::{self, Fixture};
 use crate::{
     ActionCx, ActionExecutor, ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PipelineParts, Saved,
@@ -69,22 +69,36 @@ impl Clock for StoppedClock {
 /// Runs `action` with `store` as its cache and the clock at `at`, against a transport
 /// answering `answers` in turn. The run itself started at 0, so expiry goes by the clock.
 async fn run(
+    target: &(Arc<Program>, ActionId),
+    cache: (Option<&MemoryCacheStore>, u64),
+    answers: Vec<HttpResponse>,
+) -> (ActionReport, Vec<Recorded>) {
+    let (report, sent, _) = replacing(target, cache, answers).await;
+    (report, sent)
+}
+
+/// [`run`], also giving the entries fresh results replaced, left for the run's end.
+async fn replacing(
     (program, action): &(Arc<Program>, ActionId),
     (store, at): (Option<&MemoryCacheStore>, u64),
     answers: Vec<HttpResponse>,
-) -> (ActionReport, Vec<Recorded>) {
+) -> (ActionReport, Vec<Recorded>, Vec<CacheEntry>) {
     let fake = FakeTransport::scripted(answers.into_iter().map(Ok).collect());
     let (transport, recordings) = RecordingTransport::new(Arc::new(fake));
     let executors = ActionExecutors::standard(PipelineParts::new(Arc::new(transport), HostLimits::spawn(8)));
     let inputs = fixture::inputs(&[]).with_started_at(0);
     let cx = ActionCx::new(Arc::clone(program), Arc::new(executors), inputs);
-    let cx = Arc::new(match store {
-        Some(store) => cx.with_cache(Arc::new(store.clone()), Arc::new(StoppedClock(at))),
-        None => cx,
-    });
+    let (cx, mut replaced) = match store {
+        Some(store) => {
+            let (cache, replaced) = RunCache::new(Arc::new(store.clone()), Arc::new(StoppedClock(at)));
+            (cx.with_cache(cache), Some(replaced))
+        }
+        None => (cx, None),
+    };
+    let cx = Arc::new(cx);
     let request = ActionRequest { action: *action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
     let report = cx.executors.execute(request).await;
-    (report, recordings.take())
+    (report, recordings.take(), replaced.as_mut().map(Replaced::take).unwrap_or_default())
 }
 
 #[tokio::test]
@@ -120,7 +134,7 @@ async fn other_vars_miss_and_a_failed_action_is_not_stored() {
 }
 
 #[tokio::test]
-async fn the_check_reads_the_cached_saves_and_a_failed_check_reruns_the_action_and_cleans_the_old_entry() {
+async fn the_check_reads_the_cached_saves_and_a_failed_check_reruns_the_action_and_hands_over_the_old_entry() {
     let store = MemoryCacheStore::new();
     let target = creating("eu", Some("/users/${var.userId}/${var.created.userId}"));
     let (_, sent) = run(&target, (Some(&store), 1_000), created(7)).await;
@@ -128,14 +142,16 @@ async fn the_check_reads_the_cached_saves_and_a_failed_check_reruns_the_action_a
     let (hit, sent) = run(&target, (Some(&store), 1_001), vec![json_response(200, &json!({}))]).await;
     let paths: Vec<_> = sent.iter().map(|recorded| recorded.request.uri.path().to_owned()).collect();
     assert_eq!((hit.saved, paths), (saved(json!({ "userId": 7 })), vec!["/users/7/7".to_owned()]));
-    let answers =
-        vec![json_response(404, &json!({})), json_response(201, &json!({ "id": 8 })), json_response(204, &json!({}))];
-    let (rerun, sent) = run(&target, (Some(&store), 1_002), answers).await;
+    let answers = vec![json_response(404, &json!({})), json_response(201, &json!({ "id": 8 }))];
+    let (rerun, sent, replaced) = replacing(&target, (Some(&store), 1_002), answers).await;
     let paths: Vec<_> = sent.iter().map(|recorded| recorded.request.uri.path().to_owned()).collect();
     assert_eq!(
         (rerun.saved, paths),
-        (saved(json!({ "userId": 8 })), ["/users/7/7", "/users", "/users/7"].map(String::from).to_vec())
+        (saved(json!({ "userId": 8 })), ["/users/7/7", "/users"].map(String::from).to_vec()),
+        "the old entry's cleanup waits for the run's end, as another instance may still use what it made"
     );
+    let cleanup = CachedCleanup { api: "users#n1".into(), vars: saved(json!({ "userId": 7 })) };
+    assert_eq!(replaced.into_iter().map(|entry| entry.cleanups).collect::<Vec<_>>(), vec![vec![cleanup]]);
     let kept: Saved = store.take_expired(u64::MAX).unwrap().into_iter().flat_map(|entry| entry.saved).collect();
     assert_eq!(kept, saved(json!({ "userId": 8 })), "the fresh entry is the one kept");
 }
