@@ -365,11 +365,12 @@ Round 29 additions (9 November 2026, M6–M7 kick-off):
 | D197 | MCP build (Sarath) | `vc-mcp` uses rmcp (features `server` and `transport-io` only) with hand-written tool schemas taken from engine types. The vc-contracts proto waits for its first consumer, M9's web API (D101). M7 ships stdio only; `/mcp` over HTTP comes with the web server in M9 | — |
 | D198 | M7 scope edges | M7 load output is the live summary, `load_intervals` and a JSON summary; the HTML load report comes with the web UI (M9). The published agent skill (PRD R26) moves to M8. `hdrhistogram` is used without default features. HAR and OpenAPI parsing use maintained crates only if they pass cargo-deny; otherwise hand-written serde structs over vc-parser output, with the choice logged when the spike ends | — |
 
-Round 30 additions (9 November 2026, M6–M7 dependency spike):
+Round 30 additions (9 November 2026, M6–M7 dependency and v1 spikes):
 
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D199 | Import and load crates (spike result, per D198) | All candidates pass cargo-deny with no new duplicate versions and no deny.toml change. Used: `har` 0.9, `oas3` 0.22 with `default-features = false` (its default `preserve-order` would switch `serde_json::Map` to IndexMap across the workspace and change JSON key order), `hdrhistogram` 7.6 without default features, `rmcp` per D197. `openapiv3` is not used: OpenAPI 3.0 is up-converted to 3.1 (like Swagger 2.0) and read with `oas3`, so there is one OpenAPI model. YAML specs go vc-parser → `serde_json::Value` → `oas3` | LLD crate table (`openapiv3` for 3.0) |
+| D200 | `vc migrate v1` conversions (spike of the v1 source) | Anything with no v2 form is left out of the output, listed in the migrate report, and marked with a `# TODO(vc migrate)` comment that keeps the v1 text: JavaScript asserts beyond the common shapes (equality → `body.match`, `.length`, `.every`/`.filter(...).length >= 1` → `every`/`some`), and all `scripts`. Built-in v1 datasets become Faker calls with a note (names → `person.fullName`, countries → `location.country`, the rest → `lorem.word`); their contents are not copied. `{lorem_N}` (N characters) becomes a named `fromRegExp` generator `[a-z]{N}`. A string is a generator only if it has regex metacharacters; `[A\|B]` becomes `arrayElement(A, B)` with a note that v1 read it as a character class. `repeat-until` becomes `poll` with `every` = `repeat-delay` or 1s and `timeout` = repeat × every, or 30s. `delay`, `repeat-delay` on a plain repeat, `async` and `timing.wait` are dropped with a note. `cache: true` becomes a `beforeAll` call with `save` (same run, as in v1). Account `variables` become file vars on the test files that use that account | — |
 
 ## Open
 

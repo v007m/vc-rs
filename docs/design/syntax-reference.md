@@ -1276,11 +1276,11 @@ alerts:
 
 ## v1 to v2
 
-Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc migrate v1` performs these conversions and lists anything it could not convert.
+Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc migrate v1` performs these conversions and lists anything it could not convert (JavaScript asserts beyond the common shapes and `scripts`) in its report, with a `# TODO(vc migrate)` comment in the output (D200).
 
 | v1 construct | Problem | v2 replacement |
 | --- | --- | --- |
-| `{var}`, `{dataset.names}`, `{lorem_500}`, `[PRIVATE\|PUBLIC]`, `[a-z]{10}` | Five template syntaxes, some colliding with regex | `${var.x}`, `${fake.lorem.words(500)}`, `${fake.helpers.arrayElement('PRIVATE', 'PUBLIC')}`, `${dataset.names \| random}`, named `generators` |
+| `{var}`, `{dataset.names}`, `{lorem_500}`, `[PRIVATE\|PUBLIC]`, `[a-z]{10}` | Five template syntaxes, some colliding with regex | `${var.x}`, a named `fromRegExp` generator `[a-z]{500}` (v1 counted characters), `${fake.helpers.arrayElement('PRIVATE', 'PUBLIC')}` (v1 read this as a character class), a Faker call for each built-in v1 dataset, named `generators` (D200) |
 | `"!userSchemas/allUsers"` | Sigil inside a string | `$file: schemas/all-users.json` |
 | `repeat-delay`, `before-endpoint`, `firstByte`, `max_parallel_executors`, `created_on` | Three casing styles | camelCase everywhere |
 | `tags: "a,b,c"` | List hidden in a string | `tags: [a, b, c]` |
@@ -1293,7 +1293,7 @@ Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc
 | `expect.response: { "desc": "JS expression" }`, `schema` mixed in | JavaScript strings run through vm2 | `expect.body.match`, `expect.body.schema`, `expect.cel.<label>`, `expect.custom` |
 | `timing: { total: "<700" }`, `delay: 500`, `timeout: 120000` | Unitless numbers, comparison strings | `lt: 700ms`, `500ms`, `2m` |
 | `status: 200` only | No ranges or alternatives | `status: 2xx`, `[200, 204]` or a matcher |
-| `cache: true` | Cache ignored input values | `cache: {for: 12h}` on a lifecycle action, keyed by api, vars and profile |
+| `cache: true` | Cache ignored input values | A `beforeAll` call with `save` (one response per run, as in v1, D200); `cache: {for: 12h}` on a lifecycle action for reuse across runs, keyed by api, vars and profile |
 | `async: true` | Meant "run repeats in parallel" | `parallel: N` on a looped action; the scheduler and `defaults.concurrency` for tests |
 | `repeat-until` | Separate loop construct | `poll` with `until`, `every`, `timeout` |
 | `ignore: true` | No reason recorded | `skip: "reason"` |
