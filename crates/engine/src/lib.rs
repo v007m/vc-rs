@@ -12,7 +12,8 @@
 //! [`Engine::save_call_as_test`], [`Engine::write`]), and imports specs and keeps api files in
 //! step with them ([`Engine::import`], [`Engine::sync`]). Agent calls pass the profiles' agent
 //! policy and, when it asks, the approval queue ([`Engine::policy_check`], [`Engine::admit`],
-//! [`Engine::approvals_list`], [`Engine::approvals_decide`]).
+//! [`Engine::approvals_list`], [`Engine::approvals_decide`]); an agent's `vc call`, run and
+//! definition write are gated so ([`Engine::write_definition`]).
 //! Load is a stub that says it is not built yet ([`Engine::load`]). The model and diagnostics
 //! types apps need are re-exported here (D108).
 //!
@@ -23,6 +24,8 @@
 //! assert_eq!(schemas[0].file_name, "config.schema.json");
 //! ```
 
+mod agent_gate;
+mod agent_write;
 mod approvals;
 mod authoring;
 mod builder;
@@ -77,6 +80,7 @@ mod wanted;
 mod watch;
 mod yaml_out;
 
+pub use agent_write::WriteRequest;
 pub use approvals::{APPROVAL_WAIT, Admission, AgentOutcome};
 pub use builder::{Engine, EngineBuilder};
 pub use cache::CacheReport;

@@ -3965,6 +3965,7 @@ dependencies = [
  "indexmap",
  "serde_json",
  "similar",
+ "tempfile",
  "thiserror",
  "tokio",
  "vc-adapter-auth",

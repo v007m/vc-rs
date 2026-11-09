@@ -53,7 +53,7 @@ impl CallArgs {
     fn request(&self) -> CallRequest {
         let layers = self.layers.request();
         let (api, vars, keep) = (self.api.clone(), self.vars.clone(), self.keep);
-        CallRequest { api, vars, keep, profiles: layers.profiles, sets: layers.sets }
+        CallRequest { api, vars, keep, profiles: layers.profiles, sets: layers.sets, agent: None }
     }
 }
 

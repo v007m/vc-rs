@@ -6,21 +6,27 @@ use std::fmt::Write as _;
 use std::iter;
 use std::sync::Arc;
 
-use serde_json::Value;
+use serde_json::{Map, Value, json};
 use vc_executor::{ActionCx, ActionReport, ActionRequest, Frame, Saved};
 use vc_interfaces::{ConfigEntry, RunEnd, RunStart};
 use vc_model::{
-    Action, ActionId, ActionKind, ActionOutcome, Api, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals, VarDefs,
+    Action, ActionId, ActionKind, ActionOutcome, Api, Method, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals,
+    VarDefs,
 };
 
+use crate::agent_gate::{Gated, api_methods};
 use crate::explain::did_you_mean;
 use crate::history::Recording;
 use crate::plan::{self, Prepared, profile_flag};
+use crate::policy::AgentCall;
 use crate::ports::{self, Layered};
 use crate::{CallRequest, Engine, EngineError, run};
 
 /// The history kind of an ad hoc call.
 const KIND: &str = "adhoc";
+
+/// The tool an agent's call is judged and logged as.
+const CALL_TOOL: &str = "call_api";
 
 /// What `vc call` got back.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -49,6 +55,7 @@ impl Engine {
         let given = given(&request.vars)?;
         let mut prepared = self.adhoc(request)?;
         let action = adhoc_action(&mut prepared.program, &request.api, request.keep)?;
+        let admitted = self.gate(request, &prepared.program).await?;
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let mut notices = std::mem::take(&mut prepared.notices);
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
@@ -65,8 +72,42 @@ impl Engine {
         if let Some(recording) = recording {
             notices.extend(self.closed(recording, passed, &prepared.program).await);
         }
+        self.settle(admitted, passed)?;
         let response = report.response.as_deref().map(|response| cx.redactor.value(response.clone()));
         Ok(CallReport { exit: u8::from(!passed), text: shown(&cx, &report), notices, response })
+    }
+
+    /// For an agent's call, the agent policy's gate on the api's method and, unless `keep`, its
+    /// cleanup's: the call as the log records it, and who approved it; `None` for a person's
+    /// call, which is not gated.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Refused`] when the policy refuses it or no one approves it in time.
+    async fn gate(&self, request: &CallRequest, program: &Program) -> Result<Option<Gated>, EngineError> {
+        let Some(agent) = &request.agent else { return Ok(None) };
+        let api = program.apis.values().find(|api| program.str(api.id.sym()) == Some(request.api.as_str()));
+        let methods = match api {
+            Some(api) if request.keep => vec![api.method],
+            Some(api) => api_methods(program, api.id),
+            None => vec![Method::Get],
+        };
+        let vars: Map<String, Value> = request
+            .vars
+            .iter()
+            .filter_map(|var| var.split_once('='))
+            .map(|(name, value)| (name.to_owned(), Value::String(value.to_owned())))
+            .collect();
+        let call = AgentCall {
+            agent: agent.clone(),
+            tool: CALL_TOOL.to_owned(),
+            profiles: request.profiles.clone(),
+            summary: format!("{} {}", methods.first().map_or("GET", |method| method.name()), request.api),
+            methods,
+            arguments: json!({"api": request.api, "vars": vars, "keep": request.keep}),
+            ..AgentCall::default()
+        };
+        self.gated(call).await.map(Some)
     }
 
     /// The layered settings and active profiles of `request`, with nothing planned.

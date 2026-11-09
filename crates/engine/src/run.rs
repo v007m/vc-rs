@@ -50,6 +50,7 @@ impl Engine {
     pub async fn run(&self, request: &RunRequest, mut interrupts: Interrupts) -> Result<RunReport, EngineError> {
         let (plan, rerun) = self.rerun(request)?;
         let prepared = self.prepare(&plan, Extra { flags: flags(request), rerun })?;
+        let admitted = self.run_gate(request, &prepared).await?;
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let (seed, random) = ports::random(request.seed);
         let (reporters, unrecorded) = self.reporters(request, &prepared, seed)?;
@@ -64,9 +65,7 @@ impl Engine {
             Err(error) => Err(executor_error(&error)),
         };
         bus.flush().await;
-        while let Ok(next) = fanout.feed.try_recv() {
-            fanout.reporters.on(next).await;
-        }
+        fanout.drain().await;
         let swept = sweep.finish(&mut interrupts).await;
         let summary = ran?;
         let elapsed = Duration::from_millis(self.clock.now_ms().saturating_sub(started));
@@ -76,7 +75,9 @@ impl Engine {
         notices.extend(unrecorded);
         notices.extend(swept);
         notices.extend(fanout.reporters.finish(run).await);
-        Ok(RunReport { exit: vc_executor::exit_code(summary), seed, notices })
+        let exit = vc_executor::exit_code(summary);
+        self.settle(admitted, exit == 0)?;
+        Ok(RunReport { exit, seed, notices })
     }
 
     /// The reporters `request` chooses, recording into the history; a history that cannot be
@@ -106,7 +107,7 @@ impl Engine {
         };
         let headline = format!("plan  {}", prepared.report().line());
         let (program, plan) = (Arc::clone(&prepared.program), Arc::clone(&prepared.plan));
-        let setup = Setup { program, plan, headline, color: request.color, seed };
+        let setup = Setup { program, plan, headline, color: request.color, seed, quiet: request.agent.is_some() };
         Ok((Reporters::create(chosen, setup, recording)?, notice))
     }
 
@@ -190,6 +191,15 @@ fn flags(request: &RunRequest) -> Vec<ConfigEntry> {
 struct Fanout {
     feed: Receiver<Feed>,
     reporters: Reporters,
+}
+
+impl Fanout {
+    /// Hands the reporters the events still queued once the run has finished.
+    async fn drain(&mut self) {
+        while let Ok(next) = self.feed.try_recv() {
+            self.reporters.on(next).await;
+        }
+    }
 }
 
 /// Waits for the run to finish, handing events to the reporters and interrupts to the run as

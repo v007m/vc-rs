@@ -74,6 +74,10 @@ pub struct RunRequest {
     /// `--no-cache`: `cache:` actions neither read nor write the cross-run cache, and no
     /// expired entry is cleaned up.
     pub no_cache: bool,
+    /// The agent starting the run (MCP), when one is: the run then passes the profiles' agent
+    /// policy for `run` and every method its plan sends, with one approval for the whole run,
+    /// prints nothing to stdout, and is logged (D195). `None` for a person at the CLI.
+    pub agent: Option<String>,
 }
 
 /// Which report files a run or `vc report` writes, and where.
@@ -152,4 +156,7 @@ pub struct CallRequest {
     pub profiles: Vec<String>,
     /// `--set key=value`, in order; the top config layer (D129).
     pub sets: Vec<String>,
+    /// The agent making the call (MCP, the web UI), when one is: the call then passes the
+    /// profiles' agent policy first and is logged (D178, D195). `None` for a person at the CLI.
+    pub agent: Option<String>,
 }

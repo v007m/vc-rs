@@ -27,18 +27,29 @@ pub trait Destination: Send + Sync + Debug {
 #[derive(Clone, Debug)]
 pub struct FsDestination {
     dir: PathBuf,
+    /// Whether console text is printed; an MCP run's stdout carries the protocol instead.
+    console: bool,
 }
 
 impl FsDestination {
     /// Report files go under `dir`, such as `.vibranium/reports/483`.
     #[must_use]
     pub fn new(dir: impl Into<PathBuf>) -> Self {
-        Self { dir: dir.into() }
+        Self { dir: dir.into(), console: true }
+    }
+
+    /// The same destination with console text dropped, when `quiet`.
+    #[must_use]
+    pub fn quiet(self, quiet: bool) -> Self {
+        Self { console: self.console && !quiet, ..self }
     }
 }
 
 impl Destination for FsDestination {
     fn print(&self, text: &str) -> Result<(), ReportError> {
+        if !self.console {
+            return Ok(());
+        }
         let mut out = std::io::stdout().lock();
         out.write_all(text.as_bytes()).and_then(|()| out.flush()).map_err(|e| write_error("console", &e))
     }
@@ -78,6 +89,16 @@ mod tests {
         FsDestination::new(&dir).print("").unwrap();
         let nested = FsDestination::new(&dir).save("data/tests/0.js", b"x").unwrap();
         assert_eq!(fs::read(nested).unwrap(), b"x");
+    }
+
+    #[test]
+    fn a_quiet_destination_prints_nothing_but_still_saves() {
+        let root = tempfile::tempdir().unwrap();
+        let quiet = FsDestination::new(root.path()).quiet(true);
+        assert!(!quiet.console);
+        quiet.print("not shown").unwrap();
+        assert!(quiet.save("a.json", b"{}").unwrap().exists());
+        assert!(FsDestination::new(root.path()).quiet(false).console);
     }
 
     #[test]

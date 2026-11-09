@@ -86,6 +86,14 @@ pub enum EngineError {
         /// What to do instead, when the engine knows.
         help: Option<String>,
     },
+    /// The agent policy refused an agent's call, or no one approved it in time (D195).
+    #[error("refused: {reason}")]
+    Refused {
+        /// The rule, the denial or the wait that ran out.
+        reason: String,
+        /// What a person can change to let it through.
+        help: Option<String>,
+    },
     /// The feature is designed but not built yet.
     #[error("{feature} is not built yet")]
     NotBuilt {
@@ -113,7 +121,8 @@ impl EngineError {
             | Self::Reporter { help, .. }
             | Self::History { help, .. }
             | Self::Cache { help, .. }
-            | Self::Edit { help, .. } => help.clone(),
+            | Self::Edit { help, .. }
+            | Self::Refused { help, .. } => help.clone(),
             _ => None,
         }
     }

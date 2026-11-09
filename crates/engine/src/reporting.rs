@@ -165,6 +165,8 @@ pub struct Setup {
     pub headline: String,
     pub color: bool,
     pub seed: u64,
+    /// Whether the console prints nothing, for a run an agent started over stdio.
+    pub quiet: bool,
 }
 
 /// The run's reporters, its record and its report files, and the problems they had; a report
@@ -187,7 +189,7 @@ impl Reporters {
     ///
     /// [`EngineError::Internal`] when a checked name is not registered.
     pub fn create(chosen: Chosen, setup: Setup, history: Option<Recording>) -> Result<Self, EngineError> {
-        let destination = Arc::new(FsDestination::new(&chosen.dir));
+        let destination = Arc::new(FsDestination::new(&chosen.dir).quiet(setup.quiet));
         let color = if setup.color { Color::Ansi } else { Color::Plain };
         let keep = setup.program.config.history.keep;
         let context =

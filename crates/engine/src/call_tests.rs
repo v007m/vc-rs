@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use vc_interfaces::HistoryReader as _;
+use vc_interfaces::{Approvals as _, HistoryReader as _, Verdict};
 use vc_model::{HttpResponse, RenderedRequest, RunStatus};
 use vc_testkit::{
-    FakeAuth, FakeTransport, FakeVcs, MemoryHistory, MemoryKeychain, MemorySources, RecordingBrowser,
+    FakeAuth, FakeTransport, FakeVcs, MemoryApprovals, MemoryHistory, MemoryKeychain, MemorySources, RecordingBrowser,
     RecordingTransport, Recordings, status,
 };
 
@@ -205,4 +205,70 @@ async fn a_sign_in_opens_the_builder_browser() {
     let sent = recordings.take();
     let me = sent.iter().find(|record| record.request.uri.path() == "/me").unwrap();
     assert_eq!(me.request.headers.get("authorization").unwrap(), "Bearer t0k3n");
+}
+
+const AGENTS: (&str, &[u8]) = (
+    "vibranium.config.yaml",
+    b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n    agents: {call: [GET], approve: [POST]}\n  - id: bare\nvars: {baseUrl: 'http://x'}\n",
+);
+
+fn agent_project(queue: &MemoryApprovals) -> (Engine, Recordings) {
+    let (transport, recordings) =
+        RecordingTransport::new(Arc::new(FakeTransport::new(|request, call| Ok(answer(request, call)))));
+    let engine = builder(FakeVcs::default())
+        .sources(Arc::new(MemorySources::new(&[AGENTS, USERS])))
+        .transport(Arc::new(transport))
+        .history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new()))
+        .approvals(Arc::new(queue.clone()), Arc::new(queue.clone()))
+        .build()
+        .unwrap();
+    (engine, recordings)
+}
+
+fn agent_call(api: &str, profile: &str) -> CallRequest {
+    CallRequest { agent: Some("claude".into()), profiles: vec![profile.into()], ..call(api) }
+}
+
+#[tokio::test]
+async fn an_agents_call_the_policy_refuses_sends_nothing() {
+    let queue = MemoryApprovals::new();
+    let (engine, recordings) = agent_project(&queue);
+    let refused = engine.call(&agent_call("users#list", "bare")).await;
+    let Err(EngineError::Refused { reason, help }) = refused else { panic!("{refused:?}") };
+    assert_eq!(reason, "bare: agents.call and agents.approve leave out GET");
+    assert!(help.unwrap().contains("`agents` block"));
+    assert_eq!(sent(&recordings), Vec::<String>::new());
+    assert_eq!(queue.actions()[0].result, format!("refused: {reason}"));
+}
+
+#[tokio::test]
+async fn an_agents_allowed_call_is_sent_and_logged() {
+    let queue = MemoryApprovals::new();
+    let (engine, recordings) = agent_project(&queue);
+    assert_eq!(engine.call(&agent_call("users#list", "dev")).await.unwrap().exit, 0);
+    assert_eq!(sent(&recordings), ["GET /users"]);
+    let logged = queue.actions();
+    assert_eq!((logged[0].tool.as_str(), logged[0].result.as_str()), ("call_api", "ok"));
+    assert_eq!(logged[0].approved_by, None);
+}
+
+#[tokio::test]
+async fn an_agents_call_that_asks_is_sent_once_a_person_approves() {
+    let queue = MemoryApprovals::answering(Verdict::Approve);
+    let (engine, recordings) = agent_project(&queue);
+    let request = CallRequest { keep: true, ..agent_call("users#create", "dev") };
+    assert_eq!(engine.call(&request).await.unwrap().exit, 0);
+    assert_eq!(sent(&recordings), ["POST /users"]);
+    assert_eq!(queue.list(false).unwrap()[0].request.summary, "POST users#create");
+    assert_eq!(queue.actions()[0].approved_by.as_deref(), Some("tester"));
+}
+
+#[tokio::test]
+async fn an_agents_call_is_judged_on_its_cleanup_too() {
+    let queue = MemoryApprovals::new();
+    let (engine, recordings) = agent_project(&queue);
+    let refused = engine.call(&agent_call("users#create", "dev")).await;
+    let Err(EngineError::Refused { reason, .. }) = refused else { panic!("{refused:?}") };
+    assert_eq!(reason, "dev: agents.call and agents.approve leave out DELETE");
+    assert_eq!(sent(&recordings), Vec::<String>::new());
 }

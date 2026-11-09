@@ -85,6 +85,7 @@ impl RunArgs {
             color: use_color(&std::io::stdout()),
             failed: self.failed,
             no_cache: self.no_cache,
+            agent: None,
         }))
     }
 }

@@ -1192,6 +1192,10 @@ In the engine, `policy.rs` judges and `approvals.rs` gates:
   - A denial or a wait that runs out is a refusal. A refusal is logged at once; the caller logs an allowed call with `record_agent_action(call, AgentOutcome)` when it ends.
 - `approvals_list(pending_only)` and `approvals_decide(id, verdict)` back `vc approvals` and `vc approve`. The decider is the OS user (`USER`/`USERNAME`).
 - `EngineBuilder::approvals(queue, log)` replaces the default `SqliteApprovals` over `.vibranium/history.db`. `vc_testkit::MemoryApprovals` is the in-memory pair: `answering(verdict)` decides each request at once.
+- `call(&CallRequest)` with `agent: Some(name)` is gated as the tool `call_api` with the api's method and, unless `keep`, the methods of its cleanup chain (D178). A refusal is `EngineError::Refused { reason, help }` and nothing is sent.
+- `run(&RunRequest)` with `agent: Some(name)` is gated once, before anything runs, as `run_tests` with `runs` and every method its plan can send (`agent_gate.rs`: `beforeRun`, each file's `beforeAll`, `beforeEach`, tests and their steps, `afterEach`, `afterAll`, `afterRun`, and each api's cleanups, each api and test walked once). The run is quiet (`Setup.quiet`): the console reporter prints nothing, so stdout stays free for the MCP protocol, while the report files are still saved.
+- `write_definition(&WriteRequest { path, text, agent, profiles })` (`agent_write.rs`) writes one api, test or load file whole. The path must be one of those in the project, and never `vibranium.config.yaml`, which holds the rules that judge the agent. The text passes the compile guard first, so nothing that would break the project is put to a person; then `writeDefinitions` gates it.
+- A gated call, run or write is logged once it ends, as `ok` or `failed`, with who approved it.
 
 ### Web server and web UI (`apps/server`, `web/`)
 
