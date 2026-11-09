@@ -11,6 +11,7 @@
 //! assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["curl", "openapi"]);
 //! ```
 
+mod body;
 mod curl;
 mod naming;
 mod openapi;
