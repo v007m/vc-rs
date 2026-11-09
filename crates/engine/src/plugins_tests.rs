@@ -4,10 +4,11 @@ use std::sync::Arc;
 
 use vc_adapter_plugins::FsPluginStore;
 use vc_adapter_system::FsSources;
-use vc_interfaces::PluginKind;
+use vc_interfaces::{PluginKind, Secrets};
 use vc_testkit::FakeVcs;
 
 use super::PluginState;
+use crate::plugin_hosts::Hosts;
 use crate::sample::builder;
 use crate::{Engine, EngineError};
 
@@ -178,4 +179,43 @@ fn an_unknown_plugin_is_refused_with_the_close_one() {
     added(&engine, "path:plugin");
     let (reason, help) = refusal(&engine.plugin_remove("reprt").unwrap_err());
     assert_eq!((reason.as_str(), help.as_deref()), ("there is no plugin `reprt`", Some("did you mean `report`?")));
+}
+
+/// The hosts a run of the project gets.
+fn hosts(engine: &Engine) -> Hosts {
+    let (program, _) = engine.program().unwrap();
+    engine.plugin_hosts(&program, &Secrets::new()).unwrap()
+}
+
+#[test]
+fn a_run_gets_a_host_for_each_usable_plugin_and_why_not_for_the_others() {
+    let (dir, engine) = project();
+    added(&engine, "path:plugin");
+    let config = format!("{}  - id: other\n    source: path:other\n", read(dir.path(), "vibranium.config.yaml"));
+    fs::write(dir.path().join("vibranium.config.yaml"), config).unwrap();
+    let hosts = hosts(&engine);
+    let id = |id: &str, kind| hosts.get(id, kind).map(|host| host.manifest().id.clone());
+    assert_eq!(id("report", PluginKind::Reporter), Ok("report".to_owned()));
+    assert_eq!((hosts.of(PluginKind::Reporter).count(), hosts.of(PluginKind::Auth).count()), (1, 0));
+    assert_eq!(id("report", PluginKind::Auth), Err("plugin `report` is a `reporter` plugin, not `auth`".to_owned()));
+    let other = "plugin `other`: not approved: `vc plugin add` it";
+    assert_eq!(id("other", PluginKind::Reporter), Err(other.to_owned()));
+    assert_eq!(hosts.notices(), [other]);
+    assert_eq!(id("nope", PluginKind::Reporter), Err("there is no plugin `nope` in the config".to_owned()));
+    let more = PluginState::AsksForMore(vec!["secret apiKey".to_owned()]);
+    assert_eq!(more.to_string(), "asks for more: secret apiKey; `vc plugin add` it again");
+}
+
+#[test]
+fn a_plugin_config_takes_literal_values_only() {
+    let (dir, engine) = project();
+    added(&engine, "path:plugin");
+    let (path, config) = (dir.path().join("vibranium.config.yaml"), read(dir.path(), "vibranium.config.yaml"));
+    fs::write(&path, format!("{config}    config: {{theme: dark}}\n")).unwrap();
+    assert_eq!(hosts(&engine).notices(), Vec::<String>::new());
+    fs::write(&path, format!("{config}    config: {{theme: '${{env.HOME}}'}}\n")).unwrap();
+    let notices = hosts(&engine).notices();
+    let [notice] = notices.as_slice() else { panic!("one notice, not {notices:?}") };
+    assert!(notice.starts_with("plugin `report`: its `config`: "), "{notice}");
+    assert!(notice.contains("takes literal values; the plugin reads a secret with `secrets/get`"), "{notice}");
 }

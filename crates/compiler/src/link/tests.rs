@@ -149,3 +149,17 @@ fn a_file_id_drops_the_root_and_suffix_and_collapses_an_api_named_like_its_folde
     );
     assert_eq!(project::file_id("load/checkout.load.yaml", FileKind::Load), "checkout");
 }
+
+#[test]
+fn report_formats_name_a_built_in_format_or_a_reporter_plugin() {
+    let plugins = "plugins:\n  - id: acmeReport\n    source: path:report\n";
+    let config = format!("{CONFIG}{plugins}reports:\n  formats: [junit, acmeReport, acmeReprt]\n");
+    let test = tests("  - id: getsUser\n    call: users#get\n");
+    let found = diagnostics(&config, APIS, &test);
+    let [wrong] = found.as_slice() else { panic!("one diagnostic, not {found:?}") };
+    assert_eq!(wrong.code, Code::V2302);
+    assert_eq!(wrong.message, "expected one of ctrf, junit, html or a reporter plugin's ID, found `acmeReprt`");
+    assert_eq!(wrong.help, ["did you mean `acmeReport`?"]);
+    let without = format!("{CONFIG}reports:\n  formats: [acmeReport]\n");
+    assert_eq!(diagnostics(&without, APIS, &test).iter().map(|found| found.code).collect::<Vec<_>>(), [Code::V2302]);
+}

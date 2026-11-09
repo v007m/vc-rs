@@ -3,6 +3,8 @@
 //! config (through the compile guard), its permissions into `vibranium.lock`, and its files to
 //! `.vibranium/plugins/<id>/`. Removing it takes all three back out.
 
+use std::fmt;
+
 use vc_interfaces::{Fetched, LOCK_FILE, MANIFEST_FILE, PluginManifest, PluginPermissions, PluginStoreError};
 use vc_model::FileKind;
 use vc_parser::{Node, write_text};
@@ -63,6 +65,19 @@ pub enum PluginState {
     AsksForMore(Vec<String>),
     /// In `vibranium.lock` but not in the config.
     NotInConfig,
+}
+
+impl fmt::Display for PluginState {
+    /// `ready`, or what is wrong and the `vc plugin` command that fixes it.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ready => f.write_str("ready"),
+            Self::NotInstalled => f.write_str("not installed: `vc plugin add` it again"),
+            Self::NotApproved => f.write_str("not approved: `vc plugin add` it"),
+            Self::AsksForMore(more) => write!(f, "asks for more: {}; `vc plugin add` it again", more.join(", ")),
+            Self::NotInConfig => f.write_str("not in the config: `vc plugin remove` it"),
+        }
+    }
 }
 
 impl Engine {
@@ -153,7 +168,7 @@ impl Engine {
     }
 
     /// The installed manifest of `id`; none when it is not installed or does not parse.
-    fn installed(&self, id: &str) -> Result<Option<PluginManifest>, EngineError> {
+    pub(crate) fn installed(&self, id: &str) -> Result<Option<PluginManifest>, EngineError> {
         let text = self.plugins.manifest(id).map_err(|error| store_error(&error))?;
         Ok(text.and_then(|text| plugin_manifest::manifest(&text).ok()))
     }
@@ -193,7 +208,7 @@ impl Engine {
     }
 
     /// The lock's text, if there is one, and its plugins.
-    fn locked(&self) -> Result<Lock, EngineError> {
+    pub(crate) fn locked(&self) -> Result<Lock, EngineError> {
         let text = self.plugins.lock().map_err(|error| store_error(&error))?;
         let plugins = text.as_deref().map(plugin_lock::read).transpose().map_err(|reason| {
             refused(format!("{LOCK_FILE}: {reason}"), "fix it, or remove it and add the plugins again")
@@ -240,7 +255,7 @@ fn configured(root: &Node) -> Vec<(String, String)> {
 }
 
 /// `vibranium.lock`'s text, if there is one, and its plugins.
-type Lock = (Option<String>, Vec<Locked>);
+pub type Lock = (Option<String>, Vec<Locked>);
 
 /// The config's plugins (ID and source) and the lock's.
 type Known = (Vec<(String, String)>, Vec<Locked>);
@@ -276,7 +291,7 @@ fn locked(offer: &PluginOffer) -> Locked {
 }
 
 /// Whether a run can use a plugin with these parts.
-fn state(configured: bool, lock: Option<&Locked>, manifest: Option<&PluginManifest>) -> PluginState {
+pub fn state(configured: bool, lock: Option<&Locked>, manifest: Option<&PluginManifest>) -> PluginState {
     let Some(lock) = lock else { return PluginState::NotApproved };
     if !configured {
         return PluginState::NotInConfig;

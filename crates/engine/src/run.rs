@@ -15,6 +15,7 @@ use vc_model::{Feed, Part, Template, TemplateValue};
 use crate::agent_gate::run_call;
 use crate::cache::Sweep;
 use crate::plan::{Extra, Prepared};
+use crate::plugin_hosts::Hosts;
 use crate::reporting::{self, Reporters, Setup};
 use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify, ports};
 
@@ -69,8 +70,9 @@ impl Engine {
         interrupts: &mut Interrupts,
     ) -> Result<RunReport, EngineError> {
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
+        let plugins = self.plugin_hosts(&prepared.program, &secrets)?;
         let (seed, random) = ports::random(request.seed);
-        let (reporters, unrecorded) = self.reporters(request, &prepared, seed)?;
+        let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let alerting = self.alerting(&prepared, &secrets, run_id)?;
         let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
@@ -101,14 +103,15 @@ impl Engine {
         Ok(report)
     }
 
-    /// The reporters `request` chooses, recording into the history; a history that cannot be
-    /// opened leaves the run unrecorded, with a notice saying so.
+    /// The reporters `request` chooses, the reporter plugins among `plugins`, recording into the
+    /// history, and a notice for each plugin the run cannot use; a history that cannot be opened
+    /// leaves the run unrecorded, with a notice saying so.
     fn reporters(
         &self,
         request: &RunRequest,
         prepared: &Prepared,
-        seed: u64,
-    ) -> Result<(Reporters, Option<String>), EngineError> {
+        (seed, plugins): (u64, Hosts),
+    ) -> Result<(Reporters, Vec<String>), EngineError> {
         let chosen = reporting::choose(request.console.as_deref(), &prepared.settings, &prepared.program)?;
         let chosen = chosen.under(self.root()).flat(request.files.out.is_some());
         let selector = history::selector(&request.plan.select);
@@ -122,14 +125,14 @@ impl Engine {
             vc_version: env!("CARGO_PKG_VERSION").to_owned(),
             ..RunStart::default()
         };
-        let (recording, notice) = match self.recording(&start) {
-            Ok(recording) => (Some(recording), None),
-            Err(error) => (None, Some(format!("history: {error}; this run is not recorded"))),
-        };
+        let mut notices = plugins.notices();
+        let recording = self.recording(&start).inspect_err(|error| {
+            notices.push(format!("history: {error}; this run is not recorded"));
+        });
         let headline = format!("plan  {}", prepared.report().line());
         let (program, plan) = (Arc::clone(&prepared.program), Arc::clone(&prepared.plan));
-        let setup = Setup { program, plan, headline, color: request.color, seed, quiet: request.quiet() };
-        Ok((Reporters::create(chosen, setup, recording)?, notice))
+        let setup = Setup { program, plan, headline, color: request.color, seed, quiet: request.quiet(), plugins };
+        Ok((Reporters::create(chosen, setup, recording.ok())?, notices))
     }
 
     /// The executor for `prepared` with `inputs`, keeping `cache:`d results in the cross-run
@@ -149,13 +152,15 @@ impl Engine {
     }
 
     /// What the actions of `prepared` share with `inputs`: the action executors and the auth
-    /// types over one transport, and events masked by the config's redact rules (a `function:`
-    /// rule through the hook runner). Every run, call and cache cleanup starts from it.
+    /// types over one transport, its auth plugins reading `inputs`' secrets, and events masked
+    /// by the config's redact rules (a `function:` rule through the hook runner). Every run,
+    /// call and cache cleanup starts from it.
     pub(crate) fn action_cx(&self, prepared: &Prepared, inputs: RunInputs) -> Result<ActionCx, EngineError> {
         let hooks = self.hook_runner(&prepared.program);
         let rules = MaskRules::standard().with_hooks(hooks.clone(), &prepared.program);
         let transport = self.transport(prepared.environment.as_ref())?;
-        let auth = self.auth(Arc::clone(&transport));
+        let plugins = self.plugin_hosts(&prepared.program, &inputs.secrets)?;
+        let auth = self.auth(Arc::clone(&transport), &plugins);
         let executors = self.executors(prepared, transport, hooks);
         Ok(ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules).with_auth(auth))
     }

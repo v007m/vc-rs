@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use vc_interfaces::RunId;
-use vc_model::Program;
+use vc_model::{PluginRef, Program, SourceFiles, StringTable};
 
 use super::Chosen;
 use crate::EngineError;
@@ -33,8 +33,14 @@ fn refusal(result: Result<Chosen, EngineError>) -> (String, Option<String>) {
 fn defaults_to_spec_and_ctrf_under_the_reports_folder() {
     let chosen = choose(None, &Settings::default(), &program(&[], None)).unwrap();
     let dir = PathBuf::from("/p/.vibranium/reports");
-    let expected =
-        Chosen { console: "spec".into(), files: vec!["ctrf".into()], dir, per_run: true, single_file: false };
+    let expected = Chosen {
+        console: "spec".into(),
+        files: vec!["ctrf".into()],
+        dir,
+        per_run: true,
+        single_file: false,
+        plugins: vec![],
+    };
     assert_eq!(chosen, expected);
 }
 
@@ -94,4 +100,16 @@ fn an_unknown_name_lists_the_known_ones() {
     let (reason, help) = refusal(choose(None, &flag(&["xml"]), &program(&[], None)));
     assert_eq!(reason, "--report: no report format `xml`");
     assert_eq!(help.as_deref(), Some("the report formats are ctrf, junit, html"));
+}
+
+#[test]
+fn a_configured_plugin_id_names_a_reporter_plugin_not_a_report_file() {
+    let mut strings = StringTable::new();
+    let id = strings.intern("acmeReport").unwrap();
+    let mut configured = Program::new(strings, SourceFiles::default());
+    configured.config.plugins = vec![PluginRef { id, source: "path:report".into(), config: None }];
+    let chosen = choose(None, &flag(&["junit", "acmeReport"]), &configured).unwrap();
+    assert_eq!((chosen.files, chosen.plugins), (vec!["junit".to_owned()], vec!["acmeReport".to_owned()]));
+    let (reason, _) = refusal(choose(None, &flag(&["acmeReport"]), &program(&[], None)));
+    assert_eq!(reason, "--report: no report format `acmeReport`");
 }

@@ -1,9 +1,20 @@
 //! `vc plugin add` from a folder asks before it installs, records what the plugin may reach in
-//! `vibranium.lock`, and `vc plugin list` and `remove` read and undo it.
+//! `vibranium.lock`, and `vc plugin list` and `remove` read and undo it. A reporter plugin named
+//! in `reports.formats` gets the run's events, reads the secret the lock grants, is refused one
+//! it does not, and writes its report.
 
 use std::fs;
+use std::process::Command;
 
-use crate::{CONFIG, Project, said};
+use vc_mock_server::MockServer;
+
+use crate::{CONFIG, Project, USERS, said};
+
+/// A reporter plugin in Python's standard library.
+const REPORT_PY: &str = include_str!("../fixtures/plugin/report.py");
+
+/// A test that lists the users.
+const LISTS: (&str, &str) = ("services/users/list.test.yaml", "tests:\n  - id: listsUsers\n    call: users#list\n");
 
 const MANIFEST: &str = concat!(
     "id: report\nversion: 1.0.0\nkind: reporter\n",
@@ -40,4 +51,29 @@ fn listed_then_removed(project: &Project) {
     let config = fs::read_to_string(project.path().join(CONFIG.0)).unwrap();
     assert_eq!(config.trim_end(), CONFIG.1.trim_end());
     assert!(!project.path().join(".vibranium/plugins/report").exists());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_reporter_plugin_reads_its_granted_secret_only_and_writes_its_report() {
+    if Command::new("python3").arg("--version").output().is_err() {
+        eprintln!("skipped: no python3 on PATH");
+        return;
+    }
+    let server = MockServer::start().await.unwrap();
+    let schema = (".env.schema", "reportToken=\napiKey=\n");
+    let plugin = [("plugin/vibranium-plugin.yaml", MANIFEST), ("plugin/report.py", REPORT_PY)];
+    let project = Project::new(&[CONFIG, USERS, LISTS, schema, plugin[0], plugin[1]]);
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    let config = fs::read_to_string(project.path().join(CONFIG.0)).unwrap();
+    project.write(CONFIG.0, &format!("{config}reports: {{formats: [ctrf, report]}}\n"));
+    let mut run = project.run(&server.base_url(), &["--out", "out"]);
+    let run = run.env("reportToken", "t0ken-42").env("apiKey", "k3y").output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    assert!(project.path().join("out/ctrf.json").is_file());
+    let report = fs::read_to_string(project.path().join("out/plugin/report.txt")).unwrap();
+    let lines: Vec<&str> = report.lines().collect();
+    assert_eq!(lines[0], "status passed", "{report}");
+    assert!(lines[1].strip_prefix("events ").unwrap().parse::<u32>().unwrap() > 0, "{report}");
+    assert_eq!(lines[2..], ["reportToken 8 chars", "apiKey refused -32001"], "{report}");
 }

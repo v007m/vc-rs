@@ -6,18 +6,19 @@
 use std::hash::{BuildHasher as _, Hasher as _, RandomState};
 use std::sync::Arc;
 
-use vc_adapter_auth::AuthTypes;
+use vc_adapter_auth::{AuthTypes, PluginAuth};
 use vc_adapter_hooks::QuickJsHooks;
 use vc_adapter_http::{HttpOptions, HttpTransport, ProxyConfig};
 use vc_adapter_notifiers::NotifierRegistry;
 use vc_adapter_secrets::SecretProviders;
 use vc_adapter_system::{DotEnv, SeededRandom, SetFlags, SystemBrowser, SystemEnvironment, UserConfig, VibVars};
 use vc_interfaces::{
-    AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, Random, SecretError, SecretQuery, Secrets,
-    Transport,
+    AuthProvider, ConfigEntry, Environment, HookRunner, NotifierFactory, PluginKind, Random, SecretError, SecretQuery,
+    Secrets, Transport,
 };
 use vc_model::{Program, SecretsConfig};
 
+use crate::plugin_hosts::Hosts;
 use crate::settings::{self, Settings};
 use crate::user::UnderProject;
 use crate::{Engine, EngineError};
@@ -83,13 +84,15 @@ impl Engine {
 
     /// The auth types a run obtains credentials through (D106): the builder's, else the
     /// standard registry, its token endpoints reached through `transport`, a sign-in opened in
-    /// the system browser and refresh tokens kept in the keychain.
-    pub(crate) fn auth(&self, transport: Arc<dyn Transport>) -> Arc<dyn AuthProvider> {
+    /// the system browser, refresh tokens kept in the keychain and `plugin` calling the auth
+    /// plugins of `plugins`.
+    pub(crate) fn auth(&self, transport: Arc<dyn Transport>, plugins: &Hosts) -> Arc<dyn AuthProvider> {
         if let Some(auth) = &self.auth {
             return Arc::clone(auth);
         }
         let browser = self.browser.clone().unwrap_or_else(|| Arc::new(SystemBrowser::new(Arc::clone(&self.commands))));
-        Arc::new(AuthTypes::standard(transport, browser, self.keychain.clone()))
+        let plugin = plugins.of(PluginKind::Auth).fold(PluginAuth::new(), PluginAuth::with);
+        Arc::new(AuthTypes::standard(transport, browser, self.keychain.clone()).with("plugin", Arc::new(plugin)))
     }
 
     /// The alert channels (D106): the builder's, else the standard ones, posting through
