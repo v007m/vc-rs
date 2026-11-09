@@ -1,4 +1,5 @@
-//! `JUnit` XML for CI dashboards: one `<testsuite>` per test file, one `<testcase>` per instance.
+//! `JUnit` XML for CI dashboards: one `<testsuites>` named for the project, one `<testsuite>` per
+//! test file, one `<testcase>` per instance.
 
 use vc_interfaces::{Artifact, ReportError};
 use vc_model::{TestStatus, Totals};
@@ -23,7 +24,7 @@ impl Format for JunitFormat {
 fn document(snapshot: &RunSnapshot) -> String {
     let suites: String = suites(snapshot).iter().map(|(file, tests)| suite(file, tests)).collect();
     let run = &snapshot.run;
-    let head = xml::open("testsuites", &counts("vibranium", run.totals, run.duration_ms));
+    let head = xml::open("testsuites", &counts(snapshot.project(), run.totals, run.duration_ms));
     format!("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{head}\n{suites}</testsuites>\n")
 }
 

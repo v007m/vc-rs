@@ -7,10 +7,11 @@ mod redact;
 mod stage;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use serde_json::Value;
 use vc_diagnostics::Code;
-use vc_interfaces::{HookCall, HookError, HookRunner};
+use vc_interfaces::{Budget, HookCall, HookError, HookRunner};
 use vc_model::{Api, Failure, HookModules, HookRef, Program, RequestHooks};
 
 pub use custom::judge;
@@ -21,12 +22,21 @@ pub use stage::HookStage;
 pub struct HookBridge {
     runner: Option<Arc<dyn HookRunner>>,
     modules: HookModules,
+    /// The time each call may run, when not the default budget's.
+    time: Option<Duration>,
 }
 
 impl HookBridge {
     /// A bridge to `runner` with `program`'s hook files.
     pub fn new(runner: Option<Arc<dyn HookRunner>>, program: &Program) -> Self {
-        Self { runner, modules: program.hooks.clone() }
+        Self { runner, modules: program.hooks.clone(), time: None }
+    }
+
+    /// This bridge, giving each call `time` to run when it is set (a `function:` action's
+    /// `timeout`, D192); the memory budget stays the default.
+    #[must_use]
+    pub fn within(self, time: Option<Duration>) -> Self {
+        Self { time, ..self }
     }
 
     /// What `hook` returns for `input`.
@@ -38,7 +48,12 @@ impl HookBridge {
         let Some(runner) = &self.runner else {
             return Err(HookError::Unavailable { reason: "this run has no hook runner".to_owned() });
         };
-        let call = HookCall::new(self.modules.clone(), hook.clone(), input);
+        let mut call = HookCall::new(self.modules.clone(), hook.clone(), input);
+        if let Some(time) = self.time {
+            let mut budget = Budget::default();
+            budget.time = time;
+            call = call.with_budget(budget);
+        }
         runner.call(call).await.map(|output| output.value)
     }
 }

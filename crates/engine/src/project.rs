@@ -78,12 +78,17 @@ impl Engine {
     /// them only when the config writes some.
     fn discover(&self) -> Result<Discovery, EngineError> {
         let found = self.walk(&SourceFilter::default())?;
-        let globs = SourceGlobs::of(&found.files);
-        if globs.is_default() {
-            return Ok(found);
-        }
-        let filter = SourceFilter::written(&globs.include, globs.exclude.as_deref()).map_err(sources_error)?;
-        self.walk(&filter)
+        written_filter(&found)?.map_or(Ok(found), |filter| self.walk(&filter))
+    }
+
+    /// The filter discovery uses: the config's `paths` globs, or the default one when it writes
+    /// none. `vc watch` reports the saves it lets through.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Sources`] when the folder cannot be read or a glob does not parse.
+    pub(crate) fn source_filter(&self) -> Result<SourceFilter, EngineError> {
+        Ok(written_filter(&self.walk(&SourceFilter::default())?)?.unwrap_or_default())
     }
 
     /// `.env.schema` at the project root, read when discovery listed it (D165). A schema that
@@ -141,4 +146,13 @@ pub fn invalid(diagnostics: Diagnostics, files: SourceFiles, notices: Vec<String
 
 pub fn sources_error(error: impl std::fmt::Display) -> EngineError {
     EngineError::Sources { reason: error.to_string() }
+}
+
+/// The filter of the `paths` globs the config in `found` writes; none when it writes none.
+fn written_filter(found: &Discovery) -> Result<Option<SourceFilter>, EngineError> {
+    let globs = SourceGlobs::of(&found.files);
+    if globs.is_default() {
+        return Ok(None);
+    }
+    SourceFilter::written(&globs.include, globs.exclude.as_deref()).map(Some).map_err(sources_error)
 }

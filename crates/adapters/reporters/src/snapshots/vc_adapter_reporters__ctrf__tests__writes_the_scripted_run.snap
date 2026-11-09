@@ -5,6 +5,9 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
 {
   "reportFormat": "CTRF",
   "results": {
+    "environment": {
+      "appName": "vibranium"
+    },
     "extra": {
       "abandoned": [],
       "cleanups": [

@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use serde_json::Value;
 
 use crate::{
-    ActionId, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule, SecretsConfig,
+    ActionId, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule, Retry, SecretsConfig,
     StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
 };
 
@@ -57,6 +57,8 @@ pub struct Defaults {
     pub concurrency: Option<u32>,
     /// `perHost`: requests at once to one host.
     pub per_host: Option<u32>,
+    /// `retry` of every test that writes none (D126).
+    pub retry: Option<Retry>,
     /// `headers` on every request.
     pub headers: IndexMap<String, Template>,
 }

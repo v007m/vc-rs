@@ -83,3 +83,15 @@ fn reports_a_file_it_cannot_save() {
     let refused = ReportError::Write { location: "ctrf.json".into(), reason: "read-only".into() };
     assert_eq!(CtrfFormat.render(&testing::snapshot(), &Broken), Err(refused));
 }
+
+#[test]
+fn names_the_project_as_the_app_and_vibranium_as_the_tool() {
+    assert_eq!(written()["results"]["environment"]["appName"], "vibranium", "no `project` in the config");
+    let mut snapshot = testing::snapshot();
+    snapshot.project = Some("shop".to_owned());
+    let (capture, captured) = Capture::new();
+    CtrfFormat.render(&snapshot, capture.as_ref()).unwrap();
+    let document: Value = serde_json::from_str(&captured.take().1[0].1).unwrap();
+    assert_eq!(document["results"]["environment"]["appName"], "shop");
+    assert_eq!(document["results"]["tool"]["name"], "vibranium");
+}

@@ -6,7 +6,7 @@ use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
     AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment, FileWatcher,
-    HistoryReader, HistoryWriter, HookRunner, Keychain, SourceFilter, SourceProvider, SourceWriter, Transport, Vcs,
+    HistoryReader, HistoryWriter, HookRunner, Keychain, SourceProvider, SourceWriter, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -213,7 +213,7 @@ impl EngineBuilder {
         let keychain =
             self.keychain.or_else(|| OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>));
         let (cache, watcher, auth, browser) = (self.cache, self.watcher, self.auth, self.browser);
-        let watcher = watcher.unwrap_or_else(|| Arc::new(NotifyWatcher::new(&self.root, SourceFilter::default())));
+        let watcher = watcher.unwrap_or_else(|| Arc::new(NotifyWatcher::new(&self.root)));
         Ok(Engine {
             root: self.root,
             sources,

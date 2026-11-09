@@ -1,14 +1,19 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tokio::time::{self, Instant};
+use vc_diagnostics::Code;
 use vc_model::{Action, ActionId, ActionKind, ActionOutcome, Failure, Program, Test, TestBody};
 
 use super::{ActionExecutor, ActionRequest, provides};
 use crate::{ActionReport, Defined};
 
-/// Runs `test:` reuse: the reused test's call or steps, in order, in the current frame, stopping
-/// at the first failure. The reused test's own `before`, `after` and test-level checks are not
-/// run.
+/// Runs `test:` reuse: the reused test's call or steps, in order, in the current frame.
+///
+/// It stops at the first failure. The reused test's own `before`, `after` and test-level checks
+/// are not run. The reusing action's own `timeout` limits the whole reuse (D192): the step
+/// running when it passes is dropped and fails with V5104, and the steps before it keep their
+/// cleanups.
 #[derive(Clone, Copy, Debug, Default)]
 #[non_exhaustive]
 pub struct TestExecutor;
@@ -22,13 +27,14 @@ impl ActionExecutor for TestExecutor {
         };
         let steps = body_actions(&test.body);
         let declared = request.cx.action(request.action);
+        let deadline = declared.and_then(|action| action.timeout).map(|limit| Instant::now() + limit.get());
         let mut frame = request.frame.clone();
         frame.callers.extend(callers(&request));
         frame.test_file = Some(test.file);
         let mut report = ActionReport::passed();
         for action in steps {
             let step = ActionRequest { action, frame: frame.clone(), ..request.clone() };
-            let step = request.cx.executors.execute(step).await;
+            let step = within(deadline, request.cx.executors.execute(step), request.action).await;
             frame.absorb(&request.cx.program, action, &step);
             report.cleanups.extend(step.cleanups);
             report.saved.extend(step.saved);
@@ -50,6 +56,15 @@ impl ActionExecutor for TestExecutor {
     fn follows(&self, program: &Program, action: &Action) -> Vec<ActionId> {
         reused(program, action).unwrap_or_default()
     }
+}
+
+/// `work`'s report, or the V5104 failure of the reuse `id` once `deadline` passes.
+async fn within(deadline: Option<Instant>, work: impl Future<Output = ActionReport>, id: ActionId) -> ActionReport {
+    let Some(deadline) = deadline else { return work.await };
+    time::timeout_at(deadline, work).await.unwrap_or_else(|_| {
+        let failure = Failure::new("the reused test ran past its `timeout`").with_code(Code::V5104.to_string());
+        ActionReport::failed(failure.at(id))
+    })
 }
 
 /// The vars a reuse adds to its steps' scope, outermost first: the reused test's, then the

@@ -79,7 +79,8 @@ impl CommandExecutor {
 
     fn spec(&self, render: &Render<'_>, template: &Template, action: &Action) -> Result<CommandSpec, Failure> {
         let (shell, flag, _) = SHELL;
-        let timeout = render.program().config.defaults.timeout.map_or(DEFAULT_TIMEOUT, vc_model::Duration::get);
+        let timeout = action.timeout.or_else(|| render.program().config.defaults.timeout);
+        let timeout = timeout.map_or(DEFAULT_TIMEOUT, vc_model::Duration::get);
         let mut spec = CommandSpec::new(shell, [flag.to_owned(), line(render, template)?])
             .in_dir(self.root.clone())
             .with_timeout(timeout)

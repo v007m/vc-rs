@@ -85,3 +85,15 @@ fn snapshots_the_whole_run() {
     assert_eq!(snapshot.tests[0].detail, "");
     assert_eq!(snapshot.run().id, 7);
 }
+
+#[test]
+fn keeps_the_config_s_project_for_the_reports() {
+    let (capture, _captured) = Capture::new();
+    let (program, plan) = testing::project();
+    let mut named = (*program).clone();
+    named.config.project = Some("shop".to_owned());
+    let context = crate::ReporterContext::new(std::sync::Arc::new(named), plan, capture);
+    let snapshot = crate::Recorder::new(&context).finish(crate::RunFacts::of(7, &testing::summary()));
+    assert_eq!(snapshot.project(), "shop");
+    assert_eq!(testing::snapshot().project(), "vibranium", "no `project`, the fallback");
+}

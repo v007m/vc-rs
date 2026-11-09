@@ -76,6 +76,7 @@ impl Fixture {
             poll: None,
             repeat: None,
             retry: None,
+            timeout: None,
             keep: false,
             provides: vec![],
         });

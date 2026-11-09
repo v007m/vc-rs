@@ -850,7 +850,7 @@ pub trait vc_interfaces::Environment: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Environment::names(&self) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_interfaces::Environment::var(&self, &str) -> core::option::Option<alloc::string::String>
 pub trait vc_interfaces::FileWatcher: core::marker::Send + core::marker::Sync
-pub fn vc_interfaces::FileWatcher::watch(&self) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_interfaces::WatchError>
+pub fn vc_interfaces::FileWatcher::watch(&self, &vc_interfaces::SourceFilter) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_interfaces::WatchError>
 pub trait vc_interfaces::HistoryReader: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::HistoryReader::run(&self, vc_interfaces::RunRef) -> core::result::Result<core::option::Option<vc_interfaces::RunRow>, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryReader::runs(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::RunRow>, vc_interfaces::HistoryError>

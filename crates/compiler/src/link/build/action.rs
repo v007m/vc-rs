@@ -60,6 +60,7 @@ impl<'a> Build<'_, 'a> {
             save: SaveSpec { values: self.values(source, node.get("save"))? },
             poll: poll.and_then(|poll| poll_of(source, poll, origin)),
             retry: read::retry(source, node).filter(|_| place.test.is_none()),
+            timeout: read::duration(source, node, "timeout").filter(|_| place.test.is_none()),
             keep: read::flag(shapes::action(), node, "keep"),
             provides: self.provides(node)?,
             cache,

@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use vc_model::{
     Action, ActionKind, AuthRef, Bodies, BodySpec, CheckKind, ContentHash, Duration, Examples, Keep, Loop, Matcher,
-    Method, Origin, Owner, Program, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test, TestBody,
+    Method, Origin, Owner, Program, Retry, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test,
+    TestBody,
 };
 
 use crate::CompileInput;
@@ -167,11 +168,11 @@ fn step_checks_merge_api_then_test_then_step() {
     assert_eq!(twice.expect.checks.len(), 2);
 }
 
-const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndefaults: {timeout: 5s, concurrency: 4, perHost: 2, headers: {x-d: '1'}}\nafterRun:\n  - function: hooks/a.ts#report\n";
+const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndefaults: {timeout: 5s, concurrency: 4, perHost: 2, retry: {attempts: 3, delay: 1s}, headers: {x-d: '1'}}\nafterRun:\n  - function: hooks/a.ts#report\n";
 
 const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: ../../hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
 
-const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n  - id: reusesTheWait\n    headers: {x-t: '1'}\n    expect: {status: 202}\n    steps:\n      - test: waitsForOrder\n        expect: {size: {lt: 1kb}}\n      - function: hooks/a.ts#check\n";
+const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    timeout: 9s\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n  - id: reusesTheWait\n    headers: {x-t: '1'}\n    expect: {status: 202}\n    steps:\n      - test: waitsForOrder\n        expect: {size: {lt: 1kb}}\n        timeout: 3s\n      - function: hooks/a.ts#check\n";
 
 fn more() -> Arc<Program> {
     let files = vec![
@@ -195,6 +196,7 @@ fn builds_the_config_defaults_and_after_run() {
     let defaults = &program.config.defaults;
     assert_eq!((defaults.timeout, defaults.concurrency, defaults.per_host), (Some(seconds(5)), Some(4), Some(2)));
     assert_eq!(defaults.headers.len(), 1);
+    assert_eq!(defaults.retry, Some(Retry { attempts: 3, delay: seconds(1) }));
     assert_eq!(program.run_blocks.after_run.len(), 1);
 }
 
@@ -224,6 +226,7 @@ fn reads_skips_polls_and_body_and_function_checks() {
     let call = action(&program, call);
     let poll = call.poll.as_ref().unwrap();
     assert_eq!((poll.every, poll.timeout, poll.until.checks.len()), (seconds(2), seconds(30), 1));
+    assert_eq!((waits.timeout, call.timeout), (Some(seconds(9)), None), "a test's timeout is not its call's");
     let kinds: Vec<_> = call.expect.checks.iter().map(|check| check.kind).collect();
     assert_eq!(kinds, [CheckKind::Equals, CheckKind::Custom]);
 }
@@ -235,7 +238,8 @@ fn test_steps_take_the_tests_defaults_and_function_steps_take_none() {
     let [reuse, hook] = steps(&program, reuses)[..] else { panic!("two steps") };
     assert!(matches!(reuse.kind, ActionKind::Test(_)));
     assert_eq!(reuse.headers.keys().map(String::as_str).collect::<Vec<_>>(), ["x-t"]);
-    assert_eq!(checks(reuse), [(CheckKind::Status, 16, 't'), (CheckKind::Size, 19, 's')]);
+    assert_eq!(checks(reuse), [(CheckKind::Status, 17, 't'), (CheckKind::Size, 20, 's')]);
+    assert_eq!((reuse.timeout, hook.timeout), (Some(seconds(3)), None));
     assert!(hook.headers.is_empty() && hook.expect.checks.is_empty());
 }
 

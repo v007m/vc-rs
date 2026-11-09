@@ -68,7 +68,7 @@ enum Command {
     Cache(cache::CacheArgs),
     /// Adds an api, test or auth definition, or creates an empty definition file.
     New(new::NewArgs),
-    /// Renames an api, test or file ID and every reference to it.
+    /// Renames an api, test, file, var, auth or dataset ID and every reference to it.
     Rename(rename::RenameArgs),
     /// Rewrites definition files in the house style, keeping their comments.
     Fmt(fmt::FmtArgs),

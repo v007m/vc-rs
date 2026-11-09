@@ -76,6 +76,7 @@ impl<'a> Build<'_, 'a> {
             timeout: read::duration(source, node, "timeout"),
             concurrency: read::number(node, "concurrency"),
             per_host: read::number(node, "perHost"),
+            retry: read::retry(source, node),
             headers: read::templates(source, node, "headers"),
         }
     }

@@ -1,0 +1,6 @@
+tests:
+  - id: listsEach
+    examples: ${dataset.people}
+    forEach: ${dataset.users.admins}
+    vars:
+      one: '${dataset.people | random}'

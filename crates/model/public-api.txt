@@ -609,6 +609,7 @@ pub vc_model::Action::repeat: core::option::Option<vc_model::Loop>
 pub vc_model::Action::retry: core::option::Option<vc_model::Retry>
 pub vc_model::Action::save: vc_model::SaveSpec
 pub vc_model::Action::span: vc_model::SourceSpan
+pub vc_model::Action::timeout: core::option::Option<vc_model::Duration>
 pub vc_model::Action::vars: vc_model::VarDefs
 impl vc_model::Action
 pub fn vc_model::Action::new(vc_model::ActionKind, vc_model::SourceSpan) -> Self
@@ -980,6 +981,7 @@ pub struct vc_model::Defaults
 pub vc_model::Defaults::concurrency: core::option::Option<u32>
 pub vc_model::Defaults::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
 pub vc_model::Defaults::per_host: core::option::Option<u32>
+pub vc_model::Defaults::retry: core::option::Option<vc_model::Retry>
 pub vc_model::Defaults::timeout: core::option::Option<vc_model::Duration>
 impl core::clone::Clone for vc_model::Defaults
 pub fn vc_model::Defaults::clone(&self) -> Self

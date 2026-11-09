@@ -147,6 +147,7 @@ fn called(api: &Api, keep: bool) -> Action {
         save: SaveSpec::default(),
         poll: None,
         retry: None,
+        timeout: None,
         keep,
         provides: Vec::new(),
         cache: None,

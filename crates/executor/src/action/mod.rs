@@ -13,6 +13,7 @@ mod inline;
 mod looping;
 mod provides;
 mod request;
+mod retrying;
 mod reuse;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -231,8 +232,17 @@ impl ActionExecutors {
     }
 
     /// Runs `request` with the executor for its kind, once per turn when the action has
-    /// `repeat` or `forEach`; an action with no executor fails.
+    /// `repeat` or `forEach`, and again after a failure while its `retry` allows; an action with
+    /// no executor fails.
     pub async fn execute(&self, request: ActionRequest) -> ActionReport {
+        match request.cx.action(request.action).and_then(|action| action.retry) {
+            Some(retry) => retrying::attempt(self, request, retry).await,
+            None => self.once(request).await,
+        }
+    }
+
+    /// One attempt at `request`: every turn of its loop, or the action once.
+    async fn once(&self, request: ActionRequest) -> ActionReport {
         let id = request.action;
         let action = request.cx.action(id);
         let (kind, spec) =

@@ -102,3 +102,25 @@ async fn ctrl_c_runs_the_cleanups_and_exits_130() {
     let stats = server.stats().await.unwrap();
     assert_eq!((stats.count("DELETE /users/{id}"), stats.count("DELETE /orders/{id}")), (1, 1), "{stats:?}");
 }
+
+/// A `beforeAll` call with `retry` runs again until the flaky route answers, and the test reads
+/// what the passing attempt saved; without `retry` the test is blocked.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_before_all_call_retries_until_it_passes() {
+    let file = |retry: &str| {
+        format!(
+            "beforeAll:\n  - id: warm\n    call: scripted#flaky\n    query: {{failTimes: '2'}}\n{retry}\
+             \x20   save:\n      attempt: ${{response.body.attempt}}\n\
+             tests:\n  - id: readsTheWarmUp\n    call: scripted#echo\n    body:\n      attempt: ${{var.warm.attempt}}\n\
+             \x20   expect: {{body: {{match: {{body: {{attempt: 3}}}}}}}}\n"
+        )
+    };
+    for (retry, exit, sent) in [("    retry: {attempts: 2, delay: 10ms}\n", 0, 3), ("", 1, 1)] {
+        let server = MockServer::start().await.unwrap();
+        let file = file(retry);
+        let project = Project::new(&[CONFIG, crate::SCRIPTED, ("services/scripted/warm.test.yaml", &file)]);
+        let output = project.run(&server.base_url(), &[]).output().unwrap();
+        assert_eq!(output.status.code(), Some(exit), "{}", crate::said(&output));
+        assert_eq!(server.stats().await.unwrap().count("GET /flaky"), sent, "{retry}");
+    }
+}

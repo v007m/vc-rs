@@ -5,7 +5,8 @@
 
 use vc_compiler::{camel_id, file_id, is_camel_id, is_file_id, schema_line};
 use vc_diagnostics::TextEdit;
-use vc_model::{FileKind, SourcePath};
+use vc_interfaces::source_file;
+use vc_model::{FileKind, SourceFileId, SourcePath};
 use vc_parser::{Document, write_text};
 
 use crate::authoring::{Authoring, Named, Opened, item, refused};
@@ -51,6 +52,8 @@ pub struct NewTest {
     pub from: String,
     /// Whether to add the failure cases built from the api's body schema (D176).
     pub negative: bool,
+    /// Whether to add a test calling the api with `auth: none` and expecting 401.
+    pub auth: bool,
 }
 
 /// One item `vc new` adds.
@@ -68,12 +71,15 @@ pub struct NewItem<'t> {
     pub root: String,
     /// The other files the command changes.
     pub also: Vec<FileChange>,
+    /// A second item added after it, with its comment: the `--auth` test.
+    pub next: Option<(String, String)>,
 }
 
 impl<'t> NewItem<'t> {
     /// A test `named`, appended to the `tests` of its file, with nothing else changed.
     pub const fn test(named: Named<'t>, yaml: String, comment: String) -> Self {
-        Self { kind: FileKind::Test, list: "tests", named, yaml, comment, root: String::new(), also: Vec::new() }
+        let (kind, list, next) = (FileKind::Test, "tests", None);
+        Self { kind, list, named, yaml, comment, root: String::new(), also: Vec::new(), next }
     }
 }
 
@@ -87,7 +93,8 @@ impl Added {
 
 impl Engine {
     /// The change that appends a test calling `request.from` to the test file its ID derives
-    /// from, creating that file when there is none.
+    /// from, creating that file when there is none; with `request.auth`, a second test after it
+    /// calls the api with `auth: none` and expects 401.
     ///
     /// # Errors
     ///
@@ -105,7 +112,9 @@ impl Engine {
         let id = named.item.unwrap_or_default();
         let yaml = format!("id: {id}\nname: {}\ncall: {api}", write_text(&sentence(id), false));
         let comment = format!("# {} · calls {api} · keys: {DOCS}#tests", request.id);
-        self.added(&project, NewItem::test(named, yaml, comment))
+        let mut new = NewItem::test(named, yaml, comment);
+        new.next = request.auth.then(|| anonymous(named.file, api));
+        self.added(&project, new)
     }
 
     /// The change that creates the empty file of `kind` with the ID `id`, holding only its
@@ -145,6 +154,10 @@ impl Engine {
         let (change, line) = match project.find(new.kind, new.named.file) {
             Some(found) => append(&Authoring::open(found)?, &new)?,
             None => create(&new)?,
+        };
+        let change = match &new.next {
+            Some((yaml, comment)) => then_item(change, &ListItem { list: new.list, yaml, comment })?,
+            None => change,
         };
         let (id, path) = (format!("{}#{}", new.named.file, new.named.item.unwrap_or_default()), change.path.clone());
         let mut files = new.also;
@@ -226,6 +239,24 @@ fn append(opened: &Opened<'_>, new: &NewItem<'_>) -> Result<(FileChange, usize),
         ));
     }
     commented_item(opened, &ListItem { list: new.list, yaml: &new.yaml, comment: &new.comment })
+}
+
+/// The `--auth` test of a test file `file`: `api` called with `auth: none`, expecting 401, and
+/// its comment. Its ID is the api's with `RejectsAnonymous`: `deactivateRejectsAnonymous`.
+fn anonymous(file: &str, api: &str) -> (String, String) {
+    let verb = Named::parse(api).item.unwrap_or_default();
+    let id = format!("{verb}RejectsAnonymous");
+    let name = write_text(&format!("{} needs a signed-in caller", sentence(verb)), false);
+    let yaml = format!("id: {id}\nname: {name}\ncall: {api}\nauth: none\nexpect:\n  status: 401");
+    (yaml, format!("# {file}#{id} · calls {api} with no auth · keys: {DOCS}#tests"))
+}
+
+/// `change` with `next` added to its list too, after the item `change` adds.
+fn then_item(change: FileChange, next: &ListItem<'_>) -> Result<FileChange, EngineError> {
+    let path = SourcePath::new(&change.path).map_err(internal)?;
+    let file = source_file(path, change.after.clone().into_bytes()).map_err(internal)?;
+    let (added, _) = commented_item(&Authoring::open((SourceFileId::new(0), &file))?, next)?;
+    Ok(FileChange { after: added.after, ..change })
 }
 
 /// A list item to add: the list, the item's YAML and the comment on the line above it.

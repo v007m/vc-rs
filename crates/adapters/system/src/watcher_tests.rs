@@ -107,13 +107,13 @@ fn write(root: &Path, path: &str, text: &str) {
 #[test]
 fn passes_the_file_watcher_suite() {
     let dir = tempfile::tempdir().unwrap();
-    let watcher = NotifyWatcher::new(dir.path(), SourceFilter::default());
+    let watcher = NotifyWatcher::new(dir.path());
     file_watcher_suite(&watcher, &mut |path, text| write(dir.path(), path, text));
 }
 
 #[test]
 fn says_why_a_folder_cannot_be_watched() {
     let dir = tempfile::tempdir().unwrap();
-    let missing = NotifyWatcher::new(&dir.path().join("missing"), SourceFilter::default());
-    assert!(missing.watch().is_err());
+    let missing = NotifyWatcher::new(&dir.path().join("missing"));
+    assert!(missing.watch(&SourceFilter::default()).is_err());
 }

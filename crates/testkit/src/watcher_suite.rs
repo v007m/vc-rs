@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
-use vc_interfaces::FileWatcher;
+use vc_interfaces::{FileWatcher, SourceFilter};
 use vc_model::SourcePath;
 
 /// Writes `text` to a project-relative path in the watched project, as an editor saving it would.
@@ -12,7 +12,7 @@ pub type SaveFile<'a> = dyn FnMut(&str, &str) + 'a;
 const WAIT: Duration = Duration::from_secs(10);
 
 /// The saves the suite makes: two definition files, one of them twice, and files the default
-/// [`vc_interfaces::SourceFilter`] refuses.
+/// [`SourceFilter`] refuses.
 const SAVES: [&str; 5] = [
     "services/users/users.api.yaml",
     "notes.md",
@@ -21,8 +21,8 @@ const SAVES: [&str; 5] = [
     "services/users/users.api.yaml",
 ];
 
-/// The contract every [`FileWatcher`] meets (D112). `watcher` watches an empty project with the
-/// default filter, and `save` writes a file in it.
+/// The contract every [`FileWatcher`] meets (D112). `watcher` watches an empty project, given
+/// the default filter, and `save` writes a file in it.
 ///
 /// Every batch is in path order with each path once, and the batches together report exactly
 /// the saved definition files: nothing the filter refuses.
@@ -31,7 +31,7 @@ const SAVES: [&str; 5] = [
 ///
 /// When `watcher` breaks the contract.
 pub fn file_watcher_suite(watcher: &dyn FileWatcher, save: &mut SaveFile<'_>) {
-    let batches = watcher.watch();
+    let batches = watcher.watch(&SourceFilter::default());
     assert!(batches.is_ok(), "an existing folder can be watched: {batches:?}");
     let Ok(batches) = batches else { return };
     std::thread::sleep(Duration::from_millis(100));

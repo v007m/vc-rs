@@ -1,13 +1,14 @@
 //! Structural changes as minimal text edits that keep comments, quoting and spacing (D107).
 //!
 //! Setting a scalar and adding an entry live here; list items and new entries in `items`,
-//! removal in `remove`, reference renames in `refs`, undo in `command`, and the whole file in
-//! the house style in `format`. The compile guard that refuses an edit adding an error lives in
-//! the engine.
+//! removal in `remove`, reference renames in `refs`, var, auth and dataset renames in `names`,
+//! undo in `command`, and the whole file in the house style in `format`. The compile guard that
+//! refuses an edit adding an error lives in the engine.
 
 mod command;
 mod format;
 mod items;
+mod names;
 mod refs;
 mod remove;
 

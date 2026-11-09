@@ -20,31 +20,30 @@ type Events = Receiver<notify::Result<Event>>;
 
 /// Watches the project folder with the OS's file events (`notify`, D190).
 ///
-/// A batch holds the definition files the filter lets through, and the root `.env` and
+/// A batch holds the definition files the watch's filter lets through, and the root `.env` and
 /// `.env.schema`; other files, and folders the filter skips (`.vibranium/`, `.git/`), are
 /// never reported, so a run's own reports and caches do not start another run. Reading a
 /// file is not a save. Once the receiver is dropped, the watch ends at the next file event.
 #[derive(Clone, Debug)]
 pub struct NotifyWatcher {
     root: PathBuf,
-    filter: SourceFilter,
 }
 
 impl NotifyWatcher {
-    /// A watcher for the project at `root`, reporting what `filter` lets through.
+    /// A watcher for the project at `root`.
     #[must_use]
-    pub fn new(root: &Path, filter: SourceFilter) -> Self {
-        Self { root: root.to_path_buf(), filter }
+    pub fn new(root: &Path) -> Self {
+        Self { root: root.to_path_buf() }
     }
 }
 
 impl FileWatcher for NotifyWatcher {
-    fn watch(&self) -> Result<Receiver<Vec<SourcePath>>, WatchError> {
+    fn watch(&self, filter: &SourceFilter) -> Result<Receiver<Vec<SourcePath>>, WatchError> {
         let (events, raw) = mpsc::channel();
         let mut watcher = notify::recommended_watcher(events).map_err(|error| WatchError::new(error.to_string()))?;
         watcher.watch(&self.root, RecursiveMode::Recursive).map_err(|error| WatchError::new(error.to_string()))?;
         let (send, batches) = mpsc::channel();
-        let saved = Saved::new(&self.root, self.filter.clone());
+        let saved = Saved::new(&self.root, filter.clone());
         let thread = std::thread::Builder::new().name("vc-watch".to_owned());
         thread
             .spawn(move || {

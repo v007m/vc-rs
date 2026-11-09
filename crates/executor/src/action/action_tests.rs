@@ -30,6 +30,20 @@ fn code(report: &ActionReport) -> Option<&str> {
     failure(report).and_then(|failure| failure.code.as_deref())
 }
 
+#[tokio::test(start_paused = true)]
+async fn a_reuse_s_own_timeout_limits_all_its_steps_together() {
+    let mut fixture = Fixture::new();
+    let (first, slow) = (fixture.call("/users"), fixture.call("/slow"));
+    let reused = fixture.test(vec![first, slow], None);
+    let reuse = fixture.action(ActionKind::Test(reused));
+    fixture.action_mut(reuse).timeout = Some(vc_model::Duration::new(std::time::Duration::from_secs(2)));
+    let (server, sent) = Server::new();
+    let start = tokio::time::Instant::now();
+    let report = execute(fixture, standard(server), reuse).await;
+    assert_eq!((code(&report), start.elapsed()), (Some("V5104"), std::time::Duration::from_secs(2)));
+    assert_eq!((failure(&report).and_then(|failure| failure.action), sent.counts().len()), (Some(reuse), 2));
+}
+
 #[tokio::test]
 async fn a_2xx_call_passes_and_registers_the_api_cleanup() {
     let mut fixture = Fixture::new();
