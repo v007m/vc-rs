@@ -15,21 +15,6 @@ use crate::{Changes, EngineError, ImportRequest};
 /// The file ID the generated tests go in, under the api file's.
 const TESTS: &str = "openapi";
 
-/// How each method other than GET is written.
-const METHODS: [(Method, &str); 6] = [
-    (Method::Post, "POST"),
-    (Method::Put, "PUT"),
-    (Method::Patch, "PATCH"),
-    (Method::Delete, "DELETE"),
-    (Method::Head, "HEAD"),
-    (Method::Options, "OPTIONS"),
-];
-
-/// How `method` is written: upper case, `GET` included.
-pub fn method_name(method: Method) -> &'static str {
-    METHODS.iter().find(|(known, _)| *known == method).map_or("GET", |(_, name)| name)
-}
-
 /// The files `draft` becomes, each still to pass the compile guard, and the snapshot, which
 /// the guard does not read.
 pub fn drafted(
@@ -113,7 +98,7 @@ pub fn api_fields(api: &DraftApi) -> Vec<(&'static str, Value)> {
     let mut fields =
         vec![("id", json!(api.id)), ("name", json!(api.name.clone().unwrap_or_else(|| sentence(&api.id))))];
     if api.method != Method::Get {
-        fields.push(("method", json!(method_name(api.method))));
+        fields.push(("method", json!(api.method.name())));
     }
     fields.push(("path", json!(api.path)));
     if !api.vars.is_empty() {

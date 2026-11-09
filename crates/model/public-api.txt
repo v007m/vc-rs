@@ -291,6 +291,10 @@ pub vc_model::Method::Options
 pub vc_model::Method::Patch
 pub vc_model::Method::Post
 pub vc_model::Method::Put
+impl vc_model::Method
+pub const vc_model::Method::NAMES: [(Self, &'static str); 7]
+pub fn vc_model::Method::name(self) -> &'static str
+pub fn vc_model::Method::named(&str) -> core::option::Option<Self>
 impl core::clone::Clone for vc_model::Method
 pub fn vc_model::Method::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::Method

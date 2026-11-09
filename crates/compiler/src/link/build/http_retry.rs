@@ -1,6 +1,6 @@
 //! `http.retry` (D143): the config's keys over the defaults, and an api's keys over the config's.
 
-use vc_model::{HttpRetry, StatusPattern};
+use vc_model::{HttpRetry, Method, StatusPattern};
 use vc_parser::Node;
 
 use super::read;
@@ -19,7 +19,7 @@ pub fn over(source: &Source<'_>, node: &Node, base: &HttpRetry) -> Option<HttpRe
         (merged.on_status, merged.on_transport) = on(retry);
     }
     if retry.get("methods").is_some() {
-        merged.methods = read::texts(retry, "methods").iter().filter_map(|name| read::method_named(name)).collect();
+        merged.methods = read::texts(retry, "methods").iter().filter_map(|name| Method::named(name)).collect();
     }
     if let Some(backoff) = retry.get("backoff") {
         merged.base = read::duration(source, backoff, "base").unwrap_or(merged.base);

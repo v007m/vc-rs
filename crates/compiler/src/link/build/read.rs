@@ -14,17 +14,6 @@ use crate::parts::Piece;
 use crate::shapes;
 use crate::shapes::Shape;
 
-/// The methods an api may name, as written.
-const METHODS: [(&str, Method); 7] = [
-    ("GET", Method::Get),
-    ("POST", Method::Post),
-    ("PUT", Method::Put),
-    ("PATCH", Method::Patch),
-    ("DELETE", Method::Delete),
-    ("HEAD", Method::Head),
-    ("OPTIONS", Method::Options),
-];
-
 /// The values `writeDefinitions` may take, as written.
 const WRITES: [(&str, WriteDefinitions); 3] =
     [("true", WriteDefinitions::Allow), ("ask", WriteDefinitions::Ask), ("false", WriteDefinitions::Deny)];
@@ -101,17 +90,12 @@ pub fn tags(node: &Node) -> Vec<Tag> {
 
 /// `method`, `GET` when it is left out.
 pub fn method(node: &Node) -> Method {
-    method_named(project::text(node, "method").unwrap_or_default()).unwrap_or(Method::Get)
-}
-
-/// The method written as `name`, such as `GET`.
-pub fn method_named(name: &str) -> Option<Method> {
-    METHODS.iter().find(|(written, _)| *written == name).map(|(_, method)| *method)
+    Method::named(project::text(node, "method").unwrap_or_default()).unwrap_or(Method::Get)
 }
 
 /// The methods of the list under `key`; the shape check has reported any other text.
 pub fn methods(node: &Node, key: &str) -> Vec<Method> {
-    texts(node, key).iter().filter_map(|name| method_named(name)).collect()
+    texts(node, key).iter().filter_map(|name| Method::named(name)).collect()
 }
 
 /// A profile's `agents` rules; reads only when there is no `agents` block (D195).

@@ -36,6 +36,42 @@ pub enum Method {
     Options,
 }
 
+impl Method {
+    /// Every method, with how a file writes it: upper case.
+    pub const NAMES: [(Self, &'static str); 7] = [
+        (Self::Get, "GET"),
+        (Self::Post, "POST"),
+        (Self::Put, "PUT"),
+        (Self::Patch, "PATCH"),
+        (Self::Delete, "DELETE"),
+        (Self::Head, "HEAD"),
+        (Self::Options, "OPTIONS"),
+    ];
+
+    /// How a file writes the method.
+    ///
+    /// ```
+    /// assert_eq!(vc_model::Method::Patch.name(), "PATCH");
+    /// ```
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        Self::NAMES.iter().find(|(method, _)| *method == self).map_or("GET", |(_, name)| name)
+    }
+
+    /// The method a file writes as `name`; `None` for anything but the upper-case names.
+    ///
+    /// ```
+    /// use vc_model::Method;
+    ///
+    /// assert_eq!(Method::named("DELETE"), Some(Method::Delete));
+    /// assert_eq!(Method::named("get"), None);
+    /// ```
+    #[must_use]
+    pub fn named(name: &str) -> Option<Self> {
+        Self::NAMES.iter().find(|(_, written)| *written == name).map(|(method, _)| *method)
+    }
+}
+
 /// A kebab-case tag, as written.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[expect(

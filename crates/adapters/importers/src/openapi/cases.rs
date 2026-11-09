@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use serde_json::Value;
 use vc_interfaces::{DraftApi, DraftTest};
 
-use super::draft::{Reader, Route, method_name};
+use super::draft::{Reader, Route};
 use super::naming::{capitalised, third_person};
 
 impl Reader<'_> {
@@ -46,7 +46,7 @@ impl Reader<'_> {
     /// scheme. `security: []` on the operation opts it out.
     fn secured(&self, route: &Route<'_>) -> bool {
         let escaped = route.path.replace('~', "~0").replace('/', "~1");
-        let own = format!("/paths/{escaped}/{}/security", method_name(route.method).to_ascii_lowercase());
+        let own = format!("/paths/{escaped}/{}/security", route.method.name().to_ascii_lowercase());
         let security = self.doc.pointer(&own).or_else(|| self.doc.get("security"));
         security.and_then(Value::as_array).is_some_and(|requirements| !requirements.is_empty())
     }

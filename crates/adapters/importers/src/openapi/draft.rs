@@ -10,17 +10,6 @@ use vc_model::Method;
 use super::naming::{camel, from_route};
 use super::values::{body, generated, sample};
 
-/// The methods an api may use, by the name the spec gives them.
-const METHODS: [(&str, Method); 7] = [
-    ("GET", Method::Get),
-    ("POST", Method::Post),
-    ("PUT", Method::Put),
-    ("PATCH", Method::Patch),
-    ("DELETE", Method::Delete),
-    ("HEAD", Method::Head),
-    ("OPTIONS", Method::Options),
-];
-
 /// One spec, read for one draft.
 pub struct Reader<'a> {
     /// The spec, typed.
@@ -45,12 +34,12 @@ impl Reader<'_> {
         let mut routes = Vec::new();
         let mut notes = Vec::new();
         for (path, method, op) in self.spec.operations() {
-            let Some((_, known)) = METHODS.iter().find(|(name, _)| *name == method.as_str()) else {
+            let Some(known) = Method::named(method.as_str()) else {
                 let message = format!("skipped: an api cannot use {method}");
                 notes.push(ImportNote { at: format!("{method} {path}"), message });
                 continue;
             };
-            let route = Route { path, method: *known, op };
+            let route = Route { path, method: known, op };
             if self.wanted(&route) {
                 routes.push(route);
             }
@@ -109,7 +98,7 @@ impl Reader<'_> {
     }
 
     fn api(&self, route: &Route<'_>, notes: &mut Vec<ImportNote>) -> DraftApi {
-        let at = format!("{} {}", method_name(route.method), route.path);
+        let at = format!("{} {}", route.method.name(), route.path);
         let params = self.parameters(route, notes, &at);
         let mut api = DraftApi {
             id: id(route),
@@ -204,11 +193,7 @@ fn merge_vars(api: &mut DraftApi, vars: IndexMap<String, Value>, at: &str) -> Ve
 /// The ID an operation's api gets: its `operationId` in camelCase, else its method and path.
 pub fn id(route: &Route<'_>) -> String {
     let named = route.op.operation_id.as_deref().map(camel).filter(|id| !id.is_empty());
-    named.unwrap_or_else(|| from_route(method_name(route.method), &route.path))
-}
-
-pub fn method_name(method: Method) -> &'static str {
-    METHODS.iter().find(|(_, known)| *known == method).map_or("GET", |(name, _)| name)
+    named.unwrap_or_else(|| from_route(route.method.name(), &route.path))
 }
 
 /// `/users/{user_id}` as `/users/${var.userId}`.
