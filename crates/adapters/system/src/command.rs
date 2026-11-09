@@ -21,8 +21,8 @@ const DRAIN: Duration = Duration::from_millis(200);
 /// It reads stdout and stderr as they come and keeps the last `output_cap` bytes of each, so a
 /// chatty program never fills memory. The run ends when the program exits; what its streams
 /// still hold is read for [`DRAIN`] more, so a process it left in the background never holds
-/// the run open. That process keeps running: a detached task reads and discards what it writes
-/// later, so it never dies writing to a closed pipe. On unix the program leads a process group
+/// the run open. That process lives on while vc runs, a detached task reading and discarding
+/// what it writes; once vc exits, it dies of `SIGPIPE` at its next write. On unix the program leads a process group
 /// of its own, and a timeout, or dropping the run, kills the whole group; elsewhere it kills the
 /// program.
 #[derive(Clone, Copy, Debug, Default)]
@@ -104,7 +104,7 @@ async fn collect(child: &mut Child, cap: usize) -> std::io::Result<CommandOutput
         let reading = pin!(async { tokio::join!(out.read(stdout.as_mut()), err.read(stderr.as_mut())) });
         exited(child, reading).await
     };
-    discard_rest(stdout, stderr);
+    discard_rest(stdout.filter(|_| !out.ended), stderr.filter(|_| !err.ended));
     let ((stdout, out_cut), (stderr, err_cut)) = (out.finish(), err.finish());
     let mut output = CommandOutput::new(status?.code(), stdout);
     output.stderr = stderr;
@@ -126,30 +126,35 @@ async fn exited(
     }
 }
 
-/// Reads what the streams still carry to their end in a detached task and drops it: a process
-/// left in the background may write long after the run, and must not die of a closed pipe.
+/// Reads what the streams not yet ended still carry to their end in a detached task and drops
+/// it: a process left in the background may write long after the run, and must not die of a
+/// closed pipe while vc runs. With both ended, there is no task.
 fn discard_rest(stdout: Option<ChildStdout>, stderr: Option<ChildStderr>) {
     async fn discard(stream: Option<impl AsyncRead + Unpin>) {
         if let Some(mut stream) = stream {
             tokio::io::copy(&mut stream, &mut tokio::io::sink()).await.ok();
         }
     }
-    drop(tokio::spawn(async move { tokio::join!(discard(stdout), discard(stderr)) }));
+    if stdout.is_some() || stderr.is_some() {
+        drop(tokio::spawn(async move { tokio::join!(discard(stdout), discard(stderr)) }));
+    }
 }
 
-/// The last `cap` bytes read from a stream, and whether anything before them was dropped.
+/// The last `cap` bytes read from a stream, whether anything before them was dropped, and
+/// whether the stream has ended.
 struct Tail {
     kept: Vec<u8>,
     cut: bool,
     cap: usize,
+    ended: bool,
 }
 
 impl Tail {
     const fn new(cap: usize) -> Self {
-        Self { kept: Vec::new(), cut: false, cap }
+        Self { kept: Vec::new(), cut: false, cap, ended: false }
     }
 
-    /// Reads `stream` to its end, keeping its tail.
+    /// Reads `stream` to its end (or its first error), keeping its tail.
     async fn read(&mut self, stream: Option<&mut (impl AsyncRead + Unpin)>) {
         let Some(stream) = stream else { return };
         let mut chunk = vec![0; CHUNK];
@@ -160,6 +165,7 @@ impl Tail {
                 self.cut |= trim(&mut self.kept, self.cap);
             }
         }
+        self.ended = true;
     }
 
     /// The tail kept, and whether anything before it was dropped.
@@ -267,6 +273,21 @@ mod tests {
         assert_eq!((output.status, output.stdout), (Some(0), b"started\n".to_vec()));
         assert!(took < Duration::from_secs(1), "the run waited {took:?} for the background process");
         assert!(alive, "writing to the run's pipes after it ended killed the background process");
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_program_whose_streams_ended_leaves_no_task_behind() {
+        let dir = tempfile::tempdir().unwrap();
+        let metrics = tokio::runtime::Handle::current().metrics();
+        let output = ProcessRunner::new().run(&shell("echo done", dir.path())).await.unwrap();
+        assert_eq!(output.stdout, b"done\n");
+        assert_eq!(metrics.num_alive_tasks(), 0, "nothing is left to discard once both streams have ended");
+        let line = "sleep 30 & echo $! > child; echo started";
+        ProcessRunner::new().run(&shell(line, dir.path())).await.unwrap();
+        assert_eq!(metrics.num_alive_tasks(), 1, "a stream a background process holds open is still discarded");
+        let child = std::fs::read_to_string(dir.path().join("child")).unwrap();
+        ProcessRunner::new().run(&shell(&format!("kill {}", child.trim()), dir.path())).await.unwrap();
     }
 
     #[cfg(unix)]
