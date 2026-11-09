@@ -69,7 +69,9 @@ vibranium/
   sdks/                      typescript/ python/ go/ java/
   bench/
     mock/                    vc-mock-server: axum mock server; a library tests start in-process on port 0, plus a bin (D100);
-                             CRUD, echo, scripted, `/auth/*` and an OAuth 2.0 server (`/oauth/token`, `/oauth/authorize`)
+                             CRUD, echo, scripted, `/auth/*`, an OAuth 2.0 server (`/oauth/token`, `/oauth/authorize`) and
+                             a users OpenAPI spec in two versions (`/openapi/users-v1.yaml`, `-v2`, and `/openapi/users.yaml`,
+                             switched by `POST /__openapi/users/v2`; files in `bench/mock/specs/`)
                              (generated projects come from vc-testkit's generate_project; the benches live in
                              crates/engine/benches and crates/apps/cli/benches)
   docs/                      reference docs, JSON Schemas for the file formats
@@ -974,6 +976,19 @@ CREATE INDEX test_results_by_test ON test_results(test_id, run_id);
 CREATE INDEX test_results_by_run ON test_results(run_id);
 CREATE INDEX exchanges_by_run ON exchanges(run_id);
 CREATE INDEX runs_by_time ON runs(started_at);
+-- migration 2: the agent approval queue and its standing rules (D195)
+CREATE TABLE approvals (
+  id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL, agent TEXT NOT NULL, tool TEXT NOT NULL,
+  profile TEXT NOT NULL, methods TEXT NOT NULL, summary TEXT NOT NULL, arguments TEXT NOT NULL,  -- arguments redacted
+  status TEXT NOT NULL,            -- pending | approved | denied | expired
+  decided_at INTEGER, decided_by TEXT
+);
+CREATE INDEX approvals_by_status ON approvals(status, id);
+CREATE TABLE approval_rules (      -- "Always allow", per profile, tool and method; never in YAML
+  profile TEXT NOT NULL, tool TEXT NOT NULL, method TEXT NOT NULL,
+  created_at INTEGER NOT NULL, created_by TEXT NOT NULL,
+  PRIMARY KEY (profile, tool, method)
+);
 ```
 
 The ports are `HistoryWriter` (`begin`, `record`, `finish`, `prune`) and `HistoryReader` (`runs`, `run`, `tests`, `snapshot`) in `vc-interfaces`; `vc-adapter-store` implements them as `SqliteHistory` (the writer thread, fed by a channel) and `SqliteHistoryReader` (a read-only connection per query; a missing file is an empty history), and `vc-testkit` has `MemoryHistory` with `history_writer_suite` and `history_reader_suite`. Rows reach the writer already redacted and cut; the writer never masks. A failed batch commit does not stop the run: the next `finish` reports it once. Foreign keys are on, so pruning a run deletes its tests, checks, exchanges and snapshot.
@@ -1030,11 +1045,18 @@ pub struct ImportDraft {
     pub groups: Vec<DraftGroup>,          // one per target api file (existing or new)
     pub flow: Option<DraftFlow>,          // HAR: the recorded order as steps with chained saves
     pub secrets: Vec<SecretFinding>,      // removed values and where they map to
-    pub notes: Vec<Diagnostic>,           // things the user should know (skipped entries, guesses)
+    pub notes: Vec<ImportNote>,           // things the user should know (skipped entries, guesses)
+    pub snapshot: Option<Value>,          // OpenAPI: the bundled 3.1 document for openapi/<fileId>.yaml
 }
-pub struct DraftApi { pub id: Sym, pub method: Method, pub path: Template, pub vars: VarDefs,
-                      pub body: Option<BodySpec>, pub operation_id: Option<String>, pub matches: Option<ApiId> }
+pub struct DraftApi { pub id: String, pub name: Option<String>, pub method: Method, pub path: String,
+                      pub vars: IndexMap<String, Value>, pub query: IndexMap<String, String>,
+                      pub body: Option<Value>, pub content_type: Option<String>,
+                      pub operation_id: Option<String>, pub matches: Option<String> }
 ```
+
+The draft types live in `vc-interfaces` (`import.rs`). They hold text and JSON values, not the program's `Sym`, `Template` or `ApiId`: an importer has no string table, and the engine renders the draft into YAML that the compiler then checks like any other edit. Template text such as `${var.userId}` stays text until then. A `DraftGroup` is one api file (`file_id`, `name`, `base_url`, the `config_vars` it needs, its `apis` and the `tests` that `--tests`, `--negative` and `--auth` ask for); a `DraftFlow` is HAR's recorded order as `DraftStep`s with `save`s. An `ImportNote` is an `at` (an operation or a JSON pointer) and a `message`; it has no code or span, because it points into the foreign file, not a definition file. `ImportError` is `UnknownKind`, `Invalid` (with the location), `Cycle` (the `$ref` chain) or `Fetch`.
+
+Importers get the documents a file refers to through the `SpecFetcher` port (`fetch(location) -> bytes`, and `decode(location, bytes) -> serde_json::Value`, which the engine does with vc-parser because an adapter may not depend on it; `FetchError::Failed`, `NotAllowed` or `Undecodable`); `resolve_reference(base, ref)` joins a relative `$ref` to its base and refuses one that climbs above the base's root. The engine is to implement the port over `Transport` for URLs and over `SourceProvider` for files, so nothing outside the project is read. `vc-adapter-importers` holds the `ImporterRegistry` (`ImporterRegistry::builtin().create(kind, fetcher)`, an unknown kind is `ImportError::UnknownKind` listing the known ones; `builtin()` is empty until M6 adds `openapi`); every importer runs `vc_testkit::importer_suite`, and `vc_testkit::FakeImporter` reads a made-up `METHOD /path` format for engine tests. The engine's `load` is a stub until M7 (`EngineError::NotBuilt`).
 
 ### OpenAPI
 
@@ -1058,7 +1080,7 @@ cURL, Postman (collection v2.1), Bruno and Vibranium v1 importers use the same d
 
 ## Load engine
 
-The load engine reuses the executor's action runner, so a test behaves the same in a load run as in a functional run; only scheduling and recording differ.
+The load engine reuses the executor's action runner, so a test behaves the same in a load run as in a functional run; only scheduling and recording differ. The executor exposes that runner to it as the `Iterations` trait: `iterate(test, user)` runs one instance of a test, from `beforeEach` to its cleanups, against the shared slots the run's `beforeRun` and `beforeAll` filled, and returns an `IterationReport` (passed, the first failure, and each call's api, status and elapsed time). A failure is a report the load engine counts, not an error.
 
 - **Model.** A closed model of virtual users. A stage controller adjusts the number of user tasks once per second toward the stage target (linear ramp from the previous stage's count). Each user task loops: pick a test from the mix by weight (a precomputed alias table), run one instance of it with `checks: api` or `full`, then sleep the think time.
 - **Lifecycle.** `beforeRun` and each mixed file's `beforeAll` run once before the first stage, through the same shared slots as a functional run; `beforeEach`, `before` and cleanups run inside every iteration and are counted separately from the mix.
@@ -1136,6 +1158,17 @@ Every tool call goes through a policy check, done in the engine so that every ro
 - or creates an approval request in `history.db` and waits for a decision (default timeout 10 minutes).
 
 Decisions are made in the web UI's AI agents page, or with `vc approvals` / `vc approve <id>` in any terminal. Because both processes share `history.db`, a stdio agent and a separate `vc ui` see the same queue; `notify` on the database file wakes the waiting call. Every call is logged to `agent_actions`, with arguments redacted.
+
+The engine is to reach the queue and the log through two `vc-interfaces` ports, kept over `history.db` (its migration 2 holds the tables); `vc_testkit::MemoryApprovals` implements both in memory and runs `approvals_suite` and `agent_action_writer_suite`:
+
+- `Approvals`: `list(pending_only)`, `create(ApprovalRequest)`, `decide(Decision)`, `wait(id, timeout)` and `always_allowed(StandingRule)`.
+  - An `ApprovalRequest` holds the agent, the tool, the profile, the methods that need approval, a one-line summary and the redacted arguments.
+  - A `Decision` holds an `ApprovalId`, a `Verdict` (`Approve`, `AlwaysAllow` or `Deny`) and who decided.
+  - `AlwaysAllow` stores a `StandingRule` for each profile, tool and method.
+  - `wait` returns the `ApprovalStatus` once the request is decided, or `Expired` at the timeout. Dropping the future leaves the request pending.
+- `AgentActionWriter::record(AgentAction)`: the agent, the tool, the profile, the redacted arguments, the result and who approved it.
+
+The engine redacts the arguments before it calls either port.
 
 ### Web server and web UI (`apps/server`, `web/`)
 

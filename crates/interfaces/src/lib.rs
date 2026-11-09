@@ -31,6 +31,10 @@
 //!   saved and the cleanups that undo it, encrypted at rest by the store.
 //! - [`FileWatcher`]: the batches of saved project files `vc watch` re-runs on (D180).
 //! - [`HookRunner`]: runs a hook function in a sandbox within a time and memory [`Budget`] (D172).
+//! - [`Importer`]: reads a foreign file (an `OpenAPI` spec, a HAR file) into an [`ImportDraft`];
+//!   [`SpecFetcher`] fetches the documents its `$ref`s name.
+//! - [`Approvals`] and [`AgentActionWriter`]: the agent approval queue and the agent call log in
+//!   `history.db` (D195).
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -44,6 +48,7 @@
 //! ```
 
 mod action_cache;
+mod approvals;
 mod auth;
 mod browser;
 mod cache;
@@ -51,9 +56,11 @@ mod clock;
 mod command;
 mod config;
 mod environment;
+mod fetch;
 mod filter;
 mod history;
 mod hooks;
+mod import;
 mod keychain;
 mod random;
 mod reporter;
@@ -64,6 +71,10 @@ mod vcs;
 mod watch;
 
 pub use action_cache::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, CachedCleanup, CachedValues};
+pub use approvals::{
+    AgentAction, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
+    Decision, StandingRule, Verdict,
+};
 pub use auth::{ActionRunner, AuthError, AuthProvider, AuthRequest, Credentials};
 pub use browser::{Browser, BrowserError};
 pub use cache::{CompileCacheError, CompileCacheStore};
@@ -71,12 +82,17 @@ pub use clock::Clock;
 pub use command::{CommandError, CommandOutput, CommandRunner, CommandSpec};
 pub use config::{ConfigEntry, ConfigSource, ConfigSourceError};
 pub use environment::Environment;
+pub use fetch::{FetchError, SpecFetcher, resolve_reference};
 pub use filter::SourceFilter;
 pub use history::{
     CheckRow, ExchangeRow, HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart,
     TestRow, TimingRow,
 };
 pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
+pub use import::{
+    DraftApi, DraftFlow, DraftGroup, DraftStep, DraftTest, ImportDraft, ImportError, ImportNote, ImportOptions,
+    ImportSource, Importer, SecretFinding,
+};
 pub use keychain::{Keychain, KeychainError};
 pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
