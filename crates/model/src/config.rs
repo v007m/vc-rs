@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 use serde_json::Value;
 
 use crate::{
-    ActionId, AgentPolicy, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule, Retry,
-    SecretsConfig, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
+    ActionId, AgentPolicy, Alert, AuthId, Duration, FileId, HistoryConfig, Matcher, Method, ProfileId, RedactRule,
+    Retry, SecretsConfig, StatusPattern, Sym, Template, TemplateValue, TestId, VarDefs,
 };
 
 /// How long before expiry credentials are fetched again when `refreshBefore` is not written.
@@ -42,6 +42,10 @@ pub struct Config {
     pub secrets: SecretsConfig,
     /// `history` (D170).
     pub history: HistoryConfig,
+    /// `alerts`.
+    pub alerts: Vec<Alert>,
+    /// `plugins`.
+    pub plugins: Vec<PluginRef>,
 }
 
 /// `defaults`.
@@ -252,6 +256,21 @@ pub struct GeneratorDef {
     pub fake: String,
     /// The built-in's arguments, from the settings.
     pub args: Vec<Value>,
+}
+
+/// One entry of `plugins`: a plugin the project uses, approved in `vibranium.lock`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct PluginRef {
+    /// `id`, as `plugin:` and `reports.formats` name it.
+    pub id: Sym,
+    /// `source`: `npm:<package>@<range>` or `path:<folder>`.
+    pub source: String,
+    /// `config`, passed to the plugin's `initialize`.
+    pub config: Option<TemplateValue>,
 }
 
 #[cfg(test)]

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::{Tag, TemplateValue};
+
 /// What makes an alert rule fire: a value of its `on:` list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,6 +34,36 @@ impl AlertTrigger {
             Self::Threshold => "threshold",
         }
     }
+}
+
+/// One entry of `alerts`: when to notify, and where.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct Alert {
+    /// `on`: the triggers that fire it; `[failure]` when it is left out.
+    pub on: Vec<AlertTrigger>,
+    /// `profiles`: only runs under one of these; every run when empty.
+    pub profiles: Vec<String>,
+    /// `tags`: only tests with one of these; every test when empty.
+    pub tags: Vec<Tag>,
+    /// `notify`: the channels it sends to, in written order.
+    pub notify: Vec<AlertChannel>,
+}
+
+/// One channel of an alert's `notify`, such as `slack: {channel, webhook}`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct AlertChannel {
+    /// The channel kind, the entry's key: `webhook`, `slack`, `teams`, `pagerduty`.
+    pub kind: String,
+    /// Its settings, resolved (secrets included) when the run ends.
+    pub settings: TemplateValue,
 }
 
 #[cfg(test)]
