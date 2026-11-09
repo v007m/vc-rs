@@ -378,6 +378,8 @@ Round 31 additions (9 November 2026, M7 agent policy review):
 | # | Topic | Decision | Supersedes |
 | --- | --- | --- | --- |
 | D202 | Agent runs that execute code (Sarath) | An agent's run (`run_tests`, and `call_api` when its chain reaches one) whose plan contains any `command:` or `function:` action always asks for approval, even when `run` and every method are allowed; a standing "always allow" rule never skips this ask. The approval request names each such action and its command or function. Runs started by a person are unchanged. Closes the path where `writeDefinitions` plus `run` would let an agent write and run a shell command | D195 (`run_tests` gated by `run` plus methods only) |
+| D203 | Request hooks and the agent policy (Sarath) | D202 covers `command:` and `function:` actions only. Request hooks (`function:` entries on an api file or api that run around each request) do not force an ask when an agent's call or run reaches them: they are written by a person, run in the sandboxed QuickJS engine with no file, process or shell access, and an agent cannot write files under `hooks/` | — (clarifies D202) |
+| D204 | Agent calls that fail before the policy gate (Sarath) | An agent call that fails before the policy gate (a bad selection, a compile error) still gets an `agent_actions` row, with outcome `failed: <reason>`, so the log records every call an agent made | — |
 
 ## Open
 

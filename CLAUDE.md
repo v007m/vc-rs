@@ -13,7 +13,7 @@ Everything is specified in `docs/design/`. Read `docs/design/HANDOVER.md` first.
 | `lld.md` | Crates, types, orchestration, patterns, gates, diagnostic codes, milestones M0–M10 |
 | `syntax-reference.md` | Every file format: config, `*.api.yaml`, `*.test.yaml`, `*.load.yaml`, templates, lifecycle blocks |
 | `cli-workflow.md` | Every `vc` command, flags, selectors, exit codes, naming conventions, `vc init` output |
-| `decision-log.md` | Decisions D1–D202. Later rounds supersede earlier ones; the "Supersedes" column says which |
+| `decision-log.md` | Decisions D1–D204. Later rounds supersede earlier ones; the "Supersedes" column says which |
 | `prd.md`, `technical-design.md` | Requirements R1–R44 and the language-neutral architecture. Where they conflict with the LLD, the LLD wins |
 | `language-decision.md` | Why Rust, and the conditions attached to that choice |
 | `docs/style/google-rust-style-guide.md` | How Rust code is written (D157). Where it differs from these project rules, the project rules win |
