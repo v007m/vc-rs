@@ -39,11 +39,11 @@ mod test;
 mod units;
 
 pub use agents::{AgentPolicy, WriteDefinitions};
-pub use alerts::AlertTrigger;
+pub use alerts::{Alert, AlertChannel, AlertTrigger};
 pub use api::{Api, ApiGroup, ApiSource, BodySpec, PartSpec};
 pub use builder::ProgramBuilder;
 pub use config::{
-    AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, Profile,
+    AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, PluginRef, Profile,
 };
 pub use date::Date;
 pub use defs::{
