@@ -247,6 +247,89 @@ impl core::fmt::Display for vc_interfaces::Limit
 pub fn vc_interfaces::Limit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_interfaces::Limit
 impl core::marker::StructuralPartialEq for vc_interfaces::Limit
+#[non_exhaustive] pub enum vc_interfaces::NotifyError
+pub vc_interfaces::NotifyError::Send
+pub vc_interfaces::NotifyError::Send::channel: alloc::string::String
+pub vc_interfaces::NotifyError::Send::reason: alloc::string::String
+pub vc_interfaces::NotifyError::Settings
+pub vc_interfaces::NotifyError::Settings::channel: alloc::string::String
+pub vc_interfaces::NotifyError::Settings::reason: alloc::string::String
+pub vc_interfaces::NotifyError::Unknown
+pub vc_interfaces::NotifyError::Unknown::channel: alloc::string::String
+pub vc_interfaces::NotifyError::Unknown::known: alloc::string::String
+impl vc_interfaces::NotifyError
+pub const fn vc_interfaces::NotifyError::code(&self) -> vc_diagnostics::code::Code
+impl core::clone::Clone for vc_interfaces::NotifyError
+pub fn vc_interfaces::NotifyError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::NotifyError
+impl core::cmp::PartialEq for vc_interfaces::NotifyError
+pub fn vc_interfaces::NotifyError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::NotifyError
+impl core::fmt::Debug for vc_interfaces::NotifyError
+pub fn vc_interfaces::NotifyError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::NotifyError
+pub fn vc_interfaces::NotifyError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::NotifyError
+#[non_exhaustive] pub enum vc_interfaces::PluginError
+pub vc_interfaces::PluginError::Crashed
+pub vc_interfaces::PluginError::Crashed::plugin: alloc::string::String
+pub vc_interfaces::PluginError::Crashed::reason: alloc::string::String
+pub vc_interfaces::PluginError::Deadline
+pub vc_interfaces::PluginError::Deadline::after: core::time::Duration
+pub vc_interfaces::PluginError::Deadline::method: alloc::string::String
+pub vc_interfaces::PluginError::Deadline::plugin: alloc::string::String
+pub vc_interfaces::PluginError::Permission
+pub vc_interfaces::PluginError::Permission::plugin: alloc::string::String
+pub vc_interfaces::PluginError::Permission::what: alloc::string::String
+pub vc_interfaces::PluginError::Protocol
+pub vc_interfaces::PluginError::Protocol::plugin: alloc::string::String
+pub vc_interfaces::PluginError::Protocol::reason: alloc::string::String
+pub vc_interfaces::PluginError::Remote
+pub vc_interfaces::PluginError::Remote::code: i64
+pub vc_interfaces::PluginError::Remote::message: alloc::string::String
+pub vc_interfaces::PluginError::Remote::method: alloc::string::String
+pub vc_interfaces::PluginError::Remote::plugin: alloc::string::String
+pub vc_interfaces::PluginError::Start
+pub vc_interfaces::PluginError::Start::plugin: alloc::string::String
+pub vc_interfaces::PluginError::Start::reason: alloc::string::String
+impl vc_interfaces::PluginError
+pub const fn vc_interfaces::PluginError::code(&self) -> vc_diagnostics::code::Code
+pub const fn vc_interfaces::PluginError::rpc_code(&self) -> core::option::Option<i64>
+impl core::clone::Clone for vc_interfaces::PluginError
+pub fn vc_interfaces::PluginError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::PluginError
+impl core::cmp::PartialEq for vc_interfaces::PluginError
+pub fn vc_interfaces::PluginError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::PluginError
+impl core::fmt::Debug for vc_interfaces::PluginError
+pub fn vc_interfaces::PluginError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::PluginError
+pub fn vc_interfaces::PluginError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::PluginError
+#[non_exhaustive] pub enum vc_interfaces::PluginKind
+pub vc_interfaces::PluginKind::Auth
+pub vc_interfaces::PluginKind::Executor
+pub vc_interfaces::PluginKind::Importer
+pub vc_interfaces::PluginKind::Reporter
+impl vc_interfaces::PluginKind
+pub const vc_interfaces::PluginKind::ALL: [Self; 4]
+pub const fn vc_interfaces::PluginKind::name(self) -> &'static str
+pub fn vc_interfaces::PluginKind::named(&str) -> core::option::Option<Self>
+impl core::clone::Clone for vc_interfaces::PluginKind
+pub fn vc_interfaces::PluginKind::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::PluginKind
+impl core::cmp::Ord for vc_interfaces::PluginKind
+pub fn vc_interfaces::PluginKind::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_interfaces::PluginKind
+pub fn vc_interfaces::PluginKind::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_interfaces::PluginKind
+pub fn vc_interfaces::PluginKind::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_interfaces::PluginKind
+pub fn vc_interfaces::PluginKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_interfaces::PluginKind
+pub fn vc_interfaces::PluginKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_interfaces::PluginKind
+impl core::marker::StructuralPartialEq for vc_interfaces::PluginKind
 #[non_exhaustive] pub enum vc_interfaces::ReportError
 pub vc_interfaces::ReportError::Encode
 pub vc_interfaces::ReportError::Encode::reason: alloc::string::String
@@ -937,6 +1020,71 @@ pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -
 impl core::fmt::Display for vc_interfaces::KeychainError
 pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::KeychainError
+pub struct vc_interfaces::Notice
+pub vc_interfaces::Notice::breaches: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::Notice::failures: alloc::vec::Vec<vc_interfaces::NoticeFailure>
+pub vc_interfaces::Notice::project: alloc::string::String
+pub vc_interfaces::Notice::report: core::option::Option<alloc::string::String>
+pub vc_interfaces::Notice::summary: vc_interfaces::RunSummary
+pub vc_interfaces::Notice::trigger: vc_model::alerts::AlertTrigger
+impl vc_interfaces::Notice
+pub fn vc_interfaces::Notice::breaches(self, alloc::vec::Vec<alloc::string::String>) -> Self
+pub fn vc_interfaces::Notice::failures(self, alloc::vec::Vec<vc_interfaces::NoticeFailure>) -> Self
+pub const fn vc_interfaces::Notice::new(vc_model::alerts::AlertTrigger, alloc::string::String, vc_interfaces::RunSummary) -> Self
+pub fn vc_interfaces::Notice::profile_key(&self) -> alloc::string::String
+pub fn vc_interfaces::Notice::report(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_interfaces::Notice
+pub fn vc_interfaces::Notice::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Notice
+impl core::cmp::PartialEq for vc_interfaces::Notice
+pub fn vc_interfaces::Notice::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Notice
+pub fn vc_interfaces::Notice::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Notice
+pub struct vc_interfaces::NoticeFailure
+pub vc_interfaces::NoticeFailure::message: alloc::string::String
+pub vc_interfaces::NoticeFailure::test: alloc::string::String
+impl vc_interfaces::NoticeFailure
+pub fn vc_interfaces::NoticeFailure::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_interfaces::NoticeFailure
+pub fn vc_interfaces::NoticeFailure::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::NoticeFailure
+impl core::cmp::PartialEq for vc_interfaces::NoticeFailure
+pub fn vc_interfaces::NoticeFailure::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::NoticeFailure
+pub fn vc_interfaces::NoticeFailure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::NoticeFailure
+pub struct vc_interfaces::PluginManifest
+pub vc_interfaces::PluginManifest::args: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::PluginManifest::command: alloc::string::String
+pub vc_interfaces::PluginManifest::id: alloc::string::String
+pub vc_interfaces::PluginManifest::kind: vc_interfaces::PluginKind
+pub vc_interfaces::PluginManifest::permissions: vc_interfaces::PluginPermissions
+pub vc_interfaces::PluginManifest::version: alloc::string::String
+impl core::clone::Clone for vc_interfaces::PluginManifest
+pub fn vc_interfaces::PluginManifest::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::PluginManifest
+impl core::cmp::PartialEq for vc_interfaces::PluginManifest
+pub fn vc_interfaces::PluginManifest::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::PluginManifest
+pub fn vc_interfaces::PluginManifest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::PluginManifest
+pub struct vc_interfaces::PluginPermissions
+pub vc_interfaces::PluginPermissions::files: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::PluginPermissions::network: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::PluginPermissions::secrets: alloc::vec::Vec<alloc::string::String>
+impl vc_interfaces::PluginPermissions
+pub fn vc_interfaces::PluginPermissions::beyond(&self, &Self) -> alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_interfaces::PluginPermissions
+pub fn vc_interfaces::PluginPermissions::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::PluginPermissions
+impl core::cmp::PartialEq for vc_interfaces::PluginPermissions
+pub fn vc_interfaces::PluginPermissions::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::PluginPermissions
+pub fn vc_interfaces::PluginPermissions::default() -> Self
+impl core::fmt::Debug for vc_interfaces::PluginPermissions
+pub fn vc_interfaces::PluginPermissions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::PluginPermissions
 pub struct vc_interfaces::RecordingFilter
 pub vc_interfaces::RecordingFilter::hosts: alloc::vec::Vec<alloc::string::String>
 pub vc_interfaces::RecordingFilter::include_hosts: alloc::vec::Vec<alloc::string::String>
@@ -1188,6 +1336,10 @@ pub fn vc_interfaces::WatchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> c
 impl core::fmt::Display for vc_interfaces::WatchError
 pub fn vc_interfaces::WatchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::WatchError
+pub const vc_interfaces::CALL_DEADLINE: core::time::Duration
+pub const vc_interfaces::DEADLINE_PASSED: i64
+pub const vc_interfaces::INITIALIZE_DEADLINE: core::time::Duration
+pub const vc_interfaces::PERMISSION_DENIED: i64
 pub trait vc_interfaces::ActionRunner: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::ActionRunner::run<'life0, 'async_trait>(&'life0 self) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Credentials, vc_interfaces::AuthError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
 pub trait vc_interfaces::AgentActionWriter: core::marker::Send + core::marker::Sync
@@ -1243,6 +1395,14 @@ pub trait vc_interfaces::Keychain: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Keychain::delete(&self, &str, &str) -> core::result::Result<(), vc_interfaces::KeychainError>
 pub fn vc_interfaces::Keychain::get(&self, &str, &str) -> core::result::Result<core::option::Option<vc_interfaces::Secret>, vc_interfaces::KeychainError>
 pub fn vc_interfaces::Keychain::set(&self, &str, &str, &vc_interfaces::Secret) -> core::result::Result<(), vc_interfaces::KeychainError>
+pub trait vc_interfaces::Notifier: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Notifier::notify<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 vc_interfaces::Notice) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), vc_interfaces::NotifyError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::NotifierFactory: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::NotifierFactory::channels(&self) -> alloc::vec::Vec<alloc::string::String>
+pub fn vc_interfaces::NotifierFactory::create(&self, &str, &serde_json::value::Value) -> core::result::Result<alloc::boxed::Box<dyn vc_interfaces::Notifier>, vc_interfaces::NotifyError>
+pub trait vc_interfaces::PluginHost: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::PluginHost::call<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str, serde_json::value::Value, core::time::Duration) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<serde_json::value::Value, vc_interfaces::PluginError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn vc_interfaces::PluginHost::manifest(&self) -> &vc_interfaces::PluginManifest
 pub trait vc_interfaces::Random: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Random::next_u64(&self) -> u64
 pub trait vc_interfaces::Reporter: core::marker::Send

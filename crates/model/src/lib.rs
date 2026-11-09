@@ -12,6 +12,7 @@
 //! ```
 
 mod agents;
+mod alerts;
 mod api;
 mod builder;
 mod config;
@@ -38,6 +39,7 @@ mod test;
 mod units;
 
 pub use agents::{AgentPolicy, WriteDefinitions};
+pub use alerts::AlertTrigger;
 pub use api::{Api, ApiGroup, ApiSource, BodySpec, PartSpec};
 pub use builder::ProgramBuilder;
 pub use config::{
