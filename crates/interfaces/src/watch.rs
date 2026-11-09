@@ -4,19 +4,22 @@ use std::sync::mpsc::Receiver;
 
 use vc_model::SourcePath;
 
+use crate::SourceFilter;
+
 /// Tells which of the project's files were saved, so `vc watch` re-runs what they affect.
 ///
-/// The adapter watches the project root, drops the paths the [`crate::SourceFilter`] refuses,
-/// and debounces: the saves of one burst (an editor writing several files, a formatter run)
+/// The adapter watches the project root, drops the paths the [`SourceFilter`] it is given
+/// refuses (the one discovery uses, from the config's `paths`), and debounces: the saves of one burst (an editor writing several files, a formatter run)
 /// arrive as one batch once the files have been quiet for the debounce window (200 ms).
 pub trait FileWatcher: Send + Sync {
-    /// Starts watching; each batch of saved paths, relative to the root and in path order,
-    /// arrives on the returned channel. Dropping the receiver stops the watch.
+    /// Starts watching; each batch of saved paths that `filter` lets through, relative to the
+    /// root and in path order, arrives on the returned channel. Dropping the receiver stops the
+    /// watch.
     ///
     /// # Errors
     ///
     /// [`WatchError`] when the OS refuses to watch the root.
-    fn watch(&self) -> Result<Receiver<Vec<SourcePath>>, WatchError>;
+    fn watch(&self, filter: &SourceFilter) -> Result<Receiver<Vec<SourcePath>>, WatchError>;
 }
 
 /// Why the files cannot be watched.
