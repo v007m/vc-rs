@@ -18,6 +18,7 @@ members = [
   "crates/adapters/store",
   "crates/adapters/secrets",
   "crates/adapters/auth",
+  "crates/adapters/importers",
   "crates/apps/cli",
   "crates/apps/demo",
   "crates/arch-tests",
@@ -51,6 +52,7 @@ vc-adapter-hooks = { path = "crates/adapters/hooks" }
 vc-adapter-store = { path = "crates/adapters/store" }
 vc-adapter-secrets = { path = "crates/adapters/secrets" }
 vc-adapter-auth = { path = "crates/adapters/auth" }
+vc-adapter-importers = { path = "crates/adapters/importers" }
 vc-mock-server = { path = "bench/mock" }
 aho-corasick = "1.1.5"
 anyhow = "1.0.104"

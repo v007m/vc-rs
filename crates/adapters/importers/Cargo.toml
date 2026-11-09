@@ -1,0 +1,21 @@
+[package]
+name = "vc-adapter-importers"
+description = "Importers that read foreign files (OpenAPI, HAR) into drafts of definition files."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+vc-interfaces.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+vc-testkit.workspace = true
+
+[lints]
+workspace = true
