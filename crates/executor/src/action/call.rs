@@ -58,7 +58,7 @@ impl CallExecutor {
         let api = called(&request.cx.program, action)
             .ok_or_else(|| Failure::new("the action calls no api in the program"))?;
         let mut render = Render::new(request).map_err(request::failed)?;
-        let timeout = timeout(render.program(), api);
+        let timeout = timeout(render.program(), api, action);
         let call = Call { request: request::rendered(&render, api, action)?, timeout, ctx: SendContext::default() };
         let trip = self.flight(request, &render, (api, action))?;
         let exchange = match &action.poll {
@@ -147,9 +147,11 @@ fn called<'p>(program: &'p Program, action: &Action) -> Option<&'p Api> {
     program.apis.get(api)
 }
 
-/// The per-attempt limit: the api's `timeout`, else the config's `defaults.timeout`.
-fn timeout(program: &Program, api: &Api) -> Duration {
-    api.timeout.or(program.config.defaults.timeout).map_or(DEFAULT_TIMEOUT, vc_model::Duration::get)
+/// The per-attempt limit: the action's own `timeout` (D192), else the api's, else the config's
+/// `defaults.timeout`.
+fn timeout(program: &Program, api: &Api, action: &Action) -> Duration {
+    let limit = action.timeout.or(api.timeout).or(program.config.defaults.timeout);
+    limit.map_or(DEFAULT_TIMEOUT, vc_model::Duration::get)
 }
 
 /// Binds `response` and `request` for the checks, saves and cleanup vars; returns the response.

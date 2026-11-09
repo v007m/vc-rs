@@ -31,6 +31,10 @@ fn exiting(status: i32, stderr: &str) -> CommandOutput {
 async fn run(mut fixture: Fixture, line: &str, runner: Arc<dyn CommandRunner>) -> ActionReport {
     let template = fixture.template(line);
     let action = fixture.action(ActionKind::Command(template));
+    execute(fixture, action, runner).await
+}
+
+async fn execute(fixture: Fixture, action: ActionId, runner: Arc<dyn CommandRunner>) -> ActionReport {
     let dot_env = vec![("FROM_DOTENV".to_owned(), "yes".to_owned())];
     let executor = CommandExecutor::new(runner, PathBuf::from("/project"), dot_env);
     let executors = ActionExecutors::new().with(ActionKindTag::Command, Arc::new(executor));
@@ -67,6 +71,18 @@ async fn the_config_timeout_limits_the_command() {
     let (commands, specs) = runner(Ok(exiting(0, "")));
     run(fixture, "true", commands).await;
     assert_eq!(specs.try_recv().unwrap().timeout, Duration::from_millis(250));
+}
+
+#[tokio::test]
+async fn the_action_s_own_timeout_wins_over_the_config_s() {
+    let mut fixture = Fixture::new();
+    fixture.program.config.defaults.timeout = Some(vc_model::Duration::new(Duration::from_millis(250)));
+    let template = fixture.template("true");
+    let action = fixture.action(ActionKind::Command(template));
+    fixture.action_mut(action).timeout = Some(vc_model::Duration::new(Duration::from_millis(400)));
+    let (commands, specs) = runner(Ok(exiting(0, "")));
+    execute(fixture, action, commands).await;
+    assert_eq!(specs.try_recv().unwrap().timeout, Duration::from_millis(400));
 }
 
 #[tokio::test]

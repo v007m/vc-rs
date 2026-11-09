@@ -235,6 +235,20 @@ async fn a_function_action_saves_the_fields_it_returns() {
 }
 
 #[tokio::test]
+async fn a_function_action_s_own_timeout_is_its_hook_s_time_budget() {
+    let hooks = FakeHooks::new()
+        .on(&named("seed"), |call: &HookCall| Ok(HookOutput::new(json!({"ms": call.budget.time.as_millis()}))));
+    for (timeout, ms) in [(Some(1500), 1500), (None, 200)] {
+        let mut fixture = Fixture::new();
+        let seed = fixture.action(ActionKind::Function(hook("seed")));
+        let limit = timeout.map(|ms| vc_model::Duration::new(std::time::Duration::from_millis(ms)));
+        fixture.action_mut(seed).timeout = limit;
+        let (report, _) = run(fixture, seed, Some(hooks.clone())).await;
+        assert_eq!(Value::Object(report.saved), json!({"ms": ms}));
+    }
+}
+
+#[tokio::test]
 async fn a_function_action_fails_with_the_runner_s_code_or_without_a_runner() {
     let mut fixture = Fixture::new();
     let seed = fixture.action(ActionKind::Function(hook("seed")));

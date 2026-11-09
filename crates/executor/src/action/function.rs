@@ -17,8 +17,8 @@ use crate::{ActionReport, Render, Saved};
 /// The function gets `{vars, run}`: every var in the action's scope that renders, and the run's
 /// `profiles`. When it returns an object, each of its fields is saved under its name; anything
 /// else saves nothing; a name the action declares in `provides` that is not among them is V5109.
-/// A function that throws or overruns its budget fails the action (V5115,
-/// V5116), as does any function when the run has no runner.
+/// A function that throws or overruns its budget (its own `timeout` sets the time, D192) fails
+/// the action (V5115, V5116), as does any function when the run has no runner.
 #[derive(Clone, Default)]
 pub struct FunctionExecutor {
     runner: Option<Arc<dyn HookRunner>>,
@@ -46,7 +46,8 @@ impl FunctionExecutor {
         let render = Render::new(request).map_err(request::failed)?;
         let input = json!({ "vars": render.hook_vars(), "run": { "profiles": render.values().profiles() } });
         let fakes = render.into_memo();
-        let bridge = HookBridge::new(self.runner.clone(), &request.cx.program);
+        let bridge = HookBridge::new(self.runner.clone(), &request.cx.program)
+            .within(action.timeout.map(vc_model::Duration::get));
         let returned = bridge.call(hook, input).await.map_err(|error| hooks::failure(hook, &error))?;
         let saved = saved(returned);
         if let Some(failure) = provides::unsaved(&request.cx.program, action, &saved) {

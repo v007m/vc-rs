@@ -113,6 +113,8 @@ pub struct Action {
     pub poll: Option<Poll>,
     /// `retry`.
     pub retry: Option<Retry>,
+    /// `timeout`: this action's own limit (D192), over the source its kind uses without it.
+    pub timeout: Option<Duration>,
     /// `keep`: skip the api's cleanup.
     pub keep: bool,
     /// `provides`: the names a `function:` or `test:` action says it saves (D128).
@@ -142,6 +144,7 @@ impl Action {
             save: SaveSpec::default(),
             poll: None,
             retry: None,
+            timeout: None,
             keep: false,
             provides: Vec::new(),
             cache: None,

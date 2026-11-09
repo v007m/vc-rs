@@ -366,12 +366,15 @@ async fn poll_sends_until_its_checks_hold_or_its_timeout_passes() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn the_request_timeout_is_the_api_s_else_the_config_default() {
-    for (api, config, waited) in [(Some(1), Some(2), 1), (None, Some(2), 2)] {
+async fn the_request_timeout_is_the_action_s_else_the_api_s_else_the_config_default() {
+    for (action, api, config, waited) in
+        [(Some(3), Some(1), Some(2), 3), (None, Some(1), Some(2), 1), (None, None, Some(2), 2)]
+    {
         let mut fixture = Fixture::new();
         let call = fixture.call("/slow");
         let secs = |secs: Option<u64>| secs.map(|secs| vc_model::Duration::new(StdDuration::from_secs(secs)));
         (fixture.api_mut(call).timeout, fixture.program.config.defaults.timeout) = (secs(api), secs(config));
+        fixture.action_mut(call).timeout = secs(action);
         let (server, _) = Server::new();
         let executors = ActionExecutors::standard(PipelineParts::new(server, HostLimits::spawn(8)));
         let cx = fixture.cx(executors);
