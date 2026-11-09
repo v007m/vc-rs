@@ -35,6 +35,7 @@ mod save_call;
 mod schema;
 mod select;
 mod skip;
+mod tui;
 mod watch;
 
 use outcome::Outcome;
@@ -106,6 +107,8 @@ enum Command {
     Migrate(migrate::MigrateCommand),
     /// Starts the MCP server for AI agents, over stdio.
     Mcp(mcp::McpArgs),
+    /// Opens the terminal UI.
+    Tui(tui::TuiArgs),
     /// Starts or stops the demo service the `vc init` sample calls.
     Demo(demo::DemoArgs),
     /// Prints the shell completion script for bash, zsh, fish or powershell.
@@ -155,6 +158,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Load(args) => load::run(&args, project),
         Command::Migrate(command) => migrate::run(&command, project),
         Command::Mcp(args) => mcp::run(&args, project),
+        Command::Tui(args) => tui::run(&args, project),
         Command::Demo(args) => demo::run(&args),
         Command::Completion(args) => completion::run(&args),
         Command::Complete(args) => completion::complete(&args, project),

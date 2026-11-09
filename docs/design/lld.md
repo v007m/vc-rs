@@ -1182,6 +1182,8 @@ M5 stream B adds these commands:
 
 `ratatui` with `crossterm`, one screen per tab (Run, Explore, History, Load, Import). It subscribes to the same event stream as the console reporter and uses `Edit`/`Check` for in-place editing; it never blocks the UI thread on I/O (the engine runs on the tokio runtime and sends redraw messages).
 
+- **Shell.** `vc_tui::Tui` is the state (the chosen tab, the help, quitting) and draws it into a `ratatui::Frame`; it does no I/O, so tests press `crossterm` key events and render it to a `TestBackend` (insta snapshots in `apps/tui/tests/`). `vc_tui::run` owns the terminal: raw mode on the alternate screen, restored by a guard however the UI ends, with keys read on a blocking task (`event::poll` every 100 ms) and sent over a channel, the screen redrawn after each one. The header shows the project (its folder's name) and the active profiles (`default` when none is given), with the tab bar on the right; the footer shows the keys. `1`–`5` choose a tab, `tab` and `shift-tab` cycle them, `?` opens and closes the help (`esc` closes it, choosing a tab too), and `q` or `ctrl-c` quits; release and repeat events are ignored. The tabs are a fixed list (`tabs.rs`) until a second kind of screen exists.
+
 ### MCP (`apps/mcp`)
 
 `rmcp` server exposed as `vc mcp [--profile] [--set]` (stdio, started by the agent; M7) and later at `/mcp` on the local web server (streamable HTTP). `rmcp` is built with only `server` and `transport-io`, and the tool schemas are written by hand (D197).
