@@ -33,6 +33,7 @@ fn keys_depend_on_every_part_and_on_the_run_key_and_never_show_bytes() {
     assert_ne!(key, TokenCache::new([2; 32]).key("svc", &json!({"user": "ada"}), &json!({"clientId": "shop"})));
     assert_ne!(key, TokenCache::default().key("svc", &json!({"user": "ada"}), &json!({"clientId": "shop"})));
     assert_eq!(format!("{key:?}"), "AuthKey(..)");
+    assert_eq!(format!("{:?}", Lease::new(key)), "Lease { .. }");
     assert!(!format!("{cache:?}").contains("svc"));
 }
 
