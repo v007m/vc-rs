@@ -19,7 +19,7 @@ pages! {
     V3101, V3102, V3103, V3104, V3201, V3202, V3203, V3204, V3205, V3206,
     V4001, V4002, V4003, V4004,
     V5101, V5102, V5103, V5104, V5105, V5106, V5107, V5108, V5109, V5110, V5111, V5112, V5113, V5114,
-    V5115, V5116,
+    V5115, V5116, V5117, V5118,
 }
 
 /// How far a page's example lines are indented in the plain-text rendering.

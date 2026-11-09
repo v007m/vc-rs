@@ -25,7 +25,7 @@ fn table_has_every_category_and_the_round_15_to_17_codes() {
     assert_eq!(categories.len(), 5);
     for added in [
         "V2006", "V2007", "V2105", "V3205", "V3206", "V5108", "V5109", "V5110", "V5111", "V2106", "V2107", "V5114",
-        "V1013", "V2008", "V5115", "V5116",
+        "V1013", "V2008", "V5115", "V5116", "V5117", "V5118",
     ] {
         assert!(added.parse::<Code>().is_ok(), "{added}");
     }
@@ -53,6 +53,7 @@ fn carries_title_and_default_severity() {
     assert_eq!(Code::V2003.default_severity(), Severity::Error);
     assert_eq!(Code::V3104.default_severity(), Severity::Warning);
     assert_eq!(Code::V5108.default_severity(), Severity::Warning, "D186: the run goes on");
+    assert_eq!(Code::V5117.default_severity(), Severity::Warning, "an alert never changes the exit code");
 }
 
 #[test]
