@@ -61,6 +61,14 @@ fn a_missing_root_is_an_error() {
 }
 
 #[test]
+fn a_folder_read_as_a_file_is_named_as_one() {
+    let dir = project(&[("bruno/shop/carts.bru", b"")]);
+    let found = FsSources::new(dir.path()).unwrap().read(&[SourcePath::new("bruno/shop").unwrap()]).unwrap();
+    let reason = "it is a folder, not a file".to_owned();
+    assert_eq!(found.problems, [SourceError::Read { path: "bruno/shop".to_owned(), reason }]);
+}
+
+#[test]
 fn meets_the_source_writer_contract() {
     let mut dirs = Vec::new();
     vc_testkit::source_writer_suite(&mut |files| {

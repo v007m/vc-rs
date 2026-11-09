@@ -5,6 +5,8 @@
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Value};
 
+use crate::collected::GraphQl;
+
 /// The collection: its name, its folders and requests, its variables and its auth.
 #[derive(Deserialize)]
 pub struct Collection {
@@ -111,13 +113,6 @@ pub struct Body {
     pub options: Option<Value>,
     #[serde(default)]
     pub disabled: bool,
-}
-
-/// A GraphQL body: the query, and its variables as JSON text.
-#[derive(Deserialize)]
-pub struct GraphQl {
-    pub query: Option<String>,
-    pub variables: Option<String>,
 }
 
 /// An auth block: its type, and its settings under a key named after the type.

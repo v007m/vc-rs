@@ -76,11 +76,12 @@ impl Engine {
     pub async fn import(&self, request: &ImportRequest) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
         let fetcher = self.fetcher()?;
-        let bytes = fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), FETCH_HELP))?;
-        let importer = ImporterRegistry::builtin().create(&request.kind, fetcher).map_err(|error| {
+        let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
             let kinds: Vec<_> = ImporterRegistry::builtin().names().map(str::to_owned).collect();
             refused(error.to_string(), &format!("the importers are {}", kinds.join(", ")))
         })?;
+        let help = importer.source_help().unwrap_or(FETCH_HELP);
+        let bytes = fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?;
         let source = ImportSource { location: request.source.clone(), bytes };
         let homes = self.homes(&request.profiles);
         let mut opts = options(request);

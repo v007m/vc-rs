@@ -12,7 +12,7 @@ mod vars;
 pub use access::{path, plain};
 pub use draft::draft;
 pub use flow::flow;
-pub use request::{Call, Credential, Payload};
+pub use request::{Call, Credential, GraphQl, Payload};
 pub use vars::Values;
 
 /// `collection Shop · 7 requests in 2 folders`.

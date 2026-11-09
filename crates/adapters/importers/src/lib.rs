@@ -1,4 +1,4 @@
-//! Importers that read foreign files (`OpenAPI`, curl commands, HAR, `.http`, Postman
+//! Importers that read foreign files (`OpenAPI`, curl commands, HAR, `.http`, Postman and Bruno
 //! collections) into drafts of definition files.
 //!
 //! Each kind is an entry of the [`ImporterRegistry`], built by an [`ImporterFactory`] over the
@@ -10,10 +10,11 @@
 //! ```
 //! use vc_adapter_importers::ImporterRegistry;
 //!
-//! assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["curl", "har", "http", "openapi", "postman"]);
+//! assert_eq!(ImporterRegistry::builtin().names().collect::<Vec<_>>(), ["bruno", "curl", "har", "http", "openapi", "postman"]);
 //! ```
 
 mod body;
+mod bruno;
 mod collected;
 mod curl;
 mod har;
@@ -27,9 +28,12 @@ mod postman;
 mod registry;
 mod secret;
 mod secrets;
+#[cfg(test)]
+mod shop_sample;
 mod url;
 mod v1;
 
+pub use bruno::BrunoImporter;
 pub use curl::CurlImporter;
 pub use har::HarImporter;
 pub use http::HttpImporter;

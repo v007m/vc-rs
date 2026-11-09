@@ -66,6 +66,9 @@ impl FsSources {
         if !target.starts_with(&self.root) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
+        if target.is_dir() {
+            return Err(SourceError::Read { path: path.to_string(), reason: "it is a folder, not a file".to_owned() });
+        }
         let bytes = std::fs::read(&target).map_err(failed)?;
         vc_interfaces::source_file(path, bytes)
     }

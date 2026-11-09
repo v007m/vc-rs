@@ -73,7 +73,10 @@ async fn what_cannot_be_imported_is_refused_with_help() {
     let missing = engine().import(&request("openapi", "https://specs.test/gone.json")).await;
     assert_eq!(help(missing).as_deref(), Some("give a URL, or a path inside the project"));
     let unknown = engine().import(&request("wsdl", "https://specs.test/petstore.json")).await;
-    assert_eq!(help(unknown).as_deref(), Some("the importers are curl, har, http, openapi, postman"));
+    assert_eq!(help(unknown).as_deref(), Some("the importers are bruno, curl, har, http, openapi, postman"));
+    let folder = engine().import(&request("bruno", "https://specs.test/shop")).await;
+    let export = "export the collection as JSON from Bruno: import reads one file, not a collection folder";
+    assert_eq!(help(folder).as_deref(), Some(export));
     let users =
         ImportRequest { file_id: Some("users".to_owned()), ..request("openapi", "https://specs.test/petstore.json") };
     assert_eq!(help(engine().import(&users).await).as_deref(), Some("`vc sync users` merges the spec into it"));

@@ -5,7 +5,7 @@
 use serde_json::Value;
 
 use super::collection::{Body, enabled};
-use crate::collected::Payload;
+use crate::collected::{GraphQl, Payload};
 
 /// Reads a body of one mode.
 type Mode = fn(&Body) -> Option<Payload>;
@@ -47,9 +47,7 @@ fn urlencoded(body: &Body) -> Option<Payload> {
 }
 
 fn graphql(body: &Body) -> Option<Payload> {
-    let graphql = body.graphql.as_ref()?;
-    let query = graphql.query.clone().unwrap_or_default();
-    Some(Payload::GraphQl { query, variables: graphql.variables.clone().unwrap_or_default() })
+    body.graphql.as_ref().map(GraphQl::payload)
 }
 
 #[expect(clippy::unnecessary_wraps, reason = "every mode has the `Mode` signature")]

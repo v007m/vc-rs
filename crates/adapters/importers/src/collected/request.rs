@@ -2,6 +2,8 @@
 //! text still holds its `{{name}}` variables. No type here derives `Debug`, since the text may
 //! hold secrets.
 
+use serde::Deserialize;
+
 /// One request of a collection.
 pub struct Call {
     /// Its name, which names the api.
@@ -42,4 +44,19 @@ pub enum Payload {
     GraphQl { query: String, variables: String },
     /// A body that is not imported, with the note that says so.
     Left(&'static str),
+}
+
+/// A GraphQL body as Postman and Bruno export it: the query, and its variables as JSON text.
+#[derive(Deserialize)]
+pub struct GraphQl {
+    pub query: Option<String>,
+    pub variables: Option<String>,
+}
+
+impl GraphQl {
+    /// The body this sends: an absent query or variables are empty.
+    pub fn payload(&self) -> Payload {
+        let query = self.query.clone().unwrap_or_default();
+        Payload::GraphQl { query, variables: self.variables.clone().unwrap_or_default() }
+    }
 }

@@ -22,6 +22,12 @@ pub trait Importer: Send + Sync {
     /// An [`ImportError`] when the file cannot be read as this kind, or a file it refers to
     /// cannot be fetched.
     async fn read(&self, source: &ImportSource, opts: &ImportOptions) -> Result<ImportDraft, ImportError>;
+
+    /// What to do when the source cannot be fetched or read as one file (a folder, say), when
+    /// this kind has more to say than the engine's generic help.
+    fn source_help(&self) -> Option<&'static str> {
+        None
+    }
 }
 
 /// The file being imported: where it came from and its bytes, already fetched or read.

@@ -1,5 +1,6 @@
-//! A collection's `{{name}}` variables as template text. A variable named like a credential is
-//! a `${secret.NAME}` reference; a dynamic one (`{{$guid}}`) is the generator that makes the
+//! A collection's `{{name}}` variables as template text. A variable named like a credential,
+//! marked secret or read from the environment (`{{process.env.NAME}}`) is a `${secret.NAME}`
+//! reference; a dynamic one (`{{$guid}}`) is the generator that makes the
 //! same kind of value; any other is `${var.name}`, with the collection's value as the api's
 //! default. A value is never written when it is a credential's or too random to be anything
 //! but a secret. No type here derives `Debug`, since the values may be secrets.
@@ -12,6 +13,9 @@ use crate::naming::camel;
 use crate::secret::Secrets;
 use crate::secrets::credential;
 use crate::url::split_origin;
+
+/// What a variable read from the environment starts with.
+const ENV: &str = "process.env.";
 
 /// How many variables deep a base URL is looked up.
 const DEPTH: usize = 8;
@@ -39,16 +43,32 @@ const DYNAMIC: [(&str, &str); 16] = [
     ("$randomLoremSentence", "lorem.sentence"),
 ];
 
-/// The collection's variables with a value, and the vars its test scripts save.
+/// The collection's variables with a value, the vars its test scripts save and the variables
+/// it marks secret.
 pub struct Values {
-    values: IndexMap<String, String>,
+    given: IndexMap<String, String>,
     saved: Vec<String>,
+    secret: Vec<String>,
 }
 
 impl Values {
     /// The variables with a value; `saved` are the vars a script sets, which need none.
     pub const fn new(values: IndexMap<String, String>, saved: Vec<String>) -> Self {
-        Self { values, saved }
+        Self { given: values, saved, secret: Vec::new() }
+    }
+
+    /// The same, with `names` the variables marked secret, whose values are never written.
+    pub fn with_secrets(self, names: Vec<String>) -> Self {
+        Self { secret: names, ..self }
+    }
+
+    /// The name the secret `name` is referred to by (`API_KEY` for `process.env.API_KEY`), when
+    /// it is one.
+    fn secret<'n>(&self, name: &'n str) -> Option<&'n str> {
+        if let Some(env) = name.strip_prefix(ENV) {
+            return Some(env);
+        }
+        (credential(name) || self.secret.iter().any(|secret| secret == name)).then_some(name)
     }
 
     /// The origin `raw` names, with the variables it starts with looked up, and the path and
@@ -72,8 +92,9 @@ impl Values {
         if origin.contains("{{") { (None, rest.to_owned()) } else { (Some(origin), rest.to_owned()) }
     }
 
+    /// The value of `name`; none for a secret, whose value is never written.
     fn get(&self, name: &str) -> Option<&str> {
-        self.values.get(name).map(String::as_str)
+        self.given.get(name).map(String::as_str).filter(|_| self.secret(name).is_none())
     }
 
     /// `text` with each variable that has a value replaced by it.
@@ -136,8 +157,8 @@ impl Filling<'_, '_> {
         if name.starts_with('$') {
             return self.dynamic(name);
         }
-        if credential(name) {
-            return self.secrets.reference(&format!("var {name}"));
+        if let Some(secret) = self.values.secret(name) {
+            return self.secrets.reference(&format!("var {secret}"));
         }
         let var = camel(name);
         if var.is_empty() {
