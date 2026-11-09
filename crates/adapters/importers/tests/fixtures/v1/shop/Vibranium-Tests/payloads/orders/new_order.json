@@ -1,0 +1,16 @@
+{
+    "customerId": "{customerId}",
+    "items": [
+        {
+            "productId": "{productIds.0}",
+            "quantity": "{quantity}"
+        },
+        {
+            "productId": "{productIds.1}",
+            "quantity": "{quantity}"
+        }
+    ],
+    "currency": "{currency}",
+    "note": "{lorem_20}",
+    "reference": "{short_text}"
+}
