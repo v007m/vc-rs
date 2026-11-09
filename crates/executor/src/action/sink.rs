@@ -34,26 +34,22 @@ impl CleanupCollector {
     /// Runs `run` on `request` with a collector of its own as the frame's sink. The report
     /// carries every cleanup handed over, oldest first, then its own; dropped, the collector
     /// hands them to `request`'s sink.
-    pub async fn around<F>(request: &ActionRequest, run: impl FnOnce(ActionRequest) -> F) -> ActionReport
+    pub async fn around<F>(request: ActionRequest, run: impl FnOnce(ActionRequest) -> F) -> ActionReport
     where
         F: Future<Output = ActionReport>,
     {
-        let (mut report, mut handed) = Self::gather(request, run).await;
-        handed.append(&mut report.cleanups);
-        report.cleanups = handed;
+        let (mut report, mut kept) = Self::gather(request, run).await;
+        report.cleanups = kept.take(std::mem::take(&mut report.cleanups));
         report
     }
 
-    /// What `run` on `request` gives, with a collector of its own as the frame's sink, and the
-    /// cleanups handed over to it, oldest first; dropped, the collector hands them to
-    /// `request`'s sink.
-    pub async fn gather<F: Future>(
-        request: &ActionRequest,
-        run: impl FnOnce(ActionRequest) -> F,
-    ) -> (F::Output, Vec<PendingCleanup>) {
-        let mut kept = Self::under(request.frame.sink.clone());
-        let output = run(ActionRequest { frame: kept.frame(&request.frame), ..request.clone() }).await;
-        (output, kept.take(Vec::new()))
+    /// What `run` on `request` gives, with a collector of its own as the frame's sink, and that
+    /// collector, holding the cleanups handed over to it; dropped, it hands them to `request`'s
+    /// sink.
+    pub async fn gather<F: Future>(request: ActionRequest, run: impl FnOnce(ActionRequest) -> F) -> (F::Output, Self) {
+        let kept = Self::under(request.frame.sink.clone());
+        let output = run(ActionRequest { frame: kept.frame(&request.frame), ..request }).await;
+        (output, kept)
     }
 
     /// A collector that hands what is left on to `parent` when dropped.

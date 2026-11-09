@@ -87,7 +87,7 @@ impl Crew {
         let (action, owner, slots, deadline) = (job.action, job.owner, job.slots(), job.deadline);
         self.bus.publish(Event::ActionStarted { action, owner }).await;
         let work = |request| cancel.guard(self.execute(request, deadline));
-        let (ran, kept) = merged(CleanupCollector::gather(&job.request(&self.cx), work).await);
+        let (ran, kept) = merged(CleanupCollector::gather(job.request(&self.cx), work).await);
         let outcome = match &ran {
             Ran::Done(report) => {
                 self.publish_report((action, owner), report).await;
@@ -139,11 +139,10 @@ impl Crew {
     }
 }
 
-/// A done action's report with the `kept` cleanups first and nothing left over; otherwise the
+/// A done action's report with the cleanups `kept` first and nothing left over; otherwise the
 /// cleanups `kept` are left over.
-fn merged((ran, mut kept): (Ran<ActionReport>, Vec<PendingCleanup>)) -> (Ran<ActionReport>, Vec<PendingCleanup>) {
-    let Ran::Done(mut report) = ran else { return (ran, kept) };
-    kept.append(&mut report.cleanups);
-    report.cleanups = kept;
+fn merged((ran, mut kept): (Ran<ActionReport>, CleanupCollector)) -> (Ran<ActionReport>, Vec<PendingCleanup>) {
+    let Ran::Done(mut report) = ran else { return (ran, kept.take(Vec::new())) };
+    report.cleanups = kept.take(std::mem::take(&mut report.cleanups));
     (Ran::Done(report), Vec::new())
 }

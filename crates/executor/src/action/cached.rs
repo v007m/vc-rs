@@ -93,7 +93,7 @@ impl CachedExecutor {
     /// goes to the run's owner, for the run's end.
     async fn miss(&self, request: ActionRequest, cacheable: Cacheable) -> ActionReport {
         let program = Arc::clone(&request.cx.program);
-        let mut report = CleanupCollector::around(&request, |request| self.inner.execute(request)).await;
+        let mut report = CleanupCollector::around(request, |request| self.inner.execute(request)).await;
         if !matches!(report.outcome, ActionOutcome::Passed) {
             return report;
         }
