@@ -9,7 +9,7 @@ use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
     MaskRules, PipelineParts, RunHandle, RunInputs, RunOptions,
 };
-use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary};
+use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Transport};
 use vc_model::{Feed, Part, Template, TemplateValue};
 
 use crate::plan::{Extra, Prepared};
@@ -105,9 +105,8 @@ impl Engine {
         Ok((Reporters::create(chosen, setup, recording)?, notice))
     }
 
-    /// The executor for `prepared` with `inputs`, its events masked by the config's redact
-    /// rules (a `function:` rule through the hook runner), keeping `cache:`d results in the
-    /// cross-run cache unless `request` says `--no-cache`, and the cache's notices.
+    /// The executor for `prepared` with `inputs`, keeping `cache:`d results in the cross-run
+    /// cache unless `request` says `--no-cache`, and the cache's notices.
     async fn executor(
         &self,
         prepared: &Prepared,
@@ -116,32 +115,41 @@ impl Engine {
     ) -> Result<(Executor, Vec<String>), EngineError> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
-        let hooks = self.hook_runner(&prepared.program);
-        let rules = MaskRules::standard().with_hooks(hooks.clone(), &prepared.program);
-        let executors = self.executors(prepared, hooks)?;
-        let cx = ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules);
+        let cx = self.action_cx(prepared, inputs)?;
         let (cx, notices) = if request.no_cache { (Arc::new(cx), Vec::new()) } else { self.cached(cx, prepared).await };
         let options = RunOptions { concurrency: widen(concurrency), bail: request.bail, ..RunOptions::default() };
         Ok((Executor::new(cx, options), notices))
     }
 
-    /// The action executors for `prepared`: HTTP through the per-host limits, hooks through
-    /// `hooks`, `command:` through the command runner.
-    pub(crate) fn executors(
+    /// What the actions of `prepared` share with `inputs`: the action executors and the auth
+    /// types over one transport, and events masked by the config's redact rules (a `function:`
+    /// rule through the hook runner). Every run, call and cache cleanup starts from it.
+    pub(crate) fn action_cx(&self, prepared: &Prepared, inputs: RunInputs) -> Result<ActionCx, EngineError> {
+        let hooks = self.hook_runner(&prepared.program);
+        let rules = MaskRules::standard().with_hooks(hooks.clone(), &prepared.program);
+        let transport = self.transport(prepared.environment.as_ref())?;
+        let auth = self.auth(Arc::clone(&transport));
+        let executors = self.executors(prepared, transport, hooks);
+        Ok(ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules).with_auth(auth))
+    }
+
+    /// The action executors for `prepared`: HTTP through `transport` and the per-host limits,
+    /// hooks through `hooks`, `command:` through the command runner.
+    fn executors(
         &self,
         prepared: &Prepared,
+        transport: Arc<dyn Transport>,
         hooks: Option<Arc<dyn HookRunner>>,
-    ) -> Result<Arc<ActionExecutors>, EngineError> {
+    ) -> Arc<ActionExecutors> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let per_host = settings.per_host.or(defaults.per_host).unwrap_or(PER_HOST);
-        let transport = self.transport(prepared.environment.as_ref())?;
         let mut parts = PipelineParts::new(transport, HostLimits::spawn(widen(per_host)));
         if let Some(hooks) = hooks {
             parts = parts.with_hook_runner(hooks);
         }
         let root = self.root().to_path_buf();
         let commands = CommandExecutor::new(Arc::clone(&self.commands), root, prepared.dot_env.clone());
-        Ok(Arc::new(ActionExecutors::standard(parts).with(ActionKindTag::Command, Arc::new(commands))))
+        Arc::new(ActionExecutors::standard(parts).with(ActionKindTag::Command, Arc::new(commands)))
     }
 }
 

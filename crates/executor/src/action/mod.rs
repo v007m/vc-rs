@@ -164,6 +164,12 @@ impl ActionCx {
         Self { auth: provider, ..self }
     }
 
+    /// The provider this context obtains credentials through, for a context made like it.
+    #[must_use]
+    pub fn auth(&self) -> Arc<dyn AuthProvider> {
+        Arc::clone(&self.auth)
+    }
+
     /// The same context keeping `cache:`d results in `store` between runs.
     #[must_use]
     pub fn with_cache(self, store: Arc<dyn CacheStore>) -> Self {
