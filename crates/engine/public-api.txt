@@ -41,6 +41,8 @@ pub vc_engine::EngineError::NoFilesMatch
 pub vc_engine::EngineError::NoFilesMatch::path: alloc::string::String
 pub vc_engine::EngineError::NoProject
 pub vc_engine::EngineError::NoProject::start: alloc::string::String
+pub vc_engine::EngineError::NotBuilt
+pub vc_engine::EngineError::NotBuilt::feature: alloc::string::String
 pub vc_engine::EngineError::Reporter
 pub vc_engine::EngineError::Reporter::help: core::option::Option<alloc::string::String>
 pub vc_engine::EngineError::Reporter::reason: alloc::string::String
@@ -228,6 +230,8 @@ pub fn vc_engine::Engine::init(&self, bool) -> core::result::Result<vc_engine::C
 impl vc_engine::Engine
 pub fn vc_engine::Engine::list(&self, &vc_engine::ListRequest) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
 impl vc_engine::Engine
+pub async fn vc_engine::Engine::load(&self, &vc_engine::LoadRequest) -> core::result::Result<vc_engine::LoadReport, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::new_api(&self, &vc_engine::NewApi) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::new_auth(&self, &vc_engine::NewAuth) -> core::result::Result<vc_engine::Added, vc_engine::EngineError>
@@ -401,6 +405,32 @@ pub fn vc_engine::Listed::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::Listed
 pub fn vc_engine::Listed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::Listed
+#[non_exhaustive] pub struct vc_engine::LoadReport
+pub vc_engine::LoadReport::exit: u8
+impl core::clone::Clone for vc_engine::LoadReport
+pub fn vc_engine::LoadReport::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::LoadReport
+impl core::cmp::PartialEq for vc_engine::LoadReport
+pub fn vc_engine::LoadReport::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::LoadReport
+pub fn vc_engine::LoadReport::default() -> Self
+impl core::fmt::Debug for vc_engine::LoadReport
+pub fn vc_engine::LoadReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::LoadReport
+pub struct vc_engine::LoadRequest
+pub vc_engine::LoadRequest::profiles: alloc::vec::Vec<alloc::string::String>
+pub vc_engine::LoadRequest::scenario: alloc::string::String
+pub vc_engine::LoadRequest::sets: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_engine::LoadRequest
+pub fn vc_engine::LoadRequest::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::LoadRequest
+impl core::cmp::PartialEq for vc_engine::LoadRequest
+pub fn vc_engine::LoadRequest::eq(&self, &Self) -> bool
+impl core::default::Default for vc_engine::LoadRequest
+pub fn vc_engine::LoadRequest::default() -> Self
+impl core::fmt::Debug for vc_engine::LoadRequest
+pub fn vc_engine::LoadRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::LoadRequest
 pub struct vc_engine::NewApi
 pub vc_engine::NewApi::id: alloc::string::String
 pub vc_engine::NewApi::method: core::option::Option<alloc::string::String>

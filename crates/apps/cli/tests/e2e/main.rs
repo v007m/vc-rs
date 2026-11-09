@@ -20,6 +20,7 @@ mod lifecycle;
 mod redaction;
 mod reports;
 mod scheduling;
+mod stubs;
 mod values;
 
 #[path = "../common/project.rs"]

@@ -19,6 +19,8 @@ mod fmt;
 mod history;
 mod init;
 mod list;
+mod load;
+mod migrate;
 mod new;
 mod outcome;
 mod plan;
@@ -86,6 +88,11 @@ enum Command {
     Config(explain::ConfigCommand),
     /// Sends one api ad hoc and prints the response.
     Call(call::CallArgs),
+    /// Runs a load scenario with live metrics.
+    Load(load::LoadArgs),
+    /// Converts a project from an older format.
+    #[command(subcommand)]
+    Migrate(migrate::MigrateCommand),
     /// Starts or stops the demo service the `vc init` sample calls.
     Demo(demo::DemoArgs),
     /// Prints the shell completion script for bash, zsh, fish or powershell.
@@ -128,6 +135,8 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Explain(args) => explain::run(&args, project),
         Command::Config(command) => explain::config(&command, project),
         Command::Call(args) => call::run(&args, project),
+        Command::Load(args) => load::run(&args, project),
+        Command::Migrate(command) => Ok(migrate::run(&command)),
         Command::Demo(args) => demo::run(&args),
         Command::Completion(args) => completion::run(&args),
         Command::Complete(args) => completion::complete(&args, project),

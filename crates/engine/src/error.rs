@@ -86,6 +86,12 @@ pub enum EngineError {
         /// What to do instead, when the engine knows.
         help: Option<String>,
     },
+    /// The feature is designed but not built yet.
+    #[error("{feature} is not built yet")]
+    NotBuilt {
+        /// The command or method, such as `vc load`.
+        feature: String,
+    },
     /// Something inside the engine failed; this is a bug to report, not a user error.
     #[error("{reason}")]
     Internal {
@@ -117,4 +123,9 @@ impl EngineError {
     pub const fn is_internal(&self) -> bool {
         matches!(self, Self::Internal { .. })
     }
+}
+
+/// The error for a designed command or method that is not built yet.
+pub fn not_built(feature: &str) -> EngineError {
+    EngineError::NotBuilt { feature: feature.to_owned() }
 }

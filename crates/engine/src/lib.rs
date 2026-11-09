@@ -9,8 +9,8 @@
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
 //! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_test`],
 //! [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
-//! [`Engine::save_call_as_test`], [`Engine::write`]). The model and diagnostics types apps need
-//! are re-exported here (D108).
+//! [`Engine::save_call_as_test`], [`Engine::write`]). Load is a stub that says it is not built
+//! yet ([`Engine::load`]). The model and diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
 //! use vc_engine::Engine;
@@ -39,6 +39,7 @@ mod history;
 mod init;
 mod interrupt;
 mod list;
+mod load;
 mod plan;
 mod ports;
 mod problems;
@@ -76,6 +77,7 @@ pub use fix::FixReport;
 pub use init::INIT_FOLDERS;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
+pub use load::{LoadReport, LoadRequest};
 pub use plan::PlanReport;
 pub use request::{
     CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,

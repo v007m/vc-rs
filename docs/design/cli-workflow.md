@@ -287,7 +287,7 @@ One service per folder keeps an api file next to the tests that use it, and test
 
 ## Commands
 
-Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text.
+Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text. `vc load` and `vc migrate v1` take their arguments but are not built yet: each exits 2 with `error: <command> is not built yet`.
 
 **Start and author**
 
