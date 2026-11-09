@@ -25,7 +25,8 @@ impl From<Error> for Fault {
 pub enum Thrown {
     /// An `Error`: its name and message, and its stack.
     Error { message: String, stack: String },
-    /// Some other thrown value, as text; `None` for `null` or `undefined`.
+    /// Some other thrown value, as text; `None` for `null` or `undefined`, which is also what
+    /// `QuickJS` throws when it cannot even allocate its out-of-memory error.
     Value(Option<String>),
     /// `QuickJS` could not allocate.
     Allocation,
@@ -58,12 +59,6 @@ impl Thrown {
             CaughtError::Value(value) => Self::Value(text(&value)),
         }
     }
-
-    /// Whether it is a thrown `null` or `undefined`, which is what `QuickJS` throws when it
-    /// cannot even allocate the out-of-memory error.
-    pub const fn is_void(&self) -> bool {
-        matches!(self, Self::Value(None))
-    }
 }
 
 /// What the engine saw around a failed call.
@@ -71,11 +66,13 @@ impl Thrown {
 pub struct Seen {
     /// The interrupt handler stopped it.
     pub fired: bool,
-    /// The runtime was at its memory limit afterwards.
-    pub memory_full: bool,
 }
 
 /// `thrown` as a [`HookError`], its line mapped to TypeScript through `call`'s modules.
+///
+/// A thrown `null` or `undefined` is a memory overrun: `QuickJS` throws `null` when the error
+/// for a refused allocation cannot be allocated either, and by the time the call returns its
+/// frames have freed what filled the runtime, so nothing else tells the two apart.
 pub fn classify(thrown: Thrown, call: &HookCall, seen: Seen) -> HookError {
     let line = match &thrown {
         Thrown::Error { stack, .. } => ts_line(stack, call),
@@ -85,13 +82,13 @@ pub fn classify(thrown: Thrown, call: &HookCall, seen: Seen) -> HookError {
         return HookError::Overran { limit: Limit::Time, line };
     }
     match thrown {
-        Thrown::Allocation => HookError::Overran { limit: Limit::Memory, line },
-        Thrown::Value(None) if seen.memory_full => HookError::Overran { limit: Limit::Memory, line },
+        Thrown::Allocation | Thrown::Value(None) => HookError::Overran { limit: Limit::Memory, line },
         Thrown::Error { message, .. } if message.ends_with("out of memory") => {
             HookError::Overran { limit: Limit::Memory, line }
         }
-        Thrown::Error { message, .. } | Thrown::Other(message) => HookError::Threw { message, line },
-        Thrown::Value(text) => HookError::Threw { message: text.unwrap_or_else(|| "null".to_owned()), line },
+        Thrown::Error { message, .. } | Thrown::Other(message) | Thrown::Value(Some(message)) => {
+            HookError::Threw { message, line }
+        }
         Thrown::Bad(what) => HookError::BadValue { what },
         Thrown::Missing => HookError::NotFound { hook: format!("{}#{}", call.hook.file, call.hook.export) },
     }
@@ -147,7 +144,7 @@ mod tests {
         HookCall::new(modules, HookRef { file: "hooks/a.ts".into(), export: "go".into() }, Value::Null)
     }
 
-    const CALM: Seen = Seen { fired: false, memory_full: false };
+    const CALM: Seen = Seen { fired: false };
 
     fn error(message: &str, stack: &str) -> Thrown {
         Thrown::Error { message: message.to_owned(), stack: stack.to_owned() }
@@ -164,17 +161,19 @@ mod tests {
 
     #[test]
     fn names_overruns_bad_values_and_missing_hooks() {
-        let fired = Seen { fired: true, memory_full: false };
+        let fired = Seen { fired: true };
         let stopped = classify(error("InternalError: interrupted", "    at go (hooks/a.ts:2:3)"), &call(), fired);
         assert_eq!(stopped, HookError::Overran { limit: Limit::Time, line: Some(12) });
         let full = classify(error("InternalError: out of memory", ""), &call(), CALM);
         assert_eq!(full, HookError::Overran { limit: Limit::Memory, line: None });
-        let null = Seen { fired: false, memory_full: true };
-        assert!(matches!(
-            classify(Thrown::Value(None), &call(), null),
-            HookError::Overran { limit: Limit::Memory, .. }
-        ));
-        assert!(matches!(classify(Thrown::Value(None), &call(), CALM), HookError::Threw { .. }));
+        let null = classify(Thrown::Value(None), &call(), CALM);
+        assert_eq!(
+            null,
+            HookError::Overran { limit: Limit::Memory, line: None },
+            "QuickJS throws null when out of memory"
+        );
+        let text = classify(Thrown::Value(Some("7".into())), &call(), CALM);
+        assert_eq!(text, HookError::Threw { message: "7".into(), line: None });
         assert_eq!(classify(Thrown::Missing, &call(), CALM), HookError::NotFound { hook: "hooks/a.ts#go".into() });
         assert_eq!(classify(Thrown::Bad("x".into()), &call(), CALM), HookError::BadValue { what: "x".into() });
     }

@@ -23,9 +23,6 @@ const STACK: usize = 512 * 1024;
 /// How many entry contexts are kept before all are dropped and loaded afresh.
 const MAX_ENTRIES: usize = 64;
 
-/// How close to its limit the runtime counts as full: a thrown `null` there is an overrun.
-const SLACK: usize = 64 * 1024;
-
 /// An entry module, evaluated in its own context. The namespace is dropped before the context.
 struct Loaded {
     namespace: Persistent<Object<'static>>,
@@ -83,10 +80,7 @@ impl Engine {
                 output.secrets_used = used;
                 Ok(output)
             }
-            Err(thrown) => {
-                let memory_full = thrown.is_void() && self.is_full();
-                Err(classify(thrown, call, Seen { fired, memory_full }))
-            }
+            Err(thrown) => Err(classify(thrown, call, Seen { fired })),
         }
     }
 
@@ -97,11 +91,6 @@ impl Engine {
         }
         self.runtime.set_memory_limit(memory);
         self.limit = memory;
-    }
-
-    fn is_full(&self) -> bool {
-        let used = self.runtime.memory_usage().malloc_size;
-        usize::try_from(used).is_ok_and(|used| used.saturating_add(SLACK) >= self.limit)
     }
 
     fn run(&mut self, call: &HookCall) -> Result<Json, Thrown> {
