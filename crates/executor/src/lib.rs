@@ -33,8 +33,8 @@ mod values;
 
 pub use action::{
     ActionCx, ActionExecutor, ActionExecutors, ActionKindTag, ActionRequest, AuthKey, CachedExecutor, CallExecutor,
-    CleanupSink, CommandExecutor, FunctionExecutor, InlineExecutor, Lease, NoAuth, Replaced, RunCache, TestExecutor,
-    TokenCache, body_actions,
+    CleanupSink, CommandExecutor, FunctionExecutor, InlineExecutor, Lease, NoAuth, RunCache, TestExecutor, TokenCache,
+    body_actions,
 };
 use action::{CleanupCollector, own_limit};
 pub use bus::EventBus;

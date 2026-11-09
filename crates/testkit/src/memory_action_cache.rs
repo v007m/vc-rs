@@ -55,7 +55,20 @@ impl CacheStore for MemoryCacheStore {
     }
 
     fn put(&self, entry: CacheEntry) -> Result<Option<CacheEntry>, CacheStoreError> {
-        self.ask(move |entries| entries.insert(entry.key, entry))
+        self.ask(move |entries| {
+            let made_ms = entry.listing.created_ms;
+            let replaced = entries.insert(entry.key, entry)?;
+            let key = vacant(entries, replaced.key);
+            let expires_ms = replaced.listing.expires_ms.min(made_ms);
+            let buried = CacheEntry { key, listing: CacheListing { expires_ms, ..replaced.listing }, ..replaced };
+            entries.insert(key, buried.clone());
+            Some(buried)
+        })
+    }
+
+    fn remove(&self, key: &CacheKey) -> Result<(), CacheStoreError> {
+        let key = *key;
+        self.ask(move |entries| drop(entries.remove(&key)))
     }
 
     fn take_expired(&self, now_ms: u64) -> Result<Vec<CacheEntry>, CacheStoreError> {
@@ -72,6 +85,19 @@ impl CacheStore for MemoryCacheStore {
         let label = label.map(str::to_owned);
         self.ask(move |entries| take(entries, |entry| label.as_ref().is_none_or(|label| *label == entry.listing.label)))
     }
+}
+
+/// The first key that holds no entry among `near` with its last bytes flipped by 1, 2, 3 and
+/// on: a tombstone's key.
+fn vacant(entries: &Entries, near: CacheKey) -> CacheKey {
+    let flipped = |step: u64| {
+        let mut bytes = *near.bytes();
+        for (byte, flip) in bytes.iter_mut().rev().zip(step.to_le_bytes()) {
+            *byte ^= flip;
+        }
+        CacheKey::new(bytes)
+    };
+    (1..=u64::MAX).map(flipped).find(|key| !entries.contains_key(key)).unwrap_or(near)
 }
 
 /// Removes the entries `matches` picks and gives them back, oldest first.

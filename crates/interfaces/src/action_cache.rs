@@ -19,14 +19,23 @@ pub trait CacheStore: Send + Sync {
     /// [`CacheStoreError`] when the store cannot be read.
     fn get(&self, key: &CacheKey, now_ms: u64) -> Result<Option<CacheEntry>, CacheStoreError>;
 
-    /// Stores `entry`, replacing any entry under its key, and gives back the entry it replaced,
-    /// live or expired, so its cleanups can run; `None` when there was none or it can no
-    /// longer be read.
+    /// Stores `entry`, replacing any entry under its key. The entry it replaced, live or
+    /// expired, stays in the store as a tombstone until its cleanups have run: under a key of
+    /// its own, expired once `entry` was made, so [`CacheStore::take_expired`] gives it back if
+    /// nothing removes it first. Gives back that tombstone; `None` when there was no entry or
+    /// it can no longer be read.
     ///
     /// # Errors
     ///
     /// [`CacheStoreError`] when the store cannot be written.
     fn put(&self, entry: CacheEntry) -> Result<Option<CacheEntry>, CacheStoreError>;
+
+    /// Removes the entry under `key`, if there is one: a tombstone whose cleanups have run.
+    ///
+    /// # Errors
+    ///
+    /// [`CacheStoreError`] when the store cannot be written.
+    fn remove(&self, key: &CacheKey) -> Result<(), CacheStoreError>;
 
     /// Removes and returns every entry expired at `now_ms`, oldest first, so their cleanups
     /// can run.

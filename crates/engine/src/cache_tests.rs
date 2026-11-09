@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
 use serde_json::json;
+use tokio::sync::mpsc;
+use vc_executor::RunInputs;
 use vc_interfaces::{
     CacheEntry, CacheKey, CacheListing, CacheStore as _, CachedCleanup, CachedValues, Keychain, KeychainError, Secret,
 };
 use vc_testkit::{FakeVcs, MemoryCacheStore, MemoryEnvironment, MemoryKeychain};
 
-use super::{ACCOUNT, SERVICE};
-use crate::{Engine, sample};
+use super::{ACCOUNT, Buried, SERVICE, Sweep};
+use crate::{Engine, interrupts, ports, sample};
 
 const KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
@@ -110,4 +112,51 @@ async fn clearing_reports_a_cleanup_whose_api_has_none() {
 fn a_store_given_to_the_builder_needs_no_key() {
     let store = Arc::new(MemoryCacheStore::new());
     assert!(stored(&store).cache_store(&MemoryEnvironment::new(&[])).is_ok());
+}
+
+/// A tombstone in `store` whose one cleanup's api no longer has a `cleanup`, so cleaning it
+/// leaves a notice saying so.
+fn tombstone(store: &Arc<MemoryCacheStore>) -> CacheEntry {
+    let mut buried = entry(5, "users#create", "dev", 1);
+    buried.cleanups.push(CachedCleanup { api: "users#gone".to_owned(), vars: CachedValues::new() });
+    store.put(buried.clone()).unwrap();
+    buried
+}
+
+/// The sweep of a run of `engine` on `store` that replaced the entry `buried` is the tombstone of.
+fn sweep(engine: &Engine, store: &Arc<MemoryCacheStore>, buried: CacheEntry) -> Sweep {
+    let prepared = super::unplanned(engine.layered(&[], &[]).unwrap());
+    let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment));
+    let cx = Arc::new(engine.action_cx(&prepared, inputs).unwrap());
+    let (replaced, tombstones) = mpsc::unbounded_channel();
+    replaced.send(buried).unwrap();
+    let store: Arc<dyn vc_interfaces::CacheStore> = Arc::clone(store) as _;
+    Sweep { cx, notices: vec!["started".to_owned()], buried: Some(Buried { store, tombstones }) }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_end_of_a_run_cleans_up_each_tombstone_then_removes_it() {
+    let store = Arc::new(MemoryCacheStore::new());
+    let engine = stored(&store);
+    let swept = sweep(&engine, &store, tombstone(&store));
+    let (_interrupter, mut interrupts) = interrupts();
+    let notices = swept.finish(&mut interrupts).await;
+    assert_eq!(notices.len(), 2, "{notices:?}");
+    assert_eq!(notices[0], "started");
+    assert!(notices[1].contains("users#create") && notices[1].contains("no longer has a `cleanup`"), "{notices:?}");
+    assert_eq!(store.list().unwrap(), Vec::new(), "a cleaned tombstone is removed");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_third_interrupt_leaves_the_tombstones_for_the_next_run() {
+    let store = Arc::new(MemoryCacheStore::new());
+    let engine = stored(&store);
+    let buried = tombstone(&store);
+    let swept = sweep(&engine, &store, buried.clone());
+    let (interrupter, mut interrupts) = interrupts();
+    (0..3).for_each(|_| interrupter.interrupt());
+    let notices = swept.finish(&mut interrupts).await;
+    assert_eq!(notices.len(), 2, "{notices:?}");
+    assert!(notices[1].contains("interrupted") && notices[1].contains("next run"), "{notices:?}");
+    assert_eq!(store.list().unwrap(), vec![buried.listing], "the tombstone stays, for the next run to clean");
 }

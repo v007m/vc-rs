@@ -19,12 +19,37 @@ impl Interrupter {
 /// The receiving end, handed to [`crate::Engine::run`].
 #[derive(Debug)]
 pub struct Interrupts {
-    pub(crate) inbox: UnboundedReceiver<()>,
+    inbox: UnboundedReceiver<()>,
+    seen: u8,
 }
+
+/// The interrupt that abandons the cleanups.
+const ABANDON: u8 = 3;
 
 /// A connected [`Interrupter`] and [`Interrupts`].
 #[must_use]
 pub fn interrupts() -> (Interrupter, Interrupts) {
     let (inbox, receiver) = mpsc::unbounded_channel();
-    (Interrupter { inbox }, Interrupts { inbox: receiver })
+    (Interrupter { inbox }, Interrupts { inbox: receiver, seen: 0 })
+}
+
+impl Interrupts {
+    /// The next interrupt, counted; `None` once every [`Interrupter`] is gone.
+    pub(crate) async fn next(&mut self) -> Option<()> {
+        let next = self.inbox.recv().await;
+        if next.is_some() {
+            self.seen = self.seen.saturating_add(1);
+        }
+        next
+    }
+
+    /// Ready once the third interrupt has come, at once if it came during the run, so the
+    /// cleanups still to run are abandoned; never, if every [`Interrupter`] goes first.
+    pub(crate) async fn abandoned(&mut self) {
+        while self.seen < ABANDON {
+            if self.next().await.is_none() {
+                std::future::pending::<()>().await;
+            }
+        }
+    }
 }

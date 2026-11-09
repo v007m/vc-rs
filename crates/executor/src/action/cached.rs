@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value;
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::UnboundedSender;
 use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, Clock};
 use vc_model::{Action, ActionId, ActionKind, ActionOutcome, CacheSpec, Program};
 
@@ -10,7 +10,7 @@ use super::{ActionExecutor, ActionRequest};
 use crate::{ActionReport, CleanupCollector, PendingCleanup, Render, Saved};
 
 /// A run's cross-run cache: the store, the clock its entries are made and expire by, and where
-/// the entries fresh results replace go to wait for the run's end.
+/// the tombstones of the entries fresh results replace go to wait for the run's end.
 #[derive(Clone)]
 pub struct RunCache {
     store: Arc<dyn CacheStore>,
@@ -24,24 +24,13 @@ impl std::fmt::Debug for RunCache {
     }
 }
 
-/// The entries fresh results replaced during a run, whose cleanups the run's owner runs once
-/// every test is done, as their expiry would have.
-#[derive(Debug)]
-pub struct Replaced(UnboundedReceiver<CacheEntry>);
-
 impl RunCache {
-    /// The cache of a run keeping results in `store` by `clock`, and the entries it replaces.
+    /// The cache of a run keeping results in `store` by `clock`, sending the tombstones of the
+    /// entries it replaces to `replaced`, whose owner runs their cleanups once every test is
+    /// done, as their expiry would have.
     #[must_use]
-    pub fn new(store: Arc<dyn CacheStore>, clock: Arc<dyn Clock>) -> (Self, Replaced) {
-        let (replaced, waiting) = mpsc::unbounded_channel();
-        (Self { store, clock, replaced }, Replaced(waiting))
-    }
-}
-
-impl Replaced {
-    /// The entries replaced so far, oldest first.
-    pub fn take(&mut self) -> Vec<CacheEntry> {
-        std::iter::from_fn(|| self.0.try_recv().ok()).collect()
+    pub fn new(store: Arc<dyn CacheStore>, clock: Arc<dyn Clock>, replaced: UnboundedSender<CacheEntry>) -> Self {
+        Self { store, clock, replaced }
     }
 }
 
@@ -51,7 +40,8 @@ impl Replaced {
 /// once its `cache.check` passes; otherwise the action runs and, when it passes, its saves and
 /// cleanups are stored for `cache.for`. A stored action's cleanups run when its entry expires,
 /// is cleared or is replaced by a fresh one, not when its frame closes; a replaced entry's wait
-/// for the end of the run ([`Replaced`]), since another instance may still use what it made.
+/// for the end of the run as a tombstone in the store, since another instance may still use
+/// what it made.
 /// Without a store, or for an action without `cache:`, it only runs the wrapped executor; a
 /// store that fails never fails the action.
 #[derive(Clone)]
@@ -99,8 +89,8 @@ impl CachedExecutor {
     /// Runs the action and, when it passes, stores its saves and cleanups; stored cleanups
     /// leave the report, so they wait for the entry to expire instead of the frame to close.
     /// Its parts hand their cleanups to a collector of its own, so every one can be stored. The
-    /// entry it replaces (its check failed, or it expired since the run began) goes to
-    /// [`Replaced`], for the run's end.
+    /// tombstone of the entry it replaces (its check failed, or it expired since the run began)
+    /// goes to the run's owner, for the run's end.
     async fn miss(&self, request: ActionRequest, cacheable: Cacheable) -> ActionReport {
         let program = Arc::clone(&request.cx.program);
         let mut report = CleanupCollector::around(&request, |request| self.inner.execute(request)).await;
