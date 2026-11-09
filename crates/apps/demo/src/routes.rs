@@ -1,5 +1,5 @@
 //! The demo's canned routes: `/users` (list, create, read, remove) and `ANY /echo`. Nothing is
-//! stored; a created user gets the next ID and is gone again.
+//! stored; a created user gets the next ID, can be read back by it, and needs an email.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -31,28 +31,37 @@ pub fn router() -> Router {
 }
 
 fn users() -> Value {
-    json!([{"id": 1, "name": "Ada Lovelace"}, {"id": 2, "name": "Grace Hopper"}])
+    json!([{"id": "1", "name": "Ada Lovelace"}, {"id": "2", "name": "Grace Hopper"}])
 }
 
 async fn list() -> Json<Value> {
     Json(users())
 }
 
-/// `POST /users`: 201 with the next ID and the posted name.
+/// `POST /users`: 201 with the next ID, as text, and the posted name and email. Without an email,
+/// 400 with a null ID: the sample's `createUser` saves `response.body.id` whenever its checks hold.
 async fn create(State(next): State<Arc<AtomicU64>>, body: Bytes) -> Response {
     let posted: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    let Some(email) = posted.get("email").filter(|email| email.is_string()).cloned() else {
+        return (StatusCode::BAD_REQUEST, Json(json!({"id": null, "error": "a user needs an email"}))).into_response();
+    };
     let name = posted.get("name").cloned().unwrap_or_else(|| json!("someone"));
-    let id = next.fetch_add(1, Ordering::Relaxed);
-    (StatusCode::CREATED, Json(json!({"id": id, "name": name}))).into_response()
+    let id = next.fetch_add(1, Ordering::Relaxed).to_string();
+    (StatusCode::CREATED, Json(json!({"id": id, "name": name, "email": email}))).into_response()
 }
 
-/// `GET /users/{id}`: a canned user, or 404.
-async fn read(Path(id): Path<u64>) -> Response {
-    let found = users().as_array().and_then(|all| all.iter().find(|user| user["id"] == id).cloned());
-    found.map_or_else(|| StatusCode::NOT_FOUND.into_response(), |user| Json(user).into_response())
+/// `GET /users/{id}`: a canned user, a created one by its ID alone (nothing is stored), or 404.
+async fn read(State(next): State<Arc<AtomicU64>>, Path(id): Path<String>) -> Response {
+    let canned = users().as_array().and_then(|all| all.iter().find(|user| user["id"] == id.as_str()).cloned());
+    let created = id.parse::<u64>().is_ok_and(|n| (FIRST_ID..next.load(Ordering::Relaxed)).contains(&n));
+    match canned {
+        Some(user) => Json(user).into_response(),
+        None if created => Json(json!({"id": id})).into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
-async fn remove(Path(_id): Path<u64>) -> StatusCode {
+async fn remove(Path(_id): Path<String>) -> StatusCode {
     StatusCode::NO_CONTENT
 }
 
