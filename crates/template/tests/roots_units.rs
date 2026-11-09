@@ -163,6 +163,19 @@ fn sizes_are_binary() {
 }
 
 #[test]
+fn rates_are_percentages_or_shares() {
+    let ok = |text| vc_template::parse_rate(text, span()).unwrap();
+    let share = |value| serde_json::Number::from_f64(value).unwrap();
+    assert_eq!([ok("1%"), ok("0.5%"), ok("100%"), ok("0%")], [share(0.01), share(0.005), share(1.0), share(0.0)]);
+    assert_eq!([ok("0.01"), ok("1"), ok("0")], [share(0.01), share(1.0), share(0.0)]);
+    for text in ["101%", "-1%", "1.5", "50", "%", "1 %", "1e-2", "NaN", "inf", "1%%", ""] {
+        let diagnostic = *vc_template::parse_rate(text, span()).unwrap_err();
+        assert_eq!((diagnostic.code, diagnostic.message.clone()), (Code::V2301, format!("invalid rate `{text}`")));
+        assert_eq!(diagnostic.primary.span, span());
+    }
+}
+
+#[test]
 fn statuses_are_codes_or_classes() {
     let ok = |text| vc_template::parse_status(text, span()).unwrap();
     assert_eq!(

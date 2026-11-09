@@ -55,6 +55,8 @@ pub enum Unit {
     Duration,
     /// Sizes: `{ lt: 100kb }`.
     Size,
+    /// Rates, as a share from 0 to 1: `{ lt: 1% }` or `{ lt: 0.01 }`.
+    Rate,
 }
 
 /// Roots a key makes available to the templates under it (D125).

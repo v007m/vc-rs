@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use vc_diagnostics::{Category, Code};
-use vc_model::{AgentPolicy, ContentHash, Method, Program, SourceFile, SourcePath, WriteDefinitions};
+use vc_model::{
+    AgentPolicy, ContentHash, Matcher, MatcherArg, Method, Program, SourceFile, SourcePath, TemplateValue,
+    WriteDefinitions,
+};
 
 use crate::{CompileInput, Compiled};
 
@@ -72,6 +75,25 @@ fn an_unknown_mix_test_is_v2003() {
     let codes: Vec<_> = compiled.diagnostics.iter().map(|found| found.code).collect();
     assert_eq!(codes, [Code::V2003]);
     assert!(compiled.program.is_none());
+}
+
+#[test]
+fn an_error_rate_takes_a_percentage_or_a_share() {
+    let rate = |threshold: &str| {
+        let program = build(&format!(
+            "mix:\n  - {{test: users.crud#getsUser, weight: 1}}\nstages: []\nthresholds: {{errorRate: {threshold}}}\n"
+        ));
+        let scenario = program.loads.values().next().unwrap();
+        let Some(Matcher::All(calls)) = scenario.thresholds.get("errorRate") else { panic!("a matcher") };
+        let MatcherArg::Value(TemplateValue::Number(share)) = &calls[0].arg else { panic!("a number") };
+        share.clone()
+    };
+    let share = |value| serde_json::Number::from_f64(value).unwrap();
+    assert_eq!([rate("{lt: 1%}"), rate("{lt: 0.01}"), rate("{gte: 100%}")], [share(0.01), share(0.01), share(1.0)]);
+    let compiled =
+        compile("mix:\n  - {test: users.crud#getsUser, weight: 1}\nstages: []\nthresholds: {errorRate: {lt: 150%}}\n");
+    let codes: Vec<_> = compiled.diagnostics.iter().map(|found| found.code).collect();
+    assert_eq!(codes, [Code::V2301]);
 }
 
 #[test]

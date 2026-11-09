@@ -49,7 +49,7 @@ shape! {
         types::key("p95", Ty::Matcher(Unit::Duration)).doc("95th percentile latency"),
         types::key("p99", Ty::Matcher(Unit::Duration)).doc("99th percentile latency"),
         types::key("max", Ty::Matcher(Unit::Duration)).doc("Slowest request"),
-        types::key("errorRate", Ty::Matcher(Unit::Plain)).doc("Share of failed requests").example("{lt: 0.01}"),
+        types::key("errorRate", Ty::Matcher(Unit::Rate)).doc("Share of failed iterations").example("{lt: 1%}"),
         types::key("rps", Ty::Matcher(Unit::Plain)).doc("Requests per second").example("{gte: 100}"),
     ])
 }

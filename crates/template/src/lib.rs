@@ -16,7 +16,7 @@
 //! ```
 //!
 //! [`PipeRegistry`] checks pipes, [`Roots`] checks where a root may be used (D125), and
-//! [`parse_duration`], [`parse_size`] and [`parse_status`] read units and statuses.
+//! [`parse_duration`], [`parse_size`], [`parse_rate`] and [`parse_status`] read units and statuses.
 //!
 //! [`CelCompiler::check`] checks a CEL expression into a [`vc_model::CelProgram`] at compile
 //! time; [`CelCompiler::prepare`] turns it into an [`Expr`] evaluated against an [`Activation`].
@@ -61,4 +61,4 @@ pub use pipes::{ArgType, PipeDef, PipeRegistry, PipeSignature, ValueType};
 pub use render::{Renderer, Resolve, to_text};
 pub use roots::Roots;
 pub use select::{path_text, preview, select};
-pub use units::{parse_duration, parse_size, parse_status};
+pub use units::{parse_duration, parse_rate, parse_size, parse_status};

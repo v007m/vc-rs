@@ -130,6 +130,9 @@ fn ordered(cx: &mut Cx<'_>, spot: Spot<'_>) -> Option<MatcherArg> {
             cx.check(vc_template::parse_duration(text, node.span)).map(MatcherArg::Duration)
         }
         (Unit::Size, Some(text)) => cx.check(vc_template::parse_size(text, node.span)).map(MatcherArg::Size),
+        (Unit::Rate, Some(text)) => cx
+            .check(vc_template::parse_rate(text, node.span))
+            .map(|share| MatcherArg::Value(TemplateValue::Number(share))),
         _ => value::lower(cx, spot.at).map(MatcherArg::Value),
     }
 }
