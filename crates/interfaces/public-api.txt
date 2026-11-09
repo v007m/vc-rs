@@ -835,6 +835,7 @@ pub fn vc_interfaces::CacheStore::clear(&self, core::option::Option<&str>) -> co
 pub fn vc_interfaces::CacheStore::get(&self, &vc_interfaces::CacheKey, u64) -> core::result::Result<core::option::Option<vc_interfaces::CacheEntry>, vc_interfaces::CacheStoreError>
 pub fn vc_interfaces::CacheStore::list(&self) -> core::result::Result<alloc::vec::Vec<vc_interfaces::CacheListing>, vc_interfaces::CacheStoreError>
 pub fn vc_interfaces::CacheStore::put(&self, vc_interfaces::CacheEntry) -> core::result::Result<core::option::Option<vc_interfaces::CacheEntry>, vc_interfaces::CacheStoreError>
+pub fn vc_interfaces::CacheStore::remove(&self, &vc_interfaces::CacheKey) -> core::result::Result<(), vc_interfaces::CacheStoreError>
 pub fn vc_interfaces::CacheStore::take_expired(&self, u64) -> core::result::Result<alloc::vec::Vec<vc_interfaces::CacheEntry>, vc_interfaces::CacheStoreError>
 pub trait vc_interfaces::Clock: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Clock::now_ms(&self) -> u64
