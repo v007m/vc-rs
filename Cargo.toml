@@ -23,6 +23,7 @@ members = [
   "crates/adapters/importers",
   "crates/adapters/notifiers",
   "crates/adapters/plugins",
+  "crates/apps/tui",
   "crates/apps/mcp",
   "crates/apps/server",
   "crates/apps/cli",
@@ -63,6 +64,7 @@ vc-adapter-auth = { path = "crates/adapters/auth" }
 vc-adapter-importers = { path = "crates/adapters/importers" }
 vc-adapter-notifiers = { path = "crates/adapters/notifiers" }
 vc-adapter-plugins = { path = "crates/adapters/plugins" }
+vc-tui = { path = "crates/apps/tui" }
 vc-mcp = { path = "crates/apps/mcp" }
 vc-server = { path = "crates/apps/server" }
 vc-mock-server = { path = "bench/mock" }
@@ -83,6 +85,7 @@ chacha20poly1305 = { version = "0.11.0", features = ["zeroize"] }
 clap = { version = "4.6.7", features = ["derive"] }
 clap_complete = "4.6.11"
 criterion = { version = "0.8.2", default-features = false }
+crossterm = "0.29.0"
 csv = "1.4.0"
 fake = { version = "5.1.0", default-features = false }
 flate2 = "1.1.10"
@@ -120,6 +123,7 @@ proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 proptest = "1.12.0"
 prost = "0.14.4"
 rand_core = "0.10.1"
+ratatui = "0.30.0"
 regex = "1.13.1"
 ring = "0.17.14"
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }

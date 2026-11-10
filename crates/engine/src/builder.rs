@@ -7,8 +7,8 @@ use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
     AgentActionLog, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment,
-    FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStore, SourceProvider,
-    SourceWriter, Transport, Vcs,
+    FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStderr, PluginStore,
+    SourceProvider, SourceWriter, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -36,6 +36,7 @@ pub struct EngineBuilder {
     browser: Option<Arc<dyn Browser>>,
     notifiers: Option<Arc<dyn NotifierFactory>>,
     plugins: Option<Arc<dyn PluginStore>>,
+    plugin_stderr: PluginStderr,
 }
 
 /// The history's writer and reader, given together.
@@ -69,6 +70,7 @@ impl EngineBuilder {
             browser: None,
             notifiers: None,
             plugins: None,
+            plugin_stderr: PluginStderr::Inherit,
         }
     }
 
@@ -224,6 +226,14 @@ impl EngineBuilder {
         self
     }
 
+    /// Sends each plugin's stderr where `stderr` says: a UI drawing on the terminal logs it
+    /// instead of letting it through.
+    #[must_use]
+    pub const fn plugin_stderr(mut self, stderr: PluginStderr) -> Self {
+        self.plugin_stderr = stderr;
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -241,12 +251,12 @@ impl EngineBuilder {
         let vcs = self.vcs.unwrap_or_else(|| Arc::new(GitVcs::new(&self.root)));
         let commands = self.commands.unwrap_or_else(|| Arc::new(ProcessRunner::new()));
         let (history, history_reader) = self.history.unzip();
-        let keychain =
-            self.keychain.or_else(|| OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>));
+        let keychain = self.keychain.or_else(os_keychain);
         let (cache, watcher, auth, browser) = (self.cache, self.watcher, self.auth, self.browser);
         let watcher = watcher.unwrap_or_else(|| Arc::new(NotifyWatcher::new(&self.root)));
         Ok(Engine {
             plugins: self.plugins.unwrap_or_else(|| Arc::new(FsPluginStore::new(&self.root))),
+            plugin_stderr: self.plugin_stderr,
             root: self.root,
             sources,
             writer,
@@ -301,6 +311,12 @@ pub struct Engine {
     pub(crate) browser: Option<Arc<dyn Browser>>,
     pub(crate) notifiers: Option<Arc<dyn NotifierFactory>>,
     pub(crate) plugins: Arc<dyn PluginStore>,
+    pub(crate) plugin_stderr: PluginStderr,
+}
+
+/// The operating system's keychain, when it has one.
+fn os_keychain() -> Option<Arc<dyn Keychain>> {
+    OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>)
 }
 
 impl Engine {
@@ -308,6 +324,13 @@ impl Engine {
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    /// `path`, from `base` when it is relative, as a path in the project with `/` between its
+    /// parts, links resolved; `None` when it is not a file or folder in the project.
+    #[must_use]
+    pub fn project_path(&self, base: &Path, path: &Path) -> Option<String> {
+        vc_adapter_system::project_path(&self.root, &base.join(path))
     }
 }
 

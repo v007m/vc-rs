@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use serde_json::{Value, json};
-use vc_model::{Api, Program, SourceFileId, SourceSpan, Sym, Test, TestId};
+use vc_model::{Api, FileKind, Program, SourceFileId, SourcePath, SourceSpan, Sym, Test, TestId};
 use vc_planner::{PlanError, PlanOptions};
 
 use crate::list_detail::{self, ApiCall};
@@ -31,6 +31,14 @@ pub struct Listed {
     pub steps: u32,
     /// The vars an api declares, in order.
     pub vars: Vec<String>,
+}
+
+impl Listed {
+    /// The kind of the file it is in, as its path names it; `None` for a path that names none.
+    #[must_use]
+    pub fn kind(&self) -> Option<FileKind> {
+        SourcePath::new(&self.path).ok().as_ref().and_then(FileKind::from_path)
+    }
 }
 
 /// What `vc list` found, in project order.
@@ -90,6 +98,20 @@ impl Engine {
             ListKind::Apis => self.apis(&program, request)?,
             ListKind::Files => self.files(&program, request)?,
         };
+        Ok(ListReport { items, notices })
+    }
+
+    /// Every api, then every test (skipped ones included), from one read of the project: what
+    /// an app that browses the project shows, without compiling it once per kind.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Invalid`] when the project has errors.
+    pub fn catalog(&self) -> Result<ListReport, EngineError> {
+        let (program, notices) = self.program()?;
+        let request = ListRequest::default();
+        let mut items = self.apis(&program, &request)?;
+        items.extend(self.tests(&program, &request)?);
         Ok(ListReport { items, notices })
     }
 

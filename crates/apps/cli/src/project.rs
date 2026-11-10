@@ -21,13 +21,25 @@ pub struct Located {
 /// [`Outcome::Helped`] when the folder does not exist, [`Outcome::Engine`] when no project
 /// holds it; an `Err` when the working folder cannot be read.
 pub fn locate(project: Option<&Path>) -> anyhow::Result<Result<Located, Outcome>> {
+    locate_with(project, |builder| builder)
+}
+
+/// [`locate`], the engine's builder passed through `configure` first.
+///
+/// # Errors
+///
+/// As [`locate`].
+pub fn locate_with(
+    project: Option<&Path>,
+    configure: fn(EngineBuilder) -> EngineBuilder,
+) -> anyhow::Result<Result<Located, Outcome>> {
     let cwd = std::env::current_dir()?;
     let start = match project {
         Some(dir) if !cwd.join(dir).is_dir() => return Ok(Err(missing(dir))),
         Some(dir) => cwd.join(dir),
         None => cwd.clone(),
     };
-    let engine = match EngineBuilder::for_project(&start).and_then(EngineBuilder::build) {
+    let engine = match EngineBuilder::for_project(&start).map(configure).and_then(EngineBuilder::build) {
         Ok(engine) => engine,
         Err(error) => return Ok(Err(Outcome::Engine(error))),
     };
@@ -61,11 +73,8 @@ impl Located {
 
     /// `path` relative to the project root, when it is a file or folder in the project.
     pub fn project_path(&self, path: &Path) -> Result<String, String> {
-        let root = self.engine.root();
-        let missing = || format!("{}: not a file or folder in the project at {}", path.display(), root.display());
-        let resolved = std::fs::canonicalize(self.base.join(path)).map_err(|_| missing())?;
-        let relative = resolved.strip_prefix(root).map_err(|_| missing())?;
-        let parts: Vec<_> = relative.components().map(|part| part.as_os_str().to_string_lossy()).collect();
-        Ok(parts.join("/"))
+        self.engine.project_path(&self.base, path).ok_or_else(|| {
+            format!("{}: not a file or folder in the project at {}", path.display(), self.engine.root().display())
+        })
     }
 }

@@ -36,7 +36,7 @@ pub use config_sources::{DotEnv, SetFlags, VibVars};
 pub use environment::SystemEnvironment;
 pub use git::GitVcs;
 pub use random::SeededRandom;
-pub use root::{CONFIG_FILE, find_project_root};
+pub use root::{CONFIG_FILE, find_project_root, project_path};
 pub use sources::FsSources;
 pub use user_config::UserConfig;
 pub use watcher::NotifyWatcher;

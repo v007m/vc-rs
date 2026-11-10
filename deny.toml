@@ -28,6 +28,7 @@ skip = [
   { crate = "r-efi@5", reason = "jsonschema 0.61 (body.schema, D201) via getrandom 0.3" },
   { crate = "bit-set@0.8", reason = "jsonschema 0.61 (body.schema, D201) via fancy-regex" },
   { crate = "bit-vec@0.8", reason = "jsonschema 0.61 (body.schema, D201) via fancy-regex" },
+  { crate = "compact_str@0.9", reason = "ratatui-core 0.1 (vc tui, D238); oxc is on compact_str 0.10" },
   { crate = "itertools@0.14", reason = "ratatui 0.30 (vc tui) and prost-derive 0.14 (vc-contracts) cap itertools at 0.14; oxc is on 0.15 (D238)" },
   { crate = "num-bigint@0.4", reason = "jsonschema 0.61 (body.schema, D201) via fraction" },
 ]

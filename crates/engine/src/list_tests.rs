@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use vc_model::FileKind;
 use vc_testkit::{FakeVcs, MemorySources};
 
 use crate::sample::{builder, engine};
@@ -91,4 +92,21 @@ fn tests_carry_their_calls_and_steps_and_apis_their_vars() {
     let apis = listing.list(&ListRequest { kind: ListKind::Apis, ..ListRequest::default() }).unwrap();
     assert_eq!(apis.items[0].vars, ["userId", "expand"]);
     assert!(apis.items[1].vars.is_empty() && apis.items[1].span.is_some());
+}
+
+#[test]
+fn the_catalog_is_the_apis_then_the_tests() {
+    let catalog = engine(FakeVcs::default()).catalog().unwrap();
+    let ids: Vec<&str> = catalog.items.iter().map(|item| item.id.as_str()).collect();
+    assert_eq!(ids, ["users#list", "orders.flow#listsOrders", "users.crud#listsUsers", "users.crud#skipsUsers"]);
+    assert!(catalog.items[3].skipped);
+}
+
+#[test]
+fn each_item_knows_the_kind_of_its_file() {
+    let catalog = engine(FakeVcs::default()).catalog().unwrap();
+    let kinds: Vec<_> = catalog.items.iter().map(super::Listed::kind).collect();
+    assert_eq!(kinds, [Some(FileKind::Api), Some(FileKind::Test), Some(FileKind::Test), Some(FileKind::Test)]);
+    let files = engine(FakeVcs::default()).list(&ListRequest { kind: ListKind::Files, ..ListRequest::default() });
+    assert!(files.unwrap().items.iter().all(|file| file.kind().is_some()));
 }
