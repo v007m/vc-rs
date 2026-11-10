@@ -93,6 +93,21 @@ fn t_skips_a_test_with_the_reason_typed_though_it_holds_q_and_digits() {
 }
 
 #[test]
+fn the_test_skipped_is_the_one_chosen_when_t_was_pressed_though_a_re_read_moved_the_cursor() {
+    let engine = engine().unwrap();
+    let mut tui = on_explore(&engine).unwrap();
+    press(&mut tui, &[KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Char('t')]);
+    type_text(&mut tui, "quota");
+    let Update::Explored(mut items) = explored(&engine).unwrap() else { panic!("the project") };
+    items.retain(|item| !item.id.ends_with("#listsOrders"));
+    tui.update(&Update::Explored(items));
+    assert!(status(&tui).starts_with("skip users.crud#listsUsers because: quota▏"), "{}", status(&tui));
+    let ask = press(&mut tui, &[KeyCode::Enter]);
+    let Some(Ask::Skip(request)) = ask else { panic!("enter skips: {ask:?}") };
+    assert_eq!(request.target, "users.crud#listsUsers");
+}
+
+#[test]
 fn a_blank_reason_is_refused_esc_drops_it_and_ctrl_c_still_quits() {
     let mut tui = on_explore(&engine().unwrap()).unwrap();
     assert_eq!(press(&mut tui, &[KeyCode::Char('t'), KeyCode::Char(' '), KeyCode::Enter]), None);

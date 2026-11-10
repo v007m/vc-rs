@@ -34,7 +34,7 @@ pub struct ExploreScreen {
     cursor: usize,
     explaining: Option<String>,
     explained: Option<(String, String)>,
-    reason: Option<Input>,
+    reason: Option<(String, Input)>,
     note: Option<Note>,
 }
 
@@ -79,9 +79,9 @@ impl ExploreScreen {
         self.explained.as_ref()
     }
 
-    /// The skip reason being typed.
-    pub const fn reason(&self) -> Option<&Input> {
-        self.reason.as_ref()
+    /// The test being skipped, as chosen when `t` was pressed, and the reason being typed.
+    pub fn reason(&self) -> Option<(&str, &Input)> {
+        self.reason.as_ref().map(|(target, typed)| (target.as_str(), typed))
     }
 
     /// What the last key came to.
@@ -118,13 +118,13 @@ impl ExploreScreen {
             return Some(Ask::Unskip(id));
         }
         self.note = None;
-        self.reason = Some(Input::default());
+        self.reason = Some((id, Input::default()));
         None
     }
 
     /// Applies a key to the reason being typed; on `enter`, asks to skip with it.
     fn type_reason(&mut self, key: KeyEvent) -> Option<Ask> {
-        match self.reason.as_mut()?.press(key) {
+        match self.reason.as_mut()?.1.press(key) {
             Typed::Editing => None,
             Typed::Dropped => {
                 self.reason = None;
@@ -134,14 +134,15 @@ impl ExploreScreen {
         }
     }
 
-    /// Asks to skip the chosen test with the reason typed, unless the reason is blank.
+    /// Asks to skip the test chosen when `t` was pressed with the reason typed, unless the
+    /// reason is blank: a re-read meanwhile may have moved what the cursor is on.
     fn skip(&mut self) -> Option<Ask> {
-        let reason = self.reason.as_ref()?.text().trim().to_owned();
+        let (target, typed) = self.reason.as_ref()?;
+        let (target, reason) = (target.clone(), typed.text().trim().to_owned());
         if reason.is_empty() {
             self.note = Some(Note::Failed("a skip needs a reason, for the report".to_owned()));
             return None;
         }
-        let target = self.chosen()?.id.clone();
         self.reason = None;
         self.note = Some(Note::Said(format!("skipping {target}…")));
         Some(Ask::Skip(SkipRequest { target, reason, until: None }))

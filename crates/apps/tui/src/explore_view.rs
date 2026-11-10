@@ -29,8 +29,8 @@ pub fn draw(screen: &ExploreScreen, frame: &mut Frame<'_>, area: Rect) {
 
 /// The reason being typed, or what has been read, or what the last key came to.
 fn status_line(screen: &ExploreScreen) -> Line<'static> {
-    if let (Some(reason), Some(chosen)) = (screen.reason(), screen.chosen()) {
-        return prompt(reason, &chosen.id, screen.note());
+    if let Some((target, reason)) = screen.reason() {
+        return prompt(reason, target, screen.note());
     }
     match (screen.reading(), screen.note()) {
         (ReadState::Unread | ReadState::Reading, _) => Line::styled("reading the project…", theme::INFO),
