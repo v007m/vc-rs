@@ -132,7 +132,7 @@ fn files_pane(changes: &Changes, shown: usize) -> Paragraph<'static> {
 }
 
 /// The chosen file's diff, its added lines green and its removed ones red.
-fn diff_pane(file: Option<&FileChange>) -> Paragraph<'static> {
+pub fn diff_pane(file: Option<&FileChange>) -> Paragraph<'static> {
     let diff = file.map(FileChange::diff).unwrap_or_default();
     let lines: Vec<Line<'static>> = diff.lines().map(|line| Line::styled(clean(line), diff_style(line))).collect();
     Paragraph::new(lines).block(theme::pane("Diff"))

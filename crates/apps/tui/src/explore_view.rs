@@ -1,5 +1,5 @@
 //! Draws the Explore tab: the status line or the reason being typed, the project by file, the
-//! chosen item's details and its explanation.
+//! chosen item's details and its explanation, or the file being edited in their place.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -8,6 +8,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
 use vc_engine::Listed;
 
+use crate::edit_view;
 use crate::explore_screen::{ExploreScreen, Note, is_api};
 use crate::history_screen::ReadState;
 use crate::input::Input;
@@ -23,6 +24,10 @@ pub fn draw(screen: &ExploreScreen, frame: &mut Frame<'_>, area: Rect) {
     let [details, explain] = Layout::vertical([Constraint::Length(DETAILS_HEIGHT), Constraint::Fill(1)]).areas(right);
     frame.render_widget(Paragraph::new(status_line(screen)), status);
     draw_project(screen, frame, project);
+    if let Some(session) = screen.editing() {
+        edit_view::draw(session, frame, right);
+        return;
+    }
     frame.render_widget(details_pane(screen.chosen()), details);
     screen.explain_drawn(theme::pane("Explain").inner(explain).width);
     frame.render_widget(explain_pane(screen), explain);
@@ -44,6 +49,12 @@ pub fn explained_rows(text: &str, width: u16) -> usize {
 fn status_line(screen: &ExploreScreen) -> Line<'static> {
     if let Some((target, reason)) = screen.reason() {
         return prompt(reason, target, screen.note());
+    }
+    if let Some(session) = screen.editing() {
+        return match screen.note() {
+            Some(Note::Failed(reason)) => failed(reason),
+            _ => edit_view::status_line(session),
+        };
     }
     match (screen.reading(), screen.note()) {
         (ReadState::Unread | ReadState::Reading, _) => Line::styled("reading the project…", theme::INFO),
@@ -75,7 +86,7 @@ fn prompt(reason: &Input, id: &str, note: Option<&Note>) -> Line<'static> {
 /// `5 tests and 2 apis · enter explains, t skips or unskips`, then the notices.
 fn summary(items: &[Listed], notices: &[String]) -> Line<'static> {
     let apis = items.iter().filter(|item| is_api(item)).count();
-    let counted = format!("{} tests and {apis} apis · enter explains, t skips or unskips", items.len() - apis);
+    let counted = format!("{} tests and {apis} apis · enter explains, t skips or unskips, e edits", items.len() - apis);
     Line::from_iter(std::iter::once(Span::styled(counted, theme::DIM)).chain(theme::notices(notices)))
 }
 

@@ -1,7 +1,8 @@
 //! The Explore tab: the project's apis and tests by file, the chosen one's details and how a
-//! run sees it (`vc explain`), and `t` to skip a test with a reason or to unskip it. It reads
-//! the project when first shown, again on `r`, after each skip or unskip, and when shown after
-//! the Import tab wrote files.
+//! run sees it (`vc explain`), `t` to skip a test with a reason or to unskip it, and `e` to
+//! edit the chosen item's file (`edit_session.rs`). It reads the project when first shown, again
+//! on `r`, after each skip, unskip or edit written, and when shown after the Import tab wrote
+//! files.
 
 use std::cell::Cell;
 
@@ -10,6 +11,7 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 use vc_engine::{FileKind, Listed, SkipRequest};
 
+use crate::edit_session::{EditSession, Edited};
 use crate::explore_view::{self, explained_rows};
 use crate::history_screen::ReadState;
 use crate::input::{Input, Typed};
@@ -17,8 +19,14 @@ use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move, refound, scrol
 use crate::theme::first_line;
 
 /// The Explore tab's keys.
-const KEYS: [(&str, &str); 5] =
-    [("↑↓", "move"), ("enter", "explain"), ("pgup/pgdn", "scroll"), ("t", "skip/unskip"), ("r", "reload")];
+const KEYS: [(&str, &str); 6] = [
+    ("↑↓", "move"),
+    ("enter", "explain"),
+    ("pgup/pgdn", "scroll"),
+    ("t", "skip/unskip"),
+    ("e", "edit"),
+    ("r", "reload"),
+];
 
 /// What the last key came to, for the status line.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,6 +51,7 @@ pub struct ExploreScreen {
     note: Option<Note>,
     scroll: u16,
     explain_width: Cell<u16>,
+    editing: Option<EditSession>,
 }
 
 /// Whether `item` is an api, not a test.
@@ -118,6 +127,38 @@ impl ExploreScreen {
     /// What the last key came to.
     pub const fn note(&self) -> Option<&Note> {
         self.note.as_ref()
+    }
+
+    /// The file being edited.
+    pub const fn editing(&self) -> Option<&EditSession> {
+        self.editing.as_ref()
+    }
+
+    /// Opens the chosen item's file in the editor.
+    fn edit(&mut self) -> Option<Ask> {
+        let (session, ask) = EditSession::open(&self.chosen()?.path);
+        (self.editing, self.note) = (Some(session), None);
+        Some(ask)
+    }
+
+    /// Takes what a key or an update did to the edit; what it asks of the engine, if anything.
+    fn edited(&mut self, edited: Edited) -> Option<Ask> {
+        match edited {
+            Edited::Going => None,
+            Edited::Asks(ask) => Some(ask),
+            Edited::Closed(said) => {
+                (self.editing, self.note) = (None, said.map(Note::Said));
+                None
+            }
+            Edited::Dropped(reason) => {
+                (self.editing, self.note) = (None, Some(Note::Failed(first_line(&reason))));
+                None
+            }
+            Edited::Failed(reason) => {
+                self.note = Some(Note::Failed(first_line(&reason)));
+                None
+            }
+        }
     }
 
     /// Asks for the project again, unless it is being read.
@@ -230,10 +271,15 @@ impl Screen for ExploreScreen {
     }
 
     fn typing(&self) -> bool {
-        self.reason.is_some()
+        self.reason.is_some() || self.editing.is_some()
     }
 
     fn press(&mut self, key: KeyEvent) -> Option<Ask> {
+        if let Some(session) = self.editing.as_mut() {
+            let edited = session.press(key);
+            self.note = None;
+            return self.edited(edited);
+        }
         if self.reason.is_some() {
             return self.type_reason(key);
         }
@@ -248,6 +294,7 @@ impl Screen for ExploreScreen {
         match key.code {
             KeyCode::Enter => return self.explain(),
             KeyCode::Char('t') => return self.quarantine(),
+            KeyCode::Char('e') => return self.edit(),
             KeyCode::Char('r') => return self.reload(),
             _ => {}
         }
@@ -255,6 +302,10 @@ impl Screen for ExploreScreen {
     }
 
     fn take(&mut self, update: &Update) {
+        if let Some(session) = self.editing.as_mut() {
+            let edited = session.take(update);
+            self.edited(edited);
+        }
         match update {
             Update::Explored { items, notices } => self.read(items, notices),
             Update::Explained { id, text } if self.explaining.as_ref() == Some(id) => {

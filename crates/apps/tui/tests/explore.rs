@@ -1,12 +1,13 @@
 //! The Explore tab: it reads the project when first shown, lists the apis and tests by file,
-//! explains the chosen one, and skips a test with a typed reason or unskips it.
+//! explains the chosen one, skips a test with a typed reason or unskips it, and edits the chosen
+//! one's file through the compile guard.
 
 mod support;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use insta::assert_snapshot;
 use support::{Outcome, engine, press, screen, tui};
-use vc_engine::{Engine, ExplainRequest, FileChange, SkipRequest};
+use vc_engine::{Engine, EngineError, ExplainRequest, FileChange, SkipRequest};
 use vc_tui::{Ask, Tui, Update};
 
 const SIZE: (u16, u16) = (100, 24);
@@ -36,6 +37,22 @@ fn type_text(tui: &mut Tui, text: &str) -> Option<Ask> {
 /// The status line.
 fn status(tui: &Tui) -> String {
     screen(tui, SIZE).lines().nth(1).unwrap_or_default().to_owned()
+}
+
+/// Presses `typed` with ctrl held.
+fn ctrl(tui: &mut Tui, typed: char) -> Option<Ask> {
+    tui.press(KeyEvent::new(KeyCode::Char(typed), KeyModifiers::CONTROL))
+}
+
+/// The UI editing the file `e` opens on `listsOrders`, given the engine's text of it; the path.
+fn editing(engine: &Engine) -> Outcome<(Tui, String)> {
+    let mut tui = on_explore(engine)?;
+    let Some(Ask::Open(path)) = press(&mut tui, &[KeyCode::Char('e')]) else {
+        return Err("e opens the chosen item's file".into());
+    };
+    let file = engine.read_file(&path)?;
+    tui.update(&Update::Opened { path: path.clone(), text: file.text, digest: file.digest });
+    Ok((tui, path))
 }
 
 #[test]
@@ -206,4 +223,60 @@ fn pgdn_reaches_the_end_of_an_explanation_whose_long_lines_wrap() {
     press(&mut tui, &[KeyCode::PageDown, KeyCode::PageDown, KeyCode::PageDown, KeyCode::PageDown]);
     let scrolled = screen(&tui, SIZE);
     assert!(scrolled.contains("w2x79") && !scrolled.contains("w0x00"), "{scrolled}");
+}
+
+#[test]
+fn e_edits_the_chosen_file_ctrl_s_drafts_it_through_the_guard_and_w_writes_the_draft() {
+    let engine = engine().unwrap();
+    let (mut tui, path) = editing(&engine).unwrap();
+    assert_eq!(path, "services/orders/flow.test.yaml");
+    assert!(screen(&tui, SIZE).contains(&format!("Edit {path}")), "the file is open");
+    press(&mut tui, &[KeyCode::Down, KeyCode::End]);
+    assert_eq!(type_text(&mut tui, "Again"), None, "the keys go to the text");
+    let ask = ctrl(&mut tui, 's');
+    let Some(Ask::Edit(request)) = ask else { panic!("ctrl-s drafts: {ask:?}") };
+    assert!(request.text.contains("id: listsOrdersAgain") && request.expected_digest.is_some(), "{request:?}");
+    let changes = engine.edit_file(&request).unwrap();
+    tui.update(&Update::Edited(changes.clone()));
+    assert!(screen(&tui, SIZE).contains("+  - id: listsOrdersAgain"), "the draft's diff is shown");
+    assert_eq!(press(&mut tui, &[KeyCode::Char('w')]), Some(Ask::Save(changes.clone())));
+    tui.update(&Update::Saved(changes.titles));
+    assert_eq!(status(&tui), format!("wrote {path}"));
+    press(&mut tui, &[KeyCode::Char('3')]);
+    assert_eq!(tui.tab(), "History", "the editor closed, so the digits choose tabs again");
+}
+
+#[test]
+fn an_edit_that_adds_an_error_is_refused_with_it_and_the_text_kept_to_fix() {
+    let engine = engine().unwrap();
+    let (mut tui, _) = editing(&engine).unwrap();
+    press(&mut tui, &[KeyCode::Down, KeyCode::Down, KeyCode::End]);
+    type_text(&mut tui, "x");
+    let Some(Ask::Edit(request)) = ctrl(&mut tui, 's') else { panic!("ctrl-s drafts") };
+    let refused = engine.edit_file(&request).unwrap_err();
+    assert!(matches!(&refused, EngineError::Edit { .. }), "{refused:?}");
+    tui.update(&Update::EditFailed(refused.to_string()));
+    let shown = screen(&tui, SIZE);
+    assert!(shown.contains("Refused") && shown.contains("nothing was written"), "{shown}");
+    assert!(shown.contains("users#listx"), "the text stays, to fix: {shown}");
+    press(&mut tui, &[KeyCode::Backspace]);
+    assert!(matches!(ctrl(&mut tui, 's'), Some(Ask::Edit(_))), "fixed, it drafts again");
+}
+
+#[test]
+fn esc_drops_a_changed_text_only_once_confirmed_and_an_unchanged_draft_is_not_written() {
+    let engine = engine().unwrap();
+    let (mut tui, path) = editing(&engine).unwrap();
+    let Some(Ask::Edit(request)) = ctrl(&mut tui, 's') else { panic!("ctrl-s drafts") };
+    tui.update(&Update::Edited(engine.edit_file(&request).unwrap()));
+    assert_eq!(status(&tui), "nothing changed · esc goes back to the text");
+    assert_eq!(press(&mut tui, &[KeyCode::Char('w')]), None, "nothing to write");
+    press(&mut tui, &[KeyCode::Esc]);
+    type_text(&mut tui, "# ");
+    press(&mut tui, &[KeyCode::Esc]);
+    assert!(status(&tui).starts_with(&format!("drop the changes to {path}?")), "{}", status(&tui));
+    press(&mut tui, &[KeyCode::Char('n')]);
+    assert!(screen(&tui, SIZE).contains(&format!("Edit {path} *")), "any key but y keeps the edit");
+    press(&mut tui, &[KeyCode::Esc, KeyCode::Char('y')]);
+    assert!(!screen(&tui, SIZE).contains(&format!("Edit {path}")), "y drops it");
 }

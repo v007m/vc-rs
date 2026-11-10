@@ -507,6 +507,7 @@ pub fn vc_engine::Engine::root(&self) -> &std::path::Path
 impl vc_engine::Engine
 pub fn vc_engine::Engine::prune_history(&self, core::option::Option<u32>) -> core::result::Result<usize, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::edit_file(&self, &vc_engine::SaveFile) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 pub fn vc_engine::Engine::read_file(&self, &str) -> core::result::Result<vc_engine::OpenedFile, vc_engine::EngineError>
 pub fn vc_engine::Engine::save_file(&self, &vc_engine::SaveFile) -> core::result::Result<vc_engine::SavedFile, vc_engine::EngineError>
 impl vc_engine::Engine

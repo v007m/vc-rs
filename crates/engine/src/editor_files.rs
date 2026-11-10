@@ -4,7 +4,8 @@
 //! and the rest of the folder are never read or written through the UI, nor what a link leads
 //! to outside the project or in a hidden folder, nor a path discovery leaves out (`paths`
 //! globs, `node_modules/` by default, ignore files). A save is not guarded
-//! (D107): the editor keeps text with errors, and gets the project's diagnostics back.
+//! (D107): the editor keeps text with errors, and gets the project's diagnostics back. The
+//! TUI's edit is: it is drafted through the compile guard and written as [`Changes`].
 //!
 //! A save compares the digest when it reads the file, and the writer compares the hash again
 //! just before it replaces the file ([`vc_interfaces::SourceWriter::write_unchanged`]). No lock
@@ -17,7 +18,7 @@ use vc_interfaces::{SourceError, content_hash};
 use vc_model::{FileKind, SourceFile, SourcePath};
 
 use crate::authoring::refused;
-use crate::edit::internal;
+use crate::edit::{Changes, FileChange, internal};
 use crate::project::sources_error;
 use crate::{CheckReport, CheckRequest, Engine, EngineError};
 
@@ -100,6 +101,31 @@ impl Engine {
         })?;
         let check = self.check(&CheckRequest::default());
         Ok(SavedFile { digest: hex(content_hash(request.text.as_bytes()).as_bytes()), check })
+    }
+
+    /// The change writing `request.text` to `request.path` makes, once the compile guard passes
+    /// it, nothing written: a person's edit in the TUI, which [`Engine::write`] then writes. It
+    /// is the person's, so no agent policy or agent log applies (as D241). Text the same as the
+    /// file's is no change. Unlike [`Engine::save_file`] (D227), text that adds an error is
+    /// refused.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Edit`] as [`Engine::read_file`], or when the text adds an error, naming
+    /// it; [`EngineError::Stale`] as [`Engine::save_file`]; [`EngineError::Sources`] when the
+    /// file or the project cannot be read.
+    pub fn edit_file(&self, request: &SaveFile) -> Result<Changes, EngineError> {
+        let path = self.editable(&request.path)?;
+        let before = self.current(&path)?;
+        fresh(&path, before.as_ref(), request.expected_digest.as_deref())?;
+        if before.as_ref().is_some_and(|file| file.text == request.text) {
+            return Ok(Changes::default());
+        }
+        let project = self.authoring()?;
+        let title = format!("{} {path}", if before.is_some() { "Edit" } else { "Create" });
+        let before = before.map(|file| file.text);
+        let change = FileChange { path: path.to_string(), before, after: request.text.clone(), moved_from: None };
+        self.guarded(&project, Changes { files: vec![change], titles: vec![title] })
     }
 
     /// `text` as a path the editor reads and writes: the config or an api, test or load file
