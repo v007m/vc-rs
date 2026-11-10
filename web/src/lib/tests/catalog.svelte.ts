@@ -16,14 +16,14 @@ export class Catalog {
     this.#client = client;
   }
 
-  /** Loads every test, skipped ones included, replacing what was loaded before. */
+  /**
+   * Loads every test, replacing what was loaded before. The engine lists skipped tests too;
+   * `skipped: true` would list only those (`vc list tests --skipped`).
+   */
   async load(): Promise<void> {
     this.loading = true;
     try {
-      const response = await this.#client.listDefinitions({
-        kind: DefinitionKind.TESTS,
-        skipped: true,
-      });
+      const response = await this.#client.listDefinitions({ kind: DefinitionKind.TESTS });
       this.rows = response.definitions.map(toRow);
       this.error = undefined;
     } catch (error) {

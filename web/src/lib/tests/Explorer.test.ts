@@ -32,9 +32,12 @@ const definitions = [
   },
 ];
 
-async function setup(runs: string[][] = []) {
+async function setup(runs: string[][] = [], asked: boolean[] = []) {
   const engine = fakeEngine({
-    listDefinitions: () => ({ definitions }),
+    listDefinitions: (request) => {
+      asked.push(request.skipped);
+      return { definitions };
+    },
     // eslint-disable-next-line require-yield -- the run ends without events
     async *run(request) {
       runs.push(request.selection?.ids ?? []);
@@ -47,8 +50,11 @@ async function setup(runs: string[][] = []) {
 }
 
 describe('Explorer', () => {
-  it('lists the tests as a tree of files', async () => {
-    const { tree } = await setup();
+  it('lists the tests as a tree of files, skipped ones included', async () => {
+    const asked: boolean[] = [];
+    const { tree } = await setup([], asked);
+    // `skipped: true` would list only the skipped tests.
+    expect(asked).toEqual([false]);
     expect(screen.getByText('3 tests in 2 files')).toBeTruthy();
     expect(within(tree).getAllByRole('treeitem')).toHaveLength(5);
   });
