@@ -1,7 +1,10 @@
+use std::collections::BTreeMap;
+
 use vc_diagnostics::{Diagnostics, Summary};
 use vc_model::SourceFiles;
 
 use crate::check_alerts;
+use crate::edit::FileChange;
 use crate::project::Compiled;
 use crate::selection::Selection;
 use crate::{Engine, EngineError};
@@ -17,6 +20,9 @@ pub struct CheckRequest {
     /// separators); every file when empty. The whole project is compiled either way, so
     /// references into other files are still checked.
     pub paths: Vec<String>,
+    /// Unsaved text by project-relative path, compiled in place of the file on disk (or as a
+    /// new file); the compile cache is then read but not saved.
+    pub overlay: BTreeMap<String, String>,
 }
 
 /// What a check found.
@@ -63,7 +69,8 @@ impl Engine {
     /// parse;
     /// [`EngineError::NoFilesMatch`] when a requested path selects no definition file.
     pub fn check(&self, request: &CheckRequest) -> Result<CheckReport, EngineError> {
-        let mut compiled = self.compiled()?;
+        let overlay: Vec<_> = request.overlay.iter().map(|(path, text)| unsaved(path, text)).collect();
+        let mut compiled = self.compiled_with(&overlay)?;
         compiled.diagnostics.extend(check_alerts::unknown_channels(&compiled.files, &self.channels()));
         Self::selected(compiled, request)
     }
@@ -76,6 +83,11 @@ impl Engine {
         diagnostics.sort();
         Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices: compiled.notices })
     }
+}
+
+/// `text` in the editor at `path`, as a change to compile in place of the file.
+fn unsaved(path: &str, text: &str) -> FileChange {
+    FileChange { path: path.to_owned(), before: None, after: text.to_owned(), moved_from: None }
 }
 
 #[cfg(test)]

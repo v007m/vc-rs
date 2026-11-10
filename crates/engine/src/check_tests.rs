@@ -20,7 +20,7 @@ fn engine(files: &[(&str, &[u8])], cache: Arc<dyn CompileCacheStore>) -> Engine 
 }
 
 fn request(paths: &[&str]) -> CheckRequest {
-    CheckRequest { paths: paths.iter().map(|&path| path.to_owned()).collect() }
+    CheckRequest { paths: paths.iter().map(|&path| path.to_owned()).collect(), ..CheckRequest::default() }
 }
 
 /// A store whose every call fails.
@@ -43,6 +43,18 @@ fn checks_a_clean_project_and_leaves_a_cache() {
     assert!(report.diagnostics.is_empty() && report.notices.is_empty());
     assert_eq!((report.checked, report.files.len()), (2, 2));
     assert!(cache.load().unwrap().is_some_and(|blob| !blob.is_empty()), "the next check gets a cache");
+}
+
+#[test]
+fn checks_unsaved_text_in_place_of_the_file_and_saves_no_cache() {
+    let cache = MemoryCompileCache::new();
+    let checker = engine(&[CONFIG, GET_USER], Arc::new(cache.clone()));
+    let mut request = CheckRequest::default();
+    request.overlay.insert(GET_USER.0.to_owned(), "apis:\n  - id: getUser\n".to_owned());
+    let report = checker.check(&request).unwrap();
+    assert!(report.has_errors(), "the unsaved api has no path: {:?}", report.diagnostics);
+    assert!(cache.load().unwrap().is_none(), "the files on disk did not change");
+    assert!(!checker.check(&CheckRequest::default()).unwrap().has_errors(), "the file on disk is untouched");
 }
 
 #[test]
