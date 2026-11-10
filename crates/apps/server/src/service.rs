@@ -61,6 +61,11 @@ impl ConnectService {
         Self { name, rpcs: HashMap::new(), stopping: watch::channel(false).1 }
     }
 
+    /// The service's full protobuf name.
+    pub(crate) const fn name(&self) -> &'static str {
+        self.name
+    }
+
     /// Streams that end when `stopping` turns true, as the server's shutdown does.
     #[must_use]
     pub(crate) fn stopped_by(mut self, stopping: watch::Receiver<bool>) -> Self {

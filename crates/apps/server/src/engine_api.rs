@@ -5,9 +5,12 @@
 
 use std::sync::Arc;
 
+use vc_contracts::engine::v1 as wire;
 use vc_engine::{Engine, EngineError};
 
-use crate::{Code, ConnectError, ConnectService, Sink, authoring_rpcs, history_rpcs, project_rpcs, run_stream};
+use crate::{
+    Code, ConnectError, ConnectService, McpAccess, Sink, authoring_rpcs, history_rpcs, project_rpcs, run_stream,
+};
 
 /// The service's full protobuf name.
 const SERVICE: &str = "vibranium.engine.v1.EngineService";
@@ -92,6 +95,16 @@ impl Rpcs {
         let service = self.service.server_stream(method, move |request, sink| handler(Arc::clone(&api), request, sink));
         Self { service, api: self.api }
     }
+}
+
+/// `service` and, when it is the engine service and the server serves `/mcp`, its `Connection`
+/// RPC: where an MCP client connects and the agent token, for the Connect panel. Only the
+/// browser's cookie reaches it, as it does every `/api` route (D239).
+pub fn connected(service: ConnectService, mcp: Option<&McpAccess>) -> ConnectService {
+    let Some(access) = mcp.filter(|_| service.name() == SERVICE) else { return service };
+    let reply = wire::ConnectionResponse { mcp_url: access.url().to_owned(), agent_token: access.token().to_owned() };
+    service
+        .unary("Connection", move |_: wire::ConnectionRequest| std::future::ready(Ok::<_, ConnectError>(reply.clone())))
 }
 
 /// `error` as the Connect error the web UI shows: the engine's message, then its help.

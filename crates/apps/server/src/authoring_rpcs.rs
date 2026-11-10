@@ -1,5 +1,6 @@
-//! The authoring RPCs: `Call`, `SaveCallAsTest` and `Import`. The web UI's call goes through
-//! the profiles' agent policy and the agent log as `web-ui` (D178). An import reads only the
+//! The authoring RPCs: `Call`, `SaveCallAsTest` and `Import`. The web UI's call is the person at
+//! the browser's, as `vc call`'s is: the profiles' agent policy and the agent log, which are for
+//! agents on `/mcp`, do not apply (D241). An import reads only the
 //! text the request carries, never a URL or path, and fetches none of its `$ref`s from the
 //! network; it writes only when asked. A call and an import read and compile the project on the
 //! blocking pool, never on an async worker.
@@ -14,9 +15,6 @@ use vc_engine::{CallAsTest, CallRequest, Changes, FileChange, ImportRequest, Kee
 use crate::engine_api::{EngineApi, Rpcs};
 use crate::{Code, ConnectError};
 
-/// The agent name the web UI's calls are checked and logged under.
-const WEB_UI: &str = "web-ui";
-
 /// The name a pasted spec goes by: its relative references resolve from the project root.
 const PASTED: &str = "pasted";
 
@@ -27,14 +25,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
 
 async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
     let (profiles, sets) = api.layers(request.profiles, request.sets);
-    let call = CallRequest {
-        api: request.api,
-        vars: request.vars,
-        keep: request.keep,
-        profiles,
-        sets,
-        agent: Some(WEB_UI.to_owned()),
-    };
+    let call = CallRequest { api: request.api, vars: request.vars, keep: request.keep, profiles, sets, agent: None };
     let report = api.blocking(move |engine| Handle::current().block_on(engine.call(&call))).await?;
     Ok(wire::CallResponse {
         exit: u32::from(report.exit),

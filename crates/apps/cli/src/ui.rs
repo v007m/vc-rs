@@ -1,6 +1,8 @@
 //! `vc ui`: the local web UI, its engine service at `/api` and MCP at `/mcp`, over one engine,
-//! on 127.0.0.1 only (G11). The only place the access token is shown is the one
-//! `vc ui: <url>` line on stdout, printed whether or not a browser is opened. A build without the `web-ui` feature refuses with exit 2 (G12).
+//! on 127.0.0.1 only (G11). Its two secrets are shown only on stdout, whether or not a browser is
+//! opened (D239): `vc ui: <url>`, the sign-in link, which works once, and
+//! `vc ui: mcp <url> token <token>`, for MCP clients. A build without the `web-ui` feature
+//! refuses with exit 2 (G12).
 
 use std::path::Path;
 
@@ -64,7 +66,8 @@ mod serve {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     const OPENER: &[&str] = &["xdg-open"];
 
-    /// Binds, prints the launch URL, opens it unless `--no-open`, and serves until Ctrl-C.
+    /// Binds, prints the launch URL and the MCP line, opens the URL unless `--no-open`, and serves
+    /// until Ctrl-C.
     pub async fn serve(mcp: VcServer, args: &UiArgs) -> anyhow::Result<Outcome> {
         let layers = args.layers.request();
         let engine = EngineApi::new(mcp.engine(), layers.profiles, layers.sets).into_service();
@@ -73,7 +76,7 @@ mod serve {
         if ui.is_empty() {
             eprintln!("warning: this vc was built before `web/build` existed, so only /api and /mcp answer");
         }
-        let builder = ServerBuilder::new(args.port).service(engine).mount("/mcp", service).files(Arc::new(ui));
+        let builder = ServerBuilder::new(args.port).service(engine).mcp(service).files(Arc::new(ui));
         let server = match builder.bind().await {
             Ok(server) => server,
             Err(error @ ServerError::Bind { .. }) => return Ok(not_listening(&error)),
@@ -83,6 +86,9 @@ mod serve {
             eprintln!("error: {problem}; the page will not load, so rebuild it with `pnpm -C web build`");
         }
         println!("vc ui: {}", server.launch_url().expose());
+        if let Some(mcp) = server.mcp() {
+            println!("vc ui: mcp {} token {}", mcp.url(), mcp.token());
+        }
         if !args.no_open {
             open(server.launch_url());
         }
