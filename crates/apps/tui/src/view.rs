@@ -32,6 +32,9 @@ const HELP_KEY_WIDTH: usize = 11;
 /// The footer while quitting waits on the run in progress.
 const STOPPING: &str = " stopping the run in progress: its cleanups get a few seconds, then it is abandoned…";
 
+/// The footer while `q` waits to be pressed again.
+const CONFIRM: &str = " a run is in progress: press q again to stop it and quit, any other key to stay";
+
 /// Draws `tui` as it was when it quit, its footer saying the run in progress is being ended.
 pub fn draw_stopping(tui: &Tui, frame: &mut Frame<'_>) {
     draw(tui, frame);
@@ -52,7 +55,11 @@ pub fn draw(tui: &Tui, frame: &mut Frame<'_>) {
         screen.draw(frame, body);
     }
     let global: &[(&str, &str)] = if own.is_empty() { &GLOBAL_KEYS } else { &SHORT_KEYS };
-    frame.render_widget(Paragraph::new(keys(own.iter().chain(global))), footer);
+    if tui.confirming() {
+        frame.render_widget(Paragraph::new(Span::styled(CONFIRM, theme::WARN)), footer);
+    } else {
+        frame.render_widget(Paragraph::new(keys(own.iter().chain(global))), footer);
+    }
     if tui.help() {
         draw_help(own, frame, body);
     }

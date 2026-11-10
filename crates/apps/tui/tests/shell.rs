@@ -6,7 +6,7 @@ mod support;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use insta::assert_snapshot;
 use support::tui;
-use vc_tui::{Tui, TuiOptions};
+use vc_tui::{Ask, Tui, TuiOptions, Update};
 
 /// The shell's screen, 100 by 16.
 fn screen(tui: &Tui) -> String {
@@ -49,8 +49,17 @@ fn the_help_opens_over_the_tab_and_closes() {
     assert!(!screen(&tui).contains("Help"));
     press(&mut tui, &[KeyCode::Char('?'), KeyCode::Char('?')]);
     assert!(!screen(&tui).contains("Help"));
-    press(&mut tui, &[KeyCode::Char('?'), KeyCode::Char('2')]);
+}
+
+#[test]
+fn the_help_keeps_every_key_but_its_own_and_quit_from_the_tab_under_it() {
+    let mut tui = tui();
+    let ask = support::press(&mut tui, &[KeyCode::Char('?'), KeyCode::Char('2'), KeyCode::Tab, KeyCode::Char('a')]);
+    assert_eq!((ask, tui.tab(), screen(&tui).contains("Help")), (None, "Run", true));
+    press(&mut tui, &[KeyCode::Esc, KeyCode::Char('2')]);
     assert_eq!((tui.tab(), screen(&tui).contains("Help")), ("Explore", false));
+    press(&mut tui, &[KeyCode::Char('?'), KeyCode::Char('q')]);
+    assert!(tui.quitting(), "q quits over the help");
 }
 
 #[test]
@@ -64,6 +73,33 @@ fn q_and_ctrl_c_quit_but_a_release_does_nothing() {
     let mut tui = self::tui();
     tui.press(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL));
     assert!(tui.quitting());
+}
+
+#[test]
+fn q_with_ctrl_or_alt_held_does_not_quit() {
+    let mut tui = tui();
+    tui.press(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::CONTROL));
+    tui.press(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::ALT));
+    assert!(!tui.quitting());
+}
+
+#[test]
+fn q_during_a_run_asks_to_be_pressed_again() {
+    let mut tui = tui();
+    assert!(matches!(support::press(&mut tui, &[KeyCode::Char('a')]), Some(Ask::Run(_))));
+    press(&mut tui, &[KeyCode::Char('q')]);
+    assert!(!tui.quitting());
+    assert!(screen(&tui).contains("press q again to stop it and quit"), "{}", screen(&tui));
+    press(&mut tui, &[KeyCode::Char('f'), KeyCode::Char('q')]);
+    assert!(!tui.quitting(), "another key in between stays");
+    press(&mut tui, &[KeyCode::Char('q')]);
+    assert!(tui.quitting());
+    let mut tui = self::tui();
+    support::press(&mut tui, &[KeyCode::Char('a'), KeyCode::Char('q')]);
+    tui.update(&Update::RunFailed("the project has errors".to_owned()));
+    assert!(!screen(&tui).contains("press q again"), "the run is over");
+    press(&mut tui, &[KeyCode::Char('q')]);
+    assert!(tui.quitting(), "with nothing in flight q quits at once");
 }
 
 #[test]
