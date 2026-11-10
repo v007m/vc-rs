@@ -32,6 +32,16 @@ impl Template {
             _ => None,
         }
     }
+
+    /// The text when the template holds no reference, such as a `$file` path (D272).
+    #[must_use]
+    pub fn as_literal(&self) -> Option<&str> {
+        match self.parts.as_slice() {
+            [] => Some(""),
+            [Part::Literal(text)] => Some(text),
+            _ => None,
+        }
+    }
 }
 
 /// One piece of a [`Template`].
@@ -291,6 +301,15 @@ mod tests {
         assert!(!mixed.preserves_type());
         assert_eq!(mixed.single_ref(), None);
         assert!(!Template::default().preserves_type());
+    }
+
+    #[test]
+    fn only_a_template_without_references_is_literal() {
+        let written = Template { parts: vec![Part::Literal("data/a.csv".into())] };
+        assert_eq!(written.as_literal(), Some("data/a.csv"));
+        assert_eq!(Template::default().as_literal(), Some(""));
+        let mixed = Template { parts: vec![Part::Literal("u-".into()), Part::Ref(reference())] };
+        assert_eq!(mixed.as_literal(), None);
     }
 
     #[test]

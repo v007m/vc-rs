@@ -7,11 +7,11 @@ use std::time::Duration;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use vc_executor::{
-    ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
-    MaskRules, PipelineParts, RunHandle, RunInputs, RunOptions,
+    ActionCx, ActionExecutors, ActionKindTag, BodyFiles, CommandExecutor, Defined, EventBus, Executor, ExecutorError,
+    HostLimits, MaskRules, PipelineParts, RunHandle, RunInputs, RunOptions,
 };
 use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Transport};
-use vc_model::{Feed, Part, RunStatus, Template, TemplateValue, Totals};
+use vc_model::{Feed, Part, Program, RunStatus, SourcePath, Template, TemplateValue, Totals};
 
 use crate::agent_gate::run_call;
 use crate::cache::Sweep;
@@ -83,7 +83,8 @@ impl Engine {
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone()))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let alerting = self.alerting(&prepared, &secrets, (run_id, "run"))?;
-        let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
+        let inputs =
+            self.inputs(&prepared, (random, run_id)).with_secrets(secrets).with_started_at(self.clock.now_ms());
         let (executor, sweep) = self.executor(&prepared, (inputs, &plugins), request).await?;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
@@ -189,14 +190,25 @@ impl Engine {
     }
 }
 
-/// What the run's templates read besides the definitions: the random values, the environment,
-/// the active profiles, the `--set vars.*` values and the history's run number. The caller adds
-/// the run's start.
-pub fn inputs(prepared: &Prepared, random: Arc<dyn Random>, run_id: u64) -> RunInputs {
-    RunInputs::new(random, Arc::clone(&prepared.environment))
-        .with_profiles(prepared.profiles.clone())
-        .with_vars(vars(&prepared.settings.vars))
-        .with_run_id(run_id)
+impl Engine {
+    /// What the run's templates read besides the definitions: the random values, the
+    /// environment, the active profiles, the `--set vars.*` values and the history's run number;
+    /// and the bytes of the `$file` bodies (D272). The caller adds the run's start.
+    pub(crate) fn inputs(&self, prepared: &Prepared, (random, run_id): (Arc<dyn Random>, u64)) -> RunInputs {
+        RunInputs::new(random, Arc::clone(&prepared.environment))
+            .with_profiles(prepared.profiles.clone())
+            .with_vars(vars(&prepared.settings.vars))
+            .with_run_id(run_id)
+            .with_bodies(self.body_files(&prepared.program))
+    }
+
+    /// The bytes of the program's literal `$file` bodies, read before the run so the executor
+    /// does no I/O; a file that cannot be read fails the requests that send it (V5111).
+    fn body_files(&self, program: &Program) -> BodyFiles {
+        let read =
+            |path: SourcePath| (path.to_string(), self.sources.read_bytes(&path).map_err(|error| error.to_string()));
+        BodyFiles::new(vc_compiler::body_files(program).into_iter().map(read))
+    }
 }
 
 /// The run flags that are settings, as the layer between `VIB_*` and `--set` (D129).

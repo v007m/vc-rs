@@ -32,6 +32,15 @@ pub trait SourceProvider: Send + Sync {
     /// [`SourceError::Root`] when the project cannot be read at all.
     fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError>;
 
+    /// The bytes of the file at `path`, which need not be text: the engine reads the `$file`
+    /// request bodies with it before a run (D272).
+    ///
+    /// # Errors
+    ///
+    /// The [`SourceError`] of a path [`Self::read`] cannot use, other than
+    /// [`SourceError::NotUtf8`].
+    fn read_bytes(&self, path: &SourcePath) -> Result<Vec<u8>, SourceError>;
+
     /// Whether the project's ignore files (`.gitignore`, `.ignore`) keep [`Self::discover`] from
     /// the file at `path`, by itself or through a folder it is in; a path that is not there yet
     /// is judged as if it were. The engine asks before it opens or writes a file for the web

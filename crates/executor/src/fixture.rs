@@ -18,7 +18,7 @@ use vc_model::{
 use vc_template::{CelCompiler, Roots};
 use vc_testkit::{MemoryEnvironment, ScriptedRandom};
 
-use crate::{ActionCx, ActionExecutors, RunInputs};
+use crate::{ActionCx, ActionExecutors, BodyFiles, RunInputs};
 
 /// Words every fixture interns up front, so templates parsed later share the program's symbols
 /// for var names and step ids.
@@ -58,6 +58,8 @@ pub struct Fixture {
     group: FileId,
     names: Vec<Sym>,
     strings: StringTable,
+    /// The `$file` bodies the run is given, read before it (D272).
+    pub bodies: BodyFiles,
 }
 
 impl Fixture {
@@ -78,7 +80,7 @@ impl Fixture {
         );
         let (tags, vars, lifecycle, tests) = Default::default();
         program.test_files.insert(file, TestFile { id: file, name: None, tags, vars, skip: None, lifecycle, tests });
-        Self { program, file, group, names, strings: kept }
+        Self { program, file, group, names, strings: kept, bodies: BodyFiles::default() }
     }
 
     /// A new action of `kind`.
@@ -225,7 +227,8 @@ impl Fixture {
 
     /// What a run of the program shares, with the default inputs.
     pub fn cx(self, executors: ActionExecutors) -> Arc<ActionCx> {
-        self.cx_with(executors, inputs(&[]))
+        let inputs = inputs(&[]).with_bodies(self.bodies.clone());
+        self.cx_with(executors, inputs)
     }
 
     /// What a run of the program shares, given `inputs`.

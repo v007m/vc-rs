@@ -19,7 +19,7 @@ use crate::history::Recording;
 use crate::plan::{self, Prepared, profile_flag};
 use crate::policy::AgentCall;
 use crate::ports::{self, Layered};
-use crate::{CallRequest, Engine, EngineError, run};
+use crate::{CallRequest, Engine, EngineError};
 
 /// The history kind of an ad hoc call.
 const KIND: &str = "adhoc";
@@ -59,7 +59,7 @@ impl Engine {
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
         let run_id = recording.as_ref().map_or(0, |recording| recording.id().get());
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
-        let inputs = run::inputs(&prepared, ports::random(None).1, run_id);
+        let inputs = self.inputs(&prepared, (ports::random(None).1, run_id));
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
         let cx = Arc::new(self.action_cx(&prepared, (inputs, &plugins))?);
         let mut sent = ActionRequest::cleanup(&cx, action, &Arc::new(Saved::new()));

@@ -69,19 +69,24 @@ impl FsSources {
 
     /// Reads the file through its resolved path, so a link cannot lead out of the root.
     fn load(&self, path: SourcePath, on_disk: &Path) -> Result<vc_model::SourceFile, SourceError> {
+        let bytes = self.load_bytes(&path, on_disk)?;
+        vc_interfaces::source_file(path, bytes)
+    }
+
+    /// The bytes of the file, read through its resolved path as [`Self::load`] reads it.
+    fn load_bytes(&self, path: &SourcePath, on_disk: &Path) -> Result<Vec<u8>, SourceError> {
         let failed = |error: std::io::Error| match error.kind() {
             std::io::ErrorKind::NotFound => SourceError::Missing { path: path.to_string() },
             _ => SourceError::Read { path: path.to_string(), reason: error.to_string() },
         };
         let target = std::fs::canonicalize(on_disk).map_err(failed)?;
-        if !self.leads_in(&path, &target) {
+        if !self.leads_in(path, &target) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
         if target.is_dir() {
             return Err(SourceError::Read { path: path.to_string(), reason: "it is a folder, not a file".to_owned() });
         }
-        let bytes = std::fs::read(&target).map_err(failed)?;
-        vc_interfaces::source_file(path, bytes)
+        std::fs::read(&target).map_err(failed)
     }
 }
 
@@ -114,6 +119,10 @@ impl SourceProvider for FsSources {
         }
         found.sort();
         Ok(found)
+    }
+
+    fn read_bytes(&self, path: &SourcePath) -> Result<Vec<u8>, SourceError> {
+        self.load_bytes(path, &self.root.join(path.as_str()))
     }
 
     /// Walks only the folders on the way to `path`, with the same ignore rules as

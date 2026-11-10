@@ -2050,6 +2050,7 @@ impl core::marker::StructuralPartialEq for vc_model::Tag
 pub struct vc_model::Template
 pub vc_model::Template::parts: alloc::vec::Vec<vc_model::Part>
 impl vc_model::Template
+pub fn vc_model::Template::as_literal(&self) -> core::option::Option<&str>
 pub const fn vc_model::Template::preserves_type(&self) -> bool
 pub const fn vc_model::Template::single_ref(&self) -> core::option::Option<&vc_model::Reference>
 impl core::clone::Clone for vc_model::Template

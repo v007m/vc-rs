@@ -13,7 +13,7 @@ use crate::load_live::{self, Live};
 use crate::load_report::{self, LoadBreach, LoadEnding};
 use crate::notify::{self, Alerting};
 use crate::plan::{Extra, Prepared};
-use crate::run::{executor_error, inputs};
+use crate::run::executor_error;
 use crate::{
     Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history, ports,
 };
@@ -55,7 +55,8 @@ impl Engine {
         let run_id = live.run_id().unwrap_or(0);
         session.alerting = self.alerting(&session.prepared, &secrets, (run_id, "load"))?;
         let plugins = self.plugin_hosts(&session.prepared.program, &secrets);
-        let inputs = inputs(&session.prepared, Arc::clone(&session.random), run_id)
+        let inputs = self
+            .inputs(&session.prepared, (Arc::clone(&session.random), run_id))
             .with_secrets(secrets)
             .with_started_at(session.started_ms);
         let cx = Arc::new(self.action_cx(&session.prepared, (inputs, &plugins))?);

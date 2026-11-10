@@ -21,6 +21,7 @@
 //! assert_eq!(cache, compiled.cache);
 //! ```
 
+mod body_files;
 mod cache;
 mod compile;
 mod docs;
@@ -39,6 +40,7 @@ mod suggest;
 mod value;
 mod version;
 
+pub use body_files::body_files;
 pub use cache::CompileCache;
 pub use compile::{CompileInput, Compiled, compile};
 pub use docs::key_tables;
