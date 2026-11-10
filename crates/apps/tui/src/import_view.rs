@@ -113,7 +113,8 @@ fn about_pane(phase: &ImportPhase) -> Paragraph<'static> {
     Paragraph::new(lines).wrap(Wrap { trim: false }).block(theme::pane("Draft"))
 }
 
-/// The drafted files, new or changed, the one whose diff shows marked; then what the importer
+/// The drafted files, new or changed, the one whose diff shows marked and kept in view, so a
+/// draft of more files than the pane lists scrolls as `n` moves on; then what the importer
 /// could not carry over.
 fn files_pane(changes: &Changes, shown: usize) -> Paragraph<'static> {
     let rows = changes.files.iter().enumerate().map(|(at, file)| {
@@ -126,7 +127,8 @@ fn files_pane(changes: &Changes, shown: usize) -> Paragraph<'static> {
         ])
     });
     let notes = changes.titles.iter().map(|title| Line::styled(format!("  {}", clean(title)), theme::DIM));
-    Paragraph::new(rows.chain(notes).collect::<Vec<_>>()).block(theme::pane("Draft"))
+    let first = u16::try_from(shown.saturating_sub(usize::from(LISTED) - 1)).unwrap_or(u16::MAX);
+    Paragraph::new(rows.chain(notes).collect::<Vec<_>>()).scroll((first, 0)).block(theme::pane("Draft"))
 }
 
 /// The chosen file's diff, its added lines green and its removed ones red.
