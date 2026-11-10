@@ -8,7 +8,7 @@ use vc_interfaces::{DraftApi, DraftGroup, ImportNote, ImportOptions};
 use vc_model::Method;
 
 use super::values::{body, generated, sample};
-use crate::naming::{camel, from_route};
+use crate::naming::{camel, free, from_route};
 use crate::url::split_origin;
 
 /// One spec, read for one draft.
@@ -21,8 +21,9 @@ pub struct Reader<'a> {
     pub opts: &'a ImportOptions,
 }
 
-/// An operation the draft takes: where it is and how the spec describes it.
+/// An operation the draft takes: its api's ID, where it is and how the spec describes it.
 pub struct Route<'a> {
+    pub id: String,
     pub path: String,
     pub method: Method,
     pub op: &'a Operation,
@@ -30,17 +31,19 @@ pub struct Route<'a> {
 
 impl Reader<'_> {
     /// The operations the draft takes, in spec order, and a note for each one it leaves out
-    /// because no api method fits.
+    /// because no api method fits. IDs that clash get `2`, `3`… over every operation, before
+    /// the filters, so `--only` and `--include` never change an operation's ID.
     pub fn routes(&self) -> (Vec<Route<'_>>, Vec<ImportNote>) {
-        let mut routes = Vec::new();
-        let mut notes = Vec::new();
+        let (mut routes, mut notes, mut taken) = (Vec::new(), Vec::new(), Vec::<String>::new());
         for (path, method, op) in self.spec.operations() {
             let Some(known) = Method::named(method.as_str()) else {
                 let message = format!("skipped: an api cannot use {method}");
                 notes.push(ImportNote { at: format!("{method} {path}"), message });
                 continue;
             };
-            let route = Route { path, method: known, op };
+            let mut route = Route { id: String::new(), path, method: known, op };
+            route.id = free(&id(&route), taken.len(), |id| taken.iter().any(|seen| seen == id));
+            taken.push(route.id.clone());
             if self.wanted(&route) {
                 routes.push(route);
             }
@@ -56,7 +59,7 @@ impl Reader<'_> {
             || include.iter().any(|want| route.op.tags.contains(want) || under(&route.path, want));
         let only = &self.opts.only;
         let named = only.is_empty()
-            || only.iter().any(|want| route.op.operation_id.as_ref() == Some(want) || *want == id(route));
+            || only.iter().any(|want| route.op.operation_id.as_ref() == Some(want) || *want == route.id);
         included && named
     }
 
@@ -64,14 +67,7 @@ impl Reader<'_> {
     pub fn group(&self, source: &str, routes: &[Route<'_>]) -> (DraftGroup, Vec<ImportNote>) {
         let (base_url, var, origin) = self.server(source);
         let mut notes = Vec::new();
-        let mut apis: Vec<DraftApi> = Vec::new();
-        for route in routes {
-            let mut api = self.api(route, &mut notes);
-            while apis.iter().any(|seen| seen.id == api.id) {
-                api.id.push('2');
-            }
-            apis.push(api);
-        }
+        let apis: Vec<DraftApi> = routes.iter().map(|route| self.api(route, &mut notes)).collect();
         let name = Some(self.spec.info.title.clone()).filter(|title| !title.is_empty());
         let config_vars = IndexMap::from([(var, json!(origin))]);
         let group = DraftGroup {
@@ -102,7 +98,7 @@ impl Reader<'_> {
         let at = format!("{} {}", route.method.name(), route.path);
         let params = self.parameters(route, notes, &at);
         let mut api = DraftApi {
-            id: id(route),
+            id: route.id.clone(),
             name: route.op.summary.clone(),
             method: route.method,
             path: templated(&route.path),
@@ -191,8 +187,9 @@ fn merge_vars(api: &mut DraftApi, vars: IndexMap<String, Value>, at: &str) -> Ve
     notes
 }
 
-/// The ID an operation's api gets: its `operationId` in camelCase, else its method and path.
-pub fn id(route: &Route<'_>) -> String {
+/// The ID an operation's api gets before clashes are told apart: its `operationId` in
+/// camelCase, else its method and path.
+fn id(route: &Route<'_>) -> String {
     let named = route.op.operation_id.as_deref().map(camel).filter(|id| !id.is_empty());
     named.unwrap_or_else(|| from_route(route.method.name(), &route.path))
 }

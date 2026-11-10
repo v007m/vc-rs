@@ -36,6 +36,17 @@ fn include_keeps_a_path_and_what_is_under_it_by_whole_segments() -> Result<(), s
 }
 
 #[test]
+fn clashing_ids_are_numbered_on_and_only_picks_a_renamed_one() -> Result<(), serde_json::Error> {
+    let get = json!({ "get": { "operationId": "fetch", "responses": {} } });
+    let doc = spec(&json!({ "/a": get, "/b": get, "/c": get }), &json!([]));
+    assert_eq!(drafted(&doc, (&[], &[]))?, ["fetch", "fetch2", "fetch3"]);
+    assert_eq!(drafted(&doc, (&[], &["fetch3"]))?, ["fetch3"]);
+    assert_eq!(drafted(&doc, (&["/b"], &[]))?, ["fetch2"]);
+    assert_eq!(drafted(&doc, (&[], &["fetch"]))?, ["fetch", "fetch2", "fetch3"]);
+    Ok(())
+}
+
+#[test]
 fn path_templates_read_camel_case_vars() {
     assert_eq!(templated("/users/{user_id}/roles/{role}"), "/users/${var.userId}/roles/${var.role}");
     assert_eq!(templated("/broken/{open"), "/broken/{open");
