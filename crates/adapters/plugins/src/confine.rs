@@ -236,6 +236,11 @@ mod declared {
     }
 
     /// `entry` as it is.
+    #[expect(
+        clippy::unnecessary_wraps,
+        clippy::missing_const_for_fn,
+        reason = "the same signature as the Linux and macOS `entry`"
+    )]
     pub fn entry(_policy: &Policy, _launcher: Option<&Path>, entry: Entry) -> Result<Entry, String> {
         Ok(entry)
     }
