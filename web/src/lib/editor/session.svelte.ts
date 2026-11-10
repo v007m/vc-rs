@@ -63,6 +63,11 @@ export class EditorSession {
     if (this.buffer) this.buffer = { ...this.buffer, text };
   }
 
+  /** Drops the edits since the last read or save. */
+  revert(): void {
+    if (this.buffer) this.edit(this.buffer.original);
+  }
+
   /** Saves the open file unless it changed on disk since it was read. */
   async save(): Promise<void> {
     const buffer = this.buffer;

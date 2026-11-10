@@ -82,3 +82,21 @@ export function lineDiff(before: string, after: string): DiffLine[] {
   }
   return out;
 }
+
+/** Unchanged lines a diff view folds away, between the kept context lines. */
+export type DiffGap = Readonly<{ kind: 'gap'; count: number }>;
+
+/** The diff with runs of unchanged lines folded to `context` lines around each change. */
+export function foldDiff(lines: readonly DiffLine[], context = 3): (DiffLine | DiffGap)[] {
+  const near = lines.map((_, i) =>
+    lines.slice(Math.max(0, i - context), i + context + 1).some((l) => l.kind !== 'same'),
+  );
+  const out: (DiffLine | DiffGap)[] = [];
+  lines.forEach((line, i) => {
+    if (near[i]) return void out.push(line);
+    const last = out.at(-1);
+    if (last?.kind === 'gap') out[out.length - 1] = { kind: 'gap', count: last.count + 1 };
+    else out.push({ kind: 'gap', count: 1 });
+  });
+  return out;
+}
