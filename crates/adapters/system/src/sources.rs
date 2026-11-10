@@ -10,7 +10,8 @@ use vc_model::SourcePath;
 /// Walks the root with `ignore`, so `.gitignore` (and `.ignore`) files are respected even
 /// outside a git repository; the user's global git excludes are not, so every machine finds
 /// the same files. Folders the filter excludes are not entered. Links to folders are not
-/// followed; a link to a file is read only when its target is inside the root.
+/// followed; a link to a file is read only when its target is inside the root and, unless the
+/// link's own path is hidden, outside every hidden file and folder.
 #[derive(Clone, Debug)]
 pub struct FsSources {
     root: PathBuf,
@@ -63,7 +64,7 @@ impl FsSources {
     fn load(&self, path: SourcePath, on_disk: &Path) -> Result<vc_model::SourceFile, SourceError> {
         let failed = |error: std::io::Error| SourceError::Read { path: path.to_string(), reason: error.to_string() };
         let target = std::fs::canonicalize(on_disk).map_err(failed)?;
-        if !target.starts_with(&self.root) {
+        if !self.leads_in(&path, &target) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
         if target.is_dir() {
@@ -131,10 +132,19 @@ impl FsSources {
         let target = self.root.join(path.as_str());
         let existing = target.ancestors().find(|at| at.symlink_metadata().is_ok()).unwrap_or(&self.root);
         let resolved = std::fs::canonicalize(existing).map_err(|error| write_error(path, &error))?;
-        if !resolved.starts_with(&self.root) {
+        if !self.leads_in(path, &resolved) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
         Ok(target)
+    }
+
+    /// Whether `resolved`, where `path` leads on disk, is inside the root and, unless `path`
+    /// itself names a hidden file or folder, outside every hidden one: a link named
+    /// `x.test.yaml` cannot open `.env`.
+    fn leads_in(&self, path: &SourcePath, resolved: &Path) -> bool {
+        let Ok(rest) = resolved.strip_prefix(&self.root) else { return false };
+        let hidden = rest.components().any(|part| part.as_os_str().to_string_lossy().starts_with('.'));
+        !hidden || path.as_str().split('/').any(|part| part.starts_with('.'))
     }
 
     fn walk_problem(&self, error: &ignore::Error) -> SourceError {

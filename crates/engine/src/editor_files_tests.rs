@@ -67,7 +67,20 @@ fn a_save_over_a_file_that_changed_since_it_was_opened_writes_nothing() {
 fn only_the_config_and_definition_files_outside_hidden_folders_open() {
     let (_dir, engine) = project();
     assert!(engine.read_file("vibranium.config.yaml").unwrap().text.contains("project: shop"));
-    for path in [".env", "../x.test.yaml", ".vibranium/a.test.yaml", "services/.git/a.api.yaml", "notes.txt"] {
+    let refused = [
+        ".env",
+        ".ENV",
+        "../x.test.yaml",
+        "/etc/x.test.yaml",
+        "services\\..\\..\\x.test.yaml",
+        "C:\\x.test.yaml",
+        "\\\\host\\share\\x.test.yaml",
+        ".vibranium/a.test.yaml",
+        ".Vibranium/a.test.yaml",
+        "services/.git/a.api.yaml",
+        "notes.txt",
+    ];
+    for path in refused {
         let read = engine.read_file(path);
         assert!(matches!(read, Err(EngineError::Edit { .. })), "{path}: {read:?}");
         let written = engine.save_file(&save(path, "x", None));
@@ -84,4 +97,27 @@ fn the_project_shows_its_name_profiles_and_default() {
     assert_eq!((info.name.as_str(), info.vc_version.as_str()), ("shop", env!("CARGO_PKG_VERSION")));
     assert_eq!((info.profiles, info.defaults), (vec!["dev".to_owned(), "staging".to_owned()], vec!["dev".to_owned()]));
     assert_eq!(crate::sample::engine(FakeVcs::default()).project_info().unwrap().name, "project");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_out_of_the_project_or_to_a_hidden_file_is_neither_read_nor_written() {
+    let (dir, engine) = project();
+    let outside = tempfile::tempdir().unwrap();
+    fs::write(outside.path().join("secret.test.yaml"), "kept\n").unwrap();
+    let escape = "services/users/escape.test.yaml";
+    std::os::unix::fs::symlink(outside.path().join("secret.test.yaml"), dir.path().join(escape)).unwrap();
+    let env = "services/users/env.test.yaml";
+    std::os::unix::fs::symlink(dir.path().join(".env"), dir.path().join(env)).unwrap();
+    for link in [escape, env] {
+        let read = engine.read_file(link);
+        assert!(
+            matches!(&read, Err(EngineError::Edit { reason, .. }) if reason.contains("links to a file outside")),
+            "{read:?}"
+        );
+        let written = engine.save_file(&save(link, "changed\n", None));
+        assert!(matches!(written, Err(EngineError::Edit { .. })), "{written:?}");
+    }
+    assert_eq!(fs::read_to_string(outside.path().join("secret.test.yaml")).unwrap(), "kept\n");
+    assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=abc\n");
 }

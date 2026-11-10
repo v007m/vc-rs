@@ -112,8 +112,9 @@ pub enum SourceError {
         /// The name, with what could not be decoded replaced.
         path: String,
     },
-    /// The file is a link to something outside the project, which is never read.
-    #[error("{path}: links to a file outside the project")]
+    /// The file is a link to something outside the project, or into a hidden folder or file
+    /// such as `.env`, which is never read or written.
+    #[error("{path}: links to a file outside the project or a hidden one")]
     OutsideRoot {
         /// The link.
         path: String,

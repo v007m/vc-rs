@@ -94,7 +94,7 @@ mod unix {
     use std::fs;
     use std::os::unix::fs::{PermissionsExt, symlink};
 
-    use vc_interfaces::{SourceError, SourceWriter};
+    use vc_interfaces::{SourceError, SourceProvider, SourceWriter};
     use vc_model::SourcePath;
 
     use super::{FsSources, discover, paths, project};
@@ -163,6 +163,25 @@ mod unix {
         let removed = sources.remove(&SourcePath::new("services/x.api.yaml").unwrap());
         assert_eq!(removed, Err(SourceError::OutsideRoot { path: "services/x.api.yaml".to_owned() }));
         assert!(outside.path().join("services/x.api.yaml").exists());
+    }
+
+    #[test]
+    fn a_link_into_a_hidden_file_or_folder_is_neither_read_nor_written() {
+        let dir = project(&[(".env", b"TOKEN=kept\n"), (".vibranium/x.api.yaml", b"kept\n"), (".env.schema", b"A=\n")]);
+        symlink(dir.path().join(".env"), dir.path().join("env.api.yaml")).unwrap();
+        symlink(dir.path().join(".vibranium"), dir.path().join("cache")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        let read = |path: &str| sources.read(&[SourcePath::new(path).unwrap()]).unwrap();
+        let outside = |path: &str| SourceError::OutsideRoot { path: path.to_owned() };
+        assert_eq!(read("env.api.yaml").problems, [outside("env.api.yaml")]);
+        assert_eq!(read("cache/x.api.yaml").problems, [outside("cache/x.api.yaml")]);
+        assert_eq!(read(".env.schema").files.len(), 1, "a hidden path named as such is still read");
+        for path in ["env.api.yaml", "cache/x.api.yaml", "cache/new.api.yaml"] {
+            assert_eq!(sources.write(&SourcePath::new(path).unwrap(), "changed\n"), Err(outside(path)), "{path}");
+        }
+        assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=kept\n");
+        assert_eq!(fs::read_to_string(dir.path().join(".vibranium/x.api.yaml")).unwrap(), "kept\n");
+        assert!(!dir.path().join(".vibranium/new.api.yaml").exists());
     }
 
     #[test]

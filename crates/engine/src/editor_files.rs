@@ -1,7 +1,8 @@
 //! The web UI editor's files (M9b): one project file's text with its digest, and a save that is
 //! refused when the file changed since the editor opened it. Only the config and the api, test
 //! and load files outside hidden folders are opened this way, so `.env`, `.git/`, `.vibranium/`
-//! and the rest of the folder are never read or written through the UI. A save is not guarded
+//! and the rest of the folder are never read or written through the UI, nor what a link leads
+//! to outside the project or in a hidden folder. A save is not guarded
 //! (D107): the editor keeps text with errors, and gets the project's diagnostics back.
 
 use vc_interfaces::{SourceError, content_hash};
@@ -56,7 +57,7 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Edit`] when the path is not the config or an api, test or load file
-    /// outside a hidden folder; [`EngineError::NoFilesMatch`] when no file there can be read.
+    /// outside a hidden folder, or links outside the project or to a hidden file; [`EngineError::NoFilesMatch`] when no file there can be read.
     pub fn read_file(&self, path: &str) -> Result<OpenedFile, EngineError> {
         let path = editable(path)?;
         let file = self.current(&path)?.ok_or_else(|| EngineError::NoFilesMatch { path: path.to_string() })?;
@@ -88,6 +89,9 @@ impl Engine {
         match read.problems.pop() {
             None => Ok(read.files.pop()),
             Some(SourceError::Read { .. }) => Ok(None),
+            Some(SourceError::OutsideRoot { .. }) => {
+                Err(refused(format!("`{path}` links to a file outside the project or a hidden one"), PATH_HELP))
+            }
             Some(problem) => Err(sources_error(problem)),
         }
     }
