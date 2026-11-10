@@ -22,7 +22,7 @@
 {/if}
 <div class="agents">
   <ApprovalQueue {desk} {now} />
-  <ConnectPanel />
+  <ConnectPanel link={desk.link} linkError={desk.linkError} />
   <AgentLog actions={desk.actions} {now} />
 </div>
 

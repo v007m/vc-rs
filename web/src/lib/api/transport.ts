@@ -4,8 +4,8 @@ import { EngineService } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 
 /**
  * The Connect transport to the engine API that `vc ui` serves at `/api`. The wire is binary
- * protobuf only. Auth is the same-origin `vc_token` cookie the server sets, so no token is
- * handled here and credentials never go to another origin.
+ * protobuf only. Auth is the same-origin `vc_token_<port>` session cookie the server sets, so no
+ * token is handled here and credentials never go to another origin.
  */
 export const transport = createConnectTransport({
   baseUrl: '/api',

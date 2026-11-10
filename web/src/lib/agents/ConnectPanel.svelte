@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { copyText } from './clipboard.ts';
+  import type { McpLink as Link } from './desk.svelte.ts';
+  import McpLink from './McpLink.svelte';
+
+  let { link, linkError }: { link: Link | undefined; linkError: string | undefined } = $props();
+
   /** How to connect each kind of agent; `vc mcp` runs over stdio, started by the agent. */
   const setups = [
     {
@@ -12,25 +18,15 @@
       code: '{\n  "mcpServers": {\n    "vibranium": { "command": "vc", "args": ["mcp"] }\n  }\n}',
     },
     { label: 'Other', lead: 'Add a stdio MCP server that runs:', code: 'vc mcp' },
-    {
-      label: 'HTTP',
-      lead: 'While vc ui runs, an agent can use its MCP endpoint instead:',
-      code: `claude mcp add --transport http vibranium ${location.origin}/mcp --header "Authorization: Bearer <token>"`,
-      note: 'Replace <token> with the token in the vc ui: line vc ui printed. It changes each time vc ui starts, and this page never shows it.',
-    },
+    { label: 'HTTP', lead: 'While vc ui runs, an agent can use its MCP endpoint instead.' },
   ] as const;
 
   let label: string = $state(setups[0].label);
   let chosen = $derived(setups.find((s) => s.label === label) ?? setups[0]);
   let copied = $state('');
 
-  async function copy(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(chosen.code);
-      copied = 'Copied.';
-    } catch {
-      copied = 'Could not copy; select the text instead.';
-    }
+  async function copy(code: string): Promise<void> {
+    copied = await copyText(code);
   }
 </script>
 
@@ -50,12 +46,16 @@
     {/each}
   </div>
   <p>{chosen.lead}</p>
-  <div class="code">
-    <pre class="mono">{chosen.code}</pre>
-    <button class="btn sm" type="button" onclick={copy}>Copy</button>
-  </div>
-  {#if 'note' in chosen}<p class="lead">{chosen.note}</p>{/if}
-  <p class="note" role="status">{copied}</p>
+  {#if 'code' in chosen}
+    {@const code = chosen.code}
+    <div class="code">
+      <pre class="mono">{code}</pre>
+      <button class="btn sm" type="button" onclick={() => copy(code)}>Copy</button>
+    </div>
+    <p class="note" role="status">{copied}</p>
+  {:else}
+    <McpLink {link} error={linkError} />
+  {/if}
   <p class="lead">
     The agent works under the default profile. Add <code>--profile &lt;name&gt;</code> to give it another;
     an agent cannot pick its own. Then try asking it: “Which tests failed in the last run, and why?”

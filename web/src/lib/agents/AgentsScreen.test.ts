@@ -1,3 +1,4 @@
+import { Code, ConnectError } from '@connectrpc/connect';
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -23,13 +24,20 @@ const actions = [
   },
 ];
 
-function setup(fail = false) {
+const mcpUrl = 'http://127.0.0.1:7420/mcp';
+const agentToken = 'agent-token-0123456789';
+
+function setup(fail = false, noLink = false) {
   const desk = new AgentDesk(
     fakeEngine({
       listApprovals: () => ({ approvals: [] }),
       listAgentActions: () => {
         if (fail) throw new Error('down');
         return { actions };
+      },
+      connection: () => {
+        if (noLink) throw new ConnectError('not yet', Code.Unimplemented);
+        return { mcpUrl, agentToken };
       },
     }),
   );
@@ -76,13 +84,41 @@ describe('AgentsScreen', () => {
     expect(screen.getByText('Copied.')).toBeTruthy();
   });
 
-  it('gives the HTTP endpoint with a token placeholder, never a token', async () => {
+  it('shows the MCP URL and the agent token masked until asked, and copies them unmasked', async () => {
     const user = setup();
     await user.click(screen.getByRole('button', { name: 'HTTP' }));
-    const snippet = screen.getByText(/--transport http/);
-    expect(snippet.textContent).toContain(`${location.origin}/mcp`);
-    expect(snippet.textContent).toContain('Authorization: Bearer <token>');
-    expect(screen.getByText(/Replace <token> with the token/)).toBeTruthy();
+    expect(await screen.findByText(mcpUrl)).toBeTruthy();
+    expect(document.body.textContent).not.toContain(agentToken);
+    expect(screen.getByText(/"Authorization": "Bearer ••••"/)).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Copy the MCP config' }));
+    const copied = JSON.parse(await navigator.clipboard.readText());
+    expect(copied.mcpServers.vibranium).toEqual({
+      type: 'http',
+      url: mcpUrl,
+      headers: { Authorization: `Bearer ${agentToken}` },
+    });
+    await user.click(screen.getByRole('button', { name: 'Copy the agent token' }));
+    expect(await navigator.clipboard.readText()).toBe(agentToken);
+    expect(document.body.textContent).not.toContain(agentToken);
+
+    const show = screen.getByRole('button', { name: 'Show token' });
+    await user.click(show);
+    expect(show.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText(agentToken)).toBeTruthy();
+    await user.click(show);
+    expect(document.body.textContent).not.toContain(agentToken);
+    expect(JSON.stringify({ ...localStorage, ...sessionStorage }) + location.href).not.toContain(
+      agentToken,
+    );
+  });
+
+  it('says when the agent token cannot be loaded', async () => {
+    const user = setup(false, true);
+    await user.click(screen.getByRole('button', { name: 'HTTP' }));
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Could not load the agent token: not yet',
+    );
   });
 
   it('says when the engine cannot be reached', async () => {
