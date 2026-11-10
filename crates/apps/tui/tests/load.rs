@@ -181,3 +181,48 @@ async fn a_real_load_run_ticks_into_the_tab_and_ends_within_its_thresholds() {
     assert!(status(&tui).contains(" · exit 0 · run #"), "{}", status(&tui));
     assert!(screen(&tui, SIZE).contains("latency p50"), "the summary shows");
 }
+
+#[test]
+fn a_reload_keeps_the_cursor_on_the_scenario_it_was_on() {
+    let engine = engine().unwrap();
+    let mut tui = on_load(&engine).unwrap();
+    let Update::Scenarios(listed) = scenarios(&engine).unwrap() else { panic!("the scenarios") };
+    let mut above = listed.first().unwrap().clone();
+    (above.id, above.path) = ("users.early".to_owned(), "services/users/early.load.yaml".to_owned());
+    assert_eq!(press(&mut tui, &[KeyCode::Char('r')]), Some(Ask::Scenarios));
+    tui.update(&Update::Scenarios([vec![above], listed].concat()));
+    let Some(Ask::Load(request)) = press(&mut tui, &[KeyCode::Enter]) else { panic!("enter runs it") };
+    assert_eq!(request.scenario, "users.peak", "the scenario chosen before the reload, not the row it was at");
+}
+
+#[test]
+fn a_write_elsewhere_has_the_scenarios_read_again_when_the_tab_is_next_shown() {
+    let engine = engine().unwrap();
+    let mut tui = on_load(&engine).unwrap();
+    press(&mut tui, &[KeyCode::Char('5')]);
+    tui.update(&Update::Written(vec!["Import orders".to_owned()]));
+    assert_eq!(press(&mut tui, &[KeyCode::Char('4')]), Some(Ask::Scenarios), "the scenarios shown may be stale");
+    tui.update(&scenarios(&engine).unwrap());
+    assert_eq!(press(&mut tui, &[KeyCode::Char('1'), KeyCode::Char('4')]), None, "read again already");
+}
+
+#[test]
+fn a_load_run_started_as_a_run_returns_keeps_q_asking_once_the_run_is_over() {
+    let engine = engine().unwrap();
+    let mut tui = tui();
+    assert!(matches!(press(&mut tui, &[KeyCode::Char('a')]), Some(Ask::Run(_))));
+    press(&mut tui, &[KeyCode::Char('4')]);
+    tui.update(&scenarios(&engine).unwrap());
+    assert!(matches!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Load(_))), "started as the run returns");
+    press(&mut tui, &[KeyCode::Char('q')]);
+    let both = "a run and a load run are in progress: press q again to stop them and quit";
+    assert!(screen(&tui, SIZE).contains(both), "{}", screen(&tui, SIZE));
+    tui.update(&Update::RunFailed("the project has errors".to_owned()));
+    let load = "a load run is in progress: press q again to stop it and quit";
+    assert!(screen(&tui, SIZE).contains(load), "the load run is still in progress: {}", screen(&tui, SIZE));
+    press(&mut tui, &[KeyCode::Char('f'), KeyCode::Char('q')]);
+    assert!(!tui.quitting(), "the run's end left the load run in flight");
+    tui.update(&Update::Loaded(Box::new(report())));
+    press(&mut tui, &[KeyCode::Char('f'), KeyCode::Char('q')]);
+    assert!(tui.quitting(), "with nothing in flight q quits at once");
+}

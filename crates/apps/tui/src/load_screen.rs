@@ -11,7 +11,7 @@ use vc_engine::{Event, Listed, LoadReport, LoadRequest};
 
 use crate::history_screen::ReadState;
 use crate::load_view;
-use crate::screen::{Ask, Flight, Screen, Update, clamp_step, cursor_move};
+use crate::screen::{Ask, Flight, Screen, Update, clamp_step, cursor_move, refound};
 use crate::theme::{clean, first_line};
 
 /// The Load tab's keys.
@@ -200,11 +200,20 @@ impl LoadScreen {
         Ask::Stop(Flight::Load)
     }
 
-    /// Takes the load files the project lists.
+    /// Takes the load files the project lists, the cursor kept on the scenario it was on.
     fn read(&mut self, scenarios: &[Listed]) {
+        let chosen = self.scenarios.get(self.cursor).map(|scenario| scenario.id.clone());
         self.scenarios = scenarios.to_vec();
         self.reading = ReadState::Read;
-        self.cursor = self.cursor.min(self.scenarios.len().saturating_sub(1));
+        self.cursor = refound(&self.scenarios, |scenario| chosen.as_ref() == Some(&scenario.id), self.cursor);
+    }
+
+    /// Files were written elsewhere: the scenarios shown may be stale, so they are read again
+    /// when the tab is next shown, unless a read is under way.
+    fn written(&mut self) {
+        if self.reading != ReadState::Reading {
+            self.reading = ReadState::Unread;
+        }
     }
 }
 
@@ -235,6 +244,7 @@ impl Screen for LoadScreen {
         match update {
             Update::Scenarios(scenarios) => self.read(scenarios),
             Update::ScenariosFailed(reason) => self.reading = ReadState::Failed(first_line(reason)),
+            Update::Written(_) => self.written(),
             Update::Load(event) => self.tick(event),
             Update::Loaded(report) if self.busy() => self.loaded(report),
             Update::LoadFailed(reason) if self.busy() => self.failed(reason),

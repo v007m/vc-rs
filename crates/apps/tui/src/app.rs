@@ -35,7 +35,7 @@ impl TuiOptions {
 }
 
 /// The terminal UI's state: the tabs' screens, the chosen one, whether the help is open, the
-/// run or load run in flight, and whether to quit.
+/// runs and load runs in flight, and whether to quit.
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct Tui {
@@ -43,7 +43,7 @@ pub struct Tui {
     screens: Vec<Box<dyn Screen>>,
     tab: usize,
     help: bool,
-    in_flight: Option<Flight>,
+    in_flight: Vec<Flight>,
     confirming: bool,
     quitting: bool,
 }
@@ -53,7 +53,7 @@ impl Tui {
     #[must_use]
     pub fn new(options: TuiOptions) -> Self {
         let screens = tabs::screens(&options);
-        Self { options, screens, tab: 0, help: false, in_flight: None, confirming: false, quitting: false }
+        Self { options, screens, tab: 0, help: false, in_flight: Vec::new(), confirming: false, quitting: false }
     }
 
     /// Applies one key: the digits choose a tab, `tab` and `shift-tab` cycle them, `?` opens
@@ -69,8 +69,8 @@ impl Tui {
         }
         let confirming = std::mem::take(&mut self.confirming);
         let ask = self.apply(key, confirming);
-        if let Some(flight) = asked(ask.as_ref()) {
-            self.in_flight.get_or_insert(flight);
+        if let Some(flight) = asked(ask.as_ref()).filter(|flight| !self.in_flight.contains(flight)) {
+            self.in_flight.push(flight);
         }
         ask
     }
@@ -103,19 +103,19 @@ impl Tui {
     /// Quits, unless a run or load run is in flight and the key before was not this `q`: then
     /// asks for `q` again.
     const fn quit(&mut self, confirming: bool) {
-        if self.in_flight.is_none() || confirming {
+        if self.in_flight.is_empty() || confirming {
             self.quitting = true;
         } else {
             self.confirming = true;
         }
     }
 
-    /// Hands what the engine sent back to the tabs; the end of the run or load run in flight
-    /// lets `q` quit at once again.
+    /// Hands what the engine sent back to the tabs. The end of a run or load run takes only
+    /// that one out of flight; once none is left, `q` quits at once again.
     pub fn update(&mut self, update: &Update) {
-        if self.in_flight.is_some() && self.in_flight == ended(update) {
-            self.in_flight = None;
-            self.confirming = false;
+        if let Some(flight) = ended(update) {
+            self.in_flight.retain(|own| *own != flight);
+            self.confirming &= !self.in_flight.is_empty();
         }
         for screen in &mut self.screens {
             screen.take(update);
@@ -150,6 +150,12 @@ impl Tui {
     }
 
     /// Whether the help is open.
+    /// The run and the load run in progress, in the order they were asked for: one may be
+    /// starting as the other is still returning.
+    pub(crate) fn in_flight(&self) -> &[Flight] {
+        &self.in_flight
+    }
+
     pub(crate) const fn help(&self) -> bool {
         self.help
     }

@@ -7,7 +7,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Paragraph};
 
 use crate::app::Tui;
-use crate::screen::Screen;
+use crate::screen::{Flight, Screen};
 use crate::theme;
 
 /// The keys every tab has, as the footer and the help show them.
@@ -29,11 +29,31 @@ const HELP: [(&str, &str); 6] = [
 /// The width of the help's key column.
 const HELP_KEY_WIDTH: usize = 11;
 
-/// The footer while quitting waits on the run in progress.
-const STOPPING: &str = " stopping the run in progress: its cleanups get a few seconds, then it is abandoned…";
+/// The footer while quitting waits on what is in flight: a run, a load run, or both (see
+/// [`flown`]).
+const STOPPING: [&str; 3] = [
+    " stopping the run in progress: its cleanups get a few seconds, then it is abandoned…",
+    " stopping the load run in progress: its cleanups get a few seconds, then it is abandoned…",
+    " stopping the run and the load run in progress: their cleanups get a few seconds, then they are abandoned…",
+];
 
-/// The footer while `q` waits to be pressed again.
-const CONFIRM: &str = " a run is in progress: press q again to stop it and quit, any other key to stay";
+/// The footer when `q` waits to be pressed again: a run, a load run, or both in flight (see
+/// [`flown`]).
+const CONFIRM: [&str; 3] = [
+    " a run is in progress: press q again to stop it and quit, any other key to stay",
+    " a load run is in progress: press q again to stop it and quit, any other key to stay",
+    " a run and a load run are in progress: press q again to stop them and quit, any other key to stay",
+];
+
+/// Which wording of [`STOPPING`] and [`CONFIRM`] fits `in_flight`: a run when the UI has not
+/// heard of either.
+const fn flown(in_flight: &[Flight]) -> usize {
+    match in_flight {
+        [Flight::Load] => 1,
+        [_, _, ..] => 2,
+        _ => 0,
+    }
+}
 
 /// Draws `tui` as it was when it quit, its footer saying the run in progress is being ended.
 pub fn draw_stopping(tui: &Tui, frame: &mut Frame<'_>) {
@@ -41,7 +61,10 @@ pub fn draw_stopping(tui: &Tui, frame: &mut Frame<'_>) {
     let area = frame.area();
     let footer = Rect { y: area.bottom().saturating_sub(1), height: area.height.min(1), ..area };
     frame.render_widget(Clear, footer);
-    frame.render_widget(Paragraph::new(Span::styled(STOPPING, theme::WARN)).style(theme::BASE), footer);
+    frame.render_widget(
+        Paragraph::new(Span::styled(STOPPING[flown(tui.in_flight())], theme::WARN)).style(theme::BASE),
+        footer,
+    );
 }
 
 /// Draws `tui` into the whole of `frame`.
@@ -56,7 +79,7 @@ pub fn draw(tui: &Tui, frame: &mut Frame<'_>) {
     }
     let global: &[(&str, &str)] = if own.is_empty() { &GLOBAL_KEYS } else { &SHORT_KEYS };
     if tui.confirming() {
-        frame.render_widget(Paragraph::new(Span::styled(CONFIRM, theme::WARN)), footer);
+        frame.render_widget(Paragraph::new(Span::styled(CONFIRM[flown(tui.in_flight())], theme::WARN)), footer);
     } else {
         frame.render_widget(Paragraph::new(keys(own.iter().chain(global))), footer);
     }
