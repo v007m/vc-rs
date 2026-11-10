@@ -433,6 +433,8 @@ pub vc_interfaces::SourceError::InvalidGlob::glob: alloc::string::String
 pub vc_interfaces::SourceError::InvalidGlob::reason: alloc::string::String
 pub vc_interfaces::SourceError::InvalidPath
 pub vc_interfaces::SourceError::InvalidPath::path: alloc::string::String
+pub vc_interfaces::SourceError::Missing
+pub vc_interfaces::SourceError::Missing::path: alloc::string::String
 pub vc_interfaces::SourceError::NotUtf8
 pub vc_interfaces::SourceError::NotUtf8::path: alloc::string::String
 pub vc_interfaces::SourceError::OutsideRoot

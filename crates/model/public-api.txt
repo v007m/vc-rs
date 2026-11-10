@@ -1217,6 +1217,8 @@ pub struct vc_model::HistoryConfig
 pub vc_model::HistoryConfig::bodies: vc_model::Bodies
 pub vc_model::HistoryConfig::keep: vc_model::Keep
 pub vc_model::HistoryConfig::max_body_size: vc_model::Size
+impl vc_model::HistoryConfig
+pub fn vc_model::HistoryConfig::max_body(&self) -> usize
 impl core::clone::Clone for vc_model::HistoryConfig
 pub fn vc_model::HistoryConfig::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::HistoryConfig
@@ -2234,6 +2236,7 @@ pub const vc_model::DEFAULT_SECRETS_PROVIDER: &str
 pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
 pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String
 pub fn vc_model::check_parts(&vc_model::CheckResult) -> (&'static str, core::option::Option<alloc::string::String>)
+pub fn vc_model::cut_body(&[u8], usize) -> (core::option::Option<alloc::string::String>, bool)
 pub fn vc_model::hidden_part(&str) -> bool
 pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>

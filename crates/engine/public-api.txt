@@ -52,6 +52,7 @@ pub use vc_engine::Totals
 pub use vc_engine::Verdict
 pub use vc_engine::check_label
 pub use vc_engine::check_parts
+pub use vc_engine::cut_body
 pub enum vc_engine::Admission
 pub vc_engine::Admission::Allowed
 pub vc_engine::Admission::Allowed::approved_by: core::option::Option<alloc::string::String>
