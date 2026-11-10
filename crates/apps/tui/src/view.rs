@@ -64,9 +64,9 @@ fn draw_header(tui: &Tui, frame: &mut Frame<'_>, area: Rect) {
     let profiles = if options.profiles.is_empty() { "default".to_owned() } else { options.profiles.join(",") };
     let left = Line::from(vec![
         Span::styled("◆ vibranium ", theme::TITLE),
-        Span::raw(options.project.clone()),
+        Span::raw(theme::clean(&options.project)),
         Span::styled("  profile ", theme::DIM),
-        Span::raw(profiles),
+        Span::raw(theme::clean(&profiles)),
     ]);
     let bar = tab_bar(tui);
     let width = u16::try_from(bar.width()).unwrap_or(u16::MAX);

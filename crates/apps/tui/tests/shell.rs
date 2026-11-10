@@ -72,3 +72,10 @@ fn no_profile_shows_the_default_one() {
     let header = screen(&tui).lines().next().unwrap_or_default().to_owned();
     assert!(header.starts_with("◆ vibranium shop  profile default"), "{header}");
 }
+
+#[test]
+fn a_project_or_profile_name_cannot_drive_the_terminal() {
+    let tui = Tui::new(TuiOptions::new("shop\u{1b}[2J", vec!["ci\u{7}".to_owned()]));
+    let header = screen(&tui).lines().next().unwrap_or_default().to_owned();
+    assert!(header.starts_with("◆ vibranium shop·[2J  profile ci·"), "{header}");
+}
