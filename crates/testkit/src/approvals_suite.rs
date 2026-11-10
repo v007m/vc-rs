@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::time::Duration;
 
 use vc_interfaces::{
-    AgentAction, AgentActionWriter, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals, Decision,
+    AgentAction, AgentActionLog, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals, Decision,
     StandingRule, Verdict,
 };
 use vc_model::Method;
@@ -18,12 +18,13 @@ pub async fn approvals_suite(make: &mut MakeApprovals<'_>) {
     waits_for_a_decision_or_expires(make().as_ref()).await;
 }
 
-/// The contract every [`AgentActionWriter`] meets (D112, D195).
+/// The contract every [`AgentActionLog`] meets (D112, D195): what it records it reads back,
+/// newest first.
 ///
 /// # Panics
 ///
-/// When the writer breaks the contract.
-pub fn agent_action_writer_suite(writer: &dyn AgentActionWriter) {
+/// When the log breaks the contract.
+pub fn agent_action_log_suite(writer: &dyn AgentActionLog) {
     let action = AgentAction {
         agent: "claude".into(),
         tool: "call_api".into(),
@@ -33,8 +34,12 @@ pub fn agent_action_writer_suite(writer: &dyn AgentActionWriter) {
         approved_by: Some("sam".into()),
     };
     assert_eq!(writer.record(&action), Ok(()));
-    let refused = AgentAction { profile: None, approved_by: None, result: "denied".into(), ..action };
+    let refused = AgentAction { profile: None, approved_by: None, result: "denied".into(), ..action.clone() };
     assert_eq!(writer.record(&refused), Ok(()));
+    let read: Vec<_> = must(writer.recent(0)).into_iter().map(|logged| (logged.at_ms, logged.action)).collect();
+    assert!(read.len() == 2 && read[0].0 >= read[1].0 && read[1].0 > 0, "{read:?}");
+    assert_eq!((&read[0].1, &read[1].1), (&refused, &action), "newest first");
+    assert_eq!(must(writer.recent(1)).len(), 1);
 }
 
 /// What `result` holds, after asserting it is not an error.

@@ -33,7 +33,7 @@
 //! - [`HookRunner`]: runs a hook function in a sandbox within a time and memory [`Budget`] (D172).
 //! - [`Importer`]: reads a foreign file (an `OpenAPI` spec, a HAR file) into an [`ImportDraft`];
 //!   [`SpecFetcher`] fetches the documents its `$ref`s name.
-//! - [`Approvals`] and [`AgentActionWriter`]: the agent approval queue and the agent call log in
+//! - [`Approvals`] and [`AgentActionLog`]: the agent approval queue and the agent call log in
 //!   `history.db` (D195).
 //! - [`Notifier`] and [`NotifierFactory`]: send an alert rule's [`Notice`] to a webhook, Slack, Teams
 //!   or `PagerDuty` channel at the end of a run; a failure is a V5117 warning.
@@ -54,6 +54,7 @@
 //! ```
 
 mod action_cache;
+mod agent_log;
 mod approvals;
 mod auth;
 mod browser;
@@ -81,6 +82,7 @@ mod vcs;
 mod watch;
 
 pub use action_cache::{CacheEntry, CacheKey, CacheListing, CacheStore, CacheStoreError, CachedCleanup, CachedValues};
+pub use agent_log::{AgentActionLog, AgentActionReader, LoggedAction};
 pub use approvals::{
     AgentAction, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
     Decision, StandingRule, Verdict,

@@ -8,8 +8,8 @@ use rusqlite::{Connection, OptionalExtension as _, Row as SqlRow, Transaction, p
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tokio::time::Instant;
 use vc_interfaces::{
-    AgentAction, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
-    Decision, StandingRule, Verdict,
+    AgentAction, AgentActionReader, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest,
+    ApprovalStatus, Approvals, Decision, LoggedAction, StandingRule, Verdict,
 };
 use vc_model::Method;
 
@@ -197,6 +197,18 @@ impl AgentActionWriter for SqliteApprovals {
     }
 }
 
+impl AgentActionReader for SqliteApprovals {
+    fn recent(&self, limit: usize) -> Result<Vec<LoggedAction>, ApprovalError> {
+        self.read(|connection| {
+            let sql = "SELECT at, agent, tool, profile, arguments, result, approved_by FROM agent_actions
+                       ORDER BY id DESC LIMIT ?1";
+            let limit = if limit == 0 { -1 } else { i64::try_from(limit).unwrap_or(i64::MAX) };
+            let mut statement = connection.prepare(sql)?;
+            statement.query_map([limit], logged)?.collect()
+        })
+    }
+}
+
 /// The profile, tool and methods an always-allow of a request covers.
 struct Covered {
     profile: String,
@@ -253,6 +265,18 @@ fn approval(row: &SqlRow<'_>) -> rusqlite::Result<Approval> {
     };
     let status = status(&text).ok_or_else(|| unreadable(8, &text))?;
     Ok(Approval { id: ApprovalId::new(row.get(0)?), request, created_ms: row.get(1)?, status, decided_by: row.get(9)? })
+}
+
+fn logged(row: &SqlRow<'_>) -> rusqlite::Result<LoggedAction> {
+    let action = AgentAction {
+        agent: row.get(1)?,
+        tool: row.get(2)?,
+        profile: row.get(3)?,
+        arguments: row.get(4)?,
+        result: row.get(5)?,
+        approved_by: row.get(6)?,
+    };
+    Ok(LoggedAction { at_ms: row.get(0)?, action })
 }
 
 fn status(text: &str) -> Option<ApprovalStatus> {

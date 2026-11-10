@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use vc_interfaces::{ApprovalRequest, ApprovalStatus, Approvals, Decision, Verdict};
 use vc_model::Method;
-use vc_testkit::{agent_action_writer_suite, approvals_suite};
+use vc_testkit::{agent_action_log_suite, approvals_suite};
 
 use super::SqliteApprovals;
 
@@ -33,10 +33,10 @@ async fn passes_the_approvals_suite() {
 }
 
 #[test]
-fn passes_the_agent_action_writer_suite() {
+fn passes_the_agent_action_log_suite() {
     let mut dirs = Vec::new();
     let log = fresh(&mut dirs);
-    agent_action_writer_suite(&log);
+    agent_action_log_suite(&log);
     let connection = rusqlite::Connection::open(dirs[0].path().join(".vibranium/history.db")).unwrap();
     let logged: Vec<(String, Option<String>)> = connection
         .prepare("SELECT result, approved_by FROM agent_actions ORDER BY id")

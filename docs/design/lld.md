@@ -1260,6 +1260,7 @@ The engine reaches the queue and the log through two `vc-interfaces` ports. `vc_
   - `AlwaysAllow` stores a `StandingRule` for each profile, tool and method.
   - `wait` returns the `ApprovalStatus` once the request is decided, or `Expired` at the timeout. Dropping the future leaves the request pending.
 - `AgentActionWriter::record(AgentAction)`: the agent, the tool, the profile, the redacted arguments, the result and who approved it.
+- `AgentActionReader::recent(limit)`: the logged calls, newest first, each with when it was logged (`LoggedAction { at_ms, action }`), for the web UI's agents page through `Engine::agent_actions`. `AgentActionLog` is the writer and the reader together, the port `EngineBuilder::approvals` takes.
 
 The engine redacts the arguments before it calls either port.
 

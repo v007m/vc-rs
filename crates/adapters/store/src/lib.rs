@@ -9,7 +9,7 @@
 //! (`schema_migrations`). Bodies and the report snapshot are stored zstd-compressed. Nothing is
 //! masked here: rows arrive redacted and cut.
 //!
-//! [`SqliteApprovals`] is the `Approvals` queue and the `AgentActionWriter` log in the same
+//! [`SqliteApprovals`] is the `Approvals` queue and the `AgentActionLog` in the same
 //! file (D195). Each call opens its own connection, so every process on the project shares one
 //! queue, and a wait wakes on the folder's file events.
 //!
