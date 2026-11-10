@@ -55,10 +55,10 @@ impl Engine {
             arguments: json!({"path": request.path, "text": request.text}),
             ..AgentCall::default()
         };
-        let changes = self.before_gate(Some(&call), self.guarded_write(request))?;
+        let changes = self.before_gate(Some(&call), self.guarded_write(request)).await?;
         let gated = self.gated(call).await?;
         let written = self.write(&changes);
-        self.settle(Some(gated), written.is_ok())?;
+        self.settle(Some(gated), written.is_ok()).await?;
         written.map(|()| changes)
     }
 

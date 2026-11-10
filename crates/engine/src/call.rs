@@ -52,7 +52,8 @@ impl Engine {
     /// [`EngineError::Selection`] when no api has that ID, [`EngineError::Setting`] for a
     /// `--var` that is not `name=value` or a bad setting, and the errors of loading the project.
     pub async fn call(&self, request: &CallRequest) -> Result<CallReport, EngineError> {
-        let (given, mut prepared, action) = self.before_gate(agent_call(request).as_ref(), self.adhoc_call(request))?;
+        let (given, mut prepared, action) =
+            self.before_gate(agent_call(request).as_ref(), self.adhoc_call(request)).await?;
         let admitted = self.gate(request, &prepared.program, action).await?;
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let mut notices = std::mem::take(&mut prepared.notices);
@@ -70,7 +71,7 @@ impl Engine {
         if let Some(recording) = recording {
             notices.extend(self.closed(recording, passed, &prepared.program).await);
         }
-        self.settle(admitted, passed)?;
+        self.settle(admitted, passed).await?;
         let response = report.response.as_deref().map(|response| cx.redactor.value(response.clone()));
         Ok(CallReport { exit: u8::from(!passed), text: shown(&cx, &report), notices, response })
     }

@@ -53,7 +53,7 @@ impl Engine {
     pub async fn run(&self, request: &RunRequest, mut interrupts: Interrupts) -> Result<RunReport, EngineError> {
         let planned =
             self.rerun(request).and_then(|(plan, rerun)| self.prepare(&plan, Extra { flags: flags(request), rerun }));
-        let prepared = self.before_gate(run_call(request).as_ref(), planned)?;
+        let prepared = self.before_gate(run_call(request).as_ref(), planned).await?;
         let admitted = self.run_gate(request, &prepared).await?;
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let (seed, random) = ports::random(request.seed);
@@ -80,7 +80,7 @@ impl Engine {
         notices.extend(swept);
         notices.extend(fanout.reporters.finish(run).await);
         let exit = vc_executor::exit_code(summary);
-        self.settle(admitted, exit == 0)?;
+        self.settle(admitted, exit == 0).await?;
         Ok(RunReport { exit, seed, notices, run: Some(run_id).filter(|id| *id > 0) })
     }
 

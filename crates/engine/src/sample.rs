@@ -27,7 +27,7 @@ const ORDERS: (&str, &[u8]) =
 /// A config whose profiles have the `agents` blocks of the reference's example, and a bare one.
 const AGENTS: &[u8] = b"syntaxVersion: 2
 vars: {baseUrl: 'http://x'}
-redact: {fields: [password]}
+redact: {fields: [password], rules: [{regex: 'tok-[0-9]+'}]}
 profiles:
   - id: dev
     default: true

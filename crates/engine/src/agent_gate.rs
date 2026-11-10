@@ -1,7 +1,8 @@
 //! The agent policy's gate on what an agent sends (D178, D195): the methods a call or a run
 //! would send, its cleanups and the steps of the `flow` auths it uses included, and the
-//! `command:` and `function:` actions it would run (D202), judged and, where the policy asks, approved before anything goes out; and the log
-//! entry once it is done, or once it fails before the gate (D204).
+//! `command:` and `function:` actions it would run (D202), judged and, where the policy asks,
+//! approved before anything goes out; and the log entry once it is done, or once it fails
+//! before the gate (D204).
 
 use std::collections::BTreeSet;
 
@@ -65,14 +66,14 @@ impl Engine {
     /// # Errors
     ///
     /// `before`'s error; as [`Engine::record_agent_action`] when it cannot be logged.
-    pub(crate) fn before_gate<T>(
+    pub(crate) async fn before_gate<T>(
         &self,
         call: Option<&AgentCall>,
         before: Result<T, EngineError>,
     ) -> Result<T, EngineError> {
-        if let (Some(call), Err(error)) = (call, &before) {
-            let outcome = AgentOutcome { result: format!("failed: {error}"), approved_by: None };
-            self.record_agent_action(call, &outcome)?;
+        let failed = call.zip(before.as_ref().err().map(|error| format!("failed: {error}")));
+        if let Some((call, result)) = failed {
+            self.record_agent_action(call, &AgentOutcome { result, approved_by: None }).await?;
         }
         before
     }
@@ -83,10 +84,10 @@ impl Engine {
     /// # Errors
     ///
     /// As [`Engine::record_agent_action`].
-    pub(crate) fn settle(&self, gated: Option<Gated>, passed: bool) -> Result<(), EngineError> {
+    pub(crate) async fn settle(&self, gated: Option<Gated>, passed: bool) -> Result<(), EngineError> {
         let Some((call, approved_by)) = gated else { return Ok(()) };
         let result = if passed { "ok" } else { "failed" }.to_owned();
-        self.record_agent_action(&call, &AgentOutcome { result, approved_by })
+        self.record_agent_action(&call, &AgentOutcome { result, approved_by }).await
     }
 }
 

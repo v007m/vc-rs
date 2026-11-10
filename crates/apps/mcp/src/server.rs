@@ -69,7 +69,7 @@ impl VcServer {
         };
         let mut outcome = tool.call(&cx, &args).await;
         if tool.reads() {
-            outcome = cx.logged(tool.name(), args, outcome);
+            outcome = cx.logged(tool.name(), args, outcome).await;
         }
         Ok(outcome.map_or_else(|error| CallToolResult::structured_error(error.refusal()), CallToolResult::structured))
     }
@@ -78,7 +78,7 @@ impl VcServer {
 impl Cx {
     /// Logs a call to the reading tool `tool`, which no gate logs (D195); `outcome`, or the
     /// log's error.
-    fn logged(&self, tool: &str, args: Args, outcome: Result<Value, McpError>) -> Result<Value, McpError> {
+    async fn logged(&self, tool: &str, args: Args, outcome: Result<Value, McpError>) -> Result<Value, McpError> {
         let result = outcome.as_ref().map_or_else(|error| format!("failed: {error}"), |_| "ok".to_owned());
         let call = AgentCall {
             agent: self.agent.clone(),
@@ -88,7 +88,7 @@ impl Cx {
             arguments: Value::Object(args),
             ..AgentCall::default()
         };
-        self.engine.record_agent_action(&call, &AgentOutcome { result, approved_by: None })?;
+        self.engine.record_agent_action(&call, &AgentOutcome { result, approved_by: None }).await?;
         outcome
     }
 }

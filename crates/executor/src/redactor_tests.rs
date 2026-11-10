@@ -151,6 +151,14 @@ async fn with_rules_keeps_the_masks_told_so_far_and_applies_only_the_new_rules()
     assert_eq!(format!("{swapped:?}").matches("rules: 1").count(), 1);
 }
 
+#[tokio::test]
+async fn a_masked_value_gets_the_built_in_masking_and_the_rules() {
+    let leaky = json!({"password": "pw-1", "ssn": "123-45-6789", "key": "k=s3cr3t-key", "kept": "plain"});
+    let masked = configured().masked(leaky.clone()).await;
+    assert_eq!(masked, json!({"password": MASKED, "ssn": MASKED, "key": format!("k={MASKED}"), "kept": "plain"}));
+    assert_eq!(configured().value(leaky)["ssn"], json!("123-45-6789"));
+}
+
 #[test]
 fn a_check_without_a_diff_gets_none_after_masking() {
     let redactor = configured();

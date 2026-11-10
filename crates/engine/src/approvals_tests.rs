@@ -65,14 +65,25 @@ async fn a_denied_or_unanswered_call_is_refused() {
     assert_eq!(queue.list(false).unwrap()[0].status, ApprovalStatus::Expired);
 }
 
-#[test]
-fn a_finished_call_is_logged_redacted() {
+#[tokio::test]
+async fn a_finished_call_is_logged_redacted() {
     let queue = MemoryApprovals::new();
     let outcome = AgentOutcome { result: "ok".into(), approved_by: Some("sam".into()) };
-    agent_engine(&queue).record_agent_action(&delete("dev"), &outcome).unwrap();
+    agent_engine(&queue).record_agent_action(&delete("dev"), &outcome).await.unwrap();
     let logged = queue.actions();
     assert_eq!((logged[0].result.as_str(), logged[0].approved_by.as_deref()), ("ok", Some("sam")));
     assert!(!logged[0].arguments.contains("abc"), "{}", logged[0].arguments);
+}
+
+#[tokio::test]
+async fn the_queue_and_the_log_get_the_redact_rules_too() {
+    let queue = MemoryApprovals::answering(Verdict::Deny);
+    let call = AgentCall { arguments: json!({"note": "sent tok-4821"}), ..delete("staging") };
+    let admitted = agent_engine(&queue).admit(&call, Duration::from_secs(5)).await;
+    assert!(matches!(admitted, Ok(Admission::Refused { .. })), "{admitted:?}");
+    let (asked, logged) = (queue.list(false).unwrap(), queue.actions());
+    assert_eq!(asked[0].request.arguments, r#"{"note":"sent ••••"}"#);
+    assert_eq!(logged[0].arguments, asked[0].request.arguments);
 }
 
 #[tokio::test]

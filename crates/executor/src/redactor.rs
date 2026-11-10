@@ -99,6 +99,13 @@ impl Redactor {
         self.masks.load().value(value)
     }
 
+    /// `value` with the built-in masking, then the rules in order: what leaves the run as an
+    /// event's value would, for a value stored outside one (an agent call's arguments).
+    pub async fn masked(&self, value: Value) -> Value {
+        let masks = self.masks.load_full();
+        Masking { masks: &masks, rules: &self.rules }.value(value).await
+    }
+
     /// `check` with the built-in masking: a masked header's expected and actual values
     /// replaced by [`MASKED`], and every secret value and hidden field masked in the rest; its
     /// diff is made again from the masked values. Its event gets the rules too.

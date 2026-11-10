@@ -12,7 +12,7 @@ use std::time::Duration;
 use serde_json::Value;
 use vc_adapter_store::SqliteApprovals;
 use vc_adapter_system::SystemEnvironment;
-use vc_executor::Redactor;
+use vc_executor::{MaskRules, Redactor};
 use vc_interfaces::{
     AgentAction, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
     Decision, Verdict,
@@ -66,7 +66,7 @@ impl Engine {
     /// or the log cannot be used.
     pub async fn admit(&self, call: &AgentCall, wait: Duration) -> Result<Admission, EngineError> {
         let (permission, program) = self.judged(call)?;
-        let arguments = redacted(&program, &call.arguments);
+        let arguments = self.redacted(&program, &call.arguments).await;
         let admission = match permission {
             Permission::Allow => Admission::Allowed { approved_by: None },
             Permission::Refuse { rule } => Admission::Refused { reason: rule },
@@ -87,9 +87,12 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::History`] when the log cannot be written.
-    pub fn record_agent_action(&self, call: &AgentCall, outcome: &AgentOutcome) -> Result<(), EngineError> {
-        let arguments =
-            self.program().map_or_else(|_| WITHHELD.to_owned(), |(program, _)| redacted(&program, &call.arguments));
+    pub async fn record_agent_action(&self, call: &AgentCall, outcome: &AgentOutcome) -> Result<(), EngineError> {
+        let program = self.program().ok().map(|(program, _)| program);
+        let arguments = match program {
+            Some(program) => self.redacted(&program, &call.arguments).await,
+            None => WITHHELD.to_owned(),
+        };
         self.log(call, arguments, outcome)
     }
 
@@ -155,6 +158,13 @@ impl Engine {
         self.agent_log().record(&action).map_err(|error| store_error(&error))
     }
 
+    /// `arguments` as JSON, masked as a run's events are: the config's built-in masking, then
+    /// its `redact.rules` in order (a `function:` rule through the hook runner).
+    async fn redacted(&self, program: &Program, arguments: &Value) -> String {
+        let rules = MaskRules::standard().with_hooks(self.hook_runner(program), program).for_config(&program.config);
+        Redactor::for_config(&program.config).with_rules(rules).masked(arguments.clone()).await.to_string()
+    }
+
     /// Who is deciding: the OS user, as `USER` or `USERNAME` names them.
     fn person(&self) -> String {
         let environment = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
@@ -165,11 +175,6 @@ impl Engine {
 /// Who decided request `id`, when the queue still says.
 fn decided_by(queue: &dyn Approvals, id: ApprovalId) -> Option<String> {
     queue.list(false).ok()?.into_iter().find(|approval| approval.id == id)?.decided_by
-}
-
-/// `arguments` as JSON, with what the config redacts masked.
-fn redacted(program: &Program, arguments: &Value) -> String {
-    Redactor::for_config(&program.config).value(arguments.clone()).to_string()
 }
 
 /// `10 minutes`, or `30 seconds` for a wait that is not whole minutes.
