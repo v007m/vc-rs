@@ -8,10 +8,10 @@ cd "$(dirname "$0")/.."
 base=${1:-origin/master}
 readonly SUBJECT_RE='^(feat|fix|refactor|test|docs|chore|perf|build|ci)(\([^()]+\))?!?: [^ ]'
 readonly REFACTOR_RE='^refactor(\([^()]+\))?!?:'
-readonly TEST_FILE_RE='_tests?\.rs$|(^|/)tests\.rs$|\.(test|spec)\.[cm]?[jt]sx?$|(^|/)e2e/'
+readonly TEST_FILE_RE='_tests?\.rs$|(^|/)tests\.rs$|\.(test|spec)\.[cm]?[jt]sx?$|(^|/)e2e/|(^|/)snapshots/[^/]+\.snap$'
 readonly TEST_DIR_RE='(^|/)tests/'
-# A tests/ folder under src/ is source, not tests: web/src/lib/tests holds the Tests page's components.
-readonly SOURCE_DIR_RE='(^|/)src/'
+# The web UI's tests/ folder under src/ is source, not tests: it holds the Tests page's components.
+readonly SOURCE_DIR_RE='^web/src/'
 failed=0
 
 report() {
@@ -23,7 +23,9 @@ touches_assertions() {
   local files
   files=$(git show --format= --name-only "$1")
   if grep -Eq "$TEST_FILE_RE" <<<"$files"; then return 0; fi
-  if grep -E "$TEST_DIR_RE" <<<"$files" | grep -Evq "$SOURCE_DIR_RE"; then return 0; fi
+  # One awk reads every name, so no early exit in a pipe can SIGPIPE a reader under pipefail.
+  if awk -v dir="$TEST_DIR_RE" -v src="$SOURCE_DIR_RE" '$0 ~ dir && $0 !~ src { found = 1 } END { exit !found }' \
+    <<<"$files"; then return 0; fi
   # A hunk counts when it changes a line and mentions an assertion anywhere, context included, so
   # editing the expected value on its own line of a multi-line assert_eq! is caught as well.
   git show --format= --unified=3 "$1" -- '*.rs' | awk '
