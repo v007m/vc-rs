@@ -188,14 +188,35 @@ fn inside(root: &Path, file: &str) -> Result<PathBuf, String> {
 /// resolved, the rest appended. `None` when that ancestor cannot be resolved (a link to nowhere).
 fn beneath(path: &Path) -> Option<PathBuf> {
     let existing = path.ancestors().find(|ancestor| ancestor.symlink_metadata().is_ok())?;
-    let real = std::fs::canonicalize(existing).ok()?;
+    let real = canonical(existing)?;
     let rest = path.strip_prefix(existing).ok()?;
     Some(if rest.as_os_str().is_empty() { real } else { real.join(rest) })
 }
 
 /// `path` with its links resolved, or as given when it does not exist yet.
 fn real(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+    canonical(path).unwrap_or_else(|| path.to_path_buf())
+}
+
+/// `path` with its links resolved, written as a path that does not exist is ([`plain`]), so the
+/// two compare; `None` when it cannot be resolved.
+fn canonical(path: &Path) -> Option<PathBuf> {
+    std::fs::canonicalize(path).ok().map(plain)
+}
+
+/// A resolved drive path without the `\\?\` that Windows puts before it, which a path that does
+/// not exist (the project's, as given) lacks.
+#[cfg(windows)]
+fn plain(path: PathBuf) -> PathBuf {
+    let drive = path.to_str().and_then(|text| text.strip_prefix(r"\\?\"));
+    let drive = drive.filter(|rest| rest.as_bytes().get(1) == Some(&b':')).map(PathBuf::from);
+    drive.unwrap_or(path)
+}
+
+/// `path` itself: only Windows writes a resolved path apart.
+#[cfg(not(windows))]
+const fn plain(path: PathBuf) -> PathBuf {
+    path
 }
 
 /// Where the OS cannot confine a plugin: its permissions stay declared only.

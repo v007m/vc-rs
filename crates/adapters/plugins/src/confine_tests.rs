@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use vc_interfaces::PluginPermissions;
 
-use super::{DEVICES, LAUNCHER_ARG, Policy, launch};
+use super::{DEVICES, LAUNCHER_ARG, Policy, launch, real};
 
 fn permissions(files: &[&str], network: &[&str]) -> PluginPermissions {
     PluginPermissions {
@@ -19,11 +19,11 @@ fn args(list: &[&str]) -> impl Iterator<Item = OsString> {
 
 #[test]
 fn a_plugin_reads_its_folder_and_writes_its_data_its_files_the_devices_and_temp() {
-    let root = PathBuf::from("/no-such-vc-project");
+    let root = std::path::absolute("/no-such-vc-project").unwrap();
     let dir = root.join(".vibranium/plugins/acme");
     let data = root.join(".vibranium/plugin-data/acme");
     let policy = Policy::new(&root, &dir, &permissions(&["reports/", "out.json"], &[])).unwrap().writing(Some(&data));
-    let temp = std::env::temp_dir().canonicalize().unwrap();
+    let temp = real(&std::env::temp_dir());
     let mut write: Vec<PathBuf> = DEVICES.iter().map(PathBuf::from).collect();
     write.extend([temp, root.join("reports"), root.join("out.json"), data]);
     assert_eq!(policy, Policy { root: root.clone(), read: vec![dir], write, network: false });

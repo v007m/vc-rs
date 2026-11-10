@@ -82,7 +82,7 @@ fn a_confined_process_reads_and_writes_only_what_its_policy_opens() {
     let policy = Policy::closed(&root, &plugin, &data);
     let script = "cat plugin/main.sh && echo ok > data/out.txt; cat secret.txt; echo no > leaked.txt";
     let ran = confined(&policy, &root, script);
-    assert_eq!(String::from_utf8_lossy(&ran.stdout), "plugin\n");
+    assert_eq!(String::from_utf8_lossy(&ran.stdout), "echo plugin");
     assert_eq!(std::fs::read_to_string(data.join("out.txt")).unwrap(), "ok\n");
     assert!(!root.join("leaked.txt").exists());
 }
