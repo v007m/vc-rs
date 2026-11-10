@@ -10,11 +10,11 @@ use serde_json::{Map, Value, json};
 use vc_executor::{ActionCx, ActionReport, ActionRequest, Frame, Saved};
 use vc_interfaces::{ConfigEntry, RunEnd, RunStart};
 use vc_model::{
-    Action, ActionId, ActionKind, ActionOutcome, Api, Method, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals,
+    Action, ActionId, ActionKind, ActionOutcome, Api, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals,
     VarDefs,
 };
 
-use crate::agent_gate::{Gated, Reached, api_reach};
+use crate::agent_gate::{Gated, call_reach};
 use crate::explain::did_you_mean;
 use crate::history::Recording;
 use crate::plan::{self, Prepared, profile_flag};
@@ -53,7 +53,7 @@ impl Engine {
     /// `--var` that is not `name=value` or a bad setting, and the errors of loading the project.
     pub async fn call(&self, request: &CallRequest) -> Result<CallReport, EngineError> {
         let (given, mut prepared, action) = self.before_gate(agent_call(request).as_ref(), self.adhoc_call(request))?;
-        let admitted = self.gate(request, &prepared.program).await?;
+        let admitted = self.gate(request, &prepared.program, action).await?;
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let mut notices = std::mem::take(&mut prepared.notices);
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
@@ -75,21 +75,21 @@ impl Engine {
         Ok(CallReport { exit: u8::from(!passed), text: shown(&cx, &report), notices, response })
     }
 
-    /// For an agent's call, the agent policy's gate on the api's method and, unless `keep`, its
-    /// cleanup's: the call as the log records it, and who approved it; `None` for a person's
-    /// call, which is not gated.
+    /// For an agent's call, the agent policy's gate on what `action` reaches: the api's method,
+    /// its cleanup's unless `keep`, and what its `flow` auth sends and runs. Gives the call as
+    /// the log records it, and who approved it; `None` for a person's call, which is not gated.
     ///
     /// # Errors
     ///
     /// [`EngineError::Refused`] when the policy refuses it or no one approves it in time.
-    async fn gate(&self, request: &CallRequest, program: &Program) -> Result<Option<Gated>, EngineError> {
+    async fn gate(
+        &self,
+        request: &CallRequest,
+        program: &Program,
+        action: ActionId,
+    ) -> Result<Option<Gated>, EngineError> {
         let Some(call) = agent_call(request) else { return Ok(None) };
-        let api = program.apis.values().find(|api| program.str(api.id.sym()) == Some(request.api.as_str()));
-        let reached = match api {
-            Some(api) if request.keep => Reached { methods: vec![api.method], code: Vec::new() },
-            Some(api) => api_reach(program, api.id),
-            None => Reached { methods: vec![Method::Get], code: Vec::new() },
-        };
+        let reached = call_reach(program, action, request.keep);
         let summary = format!("{} {}", reached.methods.first().map_or("GET", |method| method.name()), request.api);
         self.gated(AgentCall { summary, methods: reached.methods, code: reached.code, ..call }).await.map(Some)
     }

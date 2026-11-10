@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use vc_interfaces::{Approvals as _, Verdict};
-use vc_model::Method;
+use vc_model::{ActionId, ActionKind, Method, Program};
 use vc_testkit::{FakeVcs, MemoryApprovals, MemoryHistory, MemorySources};
 
-use super::{api_reach, plan_reach};
+use super::{call_reach, plan_reach};
 use crate::plan::Extra;
 use crate::sample::builder;
 use crate::{Engine, EngineError, PlanRequest, RunRequest, SelectRequest, interrupts};
@@ -27,9 +27,24 @@ const SEED: (&str, &[u8]) = (
     b"tests:\n  - id: seedsUsers\n    steps:\n      - command: echo seeded\n      - call: users#list\n",
 );
 
+/// A project whose `users#me` signs in with the `flow` auth `login`, which sends a `PUT` and
+/// runs a command.
+const LOGIN: [(&str, &[u8]); 3] = [
+    (
+        "vibranium.config.yaml",
+        b"syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\nauth:\n  - id: login\n    type: flow\n    steps:\n      - id: token\n        method: PUT\n        url: http://id/login\n      - command: echo login\n    apply:\n      headers: {authorization: 'Bearer x'}\n",
+    ),
+    ("services/users/users.api.yaml", b"baseUrl: ${var.baseUrl}\napis:\n  - id: me\n    path: /me\n    auth: login\n"),
+    ("services/users/me.test.yaml", b"tests:\n  - id: readsMe\n    call: users#me\n"),
+];
+
 fn engine(queue: &MemoryApprovals) -> Engine {
+    engine_over(&[CONFIG, USERS, FLOW, SEED], queue)
+}
+
+fn engine_over(files: &[(&str, &[u8])], queue: &MemoryApprovals) -> Engine {
     builder(FakeVcs::default())
-        .sources(Arc::new(MemorySources::new(&[CONFIG, USERS, FLOW, SEED])))
+        .sources(Arc::new(MemorySources::new(files)))
         .history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new()))
         .approvals(Arc::new(queue.clone()), Arc::new(queue.clone()))
         .build()
@@ -51,14 +66,36 @@ fn a_plan_sends_the_methods_of_every_action_it_reaches_once() {
     assert_eq!(reached.code, ["users.seed#seedsUsers: command `echo seeded`"]);
 }
 
+/// The first action that calls the api `id`.
+fn calling(program: &Program, id: &str) -> ActionId {
+    let calls = |kind: &ActionKind| matches!(kind, ActionKind::Call(api) if program.str(api.sym()) == Some(id));
+    let index = program.actions.iter().position(|action| calls(&action.kind)).unwrap();
+    ActionId::new(u32::try_from(index).unwrap())
+}
+
 #[test]
-fn an_api_sends_its_method_then_its_cleanups() {
+fn a_call_sends_its_method_then_its_cleanups_unless_kept() {
     let engine = engine(&MemoryApprovals::new());
     let prepared = engine.prepare(&PlanRequest::default(), Extra::default()).unwrap();
-    let program = &prepared.program;
-    let create = program.apis.values().find(|api| program.str(api.id.sym()) == Some("users#create")).unwrap();
-    let reached = api_reach(program, create.id);
+    let create = calling(&prepared.program, "users#create");
+    let reached = call_reach(&prepared.program, create, false);
     assert_eq!((reached.methods, reached.code), (vec![Method::Post, Method::Delete], Vec::<String>::new()));
+    assert_eq!(call_reach(&prepared.program, create, true).methods, [Method::Post]);
+}
+
+#[test]
+fn a_call_and_a_run_reach_what_the_flow_auth_they_use_sends_and_runs() {
+    let engine = engine_over(&LOGIN, &MemoryApprovals::new());
+    let prepared = engine.prepare(&PlanRequest::default(), Extra::default()).unwrap();
+    let me = calling(&prepared.program, "users#me");
+    for keep in [false, true] {
+        let reached = call_reach(&prepared.program, me, keep);
+        assert_eq!(reached.methods, [Method::Get, Method::Put]);
+        assert_eq!(reached.code, ["users#me: command `echo login`"]);
+    }
+    let reached = plan_reach(&prepared.program, &prepared.plan);
+    assert_eq!(reached.methods, [Method::Get, Method::Put]);
+    assert_eq!(reached.code, ["users.me#readsMe: command `echo login`"]);
 }
 
 #[tokio::test]

@@ -1,12 +1,13 @@
 //! The agent policy's gate on what an agent sends (D178, D195): the methods a call or a run
-//! would send, its cleanups included, and the `command:` and `function:` actions it would run
-//! (D202), judged and, where the policy asks, approved before anything goes out; and the log
+//! would send, its cleanups and the steps of the `flow` auths it uses included, and the
+//! `command:` and `function:` actions it would run (D202), judged and, where the policy asks, approved before anything goes out; and the log
 //! entry once it is done, or once it fails before the gate (D204).
 
 use std::collections::BTreeSet;
 
 use serde_json::json;
-use vc_model::{ActionId, ActionKind, ApiId, Method, Plan, Program, TestBody, TestId};
+use vc_executor::auth_steps;
+use vc_model::{Action, ActionId, ActionKind, ApiId, Method, Plan, Program, TestBody, TestId};
 
 use crate::approvals::{APPROVAL_WAIT, Admission, AgentOutcome};
 use crate::plan::Prepared;
@@ -112,10 +113,17 @@ pub struct Reached {
     pub code: Vec<String>,
 }
 
-/// What `api` reaches, then its cleanup.
-pub fn api_reach(program: &Program, api: ApiId) -> Reached {
+/// What the call `action` reaches: its api's method, its api's cleanup unless `keep`, and
+/// what the steps of the `flow` auth it uses send and run.
+pub fn call_reach(program: &Program, action: ActionId, keep: bool) -> Reached {
+    let found = usize::try_from(action.index()).ok().and_then(|index| program.actions.get(index));
+    let Some(ActionKind::Call(api)) = found.map(|found| &found.kind) else { return Reached::default() };
     let mut reach = Reach::new(program, program.str(api.sym()).unwrap_or_default());
-    reach.api(api);
+    if keep {
+        reach.seen.insert(Seen::Api(*api));
+        reach.method(program.apis.get(api).map_or(Method::Get, |api| api.method));
+    }
+    reach.action(action);
     reach.reached
 }
 
@@ -143,7 +151,8 @@ pub fn plan_reach(program: &Program, plan: &Plan) -> Reached {
 struct Reach<'p> {
     program: &'p Program,
     reached: Reached,
-    /// The apis and tests walked so far, so a cleanup or `test:` action that loops back stops.
+    /// The apis, tests and flow steps walked so far, so a cleanup, `test:` action or flow that
+    /// loops back stops.
     seen: BTreeSet<Seen>,
     /// Where the walk is, a lifecycle block or a test's ID, to name the code it finds.
     place: String,
@@ -154,6 +163,7 @@ struct Reach<'p> {
 enum Seen {
     Api(ApiId),
     Test(TestId),
+    Step(ActionId),
 }
 
 impl<'p> Reach<'p> {
@@ -173,16 +183,34 @@ impl<'p> Reach<'p> {
     }
 
     fn action(&mut self, id: ActionId) {
-        let found = usize::try_from(id.index()).ok().and_then(|index| self.program.actions.get(index));
-        match found.map(|action| &action.kind) {
-            Some(ActionKind::Call(api)) => self.api(*api),
-            Some(ActionKind::Test(test)) => self.test(*test),
-            Some(ActionKind::Command(command)) => {
-                let text = Shown { program: self.program, vars: &[] }.template(command);
+        let program = self.program;
+        let Some(action) = usize::try_from(id.index()).ok().and_then(|index| program.actions.get(index)) else {
+            return;
+        };
+        match &action.kind {
+            ActionKind::Call(api) => self.call(*api, action),
+            ActionKind::Test(test) => self.test(*test),
+            ActionKind::Command(command) => {
+                let text = Shown { program, vars: &[] }.template(command);
                 self.code(&format!("command `{text}`"));
             }
-            Some(ActionKind::Function(hook)) => self.code(&format!("function `{}#{}`", hook.file, hook.export)),
-            Some(ActionKind::Inline(_)) | None => {}
+            ActionKind::Function(hook) => self.code(&format!("function `{}#{}`", hook.file, hook.export)),
+            ActionKind::Inline(inline) => self.method(inline.method),
+        }
+    }
+
+    /// The api `action` calls, then the steps of the `flow` auth it uses, each step once.
+    fn call(&mut self, id: ApiId, action: &Action) {
+        self.api(id);
+        let Some(api) = self.program.apis.get(&id) else { return };
+        let steps = auth_steps(self.program, (api, action));
+        let fresh: Vec<ActionId> = steps.into_iter().filter(|step| self.seen.insert(Seen::Step(*step))).collect();
+        self.actions(fresh.into_iter());
+    }
+
+    fn method(&mut self, method: Method) {
+        if !self.reached.methods.contains(&method) {
+            self.reached.methods.push(method);
         }
     }
 
@@ -198,9 +226,7 @@ impl<'p> Reach<'p> {
         if !self.seen.insert(Seen::Api(id)) {
             return;
         }
-        if !self.reached.methods.contains(&api.method) {
-            self.reached.methods.push(api.method);
-        }
+        self.method(api.method);
         if let Some(cleanup) = api.cleanup {
             self.action(cleanup);
         }

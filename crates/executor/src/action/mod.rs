@@ -30,7 +30,7 @@ use crate::{
     ActionReport, ExecutorError, Frame, MaskRules, PipelineParts, Redactor, RunInputs, RunValues, Saved, Schemas,
 };
 
-pub use auth::{AuthKey, Lease, NoAuth, TokenCache};
+pub use auth::{AuthKey, Lease, NoAuth, TokenCache, steps as auth_steps};
 pub use cached::{CachedExecutor, RunCache};
 pub use call::{CallExecutor, called};
 pub use command::CommandExecutor;

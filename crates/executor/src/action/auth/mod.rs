@@ -79,7 +79,8 @@ pub fn added(parts: PipelineParts, cx: &ActionCx, prepared: Option<Prepared>) ->
     PipelineParts { retry: Arc::new(retry), auth: Arc::new(stage), ..parts }
 }
 
-/// The steps of the `flow` the call uses, so the start-up check reaches them.
+/// The steps of the `flow` the call uses, so the start-up check and the agent policy's gate
+/// reach them.
 #[must_use]
 pub fn steps(program: &Program, call: (&Api, &Action)) -> Vec<ActionId> {
     chosen(program, call).map(|(def, _)| def.steps.clone()).unwrap_or_default()
