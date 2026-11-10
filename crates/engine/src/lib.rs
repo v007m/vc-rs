@@ -153,5 +153,5 @@ pub use vc_interfaces::{
 pub use vc_model::{
     ActionId, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, InstanceId, Location, Method,
     Names, Origin, OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath, SourceSpan,
-    TestResult, TestStatus, Totals, check_label, check_parts,
+    TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
 };

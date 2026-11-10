@@ -4,13 +4,17 @@
 
 use vc_contracts::millis;
 use vc_contracts::results::v1 as results;
-use vc_engine::{ActionId, CheckResult, Exchange, Failure, Names, Origin, TestResult, check_parts};
+use vc_engine::{ActionId, CheckResult, Exchange, Failure, Names, Origin, TestResult, check_parts, cut_body};
 
 use crate::wire_diagnostics;
 
-/// `exchange`, which `action` made. The body is sent whole, so `body_truncated` is false.
+/// `exchange`, which `action` made. Each body is cut to `history.maxBodySize` as the history cuts
+/// it, so one large body cannot outgrow the stream's envelope; `body_truncated` says if either was.
 pub fn exchange(names: &Names, action: ActionId, exchange: &Exchange) -> results::Exchange {
     let (request, response) = (&exchange.request, &exchange.response);
+    let max = names.program().config.history.max_body();
+    let (request_body, request_cut) = cut_body(&request.body, max);
+    let (response_body, response_cut) = cut_body(&response.body, max);
     results::Exchange {
         action: names.action(action),
         api: names.api_of(action),
@@ -20,9 +24,9 @@ pub fn exchange(names: &Names, action: ActionId, exchange: &Exchange) -> results
         timing: Some(exchange.timing.into()),
         request_headers: headers(request.headers.iter()),
         response_headers: headers(response.headers.iter()),
-        request_body: request.body.to_vec(),
-        response_body: response.body.to_vec(),
-        body_truncated: false,
+        request_body: request_body.map(String::into_bytes).unwrap_or_default(),
+        response_body: response_body.map(String::into_bytes).unwrap_or_default(),
+        body_truncated: request_cut || response_cut,
         wire_size: response.wire_size,
         connection_reused: exchange.connection.reused,
         protocol: results::Protocol::from(exchange.connection.protocol).into(),

@@ -56,7 +56,7 @@ pub use event::{Event, Feed, Sequenced};
 pub use exchange::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
 pub use expect::{Check, CheckKind, CheckResult, Expect, Matcher, MatcherArg, MatcherCall, Origin};
 pub use files::SourceFiles;
-pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep};
+pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep, cut_body};
 pub use hooks::{HookModule, HookModules, import_paths};
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
 pub use names::{Location, Names, Planned, check_label, check_parts};

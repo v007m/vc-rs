@@ -1,4 +1,7 @@
+use std::io::{Read as _, Write as _};
+use std::net::TcpListener;
 use std::sync::Arc;
+use std::thread;
 
 use axum::body::Body;
 use axum::http::{Method, Request, header};
@@ -11,7 +14,8 @@ use vc_contracts::engine::v1::run_event::Kind;
 use vc_contracts::results::v1 as results;
 use vc_engine::{Event, RunFeed, RunStatus, Sequenced, Totals};
 
-use crate::engine_fixture::{SECRET, project};
+use crate::EngineApi;
+use crate::engine_fixture::{CONFIG, SECRET, project};
 use crate::envelope;
 use crate::wire_events::WireFeed;
 
@@ -20,6 +24,11 @@ const RUN: &str = "/api/vibranium.engine.v1.EngineService/Run";
 /// The whole stream `Run` answers `request` with, over the fixture project.
 async fn stream(request: &wire::RunRequest) -> Vec<u8> {
     let (_dir, api) = project();
+    stream_from(api, request).await
+}
+
+/// The whole stream `Run` answers `request` with, over `api`.
+async fn stream_from(api: Arc<EngineApi>, request: &wire::RunRequest) -> Vec<u8> {
     let router = Arc::into_inner(api).unwrap().into_service().into_router();
     let request = Request::builder()
         .method(Method::POST)
@@ -131,4 +140,37 @@ fn each_missed_notice_takes_the_number_after_the_last_one_sent() {
         seqs.extend(missed.iter().filter(|event| matches!(event.kind, Some(Kind::Missed(_)))).map(|event| event.seq));
     }
     assert_eq!(seqs, [4, 5, 8]);
+}
+
+/// The body the large-body server answers with: past the default `history.maxBodySize` of 64 KiB.
+const LARGE: usize = 70 * 1024;
+
+/// A server on a free local port that answers every request with `LARGE` bytes; its base URL.
+fn large_body_server() -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    thread::spawn(move || {
+        for mut socket in listener.incoming().flatten() {
+            let mut request = [0_u8; 4096];
+            let _ = socket.read(&mut request);
+            let head = format!("HTTP/1.1 200 OK\r\ncontent-length: {LARGE}\r\nconnection: close\r\n\r\n");
+            let _ = socket.write_all(&[head.into_bytes(), vec![b'a'; LARGE]].concat());
+        }
+    });
+    url
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_exchange_body_past_the_history_cap_is_cut_and_says_so() {
+    let (dir, api) = project();
+    let config = CONFIG.replace("http://127.0.0.1:9", &large_body_server());
+    std::fs::write(dir.path().join("vibranium.config.yaml"), config).unwrap();
+    let (events, _) = parse(&stream_from(api, &wire::RunRequest::default()).await);
+    let exchange = events.iter().find_map(|event| match &event.kind {
+        Some(Kind::Exchanged(exchanged)) => exchanged.exchange.clone(),
+        _ => None,
+    });
+    let exchange = exchange.unwrap_or_else(|| panic!("no exchange: {events:?}"));
+    assert_eq!((exchange.response_body.len(), exchange.body_truncated), (64 * 1024, true));
+    assert!(exchange.request_body.is_empty());
 }

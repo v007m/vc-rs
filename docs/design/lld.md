@@ -752,7 +752,7 @@ pub enum Event {
     RunStarted { files: usize, instances: usize }, FileStarted { file: FileId },
     FileFinished { file: FileId, totals: Totals },
     ActionStarted { action: ActionId, owner: OwnerKey },
-    Exchanged { action: ActionId, owner: OwnerKey, exchange: Box<Exchange> }, // a call's request and response, whole, then redacted (history and reports cut bodies at history.maxBodySize afterwards); before its checks
+    Exchanged { action: ActionId, owner: OwnerKey, exchange: Box<Exchange> }, // a call's request and response, whole, then redacted (history, reports and the web UI's run feed cut bodies at history.maxBodySize afterwards with `cut_body`, and the feed sets `body_truncated`); before its checks
     CheckEvaluated { action: ActionId, owner: OwnerKey, check: Box<CheckResult> }, // each, in order, before ActionFinished
     ActionFinished { action: ActionId, owner: OwnerKey, outcome: ActionOutcome },
     CleanupFinished { cleanup: CleanupRecord },
