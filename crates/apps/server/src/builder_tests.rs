@@ -159,3 +159,25 @@ async fn a_request_that_outlives_the_grace_period_does_not_hold_the_shutdown() {
     let served = tokio::time::timeout(Duration::from_secs(3), serving).await;
     assert!(matches!(served, Ok(Ok(Ok(())))), "{served:?}");
 }
+
+/// A built web UI whose `index.html` has no CSP meta.
+struct NoCspMeta;
+
+impl crate::Files for NoCspMeta {
+    fn get(&self, path: &str) -> Option<Bytes> {
+        (path == "index.html").then(|| Bytes::from_static(b"<!doctype html><script>start()</script>"))
+    }
+}
+
+#[tokio::test]
+async fn a_page_whose_csp_hashes_cannot_be_read_is_reported_and_gets_the_strict_header() {
+    assert_eq!(site().bind().await.unwrap().csp_problem(), None);
+    assert_eq!(ServerBuilder::new(0).bind().await.unwrap().csp_problem(), None);
+    let builder = || ServerBuilder::new(0).files(Arc::new(NoCspMeta));
+    assert!(builder().bind().await.unwrap().csp_problem().is_some_and(|problem| problem.contains("index.html")));
+    let token = Arc::new(Token::generate().unwrap());
+    let request = Request::builder().uri("/").header(header::HOST, "127.0.0.1:7420").body(Body::empty()).unwrap();
+    let response = builder().app(token, 7420).oneshot(request).await.unwrap();
+    let csp = response.headers().get(header::CONTENT_SECURITY_POLICY).map(|value| value.to_str().unwrap().to_owned());
+    assert_eq!(csp.as_deref(), Some("default-src 'self'; frame-ancestors 'none'"));
+}

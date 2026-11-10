@@ -79,6 +79,9 @@ mod serve {
             Err(error @ ServerError::Bind { .. }) => return Ok(not_listening(&error)),
             Err(error) => return Err(error.into()),
         };
+        if let Some(problem) = server.csp_problem() {
+            eprintln!("error: {problem}; the page will not load, so rebuild it with `pnpm -C web build`");
+        }
         println!("vc ui: {}", server.launch_url().expose());
         if !args.no_open {
             open(server.launch_url());

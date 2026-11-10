@@ -89,17 +89,22 @@ impl ServerBuilder {
         let listener = TcpListener::bind(address).await.map_err(|source| ServerError::Bind { address, source })?;
         let address = listener.local_addr().map_err(|source| ServerError::Bind { address, source })?;
         let launch = LaunchUrl(format!("http://{address}/?token={}", token.expose()));
-        let (stop, grace) = (self.stop.clone(), self.grace);
-        Ok(Server { listener, app: self.app(token, address.port()), launch, stop, grace })
+        let (stop, grace, csp_problem) = (self.stop.clone(), self.grace, self.csp().err());
+        Ok(Server { listener, app: self.app(token, address.port()), launch, stop, grace, csp_problem })
     }
 
     /// The routes behind the guard, for a server on `port` with `token`.
     pub(crate) fn app(self, token: Arc<Token>, port: u16) -> Router {
-        let index = self.files.as_ref().and_then(|files| files.get(INDEX));
-        let policy = csp::policy(index.as_deref().and_then(|bytes| std::str::from_utf8(bytes).ok()));
+        let policy = self.csp().unwrap_or_else(|_| csp::FALLBACK.to_owned());
         let guard = Arc::new(Guard::new(token, port, &policy));
         let site = Router::new().fallback(site::serve).with_state(self.files);
         self.routes.fallback_service(site).layer(from_fn_with_state(guard, guard::check))
+    }
+
+    /// The CSP header for the web UI's `index.html`, or why its script hashes cannot be read.
+    fn csp(&self) -> Result<String, &'static str> {
+        let index = self.files.as_ref().and_then(|files| files.get(INDEX));
+        csp::policy(index.as_deref())
     }
 }
 
@@ -110,9 +115,17 @@ pub struct Server {
     launch: LaunchUrl,
     stop: watch::Sender<bool>,
     grace: Duration,
+    csp_problem: Option<&'static str>,
 }
 
 impl Server {
+    /// Why the web UI's page gave no CSP script hashes, if it did not. The header then lets no
+    /// inline script run, so the page will not load; the caller reports this as an error.
+    #[must_use]
+    pub const fn csp_problem(&self) -> Option<&'static str> {
+        self.csp_problem
+    }
+
     /// The URL that signs a browser in: the only place the token is shown.
     #[must_use]
     pub const fn launch_url(&self) -> &LaunchUrl {
