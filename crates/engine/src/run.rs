@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
@@ -77,6 +78,7 @@ impl Engine {
     ) -> Result<RunReport, EngineError> {
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
+        let heard = plugins.heard();
         let (seed, random) = ports::random(request.seed);
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone()))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
@@ -98,7 +100,7 @@ impl Engine {
         let mut notices = prepared.notices;
         notices.extend(unrecorded);
         notices.extend(swept);
-        let closing = Closing { seed, run: Some(run_id).filter(|id| *id > 0), notices, alerting, watching };
+        let closing = Closing { seed, run: Some(run_id).filter(|id| *id > 0), notices, alerting, watching, heard };
         close(fanout.reporters, closing, (ran, run)).await
     }
 
@@ -216,13 +218,14 @@ fn flags(request: &RunRequest) -> Vec<ConfigEntry> {
 }
 
 /// What a run's end needs besides its reporters: the seed, the history run, the notices so
-/// far, the alerts and the watch.
+/// far, the alerts, the watch, and what the plugins said as they started.
 struct Closing {
     seed: u64,
     run: Option<u64>,
     notices: Vec<String>,
     alerting: Option<Alerting>,
     watching: Option<Watching>,
+    heard: broadcast::Receiver<String>,
 }
 
 /// Finishes `reporters` with `run`, then, when the executor `ran` the plan, sends the alerts and
@@ -232,9 +235,10 @@ async fn close(
     closing: Closing,
     (ran, run): (Result<vc_executor::RunSummary, EngineError>, RunSummary),
 ) -> Result<RunReport, EngineError> {
-    let Closing { seed, run: id, mut notices, alerting, watching } = closing;
+    let Closing { seed, run: id, mut notices, alerting, watching, mut heard } = closing;
     let (problems, ending) = reporters.finish(run.clone()).await;
     notices.extend(problems);
+    notices.extend(std::iter::from_fn(|| heard.try_recv().ok()));
     let ran = match ran {
         Ok(ran) => ran,
         Err(error) => {

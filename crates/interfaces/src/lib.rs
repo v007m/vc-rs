@@ -107,7 +107,7 @@ pub use keychain::{Keychain, KeychainError};
 pub use notifier::{Notice, NoticeFailure, Notifier, NotifierFactory, NotifyError};
 pub use plugin::{
     CALL_DEADLINE, DEADLINE_PASSED, INITIALIZE_DEADLINE, PERMISSION_DENIED, PluginError, PluginHost, PluginKind,
-    PluginManifest, PluginPermissions,
+    PluginManifest, PluginPermissions, PluginStderr,
 };
 pub use plugin_store::{Fetched, LOCK_FILE, MANIFEST_FILE, PLUGINS_DIR, PluginStore, PluginStoreError};
 pub use random::Random;

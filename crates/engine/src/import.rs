@@ -1,5 +1,6 @@
 //! `vc import <kind>`: definition files from a foreign file.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use vc_adapter_importers::ImporterRegistry;
@@ -21,7 +22,8 @@ use crate::{Changes, Engine, EngineError, import_write};
 pub struct ImportRequest {
     /// The importer: `openapi`, `har`, `postman`, `bruno`, `http`, `curl`.
     pub kind: String,
-    /// The URL or path, as given; a path is relative to the working folder.
+    /// The URL, or the spec's path in the project; [`Engine::spec_location`] makes one from
+    /// what the user typed.
     pub source: String,
     /// `--id`: the file ID of the api file to fill; derived from the spec when not given.
     pub file_id: Option<String>,
@@ -77,8 +79,7 @@ impl Engine {
         let project = self.authoring()?;
         let fetcher = self.fetcher()?;
         let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
-            let kinds: Vec<_> = ImporterRegistry::builtin().names().map(str::to_owned).collect();
-            refused(error.to_string(), &format!("the importers are {}", kinds.join(", ")))
+            refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
         let help = importer.source_help().unwrap_or(FETCH_HELP);
         let bytes = fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?;
@@ -96,6 +97,29 @@ impl Engine {
         let mut guarded = self.guarded(&project, changes)?;
         guarded.files.extend(snapshots);
         Ok(guarded)
+    }
+
+    /// Where to read the spec `source` names, as [`ImportRequest::source`] takes it: a URL as
+    /// given; a path, from `base` when it is relative (the working folder, or the project root
+    /// with `--project`), as a path in the project, the only place a spec file is read from.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Edit`] when the path is not a file or folder in the project.
+    pub fn spec_location(&self, base: &Path, source: &str) -> Result<String, EngineError> {
+        if source.contains("://") {
+            return Ok(source.to_owned());
+        }
+        self.project_path(base, Path::new(source)).ok_or_else(|| {
+            let reason = format!("{source}: not a file or folder in the project at {}", self.root().display());
+            refused(reason, "give a URL, or a path inside the project")
+        })
+    }
+
+    /// The importers' names, as `vc import <kind>` takes them, in name order.
+    #[must_use]
+    pub fn importers() -> Vec<String> {
+        ImporterRegistry::builtin().names().map(str::to_owned).collect()
     }
 
     /// Fetches specs through the project's sources and the run's transport.

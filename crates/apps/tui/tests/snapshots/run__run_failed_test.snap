@@ -1,0 +1,28 @@
+---
+source: crates/apps/tui/tests/run.rs
+expression: "screen(&tui, SIZE)"
+---
+◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import
+failed 3/3  ✓ 2  ✕ 1  ⊘ 0  ↻ 0  – 1   3 requests  run #1
+┌ Tests · 2 files ─────────────────────┐┌ createsUser ─────────────────────────────────────────────┐
+│▾ users.crud  ✓ 1  ✕ 1  – 1           ││✕ users.crud#createsUser                                  │
+│  – deletesUser                       ││services/users/crud.test.yaml:4                           │
+│  ✓ listsUsers                        ││status: expected [201], got 200                           │
+│  ✕ createsUser                       ││                                                          │
+│▾ orders.flow  ✓ 1                    ││✕ status :8                                               │
+│  ✓ listsOrders                       ││    expected [201], got 200                               │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      │└──────────────────────────────────────────────────────────┘
+│                                      │┌ Requests ────────────────────────────────────────────────┐
+│                                      ││GET /users  200  0ms  call users#list                     │
+│                                      ││GET /users  200  0ms  call users#list                     │
+│                                      ││POST /users  200  0ms  call users#create                  │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+  ↑↓  move  a  run all  r  rerun test  R  rerun failed  f  failures  x  stop  ?  help  q  quit

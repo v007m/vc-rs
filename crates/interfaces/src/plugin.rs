@@ -19,6 +19,19 @@ pub const PERMISSION_DENIED: i64 = -32_001;
 /// The JSON-RPC error code of a call that ran past its deadline.
 pub const DEADLINE_PASSED: i64 = -32_002;
 
+/// Where a plugin's stderr goes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum PluginStderr {
+    /// To the host's own stderr: a command prints it with its output.
+    #[default]
+    Inherit,
+    /// To `stderr.log` in a folder the host owns (never the plugin's data folder), bounded, the
+    /// previous process's log kept as `stderr.log.1`: a UI drawing on the terminal stays intact.
+    /// Dropped when the log cannot be made.
+    Log,
+}
+
 /// One running plugin.
 ///
 /// The host starts it on first use, checks it asks for no more than its manifest declares, and

@@ -1,0 +1,28 @@
+---
+source: crates/apps/tui/tests/load.rs
+expression: "screen(&tui, SIZE)"
+---
+◆ vibranium shop  profile staging                                    1 Run   2 Explore   3 History   4 Load   5 Import
+users.peak finished after 30 s · exit 0 · run #7
+┌ Scenarios ─────────────────┐┌ Live ──────────────────────────────────────────────────────────────────────────────────┐
+│▸ users.peak                ││    1s  10 users  40 rps  p50 31 ms  p95 84 ms  p99 149 ms  0 errors                    │
+│                            ││rps        █                                                                            │
+│                            ││p95 ms     █                                                                            │
+│                            │└────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │┌ Summary ───────────────────────────────────────────────────────────────────────────────┐
+│                            ││users.peak finished after 30 s · 1200 iterations · 40.0 rps · 0 errors                  │
+│                            ││latency p50 31.0 ms · p95 88.0 ms · p99 140.0 ms · max 212.0 ms                         │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+└────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘
+  ↑↓  move  enter  run  x  stop  r  reload  ?  help  q  quit

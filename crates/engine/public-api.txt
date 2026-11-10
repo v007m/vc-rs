@@ -19,9 +19,11 @@ pub use vc_engine::OwnerKey
 pub use vc_engine::PluginKind
 pub use vc_engine::PluginManifest
 pub use vc_engine::PluginPermissions
+pub use vc_engine::PluginStderr
 pub use vc_engine::Render
 pub use vc_engine::RunId
 pub use vc_engine::RunRow
+pub use vc_engine::RunStart
 pub use vc_engine::RunStatus
 pub use vc_engine::Sequenced
 pub use vc_engine::SourceFiles
@@ -377,6 +379,9 @@ pub fn vc_engine::Engine::cache_list(&self) -> core::result::Result<vc_engine::C
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::call(&self, &vc_engine::CallRequest) -> core::result::Result<vc_engine::CallReport, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::catalog(&self) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
+pub fn vc_engine::Engine::list(&self, &vc_engine::ListRequest) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::check(&self, &vc_engine::CheckRequest) -> core::result::Result<vc_engine::CheckReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::complete(&self, vc_engine::CompleteKind, &str) -> alloc::vec::Vec<alloc::string::String>
@@ -395,10 +400,10 @@ pub fn vc_engine::Engine::stored(&self, &str) -> core::result::Result<vc_engine:
 pub fn vc_engine::Engine::trends(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::trend::TestTrend>, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::import(&self, &vc_engine::ImportRequest) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
+pub fn vc_engine::Engine::importers() -> alloc::vec::Vec<alloc::string::String>
+pub fn vc_engine::Engine::spec_location(&self, &std::path::Path, &str) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::init(&self, bool) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
-impl vc_engine::Engine
-pub fn vc_engine::Engine::list(&self, &vc_engine::ListRequest) -> core::result::Result<vc_engine::ListReport, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::load(&self, &vc_engine::LoadRequest, vc_engine::LoadWatch) -> core::result::Result<vc_engine::LoadReport, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -423,11 +428,12 @@ pub fn vc_engine::Engine::plugin_remove(&self, &str) -> core::result::Result<vc_
 impl vc_engine::Engine
 pub fn vc_engine::Engine::policy_check(&self, &vc_engine::AgentCall) -> core::result::Result<vc_engine::Permission, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::project_path(&self, &std::path::Path, &std::path::Path) -> core::option::Option<alloc::string::String>
+pub fn vc_engine::Engine::root(&self) -> &std::path::Path
+impl vc_engine::Engine
 pub fn vc_engine::Engine::prune_history(&self, core::option::Option<u32>) -> core::result::Result<usize, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::rename(&self, &str, &str) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
-impl vc_engine::Engine
-pub fn vc_engine::Engine::root(&self) -> &std::path::Path
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::run(&self, &vc_engine::RunRequest, vc_engine::Interrupts) -> core::result::Result<vc_engine::RunReport, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -465,6 +471,7 @@ pub fn vc_engine::EngineBuilder::hooks(self, alloc::rcs::arc::Arc<dyn vc_interfa
 pub fn vc_engine::EngineBuilder::keychain(self, alloc::rcs::arc::Arc<dyn vc_interfaces::keychain::Keychain>) -> Self
 pub const fn vc_engine::EngineBuilder::new(std::path::PathBuf) -> Self
 pub fn vc_engine::EngineBuilder::notifiers(self, alloc::rcs::arc::Arc<dyn vc_interfaces::notifier::NotifierFactory>) -> Self
+pub const fn vc_engine::EngineBuilder::plugin_stderr(self, vc_interfaces::plugin::PluginStderr) -> Self
 pub fn vc_engine::EngineBuilder::plugins(self, alloc::rcs::arc::Arc<dyn vc_interfaces::plugin_store::PluginStore>) -> Self
 pub fn vc_engine::EngineBuilder::sources(self, alloc::rcs::arc::Arc<dyn vc_interfaces::source::SourceProvider>) -> Self
 pub fn vc_engine::EngineBuilder::transport(self, alloc::rcs::arc::Arc<dyn vc_interfaces::transport::Transport>) -> Self
@@ -636,6 +643,8 @@ pub vc_engine::Listed::name: core::option::Option<alloc::string::String>
 pub vc_engine::Listed::path: alloc::string::String
 pub vc_engine::Listed::skipped: bool
 pub vc_engine::Listed::tags: alloc::vec::Vec<alloc::string::String>
+impl vc_engine::Listed
+pub fn vc_engine::Listed::kind(&self) -> core::option::Option<vc_model::source::FileKind>
 impl core::clone::Clone for vc_engine::Listed
 pub fn vc_engine::Listed::clone(&self) -> Self
 impl core::cmp::Eq for vc_engine::Listed
@@ -991,4 +1000,6 @@ impl core::marker::StructuralPartialEq for vc_engine::WriteRequest
 pub const vc_engine::APPROVAL_WAIT: core::time::Duration
 pub const vc_engine::INIT_FOLDERS: [&str; 5]
 pub fn vc_engine::auth_fields(&str) -> &'static [&'static str]
+pub fn vc_engine::instance_label(&vc_interfaces::history::TestRow) -> alloc::string::String
 pub fn vc_engine::interrupts() -> (vc_engine::Interrupter, vc_engine::Interrupts)
+pub fn vc_engine::started(u64) -> alloc::string::String

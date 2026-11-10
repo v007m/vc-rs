@@ -36,7 +36,7 @@ permissions:
 - stdout carries only protocol messages. stderr is passed through to the user's terminal.
 - A message that is not a framed JSON-RPC object stops the plugin for the rest of the run: the calls in flight fail, and so does every later call.
 - The plugin must read its stdin: a call it does not read within the call's deadline stops it the same way. The host holds at most 1023 of its messages unread; a plugin that writes more than that before the host reads them is stopped too. A stopped plugin's process is killed.
-- The process gets only `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `TEMP`, `TMP`, `SYSTEMROOT` and `USERPROFILE` from the environment, plus `VIB_PLUGIN_DATA`: the absolute path of its data folder, `.vibranium/plugin-data/<id>/`, made before it starts. A plugin writes its state, caches and logs there, never into its install folder, which is checked against the lock. It never gets the run's secrets through the environment.
+- The process gets only `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `TEMP`, `TMP`, `SYSTEMROOT` and `USERPROFILE` from the environment, plus `VIB_PLUGIN_DATA`: the absolute path of its data folder, `.vibranium/plugin-data/<id>/`, made before it starts; when a folder on the way to it is a link or not a folder, the plugin is not started. A plugin writes its state, caches and logs there, never into its install folder, which is checked against the lock. It never gets the run's secrets through the environment.
 
 ## Lifecycle
 

@@ -335,6 +335,20 @@ impl core::hash::Hash for vc_interfaces::PluginKind
 pub fn vc_interfaces::PluginKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for vc_interfaces::PluginKind
 impl core::marker::StructuralPartialEq for vc_interfaces::PluginKind
+#[non_exhaustive] pub enum vc_interfaces::PluginStderr
+pub vc_interfaces::PluginStderr::Inherit
+pub vc_interfaces::PluginStderr::Log
+impl core::clone::Clone for vc_interfaces::PluginStderr
+pub fn vc_interfaces::PluginStderr::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::PluginStderr
+impl core::cmp::PartialEq for vc_interfaces::PluginStderr
+pub fn vc_interfaces::PluginStderr::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::PluginStderr
+pub fn vc_interfaces::PluginStderr::default() -> Self
+impl core::fmt::Debug for vc_interfaces::PluginStderr
+pub fn vc_interfaces::PluginStderr::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::PluginStderr
+impl core::marker::StructuralPartialEq for vc_interfaces::PluginStderr
 #[non_exhaustive] pub enum vc_interfaces::PluginStoreError
 pub vc_interfaces::PluginStoreError::Fetch
 pub vc_interfaces::PluginStoreError::Fetch::reason: alloc::string::String

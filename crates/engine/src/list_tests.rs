@@ -1,3 +1,4 @@
+use vc_model::FileKind;
 use vc_testkit::FakeVcs;
 
 use crate::sample::engine;
@@ -68,4 +69,21 @@ fn the_text_and_json_carry_every_field() {
     assert!(text.ends_with("users.crud#skipsUsers  [smoke]  (skipped)\n"), "{text}");
     assert_eq!(report.json()[2]["skipped"], true);
     assert_eq!(report.json()[1]["path"], "services/users/crud.test.yaml");
+}
+
+#[test]
+fn the_catalog_is_the_apis_then_the_tests() {
+    let catalog = engine(FakeVcs::default()).catalog().unwrap();
+    let ids: Vec<&str> = catalog.items.iter().map(|item| item.id.as_str()).collect();
+    assert_eq!(ids, ["users#list", "orders.flow#listsOrders", "users.crud#listsUsers", "users.crud#skipsUsers"]);
+    assert!(catalog.items[3].skipped);
+}
+
+#[test]
+fn each_item_knows_the_kind_of_its_file() {
+    let catalog = engine(FakeVcs::default()).catalog().unwrap();
+    let kinds: Vec<_> = catalog.items.iter().map(super::Listed::kind).collect();
+    assert_eq!(kinds, [Some(FileKind::Api), Some(FileKind::Test), Some(FileKind::Test), Some(FileKind::Test)]);
+    let files = engine(FakeVcs::default()).list(&ListRequest { kind: ListKind::Files, ..ListRequest::default() });
+    assert!(files.unwrap().items.iter().all(|file| file.kind().is_some()));
 }
