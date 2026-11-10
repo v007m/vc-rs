@@ -1,29 +1,21 @@
-import type { FileGroup } from './catalog.ts';
+/** A branch of a two-level tree, such as a file, and the keys of the leaves under it. */
+export type Branch = Readonly<{ key: string; leaves: readonly string[] }>;
 
-/** A node of the Tests tree: a file, or a test in it. */
+/** A node a keyboard user can reach: a branch, or a leaf under an open branch. */
 export type TreeNode = Readonly<
-  { kind: 'file'; key: string; group: FileGroup } | { kind: 'test'; key: string; parent: string }
+  { kind: 'branch'; key: string } | { kind: 'leaf'; key: string; parent: string }
 >;
 
-/** The tree key of a file node; test nodes use the test's full ID, which always has a `#`. */
-export function fileKey(fileId: string): string {
-  return `file:${fileId}`;
-}
-
-/** The nodes a keyboard user can move through: every file, and the tests of open files. */
-export function visibleNodes(
-  groups: readonly FileGroup[],
-  closed: ReadonlySet<string>,
-): TreeNode[] {
-  return groups.flatMap((group) => {
-    const key = fileKey(group.fileId);
-    const file: TreeNode = { kind: 'file', key, group };
-    if (closed.has(key)) return [file];
-    return [file, ...group.tests.map((t): TreeNode => ({ kind: 'test', key: t.id, parent: key }))];
+/** Every branch, and the leaves of the branches that are not closed, in order. */
+export function visibleNodes(branches: readonly Branch[], closed: ReadonlySet<string>): TreeNode[] {
+  return branches.flatMap(({ key, leaves }) => {
+    const branch: TreeNode = { kind: 'branch', key };
+    if (closed.has(key)) return [branch];
+    return [branch, ...leaves.map((leaf): TreeNode => ({ kind: 'leaf', key: leaf, parent: key }))];
   });
 }
 
-/** What a key press does in the tree: move focus, or open or close a file. */
+/** What a key press does in the tree: move focus, or open or close a branch. */
 export type TreeMove = Readonly<
   { kind: 'focus'; key: string } | { kind: 'open'; key: string } | { kind: 'close'; key: string }
 >;
@@ -47,12 +39,12 @@ const steps: Record<string, Step> = {
   End: (nodes) => focusAt(nodes, nodes.length - 1),
   ArrowRight: (nodes, at, closed) => {
     const node = nodes[at];
-    if (node?.kind !== 'file') return undefined;
+    if (node?.kind !== 'branch') return undefined;
     return closed.has(node.key) ? { kind: 'open', key: node.key } : focusAt(nodes, at + 1);
   },
   ArrowLeft: (nodes, at, closed) => {
     const node = nodes[at];
-    if (node?.kind === 'test') return { kind: 'focus', key: node.parent };
+    if (node?.kind === 'leaf') return { kind: 'focus', key: node.parent };
     return node && !closed.has(node.key) ? { kind: 'close', key: node.key } : undefined;
   },
 };
@@ -64,12 +56,9 @@ export function treeMove(
   key: string,
   closed: ReadonlySet<string>,
 ): TreeMove | undefined {
-  return steps[key]?.(
-    nodes,
-    Math.max(
-      0,
-      nodes.findIndex((n) => n.key === current),
-    ),
-    closed,
+  const at = Math.max(
+    0,
+    nodes.findIndex((n) => n.key === current),
   );
+  return steps[key]?.(nodes, at, closed);
 }

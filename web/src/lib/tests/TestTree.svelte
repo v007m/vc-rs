@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { tick } from 'svelte';
-  import { SvelteSet } from 'svelte/reactivity';
+  import { TreeFocus } from '#lib/tree/focus.svelte.ts';
   import type { FileGroup } from './catalog.ts';
-  import { fileKey, treeMove, visibleNodes } from './tree.ts';
 
   let {
     groups,
@@ -18,55 +16,34 @@
     ontoggle: (id: string) => void;
   } = $props();
 
-  const closed = new SvelteSet<string>();
-  let focusKey: string | undefined = $state();
   let tree: HTMLUListElement | undefined = $state();
-  let nodes = $derived(visibleNodes(groups, closed));
-  let tabKey = $derived(nodes.some((n) => n.key === focusKey) ? focusKey : nodes[0]?.key);
+  const focus = new TreeFocus({
+    branches: () =>
+      groups.map((g) => ({ key: fileKey(g.fileId), leaves: g.tests.map((t) => t.id) })),
+    root: () => tree,
+    onleaf: (key, press) => (press === ' ' ? ontoggle(key) : onopen(key)),
+  });
 
-  async function focus(key: string): Promise<void> {
-    focusKey = key;
-    await tick();
-    const items = tree?.querySelectorAll<HTMLElement>('[data-key]') ?? [];
-    [...items].find((item) => item.dataset.key === key)?.focus();
-  }
-
-  function setOpen(key: string, open: boolean): void {
-    if (open) closed.delete(key);
-    else closed.add(key);
-  }
-
-  function onkeydown(event: KeyboardEvent): void {
-    if (event.target !== event.currentTarget) return;
-    const key = (event.currentTarget as HTMLElement).dataset.key;
-    if (key?.includes('#') && (event.key === ' ' || event.key === 'Enter')) {
-      event.preventDefault();
-      if (event.key === ' ') ontoggle(key);
-      else onopen(key);
-      return;
-    }
-    const move = treeMove(nodes, key, event.key, closed);
-    if (!move) return;
-    event.preventDefault();
-    if (move.kind === 'focus') void focus(move.key);
-    else setOpen(move.key, move.kind === 'open');
+  /** The tree key of a file; test keys are full IDs, which always have a `#`. */
+  function fileKey(fileId: string): string {
+    return `file:${fileId}`;
   }
 </script>
 
 <ul class="tree" role="tree" aria-label="Tests" aria-multiselectable="true" bind:this={tree}>
   {#each groups as group (group.fileId)}
     {@const key = fileKey(group.fileId)}
-    {@const open = !closed.has(key)}
+    {@const open = focus.isOpen(key)}
     <li
       role="treeitem"
       aria-expanded={open}
       aria-level={1}
       aria-selected={false}
-      tabindex={tabKey === key ? 0 : -1}
+      tabindex={focus.tabKey === key ? 0 : -1}
       data-key={key}
-      onclick={() => setOpen(key, !open)}
-      onfocus={() => (focusKey = key)}
-      {onkeydown}
+      onclick={() => focus.setOpen(key, !open)}
+      onfocus={() => (focus.focusKey = key)}
+      onkeydown={focus.onkeydown}
     >
       <span class="row file">
         <span class="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
@@ -82,15 +59,15 @@
               aria-level={2}
               aria-selected={on}
               aria-current={current === test.id ? 'true' : undefined}
-              tabindex={tabKey === test.id ? 0 : -1}
+              tabindex={focus.tabKey === test.id ? 0 : -1}
               data-key={test.id}
               onclick={(event) => {
                 event.stopPropagation();
-                focusKey = test.id;
+                focus.focusKey = test.id;
                 onopen(test.id);
               }}
-              onfocus={() => (focusKey = test.id)}
-              {onkeydown}
+              onfocus={() => (focus.focusKey = test.id)}
+              onkeydown={focus.onkeydown}
             >
               <span class="row test" class:current={current === test.id}>
                 <span
