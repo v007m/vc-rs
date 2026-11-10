@@ -126,10 +126,11 @@ impl HistoryScreen {
         }
     }
 
-    /// Keeps why the comparison asked for could not be read, on its pane: the runs listed
-    /// stay as they are.
-    fn compare_failed(&mut self, reason: &str) {
-        if self.comparing.take().is_some() {
+    /// Keeps why the comparison asked for could not be read, on its pane, if it is the one
+    /// asked for: the runs listed stay as they are.
+    fn compare_failed(&mut self, pair: (u64, u64), reason: &str) {
+        if self.comparing == Some(pair) {
+            self.comparing = None;
             self.compare_error = Some(first_line(reason));
         }
     }
@@ -167,7 +168,7 @@ impl Screen for HistoryScreen {
             Update::History { runs, trends } => self.read(runs, trends),
             Update::Compared { before, after } => self.compared_runs(before, after),
             Update::HistoryFailed(reason) => self.reading = ReadState::Failed(first_line(reason)),
-            Update::CompareFailed(reason) => self.compare_failed(reason),
+            Update::CompareFailed { before, after, reason } => self.compare_failed((*before, *after), reason),
             _ => {}
         }
     }

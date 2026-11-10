@@ -136,10 +136,24 @@ fn a_run_compares_with_the_run_of_its_kind_before_it_and_load_runs_stay_out_of_t
 }
 
 #[test]
+fn a_late_failure_of_an_earlier_compare_leaves_the_newer_one_pending() {
+    let mut tui = on_history();
+    assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Compare { before: 481, after: 482 }));
+    assert_eq!(press(&mut tui, &[KeyCode::Down, KeyCode::Enter]), Some(Ask::Compare { before: 480, after: 481 }));
+    tui.update(&Update::CompareFailed { before: 481, after: 482, reason: "run 481 is gone".to_owned() });
+    let shown = screen(&tui, SIZE);
+    assert!(shown.contains("reading #480 and #481…"), "{shown}");
+    assert!(!shown.contains("run 481 is gone"), "{shown}");
+    tui.update(&Update::CompareFailed { before: 480, after: 481, reason: "run 480 is gone".to_owned() });
+    assert!(screen(&tui, SIZE).contains("error run 480 is gone"));
+}
+
+#[test]
 fn a_comparison_that_cannot_be_read_says_why_on_its_pane_and_leaves_the_runs_listed() {
     let mut tui = on_history();
     assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Compare { before: 481, after: 482 }));
-    tui.update(&Update::CompareFailed("run 481 is gone\n  help: vc history lists the runs".to_owned()));
+    let reason = "run 481 is gone\n  help: vc history lists the runs".to_owned();
+    tui.update(&Update::CompareFailed { before: 481, after: 482, reason });
     let shown = screen(&tui, SIZE);
     assert!(shown.contains("error run 481 is gone"), "{shown}");
     assert!(shown.lines().nth(1).unwrap_or_default().starts_with("3 stored runs"), "{shown}");
