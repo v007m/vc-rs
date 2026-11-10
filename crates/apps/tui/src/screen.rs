@@ -3,7 +3,7 @@
 
 use std::fmt::Debug;
 
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use vc_engine::{
@@ -110,6 +110,15 @@ pub enum Update {
     Written(Vec<String>),
     /// The import was refused, or could not be written; the error's text and its help.
     ImportFailed(String),
+}
+
+/// Where a cursor key moves a list's cursor: down for `↓` or `j`, up for `↑` or `k`.
+pub const fn cursor_move(code: KeyCode) -> Option<bool> {
+    match code {
+        KeyCode::Down | KeyCode::Char('j') => Some(true),
+        KeyCode::Up | KeyCode::Char('k') => Some(false),
+        _ => None,
+    }
 }
 
 /// One tab's screen.

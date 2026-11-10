@@ -10,7 +10,7 @@ use vc_engine::{Listed, SkipRequest};
 use crate::explore_view;
 use crate::history_screen::ReadState;
 use crate::input::{Input, Typed};
-use crate::screen::{Ask, Screen, Update};
+use crate::screen::{Ask, Screen, Update, cursor_move};
 use crate::theme::clean;
 
 /// The Explore tab's keys.
@@ -194,9 +194,11 @@ impl Screen for ExploreScreen {
         if self.reason.is_some() {
             return self.type_reason(key);
         }
+        if let Some(down) = cursor_move(key.code) {
+            self.step(down);
+            return None;
+        }
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => self.step(false),
-            KeyCode::Down | KeyCode::Char('j') => self.step(true),
             KeyCode::Enter => return self.explain(),
             KeyCode::Char('t') => return self.quarantine(),
             KeyCode::Char('r') => return self.reload(),

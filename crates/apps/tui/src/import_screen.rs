@@ -9,7 +9,7 @@ use vc_engine::{Changes, ImportRequest};
 
 use crate::import_view;
 use crate::input::{Input, Typed};
-use crate::screen::{Ask, Screen, Update};
+use crate::screen::{Ask, Screen, Update, cursor_move};
 use crate::theme::clean;
 
 /// The Import tab's keys.
@@ -216,10 +216,15 @@ impl Screen for ImportScreen {
     }
 
     fn press(&mut self, key: KeyEvent) -> Option<Ask> {
+        if self.editing.is_some() {
+            self.type_into(key);
+            return None;
+        }
+        if let Some(down) = cursor_move(key.code) {
+            self.step(down);
+            return None;
+        }
         match key.code {
-            _ if self.editing.is_some() => self.type_into(key),
-            KeyCode::Up | KeyCode::Char('k') => self.step(false),
-            KeyCode::Down | KeyCode::Char('j') => self.step(true),
             KeyCode::Left | KeyCode::Right if self.field == 0 => self.turn(key.code == KeyCode::Right),
             KeyCode::Enter | KeyCode::Char(' ') => self.enter(),
             KeyCode::Char('n') => self.next_file(),

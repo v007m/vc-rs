@@ -8,7 +8,7 @@ use vc_engine::{PlanRequest, RunRequest, SelectRequest, TestStatus};
 
 use crate::run_model::{Finished, RunModel};
 use crate::run_view;
-use crate::screen::{Ask, Screen, Update};
+use crate::screen::{Ask, Screen, Update, cursor_move};
 
 /// The Run tab's keys.
 const KEYS: [(&str, &str); 6] =
@@ -92,9 +92,11 @@ impl Screen for RunScreen {
     }
 
     fn press(&mut self, key: KeyEvent) -> Option<Ask> {
+        if let Some(down) = cursor_move(key.code) {
+            self.step(down);
+            return None;
+        }
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => self.step(false),
-            KeyCode::Down | KeyCode::Char('j') => self.step(true),
             KeyCode::Char('a') => return self.start(SelectRequest::default(), false),
             KeyCode::Char('r') => return self.rerun_selected(),
             KeyCode::Char('R') => return self.start(SelectRequest::default(), true),

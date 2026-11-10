@@ -11,7 +11,7 @@ use vc_engine::{Event, Listed, LoadReport, LoadRequest};
 
 use crate::history_screen::ReadState;
 use crate::load_view;
-use crate::screen::{Ask, Screen, Update};
+use crate::screen::{Ask, Screen, Update, cursor_move};
 use crate::theme::clean;
 
 /// The Load tab's keys.
@@ -176,9 +176,11 @@ impl Screen for LoadScreen {
     }
 
     fn press(&mut self, key: KeyEvent) -> Option<Ask> {
+        if let Some(down) = cursor_move(key.code) {
+            self.step(down);
+            return None;
+        }
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => self.step(false),
-            KeyCode::Down | KeyCode::Char('j') => self.step(true),
             KeyCode::Enter => return self.start(),
             KeyCode::Char('x') if self.busy() => return Some(Ask::Stop),
             KeyCode::Char('r') => return self.reload(),

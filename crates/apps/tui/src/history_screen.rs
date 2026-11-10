@@ -9,7 +9,7 @@ use vc_engine::{RunFeed, RunRow, TestTrend};
 
 use crate::history_model::Comparison;
 use crate::history_view;
-use crate::screen::{Ask, Screen, Update};
+use crate::screen::{Ask, Screen, Update, cursor_move};
 use crate::theme::clean;
 
 /// The History tab's keys.
@@ -127,9 +127,11 @@ impl Screen for HistoryScreen {
     }
 
     fn press(&mut self, key: KeyEvent) -> Option<Ask> {
+        if let Some(down) = cursor_move(key.code) {
+            self.step(down);
+            return None;
+        }
         match key.code {
-            KeyCode::Up | KeyCode::Char('k') => self.step(false),
-            KeyCode::Down | KeyCode::Char('j') => self.step(true),
             KeyCode::Enter => return self.compare(),
             KeyCode::Char('r') => return self.reload(),
             _ => {}
