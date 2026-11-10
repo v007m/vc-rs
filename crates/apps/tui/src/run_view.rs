@@ -9,7 +9,7 @@ use vc_engine::{RunReport, TestStatus, Totals};
 
 use crate::run_model::{CheckLine, FileGroup, Finished, Phase, RequestLine, RunModel};
 use crate::run_screen::RunScreen;
-use crate::theme;
+use crate::theme::{self, clean};
 
 /// The height of the Requests pane, borders included.
 const REQUESTS_HEIGHT: u16 = 8;
@@ -116,14 +116,14 @@ fn file_row(group: &FileGroup) -> Line<'static> {
     for test in &group.tests {
         totals.add(test.status);
     }
-    let head = Span::styled(format!("▾ {} ", group.file), theme::TITLE);
+    let head = Span::styled(format!("▾ {} ", clean(&group.file)), theme::TITLE);
     Line::from(std::iter::once(head).chain(counts(&totals, false)).collect::<Vec<_>>())
 }
 
 /// `  ✕ createsUser ×2`.
 fn test_row(test: &Finished) -> Line<'static> {
     let (mark, style) = theme::mark(test.status);
-    let mut spans = vec![Span::raw("  "), Span::styled(mark, style), Span::raw(format!(" {}", test.label))];
+    let mut spans = vec![Span::raw("  "), Span::styled(mark, style), Span::raw(format!(" {}", clean(&test.label)))];
     if test.attempts > 1 {
         spans.push(Span::styled(format!(" ×{}", test.attempts), theme::DIM));
     }
@@ -136,15 +136,15 @@ fn detail_pane(test: Option<&Finished>) -> Paragraph<'static> {
         return Paragraph::new(Span::styled("Choose a test with ↑↓.", theme::DIM)).block(theme::pane("Test"));
     };
     let (mark, style) = theme::mark(test.status);
-    let mut lines = vec![Line::from(vec![Span::styled(format!("{mark} "), style), Span::raw(test.test.clone())])];
-    lines.extend(test.location.clone().map(|at| Line::styled(at, theme::DIM)));
+    let mut lines = vec![Line::from(vec![Span::styled(format!("{mark} "), style), Span::raw(clean(&test.test))])];
+    lines.extend(test.location.as_deref().map(|at| Line::styled(clean(at), theme::DIM)));
     let reason_style = if test.status == TestStatus::Skipped { theme::DIM } else { theme::FAIL };
     lines.extend(test.reason.clone().map(|reason| Line::styled(reason, reason_style)));
     if !test.checks.is_empty() {
         lines.push(Line::default());
     }
     lines.extend(test.checks.iter().flat_map(check_lines));
-    Paragraph::new(lines).block(theme::pane(&test.label)).wrap(Wrap { trim: false })
+    Paragraph::new(lines).block(theme::pane(&clean(&test.label))).wrap(Wrap { trim: false })
 }
 
 /// `✕ status :5`, then why it failed.
@@ -180,3 +180,7 @@ fn request_line(request: &RequestLine) -> Line<'static> {
         Span::styled(format!("  {}ms  {}", request.millis, request.by), theme::DIM),
     ])
 }
+
+#[cfg(test)]
+#[path = "run_view_tests.rs"]
+mod tests;
