@@ -1,0 +1,20 @@
+meta {
+  name: Login
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/login
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Basic YW5uOmh1bnRlcjI=
+  X-Request-Id: req-1
+}
+
+body:json {
+  {"username": "ann", "password": "hunter2"}
+}

@@ -117,11 +117,29 @@ async fn what_cannot_be_imported_is_refused_with_help() {
     let unknown = engine().import(&request("wsdl", "https://specs.test/petstore.json")).await;
     assert_eq!(help(unknown).as_deref(), Some("the importers are bruno, curl, har, http, openapi, postman"));
     let folder = engine().import(&request("bruno", "https://specs.test/shop")).await;
-    let export = "export the collection as JSON from Bruno: import reads one file, not a collection folder";
+    let export = "give the Bruno collection's folder (the one with its bruno.json) or the collection exported as JSON";
     assert_eq!(help(folder).as_deref(), Some(export));
     let users =
         ImportRequest { file_id: Some("users".to_owned()), ..request("openapi", "https://specs.test/petstore.json") };
     assert_eq!(help(engine().import(&users).await).as_deref(), Some("`vc sync users` merges the spec into it"));
+}
+
+#[tokio::test]
+async fn a_bruno_collection_folder_in_the_project_is_listed_and_read_file_by_file() {
+    let ping = b"meta {\n  name: Ping\n  seq: 1\n}\n\nget {\n  url: https://api.shop.test/v1/ping\n  body: none\n}\n";
+    let files: [(&str, &[u8]); 4] = [
+        ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n"),
+        ("bruno/shop/bruno.json", b"{\"version\": \"1\", \"name\": \"Shop\", \"type\": \"collection\"}"),
+        ("bruno/shop/ping.bru", ping),
+        ("bruno/loose/ping.bru", ping),
+    ];
+    let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&files));
+    let engine = builder(FakeVcs::default()).sources(sources).build().unwrap();
+    let changes = engine.import(&request("bruno", "bruno/shop")).await.unwrap();
+    let written: String = changes.files.iter().map(|file| file.after.as_str()).collect();
+    assert!(written.contains("path: /v1/ping\n") || written.contains("path: /ping\n"), "{written}");
+    let loose = engine.import(&request("bruno", "bruno/loose")).await.err().map(|error| error.to_string());
+    assert!(loose.as_deref().unwrap_or_default().contains("the folder has no bruno.json"), "{loose:?}");
 }
 
 #[test]

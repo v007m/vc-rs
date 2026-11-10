@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use vc_adapter_importers::ImporterRegistry;
 use vc_adapter_system::SystemEnvironment;
-use vc_interfaces::{ImportOptions, ImportSource, RecordingFilter, SpecFetcher as _};
+use vc_interfaces::{FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher};
 
 use crate::authoring::refused;
 use crate::fetch::ProjectFetcher;
@@ -85,13 +85,7 @@ impl Engine {
         let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
             refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
-        let bytes = if let Some(text) = &request.text {
-            text.clone().into_bytes()
-        } else {
-            let help = importer.source_help().unwrap_or(FETCH_HELP);
-            fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?
-        };
-        let source = ImportSource { location: request.source.clone(), bytes };
+        let source = source(importer.as_ref(), fetcher.as_ref(), request).await?;
         let homes = self.homes(&request.profiles);
         let mut opts = options(request);
         opts.recording.hosts = hosts(&homes);
@@ -142,6 +136,26 @@ impl Engine {
     fn pasted_fetcher(&self) -> Arc<ProjectFetcher> {
         Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport: None })
     }
+}
+
+/// The source `request` names: its text, the bytes fetched from it, or, for an importer that
+/// reads folders, no bytes when it is a folder with files in it.
+async fn source(
+    importer: &dyn Importer,
+    fetcher: &dyn SpecFetcher,
+    request: &ImportRequest,
+) -> Result<ImportSource, EngineError> {
+    let location = request.source.clone();
+    if let Some(text) = &request.text {
+        return Ok(ImportSource { location, bytes: text.clone().into_bytes() });
+    }
+    let help = importer.source_help().unwrap_or(FETCH_HELP);
+    let unread = |error: FetchError| refused(error.to_string(), help);
+    if importer.reads_folders() && !fetcher.list(&location).await.map_err(unread)?.is_empty() {
+        return Ok(ImportSource { location, bytes: Vec::new() });
+    }
+    let bytes = fetcher.fetch(&location).await.map_err(unread)?;
+    Ok(ImportSource { location, bytes })
 }
 
 const FETCH_HELP: &str = "give a URL, or a path inside the project";
