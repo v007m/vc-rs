@@ -1,6 +1,6 @@
 <script lang="ts">
   import EventLog from './EventLog.svelte';
-  import RunProgress from './RunProgress.svelte';
+  import RunProgress from '#lib/results/RunProgress.svelte';
   import type { RunPhase } from './model.ts';
   import type { RunSession } from './session.svelte.ts';
 
@@ -50,7 +50,7 @@
       </button>
     {/if}
   </div>
-  <RunProgress {view} />
+  <RunProgress counts={view.counts} planned={view.planned} />
   <EventLog events={view.events} />
 {/if}
 

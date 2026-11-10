@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { doneCount, type Counts, type RunView } from './model.ts';
+  import { doneCount, type Counts } from './status.ts';
 
-  let { view }: { view: RunView } = $props();
+  /** `planned` is how many tests the run will have; the bar fills as `counts` reach it. */
+  let { counts, planned }: { counts: Counts; planned: number } = $props();
 
   const outcomes = [
     { key: 'passed', bar: 's-pass', dot: 'pass' },
@@ -11,11 +12,11 @@
     { key: 'skipped', bar: 's-skip', dot: 'skip' },
   ] as const satisfies readonly { key: keyof Counts; bar: string; dot: string }[];
 
-  let done = $derived(doneCount(view.counts));
-  let total = $derived(Math.max(view.planned, done));
+  let done = $derived(doneCount(counts));
+  let total = $derived(Math.max(planned, done));
   let pct = $derived(total ? Math.round((done / total) * 100) : 0);
   let barLabel = $derived(
-    `${outcomes.map((o) => `${view.counts[o.key]} ${o.key}`).join(', ')}, of ${total} tests`,
+    `${outcomes.map((o) => `${counts[o.key]} ${o.key}`).join(', ')}, of ${total} tests`,
   );
   const width = (n: number): string => `${total ? (n / total) * 100 : 0}%`;
 </script>
@@ -23,7 +24,7 @@
 <div class="progress">
   <div class="pbar" role="img" aria-label={barLabel}>
     {#each outcomes as o (o.key)}
-      <span class={o.bar} style:width={width(view.counts[o.key])}></span>
+      <span class={o.bar} style:width={width(counts[o.key])}></span>
     {/each}
   </div>
   <p class="muted"><b>{done}</b> of {total} tests done · {pct}%</p>
@@ -32,7 +33,7 @@
   {#each outcomes as o (o.key)}
     <div class="stat">
       <dt class="l">{o.key}</dt>
-      <dd class="v"><span class="dot {o.dot}"></span>{view.counts[o.key]}</dd>
+      <dd class="v"><span class="dot {o.dot}"></span>{counts[o.key]}</dd>
     </div>
   {/each}
 </dl>

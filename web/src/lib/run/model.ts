@@ -1,14 +1,12 @@
 import type { RunEvent } from '#lib/gen/vibranium/engine/v1/events_pb.ts';
 import { RunStatus, TestStatus, type Totals } from '#lib/gen/vibranium/results/v1/results_pb.ts';
+import { doneCount, noCounts, type Counts } from '#lib/results/status.ts';
 import { describe, type EventLine } from './events.ts';
+
+export { doneCount, type Counts };
 
 /** Where a run is: not started, streaming, finished with an outcome, or broken off. */
 export type RunPhase = 'idle' | 'running' | 'passed' | 'failed' | 'cancelled' | 'error';
-
-/** The test counts the run view shows, by outcome. */
-export type Counts = Readonly<
-  Record<'passed' | 'failed' | 'blocked' | 'flaky' | 'skipped', number>
->;
 
 /** What the Runs screen shows of one run, built only from its event stream. */
 export type RunView = Readonly<{
@@ -25,7 +23,7 @@ export type RunView = Readonly<{
   error?: string;
 }>;
 
-const zero: Counts = { passed: 0, failed: 0, blocked: 0, flaky: 0, skipped: 0 };
+const zero: Counts = noCounts;
 
 /** A run that has not started. */
 export const idleRun: RunView = { phase: 'idle', planned: 0, counts: zero, events: [] };
@@ -54,11 +52,6 @@ export function countsOf(totals: Totals | undefined): Counts {
   if (!totals) return zero;
   const { passed, failed, blocked, flaky, skipped } = totals;
   return { passed, failed, blocked, flaky, skipped };
-}
-
-/** How many tests have an outcome. */
-export function doneCount(counts: Counts): number {
-  return counts.passed + counts.failed + counts.blocked + counts.flaky + counts.skipped;
 }
 
 type Step = (view: RunView, event: RunEvent) => RunView;
