@@ -1,0 +1,31 @@
+id: users.crud
+name: User CRUD
+tags: [users]
+
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+    expect:
+      status: 200
+
+  - id: createsUser
+    name: Creates a user with the given email
+    call: users#createUser
+    vars:
+      email: ada@example.com
+    expect:
+      body:
+        match:
+          email: ada@example.com
+
+  - id: getsCreatedUser
+    name: Returns the user that was just created
+    before:
+      - call: users#createUser
+    call: users#getUser
+    expect:
+      status: 200
+      body:
+        match:
+          id: ${var.userId}
