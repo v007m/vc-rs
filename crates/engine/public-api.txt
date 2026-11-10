@@ -325,7 +325,7 @@ impl vc_engine::Engine
 pub async fn vc_engine::Engine::admit(&self, &vc_engine::AgentCall, core::time::Duration) -> core::result::Result<vc_engine::Admission, vc_engine::EngineError>
 pub fn vc_engine::Engine::approvals_decide(&self, vc_interfaces::approvals::ApprovalId, vc_interfaces::approvals::Verdict) -> core::result::Result<vc_interfaces::approvals::ApprovalStatus, vc_engine::EngineError>
 pub fn vc_engine::Engine::approvals_list(&self, bool) -> core::result::Result<alloc::vec::Vec<vc_interfaces::approvals::Approval>, vc_engine::EngineError>
-pub fn vc_engine::Engine::record_agent_action(&self, &vc_engine::AgentCall, &vc_engine::AgentOutcome) -> core::result::Result<(), vc_engine::EngineError>
+pub async fn vc_engine::Engine::record_agent_action(&self, &vc_engine::AgentCall, &vc_engine::AgentOutcome) -> core::result::Result<(), vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::cache_clear(&self, core::option::Option<&str>) -> core::result::Result<(usize, alloc::vec::Vec<alloc::string::String>), vc_engine::EngineError>
 pub fn vc_engine::Engine::cache_list(&self) -> core::result::Result<vc_engine::CacheReport, vc_engine::EngineError>

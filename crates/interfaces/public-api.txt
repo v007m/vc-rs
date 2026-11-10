@@ -56,6 +56,8 @@ pub vc_interfaces::AuthError::Unreachable::reason: alloc::string::String
 impl vc_interfaces::AuthError
 pub const fn vc_interfaces::AuthError::code(&self) -> vc_diagnostics::code::Code
 pub const fn vc_interfaces::AuthError::help(&self) -> &'static str
+pub const fn vc_interfaces::AuthError::may_pass(&self) -> bool
+pub const fn vc_interfaces::AuthError::refused(&self) -> bool
 impl core::clone::Clone for vc_interfaces::AuthError
 pub fn vc_interfaces::AuthError::clone(&self) -> Self
 impl core::cmp::Eq for vc_interfaces::AuthError
@@ -1196,6 +1198,7 @@ pub trait vc_interfaces::Approvals: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Approvals::always_allowed(&self, &vc_interfaces::StandingRule) -> core::result::Result<bool, vc_interfaces::ApprovalError>
 pub fn vc_interfaces::Approvals::create(&self, &vc_interfaces::ApprovalRequest) -> core::result::Result<vc_interfaces::ApprovalId, vc_interfaces::ApprovalError>
 pub fn vc_interfaces::Approvals::decide(&self, &vc_interfaces::Decision) -> core::result::Result<vc_interfaces::ApprovalStatus, vc_interfaces::ApprovalError>
+pub fn vc_interfaces::Approvals::get(&self, vc_interfaces::ApprovalId) -> core::result::Result<core::option::Option<vc_interfaces::Approval>, vc_interfaces::ApprovalError>
 pub fn vc_interfaces::Approvals::list(&self, bool) -> core::result::Result<alloc::vec::Vec<vc_interfaces::Approval>, vc_interfaces::ApprovalError>
 pub fn vc_interfaces::Approvals::wait<'life0, 'async_trait>(&'life0 self, vc_interfaces::ApprovalId, core::time::Duration) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::ApprovalStatus, vc_interfaces::ApprovalError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
 pub trait vc_interfaces::AuthProvider: core::marker::Send + core::marker::Sync
