@@ -1466,6 +1466,7 @@ pub trait vc_interfaces::PluginStore: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::PluginStore::discard(&self, &vc_interfaces::Fetched)
 pub fn vc_interfaces::PluginStore::fetch(&self, &str) -> core::result::Result<vc_interfaces::Fetched, vc_interfaces::PluginStoreError>
 pub fn vc_interfaces::PluginStore::install(&self, &vc_interfaces::Fetched, &str) -> core::result::Result<(), vc_interfaces::PluginStoreError>
+pub fn vc_interfaces::PluginStore::integrity(&self, &str) -> core::result::Result<core::option::Option<alloc::string::String>, vc_interfaces::PluginStoreError>
 pub fn vc_interfaces::PluginStore::lock(&self) -> core::result::Result<core::option::Option<alloc::string::String>, vc_interfaces::PluginStoreError>
 pub fn vc_interfaces::PluginStore::manifest(&self, &str) -> core::result::Result<core::option::Option<alloc::string::String>, vc_interfaces::PluginStoreError>
 pub fn vc_interfaces::PluginStore::uninstall(&self, &str) -> core::result::Result<(), vc_interfaces::PluginStoreError>
