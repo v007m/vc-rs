@@ -24,7 +24,20 @@ pub fn draw(screen: &ExploreScreen, frame: &mut Frame<'_>, area: Rect) {
     frame.render_widget(Paragraph::new(status_line(screen)), status);
     draw_project(screen, frame, project);
     frame.render_widget(details_pane(screen.chosen()), details);
+    screen.explain_drawn(theme::pane("Explain").inner(explain).width);
     frame.render_widget(explain_pane(screen), explain);
+}
+
+/// An explanation's lines, wrapped as the Explain pane shows them.
+fn explanation(text: &str) -> Paragraph<'static> {
+    let lines: Vec<Line<'static>> = text.lines().map(|line| Line::raw(clean(line))).collect();
+    Paragraph::new(lines).wrap(Wrap { trim: false })
+}
+
+/// The rows `text` takes in an Explain pane `width` columns wide within its borders, once its
+/// long lines wrap.
+pub fn explained_rows(text: &str, width: u16) -> usize {
+    explanation(text).line_count(width)
 }
 
 /// The reason being typed, or what has been read, or what the last key came to.
@@ -130,8 +143,7 @@ fn explain_pane(screen: &ExploreScreen) -> Paragraph<'static> {
     }
     match (screen.explained(), screen.chosen()) {
         (Some((id, text)), Some(chosen)) if *id == chosen.id => {
-            let lines: Vec<Line<'static>> = text.lines().map(|line| Line::raw(clean(line))).collect();
-            Paragraph::new(lines).wrap(Wrap { trim: false }).scroll((screen.scroll(), 0)).block(block)
+            explanation(text).scroll((screen.scroll(), 0)).block(block)
         }
         (_, Some(chosen)) => {
             let hint = format!("enter shows how a run sees {}: its URL, vars and checks", clean(&chosen.id));

@@ -194,3 +194,16 @@ fn pgdn_and_pgup_scroll_a_long_explanation() {
     press(&mut tui, &[KeyCode::PageUp]);
     assert!(screen(&tui, SIZE).contains("step 00"));
 }
+
+#[test]
+fn pgdn_reaches_the_end_of_an_explanation_whose_long_lines_wrap() {
+    let mut tui = on_explore(&engine().unwrap()).unwrap();
+    let ask = press(&mut tui, &[KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Enter]);
+    let Some(Ask::Explain { id, .. }) = ask else { panic!("enter explains: {ask:?}") };
+    let line = |at: usize| (0..80).map(|word| format!("w{at}x{word:02}")).collect::<Vec<_>>().join(" ");
+    tui.update(&Update::Explained { id, text: (0..3).map(line).collect::<Vec<_>>().join("\n") });
+    assert!(!screen(&tui, SIZE).contains("w2x79"), "three lines that wrap past the pane");
+    press(&mut tui, &[KeyCode::PageDown, KeyCode::PageDown, KeyCode::PageDown, KeyCode::PageDown]);
+    let scrolled = screen(&tui, SIZE);
+    assert!(scrolled.contains("w2x79") && !scrolled.contains("w0x00"), "{scrolled}");
+}

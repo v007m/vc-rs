@@ -3,12 +3,14 @@
 //! the project when first shown, again on `r`, after each skip or unskip, and when shown after
 //! the Import tab wrote files.
 
+use std::cell::Cell;
+
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use vc_engine::{FileKind, Listed, SkipRequest};
 
-use crate::explore_view;
+use crate::explore_view::{self, explained_rows};
 use crate::history_screen::ReadState;
 use crate::input::{Input, Typed};
 use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move, refound, scrolled};
@@ -40,6 +42,7 @@ pub struct ExploreScreen {
     reason: Option<(String, Input)>,
     note: Option<Note>,
     scroll: u16,
+    explain_width: Cell<u16>,
 }
 
 /// Whether `item` is an api, not a test.
@@ -98,10 +101,18 @@ impl ExploreScreen {
         self.scroll
     }
 
-    /// The lines of the chosen item's explanation, when it is the one shown.
+    /// The rows of the chosen item's explanation, when it is the one shown: its lines as the
+    /// Explain pane last drawn wraps them, or as written before it is drawn.
     fn explained_lines(&self) -> usize {
         let shown = self.explained.as_ref().filter(|(id, _)| self.chosen().is_some_and(|chosen| chosen.id == *id));
-        shown.map_or(0, |(_, text)| text.lines().count())
+        let width = self.explain_width.get();
+        shown.map_or(0, |(_, text)| if width == 0 { text.lines().count() } else { explained_rows(text, width) })
+    }
+
+    /// The Explain pane was drawn `width` columns wide within its borders, which is where its
+    /// long lines wrap, so `pgdn` can reach the end of a wrapped explanation.
+    pub fn explain_drawn(&self, width: u16) {
+        self.explain_width.set(width);
     }
 
     /// What the last key came to.
