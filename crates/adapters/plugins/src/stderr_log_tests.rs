@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::{OLD_LOG, STDERR_LOG, log_folder, open};
+use super::{OLD_LOG, STDERR_LOG, open};
 
 #[test]
 fn a_log_before_that_cannot_be_kept_is_removed_and_the_new_log_says_so() {
@@ -30,13 +30,6 @@ fn the_folders_on_the_way_to_the_log_are_made() {
     assert!(home.path().join("plugin-logs/suite").join(STDERR_LOG).is_file());
 }
 
-#[test]
-fn a_folder_that_would_leave_home_is_refused() {
-    let home = tempfile::tempdir().unwrap();
-    let error = log_folder(home.path(), Path::new("plugin-logs/../../elsewhere")).unwrap_err();
-    assert!(error.to_string().contains("` leaves `"), "{error}");
-}
-
 #[cfg(unix)]
 #[test]
 fn a_linked_log_folder_is_refused_and_what_it_points_at_is_untouched() {
@@ -45,8 +38,7 @@ fn a_linked_log_folder_is_refused_and_what_it_points_at_is_untouched() {
     std::fs::write(elsewhere.path().join(OLD_LOG), "keep me too").unwrap();
     std::fs::create_dir(home.path().join("plugin-logs")).unwrap();
     std::os::unix::fs::symlink(elsewhere.path(), home.path().join("plugin-logs/suite")).unwrap();
-    assert!(open(home.path(), Path::new("plugin-logs/suite")).is_err());
-    let error = log_folder(home.path(), Path::new("plugin-logs/suite")).unwrap_err();
+    let error = open(home.path(), Path::new("plugin-logs/suite")).unwrap_err();
     assert!(error.to_string().ends_with("` is a link or not a folder"), "{error}");
     assert_eq!(std::fs::read_to_string(elsewhere.path().join(STDERR_LOG)).unwrap(), "keep me");
     assert_eq!(std::fs::read_to_string(elsewhere.path().join(OLD_LOG)).unwrap(), "keep me too");

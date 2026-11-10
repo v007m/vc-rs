@@ -21,6 +21,8 @@ use crate::plugins::{self, PluginState};
 
 /// Where each plugin keeps its own files, in a folder named by its id: its install folder is
 /// checked against the lock, so it must not change.
+/// Each folder on the way from the project root is made as the plugin starts, and a link among
+/// them keeps it from starting.
 const PLUGIN_DATA: &str = ".vibranium/plugin-data";
 
 /// Where the host keeps each plugin's stderr log ([`PluginStderr::Log`]), in a folder named by
@@ -125,8 +127,9 @@ impl Engine {
         let (PluginState::Ready, Some(lock), Some(manifest)) = (&state, lock, manifest) else {
             return Err(state.to_string());
         };
-        let (dir, data) = (self.root().join(PLUGINS_DIR).join(id), self.root().join(PLUGIN_DATA).join(id));
-        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone()).data(data);
+        let dir = self.root().join(PLUGINS_DIR).join(id);
+        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone())
+            .data(self.root(), Path::new(PLUGIN_DATA).join(id));
         let logged = self.plugin_stderr == PluginStderr::Log;
         let host = if logged { host.stderr_log(self.root(), Path::new(PLUGIN_LOGS).join(id)) } else { host };
         Ok((host, lock.integrity.clone()))

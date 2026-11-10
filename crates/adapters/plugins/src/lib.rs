@@ -15,6 +15,7 @@ mod folder;
 mod framing;
 mod host;
 mod npm;
+mod owned;
 mod rpc;
 mod session;
 mod stderr_log;

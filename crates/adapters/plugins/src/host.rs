@@ -11,6 +11,7 @@ use tokio::process::Command;
 use tokio::sync::{OnceCell, broadcast, mpsc, oneshot};
 use vc_interfaces::{INITIALIZE_DEADLINE, PluginError, PluginHost, PluginManifest, PluginPermissions, Secrets};
 
+use crate::owned;
 use crate::session::{Call, Session};
 use crate::stderr_log;
 
@@ -34,7 +35,7 @@ pub const DATA_ENV: &str = "VIB_PLUGIN_DATA";
 /// It refuses to start a plugin whose manifest asks for more than `vibranium.lock` granted, and
 /// answers the plugin's `secrets/get` only for the secrets both the manifest declares and the lock
 /// grants (−32001 otherwise). The process gets no environment beyond [`PASSED_ENV`] and, when the
-/// host has one, [`DATA_ENV`] naming its data folder, made on first use. One process serves every
+/// host has one, [`DATA_ENV`] naming its data folder, made as it starts. One process serves every
 /// call; once it stops, every later call fails, and dropping the host shuts it down.
 #[derive(Debug)]
 pub struct StdioPluginHost {
@@ -43,7 +44,7 @@ pub struct StdioPluginHost {
     granted: PluginPermissions,
     secrets: Secrets,
     config: Value,
-    data: Option<PathBuf>,
+    data: Option<(PathBuf, PathBuf)>,
     log: Option<(PathBuf, PathBuf)>,
     told: Option<broadcast::Sender<String>>,
     calls: OnceCell<Result<mpsc::UnboundedSender<Call>, PluginError>>,
@@ -79,10 +80,12 @@ impl StdioPluginHost {
         Self { config, ..self }
     }
 
-    /// The same host, giving the plugin `data` as the folder for its own files ([`DATA_ENV`]).
+    /// The same host, giving the plugin the folder `under` in `home` for its own files
+    /// ([`DATA_ENV`]). Each folder on the way from `home` is made when missing as the plugin
+    /// starts; when one is a link or not a folder, the plugin is not started.
     #[must_use]
-    pub fn data(self, data: impl Into<PathBuf>) -> Self {
-        Self { data: Some(data.into()), ..self }
+    pub fn data(self, home: impl Into<PathBuf>, under: impl Into<PathBuf>) -> Self {
+        Self { data: Some((home.into(), under.into())), ..self }
     }
 
     /// The same host, keeping the plugin's stderr in [`crate::STDERR_LOG`] in the folder `under`
@@ -111,8 +114,8 @@ impl StdioPluginHost {
     /// with a log folder, its stderr is piped when `logged` (the log could be made), else dropped.
     fn command(&self, logged: bool) -> Command {
         let mut command = command(&self.manifest, &self.dir);
-        if let Some(data) = &self.data {
-            command.env(DATA_ENV, data);
+        if let Some((home, under)) = &self.data {
+            command.env(DATA_ENV, home.join(under));
         }
         if self.log.is_some() {
             command.stderr(if logged { Stdio::piped() } else { Stdio::null() });
@@ -139,8 +142,8 @@ impl StdioPluginHost {
             return Err(PluginError::Permission { plugin: self.plugin(), what });
         }
         let not_started = |reason: String| PluginError::Start { plugin: self.plugin(), reason };
-        if let Some(data) = &self.data {
-            let made = std::fs::create_dir_all(data);
+        if let Some((home, under)) = &self.data {
+            let made = owned::folder(home, under);
             made.map_err(|error| not_started(format!("cannot make its data folder: {error}")))?;
         }
         let log = self.log.as_ref().map(|(home, under)| stderr_log::open(home, under));
