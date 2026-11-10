@@ -5,6 +5,7 @@ pub use vc_engine::Approval
 pub use vc_engine::ApprovalId
 pub use vc_engine::ApprovalRequest
 pub use vc_engine::ApprovalStatus
+pub use vc_engine::CheckKind
 pub use vc_engine::CheckResult
 pub use vc_engine::CheckRow
 pub use vc_engine::CleanupRecord
@@ -18,6 +19,7 @@ pub use vc_engine::ExchangeRow
 pub use vc_engine::Failure
 pub use vc_engine::FileKind
 pub use vc_engine::Fix
+pub use vc_engine::InstanceId
 pub use vc_engine::JsonRenderer
 pub use vc_engine::Label
 pub use vc_engine::Location

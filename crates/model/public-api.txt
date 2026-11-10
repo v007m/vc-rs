@@ -128,6 +128,10 @@ pub vc_model::CheckKind::Schema
 pub vc_model::CheckKind::Size
 pub vc_model::CheckKind::Status
 pub vc_model::CheckKind::Timing
+impl vc_model::CheckKind
+pub const vc_model::CheckKind::ALL: [Self; 9]
+pub fn vc_model::CheckKind::from_key(&str) -> core::option::Option<Self>
+pub const fn vc_model::CheckKind::key(self) -> &'static str
 impl core::clone::Clone for vc_model::CheckKind
 pub fn vc_model::CheckKind::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::CheckKind
@@ -1945,6 +1949,7 @@ impl vc_model::SourcePath
 pub fn vc_model::SourcePath::as_str(&self) -> &str
 pub fn vc_model::SourcePath::data(&str) -> core::result::Result<Self, vc_model::ModelError>
 pub fn vc_model::SourcePath::file_name(&self) -> &str
+pub fn vc_model::SourcePath::is_hidden(&self) -> bool
 pub fn vc_model::SourcePath::is_outside(&self) -> bool
 pub fn vc_model::SourcePath::lossy(&str) -> core::result::Result<Self, vc_model::ModelError>
 pub fn vc_model::SourcePath::new(&str) -> core::result::Result<Self, vc_model::ModelError>
@@ -2125,6 +2130,7 @@ impl<'de> serde_core::de::Deserialize<'de> for vc_model::TestId
 pub fn vc_model::TestId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::TestResult
 pub vc_model::TestResult::attempts: u32
+pub vc_model::TestResult::duration: core::time::Duration
 pub vc_model::TestResult::failure: core::option::Option<vc_model::Failure>
 pub vc_model::TestResult::instance: core::option::Option<vc_model::InstanceId>
 pub vc_model::TestResult::skip_reason: core::option::Option<alloc::string::String>
@@ -2228,6 +2234,7 @@ pub const vc_model::DEFAULT_SECRETS_PROVIDER: &str
 pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
 pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String
 pub fn vc_model::check_parts(&vc_model::CheckResult) -> (&'static str, core::option::Option<alloc::string::String>)
+pub fn vc_model::hidden_part(&str) -> bool
 pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>
 pub fn vc_model::schema_names(&str) -> alloc::vec::Vec<alloc::string::String>
