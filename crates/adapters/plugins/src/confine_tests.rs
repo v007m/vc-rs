@@ -57,6 +57,21 @@ fn a_file_permission_through_a_link_out_of_the_project_is_refused() {
     assert_eq!(refused, "its file permission `reports` is not a path inside the project");
 }
 
+#[cfg(unix)]
+#[test]
+fn a_file_not_made_yet_is_checked_where_its_nearest_existing_folder_really_is() {
+    let (home, away) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let root = home.path().canonicalize().unwrap();
+    std::os::unix::fs::symlink(away.path(), root.join("out")).unwrap();
+    std::os::unix::fs::symlink(away.path().join("gone"), root.join("dangling.json")).unwrap();
+    for file in ["out/new_key", "out/keys/new_key", "dangling.json"] {
+        let refused = Policy::new(&root, &root, &permissions(&[file], &[])).unwrap_err();
+        assert_eq!(refused, format!("its file permission `{file}` is not a path inside the project"));
+    }
+    let made = Policy::new(&root, &root, &permissions(&["reports/summary.json"], &[])).unwrap();
+    assert_eq!(made.write.last(), Some(&root.join("reports/summary.json")));
+}
+
 #[test]
 fn only_the_launcher_argument_makes_vc_the_launcher() {
     assert_eq!(launch(args(&["vc", "run"])), None);

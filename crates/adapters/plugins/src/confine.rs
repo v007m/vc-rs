@@ -130,12 +130,19 @@ fn inside(root: &Path, file: &str) -> Result<PathBuf, String> {
     let path = Path::new(file);
     let plain =
         path.components().next().is_some() && path.components().all(|part| matches!(part, Component::Normal(_)));
-    let found = real(&root.join(path));
-    if plain && found.starts_with(root) {
-        Ok(found)
-    } else {
-        Err(format!("its file permission `{file}` is not a path inside the project"))
+    match beneath(&root.join(path)) {
+        Some(found) if plain && found.starts_with(root) => Ok(found),
+        _ => Err(format!("its file permission `{file}` is not a path inside the project")),
     }
+}
+
+/// The real path of `path`, which need not exist yet: its nearest existing ancestor with links
+/// resolved, the rest appended. `None` when that ancestor cannot be resolved (a link to nowhere).
+fn beneath(path: &Path) -> Option<PathBuf> {
+    let existing = path.ancestors().find(|ancestor| ancestor.symlink_metadata().is_ok())?;
+    let real = std::fs::canonicalize(existing).ok()?;
+    let rest = path.strip_prefix(existing).ok()?;
+    Some(if rest.as_os_str().is_empty() { real } else { real.join(rest) })
 }
 
 /// `path` with its links resolved, or as given when it does not exist yet.
