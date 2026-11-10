@@ -62,7 +62,7 @@ impl TextArea {
             KeyCode::Left if self.column == 0 && self.row > 0 => (self.row, self.column) = (self.row - 1, usize::MAX),
             KeyCode::Left => self.column = self.column.saturating_sub(1),
             KeyCode::Right if self.column >= self.width() && self.row < last => {
-                (self.row, self.column) = (self.row + 1, 0)
+                (self.row, self.column) = (self.row + 1, 0);
             }
             KeyCode::Right => self.column += 1,
             KeyCode::Up => self.row = self.row.saturating_sub(1),
