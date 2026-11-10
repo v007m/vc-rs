@@ -39,6 +39,11 @@ pub fn entry(policy: &Policy, _launcher: Option<&Path>, (program, args): Entry) 
     Ok((PathBuf::from(SANDBOX_EXEC), sandboxed))
 }
 
+/// None: a profile's `subpath` covers a path that does not exist yet.
+pub const fn uncreatable(_policy: &Policy) -> Vec<PathBuf> {
+    Vec::new()
+}
+
 /// Why there is no launcher here.
 pub fn launch(_policy: &Policy, _program: &OsStr, _args: Vec<OsString>) -> String {
     "the plugin launcher confines plugins on Linux only".to_owned()

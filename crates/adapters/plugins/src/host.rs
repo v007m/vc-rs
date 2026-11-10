@@ -111,8 +111,9 @@ impl StdioPluginHost {
     }
 
     /// The same host, sending `told` one line when the plugin starts with its stderr dropped as
-    /// its log could not be made, `plugin `<id>`: its stderr is dropped: <why>`, and one when it
-    /// starts unconfined, `plugin `<id>` runs unconfined: <why>`.
+    /// its log could not be made, `plugin `<id>`: its stderr is dropped: <why>`, one when it
+    /// starts unconfined, `plugin `<id>` runs unconfined: <why>`, and one for each file it may
+    /// write but cannot make until it exists (on Linux, at the top of the project).
     #[must_use]
     pub fn told(self, told: broadcast::Sender<String>) -> Self {
         Self { told: Some(told), ..self }
@@ -147,13 +148,29 @@ impl StdioPluginHost {
         let data = self.data.as_ref().map(|(home, under)| home.join(under));
         let within = self.confined.as_ref().map(|(root, _)| (root.clone(), data));
         let planned = tokio::task::spawn_blocking(move || plan(&manifest, &dir, within)).await;
-        let (entry, policy) = planned.map_err(|error| not_started(error.to_string()))?.map_err(not_started)?;
-        let (Some(policy), Some((_, confiner))) = (policy, &self.confined) else {
+        let (entry, planned) = planned.map_err(|error| not_started(error.to_string()))?.map_err(not_started)?;
+        let (Some((policy, closed)), Some((_, confiner))) = (planned, &self.confined) else {
             return Ok(entry);
         };
         match confiner.ready().await {
-            Ok(()) => confiner.entry(&policy, entry).map_err(not_started),
+            Ok(()) => {
+                self.cannot_make(&policy.root, &closed);
+                confiner.entry(&policy, entry).map_err(not_started)
+            }
             Err(why) => self.unconfined(entry, why),
+        }
+    }
+
+    /// Tells whoever asked ([`StdioPluginHost::told`]) of each file in the project at `root`
+    /// the plugin may write but cannot make, as it does not exist yet ([`confine::uncreatable`]).
+    fn cannot_make(&self, root: &Path, closed: &[PathBuf]) {
+        for path in closed {
+            let shown = path.strip_prefix(root).unwrap_or(path).display();
+            self.tell(format!(
+                "plugin `{}` cannot make `{shown}`, which it may write, until it exists: create the file \
+                 first, or grant a path in a folder of the project",
+                self.plugin()
+            ));
         }
     }
 
@@ -306,19 +323,27 @@ async fn ask(
     }
 }
 
+/// A plugin's policy and the files it may write but cannot make ([`confine::uncreatable`]).
+type Confinement = (Policy, Vec<PathBuf>);
+
 /// The plugin's `entry` in `dir` and, when it runs confined `within` the project at a root with
-/// a data folder, its policy (why not, when its manifest names a file outside the project):
-/// blocking file-system calls, so the host runs them off the runtime's workers.
+/// a data folder, its policy and the files it cannot make ([`confine::uncreatable`]); why not, when its
+/// manifest names a file outside the project. Blocking file-system calls, so the host runs them
+/// off the runtime's workers.
 fn plan(
     manifest: &PluginManifest,
     dir: &Path,
     within: Option<(PathBuf, Option<PathBuf>)>,
-) -> Result<(Entry, Option<Policy>), String> {
-    let policy = match within {
-        Some((root, data)) => Some(Policy::new(&root, dir, &manifest.permissions)?.writing(data.as_deref())),
+) -> Result<(Entry, Option<Confinement>), String> {
+    let planned = match within {
+        Some((root, data)) => {
+            let policy = Policy::new(&root, dir, &manifest.permissions)?.writing(data.as_deref());
+            let closed = confine::uncreatable(&policy);
+            Some((policy, closed))
+        }
         None => None,
     };
-    Ok((entry(manifest, dir), policy))
+    Ok((entry(manifest, dir), planned))
 }
 
 /// The plugin's `entry` in `dir`: a `command` naming a file in `dir` runs that file, any other is

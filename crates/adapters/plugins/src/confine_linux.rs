@@ -45,9 +45,9 @@ pub fn entry(policy: &Policy, launcher: Option<&Path>, (program, args): Entry) -
         return Ok((program, args));
     };
     let policy = serde_json::to_string(policy).map_err(|error| format!("cannot hand its policy to `vc`: {error}"))?;
-    let mut argv = vec![OsString::from(LAUNCHER_ARG), OsString::from(policy), program.into_os_string()];
-    argv.extend(args);
-    Ok((launcher.to_path_buf(), argv))
+    let mut handed = vec![OsString::from(LAUNCHER_ARG), OsString::from(policy), program.into_os_string()];
+    handed.extend(args);
+    Ok((launcher.to_path_buf(), handed))
 }
 
 /// Confines this process to `policy` and becomes `program`; returns only why it could not.
@@ -96,8 +96,20 @@ fn apart(path: &Path, root: &Path) -> bool {
 /// `root` itself, which would open every project file to writes; such a path stays closed until
 /// it exists.
 fn creatable(root: &Path, missing: &[&PathBuf]) -> Vec<PathBuf> {
-    let folders = missing.iter().filter_map(|path| path.ancestors().skip(1).find(|folder| folder.exists()));
-    folders.filter(|folder| folder.starts_with(root) && *folder != root).map(Path::to_path_buf).collect()
+    missing.iter().filter_map(|path| made_in(root, path)).map(Path::to_path_buf).collect()
+}
+
+/// The paths of `policy` it may write that it cannot make, as they do not exist yet and have no
+/// folder to be made in ([`creatable`]): a file at the top of the project stays closed.
+pub fn uncreatable(policy: &Policy) -> Vec<PathBuf> {
+    let missing = policy.write.iter().filter(|path| !path.exists());
+    missing.filter(|path| made_in(&policy.root, path).is_none()).cloned().collect()
+}
+
+/// The nearest existing folder of `path`, when it is inside `root` but not `root` itself.
+fn made_in<'p>(root: &Path, path: &'p Path) -> Option<&'p Path> {
+    let folder = path.ancestors().skip(1).find(|folder| folder.exists())?;
+    (folder.starts_with(root) && folder != root).then_some(folder)
 }
 
 /// The entries of `parent` other than `on_the_way`; none when it cannot be read.

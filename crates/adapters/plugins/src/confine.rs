@@ -38,6 +38,12 @@ pub type Entry = (PathBuf, Vec<OsString>);
 /// where `sandbox-exec` is always there to confine it (D260).
 pub const FAIL_CLOSED: bool = platform::FAIL_CLOSED;
 
+/// The files a [`Policy`] lets its plugin write that the OS cannot let it make while they do not
+/// exist: on Linux, those at the top of the project, as Landlock grants only what exists and the
+/// project root is never granted; none elsewhere. It reads the file system, so call it off the
+/// runtime's workers.
+pub use platform::uncreatable;
+
 /// Whether a plugin can be confined here, with `launcher` (`vc`) as its launcher; why not
 /// otherwise. It may run a program, so call it off the runtime's workers.
 ///
@@ -81,6 +87,10 @@ impl Confiner {
     }
 
     /// What to run so that `entry` runs confined to `policy` ([`Policy::entry`]).
+    ///
+    /// # Errors
+    ///
+    /// Why not, as [`Policy::entry`] says.
     pub fn entry(&self, policy: &Policy, entry: Entry) -> Result<Entry, String> {
         policy.entry(self.launcher.as_deref(), entry)
     }
@@ -207,6 +217,11 @@ mod declared {
     /// `entry` as it is.
     pub fn entry(_policy: &Policy, _launcher: Option<&Path>, entry: Entry) -> Result<Entry, String> {
         Ok(entry)
+    }
+
+    /// None: nothing is confined here.
+    pub const fn uncreatable(_policy: &Policy) -> Vec<std::path::PathBuf> {
+        Vec::new()
     }
 
     /// Why there is no launcher here.

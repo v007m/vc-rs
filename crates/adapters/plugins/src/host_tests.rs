@@ -183,6 +183,19 @@ fn a_plugin_that_cannot_be_confined_is_refused_on_macos_and_elsewhere_runs_uncon
     assert_eq!(heard.try_recv().unwrap(), "plugin `suitePlugin` runs unconfined: no sandbox");
 }
 
+#[test]
+fn a_file_a_confined_plugin_cannot_make_is_named_with_the_remedy() {
+    let (told, mut heard) = tokio::sync::broadcast::channel(4);
+    let host = StdioPluginHost::new(suite_plugin_manifest(), suite_dir(), granted()).told(told);
+    let root = Path::new("/work/shop");
+    host.cannot_make(root, &[root.join("out.json")]);
+    let said = heard.try_recv().unwrap();
+    let expected = "plugin `suitePlugin` cannot make `out.json`, which it may write, until it exists: create the \
+                    file first, or grant a path in a folder of the project";
+    assert_eq!(said, expected);
+    assert!(heard.try_recv().is_err(), "one line a file");
+}
+
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn a_confined_plugin_without_a_launcher_runs_unconfined_and_says_so_once() {
