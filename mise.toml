@@ -34,6 +34,10 @@ run = "for c in model interfaces engine; do cargo public-api -p vc-$c -ss > crat
 description = "Fail when the public API of vc-model, vc-interfaces or vc-engine differs from its snapshot (D117)"
 run = "for c in model interfaces engine; do cargo public-api -p vc-$c -ss | diff -u crates/$c/public-api.txt - || exit 1; done"
 
+[tasks."report:check"]
+description = "Rebuild the HTML report's script and style and fail if the committed copies differ"
+run = "pnpm --dir web build:report && git diff --exit-code web/report"
+
 [tasks.proto]
 description = "Lint proto/ and regenerate the checked-in code buf.gen.yaml lists from it (D101); each Rust file is marked generated"
 run = [

@@ -47,7 +47,7 @@ test.describe('a 10,000-test report in folders', () => {
   test('paints within a second and opens a test within 100 ms', async ({ page }) => {
     const urls = requests(page);
     await page.goto(url);
-    await expect(page.getByText('10000 of 10000 tests')).toBeVisible();
+    await expect(page.getByText('10000 of 10000 tests', { exact: true })).toBeVisible();
     const painted = await page.evaluate(
       () => performance.getEntriesByName('vib:painted')[0]?.startTime ?? Infinity,
     );
@@ -88,7 +88,7 @@ test.describe('a 10,000-test report in folders', () => {
       .getByRole('group', { name: 'Status' })
       .getByRole('button', { name: 'failed' })
       .click();
-    await expect(page.getByText('1000 of 10000 tests')).toBeVisible();
+    await expect(page.getByText('1000 of 10000 tests', { exact: true })).toBeVisible();
     await page.getByRole('searchbox', { name: 'Filter tests' }).fill('thing 99');
     await expect(page.getByText(/^\d+ of 10000 tests$/)).toHaveText('12 of 10000 tests');
     const list = page.getByRole('listbox', { name: 'Tests' });
@@ -103,7 +103,7 @@ test.describe('a 10,000-test report in folders', () => {
 test('a single-file report inflates its data and opens a test', async ({ page }) => {
   const urls = requests(page);
   await page.goto(sample(200, 'single'));
-  await expect(page.getByText('200 of 200 tests')).toBeVisible();
+  await expect(page.getByText('200 of 200 tests', { exact: true })).toBeVisible();
   await page.getByRole('option', { name: /Checks thing 19\b/ }).click();
   const detail = page.getByRole('region', { name: 'Checks thing 19' });
   await detail.getByText('GET http://localhost/users/19').click();
