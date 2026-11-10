@@ -31,11 +31,14 @@ mod fixture;
 mod guard;
 mod history_rpcs;
 mod project_rpcs;
+mod run_stream;
 mod service;
 mod site;
 mod token;
 mod wire_diagnostics;
+mod wire_events;
 mod wire_history;
+mod wire_results;
 
 pub use builder::{LaunchUrl, Server, ServerBuilder};
 pub use code::Code;
