@@ -155,15 +155,11 @@ impl LoadScreen {
         self.reading = ReadState::Read;
         self.cursor = self.cursor.min(self.scenarios.len().saturating_sub(1));
     }
+}
 
-    fn failed(&mut self, reason: &str) {
-        let first = clean(reason.lines().next().unwrap_or_default());
-        if self.reading == ReadState::Reading && !self.busy() {
-            self.reading = ReadState::Failed(first);
-        } else {
-            self.phase = LoadPhase::Failed(first);
-        }
-    }
+/// The first line of why something failed, safe to draw.
+fn first_line(reason: &str) -> String {
+    clean(reason.lines().next().unwrap_or_default())
 }
 
 impl Screen for LoadScreen {
@@ -192,9 +188,10 @@ impl Screen for LoadScreen {
     fn take(&mut self, update: &Update) {
         match update {
             Update::Scenarios(scenarios) => self.read(scenarios),
+            Update::ScenariosFailed(reason) => self.reading = ReadState::Failed(first_line(reason)),
             Update::Load(event) => self.tick(event),
             Update::Loaded(report) if self.busy() => self.phase = LoadPhase::Done(report.clone()),
-            Update::LoadFailed(reason) => self.failed(reason),
+            Update::LoadFailed(reason) if self.busy() => self.phase = LoadPhase::Failed(first_line(reason)),
             _ => {}
         }
     }

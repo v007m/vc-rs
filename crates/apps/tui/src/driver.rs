@@ -221,7 +221,7 @@ fn scenarios(engine: &Engine) -> Update {
         Ok(report) => {
             Update::Scenarios(report.items.into_iter().filter(|file| file.path.ends_with(".load.yaml")).collect())
         }
-        Err(error) => Update::LoadFailed(error.to_string()),
+        Err(error) => Update::ScenariosFailed(error.to_string()),
     }
 }
 

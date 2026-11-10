@@ -61,7 +61,7 @@ fn the_scenarios_are_listed_when_the_tab_is_first_shown() {
     assert!(screen(&tui, SIZE).contains("▸ users.peak"));
     assert_eq!(press(&mut tui, &[KeyCode::Char('1'), KeyCode::Char('4')]), None, "listed already");
     assert_eq!(press(&mut tui, &[KeyCode::Char('r')]), Some(Ask::Scenarios));
-    tui.update(&Update::LoadFailed("peak.load.yaml:2: bad indent\n  help: indent by two".to_owned()));
+    tui.update(&Update::ScenariosFailed("peak.load.yaml:2: bad indent\n  help: indent by two".to_owned()));
     assert_eq!(status(&tui), "error peak.load.yaml:2: bad indent");
 }
 
@@ -111,6 +111,19 @@ fn the_summary_shows_once_the_run_is_over() {
     assert_eq!(status(&tui), "users.peak finished after 30 s · exit 0 · run #7");
     assert_snapshot!("load_summary", screen(&tui, SIZE));
     assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), None, "the run is over");
+}
+
+#[test]
+fn a_reload_that_fails_during_a_load_run_leaves_the_run_alone() {
+    let mut tui = on_load(&engine().unwrap()).unwrap();
+    press(&mut tui, &[KeyCode::Enter]);
+    tui.update(&tick(1, 0, &[]));
+    assert_eq!(press(&mut tui, &[KeyCode::Char('r')]), Some(Ask::Scenarios));
+    tui.update(&Update::ScenariosFailed("peak.load.yaml:2: bad indent".to_owned()));
+    assert_eq!(status(&tui), "running users.peak · 1s · x stops it");
+    tui.update(&tick(2, 0, &[]));
+    assert_eq!(status(&tui), "running users.peak · 2s · x stops it", "its seconds still come in");
+    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop), "x still stops it");
 }
 
 #[test]

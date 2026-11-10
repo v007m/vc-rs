@@ -97,12 +97,13 @@ pub enum Update {
     ExploreFailed(String),
     /// The project's load files, in project order.
     Scenarios(Vec<Listed>),
+    /// The scenarios could not be listed; the error's text. A load run in progress goes on.
+    ScenariosFailed(String),
     /// One closed second of the load run: an [`Event::LoadTick`].
     Load(Event),
     /// The load run is over.
     Loaded(Box<LoadReport>),
-    /// The scenarios could not be listed, or the load run could not start or ended in an
-    /// error; the error's text.
+    /// The load run could not start or ended in an error; the error's text.
     LoadFailed(String),
     /// The files the import would create or change, not written.
     Drafted(Changes),
