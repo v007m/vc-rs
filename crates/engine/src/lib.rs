@@ -151,7 +151,7 @@ pub use vc_interfaces::{
     PluginKind, PluginManifest, PluginPermissions, RunId, RunRow, TestRow, TestTrend, Verdict,
 };
 pub use vc_model::{
-    ActionId, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, Location, Method, Names, Origin,
-    OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath, SourceSpan, TestResult, TestStatus,
-    Totals, check_label, check_parts,
+    ActionId, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, InstanceId, Location, Method,
+    Names, Origin, OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath, SourceSpan,
+    TestResult, TestStatus, Totals, check_label, check_parts,
 };

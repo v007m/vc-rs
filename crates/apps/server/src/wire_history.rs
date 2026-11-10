@@ -3,20 +3,7 @@
 //! at their defaults.
 
 use vc_contracts::results::v1 as wire;
-use vc_engine::{CheckRow, ExchangeRow, RunRow, TestRow};
-
-/// Each stored check kind by the key history keeps it under.
-const CHECK_KINDS: [(&str, wire::CheckKind); 9] = [
-    ("status", wire::CheckKind::Status),
-    ("headers", wire::CheckKind::Header),
-    ("body.schema", wire::CheckKind::Schema),
-    ("body.match", wire::CheckKind::Match),
-    ("body.equals", wire::CheckKind::Equals),
-    ("size", wire::CheckKind::Size),
-    ("timing", wire::CheckKind::Timing),
-    ("cel", wire::CheckKind::Cel),
-    ("custom", wire::CheckKind::Custom),
-];
+use vc_engine::{CheckKind, CheckRow, ExchangeRow, RunRow, TestRow};
 
 /// A stored run.
 pub fn run(row: &RunRow) -> wire::Run {
@@ -63,8 +50,7 @@ fn label(row: &TestRow) -> String {
 }
 
 fn check(row: &CheckRow) -> wire::Check {
-    let kind =
-        CHECK_KINDS.iter().find(|(key, _)| *key == row.kind).map_or(wire::CheckKind::Unspecified, |(_, kind)| *kind);
+    let kind = CheckKind::from_key(&row.kind).map_or(wire::CheckKind::Unspecified, wire::CheckKind::from);
     let span =
         wire::Span { file: row.file.clone(), start_line: row.line, start_column: 1, end_line: row.line, end_column: 1 };
     wire::Check {

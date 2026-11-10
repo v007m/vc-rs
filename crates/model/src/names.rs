@@ -215,18 +215,8 @@ pub fn check_label(check: &CheckResult) -> String {
 #[must_use]
 pub fn check_parts(check: &CheckResult) -> (&'static str, Option<String>) {
     let target = check.target.as_ref().map(|path| path_text(&path.segments)).unwrap_or_default();
-    let (key, with_target) = match check.kind {
-        CheckKind::Status => ("status", false),
-        CheckKind::Header => ("headers", true),
-        CheckKind::Schema => ("body.schema", false),
-        CheckKind::Match => ("body.match", true),
-        CheckKind::Equals => ("body.equals", false),
-        CheckKind::Size => ("size", false),
-        CheckKind::Timing => ("timing", true),
-        CheckKind::Cel => ("cel", true),
-        CheckKind::Custom => ("custom", false),
-    };
-    (key, (with_target && !target.is_empty()).then_some(target))
+    let with_target = matches!(check.kind, CheckKind::Header | CheckKind::Match | CheckKind::Timing | CheckKind::Cel);
+    (check.kind.key(), (with_target && !target.is_empty()).then_some(target))
 }
 
 /// A path as written: `items[*].price`.
