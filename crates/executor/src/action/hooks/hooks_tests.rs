@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use serde_json::{Value, json};
-use vc_interfaces::{HookCall, HookError, HookOutput, Limit, Transport};
+use vc_interfaces::{HookCall, HookError, HookOutput, Limit, Secret, Secrets, Transport};
 use vc_model::{
     ActionId, ActionKind, Check, CheckKind, CheckResult, HookRef, Matcher, Origin, OwnerKey, Path, Segment,
     TemplateValue,
@@ -10,7 +10,7 @@ use vc_testkit::{FakeHooks, FakeTransport, Recorded, RecordingTransport};
 
 use super::{HookBridge, judge};
 use crate::fixture::{self, Fixture};
-use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PipelineParts};
+use crate::{ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, PipelineParts, RunInputs};
 
 const FILE: &str = "hooks/sign.ts";
 
@@ -25,6 +25,15 @@ fn named(export: &str) -> String {
 /// Runs `action` with `hooks` as the run's runner (none when `None`) against a transport that
 /// answers 200, recording what was sent.
 async fn run(fixture: Fixture, action: ActionId, hooks: Option<FakeHooks>) -> (ActionReport, Vec<Recorded>) {
+    run_with(fixture, (action, fixture::inputs(&[])), hooks).await
+}
+
+/// [`run`], with the run's `inputs`.
+async fn run_with(
+    fixture: Fixture,
+    (action, inputs): (ActionId, RunInputs),
+    hooks: Option<FakeHooks>,
+) -> (ActionReport, Vec<Recorded>) {
     let fake = FakeTransport::scripted(vec![Ok(vc_testkit::status(200))]);
     let (transport, recordings) = RecordingTransport::new(Arc::new(fake));
     let parts = PipelineParts::new(Arc::new(transport) as Arc<dyn Transport>, HostLimits::spawn(8));
@@ -32,7 +41,7 @@ async fn run(fixture: Fixture, action: ActionId, hooks: Option<FakeHooks>) -> (A
         Some(hooks) => parts.with_hook_runner(Arc::new(hooks)),
         None => parts,
     };
-    let cx = fixture.cx(ActionExecutors::standard(parts));
+    let cx = fixture.cx_with(ActionExecutors::standard(parts), inputs);
     let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
     let report = cx.executors.execute(request).await;
     (report, recordings.take())
@@ -285,4 +294,40 @@ async fn a_reused_test_must_save_what_the_reuse_declares() {
     let (report, sent) = run(fixture, reuse, None).await;
     assert_eq!((code(&report).as_deref(), sent.len()), (Some("V5109"), 1));
     assert_eq!(report.outcome.failure().and_then(|failure| failure.action), Some(reuse));
+}
+
+/// The value a hook's `secret("SIGNING_KEY")` reads, or null.
+fn signing_key(call: &HookCall) -> Value {
+    call.secrets.get("SIGNING_KEY").map_or(Value::Null, |secret| json!(secret.expose()))
+}
+
+#[tokio::test]
+async fn request_hooks_and_function_actions_read_the_run_s_secrets() {
+    let mut secrets = Secrets::new();
+    secrets.insert("SIGNING_KEY", Secret::new("k-test-91x"));
+    let inputs = || fixture::inputs(&[]).with_secrets(secrets.clone());
+    let hooks = FakeHooks::new()
+        .on(&named("sign"), changing_with(|request, call| request["headers"]["x-key"] = signing_key(call)))
+        .on(&named("seed"), |call: &HookCall| Ok(HookOutput::new(json!({"key": signing_key(call)}))));
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/users");
+    fixture.api_mut(call).hooks.before_request = vec![hook("sign")];
+    let (report, sent) = run_with(fixture, (call, inputs()), Some(hooks.clone())).await;
+    assert_eq!(code(&report), None, "{report:?}");
+    assert_eq!(sent[0].request.headers["x-key"], "k-test-91x");
+    let mut fixture = Fixture::new();
+    let seed = fixture.action(ActionKind::Function(hook("seed")));
+    let (report, _) = run_with(fixture, (seed, inputs()), Some(hooks)).await;
+    assert_eq!(Value::Object(report.saved), json!({"key": "k-test-91x"}));
+}
+
+/// A hook that returns the request with `change` made to it, seeing the call.
+fn changing_with(
+    change: fn(&mut Value, &HookCall),
+) -> impl Fn(&HookCall) -> Result<HookOutput, HookError> + Send + Sync + 'static {
+    move |call: &HookCall| {
+        let mut request = call.input["request"].clone();
+        change(&mut request, call);
+        Ok(HookOutput::new(request))
+    }
 }
