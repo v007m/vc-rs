@@ -1343,6 +1343,21 @@ pub fn vc_interfaces::TestRow::default() -> Self
 impl core::fmt::Debug for vc_interfaces::TestRow
 pub fn vc_interfaces::TestRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::TestRow
+pub struct vc_interfaces::TestTrend
+pub vc_interfaces::TestTrend::failed: u32
+pub vc_interfaces::TestTrend::flaky: u32
+pub vc_interfaces::TestTrend::mean_ms: f64
+pub vc_interfaces::TestTrend::results: u32
+pub vc_interfaces::TestTrend::test_id: alloc::string::String
+impl core::clone::Clone for vc_interfaces::TestTrend
+pub fn vc_interfaces::TestTrend::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_interfaces::TestTrend
+pub fn vc_interfaces::TestTrend::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::TestTrend
+pub fn vc_interfaces::TestTrend::default() -> Self
+impl core::fmt::Debug for vc_interfaces::TestTrend
+pub fn vc_interfaces::TestTrend::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::TestTrend
 pub struct vc_interfaces::TimingRow
 pub vc_interfaces::TimingRow::connect_ms: core::option::Option<f64>
 pub vc_interfaces::TimingRow::dns_ms: core::option::Option<f64>
@@ -1424,6 +1439,7 @@ pub fn vc_interfaces::HistoryReader::run(&self, vc_interfaces::RunRef) -> core::
 pub fn vc_interfaces::HistoryReader::runs(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::RunRow>, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryReader::snapshot(&self, vc_interfaces::RunId) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryReader::tests(&self, vc_interfaces::RunId) -> core::result::Result<alloc::vec::Vec<vc_interfaces::TestRow>, vc_interfaces::HistoryError>
+pub fn vc_interfaces::HistoryReader::trends(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::TestTrend>, vc_interfaces::HistoryError>
 pub trait vc_interfaces::HistoryWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::HistoryWriter::begin(&self, &vc_interfaces::RunStart) -> core::result::Result<vc_interfaces::RunId, vc_interfaces::HistoryError>
 pub fn vc_interfaces::HistoryWriter::finish(&self, vc_interfaces::RunId, vc_interfaces::RunEnd) -> core::result::Result<(), vc_interfaces::HistoryError>

@@ -3,22 +3,38 @@ pub use vc_engine::Approval
 pub use vc_engine::ApprovalId
 pub use vc_engine::ApprovalRequest
 pub use vc_engine::ApprovalStatus
+pub use vc_engine::CheckResult
 pub use vc_engine::Code
 pub use vc_engine::Diagnostics
 pub use vc_engine::DiagnosticsError
 pub use vc_engine::Event
+pub use vc_engine::Exchange
+pub use vc_engine::Failure
 pub use vc_engine::FileKind
 pub use vc_engine::JsonRenderer
+pub use vc_engine::Location
 pub use vc_engine::Method
+pub use vc_engine::Names
+pub use vc_engine::OwnerKey
 pub use vc_engine::PluginKind
 pub use vc_engine::PluginManifest
 pub use vc_engine::PluginPermissions
 pub use vc_engine::Render
+pub use vc_engine::RunId
+pub use vc_engine::RunRow
+pub use vc_engine::RunStatus
+pub use vc_engine::Sequenced
 pub use vc_engine::SourceFiles
 pub use vc_engine::SourcePath
 pub use vc_engine::Summary
+pub use vc_engine::TestResult
+pub use vc_engine::TestRow
+pub use vc_engine::TestStatus
+pub use vc_engine::TestTrend
 pub use vc_engine::TextRenderer
+pub use vc_engine::Totals
 pub use vc_engine::Verdict
+pub use vc_engine::check_label
 pub enum vc_engine::Admission
 pub vc_engine::Admission::Allowed
 pub vc_engine::Admission::Allowed::approved_by: core::option::Option<alloc::string::String>
@@ -163,6 +179,16 @@ pub fn vc_engine::PluginState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core
 impl core::fmt::Display for vc_engine::PluginState
 pub fn vc_engine::PluginState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::PluginState
+#[non_exhaustive] pub enum vc_engine::RunFeed
+pub vc_engine::RunFeed::Done(vc_engine::RunReport)
+pub vc_engine::RunFeed::Event(vc_model::event::Sequenced)
+pub vc_engine::RunFeed::Missed
+pub vc_engine::RunFeed::Missed::count: u64
+pub vc_engine::RunFeed::Started(vc_model::names::Names)
+impl core::clone::Clone for vc_engine::RunFeed
+pub fn vc_engine::RunFeed::clone(&self) -> Self
+impl core::fmt::Debug for vc_engine::RunFeed
+pub fn vc_engine::RunFeed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub enum vc_engine::SyncMode
 pub vc_engine::SyncMode::Check
 pub vc_engine::SyncMode::DryRun
@@ -366,6 +392,7 @@ impl vc_engine::Engine
 pub fn vc_engine::Engine::history(&self, usize) -> core::result::Result<vc_engine::HistoryReport, vc_engine::EngineError>
 pub fn vc_engine::Engine::report(&self, &vc_engine::ReportRequest) -> core::result::Result<vc_engine::ReportFiles, vc_engine::EngineError>
 pub fn vc_engine::Engine::stored(&self, &str) -> core::result::Result<vc_engine::StoredRun, vc_engine::EngineError>
+pub fn vc_engine::Engine::trends(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::trend::TestTrend>, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::import(&self, &vc_engine::ImportRequest) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -518,6 +545,7 @@ impl core::marker::StructuralPartialEq for vc_engine::FixReport
 pub struct vc_engine::HistoryReport
 impl vc_engine::HistoryReport
 pub fn vc_engine::HistoryReport::json(&self) -> serde_json::value::Value
+pub fn vc_engine::HistoryReport::runs(&self) -> &[vc_interfaces::history::RunRow]
 pub fn vc_engine::HistoryReport::text(&self) -> alloc::string::String
 impl core::clone::Clone for vc_engine::HistoryReport
 pub fn vc_engine::HistoryReport::clone(&self) -> Self
@@ -839,6 +867,7 @@ pub vc_engine::RunRequest::files: vc_engine::ReportFlags
 pub vc_engine::RunRequest::no_cache: bool
 pub vc_engine::RunRequest::plan: vc_engine::PlanRequest
 pub vc_engine::RunRequest::seed: core::option::Option<u64>
+pub vc_engine::RunRequest::watch: core::option::Option<vc_engine::RunWatch>
 impl core::clone::Clone for vc_engine::RunRequest
 pub fn vc_engine::RunRequest::clone(&self) -> Self
 impl core::cmp::Eq for vc_engine::RunRequest
@@ -849,6 +878,16 @@ pub fn vc_engine::RunRequest::default() -> Self
 impl core::fmt::Debug for vc_engine::RunRequest
 pub fn vc_engine::RunRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::RunRequest
+#[non_exhaustive] pub struct vc_engine::RunWatch
+impl vc_engine::RunWatch
+pub const fn vc_engine::RunWatch::new(tokio::sync::mpsc::bounded::Sender<vc_engine::RunFeed>) -> Self
+impl core::clone::Clone for vc_engine::RunWatch
+pub fn vc_engine::RunWatch::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::RunWatch
+impl core::cmp::PartialEq for vc_engine::RunWatch
+pub fn vc_engine::RunWatch::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::RunWatch
+pub fn vc_engine::RunWatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub struct vc_engine::SchemaFile
 pub vc_engine::SchemaFile::file_name: alloc::string::String
 pub vc_engine::SchemaFile::kind: vc_model::source::FileKind
@@ -896,6 +935,8 @@ impl core::marker::StructuralPartialEq for vc_engine::SkipRequest
 pub struct vc_engine::StoredRun
 impl vc_engine::StoredRun
 pub fn vc_engine::StoredRun::json(&self) -> serde_json::value::Value
+pub const fn vc_engine::StoredRun::run(&self) -> &vc_interfaces::history::RunRow
+pub fn vc_engine::StoredRun::tests(&self) -> &[vc_interfaces::history::TestRow]
 pub fn vc_engine::StoredRun::text(&self) -> alloc::string::String
 impl core::clone::Clone for vc_engine::StoredRun
 pub fn vc_engine::StoredRun::clone(&self) -> Self

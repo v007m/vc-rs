@@ -1402,6 +1402,22 @@ impl core::fmt::Debug for vc_model::LoadStage
 pub fn vc_model::LoadStage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for vc_model::LoadStage
 impl core::marker::StructuralPartialEq for vc_model::LoadStage
+pub struct vc_model::Location
+pub vc_model::Location::column: u32
+pub vc_model::Location::line: u32
+pub vc_model::Location::path: alloc::string::String
+impl core::clone::Clone for vc_model::Location
+pub fn vc_model::Location::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Location
+impl core::cmp::PartialEq for vc_model::Location
+pub fn vc_model::Location::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Location
+pub fn vc_model::Location::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_model::Location
+impl serde_core::ser::Serialize for vc_model::Location
+pub fn vc_model::Location::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vc_model::Location
+pub fn vc_model::Location::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::MatcherCall
 pub vc_model::MatcherCall::arg: vc_model::MatcherArg
 pub vc_model::MatcherCall::name: alloc::string::String
@@ -1430,6 +1446,26 @@ pub fn vc_model::MixEntry::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_model::MixEntry
 pub fn vc_model::MixEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::MixEntry
+pub struct vc_model::Names
+impl vc_model::Names
+pub fn vc_model::Names::action(&self, vc_model::ActionId) -> alloc::string::String
+pub fn vc_model::Names::api_of(&self, vc_model::ActionId) -> core::option::Option<alloc::string::String>
+pub fn vc_model::Names::file(&self, vc_model::FileId) -> &str
+pub fn vc_model::Names::file_of(&self, vc_model::TestId) -> alloc::string::String
+pub fn vc_model::Names::instance(&self, &vc_model::TestResult) -> alloc::string::String
+pub fn vc_model::Names::location(&self, vc_model::SourceSpan) -> core::option::Option<vc_model::Location>
+pub fn vc_model::Names::new(alloc::rcs::arc::Arc<vc_model::Program>, &vc_model::Plan) -> Self
+pub fn vc_model::Names::owner(&self, vc_model::OwnerKey) -> alloc::string::String
+pub fn vc_model::Names::program(&self) -> &vc_model::Program
+pub fn vc_model::Names::slot(&self, &vc_model::TestResult) -> (core::option::Option<u32>, u32)
+pub fn vc_model::Names::tags(&self, vc_model::TestId) -> alloc::vec::Vec<alloc::string::String>
+pub fn vc_model::Names::test(&self, vc_model::TestId) -> &str
+pub fn vc_model::Names::test_location(&self, vc_model::TestId) -> core::option::Option<vc_model::Location>
+pub fn vc_model::Names::text(&self, vc_model::Sym) -> &str
+impl core::clone::Clone for vc_model::Names
+pub fn vc_model::Names::clone(&self) -> Self
+impl core::fmt::Debug for vc_model::Names
+pub fn vc_model::Names::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct vc_model::Needs(_)
 impl vc_model::Needs
 pub fn vc_model::Needs::contains(&self, vc_model::ActionId) -> bool
@@ -2174,6 +2210,8 @@ pub const vc_model::DEFAULT_KEEP: u32
 pub const vc_model::DEFAULT_MAX_BODY: vc_model::Size
 pub const vc_model::DEFAULT_SECRETS_PROVIDER: &str
 pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
+pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String
+pub fn vc_model::check_parts(&vc_model::CheckResult) -> (&'static str, core::option::Option<alloc::string::String>)
 pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>
 pub fn vc_model::schema_names(&str) -> alloc::vec::Vec<alloc::string::String>
