@@ -58,6 +58,22 @@ fn checks_unsaved_text_in_place_of_the_file_and_saves_no_cache() {
 }
 
 #[test]
+fn unsaved_text_only_at_a_path_the_editor_opens_is_checked() {
+    let checker = engine(&[CONFIG, USERS], Arc::new(MemoryCompileCache::new()));
+    let with = |path: &str| {
+        let mut request = CheckRequest::default();
+        request.overlay.insert(path.to_owned(), "apis: []\n".to_owned());
+        checker.check(&request)
+    };
+    for path in ["../users.api.yaml", "/etc/users.api.yaml", ".vibranium/x.api.yaml", ".env.schema", "README.md", ""] {
+        let refused = with(path);
+        assert!(matches!(&refused, Err(EngineError::Edit { help: Some(_), .. })), "{path}: {refused:?}");
+    }
+    let new = with("services/orders/orders.api.yaml").unwrap();
+    assert_eq!((new.checked, new.diagnostics.len()), (3, 0), "a file not on disk yet is checked as new");
+}
+
+#[test]
 fn a_check_from_the_saved_blob_reuses_every_unit() {
     let cold = MemoryCompileCache::new();
     let first = engine(&[CONFIG, GET_USER], Arc::new(cold.clone())).check(&CheckRequest::default()).unwrap();

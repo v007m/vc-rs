@@ -167,17 +167,24 @@ fn the_project_shows_its_name_profiles_and_default() {
     assert_eq!(crate::sample::engine(FakeVcs::default()).project_info().unwrap().name, "project");
 }
 
+/// Links in `dir`'s project, beside its files: one to `outside`'s `secret.test.yaml`, one to the
+/// project's `.env`. Their project paths.
 #[cfg(unix)]
-#[test]
-fn a_link_out_of_the_project_or_to_a_hidden_file_is_neither_read_nor_written() {
-    let (dir, engine) = project();
-    let outside = tempfile::tempdir().unwrap();
+fn links(dir: &tempfile::TempDir, outside: &tempfile::TempDir) -> [&'static str; 2] {
     fs::write(outside.path().join("secret.test.yaml"), "kept\n").unwrap();
     let escape = "services/users/escape.test.yaml";
     std::os::unix::fs::symlink(outside.path().join("secret.test.yaml"), dir.path().join(escape)).unwrap();
     let env = "services/users/env.test.yaml";
     std::os::unix::fs::symlink(dir.path().join(".env"), dir.path().join(env)).unwrap();
-    for link in [escape, env] {
+    [escape, env]
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_out_of_the_project_or_to_a_hidden_file_is_neither_read_nor_written() {
+    let (dir, engine) = project();
+    let outside = tempfile::tempdir().unwrap();
+    for link in links(&dir, &outside) {
         let read = engine.read_file(link);
         assert!(
             matches!(&read, Err(EngineError::Edit { reason, .. }) if reason.contains("links to a file outside")),
@@ -188,6 +195,18 @@ fn a_link_out_of_the_project_or_to_a_hidden_file_is_neither_read_nor_written() {
     }
     assert_eq!(fs::read_to_string(outside.path().join("secret.test.yaml")).unwrap(), "kept\n");
     assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=abc\n");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_link_out_of_the_project_or_to_a_hidden_file_is_not_checked_as_unsaved_text() {
+    let (dir, engine) = project();
+    let outside = tempfile::tempdir().unwrap();
+    for link in links(&dir, &outside) {
+        let overlay = [(link.to_owned(), "tests: []\n".to_owned())].into();
+        let checked = engine.check(&crate::CheckRequest { overlay, ..crate::CheckRequest::default() });
+        assert!(matches!(checked, Err(EngineError::Edit { .. })), "{link}: {checked:?}");
+    }
 }
 
 #[test]

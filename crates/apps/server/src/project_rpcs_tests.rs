@@ -44,6 +44,20 @@ async fn check_compiles_unsaved_text_in_place_of_the_file() {
 }
 
 #[tokio::test]
+async fn check_refuses_unsaved_text_at_a_path_the_editor_does_not_open() {
+    let (_dir, api) = project();
+    for path in ["../escape.test.yaml", ".env", ".vibranium/x.api.yaml", "notes.txt"] {
+        let request = wire::CheckRequest {
+            overlay: [(path.to_owned(), "x: 1\n".to_owned())].into(),
+            ..wire::CheckRequest::default()
+        };
+        let refused = check(api.clone(), request).await.unwrap_err();
+        assert_eq!(refused.code, Code::InvalidArgument, "{path}");
+        assert!(!refused.message.contains("x: 1"), "the text is never echoed: {}", refused.message);
+    }
+}
+
+#[tokio::test]
 async fn read_then_write_round_trips_and_a_stale_save_is_aborted() {
     let (_dir, api) = project();
     let opened = read_file(api.clone(), wire::ReadFileRequest { path: TESTS.into() }).await.unwrap();

@@ -95,6 +95,20 @@ impl Engine {
         Ok(SavedFile { digest: hex(content_hash(request.text.as_bytes()).as_bytes()), check })
     }
 
+    /// `text` as a path the editor reads and writes: the config or an api, test or load file
+    /// outside a hidden folder, that is not a link out of the project or to a hidden file and
+    /// that can be read when it is there. A file that is not there yet is a path the editor
+    /// may create.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Edit`] and [`EngineError::Sources`] as [`Engine::read_file`].
+    pub(crate) fn editor_path(&self, text: &str) -> Result<SourcePath, EngineError> {
+        let path = editable(text)?;
+        self.current(&path)?;
+        Ok(path)
+    }
+
     /// The file at `path` as it is now; `None` when there is no file there. A file that is there
     /// but cannot be read, or is not UTF-8, is an error, so a save never takes it for a new file.
     fn current(&self, path: &SourcePath) -> Result<Option<SourceFile>, EngineError> {
