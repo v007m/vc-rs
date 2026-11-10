@@ -1,0 +1,193 @@
+/* The app shell, from design/mockups/canvas/vib-web2.css: gradient ground, flat chrome, one
+   elevated content panel, and the sidebar that collapses to an icon rail. */
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bg1);
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: var(--accentInk);
+}
+a:hover {
+  color: var(--accent);
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(140deg, var(--bg1) 0%, var(--bg2) 50%, var(--bg3) 100%);
+  font-size: 13.5px;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px 8px;
+  min-height: 52px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.frame {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 10px;
+  min-height: 0;
+  align-items: stretch;
+}
+.side {
+  flex: 0 1 232px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 4px 12px;
+  transition:
+    flex-basis 0.18s ease,
+    min-width 0.18s ease;
+}
+.side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 2px 4px;
+}
+.navitem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 13.5px;
+  width: 100%;
+}
+.navitem:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.navitem.on {
+  background: var(--on);
+  box-shadow: 0 1px 1px rgba(27, 24, 48, 0.05);
+  font-weight: 500;
+}
+.navitem svg {
+  flex: none;
+}
+.navitem .label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--ink2);
+  cursor: pointer;
+}
+.iconbtn:hover {
+  background: var(--panel3);
+  color: var(--ink);
+}
+.panel {
+  flex: 999 1 620px;
+  min-width: 0;
+  background: var(--panel);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.muted {
+  color: var(--ink2);
+}
+
+.app.side-collapsed .side {
+  flex: 0 0 56px;
+  min-width: 56px;
+}
+.app.side-collapsed .side .navitem {
+  justify-content: center;
+  padding: 0;
+  width: 44px;
+  height: 36px;
+  margin: 0 auto;
+}
+.app.side-collapsed .side .navitem .label {
+  display: none;
+}
+.app.side-collapsed .side .side-head {
+  justify-content: center;
+}
+
+@media (max-width: 860px) {
+  .side,
+  .app.side-collapsed .side {
+    flex: 1 1 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    min-width: 0;
+    padding: 0 2px 6px;
+  }
+  .side .navitem {
+    width: auto;
+    flex: none;
+  }
+  .app.side-collapsed .side .navitem .label {
+    display: inline;
+  }
+  .side-head {
+    display: none;
+  }
+  .panel-body {
+    padding: 14px;
+  }
+}
