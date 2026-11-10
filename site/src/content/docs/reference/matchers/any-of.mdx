@@ -1,0 +1,135 @@
+---
+title: "anyOf"
+description: "The anyOf matcher passes when at least one matcher in a list passes."
+sidebar: { order: 34 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`anyOf` passes when at least one matcher in the list passes.
+
+```yaml
+expect:
+  body:
+    match:
+      body.qty: {anyOf: [{eq: 0}, {gt: 2}]}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `anyOf` | list of matchers | — | yes | At least one entry must pass. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Zero or more than two
+
+
+
+```yaml title="services/sample/anyof.test.yaml"
+tests:
+  - id: qtyRule
+    name: Quantity is 0 or above 2
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.qty: {anyOf: [{eq: 0}, {gt: 2}]}
+```
+
+```console
+$ vc run sample.anyof#qtyRule
+plan  1 test in 1 file · profile default
+
+✓ sample.anyof#qtyRule                                            0ms
+
+1 passed                                                     55ms · profile default
+```
+
+### Null or a date
+
+Allow a field that is either empty or well formed.
+
+```yaml title="services/sample/anyof.test.yaml"
+tests:
+  - id: noteOrDate
+    name: Note is null or a date
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.note: {anyOf: [{eq: null}, {format: date}]}
+```
+
+```console
+$ vc run sample.anyof#noteOrDate
+plan  1 test in 1 file · profile default
+
+✓ sample.anyof#noteOrDate                                         5ms
+
+1 passed                                                     8ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/anyof.test.yaml"
+tests:
+  - id: failsOnQty
+    name: Quantity is 0 or above 10
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.qty: {anyOf: [{eq: 0}, {gt: 10}]}
+```
+
+```console
+$ vc run sample.anyof#failsOnQty
+plan  1 test in 1 file · profile default
+
+✕ sample.anyof#failsOnQty                                         8ms
+  error[V5101]: expect.body.match.body.qty
+    --> services/sample/anyof.test.yaml:22:21
+     |
+  22 |           body.qty: {anyOf: [{eq: 0}, {gt: 10}]}
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"anyOf":[{"eq":0},{"gt":10}]}, got 3
+
+0 passed · 1 failed                                          28ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: qtyRule
+    name: Quantity is 0 or above 2
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.qty: {anyOf: [{eq: 0}, {gt: 2}]}
+`} />
+
+## How it behaves
+
+- At least one entry must pass.
+- For a choice between plain values, [in](/vc-rs/reference/matchers/in/) is shorter.
+- The argument must be a list of matchers.
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): the argument is not a list of matchers.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [allOf](/vc-rs/reference/matchers/all-of/)
+- [in](/vc-rs/reference/matchers/in/)
+- [not](/vc-rs/reference/matchers/not/)
+- [All matchers](/vc-rs/reference/matchers//)

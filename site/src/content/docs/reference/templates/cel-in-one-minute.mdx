@@ -1,0 +1,167 @@
+---
+title: "CEL in one minute"
+description: "The parts of CEL you need for checks and computed values, including vc's sum(), int and double rules, and time functions."
+sidebar: { order: 18 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+CEL (Common Expression Language) is a small expression language from Google, also used in Kubernetes, Firebase and Google Cloud. It reads like a JavaScript one-liner:
+
+```text
+response.body.total > 0 && response.body.items.all(i, i.price > 0)
+```
+
+It has no loops, network or file access, so an expression always finishes and cannot leak secrets. vc uses it in `expect.cel` checks and in [`$cel` computed values](/vc-rs/reference/templates/cel-values/).
+
+## Syntax
+
+| Part | Example | Notes |
+| --- | --- | --- |
+| fields and indexes | `response.body.items[0].sku` | Same roots as templates, without `${ }`. |
+| comparison | `==`, `!=`, `<`, `<=`, `>`, `>=` | |
+| logic | `&&`, `\|\|`, `!` | |
+| arithmetic | `+`, `-`, `*`, `/`, `%` | `int` and `double` do not mix. |
+| choice | `cond ? a : b` | |
+| text | `'single'` or `"double"` quotes | |
+| `size(x)` | `size(response.body) == 2` | Length of a list, map or text. Also `x.size()`. |
+| `x.all(i, …)` | `response.body.all(u, has(u.name))` | True if every element passes. |
+| `x.exists(i, …)` | `response.body.exists(u, u.name == 'Ada Lovelace')` | True if any element passes. |
+| `x.map(i, …)` | `response.body.map(u, u.name)` | A new list. |
+| `x.filter(i, …)` | `response.body.filter(u, u.name.startsWith('Grace'))` | The elements that pass. |
+| `x.sum()` | `var.prices.sum()` | Added by vc. An `int` for whole numbers, else a `double`. |
+| `has(x.f)` | `has(response.body.next)` | True if the field is present. |
+| `matches(s, re)` | `matches(n, '^[A-Z]')` | Regex match. Also `s.matches(re)`. |
+| `s.startsWith(p)`, `s.endsWith(p)`, `s.contains(p)` | `u.name.startsWith('Grace')` | Text tests. |
+| `timestamp(s)` | `timestamp('2024-05-01T12:30:00Z')` | RFC 3339 text to a timestamp. |
+| `duration(s)` | `duration('1h30m')`, `duration('1.5s')` | Units `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`. |
+| `string(x)` | `string(duration('90s'))` | A timestamp or duration back to text. |
+
+### Numbers
+
+Whole numbers are `int`s and decimals are `double`s. Arithmetic needs both sides of the same kind: with `price: 19.5`, `var.price * 2` fails and `var.price * 2.0` gives `39.0`. Comparisons such as `var.total > 100.0` work with either.
+
+### Time
+
+| Expression | Gives |
+| --- | --- |
+| timestamp `+` duration, duration `+` timestamp | timestamp |
+| timestamp `-` duration | timestamp |
+| timestamp `-` timestamp | duration |
+| duration `+` or `-` duration | duration |
+| `<`, `>`, `==` and the rest | compare two timestamps or two durations |
+
+A time result that becomes a value is text: `2024-05-01T14:00:00Z` for a timestamp, `5400s` for a duration.
+
+<Aside type="caution">
+`response.timing.total` and the other timing phases are numbers of milliseconds in CEL. Compare them with a number (`response.timing.total < 2000.0`), not with `duration('2s')`.
+</Aside>
+
+## Examples
+
+Checks against the demo's `/users`, which returns two users. All passed:
+
+```yaml title="services/tpl/cel.test.yaml"
+tests:
+  - id: checksWithCel
+    call: sample#listUsers
+    expect:
+      cel:
+        has two users: size(response.body) == 2
+        every user has a name: response.body.all(u, has(u.name))
+        Ada is there: response.body.exists(u, u.name == 'Ada Lovelace')
+        names start with a capital: response.body.map(u, u.name).all(n, matches(n, '^[A-Z]'))
+        one Grace: response.body.filter(u, u.name.startsWith('Grace')).size() == 1
+        fast enough: response.timing.total < 2000.0
+```
+
+A failing check names the expression:
+
+```console
+✕ tpl.cel#checksWithCel                                           3ms
+  error[V5102]: expect.cel.not a fail
+    --> services/tpl/cel.test.yaml:12:21
+     |
+  12 |         not a fail: response.body.size() == 3
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^ expected true, got false
+```
+
+Time arithmetic in computed values:
+
+```yaml
+    vars:
+      t:
+        $cel: string(timestamp('2024-05-01T12:30:00Z') - duration('30m'))
+      d:
+        $cel: string(duration('1.5s') + duration('500ms'))
+      cmp:
+        $cel: duration('1h') > duration('59m')
+```
+
+These gave `"2024-05-01T12:00:00Z"`, `"2s"` and `true`. A duration under a second prints as decimal seconds: `string(duration('1500us') + duration('500000ns'))` gave `"0.002s"`.
+
+`sum()` on whole numbers and on decimals: `[1, 2, 3].sum()` gave `6` and `[1, 2, 3.5].sum()` gave `6.5`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: checksWithCel
+    call: sample#listUsers
+    expect:
+      cel:
+        has two users: size(response.body) == 2
+        Ada is there: response.body.exists(u, u.name == 'Ada Lovelace')
+`} />
+
+## How it behaves
+
+- `vc check` checks every expression before the run: its syntax, every root it reads, and literal `timestamp('…')` and `duration('…')` text.
+- An evaluation that walks more than 1,000,000 elements in all is stopped, so a runaway `map` inside a `map` cannot hang a run.
+- In `$cel`, `secret`, `fake`, `dataset` and `run` are not available. In checks, the same roots as in `expect` are there, including `response` and `request`.
+
+## Common errors
+
+A bad literal duration or timestamp, at check time:
+
+```console
+error[V2305]: `90 minutes` is not a duration such as `1h30m` or `1.5s`
+  --> services/tpl/bad.test.yaml:24:24
+   |
+24 |         $cel: duration('90 minutes')
+   |                        ^^^^^^^^^^^^
+   = help: write a timestamp as RFC 3339 (`2024-05-01T12:30:00Z`) and a duration as `1h30m` or `1.5s`
+
+error[V2305]: `May 1` is not an RFC 3339 timestamp such as `2024-05-01T12:30:00Z`
+```
+
+Run-time errors, as V5111 messages:
+
+| Expression | Message |
+| --- | --- |
+| `[1, 'a'].sum()` | `Error executing function 'sum': sum() takes a list of numbers, not of string` |
+| `var.price * 2` with `price: 19.5` | `Unsupported binary operator 'mul': Float(19.5), Int(2)` |
+| a timestamp plus a timestamp | ``Error executing function '+': no `+` for google.protobuf.Timestamp and google.protobuf.Timestamp`` |
+| a nested `map` over a very large list | `the expression took more than 1000000 steps; loop over fewer elements` |
+
+Comparing timing with a duration in a check:
+
+```console
+  error[V5102]: expect.cel.fast enough
+    --> services/tpl/cel.test.yaml:11:22
+     |
+  11 |         fast enough: response.timing.total < duration('2s')
+     |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ found no matching overload for '_<_' applied to '(double, google.protobuf.Duration)'
+```
+
+- [V2305](/vc-rs/reference/diagnostics/v2305/): the expression or a literal time does not parse.
+- [V2105](/vc-rs/reference/diagnostics/v2105/): a root that is not available.
+- [V5102](/vc-rs/reference/diagnostics/v5102/): a CEL check was false or failed.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): a `$cel` value failed at run time.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Computed values" href="/vc-rs/reference/templates/cel-values/" />
+  <LinkCard title="Matchers" href="/vc-rs/reference/matchers/" />
+</CardGrid>

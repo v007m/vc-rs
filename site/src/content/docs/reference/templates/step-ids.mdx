@@ -1,0 +1,124 @@
+---
+title: "Step ids"
+description: "Read an earlier action's last response by its id, as ${stepId.body...}, later in the same test or block."
+sidebar: { order: 6 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Give an action or step an `id`, and later actions in the same test or block can read its last response as `${<id>.…}`.
+
+```yaml
+    steps:
+      - id: place
+        call: shop#placeOrder
+      - call: shop#getOrder
+        vars:
+          orderId: ${place.body.id}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `<id>.status` | number | — | — | The status of that action's last response. |
+| `<id>.headers.<name>` | text | — | — | Lowercase header names. |
+| `<id>.body` | any value | — | — | The parsed body. |
+| `<id>.timing.<phase>` | number | — | — | Milliseconds, like [`response.timing`](/vc-rs/reference/templates/response/). |
+
+The `id` is a camelCase name on the action. It cannot be a root name such as `run` or `item` (see [Reserved names](/vc-rs/reference/templates/reserved-names/)).
+
+## Examples
+
+Read the first step from the second. The demo's `/echo` returns what it received under `body`, so the sent `n` is at `first.body.body.n`:
+
+```yaml title="services/tpl/flow.test.yaml"
+tests:
+  - id: readsResponseAndRequest
+    steps:
+      - id: first
+        call: sample#echo
+        vars:
+          payload:
+            n: 1
+      - id: second
+        call: sample#echo
+        vars:
+          payload:
+            fromStep: ${first.body.body.n}
+            stepStatus: ${first.status}
+            stepTiming: ${first.timing.total}
+```
+
+The second step sent:
+
+```json
+{ "fromStep": 1, "stepStatus": 200, "stepTiming": 3.0215 }
+```
+
+Use a step id in a CEL check:
+
+```yaml
+      - call: shop#getOrder
+        expect:
+          cel:
+            same total: response.body.total == place.body.total
+```
+
+Step ids versus `save`. A step id gives you the whole last response, but only inside the same test or block. `save` names one value and keeps it for every later action in the test, and it is what other files see from `beforeAll` and `beforeRun`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: chainsTwoCalls
+    steps:
+      - id: first
+        call: sample#echo
+        vars:
+          payload: { n: 1 }
+      - call: sample#echo
+        vars:
+          payload:
+            fromStep: \${first.body.body.n}
+`} />
+
+## How it behaves
+
+- Only actions that ran earlier are visible. Reading a step before it runs, or from another test, is V2105.
+- `vc check` reads the ids of the whole test, so a typo in a step id is caught before the run.
+
+## Common errors
+
+Reading a step before it runs:
+
+```console
+error[V2105]: `later` is not available here
+ --> services/tpl/bad.test.yaml:8:20
+  |
+8 |           payload: ${later.status}
+  |                    ^^^^^^^^^^^^^^^
+  = help: `later` is available only after that action, in the same test or block
+```
+
+A name that is neither a root nor a step id gets the same code and help text:
+
+```console
+error[V2105]: `nowhere` is not available here
+  --> services/tpl/bad.test.yaml:14:16
+   |
+14 |       payload: ${nowhere.status}
+   |                ^^^^^^^^^^^^^^^^^
+   = help: `nowhere` is available only after that action, in the same test or block
+```
+
+- [V2105](/vc-rs/reference/diagnostics/v2105/): the step has not run yet here, or no step has that id.
+- [V2006](/vc-rs/reference/diagnostics/v2006/): the id is a reserved root name.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="response" href="/vc-rs/reference/templates/response/" />
+  <LinkCard title="Reserved names" href="/vc-rs/reference/templates/reserved-names/" />
+  <LinkCard title="steps" href="/vc-rs/reference/syntax/" />
+</CardGrid>

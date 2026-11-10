@@ -1,0 +1,54 @@
+---
+title: "V2006 — Reserved ID"
+description: "The ID is a name Vibranium reserves for a template root: var, env, secret, response, request, example, item, iteration, fake, dataset or run."
+sidebar:
+  label: "V2006 Reserved ID"
+  order: 2006
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2006` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+The ID is a name Vibranium reserves for a template root: `var`, `env`, `secret`, `response`, `request`, `example`,
+`item`, `iteration`, `fake`, `dataset` or `run`. An action named `response` would make `${response.body}` ambiguous, so
+choose another ID.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: request
+    path: /users/1
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2006
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

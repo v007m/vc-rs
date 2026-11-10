@@ -1,0 +1,239 @@
+---
+title: Cheatsheet
+description: The most-used vc commands, file keys, templates and matchers on one page, with links to the full reference.
+sidebar: { order: 6 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## Commands
+
+| Task | Command |
+| --- | --- |
+| Create a project | `vc init` · `vc init --no-sample` · `vc init --from-openapi <url-or-file>` |
+| Check every file, no requests | `vc check` · `vc check --fix` |
+| See what a run would do | `vc plan [selectors]` |
+| Run everything | `vc run` |
+| Run a file, a test, one example row | `vc run users.crud` · `vc run users.crud#getsCreatedUser` · `vc run users.crud#rejectsBadEmail:2` |
+| Run by tag or name | `vc run -t smoke` · `vc run -g "created user"` |
+| Rerun what failed last time | `vc run --failed` |
+| Use another environment | `vc run --profile staging` |
+| Override a value for one run | `vc run --set vars.usersUrl=http://localhost:9000` |
+| Rerun on save | `vc watch users.crud` |
+| Send one request | `vc call users#get` |
+| Explain a code or an ID | `vc explain V2003` · `vc explain users.crud#getsCreatedUser` |
+| Where a config value comes from | `vc config explain vars.usersUrl --profile staging` |
+| List IDs | `vc list tests` · `vc list apis` · `vc list files` |
+| Scaffold an api and a test | `vc new api users#get --path /users/{id}` · `vc new test users.crud#listsUsers --from users#list` |
+| Park a test | `vc skip users.crud#deletesUser --reason "…" --until 2026-12-31` · `vc unskip users.crud#deletesUser` |
+| Rename an ID everywhere | `vc rename users#get users#getUser` |
+| Format files | `vc fmt` |
+| Past runs and reports | `vc history` · `vc report last --format html` |
+| Import an OpenAPI spec | `vc import openapi openapi/users.yaml` · `vc sync users` |
+| Run a load scenario | `vc load checkout.peak` |
+| Terminal UI | `vc tui` |
+| MCP server for AI agents | `vc mcp` |
+| Demo service | `vc demo start --detach` · `vc demo stop` |
+
+Every command takes `--project <dir>`. See the [CLI reference](/vc-rs/reference/cli/) for all flags.
+
+**Exit codes:** `0` passed · `1` failed or blocked · `2` nothing ran (bad input, errors in files) · `3` load threshold breached · `4` sync drift · `70` internal error · `130` cancelled.
+
+## An api file
+
+```yaml title="services/users/users.api.yaml"
+id: users
+name: Users service
+baseUrl: ${var.usersUrl}
+
+apis:
+  - id: create
+    name: Create a user
+    method: POST
+    path: /users
+    vars:                              # inputs, with defaults
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:                            # holds on every call
+      status: 201
+    save:                              # callers get ${var.userId}
+      userId: ${response.body.id}
+    cleanup:                           # undoes a successful call
+      call: delete
+      vars:
+        userId: ${response.body.id}
+
+  - id: get
+    name: Get a user
+    path: /users/${var.userId}         # method defaults to GET
+
+  - id: delete
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]
+```
+
+## A test file
+
+Every test below passes against `vc demo`.
+
+```yaml title="services/users/crud.test.yaml"
+id: users.crud
+name: User CRUD
+tags: [smoke]
+
+tests:
+  - id: getsCreatedUser                # call one api, with setup
+    name: Reads back a created user
+    before:
+      - call: users#create             # saves userId; cleaned up after
+    call: users#get
+    expect:
+      status: 200
+      headers:
+        content-type:
+          contains: json
+      body:
+        match:
+          id: ${var.userId}
+      timing:
+        total:
+          lt: 500ms
+
+  - id: rejectsBadEmail                # one instance per example row
+    name: Rejects a user without a valid email
+    call: users#create
+    body:
+      name: ${example.name}
+      email: ${example.email}
+    examples:
+      - name: No Email
+        email: null
+      - name: Number Email
+        email: 42
+    expect:
+      status: 400                      # replaces the api's 201
+      body:
+        match:
+          error:
+            contains: email
+
+  - id: createsThenReads               # several steps in order
+    name: Creates a user, then reads it
+    retry:
+      attempts: 2
+      delay: 1s
+    steps:
+      - call: users#create
+        vars:
+          email: ada@example.com
+      - call: users#get
+        poll:                          # re-send until this holds
+          until:
+            status: 200
+          every: 200ms
+          timeout: 5s
+        expect:
+          body:
+            match:
+              id: ${var.userId}
+
+  - id: deletesUser
+    name: Deletes a user
+    skip:
+      reason: waiting for the delete endpoint
+      until: 2026-12-31
+    call: users#delete
+    vars:
+      userId: "1"
+```
+
+```console
+$ vc run users.crud
+plan  3 tests in 1 file · 1 skipped · profile default
+
+- users.crud#deletesUser skipped: waiting for the delete endpoint
+✓ users.crud#rejectsBadEmail [row 2]                              3ms
+✓ users.crud#rejectsBadEmail [row 1]                              3ms
+✓ users.crud#getsCreatedUser                                      4ms
+✓ users.crud#createsThenReads                                     4ms
+
+4 passed · 1 skipped                                         5ms · profile default
+```
+
+## Lifecycle blocks
+
+| Block | Where | Runs |
+| --- | --- | --- |
+| `beforeRun`, `afterRun` | config | once per run |
+| `beforeAll`, `afterAll` | test file | once per file |
+| `beforeEach`, `afterEach` | test file | around every test instance |
+| `before`, `after` | test | around one test |
+
+Each block is a list of actions: `call: <apiId>`, `test: <testId>`, `function: <path>#<export>`, `command: <shell>`. See [Lifecycle](/vc-rs/reference/lifecycle/).
+
+## Templates
+
+| Template | Value |
+| --- | --- |
+| `${var.userId}` | a var from the config, a file, a profile, a call or a `save` |
+| `${secret.API_KEY}` | a secret, declared in `.env.schema`; always redacted |
+| `${env.CI_COMMIT_SHA}` | an environment variable |
+| `${response.body.items[0].id}` | the current response: `status`, `headers`, `body`, `timing` |
+| `${request.headers["x-request-id"]}` | the request as sent |
+| `${fake.internet.email}` | generated data |
+| `${example.email}` | the current `examples` row |
+| `${item.sku}` · `${iteration.index}` | the current `forEach` element · the loop counter |
+| `${dataset.cities}` | a dataset's rows |
+| `${run.id}` | the run's `id`, `startedAt` or `profiles` |
+
+Paths use dots, `[n]` for an index (negative counts from the end), `[*]` for every element and quotes for unusual keys. See [Templates](/vc-rs/reference/templates/).
+
+## Checks and matchers
+
+| Under `expect` | Example |
+| --- | --- |
+| `status` | `status: 200` · `status: [200, 201]` · `status: 2xx` |
+| `headers.<name>` | `content-type: { contains: json }` |
+| `body.match.<path>` | `"[*].price": { every: { gt: 0 } }` |
+| `body.equals` | `equals: { ok: true }` |
+| `body.schema` | `schema: { $file: schemas/user.json }` |
+| `timing.<phase>` | `total: { lt: 500ms }` |
+| `size` | `size: { lt: 100kb }` |
+| `cel.<label>` | `has items: size(response.body.items) > 0` |
+| `replace: true` | drop the checks inherited from the api |
+
+| Matcher | Example |
+| --- | --- |
+| literal | `role: admin` |
+| `eq`, `ne` | `{ ne: null }` |
+| `gt`, `gte`, `lt`, `lte`, `between` | `{ between: [1, 10] }` |
+| `in`, `notIn` | `{ in: [active, pending] }` |
+| `type` | `{ type: string }` |
+| `exists`, `empty` | `{ exists: false }` |
+| `length` | `{ length: { gte: 1 } }` |
+| `contains`, `startsWith`, `endsWith`, `regex` | `{ endsWith: .com }` |
+| `format` | `{ format: uuid }` |
+| `every`, `some`, `none` | `{ every: { gt: 0 } }` |
+| `not`, `allOf`, `anyOf` | `{ not: { contains: test } }` |
+
+See [Matchers](/vc-rs/reference/matchers/) for every rule.
+
+## Naming
+
+| Thing | Rule | Example |
+| --- | --- | --- |
+| Api file | `services/<service>/<service>.api.yaml` | `users` |
+| Test file | `services/<service>/<area>.test.yaml` | `users.crud` |
+| Full item ID | `<fileId>#<id>` | `users.crud#getsCreatedUser` |
+| Test ID | camelCase, third-person verb | `rejectsDeclinedCard` |
+| Profile, tag | lowercase, kebab-case | `staging`, `slow-path` |
+
+<Aside type="tip">
+Not sure about a key? `vc check` names the closest valid one, and `vc explain <code>` shows a wrong and a right example.
+</Aside>

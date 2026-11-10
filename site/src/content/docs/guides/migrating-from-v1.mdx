@@ -1,0 +1,192 @@
+---
+title: "Migrating from v1"
+description: "Move a Vibranium v1 project to v2 with vc migrate, settle what it could not convert, and learn what each v1 construct became."
+sidebar: { order: 10 }
+---
+
+import { Steps, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Vibranium v2 is a rewrite. It reads YAML, not v1's JSON scenarios, and has one template syntax, one way to check a response and no JavaScript in strings. `vc migrate v1` converts a v1 project for you and lists what needs a human.
+
+## Migrate
+
+<Steps>
+
+1. **Copy the v1 project into an empty folder.** `vc migrate v1` writes the new project around it and never changes the v1 files.
+
+   ```console
+   $ mkdir shop && cp -R ~/old/shop-v1 shop/ && cd shop
+   ```
+
+2. **Run the migration.**
+
+   ```console
+   $ vc migrate v1 shop-v1
+   ✓ migrated shop-v1 into /home/ada/shop
+     Create vibranium.config.yaml
+     Create services/catalog/catalog.api.yaml
+     Create services/orders/orders.api.yaml
+     TODO(vc migrate) services/orders/orders.api.yaml cancelOrder: reason is set only by a v1 script; give it a value
+     Create services/users/users.api.yaml
+     Create services/catalog/browse.test.yaml
+     Create services/orders/checkout.test.yaml
+     TODO(vc migrate) services/orders/checkout.test.yaml cancelsOrder: scripts.before-endpoint: variables.reason = 'test-' + Date.now(); return { variables }
+     Create services/users/crud.test.yaml
+     TODO(vc migrate) services/users/crud.test.yaml scripts.before-scenario: logger.log('users_crud starting')
+     catalog_browse: `{dataset.pokemon}` is now `${fake.lorem.word}`
+     users#createUser: `[ADMIN|MEMBER]` is read as a choice of ADMIN or MEMBER
+     users#createUser: `{dataset.names}` is now `${fake.person.fullName}`
+     users#updateUser: `{dataset.harrypotter}` is now `${fake.lorem.word}`
+     catalog.browse#searchesProducts: async has no v2 form; tests in a file run in parallel already
+     orders.checkout#placesOrder: delay has no v2 form; the call is made without waiting
+     users.crud#createsUser: repeat-delay has no v2 form for a repeat; the calls run one after another
+     Declare the secrets in .env.schema
+   next: vc check
+   ```
+
+   Each v1 app becomes an api file (`services/<app>/<app>.api.yaml`), and each scenario a test file next to it. The lines after the files are notes about values whose meaning changed.
+
+3. **Settle the TODOs.** v2 does not run v1's JavaScript `scripts`. Each one is left as a `# TODO(vc migrate)` comment in the file, with the script's text. Replace it with a fixed value, a [`function`](/vc-rs/reference/lifecycle/function/) action, or nothing if it only logged.
+
+   ```console
+   $ grep -rn 'TODO(vc migrate)' services
+   ```
+
+4. **Give the secrets values.** The v1 accounts became `auth` entries whose credentials are `${secret.…}` references. `vc migrate` declares the names in `.env.schema` and does not copy the values. Put them in `.env` or the environment; see [Secrets](/vc-rs/guides/secrets/).
+
+5. **Check.**
+
+   ```console
+   $ vc check
+   0 errors · 0 warnings · 7 files checked
+   ```
+
+6. **Point it at your service and run.** The v1 endpoints' base URL is now a var in `vibranium.config.yaml`, such as `apiUrl`. Add a [profile](/vc-rs/reference/config/profiles/) for each environment you tested against, then run:
+
+   ```console
+   $ vc run
+   ```
+
+7. **Delete the v1 folder** once every TODO is settled and the tests pass.
+
+</Steps>
+
+<Aside type="caution">
+`vc migrate v1` needs the v1 folder inside the folder you run it in, and a folder without a `vibranium.config.yaml`. Otherwise it stops with exit code `2` and writes nothing. See [`vc migrate`](/vc-rs/reference/cli/migrate/#exit-codes).
+</Aside>
+
+## A scenario, before and after
+
+```json title="shop-v1/Vibranium-Tests/scenarios/catalog/catalog_browse.json (v1, shortened)"
+{
+  "name": "catalog_browse",
+  "tags": "catalog",
+  "generate": { "searchTerm": "{dataset.pokemon}", "pageSize": 20 },
+  "endpoints": [
+    { "name": "01_list_categories", "url": "/api/v1/categories", "cache": true },
+    {
+      "name": "02_search_products",
+      "description": "Search products in a random category",
+      "url": "/api/v1/products?q={searchTerm}&category={categoryCode}&limit={pageSize}",
+      "repeat": 5,
+      "dependencies": [
+        { "api": "01_list_categories", "variable": { "categoryCode": "response.any.code" } }
+      ],
+      "expect": {
+        "status": 200,
+        "response": {
+          "No more results than asked for": "{response.items.length} <= {pageSize}",
+          "Every product is in the category": "{response.items.all.category}.every(c => c === '{categoryCode}')"
+        }
+      }
+    },
+    { "name": "03_legacy_search", "url": "/api/v0/search?q={searchTerm}", "ignore": true }
+  ]
+}
+```
+
+```yaml title="services/catalog/browse.test.yaml (v2)"
+name: catalog_browse
+tags:
+  - catalog
+beforeAll:
+  - id: listCategories
+    call: catalog#listCategories
+    save:
+      categoryCode: ${response.body[*].code | random}
+tests:
+  - id: listsCategories
+    name: List product categories
+    call: catalog#listCategories
+  - id: searchesProducts
+    name: Search products in a random category
+    call: catalog#searchProducts
+    repeat: 5
+    vars:
+      categoryCode: ${var.listCategories.categoryCode}
+    expect:
+      status: 200
+      body:
+        match:
+          items:
+            length:
+              lte: ${var.pageSize}
+          items[*].category:
+            every: ${var.categoryCode}
+  - id: legaciesSearch
+    name: Old search endpoint, kept for reference
+    call: catalog#legacySearch
+    skip: ignored in v1
+```
+
+What changed:
+
+- The cached `01_list_categories` became a `beforeAll` call that runs once for the file, and the dependency became a `save` the test reads.
+- The JavaScript checks became [matchers](/vc-rs/reference/matchers/): `length` with `lte`, and `every` over `items[*].category`.
+- `ignore: true` became `skip` with a reason.
+- The request (URL, query, headers) moved to an api in `catalog.api.yaml`, where every test can call it.
+
+Read the generated test IDs. They are made from the v1 names, and some read oddly, like `legaciesSearch` above. [`vc rename`](/vc-rs/reference/cli/rename/) renames one and updates every reference.
+
+## What each v1 construct became
+
+| v1 | v2 |
+| --- | --- |
+| `~/.vib/config.json` and the project `config.json` | `vibranium.config.yaml` at the project root, with at least one profile |
+| Collection folder, scenario file and `endpoints` array | File ID and item ID: `users.crud#getsUser` |
+| `name: "01_get_all_teams"` | `id` for references, `name` for people; list order is run order |
+| `{var}`, `{dataset.names}`, `{lorem_500}` | `${var.x}`, a [`fake`](/vc-rs/reference/data/generators/) call, or a named generator |
+| `[PRIVATE\|PUBLIC]` | A choice of the two values (v1 read it as a character class) |
+| `variables`, `generate`, `env_vars` | [`vars`](/vc-rs/reference/config/vars/), and `generators` for patterns such as `[a-z]{10}` |
+| `dependencies` | A `before`, `beforeEach` or `beforeAll` call with `save`. Only the api runs, not the whole dependency with its checks |
+| `variable: "response.id"` | `save: { id: ${response.body.id} }`, read as `${var.id}` |
+| `{response.all.id}`, `any` | Paths with `[*]`, plus `every`, `some` and `none`, or the `random` pipe |
+| `expect.response` with JavaScript strings | `expect.body.match`, `expect.body.schema`, `expect.cel` or `expect.custom` |
+| `"!userSchemas/allUsers"` | `expect.body.schema` with the schema inlined |
+| `timing: { total: "<700" }` | `timing: { total: { lt: 700ms } }` |
+| `delay: 500`, `timeout: 120000` | Durations with units: `500ms`, `2m` |
+| `status: 200` only | Also `2xx`, `[200, 204]` or a matcher |
+| `cache: true` | A `beforeAll` call with `save`, once per run. `cache: { for: 12h }` on an action keeps it across runs |
+| `async: true` | Tests in a file already run in parallel; `parallel: N` on a looped action |
+| `repeat-until` | [`poll`](/vc-rs/reference/syntax/poll/) with `until`, `every` and `timeout` |
+| `ignore: true` | `skip: "reason"` |
+| `system`, `accounts`, `default_account` | [`auth`](/vc-rs/reference/auth/) entries in the config, with `${secret.…}` credentials |
+| `language: "de"` | `headers: { accept-language: de }` |
+| `payload` | One `body`: JSON, text, `$file` or `$base64` |
+| `scripts` (eight lifecycle points) | Lifecycle blocks with `function` or `command` actions; `beforeRequest` and `afterResponse` on apis |
+| `_range_index` | `${iteration.index}` |
+| `repeat-delay`, `before-endpoint`, `max_parallel_executors` | camelCase keys everywhere |
+| `tags: "a,b,c"` | `tags: [a, b, c]` |
+| `id`, `email`, `created_on`, `app`, `author` in scenarios | Removed; git history has them |
+
+## What is new
+
+v2 adds [`vc check`](/vc-rs/reference/cli/check/) before every run, [OpenAPI import and sync](/vc-rs/guides/openapi-import-and-sync/), [load tests](/vc-rs/walkthroughs/load-testing/), a [terminal UI](/vc-rs/guides/tui/), a [web UI](/vc-rs/guides/web-ui/) and an [MCP server](/vc-rs/reference/cli/mcp/) for agents.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc migrate" href="/vc-rs/reference/cli/migrate/" description="Flags, output lines and exit codes." />
+  <LinkCard title="Concepts" href="/vc-rs/start/concepts/" description="Apis, tests, vars and profiles in v2." />
+  <LinkCard title="Errors and fixes" href="/vc-rs/guides/errors-and-fixes/" description="What to do with the output of vc check." />
+</CardGrid>

@@ -1,0 +1,164 @@
+---
+title: "http.retry"
+description: "Re-send one request after a network error, a timeout or a chosen status, before any check runs."
+sidebar: { order: 30 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`http.retry` re-sends a single request when the network or the server has a brief problem. It is off by default.
+
+```yaml title="vibranium.config.yaml"
+http:
+  retry:
+    attempts: 2
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `http.retry.attempts` | integer | `0` (off) | yes | Further attempts after the first. |
+| `http.retry.on` | list | `[connect, timeout, 502, 503, 504]` | no | `connect`, `timeout` or a status code. |
+| `http.retry.methods` | list | `[GET, HEAD, OPTIONS, PUT, DELETE]` | no | Only these methods are re-sent. |
+| `http.retry.backoff.base` | duration | `100ms` | no | First wait. It doubles each attempt. |
+| `http.retry.backoff.max` | duration | `2s` | no | The longest wait. |
+| `http.retry.backoff.jitter` | boolean | `true` | no | Randomize each wait a little. |
+
+`http` has no other keys. For proxies and certificates, see [Proxy and TLS](/vc-rs/reference/config/proxy-and-tls/).
+
+## Examples
+
+A helper endpoint answers 503 for the first few calls with a given key. With `attempts: 2`, four tests run:
+
+```console
+$ vc run slow.retry
+✕ slow.retry#postIsNotRetried                                     6ms
+  error[V5101]: expect.status
+    --> services/slow/retry.test.yaml:28:15
+     |
+  28 |       status: 200
+     |               ^^^ expected [200], got 503
+✕ slow.retry#fourTwentyNineNotRetried                             6ms
+  error[V5101]: expect.status
+    --> services/slow/retry.test.yaml:37:15
+     |
+  37 |       status: 200
+     |               ^^^ expected [200], got 429
+✕ slow.retry#failsAfterThree503s                                223ms
+  error[V5101]: expect.status
+    --> services/slow/retry.test.yaml:20:15
+     |
+  20 |       status: 200
+     |               ^^^ expected [200], got 503
+✓ slow.retry#survivesTwo503s                                    223ms
+
+1 passed · 3 failed                                          244ms · profile default
+```
+
+- Two 503s then a 200: passes. The server saw three calls.
+- Three 503s: fails with the last response.
+- A POST: not re-sent, because POST is not in `methods`.
+- A 429: not re-sent, because 429 is not in `on`.
+
+Widen what is retried and shorten the waits:
+
+```yaml title="vibranium.config.yaml"
+http:
+  retry:
+    attempts: 2
+    on: [timeout, 429, 503]
+    methods: [GET, POST]
+    backoff:
+      base: 50ms
+      max: 200ms
+      jitter: false
+```
+
+```console
+$ vc run slow.retry
+✓ slow.retry#postIsNotRetried                                    57ms
+✓ slow.retry#fourTwentyNineNotRetried                            57ms
+✓ slow.retry#survivesTwo503s                                    160ms
+✕ slow.retry#failsAfterThree503s                                160ms
+```
+
+The POST and the 429 now get a second attempt and pass.
+
+An api turns it off for itself. Its `http.retry` keys replace the config's:
+
+```yaml title="services/slow/slow.api.yaml"
+  - id: flaky
+    path: /flaky
+    http:
+      retry:
+        attempts: 0
+```
+
+With that, the test that survived two 503s fails on the first one.
+
+An unknown value in `on`:
+
+```console
+$ vc check
+error[V2302]: expected one of connect, timeout, found `teapot`
+  --> vibranium.config.yaml:23:19
+   |
+23 |     on: [timeout, teapot]
+   |                   ^^^^^^ not a known value
+   = help: expected one of `connect`, `timeout`
+```
+
+Status codes such as `503` are allowed too, even though the message lists only the words.
+
+An unknown key under `http`:
+
+```console
+$ vc check
+error[V1004]: unknown key `proxy` in http
+  --> vibranium.config.yaml:21:3
+   |
+21 |   proxy: http://p:8080
+   |   ^^^^^ not a known key
+   = help: expected one of `retry`
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+http:
+  retry:
+    attempts: 2
+    on: [connect, timeout, 503]
+    methods: [GET, PUT]
+    backoff:
+      base: 100ms
+      max: 1s
+      jitter: true
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- Retries happen inside one call, before any `expect` check. Checks see only the last response.
+- Each attempt gets the full [timeout](/vc-rs/reference/config/defaults-timeout/).
+- The default `methods` leave out POST and PATCH, since sending them twice may create things twice.
+- It is not a test retry. [`defaults.retry`](/vc-rs/reference/config/defaults-retry/) re-runs the whole test and reports flaky passes. `http.retry` reports nothing extra.
+- `--set` can't change `http.retry`; it is not one of the [settings](/vc-rs/reference/config/layering/).
+
+<Aside>Add `429` to `on` only if the server's rate limit resets quickly.</Aside>
+
+## Common errors
+
+- [V2302](/vc-rs/reference/diagnostics/v2302/): an unknown value in `on` or `methods`.
+- [V1004](/vc-rs/reference/diagnostics/v1004/): an unknown key under `http`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="defaults.retry" href="/vc-rs/reference/config/defaults-retry/" />
+  <LinkCard title="Proxy and TLS" href="/vc-rs/reference/config/proxy-and-tls/" />
+</CardGrid>

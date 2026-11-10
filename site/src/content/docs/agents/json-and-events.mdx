@@ -1,0 +1,266 @@
+---
+title: "JSON output and events"
+description: "Every vc command that prints JSON, the shape of each, and the NDJSON event stream from vc run --reporter json."
+sidebar: { order: 6 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Agents and scripts should read JSON, not the console text. These commands print it:
+
+| Command | Prints |
+| --- | --- |
+| `vc check --json` | The diagnostics, with spans and fixes |
+| `vc plan --json` | The plan: files, lifecycle actions and test instances |
+| `vc list tests\|apis\|files --json` | An array of definitions |
+| `vc history --json` | An array of stored runs |
+| `vc history show [run] --json` | One run and every test in it |
+| `vc load <id> --json` | The final load report |
+| `vc run --reporter json` | One JSON event per line while the run happens (NDJSON) |
+
+JSON goes to stdout. Errors that stop a command before it starts go to stderr as text, with the usual exit code. Every sample on this page is real output.
+
+## `vc check --json`
+
+```json
+{
+  "summary": { "errors": 0, "warnings": 1, "infos": 0 },
+  "diagnostics": [
+    {
+      "code": "V4001",
+      "severity": "warning",
+      "message": "test ID `gets-grace` is not camelCase",
+      "primary": {
+        "span": { "path": "services/people/lookup.test.yaml", "line": 4, "column": 9, "endLine": 4, "endColumn": 19 },
+        "text": "rename it"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": ["test IDs are camelCase: `getsGraceById`"],
+      "fixes": [
+        {
+          "title": "Rename to getsGraceById",
+          "certain": true,
+          "edits": [
+            { "path": "services/people/lookup.test.yaml", "range": { "start": 36, "end": 46 }, "newText": "getsGraceById" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `code` | The diagnostic code. `vc explain <code>` explains it |
+| `severity` | `error`, `warning` or `info` |
+| `primary.span` | Where it is. Lines and columns start at 1 |
+| `secondary` | Other places that matter, in the same shape as `primary` |
+| `help` | What to do, as text |
+| `fixes` | Machine edits. `certain: true` marks the ones `vc check --fix` applies. `range` is a byte range in the file, end exclusive |
+
+A clean project prints `{"summary": {"errors": 0, "warnings": 0, "infos": 0}, "diagnostics": []}`. `vc check` exits 2 when there are errors, and 0 otherwise.
+
+## `vc plan --json`
+
+```json
+{
+  "afterRun": [],
+  "beforeRun": [],
+  "files": [
+    {
+      "afterAll": [{ "action": 6, "label": "command" }],
+      "beforeAll": [{ "action": 5, "label": "command" }],
+      "id": "sample.basics",
+      "instances": [
+        { "id": 0, "needs": [], "repeatIndex": 0, "test": "sample.basics#listsUsers" },
+        { "id": 1, "needs": [], "repeatIndex": 0, "test": "sample.basics#createsUser" },
+        { "id": 2, "needs": [], "repeatIndex": 0, "test": "sample.basics#getsCreatedUser" },
+        { "id": 3, "needs": [], "repeatIndex": 0, "test": "sample.basics#rejectsMissingEmail" }
+      ]
+    }
+  ],
+  "instanceCount": 4,
+  "skipped": []
+}
+```
+
+Each instance is one test run: an example row or a repeat makes more than one instance of a test. `needs` lists the instances it waits for. Lifecycle entries (`beforeRun`, `beforeAll` and so on) give the action's number and kind. Takes the same selectors and flags as `vc run`, including `--changed`.
+
+## `vc list --json`
+
+`vc list tests`, `vc list apis` and `vc list files` print arrays of the same shape:
+
+```json
+[
+  { "id": "people.diff#getsGraceExactly", "name": "Gets Grace exactly", "path": "services/people/diff.test.yaml", "skipped": false, "tags": [] },
+  { "id": "people.listing#listsAdaFirst", "name": "Lists Ada first", "path": "services/people/listing.test.yaml", "skipped": false, "tags": [] }
+]
+```
+
+For files, `id` is the file ID (`people.browse`) and `name` is currently always `null`.
+
+## `vc history --json`
+
+```json
+[
+  {
+    "finishedMs": 1794333119982,
+    "id": 15,
+    "kind": "run",
+    "profiles": ["local"],
+    "seed": 87336256702298486,
+    "selector": "--changed main",
+    "startedMs": 1794333119658,
+    "status": "passed",
+    "totals": { "blocked": 0, "failed": 0, "flaky": 0, "passed": 6, "skipped": 0 },
+    "vcVersion": "0.1.0"
+  }
+]
+```
+
+| Field | Meaning |
+| --- | --- |
+| `id` | The run number, for `vc history show <id>` |
+| `kind` | `run` (`vc run`), `load` (`vc load`) or `adhoc` (`vc call`, or `call_api` over MCP) |
+| `status` | `passed` or `failed` |
+| `seed` | The data seed, or `null` when the run had none. See the caution below |
+| `startedMs`, `finishedMs` | Milliseconds since the Unix epoch |
+
+## `vc history show --json`
+
+The run, as above, plus one entry per test (two of the six shown):
+
+```json
+{
+  "run": {
+    "finishedMs": 1794332930872,
+    "id": 8,
+    "kind": "run",
+    "profiles": ["local"],
+    "seed": 14999253234493883768,
+    "selector": "",
+    "startedMs": 1794332930572,
+    "status": "failed",
+    "totals": { "blocked": 0, "failed": 1, "flaky": 0, "passed": 5, "skipped": 0 },
+    "vcVersion": "0.1.0"
+  },
+  "tests": [
+    { "attempts": 1, "blockedBy": null, "durationMs": 0.102166, "id": "people.lookup#getsGraceById", "message": null, "skipReason": null, "status": "passed" },
+    { "attempts": 1, "blockedBy": null, "durationMs": 0.304542, "id": "people.diff#getsGraceExactly", "message": "equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n", "skipReason": null, "status": "failed" }
+  ]
+}
+```
+
+`status` is the test's result, such as `passed`, `failed`, `blocked` or `skipped`. `message` holds the first failure, with the diff when there is one. `blockedBy` names what blocked the test, and `skipReason` why it was skipped. The MCP tools `query_history` and `explain_failure` return the same run and test objects.
+
+## `vc load --json`
+
+```json
+{
+  "blocked": null,
+  "breaches": [{ "actual": 17.663, "metric": "p95", "test": null }],
+  "ending": "finished",
+  "errorKinds": [],
+  "errors": 0,
+  "exit": 3,
+  "iterations": 2594,
+  "maxMs": 126.911,
+  "notices": [],
+  "p50Ms": 2.705,
+  "p95Ms": 17.663,
+  "p99Ms": 47.934999999999995,
+  "rps": 518.8,
+  "runId": 14,
+  "scenario": "people.browse",
+  "seconds": 5,
+  "seed": 492964392745479980
+}
+```
+
+`exit` is the command's exit code: 0 when every threshold held, 3 when one was breached. Each breach gives the metric, the measured value and, for a per-test threshold, the test. The limit itself is not repeated: read it from the scenario file. The live per-second lines are left out with `--json`.
+
+## `vc run --reporter json`
+
+`--reporter json` replaces the console output with one JSON object per line on stdout, written as the run happens. Every line has an `event` field. Report files (`--report`) are still written.
+
+```console
+vc run people.diff --reporter json > events.ndjson
+```
+
+A failing run, line by line:
+
+```json
+{"event":"runStarted","files":1,"instances":1}
+{"event":"fileStarted","file":"people.diff"}
+{"action":"call people#getPerson","event":"actionStarted","owner":{"instance":0,"kind":"instance"}}
+{"action":"call people#getPerson","event":"exchanged","method":"GET","ms":2,"owner":{"instance":0,"kind":"instance"},"status":200,"url":"http://localhost:7531/users/2"}
+{"action":"call people#getPerson","check":{"actual":200,"code":null,"diff":null,"error":null,"expected":[200],"key":"status","location":{"column":15,"line":8,"path":"services/people/diff.test.yaml"},"origin":"test people.diff#getsGraceExactly","passed":true},"event":"checkEvaluated","owner":{"instance":0,"kind":"instance"}}
+{"action":"call people#getPerson","check":{"actual":{"id":"2","name":"Grace Hopper"},"code":"V5101","diff":"--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n","error":null,"expected":{"id":"2","name":"Grace Brewster Hopper"},"key":"body.equals","location":{"column":11,"line":11,"path":"services/people/diff.test.yaml"},"origin":"test people.diff#getsGraceExactly","passed":false},"event":"checkEvaluated","owner":{"instance":0,"kind":"instance"}}
+{"action":"call people#getPerson","event":"actionFinished","failure":{"action":"call people#getPerson","code":"V5101","message":"equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n"},"owner":{"instance":0,"kind":"instance"},"status":"failed"}
+{"attempts":1,"durationMs":3,"event":"testFinished","failure":{"action":"call people#getPerson","code":"V5101","message":"equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n"},"instance":0,"label":"people.diff#getsGraceExactly","skipReason":null,"status":"failed","test":"people.diff#getsGraceExactly"}
+{"event":"fileFinished","file":"people.diff","totals":{"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
+{"event":"runFinished","status":"failed","totals":{"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
+{"artifacts":[{"path":"/home/you/people/.vibranium/reports/23/ctrf.json","reporter":"ctrf"},{"path":"/home/you/people/.vibranium/reports/23/junit.xml","reporter":"junit"},{"path":"/home/you/people/.vibranium/reports/23/index.html","reporter":"html"}],"durationMs":5,"event":"summary","profiles":["default"],"startedMs":1794332266888,"status":"failed","totals":{"blocked":0,"failed":1,"flaky":0,"passed":0,"skipped":0}}
+```
+
+A passing test with a cleanup adds a `cleanupFinished` line after the test's actions:
+
+```json
+{"cleanup":{"action":"call users#deleteUser","failure":null,"owner":{"instance":0,"kind":"instance"},"status":"passed"},"event":"cleanupFinished"}
+```
+
+### Events
+
+| `event` | When | Main fields |
+| --- | --- | --- |
+| `runStarted` | Once, first | `files`, `instances` |
+| `fileStarted` | A file's first work begins | `file` |
+| `actionStarted` | A call, step or lifecycle action begins | `action`, `owner` |
+| `exchanged` | A request got a response | `method`, `url`, `status`, `ms` |
+| `checkEvaluated` | One `expect` check ran | `check`: `key`, `passed`, `expected`, `actual`, `diff`, `code`, `location`, `origin` |
+| `warned` | An action reported a warning that does not fail it | `warning` |
+| `actionFinished` | An action ended | `status`, `failure` |
+| `cleanupFinished` | A cleanup ran | `cleanup`: `action`, `status`, `failure`, `owner` |
+| `cleanupsAbandoned` | Cleanups that will not run | `owner`, `cleanups` |
+| `testFinished` | A test instance ended | `test`, `label`, `status`, `attempts`, `durationMs`, `failure`, `skipReason` |
+| `fileFinished` | A file's work ended | `file`, `totals` |
+| `runFinished` | All work ended | `status`, `totals` |
+| `summary` | Last line | `status`, `totals`, `durationMs`, `profiles`, `artifacts` (the report files written) |
+
+- `owner` says whose action it is: `{"kind": "instance", "instance": 0}` for a test instance, or a lifecycle owner.
+- `check.origin` says where the expectation came from: `test <id>` or `api <id>`. `check.location` points at it in the YAML.
+- `check.code` is set on a failed check (`V5101`). `check.error` is set when the check could not be evaluated.
+- Events from tests that run in parallel interleave. Group them by `owner`.
+
+### The seed and exit code
+
+When a run used generated data and failed, `vc run` writes the seed to **stderr**, not into the stream:
+
+```text
+seed 1613416862053363750: pass `--seed 1613416862053363750` to run with the same generated data
+```
+
+The exit code is the same as with the console reporter: 0 all passed, 1 a test failed or was blocked, 2 nothing ran.
+
+<Aside type="caution" title="Seeds are 64-bit">
+Seeds are unsigned 64-bit numbers, and JSON prints them as bare numbers, such as `"seed": 17704694661611002025`. That is above 2<sup>53</sup>, so JavaScript's `JSON.parse` rounds it, and `--seed` with the rounded value replays different data. In JavaScript or TypeScript, parse with a big-integer-aware parser, or take the seed from the stderr line or the console summary.
+</Aside>
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Passed |
+| 1 | A test failed or was blocked |
+| 2 | Nothing ran: no test matched ("no test or test file matches"), or the project has errors (`error: the project has 1 error(s); nothing ran`). `vc check` also exits 2 on errors |
+| 3 | `vc load`: a threshold was breached |
+| 4 | `vc sync --check`: a spec drifted from its snapshot |
+| 70 | Internal error |
+| 130 | Cancelled |
+
+## Related
+
+- [MCP tools](/vc-rs/agents/mcp-tools/): the same objects, returned as `structuredContent`.
+- [Agent workflows](/vc-rs/agents/workflows/)

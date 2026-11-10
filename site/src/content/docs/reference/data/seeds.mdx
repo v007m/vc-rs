@@ -1,0 +1,131 @@
+---
+title: "Generation and seeds"
+description: "When a fake value is made (once per test instance for vars, fresh each time inline) and how --seed repeats a run's generated data."
+sidebar: { order: 4 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Where you write `${fake.*}` decides how often it changes: a var keeps one value for the whole test instance, while an inline generator makes a new value each time it is rendered.
+
+```yaml
+vars:
+  email: ${fake.internet.email}       # made once, read many times
+body:
+  email: ${var.email}                 # same value...
+  confirmEmail: ${var.email}          # ...as this one
+  backupEmail: ${fake.internet.email} # a different value
+```
+
+## Syntax
+
+| Where | When the value is made | Use it for |
+| --- | --- | --- |
+| `vars:` entry set to `${fake.…}` | Once per test instance, or once per loop iteration | A value you send and then check, or send twice |
+| `${fake.…}` inline in a field | Every time the field is rendered | Filler that nothing reads back |
+| `vc run --seed <N>` | — | Repeating the exact data of an earlier run |
+
+## Examples
+
+### Once per instance versus inline
+
+This test reads a var twice and writes an inline generator twice. Run with `--seed 42`:
+
+```yaml title="services/sample/named.test.yaml"
+tests:
+  - id: usesNamedGenerators
+    name: Shows when values are made
+    call: sample#echo
+    vars:
+      email: ${fake.internet.email}
+    body:
+      sameEmail1: ${var.email}
+      sameEmail2: ${var.email}
+      inline1: ${fake.lorem.word}
+      inline2: ${fake.lorem.word}
+```
+
+The demo echoed back:
+
+```json
+{ "sameEmail1": "ara@example.com", "sameEmail2": "ara@example.com",
+  "inline1": "quod", "inline2": "repellendus" }
+```
+
+### Once per loop iteration
+
+In a `forEach` loop, each iteration gets its own var value, still the same everywhere inside that iteration.
+
+```yaml title="services/sample/memo.test.yaml"
+tests:
+  - id: keepsOneEmailPerIteration
+    name: One email per loop iteration
+    steps:
+      - call: sample#echo
+        forEach: [1, 2]
+        vars:
+          email: ${fake.internet.email}
+        body:
+          first: ${var.email}
+          second: ${var.email}
+          inline: ${fake.internet.email}
+        save:
+          seen: ${response.body.body}
+```
+
+Real values saved with `--seed 42`:
+
+```json
+[
+  { "first": "naomie@example.com", "second": "naomie@example.com", "inline": "duncan@example.net" },
+  { "first": "alicia@example.org", "second": "alicia@example.org", "inline": "cyrus@example.org" }
+]
+```
+
+### Repeat a failing run's data
+
+Every failing run ends with its seed. Pass it back to get the same generated values:
+
+```console
+$ vc run sample.memo
+...
+next     vc run --failed
+seed 1400448962129958462: pass `--seed 1400448962129958462` to run with the same generated data
+
+$ vc run sample.memo --seed 1400448962129958462
+```
+
+Running `--seed 42` twice in a row gave byte-for-byte the same request bodies.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: signsUpAndConfirms
+    name: Signs up and confirms the same email
+    call: sample#echo
+    vars:
+      email: \${fake.internet.email}
+    body:
+      email: \${var.email}
+      confirmEmail: \${var.email}
+      nickname: \${fake.internet.userName}
+`} />
+
+## How it behaves
+
+- The seed covers every generator: `fake.*`, named generators, and the `random` and `shuffle` [pipes](/vc-rs/reference/pipes/).
+- A seed repeats the data, not the server. If the server's answers change, later values that depend on them change too.
+- Without `--seed`, each run picks a new seed.
+- The seed is printed on the terminal after a failing run. `vc load --json` also includes `seed` in its report.
+- `--seed` is a flag of `vc run`. `vc load` has no `--seed` flag.
+
+<Aside type="tip">
+Put a generated value in `vars` whenever you check it later. An inline `${fake.internet.email}` in the body and another in `expect` are two different emails.
+</Aside>
+
+## Related
+
+- [Built-in generators](/vc-rs/reference/data/generators/)
+- [Named generators](/vc-rs/reference/data/named-generators/)
+- [`var` templates](/vc-rs/reference/templates/var/)

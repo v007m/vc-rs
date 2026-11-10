@@ -1,0 +1,57 @@
+---
+title: "Test data"
+description: "How Vibranium makes and loads test data, from fake values and named generators to datasets, seeds and code hooks."
+sidebar: { order: 0 }
+---
+
+import { LinkCard, CardGrid, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Tests need data: a new email for each signup, a list of cities to loop over, a signature on a request. Vibranium gives you four tools for this, and none of them needs a line of code until you really want one.
+
+```yaml title="services/sample/data.test.yaml"
+tests:
+  - id: echoesEveryCapital
+    name: Echo returns each capital
+    examples: ${dataset.capitals}          # one test instance per CSV row
+    call: sample#echo
+    body:
+      city: ${example.name}
+      contact: ${fake.internet.email}      # a new realistic value each time
+```
+
+## The pieces
+
+| Tool | Write it as | Use it for |
+| --- | --- | --- |
+| [Built-in generators](/vc-rs/reference/data/generators/) | `${fake.person.fullName}` | Realistic one-off values: names, emails, UUIDs, dates, numbers |
+| [Named generators](/vc-rs/reference/data/named-generators/) | `${fake.teamName}` | Your own reusable shapes, declared once in the config |
+| [`fromRegExp` patterns](/vc-rs/reference/data/fromregexp/) | `${fake.string.fromRegExp('[A-Z]{3}-\d{4}')}` | Text that must match a format, like an order code |
+| [Datasets](/vc-rs/reference/data/datasets/) | `${dataset.capitals}` | Fixed rows from CSV, JSON or YAML files |
+| [Functions and request hooks](/vc-rs/reference/data/functions-and-hooks/) | `function: ../../hooks/sign.ts#addUploadSignature` | Anything the YAML can't say: signing, seeding, custom checks |
+
+[Generation and seeds](/vc-rs/reference/data/seeds/) explains when a fake value is made, and how `--seed` makes a run repeat the same data.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: createsRandomUser
+    name: Creates a user with generated data
+    call: sample#createUser
+    vars:
+      name: \${fake.person.fullName}
+      email: \${fake.internet.email}
+    body:
+      name: \${var.name}
+      email: \${var.email}
+      code: \${fake.string.fromRegExp('[A-Z]{3}-[0-9]{4}')}
+`} />
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Built-in generators" href="/vc-rs/reference/data/generators/" description="All 25 fake.* generators with real sample values." />
+  <LinkCard title="Datasets" href="/vc-rs/reference/data/datasets/" description="CSV, JSON and YAML rows, and three ways to use them." />
+  <LinkCard title="Functions and request hooks" href="/vc-rs/reference/data/functions-and-hooks/" description="TypeScript hooks that sign requests and seed data." />
+  <LinkCard title="Templates" href="/vc-rs/reference/templates/" description="The template language that all of this plugs into." />
+</CardGrid>

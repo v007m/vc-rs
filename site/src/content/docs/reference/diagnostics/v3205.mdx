@@ -1,0 +1,91 @@
+---
+title: "V3205 — A test-level body default reaches a GET or HEAD step"
+description: "A test-level body is a default for every step, and here it reaches a GET or HEAD call that takes no body."
+sidebar:
+  label: "V3205 A test-level body default reaches a GET or HEAD step"
+  order: 3205
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Lifecycle" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V3205` |
+| Category | V3xxx: Lifecycle |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A test-level `body` is a default for every step, and here it reaches a `GET` or `HEAD` call that takes no body. Put the
+`body` on the step that sends it instead.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+  - id: renameUser
+    method: PUT
+    path: /users/${var.userId}
+    body:
+      name: Bo
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: createsThenReads
+    body: {name: Ada}
+    steps:
+      - call: users#createUser
+      - call: users#getUser
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+  - id: renameUser
+    method: PUT
+    path: /users/${var.userId}
+    body:
+      name: Bo
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: createsThenReads
+    steps:
+      - call: users#createUser
+        body: {name: Ada}
+      - call: users#getUser
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V3205
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

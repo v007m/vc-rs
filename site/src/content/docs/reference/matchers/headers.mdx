@@ -1,0 +1,158 @@
+---
+title: "headers"
+description: "The headers check matches response headers by name."
+sidebar: { order: 3 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`headers` checks response headers. Each key is a header name and each value is a literal or a matcher.
+
+```yaml
+expect:
+  headers:
+    content-type: {contains: json}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `headers.<name>` | literal or matcher | — | no | Names are case-insensitive. Values are strings. |
+
+## Examples
+
+The examples call `sample#listUsers` on the demo service, which answers `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Check the content type
+
+Header names are case-insensitive, so `Content-Type` and `content-type` are the same check.
+
+```yaml title="services/sample/headers.test.yaml"
+tests:
+  - id: answersJson
+    name: Answers JSON
+    call: sample#listUsers
+    expect:
+      headers:
+        Content-Type: {contains: json}
+```
+
+```console
+$ vc run sample.headers#answersJson
+plan  1 test in 1 file · profile default
+
+✓ sample.headers#answersJson                                      0ms
+
+1 passed                                                     21ms · profile default
+```
+
+### A failing literal
+
+A literal header value must match exactly.
+
+```yaml title="services/sample/headers.test.yaml"
+tests:
+  - id: failsOnHtml
+    name: Answers HTML
+    call: sample#listUsers
+    expect:
+      headers:
+        content-type: text/html
+```
+
+```console
+$ vc run sample.headers#failsOnHtml
+plan  1 test in 1 file · profile default
+
+✕ sample.headers#failsOnHtml                                      0ms
+  error[V5101]: expect.headers.content-type
+    --> services/sample/headers.test.yaml:13:23
+     |
+  13 |         content-type: text/html
+     |                       ^^^^^^^^^ expected "text/html", got "application/json"
+
+0 passed · 1 failed                                          43ms · profile default
+```
+
+### A missing header
+
+Use `exists` to require a header, or `exists: false` to forbid one.
+
+```yaml title="services/sample/headers.test.yaml"
+tests:
+  - id: failsOnRequestId
+    name: Sends a request ID
+    call: sample#listUsers
+    expect:
+      headers:
+        x-request-id: {exists: true}
+```
+
+```console
+$ vc run sample.headers#failsOnRequestId
+plan  1 test in 1 file · profile default
+
+✕ sample.headers#failsOnRequestId                                 3ms
+  error[V5101]: expect.headers.x-request-id
+    --> services/sample/headers.test.yaml:19:23
+     |
+  19 |         x-request-id: {exists: true}
+     |                       ^^^^^^^^^^^^^^ expected {"exists":true}, got nothing
+
+0 passed · 1 failed                                          4ms · profile default
+```
+
+### Forbid a header
+
+
+
+```yaml title="services/sample/headers.test.yaml"
+tests:
+  - id: hidesServer
+    name: Does not reveal the server
+    call: sample#listUsers
+    expect:
+      headers:
+        x-powered-by: {exists: false}
+```
+
+```console
+$ vc run sample.headers#hidesServer
+plan  1 test in 1 file · profile default
+
+✓ sample.headers#hidesServer                                      0ms
+
+1 passed                                                     4ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: answersJson
+    name: Answers JSON
+    call: sample#listUsers
+    expect:
+      headers:
+        Content-Type: {contains: json}
+`} />
+
+## How it behaves
+
+- Header names are matched without regard to case.
+- Header values are strings. Use `regex`, `contains` or `startsWith` for partial matches.
+- Each header is its own check, keyed by its name, so a test can replace one header check from the api and keep the rest.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [contains](/vc-rs/reference/matchers/contains/)
+- [exists](/vc-rs/reference/matchers/exists/)
+- [status](/vc-rs/reference/matchers/status/)
+- [All matchers](/vc-rs/reference/matchers//)

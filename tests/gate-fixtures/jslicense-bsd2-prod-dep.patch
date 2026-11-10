@@ -13,8 +13,8 @@ diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
 +        specifier: 11.2.0
 +        version: 11.2.0
 +
-   web:
-     dependencies:
+   site:
+     devDependencies:
 diff --git a/sdks/gate-fixture/package.json b/sdks/gate-fixture/package.json
 new file mode 100644
 --- /dev/null

@@ -1,0 +1,188 @@
+---
+title: "cel"
+description: "The cel check runs a named CEL expression that must be true."
+sidebar: { order: 8 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`cel` holds named expressions in CEL, the Common Expression Language. Each must evaluate to `true`.
+
+```yaml
+expect:
+  cel:
+    twoUsers: size(response.body) == 2
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `cel.<label>` | CEL expression | — | no | The label names the check in the report. It can contain spaces. |
+
+## Examples
+
+The examples call `sample#listUsers` and `sample#echoOrder`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Count and inspect a list
+
+Read the body as `response.body`.
+
+```yaml title="services/sample/cel.test.yaml"
+tests:
+  - id: twoNamedUsers
+    name: Two users, all named
+    call: sample#listUsers
+    expect:
+      cel:
+        twoUsers: size(response.body) == 2
+        every user has a name: response.body.all(u, u.name != "")
+```
+
+```console
+$ vc run sample.cel#twoNamedUsers
+plan  1 test in 1 file · profile default
+
+✓ sample.cel#twoNamedUsers                                        8ms
+
+1 passed                                                     9ms · profile default
+```
+
+### Compare fields with each other
+
+CEL can relate values that a matcher checks one at a time.
+
+```yaml title="services/sample/cel.test.yaml"
+tests:
+  - id: totalAddsUp
+    name: Total is the sum of item prices
+    call: sample#echoOrder
+    expect:
+      cel:
+        total matches items: response.body.body.items.map(i, i.price).sum() == response.body.body.total
+```
+
+```console
+$ vc run sample.cel#totalAddsUp
+plan  1 test in 1 file · profile default
+
+✓ sample.cel#totalAddsUp                                          4ms
+
+1 passed                                                     5ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/cel.test.yaml"
+tests:
+  - id: failsOnCount
+    name: Three users
+    call: sample#listUsers
+    expect:
+      cel:
+        threeUsers: size(response.body) == 3
+```
+
+```console
+$ vc run sample.cel#failsOnCount
+plan  1 test in 1 file · profile default
+
+✕ sample.cel#failsOnCount                                         1ms
+  error[V5102]: expect.cel.threeUsers
+    --> services/sample/cel.test.yaml:20:21
+     |
+  20 |         threeUsers: size(response.body) == 3
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^ expected true, got false
+
+0 passed · 1 failed                                          4ms · profile default
+```
+
+### Write response.body, not body
+
+`vc check` knows every root and offers a fix.
+
+```yaml title="services/sample/celerrors.test.yaml"
+tests:
+  - id: bareBody
+    name: Bare body
+    call: sample#listUsers
+    expect:
+      cel:
+        twoUsers: size(body) == 2
+```
+
+```console
+$ vc check
+error[V2105]: `body` is not a root; did you mean `response.body`?
+ --> services/sample/celerrors.test.yaml:7:24
+  |
+7 |         twoUsers: size(body) == 2
+  |                        ^^^^
+  = help: write `response.body`
+  = fix: Write response.body (certain)
+
+1 error · 0 warnings · 41 files checked
+```
+
+### A syntax error
+
+
+
+```yaml title="services/sample/celerrors.test.yaml"
+tests:
+  - id: brokenCel
+    name: Broken CEL
+    call: sample#listUsers
+    expect:
+      cel:
+        twoUsers: size(response.body) ==
+```
+
+```console
+$ vc check
+error[V2305]: invalid CEL: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+ --> services/sample/celerrors.test.yaml:7:41
+  |
+7 |         twoUsers: size(response.body) ==
+  |                                         ^
+  = help: for example `response.body.items.size() > 0`
+
+1 error · 0 warnings · 41 files checked
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: twoNamedUsers
+    name: Two users, all named
+    call: sample#listUsers
+    expect:
+      cel:
+        twoUsers: size(response.body) == 2
+        every user has a name: response.body.all(u, u.name != "")
+`} />
+
+## How it behaves
+
+- Each expression must evaluate to `true`. Anything else fails with V5102.
+- Roots are the same as in templates: `response`, `var` and the others available at that spot. A bare `body` is not a root.
+- Useful functions: `size`, `all`, `exists`, `map`, `filter`, `sum`, `has`, `matches`, `timestamp`, `duration`.
+- `vc check` parses every expression and checks each root before the run.
+- CEL checks are never replaced by merging; each level adds its own. See [merging](/vc-rs/reference/matchers/merging/).
+
+## Common errors
+
+- [V2105](/vc-rs/reference/diagnostics/v2105/): the expression reads a root that does not exist there, such as `body`.
+- [V2305](/vc-rs/reference/diagnostics/v2305/): the expression does not parse.
+- [V5102](/vc-rs/reference/diagnostics/v5102/): the expression evaluated to something other than `true`.
+
+## Related
+
+- [custom](/vc-rs/reference/matchers/custom/)
+- [Templates](/vc-rs/reference/templates/)
+- [Merging and replace](/vc-rs/reference/matchers/merging/)
+- [All matchers](/vc-rs/reference/matchers//)

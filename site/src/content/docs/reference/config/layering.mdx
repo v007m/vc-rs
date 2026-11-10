@@ -1,0 +1,126 @@
+---
+title: "Layering and precedence"
+description: "The seven layers a config value can come from, which one wins, and which keys you can override from outside the file."
+sidebar: { order: 1 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A setting can be written in several places. The highest layer that sets it wins, and every value remembers the layer it came from.
+
+```console
+$ vc config explain defaults.timeout
+defaults.timeout = 30s  (vibranium.config.yaml)
+  over 30s  (built-in)
+```
+
+## Layers
+
+Lowest to highest:
+
+| # | Layer | Where | Sets |
+| --- | --- | --- | --- |
+| 1 | built-in | inside `vc` | defaults such as `timeout: 30s` |
+| 2 | [user config](/vc-rs/reference/config/user-config/) | `~/.config/vibranium/config.yaml` | `profile`, `defaults`, `reports`, `vars`, only where the project leaves them unset |
+| 3 | project | `vibranium.config.yaml` | everything |
+| 4 | [profiles](/vc-rs/reference/config/profiles/) | `profiles[].vars` | vars, in the order the profiles are given |
+| 5 | [`.env`](/vc-rs/reference/config/dotenv/) | `.env` at the project root | `VIB_*` lines |
+| 6 | [`VIB_*` variables](/vc-rs/reference/config/vib-variables/) | the process environment | the settable keys below |
+| 7 | `--set key=value` | the command line | the settable keys below |
+
+### Settable keys
+
+Layers 5 to 7 reach only these keys:
+
+| Key | `--set` example | Variable |
+| --- | --- | --- |
+| `profile` | `--set profile=staging` | `VIB_PROFILE` |
+| `defaults.concurrency` | `--set defaults.concurrency=4` | `VIB_DEFAULTS_CONCURRENCY` |
+| `defaults.perHost` | `--set defaults.perHost=2` | `VIB_DEFAULTS_PER_HOST` |
+| `defaults.timeout` | `--set defaults.timeout=5s` | `VIB_DEFAULTS_TIMEOUT` |
+| `reports.dir` | `--set reports.dir=out` | `VIB_REPORTS_DIR` |
+| `reports.formats` | `--set reports.formats=junit,html` | `VIB_REPORTS_FORMATS` |
+| `reports.html.layout` | `--set reports.html.layout=single` | — |
+| `vars.<name>` | `--set vars.userId=7` | `VIB_VAR_<name>` |
+
+Everything else (`history`, `redact`, `http`, `auth`, ...) is set only in `vibranium.config.yaml`.
+
+## Examples
+
+All seven layers at once. The project sets `region: local`, the `staging` profile sets `us`, `.env` holds `VIB_VAR_region=dotenv`:
+
+```console
+$ VIB_VAR_region=envvar vc config explain vars.region --profile staging --set vars.region=flag
+vars.region = flag  (--set)
+  over envvar  (VIB_VAR_region)
+  over dotenv  (.env)
+  over us  (profile staging)
+  over local  (vibranium.config.yaml)
+```
+
+Two profiles. The later one wins:
+
+```console
+$ vc config explain vars.region --profile staging,eu
+vars.region = eu  (profile eu)
+  over us  (profile staging)
+  over local  (vibranium.config.yaml)
+```
+
+A `--set` on a key that is not settable:
+
+```console
+$ vc run --set history.keep=3
+error: --set: `history.keep`: not a setting
+```
+
+A bad value is refused before anything runs (exit 2):
+
+```console
+$ vc run --set defaults.timeout=abc
+error: --set: `defaults.timeout`: `abc` is not a duration such as `250ms`, `2s` or `1m`
+$ VIB_DEFAULTS_TIMEOUT=abc vc run
+error: VIB_DEFAULTS_TIMEOUT: `defaults.timeout`: `abc` is not a duration such as `250ms`, `2s` or `1m`
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+
+vars:
+  region: local
+
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+    vars:
+      region: us
+  - id: eu
+    vars:
+      region: eu
+`} />
+
+## How it behaves
+
+- Each layer replaces a value whole. A var that holds a map is not merged with the layer below.
+- User config counts only where the project and its profiles leave the value unset.
+- `.env` is read from the project root even when `vc` runs from a subfolder.
+- `--set` and `VIB_*` values are checked like file values: a duration must have a unit, a count must be a whole number above 0.
+- `--profile` on the command line picks the profiles. `VIB_PROFILE` and `--set profile=...` do the same one layer lower.
+
+## Common errors
+
+- `error: no setting ...`: the key is not one `vc config explain` knows. The help line lists them.
+- `error: --set: ...: not a setting`: the key cannot be set from outside the file.
+- `error: VIB_PROFILE: no profile ...`: the named profile does not exist.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc config explain" href="/vc-rs/reference/config/config-explain/" />
+  <LinkCard title="VIB_* variables" href="/vc-rs/reference/config/vib-variables/" />
+  <LinkCard title="User config" href="/vc-rs/reference/config/user-config/" />
+  <LinkCard title=".env" href="/vc-rs/reference/config/dotenv/" />
+</CardGrid>

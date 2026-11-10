@@ -1,0 +1,125 @@
+---
+title: "Using auth"
+description: "Name an auth definition on an api file, api, test, step or action, turn it off with none, or pass vars for one use."
+sidebar: { order: 10 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`auth:` picks the credentials for a request. Write it on an api file, an api, a test, a step or an action; the closest one wins.
+
+```yaml
+auth: labBearer            # by ID
+auth: none                 # no auth
+auth:                      # by ID, with values
+  id: labLogin
+  vars:
+    user: bob
+```
+
+## Syntax
+
+| Form | Meaning |
+| --- | --- |
+| `auth: <id>` | Use the definition with that `id` |
+| `auth: none` | Send no auth, even if a wider level sets one |
+| `auth: {id, vars}` | Use the definition with these values over its own `vars` |
+
+| Written on | Applies to |
+| --- | --- |
+| an api file | every api in the file |
+| an api | that api |
+| a test | the test's own call and steps |
+| a step | that step |
+| an action | that action's call |
+
+## Examples
+
+Set auth once for a service:
+
+```yaml title="services/lab/lab.api.yaml (excerpt)"
+id: lab
+baseUrl: ${var.labUrl}
+auth: labBearer
+```
+
+Turn it off for one test, such as a check that anonymous calls are refused:
+
+```yaml
+tests:
+  - id: sendsNoAuth
+    call: lab#whoami
+    auth: none
+```
+
+The server received the request with no `Authorization` header.
+
+Act as another user. Each set of vars gets its own login:
+
+```yaml
+tests:
+  - id: logsInAsBob
+    call: lab#whoami
+    auth:
+      id: labLogin
+      vars:
+        user: bob
+```
+
+```console
+POST /login body={"password":"open-sesame","username":"bob"}
+```
+
+Test-level auth reaches the test's own call and steps, not its lifecycle actions. In this test, `before` uses the api's auth (here none), while the call uses `labBearer`:
+
+```yaml
+tests:
+  - id: repeats
+    auth: labBearer
+    before:
+      - call: lab#whoami
+        query:
+          from: before
+    call: lab#whoami
+    query:
+      from: call
+```
+
+```console
+GET /whoami?from=before
+GET /whoami?from=call   authorization: Bearer tok-static-9f2c
+```
+
+<Playground client:visible kind="test" code={`tests:
+  - id: sendsNoAuth
+    name: Anonymous calls are refused
+    call: lab#whoami
+    auth: none
+  - id: logsInAsBob
+    name: Bob sees his own items
+    call: lab#whoami
+    auth:
+      id: labLogin
+      vars:
+        user: bob
+`} />
+
+## How it behaves
+
+- Each api takes its auth from its own file, so one test can call several services and each request gets the right credentials.
+- The closest `auth:` wins: action or step, then test, then api, then api file.
+- `auth.vars` beat the definition's own `vars`.
+
+## Common errors
+
+- [V2002](/vc-rs/reference/diagnostics/v2002/): the auth ID does not exist. `vc check` prints `unknown auth` and lists the defined IDs.
+- [V5114](/vc-rs/reference/diagnostics/v5114/): credentials could not be obtained.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Authentication" href="/vc-rs/reference/auth/" />
+  <LinkCard title="flow" href="/vc-rs/reference/auth/flow/" />
+  <LinkCard title="before and after" href="/vc-rs/reference/lifecycle/before-after/" />
+</CardGrid>

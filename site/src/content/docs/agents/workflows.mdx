@@ -1,0 +1,501 @@
+---
+title: "Agent workflows"
+description: "Six end-to-end recipes for agents: tests from an OpenAPI spec, a test from a description, triage, sync, a load test and running only what changed."
+sidebar: { order: 5 }
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Each recipe gives a prompt you can hand to an agent, the tool calls or commands the agent makes, and the real output. All of them ran against the demo service (`vc demo start`, port 7531) in a project with this config:
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+project: people
+
+vars:
+  peopleUrl: http://localhost:7531
+
+profiles:
+  - id: local
+    default: true
+    agents:
+      run: true
+      call: [GET, POST]
+      writeDefinitions: true
+```
+
+The `agents` block lets an MCP agent run tests, send GET and POST, and write definition files without asking. See [Policy and approvals](/vc-rs/agents/policy-and-approvals/) to tighten it.
+
+The MCP server has no tool for import, sync or load. For those steps the agent runs `vc` in a shell, as you would.
+
+## 1. Tests for a new endpoint from an OpenAPI spec
+
+> **Prompt:** "Our people service has an OpenAPI spec at `specs/people.yaml`. Import it into Vibranium with starter tests, run them and fix any that fail."
+
+<Steps>
+1. Preview the import. Nothing is written:
+
+   ```console
+   $ vc import openapi specs/people.yaml --id people --tests --dry-run
+   Import 3 apis from specs/people.yaml
+   ```
+
+   A diff follows for each of three files: the api file, a test file with one test per operation, and a snapshot of the spec.
+
+2. Import it, check and run:
+
+   ```console
+   $ vc import openapi specs/people.yaml --id people --tests
+   ✓ imported specs/people.yaml
+   $ vc check
+   0 errors · 0 warnings · 3 files checked
+   $ vc run people.openapi
+   plan  3 tests in 1 file · profile local
+
+   ✓ people.openapi#createsPerson                                   41ms
+   ✓ people.openapi#listsPeople                                     41ms
+   ✕ people.openapi#getsPerson                                      42ms
+     error[V5101]: expect.status
+       --> services/people/openapi.test.yaml:20:15
+        |
+     20 |       status: 200
+        |               ^^^ expected [200], got 404
+
+   2 passed · 1 failed                                          47ms · profile local
+   ```
+
+   The import wrote `services/people/people.api.yaml`. It matched the spec's server to the `peopleUrl` var, so `baseUrl` is `${var.peopleUrl}`. Request bodies and path params get generated data:
+
+   ```yaml title="services/people/people.api.yaml (part)"
+   - id: getPerson
+     name: Get a person
+     path: /users/${var.id}
+     vars:
+       id: ${fake.lorem.word}
+     operationId: getPerson
+   ```
+
+3. Find out why `getsPerson` failed. Over MCP, the agent calls `explain_failure`:
+
+   ```json title="explain_failure for people.openapi#getsPerson (part)"
+   {
+     "definition": "people.openapi#getsPerson  Get a person returns 200\nprofile  local\ncall people#getPerson\n  GET http://localhost:7531/users/${fake.lorem.word}\n  vars\n    peopleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  ${fake.lorem.word}  (api people#getPerson)\n  expect\n    status: 200  (test people.openapi#getsPerson)\n",
+     "results": [
+       { "id": "people.openapi#getsPerson", "status": "failed", "message": "status: expected [200], got 404", "attempts": 1, "durationMs": 42.742834, "blockedBy": null, "skipReason": null }
+     ]
+   }
+   ```
+
+   The id is a random word, so the service has no such person. `call_api` on `people#listPeople` shows which ids exist:
+
+   ```json title="call_api for people#listPeople (part)"
+   { "exit": 0, "response": { "status": 200, "body": [ { "id": "1", "name": "Ada Lovelace" }, { "id": "2", "name": "Grace Hopper" } ] } }
+   ```
+
+4. Fix the test with `write_definition`, giving it a real id and a body check:
+
+   ```yaml title="services/people/openapi.test.yaml (part)"
+   - id: getsPerson
+     name: Get a person returns 200
+     call: people#getPerson
+     vars:
+       id: "1"
+     expect:
+       status: 200
+       body:
+         match:
+           name: Ada Lovelace
+   ```
+
+   ```json title="write_definition result"
+   { "titles": ["Write services/people/openapi.test.yaml"], "written": ["services/people/openapi.test.yaml"] }
+   ```
+
+5. Run again with `run_tests {"ids": ["people.openapi"]}`. All three pass:
+
+   ```json title="run_tests result (part)"
+   { "exit": 0, "notices": [], "run": 3, "tests": [
+     { "id": "people.openapi#createsPerson", "status": "passed", "message": null },
+     { "id": "people.openapi#getsPerson", "status": "passed", "message": null },
+     { "id": "people.openapi#listsPeople", "status": "passed", "message": null } ] }
+   ```
+</Steps>
+
+<Aside type="caution">
+Keep the source spec outside `openapi/`. `openapi/<id>.yaml` is where `vc import` writes its snapshot, and it replaces a file already there. Importing the same spec a second time fails with "`people` already has an api file", and its help points to `vc sync people`.
+</Aside>
+
+## 2. A test from a description: write, check, fix, run
+
+> **Prompt:** "Add a test that gets person 2 and checks the name is Grace Hopper."
+
+The agent writes the file, runs `vc check`, applies certain fixes, and runs the test.
+
+<Steps>
+1. The first draft has a typo in the api ID and a kebab-case test ID:
+
+   ```yaml title="services/people/lookup.test.yaml"
+   name: People lookup
+
+   tests:
+     - id: gets-grace
+       name: Gets Grace by id
+       call: people#getPersn
+       vars:
+         id: "2"
+       expect:
+         status: 200
+         body:
+           match:
+             name: Grace Hopper
+   ```
+
+2. Check it:
+
+   ```console
+   $ vc check
+   error[V2003]: unknown api "people#getPersn"
+    --> services/people/lookup.test.yaml:6:11
+     |
+   6 |     call: people#getPersn
+     |           ^^^^^^^^^^^^^^^ no api has this ID
+     = help: did you mean one of `people#getPerson`, `people#createPerson`?
+
+   1 error · 0 warnings · 4 files checked
+   ```
+
+   `vc check` exits 2 when there are errors. With `--json`, the same diagnostic has the path, line, column and `help` as fields (see [JSON output](/vc-rs/agents/json-and-events/#vc-check---json)). This one has no certain fix, so the agent takes the suggestion from `help` and edits the file.
+
+3. Check again. Now that the errors are gone, the convention lint runs:
+
+   ```console
+   $ vc check
+   warning[V4001]: test ID `gets-grace` is not camelCase
+    --> services/people/lookup.test.yaml:4:9
+     |
+   4 |   - id: gets-grace
+     |         ^^^^^^^^^^ rename it
+     = help: test IDs are camelCase: `getsGraceById`
+     = fix: Rename to getsGraceById (certain)
+
+   0 errors · 1 warning · 4 files checked
+   ```
+
+4. Apply the certain fix. `vc check --fix` shows the diff and asks before writing. It has no flag to skip the question, so a script pipes the answer in:
+
+   ```console
+   $ echo y | vc check --fix
+   --- a/services/people/lookup.test.yaml
+   +++ b/services/people/lookup.test.yaml
+   @@ -1,7 +1,7 @@
+    name: People lookup
+
+    tests:
+   -  - id: gets-grace
+   +  - id: getsGraceById
+        name: Gets Grace by id
+        call: people#getPerson
+        vars:
+   Apply 1 fix? [y/N] ✓ applied 1 fix
+   0 errors · 0 warnings · 4 files checked
+   ```
+
+   An agent working from `vc check --json` can apply the fix itself instead: each fix lists its `edits` as byte ranges and `newText`.
+
+   Read the diff before you answer `y`. When an unknown api ID is close to only one existing ID, `vc check` offers replacing it as a certain fix, even when that api is not the one you meant: `people#nah` gets "fix: Replace with people#echo (certain)".
+
+5. Run it:
+
+   ```console
+   $ vc run people.lookup
+   plan  1 test in 1 file · profile local
+
+   ✓ people.lookup#getsGraceById                                    11ms
+
+   1 passed                                                     12ms · profile local
+   ```
+</Steps>
+
+### The same loop over MCP
+
+`write_definition` compiles the project with the new text before it writes. A file that would add an error is not written, and the agent gets the diagnostic and its help:
+
+```json title="write_definition with call: people#listPeeple"
+{
+  "kind": "error",
+  "reason": "nothing was written: the change would add error[V2003] at services/people/listing.test.yaml:6: unknown api \"people#listPeeple\"",
+  "help": "did you mean `people#listPeople`?"
+}
+```
+
+The agent corrects the text and writes again, then calls `check` and `run_tests`:
+
+```json title="write_definition, then check"
+{ "titles": ["Create services/people/listing.test.yaml"], "written": ["services/people/listing.test.yaml"] }
+
+{ "diagnostics": { "diagnostics": [], "summary": { "errors": 0, "infos": 0, "warnings": 0 } },
+  "notices": [], "summary": { "checked": 5, "errors": 0, "warnings": 0 } }
+```
+
+<Aside type="caution">
+Pass the tests to run as `ids`: `run_tests {"ids": ["people.listing"]}`. The server ignores argument names it does not know, and `run_tests` with no selection runs every test in the project.
+</Aside>
+
+## 3. Triage a failing run
+
+> **Prompt:** "The last run failed. Find out why and fix it."
+
+<Steps>
+1. Find the failed run. `query_history {"limit": 2}` over MCP, or `vc history` in a shell:
+
+   ```console
+   $ vc history --limit 3
+       8  2026-11-10 17:48Z  failed     5 passed · 1 failed · 0 blocked · 0 skipped  profile local
+       7  2026-11-10 17:48Z  passed     1 passed · 0 failed · 0 blocked · 0 skipped  profile local  people.listing
+       6  2026-11-10 17:48Z  passed     1 passed · 0 failed · 0 blocked · 0 skipped  profile local  people.listing
+   ```
+
+2. See what failed, with the diff:
+
+   ```console
+   $ vc history show 8
+       8  2026-11-10 17:48Z  failed     5 passed · 1 failed · 0 blocked · 0 skipped  profile local
+     failed   people.diff#getsGraceExactly
+              equals: expected {"id":"2","name":"Grace Brewster Hopper"}, got {"id":"2","name":"Grace Hopper"}
+   --- expected
+   +++ actual
+   @@ -1,4 +1,4 @@
+    {
+      "id": "2",
+   -  "name": "Grace Brewster Hopper"
+   +  "name": "Grace Hopper"
+    }
+   \ No newline at end of file
+   ```
+
+   Over MCP, `explain_failure {"test": "people.diff#getsGraceExactly"}` returns the same message (diff included) together with how the test resolves:
+
+   ```json title="explain_failure (part)"
+   {
+     "definition": "people.diff#getsGraceExactly  Gets Grace exactly\nprofile  local\ncall people#getPerson\n  GET http://localhost:7531/users/2\n  vars\n    peopleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  2  (test)\n  expect\n    status: 200  (test people.diff#getsGraceExactly)\n    equals: equals  (test people.diff#getsGraceExactly)\n",
+     "results": [
+       {
+         "id": "people.diff#getsGraceExactly",
+         "status": "failed",
+         "message": "equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n",
+         "attempts": 1, "durationMs": 0.304542, "blockedBy": null, "skipReason": null
+       }
+     ]
+   }
+   ```
+
+3. Decide whether the test or the service is wrong. Calling the api shows the current response:
+
+   ```json title="call_api for people#getPerson with id 2 (part)"
+   { "exit": 0, "response": { "status": 200, "body": { "id": "2", "name": "Grace Hopper" } } }
+   ```
+
+   Here the test expected the wrong name, so the agent fixes the test.
+
+4. Rerun only that test:
+
+   ```console
+   $ vc run people.diff
+   plan  1 test in 1 file · profile local
+
+   ✓ people.diff#getsGraceExactly                                   33ms
+
+   1 passed                                                     38ms · profile local
+   ```
+</Steps>
+
+<Aside type="caution">
+Calls are stored in history as runs of kind `adhoc`. After `call_api` or `vc call`, `vc history show` (which shows `last`) and `vc run --failed` look at that call, not at the failed run: `vc run --failed` then says "run 9 had no failed or blocked test; nothing to run". Name the run (`vc history show 8`) or the tests (`vc run people.diff`) instead.
+</Aside>
+
+## 4. Keep apis in step with the spec: `vc sync`
+
+> **Prompt:** "The people spec changed. Bring our api file up to date without losing our edits."
+
+Since the import, the spec gained a `POST /echo` operation and a required `limit` query parameter on `GET /users`. Someone also added `expect: status: 200` to `listPeople` by hand.
+
+<Steps>
+1. Look for drift. `--check` writes nothing and exits 4 when a spec changed:
+
+   ```console
+   $ vc sync --check
+   fetched specs/people.yaml (4 operations)
+     + people#echo new operation POST /echo
+     ↑ people#listPeople query limit none → ${var.limit}
+   ```
+
+2. Preview the change:
+
+   ```console
+   $ vc sync people --dry-run
+   fetched specs/people.yaml (4 operations)
+     + people#echo new operation POST /echo
+     ↑ people#listPeople query limit none → ${var.limit}
+   --- a/services/people/people.api.yaml
+   +++ b/services/people/people.api.yaml
+   @@ -11,6 +11,10 @@
+        name: List people
+        path: /users
+        operationId: listPeople
+   +    query:
+   +      limit: ${var.limit}
+   +    vars:
+   +      limit: ${fake.number.int(1, 100)}
+      - id: createPerson
+        name: Create a person
+        method: POST
+   @@ -28,3 +32,8 @@
+        vars:
+          id: ${fake.lorem.word}
+        operationId: getPerson
+   +  - id: echo
+   +    name: Echo a body
+   +    method: POST
+   +    path: /echo
+   +    operationId: echo
+   ```
+
+   The dry run also prints the diff of the snapshot in `openapi/people.yaml`.
+
+3. Sync:
+
+   ```console
+   $ vc sync people
+   fetched specs/people.yaml (4 operations)
+     + people#echo new operation POST /echo
+     ↑ people#listPeople query limit none → ${var.limit}
+   ✓ synced · snapshot openapi/people.yaml updated
+   ```
+
+   The hand edit is kept beside the new fields:
+
+   ```yaml title="services/people/people.api.yaml (part)"
+   - id: listPeople
+     name: List people
+     path: /users
+     operationId: listPeople
+     expect:
+       status: 200
+     query:
+       limit: ${var.limit}
+     vars:
+       limit: ${fake.number.int(1, 100)}
+   ```
+
+4. Confirm: `vc sync --check` now prints only `fetched specs/people.yaml (4 operations)` and exits 0, and `vc run people.openapi` passes.
+</Steps>
+
+<Aside type="note">
+In this version, a new **optional** query parameter is not merged and not listed. Only required ones show up.
+</Aside>
+
+## 5. A load test with thresholds
+
+> **Prompt:** "Write a load test that browses people with 5 users and fails if p95 goes over 200 ms or anything errors."
+
+A load scenario reuses existing tests. The agent writes it and runs `vc load`:
+
+```yaml title="load/people/browse.load.yaml"
+name: People browse mix
+mix:
+  - test: people.openapi#listsPeople
+    weight: 3
+  - test: people.openapi#getsPerson
+    weight: 1
+stages:
+  - duration: 3s
+    users: 5
+  - duration: 2s
+    users: 0
+thresholds:
+  p95:
+    lt: 200ms
+  errorRate:
+    lt: 1%
+abortOn: [errorRate]
+```
+
+```console
+$ vc load people.browse
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  2 users  307 rps  p50 2 ms  p95 7 ms  p99 20 ms  0 errors
+    3s  3 users  456 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
+    4s  5 users  653 rps  p50 2 ms  p95 11 ms  p99 23 ms  0 errors
+    5s  3 users  691 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
+    5s  0 users  691 rps  p50 2 ms  p95 10 ms  p99 23 ms  0 errors
+people.browse finished after 5 s · 3465 iterations · 693.0 rps · 0 errors
+latency p50 2.6 ms · p95 10.9 ms · p99 23.8 ms · max 55.5 ms
+```
+
+To see a breach, the same scenario with `p95: { lt: 1ms }` exits 3:
+
+```console
+$ vc load people.browse
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  2 users  213 rps  p50 2 ms  p95 15 ms  p99 27 ms  0 errors  breaching: p95
+    3s  3 users  368 rps  p50 2 ms  p95 14 ms  p99 30 ms  0 errors  breaching: p95
+    4s  5 users  500 rps  p50 2 ms  p95 16 ms  p99 36 ms  0 errors  breaching: p95
+    5s  3 users  562 rps  p50 2 ms  p95 14 ms  p99 31 ms  0 errors  breaching: p95
+    5s  0 users  562 rps  p50 2 ms  p95 14 ms  p99 31 ms  0 errors
+people.browse finished after 5 s · 2825 iterations · 565.0 rps · 0 errors
+latency p50 2.8 ms · p95 15.0 ms · p99 31.9 ms · max 121.2 ms
+breached p95 at 14.967
+```
+
+An agent reads the result with `vc load people.browse --json`, which prints one object and no live lines. `exit` and `breaches` say what happened (full shape in [JSON output](/vc-rs/agents/json-and-events/#vc-load---json)):
+
+```json
+{ "exit": 3, "ending": "finished", "breaches": [ { "actual": 17.663, "metric": "p95", "test": null } ], "errors": 0, "p95Ms": 17.663 }
+```
+
+## 6. Run only what changed in a PR
+
+> **Prompt:** "Run just the tests affected by this branch."
+
+`--changed` works on `vc plan`, `vc run` and `vc list tests`. With no ref it takes the uncommitted and untracked changes; with a ref it takes the files changed since that ref.
+
+<Steps>
+1. With one uncommitted edit to `services/people/lookup.test.yaml`:
+
+   ```console
+   $ vc plan --changed
+   plan  1 test in 1 file · profile local
+   people.lookup
+     people.lookup#getsGraceById
+   ```
+
+2. On a branch whose commits also changed the api file, compare with `main`. Changing an api file selects every test that calls it:
+
+   ```console
+   $ vc run --changed main
+   plan  6 tests in 4 files · profile local
+
+   ✓ people.openapi#listsPeople                                     48ms
+   ✓ people.openapi#createsPerson                                   47ms
+   ✓ people.diff#getsGraceExactly                                   48ms
+   ✓ people.openapi#getsPerson                                      49ms
+   ✓ people.listing#listsAdaFirst                                   48ms
+   ✓ people.lookup#getsGraceById                                    48ms
+
+   6 passed                                                     51ms · profile local
+   ```
+
+3. In CI, check out enough history for the ref to exist (for GitHub Actions, `fetch-depth: 0`) and run:
+
+   ```console
+   vc run --changed origin/main
+   ```
+</Steps>
+
+`vc plan --changed main --json` gives the same selection as JSON, so an agent can read it before it runs anything.
+
+## Related
+
+- [MCP tools](/vc-rs/agents/mcp-tools/)
+- [JSON output and events](/vc-rs/agents/json-and-events/)
+- [Policy and approvals](/vc-rs/agents/policy-and-approvals/)

@@ -1,0 +1,124 @@
+---
+title: "Plugin permissions"
+description: "What a plugin may reach, what vc enforces (secrets, approval, unchanged files) and what is only declared and reviewed (network hosts and file paths)."
+sidebar: { order: 6 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A plugin's manifest says what it wants to reach. `vc plugin add` shows that to you, and `vibranium.lock` records what you approved. Some of it `vc` enforces; the rest is a declaration you review.
+
+```yaml title="vibranium-plugin.yaml"
+permissions:
+  network: [reports.acme.io]
+  secrets: [reportToken]
+  files: [reports/]
+```
+
+## Syntax
+
+| Field | Type | Default | Enforced by vc? | Notes |
+| --- | --- | --- | --- | --- |
+| `secrets` | list of secret names | `[]` | **Yes** | The only secrets the plugin can get with `secrets/get` |
+| `network` | list of hosts | `[]` | No, declared | Hosts the plugin says it calls. Shown at install and recorded in the lock |
+| `files` | list of project paths | `[]` | No, declared | Paths the plugin says it reads or writes. Shown at install and recorded in the lock |
+
+<Aside type="caution" title="Declared, not sandboxed">
+`vc` does not sandbox a plugin process. A plugin runs with your user's rights, so it can open any host or file the OS lets it. `network` and `files` tell reviewers what to expect; they do not stop anything. Only add plugins you trust, and review `vibranium.lock` changes like code.
+</Aside>
+
+## What vc does enforce
+
+- **Approval.** A run uses only plugins recorded in `vibranium.lock`. One the config names but the lock does not is "not approved".
+- **No more than approved.** A run refuses a plugin whose manifest asks for anything beyond its lock entry, in any of the three lists.
+- **Unchanged files.** For a `path:` plugin, a run refuses it (V5118) when its installed files no longer match the lock's `blake3-…` hash.
+- **Secrets.** `secrets/get` answers only for a secret the manifest declares, the lock grants and the run has. Anything else gets JSON-RPC error `-32001`.
+- **A small environment.** The process gets only `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `TEMP`, `TMP`, `SYSTEMROOT` and `USERPROFILE` (those that are set), plus `VIB_PLUGIN_DATA`. It never gets the run's secrets through the environment.
+
+## Examples
+
+**A secret that was declared and granted.** The sample reporter reads `reportToken` and is refused `apiKey`, which it never declared. Its report file shows both:
+
+```text title=".vibranium/reports/16/plugin/report.txt"
+status passed
+events 9
+reportToken 0 chars
+apiKey refused -32001
+```
+
+`reportToken` came back empty here because the run had no value for it. Set it and the plugin gets the value.
+
+**The manifest asks for more than the lock grants.** `vc plugin list` says so, and the run skips the report:
+
+```console
+$ vc plugin list
+summary  reporter 1.0.0  path:plugins/summary  asks for more: secret reportToken; `vc plugin add` it again  may reach: nothing
+
+$ vc run
+...
+warning: plugin `summary`: asks for more: secret reportToken; `vc plugin add` it again
+warning: plugin `summary`: asks for more: secret reportToken; `vc plugin add` it again; its report is not written
+```
+
+**What the process sees.** A reporter that lists its environment variables, run on macOS:
+
+```text
+HOME
+LANG
+PATH
+TMPDIR
+USER
+VIB_PLUGIN_DATA
+__CF_USER_TEXT_ENCODING
+```
+
+(`__CF_USER_TEXT_ENCODING` is added by macOS itself.)
+
+**Giving an auth plugin a secret on purpose.** A `${secret.x}` in an auth definition's `config` reaches the plugin whatever its lock grants. Writing it there is the grant.
+
+```yaml
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config:
+      tenant: eu
+      apiKey: ${secret.partnerKey}
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: stamp
+    source: path:plugins/stamp
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config:
+      tenant: eu
+      apiKey: \${secret.partnerKey}
+`} />
+
+## How it behaves
+
+- Each plugin gets its own data folder, `.vibranium/plugin-data/<id>/`, made before it starts. Its path is in `VIB_PLUGIN_DATA`. Write state, caches and logs there, never into the install folder.
+- Every secret is in the redactor's set from the start of the run, so it never appears in events, logs or history. Every value an auth plugin returns is treated as a secret too, and shows as `••••`.
+- A plugin's `config` in `plugins:` takes literal values only, so a plugin cannot get a secret through it.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5118](/vc-rs/reference/diagnostics/v5118/) | A plugin asked for a secret it was not granted, or its files changed since approval |
+
+## Related
+
+- [vibranium.lock](/vc-rs/reference/plugins/vibranium-lock/)
+- [vibranium-plugin.yaml](/vc-rs/reference/plugins/manifest/)
+- [Protocol](/vc-rs/reference/plugins/protocol/)

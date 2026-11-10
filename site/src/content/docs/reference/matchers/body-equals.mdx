@@ -1,0 +1,127 @@
+---
+title: "body.equals"
+description: "The body.equals check compares the whole response body."
+sidebar: { order: 4 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`body.equals` passes when the whole body deeply equals the value.
+
+```yaml
+expect:
+  body:
+    equals:
+      - {id: "1", name: Ada Lovelace}
+      - {id: "2", name: Grace Hopper}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `body.equals` | any value | — | no | The whole body, compared deeply. |
+
+## Examples
+
+The examples call `sample#listUsers` on the demo service, which answers `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Match the whole body
+
+Quote `"1"`: the demo returns IDs as strings.
+
+```yaml title="services/sample/bodyequals.test.yaml"
+tests:
+  - id: listsBothUsers
+    name: Lists exactly two users
+    call: sample#listUsers
+    expect:
+      body:
+        equals:
+          - {id: "1", name: Ada Lovelace}
+          - {id: "2", name: Grace Hopper}
+```
+
+```console
+$ vc run sample.bodyequals#listsBothUsers
+plan  1 test in 1 file · profile default
+
+✓ sample.bodyequals#listsBothUsers                                0ms
+
+1 passed                                                     68ms · profile default
+```
+
+### A failing check shows a diff
+
+
+
+```yaml title="services/sample/bodyequals.test.yaml"
+tests:
+  - id: failsOnName
+    name: Lists Grace Kelly
+    call: sample#listUsers
+    expect:
+      body:
+        equals:
+          - {id: "1", name: Ada Lovelace}
+          - {id: "2", name: Grace Kelly}
+```
+
+```console
+$ vc run sample.bodyequals#failsOnName
+plan  1 test in 1 file · profile default
+
+✕ sample.bodyequals#failsOnName                                   0ms
+  error[V5101]: expect.body.equals
+    --> services/sample/bodyequals.test.yaml:16:11
+     |
+  16 |           - {id: "1", name: Ada Lovelace}
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  17 |           - {id: "2", name: Grace Kelly}
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected [{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Kelly"}], got [{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]
+     = diff:
+       --- expected
+       +++ actual
+       @@ -5,6 +5,6 @@
+          },
+          {
+            "id": "2",
+       -    "name": "Grace Kelly"
+       +    "name": "Grace Hopper"
+          }
+        ]
+       \ No newline at end of file
+
+0 passed · 1 failed                                          21ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: listsBothUsers
+    name: Lists exactly two users
+    call: sample#listUsers
+    expect:
+      body:
+        equals:
+          - {id: "1", name: Ada Lovelace}
+          - {id: "2", name: Grace Hopper}
+`} />
+
+## How it behaves
+
+- The body must equal the value exactly: no extra keys, no missing keys, and lists in the same order.
+- The value is a literal. Matchers are not read inside it. To check a few fields and ignore the rest, use `body.match`.
+- Large bodies make brittle tests. Prefer [body.schema](/vc-rs/reference/matchers/body-schema/) for shape and `body.match` for the values you care about.
+
+## Common errors
+
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [Literal equality](/vc-rs/reference/matchers/literal/)
+- [body.schema](/vc-rs/reference/matchers/body-schema/)
+- [All matchers](/vc-rs/reference/matchers//)

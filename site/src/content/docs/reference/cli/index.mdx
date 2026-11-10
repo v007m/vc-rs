@@ -1,0 +1,209 @@
+---
+title: "CLI overview"
+description: "Every vc command grouped by job, plus the global flags, selectors, exit codes and environment variables they share."
+sidebar: { order: 0 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+`vc` is the Vibranium command-line tool. It is also installed as `vibranium`, and the two names behave the same way. Every command works on one project: the folder that holds `vibranium.config.yaml`, or the nearest folder above it that does.
+
+```console
+$ vc --help
+Usage: vc [OPTIONS] <COMMAND>
+$ vc -V
+vc 0.1.0
+```
+
+Run `vc <command> --help` for the flags of any command. The pages in this section list the same flags and show what each command prints.
+
+## Commands by job
+
+### Start a project
+
+| Command | What it does |
+| --- | --- |
+| [`vc init`](/vc-rs/reference/cli/init/) | Creates a project that runs green offline: config, sample apis and tests, folders |
+| [`vc demo`](/vc-rs/reference/cli/demo/) | Starts or stops the demo service the `vc init` sample calls |
+| [`vc migrate v1`](/vc-rs/reference/cli/migrate/) | Converts a Vibranium v1 project into v2 files |
+| [`vc schema export`](/vc-rs/reference/cli/schema/) | Writes the JSON Schemas that editors use for completion |
+| [`vc completion`](/vc-rs/reference/cli/completion/) | Prints shell completion for bash, zsh, fish or PowerShell |
+
+### Write apis and tests
+
+| Command | What it does |
+| --- | --- |
+| [`vc new`](/vc-rs/reference/cli/new/) | Adds an api, test or auth definition, or creates an empty definition file |
+| [`vc call`](/vc-rs/reference/cli/call/) | Sends one api and prints the response; can save it as a test |
+| [`vc import`](/vc-rs/reference/cli/import/) | Creates apis from an OpenAPI spec, a HAR recording, curl commands, a `.http` file or a Postman collection |
+| [`vc sync`](/vc-rs/reference/cli/sync/) | Merges spec changes into api files and keeps your edits |
+| [`vc rename`](/vc-rs/reference/cli/rename/) | Renames an ID and every reference to it |
+| [`vc fmt`](/vc-rs/reference/cli/fmt/) | Rewrites definition files in the house style |
+| [`vc skip`](/vc-rs/reference/cli/skip/) / [`vc unskip`](/vc-rs/reference/cli/unskip/) | Skips a test or file with a reason, or removes the skip |
+
+### Check and understand
+
+| Command | What it does |
+| --- | --- |
+| [`vc check`](/vc-rs/reference/cli/check/) | Compiles and links every file; prints errors and warnings, and can apply certain fixes |
+| [`vc plan`](/vc-rs/reference/cli/plan/) | Shows what a run would do, in order, without sending a request |
+| [`vc list`](/vc-rs/reference/cli/list/) | Lists tests, apis or definition files |
+| [`vc explain`](/vc-rs/reference/cli/explain/) | Explains a diagnostic code, or shows a test or api as the active profile resolves it |
+| [`vc config explain`](/vc-rs/reference/cli/config/) | Shows a config value and the layer that set it |
+
+### Run
+
+| Command | What it does |
+| --- | --- |
+| [`vc run`](/vc-rs/reference/cli/run/) | Runs the selected tests |
+| [`vc watch`](/vc-rs/reference/cli/watch/) | Runs the selected tests, then again whenever a file is saved |
+| [`vc load`](/vc-rs/reference/cli/load/) | Runs a load scenario with live metrics |
+
+### Look at results
+
+| Command | What it does |
+| --- | --- |
+| [`vc history`](/vc-rs/reference/cli/history/) | Lists stored runs, shows one, or drops the oldest |
+| [`vc report`](/vc-rs/reference/cli/report/) | Writes the report files of a stored run again |
+| [`vc cache`](/vc-rs/reference/cli/cache/) | Lists or clears the cross-run cache of `cache:` actions |
+
+### Interfaces, agents and plugins
+
+| Command | What it does |
+| --- | --- |
+| [`vc tui`](/vc-rs/reference/cli/tui/) | Opens the terminal UI |
+| [`vc ui`](/vc-rs/reference/cli/ui/) | Starts the local web UI, with MCP over HTTP at `/mcp` |
+| [`vc mcp`](/vc-rs/reference/cli/mcp/) | Starts the MCP server for AI agents over stdio |
+| [`vc approvals`](/vc-rs/reference/cli/approvals/) / [`vc approve`](/vc-rs/reference/cli/approve/) | Lists agent calls that wait for a person, and approves or denies one |
+| [`vc plugin`](/vc-rs/reference/cli/plugin/) | Adds, lists and removes plugins and their permissions |
+
+## Global flags
+
+These work with every command.
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `--project` | `<DIR>` | The project to work on: this folder or the nearest one above it with a `vibranium.config.yaml`. Relative paths and selectors then start at the project root |
+| `-h`, `--help` | | Prints help for the command |
+| `-V`, `--version` | | Prints the version (`vc 0.1.0`) |
+
+Without `--project`, `vc` starts from the current folder and walks up until it finds `vibranium.config.yaml`. Outside a project, commands that need one stop with exit code 2:
+
+```console
+$ vc mcp
+error: no vibranium.config.yaml in /tmp or any folder above it
+  = help: run it inside a project, pass `--project <dir>`, or create one with `vc init`
+```
+
+`vc init`, `vc migrate v1`, `vc explain <code>`, `vc schema export` and `vc completion` work outside a project.
+
+### Flags many commands share
+
+| Flag | Value | Used by | Description |
+| --- | --- | --- | --- |
+| `--profile` | `<IDS>` | run, watch, plan, explain, call, load, import, mcp, tui, ui, config explain | The active profiles, as a comma list or repeated; later ones win |
+| `--set` | `<KEY=VALUE>` | run, watch, plan, explain, call, load, mcp, ui, config explain | Sets one config value over every other layer |
+| `--json` | | check, plan, list, history, cache list, load, new auth | Prints JSON instead of text |
+
+`--set` accepts these keys: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats`, `reports.html.layout`, and `vars.<name>`. Anything else stops with exit code 2:
+
+```console
+$ vc run --set defaults.foo=1
+error: --set: `defaults.foo`: not a setting
+  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, reports.dir, reports.formats, reports.html.layout, vars.sampleUrl and vars.<name>
+```
+
+## Selectors
+
+`vc run`, `vc watch`, `vc plan` and `vc list` take the same selectors. Positional selectors add up (a test that matches any of them is picked). Flags narrow the result (a test must match every flag).
+
+| Selector | Example | Picks |
+| --- | --- | --- |
+| Test ID | `sample.extra#findsAda` | One test |
+| Test ID with `:n` | `sample.extra#rejectsBadEmail:2` | One instance: example row 2, or repeat 2 |
+| File ID | `sample.extra` | Every test in that file. A bare dotted word is always a file ID |
+| Glob over IDs | `'sample.*'`, `'sample.extra#r*'` | Every ID the glob matches. Quote it so the shell leaves it alone |
+| Path | `services/sample/extra.test.yaml`, `services/users` | The tests in a file, or in every test file under a folder |
+| `-t`, `--tag` | `-t smoke`, `-t '!slow'`, `-t 'smoke,slow'` | Tests with this tag expression. `!` excludes, `,` means or. Repeat `-t` to require every expression |
+| `-g`, `--grep` | `-g ada` | Tests whose full ID or name contains the text, ignoring case |
+| `--changed [<REF>]` | `--changed`, `--changed origin/master` | Tests in files changed since the git ref, or in uncommitted and untracked files when no ref is given |
+| `--failed` | `--failed` | The tests that failed or were blocked in the last run, under its profiles (`vc run` and `vc watch`) |
+| `--include-skipped` | | Also plans the tests marked `skip` |
+
+With no selector, every test in the project is picked.
+
+```console
+$ vc plan 'sample.extra#rejectsBadEmail:2'
+plan  1 test in 1 file · profile default
+sample.extra
+  sample.extra#rejectsBadEmail [row 2]
+$ vc list tests -t '!sample' -t extra
+sample.extra#echoesBody  Echoes the body back  [extra, smoke]
+sample.extra#rejectsBadEmail  Rejects a bad email  [extra]
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+```
+
+A selector that matches nothing stops `vc plan`, `vc run` and `vc list` with exit code 2:
+
+```console
+$ vc plan sample.nope
+error: no test or test file matches `sample.nope`
+```
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Everything passed. Skipped tests and flaky tests that passed on a retry count as passing |
+| `1` | A test failed or was blocked, or `vc call` got a response that broke the api's `expect` |
+| `2` | Nothing ran: the project has errors, a selector matched nothing, a flag or value is wrong, or a file or ID was not found |
+| `3` | `vc load` breached a threshold |
+| `4` | `vc sync --check` found drift or a conflict |
+| `70` | Internal error in `vc`. The message asks you to report it |
+| `130` | Cancelled with Ctrl-C |
+
+## Environment variables
+
+| Variable | Effect |
+| --- | --- |
+| `VIB_VAR_<name>` | Sets the var `<name>`, over the config and profiles. `VIB_VAR_sampleUrl=http://x:1` sets `vars.sampleUrl` |
+| `VIB_PROFILE` | The active profiles, like `--profile` |
+| `VIB_DEFAULTS_CONCURRENCY` | `defaults.concurrency` |
+| `VIB_DEFAULTS_PER_HOST` | `defaults.perHost` |
+| `VIB_DEFAULTS_TIMEOUT` | `defaults.timeout`, for example `9s` |
+| `VIB_REPORTS_DIR` | `reports.dir` |
+| `VIB_REPORTS_FORMATS` | `reports.formats`, for example `ctrf,junit` |
+| `VIB_CACHE_KEY` | The key for the cross-run cache, as 64 hex digits. Set it in CI, where there is no OS keychain |
+| `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` | Proxy settings for requests (lowercase names work too) |
+| `NO_COLOR` | Any non-empty value turns off colored output |
+| `XDG_CONFIG_HOME` | Where the user config lives: `$XDG_CONFIG_HOME/vibranium/config.yaml`, else `~/.config/vibranium/config.yaml` (`%APPDATA%\vibranium\config.yaml` on Windows) |
+
+Config values come from layers. From lowest to highest: built-in defaults, the user config, `vibranium.config.yaml`, the active profiles, `.env`, `VIB_*` variables, then `--set`. `vc config explain` shows which layer won:
+
+```console
+$ VIB_DEFAULTS_TIMEOUT=9s vc config explain defaults.timeout
+defaults.timeout = 9s  (VIB_DEFAULTS_TIMEOUT)
+  over 30s  (vibranium.config.yaml)
+  over 30s  (built-in)
+```
+
+A `VIB_*` variable can also go in `.env` at the project root. An unknown profile in `VIB_PROFILE` stops the command:
+
+```console
+$ VIB_PROFILE=nope vc plan
+error: VIB_PROFILE: no profile `nope`
+  = help: the profiles are default
+```
+
+<Aside type="tip">
+Secret values (`${secret.NAME}`) also come from the environment or `.env`. See [Secrets](/vc-rs/guides/secrets/).
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc run" href="/vc-rs/reference/cli/run/" description="Flags, output and reports." />
+  <LinkCard title="Running in CI" href="/vc-rs/guides/ci/" description="Exit codes, reports and caching in pipelines." />
+  <LinkCard title="Diagnostics" href="/vc-rs/reference/diagnostics/" description="Every V-code that vc check and vc run print." />
+  <LinkCard title="Errors and fixes" href="/vc-rs/guides/errors-and-fixes/" description="How to read an error and apply its fix." />
+</CardGrid>

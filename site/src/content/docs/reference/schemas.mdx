@@ -1,0 +1,123 @@
+---
+title: JSON Schemas
+description: "The hosted JSON Schemas for config, api, test and load files: their URLs, a catalog, editor setup and how agents validate YAML with them."
+---
+
+import { Tabs, TabItem, Aside, Steps } from '@astrojs/starlight/components';
+
+Every kind of Vibranium file has a JSON Schema (draft 2020-12). Editors use it for key completion, hover docs and error squiggles. Agents use it to validate YAML before they write a file. The schemas are published with these docs, so you can point at a URL instead of a local copy.
+
+## Schema URLs
+
+| Kind | Schema URL | Files it describes |
+| --- | --- | --- |
+| config | [`https://v007m.github.io/vc-rs/schema/config.schema.json`](/vc-rs/schema/config.schema.json) | `vibranium.config.yaml` |
+| api | [`https://v007m.github.io/vc-rs/schema/api.schema.json`](/vc-rs/schema/api.schema.json) | `*.api.yaml` |
+| test | [`https://v007m.github.io/vc-rs/schema/test.schema.json`](/vc-rs/schema/test.schema.json) | `*.test.yaml` |
+| load | [`https://v007m.github.io/vc-rs/schema/load.schema.json`](/vc-rs/schema/load.schema.json) | `*.load.yaml` |
+
+A catalog in the [SchemaStore](https://www.schemastore.org/) format lists all four with their file patterns:
+
+```text
+https://v007m.github.io/vc-rs/schema/index.json
+```
+
+The files come from the `schema/` folder at the root of the repository. The raw GitHub URLs, such as `https://raw.githubusercontent.com/v007m/vc-rs/master/schema/test.schema.json`, serve the same files and keep working.
+
+## The schema line in a file
+
+Put a `yaml-language-server` line at the top of a file and any editor that uses the YAML language server loads that schema for it. `vc init` and `vc new` write this line for you.
+
+```yaml title="vibranium.config.yaml"
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/config.schema.json
+```
+
+```yaml title="services/users/users.api.yaml"
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
+```
+
+```yaml title="services/users/crud.test.yaml"
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/test.schema.json
+```
+
+```yaml title="load/smoke.load.yaml"
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/load.schema.json
+```
+
+## Map the schemas by file pattern
+
+To cover every file without a schema line, map each URL to a glob in your editor settings.
+
+<Tabs>
+  <TabItem label="VS Code">
+    <Steps>
+    1. Install the **YAML** extension by Red Hat (`redhat.vscode-yaml`).
+
+    2. Add the mapping to `.vscode/settings.json` in your project:
+
+       ```json title=".vscode/settings.json"
+       {
+         "yaml.schemas": {
+           "https://v007m.github.io/vc-rs/schema/config.schema.json": "vibranium.config.yaml",
+           "https://v007m.github.io/vc-rs/schema/api.schema.json": "*.api.yaml",
+           "https://v007m.github.io/vc-rs/schema/test.schema.json": "*.test.yaml",
+           "https://v007m.github.io/vc-rs/schema/load.schema.json": "*.load.yaml"
+         }
+       }
+       ```
+    </Steps>
+  </TabItem>
+  <TabItem label="JetBrains">
+    <Steps>
+    1. Open **Settings → Languages & Frameworks → Schemas and DTDs → JSON Schema Mappings**.
+
+    2. Click **+** once per kind. Paste the URL into **Schema file or URL** and add a **File path pattern**:
+
+       | Schema file or URL | File path pattern |
+       | --- | --- |
+       | `https://v007m.github.io/vc-rs/schema/config.schema.json` | `vibranium.config.yaml` |
+       | `https://v007m.github.io/vc-rs/schema/api.schema.json` | `*.api.yaml` |
+       | `https://v007m.github.io/vc-rs/schema/test.schema.json` | `*.test.yaml` |
+       | `https://v007m.github.io/vc-rs/schema/load.schema.json` | `*.load.yaml` |
+
+    3. Leave **JSON Schema version** on automatic and apply.
+    </Steps>
+  </TabItem>
+</Tabs>
+
+[Editor setup](/vc-rs/start/editor-setup/) covers Neovim and offline setups that use local copies.
+
+## For agents
+
+An agent that writes Vibranium YAML can catch most mistakes before it saves a file:
+
+1. Fetch the schema for the kind of file it is writing, such as `https://v007m.github.io/vc-rs/schema/test.schema.json`, or read the [catalog](/vc-rs/schema/index.json) to pick a schema by file name.
+2. Parse the YAML and validate it with any draft 2020-12 validator. Fix every error before writing the file.
+3. Run `vc check` on the project. The schema checks keys, types and allowed values in one file. `vc check` also resolves references across files, such as `users#create` and `${var.userId}`, checks that IDs match paths and parses durations.
+
+Without network access, `vc schema export` prints the same four schemas as one JSON object keyed by kind (`api`, `config`, `load`, `test`), for the version of `vc` that is installed:
+
+```console
+$ vc schema export | jq 'keys'
+[
+  "api",
+  "config",
+  "load",
+  "test"
+]
+```
+
+The [llms.txt](/vc-rs/llms.txt) file lists these URLs too.
+
+## Regenerate the files
+
+The schemas are generated from the engine. After a change to the file formats, regenerate the `schema/` folder at the repository root and commit it:
+
+```console
+$ vc schema export --out schema
+wrote 4 schemas to schema
+```
+
+<Aside>
+The [playground](/vc-rs/playground/) validates against the same files in your browser.
+</Aside>

@@ -1,0 +1,152 @@
+---
+title: "var"
+description: "Read a var with ${var.name}, from call values, saved values, file vars, api defaults or the config."
+sidebar: { order: 1 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`${var.name}` reads a var. Vars are the inputs of every call, and the closest level that sets one wins.
+
+```yaml
+    path: /users/${var.userId}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `var.<name>` | any value | — | yes | The var's value with its own type. |
+| `var.<name>.<path>` | any value | — | no | Reads inside an object or list var. See [Paths](/vc-rs/reference/templates/paths/). |
+
+Where a var can be set, from closest to furthest:
+
+1. `vars` on the call itself: a test, a step or an action.
+2. Values saved earlier in the same test (by `beforeEach`, `before` and earlier steps). The latest wins.
+3. Values saved by the file's `beforeAll`, under the action's `id`.
+4. The test file's `vars`.
+5. Values saved by `beforeRun`, under the action's `id`.
+6. The api's own `vars` (its defaults).
+7. The api file's `vars`.
+8. The config's `vars`, after the active profiles.
+
+## Examples
+
+A config var used as an api file's base URL:
+
+```yaml title="vibranium.config.yaml"
+vars:
+  sampleUrl: http://localhost:7463
+```
+
+```yaml title="services/sample/sample.api.yaml"
+baseUrl: ${var.sampleUrl}
+```
+
+An api default that any caller can override:
+
+```yaml title="services/sample/sample.api.yaml"
+  - id: echo
+    method: POST
+    path: /echo
+    vars:
+      payload: {}
+    body: ${var.payload}
+```
+
+```yaml title="services/tpl/echo.test.yaml"
+tests:
+  - id: sendsAPayload
+    call: sample#echo
+    vars:
+      payload:
+        orderId: o-1
+```
+
+A value saved by one call and read by the next:
+
+```yaml
+tests:
+  - id: getsCreatedUser
+    before:
+      - call: sample#createUser   # its api saves userId
+    call: sample#getUser          # path: /users/${var.userId}
+```
+
+A var that builds on the level below it. A var defined from itself reads the next level out. With `greeting: hello` in the file's `vars`, this test sent `"greeting": "hello there"`:
+
+```yaml
+vars:
+  greeting: hello
+tests:
+  - id: readsVars
+    call: sample#echo
+    vars:
+      greeting: ${var.greeting} there
+      payload:
+        greeting: ${var.greeting}
+```
+
+Reading inside an object var:
+
+```yaml
+vars:
+  order:
+    id: 7
+    items: [apple, banana, cherry]
+```
+
+`${var.order.id}` gives `7`, `${var.order.items[0]}` gives `"apple"` and `${var.order.items[-1]}` gives `"cherry"`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`vars:
+  greeting: hello
+tests:
+  - id: readsVars
+    call: sample#echo
+    vars:
+      greeting: \${var.greeting} there
+      payload:
+        greeting: \${var.greeting}
+`} />
+
+## How it behaves
+
+- `vc check` knows every level, so a var that no level sets for the active profile is an error before the run.
+- A path inside a var that is missing at run time fails the action with V5111 and shows the value it found. Add [`default`](/vc-rs/reference/pipes/default/) to make the field optional.
+- `--set vars.<name>=value` and `VIB_VAR_<name>` set the config's var (level 8), so a closer level still wins.
+- Vars saved inside a `forEach` or `repeat` become lists, one entry per iteration.
+
+## Common errors
+
+`${var.nope}` with no level setting it:
+
+```console
+error[V2101]: ${var.nope} is used but never set
+ --> services/sample/probe.test.yaml:5:10
+  |
+5 |       x: ${var.nope | upper}
+  |          ^^^^^^^^^^^^^^^^^^^ no level sets nope for profile default
+  = help: set it in this test's vars, in the file's vars, or in the config's vars
+```
+
+A missing field inside a var, at run time:
+
+```console
+✕ tpl.errs#missingNoDefault                                       0ms
+  error[V5111]: `var.order.note` is missing: `var.order` is {"id":7}
+```
+
+- [V2101](/vc-rs/reference/diagnostics/v2101/): the var is never set.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): a path inside it is missing at run time.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Paths" href="/vc-rs/reference/templates/paths/" />
+  <LinkCard title="default pipe" href="/vc-rs/reference/pipes/default/" />
+  <LinkCard title="Step ids" href="/vc-rs/reference/templates/step-ids/" />
+  <LinkCard title="Types" href="/vc-rs/reference/templates/types/" />
+</CardGrid>

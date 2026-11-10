@@ -1,0 +1,81 @@
+---
+title: "fake"
+description: "Generate realistic test data with ${fake.module.name}, repeatable with --seed."
+sidebar: { order: 10 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`${fake.…}` generates realistic data, using Faker's names. The full list of generators and their arguments is on the [Data](/vc-rs/reference/data/) pages.
+
+```yaml
+    vars:
+      email: ${fake.internet.email}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `fake.<module>.<name>` | text or number | — | yes | Such as `person.fullName`, `string.uuid`, `number.int(1, 100)`. |
+| `fake.<generatorId>` | text or number | — | no | A named generator from the config's `generators`. |
+
+Arguments are literals: numbers, `true`, `false` and single-quoted text.
+
+## Examples
+
+With `vc run --seed 42`, `${fake.person.firstName}` gave `"Naomie"`, and gives it again on every run with that seed.
+
+Put a fake in `vars` once, and every read of the var gets the same value within the test instance:
+
+```yaml
+    vars:
+      email: ${fake.internet.email}
+    body:
+      email: ${var.email}
+    expect:
+      body:
+        match:
+          email: ${var.email}
+```
+
+A pipe after a generator: `${fake.person.firstName | upper}`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: createsARandomUser
+    call: sample#createUser
+    vars:
+      name: \${fake.person.fullName}
+      email: \${fake.internet.email}
+`} />
+
+## How it behaves
+
+- A fake in `vars` is drawn once per test instance (or loop iteration). A fake written inline in a field is drawn every time that field is rendered.
+- The run's seed is printed at the end of every run. Pass it back with `--seed` to get the same data.
+- `fake` is not available in `$cel`. Set a var from the template and read the var.
+
+## Common errors
+
+```console
+error[V2002]: `fake.person.fullname` is not a generator
+ --> services/tpl/sec.test.yaml:9:16
+  |
+9 |       payload: ${fake.person.fullname}
+  |                ^^^^^^^^^^^^^^^^^^^^^^^ no generator has this name
+  = note: the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`
+```
+
+- [V2002](/vc-rs/reference/diagnostics/v2002/): not a generator.
+- [V2302](/vc-rs/reference/diagnostics/v2302/): wrong arguments.
+- [V2305](/vc-rs/reference/diagnostics/v2305/): `null` or double-quoted text as an argument.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Generators" href="/vc-rs/reference/data/" />
+  <LinkCard title="dataset" href="/vc-rs/reference/templates/dataset/" />
+</CardGrid>

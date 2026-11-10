@@ -1,0 +1,191 @@
+---
+title: "eq"
+description: "The eq matcher passes when a value equals its argument, compared deeply."
+sidebar: { order: 11 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`eq` passes when the value at the path equals the argument. Objects and lists are compared deeply.
+
+```yaml
+expect:
+  body:
+    match:
+      body.status: {eq: active}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `eq` | any value | — | yes | Compared deeply. Numbers compare by value, so `3` equals `3.0`. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Compare a string
+
+The simplest use. A bare value does the same thing; see [literal equality](/vc-rs/reference/matchers/literal/).
+
+```yaml title="services/sample/eq.test.yaml"
+tests:
+  - id: matchesStatus
+    name: Order is active
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {eq: active}
+```
+
+```console
+$ vc run sample.eq#matchesStatus
+plan  1 test in 1 file · profile default
+
+✓ sample.eq#matchesStatus                                         0ms
+
+1 passed                                                     39ms · profile default
+```
+
+### Compare null and numbers
+
+`eq: null` matches a field that is present and null. `42.50` and `42.5` are the same number.
+
+```yaml title="services/sample/eq.test.yaml"
+tests:
+  - id: matchesNullNote
+    name: Note is null
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.note: {eq: null}
+          body.total: {eq: 42.50}
+```
+
+```console
+$ vc run sample.eq#matchesNullNote
+plan  1 test in 1 file · profile default
+
+✓ sample.eq#matchesNullNote                                       0ms
+
+1 passed                                                     14ms · profile default
+```
+
+### Compare an object
+
+Objects are equal when they have the same keys and values. Key order does not matter.
+
+```yaml title="services/sample/eq.test.yaml"
+tests:
+  - id: matchesFirstItem
+    name: First item is A1
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[0]: {eq: {price: 10, sku: A1}}
+```
+
+```console
+$ vc run sample.eq#matchesFirstItem
+plan  1 test in 1 file · profile default
+
+✓ sample.eq#matchesFirstItem                                      5ms
+
+1 passed                                                     6ms · profile default
+```
+
+### A failing check
+
+When the values differ, the report shows both.
+
+```yaml title="services/sample/eq.test.yaml"
+tests:
+  - id: failsOnQty
+    name: Quantity is 4
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.qty: {eq: 4}
+```
+
+```console
+$ vc run sample.eq#failsOnQty
+plan  1 test in 1 file · profile default
+
+✕ sample.eq#failsOnQty                                            0ms
+  error[V5101]: expect.body.match.body.qty
+    --> services/sample/eq.test.yaml:30:21
+     |
+  30 |           body.qty: {eq: 4}
+     |                     ^^^^^^^ expected {"eq":4}, got 3
+
+0 passed · 1 failed                                          59ms · profile default
+```
+
+### A missing path is not null
+
+A path that is not in the body has no value at all, so `eq: null` fails. Use [exists](/vc-rs/reference/matchers/exists/) to check for absence.
+
+```yaml title="services/sample/eq.test.yaml"
+tests:
+  - id: failsOnMissing
+    name: deletedAt is null
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.deletedAt: {eq: null}
+```
+
+```console
+$ vc run sample.eq#failsOnMissing
+plan  1 test in 1 file · profile default
+
+✕ sample.eq#failsOnMissing                                        0ms
+  error[V5101]: expect.body.match.body.deletedAt
+    --> services/sample/eq.test.yaml:37:27
+     |
+  37 |           body.deletedAt: {eq: null}
+     |                           ^^^^^^^^^^ expected {"eq":null}, got nothing
+
+0 passed · 1 failed                                          100ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: matchesStatus
+    name: Order is active
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {eq: active}
+`} />
+
+## How it behaves
+
+- Equality is deep: every key and every list element must match. List order matters; object key order does not.
+- Numbers compare as numbers, so `3` and `3.0` are equal. A string `"3"` is not equal to the number `3`.
+- A missing path fails, even against `null`. The report says `got nothing`.
+- Writing the value on its own, `body.status: active`, is the same check. Use `eq` when you combine it with other matchers in one map.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [ne](/vc-rs/reference/matchers/ne/)
+- [in](/vc-rs/reference/matchers/in/)
+- [Literal equality](/vc-rs/reference/matchers/literal/)
+- [body.equals](/vc-rs/reference/matchers/body-equals/)
+- [All matchers](/vc-rs/reference/matchers//)

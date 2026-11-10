@@ -1,0 +1,75 @@
+---
+title: "V2105 — Template or CEL root not available at that spot"
+description: "A template root is used where it does not exist yet: response and request only once a call has been made, and an action or step ID only after that action has run, in the same test or block."
+sidebar:
+  label: "V2105 Template or CEL root not available at that spot"
+  order: 2105
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2105` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A template root is used where it does not exist yet: `response` and `request` only once a call has been made, and an
+action or step ID only after that action has run, in the same test or block. Move the use later, or the action earlier.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: readsTwice
+    steps:
+      - call: users#getUser
+        vars:
+          id: ${fetch.body.id}
+      - id: fetch
+        call: users#getUser
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: readsTwice
+    steps:
+      - id: fetch
+        call: users#getUser
+      - call: users#getUser
+        vars:
+          id: ${fetch.body.id}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2105
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

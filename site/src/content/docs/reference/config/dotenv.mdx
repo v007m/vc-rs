@@ -1,0 +1,104 @@
+---
+title: ".env"
+description: "The .env file at the project root holds VIB_* settings, secret values and env values the shell does not set."
+sidebar: { order: 4 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`.env` at the project root is a list of `NAME=value` lines. `vc` reads it on every command, even from a subfolder.
+
+```ini title=".env"
+VIB_VAR_region=dotenv
+API_TOKEN=s3cr3t-value-42
+```
+
+## Syntax
+
+| Line | Example | Notes |
+| --- | --- | --- |
+| `NAME=value` | `API_TOKEN=s3cr3t-value-42` | One variable. |
+| `export NAME=value` | `export API_TOKEN=abc` | `export ` is allowed and ignored. |
+| `# comment` | `# local only` | Skipped. |
+| blank | | Skipped. |
+
+## What it feeds
+
+| Kind of line | Used as | Example |
+| --- | --- | --- |
+| `VIB_*` | a config setting, one layer below the real environment | `VIB_VAR_region=dotenv` |
+| a name declared in `.env.schema` | a `${secret.NAME}` value | `API_TOKEN=...` |
+| any other name | a `${env.NAME}` value | `BUILD=local` |
+
+The process environment always wins. `.env` fills only names the shell does not set.
+
+## Examples
+
+A var from `.env`:
+
+```console
+$ vc config explain vars.region
+vars.region = dotenv  (.env)
+  over local  (vibranium.config.yaml)
+```
+
+The shell beats `.env`:
+
+```console
+$ VIB_VAR_region=envvar vc config explain vars.region
+vars.region = envvar  (VIB_VAR_region)
+  over dotenv  (.env)
+  over local  (vibranium.config.yaml)
+```
+
+A secret. `.env.schema` declares `API_TOKEN=`, `.env` holds the value, and an api sends it as `x-token: ${secret.API_TOKEN}`. The server got `s3cr3t-value-42`; every output shows it masked:
+
+```console
+$ vc call slow#hdr
+200 OK · 2 ms · api expect passed
+{
+  "headers": {
+    "x-token": "••••",
+    ...
+```
+
+With `API_TOKEN=from-shell-env` in the shell, the server got the shell's value instead.
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+
+secrets:
+  provider: env
+  schema: .env.schema
+
+vars:
+  region: local
+
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- It is read from the project root, the folder that holds `vibranium.config.yaml`.
+- A `.env` that is a symbolic link is refused: "it is a link, which is not followed".
+- `VIB_*` lines sit one layer below the same `VIB_*` variable in the shell. See [Layering and precedence](/vc-rs/reference/config/layering/).
+- `command:` actions get `.env` lines the process does not set in their environment.
+
+<Aside type="caution">`vc init` adds `.vibranium/` to `.gitignore`, but not `.env`. Add `.env` yourself before you put real secrets in it.</Aside>
+
+## Common errors
+
+- [V5111](/vc-rs/reference/diagnostics/v5111/): a declared secret has no value in the shell or `.env`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title=".env.schema" href="/vc-rs/reference/config/env-schema/" />
+  <LinkCard title="VIB_* variables" href="/vc-rs/reference/config/vib-variables/" />
+  <LinkCard title="env template" href="/vc-rs/reference/templates/env/" />
+  <LinkCard title="secret template" href="/vc-rs/reference/templates/secret/" />
+</CardGrid>

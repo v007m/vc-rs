@@ -1,0 +1,166 @@
+---
+title: expect.cel
+description: Named CEL expressions that must be true. Use them for checks that compare values with each other or loop over a list.
+sidebar: { order: 406, badge: { text: 'expect', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`expect.cel` holds named expressions in CEL (Common Expression Language). Each one must evaluate to `true`.
+
+```yaml
+expect:
+  cel:
+    all users have ids: response.body.all(u, has(u.id))
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `cel.<label>` | CEL expression | none | no | The label is free text and appears in the report. The expression must return `true`. |
+
+CEL reads like a one-line JavaScript expression. It has no loops, network or file access, so it always finishes. `vc check` parses every expression and checks the roots it reads before anything runs.
+
+### Roots
+
+| Root | Holds |
+| --- | --- |
+| `response` | `status`, `headers`, `body`, `timing` (milliseconds) |
+| `request` | the request that was sent: `headers`, `body` and so on |
+| `var` | the vars in scope, with their types |
+| `env` | environment variables |
+| `item`, `iteration` | the current `forEach` item and `repeat` index |
+| `example` | the current `examples` row |
+| a step `id` | the response of an earlier step, such as `created.body.id` |
+
+`secret`, `fake`, `dataset` and `run` are not available in CEL. Set a var from a template and read it as `var.<name>`.
+
+### Useful functions
+
+`size(x)`, `has(x.field)`, `x.all(i, …)`, `x.exists(i, …)`, `x.map(i, …)`, `x.filter(i, …)`, `matches(s, regex)`, `int(s)`, `timestamp(…)`, `duration(…)`. `vc` adds `x.sum()`.
+
+## Examples
+
+**Every item of a list.**
+
+```yaml
+- id: macros
+  call: users#list
+  expect:
+    cel:
+      all have ids: response.body.all(u, has(u.id))
+      has Grace: response.body.exists(u, u.name == 'Grace Hopper')
+      two names: response.body.map(u, u.name).size() == 2
+      ada first: matches(response.body[0].name, '^Ada')
+```
+
+**Compare with a var.** Vars keep their type, so a number var compares as a number.
+
+```yaml
+- id: setVar
+  call: echo#json
+  vars:
+    limit: 3
+  expect:
+    cel:
+      under the limit: size(response.body.body.tags) < var.limit
+      sent json: request.headers['content-type'] == 'application/json'
+      fast: response.timing.total < 1000.0
+```
+
+**Compare with an earlier step.** A step's `id` is a root that holds its response.
+
+```yaml
+- id: acrossSteps
+  steps:
+    - id: created
+      call: users#create
+      vars:
+        email: ada@example.com
+    - call: users#get
+      vars:
+        userId: ${created.body.id}
+      expect:
+        cel:
+          same user: response.body.id == created.body.id
+```
+
+**A header as a number.** Header values are text. Convert them in CEL.
+
+```yaml
+expect:
+  cel:
+    sizable: int(response.headers['content-length']) > 10
+```
+
+**What a failure looks like.** A false expression is [V5102](/vc-rs/reference/diagnostics/v5102/):
+
+```console
+✕ lab.fails#badCel                                                5ms
+  error[V5102]: expect.cel.name is Grace
+    --> services/lab/fails.test.yaml:52:24
+     |
+  52 |         name is Grace: response.body.body.name == 'Grace'
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected true, got false
+```
+
+Reading a field that is not in the response is also a failure, with the reason:
+
+```console
+✕ errs.cel#missingKey                                             4ms
+  error[V5102]: expect.cel.missing key
+    --> services/errs/cel.test.yaml:15:22
+     |
+  15 |         missing key: response.body.nope == 1
+     |                      ^^^^^^^^^^^^^^^^^^^^^^^ No such key: nope
+```
+
+Guard optional fields with `has()`. Quote an expression that starts with `!`, because YAML reads a leading `!` as a tag:
+
+```yaml
+expect:
+  cel:
+    nope is 1 when present: "!has(response.body.nope) || response.body.nope == 1"
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: listsUsers
+    call: users#list
+    expect:
+      cel:
+        two users: size(response.body) == 2
+        all have names: response.body.all(u, size(u.name) > 0)
+`} />
+
+## How it behaves
+
+- **Merging.** CEL checks are only added, never replaced. A test's check with the same label as the api's does not replace it: both run. Only `replace: true` removes inherited CEL checks.
+- **Order.** Every CEL check runs, even after another check fails.
+- **Templates.** Expressions do not use `${…}`. Read values through the roots instead: `var.userId`, not `${var.userId}`.
+- **Numbers.** `response.timing.total` is a double, so compare it with `1000.0`.
+- **The same language computes values.** `$cel` in a template uses the same roots. See [Templates](/vc-rs/reference/templates/).
+
+<Aside type="note">
+`vc explain` lists CEL checks as `cel <label>: equals`. The check passes when the expression is `true`.
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2305](/vc-rs/reference/diagnostics/v2305/) | The expression does not parse, such as `response.status ==`. |
+| [V2105](/vc-rs/reference/diagnostics/v2105/) | A root that does not exist, such as `body` (fix: `response.body`), or one not available in CEL, such as `secret`. |
+| [V2101](/vc-rs/reference/diagnostics/v2101/) | `var.<name>` is never set at any level. |
+| [V2306](/vc-rs/reference/diagnostics/v2306/) | A literal regex in `matches()` does not compile. |
+| [V5102](/vc-rs/reference/diagnostics/v5102/) | The expression was false, or failed at run time. |
+
+## Related
+
+- [expect](/vc-rs/reference/syntax/expect/)
+- [custom](/vc-rs/reference/syntax/custom/) for checks longer than a line
+- [Templates](/vc-rs/reference/templates/)
+- [steps](/vc-rs/reference/syntax/steps/)

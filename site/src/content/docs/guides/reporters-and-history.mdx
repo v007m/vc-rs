@@ -1,0 +1,166 @@
+---
+title: "Reporters and history"
+description: "What vc prints while it runs, the report files it writes, and how to find and report on past runs."
+sidebar: { order: 2 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Every `vc run` produces three kinds of output:
+
+- **Console output** while it runs, from a console reporter.
+- **Report files** when it ends: CTRF, JUnit and HTML.
+- **A history entry** in `.vibranium/history.db`, so you can look at the run later and write its reports again.
+
+## Console reporters
+
+`--reporter` picks what `vc run` prints on stdout.
+
+**`spec`** (the default) prints the plan, one line per test as it finishes, and a summary. A failure points at the line in your YAML that set the check:
+
+```console
+$ vc run sample.extra
+plan  3 tests in 1 file · profile default
+✓ sample.extra#echoesBody                                         0ms
+✕ sample.extra#findsAda                                           0ms
+  error[V5101]: expect.body.match.[0].name
+    --> services/sample/extra.test.yaml:35:23
+     |
+  35 |           "[0].name": Grace Hopper
+     |                       ^^^^^^^^^^^^ expected "Grace Hopper", got "Ada Lovelace"
+✓ sample.extra#rejectsBadEmail [row 1]                            4ms
+✓ sample.extra#rejectsBadEmail [row 2]                            5ms
+3 passed · 1 failed                                          12ms · profile default
+reports  /home/ada/shop/.vibranium/reports/35/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
+```
+
+Colors are on in a terminal and off in a pipe or when `NO_COLOR` is set.
+
+**`json`** prints one JSON event per line (NDJSON) for every test, request and check, for scripts and agents. Hints such as the seed line go to stderr, so stdout stays parseable:
+
+```console
+$ vc run sample.extra#echoesBody --reporter json | jq -c 'select(.event=="testFinished") | {test, status, durationMs}'
+{"test":"sample.extra#echoesBody","status":"passed","durationMs":22}
+```
+
+The [`vc run` JSON output](/vc-rs/reference/cli/run/#json-output) section lists every event and field.
+
+## Report files
+
+At the end of each run, `vc` writes the formats in [`reports.formats`](/vc-rs/reference/config/reports/) (default: CTRF only) to `.vibranium/reports/<run number>/`. Override them for one run with `--report` and `--out`:
+
+```console
+$ vc run --report junit,ctrf,html --out build/reports
+...
+reports  /home/ada/shop/build/reports/{junit.xml,ctrf.json,index.html}
+```
+
+| Format | File | Use it for |
+| --- | --- | --- |
+| `junit` | `junit.xml` | CI test tabs. One `<testsuite>` per file, one `<testcase>` per instance with its file and line |
+| `ctrf` | `ctrf.json` | Tools that read [CTRF](https://ctrf.io), and your own scripts |
+| `html` | `index.html` and `data/` | Reading a run in a browser |
+
+### JUnit
+
+A failure keeps the short message as the `message` attribute, the diagnostic code as `type`, and the full diagnostic as the text. A skip keeps its reason:
+
+```xml title="junit.xml"
+<testcase name="users.openapi#getsUser" classname="users.openapi" time="0.007" file="services/users/openapi.test.yaml" line="23">
+  <failure message="status: expected [200], got 404" type="V5101">  error[V5101]: expect.status
+    --&gt; services/users/openapi.test.yaml:27:15
+  ...
+</testcase>
+<testcase name="sample.extra#findsAda" classname="sample.extra" time="0.000" file="services/sample/extra.test.yaml" line="27">
+  <skipped message="demo data changed"/>
+</testcase>
+```
+
+### CTRF
+
+Each test has the standard CTRF fields (`name`, `status`, `duration`, `message`, `filePath`, `line`, `tags`, `retries`, `flaky`). Everything else is under `extra`: each step with its checks (expected, actual, where it was set), the lifecycle actions, the cleanups, and the run's totals and profiles.
+
+```json title="ctrf.json (one test, shortened)"
+{
+  "name": "users.openapi#deletesUser",
+  "status": "failed",
+  "message": "status: expected [204], got 405",
+  "filePath": "services/users/openapi.test.yaml",
+  "line": 28,
+  "duration": 6,
+  "retries": 0,
+  "flaky": false,
+  "tags": [],
+  "extra": { "checks": [ ... ], "steps": [ ... ], "attempts": 1, "blockedBy": null }
+}
+```
+
+### HTML
+
+The HTML report lists every test with its status, time, file and tags, and opens one in a detail pane with its steps, checks and the requests and responses it sent. Secrets are masked. By default it is `index.html` with a `data/` folder it loads as you click. For one file to attach to a ticket or an email, use `--single-file` or set `reports.html.layout: single`:
+
+```console
+$ vc run --report html --single-file --out build/share
+reports  /home/ada/shop/build/share/report.html
+```
+
+Report plugins can add more formats. See [Reporter plugins](/vc-rs/reference/plugins/reporter-plugins/).
+
+## History
+
+Every run (and every `vc load` run) is stored in `.vibranium/history.db`.
+
+```console
+$ vc history --limit 3
+   80  2026-11-10 18:01Z  failed     3 passed · 1 failed · 0 blocked · 0 skipped  profile default  sample.extra
+   79  2026-11-10 18:00Z  cancelled  0 passed · 0 failed · 0 blocked · 0 skipped  profile default  sample.strict
+   78  2026-11-10 18:00Z  failed     0 passed · 0 failed · 0 blocked · 0 skipped  profile default  sample.strict
+$ vc history show 80
+   80  2026-11-10 18:01Z  failed     3 passed · 1 failed · 0 blocked · 0 skipped  profile default  sample.extra
+  failed   sample.extra#findsAda
+           match[0].name: expected "Grace Hopper", got "Ada Lovelace"
+```
+
+History powers:
+
+- `vc run --failed`, which reruns what failed or was blocked in the last run, under its profiles.
+- `vc report`, which writes report files for a stored run without running anything:
+
+  ```console
+  $ vc report 80 --format junit,ctrf --out build/reports
+  /home/ada/shop/build/reports/junit.xml
+  /home/ada/shop/build/reports/ctrf.json
+  ```
+
+- The **History** tab of [`vc tui`](/vc-rs/guides/tui/) and the **Runs** and **Insights** screens of [`vc ui`](/vc-rs/guides/web-ui/), which show pass rates, durations and flaky tests over time. Both also follow a run live while it goes.
+
+### How much is kept
+
+The [`history`](/vc-rs/reference/config/history/) block sets how many runs to keep and which request and response bodies to store:
+
+```yaml title="vibranium.config.yaml"
+history:
+  keep: 50            # runs kept after each run, or `all`
+  bodies: failures    # none, failures or all
+  maxBodySize: 64kb   # a longer body is cut
+```
+
+To drop old runs now, run `vc history prune --keep 20`.
+
+<Aside type="note">
+`.vibranium/` is git-ignored, so history stays on each machine. To keep it in CI, cache the folder; see [CI](/vc-rs/guides/ci/#cache-between-ci-runs).
+</Aside>
+
+## Alerts
+
+To be told when a run fails, recovers or turns flaky, add an [`alerts`](/vc-rs/reference/config/alerts/) rule. `vc run` and `vc load` send it to Slack, Teams, PagerDuty or a webhook once the run ends. Recovery and flaky use the history to compare with earlier runs.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc history" href="/vc-rs/reference/cli/history/" description="List, show and prune runs." />
+  <LinkCard title="vc report" href="/vc-rs/reference/cli/report/" description="Reports for a stored run." />
+  <LinkCard title="reports" href="/vc-rs/reference/config/reports/" description="Formats, folder and HTML layout." />
+  <LinkCard title="CI" href="/vc-rs/guides/ci/" description="Publish the reports from a pipeline." />
+</CardGrid>

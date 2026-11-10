@@ -1,0 +1,59 @@
+---
+title: "alerts"
+description: "Send a message to Slack, Teams, PagerDuty or a webhook when a run fails, recovers or turns flaky."
+sidebar: { order: 73 }
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+`alerts` sends a notice when a run ends a certain way.
+
+```yaml title="vibranium.config.yaml"
+alerts:
+  - on: [failure, recovery]
+    profiles: [staging, prod]
+    tags: [smoke]
+    notify:
+      - slack:
+          webhook: ${secret.SLACK_WEBHOOK}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `alerts[].on` | list | `failure`, `recovery`, `flaky`, `threshold`. |
+| `alerts[].profiles` | list | Only runs under these profiles. |
+| `alerts[].tags` | list | Only tests with these tags. |
+| `alerts[].notify` | list | Channels: `slack`, `teams`, `pagerduty`, `webhook`. |
+
+An unknown event:
+
+```console
+$ vc check
+error[V2302]: expected one of failure, recovery, flaky, threshold, found `boom`
+  --> vibranium.config.yaml:87:10
+   |
+87 |   - on: [boom]
+   |          ^^^^ not a known value
+   = help: expected one of `failure`, `recovery`, `flaky`, `threshold`
+```
+
+<Aside type="caution">
+
+There is no `email` channel yet, though the schema mentions one. `vc check` warns:
+
+```console
+warning[V5117]: no alert channel `email`; a run cannot send to it
+  --> vibranium.config.yaml:90:9
+   |
+90 |       - email:
+   |         ^^^^^ unknown channel
+   = help: the alert channels are pagerduty, slack, teams, webhook
+```
+
+</Aside>
+
+Each channel's keys and message format are in the plugins reference.
+
+<LinkCard title="Alerts" href="/vc-rs/reference/plugins/alerts/" />
+<LinkCard title="Slack" href="/vc-rs/reference/plugins/slack/" />
+<LinkCard title="Webhook" href="/vc-rs/reference/plugins/webhook/" />

@@ -1,0 +1,140 @@
+---
+title: "Computed values ($cel)"
+description: "Compute a value with arithmetic, a choice or a list operation by writing $cel with a CEL expression."
+sidebar: { order: 17 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Where a value needs arithmetic or a choice, write a map with one key, `$cel`, holding a CEL expression. The result becomes the value.
+
+```yaml
+    vars:
+      doubled:
+        $cel: var.qty * 2
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `$cel` | CEL expression (text) | — | yes | Used in place of any value: a var, a save, a body field. |
+
+Variables in the expression: `var`, `env`, `response`, `request`, `example`, `item`, `iteration` and step ids, each where it is available. `secret`, `fake`, `dataset` and `run` are not available in CEL (V2105). Set a var from a template and read it as `var.<name>`.
+
+## Examples
+
+These values were computed with `price: 19.5`, `qty: 3`, `total: 150`, `prices: [1, 2, 3.5]` and `wholes: [1, 2, 3]`, then sent through the demo's `/echo`:
+
+```yaml title="services/tpl/flow.test.yaml"
+    vars:
+      subtotal:
+        $cel: var.price * 3.0
+      lineCount:
+        $cel: var.qty * 2
+      tier:
+        $cel: "var.total > 100.0 ? 'gold' : 'standard'"
+      sumD:
+        $cel: var.prices.sum()
+      sumI:
+        $cel: var.wholes.sum()
+      later:
+        $cel: timestamp('2024-05-01T12:30:00Z') + duration('1h30m')
+      gap:
+        $cel: timestamp('2024-05-01T12:30:00Z') - timestamp('2024-05-01T11:00:00Z')
+```
+
+```json
+{
+  "subtotal": 58.5,
+  "lineCount": 6,
+  "tier": "gold",
+  "sumD": 6.5,
+  "sumI": 6,
+  "later": "2024-05-01T14:00:00Z",
+  "gap": "5400s"
+}
+```
+
+Compute from a response in `save`. Against the demo's `/users`:
+
+```yaml
+      - call: sample#listUsers
+        save:
+          userCount:
+            $cel: size(response.body)
+          names:
+            $cel: response.body.map(u, u.name)
+```
+
+This saved `userCount: 2` and `names: ["Ada Lovelace", "Grace Hopper"]`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`vars:
+  price: 19.5
+  total: 150
+tests:
+  - id: computesValues
+    call: sample#echo
+    vars:
+      payload:
+        subtotal:
+          $cel: var.price * 3.0
+        tier:
+          $cel: "var.total > 100.0 ? 'gold' : 'standard'"
+`} />
+
+## How it behaves
+
+- Whole numbers are CEL `int`s and decimals are `double`s, and arithmetic does not mix them. `var.price * 2` fails when `price` is `19.5`; write `var.price * 2.0`. Comparisons such as `var.total > 100.0` work either way.
+- A timestamp or duration result becomes text: RFC 3339 for a timestamp (`2024-05-01T14:00:00Z`) and seconds for a duration (`5400s`).
+- Quote an expression that YAML would misread, such as one with `: ` or starting with `[`.
+- `vc check` parses every expression, checks the roots it reads, and checks literal `timestamp('…')` and `duration('…')` text before the run.
+
+<Aside type="tip">
+Anything longer than a line belongs in a `custom` function. See [Hooks](/vc-rs/reference/lifecycle/).
+</Aside>
+
+## Common errors
+
+A root CEL cannot read:
+
+```console
+error[V2105]: `fake` is not available in CEL
+  --> services/tpl/bad.test.yaml:35:15
+   |
+35 |         $cel: fake.person.firstName
+   |               ^^^^^^^^^^^^^^^^^^^^^
+   = help: CEL reads response, request, var, env, item, iteration, example and step ids; set a var from a `${…}` template and read it as `var.<name>`
+```
+
+An `int` times a `double`, at run time:
+
+```console
+✕ tpl.bad#mixesIntAndDouble                                       0ms
+  error[V5111]: Unsupported binary operator 'mul': Float(19.5), Int(2)
+```
+
+An expression that does not parse:
+
+```console
+error[V2305]: invalid CEL: mismatched input '<EOF>' expecting {'[', '{', '(', '.', '-', '!', 'true', 'false', 'null', NUM_FLOAT, NUM_INT, NUM_UINT, STRING, BYTES, IDENTIFIER}
+  --> services/tpl/bad.test.yaml:39:26
+   |
+39 |         $cel: var.price *
+   |                          ^
+   = help: for example `response.body.items.size() > 0`
+```
+
+- [V2105](/vc-rs/reference/diagnostics/v2105/): a root that is not available in CEL.
+- [V2305](/vc-rs/reference/diagnostics/v2305/): the expression, or a literal time, does not parse.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the expression failed at run time.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="CEL in one minute" href="/vc-rs/reference/templates/cel-in-one-minute/" />
+  <LinkCard title="Types" href="/vc-rs/reference/templates/types/" />
+</CardGrid>

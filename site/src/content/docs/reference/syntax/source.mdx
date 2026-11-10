@@ -1,0 +1,166 @@
+---
+title: source
+description: Links an api file to the OpenAPI spec it was imported from, so vc sync can keep it current.
+sidebar:
+  order: 140
+  badge: { text: 'api', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`source` records where an api file came from. `vc import openapi` writes it, and `vc sync` reads it to pull spec changes into the file without losing your edits.
+
+```yaml title="services/pets/pets.api.yaml"
+source:
+  openapi: specs/pets.yaml
+  include:
+    - pets
+```
+
+## Syntax
+
+`source` is a top-level key of an api file.
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `source.openapi` | path or URL | — | yes | The spec. A path is relative to the project root |
+| `source.include` | list of tags | every operation | no | Only operations with these tags are imported and synced |
+| `source.headers` | map of strings | — | no | Headers sent when fetching a protected spec URL, such as an auth token |
+
+Each api that came from the spec also carries an [`operationId`](/vc-rs/reference/syntax/operation-id/). That is how `vc sync` matches an api to its operation.
+
+## Examples
+
+### What `vc import openapi` writes
+
+Start from a spec with three `pets` operations and one `admin` operation. Import only the `pets` tag:
+
+```console
+$ vc import openapi specs/pets.yaml --id pets --include pets
+✓ imported specs/pets.yaml
+```
+
+The new api file:
+
+```yaml title="services/pets/pets.api.yaml"
+id: pets
+name: Pets
+baseUrl: ${var.sampleUrl}
+source:
+  openapi: specs/pets.yaml
+  include:
+    - pets
+
+apis:
+  - id: listPets
+    name: List pets
+    path: /pets
+    operationId: listPets
+  - id: createPet
+    name: Create pet
+    method: POST
+    path: /pets
+    body: {}
+    operationId: createPet
+  - id: getPet
+    name: Get pet
+    path: /pets/${var.petId}
+    vars:
+      petId: ${fake.lorem.word}
+    operationId: getPet
+```
+
+The importer matched the spec's server URL to the config's `sampleUrl` var, so `baseUrl` reads `${var.sampleUrl}`. It also saved a snapshot of the spec at `openapi/pets.yaml`; `vc sync` diffs against it.
+
+### Syncing after the spec changes
+
+Edit the api file as you like: add a body, an `expect`, a better ID. Then the spec changes: `getPet` is removed and `createPet` becomes `PUT`.
+
+```console
+$ vc sync pets
+fetched specs/pets.yaml (2 operations)
+  ↑ pets#createPet method POST → PUT
+  - pets#getPet removed from the spec: kept, marked deprecated
+✓ synced · snapshot openapi/pets.yaml updated
+```
+
+Your edits stay. `createPet` keeps its `body` and `expect` and gets the new method. `getPet` is kept and marked [`deprecated: true`](/vc-rs/reference/syntax/deprecated/), so tests that call it warn instead of breaking.
+
+### Checking for drift in CI
+
+`--check` reports what would change and exits with code 4 when the file and spec disagree:
+
+```console
+$ vc sync pets --check
+fetched specs/pets.yaml (2 operations)
+  ↑ pets#list path /pets → /pets/all
+  ↑ pets#createPet path /pets → /pets/all
+$ echo $?
+4
+```
+
+### Narrowing what is synced
+
+`include` takes tags. Here only `pets`-tagged operations are tracked; the spec's `admin` operation is ignored by both import and sync.
+
+```yaml title="services/pets/pets.api.yaml (excerpt)"
+source:
+  openapi: specs/pets.yaml
+  include:
+    - pets
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`
+baseUrl: \${var.sampleUrl}
+source:
+  openapi: specs/pets.yaml
+  include:
+    - pets
+apis:
+  - id: listPets
+    path: /pets
+    operationId: listPets
+`} />
+
+## How it behaves
+
+- `source` changes nothing at run time. It is read by `vc import` and `vc sync` only.
+- Sync matches apis by `operationId`. An api without one is left alone.
+- Sync updates what the spec owns (method, path, parameters) and keeps what you added (`expect`, `save`, `cleanup`, vars you set, a renamed `id`).
+- An operation that leaves the spec is never deleted. Its api is marked `deprecated: true`.
+- Useful `vc sync` flags: `--dry-run` shows the diff without writing; `--check` exits 4 on drift; `--take spec <apiId>` or `--take mine <apiId>` settles a conflict one way; `--resolved <apiId>` marks a hand-merged conflict done.
+
+## Common errors
+
+```console
+$ vc check
+error[V1005]: a source needs `openapi`
+ --> services/src1/src1.api.yaml:3:3
+  |
+3 |   include: [pets]
+  |   ^^^^^^^ `openapi` is missing
+  = help: add `openapi: specs/users.yaml`: A URL or a file, JSON or YAML
+```
+
+`vc check` does not open the spec. A wrong path shows up when you sync:
+
+```console
+$ vc sync src1
+error: cannot fetch specs/nope.yaml: specs/nope.yaml: cannot be read: No such file or directory (os error 2)
+  = help: check `source.openapi` in the api file: a URL, or a path inside the project
+```
+
+| Code | When |
+| --- | --- |
+| [V1005](/vc-rs/reference/diagnostics/v1005/) | `source` is present without `openapi` |
+
+Exit code `4` from `vc sync --check` means drift, not an error in your files.
+
+## Related
+
+- [`operationId`](/vc-rs/reference/syntax/operation-id/), [`deprecated`](/vc-rs/reference/syntax/deprecated/)
+- [OpenAPI import and sync guide](/vc-rs/guides/)
+- [`vc import` and `vc sync`](/vc-rs/reference/cli/)

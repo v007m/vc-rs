@@ -1,0 +1,67 @@
+---
+title: "Vibranium for AI agents"
+description: "Why vc works well with coding agents, and the three ways an agent can drive it."
+sidebar: { order: 1 }
+---
+
+import { Card, CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+
+Vibranium was built so that an AI agent can write, run and fix API tests as well as a person can. Everything an agent needs is plain text, has a stable shape, and says what to do next.
+
+## Why it suits agents
+
+<CardGrid>
+  <Card title="Plain YAML in git" icon="document">
+    Tests, apis and load scenarios are YAML files with a JSON Schema. An agent reads and edits them like any other source file, and every change shows up in a diff.
+  </Card>
+  <Card title="Diagnostics that say how to fix" icon="warning">
+    `vc check` reports each problem with a code (`V2003`), a file, line and column, an underlined excerpt, a `help:` line and, where one exists, a certain `fix:`. `vc check --fix` applies the certain fixes.
+  </Card>
+  <Card title="Explain anything" icon="information">
+    `vc explain V2003` explains a code with a wrong and a right example. `vc explain users.crud#getsUser` shows a test as the run will see it, with the source of every var.
+  </Card>
+  <Card title="JSON everywhere" icon="seti:json">
+    `check`, `plan`, `list`, `history` and `load` take `--json`. `vc run --reporter json` streams one JSON event per line while the run happens.
+  </Card>
+  <Card title="An MCP server" icon="puzzle">
+    `vc mcp` gives agents nine tools: six that read (list, search, show, check, history, explain a failure) and three that act (run tests, call an api, write a file).
+  </Card>
+  <Card title="Rules and approvals" icon="approve-check">
+    Each profile's `agents` block says what an agent may run, call and write. Anything else is refused, or waits until a person runs `vc approve`.
+  </Card>
+</CardGrid>
+
+## Three ways an agent uses vc
+
+| Way | How it connects | Good for |
+| --- | --- | --- |
+| Shell and JSON | The agent runs `vc check --json`, `vc plan --json`, `vc run --reporter json` in a terminal | Any agent that can run commands. No setup. The agent rules do not apply: the agent acts as you |
+| MCP over stdio | The agent starts `vc mcp` in the project and talks JSON-RPC over stdin and stdout | Claude Code, Cursor, VS Code, Windsurf, Codex and other MCP clients |
+| MCP over HTTP | While `vc ui` runs, the agent connects to `http://127.0.0.1:7420/mcp` with the agent token `vc ui` prints | Sharing one running web UI between you and an agent, so you approve requests on the Agents page |
+
+<Aside type="tip" title="Which one to pick">
+Use MCP when you want the agent rules: an MCP agent can never run, call or write more than the active profile's `agents` block allows. Use the shell when you trust the agent with your own permissions, for example in a sandbox or in CI.
+</Aside>
+
+## The loop an agent follows
+
+1. Find what exists: `list_definitions`, `search`, or `vc list tests --json`.
+2. Write or change a file: `write_definition`, or edit the YAML directly.
+3. Check it: `check`, or `vc check --json`. Apply each certain `fix:`, then check again.
+4. Run it: `run_tests`, or `vc run <id> --reporter json`.
+5. When it fails, read why: `explain_failure` and `query_history`, or `vc history show last --json`.
+
+The [workflows](/vc-rs/agents/workflows/) page walks through six full recipes with real output.
+
+## In this section
+
+<CardGrid>
+  <LinkCard title="Set up MCP" href="/vc-rs/agents/mcp-setup/" description="Claude Code, Claude Desktop, Cursor, VS Code, Windsurf, Codex and HTTP." />
+  <LinkCard title="MCP tools" href="/vc-rs/agents/mcp-tools/" description="Every tool, its input schema and a real response." />
+  <LinkCard title="Policy and approvals" href="/vc-rs/agents/policy-and-approvals/" description="What agents may do, and how a person approves the rest." />
+  <LinkCard title="Agent workflows" href="/vc-rs/agents/workflows/" description="Six end-to-end recipes with prompts, tool calls and output." />
+  <LinkCard title="JSON output and events" href="/vc-rs/agents/json-and-events/" description="Every --json shape and the NDJSON run stream." />
+  <LinkCard title="Claude Code skill" href="/vc-rs/agents/claude-code-skill/" description="A ready-made skill, plus AGENTS.md and CLAUDE.md snippets." />
+  <LinkCard title="JSON Schemas" href="/vc-rs/reference/schemas/" description="Hosted schema URLs to validate YAML before writing a file." />
+  <LinkCard title="llms.txt" href="/vc-rs/agents/llms-txt/" description="The whole docs site as text for an agent's context." />
+</CardGrid>

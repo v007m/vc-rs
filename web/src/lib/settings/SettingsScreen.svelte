@@ -1,9 +1,11 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { MASKED } from './port.ts';
+  import SecretsSection from './SecretsSection.svelte';
+  import type { SecretSchema } from './secrets.svelte.ts';
   import type { EffectiveSettings } from './settings.svelte.ts';
 
-  let { settings }: { settings: EffectiveSettings } = $props();
+  let { settings, schema }: { settings: EffectiveSettings; schema?: SecretSchema } = $props();
   const editorHref = `${resolve('/editor')}?file=vibranium.config.yaml`;
   const maskedNote = ' (secret, masked)';
 </script>
@@ -23,7 +25,7 @@
     <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- editorHref is resolve('/editor') plus a query -->
     <a href={editorHref} aria-label="Open vibranium.config.yaml in the editor"
       ><code>vibranium.config.yaml</code></a
-    >; secrets are declared in <code>.env.schema</code> and always show masked.
+    >; secrets are declared in <code>.env.schema</code>{schema ? ', below,' : ''} and always show masked.
   </p>
   <label class="profile">
     Profile
@@ -78,6 +80,7 @@
       {/each}
     </tbody>
   </table>
+  {#if schema}<SecretsSection {schema} />{/if}
 </div>
 
 <style>

@@ -1,0 +1,44 @@
+syntaxVersion: 2
+project: playground
+
+defaults:
+  timeout: 10s
+  concurrency: 8
+  headers:
+    accept: application/json
+
+vars:
+  usersUrl: http://localhost:7421
+  echoUrl: http://localhost:7421
+
+profiles:
+  - id: local
+    default: true
+  - id: staging
+    vars:
+      usersUrl: https://users.staging.example
+      echoUrl: https://echo.staging.example
+
+auth:
+  - id: demoLogin
+    name: Log in, then send the token as a bearer header
+    type: flow
+    vars:
+      username: ada
+    steps:
+      - id: login
+        method: POST
+        url: ${var.echoUrl}/echo
+        body:
+          username: ${var.username}
+          token: token-for-${var.username}
+        expect:
+          status: 200
+        save:
+          accessToken: ${response.body.body.token}
+    apply:
+      headers:
+        authorization: Bearer ${var.accessToken}
+
+reports:
+  formats: [ctrf, junit]

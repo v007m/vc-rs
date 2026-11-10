@@ -1,0 +1,79 @@
+---
+title: "vc schema"
+description: "Exports the JSON Schemas that editors use to complete and check definition files."
+sidebar: { order: 15 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Prints or writes the JSON Schema (draft 2020-12) for each kind of definition file: `api`, `config`, `load` and `test`. Files that `vc` creates already point at the published schemas with a `yaml-language-server` comment; export them when you want a local copy, for example to pin a version or to work offline.
+
+```console
+$ vc schema export [OPTIONS]
+```
+
+## Options
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `--out` | `<DIR>` | Writes one `<kind>.schema.json` per kind into this folder, creating it if needed. Without it, every schema is printed as one JSON object keyed by kind |
+| `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags). Not needed: `vc schema export` also works outside a project |
+
+## Examples
+
+### Write the files
+
+```console
+$ vc schema export --out schema
+wrote 4 schemas to schema
+$ ls schema
+api.schema.json  config.schema.json  load.schema.json  test.schema.json
+```
+
+### Print them
+
+```console
+$ vc schema export
+{
+  "api": {
+    "$defs": {
+      "apiEntry": {
+        "additionalProperties": false,
+        "description": "One api: a request and the checks that always hold for it",
+        ...
+  },
+  "config": { ... },
+  "load": { ... },
+  "test": { ... }
+}
+```
+
+Each schema has a `title` such as `Vibranium api file` and `"$schema": "https://json-schema.org/draft/2020-12/schema"`.
+
+### Point your editor at a local copy
+
+```yaml title="services/users/users.api.yaml"
+# yaml-language-server: $schema=../../schema/api.schema.json
+apis:
+  - id: listUsers
+    path: /users
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Printed or written |
+| `2` | The folder cannot be created |
+
+```console
+$ vc schema export --out /dev/null/x
+error: /dev/null/x: Not a directory (os error 20)
+```
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Editor setup" href="/vc-rs/start/editor-setup/" description="VS Code, JetBrains, Neovim and Zed." />
+  <LinkCard title="Schemas" href="/vc-rs/reference/schemas/" description="The published schema URLs." />
+</CardGrid>

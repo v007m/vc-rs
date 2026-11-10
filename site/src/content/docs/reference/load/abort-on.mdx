@@ -1,0 +1,97 @@
+---
+title: "abortOn"
+description: "Stop a load run early when one of the listed thresholds is breached on the rolling window, instead of running every stage."
+sidebar: { order: 8 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`abortOn` lists metrics whose threshold, once breached, stops the run before its stages end.
+
+```yaml
+thresholds:
+  errorRate:
+    lt: 1%
+abortOn: [errorRate]
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `abortOn` | list of `p50`, `p90`, `p95`, `p99`, `max`, `errorRate`, `rps` | `[]` | no | Each metric needs a matching entry in [`thresholds`](/vc-rs/reference/load/thresholds/). |
+
+## Examples
+
+### Stop when everything fails
+
+This scenario is planned for 20 seconds, but every iteration fails under `checks: full`:
+
+```yaml title="load/sample/abort.load.yaml"
+mix:
+  - test: sample.wrong#expectsWrongStatus
+    weight: 1
+stages:
+  - duration: 20s
+    users: 2
+checks: full
+thinkTime: 100ms
+thresholds:
+  errorRate:
+    lt: 1%
+abortOn: [errorRate]
+```
+
+```console
+$ vc load sample.abort; echo "exit $?"
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    3s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    4s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    5s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    6s  1 users  2 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors  breaching: errorRate
+    6s  0 users  2 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors
+sample.abort aborted after 6 s · 10 iterations · 1.7 rps · 10 errors
+latency p50 3.3 ms · p95 5.1 ms · p99 5.1 ms · max 5.1 ms
+breached errorRate at 1.000
+errors sample#listUsers 200 × 10
+exit 3
+```
+
+The summary says `aborted` instead of `finished`, and `vc load --json` reports `"ending": "aborted"`.
+
+### Without `abortOn`
+
+The same breach without `abortOn` runs every stage and still exits 3 at the end (see [`checks`](/vc-rs/reference/load/checks/)).
+
+## Try it
+
+<Playground client:visible kind="load" code={`mix:
+  - test: orders.checkout#placesOrder
+    weight: 1
+stages:
+  - duration: 10m
+    users: 200
+thresholds:
+  p99:
+    lt: 2s
+  errorRate:
+    lt: 5%
+abortOn: [errorRate, p99]
+`} />
+
+## How it behaves
+
+- The check uses the live, rolling window (the last 10 seconds), so a bad stretch stops the run as soon as it shows up.
+- The exit code still comes from the final verdict over the whole run: 3 if a threshold is breached.
+- Use it to protect a shared environment: there is no point sending ten more minutes of traffic to a server that is already failing.
+
+<Aside type="caution">
+`vc check` doesn't yet warn when `abortOn` names a metric with no threshold.
+</Aside>
+
+## Related
+
+- [`thresholds`](/vc-rs/reference/load/thresholds/)
+- [`vc load`](/vc-rs/reference/load/vc-load/)

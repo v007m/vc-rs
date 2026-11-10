@@ -1,0 +1,167 @@
+---
+title: "Built-in generators"
+description: "The 25 built-in fake.* generators, their arguments, defaults and limits, with a real sample value from each."
+sidebar: { order: 1 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`${fake.<module>.<name>}` makes a realistic value, such as a name, an email or a date, each time the template is rendered.
+
+```yaml title="services/sample/basics.test.yaml"
+tests:
+  - id: createsUser
+    name: Creates a user
+    call: sample#createUser
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+```
+
+## Syntax
+
+| Part | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `fake.<module>.<name>` | template root | — | yes | One of the 25 names below. Any other name is [V2002](/vc-rs/reference/diagnostics/v2002/). |
+| arguments | literals in `(…)` | per generator | no | Whole numbers, numbers, or text in **single quotes**: `fake.lorem.words(5)`, `fake.string.fromRegExp('[a-z]{4}')`. No templates, no `null`. |
+
+## All generators
+
+Every sample below is real output from `vc run --seed 42` against the demo service. Run the same seed and you get the same values.
+
+| Generator | Arguments | Default | Sample (`--seed 42`) |
+| --- | --- | --- | --- |
+| `fake.person.fullName` | none | — | `Naomie Cronin` |
+| `fake.person.firstName` | none | — | `Duncan` |
+| `fake.person.jobTitle` | none | — | `National Marketing Facilitator` |
+| `fake.internet.email` | none | — | `cyrus@example.org` |
+| `fake.internet.userName` | none | — | `libbie_quia` |
+| `fake.phone.number` | none | — | `1-556-214-0690` |
+| `fake.location.streetAddress` | none | — | `6027 Trycia Ridge` |
+| `fake.location.city` | none | — | `Spencerfurt` |
+| `fake.location.zipCode` | none | — | `630` |
+| `fake.location.country` | none | — | `Eritrea` |
+| `fake.location.countryCode` | none | — | `RS` |
+| `fake.string.uuid` | none | — | `178b25ac-7ebb-4f84-87be-bc2706d02922` |
+| `fake.string.alphanumeric(n)` | length, 0 to 10000 | `1` | `(12)` → `1SDZ0mNc3N6U` |
+| `fake.string.fromRegExp('p')` | one pattern | required | `('[A-Z]{3}-[0-9]{4}')` → `ZTU-0228` |
+| `fake.lorem.word` | none | — | `quia` |
+| `fake.lorem.words(n)` | count, 0 to 10000 | `3` | `(5)` → `maiores nemo necessitatibus molestiae eveniet` |
+| `fake.lorem.sentence` | none | — | `neque fugiat quibusdam illum aspernatur consequatur voluptatem dolores.` |
+| `fake.lorem.paragraphs(n)` | count, 0 to 10000 | `3` | `(2)` → two paragraphs joined by a newline |
+| `fake.number.int(min, max)` | two whole numbers | `0`, `9007199254740991` | `(1, 100)` → `90` |
+| `fake.number.float(min, max)` | two numbers | `0`, `1` | `(0, 1)` → `0.4326372421346605` |
+| `fake.commerce.price(min, max)` | two numbers | `1`, `1000` | `63.8` (two decimals at most) |
+| `fake.date.past` | none | — | `2026-01-03T04:41:45.695Z` |
+| `fake.date.future` | none | — | `2026-12-29T11:31:33.829Z` |
+| `fake.date.recent` | none | — | `2026-11-10T16:46:38.83Z` |
+| `fake.helpers.arrayElement(a, b, …)` | one or more literals | required | `('PRIVATE', 'PUBLIC')` → `PUBLIC` |
+
+`number.int`, `number.float` and `commerce.price` give numbers; the rest give text. `helpers.arrayElement` gives back whichever item it picked, so `arrayElement(1, 2, 3)` gives a number.
+
+## Examples
+
+### A user with a generated name and email
+
+The simplest use: let the api's vars default to fake values, so every call makes a new user.
+
+```yaml title="services/sample/sample.api.yaml"
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}    # a new realistic value on every call
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+```
+
+### Arguments
+
+Counts and ranges go in parentheses. Text arguments use single quotes.
+
+```yaml
+body:
+  label: user-${fake.string.alphanumeric(4)}      # user-dVxS
+  bio: ${fake.lorem.words(8)}
+  age: ${fake.number.int(18, 99)}
+  price: ${fake.commerce.price(5, 50)}
+  plan: ${fake.helpers.arrayElement('free', 'team', 'enterprise')}
+```
+
+### Every generator in one request
+
+This test sends one of each to the demo's `/echo` endpoint, which returns the body it got. It is how the sample column above was made.
+
+```yaml title="services/sample/gen.test.yaml"
+tests:
+  - id: generatesAll
+    name: Generates one value of each kind
+    call: sample#echo
+    body:
+      fullName: ${fake.person.fullName}
+      uuid: ${fake.string.uuid}
+      alnum: ${fake.string.alphanumeric(12)}
+      regexp: ${fake.string.fromRegExp('[A-Z]{3}-[0-9]{4}')}
+      words: ${fake.lorem.words(5)}
+      int: ${fake.number.int(1, 100)}
+      past: ${fake.date.past}
+      pick: ${fake.helpers.arrayElement('PRIVATE', 'PUBLIC')}
+```
+
+Run it with `vc run sample.gen --seed 42`; the demo echoes the values back, and the same seed always gives the same values.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: sendsGeneratedProfile
+    name: Sends a generated profile
+    call: sample#echo
+    body:
+      name: \${fake.person.fullName}
+      city: \${fake.location.city}
+      code: \${fake.string.alphanumeric(8)}
+      score: \${fake.number.int(1, 10)}
+      joined: \${fake.date.past}
+`} />
+
+## How it behaves
+
+- **Dates** are ISO 8601 text in UTC. `date.past` is within the year before the run started, `date.future` within the year after, and `date.recent` within the day before.
+- **Emails** always use the reserved domains `example.com`, `example.org` or `example.net`, so a test never mails a real person.
+- **Ranges** are inclusive: `number.int(1, 3)` can give 1, 2 or 3. The first number must not be larger than the second.
+- **Arguments are literals.** You can't pass a template such as `${var.max}` into a generator. Use a [named generator](/vc-rs/reference/data/named-generators/) for a shape you reuse.
+- **When a value is made** depends on where the template sits: a var made from a generator holds one value for the whole test instance, while a generator written straight into a body makes a new value at each spot. See [Generation and seeds](/vc-rs/reference/data/seeds/).
+- **Faker modules are reserved.** `person`, `internet`, `phone`, `location`, `string`, `lorem`, `number`, `commerce`, `date` and `helpers` can't be used as names of your own generators ([V2006](/vc-rs/reference/diagnostics/v2006/)).
+
+## Common errors
+
+| Code | When | Real message |
+| --- | --- | --- |
+| [V2002](/vc-rs/reference/diagnostics/v2002/) | The generator name is unknown | `${fake.person.fullname}` lists all 25 names in a note |
+| [V2302](/vc-rs/reference/diagnostics/v2302/) | Wrong arguments | `` `fake.lorem.words` takes nothing or one whole number from 0 to 10000 ``; `` `fake.number.int` takes nothing or two whole numbers, min then max ``; `` `fake.lorem.word` takes no arguments `` |
+| [V2305](/vc-rs/reference/diagnostics/v2305/) | Bad argument syntax | `text arguments take single quotes` (with a certain fix: write `'x'`); `` `null` is not an argument `` |
+| [V2309](/vc-rs/reference/diagnostics/v2309/) | `fromRegExp` pattern outside the supported subset | see [fromRegExp patterns](/vc-rs/reference/data/fromregexp/) |
+
+```console
+$ vc check
+error[V2305]: invalid template: text arguments take single quotes
+ --> services/sample/tmp.test.yaml:6:35
+  |
+6 |       a: ${fake.string.fromRegExp("[a-z]{3}")}
+  |                                   ^^^^^^^^^^
+  = help: use single quotes
+  = fix: Write '[a-z]{3}' (certain)
+
+1 error · 0 warnings · 29 files checked
+```
+
+## Related
+
+- [Named generators](/vc-rs/reference/data/named-generators/): declare your own `fake.*` names in the config.
+- [fromRegExp patterns](/vc-rs/reference/data/fromregexp/): the pattern subset.
+- [Generation and seeds](/vc-rs/reference/data/seeds/): once per instance versus inline, and `--seed`.
+- [Templates](/vc-rs/reference/templates/): where a `${fake.*}` can go.

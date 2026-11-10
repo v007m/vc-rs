@@ -1,0 +1,141 @@
+---
+title: "vc plan"
+description: "Shows which tests and lifecycle actions a run would execute, in order, without sending a request."
+sidebar: { order: 3 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Shows what a run would do, in order, without sending a request. Use it to check a selector before you run it, or to see which lifecycle actions wrap your tests.
+
+```console
+$ vc plan [OPTIONS] [SELECTORS]...
+```
+
+`vc plan` takes the same [selectors](/vc-rs/reference/cli/#selectors) as `vc run`.
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `-t`, `--tag` | `<TAGS>` | | Only tests with this tag expression. `!` excludes, `,` means or. Repeat to require every one |
+| `-g`, `--grep` | `<TEXT>` | | Only tests whose full ID or name contains this text, ignoring case |
+| `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
+| `--include-skipped` | | | Also plans the tests marked `skip` |
+| `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
+| `--set` | `<KEY=VALUE>` | | Sets one config value, over every other layer |
+| `--repeat` | `<N>` | | Plans every selected test this many times, instead of its own `repeat` |
+| `--json` | | | Prints the plan as JSON on stdout |
+| `--dot` | | | Prints the plan as a Graphviz DOT graph |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### Plan one file
+
+```console
+$ vc plan sample.basics
+plan  4 tests in 1 file · lifecycle: beforeAll command · profile default
+sample.basics
+  beforeAll
+    command
+  sample.basics#listsUsers
+  sample.basics#createsUser
+  sample.basics#getsCreatedUser
+  sample.basics#rejectsMissingEmail
+  afterAll
+    command
+```
+
+### Example rows and skipped tests
+
+```console
+$ vc plan sample.extra
+plan  2 tests in 1 file · 1 skipped · profile default
+sample.extra
+  sample.extra#echoesBody
+  sample.extra#rejectsBadEmail [row 1]
+  sample.extra#rejectsBadEmail [row 2]
+skipped
+  sample.extra#findsAda: demo data changed
+```
+
+A test with example rows plans one instance per row. Skipped tests are listed with their reason at the end.
+
+### One instance, or repeats
+
+```console
+$ vc plan 'sample.extra#rejectsBadEmail:2'
+plan  1 test in 1 file · profile default
+sample.extra
+  sample.extra#rejectsBadEmail [row 2]
+```
+
+With `--repeat 3`, each test shows as `[repeat 1..3]`.
+
+### JSON
+
+```console
+$ vc plan sample.extra#echoesBody --json
+{
+  "afterRun": [],
+  "beforeRun": [],
+  "files": [
+    {
+      "afterAll": [],
+      "beforeAll": [],
+      "id": "sample.extra",
+      "instances": [
+        {
+          "id": 0,
+          "needs": [],
+          "repeatIndex": 0,
+          "test": "sample.extra#echoesBody"
+        }
+      ]
+    }
+  ],
+  "instanceCount": 1,
+  "skipped": []
+}
+```
+
+### A graph
+
+```console
+$ vc plan sample.basics --dot | dot -Tsvg > plan.svg
+```
+
+The DOT output has one cluster per file, with a node for each lifecycle action and test instance.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | The plan printed |
+| `2` | The project has errors, a selector matches nothing, or a flag is wrong |
+
+```console
+$ vc plan sample.nope
+error: no test or test file matches `sample.nope`
+```
+
+A filter that leaves nothing, such as `-g zzz`, prints `plan  0 tests in 0 files` and exits 0.
+
+## JSON output
+
+| Field | Holds |
+| --- | --- |
+| `beforeRun`, `afterRun` | Run-level lifecycle actions, each `{action, label}` |
+| `files[]` | One entry per test file: `id`, `beforeAll`, `afterAll` (each `{action, label}`), and `instances` |
+| `files[].instances[]` | `id` (instance number), `test` (full test ID), `repeatIndex`, `needs` (instances it waits for) |
+| `instanceCount` | How many instances would run |
+| `skipped[]` | `{test, reason}` for each skipped test |
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc run" href="/vc-rs/reference/cli/run/" description="Run the plan." />
+  <LinkCard title="vc list" href="/vc-rs/reference/cli/list/" description="List tests, apis and files." />
+  <LinkCard title="Selectors" href="/vc-rs/reference/cli/#selectors" description="Every way to pick tests." />
+</CardGrid>

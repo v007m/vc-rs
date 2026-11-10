@@ -1,0 +1,94 @@
+---
+title: "Plugins and alerts"
+description: "Extend vc with reporter and auth plugins in any language, and send alerts to webhooks, Slack, Teams or PagerDuty when a run fails, recovers or breaches a threshold."
+sidebar: { order: 1, label: Overview }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+This section covers the two ways `vc` reaches outside itself: **plugins**, which are programs you add to a project, and **alerts**, which send a message when a run ends.
+
+```yaml title="vibranium.config.yaml"
+plugins:
+  - id: summary
+    source: path:plugins/summary
+
+reports:
+  formats: [ctrf, summary]       # run the reporter plugin after each run
+
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - slack:
+          webhook: ${secret.slackWebhook}
+          channel: "#qa-alerts"
+```
+
+## Plugins
+
+A plugin is a separate program, written in any language, that `vc` starts and talks to over stdin and stdout with JSON-RPC. Two kinds are in use today:
+
+| Kind | What it does | How a project uses it |
+| --- | --- | --- |
+| `reporter` | Gets every run event and writes report files | Its ID goes in `reports.formats` |
+| `auth` | Returns headers, query values or cookies for a request | An auth definition with `type: plugin` names it |
+
+A manifest may also say `importer` or `executor`. `vc` accepts those kinds, but has no methods for them yet, so they do nothing.
+
+You install a plugin with `vc plugin add`. It shows what the plugin asks to reach and records your approval in `vibranium.lock`, which you commit. A run refuses a plugin that asks for more than the lock grants.
+
+<CardGrid>
+  <LinkCard title="The plugins key" href="/vc-rs/reference/plugins/plugins-config/" description="Add a plugin to vibranium.config.yaml." />
+  <LinkCard title="vibranium-plugin.yaml" href="/vc-rs/reference/plugins/manifest/" description="The manifest every plugin ships." />
+  <LinkCard title="vc plugin commands" href="/vc-rs/reference/plugins/commands/" description="add, list and remove." />
+  <LinkCard title="vibranium.lock" href="/vc-rs/reference/plugins/vibranium-lock/" description="What you approved, with an integrity hash." />
+  <LinkCard title="Permissions" href="/vc-rs/reference/plugins/permissions/" description="What a plugin may reach, and what vc checks." />
+  <LinkCard title="Protocol" href="/vc-rs/reference/plugins/protocol/" description="JSON-RPC over stdio: framing, methods, errors." />
+  <LinkCard title="Write a plugin" href="/vc-rs/reference/plugins/writing-a-plugin/" description="A reporter and an auth plugin in Python, step by step." />
+  <LinkCard title="Reporter plugins" href="/vc-rs/reference/plugins/reporter-plugins/" description="Turn run events into your own report files." />
+  <LinkCard title="Auth plugins" href="/vc-rs/reference/plugins/auth-plugins/" description="Sign requests with your own code." />
+</CardGrid>
+
+## Alerts
+
+An alert rule picks which runs to tell someone about, and where to send the message. `vc run` and `vc load` send alerts once the run ends and its reports are written. A failed alert is a warning (V5117); it never changes the exit code.
+
+| Channel | Sends |
+| --- | --- |
+| `webhook` | The run's CTRF summary as JSON, with the alert under `results.extra` |
+| `slack` | A Slack Block Kit message to an incoming webhook |
+| `teams` | An Adaptive Card 1.4 to a Teams incoming webhook |
+| `pagerduty` | A PagerDuty Events API v2 event, resolved again on recovery |
+
+<Aside type="caution" title="No email channel">
+Some older design notes list an `email` channel. It does not exist yet. `vc check` warns that there is no alert channel named `email` (V5117), and a run sends nothing to it.
+</Aside>
+
+<CardGrid>
+  <LinkCard title="The alerts key" href="/vc-rs/reference/plugins/alerts/" description="Rule keys: on, profiles, tags, notify." />
+  <LinkCard title="Triggers" href="/vc-rs/reference/plugins/triggers/" description="failure, threshold, flaky and recovery." />
+  <LinkCard title="webhook" href="/vc-rs/reference/plugins/webhook/" description="Post JSON to any URL." />
+  <LinkCard title="slack" href="/vc-rs/reference/plugins/slack/" description="Post to a Slack channel." />
+  <LinkCard title="teams" href="/vc-rs/reference/plugins/teams/" description="Post to a Microsoft Teams channel." />
+  <LinkCard title="pagerduty" href="/vc-rs/reference/plugins/pagerduty/" description="Open and resolve PagerDuty incidents." />
+</CardGrid>
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: summary
+    source: path:plugins/summary
+reports:
+  formats: [ctrf, summary]
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - webhook:
+          url: https://hooks.example.com/vibranium
+`} />

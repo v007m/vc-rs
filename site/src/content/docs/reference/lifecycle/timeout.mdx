@@ -1,0 +1,111 @@
+---
+title: "Action timeout"
+description: "timeout on an action sets that action's own limit, and each action kind reads it in its own way."
+sidebar: { order: 14 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`timeout` on an action is that action's own limit. Without it, each kind keeps its usual limit.
+
+```yaml
+before:
+  - command: docker compose up -d --wait
+    timeout: 2m
+```
+
+## Syntax
+
+| Action | `timeout` limits | Default | Past it |
+| --- | --- | --- | --- |
+| `call` | each request attempt | the api's `timeout`, else `defaults.timeout` | V5104, `no response within …` |
+| `test` | all the reused test's calls together | none | the call in flight fails with V5104 |
+| `command` | the process | `defaults.timeout` (30s when unset) | the process group is killed; V5104 |
+| `function` | the run budget | `200ms` | the function is stopped; V5116 |
+
+A duration is a number and a unit: `500ms`, `5s`, `2m`.
+
+## Examples
+
+Limit one call. This api waits 2 seconds before it answers:
+
+```yaml
+steps:
+  - call: lab#slow
+    timeout: 500ms
+    vars:
+      seconds: 2
+```
+
+```console
+✕ lab.fails#timesOutACall                                       502ms
+  error[V5104]: no response within 500ms
+     = at: call lab#slow
+```
+
+Limit a command:
+
+```yaml
+before:
+  - command: sleep 5
+    timeout: 1s
+```
+
+```console
+⊘ lab.fails#timesOutACommand blocked                             1.0s
+  error[V5104]: `sh` did not finish within 1000ms
+     = at: command
+```
+
+Limit a reused flow as a whole:
+
+```yaml
+before:
+  - test: lab.loops#makesThreeItems
+    timeout: 5s
+```
+
+```console
+⊘ lab.slowreuse#budgetsTheFlow blocked                           1.0s
+  error[V5104]: the reused test ran past its `timeout`
+     = at: test lab.slowreuse#slowFlow
+```
+
+A function past its budget:
+
+```console
+⊘ lab.fails#timesOutAFunction blocked                           204ms
+  error[V5116]: `hooks/seed.ts#spins`: the hook ran past its time budget and was stopped (line 11)
+     = at: function hooks/seed.ts#spins
+```
+
+<Playground client:visible kind="test" code={`tests:
+  - id: waitsBriefly
+    name: Gives a slow call half a second
+    steps:
+      - call: lab#slow
+        timeout: 500ms
+        vars:
+          seconds: 2
+`} />
+
+## How it behaves
+
+- An action's `timeout` wins over the api's `timeout` and over `defaults.timeout`.
+- For a `call`, the limit applies to each attempt, so `retry` gets a fresh limit for every try.
+- A timeout in a `before` block blocks the test; in `steps` it fails the test.
+
+## Common errors
+
+- [V5104](/vc-rs/reference/diagnostics/v5104/): a call, command or reused test ran past its limit.
+- [V5116](/vc-rs/reference/diagnostics/v5116/): a function ran past its budget.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="call action" href="/vc-rs/reference/lifecycle/call/" />
+  <LinkCard title="command action" href="/vc-rs/reference/lifecycle/command/" />
+  <LinkCard title="function action" href="/vc-rs/reference/lifecycle/function/" />
+  <LinkCard title="test action" href="/vc-rs/reference/lifecycle/test-action/" />
+</CardGrid>

@@ -1,0 +1,140 @@
+---
+title: "Pipes"
+description: "Convert and tidy template values with pipes such as number, lower, urlEncode and default."
+sidebar: { order: 0 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A pipe converts a template's value. Write it after a `|`, and chain as many as you need. They run left to right.
+
+```yaml
+      handle: ${var.name | trim | lower}   # "  Ada Lovelace  " becomes "ada lovelace"
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `\| name` | pipe name | — | yes | One of the 16 pipes below. Names are case-sensitive. |
+| `(arg)` | literal | — | for `default` and `take` | Text in single quotes (`'none'`), a number (`5`, `-1.5`) or `true`/`false`. |
+
+There are 16 built-in pipes:
+
+| Pipe | Input | Output | Does |
+| --- | --- | --- | --- |
+| [`number`](/vc-rs/reference/pipes/number/) | text or number | number | `"42.5"` to `42.5` |
+| [`int`](/vc-rs/reference/pipes/int/) | text or number | whole number | `"42"` to `42`, `42.9` to `42` |
+| [`bool`](/vc-rs/reference/pipes/bool/) | text or boolean | boolean | `"true"` to `true` |
+| [`string`](/vc-rs/reference/pipes/string/) | any | text | `7` to `"7"` |
+| [`json`](/vc-rs/reference/pipes/json/) | text | any | parses JSON text |
+| [`jsonString`](/vc-rs/reference/pipes/json-string/) | any | text | encodes as JSON text |
+| [`base64`](/vc-rs/reference/pipes/base64/) | text | text | `hello` to `aGVsbG8=` |
+| [`fromBase64`](/vc-rs/reference/pipes/from-base64/) | text | text | `aGVsbG8=` to `hello` |
+| [`lower`](/vc-rs/reference/pipes/lower/) | text | text | lowercase |
+| [`upper`](/vc-rs/reference/pipes/upper/) | text | text | uppercase |
+| [`trim`](/vc-rs/reference/pipes/trim/) | text | text | strips whitespace at both ends |
+| [`urlEncode`](/vc-rs/reference/pipes/url-encode/) | text | text | `a b` to `a%20b` |
+| [`default(value)`](/vc-rs/reference/pipes/default/) | any, or missing | any | a fallback for missing or `null` |
+| [`random`](/vc-rs/reference/pipes/random/) | list | any | one element, seeded |
+| [`shuffle`](/vc-rs/reference/pipes/shuffle/) | list | list | reordered, seeded |
+| [`take(n)`](/vc-rs/reference/pipes/take/) | list | list | the first `n` elements |
+
+## Examples
+
+Several pipes on one test, sent to the demo's `/echo` api:
+
+```yaml
+vars:
+  price: "42.5"
+  count: "42"
+  name: "  Ada Lovelace  "
+  query: "a b&c=d/é"
+  cities: [Tokyo, Delhi, Paris, Lima]
+  nothing: null
+tests:
+  - id: convertsTypes
+    call: sample#echo
+    vars:
+      payload:
+        number: ${var.price | number}
+        int: ${var.count | int}
+        lower: ${var.name | trim | lower}
+        urlEncode: ${var.query | urlEncode}
+        default: ${var.nothing | default('none')}
+        chain: ${var.cities | shuffle | take(2)}
+        inText: "n=${var.count | int}"
+```
+
+One run with `--seed 42` sent:
+
+```json
+{
+  "number": 42.5,
+  "int": 42,
+  "lower": "ada lovelace",
+  "urlEncode": "a%20b%26c%3Dd%2F%C3%A9",
+  "default": "none",
+  "chain": ["Delhi", "Paris"],
+  "inText": "n=42"
+}
+```
+
+A pipe in a check. The response has the number `42`, and the var holds the text `"42"`:
+
+```yaml
+    expect:
+      body:
+        match:
+          body.n: ${var.count | int}
+```
+
+A pipe after a missing field. Only `default` accepts a missing value, so put it first:
+
+```yaml
+      note: ${var.order.note | default('n/a') | upper}   # "N/A"
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`vars:
+  name: "  Ada Lovelace  "
+  cities: [Tokyo, Delhi, Paris, Lima]
+tests:
+  - id: tidiesValues
+    call: sample#echo
+    vars:
+      payload:
+        handle: \${var.name | trim | lower}
+        pick: \${var.cities | random}
+`} />
+
+## How it behaves
+
+- Pipes run left to right. Each one gets the output of the one before.
+- `vc check` checks every chain: the pipe exists, it has the right arguments, and it accepts the type it gets when that type is known.
+- A template that is only a pipe chain keeps the output's type. Inside other text the result becomes text. See [Types](/vc-rs/reference/templates/types/).
+- You cannot add a path after a pipe: `${var.raw | json}.id` is not valid. Save the result in a var, then read its fields.
+- `random` and `shuffle` follow the run's seed. Pass `--seed N` to repeat a run.
+- When a pipe fails at run time, the action fails with V5111 and the message names the pipe and the value.
+
+## Common errors
+
+| Code | When | Example message |
+| --- | --- | --- |
+| [V2308](/vc-rs/reference/diagnostics/v2308/) | unknown pipe or wrong arguments | ``unknown pipe `uppercase` ``, ``pipe `take` takes 1 argument(s), not 0`` |
+| [V2305](/vc-rs/reference/diagnostics/v2305/) | an argument that does not parse | `text arguments take single quotes` |
+| [V2304](/vc-rs/reference/diagnostics/v2304/) | the input has the wrong type | ``pipe `upper` takes text, not a number`` |
+| [V5111](/vc-rs/reference/diagnostics/v5111/) | the pipe failed on a real value | ``pipe `number` cannot take "abc": the text is not a number`` |
+
+`vc check` reports in passes. Fix the V2305 and V2308 errors first; V2304 type errors can show up on the next check.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Templates" href="/vc-rs/reference/templates/" />
+  <LinkCard title="Types" href="/vc-rs/reference/templates/types/" />
+  <LinkCard title="Paths" href="/vc-rs/reference/templates/paths/" />
+  <LinkCard title="Computed values" href="/vc-rs/reference/templates/cel-values/" description="For arithmetic, use $cel." />
+</CardGrid>

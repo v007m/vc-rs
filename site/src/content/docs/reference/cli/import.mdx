@@ -1,0 +1,214 @@
+---
+title: "vc import"
+description: "Creates api files, and optionally tests, from an OpenAPI spec, a HAR recording, curl commands, a .http file or a Postman collection."
+sidebar: { order: 19 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Creates api definitions from something you already have: an OpenAPI spec, a browser recording (HAR), a file of curl commands, a `.http` file, or a Postman collection. It can also write tests for what it imports.
+
+```console
+$ vc import [OPTIONS] <KIND> <SOURCE>
+```
+
+| `<KIND>` | `<SOURCE>` |
+| --- | --- |
+| `openapi` | An OpenAPI 3.0 or 3.1 spec, YAML or JSON, as a URL or a path in the project |
+| `har` | A HAR file saved from browser dev tools or a proxy |
+| `curl` | A file with one curl command per line |
+| `http` | A `.http` file (the VS Code REST Client and JetBrains format) |
+| `postman` | A Postman collection, v2.1 |
+
+## Options
+
+| Flag | Value | Applies to | Description |
+| --- | --- | --- | --- |
+| `--id` | `<FILE_ID>` | all | The file ID of the api file to fill, such as `users`. Derived from the spec or the host when left out |
+| `--tests` | | openapi | Also writes a happy-path test per api |
+| `--negative` | | openapi | Also writes tests that send what the schema rejects |
+| `--auth` | | openapi | Also writes a test per secured api that expects 401 without auth |
+| `--include` | `<TAG_OR_PATH>` | openapi | Only the operations with this tag or path prefix. Repeat for more |
+| `--only` | `<OPERATION_ID>` | openapi | Only the operation with this operation ID. Repeat for more |
+| `--profile` | `<IDS>` | all | The active profiles. Their vars fill `source.headers`, and a recording's hosts are matched against their base URLs |
+| `--flow` | `<TEST_ID>` | har | Also writes a test that replays the recording, as `fileId#testId` or a bare test ID |
+| `--include-host` | `<HOST>` | har | Keeps a recording's calls to this third-party host. Repeat for more |
+| `--keep-static` | | har | Keeps a recording's static assets (scripts, styles, images, fonts) |
+| `--dry-run` | | all | Prints the plan and the diff of every file without writing |
+| `--project` | `<DIR>` | all | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### Preview an OpenAPI import
+
+```console
+$ vc import openapi specs/users.yaml --dry-run
+Import 4 apis from specs/users.yaml
+--- /dev/null
++++ b/services/users/users.api.yaml
+@@ -0,0 +1,37 @@
++# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
++id: users
++name: Users
++baseUrl: ${var.usersUrl}
++source:
++  openapi: specs/users.yaml
++
++apis:
++  - id: listUsers
++    name: List users
++    path: /users
++    operationId: listUsers
++  - id: createUser
++    name: Create user
++    method: POST
++    path: /users
++    vars:
++      email: ${fake.internet.email}
++      name: ${fake.person.fullName}
++    body:
++      email: ${var.email}
++      name: ${var.name}
++    operationId: createUser
+...
+--- a/vibranium.config.yaml
++++ b/vibranium.config.yaml
+@@ -18,6 +18,7 @@
+ vars:
+   sampleUrl: http://localhost:7421    # the demo service used by services/sample
++  usersUrl: http://localhost:7421
+...
+--- /dev/null
++++ b/openapi/users.yaml
++# Snapshot of specs/users.yaml as OpenAPI 3.1, written by `vc import` and `vc sync`.
++# `vc sync users` merges against it: commit it, and do not edit it.
+...
+```
+
+An OpenAPI import writes three things:
+
+- the api file, with `source.openapi` pointing at the spec
+- a `<file>Url` var in the config, taken from the spec's first server
+- a snapshot of the spec in `openapi/`, which [`vc sync`](/vc-rs/reference/cli/sync/) merges against later
+
+Request bodies get a var per field, filled with generated data that fits the schema.
+
+### Import with tests
+
+```console
+$ vc import openapi specs/users.yaml --tests --negative --auth
+✓ imported specs/users.yaml
+$ vc list tests 'users.*'
+users.openapi#listsUsers  listUsers returns 200
+users.openapi#createsUser  createUser returns 201
+users.openapi#rejectsCreateUserWithoutEmail  createUser without email returns 400
+users.openapi#getsUser  getUser returns 200
+users.openapi#deletesUser  deleteUser returns 204
+users.openapi#rejectsDeleteUserWithoutAuth  deleteUser without auth returns 401
+```
+
+The tests go to `services/users/openapi.test.yaml`. A negative test drops a required field (`vars: { email: null }`) and expects the spec's 4xx status. An auth test sends `auth: none` and expects 401.
+
+### Import part of a spec
+
+```console
+$ vc import openapi specs/users.yaml --id people --only getUser
+✓ imported specs/users.yaml
+$ vc import openapi specs/users.yaml --id admin --include admin --dry-run
+Import 1 apis from specs/users.yaml
+...
+```
+
+### A HAR recording, with a replay test
+
+```console
+$ vc import har rec/checkout.har --include-host api.shop.test --flow checkout#placesOrder
+✓ imported rec/checkout.har
+read 7 entries · filtered 1 static, 1 third-party, 1 OPTIONS → 4 requests
+  api.shop.test → shop (existing)  1 matched, 1 new · no auth yet: `vc new auth shopAuth --type bearer`
+  pay.shop.test → pay (new)  1 new · no auth yet: `vc new auth payAuth --type bearer`
+secrets  header authorization, cookie dropped → each file's auth · body field token → ${secret.PAY_TOKEN}
+.env.schema  declares PAY_TOKEN
+flow checkout#placesOrder (4 steps)
+POST /v1/carts/${var.cartId}/items: recorded 2 times, merged into one api
+```
+
+A HAR import groups requests by host, one api file per host. It drops static assets, analytics hosts and `OPTIONS` requests. Credentials are never written: headers such as `authorization` and cookies are dropped, and secret-looking body fields become `${secret.…}` names declared in `.env.schema`. `--flow` writes a test whose steps replay the calls in order, with the IDs the server returned saved and passed along:
+
+```yaml title="services/checkout.test.yaml"
+tests:
+  - id: placesOrder
+    name: Places order
+    steps:
+      - call: shop#postV1Carts
+        save:
+          cartId: ${response.body.id}
+      - call: shop#addItem
+        vars:
+          cartId: ${var.cartId}
+      ...
+```
+
+See [HAR and capture](/vc-rs/guides/har-and-capture/) for the whole workflow.
+
+### curl commands
+
+```console
+$ cat rec/calls.sh
+curl -X POST 'https://api.shop.test/v1/carts' -H 'content-type: application/json' -H 'authorization: Bearer eyJhbGciOi' -d '{"sku":"tea-01","qty":2}'
+curl 'https://api.shop.test/v1/carts/c_8Kq2Tz9w/items?expand=price'
+$ vc import curl rec/calls.sh --id shop
+✓ imported rec/calls.sh
+  api.shop.test → shop (new)  2 new
+POST /v1/carts: header authorization: a credential is never written; add it with `vc new auth`
+```
+
+The body fields become vars (`sku: tea-01`, `qty: 2`) and path IDs become vars too (`/v1/carts/${var.cartId}/items`).
+
+### A `.http` file or a Postman collection
+
+```console
+$ vc import http rec/users.http
+✓ imported rec/users.http
+  localhost:7421 → users (existing)  2 matched
+GET /users: headers are not imported: Accept
+POST /users: header Authorization: a credential is never written; add it with `vc new auth`
+$ vc import postman rec/coll.json
+✓ imported rec/coll.json
+collection Shop · 2 requests
+  localhost:7421 → users (existing)  2 matched
+POST /users: the test script is not imported, apart from the values it saves
+```
+
+A request whose host and path match an existing api is reported as `matched` and left as it is.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Imported, or the dry run printed |
+| `2` | The source cannot be read, the kind is unknown, or the api file exists already |
+
+```console
+$ vc import openapi specs/users.yaml
+error: `users` already has an api file
+  = help: `vc sync users` merges the spec into it
+$ vc import openapi nope.yaml
+error: nope.yaml: not a file or folder in the project at /home/ada/shop
+  = help: give a URL, or a path inside the project
+$ vc import pdf specs/users.yaml
+error: unknown import kind "pdf"; known: …
+```
+
+<Aside type="tip">
+Commit the `openapi/` snapshot with the api file. `vc sync` needs it to tell your edits apart from changes in the spec.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="OpenAPI import and sync" href="/vc-rs/guides/openapi-import-and-sync/" description="Import once, then keep up with the spec." />
+  <LinkCard title="HAR and capture" href="/vc-rs/guides/har-and-capture/" description="Turn a browser session into apis and a test." />
+  <LinkCard title="vc sync" href="/vc-rs/reference/cli/sync/" description="Merge spec changes into api files." />
+  <LinkCard title="vc new auth" href="/vc-rs/reference/cli/new/" description="Add the auth an import leaves out." />
+</CardGrid>

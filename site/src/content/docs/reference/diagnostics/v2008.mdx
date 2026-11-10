@@ -1,0 +1,75 @@
+---
+title: "V2008 — Hook import not allowed"
+description: "Hooks run inside the engine, not in Node, so a hook file can import only two things: other files in the project, by a path starting ./ or ../ (the extension may be left off), and vibranium:std, which holds the helpers a hook may use (hmacSha256Hex, sha256Hex, base64Encode, base64Decode, urlEncode, urlDecode)."
+sidebar:
+  label: "V2008 Hook import not allowed"
+  order: 2008
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2008` |
+| Category | V2xxx: References and types |
+| Severity | error |
+
+Hooks run inside the engine, not in Node, so a hook file can import only two things: other files in the project, by a
+path starting `./` or `../` (the extension may be left off), and `vibranium:std`, which holds the helpers a hook may use
+(`hmacSha256Hex`, `sha256Hex`, `base64Encode`, `base64Decode`, `urlEncode`, `urlDecode`). Packages, `node:` modules and `import()` are refused. Types from
+`@vibranium/sdk` are fine with `import type`, which is removed before the hook runs. A `function:` that names a file not
+ending in `.ts`, `.mts`, `.js` or `.mjs` is V2008 too.
+
+## Wrong
+
+```yaml title="services/orders/orders.api.yaml"
+beforeRequest:
+  - function: ../../hooks/sign.ts#sign
+apis:
+  - id: listOrders
+    path: /orders
+```
+
+```ts title="hooks/sign.ts"
+import { createHmac } from "node:crypto";
+
+export function sign() {
+  return createHmac("sha256", "key").digest("hex");
+}
+```
+
+## Right
+
+```yaml title="services/orders/orders.api.yaml"
+beforeRequest:
+  - function: ../../hooks/sign.ts#sign
+apis:
+  - id: listOrders
+    path: /orders
+```
+
+```ts title="hooks/sign.ts"
+import { hmacSha256Hex } from "vibranium:std";
+
+export function sign() {
+  return hmacSha256Hex("key", "");
+}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2008
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

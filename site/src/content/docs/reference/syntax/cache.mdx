@@ -1,0 +1,142 @@
+---
+title: cache
+description: Reuse a setup action's saved values across runs for a set time, with an optional check that the data still exists.
+sidebar: { order: 231, badge: { text: 'step', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`cache` keeps an action's result between runs. While the entry is fresh, the action is not run again; its saved values are read from the cache.
+
+```yaml title="services/flow/cache.test.yaml"
+beforeAll:
+  - id: admin
+    call: sample#createUser
+    cache:
+      for: 1h
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `cache.for` | duration | — | yes | How long an entry stays fresh, such as `30m` or `12h`. |
+| `cache.check` | action | — | no | Runs on a hit. If it fails, the entry is dropped and the action runs again. |
+
+`cache` belongs on an action in `beforeAll` (or `beforeRun` in the config). Anywhere else it warns V3202.
+
+## Examples
+
+### Create an admin once an hour
+
+```yaml title="services/flow/cache.test.yaml"
+id: flow.cache
+beforeAll:
+  - id: admin
+    call: sample#createUser
+    vars:
+      email: admin@example.com
+    cache:
+      for: 1h
+      check:
+        call: sample#getUser
+tests:
+  - id: readsCachedAdmin
+    call: sample#getUser
+    vars:
+      userId: ${var.admin.userId}
+    expect:
+      status: 200
+```
+
+The first run sends the `POST` and stores the result. The user's cleanup is not run at the end of the run: the cache owns it now.
+
+```console
+$ vc cache list
+sample#createUser  expires 2026-11-10 18:42Z  profile default
+```
+
+On the next run, the `POST` is not sent. The test still reads `${var.admin.userId}`. With `--reporter json`, the only `exchanged` event is the test's own `GET`.
+
+### When the data is gone
+
+`check` runs on a hit, with the cached values. Here `sample#getUser` reads the cached `userId`. If the user was deleted, the check gets a 404, the entry is dropped, and `sample#createUser` runs again.
+
+### Skip or clear the cache
+
+```console
+$ vc run flow.cache --no-cache
+```
+
+`--no-cache` runs the action every time, neither reading nor writing the cache. Its cleanup then runs at the end of the run as usual.
+
+```console
+$ vc cache clear sample#createUser
+cleared 1 entry
+$ vc cache list
+the cache is empty
+```
+
+`vc cache clear` with no ID removes every entry. Clearing runs the entries' cleanups.
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.cache
+beforeAll:
+  - id: admin
+    call: sample#createUser
+    cache:
+      for: 12h
+      check:
+        call: sample#getUser
+tests:
+  - id: readsCachedAdmin
+    call: sample#getUser
+    vars:
+      userId: \${var.admin.userId}
+`} />
+
+## How it behaves
+
+- Entries are stored in `.vibranium/cache.db`, per profile.
+- The key is the api or test, the action's resolved vars and the active profiles. Vars that read `fake.*` are left out, so a call with a fake email still hits.
+- A hit returns only the saved values. No request is made and the action's `expect` is not checked.
+- Only a passed result is stored.
+- A cached action's cleanup runs when you clear the entry with `vc cache clear`, not at the end of the run.
+- Entries are encrypted with ChaCha20-Poly1305. The key comes from `VIB_CACHE_KEY` (64 hex digits) or the OS keychain. With neither, the cache is off and `vc` prints V5113.
+
+<Aside type="tip">
+In CI, set `VIB_CACHE_KEY` from a secret, or pass `--no-cache`. A runner with no keychain otherwise runs without the cache.
+</Aside>
+
+## Common errors
+
+`cache` on an action that runs for every test:
+
+```console
+warning[V3202]: `cache` on an action that runs for every test
+ --> services/flow/cache2.test.yaml:7:9
+  |
+7 |         cache:
+  |         ^^^^^ cached per test
+  = help: `cache` reuses one result across runs; put the action in `beforeAll` or `beforeRun`
+```
+
+A duration needs a unit:
+
+```console
+error[V2301]: invalid duration `12`
+   = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+   = fix: Write 12ms (certain)
+```
+
+Check the suggested unit before you accept that fix: `12` meant as hours should be `12h`.
+
+See [V3202](/vc-rs/reference/diagnostics/v3202/), [V2301](/vc-rs/reference/diagnostics/v2301/) and [V5113](/vc-rs/reference/diagnostics/v5113/).
+
+## Related
+
+- [beforeAll](/vc-rs/reference/syntax/before-all/)
+- [cleanup](/vc-rs/reference/syntax/cleanup/) and [keep](/vc-rs/reference/syntax/keep/)
+- [vc cache](/vc-rs/reference/cli/)

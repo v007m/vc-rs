@@ -1,0 +1,129 @@
+---
+title: Project layout
+description: The folders vc init creates, how file and item IDs come from paths, the naming conventions, what .vibranium/ holds and what to commit.
+sidebar: { order: 4 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## What `vc init` writes
+
+```text
+shop/
+├── vibranium.config.yaml          # profiles, vars, auth, secrets, reports, history
+├── .env.schema                    # the secret names the project uses (no values)
+├── .gitignore                     # .vibranium/
+├── services/
+│   └── sample/
+│       ├── sample.api.yaml        # the sample api file, ID `sample`
+│       └── basics.test.yaml       # the sample tests, ID `sample.basics`
+├── schemas/                       # JSON Schemas, loaded with $file
+├── datasets/                      # your own data: .csv, .json, .yaml
+├── hooks/                         # functions: .ts, .js and others
+├── openapi/                       # OpenAPI specs you import or sync from
+└── load/                          # load scenarios, *.load.yaml
+```
+
+`vc init --no-sample` writes the same tree without `services/sample/`. Git ignores empty folders, so they only show up in your repo once they hold a file.
+
+A project is the folder with `vibranium.config.yaml`. Every `vc` command looks for it in the current folder and then upward, so you can run commands from any subfolder. Pass `--project <dir>` to work on another one.
+
+## Where files go
+
+| File | Path | File ID |
+| --- | --- | --- |
+| Api file | `services/<service>/<service>.api.yaml` | `<service>` |
+| Test file | `services/<service>/<area>.test.yaml` | `<service>.<area>` |
+| Load scenario | `load/<area>/<name>.load.yaml` | `<area>.<name>` |
+| Dataset | `datasets/<name>.csv` (or `.json`, `.yaml`) | `<name>` |
+
+Folders under `services/` are for people. Group them however you like. Each extra folder adds a word to the ID.
+
+## IDs come from paths
+
+A file's ID is its path below `services/`, `load/` or `datasets/`, with the folders joined by dots and the file's own name last. When the file name repeats the folder name, as in an api file, the repeat is dropped. These IDs come from a real project:
+
+| Path | File ID |
+| --- | --- |
+| `services/orders/orders.api.yaml` | `orders` |
+| `services/orders/checkout.test.yaml` | `orders.checkout` |
+| `services/payments/refunds/refunds.api.yaml` | `payments.refunds` |
+| `services/payments/refunds/partial.test.yaml` | `payments.refunds.partial` |
+| `load/checkout/peak.load.yaml` | `checkout.peak` |
+| `datasets/users/admins.json` | `users.admins` |
+
+`vc list files` prints every file ID in the project:
+
+```console
+$ vc list files
+sample.basics
+sample
+```
+
+Every item in a file has a camelCase `id`. Its full ID is `<fileId>#<id>`:
+
+- `payments.refunds#create`: the `create` api in `services/payments/refunds/refunds.api.yaml`.
+- `payments.refunds.partial#refundsHalfTheOrder`: a test in `services/payments/refunds/partial.test.yaml`.
+- `payments.refunds.partial#rejectsBadAmount:2`: the second row of a test's `examples`.
+
+A bare dotted word is always a file ID, so `vc run payments.refunds.partial` runs that whole file.
+
+### The optional `id:` key
+
+A file may say its own ID with a top-level `id:`. It must match the path. If it doesn't, `vc check` reports V2007 and offers a fix:
+
+```console
+$ vc check
+error[V2007]: the file ID is `payments.refunds.partial` from its path, not `payments.partial`
+ --> services/payments/refunds/partial.test.yaml:1:5
+  |
+1 | id: payments.partial
+  |     ^^^^^^^^^^^^^^^^ does not match the path
+  = help: remove the `id:` key, or move the file to match it
+  = fix: Write payments.refunds.partial (certain)
+```
+
+`vc check --fix` shows the change as a diff and asks before it writes anything. To rename a file or an item and update every reference to it, use [`vc rename`](/vc-rs/reference/cli/rename/).
+
+## Naming conventions
+
+| Thing | Convention | Example |
+| --- | --- | --- |
+| Item IDs | camelCase | `createUser`, `partnerLogin` |
+| Test IDs | camelCase, a third-person verb | `rejectsDeclinedCard`, `getsCreatedUser` |
+| Var names | camelCase, ending in `Id` or `Url` where that fits | `userId`, `ordersUrl` |
+| Profiles | lowercase | `default`, `staging`, `eu` |
+| Tags | kebab-case | `smoke`, `slow-path` |
+| Test file names | the area they cover | `crud.test.yaml`, `checkout.test.yaml` |
+
+`vc check` warns (V4 codes) when an item breaks a convention. See [diagnostics](/vc-rs/reference/diagnostics/).
+
+<Aside>
+A dataset's ID is its file name as written, so `datasets/world-cities.csv` has the ID `world-cities`. A dash is not valid in a dotted template path, so you would have to write `${dataset['world-cities']}`. Name dataset files in camelCase (`worldCities.csv`) and use `${dataset.worldCities}`.
+</Aside>
+
+## `.vibranium/`
+
+`vc` writes its generated data here. `vc init` adds it to `.gitignore`.
+
+| Path | What it is |
+| --- | --- |
+| `.vibranium/reports/<run>/` | The reports of each run: `ctrf.json`, `junit.xml` and `index.html` with its `data/` folder |
+| `.vibranium/history.db` | The run history that `vc history`, `vc run --failed`, the TUI and the web UI read |
+| `.vibranium/cache/compile.bin` | The compile cache, so a run only re-parses changed files |
+
+You can delete the whole folder at any time. You lose only past reports and history.
+
+## What to commit
+
+Commit everything except `.vibranium/`:
+
+- `vibranium.config.yaml`, all `*.api.yaml`, `*.test.yaml` and `*.load.yaml` files
+- `.env.schema`, which lists secret **names** only
+- `schemas/`, `datasets/`, `hooks/` and `openapi/`
+
+Never commit secret **values**. The default `env` secrets provider reads them from the environment and from a `.env` file at the project root. `vc init` does not ignore `.env` for you, so add it yourself:
+
+```console
+echo .env >> .gitignore
+```

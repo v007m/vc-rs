@@ -1,0 +1,64 @@
+---
+title: "defaults.perHost"
+description: "How many connections vc opens to one host at a time."
+sidebar: { order: 23 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`defaults.perHost` caps the connections open to one host at a time. Use it to stay gentle with a small server.
+
+```yaml title="vibranium.config.yaml"
+defaults:
+  perHost: 2
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `defaults.perHost` | integer | `8` | no | A whole number above 0. |
+
+## Examples
+
+Four tests each wait 500ms on the same host, with the default concurrency of 16.
+
+One connection at a time:
+
+```console
+$ vc run slow.par --set defaults.perHost=1
+4 passed                                                     2.0s · profile default
+```
+
+Two at a time:
+
+```console
+$ vc run slow.par --set defaults.perHost=2
+4 passed                                                     1.0s · profile default
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+defaults:
+  concurrency: 16
+  perHost: 2
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- It works with [`defaults.concurrency`](/vc-rs/reference/config/defaults-concurrency/). Tests may be ready to run, but they wait for a free connection to their host.
+- Override it with `--set defaults.perHost=2`, `VIB_DEFAULTS_PER_HOST=2` or the user config.
+
+<Aside type="caution">Write a number of 1 or more. A negative value in the file is not reported by `vc check` today; the built-in `8` is used instead.</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="defaults.concurrency" href="/vc-rs/reference/config/defaults-concurrency/" />
+  <LinkCard title="defaults" href="/vc-rs/reference/config/defaults/" />
+</CardGrid>

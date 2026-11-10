@@ -1,0 +1,157 @@
+---
+title: "in"
+description: "The in matcher passes when a value is one of a list."
+sidebar: { order: 18 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`in` passes when the value equals one of the values in the list.
+
+```yaml
+expect:
+  body:
+    match:
+      body.status: {in: [active, pending]}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `in` | list | — | yes | Each element is compared deeply, like `eq`. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### One of several strings
+
+Accept any of the statuses a new order can have.
+
+```yaml title="services/sample/in.test.yaml"
+tests:
+  - id: hasOpenStatus
+    name: Status is open
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {in: [active, pending]}
+```
+
+```console
+$ vc run sample.in#hasOpenStatus
+plan  1 test in 1 file · profile default
+
+✓ sample.in#hasOpenStatus                                         0ms
+
+1 passed                                                     10ms · profile default
+```
+
+### One of several numbers
+
+
+
+```yaml title="services/sample/in.test.yaml"
+tests:
+  - id: qtyAllowed
+    name: Quantity is 3, 4 or 5
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.qty: {in: [3, 4, 5]}
+```
+
+```console
+$ vc run sample.in#qtyAllowed
+plan  1 test in 1 file · profile default
+
+✓ sample.in#qtyAllowed                                            0ms
+
+1 passed                                                     46ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/in.test.yaml"
+tests:
+  - id: failsOnQty
+    name: Quantity is 1 or 2
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.qty: {in: [1, 2]}
+```
+
+```console
+$ vc run sample.in#failsOnQty
+plan  1 test in 1 file · profile default
+
+✕ sample.in#failsOnQty                                            0ms
+  error[V5101]: expect.body.match.body.qty
+    --> services/sample/in.test.yaml:22:21
+     |
+  22 |           body.qty: {in: [1, 2]}
+     |                     ^^^^^^^^^^^^ expected {"in":[1,2]}, got 3
+
+0 passed · 1 failed                                          15ms · profile default
+```
+
+### Status codes
+
+`status` takes a matcher too. A plain list of codes does the same; see [status](/vc-rs/reference/matchers/status/).
+
+```yaml title="services/sample/in.test.yaml"
+tests:
+  - id: okOrCreated
+    name: Answers 200 or 201
+    call: sample#listUsers
+    expect:
+      status: {in: [200, 201]}
+```
+
+```console
+$ vc run sample.in#okOrCreated
+plan  1 test in 1 file · profile default
+
+✓ sample.in#okOrCreated                                           0ms
+
+1 passed                                                     51ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: hasOpenStatus
+    name: Status is open
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {in: [active, pending]}
+`} />
+
+## How it behaves
+
+- The value must deeply equal one element of the list.
+- A missing value fails.
+- The argument must be a list.
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): the argument is not a list: `in needs a list of values`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [notIn](/vc-rs/reference/matchers/not-in/)
+- [eq](/vc-rs/reference/matchers/eq/)
+- [status](/vc-rs/reference/matchers/status/)
+- [All matchers](/vc-rs/reference/matchers//)

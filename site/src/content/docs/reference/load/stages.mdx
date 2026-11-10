@@ -1,0 +1,118 @@
+---
+title: "stages"
+description: "How many virtual users a load run has over time; users ramp in a straight line from the previous stage's count."
+sidebar: { order: 4 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Each stage says how long it lasts and how many users there are at its end; the count changes in a straight line from the previous stage's.
+
+```yaml
+stages:
+  - duration: 5s
+    users: 5      # 0 → 5 over 5 s
+  - duration: 5s
+    users: 0      # 5 → 0 over 5 s
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `stages` | list | — | yes | Run one after another. The run starts at 0 users. |
+| `duration` | duration: `250ms`, `2s`, `1m`, `12h` | — | yes | A whole number and a unit ([V2301](/vc-rs/reference/diagnostics/v2301/)). |
+| `users` | whole number | — | yes | Virtual users at the end of the stage. |
+
+## Examples
+
+### Ramp up, ramp down
+
+The live line shows the user count each second (from `vc load sample.smoke`):
+
+```console
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  1 users  4 rps  p50 3 ms  p95 5 ms  p99 5 ms  0 errors
+    3s  2 users  7 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
+    4s  3 users  12 rps  p50 3 ms  p95 5 ms  p99 8 ms  0 errors
+    5s  4 users  16 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    6s  5 users  20 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    7s  4 users  21 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    8s  3 users  22 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    9s  2 users  21 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+   10s  1 users  20 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
+   10s  0 users  20 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
+```
+
+### A slow ramp
+
+The count is rounded down, so a slow ramp starts late. With one stage of `20s` to `2` users, the first user starts after about 5 seconds:
+
+```console
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    ...
+    5s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    6s  1 users  2 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors  breaching: errorRate
+```
+
+### Hold a level
+
+Two stages with the same `users` hold that level:
+
+```yaml
+stages:
+  - duration: 1m
+    users: 50     # ramp up
+  - duration: 5m
+    users: 50     # hold
+  - duration: 1m
+    users: 0      # ramp down
+```
+
+### A bad duration
+
+```console
+error[V2301]: invalid duration `5 seconds`
+ --> load/bad/one.load.yaml:6:15
+  |
+6 |   - duration: 5 seconds
+  |               ^^^^^^^^^
+  = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+```
+
+## Try it
+
+<Playground client:visible kind="load" code={`mix:
+  - test: users.crud#getsCreatedUser
+    weight: 1
+stages:
+  - duration: 1m
+    users: 500
+  - duration: 5m
+    users: 5000
+  - duration: 1m
+    users: 0
+`} />
+
+## How it behaves
+
+- The run lasts the sum of the stage durations, unless [`abortOn`](/vc-rs/reference/load/abort-on/) stops it early.
+- Each user runs iterations back to back, with [`thinkTime`](/vc-rs/reference/load/thinktime/) between them.
+
+<Aside type="caution">
+`vc check` doesn't yet reject `stages: []` or a negative `users`. Give every scenario at least one stage with a count of 0 or more.
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V1005](/vc-rs/reference/diagnostics/v1005/) | No `stages` key: ``a load needs `stages` `` |
+| [V2301](/vc-rs/reference/diagnostics/v2301/) | `duration` isn't a whole number and a unit |
+
+## Related
+
+- [`thinkTime`](/vc-rs/reference/load/thinktime/)
+- [`abortOn`](/vc-rs/reference/load/abort-on/)
+- [`vc load`](/vc-rs/reference/load/vc-load/)

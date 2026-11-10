@@ -1,0 +1,63 @@
+---
+title: "llms.txt"
+description: "The docs site as plain text for AI agents: an index at /vc-rs/llms.txt and every page in one file at /vc-rs/llms-full.txt."
+sidebar: { order: 8 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This site follows the [llms.txt](https://llmstxt.org/) convention. Two plain-text files give an agent the docs without HTML, navigation or scripts:
+
+| File | Holds | Use it when |
+| --- | --- | --- |
+| [`/vc-rs/llms.txt`](/vc-rs/llms.txt) | A short intro, the JSON Schemas, and a list of every page with its title, link and one-line description, grouped by section | The agent should find and fetch only the pages it needs |
+| [`/vc-rs/llms-full.txt`](/vc-rs/llms-full.txt) | The intro, the schemas, then the full text of every page, each with its title, source link and description | You want the whole manual in the agent's context at once |
+
+Both are rebuilt with the site, so they always match the pages you see here.
+
+## What `llms.txt` looks like
+
+It starts with a heading, a one-paragraph summary and a link to the full file, then lists the schemas and the pages:
+
+```markdown
+# Vibranium
+
+> Vibranium (`vc`) is one Rust engine for functional, contract and load tests of HTTP APIs. Tests are plain YAML files in git. A CLI, a terminal UI, a web UI and an MCP server for AI agents all run on the same engine.
+
+The full text of every page is at https://v007m.github.io/vc-rs/llms-full.txt.
+
+## Schemas
+
+JSON Schemas (draft 2020-12) for every definition file. Validate YAML against them before writing it, then run `vc check`.
+```
+
+The sections that follow are named after the sidebar: Start here, Walkthroughs, the syntax and CLI reference, Guides, For AI agents, Diagnostics. Each line is `- [Title](url): description`.
+
+In `llms-full.txt`, pages are separated by `---` lines, and component imports are removed. Code samples and tables are kept as written.
+
+## Giving it to an agent
+
+- **Claude Code, Cursor and other agents that fetch URLs:** point them at the index. For example, add to `AGENTS.md` or `CLAUDE.md`:
+
+  ```markdown
+  Vibranium docs for agents: https://v007m.github.io/vc-rs/llms.txt
+  ```
+
+  The agent reads the index and fetches the pages a task needs, such as the matcher reference before it writes a `body.match`.
+
+- **Chat assistants and agents without web access:** download `llms-full.txt` and attach it, or add it to a project's knowledge:
+
+  ```console
+  curl -fsSL -o vibranium-docs.txt https://v007m.github.io/vc-rs/llms-full.txt
+  ```
+
+- **Editor completion and validation:** the schemas listed at the top of both files work with the YAML language server. Files made by `vc init` and `vc import` already name a schema on their first line (`# yaml-language-server: $schema=...`).
+
+<Aside type="tip">
+`llms-full.txt` is large. When an agent only writes and fixes tests, the [Claude Code skill](/vc-rs/agents/claude-code-skill/) or the `AGENTS.md` snippet on that page, plus `vc check` and `vc explain`, usually give it enough. Reach for the full file for wider questions, such as setting up auth or plugins.
+</Aside>
+
+## Related
+
+- [Claude Code skill](/vc-rs/agents/claude-code-skill/)
+- [JSON output and events](/vc-rs/agents/json-and-events/)

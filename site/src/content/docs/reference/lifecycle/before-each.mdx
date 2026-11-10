@@ -1,0 +1,105 @@
+---
+title: "beforeEach and afterEach"
+description: "File-level blocks that run before and after every test instance, so each instance gets its own data."
+sidebar: { order: 3 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`beforeEach` runs before every test instance in the file, and `afterEach` runs after every one, even a failed one. Parallel instances never share what `beforeEach` creates.
+
+```yaml title="services/life/blocks.test.yaml"
+beforeEach:
+  - call: sample#createUser      # saves ${var.userId}, deleted after the test
+
+afterEach:
+  - id: afterEachCmd
+    command: echo after each
+
+tests:
+  - id: readsOwnUser
+    call: sample#getUser          # reads ${var.userId}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `beforeEach` | list of actions | — | no | Top level of a `*.test.yaml` file |
+| `afterEach` | list of actions | — | no | Top level of a `*.test.yaml` file |
+| `id` (on an action) | camelCase text | — | no | Names the action in output. Saved values are plain names here, not under the `id` |
+
+## Examples
+
+Give every test its own buyer and cart. Both apis declare a `cleanup`, so nothing needs deleting by hand:
+
+```yaml title="services/orders/checkout.test.yaml (excerpt)"
+beforeEach:
+  - call: users#create     # saves userId
+  - call: carts#create     # saves cartId
+```
+
+Each instance of a test, including each `examples` row and each `repeat`, runs `beforeEach` again and gets fresh values.
+
+`afterEach` is the place for per-test reporting or resets that are not a cleanup of one api:
+
+```yaml
+afterEach:
+  - command: ./scripts/reset-feature-flags.sh
+```
+
+When a `beforeEach` or `before` action fails, the instance is **blocked**, not failed. Its `after`, `afterEach` and cleanups still run. Here `before` creates an item and then hits a 500:
+
+```console
+$ vc run lab.blocked#failsInBefore
+⊘ lab.blocked#failsInBefore blocked                              31ms
+  error[V5101]: expect.status
+    --> services/lab/lab.api.yaml:23:5
+     |
+  23 |   - id: status
+     |     ^^^^^^^^^^
+  24 |     path: /status/${var.code}
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^ expected ["2xx"], got 500
+     = note: expected by api lab#status
+```
+
+The server log shows the item's cleanup still ran:
+
+```console
+POST /items body={"label":"item"}
+GET /status/500
+DELETE /items/i4
+```
+
+<Playground client:visible kind="test" code={`beforeEach:
+  - call: sample#createUser
+
+afterEach:
+  - command: echo after each
+
+tests:
+  - id: readsOwnUser
+    name: Reads the user made for this test
+    call: sample#getUser
+`} />
+
+## How it behaves
+
+- Order per instance: `beforeEach` → `before` → the call or steps → `after` → `afterEach` → cleanups, newest first.
+- Values saved here are plain names (`${var.userId}`), visible to that instance only. They beat the file's `vars` and anything shared from `beforeAll` or `beforeRun`.
+- A blocked test is never retried.
+
+## Common errors
+
+- [V3202](/vc-rs/reference/diagnostics/v3202/): `cache` on an action that runs for every test.
+- Any run-time code (for example [V5101](/vc-rs/reference/diagnostics/v5101/)) blocks the instance.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="before and after" href="/vc-rs/reference/lifecycle/before-after/" />
+  <LinkCard title="beforeAll and afterAll" href="/vc-rs/reference/lifecycle/before-all/" />
+  <LinkCard title="Cleanups" href="/vc-rs/reference/lifecycle/cleanups/" />
+  <LinkCard title="Shared values and blocked tests" href="/vc-rs/reference/lifecycle/shared-values/" />
+</CardGrid>

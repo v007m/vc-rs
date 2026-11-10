@@ -1,0 +1,208 @@
+---
+title: "vc new"
+description: "Adds an api, a test or an auth definition, or creates an empty definition file, at the path its ID derives from."
+sidebar: { order: 10 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Creates definitions for you, in the right file and following the [naming conventions](/vc-rs/start/project-layout/). Each subcommand derives the file from the ID, appends to it (creating it when needed), and refuses to write anything that would leave the project with an error.
+
+```console
+$ vc new api [OPTIONS] <ID>
+$ vc new test [OPTIONS] --from <API> <ID>
+$ vc new auth [OPTIONS] <ID>
+$ vc new file <KIND> <ID>
+```
+
+Every subcommand also takes [`--project`](/vc-rs/reference/cli/#global-flags).
+
+## vc new api
+
+Appends an api to the api file its ID derives from: `users#deactivate` goes to `services/users/users.api.yaml`, `payments.refunds#create` to `services/payments/refunds.api.yaml`.
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `<ID>` | | The api's full ID: `users#deactivate` |
+| `--method` | `<METHOD>` | The HTTP method. GET when left out, and then not written |
+| `--path` | `<PATH>` | The path, with `{name}` for each parameter: `/users/{id}/deactivate` |
+| `--url` | `<URL>` | A full URL. Its origin becomes a base-URL var in the config |
+| `--from-curl` | `<CURL>` | A copied curl command: its method, URL, query, headers and body. A credential is never written |
+
+### A path with a parameter
+
+```console
+$ vc new api users#deactivate --method POST --path '/users/{id}/deactivate'
+✓ added users#deactivate to services/users/users.api.yaml:5
+```
+
+```yaml title="services/users/users.api.yaml"
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
+# users · api file · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
+apis:
+  # users#deactivate · POST /users/{id}/deactivate · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
+  - id: deactivate
+    method: POST
+    path: /users/${var.id}/deactivate
+```
+
+Each path parameter becomes a var: `{id}` is written as `${var.id}`. The comment lines are the [`brief` comments](/vc-rs/reference/cli/fmt/#remove-the-generated-comments).
+
+### A full URL
+
+```console
+$ vc new api billing#getInvoice --url 'https://billing.example.com/v1/invoices/{invoiceId}'
+✓ added billing#getInvoice to services/billing/billing.api.yaml:6
+```
+
+The new file gets `baseUrl: ${var.billingUrl}`, and the config gets the var, named after the file ID's last word:
+
+```yaml title="vibranium.config.yaml"
+vars:
+  sampleUrl: http://localhost:7421
+  billingUrl: https://billing.example.com
+```
+
+When a config var already holds that origin, it is reused.
+
+### From a curl command
+
+```console
+$ vc new api people#rename --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v1/users/u_7f3k -H "content-type: application/json" -H "authorization: Bearer eyJabc" -d "{\"name\":\"Ada\"}"'
+✓ added people#rename to services/people/people.api.yaml:6
+  PATCH /api/v1/users/${var.userId}: header authorization: a credential is never written; add it with `vc new auth`
+```
+
+```yaml title="services/people/people.api.yaml"
+baseUrl: ${var.peopleUrl}
+apis:
+  - id: rename
+    name: Rename
+    method: PATCH
+    path: /api/v1/users/${var.userId}
+    vars:
+      name: Ada
+      userId: u_7f3k
+    headers:
+      content-type: application/json
+    body:
+      name: ${var.name}
+```
+
+The ID in the path became `${var.userId}`, and each body field became a var with the curl's value as its default, so tests can override it. The `authorization` header was left out and named in a note. For a whole file of curl commands, use [`vc import curl`](/vc-rs/reference/cli/import/).
+
+## vc new test
+
+Appends a happy-path test that calls an api, to the test file its ID derives from: `users.crud#listsUsers` goes to `services/users/crud.test.yaml`.
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `<ID>` | | The test's full ID: `users.crud#listsUsers` |
+| `--from` | `<API>` | Required. The api it calls: `users#listUsers` |
+| `--negative` | | Also a test with one example row per invalid body, built from the api's body schema. The api must have one |
+| `--auth` | | Also a test calling the api with `auth: none` and expecting `401` |
+
+```console
+$ vc new test users.crud#listsUsers --from users#listUsers --auth
+✓ added users.crud#listsUsers to services/users/crud.test.yaml:5
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+  - id: listUsersRejectsAnonymous
+    name: List users needs a signed-in caller
+    call: users#listUsers
+    auth: none
+    expect:
+      status: 401
+```
+
+The name is written from the ID. When the api comes from an OpenAPI spec, the test also expects the spec's success status and response schema; [`vc import openapi --tests`](/vc-rs/reference/cli/import/) does this for every operation.
+
+<Aside type="caution">
+`vc new test` refuses an api whose path var has no value anywhere, because the new test would not check:
+
+```console
+$ vc new test billing.invoices#getsInvoice --from billing#getInvoice
+error: nothing was written: the change would add error[V2101] at services/billing/billing.api.yaml:7: ${var.invoiceId} is used but never set
+  = help: set it in this test's vars, in the file's vars, or in the config's vars
+```
+
+Give the var a default in the api, the file or the config first, or write the test by hand.
+</Aside>
+
+## vc new auth
+
+Adds an auth definition to the config's `auth` list. On a terminal it asks for the fields of the type. Without a terminal, or with `--json`, it never asks.
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `<ID>` | | The auth's ID: `partnerToken` |
+| `--type` | `<TYPE>` | `basic`, `bearer`, `apiKey`, `oauth2ClientCredentials`, `oauth2Password`, `oauth2AuthorizationCode`, `oauth2Refresh`, `flow` or `plugin`. Required when it cannot ask |
+| `--json` | | Prints what was added as JSON, and never asks |
+
+```console
+$ vc new auth partnerToken --type bearer --json
+{"added":"partnerToken","line":52,"path":"vibranium.config.yaml"}
+```
+
+```yaml title="vibranium.config.yaml"
+auth:
+  # partnerToken · bearer · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#authentication
+  - id: partnerToken
+    type: bearer
+```
+
+When it does not ask, only `id` and `type` are written. Add the type's fields yourself, such as `token: ${secret.PARTNER_TOKEN}` for `bearer`; see [Auth](/vc-rs/reference/auth/).
+
+## vc new file
+
+Creates an empty file of a kind, holding only its header.
+
+| Argument | Description |
+| --- | --- |
+| `<KIND>` | `api`, `test` or `load` |
+| `<ID>` | Its file ID: `orders.checkout` |
+
+```console
+$ vc new file test orders.checkout
+✓ added orders.checkout to services/orders/checkout.test.yaml:1
+$ vc new file api orders
+✓ added orders to services/orders/orders.api.yaml:1
+```
+
+An existing file is never overwritten. `vc new file load` currently always fails, because an empty load file has no `mix`; copy a [load file](/vc-rs/reference/load/) instead.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Written |
+| `2` | Nothing was written: the ID breaks a convention, already exists, names a missing api, or the change would add an error |
+
+```console
+$ vc new api users#listUsers --path /users
+error: `users#listUsers` already exists
+  = help: pick another ID, or `vc rename users#listUsers` first
+$ vc new test billingInvoices#x --from billing#getInvoice
+error: `billingInvoices` breaks the file ID convention
+  = help: did you mean `billing-invoices#x`? File IDs are dotted lower-case words, item IDs camelCase
+$ vc new test users.crud#x --from users#nope
+error: there is no api `users#nope`
+  = help: `vc list apis` lists them
+$ vc new auth svc </dev/null
+error: `vc new auth` needs `--type` when it cannot ask
+  = help: for example `--type bearer`
+```
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc call --save-as-test" href="/vc-rs/reference/cli/call/" description="Capture a test from a real call." />
+  <LinkCard title="vc import" href="/vc-rs/reference/cli/import/" description="Create many apis and tests from a spec or a recording." />
+  <LinkCard title="vc rename" href="/vc-rs/reference/cli/rename/" description="Rename what you created, and every reference to it." />
+  <LinkCard title="Project layout" href="/vc-rs/start/project-layout/" description="How IDs map to files." />
+</CardGrid>

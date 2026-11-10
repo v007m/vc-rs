@@ -1,0 +1,97 @@
+---
+title: "checks"
+description: "Whether a load iteration fails only on the apis' own expect (api, the default) or on each test's expect as well (full)."
+sidebar: { order: 6 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`checks` decides which `expect` blocks count during a load run: `api` (the default) uses only the apis' own, `full` adds each test's.
+
+```yaml
+checks: full
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `checks` | `api` or `full` | `api` | no | Any other value is [V2302](/vc-rs/reference/diagnostics/v2302/). |
+
+## Examples
+
+Both runs use this test, which expects the wrong status on purpose:
+
+```yaml title="services/sample/wrong.test.yaml"
+tests:
+  - id: expectsWrongStatus
+    name: Expects 201 from a list call
+    call: sample#listUsers
+    expect:
+      status: 201
+```
+
+### `checks: api` (default)
+
+The test's `expect` is skipped, so nothing fails:
+
+```console
+$ vc load sample.checks
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  1 users  5 rps  p50 3 ms  p95 7 ms  p99 7 ms  0 errors
+    2s  0 users  5 rps  p50 3 ms  p95 7 ms  p99 7 ms  0 errors
+sample.checks finished after 2 s · 10 iterations · 5.0 rps · 0 errors
+latency p50 3.7 ms · p95 7.3 ms · p99 7.3 ms · max 7.3 ms
+```
+
+### `checks: full`
+
+Every iteration fails, the `errorRate` threshold is breached and the exit code is 3:
+
+```console
+$ vc load sample.full
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  1 users  5 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors  breaching: errorRate
+    2s  0 users  5 rps  p50 3 ms  p95 5 ms  p99 5 ms  10 errors
+sample.full finished after 2 s · 10 iterations · 5.0 rps · 10 errors
+latency p50 3.7 ms · p95 5.2 ms · p99 5.2 ms · max 5.2 ms
+breached errorRate at 1.000
+errors sample#listUsers 200 × 10
+```
+
+The `errors` line groups failures by api and status: `sample#listUsers` answered `200`, ten times.
+
+### A wrong value
+
+```console
+error[V2302]: expected one of api, full, found `some`
+ --> load/bad/one.load.yaml:8:9
+  |
+8 | checks: some
+  |         ^^^^ not a known value
+  = help: expected one of `api`, `full`
+```
+
+## Try it
+
+<Playground client:visible kind="load" code={`mix:
+  - test: orders.checkout#placesOrder
+    weight: 1
+stages:
+  - duration: 30s
+    users: 10
+checks: full
+thresholds:
+  errorRate:
+    lt: 1%
+`} />
+
+## How it behaves
+
+- `api` keeps the load tool fast: it checks what every call of that api must satisfy, such as a schema or status on the api.
+- `full` is closer to a functional run under load, at the cost of evaluating every matcher on every iteration.
+
+## Related
+
+- [`expect`](/vc-rs/reference/syntax/expect/)
+- [`thresholds`](/vc-rs/reference/load/thresholds/)

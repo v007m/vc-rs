@@ -1,0 +1,67 @@
+---
+title: "V2004 — $file or snapshot reference not found"
+description: "A $file names a file that is not in the project."
+sidebar:
+  label: "V2004 $file or snapshot reference not found"
+  order: 2004
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2004` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | close path |
+
+A `$file` names a file that is not in the project. The path is relative to the file that holds the `$file`, and a
+`#/pointer` after it points inside the file. When exactly one file has a close name, the fix rewrites the path.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      $file: data/usr.json
+```
+
+```json title="services/users/data/user.json"
+{"name": "Ann"}
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      $file: data/user.json
+```
+
+```json title="services/users/data/user.json"
+{"name": "Ann"}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2004
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

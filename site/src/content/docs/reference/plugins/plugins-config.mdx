@@ -1,0 +1,135 @@
+---
+title: "plugins"
+description: "The plugins key in vibranium.config.yaml lists each plugin a project uses, with its ID, where it comes from and its literal settings."
+sidebar: { order: 2 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`plugins` lists the plugins a project uses. `vc plugin add` writes each entry for you, so you rarely type one by hand.
+
+```yaml title="vibranium.config.yaml"
+plugins:
+  - id: summary
+    source: path:plugins/summary
+    config:
+      title: Nightly
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | camelCase word | — | yes | The plugin's ID, the same as `id` in its manifest. `reports.formats` and `auth[].plugin` refer to it |
+| `source` | text | — | yes | `npm:<package>[@<range>]` or `path:<folder>`. A path is relative to the project root. No other scheme is accepted |
+| `config` | any YAML value | `null` | no | Literal settings, sent to the plugin in `initialize`. No `${…}` templates |
+
+## Examples
+
+**A local plugin.** A folder in the repo, handy while you write one.
+
+```yaml
+plugins:
+  - id: summary
+    source: path:plugins/summary
+```
+
+**An npm package, with a version range.** `vc plugin add` runs `npm pack` to fetch it, so `npm` must be on your `PATH`.
+
+```yaml
+plugins:
+  - id: acmeReport
+    source: npm:@acme/vibranium-report@^1
+```
+
+**What `vc plugin add` writes.** It appends the entry with a one-line comment above it.
+
+```console
+$ vc plugin add path:plugins/summary --yes
+summary 1.0.0 · reporter plugin from path:plugins/summary (plugins/summary)
+  runs: python3 report.py
+  asks to reach: secret reportToken
+✓ added plugin summary from path:plugins/summary
+```
+
+```yaml title="vibranium.config.yaml (after)"
+plugins:
+  # summary · reporter plugin · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#plugins-and-alerts
+  - id: summary
+    source: path:plugins/summary
+```
+
+**Settings for the plugin.** `config` is passed as is to the plugin's `initialize` call.
+
+```yaml
+plugins:
+  - id: stamp
+    source: path:plugins/stamp
+    config:
+      realm: partners
+```
+
+**Using the plugins.** A reporter runs when its ID is in `reports.formats`. An auth plugin runs when an auth definition of `type: plugin` names it.
+
+```yaml
+reports:
+  formats: [ctrf, summary]
+
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config: {tenant: eu}
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: summary
+    source: path:plugins/summary
+    config:
+      title: Nightly
+  - id: stamp
+    source: npm:@acme/vibranium-stamp@^2
+reports:
+  formats: [ctrf, summary]
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config: {tenant: eu}
+`} />
+
+## How it behaves
+
+- An entry here is not enough to run a plugin. It must also be installed and approved in `vibranium.lock`. `vc plugin add` does all three.
+- Each plugin runs as one process per run. It starts the first time the run uses it, so a plugin that nothing uses never starts.
+- `config` holds literal values only. A `${…}` in it makes the plugin unusable for that run. The run prints a warning and goes on without it:
+
+  ```console
+  warning: plugin `summary`: its `config`: a plugin's `config` takes literal values; the plugin reads a secret with `secrets/get`
+  ```
+
+  Neither `vc check` nor `vc plugin list` flags this yet; only the run does.
+- To give a plugin a secret, list it under `permissions.secrets` in the manifest; the plugin asks for it with `secrets/get`. The one other way is a `${secret.x}` in an auth definition's `config`, which [auth plugins](/vc-rs/reference/plugins/auth-plugins/) receive.
+- A plugin that fails, or is not ready, fails only the work that used it: a reporter's report, or the requests that use an auth plugin.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2302](/vc-rs/reference/diagnostics/v2302/) | `reports.formats` names something that is neither a built-in format nor a plugin ID |
+| [V5118](/vc-rs/reference/diagnostics/v5118/) | The plugin failed, ran past a deadline, asked for something not granted, or its files changed since approval |
+| [V5114](/vc-rs/reference/diagnostics/v5114/) | An auth plugin could not supply credentials |
+
+## Related
+
+- [vc plugin commands](/vc-rs/reference/plugins/commands/)
+- [vibranium-plugin.yaml](/vc-rs/reference/plugins/manifest/)
+- [vibranium.lock](/vc-rs/reference/plugins/vibranium-lock/)
+- [Reporter plugins](/vc-rs/reference/plugins/reporter-plugins/) and [auth plugins](/vc-rs/reference/plugins/auth-plugins/)

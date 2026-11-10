@@ -1,0 +1,245 @@
+---
+title: "body.schema"
+description: "The body.schema check validates the response body against a JSON Schema."
+sidebar: { order: 5 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`body.schema` validates the body against a JSON Schema, from a file or written inline.
+
+```yaml
+expect:
+  body:
+    schema: {$file: ../../schemas/order.json}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `body.schema` | JSON Schema, or `$file` | — | no | The `$file` path is relative to the file that holds it. Add `#/pointer` to use part of a file. |
+
+## Examples
+
+Some examples call `sample#echoOrder`, which echoes an order under `body`; others call `sample#listUsers`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Validate with a schema file
+
+The schema lives in `schemas/order.json` at the project root. The path is relative to the test file in `services/sample/`.
+
+```yaml title="services/sample/bodyschema.test.yaml"
+tests:
+  - id: matchesOrderSchema
+    name: Body matches the order schema
+    call: sample#echoOrder
+    expect:
+      body:
+        schema: {$file: ../../schemas/order.json}
+```
+
+```console
+$ vc run sample.bodyschema#matchesOrderSchema
+plan  1 test in 1 file · profile default
+
+✓ sample.bodyschema#matchesOrderSchema                            4ms
+
+1 passed                                                     5ms · profile default
+```
+
+```json title="schemas/order.json"
+{
+  "type": "object",
+  "required": ["body"],
+  "properties": {
+    "body": {
+      "type": "object",
+      "required": ["id", "total", "tags"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ord_" },
+        "total": { "type": "number", "minimum": 0 },
+        "qty": { "type": "integer" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
+```
+
+### Use part of a file
+
+Add a JSON Pointer after `#` to validate against one part of a file, such as a definition. References inside it still resolve.
+
+```yaml title="services/sample/bodyschema.test.yaml"
+tests:
+  - id: matchesUserList
+    name: Body is a list of users
+    call: sample#listUsers
+    expect:
+      body:
+        schema: {$file: "../../schemas/users.json#/definitions/userList"}
+```
+
+```console
+$ vc run sample.bodyschema#matchesUserList
+plan  1 test in 1 file · profile default
+
+✓ sample.bodyschema#matchesUserList                               3ms
+
+1 passed                                                     3ms · profile default
+```
+
+```json title="schemas/users.json"
+{
+  "definitions": {
+    "user": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "userList": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/user" }
+    }
+  }
+}
+```
+
+### Write the schema inline
+
+A short schema can go straight into the test. The demo users have no `email`, so this one fails.
+
+```yaml title="services/sample/bodyschema.test.yaml"
+tests:
+  - id: usersHaveEmails
+    name: Every user has an email
+    call: sample#listUsers
+    expect:
+      body:
+        schema:
+          type: array
+          items: {type: object, required: [id, name, email]}
+```
+
+```console
+$ vc run sample.bodyschema#usersHaveEmails
+plan  1 test in 1 file · profile default
+
+✕ sample.bodyschema#usersHaveEmails                              30ms
+  error[V5101]: expect.body.schema
+    --> services/sample/bodyschema.test.yaml:20:11
+     |
+  20 |           type: array
+     |           ^^^^^^^^^^^
+  21 |           items: {type: object, required: [id, name, email]}
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /0: "email" is a required property; /1: "email" is a required property
+
+0 passed · 1 failed                                          39ms · profile default
+```
+
+### A failing check lists the errors
+
+Each error starts with the JSON Pointer of the failing value. The report shows up to five errors.
+
+```yaml title="services/sample/bodyschema.test.yaml"
+tests:
+  - id: failsOnStrictSchema
+    name: Order is paid
+    call: sample#echoOrder
+    expect:
+      body:
+        schema: {$file: ../../schemas/strict-order.json}
+```
+
+```console
+$ vc run sample.bodyschema#failsOnStrictSchema
+plan  1 test in 1 file · profile default
+
+✕ sample.bodyschema#failsOnStrictSchema                           0ms
+  error[V5101]: expect.body.schema
+    --> services/sample/bodyschema.test.yaml:27:17
+     |
+  27 |         schema: {$file: ../../schemas/strict-order.json}
+     |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ /body: "currency" is a required property; /body/status: value is not one of "paid" or "shipped"; /body/total: value is not of type "integer"
+
+0 passed · 1 failed                                          54ms · profile default
+```
+
+```json title="schemas/strict-order.json"
+{
+  "type": "object",
+  "properties": {
+    "body": {
+      "type": "object",
+      "required": ["currency"],
+      "properties": {
+        "total": { "type": "integer" },
+        "status": { "enum": ["paid", "shipped"] }
+      }
+    }
+  }
+}
+```
+
+### A missing file
+
+`vc check` reports a `$file` that does not exist, and offers the right relative path when it finds one.
+
+```yaml title="services/sample/bodyschemaerrors.test.yaml"
+tests:
+  - id: wrongPath
+    name: Path from the project root
+    call: sample#echoOrder
+    expect:
+      body:
+        schema: {$file: schemas/order.json}
+```
+
+```console
+$ vc check
+error[V2004]: `$file` names schemas/order.json, which is not in the project
+ --> services/sample/bodyschemaerrors.test.yaml:7:25
+  |
+7 |         schema: {$file: schemas/order.json}
+  |                         ^^^^^^^^^^^^^^^^^^ no file at services/sample/schemas/order.json
+  = help: did you mean `../../schemas/order.json`?
+  = fix: Replace with ../../schemas/order.json (certain)
+
+1 error · 0 warnings · 42 files checked
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: matchesOrderSchema
+    name: Body matches the order schema
+    call: sample#echoOrder
+    expect:
+      body:
+        schema: {$file: ../../schemas/order.json}
+`} />
+
+## How it behaves
+
+- The schema is applied to the whole body.
+- `$file` paths are relative to the file that holds them. In `services/<service>/`, that is `../../schemas/<name>.json`.
+- A `#/pointer` after the path picks one part of the file, such as a definition.
+- Up to five errors are shown, each as `<pointer>: <message>`, with `(and N more)` after that.
+- A file that is not a valid JSON Schema fails the check at run time with `the schema ... is not a valid JSON Schema`.
+
+## Common errors
+
+- [V2004](/vc-rs/reference/diagnostics/v2004/): the `$file` is not in the project. The path is relative to the file that holds it.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the body did not validate, or the schema itself is not valid.
+
+## Related
+
+- [body.equals](/vc-rs/reference/matchers/body-equals/)
+- [type](/vc-rs/reference/matchers/type/)
+- [Data files](/vc-rs/reference/data/)
+- [All matchers](/vc-rs/reference/matchers//)

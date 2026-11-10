@@ -3,12 +3,14 @@
   import { SvelteSet } from 'svelte/reactivity';
   import type { RunSession } from '#lib/run/session.svelte.ts';
   import {
+    changedSince,
     facets,
     filterKeys,
     groupByFile,
     matches,
     parseQuery,
     toggleFilter,
+    type FilterContext,
     type FilterKey,
   } from './catalog.ts';
   import type { Catalog } from './catalog.svelte.ts';
@@ -20,8 +22,18 @@
   let text = $state('');
   let current: string | undefined = $state();
   const selected = new SvelteSet<string>();
+  const context: FilterContext = { changed: (since) => catalog.changed.get(since) };
   let query = $derived(parseQuery(text));
-  let shown = $derived(catalog.rows.filter((row) => matches(row, query)));
+  let sinces = $derived(changedSince(query));
+  let finding = $derived(sinces.filter((since) => !catalog.changed.has(since)));
+  let failed = $derived(
+    finding.flatMap((since) => {
+      const reason = catalog.changedErrors.get(since);
+      return reason === undefined ? [] : [`${since}: ${reason}`];
+    }),
+  );
+  let waiting = $derived(finding.filter((since) => !catalog.changedErrors.has(since)));
+  let shown = $derived(catalog.rows.filter((row) => matches(row, query, context)));
   let groups = $derived(groupByFile(shown));
   let fileCount = $derived(groupByFile(catalog.rows).length);
   let currentRow = $derived(catalog.rows.find((row) => row.id === current));
@@ -29,6 +41,16 @@
     { key: 'service' as const, label: 'Services', items: facets(catalog.rows, (r) => [r.service]) },
     { key: 'tag' as const, label: 'Tags', items: facets(catalog.rows, (r) => r.tags) },
   ]);
+
+  // Waits for typing to pause, so `changed:main` asks once rather than once per letter.
+  $effect(() => {
+    const wanted = finding;
+    if (!wanted.length) return;
+    const timer = setTimeout(() => {
+      for (const since of wanted) void catalog.loadChanged(since);
+    }, 300);
+    return () => clearTimeout(timer);
+  });
 
   function count(n: number, word: string): string {
     return `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -89,6 +111,10 @@
       <p class="error" role="alert">Could not load the tests: {catalog.error}</p>
     {:else if catalog.loading && !catalog.rows.length}
       <p class="empty">Loading tests…</p>
+    {:else if failed.length}
+      <p class="error" role="alert">Could not find the changed tests: {failed.join('; ')}</p>
+    {:else if waiting.length}
+      <p class="empty" role="status">Finding the tests changed since {waiting.join(', ')}…</p>
     {:else if !shown.length}
       <div class="empty">
         <p>{text ? `No test matches “${text}”.` : 'This project has no tests yet.'}</p>

@@ -1,0 +1,76 @@
+---
+title: "base64"
+description: "Encode text as standard base64."
+sidebar: { order: 7 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`base64` encodes text as standard base64, with `=` padding. The text is encoded as UTF-8 bytes.
+
+```yaml
+      authorization: Basic ${var.credentials | base64}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text | — | yes |  |
+| output | text | — | — | Standard alphabet (`+` and `/`), padded. |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+| Input | Result |
+| --- | --- |
+| `hello` | `aGVsbG8=` |
+| `ÉCOLE Straße` | `w4lDT0xFIFN0cmHDn2U=` |
+
+Encode a token pair kept in one var:
+
+```yaml
+vars:
+  credentials: ada:s3cr3t
+```
+
+`${var.credentials | base64}` gives `YWRhOnMzY3IzdA==`.
+
+`${var.word | base64 | fromBase64}` gives back the original text.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: encodesText
+    call: sample#echo
+    vars:
+      plain: hello
+      payload:
+        encoded: \${var.plain | base64}
+`} />
+
+## How it behaves
+
+- It encodes the UTF-8 bytes of the text.
+- The URL-safe alphabet is not available.
+
+## Common errors
+
+```console
+error[V2304]: pipe `base64` takes text, not a number
+```
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be text.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the input is not text at run time.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="fromBase64" href="/vc-rs/reference/pipes/from-base64/" />
+  <LinkCard title="urlEncode" href="/vc-rs/reference/pipes/url-encode/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

@@ -1,0 +1,79 @@
+---
+title: "id"
+description: "A load scenario's ID comes from its path under load/; the optional id key must match it."
+sidebar: { order: 1 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+The scenario ID is what you pass to `vc load`; it comes from the file's path, so the `id:` key is optional.
+
+```yaml title="load/sample/smoke.load.yaml"
+id: sample.smoke      # optional; the path already says this
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | file ID: lowercase words joined by dots | from the path | no | Must match the path ([V2007](/vc-rs/reference/diagnostics/v2007/)). |
+
+| File | Scenario ID |
+| --- | --- |
+| `load/sample/smoke.load.yaml` | `sample.smoke` |
+| `load/checkout/peak.load.yaml` | `checkout.peak` |
+| `load/sample/strict.load.yaml` (no `id:`) | `sample.strict` |
+
+## Examples
+
+### Leave it out
+
+`load/sample/strict.load.yaml` has no `id:` key and runs as `sample.strict`:
+
+```console
+$ vc load sample.strict
+...
+sample.strict finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
+```
+
+### A mismatched `id`
+
+```console
+$ vc check
+error[V2007]: the file ID is `bad.one` from its path, not `bad.uno`
+ --> load/bad/one.load.yaml:1:5
+  |
+1 | id: bad.uno
+  |     ^^^^^^^ does not match the path
+  = help: remove the `id:` key, or move the file to match it
+  = fix: Write bad.one (certain)
+```
+
+## Try it
+
+<Playground client:visible kind="load" code={`id: checkout.peak
+mix:
+  - test: orders.checkout#placesOrder
+    weight: 1
+stages:
+  - duration: 30s
+    users: 10
+`} />
+
+## How it behaves
+
+- The `load/` folder and the `.load.yaml` suffix are dropped; the folders and file name are joined with dots.
+- Load files and test files share one ID namespace. `load/sample/strict.load.yaml` and `services/sample/strict.test.yaml` are both `sample.strict`, and `vc check` reports [V2001](/vc-rs/reference/diagnostics/v2001/): ``two files have the ID `sample.strict` ``. Rename one of them.
+- `vc load` with an ID that names no scenario exits 2 and lists the scenarios.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2007](/vc-rs/reference/diagnostics/v2007/) | `id:` doesn't match the path |
+| [V2001](/vc-rs/reference/diagnostics/v2001/) | A test file and a load file have the same ID |
+
+## Related
+
+- [`vc load`](/vc-rs/reference/load/vc-load/)
+- [`id` in tests and apis](/vc-rs/reference/syntax/id/)

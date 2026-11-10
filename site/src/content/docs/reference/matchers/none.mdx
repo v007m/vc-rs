@@ -1,0 +1,163 @@
+---
+title: "none"
+description: "The none matcher checks that no element of a list matches."
+sidebar: { order: 31 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`none` passes when no element of a list matches the nested matcher.
+
+```yaml
+expect:
+  body:
+    match:
+      body.items[*].sku: {none: {eq: C3}}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `none` | matcher or value | — | yes | A plain value means no element equals it. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### No item is C3
+
+A `[*]` path, such as `body.items[*].price`, collects one field from every element into a list. Use it to apply a matcher to one field of each element.
+
+```yaml title="services/sample/none.test.yaml"
+tests:
+  - id: noC3
+    name: No SKU is C3
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].sku: {none: {eq: C3}}
+```
+
+```console
+$ vc run sample.none#noC3
+plan  1 test in 1 file · profile default
+
+✓ sample.none#noC3                                                0ms
+
+1 passed                                                     8ms · profile default
+```
+
+### No test tags
+
+
+
+```yaml title="services/sample/none.test.yaml"
+tests:
+  - id: noTestTag
+    name: No tag starts with test
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.tags: {none: {startsWith: test}}
+```
+
+```console
+$ vc run sample.none#noTestTag
+plan  1 test in 1 file · profile default
+
+✓ sample.none#noTestTag                                           2ms
+
+1 passed                                                     4ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/none.test.yaml"
+tests:
+  - id: failsOnSku
+    name: No SKU starts with A
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].sku: {none: {startsWith: A}}
+```
+
+```console
+$ vc run sample.none#failsOnSku
+plan  1 test in 1 file · profile default
+
+✕ sample.none#failsOnSku                                          4ms
+  error[V5101]: expect.body.match.body.items[*].sku
+    --> services/sample/none.test.yaml:22:30
+     |
+  22 |           body.items[*].sku: {none: {startsWith: A}}
+     |                              ^^^^^^^^^^^^^^^^^^^^^^^ expected {"none":{"startsWith":"A"}}, got ["A1","B2"]
+
+0 passed · 1 failed                                          5ms · profile default
+```
+
+### A missing list fails
+
+Unlike [not](/vc-rs/reference/matchers/not/), `none` needs a list to be there.
+
+```yaml title="services/sample/none.test.yaml"
+tests:
+  - id: failsOnMissing
+    name: No coupon is expired
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.coupons: {none: {eq: expired}}
+```
+
+```console
+$ vc run sample.none#failsOnMissing
+plan  1 test in 1 file · profile default
+
+✕ sample.none#failsOnMissing                                      1ms
+  error[V5101]: expect.body.match.body.coupons
+    --> services/sample/none.test.yaml:29:25
+     |
+  29 |           body.coupons: {none: {eq: expired}}
+     |                         ^^^^^^^^^^^^^^^^^^^^^ expected {"none":{"eq":"expired"}}, got nothing
+
+0 passed · 1 failed                                          5ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: noC3
+    name: No SKU is C3
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].sku: {none: {eq: C3}}
+`} />
+
+## How it behaves
+
+- The value must be a list. Anything else, including a missing value, fails.
+- An empty list passes.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [every](/vc-rs/reference/matchers/every/)
+- [some](/vc-rs/reference/matchers/some/)
+- [not](/vc-rs/reference/matchers/not/)
+- [All matchers](/vc-rs/reference/matchers//)

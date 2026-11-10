@@ -1,0 +1,162 @@
+---
+title: "type"
+description: "The type matcher passes when a value has a given JSON type."
+sidebar: { order: 20 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`type` passes when the value has the named JSON type.
+
+```yaml
+expect:
+  body:
+    match:
+      body.id: {type: string}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `string`, `number`, `integer`, `boolean`, `object`, `array` or `null` | — | yes | `integer` is a number with no fraction. Quote `"null"`. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Check a string
+
+
+
+```yaml title="services/sample/type.test.yaml"
+tests:
+  - id: idIsText
+    name: ID is a string
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {type: string}
+```
+
+```console
+$ vc run sample.type#idIsText
+plan  1 test in 1 file · profile default
+
+✓ sample.type#idIsText                                            3ms
+
+1 passed                                                     4ms · profile default
+```
+
+### Numbers and integers
+
+Every integer is also a `number`. `42.5` is a `number` but not an `integer`.
+
+```yaml title="services/sample/type.test.yaml"
+tests:
+  - id: qtyIsInteger
+    name: Quantity is a whole number
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.qty: {type: integer}
+          body.total: {type: number}
+```
+
+```console
+$ vc run sample.type#qtyIsInteger
+plan  1 test in 1 file · profile default
+
+✓ sample.type#qtyIsInteger                                        4ms
+
+1 passed                                                     15ms · profile default
+```
+
+### Lists, objects and null
+
+Quote `"null"`. Unquoted, YAML reads `null` as no value at all.
+
+```yaml title="services/sample/type.test.yaml"
+tests:
+  - id: shapes
+    name: Shapes of the order
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.tags: {type: array}
+          body.items[0]: {type: object}
+          body.note: {type: "null"}
+```
+
+```console
+$ vc run sample.type#shapes
+plan  1 test in 1 file · profile default
+
+✓ sample.type#shapes                                             20ms
+
+1 passed                                                     25ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/type.test.yaml"
+tests:
+  - id: failsOnTotal
+    name: Total is a whole number
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.total: {type: integer}
+```
+
+```console
+$ vc run sample.type#failsOnTotal
+plan  1 test in 1 file · profile default
+
+✕ sample.type#failsOnTotal                                        8ms
+  error[V5101]: expect.body.match.body.total
+    --> services/sample/type.test.yaml:32:23
+     |
+  32 |           body.total: {type: integer}
+     |                       ^^^^^^^^^^^^^^^ expected {"type":"integer"}, got 42.5
+
+0 passed · 1 failed                                          12ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: idIsText
+    name: ID is a string
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {type: string}
+`} />
+
+## How it behaves
+
+- `integer` matches a number with no fractional part, so `3` and `3.0` both pass.
+- A missing value fails. A null value has type `null`.
+- To check the shape of a whole body, use [body.schema](/vc-rs/reference/matchers/body-schema/).
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): an unknown type name, such as `int`, or an unquoted `null`. The help line lists the seven names.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [format](/vc-rs/reference/matchers/format/)
+- [exists](/vc-rs/reference/matchers/exists/)
+- [body.schema](/vc-rs/reference/matchers/body-schema/)
+- [All matchers](/vc-rs/reference/matchers//)

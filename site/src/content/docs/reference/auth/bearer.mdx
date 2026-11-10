@@ -1,0 +1,82 @@
+---
+title: "bearer"
+description: "The bearer auth type sends a fixed token as an Authorization Bearer header."
+sidebar: { order: 2 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`type: bearer` sends `Authorization: Bearer <token>` with a token you already have.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+auth:
+  - id: labBearer
+    type: bearer
+    token: ${secret.LAB_TOKEN}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `bearer` | — | yes | |
+| `token` | text or template | — | yes | Use `${secret.X}` |
+| `vars` | map | — | no | Defaults for the templates here |
+
+## Examples
+
+With `LAB_TOKEN=tok-static-9f2c` in `.env`, the server received:
+
+```console
+GET /whoami  authorization: Bearer tok-static-9f2c
+```
+
+The test output never shows it. A check on the header the server echoed back prints the mask:
+
+```console
+✕ lab.peek#showsBearer                                           20ms
+  error[V5101]: expect.body.match.headers.authorization
+    --> services/lab/peek.test.yaml:16:34
+     |
+  16 |           headers.authorization: wrong
+     |                                  ^^^^^ expected "wrong", got "••••"
+```
+
+A value from the process environment beats `.env`. With `LAB_TOKEN=from-process-env` exported, the server received `Bearer from-process-env`.
+
+When the token is missing, every call that uses it fails:
+
+```console
+error[V5114]: credentials could not be obtained: `labBearer` needs `token`
+```
+
+For a token that expires, use an [oauth2](/vc-rs/reference/auth/oauth2-client-credentials/) type or a [flow](/vc-rs/reference/auth/flow/) instead.
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+auth:
+  - id: labBearer
+    type: bearer
+    token: \${secret.LAB_TOKEN}
+`} />
+
+## How it behaves
+
+- The token is sent as written. vc never refreshes it.
+- The header, and the token itself wherever it appears, are masked in output.
+
+## Common errors
+
+- [V5114](/vc-rs/reference/diagnostics/v5114/): `token` is missing.
+- [V2106](/vc-rs/reference/diagnostics/v2106/): the secret is not declared in `.env.schema`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Using auth" href="/vc-rs/reference/auth/using-auth/" />
+  <LinkCard title="Secrets" href="/vc-rs/reference/auth/secrets/" />
+  <LinkCard title="Redaction" href="/vc-rs/reference/auth/redaction/" />
+</CardGrid>

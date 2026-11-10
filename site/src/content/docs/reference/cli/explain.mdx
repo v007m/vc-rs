@@ -1,0 +1,132 @@
+---
+title: "vc explain"
+description: "Explains a diagnostic code with a wrong and a right example, or shows a test or api as the active profile resolves it."
+sidebar: { order: 16 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Does one of two things, depending on what you give it:
+
+- a **diagnostic code** such as `V2003`: prints what it means, with a wrong and a right example
+- a **test or api ID**: prints the request it would send under the active profile, where each var came from, and the checks that apply
+
+```console
+$ vc explain [OPTIONS] <TARGET>
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `<TARGET>` | code or ID | | A diagnostic code (`V2003`), or a test or api ID (`users.crud#createsUser`, `users#createUser`) |
+| `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
+| `--set` | `<KEY=VALUE>` | | Sets one config value over every other layer |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### A diagnostic code
+
+```console
+$ vc explain V2003
+V2003: Unknown api or test
+
+A `call`, `test` or `cleanup.call` names an api or test that does not exist. Another file's items are referred to by
+their full ID, `fileId#id`; the diagnostic suggests the closest ID of the right kind, same-file IDs first.
+
+Wrong
+
+    # file: services/users/users.api.yaml
+    apis:
+      - id: getUser
+        path: /users/1
+
+    # file: services/users/crud.test.yaml
+    tests:
+      - id: getsUser
+        call: users#getUsr
+
+Right
+
+    ...
+        call: users#getUser
+```
+
+Codes work outside a project. Write them in upper case: `vc explain v2003` looks for a test or api called `v2003`. Every code also has a page in the [diagnostics reference](/vc-rs/reference/diagnostics/).
+
+### A test
+
+```console
+$ vc explain sample.basics#getsCreatedUser
+sample.basics#getsCreatedUser  Returns the user that was just created
+profile  default
+call sample#getUser
+  GET http://localhost:7421/users/${var.userId}
+  vars
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
+  expect
+    status: 200  (test sample.basics#getsCreatedUser)
+    match id: equals  (test sample.basics#getsCreatedUser)
+    timing total: lt  (test sample.basics#getsCreatedUser)
+```
+
+Each var and check shows, in brackets, where it was set. `${var.userId}` stays as written here, because a `before` step sets it at run time.
+
+### An api, with a var set on the command line
+
+```console
+$ vc explain sample#getUser --set vars.userId=7
+sample#getUser  Get a user
+profile  default
+  GET http://localhost:7421/users/7
+  vars
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
+    userId  7  (--set)
+  expect
+```
+
+### An api with generated data and a cleanup
+
+```console
+$ vc explain sample#createUser
+sample#createUser  Create a user
+profile  default
+  POST http://localhost:7421/users
+  vars
+    sampleUrl  http://localhost:7421  (vibranium.config.yaml)
+    name  ${fake.person.fullName}  (api sample#createUser)
+    email  ${fake.internet.email}  (api sample#createUser)
+  expect
+    status: 201  (api sample#createUser)
+  cleanup  sample#deleteUser
+```
+
+Generated values (`${fake.…}`) and example-row values (`${example.…}`) are shown as written, since they are chosen at run time.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | The explanation printed |
+| `2` | No such code, test or api, or a flag is wrong |
+
+```console
+$ vc explain V9999
+error: unknown diagnostic code `V9999`
+$ vc explain sample#nope
+error: no test or api `sample#nope`
+$ vc explain sample#getUser --profile nope
+error: --profile: no profile `nope`
+  = help: the profiles are default
+```
+
+`vc explain` takes a whole test ID, not one instance: `sample.extra#rejectsBadEmail:2` is not found.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Diagnostics" href="/vc-rs/reference/diagnostics/" description="Every code, with examples." />
+  <LinkCard title="vc config explain" href="/vc-rs/reference/cli/config/" description="Where one config value came from." />
+  <LinkCard title="vc check" href="/vc-rs/reference/cli/check/" description="Find the diagnostics in a project." />
+</CardGrid>

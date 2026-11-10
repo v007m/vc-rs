@@ -1,0 +1,142 @@
+---
+title: "vc history"
+description: "Lists the stored runs, shows one run and the tests that did not pass, or drops the oldest runs."
+sidebar: { order: 7 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Every `vc run`, `vc watch` run and `vc load` run is stored in `.vibranium/history.db`. `vc history` reads it back.
+
+```console
+$ vc history [OPTIONS]
+$ vc history show [OPTIONS] [RUN]
+$ vc history prune [OPTIONS]
+```
+
+## Options
+
+### `vc history`
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `--limit` | `<N>` | `20` | How many runs to list, newest first |
+| `--json` | | | Prints the runs as JSON on stdout |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+### `vc history show`
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `[RUN]` | `last` or a run number | `last` | The run to show |
+| `--json` | | | Prints the run and every test as JSON on stdout |
+
+### `vc history prune`
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `--keep` | `<N>` | the config's `history.keep` | How many runs to keep, newest first. Older runs and their report snapshots are dropped |
+
+## Examples
+
+### List the latest runs
+
+```console
+$ vc history --limit 3
+   80  2026-11-10 18:01Z  failed     3 passed · 1 failed · 0 blocked · 0 skipped  profile default  sample.extra
+   79  2026-11-10 18:00Z  cancelled  0 passed · 0 failed · 0 blocked · 0 skipped  profile default  sample.strict
+   78  2026-11-10 18:00Z  failed     0 passed · 0 failed · 0 blocked · 0 skipped  profile default  sample.strict
+```
+
+The columns are the run number, when it started (UTC), the status, the totals, the profiles and the selector. The status is `passed`, `failed` or `cancelled`. Load runs (here `sample.strict`) show zero totals.
+
+### Show one run
+
+```console
+$ vc history show
+   80  2026-11-10 18:01Z  failed     3 passed · 1 failed · 0 blocked · 0 skipped  profile default  sample.extra
+  failed   sample.extra#findsAda
+           match[0].name: expected "Grace Hopper", got "Ada Lovelace"
+```
+
+Only the tests that did not pass are listed, with their failure message. Pass a run number to see an older run: `vc history show 78`.
+
+### JSON
+
+```console
+$ vc history show 80 --json
+{
+  "run": {
+    "finishedMs": 1794333709049,
+    "id": 80,
+    "kind": "run",
+    "profiles": ["default"],
+    "seed": 10829795558665289009,
+    "selector": "sample.extra",
+    "startedMs": 1794333708495,
+    "status": "failed",
+    "totals": { "blocked": 0, "failed": 1, "flaky": 0, "passed": 3, "skipped": 0 },
+    "vcVersion": "0.1.0"
+  },
+  "tests": [
+    {
+      "attempts": 1,
+      "blockedBy": null,
+      "durationMs": 8.1,
+      "id": "sample.extra#findsAda",
+      "message": "match[0].name: expected \"Grace Hopper\", got \"Ada Lovelace\"",
+      "skipReason": null,
+      "status": "failed"
+    },
+    ...
+  ]
+}
+```
+
+`vc history --json` prints an array of `run` objects like the one above.
+
+### Drop old runs
+
+```console
+$ vc history prune --keep 20
+pruned 7 runs
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Printed, or pruned |
+| `2` | No such run |
+
+```console
+$ vc history show 999
+error: history: no run 999 is stored
+  = help: `vc history` lists the stored runs
+```
+
+## JSON output
+
+| Field | Holds |
+| --- | --- |
+| `id` | The run number |
+| `kind` | `run` or `load` |
+| `status` | `passed`, `failed` or `cancelled` |
+| `totals` | `{passed, failed, blocked, skipped, flaky}` |
+| `profiles`, `selector`, `seed` | What the run used |
+| `startedMs`, `finishedMs` | Unix time in milliseconds |
+| `vcVersion` | The `vc` version that ran it |
+| `tests[]` (`show` only) | `{id, status, attempts, durationMs, message, blockedBy, skipReason}` for every test instance. Example rows show as `[row n]` in `id` |
+
+## How it behaves
+
+- The config's `history` block sets how many runs are kept (`keep`, default `50`) and which request and response bodies are stored. See [history settings](/vc-rs/reference/config/history/).
+- `vc run --failed` and `vc report` read from history.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc report" href="/vc-rs/reference/cli/report/" description="Write a stored run's reports again." />
+  <LinkCard title="Reporters and history" href="/vc-rs/guides/reporters-and-history/" description="Reports, history and how they fit together." />
+  <LinkCard title="History settings" href="/vc-rs/reference/config/history/" description="keep and bodies." />
+</CardGrid>

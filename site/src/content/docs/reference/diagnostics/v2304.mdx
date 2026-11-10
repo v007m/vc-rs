@@ -1,0 +1,75 @@
+---
+title: "V2304 — Pipe or path cannot apply to that value's type"
+description: "A pipe or path is applied to a value of a type it cannot handle, such as upper on a number."
+sidebar:
+  label: "V2304 Pipe or path cannot apply to that value's type"
+  order: 2304
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2304` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A pipe or path is applied to a value of a type it cannot handle, such as `upper` on a number. It is checked where the
+value's type is known: a var every profile sets to a literal of one type.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+vars:
+  limit: 10
+  region: eu
+apis:
+  - id: listUsers
+    path: /users
+    query:
+      limit: ${var.limit | upper}
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: listsUsers
+    call: users#listUsers
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+vars:
+  limit: 10
+  region: eu
+apis:
+  - id: listUsers
+    path: /users
+    query:
+      region: ${var.region | upper}
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: listsUsers
+    call: users#listUsers
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2304
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

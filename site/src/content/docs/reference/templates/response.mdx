@@ -1,0 +1,135 @@
+---
+title: "response"
+description: "Read the current call's status, headers, body and timing with ${response...} in expect, save, poll and cleanup."
+sidebar: { order: 4 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`${response.…}` reads the response of the call being checked or saved. It exists only once a call has been made.
+
+```yaml
+    save:
+      userId: ${response.body.id}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `response.status` | number | — | — | The HTTP status code, such as `200`. |
+| `response.headers.<name>` | text | — | — | Header names are lowercase. Use quotes for names with dashes: `response.headers["content-type"]`. |
+| `response.body` | any value | — | — | The parsed JSON body, or the text. Read inside it with a [path](/vc-rs/reference/templates/paths/). |
+| `response.timing.<phase>` | number | — | — | Milliseconds, with decimals: `dns`, `connect`, `tls`, `firstByte`, `download`, `total`. `tls` appears only for HTTPS. |
+
+Available in: `expect`, `save`, `poll`, and an api's `cleanup`. Anywhere else it is V2105.
+
+## Examples
+
+Save an ID from the body:
+
+```yaml title="services/sample/sample.api.yaml"
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+```
+
+Undo a call with its own response:
+
+```yaml
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+```
+
+Save the status, a header and the timing. Against the demo's `/echo`, these saved:
+
+```yaml
+        save:
+          gotStatus: ${response.status}
+          gotType: ${response.headers['content-type']}
+          timing: ${response.timing}
+```
+
+```json
+{
+  "gotStatus": 200,
+  "gotType": "application/json",
+  "timing": { "connect": 0.364125, "dns": 1.9467079999999999, "download": 0.015375000000000002, "firstByte": 3.006125, "total": 3.0215 }
+}
+```
+
+Check with CEL. `response` is the same object there:
+
+```yaml
+    expect:
+      cel:
+        every user has a name: response.body.all(u, has(u.name))
+        fast enough: response.timing.total < 2000.0
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: savesFromResponse
+    call: sample#createUser
+    save:
+      createdId: \${response.body.id}
+      location: \${response.headers.location | default('none')}
+`} />
+
+## How it behaves
+
+- `response` always means the current call. To read an earlier call, give it an `id` and use a [step id](/vc-rs/reference/templates/step-ids/).
+- There are no shorthands: write `response.status`, not `status`. A bare `status`, `headers` or `body` is V2105, with a certain fix that inserts `response.`.
+- A header name in another case does not match. `response.headers["Content-Type"]` fails at run time, because names are stored lowercase.
+- In CEL, `response.timing.total` is a number of milliseconds, so compare it with a number such as `2000.0`, not with `duration('2s')`. In `expect.timing`, write durations (`total: { lt: 500ms }`).
+
+## Common errors
+
+Used before a call is made:
+
+```console
+error[V2105]: `response` is not available here
+ --> services/tpl/bad.test.yaml:7:16
+  |
+7 |       payload: ${response.status}
+  |                ^^^^^^^^^^^^^^^^^^
+  = help: `response` is available once a call is made: in expect, save, poll and cleanup
+```
+
+A bare `status`:
+
+```console
+error[V2105]: `status` is not a root; did you mean `response.status`?
+  --> services/tpl/bad.test.yaml:30:13
+   |
+30 |       code: ${status}
+   |             ^^^^^^^^^
+   = help: write `response.status`
+   = fix: Write response.status (certain)
+```
+
+A header that is not there:
+
+```console
+✕ tpl.r#readsResponse                                             2ms
+  error[V5111]: `response.headers["Content-Type"]` is missing: `response.headers` is {"content-length":"257","content-type":"application/json","date":"Tue, 10 Nov 2026 17:39:07 GMT"}
+     = at: first
+```
+
+- [V2105](/vc-rs/reference/diagnostics/v2105/): `response` where it is not available, or a bare `status`.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): a path that is missing from the real response.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="request" href="/vc-rs/reference/templates/request/" />
+  <LinkCard title="Step ids" href="/vc-rs/reference/templates/step-ids/" />
+  <LinkCard title="Paths" href="/vc-rs/reference/templates/paths/" />
+  <LinkCard title="Matchers" href="/vc-rs/reference/matchers/" />
+</CardGrid>

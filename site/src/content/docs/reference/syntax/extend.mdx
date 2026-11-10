@@ -1,0 +1,257 @@
+---
+title: $extend
+description: Start a map from an existing object and change only what differs; $remove drops paths from it.
+sidebar: { order: 116, badge: { text: 'api + test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`$extend` copies an object, such as a response body or a saved value, and applies the keys next to it as changes. `$remove` lists paths to drop. Use them to send "the same thing, but different" without writing it all out again.
+
+```yaml
+body:
+  $extend: ${original.body}
+  shipping:
+    city: Pune
+  $remove: [id, createdAt]
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `$extend` | template that renders an object | — | yes | The starting object. Usually `${<stepId>.body}`, `${response.body}` or `${var.<name>}`. |
+| other keys | any | — | no | Changes. Maps merge deeply. Lists and plain values replace. `null` sets a field to `null`. |
+| `$remove` | list of paths | — | no | Dotted paths to drop, such as `shipping.zip` or `"items[0]"`. Applied after the changes. |
+
+`$extend` works in any map value: a `body`, a var, or a value in `save`.
+
+## Examples
+
+### Change a response and send it back
+
+The first step creates an order. The second sends the same body with a new city, a new item list, no `name` value, and no `label` or `shipping.zip`:
+
+```yaml title="services/bodylab/extend.test.yaml"
+tests:
+  - id: extendsResponse
+    steps:
+      - id: original
+        call: bodylab#post
+      - call: bodylab#post
+        body:
+          $extend: ${original.body.body}
+          shipping:
+            city: Pune
+          items: [z]
+          name: null
+          $remove: [label, shipping.zip]
+        expect:
+          body:
+            match:
+              body:
+                qty: 2
+                shipping:
+                  city: Pune
+                items: [z]
+                name: null
+              body.label:
+                exists: false
+              body.shipping.zip:
+                exists: false
+              headers.content-type: application/json
+```
+
+`bodylab#post` sends `{name, qty, label, shipping: {city, zip}, items}` to the demo's `/echo`, which returns it under `body`. So `${original.body.body}` is the object that was sent.
+
+```console
+$ vc run bodylab.extend
+plan  5 tests in 1 file · profile default
+
+✓ bodylab.extend#typedValues                                      4ms
+✓ bodylab.extend#rawStringJson                                    4ms
+✓ bodylab.extend#replacesBody                                     4ms
+✓ bodylab.extend#xmlText                                          4ms
+✓ bodylab.extend#extendsResponse                                  5ms
+
+5 passed                                                     6ms · profile default
+```
+
+`shipping.city` changed and `shipping` kept its other keys. The list `items` was replaced whole. `qty` came through unchanged.
+
+### Build a var from another var
+
+A file var holds a base user. A test var extends it into an admin, and the body sends that var:
+
+```yaml title="services/bodylab/extend2.test.yaml"
+vars:
+  baseUser:
+    name: Ada
+    role: member
+    address:
+      city: Paris
+      zip: "75001"
+tests:
+  - id: extendsVar
+    call: bodylab#post
+    vars:
+      admin:
+        $extend: ${var.baseUser}
+        role: admin
+        $remove: [address.zip]
+    body: ${var.admin}
+    expect:
+      body:
+        match:
+          body:
+            name: Ada
+            role: admin
+            address:
+              city: Paris
+          body.address.zip:
+            exists: false
+```
+
+### Save a changed copy
+
+In `save`, `$extend` keeps a modified response for later steps. A path with an index must be quoted in a flow list:
+
+```yaml title="services/bodylab/extend2.test.yaml"
+  - id: extendsSave
+    steps:
+      - call: bodylab#post
+        save:
+          sent:
+            $extend: ${response.body.body}
+            qty: 99
+            $remove: ["items[0]"]
+      - call: bodylab#post
+        body: ${var.sent}
+        expect:
+          body:
+            match:
+              body.qty: 99
+              body.items: [b, c]
+```
+
+### Extend JSON that arrived as text
+
+When a value is a JSON string, convert it with the [`json`](/vc-rs/reference/pipes/) pipe first:
+
+```yaml title="services/bodylab/extend2.test.yaml"
+  - id: extendsParsedText
+    steps:
+      - call: bodylab#post
+        body:
+          payload: '{"a": 1, "b": {"c": 2}}'
+        save:
+          payload: ${response.body.body.payload}
+      - call: bodylab#post
+        body:
+          $extend: ${var.payload | json}
+          b:
+            d: 3
+        expect:
+          body:
+            match:
+              body:
+                a: 1
+                b:
+                  c: 2
+                  d: 3
+```
+
+```console
+$ vc run bodylab.extend2
+plan  3 tests in 1 file · profile default
+
+✓ bodylab.extend2#extendsVar                                      6ms
+✓ bodylab.extend2#extendsSave                                    10ms
+✓ bodylab.extend2#extendsParsedText                              11ms
+
+3 passed                                                     13ms · profile default
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: bodylab.extend
+tests:
+  - id: extendsResponse
+    steps:
+      - id: original
+        call: bodylab#post
+      - call: bodylab#post
+        body:
+          $extend: \${original.body.body}
+          shipping:
+            city: Pune
+          $remove: [label]
+`} />
+
+## How it behaves
+
+- Maps merge deeply: a change to `shipping.city` keeps the rest of `shipping`.
+- Lists and plain values are replaced whole. `items: [z]` replaces the full list.
+- `null` sets a field to `null`. It does not remove it. Use `$remove` to remove it.
+- `$remove` runs after the changes. Paths are dotted and can index a list: `shipping.zip`, `"items[0]"`.
+- In a `body`, the result is sent as JSON.
+
+<Aside type="caution">
+`$extend` needs an object. If its template renders anything else, such as the number `5`, vc drops it without a warning and sends only the other keys. `$remove` without `$extend` is not special: it is sent as a key named `$remove`.
+
+```console
+✕ bodylab.e2#extendsNumber                                       10ms
+  error[V5101]: expect.body.match.body
+    --> services/bodylab/e2.test.yaml:12:17
+     |
+  12 |           body: x
+     |                 ^ expected "x", got {"a":1}
+✕ bodylab.e2#removeAlone                                         10ms
+  error[V5101]: expect.body.match.body
+    --> services/bodylab/e2.test.yaml:21:17
+     |
+  21 |           body: x
+     |                 ^ expected "x", got {"$remove":["name"],"a":1}
+```
+
+These tests use `body: x` on purpose, to print what was sent.
+</Aside>
+
+## Common errors
+
+A base var that no level sets fails `vc check`:
+
+```console
+error[V2101]: ${var.nope} is used but never set
+ --> services/m/m.api.yaml:7:16
+  |
+7 |       $extend: ${var.nope}
+  |                ^^^^^^^^^^^ no level sets nope for any profile
+ ::: services/m/t.test.yaml:3:11
+  |
+3 |     call: m#extendMissing
+  |           --------------- called from here
+  = help: set it in this test's vars, in the file's vars, or in the config's vars
+```
+
+An unquoted index in a flow list is not valid YAML:
+
+```console
+error[V1001]: not valid YAML: while parsing a flow sequence, expected ',' or ']'
+ --> services/m/f.test.yaml:7:24
+  |
+7 |         $remove: [items[0]]
+  |                        ^ here
+  = help: quote values that contain `: ` or ` #` or start with a special character such as `*`, `&` or `!`
+```
+
+Write `$remove: ["items[0]"]`. See [V2101](/vc-rs/reference/diagnostics/v2101/) and [V1001](/vc-rs/reference/diagnostics/v1001/).
+
+## Related
+
+- [body](/vc-rs/reference/syntax/body/)
+- [save](/vc-rs/reference/syntax/save/): keep a changed copy
+- [vars](/vc-rs/reference/syntax/vars/)
+- [steps](/vc-rs/reference/syntax/steps/): read an earlier step's response by its `id`
+- [Pipes](/vc-rs/reference/pipes/): `json`

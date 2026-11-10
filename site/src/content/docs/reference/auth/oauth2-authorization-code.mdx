@@ -1,0 +1,111 @@
+---
+title: "oauth2AuthorizationCode"
+description: "The oauth2AuthorizationCode auth type signs you in through a browser once and keeps the refresh token in the OS keychain."
+sidebar: { order: 6 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`type: oauth2AuthorizationCode` opens your browser to sign in the first time it is needed. It keeps the refresh token in the OS keychain, so later runs get a token without a browser.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+auth:
+  - id: labBrowser
+    type: oauth2AuthorizationCode
+    authorizeUrl: ${var.labUrl}/authorize
+    tokenUrl: ${var.labUrl}/token
+    clientId: desk-app
+    scopes: [openid, items:read]
+    pkce: true
+    redirectPort: 7487
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `oauth2AuthorizationCode` | — | yes | |
+| `authorizeUrl` | URL template | — | yes | Where the browser goes to sign in |
+| `tokenUrl` | URL template | — | yes | |
+| `clientId` | text | — | yes | |
+| `clientSecret` | text or template | — | no | Without it, the client is public |
+| `scopes` | list of text | — | no | |
+| `audience` | text | — | no | |
+| `pkce` | boolean | `true` | no | Sends an S256 code challenge; `false` turns it off |
+| `redirectPort` | number | a free port | no | vc listens on `127.0.0.1:<port>/callback`. Set it when your provider needs a fixed redirect URI |
+| `refreshBefore`, `refreshOn` | | `1m`, `[401]` | no | See [Token cache and refresh](/vc-rs/reference/auth/token-cache-refresh/) |
+
+## Examples
+
+The first run opens the browser at the authorize URL:
+
+```console
+http://127.0.0.1:7486/authorize?response_type=code&client_id=desk-app
+  &redirect_uri=http%3A%2F%2F127.0.0.1%3A7487%2Fcallback&state=…
+  &scope=openid%20items%3Aread&code_challenge=…&code_challenge_method=S256
+```
+
+After you sign in, the provider redirects to vc's local listener, and vc trades the code for a token:
+
+```console
+POST /token
+grant_type=authorization_code&code=code-123&redirect_uri=http%3A%2F%2F127.0.0.1%3A7487%2Fcallback&code_verifier=…&client_id=desk-app
+```
+
+The second run opens no browser. It uses the refresh token from the keychain:
+
+```console
+POST /token
+grant_type=refresh_token&refresh_token=rt-new&client_id=desk-app
+```
+
+```console
+✓ lab.browser#signsInOnce                                        39ms
+```
+
+To sign in again from scratch, delete the keychain entry. On macOS:
+
+```console
+$ security delete-generic-password -s vibranium -a 'labBrowser@desk-app'
+```
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+vars:
+  labUrl: http://127.0.0.1:7486
+auth:
+  - id: labBrowser
+    type: oauth2AuthorizationCode
+    authorizeUrl: \${var.labUrl}/authorize
+    tokenUrl: \${var.labUrl}/token
+    clientId: desk-app
+    scopes: [openid, items:read]
+    pkce: true
+    redirectPort: 7487
+`} />
+
+## How it behaves
+
+- vc opens the URL with the system browser (`open` on macOS, `xdg-open` on Linux) and waits up to 5 minutes for the redirect.
+- The `state` value is checked on the redirect.
+- The refresh token is kept in the OS keychain under the service `vibranium` and the account `<authId>@<clientId>`. When the keychain refresh fails, the entry is removed and the browser sign-in runs again.
+- For CI, where no one can sign in, use [oauth2Refresh](/vc-rs/reference/auth/oauth2-refresh/) with a refresh token from your secret store.
+
+<Aside type="caution">
+The sign-in waits for you, so do not use this type in unattended runs.
+</Aside>
+
+## Common errors
+
+- [V5114](/vc-rs/reference/diagnostics/v5114/): the browser could not be opened, the sign-in timed out, or the token endpoint refused the code.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="oauth2Refresh" href="/vc-rs/reference/auth/oauth2-refresh/" />
+  <LinkCard title="Token cache and refresh" href="/vc-rs/reference/auth/token-cache-refresh/" />
+  <LinkCard title="Using auth" href="/vc-rs/reference/auth/using-auth/" />
+</CardGrid>

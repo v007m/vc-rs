@@ -1,0 +1,203 @@
+---
+title: tests
+description: The list of tests in a test file, each one a call or a sequence of steps with checks.
+sidebar:
+  order: 200
+  badge: { text: 'test', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`tests` is the list at the heart of a test file. Each entry is one test: either a single `call` to an api, or a list of `steps`, plus the checks that must hold.
+
+```yaml title="services/sample/users.test.yaml"
+tests:
+  - id: listsUsers
+    call: sample#listUsers
+```
+
+## Syntax
+
+A test file lives at `services/<service>/<area>.test.yaml`. Its file ID is `<service>.<area>`. Each `tests` entry takes:
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| [`id`](/vc-rs/reference/syntax/id/) | camelCase string | — | yes | A third-person verb: `rejectsDeclinedCard` |
+| [`call`](/vc-rs/reference/syntax/call/) | api ID | — | one of `call`, `steps` | The api to call |
+| [`steps`](/vc-rs/reference/syntax/steps/) | list of actions | — | one of `call`, `steps` | Several actions in order |
+| [`name`](/vc-rs/reference/syntax/name/) | string | — | no | Free text for people |
+| [`tags`](/vc-rs/reference/syntax/tags/) | list | — | no | Added to the file's tags |
+| [`vars`](/vc-rs/reference/syntax/vars/) | map | — | no | Values for this call |
+| [`query`](/vc-rs/reference/syntax/query/), [`headers`](/vc-rs/reference/syntax/headers/) | map | — | no | Merged over the api's |
+| [`body`](/vc-rs/reference/syntax/body/) | any | — | no | Replaces the api's body |
+| [`auth`](/vc-rs/reference/syntax/auth/) | auth ID, `none`, or `id` + `vars` | the api's | no | |
+| [`expect`](/vc-rs/reference/syntax/expect/) | expect block | — | no | Merged with the api's checks |
+| [`save`](/vc-rs/reference/syntax/save/) | map | — | no | Values for later steps, or for a test that reuses this one |
+| [`before`](/vc-rs/reference/syntax/before/), `after` | list of actions | — | no | Run around this test, inside `beforeEach` and `afterEach` |
+| [`examples`](/vc-rs/reference/syntax/examples/) | list, `$file` or template | — | no | One test instance per row |
+| [`repeat`](/vc-rs/reference/syntax/repeat/) | integer | `1` | no | Run the whole test this many times |
+| [`poll`](/vc-rs/reference/syntax/poll/) | object | — | no | `until`, `every`, `timeout` |
+| [`retry`](/vc-rs/reference/syntax/retry/) | object | — | no | `attempts`, `delay` |
+| [`timeout`](/vc-rs/reference/syntax/timeout/) | duration | — | no | Time limit |
+| [`skip`](/vc-rs/reference/syntax/skip/) | reason, or reason + `until` | — | no | Skip with a reason |
+| [`standalone`](/vc-rs/reference/syntax/standalone/) | boolean | `true` | no | `false`: runs only when reused with `test:` |
+
+Around `tests`, the file can set `name`, `tags`, `vars`, [`profiles`](/vc-rs/reference/syntax/profiles/), [`skip`](/vc-rs/reference/syntax/skip/) and the lifecycle blocks [`beforeAll`](/vc-rs/reference/syntax/before-all/), `afterAll`, [`beforeEach`](/vc-rs/reference/syntax/before-each/) and `afterEach`.
+
+## Examples
+
+### One call, default checks
+
+The api's own `expect` applies, so this checks for a `2xx` status and nothing else.
+
+```yaml title="services/sample/users.test.yaml"
+tests:
+  - id: listsUsers
+    call: sample#listUsers
+```
+
+### Overriding the request and the expected status
+
+A test's `body` replaces the api's. Its `expect.status` replaces the api's status check; other api checks still apply.
+
+```yaml title="services/flows/signup.test.yaml (excerpt)"
+  - id: rejectsMissingEmail
+    call: sample#createUser
+    body:
+      name: nobody
+    expect:
+      status: 400
+      body:
+        match:
+          error: a user needs an email
+```
+
+### Several steps, and a test made for reuse
+
+`createsMember` has `standalone: false`, so it never runs on its own. `getsMember` reuses it as a `test:` step and reads the value it saves.
+
+```yaml title="services/flows/signup.test.yaml"
+name: Sign-up flows
+tags: [users]
+tests:
+  - id: createsMember
+    name: Creates a member
+    standalone: false
+    call: sample#createUser
+    vars:
+      email: member@example.com
+    save:
+      memberId: ${response.body.id}
+
+  - id: getsMember
+    name: Gets the member it just created
+    steps:
+      - test: flows.signup#createsMember
+        provides: [memberId]
+      - call: sample#getUser
+        vars:
+          userId: ${var.memberId}
+        expect:
+          body:
+            match:
+              id: ${var.memberId}
+
+  - id: rejectsMissingEmail
+    call: sample#createUser
+    body:
+      name: nobody
+    expect:
+      status: 400
+      body:
+        match:
+          error: a user needs an email
+```
+
+```console
+$ vc run flows.signup
+plan  2 tests in 1 file · profile default
+
+✓ flows.signup#rejectsMissingEmail                               81ms
+✓ flows.signup#getsMember                                        81ms
+
+2 passed                                                     129ms · profile default
+```
+
+```console
+$ vc list tests flows.signup
+flows.signup#getsMember  Gets the member it just created  [users]
+flows.signup#rejectsMissingEmail  [users]
+```
+
+Leave out `provides: [memberId]` and the run still passes, with a warning:
+
+```console
+! V5108: `var.memberId` was saved by a `test:` step that does not declare it; add `provides: [memberId]` to that step
+```
+
+### Running tests
+
+```console
+$ vc run flows.signup                       # every test in the file
+$ vc run flows.signup#getsMember            # one test
+$ vc run -t users                           # every test tagged users
+```
+
+Selecting a `standalone: false` test on its own runs nothing and exits with code 2.
+
+## Try it
+
+<Playground client:visible kind="test" code={`
+tests:
+  - id: listsUsers
+    call: sample#listUsers
+  - id: rejectsMissingEmail
+    call: sample#createUser
+    body:
+      name: nobody
+    expect:
+      status: 400
+`} />
+
+## How it behaves
+
+- **Exactly one of `call` and `steps`.** Both, or neither, is error V2201.
+- **Checks merge.** The api's `expect` still applies, and the test's `expect` adds to it. A test's `status` replaces the api's status check. `expect.replace: true` drops every inherited check. See [`expect`](/vc-rs/reference/syntax/expect/).
+- **Tests run in parallel** within the project's `concurrency` limit. Do not rely on file order; use `steps` for things that must happen in order.
+- **Each test instance gets its own vars and cleanups.** Saved values do not leak between tests, except those saved by `beforeAll`.
+- **A reused test's own `expect` is not checked**; its apis' checks and cleanups still apply.
+
+## Common errors
+
+```console
+$ vc check
+error[V2201]: write only one of `call`, `steps`
+ --> services/e2/both.test.yaml:4:5
+  |
+3 |     call: sample#listUsers
+  |     ---- `call` is written here
+4 |     steps:
+  |     ^^^^^ `steps` is also written
+
+error[V2201]: a testEntry needs one of `call`, `steps`
+ --> services/e2/both.test.yaml:6:5
+  |
+6 |   - id: doesNeither
+  |     ^^
+```
+
+| Code | When |
+| --- | --- |
+| [V1005](/vc-rs/reference/diagnostics/v1005/) | A test has no `id` |
+| [V2001](/vc-rs/reference/diagnostics/v2001/) | Two tests in a file share an ID |
+| [V2003](/vc-rs/reference/diagnostics/v2003/) | `call` names an api that does not exist |
+| [V2201](/vc-rs/reference/diagnostics/v2201/) | Both or neither of `call` and `steps` |
+| [V4001](/vc-rs/reference/diagnostics/v4001/) | The test ID is not camelCase |
+| [V5108](/vc-rs/reference/diagnostics/v5108/) | A reused test saves a var its step does not declare in `provides` |
+
+## Related
+
+- [`apis`](/vc-rs/reference/syntax/apis/), [`call`](/vc-rs/reference/syntax/call/), [`steps`](/vc-rs/reference/syntax/steps/), [`test`](/vc-rs/reference/syntax/test/)
+- [`expect`](/vc-rs/reference/syntax/expect/), [`tags`](/vc-rs/reference/syntax/tags/), [`standalone`](/vc-rs/reference/syntax/standalone/)
+- [Lifecycle](/vc-rs/reference/lifecycle/)

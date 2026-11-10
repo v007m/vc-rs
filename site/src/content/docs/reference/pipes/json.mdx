@@ -1,0 +1,81 @@
+---
+title: "json"
+description: "Parse JSON text into a value, such as an object or a list."
+sidebar: { order: 5 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`json` parses JSON text into a value. Use it on a var, env value or CSV column that holds JSON.
+
+```yaml
+      payload: ${env.ORDER_JSON | json}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text | — | yes | Must be valid JSON. |
+| output | any value | — | — | Object, list, text, number, boolean or `null`. |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  payload: '{"orderId":"o-1","n":2}'
+```
+
+`${var.payload | json}` sent the object `{"orderId": "o-1", "n": 2}`, so a check on `body.json.orderId` matched `o-1`.
+
+Send a JSON env value as the body:
+
+```yaml
+    body: ${env.ORDER_JSON | json}
+```
+
+The reverse is [`jsonString`](/vc-rs/reference/pipes/json-string/).
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: parsesJsonText
+    call: sample#echo
+    vars:
+      raw: '{"orderId":"o-1","n":2}'
+      payload:
+        order: \${var.raw | json}
+`} />
+
+## How it behaves
+
+- The result keeps its type when the template is the whole value.
+- You cannot add a path after a pipe. To read one field, parse it into a var first: with `order: ${var.raw | json}` in `vars`, `${var.order.orderId}` gave `o-1`.
+
+## Common errors
+
+```console
+error[V2304]: pipe `json` takes text, not a number
+  --> services/tpl/pe.test.yaml:14:22
+   |
+14 |         e: ${var.n | json}
+   |                      ^^^^
+```
+
+At run time, `"abc"` gives ``pipe `json` cannot take "abc": the text is not JSON: expected value at line 1 column 1``.
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be text.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the text is not JSON.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="jsonString" href="/vc-rs/reference/pipes/json-string/" />
+  <LinkCard title="Paths" href="/vc-rs/reference/templates/paths/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

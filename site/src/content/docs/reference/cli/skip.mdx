@@ -1,0 +1,98 @@
+---
+title: "vc skip"
+description: "Marks a test or a whole test file as skipped, with a reason and an optional end date."
+sidebar: { order: 13 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Writes a [`skip`](/vc-rs/reference/syntax/skip/) into the YAML for you. A skipped test is not run; it is reported as skipped with its reason. With `--until`, it runs again on its own after that day.
+
+```console
+$ vc skip [OPTIONS] --reason <REASON> <TARGET>
+```
+
+## Options
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `<TARGET>` | | The test (`users.crud#listsUsers`) or test file (`users.crud`) to skip |
+| `--reason` | `<REASON>` | Required. Why, for the report |
+| `--until` | `<DATE>` | The last day of the skip, `YYYY-MM-DD` in UTC. The test runs again after it |
+| `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### Skip one test
+
+```console
+$ vc skip users.crud#listsUsers --reason "waiting on JIRA-12"
+✓ skipped users.crud#listsUsers: waiting on JIRA-12
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+    skip: waiting on JIRA-12
+```
+
+### Skip a file until a date
+
+```console
+$ vc skip users.crud --reason "auth broken in staging" --until 2026-12-01
+✓ skipped users.crud until 2026-12-01: auth broken in staging
+```
+
+```yaml title="services/users/crud.test.yaml"
+skip:
+  reason: auth broken in staging
+  until: 2026-12-01
+tests:
+  ...
+```
+
+### See what is skipped
+
+```console
+$ vc plan users.crud
+plan  0 tests in 0 files · 2 skipped · profile default
+skipped
+  users.crud#listsUsers: auth broken in staging
+  users.crud#listUsersRejectsAnonymous: auth broken in staging
+$ vc list tests --skipped
+users.crud#listsUsers  Lists users  (skipped)
+users.crud#listUsersRejectsAnonymous  List users needs a signed-in caller  (skipped)
+```
+
+`vc plan` shows the reasons; `vc list tests --skipped` shows only which tests. A file skip applies to every test in it. To run skipped tests anyway, pass [`vc run --include-skipped`](/vc-rs/reference/cli/run/).
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | The skip was written |
+| `2` | Nothing was written: no such test or file, it is already skipped, `--reason` is missing, or the date is not `YYYY-MM-DD` |
+
+```console
+$ vc skip users.crud#nope --reason x
+error: there is no test `users.crud#nope`
+  = help: `vc list tests` lists them
+$ vc skip users.crud --reason x --until 12/01/2026
+error: `12/01/2026` is not a date
+  = help: write it as YYYY-MM-DD: `--until 2026-12-01`
+$ vc skip users.crud --reason x
+error: `users.crud` is already skipped
+  = help: `vc unskip users.crud` first
+```
+
+A date in the past is accepted. The skip is then already expired, so the tests run, and `vc check` warns with [V3104](/vc-rs/reference/diagnostics/v3104/).
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc unskip" href="/vc-rs/reference/cli/unskip/" description="Remove a skip." />
+  <LinkCard title="Skipping tests" href="/vc-rs/guides/skipping-tests/" description="When to skip, and how to keep skips from rotting." />
+  <LinkCard title="skip" href="/vc-rs/reference/syntax/skip/" description="The YAML key." />
+</CardGrid>

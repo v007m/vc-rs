@@ -1,0 +1,52 @@
+---
+title: "auth"
+description: "Named ways for requests to prove who they are, defined once in the config and used by apis and tests."
+sidebar: { order: 70 }
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+`auth` lists named auth definitions. An api, an api file or a test picks one with `auth: <id>`.
+
+```yaml title="vibranium.config.yaml"
+auth:
+  - id: apiToken
+    type: bearer
+    token: ${secret.API_TOKEN}
+```
+
+```yaml title="services/slow/slow.api.yaml"
+id: slow
+baseUrl: http://localhost:7469
+auth: apiToken
+```
+
+The token is sent as `authorization`, and it is masked in all output:
+
+```console
+$ vc call slow#hdr
+200 OK · 5 ms · api expect passed
+{
+  "body": "",
+  "headers": {
+    ...
+    "authorization": "••••",
+```
+
+The types are `basic`, `bearer`, `apiKey`, `oauth2ClientCredentials`, `oauth2Password`, `oauth2AuthorizationCode`, `oauth2Refresh`, `flow` and `plugin`. A typo gets a certain fix:
+
+```console
+$ vc check
+error[V2302]: expected one of basic, bearer, apiKey, oauth2ClientCredentials, oauth2Password, oauth2AuthorizationCode, oauth2Refresh, flow, plugin, found `bearr`
+  --> vibranium.config.yaml:83:11
+   |
+83 |     type: bearr
+   |           ^^^^^ not a known value
+   = help: did you mean `bearer`?
+   = fix: Replace with bearer (certain)
+```
+
+Each type's keys, token caching and login flows are in the auth reference.
+
+<LinkCard title="Auth reference" href="/vc-rs/reference/auth/" />
+<LinkCard title="secrets" href="/vc-rs/reference/config/secrets/" />

@@ -1,0 +1,57 @@
+---
+title: "V5117 — An alert could not be sent"
+description: "An alert rule fired at the end of the run, but its channel could not be reached or refused the message."
+sidebar:
+  label: "V5117 An alert could not be sent"
+  order: 5117
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5117` |
+| Category | V5xxx: Run time |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+An alert rule fired at the end of the run, but its channel could not be reached or refused the message. The run's
+results and exit code are unchanged: an alert is a notice about the run, never part of it. The message names the
+channel and the HTTP status or the network error, never the webhook URL or a routing key, which are secrets. Check
+the channel's settings, and that the secret it reads is set in the profile the run used.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+alerts:
+  - on: [failure]
+    notify:
+      - slack: {channel: "#qa-alerts", webhook: https://hooks.slack.com/services/T000/B000/expired}
+```
+
+## Right
+
+```yaml title="vibranium.config.yaml"
+alerts:
+  - on: [failure]
+    notify:
+      - slack: {channel: "#qa-alerts", webhook: "${secret.SLACK_WEBHOOK}"}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5117
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

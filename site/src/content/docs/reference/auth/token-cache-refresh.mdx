@@ -1,0 +1,109 @@
+---
+title: "Token cache and refresh"
+description: "Tokens are fetched once per run and auth, shared by every test, and fetched again before expiry or after a 401."
+sidebar: { order: 11 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+vc fetches credentials before the first request that needs them and shares them with every test that uses the same auth and vars. `refreshBefore` and `refreshOn` decide when they are fetched again.
+
+```yaml
+auth:
+  - id: labClient
+    type: oauth2ClientCredentials
+    tokenUrl: ${var.labUrl}/token
+    clientId: ci-runner
+    clientSecret: ${secret.LAB_CLIENT_SECRET}
+    refreshBefore: 30s
+    refreshOn: [401, 419]
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `refreshBefore` | duration | `1m` | no | Fetch again this long before expiry, capped at half the credential's lifetime |
+| `refreshOn` | list of status codes | `[401]` | no | Fetch again once and retry the request when a response has one of these |
+| `cache` | boolean | `false` | no | `flow` only. Not built yet: credentials last one run |
+
+Both refresh keys work on every auth type that expires: the `oauth2*` types, `flow` and `plugin`.
+
+## Examples
+
+Two tests share one token. The server saw a single `POST /token`:
+
+```yaml
+tests:
+  - id: firstCaller
+    call: lab#whoami
+    auth: labClient
+  - id: secondCaller
+    call: lab#whoami
+    auth: labClient
+```
+
+A token that lasts 4 seconds. The default `refreshBefore` of `1m` is capped at 2 seconds, so a call 2.5 seconds later gets a new token:
+
+```yaml
+auth:
+  - id: labShortClient
+    type: oauth2ClientCredentials
+    tokenUrl: ${var.labUrl}/token?ttl=4
+    clientId: ci-runner
+    clientSecret: ${secret.LAB_CLIENT_SECRET}
+```
+
+Set `refreshBefore: 1s` and the same token is reused at 2.5 seconds.
+
+Refresh after a rejected token. With the default `refreshOn: [401]`, a 401 runs the login once more and retries the request. A flow that also treats 419 as expired:
+
+```yaml
+auth:
+  - id: labLogin
+    type: flow
+    refreshOn: [401, 419]
+    # steps and apply as on the flow page
+```
+
+<Aside type="note">
+`cache: true` on a `flow` is accepted but not built yet. The flow logs in again on every run, and `vc cache list` stays empty.
+</Aside>
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+vars:
+  labUrl: http://127.0.0.1:7486
+auth:
+  - id: labClient
+    type: oauth2ClientCredentials
+    tokenUrl: \${var.labUrl}/token
+    clientId: ci-runner
+    clientSecret: \${secret.LAB_CLIENT_SECRET}
+    refreshBefore: 30s
+    refreshOn: [401, 419]
+`} />
+
+## How it behaves
+
+- **One fetch per auth and vars.** Tests that need the same credentials at the same moment wait for one fetch. A different set of `auth.vars` gets its own.
+- **Lifetime.** `oauth2*` tokens use the response's `expires_in`; a `flow` uses `expiresIn`. Without a lifetime, credentials last the run.
+- **refreshBefore.** Capped at half the lifetime, so a short-lived token is not fetched again on every request.
+- **refreshOn.** The fetch runs once more and the request is retried once.
+- **Failures.** A failed `flow` login, and a refused `oauth2*` request (400, 401, 403), is kept for the run. An `oauth2*` failure that may pass (network, timeout, 429, 5xx) is dropped, so the next request tries again.
+- The refresh token of [oauth2AuthorizationCode](/vc-rs/reference/auth/oauth2-authorization-code/) is kept in the OS keychain, so it outlives the run.
+
+## Common errors
+
+- [V5114](/vc-rs/reference/diagnostics/v5114/): credentials could not be obtained.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="oauth2ClientCredentials" href="/vc-rs/reference/auth/oauth2-client-credentials/" />
+  <LinkCard title="flow" href="/vc-rs/reference/auth/flow/" />
+  <LinkCard title="Cross-run cache" href="/vc-rs/reference/lifecycle/cache/" />
+</CardGrid>

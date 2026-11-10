@@ -1,0 +1,88 @@
+---
+title: "vc completion"
+description: "Prints a shell completion script that completes commands, flags, test and api IDs, profiles and tags."
+sidebar: { order: 31 }
+---
+
+import { Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Prints a completion script for your shell on stdout. Besides commands and flags, the script completes test and api IDs, profiles and tags from the project you are in.
+
+```console
+$ vc completion [OPTIONS] <SHELL>
+```
+
+## Options
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `<SHELL>` | `bash`, `zsh`, `fish`, `powershell` | The shell to complete in |
+| `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags). Not needed: it works outside a project |
+
+## Install it
+
+<Tabs>
+  <TabItem label="zsh">
+```console
+$ mkdir -p ~/.zfunc
+$ vc completion zsh > ~/.zfunc/_vc
+```
+Then add `fpath=(~/.zfunc $fpath)` before `compinit` in `~/.zshrc`, and open a new shell.
+  </TabItem>
+  <TabItem label="bash">
+```console
+$ vc completion bash > ~/.local/share/bash-completion/completions/vc
+```
+This needs the `bash-completion` package. Or add `source <(vc completion bash)` to `~/.bashrc`.
+  </TabItem>
+  <TabItem label="fish">
+```console
+$ vc completion fish > ~/.config/fish/completions/vc.fish
+```
+  </TabItem>
+  <TabItem label="PowerShell">
+```console
+PS> vc completion powershell | Out-String | Invoke-Expression
+```
+Add the same line to your `$PROFILE` to keep it.
+  </TabItem>
+</Tabs>
+
+## What it completes
+
+After a command that takes a [selector](/vc-rs/reference/cli/#selectors) (`run`, `watch`, `plan`, `list`, `explain`, `call`, `skip`, `unskip`, `rename`), Tab offers the project's file IDs, then the test or api IDs in a file:
+
+```console
+$ vc run users.<Tab>
+users.admin
+$ vc run users.admin#<Tab>
+users.admin#listsUsers  users.admin#listUsersRejectsAnonymous
+$ vc call <Tab>
+sample  billing  notes  orders  people
+```
+
+After `--profile` it offers the profiles, and after `-t` or `--tag` the tags. The script asks `vc` for these each time, so new tests show up without reinstalling it.
+
+The script calls `vc` by that name. If you installed it only as `vibranium`, add an alias or a link named `vc`.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Printed |
+| `2` | Not a supported shell |
+
+```console
+$ vc completion tcsh
+error: invalid value 'tcsh' for '<SHELL>'
+  [possible values: bash, zsh, fish, powershell]
+
+  tip: a similar value exists: 'zsh'
+```
+
+## Related
+
+<CardGrid>
+  <LinkCard title="CLI overview" href="/vc-rs/reference/cli/" description="Selectors and global flags." />
+  <LinkCard title="vc schema export" href="/vc-rs/reference/cli/schema/" description="Completion inside your editor's YAML." />
+</CardGrid>

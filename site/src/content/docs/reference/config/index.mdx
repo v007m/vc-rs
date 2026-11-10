@@ -1,0 +1,114 @@
+---
+title: "Project config"
+description: "Every key of vibranium.config.yaml, the one project-wide file, with links to a page per key."
+sidebar: { order: 0 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`vibranium.config.yaml` sits at the project root. It holds the project's profiles, vars, auth, secrets and run settings. `vc` finds it by walking up from the current folder.
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+project: shop-api
+
+vars:
+  shopUrl: http://localhost:7421
+
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+    vars:
+      shopUrl: https://shop.staging.example
+```
+
+Only `syntaxVersion` and one profile are required. Everything else has a default.
+
+## Keys
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| [`syntaxVersion`](/vc-rs/reference/config/syntax-version/) | integer | — | yes | File-format version. Write `2`. |
+| [`project`](/vc-rs/reference/config/project/) | text | `vibranium` | no | Name shown in reports. |
+| [`paths`](/vc-rs/reference/config/paths/) | `include`, `exclude` | everything except `node_modules` and `.vibranium` | no | Which files are definitions. |
+| [`defaults`](/vc-rs/reference/config/defaults/) | map | see the page | no | `timeout`, `concurrency`, `perHost`, `retry`, `headers`. |
+| [`http`](/vc-rs/reference/config/http-retry/) | `retry` | retry off | no | Transport retry of one request. |
+| [`vars`](/vc-rs/reference/config/vars/) | map | — | no | Project-wide values. |
+| [`profiles`](/vc-rs/reference/config/profiles/) | list | — | yes | At least one, and one `default: true`. |
+| [`auth`](/vc-rs/reference/config/auth/) | list | — | no | Auth definitions. |
+| [`secrets`](/vc-rs/reference/config/secrets/) | `provider`, `schema` | `env` with `.env.schema` | no | Where `${secret.*}` comes from. |
+| [`generators`](/vc-rs/reference/config/generators/) | list | — | no | Named fake-data generators. |
+| [`datasets`](/vc-rs/reference/config/datasets/) | `files`, `allowRoots` | every file in `datasets/` | no | Data lists kept elsewhere. |
+| [`reports`](/vc-rs/reference/config/reports/) | `dir`, `formats`, `html` | CTRF in `.vibranium/reports` | no | Report files. |
+| [`history`](/vc-rs/reference/config/history/) | `bodies`, `maxBodySize`, `keep` | `failures`, `64kb`, `50` | no | What `history.db` keeps. |
+| [`alerts`](/vc-rs/reference/config/alerts/) | list | — | no | Notifications after a run. |
+| [`plugins`](/vc-rs/reference/config/plugins/) | list | — | no | Third-party plugins. |
+| [`redact`](/vc-rs/reference/config/redact/) | `headers`, `fields`, `rules` | auth headers and secrets | no | Extra values to mask. |
+| [`beforeRun`, `afterRun`](/vc-rs/reference/config/before-run-after-run/) | lists of actions | — | no | Run once around the whole run. |
+
+An unknown top-level key is an error ([V1004](/vc-rs/reference/diagnostics/v1004/)), so a typo never goes unnoticed.
+
+## Where values come from
+
+A setting can come from several places. From lowest to highest:
+
+1. Built-in defaults
+2. [User config](/vc-rs/reference/config/user-config/) (`~/.config/vibranium/config.yaml`)
+3. `vibranium.config.yaml`
+4. The active [profiles](/vc-rs/reference/config/profiles/), in the order given
+5. [`.env`](/vc-rs/reference/config/dotenv/) at the project root
+6. [`VIB_*` environment variables](/vc-rs/reference/config/vib-variables/)
+7. `--set key=value` on the command line
+
+[`vc config explain`](/vc-rs/reference/config/config-explain/) shows which layer won:
+
+```console
+$ VIB_VAR_region=envvar vc config explain vars.region --profile staging --set vars.region=flag
+vars.region = flag  (--set)
+  over envvar  (VIB_VAR_region)
+  over dotenv  (.env)
+  over us  (profile staging)
+  over local  (vibranium.config.yaml)
+```
+
+See [Layering and precedence](/vc-rs/reference/config/layering/) for the full rules.
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+project: shop-api
+
+defaults:
+  timeout: 10s
+  headers:
+    accept: application/json
+
+vars:
+  shopUrl: http://localhost:7421
+
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+    vars:
+      shopUrl: https://shop.staging.example
+`} />
+
+## Common errors
+
+- [V1003](/vc-rs/reference/diagnostics/v1003/): `syntaxVersion` is missing or newer than this `vc`.
+- [V1004](/vc-rs/reference/diagnostics/v1004/): an unknown key.
+- [V2302](/vc-rs/reference/diagnostics/v2302/): a value of the wrong type, such as `syntaxVersion: "2"`.
+- [V3101](/vc-rs/reference/diagnostics/v3101/): the config defines no profile.
+- [V3102](/vc-rs/reference/diagnostics/v3102/): two profiles are marked `default: true`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Layering and precedence" href="/vc-rs/reference/config/layering/" />
+  <LinkCard title="vc config explain" href="/vc-rs/reference/config/config-explain/" />
+  <LinkCard title="Profiles" href="/vc-rs/reference/config/profiles/" />
+  <LinkCard title="Secrets" href="/vc-rs/reference/config/secrets/" />
+</CardGrid>

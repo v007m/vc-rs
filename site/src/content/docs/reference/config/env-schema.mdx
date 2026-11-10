@@ -1,0 +1,109 @@
+---
+title: ".env.schema"
+description: "Declare every secret name in .env.schema so vc can check references, fetch values and mask them everywhere."
+sidebar: { order: 5 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`.env.schema` lists the secret names a project uses, one `NAME=` line each, never the values. `vc init` creates it.
+
+```ini title=".env.schema"
+# The secret names this project uses, one NAME= line each, never their values.
+API_TOKEN=
+SHOP_CLIENT_SECRET=
+```
+
+## Syntax
+
+| Line | Example | Notes |
+| --- | --- | --- |
+| `NAME=` | `API_TOKEN=` | Declares one secret. Leave the value empty. |
+| `# comment` | `# @required` | Comments and `# @...` annotations are allowed. |
+
+The file's path is set by [`secrets.schema`](/vc-rs/reference/config/secrets/). The default is `.env.schema` at the project root.
+
+## Examples
+
+Reading a declared secret:
+
+```yaml title="services/slow/slow.api.yaml"
+  - id: hdr
+    path: /hdr
+    headers:
+      x-token: ${secret.API_TOKEN}
+```
+
+```console
+$ vc check
+0 errors · 0 warnings · 9 files checked
+```
+
+A name the schema does not declare:
+
+```console
+$ vc check
+error[V2106]: `${secret.OTHER}` is not declared in `.env.schema`
+  --> services/slow/slow.api.yaml:38:16
+   |
+38 |       x-token: ${secret.OTHER}
+   |                ^^^^^^^^^^^^^^^ OTHER is not in .env.schema
+   = help: add the line `OTHER=` to `.env.schema` at the project root, or fix the name
+```
+
+Reading a declared secret through `env` would skip the masking, so it is refused:
+
+```console
+$ vc check
+error[V2107]: `${env.API_TOKEN}` reads a secret that `.env.schema` declares
+  --> services/slow/slow.api.yaml:38:16
+   |
+38 |       x-token: ${env.API_TOKEN}
+   |                ^^^^^^^^^^^^^^^^ API_TOKEN is a secret
+   = note: a declared secret is reachable only as `${secret.X}`, so it is masked everywhere
+   = help: write `${secret.API_TOKEN}`
+   = fix: Replace with secret.API_TOKEN (certain)
+```
+
+`vc check --fix` offers that fix and asks before it writes.
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+
+secrets:
+  provider: env
+  schema: .env.schema
+
+auth:
+  - id: apiToken
+    type: bearer
+    token: \${secret.API_TOKEN}
+
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- `vc check` compares every `${secret.X}` and `${env.X}` with the schema.
+- A declared secret is reachable only as `${secret.X}`.
+- Values come from the [secrets provider](/vc-rs/reference/config/secrets/): the environment and `.env` by default.
+- Commit `.env.schema`. It holds no values.
+
+## Common errors
+
+- [V2106](/vc-rs/reference/diagnostics/v2106/): `${secret.X}` names a secret the schema does not declare.
+- [V2107](/vc-rs/reference/diagnostics/v2107/): `${env.X}` reads a declared secret.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): a declared secret has no value at run time.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="secrets" href="/vc-rs/reference/config/secrets/" />
+  <LinkCard title=".env" href="/vc-rs/reference/config/dotenv/" />
+  <LinkCard title="secret template" href="/vc-rs/reference/templates/secret/" />
+  <LinkCard title="redact" href="/vc-rs/reference/config/redact/" />
+</CardGrid>

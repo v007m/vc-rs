@@ -1,0 +1,84 @@
+---
+title: "upper"
+description: "Uppercase text, with full Unicode rules."
+sidebar: { order: 10 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`upper` uppercases text.
+
+```yaml
+      code: ${var.country | upper}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text | — | yes |  |
+| output | text | — | — |  |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  name: "  Ada Lovelace  "
+  word: "ÉCOLE Straße"
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.name \| upper}` | `"  ADA LOVELACE  "` |
+| `${var.word \| upper}` | `"ÉCOLE STRASSE"` |
+| `${fake.person.firstName \| upper}` | a generated first name in capitals |
+
+`ß` becomes `SS`, so the result can be longer than the input.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: uppercasesText
+    call: sample#echo
+    vars:
+      country: in
+      payload:
+        code: \${var.country | upper}
+`} />
+
+## How it behaves
+
+- Spaces are kept.
+- It takes no arguments: `upper(1)` is V2308.
+
+## Common errors
+
+```console
+error[V2304]: pipe `upper` takes text, not a number
+  --> services/tpl/pe.test.yaml:10:22
+   |
+10 |         a: ${var.n | upper}
+   |                      ^^^^^
+
+error[V2308]: pipe `upper` takes 0 argument(s), not 1
+  --> services/tpl/pe.test.yaml:11:25
+   |
+11 |         c: ${var.name | upper(1)}
+   |                         ^^^^^^^^
+```
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be text.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the value is not text at run time, or it is missing.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="lower" href="/vc-rs/reference/pipes/lower/" />
+  <LinkCard title="trim" href="/vc-rs/reference/pipes/trim/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

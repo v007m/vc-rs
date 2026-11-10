@@ -1,0 +1,284 @@
+---
+title: "Write a plugin"
+description: "Build a reporter plugin and an auth plugin in plain Python, install them with vc plugin add, and see them run, step by step."
+sidebar: { order: 8 }
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+This page builds two small plugins in Python, using only the standard library: a reporter that writes a Markdown digest of each run, and an auth plugin that stamps each request with a header. Every output below is from a real run.
+
+## A reporter plugin
+
+<Steps>
+
+1. **Make a folder with a manifest.** Plugins can live anywhere; a folder in the repo is easiest while you work.
+
+   ```yaml title="plugins/digest/vibranium-plugin.yaml"
+   id: digest
+   version: 0.1.0
+   kind: reporter
+   entry:
+     command: python3
+     args: [digest.py]
+   ```
+
+2. **Write the program.** It reads framed JSON-RPC from stdin, answers on stdout, keeps each `testFinished` event, and returns one file from `reporter/finish`.
+
+   ```python title="plugins/digest/digest.py"
+   """A reporter plugin that writes a short Markdown digest of the run."""
+   import json
+   import sys
+
+   title = "Test run"
+   tests = []
+
+
+   def read():
+       length = None
+       while True:
+           line = sys.stdin.buffer.readline()
+           if not line:
+               return None
+           line = line.strip()
+           if not line:
+               break
+           name, _, value = line.decode().partition(":")
+           if name.strip().lower() == "content-length":
+               length = int(value)
+       return json.loads(sys.stdin.buffer.read(length))
+
+
+   def send(message):
+       body = json.dumps(dict(message, jsonrpc="2.0")).encode()
+       sys.stdout.buffer.write(b"Content-Length: %d\r\n\r\n%s" % (len(body), body))
+       sys.stdout.buffer.flush()
+
+
+   def finish(summary):
+       totals = summary["totals"]
+       lines = [f"# {title}: {summary['status']}", ""]
+       lines.append(", ".join(f"{count} {name}" for name, count in totals.items()))
+       lines.append("")
+       for test in tests:
+           mark = "x" if test["status"] in ("passed", "flaky") else " "
+           lines.append(f"- [{mark}] {test['label']} ({test['status']})")
+       return {"files": [{"name": "digest.md", "content": "\n".join(lines) + "\n"}]}
+
+
+   def answer(method, params):
+       global title
+       if method == "initialize":
+           title = (params.get("config") or {}).get("title", title)
+           return {}
+       if method == "reporter/onEvent":
+           event = params["event"]
+           if event["event"] == "testFinished":
+               tests.append(event)
+           return None
+       if method == "reporter/finish":
+           return finish(params["summary"])
+       return None
+
+
+   while True:
+       message = read()
+       if message is None:
+           break
+       if "id" in message and "method" in message:
+           send({"id": message["id"], "result": answer(message["method"], message.get("params") or {})})
+   ```
+
+3. **Install it.** `vc plugin add` shows what it asks to reach (nothing, here) and records it.
+
+   ```console
+   $ vc plugin add path:plugins/digest --yes
+   digest 0.1.0 · reporter plugin from path:plugins/digest (plugins/digest)
+     runs: python3 digest.py
+     asks to reach: nothing
+   ✓ added plugin digest from path:plugins/digest
+   ```
+
+4. **Turn it on and give it settings.** Add its ID to `reports.formats`. The `config` arrives in `initialize`.
+
+   ```yaml title="vibranium.config.yaml"
+   plugins:
+     - id: digest
+       source: path:plugins/digest
+       config:
+         title: Nightly digest
+
+   reports:
+     formats: [ctrf, digest]
+   ```
+
+5. **Run.** The digest lands next to the other reports.
+
+   ```console
+   $ vc run sample.basics sample.flip sample.wobble
+   ...
+   4 passed · 1 failed · 1 flaky                                104ms · profile default
+   reports  .vibranium/reports/28/{ctrf.json,digest.md}
+   ```
+
+   ```markdown title=".vibranium/reports/28/digest.md"
+   # Nightly digest: failed
+
+   0 blocked, 1 failed, 1 flaky, 4 passed, 0 skipped
+
+   - [x] sample.basics#listsUsers (passed)
+   - [ ] sample.flip#listsUsersWithStatus (failed)
+   - [x] sample.basics#rejectsMissingEmail (passed)
+   - [x] sample.basics#createsUser (passed)
+   - [x] sample.basics#getsCreatedUser (passed)
+   - [x] sample.wobble#passesOnRetry (flaky)
+   ```
+
+</Steps>
+
+<Aside type="tip" title="Changed the code? Approve it again">
+For a `path:` plugin, `vibranium.lock` holds a hash of its installed files. After you edit the plugin, run `vc plugin add path:plugins/digest --yes` again, or the next run refuses it with V5118.
+</Aside>
+
+## An auth plugin
+
+<Steps>
+
+1. **Declare the secret it needs.** The plugin will read `stampKey` with `secrets/get`.
+
+   ```yaml title="plugins/stamp/vibranium-plugin.yaml"
+   id: stamp
+   version: 0.1.0
+   kind: auth
+   entry:
+     command: python3
+     args: [stamp.py]
+   permissions:
+     secrets: [stampKey]
+   ```
+
+2. **Answer `auth/credentials`.** It uses the same `read` and `send` as the reporter, plus a `secret` helper.
+
+   ```python title="plugins/stamp/stamp.py (the parts that differ)"
+   settings = {}
+
+
+   def secret(name):
+       send({"id": "secret", "method": "secrets/get", "params": {"name": name}})
+       while True:
+           message = read()
+           if message is None or message.get("id") == "secret":
+               return (message or {}).get("result", {}).get("value", "")
+
+
+   def answer(method, params):
+       if method == "initialize":
+           settings.update(params.get("config") or {})
+           return {}
+       if method == "auth/credentials":
+           config = params.get("config") or {}
+           tenant = config.get("tenant", "none")
+           print(f"stamp: credentials for {params['auth']} (tenant {tenant})", file=sys.stderr)
+           return {
+               "headers": {"x-stamp": f"{tenant}:{secret('stampKey')}"},
+               "query": {"realm": settings.get("realm", "default")},
+               "expiresIn": 300,
+           }
+       return None
+   ```
+
+3. **Install it, declare the secret, and point an auth definition at it.**
+
+   ```console
+   $ vc plugin add path:plugins/stamp --yes
+   ```
+
+   ```text title=".env.schema"
+   stampKey=
+   ```
+
+   ```yaml title="vibranium.config.yaml"
+   plugins:
+     - id: stamp
+       source: path:plugins/stamp
+       config:
+         realm: partners
+
+   auth:
+     - id: partnerStamp
+       type: plugin
+       plugin: stamp
+       config: {tenant: eu}
+   ```
+
+   ```yaml title="services/sample/sample.api.yaml"
+     - id: echoStamped
+       name: Echo with the stamp auth
+       method: GET
+       path: /echo
+       auth: partnerStamp
+   ```
+
+4. **Call it.** The plugin's stderr line shows in your terminal, and the values it returned are redacted.
+
+   ```console
+   $ stampKey=s3cr3tkey vc call sample#echoStamped
+   stamp: credentials for partnerStamp (tenant eu)
+   200 OK · 2 ms · api expect passed
+   {
+     "body": null,
+     "headers": {
+       "accept": "application/json",
+       "accept-encoding": "gzip, br, zstd, deflate",
+       "host": "localhost:7467",
+       "user-agent": "vibranium/2",
+       "x-stamp": "••••"
+     },
+     "method": "GET",
+     "path": "/echo",
+     "query": {
+       "realm": "••••"
+     }
+   }
+   ```
+
+</Steps>
+
+## Tips
+
+- Log to stderr, never stdout. stdout carries only protocol messages.
+- Keep state in `$VIB_PLUGIN_DATA`, not in the plugin folder.
+- Finish your work inside your last call. Do not count on getting `shutdown`.
+- Test a plugin with a single test first, such as `vc run sample.basics#listsUsers`, so the event stream stays short.
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: digest
+    source: path:plugins/digest
+    config:
+      title: Nightly digest
+  - id: stamp
+    source: path:plugins/stamp
+    config:
+      realm: partners
+reports:
+  formats: [ctrf, digest]
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config: {tenant: eu}
+`} />
+
+## Related
+
+- [Protocol](/vc-rs/reference/plugins/protocol/)
+- [Reporter plugins](/vc-rs/reference/plugins/reporter-plugins/)
+- [Auth plugins](/vc-rs/reference/plugins/auth-plugins/)
+- [V5118](/vc-rs/reference/diagnostics/v5118/)

@@ -1,0 +1,81 @@
+---
+title: "trim"
+description: "Remove leading and trailing whitespace from text."
+sidebar: { order: 11 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`trim` removes whitespace from both ends of text: spaces, tabs and newlines.
+
+```yaml
+      name: ${var.name | trim}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text | — | yes |  |
+| output | text | — | — |  |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  name: "  Ada Lovelace  "
+  spaced: "\t hi \n"
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.name \| trim}` | `"Ada Lovelace"` |
+| `${var.spaced \| trim}` | `"hi"` |
+| `${var.name \| trim \| lower}` | `"ada lovelace"` |
+
+Clean a value read from a file or env before using it in a URL:
+
+```yaml
+    path: /search?q=${var.term | trim | urlEncode}
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: trimsText
+    call: sample#echo
+    vars:
+      name: "  Ada Lovelace  "
+      payload:
+        name: \${var.name | trim}
+`} />
+
+## How it behaves
+
+- Whitespace inside the text is kept.
+
+## Common errors
+
+```console
+error[V2304]: pipe `trim` takes text, not a list
+  --> services/tpl/pe.test.yaml:15:27
+   |
+15 |         f: ${var.cities | trim}
+   |                           ^^^^
+```
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be text.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the value is not text at run time, or it is missing.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="lower" href="/vc-rs/reference/pipes/lower/" />
+  <LinkCard title="upper" href="/vc-rs/reference/pipes/upper/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

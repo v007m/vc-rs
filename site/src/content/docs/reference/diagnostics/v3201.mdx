@@ -1,0 +1,92 @@
+---
+title: "V3201 — PUT, PATCH or DELETE uses a shared value from beforeRun or beforeAll"
+description: "A PUT, PATCH or DELETE call changes a value that a beforeRun or beforeAll action shares with other tests."
+sidebar:
+  label: "V3201 PUT, PATCH or DELETE uses a shared value from beforeRun or beforeAll"
+  order: 3201
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Lifecycle" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V3201` |
+| Category | V3xxx: Lifecycle |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `PUT`, `PATCH` or `DELETE` call changes a value that a `beforeRun` or `beforeAll` action shares with other tests. The
+tests then depend on the order they run in; give the test its own data instead, made in its steps or in `beforeEach`.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+  - id: renameUser
+    method: PUT
+    path: /users/${var.userId}
+    body:
+      name: Bo
+```
+
+```yaml title="services/users/crud.test.yaml"
+beforeAll:
+  - id: member
+    call: users#createUser
+tests:
+  - id: renamesMember
+    call: users#renameUser
+    vars:
+      userId: ${var.member.userId}
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+  - id: renameUser
+    method: PUT
+    path: /users/${var.userId}
+    body:
+      name: Bo
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: renamesMember
+    steps:
+      - call: users#createUser
+      - call: users#renameUser
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V3201
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

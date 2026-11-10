@@ -1,0 +1,78 @@
+---
+title: "V5108 — A dynamically saved value is used but not declared in provides"
+description: "A function: or test: action saved a value that a later template uses, but the action does not list it in provides."
+sidebar:
+  label: "V5108 A dynamically saved value is used but not declared in provides"
+  order: 5108
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5108` |
+| Category | V5xxx: Run time |
+| Severity | warning |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `function:` or `test:` action saved a value that a later template uses, but the action does not list it in
+`provides`. `vc check` cannot see inside such an action, so it relies on `provides` to know what the action sets;
+declare every name that later templates read. Here the hook saves `userId`, which the api's path reads in place of
+its default.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+    vars:
+      userId: 0
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsSeededUser
+    before:
+      - function: hooks/seed.ts#seedUser
+        provides: [userEmail]
+    call: users#getUser
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+    vars:
+      userId: 0
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsSeededUser
+    before:
+      - function: hooks/seed.ts#seedUser
+        provides: [userId, userEmail]
+    call: users#getUser
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5108
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

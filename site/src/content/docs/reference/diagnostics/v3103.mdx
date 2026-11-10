@@ -1,0 +1,94 @@
+---
+title: "V3103 — skip without a reason"
+description: "A skip has no reason."
+sidebar:
+  label: "V3103 skip without a reason"
+  order: 3103
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Lifecycle" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V3103` |
+| Category | V3xxx: Lifecycle |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `skip` has no reason. The reason shows in every report next to the skipped test, so that nobody has to guess why it is
+parked; write it as `skip: <reason>` or `skip: {reason: ..., until: ...}`.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    skip: ''
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    skip: flaky upstream, see issue 212
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/crud.test.yaml"
+id: users.crud
+name: Users CRUD
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+    skip: ''
+```
+
+```console
+$ vc check
+error[V3103]: `skip` needs a reason
+ --> services/users/crud.test.yaml:7:11
+  |
+7 |     skip: ''
+  |           ^^ no reason given
+  = help: say why, for the report: `skip: flaky upstream, see #123`
+
+1 error · 0 warnings · 3 files checked
+$ echo $?
+2
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V3103
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

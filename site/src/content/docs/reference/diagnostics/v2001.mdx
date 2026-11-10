@@ -1,0 +1,57 @@
+---
+title: "V2001 — Duplicate ID"
+description: "Two items share an ID where IDs must be unique."
+sidebar:
+  label: "V2001 Duplicate ID"
+  order: 2001
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2001` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+Two items share an ID where IDs must be unique. Each file has one ID namespace, so an api and a test in one file cannot
+share an ID either, and two files cannot derive the same file ID from their paths. Rename one of them.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: getUser
+    path: /users/2
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: getAdmin
+    path: /users/2
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2001
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

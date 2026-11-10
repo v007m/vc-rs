@@ -1,0 +1,133 @@
+---
+title: command
+description: Run a shell command as an action, with every template value passed as one safely quoted word.
+sidebar: { order: 214, badge: { text: 'step', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+The `command:` action runs a shell command in the project root. A non-zero exit code fails the action.
+
+```yaml title="services/flow/cmd.test.yaml"
+beforeAll:
+  - command: mkdir -p build && pwd > build/where.txt
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `command` | string | — | yes | Run through `sh -c` (`cmd /C` on Windows), in the project root. |
+| `timeout` | duration | config `defaults.timeout`, else `30s` | no | The process is stopped when it runs out (V5104). |
+| `vars` | map | — | no | Extra vars for the templates in the command. |
+| `id` | camelCase | — | no | Names the action. |
+
+A `command` saves no values and takes no `auth`, `headers`, `query`, `body`, `expect` or `poll`, and no test-level defaults.
+
+## Examples
+
+### Set up files before a run
+
+```yaml title="services/flow/cmd.test.yaml"
+id: flow.cmd
+beforeAll:
+  - command: mkdir -p build && pwd > build/where.txt
+tests:
+  - id: seesConfigVars
+    before:
+      - command: test "$VIB_VAR_sampleUrl" = "http://localhost:7434"
+    call: sample#listUsers
+```
+
+`build/where.txt` holds the project root. Each config var is in the environment as `VIB_VAR_<name>`.
+
+### Template values are quoted
+
+Each `${…}` value becomes one single-quoted shell word. Quotes, `;`, `$` and spaces in a value cannot change the command.
+
+```yaml title="services/flow/cmd.test.yaml"
+vars:
+  word: "it's; touch hacked"
+tests:
+  - id: quotesValues
+    before:
+      - command: echo ${var.word} > build/word.txt
+    call: sample#listUsers
+```
+
+```console
+$ cat build/word.txt
+it's; touch hacked
+```
+
+No file named `hacked` is created. The text reached `echo` as one argument.
+
+### Exit codes and timeouts
+
+```yaml title="services/flow/cmd.test.yaml"
+  - id: failsOnExit
+    before:
+      - command: ls no-such-dir
+    call: sample#listUsers
+  - id: timesOut
+    before:
+      - command: sleep 5
+        timeout: 1s
+    call: sample#listUsers
+```
+
+```console
+$ vc run flow.cmd
+
+⊘ flow.cmd#failsOnExit blocked                                   14ms
+  error[V5110]: the command exited with 1:
+  ls: no-such-dir: No such file or directory
+     = at: command
+✓ flow.cmd#seesConfigVars                                        45ms
+✓ flow.cmd#quotesValues                                          45ms
+⊘ flow.cmd#timesOut blocked                                      1.0s
+  error[V5104]: `sh` did not finish within 1000ms
+     = at: command
+
+2 passed · 2 blocked                                         1.0s · profile default
+```
+
+A failed command in `before` blocks the test; the call never runs. A V5110 error shows the exit code and the last 20 lines of output.
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.cmd
+vars:
+  word: "it's; touch hacked"
+tests:
+  - id: quotesValues
+    before:
+      - command: echo \${var.word} > build/word.txt
+        timeout: 5s
+    call: sample#listUsers
+`} />
+
+## How it behaves
+
+- The command runs through `sh -c` in the project root, whichever folder the test file is in.
+- Its environment is the process environment, plus lines from the project's `.env` that the process does not already set, plus `VIB_VAR_<name>` for each config var. A variable set in the shell wins over the same name in `.env`.
+- Template values are inserted as single-quoted POSIX words. Write `${var.x}` bare, not inside your own quotes.
+- On Windows, a value with `&`, `|`, `<`, `>`, `^`, `%`, `!`, `"`, `(`, `)` or a newline cannot be quoted safely. The action fails with V5111 instead of running.
+- The last 64 KiB of stdout and of stderr are kept for the report. A failure prints the last 20 lines.
+- The timeout is the command's own `timeout`, else the config's `defaults.timeout`, else 30s.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5110](/vc-rs/reference/diagnostics/v5110/) | The command exited with a non-zero code. |
+| [V5104](/vc-rs/reference/diagnostics/v5104/) | The command ran past its timeout and was stopped. |
+| [V5111](/vc-rs/reference/diagnostics/v5111/) | A template in the command failed to render, or (on Windows) a value could not be quoted. |
+
+## Related
+
+- [function](/vc-rs/reference/syntax/function/): run TypeScript or JavaScript instead
+- [before](/vc-rs/reference/syntax/before/), [beforeAll](/vc-rs/reference/syntax/before-all/)
+- [timeout](/vc-rs/reference/syntax/timeout/)
+- [Lifecycle](/vc-rs/reference/lifecycle/)

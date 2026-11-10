@@ -1088,7 +1088,7 @@ The same definition serves every profile: under `--profile prod` it logs in to `
 
 ## Secrets
 
-`secrets` defaults to `provider: env` with `schema: .env.schema` (D163). Each secret is declared in `.env.schema` as a `NAME=` line (comments and `# @…` annotations are allowed), and `env` resolves the declared names from the process environment, with the project's `.env` filling the ones it does not set. `provider: varlock` is opt-in: it runs `varlock load` and takes the names from Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). A missing secret fails the run with V5114.
+`secrets` defaults to `provider: env` with `schema: .env.schema` (D163). Each secret is declared in `.env.schema` as a `NAME=` line (comments and `# @…` annotations are allowed), and `env` resolves the declared names from the process environment, with the project's `.env` filling the ones it does not set. `provider: varlock` is opt-in: it runs `varlock load` and takes the names from Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). A missing secret fails the run with V5114. The web UI's Settings screen edits the names in the root `.env.schema` (D247); `.env` and every other `.env.*` file stay out of reach of the editor and of agents.
 
 `vc check` checks names against `.env.schema`: a `${secret.X}` it does not declare is V2106 (with the closest declared name as the fix), and a `${env.X}` that reads a declared secret is V2107, because it would bypass the redactor (the certain fix is `${secret.X}`).
 

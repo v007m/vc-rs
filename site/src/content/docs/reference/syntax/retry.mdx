@@ -1,0 +1,189 @@
+---
+title: retry
+description: Re-run a failed test instance, or one step, a set number of times. A pass after a failure is flaky.
+sidebar: { order: 251, badge: { text: 'test + step', variant: 'note' } }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`retry` on a test re-runs the whole test instance after it fails. The cleanups of the failed attempt run before the next one starts. A test that fails and then passes is reported as **flaky**, not passed.
+
+```yaml
+  - id: passesOnSecondTry
+    retry:
+      attempts: 2
+      delay: 200ms
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `retry.attempts` | integer | — | yes | Further attempts after the first. `attempts: 2` means up to 3 runs in all. `0` turns retry off. |
+| `retry.delay` | duration | — | no | The pause before each further attempt. |
+
+Where it can go:
+
+- **On a test**: re-runs the whole instance, from `beforeEach` to cleanups. A later pass is reported as flaky.
+- **On a step or action**: re-runs only that step. A later pass counts as a plain pass.
+- **In the config** as `defaults.retry`: applies to every test that sets no `retry` of its own.
+
+`retry` is not [`http.retry`](/vc-rs/reference/syntax/http-retry/). `http.retry` re-sends one request after a connection error, a timeout or a 502, 503 or 504, before any check runs. It is off by default. `retry` re-runs after a failed check.
+
+## Examples
+
+```yaml title="services/sample/retry.test.yaml"
+id: sample.retry
+name: Retry
+
+tests:
+  - id: passesOnSecondTry
+    name: Passes on the second attempt
+    retry:
+      attempts: 2
+      delay: 200ms
+    steps:
+      - command: n=$(cat tmp/count 2>/dev/null || echo 0); n=$((n+1)); echo $n > tmp/count; test $n -ge 2
+      - call: sample#listUsers
+
+  - id: neverPasses
+    name: Fails on every attempt
+    retry:
+      attempts: 2
+    call: sample#getUser
+    vars:
+      userId: "999"
+
+  - id: blockedNotRetried
+    name: Is blocked by its before, so is not retried
+    retry:
+      attempts: 3
+    before:
+      - command: exit 1
+    call: sample#listUsers
+```
+
+The command in `passesOnSecondTry` fails on its first run and passes on its second. `neverPasses` gets a 404 on all three attempts. `blockedNotRetried` fails in `before`, so it is blocked and runs only once:
+
+```console
+$ vc run sample.retry
+plan  3 tests in 1 file · profile default
+
+✕ sample.retry#neverPasses                                       12ms
+  error[V5101]: expect.status
+    --> services/sample/sample.api.yaml:43:5
+     |
+  43 |   - id: getUser
+     |     ^^^^^^^^^^^
+  44 |     name: Get a user
+     |     ^^^^^^^^^^^^^^^^
+  45 |     path: /users/${var.userId}
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected ["2xx"], got 404
+     = note: expected by api sample#getUser
+  error[V5101]: expect.status
+  ...
+  error[V5101]: expect.status
+  ...
+⊘ sample.retry#blockedNotRetried blocked                         12ms
+  error[V5110]: the command exited with 1
+     = at: command
+~ sample.retry#passesOnSecondTry flaky (2 attempts)             268ms
+
+0 passed · 1 failed · 1 blocked · 1 flaky                    278ms · profile default
+```
+
+A failed test prints the failure of every attempt, one block per attempt. The `...` lines stand for the same block repeated.
+
+### Flaky counts as passed for the exit code
+
+A run whose only result is flaky exits with 0:
+
+```console
+$ vc run 'sample.retry#passesOnSecondTry'
+plan  1 test in 1 file · profile default
+
+~ sample.retry#passesOnSecondTry flaky (2 attempts)             244ms
+
+0 passed · 1 flaky                                           246ms · profile default
+```
+
+### Retry one step
+
+A `retry` on a step re-runs only that step. Here a user appears half a second after it is first read:
+
+```yaml
+  - id: stepRetry
+    steps:
+      - id: first
+        call: sample#createUser
+      - command: (sleep 0.5 && curl -s -X POST ${var.sampleUrl}/users -d '{"email":"late@example.com"}' > /dev/null) &
+      - call: sample#getUser
+        vars:
+          userId:
+            $cel: string(int(first.body.id) + 1)
+        retry:
+          attempts: 5
+          delay: 300ms
+```
+
+The step gets a 404 until the user exists, then passes. The test is reported as passed, not flaky. To wait for a state like this, [`poll`](/vc-rs/reference/syntax/poll/) is usually clearer.
+
+### A default for every test
+
+```yaml title="vibranium.config.yaml"
+defaults:
+  retry:
+    attempts: 1
+```
+
+Every test then gets one more attempt. A test opts out with `retry: { attempts: 0 }`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: getsUser
+    name: Gets a user, with one retry
+    retry:
+      attempts: 1
+      delay: 200ms
+    call: sample#getUser
+    vars:
+      userId: "1"
+`} />
+
+## How it behaves
+
+- Each attempt is a fresh test instance run: `beforeEach`, `before`, the steps, `after`, `afterEach` and cleanups.
+- The cleanups of a failed attempt run before the next attempt starts.
+- A **blocked** test is never retried. A test is blocked when its `before`, `beforeEach` or a shared action it needs fails.
+- A pass after a failure is **flaky**. The summary counts flaky tests on their own. For the exit code, flaky counts as passed.
+
+<Aside type="caution">
+`vc config explain defaults.retry` answers ``no setting `defaults.retry` ``, and `--set defaults.retry.attempts=1` is rejected, even though `defaults.retry` in the config file works.
+</Aside>
+
+## Common errors
+
+`retry` without `attempts`:
+
+```console
+error[V1005]: a retry needs `attempts`
+  --> services/sample/pollbad.test.yaml:18:7
+   |
+18 |       delay: 1s
+   |       ^^^^^ `attempts` is missing
+   = help: add `attempts: 2`: Further attempts after the first
+```
+
+- [V1005](/vc-rs/reference/diagnostics/v1005/): a required key is missing.
+- [V5110](/vc-rs/reference/diagnostics/v5110/): a command failed, which blocks the test.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="http.retry" href="/vc-rs/reference/syntax/http-retry/" />
+  <LinkCard title="poll" href="/vc-rs/reference/syntax/poll/" />
+  <LinkCard title="skip" href="/vc-rs/reference/syntax/skip/" />
+  <LinkCard title="Config" href="/vc-rs/reference/config/" />
+</CardGrid>

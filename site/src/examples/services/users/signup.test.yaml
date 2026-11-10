@@ -1,0 +1,36 @@
+name: Sign-up rules
+tags: [users]
+
+tests:
+  - id: createsUsersFromRows
+    name: Creates a user for each row
+    examples:
+      - name: Ada Lovelace
+        email: ada@example.com
+      - name: Grace Hopper
+        email: grace@example.com
+      - name: Alan Turing
+        email: alan@example.com
+    call: users#create
+    vars:
+      name: ${example.name}
+      email: ${example.email}
+    expect:
+      body:
+        match:
+          name: ${example.name}
+          email: ${example.email}
+
+  - id: rejectsBadBodies
+    name: Rejects bodies without a valid email
+    examples:
+      - body: { name: No Email }
+      - body: { name: Number Email, email: 42 }
+    call: users#create
+    body: ${example.body}
+    expect:
+      status: 400
+      body:
+        match:
+          error:
+            contains: email
