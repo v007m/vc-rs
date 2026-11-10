@@ -1,4 +1,4 @@
-import { ConnectError, type Client } from '@connectrpc/connect';
+import { Code, ConnectError, type Client } from '@connectrpc/connect';
 import {
   type AgentAction,
   type Approval,
@@ -21,6 +21,17 @@ const logLimit = 200;
 /** How often a failed load of the MCP endpoint and agent token is tried again. */
 export const linkRetryMs = 60_000;
 
+/**
+ * Whether asking again may succeed: the server was not there or too slow, or the request never
+ * reached it (fetch's `TypeError`). `unimplemented` (no MCP mounted) or `not_found` will not change.
+ */
+function transient(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  if (!(error instanceof ConnectError)) return false;
+  if (error.code === Code.Unavailable || error.code === Code.DeadlineExceeded) return true;
+  return error.code === Code.Unknown && error.cause instanceof TypeError;
+}
+
 /** What agents are waiting on and what they did, refreshed from the engine. */
 export class AgentDesk {
   pending: readonly Approval[] = $state([]);
@@ -31,6 +42,7 @@ export class AgentDesk {
   link: McpLink | undefined = $state.raw();
   linkError: string | undefined = $state();
   readonly #client: DeskClient;
+  #retryLink = false;
 
   constructor(client: DeskClient) {
     this.#client = client;
@@ -75,11 +87,13 @@ export class AgentDesk {
       this.linkError = undefined;
     } catch (error) {
       this.linkError = ConnectError.from(error).rawMessage;
+      this.#retryLink = transient(error);
     }
   }
 
   /**
-   * Loads the MCP endpoint, trying again every `linkRetryMs` while that fails, and refreshes now
+   * Loads the MCP endpoint, trying again every `linkRetryMs` while that fails for a reason that
+   * may pass (see `transient`), and refreshes now
    * and every `ms`; the returned function stops both.
    */
   poll(ms: number): () => void {
@@ -87,7 +101,7 @@ export class AgentDesk {
     void this.refresh();
     const timer = setInterval(() => void this.refresh(), ms);
     const retry = setInterval(() => {
-      if (this.linkError !== undefined) void this.connect();
+      if (this.linkError !== undefined && this.#retryLink) void this.connect();
     }, linkRetryMs);
     return () => {
       clearInterval(timer);
