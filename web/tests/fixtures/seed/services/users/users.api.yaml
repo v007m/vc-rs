@@ -1,0 +1,39 @@
+id: users
+name: Users on the mock server
+baseUrl: ${var.mockUrl}
+
+apis:
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+
+  - id: deleteUser
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]
