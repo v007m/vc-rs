@@ -25,6 +25,7 @@ export const navItems: readonly NavItem[] = [
     label: 'Runs',
     icon: ['M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2z', 'M6.5 5.5v5l4-2.5z'],
   },
+  { route: '/insights', label: 'Insights', icon: ['M2.5 13.5h11M4.5 11V8M8 11V4M11.5 11V6.5'] },
   {
     route: '/agents',
     label: 'AI agents',
