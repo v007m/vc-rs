@@ -344,8 +344,8 @@ Each item in `apis`:
 | `$file: path` | the file's bytes, any file, binary included (D272). The path is literal (a `${…}` in it is V5111), relative to the file that names it, and checked by `vc check` (V2004); the file is read before the run | by extension: `json` `application/json`, `csv` `text/csv`, `txt` `text/plain`, `xml` `application/xml`, `html`/`htm` `text/html`, `yaml`/`yml` `application/yaml`, `png` `image/png`, `jpg`/`jpeg` `image/jpeg`, `gif` `image/gif`, `pdf` `application/pdf`, `zip` `application/zip`; any other `application/octet-stream` |
 | `$base64: …` | the decoded bytes | `application/octet-stream` |
 | `$extend: <object>` plus changes | the object with your changes (see below) | `application/json` |
-| a map with `content-type: application/x-www-form-urlencoded` | URL-encoded form | — |
-| a map with `content-type: multipart/form-data` | multipart; `$file` values become file parts | — |
+| a map with `content-type: application/x-www-form-urlencoded` | URL-encoded form (D273): a space as `+`, a list repeats its key, a null is left out; a nested object or list is V5111. The media type is matched without its parameters or case | the header as written |
+| a map with `content-type: multipart/form-data` | multipart (D274, RFC 7578), one part per field: text as UTF-8 with no part type; a `{$file: path}` value as a file part with the file's name and its extension's type; another map or a list of lists as an `application/json` part. A list repeats the part; a null is left out. The boundary is the header's `boundary=` if it names one, else `vc-` and 24 hex characters from the run's seeded random source | the header as written, with `; boundary=…` added when it names none |
 
 ```yaml
 # services/users/users.api.yaml

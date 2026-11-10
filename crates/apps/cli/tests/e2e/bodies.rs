@@ -28,7 +28,6 @@ async fn a_file_body_is_sent_as_the_files_bytes_with_its_extensions_type() {
     assert_eq!(output.status.code(), Some(0), "{}", said(&output));
 }
 
-#[ignore = "issue: form bodies are sent as JSON until D273 lands"]
 #[tokio::test(flavor = "multi_thread")]
 async fn a_map_with_a_form_content_type_is_sent_url_encoded() {
     let api = "    headers: {content-type: application/x-www-form-urlencoded}\n    body: {a: one two, b: \"2\"}\n\
@@ -38,7 +37,6 @@ async fn a_map_with_a_form_content_type_is_sent_url_encoded() {
     assert_eq!(output.status.code(), Some(0), "{}", said(&output));
 }
 
-#[ignore = "issue: multipart bodies are sent as JSON until D274 lands"]
 #[tokio::test(flavor = "multi_thread")]
 async fn a_map_with_a_multipart_content_type_sends_file_and_text_parts() {
     let api = "    headers: {content-type: multipart/form-data}\n\

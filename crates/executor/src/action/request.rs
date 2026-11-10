@@ -14,12 +14,13 @@ use vc_model::{Action, Api, BodySpec, Exchange, Failure, InlineRequest, Method, 
 use vc_template::RenderError;
 
 use crate::Render;
+use crate::action::encode::{self, Encoder, Encoding};
 use crate::action::media::{self, OCTETS};
 
 /// RFC 3986 unreserved characters stay as they are in a query.
 const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove(b'_').remove(b'~');
 
-const JSON: &str = "application/json";
+pub const JSON: &str = "application/json";
 const TEXT: &str = "text/plain; charset=utf-8";
 
 /// The request `action` sends to `api`: the action's query, headers and body over the api's.
@@ -40,12 +41,19 @@ pub fn inline(render: &Render<'_>, inline: &InlineRequest) -> Result<RenderedReq
     with_body(render, request, &inline.body)
 }
 
-/// `request` with the body `spec` renders to, and the `content-type` it implies unless one is set.
+/// `request` with the body `spec` renders to, in the encoding its `content-type` names, and the
+/// `content-type` the body implies unless one is set.
 fn with_body(render: &Render<'_>, mut request: RenderedRequest, spec: &BodySpec) -> Result<RenderedRequest, Failure> {
-    if let Some((body, kind)) = body(render, spec)? {
+    let written = request.headers.get(CONTENT_TYPE).cloned();
+    let encode = written.as_ref().and_then(|written| Some((encode::encoder(written)?, written)));
+    if let Some((body, kind)) = body(render, spec, encode)? {
         request.body = body;
-        if !request.headers.contains_key(CONTENT_TYPE) {
-            request.headers.insert(CONTENT_TYPE, HeaderValue::from_static(kind));
+        match kind {
+            ContentType::Replaced(value) => drop(request.headers.insert(CONTENT_TYPE, value)),
+            ContentType::Implied(kind) if written.is_none() => {
+                drop(request.headers.insert(CONTENT_TYPE, HeaderValue::from_static(kind)));
+            }
+            ContentType::Implied(_) => {}
         }
     }
     Ok(request)
@@ -129,27 +137,52 @@ fn header_value(render: &Render<'_>, template: &Template) -> Result<Option<Heade
     value.map(Some).map_err(|error| rendering(&format!("`{text}` is not a header value: {error}")))
 }
 
-/// A body's bytes and the `content-type` it implies.
-type Body = (Bytes, &'static str);
+/// The `content-type` a body is sent with.
+enum ContentType {
+    /// The one the body implies, sent unless one is written.
+    Implied(&'static str),
+    /// The one written, rewritten by its encoder: a multipart boundary added (D274).
+    Replaced(HeaderValue),
+}
 
-/// The body's bytes and the `content-type` it implies.
-fn body(render: &Render<'_>, spec: &BodySpec) -> Result<Option<Body>, Failure> {
+/// A body's bytes and its `content-type`.
+type Body = (Bytes, ContentType);
+
+/// The encoder the written `content-type` names, with that header.
+type Encode<'h> = Option<(Encoder, &'h HeaderValue)>;
+
+/// The body's bytes and its `content-type`; a map is encoded by `encode` when the
+/// `content-type` names one.
+fn body(render: &Render<'_>, spec: &BodySpec, encode: Encode<'_>) -> Result<Option<Body>, Failure> {
     let body = match spec {
         BodySpec::None => return Ok(None),
-        BodySpec::Json(value) => (Bytes::from(render.value(value).map_err(failed)?.to_string()), JSON),
-        BodySpec::Text(template) => (Bytes::from(render.text(template).map_err(failed)?), TEXT),
-        BodySpec::Base64(template) => (decode(&render.text(template).map_err(failed)?)?, OCTETS),
+        BodySpec::Json(value) => structured(render, render.value(value).map_err(failed)?, encode)?,
+        BodySpec::Text(template) => (Bytes::from(render.text(template).map_err(failed)?), ContentType::Implied(TEXT)),
+        BodySpec::Base64(template) => (decode(&render.text(template).map_err(failed)?)?, ContentType::Implied(OCTETS)),
         BodySpec::Extend { base, changes, remove } => {
             let base = render.template(base).map_err(failed)?;
-            let merged = vc_template::extend(base, render.value(changes).map_err(failed)?, remove);
-            (Bytes::from(merged.to_string()), JSON)
+            let value = vc_template::extend(base, render.value(changes).map_err(failed)?, remove);
+            structured(render, value, encode)?
         }
         BodySpec::File(path) => file(render, path)?,
         BodySpec::Form(_) | BodySpec::Multipart(_) => {
-            return Err(rendering("form and multipart bodies arrive in a later milestone"));
+            return Err(rendering("form and multipart bodies are written as a map with a `content-type`"));
         }
     };
     Ok(Some(body))
+}
+
+/// `value` as JSON, or a map in the encoding its `content-type` names (D273, D274).
+fn structured(render: &Render<'_>, value: Value, encode: Encode<'_>) -> Result<Body, Failure> {
+    match (value, encode) {
+        (Value::Object(fields), Some((encode, content_type))) => {
+            let inputs = render.values().inputs();
+            let encoding = Encoding { files: &inputs.bodies, random: inputs.random.as_ref(), content_type };
+            let (bytes, rewritten) = encode(&fields, &encoding)?;
+            Ok((bytes, rewritten.map_or(ContentType::Implied(JSON), ContentType::Replaced)))
+        }
+        (value, _) => Ok((Bytes::from(value.to_string()), ContentType::Implied(JSON))),
+    }
 }
 
 /// The bytes of the `$file` at `path`, which the engine read before the run, and the
@@ -157,7 +190,8 @@ fn body(render: &Render<'_>, spec: &BodySpec) -> Result<Option<Body>, Failure> {
 fn file(render: &Render<'_>, path: &Template) -> Result<Body, Failure> {
     let path =
         path.as_literal().ok_or_else(|| rendering("a `$file` body path cannot hold `${…}` references (D272)"))?;
-    media::file(&render.values().inputs().bodies, path)
+    let (bytes, kind) = media::file(&render.values().inputs().bodies, path)?;
+    Ok((bytes, ContentType::Implied(kind)))
 }
 
 fn decode(text: &str) -> Result<Bytes, Failure> {
