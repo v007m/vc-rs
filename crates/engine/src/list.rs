@@ -160,7 +160,17 @@ fn listed_test(program: &Program, test: &Test, skipped: bool) -> Listed {
 /// An unnamed, untagged, unskipped definition `id` in `file`.
 fn listed(program: &Program, file: SourceFileId, id: String) -> Listed {
     let path = program.files.get(file).map(|f| f.path.as_str().to_owned()).unwrap_or_default();
-    Listed { id, name: None, path, tags: Vec::new(), skipped: false, span: None, calls: Vec::new(), steps: 0, vars: Vec::new() }
+    Listed {
+        id,
+        name: None,
+        path,
+        tags: Vec::new(),
+        skipped: false,
+        span: None,
+        calls: Vec::new(),
+        steps: 0,
+        vars: Vec::new(),
+    }
 }
 
 fn text(program: &Program, sym: Sym) -> String {
