@@ -112,6 +112,20 @@ async fn a_refused_refresh_token_is_forgotten() {
 }
 
 #[tokio::test]
+async fn a_refresh_that_fails_for_a_while_keeps_the_token_and_gives_the_error() {
+    let (transport, _) = token_server(TOKEN);
+    let (browser, mut urls) = RecordingBrowser::new();
+    let keychain = Arc::new(MemoryKeychain::new());
+    keychain.set("vibranium", "api@cli", &Secret::new("kept")).unwrap();
+    let code = AuthorizationCode::new(transport, Arc::new(browser), Some(Arc::clone(&keychain) as _));
+    let busy = settings(&json!({"tokenUrl": "https://id.test/busy"}));
+    let got = code.credentials(&request("oauth2AuthorizationCode", &busy)).await;
+    assert_eq!(got.err(), Some(AuthError::Rejected { auth: "api".into(), status: 503 }));
+    assert_eq!(keychain.get("vibranium", "api@cli").unwrap().as_ref().map(Secret::expose), Some("kept"));
+    assert!(urls.try_recv().is_err(), "no browser opened");
+}
+
+#[tokio::test]
 async fn a_redirect_with_another_state_is_refused() {
     let (transport, recordings) = token_server(TOKEN);
     let (browser, urls) = RecordingBrowser::new();

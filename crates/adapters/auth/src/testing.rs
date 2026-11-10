@@ -22,11 +22,12 @@ pub fn answering(code: u16, body: &str) -> HttpResponse {
     HttpResponse { body: Bytes::from(body.to_owned()), ..status(code) }
 }
 
-/// A token endpoint: `/token` answers `body`, `/refuse` answers 401 and other paths 404.
+/// A token endpoint: `/token` answers `body`, `/refuse` 401, `/busy` 503 and other paths 404.
 pub fn token_server(body: &'static str) -> (Arc<RecordingTransport>, Recordings) {
     let fake = FakeTransport::new(move |request: &RenderedRequest, _| {
         let path = request.uri.path();
         let answer = if path == "/token" { answering(200, body) } else { status(404) };
+        let answer = if path == "/busy" { status(503) } else { answer };
         Ok(if path == "/refuse" { status(401) } else { answer })
     });
     let (recording, recordings) = RecordingTransport::new(Arc::new(fake));
