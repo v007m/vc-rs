@@ -1,0 +1,37 @@
+name: Users service
+baseUrl: ${var.usersUrl}
+
+apis:
+  - id: list
+    name: List users
+    path: /users
+
+  - id: create
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: delete
+      vars:
+        userId: ${response.body.id}
+
+  - id: get
+    name: Get a user
+    path: /users/${var.userId}
+
+  - id: delete
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]

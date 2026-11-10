@@ -1,0 +1,51 @@
+---
+title: "vc unskip"
+description: "Removes the skip from a test or a test file so it runs again."
+sidebar: { order: 14 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Removes the [`skip`](/vc-rs/reference/syntax/skip/) that [`vc skip`](/vc-rs/reference/cli/skip/), or you, wrote on a test or a test file.
+
+```console
+$ vc unskip [OPTIONS] <TARGET>
+```
+
+## Options
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `<TARGET>` | | The test (`users.crud#listsUsers`) or test file (`users.crud`) to run again |
+| `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+```console
+$ vc unskip users.crud
+✓ unskipped users.crud
+$ vc unskip users.crud#listsUsers
+✓ unskipped users.crud#listsUsers
+```
+
+A file skip and a test skip are separate. Removing the file's skip leaves a skip on one of its tests in place, and the other way round.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | The skip was removed |
+| `2` | No such test or file, or it is not skipped |
+
+```console
+$ vc unskip users.crud
+error: `users.crud` is not skipped
+  = help: `vc list tests --skipped` lists the skips
+```
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc skip" href="/vc-rs/reference/cli/skip/" description="Skip a test with a reason and a date." />
+  <LinkCard title="Skipping tests" href="/vc-rs/guides/skipping-tests/" description="The whole workflow." />
+</CardGrid>

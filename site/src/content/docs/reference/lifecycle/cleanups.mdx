@@ -1,0 +1,171 @@
+---
+title: "Cleanups"
+description: "An api's cleanup deletes what a successful call created, newest first, after a pass, a failure or Ctrl-C."
+sidebar: { order: 9 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+An api that creates something declares how to remove it with `cleanup`. Every successful call of that api registers the cleanup, and vc runs it when the test, file or run that made the call ends.
+
+```yaml title="services/lab/lab.api.yaml (excerpt)"
+apis:
+  - id: createItem
+    method: POST
+    path: /items
+    body:
+      label: ${var.label}
+    expect:
+      status: 201
+    save:
+      itemId: ${response.body.id}
+    cleanup:
+      call: deleteItem
+      vars:
+        itemId: ${response.body.id}
+
+  - id: deleteItem
+    method: DELETE
+    path: /items/${var.itemId}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `cleanup.call` | api ID | — | yes | An api in the same file can be named bare (`deleteItem`) |
+| `cleanup.vars` | map | — | no | Rendered from the response that created the thing |
+| `keep` (on a call or action) | boolean | `false` | no | Skip the cleanup for this one call |
+| `vc call --keep` | flag | off | no | Skip the cleanup of a call from the terminal |
+
+## Examples
+
+Cleanups run newest first. This test makes three items and keeps the last one:
+
+```yaml title="services/lab/cleanup.test.yaml"
+tests:
+  - id: cleansUpNewestFirst
+    steps:
+      - call: lab#createItem
+        vars:
+          label: first
+      - call: lab#createItem
+        vars:
+          label: second
+      - call: lab#createItem
+        keep: true
+        vars:
+          label: kept
+```
+
+The server saw `second` deleted before `first`, and `kept` left alone:
+
+```console
+POST /items body={"label":"first"}     → i13
+POST /items body={"label":"second"}    → i14
+POST /items body={"label":"kept"}      → i15
+DELETE /items/i14
+DELETE /items/i13
+```
+
+A failed test still cleans up. Here the second step gets a 500:
+
+```yaml
+  - id: cleansUpAfterFailure
+    steps:
+      - call: lab#createItem
+      - call: lab#status
+        vars:
+          code: 500
+```
+
+```console
+POST /items body={"label":"item"}
+GET /status/500
+DELETE /items/i3
+```
+
+Ctrl-C cancels the run, and the cleanups still run before vc exits with code 130:
+
+```console
+$ vc run lab.cleanup#cleansUpOnCtrlC
+plan  1 test in 1 file · profile default
+
+^C
+- lab.cleanup#cleansUpOnCtrlC skipped: cancelled                 6.7s
+
+0 passed · 1 skipped · cancelled                             6.7s · profile default
+```
+
+```console
+POST /items body={"label":"item"}
+GET /slow?s=10
+DELETE /items/i6
+```
+
+`vc call` registers the cleanup too. Pass `--keep` to leave the item in place:
+
+```console
+$ vc call lab#createItem --var label=adhoc
+201 Created · 23 ms · api expect passed
+{
+  "id": "i7"
+}
+```
+
+The server saw `POST /items` and then `DELETE /items/i7`. With `vc call lab#createItem --keep`, no `DELETE` is sent.
+
+A cleanup that fails is a warning. The test keeps its result:
+
+```console
+! cleanup call lab#status (instance 0) failed: status: expected ["2xx"], got 500
+✓ lab.cfail#warnsOnFailedCleanup                                  6ms
+```
+
+<Playground client:visible kind="api" code={`id: lab
+name: Local lab server
+baseUrl: \${var.labUrl}
+apis:
+  - id: createItem
+    method: POST
+    path: /items
+    body:
+      label: \${var.label}
+    expect:
+      status: 201
+    save:
+      itemId: \${response.body.id}
+    cleanup:
+      call: deleteItem
+      vars:
+        itemId: \${response.body.id}
+  - id: deleteItem
+    method: DELETE
+    path: /items/\${var.itemId}
+`} />
+
+## How it behaves
+
+- Only a call that passed its checks registers a cleanup. A 400 that created nothing registers none.
+- The owner decides when it runs: the test instance for `before`, `beforeEach` and steps; the file for `beforeAll`; the run for `beforeRun`.
+- Order is newest first within the owner, so a group is deleted before the members it holds.
+- Each iteration of a loop registers its own cleanup.
+- A [cached](/vc-rs/reference/lifecycle/cache/) action's cleanup waits until the cache entry expires, is replaced, or is cleared with `vc cache clear`.
+
+<Aside>
+Cleanups run after `after`, `afterEach` and `afterAll`, so those blocks can still read what the test created.
+</Aside>
+
+## Common errors
+
+- [V5107](/vc-rs/reference/diagnostics/v5107/): a cleanup failed. It is a warning; the test result does not change.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="call action" href="/vc-rs/reference/lifecycle/call/" />
+  <LinkCard title="Lifecycle blocks" href="/vc-rs/reference/lifecycle/" />
+  <LinkCard title="Cross-run cache" href="/vc-rs/reference/lifecycle/cache/" />
+  <LinkCard title="Loops on actions" href="/vc-rs/reference/lifecycle/loops/" />
+</CardGrid>

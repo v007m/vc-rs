@@ -1,0 +1,222 @@
+---
+title: baseUrl
+description: The start of every URL in an api file, usually a var so each profile can point somewhere else.
+sidebar: { order: 112, badge: { text: 'api', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`baseUrl` sits at the top of an api file. vc puts it in front of every api's [`path`](/vc-rs/reference/syntax/path/) in that file.
+
+```yaml title="services/sample/sample.api.yaml"
+id: sample
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    path: /users
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `baseUrl` | template | — | no | Scheme, host, port and an optional path prefix. No trailing `/`. Usually `${var.<name>Url}`. |
+
+`baseUrl` is a file-level key. An api can't set its own. A test or step changes it only through the var it uses.
+
+## Examples
+
+### One var per service
+
+Keep the address in the config's vars. Every api file for that service refers to it.
+
+```yaml title="vibranium.config.yaml"
+vars:
+  sampleUrl: http://localhost:7432
+```
+
+```yaml title="services/req/req.api.yaml"
+id: req
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: defaultMethod
+    path: /echo
+```
+
+`vc explain` shows the joined URL and where the var came from:
+
+```console
+$ vc explain req#defaultMethod
+req#defaultMethod
+profile  default
+  GET http://localhost:7432/echo
+  vars
+    sampleUrl  http://localhost:7432  (vibranium.config.yaml)
+    adminPassword  s3cret  (vibranium.config.yaml)
+    pageSize  20  (file req)
+  expect
+```
+
+### A path prefix
+
+Put a shared prefix such as `/api/v1` in `baseUrl`, not in every path. With the demo, the prefix is `/users`:
+
+```yaml title="services/prefix/prefix.api.yaml"
+baseUrl: ${var.sampleUrl}/users
+apis:
+  - id: first
+    path: /1
+```
+
+```console
+$ vc explain prefix#first
+prefix#first
+profile  default
+  GET http://localhost:7432/users/1
+  vars
+    sampleUrl  http://localhost:7432  (vibranium.config.yaml)
+    adminPassword  s3cret  (vibranium.config.yaml)
+  expect
+
+$ vc call prefix#first
+200 OK · 7 ms · api expect passed
+{
+  "id": "1",
+  "name": "Ada Lovelace"
+}
+```
+
+### A different host per profile
+
+A [profile](/vc-rs/reference/syntax/profiles/) replaces the var, so the same tests run against another environment:
+
+```yaml title="vibranium.config.yaml"
+profiles:
+  - id: default
+    default: true
+  - id: staging
+    vars:
+      sampleUrl: https://sample.staging.example
+```
+
+```console
+$ vc explain req#defaultMethod --profile staging
+req#defaultMethod
+profile  staging
+  GET https://sample.staging.example/echo
+  vars
+    sampleUrl  https://sample.staging.example  (profile staging)
+    adminPassword  s3cret  (vibranium.config.yaml)
+    pageSize  20  (file req)
+  expect
+```
+
+For one run only, use `--set`:
+
+```console
+$ vc explain req#defaultMethod --set vars.sampleUrl=http://localhost:9000
+req#defaultMethod
+profile  default
+  GET http://localhost:9000/echo
+  vars
+    sampleUrl  http://localhost:9000  (--set)
+    adminPassword  s3cret  (vibranium.config.yaml)
+    pageSize  20  (file req)
+  expect
+```
+
+### Point one call somewhere else
+
+Set the var in the test's `vars`. Only this call changes. Here it points at a server that has no `/echo`, so the test expects 404:
+
+```yaml title="services/nobase/urls.test.yaml"
+tests:
+  - id: pointsElsewhere
+    call: req#defaultMethod
+    vars:
+      sampleUrl: http://localhost:7442
+    expect:
+      status: 404
+```
+
+```console
+$ vc explain nobase.urls#pointsElsewhere
+nobase.urls#pointsElsewhere
+profile  default
+call req#defaultMethod
+  GET http://localhost:7442/echo
+  vars
+    sampleUrl  http://localhost:7442  (test)
+    adminPassword  s3cret  (vibranium.config.yaml)
+    pageSize  20  (file req)
+  expect
+    status: 404  (test nobase.urls#pointsElsewhere)
+
+$ vc run nobase.urls
+plan  2 tests in 1 file · profile default
+
+✓ nobase.urls#callsFullPath                                       0ms
+✓ nobase.urls#pointsElsewhere                                     0ms
+
+2 passed                                                     55ms · profile default
+```
+
+### No baseUrl
+
+Without `baseUrl`, each `path` must be a full URL:
+
+```yaml title="services/nobase/nobase.api.yaml"
+apis:
+  - id: full
+    path: http://localhost:7432/echo
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`id: orders
+baseUrl: \${var.ordersUrl}/api/v1
+vars:
+  ordersUrl: http://localhost:7432
+apis:
+  - id: place
+    method: POST
+    path: /orders
+`} />
+
+## How it behaves
+
+- The URL is `baseUrl` plus `path`, joined as plain text. Write `baseUrl` without a trailing `/` and every path with a leading `/`.
+- Each api takes `baseUrl` from its own file. A test that calls two services sends each request to the right host without saying so.
+- `baseUrl` is a template, rendered for each request. The var behind it follows the normal [vars](/vc-rs/reference/syntax/vars/) precedence. `vc explain` names the level that won: `(vibranium.config.yaml)`, `(profile staging)`, `(test)` or `(--set)`.
+- Use a var even with one environment. The test files never change when the address does.
+
+## Common errors
+
+A trailing slash in `baseUrl` doubles the slash. `baseUrl: ${var.sampleUrl}/` with `path: /echo` sends `http://localhost:7432//echo`, and the demo answers 404. `vc check` does not warn, so `vc explain` is the quickest way to spot it.
+
+A relative path with no `baseUrl` also passes `vc check`, then fails when sent:
+
+```yaml title="services/nobase/nobase.api.yaml"
+  - id: rel
+    path: /echo
+```
+
+```console
+$ vc explain nobase#rel
+nobase#rel
+profile  default
+  GET /echo
+
+$ vc call nobase#rel
+✗ cannot send the request: /echo is not an http(s) URL
+```
+
+A `baseUrl` var that no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/). A host that can't be reached fails the call with [V5105](/vc-rs/reference/diagnostics/v5105/).
+
+## Related
+
+- [path](/vc-rs/reference/syntax/path/): the part after `baseUrl`
+- [vars](/vc-rs/reference/syntax/vars/) and [profiles](/vc-rs/reference/syntax/profiles/): where the var comes from
+- [Config](/vc-rs/reference/config/): project-wide vars
+- [auth](/vc-rs/reference/syntax/auth/): the other thing an api takes from its file

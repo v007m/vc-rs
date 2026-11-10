@@ -1,0 +1,22 @@
+name: Auth flow
+tags: [auth]
+
+tests:
+  - id: sendsBearerToken
+    name: Sends the token the login flow saved
+    call: echo#whoAmI
+    expect:
+      status: 200
+      cel:
+        sends the bearer token: response.body.headers.authorization == 'Bearer token-for-ada'
+
+  - id: logsInAsAnotherUser
+    name: Uses the same flow with other vars
+    call: echo#whoAmI
+    auth:
+      id: demoLogin
+      vars:
+        username: grace
+    expect:
+      cel:
+        logs in as grace: response.body.headers.authorization == 'Bearer token-for-grace'

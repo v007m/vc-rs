@@ -1,0 +1,159 @@
+---
+title: "exists"
+description: "The exists matcher checks that a path is present or absent."
+sidebar: { order: 21 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`exists: true` passes when the path is in the body. `exists: false` passes when it is not.
+
+```yaml
+expect:
+  body:
+    match:
+      body.id: {exists: true}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `exists` | `true` or `false` | — | yes | A field set to `null` counts as present. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Require a field
+
+
+
+```yaml title="services/sample/exists.test.yaml"
+tests:
+  - id: hasId
+    name: Order has an ID
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {exists: true}
+```
+
+```console
+$ vc run sample.exists#hasId
+plan  1 test in 1 file · profile default
+
+✓ sample.exists#hasId                                             4ms
+
+1 passed                                                     5ms · profile default
+```
+
+### Forbid a field
+
+Check that the response does not leak a field.
+
+```yaml title="services/sample/exists.test.yaml"
+tests:
+  - id: hidesSecret
+    name: No password in the body
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.password: {exists: false}
+```
+
+```console
+$ vc run sample.exists#hidesSecret
+plan  1 test in 1 file · profile default
+
+✓ sample.exists#hidesSecret                                       0ms
+
+1 passed                                                     15ms · profile default
+```
+
+### Null counts as present
+
+`note` is `null`, but it is there.
+
+```yaml title="services/sample/exists.test.yaml"
+tests:
+  - id: hasNote
+    name: Note is present
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.note: {exists: true}
+```
+
+```console
+$ vc run sample.exists#hasNote
+plan  1 test in 1 file · profile default
+
+✓ sample.exists#hasNote                                          16ms
+
+1 passed                                                     19ms · profile default
+```
+
+### A failing check
+
+A missing value is reported as `got nothing`.
+
+```yaml title="services/sample/exists.test.yaml"
+tests:
+  - id: failsOnMissing
+    name: Order has deletedAt
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.deletedAt: {exists: true}
+```
+
+```console
+$ vc run sample.exists#failsOnMissing
+plan  1 test in 1 file · profile default
+
+✕ sample.exists#failsOnMissing                                    4ms
+  error[V5101]: expect.body.match.body.deletedAt
+    --> services/sample/exists.test.yaml:29:27
+     |
+  29 |           body.deletedAt: {exists: true}
+     |                           ^^^^^^^^^^^^^^ expected {"exists":true}, got nothing
+
+0 passed · 1 failed                                          6ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: hasId
+    name: Order has an ID
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {exists: true}
+`} />
+
+## How it behaves
+
+- Only presence counts. A key whose value is `null` exists.
+- Most matchers fail on a missing path, so `exists: true` is often implied. Write it when you want a clear failure message.
+- `ne`, `notIn` and `not` pass on a missing path. Add `exists: true` next to them when the field is required.
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): the argument is not `true` or `false`: `exists takes true or false`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [empty](/vc-rs/reference/matchers/empty/)
+- [type](/vc-rs/reference/matchers/type/)
+- [ne](/vc-rs/reference/matchers/ne/)
+- [All matchers](/vc-rs/reference/matchers//)

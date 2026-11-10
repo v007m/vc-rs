@@ -1,0 +1,107 @@
+---
+title: "provides"
+description: "provides declares the names a function or test action saves, so vc check can count them as set."
+sidebar: { order: 13 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`vc check` cannot always see what a `function:` or `test:` action saves. `provides: [name, …]` declares those names, so a var read later counts as set.
+
+```yaml
+before:
+  - function: ../../hooks/seed.ts#seedTenant
+    vars:
+      name: acme
+    provides: [tenantId, profiles]
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `provides` | list of names | — | no | On `function:` and `test:` actions only |
+
+## Examples
+
+Without `provides`, `vc check` reports the var as never set:
+
+```yaml
+before:
+  - function: ../../hooks/seed.ts#seedTenant
+    vars:
+      name: acme
+call: lab#whoami
+query:
+  tenant: ${var.tenantId}
+  profiles: ${var.profiles}
+```
+
+```console
+error[V2101]: ${var.profiles} is used but never set
+```
+
+The check reports that no level sets `profiles` for the active profile. Add the names to `provides` and the check passes.
+
+Declare what a reused test saves:
+
+```yaml
+before:
+  - test: lab.reuse#makesAnItem
+    provides: [itemId]
+```
+
+Using a name that an action saved without declaring it is a warning. The run goes on:
+
+```console
+! V5108: `var.profiles` was saved by a `function:` step that does not declare it; add `provides: [profiles]` to that step
+```
+
+Declaring a name the action did not save fails the action. This function returns `42`, so nothing is saved:
+
+```yaml
+before:
+  - function: ../../hooks/seed.ts#returnsNothing
+    provides: [tenantId]
+```
+
+```console
+⊘ lab.fails#missesAProvidedName blocked                         238ms
+  error[V5109]: declared in `provides` but not saved: `tenantId`
+     = at: function hooks/seed.ts#returnsNothing
+```
+
+<Playground client:visible kind="test" code={`tests:
+  - id: usesATenant
+    name: Uses a tenant made by a function
+    before:
+      - function: ../../hooks/seed.ts#seedTenant
+        vars:
+          name: acme
+        provides: [tenantId, profiles]
+    call: lab#whoami
+    query:
+      tenant: \${var.tenantId}
+      profiles: \${var.profiles}
+`} />
+
+## How it behaves
+
+- `provides` only tells `vc check` and the run what to expect. The values themselves come from what the action returns or saves.
+- In `beforeRun` and `beforeAll`, the provided names live under the action's `id`, as with any shared save.
+- `call:` actions do not need `provides`: vc reads the api's `save`.
+
+## Common errors
+
+- [V2101](/vc-rs/reference/diagnostics/v2101/): a var is used but never set. Add it to `provides`.
+- [V5108](/vc-rs/reference/diagnostics/v5108/): a saved name is read but not declared (warning).
+- [V5109](/vc-rs/reference/diagnostics/v5109/): a declared name was not saved.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="function action" href="/vc-rs/reference/lifecycle/function/" />
+  <LinkCard title="test action" href="/vc-rs/reference/lifecycle/test-action/" />
+  <LinkCard title="Shared values" href="/vc-rs/reference/lifecycle/shared-values/" />
+</CardGrid>

@@ -1,0 +1,106 @@
+---
+title: operationId
+description: The OpenAPI operation an api stands for, used by vc sync to match them.
+sidebar:
+  order: 141
+  badge: { text: 'api', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`operationId` ties an api to one operation in the file's OpenAPI [`source`](/vc-rs/reference/syntax/source/). It lets you rename the api, or move its path, and still have `vc sync` find it.
+
+```yaml title="services/pets/pets.api.yaml"
+apis:
+  - id: list
+    path: /pets
+    operationId: listPets
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `operationId` | string | — | no | The `operationId` of an operation in the spec, copied exactly |
+
+`vc import openapi` writes it on every api it creates. You rarely type it yourself.
+
+## Examples
+
+### Imported apis carry it
+
+```yaml title="services/pets/pets.api.yaml (as imported)"
+apis:
+  - id: listPets
+    name: List pets
+    path: /pets
+    operationId: listPets
+  - id: createPet
+    name: Create pet
+    method: POST
+    path: /pets
+    body: {}
+    operationId: createPet
+```
+
+### Renaming an api keeps the link
+
+Rename `listPets` to `list` and keep `operationId: listPets`. When the spec moves the operation to `/pets/all`, sync still updates the right api:
+
+```yaml title="services/pets/pets.api.yaml (excerpt)"
+apis:
+  - id: list
+    name: List pets
+    path: /pets
+    operationId: listPets
+```
+
+```console
+$ vc sync pets --dry-run
+fetched specs/pets.yaml (2 operations)
+  ↑ pets#list path /pets → /pets/all
+  ↑ pets#createPet path /pets → /pets/all
+--- a/services/pets/pets.api.yaml
++++ b/services/pets/pets.api.yaml
+@@ -11,12 +11,12 @@
+ apis:
+   - id: list
+     name: List pets
+-    path: /pets
++    path: /pets/all
+     operationId: listPets
+...
+```
+
+### Without it, sync leaves the api alone
+
+Remove `operationId` and the api is no longer tracked. `vc sync` does not touch it, even if the spec changes the same path. Use this for hand-written apis that live in an imported file.
+
+## Try it
+
+<Playground client:visible kind="api" code={`
+baseUrl: \${var.sampleUrl}
+source:
+  openapi: specs/pets.yaml
+apis:
+  - id: list
+    path: /pets
+    operationId: listPets
+`} />
+
+## How it behaves
+
+- `operationId` has no effect at run time.
+- Sync matches by `operationId` first, so the api's `id`, `name`, and the edits you made survive a sync.
+- An `operationId` that the spec no longer has makes sync keep the api and mark it [`deprecated`](/vc-rs/reference/syntax/deprecated/).
+- Without a [`source`](/vc-rs/reference/syntax/source/) on the file, `operationId` is just a label.
+
+## Common errors
+
+`operationId` has no diagnostics of its own. A value that is not text is a type error (V2302).
+
+## Related
+
+- [`source`](/vc-rs/reference/syntax/source/), [`deprecated`](/vc-rs/reference/syntax/deprecated/)
+- [OpenAPI import and sync guide](/vc-rs/guides/)

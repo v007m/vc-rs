@@ -1,0 +1,113 @@
+---
+title: Vibranium
+description: One Rust engine for functional, contract and load tests of HTTP APIs. Tests are plain YAML in git, run from a CLI, a terminal UI, a web UI or an AI agent.
+template: splash
+tableOfContents: false
+editUrl: false
+lastUpdated: false
+hero:
+  tagline: Test HTTP APIs with plain YAML in git. One engine runs functional, contract and load tests, from the CLI, a terminal UI, a web UI or an AI agent.
+  actions:
+    - text: Quickstart
+      link: /vc-rs/start/quickstart/
+      icon: right-arrow
+    - text: Walkthroughs
+      link: /vc-rs/walkthroughs/rest-crud/
+      variant: minimal
+    - text: Try it in the browser
+      link: /vc-rs/playground/
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Install
+
+Build `vc` and the demo service from source with Cargo (release downloads are planned; see [Install](/vc-rs/start/install/)):
+
+```console
+cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+```
+
+## A test in ten lines
+
+`vc init` creates a project with a `sample` api that calls the bundled demo service. Add this file next to it as `services/sample/landing.test.yaml`:
+
+```yaml title="services/sample/landing.test.yaml"
+name: User accounts
+tests:
+  - id: createsUser
+    name: Creates a user with the given email
+    call: sample#createUser
+    vars: { email: ada@example.com }
+    expect:
+      status: 201
+      body:
+        match: { email: ada@example.com, id: { type: string } }
+```
+
+Start the demo and run the file:
+
+```console
+$ vc demo start --detach
+$ vc run sample.landing
+plan  1 test in 1 file · profile default
+
+✓ sample.landing#createsUser                                      4ms
+
+1 passed                                                     5ms · profile default
+```
+
+When a check fails, the error points at the exact line of YAML:
+
+```console
+✕ sample.landing#createsUser                                     50ms
+  error[V5101]: expect.body.match.email
+    --> services/sample/landing.test.yaml:10:25
+     |
+  10 |         match: { email: bob@example.com, id: { type: string } }
+     |                         ^^^^^^^^^^^^^^^ expected "bob@example.com", got "ada@example.com"
+```
+
+## What it does
+
+<CardGrid>
+  <Card title="Functional tests" icon="approve-check">
+    Describe each endpoint once as an api, then call it from tests with
+    [matchers](/vc-rs/reference/matchers/literal/), data-driven
+    [examples](/vc-rs/reference/syntax/examples/), polling, setup and cleanup.
+    `vc check` catches mistakes before a request is sent.
+  </Card>
+  <Card title="Contract and OpenAPI sync" icon="document">
+    `vc import` creates api files from an OpenAPI spec, a HAR recording or
+    another tool's collection. `vc sync` merges later spec changes and keeps
+    your edits. See [contract testing](/vc-rs/walkthroughs/contract-testing/).
+  </Card>
+  <Card title="Load tests" icon="rocket">
+    Reuse your tests as load scenarios with weighted mixes, stages, think time
+    and thresholds. `vc load` shows live metrics and exits with code 3 when a
+    threshold is breached.
+  </Card>
+  <Card title="Terminal UI" icon="seti:shell">
+    `vc tui` runs tests, explores apis, browses history, watches load runs and
+    imports specs, all from the terminal.
+  </Card>
+  <Card title="Web UI" icon="laptop">
+    `vc ui` serves a local web UI on 127.0.0.1 and opens it in your browser,
+    with a live feed of the run as it happens.
+  </Card>
+  <Card title="MCP for AI agents" icon="puzzle">
+    `vc mcp` gives agents tools to check, run and author tests over stdio, and
+    `vc ui` also serves MCP over HTTP at `/mcp`. Risky calls wait for a
+    person's approval. See [For AI agents](/vc-rs/agents/).
+  </Card>
+  <Card title="Plugins and alerts" icon="setting">
+    Add reporter and auth plugins in any language, and send alerts to
+    webhooks, Slack, Teams or PagerDuty when a run fails, recovers or breaches
+    a threshold. See [Plugins and alerts](/vc-rs/reference/plugins/).
+  </Card>
+  <Card title="Plain YAML in git" icon="open-book">
+    Tests, apis and config are YAML files with JSON Schemas for editor
+    completion. Reports come out as CTRF, JUnit and HTML for CI.
+  </Card>
+</CardGrid>

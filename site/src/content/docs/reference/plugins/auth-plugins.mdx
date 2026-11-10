@@ -1,0 +1,134 @@
+---
+title: "Auth plugins"
+description: "An auth plugin supplies headers, query values or cookies for requests, and runs when an auth definition of type plugin names it."
+sidebar: { order: 10 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+An auth plugin signs requests with your own code. An auth definition with `type: plugin` names it, and every api that uses that auth gets what the plugin returns.
+
+```yaml title="vibranium.config.yaml"
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config: {tenant: eu}
+```
+
+## Syntax
+
+The auth definition:
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | camelCase word | — | yes | What apis and tests use in `auth:` |
+| `type` | `plugin` | — | yes | |
+| `plugin` | plugin ID | — | yes | An `auth` plugin in `plugins:` |
+| `config` | any YAML value | `null` | no | Sent with each `auth/credentials` call. Templates such as `${secret.x}` and `${var.x}` are rendered |
+
+The plugin's answer to `auth/credentials`:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `headers` | map of text | Added to the request |
+| `query` | map of text | Added to the query string |
+| `cookies` | map of text | Sent as cookies |
+| `expiresIn` | seconds | How long to reuse the answer. Without it, the answer is kept for the run |
+
+At least one of `headers`, `query` or `cookies` must hold a value.
+
+## Examples
+
+**The call the plugin receives.**
+
+```json
+{"method": "auth/credentials", "params": {"auth": "partnerStamp", "config": {"tenant": "eu"}}}
+```
+
+**What it sends back.**
+
+```json
+{"result": {"headers": {"x-stamp": "eu:s3cr3tkey"}, "query": {"realm": "partners"}, "expiresIn": 300}}
+```
+
+**The request it signed.** Every value an auth plugin returns is treated as a secret.
+
+```console
+$ stampKey=s3cr3tkey vc call sample#echoStamped
+stamp: credentials for partnerStamp (tenant eu)
+200 OK · 2 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7467",
+    "user-agent": "vibranium/2",
+    "x-stamp": "••••"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {
+    "realm": "••••"
+  }
+}
+```
+
+**Reuse.** With `"expiresIn": 300`, three requests in one run asked the plugin once. With `"expiresIn": 0`, they asked it three times.
+
+**An empty answer.** It fails the request:
+
+```console
+$ vc call sample#echoStamped
+✗ credentials could not be obtained: the `partnerStamp` auth plugin failed: `auth/credentials` returned no headers, query or cookies
+```
+
+In a run, the test fails with `error[V5114]: credentials could not be obtained: ...` and the same reason.
+
+**A plugin that is not approved.**
+
+```console
+✗ credentials could not be obtained: the `partnerStamp` auth plugin failed: plugin `stamp` cannot be used: not approved: `vc plugin add` it
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: stamp
+    source: path:plugins/stamp
+    config:
+      realm: partners
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config:
+      tenant: eu
+      apiKey: \${secret.partnerKey}
+`} />
+
+## How it behaves
+
+- There are two configs. `plugins[].config` is literal and goes to `initialize` once. The auth definition's `config` is rendered like any auth setting and goes with each `auth/credentials` call.
+- A `${secret.x}` in the auth definition's `config` is sent to the plugin whatever its lock grants. Writing it there is the grant.
+- The same plugin can serve several auth definitions. `params.auth` says which one is asking.
+- The plugin's stderr shows in your terminal, so `print(..., file=sys.stderr)` is a simple way to trace it.
+- A plugin failure fails only the requests that use this auth.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5114](/vc-rs/reference/diagnostics/v5114/) | The plugin returned nothing usable, failed, or cannot be used |
+| [V5118](/vc-rs/reference/diagnostics/v5118/) | The plugin crashed, timed out, was refused a secret or its files changed |
+
+## Related
+
+- [Write a plugin](/vc-rs/reference/plugins/writing-a-plugin/)
+- [Auth reference](/vc-rs/reference/auth/)
+- [Permissions](/vc-rs/reference/plugins/permissions/)

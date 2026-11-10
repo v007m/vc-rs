@@ -1,0 +1,163 @@
+---
+title: "HAR and capture"
+description: "Turn a browser session into api definitions and a replay test, and save real calls as tests."
+sidebar: { order: 6 }
+---
+
+import { Steps, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+You do not have to write api files by hand when the calls already happen somewhere. `vc` can:
+
+- import a **HAR recording** of a browser session, with one test that replays it;
+- import **curl commands**, a **`.http` file** or a **Postman collection**;
+- save **one real call** as a test with `vc call --save-as-test`.
+
+Credentials are never written to the files in any of these.
+
+## From a browser session
+
+<Steps>
+
+1. **Record.** Open your browser's dev tools on the **Network** tab, use the app, then save the requests as a HAR file (in Chrome and Firefox, right-click the request list and choose **Save all as HAR**). Save it inside the project, for example `rec/signup.har`.
+
+2. **Preview.** `--dry-run` prints what would be written, and writes nothing. `--flow` adds a test that replays the session:
+
+   ```console
+   $ vc import har rec/signup.har --flow sample.signup#createsAndReadsUser --dry-run
+   Import 3 apis from rec/signup.har
+   read 5 entries · filtered 1 static, 1 third-party, 0 OPTIONS → 3 requests
+     localhost:7421 → sample (existing)  3 matched · no auth yet: `vc new auth sampleAuth --type bearer`
+   secrets  header authorization dropped → each file's auth
+   flow sample.signup#createsAndReadsUser (3 steps)
+   --- /dev/null
+   +++ b/services/sample/signup.test.yaml
+   ...
+   ```
+
+   The summary says what it kept:
+
+   - **Filtered.** Static assets (scripts, styles, images, fonts), calls to third-party hosts such as analytics, and `OPTIONS` preflights are dropped. `--keep-static` keeps the assets, and `--include-host <host>` keeps one third-party host.
+   - **One api file per host.** A host that matches the `baseUrl` of an api file goes into that file (`existing`). Other hosts get a new file (`new`). A request whose method and path match an api already there is `matched` and left alone. The same request made several times becomes one api.
+   - **Secrets.** `authorization` headers and cookies are dropped. Body fields that look secret become `${secret.NAME}` references, and `.env.schema` declares the names.
+
+3. **Import.**
+
+   ```console
+   $ vc import har rec/signup.har --flow sample.signup#createsAndReadsUser
+   ✓ imported rec/signup.har
+   read 5 entries · filtered 1 static, 1 third-party, 0 OPTIONS → 3 requests
+     localhost:7421 → sample (existing)  3 matched · no auth yet: `vc new auth sampleAuth --type bearer`
+   secrets  header authorization dropped → each file's auth
+   flow sample.signup#createsAndReadsUser (3 steps)
+   ```
+
+   The flow test calls the apis in the recorded order. Where a response returned an ID that a later request used, it saves the ID and passes it on:
+
+   ```yaml title="services/sample/signup.test.yaml"
+   tests:
+     - id: createsAndReadsUser
+       name: Creates and reads user
+       steps:
+         - call: sample#listUsers
+         - call: sample#createUser
+           save:
+             userId: ${response.body.id}
+         - call: sample#getUser
+           vars:
+             userId: ${var.userId}
+   ```
+
+4. **Add the auth it dropped.** The summary names the command. Add the auth, give it its secret, and point the api file at it with `auth:`. See [Auth](/vc-rs/reference/auth/) and [Secrets](/vc-rs/guides/secrets/).
+
+   ```console
+   $ vc new auth sampleAuth --type bearer
+   ```
+
+5. **Run it.**
+
+   ```console
+   $ vc run sample.signup
+   plan  1 test in 1 file · profile default
+   ✓ sample.signup#createsAndReadsUser                              28ms
+   1 passed                                                     34ms · profile default
+   ```
+
+</Steps>
+
+Then make the test check something: add an `expect` to each step, or to the apis. The import only records what was called.
+
+A new host gets a new api file and a `<file>Url` var in the config. Requests with IDs in the path get a var for the ID (`/v1/carts/${var.cartId}/items`), and JSON body fields become vars with the recorded values:
+
+```console
+$ vc import har rec/checkout.har --include-host api.shop.test --flow checkout#placesOrder
+✓ imported rec/checkout.har
+read 7 entries · filtered 1 static, 1 third-party, 1 OPTIONS → 4 requests
+  api.shop.test → shop (existing)  1 matched, 1 new · no auth yet: `vc new auth shopAuth --type bearer`
+  pay.shop.test → pay (new)  1 new · no auth yet: `vc new auth payAuth --type bearer`
+secrets  header authorization, cookie dropped → each file's auth · body field token → ${secret.PAY_TOKEN}
+.env.schema  declares PAY_TOKEN
+flow checkout#placesOrder (4 steps)
+POST /v1/carts/${var.cartId}/items: recorded 2 times, merged into one api
+```
+
+Importing a second flow with an ID that exists stops with `` error: `sample.signup#createsAndReadsUser` already exists `` and the help `` give `--flow` another test ID ``.
+
+<Aside type="caution">
+A HAR file holds everything the browser sent and received, including tokens and cookies. `vc` does not copy them into your files, but the HAR file itself still has them. Delete it after the import, or keep it out of git.
+</Aside>
+
+The web UI does the same from its **API client** screen: **Import HAR** previews each file's diff before writing. See [Web UI](/vc-rs/guides/web-ui/#import-a-har-file).
+
+## From curl, .http and Postman
+
+The same rules apply to these sources: one file per host, matching apis left alone, credentials dropped.
+
+```console
+$ vc import curl rec/calls.sh --id shop
+✓ imported rec/calls.sh
+  api.shop.test → shop (new)  2 new
+POST /v1/carts: header authorization: a credential is never written; add it with `vc new auth`
+$ vc import http rec/users.http
+$ vc import postman rec/coll.json
+```
+
+A curl file has one command per line. For a single command, `vc new api <id> --from-curl '<command>'` adds one api. See [`vc import`](/vc-rs/reference/cli/import/) and [`vc new`](/vc-rs/reference/cli/new/).
+
+## Capture one call as a test
+
+When the api exists, call it and keep the result as a test:
+
+```console
+$ vc call sample#getUser --var userId=1 --save-as-test sample.calls#getsAda --expect-field body.name --expect-field body.id
+200 OK · 1 ms · api expect passed
+{
+  "id": "1",
+  "name": "Ada Lovelace"
+}
+✓ wrote sample.calls#getsAda to services/sample/calls.test.yaml:5
+```
+
+```yaml title="services/sample/calls.test.yaml"
+tests:
+  - id: getsAda
+    name: Gets ada
+    call: sample#getUser
+    vars:
+      userId: "1"
+    expect:
+      status: 200
+      body:
+        match:
+          name: Ada Lovelace
+          id: "1"
+```
+
+The test expects the status that came back, plus each `--expect-field` at the value it had. It does not guess a schema; add one with [`body.schema`](/vc-rs/reference/matchers/body-schema/) if you want it. In the web UI, **Save as test** on the API client screen does the same.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc import" href="/vc-rs/reference/cli/import/" description="Every source and flag." />
+  <LinkCard title="vc call" href="/vc-rs/reference/cli/call/" description="Call an api and save it as a test." />
+  <LinkCard title="OpenAPI import and sync" href="/vc-rs/guides/openapi-import-and-sync/" description="When you have a spec instead." />
+</CardGrid>

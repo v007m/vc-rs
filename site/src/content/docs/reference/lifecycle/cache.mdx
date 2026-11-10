@@ -1,0 +1,160 @@
+---
+title: "Cross-run cache"
+description: "cache on a call or test action keeps what it saved across runs, encrypted per profile, and vc cache lists or clears it."
+sidebar: { order: 12 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`cache` keeps what a slow or rate-limited action saved, so later runs reuse it instead of calling again. It belongs on actions in `beforeRun` and `beforeAll`.
+
+```yaml title="services/lab/cached.test.yaml"
+beforeAll:
+  - id: fixture
+    call: lab#createItem
+    vars:
+      label: slow-to-make
+    cache:
+      for: 12h
+      check:
+        call: lab#whoami
+        query:
+          item: ${var.fixture.itemId}
+
+tests:
+  - id: usesCachedItem
+    call: lab#whoami
+    query:
+      item: ${var.fixture.itemId}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `cache.for` | duration | — | yes | How long the result is reused |
+| `cache.check` | an action | — | no | A quick call that confirms the data still exists. If it fails, the action runs again |
+
+`cache` works on `call` and `test` actions.
+
+## Examples
+
+The first run creates the item. The second run only runs the check, then the test:
+
+```console
+# run 1
+POST /items body={"label":"slow-to-make"}
+GET /whoami?item=i13
+
+# run 2
+GET /whoami?item=i13          ← cache.check
+GET /whoami?item=i13          ← the test
+```
+
+List the entries:
+
+```console
+$ vc cache list
+lab#createItem  expires 2026-11-11 05:56Z  profile default
+```
+
+```console
+$ vc cache list --json
+[
+  {
+    "createdMs": 1794333389355,
+    "expiresMs": 1794376589355,
+    "label": "lab#createItem",
+    "profiles": [
+      "default"
+    ]
+  }
+]
+```
+
+Clear one action's entries, or all of them. Clearing runs each entry's cleanup:
+
+```console
+$ vc cache clear lab#createItem
+cleared 1 entry
+```
+
+The server then saw `DELETE /items/i13`. A later `vc cache list` prints `the cache is empty`.
+
+Skip the cache for one run. Nothing is read or written:
+
+```console
+$ vc run --no-cache
+```
+
+Without a usable key the cache is off, and the run says so:
+
+```console
+warning: cache: V5113: no cache key: `VIB_CACHE_KEY` is not 64 hex digits; `cache:` actions run every time this run (set `VIB_CACHE_KEY` to 64 hex digits, as CI does, or run where the OS keychain is unlocked)
+```
+
+In CI, set a key from your secret store:
+
+```yaml title=".github/workflows/api-tests.yml (excerpt)"
+env:
+  VIB_CACHE_KEY: ${{ secrets.VIB_CACHE_KEY }}   # 64 hex digits
+```
+
+<Playground client:visible kind="test" code={`beforeAll:
+  - id: fixture
+    call: lab#createItem
+    vars:
+      label: slow-to-make
+    cache:
+      for: 12h
+      check:
+        call: lab#whoami
+        query:
+          item: \${var.fixture.itemId}
+
+tests:
+  - id: usesCachedItem
+    name: Uses the cached item
+    call: lab#whoami
+    query:
+      item: \${var.fixture.itemId}
+`} />
+
+## How it behaves
+
+- **Where.** Entries live in `.vibranium/cache.db`, per profile.
+- **Key.** The api (or test), the action's resolved `vars` and the active profiles. `role: admin` and `role: member` are cached separately. Vars that read `fake.*` are left out of the key.
+- **Hit.** A hit returns only what the action saved. No request is made and nothing is checked, except `cache.check`. The check sees the cached values by name and under the action's `id`.
+- **Miss after a failed check.** The action runs again and its result replaces the entry. The old entry's cleanup runs at the end of that run, after every test.
+- **What is stored.** Only a result that passed, and only when each cleanup it registered is its api's own `cleanup`.
+- **Cleanup.** A cached action's cleanup does not run at the end of the run. It runs when the entry expires (at the start of the next run that finds it expired), when a fresh result replaces it, or on `vc cache clear`. A failing cleanup is a warning.
+- **Encryption.** Each entry is encrypted with ChaCha20-Poly1305. The key is `VIB_CACHE_KEY` (64 hex digits) when set, else a key generated and kept in the OS keychain. An entry sealed under another key, or changed on disk, reads as a miss.
+
+<Aside type="caution">
+`cache` on a per-test action (`beforeEach`, `before`, steps) makes every test instance share one cached object. `vc check` warns:
+
+```console
+warning[V3202]: `cache` on an action that runs for every test
+  --> services/lab/shared.test.yaml:13:9
+   |
+13 |         cache:
+   |         ^^^^^ cached per test
+   = help: `cache` reuses one result across runs; put the action in `beforeAll` or `beforeRun`
+```
+</Aside>
+
+## Common errors
+
+- [V1005](/vc-rs/reference/diagnostics/v1005/): `cache` without `for`; the help suggests `for: 12h`.
+- [V5113](/vc-rs/reference/diagnostics/v5113/): no cache key, so `cache` actions run every time. Set `VIB_CACHE_KEY`.
+- [V3202](/vc-rs/reference/diagnostics/v3202/): `cache` on an action that runs for every test.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="beforeRun and afterRun" href="/vc-rs/reference/lifecycle/before-run/" />
+  <LinkCard title="beforeAll and afterAll" href="/vc-rs/reference/lifecycle/before-all/" />
+  <LinkCard title="Cleanups" href="/vc-rs/reference/lifecycle/cleanups/" />
+  <LinkCard title="CLI reference" href="/vc-rs/reference/cli/" />
+</CardGrid>

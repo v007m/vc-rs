@@ -1,0 +1,52 @@
+---
+title: "V1010 — More than one YAML document in a file"
+description: "A file holds exactly one YAML document, and a --- line starts a second."
+sidebar:
+  label: "V1010 More than one YAML document in a file"
+  order: 1010
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Syntax" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V1010` |
+| Category | V1xxx: Syntax |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A file holds exactly one YAML document, and a `---` line starts a second. Put the second document's content in its own
+file, or merge it into the first.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+name: Users
+---
+name: People
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+name: Users
+apis: []
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V1010
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

@@ -1,0 +1,86 @@
+---
+title: "dataset"
+description: "Read one of your datasets, a list of rows from a CSV, JSON or YAML file, with ${dataset.id}."
+sidebar: { order: 11 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`${dataset.<id>}` is the whole list of rows of one of your datasets. Files under `datasets/` are datasets named after their path. See [Data](/vc-rs/reference/data/) for files and settings.
+
+```yaml
+    examples: ${dataset.capitals}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `dataset.<id>` | list of rows | — | yes | `datasets/capitals.csv` is `capitals`; `datasets/users/admins.json` is `users.admins`. |
+
+## Examples
+
+With this file:
+
+```text title="datasets/capitals.csv"
+name,country,population
+Tokyo,JP,37400000
+Delhi,IN,32900000
+Paris,FR,11200000
+```
+
+`${dataset.capitals | take(1)}` gave:
+
+```json
+[{ "country": "JP", "name": "Tokyo", "population": "37400000" }]
+```
+
+CSV values are text, so `population` is `"37400000"`. Convert with [`int`](/vc-rs/reference/pipes/int/) where you need a number.
+
+The three ways to use a dataset:
+
+| You want | Write | Then read |
+| --- | --- | --- |
+| One test per row | `examples: ${dataset.capitals}` on a test | `${example.name}` |
+| One call per row | `forEach: ${dataset.capitals}` on an action | `${item.name}` |
+| One row at random | `city: ${dataset.capitals \| random}` in `vars` | `${var.city.name}` |
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: findsEveryCapital
+    examples: \${dataset.capitals}
+    call: sample#echo
+    vars:
+      payload:
+        city: \${example.name}
+`} />
+
+## How it behaves
+
+- Datasets are read once per run.
+- `random` and `shuffle` follow `--seed`, so a run can be repeated with the same rows.
+- `dataset` is not available in `$cel`. Set a var from the template and read the var.
+
+## Common errors
+
+```console
+error[V2002]: `dataset.cities` names no dataset
+  --> services/tpl/sec.test.yaml:13:16
+   |
+13 |       payload: ${dataset.cities}
+   |                ^^^^^^^^^^^^^^^^^ no dataset has this ID
+   = note: the datasets are `capitals`; a dataset is a file under `datasets/` or an entry of `datasets.files` in the config
+```
+
+- [V2002](/vc-rs/reference/diagnostics/v2002/): no dataset has that id.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Datasets" href="/vc-rs/reference/data/" />
+  <LinkCard title="example" href="/vc-rs/reference/templates/example/" />
+  <LinkCard title="item" href="/vc-rs/reference/templates/item/" />
+  <LinkCard title="random pipe" href="/vc-rs/reference/pipes/random/" />
+</CardGrid>

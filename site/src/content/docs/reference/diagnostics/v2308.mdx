@@ -1,0 +1,55 @@
+---
+title: "V2308 — Unknown pipe or wrong pipe arguments"
+description: "A template names a pipe that does not exist, or passes it the wrong arguments."
+sidebar:
+  label: "V2308 Unknown pipe or wrong pipe arguments"
+  order: 2308
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2308` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | the closest pipe name, when one is close |
+
+A template names a pipe that does not exist, or passes it the wrong arguments. The diagnostic suggests the closest pipe
+name; the syntax reference lists every pipe with its arguments.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+vars:
+  host: ' api.example.com '
+baseUrl: https://${var.host | trimm}
+apis: []
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+vars:
+  host: ' api.example.com '
+baseUrl: https://${var.host | trim}
+apis: []
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2308
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

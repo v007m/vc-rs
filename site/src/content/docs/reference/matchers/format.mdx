@@ -1,0 +1,165 @@
+---
+title: "format"
+description: "The format matcher checks that a string is an email, UUID, URI, date, date-time or IPv4 address."
+sidebar: { order: 24 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`format` passes when a string has one of six common formats.
+
+```yaml
+expect:
+  body:
+    match:
+      body.email: {format: email}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `format` | `email`, `uuid`, `uri`, `date`, `dateTime` or `ipv4` | — | yes | Checks the shape of the text only. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Email and UUID
+
+
+
+```yaml title="services/sample/format.test.yaml"
+tests:
+  - id: emailAndUuid
+    name: Email and UUID look right
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.email: {format: email}
+          body.uuid: {format: uuid}
+```
+
+```console
+$ vc run sample.format#emailAndUuid
+plan  1 test in 1 file · profile default
+
+✓ sample.format#emailAndUuid                                      0ms
+
+1 passed                                                     18ms · profile default
+```
+
+### Dates and times
+
+`date` is `YYYY-MM-DD`. `dateTime` is an RFC 3339 timestamp.
+
+```yaml title="services/sample/format.test.yaml"
+tests:
+  - id: dates
+    name: Dates look right
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.day: {format: date}
+          body.created: {format: dateTime}
+```
+
+```console
+$ vc run sample.format#dates
+plan  1 test in 1 file · profile default
+
+✓ sample.format#dates                                            47ms
+
+1 passed                                                     61ms · profile default
+```
+
+### URI and IPv4
+
+
+
+```yaml title="services/sample/format.test.yaml"
+tests:
+  - id: addresses
+    name: Addresses look right
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.site: {format: uri}
+          body.ip: {format: ipv4}
+```
+
+```console
+$ vc run sample.format#addresses
+plan  1 test in 1 file · profile default
+
+✓ sample.format#addresses                                        40ms
+
+1 passed                                                     43ms · profile default
+```
+
+### A failing check
+
+A date alone is not a date-time.
+
+```yaml title="services/sample/format.test.yaml"
+tests:
+  - id: failsOnDay
+    name: Day is a date-time
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.day: {format: dateTime}
+```
+
+```console
+$ vc run sample.format#failsOnDay
+plan  1 test in 1 file · profile default
+
+✕ sample.format#failsOnDay                                        8ms
+  error[V5101]: expect.body.match.body.day
+    --> services/sample/format.test.yaml:32:21
+     |
+  32 |           body.day: {format: dateTime}
+     |                     ^^^^^^^^^^^^^^^^^^ expected {"format":"dateTime"}, got "2026-11-10"
+
+0 passed · 1 failed                                          23ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: emailAndUuid
+    name: Email and UUID look right
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.email: {format: email}
+          body.uuid: {format: uuid}
+`} />
+
+## How it behaves
+
+- `email`: some text, `@`, a domain with a dot. No spaces.
+- `uuid`: 8-4-4-4-12 hex digits, any case.
+- `uri`: a scheme, a colon, then text with no spaces, such as `https://shop.example/a`.
+- `date`: `YYYY-MM-DD`. `dateTime`: RFC 3339, such as `2026-11-10T09:30:00Z`.
+- `ipv4`: four numbers from 0 to 255, separated by dots.
+- Only strings can pass. A missing value fails. For other shapes, use [regex](/vc-rs/reference/matchers/regex/).
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): an unknown format, such as `phone`. The help line lists the six names.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [regex](/vc-rs/reference/matchers/regex/)
+- [type](/vc-rs/reference/matchers/type/)
+- [All matchers](/vc-rs/reference/matchers//)

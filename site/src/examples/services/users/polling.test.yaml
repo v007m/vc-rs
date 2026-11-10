@@ -1,0 +1,19 @@
+name: Waiting for a user
+tags: [users]
+
+tests:
+  - id: waitsForNewUser
+    name: Polls until the new user can be read
+    before:
+      - call: users#create
+    call: users#get
+    poll:
+      until:
+        status: 200
+        body:
+          match:
+            id: ${var.userId}
+      every: 500ms
+      timeout: 10s
+    expect:
+      status: 200

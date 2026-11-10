@@ -1,0 +1,188 @@
+---
+title: "gt"
+description: "The gt matcher passes when a value is greater than its argument."
+sidebar: { order: 13 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`gt` passes when the value at the path is greater than the argument (`>`).
+
+```yaml
+expect:
+  body:
+    match:
+      body.total: {gt: 40}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `gt` | number, string, duration or size | — | yes | Under `timing` the argument is a duration (`500ms`); under `size` it is a size (`1kb`). |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Compare a number
+
+The order total is 42.5.
+
+```yaml title="services/sample/gt.test.yaml"
+tests:
+  - id: totalGt40
+    name: Total > 40
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.total: {gt: 40}
+```
+
+```console
+$ vc run sample.gt#totalGt40
+plan  1 test in 1 file · profile default
+
+✓ sample.gt#totalGt40                                             0ms
+
+1 passed                                                     122ms · profile default
+```
+
+### Use a var as the bound
+
+The argument can be a template. A quoted template that renders a number is compared as a number.
+
+```yaml title="services/sample/gt.test.yaml"
+tests:
+  - id: totalFromVar
+    name: Total against a var
+    call: sample#echoOrder
+    vars:
+      limit: 40
+    expect:
+      body:
+        match:
+          body.total: {gt: "${var.limit}"}
+```
+
+```console
+$ vc run sample.gt#totalFromVar
+plan  1 test in 1 file · profile default
+
+✓ sample.gt#totalFromVar                                         18ms
+
+1 passed                                                     70ms · profile default
+```
+
+### Compare strings
+
+Two strings compare by character code. ISO dates sort the same way as time.
+
+```yaml title="services/sample/gt.test.yaml"
+tests:
+  - id: dayCompare
+    name: Day against a date
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.day: {gt: "2026-01-01"}
+```
+
+```console
+$ vc run sample.gt#dayCompare
+plan  1 test in 1 file · profile default
+
+✓ sample.gt#dayCompare                                           12ms
+
+1 passed                                                     19ms · profile default
+```
+
+### A failing check
+
+The total is 42.5, which is not greater than 50.
+
+```yaml title="services/sample/gt.test.yaml"
+tests:
+  - id: failsOnTotal
+    name: Total > 50
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.total: {gt: 50}
+```
+
+```console
+$ vc run sample.gt#failsOnTotal
+plan  1 test in 1 file · profile default
+
+✕ sample.gt#failsOnTotal                                          3ms
+  error[V5101]: expect.body.match.body.total
+    --> services/sample/gt.test.yaml:31:23
+     |
+  31 |           body.total: {gt: 50}
+     |                       ^^^^^^^^ expected {"gt":50}, got 42.5
+
+0 passed · 1 failed                                          5ms · profile default
+```
+
+### Check response time
+
+Under `timing`, `gt` takes a duration.
+
+```yaml title="services/sample/gt.test.yaml"
+tests:
+  - id: answersQuickly
+    name: Lists users quickly
+    call: sample#listUsers
+    expect:
+      timing:
+        total: {gt: 0ms}
+```
+
+```console
+$ vc run sample.gt#answersQuickly
+plan  1 test in 1 file · profile default
+
+✓ sample.gt#answersQuickly                                        4ms
+
+1 passed                                                     5ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: totalGt40
+    name: Total > 40
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.total: {gt: 40}
+`} />
+
+## How it behaves
+
+- Ordered comparisons work on two numbers or on two strings. Strings compare by character code, so ISO dates such as `2026-11-10` sort correctly. A number compared with a string fails. Under `timing` the argument is a duration such as `500ms`, and under `size` it is a size such as `1kb`.
+- A missing value fails. A value of a different type also fails, for example a string against a number.
+- Combine bounds in one map, such as `{gte: 1, lt: 100}`, or use [between](/vc-rs/reference/matchers/between/) for an inclusive range.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V2301](/vc-rs/reference/diagnostics/v2301/): under `timing` or `size`, the bound has no unit, such as `500` instead of `500ms`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [gte](/vc-rs/reference/matchers/gte/)
+- [lt](/vc-rs/reference/matchers/lt/)
+- [lte](/vc-rs/reference/matchers/lte/)
+- [between](/vc-rs/reference/matchers/between/)
+- [timing](/vc-rs/reference/matchers/timing/)
+- [size](/vc-rs/reference/matchers/size/)
+- [All matchers](/vc-rs/reference/matchers//)

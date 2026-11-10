@@ -1,0 +1,87 @@
+---
+title: "defaults"
+description: "Project-wide defaults for every request and test: timeout, concurrency, perHost, retry and headers."
+sidebar: { order: 20 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`defaults` sets values that apply to every request and every test unless something closer overrides them.
+
+```yaml title="vibranium.config.yaml"
+defaults:
+  timeout: 10s
+  concurrency: 8
+  headers:
+    accept: application/json
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| [`timeout`](/vc-rs/reference/config/defaults-timeout/) | duration | `30s` | no | Limit for each request. |
+| [`concurrency`](/vc-rs/reference/config/defaults-concurrency/) | integer | `16` | no | Test instances running at once. |
+| [`perHost`](/vc-rs/reference/config/defaults-per-host/) | integer | `8` | no | Connections per host. |
+| [`retry`](/vc-rs/reference/config/defaults-retry/) | `attempts`, `delay` | none | no | Re-runs a failed test. |
+| [`headers`](/vc-rs/reference/config/defaults-headers/) | map of text | none | no | Sent with every request. |
+
+## Examples
+
+Override one default for a single run:
+
+```console
+$ vc run slow.timing --set defaults.timeout=1s
+plan  1 test in 1 file · profile default
+
+✕ slow.timing#waitsTwoSeconds                                    1.0s
+  error[V5104]: no response within 1000ms
+     = at: call slow#wait
+
+0 passed · 1 failed                                          1.0s · profile default
+```
+
+See where a default came from:
+
+```console
+$ vc config explain defaults.concurrency
+defaults.concurrency = 16  (vibranium.config.yaml)
+  over 16  (built-in)
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+defaults:
+  timeout: 10s
+  concurrency: 8
+  perHost: 4
+  retry:
+    attempts: 1
+    delay: 500ms
+  headers:
+    accept: application/json
+    user-agent: vibranium/2
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- `timeout`, `concurrency` and `perHost` can be set from outside the file with `--set`, `VIB_*` or the user config. `retry` and `headers` cannot.
+- An unknown key under `defaults` is [V1004](/vc-rs/reference/diagnostics/v1004/).
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): an unknown key under `defaults`.
+- [V2301](/vc-rs/reference/diagnostics/v2301/): a duration without a unit.
+- [V1005](/vc-rs/reference/diagnostics/v1005/): `retry` without `attempts`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="http.retry" href="/vc-rs/reference/config/http-retry/" />
+  <LinkCard title="Layering and precedence" href="/vc-rs/reference/config/layering/" />
+</CardGrid>

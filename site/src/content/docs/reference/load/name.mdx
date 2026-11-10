@@ -1,0 +1,50 @@
+---
+title: "name"
+description: "Free text that describes a load scenario for people; it is optional and does not change how the scenario runs."
+sidebar: { order: 2 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`name` is free text that says what a scenario is for.
+
+```yaml title="load/sample/smoke.load.yaml"
+name: Sample smoke load
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `name` | text | — | no | Any text, spaces and punctuation included. |
+
+## Examples
+
+```yaml title="load/checkout/peak.load.yaml"
+name: Black Friday checkout mix
+```
+
+```yaml title="load/sample/strict.load.yaml"
+name: Too strict on purpose
+```
+
+## Try it
+
+<Playground client:visible kind="load" code={`name: Nightly soak at 20 users
+mix:
+  - test: users.crud#getsCreatedUser
+    weight: 1
+stages:
+  - duration: 1m
+    users: 20
+`} />
+
+## How it behaves
+
+- `vc load` is always called with the scenario's [ID](/vc-rs/reference/load/id/), never its name, and the terminal summary starts with the ID (`sample.smoke finished after 10 s …`).
+- In the current build the name is not printed: neither the terminal summary nor `vc load --json` includes it.
+
+## Related
+
+- [`id`](/vc-rs/reference/load/id/)
+- [`name` in tests and apis](/vc-rs/reference/syntax/name/)

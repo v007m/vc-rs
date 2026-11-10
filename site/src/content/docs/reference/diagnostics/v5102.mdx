@@ -1,0 +1,108 @@
+---
+title: "V5102 — CEL check false"
+description: "A cel check evaluated to false."
+sidebar:
+  label: "V5102 CEL check false"
+  order: 5102
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5102` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `cel` check evaluated to false. Each check is named by its key, and the report shows the values the expression
+read. Here `/users` answers a plain list, so there is no `response.body.users` to count.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: listUsers
+    path: /users
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: listsUsers
+    call: users#listUsers
+    expect:
+      cel:
+        returns users: response.body.users.size() > 0
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: listUsers
+    path: /users
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: listsUsers
+    call: users#listUsers
+    expect:
+      cel:
+        returns users: response.body.size() > 0
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/crud.test.yaml"
+id: users.crud
+name: Users CRUD
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+    expect:
+      status: 201
+  - id: countsUsers
+    name: Counts users
+    call: users#listUsers
+    expect:
+      cel:
+        returns users: response.body.users.size() > 0
+```
+
+```console
+$ vc run users.crud#countsUsers
+plan  1 test in 1 file · profile default
+
+✕ users.crud#countsUsers                                          7ms
+  error[V5102]: expect.cel.returns users
+    --> services/users/crud.test.yaml:14:24
+     |
+  14 |         returns users: response.body.users.size() > 0
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ found no matching overload for '_._' applied to '(list, string)'
+
+0 passed · 1 failed                                          8ms · profile default
+$ echo $?
+1
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5102
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

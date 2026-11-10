@@ -1,0 +1,124 @@
+---
+title: "command action"
+description: "The command action runs a shell command in the project root, with every interpolated value safely quoted."
+sidebar: { order: 8 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`command: <shell command>` runs a command through `sh -c` (`cmd /C` on Windows) in the project root. A non-zero exit fails the action.
+
+```yaml
+beforeRun:
+  - command: docker compose up -d --wait
+afterRun:
+  - command: docker compose down
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `command` | text | — | yes | Runs as written; each `${…}` value is quoted |
+| `id` | camelCase text | — | no | Names the action in output |
+| `vars` | map | — | no | Values for the templates in the command |
+| `timeout` | duration | `defaults.timeout` (30s when unset) | no | Past it the whole process group is killed |
+
+A `command` action saves nothing.
+
+## Examples
+
+Start a service before the run and stop it after:
+
+```yaml title="vibranium.config.yaml (excerpt)"
+beforeRun:
+  - command: docker compose up -d --wait
+afterRun:
+  - command: docker compose down
+```
+
+Pass a var. The value is quoted as one word, so it cannot add a second command. With `word` set to `it's; touch pwned`, this prints the text and creates no file:
+
+```yaml
+tests:
+  - id: quotesValues
+    vars:
+      word: "it's; touch pwned"
+    before:
+      - command: echo ${var.word}
+    call: lab#whoami
+```
+
+A non-zero exit fails the action and shows the exit code and the last lines of output. Here the command writes to stderr and exits with 3:
+
+```yaml
+before:
+  - command: echo ${var.word}; echo token=${var.word} >&2; exit 3
+```
+
+```console
+⊘ lab.fails#showsCommandOutput blocked                            7ms
+  error[V5110]: the command exited with 3:
+  token=it's; touch pwned
+     = at: command
+```
+
+Limit how long it may run:
+
+```yaml
+before:
+  - command: sleep 5
+    timeout: 1s
+```
+
+```console
+⊘ lab.fails#timesOutACommand blocked                             1.0s
+  error[V5104]: `sh` did not finish within 1000ms
+     = at: command
+```
+
+Read config vars and `.env` values from the environment. Each config var is there as `VIB_VAR_<name>`:
+
+```yaml
+before:
+  - command: ./scripts/wait-for.sh "$VIB_VAR_labUrl/health"
+```
+
+<Playground client:visible kind="test" code={`tests:
+  - id: startsCleanly
+    name: Runs a command before the call
+    vars:
+      word: "it's; touch pwned"
+    before:
+      - command: echo \${var.word}
+        timeout: 5s
+    call: lab#whoami
+`} />
+
+## How it behaves
+
+- **Quoting.** On unix every `${…}` value becomes one POSIX word in single quotes (a `'` inside is written `'\''`). On Windows a value is wrapped in double quotes, and a value holding any of `& | < > ^ % ! " ( )` or a newline fails the action with V5111 before anything runs. Pass such a value through an environment variable instead.
+- **Environment.** The child sees the process environment, plus the `.env` lines the process does not set, plus `VIB_VAR_<name>` for each config var. The environment is never logged.
+- **Output.** vc keeps the last 64 KiB of stdout and of stderr. Both pass through the redactor, so a declared secret prints as `••••`. A V5110 failure shows the exit code and the last 20 lines of stderr, or of stdout when stderr is empty.
+- **Timeout and Ctrl-C.** Past the `timeout`, or on Ctrl-C, the whole process group is killed (unix) and the action fails with V5104.
+- **Background processes.** The action ends when the command exits. A process it leaves running (`./server &`) keeps going while vc runs, but its output after the command exits (plus 200 ms) is discarded. A process that must outlive vc should write its output elsewhere: `./server > server.log 2>&1 &`.
+
+<Aside type="caution">
+The text you write runs as written. Only the `${…}` values are quoted, so do not build a command from untrusted text outside a template.
+</Aside>
+
+## Common errors
+
+- [V5110](/vc-rs/reference/diagnostics/v5110/): the command exited with a non-zero code.
+- [V5104](/vc-rs/reference/diagnostics/v5104/): the command ran past its `timeout`.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): on Windows, a value holds a character `cmd` would act on.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="function action" href="/vc-rs/reference/lifecycle/function/" />
+  <LinkCard title="beforeRun and afterRun" href="/vc-rs/reference/lifecycle/before-run/" />
+  <LinkCard title="Action timeout" href="/vc-rs/reference/lifecycle/timeout/" />
+  <LinkCard title="Redaction" href="/vc-rs/reference/auth/redaction/" />
+</CardGrid>

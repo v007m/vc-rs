@@ -1,0 +1,190 @@
+---
+title: "timing"
+description: "The timing check matches how long each phase of a request took."
+sidebar: { order: 7 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`timing` checks how long a request took, phase by phase. Write durations with a unit.
+
+```yaml
+expect:
+  timing:
+    total: {lt: 500ms}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `timing.dns` | matcher with durations | — | no | DNS lookup. |
+| `timing.connect` | matcher with durations | — | no | TCP connect. |
+| `timing.tls` | matcher with durations | — | no | TLS handshake. |
+| `timing.firstByte` | matcher with durations | — | no | Time to the first response byte. |
+| `timing.download` | matcher with durations | — | no | Reading the body. |
+| `timing.total` | matcher with durations | — | no | The whole request. |
+
+## Examples
+
+The examples call `sample#listUsers` on the demo service, which answers `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Bound the total time
+
+
+
+```yaml title="services/sample/timing.test.yaml"
+tests:
+  - id: answersQuickly
+    name: Answers within 500 ms
+    call: sample#listUsers
+    expect:
+      timing:
+        total: {lt: 500ms}
+```
+
+```console
+$ vc run sample.timing#answersQuickly
+plan  1 test in 1 file · profile default
+
+✓ sample.timing#answersQuickly                                    2ms
+
+1 passed                                                     3ms · profile default
+```
+
+### Several phases
+
+
+
+```yaml title="services/sample/timing.test.yaml"
+tests:
+  - id: fastPhases
+    name: Fast first byte and total
+    call: sample#listUsers
+    expect:
+      timing:
+        firstByte: {lt: 200ms}
+        total: {lt: 2s}
+```
+
+```console
+$ vc run sample.timing#fastPhases
+plan  1 test in 1 file · profile default
+
+✓ sample.timing#fastPhases                                        0ms
+
+1 passed                                                     8ms · profile default
+```
+
+### A failing check
+
+The report shows both sides in milliseconds.
+
+```yaml title="services/sample/timing.test.yaml"
+tests:
+  - id: failsOnTime
+    name: Answers in no time
+    call: sample#listUsers
+    expect:
+      timing:
+        total: {lt: 0ms}
+```
+
+```console
+$ vc run sample.timing#failsOnTime
+plan  1 test in 1 file · profile default
+
+✕ sample.timing#failsOnTime                                       4ms
+  error[V5101]: expect.timing.total
+    --> services/sample/timing.test.yaml:20:16
+     |
+  20 |         total: {lt: 0ms}
+     |                ^^^^^^^^^ expected {"lt":0.0}, got 4.9705
+
+0 passed · 1 failed                                          8ms · profile default
+```
+
+### A duration needs a unit
+
+`vc check` rejects a bare number and offers a fix.
+
+```yaml title="services/sample/timingerrors.test.yaml"
+tests:
+  - id: noUnit
+    name: No unit
+    call: sample#listUsers
+    expect:
+      timing:
+        total: {lt: 500}
+```
+
+```console
+$ vc check
+error[V2301]: invalid duration `500`
+ --> services/sample/timingerrors.test.yaml:7:21
+  |
+7 |         total: {lt: 500}
+  |                     ^^^
+  = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+  = fix: Write 500ms (certain)
+
+1 error · 0 warnings · 41 files checked
+```
+
+### An unknown phase
+
+
+
+```yaml title="services/sample/timingerrors.test.yaml"
+tests:
+  - id: unknownPhase
+    name: Unknown phase
+    call: sample#listUsers
+    expect:
+      timing:
+        ttfb: {lt: 500ms}
+```
+
+```console
+$ vc check
+error[V1004]: unknown key `ttfb` in timing
+ --> services/sample/timingerrors.test.yaml:7:9
+  |
+7 |         ttfb: {lt: 500ms}
+  |         ^^^^ not a known key
+  = help: expected one of `dns`, `connect`, `tls`, `firstByte`, `download`, `total`
+
+1 error · 0 warnings · 41 files checked
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: answersQuickly
+    name: Answers within 500 ms
+    call: sample#listUsers
+    expect:
+      timing:
+        total: {lt: 500ms}
+`} />
+
+## How it behaves
+
+- Durations are a whole number and a unit: `250ms`, `2s`, `1m`, `12h`.
+- The failure message shows durations in milliseconds.
+- Timing checks depend on the network and the machine. Keep bounds generous in functional tests; use load tests for latency targets.
+
+## Common errors
+
+- [V2301](/vc-rs/reference/diagnostics/v2301/): the duration has no unit.
+- [V1004](/vc-rs/reference/diagnostics/v1004/): the phase is not one of `dns`, `connect`, `tls`, `firstByte`, `download`, `total`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [size](/vc-rs/reference/matchers/size/)
+- [lt](/vc-rs/reference/matchers/lt/)
+- [Load thresholds](/vc-rs/reference/load/)
+- [All matchers](/vc-rs/reference/matchers//)

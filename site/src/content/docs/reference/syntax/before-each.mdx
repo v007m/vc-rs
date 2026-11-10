@@ -1,0 +1,77 @@
+---
+title: beforeEach
+description: File-level actions that run before (beforeEach) and after (afterEach) every test instance in the file.
+sidebar: { order: 221, badge: { text: 'test', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`beforeEach` and `afterEach` sit at the top of a test file. They wrap every test instance in that file, outside the test's own [`before`](/vc-rs/reference/syntax/before/) and `after`.
+
+```yaml title="services/flow/order.test.yaml"
+id: flow.order
+beforeEach:
+  - command: echo beforeEach >> build/order.txt
+afterEach:
+  - command: echo afterEach >> build/order.txt
+tests:
+  - id: runsInOrder
+    call: sample#listUsers
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `beforeEach` | list of actions | — | no | Runs before each instance's `before`. |
+| `afterEach` | list of actions | — | no | Runs after each instance's `after`, even if the test failed or was blocked. |
+
+Each entry is a [`call`](/vc-rs/reference/syntax/call/), [`test`](/vc-rs/reference/syntax/test/), [`function`](/vc-rs/reference/syntax/function/) or [`command`](/vc-rs/reference/syntax/command/) action.
+
+## How it behaves
+
+- Order inside one instance: `beforeEach`, `before`, the `call` or `steps`, the test-level `save`, `after`, `afterEach`, then cleanups.
+- Values saved in `beforeEach` are vars of that instance, read as `${var.<name>}`. Below, `sample#createUser` saves `userId`, and `sample#getUser` reads it.
+- `vc plan` lists it in the header, such as `lifecycle: beforeEach ×2 calls`.
+- A failed `beforeEach` blocks that instance. `afterEach` still runs:
+
+```yaml title="services/flow/each2.test.yaml"
+id: flow.each2
+beforeEach:
+  - command: exit 4
+afterEach:
+  - command: echo afterEach-after-block >> build/each2.txt
+tests:
+  - id: blockedByBeforeEach
+    call: sample#listUsers
+```
+
+```console
+$ vc run flow.each2
+⊘ flow.each2#blockedByBeforeEach blocked                         45ms
+  error[V5110]: the command exited with 4
+     = at: command
+```
+
+`build/each2.txt` still gets `afterEach-after-block`.
+
+- Data made in `beforeEach` is made once per instance. If it can be shared, use [`beforeAll`](/vc-rs/reference/syntax/before-all/) instead.
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.order
+beforeEach:
+  - call: sample#createUser
+tests:
+  - id: readsUser
+    call: sample#getUser
+    expect:
+      status: 200
+`} />
+
+## Related
+
+- [before](/vc-rs/reference/syntax/before/): the same, for one test
+- [beforeAll](/vc-rs/reference/syntax/before-all/): once per file
+- [Lifecycle](/vc-rs/reference/lifecycle/): the full order and how blocking spreads

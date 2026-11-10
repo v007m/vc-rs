@@ -1,0 +1,110 @@
+---
+title: "endsWith"
+description: "The endsWith matcher checks that a string ends with a suffix."
+sidebar: { order: 27 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`endsWith` passes when a string ends with the argument.
+
+```yaml
+expect:
+  body:
+    match:
+      body.email: {endsWith: .com}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `endsWith` | string | — | yes | Case-sensitive. Strings only. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Check a domain
+
+
+
+```yaml title="services/sample/endswith.test.yaml"
+tests:
+  - id: isDotCom
+    name: Email ends with .com
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.email: {endsWith: .com}
+```
+
+```console
+$ vc run sample.endswith#isDotCom
+plan  1 test in 1 file · profile default
+
+✓ sample.endswith#isDotCom                                        0ms
+
+1 passed                                                     59ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/endswith.test.yaml"
+tests:
+  - id: failsOnDomain
+    name: Email ends with .org
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.email: {endsWith: .org}
+```
+
+```console
+$ vc run sample.endswith#failsOnDomain
+plan  1 test in 1 file · profile default
+
+✕ sample.endswith#failsOnDomain                                   0ms
+  error[V5101]: expect.body.match.body.email
+    --> services/sample/endswith.test.yaml:15:23
+     |
+  15 |           body.email: {endsWith: .org}
+     |                       ^^^^^^^^^^^^^^^^ expected {"endsWith":".org"}, got "ada@example.com"
+
+0 passed · 1 failed                                          6ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: isDotCom
+    name: Email ends with .com
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.email: {endsWith: .com}
+`} />
+
+## How it behaves
+
+- The match is case-sensitive.
+- Only strings can pass. A number or a missing value fails.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [startsWith](/vc-rs/reference/matchers/starts-with/)
+- [contains](/vc-rs/reference/matchers/contains/)
+- [format](/vc-rs/reference/matchers/format/)
+- [All matchers](/vc-rs/reference/matchers//)

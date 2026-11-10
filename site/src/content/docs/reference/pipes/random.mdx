@@ -1,0 +1,83 @@
+---
+title: "random"
+description: "Pick one element of a list at random, repeatable with --seed."
+sidebar: { order: 14 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`random` picks one element of a list. The choice follows the run's seed, so `--seed` repeats it.
+
+```yaml
+      city: ${var.cities | random}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | list | — | yes | Must not be empty. |
+| output | any value | — | — | One element, with its own type. |
+| arguments | none | — | — |  |
+
+## Examples
+
+```yaml
+vars:
+  cities: [Tokyo, Delhi, Paris, Lima]
+```
+
+In one test, `${var.cities | random}` sent `"Delhi"` with `--seed 42` and `"Lima"` with `--seed 7`. Running again with the same seed sent the same value.
+
+Each use draws again. Two fields in the same payload, both `${var.cities | random}`, sent `"Delhi"` and `"Lima"`, and the same pair on every run with that seed.
+
+Pick a row of a [dataset](/vc-rs/reference/templates/dataset/):
+
+```yaml
+    vars:
+      capital: ${dataset.capitals | random}
+```
+
+A failed run prints its seed, so you can repeat it:
+
+```console
+seed 9765983361448309043: pass `--seed 9765983361448309043` to run with the same generated data
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: picksACity
+    call: sample#echo
+    vars:
+      cities: [Tokyo, Delhi, Paris, Lima]
+      payload:
+        city: \${var.cities | random}
+`} />
+
+## How it behaves
+
+- Uses the same seeded generator as [`fake`](/vc-rs/reference/templates/fake/) and [`shuffle`](/vc-rs/reference/pipes/shuffle/).
+- An empty list passes `vc check` and fails at run time.
+
+## Common errors
+
+```console
+✕ tpl.pe#picksFromNothing                                         0ms
+  error[V5111]: pipe `random` cannot take []: the list is empty
+     = at: call sample#echo
+```
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be a list.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the list is empty.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="shuffle" href="/vc-rs/reference/pipes/shuffle/" />
+  <LinkCard title="take" href="/vc-rs/reference/pipes/take/" />
+  <LinkCard title="fake" href="/vc-rs/reference/templates/fake/" />
+  <LinkCard title="dataset" href="/vc-rs/reference/templates/dataset/" />
+</CardGrid>

@@ -1,0 +1,395 @@
+---
+title: Load testing
+description: Turn existing functional tests into a weighted load scenario with stages, think time and thresholds, run it with vc load, and fail the build when a threshold is breached.
+sidebar: { order: 6 }
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+**Goal:** reuse the tests you already have as a traffic mix, ramp a few virtual users up and down, and get a pass or fail verdict from latency and error thresholds. A load file adds no requests or checks of its own. It only says which tests to run, how often, and how hard.
+
+This walkthrough keeps the load tiny: five users for ten seconds against a local mock. The same file scales to thousands of users by changing two numbers.
+
+## Prerequisites
+
+- `vc` on your `PATH` (see [Install](/vc-rs/start/install/)).
+- The mock server from a clone of the repo. It has a `/users` CRUD API and a `/slow?ms=n` endpoint that answers after `n` milliseconds. Start it in its own terminal:
+
+  ```console
+  $ git clone https://github.com/v007m/vc-rs && cd vc-rs
+  $ mise run mock
+  ```
+
+  Without mise, run `cargo run -p vc-mock-server -- --port 18080`.
+
+## Build and run a scenario
+
+<Steps>
+1. **Create a project** and point a var at the mock.
+
+   ```console
+   $ mkdir shop && cd shop
+   $ vc init --no-sample
+   ```
+
+   In `vibranium.config.yaml`, replace the `sampleUrl` line under `vars:` with:
+
+   ```yaml title="vibranium.config.yaml"
+   vars:
+     shopUrl: http://localhost:18080
+   ```
+
+2. **Write the apis.** `createUser` saves the new ID and deletes the user when the iteration ends. `getReport` calls the slow endpoint, so the mix has one heavier request.
+
+   ```yaml title="services/shop/shop.api.yaml"
+   name: Shop
+   baseUrl: ${var.shopUrl}
+
+   apis:
+     - id: listUsers
+       name: List users
+       path: /users
+       expect:
+         status: 200
+
+     - id: createUser
+       name: Create user
+       method: POST
+       path: /users
+       vars:
+         name: Ada
+         email: ada@example.com
+       body:
+         name: ${var.name}
+         email: ${var.email}
+       expect:
+         status: 201
+       save:
+         userId: ${response.body.id}
+       cleanup:
+         call: deleteUser
+         vars:
+           id: ${response.body.id}
+
+     - id: getUser
+       name: Get user
+       path: /users/${var.id}
+       expect:
+         status: 200
+
+     - id: deleteUser
+       name: Delete user
+       method: DELETE
+       path: /users/${var.id}
+       expect:
+         status: [204, 404]
+
+     - id: getReport
+       name: Build a slow report
+       path: /slow
+       query:
+         ms: ${var.ms}
+       vars:
+         ms: 40
+       expect:
+         status: 200
+   ```
+
+3. **Write the tests** the load will reuse, and run them once as plain tests. A scenario is only as good as the tests in it.
+
+   ```yaml title="services/shop/browse.test.yaml"
+   tests:
+     - id: listsUsers
+       name: Lists users
+       call: shop#listUsers
+       expect:
+         body:
+           schema:
+             type: array
+
+     - id: readsCreatedUser
+       name: Reads back a user it just created
+       before:
+         - call: shop#createUser
+       call: shop#getUser
+       vars:
+         id: ${var.userId}
+       expect:
+         body:
+           match:
+             name: Ada
+
+     - id: buildsReport
+       name: Builds the slow report
+       call: shop#getReport
+   ```
+
+   ```console
+   $ vc run
+   plan  3 tests in 1 file · profile default
+
+   ✓ shop.browse#listsUsers                                          2ms
+   ✓ shop.browse#readsCreatedUser                                    3ms
+   ✓ shop.browse#buildsReport                                       45ms
+
+   3 passed                                                     47ms · profile default
+   reports  /home/you/shop/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+   ```
+
+4. **Write the load file.** Load files live under `load/`. The file ID comes from the path, so `load/shop/smoke.load.yaml` is the scenario `shop.smoke`.
+
+   ```yaml title="load/shop/smoke.load.yaml"
+   name: Shop smoke load
+   mix:
+     - test: shop.browse#listsUsers
+       weight: 6
+     - test: shop.browse#readsCreatedUser
+       weight: 3
+     - test: shop.browse#buildsReport
+       weight: 1
+       thresholds:
+         p95:
+           lt: 300ms
+   stages:
+     - duration: 3s
+       users: 5
+     - duration: 5s
+       users: 5
+     - duration: 2s
+       users: 0
+   thinkTime:
+     min: 50ms
+     max: 200ms
+   checks: full
+   thresholds:
+     p99:
+       lt: 500ms
+     errorRate:
+       lt: 1%
+   abortOn: [errorRate]
+   ```
+
+   What each key does:
+
+   | Key | Here |
+   | --- | --- |
+   | `mix` | Each user picks a test by weight: 6 in 10 iterations list users, 3 read a user back, 1 builds a report |
+   | `mix[].thresholds` | A threshold for one test only. The report's p95 must stay under 300 ms |
+   | `stages` | Users ramp from the previous stage's count: up to 5 over 3 s, hold 5 for 5 s, down to 0 over 2 s |
+   | `thinkTime` | A random pause of 50–200 ms between one user's iterations. A single duration such as `thinkTime: 1s` also works |
+   | `checks` | `full` evaluates every test's `expect`. The default, `api`, evaluates only the apis' own `expect`, which keeps the tool fast at high rates |
+   | `thresholds` | Across the whole mix: p99 under 500 ms, and fewer than 1% of iterations failing. You can also use `p50`, `p90`, `p95`, `max` and `rps` |
+   | `abortOn` | Stop early when the error rate breaches its threshold over the last 10 seconds |
+
+   `vc check` validates load files too:
+
+   ```console
+   $ vc check
+   0 errors · 0 warnings · 4 files checked
+   ```
+
+5. **Run it.** `vc load` prints one live line per second on stderr, then a summary on stdout.
+
+   ```console
+   $ vc load shop.smoke
+       1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+       2s  2 users  8 rps  p50 5 ms  p95 46 ms  p99 46 ms  0 errors
+       3s  3 users  12 rps  p50 4 ms  p95 46 ms  p99 47 ms  0 errors
+       4s  5 users  19 rps  p50 4 ms  p95 45 ms  p99 51 ms  0 errors
+       5s  5 users  22 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
+       6s  5 users  25 rps  p50 3 ms  p95 45 ms  p99 47 ms  0 errors
+       7s  5 users  27 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
+       8s  5 users  29 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
+       9s  5 users  30 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
+      10s  3 users  29 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
+      10s  0 users  29 rps  p50 4 ms  p95 45 ms  p99 47 ms  0 errors
+   shop.smoke finished after 10 s · 288 iterations · 28.8 rps · 0 errors
+   latency p50 4.0 ms · p95 45.3 ms · p99 47.6 ms · max 51.6 ms
+   $ echo $?
+   0
+   ```
+
+   Each sample is one iteration of a mix test, timed from when it was scheduled to start. The request that `before:` makes in `readsCreatedUser` and the cleanup's delete still hit the server, but they are not samples.
+
+6. **Get the report as JSON.** `--json` drops the live lines and prints the final report on stdout, ready for a script or a dashboard.
+
+   ```console
+   $ vc load shop.smoke --json
+   {
+     "blocked": null,
+     "breaches": [],
+     "ending": "finished",
+     "errorKinds": [],
+     "errors": 0,
+     "exit": 0,
+     "iterations": 278,
+     "maxMs": 47.711000000000006,
+     "notices": [],
+     "p50Ms": 4.627,
+     "p95Ms": 45.375,
+     "p99Ms": 46.623,
+     "rps": 27.8,
+     "runId": 3,
+     "scenario": "shop.smoke",
+     "seconds": 10,
+     "seed": 15930638172000214493
+   }
+   ```
+
+   `exit` is the exit code the command returns. `breaches` lists each threshold that failed. `ending` is `finished` or `aborted`.
+</Steps>
+
+## Fail on a breach
+
+A load run fails with exit code `3` when any threshold is breached over the whole run. To see it, copy the scenario to `load/shop/tight.load.yaml` with thresholds the slow report cannot meet:
+
+```yaml title="load/shop/tight.load.yaml (changed lines)"
+name: Shop smoke load, tight
+mix:
+  # ...
+  - test: shop.browse#buildsReport
+    weight: 1
+    thresholds:
+      p95:
+        lt: 20ms
+# ...
+thresholds:
+  p99:
+    lt: 30ms
+  errorRate:
+    lt: 1%
+abortOn: [errorRate]
+```
+
+```console
+$ vc load shop.tight
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  2 users  8 rps  p50 3 ms  p95 44 ms  p99 44 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    3s  3 users  13 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    4s  5 users  20 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    5s  5 users  24 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    6s  5 users  27 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    7s  5 users  28 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    8s  5 users  30 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    9s  5 users  31 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+   10s  3 users  30 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+   10s  0 users  30 rps  p50 3 ms  p95 44 ms  p99 45 ms  0 errors
+shop.tight finished after 10 s · 298 iterations · 29.8 rps · 0 errors
+latency p50 3.2 ms · p95 44.8 ms · p99 45.5 ms · max 45.8 ms
+breached p99 at 45.471
+breached shop.browse#buildsReport: p95 at 45.535
+$ echo $?
+3
+```
+
+The live line names every threshold that is breaching right now. The run keeps going, because neither `p99` nor the per-test `p95` is listed in `abortOn`. The final verdict covers the whole run, and the `breached` lines give the measured value in milliseconds.
+
+### Stop early with `abortOn`
+
+Copy the tight scenario to `load/shop/abort.load.yaml` and add `p99` to `abortOn`. Now the run stops at the first second the rolling p99 is over its limit. The exit code is still `3`, and `ending` is `aborted`:
+
+```yaml title="load/shop/abort.load.yaml (changed line)"
+abortOn: [errorRate, p99]
+```
+
+```console
+$ vc load shop.abort
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  2 users  9 rps  p50 6 ms  p95 48 ms  p99 48 ms  0 errors  breaching: p99, shop.browse#buildsReport: p95
+    2s  0 users  9 rps  p50 6 ms  p95 48 ms  p99 48 ms  0 errors
+shop.abort aborted after 2 s · 17 iterations · 8.5 rps · 0 errors
+latency p50 6.3 ms · p95 48.6 ms · p99 48.6 ms · max 48.6 ms
+breached p99 at 48.639
+breached shop.browse#buildsReport: p95 at 48.639
+$ echo $?
+3
+```
+
+In the JSON report, each breach names its metric and, for a per-test threshold, its test:
+
+```json
+"breaches": [
+  { "actual": 47.807, "metric": "p99", "test": null },
+  { "actual": 47.807, "metric": "p95", "test": "shop.browse#buildsReport" }
+],
+"ending": "aborted",
+"exit": 3,
+```
+
+<Aside title="checks: api or full">
+With the default `checks: api`, only the apis' own `expect` blocks count. A test whose own `expect` fails still counts as a good iteration. When a test's `expect` matters under load, as `match: { name: Ada }` does here, set `checks: full`. In a quick trial, a test with a wrong `match` ran with 0 errors under `checks: api`. Under `checks: full`, every iteration counted as an error, the `errorRate` threshold was breached and `vc load` exited `3`.
+</Aside>
+
+## Try a variation
+
+Change the stages, the weights or the thresholds. The editor checks the file against the real schema as you type.
+
+<Playground client:visible kind="load" title="load/shop/smoke.load.yaml" code={`
+name: Shop smoke load
+mix:
+  - test: shop.browse#listsUsers
+    weight: 6
+  - test: shop.browse#readsCreatedUser
+    weight: 3
+  - test: shop.browse#buildsReport
+    weight: 1
+    thresholds:
+      p95:
+        lt: 300ms
+stages:
+  - duration: 3s
+    users: 5
+  - duration: 5s
+    users: 5
+  - duration: 2s
+    users: 0
+thinkTime:
+  min: 50ms
+  max: 200ms
+checks: full
+thresholds:
+  p99:
+    lt: 500ms
+  errorRate:
+    lt: 1%
+abortOn: [errorRate]
+`} />
+
+## Final files
+
+The final files are `vibranium.config.yaml` with the `shopUrl` var (step 1), `services/shop/shop.api.yaml` (step 2), `services/shop/browse.test.yaml` (step 3) and `load/shop/smoke.load.yaml` (step 4).
+
+## Exit codes of `vc load`
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Finished within every threshold |
+| `1` | Blocked by a shared action, such as a failing `beforeRun` |
+| `2` | Nothing ran: an unknown scenario or errors in the files |
+| `3` | A threshold was breached, whether the run finished or was aborted |
+| `130` | Cancelled with Ctrl-C |
+
+An unknown scenario lists the ones that exist:
+
+```console
+$ vc load shop.nope
+error: no load scenario has the ID `shop.nope`
+  = help: the scenarios are: shop.abort, shop.smoke, shop.tight
+$ echo $?
+2
+```
+
+## What you learned
+
+- A load file in `load/<area>/<scenario>.load.yaml` reuses tests by ID, weighted with `mix[].weight`. Its scenario ID comes from the path.
+- `stages` ramp users. `thinkTime` paces each user. `checks: full` makes test-level `expect` count.
+- `thresholds` apply to the whole mix, and `mix[].thresholds` to one test. `abortOn` stops early on a rolling breach.
+- `vc load <id>` prints live lines and a summary. `--json` prints the report as JSON. A breach exits `3`.
+
+## Next
+
+- [`vc load`](/vc-rs/reference/cli/load/): every flag, including `--profile` and `--set`.
+- [Load file reference](/vc-rs/reference/load/): every key and metric.
+- [Running in CI](/vc-rs/walkthroughs/ci-pipeline/): gate a pipeline on exit codes.
+- [Exit codes](/vc-rs/reference/cli/#exit-codes).

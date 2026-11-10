@@ -1,0 +1,133 @@
+---
+title: "beforeAll and afterAll"
+description: "File-level blocks that run once before and once after the tests in one test file."
+sidebar: { order: 2 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`beforeAll` runs once before any selected test in the file starts. `afterAll` runs once after all of them have finished.
+
+```yaml title="services/life/blocks.test.yaml"
+beforeAll:
+  - id: shared
+    call: sample#createUser
+    vars:
+      name: File Owner
+afterAll:
+  - command: echo after all
+
+tests:
+  - id: readsSharedValues
+    call: sample#getUser
+    vars:
+      userId: ${var.shared.userId}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `beforeAll` | list of actions | — | no | Top level of a `*.test.yaml` file |
+| `afterAll` | list of actions | — | no | Top level of a `*.test.yaml` file |
+| `id` (on an action) | camelCase text | — | yes, when the action saves values | Saved values are shared as `${var.<id>.<name>}` |
+
+## Examples
+
+Seed a catalog once for the whole file and read it from every test:
+
+```yaml title="services/orders/checkout.test.yaml (excerpt)"
+beforeAll:
+  - id: catalog
+    call: catalog#seedProducts
+
+tests:
+  - id: addsFirstProduct
+    call: carts#addItem
+    vars:
+      sku: ${var.catalog.productIds[0]}
+```
+
+Print a summary once the file is done:
+
+```yaml
+afterAll:
+  - command: ./scripts/print-order-stats.sh
+```
+
+A failing `beforeAll` blocks only the tests that read its values. `beforeAll` runs even when you select one test of the file:
+
+```yaml title="services/lab/blocked.test.yaml"
+beforeAll:
+  - id: seed
+    call: lab#status
+    vars:
+      code: 503
+
+tests:
+  - id: needsSeed
+    call: lab#whoami
+    query:
+      seed: ${var.seed.code}
+  - id: ignoresSeed
+    call: lab#whoami
+```
+
+```console
+$ vc run lab.blocked
+✕ seed (file lab.blocked) failed
+  error[V5101]: status: expected ["2xx"], got 503
+     = at: seed
+⊘ lab.blocked#needsSeed blocked
+  error[V5101]: status: expected ["2xx"], got 503
+     = at: seed
+✓ lab.blocked#ignoresSeed                                         0ms
+```
+
+`vc check` warns when a test changes a value that `beforeAll` shares, because every test running at the same moment sees that change:
+
+```console
+warning[V3201]: the call to `lab#deleteItem` changes a value shared from `beforeAll`
+  ...
+  = help: one test's change is seen by every test that reads it; make the resource in `before` or `beforeEach`
+```
+
+<Playground client:visible kind="test" code={`beforeAll:
+  - id: shared
+    call: sample#createUser
+    vars:
+      name: File Owner
+
+afterAll:
+  - command: echo after all
+
+tests:
+  - id: readsSharedUser
+    name: Reads the shared user
+    call: sample#getUser
+    vars:
+      userId: \${var.shared.userId}
+`} />
+
+## How it behaves
+
+- `beforeAll` runs only for a file with at least one selected test, and finishes before any of them starts. Each action in it runs once.
+- The file's tests then run in parallel, up to `defaults.concurrency`. `afterAll` waits for all of them.
+- Values saved by `beforeAll` sit between the test's own saves and the file's `vars` in [var precedence](/vc-rs/reference/templates/). Treat them as read-only.
+- After `afterAll`, the cleanups registered by `beforeAll` (for example the shared user's delete) run, newest first.
+
+## Common errors
+
+- [V2210](/vc-rs/reference/diagnostics/v2210/): an action that saves values has no `id`.
+- [V3201](/vc-rs/reference/diagnostics/v3201/): a `PUT`, `PATCH` or `DELETE` call uses a shared value.
+- [V3202](/vc-rs/reference/diagnostics/v3202/): `cache` on an action in a per-test block. Put cached actions in `beforeAll` or `beforeRun`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="beforeEach and afterEach" href="/vc-rs/reference/lifecycle/before-each/" />
+  <LinkCard title="Shared values and blocked tests" href="/vc-rs/reference/lifecycle/shared-values/" />
+  <LinkCard title="Cross-run cache" href="/vc-rs/reference/lifecycle/cache/" />
+  <LinkCard title="beforeRun and afterRun" href="/vc-rs/reference/lifecycle/before-run/" />
+</CardGrid>

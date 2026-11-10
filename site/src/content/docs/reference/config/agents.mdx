@@ -1,0 +1,109 @@
+---
+title: "agents"
+description: "Per-profile limits on what an AI agent may call, run and write through vc mcp."
+sidebar: { order: 42 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`agents` sits inside a profile. It says what an AI agent connected through `vc mcp` may do under that profile. Left out, an agent may only read.
+
+```yaml title="vibranium.config.yaml"
+profiles:
+  - id: dev
+    default: true
+    agents:
+      call: [GET, POST]
+      approve: [DELETE]
+      run: true
+      writeDefinitions: ask
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `agents.call` | list of methods | `[]` | no | Sent without asking. |
+| `agents.approve` | list of methods | `[]` | no | Sent once a person approves. |
+| `agents.run` | boolean | `false` | no | Run tests, within `call` and `approve`. |
+| `agents.writeDefinitions` | `true`, `false` or `ask` | `false` | no | Change api and test files. |
+
+Methods are `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD` and `OPTIONS`. A method in neither list is refused.
+
+## Examples
+
+A safe dev profile and a read-only prod profile:
+
+```yaml title="vibranium.config.yaml"
+profiles:
+  - id: dev
+    default: true
+    agents:
+      call: [GET, POST]
+      approve: [DELETE]
+      run: true
+  - id: prod
+```
+
+```console
+$ vc check
+0 errors · 0 warnings · 12 files checked
+```
+
+An unknown method:
+
+```console
+$ vc check
+error[V2302]: expected one of GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, found `FETCH`
+  --> vibranium.config.yaml:32:19
+   |
+32 |       call: [GET, FETCH]
+   |                   ^^^^^ not a known value
+   = help: expected one of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`
+```
+
+A bad `writeDefinitions` value. The message lists only `ask`, but `true` and `false` are allowed too:
+
+```console
+$ vc check
+error[V2302]: expected one of ask, found `maybe`
+  --> vibranium.config.yaml:32:25
+   |
+32 |       writeDefinitions: maybe
+   |                         ^^^^^ not a known value
+   = help: expected one of `ask`
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+    agents:
+      call: [GET, POST]
+      approve: [PUT, DELETE]
+      run: true
+      writeDefinitions: ask
+  - id: prod
+`} />
+
+## How it behaves
+
+- Each profile has its own block. Under a profile without one, agents can list, read and check, but not send requests or change files.
+- Approvals wait in a queue. A person lists them with `vc approvals` and allows one with `vc approve <id>`.
+- These limits apply to agents only. You can still run anything yourself.
+
+The full story, with refusals and the approval queue, is in [Policy and approvals](/vc-rs/agents/policy-and-approvals/).
+
+## Common errors
+
+- [V2302](/vc-rs/reference/diagnostics/v2302/): an unknown method or `writeDefinitions` value.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Policy and approvals" href="/vc-rs/agents/policy-and-approvals/" />
+  <LinkCard title="profiles" href="/vc-rs/reference/config/profiles/" />
+</CardGrid>

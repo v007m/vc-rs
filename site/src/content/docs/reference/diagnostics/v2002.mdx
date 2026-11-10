@@ -1,0 +1,79 @@
+---
+title: "V2002 — Unknown auth, profile, dataset or generator"
+description: "An auth, profile, dataset or generator is referred to by an ID that is not defined."
+sidebar:
+  label: "V2002 Unknown auth, profile, dataset or generator"
+  order: 2002
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2002` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | close match |
+
+An `auth`, profile, dataset or generator is referred to by an ID that is not defined. Auths and profiles are defined in
+`vibranium.config.yaml`; the diagnostic suggests the closest defined ID.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+auth:
+  - id: admin
+    type: bearer
+    token: ${secret.ADMIN_TOKEN}
+```
+
+```yaml title="services/users/users.api.yaml"
+auth: admn
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+## Right
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+auth:
+  - id: admin
+    type: bearer
+    token: ${secret.ADMIN_TOKEN}
+```
+
+```yaml title="services/users/users.api.yaml"
+auth: admin
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2002
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

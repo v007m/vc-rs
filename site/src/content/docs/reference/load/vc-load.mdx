@@ -1,0 +1,168 @@
+---
+title: "vc load"
+description: "Run a load scenario by its ID, read the live line and the summary, get the report as JSON, and act on the exit code."
+sidebar: { order: 11 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`vc load <scenarioId>` runs one load file: shared setup once, a live line each second, then a summary and an exit code.
+
+```console
+$ vc load sample.smoke
+```
+
+## Syntax
+
+```console
+$ vc load --help
+Runs a load scenario with live metrics
+
+Usage: vc load [OPTIONS] <SCENARIO>
+
+Arguments:
+  <SCENARIO>  The scenario to run: its load file's ID (`checkout.peak` for `load/checkout/peak.load.yaml`)
+
+Options:
+      --profile <IDS>    The active profiles, as a comma list or repeated; later ones win
+      --project <DIR>    The project to work on: this folder or the nearest one above it with a `vibranium.config.yaml`. Relative paths and selectors then start at the project root
+      --set <KEY=VALUE>  Sets one config value (`defaults.timeout=5s`, `vars.userId=7`), over every other layer (D129)
+      --json             Prints the final report as JSON on stdout, with no live line
+  -h, --help             Print help
+```
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | Finished within every threshold |
+| 1 | Blocked: a shared action (`beforeRun` or `beforeAll`) failed |
+| 2 | Nothing ran: the project has errors, no scenario has that ID, or no mix test has a weight above 0 |
+| 3 | A threshold was breached over the whole run, aborted or not |
+| 130 | Cancelled |
+
+## Examples
+
+### A passing run
+
+```console
+$ vc load sample.smoke; echo "exit $?"
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  1 users  4 rps  p50 3 ms  p95 5 ms  p99 5 ms  0 errors
+    3s  2 users  7 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
+    4s  3 users  12 rps  p50 3 ms  p95 5 ms  p99 8 ms  0 errors
+    5s  4 users  16 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    6s  5 users  20 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    7s  4 users  21 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    8s  3 users  22 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    9s  2 users  21 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+   10s  1 users  20 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
+   10s  0 users  20 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
+sample.smoke finished after 10 s · 198 iterations · 19.8 rps · 0 errors
+latency p50 3.4 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+exit 0
+```
+
+Each live line is: seconds since the start, users, `rps`, `p50`, `p95` and `p99` over the last 10 seconds, the error count, and `breaching:` when a threshold is breached. The summary covers the whole run.
+
+### A breach: exit 3
+
+```console
+$ vc load sample.strict; echo "exit $?"
+...
+sample.strict finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
+latency p50 2.7 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
+breached p99 at 15.615
+breached sample.basics#getsCreatedUser: p95 at 11.215
+exit 3
+```
+
+### JSON for CI
+
+`--json` prints only the final report, on stdout:
+
+```console
+$ vc load sample.full --json
+{
+  "blocked": null,
+  "breaches": [
+    {
+      "actual": 1.0,
+      "metric": "errorRate",
+      "test": null
+    }
+  ],
+  "ending": "finished",
+  "errorKinds": [
+    {
+      "api": "sample#listUsers",
+      "count": 10,
+      "status": 200
+    }
+  ],
+  "errors": 10,
+  "exit": 3,
+  "iterations": 10,
+  "maxMs": 3.9050000000000002,
+  "notices": [],
+  "p50Ms": 3.033,
+  "p95Ms": 3.9050000000000002,
+  "p99Ms": 3.9050000000000002,
+  "rps": 5.0,
+  "runId": 63,
+  "scenario": "sample.full",
+  "seconds": 2,
+  "seed": 6746944185716544764
+}
+```
+
+`ending` is `finished` or `aborted`; `blocked` holds the reason when a shared action failed.
+
+### An unknown scenario: exit 2
+
+```console
+$ vc load nope.nope; echo "exit $?"
+error: no load scenario has the ID `nope.nope`
+  = help: the scenarios are: sample.abort, sample.checks, sample.full, sample.lifecycle, sample.smoke, sample.strict
+exit 2
+```
+
+### In CI
+
+```yaml title=".github/workflows/load.yml"
+- run: vc load checkout.peak --profile staging --json > load-report.json
+```
+
+The step fails on any exit code other than 0, so a breach (3) fails the job.
+
+## Try it
+
+<Playground client:visible kind="load" code={`name: Nightly smoke
+mix:
+  - test: users.crud#listsUsers
+    weight: 3
+  - test: users.crud#getsCreatedUser
+    weight: 1
+stages:
+  - duration: 30s
+    users: 10
+  - duration: 10s
+    users: 0
+thresholds:
+  p99:
+    lt: 500ms
+  errorRate:
+    lt: 1%
+`} />
+
+## How it behaves
+
+- `vc load` checks the whole project first. Any error, even in another file, stops it before a request is sent: `error: the project has 1 error(s); nothing ran`, exit code 2.
+- `--profile` and `--set` work as for `vc run`.
+- `vc load` has no `--seed` flag; the seed it used is in the JSON report. See [Generation and seeds](/vc-rs/reference/data/seeds/).
+- Every load run gets a run ID (`runId`), like a functional run.
+
+## Related
+
+- [Load files](/vc-rs/reference/load/)
+- [`thresholds`](/vc-rs/reference/load/thresholds/)
+- [Metrics](/vc-rs/reference/load/metrics/)
+- [`vc run`](/vc-rs/reference/cli/run/)

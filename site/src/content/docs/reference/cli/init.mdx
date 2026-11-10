@@ -1,0 +1,114 @@
+---
+title: "vc init"
+description: "Creates a Vibranium project with a config, sample apis and tests that pass offline, and the standard folders."
+sidebar: { order: 1 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Creates a project in the current folder: `vibranium.config.yaml`, a sample api file and test file that pass offline against the built-in demo service, `.env.schema`, a `.gitignore` entry and the standard folders.
+
+```console
+$ vc init [OPTIONS]
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `--no-sample` | | | Writes the config and folders only, without the sample api and test files |
+| `--from-openapi` | `<URL_OR_FILE>` | | Then imports this OpenAPI spec, a URL or a path in the project, as [`vc import openapi`](/vc-rs/reference/cli/import/) does |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### A new project with the sample
+
+```console
+$ mkdir shop && cd shop
+$ vc init
+✓ created a Vibranium project in /home/ada/shop
+  .env.schema
+  .gitignore
+  services/sample/basics.test.yaml
+  services/sample/sample.api.yaml
+  vibranium.config.yaml
+  schemas/  datasets/  hooks/  openapi/  load/
+next: vc run
+```
+
+`vc run` then passes without a network. The sample test file starts the demo service in `beforeAll` and stops it in `afterAll` (see [`vc demo`](/vc-rs/reference/cli/demo/)).
+
+### Config and folders only
+
+```console
+$ vc init --no-sample
+✓ created a Vibranium project in /home/ada/shop
+  .env.schema
+  .gitignore
+  vibranium.config.yaml
+  schemas/  datasets/  hooks/  openapi/  load/
+next: vc new api <service>#<id> --path /…
+```
+
+### Start from an OpenAPI spec
+
+```console
+$ vc init --from-openapi users.yaml
+✓ created a Vibranium project in /home/ada/shop
+  ...
+✓ imported users.yaml
+```
+
+This writes `services/users/users.api.yaml` with `baseUrl: ${var.usersUrl}` and adds the var `usersUrl` to the config. If the import fails, the project is still written and the error explains why:
+
+```console
+$ vc init --from-openapi https://127.0.0.1:1/x.json
+✓ created a Vibranium project in /home/ada/shop
+  ...
+error: cannot fetch https://127.0.0.1:1/x.json: cannot connect to 127.0.0.1:1: Connection refused (os error 61)
+  = help: give a URL, or a path inside the project
+```
+
+Run [`vc import openapi`](/vc-rs/reference/cli/import/) again once the spec is reachable.
+
+### In a folder that already has a project
+
+```console
+$ vc init
+error: services/sample/basics.test.yaml already exists
+  = help: `vc init` never overwrites a file; `vc check` checks the project that is here
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | The project was created |
+| `2` | A file it would write exists already (nothing is written), or `--from-openapi` could not be imported (the project is written) |
+
+## What it writes
+
+| Path | Contents |
+| --- | --- |
+| `vibranium.config.yaml` | `syntaxVersion: 2`, `project` (the folder name), `defaults` (timeout `30s`, concurrency `16`, perHost `8`, `accept` and `user-agent` headers), `vars.sampleUrl`, a `default` profile, `secrets` (provider `env`, schema `.env.schema`), `reports` (`.vibranium/reports`, formats ctrf, junit and html) and `history` settings. Commented examples show auth and a second profile |
+| `.env.schema` | Where you list the secret names the project uses, one `NAME=` line each, never values. It starts with comments only |
+| `.gitignore` | Adds `.vibranium/` (reports, history and cache stay local) |
+| `services/sample/sample.api.yaml` | Four apis against the demo service: `listUsers`, `createUser`, `getUser`, `deleteUser` |
+| `services/sample/basics.test.yaml` | Four tests that call them, with the demo started in `beforeAll` |
+| `schemas/`, `datasets/`, `hooks/`, `openapi/`, `load/` | Empty folders for JSON Schemas, data files, hook functions, spec snapshots and load scenarios |
+
+Each file starts with a `yaml-language-server` schema line, so editors complete keys as you type. See [Editor setup](/vc-rs/start/editor-setup/).
+
+<Aside type="caution">
+`.gitignore` does not list `.env`. If you keep secret values in `.env`, add it to `.gitignore` yourself.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Quickstart" href="/vc-rs/start/quickstart/" description="From vc init to a passing run." />
+  <LinkCard title="Project layout" href="/vc-rs/start/project-layout/" description="What each folder is for." />
+  <LinkCard title="vc demo" href="/vc-rs/reference/cli/demo/" description="The demo service the sample calls." />
+  <LinkCard title="vc import" href="/vc-rs/reference/cli/import/" description="Import an OpenAPI spec later." />
+</CardGrid>

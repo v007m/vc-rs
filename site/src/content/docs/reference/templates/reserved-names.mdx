@@ -1,0 +1,96 @@
+---
+title: "Reserved names"
+description: "The template root names that no test, api, action, step or dataset id can use."
+sidebar: { order: 16 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+No `id` can be a template root name, because `${<id>.…}` would be ambiguous. `vc check` reports V2006.
+
+## Syntax
+
+The reserved names:
+
+| Name | Root |
+| --- | --- |
+| `var` | [var](/vc-rs/reference/templates/var/) |
+| `env` | [env](/vc-rs/reference/templates/env/) |
+| `secret` | [secret](/vc-rs/reference/templates/secret/) |
+| `response` | [response](/vc-rs/reference/templates/response/) |
+| `request` | [request](/vc-rs/reference/templates/request/) |
+| `example` | [example](/vc-rs/reference/templates/example/) |
+| `item` | [item](/vc-rs/reference/templates/item/) |
+| `iteration` | [iteration](/vc-rs/reference/templates/iteration/) |
+| `fake` | [fake](/vc-rs/reference/templates/fake/) |
+| `dataset` | [dataset](/vc-rs/reference/templates/dataset/) |
+| `run` | [run](/vc-rs/reference/templates/run/) |
+
+They apply to every kind of id: tests, apis, actions, steps, datasets and the rest.
+
+## Examples
+
+A test called `run`:
+
+```yaml
+tests:
+  - id: run
+    call: sample#echo
+```
+
+```console
+error[V2006]: `run` is a reserved name and cannot be an ID
+  --> services/tpl/bad.test.yaml:41:9
+   |
+41 |   - id: run
+   |         ^^^ reserved
+   = help: pick another ID; `run` is a template root
+```
+
+A step called `response`:
+
+```yaml
+    steps:
+      - id: response
+        call: sample#echo
+```
+
+```console
+error[V2006]: `response` is a reserved name and cannot be an ID
+ --> services/tpl/rsv.test.yaml:4:13
+  |
+4 |       - id: response
+  |             ^^^^^^^^ reserved
+  = help: pick another ID; `response` is a template root
+```
+
+Pick a name that says what the step does instead: `created`, `place`, `login`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: chainsCalls
+    steps:
+      - id: created
+        call: sample#createUser
+      - call: sample#getUser
+        vars:
+          userId: \${created.body.id}
+`} />
+
+## How it behaves
+
+- Test ids are third-person verbs (`rejectsDeclinedCard`), so they rarely clash.
+- A named generator also cannot reuse a Faker module name such as `person`.
+
+## Common errors
+
+- [V2006](/vc-rs/reference/diagnostics/v2006/): a reserved name used as an id.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Templates" href="/vc-rs/reference/templates/" />
+  <LinkCard title="Step ids" href="/vc-rs/reference/templates/step-ids/" />
+</CardGrid>

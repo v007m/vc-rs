@@ -1,0 +1,100 @@
+---
+title: "defaults.timeout"
+description: "How long vc waits for each response before the request fails with V5104."
+sidebar: { order: 21 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`defaults.timeout` is how long `vc` waits for one response. Past it, the request fails with [V5104](/vc-rs/reference/diagnostics/v5104/).
+
+```yaml title="vibranium.config.yaml"
+defaults:
+  timeout: 10s
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `defaults.timeout` | duration | `30s` | no | A whole number and a unit: `250ms`, `2s`, `1m`, `12h`. |
+
+## Examples
+
+A test calls an endpoint that answers after two seconds. With a one-second limit it fails:
+
+```console
+$ vc run slow.timing --set defaults.timeout=1s
+plan  1 test in 1 file · profile default
+
+✕ slow.timing#waitsTwoSeconds                                    1.0s
+  error[V5104]: no response within 1000ms
+     = at: call slow#wait
+
+0 passed · 1 failed                                          1.0s · profile default
+```
+
+An api's own `timeout` wins. With `timeout: 3s` on the api, the same run passes:
+
+```yaml title="services/slow/slow.api.yaml"
+  - id: wait
+    path: /slow
+    timeout: 3s
+```
+
+```console
+$ vc run slow.timing --set defaults.timeout=1s
+✓ slow.timing#waitsTwoSeconds                                    2.0s
+1 passed                                                     2.0s · profile default
+```
+
+With [`http.retry`](/vc-rs/reference/config/http-retry/) on, each attempt gets the full timeout. Three attempts of 500ms, plus backoff:
+
+```console
+$ vc run slow.timing --set defaults.timeout=500ms
+✕ slow.timing#waitsTwoSeconds                                    1.6s
+  error[V5104]: no response within 500ms
+     = at: call slow#wait
+```
+
+A duration without a unit:
+
+```console
+$ vc check
+error[V2301]: invalid duration `abc`
+ --> vibranium.config.yaml:6:12
+  |
+6 |   timeout: abc
+  |            ^^^
+  = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+defaults:
+  timeout: 10s
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- Closest wins: an action's `timeout`, then the api's `timeout`, then `defaults.timeout`.
+- It also limits `command:` actions that set no `timeout` of their own.
+- Override it with `--set defaults.timeout=5s`, `VIB_DEFAULTS_TIMEOUT=5s` or the [user config](/vc-rs/reference/config/user-config/).
+- A bare number is never milliseconds. Always write the unit.
+
+## Common errors
+
+- [V2301](/vc-rs/reference/diagnostics/v2301/): not a duration.
+- [V5104](/vc-rs/reference/diagnostics/v5104/): no response within the limit.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="http.retry" href="/vc-rs/reference/config/http-retry/" />
+  <LinkCard title="defaults" href="/vc-rs/reference/config/defaults/" />
+</CardGrid>

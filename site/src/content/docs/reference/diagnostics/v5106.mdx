@@ -1,0 +1,89 @@
+---
+title: "V5106 — A lifecycle action this test needs failed"
+description: "A beforeRun, beforeAll, beforeEach or before action the test depends on failed, so the test is blocked: it is not run, and the report points at the action that failed."
+sidebar:
+  label: "V5106 A lifecycle action this test needs failed"
+  order: 5106
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5106` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | blocked |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `beforeRun`, `beforeAll`, `beforeEach` or `before` action the test depends on failed, so the test is blocked: it is
+not run, and the report points at the action that failed. Fix that action first. Here `beforeAll` creates the user
+with a body the service rejects, so no test in the file can run.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: ${var.name}
+    expect:
+      status: 201
+  - id: listUsers
+    path: /users
+```
+
+```yaml title="services/users/crud.test.yaml"
+beforeAll:
+  - call: users#createUser
+    vars:
+      name: ""
+tests:
+  - id: listsUsers
+    call: users#listUsers
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: ${var.name}
+    expect:
+      status: 201
+  - id: listUsers
+    path: /users
+```
+
+```yaml title="services/users/crud.test.yaml"
+beforeAll:
+  - call: users#createUser
+    vars:
+      name: Ada Lovelace
+tests:
+  - id: listsUsers
+    call: users#listUsers
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5106
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

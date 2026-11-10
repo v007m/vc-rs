@@ -1,0 +1,190 @@
+{
+  "V1001": {
+    "files": [
+      {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: \"Users\napis: []"
+      }
+    ],
+    "command": "vc check",
+    "output": "error[V1001]: not valid YAML: invalid indentation in quoted scalar\n --> services/users/users.api.yaml:2:7\n  |\n2 | name: \"Users\n  |       ^ here\n  = help: quote values that contain `: ` or ` #` or start with a special character such as `*`, `&` or `!`\n\n1 error · 0 warnings · 2 files checked",
+    "exit": 2
+  },
+  "V1004": {
+    "files": [
+      {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: listUsers\n    name: List users\n    path: /users\n    methd: GET"
+      }
+    ],
+    "command": "vc check",
+    "output": "error[V1004]: unknown key `methd` in apiEntry\n --> services/users/users.api.yaml:8:5\n  |\n8 |     methd: GET\n  |     ^^^^^ not a known key\n  = help: did you mean `method`?\n  = fix: Replace with method (certain)\n\n1 error · 0 warnings · 2 files checked",
+    "exit": 2
+  },
+  "V2003": {
+    "files": [
+      {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: listUsers\n    name: List users\n    path: /users"
+      },
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUser"
+      }
+    ],
+    "command": "vc check",
+    "output": "error[V2003]: unknown api \"users#listUser\"\n --> services/users/crud.test.yaml:6:11\n  |\n6 |     call: users#listUser\n  |           ^^^^^^^^^^^^^^ no api has this ID\n  = help: did you mean `users#listUsers`?\n  = fix: Replace with users#listUsers (certain)\n\n1 error · 0 warnings · 3 files checked",
+    "exit": 2
+  },
+  "V2007": {
+    "files": [
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.basics\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers"
+      }
+    ],
+    "command": "vc check",
+    "output": "error[V2007]: the file ID is `users.crud` from its path, not `users.basics`\n --> services/users/crud.test.yaml:1:5\n  |\n1 | id: users.basics\n  |     ^^^^^^^^^^^^ does not match the path\n  = help: remove the `id:` key, or move the file to match it\n  = fix: Write users.crud (certain)\n\n1 error · 0 warnings · 3 files checked",
+    "exit": 2
+  },
+  "V2101": {
+    "files": [
+      {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: getUser\n    name: Get a user\n    path: /users/${var.userId}"
+      },
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: getsUser\n    name: Gets a user\n    call: users#getUser"
+      }
+    ],
+    "command": "vc check",
+    "output": "error[V2101]: ${var.userId} is used but never set\n --> services/users/users.api.yaml:7:18\n  |\n7 |     path: /users/${var.userId}\n  |                  ^^^^^^^^^^^^^ no level sets userId for profile default\n ::: services/users/crud.test.yaml:6:11\n  |\n6 |     call: users#getUser\n  |           ------------- called from here\n  = help: set it in this test's vars, in the file's vars, or in the config's vars\n\n1 error · 0 warnings · 3 files checked",
+    "exit": 2
+  },
+  "V2106": {
+    "files": [
+      {
+        "path": ".env.schema",
+        "lang": "dotenv",
+        "code": "# The secret names this project uses, one NAME= line each, never their values.\n# Use one as ${secret.NAME}; the value comes from the environment or .env.\n# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#secrets\nAPI_TOKEN="
+      },
+      {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: listUsers\n    name: List users\n    path: /users\n    headers:\n      authorization: Bearer ${secret.API_TOKN}"
+      }
+    ],
+    "command": "vc check",
+    "output": "error[V2106]: `${secret.API_TOKN}` is not declared in `.env.schema`\n --> services/users/users.api.yaml:9:29\n  |\n9 |       authorization: Bearer ${secret.API_TOKN}\n  |                             ^^^^^^^^^^^^^^^^^^ API_TOKN is not in .env.schema\n  = help: add the line `API_TOKN=` to `.env.schema` at the project root, or fix the name\n  = help: did you mean `API_TOKEN`?\n  = fix: Replace with API_TOKEN (certain)\n\n1 error · 0 warnings · 2 files checked",
+    "exit": 2
+  },
+  "V2301": {
+    "files": [
+      {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7421\napis:\n  - id: listUsers\n    name: List users\n    path: /users\n    timeout: 5 seconds"
+      }
+    ],
+    "command": "vc check",
+    "output": "error[V2301]: invalid duration `5 seconds`\n --> services/users/users.api.yaml:8:14\n  |\n8 |     timeout: 5 seconds\n  |              ^^^^^^^^^\n  = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`\n\n1 error · 0 warnings · 2 files checked",
+    "exit": 2
+  },
+  "V2306": {
+    "files": [
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers\n    expect:\n      body:\n        match:\n          id: {type: strng}"
+      }
+    ],
+    "command": "vc check",
+    "output": "error[V2306]: `type` does not know `strng`\n  --> services/users/crud.test.yaml:10:22\n   |\n10 |           id: {type: strng}\n   |                      ^^^^^\n   = help: did you mean `string`?\n   = fix: Replace with string (certain)\n\n1 error · 0 warnings · 3 files checked",
+    "exit": 2
+  },
+  "V3103": {
+    "files": [
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers\n    skip: ''"
+      }
+    ],
+    "command": "vc check",
+    "output": "error[V3103]: `skip` needs a reason\n --> services/users/crud.test.yaml:7:11\n  |\n7 |     skip: ''\n  |           ^^ no reason given\n  = help: say why, for the report: `skip: flaky upstream, see #123`\n\n1 error · 0 warnings · 3 files checked",
+    "exit": 2
+  },
+  "V3204": {
+    "files": [
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers\n    skip: flaky upstream, see #212"
+      }
+    ],
+    "command": "vc check",
+    "output": "warning[V3204]: YAML reads `#212` as a comment, cutting the value short\n --> services/users/crud.test.yaml:7:11\n  |\n7 |     skip: flaky upstream, see #212\n  |           ^^^^^^^^^^^^^^^^^^^^^^^^ the value ends before the `#`\n  = help: quote the value to keep the `#` and what follows it\n  = fix: Quote the value\n\n0 errors · 1 warning · 3 files checked",
+    "exit": 0
+  },
+  "V4001": {
+    "files": [
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: test_list_users\n    name: Lists users\n    call: users#listUsers"
+      }
+    ],
+    "command": "vc check",
+    "output": "warning[V4001]: test ID `test_list_users` is not camelCase\n --> services/users/crud.test.yaml:4:9\n  |\n4 |   - id: test_list_users\n  |         ^^^^^^^^^^^^^^^ rename it\n  = help: test IDs are camelCase: `listsUsers`\n  = fix: Rename to listsUsers (certain)\n\n0 errors · 1 warning · 3 files checked",
+    "exit": 0
+  },
+  "V5101": {
+    "files": [
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers\n    expect:\n      status: 201\n  - id: countsUsers\n    name: Counts users\n    call: users#listUsers\n    expect:\n      cel:\n        returns users: response.body.users.size() > 0"
+      }
+    ],
+    "command": "vc run users.crud#listsUsers",
+    "output": "plan  1 test in 1 file · profile default\n\n✕ users.crud#listsUsers                                           2ms\n  error[V5101]: expect.status\n   --> services/users/crud.test.yaml:8:15\n    |\n  8 |       status: 201\n    |               ^^^ expected [201], got 200\n\n0 passed · 1 failed                                          3ms · profile default",
+    "exit": 1
+  },
+  "V5102": {
+    "files": [
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers\n    expect:\n      status: 201\n  - id: countsUsers\n    name: Counts users\n    call: users#listUsers\n    expect:\n      cel:\n        returns users: response.body.users.size() > 0"
+      }
+    ],
+    "command": "vc run users.crud#countsUsers",
+    "output": "plan  1 test in 1 file · profile default\n\n✕ users.crud#countsUsers                                          7ms\n  error[V5102]: expect.cel.returns users\n    --> services/users/crud.test.yaml:14:24\n     |\n  14 |         returns users: response.body.users.size() > 0\n     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ found no matching overload for '_._' applied to '(list, string)'\n\n0 passed · 1 failed                                          8ms · profile default",
+    "exit": 1
+  },
+  "V5105": {
+    "files": [
+      {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "id: users\nname: Users\nbaseUrl: http://localhost:7499\napis:\n  - id: listUsers\n    name: List users\n    path: /users"
+      },
+      {
+        "path": "services/users/crud.test.yaml",
+        "lang": "yaml",
+        "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers"
+      }
+    ],
+    "command": "vc run",
+    "output": "plan  1 test in 1 file · profile default\n\n✕ users.crud#listsUsers                                           1ms\n  error[V5105]: cannot connect to localhost:7499: Connection refused (os error 61)\n     = at: call users#listUsers\n\n0 passed · 1 failed                                          2ms · profile default",
+    "exit": 1
+  }
+}

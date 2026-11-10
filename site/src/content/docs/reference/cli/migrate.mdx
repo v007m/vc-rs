@@ -1,0 +1,137 @@
+---
+title: "vc migrate"
+description: "Converts a Vibranium v1 project into v2 definition files and a config."
+sidebar: { order: 24 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Reads a Vibranium v1 project (its `config.json` and the scenario JSON files under its tests folder) and writes a new v2 project around it: `vibranium.config.yaml`, one api file and one test file per v1 app and scenario, and `.env.schema` for the secrets. Whatever has no v2 form is listed, and left as a `TODO(vc migrate)` comment where it matters.
+
+```console
+$ vc migrate v1 [OPTIONS] <PATH>
+```
+
+## Options
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `<PATH>` | | The v1 project folder. It must sit inside the folder you run the command in |
+| `--project` | `<DIR>` | The folder to write the v2 project into. It must not have a `vibranium.config.yaml` yet |
+
+## Example
+
+Copy the v1 project into an empty folder and run the migration there:
+
+```console
+$ mkdir shop && cp -R ~/old/shop-v1 shop/ && cd shop
+$ vc migrate v1 shop-v1
+✓ migrated shop-v1 into /home/ada/shop
+  Create vibranium.config.yaml
+  Create services/catalog/catalog.api.yaml
+  Create services/orders/orders.api.yaml
+  TODO(vc migrate) services/orders/orders.api.yaml cancelOrder: reason is set only by a v1 script; give it a value
+  Create services/users/users.api.yaml
+  Create services/catalog/browse.test.yaml
+  Create services/orders/checkout.test.yaml
+  TODO(vc migrate) services/orders/checkout.test.yaml cancelsOrder: scripts.before-endpoint: variables.reason = 'test-' + Date.now(); return { variables }
+  Create services/users/crud.test.yaml
+  TODO(vc migrate) services/users/crud.test.yaml scripts.before-scenario: logger.log('users_crud starting')
+  catalog_browse: `{dataset.pokemon}` is now `${fake.lorem.word}`
+  users#createUser: `[ADMIN|MEMBER]` is read as a choice of ADMIN or MEMBER
+  users#createUser: `{dataset.names}` is now `${fake.person.fullName}`
+  users#updateUser: `{dataset.harrypotter}` is now `${fake.lorem.word}`
+  catalog.browse#searchesProducts: async has no v2 form; tests in a file run in parallel already
+  orders.checkout#placesOrder: delay has no v2 form; the call is made without waiting
+  users.crud#createsUser: repeat-delay has no v2 form for a repeat; the calls run one after another
+  Declare the secrets in .env.schema
+next: vc check
+$ vc check
+0 errors · 0 warnings · 7 files checked
+```
+
+The output has three kinds of line:
+
+- `Create <file>`: a file it wrote.
+- `TODO(vc migrate) <file> …`: something only a v1 script did. The same text is a comment in the file; replace it with a [function](/vc-rs/reference/lifecycle/function/) or a fixed value.
+- A line naming an item: a v1 feature that changed meaning or has no v2 form.
+
+### What a scenario becomes
+
+A v1 endpoint with JavaScript checks such as `"{response.length} > 0"` and `"{response.all.id}.every(id => id.length === 32)"` becomes a test with [matchers](/vc-rs/reference/matchers/):
+
+```yaml title="services/users/crud.test.yaml"
+name: users_crud
+tags:
+  - crud
+  - smoke
+# TODO(vc migrate): scripts.before-scenario: logger.log('users_crud starting')
+tests:
+  - id: listsUsers
+    name: List all users
+    call: users#listUsers
+    expect:
+      status: 200
+      headers:
+        content-type: application/json
+      body:
+        match:
+          $:
+            length:
+              gt: 0
+          "[*].id":
+            every:
+              length: 32
+          "[*].isAdmin":
+            some: true
+      timing:
+        firstByte:
+          lt: 300ms
+        total:
+          lt: 700ms
+```
+
+A v1 `dependencies` entry becomes a `before` call with `save`. The v1 accounts become `auth` entries whose credentials are `${secret.…}` references, and the credentials themselves are not copied:
+
+```yaml title="vibranium.config.yaml"
+auth:
+  - id: shopAdmin
+    type: basic
+    username: ${secret.SHOP_ADMIN_USERNAME}
+    password: ${secret.SHOP_ADMIN_PASSWORD}
+```
+
+```text title=".env.schema"
+SHOP_ADMIN_USERNAME=
+SHOP_ADMIN_PASSWORD=
+SHOP_PARTNER_CLIENT_ID=
+SHOP_PARTNER_CLIENT_SECRET=
+```
+
+Put the values in `.env` or the environment; see [Secrets](/vc-rs/guides/secrets/).
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Migrated, with or without `TODO` lines |
+| `2` | Nothing was written: the folder already has a config, or the v1 folder is not inside it |
+
+```console
+$ vc migrate v1 shop-v1
+error: vibranium.config.yaml already exists
+  = help: `vc migrate v1` writes a new project; run it in a folder without one
+$ vc migrate v1 /tmp
+error: /tmp is not inside the project /home/ada/shop
+```
+
+<Aside type="tip">
+Keep the v1 folder until every `TODO(vc migrate)` is settled and `vc run` passes, then delete it. The migration never changes it.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Migrating from v1" href="/vc-rs/guides/migrating-from-v1/" description="The whole move, step by step, with what maps to what." />
+  <LinkCard title="vc check" href="/vc-rs/reference/cli/check/" description="The next step after a migration." />
+</CardGrid>

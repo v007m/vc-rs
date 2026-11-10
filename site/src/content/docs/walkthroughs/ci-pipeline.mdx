@@ -1,0 +1,303 @@
+---
+title: Running in CI
+description: Run vc in a GitHub Actions workflow that checks the files, catches spec drift, runs the tests with JUnit, CTRF and HTML reports, and gates on exit codes.
+sidebar: { order: 7 }
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+**Goal:** a GitHub Actions workflow that installs `vc`, fails fast on broken YAML or a drifted spec, runs the tests against a CI profile, and uploads the reports. Pull requests can run only the tests their changes touch.
+
+You first run each command locally, so you know what the job will print and which exit code it returns.
+
+## Prerequisites
+
+- `vc` and `vc-demo` on your `PATH` (see [Install](/vc-rs/start/install/)).
+- A project in a git repo with a GitHub remote. This page uses the sample project from `vc init`, because it runs anywhere: its test file starts the demo service in `beforeAll` and stops it in `afterAll`. A project that tests your own service works the same way, with a profile that points at it.
+
+<Aside type="caution" title="No release or setup action yet">
+There is no prebuilt release, installer or GitHub setup action for `vc` yet. The workflow below builds it from the repo with `cargo install`, which needs Rust 1.99 or later. GitHub's hosted runners come with `rustup`.
+</Aside>
+
+## Build the pipeline
+
+<Steps>
+1. **Create the project.**
+
+   ```console
+   $ mkdir shop && cd shop
+   $ vc init
+   $ git init
+   ```
+
+2. **Add a `ci` profile.** A profile overrides vars for one environment. In CI, the demo listens on `127.0.0.1`. For your own service, this is where its CI or staging URL goes.
+
+   ```yaml title="vibranium.config.yaml"
+   profiles:
+     - id: default
+       default: true
+     - id: ci
+       vars:
+         sampleUrl: http://127.0.0.1:7421
+   ```
+
+   `vc check` validates the config together with every other file:
+
+   ```console
+   $ vc check
+   0 errors · 0 warnings · 3 files checked
+   ```
+
+   Commit it: `git add -A && git commit -m "init"`.
+
+3. **Know what fails a check.** `vc check` parses and links every file and sends no requests. Errors exit with `2`, and so does `vc run`, which refuses to start. Here `listsUsers` got a `body: type: array` that isn't a valid key:
+
+   ```console
+   $ vc run --profile ci
+   error[V1004]: unknown key `type` in bodyExpect
+     --> services/sample/basics.test.yaml:24:9
+      |
+   24 |         type: array
+      |         ^^^^ not a known key
+      = help: expected one of `schema`, `match`, `equals`
+
+   1 error · 0 warnings · 3 files checked
+   error: the project has 1 error(s); nothing ran
+   $ echo $?
+   2
+   ```
+
+   Warnings, such as a call to a deprecated api, print but exit `0`. `vc check --json` prints the diagnostics as JSON for scripts.
+
+4. **Catch spec drift.** `vc sync --check` compares every api file that has a `source:` with its spec. It writes nothing. It exits `4` when a spec changed since its snapshot or a conflict is left. The sample has no `source:`, so it passes silently:
+
+   ```console
+   $ vc sync --check
+   $ echo $?
+   0
+   ```
+
+   In a project made with `vc import openapi`, a changed spec fails the step before any test runs:
+
+   ```console
+   $ vc sync --check
+   fetched http://localhost:18080/openapi/users.yaml (4 operations)
+     ↑ users#listUsers query limit none → ${var.limit}
+     + users#updateUser new operation PATCH /users/${var.id}
+     - users#deleteUser removed from the spec: kept, marked deprecated
+   $ echo $?
+   4
+   ```
+
+   See [Contract testing](/vc-rs/walkthroughs/contract-testing/) for how to merge the change.
+
+5. **Run the tests with reports.** `--report` picks the report files and `--out` puts them in a fixed folder that CI can upload. Without `--out`, each run gets its own numbered folder under `.vibranium/reports/`.
+
+   ```console
+   $ vc run --profile ci --report junit,ctrf,html --out reports
+   plan  4 tests in 1 file · lifecycle: beforeAll command · profile ci
+
+   ✓ sample.basics#listsUsers                                        0ms
+   ✓ sample.basics#rejectsMissingEmail                               0ms
+   ✓ sample.basics#createsUser                                       1ms
+   ✓ sample.basics#getsCreatedUser                                   1ms
+
+   4 passed                                                     130ms · profile ci
+   reports  /home/you/shop/reports/{junit.xml,ctrf.json,index.html}
+   ```
+
+   The folder holds `junit.xml`, `ctrf.json`, and `index.html` with a `data/` folder it loads on demand. Add `--single-file` to get one self-contained `report.html` instead. `--out` writes into the folder as it is and does not clear it, so use a fresh folder per job.
+
+   A failing run exits `1`. Here `--set` points the tests at a port where nothing listens. `getsCreatedUser` needs a user from its `before` step first, so it is `blocked` rather than failed:
+
+   ```console
+   $ vc run --profile ci --set vars.sampleUrl=http://127.0.0.1:18099
+   plan  4 tests in 1 file · lifecycle: beforeAll command · profile ci
+
+   ✕ sample.basics#listsUsers                                        0ms
+     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
+        = at: call sample#listUsers
+   ✕ sample.basics#rejectsMissingEmail                               0ms
+     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
+        = at: call sample#createUser
+   ✕ sample.basics#createsUser                                       0ms
+     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
+        = at: call sample#createUser
+   ⊘ sample.basics#getsCreatedUser blocked                           0ms
+     error[V5105]: cannot connect to 127.0.0.1:18099: Connection refused (os error 61)
+        = at: call sample#createUser
+
+   0 passed · 3 failed · 1 blocked                              138ms · profile ci
+   reports  /home/you/shop/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+   next     vc run --failed
+   seed 8957181361631589634: pass `--seed 8957181361631589634` to run with the same generated data
+   $ echo $?
+   1
+   ```
+
+   `--set` overrides one config value for a single run, over every other layer. `--bail` starts no new tests after the first failure; the rest are reported as `skipped: cancelled`.
+
+6. **Get machine-readable events.** `--reporter json` replaces the console output with NDJSON on stdout: one JSON object per line, for every test, request and check. Hints such as the seed line go to stderr, so stdout stays clean.
+
+   ```console
+   $ vc run --profile ci --reporter json --report ctrf --out reports > run.ndjson
+   $ jq -c 'select(.event=="testFinished") | {test, status, durationMs}' run.ndjson
+   {"test":"sample.basics#rejectsMissingEmail","status":"passed","durationMs":5}
+   {"test":"sample.basics#listsUsers","status":"passed","durationMs":6}
+   {"test":"sample.basics#createsUser","status":"passed","durationMs":6}
+   {"test":"sample.basics#getsCreatedUser","status":"passed","durationMs":6}
+   ```
+
+   The stream starts with `runStarted` and ends with `runFinished` and `summary`:
+
+   ```json
+   {"event":"runStarted","files":1,"instances":4}
+   {"event":"runFinished","status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
+   {"artifacts":[{"path":"/home/you/shop/reports/ctrf.json","reporter":"ctrf"}],"durationMs":124,"event":"summary","profiles":["ci"],"startedMs":1794332325603,"status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
+   ```
+
+   A failed test carries its diagnostic code and message:
+
+   ```json
+   {"attempts":1,"durationMs":0,"event":"testFinished","failure":{"action":"call sample#listUsers","code":"V5105","message":"cannot connect to 127.0.0.1:18099: Connection refused (os error 61)"},"instance":0,"label":"sample.basics#listsUsers","skipReason":null,"status":"failed","test":"sample.basics#listsUsers"}
+   ```
+
+   Between those you also get `fileStarted`, `actionStarted`, `exchanged` (method, URL, status and time of each request), `checkEvaluated`, `actionFinished`, `cleanupFinished` and `fileFinished`. The console reporters are `spec` (the default) and `json`.
+
+7. **Run only what a pull request touched.** `--changed <ref>` selects the tests in test files changed since that ref, plus every test that calls an api in a changed api file. A changed `vibranium.config.yaml` or `.env.schema` selects everything. With no ref, it uses your uncommitted and untracked changes.
+
+   ```console
+   $ git switch -c tweak-test
+   $ # edit services/sample/basics.test.yaml and commit
+   $ vc list tests --changed origin/master
+   sample.basics#listsUsers  Lists all users  [sample]
+   sample.basics#createsUser  Creates a user with the given email  [sample]
+   sample.basics#getsCreatedUser  Returns the user that was just created  [sample]
+   sample.basics#rejectsMissingEmail  Rejects a user without an email  [sample]
+   ```
+
+   When nothing relevant changed, the selection is empty and `vc run` exits `2`:
+
+   ```console
+   $ vc run --changed origin/master --profile ci
+   plan  0 tests in 0 files · profile ci
+
+
+   0 passed                                                     3ms · profile ci
+   reports  /home/you/shop/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
+   $ echo $?
+   2
+   ```
+
+   `vc list tests --changed` prints nothing and exits `0` in that case, so the workflow below uses it to decide whether to run at all. The ref must exist in the clone. Without it, the run stops with `error: --changed: cannot list the files changed since origin/master: fatal: Needed a single revision` and exit `2`. In Actions, check out with `fetch-depth: 0`.
+</Steps>
+
+## The workflow
+
+One job runs everything on pushes to `master`. On pull requests it runs only the changed tests.
+
+```yaml title=".github/workflows/api-tests.yml"
+name: API tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # --changed needs origin/master
+
+      - name: Install vc and vc-demo
+        run: |
+          rustup toolchain install 1.99 --profile minimal
+          cargo +1.99 install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+
+      - name: Check the definitions
+        run: vc check
+
+      - name: Fail on spec drift
+        run: vc sync --check
+
+      - name: Run all tests
+        if: github.event_name == 'push'
+        run: vc run --profile ci --report junit,ctrf,html --out reports
+
+      - name: Run the tests this pull request touches
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -n "$(vc list tests --changed origin/master)" ]; then
+            vc run --changed origin/master --profile ci --report junit,ctrf,html --out reports
+          else
+            echo "No test or api files changed."
+          fi
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vc-reports
+          path: reports/
+          if-no-files-found: ignore
+```
+
+Notes:
+
+- `cargo install` builds from source and takes a few minutes. Cache `~/.cargo/bin` between runs if that matters to you.
+- Each step fails the job on a non-zero exit code. Check failures (`2`) and spec drift (`4`) stop the job before any request is sent.
+- `if: always()` uploads the reports even when tests fail, which is when you need them most. Feed `junit.xml` to any JUnit test-summary action, or open `index.html` from the artifact.
+- To test a deployed service instead of the demo, point the `ci` profile at it. Pass secrets through the environment: they reach `${secret.NAME}` through the default `env` provider.
+
+<Playground client:visible kind="config" title="vibranium.config.yaml" code={`
+syntaxVersion: 2
+project: shop
+vars:
+  sampleUrl: http://localhost:7421
+profiles:
+  - id: default
+    default: true
+  - id: ci
+    vars:
+      sampleUrl: http://127.0.0.1:7421
+reports:
+  dir: .vibranium/reports
+  formats: [ctrf, junit, html]
+`} />
+
+## Exit codes
+
+Every `vc` command uses the same codes, so a CI step can branch on them.
+
+| Code | Meaning | Seen on this page |
+| --- | --- | --- |
+| `0` | Everything passed | `vc check`, `vc run`, `vc sync --check` with no drift |
+| `1` | A test failed or was blocked | `vc run` against a service that is down |
+| `2` | Nothing ran: errors in the files, an empty selection or a bad flag value | `vc run` with a V1004 error, an empty `--changed` selection |
+| `3` | A load threshold was breached | `vc load` (see [Load testing](/vc-rs/walkthroughs/load-testing/)) |
+| `4` | Sync drift: a spec changed, or a conflict is left | `vc sync --check` |
+| `70` | Internal error in `vc` | — |
+| `130` | Cancelled with Ctrl-C | — |
+
+## Final files
+
+`vibranium.config.yaml` (step 2, also in the editor above) and `.github/workflows/api-tests.yml`. The sample's api and test files are unchanged from `vc init`.
+
+## What you learned
+
+- Install `vc` in CI with `cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked`. No release or setup action exists yet.
+- Order the steps from cheap to expensive: `vc check`, then `vc sync --check`, then `vc run`.
+- `--report junit,ctrf,html --out reports` writes the report files to one folder to upload. `--single-file` makes the HTML one file.
+- `--reporter json` streams NDJSON events on stdout.
+- `--changed origin/master` runs only what a branch touched. Guard it with `vc list tests --changed`, because an empty selection exits `2`.
+
+## Next
+
+- [CI guide](/vc-rs/guides/ci/): other CI systems and more patterns.
+- [`vc run`](/vc-rs/reference/cli/run/): every flag.
+- [`vc sync`](/vc-rs/reference/cli/sync/): drift and conflicts.
+- [Exit codes](/vc-rs/reference/cli/#exit-codes).

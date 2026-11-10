@@ -1,0 +1,73 @@
+---
+title: "run"
+description: "Read facts about the current run, its id and active profiles, with ${run.id} and ${run.profiles}."
+sidebar: { order: 12 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`${run.…}` reads facts about the current run. Use it to tag data a run creates.
+
+```yaml
+    vars:
+      name: user-${run.id}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `run.id` | number | — | — | The run's number in history. |
+| `run.profiles` | list of text | — | — | The active profiles, in order. |
+
+<Aside type="caution">
+The design also lists `run.startedAt`. `vc check` accepts it, but it is not filled in yet: a template that reads it fails at run time with V5111.
+</Aside>
+
+## Examples
+
+A run sent this payload:
+
+```yaml
+      payload:
+        runId: ${run.id}
+        profiles: ${run.profiles}
+```
+
+```json
+{ "runId": 7, "profiles": ["default"] }
+```
+
+Inside text, the id becomes part of the string: `user-${run.id}` gives `"user-7"`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: tagsTheRun
+    call: sample#createUser
+    vars:
+      name: Run \${run.id} user
+`} />
+
+## How it behaves
+
+- `run` is available everywhere except `$cel`. Set a var from the template and read the var in CEL.
+
+## Common errors
+
+```console
+✕ tpl.run#readsStartTime                                          0ms
+  error[V5111]: `run.startedAt` is missing: `run` is {"id":40,"profiles":["default"]}
+     = at: call sample#echo
+```
+
+- [V5111](/vc-rs/reference/diagnostics/v5111/): a field `run` does not have.
+- [V2006](/vc-rs/reference/diagnostics/v2006/): `run` used as an id.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Profiles" href="/vc-rs/reference/config/" />
+  <LinkCard title="Reserved names" href="/vc-rs/reference/templates/reserved-names/" />
+</CardGrid>

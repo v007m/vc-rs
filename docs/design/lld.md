@@ -239,7 +239,7 @@ A pattern is used where it removes a real coupling or a real `match`/`if` chain:
 | **Interpreter and composite** | Templates and pipes; CEL behind `Expr`; matchers composed with `allOf`, `anyOf`, `not`, `every` | Small languages evaluated without running user code |
 | **Visitor** | Walks over the `Program` for linking, lints and the planner's needs analysis (`Visit` trait with default no-op methods) | New analyses without editing the IR types |
 | **Specification** | Run selection: IDs, globs, paths, tags, grep, changed and failed as composable predicates | Selectors combine freely ("or" for positional, "and" for flags) |
-| **Repository** | `HistoryReader`/`HistoryWriter`, `CacheStore` with SQLite and Postgres implementations | Storage swappable; queries named by intent |
+| **Repository** | `HistoryReader`/`HistoryWriter`, `CacheStore` with SQLite implementations (a Postgres one stays possible behind the same traits, D253) | Storage swappable; queries named by intent |
 | **Null object** | `NoAuth`, `NoopReporter`, `NoHooks` | No `Option` checks scattered through callers |
 | **Singleflight (memoization)** | Shared lifecycle slots and the token cache | Concurrent callers share one execution |
 | **Flyweight** | Interned strings (`Sym`) for every ID and name | Small, cheap-to-copy IDs across a large program |
@@ -1001,7 +1001,7 @@ The ports are `HistoryWriter` (`begin`, `record`, `finish`, `prune`) and `Histor
 
 In the engine, `Engine::run` begins a run (`kind`, start time, profiles, selectors as typed, seed, `vc` version) before the executor starts and binds its number to `${run.id}` (0 when the history cannot be opened: the run then goes unrecorded with a notice, and its report files go straight into `reports.dir`). The reporter fan-out hands each event to a `Recorder`, which gives back the rows it completes for `Recording::record`; when the run ends the engine renders the report formats from the recorder's `RunSnapshot` into `<reports.dir>/<run>/` (or `--out` as is), then `finish`es the run with the snapshot and prunes on a blocking thread. `Engine::history`, `Engine::stored` and `Engine::prune_history` serve `vc history`; the TUI and the web UI read the same rows through `HistoryReport::runs()`, `StoredRun::run()` and `StoredRun::tests()` (`RunRow`, `RunStart`, `TestRow` and `RunId` are re-exported from `vc_engine`, with `started`, which prints a start time as `vc history` does); `Engine::report` reads a snapshot back and renders it again through the same `FormatRegistry`. `vc run --failed` reads the last run's failed and blocked rows and selects them, as `<test>:<n>` instances for an `examples` row (n counted as the planner counts row × repeat), under the last run's profiles.
 
-Bodies are stored per `history.bodies` (default: failures only), cut at `history.maxBodySize` and compressed with zstd. Retention (`history.keep`, default 50 runs, D170) deletes the oldest runs when a run ends. Schema changes go through numbered migrations stored in the file. The same `HistoryStore` trait has a Postgres adapter for the self-hosted server.
+Bodies are stored per `history.bodies` (default: failures only), cut at `history.maxBodySize` and compressed with zstd. Retention (`history.keep`, default 50 runs, D170) deletes the oldest runs when a run ends. Schema changes go through numbered migrations stored in the file. The self-hosted server uses the same SQLite `HistoryStore` and migrations, with one writer task (D253); a Postgres adapter stays possible behind the trait.
 
 ### Cache store (`.vibranium/cache.db`)
 
@@ -1326,7 +1326,7 @@ The web app lives in `web/` (a pnpm package in the root workspace) and follows S
 - **Insights.** `Insights` reads the last 10, 30 or 100 runs of kind `run` (`ListRuns`) and the per-test `Trends` over the same window through `InsightsPort` (`#lib/insights/port.ts`). It shows KPI tiles, a pass-rate bar per run (passed and flaky over the tests that ran; a run with blocked tests is marked and labelled), a run-duration bar per run, a table of the last 10 runs and the flakiest tests. Bars carry their reading as an `aria-label`, and the table is the chart's text view. Slowest APIs, coverage and quarantine actions come later.
 - **Tests.** Unit and component tests sit next to the code as `*.test.ts` and run in vitest with jsdom and Testing Library, over an in-memory engine (`createRouterTransport` with fake handlers in `#lib/testing/engine.ts`), so they need no `vc ui`. The Playwright suite in `web/tests/` drives the real server and runs only with `VC_E2E=1`.
 
-The self-hosted team server (`vc serve`) is the same binary with Postgres history, accounts (OIDC) and run ingestion added; it is a later release.
+The self-hosted team server (`vc serve`) is the same binary with SQLite history (D253), accounts (OIDC) and run ingestion added; it is a later release.
 
 ### Plugins (`adapters/plugins`)
 
@@ -1493,7 +1493,7 @@ Milestones are sized for a coding agent to take one at a time, each ending in so
 | M7 | Agents and load | MCP server, agent policy and approvals (`vc approvals`), the load engine, `vc load` | An agent session in the e2e suite needs approval exactly where the policy says; 5,000 users within the CPU budget | v2.1 |
 | M8 | Terminal UI and plugins | `vc tui` (Run, Explore, History, Load, Import), the plugin host with permissions, the remaining auth types and notifiers | TUI snapshot tests; a sample Python reporter plugin works and is refused a secret it did not declare | v2.2 |
 | M9 | Web UI | The engine API over Connect, `vc ui`, the web UI (tests, API client with flows and HAR import, editor, runs, insights, AI agents, Settings) | Playwright suite over every screen in the mockups; editor round-trips keep files byte-identical | v2.3 |
-| M10 | Team server | `vc serve` with Postgres history, accounts (OIDC), run ingestion from CI | Two CI jobs publish to one server and the web UI shows both | v2.3+ |
+| M10 | Team server | `vc serve` with SQLite history (WAL, one writer, D253), accounts (OIDC), run ingestion from CI | Two CI jobs publish to one server and the web UI shows both | v2.3+ |
 
 **How an agent works on a milestone.** It starts from this document, the Syntax Reference and the CLI doc, writes the acceptance tests first, implements in small PRs (each under about 400 changed lines) that pass `gates.sh`, and updates the docs it touched in the same PR. Anything that would change a decision in the Decision Log is raised as a question instead of decided in code.
 

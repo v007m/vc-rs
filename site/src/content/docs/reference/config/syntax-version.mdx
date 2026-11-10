@@ -1,0 +1,86 @@
+---
+title: "syntaxVersion"
+description: "The file-format version of vibranium.config.yaml; write 2."
+sidebar: { order: 10 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`syntaxVersion` says which version of the file format the project is written in. It is required. Write `2`.
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `syntaxVersion` | integer | — | yes | This `vc` reads up to `2`. Write it without quotes. |
+
+## Examples
+
+Missing:
+
+```console
+$ vc check
+error[V1003]: a config needs `syntaxVersion`
+ --> vibranium.config.yaml:1:1
+  |
+1 | profiles:
+  | ^^^^^^^^ `syntaxVersion` is missing
+  = help: add `syntaxVersion: 2`: File-format version
+```
+
+Newer than this `vc` reads. Upgrade `vc` instead of downgrading the file:
+
+```console
+$ vc check
+error[V1003]: `syntaxVersion: 3` is newer than this Vibranium reads
+ --> vibranium.config.yaml:1:16
+  |
+1 | syntaxVersion: 3
+  |                ^ reads up to 2
+  = help: upgrade vc to read this project
+```
+
+Quoted, so it is text, not a number:
+
+```console
+$ vc check
+error[V2302]: expected integer, found text
+ --> vibranium.config.yaml:1:16
+  |
+1 | syntaxVersion: "2"
+  |                ^^^ expected integer
+  = help: write `2` without quotes
+  = fix: Write 2 without quotes (certain)
+```
+
+`vc check --fix` shows the change and asks before it removes the quotes.
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- Only `vibranium.config.yaml` carries it.
+- A version newer than `vc` reads is refused rather than half understood.
+
+## Common errors
+
+- [V1003](/vc-rs/reference/diagnostics/v1003/): missing, or newer than this `vc`.
+- [V2302](/vc-rs/reference/diagnostics/v2302/): not an integer.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Project config" href="/vc-rs/reference/config/" />
+  <LinkCard title="project" href="/vc-rs/reference/config/project/" />
+</CardGrid>

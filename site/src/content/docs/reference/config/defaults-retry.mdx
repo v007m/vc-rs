@@ -1,0 +1,115 @@
+---
+title: "defaults.retry"
+description: "Re-run a failed test instance a set number of times; a test that passes on a later try is marked flaky."
+sidebar: { order: 24 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`defaults.retry` re-runs a whole test instance after it fails. A test that passes on a later attempt counts as flaky, not failed.
+
+```yaml title="vibranium.config.yaml"
+defaults:
+  retry:
+    attempts: 1
+    delay: 100ms
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `defaults.retry.attempts` | integer | — | yes | Further attempts after the first. `1` means up to two runs. |
+| `defaults.retry.delay` | duration | `0s` | no | Pause between attempts. |
+
+## Examples
+
+An endpoint fails the first call and passes the second. With `attempts: 1` the test is flaky, and the run still passes (exit 0):
+
+```console
+$ vc run slow.tr
+plan  1 test in 1 file · profile default
+
+~ slow.tr#passesOnSecondTry flaky (2 attempts)                  114ms
+
+0 passed · 1 flaky                                           157ms · profile default
+```
+
+The CTRF report marks it with `"flaky": true` and `"retries": 1`.
+
+A test that fails every attempt shows each attempt's errors and fails:
+
+```console
+✕ slow.retry#failsAfterThree503s                                106ms
+  error[V5101]: expect.status
+    --> services/slow/retry.test.yaml:20:15
+     |
+  20 |       status: 200
+     |               ^^^ expected [200], got 503
+  error[V5101]: expect.status
+    --> services/slow/retry.test.yaml:20:15
+     |
+  20 |       status: 200
+     |               ^^^ expected [200], got 503
+```
+
+A test opts out with its own `retry`:
+
+```yaml title="services/slow/tr.test.yaml"
+tests:
+  - id: noRetryHere
+    name: Opts out of the default retry
+    call: slow#flaky
+    retry:
+      attempts: 0
+    expect:
+      status: 200
+```
+
+The server saw one call, and the test failed.
+
+`attempts` is required:
+
+```console
+$ vc check
+error[V1005]: a retry needs `attempts`
+  --> vibranium.config.yaml:15:5
+   |
+15 |     delay: 100ms
+   |     ^^^^^ `attempts` is missing
+   = help: add `attempts: 2`: Further attempts after the first
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+defaults:
+  retry:
+    attempts: 2
+    delay: 1s
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- It re-runs the whole test instance: setup, the call, checks and cleanup.
+- Each attempt generates fresh `${fake.*}` data.
+- A test's own [`retry`](/vc-rs/reference/syntax/retry/) replaces it.
+- It is not the same as [`http.retry`](/vc-rs/reference/config/http-retry/), which re-sends one request after a network error or a 502/503/504, before any check runs.
+
+<Aside>Retries hide real failures. Prefer fixing a flaky test over raising `attempts`.</Aside>
+
+## Common errors
+
+- [V1005](/vc-rs/reference/diagnostics/v1005/): `attempts` is missing.
+- [V2301](/vc-rs/reference/diagnostics/v2301/): `delay` is not a duration.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="http.retry" href="/vc-rs/reference/config/http-retry/" />
+  <LinkCard title="Test retry" href="/vc-rs/reference/syntax/retry/" />
+</CardGrid>

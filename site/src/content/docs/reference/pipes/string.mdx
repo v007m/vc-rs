@@ -1,0 +1,77 @@
+---
+title: "string"
+description: "Turn any value into text: numbers and booleans as written, lists and objects as compact JSON."
+sidebar: { order: 4 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`string` turns any value into text. Use it when the api wants `"7"` and the value is the number `7`.
+
+```yaml
+      orderId: ${var.order.id | string}   # 7 becomes "7"
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | any value | — | yes |  |
+| output | text | — | — | A list or object becomes compact JSON text. `null` becomes `"null"`. |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  order:
+    id: 7
+    items: [a, b]
+  yes: true
+  nothing: null
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.order.id \| string}` | `"7"` |
+| `${var.yes \| string}` | `"true"` |
+| `${var.order \| string}` | `"{\"id\":7,\"items\":[\"a\",\"b\"]}"` |
+| `${var.nothing \| string}` | `"null"` |
+
+Text passes through unchanged, so `string` is safe to add when you are not sure of the type.
+
+To embed a value in JSON text, prefer [`jsonString`](/vc-rs/reference/pipes/json-string/): it quotes text, while `string` does not.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: sendsTextId
+    call: sample#echo
+    vars:
+      order:
+        id: 7
+      payload:
+        orderId: \${var.order.id | string}
+`} />
+
+## How it behaves
+
+- It never fails.
+- Text is returned as is. For a list or object, the result is the same as `jsonString`.
+- A template inside other text already gives text, so `id-${var.order.id}` needs no `string`.
+
+## Common errors
+
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the value before the pipe is missing. Add `default` first.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="jsonString" href="/vc-rs/reference/pipes/json-string/" />
+  <LinkCard title="Types" href="/vc-rs/reference/templates/types/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

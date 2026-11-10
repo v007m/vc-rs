@@ -1,0 +1,244 @@
+---
+title: skip
+description: Park a test or a whole test file with a reason, and optionally an end date.
+sidebar: { order: 252, badge: { text: 'test', variant: 'note' } }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`skip` parks a test so it does not run. The reason is required and shows in every report, where the test counts as **skipped**. Written at the top of a test file, `skip` parks every test in the file.
+
+```yaml
+  - id: searchesUsers
+    skip: demo service has no search yet
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `skip` | string | — | no | The reason. Short form. |
+| `skip.reason` | string | — | yes | The reason, in the map form. |
+| `skip.until` | date `YYYY-MM-DD` | — | no | The last day of the skip, in UTC. After it, the test runs again and `vc check` warns (V3104). |
+
+`skip` can be written on a test or at the top of a test file.
+
+`vc run --include-skipped` runs skipped tests anyway. `vc skip` and `vc unskip` edit the YAML for you.
+
+## Examples
+
+```yaml title="services/sample/skip.test.yaml"
+id: sample.skip
+name: Skip
+
+tests:
+  - id: searchesUsers
+    name: Searches users by name
+    skip: demo service has no search yet
+    call: sample#listUsers
+
+  - id: listsUsersPaged
+    name: Lists users a page at a time
+    skip:
+      reason: "paging is flaky upstream, see #212"
+      until: 2027-01-31
+    call: sample#listUsers
+
+  - id: listsUsers
+    name: Lists users
+    skip:
+      reason: waiting on a fix
+      until: 2026-01-31
+    call: sample#listUsers
+
+  - id: getsUser
+    name: Gets a user
+    call: sample#getUser
+    vars:
+      userId: "1"
+```
+
+`listsUsers` has a skip that ended on 2026-01-31. `vc check` warns about it, and the test runs again:
+
+```console
+$ vc check
+warning[V3104]: this skip expired after 2026-01-31
+  --> services/sample/skip.test.yaml:21:14
+   |
+21 |       until: 2026-01-31
+   |              ^^^^^^^^^^ today is 2026-11-10
+   = note: an expired skip is ignored, so the test runs again
+   = help: remove the skip, or move `until` later if the reason still holds
+   = fix: Remove the skip (certain)
+```
+
+`vc plan` lists skipped tests, with their reasons, in their own section:
+
+```console
+$ vc plan sample.skip
+plan  2 tests in 1 file · 2 skipped · profile default
+sample.skip
+  sample.skip#listsUsers
+  sample.skip#getsUser
+skipped
+  sample.skip#searchesUsers: demo service has no search yet
+  sample.skip#listsUsersPaged: paging is flaky upstream, see #212
+```
+
+```console
+$ vc run sample.skip
+plan  2 tests in 1 file · 2 skipped · profile default
+
+- sample.skip#searchesUsers skipped: demo service has no search yet
+- sample.skip#listsUsersPaged skipped: paging is flaky upstream, see #212
+✓ sample.skip#getsUser                                            0ms
+✓ sample.skip#listsUsers                                          0ms
+
+2 passed · 2 skipped                                         4ms · profile default
+```
+
+### Run skipped tests anyway
+
+```console
+$ vc run sample.skip --include-skipped
+plan  4 tests in 1 file · profile default
+
+✓ sample.skip#listsUsers                                          3ms
+✓ sample.skip#getsUser                                            3ms
+✓ sample.skip#searchesUsers                                       3ms
+✓ sample.skip#listsUsersPaged                                     3ms
+
+4 passed                                                     5ms · profile default
+```
+
+### Skip a whole file
+
+A `skip` at the top of a file parks every test in it. The file's `beforeAll` does not run either:
+
+```yaml title="services/lab/skipfile.test.yaml"
+skip: search service is being rebuilt
+beforeAll:
+  - command: echo should-not-run > tmp/beforeall
+tests:
+  - id: one
+    call: sample#listUsers
+  - id: two
+    call: sample#listUsers
+```
+
+```console
+$ vc run lab.skipfile
+plan  0 tests in 0 files · 2 skipped · profile default
+
+- lab.skipfile#one skipped: search service is being rebuilt
+- lab.skipfile#two skipped: search service is being rebuilt
+
+0 passed · 2 skipped                                         0ms · profile default
+```
+
+A run where every test is skipped exits with 0.
+
+### Skip from the command line
+
+`vc skip` writes the `skip` block for you:
+
+```console
+$ vc skip 'sample.skip#getsUser' --reason "demo restarts at noon, see #7" --until 2026-11-30
+✓ skipped sample.skip#getsUser until 2026-11-30: demo restarts at noon, see #7
+```
+
+The test now reads:
+
+```yaml
+  - id: getsUser
+    name: Gets a user
+    call: sample#getUser
+    vars:
+      userId: "1"
+    skip:
+      reason: "demo restarts at noon, see #7"
+      until: 2026-11-30
+```
+
+`vc unskip` removes it again:
+
+```console
+$ vc unskip 'sample.skip#searchesUsers'
+✓ unskipped sample.skip#searchesUsers
+```
+
+Both take a test ID or a file ID. On a file ID, `vc skip` writes the short form at the top of the file:
+
+```console
+$ vc skip lab.par2 --reason "command loops under review"
+✓ skipped lab.par2: command loops under review
+```
+
+```yaml
+skip: command loops under review
+tests:
+  ...
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: searchesUsers
+    name: Searches users by name
+    skip:
+      reason: "demo service has no search yet, see #12"
+      until: 2027-01-31
+    call: sample#listUsers
+`} />
+
+## How it behaves
+
+- A skipped test does not run. Its `beforeEach`, `before` and cleanups don't run.
+- A skipped file's `beforeAll` and `afterAll` don't run.
+- After `until`, the skip is ignored and the test runs again. `vc check` warns with V3104 until the skip is removed.
+- Skipped tests count as skipped in every report. They are not failures, so a run with only skipped tests exits with 0.
+- `vc skip` quotes a reason that contains `#`, so YAML keeps it whole.
+
+## Common errors
+
+A `#` in an unquoted reason starts a YAML comment:
+
+```console
+warning[V3204]: YAML reads `#212` as a comment, cutting the value short
+ --> services/sample/skipbad.test.yaml:4:15
+  |
+4 |       reason: flaky, see #212
+  |               ^^^^^^^^^^^^^^^ the value ends before the `#`
+  = help: quote the value to keep the `#` and what follows it
+  = fix: Quote the value
+```
+
+An `until` that is not a date:
+
+```console
+error[V2302]: expected date (YYYY-MM-DD), found text
+ --> services/sample/skipbad.test.yaml:9:14
+  |
+9 |       until: next week
+  |              ^^^^^^^^^ expected date (YYYY-MM-DD)
+```
+
+A map without `reason` is V1005: ``a skip needs `reason` ``.
+
+<Aside type="caution">
+An empty reason, `skip: ""`, is accepted without a diagnostic. Always give a reason someone can act on.
+</Aside>
+
+- [V3104](/vc-rs/reference/diagnostics/v3104/): the skip has expired.
+- [V3204](/vc-rs/reference/diagnostics/v3204/): a `#` cut the value short.
+- [V2302](/vc-rs/reference/diagnostics/v2302/): the date is not `YYYY-MM-DD`.
+- [V1005](/vc-rs/reference/diagnostics/v1005/): `reason` is missing.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="retry" href="/vc-rs/reference/syntax/retry/" />
+  <LinkCard title="tags" href="/vc-rs/reference/syntax/tags/" />
+  <LinkCard title="CLI" href="/vc-rs/reference/cli/" />
+</CardGrid>

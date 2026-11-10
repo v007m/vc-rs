@@ -1,0 +1,112 @@
+---
+title: "paths"
+description: "Choose which files vc reads as definitions with paths.include and paths.exclude globs."
+sidebar: { order: 12 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`paths` limits which files are read as api, test and load definitions. Each key is a list of globs, relative to the project root.
+
+```yaml title="vibranium.config.yaml"
+paths:
+  include: ["services/**"]
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `paths.include` | list of globs | every file | no | Only files that match are read. |
+| `paths.exclude` | list of globs | `node_modules` and `.vibranium` | no | Files that match are skipped. A written list replaces the default. |
+
+## Examples
+
+The project has `services/sample/`, `legacy/old.test.yaml` and `node_modules/x/nm.test.yaml`. With no `paths`, `node_modules` is skipped:
+
+```console
+$ vc list files
+legacy.old
+sample.basics
+sample
+```
+
+Read only `services/`:
+
+```yaml title="vibranium.config.yaml"
+paths:
+  include: ["services/**"]
+```
+
+```console
+$ vc list files
+sample.basics
+sample
+```
+
+Skip `legacy/`. A written `exclude` replaces the default one, so `node_modules` is now read:
+
+```yaml title="vibranium.config.yaml"
+paths:
+  exclude: ["legacy/**"]
+```
+
+```console
+$ vc list files
+node_modules.x.nm
+sample.basics
+sample
+```
+
+Keep the defaults by writing them out:
+
+```yaml title="vibranium.config.yaml"
+paths:
+  exclude: ["legacy/**", "node_modules/**", ".vibranium/**"]
+```
+
+```console
+$ vc list files
+sample.basics
+sample
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+paths:
+  include: ["services/**"]
+  exclude: ["services/**/drafts/**", "node_modules/**", ".vibranium/**"]
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- `vibranium.config.yaml` is always read.
+- Files ignored by `.gitignore` are not read either.
+- A file's ID still comes from its path. `paths` does not change IDs.
+- Quote globs that start with `*`, since YAML reads a bare `*` as an alias.
+
+<Aside type="caution">A written `exclude` drops the default excludes. Add `node_modules/**` and `.vibranium/**` back if you need them.</Aside>
+
+## Common errors
+
+- [V2302](/vc-rs/reference/diagnostics/v2302/): a single glob instead of a list, such as `include: services/**`.
+
+```console
+error[V2302]: expected list of text, found text
+ --> vibranium.config.yaml:6:12
+  |
+6 |   include: services/**
+  |            ^^^^^^^^^^^ expected list of text
+```
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Project config" href="/vc-rs/reference/config/" />
+  <LinkCard title="datasets" href="/vc-rs/reference/config/datasets/" />
+</CardGrid>

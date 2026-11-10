@@ -1,0 +1,124 @@
+---
+title: "vibranium.lock"
+description: "The lock file that records each approved plugin with its source, resolved version, integrity hash and the permissions you granted."
+sidebar: { order: 5 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`vibranium.lock` records each plugin you approved and what it may reach. `vc plugin add` and `vc plugin remove` write it. Commit it, and review changes to it like code.
+
+```yaml title="vibranium.lock"
+# The plugins `vc plugin add` approved, with what each may reach. Written by vc; commit it and
+# review changes to it like code. A run refuses a plugin that asks for more than this grants.
+lockVersion: 1
+plugins:
+  - id: summary
+    source: path:plugins/summary
+    resolved: plugins/summary
+    integrity: blake3-a11084702bbbbdcc343769f53f65a837ba6bdb6cec8505937e79a93b3082b386
+    permissions:
+      network: []
+      secrets: [reportToken]
+      files: []
+```
+
+## Syntax
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `lockVersion` | number | `1` |
+| `plugins[].id` | camelCase word | The plugin's ID |
+| `plugins[].source` | text | As written in the config: `npm:…` or `path:…` |
+| `plugins[].resolved` | text | The folder for a `path:` source, or the exact package version for `npm:` |
+| `plugins[].integrity` | text | `blake3-…` over the folder's files for `path:`, npm's own hash for `npm:` |
+| `plugins[].permissions` | `network`, `secrets`, `files` lists | What you approved |
+
+You never edit this file by hand.
+
+## Examples
+
+**Two plugins.**
+
+```yaml
+lockVersion: 1
+plugins:
+  - id: stamp
+    source: path:plugins/stamp
+    resolved: plugins/stamp
+    integrity: blake3-5d2b236bd2f863cf6f724276c99c6bead89a55c72638b0da32478b52fbfcaf80
+    permissions:
+      network: []
+      secrets: [stampKey]
+      files: []
+  - id: summary
+    source: path:plugins/summary
+    resolved: plugins/summary
+    integrity: blake3-a11084702bbbbdcc343769f53f65a837ba6bdb6cec8505937e79a93b3082b386
+    permissions:
+      network: []
+      secrets: [reportToken]
+      files: []
+```
+
+**Files changed after approval.** Someone edited the installed copy of a `path:` plugin. The run refuses it on its first call:
+
+```console
+warning: cannot write the `summary` report: plugin `summary` could not start: V5118: its installed files changed since vibranium.lock approved them: write state to $VIB_PLUGIN_DATA; re-approve with `vc plugin add` if the change was intended
+```
+
+**The manifest asks for more than the lock grants.** A new secret was added to `permissions`:
+
+```console
+$ vc plugin list
+summary  reporter 1.0.0  path:plugins/summary  asks for more: secret reportToken; `vc plugin add` it again  may reach: nothing
+```
+
+Run `vc plugin add path:plugins/summary` again to approve it.
+
+**A plugin missing from the lock.** The config names it, but nobody approved it. An auth that uses it fails:
+
+```console
+$ vc plugin list
+stamp  auth 0.1.0  path:plugins/stamp  not approved: `vc plugin add` it  may reach: nothing
+
+$ vc call sample#echoStamped
+✗ credentials could not be obtained: the `partnerStamp` auth plugin failed: plugin `stamp` cannot be used: not approved: `vc plugin add` it
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: summary
+    source: path:plugins/summary
+reports:
+  formats: [ctrf, summary]
+`} />
+
+## How it behaves
+
+- For a `path:` plugin, the hash covers the installed files, skipping `.git`, `.vibranium` and `__pycache__`. The run checks it again on the plugin's first call, and only for a plugin the run uses.
+- For an `npm:` plugin, the integrity is npm's hash of the tarball, checked when it is fetched.
+- A plugin must not write into its install folder, because that changes the hash. It keeps its files in `$VIB_PLUGIN_DATA` instead.
+- A run refuses a plugin whose manifest asks for more than its lock entry grants, and one that is not in the lock at all.
+
+<Aside>
+The lock is a review point, not a sandbox. It decides which secrets a plugin gets, and makes changes to a plugin visible in a diff. See [Permissions](/vc-rs/reference/plugins/permissions/).
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5118](/vc-rs/reference/diagnostics/v5118/) | The installed files changed since approval, or the plugin asked for a secret it was not granted |
+
+## Related
+
+- [vc plugin commands](/vc-rs/reference/plugins/commands/)
+- [vibranium-plugin.yaml](/vc-rs/reference/plugins/manifest/)
+- [Permissions](/vc-rs/reference/plugins/permissions/)

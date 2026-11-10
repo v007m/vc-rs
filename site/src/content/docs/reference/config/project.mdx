@@ -1,0 +1,65 @@
+---
+title: "project"
+description: "The project's display name, shown in CTRF and JUnit reports."
+sidebar: { order: 11 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`project` names the project in reports. `vc init` writes the folder name.
+
+```yaml title="vibranium.config.yaml"
+project: shop-api
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `project` | text | `vibranium` | no | Free text. |
+
+## Examples
+
+`vc init` in a folder named `pp` writes:
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+project: pp
+```
+
+With `project: try-syntax-b`, the CTRF report says:
+
+```json title=".vibranium/reports/36/ctrf.json"
+"environment": {
+  "appName": "try-syntax-b"
+}
+```
+
+and the JUnit report says:
+
+```xml title=".vibranium/reports/36/junit.xml"
+<testsuites name="try-syntax-b" tests="1" failures="1" errors="0" skipped="0" time="0.141">
+```
+
+Without `project`, both say `vibranium`.
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+project: shop-api
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- It is only a label. It does not change which files are read or which IDs tests get.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="reports" href="/vc-rs/reference/config/reports/" />
+  <LinkCard title="Project config" href="/vc-rs/reference/config/" />
+</CardGrid>

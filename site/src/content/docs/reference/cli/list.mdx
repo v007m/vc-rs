@@ -1,0 +1,135 @@
+---
+title: "vc list"
+description: "Lists the tests, apis or definition files in a project, filtered by the same selectors as vc run."
+sidebar: { order: 6 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Lists the tests, apis or definition files in the project. For tests, it takes the same [selectors](/vc-rs/reference/cli/#selectors) as `vc run`, so you can check what a selector picks before running it.
+
+```console
+$ vc list [OPTIONS] <KIND> [SELECTORS]...
+```
+
+`<KIND>` is required:
+
+| Kind | Lists |
+| --- | --- |
+| `tests` | The selected tests, skipped ones included and marked `(skipped)` |
+| `apis` | Every api |
+| `files` | Every definition file: api, test and load files |
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `-t`, `--tag` | `<TAGS>` | | Only tests with this tag expression. `!` excludes, `,` means or. Repeat to require every one |
+| `-g`, `--grep` | `<TEXT>` | | Only tests whose full ID or name contains this text, ignoring case |
+| `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
+| `--include-skipped` | | | Also lists the skipped tests, without the `(skipped)` marker |
+| `--skipped` | | | Lists only the skipped tests |
+| `--json` | | | Prints the list as JSON on stdout |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### Tests in two files
+
+```console
+$ vc list tests sample.basics sample.extra
+sample.basics#listsUsers  Lists users  [sample]
+sample.basics#createsUser  Creates a user with the given email  [sample]
+sample.basics#getsCreatedUser  Returns the user that was just created  [sample]
+sample.basics#rejectsMissingEmail  Rejects a user without an email  [sample]
+sample.extra#echoesBody  Echoes the body back  [extra, smoke]
+sample.extra#rejectsBadEmail  Rejects a bad email  [extra]
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+```
+
+Each line is the full ID, the name and the tags.
+
+### Filter by tag and text
+
+```console
+$ vc list tests -t '!sample' -t extra
+sample.extra#echoesBody  Echoes the body back  [extra, smoke]
+sample.extra#rejectsBadEmail  Rejects a bad email  [extra]
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+$ vc list tests -g ada -t slow
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+```
+
+### Only the skipped tests
+
+```console
+$ vc list tests --skipped
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+```
+
+The reason is not shown here. [`vc plan`](/vc-rs/reference/cli/plan/) prints each skipped test with its reason.
+
+### Apis and files
+
+```console
+$ vc list apis
+sample#listUsers  List users
+sample#createUser  Create a user
+sample#getUser  Get a user
+sample#deleteUser  Delete a user
+$ vc list files
+sample.smoke
+sample.basics
+sample.extra
+sample
+```
+
+`vc list apis` and `vc list files` always list everything; test selectors do not apply to them.
+
+### JSON
+
+```console
+$ vc list apis --json
+[
+  {
+    "id": "sample#listUsers",
+    "name": "List users",
+    "path": "services/sample/sample.api.yaml",
+    "skipped": false,
+    "tags": []
+  },
+  ...
+]
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | The list printed |
+| `2` | `<KIND>` is missing, the project has errors, or a selector matches nothing |
+
+```console
+$ vc list tests zzz
+error: no test or test file matches `zzz`
+```
+
+## JSON output
+
+An array with one object per item, the same shape for every kind:
+
+| Field | Holds |
+| --- | --- |
+| `id` | The full ID: `file#id` for tests and apis, the file ID for files |
+| `name` | The `name`, or `null` when there is none |
+| `path` | The file, relative to the project root |
+| `skipped` | `true` when the test is skipped |
+| `tags` | The test's tags, file tags included |
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Selectors" href="/vc-rs/reference/cli/#selectors" description="Every way to pick tests." />
+  <LinkCard title="vc plan" href="/vc-rs/reference/cli/plan/" description="The order a run would use." />
+  <LinkCard title="vc explain" href="/vc-rs/reference/cli/explain/" description="Look inside one test or api." />
+</CardGrid>

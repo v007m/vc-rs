@@ -1,0 +1,160 @@
+---
+title: "length"
+description: "The length matcher checks the length of a string, list or object."
+sidebar: { order: 23 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`length` passes when the number of characters, items or keys equals the argument, or matches a nested matcher.
+
+```yaml
+expect:
+  body:
+    match:
+      body.tags: {length: 2}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `length` | whole number or matcher | — | yes | Counts characters in a string, items in a list, keys in an object. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### An exact count
+
+
+
+```yaml title="services/sample/length.test.yaml"
+tests:
+  - id: twoTags
+    name: Two tags
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.tags: {length: 2}
+```
+
+```console
+$ vc run sample.length#twoTags
+plan  1 test in 1 file · profile default
+
+✓ sample.length#twoTags                                           0ms
+
+1 passed                                                     31ms · profile default
+```
+
+### A range of lengths
+
+Pass a matcher instead of a number.
+
+```yaml title="services/sample/length.test.yaml"
+tests:
+  - id: idLongEnough
+    name: ID has at least 5 characters
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {length: {gte: 5}}
+```
+
+```console
+$ vc run sample.length#idLongEnough
+plan  1 test in 1 file · profile default
+
+✓ sample.length#idLongEnough                                     27ms
+
+1 passed                                                     56ms · profile default
+```
+
+### Count keys and list paths
+
+An object's length is its number of keys. A `[*]` path makes a list, so `length` counts its items.
+
+```yaml title="services/sample/length.test.yaml"
+tests:
+  - id: counts
+    name: Counts
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[0]: {length: 2}
+          body.items[*].sku: {length: 2}
+```
+
+```console
+$ vc run sample.length#counts
+plan  1 test in 1 file · profile default
+
+✓ sample.length#counts                                            0ms
+
+1 passed                                                     11ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/length.test.yaml"
+tests:
+  - id: failsOnItems
+    name: Three items
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items: {length: 3}
+```
+
+```console
+$ vc run sample.length#failsOnItems
+plan  1 test in 1 file · profile default
+
+✕ sample.length#failsOnItems                                      0ms
+  error[V5101]: expect.body.match.body.items
+    --> services/sample/length.test.yaml:30:23
+     |
+  30 |           body.items: {length: 3}
+     |                       ^^^^^^^^^^^ expected {"length":3}, got [{"price":10,"sku":"A1"},{"price":32.5,"sku":"B2"}]
+
+0 passed · 1 failed                                          77ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: twoTags
+    name: Two tags
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.tags: {length: 2}
+`} />
+
+## How it behaves
+
+- Strings count characters, lists count items, objects count keys.
+- A missing value, a number or `null` fails.
+- With a nested matcher, the length is checked with that matcher, such as `{length: {between: [1, 10]}}`.
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): the argument is not a whole number or a matcher: `length takes a whole number or a matcher`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [empty](/vc-rs/reference/matchers/empty/)
+- [between](/vc-rs/reference/matchers/between/)
+- [every](/vc-rs/reference/matchers/every/)
+- [All matchers](/vc-rs/reference/matchers//)

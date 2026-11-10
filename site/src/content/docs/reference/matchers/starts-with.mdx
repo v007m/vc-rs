@@ -1,0 +1,134 @@
+---
+title: "startsWith"
+description: "The startsWith matcher checks that a string begins with a prefix."
+sidebar: { order: 26 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`startsWith` passes when a string begins with the argument.
+
+```yaml
+expect:
+  body:
+    match:
+      body.id: {startsWith: ord_}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `startsWith` | string | — | yes | Case-sensitive. Strings only. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Check an ID prefix
+
+
+
+```yaml title="services/sample/startswith.test.yaml"
+tests:
+  - id: isOrderId
+    name: ID starts with ord_
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {startsWith: ord_}
+```
+
+```console
+$ vc run sample.startswith#isOrderId
+plan  1 test in 1 file · profile default
+
+✓ sample.startswith#isOrderId                                     6ms
+
+1 passed                                                     7ms · profile default
+```
+
+### Check every element
+
+Combine with [every](/vc-rs/reference/matchers/every/) over a list path.
+
+```yaml title="services/sample/startswith.test.yaml"
+tests:
+  - id: skusAreLetters
+    name: Every SKU starts with a capital A or B
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].sku: {every: {regex: "^[AB]"}}
+```
+
+```console
+$ vc run sample.startswith#skusAreLetters
+plan  1 test in 1 file · profile default
+
+✓ sample.startswith#skusAreLetters                               15ms
+
+1 passed                                                     100ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/startswith.test.yaml"
+tests:
+  - id: failsOnPrefix
+    name: ID starts with inv_
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {startsWith: inv_}
+```
+
+```console
+$ vc run sample.startswith#failsOnPrefix
+plan  1 test in 1 file · profile default
+
+✕ sample.startswith#failsOnPrefix                                47ms
+  error[V5101]: expect.body.match.body.id
+    --> services/sample/startswith.test.yaml:22:20
+     |
+  22 |           body.id: {startsWith: inv_}
+     |                    ^^^^^^^^^^^^^^^^^^ expected {"startsWith":"inv_"}, got "ord_123"
+
+0 passed · 1 failed                                          49ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: isOrderId
+    name: ID starts with ord_
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {startsWith: ord_}
+`} />
+
+## How it behaves
+
+- The match is case-sensitive.
+- Only strings can pass. A number or a missing value fails.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [endsWith](/vc-rs/reference/matchers/ends-with/)
+- [contains](/vc-rs/reference/matchers/contains/)
+- [regex](/vc-rs/reference/matchers/regex/)
+- [All matchers](/vc-rs/reference/matchers//)

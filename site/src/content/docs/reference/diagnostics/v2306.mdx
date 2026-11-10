@@ -1,0 +1,104 @@
+---
+title: "V2306 — Matcher argument invalid"
+description: "A matcher's argument is not one it accepts: an unknown type, a regex that does not compile, or a between without exactly two values."
+sidebar:
+  label: "V2306 Matcher argument invalid"
+  order: 2306
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2306` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A matcher's argument is not one it accepts: an unknown `type`, a `regex` that does not compile, or a `between` without
+exactly two values. The diagnostic says what the matcher needs.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    expect:
+      body:
+        match:
+          id: {type: strng}
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    expect:
+      body:
+        match:
+          id: {type: string}
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/crud.test.yaml"
+id: users.crud
+name: Users CRUD
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+    expect:
+      body:
+        match:
+          id: {type: strng}
+```
+
+```console
+$ vc check
+error[V2306]: `type` does not know `strng`
+  --> services/users/crud.test.yaml:10:22
+   |
+10 |           id: {type: strng}
+   |                      ^^^^^
+   = help: did you mean `string`?
+   = fix: Replace with string (certain)
+
+1 error · 0 warnings · 3 files checked
+$ echo $?
+2
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2306
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

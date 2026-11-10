@@ -1,0 +1,19 @@
+name: Echo service
+baseUrl: ${var.echoUrl}
+
+apis:
+  - id: search
+    name: Search, echoed back
+    path: /echo
+    query:
+      q: ${var.term}
+      limit: ${var.limit}
+    vars:
+      limit: 10
+    expect:
+      status: 200
+
+  - id: whoAmI
+    name: Show the request headers
+    path: /echo
+    auth: demoLogin

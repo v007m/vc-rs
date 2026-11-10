@@ -1,0 +1,217 @@
+---
+title: expect
+description: The checks a response must pass. Written on an api, a test, a step or an action, and merged from the least to the most specific level.
+sidebar: { order: 400, badge: { text: 'api + test', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`expect` lists the checks a response must pass. It has the same shape everywhere it appears: on an api, a test, a step, an action and in `poll.until`.
+
+```yaml
+apis:
+  - id: create
+    method: POST
+    path: /users
+    body:
+      name: Ada Lovelace
+      email: ada@example.com
+    expect:
+      status: 201
+      body:
+        match:
+          id:
+            type: string
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `status` | code, class, list or matcher | `2xx` when no level sets it | no | See [status](/vc-rs/reference/syntax/status/). Cannot be templated. |
+| `headers` | map of header name to literal or matcher | none | no | Names are case-insensitive. See [headers](/vc-rs/reference/syntax/expect-headers/). |
+| `body` | map with `match`, `equals`, `schema` | none | no | See [body](/vc-rs/reference/syntax/expect-body/). |
+| `size` | matcher on the body size | none | no | Sizes such as `2kb`. See [size](/vc-rs/reference/syntax/size/). |
+| `timing` | map of phase to matcher | none | no | `dns`, `connect`, `tls`, `firstByte`, `download`, `total`. See [timing](/vc-rs/reference/syntax/timing/). |
+| `cel` | map of label to CEL expression | none | no | Each must be true. See [cel](/vc-rs/reference/syntax/cel/). |
+| `custom` | list of `function: path#export` | none | no | A hook function decides. See [custom](/vc-rs/reference/syntax/custom/). |
+| `replace` | boolean | `false` | no | Drop every inherited check. See [replace](/vc-rs/reference/syntax/replace/). |
+
+Any other key is error [V1004](/vc-rs/reference/diagnostics/v1004/).
+
+## Examples
+
+**Checks that always hold, on the api.** Every test that calls `users#create` gets these three checks for free.
+
+```yaml
+# services/users/users.api.yaml
+apis:
+  - id: create
+    method: POST
+    path: /users
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+      headers:
+        content-type:
+          contains: json
+      body:
+        match:
+          id:
+            type: string
+```
+
+**Add a check in the test.** The test keeps the api's checks and adds one for the email. `vc explain` shows the merged list and where each check came from:
+
+```yaml
+# services/users/crud.test.yaml
+tests:
+  - id: createsMember
+    call: users#create
+    vars:
+      email: ada@example.com
+    expect:
+      body:
+        match:
+          email: ada@example.com
+```
+
+```console
+$ vc explain users.crud#createsMember
+...
+  expect
+    status: 201  (api users#create)
+    header content-type: contains  (api users#create)
+    match id: type  (api users#create)
+    match email: equals  (test users.crud#createsMember)
+```
+
+**A negative test.** Writing `status` in the test replaces the api's `status: 201`. The api's other checks still apply, so the body check on `id` would fail on a 400 response. Override that check too, by writing the same path:
+
+```yaml
+  - id: rejectsMissingEmail
+    call: users#create
+    body:
+      name: No Email
+    expect:
+      status: 400
+      body:
+        match:
+          id:
+            exists: false
+          error:
+            contains: email
+```
+
+Without the `id` override the run reports the inherited check:
+
+```console
+✕ users.crud#rejectsMissingEmail                                  3ms
+  error[V5101]: expect.body.match.id
+    --> services/users/users.api.yaml:20:13
+     |
+  20 |             type: string
+     |             ^^^^^^^^^^^^ expected {"type":"string"}, got nothing
+     = note: expected by api users#create
+```
+
+**Start from nothing.** `replace: true` drops every inherited check, so only the checks written here run.
+
+```yaml
+  - id: answersAnything
+    call: users#create
+    body:
+      name: No Email
+    expect:
+      replace: true
+      status: 4xx
+```
+
+**Every kind of check together.** All checks run, even after one fails, and each failure is reported on its own line.
+
+```yaml
+expect:
+  status: [200, 201]
+  headers:
+    content-type:
+      contains: json
+  body:
+    schema:
+      $file: ../../schemas/user.json
+    match:
+      tags:
+        length:
+          gte: 1
+  size:
+    lt: 100kb
+  timing:
+    total:
+      lt: 500ms
+  cel:
+    has tags: size(response.body.tags) > 0
+  custom:
+    - function: ../../hooks/checks.ts#tagsSorted
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: createsMember
+    call: users#create
+    vars:
+      email: ada@example.com
+    expect:
+      status: 201
+      headers:
+        content-type:
+          contains: json
+      body:
+        match:
+          email: ada@example.com
+          id:
+            type: string
+      cel:
+        has an id: has(response.body.id)
+`} />
+
+## How it behaves
+
+- **Levels.** Checks come from the api, then the test, then the step (or action). The more specific level wins.
+- **Keys.** Each check has a key made of its kind and its path: `status`, `header content-type`, `match body.word`, `match body`. A check with the same key at a more specific level replaces the inherited one. Every other inherited check still applies.
+- **Header names** are compared without case, so a test's `Content-Type` replaces an api's `content-type`.
+- **Paths are compared as written.** A nested map `body: { word: hi }` is the path `body`, which is not the same key as the dotted path `body.word`. Both checks run.
+- **`cel` and `custom` checks are only added.** A test's `cel` check with the same label as the api's does not replace it; both run.
+- **`replace: true`** drops every inherited check. See [replace](/vc-rs/reference/syntax/replace/).
+- **Default status.** When no level writes `status`, the call must return `2xx`. This holds even when the api has other checks, and even under `replace: true`. A failing call reports `expected ["2xx"], got 404` with the note `expected by api dflt#bare`. To accept another status, write `status` at some level.
+- **Steps.** A test-level `expect` on a test with `steps` is a default for every `call` and `test:` step. A step's own `expect` merges over it in the same way. `function` and `command` steps take no defaults.
+- **All checks run.** A failing check does not stop the others for the same response. A failing step does stop the test.
+- **Templates.** Literal values in `headers`, `body.match` and `body.equals` can use `${…}` templates, such as `body.word: ${var.word}`. `status` cannot be templated ([V2303](/vc-rs/reference/diagnostics/v2303/)). `cel` uses CEL roots instead of templates.
+
+`vc explain <testId>` prints the merged checks for a test, with the level each came from.
+
+<Aside type="note">
+`vc explain` does not list the default `status: 2xx`, although the run applies it.
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V1004](/vc-rs/reference/diagnostics/v1004/) | An unknown key under `expect`, or an unknown matcher name. |
+| [V2303](/vc-rs/reference/diagnostics/v2303/) | `status` is not a code, a class or a matcher, or is a template. |
+| [V2301](/vc-rs/reference/diagnostics/v2301/) | A `size` or `timing` value is not a valid size or duration. |
+| [V2305](/vc-rs/reference/diagnostics/v2305/) | A CEL expression does not parse. |
+| [V3206](/vc-rs/reference/diagnostics/v3206/) | A test-level `expect` that no step uses. |
+| [V5101](/vc-rs/reference/diagnostics/v5101/) | A check failed at run time. |
+| [V5102](/vc-rs/reference/diagnostics/v5102/) | A CEL check was false or could not be evaluated. |
+| [V5103](/vc-rs/reference/diagnostics/v5103/) | A custom check failed. |
+
+## Related
+
+- [status](/vc-rs/reference/syntax/status/), [headers](/vc-rs/reference/syntax/expect-headers/), [body](/vc-rs/reference/syntax/expect-body/), [size](/vc-rs/reference/syntax/size/), [timing](/vc-rs/reference/syntax/timing/), [cel](/vc-rs/reference/syntax/cel/), [custom](/vc-rs/reference/syntax/custom/), [replace](/vc-rs/reference/syntax/replace/)
+- [Matchers](/vc-rs/reference/matchers/)
+- [steps](/vc-rs/reference/syntax/steps/) for test-level defaults
+- [poll](/vc-rs/reference/syntax/poll/), whose `until` takes the same shape

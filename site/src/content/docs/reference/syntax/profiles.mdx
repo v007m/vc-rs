@@ -1,0 +1,209 @@
+---
+title: profiles
+description: Per-profile vars in an api or test file that override that file's own vars.
+sidebar:
+  order: 104
+  badge: { text: 'api + test', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A file's `profiles` list changes that file's `vars` when a profile is active. Use it for values that differ by environment but belong to one service, such as a region or a currency.
+
+```yaml title="services/prof/checkout.test.yaml"
+vars:
+  currency: USD
+profiles:
+  - id: eu
+    vars:
+      currency: EUR
+```
+
+## Syntax
+
+`profiles` is a top-level key of an api or test file. The project's profiles themselves are declared in [`vibranium.config.yaml`](/vc-rs/reference/config/); a file can only add vars to them.
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `profiles[].id` | profile ID | — | yes | Must be a profile the config declares (V2002) |
+| `profiles[].vars` | map | — | no | Overrides the file's `vars` while this profile is active |
+
+Pick the active profile with `--profile <id>` (or `VIB_PROFILE`). Without it, the config profile marked `default: true` applies. Several profiles apply in order, later ones winning: `--profile staging,eu`.
+
+## Examples
+
+### A test file with an `eu` profile
+
+The config declares the profiles:
+
+```yaml title="vibranium.config.yaml (excerpt)"
+profiles:
+  - id: default
+    default: true
+  - id: staging
+    vars:
+      f: from-config-staging
+  - id: eu
+    vars:
+      f: from-config-eu
+```
+
+The test file overrides its own `currency` under `eu`:
+
+```yaml title="services/prof/checkout.test.yaml"
+vars:
+  currency: USD
+profiles:
+  - id: eu
+    vars:
+      currency: EUR
+tests:
+  - id: sendsCurrency
+    call: prof#show
+    body:
+      currency: ${var.currency}
+      f: ${var.f}
+    expect:
+      body:
+        match:
+          body.currency: EUR
+```
+
+With `eu` active, the test passes:
+
+```console
+$ vc run prof.checkout --profile staging,eu
+✓ prof.checkout#sendsCurrency                                     2ms
+
+1 passed                                                     4ms · profiles staging, eu
+```
+
+With the default profile, `currency` stays `USD`:
+
+```console
+$ vc run prof.checkout
+✕ prof.checkout#sendsCurrency                                     2ms
+  error[V5101]: expect.body.match.body.currency
+    --> services/prof/checkout.test.yaml:16:26
+     |
+  16 |           body.currency: EUR
+     |                          ^^^ expected "EUR", got "USD"
+
+0 passed · 1 failed                                          3ms · profile default
+```
+
+`vc explain` shows which profile set each value. `staging` and `eu` both set `f` in the config, and `eu` wins because it is listed last:
+
+```console
+$ vc explain prof.checkout#sendsCurrency --profile staging,eu
+prof.checkout#sendsCurrency
+profile  staging, eu
+call prof#show
+  POST http://localhost:7433/echo
+  vars
+    ...
+    f  from-config-eu  (profile eu)
+    region  us  (file prof, profile staging)
+    currency  EUR  (file prof.checkout, profile eu)
+```
+
+### An api file with a `staging` profile
+
+```yaml title="services/prof/prof.api.yaml"
+baseUrl: ${var.sampleUrl}
+vars:
+  region: eu
+  tier: free
+profiles:
+  - id: staging
+    vars:
+      region: us
+      tier: pro
+apis:
+  - id: show
+    method: POST
+    path: /echo
+    vars:
+      tier: paid
+    body:
+      region: ${var.region}
+      tier: ${var.tier}
+```
+
+```console
+$ vc explain prof#show --profile staging
+prof#show
+profile  staging
+  POST http://localhost:7433/echo
+  vars
+    ...
+    region  us  (file prof, profile staging)
+    tier  paid  (api prof#show)
+```
+
+`region` switches to `us`. `tier` stays `paid`: the api's own `vars` sit above the file, so a file profile cannot override them. Profiles only replace values at their own level.
+
+### Where file profiles sit among the levels
+
+| Level (closest first) | Profile overrides |
+| --- | --- |
+| Test, step or action `vars` | — |
+| Values saved during the test | — |
+| Test file `vars` | the test file's `profiles` |
+| api `vars` | — |
+| api file `vars` | the api file's `profiles` |
+| Config `vars` | the config's `profiles` |
+
+A file's own vars, even without a profile, still beat a config profile. With `staging` active, a `zone` set in the api file wins over the same name in the config's `staging` profile:
+
+```console
+$ vc explain prof#show --profile staging
+...
+    zone  from-api-file  (file prof)
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`
+vars:
+  currency: USD
+profiles:
+  - id: eu
+    vars:
+      currency: EUR
+tests:
+  - id: sendsCurrency
+    call: sample#listUsers
+    query:
+      currency: \${var.currency}
+`} />
+
+## How it behaves
+
+- A file profile overrides that file's `vars` only, and only while the profile is active.
+- Every `id` must exist in the config. A typo is an error, not a silent no-op.
+- With several active profiles, they apply in the order given; a later one wins for the same name.
+- Profile vars can be templates, just like `vars`.
+
+## Common errors
+
+```console
+$ vc check
+error[V2002]: unknown profile `qa`
+  --> services/prof/prof.api.yaml:10:9
+   |
+10 |   - id: qa
+   |         ^^ the config has no such profile
+   = help: expected one of `default`, `staging`
+```
+
+| Code | When |
+| --- | --- |
+| [V2002](/vc-rs/reference/diagnostics/v2002/) | The file names a profile the config does not declare |
+| [V3101](/vc-rs/reference/diagnostics/v3101/) | No profile is active for the run |
+
+## Related
+
+- [`vars`](/vc-rs/reference/syntax/vars/)
+- [Config profiles](/vc-rs/reference/config/)

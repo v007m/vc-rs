@@ -1,0 +1,236 @@
+---
+title: forEach
+description: Run one step once per element of a list, with the element in ${item}.
+sidebar: { order: 242, badge: { text: 'step', variant: 'note' } }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`forEach` runs one step or action once for each element of a list. The current element is `${item}`. It works on steps and on actions in lifecycle blocks such as `beforeAll`. To run a whole test once per row, use [`examples`](/vc-rs/reference/syntax/examples/).
+
+```yaml
+      - call: sample#createUser
+        forEach: [ann@example.com, bob@example.com]
+        vars:
+          email: ${item}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `forEach` | list | — | no | A literal list. One iteration per element. |
+| `forEach` | template | — | no | A template that gives a list: `${var.emails}` or `${dataset.people}`. |
+| `forEach` | `$file: <path>` | — | no | A YAML, JSON or CSV list in a file. The path is relative to the test file. |
+| `${item}` | any value | — | — | The current element. `${item.email}` reads a field of a row. |
+| `${iteration.index}`, `${iteration.count}` | integer | — | — | The current iteration, from 1, and the list's length. |
+
+Iterations run one after another unless the step also has [`parallel`](/vc-rs/reference/syntax/parallel/).
+
+## Examples
+
+All three tests below come from one file, and all pass against `vc demo`:
+
+```yaml title="services/sample/loops.test.yaml"
+id: sample.loops
+name: Loops
+
+beforeAll:
+  - id: team
+    call: sample#createUser
+    forEach: ${dataset.people}
+    parallel: 2
+    vars:
+      email: ${item.email}
+      name: ${item.name}
+
+tests:
+  - id: createsOneUserPerEmail
+    name: Creates one user per email
+    steps:
+      - call: sample#createUser
+        forEach: [ann@example.com, bob@example.com, cy@example.com]
+        vars:
+          email: ${item}
+
+  - id: keepsEveryCreatedUser
+    name: Saves one entry per iteration, in order
+    steps:
+      - call: sample#createUser
+        forEach:
+          - email: ann@example.com
+            name: Ann
+          - email: bob@example.com
+            name: Bob
+        vars:
+          email: ${item.email}
+          name: ${item.name}
+        save:
+          made:
+            id: ${response.body.id}
+            email: ${response.body.email}
+      - call: sample#getUser
+        vars:
+          userId: ${var.made[1].id}
+        expect:
+          status: 200
+          cel:
+            two users made: size(var.made) == 2
+            emails in order: var.made.map(u, u.email) == ['ann@example.com', 'bob@example.com']
+
+  - id: readsTheSharedTeam
+    name: Reads a user the file's beforeAll made
+    call: sample#getUser
+    vars:
+      userId: ${var.team.userId[0]}
+    expect:
+      status: 200
+```
+
+```console
+$ vc run sample.loops
+plan  3 tests in 1 file · lifecycle: beforeAll team · profile default
+
+✓ sample.loops#readsTheSharedTeam                                 1ms
+✓ sample.loops#createsOneUserPerEmail                             5ms
+✓ sample.loops#keepsEveryCreatedUser                              5ms
+
+3 passed                                                     46ms · profile default
+```
+
+What each part shows:
+
+- `createsOneUserPerEmail` loops over a literal list of strings, so `${item}` is a string.
+- `keepsEveryCreatedUser` loops over a list of maps, so `${item.email}` reads a field. The `save` inside the loop collects a list, `var.made`, with one entry per iteration, in order.
+- `team` in `beforeAll` loops over a dataset, two at a time. The api's own `save` (`userId`) also becomes a list, shared under the action's id as `${var.team.userId}`.
+
+### A list from a var
+
+```yaml
+vars:
+  emails: [x@example.com, y@example.com]
+tests:
+  - id: createsFromVar
+    steps:
+      - call: sample#createUser
+        forEach: ${var.emails}
+        vars:
+          email: ${item}
+```
+
+### A list from a file
+
+```yaml
+      - call: sample#createUser
+        forEach:
+          $file: rows.yaml
+        vars:
+          email: ${item.email}
+```
+
+`rows.yaml` sits next to the test file. A `.json` or `.csv` file works the same way.
+
+### One field from every iteration
+
+`[*]` reads one field from each saved entry:
+
+```yaml
+      - call: sample#createUser
+        forEach: [ann@example.com, bob@example.com, cy@example.com]
+        vars:
+          email: ${item}
+        save:
+          made:
+            id: ${response.body.id}
+            email: ${response.body.email}
+      - call: echo#json
+        vars:
+          name: ${var.made[*].email}
+        expect:
+          body:
+            match:
+              body.name: [ann@example.com, bob@example.com, cy@example.com]
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: createsOneUserPerEmail
+    name: Creates one user per email
+    steps:
+      - call: sample#createUser
+        forEach: [ann@example.com, bob@example.com, cy@example.com]
+        vars:
+          email: \${item}
+`} />
+
+## How it behaves
+
+- Each successful iteration registers its own cleanup. Three created users mean three `deleteUser` cleanups after the test.
+- Every name saved inside the loop is a list, in iteration order, even when iterations run in [`parallel`](/vc-rs/reference/syntax/parallel/).
+- An api's own `save` also collects a list when its call runs in a loop.
+- If an iteration fails, the step fails once the iterations in flight finish. Iterations that have not started don't run. The cleanups of the iterations that passed still run.
+- With both `forEach` and [`repeat`](/vc-rs/reference/syntax/repeat/) on one step, `forEach` wins.
+- `forEach` is not a test key. Use [`examples`](/vc-rs/reference/syntax/examples/) to run a whole test per row.
+
+<Aside type="caution">
+An empty list runs no iterations and leaves the saved name unset. A later `${var.made}` then fails with V5111: `` `var.made` is not set ``.
+</Aside>
+
+## Common errors
+
+A template that does not give a list fails at run time:
+
+```console
+✕ sample.loopsrun#loopsAString                                    0ms
+  error[V5111]: `forEach` needs a list, got "hello"
+     = at: call echo#json
+```
+
+A failing iteration fails the test with the check that failed. Here the second element is `null`, so the api's `status: 201` check fails:
+
+```console
+✕ sample.loopsrun#stopsAtBadRow                                   5ms
+  error[V5101]: expect.status
+    --> services/sample/sample.api.yaml:35:15
+     |
+  35 |       status: 201
+     |               ^^^ expected [201], got 400
+     = note: expected by api sample#createUser
+```
+
+`${item}` outside `forEach`:
+
+```console
+error[V2102]: `item` is not available here
+ --> services/sample/loopsbad.test.yaml:9:13
+  |
+9 |       name: ${item}
+  |             ^^^^^^^
+  = help: `item` is available only inside forEach
+```
+
+`forEach` written on a test:
+
+```console
+error[V1004]: unknown key `forEach` in testEntry
+  --> services/sample/loopsbad.test.yaml:11:5
+   |
+11 |     forEach: [a, b]
+   |     ^^^^^^^ not a known key
+   = help: expected one of `id`, `name`, `tags`, `before`, `after`, `call`, `steps`, `examples`, `repeat`, `skip`, `standalone`, `vars`, `auth`, `headers`, `query`, `body`, `expect`, `save`, `poll`, `retry`, `timeout`
+```
+
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the value is not a list, or a saved name is not set.
+- [V2102](/vc-rs/reference/diagnostics/v2102/): `item` used outside `forEach`.
+- [V1004](/vc-rs/reference/diagnostics/v1004/): unknown key.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="parallel" href="/vc-rs/reference/syntax/parallel/" />
+  <LinkCard title="repeat" href="/vc-rs/reference/syntax/repeat/" />
+  <LinkCard title="examples" href="/vc-rs/reference/syntax/examples/" />
+  <LinkCard title="save" href="/vc-rs/reference/syntax/save/" />
+</CardGrid>

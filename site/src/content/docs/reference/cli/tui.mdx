@@ -1,0 +1,53 @@
+---
+title: "vc tui"
+description: "Opens the full-screen terminal UI for running, exploring, comparing and importing."
+sidebar: { order: 27 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Opens a keyboard-driven terminal app on your project, with five tabs: **Run**, **Explore**, **History**, **Load** and **Import**. It uses the same engine, files and run history as the other commands. The [Terminal UI guide](/vc-rs/guides/tui/) covers each tab and its keys.
+
+```console
+$ vc tui [OPTIONS]
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+```console
+$ vc tui
+$ vc tui --profile staging
+$ vc tui --project ./api-tests --profile ci,eu
+```
+
+Press `?` inside for the keys, and `q` to quit.
+
+It needs a real terminal. With stdin or stdout piped, as in CI, it stops before it reads the project:
+
+```console
+$ vc tui | cat
+error: vc tui needs a terminal
+  = help: run it in a terminal; `vc run` reports to a pipe or a CI log
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | You quit |
+| `2` | No terminal, no project, or a bad profile |
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Terminal UI guide" href="/vc-rs/guides/tui/" description="Every tab and key." />
+  <LinkCard title="vc ui" href="/vc-rs/reference/cli/ui/" description="The same work in a browser." />
+  <LinkCard title="vc run" href="/vc-rs/reference/cli/run/" description="For CI and scripts." />
+</CardGrid>

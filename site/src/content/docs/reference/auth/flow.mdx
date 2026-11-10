@@ -1,0 +1,164 @@
+---
+title: "flow"
+description: "The flow auth type runs your own login requests and applies what they saved as headers, query values or cookies."
+sidebar: { order: 8 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`type: flow` runs a list of requests that end in credentials, then adds what they saved to every request that uses it. Use it for any login the built-in types do not cover.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+auth:
+  - id: labLogin
+    name: Log in, then trade the session for a token
+    type: flow
+    refreshBefore: 30s
+    refreshOn: [401, 419]
+    vars:
+      user: ada
+      ttl: 3600
+    steps:
+      - id: login
+        method: POST
+        url: ${var.labUrl}/login
+        body:
+          username: ${var.user}
+          password: ${secret.LAB_PASSWORD}
+        expect:
+          status: 200
+        save:
+          sessionId: ${response.body.session.id}
+      - id: token
+        method: POST
+        url: ${var.labUrl}/token
+        body:
+          grant_type: session
+          session_id: ${var.sessionId}
+        save:
+          accessToken: ${response.body.access_token}
+          ttl: ${response.body.expires_in | int}
+    apply:
+      headers:
+        authorization: Bearer ${var.accessToken}
+        x-user: ${var.user}
+      query:
+        tenant: acme
+      cookies:
+        sid: ${var.sessionId}
+    expiresIn: ${var.ttl}s
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `steps` | list of steps | — | yes | Each step has `id`, `method`, `url`, `query`, `headers`, `body`, `expect` and `save` |
+| `apply.headers` | map of templates | — | no | Added to each request |
+| `apply.query` | map of templates | — | no | Added to each request's query string |
+| `apply.cookies` | map of templates | — | no | Sent as a `Cookie` header |
+| `expiresIn` | duration (a template is fine) | never | no | When the credentials go stale |
+| `refreshBefore` | duration | `1m` | no | Run the flow again this long before expiry, capped at half the lifetime |
+| `refreshOn` | list of status codes | `[401]` | no | Run the flow again once and retry the request on these statuses |
+| `cache` | boolean | `false` | no | Not built yet: today credentials last one run |
+| `vars` | map | — | no | The starting values of the flow's frame |
+
+A step describes its request inline. A step that calls an api by ID is not supported yet.
+
+## Examples
+
+The server saw one login shared by two tests, and a separate login for a test that used `user: bob`:
+
+```console
+POST /login body={"password":"open-sesame","username":"ada"}
+POST /login body={"password":"open-sesame","username":"bob"}
+POST /token?ttl=3600 body={"grant_type":"session","session_id":"sess-27"}
+POST /token?ttl=3600 body={"grant_type":"session","session_id":"sess-28"}
+GET /whoami?tenant=acme  authorization: Bearer tok-29-None
+GET /whoami?tenant=acme  authorization: Bearer tok-29-None
+GET /whoami?tenant=acme  authorization: Bearer tok-30-None
+```
+
+Expiry. With a token that lasts 4 seconds, `refreshBefore: 30s` is capped at 2 seconds, so a call made 2.5 seconds in logs in again first:
+
+```console
+POST /login
+POST /token?ttl=4
+GET /whoami?tenant=acme           authorization: Bearer tok-32-None
+GET /slow?s=2.5&tenant=acme       authorization: Bearer tok-32-None
+POST /login
+POST /token?ttl=4
+GET /whoami?tenant=acme           authorization: Bearer tok-34-None
+```
+
+`refreshOn`. When a response has a status in the list, the flow runs once more and the request is retried with the new credentials. A server that answered 401 to the first token got a second login, then a retry that passed.
+
+A failing step fails every call that uses the flow. The message names the step and its code, never the request or response:
+
+```console
+✕ lab.broken#firstUser                                           11ms
+  error[V5114]: credentials could not be obtained: the `labBroken` flow failed: step `login` failed (V5101)
+     = at: call lab#whoami
+✕ lab.broken#secondUser                                          12ms
+  error[V5114]: credentials could not be obtained: the `labBroken` flow failed: step `login` failed (V5101)
+     = at: call lab#whoami
+```
+
+The server saw a single `POST /status/403`: a failed login is kept for the run, so tests do not each retry it and lock the account.
+
+<Aside type="caution">
+Two limits in this version:
+
+- A map `body` is sent as JSON even when the step sets `content-type: application/x-www-form-urlencoded`. For a login that needs a form body, write the body as one text value and encode each value with [`urlEncode`](/vc-rs/reference/pipes/url-encode/): `body: grant_type=session&session_id=${var.sessionId | urlEncode}`.
+- `expiresIn` that reads a value saved by a step needs a default for that name in the definition's `vars` (`ttl: 3600` above), or `vc check` reports it as never set (V2101). The value the step saves wins at run time.
+</Aside>
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+vars:
+  labUrl: http://127.0.0.1:7486
+auth:
+  - id: labLogin
+    type: flow
+    vars:
+      user: ada
+      ttl: 3600
+    steps:
+      - id: login
+        method: POST
+        url: \${var.labUrl}/login
+        body:
+          username: \${var.user}
+          password: \${secret.LAB_PASSWORD}
+        expect:
+          status: 200
+        save:
+          accessToken: \${response.body.access_token}
+    apply:
+      headers:
+        authorization: Bearer \${var.accessToken}
+    expiresIn: \${var.ttl}s
+`} />
+
+## How it behaves
+
+- The steps run in a frame of their own that starts with the definition's `vars`. Each step's saves are visible to later steps, `apply` and `expiresIn`, and nowhere else.
+- Within a run the flow runs once for each set of vars, before the first request that needs it. Tests that need it at the same moment wait for that one login.
+- It runs again when the credentials expire (less `refreshBefore`) or a response matches `refreshOn`.
+- Everything `apply` adds is masked in output, except plain header values such as `x-user`. A cookie shows as `sid=••••`.
+
+## Common errors
+
+- [V5114](/vc-rs/reference/diagnostics/v5114/): a step failed.
+- [V2101](/vc-rs/reference/diagnostics/v2101/): a var in `apply` or `expiresIn` is never set.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Token cache and refresh" href="/vc-rs/reference/auth/token-cache-refresh/" />
+  <LinkCard title="Using auth" href="/vc-rs/reference/auth/using-auth/" />
+  <LinkCard title="Redaction" href="/vc-rs/reference/auth/redaction/" />
+</CardGrid>

@@ -1,0 +1,243 @@
+---
+title: examples
+description: Run one test once per row of data, with each row's values in ${example.*}.
+sidebar: { order: 240, badge: { text: 'test', variant: 'note' } }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`examples` turns one test into several test instances, one per row. Each row is a map. Its values are read with `${example.<column>}`.
+
+```yaml
+  - id: createsUsers
+    examples:
+      - email: ann@example.com
+      - email: bob@example.com
+    call: sample#createUser
+    vars:
+      email: ${example.email}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `examples` | list of maps | — | no | One test instance per row. Written on a test only. |
+| `examples` | `${dataset.<name>}` | — | no | One row per dataset row. CSV columns become keys. |
+| `examples` | `$file: <path>` | — | no | A YAML, JSON or CSV list in a file. The path is relative to the test file. |
+| `${example.<column>}` | any value | — | — | The current row's value. Usable anywhere in the test. |
+
+Select one row from the command line with `:n`, counting from 1: `vc run 'sample.rows#createsUsers:2'`.
+
+## Examples
+
+### Inline rows
+
+Each row can hold any value, including a whole request body:
+
+```yaml title="services/sample/rows.test.yaml"
+id: sample.rows
+name: Example rows
+
+tests:
+  - id: rejectsBadEmail
+    name: Rejects a user without a usable email
+    examples:
+      - body: {name: No Email}
+      - body: {name: Null Email, email: null}
+    call: sample#createUser
+    body: ${example.body}
+    expect:
+      status: 400
+
+  - id: createsUsers
+    name: Creates a user from each row
+    examples:
+      - email: ann@example.com
+        name: Ann
+      - email: bob@example.com
+        name: Bob
+    call: sample#createUser
+    vars:
+      email: ${example.email}
+      name: ${example.name}
+    expect:
+      body:
+        match:
+          email: ${example.email}
+```
+
+`vc plan` lists one instance per row:
+
+```console
+$ vc plan sample.rows
+plan  4 tests in 1 file · profile default
+sample.rows
+  sample.rows#rejectsBadEmail [row 1]
+  sample.rows#rejectsBadEmail [row 2]
+  sample.rows#createsUsers [row 1]
+  sample.rows#createsUsers [row 2]
+  sample.rows#createsFromDataset [row 1]
+  sample.rows#createsFromDataset [row 2]
+  sample.rows#createsFromFile [row 1]
+  sample.rows#createsFromFile [row 2]
+```
+
+The header counts tests. The list shows instances. Instances run in parallel, so they finish in any order:
+
+```console
+$ vc run sample.rows
+plan  4 tests in 1 file · profile default
+
+✓ sample.rows#rejectsBadEmail [row 2]                             4ms
+✓ sample.rows#rejectsBadEmail [row 1]                             4ms
+✓ sample.rows#createsFromDataset [row 2]                          4ms
+✓ sample.rows#createsFromFile [row 1]                             4ms
+✓ sample.rows#createsFromFile [row 2]                             4ms
+✓ sample.rows#createsFromDataset [row 1]                          4ms
+✓ sample.rows#createsUsers [row 1]                                4ms
+✓ sample.rows#createsUsers [row 2]                                4ms
+
+8 passed                                                     7ms · profile default
+```
+
+### Rows from a dataset
+
+A dataset gives one row per CSV line. The header names the columns:
+
+```text title="datasets/people.csv"
+email,name
+ann@example.com,Ann
+bob@example.com,Bob
+```
+
+```yaml
+  - id: createsFromDataset
+    name: Creates a user from each dataset row
+    examples: ${dataset.people}
+    call: sample#createUser
+    vars:
+      email: ${example.email}
+      name: ${example.name}
+```
+
+### Rows from a file
+
+`$file` reads a list from a file next to the test:
+
+```yaml title="services/sample/rows.yaml"
+- email: ann@example.com
+  name: Ann
+- email: bob@example.com
+  name: Bob
+```
+
+```yaml
+  - id: createsFromFile
+    name: Creates a user from each row of a file
+    examples:
+      $file: rows.yaml
+    call: sample#createUser
+    vars:
+      email: ${example.email}
+      name: ${example.name}
+```
+
+### Run one row
+
+Add `:n` to a test ID to run only that row:
+
+```console
+$ vc run 'sample.rows#createsUsers:2'
+plan  1 test in 1 file · profile default
+
+✓ sample.rows#createsUsers [row 2]                                3ms
+
+1 passed                                                     4ms · profile default
+```
+
+### Rows and repeat together
+
+A test with both `examples` and [`repeat`](/vc-rs/reference/syntax/repeat/) runs every row that many times. With two rows and `repeat: 2`, the instances are `[row 1, repeat 1]`, `[row 1, repeat 2]`, `[row 2, repeat 1]` and `[row 2, repeat 2]`. The `:n` selector counts them in that order, so `:3` is row 2, repeat 1.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: createsUsers
+    name: Creates a user from each row
+    examples:
+      - email: ann@example.com
+        name: Ann
+      - email: bob@example.com
+        name: Bob
+    call: sample#createUser
+    vars:
+      email: \${example.email}
+      name: \${example.name}
+    expect:
+      body:
+        match:
+          email: \${example.email}
+`} />
+
+## How it behaves
+
+- Each row is its own test instance. It gets its own `beforeEach`, `before`, cleanups and report entry.
+- Instances of one test run in parallel, like any other tests, up to `defaults.concurrency`.
+- `vc check` knows the columns of inline rows. A misspelled `${example.*}` is an error before the run.
+- A `$file` path is relative to the test file, not the project root.
+- A row's `name` key is an ordinary column. Reports label instances `[row 1]`, `[row 2]` and so on, not by `name`.
+
+<Aside type="caution">
+`examples: ${var.rows}`, with a list in a var, passes `vc check` but fails at run time with `error: the example rows of ... were not loaded`. Use inline rows, a dataset or `$file` instead.
+</Aside>
+
+## Common errors
+
+A column that no row has:
+
+```console
+error[V2103]: ${example.mail} names no column of this test's examples
+ --> services/sample/rowerr.test.yaml:7:14
+  |
+4 |       - email: ann@example.com
+  |       ------------------------ the rows
+...
+7 |       email: ${example.mail}
+  |              ^^^^^^^^^^^^^^^ no row has `mail`
+  = help: the columns are `email`
+  = help: did you mean `email`?
+  = fix: Replace with email (certain)
+```
+
+`${example.*}` in a test without `examples`:
+
+```console
+error[V2102]: `example` is not available here
+  --> services/sample/rowerr.test.yaml:11:10
+   |
+11 |       q: ${example.email}
+   |          ^^^^^^^^^^^^^^^^
+   = help: `example` is available only in a test with examples
+```
+
+A row number past the last row. `vc run` exits with 2:
+
+```console
+$ vc run 'sample.rows#createsUsers:5'
+error: `sample.rows#createsUsers:5` asks for an instance the test does not have; it has 2
+  = help: pick an instance from 1 to 2
+```
+
+- [V2103](/vc-rs/reference/diagnostics/v2103/): the column is not in the rows.
+- [V2102](/vc-rs/reference/diagnostics/v2102/): `example` used outside a test with `examples`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="repeat" href="/vc-rs/reference/syntax/repeat/" />
+  <LinkCard title="forEach" href="/vc-rs/reference/syntax/for-each/" />
+  <LinkCard title="Data and datasets" href="/vc-rs/reference/data/" />
+  <LinkCard title="Templates" href="/vc-rs/reference/templates/" />
+</CardGrid>

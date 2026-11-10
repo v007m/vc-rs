@@ -1,0 +1,125 @@
+---
+title: "Authentication"
+description: "Auth definitions live once in vibranium.config.yaml, take their values from vars and secrets, and are used by ID."
+sidebar: { order: 0 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+An auth definition says how to get credentials. You write it once under `auth` in `vibranium.config.yaml` and use it by ID on an api file, an api, a test, a step or an action.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+auth:
+  - id: labBearer
+    type: bearer
+    token: ${secret.LAB_TOKEN}
+```
+
+```yaml title="services/lab/lab.api.yaml (excerpt)"
+id: lab
+baseUrl: ${var.labUrl}
+auth: labBearer
+```
+
+## Auth types
+
+| `type` | Sends | Page |
+| --- | --- | --- |
+| `basic` | `Authorization: Basic …` | [basic](/vc-rs/reference/auth/basic/) |
+| `bearer` | `Authorization: Bearer <token>`, a fixed token | [bearer](/vc-rs/reference/auth/bearer/) |
+| `apiKey` | a key in a header or the query | [apiKey](/vc-rs/reference/auth/api-key/) |
+| `oauth2ClientCredentials` | a token from the client credentials grant | [oauth2ClientCredentials](/vc-rs/reference/auth/oauth2-client-credentials/) |
+| `oauth2Password` | a token from the password grant | [oauth2Password](/vc-rs/reference/auth/oauth2-password/) |
+| `oauth2AuthorizationCode` | a token after one browser sign-in | [oauth2AuthorizationCode](/vc-rs/reference/auth/oauth2-authorization-code/) |
+| `oauth2Refresh` | a token from a long-lived refresh token | [oauth2Refresh](/vc-rs/reference/auth/oauth2-refresh/) |
+| `flow` | whatever your own login steps produce | [flow](/vc-rs/reference/auth/flow/) |
+| `plugin` | whatever an auth plugin returns | [plugin](/vc-rs/reference/auth/plugin/) |
+
+## Fields every definition has
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | camelCase text | — | yes | What `auth:` names |
+| `name` | text | — | no | Shown in output |
+| `type` | one of the types above | — | yes | |
+| `vars` | map | — | no | Defaults for the templates in this definition |
+| `refreshBefore` | duration | `1m` | no | Fetch again this long before expiry, capped at half the lifetime |
+| `refreshOn` | list of status codes | `[401]` | no | Fetch again once and retry when a response has one of these |
+
+## Examples
+
+Use a different auth for one test:
+
+```yaml
+tests:
+  - id: sendsBasic
+    call: lab#whoami
+    auth: labBasic
+```
+
+Send no auth at all:
+
+```yaml
+  - id: sendsNoAuth
+    call: lab#whoami
+    auth: none
+```
+
+One test per built-in scheme, against a local server:
+
+```console
+$ vc run lab.auth
+plan  8 tests in 1 file · profile default
+
+✓ lab.auth#sendsQueryKey                                          0ms
+✓ lab.auth#sendsHeaderKey                                         0ms
+✓ lab.auth#sendsBearer                                            0ms
+✓ lab.auth#getsRefreshedToken                                    29ms
+✓ lab.auth#getsClientToken                                        0ms
+✓ lab.auth#getsUserToken                                          0ms
+✓ lab.auth#getsPublicClientToken                                  0ms
+✓ lab.auth#sendsBasic                                             1ms
+
+8 passed                                                     35ms · profile default
+```
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+vars:
+  labUrl: http://127.0.0.1:7486
+auth:
+  - id: labBearer
+    type: bearer
+    token: \${secret.LAB_TOKEN}
+  - id: labClient
+    type: oauth2ClientCredentials
+    tokenUrl: \${var.labUrl}/token
+    clientId: ci-runner
+    clientSecret: \${secret.LAB_CLIENT_SECRET}
+    scopes: [items:read]
+`} />
+
+## How it behaves
+
+- Values that change between environments come from vars, so profiles switch them: one definition serves every profile.
+- Tokens are fetched lazily, before the first request that needs them, and shared by every test that uses the same definition and vars.
+- Credentials are masked in all output from the moment they arrive. See [Redaction](/vc-rs/reference/auth/redaction/).
+- When credentials cannot be obtained, every call that needs them fails with V5114.
+
+## Common errors
+
+- [V5114](/vc-rs/reference/diagnostics/v5114/): credentials could not be obtained.
+- [V2106](/vc-rs/reference/diagnostics/v2106/): a `${secret.X}` is not declared in `.env.schema`.
+- [V2302](/vc-rs/reference/diagnostics/v2302/): a field has a value its type does not accept.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Using auth" href="/vc-rs/reference/auth/using-auth/" />
+  <LinkCard title="Token cache and refresh" href="/vc-rs/reference/auth/token-cache-refresh/" />
+  <LinkCard title="Secrets" href="/vc-rs/reference/auth/secrets/" />
+  <LinkCard title="Redaction" href="/vc-rs/reference/auth/redaction/" />
+</CardGrid>

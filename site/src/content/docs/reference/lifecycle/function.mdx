@@ -1,0 +1,148 @@
+---
+title: "function action"
+description: "The function action runs an exported function from a code file and saves the fields of the object it returns."
+sidebar: { order: 7 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`function: <path>#<export>` runs one exported function from a TypeScript or JavaScript file. When it returns an object, each field is saved as a var. Use it for work no api does, such as seeding a database or computing a signature.
+
+```yaml title="services/lab/actions.test.yaml"
+tests:
+  - id: runsAFunction
+    before:
+      - function: ../../hooks/seed.ts#seedTenant
+        vars:
+          name: acme
+        provides: [tenantId, profiles]
+    call: lab#whoami
+    query:
+      tenant: ${var.tenantId}
+      profiles: ${var.profiles}
+```
+
+```ts title="hooks/seed.ts"
+import { sha256Hex } from "vibranium:std";
+
+export function seedTenant({ vars, run }: { vars: Record<string, unknown>; run: { profiles: string[] } }) {
+  return { tenantId: "t-" + sha256Hex(String(vars.name)).slice(0, 8), profiles: run.profiles.join(",") };
+}
+```
+
+The server received `GET /whoami?tenant=t-822b33ad&profiles=default`.
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `function` | `<path>#<export>` | — | yes | The path is relative to the file that holds the action |
+| `id` | camelCase text | — | in `beforeRun`/`beforeAll` when it saves | Shared values live under it |
+| `vars` | map | — | no | Values passed to the function, over every other level |
+| `provides` | list of names | — | no | The names it saves; see [provides](/vc-rs/reference/lifecycle/provides/) |
+| `timeout` | duration | `200ms` | no | The function's run budget |
+
+## The function's input and output
+
+The function gets one object:
+
+| Field | Holds |
+| --- | --- |
+| `vars` | Every var visible to the action, after `vars` on the action is applied |
+| `run.profiles` | The active profiles, in order |
+
+The return value decides what is saved:
+
+- An object: each field becomes a var (`tenantId`, `profiles` above).
+- Anything else (a number, a string, nothing): nothing is saved.
+- A value that is not JSON, or a thrown error: the action fails with V5115.
+
+Import helpers from `vibranium:std`: `sha256Hex`, `hmacSha256Hex`, `base64Encode`, `base64Decode`, `urlEncode` and `urlDecode`.
+
+## Examples
+
+Seed data and read the result in the test's call:
+
+```yaml
+before:
+  - function: ../../hooks/seed.ts#seedTenant
+    vars:
+      name: acme
+    provides: [tenantId]
+call: lab#whoami
+query:
+  tenant: ${var.tenantId}
+```
+
+Share a function's result with the whole file. In `beforeAll` the fields live under the `id`:
+
+```yaml
+beforeAll:
+  - id: tenant
+    function: ../../hooks/seed.ts#seedTenant
+    vars:
+      name: acme
+# later: ${var.tenant.tenantId}
+```
+
+Give a slow function more time:
+
+```yaml
+before:
+  - function: ../../hooks/mailbox.ts#readCode
+    timeout: 2s
+```
+
+A function that throws blocks the test. The message and the line come from the hook:
+
+```console
+⊘ lab.fails#functionThrows blocked                              241ms
+  error[V5115]: `hooks/seed.ts#throws`: the hook threw: Error: mailbox is empty (line 16)
+     = at: function hooks/seed.ts#throws
+```
+
+A function that runs past its budget is stopped:
+
+```console
+⊘ lab.fails#timesOutAFunction blocked                           204ms
+  error[V5116]: `hooks/seed.ts#spins`: the hook ran past its time budget and was stopped (line 11)
+     = at: function hooks/seed.ts#spins
+```
+
+<Playground client:visible kind="test" code={`tests:
+  - id: usesATenant
+    name: Uses a tenant made by a function
+    before:
+      - function: ../../hooks/seed.ts#seedTenant
+        vars:
+          name: acme
+        provides: [tenantId]
+        timeout: 500ms
+    call: lab#whoami
+    query:
+      tenant: \${var.tenantId}
+`} />
+
+## How it behaves
+
+- The function runs inside vc with a time budget. Use a `call` action for HTTP and a `command` action for other programs.
+- `vc check` cannot see what a function returns. Declare the names with `provides`, or a var read later is reported as never set (V2101).
+- A failure in a `before` block blocks the test, as with any action.
+
+## Common errors
+
+- [V5115](/vc-rs/reference/diagnostics/v5115/): the function threw, or returned a value that is not JSON.
+- [V5116](/vc-rs/reference/diagnostics/v5116/): the function ran past its `timeout`.
+- [V5109](/vc-rs/reference/diagnostics/v5109/): a name in `provides` was not returned, for example by a function that returns `42`.
+- [V5108](/vc-rs/reference/diagnostics/v5108/): a returned field is read but not declared in `provides`.
+- [V2101](/vc-rs/reference/diagnostics/v2101/): a var read later is never set, because `provides` is missing.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="provides" href="/vc-rs/reference/lifecycle/provides/" />
+  <LinkCard title="command action" href="/vc-rs/reference/lifecycle/command/" />
+  <LinkCard title="Action timeout" href="/vc-rs/reference/lifecycle/timeout/" />
+  <LinkCard title="Functions and hooks" href="/vc-rs/reference/data/functions-and-hooks/" />
+</CardGrid>

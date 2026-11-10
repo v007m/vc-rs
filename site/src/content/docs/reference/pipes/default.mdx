@@ -1,0 +1,110 @@
+---
+title: "default"
+description: "Use a fallback value when the value is missing or null."
+sidebar: { order: 13 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`default(value)` gives a fallback when the value is missing or `null`. It is the only pipe that accepts a missing value, so it makes an optional field safe to read.
+
+```yaml
+      note: ${var.order.note | default('none')}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | any value, or missing | — | yes |  |
+| output | any value | — | — | The input, or the fallback when the input is missing or `null`. |
+| `value` | text in single quotes, a number, `true` or `false` | — | yes | Lists, objects and `null` are not allowed. |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  nothing: null
+  empty: ""
+  order:
+    id: 7
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.nothing \| default('none')}` | `"none"` |
+| `${var.nothing \| default(5)}` | `5` |
+| `${var.nothing \| default(-1.5)}` | `-1.5` |
+| `${var.nothing \| default(true)}` | `true` |
+| `${var.empty \| default('x')}` | `""` (empty text is not `null`) |
+| `${var.order.note \| default('none')}` | `"none"` |
+
+Without `default`, the missing field fails the action:
+
+```console
+✕ tpl.errs#missingNoDefault                                       0ms
+  error[V5111]: `var.order.note` is missing: `var.order` is {"id":7}
+```
+
+Chain after it. `${var.nothing | default('n/a') | upper}` gave `"N/A"`.
+
+An optional env value with a fallback:
+
+```yaml
+    body:
+      region: ${env.REGION | default('eu-west-1')}
+```
+
+Inside a `forEach`, read an optional field of each item: `${item.mayor | default('unknown')}`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: fillsAMissingField
+    call: sample#echo
+    vars:
+      order:
+        id: 7
+      payload:
+        note: \${var.order.note | default('none')}
+`} />
+
+## How it behaves
+
+- Only a missing value or `null` is replaced. Empty text, `0`, `false` and an empty list are kept.
+- It must come right after the path to catch a missing field. Later pipes see the fallback.
+- `default` does not cover a var that no level sets: `${var.neverSet | default('x')}` is still V2101 at check time. It covers fields inside a value, env values and run-time data.
+
+## Common errors
+
+```console
+error[V2305]: invalid template: `null` is not an argument
+  --> services/tpl/pe.test.yaml:13:33
+   |
+13 |         e: ${var.name | default(null)}
+   |                                 ^^^^
+   = help: use single quotes for text, such as `''`
+
+error[V2305]: invalid template: text arguments take single quotes
+  --> services/tpl/pe.test.yaml:14:33
+   |
+14 |         f: ${var.name | default("x")}
+   |                                 ^^^
+   = help: use single quotes
+   = fix: Write 'x' (certain)
+```
+
+- [V2305](/vc-rs/reference/diagnostics/v2305/): the argument is not a literal, or uses double quotes.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Paths" href="/vc-rs/reference/templates/paths/" />
+  <LinkCard title="var" href="/vc-rs/reference/templates/var/" />
+  <LinkCard title="env" href="/vc-rs/reference/templates/env/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

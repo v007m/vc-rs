@@ -1,0 +1,75 @@
+---
+title: "V2103 — Unknown example or dataset column"
+description: "A ${example.x} names a column that no row of the test's examples has."
+sidebar:
+  label: "V2103 Unknown example or dataset column"
+  order: 2103
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2103` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | close column |
+
+A `${example.x}` names a column that no row of the test's `examples` has. Only inline rows are checked; rows from a
+`$file` or a dataset are known only when the test runs.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    examples:
+      - userId: 1
+      - userId: 2
+    call: users#getUser
+    vars:
+      userId: ${example.usrId}
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    examples:
+      - userId: 1
+      - userId: 2
+    call: users#getUser
+    vars:
+      userId: ${example.userId}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2103
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

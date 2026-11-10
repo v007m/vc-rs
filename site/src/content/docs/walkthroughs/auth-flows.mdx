@@ -1,0 +1,595 @@
+---
+title: Auth flows
+description: Call protected APIs with bearer, basic, API key, OAuth2 client credentials and a multi-step login flow, keep secrets in .env, and see the token cache and redaction at work.
+sidebar: { order: 2 }
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+In this walkthrough you define one of each auth type in the config, then point your apis and tests at them. You run them against two servers: [httpbin.org](https://httpbin.org), a public service that echoes your request, and the mock server from the Vibranium repo, which has a real login endpoint.
+
+By the end you will know how to:
+
+- keep secrets out of your YAML with `.env.schema` and `.env`
+- use `bearer`, `basic`, `apiKey` (in a header and in the query) and `oauth2ClientCredentials`
+- write a multi-step `flow` login with `apply`, `expiresIn` and `refreshOn`
+- confirm that a token is fetched once per run, not once per call
+- override auth for one test, or turn it off with `auth: none`
+
+## Before you start
+
+- `vc` is on your `PATH` (see [Install](/vc-rs/start/install/)).
+- You can reach `https://httpbin.org`.
+- You have a clone of the Vibranium repo for the mock server. In the clone, start it with either command and leave it running:
+
+  ```console
+  $ mise run mock
+  $ cargo run -p vc-mock-server -- --port 18080
+  vc-mock-server listening on http://127.0.0.1:18080
+  ```
+
+  The mock listens on port 18080 by default. It has a few endpoints this page uses:
+  - `POST /auth/token` hands out a token.
+  - `GET /auth/me` returns 200 for a valid token and 401 otherwise.
+  - `POST /oauth/token` is an OAuth2 token endpoint. It accepts the client `vc-client` with the secret `vc-secret`.
+  - `GET /__stats` counts the requests it has seen.
+  - `POST /__reset` clears its state and forgets every token.
+
+## Build it
+
+<Steps>
+
+1. **Create the project.** Make an empty folder with a config file. The two vars hold the base URLs.
+
+   ```yaml title="vibranium.config.yaml"
+   syntaxVersion: 2
+   project: auth-demo
+   vars:
+     mockUrl: http://localhost:18080
+     httpbinUrl: https://httpbin.org
+   profiles:
+     - id: default
+       default: true
+   secrets:
+     provider: env
+     schema: .env.schema
+   ```
+
+   The `secrets` block shown here is the default. You can leave it out.
+
+2. **Declare your secrets.** List every secret name in `.env.schema`, one `NAME=` line each. This file holds names only, never values, and you commit it.
+
+   ```text title=".env.schema"
+   # The secret names this project uses, one NAME= line each, never their values.
+   HTTPBIN_TOKEN=
+   HTTPBIN_PASSWORD=
+   SHOP_API_KEY=
+   MOCK_CLIENT_SECRET=
+   ```
+
+   Put the values in `.env`. Vibranium reads the process environment first. `.env` fills in any name the environment does not set.
+
+   ```text title=".env"
+   HTTPBIN_TOKEN=s3cr3t-bearer-token
+   HTTPBIN_PASSWORD=lovelace-1815
+   SHOP_API_KEY=key-0123456789
+   MOCK_CLIENT_SECRET=vc-secret
+   ```
+
+   <Aside type="caution" title="Keep .env out of git">
+   `vc init` adds only `.vibranium/` to `.gitignore`. Add `.env` yourself:
+
+   ```console
+   $ echo .env >> .gitignore
+   ```
+   </Aside>
+
+   `vc check` makes sure each `${secret.X}` you use is declared. A typo fails the check and suggests the closest name:
+
+   ```console
+   $ vc check
+   error[V2106]: `${secret.SHOP_API_KEY}` is not declared in `.env.schema`
+     --> vibranium.config.yaml:28:12
+      |
+   28 |     value: ${secret.SHOP_API_KEY}
+      |            ^^^^^^^^^^^^^^^^^^^^^^ SHOP_API_KEY is not in .env.schema
+      = help: add the line `SHOP_API_KEY=` to `.env.schema` at the project root, or fix the name
+      = help: did you mean `SHOP_APIKEY`?
+      = fix: Replace with SHOP_APIKEY (certain)
+   ```
+
+3. **Add the simple auth types.** Each entry in the config's `auth` list has an `id` and a `type`. Apis and tests refer to it by `id`.
+
+   ```yaml title="vibranium.config.yaml (part)"
+   auth:
+     - id: httpbinBearer
+       type: bearer
+       token: ${secret.HTTPBIN_TOKEN}
+
+     - id: httpbinBasic
+       type: basic
+       vars:
+         user: ada
+       username: ${var.user}
+       password: ${secret.HTTPBIN_PASSWORD}
+
+     - id: headerKey
+       type: apiKey
+       in: header
+       name: x-api-key
+       value: ${secret.SHOP_API_KEY}
+
+     - id: queryKey
+       type: apiKey
+       in: query
+       name: api_key
+       value: ${secret.SHOP_API_KEY}
+   ```
+
+   `httpbinBasic` has its own `vars`. A caller can change them, so one definition can log in as different users.
+
+4. **Write the apis and tests for httpbin.** An api picks its auth with `auth:`. A test can override it in three ways: with another auth `id`, with the same `id` and different `vars`, or with `auth: none`.
+
+   ```yaml title="services/httpbin/httpbin.api.yaml"
+   name: httpbin.org, a public request-echo service
+   baseUrl: ${var.httpbinUrl}
+
+   apis:
+     - id: bearer
+       name: Accepts any bearer token
+       path: /bearer
+       auth: httpbinBearer
+
+     - id: basicAuth
+       name: Accepts user ada with the given password
+       path: /basic-auth/ada/lovelace-1815
+       auth: httpbinBasic
+
+     - id: headers
+       name: Echoes the request headers
+       path: /headers
+
+     - id: anything
+       name: Echoes the whole request
+       path: /anything
+   ```
+
+   ```yaml title="services/httpbin/auth.test.yaml"
+   name: Auth schemes against httpbin.org
+
+   tests:
+     - id: sendsBearerToken
+       name: Sends the bearer token
+       call: httpbin#bearer
+       expect:
+         status: 200
+         body:
+           match:
+             authenticated: true
+
+     - id: logsInWithBasicAuth
+       name: Logs in with HTTP basic auth
+       call: httpbin#basicAuth
+       expect:
+         status: 200
+         body:
+           match:
+             user: ada
+
+     - id: rejectsWrongUser
+       name: Rejects basic auth for another user
+       call: httpbin#basicAuth
+       auth:
+         id: httpbinBasic
+         vars:
+           user: grace
+       expect:
+         status: 401
+
+     - id: sendsKeyInHeader
+       name: Sends the API key in a header
+       call: httpbin#headers
+       auth: headerKey
+       expect:
+         body:
+           match:
+             headers.X-Api-Key:
+               exists: true
+
+     - id: sendsKeyInQuery
+       name: Sends the API key in the query string
+       call: httpbin#anything
+       auth: queryKey
+       expect:
+         body:
+           match:
+             args.api_key:
+               exists: true
+
+     - id: rejectsMissingToken
+       name: Rejects a call without a token
+       call: httpbin#bearer
+       auth: none
+       expect:
+         status: 401
+   ```
+
+   Run the file:
+
+   ```console
+   $ vc run httpbin.auth
+   plan  6 tests in 1 file · profile default
+
+   ✓ httpbin.auth#sendsKeyInHeader                                 705ms
+   ✓ httpbin.auth#logsInWithBasicAuth                              705ms
+   ✓ httpbin.auth#rejectsMissingToken                              709ms
+   ✓ httpbin.auth#sendsKeyInQuery                                  705ms
+   ✓ httpbin.auth#sendsBearerToken                                 705ms
+   ✓ httpbin.auth#rejectsWrongUser                                 930ms
+
+   6 passed                                                     942ms · profile default
+   reports  /home/you/auth-demo/.vibranium/reports/1/ctrf.json
+   ```
+
+   `rejectsWrongUser` sends `grace` instead of `ada`, so httpbin answers 401. `rejectsMissingToken` sends no `Authorization` header at all.
+
+   To see the resolved request for a test without sending it, use `vc explain`:
+
+   ```console
+   $ vc explain httpbin.auth#rejectsWrongUser
+   httpbin.auth#rejectsWrongUser  Rejects basic auth for another user
+   profile  default
+   call httpbin#basicAuth
+     GET https://httpbin.org/basic-auth/ada/lovelace-1815
+     vars
+       mockUrl  http://localhost:18080  (vibranium.config.yaml)
+       httpbinUrl  https://httpbin.org  (vibranium.config.yaml)
+     expect
+       status: 401  (test httpbin.auth#rejectsWrongUser)
+   ```
+
+5. **Add token-based auth.** Real APIs usually make you fetch a token first. Add two more entries to the config's `auth` list.
+
+   ```yaml title="vibranium.config.yaml (part)"
+     - id: mockOauth
+       type: oauth2ClientCredentials
+       tokenUrl: ${var.mockUrl}/oauth/token
+       clientId: vc-client
+       clientSecret: ${secret.MOCK_CLIENT_SECRET}
+       scopes: [users.read]
+
+     - id: mockLogin
+       type: flow
+       vars:
+         lifetime: 60          # a default; the login step saves the real value
+       steps:
+         - id: login
+           method: POST
+           url: ${var.mockUrl}/auth/token
+           expect:
+             status: 200
+           save:
+             accessToken: ${response.body.access_token}
+             lifetime: ${response.body.expires_in | int}
+       apply:
+         headers:
+           authorization: Bearer ${var.accessToken}
+       expiresIn: ${var.lifetime}s
+       refreshOn: [401]
+   ```
+
+   - `oauth2ClientCredentials` posts the client ID and secret to `tokenUrl` and sends the token it gets back as a bearer token.
+   - `flow` is for any other login. Its `steps` are ordinary requests, and their `save` values become vars. `apply` says what to add to each request that uses the flow. `expiresIn` says when to log in again. `refreshOn` lists the statuses that mean "the token is no longer good": on one of them, vc logs in again and retries the request once.
+
+   <Aside type="note" title="Why lifetime has a default">
+   `vc check` does not yet see that `expiresIn` reads a var the login step saves, and reports `error[V2101]: ${var.lifetime} is used but never set`. A default in the flow's `vars` silences it. The saved value replaces the default when the flow runs. `apply` reading `${var.accessToken}` has no such problem.
+   </Aside>
+
+6. **Call the mock with them.** Here the whole api file uses `mockLogin`, and one api overrides it with `mockOauth`. Each test runs three times with `repeat: 3`.
+
+   ```yaml title="services/mock/mock.api.yaml"
+   name: The repo's mock server
+   baseUrl: ${var.mockUrl}
+   auth: mockLogin
+
+   apis:
+     - id: me
+       name: Who am I
+       path: /auth/me
+
+     - id: meWithOauth
+       name: Who am I, with an OAuth2 client-credentials token
+       path: /auth/me
+       auth: mockOauth
+   ```
+
+   ```yaml title="services/mock/session.test.yaml"
+   name: Logged-in calls against the mock server
+
+   tests:
+     - id: readsProfileAfterLogin
+       name: Reads the profile after a flow login
+       call: mock#me
+       repeat: 3
+       expect:
+         status: 200
+         body:
+           match:
+             user: mock
+
+     - id: readsProfileWithOauth
+       name: Reads the profile with a client-credentials token
+       call: mock#meWithOauth
+       repeat: 3
+       expect:
+         status: 200
+
+     - id: rejectsAnonymousCaller
+       name: Rejects a caller with no token
+       call: mock#me
+       auth: none
+       expect:
+         status: 401
+   ```
+
+   Reset the mock's counters, run the file, then ask the mock what it saw:
+
+   ```console
+   $ curl -s -X POST localhost:18080/__reset
+   $ vc run mock.session
+   plan  3 tests in 1 file · profile default
+
+   ✓ mock.session#rejectsAnonymousCaller                             2ms
+   ✓ mock.session#readsProfileWithOauth [repeat 2]                   4ms
+   ✓ mock.session#readsProfileWithOauth [repeat 1]                   4ms
+   ✓ mock.session#readsProfileWithOauth [repeat 3]                   4ms
+   ✓ mock.session#readsProfileAfterLogin [repeat 3]                  5ms
+   ✓ mock.session#readsProfileAfterLogin [repeat 2]                  5ms
+   ✓ mock.session#readsProfileAfterLogin [repeat 1]                  6ms
+
+   7 passed                                                     6ms · profile default
+   reports  /home/you/auth-demo/.vibranium/reports/2/ctrf.json
+   $ curl -s localhost:18080/__stats
+   {"requests":{"GET /auth/me":7,"POST /auth/token":1,"POST /oauth/token":1},"logins":2,"maxInFlight":{"GET /auth/me":3,"POST /auth/token":1,"POST /oauth/token":1},"maxInFlightTotal":3}
+   ```
+
+   Seven calls to `/auth/me`, but only one `POST /auth/token` and one `POST /oauth/token`. This is the **token cache**: within a run, each login runs once, and every test that needs it at the same moment waits for that one login. It runs again only when `expiresIn` passes or a response matches `refreshOn`.
+
+7. **Watch `refreshOn` log in again.** The mock's `/__reset` forgets every token it handed out, just like a server restart. This test calls `/auth/me`, resets the mock between two calls, and expects the second call to pass anyway.
+
+   ```yaml title="services/mock/refresh.test.yaml"
+   name: Token refresh
+   tests:
+     - id: logsInAgainAfterSessionsReset
+       name: Logs in again when the server forgets every session
+       steps:
+         - call: mock#me
+         - command: curl -s -X POST ${var.mockUrl}/__reset
+         - call: mock#me
+           expect:
+             status: 200
+   ```
+
+   ```console
+   $ vc run mock.refresh
+   plan  1 test in 1 file · profile default
+
+   ✓ mock.refresh#logsInAgainAfterSessionsReset                     31ms
+
+   1 passed                                                     33ms · profile default
+   reports  /home/you/auth-demo/.vibranium/reports/3/ctrf.json
+   $ curl -s localhost:18080/__stats
+   {"requests":{"GET /auth/me":2,"POST /auth/token":1},"logins":1,"maxInFlight":{"GET /auth/me":1,"POST /auth/token":1},"maxInFlightTotal":1}
+   ```
+
+   The reset also cleared the counters, so the stats show only what came after it. The second call got a 401 with the old token. vc logged in again (`POST /auth/token`: 1) and retried the call, which passed (`GET /auth/me`: 2). With `refreshOn: []` the same test fails with `expected [200], got 401`.
+
+8. **See redaction.** Secret values, and tokens from the moment they arrive, are replaced with `••••` everywhere vc writes: the console, the reports and the run history. To see it, add a test that fails on purpose and compares a secret:
+
+   ```yaml title="services/httpbin/leak.test.yaml"
+   name: Secrets stay hidden
+
+   tests:
+     - id: echoesBearerToken
+       name: Echoes the bearer token (fails on purpose)
+       call: httpbin#anything
+       auth: httpbinBearer
+       expect:
+         body:
+           match:
+             headers.Authorization: Bearer nope
+
+     - id: echoesQueryKey
+       name: Echoes the query key (fails on purpose)
+       call: httpbin#anything
+       auth: queryKey
+       expect:
+         body:
+           match:
+             url:
+               endsWith: nothing
+   ```
+
+   ```console
+   $ vc run httpbin.leak
+   plan  2 tests in 1 file · profile default
+
+   ✕ httpbin.leak#echoesQueryKey                                   671ms
+     error[V5101]: expect.body.match.url
+       --> services/httpbin/leak.test.yaml:21:13
+        |
+     21 |             endsWith: nothing
+        |             ^^^^^^^^^^^^^^^^^ expected {"endsWith":"nothing"}, got "https://httpbin.org/anything?api_key=••••"
+   ✕ httpbin.leak#echoesBearerToken                                671ms
+     error[V5101]: expect.body.match.headers.Authorization
+       --> services/httpbin/leak.test.yaml:11:34
+        |
+     11 |           headers.Authorization: Bearer nope
+        |                                  ^^^^^^^^^^^ expected "Bearer nope", got "••••"
+
+   0 passed · 2 failed                                          673ms · profile default
+   reports  /home/you/auth-demo/.vibranium/reports/4/ctrf.json
+   next     vc run --failed
+   seed 2400231368798439284: pass `--seed 2400231368798439284` to run with the same generated data
+   ```
+
+   httpbin echoed the real values back in its response body, and vc still masked them. The same is true in the history:
+
+   ```console
+   $ vc history show last
+       4  2026-11-10 17:37Z  failed     0 passed · 2 failed · 0 blocked · 0 skipped  profile default  httpbin.leak
+     failed   httpbin.leak#echoesQueryKey
+              match.url: expected {"endsWith":"nothing"}, got "https://httpbin.org/anything?api_key=••••"
+     failed   httpbin.leak#echoesBearerToken
+              match.headers.Authorization: expected "Bearer nope", got "••••"
+   ```
+
+   Delete `leak.test.yaml` when you are done.
+
+9. **Know the two common failures.** If a declared secret has no value (it is in `.env.schema` but in neither the environment nor `.env`), each call that needs it fails. The other tests still run.
+
+   ```console
+   error[V5111]: `secret.MOCK_CLIENT_SECRET` is missing: `secret` is {}
+      = at: call mock#meWithOauth
+   ```
+
+   If the value is there but wrong, the token endpoint refuses it. vc names the auth and the status, but never the request or response, so nothing secret leaks:
+
+   ```console
+   error[V5114]: credentials could not be obtained: the token endpoint for `mockOauth` answered 401
+      = at: call mock#meWithOauth
+   ```
+
+   A failed login is kept for the rest of the run, so your tests don't each retry it and lock the account.
+
+</Steps>
+
+## The final files
+
+```text
+auth-demo/
+├── .env              # not committed
+├── .env.schema
+├── .gitignore
+├── vibranium.config.yaml
+└── services/
+    ├── httpbin/
+    │   ├── httpbin.api.yaml
+    │   └── auth.test.yaml
+    └── mock/
+        ├── mock.api.yaml
+        ├── session.test.yaml
+        └── refresh.test.yaml
+```
+
+The api and test files are shown in full in the steps above. Here is the whole config:
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+project: auth-demo
+vars:
+  mockUrl: http://localhost:18080
+  httpbinUrl: https://httpbin.org
+profiles:
+  - id: default
+    default: true
+auth:
+  - id: httpbinBearer
+    type: bearer
+    token: ${secret.HTTPBIN_TOKEN}
+  - id: httpbinBasic
+    type: basic
+    vars:
+      user: ada
+    username: ${var.user}
+    password: ${secret.HTTPBIN_PASSWORD}
+  - id: headerKey
+    type: apiKey
+    in: header
+    name: x-api-key
+    value: ${secret.SHOP_API_KEY}
+  - id: queryKey
+    type: apiKey
+    in: query
+    name: api_key
+    value: ${secret.SHOP_API_KEY}
+  - id: mockOauth
+    type: oauth2ClientCredentials
+    tokenUrl: ${var.mockUrl}/oauth/token
+    clientId: vc-client
+    clientSecret: ${secret.MOCK_CLIENT_SECRET}
+    scopes: [users.read]
+  - id: mockLogin
+    type: flow
+    vars:
+      lifetime: 60          # a default; the login step saves the real value
+    steps:
+      - id: login
+        method: POST
+        url: ${var.mockUrl}/auth/token
+        expect:
+          status: 200
+        save:
+          accessToken: ${response.body.access_token}
+          lifetime: ${response.body.expires_in | int}
+    apply:
+      headers:
+        authorization: Bearer ${var.accessToken}
+    expiresIn: ${var.lifetime}s
+    refreshOn: [401]
+secrets:
+  provider: env
+  schema: .env.schema
+```
+
+```text title=".gitignore"
+.vibranium/
+.env
+```
+
+```console
+$ vc check
+0 errors · 0 warnings · 6 files checked
+```
+
+## Try a variation
+
+Change `mockOauth` to a `flow` of your own, or switch `in: header` to `in: query`. The editor checks the config against the real schema as you type.
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+project: auth-demo
+vars:
+  mockUrl: http://localhost:18080
+profiles:
+  - id: default
+    default: true
+auth:
+  - id: mockOauth
+    type: oauth2ClientCredentials
+    tokenUrl: \${var.mockUrl}/oauth/token
+    clientId: vc-client
+    clientSecret: \${secret.MOCK_CLIENT_SECRET}
+    scopes: [users.read]
+  - id: headerKey
+    type: apiKey
+    in: header
+    name: x-api-key
+    value: \${secret.SHOP_API_KEY}
+`} />
+
+## What you learned
+
+- Secret names go in `.env.schema`, which you commit. Values go in the environment or `.env`, which you don't. `vc check` catches an undeclared name (V2106).
+- Auth is defined once in the config and picked by `id` on an api file, an api or a test. A test can pass different `vars`, choose another `id`, or send nothing with `auth: none`.
+- `oauth2ClientCredentials` and `flow` fetch a token once per run and share it. `expiresIn` and `refreshOn` decide when to fetch a new one.
+- Secrets and tokens show as `••••` in the console, reports and history.
+
+## Next
+
+- [Auth reference](/vc-rs/reference/auth/): every auth type and field
+- [Login flows](/vc-rs/reference/auth/flow/): `steps`, `apply`, `expiresIn` and `refreshOn` in detail
+- [Secrets](/vc-rs/reference/auth/secrets/): providers, `.env.schema` and Varlock
+- [The `steps` keyword](/vc-rs/reference/syntax/steps/): multi-call tests like the refresh test above
+- [`vc run`](/vc-rs/reference/cli/run/): selectors and run flags
+- [Async and polling](/vc-rs/walkthroughs/async-and-polling/): the next walkthrough

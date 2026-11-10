@@ -1,0 +1,230 @@
+---
+title: "Web UI"
+description: "Browse, edit, call and run your tests in the browser with vc ui, and connect AI agents to the same server over MCP."
+sidebar: { order: 4 }
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
+
+`vc ui` starts a local web app for your project and opens it in your browser. It runs on your machine only, on `127.0.0.1`, and works on the same files and run history as the CLI. The same server also offers MCP at `/mcp`, so an AI agent can work alongside you.
+
+## Start it
+
+```console
+$ vc ui
+vc ui: http://127.0.0.1:7420/?token=3q2-…
+vc ui: mcp http://127.0.0.1:7420/mcp token Xk9…
+```
+
+The first line is your sign-in link. `vc ui` opens it in your default browser. The second line is the MCP address and the token an agent needs to use it (see [Connect an agent](#connect-an-agent)).
+
+| Flag | What it does |
+| --- | --- |
+| `--port <PORT>` | The port to listen on. Default `7420`. `--port 0` picks a free one. |
+| `--no-open` | Print the links but don't open a browser |
+| `--profile <IDS>` | The active profiles, as a comma list or repeated. Later ones win. |
+| `--set <KEY=VALUE>` | Override a config value, such as `defaults.timeout=5s` or `vars.userId=7`. Repeatable. |
+| `--project <DIR>` | The project folder. Defaults to the current folder. |
+
+Press Ctrl-C to stop the server. Requests in flight get a few seconds to finish.
+
+If the browser doesn't open, `vc ui` prints `could not open a browser; open the URL above`. Copy the first link into a browser yourself.
+
+### Signing in
+
+The sign-in link works **once**. Opening it signs this browser in with a cookie and takes you to the app, with the token gone from the address bar. After that, just keep using the tab. If you open the same link again, you'll see:
+
+```
+this sign-in link was used already; use the open tab or restart vc ui
+```
+
+Every start of `vc ui` makes new tokens, so links and agent tokens from an earlier start stop working.
+
+## The screens
+
+A sidebar on the left links the seven screens. Use the button at its top to collapse it to icons.
+
+| Screen | What it's for |
+| --- | --- |
+| **Tests** | Find tests and run some or all of them |
+| **API client** | Call one api, look at the response, save it as a test |
+| **Editor** | Edit project files with live checks |
+| **Runs** | Watch the current run live |
+| **Insights** | Pass rate, duration and flaky tests across runs |
+| **AI agents** | Connect agents, approve their requests, see what they did |
+| **Settings** | See each setting's value and where it comes from |
+
+A run you start on any screen shows up on **Runs**. Only one run goes at a time.
+
+## Tests
+
+Lists every test in the project, grouped by file.
+
+On the left, **Services** and **Tags** facets show counts. Click one to add it to the query, or click again to remove it. Or type the query yourself:
+
+| Query | Matches |
+| --- | --- |
+| `tag:smoke` | Tests with that tag |
+| `service:users` | Tests in that service (the first word of the file ID) |
+| `file:users.crud` | Tests in that file. A prefix with a dot, like `file:users.`, matches every file under it |
+| `is:skipped` / `is:active` | Skipped tests / tests that run |
+| `createsUser` | Any other word matches the test's ID, name or path |
+
+Filters combine with AND. Quote a value with spaces: `tag:"slow path"`.
+
+Keyboard: `↑` `↓` `Home` `End` move, `←` `→` close and open files, `Enter` opens a test, `Space` selects it. Selected tests get a bar with **Run selected** and **Clear selection**.
+
+The detail panel shows the test's name, ID, `path:line`, its steps, tags and the apis it calls, with **Run this test** and **Open in editor**.
+
+## API client
+
+Calls a single api, the way `vc call` does, with the project's auth and the active profile.
+
+<Steps>
+
+1. Pick an api from the list on the left. Filter the list by typing.
+2. On the **Vars** tab, fill in any vars. Empty vars keep the api's defaults. **Add var** sends extra ones, like `--var`.
+3. On the **Options** tab, check **Keep what the call creates** to skip the api's cleanup, like `--keep`.
+4. Click **Send**, or press Ctrl+Enter (Cmd+Enter on a Mac).
+
+</Steps>
+
+The response shows a pass or fail dot for the api's `expect`, and three tabs: **Body**, **Headers** and **Output** (the text `vc call` would print, which also explains a call that got no response).
+
+### Save as test
+
+**Save as test** turns the response into a test. Give it an ID such as `users.crud#createsUser`, and tick the body fields to expect at the values that came back. The test expects the response's status too. The test file is created if it doesn't exist.
+
+### Import a HAR file
+
+**Import HAR** reads a HAR file exported from your browser's dev tools.
+
+<Steps>
+
+1. Choose the `.har` file.
+2. Optionally name a **Flow test**, such as `users.recorded#replaysSession`, to get one test that replays the session in order.
+3. Click **Preview** to see each file as new or changed, with its diff.
+4. Click **Write files**.
+
+</Steps>
+
+Static files, third-party hosts and preflight requests are dropped. Secrets become `${secret.…}` references.
+
+The **Flow** mode lists flow tests (tests whose `steps` call apis in order) with a **Run** button for each.
+
+## Editor
+
+Edits any file in the project. Pick one from the file tree on the left, or filter it by name.
+
+- **Live checks.** When you pause typing, the unsaved text is checked like `vc check`. The **Problems** panel lists each error and warning with its code, message, line and `help:`. Click a problem to select the text it points at. When a fix is certain, it appears as a button.
+- **Save** with the button or Ctrl+S (Cmd+S). Save checks the text first and won't write a file that has errors; the status says `Fix N errors to save`.
+- **Diff** shows your unsaved changes, with the count of added and removed lines. **Revert** drops them.
+- **Run file** runs the open test file.
+
+If the file changed on disk after you opened it, Save stops and asks you to choose **Reload from disk** or **Keep my version**. If you open another file with unsaved changes, you're asked before they're thrown away.
+
+## Runs
+
+The live view of the current run. With no run yet, it offers **Run all tests**.
+
+- The header shows the run number, its status (Running, Passed, Failed, Cancelled or Stopped by an error) and when it started.
+- A progress bar counts passed, failed, blocked, flaky and skipped tests.
+- The plan table lists each test with its state (queued, running, or the outcome) and time.
+- The events log shows the newest event first. Filter it to warnings or errors, or by text.
+
+Buttons:
+
+| Button | When | What it does |
+| --- | --- | --- |
+| **Stop and tear down** | While running | Stops the run like one Ctrl-C in `vc run`: cleanups still run |
+| **Re-run failed** | After a failed run | Runs the failed tests again |
+| **Run again** | After a run | Starts the same run again |
+
+## Insights
+
+Trends across stored test runs. Choose **Last 10**, **30** or **100 runs**.
+
+- Summary figures: last run's pass rate, average pass rate, median run duration, number of runs, and flaky tests.
+- **Pass rate per run**: passed tests (flaky included) out of the tests that ran. Runs with blocked tests are marked.
+- **Run duration**: wall-clock time of the whole suite.
+- A table of the latest runs, and **Flakiest tests**: the top ten by flaky and failed results.
+
+## AI agents
+
+Connect agents to your project, decide on what they ask to do, and review what they did. The screen refreshes every two seconds.
+
+### Waiting for you
+
+When an agent calls a tool that its profile's policy holds for approval, it pauses and the request shows here: which agent, which tool, which profile, the HTTP methods, a summary and the arguments. Choose:
+
+- **Approve once**: run this call.
+- **Always allow on &lt;profile&gt;**: saves a rule to `vibranium.config.yaml`, so later calls of that tool on that profile run without asking. You confirm before it's saved.
+- **Deny**: refuse the call.
+
+See [Policy and approvals](/vc-rs/agents/policy-and-approvals/) for how the policy decides.
+
+### Connect an agent
+
+Pick your agent to get the setup to copy. For most agents, that's a stdio server that runs `vc mcp`, set up once per project. For example, in Claude Code:
+
+```console
+$ claude mcp add vibranium -- vc mcp
+```
+
+The **HTTP** option uses the `/mcp` endpoint of the running `vc ui` instead. It shows the MCP URL and the agent token (masked until you click **Show token**) and a config to copy, such as this for Claude Code's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "vibranium": {
+      "type": "http",
+      "url": "http://127.0.0.1:7420/mcp",
+      "headers": { "Authorization": "Bearer <agent token>" }
+    }
+  }
+}
+```
+
+The agent token changes every time `vc ui` starts, and it opens only `/mcp`. Keep it out of the repo. More setups are in [MCP setup](/vc-rs/agents/mcp-setup/).
+
+### Activity
+
+Every tool call an agent made: tool, time, agent, profile and who approved it. Click a row to see the arguments and the result the agent got back. Filter by agent or by text.
+
+<Aside>
+The agent policy and the activity log apply to agents only. What you do in the browser, such as a call from the API client, isn't held for approval and isn't logged here, the same as running `vc call` yourself.
+</Aside>
+
+## Settings
+
+Shows the effective value of every setting under the profile you pick, as `vc config explain` does. The **Set by** column says where each value comes from, and lists any values it replaced. Secrets always show as `••••`.
+
+Settings is read-only. To change a value, follow the link to open `vibranium.config.yaml` in the Editor.
+
+## Security
+
+`vc ui` is built for one person on one machine.
+
+- It listens on `127.0.0.1` only, and answers only requests addressed to `127.0.0.1` or `localhost` on its port.
+- The browser signs in with a one-time link. The session cookie is `HttpOnly` and `SameSite=Strict`, and a token in the URL is accepted only on that first link.
+- Changes from other websites are refused, and the page sets a strict Content Security Policy and turns off caching.
+- `/mcp` accepts only the agent token, sent as `Authorization: Bearer`. The browser cookie doesn't work there, and the agent token doesn't work anywhere else.
+
+## Errors
+
+| Message | What to do |
+| --- | --- |
+| `could not listen on 127.0.0.1:7420` | Another program has the port. Pass another `--port`, or stop that program. |
+| `this sign-in link was used already` | Use the tab that's already signed in, or restart `vc ui` for a new link. |
+| `open the URL vc ui printed to sign in` | This browser isn't signed in. Open the first link `vc ui` printed. |
+| `the token is not this server's` | The link is from an earlier start. Use the link from the current one. |
+| `this server answers only to 127.0.0.1 and localhost` | Open the app at `127.0.0.1` or `localhost`, not another host name. |
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc ui reference" href="/vc-rs/reference/cli/ui/" />
+  <LinkCard title="vc mcp reference" href="/vc-rs/reference/cli/mcp/" />
+  <LinkCard title="AI agents" href="/vc-rs/agents/" />
+  <LinkCard title="Terminal UI" href="/vc-rs/guides/tui/" />
+</CardGrid>

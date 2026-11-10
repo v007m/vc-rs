@@ -1,0 +1,88 @@
+---
+title: "vc fmt"
+description: "Rewrites definition files in the house style: block YAML, a fixed key order and plain quoting."
+sidebar: { order: 12 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Rewrites definition files so they all look alike: block YAML instead of `{…}` flow maps, keys in a fixed order (`id`, `name`, `method`, `path`, …), and quotes only where YAML needs them. The meaning of a file never changes.
+
+```console
+$ vc fmt [OPTIONS] [PATHS]...
+```
+
+## Options
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `[PATHS]...` | | Formats only the files at or under these paths. Every definition file when left out |
+| `--strip-comments` | | Removes the one-line comments `vc new` wrote above its items; yours stay |
+| `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### Format one folder
+
+```yaml title="services/notes/notes.api.yaml (before)"
+apis:
+- {path: /notes, id: listNotes, method: "GET"}
+- id: addNote
+  path: /notes
+  method: POST
+  body: {text: "hi"}
+```
+
+```console
+$ vc fmt services/notes
+✓ formatted 1 file
+```
+
+```yaml title="services/notes/notes.api.yaml (after)"
+apis:
+  - id: listNotes
+    method: GET
+    path: /notes
+  - id: addNote
+    method: POST
+    path: /notes
+    body:
+      text: hi
+```
+
+The count is the files that changed. Run it again and it prints `✓ formatted 0 files`.
+
+### Remove the generated comments
+
+```console
+$ vc fmt --strip-comments services/billing
+✓ formatted 2 files
+```
+
+The `# billing#getInvoice · GET … · keys: …` lines above each item, and the file's `# billing · api file · keys: …` header line, are removed. The `yaml-language-server` schema line stays.
+
+<Aside type="caution">
+`vc fmt` keeps comments on their own line, but currently drops a comment at the end of a line, such as `- {path: /notes}   # all notes`. Move such comments to their own line before you format.
+</Aside>
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Formatted, including when nothing changed |
+| `2` | A file does not parse, or a path is not in the project. Nothing is written |
+
+```console
+$ vc fmt services/notes
+error: services/notes/bad.api.yaml does not parse: the text does not parse: not valid YAML: while parsing a flow sequence, expected ',' or ']'
+  = help: fix it first; `vc check` shows where
+$ vc fmt nothere
+error: nothere: not a file or folder in the project at /home/ada/shop
+```
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc check" href="/vc-rs/reference/cli/check/" description="Find errors before formatting." />
+  <LinkCard title="Editor setup" href="/vc-rs/start/editor-setup/" description="Schemas and format-on-save." />
+</CardGrid>

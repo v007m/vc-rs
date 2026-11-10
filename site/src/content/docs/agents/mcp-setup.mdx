@@ -1,0 +1,219 @@
+---
+title: "Set up the MCP server"
+description: "Connect Claude Code, Claude Desktop, Cursor, VS Code, Windsurf, Codex or any MCP client to vc, over stdio or over HTTP."
+sidebar: { order: 2 }
+---
+
+import { Tabs, TabItem, Aside, Steps } from '@astrojs/starlight/components';
+
+Vibranium's MCP server comes in two forms:
+
+- **stdio**: the agent starts `vc mcp` itself and talks to it over stdin and stdout. This is the usual setup.
+- **HTTP**: while `vc ui` runs, the same server answers at `http://127.0.0.1:<port>/mcp`. The agent sends the agent token that `vc ui` prints.
+
+Both give the same [nine tools](/vc-rs/agents/mcp-tools/) and follow the same [agent rules](/vc-rs/agents/policy-and-approvals/).
+
+## stdio: `vc mcp`
+
+```console
+$ vc mcp --help
+Starts the MCP server for AI agents, over stdio
+
+Usage: vc mcp [OPTIONS]
+
+Options:
+      --profile <IDS>    The active profiles, as a comma list or repeated; later ones win
+      --project <DIR>    The project to work on: this folder or the nearest one above it with a `vibranium.config.yaml`. Relative paths and selectors then start at the project root
+      --set <KEY=VALUE>  Sets one config value (`defaults.timeout=5s`, `vars.userId=7`), over every other layer (D129)
+  -h, --help             Print help
+```
+
+- `vc mcp` finds the project from the folder it starts in, like every other command. If the client starts it somewhere else, pass `--project /path/to/project`.
+- The agent works under the profile marked `default: true`. Pass `--profile staging` to give it another. **The agent cannot pick its own profile**: it is fixed when the server starts, so the rules that apply are the ones you chose.
+- Nothing but the protocol goes to stdout. A run started by the agent prints no console output, but its report files are still saved under `.vibranium/reports/`.
+
+<Aside type="caution">
+`vc` must be on the `PATH` the client sees. Desktop apps often start with a short `PATH`. If the client says it cannot start the server, use the full path to the binary, such as `/Users/you/.cargo/bin/vc`.
+</Aside>
+
+### Per client
+
+<Tabs syncKey="mcp-client">
+  <TabItem label="Claude Code">
+    Run this in the project folder:
+
+    ```console
+    claude mcp add vibranium -- vc mcp
+    ```
+
+    To share the server with your team, add it to the project's `.mcp.json` instead (`claude mcp add --scope project ...` writes it for you):
+
+    ```json title=".mcp.json"
+    {
+      "mcpServers": {
+        "vibranium": {
+          "command": "vc",
+          "args": ["mcp"]
+        }
+      }
+    }
+    ```
+
+    To give the agent a profile other than the default one:
+
+    ```console
+    claude mcp add vibranium -- vc mcp --profile staging
+    ```
+  </TabItem>
+  <TabItem label="Claude Desktop">
+    Claude Desktop does not start in your project, so pass `--project` and use full paths. Edit `claude_desktop_config.json` (Settings, Developer, Edit Config):
+
+    ```json title="claude_desktop_config.json"
+    {
+      "mcpServers": {
+        "vibranium": {
+          "command": "/Users/you/.cargo/bin/vc",
+          "args": ["mcp", "--project", "/Users/you/code/shop-api"]
+        }
+      }
+    }
+    ```
+
+    Restart Claude Desktop after saving.
+  </TabItem>
+  <TabItem label="Cursor">
+    Add this to `.cursor/mcp.json` in the project (or `~/.cursor/mcp.json` for every project):
+
+    ```json title=".cursor/mcp.json"
+    {
+      "mcpServers": {
+        "vibranium": { "command": "vc", "args": ["mcp"] }
+      }
+    }
+    ```
+  </TabItem>
+  <TabItem label="VS Code">
+    GitHub Copilot's agent mode reads `.vscode/mcp.json`. Note the top-level key is `servers`:
+
+    ```json title=".vscode/mcp.json"
+    {
+      "servers": {
+        "vibranium": {
+          "type": "stdio",
+          "command": "vc",
+          "args": ["mcp"]
+        }
+      }
+    }
+    ```
+  </TabItem>
+  <TabItem label="Windsurf">
+    Edit `~/.codeium/windsurf/mcp_config.json`. Windsurf's config is global, so name the project:
+
+    ```json title="~/.codeium/windsurf/mcp_config.json"
+    {
+      "mcpServers": {
+        "vibranium": {
+          "command": "vc",
+          "args": ["mcp", "--project", "/Users/you/code/shop-api"]
+        }
+      }
+    }
+    ```
+  </TabItem>
+  <TabItem label="Codex CLI">
+    Add a table to `~/.codex/config.toml`:
+
+    ```toml title="~/.codex/config.toml"
+    [mcp_servers.vibranium]
+    command = "vc"
+    args = ["mcp", "--project", "/Users/you/code/shop-api"]
+    ```
+  </TabItem>
+  <TabItem label="Other clients">
+    Add a stdio MCP server whose command is `vc` and whose arguments are `mcp`, plus `--project <dir>` if the client does not start in the project, and `--profile <id>` if you want a profile other than the default.
+  </TabItem>
+</Tabs>
+
+### Check that it works
+
+Ask the agent: "Which tests does this project have?" It should call `list_definitions`. Or try the handshake by hand. This is what `vc mcp` answers to `initialize`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "result": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": { "tools": {} },
+    "serverInfo": { "name": "vibranium", "version": "0.1.0" },
+    "instructions": "Vibranium tests HTTP APIs from YAML files. List or search the definitions, check the project, run tests and read their results. Calls, runs and writes follow the project's agent rules, which may refuse them or wait for a person's approval."
+  }
+}
+```
+
+The server offers tools only. `resources/list` and `prompts/list` return empty lists.
+
+The name the client sends in `initialize` (`clientInfo.name`) is the agent's name in the approval queue and in the action log. A client that sends none is logged as `agent`.
+
+## HTTP: the `/mcp` endpoint of `vc ui`
+
+`vc ui` starts the local web UI. It also serves the MCP server at `/mcp`, over MCP's streamable HTTP transport. When it starts, it prints two lines on stdout:
+
+```console
+$ vc ui --no-open
+vc ui: http://127.0.0.1:7420/?token=…
+vc ui: mcp http://127.0.0.1:7420/mcp token <agent token>
+```
+
+The first is your browser sign-in link. The second is for agents: the MCP URL and the **agent token**. The web UI's **Agents** page shows the same URL and token in its **Connect** panel, under **HTTP**, with a copy button for a ready-made config.
+
+<Steps>
+1. Start the web UI and leave it running.
+
+   ```console
+   vc ui
+   ```
+
+2. Copy the agent token from the terminal or from the Connect panel.
+
+3. Add the server to the agent. For Claude Code's `.mcp.json`:
+
+   ```json title=".mcp.json"
+   {
+     "mcpServers": {
+       "vibranium": {
+         "type": "http",
+         "url": "http://127.0.0.1:7420/mcp",
+         "headers": {
+           "Authorization": "Bearer <agent token>"
+         }
+       }
+     }
+   }
+   ```
+
+   Or from the command line:
+
+   ```console
+   claude mcp add --transport http vibranium http://127.0.0.1:7420/mcp --header "Authorization: Bearer <agent token>"
+   ```
+</Steps>
+
+How the endpoint behaves:
+
+- It listens on `127.0.0.1` only, on port 7420 unless you pass `--port`. The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>`.
+- A request without the token gets `401` with "send the agent token `vc ui` printed as `Authorization: Bearer`".
+- The agent token works only on `/mcp`. Sent to the web UI's own `/api`, it gets `401` with "a bearer token works only on /mcp". The browser signs in with a one-time link and a cookie instead.
+- **The token changes every time `vc ui` starts.** Update the agent's config after a restart, and keep the token out of the repo.
+- The agent runs under the profiles `vc ui` was started with (`vc ui --profile staging`), not ones it picks.
+- Every `/mcp` call goes through the agent rules and the action log. Calls you make in the browser do not: the browser is you. See [Policy and approvals](/vc-rs/agents/policy-and-approvals/#people-and-agents).
+
+<Aside type="note">
+With HTTP, the agent and the approval queue live in the same process, so approving on the Agents page is the natural flow. With stdio, approve from any terminal with `vc approve <id>`, or open `vc ui` in the same project: both read the same queue in `.vibranium/history.db`.
+</Aside>
+
+## Next
+
+- [MCP tools](/vc-rs/agents/mcp-tools/): what each tool takes and returns.
+- [Policy and approvals](/vc-rs/agents/policy-and-approvals/): give the agent permission to run tests and call apis.

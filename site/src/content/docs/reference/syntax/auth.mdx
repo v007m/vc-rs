@@ -1,0 +1,330 @@
+---
+title: auth
+description: Pick which auth from the config a request uses, on an api file, an api, a test or a step; none turns it off.
+sidebar: { order: 117, badge: { text: 'api + test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`auth` names one of the auth definitions in `vibranium.config.yaml`. vc adds its credential to the request. Each more specific level can replace it, or turn it off with `none`.
+
+```yaml title="services/authlab/authlab.api.yaml"
+baseUrl: ${var.sampleUrl}
+auth: demoKey
+apis:
+  - id: fromFile
+    path: /echo
+```
+
+This page covers choosing an auth. The definitions themselves (`apiKey`, `basic`, `bearer`, OAuth 2 and login flows) are in [Auth](/vc-rs/reference/auth/).
+
+## Syntax
+
+`auth` takes one of three forms:
+
+| Form | Example | Meaning |
+| --- | --- | --- |
+| auth ID | `auth: adminBasic` | Use that definition from the config. |
+| `none` | `auth: none` | Send no credential, even if a lower level set one. |
+| `id` + `vars` | `auth: { id: simpleKey, vars: { apiKey: from-auth-use } }` | Use that definition with some of its vars changed. |
+
+| Where | Applies to | Default |
+| --- | --- | --- |
+| api file `auth` | every api in the file | no auth |
+| api `auth` | that api | the file's |
+| test `auth` | the test's call, or every `call` and `test:` step as a default | the api's |
+| step or action `auth` | that one call | the test's, then the api's |
+
+## Examples
+
+The examples use these definitions:
+
+```yaml title="vibranium.config.yaml"
+vars:
+  adminPassword: s3cret
+auth:
+  - id: demoKey
+    type: apiKey
+    in: header
+    name: x-api-key
+    value: ${var.apiKey}
+    vars:
+      apiKey: key-for-${var.who}
+      who: service
+  - id: adminBasic
+    type: basic
+    username: admin
+    password: ${var.adminPassword}
+  - id: simpleKey
+    type: apiKey
+    in: header
+    name: x-api-key
+    value: ${var.apiKey}
+    vars:
+      apiKey: plain-default
+  - id: fixedToken
+    type: bearer
+    token: abc123
+  - id: queryKey
+    type: apiKey
+    in: query
+    name: api_key
+    value: q-123
+```
+
+### File, api and none
+
+The file sets a default. One api picks another. One api turns auth off:
+
+```yaml title="services/authlab/authlab.api.yaml"
+baseUrl: ${var.sampleUrl}
+auth: demoKey
+apis:
+  - id: fromFile
+    path: /echo
+  - id: apiOverride
+    path: /echo
+    auth: fixedToken
+  - id: noAuth
+    path: /echo
+    auth: none
+  - id: simple
+    path: /echo
+    auth: simpleKey
+  - id: inQuery
+    path: /echo
+    auth: queryKey
+```
+
+vc masks credentials in its output:
+
+```console
+$ vc call authlab#apiOverride
+200 OK · 2 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "authorization": "••••",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {}
+}
+
+$ vc call authlab#noAuth
+200 OK · 2 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+An `apiKey` with `in: query` adds a query parameter instead of a header:
+
+```console
+$ vc call authlab#inQuery
+200 OK · 1 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {
+    "api_key": "••••"
+  }
+}
+```
+
+### A test acts as someone else
+
+A test's `auth` replaces the api's for that call. Matchers see the real values, so a test can check them:
+
+```yaml title="services/authlab/who.test.yaml"
+tests:
+  - id: testOverride
+    call: authlab#fromFile
+    auth: adminBasic
+    expect:
+      body:
+        match:
+          headers.authorization: Basic YWRtaW46czNjcmV0
+          headers.x-api-key:
+            exists: false
+  - id: testNone
+    call: authlab#apiOverride
+    auth: none
+    expect:
+      body:
+        match:
+          headers.authorization:
+            exists: false
+  - id: queryAuth
+    call: authlab#inQuery
+    expect:
+      body:
+        match:
+          query.api_key: q-123
+```
+
+### Steps take the test's auth
+
+A test-level `auth` is the default for each `call` and `test:` step. A step's own `auth` wins, even over an api with `auth: none`:
+
+```yaml title="services/authlab/who.test.yaml"
+  - id: stepDefaults
+    auth: fixedToken
+    steps:
+      - call: authlab#fromFile
+        expect:
+          body:
+            match:
+              headers.authorization: Bearer abc123
+      - call: authlab#noAuth
+        auth: adminBasic
+        expect:
+          body:
+            match:
+              headers.authorization: Basic YWRtaW46czNjcmV0
+```
+
+### Change an auth's vars
+
+An auth definition can declare `vars` with defaults. Pass `id` and `vars` to change them for one api or call. A var the calling test sets reaches the auth's templates too:
+
+```yaml title="services/authlab/authlab.api.yaml"
+  - id: simpleWithVars
+    path: /echo
+    auth:
+      id: simpleKey
+      vars:
+        apiKey: from-auth-use
+```
+
+```yaml title="services/authlab/who.test.yaml"
+  - id: callVarsReachAuth
+    call: authlab#fromFile
+    vars:
+      who: caller
+    expect:
+      body:
+        match:
+          headers.x-api-key: key-for-caller
+```
+
+```yaml title="services/authlab/simple.test.yaml"
+tests:
+  - id: authDefaultVar
+    call: authlab#simple
+    expect:
+      body:
+        match:
+          headers.x-api-key: plain-default
+  - id: authUseVar
+    call: authlab#simpleWithVars
+    expect:
+      body:
+        match:
+          headers.x-api-key: from-auth-use
+```
+
+```console
+$ vc run authlab.who#testOverride authlab.who#testNone authlab.who#stepDefaults authlab.who#queryAuth authlab.who#callVarsReachAuth authlab.simple
+plan  7 tests in 2 files · profile default
+
+✓ authlab.simple#authUseVar                                       0ms
+✓ authlab.simple#authDefaultVar                                   3ms
+✓ authlab.who#queryAuth                                           5ms
+✓ authlab.who#testNone                                            8ms
+✓ authlab.who#callVarsReachAuth                                   8ms
+✓ authlab.who#testOverride                                       47ms
+✓ authlab.who#stepDefaults                                       11ms
+
+7 passed                                                     51ms · profile default
+```
+
+<Aside type="caution" title="Known issue: an auth var built from another auth var">
+If one of an auth's var defaults uses another of its vars, as `demoKey` does above (`apiKey: key-for-${var.who}` with `who: service`), `vc check` passes but every call fails unless the calling test sets `who`:
+
+```console
+✕ authlab.who#usesFileAuth                                        0ms
+  error[V5111]: `var.who` is not set
+     = at: call authlab#fromFile
+```
+
+Setting `who` through `auth: { id, vars }` fails the same way. Setting it in the calling test's `vars` works. Until this is fixed, give each auth var a plain value.
+</Aside>
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: authlab.who
+tests:
+  - id: testOverride
+    call: authlab#fromFile
+    auth: adminBasic
+    expect:
+      body:
+        match:
+          headers.authorization: Basic YWRtaW46czNjcmV0
+`} />
+
+## How it behaves
+
+- The most specific level wins: step or action, then test, then api, then file. `none` at any level turns auth off for that call.
+- Each api takes its default from its own file. A test that calls two services sends each one's credentials without saying so.
+- Credentials are masked as `••••` in `vc call` output. Matchers in `expect` still see the real values.
+- An auth's `vars` are defaults. `auth: { id, vars }` replaces some of them. A var set in the calling test's `vars` also reaches the auth's templates.
+- `vc explain` does not show which auth a call uses. Call an echo endpoint, as above, to check.
+
+## Common errors
+
+An auth ID that the config doesn't define fails `vc check`, with a fix when the name is close:
+
+```console
+error[V2002]: unknown auth `demokey`
+ --> services/au/au.api.yaml:2:7
+  |
+2 | auth: demokey
+  |       ^^^^^^^ the config has no such auth
+  = help: did you mean `demoKey`?
+  = fix: Replace with demoKey (certain)
+```
+
+The key is `vars`, not `var`:
+
+```console
+error[V1004]: unknown key `var` in authUse
+ --> services/au/au.api.yaml:8:7
+  |
+8 |       var:
+  |       ^^^ not a known key
+  = help: did you mean `vars`?
+  = fix: Replace with vars (certain)
+```
+
+See [V2002](/vc-rs/reference/diagnostics/v2002/), [V1004](/vc-rs/reference/diagnostics/v1004/) and [V5111](/vc-rs/reference/diagnostics/v5111/).
+
+## Related
+
+- [Auth](/vc-rs/reference/auth/): defining `apiKey`, `basic`, `bearer`, OAuth 2 and login flows
+- [headers](/vc-rs/reference/syntax/headers/)
+- [base-url](/vc-rs/reference/syntax/base-url/): the other thing an api takes from its file
+- [vars](/vc-rs/reference/syntax/vars/)
+- [Config](/vc-rs/reference/config/)

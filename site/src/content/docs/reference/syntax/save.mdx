@@ -1,0 +1,212 @@
+---
+title: save
+description: Keep values from a response as vars for the rest of the test.
+sidebar:
+  order: 130
+  badge: { text: 'api + test', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`save` turns parts of a response into vars. Later steps read them with `${var.<name>}`.
+
+```yaml title="services/sample/sample.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+```
+
+## Syntax
+
+`save` is a map from a var name to a template. It can sit on an api, a test, a step or an action.
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `save.<name>` | template, or a map of templates | — | no | Read from `response` (and other roots) after the call |
+
+| Where | Runs when | Who sees the values |
+| --- | --- | --- |
+| An `apis` entry | The status matches the api's [`saveOn`](/vc-rs/reference/syntax/save-on/) | Every caller of the api |
+| A test, step or action | The call's checks hold, whatever the status | Later steps in the same test |
+| A `beforeAll` action | Its checks hold | Every test in the file, under the action's `id` |
+
+## Examples
+
+### An api that saves an ID for every caller
+
+`sample#createUser` saves `userId`. Any test that calls it can use `${var.userId}` next.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      email: ${fake.internet.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+```
+
+```yaml title="services/sample/users.test.yaml"
+tests:
+  - id: getsCreatedUser
+    steps:
+      - call: sample#createUser
+      - call: sample#getUser          # path /users/${var.userId}
+```
+
+### Saving a group of values
+
+A save value can be a map. Read its fields with a dotted path.
+
+```yaml title="services/prec/saves.test.yaml (excerpt)"
+steps:
+  - id: made
+    call: sample#createUser
+    vars:
+      email: ada@example.com
+    save:
+      buyer:
+        id: ${response.body.id}
+        email: ${response.body.email}
+  - call: prec#show
+    vars:
+      b: ${var.buyer.email}       # ada@example.com
+      c: ${made.body.id}          # the step's response, no save needed
+```
+
+A step `id` gives you `${made.body...}` without a save. Use `save` when you want a short name, or when the value must outlive the step's response.
+
+### Sharing values across a file from `beforeAll`
+
+Values saved in `beforeAll` are shared by every test in the file. They live under the action's `id`, so two shared actions cannot clash.
+
+```yaml title="services/prec/saves.test.yaml (excerpt)"
+beforeAll:
+  - id: shared
+    call: sample#createUser
+    vars:
+      email: shared@example.com
+tests:
+  - id: savesFromSteps
+    steps:
+      - call: prec#show
+        vars:
+          d: ${var.shared.userId}     # createUser saved userId
+```
+
+A shared action that saves values but has no `id` is an error:
+
+```console
+$ vc check
+error[V2210]: this beforeAll action saves values but has no `id`
+ --> services/errs/shared.test.yaml:2:5
+  |
+2 |   - call: sample#createUser
+  |     ^^^^ needs an `id`
+  = help: shared values are read as `${var.<id>.<name>}`; give the action an `id`
+  = fix: Add id: createUser (certain)
+```
+
+### Collecting a list in a loop
+
+When a step repeats, each instance saves its own value, and the saved var becomes a list. Here three users are created and `${var.made[*].id}` is a list of three IDs.
+
+```yaml title="services/prec/loops.test.yaml"
+tests:
+  - id: collectsIds
+    steps:
+      - call: sample#createUser
+        repeat: 3
+        save:
+          made:
+            id: ${response.body.id}
+            email: ${response.body.email}
+      - call: prec#show
+        vars:
+          a: ${var.made[*].id}
+        expect:
+          cel:
+            three ids: size(response.body.body.a) == 3
+```
+
+```console
+$ vc run prec.loops#collectsIds
+✓ prec.loops#collectsIds                                         32ms
+```
+
+The three `createUser` calls also registered three cleanups, which ran when the test ended.
+
+### A save beats the file's vars
+
+Saved values sit at level 2 of the [`vars` order](/vc-rs/reference/syntax/vars/), above the test file's `vars`. With `userId: from-file` in the test file, `${var.userId}` after `sample#createUser` is the new user's ID. A deliberately inverted check proves it:
+
+```yaml title="services/layer/saved.test.yaml (excerpt)"
+vars:
+  userId: from-file
+tests:
+  - id: keepsLatestSave
+    steps:
+      - call: sample#createUser
+      - call: layer#show
+        body:
+          id: ${var.userId}
+        expect:
+          cel:
+            save beats file var: response.body.body.id == 'from-file'
+```
+
+```console
+$ vc run layer.saved#keepsLatestSave
+✕ layer.saved#keepsLatestSave                                    18ms
+  error[V5102]: expect.cel.save beats file var
+    --> services/layer/saved.test.yaml:22:34
+     |
+  22 |             save beats file var: response.body.body.id == 'from-file'
+     |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected true, got false
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`
+tests:
+  - id: getsCreatedUser
+    steps:
+      - call: sample#createUser
+        save:
+          createdId: \${response.body.id}
+      - call: sample#getUser
+        expect:
+          body:
+            match:
+              id: \${var.createdId}
+`} />
+
+## How it behaves
+
+- **An api's `save` runs only on a matching status.** It follows [`saveOn`](/vc-rs/reference/syntax/save-on/), which defaults to the api's `expect.status`. A test that expects a 400 skips the api's save.
+- **A test's or step's `save` runs whatever the status**, once its checks hold.
+- **The latest save wins.** Two steps that save `userId` leave the second value.
+- **Saved values beat the test file's `vars`** and the api's defaults, but a call's own `vars` beat them.
+- **In a loop, saves collect into a list**, one entry per instance, read with `[*]`.
+- **What can be templated:** every value. `response` is available, plus `var`, `env`, `secret`, `fake` and the step's other roots.
+- `vc explain` resolves vars before the run, so it shows the pre-save value. The run uses the saved one.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2210](/vc-rs/reference/diagnostics/v2210/) | A `beforeAll` action saves values but has no `id` |
+| [V2101](/vc-rs/reference/diagnostics/v2101/) | A later step reads a var nothing saves or sets |
+| [V2105](/vc-rs/reference/diagnostics/v2105/) | `response` used outside a call, such as in a file's `vars` |
+
+## Related
+
+- [`saveOn`](/vc-rs/reference/syntax/save-on/), [`cleanup`](/vc-rs/reference/syntax/cleanup/), [`vars`](/vc-rs/reference/syntax/vars/)
+- [`steps`](/vc-rs/reference/syntax/steps/), [`before-all`](/vc-rs/reference/syntax/before-all/), [`repeat`](/vc-rs/reference/syntax/repeat/)
+- [Templates](/vc-rs/reference/templates/)

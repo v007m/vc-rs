@@ -1,0 +1,132 @@
+---
+title: "vibranium-plugin.yaml"
+description: "The manifest at the top of every plugin folder, which gives the plugin's ID, version, kind, the program to start and what it asks to reach."
+sidebar: { order: 3 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+Every plugin has a `vibranium-plugin.yaml` at the top of its folder. `vc plugin add` reads it, shows it to you and records what it asks for.
+
+```yaml title="plugins/summary/vibranium-plugin.yaml"
+id: summary
+version: 1.0.0
+kind: reporter
+entry:
+  command: python3
+  args: [report.py]
+permissions:
+  secrets: [reportToken]
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | camelCase word | — | yes | The name the config uses for it. `Bad-Name` is refused |
+| `version` | text | — | yes | Shown by `vc plugin add` and `vc plugin list` |
+| `kind` | `reporter` \| `auth` \| `importer` \| `executor` | — | yes | `importer` and `executor` are accepted but have no host methods yet |
+| `entry.command` | text | — | yes | A file in the plugin folder or a program on `PATH`. Started directly, never through a shell |
+| `entry.args` | list of text | `[]` | no | Arguments passed to the command |
+| `permissions.network` | list of hosts | `[]` | no | Hosts it says it reaches. Shown and recorded, not enforced |
+| `permissions.secrets` | list of names | `[]` | no | Secrets it may ask for with `secrets/get`. Enforced by `vc` |
+| `permissions.files` | list of project paths | `[]` | no | Paths it says it reads or writes. Shown and recorded, not enforced |
+
+## Examples
+
+**A reporter written in Python.** It asks for one secret.
+
+```yaml
+id: summary
+version: 1.0.0
+kind: reporter
+entry:
+  command: python3
+  args: [report.py]
+permissions:
+  secrets: [reportToken]
+```
+
+**An auth plugin.**
+
+```yaml
+id: stamp
+version: 0.1.0
+kind: auth
+entry:
+  command: python3
+  args: [stamp.py]
+permissions:
+  secrets: [stampKey]
+```
+
+**A Node plugin that declares everything it touches.**
+
+```yaml
+id: htmlReport
+version: 1.2.0
+kind: reporter
+entry:
+  command: node
+  args: [dist/index.js]
+permissions:
+  network: [reports.acme.io]
+  secrets: [reportToken]
+  files: [reports/]
+```
+
+**What `vc plugin add` shows for it.** The `asks to reach` line comes from `permissions`.
+
+```console
+$ vc plugin add path:plugins/summary
+summary 1.0.0 · reporter plugin from path:plugins/summary (plugins/summary)
+  runs: python3 report.py
+  asks to reach: secret reportToken
+```
+
+## Try it
+
+The editor validates `vibranium.config.yaml`, where you use a plugin. The manifest itself is plain YAML with the fields above.
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: htmlReport
+    source: npm:@acme/vibranium-html@^1
+reports:
+  formats: [ctrf, htmlReport]
+`} />
+
+## How it behaves
+
+- The command runs in the plugin's installed folder, `.vibranium/plugins/<id>/`.
+- `vc plugin add` checks the manifest's shape, but not that `entry.command` exists. A missing program shows up at run time:
+
+  ```console
+  warning: cannot write the `ghost` report: plugin `ghost` could not start: cannot run `no-such-program`: No such file or directory (os error 2)
+  ```
+- When you change `permissions`, run `vc plugin add` again. Until then the run refuses the plugin, because it asks for more than `vibranium.lock` grants.
+
+## Common errors
+
+`vc plugin add` refuses a bad manifest and exits 2:
+
+```console
+$ vc plugin add path:plugins/bad --yes
+error: the vibranium-plugin.yaml of `path:plugins/bad`: its kind `notifier` is none of reporter, auth, importer, executor
+  = help: a plugin's vibranium-plugin.yaml has id, version, kind, entry.command and permissions
+```
+
+```console
+error: the vibranium-plugin.yaml of `path:plugins/bad`: its id `Bad-Name` is not a camelCase word, such as `badName`
+```
+
+At run time, plugin failures are [V5118](/vc-rs/reference/diagnostics/v5118/).
+
+## Related
+
+- [Permissions](/vc-rs/reference/plugins/permissions/)
+- [vc plugin commands](/vc-rs/reference/plugins/commands/)
+- [Write a plugin](/vc-rs/reference/plugins/writing-a-plugin/)

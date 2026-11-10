@@ -1,0 +1,93 @@
+---
+title: "iteration"
+description: "Read ${iteration.index} (from 1) and ${iteration.count} inside repeat, forEach or a repeated test."
+sidebar: { order: 9 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Inside a loop, `${iteration.index}` is the current pass, counting from 1, and `${iteration.count}` is the number of passes.
+
+```yaml
+      - call: sample#createUser
+        repeat: 3
+        vars:
+          name: User ${iteration.index}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `iteration.index` | number | — | — | 1 for the first pass. |
+| `iteration.count` | number | — | — | Total passes. |
+
+Available inside `repeat` and `forEach` on an action, and in a test with `repeat` (anything else is V2102).
+
+## Examples
+
+A repeated test. Each pass is its own reported instance:
+
+```yaml title="services/tpl/flow.test.yaml"
+  - id: repeatsTest
+    repeat: 2
+    call: sample#echo
+    vars:
+      payload:
+        index: ${iteration.index}
+        count: ${iteration.count}
+```
+
+The two instances sent `{"index": 1, "count": 2}` and `{"index": 2, "count": 2}`:
+
+```console
+✓ tpl.flow#repeatsTest [repeat 1]                                 3ms
+✓ tpl.flow#repeatsTest [repeat 2]                                 3ms
+```
+
+In a `forEach`, `iteration` comes with [`item`](/vc-rs/reference/templates/item/):
+
+```yaml
+        forEach: [red, green]
+        vars:
+          payload:
+            item: ${item}
+            index: ${iteration.index}
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: createsNumberedUsers
+    steps:
+      - call: sample#createUser
+        repeat: 3
+        vars:
+          name: User \${iteration.index} of \${iteration.count}
+`} />
+
+## How it behaves
+
+- `index` counts from 1, so `${iteration.index}` reads naturally in names.
+- Inside an action loop, every saved name becomes a list with one entry per iteration.
+
+## Common errors
+
+```console
+error[V2102]: `iteration` is not available here
+  --> services/tpl/bad.test.yaml:19:16
+   |
+19 |       payload: ${iteration.index}
+   |                ^^^^^^^^^^^^^^^^^^
+   = help: `iteration` is available only inside repeat, forEach or a repeated test
+```
+
+- [V2102](/vc-rs/reference/diagnostics/v2102/): `iteration` outside a loop.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="item" href="/vc-rs/reference/templates/item/" />
+  <LinkCard title="repeat and forEach" href="/vc-rs/reference/syntax/" />
+</CardGrid>

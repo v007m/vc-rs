@@ -1,0 +1,131 @@
+---
+title: "beforeRun and afterRun"
+description: "Config-level blocks that run once at the start and once at the end of every run."
+sidebar: { order: 1 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`beforeRun` runs once before any test in the run starts, and `afterRun` runs once after the last test ends. Both live in `vibranium.config.yaml`.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+beforeRun:
+  - command: echo starting run
+  - id: admin
+    call: sample#createUser
+    vars:
+      name: Run Admin
+
+afterRun:
+  - command: echo run finished
+```
+
+Every test in the run can read `${var.admin.userId}`.
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `beforeRun` | list of actions | — | no | Runs once at the start of a run that selects at least one test |
+| `afterRun` | list of actions | — | no | Runs once after every test has finished |
+| `id` (on an action) | camelCase text | — | yes, when the action saves values | Saved values are shared as `${var.<id>.<name>}` |
+
+Each entry is a [`call`](/vc-rs/reference/lifecycle/call/), [`test`](/vc-rs/reference/lifecycle/test-action/), [`function`](/vc-rs/reference/lifecycle/function/) or [`command`](/vc-rs/reference/lifecycle/command/) action.
+
+## Examples
+
+Start services before anything else, and stop them at the end:
+
+```yaml title="vibranium.config.yaml (excerpt)"
+beforeRun:
+  - command: docker compose up -d --wait
+afterRun:
+  - command: docker compose down
+```
+
+Create one admin user for the whole run. Its api's `save` and `cleanup` still apply: the user is deleted once the run ends.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+beforeRun:
+  - id: admin
+    call: sample#createUser
+    vars:
+      name: Run Admin
+```
+
+```yaml title="services/sample/admin.test.yaml"
+tests:
+  - id: readsAdmin
+    call: sample#getUser
+    vars:
+      userId: ${var.admin.userId}
+```
+
+An action that saves values must have an `id`. Without one, `vc check` stops:
+
+```console
+$ vc check
+error[V2210]: this beforeRun action saves values but has no `id`
+   --> vibranium.config.yaml:180:5
+    |
+180 |   - call: lab#createItem
+    |     ^^^^ needs an `id`
+    = help: shared values are read as `${var.<id>.<name>}`; give the action an `id`
+    = fix: Add id: createItem (certain)
+```
+
+When a `beforeRun` action fails, it is reported once, and only the tests that read its values are blocked. Here `readsAdmin` reads `${var.admin.code}` and `ignoresAdmin` reads nothing from it:
+
+```console
+$ vc run lab.needsadmin
+plan  2 tests in 1 file · lifecycle: beforeRun command, admin · profile default
+
+✕ admin (run) failed
+  error[V5101]: status: expected ["2xx"], got 503
+     = at: admin
+⊘ lab.needsadmin#readsAdmin blocked
+  error[V5101]: status: expected ["2xx"], got 503
+     = at: admin
+✓ lab.needsadmin#ignoresAdmin                                     1ms
+
+1 passed · 1 blocked                                         74ms · profile default
+```
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+
+beforeRun:
+  - command: docker compose up -d --wait
+  - id: admin
+    call: sample#createUser
+    vars:
+      name: Run Admin
+
+afterRun:
+  - command: docker compose down
+`} />
+
+## How it behaves
+
+- `beforeRun` runs eagerly and finishes before any test starts. It does not run when the selection matches no test.
+- Each action runs once. Its saved values are computed once and shared by every test, so treat them as read-only.
+- In the json event stream, these actions belong to the `run` owner, and the run's cleanups (such as the admin's delete) run after `afterRun`.
+- `vc plan` lists the `beforeRun` and `afterRun` actions at the top and bottom of the plan, and the summary line names them (`lifecycle: beforeRun command, admin`).
+- `vc plan` marks each test with the shared values it reads (`needs: admin, shared`). Only those tests are blocked when the action fails.
+
+## Common errors
+
+- [V2210](/vc-rs/reference/diagnostics/v2210/): an action that saves values has no `id`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/), [V5110](/vc-rs/reference/diagnostics/v5110/) and the other run-time codes: the action failed, and the tests that need it are blocked.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="beforeAll and afterAll" href="/vc-rs/reference/lifecycle/before-all/" />
+  <LinkCard title="Shared values and blocked tests" href="/vc-rs/reference/lifecycle/shared-values/" />
+  <LinkCard title="Cross-run cache" href="/vc-rs/reference/lifecycle/cache/" />
+  <LinkCard title="command action" href="/vc-rs/reference/lifecycle/command/" />
+</CardGrid>

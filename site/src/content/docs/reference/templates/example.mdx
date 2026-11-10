@@ -1,0 +1,134 @@
+---
+title: "example"
+description: "Read the current row of a data-driven test's examples with ${example.column}."
+sidebar: { order: 7 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+In a test with `examples`, `${example.<column>}` reads the current row. Each row runs as its own test instance.
+
+```yaml
+    examples:
+      - email: no-at-sign
+      - email: ""
+    vars:
+      email: ${example.email}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `example.<column>` | any value | — | yes | The row's value, with its own type. CSV values are text. |
+| `example` | object | — | — | The whole row. |
+
+Available only in a test that has `examples` (anything else is V2102).
+
+## Examples
+
+Inline rows. The number keeps its type:
+
+```yaml title="services/tpl/flow.test.yaml"
+tests:
+  - id: readsExamples
+    examples:
+      - email: a@example.com
+        age: 30
+      - email: b@example.com
+        age: 41
+    call: sample#echo
+    vars:
+      payload:
+        email: ${example.email}
+        age: ${example.age}
+```
+
+Row 1 sent `{"age": 30, "email": "a@example.com"}` and row 2 sent `{"age": 41, "email": "b@example.com"}`. Each row is reported on its own:
+
+```console
+✓ tpl.flow#readsExamples [row 2]                                  3ms
+✓ tpl.flow#readsExamples [row 1]                                  3ms
+```
+
+Run one row with `:n`, counting from 1:
+
+```console
+$ vc run 'tpl.flow#readsExamples:2'
+plan  1 test in 1 file · profile default
+
+✓ tpl.flow#readsExamples [row 2]                                 12ms
+
+1 passed                                                     17ms · profile default
+```
+
+Rows from a dataset. With `datasets/capitals.csv` (columns `name`, `country`, `population`), each capital becomes a test instance:
+
+```yaml
+  - id: findsEveryCapital
+    examples: ${dataset.capitals}
+    call: sample#echo
+    vars:
+      payload:
+        city: ${example.name}
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: rejectsBadEmail
+    name: Rejects malformed email addresses
+    examples:
+      - email: no-at-sign
+      - email: ""
+    call: sample#createUser
+    vars:
+      email: \${example.email}
+    expect:
+      status: 400
+`} />
+
+## How it behaves
+
+- Rows can run in any order, like other test instances.
+- `vc check` knows the columns of inline rows and of dataset rows, so a column that no row has is V2103 before the run.
+- To read a row from a `forEach` instead, use [`item`](/vc-rs/reference/templates/item/).
+
+## Common errors
+
+A column that no row has:
+
+```console
+error[V2103]: ${example.mayor} names no column of this test's examples
+ --> services/tpl/col.test.yaml:6:16
+  |
+3 |     examples: ${dataset.capitals}
+  |               ------------------- the rows
+...
+6 |       payload: ${example.mayor}
+  |                ^^^^^^^^^^^^^^^^ no row has `mayor`
+  = help: the columns are `country`, `name`, `population`
+```
+
+Used in a test without `examples`:
+
+```console
+error[V2102]: `example` is not available here
+  --> services/tpl/bad.test.yaml:15:16
+   |
+15 |       payload: ${example.email}
+   |                ^^^^^^^^^^^^^^^^
+   = help: `example` is available only in a test with examples
+```
+
+- [V2102](/vc-rs/reference/diagnostics/v2102/): no `examples` on this test.
+- [V2103](/vc-rs/reference/diagnostics/v2103/): no row has that column.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="dataset" href="/vc-rs/reference/templates/dataset/" />
+  <LinkCard title="item" href="/vc-rs/reference/templates/item/" />
+  <LinkCard title="Data" href="/vc-rs/reference/data/" />
+</CardGrid>

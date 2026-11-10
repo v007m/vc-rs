@@ -1,0 +1,379 @@
+---
+title: "MCP tools"
+description: "Every tool the vc MCP server offers, with its input schema, its output shape and a real call and response."
+sidebar: { order: 3 }
+---
+
+import { Aside, Badge } from '@astrojs/starlight/components';
+
+`vc mcp` (and the `/mcp` endpoint of `vc ui`) offers nine tools. It offers no resources and no prompts.
+
+| Tool | Kind | What it does |
+| --- | --- | --- |
+| [`list_definitions`](#list_definitions) | <Badge text="read" variant="success" /> | Lists tests, apis or definition files |
+| [`search`](#search) | <Badge text="read" variant="success" /> | Finds tests and apis by ID or name |
+| [`get_definition`](#get_definition) | <Badge text="read" variant="success" /> | Shows one test or api as a run resolves it |
+| [`check`](#check) | <Badge text="read" variant="success" /> | Returns every diagnostic, with help and fixes |
+| [`query_history`](#query_history) | <Badge text="read" variant="success" /> | Lists stored runs, or one run's tests |
+| [`explain_failure`](#explain_failure) | <Badge text="read" variant="success" /> | Shows how a test ended in a stored run |
+| [`run_tests`](#run_tests) | <Badge text="act" variant="caution" /> | Runs tests |
+| [`call_api`](#call_api) | <Badge text="act" variant="caution" /> | Sends one api |
+| [`write_definition`](#write_definition) | <Badge text="act" variant="caution" /> | Writes one api, test or load file |
+
+## How every tool behaves
+
+- **Annotations.** Read tools carry `readOnlyHint: true` and `destructiveHint: false`. Act tools carry `readOnlyHint: false` and `destructiveHint: true`, so clients that ask before destructive tools will ask.
+- **Schemas are strict.** Every input schema is an object with `additionalProperties: false`. A wrong argument comes back as an error of kind `arguments`, such as ``argument `kind`: `bogus` is not tests, apis or files`` or ``argument `query`: is required``.
+- **Results are JSON.** Each result has `structuredContent` (a JSON object) and one text content item holding the same JSON, for clients that read only text.
+- **Errors** are tool results with `isError: true` and a body of `{kind, reason, help}`:
+
+  | `kind` | Meaning | Example `reason` |
+  | --- | --- | --- |
+  | `refused` | The agent rules or a person said no | `refused: default: agents.run is false` |
+  | `arguments` | A bad argument | ``argument `query`: is required`` |
+  | `error` | Anything else | ``no test or test file matches `nope.none` `` |
+
+  `help` is a hint for the next step, or `null`.
+- **An unknown tool name** is a JSON-RPC error (`-32602`) with the message "no tool is called `nope`".
+- **Logging.** Every call is logged to the agent action log in `.vibranium/history.db`, with secrets redacted. Read tools log `ok` or `failed: <reason>`. Act tools log when they end, with who approved them. See [Policy and approvals](/vc-rs/agents/policy-and-approvals/).
+- **Profiles.** Every tool works under the profiles `vc mcp` was started with. No tool takes a profile argument.
+
+The examples below come from a real project with an `people` api file (`listPeople`, `createPerson`, `getPerson`, `echo`) imported from OpenAPI, running against `vc demo`.
+
+## Reading tools
+
+These never send a request to your api and are never gated. They are always allowed, even with no `agents` block.
+
+### list_definitions
+
+> Lists the project's tests, apis or definition files, with their IDs, names, paths and tags.
+
+| Input | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | `"tests"` \| `"apis"` \| `"files"` | no | What to list; tests when left out |
+| `ids` | string[] | no | Test or file IDs to narrow the list to, such as `users.crud` or `users.crud#getsUser` |
+| `tags` | string[] | no | Only tests with one of these tags |
+
+Output: `{items: [{id, name, path, skipped, tags}], notices}`. Same data as `vc list <kind> --json`.
+
+```json title="call"
+{ "name": "list_definitions", "arguments": { "kind": "apis", "ids": ["people"] } }
+```
+
+```json title="structuredContent"
+{
+  "items": [
+    { "id": "people#listPeople", "name": "List people", "path": "services/people/people.api.yaml", "skipped": false, "tags": [] },
+    { "id": "people#createPerson", "name": "Create a person", "path": "services/people/people.api.yaml", "skipped": false, "tags": [] },
+    { "id": "people#getPerson", "name": "Get a person", "path": "services/people/people.api.yaml", "skipped": false, "tags": [] },
+    { "id": "people#echo", "name": "Echo a body", "path": "services/people/people.api.yaml", "skipped": false, "tags": [] }
+  ],
+  "notices": []
+}
+```
+
+With `kind: "files"`, each item is a file ID and its path (`{"id": "people.openapi", "path": "services/people/openapi.test.yaml", ...}`); `name` is `null` for files.
+
+### search
+
+> Finds the tests and apis whose ID or name contains the query, ignoring case.
+
+| Input | Type | Required | Description |
+| --- | --- | --- | --- |
+| `query` | string | yes | Text to look for, such as `refund` |
+
+Output: `{items: [{id, kind, name, path}]}`, where `kind` is `"test"` or `"api"`. Tests come first.
+
+```json title="call"
+{ "name": "search", "arguments": { "query": "person" } }
+```
+
+```json title="structuredContent"
+{
+  "items": [
+    { "id": "people.openapi#createsPerson", "kind": "test", "name": "Create a person returns 201", "path": "services/people/openapi.test.yaml" },
+    { "id": "people.openapi#getsPerson", "kind": "test", "name": "Get a person returns 200", "path": "services/people/openapi.test.yaml" },
+    { "id": "people#createPerson", "kind": "api", "name": "Create a person", "path": "services/people/people.api.yaml" },
+    { "id": "people#getPerson", "kind": "api", "name": "Get a person", "path": "services/people/people.api.yaml" }
+  ]
+}
+```
+
+### get_definition
+
+> Shows a test or api with its resolved request, vars, auth, checks and where each comes from.
+
+| Input | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string | yes | A full ID: `users.crud#getsUser` for a test, `users#get` for an api |
+
+Output: `{id, text, notices}`. `text` is exactly what `vc explain <id>` prints.
+
+```json title="call"
+{ "name": "get_definition", "arguments": { "id": "people.openapi#getsPerson" } }
+```
+
+```json title="structuredContent"
+{
+  "id": "people.openapi#getsPerson",
+  "notices": [],
+  "text": "people.openapi#getsPerson  Get a person returns 200\nprofile  default\ncall people#getPerson\n  GET http://localhost:7531/users/1\n  vars\n    sampleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  1  (test)\n  expect\n    status: 200  (test people.openapi#getsPerson)\n    match name: equals  (test people.openapi#getsPerson)\n"
+}
+```
+
+An unknown ID is an error: ``{"kind": "error", "reason": "no test or api `people#nope`", "help": null}``.
+
+### check
+
+> Checks the project's definition files and returns every diagnostic with its code, place, help and fix.
+
+| Input | Type | Required | Description |
+| --- | --- | --- | --- |
+| `paths` | string[] | no | Files or folders to check; the whole project when left out |
+
+Output: `{summary: {checked, errors, warnings}, diagnostics: {diagnostics: [...], summary: {errors, infos, warnings}}, notices}`. The inner `diagnostics` object is the same JSON that `vc check --json` prints; see [JSON output](/vc-rs/agents/json-and-events/#vc-check---json) for each diagnostic's shape.
+
+```json title="call"
+{ "name": "check", "arguments": { "paths": ["services/people"] } }
+```
+
+```json title="structuredContent"
+{
+  "diagnostics": {
+    "diagnostics": [],
+    "summary": { "errors": 0, "infos": 0, "warnings": 0 }
+  },
+  "notices": [],
+  "summary": { "checked": 3, "errors": 0, "warnings": 0 }
+}
+```
+
+A project with errors is still a successful tool call (`isError: false`); read `summary.errors`. Each diagnostic's `fixes` holds the edits for its certain fixes, so an agent can apply them itself or ask you to run `vc check --fix`.
+
+### query_history
+
+> Lists the latest stored runs, or with `run` one run and the status of every test in it.
+
+| Input | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | integer, at least 1 | no | How many runs to list; 20 when left out |
+| `run` | string | no | A run number from `query_history`, or `last` |
+
+Without `run`, the output is `{runs: [...]}`, newest first. `kind` is `run` for test runs, `adhoc` for `call_api` and `vc call`, and `load` for load runs.
+
+```json title="call"
+{ "name": "query_history", "arguments": { "limit": 2 } }
+```
+
+```json title="structuredContent"
+{
+  "runs": [
+    {
+      "finishedMs": 1794332281152, "id": 26, "kind": "run", "profiles": ["default"],
+      "seed": 12141534653887325439, "selector": "people.diff",
+      "startedMs": 1794332280956, "status": "failed",
+      "totals": { "blocked": 0, "failed": 1, "flaky": 0, "passed": 0, "skipped": 0 },
+      "vcVersion": "0.1.0"
+    },
+    {
+      "finishedMs": 1794332280917, "id": 25, "kind": "adhoc", "profiles": ["default"],
+      "seed": null, "selector": "people#getPerson",
+      "startedMs": 1794332280755, "status": "passed",
+      "totals": { "blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0 },
+      "vcVersion": "0.1.0"
+    }
+  ]
+}
+```
+
+With `run`, the output is `{run, tests}`: the run, plus each test's `{id, status, attempts, durationMs, message, blockedBy, skipReason}`.
+
+```json title="call"
+{ "name": "query_history", "arguments": { "run": "last" } }
+```
+
+```json title="structuredContent (tests)"
+{
+  "tests": [
+    {
+      "attempts": 1,
+      "blockedBy": null,
+      "durationMs": 3.0461669999999996,
+      "id": "people.diff#getsGraceExactly",
+      "message": "equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n",
+      "skipReason": null,
+      "status": "failed"
+    }
+  ]
+}
+```
+
+With no stored run yet, the tool returns an error, `history: no run is stored yet`, with the help ``"`vc history` lists the stored runs"``.
+
+<Aside type="caution" title="Seeds are large numbers">
+`seed` can be above 2^53. A JavaScript client's `JSON.parse` rounds it. If you need to replay a run with `--seed`, read the seed from the console line `seed N: pass --seed N ...` or parse the JSON with big-integer support.
+</Aside>
+
+### explain_failure
+
+> Shows how a test ended in a stored run (the last one when `run` is left out): its status, failure message and what blocked it, with the test's resolved definition beside it.
+
+| Input | Type | Required | Description |
+| --- | --- | --- | --- |
+| `test` | string | yes | The test's full ID, such as `users.crud#getsUser` |
+| `run` | string | no | A run number from `query_history`, or `last` |
+
+Output: `{run, results, definition}`. `results` holds one row per instance of the test in that run (one per example row or repeat). `definition` is the `vc explain` text. The failure message includes the expected and actual values and, for object and list checks, a unified diff.
+
+```json title="call"
+{ "name": "explain_failure", "arguments": { "test": "people.diff#getsGraceExactly" } }
+```
+
+```json title="structuredContent"
+{
+  "definition": "people.diff#getsGraceExactly  Gets Grace exactly\nprofile  default\ncall people#getPerson\n  GET http://localhost:7531/users/2\n  vars\n    sampleUrl  http://localhost:7531  (vibranium.config.yaml)\n    id  2  (test)\n  expect\n    status: 200  (test people.diff#getsGraceExactly)\n    equals: equals  (test people.diff#getsGraceExactly)\n",
+  "results": [
+    {
+      "attempts": 1,
+      "blockedBy": null,
+      "durationMs": 3.0461669999999996,
+      "id": "people.diff#getsGraceExactly",
+      "message": "equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n",
+      "skipReason": null,
+      "status": "failed"
+    }
+  ],
+  "run": {
+    "finishedMs": 1794332281152, "id": 26, "kind": "run", "profiles": ["default"],
+    "seed": 12141534653887325439, "selector": "people.diff",
+    "startedMs": 1794332280956, "status": "failed",
+    "totals": { "blocked": 0, "failed": 1, "flaky": 0, "passed": 0, "skipped": 0 },
+    "vcVersion": "0.1.0"
+  }
+}
+```
+
+If the test was not part of that run, `results` is an empty list. The response does not include the raw request and response. To see them, run the test again with `vc run <id> --reporter json` and read the `exchanged` and `checkEvaluated` events, or open the HTML report.
+
+## Acting tools
+
+These send requests or write files, so the [agent rules](/vc-rs/agents/policy-and-approvals/) decide each call: allow it, refuse it, or wait for a person's approval (up to 10 minutes). With no `agents` block in the active profile, all three are refused.
+
+### run_tests
+
+> Runs the selected tests (every test when nothing is selected) and returns each test's status. The project's agent rules may refuse the run or wait for a person to approve it.
+
+| Input | Type | Required | Description |
+| --- | --- | --- | --- |
+| `ids` | string[] | no | Test or file IDs to run, such as `users.crud` or `users.crud#getsUser` |
+| `tags` | string[] | no | Only tests with one of these tags |
+| `grep` | string | no | Only tests whose name contains this |
+
+Output: `{exit, run, seed, tests: [{id, status, attempts, durationMs, message, blockedBy, skipReason}], notices}`. `exit` is the exit code `vc run` would have (0 pass, 1 fail or blocked, 2 nothing ran). `run` is the run's number in the history, for `query_history` and `explain_failure`.
+
+```json title="call"
+{ "name": "run_tests", "arguments": { "ids": ["people.diff"] } }
+```
+
+```json title="structuredContent"
+{
+  "exit": 1,
+  "notices": [],
+  "run": 26,
+  "seed": 12141534653887325439,
+  "tests": [
+    {
+      "attempts": 1,
+      "blockedBy": null,
+      "durationMs": 3.0461669999999996,
+      "id": "people.diff#getsGraceExactly",
+      "message": "equals: expected {\"id\":\"2\",\"name\":\"Grace Brewster Hopper\"}, got {\"id\":\"2\",\"name\":\"Grace Hopper\"}\n--- expected\n+++ actual\n@@ -1,4 +1,4 @@\n {\n   \"id\": \"2\",\n-  \"name\": \"Grace Brewster Hopper\"\n+  \"name\": \"Grace Hopper\"\n }\n\\ No newline at end of file\n",
+      "skipReason": null,
+      "status": "failed"
+    }
+  ]
+}
+```
+
+A failing test is not a tool error: `isError` is `false` and `exit` is 1. A selection that matches nothing is an error: ``no test or test file matches `nope.none` ``.
+
+The gate looks at the whole run before anything is sent: `agents.run` must be `true`, and every HTTP method the plan can send (tests, their steps, lifecycle blocks, cleanups and auth flows) must be allowed. The run asks once, not per request. A run that reaches a `command:` or `function:` action always asks. See [What a run reaches](/vc-rs/agents/policy-and-approvals/#what-a-run-or-call-reaches).
+
+### call_api
+
+> Sends one api with its auth and checks, then runs its cleanup unless `keep` is true. The project's agent rules may refuse the call or wait for a person to approve it.
+
+| Input | Type | Required | Description |
+| --- | --- | --- | --- |
+| `api` | string | yes | The api's full ID, such as `users#create` |
+| `vars` | object | no | Vars to send it with, over the api's own: `{"userId": 7}` |
+| `keep` | boolean | no | Leaves what the call made: its cleanup does not run |
+
+Output: `{exit, response: {status, headers, body, timing}, text, notices}`. `timing` is in milliseconds. `text` is what `vc call` prints.
+
+```json title="call"
+{ "name": "call_api", "arguments": { "api": "people#getPerson", "vars": { "id": "1" } } }
+```
+
+```json title="structuredContent"
+{
+  "exit": 0,
+  "notices": [],
+  "response": {
+    "body": { "id": "1", "name": "Ada Lovelace" },
+    "headers": {
+      "content-length": "32",
+      "content-type": "application/json",
+      "date": "Tue, 10 Nov 2026 17:38:00 GMT"
+    },
+    "status": 200,
+    "timing": { "connect": 0.63875, "dns": 2.785167, "download": 0.014208, "firstByte": 4.306082999999999, "total": 4.320291 }
+  },
+  "text": "200 OK · 4 ms · api expect passed\n{\n  \"id\": \"1\",\n  \"name\": \"Ada Lovelace\"\n}\n"
+}
+```
+
+The gate judges the api's method and, unless `keep` is true, the methods of its cleanup. Calling `createUser` (POST) with a `cleanup` that calls `deleteUser` (DELETE) needs both POST and DELETE to be allowed or approved.
+
+### write_definition
+
+> Writes one api, test or load file whole. The text must keep the project free of errors, or nothing is written. The project's agent rules may refuse it or wait for a person to approve it.
+
+| Input | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | string | yes | The file's path from the project root, such as `services/users/crud.test.yaml` |
+| `text` | string | yes | The file's whole new YAML text |
+
+Output: `{written: [paths], titles: [...]}`. A title starts with `Create` for a new file and `Write` for an existing one.
+
+```json title="call"
+{
+  "name": "write_definition",
+  "arguments": {
+    "path": "services/sample/extra.test.yaml",
+    "text": "tests:\n  - id: listsUsersAgain\n    name: Lists users again\n    call: sample#listUsers\n    expect:\n      status: 200\n"
+  }
+}
+```
+
+```json title="structuredContent"
+{
+  "titles": ["Create services/sample/extra.test.yaml"],
+  "written": ["services/sample/extra.test.yaml"]
+}
+```
+
+The order of checks is:
+
+1. The path must end in `.api.yaml`, `.test.yaml` or `.load.yaml`. Otherwise: "`notes.txt` is not a definition file", help "give a project path ending in .api.yaml, .test.yaml or .load.yaml".
+2. It must not be `vibranium.config.yaml`: "an agent cannot write vibranium.config.yaml", help "it holds the agent rules; a person edits it".
+3. The project with the new text must compile with no errors. Otherwise nothing is written, and the first error comes back with its code, place and help, for example: `nothing was written: the change would add error[V2003] at services/sample/extra.test.yaml:4: unknown api "sample#listUser"`, help "did you mean one of `sample#listUsers`, `sample#getUser`, `sample#createUser`?".
+4. Then `agents.writeDefinitions` decides: `true` writes, `ask` waits for a person, `false` refuses.
+
+Because the compile check comes first, a person is never asked to approve a write that would break the project.
+
+## Related
+
+- [Set up the MCP server](/vc-rs/agents/mcp-setup/)
+- [Policy and approvals](/vc-rs/agents/policy-and-approvals/)
+- [Agent workflows](/vc-rs/agents/workflows/)

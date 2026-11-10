@@ -1,0 +1,25 @@
+name: Users smoke load
+mix:
+  - test: users.crud#listsUsers
+    weight: 3
+  - test: users.crud#getsCreatedUser
+    weight: 1
+    thresholds:
+      p95:
+        lt: 300ms
+stages:
+  - duration: 5s
+    users: 5
+  - duration: 10s
+    users: 20
+  - duration: 5s
+    users: 0
+thinkTime:
+  min: 100ms
+  max: 300ms
+thresholds:
+  p99:
+    lt: 500ms
+  errorRate:
+    lt: 1%
+abortOn: [errorRate]

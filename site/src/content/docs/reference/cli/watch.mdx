@@ -1,0 +1,96 @@
+---
+title: "vc watch"
+description: "Runs the selected tests, then runs them again every time you save a definition file."
+sidebar: { order: 5 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Runs the selected tests once, then waits. Each time you save a file in the project, it checks the project and runs the tests again. Press Ctrl-C to stop.
+
+```console
+$ vc watch [OPTIONS] [SELECTORS]...
+```
+
+`vc watch` takes the same [selectors](/vc-rs/reference/cli/#selectors) and flags as [`vc run`](/vc-rs/reference/cli/run/).
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `-t`, `--tag` | `<TAGS>` | | Only tests with this tag expression. `!` excludes, `,` means or. Repeat to require every one |
+| `-g`, `--grep` | `<TEXT>` | | Only tests whose full ID or name contains this text, ignoring case |
+| `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
+| `--include-skipped` | | | Also runs the tests marked `skip` |
+| `--failed` | | | Runs the tests that failed or were blocked in the last run |
+| `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated |
+| `--set` | `<KEY=VALUE>` | | Sets one config value over every other layer |
+| `--repeat` | `<N>` | | Runs every selected test this many times |
+| `--seed` | `<N>` | random | The seed for generated data |
+| `--bail` | | | Starts no more tests after the first failure |
+| `--concurrency` | `<N>` | `defaults.concurrency` | Test instances at once |
+| `--reporter` | `<FORMAT>` | `spec` | The console format: `spec` or `json` |
+| `--report` | `<FORMATS>` | `reports.formats`, else `ctrf` | The report files to write: `ctrf`, `junit`, `html` |
+| `--out` | `<DIR>` | `<reports.dir>/<run>/` | The folder the report files go in |
+| `--single-file` | | | Writes the HTML report as one self-contained file |
+| `--no-cache` | | | Runs `cache:` actions every time |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### Watch one file
+
+```console
+$ vc watch sample.extra
+plan  2 tests in 1 file · 1 skipped · profile default
+
+- sample.extra#findsAda skipped: demo data changed
+✓ sample.extra#echoesBody                                         9ms
+✓ sample.extra#rejectsBadEmail [row 1]                           10ms
+✓ sample.extra#rejectsBadEmail [row 2]                           10ms
+
+3 passed · 1 skipped                                         16ms · profile default
+reports  /home/ada/shop/.vibranium/reports/83/{ctrf.json,junit.xml,index.html}
+watching for saves; press Ctrl-C to stop
+```
+
+Save any file and the run starts again with the same output.
+
+### A save that breaks the project
+
+When a saved file has an error, `vc watch` prints the diagnostics, skips the run, and keeps waiting:
+
+```console
+error[V2003]: unknown api "sample#listUser"
+  --> services/sample/extra.test.yaml:10:11
+   |
+10 |     call: sample#listUser
+   |           ^^^^^^^^^^^^^^^ no api has this ID
+   = help: did you mean one of `sample#listUsers`, `sample#getUser`, `sample#createUser`?
+
+1 error · 0 warnings · 16 files checked
+error: the project has 1 error(s); nothing ran
+watching for saves; press Ctrl-C to stop
+```
+
+Fix the file and save; the next run starts.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `130` | Stopped with Ctrl-C, the normal way to end it |
+
+Failing tests and project errors do not stop `vc watch`. Neither does a wrong flag: `vc watch --profile nope` prints the `no profile` error and then waits for saves, so stop it and fix the command.
+
+## How it behaves
+
+- Every run is a full run: it is stored in [history](/vc-rs/reference/cli/history/) and writes report files.
+- Each run checks the whole project first, like `vc run`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc run" href="/vc-rs/reference/cli/run/" description="Run once, for CI and scripts." />
+  <LinkCard title="vc tui" href="/vc-rs/reference/cli/tui/" description="Run and explore in the terminal UI." />
+</CardGrid>

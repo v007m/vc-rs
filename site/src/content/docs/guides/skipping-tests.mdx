@@ -1,0 +1,194 @@
+---
+title: "Skipping tests"
+description: "Park a test with a reason and an end date, find what is parked, and keep skips from piling up."
+sidebar: { order: 7 }
+---
+
+import { Steps, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Sometimes a test cannot pass for a while: the service is down in staging, or a fix is waiting on another team. Skip it instead of deleting it or letting it fail every run. A skip always has a reason, which every report shows, and it can end on a date so the test comes back on its own.
+
+## Skip a test
+
+<Steps>
+
+1. **Skip it with a reason, and a date if you know one.**
+
+   ```console
+   $ vc skip sample.parked#getsUser --reason "flaky upstream, see #7" --until 2026-11-30
+   ✓ skipped sample.parked#getsUser until 2026-11-30: flaky upstream, see #7
+   ```
+
+   `vc skip` writes the [`skip`](/vc-rs/reference/syntax/skip/) block into the YAML. You can also write it yourself:
+
+   ```yaml title="services/sample/parked.test.yaml"
+     - id: getsUser
+       name: Gets a user
+       call: sample#getUser
+       vars:
+         userId: "1"
+       skip:
+         reason: "flaky upstream, see #7"
+         until: 2026-11-30
+   ```
+
+   Without a date, the short form is enough: `skip: demo service has no search yet`.
+
+2. **Commit it.** The skip is in the test file, so it shows up in review like any other change.
+
+3. **Run as usual.** A skipped test is not sent. It is listed with its reason and counted as skipped:
+
+   ```console
+   $ vc run sample.parked
+   plan  2 tests in 1 file · 1 skipped · profile default
+
+   - sample.parked#searchesUsers skipped: demo service has no search yet
+   ✓ sample.parked#listsUsers                                        8ms
+   ✓ sample.parked#getsUser                                          9ms
+
+   2 passed · 1 skipped                                         15ms · profile default
+   ```
+
+4. **Remove it when the cause is fixed.**
+
+   ```console
+   $ vc unskip sample.parked#getsUser
+   ✓ unskipped sample.parked#getsUser
+   ```
+
+</Steps>
+
+Skipped tests never fail a run. A run where every test is skipped exits `0`.
+
+## Skip a whole file
+
+Pass a file ID to skip every test in the file. Its `beforeAll` and `afterAll` do not run either:
+
+```console
+$ vc skip users.crud --reason "auth broken in staging" --until 2026-12-01
+✓ skipped users.crud until 2026-12-01: auth broken in staging
+```
+
+```yaml title="services/users/crud.test.yaml"
+skip:
+  reason: auth broken in staging
+  until: 2026-12-01
+tests:
+  ...
+```
+
+A file skip and a test skip are separate: `vc unskip users.crud` leaves a skip on one of its tests in place.
+
+## Find what is skipped
+
+`vc plan` lists the skipped tests with their reasons:
+
+```console
+$ vc plan sample.parked
+plan  1 test in 1 file · 2 skipped · profile default
+sample.parked
+  sample.parked#listsUsers
+skipped
+  sample.parked#searchesUsers: demo service has no search yet
+  sample.parked#getsUser: flaky upstream, see #7
+```
+
+`vc list tests --skipped` lists them without reasons, one per line, for scripts:
+
+```console
+$ vc list tests --skipped
+sample.parked#searchesUsers  Searches users by name  [slow]  (skipped)
+sample.parked#getsUser  Gets a user  (skipped)
+```
+
+The reports keep the reason too:
+
+- JUnit: `<skipped message="demo service has no search yet"/>`, so the CI test tab shows it.
+- `--reporter json`: each skipped test's `testFinished` event has `"status":"skipped"` and a `skipReason`.
+- CTRF and the HTML report count the test as skipped.
+
+## When the date passes
+
+After the `until` day (in UTC), the skip is ignored and the test runs again. `vc check` warns until you remove it:
+
+```console
+$ vc check
+warning[V3104]: this skip expired after 2026-11-01
+  --> services/sample/parked.test.yaml:18:14
+   |
+18 |       until: 2026-11-01
+   |              ^^^^^^^^^^ today is 2026-11-10
+   = note: an expired skip is ignored, so the test runs again
+   = help: remove the skip, or move `until` later if the reason still holds
+   = fix: Remove the skip (certain)
+
+0 errors · 1 warning · 18 files checked
+```
+
+`vc check --fix` shows the fix as a diff and removes the skip when you confirm:
+
+```console
+$ vc check --fix
+--- a/services/sample/parked.test.yaml
++++ b/services/sample/parked.test.yaml
+@@ -13,6 +13,3 @@
+     call: sample#getUser
+     vars:
+       userId: "1"
+-    skip:
+-      reason: "flaky upstream, see #7"
+-      until: 2026-11-01
+Apply 1 fix? [y/N]
+```
+
+If the reason still holds, move `until` later instead.
+
+<Aside type="tip">
+Give every skip an `until`, even a rough one. A skip without a date stays until someone remembers it. With a date, the test comes back, and `vc check` reminds you to clean up.
+</Aside>
+
+## Run skipped tests anyway
+
+To check whether a skipped test passes now, run it with `--include-skipped`. It runs like any other test:
+
+```console
+$ vc run sample.skip --include-skipped
+plan  4 tests in 1 file · profile default
+
+✓ sample.skip#listsUsers                                          3ms
+✓ sample.skip#getsUser                                            3ms
+✓ sample.skip#searchesUsers                                       3ms
+✓ sample.skip#listsUsersPaged                                     3ms
+
+4 passed                                                     5ms · profile default
+```
+
+## Not running a test without skipping it
+
+A skip says "this test is broken for now". To leave tests out of one run for other reasons, select instead:
+
+| You want to | Use |
+| --- | --- |
+| Leave slow tests out of a quick run | Tag them, then `vc run -t '!slow'` |
+| Run only what a change touched | `vc run --changed origin/master` |
+| Keep a test that only other tests reuse | `standalone: false` on the test. It runs only when a step reuses it with `test:` |
+
+```console
+$ vc run sample.parked -t '!slow'
+plan  1 test in 1 file · profile default
+
+✓ sample.parked#getsUser                                         13ms
+
+1 passed                                                     16ms · profile default
+```
+
+Tests left out by a selector are not counted at all, not even as skipped.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc skip" href="/vc-rs/reference/cli/skip/" description="Every flag and error." />
+  <LinkCard title="vc unskip" href="/vc-rs/reference/cli/unskip/" description="Remove a skip." />
+  <LinkCard title="skip" href="/vc-rs/reference/syntax/skip/" description="The YAML key." />
+  <LinkCard title="V3104" href="/vc-rs/reference/diagnostics/v3104/" description="The expired-skip warning." />
+</CardGrid>

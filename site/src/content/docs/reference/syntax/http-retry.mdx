@@ -1,0 +1,257 @@
+---
+title: http.retry
+description: Resend one request on a connection failure, a timeout or a 502/503/504; off by default, set in the config or per api.
+sidebar: { order: 119, badge: { text: 'api', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`http.retry` resends a single request when the network or a gateway fails. It is off until you set `attempts`. It is not a test retry: the test's checks run once, on the last response.
+
+```yaml title="services/slow/slow.api.yaml"
+apis:
+  - id: flaky
+    path: /flaky
+    http:
+      retry:
+        attempts: 2
+```
+
+## Syntax
+
+`http.retry` goes in `vibranium.config.yaml` (for every api) or on one api. Keys set on the api replace the config's, one key at a time.
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `attempts` | whole number | `0` | no | Extra tries after the first. `0` is off. `2` means up to 3 requests. |
+| `on` | list of `connect`, `timeout` and status codes | `[connect, timeout, 502, 503, 504]` | no | What counts as a failure worth retrying. |
+| `methods` | list of methods | `[GET, HEAD, OPTIONS, PUT, DELETE]` | no | Only these methods are retried. `POST` and `PATCH` are left out because they may not be safe to repeat. |
+| `backoff.base` | duration | `100ms` | no | Wait before the first retry. It doubles each time. |
+| `backoff.max` | duration | `2s` | no | Longest wait between tries. |
+| `backoff.jitter` | boolean | `true` | no | Randomize each wait. |
+
+## Examples
+
+The examples call a small local server. `/flaky?k=<key>&fail=N` answers 503 to the first `N` requests for a key, then 200. `/count` reports how many requests each key got.
+
+### Off by default
+
+```yaml title="services/slow/slow.api.yaml"
+baseUrl: http://localhost:7442
+apis:
+  - id: flakyOff
+    path: /flaky
+    query:
+      k: ${var.key}
+      fail: "1"
+    vars:
+      key: ${fake.string.uuid}
+```
+
+```console
+$ vc call slow#flakyOff --var key=docs-b
+503 Service Unavailable · 2 ms · api expect failed
+```
+
+### Retry an api
+
+With `attempts: 2`, a request that gets 503 twice succeeds on the third try:
+
+```yaml title="services/slow/slow.api.yaml"
+  - id: flaky
+    path: /flaky
+    query:
+      k: ${var.key}
+      fail: "2"
+    http:
+      retry:
+        attempts: 2
+        backoff:
+          base: 100ms
+          max: 1s
+    vars:
+      key: ${fake.string.uuid}
+```
+
+```console
+$ vc call slow#flaky --var key=docs-a
+200 OK · 2 ms · api expect passed
+```
+
+The server saw three requests for `docs-a`:
+
+```console
+$ vc call slow#count
+...
+    "docs-a": 3,
+    "docs-b": 1,
+    "docs-c": 1,
+```
+
+`vc call` reports the time of the last attempt. `vc run` reports the whole test, backoff included:
+
+```console
+$ vc run slow.time#retriesTransport slow.time#noRetryByDefault slow.time#postNotRetried
+plan  3 tests in 1 file · profile default
+
+✕ slow.time#noRetryByDefault                                      2ms
+  error[V5101]: expect.status
+    --> services/slow/slow.api.yaml:23:5
+     |
+  23 |   - id: flakyOff
+     |     ^^^^^^^^^^^^
+  24 |     path: /flaky
+     |     ^^^^^^^^^^^^
+  ...
+  29 |       key: ${fake.string.uuid}
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^ expected ["2xx"], got 503
+     = note: expected by api slow#flakyOff
+✕ slow.time#postNotRetried                                        3ms
+  error[V5101]: expect.status
+    --> services/slow/slow.api.yaml:30:5
+     |
+  30 |   - id: flakyPost
+     |     ^^^^^^^^^^^^^
+  31 |     method: POST
+     |     ^^^^^^^^^^^^
+  ...
+  40 |       key: ${fake.string.uuid}
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^ expected ["2xx"], got 503
+     = note: expected by api slow#flakyPost
+✓ slow.time#retriesTransport                                    271ms
+
+1 passed · 2 failed                                          274ms · profile default
+```
+
+### POST is not retried unless you say so
+
+`flakyPost` sets `attempts: 3`, but `POST` is not in the default `methods`, so it is sent once (`docs-c: 1` above). List the method to retry it:
+
+```yaml title="services/slow/slow.api.yaml"
+  - id: flakyPost
+    method: POST
+    path: /flaky
+    query:
+      k: ${var.key}
+      fail: "1"
+    http:
+      retry:
+        attempts: 3
+  - id: postRetried
+    method: POST
+    path: /flaky
+    query:
+      k: post-${var.key}
+      fail: "2"
+    http:
+      retry:
+        methods: [POST]
+```
+
+### Project-wide, with per-api changes
+
+Set the default in the config. `postRetried` above sets only `methods`, so it keeps the config's `attempts: 2` and is sent three times:
+
+```yaml title="vibranium.config.yaml"
+http:
+  retry:
+    attempts: 2
+```
+
+```yaml title="services/slow/retry.test.yaml"
+tests:
+  - id: configRetryApplies
+    call: slow#flakyOff
+  - id: methodsOverrideKeepsAttempts
+    call: slow#postRetried
+  - id: timeoutRetried
+    call: slow#slowRetry
+```
+
+`slowRetry` waits 0.5 s on a 300 ms `timeout`, and retries only on timeouts, once:
+
+```yaml title="services/slow/slow.api.yaml"
+  - id: slowRetry
+    path: /slow
+    timeout: 300ms
+    query:
+      s: "0.5"
+    http:
+      retry:
+        attempts: 1
+        on: [timeout]
+```
+
+```console
+$ vc run slow.retry
+plan  3 tests in 1 file · profile default
+
+✓ slow.retry#configRetryApplies                                  90ms
+✓ slow.retry#methodsOverrideKeepsAttempts                       203ms
+✕ slow.retry#timeoutRetried                                     703ms
+  error[V5104]: no response within 300ms
+     = at: call slow#slowRetry
+
+2 passed · 1 failed                                          705ms · profile default
+```
+
+`flakyOff` now passes, thanks to the config. `timeoutRetried` took about 700 ms: two attempts of 300 ms each, plus the backoff. The api's `attempts: 1` replaced the config's `2`.
+
+## Try it
+
+<Playground client:visible kind="api" code={`id: slow
+baseUrl: http://localhost:7442
+apis:
+  - id: flaky
+    path: /flaky
+    http:
+      retry:
+        attempts: 2
+        on: [connect, timeout, 503]
+        backoff:
+          base: 100ms
+          max: 1s
+`} />
+
+## How it behaves
+
+- A retry resends the same request. The api's `expect` and the test's checks run once, on the final response.
+- Each attempt gets the full [`timeout`](/vc-rs/reference/syntax/timeout/) again.
+- Keys on an api replace the config's per key. Lists such as `on` and `methods` are replaced whole, not merged. A `GET` api with `methods: [POST]` is not retried, and an api with `on: [500]` no longer retries a 503: in both cases the server saw one request.
+- A response with a status outside `on` is returned at once and checked as usual.
+- To re-run a whole test, with its steps and cleanups, use the test-level [`retry`](/vc-rs/reference/syntax/retry/).
+
+## Common errors
+
+`on` takes `connect`, `timeout` and status codes only:
+
+```console
+error[V2302]: expected one of connect, timeout, found `reset`
+  --> services/bad/bad.api.yaml:24:28
+   |
+24 |         on: [connect, 500, reset]
+   |                            ^^^^^ not a known value
+   = help: expected one of `connect`, `timeout`
+```
+
+Backoff values are durations:
+
+```console
+error[V2301]: invalid duration `fast`
+  --> services/bad/bad.api.yaml:26:17
+   |
+26 |           base: fast
+   |                 ^^^^
+   = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+```
+
+See [V2302](/vc-rs/reference/diagnostics/v2302/), [V2301](/vc-rs/reference/diagnostics/v2301/) and [V5104](/vc-rs/reference/diagnostics/v5104/).
+
+## Related
+
+- [timeout](/vc-rs/reference/syntax/timeout/)
+- [retry](/vc-rs/reference/syntax/retry/): re-run a whole test
+- [poll](/vc-rs/reference/syntax/poll/): re-send until a condition holds
+- [method](/vc-rs/reference/syntax/method/)
+- [Config](/vc-rs/reference/config/)

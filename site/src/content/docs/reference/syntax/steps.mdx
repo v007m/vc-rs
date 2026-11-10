@@ -1,0 +1,235 @@
+---
+title: steps
+description: Run several actions in order inside one test, with test-level auth, headers, query, body, poll and expect as defaults for each step.
+sidebar: { order: 211, badge: { text: 'test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`steps` is a list of actions that run one after another as one test. Use it for a flow, such as create then read.
+
+```yaml title="services/flow/steps.test.yaml"
+tests:
+  - id: createsThenReads
+    steps:
+      - id: created
+        call: sample#createUser
+      - call: sample#getUser
+        expect:
+          body:
+            match:
+              id: ${created.body.id}
+```
+
+## Syntax
+
+A test entry has either `call` or `steps`, never both. Each step is an action: exactly one of [`call`](/vc-rs/reference/syntax/call/), [`test`](/vc-rs/reference/syntax/test/), [`function`](/vc-rs/reference/syntax/function/) or [`command`](/vc-rs/reference/syntax/command/), plus that action's keys.
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `steps` | list of actions | — | yes (or `call`) | Run in order. The test fails at the first step that fails. |
+| step `id` | camelCase | — | no | Exposes that step's response as `${<id>.status}`, `${<id>.body…}`, `${<id>.headers…}`. `response` is reserved. |
+| test `auth`, `headers`, `query`, `body`, `poll`, `expect` | | — | no | Defaults for every `call` and `test:` step. See below. |
+| test `save` | map | — | no | Reads `${response…}` of the **last** step. |
+
+## Step defaults
+
+Six test-level keys are defaults for the steps: `auth`, `headers`, `query`, `body`, `poll` and `expect`. They reach every `call` and `test:` step. `function` and `command` steps take none of them.
+
+A step's own value wins:
+
+| Key | How a step's own value combines with the default |
+| --- | --- |
+| `headers`, `query` | Merged per key. The step wins on a clash; the test's other keys stay. |
+| `expect` | Merged. Both the test's checks and the step's checks apply. |
+| `auth`, `body`, `poll` | Replaced whole by the step's value. |
+
+The defaults do not reach `before` or `after` actions. They apply to `steps` only.
+
+### Headers merge per key
+
+```yaml title="services/flow/merge.test.yaml"
+id: flow.merge
+tests:
+  - id: mergesHeadersPerKey
+    headers:
+      x-a: test
+      x-b: test
+    steps:
+      - call: echo#json
+        headers:
+          x-b: step
+        expect:
+          body:
+            match:
+              headers.x-a: test
+              headers.x-b: step
+              headers.x-file-header: from-file
+```
+
+The demo's `/echo` returns the request it got. The step sees `x-a` from the test, its own `x-b`, and the `x-file-header` set at the top of `echo.api.yaml`.
+
+### A step body replaces the default
+
+```yaml title="services/flow/merge.test.yaml"
+  - id: stepBodyReplacesDefault
+    body:
+      name: Ada
+      role: admin
+    steps:
+      - call: echo#json
+        body:
+          name: Grace
+        expect:
+          body:
+            match:
+              body:
+                name: Grace
+              body.role:
+                exists: false
+```
+
+`role` is not sent: the step's body replaces the test's body, it is not merged into it. Because no step uses the default, `vc check` warns V3206 (see below).
+
+### Expect is merged
+
+```yaml title="services/flow/steps.test.yaml"
+  - id: sendsDefaultsToEveryStep
+    headers:
+      x-request-source: vibranium-docs
+    expect:
+      headers:
+        content-type:
+          contains: json
+    steps:
+      - call: echo#json
+      - call: echo#text
+        headers:
+          x-request-source: step-wins
+        expect:
+          body:
+            match:
+              headers.x-request-source: step-wins
+```
+
+`vc explain` lists each check on the second step with its source:
+
+```console
+header content-type: contains  (test flow.steps#sendsDefaultsToEveryStep)
+match headers.x-request-source: equals  (step call echo#text)
+```
+
+### Test-level save reads the last step
+
+```yaml title="services/flow/steps.test.yaml"
+  - id: createsThenReads
+    name: A created user reads back
+    steps:
+      - id: created
+        call: sample#createUser
+        vars:
+          email: ada@example.com
+      - call: sample#getUser
+        expect:
+          status: 200
+          body:
+            match:
+              id: ${created.body.id}
+    save:
+      readId: ${response.body.id}
+```
+
+`${response…}` in the test's `save` is the response of `sample#getUser`, the last step. To keep a value from an earlier step, put `save` on that step, or read it by step `id`.
+
+```console
+$ vc run flow.steps
+plan  2 tests in 1 file · profile default
+
+✓ flow.steps#sendsDefaultsToEveryStep                            10ms
+✓ flow.steps#createsThenReads                                    11ms
+
+2 passed                                                     12ms · profile default
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.steps
+tests:
+  - id: createsThenReads
+    headers:
+      x-request-source: vibranium-docs
+    steps:
+      - id: created
+        call: sample#createUser
+      - call: sample#getUser
+        expect:
+          status: 200
+          body:
+            match:
+              id: \${created.body.id}
+    save:
+      readId: \${response.body.id}
+`} />
+
+## How it behaves
+
+- Steps run strictly in order. The first failed step fails the test, and later steps do not run:
+
+```console
+✕ flow.stop#stopsAtFailure                                        8ms
+  error[V5101]: expect.status
+   --> services/flow/stop.test.yaml:8:19
+    |
+  8 |           status: 418
+    |                   ^^^ expected [418], got 200
+```
+
+- A value saved by one step is visible to every later step as `${var.<name>}`. An api's own `save` counts too: `sample#createUser` saves `userId`.
+- A step `id` gives later steps the step's response: `${created.body.id}`, `${created.status}`. `${created.status}` is a number.
+- Step IDs are unique across the whole file, like test IDs. Two tests cannot both name a step `created` (V2001, duplicate ID).
+- Cleanups registered by steps run after the test, newest first. See [cleanup](/vc-rs/reference/syntax/cleanup/).
+- Step defaults reach `call` and `test:` steps only. `after` actions do not get the test's headers or query.
+
+## Common errors
+
+**V3205**: a test-level `body` would be sent with a GET or HEAD step.
+
+```console
+warning[V3205]: the test's `body` is sent with `sample#listUsers`, a call that takes no body
+  --> services/flow/defaults.test.yaml:30:15
+   |
+26 |     body:
+   |     ---- the test-level default
+...
+30 |       - call: sample#listUsers
+   |               ^^^^^^^^^^^^^^^^ a GET or HEAD call
+   = help: move `body` onto the steps that send one
+```
+
+**V3206**: a test-level default that every step replaces, so it is never used. It is reported per key.
+
+```console
+warning[V3206]: no step uses the test-level `headers.x-trace`
+  --> services/flow/defaults.test.yaml:33:7
+   |
+33 |       x-trace: "1"
+   |       ^^^^^^^ unused default
+   = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+   = help: remove it, or remove the steps' own values that replace it
+```
+
+**V2006**: a step `id` of `response` clashes with the `${response…}` template root.
+
+```console
+error[V2006]: `response` is a reserved name and cannot be an ID
+```
+
+See [V3205](/vc-rs/reference/diagnostics/v3205/), [V3206](/vc-rs/reference/diagnostics/v3206/) and [V2006](/vc-rs/reference/diagnostics/v2006/).
+
+## Related
+
+- [call](/vc-rs/reference/syntax/call/), [test](/vc-rs/reference/syntax/test/), [function](/vc-rs/reference/syntax/function/), [command](/vc-rs/reference/syntax/command/): the step kinds
+- [save](/vc-rs/reference/syntax/save/): keep values between steps
+- [before](/vc-rs/reference/syntax/before/): setup that is not part of the flow
+- [Lifecycle](/vc-rs/reference/lifecycle/)

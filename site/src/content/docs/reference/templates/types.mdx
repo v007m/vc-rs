@@ -1,0 +1,97 @@
+---
+title: "Types"
+description: "A value that is exactly one template keeps its type; a template inside other text gives text."
+sidebar: { order: 14 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A field that is exactly one template keeps the value's type. A template mixed with other text always gives text.
+
+```yaml
+    query:
+      limit: ${var.pageSize}        # stays a number
+      label: page-${var.pageSize}   # text
+```
+
+## Syntax
+
+| You write | You get |
+| --- | --- |
+| `${var.count}` | the value with its type: number, boolean, list, object, text or null |
+| `"${var.count}"` | the same: YAML quotes do not change the type |
+| `n-${var.count}` | text |
+| `${var.count \| string}` | text, by [pipe](/vc-rs/reference/pipes/string/) |
+| `${var.price \| number}` | a number, by [pipe](/vc-rs/reference/pipes/number/) |
+
+## Examples
+
+With `count: 42` and `order.items: [apple, banana, cherry]`, this payload went to the demo's `/echo`:
+
+```yaml title="services/tpl/roots.test.yaml"
+      payload:
+        num: ${var.count}
+        quotedNum: "${var.count}"
+        inText: n-${var.count}
+        list: ${var.order.items}
+```
+
+```json
+{ "num": 42, "quotedNum": 42, "inText": "n-42", "list": ["apple", "banana", "cherry"] }
+```
+
+Saved values keep their type too. A saved status read back in quotes is still a number:
+
+```yaml
+        save:
+          gotStatus: ${response.status}
+      - call: sample#echo
+        vars:
+          payload:
+            status: "${var.gotStatus}"     # sent as 200, a number
+```
+
+Change a type with a pipe. Header values are text, so read a count header as a number:
+
+```yaml
+    save:
+      total: ${response.headers["x-total-count"] | int}
+```
+
+A pipe inside text still gives text: `"n=${var.count | int}"` sent `"n=42"`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`vars:
+  count: 42
+tests:
+  - id: keepsTypes
+    call: sample#echo
+    vars:
+      payload:
+        num: \${var.count}
+        quoted: "\${var.count}"
+        inText: n-\${var.count}
+`} />
+
+## How it behaves
+
+- `vc check` knows the type of many values (vars, rows, generators, pipe results), so it can report a pipe given the wrong type (V2304) before the run.
+- `$cel` values have CEL types: whole numbers are `int`, decimals `double`. A time result becomes text. See [Computed values](/vc-rs/reference/templates/cel-values/).
+
+<Aside type="note">
+A request body written as a single template, such as `body: ${var.payload}`, is sent as JSON when it renders to an object, but is currently labeled `content-type: text/plain`. Write the body as nested YAML, or set the header, if your server checks it.
+</Aside>
+
+## Common errors
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): a pipe given a value of the wrong type.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): a conversion failed at run time.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+  <LinkCard title="Computed values" href="/vc-rs/reference/templates/cel-values/" />
+</CardGrid>

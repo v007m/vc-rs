@@ -1,0 +1,259 @@
+---
+title: Quickstart
+description: Create a project, run the sample tests against the demo service, write a failing test, fix it and point it at a public API, in about five minutes.
+sidebar: { order: 2 }
+---
+
+import { Aside, Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+This page takes you from an empty folder to a passing test against a real public API. You need `vc` and `vc-demo` on your `PATH` (see [Install](/vc-rs/start/install/)).
+
+## Run the sample
+
+<Steps>
+1. **Create a project.** `vc init` writes a config file, a sample api file and a sample test file.
+
+   ```console
+   $ mkdir shop && cd shop
+   $ vc init
+   ✓ created a Vibranium project in /home/you/shop
+     .env.schema
+     .gitignore
+     services/sample/basics.test.yaml
+     services/sample/sample.api.yaml
+     vibranium.config.yaml
+     schemas/  datasets/  hooks/  openapi/  load/
+   next: vc run
+   ```
+
+2. **Start the demo service.** It is a tiny users API on port 7421 that the sample calls.
+
+   ```console
+   $ vc demo start --detach
+   demo running on http://localhost:7421 (pid 13213)
+   ```
+
+   You can skip this step. The sample test file starts the demo itself in its `beforeAll` block and stops it in `afterAll`, so a `vc run` also stops a demo you started by hand.
+
+3. **Check the project.** `vc check` parses and links every file without sending a request. Run it whenever you edit YAML.
+
+   ```console
+   $ vc check
+   0 errors · 0 warnings · 3 files checked
+   ```
+
+4. **Run the tests.**
+
+   ```console
+   $ vc run
+   plan  4 tests in 1 file · lifecycle: beforeAll command · profile default
+
+   ✓ sample.basics#listsUsers                                        5ms
+   ✓ sample.basics#createsUser                                       5ms
+   ✓ sample.basics#rejectsMissingEmail                               5ms
+   ✓ sample.basics#getsCreatedUser                                   8ms
+
+   4 passed                                                     90ms · profile default
+   reports  /home/you/shop/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+   ```
+
+   Tests run in parallel, so the order changes from run to run. Open `index.html` in a browser for the full report.
+</Steps>
+
+Open `services/sample/sample.api.yaml` and `services/sample/basics.test.yaml` and read them. The comments explain each part. An **api** says how to call one endpoint; a **test** calls an api by its ID and states what it expects.
+
+## Write your first test
+
+<Steps>
+1. **Add a test.** Append this to the `tests:` list in `services/sample/basics.test.yaml`. It has two mistakes on purpose.
+
+   ```yaml title="services/sample/basics.test.yaml"
+     - id: listsSeedUsersInOrder
+       name: Lists the seed users in order
+       call: sample#listUser
+       expect:
+         status: 200
+         body:
+           match:
+             "[0].name": Ada Byron
+             "[*].id":
+               length: 2
+   ```
+
+   `"[0].name"` is a path into the response body. `"[*].id"` collects every `id`, and `length: 2` is a [matcher](/vc-rs/reference/matchers/) that checks how many there are.
+
+2. **Check it.** The api ID has a typo. `vc check` points at it and suggests the right one:
+
+   ```console
+   $ vc check
+   error[V2003]: unknown api "sample#listUser"
+     --> services/sample/basics.test.yaml:64:11
+      |
+   64 |     call: sample#listUser
+      |           ^^^^^^^^^^^^^^^ no api has this ID
+      = help: did you mean one of `sample#listUsers`, `sample#getUser`, `sample#createUser`?
+
+   1 error · 0 warnings · 3 files checked
+   ```
+
+   Every diagnostic has a code. `vc explain V2003` prints a longer explanation with a wrong and a right example, and the [diagnostics reference](/vc-rs/reference/diagnostics/v2003/) has a page for each one. Fix the ID to `sample#listUsers` and `vc check` is clean again.
+
+3. **Run just this test.** A test's full ID is `<fileId>#<testId>`.
+
+   ```console
+   $ vc run sample.basics#listsSeedUsersInOrder
+   plan  1 test in 1 file · lifecycle: beforeAll command · profile default
+
+   ✕ sample.basics#listsSeedUsersInOrder                             6ms
+     error[V5101]: expect.body.match.[0].name
+       --> services/sample/basics.test.yaml:69:23
+        |
+     69 |           "[0].name": Ada Byron
+        |                       ^^^^^^^^^ expected "Ada Byron", got "Ada Lovelace"
+
+   0 passed · 1 failed                                          235ms · profile default
+   reports  /home/you/shop/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
+   next     vc run --failed
+   seed 17732240023702096193: pass `--seed 17732240023702096193` to run with the same generated data
+   ```
+
+   A failed check points at the YAML line that made it and shows the expected and actual values. The run exits with code 1. The `seed` line lets you replay the same generated fake data.
+
+4. **Fix and rerun.** Change `Ada Byron` to `Ada Lovelace`, then rerun only what failed last time:
+
+   ```console
+   $ vc run --failed
+   plan  1 test in 1 file · lifecycle: beforeAll command · profile default
+
+   ✓ sample.basics#listsSeedUsersInOrder                             4ms
+
+   1 passed                                                     139ms · profile default
+   ```
+</Steps>
+
+## Point it at a public API
+
+The same test can run against another server. [JSONPlaceholder](https://jsonplaceholder.typicode.com) has a `/users` endpoint with the same shape. A **profile** switches values like the base URL without touching the tests.
+
+<Steps>
+1. **Add a profile.** In `vibranium.config.yaml`, add a `public` profile under `profiles:` that overrides `sampleUrl`, the var the sample api file uses as its `baseUrl`.
+
+   ```yaml title="vibranium.config.yaml"
+   profiles:
+     - id: default
+       default: true
+     - id: public
+       vars:
+         sampleUrl: https://jsonplaceholder.typicode.com
+   ```
+
+   `vc config explain` shows which value wins and where it comes from:
+
+   ```console
+   $ vc config explain vars.sampleUrl --profile public
+   vars.sampleUrl = https://jsonplaceholder.typicode.com  (profile public)
+     over http://localhost:7421  (vibranium.config.yaml)
+   ```
+
+2. **Run with the profile.** The request now goes to JSONPlaceholder, which has different data:
+
+   ```console
+   $ vc run sample.basics#listsSeedUsersInOrder --profile public
+   plan  1 test in 1 file · lifecycle: beforeAll command · profile public
+
+   ✕ sample.basics#listsSeedUsersInOrder                            49ms
+     error[V5101]: expect.body.match.[0].name
+       --> services/sample/basics.test.yaml:69:23
+        |
+     69 |           "[0].name": Ada Lovelace
+        |                       ^^^^^^^^^^^^ expected "Ada Lovelace", got "Leanne Graham"
+     error[V5101]: expect.body.match.[*].id
+       --> services/sample/basics.test.yaml:71:13
+        |
+     71 |             length: 2
+        |             ^^^^^^^^^ expected {"length":2}, got [1,2,3,4,5,6,7,8,9,10]
+
+   0 passed · 1 failed                                          138ms · profile public
+   ```
+
+3. **Move the expected values into vars.** A test file can have its own `vars`, and its own `profiles` list that overrides them. Add this near the top of `basics.test.yaml`, after `tags:`:
+
+   ```yaml title="services/sample/basics.test.yaml"
+   vars:
+     firstUser: Ada Lovelace
+     userCount: 2
+   profiles:
+     - id: public
+       vars:
+         firstUser: Leanne Graham
+         userCount: 10
+   ```
+
+   Then use the vars in the test:
+
+   ```yaml title="services/sample/basics.test.yaml"
+     - id: listsSeedUsersInOrder
+       name: Lists the seed users in order
+       call: sample#listUsers
+       expect:
+         status: 200
+         body:
+           match:
+             "[0].name": ${var.firstUser}
+             "[*].id":
+               length: ${var.userCount}
+   ```
+
+4. **Run it both ways.**
+
+   ```console
+   $ vc run sample.basics#listsSeedUsersInOrder --profile public
+   plan  1 test in 1 file · lifecycle: beforeAll command · profile public
+
+   ✓ sample.basics#listsSeedUsersInOrder                            36ms
+
+   1 passed                                                     113ms · profile public
+
+   $ vc run sample.basics#listsSeedUsersInOrder
+   plan  1 test in 1 file · lifecycle: beforeAll command · profile default
+
+   ✓ sample.basics#listsSeedUsersInOrder                             1ms
+
+   1 passed                                                     76ms · profile default
+   ```
+</Steps>
+
+<Aside type="tip">
+`vc history` lists your past runs with their results, and `vc call sample#listUsers` sends one api request and prints the response, which is handy while you write an api.
+</Aside>
+
+## Try a variation
+
+Edit the test below. The editor checks it against the real test-file schema as you type.
+
+<Playground client:visible kind="test" code={`id: sample.basics
+name: Sample tests
+vars:
+  firstUser: Ada Lovelace
+tests:
+  - id: listsSeedUsersInOrder
+    name: Lists the seed users in order
+    call: sample#listUsers
+    expect:
+      status: 200
+      body:
+        match:
+          "[0].name": \${var.firstUser}
+          "[*].id":
+            length: 2
+`} />
+
+## Next
+
+<CardGrid>
+  <LinkCard title="Concepts" href="/vc-rs/start/concepts/" description="The mental model: apis, tests, lifecycle, vars and profiles." />
+  <LinkCard title="Walkthrough: REST CRUD" href="/vc-rs/walkthroughs/rest-crud/" description="Test a full create, read, update and delete flow." />
+  <LinkCard title="Project layout" href="/vc-rs/start/project-layout/" description="Where files go, how IDs come from paths, and what to commit." />
+  <LinkCard title="vc run" href="/vc-rs/reference/cli/run/" description="Selectors, tags, profiles, reports and every other run flag." />
+</CardGrid>
