@@ -18,6 +18,9 @@ export type McpLink = Readonly<{ url: string; token: string }>;
 /** How many log entries the screen loads. */
 const logLimit = 200;
 
+/** How often a failed load of the MCP endpoint and agent token is tried again. */
+export const linkRetryMs = 60_000;
+
 /** What agents are waiting on and what they did, refreshed from the engine. */
 export class AgentDesk {
   pending: readonly Approval[] = $state([]);
@@ -75,12 +78,21 @@ export class AgentDesk {
     }
   }
 
-  /** Loads the MCP endpoint, then refreshes now and every `ms`; the returned function stops it. */
+  /**
+   * Loads the MCP endpoint, trying again every `linkRetryMs` while that fails, and refreshes now
+   * and every `ms`; the returned function stops both.
+   */
   poll(ms: number): () => void {
     void this.connect();
     void this.refresh();
     const timer = setInterval(() => void this.refresh(), ms);
-    return () => clearInterval(timer);
+    const retry = setInterval(() => {
+      if (this.linkError !== undefined) void this.connect();
+    }, linkRetryMs);
+    return () => {
+      clearInterval(timer);
+      clearInterval(retry);
+    };
   }
 }
 
