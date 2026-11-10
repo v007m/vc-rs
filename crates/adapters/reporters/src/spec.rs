@@ -4,10 +4,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use vc_interfaces::{Artifact, ReportError, Reporter, RunSummary};
-use vc_model::{ActionId, ActionOutcome, CleanupRecord, Event, OwnerKey, RunStatus, TestStatus, Totals};
+use vc_model::{ActionId, ActionOutcome, CleanupRecord, Event, Names, OwnerKey, RunStatus, TestStatus, Totals};
 
 use crate::collect::{Collector, TestRecord};
-use crate::names::Names;
 use crate::{Color, Destination, ReporterContext, failure, text};
 
 /// The width test names are padded to, so durations line up.

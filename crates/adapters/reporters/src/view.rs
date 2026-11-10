@@ -7,21 +7,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use vc_interfaces::{ReportError, RunSummary};
-use vc_model::{RunStatus, TestStatus, Totals};
+use vc_model::{Location, RunStatus, TestStatus, Totals};
 
 /// The snapshot layout; a snapshot of another version is refused, not misread.
 const VERSION: u32 = 1;
 
 /// The name the reports give a run whose config has no `project`.
 const DEFAULT_PROJECT: &str = "vibranium";
-
-/// Where something is in the project's sources.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Location {
-    pub path: String,
-    pub line: u32,
-    pub column: u32,
-}
 
 /// Which frame an action ran in.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

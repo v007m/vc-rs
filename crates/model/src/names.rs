@@ -2,15 +2,30 @@ use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::sync::Arc;
 
-use vc_model::{
+use serde::{Deserialize, Serialize};
+
+use crate::{
     ActionId, ActionKind, CheckKind, CheckResult, FileId, InstanceId, OwnerKey, Plan, Program, Segment, SourceSpan,
     Sym, TestId, TestResult,
 };
 
-pub use crate::view::Location;
-
 /// Text shown for an ID the program does not know.
 const UNKNOWN: &str = "?";
+
+/// Where something is in the project's sources.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct Location {
+    /// The file's project path.
+    pub path: String,
+    /// The line, from 1.
+    pub line: u32,
+    /// The column, from 1.
+    pub column: u32,
+}
 
 /// Turns the IDs in events into the text reports show, from the program and the plan.
 ///
@@ -24,6 +39,7 @@ pub struct Names {
 
 impl Names {
     /// Names for a run of `plan` over `program`.
+    #[must_use]
     pub fn new(program: Arc<Program>, plan: &Plan) -> Self {
         let instances = plan.files.iter().flat_map(|file| &file.instances);
         let instances = instances.map(|i| (i.id, (i.example_row, i.repeat_index))).collect();
@@ -31,21 +47,25 @@ impl Names {
     }
 
     /// The program the names come from.
+    #[must_use]
     pub fn program(&self) -> &Program {
         &self.program
     }
 
     /// The text behind `sym`.
+    #[must_use]
     pub fn text(&self, sym: Sym) -> &str {
         self.program.str(sym).unwrap_or(UNKNOWN)
     }
 
     /// A test's full ID: `users.crud#getsUser`.
+    #[must_use]
     pub fn test(&self, test: TestId) -> &str {
         self.text(test.sym())
     }
 
     /// The file a test is in: from the program, else the full ID before its `#`.
+    #[must_use]
     pub fn file_of(&self, test: TestId) -> String {
         if let Some(file) = self.program.tests.get(&test).map(|t| t.file) {
             return self.text(file.sym()).to_owned();
@@ -55,12 +75,14 @@ impl Names {
     }
 
     /// A file ID as text.
+    #[must_use]
     pub fn file(&self, file: FileId) -> &str {
         self.text(file.sym())
     }
 
     /// The instance as people know it: `users.crud#rejectsBadEmail [row 2, repeat 1]`, numbered
     /// from 1; the repeat shows only when the test repeats.
+    #[must_use]
     pub fn instance(&self, result: &TestResult) -> String {
         let mut label = self.test(result.test).to_owned();
         let slot = result.instance.and_then(|id| self.instances.get(&id));
@@ -76,17 +98,20 @@ impl Names {
     }
 
     /// The example row and repeat index of a result's instance; `(None, 0)` without one.
+    #[must_use]
     pub fn slot(&self, result: &TestResult) -> (Option<u32>, u32) {
         result.instance.and_then(|id| self.instances.get(&id)).copied().unwrap_or((None, 0))
     }
 
     /// The api a `call` action calls.
+    #[must_use]
     pub fn api_of(&self, action: ActionId) -> Option<String> {
         let found = usize::try_from(action.index()).ok().and_then(|at| self.program.actions.get(at))?;
         if let ActionKind::Call(api) = &found.kind { Some(self.text(api.sym()).to_owned()) } else { None }
     }
 
     /// An action as people know it: its `id`, else what it runs (`call users#create`).
+    #[must_use]
     pub fn action(&self, action: ActionId) -> String {
         let found = usize::try_from(action.index()).ok().and_then(|at| self.program.actions.get(at));
         let Some(found) = found else { return format!("action {}", action.index()) };
@@ -103,6 +128,7 @@ impl Names {
     }
 
     /// The frame an action ran in: `run`, `file users.crud`, `instance 3`.
+    #[must_use]
     pub fn owner(&self, owner: OwnerKey) -> String {
         match owner {
             OwnerKey::Run => "run".to_owned(),
@@ -112,17 +138,20 @@ impl Names {
     }
 
     /// Where `span` points, when its file is in the program.
+    #[must_use]
     pub fn location(&self, span: SourceSpan) -> Option<Location> {
         let file = self.program.files.get(span.file)?;
         Some(Location { path: file.path.as_str().to_owned(), line: span.start.line, column: span.start.column })
     }
 
     /// Where a test is written, when the program has it.
+    #[must_use]
     pub fn test_location(&self, test: TestId) -> Option<Location> {
         self.program.tests.get(&test).and_then(|t| self.location(t.span))
     }
 
     /// The test's tags, the file's first.
+    #[must_use]
     pub fn tags(&self, test: TestId) -> Vec<String> {
         let Some(found) = self.program.tests.get(&test) else { return Vec::new() };
         let file = self.program.test_files.get(&found.file).map(|f| f.tags.as_slice()).unwrap_or_default();
@@ -137,6 +166,7 @@ impl Names {
 }
 
 /// The `expect` key a check was written under: `status`, `body.match.items[*].price`.
+#[must_use]
 pub fn check_label(check: &CheckResult) -> String {
     match check_parts(check) {
         (key, Some(target)) => format!("{key}.{target}"),
@@ -146,6 +176,7 @@ pub fn check_label(check: &CheckResult) -> String {
 
 /// The `expect` key of a check and the path it targets, when the key takes one:
 /// `("body.match", Some("errors[0].field"))`.
+#[must_use]
 pub fn check_parts(check: &CheckResult) -> (&'static str, Option<String>) {
     let target = check.target.as_ref().map(|path| path_text(&path.segments)).unwrap_or_default();
     let (key, with_target) = match check.kind {
@@ -180,7 +211,3 @@ fn path_text(segments: &[Segment]) -> String {
     }
     out
 }
-
-#[cfg(test)]
-#[path = "names_tests.rs"]
-mod tests;
