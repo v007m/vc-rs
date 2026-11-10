@@ -28,7 +28,8 @@ service EngineService {
   rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
   // What agents did through MCP, newest first.
   rpc ListAgentActions(ListAgentActionsRequest) returns (ListAgentActionsResponse);
-  // Sends one api's request, as `vc call` does; the web UI counts as an agent (D178, D195).
+  // Sends one api's request, as `vc call` does. The person at the browser is no agent, so the
+  // profiles' agent policy and the agent log do not apply (D241).
   rpc Call(CallRequest) returns (CallResponse);
   // Writes a call as a test, as `vc call --save-as` does.
   rpc SaveCallAsTest(SaveCallAsTestRequest) returns (SaveCallAsTestResponse);
@@ -42,6 +43,9 @@ service EngineService {
   rpc Trends(TrendsRequest) returns (TrendsResponse);
   // Each setting's value and the layers it replaced, as `vc config explain` shows them, masked.
   rpc ExplainConfig(ExplainConfigRequest) returns (ExplainConfigResponse);
+  // Where an MCP client connects and the agent token it sends, for the Connect panel. Only the
+  // browser's session cookie reaches it, never the agent token (D239).
+  rpc Connection(ConnectionRequest) returns (ConnectionResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -453,4 +457,13 @@ message ConfigValue {
 message ExplainConfigResponse {
   repeated ConfigValue values = 1;
   repeated string notices = 2;
+}
+
+message ConnectionRequest {}
+
+message ConnectionResponse {
+  // `http://127.0.0.1:<port>/mcp`.
+  string mcp_url = 1;
+  // The bearer token `/mcp` accepts, and nothing else does.
+  string agent_token = 2;
 }

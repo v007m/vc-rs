@@ -808,6 +808,18 @@ pub struct ExplainConfigResponse {
     #[prost(string, repeated, tag="2")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConnectionRequest {
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConnectionResponse {
+    /// `<http://127.0.0.1:<port>/mcp`.>
+    #[prost(string, tag="1")]
+    pub mcp_url: ::prost::alloc::string::String,
+    /// The bearer token `/mcp` accepts, and nothing else does.
+    #[prost(string, tag="2")]
+    pub agent_token: ::prost::alloc::string::String,
+}
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
