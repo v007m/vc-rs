@@ -34,3 +34,17 @@ fn a_panic_restores_the_terminal_before_the_hook_before_prints_it_and_the_hook_i
     let order: Vec<_> = heard.try_iter().collect();
     assert_eq!(order[..3], ["restored", "printed", "printed"], "{order:?}");
 }
+
+#[test]
+fn a_panic_on_another_thread_leaves_the_terminal_to_the_ui() {
+    let original = panic::take_hook();
+    let (said, heard) = std_mpsc::channel();
+    let printed = said.clone();
+    panic::set_hook(Box::new(move |_| printed.send("printed").unwrap_or_default()));
+    let hook = PanicRestore::install(move || said.send("restored").unwrap_or_default());
+    assert!(std::thread::spawn(|| panic!("a panic in an engine task")).join().is_err());
+    drop(hook);
+    panic::set_hook(original);
+    let order: Vec<_> = heard.try_iter().collect();
+    assert_eq!(order, ["printed"], "{order:?}");
+}

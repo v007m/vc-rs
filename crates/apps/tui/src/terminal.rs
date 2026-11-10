@@ -159,8 +159,10 @@ fn restore() {
 /// A panic hook, shared so that the one put in front of it can call it and it can be put back.
 type Hook = Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static>;
 
-/// The panic hook that runs `restore` and then the hook it replaced, which prints the panic;
-/// dropping it puts the replaced hook back.
+/// The panic hook that runs `restore` when the thread installing it panics, then the hook it
+/// replaced, which prints the panic; dropping it puts the replaced hook back. A panic on
+/// another thread, as in an engine task, leaves the terminal to the UI, which hears of it as
+/// a failed update.
 struct PanicRestore {
     previous: Hook,
 }
@@ -169,8 +171,11 @@ impl PanicRestore {
     fn install(restore: impl Fn() + Send + Sync + 'static) -> Self {
         let previous: Hook = Arc::from(panic::take_hook());
         let chained = Arc::clone(&previous);
+        let ui = std::thread::current().id();
         panic::set_hook(Box::new(move |info| {
-            restore();
+            if std::thread::current().id() == ui {
+                restore();
+            }
             chained(info);
         }));
         Self { previous }
