@@ -55,7 +55,9 @@ fn listed_then_removed(project: &Project) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_reporter_plugin_reads_its_granted_secret_only_and_writes_its_report() {
-    if Command::new("python3").arg("--version").output().is_err() {
+    // Starting the interpreter once (site-packages and all) warms it, so the plugin's own cold
+    // start on a loaded runner stays inside the initialize deadline (D217).
+    if Command::new("python3").args(["-c", "pass"]).output().is_err() {
         eprintln!("skipped: no python3 on PATH");
         return;
     }
@@ -70,6 +72,10 @@ async fn a_reporter_plugin_reads_its_granted_secret_only_and_writes_its_report()
     let mut run = project.run(&server.base_url(), &["--out", "out"]);
     let run = run.env("reportToken", "t0ken-42").env("apiKey", "k3y").output().unwrap();
     assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let said = said(&run);
+    let mut dropped =
+        said.lines().filter(|line| line.contains("plugin `report`") && !line.contains(" runs unconfined: "));
+    assert!(dropped.next().is_none(), "the reporter plugin was dropped (V5118): {said}");
     assert!(project.path().join("out/ctrf.json").is_file());
     let report = fs::read_to_string(project.path().join("out/plugin/report.txt")).unwrap();
     let lines: Vec<&str> = report.lines().collect();
