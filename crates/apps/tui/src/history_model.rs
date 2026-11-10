@@ -3,9 +3,7 @@
 
 use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::fmt::Write as _;
-
-use vc_engine::{RunRow, TestRow, TestStatus, TestTrend, Totals};
+use vc_engine::{RunRow, TestRow, TestStatus, TestTrend, Totals, instance_label};
 
 use crate::run_screen::failing;
 use crate::theme::clean;
@@ -96,17 +94,9 @@ fn slower(before: &TestRow, after: &TestRow) -> bool {
     ran(before) && ran(after) && before.duration_ms > 0.0 && after.duration_ms > before.duration_ms * SLOWER
 }
 
-/// A test instance as `vc history show` names it: `users.crud#listsUsers [row 2] (repeat 3)`,
-/// both from 1.
+/// A test instance as `vc history show` names it ([`instance_label`]), fit for the screen.
 pub fn label(test: &TestRow) -> String {
-    let mut label = clean(&test.test_id);
-    if let Some(row) = test.example_row {
-        let _ = write!(label, " [row {}]", row.saturating_add(1));
-    }
-    if test.repeat_index > 0 {
-        let _ = write!(label, " (repeat {})", test.repeat_index.saturating_add(1));
-    }
-    label
+    clean(&instance_label(test))
 }
 
 /// The tests that failed, were blocked or were flaky over the trend's runs, the most
