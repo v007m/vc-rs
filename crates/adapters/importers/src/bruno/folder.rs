@@ -53,7 +53,7 @@ fn bru(path: &str) -> bool {
 /// `file` without its `.bru` extension, whatever its case; none when it has another.
 fn stem(file: &str) -> Option<&str> {
     let at = file.len().checked_sub(".bru".len())?;
-    file.get(at..).filter(|extension| extension.eq_ignore_ascii_case(".bru")).and(file.get(..at))
+    file.get(at..).filter(|extension| extension.eq_ignore_ascii_case(".bru")).and_then(|_| file.get(..at))
 }
 
 /// The collection in a folder whose files `files` holds, each by its path relative to the folder,
