@@ -97,20 +97,21 @@ async fn the_request_that_fetched_a_credential_uses_it_however_short_its_life() 
 }
 
 #[tokio::test]
-async fn a_failure_is_kept_for_the_run_until_invalidated() {
+async fn a_failure_is_not_kept_so_the_next_request_fetches_again() {
     let cache = TokenCache::new([0; 32]);
     let calls = Arc::new(AtomicUsize::new(0));
     let lease = Lease::new(cache.key("svc", &json!({}), &json!({})));
     let fail = || {
         calls.fetch_add(1, Ordering::SeqCst);
-        std::future::ready(Err(AuthError::Rejected { auth: "svc".into(), status: 401 }))
+        std::future::ready(Err(AuthError::Rejected { auth: "svc".into(), status: 503 }))
     };
     assert!(cache.get(&lease, Duration::ZERO, &fail).await.is_err());
     assert!(cache.get(&lease, Duration::ZERO, &fail).await.is_err());
-    assert_eq!(calls.load(Ordering::SeqCst), 1);
-    cache.invalidate(&lease);
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "each request after a failure fetches again");
     let fetch = counting(&calls, None);
-    assert_eq!(token(&cache.get(&lease, Duration::ZERO, &fetch).await.unwrap()), "Bearer t1");
+    assert_eq!(token(&cache.get(&lease, Duration::ZERO, &fetch).await.unwrap()), "Bearer t2");
+    assert_eq!(token(&cache.get(&lease, Duration::ZERO, &fetch).await.unwrap()), "Bearer t2", "a success is kept");
+    assert_eq!(calls.load(Ordering::SeqCst), 3);
 }
 
 #[tokio::test]

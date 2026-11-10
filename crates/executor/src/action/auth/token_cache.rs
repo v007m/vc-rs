@@ -118,7 +118,8 @@ impl TokenCache {
     ///
     /// # Errors
     ///
-    /// The error `fetch` gave, kept for the rest of the run like a success.
+    /// The error `fetch` gave, shared with the requests already waiting on that fetch but never
+    /// kept: the next request fetches again.
     pub async fn get<F, Fut>(&self, lease: &Lease, refresh_before: Duration, fetch: F) -> Result<Credentials, AuthError>
     where
         F: Fn() -> Fut + Sync,
@@ -135,6 +136,9 @@ impl TokenCache {
             slot = self.slot(lease.key);
         }
         let result = slot.get_or_init(fill).await.result.clone();
+        if result.is_err() {
+            self.replace(lease.key, &slot);
+        }
         lease.hold(slot);
         result
     }
