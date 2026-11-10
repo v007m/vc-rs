@@ -55,6 +55,18 @@ impl Engine {
             self.rerun(request).and_then(|(plan, rerun)| self.prepare(&plan, Extra { flags: flags(request), rerun }));
         let prepared = self.before_gate(run_call(request).as_ref(), planned).await?;
         let admitted = self.run_gate(request, &prepared).await?;
+        let report = self.execute(request, prepared, &mut interrupts).await?;
+        self.settle(admitted, report.exit == 0).await?;
+        Ok(report)
+    }
+
+    /// Executes the admitted plan with its secrets and reporters, and gathers its report.
+    async fn execute(
+        &self,
+        request: &RunRequest,
+        prepared: Prepared,
+        interrupts: &mut Interrupts,
+    ) -> Result<RunReport, EngineError> {
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let (seed, random) = ports::random(request.seed);
         let (reporters, unrecorded) = self.reporters(request, &prepared, seed)?;
@@ -65,12 +77,12 @@ impl Engine {
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
         let started = self.clock.now_ms();
         let ran = match executor.start(Arc::clone(&prepared.plan), bus.clone()) {
-            Ok(handle) => pump(handle, &mut fanout, &mut interrupts).await,
+            Ok(handle) => pump(handle, &mut fanout, interrupts).await,
             Err(error) => Err(executor_error(&error)),
         };
         bus.flush().await;
         fanout.drain().await;
-        let swept = sweep.finish(&mut interrupts).await;
+        let swept = sweep.finish(interrupts).await;
         let summary = ran?;
         let elapsed = Duration::from_millis(self.clock.now_ms().saturating_sub(started));
         let run =
@@ -80,7 +92,6 @@ impl Engine {
         notices.extend(swept);
         notices.extend(fanout.reporters.finish(run).await);
         let exit = vc_executor::exit_code(summary);
-        self.settle(admitted, exit == 0).await?;
         Ok(RunReport { exit, seed, notices, run: Some(run_id).filter(|id| *id > 0) })
     }
 
