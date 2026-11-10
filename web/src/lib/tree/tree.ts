@@ -62,3 +62,9 @@ export function treeMove(
   );
   return steps[key]?.(nodes, at, closed);
 }
+
+/** A leaf as a group tree shows it. */
+export type Leaf = Readonly<{ key: string; label: string; title?: string }>;
+
+/** A branch as a group tree shows it: its label and its leaves. */
+export type Group = Readonly<{ key: string; label: string; leaves: readonly Leaf[] }>;
