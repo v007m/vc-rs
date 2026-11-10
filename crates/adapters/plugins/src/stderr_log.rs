@@ -5,6 +5,7 @@
 //! there would make the host write over the file it points at.
 
 use std::fs::{File, OpenOptions};
+use std::io::{self, Write};
 use std::path::Path;
 
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -21,12 +22,44 @@ pub const LOG_LIMIT: u64 = 1024 * 1024;
 /// A new, empty [`STDERR_LOG`] in `folder` for a process about to start, the log before it kept
 /// as `stderr.log.1`; `None` when it cannot be made. The log is created only where nothing is,
 /// so a link at its path is never followed (`O_CREAT | O_EXCL`), and on Windows a reparse point
-/// is refused.
+/// is refused. When the log before cannot be kept it is removed, and the new log's first line
+/// says so.
 pub fn open(folder: &Path) -> Option<File> {
     std::fs::create_dir_all(folder).ok()?;
     let log = folder.join(STDERR_LOG);
-    std::fs::rename(&log, folder.join(OLD_LOG)).ok();
-    let file = OpenOptions::new().write(true).create_new(true).open(&log).ok()?;
+    let rotated = rotate(&log, &folder.join(OLD_LOG));
+    let mut file = create(&log)?;
+    if let Err(error) = rotated {
+        writeln!(file, "vibranium: the log before could not be kept as {OLD_LOG} ({error}), so it was removed").ok();
+    }
+    Some(file)
+}
+
+/// Renames `log` to `old`, over it; when that fails, removes `log` (a link itself, never what
+/// it points at) so a new log can be made, and is why it failed. No log yet is no failure.
+fn rotate(log: &Path, old: &Path) -> io::Result<()> {
+    match std::fs::rename(log, old) {
+        Err(error) if error.kind() != io::ErrorKind::NotFound => {
+            std::fs::remove_file(log).ok();
+            Err(error)
+        }
+        _ => Ok(()),
+    }
+}
+
+/// A new file at `log`, never one already there; on Windows opened as the reparse point
+/// itself, were one there, so [`plain`] sees the link and not its target.
+fn create(log: &Path) -> Option<File> {
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        /// `FILE_FLAG_OPEN_REPARSE_POINT`.
+        const OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        options.custom_flags(OPEN_REPARSE_POINT);
+    }
+    let file = options.open(log).ok()?;
     plain(&file).then_some(file)
 }
 
@@ -51,3 +84,7 @@ pub async fn keep(mut stderr: impl AsyncRead + Unpin, log: File) {
     tokio::io::copy(&mut (&mut stderr).take(LOG_LIMIT), &mut log).await.ok();
     tokio::io::copy(&mut stderr, &mut tokio::io::sink()).await.ok();
 }
+
+#[cfg(test)]
+#[path = "stderr_log_tests.rs"]
+mod tests;
