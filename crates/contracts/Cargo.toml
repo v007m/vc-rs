@@ -1,0 +1,16 @@
+[package]
+name = "vc-contracts"
+description = "The wire contract: Rust types generated from proto/ (prost), with conversions from vc-model."
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+prost.workspace = true
+vc-model.workspace = true
+
+[lints]
+workspace = true
