@@ -23,8 +23,11 @@ pub struct ImportRequest {
     /// The importer: `openapi`, `har`, `postman`, `bruno`, `http`, `curl`.
     pub kind: String,
     /// The URL, or the spec's path in the project; [`Engine::spec_location`] makes one from
-    /// what the user typed.
+    /// what the user typed. With `text`, only the name the text goes by: relative references
+    /// resolve against it, and its file name gives the file ID.
     pub source: String,
+    /// The spec's text itself (pasted into the web UI), read instead of fetching `source`.
+    pub text: Option<String>,
     /// `--id`: the file ID of the api file to fill; derived from the spec when not given.
     pub file_id: Option<String>,
     /// `--tests`: a happy-path test per api.
@@ -60,7 +63,8 @@ pub struct Keep {
 }
 
 impl Engine {
-    /// The files `request` would create or change: the api file, the spec snapshot
+    /// The files `request` would create or change, from the spec at its source or its text:
+    /// the api file, the spec snapshot
     /// `openapi/<fileId>.yaml`, the config's base-URL var and the generated tests, each passed
     /// through the compile guard (D107).
     ///
@@ -77,12 +81,16 @@ impl Engine {
     /// file to create exists; [`EngineError::Invalid`] when the result would not compile.
     pub async fn import(&self, request: &ImportRequest) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
-        let fetcher = self.fetcher()?;
+        let fetcher = if request.text.is_some() { self.pasted_fetcher() } else { self.fetcher()? };
         let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
             refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
-        let help = importer.source_help().unwrap_or(FETCH_HELP);
-        let bytes = fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?;
+        let bytes = if let Some(text) = &request.text {
+            text.clone().into_bytes()
+        } else {
+            let help = importer.source_help().unwrap_or(FETCH_HELP);
+            fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?
+        };
         let source = ImportSource { location: request.source.clone(), bytes };
         let homes = self.homes(&request.profiles);
         let mut opts = options(request);
@@ -126,7 +134,13 @@ impl Engine {
     pub(crate) fn fetcher(&self) -> Result<Arc<ProjectFetcher>, EngineError> {
         let environment = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
         let transport = self.transport(environment.as_ref())?;
-        Ok(Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport }))
+        Ok(Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport: Some(transport) }))
+    }
+
+    /// Fetches through the project's sources only: a pasted spec's `$ref`s never reach the
+    /// network, so the web UI cannot be made to fetch from the server's side.
+    fn pasted_fetcher(&self) -> Arc<ProjectFetcher> {
+        Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport: None })
     }
 }
 

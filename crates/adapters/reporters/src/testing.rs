@@ -298,7 +298,8 @@ fn finished(test: TestId, instance: Option<u32>, status: TestStatus, failure: Op
         TestStatus::Passed | TestStatus::Failed => 1,
     };
     let skip_reason = (status == TestStatus::Skipped).then(|| "rewrite pending".to_owned());
-    let result = TestResult { test, instance: instance.map(InstanceId::new), status, attempts, failure, skip_reason };
+    let instance = instance.map(InstanceId::new);
+    let result = TestResult { test, instance, status, attempts, failure, skip_reason, duration: Duration::ZERO };
     Event::TestFinished { result }
 }
 

@@ -1,7 +1,10 @@
+use std::collections::BTreeMap;
+
 use vc_diagnostics::{Diagnostics, Summary};
 use vc_model::SourceFiles;
 
 use crate::check_alerts;
+use crate::edit::FileChange;
 use crate::project::Compiled;
 use crate::selection::Selection;
 use crate::{Engine, EngineError};
@@ -17,6 +20,10 @@ pub struct CheckRequest {
     /// separators); every file when empty. The whole project is compiled either way, so
     /// references into other files are still checked.
     pub paths: Vec<String>,
+    /// Unsaved text by project-relative path, compiled in place of the file on disk (or as a
+    /// new file); the compile cache is then read but not saved. Each path must be one the
+    /// editor opens ([`Engine::read_file`]).
+    pub overlay: BTreeMap<String, String>,
 }
 
 /// What a check found.
@@ -61,9 +68,14 @@ impl Engine {
     ///
     /// [`EngineError::Sources`] when the project cannot be searched or a `paths` glob does not
     /// parse;
-    /// [`EngineError::NoFilesMatch`] when a requested path selects no definition file.
+    /// [`EngineError::NoFilesMatch`] when a requested path selects no definition file;
+    /// [`EngineError::Edit`] when an `overlay` path is not one the editor opens, or links out
+    /// of the project or to a hidden file, and [`EngineError::Sources`] when the file there
+    /// cannot be read.
     pub fn check(&self, request: &CheckRequest) -> Result<CheckReport, EngineError> {
-        let mut compiled = self.compiled()?;
+        let overlay = request.overlay.iter().map(|(path, text)| self.unsaved(path, text));
+        let overlay = overlay.collect::<Result<Vec<_>, _>>()?;
+        let mut compiled = self.compiled_with(&overlay)?;
         compiled.diagnostics.extend(check_alerts::unknown_channels(&compiled.files, &self.channels()));
         Self::selected(compiled, request)
     }
@@ -75,6 +87,12 @@ impl Engine {
         let mut diagnostics = selection.keep(diagnostics, &files);
         diagnostics.sort();
         Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices: compiled.notices })
+    }
+
+    /// `text` in the editor at `path`, as a change to compile in place of the file.
+    fn unsaved(&self, path: &str, text: &str) -> Result<FileChange, EngineError> {
+        let path = self.editor_path(path)?.to_string();
+        Ok(FileChange { path, before: None, after: text.to_owned(), moved_from: None })
     }
 }
 

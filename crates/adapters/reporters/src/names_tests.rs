@@ -26,6 +26,7 @@ fn result(test: TestId, instance: Option<u32>) -> TestResult {
         attempts: 1,
         failure: None,
         skip_reason: None,
+        duration: std::time::Duration::ZERO,
     }
 }
 
@@ -51,6 +52,17 @@ fn names_tests_files_and_instances() {
     assert_eq!(names.instance(&result(lists, None)), "users.crud#listsUsers");
     let gets = test_id(&names, "getsUser");
     assert_eq!(names.instance(&result(gets, Some(0))), "users.crud#getsUser");
+}
+
+#[test]
+fn keeps_the_planned_instances_in_plan_order() {
+    let (program, plan) = testing::project();
+    let names = Names::new(program, &plan);
+    let order: Vec<_> = plan.files.iter().flat_map(|file| &file.instances).map(|i| (i.id, i.test)).collect();
+    let planned: Vec<_> = names.planned().iter().map(|p| (p.instance, p.test)).collect();
+    assert_eq!(planned, order);
+    let rejects = names.planned().iter().find(|p| p.example_row == Some(1)).unwrap();
+    assert_eq!(names.label(rejects.test, Some(rejects.instance)), "users.crud#rejectsBadEmail [row 2]");
 }
 
 #[test]

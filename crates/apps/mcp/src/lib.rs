@@ -1,4 +1,5 @@
-//! The MCP server for AI agents, as `vc mcp` serves it over stdio (D197).
+//! The MCP server for AI agents, as `vc mcp` serves it over stdio and, with the `http` feature,
+//! `vc ui` at `/mcp` (D197).
 //!
 //! [`VcServer`] answers `tools/list` and `tools/call` from the [`Tools`] registry, each tool one
 //! engine method: `list_definitions`, `search`, `get_definition`, `check`, `query_history`
@@ -12,6 +13,8 @@ mod error;
 #[cfg(test)]
 mod fixture;
 mod history;
+#[cfg(feature = "http")]
+mod http;
 mod read;
 mod schema;
 mod server;
@@ -19,5 +22,7 @@ mod tools;
 
 pub use args::Args;
 pub use error::McpError;
+#[cfg(feature = "http")]
+pub use http::HttpService;
 pub use server::VcServer;
 pub use tools::{Cx, Tool, Tools};

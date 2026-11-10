@@ -128,6 +128,10 @@ pub vc_model::CheckKind::Schema
 pub vc_model::CheckKind::Size
 pub vc_model::CheckKind::Status
 pub vc_model::CheckKind::Timing
+impl vc_model::CheckKind
+pub const vc_model::CheckKind::ALL: [Self; 9]
+pub fn vc_model::CheckKind::from_key(&str) -> core::option::Option<Self>
+pub const fn vc_model::CheckKind::key(self) -> &'static str
 impl core::clone::Clone for vc_model::CheckKind
 pub fn vc_model::CheckKind::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::CheckKind
@@ -1213,6 +1217,8 @@ pub struct vc_model::HistoryConfig
 pub vc_model::HistoryConfig::bodies: vc_model::Bodies
 pub vc_model::HistoryConfig::keep: vc_model::Keep
 pub vc_model::HistoryConfig::max_body_size: vc_model::Size
+impl vc_model::HistoryConfig
+pub fn vc_model::HistoryConfig::max_body(&self) -> usize
 impl core::clone::Clone for vc_model::HistoryConfig
 pub fn vc_model::HistoryConfig::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::HistoryConfig
@@ -1453,9 +1459,11 @@ pub fn vc_model::Names::api_of(&self, vc_model::ActionId) -> core::option::Optio
 pub fn vc_model::Names::file(&self, vc_model::FileId) -> &str
 pub fn vc_model::Names::file_of(&self, vc_model::TestId) -> alloc::string::String
 pub fn vc_model::Names::instance(&self, &vc_model::TestResult) -> alloc::string::String
+pub fn vc_model::Names::label(&self, vc_model::TestId, core::option::Option<vc_model::InstanceId>) -> alloc::string::String
 pub fn vc_model::Names::location(&self, vc_model::SourceSpan) -> core::option::Option<vc_model::Location>
 pub fn vc_model::Names::new(alloc::rcs::arc::Arc<vc_model::Program>, &vc_model::Plan) -> Self
 pub fn vc_model::Names::owner(&self, vc_model::OwnerKey) -> alloc::string::String
+pub fn vc_model::Names::planned(&self) -> &[vc_model::Planned]
 pub fn vc_model::Names::program(&self) -> &vc_model::Program
 pub fn vc_model::Names::slot(&self, &vc_model::TestResult) -> (core::option::Option<u32>, u32)
 pub fn vc_model::Names::tags(&self, vc_model::TestId) -> alloc::vec::Vec<alloc::string::String>
@@ -1532,6 +1540,20 @@ pub fn vc_model::Plan::default() -> Self
 impl core::fmt::Debug for vc_model::Plan
 pub fn vc_model::Plan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Plan
+pub struct vc_model::Planned
+pub vc_model::Planned::example_row: core::option::Option<u32>
+pub vc_model::Planned::instance: vc_model::InstanceId
+pub vc_model::Planned::repeat_index: u32
+pub vc_model::Planned::test: vc_model::TestId
+impl core::clone::Clone for vc_model::Planned
+pub fn vc_model::Planned::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Planned
+impl core::cmp::PartialEq for vc_model::Planned
+pub fn vc_model::Planned::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Planned
+pub fn vc_model::Planned::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::Planned
+impl core::marker::StructuralPartialEq for vc_model::Planned
 pub struct vc_model::PlannedAction
 pub vc_model::PlannedAction::action: vc_model::ActionId
 pub vc_model::PlannedAction::needs: vc_model::Needs
@@ -1929,6 +1951,7 @@ impl vc_model::SourcePath
 pub fn vc_model::SourcePath::as_str(&self) -> &str
 pub fn vc_model::SourcePath::data(&str) -> core::result::Result<Self, vc_model::ModelError>
 pub fn vc_model::SourcePath::file_name(&self) -> &str
+pub fn vc_model::SourcePath::is_hidden(&self) -> bool
 pub fn vc_model::SourcePath::is_outside(&self) -> bool
 pub fn vc_model::SourcePath::lossy(&str) -> core::result::Result<Self, vc_model::ModelError>
 pub fn vc_model::SourcePath::new(&str) -> core::result::Result<Self, vc_model::ModelError>
@@ -2109,6 +2132,7 @@ impl<'de> serde_core::de::Deserialize<'de> for vc_model::TestId
 pub fn vc_model::TestId::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct vc_model::TestResult
 pub vc_model::TestResult::attempts: u32
+pub vc_model::TestResult::duration: core::time::Duration
 pub vc_model::TestResult::failure: core::option::Option<vc_model::Failure>
 pub vc_model::TestResult::instance: core::option::Option<vc_model::InstanceId>
 pub vc_model::TestResult::skip_reason: core::option::Option<alloc::string::String>
@@ -2212,6 +2236,8 @@ pub const vc_model::DEFAULT_SECRETS_PROVIDER: &str
 pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
 pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String
 pub fn vc_model::check_parts(&vc_model::CheckResult) -> (&'static str, core::option::Option<alloc::string::String>)
+pub fn vc_model::cut_body(&[u8], usize) -> (core::option::Option<alloc::string::String>, bool)
+pub fn vc_model::hidden_part(&str) -> bool
 pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>
 pub fn vc_model::schema_names(&str) -> alloc::vec::Vec<alloc::string::String>

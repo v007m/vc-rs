@@ -276,6 +276,7 @@ fn skipped(instance: &Instance) -> TestResult {
         attempts: 0,
         failure: None,
         skip_reason: Some(CANCELLED.to_owned()),
+        duration: std::time::Duration::ZERO,
     }
 }
 

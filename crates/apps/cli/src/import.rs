@@ -101,6 +101,7 @@ pub fn import(args: &ImportArgs, project: Option<&Path>) -> anyhow::Result<Outco
     let request = ImportRequest {
         kind: args.kind.clone(),
         source,
+        text: None,
         file_id: args.file_id.clone(),
         tests: args.tests.tests,
         negative: args.tests.negative,

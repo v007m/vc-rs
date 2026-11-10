@@ -1,0 +1,16 @@
+# expect: GATE-PROTO _UNSPECIFIED
+diff --git a/proto/vibranium/results/v1/gate_fixture.proto b/proto/vibranium/results/v1/gate_fixture.proto
+new file mode 100644
+--- /dev/null
++++ b/proto/vibranium/results/v1/gate_fixture.proto
+@@ -0,0 +1,10 @@
++// Gate fixture: an enum whose zero value is not named *_UNSPECIFIED, which buf's STANDARD lint
++// rules reject.
++syntax = "proto3";
++
++package vibranium.results.v1;
++
++enum GateFixtureKind {
++  GATE_FIXTURE_KIND_NONE = 0;
++  GATE_FIXTURE_KIND_SOME = 1;
++}
