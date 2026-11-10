@@ -195,3 +195,16 @@ a:hover {
     padding: 14px;
   }
 }
+
+/* SvelteKit's route announcer hides itself with a style attribute, which vc ui's CSP blocks; the
+   same rule here keeps it read aloud and out of sight. */
+#svelte-announcer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

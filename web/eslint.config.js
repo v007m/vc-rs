@@ -31,4 +31,17 @@ export default ts.config(
       },
     },
   },
+  {
+    // vc ui's CSP blocks style attributes; `style:` directives and classes set styles it allows.
+    files: ['**/*.svelte'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "SvelteAttribute[key.name='style']",
+          message: 'Use a class or a style: directive; the CSP blocks style attributes.',
+        },
+      ],
+    },
+  },
 );
