@@ -1,8 +1,8 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde_json::json;
-use vc_interfaces::{CALL_DEADLINE, PluginError, PluginHost, PluginPermissions, Secret, Secrets};
+use vc_interfaces::{CALL_DEADLINE, PluginError, PluginHost, PluginPermissions, PluginStderr, Secret, Secrets};
 use vc_testkit::{plugin_host_suite, suite_plugin_manifest};
 
 use super::StdioPluginHost;
@@ -193,3 +193,34 @@ sys.stdout.buffer.write(b"Content-Length: %d\r\n\r\n%s" % (len(body), body)); sy
 read()
 sys.exit(3)
 "#;
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_logged_stderr_goes_to_the_data_folder_and_the_log_before_is_kept() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let data = tempfile::tempdir().unwrap();
+    for word in ["first", "second"] {
+        let manifest = vc_interfaces::PluginManifest {
+            command: "python3".into(),
+            args: vec!["-c".into(), format!("import sys; sys.stderr.write('{word}')")],
+            ..suite_plugin_manifest()
+        };
+        let host = StdioPluginHost::new(manifest, suite_dir(), granted()).data(data.path()).stderr(PluginStderr::Log);
+        host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+        logged(&data.path().join(crate::STDERR_LOG), word).await;
+    }
+    assert_eq!(std::fs::read_to_string(data.path().join("stderr.log.1")).unwrap(), "first");
+}
+
+/// Waits up to five seconds for `log` to hold `text`.
+async fn logged(log: &Path, text: &str) {
+    for _ in 0..100 {
+        if std::fs::read_to_string(log).is_ok_and(|logged| logged == text) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("{} never held {text}", log.display());
+}

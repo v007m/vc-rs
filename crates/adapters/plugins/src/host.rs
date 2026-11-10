@@ -7,11 +7,14 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::{Value, json};
-use tokio::process::Command;
+use tokio::process::{Child, Command};
 use tokio::sync::{OnceCell, mpsc, oneshot};
-use vc_interfaces::{INITIALIZE_DEADLINE, PluginError, PluginHost, PluginManifest, PluginPermissions, Secrets};
+use vc_interfaces::{
+    INITIALIZE_DEADLINE, PluginError, PluginHost, PluginManifest, PluginPermissions, PluginStderr, Secrets,
+};
 
 use crate::session::{Call, Session};
+use crate::stderr_log;
 
 /// The protocol version the host speaks, sent in `initialize`.
 pub const PROTOCOL_VERSION: u32 = 1;
@@ -26,8 +29,9 @@ pub const DATA_ENV: &str = "VIB_PLUGIN_DATA";
 
 /// A [`PluginHost`] that starts the plugin's `entry` in its folder on the first call.
 ///
-/// Its stdin and stdout are piped and stderr is passed through. An `entry.command` naming a file
-/// in the folder runs that file; any other is found on `PATH`.
+/// Its stdin and stdout are piped; its stderr goes where its [`PluginStderr`] says, passed
+/// through unless set. An `entry.command` naming a file in the folder runs that file; any other
+/// is found on `PATH`.
 ///
 /// It refuses to start a plugin whose manifest asks for more than `vibranium.lock` granted, and
 /// answers the plugin's `secrets/get` only for the secrets both the manifest declares and the lock
@@ -42,6 +46,7 @@ pub struct StdioPluginHost {
     secrets: Secrets,
     config: Value,
     data: Option<PathBuf>,
+    stderr: PluginStderr,
     calls: OnceCell<Result<mpsc::UnboundedSender<Call>, PluginError>>,
 }
 
@@ -51,7 +56,7 @@ impl StdioPluginHost {
     pub fn new(manifest: PluginManifest, dir: impl Into<PathBuf>, granted: PluginPermissions) -> Self {
         let dir = dir.into();
         let (secrets, config, calls) = (Secrets::new(), Value::Null, OnceCell::new());
-        Self { manifest, dir, granted, secrets, config, data: None, calls }
+        Self { manifest, dir, granted, secrets, config, data: None, stderr: PluginStderr::Inherit, calls }
     }
 
     /// The same host, able to give the plugin those of `run`'s secrets that the manifest declares
@@ -81,6 +86,12 @@ impl StdioPluginHost {
         Self { data: Some(data.into()), ..self }
     }
 
+    /// The same host, sending the plugin's stderr where `stderr` says.
+    #[must_use]
+    pub fn stderr(self, stderr: PluginStderr) -> Self {
+        Self { stderr, ..self }
+    }
+
     fn plugin(&self) -> String {
         self.manifest.id.clone()
     }
@@ -91,7 +102,17 @@ impl StdioPluginHost {
         if let Some(data) = &self.data {
             command.env(DATA_ENV, data);
         }
+        if self.stderr != PluginStderr::Inherit {
+            command.stderr(if self.data.is_some() { Stdio::piped() } else { Stdio::null() });
+        }
         command
+    }
+
+    /// Keeps the plugin's piped stderr in its data folder.
+    fn keep_stderr(&self, child: &mut Child) {
+        if let (Some(stderr), Some(data)) = (child.stderr.take(), &self.data) {
+            tokio::spawn(stderr_log::keep(stderr, data.clone()));
+        }
     }
 
     /// The channel to the running plugin: started, and initialized, on the first call.
@@ -114,6 +135,7 @@ impl StdioPluginHost {
             .command()
             .spawn()
             .map_err(|error| not_started(format!("cannot run `{}`: {error}", self.manifest.command)))?;
+        self.keep_stderr(&mut child);
         let stdin = child.stdin.take().ok_or_else(|| not_started("it has no stdin".to_owned()))?;
         let (calls, receiver) = mpsc::unbounded_channel();
         tokio::spawn(Session::new(self.plugin(), stdin, self.secrets.clone()).run(receiver, child));

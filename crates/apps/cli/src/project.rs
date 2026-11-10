@@ -21,13 +21,25 @@ pub struct Located {
 /// [`Outcome::Helped`] when the folder does not exist, [`Outcome::Engine`] when no project
 /// holds it; an `Err` when the working folder cannot be read.
 pub fn locate(project: Option<&Path>) -> anyhow::Result<Result<Located, Outcome>> {
+    locate_with(project, |builder| builder)
+}
+
+/// [`locate`], the engine's builder passed through `configure` first.
+///
+/// # Errors
+///
+/// As [`locate`].
+pub fn locate_with(
+    project: Option<&Path>,
+    configure: fn(EngineBuilder) -> EngineBuilder,
+) -> anyhow::Result<Result<Located, Outcome>> {
     let cwd = std::env::current_dir()?;
     let start = match project {
         Some(dir) if !cwd.join(dir).is_dir() => return Ok(Err(missing(dir))),
         Some(dir) => cwd.join(dir),
         None => cwd.clone(),
     };
-    let engine = match EngineBuilder::for_project(&start).and_then(EngineBuilder::build) {
+    let engine = match EngineBuilder::for_project(&start).map(configure).and_then(EngineBuilder::build) {
         Ok(engine) => engine,
         Err(error) => return Ok(Err(Outcome::Engine(error))),
     };

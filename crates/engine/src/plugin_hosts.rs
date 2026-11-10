@@ -100,7 +100,7 @@ impl Engine {
             return Err(state.to_string());
         };
         let (dir, data) = (self.root().join(PLUGINS_DIR).join(id), self.root().join(PLUGIN_DATA).join(id));
-        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone()).data(data);
+        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone()).data(data).stderr(self.plugin_stderr);
         Ok((host, lock.integrity.clone()))
     }
 }
