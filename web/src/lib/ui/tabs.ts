@@ -1,5 +1,5 @@
-/** One tab of a tab list. */
-export type Tab = Readonly<{ id: string; label: string }>;
+/** One tab of a tab list; `count` follows the label, in the fail colour when `bad`. */
+export type Tab = Readonly<{ id: string; label: string; count?: string; bad?: boolean }>;
 
 const moves: Record<string, (at: number, count: number) => number> = {
   ArrowRight: (at, count) => (at + 1) % count,

@@ -74,7 +74,9 @@ async fn read_then_write_round_trips_and_a_stale_save_is_aborted() {
 #[tokio::test]
 async fn the_editor_never_opens_env_files_or_hidden_folders() {
     let (_dir, api) = project();
-    for path in [".env", ".env.schema", ".vibranium/history.db", ".git/config"] {
+    let schema = read_file(api.clone(), wire::ReadFileRequest { path: ".env.schema".into() }).await.unwrap();
+    assert!(!schema.text.contains(SECRET), "the schema names secrets and opens for Settings (D247)");
+    for path in [".env", ".env.local", "services/.env.schema", ".vibranium/history.db", ".git/config"] {
         let refused = read_file(api.clone(), wire::ReadFileRequest { path: path.into() }).await.unwrap_err();
         assert_eq!(refused.code, Code::InvalidArgument, "{path}");
         assert!(!format!("{refused:?}").contains(SECRET));

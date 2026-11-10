@@ -10,8 +10,9 @@ use vc_model::{ContentHash, SourcePath, hidden_part};
 /// Walks the root with `ignore`, so `.gitignore` (and `.ignore`) files are respected even
 /// outside a git repository; the user's global git excludes are not, so every machine finds
 /// the same files. Folders the filter excludes are not entered. Links to folders are not
-/// followed; a link to a file is read only when its target is inside the root and, unless the
-/// link's own path is hidden, outside every hidden file and folder.
+/// followed; a link to a file is read only when its target is inside the root and outside
+/// every hidden file and folder, or, when the link's own path is hidden, a secrets schema
+/// outside `.git` and `.vibranium`.
 #[derive(Clone, Debug)]
 pub struct FsSources {
     root: PathBuf,
@@ -189,13 +190,15 @@ impl FsSources {
         }
     }
 
-    /// Whether `resolved`, where `path` leads on disk, is inside the root and, unless `path`
-    /// itself names a hidden file or folder, outside every hidden one: a link named
-    /// `x.test.yaml` cannot open `.env`.
+    /// Whether `resolved`, where `path` leads on disk, is inside the root and outside every
+    /// hidden file or folder. A hidden `path` may lead to itself, or to a secrets schema in a
+    /// hidden folder ([`schema_target`]); a link named `x.test.yaml` cannot open `.env`, and a
+    /// link named `.env.schema` may open `.config/env.schema` but not `.env`, `.npmrc` or
+    /// `.git/config` (D247).
     fn leads_in(&self, path: &SourcePath, resolved: &Path) -> bool {
         let Ok(rest) = resolved.strip_prefix(&self.root) else { return false };
         let hidden = rest.components().any(|part| hidden_part(&part.as_os_str().to_string_lossy()));
-        !hidden || path.is_hidden()
+        !hidden || (path.is_hidden() && (rest == Path::new(path.as_str()) || schema_target(rest)))
     }
 
     /// Whether discovery's walk reaches `at`, which is there: no ignore file leaves it or a
@@ -246,6 +249,16 @@ fn name_ignored(target: &Path) -> bool {
         (!matched.is_none()).then(|| matched.is_ignore())
     };
     files.filter(|file| file.is_file()).find_map(decide).unwrap_or(false)
+}
+
+/// Whether `rest` is a hidden file a hidden link may lead to: one named `.env.schema` or
+/// `env.schema`, in any case, outside `.git` and `.vibranium`. Every other hidden file is
+/// refused, so a cloned repo's link cannot open git's config or the token cache (D247).
+fn schema_target(rest: &Path) -> bool {
+    let lower = |part: &std::ffi::OsStr| part.to_string_lossy().to_ascii_lowercase();
+    let Some(name) = rest.file_name().map(lower) else { return false };
+    let guarded = rest.components().any(|part| matches!(lower(part.as_os_str()).as_str(), ".git" | ".vibranium"));
+    (name == ".env.schema" || name == "env.schema") && !guarded
 }
 
 /// A hidden file beside `target` for one write to stage its text in, named after the file, the
