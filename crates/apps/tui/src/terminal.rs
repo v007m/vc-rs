@@ -3,10 +3,11 @@
 //! arrives on another, so the loop never waits on the keyboard or the engine while it could
 //! be drawing.
 
-use std::io::{self, Stdout};
+use std::io::{self, Stdout, Write};
 use std::panic::{self, PanicHookInfo};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc as std_mpsc;
 use std::time::Duration;
 
 use crossterm::event::{self, Event};
@@ -164,12 +165,14 @@ type Hook = Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static>;
 
 /// The panic hook that runs `restore` when the thread installing it panics, then the hook it
 /// replaced, which prints the panic; dropping it puts the replaced hook back. While the UI is
-/// up, a panic on another thread, as in an engine task, is not printed, as that would write
-/// over the screen in raw mode: the terminal stays the UI's, which hears of it as a failed
-/// update. Once the terminal is restored, or the hook dropped, every panic is printed.
+/// up, a panic on another thread, as in an engine task, is held, not printed, as that would
+/// write over the screen in raw mode: the terminal stays the UI's, which hears of it as a
+/// failed update. Dropping the hook, after the terminal is restored, prints what it held on
+/// stderr; once the terminal is restored, or the hook dropped, every panic is printed.
 struct PanicRestore {
     previous: Hook,
     up: Arc<AtomicBool>,
+    held: std_mpsc::Receiver<String>,
 }
 
 impl PanicRestore {
@@ -179,21 +182,41 @@ impl PanicRestore {
         let up = Arc::new(AtomicBool::new(true));
         let ui_up = Arc::clone(&up);
         let ui = std::thread::current().id();
+        let (hold, held) = std_mpsc::channel();
         panic::set_hook(Box::new(move |info| {
             if std::thread::current().id() == ui && ui_up.swap(false, Ordering::SeqCst) {
                 restore();
             }
-            if !ui_up.load(Ordering::SeqCst) {
+            if ui_up.load(Ordering::SeqCst) {
+                let _ = hold.send(told(info));
+            } else {
                 chained(info);
             }
         }));
-        Self { previous, up }
+        Self { previous, up, held }
+    }
+}
+
+/// `thread 'engine' panicked at src/run.rs:4:2:` and the panic's message, as the default
+/// hook prints it.
+fn told(info: &PanicHookInfo<'_>) -> String {
+    let thread = std::thread::current();
+    let at = info.location().map_or_else(|| "an unknown place".to_owned(), ToString::to_string);
+    let message = info.payload_as_str().unwrap_or("Box<dyn Any>");
+    format!("thread '{}' panicked at {at}:\n{message}", thread.name().unwrap_or("<unnamed>"))
+}
+
+/// Writes each panic `held` while the UI was up to `out`, one after another.
+fn tell_held(held: &std_mpsc::Receiver<String>, out: &mut impl Write) {
+    for told in held.try_iter() {
+        let _ = writeln!(out, "{told}");
     }
 }
 
 impl Drop for PanicRestore {
     fn drop(&mut self) {
         self.up.store(false, Ordering::SeqCst);
+        tell_held(&self.held, &mut io::stderr());
         if std::thread::panicking() {
             return;
         }
