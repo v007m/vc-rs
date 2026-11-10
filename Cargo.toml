@@ -64,6 +64,7 @@ vc-adapter-importers = { path = "crates/adapters/importers" }
 vc-adapter-notifiers = { path = "crates/adapters/notifiers" }
 vc-adapter-plugins = { path = "crates/adapters/plugins" }
 vc-mcp = { path = "crates/apps/mcp" }
+vc-server = { path = "crates/apps/server" }
 vc-mock-server = { path = "bench/mock" }
 aho-corasick = "1.1.5"
 anyhow = "1.0.104"
@@ -127,6 +128,7 @@ rquickjs = { version = "0.14.0", features = ["loader"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-native-certs = "0.8.5"
 rusqlite = { version = "0.41.1", features = ["bundled", "fallible_uint"] }
+rust-embed = { version = "8.13.0", default-features = false }
 rustix = { version = "1.1.6", default-features = false, features = ["process", "std"] }
 saphyr-parser = "0.3.3"
 serde = { version = "1.0.229", features = ["derive"] }

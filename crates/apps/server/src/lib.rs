@@ -15,6 +15,8 @@
 mod builder;
 mod code;
 mod csp;
+#[cfg(feature = "ui")]
+mod embedded;
 mod envelope;
 mod error;
 #[cfg(test)]
@@ -26,6 +28,8 @@ mod token;
 
 pub use builder::{LaunchUrl, Server, ServerBuilder};
 pub use code::Code;
+#[cfg(feature = "ui")]
+pub use embedded::EmbeddedUi;
 pub use error::{ConnectError, ServerError};
 pub use service::{ConnectService, Sink};
 pub use site::Files;

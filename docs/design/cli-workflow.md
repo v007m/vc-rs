@@ -357,6 +357,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | --- | --- |
 | `vc tui` | Opens the terminal UI |
 | `vc mcp [--profile] [--set]` | Starts the MCP server for AI agents over stdio; the profiles' `agents` rules judge every call (D195, D197) |
+| `vc ui [--port 7420] [--no-open] [--profile] [--set]` | Starts the local web UI, and MCP at `/mcp`, on 127.0.0.1 only, and opens it in a browser unless `--no-open`. It prints `vc ui: http://127.0.0.1:<port>/?token=<token>` on stdout, the only place the token appears; the URL signs a browser in, and MCP clients send the token as `Authorization: Bearer`. Ctrl-C stops it (exit 0). A port in use, or a vc built without the `web-ui` feature, exits 2 |
 | `vc approvals [--all]` | Lists the agent calls waiting for a person (D195), newest first: `#<id>  <agent>  <tool>  <profile>  <summary>`, or `no requests waiting`; `--all` also lists the decided and expired ones, each with its status. A waiting agent is refused after 10 minutes |
 | `vc approve <id> [--always \| --deny]` | Approves a waiting agent call once; `--always` also allows calls like it (same profiles, tool and method) from now on, kept in `history.db`, never in YAML (D195); `--deny` refuses it. The waiting agent wakes at once. The decision is recorded under the OS user (`USER`/`USERNAME`). An unknown or already decided request exits 2 |
 | `vc serve` | Starts the self-hosted team server (later release). For the local web UI of this project, use vc ui, which opens http://localhost:7420 |
