@@ -170,12 +170,7 @@ fn lines(request: &ImportRequest, titles: &[String]) -> Vec<String> {
 /// A URL as given; a path from the working folder (the project root with `--project`) as a
 /// path in the project, which is the only place a spec file is read from.
 pub fn spec_location(located: &Located, source: &str) -> Result<String, Outcome> {
-    if source.contains("://") {
-        return Ok(source.to_owned());
-    }
-    located
-        .project_path(Path::new(source))
-        .map_err(|reason| Outcome::Helped(reason, Some("give a URL, or a path inside the project".to_owned())))
+    located.engine.spec_location(&located.base, source).map_err(Outcome::Engine)
 }
 
 /// `vc sync [fileId...] [--dry-run] [--check]`: a line per change, then exit 0 once written

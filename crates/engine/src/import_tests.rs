@@ -1,11 +1,12 @@
+use std::fs;
 use std::sync::Arc;
 
 use vc_interfaces::SourceProvider;
-use vc_testkit::{FakeTransport, FakeVcs, MemorySources, status};
+use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, MemorySources, status};
 
 use super::{ImportRequest, options};
 use crate::sample::builder;
-use crate::{Changes, Engine, EngineError, FileChange};
+use crate::{Changes, Engine, EngineBuilder, EngineError, FileChange};
 
 const PETSTORE: &str = include_str!("../../adapters/importers/fixtures/petstore-3.1.json");
 const SHOP: &str = include_str!("../../adapters/importers/fixtures/shop.curl");
@@ -203,4 +204,26 @@ async fn a_recorded_secret_never_reaches_a_file_a_title_or_a_diff() {
     let output = format!("{}\n{}\n{changes:?}", changes.titles.join("\n"), diffs.join("\n"));
     let leaked: Vec<_> = RECORDED.iter().filter(|value| output.contains(*value)).collect();
     assert!(leaked.is_empty(), "{leaked:?} in {output}");
+}
+
+#[test]
+fn a_typed_spec_path_is_read_from_the_project_and_a_url_as_given() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = fs::canonicalize(dir.path()).unwrap();
+    fs::write(root.join("vibranium.config.yaml"), "syntaxVersion: 2\n").unwrap();
+    fs::create_dir_all(root.join("specs")).unwrap();
+    fs::write(root.join("specs/shop.yaml"), "openapi: 3.1.0\n").unwrap();
+    let engine = EngineBuilder::new(root.clone())
+        .vcs(Arc::new(FakeVcs::default()))
+        .environment(Arc::new(MemoryEnvironment::new(&[])))
+        .build()
+        .unwrap();
+    assert_eq!(engine.spec_location(&root, "specs/shop.yaml").unwrap(), "specs/shop.yaml");
+    assert_eq!(engine.spec_location(&root.join("specs"), "./shop.yaml").unwrap(), "specs/shop.yaml");
+    assert_eq!(engine.spec_location(&root, "https://specs.test/shop.yaml").unwrap(), "https://specs.test/shop.yaml");
+    let Err(EngineError::Edit { reason, help }) = engine.spec_location(&root, "../shop.yaml") else {
+        panic!("a path outside the project is refused")
+    };
+    assert!(reason.starts_with("../shop.yaml: not a file or folder in the project at"), "{reason}");
+    assert_eq!(help.as_deref(), Some("give a URL, or a path inside the project"));
 }

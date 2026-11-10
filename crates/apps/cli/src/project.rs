@@ -61,11 +61,8 @@ impl Located {
 
     /// `path` relative to the project root, when it is a file or folder in the project.
     pub fn project_path(&self, path: &Path) -> Result<String, String> {
-        let root = self.engine.root();
-        let missing = || format!("{}: not a file or folder in the project at {}", path.display(), root.display());
-        let resolved = std::fs::canonicalize(self.base.join(path)).map_err(|_| missing())?;
-        let relative = resolved.strip_prefix(root).map_err(|_| missing())?;
-        let parts: Vec<_> = relative.components().map(|part| part.as_os_str().to_string_lossy()).collect();
-        Ok(parts.join("/"))
+        self.engine.project_path(&self.base, path).ok_or_else(|| {
+            format!("{}: not a file or folder in the project at {}", path.display(), self.engine.root().display())
+        })
     }
 }

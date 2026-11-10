@@ -309,6 +309,13 @@ impl Engine {
     pub fn root(&self) -> &Path {
         &self.root
     }
+
+    /// `path`, from `base` when it is relative, as a path in the project with `/` between its
+    /// parts, links resolved; `None` when it is not a file or folder in the project.
+    #[must_use]
+    pub fn project_path(&self, base: &Path, path: &Path) -> Option<String> {
+        vc_adapter_system::project_path(&self.root, &base.join(path))
+    }
 }
 
 impl fmt::Debug for Engine {
