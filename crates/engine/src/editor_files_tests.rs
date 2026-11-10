@@ -2,8 +2,8 @@ use std::fs;
 use std::sync::Arc;
 
 use vc_adapter_system::FsSources;
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
-use vc_model::SourcePath;
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter};
+use vc_model::{ContentHash, SourcePath};
 use vc_testkit::FakeVcs;
 
 use super::SaveFile;
@@ -94,6 +94,42 @@ fn a_save_over_a_file_that_changed_since_it_was_opened_writes_nothing() {
     assert_eq!(fs::read_to_string(dir.path().join(API)).unwrap(), "apis: []\n");
 }
 
+/// A writer that another writer races: it writes `OTHER` to the file just before each unchanged
+/// write, after the engine compared the digest it read.
+struct Raced(FsSources);
+
+const OTHER: &str = "apis: []\n";
+
+impl SourceWriter for Raced {
+    fn write(&self, path: &SourcePath, text: &str) -> Result<(), SourceError> {
+        self.0.write(path, text)
+    }
+
+    fn write_unchanged(&self, path: &SourcePath, text: &str, was: Option<ContentHash>) -> Result<(), SourceError> {
+        self.0.write(path, OTHER)?;
+        self.0.write_unchanged(path, text, was)
+    }
+
+    fn remove(&self, path: &SourcePath) -> Result<(), SourceError> {
+        self.0.remove(path)
+    }
+}
+
+#[test]
+fn a_save_over_a_file_changed_after_its_digest_was_compared_keeps_the_other_text() {
+    let (dir, _) = project();
+    let folder = Arc::new(FsSources::new(dir.path()).unwrap());
+    let raced = Arc::new(Raced(FsSources::new(dir.path()).unwrap()));
+    let engine = builder(FakeVcs::default()).sources(folder).writer(raced).build().unwrap();
+    let opened = engine.read_file(API).unwrap();
+    let stale = engine.save_file(&save(API, &USERS.replace("/users", "/people"), Some(&opened.digest)));
+    assert!(matches!(&stale, Err(EngineError::Stale { reason }) if reason.contains("changed since")), "{stale:?}");
+    assert_eq!(fs::read_to_string(dir.path().join(API)).unwrap(), OTHER);
+    let created = engine.save_file(&save(NEW, BROKEN, None));
+    assert!(matches!(&created, Err(EngineError::Stale { .. })), "{created:?}");
+    assert_eq!(fs::read_to_string(dir.path().join(NEW)).unwrap(), OTHER);
+}
+
 #[test]
 fn only_the_config_and_definition_files_outside_hidden_folders_open() {
     let (_dir, engine) = project();
@@ -109,6 +145,7 @@ fn only_the_config_and_definition_files_outside_hidden_folders_open() {
         ".vibranium/a.test.yaml",
         ".Vibranium/a.test.yaml",
         "services/.git/a.api.yaml",
+        "services\\.git\\a.api.yaml",
         "notes.txt",
     ];
     for path in refused {

@@ -130,11 +130,16 @@ fn reads_any_file_by_path(make: &mut MakeSources<'_>) {
 /// files (relative path, bytes).
 pub type MakeWriter<'a> = dyn FnMut(&[(&str, &[u8])]) -> (Box<dyn SourceWriter>, Box<dyn SourceProvider>) + 'a;
 
-/// The contract every [`SourceWriter`] meets (D107): a write replaces a file or creates it with
-/// its folders, a remove takes it away, and removing a file that is not there names its path.
+/// The contract every [`SourceWriter`] meets (D107).
+///
+/// A write replaces a file or creates it with its folders, a remove takes it away, and removing
+/// a file that is not there names its path. A write of an unchanged file replaces it only while it still has the hash it was read with,
+/// and creates one only where there is none.
 pub fn source_writer_suite(make: &mut MakeWriter<'_>) {
     writes_a_file_with_its_folders_and_replaces_one(make);
     removes_a_file_and_names_one_that_is_not_there(make);
+    writes_an_unchanged_file_only_while_it_has_the_hash_read(make);
+    creates_an_unchanged_file_only_where_there_is_none(make);
 }
 
 /// Writes `text` at `path` and says what the writer answered.
@@ -166,4 +171,34 @@ fn removes_a_file_and_names_one_that_is_not_there(make: &mut MakeWriter<'_>) {
         matches!(&again, Err(SourceError::Write { path, .. }) if path == "services/old/old.api.yaml"),
         "a file that is not there names its path: {again:?}"
     );
+}
+
+/// The text of the file at `path`, as `provider` reads it now; `None` when there is none.
+fn text_at(provider: &dyn SourceProvider, path: &SourcePath) -> Option<String> {
+    provider.read(std::slice::from_ref(path)).ok()?.files.pop().map(|file| file.text)
+}
+
+fn writes_an_unchanged_file_only_while_it_has_the_hash_read(make: &mut MakeWriter<'_>) {
+    let (writer, provider) = make(&[("users.api.yaml", b"apis: []\n")]);
+    let Ok(path) = SourcePath::new("users.api.yaml") else { return };
+    let read = vc_interfaces::content_hash(b"apis: []\n");
+    let other = vc_interfaces::content_hash(b"apis: {}\n");
+    let changed = Err(SourceError::Changed { path: "users.api.yaml".to_owned() });
+    assert_eq!(writer.write_unchanged(&path, "x: 1\n", Some(other)), changed, "another hash is refused");
+    assert_eq!(text_at(provider.as_ref(), &path).as_deref(), Some("apis: []\n"), "the file is left as it was");
+    assert_eq!(writer.write_unchanged(&path, "x: 1\n", None), changed, "a file where none was expected is refused");
+    assert_eq!(writer.write_unchanged(&path, "x: 1\n", Some(read)), Ok(()), "the hash read is replaced");
+    assert_eq!(text_at(provider.as_ref(), &path).as_deref(), Some("x: 1\n"));
+    assert_eq!(writer.write_unchanged(&path, "x: 2\n", Some(read)), changed, "the old hash no longer matches");
+}
+
+fn creates_an_unchanged_file_only_where_there_is_none(make: &mut MakeWriter<'_>) {
+    let (writer, provider) = make(&[]);
+    let Ok(path) = SourcePath::new("services/new/new.test.yaml") else { return };
+    let changed = Err(SourceError::Changed { path: "services/new/new.test.yaml".to_owned() });
+    let read = vc_interfaces::content_hash(b"tests: []\n");
+    assert_eq!(writer.write_unchanged(&path, "tests: []\n", Some(read)), changed, "a removed file is refused");
+    assert_eq!(text_at(provider.as_ref(), &path), None, "and not created");
+    assert_eq!(writer.write_unchanged(&path, "tests: []\n", None), Ok(()), "creates it with its folders");
+    assert_eq!(text_at(provider.as_ref(), &path).as_deref(), Some("tests: []\n"));
 }

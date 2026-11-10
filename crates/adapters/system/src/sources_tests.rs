@@ -157,6 +157,8 @@ mod unix {
         for path in ["services/x.api.yaml", "services/new/y.api.yaml", "x.api.yaml"] {
             let refused = sources.write(&SourcePath::new(path).unwrap(), "changed\n");
             assert_eq!(refused, Err(SourceError::OutsideRoot { path: path.to_owned() }), "{path}");
+            let unchanged = sources.write_unchanged(&SourcePath::new(path).unwrap(), "changed\n", None);
+            assert_eq!(unchanged, Err(SourceError::OutsideRoot { path: path.to_owned() }), "{path}");
         }
         assert_eq!(fs::read_to_string(outside.path().join("services/x.api.yaml")).unwrap(), "kept\n");
         assert!(!outside.path().join("services/new").exists());
@@ -178,10 +180,36 @@ mod unix {
         assert_eq!(read(".env.schema").files.len(), 1, "a hidden path named as such is still read");
         for path in ["env.api.yaml", "cache/x.api.yaml", "cache/new.api.yaml"] {
             assert_eq!(sources.write(&SourcePath::new(path).unwrap(), "changed\n"), Err(outside(path)), "{path}");
+            let unchanged = sources.write_unchanged(&SourcePath::new(path).unwrap(), "changed\n", None);
+            assert_eq!(unchanged, Err(outside(path)), "{path}");
         }
         assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=kept\n");
         assert_eq!(fs::read_to_string(dir.path().join(".vibranium/x.api.yaml")).unwrap(), "kept\n");
         assert!(!dir.path().join(".vibranium/new.api.yaml").exists());
+    }
+
+    #[test]
+    fn an_unchanged_write_goes_through_a_link_inside_the_root_and_keeps_the_mode() {
+        let dir = project(&[("real/users.api.yaml", b"apis: []\n")]);
+        let real = dir.path().join("real/users.api.yaml");
+        fs::set_permissions(&real, fs::Permissions::from_mode(0o640)).unwrap();
+        symlink(&real, dir.path().join("linked.api.yaml")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        let was = Some(vc_interfaces::content_hash(b"apis: []\n"));
+        assert_eq!(sources.write_unchanged(&SourcePath::new("linked.api.yaml").unwrap(), "apis: {}\n", was), Ok(()));
+        assert_eq!(fs::read_to_string(&real).unwrap(), "apis: {}\n");
+        assert!(fs::symlink_metadata(dir.path().join("linked.api.yaml")).unwrap().file_type().is_symlink());
+        assert_eq!(fs::metadata(&real).unwrap().permissions().mode() & 0o777, 0o640);
+        fs::set_permissions(&real, fs::Permissions::from_mode(0o440)).unwrap();
+        let was = Some(vc_interfaces::content_hash(b"apis: {}\n"));
+        let read_only = sources.write_unchanged(&SourcePath::new("real/users.api.yaml").unwrap(), "x\n", was);
+        assert!(matches!(read_only, Err(SourceError::Write { .. })), "{read_only:?}");
+        fs::set_permissions(&real, fs::Permissions::from_mode(0o640)).unwrap();
+        let stale = sources.write_unchanged(&SourcePath::new("real/users.api.yaml").unwrap(), "x\n", None);
+        assert!(matches!(stale, Err(SourceError::Changed { .. })), "{stale:?}");
+        let left: Vec<_> =
+            fs::read_dir(dir.path().join("real")).unwrap().map(|entry| entry.unwrap().file_name()).collect();
+        assert_eq!(left, ["users.api.yaml"], "no staged file is left behind");
     }
 
     #[test]

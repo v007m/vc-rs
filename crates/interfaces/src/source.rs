@@ -44,6 +44,17 @@ pub trait SourceWriter: Send + Sync {
     /// [`SourceError::Write`] when the system refuses.
     fn write(&self, path: &SourcePath, text: &str) -> Result<(), SourceError>;
 
+    /// Like [`SourceWriter::write`], but only while the file at `path` is the one a caller read:
+    /// its bytes still hash to `was`, or, for `None`, there is no file there. The check is made
+    /// just before the file is replaced, which narrows, but does not close, the window in which
+    /// another writer's change is lost: no lock is taken.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::Changed`] when the file is not the one read, and nothing is written; as
+    /// [`SourceWriter::write`] otherwise.
+    fn write_unchanged(&self, path: &SourcePath, text: &str, was: Option<ContentHash>) -> Result<(), SourceError>;
+
     /// Removes the file at `path`, which a move (`vc rename` of a file ID) left behind.
     ///
     /// # Errors
@@ -119,6 +130,12 @@ pub enum SourceError {
         /// The link.
         path: String,
     },
+    /// The file changed, appeared or was removed since it was read, so it was not written.
+    #[error("{path}: changed since it was read")]
+    Changed {
+        /// The file.
+        path: String,
+    },
     /// A `paths.include` or `paths.exclude` glob does not parse.
     #[error("invalid glob {glob:?}: {reason}")]
     InvalidGlob {
@@ -146,7 +163,8 @@ impl SourceError {
             | Self::Write { path, .. }
             | Self::NotUtf8 { path }
             | Self::InvalidPath { path }
-            | Self::OutsideRoot { path } => Some(path),
+            | Self::OutsideRoot { path }
+            | Self::Changed { path } => Some(path),
             Self::InvalidGlob { .. } | Self::Root { .. } => None,
         }
     }

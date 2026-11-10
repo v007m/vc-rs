@@ -4,6 +4,11 @@
 //! and the rest of the folder are never read or written through the UI, nor what a link leads
 //! to outside the project or in a hidden folder. A save is not guarded
 //! (D107): the editor keeps text with errors, and gets the project's diagnostics back.
+//!
+//! A save compares the digest when it reads the file, and the writer compares the hash again
+//! just before it replaces the file ([`vc_interfaces::SourceWriter::write_unchanged`]). No lock
+//! is taken (locks are only for the token cache and the redactor), so a change another writer
+//! makes between that second check and the replace is still lost.
 
 use std::fmt::Write as _;
 
@@ -11,7 +16,7 @@ use vc_interfaces::{SourceError, content_hash};
 use vc_model::{FileKind, SourceFile, SourcePath};
 
 use crate::authoring::refused;
-use crate::edit::{Changes, FileChange};
+use crate::edit::internal;
 use crate::project::sources_error;
 use crate::{CheckReport, CheckRequest, Engine, EngineError};
 
@@ -80,9 +85,11 @@ impl Engine {
         let path = editable(&request.path)?;
         let before = self.current(&path)?;
         fresh(&path, before.as_ref(), request.expected_digest.as_deref())?;
-        let (after, before) = (request.text.clone(), before.map(|file| file.text));
-        let change = FileChange { path: path.to_string(), before, after, moved_from: None };
-        self.write(&Changes { files: vec![change], titles: Vec::new() })?;
+        let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
+        writer.write_unchanged(&path, &request.text, before.map(|file| file.hash)).map_err(|error| match error {
+            SourceError::Changed { .. } => stale(&path, "it changed since it was opened"),
+            other => sources_error(other),
+        })?;
         let check = self.check(&CheckRequest::default());
         Ok(SavedFile { digest: hex(content_hash(request.text.as_bytes()).as_bytes()), check })
     }
@@ -105,9 +112,8 @@ impl Engine {
 fn editable(text: &str) -> Result<SourcePath, EngineError> {
     let path =
         SourcePath::new(text).map_err(|_| refused(format!("`{text}` is not a path in the project"), PATH_HELP))?;
-    let hidden = path.as_str().split('/').any(|part| part.starts_with('.'));
     match FileKind::from_path(&path) {
-        Some(_) if !hidden => Ok(path),
+        Some(_) if !path.is_hidden() => Ok(path),
         _ => Err(refused(format!("`{text}` is not a definition file the editor opens"), PATH_HELP)),
     }
 }
@@ -121,7 +127,12 @@ fn fresh(path: &SourcePath, before: Option<&SourceFile>, expected: Option<&str>)
         (Some(_), None) => "it exists already",
         (None, Some(_)) => "it was removed since it was opened",
     };
-    Err(EngineError::Stale { reason: format!("{path}: nothing was written: {reason}") })
+    Err(stale(path, reason))
+}
+
+/// The refusal of a save over `path`, which is not the file the editor opened, for `reason`.
+fn stale(path: &SourcePath, reason: &str) -> EngineError {
+    EngineError::Stale { reason: format!("{path}: nothing was written: {reason}") }
 }
 
 /// `bytes` in lowercase hex.

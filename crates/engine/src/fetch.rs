@@ -57,7 +57,7 @@ impl ProjectFetcher {
     fn read(&self, location: &str) -> Result<Vec<u8>, FetchError> {
         let not_allowed = || FetchError::NotAllowed { location: location.to_owned() };
         let path = SourcePath::new(location).map_err(|_| not_allowed())?;
-        if path.as_str().split('/').any(|part| part.starts_with('.')) {
+        if path.is_hidden() {
             return Err(not_allowed());
         }
         let mut found = self

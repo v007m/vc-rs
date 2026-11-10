@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use ignore::{DirEntry, WalkBuilder};
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter};
-use vc_model::SourcePath;
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter, content_hash};
+use vc_model::{ContentHash, SourcePath, hidden_part};
 
 /// Reads a project's definition files from disk, and lists the other files as assets; reads
 /// any file by path on request.
@@ -118,6 +118,23 @@ impl SourceWriter for FsSources {
         std::fs::write(&target, text).map_err(|error| write_error(path, &error))
     }
 
+    /// Writes the text to a hidden file beside the file at `path` (beside what a link there
+    /// leads to, inside the root), checks that file's hash against `was`, and renames the hidden
+    /// file over it, which replaces it at once on Unix and Windows. The hidden file is removed
+    /// when the check or the rename fails.
+    fn write_unchanged(&self, path: &SourcePath, text: &str, was: Option<ContentHash>) -> Result<(), SourceError> {
+        let target = self.resolved(path)?;
+        let temp = temp_beside(&target);
+        let written = stage(&target, &temp, text)
+            .map_err(|error| write_error(path, &error))
+            .and_then(|()| unchanged(path, &target, was))
+            .and_then(|()| std::fs::rename(&temp, &target).map_err(|error| write_error(path, &error)));
+        if written.is_err() {
+            let _ = std::fs::remove_file(&temp);
+        }
+        written
+    }
+
     /// Removes only inside the root, as [`FsSources::write`] writes.
     fn remove(&self, path: &SourcePath) -> Result<(), SourceError> {
         let target = self.inside(path)?;
@@ -138,13 +155,25 @@ impl FsSources {
         Ok(target)
     }
 
+    /// Where `path` is on disk, as [`FsSources::inside`] finds it, with a link at its end
+    /// followed once its target is known to be inside the root.
+    fn resolved(&self, path: &SourcePath) -> Result<PathBuf, SourceError> {
+        let target = self.inside(path)?;
+        match std::fs::canonicalize(&target) {
+            Ok(real) if self.leads_in(path, &real) => Ok(real),
+            Ok(_) => Err(SourceError::OutsideRoot { path: path.to_string() }),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(target),
+            Err(error) => Err(write_error(path, &error)),
+        }
+    }
+
     /// Whether `resolved`, where `path` leads on disk, is inside the root and, unless `path`
     /// itself names a hidden file or folder, outside every hidden one: a link named
     /// `x.test.yaml` cannot open `.env`.
     fn leads_in(&self, path: &SourcePath, resolved: &Path) -> bool {
         let Ok(rest) = resolved.strip_prefix(&self.root) else { return false };
-        let hidden = rest.components().any(|part| part.as_os_str().to_string_lossy().starts_with('.'));
-        !hidden || path.as_str().split('/').any(|part| part.starts_with('.'))
+        let hidden = rest.components().any(|part| hidden_part(&part.as_os_str().to_string_lossy()));
+        !hidden || path.is_hidden()
     }
 
     fn walk_problem(&self, error: &ignore::Error) -> SourceError {
@@ -163,6 +192,44 @@ fn relative(root: &Path, path: &Path) -> Option<(String, bool)> {
     }
     let utf8 = parts.iter().all(|part| part.to_str().is_some());
     Some((parts.iter().map(|part| part.to_string_lossy()).collect::<Vec<_>>().join("/"), utf8))
+}
+
+/// A hidden file beside `target` for one write to stage its text in, named after the file, the
+/// process, the thread and the time, so two writes never share one.
+fn temp_beside(target: &Path) -> PathBuf {
+    let name = target.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    let thread: String = format!("{:?}", std::thread::current().id()).chars().filter(char::is_ascii_digit).collect();
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos();
+    target.with_file_name(format!(".{name}.{}-{thread}-{nanos}.vc-tmp", std::process::id()))
+}
+
+/// Writes `text` to `temp`, a new file, with the folders it needs and the permissions of
+/// `target` when it exists; a read-only `target` is refused, as a plain write refuses it.
+fn stage(target: &Path, temp: &Path, text: &str) -> std::io::Result<()> {
+    let kept = std::fs::metadata(target).ok().map(|found| found.permissions());
+    if kept.as_ref().is_some_and(std::fs::Permissions::readonly) {
+        return Err(std::io::ErrorKind::PermissionDenied.into());
+    }
+    if let Some(folder) = target.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(temp)?;
+    std::io::Write::write_all(&mut file, text.as_bytes())?;
+    if let Some(kept) = kept {
+        file.set_permissions(kept)?;
+    }
+    file.sync_all()
+}
+
+/// Refuses with [`SourceError::Changed`] unless the file at `target` hashes to `was`, or, for
+/// `None`, is not there.
+fn unchanged(path: &SourcePath, target: &Path, was: Option<ContentHash>) -> Result<(), SourceError> {
+    let now = match std::fs::read(target) {
+        Ok(bytes) => Some(content_hash(&bytes)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(write_error(path, &error)),
+    };
+    if now == was { Ok(()) } else { Err(SourceError::Changed { path: path.to_string() }) }
 }
 
 fn write_error(path: &SourcePath, error: &std::io::Error) -> SourceError {
