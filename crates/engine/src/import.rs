@@ -21,8 +21,12 @@ use crate::{Changes, Engine, EngineError, import_write};
 pub struct ImportRequest {
     /// The importer: `openapi`, `har`, `postman`, `bruno`, `http`, `curl`.
     pub kind: String,
-    /// The URL or path, as given; a path is relative to the working folder.
+    /// The URL or path, as given; a path is relative to the working folder. With `text`, only
+    /// the name the text goes by: relative references resolve against it, and its file name
+    /// gives the file ID.
     pub source: String,
+    /// The spec's text itself (pasted into the web UI), read instead of fetching `source`.
+    pub text: Option<String>,
     /// `--id`: the file ID of the api file to fill; derived from the spec when not given.
     pub file_id: Option<String>,
     /// `--tests`: a happy-path test per api.
@@ -58,7 +62,8 @@ pub struct Keep {
 }
 
 impl Engine {
-    /// The files `request` would create or change: the api file, the spec snapshot
+    /// The files `request` would create or change, from the spec at its source or its text:
+    /// the api file, the spec snapshot
     /// `openapi/<fileId>.yaml`, the config's base-URL var and the generated tests, each passed
     /// through the compile guard (D107).
     ///
@@ -80,8 +85,13 @@ impl Engine {
             let kinds: Vec<_> = ImporterRegistry::builtin().names().map(str::to_owned).collect();
             refused(error.to_string(), &format!("the importers are {}", kinds.join(", ")))
         })?;
-        let help = importer.source_help().unwrap_or(FETCH_HELP);
-        let bytes = fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?;
+        let bytes = match &request.text {
+            Some(text) => text.clone().into_bytes(),
+            None => {
+                let help = importer.source_help().unwrap_or(FETCH_HELP);
+                fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?
+            }
+        };
         let source = ImportSource { location: request.source.clone(), bytes };
         let homes = self.homes(&request.profiles);
         let mut opts = options(request);

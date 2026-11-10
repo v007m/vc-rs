@@ -54,6 +54,15 @@ async fn an_imported_spec_passes_the_compile_guard_with_its_snapshot() {
 }
 
 #[tokio::test]
+async fn a_spec_given_as_text_is_read_without_fetching_and_named_by_its_source() {
+    let given = ImportRequest { text: Some(PETSTORE.to_owned()), ..request("openapi", "pasted/petstore.json") };
+    let changes = engine().import(&given).await.unwrap();
+    let paths: Vec<_> = changes.files.iter().map(|file| file.path.as_str()).collect();
+    assert!(paths.contains(&"services/petstore/petstore.api.yaml"), "{paths:?}");
+    assert_eq!(changes.titles, ["Import 5 apis from pasted/petstore.json"]);
+}
+
+#[tokio::test]
 async fn imported_curl_commands_compile_and_write_no_credential() {
     let changes = engine().import(&request("curl", "https://specs.test/shop.curl")).await.unwrap();
     let paths: Vec<_> = changes.files.iter().map(|file| file.path.as_str()).collect();
