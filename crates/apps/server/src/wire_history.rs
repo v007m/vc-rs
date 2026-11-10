@@ -3,7 +3,7 @@
 //! at their defaults.
 
 use vc_contracts::results::v1 as wire;
-use vc_engine::{CheckRow, ExchangeRow, RunRow, RunStatus, TestRow, TestStatus, Totals};
+use vc_engine::{CheckRow, ExchangeRow, RunRow, TestRow};
 
 /// Each stored check kind by the key history keeps it under.
 const CHECK_KINDS: [(&str, wire::CheckKind); 9] = [
@@ -32,8 +32,8 @@ pub fn run(row: &RunRow) -> wire::Run {
         git_commit: start.git_commit.clone(),
         git_branch: start.git_branch.clone(),
         vc_version: start.vc_version.clone(),
-        status: row.status.map_or(wire::RunStatus::Unspecified, run_status).into(),
-        totals: Some(totals(&row.totals)),
+        status: row.status.map_or(wire::RunStatus::Unspecified, wire::RunStatus::from).into(),
+        totals: Some(row.totals.into()),
     }
 }
 
@@ -44,7 +44,7 @@ pub fn test(row: &TestRow) -> wire::Test {
         label: label(row),
         example_row: row.example_row,
         repeat_index: row.repeat_index,
-        status: row.status.map_or(wire::TestStatus::Unspecified, test_status).into(),
+        status: row.status.map_or(wire::TestStatus::Unspecified, wire::TestStatus::from).into(),
         attempts: row.attempts,
         duration_ms: row.duration_ms,
         failure: row.message.clone().map(|message| wire::Failure { message, ..wire::Failure::default() }),
@@ -106,38 +106,6 @@ fn exchange(row: &ExchangeRow) -> wire::Exchange {
 
 fn headers(pairs: &[(String, String)]) -> Vec<wire::Header> {
     pairs.iter().map(|(name, value)| wire::Header { name: name.clone(), value: value.clone() }).collect()
-}
-
-/// A run's status.
-pub const fn run_status(status: RunStatus) -> wire::RunStatus {
-    match status {
-        RunStatus::Passed => wire::RunStatus::Passed,
-        RunStatus::Failed => wire::RunStatus::Failed,
-        RunStatus::Cancelled => wire::RunStatus::Cancelled,
-    }
-}
-
-/// A test's status.
-pub const fn test_status(status: TestStatus) -> wire::TestStatus {
-    match status {
-        TestStatus::Passed => wire::TestStatus::Passed,
-        TestStatus::Failed => wire::TestStatus::Failed,
-        TestStatus::Blocked => wire::TestStatus::Blocked,
-        TestStatus::Flaky => wire::TestStatus::Flaky,
-        TestStatus::Skipped => wire::TestStatus::Skipped,
-    }
-}
-
-/// A run's totals; a count past `u32::MAX` saturates.
-pub fn totals(totals: &Totals) -> wire::Totals {
-    let count = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
-    wire::Totals {
-        passed: count(totals.passed),
-        failed: count(totals.failed),
-        blocked: count(totals.blocked),
-        flaky: count(totals.flaky),
-        skipped: count(totals.skipped),
-    }
 }
 
 #[cfg(test)]

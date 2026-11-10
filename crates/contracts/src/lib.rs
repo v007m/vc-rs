@@ -7,6 +7,8 @@
 
 mod convert;
 
+pub use convert::{count, millis};
+
 /// `vibranium.results.v1`: run, test, check and exchange records.
 pub mod results {
     /// Version 1.

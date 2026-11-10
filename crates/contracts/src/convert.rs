@@ -77,11 +77,15 @@ impl From<vc_model::Timing> for wire::Timing {
     }
 }
 
-fn count(n: usize) -> u32 {
+/// `n` as a wire count, saturating at `u32::MAX`.
+#[must_use]
+pub fn count(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
 }
 
-fn millis(duration: Duration) -> f64 {
+/// `duration` in wire milliseconds.
+#[must_use]
+pub fn millis(duration: Duration) -> f64 {
     duration.as_secs_f64() * 1_000.0
 }
 

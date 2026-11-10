@@ -6,7 +6,6 @@ use vc_contracts::results::v1 as results;
 use vc_engine::{ActionId, CheckResult, Exchange, Failure, Names, Origin, TestResult, check_parts};
 
 use crate::wire_diagnostics;
-use crate::wire_history::test_status;
 
 /// `exchange`, which `action` made. The body is sent whole, so `body_truncated` is false.
 pub fn exchange(names: &Names, action: ActionId, exchange: &Exchange) -> results::Exchange {
@@ -64,8 +63,8 @@ fn origin(names: &Names, origin: Origin) -> String {
     }
 }
 
-/// A finished test. The feed does not time a test, so its duration is 0; its checks and
-/// exchanges came earlier in the stream as their own events.
+/// A finished test, untimed: the feed sets its duration. Its checks and exchanges came earlier
+/// in the stream as their own events.
 pub fn test(names: &Names, result: &TestResult) -> results::Test {
     let (example_row, repeat_index) = names.slot(result);
     results::Test {
@@ -73,7 +72,7 @@ pub fn test(names: &Names, result: &TestResult) -> results::Test {
         label: names.instance(result),
         example_row,
         repeat_index,
-        status: test_status(result.status).into(),
+        status: results::TestStatus::from(result.status).into(),
         attempts: result.attempts,
         duration_ms: 0.0,
         failure: result.failure.as_ref().map(|found| failure(names, found)),

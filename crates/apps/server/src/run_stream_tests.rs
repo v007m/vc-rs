@@ -68,6 +68,17 @@ async fn a_run_streams_its_start_and_plan_first_and_its_report_last() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_finished_test_carries_how_long_it_ran() {
+    let (events, _) = parse(&stream(&wire::RunRequest::default()).await);
+    let finished = |event: &wire::RunEvent| match &event.kind {
+        Some(Kind::TestFinished(found)) => found.test.clone(),
+        _ => None,
+    };
+    let test = events.iter().find_map(finished).unwrap();
+    assert!(test.duration_ms > 0.0, "{test:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn sequence_numbers_rise_with_the_plan_beside_the_start_and_the_report_after_the_last() {
     let (events, _) = parse(&stream(&wire::RunRequest::default()).await);
     let seqs: Vec<u64> = events.iter().map(|event| event.seq).collect();

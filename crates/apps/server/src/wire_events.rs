@@ -5,28 +5,35 @@
 //! Sequence numbers: an event keeps the run's own; `RunPlanned` shares `RunStarted`'s, since the
 //! plan is part of the start; `Missed` carries the last number seen; the report carries the
 //! number after it.
+//!
+//! A finished test's duration runs from its instance's first action to its `TestFinished`, by
+//! the server's clock, as the reporters time it.
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::collections::HashMap;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::engine::v1::owner;
 use vc_contracts::engine::v1::run_event::Kind;
 use vc_contracts::results::v1 as results;
+use vc_contracts::{count, millis};
 use vc_engine::{
     ActionId, CleanupRecord, Event, Failure, Names, OwnerKey, Planned, RunFeed, RunReport, RunStatus, Sequenced,
     Totals, action_call,
 };
 
-use crate::wire_history::{run_status, totals};
 use crate::wire_results;
 
-/// The run feed in wire form: the names that label its events, and the last number seen.
+/// The run feed in wire form: the names that label its events, the last number seen, and when
+/// each running instance started.
 #[derive(Default)]
 pub struct WireFeed {
     /// The run's names, once the feed has started.
     names: Option<Names>,
     /// The sequence number of the last event seen.
     seq: u64,
+    /// When each running instance's first action started, by instance index.
+    starts: HashMap<u32, Instant>,
 }
 
 impl WireFeed {
@@ -48,13 +55,34 @@ impl WireFeed {
     fn event(&mut self, sequenced: Sequenced) -> Vec<wire::RunEvent> {
         let Sequenced { seq, event } = sequenced;
         self.seq = seq;
+        let took = self.timed(&event);
         let Some(names) = &self.names else { return Vec::new() };
         let started = matches!(event, Event::RunStarted { .. });
-        let mut events = vec![at(seq, kind(names, event))];
+        let mut kind = kind(names, event);
+        if let (Kind::TestFinished(wire::TestFinished { test: Some(test) }), Some(took)) = (&mut kind, took) {
+            test.duration_ms = took;
+        }
+        let mut events = vec![at(seq, kind)];
         if started {
             events.push(at(seq, Kind::RunPlanned(run_planned(names))));
         }
         events
+    }
+
+    /// Notes when an instance's first action starts; for a finished test, the milliseconds
+    /// since then.
+    fn timed(&mut self, event: &Event) -> Option<f64> {
+        match event {
+            Event::ActionStarted { owner: OwnerKey::Instance(instance), .. } => {
+                self.starts.entry(instance.index()).or_insert_with(Instant::now);
+                None
+            }
+            Event::TestFinished { result } => {
+                let start = self.starts.remove(&result.instance?.index())?;
+                Some(millis(start.elapsed()))
+            }
+            _ => None,
+        }
     }
 }
 
@@ -72,7 +100,7 @@ fn kind(names: &Names, event: Event) -> Kind {
         Event::RunStarted { files, instances } => Kind::RunStarted(run_started(files, instances)),
         Event::FileStarted { file } => Kind::FileStarted(wire::FileStarted { file: names.file(file).to_owned() }),
         Event::FileFinished { file, totals: sum } => {
-            Kind::FileFinished(wire::FileFinished { file: names.file(file).to_owned(), totals: Some(totals(&sum)) })
+            Kind::FileFinished(wire::FileFinished { file: names.file(file).to_owned(), totals: Some(sum.into()) })
         }
         Event::ActionStarted { action, owner } => Kind::ActionStarted(started(scope(names, action, owner))),
         Event::ActionFinished { action, owner, outcome } => {
@@ -92,7 +120,7 @@ fn kind(names: &Names, event: Event) -> Kind {
         Event::TestFinished { result } => {
             Kind::TestFinished(wire::TestFinished { test: Some(wire_results::test(names, &result)) })
         }
-        Event::RunFinished { status, totals: sum } => Kind::RunFinished(run_finished(status, &sum)),
+        Event::RunFinished { status, totals: sum } => Kind::RunFinished(run_finished(status, sum)),
         Event::LoadTick { second, users, rps, p50, p95, p99, errors, breaching } => {
             let (p50_ms, p95_ms, p99_ms) = (millis(p50), millis(p95), millis(p99));
             Kind::LoadTick(wire::LoadTick { second, users, rps, p50_ms, p95_ms, p99_ms, errors, breaching })
@@ -184,21 +212,11 @@ fn abandoned(names: &Names, owner: OwnerKey, cleanups: &[ActionId]) -> wire::Cle
 }
 
 /// The run finished.
-fn run_finished(status: RunStatus, sum: &Totals) -> wire::RunFinished {
-    wire::RunFinished { status: run_status(status).into(), totals: Some(totals(sum)) }
+fn run_finished(status: RunStatus, sum: Totals) -> wire::RunFinished {
+    wire::RunFinished { status: results::RunStatus::from(status).into(), totals: Some(sum.into()) }
 }
 
 /// How the run ended, as `vc run` reports it.
 fn run_report(report: RunReport) -> wire::RunReport {
     wire::RunReport { exit: u32::from(report.exit), seed: report.seed, notices: report.notices, run: report.run }
-}
-
-/// `n`, saturating at `u32::MAX`.
-fn count(n: usize) -> u32 {
-    u32::try_from(n).unwrap_or(u32::MAX)
-}
-
-/// `duration` in milliseconds.
-fn millis(duration: Duration) -> f64 {
-    duration.as_secs_f64() * 1_000.0
 }
