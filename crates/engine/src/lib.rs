@@ -128,13 +128,13 @@ pub use run_feed::{RunFeed, RunWatch};
 pub use save_call::CallAsTest;
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;
-pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
+pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun, started};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
 pub use vc_interfaces::{
     Approval, ApprovalId, ApprovalRequest, ApprovalStatus, PluginKind, PluginManifest, PluginPermissions, RunId,
-    RunRow, TestRow, TestTrend, Verdict,
+    RunRow, RunStart, TestRow, TestTrend, Verdict,
 };
 pub use vc_model::{
     CheckResult, Event, Exchange, Failure, FileKind, Location, Method, Names, OwnerKey, RunStatus, Sequenced,
