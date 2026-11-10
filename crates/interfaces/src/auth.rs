@@ -189,6 +189,21 @@ impl AuthError {
         Code::V5114
     }
 
+    /// Whether the token endpoint refused the grant itself: 400 (RFC 6749 section 5.2, such as
+    /// `invalid_grant` or `invalid_client`), 401 or 403. Asking again with the same grant gets
+    /// the same answer, and may lock the account.
+    #[must_use]
+    pub const fn refused(&self) -> bool {
+        matches!(self, Self::Rejected { status: 400 | 401 | 403, .. })
+    }
+
+    /// Whether the failure may pass by itself: the endpoint could not be reached (no route, a
+    /// timeout) or answered 408, 429 or 5xx, so asking again later can succeed.
+    #[must_use]
+    pub const fn may_pass(&self) -> bool {
+        matches!(self, Self::Unreachable { .. } | Self::Rejected { status: 408 | 429 | 500..=599, .. })
+    }
+
     /// What the user can do about it.
     #[must_use]
     pub const fn help(&self) -> &'static str {

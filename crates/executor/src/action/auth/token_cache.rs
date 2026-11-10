@@ -118,8 +118,10 @@ impl TokenCache {
     ///
     /// # Errors
     ///
-    /// The error `fetch` gave, shared with the requests already waiting on that fetch but never
-    /// kept: the next request fetches again.
+    /// The error `fetch` gave. A refusal, like any failure that will not pass, is kept for the
+    /// run, so requests do not each retry a login and lock the account. A failure that may pass
+    /// ([`AuthError::may_pass`]) is shared with the requests already waiting on that fetch but
+    /// not kept: the next request fetches again.
     pub async fn get<F, Fut>(&self, lease: &Lease, refresh_before: Duration, fetch: F) -> Result<Credentials, AuthError>
     where
         F: Fn() -> Fut + Sync,
@@ -136,7 +138,7 @@ impl TokenCache {
             slot = self.slot(lease.key);
         }
         let result = slot.get_or_init(fill).await.result.clone();
-        if result.is_err() {
+        if result.as_ref().is_err_and(AuthError::may_pass) {
             self.replace(lease.key, &slot);
         }
         lease.hold(slot);

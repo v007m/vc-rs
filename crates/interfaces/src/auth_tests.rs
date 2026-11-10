@@ -49,3 +49,18 @@ fn every_cause_is_v5114_with_its_own_help() {
     assert_eq!(helps.len(), causes.len());
     assert_eq!(causes[0].to_string(), "the token endpoint for `svc` answered 401");
 }
+
+#[test]
+fn a_refusal_is_told_from_a_failure_that_may_pass() {
+    let rejected = |status| AuthError::Rejected { auth: "svc".into(), status };
+    for status in [400, 401, 403] {
+        assert!(rejected(status).refused() && !rejected(status).may_pass(), "{status}");
+    }
+    for status in [408, 429, 500, 503, 599] {
+        assert!(rejected(status).may_pass() && !rejected(status).refused(), "{status}");
+    }
+    let unreachable = AuthError::Unreachable { auth: "svc".into(), reason: "timed out".into() };
+    assert!(unreachable.may_pass() && !unreachable.refused());
+    let flow = AuthError::Flow { auth: "svc".into(), reason: "step login failed".into() };
+    assert!(!rejected(404).refused() && !rejected(404).may_pass() && !flow.refused() && !flow.may_pass());
+}

@@ -53,7 +53,7 @@ impl AuthorizationCode {
                 self.keep(account, token.refresh.as_deref());
                 Ok(Some(token.credentials))
             }
-            Err(error) if refused(&error) => {
+            Err(error) if error.refused() => {
                 let _ = keychain.delete(SERVICE, account);
                 Ok(None)
             }
@@ -96,12 +96,6 @@ fn random_text(bytes: usize) -> Option<String> {
     let mut drawn = vec![0; bytes];
     SystemRandom::new().fill(&mut drawn).ok()?;
     Some(URL_SAFE_NO_PAD.encode(drawn))
-}
-
-/// Whether the server refused the grant itself (RFC 6749 section 5.2 answers 400, such as
-/// `invalid_grant`, or 401), as opposed to a failure that may pass, such as a 5xx or no route.
-fn refused(error: &AuthError) -> bool {
-    matches!(error, AuthError::Rejected { status: 400 | 401, .. })
 }
 
 /// Whether `pkce` is on: it is unless the definition says `pkce: false`.
