@@ -53,7 +53,7 @@ impl Reader<'_> {
     fn wanted(&self, route: &Route<'_>) -> bool {
         let include = &self.opts.include;
         let included = include.is_empty()
-            || include.iter().any(|want| route.op.tags.contains(want) || route.path.starts_with(want.as_str()));
+            || include.iter().any(|want| route.op.tags.contains(want) || under(&route.path, want));
         let only = &self.opts.only;
         let named = only.is_empty()
             || only.iter().any(|want| route.op.operation_id.as_ref() == Some(want) || *want == id(route));
@@ -195,6 +195,12 @@ fn merge_vars(api: &mut DraftApi, vars: IndexMap<String, Value>, at: &str) -> Ve
 pub fn id(route: &Route<'_>) -> String {
     let named = route.op.operation_id.as_deref().map(camel).filter(|id| !id.is_empty());
     named.unwrap_or_else(|| from_route(route.method.name(), &route.path))
+}
+
+/// Whether `path` is `prefix` or under it, whole segments only: `/user` keeps `/user` and
+/// `/user/{id}` but not `/users`; a prefix that ends in `/` keeps only what is under it.
+fn under(path: &str, prefix: &str) -> bool {
+    path.strip_prefix(prefix).is_some_and(|rest| rest.is_empty() || rest.starts_with('/') || prefix.ends_with('/'))
 }
 
 /// `/users/{user_id}` as `/users/${var.userId}`.

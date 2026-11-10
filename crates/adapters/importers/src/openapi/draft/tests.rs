@@ -15,6 +15,26 @@ fn group(doc: &Value, source: &str) -> Result<(DraftGroup, Vec<ImportNote>), ser
     Ok(reader.group(source, &routes))
 }
 
+/// The IDs of the apis drafted from `doc` with these `--include` and `--only` values.
+fn drafted(doc: &Value, (include, only): (&[&str], &[&str])) -> Result<Vec<String>, serde_json::Error> {
+    let spec: oas3::Spec = serde_json::from_value(doc.clone())?;
+    let owned = |ids: &[&str]| -> Vec<String> { ids.iter().map(|&id| id.to_owned()).collect() };
+    let opts = ImportOptions { include: owned(include), only: owned(only), ..ImportOptions::default() };
+    let reader = Reader { spec: &spec, doc, opts: &opts };
+    let (routes, _) = reader.routes();
+    Ok(reader.group("spec.yaml", &routes).0.apis.into_iter().map(|api| api.id).collect())
+}
+
+#[test]
+fn include_keeps_a_path_and_what_is_under_it_by_whole_segments() -> Result<(), serde_json::Error> {
+    let get = |id: &str| json!({ "get": { "operationId": id, "responses": {} } });
+    let doc = spec(&json!({ "/user": get("me"), "/user/{id}": get("one"), "/users": get("all") }), &json!([]));
+    assert_eq!(drafted(&doc, (&["/user"], &[]))?, ["me", "one"]);
+    assert_eq!(drafted(&doc, (&["/user/"], &[]))?, ["one"]);
+    assert_eq!(drafted(&doc, (&["/users"], &[]))?, ["all"]);
+    Ok(())
+}
+
 #[test]
 fn path_templates_read_camel_case_vars() {
     assert_eq!(templated("/users/{user_id}/roles/{role}"), "/users/${var.userId}/roles/${var.role}");
