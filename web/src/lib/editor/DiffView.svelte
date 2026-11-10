@@ -1,16 +1,21 @@
 <script lang="ts">
   import { foldDiff, lineDiff } from './text.ts';
 
-  let { before, after }: { before: string; after: string } = $props();
+  let {
+    before,
+    after,
+    label = 'Changes since the last save',
+    empty = 'No changes since the last save.',
+  }: { before: string; after: string; label?: string; empty?: string } = $props();
 
   let lines = $derived(foldDiff(lineDiff(before, after)));
   const sign = { same: ' ', add: '+', del: '−' } as const;
   const said = { same: '', add: 'Added: ', del: 'Removed: ' } as const;
 </script>
 
-<section class="diff" aria-label="Changes since the last save">
+<section class="diff" aria-label={label}>
   {#if !lines.some((l) => l.kind === 'add' || l.kind === 'del')}
-    <p class="none">No changes since the last save.</p>
+    <p class="none">{empty}</p>
   {:else}
     <div class="scroll mono">
       {#each lines as line, i (i)}
