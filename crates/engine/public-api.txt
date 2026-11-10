@@ -1007,7 +1007,7 @@ impl core::fmt::Debug for vc_engine::SaveFile
 pub fn vc_engine::SaveFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::SaveFile
 #[non_exhaustive] pub struct vc_engine::SavedFile
-pub vc_engine::SavedFile::check: vc_engine::CheckReport
+pub vc_engine::SavedFile::check: core::result::Result<vc_engine::CheckReport, vc_engine::EngineError>
 pub vc_engine::SavedFile::digest: alloc::string::String
 impl core::clone::Clone for vc_engine::SavedFile
 pub fn vc_engine::SavedFile::clone(&self) -> Self
