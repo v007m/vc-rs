@@ -5455,6 +5455,7 @@ dependencies = [
  "crossterm",
  "insta",
  "ratatui",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "vc-engine",

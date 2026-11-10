@@ -138,9 +138,12 @@ pub async fn carry_on(engine: &Engine, tui: &mut Tui, ask: Option<Ask>) -> Outco
 }
 
 /// The feed of the run `ask` asks for on `engine`, one instance at a time, up to its `Done`.
+/// Its reports go to a temporary folder: the project's root is not one to write into.
 pub async fn feed_of(engine: &Engine, ask: Option<Ask>) -> Outcome<Vec<RunFeed>> {
     let (sender, mut feed) = mpsc::channel(1_024);
-    let request = RunRequest { watch: Some(RunWatch::new(sender)), concurrency: Some(1), ..run_of(ask)? };
+    let reports = tempfile::tempdir()?;
+    let mut request = RunRequest { watch: Some(RunWatch::new(sender)), concurrency: Some(1), ..run_of(ask)? };
+    request.files.out = Some(reports.path().to_path_buf());
     engine.run(&request, interrupts().1).await?;
     drop(request);
     let mut items = Vec::new();

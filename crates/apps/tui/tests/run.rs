@@ -74,7 +74,8 @@ async fn the_request_count_is_every_request_sent_not_only_those_the_pane_keeps()
     let mut tui = tui();
     let ask = press(&mut tui, &[KeyCode::Char('a')]);
     for item in feed_of(&engine().unwrap(), ask).await.unwrap() {
-        let times = if matches!(&item, RunFeed::Event(Sequenced { event: Event::Exchanged { .. }, .. })) { 100 } else { 1 };
+        let times =
+            if matches!(&item, RunFeed::Event(Sequenced { event: Event::Exchanged { .. }, .. })) { 100 } else { 1 };
         for _ in 0..times {
             tui.update(&Update::Run(item.clone()));
         }
@@ -111,14 +112,14 @@ fn retried(items: Vec<RunFeed>) -> Vec<RunFeed> {
     retried
 }
 
-fn of_an_instance(event: &Event) -> bool {
-    let owner = match event {
-        Event::ActionStarted { owner, .. }
-        | Event::ActionFinished { owner, .. }
-        | Event::Exchanged { owner, .. }
-        | Event::CheckEvaluated { owner, .. }
-        | Event::Warned { owner, .. } => owner,
-        _ => return false,
+const fn of_an_instance(event: &Event) -> bool {
+    let (Event::ActionStarted { owner, .. }
+    | Event::ActionFinished { owner, .. }
+    | Event::Exchanged { owner, .. }
+    | Event::CheckEvaluated { owner, .. }
+    | Event::Warned { owner, .. }) = event
+    else {
+        return false;
     };
     matches!(owner, OwnerKey::Instance(_))
 }

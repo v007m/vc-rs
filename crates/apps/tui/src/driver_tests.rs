@@ -39,7 +39,11 @@ const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: tru
 
 /// An import of `source` with the curl importer.
 fn curl(source: &str) -> Ask {
-    Ask::Import(Box::new(ImportRequest { kind: "curl".to_owned(), source: source.to_owned(), ..ImportRequest::default() }))
+    Ask::Import(Box::new(ImportRequest {
+        kind: "curl".to_owned(),
+        source: source.to_owned(),
+        ..ImportRequest::default()
+    }))
 }
 
 #[tokio::test]

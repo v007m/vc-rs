@@ -137,6 +137,6 @@ fn what_did_not_stop_the_reading_is_shown_on_the_status_line() {
     let Update::Explored { items, .. } = explored(&engine().unwrap()).unwrap() else { panic!("the project") };
     let notices = vec!["plugin `audit` is not trusted\n  help: trust it first".to_owned(), "other".to_owned()];
     tui.update(&Update::Explored { items, notices });
-    let status = status(&tui);
+    let status = screen(&tui, (140, 24)).lines().nth(1).unwrap_or_default().to_owned();
     assert!(status.ends_with("  warning: plugin `audit` is not trusted (+1 more)"), "{status}");
 }
