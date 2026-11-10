@@ -26,9 +26,9 @@ pub enum PluginStderr {
     /// To the host's own stderr: a command prints it with its output.
     #[default]
     Inherit,
-    /// To `stderr.log` in the plugin's data folder, bounded, the previous process's log kept as
-    /// `stderr.log.1`: a UI drawing on the terminal stays intact. Dropped when the plugin has no
-    /// data folder.
+    /// To `stderr.log` in a folder the host owns (never the plugin's data folder), bounded, the
+    /// previous process's log kept as `stderr.log.1`: a UI drawing on the terminal stays intact.
+    /// Dropped when the log cannot be made.
     Log,
 }
 

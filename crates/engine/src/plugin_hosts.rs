@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use vc_adapter_plugins::StdioPluginHost;
-use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, Secrets};
+use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, PluginStderr, Secrets};
 use vc_model::{CelProgram, Program, Reference, TemplateValue};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
 
@@ -20,6 +20,10 @@ use crate::plugins::{self, PluginState};
 /// Where each plugin keeps its own files, in a folder named by its id: its install folder is
 /// checked against the lock, so it must not change.
 const PLUGIN_DATA: &str = ".vibranium/plugin-data";
+
+/// Where the host keeps each plugin's stderr log ([`PluginStderr::Log`]), in a folder named by
+/// its id: never under [`PLUGIN_DATA`], which the plugin writes to.
+const PLUGIN_LOGS: &str = ".vibranium/plugin-logs";
 
 /// Why a plugin's `config` cannot read a template value.
 const LITERAL_ONLY: &str = "a plugin's `config` takes literal values; the plugin reads a secret with `secrets/get`";
@@ -100,7 +104,9 @@ impl Engine {
             return Err(state.to_string());
         };
         let (dir, data) = (self.root().join(PLUGINS_DIR).join(id), self.root().join(PLUGIN_DATA).join(id));
-        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone()).data(data).stderr(self.plugin_stderr);
+        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone()).data(data);
+        let logged = self.plugin_stderr == PluginStderr::Log;
+        let host = if logged { host.stderr_log(self.root().join(PLUGIN_LOGS).join(id)) } else { host };
         Ok((host, lock.integrity.clone()))
     }
 }

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde_json::json;
-use vc_interfaces::{CALL_DEADLINE, PluginError, PluginHost, PluginPermissions, PluginStderr, Secret, Secrets};
+use vc_interfaces::{CALL_DEADLINE, PluginError, PluginHost, PluginPermissions, Secret, Secrets};
 use vc_testkit::{plugin_host_suite, suite_plugin_manifest};
 
 use super::StdioPluginHost;
@@ -194,24 +194,49 @@ read()
 sys.exit(3)
 "#;
 
+/// The suite's plugin, but writing `word` to its stderr and exiting.
+fn writes_to_stderr(word: &str) -> vc_interfaces::PluginManifest {
+    vc_interfaces::PluginManifest {
+        command: "python3".into(),
+        args: vec!["-c".into(), format!("import sys; sys.stderr.write('{word}')")],
+        ..suite_plugin_manifest()
+    }
+}
+
 #[cfg(unix)]
 #[tokio::test]
-async fn a_logged_stderr_goes_to_the_data_folder_and_the_log_before_is_kept() {
+async fn a_logged_stderr_goes_to_the_log_folder_and_the_log_before_is_kept() {
     if !python() {
         return eprintln!("skipped: python3 is not installed");
     }
-    let data = tempfile::tempdir().unwrap();
+    let (data, logs) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     for word in ["first", "second"] {
-        let manifest = vc_interfaces::PluginManifest {
-            command: "python3".into(),
-            args: vec!["-c".into(), format!("import sys; sys.stderr.write('{word}')")],
-            ..suite_plugin_manifest()
-        };
-        let host = StdioPluginHost::new(manifest, suite_dir(), granted()).data(data.path()).stderr(PluginStderr::Log);
+        let host = StdioPluginHost::new(writes_to_stderr(word), suite_dir(), granted())
+            .data(data.path())
+            .stderr_log(logs.path());
         host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
-        logged(&data.path().join(crate::STDERR_LOG), word).await;
+        logged(&logs.path().join(crate::STDERR_LOG), word).await;
     }
-    assert_eq!(std::fs::read_to_string(data.path().join("stderr.log.1")).unwrap(), "first");
+    assert_eq!(std::fs::read_to_string(logs.path().join("stderr.log.1")).unwrap(), "first");
+    assert!(!data.path().join(crate::STDERR_LOG).exists(), "the plugin's own folder holds no log");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_link_planted_at_the_log_is_never_followed() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let (logs, elsewhere) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let target = elsewhere.path().join("notes.txt");
+    std::fs::write(&target, "keep me").unwrap();
+    for name in [crate::STDERR_LOG, "stderr.log.1"] {
+        std::os::unix::fs::symlink(&target, logs.path().join(name)).unwrap();
+    }
+    let host = StdioPluginHost::new(writes_to_stderr("noise"), suite_dir(), granted()).stderr_log(logs.path());
+    host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+    logged(&logs.path().join(crate::STDERR_LOG), "noise").await;
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "keep me");
 }
 
 /// Waits up to five seconds for `log` to hold `text`.
