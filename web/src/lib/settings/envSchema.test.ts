@@ -31,6 +31,19 @@ describe('.env.schema', () => {
     expect(JSON.stringify(entries)).not.toContain('never.shown');
   });
 
+  it('reads names exactly as the engine does', () => {
+    const names = (text: string) => parseSchema(text).map((entry) => entry.name);
+    expect(names('export\tTAB=\nexport =1\nexport  TWO=\n  SPACED = x\n # HIDDEN=\n')).toEqual([
+      'TWO',
+      'SPACED',
+    ]);
+    expect(names('_X1 = 2\n1BAD=x\nno equals\nA-B=1\nexport=1\nlower=\n')).toEqual([
+      '_X1',
+      'export',
+      'lower',
+    ]);
+  });
+
   it('keeps a header above a divider out of the first name', () => {
     expect(parseSchema('# header\n# ---\n# @sensitive\nA=\n')[0]?.notes).toEqual([]);
   });
@@ -38,8 +51,10 @@ describe('.env.schema', () => {
   it('refuses a name that breaks the convention or is declared already', () => {
     const entries = parseSchema(schema);
     expect(nameProblem('PAY_KEY', entries)).toBeUndefined();
-    expect(nameProblem('payKey', entries)).toMatch(/capital letters/);
-    expect(nameProblem('1KEY', entries)).toMatch(/capital letters/);
+    expect(nameProblem('payKey', entries)).toBeUndefined();
+    expect(nameProblem('_X1', entries)).toBeUndefined();
+    expect(nameProblem('1KEY', entries)).toMatch(/not starting with a digit/);
+    expect(nameProblem('A-B', entries)).toMatch(/not starting with a digit/);
     expect(nameProblem('REGION', entries)).toBe('REGION is declared already.');
   });
 

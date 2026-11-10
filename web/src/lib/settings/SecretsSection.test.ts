@@ -58,13 +58,15 @@ describe('SecretsSection', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
   });
 
-  it('refuses a name that breaks the convention, and says why', async () => {
+  it('refuses a name the engine would not read, and says why', async () => {
     const { user } = await rendered('A=\n');
     const input = screen.getByRole('textbox', { name: 'New secret name' });
-    await user.type(input, 'shopToken{Enter}');
+    await user.type(input, 'shop-token{Enter}');
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.getAttribute('aria-describedby')).toBe('secret-name-problem');
-    expect(document.getElementById('secret-name-problem')?.textContent).toMatch(/capital letters/);
+    expect(document.getElementById('secret-name-problem')?.textContent).toMatch(
+      /not starting with a digit/,
+    );
     expect(names()).toEqual(['A']);
   });
 

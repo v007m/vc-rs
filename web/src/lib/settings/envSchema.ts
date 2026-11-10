@@ -11,10 +11,24 @@ export type SchemaEntry = Readonly<{
   notes: readonly string[];
 }>;
 
-const declaration = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/;
+/** An environment variable name: letters, digits and `_`, not starting with a digit. */
+const envName = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const comment = /^\s*#/;
 /** A divider such as varlock's `# ---` ends the comment block that belongs to a name. */
 const divider = /^\s*#\s*-{3,}/;
+
+/**
+ * The name `line` declares, read exactly as the engine reads it (`vc_model::schema_names`): the
+ * trimmed line, less one literal `export ` before it, up to its first `=`, trimmed.
+ */
+function declared(line: string): string | undefined {
+  const trimmed = line.trim();
+  if (trimmed === '' || trimmed.startsWith('#')) return undefined;
+  const body = trimmed.startsWith('export ') ? trimmed.slice('export '.length) : trimmed;
+  const at = body.indexOf('=');
+  const name = at < 0 ? '' : body.slice(0, at).trim();
+  return envName.test(name) ? name : undefined;
+}
 
 /** The lines of the comment block attached to line `at`: no blank line between, no divider. */
 function attached(lines: readonly string[], at: number): number {
@@ -42,7 +56,7 @@ export function parseSchema(text: string): SchemaEntry[] {
   const seen = new Set<string>();
   const entries: SchemaEntry[] = [];
   lines.forEach((line, at) => {
-    const name = declaration.exec(line)?.[1];
+    const name = declared(line);
     if (name === undefined || seen.has(name)) return;
     seen.add(name);
     entries.push(entry(name, lines.slice(attached(lines, at), at)));
@@ -52,8 +66,8 @@ export function parseSchema(text: string): SchemaEntry[] {
 
 /** Why `name` cannot be declared next to `entries`, or undefined when it can. */
 export function nameProblem(name: string, entries: readonly SchemaEntry[]): string | undefined {
-  if (!/^[A-Z][A-Z0-9_]*$/.test(name))
-    return 'Use capital letters, digits and underscores, starting with a letter: SHOP_TOKEN.';
+  if (!envName.test(name))
+    return 'Use letters, digits and underscores, not starting with a digit: SHOP_TOKEN.';
   if (entries.some((e) => e.name === name)) return `${name} is declared already.`;
   return undefined;
 }
@@ -69,7 +83,7 @@ export function undeclare(text: string, name: string): string {
   const lines = text.split('\n');
   const dropped = new Set<number>();
   lines.forEach((line, at) => {
-    if (declaration.exec(line)?.[1] !== name) return;
+    if (declared(line) !== name) return;
     for (let i = attached(lines, at); i <= at; i += 1) dropped.add(i);
   });
   return lines.filter((_, at) => !dropped.has(at)).join('\n');
