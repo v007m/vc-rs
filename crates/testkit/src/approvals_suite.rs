@@ -2,8 +2,8 @@ use std::fmt::Debug;
 use std::time::Duration;
 
 use vc_interfaces::{
-    AgentAction, AgentActionLog, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals, Decision,
-    StandingRule, Verdict,
+    AgentAction, AgentActionLog, AgentActionWriter, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus,
+    Approvals, Decision, StandingRule, Verdict,
 };
 use vc_model::Method;
 
@@ -18,13 +18,35 @@ pub async fn approvals_suite(make: &mut MakeApprovals<'_>) {
     waits_for_a_decision_or_expires(make().as_ref()).await;
 }
 
-/// The contract every [`AgentActionLog`] meets (D112, D195): what it records it reads back,
-/// newest first.
+/// The contract every [`AgentActionWriter`] meets (D112, D195).
 ///
 /// # Panics
 ///
-/// When the log breaks the contract.
-pub fn agent_action_log_suite(writer: &dyn AgentActionLog) {
+/// When the writer breaks the contract.
+pub fn agent_action_writer_suite(writer: &dyn AgentActionWriter) {
+    for action in actions() {
+        assert_eq!(writer.record(&action), Ok(()));
+    }
+}
+
+/// The contract every [`AgentActionReader`] meets, over a fresh log it can also write: what
+/// was recorded reads back newest first.
+///
+/// # Panics
+///
+/// When the reader breaks the contract.
+pub fn agent_action_reader_suite(log: &dyn AgentActionLog) {
+    assert_eq!(must(log.recent(0)), []);
+    let [action, refused] = actions();
+    assert_eq!((log.record(&action), log.record(&refused)), (Ok(()), Ok(())));
+    let read: Vec<_> = must(log.recent(0)).into_iter().map(|logged| (logged.at_ms, logged.action)).collect();
+    assert!(read.len() == 2 && read[0].0 >= read[1].0 && read[1].0 > 0, "{read:?}");
+    assert_eq!((&read[0].1, &read[1].1), (&refused, &action), "newest first");
+    assert_eq!(must(log.recent(1)).len(), 1);
+}
+
+/// An allowed call, then a refused one.
+fn actions() -> [AgentAction; 2] {
     let action = AgentAction {
         agent: "claude".into(),
         tool: "call_api".into(),
@@ -33,13 +55,8 @@ pub fn agent_action_log_suite(writer: &dyn AgentActionLog) {
         result: "ok".into(),
         approved_by: Some("sam".into()),
     };
-    assert_eq!(writer.record(&action), Ok(()));
     let refused = AgentAction { profile: None, approved_by: None, result: "denied".into(), ..action.clone() };
-    assert_eq!(writer.record(&refused), Ok(()));
-    let read: Vec<_> = must(writer.recent(0)).into_iter().map(|logged| (logged.at_ms, logged.action)).collect();
-    assert!(read.len() == 2 && read[0].0 >= read[1].0 && read[1].0 > 0, "{read:?}");
-    assert_eq!((&read[0].1, &read[1].1), (&refused, &action), "newest first");
-    assert_eq!(must(writer.recent(1)).len(), 1);
+    [action, refused]
 }
 
 /// What `result` holds, after asserting it is not an error.

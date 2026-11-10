@@ -182,7 +182,7 @@ mod tests {
     use vc_interfaces::{ApprovalRequest, ApprovalStatus, Approvals, Verdict};
 
     use super::MemoryApprovals;
-    use crate::{agent_action_log_suite, approvals_suite};
+    use crate::{agent_action_reader_suite, agent_action_writer_suite, approvals_suite};
 
     #[tokio::test]
     async fn passes_the_approvals_suite() {
@@ -190,9 +190,14 @@ mod tests {
     }
 
     #[test]
-    fn passes_the_agent_action_log_suite() {
+    fn passes_the_agent_action_reader_suite() {
+        agent_action_reader_suite(&MemoryApprovals::new());
+    }
+
+    #[test]
+    fn passes_the_agent_action_writer_suite() {
         let log = MemoryApprovals::new();
-        agent_action_log_suite(&log);
+        agent_action_writer_suite(&log);
         assert_eq!(log.actions().len(), 2);
     }
 
