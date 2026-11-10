@@ -55,6 +55,7 @@ A plugin that crashes or exceeds a deadline fails only the work that used it: th
 | auth | `auth/credentials` | `{"auth": "<auth id>", "config": <the auth's config or null>}` | `{"headers": {…}, "query": {…}, "cookies": {…}, "expiresIn": <seconds>}` |
 
 - **Reporter files.** Each file is saved in the run's report folder. A `name` must be a relative path that stays inside that folder; any other name fails the reporter.
+- **Auth config.** Unlike `plugins[].config`, an auth definition's `config` is rendered like any other auth setting, so it may hold `${secret.x}` or `${var.x}`. A secret written there is sent to the plugin whatever the lock grants: writing it into the auth definition is the grant. Every secret is in the redactor's set from the start of the run, so it never appears in events, logs or history.
 - **Auth results.** At least one of `headers`, `query` or `cookies` must hold a value. Every value is treated as a secret and is redacted in output. Without `expiresIn`, the credentials are kept for the run.
 
 ## Methods the plugin calls
