@@ -109,6 +109,13 @@ impl Approvals for SqliteApprovals {
         })
     }
 
+    fn get(&self, id: ApprovalId) -> Result<Option<Approval>, ApprovalError> {
+        self.read(|connection| {
+            let sql = format!("SELECT {COLUMNS} FROM approvals WHERE id = ?1");
+            connection.query_row(&sql, [id.get()], approval).optional()
+        })
+    }
+
     fn create(&self, request: &ApprovalRequest) -> Result<ApprovalId, ApprovalError> {
         self.write(|connection| {
             connection.execute(

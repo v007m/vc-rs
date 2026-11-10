@@ -92,6 +92,9 @@ fn decides_a_request_once(queue: &dyn Approvals) {
     assert_eq!(queue.decide(&decision(approved, Verdict::Deny)), Err(ApprovalError::Decided { id: approved }));
     let unknown = ApprovalId::new(999);
     assert_eq!(queue.decide(&decision(unknown, Verdict::Approve)), Err(ApprovalError::Unknown { id: unknown }));
+    let found = must(queue.get(approved)).map(|approval| (approval.id, approval.status, approval.decided_by));
+    assert_eq!(found, Some((approved, ApprovalStatus::Approved, Some("sam".into()))));
+    assert_eq!(queue.get(unknown), Ok(None));
     assert_eq!(queue.always_allowed(&rule("staging", "call_api", Method::Delete)), Ok(false), "once adds no rule");
 }
 

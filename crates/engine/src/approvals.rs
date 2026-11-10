@@ -174,7 +174,7 @@ impl Engine {
 
 /// Who decided request `id`, when the queue still says.
 fn decided_by(queue: &dyn Approvals, id: ApprovalId) -> Option<String> {
-    queue.list(false).ok()?.into_iter().find(|approval| approval.id == id)?.decided_by
+    queue.get(id).ok().flatten()?.decided_by
 }
 
 /// `10 minutes`, or `30 seconds` for a wait that is not whole minutes.

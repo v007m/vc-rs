@@ -23,6 +23,13 @@ pub trait Approvals: Send + Sync {
     /// An [`ApprovalError`] when the queue cannot be read.
     fn list(&self, pending_only: bool) -> Result<Vec<Approval>, ApprovalError>;
 
+    /// The request `id`, or `None` when the queue has none by that ID.
+    ///
+    /// # Errors
+    ///
+    /// An [`ApprovalError`] when the queue cannot be read.
+    fn get(&self, id: ApprovalId) -> Result<Option<Approval>, ApprovalError>;
+
     /// Adds `request` to the queue, undecided.
     ///
     /// # Errors

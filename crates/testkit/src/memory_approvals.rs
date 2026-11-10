@@ -116,6 +116,10 @@ impl Approvals for MemoryApprovals {
         Ok(state.approvals.iter().rev().filter(wanted).cloned().collect())
     }
 
+    fn get(&self, id: ApprovalId) -> Result<Option<Approval>, ApprovalError> {
+        Ok(self.state.borrow().approvals.iter().find(|approval| approval.id == id).cloned())
+    }
+
     fn create(&self, request: &ApprovalRequest) -> Result<ApprovalId, ApprovalError> {
         let mut id = ApprovalId::new(0);
         self.state.send_modify(|state| {
