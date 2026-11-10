@@ -9,16 +9,14 @@ use crate::engine_fixture::{TESTS, project};
 const SPEC: &str = "openapi: 3.0.3\ninfo: {title: Pets, version: '1'}\nservers: [{url: 'http://127.0.0.1:9'}]\npaths:\n  /pets:\n    get:\n      operationId: listPets\n      responses: {'200': {description: ok}}\n";
 
 #[tokio::test]
-async fn a_call_from_the_web_ui_passes_the_agent_policy_and_is_logged() {
+async fn a_call_from_the_web_ui_skips_the_agent_policy_and_the_agent_log() {
     let (_dir, api) = project();
-    let sent = call(api.clone(), wire::CallRequest { api: "users#list".into(), ..wire::CallRequest::default() })
-        .await
-        .unwrap();
-    assert_eq!(sent.exit, 1, "{sent:?}");
-    let posted = wire::CallRequest { api: "users#create".into(), ..wire::CallRequest::default() };
-    assert_eq!(call(api.clone(), posted).await.unwrap_err().code, Code::PermissionDenied);
+    for id in ["users#list", "users#create"] {
+        let sent = call(api.clone(), wire::CallRequest { api: id.into(), ..wire::CallRequest::default() }).await;
+        assert_eq!(sent.unwrap().exit, 1, "{id} is sent, though the policy lets agents send only GET");
+    }
     let logged = api.engine().agent_actions(0).unwrap();
-    assert!(logged.iter().any(|logged| logged.action.agent == "web-ui"), "{logged:?}");
+    assert!(logged.is_empty(), "{logged:?}");
 }
 
 #[tokio::test]
