@@ -4,7 +4,8 @@
 #   # expect: <GATE-ID> [<more text the output must contain>...]
 # GATE-COMMIT / GATE-REFACTOR fixtures are mailbox patches (`git format-patch`), applied with
 # `git am` (one or more commits) and checked by commit-check.sh. GATE-MUTANTS fixtures run gates.sh with GATES_MUTANTS=1.
-# All others are plain diffs checked by gates.sh. Arch fixtures name the arch-tests rule ID too,
+# All others are plain diffs checked by gates.sh; GATE-JSLICENSE reads the licences from the
+# node_modules linked in from this checkout, and GATE-PROTO compares proto/ with HEAD. Arch fixtures name the arch-tests rule ID too,
 # e.g. "# expect: GATE-ARCH ARCH-LAYER". Fixtures add new files where possible so they keep applying.
 # Tests the committed HEAD, so commit gate changes before running it.
 set -euo pipefail
@@ -12,6 +13,8 @@ cd "$(dirname "$0")/.."
 
 repo=$(pwd)
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$repo/target}"
+# GATE-PROTO compares proto/ with the commit each fixture applies to.
+export GATES_PROTO_BASE=HEAD
 scratch=$(mktemp -d)
 wt="$scratch/wt"
 # check_fixture runs as an `if` condition, where set -e is off, so setup steps return this explicitly.

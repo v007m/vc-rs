@@ -1,0 +1,12 @@
+# expect: GATE-PROTO RunStatus deleted
+diff --git a/proto/vibranium/results/v1/results.proto b/proto/vibranium/results/v1/results.proto
+--- a/proto/vibranium/results/v1/results.proto
++++ b/proto/vibranium/results/v1/results.proto
+@@ -21,6 +21,5 @@
+ enum RunStatus {
+   RUN_STATUS_UNSPECIFIED = 0;
+   RUN_STATUS_PASSED = 1;
+   RUN_STATUS_FAILED = 2;
+-  RUN_STATUS_CANCELLED = 3;
+ }
+
