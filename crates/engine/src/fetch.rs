@@ -1,5 +1,6 @@
 //! The importers' [`SpecFetcher`]: a URL through the transport, a path through the project's
-//! sources (so nothing outside the project is read), YAML and JSON read with `vc-parser`.
+//! sources (so nothing outside the project is read, nor a hidden file such as `.env` that a
+//! pasted spec's `$ref` names), YAML and JSON read with `vc-parser`.
 
 use std::sync::Arc;
 
@@ -51,6 +52,9 @@ impl ProjectFetcher {
     fn read(&self, location: &str) -> Result<Vec<u8>, FetchError> {
         let not_allowed = || FetchError::NotAllowed { location: location.to_owned() };
         let path = SourcePath::new(location).map_err(|_| not_allowed())?;
+        if path.as_str().split('/').any(|part| part.starts_with('.')) {
+            return Err(not_allowed());
+        }
         let mut found = self
             .sources
             .read(&[path])

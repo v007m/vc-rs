@@ -35,6 +35,10 @@ async fn what_cannot_be_fetched_says_why() {
     let missing = fetcher.fetch("https://specs.test/gone.json").await;
     assert!(matches!(&missing, Err(FetchError::Failed { reason, .. }) if reason.contains("404")), "{missing:?}");
     let outside = fetcher.fetch("../backend/openapi.json").await;
+    for hidden in [".env", "specs/.secret.yaml", ".vibranium/history.db"] {
+        let refused = fetcher.fetch(hidden).await;
+        assert!(matches!(refused, Err(FetchError::NotAllowed { .. })), "{hidden}: {refused:?}");
+    }
     assert!(matches!(outside, Err(FetchError::NotAllowed { .. } | FetchError::Failed { .. })), "{outside:?}");
     let down = ProjectFetcher {
         transport: Arc::new(FakeTransport::scripted(vec![Err(TransportError::InvalidRequest {
