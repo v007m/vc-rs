@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use serde_json::{Value, json};
 use vc_adapter_reporters::RunSnapshot;
-use vc_interfaces::{RunRow, TestRow};
+use vc_interfaces::{RunRow, TestRow, TestTrend};
 use vc_model::{Date, Program};
 
 use crate::history::history_error;
@@ -67,6 +67,15 @@ impl Engine {
     pub fn history(&self, limit: usize) -> Result<HistoryReport, EngineError> {
         let runs = self.history_reader().runs(limit).map_err(|error| history_error(&error))?;
         Ok(HistoryReport { runs })
+    }
+
+    /// How each test did over the newest `window` runs (G15), for the History screens.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::History`] when the history cannot be read.
+    pub fn trends(&self, window: usize) -> Result<Vec<TestTrend>, EngineError> {
+        self.history_reader().trends(window).map_err(|error| history_error(&error))
     }
 
     /// The stored run `which` names, `last` or a number, with its tests.
