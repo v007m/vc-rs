@@ -21,7 +21,12 @@ drop_worktree() {
   git worktree remove --force "$wt" >/dev/null 2>&1 || true
   git worktree prune
 }
-trap 'drop_worktree; rm -rf "$scratch"' EXIT
+# The scratch worktree shares the target dir, so vc-arch-tests is left built with the scratch
+# CARGO_MANIFEST_DIR; cleaning it makes the next gates run rebuild it against this checkout.
+forget_arch_tests() {
+  cargo clean -p vc-arch-tests >/dev/null 2>&1 || true
+}
+trap 'drop_worktree; rm -rf "$scratch"; forget_arch_tests' EXIT
 
 refresh_lockfile() {
   (cd "$wt" && { cargo metadata --format-version 1 --offline >/dev/null 2>&1 ||
