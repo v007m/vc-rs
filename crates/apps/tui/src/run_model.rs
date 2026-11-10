@@ -99,6 +99,8 @@ pub struct RunModel {
     /// Events the feed dropped because the screen fell behind.
     pub missed: u64,
     checks: Attempts,
+    /// Planned instances skipped at run time, as a cancelled run skips those it had not begun.
+    skipped_planned: usize,
 }
 
 /// The checks of each test instance's attempt in progress. A retry runs the instance again
@@ -143,10 +145,11 @@ impl RunModel {
         matches!(self.phase, Phase::Starting | Phase::Running)
     }
 
-    /// How many of the planned instances have finished; a skipped test is not planned.
+    /// How many of the planned instances have finished, those skipped at run time included; a
+    /// test skipped when the run was planned is not planned.
     pub const fn finished(&self) -> usize {
         let totals = &self.totals;
-        totals.passed + totals.failed + totals.blocked + totals.flaky
+        totals.passed + totals.failed + totals.blocked + totals.flaky + self.skipped_planned
     }
 
     /// Folds the next item of the feed in.
@@ -192,6 +195,9 @@ impl RunModel {
         let file = names.file_of(result.test);
         let finished = finished(names, result, checks);
         self.totals.add(result.status);
+        if result.status == TestStatus::Skipped && result.instance.is_some() {
+            self.skipped_planned += 1;
+        }
         if let Some(group) = self.files.iter_mut().find(|group| group.file == file) {
             group.tests.push(finished);
         } else {

@@ -6,7 +6,7 @@ mod support;
 use crossterm::event::KeyCode;
 use insta::assert_snapshot;
 use support::{carry, engine, feed_of, press, run_of, screen, tui};
-use vc_engine::{Event, OwnerKey, RunFeed, SelectRequest, Sequenced};
+use vc_engine::{Event, OwnerKey, RunFeed, SelectRequest, Sequenced, TestStatus};
 use vc_tui::{Ask, Update};
 
 const SIZE: (u16, u16) = (100, 24);
@@ -136,4 +136,24 @@ async fn a_finished_runs_notices_are_shown_on_the_status_line() {
     }
     let status = screen(&tui, (140, 24)).lines().nth(1).unwrap_or_default().to_owned();
     assert!(status.ends_with("run #1  warning: report junit could not be written: read-only"), "{status}");
+}
+
+#[tokio::test]
+async fn tests_skipped_at_run_time_count_as_finished() {
+    let mut tui = tui();
+    let ask = press(&mut tui, &[KeyCode::Char('a')]);
+    for mut item in feed_of(&engine().unwrap(), ask).await.unwrap() {
+        if let RunFeed::Event(Sequenced { event: Event::TestFinished { result, .. }, .. }) = &mut item
+            && result.instance.is_some()
+        {
+            result.status = TestStatus::Skipped;
+        }
+        if !matches!(item, RunFeed::Done(_)) {
+            tui.update(&Update::Run(item));
+        }
+    }
+    let status = screen(&tui, SIZE).lines().nth(1).unwrap_or_default().to_owned();
+    let counts = status.split_whitespace().nth(1).unwrap_or_default();
+    let (finished, planned) = counts.split_once('/').unwrap_or_default();
+    assert!(status.starts_with("running ") && planned != "0" && finished == planned, "{status}");
 }
