@@ -95,6 +95,12 @@ impl Discovery {
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum SourceError {
+    /// No file is there.
+    #[error("{path}: no such file")]
+    Missing {
+        /// The path.
+        path: String,
+    },
     /// The file exists but reading it failed.
     #[error("{path}: cannot be read: {reason}")]
     Read {
@@ -159,7 +165,8 @@ impl SourceError {
     #[must_use]
     pub fn path(&self) -> Option<&str> {
         match self {
-            Self::Read { path, .. }
+            Self::Missing { path }
+            | Self::Read { path, .. }
             | Self::Write { path, .. }
             | Self::NotUtf8 { path }
             | Self::InvalidPath { path }

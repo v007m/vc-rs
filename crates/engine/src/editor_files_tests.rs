@@ -189,3 +189,23 @@ fn a_link_out_of_the_project_or_to_a_hidden_file_is_neither_read_nor_written() {
     assert_eq!(fs::read_to_string(outside.path().join("secret.test.yaml")).unwrap(), "kept\n");
     assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=abc\n");
 }
+
+#[test]
+fn a_file_that_cannot_be_read_or_is_not_utf8_is_an_error_and_is_never_saved_over() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (dir, engine) = project();
+    let (locked, binary) = ("services/users/locked.test.yaml", "services/users/binary.test.yaml");
+    fs::write(dir.path().join(locked), "kept\n").unwrap();
+    fs::write(dir.path().join(binary), b"\xff\xfe\n").unwrap();
+    fs::set_permissions(dir.path().join(locked), fs::Permissions::from_mode(0o000)).unwrap();
+    let results = [locked, binary].map(|path| (engine.read_file(path), engine.save_file(&save(path, "new\n", None))));
+    fs::set_permissions(dir.path().join(locked), fs::Permissions::from_mode(0o600)).unwrap();
+    for (read, saved) in results {
+        assert!(matches!(&read, Err(EngineError::Sources { .. })), "{read:?}");
+        assert!(matches!(&saved, Err(EngineError::Sources { .. })), "{saved:?}");
+    }
+    assert_eq!(fs::read_to_string(dir.path().join(locked)).unwrap(), "kept\n");
+    assert_eq!(fs::read(dir.path().join(binary)).unwrap(), b"\xff\xfe\n");
+    let missing = engine.read_file("services/users/missing.test.yaml");
+    assert!(matches!(missing, Err(EngineError::NoFilesMatch { .. })), "{missing:?}");
+}

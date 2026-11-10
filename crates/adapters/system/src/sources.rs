@@ -62,7 +62,10 @@ impl FsSources {
 
     /// Reads the file through its resolved path, so a link cannot lead out of the root.
     fn load(&self, path: SourcePath, on_disk: &Path) -> Result<vc_model::SourceFile, SourceError> {
-        let failed = |error: std::io::Error| SourceError::Read { path: path.to_string(), reason: error.to_string() };
+        let failed = |error: std::io::Error| match error.kind() {
+            std::io::ErrorKind::NotFound => SourceError::Missing { path: path.to_string() },
+            _ => SourceError::Read { path: path.to_string(), reason: error.to_string() },
+        };
         let target = std::fs::canonicalize(on_disk).map_err(failed)?;
         if !self.leads_in(&path, &target) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });

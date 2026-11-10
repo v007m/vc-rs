@@ -114,8 +114,8 @@ fn reads_any_file_by_path(make: &mut MakeSources<'_>) {
         found.problems.iter().map(|problem| (problem.path(), matches!(problem, SourceError::NotUtf8 { .. }))).collect();
     assert_eq!(problems, [(Some("datasets/bad.csv"), true), (Some("datasets/gone.json"), false)], "the rest are read");
     assert!(
-        matches!(found.problems.get(1), Some(SourceError::Read { .. })),
-        "a missing file is a read problem: {:?}",
+        matches!(found.problems.get(1), Some(SourceError::Missing { .. })),
+        "a missing file is named as missing: {:?}",
         found.problems
     );
     assert_eq!(asset_paths(&found), Vec::<&str>::new(), "nothing is listed");

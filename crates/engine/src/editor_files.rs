@@ -65,7 +65,8 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Edit`] when the path is not the config or an api, test or load file
-    /// outside a hidden folder, or links outside the project or to a hidden file; [`EngineError::NoFilesMatch`] when no file there can be read.
+    /// outside a hidden folder, or links outside the project or to a hidden file; [`EngineError::NoFilesMatch`] when there is no file there; [`EngineError::Sources`] when it
+    /// cannot be read or is not UTF-8.
     pub fn read_file(&self, path: &str) -> Result<OpenedFile, EngineError> {
         let path = editable(path)?;
         let file = self.current(&path)?.ok_or_else(|| EngineError::NoFilesMatch { path: path.to_string() })?;
@@ -94,12 +95,13 @@ impl Engine {
         Ok(SavedFile { digest: hex(content_hash(request.text.as_bytes()).as_bytes()), check })
     }
 
-    /// The file at `path` as it is now; `None` when no file there can be read.
+    /// The file at `path` as it is now; `None` when there is no file there. A file that is there
+    /// but cannot be read, or is not UTF-8, is an error, so a save never takes it for a new file.
     fn current(&self, path: &SourcePath) -> Result<Option<SourceFile>, EngineError> {
         let mut read = self.sources.read(std::slice::from_ref(path)).map_err(sources_error)?;
         match read.problems.pop() {
             None => Ok(read.files.pop()),
-            Some(SourceError::Read { .. }) => Ok(None),
+            Some(SourceError::Missing { .. }) => Ok(None),
             Some(SourceError::OutsideRoot { .. }) => {
                 Err(refused(format!("`{path}` links to a file outside the project or a hidden one"), PATH_HELP))
             }
