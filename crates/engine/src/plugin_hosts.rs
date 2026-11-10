@@ -7,7 +7,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use serde_json::Value;
-use vc_adapter_plugins::{StdioPluginHost, log_folder};
+use tokio::sync::broadcast;
+use vc_adapter_plugins::StdioPluginHost;
 use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, PluginStderr, Secrets};
 use vc_model::{CelProgram, Program, Reference, TemplateValue};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
@@ -22,22 +23,32 @@ use crate::plugins::{self, PluginState};
 /// checked against the lock, so it must not change.
 const PLUGIN_DATA: &str = ".vibranium/plugin-data";
 
-/// The folder the stderr logs are kept under.
-const LOGS_HOME: &str = ".vibranium";
+/// Where the host keeps each plugin's stderr log ([`PluginStderr::Log`]), in a folder named by
+/// its id: never under [`PLUGIN_DATA`], which the plugin writes to. Each folder on the way from
+/// the project root is made as the plugin starts, and refused when it is a link.
+const PLUGIN_LOGS: &str = ".vibranium/plugin-logs";
 
-/// Where in [`LOGS_HOME`] the host keeps each plugin's stderr log ([`PluginStderr::Log`]), in a
-/// folder named by its id: never under [`PLUGIN_DATA`], which the plugin writes to.
-const PLUGIN_LOGS: &str = "plugin-logs";
+/// The most lines the run's plugins can say as they start before the run hears them: one each
+/// at most.
+const HEARD: usize = 64;
 
 /// Why a plugin's `config` cannot read a template value.
 const LITERAL_ONLY: &str = "a plugin's `config` takes literal values; the plugin reads a secret with `secrets/get`";
 
-/// The run's plugins: a host for each one it can use, and why each other one cannot be used.
-#[derive(Clone, Default)]
+/// The run's plugins: a host for each one it can use, why each other one cannot be used, and
+/// where they say why one starts with its stderr dropped.
+#[derive(Clone)]
 pub struct Hosts {
     ready: BTreeMap<String, Arc<dyn PluginHost>>,
     unusable: BTreeMap<String, String>,
-    unlogged: BTreeMap<String, String>,
+    told: broadcast::Sender<String>,
+}
+
+impl Default for Hosts {
+    fn default() -> Self {
+        let (told, _) = broadcast::channel(HEARD);
+        Self { ready: BTreeMap::new(), unusable: BTreeMap::new(), told }
+    }
 }
 
 impl Hosts {
@@ -64,12 +75,15 @@ impl Hosts {
         self.unusable.iter().map(|(id, reason)| (id.as_str(), reason.as_str()))
     }
 
-    /// One line for each plugin the run cannot use, and why, then one for each whose stderr is
-    /// dropped as its log folder cannot be used.
+    /// One line for each plugin the run cannot use, and why.
     pub fn notices(&self) -> Vec<String> {
-        let unusable = self.unusable.iter().map(|(id, reason)| format!("plugin `{id}`: {reason}"));
-        let unlogged = self.unlogged.iter().map(|(id, why)| format!("plugin `{id}`: its stderr is dropped: {why}"));
-        unusable.chain(unlogged).collect()
+        self.unusable.iter().map(|(id, reason)| format!("plugin `{id}`: {reason}")).collect()
+    }
+
+    /// What the plugins say from now on as they start: a line for each whose stderr is dropped
+    /// as its log cannot be made, and why. A plugin never started says nothing.
+    pub fn heard(&self) -> broadcast::Receiver<String> {
+        self.told.subscribe()
     }
 }
 
@@ -93,10 +107,7 @@ impl Engine {
                 .and_then(|(host, approved)| Ok((host.config(literal(plugin.config.as_ref())?), approved)));
             match host {
                 Ok((host, approved)) => {
-                    if let Some(why) = self.unlogged(&id) {
-                        drop(hosts.unlogged.insert(id.clone(), why));
-                    }
-                    let host = intact(host.secrets(secrets), approved, &self.plugins);
+                    let host = intact(host.secrets(secrets).told(hosts.told.clone()), approved, &self.plugins);
                     drop(hosts.ready.insert(id, host));
                 }
                 Err(reason) => drop(hosts.unusable.insert(id, reason)),
@@ -117,18 +128,8 @@ impl Engine {
         let (dir, data) = (self.root().join(PLUGINS_DIR).join(id), self.root().join(PLUGIN_DATA).join(id));
         let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone()).data(data);
         let logged = self.plugin_stderr == PluginStderr::Log;
-        let host =
-            if logged { host.stderr_log(self.root().join(LOGS_HOME), Path::new(PLUGIN_LOGS).join(id)) } else { host };
+        let host = if logged { host.stderr_log(self.root(), Path::new(PLUGIN_LOGS).join(id)) } else { host };
         Ok((host, lock.integrity.clone()))
-    }
-
-    /// Why the stderr log folder of plugin `id` cannot be used, when its stderr is logged and a
-    /// folder on the way to it is a link: the host then drops its stderr.
-    fn unlogged(&self, id: &str) -> Option<String> {
-        if self.plugin_stderr != PluginStderr::Log {
-            return None;
-        }
-        log_folder(&self.root().join(LOGS_HOME), &Path::new(PLUGIN_LOGS).join(id)).err().map(|error| error.to_string())
     }
 }
 

@@ -21,19 +21,24 @@ const OLD_LOG: &str = "stderr.log.1";
 pub const LOG_LIMIT: u64 = 1024 * 1024;
 
 /// A new, empty [`STDERR_LOG`] in the folder `under` in `home` ([`log_folder`]) for a process
-/// about to start, the log before it kept as `stderr.log.1`; `None` when it cannot be made. The
-/// log is created only where nothing is, so a link at its path is never followed
+/// about to start, the log before it kept as `stderr.log.1`.
+///
+/// The log is created only where nothing is, so a link at its path is never followed
 /// (`O_CREAT | O_EXCL`), and on Windows a reparse point is refused. When the log before cannot
 /// be kept it is removed, and the new log's first line says so.
-pub fn open(home: &Path, under: &Path) -> Option<File> {
-    let folder = log_folder(home, under).ok()?;
+///
+/// # Errors
+///
+/// Why the log cannot be made: its folder cannot be used, or the file cannot be created there.
+pub fn open(home: &Path, under: &Path) -> io::Result<File> {
+    let folder = log_folder(home, under)?;
     let log = folder.join(STDERR_LOG);
     let rotated = rotate(&log, &folder.join(OLD_LOG));
     let mut file = create(&log)?;
     if let Err(error) = rotated {
         writeln!(file, "vibranium: the log before could not be kept as {OLD_LOG} ({error}), so it was removed").ok();
     }
-    Some(file)
+    Ok(file)
 }
 
 /// The folder `under` in `home`, each folder on the way made when missing.
@@ -81,8 +86,9 @@ fn rotate(log: &Path, old: &Path) -> io::Result<()> {
 }
 
 /// A new file at `log`, never one already there; on Windows opened as the reparse point
-/// itself, were one there, so [`plain`] sees the link and not its target.
-fn create(log: &Path) -> Option<File> {
+/// itself, were one there, so [`plain`] sees the link and not its target. Refused, with why,
+/// when something is in the way or it is a link.
+fn create(log: &Path) -> io::Result<File> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(windows)]
@@ -92,8 +98,9 @@ fn create(log: &Path) -> Option<File> {
         const OPEN_REPARSE_POINT: u32 = 0x0020_0000;
         options.custom_flags(OPEN_REPARSE_POINT);
     }
-    let file = options.open(log).ok()?;
-    plain(&file).then_some(file)
+    let cannot = |why: String| io::Error::other(format!("`{}` cannot be made: {why}", log.display()));
+    let file = options.open(log).map_err(|error| cannot(error.to_string()))?;
+    if plain(&file) { Ok(file) } else { Err(cannot("it is a link".to_owned())) }
 }
 
 /// Whether `file` is a file of its own, not a reparse point standing for another.

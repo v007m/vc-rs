@@ -239,6 +239,23 @@ async fn a_link_planted_at_the_log_is_never_followed() {
     assert_eq!(std::fs::read_to_string(&target).unwrap(), "keep me");
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn a_log_that_cannot_be_made_drops_the_stderr_and_says_why_as_the_plugin_starts() {
+    let (logs, elsewhere) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    std::os::unix::fs::symlink(elsewhere.path(), logs.path().join("suite")).unwrap();
+    let (told, mut heard) = tokio::sync::broadcast::channel(4);
+    let host = StdioPluginHost::new(writes_to_stderr("noise"), suite_dir(), granted())
+        .stderr_log(logs.path(), "suite")
+        .told(told);
+    assert!(heard.try_recv().is_err(), "nothing is said before the plugin starts");
+    host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+    let said = heard.try_recv().unwrap();
+    assert!(said.starts_with("plugin `") && said.contains("`: its stderr is dropped: `"), "{said}");
+    assert!(said.ends_with("` is a link or not a folder"), "{said}");
+    assert_eq!(std::fs::read_dir(elsewhere.path()).unwrap().count(), 0, "nothing is made through the link");
+}
+
 /// Waits up to five seconds for `log` to hold `text`.
 async fn logged(log: &Path, text: &str) {
     for _ in 0..100 {

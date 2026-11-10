@@ -8,7 +8,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 use tokio::process::Command;
-use tokio::sync::{OnceCell, mpsc, oneshot};
+use tokio::sync::{OnceCell, broadcast, mpsc, oneshot};
 use vc_interfaces::{INITIALIZE_DEADLINE, PluginError, PluginHost, PluginManifest, PluginPermissions, Secrets};
 
 use crate::session::{Call, Session};
@@ -45,6 +45,7 @@ pub struct StdioPluginHost {
     config: Value,
     data: Option<PathBuf>,
     log: Option<(PathBuf, PathBuf)>,
+    told: Option<broadcast::Sender<String>>,
     calls: OnceCell<Result<mpsc::UnboundedSender<Call>, PluginError>>,
 }
 
@@ -54,7 +55,7 @@ impl StdioPluginHost {
     pub fn new(manifest: PluginManifest, dir: impl Into<PathBuf>, granted: PluginPermissions) -> Self {
         let dir = dir.into();
         let (secrets, config, calls) = (Secrets::new(), Value::Null, OnceCell::new());
-        Self { manifest, dir, granted, secrets, config, data: None, log: None, calls }
+        Self { manifest, dir, granted, secrets, config, data: None, log: None, told: None, calls }
     }
 
     /// The same host, able to give the plugin those of `run`'s secrets that the manifest declares
@@ -87,11 +88,19 @@ impl StdioPluginHost {
     /// The same host, keeping the plugin's stderr in [`crate::STDERR_LOG`] in the folder `under`
     /// in `home` rather than passing it through, up to [`crate::LOG_LIMIT`] a start, the log
     /// before kept as `stderr.log.1`. The folder must be the host's own, never the plugin's data
-    /// folder; the plugin is never told of it. When a folder on the way from `home` is a link
-    /// ([`crate::log_folder`]), the stderr is dropped.
+    /// folder; the plugin is never told of it. Each folder on the way from `home` is made when
+    /// missing; when one is a link or the log cannot be made, the stderr is dropped, and
+    /// [`StdioPluginHost::told`] says why.
     #[must_use]
     pub fn stderr_log(self, home: impl Into<PathBuf>, under: impl Into<PathBuf>) -> Self {
         Self { log: Some((home.into(), under.into())), ..self }
+    }
+
+    /// The same host, sending `told` one line when the plugin starts with its stderr dropped as
+    /// its log could not be made: `plugin `<id>`: its stderr is dropped: <why>`.
+    #[must_use]
+    pub fn told(self, told: broadcast::Sender<String>) -> Self {
+        Self { told: Some(told), ..self }
     }
 
     fn plugin(&self) -> String {
@@ -111,6 +120,13 @@ impl StdioPluginHost {
         command
     }
 
+    /// Tells whoever asked ([`StdioPluginHost::told`]) why the plugin's stderr is dropped.
+    fn unlogged(&self, why: &std::io::Error) {
+        if let Some(told) = &self.told {
+            told.send(format!("plugin `{}`: its stderr is dropped: {why}", self.plugin())).ok();
+        }
+    }
+
     /// The channel to the running plugin: started, and initialized, on the first call.
     async fn running(&self) -> Result<mpsc::UnboundedSender<Call>, PluginError> {
         self.calls.get_or_init(|| self.start()).await.clone()
@@ -127,7 +143,8 @@ impl StdioPluginHost {
             let made = std::fs::create_dir_all(data);
             made.map_err(|error| not_started(format!("cannot make its data folder: {error}")))?;
         }
-        let log = self.log.as_ref().and_then(|(home, under)| stderr_log::open(home, under));
+        let log = self.log.as_ref().map(|(home, under)| stderr_log::open(home, under));
+        let log = log.and_then(|opened| opened.inspect_err(|why| self.unlogged(why)).ok());
         let mut child = self
             .command(log.is_some())
             .spawn()

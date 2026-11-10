@@ -45,7 +45,7 @@ fn a_linked_log_folder_is_refused_and_what_it_points_at_is_untouched() {
     std::fs::write(elsewhere.path().join(OLD_LOG), "keep me too").unwrap();
     std::fs::create_dir(home.path().join("plugin-logs")).unwrap();
     std::os::unix::fs::symlink(elsewhere.path(), home.path().join("plugin-logs/suite")).unwrap();
-    assert!(open(home.path(), Path::new("plugin-logs/suite")).is_none());
+    assert!(open(home.path(), Path::new("plugin-logs/suite")).is_err());
     let error = log_folder(home.path(), Path::new("plugin-logs/suite")).unwrap_err();
     assert!(error.to_string().ends_with("` is a link or not a folder"), "{error}");
     assert_eq!(std::fs::read_to_string(elsewhere.path().join(STDERR_LOG)).unwrap(), "keep me");
@@ -58,6 +58,18 @@ fn a_linked_log_folder_is_refused_and_what_it_points_at_is_untouched() {
 fn a_linked_folder_on_the_way_to_the_log_is_refused() {
     let (home, elsewhere) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     std::os::unix::fs::symlink(elsewhere.path(), home.path().join("plugin-logs")).unwrap();
-    assert!(open(home.path(), Path::new("plugin-logs/suite")).is_none());
+    assert!(open(home.path(), Path::new("plugin-logs/suite")).is_err());
     assert_eq!(std::fs::read_dir(elsewhere.path()).unwrap().count(), 0, "nothing made there");
+}
+
+#[test]
+fn a_log_that_cannot_be_made_is_refused_with_why() {
+    let dir = tempfile::tempdir().unwrap();
+    for name in [STDERR_LOG, OLD_LOG] {
+        std::fs::create_dir(dir.path().join(name)).unwrap();
+        std::fs::write(dir.path().join(name).join("kept"), "a folder is in the way").unwrap();
+    }
+    let error = open(dir.path(), Path::new("")).unwrap_err().to_string();
+    assert!(error.starts_with('`') && error.contains("stderr.log` cannot be made: "), "{error}");
+    assert!(dir.path().join(STDERR_LOG).join("kept").is_file(), "what is in the way is left alone");
 }

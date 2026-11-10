@@ -251,17 +251,38 @@ async fn a_plugin_s_files_are_checked_on_its_first_call_and_it_keeps_its_own_in_
     assert!(reason.contains("$VIB_PLUGIN_DATA"), "{reason}");
 }
 
+/// Starts the plugin `report` among `hosts` with a call; what the hosts said meanwhile.
+async fn started(hosts: &Hosts) -> Vec<String> {
+    let mut heard = hosts.heard();
+    let host = hosts.get("report", PluginKind::Reporter).unwrap();
+    drop(host.call("reporter/finish", Value::Null, Duration::from_secs(5)).await);
+    std::iter::from_fn(|| heard.try_recv().ok()).collect()
+}
+
 #[cfg(unix)]
-#[test]
-fn a_plugin_whose_log_folder_is_a_link_has_its_stderr_dropped_and_the_run_is_told() {
+#[tokio::test]
+async fn a_plugin_whose_log_folder_is_a_link_has_its_stderr_dropped_and_the_run_is_told() {
     let (dir, engine) = project_with(PluginStderr::Log);
     added(&engine, "path:plugin");
     let elsewhere = tempfile::tempdir().unwrap();
     fs::create_dir_all(dir.path().join(".vibranium/plugin-logs")).unwrap();
     std::os::unix::fs::symlink(elsewhere.path(), dir.path().join(".vibranium/plugin-logs/report")).unwrap();
-    let notices = hosts(&engine).notices();
-    let [notice] = notices.as_slice() else { panic!("one notice, not {notices:?}") };
+    let hosts = hosts(&engine);
+    assert_eq!(hosts.notices(), Vec::<String>::new(), "it is told only once the plugin starts");
+    let heard = started(&hosts).await;
+    let [notice] = heard.as_slice() else { panic!("one notice, not {heard:?}") };
     assert!(notice.starts_with("plugin `report`: its stderr is dropped: `"), "{notice}");
     assert!(notice.ends_with("` is a link or not a folder"), "{notice}");
     assert_eq!(fs::read_dir(elsewhere.path()).unwrap().count(), 0, "nothing is made through the link");
+}
+
+#[tokio::test]
+async fn a_fresh_project_makes_the_log_folder_only_as_the_plugin_starts() {
+    let (dir, engine) = project_with(PluginStderr::Log);
+    added(&engine, "path:plugin");
+    let logs = dir.path().join(".vibranium/plugin-logs");
+    let hosts = hosts(&engine);
+    assert!(!logs.exists(), "no folder is made for a plugin the run may never start");
+    assert_eq!(started(&hosts).await, Vec::<String>::new(), "nothing is dropped");
+    assert!(logs.join("report").join(vc_adapter_plugins::STDERR_LOG).is_file());
 }

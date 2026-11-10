@@ -21,5 +21,5 @@ mod stderr_log;
 mod store;
 
 pub use host::{DATA_ENV, PROTOCOL_VERSION, StdioPluginHost};
-pub use stderr_log::{LOG_LIMIT, STDERR_LOG, log_folder};
+pub use stderr_log::{LOG_LIMIT, STDERR_LOG};
 pub use store::FsPluginStore;
