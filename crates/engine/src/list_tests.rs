@@ -1,3 +1,4 @@
+use vc_model::FileKind;
 use vc_testkit::FakeVcs;
 
 use crate::sample::engine;
@@ -76,4 +77,13 @@ fn the_catalog_is_the_apis_then_the_tests() {
     let ids: Vec<&str> = catalog.items.iter().map(|item| item.id.as_str()).collect();
     assert_eq!(ids, ["users#list", "orders.flow#listsOrders", "users.crud#listsUsers", "users.crud#skipsUsers"]);
     assert!(catalog.items[3].skipped);
+}
+
+#[test]
+fn each_item_knows_the_kind_of_its_file() {
+    let catalog = engine(FakeVcs::default()).catalog().unwrap();
+    let kinds: Vec<_> = catalog.items.iter().map(super::Listed::kind).collect();
+    assert_eq!(kinds, [Some(FileKind::Api), Some(FileKind::Test), Some(FileKind::Test), Some(FileKind::Test)]);
+    let files = engine(FakeVcs::default()).list(&ListRequest { kind: ListKind::Files, ..ListRequest::default() });
+    assert!(files.unwrap().items.iter().all(|file| file.kind().is_some()));
 }

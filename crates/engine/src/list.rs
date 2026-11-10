@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use serde_json::{Value, json};
-use vc_model::{Api, Program, SourceFileId, Sym, Test, TestId};
+use vc_model::{Api, FileKind, Program, SourceFileId, SourcePath, Sym, Test, TestId};
 use vc_planner::{PlanError, PlanOptions};
 
 use crate::{Engine, EngineError, ListKind, ListRequest};
@@ -22,6 +22,14 @@ pub struct Listed {
     pub tags: Vec<String>,
     /// Whether the test, or its file, is marked `skip`.
     pub skipped: bool,
+}
+
+impl Listed {
+    /// The kind of the file it is in, as its path names it; `None` for a path that names none.
+    #[must_use]
+    pub fn kind(&self) -> Option<FileKind> {
+        SourcePath::new(&self.path).ok().as_ref().and_then(FileKind::from_path)
+    }
 }
 
 /// What `vc list` found, in project order.

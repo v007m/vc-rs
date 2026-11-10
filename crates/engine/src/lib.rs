@@ -129,7 +129,7 @@ pub use run_feed::{RunFeed, RunWatch};
 pub use save_call::CallAsTest;
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;
-pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun, started};
+pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun, instance_label, started};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};

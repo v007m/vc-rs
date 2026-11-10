@@ -182,7 +182,7 @@ impl StoredRun {
         let mut out = format!("{}\n", run_line(&self.run));
         let shown = self.tests.iter().filter(|test| text(test.status.as_ref()) != "passed");
         for test in shown {
-            let _ = writeln!(out, "  {:<8} {}", text(test.status.as_ref()), instance(test));
+            let _ = writeln!(out, "  {:<8} {}", text(test.status.as_ref()), instance_label(test));
             if let Some(why) = test.message.as_ref().or(test.blocked_by.as_ref()).or(test.skip_reason.as_ref()) {
                 let _ = writeln!(out, "           {why}");
             }
@@ -233,7 +233,7 @@ fn run_json(run: &RunRow) -> Value {
 
 fn test_json(test: &TestRow) -> Value {
     json!({
-        "id": instance(test),
+        "id": instance_label(test),
         "status": text(test.status.as_ref()),
         "durationMs": test.duration_ms,
         "attempts": test.attempts,
@@ -253,9 +253,11 @@ fn text(status: Option<&impl Debug>) -> String {
     status.map_or_else(String::new, |status| format!("{status:?}").to_lowercase())
 }
 
-/// A test instance as selected: `users.crud#rejectsBadEmail:3` is not known here, so a row
-/// shows as `<id> [row r]`, numbered from 1 like `vc run`'s output.
-fn instance(test: &TestRow) -> String {
+/// A stored test instance as `vc history show` names it: `users.crud#listsUsers [row 2]
+/// (repeat 3)`, both numbered from 1 like `vc run`'s output (the `:n` selector is not known
+/// here).
+#[must_use]
+pub fn instance_label(test: &TestRow) -> String {
     let mut id = test.test_id.clone();
     if let Some(row) = test.example_row {
         let _ = write!(id, " [row {}]", row.saturating_add(1));
