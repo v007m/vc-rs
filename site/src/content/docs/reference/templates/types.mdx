@@ -44,6 +44,7 @@ With `count: 42` and `order.items: [apple, banana, cherry]`, this payload went t
 Saved values keep their type too. A saved status read back in quotes is still a number:
 
 ```yaml
+      - call: sample#echo
         save:
           gotStatus: ${response.status}
       - call: sample#echo

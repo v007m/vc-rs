@@ -30,7 +30,7 @@ mix:
 
 ### Weighted mix
 
-```yaml title="load/sample/smoke.load.yaml"
+```yaml title="load/sample/smoke.load.yaml (excerpt)"
 mix:
   - test: sample.basics#listsUsers
     weight: 3
@@ -52,7 +52,7 @@ latency p50 3.4 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
 
 A mix entry's thresholds name the test when they are breached:
 
-```yaml title="load/sample/strict.load.yaml"
+```yaml title="load/sample/strict.load.yaml (excerpt)"
 mix:
   - test: sample.basics#listsUsers
     weight: 3

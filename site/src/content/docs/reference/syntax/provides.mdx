@@ -9,7 +9,7 @@ import Playground from '~/components/Playground.svelte';
 
 `provides` lists the var names a [`function`](/vc-rs/reference/syntax/function/) or [`test`](/vc-rs/reference/syntax/test/) action saves. `vc check` treats them as set, and the run fails the action if one is missing.
 
-```yaml title="services/flow/fn.test.yaml"
+```yaml title="services/flow/fn.test.yaml (excerpt)"
 before:
   - function: ../../hooks/seed.ts#seedUser
     provides: [userId, userEmail]
