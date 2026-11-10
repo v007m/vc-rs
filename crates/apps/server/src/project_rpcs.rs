@@ -10,7 +10,7 @@ use vc_engine::{
 };
 
 use crate::ConnectError;
-use crate::engine_api::{EngineApi, Rpcs, failed};
+use crate::engine_api::{EngineApi, Rpcs, failed, message};
 use crate::wire_diagnostics::diagnostics;
 
 /// Adds the project's RPCs.
@@ -117,7 +117,11 @@ async fn write_file(
 ) -> Result<wire::WriteFileResponse, ConnectError> {
     let save = SaveFile { path: request.path, text: request.text, expected_digest: request.expected_digest };
     let saved = api.blocking(move |engine| engine.save_file(&save)).await?;
-    Ok(wire::WriteFileResponse { digest: saved.digest, diagnostics: diagnostics(&saved.check) })
+    let (diagnostics, check_error) = match &saved.check {
+        Ok(report) => (diagnostics(report), String::new()),
+        Err(error) => (Vec::new(), message(error)),
+    };
+    Ok(wire::WriteFileResponse { digest: saved.digest, diagnostics, check_error })
 }
 
 async fn explain_config(

@@ -95,8 +95,12 @@ impl Rpcs {
 
 /// `error` as the Connect error the web UI shows: the engine's message, then its help.
 pub fn failed(error: &EngineError) -> ConnectError {
-    let message = error.help().map_or_else(|| error.to_string(), |help| format!("{error}\nhelp: {help}"));
-    ConnectError::new(code(error), message)
+    ConnectError::new(code(error), message(error))
+}
+
+/// `error` with its help, as a client shows it.
+pub fn message(error: &EngineError) -> String {
+    error.help().map_or_else(|| error.to_string(), |help| format!("{error}\nhelp: {help}"))
 }
 
 /// The Connect code for `error`.

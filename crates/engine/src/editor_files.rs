@@ -49,8 +49,9 @@ pub struct SaveFile {
 pub struct SavedFile {
     /// The digest of the text written.
     pub digest: String,
-    /// The project's diagnostics with the file saved.
-    pub check: CheckReport,
+    /// The project's diagnostics with the file saved, or why it could not be checked; the file
+    /// was written either way.
+    pub check: Result<CheckReport, EngineError>,
 }
 
 impl Engine {
@@ -67,13 +68,14 @@ impl Engine {
     }
 
     /// Writes `request.text` to `request.path` when the file is as the editor opened it, then
-    /// checks the project.
+    /// checks the project. Once the file is written, its digest comes back even when the check
+    /// fails, so the next save is not stale.
     ///
     /// # Errors
     ///
     /// [`EngineError::Edit`] as [`Engine::read_file`]; [`EngineError::Stale`] when the file
     /// changed, appeared or was removed since it was opened; [`EngineError::Sources`] when it
-    /// cannot be written; as [`Engine::check`] after.
+    /// cannot be written.
     pub fn save_file(&self, request: &SaveFile) -> Result<SavedFile, EngineError> {
         let path = editable(&request.path)?;
         let before = self.current(&path)?;
@@ -81,7 +83,7 @@ impl Engine {
         let (after, before) = (request.text.clone(), before.map(|file| file.text));
         let change = FileChange { path: path.to_string(), before, after, moved_from: None };
         self.write(&Changes { files: vec![change], titles: Vec::new() })?;
-        let check = self.check(&CheckRequest::default())?;
+        let check = self.check(&CheckRequest::default());
         Ok(SavedFile { digest: hex(content_hash(request.text.as_bytes()).as_bytes()), check })
     }
 

@@ -52,6 +52,7 @@ async fn read_then_write_round_trips_and_a_stale_save_is_aborted() {
     let save = wire::WriteFileRequest { path: TESTS.into(), text: edited, expected_digest: Some(opened.digest) };
     let saved = write_file(api.clone(), save.clone()).await.unwrap();
     assert!(saved.diagnostics.iter().all(|found| found.severity() != wire::Severity::Error), "{saved:?}");
+    assert!(saved.check_error.is_empty(), "{saved:?}");
     let stale = write_file(api, save).await.unwrap_err();
     assert_eq!(stale.code, Code::Aborted);
 }

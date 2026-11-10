@@ -2,6 +2,8 @@ use std::fs;
 use std::sync::Arc;
 
 use vc_adapter_system::FsSources;
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
+use vc_model::SourcePath;
 use vc_testkit::FakeVcs;
 
 use super::SaveFile;
@@ -37,7 +39,36 @@ fn a_file_opens_with_its_digest_and_saves_over_it_while_unchanged() {
     let saved = engine.save_file(&save(API, &text, Some(&opened.digest))).unwrap();
     assert_eq!(fs::read_to_string(dir.path().join(API)).unwrap(), text);
     assert_eq!(saved.digest, engine.read_file(API).unwrap().digest);
-    assert!(!saved.check.diagnostics.has_errors());
+    assert!(!saved.check.unwrap().diagnostics.has_errors());
+}
+
+/// A project whose files read, but whose search fails, so every check after a save fails.
+struct Unsearchable(FsSources);
+
+impl SourceProvider for Unsearchable {
+    fn discover(&self, _filter: &SourceFilter) -> Result<Discovery, SourceError> {
+        Err(SourceError::Root { root: ".".into(), reason: "the disk went away".into() })
+    }
+
+    fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError> {
+        self.0.read(paths)
+    }
+}
+
+#[test]
+fn a_save_whose_check_fails_still_returns_the_digest_it_wrote() {
+    let (dir, _) = project();
+    let sources = Arc::new(Unsearchable(FsSources::new(dir.path()).unwrap()));
+    let writer = Arc::new(FsSources::new(dir.path()).unwrap());
+    let engine = builder(FakeVcs::default()).sources(sources).writer(writer).build().unwrap();
+    let opened = engine.read_file(API).unwrap();
+    let text = USERS.replace("/users", "/people");
+    let saved = engine.save_file(&save(API, &text, Some(&opened.digest))).unwrap();
+    assert_eq!(fs::read_to_string(dir.path().join(API)).unwrap(), text);
+    assert_eq!(saved.digest, engine.read_file(API).unwrap().digest);
+    assert!(matches!(saved.check, Err(EngineError::Sources { .. })), "{:?}", saved.check);
+    let again = engine.save_file(&save(API, USERS, Some(&saved.digest)));
+    assert!(again.is_ok(), "{again:?}");
 }
 
 #[test]
@@ -45,7 +76,7 @@ fn a_save_keeps_text_with_errors_and_returns_them() {
     let (dir, engine) = project();
     let saved = engine.save_file(&save(NEW, BROKEN, None)).unwrap();
     assert_eq!(fs::read_to_string(dir.path().join(NEW)).unwrap(), BROKEN);
-    assert!(saved.check.diagnostics.has_errors());
+    assert!(saved.check.unwrap().diagnostics.has_errors());
 }
 
 #[test]

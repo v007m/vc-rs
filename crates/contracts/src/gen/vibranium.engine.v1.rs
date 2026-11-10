@@ -508,6 +508,10 @@ pub struct WriteFileResponse {
     /// The diagnostics of the project with the file saved.
     #[prost(message, repeated, tag="2")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// Why the project could not be checked after the save, with its help; empty when it was.
+    /// The file was written either way, so `digest` is the one to save over next.
+    #[prost(string, tag="3")]
+    pub check_error: ::prost::alloc::string::String,
 }
 /// An agent's request to do something its policy holds for a person.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

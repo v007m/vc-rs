@@ -225,6 +225,9 @@ message WriteFileResponse {
   string digest = 1;
   // The diagnostics of the project with the file saved.
   repeated Diagnostic diagnostics = 2;
+  // Why the project could not be checked after the save, with its help; empty when it was.
+  // The file was written either way, so `digest` is the one to save over next.
+  string check_error = 3;
 }
 
 // Where an approval request stands.
