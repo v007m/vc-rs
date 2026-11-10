@@ -17,7 +17,8 @@ use vc_testkit::{FakeTransport, Recorded, RecordingTransport};
 use crate::fixture;
 use crate::fixture::{Fixture, Server};
 use crate::{
-    ActionExecutors, ActionReport, ActionRequest, Frame, HostLimits, MASKED, PendingCleanup, PipelineParts, Saved,
+    ActionExecutors, ActionReport, ActionRequest, BodyFiles, Frame, HostLimits, MASKED, PendingCleanup, PipelineParts,
+    Saved,
 };
 
 fn json_response(code: u16, body: &Value) -> HttpResponse {
@@ -151,10 +152,34 @@ async fn each_body_kind_sets_its_content_type_unless_one_is_given() {
 }
 
 #[tokio::test]
+async fn a_file_body_sends_the_bytes_read_before_the_run_with_its_extensions_type() {
+    let logo = Bytes::from_static(&[0x89, b'P', 0xff, 0]);
+    let read = |path: &str| (path.to_owned(), Ok(logo.to_vec()));
+    let file = |path: &'static str| {
+        move |fixture: &mut Fixture| {
+            fixture.bodies = BodyFiles::new([read("services/users/logo.png"), read("dump.bin")]);
+            BodySpec::File(fixture::literal(path))
+        }
+    };
+    let png = sent_body(file("services/users/logo.png"), &[]).await;
+    assert_eq!(png, Ok((logo.clone(), "image/png".to_owned())));
+    let given = sent_body(file("dump.bin"), &[("content-type", "application/x-thing")]).await;
+    assert_eq!(given, Ok((logo.clone(), "application/x-thing".to_owned())), "a header given is kept");
+    assert_eq!(sent_body(file("dump.bin"), &[]).await, Ok((logo, "application/octet-stream".to_owned())));
+}
+
+#[tokio::test]
 async fn bodies_and_headers_that_cannot_be_built_fail_before_sending() {
     let v5111 = Err(Some(Code::V5111.to_string()));
     assert_eq!(sent_body(|_| BodySpec::Base64(fixture::literal("not base64!")), &[]).await, v5111);
-    assert_eq!(sent_body(|_| BodySpec::File(fixture::literal("avatar.png")), &[]).await, v5111);
+    assert_eq!(sent_body(|_| BodySpec::File(fixture::literal("avatar.png")), &[]).await, v5111, "not read");
+    let unreadable = |fixture: &mut Fixture| {
+        fixture.bodies = BodyFiles::new([("gone.png".to_owned(), Err("gone.png: no such file".to_owned()))]);
+        BodySpec::File(fixture::literal("gone.png"))
+    };
+    assert_eq!(sent_body(unreadable, &[]).await, v5111);
+    let templated = |fixture: &mut Fixture| BodySpec::File(fixture.template("${var.greeting}.png"));
+    assert_eq!(sent_body(templated, &[]).await, v5111);
     assert_eq!(sent_body(|_| BodySpec::Form(IndexMap::new()), &[]).await, v5111);
     assert_eq!(sent_body(|_| BodySpec::Multipart(IndexMap::new()), &[]).await, v5111);
     assert_eq!(sent_body(|_| BodySpec::None, &[("x-bad", "line\nbreak")]).await, v5111);

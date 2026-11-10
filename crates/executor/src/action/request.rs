@@ -14,13 +14,13 @@ use vc_model::{Action, Api, BodySpec, Exchange, Failure, InlineRequest, Method, 
 use vc_template::RenderError;
 
 use crate::Render;
+use crate::action::media::{self, OCTETS};
 
 /// RFC 3986 unreserved characters stay as they are in a query.
 const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove(b'_').remove(b'~');
 
 const JSON: &str = "application/json";
 const TEXT: &str = "text/plain; charset=utf-8";
-const OCTETS: &str = "application/octet-stream";
 
 /// The request `action` sends to `api`: the action's query, headers and body over the api's.
 pub fn rendered(render: &Render<'_>, api: &Api, action: &Action) -> Result<RenderedRequest, Failure> {
@@ -144,11 +144,20 @@ fn body(render: &Render<'_>, spec: &BodySpec) -> Result<Option<Body>, Failure> {
             let merged = vc_template::extend(base, render.value(changes).map_err(failed)?, remove);
             (Bytes::from(merged.to_string()), JSON)
         }
-        BodySpec::File(_) | BodySpec::Form(_) | BodySpec::Multipart(_) => {
-            return Err(rendering("`$file`, form and multipart bodies arrive in a later milestone"));
+        BodySpec::File(path) => file(render, path)?,
+        BodySpec::Form(_) | BodySpec::Multipart(_) => {
+            return Err(rendering("form and multipart bodies arrive in a later milestone"));
         }
     };
     Ok(Some(body))
+}
+
+/// The bytes of the `$file` at `path`, which the engine read before the run, and the
+/// `content-type` its extension implies (D272).
+fn file(render: &Render<'_>, path: &Template) -> Result<Body, Failure> {
+    let path =
+        path.as_literal().ok_or_else(|| rendering("a `$file` body path cannot hold `${…}` references (D272)"))?;
+    media::file(&render.values().inputs().bodies, path)
 }
 
 fn decode(text: &str) -> Result<Bytes, Failure> {

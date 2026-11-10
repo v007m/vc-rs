@@ -1,6 +1,6 @@
 ---
 title: body
-description: The request body of an api, test or step; a map is sent as JSON, a string as text, and $base64 as raw bytes.
+description: The request body of an api, test or step; a map is sent as JSON, a string as text, and $file and $base64 as bytes.
 sidebar: { order: 115, badge: { text: 'api + test', variant: 'note' } }
 ---
 
@@ -26,6 +26,7 @@ import Playground from '~/components/Playground.svelte';
 | a map, a list, or pasted JSON | JSON | `application/json` |
 | a string | the text, with templates rendered | `text/plain; charset=utf-8` |
 | a string, plus a `content-type` header | the text as written | the header's value |
+| `$file: <path>` | the file's bytes | from the file's extension |
 | `$base64: <text>` | the decoded bytes | `application/octet-stream` |
 | `$extend: <object>` plus changes | the object with your changes | `application/json` |
 
@@ -256,6 +257,41 @@ $ vc call echo#b64
 }
 ```
 
+### A file's bytes with $file
+
+`$file` sends a file as it is, text or binary. The path is relative to the file that names it, and `vc check` reports a path that names no file (V2004). The path can't hold a `${…}` template: vc reads every file before the run starts.
+
+```yaml title="services/uploads/uploads.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: importUsers
+    method: POST
+    path: /echo
+    body:
+      $file: ../../fixtures/users.csv
+    expect:
+      body:
+        match:
+          "headers['content-type']": text/csv
+```
+
+The `content-type` comes from the extension unless you set the header:
+
+| Extension | `content-type` |
+| --- | --- |
+| `json` | `application/json` |
+| `csv` | `text/csv` |
+| `txt` | `text/plain` |
+| `xml` | `application/xml` |
+| `html`, `htm` | `text/html` |
+| `yaml`, `yml` | `application/yaml` |
+| `png` | `image/png` |
+| `jpg`, `jpeg` | `image/jpeg` |
+| `gif` | `image/gif` |
+| `pdf` | `application/pdf` |
+| `zip` | `application/zip` |
+| any other | `application/octet-stream` |
+
 ### A test replaces the body
 
 A test's `body` replaces the api's body as a whole. Nothing from the api's map is kept. To change a few fields instead, use [`$extend`](/vc-rs/reference/syntax/extend/).
@@ -289,8 +325,7 @@ plan  5 tests in 1 file · profile default
 ```
 
 <Aside type="caution" title="Not working yet">
-- `$file: <path>` passes `vc check` but fails when the request is sent.
-- A map with `content-type: application/x-www-form-urlencoded` or `multipart/form-data` is currently sent as JSON, not as a form.
+A map with `content-type: application/x-www-form-urlencoded` or `multipart/form-data` is currently sent as JSON, not as a form.
 
 Until these are fixed, send a form as a string with the matching `content-type`. You encode it yourself:
 
@@ -321,7 +356,7 @@ apis:
 
 ## How it behaves
 
-- The shape you write picks the encoding: a map or list is JSON, a string is text, `$base64` is bytes.
+- The shape you write picks the encoding: a map or list is JSON, a string is text, `$file` and `$base64` are bytes.
 - A `content-type` header you set wins over the default. With a string body, the text is sent as written.
 - A template that is the whole value keeps its type, such as a number or a map. A template inside other text makes a string.
 - `body: ${var.payload}` sends the whole var. A map var is sent as JSON.

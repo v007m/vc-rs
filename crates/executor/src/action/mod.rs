@@ -11,6 +11,7 @@ mod hooks;
 mod http_retry;
 mod inline;
 mod looping;
+mod media;
 mod provides;
 mod request;
 mod retrying;
