@@ -90,12 +90,13 @@ test.describe('a 10,000-test report in folders', () => {
       .click();
     await expect(page.getByText('1000 of 10000 tests')).toBeVisible();
     await page.getByRole('searchbox', { name: 'Filter tests' }).fill('thing 99');
-    await expect(page.getByText(/^\d+ of 10000 tests$/)).toHaveText('11 of 10000 tests');
+    await expect(page.getByText(/^\d+ of 10000 tests$/)).toHaveText('12 of 10000 tests');
     const list = page.getByRole('listbox', { name: 'Tests' });
+    // Failed tests matching "thing 99": 99, 999, 9909, … — ArrowDown moves from the first to the second.
     await list.focus();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { name: 'Checks thing 199' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Checks thing 999' })).toBeVisible();
   });
 });
 
