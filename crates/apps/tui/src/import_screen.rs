@@ -9,7 +9,7 @@ use vc_engine::{Changes, ImportRequest};
 
 use crate::import_view;
 use crate::input::{Input, Typed};
-use crate::screen::{Ask, Screen, Update, cursor_move};
+use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
 use crate::theme::clean;
 
 /// The Import tab's keys.
@@ -191,7 +191,7 @@ impl ImportScreen {
     }
 
     fn step(&mut self, down: bool) {
-        self.field = if down { (self.field + 1).min(FIELDS - 1) } else { self.field.saturating_sub(1) };
+        self.field = clamp_step(self.field, FIELDS, down);
     }
 
     /// Drops the draft, or the last failure, back to the form.

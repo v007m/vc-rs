@@ -9,8 +9,8 @@ use vc_engine::{RunFeed, RunRow, TestRow, TestTrend};
 
 use crate::history_model::{self, Comparison};
 use crate::history_view;
-use crate::screen::{Ask, Screen, Update, cursor_move};
-use crate::theme::clean;
+use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
+use crate::theme::first_line;
 
 /// The History tab's keys.
 const KEYS: [(&str, &str); 3] = [("↑↓", "move"), ("enter", "compare"), ("r", "reload")];
@@ -107,8 +107,7 @@ impl HistoryScreen {
     }
 
     fn step(&mut self, down: bool) {
-        let last = self.runs.len().saturating_sub(1);
-        self.cursor = if down { (self.cursor + 1).min(last) } else { self.cursor.saturating_sub(1) };
+        self.cursor = clamp_step(self.cursor, self.runs.len(), down);
     }
 
     fn read(&mut self, runs: &[RunRow], trends: &[TestTrend]) {
@@ -134,11 +133,6 @@ impl HistoryScreen {
             self.compare_error = Some(first_line(reason));
         }
     }
-}
-
-/// The first line of why something failed, safe to draw.
-fn first_line(reason: &str) -> String {
-    clean(reason.lines().next().unwrap_or_default())
 }
 
 impl Screen for HistoryScreen {

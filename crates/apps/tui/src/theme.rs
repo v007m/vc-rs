@@ -59,3 +59,8 @@ pub fn pane(title: &str) -> Block<'static> {
 pub fn clean(text: &str) -> String {
     text.chars().map(|c| if c.is_control() { '·' } else { c }).collect()
 }
+
+/// The first line of `text`, cleaned: a failure's headline, without its `help:` lines.
+pub fn first_line(text: &str) -> String {
+    clean(text.lines().next().unwrap_or_default())
+}

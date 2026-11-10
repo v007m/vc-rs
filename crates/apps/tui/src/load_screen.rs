@@ -11,8 +11,8 @@ use vc_engine::{Event, Listed, LoadReport, LoadRequest};
 
 use crate::history_screen::ReadState;
 use crate::load_view;
-use crate::screen::{Ask, Screen, Update, cursor_move};
-use crate::theme::clean;
+use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
+use crate::theme::{clean, first_line};
 
 /// The Load tab's keys.
 const KEYS: [(&str, &str); 4] = [("↑↓", "move"), ("enter", "run"), ("x", "stop"), ("r", "reload")];
@@ -132,8 +132,7 @@ impl LoadScreen {
     }
 
     fn step(&mut self, down: bool) {
-        let last = self.scenarios.len().saturating_sub(1);
-        self.cursor = if down { (self.cursor + 1).min(last) } else { self.cursor.saturating_sub(1) };
+        self.cursor = clamp_step(self.cursor, self.scenarios.len(), down);
     }
 
     /// Keeps the closed second `event` tells; the run is under way from the first.
@@ -155,11 +154,6 @@ impl LoadScreen {
         self.reading = ReadState::Read;
         self.cursor = self.cursor.min(self.scenarios.len().saturating_sub(1));
     }
-}
-
-/// The first line of why something failed, safe to draw.
-fn first_line(reason: &str) -> String {
-    clean(reason.lines().next().unwrap_or_default())
 }
 
 impl Screen for LoadScreen {

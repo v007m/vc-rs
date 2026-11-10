@@ -8,7 +8,7 @@ use vc_engine::{PlanRequest, RunRequest, SelectRequest, TestStatus};
 
 use crate::run_model::{Finished, RunModel};
 use crate::run_view;
-use crate::screen::{Ask, Screen, Update, cursor_move};
+use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
 
 /// The Run tab's keys.
 const KEYS: [(&str, &str); 6] =
@@ -77,8 +77,7 @@ impl RunScreen {
     }
 
     fn step(&mut self, down: bool) {
-        let last = self.listed().count().saturating_sub(1);
-        self.cursor = if down { (self.cursor + 1).min(last) } else { self.cursor.saturating_sub(1) };
+        self.cursor = clamp_step(self.cursor, self.listed().count(), down);
     }
 }
 

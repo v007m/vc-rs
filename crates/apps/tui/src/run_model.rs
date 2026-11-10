@@ -5,7 +5,7 @@ use std::collections::{HashMap, VecDeque};
 
 use vc_engine::{CheckResult, Event, Exchange, Names, OwnerKey, RunFeed, RunReport, TestResult, TestStatus, Totals};
 
-use crate::theme::clean;
+use crate::theme::{clean, first_line};
 
 /// The requests kept for the Requests pane, newest last.
 const REQUESTS: usize = 200;
@@ -131,7 +131,7 @@ impl RunModel {
 
     /// The run could not start or ended in an error.
     pub fn failed(&mut self, reason: &str) {
-        self.phase = Phase::Failed(clean(reason.lines().next().unwrap_or_default()));
+        self.phase = Phase::Failed(first_line(reason));
     }
 
     fn event(&mut self, event: &Event) {

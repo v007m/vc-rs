@@ -124,6 +124,11 @@ pub const fn cursor_move(code: KeyCode) -> Option<bool> {
     }
 }
 
+/// The cursor one row down or up a list of `len` rows, kept on the list.
+pub fn clamp_step(cursor: usize, len: usize, down: bool) -> usize {
+    if down { (cursor + 1).min(len.saturating_sub(1)) } else { cursor.saturating_sub(1) }
+}
+
 /// One tab's screen.
 pub trait Screen: Debug + Send {
     /// The title, in the tab bar and on the pane.

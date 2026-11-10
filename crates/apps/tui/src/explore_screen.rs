@@ -10,8 +10,8 @@ use vc_engine::{Listed, SkipRequest};
 use crate::explore_view;
 use crate::history_screen::ReadState;
 use crate::input::{Input, Typed};
-use crate::screen::{Ask, Screen, Update, cursor_move};
-use crate::theme::clean;
+use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
+use crate::theme::first_line;
 
 /// The Explore tab's keys.
 const KEYS: [(&str, &str); 4] = [("↑↓", "move"), ("enter", "explain"), ("t", "skip/unskip"), ("r", "reload")];
@@ -149,8 +149,7 @@ impl ExploreScreen {
     }
 
     fn step(&mut self, down: bool) {
-        let last = self.items.len().saturating_sub(1);
-        self.cursor = if down { (self.cursor + 1).min(last) } else { self.cursor.saturating_sub(1) };
+        self.cursor = clamp_step(self.cursor, self.items.len(), down);
     }
 
     /// Takes the listing: each folder's apis, then its tests, each file in project order.
@@ -164,7 +163,7 @@ impl ExploreScreen {
     }
 
     fn failed(&mut self, reason: &str) {
-        let first = clean(reason.lines().next().unwrap_or_default());
+        let first = first_line(reason);
         self.explaining = None;
         if self.reading == ReadState::Reading {
             self.reading = ReadState::Failed(first);
