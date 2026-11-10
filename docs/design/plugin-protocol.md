@@ -8,7 +8,7 @@ A Vibranium plugin is a separate program that the engine starts and talks to ove
 
 - **Sources.** `npm:<package>[@<range>]` (packed with `npm pack`) or `path:<folder>` (a folder relative to the project root). No other scheme is accepted.
 - **Where.** The plugin is installed to `.vibranium/plugins/<id>/`.
-- **Lock.** `vibranium.lock` (YAML) records each approved plugin: its source, resolved version, integrity hash and the permissions granted. The host refuses to start a plugin whose manifest asks for more than the lock grants; run `vc plugin add` again to approve the new permissions. For a `path:` plugin the integrity is a `blake3-…` hash over the installed files (`.git`, `.vibranium` and `__pycache__` skipped), checked again at each run: files changed since the lock approved them make the plugin unusable (V5118) until `vc plugin add` approves them again. An npm integrity is the tarball's and is checked when it is fetched. Installed files keep their permissions, so an executable entry stays executable.
+- **Lock.** `vibranium.lock` (YAML) records each approved plugin: its source, resolved version, integrity hash and the permissions granted. The host refuses to start a plugin whose manifest asks for more than the lock grants; run `vc plugin add` again to approve the new permissions. For a `path:` plugin the integrity is a `blake3-…` hash over the installed files (`.git`, `.vibranium` and `__pycache__` skipped), checked again on the plugin's first call in a run (off the async threads, and only for a plugin the run uses): files changed since the lock approved them fail its calls (V5118) until `vc plugin add` approves them again. A plugin must not write into its install folder; it keeps its own files in its data folder (below). An npm integrity is the tarball's and is checked when it is fetched. Installed files keep their permissions, so an executable entry stays executable.
 
 ## Manifest: `vibranium-plugin.yaml`
 
@@ -35,7 +35,8 @@ permissions:
 - Each message is framed as in LSP: a `Content-Length: <bytes>` header, a blank line (`\r\n\r\n`), then the UTF-8 JSON body. Other headers are ignored. A message is at most 16 MiB.
 - stdout carries only protocol messages. stderr is passed through to the user's terminal.
 - A message that is not a framed JSON-RPC object stops the plugin for the rest of the run: the calls in flight fail, and so does every later call.
-- The process gets only `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `TEMP`, `TMP`, `SYSTEMROOT` and `USERPROFILE` from the environment. It never gets the run's secrets that way.
+- The plugin must read its stdin: a call it does not read within the call's deadline stops it the same way. The host holds at most 1023 of its messages unread; a plugin that writes more than that before the host reads them is stopped too. A stopped plugin's process is killed.
+- The process gets only `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `TEMP`, `TMP`, `SYSTEMROOT` and `USERPROFILE` from the environment, plus `VIB_PLUGIN_DATA`: the absolute path of its data folder, `.vibranium/plugin-data/<id>/`, made before it starts. A plugin writes its state, caches and logs there, never into its install folder, which is checked against the lock. It never gets the run's secrets through the environment.
 
 ## Lifecycle
 
@@ -77,7 +78,7 @@ The host answers `secrets/get` only for a secret that the manifest declares, the
 | −32601 | Method not found |
 | −32603 | Internal error (also used for an error object without a code) |
 
-Every plugin failure is V5118 and names the plugin, the method and the JSON-RPC code. A reporter plugin's failure becomes a run notice, and the plugin gets no more events; an auth plugin's failure fails the requests that use it, as V5114 like any other auth failure. A plugin the run cannot use (not installed, not approved, asking for more than the lock grants, with files changed since the lock approved them, or with a `${…}` in its `config`) is named in a run notice with the `vc plugin` command that fixes it, and an auth that names it fails with that reason.
+Every plugin failure is V5118 and names the plugin, the method and the JSON-RPC code. A reporter plugin's failure becomes a run notice, and the plugin gets no more events; an auth plugin's failure fails the requests that use it, as V5114 like any other auth failure. A plugin the run cannot use (not installed, not approved, asking for more than the lock grants, or with a `${…}` in its `config`) is named in a run notice with the `vc plugin` command that fixes it, and an auth that names it fails with that reason. A plugin whose files changed since the lock approved them fails its first call with V5118 and the same fix.
 
 ## Using a plugin
 

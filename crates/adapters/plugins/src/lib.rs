@@ -19,5 +19,5 @@ mod rpc;
 mod session;
 mod store;
 
-pub use host::{PROTOCOL_VERSION, StdioPluginHost};
+pub use host::{DATA_ENV, PROTOCOL_VERSION, StdioPluginHost};
 pub use store::FsPluginStore;

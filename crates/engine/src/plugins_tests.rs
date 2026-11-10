@@ -1,16 +1,17 @@
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
+use serde_json::Value;
 use vc_adapter_plugins::FsPluginStore;
 use vc_adapter_system::FsSources;
-use vc_interfaces::{PluginKind, Secrets};
-use vc_testkit::FakeVcs;
+use vc_interfaces::{PluginError, PluginKind, Secrets};
+use vc_testkit::{FakeVcs, MemoryCompileCache, MemoryEnvironment};
 
 use super::PluginState;
 use crate::plugin_hosts::Hosts;
-use crate::sample::builder;
-use crate::{Engine, EngineError};
+use crate::{Engine, EngineBuilder, EngineError};
 
 const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n";
 const MANIFEST: &str = concat!(
@@ -19,7 +20,7 @@ const MANIFEST: &str = concat!(
     "permissions: {secrets: [reportToken]}\n",
 );
 
-/// A project with a plugin folder `plugin/`, and its engine with the standard plugin store.
+/// A project with a plugin folder `plugin/`, and its engine rooted there with the standard plugin store.
 fn project() -> (tempfile::TempDir, Engine) {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("vibranium.config.yaml"), CONFIG).unwrap();
@@ -27,7 +28,10 @@ fn project() -> (tempfile::TempDir, Engine) {
     fs::write(dir.path().join("plugin/vibranium-plugin.yaml"), MANIFEST).unwrap();
     fs::write(dir.path().join("plugin/report.py"), "print()\n").unwrap();
     let folder = Arc::new(FsSources::new(dir.path()).unwrap());
-    let engine = builder(FakeVcs::default())
+    let engine = EngineBuilder::new(dir.path().to_path_buf())
+        .vcs(Arc::new(FakeVcs::default()))
+        .environment(Arc::new(MemoryEnvironment::new(&[])))
+        .compile_cache(Arc::new(MemoryCompileCache::new()))
         .sources(folder.clone())
         .writer(folder)
         .plugins(Arc::new(FsPluginStore::new(dir.path())))
@@ -218,4 +222,25 @@ fn a_plugin_config_takes_literal_values_only() {
     let [notice] = notices.as_slice() else { panic!("one notice, not {notices:?}") };
     assert!(notice.starts_with("plugin `report`: its `config`: "), "{notice}");
     assert!(notice.contains("takes literal values; the plugin reads a secret with `secrets/get`"), "{notice}");
+}
+
+#[tokio::test]
+async fn a_plugin_s_files_are_checked_on_its_first_call_and_it_keeps_its_own_in_its_data_folder() {
+    let (dir, engine) = project();
+    added(&engine, "path:plugin");
+    let (installed, data) =
+        (dir.path().join(".vibranium/plugins/report"), dir.path().join(".vibranium/plugin-data/report"));
+    let call = |hosts: Hosts| async move {
+        let host = hosts.get("report", PluginKind::Reporter).unwrap();
+        host.call("reporter/finish", Value::Null, Duration::from_secs(5)).await.unwrap_err()
+    };
+    let unchanged = call(hosts(&engine)).await;
+    assert!(!unchanged.to_string().contains("V5118"), "the intact plugin is run: {unchanged}");
+    assert!(data.is_dir(), "its data folder is made on first use");
+    fs::write(installed.join("state.txt"), "kept").unwrap();
+    let hosts = hosts(&engine);
+    assert_eq!(hosts.notices(), Vec::<String>::new(), "a changed plugin is only refused when used");
+    let PluginError::Start { reason, .. } = call(hosts).await else { panic!("a changed plugin does not start") };
+    assert!(reason.starts_with("V5118: its installed files changed since vibranium.lock approved them"), "{reason}");
+    assert!(reason.contains("$VIB_PLUGIN_DATA"), "{reason}");
 }
