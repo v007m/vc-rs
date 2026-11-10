@@ -1,0 +1,11 @@
+# The seed project the web UI's Playwright suite opens with `vc ui` (G17). Its tests call the
+# mock server (`mise run mock`, port 18080).
+syntaxVersion: 2
+project: seed
+
+vars:
+  mockUrl: http://127.0.0.1:18080
+
+profiles:
+  - id: dev
+    default: true
