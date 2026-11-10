@@ -39,11 +39,11 @@ pub struct EngineBuilder {
     plugin_processes: PluginProcesses,
 }
 
-/// How the engine starts plugin processes: where their stderr goes, and how it confines them
-/// (on Linux through `vc` itself, run as the plugin launcher, if any), shared by every host.
+/// How the engine starts plugin processes: where their stderr goes, and the program that confines
+/// them on Linux (`vc` itself, run as the plugin launcher), if any.
 pub struct PluginProcesses {
     pub stderr: PluginStderr,
-    pub confiner: Arc<Confiner>,
+    pub launcher: Option<PathBuf>,
 }
 
 /// The history's writer and reader, given together.
@@ -77,7 +77,7 @@ impl EngineBuilder {
             browser: None,
             notifiers: None,
             plugins: None,
-            plugin_processes: PluginProcesses { stderr: PluginStderr::Inherit, confiner: Arc::default() },
+            plugin_processes: PluginProcesses { stderr: PluginStderr::Inherit, launcher: None },
         }
     }
 
@@ -246,7 +246,7 @@ impl EngineBuilder {
     /// runs unconfined; on macOS it runs under Seatbelt either way (D254).
     #[must_use]
     pub fn plugin_launcher(mut self, launcher: PathBuf) -> Self {
-        self.plugin_processes.confiner = Arc::new(Confiner::new(Some(launcher)));
+        self.plugin_processes.launcher = Some(launcher);
         self
     }
 
@@ -272,6 +272,7 @@ impl EngineBuilder {
         let watcher = watcher.unwrap_or_else(|| Arc::new(NotifyWatcher::new(&self.root)));
         Ok(Engine {
             plugins: self.plugins.unwrap_or_else(|| Arc::new(FsPluginStore::new(&self.root))),
+            confiner: Arc::new(Confiner::new(self.plugin_processes.launcher.clone())),
             plugin_processes: self.plugin_processes,
             root: self.root,
             sources,
@@ -328,6 +329,8 @@ pub struct Engine {
     pub(crate) notifiers: Option<Arc<dyn NotifierFactory>>,
     pub(crate) plugins: Arc<dyn PluginStore>,
     pub(crate) plugin_processes: PluginProcesses,
+    /// How every plugin host confines its plugin, asking the OS once whether it can.
+    pub(crate) confiner: Arc<Confiner>,
 }
 
 /// The operating system's keychain, when it has one.

@@ -149,7 +149,7 @@ impl Engine {
         let dir = self.root().join(PLUGINS_DIR).join(id);
         let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone())
             .data(self.root(), Path::new(PLUGIN_DATA).join(id))
-            .confined(self.root(), Arc::clone(&self.plugin_processes.confiner));
+            .confined(self.root(), Arc::clone(&self.confiner));
         let logged = self.plugin_processes.stderr == PluginStderr::Log;
         let host = if logged { host.stderr_log(self.root(), Path::new(PLUGIN_LOGS).join(id)) } else { host };
         Ok((host, lock.integrity.clone()))
