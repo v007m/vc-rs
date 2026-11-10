@@ -1453,9 +1453,11 @@ pub fn vc_model::Names::api_of(&self, vc_model::ActionId) -> core::option::Optio
 pub fn vc_model::Names::file(&self, vc_model::FileId) -> &str
 pub fn vc_model::Names::file_of(&self, vc_model::TestId) -> alloc::string::String
 pub fn vc_model::Names::instance(&self, &vc_model::TestResult) -> alloc::string::String
+pub fn vc_model::Names::label(&self, vc_model::TestId, core::option::Option<vc_model::InstanceId>) -> alloc::string::String
 pub fn vc_model::Names::location(&self, vc_model::SourceSpan) -> core::option::Option<vc_model::Location>
 pub fn vc_model::Names::new(alloc::rcs::arc::Arc<vc_model::Program>, &vc_model::Plan) -> Self
 pub fn vc_model::Names::owner(&self, vc_model::OwnerKey) -> alloc::string::String
+pub fn vc_model::Names::planned(&self) -> &[vc_model::Planned]
 pub fn vc_model::Names::program(&self) -> &vc_model::Program
 pub fn vc_model::Names::slot(&self, &vc_model::TestResult) -> (core::option::Option<u32>, u32)
 pub fn vc_model::Names::tags(&self, vc_model::TestId) -> alloc::vec::Vec<alloc::string::String>
@@ -1532,6 +1534,20 @@ pub fn vc_model::Plan::default() -> Self
 impl core::fmt::Debug for vc_model::Plan
 pub fn vc_model::Plan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_model::Plan
+pub struct vc_model::Planned
+pub vc_model::Planned::example_row: core::option::Option<u32>
+pub vc_model::Planned::instance: vc_model::InstanceId
+pub vc_model::Planned::repeat_index: u32
+pub vc_model::Planned::test: vc_model::TestId
+impl core::clone::Clone for vc_model::Planned
+pub fn vc_model::Planned::clone(&self) -> Self
+impl core::cmp::Eq for vc_model::Planned
+impl core::cmp::PartialEq for vc_model::Planned
+pub fn vc_model::Planned::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_model::Planned
+pub fn vc_model::Planned::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_model::Planned
+impl core::marker::StructuralPartialEq for vc_model::Planned
 pub struct vc_model::PlannedAction
 pub vc_model::PlannedAction::action: vc_model::ActionId
 pub vc_model::PlannedAction::needs: vc_model::Needs

@@ -1059,6 +1059,17 @@ pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -
 impl core::fmt::Display for vc_interfaces::KeychainError
 pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::KeychainError
+pub struct vc_interfaces::LoggedAction
+pub vc_interfaces::LoggedAction::action: vc_interfaces::AgentAction
+pub vc_interfaces::LoggedAction::at_ms: u64
+impl core::clone::Clone for vc_interfaces::LoggedAction
+pub fn vc_interfaces::LoggedAction::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::LoggedAction
+impl core::cmp::PartialEq for vc_interfaces::LoggedAction
+pub fn vc_interfaces::LoggedAction::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::LoggedAction
+pub fn vc_interfaces::LoggedAction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::LoggedAction
 pub struct vc_interfaces::Notice
 pub vc_interfaces::Notice::breaches: alloc::vec::Vec<alloc::string::String>
 pub vc_interfaces::Notice::failures: alloc::vec::Vec<vc_interfaces::NoticeFailure>
@@ -1399,6 +1410,10 @@ pub const vc_interfaces::PERMISSION_DENIED: i64
 pub const vc_interfaces::PLUGINS_DIR: &str
 pub trait vc_interfaces::ActionRunner: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::ActionRunner::run<'life0, 'async_trait>(&'life0 self) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Credentials, vc_interfaces::AuthError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
+pub trait vc_interfaces::AgentActionLog: vc_interfaces::AgentActionWriter + vc_interfaces::AgentActionReader
+impl<T: vc_interfaces::AgentActionWriter + vc_interfaces::AgentActionReader + ?core::marker::Sized> vc_interfaces::AgentActionLog for T
+pub trait vc_interfaces::AgentActionReader: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::AgentActionReader::recent(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::LoggedAction>, vc_interfaces::ApprovalError>
 pub trait vc_interfaces::AgentActionWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::AgentActionWriter::record(&self, &vc_interfaces::AgentAction) -> core::result::Result<(), vc_interfaces::ApprovalError>
 pub trait vc_interfaces::Approvals: core::marker::Send + core::marker::Sync
