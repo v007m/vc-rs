@@ -1,0 +1,6 @@
+build/
+.svelte-kit/
+src/lib/gen/
+report/
+test-results/
+playwright-report/
