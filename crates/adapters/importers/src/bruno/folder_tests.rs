@@ -83,3 +83,13 @@ fn a_folder_without_a_readable_bruno_json_or_with_a_broken_file_is_refused_witho
     assert_eq!(refused(&[CONFIG, broken]), "Carts/get.bru: its headers block has no closing }");
     assert_eq!(refused(&[CONFIG, ("drafts/broken.bru", broken.1)]), "", "an ignored file is not parsed");
 }
+
+#[test]
+fn a_bru_extension_in_any_case_is_left_out_of_an_environment_or_request_name() {
+    let prod = ("environments/Prod.BRU", "vars {\n  a: b\n}\n");
+    let found = read(&[CONFIG, prod, ("Get.Bru", "get {\n  url: http://x\n}\n")]).ok();
+    let environments = found.as_ref().map(|collection| collection.environments.as_slice()).unwrap_or_default();
+    assert_eq!(environments.iter().map(|environment| environment.name.as_str()).collect::<Vec<_>>(), ["Prod"]);
+    let items = found.as_ref().map(|collection| names(&collection.items)).unwrap_or_default();
+    assert_eq!(items, [("Get".to_owned(), "http".to_owned())]);
+}

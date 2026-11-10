@@ -50,6 +50,12 @@ fn bru(path: &str) -> bool {
     Path::new(path).extension().is_some_and(|extension| extension.eq_ignore_ascii_case("bru"))
 }
 
+/// `file` without its `.bru` extension, whatever its case; none when it has another.
+fn stem(file: &str) -> Option<&str> {
+    let at = file.len().checked_sub(".bru".len())?;
+    file.get(at..).filter(|extension| extension.eq_ignore_ascii_case(".bru")).and(file.get(..at))
+}
+
 /// The collection in a folder whose files `files` holds, each by its path relative to the folder,
 /// with its text.
 ///
@@ -121,8 +127,7 @@ impl Files {
     /// The environments, by file name.
     fn environments(&self) -> Vec<Environment> {
         let named = self.0.iter().filter_map(|(path, bru)| Some((path.strip_prefix(ENVIRONMENTS)?, bru)));
-        let named =
-            named.filter_map(|(file, bru)| Some((file.strip_suffix(".bru").filter(|name| !name.contains('/'))?, bru)));
+        let named = named.filter_map(|(file, bru)| Some((stem(file).filter(|name| !name.contains('/'))?, bru)));
         named.map(|(name, bru)| environment(name, bru)).collect()
     }
 }
@@ -136,7 +141,7 @@ fn inside(path: &str, folder: &str) -> bool {
 fn request_item(file: &str, bru: &Bru) -> Item {
     let meta = |key: &str| bru.value("meta", key);
     Item {
-        name: meta("name").unwrap_or_else(|| file.trim_end_matches(".bru").to_owned()),
+        name: meta("name").unwrap_or_else(|| stem(file).unwrap_or(file).to_owned()),
         kind: meta("type").unwrap_or_else(|| "http".to_owned()),
         seq: meta("seq").and_then(|seq| seq.parse().ok()),
         items: Vec::new(),
