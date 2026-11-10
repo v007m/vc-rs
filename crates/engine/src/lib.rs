@@ -68,6 +68,7 @@ mod rename_name;
 mod reporting;
 mod request;
 mod run;
+mod run_feed;
 #[cfg(test)]
 mod sample;
 mod save_call;
@@ -113,6 +114,7 @@ pub use request::{
     CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
 };
 pub use run::RunReport;
+pub use run_feed::{RunFeed, RunWatch};
 pub use save_call::CallAsTest;
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;

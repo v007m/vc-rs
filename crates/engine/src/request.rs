@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 use vc_model::SourcePath;
 
+use crate::RunWatch;
+
 /// Which tests a command selects (cli-workflow "Selectors"); everything when empty.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[expect(
@@ -78,6 +80,9 @@ pub struct RunRequest {
     /// policy for `run` and every method its plan sends, with one approval for the whole run,
     /// prints nothing to stdout, and is logged (D195). `None` for a person at the CLI.
     pub agent: Option<String>,
+    /// Where the run's live [`crate::RunFeed`] goes (the TUI, the server's `Run` stream), as
+    /// well as to the reporters; `None` for no watcher.
+    pub watch: Option<RunWatch>,
 }
 
 /// Which report files a run or `vc report` writes, and where.
