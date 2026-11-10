@@ -2,6 +2,7 @@
 //! as `vibranium.results.v1` carries them in the `Run` stream. The run's redactor masked them
 //! before they reached the feed; nothing here adds a value the run did not send.
 
+use vc_contracts::millis;
 use vc_contracts::results::v1 as results;
 use vc_engine::{ActionId, CheckResult, Exchange, Failure, Names, Origin, TestResult, check_parts};
 
@@ -63,8 +64,8 @@ fn origin(names: &Names, origin: Origin) -> String {
     }
 }
 
-/// A finished test, untimed: the feed sets its duration. Its checks and exchanges came earlier
-/// in the stream as their own events.
+/// A finished test, timed by the executor. Its checks and exchanges came earlier in the stream
+/// as their own events.
 pub fn test(names: &Names, result: &TestResult) -> results::Test {
     let (example_row, repeat_index) = names.slot(result);
     results::Test {
@@ -74,7 +75,7 @@ pub fn test(names: &Names, result: &TestResult) -> results::Test {
         repeat_index,
         status: results::TestStatus::from(result.status).into(),
         attempts: result.attempts,
-        duration_ms: 0.0,
+        duration_ms: millis(result.duration),
         failure: result.failure.as_ref().map(|found| failure(names, found)),
         blocked_by: None,
         skip_reason: result.skip_reason.clone(),

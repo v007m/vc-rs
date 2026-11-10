@@ -26,6 +26,7 @@ fn result(test: TestId, instance: Option<u32>) -> TestResult {
         attempts: 1,
         failure: None,
         skip_reason: None,
+        duration: std::time::Duration::ZERO,
     }
 }
 

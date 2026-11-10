@@ -9,7 +9,7 @@ use tower::ServiceExt as _;
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::engine::v1::run_event::Kind;
 use vc_contracts::results::v1 as results;
-use vc_engine::RunFeed;
+use vc_engine::{Event, RunFeed, RunStatus, Sequenced, Totals};
 
 use crate::engine_fixture::{SECRET, project};
 use crate::envelope;
@@ -79,6 +79,20 @@ async fn a_finished_test_carries_how_long_it_ran() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_finished_test_names_its_instance_in_the_plan() {
+    let (events, _) = parse(&stream(&wire::RunRequest::default()).await);
+    let planned = events.iter().find_map(|event| match &event.kind {
+        Some(Kind::RunPlanned(plan)) => plan.instances.first().map(|instance| instance.instance),
+        _ => None,
+    });
+    let finished = events.iter().find_map(|event| match &event.kind {
+        Some(Kind::TestFinished(found)) => Some(found.instance),
+        _ => None,
+    });
+    assert_eq!(finished, Some(planned), "{events:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn sequence_numbers_rise_with_the_plan_beside_the_start_and_the_report_after_the_last() {
     let (events, _) = parse(&stream(&wire::RunRequest::default()).await);
     let seqs: Vec<u64> = events.iter().map(|event| event.seq).collect();
@@ -97,9 +111,24 @@ async fn a_selection_that_matches_nothing_ends_the_stream_with_an_invalid_argume
 }
 
 #[test]
-fn missed_events_carry_the_last_number_seen() {
+fn each_missed_notice_takes_the_number_after_the_last_one_sent() {
     let mut feed = WireFeed::default();
-    let events = feed.events(RunFeed::Missed { count: 3 });
-    let [wire::RunEvent { seq: 0, kind: Some(Kind::Missed(missed)) }] = events.as_slice() else { panic!("{events:?}") };
-    assert_eq!(missed.count, 3);
+    let finished = |seq| {
+        RunFeed::Event(Sequenced {
+            seq,
+            event: Event::RunFinished { status: RunStatus::Passed, totals: Totals::default() },
+        })
+    };
+    let mut seqs = Vec::new();
+    for item in [
+        finished(3),
+        RunFeed::Missed { count: 2 },
+        RunFeed::Missed { count: 1 },
+        finished(7),
+        RunFeed::Missed { count: 4 },
+    ] {
+        let missed = feed.events(item);
+        seqs.extend(missed.iter().filter(|event| matches!(event.kind, Some(Kind::Missed(_)))).map(|event| event.seq));
+    }
+    assert_eq!(seqs, [4, 5, 8]);
 }

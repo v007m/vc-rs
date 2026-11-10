@@ -221,6 +221,10 @@ pub struct CleanupsAbandoned {
 pub struct TestFinished {
     #[prost(message, optional, tag="1")]
     pub test: ::core::option::Option<super::super::results::v1::Test>,
+    /// Its number in the plan, as `PlannedInstance.instance` and `Owner.instance` name it; absent
+    /// for a test skipped before it was planned.
+    #[prost(uint32, optional, tag="2")]
+    pub instance: ::core::option::Option<u32>,
 }
 /// The run ended.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]

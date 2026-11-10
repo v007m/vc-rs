@@ -151,6 +151,9 @@ message CleanupsAbandoned {
 // their own events, so they are not repeated here.
 message TestFinished {
   vibranium.results.v1.Test test = 1;
+  // Its number in the plan, as `PlannedInstance.instance` and `Owner.instance` name it; absent
+  // for a test skipped before it was planned.
+  optional uint32 instance = 2;
 }
 
 // The run ended.

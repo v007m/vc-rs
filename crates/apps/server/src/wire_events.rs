@@ -3,14 +3,12 @@
 //! redactor before the feed carries it; nothing here adds a value the run did not send.
 //!
 //! Sequence numbers: an event keeps the run's own; `RunPlanned` shares `RunStarted`'s, since the
-//! plan is part of the start; `Missed` carries the last number seen; the report carries the
-//! number after it.
+//! plan is part of the start; `Missed` and the report each take the number after the last one
+//! sent. The run's numbers skip the events the feed missed, so no event sent shares `Missed`'s.
 //!
-//! A finished test's duration runs from its instance's first action to its `TestFinished`, by
-//! the server's clock, as the reporters time it.
+//! A finished test carries the duration the executor timed it at.
 
-use std::collections::HashMap;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::engine::v1::owner;
@@ -18,22 +16,19 @@ use vc_contracts::engine::v1::run_event::Kind;
 use vc_contracts::results::v1 as results;
 use vc_contracts::{count, millis};
 use vc_engine::{
-    ActionId, CleanupRecord, Event, Failure, Names, OwnerKey, Planned, RunFeed, RunReport, RunStatus, Sequenced,
-    Totals, action_call,
+    ActionId, CleanupRecord, Event, Failure, InstanceId, Names, OwnerKey, Planned, RunFeed, RunReport, RunStatus,
+    Sequenced, Totals, action_call,
 };
 
 use crate::wire_results;
 
-/// The run feed in wire form: the names that label its events, the last number seen, and when
-/// each running instance started.
+/// The run feed in wire form: the names that label its events, and the last number sent.
 #[derive(Default)]
 pub struct WireFeed {
     /// The run's names, once the feed has started.
     names: Option<Names>,
-    /// The sequence number of the last event seen.
+    /// The sequence number of the last event sent.
     seq: u64,
-    /// When each running instance's first action started, by instance index.
-    starts: HashMap<u32, Instant>,
 }
 
 impl WireFeed {
@@ -45,8 +40,8 @@ impl WireFeed {
                 Vec::new()
             }
             RunFeed::Event(sequenced) => self.event(sequenced),
-            RunFeed::Missed { count } => vec![at(self.seq, Kind::Missed(wire::Missed { count }))],
-            RunFeed::Done(report) => vec![at(self.seq.saturating_add(1), Kind::Report(run_report(report)))],
+            RunFeed::Missed { count } => vec![at(self.next(), Kind::Missed(wire::Missed { count }))],
+            RunFeed::Done(report) => vec![at(self.next(), Kind::Report(run_report(report)))],
             _ => Vec::new(),
         }
     }
@@ -55,34 +50,19 @@ impl WireFeed {
     fn event(&mut self, sequenced: Sequenced) -> Vec<wire::RunEvent> {
         let Sequenced { seq, event } = sequenced;
         self.seq = seq;
-        let took = self.timed(&event);
         let Some(names) = &self.names else { return Vec::new() };
         let started = matches!(event, Event::RunStarted { .. });
-        let mut kind = kind(names, event);
-        if let (Kind::TestFinished(wire::TestFinished { test: Some(test) }), Some(took)) = (&mut kind, took) {
-            test.duration_ms = took;
-        }
-        let mut events = vec![at(seq, kind)];
+        let mut events = vec![at(seq, kind(names, event))];
         if started {
             events.push(at(seq, Kind::RunPlanned(run_planned(names))));
         }
         events
     }
 
-    /// Notes when an instance's first action starts; for a finished test, the milliseconds
-    /// since then.
-    fn timed(&mut self, event: &Event) -> Option<f64> {
-        match event {
-            Event::ActionStarted { owner: OwnerKey::Instance(instance), .. } => {
-                self.starts.entry(instance.index()).or_insert_with(Instant::now);
-                None
-            }
-            Event::TestFinished { result } => {
-                let start = self.starts.remove(&result.instance?.index())?;
-                Some(millis(start.elapsed()))
-            }
-            _ => None,
-        }
+    /// The number after the last one sent, which becomes the last one sent.
+    const fn next(&mut self) -> u64 {
+        self.seq = self.seq.saturating_add(1);
+        self.seq
     }
 }
 
@@ -117,9 +97,10 @@ fn kind(names: &Names, event: Event) -> Kind {
         }
         Event::CleanupFinished { cleanup } => Kind::CleanupFinished(cleanup_finished(names, &cleanup)),
         Event::CleanupsAbandoned { owner, cleanups } => Kind::CleanupsAbandoned(abandoned(names, owner, &cleanups)),
-        Event::TestFinished { result } => {
-            Kind::TestFinished(wire::TestFinished { test: Some(wire_results::test(names, &result)) })
-        }
+        Event::TestFinished { result } => Kind::TestFinished(wire::TestFinished {
+            test: Some(wire_results::test(names, &result)),
+            instance: result.instance.map(InstanceId::index),
+        }),
         Event::RunFinished { status, totals: sum } => Kind::RunFinished(run_finished(status, sum)),
         Event::LoadTick { second, users, rps, p50, p95, p99, errors, breaching } => {
             let (p50_ms, p95_ms, p99_ms) = (millis(p50), millis(p95), millis(p99));
