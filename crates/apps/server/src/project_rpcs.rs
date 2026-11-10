@@ -1,8 +1,10 @@
 //! The project's RPCs: `GetProject`, `ListDefinitions`, `Check`, the editor's `ReadFile` and
-//! `WriteFile`, and `ExplainConfig`, whose values the engine masks (D229).
+//! `WriteFile`, and `ExplainConfig`, whose values the engine masks (D229). Each reads and
+//! compiles the project on the blocking pool, never on an async worker.
 
 use std::sync::Arc;
 
+use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1::Span;
 use vc_engine::{
@@ -10,7 +12,7 @@ use vc_engine::{
 };
 
 use crate::ConnectError;
-use crate::engine_api::{EngineApi, Rpcs, failed, message};
+use crate::engine_api::{EngineApi, Rpcs, message};
 use crate::wire_diagnostics::diagnostics;
 
 /// Adds the project's RPCs.
@@ -130,7 +132,8 @@ async fn explain_config(
 ) -> Result<wire::ExplainConfigResponse, ConnectError> {
     let (profiles, sets) = api.layers(request.profiles, request.sets);
     let explain = ExplainRequest { profiles, sets };
-    let found = api.engine().config_values(&request.keys, &explain).await.map_err(|error| failed(&error))?;
+    let keys = request.keys;
+    let found = api.blocking(move |engine| Handle::current().block_on(engine.config_values(&keys, &explain))).await?;
     Ok(wire::ExplainConfigResponse {
         values: found.values.into_iter().map(config_value).collect(),
         notices: found.notices,

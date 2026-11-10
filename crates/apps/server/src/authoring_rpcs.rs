@@ -1,15 +1,17 @@
 //! The authoring RPCs: `Call`, `SaveCallAsTest` and `Import`. The web UI's call goes through
 //! the profiles' agent policy and the agent log as `web-ui` (D178). An import reads only the
 //! text the request carries, never a URL or path, and fetches none of its `$ref`s from the
-//! network; it reads and compiles off the async workers, and writes only when asked.
+//! network; it writes only when asked. A call and an import read and compile the project on the
+//! blocking pool, never on an async worker.
 
 use std::sync::Arc;
 
 use serde_json::Value;
+use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
 use vc_engine::{CallAsTest, CallRequest, Changes, FileChange, ImportRequest, Keep};
 
-use crate::engine_api::{EngineApi, Rpcs, failed};
+use crate::engine_api::{EngineApi, Rpcs};
 use crate::{Code, ConnectError};
 
 /// The agent name the web UI's calls are checked and logged under.
@@ -33,7 +35,7 @@ async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::C
         sets,
         agent: Some(WEB_UI.to_owned()),
     };
-    let report = api.engine().call(&call).await.map_err(|error| failed(&error))?;
+    let report = api.blocking(move |engine| Handle::current().block_on(engine.call(&call))).await?;
     Ok(wire::CallResponse {
         exit: u32::from(report.exit),
         text: report.text,
@@ -84,7 +86,7 @@ async fn import(api: Arc<EngineApi>, request: wire::ImportRequest) -> Result<wir
     };
     let changes = api
         .blocking(move |engine| {
-            let changes = tokio::runtime::Handle::current().block_on(engine.import(&import))?;
+            let changes = Handle::current().block_on(engine.import(&import))?;
             if write {
                 engine.write(&changes)?;
             }
