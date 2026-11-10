@@ -67,6 +67,11 @@ async fn imported_curl_commands_compile_and_write_no_credential() {
     assert!(credentials.iter().all(|value| !written.contains(value)), "{written}");
 }
 
+#[test]
+fn the_importers_are_listed_by_name() {
+    assert_eq!(Engine::importers(), ["bruno", "curl", "har", "http", "openapi", "postman"]);
+}
+
 #[tokio::test]
 async fn what_cannot_be_imported_is_refused_with_help() {
     let help = |result: Result<_, EngineError>| result.err().and_then(|error| error.help());

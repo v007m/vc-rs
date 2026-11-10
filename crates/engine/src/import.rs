@@ -77,8 +77,7 @@ impl Engine {
         let project = self.authoring()?;
         let fetcher = self.fetcher()?;
         let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
-            let kinds: Vec<_> = ImporterRegistry::builtin().names().map(str::to_owned).collect();
-            refused(error.to_string(), &format!("the importers are {}", kinds.join(", ")))
+            refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
         let help = importer.source_help().unwrap_or(FETCH_HELP);
         let bytes = fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?;
@@ -96,6 +95,12 @@ impl Engine {
         let mut guarded = self.guarded(&project, changes)?;
         guarded.files.extend(snapshots);
         Ok(guarded)
+    }
+
+    /// The importers' names, as `vc import <kind>` takes them, in name order.
+    #[must_use]
+    pub fn importers() -> Vec<String> {
+        ImporterRegistry::builtin().names().map(str::to_owned).collect()
     }
 
     /// Fetches specs through the project's sources and the run's transport.
