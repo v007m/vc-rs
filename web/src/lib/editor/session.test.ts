@@ -39,11 +39,15 @@ function disk(text = 'name: one\n') {
 }
 
 /** An engine whose check reports an error while the unsaved text has `bad` in it. */
-function overlayDisk() {
+function overlayDisk(checkDelayMs = 0) {
   const overlays: string[] = [];
+  const writes: string[] = [];
   const client = fakeEngine({
     readFile: () => ({ text: 'name: one\n', digest: 'd1' }),
-    writeFile: () => ({ digest: 'd2', diagnostics: [] }),
+    writeFile: ({ text }) => {
+      writes.push(text);
+      return { digest: 'd2', diagnostics: [] };
+    },
     check: (request) => {
       const text = request.overlay[path];
       if (text !== undefined) overlays.push(text);
@@ -51,7 +55,14 @@ function overlayDisk() {
       return { diagnostics: text?.includes('bad') ? [error] : [] };
     },
   });
-  return { overlays, editor: new EditorSession(client, 0) };
+  return { overlays, writes, editor: new EditorSession(client, checkDelayMs) };
+}
+
+/** A promise and the function that settles it, for answering a request later. */
+function later<T>() {
+  let settle: (value: T) => void = () => {};
+  const promise = new Promise<T>((resolve) => (settle = resolve));
+  return { promise, settle };
 }
 
 describe('EditorSession', () => {
@@ -130,6 +141,66 @@ describe('EditorSession', () => {
     );
     expect(editor.buffer?.text).toBe('name: één\nid: getsUser\n');
     expect(state.writes).toBe(0);
+  });
+
+  it('checks the text again on save and refuses it when the last check is out of date', async () => {
+    const { writes, editor } = overlayDisk(60_000);
+    await editor.open(path);
+    editor.edit('name: bad');
+    expect(editor.canSave).toBe(true);
+    await editor.save();
+    expect(writes).toEqual([]);
+    expect(editor.errorCount).toBe(1);
+    expect(editor.state).toBe('idle');
+    expect(editor.dirty).toBe(true);
+  });
+
+  it('keeps keys typed while a save is in flight, unsaved', async () => {
+    const written = later<{ digest: string; diagnostics: [] }>();
+    const editor = new EditorSession(
+      fakeEngine({
+        readFile: () => ({ text: 'name: one\n', digest: 'd1' }),
+        check: () => ({ diagnostics: [] }),
+        writeFile: () => written.promise,
+      }),
+      60_000,
+    );
+    await editor.open(path);
+    editor.edit('name: two\n');
+    const saving = editor.save();
+    await vi.waitFor(() => expect(editor.state).toBe('saving'));
+    editor.edit('name: three\n');
+    written.settle({ digest: 'd2', diagnostics: [] });
+    await saving;
+    expect(editor.buffer).toMatchObject({
+      text: 'name: three\n',
+      original: 'name: two\n',
+      digest: 'd2',
+    });
+    expect(editor.dirty).toBe(true);
+  });
+
+  it('shows the file opened last when an earlier read answers after it', async () => {
+    const reads = new Map<string, (file: { text: string; digest: string }) => void>();
+    const editor = new EditorSession(
+      fakeEngine({
+        readFile: ({ path: file }) => {
+          const read = later<{ text: string; digest: string }>();
+          reads.set(file, read.settle);
+          return read.promise;
+        },
+        check: () => ({ diagnostics: [] }),
+      }),
+    );
+    const first = editor.open('a.test.yaml');
+    const second = editor.open('b.test.yaml');
+    await vi.waitFor(() => expect(reads.size).toBe(2));
+    reads.get('b.test.yaml')?.({ text: 'b\n', digest: 'db' });
+    await second;
+    reads.get('a.test.yaml')?.({ text: 'a\n', digest: 'da' });
+    await first;
+    expect(editor.buffer).toMatchObject({ path: 'b.test.yaml', text: 'b\n', digest: 'db' });
+    expect(editor.state).toBe('idle');
   });
 
   it('shows a failed read as an error', async () => {
