@@ -23,7 +23,7 @@ import { Aside, Badge } from '@astrojs/starlight/components';
 ## How every tool behaves
 
 - **Annotations.** Read tools carry `readOnlyHint: true` and `destructiveHint: false`. Act tools carry `readOnlyHint: false` and `destructiveHint: true`, so clients that ask before destructive tools will ask.
-- **Schemas are strict.** Every input schema is an object with `additionalProperties: false`. A wrong argument comes back as an error of kind `arguments`, such as ``argument `kind`: `bogus` is not tests, apis or files`` or ``argument `query`: is required``.
+- **Schemas are strict.** Every input schema is an object with `additionalProperties: false`. A wrong argument comes back as an error of kind `arguments`, such as ``argument `kind`: `bogus` is not tests, apis or files`` or ``argument `query`: is required``. An argument the tool does not take is refused before it runs, not ignored: ``argument `select`: is not one this tool takes; it takes `grep`, `ids`, `tags``` from `run_tests`.
 - **Results are JSON.** Each result has `structuredContent` (a JSON object) and one text content item holding the same JSON, for clients that read only text.
 - **Errors** are tool results with `isError: true` and a body of `{kind, reason, help}`:
 

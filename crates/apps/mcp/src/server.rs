@@ -13,7 +13,7 @@ use serde_json::Value;
 use vc_engine::{AgentCall, AgentOutcome, Engine};
 
 use crate::McpError;
-use crate::args::Args;
+use crate::args::{Args, known};
 use crate::tools::{Cx, Tools};
 
 /// The agent's name when its client gives none.
@@ -73,7 +73,10 @@ impl VcServer {
             profiles: self.layers.0.clone(),
             sets: self.layers.1.clone(),
         };
-        let mut outcome = tool.call(&cx, &args).await;
+        let mut outcome = match known(&tool.schema(), &args) {
+            Ok(()) => tool.call(&cx, &args).await,
+            Err(error) => Err(error),
+        };
         if tool.reads() {
             outcome = cx.logged(tool.name(), args, outcome).await;
         }
