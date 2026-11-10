@@ -48,7 +48,7 @@ impl HistoryReader for SqliteHistoryReader {
                 RunRef::Last => None,
                 RunRef::Id(id) => Some(id.get()),
             };
-            let sql = format!("SELECT {RUN_COLUMNS} FROM runs WHERE ?1 IS NULL OR id = ?1 ORDER BY id DESC LIMIT 1");
+            let sql = format!("SELECT {RUN_COLUMNS} FROM runs WHERE (?1 IS NULL AND kind <> 'adhoc') OR id = ?1 ORDER BY id DESC LIMIT 1");
             connection.query_row(&sql, [id], run_row).optional()
         })
     }

@@ -157,7 +157,7 @@ A project with errors is still a successful tool call (`isError: false`); read `
 | Input | Type | Required | Description |
 | --- | --- | --- | --- |
 | `limit` | integer, at least 1 | no | How many runs to list; 20 when left out |
-| `run` | string | no | A run number from `query_history`, or `last` |
+| `run` | string | no | A run number from `query_history`, or `last` (the newest run that is not a `call_api` or `vc call`) |
 
 Without `run`, the output is `{runs: [...]}`, newest first. `kind` is `run` for test runs, `adhoc` for `call_api` and `vc call`, and `load` for load runs.
 
@@ -221,7 +221,7 @@ With no stored run yet, the tool returns an error, `history: no run is stored ye
 | Input | Type | Required | Description |
 | --- | --- | --- | --- |
 | `test` | string | yes | The test's full ID, such as `users.crud#getsUser` |
-| `run` | string | no | A run number from `query_history`, or `last` |
+| `run` | string | no | A run number from `query_history`, or `last` (the newest run that is not a `call_api` or `vc call`) |
 
 Output: `{run, results, definition}`. `results` holds one row per instance of the test in that run (one per example row or repeat). `definition` is the `vc explain` text. The failure message includes the expected and actual values and, for object and list checks, a unified diff.
 

@@ -17,6 +17,7 @@ pub fn history_writer_suite(make: &mut MakeHistory<'_>) {
 pub fn history_reader_suite(make: &mut MakeHistory<'_>) {
     knows_nothing_at_first(make);
     lists_the_newest_runs_first(make);
+    takes_the_last_run_to_be_no_ad_hoc_call(make);
     leaves_exchanges_out_of_tests(make);
     sums_up_each_test_over_the_newest_runs(make);
 }
@@ -130,6 +131,17 @@ fn lists_the_newest_runs_first(make: &mut MakeHistory<'_>) {
     assert_eq!(listed, vec![runs[2], runs[1]], "newest first, at most the limit");
     let last = reader.run(RunRef::Last).ok().flatten().map(|row| row.id);
     assert_eq!(last, Some(runs[2]));
+}
+
+fn takes_the_last_run_to_be_no_ad_hoc_call(make: &mut MakeHistory<'_>) {
+    let (writer, reader) = make();
+    let tests = one_run(writer.as_ref(), &["dev"]);
+    let call = writer.begin(&RunStart { kind: "adhoc".into(), ..start(&["dev"]) }).unwrap_or(RunId::new(0));
+    assert_eq!(writer.finish(call, end(b"call")), Ok(()));
+    let last = reader.run(RunRef::Last).ok().flatten().map(|row| row.id);
+    assert_eq!(last, Some(tests), "a `vc call` is not the last run");
+    let named = reader.run(RunRef::Id(call)).ok().flatten().map(|row| row.id);
+    assert_eq!(named, Some(call), "it is still found by its number");
 }
 
 fn leaves_exchanges_out_of_tests(make: &mut MakeHistory<'_>) {

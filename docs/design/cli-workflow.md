@@ -341,7 +341,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | Command | Does |
 | --- | --- |
 | `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors; `--json` also gives each run's `kind` (`run`, `adhoc`) |
-| `vc history show [run\|last] [--json]` | One stored run and the tests in it that did not pass, with why |
+| `vc history show [run\|last] [--json]` | One stored run and the tests in it that did not pass, with why. `last` (here, in `vc report` and in `--failed`) is the newest run that is not an `adhoc` call; a call is shown by its number |
 | `vc history prune [--keep N]` | Drops the oldest runs beyond `N` (else the config's `history.keep`); a run also prunes when it ends |
 | `vc history [query]`, `vc history compare 481 482` | Failures, flaky tests and trends across runs (later) |
 | `vc report [run\|last] [--format html,junit,ctrf] [--out DIR] [--single-file]` | Writes a stored run's report files again from its snapshot (D167), `html` when `--format` names none, into `.vibranium/reports/<run>/` unless `--out` says; prints each file. `--open` comes later |
@@ -386,7 +386,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `-t`, `--tag` | tests with a tag; `!` excludes, `,` means or. A test's tags are its file's tags plus its own | `vc run -t smoke,checkout -t '!slow'` |
 | `-g`, `--grep` | tests whose ID or name contains text | `vc run -g export` |
 | `--changed [ref]` | tests in files git reports as changed since a ref, plus tests that call apis in changed api files (D130). With no ref, the working tree against `HEAD`: uncommitted and untracked files. A changed `vibranium.config.yaml` or `.env.schema` selects every test (D179) | `vc run --changed origin/main` |
-| `--failed` | the tests that failed or were blocked in the last run, under its profiles unless `--profile` names some; a failed `examples` row reruns as its own instances. Takes no other selector; exits 2 when no run is stored or the last one had nothing to rerun | `vc run --failed` |
+| `--failed` | the tests that failed or were blocked in the last run (not counting `vc call`s), under its profiles unless `--profile` names some; a failed `examples` row reruns as its own instances. Takes no other selector; exits 2 when no run is stored or the last one had nothing to rerun | `vc run --failed` |
 | `--include-skipped` | also runs tests marked `skip` | `vc run users.crud --include-skipped` |
 
 A full ID joins the file ID and the item ID with `#` (`users.crud#getsCreatedUser`); a bare dotted word is always a file ID (D138). A `#` inside a word is not a comment in bash, zsh, fish or PowerShell, so selectors work unquoted; quote them only under zsh's `extendedglob` option. Web UI URLs percent-encode it (`%23`).

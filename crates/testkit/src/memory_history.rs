@@ -104,7 +104,7 @@ impl State {
     fn find(&self, which: RunRef) -> Option<&Stored> {
         match which {
             RunRef::Id(id) => self.runs.iter().find(|stored| stored.row.id == id),
-            RunRef::Last => self.runs.last(),
+            RunRef::Last => self.runs.iter().rev().find(|stored| stored.row.start.kind != "adhoc"),
         }
     }
 
