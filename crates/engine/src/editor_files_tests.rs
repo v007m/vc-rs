@@ -159,6 +159,30 @@ fn only_the_config_and_definition_files_outside_hidden_folders_open() {
 }
 
 #[test]
+fn a_path_discovery_leaves_out_is_neither_read_nor_written() {
+    let (dir, engine) = project();
+    fs::write(dir.path().join(".gitignore"), "generated/\n").unwrap();
+    fs::create_dir_all(dir.path().join("generated")).unwrap();
+    fs::write(dir.path().join("generated/old.api.yaml"), USERS).unwrap();
+    for path in ["node_modules/x.test.yaml", "generated/old.api.yaml", "generated/new.test.yaml"] {
+        assert_left_out(&engine, path);
+    }
+    assert!(!dir.path().join("node_modules").exists(), "no folder is created");
+    fs::write(dir.path().join("vibranium.config.yaml"), format!("{CONFIG}paths:\n  exclude: [legacy]\n")).unwrap();
+    assert_left_out(&engine, "legacy/a.test.yaml");
+    assert!(!dir.path().join("legacy").exists());
+    assert!(engine.read_file("vibranium.config.yaml").is_ok(), "the config always opens");
+}
+
+/// `path` is neither read nor written, and the refusal says what to do.
+fn assert_left_out(engine: &Engine, path: &str) {
+    let read = engine.read_file(path);
+    assert!(matches!(&read, Err(EngineError::Edit { help: Some(_), .. })), "{path}: {read:?}");
+    let written = engine.save_file(&save(path, "tests: []\n", None));
+    assert!(matches!(written, Err(EngineError::Edit { .. })), "{path}: {written:?}");
+}
+
+#[test]
 fn the_project_shows_its_name_profiles_and_default() {
     let (_dir, engine) = project();
     let info = engine.project_info().unwrap();

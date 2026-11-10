@@ -2,7 +2,8 @@
 //! refused when the file changed since the editor opened it. Only the config and the api, test
 //! and load files outside hidden folders are opened this way, so `.env`, `.git/`, `.vibranium/`
 //! and the rest of the folder are never read or written through the UI, nor what a link leads
-//! to outside the project or in a hidden folder. A save is not guarded
+//! to outside the project or in a hidden folder, nor a path discovery leaves out (`paths`
+//! globs, `node_modules/` by default, ignore files). A save is not guarded
 //! (D107): the editor keeps text with errors, and gets the project's diagnostics back.
 //!
 //! A save compares the digest when it reads the file, and the writer compares the hash again
@@ -22,6 +23,10 @@ use crate::{CheckReport, CheckRequest, Engine, EngineError};
 
 /// What can be done about a path the editor does not open.
 const PATH_HELP: &str = "open vibranium.config.yaml or a project path ending in .api.yaml, .test.yaml or .load.yaml";
+
+/// What can be done about a path discovery leaves out.
+const LEFT_OUT_HELP: &str =
+    "pick a path the project reads, or change `paths` in vibranium.config.yaml or the ignore file that leaves it out";
 
 /// A project file as the editor opens it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -65,10 +70,12 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Edit`] when the path is not the config or an api, test or load file
-    /// outside a hidden folder, or links outside the project or to a hidden file; [`EngineError::NoFilesMatch`] when there is no file there; [`EngineError::Sources`] when it
-    /// cannot be read or is not UTF-8.
+    /// outside a hidden folder, discovery leaves it out, or it links outside the project or to a
+    /// hidden file; [`EngineError::NoFilesMatch`] when there is no file there;
+    /// [`EngineError::Sources`] when it cannot be read or is not UTF-8, or the config's `paths`
+    /// globs do not parse.
     pub fn read_file(&self, path: &str) -> Result<OpenedFile, EngineError> {
-        let path = editable(path)?;
+        let path = self.editable(path)?;
         let file = self.current(&path)?.ok_or_else(|| EngineError::NoFilesMatch { path: path.to_string() })?;
         Ok(OpenedFile { digest: hex(file.hash.as_bytes()), text: file.text })
     }
@@ -83,7 +90,7 @@ impl Engine {
     /// changed, appeared or was removed since it was opened; [`EngineError::Sources`] when it
     /// cannot be written.
     pub fn save_file(&self, request: &SaveFile) -> Result<SavedFile, EngineError> {
-        let path = editable(&request.path)?;
+        let path = self.editable(&request.path)?;
         let before = self.current(&path)?;
         fresh(&path, before.as_ref(), request.expected_digest.as_deref())?;
         let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
@@ -96,15 +103,15 @@ impl Engine {
     }
 
     /// `text` as a path the editor reads and writes: the config or an api, test or load file
-    /// outside a hidden folder, that is not a link out of the project or to a hidden file and
-    /// that can be read when it is there. A file that is not there yet is a path the editor
+    /// outside a hidden folder that discovery reads, that is not a link out of the project or to
+    /// a hidden file and that can be read when it is there. A file that is not there yet is a path the editor
     /// may create.
     ///
     /// # Errors
     ///
     /// [`EngineError::Edit`] and [`EngineError::Sources`] as [`Engine::read_file`].
     pub(crate) fn editor_path(&self, text: &str) -> Result<SourcePath, EngineError> {
-        let path = editable(text)?;
+        let path = self.editable(text)?;
         self.current(&path)?;
         Ok(path)
     }
@@ -122,10 +129,23 @@ impl Engine {
             Some(problem) => Err(sources_error(problem)),
         }
     }
+
+    /// `text` as a definition path the editor opens ([`definition`]) that discovery would read:
+    /// the config's `paths` globs and the project's ignore files keep it in. The config is
+    /// always read, so it opens even when its globs do not parse.
+    fn editable(&self, text: &str) -> Result<SourcePath, EngineError> {
+        let path = definition(text)?;
+        let config = FileKind::from_path(&path) == Some(FileKind::Config);
+        if config || (self.source_filter()?.allows(&path) && !self.sources.ignores(&path)) {
+            return Ok(path);
+        }
+        Err(refused(format!("`{path}` is a path the project leaves out of discovery"), LEFT_OUT_HELP))
+    }
 }
 
-/// `text` as a project path the editor opens.
-fn editable(text: &str) -> Result<SourcePath, EngineError> {
+/// `text` as a project path naming the config or an api, test or load file outside a hidden
+/// folder.
+fn definition(text: &str) -> Result<SourcePath, EngineError> {
     let path =
         SourcePath::new(text).map_err(|_| refused(format!("`{text}` is not a path in the project"), PATH_HELP))?;
     match FileKind::from_path(&path) {

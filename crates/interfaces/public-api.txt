@@ -1498,6 +1498,7 @@ pub trait vc_interfaces::SecretProvider: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SecretProvider::load<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 vc_interfaces::SecretQuery) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Secrets, vc_interfaces::SecretError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::SourceProvider: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceProvider::discover(&self, &vc_interfaces::SourceFilter) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceProvider::ignores(&self, &vc_model::source::SourcePath) -> bool
 pub fn vc_interfaces::SourceProvider::read(&self, &[vc_model::source::SourcePath]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
 pub trait vc_interfaces::SourceWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceWriter::remove(&self, &vc_model::source::SourcePath) -> core::result::Result<(), vc_interfaces::SourceError>

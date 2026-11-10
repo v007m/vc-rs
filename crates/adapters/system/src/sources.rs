@@ -34,10 +34,16 @@ impl FsSources {
         &self.root
     }
 
-    fn walk(&self, filter: &SourceFilter) -> ignore::Walk {
-        let (root, dirs) = (self.root.clone(), filter.clone());
+    /// The walk discovery makes from the root, before any filter is added.
+    fn builder(&self) -> WalkBuilder {
         let mut walk = WalkBuilder::new(&self.root);
         walk.hidden(false).git_global(false).require_git(false).follow_links(false);
+        walk
+    }
+
+    fn walk(&self, filter: &SourceFilter) -> ignore::Walk {
+        let (root, dirs) = (self.root.clone(), filter.clone());
+        let mut walk = self.builder();
         walk.filter_entry(move |entry| relative(&root, entry.path()).is_none_or(|(text, _)| !dirs.skips(&text)));
         walk.build()
     }
@@ -108,6 +114,16 @@ impl SourceProvider for FsSources {
         found.sort();
         Ok(found)
     }
+
+    /// Walks only the folders on the way to `path`, with the same ignore rules as
+    /// [`SourceProvider::discover`], so a file in an ignored folder, or through a link to a
+    /// folder, is never reached. A file or folder not there yet is matched against the ignore
+    /// files in the folders above it.
+    fn ignores(&self, path: &SourcePath) -> bool {
+        let target = self.root.join(path.as_str());
+        let Some(nearest) = target.ancestors().find(|at| at.symlink_metadata().is_ok()) else { return false };
+        !self.reached(nearest) || (nearest != target && name_ignored(&target))
+    }
 }
 
 impl SourceWriter for FsSources {
@@ -121,12 +137,14 @@ impl SourceWriter for FsSources {
         std::fs::write(&target, text).map_err(|error| write_error(path, &error))
     }
 
-    /// Writes the text to a hidden file beside the file at `path` (beside what a link there
-    /// leads to, inside the root), checks that file's hash against `was`, and renames the hidden
-    /// file over it, which replaces it at once on Unix and Windows. The hidden file is removed
-    /// when the check or the rename fails.
+    /// Checks the hash of the file at `path` (of what a link there leads to, inside the root)
+    /// against `was` before anything is created, then writes the text to a hidden file beside
+    /// it, checks the hash again, and renames the hidden file over it, which replaces it at once
+    /// on Unix and Windows. A refused save creates no folder, and the hidden file is removed
+    /// when anything after it fails.
     fn write_unchanged(&self, path: &SourcePath, text: &str, was: Option<ContentHash>) -> Result<(), SourceError> {
         let target = self.resolved(path)?;
+        unchanged(path, &target, was)?;
         let temp = temp_beside(&target);
         let written = stage(&target, &temp, text)
             .map_err(|error| write_error(path, &error))
@@ -179,6 +197,18 @@ impl FsSources {
         !hidden || path.is_hidden()
     }
 
+    /// Whether discovery's walk reaches `at`, which is there: no ignore file leaves it or a
+    /// folder above it out, and no link to a folder leads to it.
+    fn reached(&self, at: &Path) -> bool {
+        if at == self.root {
+            return true;
+        }
+        let on_the_way: Vec<PathBuf> = at.ancestors().map(Path::to_path_buf).collect();
+        let mut walk = self.builder();
+        walk.filter_entry(move |entry| on_the_way.iter().any(|folder| folder == entry.path()));
+        walk.build().flatten().any(|entry| entry.path() == at)
+    }
+
     fn walk_problem(&self, error: &ignore::Error) -> SourceError {
         let path = error_path(error).and_then(|path| relative(&self.root, path)).map(|(text, _)| text);
         SourceError::Read { path: path.unwrap_or_else(|| ".".to_owned()), reason: error.to_string() }
@@ -195,6 +225,19 @@ fn relative(root: &Path, path: &Path) -> Option<(String, bool)> {
     }
     let utf8 = parts.iter().all(|part| part.to_str().is_some());
     Some((parts.iter().map(|part| part.to_string_lossy()).collect::<Vec<_>>().join("/"), utf8))
+}
+
+/// Whether an ignore file in a folder above `target`, which is not there, leaves it or a folder
+/// it would be in out: the nearest file that matches decides, `.ignore` before `.gitignore`, as
+/// the walk reads them.
+fn name_ignored(target: &Path) -> bool {
+    let files = target.ancestors().skip(1).flat_map(|folder| [folder.join(".ignore"), folder.join(".gitignore")]);
+    let decide = |file: PathBuf| {
+        let (rules, _) = ignore::gitignore::Gitignore::new(file);
+        let matched = rules.matched_path_or_any_parents(target, false);
+        (!matched.is_none()).then(|| matched.is_ignore())
+    };
+    files.filter(|file| file.is_file()).find_map(decide).unwrap_or(false)
 }
 
 /// A hidden file beside `target` for one write to stage its text in, named after the file, the

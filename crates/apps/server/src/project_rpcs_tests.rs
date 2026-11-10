@@ -84,6 +84,16 @@ async fn the_editor_never_opens_env_files_or_hidden_folders() {
 }
 
 #[tokio::test]
+async fn the_editor_never_writes_a_path_discovery_leaves_out() {
+    let (dir, api) = project();
+    let write = wire::WriteFileRequest { path: "node_modules/x.test.yaml".into(), ..wire::WriteFileRequest::default() };
+    let refused = write_file(api, write).await.unwrap_err();
+    assert_eq!(refused.code, Code::InvalidArgument);
+    assert!(refused.message.contains("help: pick a path the project reads"), "{refused:?}");
+    assert!(!dir.path().join("node_modules").exists(), "nothing is created");
+}
+
+#[tokio::test]
 async fn explain_config_never_sends_a_secret_in_any_layer() {
     let (_dir, api) = project();
     let request = wire::ExplainConfigRequest {

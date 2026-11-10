@@ -49,6 +49,26 @@ fn respects_gitignore_outside_a_repository() {
 }
 
 #[test]
+fn ignores_what_the_walk_leaves_out_whether_or_not_it_is_there() {
+    let dir = project(&[
+        (".gitignore", b"generated/\n*.local.api.yaml\n"),
+        ("generated/x.api.yaml", b""),
+        ("users.local.api.yaml", b""),
+        ("users.api.yaml", b""),
+        ("services/.ignore", b"!keep.local.api.yaml\n"),
+    ]);
+    let sources = FsSources::new(dir.path()).unwrap();
+    let ignores = |path: &str| sources.ignores(&SourcePath::new(path).unwrap());
+    let left_out = ["generated/x.api.yaml", "users.local.api.yaml", "generated/new/y.api.yaml", "new.local.api.yaml"];
+    for path in left_out.into_iter().chain(["services/new/z.local.api.yaml"]) {
+        assert!(ignores(path), "{path} is left out");
+    }
+    for path in ["users.api.yaml", "services/new/z.api.yaml", "services/keep.local.api.yaml", "fresh.test.yaml"] {
+        assert!(!ignores(path), "{path} is discovered");
+    }
+}
+
+#[test]
 fn a_missing_root_is_an_error() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("missing");
@@ -87,6 +107,17 @@ fn a_write_the_system_refuses_names_its_file() {
     let sources = FsSources::new(dir.path()).unwrap();
     let refused = sources.write(&SourcePath::new("taken/x.api.yaml").unwrap(), "");
     assert!(matches!(refused, Err(SourceError::Write { path, .. }) if path == "taken/x.api.yaml"));
+}
+
+#[test]
+fn a_refused_save_into_a_new_folder_leaves_no_folder() {
+    let dir = project(&[]);
+    let sources = FsSources::new(dir.path()).unwrap();
+    let was = Some(vc_interfaces::content_hash(b"tests: []\n"));
+    let refused = sources.write_unchanged(&SourcePath::new("services/new/new.test.yaml").unwrap(), "x\n", was);
+    let changed = SourceError::Changed { path: "services/new/new.test.yaml".to_owned() };
+    assert_eq!(refused, Err(changed));
+    assert!(!dir.path().join("services").exists(), "no folder is created for a refused save");
 }
 
 #[cfg(unix)]

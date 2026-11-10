@@ -31,6 +31,15 @@ pub trait SourceProvider: Send + Sync {
     ///
     /// [`SourceError::Root`] when the project cannot be read at all.
     fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError>;
+
+    /// Whether the project's ignore files (`.gitignore`, `.ignore`) keep [`Self::discover`] from
+    /// the file at `path`, by itself or through a folder it is in; a path that is not there yet
+    /// is judged as if it were. The engine asks before it opens or writes a file for the web
+    /// UI's editor, together with its [`SourceFilter`]. A provider with no ignore files keeps
+    /// this default, which leaves nothing out.
+    fn ignores(&self, _path: &SourcePath) -> bool {
+        false
+    }
 }
 
 /// Writes the definition files authoring commands change (D107). The engine calls it only with
