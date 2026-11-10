@@ -1,8 +1,10 @@
-//! Secrets in what an importer reads (a recording, a collection). A body field named like a credential, and any word too random to be
-//! anything else (24 or more characters with lower case, upper case and digits, at least 16 of
-//! them different, and not shaped like an ID), become a `${secret.NAME}` reference, named
-//! `<FILE>_<FIELD>` in upper snake case. The value is dropped: only the place it was found is
-//! kept.
+//! Secrets in what an importer reads (a recording, a collection). A body field named like a
+//! credential, and any word too random to be anything else, become a `${secret.NAME}`
+//! reference, named `<FILE>_<FIELD>` in upper snake case. A word is that random when it has 24
+//! or more characters with lower case, upper case and digits, at least 16 of them different,
+//! and is not shaped like an ID; or 32 or more letters and digits, both present, with letters
+//! of one case only (hex among them) and at least 10 different characters. The value is
+//! dropped: only the place it was found is kept.
 
 use serde_json::{Value, json};
 use vc_interfaces::SecretFinding;
@@ -90,18 +92,42 @@ fn word_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || "-_.+/=~".contains(c)
 }
 
-/// Whether `word` is too random to be anything but a secret.
+/// Whether `word` is too random to be anything but a secret: mixed case, or one case.
 pub fn random(word: &str) -> bool {
+    mixed_case(word) || one_case(word)
+}
+
+/// 24 or more characters with lower case, upper case and digits, at least 16 different, and
+/// not shaped like an ID.
+fn mixed_case(word: &str) -> bool {
     let has = |class: fn(&char) -> bool| word.chars().any(|c| class(&c));
-    let mut seen: Vec<char> = word.chars().collect();
-    seen.sort_unstable();
-    seen.dedup();
     word.len() >= 24
         && has(char::is_ascii_lowercase)
         && has(char::is_ascii_uppercase)
         && has(char::is_ascii_digit)
-        && seen.len() >= 16
+        && different(word) >= 16
         && !identifier(word)
+}
+
+/// 32 or more letters and digits, both present, the letters all lower or all upper case (a
+/// hex key among them), at least 10 different: too long for an ID's usual shapes, and an
+/// ordinary word has no digits.
+fn one_case(word: &str) -> bool {
+    let has = |class: fn(&char) -> bool| word.chars().any(|c| class(&c));
+    word.len() >= 32
+        && word.chars().all(|c| c.is_ascii_alphanumeric())
+        && !(has(char::is_ascii_lowercase) && has(char::is_ascii_uppercase))
+        && has(char::is_ascii_alphabetic)
+        && has(char::is_ascii_digit)
+        && different(word) >= 10
+}
+
+/// How many different characters `word` has.
+fn different(word: &str) -> usize {
+    let mut seen: Vec<char> = word.chars().collect();
+    seen.sort_unstable();
+    seen.dedup();
+    seen.len()
 }
 
 /// `text` in upper snake case: `pay api_key` and `pay apiKey` give `PAY_API_KEY`.
@@ -140,6 +166,27 @@ mod tests {
             "Xk9pQ2mZ7vR4tL8wB3nY6c",
             "AAAAAAAAAAaaaaaaaaaa11111111",
             "https://shop.test/v1/carts",
+        ];
+        assert!(plain.iter().all(|word| !random(word)), "{plain:?}");
+    }
+
+    #[test]
+    fn a_long_one_case_word_with_digits_is_random_too() {
+        let random_words = [
+            "0123456789abcdef0123456789abcdef01234567",
+            "fakefake0123456789abcdeffakefake",
+            "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+            "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6",
+        ];
+        assert!(random_words.iter().all(|word| random(word)), "{random_words:?}");
+        let plain = [
+            "507f1f77bcf86cd799439011",
+            "0123456789abcdef0123456789abcde",
+            "00000000000000000000000000000001",
+            "abcdefabcdefabcdefabcdefabcdefabcdef",
+            "12345678901234567890123456789012345",
+            "my-long-article-title-for-2026-and-beyond",
+            "ord_0123456789abcdef0123456789abcdef",
         ];
         assert!(plain.iter().all(|word| !random(word)), "{plain:?}");
     }
