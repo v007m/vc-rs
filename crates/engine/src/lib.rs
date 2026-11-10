@@ -71,6 +71,7 @@ mod migrate;
 mod notify;
 mod plan;
 mod plugin_hosts;
+mod plugin_intact;
 mod plugin_lock;
 mod plugin_manifest;
 mod plugins;

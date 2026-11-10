@@ -20,6 +20,10 @@ pub const PROTOCOL_VERSION: u32 = 1;
 /// temporary folder, never the run's secrets.
 const PASSED_ENV: [&str; 9] = ["PATH", "HOME", "USER", "LANG", "TMPDIR", "TEMP", "TMP", "SYSTEMROOT", "USERPROFILE"];
 
+/// The environment variable naming the folder a plugin keeps its own files in: its install
+/// folder is checked against `vibranium.lock` and must not change.
+pub const DATA_ENV: &str = "VIB_PLUGIN_DATA";
+
 /// A [`PluginHost`] that starts the plugin's `entry` in its folder on the first call.
 ///
 /// Its stdin and stdout are piped and stderr is passed through. An `entry.command` naming a file
@@ -27,8 +31,9 @@ const PASSED_ENV: [&str; 9] = ["PATH", "HOME", "USER", "LANG", "TMPDIR", "TEMP",
 ///
 /// It refuses to start a plugin whose manifest asks for more than `vibranium.lock` granted, and
 /// answers the plugin's `secrets/get` only for the secrets both the manifest declares and the lock
-/// grants (−32001 otherwise). The process gets no environment beyond [`PASSED_ENV`]. One process
-/// serves every call; once it stops, every later call fails, and dropping the host shuts it down.
+/// grants (−32001 otherwise). The process gets no environment beyond [`PASSED_ENV`] and, when the
+/// host has one, [`DATA_ENV`] naming its data folder, made on first use. One process serves every
+/// call; once it stops, every later call fails, and dropping the host shuts it down.
 #[derive(Debug)]
 pub struct StdioPluginHost {
     manifest: PluginManifest,
@@ -36,6 +41,7 @@ pub struct StdioPluginHost {
     granted: PluginPermissions,
     secrets: Secrets,
     config: Value,
+    data: Option<PathBuf>,
     calls: OnceCell<Result<mpsc::UnboundedSender<Call>, PluginError>>,
 }
 
@@ -45,7 +51,7 @@ impl StdioPluginHost {
     pub fn new(manifest: PluginManifest, dir: impl Into<PathBuf>, granted: PluginPermissions) -> Self {
         let dir = dir.into();
         let (secrets, config, calls) = (Secrets::new(), Value::Null, OnceCell::new());
-        Self { manifest, dir, granted, secrets, config, calls }
+        Self { manifest, dir, granted, secrets, config, data: None, calls }
     }
 
     /// The same host, able to give the plugin those of `run`'s secrets that the manifest declares
@@ -69,8 +75,23 @@ impl StdioPluginHost {
         Self { config, ..self }
     }
 
+    /// The same host, giving the plugin `data` as the folder for its own files ([`DATA_ENV`]).
+    #[must_use]
+    pub fn data(self, data: impl Into<PathBuf>) -> Self {
+        Self { data: Some(data.into()), ..self }
+    }
+
     fn plugin(&self) -> String {
         self.manifest.id.clone()
+    }
+
+    /// The process of the plugin's `entry`, with [`DATA_ENV`] when the host has a data folder.
+    fn command(&self) -> Command {
+        let mut command = command(&self.manifest, &self.dir);
+        if let Some(data) = &self.data {
+            command.env(DATA_ENV, data);
+        }
+        command
     }
 
     /// The channel to the running plugin: started, and initialized, on the first call.
@@ -85,7 +106,12 @@ impl StdioPluginHost {
             return Err(PluginError::Permission { plugin: self.plugin(), what });
         }
         let not_started = |reason: String| PluginError::Start { plugin: self.plugin(), reason };
-        let mut child = command(&self.manifest, &self.dir)
+        if let Some(data) = &self.data {
+            let made = std::fs::create_dir_all(data);
+            made.map_err(|error| not_started(format!("cannot make its data folder: {error}")))?;
+        }
+        let mut child = self
+            .command()
             .spawn()
             .map_err(|error| not_started(format!("cannot run `{}`: {error}", self.manifest.command)))?;
         let stdin = child.stdin.take().ok_or_else(|| not_started("it has no stdin".to_owned()))?;
@@ -152,7 +178,7 @@ async fn ask(
     deadline: Duration,
 ) -> Result<Value, Failure> {
     let (reply, answer) = oneshot::channel();
-    calls.send(Call { method: method.to_owned(), params, reply }).map_err(|_| Failure::Gone)?;
+    calls.send(Call { method: method.to_owned(), params, reply, deadline }).map_err(|_| Failure::Gone)?;
     match tokio::time::timeout(deadline, answer).await {
         Ok(Ok(result)) => result.map_err(Failure::Plugin),
         Ok(Err(_)) => Err(Failure::Gone),

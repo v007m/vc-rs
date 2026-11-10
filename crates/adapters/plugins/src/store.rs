@@ -119,6 +119,12 @@ impl PluginStore for FsPluginStore {
         let Some(folder) = self.folder(id) else { return Ok(None) };
         optional(&folder.join(MANIFEST_FILE), &format!("{PLUGINS_DIR}/{id}/{MANIFEST_FILE}"))
     }
+
+    fn integrity(&self, id: &str) -> Result<Option<String>, PluginStoreError> {
+        let Some(folder) = self.folder(id).filter(|folder| folder.is_dir()) else { return Ok(None) };
+        let failed = |reason: String| PluginStoreError::Read { path: format!("{PLUGINS_DIR}/{id}"), reason };
+        folder::integrity(&folder).map(Some).map_err(failed)
+    }
 }
 
 /// The manifest at the top of a fetched plugin.

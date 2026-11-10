@@ -85,13 +85,14 @@ impl Engine {
     /// The auth types a run obtains credentials through (D106): the builder's, else the
     /// standard registry, its token endpoints reached through `transport`, a sign-in opened in
     /// the system browser, refresh tokens kept in the keychain and `plugin` calling the auth
-    /// plugins of `plugins`.
+    /// plugins of `plugins`, or failing with the reason one cannot be used.
     pub(crate) fn auth(&self, transport: Arc<dyn Transport>, plugins: &Hosts) -> Arc<dyn AuthProvider> {
         if let Some(auth) = &self.auth {
             return Arc::clone(auth);
         }
         let browser = self.browser.clone().unwrap_or_else(|| Arc::new(SystemBrowser::new(Arc::clone(&self.commands))));
         let plugin = plugins.of(PluginKind::Auth).fold(PluginAuth::new(), PluginAuth::with);
+        let plugin = plugins.unusable().fold(plugin, PluginAuth::unusable);
         Arc::new(AuthTypes::standard(transport, browser, self.keychain.clone()).with("plugin", Arc::new(plugin)))
     }
 

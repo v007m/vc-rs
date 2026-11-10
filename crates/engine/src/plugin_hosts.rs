@@ -1,6 +1,6 @@
 //! The run's plugins (G8): a host for each `plugins:` item that `vibranium.lock` approves and
-//! that is installed, its process started on first use. A plugin the run cannot use is named
-//! with the reason, and fails only the work that needs it.
+//! that is installed, its files checked and its process started on first use. A plugin the run
+//! cannot use is named with the reason, and fails only the work that needs it.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -11,16 +11,21 @@ use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, Secrets};
 use vc_model::{CelProgram, Program, Reference, TemplateValue};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
 
+use crate::Engine;
 use crate::notify::Steady;
+use crate::plugin_intact::intact;
 use crate::plugin_lock::Locked;
 use crate::plugins::{self, PluginState};
-use crate::{Engine, EngineError};
+
+/// Where each plugin keeps its own files, in a folder named by its id: its install folder is
+/// checked against the lock, so it must not change.
+const PLUGIN_DATA: &str = ".vibranium/plugin-data";
 
 /// Why a plugin's `config` cannot read a template value.
 const LITERAL_ONLY: &str = "a plugin's `config` takes literal values; the plugin reads a secret with `secrets/get`";
 
 /// The run's plugins: a host for each one it can use, and why each other one cannot be used.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Hosts {
     ready: BTreeMap<String, Arc<dyn PluginHost>>,
     unusable: BTreeMap<String, String>,
@@ -45,6 +50,11 @@ impl Hosts {
         self.ready.values().filter(move |host| host.manifest().kind == kind).cloned()
     }
 
+    /// Each plugin the run cannot use, and why.
+    pub fn unusable(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.unusable.iter().map(|(id, reason)| (id.as_str(), reason.as_str()))
+    }
+
     /// One line for each plugin the run cannot use, and why.
     pub fn notices(&self) -> Vec<String> {
         self.unusable.iter().map(|(id, reason)| format!("plugin `{id}`: {reason}")).collect()
@@ -53,40 +63,45 @@ impl Hosts {
 
 impl Engine {
     /// The hosts of `program`'s plugins, each able to read those of `secrets` that its manifest
-    /// declares and the lock grants.
-    ///
-    /// # Errors
-    ///
-    /// [`EngineError::Edit`] when `vibranium.lock` is not valid, and [`EngineError::Sources`]
-    /// when it or a manifest cannot be read.
-    pub(crate) fn plugin_hosts(&self, program: &Program, secrets: &Secrets) -> Result<Hosts, EngineError> {
+    /// declares and the lock grants. A lock or manifest that cannot be read makes the plugins it
+    /// concerns unusable, with the reason; installed files that no longer match the lock fail
+    /// the plugin's first call.
+    pub(crate) fn plugin_hosts(&self, program: &Program, secrets: &Secrets) -> Hosts {
         let mut hosts = Hosts::default();
         if program.config.plugins.is_empty() {
-            return Ok(hosts);
+            return hosts;
         }
-        let (_, locked) = self.locked()?;
+        let locked = self.locked().map(|(_, locked)| locked).map_err(|error| error.to_string());
         for plugin in &program.config.plugins {
             let id = program.str(plugin.id).unwrap_or_default().to_owned();
-            let lock = locked.iter().find(|entry| entry.id == id);
-            let host = self.host(&id, lock)?.and_then(|host| Ok(host.config(literal(plugin.config.as_ref())?)));
+            let host = locked
+                .as_ref()
+                .map_err(Clone::clone)
+                .and_then(|locked| self.host(&id, locked.iter().find(|entry| entry.id == id)))
+                .and_then(|(host, approved)| Ok((host.config(literal(plugin.config.as_ref())?), approved)));
             match host {
-                Ok(host) => drop(hosts.ready.insert(id, Arc::new(host.secrets(secrets)))),
+                Ok((host, approved)) => {
+                    let host = intact(host.secrets(secrets), approved, &self.plugins);
+                    drop(hosts.ready.insert(id, host));
+                }
                 Err(reason) => drop(hosts.unusable.insert(id, reason)),
             }
         }
-        Ok(hosts)
+        hosts
     }
 
-    /// The host of the installed plugin `id`, allowed what `lock` grants; otherwise why the run
+    /// The host of the installed plugin `id`, allowed what `lock` grants and keeping its own
+    /// files under [`PLUGIN_DATA`], with the integrity the lock approved; otherwise why the run
     /// cannot use it.
-    fn host(&self, id: &str, lock: Option<&Locked>) -> Result<Result<StdioPluginHost, String>, EngineError> {
-        let manifest = self.installed(id)?;
+    fn host(&self, id: &str, lock: Option<&Locked>) -> Result<(StdioPluginHost, String), String> {
+        let manifest = self.installed(id).map_err(|error| error.to_string())?;
         let state = plugins::state(true, lock, manifest.as_ref());
         let (PluginState::Ready, Some(lock), Some(manifest)) = (&state, lock, manifest) else {
-            return Ok(Err(state.to_string()));
+            return Err(state.to_string());
         };
-        let dir = self.root().join(PLUGINS_DIR).join(id);
-        Ok(Ok(StdioPluginHost::new(manifest, dir, lock.permissions.clone())))
+        let (dir, data) = (self.root().join(PLUGINS_DIR).join(id), self.root().join(PLUGIN_DATA).join(id));
+        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone()).data(data);
+        Ok((host, lock.integrity.clone()))
     }
 }
 

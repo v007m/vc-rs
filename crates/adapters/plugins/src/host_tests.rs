@@ -76,6 +76,107 @@ async fn a_plugin_that_exits_fails_the_call_it_left() {
     assert_eq!(later.to_string(), "plugin `suitePlugin` stopped: it stopped earlier in this run");
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn a_plugin_that_breaks_the_protocol_is_stopped_and_later_calls_fail_at_once() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let manifest = vc_interfaces::PluginManifest {
+        command: "python3".into(),
+        args: vec!["-c".into(), format!("{READ}{BREAKS}")],
+        ..suite_plugin_manifest()
+    };
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted());
+    let broken = host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+    assert!(matches!(broken, PluginError::Protocol { .. }), "{broken:?}");
+    let started = std::time::Instant::now();
+    let later = host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+    assert_eq!(later.to_string(), "plugin `suitePlugin` stopped: it stopped earlier in this run");
+    assert!(started.elapsed() < Duration::from_secs(1), "a stopped plugin fails at once");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_plugin_that_stops_reading_its_input_is_stopped_and_later_calls_fail_at_once() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let manifest = vc_interfaces::PluginManifest {
+        command: "python3".into(),
+        args: vec!["-c".into(), format!("{READ}{STALLS}")],
+        ..suite_plugin_manifest()
+    };
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted());
+    let large = json!({"blob": "x".repeat(1 << 20)});
+    let stalled = host.call("suite/echo", large, Duration::from_secs(1)).await.unwrap_err();
+    assert!(matches!(stalled, PluginError::Deadline { .. } | PluginError::Crashed { .. }), "{stalled:?}");
+    let started = std::time::Instant::now();
+    let later = host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+    assert!(matches!(later, PluginError::Crashed { .. }), "{later:?}");
+    assert!(started.elapsed() < Duration::from_secs(1), "a stopped plugin fails at once");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_plugin_keeps_its_own_files_in_the_data_folder_it_is_given() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let manifest = vc_interfaces::PluginManifest {
+        command: "python3".into(),
+        args: vec!["-c".into(), format!("{READ}{KEEPS}")],
+        ..suite_plugin_manifest()
+    };
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join("plugin-data/suitePlugin");
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted()).data(&data);
+    let kept = host.call("suite/keep", json!({}), Duration::from_secs(5)).await.unwrap();
+    assert_eq!(kept, json!(data.to_string_lossy()));
+    assert_eq!(std::fs::read_to_string(data.join("state.txt")).unwrap(), "kept");
+}
+
+/// Reads one framed message from stdin.
+const READ: &str = r#"
+import json, sys, time
+def read():
+    length = 0
+    while True:
+        line = sys.stdin.buffer.readline().strip()
+        if not line: break
+        if line.lower().startswith(b"content-length:"): length = int(line.split(b":")[1])
+    return json.loads(sys.stdin.buffer.read(length))
+def send(body):
+    sys.stdout.buffer.write(b"Content-Length: %d\r\n\r\n%s" % (len(body), body)); sys.stdout.buffer.flush()
+"#;
+
+/// Answers `initialize`, answers the next call with a message that is not an object, then hangs.
+const BREAKS: &str = r#"
+first = read()
+send(json.dumps({"jsonrpc": "2.0", "id": first["id"], "result": None}).encode())
+read()
+send(b"[1, 2]")
+time.sleep(30)
+"#;
+
+/// Answers `initialize`, then writes a file in its data folder and answers with the folder.
+const KEEPS: &str = r#"
+import os
+for _ in range(2):
+    request = read()
+    data = os.environ.get("VIB_PLUGIN_DATA", "")
+    if request["method"] == "suite/keep":
+        open(os.path.join(data, "state.txt"), "w").write("kept")
+    send(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": data}).encode())
+"#;
+
+/// Answers `initialize`, then never reads its input again.
+const STALLS: &str = r#"
+first = read()
+send(json.dumps({"jsonrpc": "2.0", "id": first["id"], "result": None}).encode())
+time.sleep(30)
+"#;
+
 /// Answers `initialize`, then exits on the next call.
 const EXITS: &str = r#"
 import json, sys

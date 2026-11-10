@@ -159,6 +159,9 @@ jobs:
           if [ -f "$RUNNER_TEMP/base/crates/engine/benches/compile_instructions.rs" ]; then
             cd "$RUNNER_TEMP/base"
             cargo bench -p vc-engine --bench compile_instructions --locked -- --save-baseline=base
+            # The PR's sources were checked out before the base was built, so their mtimes are older and cargo
+            # would reuse the base's artifacts. Drop the build output; the baseline stays in $CARGO_TARGET_DIR/gungraun.
+            rm -rf "$CARGO_TARGET_DIR/release"
           else
             echo "::notice::$BASE_REF has no instruction-count benches yet, so this run records counts without comparing"
           fi

@@ -6,16 +6,19 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use serde_json::{Value, json};
-use tokio::io::BufReader;
-use tokio::process::{Child, ChildStdin, ChildStdout};
+use tokio::io::{AsyncRead, BufReader};
+use tokio::process::{Child, ChildStdin};
 use tokio::sync::{mpsc, oneshot};
-use vc_interfaces::{PERMISSION_DENIED, PluginError, Secrets};
+use vc_interfaces::{CALL_DEADLINE, PERMISSION_DENIED, PluginError, Secrets};
 
 use crate::framing;
 use crate::rpc::{self, Incoming, METHOD_NOT_FOUND};
 
 /// How long a plugin has to answer `shutdown`, and then to exit, before it is killed.
 const GRACE: Duration = Duration::from_secs(1);
+
+/// How many of the plugin's messages may wait unread before the session gives up on it.
+const ROOM: usize = 1024;
 
 /// What a call is answered with.
 pub type Reply = oneshot::Sender<Result<Value, PluginError>>;
@@ -29,6 +32,8 @@ pub struct Call {
     pub method: String,
     pub params: Value,
     pub reply: Reply,
+    /// How long writing the call to the plugin may take: the call's own deadline.
+    pub deadline: Duration,
 }
 
 /// What the session does next.
@@ -53,58 +58,71 @@ impl Session {
     }
 
     /// Serves `calls` until the host drops them, then shuts the plugin down; or until the
-    /// plugin stops or breaks the protocol, which fails every call it has not answered.
+    /// plugin stops, breaks the protocol, cannot be written to in time or leaves more than
+    /// [`ROOM`] messages unread, which fails every call it has not answered and ends the session
+    /// (killing the plugin), so every later call fails at once.
     pub async fn run(mut self, mut calls: mpsc::UnboundedReceiver<Call>, mut child: Child) {
         let Some(stdout) = child.stdout.take() else { return };
-        let mut incoming = messages(stdout);
+        let mut incoming = messages(stdout, ROOM);
         loop {
             let next = tokio::select! {
                 call = calls.recv() => Next::Call(call),
                 message = incoming.recv() => Next::Message(message),
             };
-            match next {
+            let step = match next {
                 Next::Call(Some(call)) => self.send(call).await,
                 Next::Call(None) => return self.shutdown(&mut incoming, child).await,
                 Next::Message(Some(Ok(message))) => self.receive(message).await,
-                Next::Message(Some(Err(reason))) => {
-                    return self.fail(&PluginError::Protocol { plugin: self.plugin.clone(), reason });
-                }
-                Next::Message(None) => {
-                    let reason = exited(&mut child).await;
-                    return self.fail(&PluginError::Crashed { plugin: self.plugin.clone(), reason });
-                }
+                Next::Message(Some(Err(reason))) => Err(PluginError::Protocol { plugin: self.plugin.clone(), reason }),
+                Next::Message(None) => Err(self.crashed(exited(&mut child).await)),
+            };
+            if let Err(error) = step {
+                return self.fail(&error);
             }
         }
     }
 
-    /// Writes `call` as the next request; a call whose caller gave up is forgotten first.
-    async fn send(&mut self, call: Call) {
+    /// Writes `call` as the next request; a call whose caller gave up is forgotten first. A
+    /// plugin that cannot be written to within the call's deadline fails `call` and ends the
+    /// session.
+    async fn send(&mut self, call: Call) -> Result<(), PluginError> {
         self.pending.retain(|_, (_, reply)| !reply.is_closed());
         self.last += 1;
         let request = rpc::request(self.last, &call.method, &call.params);
-        match framing::write(&mut self.stdin, &request).await {
-            Ok(()) => drop(self.pending.insert(self.last, (call.method, call.reply))),
-            Err(error) => {
-                let reason = format!("cannot write to it: {error}");
-                drop(call.reply.send(Err(PluginError::Crashed { plugin: self.plugin.clone(), reason })));
-            }
+        if let Err(error) = self.write(&request, call.deadline).await {
+            drop(call.reply.send(Err(error.clone())));
+            return Err(error);
+        }
+        drop(self.pending.insert(self.last, (call.method, call.reply)));
+        Ok(())
+    }
+
+    /// Writes `message` to the plugin's stdin, which it must read within `within`.
+    async fn write(&mut self, message: &Value, within: Duration) -> Result<(), PluginError> {
+        match tokio::time::timeout(within, framing::write(&mut self.stdin, message)).await {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(error)) => Err(self.crashed(format!("cannot write to it: {error}"))),
+            Err(_) => Err(self.crashed(format!("it did not read its input within {within:?}"))),
         }
     }
 
-    /// Hands an answer to its caller, or answers a request of the plugin's.
-    async fn receive(&mut self, message: Value) {
+    /// Hands an answer to its caller, or answers a request of the plugin's. A message that is
+    /// not JSON-RPC, or an answer that cannot be written, ends the session.
+    async fn receive(&mut self, message: Value) -> Result<(), PluginError> {
         match rpc::classify(message) {
             Ok(Incoming::Answer { id, outcome }) => self.answer(id, outcome),
             Ok(Incoming::Request { id, method, params }) => {
                 let answer = self.serve(&id, &method, &params);
-                if let Err(error) = framing::write(&mut self.stdin, &answer).await {
-                    let reason = format!("cannot write to it: {error}");
-                    self.fail(&PluginError::Crashed { plugin: self.plugin.clone(), reason });
-                }
+                self.write(&answer, CALL_DEADLINE).await?;
             }
             Ok(Incoming::Notice) => {}
-            Err(reason) => self.fail(&PluginError::Protocol { plugin: self.plugin.clone(), reason }),
+            Err(reason) => return Err(PluginError::Protocol { plugin: self.plugin.clone(), reason }),
         }
+        Ok(())
+    }
+
+    fn crashed(&self, reason: String) -> PluginError {
+        PluginError::Crashed { plugin: self.plugin.clone(), reason }
     }
 
     fn answer(&mut self, id: u64, outcome: Result<Value, (i64, String)>) {
@@ -141,7 +159,7 @@ impl Session {
     /// takes longer than [`GRACE`] for either is killed when `child` drops.
     async fn shutdown(mut self, incoming: &mut mpsc::Receiver<Received>, mut child: Child) {
         self.last += 1;
-        let asked = framing::write(&mut self.stdin, &rpc::request(self.last, "shutdown", &Value::Null)).await;
+        let asked = self.write(&rpc::request(self.last, "shutdown", &Value::Null), GRACE).await;
         if asked.is_ok() {
             let _ = tokio::time::timeout(GRACE, answered(incoming, self.last)).await;
         }
@@ -161,18 +179,30 @@ async fn answered(incoming: &mut mpsc::Receiver<Received>, id: u64) {
 
 /// The messages on `stdout`, read by a task of their own so a half-read message is never lost
 /// when the session is busy; the last one is the reason the rest is not the protocol.
-fn messages(stdout: ChildStdout) -> mpsc::Receiver<Received> {
-    let (sender, receiver) = mpsc::channel(64);
+///
+/// The reader never waits on the queue, so the plugin's stdout is drained even while the session
+/// waits on a write to its stdin (otherwise a plugin blocked on a full stdout stops reading its
+/// stdin, and the two wait on each other). At most `room` messages wait: the last place is kept
+/// for the reason a plugin that writes faster than it is read is given up on.
+fn messages(stdout: impl AsyncRead + Unpin + Send + 'static, room: usize) -> mpsc::Receiver<Received> {
+    let (sender, receiver) = mpsc::channel(room);
     tokio::spawn(async move {
         let mut reader = BufReader::new(stdout);
         while let Some(read) = framing::read(&mut reader).await.transpose() {
             let broken = read.is_err();
-            if sender.send(read).await.is_err() || broken {
+            let full = sender.capacity() <= 1;
+            let read = if full { Err(flooded(room)) } else { read };
+            if sender.try_send(read).is_err() || broken || full {
                 break;
             }
         }
     });
     receiver
+}
+
+/// Why a plugin that leaves `room` messages unread is given up on.
+fn flooded(room: usize) -> String {
+    format!("it wrote more than {} messages the host had not read yet", room - 1)
 }
 
 /// `message` with the value of every secret in `secrets` masked.
@@ -189,3 +219,7 @@ async fn exited(child: &mut Child) -> String {
         Err(_) => "it closed its output".to_owned(),
     }
 }
+
+#[cfg(test)]
+#[path = "session_tests.rs"]
+mod tests;

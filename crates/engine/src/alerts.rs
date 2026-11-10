@@ -35,15 +35,23 @@ pub struct Finished {
     pub tests: Vec<Ended>,
     /// The load thresholds breached.
     pub breaches: Vec<String>,
+    /// Whether anything ran: a test, or a load iteration. A run where nothing did never
+    /// recovers.
+    pub ran: bool,
     /// Where the run's main report was written.
     pub report: Option<String>,
 }
 
-/// What the reporters saw of a run that alerts read: each test's result and the main report.
+/// What alerts read of how a run ended: each test's result, the load thresholds breached,
+/// whether anything ran, and the main report.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Ending {
     /// Every test's result, in the order they ended.
     pub tests: Vec<Ended>,
+    /// The load thresholds breached, as `metric` or `metric of <test>`.
+    pub breaches: Vec<String>,
+    /// Whether a test or a load iteration ran.
+    pub ran: bool,
     /// The first report file written.
     pub report: Option<PathBuf>,
 }
@@ -73,7 +81,8 @@ impl Watch {
 
     /// What it saw, with the run's main report.
     pub fn ending(self, report: Option<PathBuf>) -> Ending {
-        Ending { tests: self.ended, report }
+        let ran = self.ended.iter().any(|test| test.status != TestStatus::Skipped);
+        Ending { tests: self.ended, breaches: Vec::new(), ran, report }
     }
 
     /// The test result `row` holds: `None` for any other row, or a test that has not ended. A
@@ -152,9 +161,11 @@ impl Seen<'_> {
         self.tests.iter().any(|test| status(test.status))
     }
 
-    /// The previous run failed, and this one finished with nothing failed and nothing breached.
+    /// The previous run failed, and this one ran and finished with nothing failed and nothing
+    /// breached.
     fn recovered(&self) -> bool {
         self.previous == Some(RunStatus::Failed)
+            && self.run.ran
             && self.run.summary.status != RunStatus::Cancelled
             && self.run.breaches.is_empty()
             && !self.any(failed)
