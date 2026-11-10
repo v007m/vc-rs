@@ -172,5 +172,5 @@ async fn an_exchange_body_past_the_history_cap_is_cut_and_says_so() {
     });
     let exchange = exchange.unwrap_or_else(|| panic!("no exchange: {events:?}"));
     assert_eq!((exchange.response_body.len(), exchange.body_truncated), (64 * 1024, true));
-    assert!(exchange.request_body.is_empty());
+    assert_eq!(exchange.request_body, b"");
 }
