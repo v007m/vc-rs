@@ -1,17 +1,18 @@
 //! The web UI's effective settings (M9b): `vc config explain` for many keys at once, each layer
-//! a value of its own. Every value leaves masked as a run's events are: a declared secret's
-//! value wherever it appears, a var named like a declared secret or a `redact.fields` entry
-//! whole, then the config's `redact.rules`. When the secrets cannot be loaded, every value but
-//! the built-in ones is masked, and a notice says so.
+//! a value of its own. Values are masked by where they come from, never by loading a secret
+//! (D232): a value that reads `${secret.*}` and a var named like a declared secret or a
+//! `redact.fields` entry are masked whole, then the config's `redact.rules` apply. No secret
+//! source is asked, so an unavailable one changes nothing.
 
 use serde_json::{Value, json};
 use vc_executor::{MASKED, MaskRules, Redactor};
 use vc_interfaces::ConfigEntry;
+use vc_model::{Namespace, Part, Program, Template, TemplateValue};
 
-use crate::config_explain::{BUILT_IN, Layer, every_key, layers_of, unknown};
+use crate::config_explain::{Layer, every_key, layers_of, unknown};
 use crate::explain::{Explainer, VARS};
 use crate::plan::{self, profile_flag};
-use crate::ports::Layered;
+use crate::shown::Shown;
 use crate::{Engine, EngineError, ExplainRequest};
 
 /// One value a key was set to, and where.
@@ -41,7 +42,7 @@ pub struct ConfigValue {
 pub struct ConfigValues {
     /// One per key, in the order asked, else every setting then every var.
     pub values: Vec<ConfigValue>,
-    /// Notices from the compile and from loading the secrets.
+    /// Notices from the compile.
     pub notices: Vec<String>,
 }
 
@@ -56,12 +57,12 @@ impl Engine {
     /// setting or a var nothing sets, with the closest keys as help.
     pub async fn config_values(&self, keys: &[String], request: &ExplainRequest) -> Result<ConfigValues, EngineError> {
         let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
-        let mut layered = self.layered(&request.sets, &flags)?;
+        let layered = self.layered(&request.sets, &flags)?;
         let (active, names) = plan::profiles(layered.program.as_ref(), layered.settings.profiles.as_ref())?;
         let explainer =
             Explainer { program: layered.program.as_ref(), active: &active, names: &names, entries: &layered.entries };
         let found = found(&explainer, keys)?;
-        let masker = self.masker(&mut layered).await;
+        let masker = self.masker(&layered.program);
         let mut values = Vec::with_capacity(found.len());
         for (key, layers) in found {
             values.push(masker.value(key, layers).await);
@@ -69,23 +70,13 @@ impl Engine {
         Ok(ConfigValues { values, notices: layered.notices })
     }
 
-    /// The redactor a run would mask with, told the declared secrets' values and names; when
-    /// they cannot be loaded, one that masks every value but the built-in ones.
-    async fn masker(&self, layered: &mut Layered) -> Masker {
-        let program = &layered.program;
+    /// The redactor a run would mask with, told the declared secrets' names but never their
+    /// values: explain loads no secret (D232).
+    fn masker(&self, program: &Program) -> Masker {
         let rules = MaskRules::standard().with_hooks(self.hook_runner(program), program).for_config(&program.config);
         let redactor = Redactor::for_config(&program.config).with_rules(rules);
         redactor.hide_fields(&program.config.secrets.declared);
-        match self.secrets(&program.config.secrets, &layered.environment).await {
-            Ok(secrets) => {
-                redactor.hide_values(secrets.iter().map(|(_, secret)| secret.expose()));
-                Masker { redactor, blind: false }
-            }
-            Err(error) => {
-                layered.notices.push(format!("{error}; every value but the built-in ones is masked"));
-                Masker { redactor, blind: true }
-            }
-        }
+        Masker { redactor }
     }
 }
 
@@ -106,11 +97,30 @@ fn found(explainer: &Explainer<'_>, keys: &[String]) -> Result<Vec<Keyed>, Engin
         .collect()
 }
 
+/// `value` as shown, or [`MASKED`] whole when it reads `${secret.*}` (D232).
+pub fn shown_unless_secret(shown: &Shown<'_>, value: &TemplateValue) -> String {
+    if reads_secret(value) { MASKED.to_owned() } else { shown.value(value) }
+}
+
+/// Whether `value` reads a secret anywhere in it.
+fn reads_secret(value: &TemplateValue) -> bool {
+    match value {
+        TemplateValue::String(template) => template_reads_secret(template),
+        TemplateValue::List(items) => items.iter().any(reads_secret),
+        TemplateValue::Map(map) => map.iter().any(|(_, item)| reads_secret(item)),
+        TemplateValue::Extend { base, changes, .. } => template_reads_secret(base) || reads_secret(changes),
+        TemplateValue::Null | TemplateValue::Bool(_) | TemplateValue::Number(_) | TemplateValue::Cel(_) => false,
+    }
+}
+
+/// Whether `template` has a `${secret.*}` part.
+fn template_reads_secret(template: &Template) -> bool {
+    template.parts.iter().any(|part| matches!(part, Part::Ref(reference) if reference.ns == Namespace::Secret))
+}
+
 /// How the values are masked.
 struct Masker {
     redactor: Redactor,
-    /// The secrets could not be loaded: mask every value but the built-in ones.
-    blind: bool,
 }
 
 impl Masker {
@@ -119,17 +129,14 @@ impl Masker {
         let field = key.strip_prefix(VARS).unwrap_or(&key).to_owned();
         let mut shown = Vec::with_capacity(layers.len());
         for (value, source) in layers.into_iter().rev() {
-            let value = self.masked(&field, value, &source).await;
+            let value = self.masked(&field, value).await;
             shown.push(ConfigLayer { value, source });
         }
         ConfigValue { key, layers: shown }
     }
 
-    /// `value` as the field `field` set by `source`, masked.
-    async fn masked(&self, field: &str, value: String, source: &str) -> String {
-        if self.blind && source != BUILT_IN {
-            return MASKED.to_owned();
-        }
+    /// `value` as the field `field`, masked.
+    async fn masked(&self, field: &str, value: String) -> String {
         let masked = self.redactor.masked(json!({ field: value })).await;
         match masked.get(field) {
             Some(Value::String(text)) => text.clone(),

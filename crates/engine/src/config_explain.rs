@@ -7,6 +7,7 @@ use std::fmt::Write as _;
 
 use vc_model::{Program, TemplateValue, VarName};
 
+use crate::config_values::shown_unless_secret;
 use crate::explain::{CONFIG, ExplainReport, Explainer, VARS, did_you_mean};
 use crate::settings::KEYS;
 use crate::shown::Shown;
@@ -15,7 +16,7 @@ use crate::{ConfigValue, Engine, EngineError, ExplainRequest, reporting};
 /// The timeout a call has when nothing sets one: the executor's.
 const TIMEOUT: &str = "30s";
 /// Where a built-in value comes from.
-pub const BUILT_IN: &str = "built-in";
+const BUILT_IN: &str = "built-in";
 
 /// What `vibranium.config.yaml` sets a key to, if anything.
 type Written = fn(&Program) -> Option<String>;
@@ -102,7 +103,8 @@ fn var_layers(explainer: &Explainer<'_>, name: &str) -> Vec<Layer> {
         found.push((defined, format!("profile {profile}")));
     }
     let shown = Shown { program, vars: &[] };
-    let mut layers: Vec<Layer> = found.into_iter().filter_map(|(value, at)| Some((shown.value(value?), at))).collect();
+    let mut layers: Vec<Layer> =
+        found.into_iter().filter_map(|(value, at)| Some((shown_unless_secret(&shown, value?), at))).collect();
     layers.extend(entries(explainer, &format!("{VARS}{name}")));
     layers
 }

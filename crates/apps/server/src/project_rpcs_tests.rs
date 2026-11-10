@@ -74,12 +74,15 @@ async fn explain_config_never_sends_a_secret_in_any_layer() {
     let (_dir, api) = project();
     let request = wire::ExplainConfigRequest {
         keys: vec!["vars.note".into(), "vars.SHOP_TOKEN".into()],
-        sets: vec![format!("vars.note=again {SECRET}"), format!("vars.SHOP_TOKEN={SECRET}")],
+        sets: vec!["vars.note=again".into(), format!("vars.SHOP_TOKEN={SECRET}")],
         ..wire::ExplainConfigRequest::default()
     };
     let found = explain_config(api, request).await.unwrap();
     let note = found.values.iter().find(|value| value.key == "vars.note").unwrap();
-    assert_eq!(note.layers.len(), 2, "{found:?}");
+    let shown: Vec<&str> = note.layers.iter().map(|layer| layer.value.as_str()).collect();
+    assert_eq!(shown, ["again", "••••"], "{found:?}");
+    let token = found.values.iter().find(|value| value.key == "vars.SHOP_TOKEN").unwrap();
+    assert!(token.layers.iter().all(|layer| layer.value == "••••"), "{found:?}");
     let bytes = found.encode_to_vec();
     assert!(!bytes.windows(SECRET.len()).any(|window| window == SECRET.as_bytes()));
     assert!(!format!("{found:?}").contains(SECRET));
