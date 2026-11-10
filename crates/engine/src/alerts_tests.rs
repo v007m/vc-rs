@@ -26,6 +26,7 @@ fn run(status: RunStatus, tests: &[(&str, &str, TestStatus)], breaches: &[&str])
         summary,
         tests: tests.iter().map(|(test, tag, status)| ended(test, tag, *status)).collect(),
         breaches: breaches.iter().map(|breach| (*breach).to_owned()).collect(),
+        ran: !tests.is_empty() || !breaches.is_empty(),
         report: None,
     }
 }
@@ -64,6 +65,7 @@ fn each_rule_fires_for_the_first_trigger_it_lists_that_happened() {
         ("a pass after a pass", ALL, run(RunStatus::Passed, PASSED, &[]), passed, None),
         ("a first pass", ALL, run(RunStatus::Passed, PASSED, &[]), None, None),
         ("a cancelled run never recovers", ALL, run(RunStatus::Cancelled, PASSED, &[]), failed, None),
+        ("a run where nothing ran never recovers", ALL, run(RunStatus::Passed, &[], &[]), failed, None),
         ("an unlisted trigger", &[Recovery], run(RunStatus::Failed, FAILED, &[]), passed, None),
         ("nothing listed", &[], run(RunStatus::Failed, FAILED, &[]), failed, None),
     ];

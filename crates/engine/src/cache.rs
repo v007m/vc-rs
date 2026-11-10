@@ -154,10 +154,11 @@ impl Engine {
         let store = self.cache_store(layered.environment.as_ref())?;
         let prepared = unplanned(layered);
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
+        let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment))
             .with_secrets(secrets)
             .with_started_at(self.clock.now_ms());
-        let cx = Arc::new(self.action_cx(&prepared, inputs)?);
+        let cx = Arc::new(self.action_cx(&prepared, (inputs, &plugins))?);
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
         let count = cleared.len();
         Ok((count, Cleaner::new(&cx).clean(cleared).await))

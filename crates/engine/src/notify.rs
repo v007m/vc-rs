@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use vc_diagnostics::Code;
-use vc_interfaces::{Environment, HistoryReader, Notice, NotifierFactory, RunId, RunSummary, Secrets};
-use vc_model::{AlertChannel, CelProgram, Namespace, Program, Reference, RunStatus, Segment};
+use vc_interfaces::{Environment, HistoryReader, Notice, NotifierFactory, RunId, RunRow, RunSummary, Secrets};
+use vc_model::{AlertChannel, CelProgram, Namespace, Program, Reference, RunStatus, Segment, Totals};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
 
 use crate::alerts::{self, Ending, Finished};
@@ -16,6 +16,8 @@ use crate::{Engine, EngineError};
 
 /// How many stored runs are searched for the previous one.
 const LOOKBACK: usize = 50;
+/// The history kind of a `vc run`.
+const RUN: &str = "run";
 
 /// What a run's end needs to send its alerts.
 pub struct Alerting {
@@ -34,8 +36,8 @@ struct Senders {
 }
 
 impl Engine {
-    /// What the end of run `run` of `prepared` sends its alerts with; `None` when the config
-    /// has no `alerts`.
+    /// What the end of history run `run` of `prepared`, of `kind` (`run` or `load`), sends its
+    /// alerts with; `None` when the config has no `alerts`.
     ///
     /// # Errors
     ///
@@ -44,7 +46,7 @@ impl Engine {
         &self,
         prepared: &Prepared,
         secrets: &Secrets,
-        run: u64,
+        (run, kind): (u64, &str),
     ) -> Result<Option<Alerting>, EngineError> {
         let program = Arc::clone(&prepared.program);
         if program.config.alerts.is_empty() {
@@ -53,7 +55,7 @@ impl Engine {
         let factory = self.notifiers(self.transport(prepared.environment.as_ref())?);
         let environment = Arc::clone(&prepared.environment);
         let senders = Senders { factory, secrets: secrets.clone(), environment };
-        let previous = previous(self.history_reader().as_ref(), run, &prepared.names);
+        let previous = previous(self.history_reader().as_ref(), (run, kind), &prepared.names);
         let project = program.config.project.clone().unwrap_or_else(|| folder(self.root()));
         Ok(Some(Alerting { program, project, root: self.root().to_path_buf(), previous, senders }))
     }
@@ -64,11 +66,17 @@ fn folder(root: &Path) -> String {
     root.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
-/// How the last finished `vc run` under the same profiles before run `run` ended.
-fn previous(history: &dyn HistoryReader, run: u64, profiles: &[String]) -> Option<RunStatus> {
+/// How the last finished run of `kind` under the same profiles before run `run` ended. A `vc
+/// run` in which no test ran (exit 2) is passed over: it says nothing about the tests.
+fn previous(history: &dyn HistoryReader, (run, kind): (u64, &str), profiles: &[String]) -> Option<RunStatus> {
     let runs = history.runs(LOOKBACK).ok()?;
-    let earlier = |row: &&vc_interfaces::RunRow| row.id != RunId::new(run) && row.start.kind == "run";
-    runs.iter().filter(earlier).filter(|row| row.start.profiles == profiles).find_map(|row| row.status)
+    let earlier = |row: &&RunRow| row.id != RunId::new(run) && row.start.kind == kind && row.start.profiles == profiles;
+    runs.iter().filter(earlier).filter(|row| kind != RUN || ran(&row.totals)).find_map(|row| row.status)
+}
+
+/// Whether a test ran, rather than none or only skipped ones.
+const fn ran(totals: &Totals) -> bool {
+    totals.passed + totals.failed + totals.blocked + totals.flaky > 0
 }
 
 /// Sends the notices of the rules that fire for `run`, which ended as `ending` says: a
@@ -81,7 +89,8 @@ pub async fn send(alerting: Option<Alerting>, run: RunSummary, ending: Ending) -
         project: alerting.project.clone(),
         summary: run,
         tests: ending.tests,
-        breaches: Vec::new(),
+        breaches: ending.breaches,
+        ran: ending.ran,
         report: report.map(|path| path.to_string_lossy().replace('\\', "/")),
     };
     let mut problems = Vec::new();

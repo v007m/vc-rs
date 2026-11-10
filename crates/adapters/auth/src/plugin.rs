@@ -14,9 +14,12 @@ use crate::token::required;
 /// `plugin`: calls `auth/credentials` on the plugin `plugin` names, with the definition's ID and
 /// its `config`, and applies the `headers`, `query` and `cookies` it returns for `expiresIn`
 /// seconds.
+///
+/// A plugin the run cannot use fails with the reason it was given.
 #[derive(Clone, Default)]
 pub struct PluginAuth {
     plugins: BTreeMap<String, Arc<dyn PluginHost>>,
+    unusable: BTreeMap<String, String>,
 }
 
 impl PluginAuth {
@@ -32,6 +35,22 @@ impl PluginAuth {
         self.plugins.insert(host.manifest().id.clone(), host);
         self
     }
+
+    /// These plugins, with the plugin `id` named as one the run cannot use, for `reason`
+    /// (such as `V5118: its files changed …`).
+    #[must_use]
+    pub fn unusable(mut self, (id, reason): (&str, &str)) -> Self {
+        self.unusable.insert(id.to_owned(), reason.to_owned());
+        self
+    }
+
+    /// The plugin `id`; otherwise why there is none.
+    fn host(&self, id: &str) -> Result<&Arc<dyn PluginHost>, String> {
+        if let Some(reason) = self.unusable.get(id) {
+            return Err(format!("plugin `{id}` cannot be used: {reason}"));
+        }
+        self.plugins.get(id).ok_or_else(|| format!("no auth plugin `{id}` is ready"))
+    }
 }
 
 impl fmt::Debug for PluginAuth {
@@ -45,7 +64,7 @@ impl AuthProvider for PluginAuth {
     async fn credentials(&self, request: &AuthRequest) -> Result<Credentials, AuthError> {
         let id = required(request, "plugin")?;
         let failed = |reason: String| AuthError::Plugin { auth: request.auth.clone(), reason };
-        let host = self.plugins.get(id).ok_or_else(|| failed(format!("no auth plugin `{id}` is ready")))?;
+        let host = self.host(id).map_err(failed)?;
         let config = request.settings.get("config").cloned().unwrap_or(Value::Null);
         let params = json!({"auth": request.auth, "config": config});
         let answer = host.call("auth/credentials", params, CALL_DEADLINE).await.map_err(|e| failed(e.to_string()))?;
@@ -131,5 +150,15 @@ mod tests {
         let error = empty.credentials(&request(&json!({"plugin": "acmeSso"}))).await.unwrap_err();
         assert!(error.to_string().ends_with("returned no headers, query or cookies"), "{error}");
         assert_eq!(format!("{:?}", auth()), r#"{"acmeSso"}"#);
+    }
+
+    #[tokio::test]
+    async fn an_unusable_plugin_fails_with_its_reason() {
+        let auth = auth().unusable(("acmeSso", "V5118: its files changed"));
+        let error = auth.credentials(&request(&json!({"plugin": "acmeSso"}))).await.unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "the `partnerSso` auth plugin failed: plugin `acmeSso` cannot be used: V5118: its files changed"
+        );
     }
 }

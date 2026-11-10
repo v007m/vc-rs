@@ -7,20 +7,24 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use vc_adapter_plugins::StdioPluginHost;
-use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, Secrets};
+use vc_diagnostics::Code;
+use vc_interfaces::{LOCK_FILE, PLUGINS_DIR, PluginHost, PluginKind, Secrets};
 use vc_model::{CelProgram, Program, Reference, TemplateValue};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
 
+use crate::Engine;
 use crate::notify::Steady;
 use crate::plugin_lock::Locked;
 use crate::plugins::{self, PluginState};
-use crate::{Engine, EngineError};
+
+/// The prefix of an integrity the engine can check against an installed folder.
+const FOLDER_HASH: &str = "blake3-";
 
 /// Why a plugin's `config` cannot read a template value.
 const LITERAL_ONLY: &str = "a plugin's `config` takes literal values; the plugin reads a secret with `secrets/get`";
 
 /// The run's plugins: a host for each one it can use, and why each other one cannot be used.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Hosts {
     ready: BTreeMap<String, Arc<dyn PluginHost>>,
     unusable: BTreeMap<String, String>,
@@ -45,6 +49,11 @@ impl Hosts {
         self.ready.values().filter(move |host| host.manifest().kind == kind).cloned()
     }
 
+    /// Each plugin the run cannot use, and why.
+    pub fn unusable(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.unusable.iter().map(|(id, reason)| (id.as_str(), reason.as_str()))
+    }
+
     /// One line for each plugin the run cannot use, and why.
     pub fn notices(&self) -> Vec<String> {
         self.unusable.iter().map(|(id, reason)| format!("plugin `{id}`: {reason}")).collect()
@@ -53,40 +62,54 @@ impl Hosts {
 
 impl Engine {
     /// The hosts of `program`'s plugins, each able to read those of `secrets` that its manifest
-    /// declares and the lock grants.
-    ///
-    /// # Errors
-    ///
-    /// [`EngineError::Edit`] when `vibranium.lock` is not valid, and [`EngineError::Sources`]
-    /// when it or a manifest cannot be read.
-    pub(crate) fn plugin_hosts(&self, program: &Program, secrets: &Secrets) -> Result<Hosts, EngineError> {
+    /// declares and the lock grants. A lock or manifest that cannot be read, or installed files
+    /// that no longer match the lock, make the plugins it concerns unusable, with the reason.
+    pub(crate) fn plugin_hosts(&self, program: &Program, secrets: &Secrets) -> Hosts {
         let mut hosts = Hosts::default();
         if program.config.plugins.is_empty() {
-            return Ok(hosts);
+            return hosts;
         }
-        let (_, locked) = self.locked()?;
+        let locked = self.locked().map(|(_, locked)| locked).map_err(|error| error.to_string());
         for plugin in &program.config.plugins {
             let id = program.str(plugin.id).unwrap_or_default().to_owned();
-            let lock = locked.iter().find(|entry| entry.id == id);
-            let host = self.host(&id, lock)?.and_then(|host| Ok(host.config(literal(plugin.config.as_ref())?)));
+            let host = locked
+                .as_ref()
+                .map_err(Clone::clone)
+                .and_then(|locked| self.host(&id, locked.iter().find(|entry| entry.id == id)))
+                .and_then(|host| Ok(host.config(literal(plugin.config.as_ref())?)));
             match host {
                 Ok(host) => drop(hosts.ready.insert(id, Arc::new(host.secrets(secrets)))),
                 Err(reason) => drop(hosts.unusable.insert(id, reason)),
             }
         }
-        Ok(hosts)
+        hosts
     }
 
     /// The host of the installed plugin `id`, allowed what `lock` grants; otherwise why the run
     /// cannot use it.
-    fn host(&self, id: &str, lock: Option<&Locked>) -> Result<Result<StdioPluginHost, String>, EngineError> {
-        let manifest = self.installed(id)?;
+    fn host(&self, id: &str, lock: Option<&Locked>) -> Result<StdioPluginHost, String> {
+        let manifest = self.installed(id).map_err(|error| error.to_string())?;
         let state = plugins::state(true, lock, manifest.as_ref());
         let (PluginState::Ready, Some(lock), Some(manifest)) = (&state, lock, manifest) else {
-            return Ok(Err(state.to_string()));
+            return Err(state.to_string());
         };
+        self.intact(id, lock)?;
         let dir = self.root().join(PLUGINS_DIR).join(id);
-        Ok(Ok(StdioPluginHost::new(manifest, dir, lock.permissions.clone())))
+        Ok(StdioPluginHost::new(manifest, dir, lock.permissions.clone()))
+    }
+
+    /// Whether the installed files of plugin `id` still hash to the `blake3-…` integrity `lock`
+    /// approved. An npm install's `sha512-…` is the tarball's, which the unpacked folder cannot
+    /// reproduce, so it is checked when `vc plugin add` fetches it, not here.
+    fn intact(&self, id: &str, lock: &Locked) -> Result<(), String> {
+        if !lock.integrity.starts_with(FOLDER_HASH) {
+            return Ok(());
+        }
+        let found = self.plugins.integrity(id).map_err(|error| error.to_string())?;
+        if found.as_deref() == Some(lock.integrity.as_str()) {
+            return Ok(());
+        }
+        Err(format!("{}: its files changed since {LOCK_FILE} approved them: `vc plugin add` it again", Code::V5118))
     }
 }
 

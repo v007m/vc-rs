@@ -184,7 +184,7 @@ fn an_unknown_plugin_is_refused_with_the_close_one() {
 /// The hosts a run of the project gets.
 fn hosts(engine: &Engine) -> Hosts {
     let (program, _) = engine.program().unwrap();
-    engine.plugin_hosts(&program, &Secrets::new()).unwrap()
+    engine.plugin_hosts(&program, &Secrets::new())
 }
 
 #[test]

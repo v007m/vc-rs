@@ -77,7 +77,7 @@ The host answers `secrets/get` only for a secret that the manifest declares, the
 | −32601 | Method not found |
 | −32603 | Internal error (also used for an error object without a code) |
 
-Every plugin failure is V5118 and names the plugin, the method and the JSON-RPC code. A reporter plugin's failure becomes a run notice, and the plugin gets no more events; an auth plugin's failure fails the requests that use it, as V5114 like any other auth failure. A plugin the run cannot use (not installed, not approved, asking for more than the lock grants, or with a `${…}` in its `config`) is named in a run notice with the `vc plugin` command that fixes it.
+Every plugin failure is V5118 and names the plugin, the method and the JSON-RPC code. A reporter plugin's failure becomes a run notice, and the plugin gets no more events; an auth plugin's failure fails the requests that use it, as V5114 like any other auth failure. A plugin the run cannot use (not installed, not approved, asking for more than the lock grants, with files changed since the lock approved them, or with a `${…}` in its `config`) is named in a run notice with the `vc plugin` command that fixes it, and an auth that names it fails with that reason.
 
 ## Using a plugin
 

@@ -58,9 +58,10 @@ impl Engine {
         let mut notices = std::mem::take(&mut prepared.notices);
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
         let run_id = recording.as_ref().map_or(0, |recording| recording.id().get());
+        let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let inputs = run::inputs(&prepared, ports::random(None).1, run_id);
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
-        let cx = Arc::new(self.action_cx(&prepared, inputs)?);
+        let cx = Arc::new(self.action_cx(&prepared, (inputs, &plugins))?);
         let mut sent = ActionRequest::cleanup(&cx, action, &Arc::new(Saved::new()));
         sent.frame = Frame::default();
         sent.frame.saved = Arc::new(given);

@@ -10,13 +10,15 @@ use vc_executor::{
     MaskRules, PipelineParts, RunHandle, RunInputs, RunOptions,
 };
 use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Transport};
-use vc_model::{Feed, Part, Template, TemplateValue};
+use vc_model::{Feed, Part, RunStatus, Template, TemplateValue, Totals};
 
 use crate::agent_gate::run_call;
 use crate::cache::Sweep;
+use crate::notify::Alerting;
 use crate::plan::{Extra, Prepared};
 use crate::plugin_hosts::Hosts;
 use crate::reporting::{self, Reporters, Setup};
+use crate::run_feed::Watching;
 use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify, ports};
 
 /// Room for this many events between the bus and the reporters before they miss some.
@@ -25,6 +27,8 @@ const FEED: usize = 65_536;
 pub const CONCURRENCY: u32 = 16;
 /// Requests at once to one host, when neither a layer nor the config says.
 pub const PER_HOST: u32 = 8;
+/// The exit code of an error inside Vibranium (D127).
+const EXIT_INTERNAL: u8 = 70;
 
 /// How a run ended.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,7 +66,8 @@ impl Engine {
         Ok(report)
     }
 
-    /// Executes the admitted plan with its secrets and reporters, and gathers its report.
+    /// Executes the admitted plan with its secrets and reporters, and gathers its report. A
+    /// run the executor fails still finishes its reporters and its watch before the error.
     async fn execute(
         &self,
         request: &RunRequest,
@@ -70,13 +75,13 @@ impl Engine {
         interrupts: &mut Interrupts,
     ) -> Result<RunReport, EngineError> {
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
-        let plugins = self.plugin_hosts(&prepared.program, &secrets)?;
+        let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let (seed, random) = ports::random(request.seed);
-        let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins))?;
+        let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone()))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
-        let alerting = self.alerting(&prepared, &secrets, run_id)?;
+        let alerting = self.alerting(&prepared, &secrets, (run_id, "run"))?;
         let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
-        let (executor, sweep) = self.executor(&prepared, inputs, request).await?;
+        let (executor, sweep) = self.executor(&prepared, (inputs, &plugins), request).await?;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
@@ -85,22 +90,15 @@ impl Engine {
         bus.flush().await;
         fanout.drain().await;
         let swept = sweep.finish(interrupts).await;
-        let summary = ran?;
+        let failed = |_: &EngineError| (RunStatus::Failed, Totals::default());
+        let (status, totals) = ran.as_ref().map_or_else(failed, |ran| (ran.status, ran.totals));
         let elapsed = Duration::from_millis(self.clock.now_ms().saturating_sub(started));
-        let run =
-            RunSummary::new(summary.status, summary.totals).timed(started, elapsed).profiles(prepared.names.clone());
+        let run = RunSummary::new(status, totals).timed(started, elapsed).profiles(prepared.names.clone());
         let mut notices = prepared.notices;
         notices.extend(unrecorded);
         notices.extend(swept);
-        let (problems, ending) = fanout.reporters.finish(run.clone()).await;
-        notices.extend(problems);
-        notices.extend(notify::send(alerting, run, ending).await);
-        let exit = vc_executor::exit_code(summary);
-        let report = RunReport { exit, seed, notices, run: Some(run_id).filter(|id| *id > 0) };
-        if let Some(watching) = watching {
-            watching.finish(report.clone());
-        }
-        Ok(report)
+        let closing = Closing { seed, run: Some(run_id).filter(|id| *id > 0), notices, alerting, watching };
+        close(fanout.reporters, closing, (ran, run)).await
     }
 
     /// The reporters `request` chooses, the reporter plugins among `plugins`, recording into the
@@ -135,32 +133,35 @@ impl Engine {
         Ok((Reporters::create(chosen, setup, recording.ok())?, notices))
     }
 
-    /// The executor for `prepared` with `inputs`, keeping `cache:`d results in the cross-run
+    /// The executor for `prepared` with the inputs and plugins `given`, keeping `cache:`d results in the cross-run
     /// cache unless `request` says `--no-cache`, and what the cache leaves for the run's end.
     async fn executor(
         &self,
         prepared: &Prepared,
-        inputs: RunInputs,
+        given: (RunInputs, &Hosts),
         request: &RunRequest,
     ) -> Result<(Executor, Sweep), EngineError> {
         let (settings, defaults) = (&prepared.settings, &prepared.program.config.defaults);
         let concurrency = settings.concurrency.or(defaults.concurrency).unwrap_or(CONCURRENCY);
-        let cx = self.action_cx(prepared, inputs)?;
+        let cx = self.action_cx(prepared, given)?;
         let sweep = if request.no_cache { Sweep::off(cx, Vec::new()) } else { self.cached(cx, prepared).await };
         let options = RunOptions { concurrency: widen(concurrency), bail: request.bail, ..RunOptions::default() };
         Ok((Executor::new(sweep.cx(), options), sweep))
     }
 
     /// What the actions of `prepared` share with `inputs`: the action executors and the auth
-    /// types over one transport, its auth plugins reading `inputs`' secrets, and events masked
-    /// by the config's redact rules (a `function:` rule through the hook runner). Every run,
-    /// call and cache cleanup starts from it.
-    pub(crate) fn action_cx(&self, prepared: &Prepared, inputs: RunInputs) -> Result<ActionCx, EngineError> {
+    /// types over one transport, the auth plugins among `plugins` (the run's, built once from
+    /// `inputs`' secrets), and events masked by the config's redact rules (a `function:` rule
+    /// through the hook runner). Every run, call and cache cleanup starts from it.
+    pub(crate) fn action_cx(
+        &self,
+        prepared: &Prepared,
+        (inputs, plugins): (RunInputs, &Hosts),
+    ) -> Result<ActionCx, EngineError> {
         let hooks = self.hook_runner(&prepared.program);
         let rules = MaskRules::standard().with_hooks(hooks.clone(), &prepared.program);
         let transport = self.transport(prepared.environment.as_ref())?;
-        let plugins = self.plugin_hosts(&prepared.program, &inputs.secrets)?;
-        let auth = self.auth(Arc::clone(&transport), &plugins);
+        let auth = self.auth(Arc::clone(&transport), plugins);
         let executors = self.executors(prepared, transport, hooks);
         Ok(ActionCx::new(Arc::clone(&prepared.program), executors, inputs).with_mask_rules(&rules).with_auth(auth))
     }
@@ -211,6 +212,45 @@ fn flags(request: &RunRequest) -> Vec<ConfigEntry> {
         flags.push(ConfigEntry::new("reports.dir", out.to_string_lossy(), "--out"));
     }
     flags
+}
+
+/// What a run's end needs besides its reporters: the seed, the history run, the notices so
+/// far, the alerts and the watch.
+struct Closing {
+    seed: u64,
+    run: Option<u64>,
+    notices: Vec<String>,
+    alerting: Option<Alerting>,
+    watching: Option<Watching>,
+}
+
+/// Finishes `reporters` with `run`, then, when the executor `ran` the plan, sends the alerts and
+/// gives the report; otherwise gives the executor's error. The watch gets `Done` either way.
+async fn close(
+    reporters: Reporters,
+    closing: Closing,
+    (ran, run): (Result<vc_executor::RunSummary, EngineError>, RunSummary),
+) -> Result<RunReport, EngineError> {
+    let Closing { seed, run: id, mut notices, alerting, watching } = closing;
+    let (problems, ending) = reporters.finish(run.clone()).await;
+    notices.extend(problems);
+    let ran = match ran {
+        Ok(ran) => ran,
+        Err(error) => {
+            notices.push(error.to_string());
+            let exit = if error.is_internal() { EXIT_INTERNAL } else { vc_executor::EXIT_NOTHING_RAN };
+            if let Some(watching) = watching {
+                watching.finish(RunReport { exit, seed, notices, run: id });
+            }
+            return Err(error);
+        }
+    };
+    notices.extend(notify::send(alerting, run, ending).await);
+    let report = RunReport { exit: vc_executor::exit_code(ran), seed, notices, run: id };
+    if let Some(watching) = watching {
+        watching.finish(report.clone());
+    }
+    Ok(report)
 }
 
 /// The run's event feed and the reporters it fans out to.
