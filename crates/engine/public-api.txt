@@ -643,6 +643,8 @@ pub vc_engine::Listed::name: core::option::Option<alloc::string::String>
 pub vc_engine::Listed::path: alloc::string::String
 pub vc_engine::Listed::skipped: bool
 pub vc_engine::Listed::tags: alloc::vec::Vec<alloc::string::String>
+impl vc_engine::Listed
+pub fn vc_engine::Listed::kind(&self) -> core::option::Option<vc_model::source::FileKind>
 impl core::clone::Clone for vc_engine::Listed
 pub fn vc_engine::Listed::clone(&self) -> Self
 impl core::cmp::Eq for vc_engine::Listed
@@ -998,5 +1000,6 @@ impl core::marker::StructuralPartialEq for vc_engine::WriteRequest
 pub const vc_engine::APPROVAL_WAIT: core::time::Duration
 pub const vc_engine::INIT_FOLDERS: [&str; 5]
 pub fn vc_engine::auth_fields(&str) -> &'static [&'static str]
+pub fn vc_engine::instance_label(&vc_interfaces::history::TestRow) -> alloc::string::String
 pub fn vc_engine::interrupts() -> (vc_engine::Interrupter, vc_engine::Interrupts)
 pub fn vc_engine::started(u64) -> alloc::string::String
