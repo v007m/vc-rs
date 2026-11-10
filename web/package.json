@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "build:report": "vite build --config vite.report.config.ts",
+    "build:report": "svelte-kit sync && vite build --config vite.report.config.ts",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "lint": "prettier --check . && eslint .",
