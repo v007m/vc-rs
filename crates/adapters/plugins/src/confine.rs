@@ -61,6 +61,20 @@ pub struct Policy {
     pub network: bool,
 }
 
+#[cfg(test)]
+impl Policy {
+    /// A policy for the platform tests: `root` closed but for `read`, which it may read, and
+    /// `write`, which it may write; no network.
+    pub fn closed(root: &Path, read: &Path, write: &Path) -> Self {
+        Self {
+            root: root.to_path_buf(),
+            read: vec![read.to_path_buf()],
+            write: vec![write.to_path_buf()],
+            network: false,
+        }
+    }
+}
+
 impl Policy {
     /// The policy of a plugin installed in `dir` in the project at `root`, asking for
     /// `permissions`; why not when a file it names is not a path inside the project.

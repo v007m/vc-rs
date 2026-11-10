@@ -5,15 +5,6 @@ use std::process::Command;
 use super::{confine, entry, outside};
 use crate::confine::{LAUNCHER_ARG, Policy};
 
-fn policy(root: &Path, read: &Path, write: &Path) -> Policy {
-    Policy {
-        root: root.to_path_buf(),
-        read: vec![read.to_path_buf()],
-        write: vec![write.to_path_buf()],
-        network: false,
-    }
-}
-
 /// Whether the kernel enforces Landlock here; the tests that rely on it skip otherwise.
 fn landlock() -> bool {
     std::fs::read_to_string("/sys/kernel/security/lsm")
@@ -22,7 +13,7 @@ fn landlock() -> bool {
 
 #[test]
 fn the_launcher_runs_the_plugin_with_the_policy_as_json() {
-    let policy = policy(Path::new("/p"), Path::new("/p/.vibranium/plugins/a"), Path::new("/tmp"));
+    let policy = Policy::closed(Path::new("/p"), Path::new("/p/.vibranium/plugins/a"), Path::new("/tmp"));
     let plugin = (PathBuf::from("python3"), vec![OsString::from("main.py")]);
     let (program, args) = entry(&policy, Some(Path::new("/usr/bin/vc")), plugin.clone()).unwrap();
     assert_eq!(program, PathBuf::from("/usr/bin/vc"));
@@ -58,7 +49,7 @@ fn a_confined_process_reads_and_writes_only_what_its_policy_opens() {
     }
     std::fs::write(root.join("secret.txt"), "s3cr3t").unwrap();
     std::fs::write(plugin.join("main.sh"), "echo plugin").unwrap();
-    let policy = policy(&root, &plugin, &data);
+    let policy = Policy::closed(&root, &plugin, &data);
     let script = "cat plugin/main.sh && echo ok > data/out.txt; cat secret.txt; echo no > leaked.txt";
     let ran = std::thread::scope(|scope| {
         scope
