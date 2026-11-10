@@ -92,9 +92,20 @@ impl Driver {
         self.running.as_ref().is_some_and(|running| !running.task.is_finished())
     }
 
+    /// When a run or load run is in progress, sends back `refused` with why and is `true`: a
+    /// tab that asked for one is never left waiting on it.
+    fn refused(&self, refused: fn(String) -> Update) -> bool {
+        if !self.busy() {
+            return false;
+        }
+        let updates = self.updates.clone();
+        tokio::spawn(async move { updates.send(refused(BUSY.to_owned())).await.ok() });
+        true
+    }
+
     /// Starts a watched run, unless a run or load run is in progress.
     fn start(&mut self, mut request: RunRequest) {
-        if self.busy() {
+        if self.refused(Update::RunFailed) {
             return;
         }
         let (watch, feed) = mpsc::channel(FEED);
@@ -113,14 +124,12 @@ impl Driver {
 
     /// Starts a load run with its seconds watched, unless a run or load run is in progress.
     fn load(&mut self, request: LoadRequest) {
-        let updates = self.updates.clone();
-        if self.busy() {
-            tokio::spawn(async move { updates.send(Update::LoadFailed(BUSY.to_owned())).await.ok() });
+        if self.refused(Update::LoadFailed) {
             return;
         }
         let (ticks, heard) = mpsc::channel(TICKS);
         let (interrupter, interrupts) = interrupts();
-        let engine = Arc::clone(&self.engine);
+        let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
         let task = tokio::spawn(async move {
             let load = async move { engine.load(&request, LoadWatch { interrupts, ticks: Some(ticks) }).await };
             let (loaded, ()) = tokio::join!(load, forward(heard, &updates, Update::Load));
@@ -218,3 +227,7 @@ async fn forward<T>(mut feed: Receiver<T>, updates: &Sender<Update>, wrap: fn(T)
         }
     }
 }
+
+#[cfg(test)]
+#[path = "driver_tests.rs"]
+mod tests;
