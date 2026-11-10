@@ -1083,7 +1083,7 @@ auth:
     expiresIn: ${var.expiresIn}s
 ```
 
-The same definition serves every profile: under `--profile prod` it logs in to `id.shop.example` as tenant `acme`. Within a run the flow runs once for each set of `vars`, before the first request that needs it, and again when it expires or a response matches `refreshOn`; tests that need it at the same moment wait for that one login. If a step fails, every call that uses it fails with V5114, naming the step and its code but not its request or response. A refused login is kept for the run, so tests don't each retry it and lock the account; a failure that may pass (network, timeout, 429, 5xx) is not, and the next request tries again. Credentials, and the token after a scheme such as `Bearer`, are redacted in all output from the moment they arrive.
+The same definition serves every profile: under `--profile prod` it logs in to `id.shop.example` as tenant `acme`. Within a run the flow runs once for each set of `vars`, before the first request that needs it, and again when it expires or a response matches `refreshOn`; tests that need it at the same moment wait for that one login. If a step fails, every call that uses it fails with V5114, naming the step and its code but not its request or response. A failed flow login is kept for the run, so tests don't each retry it and lock the account. Only the built-in token types (`oauth2*`) drop a failure that may pass (network, timeout, 429, 5xx), so the next request tries again; a refusal (400, 401, 403) is kept there too. Credentials, and the token after a scheme such as `Bearer`, are redacted in all output from the moment they arrive.
 
 ## Secrets
 
