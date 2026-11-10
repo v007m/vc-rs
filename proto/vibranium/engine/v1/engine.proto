@@ -40,6 +40,8 @@ service EngineService {
   rpc GetRun(GetRunRequest) returns (GetRunResponse);
   // Each test's results over the last runs, as `vc history --trends` reports them.
   rpc Trends(TrendsRequest) returns (TrendsResponse);
+  // Each setting's value and the layers it replaced, as `vc config explain` shows them, masked.
+  rpc ExplainConfig(ExplainConfigRequest) returns (ExplainConfigResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -420,4 +422,32 @@ message TestTrend {
 
 message TrendsResponse {
   repeated TestTrend trends = 1;
+}
+
+message ExplainConfigRequest {
+  // `defaults.timeout`, `vars.baseUrl`; every setting and every var a layer sets when empty.
+  repeated string keys = 1;
+  // As `--profile`; the default profiles when empty.
+  repeated string profiles = 2;
+  // As `--set key=value`.
+  repeated string sets = 3;
+}
+
+// One value a key was set to. A secret's value is `••••` wherever it appears.
+message ConfigLayer {
+  string value = 1;
+  // As `vc config explain` names it: `built-in`, `vibranium.config.yaml`, `profile dev`, `.env`,
+  // `VIB_X`, `--set`.
+  string source = 2;
+}
+
+message ConfigValue {
+  string key = 1;
+  // The value in force first, then each it replaced, latest first.
+  repeated ConfigLayer layers = 2;
+}
+
+message ExplainConfigResponse {
+  repeated ConfigValue values = 1;
+  repeated string notices = 2;
 }

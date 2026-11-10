@@ -762,6 +762,43 @@ pub struct TrendsResponse {
     #[prost(message, repeated, tag="1")]
     pub trends: ::prost::alloc::vec::Vec<TestTrend>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExplainConfigRequest {
+    /// `defaults.timeout`, `vars.baseUrl`; every setting and every var a layer sets when empty.
+    #[prost(string, repeated, tag="1")]
+    pub keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// As `--profile`; the default profiles when empty.
+    #[prost(string, repeated, tag="2")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// As `--set key=value`.
+    #[prost(string, repeated, tag="3")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// One value a key was set to. A secret's value is `••••` wherever it appears.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConfigLayer {
+    #[prost(string, tag="1")]
+    pub value: ::prost::alloc::string::String,
+    /// As `vc config explain` names it: `built-in`, `vibranium.config.yaml`, `profile dev`, `.env`,
+    /// `VIB_X`, `--set`.
+    #[prost(string, tag="2")]
+    pub source: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ConfigValue {
+    #[prost(string, tag="1")]
+    pub key: ::prost::alloc::string::String,
+    /// The value in force first, then each it replaced, latest first.
+    #[prost(message, repeated, tag="2")]
+    pub layers: ::prost::alloc::vec::Vec<ConfigLayer>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExplainConfigResponse {
+    #[prost(message, repeated, tag="1")]
+    pub values: ::prost::alloc::vec::Vec<ConfigValue>,
+    #[prost(string, repeated, tag="2")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
