@@ -5195,6 +5195,7 @@ name = "vc-adapter-importers"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "futures-util",
  "har",
  "indexmap 2.14.2",
  "oas3",

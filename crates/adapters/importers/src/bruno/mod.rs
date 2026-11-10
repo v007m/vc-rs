@@ -10,12 +10,16 @@ mod folder;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures_util::{StreamExt, TryStreamExt, stream};
 use indexmap::IndexMap;
 use vc_interfaces::{ImportDraft, ImportError, ImportNote, ImportOptions, ImportSource, Importer, SpecFetcher};
 
 use collection::{Collection, Environment};
 
 use crate::collected::{self, Values};
+
+/// How many of a collection folder's files are read at once.
+const READS: usize = 8;
 
 /// Reads a Bruno collection, its folder (with its `bruno.json`) or the collection exported from
 /// Bruno as JSON, into draft api files, one per origin its URLs name. Both draft the same.
@@ -51,17 +55,21 @@ impl BrunoImporter {
         self.folder(&source.location, &listed).await
     }
 
-    /// The collection in the folder at `location`, from the files of `listed` it is read from.
+    /// The collection in the folder at `location`, from the files of `listed` it is read from,
+    /// a few read at a time.
     async fn folder(&self, location: &str, listed: &[String]) -> Result<Collection, String> {
-        let mut files = Vec::new();
-        for path in listed.iter().filter(|path| folder::reads(path)) {
-            let at =
-                if location.is_empty() { path.clone() } else { format!("{}/{path}", location.trim_end_matches('/')) };
-            let bytes = self.fetcher.fetch(&at).await.map_err(|error| error.to_string())?;
-            let text = String::from_utf8(bytes).map_err(|_| format!("{path} is not UTF-8 text"))?;
-            files.push((path.clone(), text));
-        }
+        let reads: Vec<String> = listed.iter().filter(|path| folder::reads(path)).cloned().collect();
+        let reads = stream::iter(reads).map(|path| self.file(location, path));
+        let files: Vec<_> = reads.buffered(READS).try_collect().await?;
         folder::collection(&files)
+    }
+
+    /// The path and text of the file at `path` in the folder at `location`.
+    async fn file(&self, location: &str, path: String) -> Result<(String, String), String> {
+        let at = if location.is_empty() { path.clone() } else { format!("{}/{path}", location.trim_end_matches('/')) };
+        let bytes = self.fetcher.fetch(&at).await.map_err(|error| error.to_string())?;
+        let text = String::from_utf8(bytes).map_err(|_| format!("{path} is not UTF-8 text"))?;
+        Ok((path, text))
     }
 }
 

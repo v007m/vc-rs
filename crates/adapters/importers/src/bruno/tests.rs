@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -120,6 +121,42 @@ async fn an_empty_file_or_folder_is_invalid_as_empty() {
         let read = importer(&FOLDER).read(&folder(location), &opts).await;
         assert_eq!(read, Err(ImportError::Invalid { location: location.to_owned(), reason: empty.to_owned() }));
     }
+}
+
+/// The folder, counting the most files it is asked for at once.
+#[derive(Default)]
+struct Counted {
+    at_once: AtomicUsize,
+    most: AtomicUsize,
+}
+
+#[async_trait]
+impl SpecFetcher for Counted {
+    async fn fetch(&self, location: &str) -> Result<Vec<u8>, FetchError> {
+        let now = self.at_once.fetch_add(1, Ordering::SeqCst) + 1;
+        self.most.fetch_max(now, Ordering::SeqCst);
+        tokio::task::yield_now().await;
+        self.at_once.fetch_sub(1, Ordering::SeqCst);
+        Folder(FOLDER.to_vec()).fetch(location).await
+    }
+
+    async fn list(&self, folder: &str) -> Result<Vec<String>, FetchError> {
+        Folder(FOLDER.to_vec()).list(folder).await
+    }
+
+    fn decode(&self, location: &str, bytes: &[u8]) -> Result<Value, FetchError> {
+        Folder(Vec::new()).decode(location, bytes)
+    }
+}
+
+#[tokio::test]
+async fn a_collection_folder_reads_several_files_at_once_in_order() {
+    let counted = Arc::new(Counted::default());
+    let opts = ImportOptions { file_id: "shop".to_owned(), ..ImportOptions::default() };
+    let read =
+        BrunoImporter::new(Arc::clone(&counted) as Arc<dyn SpecFetcher>).read(&folder("bruno/shop"), &opts).await;
+    assert_eq!(read, importer(&FOLDER).read(&folder("bruno/shop"), &opts).await);
+    assert_eq!(counted.most.load(Ordering::SeqCst), 8);
 }
 
 #[tokio::test]
