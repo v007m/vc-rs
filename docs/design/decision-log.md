@@ -439,6 +439,19 @@ Round 36 additions (10 November 2026, M9 lane C: the Connect layer, the local we
 | D236 | All runs by default (orchestrator; Sarath away) | `ListRuns` with limit 0 returns every stored run | — |
 | D237 | Imports are pasted text only (orchestrator; Sarath away) | `Import` reads only the text the request carries, never a URL or a path; its source is named `pasted`, so relative references resolve from the project root. The snapshot's name follows D230 | — |
 
+Round 37 additions (10 November 2026, Sarath's answers to the questions parked during M8 and M9):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D238 | Two more duplicate crates (Sarath) | deny.toml's `[bans]` skip list adds `compact_str@0.9` (ratatui-core 0.1, `vc tui`) and `itertools@0.14` (ratatui 0.30 and prost-derive 0.14 cap it there; oxc is on 0.15), each with its reason. `multiple-versions = "deny"` stays | — |
+| D239 | Two tokens for `vc ui` (Sarath; a security fix) | Each `vc ui` process makes a launch token and a separate agent token, both 256-bit CSPRNG values compared in constant time. The agent token is accepted only on `/mcp`, as `Authorization: Bearer`; `/api` accepts only the browser's session cookie, so a Bearer token on `/api` is 401 and an agent cannot reach `DecideApproval`, `WriteFile`, `Import`, `Run` or any other `EngineService` call. The agent token is shown in the web UI's Connect panel and printed in a second stdout line, `vc ui: mcp http://127.0.0.1:<port>/mcp token …`; like the launch token it appears in no log, error, report or history | D222 (Bearer on `/api`), D225 (the launch token on `/mcp`) |
+| D240 | The session cookie (Sarath) | The launch link `GET /?token=…` works once: it is exchanged for a fresh 256-bit session token in the cookie `vc_token_<port>` (`HttpOnly; SameSite=Strict; Path=/`), so two `vc ui` processes on different ports keep separate sessions, and the launch token is dead after that. Opening a used launch link is 401 with a hint to use the open tab or restart `vc ui`. The Vite dev proxy makes the exchange itself with `VC_UI_TOKEN` and forwards the cookie | D222 (the `vc_token` cookie holding the reusable launch token) |
+| D241 | Who a `vc ui` request is (Sarath) | A request on `/api`, which carries the session cookie, is the person at the browser: it skips the profiles' agent policy and is not written to the agent log. A request on `/mcp`, which carries the agent token, always goes through the agent policy and the agent log, as `vc mcp` does (D178, D195, D197) | D233 |
+| D242 | Earlier defaults confirmed (Sarath) | D227 (the editor's save guard: unguarded saves, digest check) and D232 (`vc config explain` masks secrets, and masks everything but the built-in values when the secrets cannot be loaded) stay as written | — |
+| D243 | Connect stays binary-only (Sarath) | D221 holds: no JSON bodies, and pbjson stays parked, since it would bring duplicate `base64` and `itertools` versions | — |
+| D244 | Plugin permissions are declared, not enforced (Sarath) | A plugin's permissions are declared in its manifest and shown at install. The OS does not enforce them in v2.0; Landlock or Seatbelt sandboxing is parked, because `unsafe_code = "forbid"` needs a `pre_exec` or re-exec launcher and Landlock cannot filter hosts | — |
+| D245 | The batch after M9 (Sarath) | The next batch takes M10 plus three parked groups: the TUI follow-ups with inline editing in Explore (A5), the notifier extras (an email notifier, `vc alerts test`, the `blocked` alert trigger), and the M9b mockup extras (ad-hoc editing in Client with save to the api, the timing waterfall, more Insights, an editable Settings form). A dark theme and the mockups' fonts stay parked | — |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).
