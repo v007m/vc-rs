@@ -1,8 +1,9 @@
 //! The check in front of every route. A request must name this server in `Host` (no DNS
-//! rebinding), must not come from another site's page (`Origin`), and must carry the token in the
-//! `vc_token` cookie or as a bearer token. The opened URL's `GET /?token=…` trades the token for
-//! the cookie and redirects to a URL without it. There is no CORS, and every response carries the
-//! security headers.
+//! rebinding), must not come from another site's page (`Origin`), and must carry the session
+//! secret in the `vc_token` cookie or the launch token as a bearer token, never one for the
+//! other. The opened URL's `GET /?token=…` trades the token for the cookie and redirects to a URL
+//! without it. A write the cookie alone signs in must also say it comes from this server's page
+//! (`Origin`). There is no CORS, and every response carries the security headers.
 
 use std::sync::Arc;
 
@@ -13,7 +14,7 @@ use axum::response::{IntoResponse, Response};
 
 use crate::token::Token;
 
-/// The cookie that carries the token after sign-in.
+/// The cookie that carries the session secret after sign-in.
 const COOKIE: &str = "vc_token";
 
 /// The query key of the launch URL.
@@ -53,8 +54,23 @@ impl Guard {
         match query_token(uri) {
             Some(given) if method == Method::GET && uri.path() == "/" => self.sign_in(given),
             Some(_) => Verdict::Refuse(StatusCode::BAD_REQUEST, "the token goes only in the launch URL"),
-            None if self.carried(headers) => Verdict::Pass,
-            None => Verdict::Refuse(StatusCode::UNAUTHORIZED, "open the URL `vc ui` printed to sign in"),
+            None => self.authorized(method, headers),
+        }
+    }
+
+    /// Passes the launch token as a bearer token, or the session secret in the cookie; a write
+    /// the cookie alone signs in must carry `Origin`, which [`Self::verdict`] has checked is ours.
+    fn authorized(&self, method: &Method, headers: &HeaderMap) -> Verdict {
+        if bearer_token(headers).is_some_and(|given| self.token.matches(given)) {
+            return Verdict::Pass;
+        }
+        if !cookie_tokens(headers).any(|given| self.token.session_matches(given)) {
+            return Verdict::Refuse(StatusCode::UNAUTHORIZED, "open the URL `vc ui` printed to sign in");
+        }
+        if method.is_safe() || headers.contains_key(header::ORIGIN) {
+            Verdict::Pass
+        } else {
+            Verdict::Refuse(StatusCode::FORBIDDEN, "a write from the browser must say where it comes from (Origin)")
         }
     }
 
@@ -79,14 +95,10 @@ impl Guard {
         })
     }
 
-    fn carried(&self, headers: &HeaderMap) -> bool {
-        cookie_tokens(headers).chain(bearer_token(headers)).any(|given| self.token.matches(given))
-    }
-
     /// The `Set-Cookie` value that signs the browser in. `Secure` is left out on purpose: the
     /// server speaks plain HTTP on loopback, where a `Secure` cookie would never be sent back.
     fn cookie(&self) -> Option<HeaderValue> {
-        let text = format!("{COOKIE}={}; Path=/; HttpOnly; SameSite=Strict", self.token.expose());
+        let text = format!("{COOKIE}={}; Path=/; HttpOnly; SameSite=Strict", self.token.session());
         let mut value = HeaderValue::from_str(&text).ok()?;
         value.set_sensitive(true);
         Some(value)

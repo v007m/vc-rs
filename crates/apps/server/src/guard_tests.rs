@@ -52,7 +52,8 @@ async fn the_launch_url_sets_the_cookie_and_redirects_without_the_token() {
     assert_eq!(reply.status, StatusCode::SEE_OTHER);
     assert_eq!(reply.headers[header::LOCATION], "/");
     let cookie = reply.headers[header::SET_COOKIE].to_str().unwrap();
-    assert_eq!(cookie, format!("vc_token={}; Path=/; HttpOnly; SameSite=Strict", token.expose()));
+    assert_eq!(cookie, format!("vc_token={}; Path=/; HttpOnly; SameSite=Strict", token.session()));
+    assert_ne!(token.session(), token.expose());
     assert!(reply.headers[header::SET_COOKIE].is_sensitive());
 }
 
@@ -81,7 +82,7 @@ async fn the_token_in_any_other_url_is_refused() {
 #[tokio::test]
 async fn the_cookie_or_a_bearer_token_lets_a_request_through() {
     let token = token();
-    let cookie = format!("theme=dark; vc_token={}", token.expose());
+    let cookie = format!("theme=dark; vc_token={}", token.session());
     let page = send(&token, get("/runs/12").header(header::COOKIE, cookie).body(Body::empty()).unwrap()).await;
     assert_eq!((page.status, page.body.as_ref()), (StatusCode::OK, INDEX_HTML.as_bytes()));
     let call = read_file().header(header::AUTHORIZATION, format!("bearer {}", token.expose()));
@@ -103,9 +104,30 @@ async fn a_request_without_the_token_is_unauthorized() {
 }
 
 #[tokio::test]
+async fn the_cookie_and_the_bearer_token_are_never_interchangeable() {
+    let token = token();
+    let launch_in_cookie = get("/").header(header::COOKIE, format!("vc_token={}", token.expose()));
+    assert_eq!(send(&token, launch_in_cookie.body(Body::empty()).unwrap()).await.status, StatusCode::UNAUTHORIZED);
+    let session_as_bearer = read_file().header(header::AUTHORIZATION, format!("Bearer {}", token.session()));
+    assert_eq!(send(&token, session_as_bearer.body(Body::empty()).unwrap()).await.status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn a_write_signed_in_only_by_the_cookie_must_carry_our_origin() {
+    let token = token();
+    let cookie = format!("vc_token={}", token.session());
+    let without = read_file().header(header::COOKIE, &cookie);
+    assert_eq!(send(&token, without.body(Body::empty()).unwrap()).await.status, StatusCode::FORBIDDEN);
+    let ours = read_file().header(header::COOKIE, &cookie).header(header::ORIGIN, "http://127.0.0.1:7420");
+    assert_eq!(send(&token, ours.body(Body::empty()).unwrap()).await.status, StatusCode::OK);
+    let bearer = read_file().header(header::AUTHORIZATION, format!("Bearer {}", token.expose()));
+    assert_eq!(send(&token, bearer.body(Body::empty()).unwrap()).await.status, StatusCode::OK);
+}
+
+#[tokio::test]
 async fn only_this_servers_host_names_are_answered() {
     let token = token();
-    let cookie = format!("vc_token={}", token.expose());
+    let cookie = format!("vc_token={}", token.session());
     for (host, expected) in [
         ("localhost:7420", StatusCode::OK),
         ("LOCALHOST:7420", StatusCode::OK),
