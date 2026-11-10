@@ -29,6 +29,18 @@ const HELP: [(&str, &str); 6] = [
 /// The width of the help's key column.
 const HELP_KEY_WIDTH: usize = 11;
 
+/// The footer while quitting waits on the run in progress.
+const STOPPING: &str = " stopping the run in progress: its cleanups get a few seconds, then it is abandoned…";
+
+/// Draws `tui` as it was when it quit, its footer saying the run in progress is being ended.
+pub fn draw_stopping(tui: &Tui, frame: &mut Frame<'_>) {
+    draw(tui, frame);
+    let area = frame.area();
+    let footer = Rect { y: area.bottom().saturating_sub(1), height: area.height.min(1), ..area };
+    frame.render_widget(Clear, footer);
+    frame.render_widget(Paragraph::new(Span::styled(STOPPING, theme::WARN)).style(theme::BASE), footer);
+}
+
 /// Draws `tui` into the whole of `frame`.
 pub fn draw(tui: &Tui, frame: &mut Frame<'_>) {
     let [header, body, footer] =
@@ -95,3 +107,7 @@ fn draw_help(own: &[(&'static str, &'static str)], frame: &mut Frame<'_>, area: 
     frame.render_widget(Clear, help);
     frame.render_widget(Paragraph::new(lines).block(theme::pane("Help")).style(theme::BASE), help);
 }
+
+#[cfg(test)]
+#[path = "view_tests.rs"]
+mod tests;

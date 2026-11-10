@@ -16,7 +16,7 @@ use vc_engine::Engine;
 
 use crate::driver::Driver;
 use crate::screen::Update;
-use crate::{Tui, TuiError, TuiOptions};
+use crate::{Tui, TuiError, TuiOptions, view};
 
 /// How long the key reader waits for a key before it checks whether the UI has quit.
 const POLL: Duration = Duration::from_millis(100);
@@ -44,9 +44,19 @@ pub async fn run(engine: Engine, options: TuiOptions) -> Result<(), TuiError> {
             break Ok(());
         }
     };
+    let drawn = drawn.and_then(|()| draw_stopping(&mut raw, &session));
     session.close().await;
     let read = reader.await.map_err(|error| TuiError::Input { reason: error.to_string() })?;
     drawn.and_then(|()| read.map_err(|error| TuiError::Input { reason: error.to_string() }))
+}
+
+/// When a run or load run is still in progress, shows that quitting is ending it, as that can
+/// take a few seconds.
+fn draw_stopping(raw: &mut Raw, session: &Session) -> Result<(), TuiError> {
+    if session.driver.busy() {
+        raw.terminal.draw(|frame| view::draw_stopping(&session.tui, frame)).map_err(TuiError::Terminal)?;
+    }
+    Ok(())
 }
 
 /// The UI, where its keys and updates come from, and the engine side.

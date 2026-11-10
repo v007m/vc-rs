@@ -2,6 +2,7 @@
 //! comes back as updates; the UI never waits on the engine.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task::JoinHandle;
@@ -20,6 +21,10 @@ const RUNS: usize = 30;
 const TICKS: usize = 64;
 /// Why a run or load run was not started.
 const BUSY: &str = "a run or load run is in progress: x on its tab stops it";
+/// How long quitting waits on the run in progress after each interrupt.
+const PATIENCE: Duration = Duration::from_secs(5);
+/// The interrupts that end a run outright, as `vc run` counts Ctrl-Cs.
+const INTERRUPTS: usize = 3;
 
 /// The engine side of the UI.
 pub struct Driver {
@@ -32,6 +37,21 @@ pub struct Driver {
 struct Running {
     interrupter: Interrupter,
     task: JoinHandle<()>,
+}
+
+impl Running {
+    /// Interrupts the run up to three times, as three Ctrl-Cs do: it is cancelled, then its
+    /// grace period ends, then its cleanups are abandoned. It waits `patience` after each,
+    /// and aborts the task if it has not ended by then.
+    async fn wind_down(mut self, patience: Duration) {
+        for _ in 0..INTERRUPTS {
+            self.interrupter.interrupt();
+            if tokio::time::timeout(patience, &mut self.task).await.is_ok() {
+                return;
+            }
+        }
+        self.task.abort();
+    }
 }
 
 impl Driver {
@@ -77,18 +97,18 @@ impl Driver {
         });
     }
 
-    /// Ends the run in progress, if any, as one Ctrl-C ends `vc run`: work in flight gets its
-    /// grace period and the cleanups run. Drop the updates' receiver first, so nothing waits
-    /// for the UI meanwhile.
+    /// Ends the run in progress, if any, as Ctrl-C ends `vc run`: the first interrupt gives
+    /// work in flight its grace period and runs the cleanups; each [`PATIENCE`] it is still
+    /// going, the next interrupt hurries it, and after the third it is abandoned. Drop the
+    /// updates' receiver first, so nothing waits for the UI meanwhile.
     pub async fn finish(self) {
         if let Some(running) = self.running {
-            running.interrupter.interrupt();
-            running.task.await.ok();
+            running.wind_down(PATIENCE).await;
         }
     }
 
     /// Whether a run or a load run is in progress.
-    fn busy(&self) -> bool {
+    pub fn busy(&self) -> bool {
         self.running.as_ref().is_some_and(|running| !running.task.is_finished())
     }
 

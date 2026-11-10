@@ -75,8 +75,7 @@ fn draw_form(screen: &ImportScreen, frame: &mut Frame<'_>, area: Rect) {
     let typed = screen.editing().map(|input| format!("{}▏", clean(input.text())));
     let rows = ROWS.iter().enumerate().map(|(row, (label, about))| {
         let typing = typed.as_ref().filter(|_| row == screen.field());
-        let value =
-            typing.map_or_else(|| value(screen, row, about), |text| Span::styled(text.clone(), theme::WARN));
+        let value = typing.map_or_else(|| value(screen, row, about), |text| Span::styled(text.clone(), theme::WARN));
         ListItem::new(Line::from(vec![Span::styled(format!("{label:<9} "), theme::DIM), value]))
     });
     let list = List::new(rows).block(theme::pane("Import")).highlight_style(theme::SELECTED).highlight_symbol("▸ ");
