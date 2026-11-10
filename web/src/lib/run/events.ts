@@ -90,3 +90,21 @@ export function describe(event: RunEvent): EventLine | undefined {
   const line = event.kind.case && lines[event.kind.case]?.(event);
   return line ? { seq: event.seq, ...line } : undefined;
 }
+
+/** The lowest level each log filter shows. */
+export const levelFilters = [
+  { label: 'All', min: 'info' },
+  { label: 'Warnings', min: 'warn' },
+  { label: 'Errors', min: 'error' },
+] as const satisfies readonly { label: string; min: Level }[];
+
+const rank: Record<Level, number> = { info: 0, warn: 1, error: 2 };
+
+/** The lines at `min` or above whose text contains `text`, newest first. */
+export function visibleLines(lines: readonly EventLine[], min: Level, text: string): EventLine[] {
+  const needle = text.trim().toLowerCase();
+  return lines
+    .filter((line) => rank[line.level] >= rank[min])
+    .filter((line) => !needle || `${line.who} ${line.message}`.toLowerCase().includes(needle))
+    .reverse();
+}
