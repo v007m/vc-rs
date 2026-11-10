@@ -4,6 +4,8 @@
 //! by itself) holds requests, one per `.bru` file. A secret environment variable is only named
 //! in a `.bru` file (Bruno keeps its value elsewhere), so there is none to leave out.
 
+use std::path::Path;
+
 use serde::Deserialize;
 
 use super::bru::Bru;
@@ -40,7 +42,12 @@ struct Files(Vec<(String, Bru)>);
 
 /// Whether a folder's file at `path` is one the collection is read from.
 pub fn reads(path: &str) -> bool {
-    path == CONFIG || path.ends_with(".bru")
+    path == CONFIG || bru(path)
+}
+
+/// Whether `path` names a `.bru` file, whatever the case of its extension.
+fn bru(path: &str) -> bool {
+    Path::new(path).extension().is_some_and(|extension| extension.eq_ignore_ascii_case("bru"))
 }
 
 /// The collection in a folder whose files `files` holds, each by its path relative to the folder,
@@ -62,7 +69,7 @@ pub fn collection(files: &[(String, String)]) -> Result<Collection, String> {
 impl Files {
     fn parse(files: &[(String, String)], ignore: &[String]) -> Result<Self, String> {
         let ignored = |path: &str| ignore.iter().any(|ignored| path == ignored || inside(path, ignored));
-        let read = files.iter().filter(|(path, _)| path.ends_with(".bru") && !ignored(path));
+        let read = files.iter().filter(|(path, _)| bru(path) && !ignored(path));
         let parsed = read.map(|(path, text)| {
             Bru::parse(text).map(|bru| (path.clone(), bru)).map_err(|why| format!("{path}: {why}"))
         });

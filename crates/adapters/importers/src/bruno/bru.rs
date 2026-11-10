@@ -13,6 +13,9 @@ pub struct Bru {
     blocks: Vec<(String, Vec<String>)>,
 }
 
+/// A block being read: its name, the line that closes it and its lines so far.
+type Open = (String, &'static str, Vec<String>);
+
 /// What a line outside any block is.
 enum Opener {
     /// A block opens; its lines run to the line that is the closer alone.
@@ -29,7 +32,7 @@ impl Bru {
     /// The block that is not closed; the reason never quotes the file's values.
     pub fn parse(text: &str) -> Result<Self, String> {
         let mut blocks = Vec::new();
-        let mut open: Option<(String, &str, Vec<String>)> = None;
+        let mut open: Option<Open> = None;
         for line in text.lines() {
             match open.take() {
                 Some((name, closer, lines)) if line.trim_end() == closer => blocks.push((name, lines)),
