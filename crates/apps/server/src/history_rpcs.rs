@@ -67,7 +67,7 @@ async fn list_agent_actions(
     api: Arc<EngineApi>,
     request: wire::ListAgentActionsRequest,
 ) -> Result<wire::ListAgentActionsResponse, ConnectError> {
-    let limit = usize::try_from(request.limit).unwrap_or(usize::MAX);
+    let limit = limit(request.limit);
     let found = api.blocking(move |engine| engine.agent_actions(limit)).await?;
     Ok(wire::ListAgentActionsResponse { actions: found.into_iter().map(action).collect() })
 }
