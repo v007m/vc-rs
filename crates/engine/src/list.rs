@@ -84,6 +84,20 @@ impl Engine {
         Ok(ListReport { items, notices })
     }
 
+    /// Every api, then every test (skipped ones included), from one read of the project: what
+    /// an app that browses the project shows, without compiling it once per kind.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Invalid`] when the project has errors.
+    pub fn catalog(&self) -> Result<ListReport, EngineError> {
+        let (program, notices) = self.program()?;
+        let request = ListRequest::default();
+        let mut items = self.apis(&program, &request)?;
+        items.extend(self.tests(&program, &request)?);
+        Ok(ListReport { items, notices })
+    }
+
     /// The selected tests, in project order, each once however many instances it has.
     fn tests(&self, program: &Program, request: &ListRequest) -> Result<Vec<Listed>, EngineError> {
         let selection = self.selection(&request.select)?;

@@ -69,3 +69,11 @@ fn the_text_and_json_carry_every_field() {
     assert_eq!(report.json()[2]["skipped"], true);
     assert_eq!(report.json()[1]["path"], "services/users/crud.test.yaml");
 }
+
+#[test]
+fn the_catalog_is_the_apis_then_the_tests() {
+    let catalog = engine(FakeVcs::default()).catalog().unwrap();
+    let ids: Vec<&str> = catalog.items.iter().map(|item| item.id.as_str()).collect();
+    assert_eq!(ids, ["users#list", "orders.flow#listsOrders", "users.crud#listsUsers", "users.crud#skipsUsers"]);
+    assert!(catalog.items[3].skipped);
+}
