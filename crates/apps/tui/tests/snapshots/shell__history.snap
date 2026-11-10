@@ -3,18 +3,18 @@ source: crates/apps/tui/tests/shell.rs
 expression: screen(&tui)
 ---
 ◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import
-┌ History ─────────────────────────────────────────────────────────────────────────────────────────┐
-│Stored runs, pass-rate and duration trends, flaky tests, and two runs compared.                   │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
+reading the history…
+┌ Runs ────────────────────────────────────────────────────────────────────────────────────────────┐
+│run    started           branch@commit                         pass   ✓    ✕    ⊘    ↻    time    │
 │                                                                                                  │
 │                                                                                                  │
 │                                                                                                  │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
-  1-5  choose tab  tab  next tab  ?  help  q  quit
+┌ Trends · last 0 runs ──────────────────────────┐┌ Compare ───────────────────────────────────────┐
+│pass rate                                       ││                                                │
+│duration                                        ││                                                │
+└────────────────────────────────────────────────┘│                                                │
+┌ Flaky and failing ─────────────────────────────┐│                                                │
+│                                                ││                                                │
+└────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+  ↑↓  move  enter  compare  r  reload  ?  help  q  quit

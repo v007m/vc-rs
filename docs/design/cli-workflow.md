@@ -355,7 +355,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 | Command | Does |
 | --- | --- |
-| `vc tui [--profile <ids>]` | Opens the terminal UI: the tabs Run, Explore, History, Load and Import (`1`–`5`, `tab`), `?` for the keys, `q` to quit. Without a terminal on stdin and stdout it exits 2 |
+| `vc tui [--profile <ids>]` | Opens the terminal UI: the tabs Run, Explore, History, Load and Import (`1`–`5`, `tab`), `?` for the keys, `q` to quit. On Run: `a` runs every test, `R` reruns the failures, `r` the chosen test, `f` lists only failures, `x` stops the run. On History: `enter` compares the chosen run with the one before it, `r` reloads. Quitting during a run stops it first. Without a terminal on stdin and stdout it exits 2 |
 | `vc mcp [--profile] [--set]` | Starts the MCP server for AI agents over stdio; the profiles' `agents` rules judge every call (D195, D197) |
 | `vc approvals [--all]` | Lists the agent calls waiting for a person (D195), newest first: `#<id>  <agent>  <tool>  <profile>  <summary>`, or `no requests waiting`; `--all` also lists the decided and expired ones, each with its status. A waiting agent is refused after 10 minutes |
 | `vc approve <id> [--always \| --deny]` | Approves a waiting agent call once; `--always` also allows calls like it (same profiles, tool and method) from now on, kept in `history.db`, never in YAML (D195); `--deny` refuses it. The waiting agent wakes at once. The decision is recorded under the OS user (`USER`/`USERNAME`). An unknown or already decided request exits 2 |

@@ -5457,6 +5457,8 @@ dependencies = [
  "ratatui",
  "thiserror 2.0.21",
  "tokio",
+ "vc-engine",
+ "vc-testkit",
 ]
 
 [[package]]

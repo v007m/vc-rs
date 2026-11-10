@@ -28,7 +28,8 @@ pub fn run(args: &TuiArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     };
     let root = located.engine.root();
     let name = root.file_name().map_or_else(|| root.display().to_string(), |name| name.to_string_lossy().into());
+    let options = TuiOptions::new(name, args.profiles.clone());
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
-    runtime.block_on(vc_tui::run(TuiOptions::new(name, args.profiles.clone())))?;
+    runtime.block_on(vc_tui::run(located.engine, options))?;
     Ok(Outcome::Done)
 }

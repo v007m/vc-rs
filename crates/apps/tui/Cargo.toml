@@ -13,9 +13,11 @@ crossterm.workspace = true
 ratatui.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+vc-engine.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
+vc-testkit.workspace = true
 
 [lints]
 workspace = true
