@@ -1,0 +1,69 @@
+//! Linux: the plugin runs under `vc` as its launcher, which confines itself with Landlock and then
+//! becomes the plugin, so the plugin's process inherits the rules. The launcher is
+//! single-threaded when it confines itself (before `vc` starts a runtime), sets `no_new_privs`,
+//! and needs no `unsafe` (D254). On a kernel without Landlock, or without its network rules
+//! (before 6.7), what the kernel cannot enforce stays declared only.
+
+use std::ffi::OsString;
+use std::os::unix::process::CommandExt as _;
+use std::path::{Path, PathBuf};
+
+use landlock::{
+    ABI, Access, AccessFs, AccessNet, Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetError, path_beneath_rules,
+};
+
+use crate::confine::{Entry, LAUNCHER_ARG, Policy};
+
+/// The Landlock version whose rights are asked for: file rights, and TCP bind and connect.
+const LANDLOCK: ABI = ABI::V4;
+
+/// `launcher` run as the launcher of `entry` under `policy`; `entry` itself without a launcher.
+pub fn entry(policy: &Policy, launcher: Option<&Path>, (program, args): Entry) -> Result<Entry, String> {
+    let Some(launcher) = launcher else {
+        return Ok((program, args));
+    };
+    let policy = serde_json::to_string(policy).map_err(|error| format!("cannot hand its policy to `vc`: {error}"))?;
+    let mut launched = vec![OsString::from(LAUNCHER_ARG), OsString::from(policy), program.into_os_string()];
+    launched.extend(args);
+    Ok((launcher.to_path_buf(), launched))
+}
+
+/// Confines this process to `policy` and becomes `program`; returns only why it could not.
+pub fn launch(policy: &Policy, program: OsString, args: Vec<OsString>) -> String {
+    if let Err(error) = confine(policy) {
+        return format!("cannot confine the plugin: {error}");
+    }
+    let error = std::process::Command::new(&program).args(args).exec();
+    format!("cannot run `{}`: {error}", program.to_string_lossy())
+}
+
+/// Restricts this process, and every process it becomes or starts, to `policy`.
+fn confine(policy: &Policy) -> Result<(), RulesetError> {
+    let mut ruleset = Ruleset::default().handle_access(AccessFs::from_all(LANDLOCK))?;
+    if !policy.network {
+        ruleset = ruleset.handle_access(AccessNet::from_all(LANDLOCK))?;
+    }
+    let readable = outside(&policy.root).into_iter().chain(policy.read.iter().cloned());
+    ruleset
+        .create()?
+        .add_rules(path_beneath_rules(readable, AccessFs::from_read(LANDLOCK)))?
+        .add_rules(path_beneath_rules(&policy.write, AccessFs::from_all(LANDLOCK)))?
+        .restrict_self()?;
+    Ok(())
+}
+
+/// Everything outside `root`: at each folder from `root`'s parent up to `/`, every entry but the
+/// one on the way to `root`. Landlock only grants, so this is how all but the project is opened.
+fn outside(root: &Path) -> Vec<PathBuf> {
+    root.ancestors().zip(root.ancestors().skip(1)).flat_map(|(on_the_way, parent)| beside(parent, on_the_way)).collect()
+}
+
+/// The entries of `parent` other than `on_the_way`; none when it cannot be read.
+fn beside(parent: &Path, on_the_way: &Path) -> Vec<PathBuf> {
+    let entries = std::fs::read_dir(parent).into_iter().flatten().flatten();
+    entries.map(|entry| entry.path()).filter(|path| path != on_the_way).collect()
+}
+
+#[cfg(test)]
+#[path = "confine_linux_tests.rs"]
+mod tests;

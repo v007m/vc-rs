@@ -11,10 +11,14 @@ publish.workspace = true
 [dependencies]
 async-trait.workspace = true
 blake3.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "process", "time"] }
 vc-interfaces.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+landlock.workspace = true
 
 [dev-dependencies]
 vc-testkit.workspace = true

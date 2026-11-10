@@ -27,6 +27,12 @@ permissions:
   files: [reports/]         # project paths it may read or write
 ```
 
+The OS holds the plugin's process to these permissions on Linux (Landlock) and macOS (Seatbelt); elsewhere they are declared and shown only (D254):
+
+- **Files.** In the project, the plugin may read its install folder and read and write its data folder and the `files:` paths, which must be plain relative paths that stay inside the project (links resolved), or the plugin is not started. The rest of the project is closed to it. Outside the project it may read anything and write only the temporary folder, `/dev/null` and `/dev/tty`. On Linux a `files:` path must exist when the plugin starts.
+- **Network.** A plugin that names no `network:` host gets no network (on Linux, no TCP; Linux 6.7 or later). One that names any host may reach every host: neither OS filters by host name, so the list says what the plugin intends.
+- On Linux `vc` starts the plugin through itself (`vc __vc-plugin-launcher …`), which confines itself and then becomes the plugin; a kernel without Landlock runs it unconfined. On macOS `vc` runs it under `sandbox-exec`; a `vc` that is already sandboxed cannot, so the plugin does not start.
+
 `importer` and `executor` kinds are accepted in the manifest, but no host methods exist for them yet.
 
 ## Transport

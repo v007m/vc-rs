@@ -36,7 +36,14 @@ pub struct EngineBuilder {
     browser: Option<Arc<dyn Browser>>,
     notifiers: Option<Arc<dyn NotifierFactory>>,
     plugins: Option<Arc<dyn PluginStore>>,
-    plugin_stderr: PluginStderr,
+    plugin_processes: PluginProcesses,
+}
+
+/// How the engine starts plugin processes: where their stderr goes, and the program that confines
+/// them on Linux (`vc` itself, run as the plugin launcher), if any.
+pub(crate) struct PluginProcesses {
+    pub(crate) stderr: PluginStderr,
+    pub(crate) launcher: Option<PathBuf>,
 }
 
 /// The history's writer and reader, given together.
@@ -70,7 +77,7 @@ impl EngineBuilder {
             browser: None,
             notifiers: None,
             plugins: None,
-            plugin_stderr: PluginStderr::Inherit,
+            plugin_processes: PluginProcesses { stderr: PluginStderr::Inherit, launcher: None },
         }
     }
 
@@ -230,7 +237,16 @@ impl EngineBuilder {
     /// instead of letting it through.
     #[must_use]
     pub const fn plugin_stderr(mut self, stderr: PluginStderr) -> Self {
-        self.plugin_stderr = stderr;
+        self.plugin_processes.stderr = stderr;
+        self
+    }
+
+    /// Confines each plugin on Linux by starting it through `launcher`, the `vc` program, which
+    /// [`crate::launch_plugin`] turns into the plugin launcher. Without one, a plugin on Linux
+    /// runs unconfined; on macOS it runs under Seatbelt either way (D254).
+    #[must_use]
+    pub fn plugin_launcher(mut self, launcher: PathBuf) -> Self {
+        self.plugin_processes.launcher = Some(launcher);
         self
     }
 
@@ -256,7 +272,7 @@ impl EngineBuilder {
         let watcher = watcher.unwrap_or_else(|| Arc::new(NotifyWatcher::new(&self.root)));
         Ok(Engine {
             plugins: self.plugins.unwrap_or_else(|| Arc::new(FsPluginStore::new(&self.root))),
-            plugin_stderr: self.plugin_stderr,
+            plugin_processes: self.plugin_processes,
             root: self.root,
             sources,
             writer,
@@ -311,7 +327,7 @@ pub struct Engine {
     pub(crate) browser: Option<Arc<dyn Browser>>,
     pub(crate) notifiers: Option<Arc<dyn NotifierFactory>>,
     pub(crate) plugins: Arc<dyn PluginStore>,
-    pub(crate) plugin_stderr: PluginStderr,
+    pub(crate) plugin_processes: PluginProcesses,
 }
 
 /// The operating system's keychain, when it has one.

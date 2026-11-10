@@ -1,6 +1,7 @@
 //! [`StdioPluginHost`]: a plugin run as a child process, spoken to in JSON-RPC 2.0 over its
 //! stdin and stdout.
 
+use std::ffi::OsString;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -13,6 +14,7 @@ use tokio::process::Command;
 use tokio::sync::{OnceCell, broadcast, mpsc, oneshot};
 use vc_interfaces::{INITIALIZE_DEADLINE, PluginError, PluginHost, PluginManifest, PluginPermissions, Secrets};
 
+use crate::confine::{Entry, Policy};
 use crate::owned;
 use crate::session::{Call, Session};
 use crate::stderr_log;
@@ -38,7 +40,9 @@ pub const DATA_ENV: &str = "VIB_PLUGIN_DATA";
 /// answers the plugin's `secrets/get` only for the secrets both the manifest declares and the lock
 /// grants (−32001 otherwise). The process gets no environment beyond [`PASSED_ENV`] and, when the
 /// host has one, [`DATA_ENV`] naming its data folder, made as it starts. One process serves every
-/// call; once it stops, every later call fails, and dropping the host shuts it down.
+/// call; once it stops, every later call fails, and dropping the host shuts it down. A confined
+/// host ([`StdioPluginHost::confined`]) runs it held to its manifest's permissions where the OS
+/// can (D254).
 #[derive(Debug)]
 pub struct StdioPluginHost {
     manifest: PluginManifest,
@@ -49,6 +53,7 @@ pub struct StdioPluginHost {
     data: Option<(PathBuf, PathBuf)>,
     log: Option<(PathBuf, PathBuf)>,
     told: Option<broadcast::Sender<String>>,
+    confined: Option<(PathBuf, Option<PathBuf>)>,
     calls: OnceCell<Result<mpsc::UnboundedSender<Call>, PluginError>>,
 }
 
@@ -58,7 +63,7 @@ impl StdioPluginHost {
     pub fn new(manifest: PluginManifest, dir: impl Into<PathBuf>, granted: PluginPermissions) -> Self {
         let dir = dir.into();
         let (secrets, config, calls) = (Secrets::new(), Value::Null, OnceCell::new());
-        Self { manifest, dir, granted, secrets, config, data: None, log: None, told: None, calls }
+        Self { manifest, dir, granted, secrets, config, data: None, log: None, told: None, confined: None, calls }
     }
 
     /// The same host, able to give the plugin those of `run`'s secrets that the manifest declares
@@ -108,14 +113,34 @@ impl StdioPluginHost {
         Self { told: Some(told), ..self }
     }
 
+    /// The same host, holding the plugin to its manifest's permissions in the project at `root`
+    /// where the OS can (`crate::confine`): Landlock on Linux through `launcher`, `vc` itself (no
+    /// launcher, no confinement), and Seatbelt on macOS.
+    #[must_use]
+    pub fn confined(self, root: impl Into<PathBuf>, launcher: Option<PathBuf>) -> Self {
+        Self { confined: Some((root.into(), launcher)), ..self }
+    }
+
     fn plugin(&self) -> String {
         self.manifest.id.clone()
     }
 
-    /// The process of the plugin's `entry`, with [`DATA_ENV`] when the host has a data folder;
-    /// with a log folder, its stderr is piped when `logged` (the log could be made), else dropped.
-    fn command(&self, logged: bool) -> Command {
-        let mut command = command(&self.manifest, &self.dir);
+    /// What runs the plugin's `entry`: confined to its policy when the host is confined; why not
+    /// when a file it names is outside the project.
+    fn entry(&self) -> Result<Entry, String> {
+        let entry = entry(&self.manifest, &self.dir);
+        let Some((root, launcher)) = &self.confined else {
+            return Ok(entry);
+        };
+        let data = self.data.as_ref().map(|(home, under)| home.join(under));
+        let policy = Policy::new(root, &self.dir, &self.manifest.permissions)?.writing(data.as_deref());
+        policy.entry(launcher.as_deref(), entry)
+    }
+
+    /// The process running `entry`, with [`DATA_ENV`] when the host has a data folder; with a
+    /// log folder, its stderr is piped when `logged` (the log could be made), else dropped.
+    fn command(&self, entry: Entry, logged: bool) -> Command {
+        let mut command = command(entry, &self.dir);
         if let Some((home, under)) = &self.data {
             command.env(DATA_ENV, home.join(under));
         }
@@ -149,8 +174,9 @@ impl StdioPluginHost {
         let made = prepared.map_err(|error| not_started(format!("cannot make its folders: {error}")))?;
         let log = made.map_err(|error| not_started(format!("cannot make its data folder: {error}")))?;
         let log = log.and_then(|opened| opened.inspect_err(|why| self.unlogged(why)).ok());
+        let entry = self.entry().map_err(not_started)?;
         let mut child = self
-            .command(log.is_some())
+            .command(entry, log.is_some())
             .spawn()
             .map_err(|error| not_started(format!("cannot run `{}`: {error}", self.manifest.command)))?;
         if let (Some(stderr), Some(log)) = (child.stderr.take(), log) {
@@ -245,14 +271,19 @@ async fn ask(
     }
 }
 
-/// The plugin's `entry`, run in `dir`: a `command` naming a file in `dir` runs that file, any
-/// other is found on `PATH`.
-fn command(manifest: &PluginManifest, dir: &Path) -> Command {
+/// The plugin's `entry` in `dir`: a `command` naming a file in `dir` runs that file, any other is
+/// found on `PATH`.
+fn entry(manifest: &PluginManifest, dir: &Path) -> Entry {
     let local = dir.join(&manifest.command);
     let program = if local.is_file() { local } else { PathBuf::from(&manifest.command) };
+    (program, manifest.args.iter().map(OsString::from).collect())
+}
+
+/// `entry` run in `dir` with only [`PASSED_ENV`].
+fn command((program, args): Entry, dir: &Path) -> Command {
     let passed = PASSED_ENV.iter().filter_map(|name| std::env::var(name).ok().map(|value| (*name, value)));
     let mut command = Command::new(program);
-    command.args(&manifest.args).current_dir(dir).env_clear().envs(passed).kill_on_drop(true);
+    command.args(args).current_dir(dir).env_clear().envs(passed).kill_on_drop(true);
     command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::inherit());
     command
 }

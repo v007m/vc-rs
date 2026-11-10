@@ -151,6 +151,43 @@ async fn a_data_folder_reached_through_a_link_is_refused_and_the_plugin_never_st
     assert_eq!(std::fs::read_dir(elsewhere.path()).unwrap().count(), 0, "nothing is made through the link");
 }
 
+#[tokio::test]
+async fn a_confined_plugin_naming_a_file_outside_the_project_never_starts() {
+    let root = tempfile::tempdir().unwrap();
+    let mut manifest = suite_plugin_manifest();
+    manifest.permissions.files = vec!["../elsewhere".into()];
+    let granted = manifest.permissions.clone();
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted).confined(root.path(), None);
+    let refused = host.call("suite/echo", json!({}), CALL_DEADLINE).await.unwrap_err();
+    let PluginError::Start { reason, .. } = refused else { panic!("{refused:?}") };
+    assert_eq!(reason, "its file permission `../elsewhere` is not a path inside the project");
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn a_confined_plugin_writes_its_data_folder_and_nothing_else_in_the_project() {
+    let seatbelt = std::process::Command::new("/usr/bin/sandbox-exec")
+        .args(["-p", "(version 1)(allow default)", "/usr/bin/true"])
+        .status()
+        .is_ok_and(|status| status.success());
+    if !python() || !seatbelt {
+        return eprintln!("skipped: python3 is not installed, or sandbox-exec cannot apply a profile here");
+    }
+    let manifest = vc_interfaces::PluginManifest {
+        command: "python3".into(),
+        args: vec!["-c".into(), format!("{READ}{LEAKS}")],
+        ..suite_plugin_manifest()
+    };
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join(".vibranium/plugin-data/suitePlugin");
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted())
+        .data(root.path(), ".vibranium/plugin-data/suitePlugin")
+        .confined(root.path(), None);
+    host.call("suite/keep", json!({}), Duration::from_secs(5)).await.unwrap();
+    assert_eq!(std::fs::read_to_string(data.join("state.txt")).unwrap(), "kept");
+    assert!(!root.path().join("leaked.txt").exists(), "the project outside its data folder is closed");
+}
+
 /// Reads one framed message from stdin.
 const READ: &str = r#"
 import json, sys, time
@@ -183,6 +220,21 @@ for _ in range(2):
     if request["method"] == "suite/keep":
         open(os.path.join(data, "state.txt"), "w").write("kept")
     send(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": data}).encode())
+"#;
+
+/// Answers `initialize`, then writes a file in its data folder and tries one beside the
+/// project's `.vibranium` folder, three folders up.
+#[cfg(target_os = "macos")]
+const LEAKS: &str = r#"
+import os
+for _ in range(2):
+    request = read()
+    if request["method"] == "suite/keep":
+        data = os.environ["VIB_PLUGIN_DATA"]
+        open(os.path.join(data, "state.txt"), "w").write("kept")
+        try: open(os.path.join(data, "..", "..", "..", "leaked.txt"), "w").write("no")
+        except OSError: pass
+    send(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": None}).encode())
 "#;
 
 /// Answers `initialize`, then never reads its input again.

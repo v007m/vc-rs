@@ -3,6 +3,7 @@
 //! cannot use is named with the reason, and fails only the work that needs it.
 
 use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -129,11 +130,19 @@ impl Engine {
         };
         let dir = self.root().join(PLUGINS_DIR).join(id);
         let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone())
-            .data(self.root(), Path::new(PLUGIN_DATA).join(id));
-        let logged = self.plugin_stderr == PluginStderr::Log;
+            .data(self.root(), Path::new(PLUGIN_DATA).join(id))
+            .confined(self.root(), self.plugin_processes.launcher.clone());
+        let logged = self.plugin_processes.stderr == PluginStderr::Log;
         let host = if logged { host.stderr_log(self.root(), Path::new(PLUGIN_LOGS).join(id)) } else { host };
         Ok((host, lock.integrity.clone()))
     }
+}
+
+/// When `args` (this process's, the program first) make `vc` the plugin launcher, confines this
+/// process to the plugin's permissions and becomes the plugin, returning only why it could not;
+/// `None` when they do not, and the program goes on as usual (D254).
+pub fn launch_plugin(args: impl Iterator<Item = OsString>) -> Option<String> {
+    vc_adapter_plugins::launch(args)
 }
 
 /// A plugin's `config`, which holds literal values only, so it never carries a secret the lock

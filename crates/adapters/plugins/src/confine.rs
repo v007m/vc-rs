@@ -1,0 +1,136 @@
+//! Confining a plugin's process to what its manifest declares (D254), where the OS can: Landlock
+//! on Linux, through `vc` run again as a launcher ([`LAUNCHER_ARG`]) that confines itself and
+//! then becomes the plugin, and Seatbelt (`sandbox-exec`) on macOS. Elsewhere, and on Linux
+//! without a launcher, the permissions stay declared only.
+//!
+//! The project folder is closed to the plugin but for its install folder, which it may read, and
+//! its data folder and the project files its manifest names, which it may read and write. Outside
+//! the project it may read anything, and write only the temporary folder (not when the project is
+//! inside it) and [`DEVICES`]. A plugin that names no network host gets no network (on Linux, no
+//! TCP); one that names any may reach every host, since neither OS filters by host name.
+
+use std::ffi::OsString;
+use std::path::{Component, Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+use vc_interfaces::PluginPermissions;
+
+#[cfg(target_os = "linux")]
+use crate::confine_linux as platform;
+#[cfg(target_os = "macos")]
+use crate::confine_macos as platform;
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+use declared as platform;
+
+/// The first argument that makes `vc` the plugin launcher: `vc <LAUNCHER_ARG> <policy JSON>
+/// <program> <args>…`.
+pub const LAUNCHER_ARG: &str = "__vc-plugin-launcher";
+
+/// The device files a plugin may write outside its folders.
+pub const DEVICES: [&str; 2] = ["/dev/null", "/dev/tty"];
+
+/// A program and its arguments.
+pub type Entry = (PathBuf, Vec<OsString>);
+
+/// What a plugin's process may touch: real paths, links resolved.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Policy {
+    /// The project folder, closed but for the paths below.
+    pub root: PathBuf,
+    /// Paths it may read (its install folder).
+    pub read: Vec<PathBuf>,
+    /// Paths it may read and write.
+    pub write: Vec<PathBuf>,
+    /// Whether it may use the network.
+    pub network: bool,
+}
+
+impl Policy {
+    /// The policy of a plugin installed in `dir` in the project at `root`, asking for
+    /// `permissions`; why not when a file it names is not a path inside the project.
+    pub fn new(root: &Path, dir: &Path, permissions: &PluginPermissions) -> Result<Self, String> {
+        let root = real(root);
+        let mut write: Vec<PathBuf> = DEVICES.iter().map(PathBuf::from).collect();
+        let temp = real(&std::env::temp_dir());
+        if !root.starts_with(&temp) {
+            write.push(temp);
+        }
+        for file in &permissions.files {
+            write.push(inside(&root, file)?);
+        }
+        Ok(Self { root, read: vec![real(dir)], write, network: !permissions.network.is_empty() })
+    }
+
+    /// The same policy, letting the plugin read and write its data folder too.
+    #[must_use]
+    pub fn writing(mut self, data: Option<&Path>) -> Self {
+        self.write.extend(data.map(real));
+        self
+    }
+
+    /// What to run so that `entry` runs confined to this policy: on Linux `launcher` (`vc`) as
+    /// the launcher, or `entry` itself without one; on macOS `sandbox-exec` with its profile.
+    pub fn entry(&self, launcher: Option<&Path>, entry: Entry) -> Result<Entry, String> {
+        platform::entry(self, launcher, entry)
+    }
+}
+
+/// When `args` (this process's, the program first) make it the plugin launcher, confines this
+/// process to the policy they carry and becomes the plugin they name, returning only why it could
+/// not; `None` when they do not.
+pub fn launch(mut args: impl Iterator<Item = OsString>) -> Option<String> {
+    let _program = args.next();
+    if args.next()? != LAUNCHER_ARG {
+        return None;
+    }
+    let (Some(policy), Some(program)) = (args.next(), args.next()) else {
+        return Some("the plugin launcher takes a policy and a program".to_owned());
+    };
+    let policy = match serde_json::from_str::<Policy>(&policy.to_string_lossy()) {
+        Ok(policy) => policy,
+        Err(error) => return Some(format!("the plugin launcher's policy is not valid: {error}")),
+    };
+    Some(platform::launch(&policy, program, args.collect()))
+}
+
+/// The real path of `file`, a path relative to the project at `root` that stays inside it;
+/// why not otherwise.
+fn inside(root: &Path, file: &str) -> Result<PathBuf, String> {
+    let path = Path::new(file);
+    let plain =
+        path.components().next().is_some() && path.components().all(|part| matches!(part, Component::Normal(_)));
+    let found = real(&root.join(path));
+    if plain && found.starts_with(root) {
+        Ok(found)
+    } else {
+        Err(format!("its file permission `{file}` is not a path inside the project"))
+    }
+}
+
+/// `path` with its links resolved, or as given when it does not exist yet.
+fn real(path: &Path) -> PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// Where the OS cannot confine a plugin: its permissions stay declared only.
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+mod declared {
+    use std::ffi::OsString;
+    use std::path::Path;
+
+    use super::{Entry, Policy};
+
+    /// `entry` as it is.
+    pub fn entry(_policy: &Policy, _launcher: Option<&Path>, entry: Entry) -> Result<Entry, String> {
+        Ok(entry)
+    }
+
+    /// Why there is no launcher here.
+    pub fn launch(_policy: &Policy, _program: OsString, _args: Vec<OsString>) -> String {
+        "the plugin launcher confines plugins on Linux only".to_owned()
+    }
+}
+
+#[cfg(test)]
+#[path = "confine_tests.rs"]
+mod tests;
