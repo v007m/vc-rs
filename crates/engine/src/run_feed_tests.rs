@@ -74,6 +74,13 @@ async fn a_full_or_closed_watch_never_holds_up_or_fails_the_run() {
 }
 
 #[test]
+fn a_watched_run_prints_nothing_since_its_watcher_shows_it() {
+    let (watched, _feed) = watched(1);
+    let agent = RunRequest { agent: Some("claude".into()), ..RunRequest::default() };
+    assert_eq!((RunRequest::default().quiet(), watched.quiet(), agent.quiet()), (false, true, true));
+}
+
+#[test]
 fn watches_are_equal_when_they_send_into_the_same_channel() {
     let (sender, _receiver) = mpsc::channel(1);
     let watch = RunWatch::new(sender);

@@ -85,6 +85,14 @@ pub struct RunRequest {
     pub watch: Option<RunWatch>,
 }
 
+impl RunRequest {
+    /// Whether the console prints nothing: a run an agent started over stdio, or a watched
+    /// run, whose watcher shows it.
+    pub(crate) const fn quiet(&self) -> bool {
+        self.agent.is_some() || self.watch.is_some()
+    }
+}
+
 /// Which report files a run or `vc report` writes, and where.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[expect(
