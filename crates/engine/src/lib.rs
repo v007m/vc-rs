@@ -9,9 +9,11 @@
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
 //! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_api_from_curl`],
 //! [`Engine::new_test`], [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
-//! [`Engine::save_call_as_test`], [`Engine::write`]), and imports specs and keeps api files in
-//! step with them ([`Engine::import`], [`Engine::sync`]). Agent calls pass the profiles' agent
-//! policy and, when it asks, the approval queue ([`Engine::policy_check`], [`Engine::admit`],
+//! [`Engine::save_call_as_test`], [`Engine::write`]), opens and saves the web UI editor's files
+//! ([`Engine::read_file`], [`Engine::save_file`]), describes the project
+//! ([`Engine::project_info`]), and imports specs and keeps api files in step with them
+//! ([`Engine::import`], [`Engine::sync`]). Agent calls pass the profiles' agent policy and,
+//! when it asks, the approval queue ([`Engine::policy_check`], [`Engine::admit`],
 //! [`Engine::approvals_list`], [`Engine::approvals_decide`]); an agent's `vc call`, run and
 //! definition write are gated so ([`Engine::write_definition`]).
 //! A load scenario runs its stages and judges its thresholds ([`Engine::load`]). Plugins are
@@ -43,6 +45,7 @@ mod create_api;
 mod create_auth;
 mod create_curl;
 mod edit;
+mod editor_files;
 mod error;
 mod explain;
 mod failed;
@@ -73,6 +76,7 @@ mod policy;
 mod ports;
 mod problems;
 mod project;
+mod project_info;
 mod rename;
 mod rename_name;
 mod reporting;
@@ -110,6 +114,7 @@ pub use create::{Added, NewTest};
 pub use create_api::NewApi;
 pub use create_auth::{NewAuth, auth_fields};
 pub use edit::{Changes, FileChange};
+pub use editor_files::{OpenedFile, SaveFile, SavedFile};
 pub use error::EngineError;
 pub use explain::ExplainReport;
 pub use fix::FixReport;
@@ -122,6 +127,7 @@ pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest
 pub use plan::PlanReport;
 pub use plugins::{PluginListing, PluginOffer, PluginState};
 pub use policy::{AgentCall, Permission};
+pub use project_info::ProjectInfo;
 pub use request::{
     CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
 };
