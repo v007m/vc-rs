@@ -1,13 +1,14 @@
 //! A reporter plugin (G6): `reports.formats: [<pluginId>]` sends each event to the plugin's
 //! `reporter/onEvent`, then its `reporter/finish` returns the files it wants written. Events go
-//! through a bounded queue drained by a task of their own, so a slow plugin never holds up the run.
+//! through a bounded queue drained by a task of their own, so a slow plugin never holds up the run:
+//! one that falls a whole queue behind gets no more events, and its report is not written.
 
 use std::path::{Component, Path};
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::{Value, json};
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, error::TrySendError};
 use tokio::task::JoinHandle;
 use vc_interfaces::{Artifact, CALL_DEADLINE, PluginError, PluginHost, ReportError, Reporter, RunSummary};
 use vc_model::Event;
@@ -15,7 +16,7 @@ use vc_model::Event;
 use crate::json::{JsonReporter, summary};
 use crate::{Destination, ReporterContext};
 
-/// How many encoded events wait for the plugin before the run waits for it.
+/// How many encoded events may wait for the plugin; one that falls further behind is given up on.
 const QUEUE: usize = 1024;
 
 /// A [`Reporter`] that hands the run to a reporter plugin.
@@ -60,6 +61,27 @@ impl PluginReporter {
         }
     }
 
+    /// Queues `event` for the drain, giving it one turn to make room when the queue is full.
+    async fn offer(&self, event: Value) -> Result<(), TrySendError<Value>> {
+        let Queue::Draining(sender, _) = &self.queue else { return Err(TrySendError::Closed(event)) };
+        let Err(TrySendError::Full(event)) = sender.try_send(event) else { return Ok(()) };
+        tokio::task::yield_now().await;
+        let Queue::Draining(sender, _) = &self.queue else { return Err(TrySendError::Closed(event)) };
+        sender.try_send(event)
+    }
+
+    /// Why the plugin gets no more events, after `refused` was not queued; a plugin a whole queue
+    /// behind is stopped, without waiting for it.
+    async fn stopped(&mut self, refused: &TrySendError<Value>) -> String {
+        let queue = std::mem::replace(&mut self.queue, Queue::Idle);
+        if let (TrySendError::Full(_), Queue::Draining(_, task)) = (refused, &queue) {
+            task.abort();
+            return format!("it fell {QUEUE} events behind the run");
+        }
+        self.queue = queue;
+        self.drained().await.err().unwrap_or_else(|| "it stopped taking events".to_owned())
+    }
+
     fn id(&self) -> String {
         self.host.manifest().id.clone()
     }
@@ -96,12 +118,8 @@ impl Reporter for PluginReporter {
             let (sender, events) = mpsc::channel(QUEUE);
             self.queue = Queue::Draining(sender, tokio::spawn(send(Arc::clone(&self.host), events)));
         }
-        if let Queue::Draining(sender, _) = &self.queue
-            && sender.send(event).await.is_ok()
-        {
-            return Ok(());
-        }
-        let reason = self.drained().await.err().unwrap_or_else(|| "it stopped taking events".to_owned());
+        let Err(refused) = self.offer(event).await else { return Ok(()) };
+        let reason = self.stopped(&refused).await;
         self.queue = Queue::Failed(reason.clone());
         Err(self.failed(reason))
     }

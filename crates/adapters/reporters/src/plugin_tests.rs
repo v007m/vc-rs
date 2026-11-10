@@ -121,3 +121,25 @@ async fn a_slow_plugin_does_not_hold_up_the_events_and_finish_waits_for_them() {
     reporter.finish(&testing::summary()).await.unwrap();
     assert_eq!(received.try_iter().count(), events.len());
 }
+
+#[tokio::test]
+async fn a_plugin_a_whole_queue_behind_is_dropped_at_once_with_one_reason() {
+    let (capture, _captured) = Capture::new();
+    let context = testing::context(capture);
+    let host = plugin(json!([])).stalling("reporter/onEvent");
+    let mut reporter = PluginReporter::new(Arc::new(host), &context);
+    let events = testing::script(&context.program(), context.plan());
+    let started = std::time::Instant::now();
+    let mut taken = 0;
+    let failed = loop {
+        match reporter.on_event(&events[taken % events.len()]).await {
+            Ok(()) => taken += 1,
+            Err(error) => break error.to_string(),
+        }
+    };
+    assert!(started.elapsed() < std::time::Duration::from_secs(5), "the run never waits on the plugin");
+    assert_eq!(taken, QUEUE + 1, "the queue, plus the event the plugin holds");
+    assert_eq!(failed, "cannot write the `acmeReport` report: it fell 1024 events behind the run");
+    assert_eq!(reporter.on_event(&events[0]).await.unwrap_err().to_string(), failed);
+    assert_eq!(reporter.finish(&testing::summary()).await.unwrap_err().to_string(), failed);
+}
