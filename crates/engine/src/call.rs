@@ -10,8 +10,7 @@ use serde_json::{Map, Value, json};
 use vc_executor::{ActionCx, ActionReport, ActionRequest, Frame, Saved};
 use vc_interfaces::{ConfigEntry, RunEnd, RunStart};
 use vc_model::{
-    Action, ActionId, ActionKind, ActionOutcome, Api, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals,
-    VarDefs,
+    Action, ActionId, ActionKind, ActionOutcome, Api, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals, VarDefs,
 };
 
 use crate::agent_gate::{Gated, call_reach};

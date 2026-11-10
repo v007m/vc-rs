@@ -55,8 +55,8 @@ impl Reader<'_> {
     /// operations it names by `operationId` or draft ID.
     fn wanted(&self, route: &Route<'_>) -> bool {
         let include = &self.opts.include;
-        let included = include.is_empty()
-            || include.iter().any(|want| route.op.tags.contains(want) || under(&route.path, want));
+        let included =
+            include.is_empty() || include.iter().any(|want| route.op.tags.contains(want) || under(&route.path, want));
         let only = &self.opts.only;
         let named = only.is_empty()
             || only.iter().any(|want| route.op.operation_id.as_ref() == Some(want) || *want == route.id);
