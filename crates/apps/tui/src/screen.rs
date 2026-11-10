@@ -107,8 +107,17 @@ pub enum Update {
         /// Whether it is skipped now.
         skipped: bool,
     },
-    /// The project could not be read, explained or changed; the error's text.
+    /// The project could not be read; the error's text.
     ExploreFailed(String),
+    /// The test or api an [`Ask::Explain`] named could not be explained.
+    ExplainFailed {
+        /// Its full ID, as asked.
+        id: String,
+        /// The error's text.
+        reason: String,
+    },
+    /// A skip or unskip could not be made or written; the error's text.
+    SkipFailed(String),
     /// The project's load files, in project order.
     Scenarios(Vec<Listed>),
     /// The scenarios could not be listed; the error's text. A load run in progress goes on.

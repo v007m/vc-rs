@@ -5,7 +5,7 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use vc_engine::{Listed, SkipRequest};
+use vc_engine::{FileKind, Listed, SkipRequest};
 
 use crate::explore_view;
 use crate::history_screen::ReadState;
@@ -41,7 +41,7 @@ pub struct ExploreScreen {
 
 /// Whether `item` is an api, not a test.
 pub fn is_api(item: &Listed) -> bool {
-    item.path.ends_with(".api.yaml")
+    item.kind() == Some(FileKind::Api)
 }
 
 impl ExploreScreen {
@@ -169,9 +169,9 @@ impl ExploreScreen {
         self.cursor = self.cursor.min(self.items.len().saturating_sub(1));
     }
 
+    /// The project could not be read: the reading failed, or the re-read after a skip did.
     fn failed(&mut self, reason: &str) {
         let first = first_line(reason);
-        self.explaining = None;
         if self.reading == ReadState::Reading {
             self.reading = ReadState::Failed(first);
         } else {
@@ -226,6 +226,11 @@ impl Screen for ExploreScreen {
                 self.note = Some(Note::Said(format!("{target} {done}")));
             }
             Update::ExploreFailed(reason) => self.failed(reason),
+            Update::ExplainFailed { id, reason } if self.explaining.as_ref() == Some(id) => {
+                self.explaining = None;
+                self.note = Some(Note::Failed(first_line(reason)));
+            }
+            Update::SkipFailed(reason) => self.note = Some(Note::Failed(first_line(reason))),
             _ => {}
         }
     }

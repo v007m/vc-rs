@@ -8,7 +8,7 @@ use tokio::time::Instant;
 use vc_engine::{EngineBuilder, ImportRequest, LoadRequest, interrupts};
 use vc_testkit::{FakeVcs, MemoryCompileCache, MemoryEnvironment, MemorySources};
 
-use super::{BUSY, Driver, PATIENCE, Running};
+use super::{BUSY, Driver, PANICKED, PATIENCE, Running, watched};
 use crate::screen::{Ask, Update};
 
 /// A driver over an empty project, and where its updates come out.
@@ -101,4 +101,37 @@ async fn quitting_waits_no_longer_than_the_run_takes_to_end() {
     let begun = Instant::now();
     Running { interrupter: interrupts().0, task }.wind_down(PATIENCE).await;
     assert_eq!(begun.elapsed(), PATIENCE + Duration::from_secs(2));
+}
+
+#[tokio::test]
+async fn a_read_that_panics_is_told_to_the_tab_that_asked() {
+    let (driver, mut updates) = driver();
+    driver.read(Update::HistoryFailed, |_| panic!("the history broke"));
+    let Some(Update::HistoryFailed(reason)) = updates.recv().await else { panic!("the history tab hears why") };
+    assert_eq!(reason, format!("{PANICKED}: the history broke"));
+}
+
+#[tokio::test]
+async fn a_run_or_load_run_that_panics_is_told_and_is_no_longer_in_progress() {
+    let (mut driver, mut updates) = driver();
+    let work = tokio::spawn(async { panic!("{}", "the run broke") });
+    let task = watched(work, driver.updates.clone(), Update::RunFailed);
+    driver.running = Some(Running { interrupter: interrupts().0, task });
+    let Some(Update::RunFailed(reason)) = updates.recv().await else { panic!("the run tab hears why") };
+    assert_eq!(reason, format!("{PANICKED}: the run broke"));
+    tokio::task::yield_now().await;
+    assert!(!driver.busy(), "a new run may start");
+}
+
+#[tokio::test(start_paused = true)]
+async fn quitting_aborts_the_work_a_watched_run_waits_on() {
+    let (held, dropped) = oneshot::channel::<()>();
+    let work = tokio::spawn(async move {
+        let _held = held;
+        std::future::pending::<()>().await;
+    });
+    let (updates, _received) = mpsc::channel(1);
+    let task = watched(work, updates, Update::RunFailed);
+    Running { interrupter: interrupts().0, task }.wind_down(PATIENCE).await;
+    assert!(dropped.await.is_err(), "the run's own task was aborted with the wait on it");
 }

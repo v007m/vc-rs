@@ -6,10 +6,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::mpsc::{self, Receiver, Sender};
-use tokio::task::JoinHandle;
+use tokio::task::{JoinError, JoinHandle};
 use vc_engine::{
-    Changes, Engine, EngineError, ExplainRequest, ImportRequest, Interrupter, ListKind, ListRequest, LoadRequest,
-    LoadWatch, RunRequest, RunWatch, interrupts,
+    Changes, Engine, EngineError, ExplainRequest, FileKind, ImportRequest, Interrupter, ListKind, ListRequest,
+    LoadRequest, LoadWatch, RunRequest, RunWatch, interrupts,
 };
 
 use crate::screen::{Ask, Update};
@@ -26,6 +26,8 @@ const BUSY: &str = "a run or load run is in progress: x on its tab stops it";
 const PATIENCE: Duration = Duration::from_secs(5);
 /// The interrupts that end a run outright, as `vc run` counts Ctrl-Cs.
 const INTERRUPTS: usize = 3;
+/// What a tab is told when the work it asked for panicked.
+const PANICKED: &str = "internal error, please report it";
 
 /// The engine side of the UI.
 pub struct Driver {
@@ -72,32 +74,45 @@ impl Driver {
                     running.interrupter.interrupt();
                 }
             }
-            Ask::History => self.read(|engine| vec![history(engine)]),
-            Ask::Compare { before, after } => self.read(move |engine| vec![compare(engine, before, after)]),
-            Ask::Explore => self.read(|engine| vec![explore(engine)]),
-            Ask::Explain { id, profiles } => self.read(move |engine| vec![explain(engine, id, profiles)]),
-            Ask::Skip(request) => {
-                self.read(move |engine| edited(engine, engine.skip(&request), (request.target, true)));
+            Ask::History => self.read(Update::HistoryFailed, |engine| vec![history(engine)]),
+            Ask::Compare { before, after } => self.read(
+                move |reason| Update::CompareFailed { before, after, reason },
+                move |engine| vec![compare(engine, before, after)],
+            ),
+            Ask::Explore => self.read(Update::ExploreFailed, |engine| vec![explore(engine)]),
+            Ask::Explain { id, profiles } => {
+                let asked = id.clone();
+                let failed = move |reason| Update::ExplainFailed { id: asked, reason };
+                self.read(failed, move |engine| vec![explain(engine, id, profiles)]);
             }
-            Ask::Unskip(target) => self.read(move |engine| edited(engine, engine.unskip(&target), (target, false))),
-            Ask::Scenarios => self.read(|engine| vec![scenarios(engine)]),
+            Ask::Skip(request) => self
+                .read(Update::SkipFailed, move |engine| edited(engine, engine.skip(&request), (request.target, true))),
+            Ask::Unskip(target) => {
+                self.read(Update::SkipFailed, move |engine| edited(engine, engine.unskip(&target), (target, false)));
+            }
+            Ask::Scenarios => self.read(Update::ScenariosFailed, |engine| vec![scenarios(engine)]),
             Ask::Load(request) => self.load(request),
             Ask::Import(request) => self.import(*request),
-            Ask::Write(changes) => self.read(move |engine| vec![written(engine, &changes)]),
+            Ask::Write(changes) => self.read(Update::ImportFailed, move |engine| vec![written(engine, &changes)]),
         }
     }
 
     /// Reads or writes the project or the history on a blocking thread, as file reads and
-    /// SQLite do, and sends back the updates `read` makes of it.
-    fn read(&self, read: impl FnOnce(&Engine) -> Vec<Update> + Send + 'static) {
+    /// SQLite do, and sends back the updates `read` makes of it, or `failed` should it panic.
+    fn read(
+        &self,
+        failed: impl FnOnce(String) -> Update + Send + 'static,
+        read: impl FnOnce(&Engine) -> Vec<Update> + Send + 'static,
+    ) {
         let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
-        tokio::task::spawn_blocking(move || {
+        let work = tokio::task::spawn_blocking(move || {
             for update in read(&engine) {
                 if updates.blocking_send(update).is_err() {
                     break;
                 }
             }
         });
+        watched(work, self.updates.clone(), failed);
     }
 
     /// Ends the run in progress, if any, as Ctrl-C ends `vc run`: the first interrupt gives
@@ -135,13 +150,14 @@ impl Driver {
         request.watch = Some(RunWatch::new(watch));
         let (interrupter, interrupts) = interrupts();
         let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
-        let task = tokio::spawn(async move {
+        let work = tokio::spawn(async move {
             let run = async move { engine.run(&request, interrupts).await };
             let (ran, ()) = tokio::join!(run, forward(feed, &updates, Update::Run));
             if let Err(error) = ran {
                 updates.send(Update::RunFailed(error.to_string())).await.ok();
             }
         });
+        let task = watched(work, self.updates.clone(), Update::RunFailed);
         self.running = Some(Running { interrupter, task });
     }
 
@@ -153,13 +169,14 @@ impl Driver {
         let (ticks, heard) = mpsc::channel(TICKS);
         let (interrupter, interrupts) = interrupts();
         let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
-        let task = tokio::spawn(async move {
+        let work = tokio::spawn(async move {
             let load = async move { engine.load(&request, LoadWatch { interrupts, ticks: Some(ticks) }).await };
             let (loaded, ()) = tokio::join!(load, forward(heard, &updates, Update::Load));
             let update = loaded
                 .map_or_else(|error| Update::LoadFailed(error.to_string()), |report| Update::Loaded(Box::new(report)));
             updates.send(update).await.ok();
         });
+        let task = watched(work, self.updates.clone(), Update::LoadFailed);
         self.running = Some(Running { interrupter, task });
     }
 
@@ -167,11 +184,46 @@ impl Driver {
     /// it would make passed through the compile guard, nothing written.
     fn import(&self, request: ImportRequest) {
         let (engine, base, updates) = (Arc::clone(&self.engine), Arc::clone(&self.base), self.updates.clone());
-        tokio::spawn(async move {
+        let work = tokio::spawn(async move {
             let drafted = drafted(&engine, &base, request).await;
             updates.send(drafted.map_or_else(|error| Update::ImportFailed(told(&error)), Update::Drafted)).await.ok();
         });
+        watched(work, self.updates.clone(), Update::ImportFailed);
     }
+}
+
+/// A task that is aborted when this is dropped, as when the task waiting on it is aborted.
+struct AbortOnDrop(JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Waits on `work` and sends `failed` with why should it panic, so the tab that asked for it
+/// is never left waiting; aborting the wait aborts `work`.
+fn watched(
+    work: JoinHandle<()>,
+    updates: Sender<Update>,
+    failed: impl FnOnce(String) -> Update + Send + 'static,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut work = AbortOnDrop(work);
+        if let Err(error) = (&mut work.0).await
+            && let Some(reason) = panicked(error)
+        {
+            updates.send(failed(reason)).await.ok();
+        }
+    })
+}
+
+/// What a task's panic said, when it panicked rather than being aborted.
+fn panicked(error: JoinError) -> Option<String> {
+    let payload = error.try_into_panic().ok()?;
+    let said = payload.downcast_ref::<&str>().map(|said| (*said).to_owned());
+    let said = said.or_else(|| payload.downcast_ref::<String>().cloned()).unwrap_or_default();
+    Some(format!("{PANICKED}: {said}"))
 }
 
 /// The draft of `request`, its source a path in the project when it was typed as a path from
@@ -211,7 +263,7 @@ fn explore(engine: &Engine) -> Update {
 fn explain(engine: &Engine, id: String, profiles: Vec<String>) -> Update {
     match engine.explain(&id, &ExplainRequest { profiles, ..ExplainRequest::default() }) {
         Ok(report) => Update::Explained { id, text: report.text },
-        Err(error) => Update::ExploreFailed(error.to_string()),
+        Err(error) => Update::ExplainFailed { id, reason: error.to_string() },
     }
 }
 
@@ -219,7 +271,7 @@ fn explain(engine: &Engine, id: String, profiles: Vec<String>) -> Update {
 fn edited(engine: &Engine, changes: Result<Changes, EngineError>, (target, skipped): (String, bool)) -> Vec<Update> {
     match changes.and_then(|changes| engine.write(&changes)) {
         Ok(()) => vec![Update::Quarantined { target, skipped }, explore(engine)],
-        Err(error) => vec![Update::ExploreFailed(error.to_string())],
+        Err(error) => vec![Update::SkipFailed(error.to_string())],
     }
 }
 
@@ -227,7 +279,7 @@ fn edited(engine: &Engine, changes: Result<Changes, EngineError>, (target, skipp
 fn scenarios(engine: &Engine) -> Update {
     match engine.list(&ListRequest { kind: ListKind::Files, ..ListRequest::default() }) {
         Ok(report) => {
-            Update::Scenarios(report.items.into_iter().filter(|file| file.path.ends_with(".load.yaml")).collect())
+            Update::Scenarios(report.items.into_iter().filter(|file| file.kind() == Some(FileKind::Load)).collect())
         }
         Err(error) => Update::ScenariosFailed(error.to_string()),
     }

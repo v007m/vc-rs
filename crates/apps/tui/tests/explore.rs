@@ -127,7 +127,7 @@ fn t_unskips_a_skipped_test_and_refuses_an_api() {
     let ask = press(&mut tui, &[KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Char('t')]);
     assert_eq!(ask, Some(Ask::Unskip("users.crud#deletesUser".to_owned())));
     assert!(!engine.unskip("users.crud#deletesUser").unwrap().is_empty());
-    tui.update(&Update::ExploreFailed("crud.test.yaml could not be written: read-only".to_owned()));
+    tui.update(&Update::SkipFailed("crud.test.yaml could not be written: read-only".to_owned()));
     assert_eq!(status(&tui), "error crud.test.yaml could not be written: read-only");
 }
 
@@ -139,4 +139,19 @@ fn what_did_not_stop_the_reading_is_shown_on_the_status_line() {
     tui.update(&Update::Explored { items, notices });
     let status = screen(&tui, (140, 24)).lines().nth(1).unwrap_or_default().to_owned();
     assert!(status.ends_with("  warning: plugin `audit` is not trusted (+1 more)"), "{status}");
+}
+
+#[test]
+fn a_failure_clears_only_what_it_answers() {
+    let mut tui = on_explore(&engine().unwrap()).unwrap();
+    press(&mut tui, &[KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Enter]);
+    let explaining = "explaining users.crud#listsUsers…";
+    tui.update(&Update::SkipFailed("crud.test.yaml could not be written: read-only".to_owned()));
+    tui.update(&Update::ExploreFailed("users.api.yaml:3: bad indent".to_owned()));
+    let failed = |id: &str| Update::ExplainFailed { id: id.to_owned(), reason: "no such test\n  help: x".to_owned() };
+    tui.update(&failed("users#list"));
+    assert!(screen(&tui, SIZE).contains(explaining), "a read, skip or other explain failure leaves it");
+    tui.update(&failed("users.crud#listsUsers"));
+    assert!(!screen(&tui, SIZE).contains(explaining));
+    assert_eq!(status(&tui), "error no such test");
 }
