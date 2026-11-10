@@ -1,5 +1,6 @@
 <script lang="ts">
   import EventLog from './EventLog.svelte';
+  import PlanTable from './PlanTable.svelte';
   import RunProgress from '#lib/results/RunProgress.svelte';
   import type { RunPhase } from './model.ts';
   import type { RunSession } from './session.svelte.ts';
@@ -18,6 +19,9 @@
   let pill = $derived(pills[view.phase]);
   let title = $derived(view.runId === undefined ? 'Current run' : `Run #${view.runId}`);
   let canRerun = $derived(view.phase === 'failed' && view.counts.failed > 0);
+  let started = $derived(
+    view.startedMs === undefined ? undefined : new Date(Number(view.startedMs)),
+  );
 </script>
 
 {#if view.phase === 'idle'}
@@ -31,6 +35,11 @@
   <div class="head">
     <h2 class="h2">{title}</h2>
     <span class="pill {pill[0]}" role="status">{pill[1]}</span>
+    {#if started}
+      <span class="muted">
+        Started <time datetime={started.toISOString()}>{started.toLocaleTimeString()}</time>
+      </span>
+    {/if}
     {#if view.error}<span class="muted">{view.error}</span>{/if}
     <span class="grow"></span>
     {#if session.running}
@@ -51,6 +60,7 @@
     {/if}
   </div>
   <RunProgress counts={view.counts} planned={view.planned} />
+  {#if view.plan.length}<PlanTable plan={view.plan} />{/if}
   <EventLog events={view.events} />
 {/if}
 

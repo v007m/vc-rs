@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { RunStatus, TestStatus } from '#lib/gen/vibranium/results/v1/results_pb.ts';
@@ -38,7 +38,51 @@ function sessionOver(stream: typeof failingRun, seen: boolean[] = []): RunSessio
   );
 }
 
+const plannedRun = events(
+  { case: 'runStarted', value: { files: 1, instances: 2, startedMs: 1_790_000_000_000n } },
+  {
+    case: 'runPlanned',
+    value: {
+      instances: [
+        { instance: 0, test: 'a#passes', label: 'Passes' },
+        { instance: 1, test: 'a#waits', label: 'Waits' },
+      ],
+    },
+  },
+  {
+    case: 'actionStarted',
+    value: {
+      action: { index: 0, label: 'call a#get' },
+      owner: { kind: { case: 'instance', value: 1 } },
+    },
+  },
+  {
+    case: 'testFinished',
+    value: { test: { id: 'a#passes', label: 'Passes', status: TestStatus.PASSED, durationMs: 42 } },
+  },
+);
+
 describe('RunPanel', () => {
+  it('lists the planned tests with their state and says when the run started', async () => {
+    render(RunPanel, { session: sessionOver(plannedRun) });
+    await userEvent.click(screen.getByRole('button', { name: 'Run all tests' }));
+    const plan = await screen.findByRole('region', { name: 'Tests' });
+    const rows = within(plan)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) =>
+        within(row)
+          .getAllByRole('cell')
+          .map((cell) => cell.textContent),
+      );
+    expect(rows).toEqual([
+      ['Passes', 'passed', '42'],
+      ['Waits', 'running', ''],
+    ]);
+    const time = screen.getByText((_, el) => el?.tagName === 'TIME');
+    expect(time.getAttribute('datetime')).toBe(new Date(1_790_000_000_000).toISOString());
+  });
+
   it('starts a run from the empty state and shows its outcome', async () => {
     render(RunPanel, { session: sessionOver(failingRun) });
     await userEvent.click(screen.getByRole('button', { name: 'Run all tests' }));
