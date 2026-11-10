@@ -1,16 +1,24 @@
-import { create } from '@bufbuild/protobuf';
 import { describe, expect, it } from 'vitest';
-import { DefinitionSchema } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { apiGroups } from './apis.ts';
 
 const definitions = [
-  { id: 'users#listUsers', name: 'List users', path: 'services/users/users.api.yaml' },
-  { id: 'users#createUser', name: 'Create a user', path: 'services/users/users.api.yaml' },
-  { id: 'orders#placeOrder', path: 'services/orders/orders.api.yaml' },
-].map((d) => create(DefinitionSchema, d));
+  { id: 'users#listUsers', name: 'List users', path: 'services/users/users.api.yaml', vars: [] },
+  {
+    id: 'users#createUser',
+    name: 'Create a user',
+    path: 'services/users/users.api.yaml',
+    vars: ['email'],
+  },
+  {
+    id: 'orders#placeOrder',
+    name: 'placeOrder',
+    path: 'services/orders/orders.api.yaml',
+    vars: [],
+  },
+];
 
 describe('apiGroups', () => {
-  it('groups apis by file in order, naming an unnamed api by its ID', () => {
+  it('groups apis by file, in order', () => {
     expect(apiGroups(definitions)).toEqual([
       {
         key: 'users#',
