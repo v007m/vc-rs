@@ -10,7 +10,7 @@ pub struct RunEvent {
     /// the number after the last event.
     #[prost(uint64, tag="1")]
     pub seq: u64,
-    #[prost(oneof="run_event::Kind", tags="2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16")]
+    #[prost(oneof="run_event::Kind", tags="2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17")]
     pub kind: ::core::option::Option<run_event::Kind>,
 }
 /// Nested message and enum types in `RunEvent`.
@@ -47,6 +47,8 @@ pub mod run_event {
         Missed(super::Missed),
         #[prost(message, tag="16")]
         Report(super::RunReport),
+        #[prost(message, tag="17")]
+        RunPlanned(super::RunPlanned),
     }
 }
 /// An action of the compiled program.
@@ -61,6 +63,11 @@ pub struct ActionRef {
     /// The api it calls, by full ID, when it calls one.
     #[prost(string, optional, tag="3")]
     pub api: ::core::option::Option<::prost::alloc::string::String>,
+    /// The api's method and path template, when it calls one.
+    #[prost(string, optional, tag="4")]
+    pub method: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="5")]
+    pub path: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// The frame an action ran in: the run (`beforeRun`, `afterRun`), a file (`beforeAll`,
 /// `afterAll`) or a test instance.
@@ -97,6 +104,34 @@ pub struct RunStarted {
     pub files: u32,
     #[prost(uint32, tag="2")]
     pub instances: u32,
+    /// The run's number in the history, when it is recorded.
+    #[prost(uint64, optional, tag="3")]
+    pub run: ::core::option::Option<u64>,
+    #[prost(uint64, tag="4")]
+    pub started_ms: u64,
+}
+/// The instances the run will run, in plan order; sent once, right after RunStarted.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunPlanned {
+    #[prost(message, repeated, tag="1")]
+    pub instances: ::prost::alloc::vec::Vec<PlannedInstance>,
+}
+/// One test instance of the plan.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PlannedInstance {
+    /// Its number in the plan, as `Owner.instance` names it.
+    #[prost(uint32, tag="1")]
+    pub instance: u32,
+    /// The test's full ID.
+    #[prost(string, tag="2")]
+    pub test: ::prost::alloc::string::String,
+    /// As `Test.label` names it.
+    #[prost(string, tag="3")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(uint32, optional, tag="4")]
+    pub example_row: ::core::option::Option<u32>,
+    #[prost(uint32, tag="5")]
+    pub repeat_index: u32,
 }
 /// A file's `beforeAll` is about to run.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -289,7 +324,7 @@ pub struct ListDefinitionsRequest {
     pub skipped: bool,
 }
 /// A test, an api or a file.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Definition {
     /// The full ID, or the file ID for a file.
     #[prost(string, tag="1")]
@@ -303,6 +338,30 @@ pub struct Definition {
     pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(bool, tag="5")]
     pub skipped: bool,
+    /// Where it is defined; absent for a file.
+    #[prost(message, optional, tag="6")]
+    pub span: ::core::option::Option<super::super::results::v1::Span>,
+    /// The apis a test calls, in order.
+    #[prost(message, repeated, tag="7")]
+    pub calls: ::prost::alloc::vec::Vec<ApiCall>,
+    /// A flow test's step count; 0 for a plain test.
+    #[prost(uint32, tag="8")]
+    pub steps: u32,
+    /// An api's declared var names, in order.
+    #[prost(string, repeated, tag="9")]
+    pub vars: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// An api a test calls.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ApiCall {
+    /// Its full ID.
+    #[prost(string, tag="1")]
+    pub api: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub method: ::prost::alloc::string::String,
+    /// Its path template, such as `/users/{userId}`.
+    #[prost(string, tag="3")]
+    pub path: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListDefinitionsResponse {
@@ -311,11 +370,14 @@ pub struct ListDefinitionsResponse {
     #[prost(string, repeated, tag="2")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckRequest {
     /// Only these files or folders; the whole project when empty.
     #[prost(string, repeated, tag="1")]
     pub paths: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Unsaved editor text by project-relative path, checked in place of the file on disk.
+    #[prost(map="string, string", tag="2")]
+    pub overlay: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 /// A span with what it points at.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -512,6 +574,8 @@ pub struct AgentAction {
     pub result: ::prost::alloc::string::String,
     #[prost(string, optional, tag="6")]
     pub approved_by: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint64, tag="7")]
+    pub at_ms: u64,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListAgentActionsRequest {
@@ -523,6 +587,180 @@ pub struct ListAgentActionsRequest {
 pub struct ListAgentActionsResponse {
     #[prost(message, repeated, tag="1")]
     pub actions: ::prost::alloc::vec::Vec<AgentAction>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CallRequest {
+    /// The api's full ID.
+    #[prost(string, tag="1")]
+    pub api: ::prost::alloc::string::String,
+    /// `name=value` vars, as `vc call` takes them.
+    #[prost(string, repeated, tag="2")]
+    pub vars: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Keep the resources the call creates instead of running its cleanup.
+    #[prost(bool, tag="3")]
+    pub keep: bool,
+    #[prost(string, repeated, tag="4")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CallResponse {
+    /// The exit code `vc call` would have.
+    #[prost(uint32, tag="1")]
+    pub exit: u32,
+    /// The exchange as `vc call` prints it, secrets masked.
+    #[prost(string, tag="2")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="3")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The response as JSON text, when one came.
+    #[prost(string, optional, tag="4")]
+    pub response_json: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SaveCallAsTestRequest {
+    /// The new test's ID.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// The api's full ID.
+    #[prost(string, tag="2")]
+    pub api: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="3")]
+    pub vars: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The response the checks are taken from, as JSON text.
+    #[prost(string, optional, tag="4")]
+    pub response_json: ::core::option::Option<::prost::alloc::string::String>,
+    /// The response fields to check.
+    #[prost(string, repeated, tag="5")]
+    pub fields: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SaveCallAsTestResponse {
+    /// The test's full ID.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// The file it was written to, relative to the project root.
+    #[prost(string, tag="2")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(uint32, tag="3")]
+    pub line: u32,
+    #[prost(string, repeated, tag="4")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// What a recording keeps that its filter would drop.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ImportKeep {
+    /// Hosts kept though they are third-party.
+    #[prost(string, repeated, tag="1")]
+    pub hosts: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Static assets are kept.
+    #[prost(bool, tag="2")]
+    pub assets: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ImportRequest {
+    /// The importer: `openapi`, `har`, `postman`, `bruno`, `http`, `curl`.
+    #[prost(string, tag="1")]
+    pub kind: ::prost::alloc::string::String,
+    /// The spec or recording's text.
+    #[prost(string, tag="2")]
+    pub source: ::prost::alloc::string::String,
+    /// The file ID of the api file to fill; derived from the spec when absent.
+    #[prost(string, optional, tag="3")]
+    pub file_id: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, tag="4")]
+    pub tests: bool,
+    #[prost(bool, tag="5")]
+    pub negative: bool,
+    #[prost(bool, tag="6")]
+    pub auth: bool,
+    #[prost(string, repeated, tag="7")]
+    pub include: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="8")]
+    pub only: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="9")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// `\[fileId#\]testId` of a test replaying the recording.
+    #[prost(string, optional, tag="10")]
+    pub flow: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="11")]
+    pub keep: ::core::option::Option<ImportKeep>,
+    /// Write the files; a preview when false.
+    #[prost(bool, tag="12")]
+    pub write: bool,
+}
+/// A file an import or edit creates, changes or moves.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FileChange {
+    /// Relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// Absent for a new file.
+    #[prost(string, optional, tag="2")]
+    pub before: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag="3")]
+    pub after: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="4")]
+    pub moved_from: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ImportResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    /// What changed, and what the importer could not carry over.
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListRunsRequest {
+    /// At most this many; all when 0.
+    #[prost(uint32, tag="1")]
+    pub limit: u32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListRunsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub runs: ::prost::alloc::vec::Vec<super::super::results::v1::Run>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetRunRequest {
+    /// The run's number; the last run when absent.
+    #[prost(uint64, optional, tag="1")]
+    pub id: ::core::option::Option<u64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetRunResponse {
+    #[prost(message, optional, tag="1")]
+    pub run: ::core::option::Option<super::super::results::v1::Run>,
+    #[prost(message, repeated, tag="2")]
+    pub tests: ::prost::alloc::vec::Vec<super::super::results::v1::Test>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TrendsRequest {
+    /// Over this many runs; the engine's default when 0.
+    #[prost(uint32, tag="1")]
+    pub window: u32,
+}
+/// One test's results over the window.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TestTrend {
+    #[prost(string, tag="1")]
+    pub test_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="2")]
+    pub results: u32,
+    /// Failed or blocked.
+    #[prost(uint32, tag="3")]
+    pub failed: u32,
+    #[prost(uint32, tag="4")]
+    pub flaky: u32,
+    #[prost(double, tag="5")]
+    pub mean_ms: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TrendsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub trends: ::prost::alloc::vec::Vec<TestTrend>,
 }
 /// What to list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

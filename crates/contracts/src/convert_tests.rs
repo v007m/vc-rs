@@ -30,7 +30,8 @@ fn timings_are_milliseconds_and_a_skipped_phase_is_absent() {
 
 #[test]
 fn run_events_round_trip_in_binary() {
-    let started = RunEvent { seq: 1, kind: Some(run_event::Kind::RunStarted(RunStarted { files: 2, instances: 5 })) };
+    let started = RunStarted { files: 2, instances: 5, run: Some(7), started_ms: 1_700_000_000_000 };
+    let started = RunEvent { seq: 1, kind: Some(run_event::Kind::RunStarted(started)) };
     let report =
         RunEvent { seq: 9, kind: Some(run_event::Kind::Report(RunReport { exit: 1, ..RunReport::default() })) };
     for event in [started, report] {

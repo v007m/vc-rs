@@ -27,6 +27,7 @@ message RunEvent {
     LoadTick load_tick = 14;
     Missed missed = 15;
     RunReport report = 16;
+    RunPlanned run_planned = 17;
   }
 }
 
@@ -38,6 +39,9 @@ message ActionRef {
   string label = 2;
   // The api it calls, by full ID, when it calls one.
   optional string api = 3;
+  // The api's method and path template, when it calls one.
+  optional string method = 4;
+  optional string path = 5;
 }
 
 // The frame an action ran in: the run (`beforeRun`, `afterRun`), a file (`beforeAll`,
@@ -61,6 +65,26 @@ message RunScope {}
 message RunStarted {
   uint32 files = 1;
   uint32 instances = 2;
+  // The run's number in the history, when it is recorded.
+  optional uint64 run = 3;
+  uint64 started_ms = 4;
+}
+
+// The instances the run will run, in plan order; sent once, right after RunStarted.
+message RunPlanned {
+  repeated PlannedInstance instances = 1;
+}
+
+// One test instance of the plan.
+message PlannedInstance {
+  // Its number in the plan, as `Owner.instance` names it.
+  uint32 instance = 1;
+  // The test's full ID.
+  string test = 2;
+  // As `Test.label` names it.
+  string label = 3;
+  optional uint32 example_row = 4;
+  uint32 repeat_index = 5;
 }
 
 // A file's `beforeAll` is about to run.

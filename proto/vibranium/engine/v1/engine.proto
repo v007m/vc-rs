@@ -28,6 +28,18 @@ service EngineService {
   rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
   // What agents did through MCP, newest first.
   rpc ListAgentActions(ListAgentActionsRequest) returns (ListAgentActionsResponse);
+  // Sends one api's request, as `vc call` does; the web UI counts as an agent (D178, D195).
+  rpc Call(CallRequest) returns (CallResponse);
+  // Writes a call as a test, as `vc call --save-as` does.
+  rpc SaveCallAsTest(SaveCallAsTestRequest) returns (SaveCallAsTestResponse);
+  // Imports a spec or recording, as `vc import` does: a preview, or the files written.
+  rpc Import(ImportRequest) returns (ImportResponse);
+  // The runs the history keeps, newest first.
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  // One run of the history with its tests.
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+  // Each test's results over the last runs, as `vc history --trends` reports them.
+  rpc Trends(TrendsRequest) returns (TrendsResponse);
 }
 
 // Which tests or apis to act on, as `vc run` selects them.
@@ -82,6 +94,23 @@ message Definition {
   string path = 3;
   repeated string tags = 4;
   bool skipped = 5;
+  // Where it is defined; absent for a file.
+  vibranium.results.v1.Span span = 6;
+  // The apis a test calls, in order.
+  repeated ApiCall calls = 7;
+  // A flow test's step count; 0 for a plain test.
+  uint32 steps = 8;
+  // An api's declared var names, in order.
+  repeated string vars = 9;
+}
+
+// An api a test calls.
+message ApiCall {
+  // Its full ID.
+  string api = 1;
+  string method = 2;
+  // Its path template, such as `/users/{userId}`.
+  string path = 3;
 }
 
 message ListDefinitionsResponse {
@@ -92,6 +121,8 @@ message ListDefinitionsResponse {
 message CheckRequest {
   // Only these files or folders; the whole project when empty.
   repeated string paths = 1;
+  // Unsaved editor text by project-relative path, checked in place of the file on disk.
+  map<string, string> overlay = 2;
 }
 
 // How bad a diagnostic is.
@@ -255,6 +286,7 @@ message AgentAction {
   string arguments = 4;
   string result = 5;
   optional string approved_by = 6;
+  uint64 at_ms = 7;
 }
 
 message ListAgentActionsRequest {
@@ -264,4 +296,128 @@ message ListAgentActionsRequest {
 
 message ListAgentActionsResponse {
   repeated AgentAction actions = 1;
+}
+
+message CallRequest {
+  // The api's full ID.
+  string api = 1;
+  // `name=value` vars, as `vc call` takes them.
+  repeated string vars = 2;
+  // Keep the resources the call creates instead of running its cleanup.
+  bool keep = 3;
+  repeated string profiles = 4;
+  repeated string sets = 5;
+}
+
+message CallResponse {
+  // The exit code `vc call` would have.
+  uint32 exit = 1;
+  // The exchange as `vc call` prints it, secrets masked.
+  string text = 2;
+  repeated string notices = 3;
+  // The response as JSON text, when one came.
+  optional string response_json = 4;
+}
+
+message SaveCallAsTestRequest {
+  // The new test's ID.
+  string id = 1;
+  // The api's full ID.
+  string api = 2;
+  repeated string vars = 3;
+  // The response the checks are taken from, as JSON text.
+  optional string response_json = 4;
+  // The response fields to check.
+  repeated string fields = 5;
+}
+
+message SaveCallAsTestResponse {
+  // The test's full ID.
+  string id = 1;
+  // The file it was written to, relative to the project root.
+  string path = 2;
+  uint32 line = 3;
+  repeated string titles = 4;
+}
+
+// What a recording keeps that its filter would drop.
+message ImportKeep {
+  // Hosts kept though they are third-party.
+  repeated string hosts = 1;
+  // Static assets are kept.
+  bool assets = 2;
+}
+
+message ImportRequest {
+  // The importer: `openapi`, `har`, `postman`, `bruno`, `http`, `curl`.
+  string kind = 1;
+  // The spec or recording's text.
+  string source = 2;
+  // The file ID of the api file to fill; derived from the spec when absent.
+  optional string file_id = 3;
+  bool tests = 4;
+  bool negative = 5;
+  bool auth = 6;
+  repeated string include = 7;
+  repeated string only = 8;
+  repeated string profiles = 9;
+  // `[fileId#]testId` of a test replaying the recording.
+  optional string flow = 10;
+  ImportKeep keep = 11;
+  // Write the files; a preview when false.
+  bool write = 12;
+}
+
+// A file an import or edit creates, changes or moves.
+message FileChange {
+  // Relative to the project root.
+  string path = 1;
+  // Absent for a new file.
+  optional string before = 2;
+  string after = 3;
+  optional string moved_from = 4;
+}
+
+message ImportResponse {
+  repeated FileChange files = 1;
+  // What changed, and what the importer could not carry over.
+  repeated string titles = 2;
+}
+
+message ListRunsRequest {
+  // At most this many; all when 0.
+  uint32 limit = 1;
+}
+
+message ListRunsResponse {
+  repeated vibranium.results.v1.Run runs = 1;
+}
+
+message GetRunRequest {
+  // The run's number; the last run when absent.
+  optional uint64 id = 1;
+}
+
+message GetRunResponse {
+  vibranium.results.v1.Run run = 1;
+  repeated vibranium.results.v1.Test tests = 2;
+}
+
+message TrendsRequest {
+  // Over this many runs; the engine's default when 0.
+  uint32 window = 1;
+}
+
+// One test's results over the window.
+message TestTrend {
+  string test_id = 1;
+  uint32 results = 2;
+  // Failed or blocked.
+  uint32 failed = 3;
+  uint32 flaky = 4;
+  double mean_ms = 5;
+}
+
+message TrendsResponse {
+  repeated TestTrend trends = 1;
 }

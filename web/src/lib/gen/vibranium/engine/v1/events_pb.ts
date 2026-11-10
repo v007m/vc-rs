@@ -15,7 +15,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file vibranium/engine/v1/events.proto.
  */
 export const file_vibranium_engine_v1_events: GenFile = /*@__PURE__*/
-  fileDesc("CiB2aWJyYW5pdW0vZW5naW5lL3YxL2V2ZW50cy5wcm90bxITdmlicmFuaXVtLmVuZ2luZS52MSKCBwoIUnVuRXZlbnQSCwoDc2VxGAEgASgEEjYKC3J1bl9zdGFydGVkGAIgASgLMh8udmlicmFuaXVtLmVuZ2luZS52MS5SdW5TdGFydGVkSAASOAoMZmlsZV9zdGFydGVkGAMgASgLMiAudmlicmFuaXVtLmVuZ2luZS52MS5GaWxlU3RhcnRlZEgAEjoKDWZpbGVfZmluaXNoZWQYBCABKAsyIS52aWJyYW5pdW0uZW5naW5lLnYxLkZpbGVGaW5pc2hlZEgAEjwKDmFjdGlvbl9zdGFydGVkGAUgASgLMiIudmlicmFuaXVtLmVuZ2luZS52MS5BY3Rpb25TdGFydGVkSAASPgoPYWN0aW9uX2ZpbmlzaGVkGAYgASgLMiMudmlicmFuaXVtLmVuZ2luZS52MS5BY3Rpb25GaW5pc2hlZEgAEjMKCWV4Y2hhbmdlZBgHIAEoCzIeLnZpYnJhbml1bS5lbmdpbmUudjEuRXhjaGFuZ2VkSAASPgoPY2hlY2tfZXZhbHVhdGVkGAggASgLMiMudmlicmFuaXVtLmVuZ2luZS52MS5DaGVja0V2YWx1YXRlZEgAEi0KBndhcm5lZBgJIAEoCzIbLnZpYnJhbml1bS5lbmdpbmUudjEuV2FybmVkSAASQAoQY2xlYW51cF9maW5pc2hlZBgKIAEoCzIkLnZpYnJhbml1bS5lbmdpbmUudjEuQ2xlYW51cEZpbmlzaGVkSAASRAoSY2xlYW51cHNfYWJhbmRvbmVkGAsgASgLMiYudmlicmFuaXVtLmVuZ2luZS52MS5DbGVhbnVwc0FiYW5kb25lZEgAEjoKDXRlc3RfZmluaXNoZWQYDCABKAsyIS52aWJyYW5pdW0uZW5naW5lLnYxLlRlc3RGaW5pc2hlZEgAEjgKDHJ1bl9maW5pc2hlZBgNIAEoCzIgLnZpYnJhbml1bS5lbmdpbmUudjEuUnVuRmluaXNoZWRIABIyCglsb2FkX3RpY2sYDiABKAsyHS52aWJyYW5pdW0uZW5naW5lLnYxLkxvYWRUaWNrSAASLQoGbWlzc2VkGA8gASgLMhsudmlicmFuaXVtLmVuZ2luZS52MS5NaXNzZWRIABIwCgZyZXBvcnQYECABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLlJ1blJlcG9ydEgAQgYKBGtpbmQiQwoJQWN0aW9uUmVmEg0KBWluZGV4GAEgASgNEg0KBWxhYmVsGAIgASgJEhAKA2FwaRgDIAEoCUgAiAEBQgYKBF9hcGkicAoFT3duZXISDQoFbGFiZWwYASABKAkSLAoDcnVuGAIgASgLMh0udmlicmFuaXVtLmVuZ2luZS52MS5SdW5TY29wZUgAEg4KBGZpbGUYAyABKAlIABISCghpbnN0YW5jZRgEIAEoDUgAQgYKBGtpbmQiCgoIUnVuU2NvcGUiLgoKUnVuU3RhcnRlZBINCgVmaWxlcxgBIAEoDRIRCglpbnN0YW5jZXMYAiABKA0iGwoLRmlsZVN0YXJ0ZWQSDAoEZmlsZRgBIAEoCSJKCgxGaWxlRmluaXNoZWQSDAoEZmlsZRgBIAEoCRIsCgZ0b3RhbHMYAiABKAsyHC52aWJyYW5pdW0ucmVzdWx0cy52MS5Ub3RhbHMiagoNQWN0aW9uU3RhcnRlZBIuCgZhY3Rpb24YASABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLkFjdGlvblJlZhIpCgVvd25lchgCIAEoCzIaLnZpYnJhbml1bS5lbmdpbmUudjEuT3duZXIimwEKDkFjdGlvbkZpbmlzaGVkEi4KBmFjdGlvbhgBIAEoCzIeLnZpYnJhbml1bS5lbmdpbmUudjEuQWN0aW9uUmVmEikKBW93bmVyGAIgASgLMhoudmlicmFuaXVtLmVuZ2luZS52MS5Pd25lchIuCgdmYWlsdXJlGAMgASgLMh0udmlicmFuaXVtLnJlc3VsdHMudjEuRmFpbHVyZSKYAQoJRXhjaGFuZ2VkEi4KBmFjdGlvbhgBIAEoCzIeLnZpYnJhbml1bS5lbmdpbmUudjEuQWN0aW9uUmVmEikKBW93bmVyGAIgASgLMhoudmlicmFuaXVtLmVuZ2luZS52MS5Pd25lchIwCghleGNoYW5nZRgDIAEoCzIeLnZpYnJhbml1bS5yZXN1bHRzLnYxLkV4Y2hhbmdlIpcBCg5DaGVja0V2YWx1YXRlZBIuCgZhY3Rpb24YASABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLkFjdGlvblJlZhIpCgVvd25lchgCIAEoCzIaLnZpYnJhbml1bS5lbmdpbmUudjEuT3duZXISKgoFY2hlY2sYAyABKAsyGy52aWJyYW5pdW0ucmVzdWx0cy52MS5DaGVjayKTAQoGV2FybmVkEi4KBmFjdGlvbhgBIAEoCzIeLnZpYnJhbml1bS5lbmdpbmUudjEuQWN0aW9uUmVmEikKBW93bmVyGAIgASgLMhoudmlicmFuaXVtLmVuZ2luZS52MS5Pd25lchIuCgd3YXJuaW5nGAMgASgLMh0udmlicmFuaXVtLnJlc3VsdHMudjEuRmFpbHVyZSKcAQoPQ2xlYW51cEZpbmlzaGVkEi4KBmFjdGlvbhgBIAEoCzIeLnZpYnJhbml1bS5lbmdpbmUudjEuQWN0aW9uUmVmEikKBW93bmVyGAIgASgLMhoudmlicmFuaXVtLmVuZ2luZS52MS5Pd25lchIuCgdmYWlsdXJlGAMgASgLMh0udmlicmFuaXVtLnJlc3VsdHMudjEuRmFpbHVyZSJwChFDbGVhbnVwc0FiYW5kb25lZBIpCgVvd25lchgBIAEoCzIaLnZpYnJhbml1bS5lbmdpbmUudjEuT3duZXISMAoIY2xlYW51cHMYAiADKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLkFjdGlvblJlZiI4CgxUZXN0RmluaXNoZWQSKAoEdGVzdBgBIAEoCzIaLnZpYnJhbml1bS5yZXN1bHRzLnYxLlRlc3QibAoLUnVuRmluaXNoZWQSLwoGc3RhdHVzGAEgASgOMh8udmlicmFuaXVtLnJlc3VsdHMudjEuUnVuU3RhdHVzEiwKBnRvdGFscxgCIAEoCzIcLnZpYnJhbml1bS5yZXN1bHRzLnYxLlRvdGFscyKJAQoITG9hZFRpY2sSDgoGc2Vjb25kGAEgASgEEg0KBXVzZXJzGAIgASgNEgsKA3JwcxgDIAEoBBIOCgZwNTBfbXMYBCABKAESDgoGcDk1X21zGAUgASgBEg4KBnA5OV9tcxgGIAEoARIOCgZlcnJvcnMYByABKAQSEQoJYnJlYWNoaW5nGAggAygJIhcKBk1pc3NlZBINCgVjb3VudBgBIAEoBCJSCglSdW5SZXBvcnQSDAoEZXhpdBgBIAEoDRIMCgRzZWVkGAIgASgEEg8KB25vdGljZXMYAyADKAkSEAoDcnVuGAQgASgESACIAQFCBgoEX3J1bmIGcHJvdG8z", [file_vibranium_results_v1_results]);
+  fileDesc("CiB2aWJyYW5pdW0vZW5naW5lL3YxL2V2ZW50cy5wcm90bxITdmlicmFuaXVtLmVuZ2luZS52MSK6BwoIUnVuRXZlbnQSCwoDc2VxGAEgASgEEjYKC3J1bl9zdGFydGVkGAIgASgLMh8udmlicmFuaXVtLmVuZ2luZS52MS5SdW5TdGFydGVkSAASOAoMZmlsZV9zdGFydGVkGAMgASgLMiAudmlicmFuaXVtLmVuZ2luZS52MS5GaWxlU3RhcnRlZEgAEjoKDWZpbGVfZmluaXNoZWQYBCABKAsyIS52aWJyYW5pdW0uZW5naW5lLnYxLkZpbGVGaW5pc2hlZEgAEjwKDmFjdGlvbl9zdGFydGVkGAUgASgLMiIudmlicmFuaXVtLmVuZ2luZS52MS5BY3Rpb25TdGFydGVkSAASPgoPYWN0aW9uX2ZpbmlzaGVkGAYgASgLMiMudmlicmFuaXVtLmVuZ2luZS52MS5BY3Rpb25GaW5pc2hlZEgAEjMKCWV4Y2hhbmdlZBgHIAEoCzIeLnZpYnJhbml1bS5lbmdpbmUudjEuRXhjaGFuZ2VkSAASPgoPY2hlY2tfZXZhbHVhdGVkGAggASgLMiMudmlicmFuaXVtLmVuZ2luZS52MS5DaGVja0V2YWx1YXRlZEgAEi0KBndhcm5lZBgJIAEoCzIbLnZpYnJhbml1bS5lbmdpbmUudjEuV2FybmVkSAASQAoQY2xlYW51cF9maW5pc2hlZBgKIAEoCzIkLnZpYnJhbml1bS5lbmdpbmUudjEuQ2xlYW51cEZpbmlzaGVkSAASRAoSY2xlYW51cHNfYWJhbmRvbmVkGAsgASgLMiYudmlicmFuaXVtLmVuZ2luZS52MS5DbGVhbnVwc0FiYW5kb25lZEgAEjoKDXRlc3RfZmluaXNoZWQYDCABKAsyIS52aWJyYW5pdW0uZW5naW5lLnYxLlRlc3RGaW5pc2hlZEgAEjgKDHJ1bl9maW5pc2hlZBgNIAEoCzIgLnZpYnJhbml1bS5lbmdpbmUudjEuUnVuRmluaXNoZWRIABIyCglsb2FkX3RpY2sYDiABKAsyHS52aWJyYW5pdW0uZW5naW5lLnYxLkxvYWRUaWNrSAASLQoGbWlzc2VkGA8gASgLMhsudmlicmFuaXVtLmVuZ2luZS52MS5NaXNzZWRIABIwCgZyZXBvcnQYECABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLlJ1blJlcG9ydEgAEjYKC3J1bl9wbGFubmVkGBEgASgLMh8udmlicmFuaXVtLmVuZ2luZS52MS5SdW5QbGFubmVkSABCBgoEa2luZCJ/CglBY3Rpb25SZWYSDQoFaW5kZXgYASABKA0SDQoFbGFiZWwYAiABKAkSEAoDYXBpGAMgASgJSACIAQESEwoGbWV0aG9kGAQgASgJSAGIAQESEQoEcGF0aBgFIAEoCUgCiAEBQgYKBF9hcGlCCQoHX21ldGhvZEIHCgVfcGF0aCJwCgVPd25lchINCgVsYWJlbBgBIAEoCRIsCgNydW4YAiABKAsyHS52aWJyYW5pdW0uZW5naW5lLnYxLlJ1blNjb3BlSAASDgoEZmlsZRgDIAEoCUgAEhIKCGluc3RhbmNlGAQgASgNSABCBgoEa2luZCIKCghSdW5TY29wZSJcCgpSdW5TdGFydGVkEg0KBWZpbGVzGAEgASgNEhEKCWluc3RhbmNlcxgCIAEoDRIQCgNydW4YAyABKARIAIgBARISCgpzdGFydGVkX21zGAQgASgEQgYKBF9ydW4iRQoKUnVuUGxhbm5lZBI3CglpbnN0YW5jZXMYASADKAsyJC52aWJyYW5pdW0uZW5naW5lLnYxLlBsYW5uZWRJbnN0YW5jZSKAAQoPUGxhbm5lZEluc3RhbmNlEhAKCGluc3RhbmNlGAEgASgNEgwKBHRlc3QYAiABKAkSDQoFbGFiZWwYAyABKAkSGAoLZXhhbXBsZV9yb3cYBCABKA1IAIgBARIUCgxyZXBlYXRfaW5kZXgYBSABKA1CDgoMX2V4YW1wbGVfcm93IhsKC0ZpbGVTdGFydGVkEgwKBGZpbGUYASABKAkiSgoMRmlsZUZpbmlzaGVkEgwKBGZpbGUYASABKAkSLAoGdG90YWxzGAIgASgLMhwudmlicmFuaXVtLnJlc3VsdHMudjEuVG90YWxzImoKDUFjdGlvblN0YXJ0ZWQSLgoGYWN0aW9uGAEgASgLMh4udmlicmFuaXVtLmVuZ2luZS52MS5BY3Rpb25SZWYSKQoFb3duZXIYAiABKAsyGi52aWJyYW5pdW0uZW5naW5lLnYxLk93bmVyIpsBCg5BY3Rpb25GaW5pc2hlZBIuCgZhY3Rpb24YASABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLkFjdGlvblJlZhIpCgVvd25lchgCIAEoCzIaLnZpYnJhbml1bS5lbmdpbmUudjEuT3duZXISLgoHZmFpbHVyZRgDIAEoCzIdLnZpYnJhbml1bS5yZXN1bHRzLnYxLkZhaWx1cmUimAEKCUV4Y2hhbmdlZBIuCgZhY3Rpb24YASABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLkFjdGlvblJlZhIpCgVvd25lchgCIAEoCzIaLnZpYnJhbml1bS5lbmdpbmUudjEuT3duZXISMAoIZXhjaGFuZ2UYAyABKAsyHi52aWJyYW5pdW0ucmVzdWx0cy52MS5FeGNoYW5nZSKXAQoOQ2hlY2tFdmFsdWF0ZWQSLgoGYWN0aW9uGAEgASgLMh4udmlicmFuaXVtLmVuZ2luZS52MS5BY3Rpb25SZWYSKQoFb3duZXIYAiABKAsyGi52aWJyYW5pdW0uZW5naW5lLnYxLk93bmVyEioKBWNoZWNrGAMgASgLMhsudmlicmFuaXVtLnJlc3VsdHMudjEuQ2hlY2sikwEKBldhcm5lZBIuCgZhY3Rpb24YASABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLkFjdGlvblJlZhIpCgVvd25lchgCIAEoCzIaLnZpYnJhbml1bS5lbmdpbmUudjEuT3duZXISLgoHd2FybmluZxgDIAEoCzIdLnZpYnJhbml1bS5yZXN1bHRzLnYxLkZhaWx1cmUinAEKD0NsZWFudXBGaW5pc2hlZBIuCgZhY3Rpb24YASABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLkFjdGlvblJlZhIpCgVvd25lchgCIAEoCzIaLnZpYnJhbml1bS5lbmdpbmUudjEuT3duZXISLgoHZmFpbHVyZRgDIAEoCzIdLnZpYnJhbml1bS5yZXN1bHRzLnYxLkZhaWx1cmUicAoRQ2xlYW51cHNBYmFuZG9uZWQSKQoFb3duZXIYASABKAsyGi52aWJyYW5pdW0uZW5naW5lLnYxLk93bmVyEjAKCGNsZWFudXBzGAIgAygLMh4udmlicmFuaXVtLmVuZ2luZS52MS5BY3Rpb25SZWYiOAoMVGVzdEZpbmlzaGVkEigKBHRlc3QYASABKAsyGi52aWJyYW5pdW0ucmVzdWx0cy52MS5UZXN0ImwKC1J1bkZpbmlzaGVkEi8KBnN0YXR1cxgBIAEoDjIfLnZpYnJhbml1bS5yZXN1bHRzLnYxLlJ1blN0YXR1cxIsCgZ0b3RhbHMYAiABKAsyHC52aWJyYW5pdW0ucmVzdWx0cy52MS5Ub3RhbHMiiQEKCExvYWRUaWNrEg4KBnNlY29uZBgBIAEoBBINCgV1c2VycxgCIAEoDRILCgNycHMYAyABKAQSDgoGcDUwX21zGAQgASgBEg4KBnA5NV9tcxgFIAEoARIOCgZwOTlfbXMYBiABKAESDgoGZXJyb3JzGAcgASgEEhEKCWJyZWFjaGluZxgIIAMoCSIXCgZNaXNzZWQSDQoFY291bnQYASABKAQiUgoJUnVuUmVwb3J0EgwKBGV4aXQYASABKA0SDAoEc2VlZBgCIAEoBBIPCgdub3RpY2VzGAMgAygJEhAKA3J1bhgEIAEoBEgAiAEBQgYKBF9ydW5iBnByb3RvMw", [file_vibranium_results_v1_results]);
 
 /**
  * One event of a run, or the report that ends the stream.
@@ -124,6 +124,12 @@ export type RunEvent = Message<"vibranium.engine.v1.RunEvent"> & {
      */
     value: RunReport;
     case: "report";
+  } | {
+    /**
+     * @generated from field: vibranium.engine.v1.RunPlanned run_planned = 17;
+     */
+    value: RunPlanned;
+    case: "runPlanned";
   } | { case: undefined; value?: undefined };
 };
 
@@ -160,6 +166,18 @@ export type ActionRef = Message<"vibranium.engine.v1.ActionRef"> & {
    * @generated from field: optional string api = 3;
    */
   api?: string | undefined;
+
+  /**
+   * The api's method and path template, when it calls one.
+   *
+   * @generated from field: optional string method = 4;
+   */
+  method?: string | undefined;
+
+  /**
+   * @generated from field: optional string path = 5;
+   */
+  path?: string | undefined;
 };
 
 /**
@@ -248,6 +266,18 @@ export type RunStarted = Message<"vibranium.engine.v1.RunStarted"> & {
    * @generated from field: uint32 instances = 2;
    */
   instances: number;
+
+  /**
+   * The run's number in the history, when it is recorded.
+   *
+   * @generated from field: optional uint64 run = 3;
+   */
+  run?: bigint | undefined;
+
+  /**
+   * @generated from field: uint64 started_ms = 4;
+   */
+  startedMs: bigint;
 };
 
 /**
@@ -256,6 +286,70 @@ export type RunStarted = Message<"vibranium.engine.v1.RunStarted"> & {
  */
 export const RunStartedSchema: GenMessage<RunStarted> = /*@__PURE__*/
   messageDesc(file_vibranium_engine_v1_events, 4);
+
+/**
+ * The instances the run will run, in plan order; sent once, right after RunStarted.
+ *
+ * @generated from message vibranium.engine.v1.RunPlanned
+ */
+export type RunPlanned = Message<"vibranium.engine.v1.RunPlanned"> & {
+  /**
+   * @generated from field: repeated vibranium.engine.v1.PlannedInstance instances = 1;
+   */
+  instances: PlannedInstance[];
+};
+
+/**
+ * Describes the message vibranium.engine.v1.RunPlanned.
+ * Use `create(RunPlannedSchema)` to create a new message.
+ */
+export const RunPlannedSchema: GenMessage<RunPlanned> = /*@__PURE__*/
+  messageDesc(file_vibranium_engine_v1_events, 5);
+
+/**
+ * One test instance of the plan.
+ *
+ * @generated from message vibranium.engine.v1.PlannedInstance
+ */
+export type PlannedInstance = Message<"vibranium.engine.v1.PlannedInstance"> & {
+  /**
+   * Its number in the plan, as `Owner.instance` names it.
+   *
+   * @generated from field: uint32 instance = 1;
+   */
+  instance: number;
+
+  /**
+   * The test's full ID.
+   *
+   * @generated from field: string test = 2;
+   */
+  test: string;
+
+  /**
+   * As `Test.label` names it.
+   *
+   * @generated from field: string label = 3;
+   */
+  label: string;
+
+  /**
+   * @generated from field: optional uint32 example_row = 4;
+   */
+  exampleRow?: number | undefined;
+
+  /**
+   * @generated from field: uint32 repeat_index = 5;
+   */
+  repeatIndex: number;
+};
+
+/**
+ * Describes the message vibranium.engine.v1.PlannedInstance.
+ * Use `create(PlannedInstanceSchema)` to create a new message.
+ */
+export const PlannedInstanceSchema: GenMessage<PlannedInstance> = /*@__PURE__*/
+  messageDesc(file_vibranium_engine_v1_events, 6);
 
 /**
  * A file's `beforeAll` is about to run.
@@ -274,7 +368,7 @@ export type FileStarted = Message<"vibranium.engine.v1.FileStarted"> & {
  * Use `create(FileStartedSchema)` to create a new message.
  */
 export const FileStartedSchema: GenMessage<FileStarted> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 5);
+  messageDesc(file_vibranium_engine_v1_events, 7);
 
 /**
  * A file's instances, `afterAll` and cleanups are done.
@@ -298,7 +392,7 @@ export type FileFinished = Message<"vibranium.engine.v1.FileFinished"> & {
  * Use `create(FileFinishedSchema)` to create a new message.
  */
 export const FileFinishedSchema: GenMessage<FileFinished> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 6);
+  messageDesc(file_vibranium_engine_v1_events, 8);
 
 /**
  * An action started.
@@ -322,7 +416,7 @@ export type ActionStarted = Message<"vibranium.engine.v1.ActionStarted"> & {
  * Use `create(ActionStartedSchema)` to create a new message.
  */
 export const ActionStartedSchema: GenMessage<ActionStarted> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 7);
+  messageDesc(file_vibranium_engine_v1_events, 9);
 
 /**
  * An action ended, or was not run because a shared action it needs failed.
@@ -353,7 +447,7 @@ export type ActionFinished = Message<"vibranium.engine.v1.ActionFinished"> & {
  * Use `create(ActionFinishedSchema)` to create a new message.
  */
 export const ActionFinishedSchema: GenMessage<ActionFinished> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 8);
+  messageDesc(file_vibranium_engine_v1_events, 10);
 
 /**
  * A call sent a request and got a response.
@@ -382,7 +476,7 @@ export type Exchanged = Message<"vibranium.engine.v1.Exchanged"> & {
  * Use `create(ExchangedSchema)` to create a new message.
  */
 export const ExchangedSchema: GenMessage<Exchanged> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 9);
+  messageDesc(file_vibranium_engine_v1_events, 11);
 
 /**
  * A call's check was evaluated.
@@ -411,7 +505,7 @@ export type CheckEvaluated = Message<"vibranium.engine.v1.CheckEvaluated"> & {
  * Use `create(CheckEvaluatedSchema)` to create a new message.
  */
 export const CheckEvaluatedSchema: GenMessage<CheckEvaluated> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 10);
+  messageDesc(file_vibranium_engine_v1_events, 12);
 
 /**
  * An action read a value an earlier action saved without declaring it (V5108); the run goes on.
@@ -440,7 +534,7 @@ export type Warned = Message<"vibranium.engine.v1.Warned"> & {
  * Use `create(WarnedSchema)` to create a new message.
  */
 export const WarnedSchema: GenMessage<Warned> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 11);
+  messageDesc(file_vibranium_engine_v1_events, 13);
 
 /**
  * A cleanup ran.
@@ -471,7 +565,7 @@ export type CleanupFinished = Message<"vibranium.engine.v1.CleanupFinished"> & {
  * Use `create(CleanupFinishedSchema)` to create a new message.
  */
 export const CleanupFinishedSchema: GenMessage<CleanupFinished> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 12);
+  messageDesc(file_vibranium_engine_v1_events, 14);
 
 /**
  * The run was aborted before these cleanups ran, newest first.
@@ -495,7 +589,7 @@ export type CleanupsAbandoned = Message<"vibranium.engine.v1.CleanupsAbandoned">
  * Use `create(CleanupsAbandonedSchema)` to create a new message.
  */
 export const CleanupsAbandonedSchema: GenMessage<CleanupsAbandoned> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 13);
+  messageDesc(file_vibranium_engine_v1_events, 15);
 
 /**
  * A test instance ended, or a selected test was skipped. Its checks and exchanges came as
@@ -515,7 +609,7 @@ export type TestFinished = Message<"vibranium.engine.v1.TestFinished"> & {
  * Use `create(TestFinishedSchema)` to create a new message.
  */
 export const TestFinishedSchema: GenMessage<TestFinished> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 14);
+  messageDesc(file_vibranium_engine_v1_events, 16);
 
 /**
  * The run ended.
@@ -539,7 +633,7 @@ export type RunFinished = Message<"vibranium.engine.v1.RunFinished"> & {
  * Use `create(RunFinishedSchema)` to create a new message.
  */
 export const RunFinishedSchema: GenMessage<RunFinished> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 15);
+  messageDesc(file_vibranium_engine_v1_events, 17);
 
 /**
  * One second of a load run closed; its numbers are over the last 10 s.
@@ -599,7 +693,7 @@ export type LoadTick = Message<"vibranium.engine.v1.LoadTick"> & {
  * Use `create(LoadTickSchema)` to create a new message.
  */
 export const LoadTickSchema: GenMessage<LoadTick> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 16);
+  messageDesc(file_vibranium_engine_v1_events, 18);
 
 /**
  * The stream fell behind and dropped `count` events; the run's history has them.
@@ -618,7 +712,7 @@ export type Missed = Message<"vibranium.engine.v1.Missed"> & {
  * Use `create(MissedSchema)` to create a new message.
  */
 export const MissedSchema: GenMessage<Missed> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 17);
+  messageDesc(file_vibranium_engine_v1_events, 19);
 
 /**
  * How the run ended, as `vc run` reports it; always the last message.
@@ -658,5 +752,5 @@ export type RunReport = Message<"vibranium.engine.v1.RunReport"> & {
  * Use `create(RunReportSchema)` to create a new message.
  */
 export const RunReportSchema: GenMessage<RunReport> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_events, 18);
+  messageDesc(file_vibranium_engine_v1_events, 20);
 
