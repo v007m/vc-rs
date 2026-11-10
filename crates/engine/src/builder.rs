@@ -41,9 +41,9 @@ pub struct EngineBuilder {
 
 /// How the engine starts plugin processes: where their stderr goes, and the program that confines
 /// them on Linux (`vc` itself, run as the plugin launcher), if any.
-pub(crate) struct PluginProcesses {
-    pub(crate) stderr: PluginStderr,
-    pub(crate) launcher: Option<PathBuf>,
+pub struct PluginProcesses {
+    pub stderr: PluginStderr,
+    pub launcher: Option<PathBuf>,
 }
 
 /// The history's writer and reader, given together.

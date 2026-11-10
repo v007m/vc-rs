@@ -68,7 +68,7 @@ fn a_confined_process_reads_and_writes_only_what_its_policy_opens() {
     let shell = (PathBuf::from("/bin/sh"), vec![OsString::from("-c"), OsString::from(script)]);
     let (program, args) = entry(&policy(&root, &plugin, &data), None, shell).unwrap();
     let ran = Command::new(program).args(args).current_dir(&root).output().unwrap();
-    assert_eq!(String::from_utf8_lossy(&ran.stdout), "plugin\n");
+    assert_eq!(String::from_utf8_lossy(&ran.stdout), "echo plugin");
     assert_eq!(std::fs::read_to_string(data.join("out.txt")).unwrap(), "ok\n");
     assert!(!root.join("leaked.txt").exists());
 }
