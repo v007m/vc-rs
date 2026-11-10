@@ -32,9 +32,11 @@ impl Input {
     }
 
     /// Applies `key`: a character is added, `backspace` takes the last one off, `enter` is
-    /// done and `esc` drops the text. A character typed with `ctrl` or `alt` is ignored.
+    /// done and `esc` drops the text. A character typed with `ctrl` or `alt` is ignored, but not
+    /// one typed with both, which is how Windows reports `AltGr` (`@` on many keyboards).
     pub fn press(&mut self, key: KeyEvent) -> Typed {
-        let plain = !key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT);
+        let held = key.modifiers & (KeyModifiers::CONTROL | KeyModifiers::ALT);
+        let plain = held.is_empty() || held == KeyModifiers::CONTROL | KeyModifiers::ALT;
         match key.code {
             KeyCode::Enter => return Typed::Done,
             KeyCode::Esc => return Typed::Dropped,
@@ -47,3 +49,7 @@ impl Input {
         Typed::Editing
     }
 }
+
+#[cfg(test)]
+#[path = "input_tests.rs"]
+mod tests;
