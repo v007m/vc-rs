@@ -112,6 +112,17 @@ async fn a_folder_without_bruno_json_or_with_a_broken_file_is_invalid() {
 }
 
 #[tokio::test]
+async fn an_empty_file_or_folder_is_invalid_as_empty() {
+    let opts = ImportOptions { file_id: "shop".to_owned(), ..ImportOptions::default() };
+    let empty = "it is empty: give the Bruno collection's folder (the one with its bruno.json) or the collection \
+        exported as JSON";
+    for location in ["shop.bruno.json", "bruno/empty"] {
+        let read = importer(&FOLDER).read(&folder(location), &opts).await;
+        assert_eq!(read, Err(ImportError::Invalid { location: location.to_owned(), reason: empty.to_owned() }));
+    }
+}
+
+#[tokio::test]
 async fn each_origin_the_collection_calls_drafts_one_api_file_from_its_first_environment() {
     let form = json!({
         "cartId": "${var.cartId}",

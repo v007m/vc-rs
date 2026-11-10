@@ -38,15 +38,17 @@ impl BrunoImporter {
     }
 
     /// The collection in `source`: its folder's files when it has no bytes and is a folder with
-    /// files in it, else its bytes as the JSON export.
+    /// files in it, else its bytes as the JSON export; an empty file, URL or folder is refused
+    /// as empty.
     async fn collection(&self, source: &ImportSource) -> Result<Collection, String> {
-        if source.bytes.is_empty() {
-            let listed = self.fetcher.list(&source.location).await.map_err(|error| error.to_string())?;
-            if !listed.is_empty() {
-                return self.folder(&source.location, &listed).await;
-            }
+        if !source.bytes.is_empty() {
+            return Collection::read(&source.bytes);
         }
-        Collection::read(&source.bytes)
+        let listed = self.fetcher.list(&source.location).await.map_err(|error| error.to_string())?;
+        if listed.is_empty() {
+            return Err(format!("it is empty: {}", self.source_help().unwrap_or_default()));
+        }
+        self.folder(&source.location, &listed).await
     }
 
     /// The collection in the folder at `location`, from the files of `listed` it is read from.
