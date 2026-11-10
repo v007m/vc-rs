@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OptionalExtension, Row as SqlRow};
-use vc_interfaces::{CheckRow, HistoryError, HistoryReader, RunId, RunRef, RunRow, RunStart, TestRow};
-use vc_model::Totals;
+use vc_interfaces::{CheckRow, HistoryError, HistoryReader, RunId, RunRef, RunRow, RunStart, TestRow, TestTrend};
+use vc_model::{TestStatus, Totals};
 
-use crate::codec::{Location, decompress, from_json, run_status, test_status, unreadable};
+use crate::codec::{Location, decompress, from_json, run_status, test_status, test_status_text, unreadable};
 use crate::schema;
 
 /// The columns a run is read from, in [`run_row`]'s order.
@@ -76,6 +76,21 @@ impl HistoryReader for SqliteHistoryReader {
             data.map(|data| decompress(0, &data)).transpose()
         })
     }
+
+    fn trends(&self, window: usize) -> Result<Vec<TestTrend>, HistoryError> {
+        self.read(|connection| {
+            let mut statement = connection.prepare(
+                "SELECT test_id, COUNT(*), SUM(status IN (?2, ?3)), SUM(status = ?4), AVG(duration_ms)
+                 FROM test_results
+                 WHERE status <> ?5 AND run_id IN (SELECT id FROM runs WHERE kind = 'run' ORDER BY id DESC LIMIT ?1)
+                 GROUP BY test_id ORDER BY test_id",
+            )?;
+            let text = test_status_text;
+            let statuses = (text(TestStatus::Failed), text(TestStatus::Blocked), text(TestStatus::Flaky));
+            let parameters = (window, statuses.0, statuses.1, statuses.2, text(TestStatus::Skipped));
+            statement.query_map(parameters, trend_row)?.collect()
+        })
+    }
 }
 
 fn run_row(row: &SqlRow<'_>) -> rusqlite::Result<RunRow> {
@@ -96,6 +111,16 @@ fn run_row(row: &SqlRow<'_>) -> rusqlite::Result<RunRow> {
     let totals =
         Totals { passed: count(12)?, failed: count(13)?, blocked: count(14)?, skipped: count(15)?, flaky: count(16)? };
     Ok(RunRow { id: RunId::new(row.get(0)?), start, finished_ms: row.get(2)?, status, totals })
+}
+
+fn trend_row(row: &SqlRow<'_>) -> rusqlite::Result<TestTrend> {
+    Ok(TestTrend {
+        test_id: row.get(0)?,
+        results: row.get(1)?,
+        failed: row.get(2)?,
+        flaky: row.get(3)?,
+        mean_ms: row.get(4)?,
+    })
 }
 
 fn test_row(row: &SqlRow<'_>) -> rusqlite::Result<TestRow> {

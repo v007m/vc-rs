@@ -67,6 +67,7 @@ mod reporter;
 mod secrets;
 mod source;
 mod transport;
+mod trend;
 mod vcs;
 mod watch;
 
@@ -99,5 +100,6 @@ pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
 pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
 pub use transport::{SendContext, Transport, TransportError};
+pub use trend::TestTrend;
 pub use vcs::{Vcs, VcsError, checked_ref};
 pub use watch::{FileWatcher, WatchError};
