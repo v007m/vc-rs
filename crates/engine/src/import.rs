@@ -97,7 +97,7 @@ impl Engine {
         opts.recording.hosts = hosts(&homes);
         let draft = importer.read(&source, &opts).await.map_err(|error| refused(error.to_string(), READ_HELP))?;
         if draft.snapshot.is_none() {
-            let schema = self.secrets_schema();
+            let schema = self.secrets_schema()?;
             let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref() };
             return self.guarded(&project, recorded(&recording, &draft, &request.source)?);
         }

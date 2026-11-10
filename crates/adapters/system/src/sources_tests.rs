@@ -233,7 +233,7 @@ mod unix {
     }
 
     #[test]
-    fn a_hidden_name_linked_to_another_hidden_file_is_neither_read_nor_written() {
+    fn a_hidden_name_linked_to_a_dotenv_file_is_neither_read_nor_written() {
         let dir = project(&[(".env", b"TOKEN=kept\n")]);
         symlink(dir.path().join(".env"), dir.path().join(".env.schema")).unwrap();
         let sources = FsSources::new(dir.path()).unwrap();
@@ -243,6 +243,24 @@ mod unix {
         assert_eq!(sources.write(&path, "A=\n"), Err(outside()));
         assert_eq!(sources.write_unchanged(&path, "A=\n", None), Err(outside()));
         assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=kept\n");
+    }
+
+    #[test]
+    fn a_hidden_name_linked_to_a_hidden_file_that_is_not_dotenv_is_read_and_written() {
+        let dir = project(&[(".config/env.schema", b"A=\n"), (".config/.env.local", b"TOKEN=kept\n")]);
+        symlink(dir.path().join(".config/env.schema"), dir.path().join(".env.schema")).unwrap();
+        symlink(dir.path().join(".config/.env.local"), dir.path().join(".env.example")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        let schema = SourcePath::new(".env.schema").unwrap();
+        let read = sources.read(std::slice::from_ref(&schema)).unwrap();
+        assert_eq!((read.files[0].text.as_str(), read.problems.len()), ("A=\n", 0));
+        assert_eq!(sources.write(&schema, "A=\nB=\n"), Ok(()));
+        assert_eq!(fs::read_to_string(dir.path().join(".config/env.schema")).unwrap(), "A=\nB=\n");
+        let example = SourcePath::new(".env.example").unwrap();
+        let outside = || SourceError::OutsideRoot { path: ".env.example".to_owned() };
+        assert_eq!(sources.read(std::slice::from_ref(&example)).unwrap().problems, [outside()]);
+        assert_eq!(sources.write(&example, "X=\n"), Err(outside()));
+        assert_eq!(fs::read_to_string(dir.path().join(".config/.env.local")).unwrap(), "TOKEN=kept\n");
     }
 
     #[test]

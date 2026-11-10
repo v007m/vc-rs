@@ -10,8 +10,8 @@ use vc_model::{ContentHash, SourcePath, hidden_part};
 /// Walks the root with `ignore`, so `.gitignore` (and `.ignore`) files are respected even
 /// outside a git repository; the user's global git excludes are not, so every machine finds
 /// the same files. Folders the filter excludes are not entered. Links to folders are not
-/// followed; a link to a file is read only when its target is inside the root and, unless the
-/// link's own path is hidden, outside every hidden file and folder.
+/// followed; a link to a file is read only when its target is inside the root and outside
+/// every hidden file and folder, or, when the link's own path is hidden, not a dotenv file.
 #[derive(Clone, Debug)]
 pub struct FsSources {
     root: PathBuf,
@@ -190,12 +190,13 @@ impl FsSources {
     }
 
     /// Whether `resolved`, where `path` leads on disk, is inside the root and outside every
-    /// hidden file or folder, unless it is the hidden `path` itself: a link named `x.test.yaml`
-    /// cannot open `.env`, nor can a link named `.env.schema` (D247).
+    /// hidden file or folder. A hidden `path` may lead to a hidden file inside the root unless
+    /// that is a dotenv file: a link named `x.test.yaml` cannot open `.env`, and a link named
+    /// `.env.schema` may open `.config/env.schema` but not `.env` (D247).
     fn leads_in(&self, path: &SourcePath, resolved: &Path) -> bool {
         let Ok(rest) = resolved.strip_prefix(&self.root) else { return false };
         let hidden = rest.components().any(|part| hidden_part(&part.as_os_str().to_string_lossy()));
-        !hidden || (path.is_hidden() && rest == Path::new(path.as_str()))
+        !hidden || (path.is_hidden() && !dotenv(rest))
     }
 
     /// Whether discovery's walk reaches `at`, which is there: no ignore file leaves it or a
@@ -246,6 +247,14 @@ fn name_ignored(target: &Path) -> bool {
         (!matched.is_none()).then(|| matched.is_ignore())
     };
     files.filter(|file| file.is_file()).find_map(decide).unwrap_or(false)
+}
+
+/// Whether `rest` names a dotenv file, which holds secret values: `.env` or `.env.*`, other
+/// than `.env.schema`, which declares names only (D247).
+fn dotenv(rest: &Path) -> bool {
+    let Some(name) = rest.file_name() else { return false };
+    let name = name.to_string_lossy().to_ascii_lowercase();
+    name == ".env" || (name.starts_with(".env.") && name != ".env.schema")
 }
 
 /// A hidden file beside `target` for one write to stage its text in, named after the file, the
