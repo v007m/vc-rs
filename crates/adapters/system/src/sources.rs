@@ -68,19 +68,45 @@ impl FsSources {
 
     /// Reads the file through its resolved path, so a link cannot lead out of the root.
     fn load(&self, path: SourcePath, on_disk: &Path) -> Result<vc_model::SourceFile, SourceError> {
-        let failed = |error: std::io::Error| match error.kind() {
-            std::io::ErrorKind::NotFound => SourceError::Missing { path: path.to_string() },
-            _ => SourceError::Read { path: path.to_string(), reason: error.to_string() },
-        };
-        let target = std::fs::canonicalize(on_disk).map_err(failed)?;
+        let target = std::fs::canonicalize(on_disk).map_err(|error| read_error(&path, &error))?;
         if !self.leads_in(&path, &target) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
-        if target.is_dir() {
-            return Err(SourceError::Read { path: path.to_string(), reason: "it is a folder, not a file".to_owned() });
+        read_file(path, &target)
+    }
+
+    /// Reads the data file at `path`, outside the root, through its resolved path, only while
+    /// that stays under `allowed` (a `datasets.allowRoots` folder, resolved too) and in no
+    /// hidden folder below it. It never lands inside the project: a file there is read by its own
+    /// path, under discovery's rules for hidden files and links.
+    fn load_outside(&self, path: &SourcePath, allowed: &SourcePath) -> Result<vc_model::SourceFile, SourceError> {
+        let outside = || SourceError::OutsideRoot { path: path.to_string() };
+        let target = std::fs::canonicalize(self.root.join(path.as_str())).map_err(|error| read_error(path, &error))?;
+        let folder = std::fs::canonicalize(self.root.join(allowed.as_str())).map_err(|_| outside())?;
+        let rest = target.strip_prefix(&folder).map_err(|_| outside())?;
+        if target.starts_with(&self.root)
+            || rest.components().any(|part| hidden_part(&part.as_os_str().to_string_lossy()))
+        {
+            return Err(outside());
         }
-        let bytes = std::fs::read(&target).map_err(failed)?;
-        vc_interfaces::source_file(path, bytes)
+        read_file(path.clone(), &target)
+    }
+}
+
+/// The file at `target`, where `path` resolved to, read and hashed.
+fn read_file(path: SourcePath, target: &Path) -> Result<vc_model::SourceFile, SourceError> {
+    if target.is_dir() {
+        return Err(SourceError::Read { path: path.to_string(), reason: "it is a folder, not a file".to_owned() });
+    }
+    let bytes = std::fs::read(target).map_err(|error| read_error(&path, &error))?;
+    vc_interfaces::source_file(path, bytes)
+}
+
+/// Why `path` could not be read: missing, or what the system said.
+fn read_error(path: &SourcePath, error: &std::io::Error) -> SourceError {
+    match error.kind() {
+        std::io::ErrorKind::NotFound => SourceError::Missing { path: path.to_string() },
+        _ => SourceError::Read { path: path.to_string(), reason: error.to_string() },
     }
 }
 
@@ -107,6 +133,21 @@ impl SourceProvider for FsSources {
         let mut found = Discovery::default();
         for path in unique(paths) {
             match self.load(path.clone(), &self.root.join(path.as_str())) {
+                Ok(file) => found.files.push(file),
+                Err(problem) => found.problems.push(problem),
+            }
+        }
+        found.sort();
+        Ok(found)
+    }
+
+    fn read_outside(&self, wanted: &[(SourcePath, SourcePath)]) -> Result<Discovery, SourceError> {
+        if let Err(error) = std::fs::read_dir(&self.root) {
+            return Err(root_error(&self.root, &error));
+        }
+        let mut found = Discovery::default();
+        for (path, allowed) in wanted {
+            match self.load_outside(path, allowed) {
                 Ok(file) => found.files.push(file),
                 Err(problem) => found.problems.push(problem),
             }

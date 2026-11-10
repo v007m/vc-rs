@@ -1094,8 +1094,10 @@ pub vc_interfaces::Notice::failures: alloc::vec::Vec<vc_interfaces::NoticeFailur
 pub vc_interfaces::Notice::project: alloc::string::String
 pub vc_interfaces::Notice::report: core::option::Option<alloc::string::String>
 pub vc_interfaces::Notice::summary: vc_interfaces::RunSummary
+pub vc_interfaces::Notice::test: bool
 pub vc_interfaces::Notice::trigger: vc_model::alerts::AlertTrigger
 impl vc_interfaces::Notice
+pub fn vc_interfaces::Notice::as_test(self) -> Self
 pub fn vc_interfaces::Notice::breaches(self, alloc::vec::Vec<alloc::string::String>) -> Self
 pub fn vc_interfaces::Notice::failures(self, alloc::vec::Vec<vc_interfaces::NoticeFailure>) -> Self
 pub const fn vc_interfaces::Notice::new(vc_model::alerts::AlertTrigger, alloc::string::String, vc_interfaces::RunSummary) -> Self
@@ -1514,6 +1516,7 @@ pub trait vc_interfaces::SourceProvider: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceProvider::discover(&self, &vc_interfaces::SourceFilter) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceProvider::ignores(&self, &vc_model::source::SourcePath) -> bool
 pub fn vc_interfaces::SourceProvider::read(&self, &[vc_model::source::SourcePath]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceProvider::read_outside(&self, &[(vc_model::source::SourcePath, vc_model::source::SourcePath)]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
 pub trait vc_interfaces::SourceWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceWriter::remove(&self, &vc_model::source::SourcePath) -> core::result::Result<(), vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceWriter::write(&self, &vc_model::source::SourcePath, &str) -> core::result::Result<(), vc_interfaces::SourceError>
