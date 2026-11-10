@@ -130,13 +130,17 @@ impl<T: Message + Serialize> Sink<T> {
         Self { frames, message: PhantomData }
     }
 
-    /// Sends one message; `false` once the client has gone, or when the message cannot be
-    /// written in the stream's codec, when the handler should stop.
-    pub async fn send(&self, message: &T) -> bool {
-        let Ok(payload) = self.frames.codec.encode(message) else {
-            return false;
-        };
-        self.frames.sender.send(envelope::message(&payload)).await.is_ok()
+    /// Sends one message. The handler should stop on an error and return it, which ends the
+    /// stream with it.
+    ///
+    /// # Errors
+    ///
+    /// `internal` when the message cannot be written in the stream's codec; `canceled` once the
+    /// client has gone.
+    pub async fn send(&self, message: &T) -> Result<(), ConnectError> {
+        let payload = self.frames.codec.encode(message)?;
+        let sent = self.frames.sender.send(envelope::message(&payload)).await;
+        sent.map_err(|_| ConnectError::new(Code::Canceled, "the client has gone"))
     }
 
     /// Resolves when the client has gone (it closed the stream or the connection dropped) or

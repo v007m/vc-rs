@@ -22,11 +22,25 @@ fn router() -> Router {
         })
         .server_stream("Run", |request: RunRequest, sink: Sink<RunResponse>| async move {
             for seq in 1..=3 {
-                assert!(sink.send(&RunResponse { event: Some(RunEvent { seq, kind: None }) }).await);
+                sink.send(&RunResponse { event: Some(RunEvent { seq, kind: None }) }).await.unwrap();
             }
             if request.bail { Err(ConnectError::new(Code::Aborted, "stopped at the first failure")) } else { Ok(()) }
         })
+        .server_stream("Unwritable", |_: RunRequest, sink: Sink<Unwritable>| async move {
+            sink.send(&Unwritable {}).await?;
+            Ok(())
+        })
         .into_router()
+}
+
+/// A message that cannot be written as protobuf JSON.
+#[derive(Clone, PartialEq, prost::Message)]
+struct Unwritable {}
+
+impl serde::Serialize for Unwritable {
+    fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+        Err(serde::ser::Error::custom("unwritable"))
+    }
 }
 
 struct Reply {
@@ -131,6 +145,15 @@ async fn a_stream_that_fails_ends_with_its_error() {
     let (messages, end) = frames(&reply.body);
     assert_eq!(messages.len(), 3);
     assert_eq!(end, json!({ "error": { "code": "aborted", "message": "stopped at the first failure" } }));
+}
+
+#[tokio::test]
+async fn a_message_that_cannot_be_written_ends_the_stream_with_an_internal_error() {
+    let reply = post("Unwritable", "application/connect+json", enveloped(b"{}")).await;
+    let (messages, end) = payloads(&reply.body);
+    assert!(messages.is_empty());
+    let error = json!({ "code": "internal", "message": "the response could not be written as JSON" });
+    assert_eq!(end, json!({ "error": error }));
 }
 
 #[tokio::test]
