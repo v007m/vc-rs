@@ -341,6 +341,7 @@ Each item in `apis`:
 | no `body` key | empty | none |
 | nested YAML, or pasted JSON | JSON | `application/json` |
 | a string | the text as written | `text/plain` |
+| one `${…}` that renders to a map or list (`body: ${var.payload}`) | JSON | `application/json` |
 | `$file: path` | the file's bytes | from the file extension |
 | `$base64: …` | the decoded bytes | `application/octet-stream` |
 | `$extend: <object>` plus changes | the object with your changes (see below) | `application/json` |
@@ -1229,7 +1230,7 @@ datasets:
       file: fixtures/smoke-users.yaml
 ```
 
-`file` is relative to the project root. A file outside the project must be inside one of `allowRoots` (also relative to the project root), after `..` and symbolic links are resolved; any other path is V1012, so a dataset cannot read `/etc/passwd` or climb out through a link.
+`file` is relative to the project root. A file outside the project must be inside one of `allowRoots` (also relative to the project root), after `..` and symbolic links are resolved, and in no hidden folder below it; any other path is V1012, so a dataset cannot read `/etc/passwd` or climb out through a link.
 
 ## Functions and request hooks
 
@@ -1251,13 +1252,15 @@ Packages, `node:` modules and `import()` are V2008: hooks run inside the engine,
 
 Custom checks go under `expect.custom`, receive the response and resolved values, and return `true` or a failure message.
 
+Every hook can call the global `secret(name)`, which returns a secret the run loaded (a name `.env.schema` declares); a name the run did not load throws. A value it returns is masked wherever it shows, like `${secret.X}`.
+
 ```ts
 // hooks/sign.ts
 import type { BeforeRequestHook } from "@vibranium/sdk";
 import { hmacSha256Hex } from "vibranium:std"; // hooks run in the engine, not Node: no node: imports
 
-export const addUploadSignature: BeforeRequestHook = ({ request, secret }) => {
-  const signature = hmacSha256Hex(secret("UPLOAD_KEY"), request.path);
+export const addUploadSignature: BeforeRequestHook = ({ request }) => {
+  const signature = hmacSha256Hex(secret("UPLOAD_KEY"), request.path); // `secret` is a global
   return { ...request, headers: { ...request.headers, "x-signature": signature } };
 };
 ```
@@ -1283,6 +1286,8 @@ alerts:
       - pagerduty:
           routingKey: ${secret.PD_ROUTING_KEY}
 ```
+
+An alert's `on` lists what fires it: `failure` (a test failed or was blocked; the default), `blocked` (a test was blocked because a setup it needs, such as a `beforeRun` action, failed), `recovery` (a run passed after a failed one), `flaky` (a test passed only on a retry) and `threshold` (a load threshold was breached). A rule sends one notice per run, for the first of `failure`, `blocked`, `threshold`, `flaky`, `recovery` that it lists and that happened (D256).
 
 `vc plugin add` shows the permissions a plugin asks for (network hosts, secrets, files); the approved list is recorded in `vibranium.lock`. A source is `npm:<package>[@<range>]` or `path:<folder>` (relative to the project root); the plugin is installed to `.vibranium/plugins/<id>/`.
 
