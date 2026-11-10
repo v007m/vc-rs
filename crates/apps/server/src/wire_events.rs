@@ -3,8 +3,11 @@
 //! redactor before the feed carries it; nothing here adds a value the run did not send.
 //!
 //! Sequence numbers: an event keeps the run's own; `RunPlanned` shares `RunStarted`'s, since the
-//! plan is part of the start; `Missed` and the report each take the number after the last one
-//! sent. The run's numbers skip the events the feed missed, so no event sent shares `Missed`'s.
+//! plan is part of the start. The run numbers its events 1, 2, 3, … with no gaps, and the feed
+//! drops them in order, so the events a `Missed` counts are the ones right after the last one
+//! seen: `Missed` takes the number of the last of them, standing in for the gap, so a client that
+//! resumes after it continues where the run is. The report takes the number after the highest
+//! one the run produced. Neither ever shares an event's number.
 //!
 //! A finished test carries the duration the executor timed it at.
 
@@ -22,12 +25,13 @@ use vc_engine::{
 
 use crate::wire_results;
 
-/// The run feed in wire form: the names that label its events, and the last number sent.
+/// The run feed in wire form: the names that label its events, and the highest number the run
+/// produced so far, sent or missed.
 #[derive(Default)]
 pub struct WireFeed {
     /// The run's names, once the feed has started.
     names: Option<Names>,
-    /// The sequence number of the last event sent.
+    /// The sequence number of the last event sent or missed.
     seq: u64,
 }
 
@@ -40,8 +44,8 @@ impl WireFeed {
                 Vec::new()
             }
             RunFeed::Event(sequenced) => self.event(sequenced),
-            RunFeed::Missed { count } => vec![at(self.next(), Kind::Missed(wire::Missed { count }))],
-            RunFeed::Done(report) => vec![at(self.next(), Kind::Report(run_report(report)))],
+            RunFeed::Missed { count } => vec![at(self.past(count), Kind::Missed(wire::Missed { count }))],
+            RunFeed::Done(report) => vec![at(self.past(1), Kind::Report(run_report(report)))],
             _ => Vec::new(),
         }
     }
@@ -59,9 +63,9 @@ impl WireFeed {
         events
     }
 
-    /// The number after the last one sent, which becomes the last one sent.
-    const fn next(&mut self) -> u64 {
-        self.seq = self.seq.saturating_add(1);
+    /// The number `count` past the highest one so far, which becomes the highest.
+    const fn past(&mut self, count: u64) -> u64 {
+        self.seq = self.seq.saturating_add(count);
         self.seq
     }
 }

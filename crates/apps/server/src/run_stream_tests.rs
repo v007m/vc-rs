@@ -119,8 +119,15 @@ async fn a_selection_that_matches_nothing_ends_the_stream_with_an_invalid_argume
     assert_eq!(end["error"]["code"], "invalid_argument", "{end}");
 }
 
-#[test]
-fn each_missed_notice_takes_the_number_after_the_last_one_sent() {
+/// The report of a run of the fixture project.
+async fn a_report() -> vc_engine::RunReport {
+    let (_dir, api) = project();
+    let (_interrupter, interrupts) = vc_engine::interrupts();
+    api.engine().run(&vc_engine::RunRequest::default(), interrupts).await.unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_missed_notice_takes_the_last_dropped_number_and_the_report_the_one_after_the_highest() {
     let mut feed = WireFeed::default();
     let finished = |seq| {
         RunFeed::Event(Sequenced {
@@ -128,18 +135,22 @@ fn each_missed_notice_takes_the_number_after_the_last_one_sent() {
             event: Event::RunFinished { status: RunStatus::Passed, totals: Totals::default() },
         })
     };
-    let mut seqs = Vec::new();
+    let mut sent = Vec::new();
     for item in [
         finished(3),
         RunFeed::Missed { count: 2 },
         RunFeed::Missed { count: 1 },
         finished(7),
         RunFeed::Missed { count: 4 },
+        RunFeed::Done(a_report().await),
     ] {
-        let missed = feed.events(item);
-        seqs.extend(missed.iter().filter(|event| matches!(event.kind, Some(Kind::Missed(_)))).map(|event| event.seq));
+        sent.extend(feed.events(item).into_iter().map(|event| (event.seq, event.kind)));
     }
-    assert_eq!(seqs, [4, 5, 8]);
+    let synthetic = |kind: &Option<Kind>| matches!(kind, Some(Kind::Missed(_) | Kind::Report(_)));
+    let seqs: Vec<u64> = sent.iter().filter(|(_, kind)| synthetic(kind)).map(|(seq, _)| *seq).collect();
+    assert_eq!(seqs, [5, 6, 11, 12], "the last of 4–5, 6 and 8–11 dropped; then the one after 11");
+    let real: Vec<u64> = sent.iter().filter(|(_, kind)| !synthetic(kind)).map(|(seq, _)| *seq).collect();
+    assert!(seqs.iter().all(|seq| !real.contains(seq)), "no event sent shares a synthetic number: {real:?}");
 }
 
 /// The body the large-body server answers with: past the default `history.maxBodySize` of 64 KiB.

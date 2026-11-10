@@ -24,8 +24,9 @@ export const file_vibranium_engine_v1_events: GenFile = /*@__PURE__*/
  */
 export type RunEvent = Message<"vibranium.engine.v1.RunEvent"> & {
   /**
-   * The event's position in the run, from 1; a gap means events were missed. The report has
-   * the number after the last event.
+   * The event's position in the run, from 1; a gap means events were missed. A `Missed` has
+   * the number of the last event it counts, and the report the number after the run's last
+   * event, so neither shares an event's number.
    *
    * @generated from field: uint64 seq = 1;
    */

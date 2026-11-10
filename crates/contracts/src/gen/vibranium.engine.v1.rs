@@ -6,8 +6,9 @@
 /// One event of a run, or the report that ends the stream.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunEvent {
-    /// The event's position in the run, from 1; a gap means events were missed. The report has
-    /// the number after the last event.
+    /// The event's position in the run, from 1; a gap means events were missed. A `Missed` has
+    /// the number of the last event it counts, and the report the number after the run's last
+    /// event, so neither shares an event's number.
     #[prost(uint64, tag="1")]
     pub seq: u64,
     #[prost(oneof="run_event::Kind", tags="2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17")]

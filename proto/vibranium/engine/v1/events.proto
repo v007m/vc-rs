@@ -8,8 +8,9 @@ import "vibranium/results/v1/results.proto";
 
 // One event of a run, or the report that ends the stream.
 message RunEvent {
-  // The event's position in the run, from 1; a gap means events were missed. The report has
-  // the number after the last event.
+  // The event's position in the run, from 1; a gap means events were missed. A `Missed` has
+  // the number of the last event it counts, and the report the number after the run's last
+  // event, so neither shares an event's number.
   uint64 seq = 1;
   oneof kind {
     RunStarted run_started = 2;
