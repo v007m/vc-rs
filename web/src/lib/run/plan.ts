@@ -26,6 +26,23 @@ export function outcomeOf(status: TestStatus): Status | undefined {
   return outcomes[status];
 }
 
+/**
+ * Where each planned instance's row is: by its plan number, which actions name, and by what it
+ * runs (test, example row, repeat), which is all a finished test says of its instance.
+ */
+export type PlanIndex = Readonly<{
+  byInstance: ReadonlyMap<number, number>;
+  byRun: ReadonlyMap<string, number>;
+}>;
+
+/** The index of an empty plan. */
+export const noPlanIndex: PlanIndex = { byInstance: new Map(), byRun: new Map() };
+
+/** One instance's test, example row and repeat, as one key. */
+function runKey(test: string, row: number | undefined, repeat: number): string {
+  return JSON.stringify([test, row ?? null, repeat]);
+}
+
 /** The plan's rows, all queued, in plan order. */
 export function planRows(instances: readonly PlannedInstance[]): PlanRow[] {
   return instances.map(({ instance, label, test }) => ({
@@ -35,17 +52,37 @@ export function planRows(instances: readonly PlannedInstance[]): PlanRow[] {
   }));
 }
 
+/** Where each of `instances` is in `planRows(instances)`. */
+export function indexPlan(instances: readonly PlannedInstance[]): PlanIndex {
+  const byInstance = new Map<number, number>();
+  const byRun = new Map<string, number>();
+  instances.forEach(({ instance, test, exampleRow, repeatIndex }, at) => {
+    byInstance.set(instance, at);
+    byRun.set(runKey(test, exampleRow, repeatIndex), at);
+  });
+  return { byInstance, byRun };
+}
+
 /** The plan with `instance` marked running, when it was queued; else the same plan. */
-export function markRunning(plan: readonly PlanRow[], instance: number): readonly PlanRow[] {
-  const at = plan.findIndex((row) => row.instance === instance);
-  if (plan[at]?.state !== 'queued') return plan;
-  return plan.with(at, { ...plan[at], state: 'running' });
+export function markRunning(
+  plan: readonly PlanRow[],
+  index: PlanIndex,
+  instance: number,
+): readonly PlanRow[] {
+  const at = index.byInstance.get(instance) ?? -1;
+  const row = plan[at];
+  if (row?.state !== 'queued') return plan;
+  return plan.with(at, { ...row, state: 'running' });
 }
 
 /** The plan with the instance `test` ran as marked done; a test not in the plan changes nothing. */
-export function markFinished(plan: readonly PlanRow[], test: Test): readonly PlanRow[] {
+export function markFinished(
+  plan: readonly PlanRow[],
+  index: PlanIndex,
+  test: Test,
+): readonly PlanRow[] {
   const state = outcomeOf(test.status);
-  const at = plan.findIndex((row) => row.label === test.label);
+  const at = index.byRun.get(runKey(test.id, test.exampleRow, test.repeatIndex)) ?? -1;
   const row = plan[at];
   if (!state || !row) return plan;
   return plan.with(at, { ...row, state, ms: test.durationMs });

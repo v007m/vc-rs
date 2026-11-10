@@ -61,7 +61,7 @@
   </div>
   <RunProgress counts={view.counts} planned={view.planned} />
   {#if view.plan.length}<PlanTable plan={view.plan} />{/if}
-  <EventLog events={view.events} />
+  <EventLog events={view.events} dropped={view.dropped} />
 {/if}
 
 <style>

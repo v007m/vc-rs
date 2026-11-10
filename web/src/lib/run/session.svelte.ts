@@ -15,7 +15,8 @@ export type RunClient = Pick<Client<typeof EngineService>, 'run'>;
  * the stream, which the engine treats as one Ctrl-C, so cleanups still run.
  */
 export class RunSession {
-  view: RunView = $state(idleRun);
+  /** Replaced whole on every event, never changed in place, so it is not made deeply reactive. */
+  view: RunView = $state.raw(idleRun);
   /** The request of the run in `view`, for re-running it. */
   request: RunRequest | undefined = $state();
   #abort: AbortController | undefined;

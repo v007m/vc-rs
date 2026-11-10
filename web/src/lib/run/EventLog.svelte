@@ -1,7 +1,7 @@
 <script lang="ts">
   import { levelFilters, visibleLines, type EventLine, type Level } from './events.ts';
 
-  let { events }: { events: readonly EventLine[] } = $props();
+  let { events, dropped = 0 }: { events: readonly EventLine[]; dropped?: number } = $props();
   let min: Level = $state('info');
   let text = $state('');
   let shown = $derived(visibleLines(events, min, text));
@@ -11,7 +11,9 @@
 <section class="events" aria-labelledby="events-h">
   <div class="sechead">
     <h2 class="h2" id="events-h">Events</h2>
-    <span class="muted">{shown.length} of {events.length}</span>
+    <span class="muted"
+      >{shown.length} of {events.length}{dropped ? ` · ${dropped} older not kept` : ''}</span
+    >
   </div>
   <div class="evtools">
     <div class="seg" role="group" aria-label="Level">

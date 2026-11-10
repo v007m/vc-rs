@@ -2,7 +2,16 @@ import type { RunEvent } from '#lib/gen/vibranium/engine/v1/events_pb.ts';
 import { RunStatus, type Totals } from '#lib/gen/vibranium/results/v1/results_pb.ts';
 import { doneCount, noCounts, type Counts } from '#lib/results/status.ts';
 import { describe, type EventLine } from './events.ts';
-import { markFinished, markRunning, outcomeOf, planRows, type PlanRow } from './plan.ts';
+import {
+  indexPlan,
+  markFinished,
+  markRunning,
+  noPlanIndex,
+  outcomeOf,
+  planRows,
+  type PlanIndex,
+  type PlanRow,
+} from './plan.ts';
 
 export { doneCount, type Counts };
 
@@ -16,11 +25,15 @@ export type RunView = Readonly<{
   planned: number;
   /** The planned test instances in plan order, once the plan arrives. */
   plan: readonly PlanRow[];
+  /** Where each planned instance's row is, so an event finds it without a search. */
+  planIndex: PlanIndex;
   /** When the run started, in ms since the epoch. */
   startedMs?: bigint;
   counts: Counts;
-  /** Event lines, oldest first. */
+  /** The last `eventCap` event lines, oldest first. */
   events: readonly EventLine[];
+  /** How many older lines were let go to keep `events` at `eventCap`. */
+  dropped: number;
   /** The history id, once the report names it. */
   runId?: bigint;
   exit?: number;
@@ -30,8 +43,19 @@ export type RunView = Readonly<{
 
 const zero: Counts = noCounts;
 
+/** How many event lines a view keeps, so a long run's memory stays bounded. */
+export const eventCap = 2000;
+
 /** A run that has not started. */
-export const idleRun: RunView = { phase: 'idle', planned: 0, plan: [], counts: zero, events: [] };
+export const idleRun: RunView = {
+  phase: 'idle',
+  planned: 0,
+  plan: [],
+  planIndex: noPlanIndex,
+  counts: zero,
+  events: [],
+  dropped: 0,
+};
 
 /** The view of a run that has just been asked for, before its first event. */
 export function startingRun(): RunView {
@@ -60,11 +84,17 @@ const steps: Partial<Record<NonNullable<RunEvent['kind']['case']>, Step>> = {
       ? { ...view, planned: kind.value.instances, startedMs: kind.value.startedMs || undefined }
       : view,
   runPlanned: (view, { kind }) =>
-    kind.case === 'runPlanned' ? { ...view, plan: planRows(kind.value.instances) } : view,
+    kind.case === 'runPlanned'
+      ? {
+          ...view,
+          plan: planRows(kind.value.instances),
+          planIndex: indexPlan(kind.value.instances),
+        }
+      : view,
   actionStarted: (view, { kind }) => {
     const owner = kind.case === 'actionStarted' ? kind.value.owner?.kind : undefined;
     if (owner?.case !== 'instance') return view;
-    const plan = markRunning(view.plan, owner.value);
+    const plan = markRunning(view.plan, view.planIndex, owner.value);
     return plan === view.plan ? view : { ...view, plan };
   },
   testFinished: (view, { kind }) => {
@@ -72,7 +102,7 @@ const steps: Partial<Record<NonNullable<RunEvent['kind']['case']>, Step>> = {
     const key = test && outcomeOf(test.status);
     if (!test || !key) return view;
     const counts = { ...view.counts, [key]: view.counts[key] + 1 };
-    return { ...view, counts, plan: markFinished(view.plan, test) };
+    return { ...view, counts, plan: markFinished(view.plan, view.planIndex, test) };
   },
   runFinished: (view, { kind }) =>
     kind.case === 'runFinished'
@@ -91,7 +121,14 @@ export function apply(view: RunView, event: RunEvent): RunView {
   const step = event.kind.case && steps[event.kind.case];
   const next = step ? step(view, event) : view;
   const line = describe(event);
-  return line ? { ...next, events: [...next.events, line] } : next;
+  return line ? withLine(next, line) : next;
+}
+
+/** `view` with `line` last, letting go of the oldest lines past `eventCap`. */
+function withLine(view: RunView, line: EventLine): RunView {
+  const over = Math.max(0, view.events.length + 1 - eventCap);
+  const events = [...view.events.slice(over), line];
+  return { ...view, events, dropped: view.dropped + over };
 }
 
 /** The view of a run whose stream broke off with `message`. */
