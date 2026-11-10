@@ -150,6 +150,19 @@ mod unix {
     }
 
     #[test]
+    fn ignores_every_path_under_a_link_to_a_folder_there_or_not_yet() {
+        let dir = project(&[(".gitignore", b"generated/\n"), ("generated/x.api.yaml", b""), ("real/y.api.yaml", b"")]);
+        symlink(dir.path().join("generated"), dir.path().join("vendor")).unwrap();
+        symlink(dir.path().join("real"), dir.path().join("mirror")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        let ignores = |path: &str| sources.ignores(&SourcePath::new(path).unwrap());
+        for path in ["vendor/new.test.yaml", "vendor/x.api.yaml", "vendor/a/b/new.test.yaml", "mirror/y.api.yaml"] {
+            assert!(ignores(path), "{path} is under a link discovery does not follow");
+        }
+        assert!(!ignores("real/new.test.yaml"));
+    }
+
+    #[test]
     fn does_not_follow_links_to_folders() {
         let outside = project(&[("services/x.api.yaml", b"")]);
         let dir = project(&[("users.api.yaml", b"")]);

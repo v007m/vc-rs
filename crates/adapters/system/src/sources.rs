@@ -116,13 +116,14 @@ impl SourceProvider for FsSources {
     }
 
     /// Walks only the folders on the way to `path`, with the same ignore rules as
-    /// [`SourceProvider::discover`], so a file in an ignored folder, or through a link to a
-    /// folder, is never reached. A file or folder not there yet is matched against the ignore
-    /// files in the folders above it.
+    /// [`SourceProvider::discover`], so a file in an ignored folder is never reached. Discovery
+    /// does not follow a link to a folder, so a path under one, there or not yet, is left out
+    /// too. A file or folder not there yet is matched against the ignore files in the folders
+    /// above it.
     fn ignores(&self, path: &SourcePath) -> bool {
         let target = self.root.join(path.as_str());
         let Some(nearest) = target.ancestors().find(|at| at.symlink_metadata().is_ok()) else { return false };
-        !self.reached(nearest) || (nearest != target && name_ignored(&target))
+        self.under_link(&target) || !self.reached(nearest) || (nearest != target && name_ignored(&target))
     }
 }
 
@@ -199,6 +200,13 @@ impl FsSources {
 
     /// Whether discovery's walk reaches `at`, which is there: no ignore file leaves it or a
     /// folder above it out, and no link to a folder leads to it.
+    /// Whether a folder between the root and `target` is a link, which discovery never walks
+    /// into.
+    fn under_link(&self, target: &Path) -> bool {
+        let folders = target.ancestors().skip(1).take_while(|at| *at != self.root);
+        folders.filter_map(|at| at.symlink_metadata().ok()).any(|found| found.file_type().is_symlink())
+    }
+
     fn reached(&self, at: &Path) -> bool {
         if at == self.root {
             return true;

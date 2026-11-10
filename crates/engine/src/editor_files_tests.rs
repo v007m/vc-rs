@@ -223,6 +223,20 @@ fn a_link_out_of_the_project_or_to_a_hidden_file_is_neither_read_nor_written() {
 
 #[cfg(unix)]
 #[test]
+fn a_new_file_under_a_link_to_a_left_out_folder_is_refused_and_creates_nothing() {
+    let (dir, engine) = project();
+    fs::write(dir.path().join(".gitignore"), "node_modules/\n").unwrap();
+    fs::create_dir_all(dir.path().join("node_modules")).unwrap();
+    std::os::unix::fs::symlink(dir.path().join("node_modules"), dir.path().join("vendor")).unwrap();
+    for path in ["vendor/new.test.yaml", "vendor/deep/new.test.yaml"] {
+        assert_left_out(&engine, path);
+    }
+    let made = fs::read_dir(dir.path().join("node_modules")).unwrap().count();
+    assert_eq!(made, 0, "nothing is written through the link");
+}
+
+#[cfg(unix)]
+#[test]
 fn a_link_out_of_the_project_or_to_a_hidden_file_is_not_checked_as_unsaved_text() {
     let (dir, engine) = project();
     let outside = tempfile::tempdir().unwrap();
