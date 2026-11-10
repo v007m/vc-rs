@@ -1,7 +1,15 @@
 import { create } from '@bufbuild/protobuf';
 import { describe, expect, it } from 'vitest';
 import { DefinitionSchema } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
-import { facets, groupByFile, matches, parseQuery, toggleFilter, toRow } from './catalog.ts';
+import {
+  changedSince,
+  facets,
+  groupByFile,
+  matches,
+  parseQuery,
+  toggleFilter,
+  toRow,
+} from './catalog.ts';
 
 const rows = [
   {
@@ -44,6 +52,21 @@ describe('catalog', () => {
     expect(ids('tag:"slow path"')).toEqual(['rejectsBadEmail']);
     expect(ids('is:skipped')).toEqual(['placesOrder']);
     expect(ids('file:users')).toEqual(['createsUser', 'rejectsBadEmail']);
+  });
+
+  it('keeps the tests the engine found changed since a ref, and none until it answers', () => {
+    const query = parseQuery('changed:main tag:smoke');
+    const changed = new Set(['users.crud#createsUser', 'orders.place#placesOrder']);
+    const context = { changed: (since: string) => (since === 'main' ? changed : undefined) };
+    expect(rows.filter((row) => matches(row, query, context)).map((r) => r.local)).toEqual([
+      'createsUser',
+      'placesOrder',
+    ]);
+    expect(ids('changed:main')).toEqual([]);
+    expect(changedSince(parseQuery('changed:main changed:HEAD~3 changed:main'))).toEqual([
+      'main',
+      'HEAD~3',
+    ]);
   });
 
   it('reads an unknown key as a bare word', () => {

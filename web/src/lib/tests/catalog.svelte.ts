@@ -1,4 +1,5 @@
 import { ConnectError, type Client } from '@connectrpc/connect';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { DefinitionKind, type EngineService } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import { toRow, type TestRow } from './catalog.ts';
 
@@ -10,7 +11,11 @@ export class Catalog {
   rows: readonly TestRow[] = $state([]);
   loading = $state(false);
   error: string | undefined = $state();
+  /** The IDs of the tests in files changed since each git ref asked for so far. */
+  readonly changed = new SvelteMap<string, ReadonlySet<string>>();
+  changedError: string | undefined = $state();
   readonly #client: CatalogClient;
+  readonly #asked = new SvelteSet<string>();
 
   constructor(client: CatalogClient) {
     this.#client = client;
@@ -30,6 +35,26 @@ export class Catalog {
       this.error = ConnectError.from(error).rawMessage;
     } finally {
       this.loading = false;
+    }
+  }
+
+  /**
+   * Asks the engine once for the tests in files changed since the git ref `since`, as
+   * `vc run --changed` picks them. Until it answers, `changed` has no entry for it.
+   */
+  async loadChanged(since: string): Promise<void> {
+    if (this.#asked.has(since)) return;
+    this.#asked.add(since);
+    this.changedError = undefined;
+    try {
+      const response = await this.#client.listDefinitions({
+        kind: DefinitionKind.TESTS,
+        selection: { changed: since },
+      });
+      this.changed.set(since, new SvelteSet(response.definitions.map((d) => d.id)));
+    } catch (error) {
+      this.#asked.delete(since);
+      this.changedError = ConnectError.from(error).rawMessage;
     }
   }
 }

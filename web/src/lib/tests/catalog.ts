@@ -51,7 +51,14 @@ export type Query = Readonly<{
   filters: readonly Readonly<{ key: FilterKey; value: string }>[];
 }>;
 
-type Test = (row: TestRow, value: string) => boolean;
+/** What a filter knows beyond the row: the tests the engine found changed since a git ref. */
+export type FilterContext = Readonly<{
+  changed: (since: string) => ReadonlySet<string> | undefined;
+}>;
+
+const noContext: FilterContext = { changed: () => undefined };
+
+type Test = (row: TestRow, value: string, context: FilterContext) => boolean;
 
 /** What each filter key matches; a key not listed here is read as a bare word. */
 const filterTests = {
@@ -59,6 +66,7 @@ const filterTests = {
   service: (row, value) => row.service === value,
   file: (row, value) => row.fileId === value || row.fileId.startsWith(`${value}.`),
   is: (row, value) => (value === 'skipped' ? row.skipped : value === 'active' && !row.skipped),
+  changed: (row, value, context) => context.changed(value)?.has(row.id) ?? false,
 } satisfies Record<string, Test>;
 
 export type FilterKey = keyof typeof filterTests;
@@ -86,12 +94,17 @@ export function parseQuery(text: string): Query {
 }
 
 /** Whether `row` passes every filter and contains every word in its id, name or file. */
-export function matches(row: TestRow, query: Query): boolean {
+export function matches(row: TestRow, query: Query, context = noContext): boolean {
   const haystack = `${row.id} ${row.name} ${row.path}`.toLowerCase();
   return (
     query.words.every((word) => haystack.includes(word)) &&
-    query.filters.every(({ key, value }) => filterTests[key](row, value))
+    query.filters.every(({ key, value }) => filterTests[key](row, value, context))
   );
+}
+
+/** The `changed:` values in `query`, each once. */
+export function changedSince(query: Query): string[] {
+  return [...new Set(query.filters.filter((f) => f.key === 'changed').map((f) => f.value))];
 }
 
 /** `rows` grouped by file, files in first-seen order. */
