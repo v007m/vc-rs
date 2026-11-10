@@ -31,7 +31,8 @@ The OS holds the plugin's process to these permissions on Linux (Landlock) and m
 
 - **Files.** In the project, the plugin may read its install folder and read and write its data folder and the `files:` paths, which must be plain relative paths that stay inside the project (links resolved), or the plugin is not started. The rest of the project is closed to it. Outside the project it may read anything and write only the temporary folder, `/dev/null` and `/dev/tty`. On Linux a `files:` path must exist when the plugin starts.
 - **Network.** A plugin that names no `network:` host gets no network (on Linux, no TCP; Linux 6.7 or later). One that names any host may reach every host: neither OS filters by host name, so the list says what the plugin intends.
-- On Linux `vc` starts the plugin through itself (`vc __vc-plugin-launcher …`), which confines itself and then becomes the plugin; a kernel without Landlock runs it unconfined. On macOS `vc` runs it under `sandbox-exec`; a `vc` that is already sandboxed cannot, so the plugin does not start.
+- On Linux `vc` starts the plugin through itself (`vc __vc-plugin-launcher …`), which confines itself and then becomes the plugin; Landlock is best effort, so a kernel without it runs the plugin unconfined. On macOS `vc` runs it under `sandbox-exec`; when that cannot start (for example when `vc` itself runs sandboxed), the plugin does not start, with V5119 saying why (D260).
+- **Opting out.** To run plugins unconfined where they cannot be confined, set `plugins.allowUnconfined: true` in your user config (`~/.config/vibranium/config.yaml`) or `VIB_PLUGINS_ALLOW_UNCONFINED=1` in the environment. It is never read from `vibranium.config.yaml`, a profile or `.env`, so a cloned project cannot switch confinement off. A plugin that runs unconfined (no Landlock, the opt-out, or an OS that cannot confine) prints one warning a run naming it, `plugin `<id>` runs unconfined: <why>`, and the run's report records it as a notice.
 
 `importer` and `executor` kinds are accepted in the manifest, but no host methods exist for them yet.
 
@@ -84,7 +85,7 @@ The host answers `secrets/get` only for a secret that the manifest declares, the
 | −32601 | Method not found |
 | −32603 | Internal error (also used for an error object without a code) |
 
-Every plugin failure is V5118 and names the plugin, the method and the JSON-RPC code. A reporter plugin's failure becomes a run notice, and the plugin gets no more events; an auth plugin's failure fails the requests that use it, as V5114 like any other auth failure. A plugin the run cannot use (not installed, not approved, asking for more than the lock grants, or with a `${…}` in its `config`) is named in a run notice with the `vc plugin` command that fixes it, and an auth that names it fails with that reason. A plugin whose files changed since the lock approved them fails its first call with V5118 and the same fix.
+Every plugin failure is V5118 and names the plugin, the method and the JSON-RPC code, but for a plugin that cannot be confined on macOS, which is V5119 (above). A reporter plugin's failure becomes a run notice, and the plugin gets no more events; an auth plugin's failure fails the requests that use it, as V5114 like any other auth failure. A plugin the run cannot use (not installed, not approved, asking for more than the lock grants, or with a `${…}` in its `config`) is named in a run notice with the `vc plugin` command that fixes it, and an auth that names it fails with that reason. A plugin whose files changed since the lock approved them fails its first call with V5118 and the same fix.
 
 ## Using a plugin
 

@@ -1,7 +1,8 @@
 //! Confining a plugin's process to what its manifest declares (D254), where the OS can: Landlock
 //! on Linux, through `vc` run again as a launcher ([`LAUNCHER_ARG`]) that confines itself and
-//! then becomes the plugin, and Seatbelt (`sandbox-exec`) on macOS. Elsewhere, and on Linux
-//! without a launcher, the permissions stay declared only.
+//! then becomes the plugin, and Seatbelt (`sandbox-exec`) on macOS. Where a plugin cannot be
+//! confined ([`ready`]), it runs unconfined with a warning, but on macOS it is not started unless
+//! the user allows that ([`FAIL_CLOSED`], D260).
 //!
 //! The project folder is closed to the plugin but for its install folder, which it may read, and
 //! its data folder and the project files its manifest names, which it may read and write. Outside
@@ -31,6 +32,21 @@ pub const DEVICES: [&str; 2] = ["/dev/null", "/dev/tty"];
 
 /// A program and its arguments.
 pub type Entry = (PathBuf, Vec<OsString>);
+
+/// Whether a plugin that cannot be confined is refused rather than run unconfined: on macOS,
+/// where `sandbox-exec` is always there to confine it (D260).
+pub const FAIL_CLOSED: bool = platform::FAIL_CLOSED;
+
+/// Whether a plugin can be confined here, with `launcher` (`vc`) as its launcher; why not
+/// otherwise. It may run a program, so call it off the runtime's workers.
+///
+/// # Errors
+///
+/// Why it cannot: Linux without a launcher or Landlock, macOS where `sandbox-exec` cannot start,
+/// any other OS.
+pub fn ready(launcher: Option<&Path>) -> Result<(), String> {
+    platform::ready(launcher)
+}
 
 /// What a plugin's process may touch: real paths, links resolved.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,9 +91,10 @@ impl Policy {
     }
 }
 
-/// When `args` (this process's, the program first) make it the plugin launcher, confines this
-/// process to the policy they carry and becomes the plugin they name, returning only why it could
-/// not; `None` when they do not.
+/// Runs this process as the plugin launcher when `args` (this process's, the program first) ask it to.
+///
+/// It confines this process to the policy they carry and becomes the plugin they name, returning
+/// only why it could not; `None` when they do not.
 pub fn launch(mut args: impl Iterator<Item = OsString>) -> Option<String> {
     let _program = args.next();
     if args.next()? != LAUNCHER_ARG {
@@ -119,6 +136,14 @@ mod declared {
     use std::path::Path;
 
     use super::{Entry, Policy};
+
+    /// A plugin runs unconfined, with a warning.
+    pub const FAIL_CLOSED: bool = false;
+
+    /// Why a plugin cannot be confined here.
+    pub fn ready(_launcher: Option<&Path>) -> Result<(), String> {
+        Err("this OS cannot confine a plugin".to_owned())
+    }
 
     /// `entry` as it is.
     pub fn entry(_policy: &Policy, _launcher: Option<&Path>, entry: Entry) -> Result<Entry, String> {

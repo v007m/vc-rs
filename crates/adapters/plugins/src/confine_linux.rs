@@ -1,21 +1,39 @@
 //! Linux: the plugin runs under `vc` as its launcher, which confines itself with Landlock and then
 //! becomes the plugin, so the plugin's process inherits the rules. The launcher is
 //! single-threaded when it confines itself (before `vc` starts a runtime), sets `no_new_privs`,
-//! and needs no `unsafe` (D254). On a kernel without Landlock, or without its network rules
-//! (before 6.7), what the kernel cannot enforce stays declared only.
+//! and needs no `unsafe` (D254). Landlock is best effort (D260): on a kernel without it the plugin
+//! runs unconfined, with a warning, and on one without its network rules (before 6.7) what the
+//! kernel cannot enforce stays declared only.
 
 use std::ffi::OsString;
 use std::os::unix::process::CommandExt as _;
 use std::path::{Path, PathBuf};
 
 use landlock::{
-    ABI, Access, AccessFs, AccessNet, Ruleset, RulesetAttr, RulesetCreatedAttr, RulesetError, path_beneath_rules,
+    ABI, Access, AccessFs, AccessNet, CompatLevel, Compatible as _, Ruleset, RulesetAttr, RulesetCreatedAttr,
+    RulesetError, path_beneath_rules,
 };
 
 use crate::confine::{Entry, LAUNCHER_ARG, Policy};
 
 /// The Landlock version whose rights are asked for: file rights, and TCP bind and connect.
 const LANDLOCK: ABI = ABI::V4;
+
+/// A plugin that cannot be confined runs unconfined, with a warning: Landlock is best effort.
+pub const FAIL_CLOSED: bool = false;
+
+/// Whether a plugin can be confined: `vc` is its `launcher` and the kernel has Landlock; why not
+/// otherwise.
+pub fn ready(launcher: Option<&Path>) -> Result<(), String> {
+    if launcher.is_none() {
+        return Err("`vc` cannot find its own program to run as the plugin launcher".to_owned());
+    }
+    let probe = Ruleset::default()
+        .set_compatibility(CompatLevel::HardRequirement)
+        .handle_access(AccessFs::from_all(ABI::V1))
+        .and_then(Ruleset::create);
+    probe.map(drop).map_err(|error| format!("the kernel has no Landlock ({error})"))
+}
 
 /// `launcher` run as the launcher of `entry` under `policy`; `entry` itself without a launcher.
 pub fn entry(policy: &Policy, launcher: Option<&Path>, (program, args): Entry) -> Result<Entry, String> {

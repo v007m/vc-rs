@@ -14,7 +14,7 @@ use tokio::process::Command;
 use tokio::sync::{OnceCell, broadcast, mpsc, oneshot};
 use vc_interfaces::{INITIALIZE_DEADLINE, PluginError, PluginHost, PluginManifest, PluginPermissions, Secrets};
 
-use crate::confine::{Entry, Policy};
+use crate::confine::{self, Entry, Policy};
 use crate::owned;
 use crate::session::{Call, Session};
 use crate::stderr_log;
@@ -42,7 +42,8 @@ pub const DATA_ENV: &str = "VIB_PLUGIN_DATA";
 /// host has one, [`DATA_ENV`] naming its data folder, made as it starts. One process serves every
 /// call; once it stops, every later call fails, and dropping the host shuts it down. A confined
 /// host ([`StdioPluginHost::confined`]) runs it held to its manifest's permissions where the OS
-/// can (D254).
+/// can (D254). Where it cannot, the plugin runs unconfined and the host tells why, except on
+/// macOS, where it is not started (V5119) unless [`StdioPluginHost::allow_unconfined`] (D260).
 #[derive(Debug)]
 pub struct StdioPluginHost {
     manifest: PluginManifest,
@@ -54,6 +55,7 @@ pub struct StdioPluginHost {
     log: Option<(PathBuf, PathBuf)>,
     told: Option<broadcast::Sender<String>>,
     confined: Option<(PathBuf, Option<PathBuf>)>,
+    unconfined: bool,
     calls: OnceCell<Result<mpsc::UnboundedSender<Call>, PluginError>>,
 }
 
@@ -63,7 +65,8 @@ impl StdioPluginHost {
     pub fn new(manifest: PluginManifest, dir: impl Into<PathBuf>, granted: PluginPermissions) -> Self {
         let dir = dir.into();
         let (secrets, config, calls) = (Secrets::new(), Value::Null, OnceCell::new());
-        Self { manifest, dir, granted, secrets, config, data: None, log: None, told: None, confined: None, calls }
+        let (data, log, told, confined) = (None, None, None, None);
+        Self { manifest, dir, granted, secrets, config, data, log, told, confined, unconfined: false, calls }
     }
 
     /// The same host, able to give the plugin those of `run`'s secrets that the manifest declares
@@ -107,7 +110,8 @@ impl StdioPluginHost {
     }
 
     /// The same host, sending `told` one line when the plugin starts with its stderr dropped as
-    /// its log could not be made: `plugin `<id>`: its stderr is dropped: <why>`.
+    /// its log could not be made, `plugin `<id>`: its stderr is dropped: <why>`, and one when it
+    /// starts unconfined, `plugin `<id>` runs unconfined: <why>`.
     #[must_use]
     pub fn told(self, told: broadcast::Sender<String>) -> Self {
         Self { told: Some(told), ..self }
@@ -121,20 +125,45 @@ impl StdioPluginHost {
         Self { confined: Some((root.into(), launcher)), ..self }
     }
 
+    /// The same host, running the plugin unconfined, with a warning, where it cannot be confined
+    /// when `allowed`, as on Linux and other OSes; else, on macOS, not starting it (D260). Only
+    /// the user's own settings may allow it, never the project's.
+    #[must_use]
+    pub fn allow_unconfined(self, allowed: bool) -> Self {
+        Self { unconfined: allowed, ..self }
+    }
+
     fn plugin(&self) -> String {
         self.manifest.id.clone()
     }
 
-    /// What runs the plugin's `entry`: confined to its policy when the host is confined; why not
-    /// when a file it names is outside the project.
-    fn entry(&self) -> Result<Entry, String> {
+    /// What runs the plugin's `entry`: confined to its policy when the host is confined and the
+    /// OS can; otherwise as [`StdioPluginHost::unconfined`] says. Not started when a file it
+    /// names is outside the project.
+    async fn entry(&self) -> Result<Entry, PluginError> {
         let entry = entry(&self.manifest, &self.dir);
         let Some((root, launcher)) = &self.confined else {
             return Ok(entry);
         };
+        let not_started = |reason: String| PluginError::Start { plugin: self.plugin(), reason };
         let data = self.data.as_ref().map(|(home, under)| home.join(under));
-        let policy = Policy::new(root, &self.dir, &self.manifest.permissions)?.writing(data.as_deref());
-        policy.entry(launcher.as_deref(), entry)
+        let policy = Policy::new(root, &self.dir, &self.manifest.permissions).map_err(not_started)?;
+        let probed = launcher.clone();
+        let ready = tokio::task::spawn_blocking(move || confine::ready(probed.as_deref())).await;
+        match ready.unwrap_or_else(|error| Err(error.to_string())) {
+            Ok(()) => policy.writing(data.as_deref()).entry(launcher.as_deref(), entry).map_err(not_started),
+            Err(why) => self.unconfined(entry, why),
+        }
+    }
+
+    /// `entry` run unconfined, as the OS cannot confine it (`why`), telling whoever asked
+    /// ([`StdioPluginHost::told`]); on macOS, unless allowed, not started (D260).
+    fn unconfined(&self, entry: Entry, why: String) -> Result<Entry, PluginError> {
+        if confine::FAIL_CLOSED && !self.unconfined {
+            return Err(PluginError::Unconfined { plugin: self.plugin(), reason: why });
+        }
+        self.tell(format!("plugin `{}` runs unconfined: {why}", self.plugin()));
+        Ok(entry)
     }
 
     /// The process running `entry`, with [`DATA_ENV`] when the host has a data folder; with a
@@ -152,8 +181,13 @@ impl StdioPluginHost {
 
     /// Tells whoever asked ([`StdioPluginHost::told`]) why the plugin's stderr is dropped.
     fn unlogged(&self, why: &std::io::Error) {
+        self.tell(format!("plugin `{}`: its stderr is dropped: {why}", self.plugin()));
+    }
+
+    /// Sends `line` to whoever asked ([`StdioPluginHost::told`]).
+    fn tell(&self, line: String) {
         if let Some(told) = &self.told {
-            told.send(format!("plugin `{}`: its stderr is dropped: {why}", self.plugin())).ok();
+            told.send(line).ok();
         }
     }
 
@@ -174,7 +208,7 @@ impl StdioPluginHost {
         let made = prepared.map_err(|error| not_started(format!("cannot make its folders: {error}")))?;
         let log = made.map_err(|error| not_started(format!("cannot make its data folder: {error}")))?;
         let log = log.and_then(|opened| opened.inspect_err(|why| self.unlogged(why)).ok());
-        let entry = self.entry().map_err(not_started)?;
+        let entry = self.entry().await?;
         let mut child = self
             .command(entry, log.is_some())
             .spawn()

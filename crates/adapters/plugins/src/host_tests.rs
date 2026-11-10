@@ -163,6 +163,46 @@ async fn a_confined_plugin_naming_a_file_outside_the_project_never_starts() {
     assert_eq!(reason, "its file permission `../elsewhere` is not a path inside the project");
 }
 
+#[test]
+fn a_plugin_that_cannot_be_confined_is_refused_on_macos_and_elsewhere_runs_unconfined_and_says_so() {
+    let (told, mut heard) = tokio::sync::broadcast::channel(4);
+    let host = StdioPluginHost::new(suite_plugin_manifest(), suite_dir(), granted()).told(told);
+    let entry = (PathBuf::from("python3"), Vec::new());
+    let first = host.unconfined(entry.clone(), "no sandbox".to_owned());
+    if crate::confine::FAIL_CLOSED {
+        let Err(PluginError::Unconfined { plugin, reason }) = &first else { panic!("{first:?}") };
+        assert_eq!((plugin.as_str(), reason.as_str()), ("suitePlugin", "no sandbox"));
+        assert!(heard.try_recv().is_err(), "a plugin never started says nothing");
+    } else {
+        assert_eq!(first.unwrap(), entry);
+        assert_eq!(heard.try_recv().unwrap(), "plugin `suitePlugin` runs unconfined: no sandbox");
+    }
+    let allowed = host.allow_unconfined(true).unconfined(entry.clone(), "no sandbox".to_owned());
+    assert_eq!(allowed.unwrap(), entry);
+    assert_eq!(heard.try_recv().unwrap(), "plugin `suitePlugin` runs unconfined: no sandbox");
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn a_confined_plugin_without_a_launcher_runs_unconfined_and_says_so_once() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let (root, (told, mut heard)) = (tempfile::tempdir().unwrap(), tokio::sync::broadcast::channel(4));
+    let mut secrets = Secrets::new();
+    secrets.insert("suiteToken", Secret::new("t0k3n"));
+    let host = StdioPluginHost::new(suite_plugin_manifest(), suite_dir(), granted())
+        .secrets(&secrets)
+        .told(told)
+        .confined(root.path(), None);
+    for _ in 0..2 {
+        host.call("suite/echo", json!({"said": "hi"}), Duration::from_secs(5)).await.unwrap();
+    }
+    let said = heard.try_recv().unwrap();
+    assert!(said.starts_with("plugin `suitePlugin` runs unconfined: `vc` cannot find its own program"), "{said}");
+    assert!(heard.try_recv().is_err(), "one warning a run");
+}
+
 #[cfg(target_os = "macos")]
 #[tokio::test]
 async fn a_confined_plugin_writes_its_data_folder_and_nothing_else_in_the_project() {
