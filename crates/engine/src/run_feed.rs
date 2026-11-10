@@ -1,22 +1,28 @@
-//! The live feed of a run for a watcher (the TUI's Run tab, the server's `Run` stream): its
-//! events in order, `Missed` when the watcher fell behind, and `Done` once the reporters have
-//! finished. Watching never holds up or fails the run.
+//! The live feed of a run for a watcher (the TUI's Run tab, the server's `Run` stream): the
+//! [`Names`] that label it, its events in order, `Missed` when the watcher fell behind, and
+//! `Done` once the reporters have finished. Watching never holds up or fails the run.
+
+use std::sync::Arc;
 
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::sync::oneshot;
 use vc_executor::EventBus;
-use vc_model::{Feed, Sequenced};
+use vc_model::{Feed, Names, Sequenced};
 
 use crate::RunReport;
+use crate::plan::Prepared;
 
 /// Room for this many events between the bus and the relay before it misses some.
 const ROOM: usize = 65_536;
 
 /// What a watcher of a run receives.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum RunFeed {
+    /// Always first: the names of the run's tests, instances and actions, from its program
+    /// and plan, so the watcher can label the events that follow.
+    Started(Names),
     /// The next event of the run.
     Event(Sequenced),
     /// The watcher's channel was full and `count` events were dropped; reload them from the
@@ -45,11 +51,19 @@ impl RunWatch {
         Self { sender }
     }
 
-    /// Relays `bus` to the watcher on a task of its own until the run ends.
-    pub(crate) fn follow(&self, bus: &EventBus) -> Watching {
+    /// Relays `bus` to the watcher on a task of its own until the run ends, after the names
+    /// of the run `prepared` holds. `Started` waits for room, as `Done` does: it is the
+    /// first message, so only a watcher that never reads makes it wait, and the bus counts
+    /// what that relay misses meanwhile.
+    pub(crate) fn follow(&self, bus: &EventBus, prepared: &Prepared) -> Watching {
         let (done, report) = oneshot::channel();
-        let relay = Relay { watcher: self.sender.clone(), missed: 0 };
-        tokio::spawn(relay.forward(bus.subscribe(ROOM), report));
+        let (watcher, feed) = (self.sender.clone(), bus.subscribe(ROOM));
+        let names = Names::new(Arc::clone(&prepared.program), &prepared.plan);
+        tokio::spawn(async move {
+            if watcher.send(RunFeed::Started(names)).await.is_ok() {
+                Relay { watcher, missed: 0 }.forward(feed, report).await;
+            }
+        });
         Watching { done }
     }
 }

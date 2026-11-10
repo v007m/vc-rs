@@ -75,7 +75,7 @@ impl Engine {
         let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
         let (executor, sweep) = self.executor(&prepared, inputs, request).await?;
         let bus = EventBus::spawn();
-        let watching = request.watch.as_ref().map(|watch| watch.follow(&bus));
+        let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
         let started = self.clock.now_ms();
         let ran = match executor.start(Arc::clone(&prepared.plan), bus.clone()) {
