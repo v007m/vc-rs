@@ -10,10 +10,11 @@ use std::sync::Arc;
 use serde_json::Value;
 use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
-use vc_engine::{CallAsTest, CallRequest, Changes, FileChange, ImportRequest, Keep};
+use vc_contracts::results::v1 as results;
+use vc_engine::{CallAsTest, CallReport, CallRequest, Changes, Exchange, FileChange, ImportRequest, Keep};
 
 use crate::engine_api::{EngineApi, Rpcs};
-use crate::{Code, ConnectError};
+use crate::{Code, ConnectError, wire_results};
 
 /// The name a pasted spec goes by: its relative references resolve from the project root.
 const PASTED: &str = "pasted";
@@ -27,12 +28,33 @@ async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::C
     let (profiles, sets) = api.layers(request.profiles, request.sets);
     let call = CallRequest { api: request.api, vars: request.vars, keep: request.keep, profiles, sets, agent: None };
     let report = api.blocking(move |engine| Handle::current().block_on(engine.call(&call))).await?;
+    let exchange = report.exchange.as_ref().map(|exchange| whole(&report, exchange));
+    let checks = report.checks.iter().map(|check| wire_results::check(&report.names, check)).collect();
+    let saved = report.saved.iter().map(|saved| wire::SavedValue {
+        name: saved.name.clone(),
+        from: saved.from.clone(),
+        value: saved.value.to_string(),
+    });
     Ok(wire::CallResponse {
         exit: u32::from(report.exit),
         text: report.text,
         notices: report.notices,
         response_json: report.response.map(|response| response.to_string()),
+        exchange,
+        checks,
+        saved: saved.collect(),
     })
+}
+
+/// The call's exchange with both bodies whole, whatever `history.bodies` says: the Client shows
+/// the call the person just made, and the engine masked the bodies already.
+fn whole(report: &CallReport, exchange: &Exchange) -> results::Exchange {
+    results::Exchange {
+        request_body: exchange.request.body.to_vec(),
+        response_body: exchange.response.body.to_vec(),
+        body_truncated: false,
+        ..wire_results::exchange(&report.names, report.action, exchange)
+    }
 }
 
 async fn save_call_as_test(

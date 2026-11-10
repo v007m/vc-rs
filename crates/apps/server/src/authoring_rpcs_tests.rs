@@ -4,7 +4,10 @@ use vc_contracts::engine::v1 as wire;
 
 use super::{call, import, save_call_as_test};
 use crate::Code;
-use crate::engine_fixture::{TESTS, project};
+use crate::engine_fixture::{API, CONFIG, LARGE, TESTS, USERS, large_body_server, project};
+
+/// A request body this long is past the test's `history.maxBodySize` of 1kb.
+const PAD: usize = 1500;
 
 const SPEC: &str = "openapi: 3.0.3\ninfo: {title: Pets, version: '1'}\nservers: [{url: 'http://127.0.0.1:9'}]\npaths:\n  /pets:\n    get:\n      operationId: listPets\n      responses: {'200': {description: ok}}\n";
 
@@ -17,6 +20,31 @@ async fn a_call_from_the_web_ui_skips_the_agent_policy_and_the_agent_log() {
     }
     let logged = api.engine().agent_actions(0).unwrap();
     assert!(logged.is_empty(), "{logged:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_call_sends_its_exchange_with_the_body_whole_and_its_checks() {
+    let (dir, api) = project();
+    let config = CONFIG.replace("http://127.0.0.1:9", &large_body_server(200));
+    let config = format!("{config}history: {{bodies: all, maxBodySize: 1kb}}\n");
+    fs::write(dir.path().join("vibranium.config.yaml"), config).unwrap();
+    let padded = USERS.replacen("    path: /users\n", &format!("    path: /users\n    body: {{pad: {}}}\n", "p".repeat(PAD)), 1);
+    fs::write(dir.path().join(API), padded).unwrap();
+    let sent = call(api, wire::CallRequest { api: "users#list".into(), ..wire::CallRequest::default() }).await;
+    let sent = sent.unwrap();
+    let exchange = sent.exchange.unwrap();
+    assert_eq!((exchange.status, exchange.method.as_str()), (Some(200), "GET"));
+    let lengths = (exchange.request_body.len(), exchange.response_body.len(), exchange.body_truncated);
+    assert_eq!(lengths, (PAD + r#"{"pad":""}"#.len(), LARGE, false), "both bodies whole past history.maxBodySize");
+    assert_eq!((exchange.action.as_str(), exchange.api.as_deref()), ("call users#list", Some("users#list")));
+    assert!(sent.checks.iter().all(|check| check.passed) && sent.saved.is_empty(), "{:?}", sent.checks);
+}
+
+#[tokio::test]
+async fn a_call_that_got_no_response_sends_no_exchange() {
+    let (_dir, api) = project();
+    let sent = call(api, wire::CallRequest { api: "users#list".into(), ..wire::CallRequest::default() }).await;
+    assert!(sent.unwrap().exchange.is_none());
 }
 
 #[tokio::test]

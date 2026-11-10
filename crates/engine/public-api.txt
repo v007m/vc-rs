@@ -285,6 +285,18 @@ pub fn vc_engine::AgentOutcome::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::AgentOutcome
 pub fn vc_engine::AgentOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::AgentOutcome
+#[non_exhaustive] pub struct vc_engine::AlertSent
+pub vc_engine::AlertSent::channel: alloc::string::String
+pub vc_engine::AlertSent::error: core::option::Option<alloc::string::String>
+pub vc_engine::AlertSent::rule: usize
+impl core::clone::Clone for vc_engine::AlertSent
+pub fn vc_engine::AlertSent::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::AlertSent
+impl core::cmp::PartialEq for vc_engine::AlertSent
+pub fn vc_engine::AlertSent::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::AlertSent
+pub fn vc_engine::AlertSent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::AlertSent
 #[non_exhaustive] pub struct vc_engine::ApiCall
 pub vc_engine::ApiCall::api: alloc::string::String
 pub vc_engine::ApiCall::method: alloc::string::String
@@ -326,18 +338,19 @@ impl core::fmt::Debug for vc_engine::CallAsTest
 pub fn vc_engine::CallAsTest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::CallAsTest
 #[non_exhaustive] pub struct vc_engine::CallReport
+pub vc_engine::CallReport::action: vc_model::ids::ActionId
+pub vc_engine::CallReport::checks: alloc::vec::Vec<vc_model::expect::CheckResult>
+pub vc_engine::CallReport::exchange: core::option::Option<vc_model::exchange::Exchange>
 pub vc_engine::CallReport::exit: u8
+pub vc_engine::CallReport::names: vc_model::names::Names
 pub vc_engine::CallReport::notices: alloc::vec::Vec<alloc::string::String>
 pub vc_engine::CallReport::response: core::option::Option<serde_json::value::Value>
+pub vc_engine::CallReport::saved: alloc::vec::Vec<vc_engine::SavedValue>
 pub vc_engine::CallReport::text: alloc::string::String
 impl core::clone::Clone for vc_engine::CallReport
 pub fn vc_engine::CallReport::clone(&self) -> Self
-impl core::cmp::Eq for vc_engine::CallReport
-impl core::cmp::PartialEq for vc_engine::CallReport
-pub fn vc_engine::CallReport::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::CallReport
 pub fn vc_engine::CallReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl core::marker::StructuralPartialEq for vc_engine::CallReport
 pub struct vc_engine::CallRequest
 pub vc_engine::CallRequest::agent: core::option::Option<alloc::string::String>
 pub vc_engine::CallRequest::api: alloc::string::String
@@ -523,6 +536,8 @@ pub fn vc_engine::Engine::skip(&self, &vc_engine::SkipRequest) -> core::result::
 pub fn vc_engine::Engine::unskip(&self, &str) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::sync(&self, &vc_engine::SyncRequest) -> core::result::Result<vc_engine::SyncReport, vc_engine::EngineError>
+impl vc_engine::Engine
+pub async fn vc_engine::Engine::test_alerts(&self, &vc_engine::ExplainRequest) -> core::result::Result<alloc::vec::Vec<vc_engine::AlertSent>, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::watch(&self) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_engine::EngineError>
 impl vc_engine::Engine
@@ -1030,6 +1045,18 @@ pub fn vc_engine::SavedFile::eq(&self, &Self) -> bool
 impl core::fmt::Debug for vc_engine::SavedFile
 pub fn vc_engine::SavedFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_engine::SavedFile
+#[non_exhaustive] pub struct vc_engine::SavedValue
+pub vc_engine::SavedValue::from: alloc::string::String
+pub vc_engine::SavedValue::name: alloc::string::String
+pub vc_engine::SavedValue::value: serde_json::value::Value
+impl core::clone::Clone for vc_engine::SavedValue
+pub fn vc_engine::SavedValue::clone(&self) -> Self
+impl core::cmp::Eq for vc_engine::SavedValue
+impl core::cmp::PartialEq for vc_engine::SavedValue
+pub fn vc_engine::SavedValue::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_engine::SavedValue
+pub fn vc_engine::SavedValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_engine::SavedValue
 #[non_exhaustive] pub struct vc_engine::SchemaFile
 pub vc_engine::SchemaFile::file_name: alloc::string::String
 pub vc_engine::SchemaFile::kind: vc_model::source::FileKind
