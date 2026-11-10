@@ -501,6 +501,7 @@ impl vc_engine::Engine
 pub fn vc_engine::Engine::policy_check(&self, &vc_engine::AgentCall) -> core::result::Result<vc_engine::Permission, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::project_info(&self) -> core::result::Result<vc_engine::ProjectInfo, vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::project_path(&self, &std::path::Path, &std::path::Path) -> core::option::Option<alloc::string::String>
 pub fn vc_engine::Engine::root(&self) -> &std::path::Path
 impl vc_engine::Engine
