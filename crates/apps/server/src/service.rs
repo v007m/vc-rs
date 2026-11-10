@@ -1,5 +1,6 @@
 //! One protobuf service over the Connect protocol: its methods by name, each a unary call or a
-//! server stream, served at `POST /api/<service>/<method>`.
+//! server stream, served at `POST /api/<service>/<method>`, in binary protobuf or protobuf JSON
+//! as the request's content type says (D254).
 
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -15,18 +16,18 @@ use axum::routing::post;
 use bytes::Bytes;
 use futures_util::future::BoxFuture;
 use prost::Message;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tokio::sync::{mpsc, watch};
 
+use crate::codec::{Codec, Shape};
 use crate::envelope::{self, MAX_MESSAGE};
 use crate::{Code, ConnectError, error};
-
-const PROTO: &str = "application/proto";
-const CONNECT_PROTO: &str = "application/connect+proto";
 
 /// How many stream messages wait for a slow client before the handler waits too.
 const STREAM_BUFFER: usize = 64;
 
-type Unary = Arc<dyn Fn(Bytes) -> BoxFuture<'static, Result<Vec<u8>, ConnectError>> + Send + Sync>;
+type Unary = Arc<dyn Fn(Bytes, Codec) -> BoxFuture<'static, Result<Vec<u8>, ConnectError>> + Send + Sync>;
 type Streaming = Arc<dyn Fn(Bytes, Frames) -> BoxFuture<'static, Result<(), ConnectError>> + Send + Sync>;
 
 #[derive(Clone)]
@@ -48,9 +49,10 @@ struct Methods {
     stopping: watch::Receiver<bool>,
 }
 
-/// Where a stream's frames go, and the server's stop signal.
+/// Where a stream's frames go, the codec they are written in, and the server's stop signal.
 struct Frames {
     sender: mpsc::Sender<Bytes>,
+    codec: Codec,
     stopping: watch::Receiver<bool>,
 }
 
@@ -73,18 +75,19 @@ impl ConnectService {
         self
     }
 
-    /// Serves `method` as a unary call: one request message, one response message.
+    /// Serves `method` as a unary call: one request message, one response message, in the
+    /// codec the request came in.
     #[must_use]
     pub fn unary<Req, Resp, F, Fut>(mut self, method: &'static str, handler: F) -> Self
     where
-        Req: Message + Default + 'static,
-        Resp: Message + 'static,
+        Req: Message + Default + DeserializeOwned + 'static,
+        Resp: Message + Serialize + 'static,
         F: Fn(Req) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<Resp, ConnectError>> + Send + 'static,
     {
-        let rpc: Unary = Arc::new(move |body: Bytes| -> BoxFuture<'static, _> {
-            let call = decode::<Req>(&body).map(&handler);
-            Box::pin(async move { Ok(call?.await?.encode_to_vec()) })
+        let rpc: Unary = Arc::new(move |body: Bytes, codec: Codec| -> BoxFuture<'static, _> {
+            let call = codec.decode::<Req>(&body).map(&handler);
+            Box::pin(async move { codec.encode(&call?.await?) })
         });
         self.rpcs.insert(method, Rpc::Unary(rpc));
         self
@@ -95,13 +98,13 @@ impl ConnectService {
     #[must_use]
     pub fn server_stream<Req, Resp, F, Fut>(mut self, method: &'static str, handler: F) -> Self
     where
-        Req: Message + Default + 'static,
-        Resp: Message + 'static,
+        Req: Message + Default + DeserializeOwned + 'static,
+        Resp: Message + Serialize + 'static,
         F: Fn(Req, Sink<Resp>) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<(), ConnectError>> + Send + 'static,
     {
         let rpc: Streaming = Arc::new(move |body: Bytes, frames: Frames| -> BoxFuture<'static, _> {
-            let call = decode::<Req>(&body).map(|request| handler(request, Sink::new(frames)));
+            let call = frames.codec.decode::<Req>(&body).map(|request| handler(request, Sink::new(frames)));
             Box::pin(async move { call?.await })
         });
         self.rpcs.insert(method, Rpc::ServerStream(rpc));
@@ -122,14 +125,18 @@ pub struct Sink<T> {
     message: PhantomData<fn(T)>,
 }
 
-impl<T: Message> Sink<T> {
+impl<T: Message + Serialize> Sink<T> {
     const fn new(frames: Frames) -> Self {
         Self { frames, message: PhantomData }
     }
 
-    /// Sends one message; `false` once the client has gone, when the handler should stop.
+    /// Sends one message; `false` once the client has gone, or when the message cannot be
+    /// written in the stream's codec, when the handler should stop.
     pub async fn send(&self, message: &T) -> bool {
-        self.frames.sender.send(envelope::message(&message.encode_to_vec())).await.is_ok()
+        let Ok(payload) = self.frames.codec.encode(message) else {
+            return false;
+        };
+        self.frames.sender.send(envelope::message(&payload)).await.is_ok()
     }
 
     /// Resolves when the client has gone (it closed the stream or the connection dropped) or
@@ -167,15 +174,16 @@ fn no_such_method() -> Response {
 }
 
 async fn unary(call: &Unary, request: Request) -> Response {
-    if let Err(refused) = accepts(request.headers(), PROTO) {
-        return *refused;
-    }
+    let codec = match accepts(request.headers(), Shape::Unary) {
+        Ok(codec) => codec,
+        Err(refused) => return *refused,
+    };
     let reply = match envelope::read(request.into_body(), MAX_MESSAGE).await {
-        Ok(body) => call(body).await,
+        Ok(body) => call(body, codec).await,
         Err(error) => Err(error),
     };
     match reply {
-        Ok(message) => ([(header::CONTENT_TYPE, PROTO)], message).into_response(),
+        Ok(message) => ([(header::CONTENT_TYPE, codec.content_type(Shape::Unary))], message).into_response(),
         Err(error) => error.into_response(),
     }
 }
@@ -184,14 +192,15 @@ async fn unary(call: &Unary, request: Request) -> Response {
 /// message. A client that goes away closes the channel, which the handler sees, as it sees the
 /// server's `stopping`.
 async fn server_stream(call: Streaming, request: Request, stopping: watch::Receiver<bool>) -> Response {
-    if let Err(refused) = accepts(request.headers(), CONNECT_PROTO) {
-        return *refused;
-    }
+    let codec = match accepts(request.headers(), Shape::Stream) {
+        Ok(codec) => codec,
+        Err(refused) => return *refused,
+    };
     let body = envelope::read_single(request.into_body()).await;
     let (frames, rx) = mpsc::channel(STREAM_BUFFER);
     tokio::spawn(async move {
         let outcome = match body {
-            Ok(body) => call(body, Frames { sender: frames.clone(), stopping }).await,
+            Ok(body) => call(body, Frames { sender: frames.clone(), codec, stopping }).await,
             Err(error) => Err(error),
         };
         let end = envelope::end_stream(&error::end_stream(outcome.err().as_ref()));
@@ -200,28 +209,23 @@ async fn server_stream(call: Streaming, request: Request, stopping: watch::Recei
     let stream = futures_util::stream::unfold(rx, |mut rx| async move {
         rx.recv().await.map(|frame| (Ok::<_, Infallible>(frame), rx))
     });
-    ([(header::CONTENT_TYPE, CONNECT_PROTO)], Body::from_stream(stream)).into_response()
+    ([(header::CONTENT_TYPE, codec.content_type(Shape::Stream))], Body::from_stream(stream)).into_response()
 }
 
-/// Refuses a request whose content type is not `content_type` (415) or whose
-/// `connect-protocol-version` is not 1.
-fn accepts(headers: &HeaderMap, content_type: &str) -> Result<(), Box<Response>> {
+/// The codec of a request whose content type is one a call of `shape` takes; refuses any other
+/// content type (415) and a `connect-protocol-version` that is not 1.
+fn accepts(headers: &HeaderMap, shape: Shape) -> Result<Codec, Box<Response>> {
     let given = headers.get(header::CONTENT_TYPE).and_then(|value| value.to_str().ok());
     let essence = given.and_then(|value| value.split(';').next()).map(str::trim);
-    if !essence.is_some_and(|value| value.eq_ignore_ascii_case(content_type)) {
+    let Some(codec) = essence.and_then(|essence| Codec::of(essence, shape)) else {
         return Err(Box::new(StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response()));
-    }
+    };
     match headers.get("connect-protocol-version") {
         Some(version) if version != "1" => Err(Box::new(
             ConnectError::new(Code::InvalidArgument, "connect-protocol-version must be 1").into_response(),
         )),
-        _ => Ok(()),
+        _ => Ok(codec),
     }
-}
-
-fn decode<T: Message + Default>(body: &Bytes) -> Result<T, ConnectError> {
-    T::decode(body.as_ref())
-        .map_err(|_| ConnectError::new(Code::InvalidArgument, "the request is not a valid message for this method"))
 }
 
 #[cfg(test)]

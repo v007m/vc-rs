@@ -56,8 +56,8 @@ fn enveloped(payload: &[u8]) -> Vec<u8> {
     body
 }
 
-/// The stream's messages, then its end-stream JSON.
-fn frames(mut body: &[u8]) -> (Vec<RunResponse>, Value) {
+/// The stream's message payloads, then its end-stream JSON.
+fn payloads(mut body: &[u8]) -> (Vec<&[u8]>, Value) {
     let mut messages = Vec::new();
     loop {
         let (head, rest) = body.split_at(5);
@@ -67,9 +67,15 @@ fn frames(mut body: &[u8]) -> (Vec<RunResponse>, Value) {
             assert_eq!(rest, [0_u8; 0]);
             return (messages, serde_json::from_slice(payload).unwrap());
         }
-        messages.push(RunResponse::decode(payload).unwrap());
+        messages.push(payload);
         body = rest;
     }
+}
+
+/// The stream's binary messages, then its end-stream JSON.
+fn frames(body: &[u8]) -> (Vec<RunResponse>, Value) {
+    let (messages, end) = payloads(body);
+    (messages.into_iter().map(|payload| RunResponse::decode(payload).unwrap()).collect(), end)
 }
 
 #[tokio::test]
@@ -79,6 +85,14 @@ async fn a_unary_call_answers_with_its_response_message() {
     assert_eq!((reply.status, reply.content_type.as_deref()), (StatusCode::OK, Some("application/proto")));
     let response = ReadFileResponse::decode(reply.body).unwrap();
     assert_eq!(response.text, "read users.api.yaml");
+}
+
+#[tokio::test]
+async fn a_json_unary_call_answers_in_protobuf_json() {
+    let reply = post("ReadFile", "application/json; charset=utf-8", br#"{"path":"users.api.yaml"}"#.to_vec()).await;
+    assert_eq!((reply.status, reply.content_type.as_deref()), (StatusCode::OK, Some("application/json")));
+    let response: Value = serde_json::from_slice(&reply.body).unwrap();
+    assert_eq!(response, json!({ "text": "read users.api.yaml", "digest": "d1" }));
 }
 
 #[tokio::test]
@@ -100,6 +114,17 @@ async fn a_stream_sends_each_message_then_an_empty_end_stream() {
 }
 
 #[tokio::test]
+async fn a_json_stream_sends_protobuf_json_messages_then_its_end_stream() {
+    let reply = post("Run", "application/connect+json", enveloped(br#"{"bail":true}"#)).await;
+    assert_eq!((reply.status, reply.content_type.as_deref()), (StatusCode::OK, Some("application/connect+json")));
+    let (messages, end) = payloads(&reply.body);
+    let messages: Vec<Value> = messages.into_iter().map(|payload| serde_json::from_slice(payload).unwrap()).collect();
+    let seqs: Vec<Value> = ["1", "2", "3"].map(|seq| json!({ "event": { "seq": seq } })).into();
+    assert_eq!(messages, seqs);
+    assert_eq!(end, json!({ "error": { "code": "aborted", "message": "stopped at the first failure" } }));
+}
+
+#[tokio::test]
 async fn a_stream_that_fails_ends_with_its_error() {
     let request = RunRequest { bail: true, ..RunRequest::default() }.encode_to_vec();
     let reply = post("Run", "application/connect+proto", enveloped(&request)).await;
@@ -110,8 +135,18 @@ async fn a_stream_that_fails_ends_with_its_error() {
 
 #[tokio::test]
 async fn a_wrong_content_type_is_415_and_an_unknown_method_404_unimplemented() {
-    assert_eq!(post("ReadFile", "application/json", b"{}".to_vec()).await.status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
-    assert_eq!(post("Run", "application/proto", Vec::new()).await.status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    for (method, content_type) in [
+        ("ReadFile", "text/plain"),
+        ("ReadFile", "application/connect+json"),
+        ("Run", "application/proto"),
+        ("Run", "application/json"),
+    ] {
+        assert_eq!(
+            post(method, content_type, Vec::new()).await.status,
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "{content_type}"
+        );
+    }
     let unknown = post("Delete", "application/proto", Vec::new()).await;
     assert_eq!(unknown.status, StatusCode::NOT_FOUND);
     assert_eq!(serde_json::from_slice::<Value>(&unknown.body).unwrap()["code"], json!("unimplemented"));
@@ -141,7 +176,9 @@ async fn an_error_never_echoes_what_the_request_carried() {
     let stream = post("Run", "application/connect+proto", enveloped(&garbage)).await;
     let (_, end) = frames(&stream.body);
     assert_eq!(end["error"]["code"], json!("invalid_argument"));
-    for body in [unary.body, stream.body] {
+    let json = post("ReadFile", "application/json", format!("{{\"path\": {SECRET}}}").into_bytes()).await;
+    assert_eq!(json.status, StatusCode::BAD_REQUEST);
+    for body in [unary.body, stream.body, json.body] {
         assert!(!String::from_utf8_lossy(&body).contains(SECRET));
     }
 }
