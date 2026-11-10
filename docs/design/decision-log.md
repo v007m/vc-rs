@@ -433,6 +433,11 @@ Round 36 additions (10 November 2026, M9 lane C: the Connect layer, the local we
 | D230 | A pasted import's name (orchestrator; Sarath away) | An `Import` given text names its snapshot after the spec's or recording's title, since the browser gives no file name | — |
 | D231 | Links into hidden files (orchestrator; Sarath away) | The file source refuses a path that resolves out of the project or, through a link, into a hidden file or folder the path does not name. This holds for every command, so `vc check`, `vc run` and authoring refuse such links as well as the editor | — |
 | D232 | `vc config explain` masks secrets (orchestrator; Sarath away; **flagged for Sarath**, a security fix) | `vc config explain` masks every value as `ExplainConfig` does (D229): a declared secret's value wherever it appears, in the replaced layers too, and a var named like a secret whole; when the secrets cannot be loaded, every value but the built-in ones is masked and a warning says so. It used to print them raw | — |
+| D233 | The web UI's agent name (orchestrator; Sarath away) | A `Call` from the web UI goes through the profiles' agent policy and the agent log as agent `web-ui` (D178) | — |
+| D234 | `vc ui`'s layers under a request's (orchestrator; Sarath away) | A request that names no profile uses the profiles `vc ui` was started with (the config's defaults when none); the server's `--set` values apply first and the request's after them, so the request's win | — |
+| D235 | The default trend window (orchestrator; Sarath away) | `Trends` with window 0 reads the last 30 runs, the middle of the Insights screen's 10, 30 and 100 | — |
+| D236 | All runs by default (orchestrator; Sarath away) | `ListRuns` with limit 0 returns every stored run | — |
+| D237 | Imports are pasted text only (orchestrator; Sarath away) | `Import` reads only the text the request carries, never a URL or a path; its source is named `pasted`, so relative references resolve from the project root. The snapshot's name follows D230 | — |
 
 ## Open
 
