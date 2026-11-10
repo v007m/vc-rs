@@ -1,6 +1,8 @@
 //! [`StdioPluginHost`]: a plugin run as a child process, spoken to in JSON-RPC 2.0 over its
 //! stdin and stdout.
 
+use std::fs::File;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -142,11 +144,10 @@ impl StdioPluginHost {
             return Err(PluginError::Permission { plugin: self.plugin(), what });
         }
         let not_started = |reason: String| PluginError::Start { plugin: self.plugin(), reason };
-        if let Some((home, under)) = &self.data {
-            let made = owned::folder(home, under);
-            made.map_err(|error| not_started(format!("cannot make its data folder: {error}")))?;
-        }
-        let log = self.log.as_ref().map(|(home, under)| stderr_log::open(home, under));
+        let (data, log) = (self.data.clone(), self.log.clone());
+        let prepared = tokio::task::spawn_blocking(move || prepare(data.as_ref(), log.as_ref())).await;
+        let made = prepared.map_err(|error| not_started(format!("cannot make its folders: {error}")))?;
+        let log = made.map_err(|error| not_started(format!("cannot make its data folder: {error}")))?;
         let log = log.and_then(|opened| opened.inspect_err(|why| self.unlogged(why)).ok());
         let mut child = self
             .command(log.is_some())
@@ -179,6 +180,20 @@ impl PluginHost for StdioPluginHost {
     async fn call(&self, method: &str, params: Value, deadline: Duration) -> Result<Value, PluginError> {
         self.ask((method, params), deadline).await
     }
+}
+
+/// Makes the plugin's data folder, when it has one, then opens its log, when it has a folder
+/// for one: blocking file-system calls, so the host runs them off the runtime's workers.
+///
+/// # Errors
+///
+/// Why the data folder cannot be used; the log's own failure comes back inside, as the plugin
+/// still starts without it.
+fn prepare(data: Option<&(PathBuf, PathBuf)>, log: Option<&(PathBuf, PathBuf)>) -> io::Result<Option<io::Result<File>>> {
+    if let Some((home, under)) = data {
+        owned::folder(home, under)?;
+    }
+    Ok(log.map(|(home, under)| stderr_log::open(home, under)))
 }
 
 /// Why a call got no result.
