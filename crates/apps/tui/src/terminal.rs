@@ -1,6 +1,7 @@
 //! The terminal: raw mode on the alternate screen while the UI runs, restored however it ends.
-//! Keys are read on a blocking task and sent over a channel, so the loop never waits on the
-//! keyboard while it could be drawing.
+//! Keys are read on a blocking task and sent over a channel, and what the engine sends back
+//! arrives on another, so the loop never waits on the keyboard or the engine while it could
+//! be drawing.
 
 use std::io::{self, Stdout};
 use std::time::Duration;
@@ -10,42 +11,75 @@ use crossterm::execute;
 use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, Receiver};
+use vc_engine::Engine;
 
+use crate::driver::Driver;
+use crate::screen::Update;
 use crate::{Tui, TuiError, TuiOptions};
 
 /// How long the key reader waits for a key before it checks whether the UI has quit.
 const POLL: Duration = Duration::from_millis(100);
-/// Key events the reader may get ahead of the UI by.
+/// Key events, or updates, the senders may get ahead of the UI by.
 const QUEUE: usize = 64;
 
-/// Runs the UI in this terminal until a key quits it. Call it from within a Tokio runtime.
+/// Runs the UI over `engine` in this terminal until a key quits it, ending a run still in
+/// progress first. Call it from within a Tokio runtime.
 ///
 /// # Errors
 ///
 /// [`TuiError::Terminal`] when the terminal cannot be set up or drawn on, and
 /// [`TuiError::Input`] when the keyboard cannot be read.
-pub async fn run(options: TuiOptions) -> Result<(), TuiError> {
-    let mut screen = Screen::open()?;
-    let (sender, mut events) = mpsc::channel(QUEUE);
+pub async fn run(engine: Engine, options: TuiOptions) -> Result<(), TuiError> {
+    let mut raw = Raw::open()?;
+    let (sender, keys) = mpsc::channel(QUEUE);
     let reader = tokio::task::spawn_blocking(move || read_keys(&sender));
-    let mut tui = Tui::new(options);
+    let (updates_sender, updates) = mpsc::channel(QUEUE);
+    let mut session = Session { tui: Tui::new(options), keys, updates, driver: Driver::new(engine, updates_sender) };
     let drawn = loop {
-        if let Err(error) = screen.terminal.draw(|frame| tui.draw(frame)) {
+        if let Err(error) = raw.terminal.draw(|frame| session.tui.draw(frame)) {
             break Err(TuiError::Terminal(error));
         }
-        match events.recv().await {
-            Some(Event::Key(key)) => tui.press(key),
-            Some(_) => {}
-            None => break Ok(()),
-        }
-        if tui.quitting() {
+        if !session.next().await {
             break Ok(());
         }
     };
-    drop(events);
+    session.close().await;
     let read = reader.await.map_err(|error| TuiError::Input { reason: error.to_string() })?;
     drawn.and_then(|()| read.map_err(|error| TuiError::Input { reason: error.to_string() }))
+}
+
+/// The UI, where its keys and updates come from, and the engine side.
+struct Session {
+    tui: Tui,
+    keys: Receiver<Event>,
+    updates: Receiver<Update>,
+    driver: Driver,
+}
+
+impl Session {
+    /// Waits for the next key or update and applies it; `false` once the UI is to stop.
+    async fn next(&mut self) -> bool {
+        tokio::select! {
+            key = self.keys.recv() => match key {
+                Some(Event::Key(key)) => {
+                    if let Some(ask) = self.tui.press(key) {
+                        self.driver.carry(ask);
+                    }
+                }
+                Some(_) => {}
+                None => return false,
+            },
+            Some(update) = self.updates.recv() => self.tui.update(&update),
+        }
+        !self.tui.quitting()
+    }
+
+    /// Stops listening to the keyboard and the engine, then ends the run in progress.
+    async fn close(self) {
+        drop((self.keys, self.updates));
+        self.driver.finish().await;
+    }
 }
 
 /// Sends each terminal event until the UI stops listening.
@@ -59,17 +93,17 @@ fn read_keys(sender: &mpsc::Sender<Event>) -> io::Result<()> {
 }
 
 /// The terminal in raw mode on the alternate screen; dropping it restores the terminal.
-struct Screen {
+struct Raw {
     terminal: Terminal<CrosstermBackend<Stdout>>,
 }
 
-impl Screen {
+impl Raw {
     fn open() -> io::Result<Self> {
         enable_raw_mode()?;
-        let mut screen = Self::restoring(Terminal::new(CrosstermBackend::new(io::stdout())))?;
-        execute!(screen.terminal.backend_mut(), EnterAlternateScreen)?;
-        screen.terminal.clear()?;
-        Ok(screen)
+        let mut raw = Self::restoring(Terminal::new(CrosstermBackend::new(io::stdout())))?;
+        execute!(raw.terminal.backend_mut(), EnterAlternateScreen)?;
+        raw.terminal.clear()?;
+        Ok(raw)
     }
 
     /// `terminal` wrapped so that raw mode ends even when it could not be made.
@@ -80,7 +114,7 @@ impl Screen {
     }
 }
 
-impl Drop for Screen {
+impl Drop for Raw {
     fn drop(&mut self) {
         let _ = execute!(self.terminal.backend_mut(), LeaveAlternateScreen);
         let _ = disable_raw_mode();

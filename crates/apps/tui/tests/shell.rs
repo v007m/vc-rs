@@ -1,32 +1,20 @@
 //! The shell: the header and tab bar, the tabs the keys choose, the footer and the help,
 //! rendered to a test backend.
 
+mod support;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use insta::assert_snapshot;
-use ratatui::Terminal;
-use ratatui::backend::TestBackend;
+use support::tui;
 use vc_tui::{Tui, TuiOptions};
 
-const WIDTH: u16 = 100;
-const HEIGHT: u16 = 16;
-
-fn tui() -> Tui {
-    Tui::new(TuiOptions::new("shop", vec!["staging".to_owned()]))
+/// The shell's screen, 100 by 16.
+fn screen(tui: &Tui) -> String {
+    support::screen(tui, (100, 16))
 }
 
 fn press(tui: &mut Tui, codes: &[KeyCode]) {
-    for code in codes {
-        tui.press(KeyEvent::new(*code, KeyModifiers::NONE));
-    }
-}
-
-/// The screen as text, one line per row, trailing spaces dropped.
-fn screen(tui: &Tui) -> String {
-    let mut terminal = Terminal::new(TestBackend::new(WIDTH, HEIGHT)).unwrap();
-    terminal.draw(|frame| tui.draw(frame)).unwrap();
-    let buffer = terminal.backend().buffer();
-    let rows = (0..HEIGHT).map(|y| (0..WIDTH).map(|x| buffer[(x, y)].symbol()).collect::<String>());
-    rows.map(|row| row.trim_end().to_owned()).collect::<Vec<_>>().join("\n")
+    support::press(tui, codes);
 }
 
 #[test]

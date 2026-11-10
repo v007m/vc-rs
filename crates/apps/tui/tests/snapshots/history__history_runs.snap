@@ -1,0 +1,34 @@
+---
+source: crates/apps/tui/tests/history.rs
+expression: "screen(&tui, SIZE)"
+---
+◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import
+3 stored runs, newest first
+┌ Runs ────────────────────────────────────────────────────────────────────────────────────────────┐
+│  run    started           branch@commit                       pass   ✓    ✕    ⊘    ↻    time    │
+│▸ #482   2025-11-05 09:30Z main@482c9e4                        97.5%  396  6    4    3    48.2s   │
+│  #481   2025-11-05 08:30Z main@481c9e4                        99.5%  407  2    0    1    51.3s   │
+│  #480   2025-11-05 07:30Z main@480c9e4                        100.0% 409  0    0    0    50.9s   │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌ Trends · last 3 runs ──────────────────────────┐┌ Compare ───────────────────────────────────────┐
+│pass rate  █▇▇                                  ││enter compares #482 with #481                   │
+│duration   ▇█▇                                  ││                                                │
+└────────────────────────────────────────────────┘│                                                │
+┌ Flaky and failing ─────────────────────────────┐│                                                │
+│↻ 2  ✕ 1  840ms  catalog.search#fuzzyQueries    ││                                                │
+│↻ 0  ✕ 1  1.2s  orders.checkout#placesOrder     ││                                                │
+│                                                ││                                                │
+│                                                ││                                                │
+│                                                ││                                                │
+│                                                ││                                                │
+│                                                ││                                                │
+│                                                ││                                                │
+└────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+  ↑↓  move  enter  compare  r  reload  ?  help  q  quit

@@ -3,18 +3,18 @@ source: crates/apps/tui/tests/shell.rs
 expression: screen(&tui)
 ---
 ◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import
-┌ Run ─────────────────────────────────────────────────────────────────────────────────────────────┐
-│Live results of a run: each test, its lifecycle and the requests it sends.                        │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-│                                                                                                  │
-└──────────────────────────────────────────────────────────────────────────────────────────────────┘
-  1-5  choose tab  tab  next tab  ?  help  q  quit
+no run yet · a runs every test, R reruns the last run's failures
+┌ Tests · 0 files ─────────────────────┐┌ Test ────────────────────────────────────────────────────┐
+│                                      ││Choose a test with ↑↓.                                    │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      │└──────────────────────────────────────────────────────────┘
+│                                      │┌ Requests ────────────────────────────────────────────────┐
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+│                                      ││                                                          │
+└──────────────────────────────────────┘└──────────────────────────────────────────────────────────┘
+  ↑↓  move  a  run all  r  rerun test  R  rerun failed  f  failures  x  stop  ?  help  q  quit
