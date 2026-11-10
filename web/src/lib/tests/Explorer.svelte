@@ -26,6 +26,13 @@
   let query = $derived(parseQuery(text));
   let sinces = $derived(changedSince(query));
   let finding = $derived(sinces.filter((since) => !catalog.changed.has(since)));
+  let failed = $derived(
+    finding.flatMap((since) => {
+      const reason = catalog.changedErrors.get(since);
+      return reason === undefined ? [] : [`${since}: ${reason}`];
+    }),
+  );
+  let waiting = $derived(finding.filter((since) => !catalog.changedErrors.has(since)));
   let shown = $derived(catalog.rows.filter((row) => matches(row, query, context)));
   let groups = $derived(groupByFile(shown));
   let fileCount = $derived(groupByFile(catalog.rows).length);
@@ -104,10 +111,10 @@
       <p class="error" role="alert">Could not load the tests: {catalog.error}</p>
     {:else if catalog.loading && !catalog.rows.length}
       <p class="empty">Loading tests…</p>
-    {:else if catalog.changedError && finding.length}
-      <p class="error" role="alert">Could not find the changed tests: {catalog.changedError}</p>
-    {:else if finding.length}
-      <p class="empty" role="status">Finding the tests changed since {finding.join(', ')}…</p>
+    {:else if failed.length}
+      <p class="error" role="alert">Could not find the changed tests: {failed.join('; ')}</p>
+    {:else if waiting.length}
+      <p class="empty" role="status">Finding the tests changed since {waiting.join(', ')}…</p>
     {:else if !shown.length}
       <div class="empty">
         <p>{text ? `No test matches “${text}”.` : 'This project has no tests yet.'}</p>

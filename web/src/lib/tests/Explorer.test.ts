@@ -103,8 +103,20 @@ describe('Explorer', () => {
     await user.clear(screen.getByRole('searchbox'));
     await user.type(screen.getByRole('searchbox'), 'changed:bad');
     expect((await screen.findByRole('alert')).textContent).toBe(
-      'Could not find the changed tests: unknown revision bad',
+      'Could not find the changed tests: bad: unknown revision bad',
     );
+  });
+
+  it('shows a failure only for the refs in the query', async () => {
+    const { user } = await setup();
+    await user.type(screen.getByRole('searchbox'), 'changed:bad');
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Could not find the changed tests: bad: unknown revision bad',
+    );
+    await user.clear(screen.getByRole('searchbox'));
+    await user.type(screen.getByRole('searchbox'), 'changed:main');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('Finding the tests changed since main…');
   });
 
   it('selects tests with Space and runs the selection', async () => {
