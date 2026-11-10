@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use vc_engine::{Engine, EngineError};
 
-use crate::{Code, ConnectError, ConnectService, Sink, project_rpcs};
+use crate::{Code, ConnectError, ConnectService, Sink, authoring_rpcs, history_rpcs, project_rpcs};
 
 /// The service's full protobuf name.
 const SERVICE: &str = "vibranium.engine.v1.EngineService";
@@ -31,7 +31,7 @@ impl EngineApi {
     #[must_use]
     pub fn into_service(self) -> ConnectService {
         let rpcs = Rpcs { service: ConnectService::new(SERVICE), api: Arc::new(self) };
-        let rpcs = project_rpcs::register(rpcs);
+        let rpcs = authoring_rpcs::register(history_rpcs::register(project_rpcs::register(rpcs)));
         rpcs.service
     }
 

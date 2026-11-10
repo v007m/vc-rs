@@ -15,6 +15,7 @@
 //! [`EngineApi`] is `vibranium.engine.v1.EngineService` over one engine: each RPC a thin
 //! adapter over one engine facade method, and `Run` the run's events as they happen.
 
+mod authoring_rpcs;
 mod builder;
 mod code;
 mod csp;
@@ -28,11 +29,13 @@ mod error;
 #[cfg(test)]
 mod fixture;
 mod guard;
+mod history_rpcs;
 mod project_rpcs;
 mod service;
 mod site;
 mod token;
 mod wire_diagnostics;
+mod wire_history;
 
 pub use builder::{LaunchUrl, Server, ServerBuilder};
 pub use code::Code;
