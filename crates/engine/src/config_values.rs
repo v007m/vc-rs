@@ -88,16 +88,19 @@ impl Engine {
     }
 }
 
+/// A key with its layers, lowest first.
+type Keyed = (String, Vec<Layer>);
+
 /// Each key with its layers, lowest first.
-fn found(explainer: &Explainer<'_>, keys: &[String]) -> Result<Vec<(String, Vec<Layer>)>, EngineError> {
+fn found(explainer: &Explainer<'_>, keys: &[String]) -> Result<Vec<Keyed>, EngineError> {
     if keys.is_empty() {
         let every = every_key(explainer).into_iter().filter_map(|key| Some((layers_of(explainer, &key)?, key)));
         return Ok(every.filter(|(layers, _)| !layers.is_empty()).map(|(layers, key)| (key, layers)).collect());
     }
     keys.iter()
-        .map(|key| match layers_of(explainer, key).filter(|layers| !layers.is_empty()) {
-            Some(layers) => Ok((key.clone(), layers)),
-            None => Err(unknown(explainer, key)),
+        .map(|key| {
+            let layers = layers_of(explainer, key).filter(|layers| !layers.is_empty());
+            layers.map(|layers| (key.clone(), layers)).ok_or_else(|| unknown(explainer, key))
         })
         .collect()
 }

@@ -61,10 +61,7 @@ impl Engine {
 /// The values `key` had, lowest first; `None` when it is no setting, and none when it is a
 /// var nothing sets.
 pub fn layers_of(explainer: &Explainer<'_>, key: &str) -> Option<Vec<Layer>> {
-    match key.strip_prefix(VARS) {
-        Some(name) => Some(var_layers(explainer, name)),
-        None => setting_layers(explainer, key),
-    }
+    key.strip_prefix(VARS).map_or_else(|| setting_layers(explainer, key), |name| Some(var_layers(explainer, name)))
 }
 
 /// Every setting `vc config explain` knows, then `vars.<name>` for each var some layer sets.

@@ -5,6 +5,8 @@
 //! to outside the project or in a hidden folder. A save is not guarded
 //! (D107): the editor keeps text with errors, and gets the project's diagnostics back.
 
+use std::fmt::Write as _;
+
 use vc_interfaces::{SourceError, content_hash};
 use vc_model::{FileKind, SourceFile, SourcePath};
 
@@ -122,7 +124,10 @@ fn fresh(path: &SourcePath, before: Option<&SourceFile>, expected: Option<&str>)
 
 /// `bytes` in lowercase hex.
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut text, byte| {
+        let _ = write!(text, "{byte:02x}");
+        text
+    })
 }
 
 #[cfg(test)]

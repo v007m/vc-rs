@@ -106,6 +106,6 @@ fn exchange(index: usize) -> ExchangeView {
 }
 
 /// The first failed test's error tries to close the report's script, as a hostile server's might.
-fn error(index: usize) -> &'static str {
+const fn error(index: usize) -> &'static str {
     if index == FAILING - 1 { "</script><script>alert(1)</script>" } else { "boom" }
 }

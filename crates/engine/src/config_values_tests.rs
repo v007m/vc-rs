@@ -16,7 +16,7 @@ const CONFIG: (&str, &[u8]) = (
 );
 const VARLOCK: (&str, &[u8]) = (
     "vibranium.config.yaml",
-    b"syntaxVersion: 2\nsecrets: {provider: varlock}\nvars:\n  note: 'sent tok-fixture-9f3a71'\n  region: us\n",
+    b"syntaxVersion: 2\nsecrets: {provider: varlock}\nvars:\n  note: 'sent tok-fixture-9f3a71'\n  region: us\nprofiles:\n  - id: dev\n    default: true\n",
 );
 
 fn project(config: (&str, &'static [u8])) -> Engine {

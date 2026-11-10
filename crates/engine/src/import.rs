@@ -85,12 +85,11 @@ impl Engine {
             let kinds: Vec<_> = ImporterRegistry::builtin().names().map(str::to_owned).collect();
             refused(error.to_string(), &format!("the importers are {}", kinds.join(", ")))
         })?;
-        let bytes = match &request.text {
-            Some(text) => text.clone().into_bytes(),
-            None => {
-                let help = importer.source_help().unwrap_or(FETCH_HELP);
-                fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?
-            }
+        let bytes = if let Some(text) = &request.text {
+            text.clone().into_bytes()
+        } else {
+            let help = importer.source_help().unwrap_or(FETCH_HELP);
+            fetcher.fetch(&request.source).await.map_err(|error| refused(error.to_string(), help))?
         };
         let source = ImportSource { location: request.source.clone(), bytes };
         let homes = self.homes(&request.profiles);
