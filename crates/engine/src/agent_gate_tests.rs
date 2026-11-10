@@ -27,12 +27,12 @@ const SEED: (&str, &[u8]) = (
     b"tests:\n  - id: seedsUsers\n    steps:\n      - command: echo seeded\n      - call: users#list\n",
 );
 
-/// A project whose `users#me` signs in with the `flow` auth `login`, which sends a `PUT` and
-/// runs a command.
+/// A project whose `users#me` signs in with the `flow` auth `login`, which sends a `PUT` and a
+/// `POST`.
 const LOGIN: [(&str, &[u8]); 3] = [
     (
         "vibranium.config.yaml",
-        b"syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\nauth:\n  - id: login\n    type: flow\n    steps:\n      - id: token\n        method: PUT\n        url: http://id/login\n      - command: echo login\n    apply:\n      headers: {authorization: 'Bearer x'}\n",
+        b"syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\nauth:\n  - id: login\n    type: flow\n    steps:\n      - id: token\n        method: PUT\n        url: http://id/login\n      - id: confirm\n        method: POST\n        url: http://id/confirm\n    apply:\n      headers: {authorization: 'Bearer x'}\n",
     ),
     ("services/users/users.api.yaml", b"baseUrl: ${var.baseUrl}\napis:\n  - id: me\n    path: /me\n    auth: login\n"),
     ("services/users/me.test.yaml", b"tests:\n  - id: readsMe\n    call: users#me\n"),
@@ -84,18 +84,18 @@ fn a_call_sends_its_method_then_its_cleanups_unless_kept() {
 }
 
 #[test]
-fn a_call_and_a_run_reach_what_the_flow_auth_they_use_sends_and_runs() {
+fn a_call_and_a_run_reach_what_the_flow_auth_they_use_sends() {
     let engine = engine_over(&LOGIN, &MemoryApprovals::new());
     let prepared = engine.prepare(&PlanRequest::default(), Extra::default()).unwrap();
     let me = calling(&prepared.program, "users#me");
     for keep in [false, true] {
         let reached = call_reach(&prepared.program, me, keep);
-        assert_eq!(reached.methods, [Method::Get, Method::Put]);
-        assert_eq!(reached.code, ["users#me: command `echo login`"]);
+        assert_eq!(reached.methods, [Method::Get, Method::Put, Method::Post]);
+        assert_eq!(reached.code, Vec::<String>::new());
     }
     let reached = plan_reach(&prepared.program, &prepared.plan);
-    assert_eq!(reached.methods, [Method::Get, Method::Put]);
-    assert_eq!(reached.code, ["users.me#readsMe: command `echo login`"]);
+    assert_eq!(reached.methods, [Method::Get, Method::Put, Method::Post]);
+    assert_eq!(reached.code, Vec::<String>::new());
 }
 
 #[tokio::test]
