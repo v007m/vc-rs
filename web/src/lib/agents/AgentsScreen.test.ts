@@ -12,6 +12,7 @@ const actions = [
     profile: 'dev',
     arguments: '{"ids":["users.crud"]}',
     result: '3 passed',
+    atMs: BigInt(Date.now() - 120_000),
   },
   {
     agent: 'Cursor',
@@ -47,6 +48,14 @@ describe('AgentsScreen', () => {
     expect(within(log).getByText('No activity matches these filters.')).toBeTruthy();
   });
 
+  it('says when each tool call was made', async () => {
+    setup();
+    const row = (await screen.findByRole('button', { name: 'run_tests' })).closest('tr');
+    const time = row?.querySelector('time');
+    expect(time?.textContent).toBe('2 min ago');
+    expect(time?.getAttribute('datetime')).toMatch(/^\d{4}-\d\d-\d\dT/);
+  });
+
   it('expands a log row to show its arguments and result', async () => {
     const user = setup();
     const row = await screen.findByRole('button', { name: 'run_tests' });
@@ -65,6 +74,15 @@ describe('AgentsScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Copy' }));
     expect(await navigator.clipboard.readText()).toContain('"mcpServers"');
     expect(screen.getByText('Copied.')).toBeTruthy();
+  });
+
+  it('gives the HTTP endpoint with a token placeholder, never a token', async () => {
+    const user = setup();
+    await user.click(screen.getByRole('button', { name: 'HTTP' }));
+    const snippet = screen.getByText(/--transport http/);
+    expect(snippet.textContent).toContain(`${location.origin}/mcp`);
+    expect(snippet.textContent).toContain('Authorization: Bearer <token>');
+    expect(screen.getByText(/Replace <token> with the token/)).toBeTruthy();
   });
 
   it('says when the engine cannot be reached', async () => {

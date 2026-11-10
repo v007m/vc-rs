@@ -1,7 +1,8 @@
 import type { RunEvent } from '#lib/gen/vibranium/engine/v1/events_pb.ts';
-import { RunStatus, TestStatus, type Totals } from '#lib/gen/vibranium/results/v1/results_pb.ts';
+import { RunStatus, type Totals } from '#lib/gen/vibranium/results/v1/results_pb.ts';
 import { doneCount, noCounts, type Counts } from '#lib/results/status.ts';
 import { describe, type EventLine } from './events.ts';
+import { markFinished, markRunning, outcomeOf, planRows, type PlanRow } from './plan.ts';
 
 export { doneCount, type Counts };
 
@@ -13,6 +14,10 @@ export type RunView = Readonly<{
   phase: RunPhase;
   /** Test instances the run planned, once it started. */
   planned: number;
+  /** The planned test instances in plan order, once the plan arrives. */
+  plan: readonly PlanRow[];
+  /** When the run started, in ms since the epoch. */
+  startedMs?: bigint;
   counts: Counts;
   /** Event lines, oldest first. */
   events: readonly EventLine[];
@@ -26,20 +31,12 @@ export type RunView = Readonly<{
 const zero: Counts = noCounts;
 
 /** A run that has not started. */
-export const idleRun: RunView = { phase: 'idle', planned: 0, counts: zero, events: [] };
+export const idleRun: RunView = { phase: 'idle', planned: 0, plan: [], counts: zero, events: [] };
 
 /** The view of a run that has just been asked for, before its first event. */
 export function startingRun(): RunView {
   return { ...idleRun, phase: 'running' };
 }
-
-const countKey: Partial<Record<TestStatus, keyof Counts>> = {
-  [TestStatus.PASSED]: 'passed',
-  [TestStatus.FAILED]: 'failed',
-  [TestStatus.BLOCKED]: 'blocked',
-  [TestStatus.FLAKY]: 'flaky',
-  [TestStatus.SKIPPED]: 'skipped',
-};
 
 const finalPhase: Partial<Record<RunStatus, RunPhase>> = {
   [RunStatus.PASSED]: 'passed',
@@ -59,10 +56,23 @@ type Step = (view: RunView, event: RunEvent) => RunView;
 /** What each event kind changes besides the event list; kinds not listed change nothing. */
 const steps: Partial<Record<NonNullable<RunEvent['kind']['case']>, Step>> = {
   runStarted: (view, { kind }) =>
-    kind.case === 'runStarted' ? { ...view, planned: kind.value.instances } : view,
+    kind.case === 'runStarted'
+      ? { ...view, planned: kind.value.instances, startedMs: kind.value.startedMs || undefined }
+      : view,
+  runPlanned: (view, { kind }) =>
+    kind.case === 'runPlanned' ? { ...view, plan: planRows(kind.value.instances) } : view,
+  actionStarted: (view, { kind }) => {
+    const owner = kind.case === 'actionStarted' ? kind.value.owner?.kind : undefined;
+    if (owner?.case !== 'instance') return view;
+    const plan = markRunning(view.plan, owner.value);
+    return plan === view.plan ? view : { ...view, plan };
+  },
   testFinished: (view, { kind }) => {
-    const key = kind.case === 'testFinished' && kind.value.test && countKey[kind.value.test.status];
-    return key ? { ...view, counts: { ...view.counts, [key]: view.counts[key] + 1 } } : view;
+    const test = kind.case === 'testFinished' ? kind.value.test : undefined;
+    const key = test && outcomeOf(test.status);
+    if (!test || !key) return view;
+    const counts = { ...view.counts, [key]: view.counts[key] + 1 };
+    return { ...view, counts, plan: markFinished(view.plan, test) };
   },
   runFinished: (view, { kind }) =>
     kind.case === 'runFinished'

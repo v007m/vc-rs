@@ -13,7 +13,16 @@ export type TestRow = Readonly<{
   path: string;
   tags: readonly string[];
   skipped: boolean;
+  /** The line its definition starts on, when the engine gives one. */
+  line?: number;
+  /** The apis it calls, in order. */
+  calls: readonly ApiCallRow[];
+  /** A flow test's step count; 0 for a plain test. */
+  steps: number;
 }>;
+
+/** An api a test calls: its full ID, method and path template. */
+export type ApiCallRow = Readonly<{ api: string; method: string; path: string }>;
 
 /** A test file and the tests in it, in file order. */
 export type FileGroup = Readonly<{ fileId: string; path: string; tests: readonly TestRow[] }>;
@@ -30,6 +39,9 @@ export function toRow(definition: Definition): TestRow {
     path: definition.path,
     tags: definition.tags,
     skipped: definition.skipped,
+    line: definition.span?.startLine || undefined,
+    calls: definition.calls.map(({ api, method, path }) => ({ api, method, path })),
+    steps: definition.steps,
   };
 }
 
