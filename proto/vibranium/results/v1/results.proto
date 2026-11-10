@@ -104,6 +104,9 @@ message Exchange {
   Timing timing = 6;
   repeated Header request_headers = 7;
   repeated Header response_headers = 8;
+  // The bodies, kept as `history.bodies` says; empty when not kept. The Run stream sends them
+  // only with `bodies: all`: with `failures` an exchange's failure is known only when its action
+  // or test ends, so those bodies come from GetRun once the report arrives.
   bytes request_body = 9;
   bytes response_body = 10;
   // The bodies were cut at `history.maxBodySize`.

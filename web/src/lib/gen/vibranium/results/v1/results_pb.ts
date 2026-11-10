@@ -251,6 +251,10 @@ export type Exchange = Message<"vibranium.results.v1.Exchange"> & {
   responseHeaders: Header[];
 
   /**
+   * The bodies, kept as `history.bodies` says; empty when not kept. The Run stream sends them
+   * only with `bodies: all`: with `failures` an exchange's failure is known only when its action
+   * or test ends, so those bodies come from GetRun once the report arrives.
+   *
    * @generated from field: bytes request_body = 9;
    */
   requestBody: Uint8Array;

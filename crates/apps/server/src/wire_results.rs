@@ -4,17 +4,21 @@
 
 use vc_contracts::millis;
 use vc_contracts::results::v1 as results;
-use vc_engine::{ActionId, CheckResult, Exchange, Failure, Names, Origin, TestResult, check_parts, cut_body};
+use vc_engine::{ActionId, Bodies, CheckResult, Exchange, Failure, Names, Origin, TestResult, check_parts, cut_body};
 
 use crate::wire_diagnostics;
 
-/// `exchange`, which `action` made. Each body is cut to `history.maxBodySize` as the history cuts
-/// it, so one large body cannot outgrow the stream's envelope; `body_truncated` says if either was.
+/// `exchange`, which `action` made. Its bodies are sent only with `history.bodies: all`, each cut
+/// to `history.maxBodySize` as the history cuts it, so one large body cannot outgrow the stream's
+/// envelope; `body_truncated` says if either was. With `none` or `failures` both are left empty,
+/// as the history stores a body it does not keep: whether an exchange failed is known only once
+/// its action or test ends, so the bodies `failures` keeps come from the stored run (`GetRun`).
 pub fn exchange(names: &Names, action: ActionId, exchange: &Exchange) -> results::Exchange {
     let (request, response) = (&exchange.request, &exchange.response);
-    let max = names.program().config.history.max_body();
-    let (request_body, request_cut) = cut_body(&request.body, max);
-    let (response_body, response_cut) = cut_body(&response.body, max);
+    let history = names.program().config.history;
+    let max = (history.bodies == Bodies::All).then(|| history.max_body());
+    let (request_body, request_cut) = max.map_or((None, false), |max| cut_body(&request.body, max));
+    let (response_body, response_cut) = max.map_or((None, false), |max| cut_body(&response.body, max));
     results::Exchange {
         action: names.action(action),
         api: names.api_of(action),

@@ -156,32 +156,54 @@ async fn a_missed_notice_takes_the_last_dropped_number_and_the_report_the_one_af
 /// The body the large-body server answers with: past the default `history.maxBodySize` of 64 KiB.
 const LARGE: usize = 70 * 1024;
 
-/// A server on a free local port that answers every request with `LARGE` bytes; its base URL.
-fn large_body_server() -> String {
+/// A server on a free local port that answers every request with `status` and `LARGE` bytes; its
+/// base URL.
+fn large_body_server(status: u16) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     thread::spawn(move || {
         for mut socket in listener.incoming().flatten() {
             let mut request = [0_u8; 4096];
             let _ = socket.read(&mut request);
-            let head = format!("HTTP/1.1 200 OK\r\ncontent-length: {LARGE}\r\nconnection: close\r\n\r\n");
+            let head = format!("HTTP/1.1 {status} X\r\ncontent-length: {LARGE}\r\nconnection: close\r\n\r\n");
             let _ = socket.write_all(&[head.into_bytes(), vec![b'a'; LARGE]].concat());
         }
     });
     url
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn an_exchange_body_past_the_history_cap_is_cut_and_says_so() {
+/// The first exchange the feed sends when the fixture's api answers `status` with a large body
+/// and the config keeps `history.bodies: <bodies>`.
+async fn first_exchange(status: u16, bodies: &str) -> results::Exchange {
     let (dir, api) = project();
-    let config = CONFIG.replace("http://127.0.0.1:9", &large_body_server());
-    std::fs::write(dir.path().join("vibranium.config.yaml"), config).unwrap();
+    let config = CONFIG.replace("http://127.0.0.1:9", &large_body_server(status));
+    std::fs::write(dir.path().join("vibranium.config.yaml"), format!("{config}history:\n  bodies: {bodies}\n"))
+        .unwrap();
     let (events, _) = parse(&stream_from(api, &wire::RunRequest::default()).await);
     let exchange = events.iter().find_map(|event| match &event.kind {
         Some(Kind::Exchanged(exchanged)) => exchanged.exchange.clone(),
         _ => None,
     });
-    let exchange = exchange.unwrap_or_else(|| panic!("no exchange: {events:?}"));
+    exchange.unwrap_or_else(|| panic!("no exchange: {events:?}"))
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn with_every_body_kept_an_exchange_body_past_the_history_cap_is_cut_and_says_so() {
+    let exchange = first_exchange(200, "all").await;
     assert_eq!((exchange.response_body.len(), exchange.body_truncated), (64 * 1024, true));
     assert_eq!(exchange.request_body, b"");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn with_no_bodies_kept_the_feed_sends_none() {
+    let exchange = first_exchange(500, "none").await;
+    let sent = (exchange.status, exchange.response_body.len(), exchange.body_truncated);
+    assert_eq!(sent, (Some(500), 0, false), "left empty, as the history stores it");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn with_failure_bodies_kept_the_feed_sends_none_even_for_a_failing_exchange() {
+    let exchange = first_exchange(500, "failures").await;
+    let sent = (exchange.status, exchange.response_body.len(), exchange.body_truncated);
+    assert_eq!(sent, (Some(500), 0, false), "the stored run holds them once the test has failed");
 }

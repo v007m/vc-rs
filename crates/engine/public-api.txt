@@ -5,6 +5,7 @@ pub use vc_engine::Approval
 pub use vc_engine::ApprovalId
 pub use vc_engine::ApprovalRequest
 pub use vc_engine::ApprovalStatus
+pub use vc_engine::Bodies
 pub use vc_engine::CheckKind
 pub use vc_engine::CheckResult
 pub use vc_engine::CheckRow

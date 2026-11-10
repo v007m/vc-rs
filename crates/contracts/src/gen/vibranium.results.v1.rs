@@ -91,6 +91,9 @@ pub struct Exchange {
     pub request_headers: ::prost::alloc::vec::Vec<Header>,
     #[prost(message, repeated, tag="8")]
     pub response_headers: ::prost::alloc::vec::Vec<Header>,
+    /// The bodies, kept as `history.bodies` says; empty when not kept. The Run stream sends them
+    /// only with `bodies: all`: with `failures` an exchange's failure is known only when its action
+    /// or test ends, so those bodies come from GetRun once the report arrives.
     #[prost(bytes="vec", tag="9")]
     pub request_body: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="10")]
