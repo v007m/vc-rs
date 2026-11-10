@@ -121,7 +121,7 @@ pub fn launch(mut args: impl Iterator<Item = OsString>) -> Option<String> {
         Ok(policy) => policy,
         Err(error) => return Some(format!("the plugin launcher's policy is not valid: {error}")),
     };
-    Some(platform::launch(&policy, program, args.collect()))
+    Some(platform::launch(&policy, &program, args.collect()))
 }
 
 /// The real path of `file`, a path relative to the project at `root` that stays inside it;
@@ -146,7 +146,7 @@ fn real(path: &Path) -> PathBuf {
 /// Where the OS cannot confine a plugin: its permissions stay declared only.
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
 mod declared {
-    use std::ffi::OsString;
+    use std::ffi::{OsStr, OsString};
     use std::path::Path;
 
     use super::{Entry, Policy};
@@ -165,7 +165,7 @@ mod declared {
     }
 
     /// Why there is no launcher here.
-    pub fn launch(_policy: &Policy, _program: OsString, _args: Vec<OsString>) -> String {
+    pub fn launch(_policy: &Policy, _program: &OsStr, _args: Vec<OsString>) -> String {
         "the plugin launcher confines plugins on Linux only".to_owned()
     }
 }

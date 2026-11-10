@@ -5,7 +5,7 @@
 //! narrows. Reading the project is closed for file contents and listings (`file-read-data`), not
 //! for metadata, so a runtime can still walk the path to its own folder.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
@@ -40,7 +40,7 @@ pub fn entry(policy: &Policy, _launcher: Option<&Path>, (program, args): Entry) 
 }
 
 /// Why there is no launcher here.
-pub fn launch(_policy: &Policy, _program: OsString, _args: Vec<OsString>) -> String {
+pub fn launch(_policy: &Policy, _program: &OsStr, _args: Vec<OsString>) -> String {
     "the plugin launcher confines plugins on Linux only".to_owned()
 }
 

@@ -5,7 +5,7 @@
 //! runs unconfined, with a warning, and on one without its network rules (before 6.7) what the
 //! kernel cannot enforce stays declared only.
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::os::unix::process::CommandExt as _;
 use std::path::{Path, PathBuf};
 
@@ -41,17 +41,17 @@ pub fn entry(policy: &Policy, launcher: Option<&Path>, (program, args): Entry) -
         return Ok((program, args));
     };
     let policy = serde_json::to_string(policy).map_err(|error| format!("cannot hand its policy to `vc`: {error}"))?;
-    let mut launched = vec![OsString::from(LAUNCHER_ARG), OsString::from(policy), program.into_os_string()];
-    launched.extend(args);
-    Ok((launcher.to_path_buf(), launched))
+    let mut argv = vec![OsString::from(LAUNCHER_ARG), OsString::from(policy), program.into_os_string()];
+    argv.extend(args);
+    Ok((launcher.to_path_buf(), argv))
 }
 
 /// Confines this process to `policy` and becomes `program`; returns only why it could not.
-pub fn launch(policy: &Policy, program: OsString, args: Vec<OsString>) -> String {
+pub fn launch(policy: &Policy, program: &OsStr, args: Vec<OsString>) -> String {
     if let Err(error) = confine(policy) {
         return format!("cannot confine the plugin: {error}");
     }
-    let error = std::process::Command::new(&program).args(args).exec();
+    let error = std::process::Command::new(program).args(args).exec();
     format!("cannot run `{}`: {error}", program.to_string_lossy())
 }
 
