@@ -149,8 +149,16 @@ async fn dispatch(State(methods): State<Arc<Methods>>, Path(method): Path<String
     match methods.rpcs.get(method.as_str()).cloned() {
         Some(Rpc::Unary(call)) => unary(&call, request).await,
         Some(Rpc::ServerStream(call)) => server_stream(call, request, methods.stopping.clone()).await,
-        None => ConnectError::new(Code::Unimplemented, "the service has no such method").into_response(),
+        None => no_such_method(),
     }
+}
+
+/// The answer to a procedure the service does not have: HTTP 404, as a Connect router answers a
+/// path it does not serve and as a client reads `unimplemented`, with that code in the error JSON.
+fn no_such_method() -> Response {
+    let mut response = ConnectError::new(Code::Unimplemented, "the service has no such method").into_response();
+    *response.status_mut() = StatusCode::NOT_FOUND;
+    response
 }
 
 async fn unary(call: &Unary, request: Request) -> Response {

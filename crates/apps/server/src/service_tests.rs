@@ -109,11 +109,11 @@ async fn a_stream_that_fails_ends_with_its_error() {
 }
 
 #[tokio::test]
-async fn a_wrong_content_type_is_415_and_an_unknown_method_unimplemented() {
+async fn a_wrong_content_type_is_415_and_an_unknown_method_404_unimplemented() {
     assert_eq!(post("ReadFile", "application/json", b"{}".to_vec()).await.status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
     assert_eq!(post("Run", "application/proto", Vec::new()).await.status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
     let unknown = post("Delete", "application/proto", Vec::new()).await;
-    assert_eq!(unknown.status, StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(unknown.status, StatusCode::NOT_FOUND);
     assert_eq!(serde_json::from_slice::<Value>(&unknown.body).unwrap()["code"], json!("unimplemented"));
 }
 
