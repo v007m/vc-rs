@@ -12,6 +12,8 @@ use crate::theme::clean;
 
 /// A test is slower when its time grows by more than this factor (20%).
 const SLOWER: f64 = 1.2;
+/// The kind the engine stores a load run as.
+const LOAD: &str = "load";
 
 /// One test instance across runs: its ID, `examples` row and repeat.
 type Key<'a> = (&'a str, Option<u32>, u32);
@@ -113,6 +115,18 @@ pub fn troubled(trends: &[TestTrend]) -> Vec<&TestTrend> {
     let mut troubled: Vec<&TestTrend> = trends.iter().filter(|trend| trend.flaky + trend.failed > 0).collect();
     troubled.sort_by_key(|trend| Reverse(trend.flaky + trend.failed));
     troubled
+}
+
+/// The newest run older than the one at `at` and of its kind: the one it compares with, as a
+/// load run's totals and tests are not a test run's.
+pub fn earlier(runs: &[RunRow], at: usize) -> Option<&RunRow> {
+    let kind = &runs.get(at)?.start.kind;
+    runs.iter().skip(at + 1).find(|run| run.start.kind == *kind)
+}
+
+/// Whether `run` ran tests, so its pass rate and time belong in the trends: a load run did not.
+pub fn ran_tests(run: &RunRow) -> bool {
+    run.start.kind != LOAD
 }
 
 /// The tests that ran and passed, flaky ones included, in tenths of a percent: `961` for

@@ -77,6 +77,8 @@ pub enum Update {
     },
     /// The history could not be read; the error's text.
     HistoryFailed(String),
+    /// The runs an [`Ask::Compare`] named could not be read; the error's text.
+    CompareFailed(String),
     /// The project's apis, then its tests, each in project order.
     Explored(Vec<Listed>),
     /// How a run sees the test or api an [`Ask::Explain`] named.

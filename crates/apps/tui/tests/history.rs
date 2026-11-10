@@ -109,6 +109,56 @@ fn enter_compares_the_chosen_run_with_the_one_before() {
     assert_snapshot!("history_compared", screen(&tui, SIZE));
 }
 
+/// Run `id` of `kind`, otherwise as [`run`] makes it.
+fn run_of(kind: &str, id: u64, totals: Totals) -> RunRow {
+    let mut row = run(id, totals, 30_000);
+    kind.clone_into(&mut row.start.kind);
+    row
+}
+
+#[test]
+fn a_run_compares_with_the_run_of_its_kind_before_it_and_load_runs_stay_out_of_the_trends() {
+    let mut tui = tui();
+    press(&mut tui, &[KeyCode::Char('3')]);
+    let runs = vec![
+        run_of("load", 482, totals(0, 0, 0, 0)),
+        run_of("run", 481, totals(396, 6, 4, 3)),
+        run_of("load", 480, totals(0, 0, 0, 0)),
+        run_of("run", 479, totals(409, 0, 0, 0)),
+    ];
+    tui.update(&Update::History { runs, trends: Vec::new() });
+    assert!(screen(&tui, SIZE).contains("Trends · last 2 runs"), "the load runs ran no tests");
+    assert!(screen(&tui, SIZE).contains("enter compares #482 with #480"));
+    assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Compare { before: 480, after: 482 }));
+    tui.update(&Update::Compared { before: (480, Vec::new()), after: (482, Vec::new()) });
+    assert_eq!(press(&mut tui, &[KeyCode::Down, KeyCode::Enter]), Some(Ask::Compare { before: 479, after: 481 }));
+    assert_eq!(press(&mut tui, &[KeyCode::Down, KeyCode::Enter]), None, "no load run before #480");
+}
+
+#[test]
+fn a_comparison_that_cannot_be_read_says_why_on_its_pane_and_leaves_the_runs_listed() {
+    let mut tui = on_history();
+    assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Compare { before: 481, after: 482 }));
+    tui.update(&Update::CompareFailed("run 481 is gone\n  help: vc history lists the runs".to_owned()));
+    let shown = screen(&tui, SIZE);
+    assert!(shown.contains("error run 481 is gone"), "{shown}");
+    assert!(shown.lines().nth(1).unwrap_or_default().starts_with("3 stored runs"), "{shown}");
+    assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Compare { before: 481, after: 482 }), "it may retry");
+    assert!(!screen(&tui, SIZE).contains("error run 481 is gone"));
+}
+
+#[test]
+fn a_run_that_finishes_while_the_history_is_read_leaves_it_stale() {
+    let mut tui = tui();
+    assert_eq!(press(&mut tui, &[KeyCode::Char('3')]), Some(Ask::History));
+    tui.update(&Update::Loaded(Box::default()));
+    tui.update(&history());
+    let ask = press(&mut tui, &[KeyCode::Char('1'), KeyCode::Char('3')]);
+    assert_eq!(ask, Some(Ask::History), "the read was asked for before the run finished");
+    tui.update(&history());
+    assert_eq!(press(&mut tui, &[KeyCode::Char('1'), KeyCode::Char('3')]), None, "read after it finished");
+}
+
 #[test]
 fn a_history_that_cannot_be_read_says_why() {
     let mut tui = on_history();

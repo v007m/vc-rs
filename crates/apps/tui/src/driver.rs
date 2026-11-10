@@ -186,7 +186,7 @@ fn compare(engine: &Engine, before: u64, after: u64) -> Update {
     let tests = |run: u64| engine.stored(&run.to_string()).map(|stored| (run, stored.tests().to_vec()));
     match tests(before).and_then(|before| Ok((before, tests(after)?))) {
         Ok((before, after)) => Update::Compared { before, after },
-        Err(error) => Update::HistoryFailed(error.to_string()),
+        Err(error) => Update::CompareFailed(error.to_string()),
     }
 }
 

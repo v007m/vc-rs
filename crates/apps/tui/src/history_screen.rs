@@ -5,9 +5,9 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use vc_engine::{RunFeed, RunRow, TestTrend};
+use vc_engine::{RunFeed, RunRow, TestRow, TestTrend};
 
-use crate::history_model::Comparison;
+use crate::history_model::{self, Comparison};
 use crate::history_view;
 use crate::screen::{Ask, Screen, Update, cursor_move};
 use crate::theme::clean;
@@ -33,12 +33,15 @@ pub enum ReadState {
 #[derive(Debug, Default)]
 pub struct HistoryScreen {
     reading: ReadState,
-    stale: bool,
+    finished: u64,
+    asked: u64,
+    seen: u64,
     runs: Vec<RunRow>,
     trends: Vec<TestTrend>,
     cursor: usize,
     comparing: Option<(u64, u64)>,
     compared: Option<Comparison>,
+    compare_error: Option<String>,
 }
 
 impl HistoryScreen {
@@ -47,9 +50,11 @@ impl HistoryScreen {
         &self.reading
     }
 
-    /// Whether a run has finished since the history was read.
+    /// Whether a run has finished since the history shown was asked for. Runs are counted as
+    /// they finish: `asked` is the count when the last read was asked for, and `seen` the
+    /// count the history shown was asked for at.
     pub const fn stale(&self) -> bool {
-        self.stale
+        self.finished > self.seen
     }
 
     /// The stored runs, newest first.
@@ -77,20 +82,27 @@ impl HistoryScreen {
         self.compared.as_ref()
     }
 
+    /// Why the last comparison could not be read: the first line.
+    pub fn compare_error(&self) -> Option<&str> {
+        self.compare_error.as_deref()
+    }
+
     /// Asks for the history again, unless it is being read.
     fn reload(&mut self) -> Option<Ask> {
         if self.reading == ReadState::Reading {
             return None;
         }
         self.reading = ReadState::Reading;
+        self.asked = self.finished;
         Some(Ask::History)
     }
 
-    /// Asks for the chosen run's tests and those of the run before it.
+    /// Asks for the chosen run's tests and those of the run of its kind before it.
     fn compare(&mut self) -> Option<Ask> {
         let after = self.runs.get(self.cursor)?.id.get();
-        let before = self.runs.get(self.cursor + 1)?.id.get();
+        let before = history_model::earlier(&self.runs, self.cursor)?.id.get();
         self.comparing = Some((before, after));
+        self.compare_error = None;
         Some(Ask::Compare { before, after })
     }
 
@@ -103,14 +115,30 @@ impl HistoryScreen {
         self.runs = runs.to_vec();
         self.trends = trends.to_vec();
         self.reading = ReadState::Read;
-        self.stale = false;
+        self.seen = self.asked;
         self.cursor = self.cursor.min(self.runs.len().saturating_sub(1));
     }
 
-    fn failed(&mut self, reason: &str) {
-        self.reading = ReadState::Failed(clean(reason.lines().next().unwrap_or_default()));
-        self.comparing = None;
+    /// Takes the two runs' tests, if they are the ones asked for.
+    fn compared_runs(&mut self, before: &(u64, Vec<TestRow>), after: &(u64, Vec<TestRow>)) {
+        if self.comparing == Some((before.0, after.0)) {
+            self.compared = Some(Comparison::new((before.0, after.0), &before.1, &after.1));
+            self.comparing = None;
+        }
     }
+
+    /// Keeps why the comparison asked for could not be read, on its pane: the runs listed
+    /// stay as they are.
+    fn compare_failed(&mut self, reason: &str) {
+        if self.comparing.take().is_some() {
+            self.compare_error = Some(first_line(reason));
+        }
+    }
+}
+
+/// The first line of why something failed, safe to draw.
+fn first_line(reason: &str) -> String {
+    clean(reason.lines().next().unwrap_or_default())
 }
 
 impl Screen for HistoryScreen {
@@ -123,7 +151,7 @@ impl Screen for HistoryScreen {
     }
 
     fn shown(&mut self) -> Option<Ask> {
-        if self.reading == ReadState::Unread || self.stale { self.reload() } else { None }
+        if self.reading == ReadState::Unread || self.stale() { self.reload() } else { None }
     }
 
     fn press(&mut self, key: KeyEvent) -> Option<Ask> {
@@ -141,13 +169,11 @@ impl Screen for HistoryScreen {
 
     fn take(&mut self, update: &Update) {
         match update {
-            Update::Run(RunFeed::Done(_)) | Update::Loaded(_) => self.stale = true,
+            Update::Run(RunFeed::Done(_)) | Update::Loaded(_) => self.finished = self.finished.saturating_add(1),
             Update::History { runs, trends } => self.read(runs, trends),
-            Update::Compared { before, after } if self.comparing == Some((before.0, after.0)) => {
-                self.compared = Some(Comparison::new((before.0, after.0), &before.1, &after.1));
-                self.comparing = None;
-            }
-            Update::HistoryFailed(reason) => self.failed(reason),
+            Update::Compared { before, after } => self.compared_runs(before, after),
+            Update::HistoryFailed(reason) => self.reading = ReadState::Failed(first_line(reason)),
+            Update::CompareFailed(reason) => self.compare_failed(reason),
             _ => {}
         }
     }

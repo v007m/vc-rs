@@ -99,8 +99,9 @@ const fn ending(status: Option<RunStatus>) -> Style {
     }
 }
 
-/// The pass rate and the time of each run, oldest first, one bar each.
+/// The pass rate and the time of each run of tests, oldest first, one bar each.
 fn draw_trends(runs: &[RunRow], frame: &mut Frame<'_>, area: Rect) {
+    let runs: Vec<&RunRow> = runs.iter().filter(|run| history_model::ran_tests(run)).collect();
     let block = theme::pane(&format!("Trends · last {} runs", runs.len()));
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -141,6 +142,10 @@ fn troubled_line(trend: &TestTrend) -> Line<'static> {
 
 /// The chosen run against the one before it, or how to get there.
 fn compare_pane(screen: &HistoryScreen) -> Paragraph<'static> {
+    if let Some(reason) = screen.compare_error() {
+        let failed = Line::from(vec![Span::styled("error ", theme::FAIL), Span::raw(reason.to_owned())]);
+        return Paragraph::new(failed).block(theme::pane("Compare"));
+    }
     if let Some((before, after)) = screen.comparing() {
         let reading = Line::styled(format!("reading #{before} and #{after}…"), theme::INFO);
         return Paragraph::new(reading).block(theme::pane("Compare"));
@@ -155,7 +160,7 @@ fn compare_pane(screen: &HistoryScreen) -> Paragraph<'static> {
 /// What `enter` would compare.
 fn hint(screen: &HistoryScreen) -> String {
     let runs = screen.runs();
-    match (runs.get(screen.cursor()), runs.get(screen.cursor() + 1)) {
+    match (runs.get(screen.cursor()), history_model::earlier(runs, screen.cursor())) {
         (Some(after), Some(before)) => format!("enter compares #{} with #{}", after.id.get(), before.id.get()),
         (Some(only), None) => format!("#{} is the oldest run here: nothing to compare it with", only.id.get()),
         _ => String::new(),
