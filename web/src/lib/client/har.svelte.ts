@@ -1,8 +1,11 @@
 import { ConnectError } from '@connectrpc/connect';
+import { maxMessageBytes } from '#lib/api/limits.ts';
 import type { ChangesOutput, ClientPort } from './port.ts';
 
-/** The largest HAR file the dialog reads; browser recordings are rarely near it. */
-export const maxHarBytes = 20 * 1024 * 1024;
+/** The largest HAR file the dialog reads: one message, less room for the request around it. */
+export const maxHarBytes = maxMessageBytes - 64 * 1024;
+
+const maxHarSize = `${(maxHarBytes / 1024 / 1024).toFixed(1)} MB`;
 
 /**
  * The HAR import dialog's state: pick a recording, preview what the import would write, then
@@ -27,8 +30,9 @@ export class HarImport {
     this.preview = undefined;
     this.written = undefined;
     if (file.size > maxHarBytes) {
+      this.fileName = undefined;
       this.#source = undefined;
-      this.error = `${file.name} is larger than 20 MB.`;
+      this.error = `${file.name} is too large (max ${maxHarSize}).`;
       return;
     }
     this.fileName = file.name;

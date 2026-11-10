@@ -1,6 +1,6 @@
 import { Code, ConnectError } from '@connectrpc/connect';
 import { describe, expect, it } from 'vitest';
-import { HarImport } from './har.svelte.ts';
+import { HarImport, maxHarBytes } from './har.svelte.ts';
 import type { HarInput } from './port.ts';
 
 const changes = {
@@ -48,10 +48,14 @@ describe('HarImport', () => {
     expect(sent).toHaveLength(1);
   });
 
-  it('refuses a file over the limit and shows engine errors', async () => {
+  it('refuses a file the server could not take whole and shows engine errors', async () => {
     const { har } = setup(true);
-    await har.choose({ name: 'big.har', size: 21 * 1024 * 1024 } as File);
-    expect(har.error).toBe('big.har is larger than 20 MB.');
+    await har.choose(file);
+    expect(har.fileName).toBe('session.har');
+    await har.choose({ name: 'big.har', size: maxHarBytes + 1 } as File);
+    expect(maxHarBytes).toBeLessThan(4 * 1024 * 1024);
+    expect(har.error).toBe('big.har is too large (max 3.9 MB).');
+    expect(har.fileName).toBeUndefined();
     expect(har.ready).toBe(false);
     await har.choose(file);
     await har.showPreview();
