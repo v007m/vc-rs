@@ -108,7 +108,16 @@ impl ImportScreen {
         let file_id = Some(self.form.file_id.trim().to_owned()).filter(|id| !id.is_empty());
         let kind = KINDS.get(self.form.kind).copied().unwrap_or_default().to_owned();
         let source = self.form.source.trim().to_owned();
-        ImportRequest { kind, source, file_id, tests, negative, auth, profiles: self.profiles.clone(), ..ImportRequest::default() }
+        ImportRequest {
+            kind,
+            source,
+            file_id,
+            tests,
+            negative,
+            auth,
+            profiles: self.profiles.clone(),
+            ..ImportRequest::default()
+        }
     }
 
     /// Drafts the import, unless one is under way or there is no source.
@@ -149,7 +158,8 @@ impl ImportScreen {
 
     /// Steps the importer: on, or back.
     const fn turn(&mut self, on: bool) {
-        self.form.kind = if on { (self.form.kind + 1) % KINDS.len() } else { (self.form.kind + KINDS.len() - 1) % KINDS.len() };
+        self.form.kind =
+            if on { (self.form.kind + 1) % KINDS.len() } else { (self.form.kind + KINDS.len() - 1) % KINDS.len() };
     }
 
     /// Hands `key` to the text being typed; `enter` puts it into its row.
@@ -161,7 +171,7 @@ impl ImportScreen {
         let typed = self.editing.take().filter(|_| key.code == KeyCode::Enter);
         let row = if self.field == 1 { &mut self.form.source } else { &mut self.form.file_id };
         if let Some(typed) = typed {
-            *row = typed.text().to_owned();
+            typed.text().clone_into(row);
         }
     }
 

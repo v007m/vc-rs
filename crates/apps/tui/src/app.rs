@@ -58,7 +58,7 @@ impl Tui {
         let interrupt = key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c');
         match key.code {
             _ if interrupt => self.quitting = true,
-            _ if self.current().is_some_and(|screen| screen.typing()) => return self.hand_on(key),
+            _ if self.current().is_some_and(Screen::typing) => return self.hand_on(key),
             KeyCode::Char('q') => self.quitting = true,
             KeyCode::Char('?') => self.help = !self.help,
             KeyCode::Esc => self.help = false,

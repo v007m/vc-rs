@@ -19,7 +19,7 @@ const LIVE_HEIGHT: u16 = 5;
 /// Draws `screen` into `area`.
 pub fn draw(screen: &LoadScreen, frame: &mut Frame<'_>, area: Rect) {
     let [status, body] = Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area);
-    let [scenarios, right] = Layout::horizontal([Constraint::Percentage(35), Constraint::Fill(1)]).areas(body);
+    let [scenarios, right] = Layout::horizontal([Constraint::Percentage(25), Constraint::Fill(1)]).areas(body);
     let [live, below] = Layout::vertical([Constraint::Length(LIVE_HEIGHT), Constraint::Fill(1)]).areas(right);
     frame.render_widget(Paragraph::new(status_line(screen)), status);
     draw_scenarios(screen, frame, scenarios);
@@ -33,7 +33,9 @@ fn status_line(screen: &LoadScreen) -> Line<'static> {
         (_, LoadPhase::Failed(reason)) | (ReadState::Failed(reason), LoadPhase::Idle) => {
             Line::from(vec![Span::styled("error ", theme::FAIL), Span::raw(reason.clone())])
         }
-        (ReadState::Unread | ReadState::Reading, LoadPhase::Idle) => Line::styled("reading the scenarios…", theme::INFO),
+        (ReadState::Unread | ReadState::Reading, LoadPhase::Idle) => {
+            Line::styled("reading the scenarios…", theme::INFO)
+        }
         (_, LoadPhase::Idle) => Line::styled(idle(screen.scenarios()), theme::DIM),
         (_, LoadPhase::Starting(scenario)) => Line::styled(format!("starting {}…", clean(scenario)), theme::INFO),
         (_, LoadPhase::Running(scenario)) => {
@@ -75,10 +77,9 @@ const fn ending(report: &LoadReport) -> Style {
 fn draw_scenarios(screen: &LoadScreen, frame: &mut Frame<'_>, area: Rect) {
     let items = screen.scenarios().iter().map(|scenario| {
         let name = scenario.name.as_deref().map(|name| Span::styled(format!("  {}", clean(name)), theme::DIM));
-        ListItem::new(Line::from([Span::raw(clean(&scenario.id))].into_iter().chain(name).collect::<Vec<_>>()))
+        ListItem::new(Line::from(std::iter::once(Span::raw(clean(&scenario.id))).chain(name).collect::<Vec<_>>()))
     });
-    let list =
-        List::new(items).block(theme::pane("Scenarios")).highlight_style(theme::SELECTED).highlight_symbol("▸ ");
+    let list = List::new(items).block(theme::pane("Scenarios")).highlight_style(theme::SELECTED).highlight_symbol("▸ ");
     let chosen = (!screen.scenarios().is_empty()).then_some(screen.cursor());
     frame.render_stateful_widget(list, area, &mut ListState::default().with_selected(chosen));
 }
@@ -89,13 +90,14 @@ fn draw_live(screen: &LoadScreen, frame: &mut Frame<'_>, area: Rect) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let [line, rps, p95] = Layout::vertical([Constraint::Length(1); 3]).areas(inner);
-    let newest = screen.ticks().back().map_or_else(
-        || Line::styled("each second of a run shows here, as vc load prints it", theme::DIM),
-        tick_line,
-    );
+    let newest = screen
+        .ticks()
+        .back()
+        .map_or_else(|| Line::styled("each second of a run shows here, as vc load prints it", theme::DIM), tick_line);
     frame.render_widget(Paragraph::new(newest), line);
     let rates: Vec<u64> = screen.ticks().iter().map(|tick| tick.rps).collect();
-    let slow: Vec<u64> = screen.ticks().iter().map(|tick| u64::try_from(tick.latencies[1]).unwrap_or(u64::MAX)).collect();
+    let slow: Vec<u64> =
+        screen.ticks().iter().map(|tick| u64::try_from(tick.latencies[1]).unwrap_or(u64::MAX)).collect();
     draw_bars(frame, rps, ("rps", Sparkline::default().data(rates).style(theme::INFO)));
     draw_bars(frame, p95, ("p95 ms", Sparkline::default().data(slow).style(theme::WARN)));
 }

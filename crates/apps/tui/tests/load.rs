@@ -103,7 +103,8 @@ fn the_summary_shows_once_the_run_is_over() {
     press(&mut tui, &[KeyCode::Enter]);
     tui.update(&tick(1, 0, &[]));
     let mut report = LoadReport::default();
-    (report.scenario, report.ending, report.exit, report.run_id) = ("users.peak".to_owned(), LoadEnding::Finished, 0, Some(7));
+    (report.scenario, report.ending, report.exit, report.run_id) =
+        ("users.peak".to_owned(), LoadEnding::Finished, 0, Some(7));
     (report.seconds, report.iterations, report.rps) = (30, 1_200, 40.0);
     (report.p50_ms, report.p95_ms, report.p99_ms, report.max_ms) = (31.0, 88.0, 140.0, 212.0);
     tui.update(&Update::Loaded(Box::new(report)));

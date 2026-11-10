@@ -18,8 +18,8 @@ const ROWS: [(&str, &str); 6] = [
     ("source", ""),
     ("file id", ""),
     ("tests", "a happy-path test per api"),
-    ("negative", "tests that send what the schema rejects"),
-    ("auth", "a test per secured api that expects 401"),
+    ("negative", "bad input the schema rejects"),
+    ("auth", "a 401 test per secured api"),
 ];
 /// The most drafted files the Draft pane lists before the diff.
 const LISTED: u16 = 6;
@@ -75,13 +75,11 @@ fn draw_form(screen: &ImportScreen, frame: &mut Frame<'_>, area: Rect) {
     let typed = screen.editing().map(|input| format!("{}▏", clean(input.text())));
     let rows = ROWS.iter().enumerate().map(|(row, (label, about))| {
         let typing = typed.as_ref().filter(|_| row == screen.field());
-        let value = typing.map_or_else(|| value(screen.form(), row, about), |text| Span::styled(text.clone(), theme::WARN));
+        let value =
+            typing.map_or_else(|| value(screen.form(), row, about), |text| Span::styled(text.clone(), theme::WARN));
         ListItem::new(Line::from(vec![Span::styled(format!("{label:<9} "), theme::DIM), value]))
     });
-    let list = List::new(rows.collect::<Vec<_>>())
-        .block(theme::pane("Import"))
-        .highlight_style(theme::SELECTED)
-        .highlight_symbol("▸ ");
+    let list = List::new(rows).block(theme::pane("Import")).highlight_style(theme::SELECTED).highlight_symbol("▸ ");
     frame.render_stateful_widget(list, area, &mut ListState::default().with_selected(Some(screen.field())));
 }
 
@@ -89,7 +87,7 @@ fn draw_form(screen: &ImportScreen, frame: &mut Frame<'_>, area: Rect) {
 fn value(form: &Form, row: usize, about: &str) -> Span<'static> {
     match row {
         0 => Span::raw(format!("‹ {} ›", KINDS.get(form.kind).copied().unwrap_or_default())),
-        1 if form.source.is_empty() => Span::styled("a URL, or a path inside the project", theme::DIM),
+        1 if form.source.is_empty() => Span::styled("a URL or a project path", theme::DIM),
         1 => Span::raw(clean(&form.source)),
         2 if form.file_id.is_empty() => Span::styled("from the source's name", theme::DIM),
         2 => Span::raw(clean(&form.file_id)),
@@ -119,7 +117,11 @@ fn files_pane(changes: &Changes, shown: usize) -> Paragraph<'static> {
     let rows = changes.files.iter().enumerate().map(|(at, file)| {
         let (mark, style) = if at == shown { ("▸ ", theme::SELECTED) } else { ("  ", Style::new()) };
         let how = if file.before.is_none() { "new    " } else { "changed" };
-        Line::from(vec![Span::raw(mark), Span::styled(how, theme::DIM), Span::styled(format!(" {}", clean(&file.path)), style)])
+        Line::from(vec![
+            Span::raw(mark),
+            Span::styled(how, theme::DIM),
+            Span::styled(format!(" {}", clean(&file.path)), style),
+        ])
     });
     let notes = changes.titles.iter().map(|title| Line::styled(format!("  {}", clean(title)), theme::DIM));
     Paragraph::new(rows.chain(notes).collect::<Vec<_>>()).block(theme::pane("Draft"))

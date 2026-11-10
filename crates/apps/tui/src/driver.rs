@@ -6,8 +6,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task::JoinHandle;
 use vc_engine::{
-    Changes, Engine, EngineError, ExplainRequest, ImportRequest, Interrupter, ListKind, ListRequest, LoadRequest, LoadWatch,
-    RunRequest, RunWatch, interrupts,
+    Changes, Engine, EngineError, ExplainRequest, ImportRequest, Interrupter, ListKind, ListRequest, LoadRequest,
+    LoadWatch, RunRequest, RunWatch, interrupts,
 };
 
 use crate::screen::{Ask, Update};
@@ -53,7 +53,9 @@ impl Driver {
             Ask::Compare { before, after } => self.read(move |engine| vec![compare(engine, before, after)]),
             Ask::Explore => self.read(|engine| vec![explore(engine)]),
             Ask::Explain { id, profiles } => self.read(move |engine| vec![explain(engine, id, profiles)]),
-            Ask::Skip(request) => self.read(move |engine| edited(engine, engine.skip(&request), (request.target, true))),
+            Ask::Skip(request) => {
+                self.read(move |engine| edited(engine, engine.skip(&request), (request.target, true)));
+            }
             Ask::Unskip(target) => self.read(move |engine| edited(engine, engine.unskip(&target), (target, false))),
             Ask::Scenarios => self.read(|engine| vec![scenarios(engine)]),
             Ask::Load(request) => self.load(request),
@@ -134,7 +136,8 @@ impl Driver {
     fn import(&self, request: ImportRequest) {
         let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
         tokio::spawn(async move {
-            let update = engine.import(&request).await.map_or_else(|error| Update::ImportFailed(told(&error)), Update::Drafted);
+            let update =
+                engine.import(&request).await.map_or_else(|error| Update::ImportFailed(told(&error)), Update::Drafted);
             updates.send(update).await.ok();
         });
     }
