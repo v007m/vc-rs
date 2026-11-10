@@ -1,5 +1,6 @@
 //! `beforeAll` runs once per file, cleanups run newest first on a pass, a failure and Ctrl-C, and
-//! an api's `save` runs only on a status its `saveOn` matches (D191).
+//! an api's `save` runs only on a status its `saveOn` matches (D191); a `test:` reuse runs the
+//! reused test as written (D270).
 
 use vc_mock_server::MockServer;
 
@@ -122,5 +123,28 @@ async fn a_before_all_call_retries_until_it_passes() {
         let output = project.run(&server.base_url(), &[]).output().unwrap();
         assert_eq!(output.status.code(), Some(exit), "{}", crate::said(&output));
         assert_eq!(server.stats().await.unwrap().count("GET /flaky"), sent, "{retry}");
+    }
+}
+
+/// D270: a `test:` reuse runs the reused test as written, so its own `expect: {status: 418}`
+/// fails the caller, while the caller's `expect: {status: 201}` default reaches only its own
+/// `users#create` step, not the reused `users#list` call.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_reuse_checks_the_reused_tests_own_expect_but_not_the_callers_defaults() {
+    let file = |expect: &str| {
+        format!(
+            "tests:\n  - id: listsUsers\n    call: users#list\n    standalone: false\n{expect}\
+             \x20 - id: reusesTheList\n    expect: {{status: 201}}\n    steps:\n      - test: listsUsers\n\
+             \x20     - call: users#create\n"
+        )
+    };
+    for (expect, exit) in [("", 0), ("    expect: {status: 418}\n", 1)] {
+        let server = MockServer::start().await.unwrap();
+        let file = file(expect);
+        let project = Project::new(&[CONFIG, USERS, ("services/users/reuse.test.yaml", &file)]);
+        let output = project.run(&server.base_url(), &[]).output().unwrap();
+        let said = crate::said(&output);
+        assert_eq!(output.status.code(), Some(exit), "{said}");
+        assert!(exit == 0 || said.contains("418"), "the reused test's own check failed it: {said}");
     }
 }
