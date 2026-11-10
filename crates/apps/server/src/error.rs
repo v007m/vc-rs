@@ -1,6 +1,9 @@
 //! A failed call, as Connect error JSON: the body of a unary error, or the `error` of the
 //! end-stream message that closes a server stream.
 
+use std::io;
+use std::net::SocketAddr;
+
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
@@ -59,4 +62,24 @@ struct Wire<'a> {
 struct EndStream<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<Wire<'a>>,
+}
+
+/// Why the server could not start or stopped.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum ServerError {
+    /// The system's random source failed, so there is no token.
+    #[error("the system random source failed, so no access token could be made")]
+    Random,
+    /// The address could not be listened on, such as a port in use.
+    #[error("could not listen on {address}: {source}")]
+    Bind {
+        /// The loopback address.
+        address: SocketAddr,
+        /// Why.
+        source: io::Error,
+    },
+    /// Serving failed.
+    #[error("the server stopped: {0}")]
+    Serve(#[source] io::Error),
 }
