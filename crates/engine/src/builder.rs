@@ -6,9 +6,9 @@ use vc_adapter_plugins::FsPluginStore;
 use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
-    AgentActionWriter, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore,
-    Environment, FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStderr,
-    PluginStore, SourceProvider, SourceWriter, Transport, Vcs,
+    AgentActionLog, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore, Environment,
+    FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStderr, PluginStore,
+    SourceProvider, SourceWriter, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -43,7 +43,7 @@ pub struct EngineBuilder {
 type HistoryPorts = (Arc<dyn HistoryWriter>, Arc<dyn HistoryReader>);
 
 /// The approval queue and the agent call log, given together.
-type ApprovalPorts = (Arc<dyn Approvals>, Arc<dyn AgentActionWriter>);
+type ApprovalPorts = (Arc<dyn Approvals>, Arc<dyn AgentActionLog>);
 
 impl EngineBuilder {
     /// A builder for the project whose root is `root`.
@@ -167,10 +167,10 @@ impl EngineBuilder {
         self
     }
 
-    /// Keeps the agent approval queue in `queue` and logs agent calls to `log` instead of
-    /// `.vibranium/history.db` (D195).
+    /// Keeps the agent approval queue in `queue` and logs agent calls to, and reads them back
+    /// from, `log` instead of `.vibranium/history.db` (D195).
     #[must_use]
-    pub fn approvals(mut self, queue: Arc<dyn Approvals>, log: Arc<dyn AgentActionWriter>) -> Self {
+    pub fn approvals(mut self, queue: Arc<dyn Approvals>, log: Arc<dyn AgentActionLog>) -> Self {
         self.approvals = Some((queue, log));
         self
     }

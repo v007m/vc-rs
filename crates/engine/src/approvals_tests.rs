@@ -44,6 +44,20 @@ async fn a_refused_call_is_logged_and_never_queued() {
 }
 
 #[tokio::test]
+async fn logged_calls_read_back_newest_first_with_their_arguments_redacted() {
+    let queue = MemoryApprovals::new();
+    let engine = agent_engine(&queue);
+    let _ = engine.admit(&delete("bare"), Duration::from_secs(1)).await.unwrap();
+    let _ = engine.admit(&delete("prod"), Duration::from_secs(1)).await.unwrap();
+    let read = engine.agent_actions(0).unwrap();
+    let profiles: Vec<_> = read.iter().map(|logged| logged.action.profile.as_deref()).collect();
+    assert_eq!(profiles, [Some("prod"), Some("bare")]);
+    assert!(read[0].at_ms > read[1].at_ms);
+    assert!(read.iter().all(|logged| !logged.action.arguments.contains("abc")), "{read:?}");
+    assert_eq!(engine.agent_actions(1).unwrap().len(), 1);
+}
+
+#[tokio::test]
 async fn an_approved_call_goes_ahead_and_names_who_approved_it() {
     let queue = MemoryApprovals::answering(Verdict::Approve);
     let admitted = agent_engine(&queue).admit(&delete("staging"), Duration::from_secs(5)).await;

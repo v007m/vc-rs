@@ -27,6 +27,23 @@ pub struct Location {
     pub column: u32,
 }
 
+/// An instance of the plan: the test it runs, its example row and its repeat.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct Planned {
+    /// The instance.
+    pub instance: InstanceId,
+    /// The test it runs.
+    pub test: TestId,
+    /// Its example row, from 0, when the test has examples.
+    pub example_row: Option<u32>,
+    /// Its repeat, from 0.
+    pub repeat_index: u32,
+}
+
 /// Turns the IDs in events into the text reports show, from the program and the plan.
 ///
 /// IDs the program does not know are shown as `?` (or by their index), never an error.
@@ -35,15 +52,28 @@ pub struct Names {
     program: Arc<Program>,
     /// Each instance's example row and repeat index.
     instances: HashMap<InstanceId, (Option<u32>, u32)>,
+    /// The plan's instances in plan order.
+    planned: Vec<Planned>,
 }
 
 impl Names {
     /// Names for a run of `plan` over `program`.
     #[must_use]
     pub fn new(program: Arc<Program>, plan: &Plan) -> Self {
-        let instances = plan.files.iter().flat_map(|file| &file.instances);
-        let instances = instances.map(|i| (i.id, (i.example_row, i.repeat_index))).collect();
-        Self { program, instances }
+        let planned: Vec<Planned> = plan
+            .files
+            .iter()
+            .flat_map(|file| &file.instances)
+            .map(|i| Planned { instance: i.id, test: i.test, example_row: i.example_row, repeat_index: i.repeat_index })
+            .collect();
+        let instances = planned.iter().map(|p| (p.instance, (p.example_row, p.repeat_index))).collect();
+        Self { program, instances, planned }
+    }
+
+    /// The plan's instances, in plan order.
+    #[must_use]
+    pub fn planned(&self) -> &[Planned] {
+        &self.planned
     }
 
     /// The program the names come from.
@@ -84,10 +114,16 @@ impl Names {
     /// from 1; the repeat shows only when the test repeats.
     #[must_use]
     pub fn instance(&self, result: &TestResult) -> String {
-        let mut label = self.test(result.test).to_owned();
-        let slot = result.instance.and_then(|id| self.instances.get(&id));
+        self.label(result.test, result.instance)
+    }
+
+    /// The label of [`Names::instance`] for `test` run as `instance`.
+    #[must_use]
+    pub fn label(&self, test: TestId, instance: Option<InstanceId>) -> String {
+        let mut label = self.test(test).to_owned();
+        let slot = instance.and_then(|id| self.instances.get(&id));
         let Some(&(row, repeat)) = slot else { return label };
-        let repeats = repeat > 0 || self.program.tests.get(&result.test).is_some_and(|t| t.repeat > 1);
+        let repeats = repeat > 0 || self.program.tests.get(&test).is_some_and(|t| t.repeat > 1);
         let row = row.map(|r| format!("row {}", u64::from(r) + 1));
         let repeat = repeats.then(|| format!("repeat {}", u64::from(repeat) + 1));
         let marks: Vec<String> = row.into_iter().chain(repeat).collect();
@@ -179,18 +215,8 @@ pub fn check_label(check: &CheckResult) -> String {
 #[must_use]
 pub fn check_parts(check: &CheckResult) -> (&'static str, Option<String>) {
     let target = check.target.as_ref().map(|path| path_text(&path.segments)).unwrap_or_default();
-    let (key, with_target) = match check.kind {
-        CheckKind::Status => ("status", false),
-        CheckKind::Header => ("headers", true),
-        CheckKind::Schema => ("body.schema", false),
-        CheckKind::Match => ("body.match", true),
-        CheckKind::Equals => ("body.equals", false),
-        CheckKind::Size => ("size", false),
-        CheckKind::Timing => ("timing", true),
-        CheckKind::Cel => ("cel", true),
-        CheckKind::Custom => ("custom", false),
-    };
-    (key, (with_target && !target.is_empty()).then_some(target))
+    let with_target = matches!(check.kind, CheckKind::Header | CheckKind::Match | CheckKind::Timing | CheckKind::Cel);
+    (check.kind.key(), (with_target && !target.is_empty()).then_some(target))
 }
 
 /// A path as written: `items[*].price`.

@@ -4,8 +4,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use tokio::sync::watch;
 use vc_interfaces::{
-    AgentAction, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
-    Decision, StandingRule, Verdict,
+    AgentAction, AgentActionReader, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest,
+    ApprovalStatus, Approvals, Decision, LoggedAction, StandingRule, Verdict,
 };
 
 /// An approval queue and agent call log held in memory.
@@ -164,16 +164,34 @@ impl AgentActionWriter for MemoryApprovals {
     }
 }
 
+/// Each call's `at_ms` is its number in the log, from 1, since the queue has no clock.
+impl AgentActionReader for MemoryApprovals {
+    fn recent(&self, limit: usize) -> Result<Vec<LoggedAction>, ApprovalError> {
+        let mut logged: Vec<_> =
+            (1_u64..).zip(self.actions()).map(|(at_ms, action)| LoggedAction { at_ms, action }).collect();
+        logged.reverse();
+        if limit > 0 {
+            logged.truncate(limit);
+        }
+        Ok(logged)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use vc_interfaces::{ApprovalRequest, ApprovalStatus, Approvals, Verdict};
 
     use super::MemoryApprovals;
-    use crate::{agent_action_writer_suite, approvals_suite};
+    use crate::{agent_action_reader_suite, agent_action_writer_suite, approvals_suite};
 
     #[tokio::test]
     async fn passes_the_approvals_suite() {
         approvals_suite(&mut || Box::new(MemoryApprovals::new()) as Box<dyn Approvals>).await;
+    }
+
+    #[test]
+    fn passes_the_agent_action_reader_suite() {
+        agent_action_reader_suite(&MemoryApprovals::new());
     }
 
     #[test]

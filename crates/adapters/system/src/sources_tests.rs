@@ -49,6 +49,26 @@ fn respects_gitignore_outside_a_repository() {
 }
 
 #[test]
+fn ignores_what_the_walk_leaves_out_whether_or_not_it_is_there() {
+    let dir = project(&[
+        (".gitignore", b"generated/\n*.local.api.yaml\n"),
+        ("generated/x.api.yaml", b""),
+        ("users.local.api.yaml", b""),
+        ("users.api.yaml", b""),
+        ("services/.ignore", b"!keep.local.api.yaml\n"),
+    ]);
+    let sources = FsSources::new(dir.path()).unwrap();
+    let ignores = |path: &str| sources.ignores(&SourcePath::new(path).unwrap());
+    let left_out = ["generated/x.api.yaml", "users.local.api.yaml", "generated/new/y.api.yaml", "new.local.api.yaml"];
+    for path in left_out.into_iter().chain(["services/new/z.local.api.yaml"]) {
+        assert!(ignores(path), "{path} is left out");
+    }
+    for path in ["users.api.yaml", "services/new/z.api.yaml", "services/keep.local.api.yaml", "fresh.test.yaml"] {
+        assert!(!ignores(path), "{path} is discovered");
+    }
+}
+
+#[test]
 fn a_missing_root_is_an_error() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("missing");
@@ -89,12 +109,23 @@ fn a_write_the_system_refuses_names_its_file() {
     assert!(matches!(refused, Err(SourceError::Write { path, .. }) if path == "taken/x.api.yaml"));
 }
 
+#[test]
+fn a_refused_save_into_a_new_folder_leaves_no_folder() {
+    let dir = project(&[]);
+    let sources = FsSources::new(dir.path()).unwrap();
+    let was = Some(vc_interfaces::content_hash(b"tests: []\n"));
+    let refused = sources.write_unchanged(&SourcePath::new("services/new/new.test.yaml").unwrap(), "x\n", was);
+    let changed = SourceError::Changed { path: "services/new/new.test.yaml".to_owned() };
+    assert_eq!(refused, Err(changed));
+    assert!(!dir.path().join("services").exists(), "no folder is created for a refused save");
+}
+
 #[cfg(unix)]
 mod unix {
     use std::fs;
     use std::os::unix::fs::{PermissionsExt, symlink};
 
-    use vc_interfaces::{SourceError, SourceWriter};
+    use vc_interfaces::{SourceError, SourceProvider, SourceWriter};
     use vc_model::SourcePath;
 
     use super::{FsSources, discover, paths, project};
@@ -116,6 +147,19 @@ mod unix {
         let found = discover(dir.path());
         assert_eq!(paths(&found), ["users.api.yaml"]);
         assert_eq!(found.problems, [SourceError::OutsideRoot { path: "escape.api.yaml".to_owned() }]);
+    }
+
+    #[test]
+    fn ignores_every_path_under_a_link_to_a_folder_there_or_not_yet() {
+        let dir = project(&[(".gitignore", b"generated/\n"), ("generated/x.api.yaml", b""), ("real/y.api.yaml", b"")]);
+        symlink(dir.path().join("generated"), dir.path().join("vendor")).unwrap();
+        symlink(dir.path().join("real"), dir.path().join("mirror")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        let ignores = |path: &str| sources.ignores(&SourcePath::new(path).unwrap());
+        for path in ["vendor/new.test.yaml", "vendor/x.api.yaml", "vendor/a/b/new.test.yaml", "mirror/y.api.yaml"] {
+            assert!(ignores(path), "{path} is under a link discovery does not follow");
+        }
+        assert!(!ignores("real/new.test.yaml"));
     }
 
     #[test]
@@ -157,12 +201,59 @@ mod unix {
         for path in ["services/x.api.yaml", "services/new/y.api.yaml", "x.api.yaml"] {
             let refused = sources.write(&SourcePath::new(path).unwrap(), "changed\n");
             assert_eq!(refused, Err(SourceError::OutsideRoot { path: path.to_owned() }), "{path}");
+            let unchanged = sources.write_unchanged(&SourcePath::new(path).unwrap(), "changed\n", None);
+            assert_eq!(unchanged, Err(SourceError::OutsideRoot { path: path.to_owned() }), "{path}");
         }
         assert_eq!(fs::read_to_string(outside.path().join("services/x.api.yaml")).unwrap(), "kept\n");
         assert!(!outside.path().join("services/new").exists());
         let removed = sources.remove(&SourcePath::new("services/x.api.yaml").unwrap());
         assert_eq!(removed, Err(SourceError::OutsideRoot { path: "services/x.api.yaml".to_owned() }));
         assert!(outside.path().join("services/x.api.yaml").exists());
+    }
+
+    #[test]
+    fn a_link_into_a_hidden_file_or_folder_is_neither_read_nor_written() {
+        let dir = project(&[(".env", b"TOKEN=kept\n"), (".vibranium/x.api.yaml", b"kept\n"), (".env.schema", b"A=\n")]);
+        symlink(dir.path().join(".env"), dir.path().join("env.api.yaml")).unwrap();
+        symlink(dir.path().join(".vibranium"), dir.path().join("cache")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        let read = |path: &str| sources.read(&[SourcePath::new(path).unwrap()]).unwrap();
+        let outside = |path: &str| SourceError::OutsideRoot { path: path.to_owned() };
+        assert_eq!(read("env.api.yaml").problems, [outside("env.api.yaml")]);
+        assert_eq!(read("cache/x.api.yaml").problems, [outside("cache/x.api.yaml")]);
+        assert_eq!(read(".env.schema").files.len(), 1, "a hidden path named as such is still read");
+        for path in ["env.api.yaml", "cache/x.api.yaml", "cache/new.api.yaml"] {
+            assert_eq!(sources.write(&SourcePath::new(path).unwrap(), "changed\n"), Err(outside(path)), "{path}");
+            let unchanged = sources.write_unchanged(&SourcePath::new(path).unwrap(), "changed\n", None);
+            assert_eq!(unchanged, Err(outside(path)), "{path}");
+        }
+        assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=kept\n");
+        assert_eq!(fs::read_to_string(dir.path().join(".vibranium/x.api.yaml")).unwrap(), "kept\n");
+        assert!(!dir.path().join(".vibranium/new.api.yaml").exists());
+    }
+
+    #[test]
+    fn an_unchanged_write_goes_through_a_link_inside_the_root_and_keeps_the_mode() {
+        let dir = project(&[("real/users.api.yaml", b"apis: []\n")]);
+        let real = dir.path().join("real/users.api.yaml");
+        fs::set_permissions(&real, fs::Permissions::from_mode(0o640)).unwrap();
+        symlink(&real, dir.path().join("linked.api.yaml")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        let was = Some(vc_interfaces::content_hash(b"apis: []\n"));
+        assert_eq!(sources.write_unchanged(&SourcePath::new("linked.api.yaml").unwrap(), "apis: {}\n", was), Ok(()));
+        assert_eq!(fs::read_to_string(&real).unwrap(), "apis: {}\n");
+        assert!(fs::symlink_metadata(dir.path().join("linked.api.yaml")).unwrap().file_type().is_symlink());
+        assert_eq!(fs::metadata(&real).unwrap().permissions().mode() & 0o777, 0o640);
+        fs::set_permissions(&real, fs::Permissions::from_mode(0o440)).unwrap();
+        let was = Some(vc_interfaces::content_hash(b"apis: {}\n"));
+        let read_only = sources.write_unchanged(&SourcePath::new("real/users.api.yaml").unwrap(), "x\n", was);
+        assert!(matches!(read_only, Err(SourceError::Write { .. })), "{read_only:?}");
+        fs::set_permissions(&real, fs::Permissions::from_mode(0o640)).unwrap();
+        let stale = sources.write_unchanged(&SourcePath::new("real/users.api.yaml").unwrap(), "x\n", None);
+        assert!(matches!(stale, Err(SourceError::Changed { .. })), "{stale:?}");
+        let left: Vec<_> =
+            fs::read_dir(dir.path().join("real")).unwrap().map(|entry| entry.unwrap().file_name()).collect();
+        assert_eq!(left, ["users.api.yaml"], "no staged file is left behind");
     }
 
     #[test]

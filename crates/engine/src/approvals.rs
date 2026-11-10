@@ -14,8 +14,8 @@ use vc_adapter_store::SqliteApprovals;
 use vc_adapter_system::SystemEnvironment;
 use vc_executor::{MaskRules, Redactor};
 use vc_interfaces::{
-    AgentAction, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
-    Decision, Verdict,
+    AgentAction, AgentActionLog, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
+    Decision, LoggedAction, Verdict,
 };
 use vc_model::Program;
 
@@ -125,7 +125,17 @@ impl Engine {
         }
     }
 
-    fn agent_log(&self) -> Arc<dyn AgentActionWriter> {
+    /// The agent calls logged, newest first, each with when it was logged; the latest `limit`,
+    /// or all of them when `limit` is 0. For the web UI's agents page.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::History`] when the log cannot be read.
+    pub fn agent_actions(&self, limit: usize) -> Result<Vec<LoggedAction>, EngineError> {
+        self.agent_log().recent(limit).map_err(|error| store_error(&error))
+    }
+
+    fn agent_log(&self) -> Arc<dyn AgentActionLog> {
         match &self.approvals {
             Some((_, log)) => Arc::clone(log),
             None => Arc::new(SqliteApprovals::new(&self.history_path())),

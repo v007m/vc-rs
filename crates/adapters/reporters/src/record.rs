@@ -33,7 +33,7 @@ impl Recorder {
     pub fn new(context: &ReporterContext) -> Self {
         let program = context.program();
         let history = program.config.history;
-        let max_body = usize::try_from(history.max_body_size.bytes()).unwrap_or(usize::MAX);
+        let max_body = history.max_body();
         Self {
             project: program.config.project.clone(),
             names: Names::new(program, context.plan()),

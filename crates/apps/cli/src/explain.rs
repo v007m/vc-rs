@@ -54,7 +54,8 @@ pub fn run(args: &ExplainArgs, project: Option<&Path>) -> anyhow::Result<Outcome
 /// `vc config explain <key> [--profile] [--set]`: exit 0 shown, 2 unknown key.
 pub fn config(command: &ConfigCommand, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let ConfigCommand::Explain { key, layers } = command;
-    explained(project, |engine| engine.config_explain(key, &layers.request()))
+    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+    explained(project, |engine| runtime.block_on(engine.config_explain(key, &layers.request())))
 }
 
 impl LayerArgs {

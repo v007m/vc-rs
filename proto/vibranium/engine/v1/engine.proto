@@ -1,0 +1,469 @@
+// The Engine service: what the web UI calls over Connect (D101). Each RPC is a thin adapter
+// over one engine facade method; RPCs are added as the screens that need them are built.
+syntax = "proto3";
+
+package vibranium.engine.v1;
+
+import "vibranium/engine/v1/events.proto";
+import "vibranium/results/v1/results.proto";
+
+// The engine of one project, opened by `vc ui`.
+service EngineService {
+  // The project's name and profiles.
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  // The tests, apis or files a selection matches, as `vc list` lists them.
+  rpc ListDefinitions(ListDefinitionsRequest) returns (ListDefinitionsResponse);
+  // The project's diagnostics, as `vc check` reports them.
+  rpc Check(CheckRequest) returns (CheckResponse);
+  // Runs a selection and streams its events, then its report. Closing the stream cancels the
+  // run as one Ctrl-C does: cleanups still run.
+  rpc Run(RunRequest) returns (stream RunResponse);
+  // A project file's text, for the editor.
+  rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
+  // Saves a project file the editor changed, unless it changed on disk since it was read.
+  rpc WriteFile(WriteFileRequest) returns (WriteFileResponse);
+  // The agents' approval requests, newest first.
+  rpc ListApprovals(ListApprovalsRequest) returns (ListApprovalsResponse);
+  // Approves or denies an agent's request.
+  rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
+  // What agents did through MCP, newest first.
+  rpc ListAgentActions(ListAgentActionsRequest) returns (ListAgentActionsResponse);
+  // Sends one api's request, as `vc call` does. The person at the browser is no agent, so the
+  // profiles' agent policy and the agent log do not apply (D241).
+  rpc Call(CallRequest) returns (CallResponse);
+  // Writes a call as a test, as `vc call --save-as` does.
+  rpc SaveCallAsTest(SaveCallAsTestRequest) returns (SaveCallAsTestResponse);
+  // Imports a spec or recording, as `vc import` does: a preview, or the files written.
+  rpc Import(ImportRequest) returns (ImportResponse);
+  // The runs the history keeps, newest first.
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  // One run of the history with its tests.
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+  // Each test's results over the last runs, as `vc history --trends` reports them.
+  rpc Trends(TrendsRequest) returns (TrendsResponse);
+  // Each setting's value and the layers it replaced, as `vc config explain` shows them, masked.
+  rpc ExplainConfig(ExplainConfigRequest) returns (ExplainConfigResponse);
+  // Where an MCP client connects and the agent token it sends, for the Connect panel. Only the
+  // browser's session cookie reaches it, never the agent token (D239).
+  rpc Connection(ConnectionRequest) returns (ConnectionResponse);
+}
+
+// Which tests or apis to act on, as `vc run` selects them.
+message Selection {
+  // Full IDs, file IDs or `#id` selectors.
+  repeated string ids = 1;
+  // Files or folders, relative to the project root.
+  repeated string paths = 2;
+  repeated string tags = 3;
+  // Only tests whose name contains this text.
+  optional string grep = 4;
+  // Only tests in files changed since this git ref.
+  optional string changed = 5;
+  // Also select skipped tests.
+  bool include_skipped = 6;
+}
+
+message GetProjectRequest {}
+
+message GetProjectResponse {
+  // The project folder's name.
+  string name = 1;
+  // The profiles the config defines.
+  repeated string profiles = 2;
+  // The profile a run uses when none is chosen.
+  optional string default_profile = 3;
+  string vc_version = 4;
+}
+
+// What to list.
+enum DefinitionKind {
+  DEFINITION_KIND_UNSPECIFIED = 0;
+  DEFINITION_KIND_TESTS = 1;
+  DEFINITION_KIND_APIS = 2;
+  DEFINITION_KIND_FILES = 3;
+}
+
+message ListDefinitionsRequest {
+  // Tests when unspecified.
+  DefinitionKind kind = 1;
+  Selection selection = 2;
+  // List only the skipped tests, as `vc list --skipped` does; without it, skipped tests are listed with the rest.
+  bool skipped = 3;
+}
+
+// A test, an api or a file.
+message Definition {
+  // The full ID, or the file ID for a file.
+  string id = 1;
+  optional string name = 2;
+  // The file it is in, relative to the project root.
+  string path = 3;
+  repeated string tags = 4;
+  bool skipped = 5;
+  // Where it is defined; absent for a file.
+  vibranium.results.v1.Span span = 6;
+  // The apis a test calls, in order.
+  repeated ApiCall calls = 7;
+  // A flow test's step count; 0 for a plain test.
+  uint32 steps = 8;
+  // An api's declared var names, in order.
+  repeated string vars = 9;
+}
+
+// An api a test calls.
+message ApiCall {
+  // Its full ID.
+  string api = 1;
+  string method = 2;
+  // Its path template, such as `/users/{userId}`.
+  string path = 3;
+}
+
+message ListDefinitionsResponse {
+  repeated Definition definitions = 1;
+  repeated string notices = 2;
+}
+
+message CheckRequest {
+  // Only these files or folders; the whole project when empty.
+  repeated string paths = 1;
+  // Unsaved editor text by project-relative path, checked in place of the file on disk.
+  map<string, string> overlay = 2;
+}
+
+// How bad a diagnostic is.
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_WARNING = 2;
+  SEVERITY_ERROR = 3;
+}
+
+// A span with what it points at.
+message Label {
+  vibranium.results.v1.Span span = 1;
+  string text = 2;
+}
+
+// One change to a file's text, by byte offsets.
+message TextEdit {
+  string file = 1;
+  uint32 start = 2;
+  uint32 end = 3;
+  string new_text = 4;
+}
+
+// A fix for a diagnostic.
+message Fix {
+  string title = 1;
+  // Safe to apply without asking: `vc check --fix` applies it.
+  bool certain = 2;
+  repeated TextEdit edits = 3;
+}
+
+// A problem the compiler found, as `vc check` reports it.
+message Diagnostic {
+  // Such as `V2001`.
+  string code = 1;
+  Severity severity = 2;
+  string message = 3;
+  Label primary = 4;
+  repeated Label secondary = 5;
+  repeated string notes = 6;
+  repeated string help = 7;
+  repeated Fix fixes = 8;
+}
+
+message CheckResponse {
+  repeated Diagnostic diagnostics = 1;
+  // How many files were checked.
+  uint32 checked = 2;
+  repeated string notices = 3;
+}
+
+message RunRequest {
+  Selection selection = 1;
+  // Profiles to layer, in order; the default profile when empty.
+  repeated string profiles = 2;
+  // `key=value` overrides, as `--set` gives them.
+  repeated string sets = 3;
+  // Run each selected test this many times.
+  optional uint32 repeat = 4;
+  // Replay a run with its seed.
+  optional uint64 seed = 5;
+  // Stop at the first failure.
+  bool bail = 6;
+  optional uint32 concurrency = 7;
+  // Run only the tests that failed in the last run.
+  bool failed = 8;
+  // Ignore the action cache.
+  bool no_cache = 9;
+}
+
+message RunResponse {
+  RunEvent event = 1;
+}
+
+message ReadFileRequest {
+  // Relative to the project root.
+  string path = 1;
+}
+
+message ReadFileResponse {
+  string text = 1;
+  // The digest of the text read, to send back with a write.
+  string digest = 2;
+}
+
+message WriteFileRequest {
+  // Relative to the project root.
+  string path = 1;
+  string text = 2;
+  // The digest the file had when it was read; the write fails if the file changed since.
+  // Absent for a new file, which must not exist yet.
+  optional string expected_digest = 3;
+}
+
+message WriteFileResponse {
+  // The digest of the text written.
+  string digest = 1;
+  // The diagnostics of the project with the file saved.
+  repeated Diagnostic diagnostics = 2;
+  // Why the project could not be checked after the save, with its help; empty when it was.
+  // The file was written either way, so `digest` is the one to save over next.
+  string check_error = 3;
+}
+
+// Where an approval request stands.
+enum ApprovalStatus {
+  APPROVAL_STATUS_UNSPECIFIED = 0;
+  APPROVAL_STATUS_PENDING = 1;
+  APPROVAL_STATUS_APPROVED = 2;
+  APPROVAL_STATUS_DENIED = 3;
+  APPROVAL_STATUS_EXPIRED = 4;
+}
+
+// What a person decided.
+enum Verdict {
+  VERDICT_UNSPECIFIED = 0;
+  VERDICT_APPROVE = 1;
+  // Approve, and every later request for this profile, tool and method.
+  VERDICT_ALWAYS_ALLOW = 2;
+  VERDICT_DENY = 3;
+}
+
+// An agent's request to do something its policy holds for a person.
+message Approval {
+  uint64 id = 1;
+  string agent = 2;
+  // The MCP tool it called.
+  string tool = 3;
+  string profile = 4;
+  // The HTTP methods the call would send.
+  repeated string methods = 5;
+  string summary = 6;
+  // The tool's arguments, as JSON text, secrets masked.
+  string arguments = 7;
+  uint64 created_ms = 8;
+  ApprovalStatus status = 9;
+  optional string decided_by = 10;
+}
+
+message ListApprovalsRequest {
+  bool pending_only = 1;
+}
+
+message ListApprovalsResponse {
+  repeated Approval approvals = 1;
+}
+
+message DecideApprovalRequest {
+  uint64 id = 1;
+  Verdict verdict = 2;
+}
+
+message DecideApprovalResponse {
+  ApprovalStatus status = 1;
+}
+
+// A tool call an agent made.
+message AgentAction {
+  string agent = 1;
+  string tool = 2;
+  optional string profile = 3;
+  // As JSON text, secrets masked.
+  string arguments = 4;
+  string result = 5;
+  optional string approved_by = 6;
+  uint64 at_ms = 7;
+}
+
+message ListAgentActionsRequest {
+  // At most this many; all when 0.
+  uint32 limit = 1;
+}
+
+message ListAgentActionsResponse {
+  repeated AgentAction actions = 1;
+}
+
+message CallRequest {
+  // The api's full ID.
+  string api = 1;
+  // `name=value` vars, as `vc call` takes them.
+  repeated string vars = 2;
+  // Keep the resources the call creates instead of running its cleanup.
+  bool keep = 3;
+  repeated string profiles = 4;
+  repeated string sets = 5;
+}
+
+message CallResponse {
+  // The exit code `vc call` would have.
+  uint32 exit = 1;
+  // The exchange as `vc call` prints it, secrets masked.
+  string text = 2;
+  repeated string notices = 3;
+  // The response as JSON text, when one came.
+  optional string response_json = 4;
+}
+
+message SaveCallAsTestRequest {
+  // The new test's ID.
+  string id = 1;
+  // The api's full ID.
+  string api = 2;
+  repeated string vars = 3;
+  // The response the checks are taken from, as JSON text.
+  optional string response_json = 4;
+  // The response fields to check.
+  repeated string fields = 5;
+}
+
+message SaveCallAsTestResponse {
+  // The test's full ID.
+  string id = 1;
+  // The file it was written to, relative to the project root.
+  string path = 2;
+  uint32 line = 3;
+  repeated string titles = 4;
+}
+
+// What a recording keeps that its filter would drop.
+message ImportKeep {
+  // Hosts kept though they are third-party.
+  repeated string hosts = 1;
+  // Static assets are kept.
+  bool assets = 2;
+}
+
+message ImportRequest {
+  // The importer: `openapi`, `har`, `postman`, `bruno`, `http`, `curl`.
+  string kind = 1;
+  // The spec or recording's text.
+  string source = 2;
+  // The file ID of the api file to fill; derived from the spec when absent.
+  optional string file_id = 3;
+  bool tests = 4;
+  bool negative = 5;
+  bool auth = 6;
+  repeated string include = 7;
+  repeated string only = 8;
+  repeated string profiles = 9;
+  // `[fileId#]testId` of a test replaying the recording.
+  optional string flow = 10;
+  ImportKeep keep = 11;
+  // Write the files; a preview when false.
+  bool write = 12;
+}
+
+// A file an import or edit creates, changes or moves.
+message FileChange {
+  // Relative to the project root.
+  string path = 1;
+  // Absent for a new file.
+  optional string before = 2;
+  string after = 3;
+  optional string moved_from = 4;
+}
+
+message ImportResponse {
+  repeated FileChange files = 1;
+  // What changed, and what the importer could not carry over.
+  repeated string titles = 2;
+}
+
+message ListRunsRequest {
+  // At most this many; all when 0.
+  uint32 limit = 1;
+}
+
+message ListRunsResponse {
+  repeated vibranium.results.v1.Run runs = 1;
+}
+
+message GetRunRequest {
+  // The run's number; the last run when absent.
+  optional uint64 id = 1;
+}
+
+message GetRunResponse {
+  vibranium.results.v1.Run run = 1;
+  repeated vibranium.results.v1.Test tests = 2;
+}
+
+message TrendsRequest {
+  // Over this many runs; the engine's default when 0.
+  uint32 window = 1;
+}
+
+// One test's results over the window.
+message TestTrend {
+  string test_id = 1;
+  uint32 results = 2;
+  // Failed or blocked.
+  uint32 failed = 3;
+  uint32 flaky = 4;
+  double mean_ms = 5;
+}
+
+message TrendsResponse {
+  repeated TestTrend trends = 1;
+}
+
+message ExplainConfigRequest {
+  // `defaults.timeout`, `vars.baseUrl`; every setting and every var a layer sets when empty.
+  repeated string keys = 1;
+  // As `--profile`; the default profiles when empty.
+  repeated string profiles = 2;
+  // As `--set key=value`.
+  repeated string sets = 3;
+}
+
+// One value a key was set to. A secret's value is `••••` wherever it appears.
+message ConfigLayer {
+  string value = 1;
+  // As `vc config explain` names it: `built-in`, `vibranium.config.yaml`, `profile dev`, `.env`,
+  // `VIB_X`, `--set`.
+  string source = 2;
+}
+
+message ConfigValue {
+  string key = 1;
+  // The value in force first, then each it replaced, latest first.
+  repeated ConfigLayer layers = 2;
+}
+
+message ExplainConfigResponse {
+  repeated ConfigValue values = 1;
+  repeated string notices = 2;
+}
+
+message ConnectionRequest {}
+
+message ConnectionResponse {
+  // `http://127.0.0.1:<port>/mcp`.
+  string mcp_url = 1;
+  // The bearer token `/mcp` accepts, and nothing else does.
+  string agent_token = 2;
+}

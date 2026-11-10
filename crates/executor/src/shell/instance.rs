@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
 
+use tokio::time::Instant;
 use vc_model::{ActionId, Event, OwnerKey, TestResult, TestStatus};
 
 use super::crew::{Crew, Deadline, Job};
@@ -50,13 +51,16 @@ struct InstanceShell {
     deadline: Option<Deadline>,
     /// Each request its actions and cleanups sent, in order.
     calls: Vec<IterationCall>,
+    /// When the instance got its turn, which its result's duration runs from.
+    started: Instant,
 }
 
 impl InstanceShell {
     fn new(crew: Crew, ticket: Ticket) -> Self {
         let script = crew.scripts.get(&ticket.launch.instance.test).cloned().unwrap_or_default();
         let frame = Frame { instance: Some(Arc::new(ticket.launch.instance.clone())), ..ticket.frame.clone() };
-        let mut shell = Self { crew, ticket, frame, script, deadline: None, calls: Vec::new() };
+        let mut shell =
+            Self { crew, ticket, frame, script, deadline: None, calls: Vec::new(), started: Instant::now() };
         shell.start_attempt();
         shell
     }
@@ -184,8 +188,8 @@ impl InstanceShell {
     async fn finish(&self, verdict: Verdict) -> TestStatus {
         let Verdict { status, attempts, failure, skip_reason } = verdict;
         let instance = &self.ticket.launch.instance;
-        let result =
-            TestResult { test: instance.test, instance: Some(instance.id), status, attempts, failure, skip_reason };
+        let (test, duration) = (instance.test, self.started.elapsed());
+        let result = TestResult { test, instance: Some(instance.id), status, attempts, failure, skip_reason, duration };
         self.crew.bus.publish(Event::TestFinished { result }).await;
         self.crew.run.send(RunInput::Tested(status)).ok();
         status

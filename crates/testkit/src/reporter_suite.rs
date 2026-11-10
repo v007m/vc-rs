@@ -116,6 +116,7 @@ fn results(ids: Ids) -> Vec<Event> {
             attempts: u32::from(instance.is_some()),
             failure,
             skip_reason: instance.is_none().then(|| "parked".to_owned()),
+            duration: std::time::Duration::ZERO,
         },
     };
     vec![

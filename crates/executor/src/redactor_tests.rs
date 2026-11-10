@@ -181,6 +181,7 @@ async fn masks_failures_in_action_test_and_cleanup_events() {
         attempts: 1,
         failure: Some(failure()),
         skip_reason: Some("needs s3cr3t-key".to_owned()),
+        duration: std::time::Duration::ZERO,
     };
     let tested = Event::TestFinished { result };
     let cleanup = CleanupRecord { action, owner, outcome: ActionOutcome::Failed(failure()) };

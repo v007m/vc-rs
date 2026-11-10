@@ -21,54 +21,58 @@ fn project(environment: &[(&str, &str)]) -> Engine {
         .unwrap()
 }
 
-fn explained(engine: &Engine, key: &str, request: &ExplainRequest) -> String {
-    engine.config_explain(key, request).unwrap().text
+async fn explained(engine: &Engine, key: &str, request: &ExplainRequest) -> String {
+    engine.config_explain(key, request).await.unwrap().text
 }
 
-#[test]
-fn a_setting_shows_its_value_over_the_ones_it_replaced() {
+#[tokio::test]
+async fn a_setting_shows_its_value_over_the_ones_it_replaced() {
     let layered = project(&[("VIB_DEFAULTS_TIMEOUT", "45s")]);
     let request = ExplainRequest { sets: vec!["defaults.timeout=1m".into()], ..ExplainRequest::default() };
     let expected = "defaults.timeout = 1m  (--set)\n  over 45s  (VIB_DEFAULTS_TIMEOUT)\n  over 20s  (vibranium.config.yaml)\n  over 30s  (built-in)\n";
-    assert_eq!(explained(&layered, "defaults.timeout", &request), expected);
-    let plain = explained(&engine(FakeVcs::default()), "defaults.timeout", &ExplainRequest::default());
+    assert_eq!(explained(&layered, "defaults.timeout", &request).await, expected);
+    let plain = explained(&engine(FakeVcs::default()), "defaults.timeout", &ExplainRequest::default()).await;
     assert_eq!(plain, "defaults.timeout = 30s  (built-in)\n");
 }
 
-#[test]
-fn each_setting_reads_the_config() {
+#[tokio::test]
+async fn each_setting_reads_the_config() {
     let engine = project(&[]);
-    let first =
-        |key: &str| explained(&engine, key, &ExplainRequest::default()).lines().next().unwrap_or_default().to_owned();
-    assert_eq!(first("profile"), "profile = dev  (vibranium.config.yaml)");
-    assert_eq!(first("defaults.concurrency"), "defaults.concurrency = 4  (vibranium.config.yaml)");
-    assert_eq!(first("defaults.perHost"), "defaults.perHost = 8  (built-in)");
-    assert_eq!(first("reports.dir"), "reports.dir = out  (vibranium.config.yaml)");
-    assert_eq!(first("reports.formats"), "reports.formats = ctrf,html  (vibranium.config.yaml)");
-    assert_eq!(first("reports.html.layout"), "reports.html.layout = single  (vibranium.config.yaml)");
+    let expected = [
+        ("profile", "profile = dev  (vibranium.config.yaml)"),
+        ("defaults.concurrency", "defaults.concurrency = 4  (vibranium.config.yaml)"),
+        ("defaults.perHost", "defaults.perHost = 8  (built-in)"),
+        ("reports.dir", "reports.dir = out  (vibranium.config.yaml)"),
+        ("reports.formats", "reports.formats = ctrf,html  (vibranium.config.yaml)"),
+        ("reports.html.layout", "reports.html.layout = single  (vibranium.config.yaml)"),
+    ];
+    for (key, line) in expected {
+        let text = explained(&engine, key, &ExplainRequest::default()).await;
+        assert_eq!(text.lines().next(), Some(line));
+    }
     let named = ExplainRequest { profiles: vec!["qa".into()], ..ExplainRequest::default() };
     assert_eq!(
-        explained(&engine, "profile", &named),
+        explained(&engine, "profile", &named).await,
         "profile = qa  (--profile)\n  over dev  (vibranium.config.yaml)\n"
     );
 }
 
-#[test]
-fn a_var_shows_the_level_of_each_value() {
+#[tokio::test]
+async fn a_var_shows_the_level_of_each_value() {
     let engine = project(&[("VIB_VAR_baseUrl", "http://env")]);
     let expected = "vars.baseUrl = http://env  (VIB_VAR_baseUrl)\n  over http://dev  (profile dev)\n  over http://x  (vibranium.config.yaml)\n";
-    assert_eq!(explained(&engine, "vars.baseUrl", &ExplainRequest::default()), expected);
+    assert_eq!(explained(&engine, "vars.baseUrl", &ExplainRequest::default()).await, expected);
 }
 
-#[test]
-fn an_unknown_key_is_refused_with_the_closest_ones() {
+#[tokio::test]
+async fn an_unknown_key_is_refused_with_the_closest_ones() {
     let engine = project(&[]);
-    let error = engine.config_explain("defaults.timout", &ExplainRequest::default()).unwrap_err();
+    let error = engine.config_explain("defaults.timout", &ExplainRequest::default()).await.unwrap_err();
     let help = Some("did you mean `defaults.timeout` or `defaults.perHost`?".to_owned());
     assert_eq!(error, EngineError::Selection { reason: "no setting `defaults.timout`".into(), help });
-    let error = engine.config_explain("vars.baseUlr", &ExplainRequest::default()).unwrap_err();
+    let error = engine.config_explain("vars.baseUlr", &ExplainRequest::default()).await.unwrap_err();
     assert_eq!(error.help().as_deref(), Some("did you mean `vars.baseUrl`?"));
-    let error = engine.config_explain("zzz", &ExplainRequest::default()).unwrap_err();
+    let error = engine.config_explain("zzz", &ExplainRequest::default()).await.unwrap_err();
     assert!(error.help().is_some_and(|help| help.starts_with("the settings are profile, defaults.concurrency")));
 }
 

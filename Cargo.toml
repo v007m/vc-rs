@@ -8,6 +8,7 @@ members = [
   "crates/compiler",
   "crates/planner",
   "crates/interfaces",
+  "crates/contracts",
   "crates/executor",
   "crates/loadtest",
   "crates/engine",
@@ -24,6 +25,7 @@ members = [
   "crates/adapters/plugins",
   "crates/apps/tui",
   "crates/apps/mcp",
+  "crates/apps/server",
   "crates/apps/cli",
   "crates/apps/demo",
   "crates/arch-tests",
@@ -47,6 +49,7 @@ vc-template = { path = "crates/template" }
 vc-compiler = { path = "crates/compiler" }
 vc-planner = { path = "crates/planner" }
 vc-interfaces = { path = "crates/interfaces" }
+vc-contracts = { path = "crates/contracts" }
 vc-executor = { path = "crates/executor" }
 vc-loadtest = { path = "crates/loadtest" }
 vc-engine = { path = "crates/engine" }
@@ -63,6 +66,7 @@ vc-adapter-notifiers = { path = "crates/adapters/notifiers" }
 vc-adapter-plugins = { path = "crates/adapters/plugins" }
 vc-tui = { path = "crates/apps/tui" }
 vc-mcp = { path = "crates/apps/mcp" }
+vc-server = { path = "crates/apps/server" }
 vc-mock-server = { path = "bench/mock" }
 aho-corasick = "1.1.5"
 anyhow = "1.0.104"
@@ -85,6 +89,7 @@ crossterm = "0.29.0"
 csv = "1.4.0"
 fake = { version = "5.1.0", default-features = false }
 flate2 = "1.1.10"
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 globset = "0.4.21"
 gungraun = "0.20.0"
 har = "0.9.0"
@@ -116,6 +121,7 @@ postcard = { version = "1.1.3", default-features = false, features = ["use-std"]
 predicates = "3.1.4"
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 proptest = "1.12.0"
+prost = "0.14.4"
 rand_core = "0.10.1"
 ratatui = "0.30.0"
 regex = "1.13.1"
@@ -126,6 +132,7 @@ rquickjs = { version = "0.14.0", features = ["loader"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-native-certs = "0.8.5"
 rusqlite = { version = "0.41.1", features = ["bundled", "fallible_uint"] }
+rust-embed = { version = "8.13.0", default-features = false }
 rustix = { version = "1.1.6", default-features = false, features = ["process", "std"] }
 saphyr-parser = "0.3.3"
 serde = { version = "1.0.229", features = ["derive"] }

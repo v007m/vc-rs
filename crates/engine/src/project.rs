@@ -84,13 +84,16 @@ impl Engine {
     }
 
     /// The filter discovery uses: the config's `paths` globs, or the default one when it writes
-    /// none. `vc watch` reports the saves it lets through.
+    /// none; only the config is read. `vc watch` reports the saves it lets through, and the web
+    /// UI's editor opens only the paths it allows.
     ///
     /// # Errors
     ///
     /// [`EngineError::Sources`] when the folder cannot be read or a glob does not parse.
     pub(crate) fn source_filter(&self) -> Result<SourceFilter, EngineError> {
-        Ok(written_filter(&self.walk(&SourceFilter::default())?)?.unwrap_or_default())
+        let config: Vec<SourcePath> = SourcePath::new(crate::explain::CONFIG).into_iter().collect();
+        let read = self.sources.read(&config).map_err(sources_error)?;
+        Ok(written_filter(&read)?.unwrap_or_default())
     }
 
     /// `.env.schema` at the project root, read when discovery listed it (D165). A schema that

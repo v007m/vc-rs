@@ -31,6 +31,15 @@ pub trait SourceProvider: Send + Sync {
     ///
     /// [`SourceError::Root`] when the project cannot be read at all.
     fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError>;
+
+    /// Whether the project's ignore files (`.gitignore`, `.ignore`) keep [`Self::discover`] from
+    /// the file at `path`, by itself or through a folder it is in; a path that is not there yet
+    /// is judged as if it were. The engine asks before it opens or writes a file for the web
+    /// UI's editor, together with its [`SourceFilter`]. A provider with no ignore files keeps
+    /// this default, which leaves nothing out.
+    fn ignores(&self, _path: &SourcePath) -> bool {
+        false
+    }
 }
 
 /// Writes the definition files authoring commands change (D107). The engine calls it only with
@@ -43,6 +52,17 @@ pub trait SourceWriter: Send + Sync {
     /// [`SourceError::OutsideRoot`] when `path` leads through a link out of the project, and
     /// [`SourceError::Write`] when the system refuses.
     fn write(&self, path: &SourcePath, text: &str) -> Result<(), SourceError>;
+
+    /// Like [`SourceWriter::write`], but only while the file at `path` is the one a caller read:
+    /// its bytes still hash to `was`, or, for `None`, there is no file there. The check is made
+    /// just before the file is replaced, which narrows, but does not close, the window in which
+    /// another writer's change is lost: no lock is taken.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::Changed`] when the file is not the one read, and nothing is written; as
+    /// [`SourceWriter::write`] otherwise.
+    fn write_unchanged(&self, path: &SourcePath, text: &str, was: Option<ContentHash>) -> Result<(), SourceError>;
 
     /// Removes the file at `path`, which a move (`vc rename` of a file ID) left behind.
     ///
@@ -84,6 +104,12 @@ impl Discovery {
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum SourceError {
+    /// No file is there.
+    #[error("{path}: no such file")]
+    Missing {
+        /// The path.
+        path: String,
+    },
     /// The file exists but reading it failed.
     #[error("{path}: cannot be read: {reason}")]
     Read {
@@ -112,10 +138,17 @@ pub enum SourceError {
         /// The name, with what could not be decoded replaced.
         path: String,
     },
-    /// The file is a link to something outside the project, which is never read.
-    #[error("{path}: links to a file outside the project")]
+    /// The file is a link to something outside the project, or into a hidden folder or file
+    /// such as `.env`, which is never read or written.
+    #[error("{path}: links to a file outside the project or a hidden one")]
     OutsideRoot {
         /// The link.
+        path: String,
+    },
+    /// The file changed, appeared or was removed since it was read, so it was not written.
+    #[error("{path}: changed since it was read")]
+    Changed {
+        /// The file.
         path: String,
     },
     /// A `paths.include` or `paths.exclude` glob does not parse.
@@ -141,11 +174,13 @@ impl SourceError {
     #[must_use]
     pub fn path(&self) -> Option<&str> {
         match self {
-            Self::Read { path, .. }
+            Self::Missing { path }
+            | Self::Read { path, .. }
             | Self::Write { path, .. }
             | Self::NotUtf8 { path }
             | Self::InvalidPath { path }
-            | Self::OutsideRoot { path } => Some(path),
+            | Self::OutsideRoot { path }
+            | Self::Changed { path } => Some(path),
             Self::InvalidGlob { .. } | Self::Root { .. } => None,
         }
     }

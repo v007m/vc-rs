@@ -319,6 +319,7 @@ fn skipped(test: &SkippedTest) -> TestResult {
         attempts: 0,
         failure: None,
         skip_reason: Some(test.reason.clone()),
+        duration: std::time::Duration::ZERO,
     }
 }
 
