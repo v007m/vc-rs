@@ -145,6 +145,20 @@ pub const fn cursor_move(code: KeyCode) -> Option<bool> {
     }
 }
 
+/// The lines `pgdn` and `pgup` scroll a pane by.
+const PAGE: u16 = 10;
+
+/// A pane's scroll after `code`, when it is `pgdn` or `pgup`: a page on or back, kept within
+/// the `lines` the pane holds.
+pub fn scrolled(scroll: u16, code: KeyCode, lines: usize) -> Option<u16> {
+    let last = u16::try_from(lines.saturating_sub(1)).unwrap_or(u16::MAX);
+    match code {
+        KeyCode::PageDown => Some(scroll.saturating_add(PAGE).min(last)),
+        KeyCode::PageUp => Some(scroll.saturating_sub(PAGE)),
+        _ => None,
+    }
+}
+
 /// The cursor one row down or up a list of `len` rows, kept on the list.
 pub fn clamp_step(cursor: usize, len: usize, down: bool) -> usize {
     if down { (cursor + 1).min(len.saturating_sub(1)) } else { cursor.saturating_sub(1) }

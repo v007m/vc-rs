@@ -31,4 +31,4 @@ choose the importer and the source, then d drafts the import
 │                                              ││                                                                      │
 │                                              ││                                                                      │
 └──────────────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────┘
-  ↑↓  field  ←→  importer  enter  edit/toggle  d  draft  n  next file  w  write  x  discard  ?  help  q  quit
+  ↑↓  field  ←→  importer  enter  edit  d  draft  n  next  pgup/pgdn  scroll  w  write  x  discard  ?  help  q  quit

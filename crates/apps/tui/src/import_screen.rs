@@ -9,16 +9,17 @@ use vc_engine::{Changes, ImportRequest};
 
 use crate::import_view;
 use crate::input::{Input, Typed};
-use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
-use crate::theme::clean;
+use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move, scrolled};
+use crate::theme::{clean, first_line};
 
 /// The Import tab's keys.
-const KEYS: [(&str, &str); 7] = [
+const KEYS: [(&str, &str); 8] = [
     ("↑↓", "field"),
     ("←→", "importer"),
-    ("enter", "edit/toggle"),
+    ("enter", "edit"),
     ("d", "draft"),
-    ("n", "next file"),
+    ("n", "next"),
+    ("pgup/pgdn", "scroll"),
     ("w", "write"),
     ("x", "discard"),
 ];
@@ -70,6 +71,9 @@ pub struct ImportScreen {
     editing: Option<Input>,
     phase: ImportPhase,
     shown: usize,
+    scroll: u16,
+    kept: Option<Changes>,
+    note: Option<String>,
 }
 
 impl ImportScreen {
@@ -110,6 +114,16 @@ impl ImportScreen {
         self.shown
     }
 
+    /// How far the diff shown is scrolled, in lines.
+    pub const fn scroll(&self) -> u16 {
+        self.scroll
+    }
+
+    /// Why writing the draft shown, or drafting another, failed: the first line.
+    pub fn note(&self) -> Option<&str> {
+        self.note.as_deref()
+    }
+
     /// The request the form makes.
     fn request(&self) -> ImportRequest {
         let [tests, negative, auth] = self.form.tests;
@@ -138,6 +152,11 @@ impl ImportScreen {
             self.phase = ImportPhase::Failed("a source is needed: a URL, or a path inside the project".to_owned());
             return None;
         }
+        self.kept = match std::mem::take(&mut self.phase) {
+            ImportPhase::Drafted(changes) => Some(changes),
+            _ => None,
+        };
+        self.note = None;
         self.phase = ImportPhase::Drafting(clean(&request.source));
         Some(Ask::Import(Box::new(request)))
     }
@@ -146,6 +165,7 @@ impl ImportScreen {
     fn write(&mut self) -> Option<Ask> {
         let ImportPhase::Drafted(changes) = &self.phase else { return None };
         let changes = changes.clone();
+        self.note = None;
         self.phase = ImportPhase::Writing(changes.clone());
         Some(Ask::Write(changes))
     }
@@ -188,6 +208,7 @@ impl ImportScreen {
     fn next_file(&mut self) {
         if let ImportPhase::Drafted(changes) = &self.phase {
             self.shown = (self.shown + 1) % changes.files.len().max(1);
+            self.scroll = 0;
         }
     }
 
@@ -199,6 +220,7 @@ impl ImportScreen {
     fn discard(&mut self) {
         if !matches!(self.phase, ImportPhase::Drafting(_) | ImportPhase::Writing(_)) {
             self.phase = ImportPhase::Form;
+            self.note = None;
         }
     }
 
@@ -206,8 +228,35 @@ impl ImportScreen {
     fn drafted(&mut self, changes: &Changes) {
         if matches!(self.phase, ImportPhase::Drafting(_)) {
             self.phase = ImportPhase::Drafted(changes.clone());
-            self.shown = 0;
+            (self.shown, self.scroll, self.kept) = (0, 0, None);
         }
+    }
+
+    /// Takes why the draft or write asked for failed, if one was asked for: a failed write, or
+    /// a failed draft while another was shown, keeps the draft shown, with why on the status
+    /// line.
+    fn import_failed(&mut self, reason: &str) {
+        let kept = match std::mem::take(&mut self.phase) {
+            ImportPhase::Writing(changes) => Some(changes),
+            ImportPhase::Drafting(_) => self.kept.take(),
+            other => {
+                self.phase = other;
+                return;
+            }
+        };
+        match kept {
+            Some(changes) => {
+                self.phase = ImportPhase::Drafted(changes);
+                self.note = Some(first_line(reason));
+            }
+            None => self.phase = ImportPhase::Failed(reason.to_owned()),
+        }
+    }
+
+    /// The lines of the diff shown.
+    fn diff_lines(&self) -> usize {
+        let (ImportPhase::Drafted(changes) | ImportPhase::Writing(changes)) = &self.phase else { return 0 };
+        changes.files.get(self.shown).map_or(0, |file| file.diff().lines().count())
     }
 }
 
@@ -233,6 +282,10 @@ impl Screen for ImportScreen {
             self.step(down);
             return None;
         }
+        if let Some(scroll) = scrolled(self.scroll, key.code, self.diff_lines()) {
+            self.scroll = scroll;
+            return None;
+        }
         match key.code {
             KeyCode::Left | KeyCode::Right if self.field == 0 => self.turn(key.code == KeyCode::Right),
             KeyCode::Enter | KeyCode::Char(' ') => self.enter(),
@@ -251,7 +304,7 @@ impl Screen for ImportScreen {
             Update::Written(titles) if matches!(self.phase, ImportPhase::Writing(_)) => {
                 self.phase = ImportPhase::Written(titles.clone());
             }
-            Update::ImportFailed(reason) => self.phase = ImportPhase::Failed(reason.clone()),
+            Update::ImportFailed(reason) => self.import_failed(reason),
             _ => {}
         }
     }

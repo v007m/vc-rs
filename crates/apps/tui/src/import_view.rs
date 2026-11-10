@@ -38,7 +38,7 @@ pub fn draw(screen: &ImportScreen, frame: &mut Frame<'_>, area: Rect) {
     let [files, diff] = Layout::vertical([Constraint::Length(listed), Constraint::Fill(1)]).areas(right);
     frame.render_widget(files_pane(changes, screen.shown_file()), files);
     let shown = changes.files.get(screen.shown_file());
-    frame.render_widget(diff_pane(shown), diff);
+    frame.render_widget(diff_pane(shown).scroll((screen.scroll(), 0)), diff);
 }
 
 /// What is being typed, or where the import has got to.
@@ -50,7 +50,9 @@ fn status_line(screen: &ImportScreen) -> Line<'static> {
     match screen.phase() {
         ImportPhase::Form => Line::styled("choose the importer and the source, then d drafts the import", theme::DIM),
         ImportPhase::Drafting(source) => Line::styled(format!("drafting the import of {source}…"), theme::INFO),
-        ImportPhase::Drafted(changes) => Line::styled(drafted(changes), theme::INFO),
+        ImportPhase::Drafted(changes) => {
+            screen.note().map_or_else(|| Line::styled(drafted(changes), theme::INFO), failed)
+        }
         ImportPhase::Writing(changes) => Line::styled(format!("writing {}…", files(changes.files.len())), theme::INFO),
         ImportPhase::Written(titles) => Line::styled(format!("wrote: {}", clean(&titles.join("; "))), theme::PASS),
         ImportPhase::Failed(reason) => failed(reason.lines().next().unwrap_or_default()),

@@ -131,7 +131,7 @@ fn explain_pane(screen: &ExploreScreen) -> Paragraph<'static> {
     match (screen.explained(), screen.chosen()) {
         (Some((id, text)), Some(chosen)) if *id == chosen.id => {
             let lines: Vec<Line<'static>> = text.lines().map(|line| Line::raw(clean(line))).collect();
-            Paragraph::new(lines).wrap(Wrap { trim: false }).block(block)
+            Paragraph::new(lines).wrap(Wrap { trim: false }).scroll((screen.scroll(), 0)).block(block)
         }
         (_, Some(chosen)) => {
             let hint = format!("enter shows how a run sees {}: its URL, vars and checks", clean(&chosen.id));

@@ -25,4 +25,4 @@ expression: "screen(&tui, SIZE)"
 │                                           ││                                                     │
 │                                           ││                                                     │
 └───────────────────────────────────────────┘└─────────────────────────────────────────────────────┘
-  ↑↓  move  enter  explain  t  skip/unskip  r  reload  ?  help  q  quit
+  ↑↓  move  enter  explain  pgup/pgdn  scroll  t  skip/unskip  r  reload  ?  help  q  quit

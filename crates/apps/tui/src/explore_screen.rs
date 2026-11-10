@@ -1,6 +1,7 @@
 //! The Explore tab: the project's apis and tests by file, the chosen one's details and how a
 //! run sees it (`vc explain`), and `t` to skip a test with a reason or to unskip it. It reads
-//! the project when first shown, again on `r`, and after each skip or unskip.
+//! the project when first shown, again on `r`, after each skip or unskip, and when shown after
+//! the Import tab wrote files.
 
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
@@ -10,11 +11,12 @@ use vc_engine::{FileKind, Listed, SkipRequest};
 use crate::explore_view;
 use crate::history_screen::ReadState;
 use crate::input::{Input, Typed};
-use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
+use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move, scrolled};
 use crate::theme::first_line;
 
 /// The Explore tab's keys.
-const KEYS: [(&str, &str); 4] = [("↑↓", "move"), ("enter", "explain"), ("t", "skip/unskip"), ("r", "reload")];
+const KEYS: [(&str, &str); 5] =
+    [("↑↓", "move"), ("enter", "explain"), ("pgup/pgdn", "scroll"), ("t", "skip/unskip"), ("r", "reload")];
 
 /// What the last key came to, for the status line.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -37,6 +39,7 @@ pub struct ExploreScreen {
     explained: Option<(String, String)>,
     reason: Option<(String, Input)>,
     note: Option<Note>,
+    scroll: u16,
 }
 
 /// Whether `item` is an api, not a test.
@@ -88,6 +91,17 @@ impl ExploreScreen {
     /// The test being skipped, as chosen when `t` was pressed, and the reason being typed.
     pub fn reason(&self) -> Option<(&str, &Input)> {
         self.reason.as_ref().map(|(target, typed)| (target.as_str(), typed))
+    }
+
+    /// How far the explanation is scrolled, in lines.
+    pub const fn scroll(&self) -> u16 {
+        self.scroll
+    }
+
+    /// The lines of the chosen item's explanation, when it is the one shown.
+    fn explained_lines(&self) -> usize {
+        let shown = self.explained.as_ref().filter(|(id, _)| self.chosen().is_some_and(|chosen| chosen.id == *id));
+        shown.map_or(0, |(_, text)| text.lines().count())
     }
 
     /// What the last key came to.
@@ -156,6 +170,7 @@ impl ExploreScreen {
 
     fn step(&mut self, down: bool) {
         self.cursor = clamp_step(self.cursor, self.items.len(), down);
+        self.scroll = 0;
     }
 
     /// Takes the listing: each folder's apis, then its tests, each file in project order.
@@ -167,6 +182,14 @@ impl ExploreScreen {
         self.notices = notices.to_vec();
         self.reading = ReadState::Read;
         self.cursor = self.cursor.min(self.items.len().saturating_sub(1));
+    }
+
+    /// Files were written elsewhere: the project shown is stale, so it is read again when the
+    /// tab is next shown, unless a read is under way.
+    fn written(&mut self) {
+        if self.reading != ReadState::Reading {
+            self.reading = ReadState::Unread;
+        }
     }
 
     /// The project could not be read: the reading failed, or the re-read after a skip did.
@@ -205,6 +228,10 @@ impl Screen for ExploreScreen {
             self.step(down);
             return None;
         }
+        if let Some(scroll) = scrolled(self.scroll, key.code, self.explained_lines()) {
+            self.scroll = scroll;
+            return None;
+        }
         match key.code {
             KeyCode::Enter => return self.explain(),
             KeyCode::Char('t') => return self.quarantine(),
@@ -219,7 +246,7 @@ impl Screen for ExploreScreen {
             Update::Explored { items, notices } => self.read(items, notices),
             Update::Explained { id, text } if self.explaining.as_ref() == Some(id) => {
                 self.explained = Some((id.clone(), text.clone()));
-                self.explaining = None;
+                (self.explaining, self.scroll) = (None, 0);
             }
             Update::Quarantined { target, skipped } => {
                 let done = if *skipped { "skipped" } else { "unskipped" };
@@ -231,6 +258,7 @@ impl Screen for ExploreScreen {
                 self.note = Some(Note::Failed(first_line(reason)));
             }
             Update::SkipFailed(reason) => self.note = Some(Note::Failed(first_line(reason))),
+            Update::Written(_) => self.written(),
             _ => {}
         }
     }

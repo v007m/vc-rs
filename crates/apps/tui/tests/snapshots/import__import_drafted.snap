@@ -31,4 +31,4 @@ expression: "screen(&tui, SIZE)"
 │                                              ││+    path: /v1/orders                                                 │
 │                                              ││+    vars:                                                            │
 └──────────────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────┘
-  ↑↓  field  ←→  importer  enter  edit/toggle  d  draft  n  next file  w  write  x  discard  ?  help  q  quit
+  ↑↓  field  ←→  importer  enter  edit  d  draft  n  next  pgup/pgdn  scroll  w  write  x  discard  ?  help  q  quit

@@ -155,3 +155,29 @@ fn a_failure_clears_only_what_it_answers() {
     assert!(!screen(&tui, SIZE).contains(explaining));
     assert_eq!(status(&tui), "error no such test");
 }
+
+#[test]
+fn the_project_is_read_again_when_shown_after_the_import_tab_wrote_files() {
+    let engine = engine().unwrap();
+    let mut tui = on_explore(&engine).unwrap();
+    press(&mut tui, &[KeyCode::Char('5')]);
+    tui.update(&Update::Written(vec!["Import orders".to_owned()]));
+    assert_eq!(press(&mut tui, &[KeyCode::Char('2')]), Some(Ask::Explore), "the catalog shown is stale");
+    tui.update(&explored(&engine).unwrap());
+    assert_eq!(press(&mut tui, &[KeyCode::Char('1'), KeyCode::Char('2')]), None, "read again already");
+}
+
+#[test]
+fn pgdn_and_pgup_scroll_a_long_explanation() {
+    let mut tui = on_explore(&engine().unwrap()).unwrap();
+    let ask = press(&mut tui, &[KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Enter]);
+    let Some(Ask::Explain { id, .. }) = ask else { panic!("enter explains: {ask:?}") };
+    let text = (0..40).map(|at| format!("step {at:02}")).collect::<Vec<_>>().join("\n");
+    tui.update(&Update::Explained { id, text });
+    assert!(screen(&tui, SIZE).contains("step 00"));
+    press(&mut tui, &[KeyCode::PageDown]);
+    let scrolled = screen(&tui, SIZE);
+    assert!(!scrolled.contains("step 00") && scrolled.contains("step 10"), "{scrolled}");
+    press(&mut tui, &[KeyCode::PageUp]);
+    assert!(screen(&tui, SIZE).contains("step 00"));
+}

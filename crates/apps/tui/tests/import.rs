@@ -158,3 +158,35 @@ async fn x_discards_the_draft_and_a_refusal_shows_its_help() {
     assert!(status(&tui).starts_with("error "), "{}", status(&tui));
     assert!(screen(&tui, SIZE).contains("help: give a URL, or a path inside the project"));
 }
+
+#[tokio::test]
+async fn a_failed_write_or_redraft_keeps_the_draft_and_says_why_on_the_status_line() {
+    let mut tui = filled();
+    let Some(Ask::Import(request)) = press(&mut tui, &[KeyCode::Char('d')]) else { panic!("d drafts") };
+    tui.update(&drafted(&request).await.unwrap());
+    let shown = status(&tui);
+    tui.update(&Update::ImportFailed("nothing asked for this".to_owned()));
+    assert_eq!(status(&tui), shown, "a failure nothing asked for is ignored");
+    written(press(&mut tui, &[KeyCode::Char('w')])).unwrap();
+    tui.update(&Update::ImportFailed("disk full\nhelp: free some space".to_owned()));
+    assert_eq!(status(&tui), "error disk full");
+    assert!(screen(&tui, SIZE).contains("+++ b/"), "the draft is still shown");
+    written(press(&mut tui, &[KeyCode::Char('w')])).unwrap();
+    tui.update(&Update::ImportFailed("disk full".to_owned()));
+    assert!(matches!(press(&mut tui, &[KeyCode::Char('d')]), Some(Ask::Import(_))), "d drafts again");
+    tui.update(&Update::ImportFailed("the source moved\nhelp: x".to_owned()));
+    assert_eq!(status(&tui), "error the source moved");
+    assert!(written(press(&mut tui, &[KeyCode::Char('w')])).is_ok(), "the draft before is kept");
+}
+
+#[tokio::test]
+async fn pgdn_and_pgup_scroll_the_diff_shown() {
+    let mut tui = filled();
+    let Some(Ask::Import(request)) = press(&mut tui, &[KeyCode::Char('d')]) else { panic!("d drafts") };
+    tui.update(&drafted(&request).await.unwrap());
+    let top = screen(&tui, SIZE);
+    press(&mut tui, &[KeyCode::PageDown]);
+    assert_ne!(screen(&tui, SIZE), top, "pgdn scrolls the diff on");
+    press(&mut tui, &[KeyCode::PageUp]);
+    assert_eq!(screen(&tui, SIZE), top, "pgup scrolls it back");
+}
