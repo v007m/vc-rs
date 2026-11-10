@@ -1,0 +1,121 @@
+---
+title: "redact"
+description: "Mask extra headers, body fields and patterns in reports and history, on top of secrets."
+sidebar: { order: 51 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`redact` masks values that are not secrets but still should not be stored, such as a password field or an internal header.
+
+```yaml title="vibranium.config.yaml"
+redact:
+  fields: [password]
+  headers: [x-team]
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `redact.fields` | list of text | `[]` | no | JSON field names, masked at any depth. |
+| `redact.headers` | list of text | `[]` | no | Header names, on requests and responses. |
+| `redact.rules` | list | `[]` | no | Your own rules. Each has one of `regex`, `cel` or `function`. |
+| `rules[].regex` | text | — | — | Masks every match in any text. |
+| `rules[].cel` | text | — | — | Masks a JSON field when true. The field is `item.name` and `item.value`. |
+| `rules[].function` | text | — | — | `path#export` of a hook that returns the masked value. |
+
+Masked values show as `••••`.
+
+## Examples
+
+An echo endpoint returns the headers it got, plus two extra fields:
+
+```yaml title="vibranium.config.yaml"
+redact:
+  rules:
+    - regex: tok-[0-9]+
+    - cel: item.name == 'tokenStartsWith'
+    - function: hooks/redact.ts#maskTeam
+  fields: [secret]
+  headers: [x-team]
+```
+
+```ts title="hooks/redact.ts"
+export function maskTeam(input: { text?: string; json?: unknown }) {
+  if (input.text !== undefined) return input.text.replaceAll('dotenv', '[team]');
+  return JSON.parse(JSON.stringify(input.json).replaceAll('dotenv', '[team]'));
+}
+```
+
+The HTML report stores the response body like this:
+
+```json
+{"body":"","headers":{"accept":"text/plain","accept-encoding":"gzip, br, zstd, deflate","authorization":"••••","host":"localhost:7469","user-agent":"vibranium/2","x-team":"[team]","x-token":"••••"},"secret":"••••","tokenStartsWith":"••••"}
+```
+
+- `secret` is masked by `fields`.
+- `tokenStartsWith` is masked by the `cel` rule.
+- The `x-team` value inside the body was `dotenv`; the hook changed it to `[team]`.
+- `x-token` and `authorization` hold the API token, a secret, so they are always masked.
+
+The request headers stored with it:
+
+```json
+[["accept","text/plain"],["user-agent","vibranium/2"],["x-team","••••"],["x-token","••••"],["authorization","••••"]]
+```
+
+`x-team` is masked here by `headers`.
+
+`vc call` applies `fields`, `headers` and secrets, but not `rules` today:
+
+```console
+$ vc call slow#hdr
+200 OK · 139 ms · api expect passed
+{
+  "body": "",
+  "headers": {
+    "accept": "text/plain",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "authorization": "••••",
+    "host": "localhost:7469",
+    "user-agent": "vibranium/2",
+    "x-team": "dotenv",
+    "x-token": "••••"
+  },
+  "secret": "••••",
+  "tokenStartsWith": "s3cr"
+}
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+redact:
+  fields: [password, ssn]
+  headers: [x-internal-key]
+  rules:
+    - regex: '\\d{3}-\\d{2}-\\d{4}'
+    - cel: item.name == 'cardNumber'
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- Secrets, `authorization`, `cookie` and `set-cookie` are always masked. `redact` adds to that list.
+- Rules run after the built-in masks.
+- Reports and `history.db` are masked before they are written. Bodies are cut at [`history.maxBodySize`](/vc-rs/reference/config/history/) only after masking.
+- A `function` rule gets each piece of output whole, as `{ text }` or `{ json }`, and returns it masked.
+- Rules fail closed. A regex that does not compile, a CEL rule that errors, or a hook that throws masks the whole value. With `regex: "[unclosed"`, every text in the report became `••••`. `vc check` does not report a bad regex today.
+
+<Aside type="caution">`redact.rules` do not apply to `vc call` output yet. Check printed output before you paste it somewhere public.</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="secrets" href="/vc-rs/reference/config/secrets/" />
+  <LinkCard title="history" href="/vc-rs/reference/config/history/" />
+</CardGrid>

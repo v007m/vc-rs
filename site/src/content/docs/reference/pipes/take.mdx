@@ -1,0 +1,101 @@
+---
+title: "take"
+description: "Keep the first n elements of a list."
+sidebar: { order: 16 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`take(n)` keeps the first `n` elements of a list.
+
+```yaml
+      top: ${var.cities | take(2)}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | list | — | yes |  |
+| output | list | — | — | At most `n` elements. |
+| `n` | whole number ≥ 0 | — | yes |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  cities: [Tokyo, Delhi, Paris, Lima]
+  pair: [a, b]
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.cities \| take(2)}` | `["Tokyo", "Delhi"]` |
+| `${var.pair \| take(5)}` | `["a", "b"]` |
+| `${var.cities \| take(0)}` | `[]` |
+| `${dataset.capitals \| take(1)}` | `[{"name": "Tokyo", "country": "JP", "population": "37400000"}]` |
+
+Loop over the first rows of a dataset only. `forEach` goes on a step:
+
+```yaml
+    steps:
+      - forEach: ${dataset.capitals | take(2)}
+        call: sample#echo
+        vars:
+          payload:
+            name: ${item.name}
+```
+
+A random sample: `${var.cities | shuffle | take(2)}` sent `["Delhi", "Paris"]` in one run.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: keepsTheFirstTwo
+    call: sample#echo
+    vars:
+      cities: [Tokyo, Delhi, Paris, Lima]
+      payload:
+        top: \${var.cities | take(2)}
+`} />
+
+## How it behaves
+
+- A count larger than the list keeps the whole list.
+- The count is checked by `vc check`: it must be a whole number of 0 or more.
+
+## Common errors
+
+```console
+error[V2304]: pipe `take` takes a list, not text
+  --> services/tpl/pe.test.yaml:11:25
+   |
+11 |         b: ${var.name | take(1)}
+   |                         ^^^^^^^
+
+error[V2308]: pipe `take` takes 1 argument(s), not 0
+  --> services/tpl/pe.test.yaml:10:27
+   |
+10 |         b: ${var.cities | take}
+   |                           ^^^^
+
+error[V2308]: argument 1 of pipe `take` must be a whole number ≥ 0
+  --> services/tpl/pe.test.yaml:12:27
+   |
+12 |         d: ${var.cities | take(-1)}
+   |                           ^^^^^^^^
+```
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be a list.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): no count, or a count that is negative or not whole.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="shuffle" href="/vc-rs/reference/pipes/shuffle/" />
+  <LinkCard title="random" href="/vc-rs/reference/pipes/random/" />
+  <LinkCard title="dataset" href="/vc-rs/reference/templates/dataset/" />
+</CardGrid>

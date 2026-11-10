@@ -1,0 +1,121 @@
+---
+title: "Redaction"
+description: "vc masks secrets, credentials and the fields you name as •••• in output, history and reports, and fails closed when a rule breaks."
+sidebar: { order: 13 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+vc masks credentials before anything is printed or stored. Secrets and auth headers are masked with no setup; `redact:` in the config adds headers, fields and rules of your own.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+redact:
+  headers: [x-trace-key]
+  fields: [password]
+  rules:
+    - regex: '\d{3}-\d{2}-\d{4}'
+    - cel: item.name == 'ssn'
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `redact.headers` | list of header names | — | no | Values of these headers are masked |
+| `redact.fields` | list of field names | — | no | JSON fields with these names are masked at any depth |
+| `redact.rules` | list of rules | — | no | Applied after the built-in masks, in order |
+
+Each rule has exactly one of these keys:
+
+| Rule | Masks |
+| --- | --- |
+| `regex: <pattern>` | Every match, in any text |
+| `cel: <expression>` | A JSON field whose expression is true. The field is `item` (`item.name`, `item.value`) |
+| `function: <path#export>` | Whatever a hook returns. The hook gets each piece as `{ text }` or `{ json }` and returns it masked |
+
+Masked with no setup:
+
+- every `${secret.*}` value of four characters or more, wherever it appears, including inside response bodies;
+- the values of `Authorization`, `Cookie` and `Set-Cookie`;
+- what an auth type adds, such as an API key or the cookies of a `flow`.
+
+## Examples
+
+A secret inside a response body. The server echoed the query back:
+
+```console
+✕ lab.short#showsShortSecret                                      6ms
+  error[V5101]: expect.body.match.query
+    --> services/lab/short.test.yaml:10:18
+     |
+  10 |           query: x
+     |                  ^ expected "x", got {"k":"••••"}
+```
+
+With `LAB_KEY=abc`, three characters, the same check prints `got {"k":"abc"}`. Use secrets of four characters or more.
+
+Credentials from auth. The server echoed the headers it received:
+
+```console
+  9 |           headers.x-api-key: wrong
+    |                              ^^^^^ expected "wrong", got "••••"
+```
+
+`fields` and `rules` together, on a body of `{"note": "call 555-12-3456 or use <LAB_TOKEN>", "profile": {"ssn": 123456789, "password": "nested-pw"}}`:
+
+```console
+  error[V5101]: expect.body.match.note
+     |
+  16 |           note: x
+     |                 ^ expected "x", got "call •••• or use ••••"
+  error[V5101]: expect.body.match.profile
+     |
+  17 |           profile: x
+     |                    ^ expected "x", got {"password":"••••","ssn":"••••"}
+```
+
+The regex masked the number, the secret was masked as a secret, `fields` masked the nested `password`, and the CEL rule masked `ssn`.
+
+A rule that breaks masks more, never less. With `regex: '(['`, which does not compile, every text is masked, even the expected value:
+
+```console
+  15 |           password: x
+     |                     ^ expected "••••", got "••••"
+```
+
+<Aside type="caution">
+In this version, a check on a field listed in `redact.fields` prints the field's own value unmasked when it fails: `expect.body.match.password` shows `got "hunter22"`, in the terminal, in `vc history show` and in the reports. The field is masked when it appears inside a larger value. Do not write checks against such fields until this is fixed. `vc check` also does not report a regex that does not compile.
+</Aside>
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+redact:
+  headers: [x-trace-key]
+  fields: [password]
+  rules:
+    - regex: '\\d{3}-\\d{2}-\\d{4}'
+    - cel: item.name == 'ssn'
+`} />
+
+## How it behaves
+
+- Masked text shows as `••••`.
+- History and reports are masked the same way before they are written: the URL, every header and both bodies. A secret in a URL is also masked in its percent-encoded form.
+- Bodies are cut at `history.maxBodySize` after masking, so a cut never leaves part of a secret showing.
+- Rules fail closed. A regex that does not compile masks every text. A CEL rule that errors masks the field. A hook that throws, runs past its budget or returns a non-string for a text masks the whole piece.
+- Output from a [`command:` action](/vc-rs/reference/lifecycle/command/) is masked too.
+
+## Common errors
+
+Redaction has no error codes of its own. A rule that breaks masks more instead of stopping the run, so output full of `••••` usually means a rule that does not compile or a CEL rule that errors.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Secrets" href="/vc-rs/reference/auth/secrets/" />
+  <LinkCard title="Functions and hooks" href="/vc-rs/reference/data/functions-and-hooks/" />
+  <LinkCard title="Authentication" href="/vc-rs/reference/auth/" />
+</CardGrid>

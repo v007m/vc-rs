@@ -1,0 +1,121 @@
+---
+title: "User config"
+description: "Your personal ~/.config/vibranium/config.yaml, which fills profile, defaults, reports and vars where a project leaves them unset."
+sidebar: { order: 3 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+The user config is a file in your home folder that applies to every project. It sets `profile`, `defaults`, `reports` and `vars`, but only where a project leaves them unset.
+
+```yaml title="~/.config/vibranium/config.yaml"
+defaults:
+  timeout: 12s
+```
+
+## Where it lives
+
+| OS | Path |
+| --- | --- |
+| Any, with `XDG_CONFIG_HOME` set | `$XDG_CONFIG_HOME/vibranium/config.yaml` |
+| macOS, Linux | `$HOME/.config/vibranium/config.yaml` |
+| Windows | `%APPDATA%\vibranium\config.yaml` |
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `profile` | text | — | no | A profile ID. Used only when no project profile has `default: true`. |
+| `defaults` | map | — | no | Same keys as the project's [`defaults`](/vc-rs/reference/config/defaults/). |
+| `reports` | map | — | no | Same keys as the project's [`reports`](/vc-rs/reference/config/reports/). |
+| `vars` | map | — | no | Vars the project does not define. |
+
+Other keys are ignored. A missing file is fine.
+
+## Examples
+
+A personal timeout. The project leaves `defaults.timeout` unset, so yours applies:
+
+```console
+$ vc config explain defaults.timeout
+defaults.timeout = 12s  (/home/ana/.config/vibranium/config.yaml)
+  over 30s  (built-in)
+```
+
+A personal var:
+
+```yaml title="~/.config/vibranium/config.yaml"
+vars:
+  apiKeyOwner: sarah
+```
+
+```console
+$ vc config explain vars.apiKeyOwner
+vars.apiKeyOwner = sarah  (/home/ana/.config/vibranium/config.yaml)
+```
+
+The project wins. With `region: local` in `vibranium.config.yaml` and `region: mine` in the user config:
+
+```console
+$ vc config explain vars.region
+vars.region = local  (vibranium.config.yaml)
+```
+
+A personal profile, for a project whose profiles have no `default: true`:
+
+```yaml title="~/.config/vibranium/config.yaml"
+profile: staging
+```
+
+```console
+$ vc config explain profile
+profile = staging  (/home/ana/.config/vibranium/config.yaml)
+```
+
+When the project marks a default profile, that one wins:
+
+```console
+$ vc config explain profile
+profile = default  (vibranium.config.yaml)
+```
+
+A file that is not YAML stops every command, with exit code 2:
+
+```console
+$ vc config explain defaults.timeout
+error: /home/ana/.config/vibranium/config.yaml: cannot read it: it is not YAML: while parsing a flow sequence, expected ',' or ']' (line 2)
+```
+
+## Try it
+
+The playground checks project config. The user config uses the same `defaults`, `reports` and `vars` shapes.
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+
+defaults:
+  timeout: 12s
+
+reports:
+  formats: [ctrf, html]
+
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- It is layer 2, just above the built-in defaults. See [Layering and precedence](/vc-rs/reference/config/layering/).
+- A value counts only where `vibranium.config.yaml` and its profiles leave it unset. `vc config explain` does not list a user value the project overrides.
+- `.env`, `VIB_*` and `--set` still beat it.
+- It is never read for `auth`, `secrets`, `history`, `redact` or other project keys.
+
+<Aside>Keep secrets out of it. Secrets belong in the environment or `.env`, declared in [`.env.schema`](/vc-rs/reference/config/env-schema/).</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Layering and precedence" href="/vc-rs/reference/config/layering/" />
+  <LinkCard title="vc config explain" href="/vc-rs/reference/config/config-explain/" />
+</CardGrid>

@@ -1,0 +1,373 @@
+---
+title: body
+description: The request body of an api, test or step; a map is sent as JSON, a string as text, and $base64 as raw bytes.
+sidebar: { order: 115, badge: { text: 'api + test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`body` is what a request sends. Write a YAML map and vc sends JSON. Write a string and vc sends the text.
+
+```yaml title="services/sample/sample.api.yaml"
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: ${var.name}
+      email: ${var.email}
+```
+
+## Syntax
+
+| You write | Sent as | Default `content-type` |
+| --- | --- | --- |
+| no `body` | nothing | none |
+| a map, a list, or pasted JSON | JSON | `application/json` |
+| a string | the text, with templates rendered | `text/plain; charset=utf-8` |
+| a string, plus a `content-type` header | the text as written | the header's value |
+| `$base64: <text>` | the decoded bytes | `application/octet-stream` |
+| `$extend: <object>` plus changes | the object with your changes | `application/json` |
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `body` | any | — | no | On an api, a test, a step or a `call`/`test` action. A test's `body` replaces the api's whole. |
+
+## Examples
+
+### A map becomes JSON
+
+Each `${…}` that fills a whole value keeps the var's type. `qty: ${var.qty}` sends a number. `label: qty-${var.qty}` builds a string.
+
+```yaml title="services/bodylab/bodylab.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: post
+    method: POST
+    path: /echo
+    vars:
+      name: Ada
+      qty: 2
+    body:
+      name: ${var.name}
+      qty: ${var.qty}
+      label: qty-${var.qty}
+      shipping:
+        city: Paris
+        zip: "75001"
+      items: [a, b, c]
+```
+
+```console
+$ vc call bodylab#post
+200 OK · 11 ms · api expect passed
+{
+  "body": {
+    "items": [
+      "a",
+      "b",
+      "c"
+    ],
+    "label": "qty-2",
+    "name": "Ada",
+    "qty": 2,
+    "shipping": {
+      "city": "Paris",
+      "zip": "75001"
+    }
+  },
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "content-length": "102",
+    "content-type": "application/json",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2"
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+A test var keeps its YAML type. A `--var` on the command line is always a string, so `vc call bodylab#post --var qty=5` sends `"qty": "5"`. In a test, `vars: { qty: 5 }` sends the number:
+
+```yaml title="services/bodylab/extend.test.yaml"
+  - id: typedValues
+    call: bodylab#post
+    vars:
+      qty: 5
+    expect:
+      body:
+        match:
+          body.qty: 5
+          body.label: qty-5
+```
+
+### Pasted JSON
+
+YAML reads JSON, so you can paste a body from API docs. Templates still work inside the strings:
+
+```yaml title="services/echo/echo.api.yaml"
+  - id: pasted
+    method: POST
+    path: /echo
+    vars:
+      name: Grace
+    body: {"name": "${var.name}", "tags": ["renamed"]}
+```
+
+```console
+$ vc call echo#pasted
+200 OK · 2 ms · api expect passed
+{
+  "body": {
+    "name": "Grace",
+    "tags": [
+      "renamed"
+    ]
+  },
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "content-length": "35",
+    "content-type": "application/json",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2",
+    "x-file-header": "from-file"
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+### Text, XML and raw JSON strings
+
+A string is sent as text. Set `content-type` to send it as something else. A block string (`|`) keeps line breaks:
+
+```yaml title="services/bodylab/bodylab.api.yaml"
+  - id: xml
+    method: PUT
+    path: /echo
+    headers:
+      content-type: application/xml
+    body: |
+      <user><name>${var.name}</name></user>
+    vars:
+      name: Ada
+  - id: rawJson
+    method: POST
+    path: /echo
+    headers:
+      content-type: application/json
+    body: '{"raw": true}'
+```
+
+```console
+$ vc call bodylab#xml
+200 OK · 3 ms · api expect passed
+{
+  "body": "<user><name>Ada</name></user>\n",
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "content-length": "30",
+    "content-type": "application/xml",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2"
+  },
+  "method": "PUT",
+  "path": "/echo",
+  "query": {}
+}
+
+$ vc call bodylab#rawJson
+200 OK · 6 ms · api expect passed
+{
+  "body": {
+    "raw": true
+  },
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "content-length": "13",
+    "content-type": "application/json",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2"
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+Without a `content-type`, a string goes out as `text/plain; charset=utf-8`:
+
+```console
+$ vc call echo#text
+200 OK · 4 ms · api expect passed
+{
+  "body": "plain words",
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "content-length": "11",
+    "content-type": "text/plain; charset=utf-8",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2",
+    "x-file-header": "from-file"
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+### Raw bytes with $base64
+
+`$base64` sends the decoded bytes. `aGVsbG8=` is `hello`:
+
+```yaml title="services/echo/echo.api.yaml"
+  - id: b64
+    method: POST
+    path: /echo
+    body:
+      $base64: aGVsbG8=
+```
+
+```console
+$ vc call echo#b64
+200 OK · 4 ms · api expect passed
+{
+  "body": "hello",
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "content-length": "5",
+    "content-type": "application/octet-stream",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2",
+    "x-file-header": "from-file"
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+### A test replaces the body
+
+A test's `body` replaces the api's body as a whole. Nothing from the api's map is kept. To change a few fields instead, use [`$extend`](/vc-rs/reference/syntax/extend/).
+
+```yaml title="services/bodylab/extend.test.yaml"
+tests:
+  - id: replacesBody
+    call: bodylab#post
+    body:
+      only: this
+    expect:
+      body:
+        match:
+          body:
+            only: this
+          body.name:
+            exists: false
+```
+
+```console
+$ vc run bodylab.extend
+plan  5 tests in 1 file · profile default
+
+✓ bodylab.extend#typedValues                                      4ms
+✓ bodylab.extend#rawStringJson                                    4ms
+✓ bodylab.extend#replacesBody                                     4ms
+✓ bodylab.extend#xmlText                                          4ms
+✓ bodylab.extend#extendsResponse                                  5ms
+
+5 passed                                                     6ms · profile default
+```
+
+<Aside type="caution" title="Not working yet">
+- `$file: <path>` passes `vc check` but fails when the request is sent.
+- A map with `content-type: application/x-www-form-urlencoded` or `multipart/form-data` is currently sent as JSON, not as a form.
+
+Until these are fixed, send a form as a string with the matching `content-type`. You encode it yourself:
+
+```yaml
+    headers:
+      content-type: application/x-www-form-urlencoded
+    body: a=one+two&b=2
+```
+
+The demo receives `"body": "a=one+two&b=2"` with that `content-type`.
+</Aside>
+
+## Try it
+
+<Playground client:visible kind="api" code={`id: bodylab
+baseUrl: \${var.sampleUrl}
+apis:
+  - id: post
+    method: POST
+    path: /echo
+    vars:
+      qty: 2
+    body:
+      name: \${fake.person.fullName}
+      qty: \${var.qty}
+      label: qty-\${var.qty}
+`} />
+
+## How it behaves
+
+- The shape you write picks the encoding: a map or list is JSON, a string is text, `$base64` is bytes.
+- A `content-type` header you set wins over the default. With a string body, the text is sent as written.
+- A template that is the whole value keeps its type, such as a number or a map. A template inside other text makes a string.
+- `body: ${var.payload}` sends the whole var. A map var is sent as JSON.
+- A test's or step's `body` replaces the api's. It does not merge. Use [`$extend`](/vc-rs/reference/syntax/extend/) to change part of a body.
+- A test-level `body` is a default for every `call` and `test:` step.
+- vc sends a body on any method, including `GET`, without a warning on the api. It warns only when a test-level `body` default reaches a GET or HEAD step.
+
+## Common errors
+
+A test-level `body` default that reaches a `GET` step:
+
+```yaml title="services/bodylab/e.test.yaml"
+  - id: defaultOnGet
+    body:
+      a: 1
+    steps:
+      - call: bodylab#get
+      - call: bodylab#post
+```
+
+```console
+warning[V3205]: the test's `body` is sent with `bodylab#get`, a call that takes no body
+  --> services/bodylab/e.test.yaml:18:15
+   |
+15 |     body:
+   |     ---- the test-level default
+...
+18 |       - call: bodylab#get
+   |               ^^^^^^^^^^^ a GET or HEAD call
+   = help: move `body` onto the steps that send one
+```
+
+`$base64` text that does not decode fails when sent:
+
+```console
+✕ bodylab.e#badBase64                                             0ms
+  error[V5111]: the `$base64` body does not decode: Invalid symbol 33, offset 0.
+     = at: call bodylab#post
+```
+
+See [V3205](/vc-rs/reference/diagnostics/v3205/), [V5111](/vc-rs/reference/diagnostics/v5111/) and [V2101](/vc-rs/reference/diagnostics/v2101/) for a var no level sets.
+
+## Related
+
+- [extend](/vc-rs/reference/syntax/extend/): change part of an existing object
+- [headers](/vc-rs/reference/syntax/headers/): `content-type`
+- [method](/vc-rs/reference/syntax/method/)
+- [expect-body](/vc-rs/reference/syntax/expect-body/): checking the response body
+- [Pipes](/vc-rs/reference/pipes/): `json` and other conversions

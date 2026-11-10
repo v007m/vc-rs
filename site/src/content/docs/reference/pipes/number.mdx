@@ -1,0 +1,104 @@
+---
+title: "number"
+description: "Convert text such as \"42.5\" to a JSON number."
+sidebar: { order: 1 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`number` turns text into a JSON number. Use it when a var, a CSV column or an env value holds digits as text and the api wants a number.
+
+```yaml
+      amount: ${var.price | number}   # "42.5" becomes 42.5
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text or a number | — | yes | Surrounding spaces are ignored. A number passes through. |
+| output | number | — | — | A whole number stays whole; a decimal stays a decimal. |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+Text to a number:
+
+```yaml
+vars:
+  price: "42.5"
+  spaced: " 7 "
+  sci: "1e3"
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.price \| number}` | `42.5` |
+| `${var.spaced \| number}` | `7` |
+| `${var.sci \| number}` | `1000.0` |
+
+An env value is always text. Convert it before sending it as a number:
+
+```yaml
+    body:
+      limit: ${env.PAGE_SIZE | number}
+```
+
+A CSV column is text too. With a [dataset](/vc-rs/reference/templates/dataset/) row that has `population: "37400000"`, `${item.population | number}` sends `37400000`.
+
+Use [`int`](/vc-rs/reference/pipes/int/) instead when the api needs a whole number.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: sendsANumber
+    call: sample#echo
+    vars:
+      price: "42.5"
+      payload:
+        amount: \${var.price | number}
+`} />
+
+## How it behaves
+
+- `vc check` accepts text, a number or a boolean as input. At run time a boolean fails (see Common errors).
+- The whole template must be the pipe for the number to stay a number. Inside other text, such as `n=${var.price | number}`, the result is text again. See [Types](/vc-rs/reference/templates/types/).
+- Text that is not a number fails the action at run time with V5111.
+
+## Common errors
+
+A list at check time:
+
+```console
+error[V2304]: pipe `number` takes text, a number or a boolean, not a list
+  --> services/tpl/pe.test.yaml:12:27
+   |
+12 |         c: ${var.cities | number}
+   |                           ^^^^^^
+```
+
+At run time:
+
+```console
+✕ tpl.pe#failsToConvert                                           0ms
+  error[V5111]: pipe `number` cannot take "abc": the text is not a number
+     = at: call sample#echo
+```
+
+With `yes: true`, `${var.yes | number}` passes `vc check` but fails at run time: ``pipe `number` cannot take true: it takes text or a number``.
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known to be a list or an object.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the text is not a number, or the input is a boolean.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="int" href="/vc-rs/reference/pipes/int/" />
+  <LinkCard title="bool" href="/vc-rs/reference/pipes/bool/" />
+  <LinkCard title="Types" href="/vc-rs/reference/templates/types/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

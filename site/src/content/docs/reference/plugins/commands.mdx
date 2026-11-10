@@ -1,0 +1,125 @@
+---
+title: "vc plugin"
+description: "Add, list and remove plugins with vc plugin add, vc plugin list and vc plugin remove, which keep the config, vibranium.lock and the installed files in step."
+sidebar: { order: 4 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`vc plugin` manages a project's plugins. It keeps three things in step: the `plugins` list in `vibranium.config.yaml`, `vibranium.lock`, and the installed copy in `.vibranium/plugins/<id>/`.
+
+```console
+$ vc plugin add path:plugins/summary
+$ vc plugin list
+$ vc plugin remove summary
+```
+
+## Syntax
+
+| Command | Arguments and flags | What it does |
+| --- | --- | --- |
+| `vc plugin add <source>` | `--yes`, `--project <dir>` | Fetches the plugin, shows what it asks to reach and, once you approve, installs it, adds it to the config and records it in `vibranium.lock` |
+| `vc plugin list` | `--project <dir>` | Lists each plugin, its kind, version, source, whether a run can use it, and what it may reach |
+| `vc plugin remove <id>` | `--project <dir>` | Removes the plugin from the config and `vibranium.lock`, and uninstalls it |
+
+| Flag | Default | Notes |
+| --- | --- | --- |
+| `--yes` | off | Approves what the plugin asks to reach without asking. Needed when stdin is not a terminal, such as in CI or an agent |
+| `--project <dir>` | the nearest folder with a `vibranium.config.yaml` | The project to work on |
+
+A source is `npm:<package>[@<range>]` or `path:<folder>`. A path is relative to the project root.
+
+## Examples
+
+**Add a local plugin in a script.** Without a terminal, `vc plugin add` needs `--yes`.
+
+```console
+$ vc plugin add path:plugins/summary
+summary 1.0.0 · reporter plugin from path:plugins/summary (plugins/summary)
+  runs: python3 report.py
+  asks to reach: secret reportToken
+error: cannot ask for approval: stdin is not a terminal
+  = help: pass --yes to approve what it asks to reach
+
+$ vc plugin add path:plugins/summary --yes
+summary 1.0.0 · reporter plugin from path:plugins/summary (plugins/summary)
+  runs: python3 report.py
+  asks to reach: secret reportToken
+✓ added plugin summary from path:plugins/summary
+```
+
+**See what each plugin may reach.**
+
+```console
+$ vc plugin list
+stamp  auth 0.1.0  path:plugins/stamp  ready  may reach: secret stampKey
+summary  reporter 1.0.0  path:plugins/summary  ready  may reach: secret reportToken
+```
+
+**Spot a plugin that needs approving again.** Here the manifest asks for a secret the lock does not grant.
+
+```console
+$ vc plugin list
+summary  reporter 1.0.0  path:plugins/summary  asks for more: secret reportToken; `vc plugin add` it again  may reach: nothing
+```
+
+**Remove a plugin.** `vc` refuses when the config still uses it, and writes nothing.
+
+```console
+$ vc plugin remove ghost
+error: nothing was written: the change would add error[V2302] at vibranium.config.yaml:49: expected one of ctrf, junit, html or a reporter plugin's ID, found `ghost`
+  = help: expected one of `ctrf`, `junit`, `html`, `stamp`, `summary`
+
+$ vc plugin remove ghost        # after taking ghost out of reports.formats
+✓ removed plugin ghost
+```
+
+**Bad sources.** Each exits 2.
+
+```console
+$ vc plugin add git:foo --yes
+error: `git:foo` is not a plugin source
+  = help: a plugin source is `npm:<package>[@<range>]` or `path:<folder>`
+
+$ vc plugin remove nothere
+error: there is no plugin `nothere`
+  = help: `vc plugin list` lists them
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: summary
+    source: path:plugins/summary
+reports:
+  formats: [ctrf, summary]
+`} />
+
+## How it behaves
+
+- `vc plugin add` stages the plugin first, shows its manifest, and installs only on approval. For an `npm:` source it runs `npm pack`, so `npm` must be on your `PATH`.
+- Adding a plugin that is already there approves it again. That is how you accept a new permission or changed files.
+- `vc plugin list` shows `ready` when the lock covers what the manifest asks. It does not yet start the plugin, so `ready` does not prove that the entry command exists or that the installed files are unchanged; the run checks those.
+- `vc plugin remove` leaves the plugin's data folder, `.vibranium/plugin-data/<id>/`, in place.
+- Every command exits 0 on success and 2 on an error.
+
+## Common errors
+
+| Message or code | Fix |
+| --- | --- |
+| `cannot ask for approval: stdin is not a terminal` | Pass `--yes` |
+| `cannot fetch ...: No such file or directory` | Check the `path:` folder, relative to the project root |
+| `cannot fetch ...: npm failed` | Check the package name and that `npm` works; the full log is in `~/.npm/_logs/` |
+| [V2302](/vc-rs/reference/diagnostics/v2302/) | `vc plugin remove` would leave the config naming a missing plugin |
+| [V5118](/vc-rs/reference/diagnostics/v5118/) | At run time: re-run `vc plugin add` when the plugin's files or permissions changed |
+
+## Related
+
+- [vibranium.lock](/vc-rs/reference/plugins/vibranium-lock/)
+- [Permissions](/vc-rs/reference/plugins/permissions/)
+- [CLI reference](/vc-rs/reference/cli/)

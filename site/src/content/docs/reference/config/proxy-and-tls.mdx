@@ -1,0 +1,77 @@
+---
+title: "Proxy and TLS"
+description: "vc reads proxies from HTTP_PROXY, HTTPS_PROXY and NO_PROXY, and trusts the certificates your OS trusts."
+sidebar: { order: 31 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+There are no proxy or TLS keys in `vibranium.config.yaml`. A proxy comes from the usual environment variables, and HTTPS uses your system's certificate store.
+
+```sh
+export HTTPS_PROXY=http://proxy.corp.example:3128
+export NO_PROXY=localhost,.internal.example
+vc run
+```
+
+## Environment variables
+
+| Variable | Notes |
+| --- | --- |
+| `HTTP_PROXY` | Proxy for `http://` requests. |
+| `HTTPS_PROXY` | Proxy for `https://` requests, through a `CONNECT` tunnel. |
+| `NO_PROXY` | Hosts that skip the proxy. |
+
+Upper-case names are read first, then lower-case (`http_proxy`).
+
+## Examples
+
+A proxy that is not running makes every call fail:
+
+```console
+$ HTTP_PROXY=http://127.0.0.1:9 vc call slow#wait
+✗ cannot connect to 127.0.0.1:9: Connection refused (os error 61)
+```
+
+`NO_PROXY` lets local calls skip it:
+
+```console
+$ HTTP_PROXY=http://127.0.0.1:9 NO_PROXY=localhost vc call slow#wait
+200 OK · 3 ms · api expect passed
+{
+  "sleptMs": 0
+```
+
+The lower-case name works too:
+
+```console
+$ http_proxy=http://127.0.0.1:9 vc call slow#wait
+✗ cannot connect to 127.0.0.1:9: Connection refused (os error 61)
+```
+
+Adding a proxy key to the config is an error:
+
+```console
+$ vc check
+error[V1004]: unknown key `proxy` in http
+  --> vibranium.config.yaml:21:3
+   |
+21 |   proxy: http://p:8080
+   |   ^^^^^ not a known key
+   = help: expected one of `retry`
+```
+
+## How it behaves
+
+- Only `http://` proxy URLs are supported.
+- Certificates are always verified. The trusted roots are your OS certificate store, so a company CA that your OS trusts works.
+- There is no setting to skip verification or to add a CA file.
+
+<Aside>To trust a private CA, add it to your OS certificate store.</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="http.retry" href="/vc-rs/reference/config/http-retry/" />
+  <LinkCard title="VIB_* variables" href="/vc-rs/reference/config/vib-variables/" />
+</CardGrid>

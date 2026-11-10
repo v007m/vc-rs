@@ -1,0 +1,175 @@
+---
+title: call
+description: Send one request through an api, with optional overrides for vars, auth, headers, query, body, expect and save.
+sidebar: { order: 210, badge: { text: 'test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`call` names the api a test, step or lifecycle action sends. The api supplies the method, path, headers and body. The test adds what it expects.
+
+```yaml title="services/sample/users.test.yaml"
+tests:
+  - id: listsUsers
+    call: sample#listUsers
+    expect:
+      status: 200
+```
+
+## Syntax
+
+`call` takes an api ID: `<fileId>#<id>`, such as `sample#listUsers`. A test entry needs exactly one of `call` or [`steps`](/vc-rs/reference/syntax/steps/). An action (a step, or an entry in `before`, `after` or a lifecycle block) needs exactly one of `call`, [`test`](/vc-rs/reference/syntax/test/), [`function`](/vc-rs/reference/syntax/function/) or [`command`](/vc-rs/reference/syntax/command/).
+
+These keys sit next to `call` and override or extend the api for this one call:
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `call` | api ID | — | yes | Always the full `fileId#id`, even for an api in the same folder. |
+| `id` | camelCase | — | no | Names the call so a later step can read its response, such as `${created.body.id}`. Required on a `beforeAll` or `beforeRun` action that saves values. |
+| `vars` | map | — | no | Replaces the api's vars of the same name. See [vars](/vc-rs/reference/syntax/vars/). |
+| `auth` | string or map | api, then config | no | An auth name from the config, or `none`. See [auth](/vc-rs/reference/syntax/auth/). |
+| `headers` | map | — | no | Merged per key over the api's headers. |
+| `query` | map | — | no | Merged per key over the api's query. |
+| `body` | any | api body | no | Replaces the api's body. |
+| `timeout` | duration | the api's, then config `defaults.timeout` | no | On a step or action: the limit on each request attempt. On a test entry: the limit on the whole test. See [timeout](/vc-rs/reference/syntax/timeout/). |
+| `expect` | map | — | no | Added to the api's own `expect`. See [expect](/vc-rs/reference/syntax/expect/). |
+| `save` | map | — | no | Values to keep for later steps. See [save](/vc-rs/reference/syntax/save/). |
+| `poll`, `retry`, `repeat`, `forEach`, `parallel` | | | no | See [poll](/vc-rs/reference/syntax/poll/), [retry](/vc-rs/reference/syntax/retry/), [repeat](/vc-rs/reference/syntax/repeat/), [forEach](/vc-rs/reference/syntax/for-each/), [parallel](/vc-rs/reference/syntax/parallel/). |
+| `keep`, `cache`, `provides` | | | no | See [keep](/vc-rs/reference/syntax/keep/), [cache](/vc-rs/reference/syntax/cache/), [provides](/vc-rs/reference/syntax/provides/). |
+
+## Examples
+
+### A plain call
+
+The api already knows how to call the endpoint, so the test only states what it expects.
+
+```yaml title="services/flow/call.test.yaml"
+id: flow.call
+tests:
+  - id: listsUsers
+    call: sample#listUsers
+    expect:
+      status: 200
+      body:
+        match:
+          "[0].name": Ada Lovelace
+```
+
+### Overriding the api for one call
+
+Here the api `echo#json` sends `{name, tags}` with the var `name` set to `Ada`. The test changes the var, turns auth off, adds a header and a query param, and sets a timeout.
+
+```yaml title="services/flow/call.test.yaml"
+  - id: sendsOverrides
+    call: echo#json
+    auth: none
+    vars:
+      name: Grace
+    headers:
+      x-trace: abc
+    query:
+      page: "2"
+    timeout: 5s
+    expect:
+      body:
+        match:
+          body.name: Grace
+          headers.x-trace: abc
+          query.page: "2"
+    save:
+      echoedPath: ${response.body.path}
+```
+
+```console
+$ vc run flow.call
+plan  2 tests in 1 file · profile default
+
+✓ flow.call#listsUsers                                            2ms
+✓ flow.call#sendsOverrides                                        2ms
+
+2 passed                                                     3ms · profile default
+```
+
+`vc explain` shows where each value came from. The var line reads `name Grace (test)`, so the test's value won over the api's.
+
+### Calls as steps
+
+Inside [`steps`](/vc-rs/reference/syntax/steps/), each `call` is one request. Give a step an `id` to read its response later.
+
+```yaml title="services/flow/steps.test.yaml"
+  - id: createsThenReads
+    steps:
+      - id: created
+        call: sample#createUser
+        vars:
+          email: ada@example.com
+      - call: sample#getUser
+        expect:
+          status: 200
+          body:
+            match:
+              id: ${created.body.id}
+```
+
+`sample#createUser` saves `userId`, so `sample#getUser` (path `/users/${var.userId}`) reads the user that was just made.
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.call
+tests:
+  - id: sendsOverrides
+    call: echo#json
+    vars:
+      name: Grace
+    headers:
+      x-trace: abc
+    expect:
+      status: 200
+      body:
+        match:
+          body.name: Grace
+    save:
+      echoedPath: \${response.body.path}
+`} />
+
+## How it behaves
+
+- The api's own `expect`, `save` and `cleanup` always apply. The test's `expect` is added on top: both must pass.
+- `headers` and `query` merge per key with the api's (and the api file's) values. The call's value wins on a clash.
+- `body` replaces the api's body as a whole.
+- `vars` on the call replace the api's vars of the same name. Other api vars keep their defaults.
+- An api's `cleanup` is registered when the call passes and runs after the test. Set [`keep: true`](/vc-rs/reference/syntax/keep/) to skip it.
+- `timeout` on a `call` step or action limits each request attempt. On a test entry with `call:` it limits the whole test, and the api's own request limit still applies. On a [`test`](/vc-rs/reference/syntax/test/) action it limits all its calls together.
+
+## Common errors
+
+An api ID with a typo fails `vc check` and suggests near matches:
+
+```console
+error[V2003]: unknown api "sample#listUser"
+   = help: did you mean one of `sample#listUsers`, `sample#getUser`, `sample#createUser`?
+```
+
+A bare ID is never resolved against the current file. Write the api's full ID:
+
+```console
+error[V2003]: unknown api "flow.bad2#listUsers"
+   = help: another file's item is `fileId#id`
+```
+
+A test entry needs exactly one of `call` and `steps`:
+
+```console
+error[V2201]: write only one of `call`, `steps`
+error[V2201]: a testEntry needs one of `call`, `steps`
+```
+
+See [V2003](/vc-rs/reference/diagnostics/v2003/) and [V2201](/vc-rs/reference/diagnostics/v2201/).
+
+## Related
+
+- [steps](/vc-rs/reference/syntax/steps/): several calls in order
+- [test](/vc-rs/reference/syntax/test/): reuse a whole test as one action
+- [apis](/vc-rs/reference/syntax/apis/): what a call sends
+- [expect](/vc-rs/reference/syntax/expect/) and [save](/vc-rs/reference/syntax/save/)

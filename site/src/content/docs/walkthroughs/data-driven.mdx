@@ -1,0 +1,627 @@
+---
+title: Data-driven tests
+description: Run one test over many inputs with examples, CSV and JSON datasets, forEach and repeat, generate realistic data, and replay a run exactly with --seed.
+sidebar: { order: 3 }
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+## Goal
+
+You will write tests that take their inputs from data instead of copy-paste:
+
+- **`examples`**: one test, one instance per row, written inline or in a file.
+- **Datasets**: CSV and JSON files in `datasets/`.
+- **`forEach`** and **`repeat`**: run one action many times inside a test, optionally in **`parallel`**.
+- **Generated data**: `${fake.*}` and your own named generators.
+- **`--seed`**: replay a run with exactly the same generated data.
+
+It takes about 20 minutes.
+
+## Prerequisites
+
+- `vc` and `vc-demo` on your `PATH`. See [Install](/vc-rs/start/install/).
+- `jq`, for one step that reads the JSON event stream. It is optional.
+
+You will call the demo service. Two of its endpoints matter here:
+
+| Request | Answer |
+| --- | --- |
+| `POST /users` with a string `email` | `201` and `{ id, name, email }`. Without a string `email`: `400` and `{"error":"a user needs an email"}` |
+| `POST /echo` | `200` and what it received: `{ method, path, query, headers, body }` |
+
+`/echo` lets you see exactly what vc sent, so it is ideal for exploring data features.
+
+## Steps
+
+<Steps>
+
+1. **Create a project and start the demo.**
+
+   ```console
+   $ mkdir people && cd people
+   $ vc init --no-sample
+   $ vc demo start --port 7481 --detach
+   demo running on http://localhost:7481 (pid 5603)
+   ```
+
+   In `vibranium.config.yaml`, replace the `sampleUrl` line under `vars` with a var for the demo:
+
+   ```yaml title="vibranium.config.yaml (excerpt)"
+   vars:
+     peopleUrl: http://localhost:7481
+   ```
+
+2. **Write the api file.** `create` makes a user and cleans it up afterwards. `echo` has no body of its own; each test supplies one.
+
+   ```yaml title="services/people/people.api.yaml"
+   # yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
+   name: People, served by vc demo
+   baseUrl: ${var.peopleUrl}
+
+   apis:
+     - id: create
+       name: Create a user
+       method: POST
+       path: /users
+       vars:
+         name: ${fake.person.fullName}
+         email: ${fake.internet.email}
+       body:
+         name: ${var.name}
+         email: ${var.email}
+       expect:
+         status: 201
+       save:
+         userId: ${response.body.id}
+       cleanup:
+         call: delete
+         vars:
+           userId: ${response.body.id}
+
+     - id: delete
+       name: Delete a user
+       method: DELETE
+       path: /users/${var.userId}
+       expect:
+         status: [204, 404]
+
+     - id: echo
+       name: Send any JSON and get it back
+       method: POST
+       path: /echo
+   ```
+
+3. **Inline examples.** An `examples` list makes one test instance per row. Read the current row with `${example.<column>}`.
+
+   ```yaml title="services/people/signup.test.yaml"
+   # yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/test.schema.json
+   name: Sign-up with many inputs
+   tags: [people, data]
+
+   tests:
+     - id: createsEachUser
+       name: Creates a user for every row
+       examples:
+         - name: Ada Lovelace
+           email: ada@example.com
+         - name: Grace Hopper
+           email: grace@example.com
+         - name: Alan Turing
+           email: alan@example.com
+       call: people#create
+       vars:
+         name: ${example.name}
+         email: ${example.email}
+       expect:
+         body:
+           match:
+             name: ${example.name}
+             email: ${example.email}
+
+     - id: rejectsBadEmail
+       name: Rejects an email that is not text
+       examples:
+         - email: 42
+         - email: true
+         - email: null
+       call: people#create
+       vars:
+         email: ${example.email}
+       expect:
+         status: 400
+         body:
+           match:
+             error: a user needs an email
+   ```
+
+   A value written as a whole template keeps its type. Row 1 sends the number `42`, row 2 the boolean `true` and row 3 `null`, and the demo rejects each one. The test's `status: 400` replaces the api's `201`. A failed create registers no cleanup.
+
+4. **Examples from a file.** Long tables read better in their own file. `$file` is relative to the test file:
+
+   ```yaml title="services/people/signup-rows.yaml"
+   - name: Linus Torvalds
+     email: linus@example.com
+   - name: Margaret Hamilton
+     email: margaret@example.com
+   ```
+
+   Add a third test to `signup.test.yaml`:
+
+   ```yaml title="services/people/signup.test.yaml (continued)"
+     - id: createsUsersFromFile
+       name: Creates a user for every row in signup-rows.yaml
+       examples:
+         $file: signup-rows.yaml
+       call: people#create
+       vars:
+         name: ${example.name}
+         email: ${example.email}
+       expect:
+         body:
+           match:
+             email: ${example.email}
+   ```
+
+   Run the file. Every row is its own instance:
+
+   ```console
+   $ vc run people.signup
+   plan  3 tests in 1 file · profile default
+
+   ✓ people.signup#rejectsBadEmail [row 1]                           3ms
+   ✓ people.signup#rejectsBadEmail [row 3]                          42ms
+   ✓ people.signup#createsUsersFromFile [row 1]                     42ms
+   ✓ people.signup#rejectsBadEmail [row 2]                          42ms
+   ✓ people.signup#createsEachUser [row 2]                          42ms
+   ✓ people.signup#createsUsersFromFile [row 2]                     50ms
+   ✓ people.signup#createsEachUser [row 3]                          48ms
+   ✓ people.signup#createsEachUser [row 1]                          68ms
+
+   8 passed                                                     77ms · profile default
+   reports  …/.vibranium/reports/37/{ctrf.json,junit.xml,index.html}
+   ```
+
+   The report path is shortened on this page; vc prints the full path.
+
+5. **Add datasets.** Every CSV (with a header row), JSON array or YAML list under `datasets/` is a dataset. Its ID is its path without the extension, with dots for folders:
+
+   ```csv title="datasets/cities.csv"
+   name,country,population
+   Tokyo,JP,37400000
+   Delhi,IN,32900000
+   Paris,FR,11200000
+   Lagos,NG,15900000
+   ```
+
+   ```json title="datasets/users/admins.json"
+   [
+     {"name": "Ada Lovelace", "email": "ada@example.com"},
+     {"name": "Grace Hopper", "email": "grace@example.com"},
+     {"name": "Katherine Johnson", "email": "katherine@example.com"}
+   ]
+   ```
+
+   These are `${dataset.cities}` and `${dataset.users.admins}`.
+
+6. **One test per dataset row.** Pass a dataset to `examples`. Start a new test file:
+
+   ```yaml title="services/people/datasets.test.yaml"
+   # yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/test.schema.json
+   name: Tests fed by datasets
+   tags: [people, data]
+
+   tests:
+     - id: sendsEveryCity
+       name: Sends each city from datasets/cities.csv
+       examples: ${dataset.cities}
+       call: people#echo
+       body:
+         city: ${example.name}
+         country: ${example.country}
+         population: ${example.population | int}
+       expect:
+         status: 200
+         body:
+           match:
+             body.city: ${example.name}
+             body.population:
+               type: integer
+   ```
+
+   CSV cells are always text. The `int` pipe turns `"37400000"` into the number `37400000`. Without it, the check fails:
+
+   ```console
+   $ vc run people.datasets#sendsEveryCity:1
+   plan  1 test in 1 file · profile default
+
+   ✕ people.datasets#sendsEveryCity [row 1]                          5ms
+     error[V5101]: expect.body.match.body.population
+       --> services/people/datasets.test.yaml:20:13
+        |
+     20 |             type: integer
+        |             ^^^^^^^^^^^^^ expected {"type":"integer"}, got "37400000"
+
+   0 passed · 1 failed                                          6ms · profile default
+   reports  …/.vibranium/reports/18/{ctrf.json,junit.xml,index.html}
+   next     vc run --failed
+   seed 4755255180908973374: pass `--seed 4755255180908973374` to run with the same generated data
+   ```
+
+   JSON and YAML datasets keep their types, so they need no pipe.
+
+7. **One call per row with `forEach`.** `examples` makes many test instances. `forEach` runs one action many times inside a single test. That is how you create seed data. Add to `datasets.test.yaml`:
+
+   ```yaml title="services/people/datasets.test.yaml (continued)"
+     - id: createsEveryAdmin
+       name: Creates every admin, three at a time, then sends their IDs
+       steps:
+         - call: people#create
+           forEach: ${dataset.users.admins}
+           parallel: 3
+           vars:
+             name: ${item.name}
+             email: ${item.email}
+         - call: people#echo
+           body:
+             ids: ${var.userId}
+           expect:
+             body:
+               match:
+                 body.ids:
+                   length: 3
+   ```
+
+   - `${item}` is the current element; `${item.name}` reads a column.
+   - `parallel: 3` runs up to three iterations at once. The default is `1`, one after another.
+   - A name saved inside a loop collects a **list**. After the loop, `${var.userId}` holds all three IDs, in iteration order, even when the iterations ran in parallel.
+   - Each successful iteration registers its own cleanup, so all three users are deleted when the test ends.
+
+   With the JSON reporter you can see the list that was sent:
+
+   ```console
+   $ vc run people.datasets#createsEveryAdmin --reporter json | jq -c 'select(.event == "checkEvaluated") | [.check.key, .check.actual]'
+   ["status",201]
+   ["status",201]
+   ["status",201]
+   ["status",200]
+   ["body.match.body.ids",["31","32","30"]]
+   ```
+
+   The demo hands out IDs in the order requests arrive. Here Katherine's request arrived first, but her ID is still third in the list, because the list follows the dataset's order.
+
+8. **Loop over a literal list, or repeat.** `forEach` also takes a plain list. `repeat: n` runs an action `n` times. Inside either loop, `${iteration.index}` counts from 1 and `${iteration.count}` is the total.
+
+   ```yaml title="services/people/datasets.test.yaml (continued)"
+     - id: countsTo
+       name: Sends the same request three times
+       steps:
+         - id: pings
+           call: people#echo
+           repeat: 3
+           body:
+             attempt: ${iteration.index}
+             of: ${iteration.count}
+
+     - id: triesEachPlan
+       name: Sends one request per plan name
+       steps:
+         - call: people#echo
+           forEach: [free, pro, team]
+           body:
+             plan: ${item}
+             position: ${iteration.index}
+           expect:
+             body:
+               match:
+                 body.plan: ${item}
+   ```
+
+   If you write both `repeat` and `forEach` on one action, `forEach` is used. Run the file:
+
+   ```console
+   $ vc run people.datasets
+   plan  4 tests in 1 file · profile default
+
+   ✓ people.datasets#sendsEveryCity [row 4]                         45ms
+   ✓ people.datasets#sendsEveryCity [row 2]                         45ms
+   ✓ people.datasets#sendsEveryCity [row 3]                         45ms
+   ✓ people.datasets#sendsEveryCity [row 1]                         45ms
+   ✓ people.datasets#triesEachPlan                                  45ms
+   ✓ people.datasets#countsTo                                       45ms
+   ✓ people.datasets#createsEveryAdmin                              45ms
+
+   7 passed                                                     49ms · profile default
+   reports  …/.vibranium/reports/38/{ctrf.json,junit.xml,index.html}
+   ```
+
+   A loop is one test instance with one line in the console. Only `examples` (and `repeat` on a whole test, below) add lines.
+
+9. **Generated data and named generators.** Declare generators you reuse in the config. Each has exactly one kind: `fromRegExp`, `oneOf`, `int` or `lorem`.
+
+   ```yaml title="vibranium.config.yaml (excerpt)"
+   generators:
+     - id: ticketCode
+       fromRegExp: "TCK-[A-Z]{3}-[0-9]{4}"
+     - id: plan
+       oneOf: [free, pro, team]
+     - id: seats
+       int:
+         min: 1
+         max: 50
+   ```
+
+   Use them like built-in ones: `${fake.ticketCode}`. Then write a test that sends a mix of generated values to `/echo`:
+
+   ```yaml title="services/people/fake.test.yaml"
+   # yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/test.schema.json
+   name: Generated data
+   tags: [people, data]
+
+   tests:
+     - id: sendsGeneratedData
+       name: Sends generated values and gets them back
+       call: people#echo
+       vars:
+         email: ${fake.internet.email}
+       body:
+         first: ${var.email}
+         again: ${var.email}
+         fresh: ${fake.internet.email}
+         ticket: ${fake.ticketCode}
+         plan: ${fake.plan}
+         seats: ${fake.seats}
+         city: ${dataset.cities | random}
+         sample: ${dataset.cities | shuffle | take(2)}
+       expect:
+         body:
+           match:
+             body.first: ${var.email}
+             body.again: ${var.email}
+             body.fresh:
+               ne: ${var.email}
+             body.ticket:
+               regex: "^TCK-[A-Z]{3}-[0-9]{4}$"
+             body.plan:
+               in: [free, pro, team]
+             body.seats:
+               between: [1, 50]
+             body.city.name:
+               type: string
+             body.sample:
+               length: 2
+   ```
+
+   The two rules to remember:
+
+   | You write | You get |
+   | --- | --- |
+   | `${fake.…}` in `vars`, read as `${var.email}` | One value per test instance (or per loop iteration). Every read gets the same value, so `first`, `again` and the check agree. |
+   | `${fake.…}` inline in a field | A new value every time it is rendered. `fresh` differs from `first`. |
+
+   The pipes pick from a dataset: `random` takes one row, `shuffle` reorders the rows and `take(2)` keeps the first two. A whole row stays together, so `city.name` and `city.country` always match.
+
+10. **Repeat a whole test.** `repeat` on a test, not on an action, runs the whole test that many times and reports each instance:
+
+    ```yaml title="services/people/fake.test.yaml (continued)"
+      - id: sendsFreshDataEachRun
+        name: Each repeat gets its own generated email
+        repeat: 3
+        call: people#echo
+        vars:
+          email: ${fake.internet.email}
+        body:
+          email: ${var.email}
+          round: ${iteration.index}
+        expect:
+          body:
+            match:
+              body.email: ${var.email}
+              body.round:
+                between: [1, 3]
+    ```
+
+    ```console
+    $ vc run people.fake
+    plan  2 tests in 1 file · profile default
+
+    ✓ people.fake#sendsFreshDataEachRun [repeat 3]                    8ms
+    ✓ people.fake#sendsGeneratedData                                  8ms
+    ✓ people.fake#sendsFreshDataEachRun [repeat 1]                    9ms
+    ✓ people.fake#sendsFreshDataEachRun [repeat 2]                   10ms
+
+    4 passed                                                     11ms · profile default
+    reports  …/.vibranium/reports/39/{ctrf.json,junit.xml,index.html}
+    ```
+
+    Each repeat is a new instance, so each gets its own email. To hunt for a flaky test without editing YAML, pass `--repeat` to `vc run`. It replaces every selected test's own `repeat`:
+
+    ```console
+    $ vc run people.fake#sendsGeneratedData --repeat 3
+    plan  1 test in 1 file · profile default
+
+    ✓ people.fake#sendsGeneratedData                                  6ms
+    ✓ people.fake#sendsGeneratedData [repeat 3]                       6ms
+    ✓ people.fake#sendsGeneratedData [repeat 2]                       6ms
+
+    3 passed                                                     7ms · profile default
+    reports  …/.vibranium/reports/40/{ctrf.json,junit.xml,index.html}
+    ```
+
+11. **Replay generated data with `--seed`.** Every run picks a seed for its generators and for `random` and `shuffle`. Pass the same seed and you get the same data. The JSON reporter's `checkEvaluated` events show each value that came back:
+
+    ```console
+    $ vc run people.fake#sendsGeneratedData --seed 42 --reporter json | jq -c 'select(.event == "checkEvaluated") | .check.actual'
+    200
+    "naomie@example.com"
+    "naomie@example.com"
+    "duncan@example.net"
+    "TCK-VCY-0917"
+    "free"
+    23
+    "Delhi"
+    [{"country":"FR","name":"Paris","population":"11200000"},{"country":"JP","name":"Tokyo","population":"37400000"}]
+    ```
+
+    Run the same command again and every line is identical. A different seed gives different data:
+
+    ```console
+    $ vc run people.fake#sendsGeneratedData --seed 1 --reporter json | jq -c 'select(.event == "checkEvaluated") | .check.actual'
+    200
+    "kenny@example.org"
+    "kenny@example.org"
+    "wallace@example.net"
+    "TCK-HEY-9514"
+    "free"
+    47
+    "Tokyo"
+    [{"country":"JP","name":"Tokyo","population":"37400000"},{"country":"NG","name":"Lagos","population":"15900000"}]
+    ```
+
+    You rarely pick a seed up front. When a run fails, vc prints the seed it used, as in step 6:
+
+    ```console
+    seed 4755255180908973374: pass `--seed 4755255180908973374` to run with the same generated data
+    ```
+
+    Copy that flag to reproduce the failure with the same data. The HTML report also shows the seed.
+
+12. **Let `vc check` catch typos.** `vc check` reads dataset headers and `$file` rows, so a wrong column or dataset name fails before anything is sent. With `${example.nmae}` and `${dataset.users.admin}`:
+
+    ```console
+    $ vc check
+    error[V2103]: ${example.nmae} names no column of this test's examples
+      --> services/people/datasets.test.yaml:11:13
+       |
+     8 |     examples: ${dataset.cities}
+       |               ----------------- the rows
+    ...
+    11 |       city: ${example.nmae}
+       |             ^^^^^^^^^^^^^^^ no row has `nmae`
+       = help: the columns are `country`, `name`, `population`
+       = help: did you mean `name`?
+       = fix: Replace with name (certain)
+
+    error[V2002]: `dataset.users.admin` names no dataset
+      --> services/people/datasets.test.yaml:26:18
+       |
+    26 |         forEach: ${dataset.users.admin}
+       |                  ^^^^^^^^^^^^^^^^^^^^^^ no dataset has this ID
+       = note: the datasets are `cities`, `users.admins`; a dataset is a file under `datasets/` or an entry of `datasets.files` in the config
+       = help: did you mean `users.admins`?
+       = fix: Replace with users.admins (certain)
+    ```
+
+    (The output also repeats V2103 for the second `${example.nmae}`, on line 18.)
+
+13. **Run one row.** `vc plan` shows each row's position; add `:n` to a test ID to run just that row:
+
+    ```console
+    $ vc plan people.datasets
+    plan  4 tests in 1 file · profile default
+    people.datasets
+      people.datasets#sendsEveryCity [row 1]
+      people.datasets#sendsEveryCity [row 2]
+      people.datasets#sendsEveryCity [row 3]
+      people.datasets#sendsEveryCity [row 4]
+      people.datasets#createsEveryAdmin
+      people.datasets#countsTo
+      people.datasets#triesEachPlan
+    $ vc run people.datasets#sendsEveryCity:3
+    plan  1 test in 1 file · profile default
+
+    ✓ people.datasets#sendsEveryCity [row 3]                          2ms
+
+    1 passed                                                     3ms · profile default
+    reports  …/.vibranium/reports/16/{ctrf.json,junit.xml,index.html}
+    ```
+
+14. **Clean up.** Stop the demo when you are done:
+
+    ```console
+    $ vc demo stop --port 7481
+    stopped the demo on port 7481
+    ```
+
+</Steps>
+
+## Final files
+
+```text
+people/
+├── vibranium.config.yaml        # peopleUrl var + generators
+├── datasets/
+│   ├── cities.csv               # ${dataset.cities}
+│   └── users/admins.json        # ${dataset.users.admins}
+└── services/people/
+    ├── people.api.yaml
+    ├── signup.test.yaml         # inline and $file examples
+    ├── signup-rows.yaml
+    ├── datasets.test.yaml       # dataset examples, forEach, repeat
+    └── fake.test.yaml           # generators, pipes, repeat on a test
+```
+
+The api file is in step 2, `signup.test.yaml` is steps 3 and 4, `datasets.test.yaml` is steps 6 to 8, and `fake.test.yaml` is steps 9 and 10. The whole project in one run:
+
+```console
+$ vc run --seed 42
+plan  9 tests in 3 files · profile default
+
+✓ people.signup#rejectsBadEmail [row 1]                           3ms
+✓ people.signup#rejectsBadEmail [row 3]                           3ms
+✓ people.fake#sendsFreshDataEachRun [repeat 3]                    3ms
+✓ people.fake#sendsFreshDataEachRun [repeat 1]                    3ms
+✓ people.datasets#sendsEveryCity [row 2]                          3ms
+✓ people.signup#rejectsBadEmail [row 2]                           3ms
+✓ people.datasets#sendsEveryCity [row 3]                          3ms
+✓ people.fake#sendsGeneratedData                                  4ms
+✓ people.signup#createsEachUser [row 3]                           4ms
+✓ people.datasets#sendsEveryCity [row 1]                          4ms
+✓ people.fake#sendsFreshDataEachRun [repeat 2]                    4ms
+✓ people.signup#createsEachUser [row 1]                           4ms
+✓ people.datasets#sendsEveryCity [row 4]                          1ms
+✓ people.datasets#triesEachPlan                                   5ms
+✓ people.signup#createsEachUser [row 2]                           5ms
+✓ people.signup#createsUsersFromFile [row 2]                      5ms
+✓ people.signup#createsUsersFromFile [row 1]                      5ms
+✓ people.datasets#countsTo                                        2ms
+✓ people.datasets#createsEveryAdmin                               3ms
+
+19 passed                                                    8ms · profile default
+reports  …/.vibranium/reports/19/{ctrf.json,junit.xml,index.html}
+```
+
+## Try a variation
+
+Turn `forEach` into `repeat`, raise `parallel`, or read a column that doesn't exist and watch the editor:
+
+<Playground client:visible kind="test" title="datasets.test.yaml" code={`name: Tests fed by datasets
+tests:
+  - id: createsEveryAdmin
+    name: Creates every admin, three at a time
+    steps:
+      - call: people#create
+        forEach: \${dataset.users.admins}
+        parallel: 3
+        vars:
+          name: \${item.name}
+          email: \${item.email}
+`} />
+
+## What you learned
+
+- **`examples`** makes one test instance per row: inline, from `$file`, or from `${dataset.<id>}`. Run one row with `:n`.
+- **Datasets** are CSV, JSON or YAML files in `datasets/`. CSV cells are text, so use `| int` for numbers.
+- **`forEach`** and **`repeat`** run one action many times inside a test. `parallel` runs iterations at once. Saved names collect lists in iteration order.
+- **`repeat` on a test** and **`--repeat`** add test instances.
+- **`${fake.*}`** in `vars` is generated once per instance; inline, it is new on every render. Named **generators** live in the config.
+- **`--seed`** replays the same generated data, `random` and `shuffle` included. A failing run prints its seed.
+
+## Next
+
+- [`examples`](/vc-rs/reference/syntax/examples/), [`forEach`](/vc-rs/reference/syntax/for-each/), [`repeat`](/vc-rs/reference/syntax/repeat/) and [`parallel`](/vc-rs/reference/syntax/parallel/) in the syntax reference.
+- [Datasets](/vc-rs/reference/data/datasets/), [generators](/vc-rs/reference/data/generators/) and [named generators](/vc-rs/reference/data/named-generators/).
+- The [`int` pipe](/vc-rs/reference/pipes/int/) and other pipes.
+- [`vc run`](/vc-rs/reference/cli/run/) for `--seed`, `--repeat` and selectors.
+- [V2103](/vc-rs/reference/diagnostics/v2103/) and [V2002](/vc-rs/reference/diagnostics/v2002/).

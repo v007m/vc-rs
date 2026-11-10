@@ -1,0 +1,182 @@
+---
+title: function
+description: Run a TypeScript or JavaScript hook as an action, and save the fields of the object it returns.
+sidebar: { order: 213, badge: { text: 'step', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+The `function:` action calls an exported function from a hook file. The fields of the object it returns are saved as vars.
+
+```yaml title="services/flow/fn.test.yaml"
+tests:
+  - id: getsSeededUser
+    before:
+      - function: ../../hooks/seed.ts#seedUser
+        provides: [userId, userEmail]
+    call: sample#getUser
+```
+
+## Syntax
+
+`function` takes a path from the test file to the hook file, then `#` and the export name.
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `function` | `path#export` | — | yes | A `./` or `../` path. The file ends in `.ts`, `.mts`, `.js` or `.mjs`. |
+| `id` | camelCase | — | in `beforeAll` | Shares the returned values as `${var.<id>.<name>}`. |
+| `vars` | map | — | no | Extra vars passed in as `input.vars`. |
+| `timeout` | duration | `200ms` | no | The function's run budget. It is stopped when the budget runs out. |
+| `provides` | list | — | no | The names it returns that later steps read. See [provides](/vc-rs/reference/syntax/provides/). |
+
+A `function` step takes no `auth`, `headers`, `query`, `body`, `expect` or `poll`, and no test-level defaults.
+
+## Examples
+
+### Seed values before a call
+
+```ts title="hooks/seed.ts"
+export function seedUser(input: unknown) {
+  return { userId: "1", userEmail: "ada@example.com" };
+}
+```
+
+```yaml title="services/flow/fn.test.yaml"
+id: flow.fn
+tests:
+  - id: getsSeededUser
+    before:
+      - function: ../../hooks/seed.ts#seedUser
+        provides: [userId, userEmail]
+    call: sample#getUser
+    expect:
+      status: 200
+      body:
+        match:
+          name: Ada Lovelace
+```
+
+```console
+$ vc run flow.fn
+plan  1 test in 1 file · profile default
+
+✓ flow.fn#getsSeededUser                                          3ms
+
+1 passed                                                     4ms · profile default
+```
+
+`sample#getUser` calls `/users/${var.userId}`. The returned `userId` beats the `userId` in the test file's vars.
+
+### What the function receives
+
+The function gets one object with two keys: `vars` and `run`.
+
+```ts title="hooks/inspect.ts"
+export function inspect(input: any) {
+  return {
+    keys: Object.keys(input).join(","),
+    varKeys: Object.keys(input.vars ?? {}).join(","),
+    runKeys: Object.keys(input.run ?? {}).join(","),
+  };
+}
+```
+
+```yaml title="services/flow/fn2.test.yaml"
+id: flow.fn2
+vars:
+  region: eu
+tests:
+  - id: showsInput
+    steps:
+      - function: ../../hooks/inspect.ts#inspect
+        vars:
+          extra: one
+        provides: [keys, varKeys, runKeys]
+```
+
+With `sampleUrl` set in the config, this returns `keys` = `run,vars`, `varKeys` = `extra,region,sampleUrl` and `runKeys` = `profiles`. `input.vars` holds the config, test file and action vars visible at that point. It does not hold an api's vars.
+
+### A budget and its failure
+
+```yaml title="services/flow/fn3.test.yaml"
+  - id: loopsForever
+    before:
+      - function: ../../hooks/seed.ts#slow
+    call: sample#listUsers
+```
+
+```console
+⊘ flow.fn3#loopsForever blocked                                 200ms
+  error[V5116]: `hooks/seed.ts#slow`: the hook ran past its time budget and was stopped (line 4)
+     = at: function hooks/seed.ts#slow
+```
+
+Set `timeout: 1s` on the action to give it more time. A function that throws is reported the same way, with V5115:
+
+```console
+⊘ flow.fn3#throws blocked
+  error[V5115]: `hooks/seed.ts#boom`: the hook threw: Error: seed database unreachable (line 9)
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.fn
+tests:
+  - id: getsSeededUser
+    before:
+      - function: ../../hooks/seed.ts#seedUser
+        provides: [userId, userEmail]
+        timeout: 1s
+    call: sample#getUser
+    expect:
+      status: 200
+`} />
+
+## How it behaves
+
+- Hooks run inside the engine, not in Node. A hook can import other files by `./` or `../` path, `vibranium:std` (`hmacSha256Hex`, `sha256Hex`, `base64Encode`, `base64Decode`, `urlEncode`, `urlDecode`) and types from `@vibranium/sdk` with `import type`.
+- Each field of the returned object is saved as a var.
+- The default budget is 200ms. When it runs out the function is stopped and the action fails with V5116.
+- A failed `function` in `before` or `beforeEach` blocks the test. In `beforeAll` it blocks only the tests that read its values.
+- A saved name not listed in `provides` gives a V5108 warning at run time. A listed name the function does not return fails the action with V5109.
+
+## Common errors
+
+`vc check` resolves the file and export before anything runs:
+
+```console
+error[V2005]: ../../hooks/seed.ts exports no function `seedUsr`
+   = help: did you mean `seedUser`?
+   = fix: Replace with seedUser (certain)
+```
+
+```console
+error[V2004]: ../../hooks/sed.ts is not in the project
+   = help: did you mean one of `../../hooks/seed.ts`, `../../hooks/inspect.ts`?
+```
+
+```console
+error[V2008]: ../../hooks/seed.py is not a TypeScript or JavaScript module
+   = help: hook files are ES modules ending in .ts, .mts, .js or .mjs
+```
+
+At run time:
+
+```console
+⊘ flow.fn3#declaresMissing blocked
+  error[V5109]: declared in `provides` but not saved: `orderId`
+```
+
+```console
+! V5108: `var.userId` was saved by a `function:` step that does not declare it; add `provides: [userId]` to that step
+```
+
+See [V2004](/vc-rs/reference/diagnostics/v2004/), [V2005](/vc-rs/reference/diagnostics/v2005/), [V2008](/vc-rs/reference/diagnostics/v2008/), [V5108](/vc-rs/reference/diagnostics/v5108/), [V5109](/vc-rs/reference/diagnostics/v5109/), [V5115](/vc-rs/reference/diagnostics/v5115/) and [V5116](/vc-rs/reference/diagnostics/v5116/).
+
+## Related
+
+- [command](/vc-rs/reference/syntax/command/): run a shell command instead
+- [provides](/vc-rs/reference/syntax/provides/)
+- [before](/vc-rs/reference/syntax/before/) and [steps](/vc-rs/reference/syntax/steps/)
+- [request-hooks](/vc-rs/reference/syntax/request-hooks/) and [custom](/vc-rs/reference/syntax/custom/): other places hooks run

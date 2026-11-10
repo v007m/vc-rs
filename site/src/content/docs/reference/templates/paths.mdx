@@ -1,0 +1,123 @@
+---
+title: "Paths"
+description: "Walk into values with dotted names, [n] indexes (negative from the end), [*] for every element, and quoted keys."
+sidebar: { order: 13 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+After the root, a path walks into the value: `${response.body.items[0].sku}`. The same paths are the keys under `expect.body.match`.
+
+## Syntax
+
+| Part | Example | Notes |
+| --- | --- | --- |
+| `.name` | `var.order.id` | A field of an object. |
+| `[n]` | `items[0]` | An element of a list, from 0. |
+| `[-n]` | `items[-1]` | Counts from the end: `-1` is the last element. |
+| `[*]` | `lines[*].sku` | Every element; the result is a list. |
+| `['key']` or `["key"]` | `headers["content-type"]` | A key with dashes, spaces or dots. No escapes inside. |
+
+## Examples
+
+With this var:
+
+```yaml
+vars:
+  order:
+    id: 7
+    items: [apple, banana, cherry]
+    lines:
+      - sku: A1
+        qty: 2
+      - sku: B2
+        qty: 5
+```
+
+these templates sent the values on the right through the demo's `/echo`:
+
+| Template | Gave |
+| --- | --- |
+| `${var.order.items[0]}` | `"apple"` |
+| `${var.order.items[-1]}` | `"cherry"` |
+| `${var.order.lines[*].sku}` | `["A1", "B2"]` |
+| `${var.order['id']}` | `7` |
+| `${var.order["id"]}` | `7` |
+
+A header with a dash needs quotes:
+
+```yaml
+    save:
+      contentType: ${response.headers["content-type"]}
+```
+
+Paths as `match` keys. A root list starts with `[`, so quote the key in YAML:
+
+```yaml title="services/tpl/paths.test.yaml"
+tests:
+  - id: matchesWildcard
+    call: sample#listUsers
+    expect:
+      body:
+        match:
+          '[*].name': { every: { type: string } }
+          '[0].name': Ada Lovelace
+          '[-1].id': "2"
+```
+
+```console
+✓ tpl.p#matchesWildcard                                           3ms
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`vars:
+  order:
+    items: [apple, banana, cherry]
+tests:
+  - id: readsPaths
+    call: sample#echo
+    vars:
+      payload:
+        first: \${var.order.items[0]}
+        last: \${var.order.items[-1]}
+`} />
+
+## How it behaves
+
+- A path that is not there at run time, such as an index past the end, fails the action with V5111. The message shows the value it found.
+- A path with `[*]` gives a list, so under `match` it takes a list matcher such as `every`, `some`, `none`, `length` or `contains`.
+- To filter a list, use CEL: `response.body.filter(u, u.active)`.
+- A dash in an unquoted name ends the path, so `${var.order.x-trace}` is a syntax error. Quote it: `${var.order['x-trace']}`.
+
+## Common errors
+
+An index past the end:
+
+```console
+✕ tpl.p#readsOutOfRange                                           0ms
+  error[V5111]: `var.order.items[9]` is missing: `var.order.items` is ["apple","banana","cherry"]
+```
+
+An unquoted dash:
+
+```console
+error[V2305]: invalid template: expected `}` or `|`
+ --> services/tpl/p2.test.yaml:8:29
+  |
+8 |       payload: ${var.order.x-trace}
+  |                             ^
+  = help: write `${namespace.path | pipe}`; write `$${` for a literal `${`
+```
+
+- [V2305](/vc-rs/reference/diagnostics/v2305/): the path does not parse.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the path is missing at run time.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Templates" href="/vc-rs/reference/templates/" />
+  <LinkCard title="Matchers" href="/vc-rs/reference/matchers/" />
+  <LinkCard title="default pipe" href="/vc-rs/reference/pipes/default/" />
+</CardGrid>

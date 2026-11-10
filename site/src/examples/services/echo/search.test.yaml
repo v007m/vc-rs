@@ -1,0 +1,21 @@
+name: Search
+tags: [search]
+
+tests:
+  - id: echoesSearchTerm
+    name: Sends each term as a query parameter
+    examples:
+      - term: shoes
+        limit: 5
+      - term: red hats
+        limit: 20
+    call: echo#search
+    vars:
+      term: ${example.term}
+      limit: ${example.limit}
+    expect:
+      body:
+        match:
+          query:
+            q: ${example.term}
+            limit: ${example.limit | string}

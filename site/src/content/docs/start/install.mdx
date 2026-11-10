@@ -1,0 +1,114 @@
+---
+title: Install
+description: Build the vc binary and the vc-demo service from source, add shell completion and check the version.
+sidebar: { order: 1 }
+---
+
+import { Tabs, TabItem, Aside, Steps } from '@astrojs/starlight/components';
+
+Vibranium is one binary, `vc`. A second small binary, `vc-demo`, is the demo service that the `vc init` sample calls.
+
+<Aside type="caution" title="No prebuilt releases yet">
+There are no release downloads, install script, Homebrew formula, npm package or Docker image yet. They are planned. For now, build from source with Cargo.
+</Aside>
+
+## Build from source
+
+You need Rust 1.99 or later. If you use [rustup](https://rustup.rs), the repo's `rust-toolchain.toml` picks the right toolchain for you when you build inside a clone.
+
+<Tabs>
+  <TabItem label="From a clone">
+    <Steps>
+    1. Clone the repo.
+
+       ```console
+       git clone https://github.com/v007m/vc-rs
+       cd vc-rs
+       ```
+
+    2. Install `vc` and `vc-demo` into `~/.cargo/bin`.
+
+       ```console
+       cargo install --path crates/apps/cli --locked
+       cargo install --path crates/apps/demo --locked
+       ```
+    </Steps>
+  </TabItem>
+  <TabItem label="Straight from Git">
+    ```console
+    cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+    ```
+
+    This uses your default toolchain, so make sure `rustc --version` is 1.99 or later.
+  </TabItem>
+</Tabs>
+
+Install both packages. `vc demo start` looks for `vc-demo` next to `vc` or on your `PATH`. Without it you get:
+
+```console
+$ vc demo start
+error: `vc-demo` is not next to vc or on PATH
+  = help: install `vc-demo` next to `vc`; the installers ship both
+```
+
+## Check the install
+
+```console
+$ vc --version
+vc 0.1.0
+```
+
+## The `vibranium` name
+
+The full name of the command is `vibranium`, and `vc` is the short form. The build installs only `vc`. Some other tools also install a `vc` command (the Vercel CLI, for example), and some shells alias it. If `vc` runs something else on your machine, link the binary under its long name:
+
+```console
+ln -s ~/.cargo/bin/vc ~/.cargo/bin/vibranium
+vibranium --version
+```
+
+Every example in these docs uses `vc`. Swap in `vibranium` if you need to.
+
+## Shell completion
+
+`vc completion <shell>` prints a completion script for `bash`, `zsh`, `fish` or `powershell`. Besides commands and flags, it completes the IDs in your project: test IDs after `vc run`, api IDs after `vc call`, profile names after `--profile` and tags after `-t`.
+
+<Tabs>
+  <TabItem label="zsh">
+    ```console
+    vc completion zsh > ~/.zfunc/_vc
+    ```
+
+    Make sure `~/.zfunc` is on your `fpath` before `compinit` runs, in `~/.zshrc`:
+
+    ```console
+    fpath=(~/.zfunc $fpath)
+    autoload -Uz compinit && compinit
+    ```
+  </TabItem>
+  <TabItem label="bash">
+    ```console
+    vc completion bash > ~/.local/share/bash-completion/completions/vc
+    ```
+  </TabItem>
+  <TabItem label="fish">
+    ```console
+    vc completion fish > ~/.config/fish/completions/vc.fish
+    ```
+  </TabItem>
+  <TabItem label="PowerShell">
+    ```console
+    vc completion powershell >> $PROFILE
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside>
+The scripts register completion for the command name `vc` only. If you call it `vibranium`, completion does not follow.
+</Aside>
+
+ID completion reads your project, so open a new shell inside a project folder and try `vc run sample.<Tab>`.
+
+## Next
+
+Head to the [quickstart](/vc-rs/start/quickstart/) to create a project and run your first tests.

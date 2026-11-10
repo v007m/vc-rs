@@ -1,0 +1,67 @@
+---
+title: "V1013 — Hook file is not valid TypeScript or JavaScript"
+description: "A hook file that a function: reference reaches does not parse as an ES module."
+sidebar:
+  label: "V1013 Hook file is not valid TypeScript or JavaScript"
+  order: 1013
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Syntax" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V1013` |
+| Category | V1xxx: Syntax |
+| Severity | error |
+
+A hook file that a `function:` reference reaches does not parse as an ES module. The diagnostic points at the spot the
+parser stopped, with its message; `tsc --noEmit` reports the same error. Hooks are checked when the project is, so a
+typo fails `vc check`, not the first request that runs the hook.
+
+## Wrong
+
+```yaml title="services/orders/orders.api.yaml"
+beforeRequest:
+  - function: ../../hooks/sign.ts#sign
+apis:
+  - id: listOrders
+    path: /orders
+```
+
+```ts title="hooks/sign.ts"
+export function sign( {
+}
+```
+
+## Right
+
+```yaml title="services/orders/orders.api.yaml"
+beforeRequest:
+  - function: ../../hooks/sign.ts#sign
+apis:
+  - id: listOrders
+    path: /orders
+```
+
+```ts title="hooks/sign.ts"
+export function sign() {
+}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V1013
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

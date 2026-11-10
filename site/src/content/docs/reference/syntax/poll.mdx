@@ -1,0 +1,207 @@
+---
+title: poll
+description: Re-send a call until a condition holds, then check expect.
+sidebar: { order: 250, badge: { text: 'test + step', variant: 'note' } }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`poll` waits for something to become true. It sends the call, checks `until`, and sends it again every `every` until `until` holds or `timeout` runs out. Then the call's `expect` is checked once, on the last response.
+
+```yaml
+        poll:
+          until:
+            status: 200
+          every: 250ms
+          timeout: 5s
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `poll.until` | checks | — | yes | The same checks as [`expect`](/vc-rs/reference/syntax/expect/): `status`, `headers`, `body`, `cel` and so on. |
+| `poll.every` | duration | — | yes | The pause between calls: `250ms`, `2s`, `1m`. |
+| `poll.timeout` | duration | — | yes | How long to keep trying. Past it, the call fails with V5104. |
+
+All three keys are required. There are no defaults.
+
+`poll` can be written on a step, an action or a test. On a test, it applies to the test's call, and to each of its steps that has no `poll` of its own.
+
+## Examples
+
+### Wait for a resource to appear
+
+The first step creates a user. A background command creates a second user one second later. The third step polls for that second user:
+
+```yaml title="services/sample/poll.test.yaml"
+id: sample.poll
+name: Poll
+
+tests:
+  - id: waitsForLateUser
+    name: Reads a user created a moment later
+    steps:
+      - id: first
+        call: sample#createUser
+      - command: (sleep 1 && curl -s -X POST ${var.sampleUrl}/users -d '{"email":"late@example.com"}' > /dev/null) &
+      - call: sample#getUser
+        vars:
+          userId:
+            $cel: string(int(first.body.id) + 1)
+        poll:
+          until:
+            status: 200
+          every: 250ms
+          timeout: 5s
+        expect:
+          body:
+            match:
+              id:
+                type: string
+
+  - id: givesUp
+    name: Gives up on a user that never appears
+    call: sample#getUser
+    vars:
+      userId: "999"
+    poll:
+      until:
+        status: 200
+      every: 200ms
+      timeout: 1s
+```
+
+The getUser call returns 404 until the background user exists. The test passes after about a second. `givesUp` never sees a 200 and stops at its timeout:
+
+```console
+$ vc run sample.poll
+plan  2 tests in 1 file · profile default
+
+✕ sample.poll#givesUp                                           815ms
+  error[V5104]: `poll.until` did not hold within 1s: status: expected [200], got 404
+     = at: call sample#getUser
+✓ sample.poll#waitsForLateUser                                   1.2s
+
+1 passed · 1 failed                                          1.2s · profile default
+```
+
+### Wait for a body field, then save it
+
+`until` takes any check, not just `status`. `save` reads the response that ended the polling:
+
+```yaml
+      - call: sample#getUser
+        vars:
+          userId: "1"
+        poll:
+          until:
+            body:
+              match:
+                name:
+                  type: string
+          every: 500ms
+          timeout: 10s
+        save:
+          firstName: ${response.body.name}
+```
+
+User 1 already has a name, so the first call ends the polling and the step takes about 20ms. `var.firstName` is `"Ada Lovelace"`.
+
+### `until` first, then `expect`
+
+`until` decides when to stop. `expect` then checks the final response. A call can meet `until` and still fail `expect`:
+
+```yaml
+  - id: holdsButFails
+    name: Holds until, then fails expect
+    call: sample#getUser
+    vars:
+      userId: "1"
+    poll:
+      until:
+        status: 200
+      every: 250ms
+      timeout: 2s
+    expect:
+      body:
+        match:
+          name: Grace Hopper
+```
+
+```console
+✕ sample.polls#holdsButFails                                     16ms
+  error[V5101]: expect.body.match.name
+    --> services/sample/polls.test.yaml:39:17
+     |
+  39 |           name: Grace Hopper
+     |                 ^^^^^^^^^^^^ expected "Grace Hopper", got "Ada Lovelace"
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: waitsForUser
+    name: Waits for user 1
+    call: sample#getUser
+    vars:
+      userId: "1"
+    poll:
+      until:
+        status: 200
+      every: 250ms
+      timeout: 5s
+`} />
+
+## How it behaves
+
+- The first call is sent at once. Each later call waits `every` after the previous one.
+- Only `until` is checked while polling. The api's and the test's `expect` are checked once, after `until` holds.
+- `save` reads the last response.
+- If `until` never holds, the call fails with V5104. The message names the last failed `until` check.
+- `poll` is not a retry. It waits for a state on the server. To re-run a whole test after a failure, use [`retry`](/vc-rs/reference/syntax/retry/).
+
+## Common errors
+
+A missing key:
+
+```console
+error[V1005]: a poll needs `every`
+ --> services/sample/pollbad.test.yaml:5:7
+  |
+5 |       until:
+  |       ^^^^^ `every` is missing
+  = help: add `every: 2s`: Pause between calls
+```
+
+A missing `timeout` or `until` gives the same error: ``a poll needs `timeout` `` or ``a poll needs `until` ``.
+
+A duration without a unit:
+
+```console
+error[V2301]: invalid duration `2`
+  --> services/sample/pollbad.test.yaml:13:14
+   |
+13 |       every: 2
+   |              ^
+   = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+   = fix: Write 2ms (certain)
+```
+
+<Aside type="caution">
+The fix offered for a bare number writes milliseconds (`2ms`). Check that this is what you meant. `every: 2` most likely means `2s`.
+</Aside>
+
+- [V1005](/vc-rs/reference/diagnostics/v1005/): a required key is missing.
+- [V2301](/vc-rs/reference/diagnostics/v2301/): the duration has no unit.
+- [V5104](/vc-rs/reference/diagnostics/v5104/): `until` did not hold within `timeout`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="expect" href="/vc-rs/reference/syntax/expect/" />
+  <LinkCard title="retry" href="/vc-rs/reference/syntax/retry/" />
+  <LinkCard title="timeout" href="/vc-rs/reference/syntax/timeout/" />
+  <LinkCard title="Matchers" href="/vc-rs/reference/matchers/" />
+</CardGrid>

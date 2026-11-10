@@ -1,0 +1,78 @@
+---
+title: "V5115 — Hook threw or returned a value that is not JSON"
+description: "A hook threw, or returned something the engine cannot read back as JSON: a function, a symbol, a cyclic object or a number too large to be exact."
+sidebar:
+  label: "V5115 Hook threw or returned a value that is not JSON"
+  order: 5115
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5115` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A hook threw, or returned something the engine cannot read back as JSON: a function, a symbol, a cyclic object or
+a number too large to be exact. The action it belongs to fails, and the message names the TypeScript line it threw
+from. A custom check returns `true` or a failure message rather than throwing, so a failed check reads as a check
+result, not as a broken hook.
+
+## Wrong
+
+```yaml title="services/orders/orders.test.yaml"
+tests:
+  - id: listsSortedOrders
+    call: orders#listOrders
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#isSorted
+```
+
+```ts title="hooks/checks.ts"
+export function isSorted({ response }: { response: { body: number[] } }): boolean {
+  if (response.body.some((n, i) => i > 0 && response.body[i - 1] > n)) {
+    throw new Error("not sorted");
+  }
+  return true;
+}
+```
+
+## Right
+
+```yaml title="services/orders/orders.test.yaml"
+tests:
+  - id: listsSortedOrders
+    call: orders#listOrders
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#isSorted
+```
+
+```ts title="hooks/checks.ts"
+export function isSorted({ response }: { response: { body: number[] } }): boolean | string {
+  const sorted = response.body.every((n, i) => i === 0 || response.body[i - 1] <= n);
+  return sorted || "the orders are not sorted";
+}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5115
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

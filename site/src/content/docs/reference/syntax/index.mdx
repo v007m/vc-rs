@@ -1,0 +1,275 @@
+---
+title: Syntax reference
+description: Every keyword of api files (*.api.yaml) and test files (*.test.yaml), with an annotated example of each and a link to its page.
+sidebar: { order: 0, label: 'Overview' }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A Vibranium project has two kinds of files you write by hand:
+
+- **Api files** (`services/<service>/<service>.api.yaml`) describe the requests a service accepts and the checks that always hold for them.
+- **Test files** (`services/<service>/<area>.test.yaml`) call those apis, change what they need, and add checks.
+
+A test never repeats a URL or a method. It names an api with `call`, and the api supplies the rest. The project config (`vibranium.config.yaml`) holds profiles, project-wide vars and auth; it has its own [reference](/vc-rs/reference/config/).
+
+## An api file
+
+This file was run against `vc demo`. The comments explain each key.
+
+```yaml
+# services/users/users.api.yaml        → file ID "users"
+name: Users API                        # free text, shown in reports
+baseUrl: ${var.sampleUrl}              # prefix for every path in this file
+headers:                               # sent with every request in this file
+  accept: application/json
+
+apis:
+  - id: create                         # full ID: users#create
+    name: Create a user
+    method: POST                       # default GET
+    path: /users
+    vars:                              # defaults; a test can override each one
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:                              # a map is sent as JSON
+      name: ${var.name}
+      email: ${var.email}
+    expect:                            # checks every caller inherits
+      status: 201
+      body:
+        match:
+          id:
+            type: string
+    save:                              # values for later steps
+      userId: ${response.body.id}
+    cleanup:                           # runs after the test, even when it fails
+      call: delete
+      vars:
+        userId: ${response.body.id}
+
+  - id: get
+    name: Get a user
+    path: /users/${var.userId}         # no expect: the status must be 2xx
+
+  - id: list
+    name: List users
+    path: /users
+    query:
+      limit: 10
+
+  - id: delete
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]
+```
+
+## A test file
+
+```yaml
+# services/users/crud.test.yaml        → file ID "users.crud"
+name: User CRUD
+tags: [smoke]                          # select with --tag smoke
+
+tests:
+  - id: createsMember                  # full ID: users.crud#createsMember
+    name: Creates a member and reads it back
+    steps:                             # run in order; the test stops at the first failure
+      - id: created
+        call: users#create             # inherits the api's request and checks
+        vars:
+          email: ada@example.com       # overrides the api's default
+      - call: users#get
+        vars:
+          userId: ${created.body.id}   # a step id reads that step's response
+        expect:
+          body:
+            match:
+              id: ${created.body.id}
+
+  - id: rejectsMissingEmail
+    name: Rejects a user with no email
+    call: users#create
+    body:                              # replaces the api's body
+      name: No Email
+    expect:
+      replace: true                    # drop the api's checks (status 201, id)
+      status: 400
+      body:
+        match:
+          error:
+            contains: email
+
+  - id: findsCannedUsers
+    name: Finds each canned user
+    call: users#get
+    examples:                          # one run per row
+      - userId: "1"
+        name: Ada Lovelace
+      - userId: "2"
+        name: Grace Hopper
+    vars:
+      userId: ${example.userId}
+    expect:
+      body:
+        match:
+          name: ${example.name}
+```
+
+```console
+$ vc run users.crud
+plan  3 tests in 1 file · profile default
+
+✓ users.crud#findsCannedUsers [row 2]                            13ms
+✓ users.crud#findsCannedUsers [row 1]                             0ms
+✓ users.crud#rejectsMissingEmail                                  1ms
+✓ users.crud#createsMember                                        1ms
+
+4 passed                                                     19ms · profile default
+```
+
+Use `vc explain <testId>` to see the merged request, every var with the level it came from, and every check with the level it came from.
+
+## Try it
+
+<Playground client:visible kind="test" code={`name: User CRUD
+tags: [smoke]
+
+tests:
+  - id: createsMember
+    call: users#create
+    vars:
+      email: ada@example.com
+    expect:
+      body:
+        match:
+          email: ada@example.com
+`} />
+
+## Api file keywords
+
+Top level of an `*.api.yaml` file:
+
+| Key | Purpose | Page |
+| --- | --- | --- |
+| `id` | File ID; optional, must match the path | [id](/vc-rs/reference/syntax/id/) |
+| `name` | Free text for reports | [name](/vc-rs/reference/syntax/name/) |
+| `source` | The OpenAPI document the file was imported from | [source](/vc-rs/reference/syntax/source/) |
+| `baseUrl` | Prefix for every path | [baseUrl](/vc-rs/reference/syntax/base-url/) |
+| `headers` | Headers for every request in the file | [headers](/vc-rs/reference/syntax/headers/) |
+| `auth` | Auth for every request in the file | [auth](/vc-rs/reference/syntax/auth/) |
+| `vars` | Vars for every api in the file | [vars](/vc-rs/reference/syntax/vars/) |
+| `profiles` | Per-profile overrides | [profiles](/vc-rs/reference/syntax/profiles/) |
+| `beforeRequest`, `afterResponse` | Hook functions around every request | [request hooks](/vc-rs/reference/syntax/request-hooks/) |
+| `apis` | The list of apis | [apis](/vc-rs/reference/syntax/apis/) |
+
+Each entry in `apis`:
+
+| Key | Purpose | Page |
+| --- | --- | --- |
+| `id`, `name` | Reference and label | [id](/vc-rs/reference/syntax/id/), [name](/vc-rs/reference/syntax/name/) |
+| `method` | HTTP method, default `GET` | [method](/vc-rs/reference/syntax/method/) |
+| `path` | Path after `baseUrl`, with `${…}` templates | [path](/vc-rs/reference/syntax/path/) |
+| `query` | Query parameters | [query](/vc-rs/reference/syntax/query/) |
+| `headers` | Request headers | [headers](/vc-rs/reference/syntax/headers/) |
+| `body` | Request body, and `$extend` to build on another | [body](/vc-rs/reference/syntax/body/), [$extend](/vc-rs/reference/syntax/extend/) |
+| `auth` | Auth for this api | [auth](/vc-rs/reference/syntax/auth/) |
+| `vars` | Defaults a caller can override | [vars](/vc-rs/reference/syntax/vars/) |
+| `timeout` | Request timeout | [timeout](/vc-rs/reference/syntax/timeout/) |
+| `http` | Transport settings: `http.retry` | [http.retry](/vc-rs/reference/syntax/http-retry/) |
+| `expect` | Checks every caller inherits | [expect](/vc-rs/reference/syntax/expect/) |
+| `save` | Values to keep from the response | [save](/vc-rs/reference/syntax/save/) |
+| `saveOn` | Save only on some statuses | [saveOn](/vc-rs/reference/syntax/save-on/) |
+| `cleanup` | Undo the call after the test | [cleanup](/vc-rs/reference/syntax/cleanup/) |
+| `beforeRequest`, `afterResponse` | Hook functions for this api | [request hooks](/vc-rs/reference/syntax/request-hooks/) |
+| `operationId` | Link to an OpenAPI operation | [operationId](/vc-rs/reference/syntax/operation-id/) |
+| `deprecated` | Mark the api as deprecated | [deprecated](/vc-rs/reference/syntax/deprecated/) |
+
+## Test file keywords
+
+Top level of a `*.test.yaml` file:
+
+| Key | Purpose | Page |
+| --- | --- | --- |
+| `id`, `name` | File ID and label | [id](/vc-rs/reference/syntax/id/), [name](/vc-rs/reference/syntax/name/) |
+| `tags` | Tags for every test in the file | [tags](/vc-rs/reference/syntax/tags/) |
+| `skip` | Skip the whole file | [skip](/vc-rs/reference/syntax/skip/) |
+| `vars` | Vars for every test in the file | [vars](/vc-rs/reference/syntax/vars/) |
+| `profiles` | Per-profile overrides | [profiles](/vc-rs/reference/syntax/profiles/) |
+| `beforeAll`, `afterAll` | Actions once per file | [beforeAll](/vc-rs/reference/syntax/before-all/) |
+| `beforeEach`, `afterEach` | Actions around every test | [beforeEach](/vc-rs/reference/syntax/before-each/) |
+| `tests` | The list of tests | [tests](/vc-rs/reference/syntax/tests/) |
+
+Each entry in `tests`:
+
+| Key | Purpose | Page |
+| --- | --- | --- |
+| `id`, `name` | Reference and label | [id](/vc-rs/reference/syntax/id/), [name](/vc-rs/reference/syntax/name/) |
+| `tags` | Tags for selection | [tags](/vc-rs/reference/syntax/tags/) |
+| `call` | The api to call | [call](/vc-rs/reference/syntax/call/) |
+| `steps` | Several actions in order, with test-level defaults | [steps](/vc-rs/reference/syntax/steps/) |
+| `vars` | Override the api's vars | [vars](/vc-rs/reference/syntax/vars/) |
+| `query`, `headers`, `body`, `auth`, `timeout` | Override the api's request | [query](/vc-rs/reference/syntax/query/), [headers](/vc-rs/reference/syntax/headers/), [body](/vc-rs/reference/syntax/body/), [auth](/vc-rs/reference/syntax/auth/), [timeout](/vc-rs/reference/syntax/timeout/) |
+| `expect` | Checks, merged over the api's | [expect](/vc-rs/reference/syntax/expect/) |
+| `save` | Values to keep | [save](/vc-rs/reference/syntax/save/) |
+| `examples` | One run per row | [examples](/vc-rs/reference/syntax/examples/) |
+| `repeat` | Run several times | [repeat](/vc-rs/reference/syntax/repeat/) |
+| `poll` | Call until a check passes | [poll](/vc-rs/reference/syntax/poll/) |
+| `retry` | Retry the whole test | [retry](/vc-rs/reference/syntax/retry/) |
+| `skip` | Skip, with a reason and an end date | [skip](/vc-rs/reference/syntax/skip/) |
+| `before`, `after` | Actions around this test | [before](/vc-rs/reference/syntax/before/) |
+| `standalone` | Run only when another test reuses it with `test:` | [standalone](/vc-rs/reference/syntax/standalone/) |
+
+### Actions
+
+Steps, `before`, `after`, `beforeAll`, `afterAll`, `beforeEach` and `afterEach` hold actions. An action has exactly one of `call`, `test`, `function` or `command`, plus these keys:
+
+| Key | Purpose | Page |
+| --- | --- | --- |
+| `call` | Call an api | [call](/vc-rs/reference/syntax/call/) |
+| `test` | Run another test's flow | [test](/vc-rs/reference/syntax/test/) |
+| `function` | Run a hook function | [function](/vc-rs/reference/syntax/function/) |
+| `command` | Run a shell command | [command](/vc-rs/reference/syntax/command/) |
+| `id` | Name the action so later ones can read its result | [id](/vc-rs/reference/syntax/id/) |
+| `vars`, `query`, `headers`, `body`, `auth`, `timeout` | Request overrides for a `call` | [steps](/vc-rs/reference/syntax/steps/) |
+| `expect`, `save` | Checks and saved values | [expect](/vc-rs/reference/syntax/expect/), [save](/vc-rs/reference/syntax/save/) |
+| `forEach` | Run once per item of a list | [forEach](/vc-rs/reference/syntax/for-each/) |
+| `repeat` | Run several times | [repeat](/vc-rs/reference/syntax/repeat/) |
+| `parallel` | Run loop iterations at once | [parallel](/vc-rs/reference/syntax/parallel/) |
+| `poll`, `retry` | Wait for a state, or retry on failure | [poll](/vc-rs/reference/syntax/poll/), [retry](/vc-rs/reference/syntax/retry/) |
+| `cache` | Reuse the result across runs | [cache](/vc-rs/reference/syntax/cache/) |
+| `keep` | Skip the api's cleanup for this call | [keep](/vc-rs/reference/syntax/keep/) |
+| `provides` | Declare the values a `function` or reused test saves | [provides](/vc-rs/reference/syntax/provides/) |
+
+### Checks
+
+`expect` has the same shape on an api, a test, a step, an action and in `poll.until`:
+
+| Key | Checks | Page |
+| --- | --- | --- |
+| `status` | The HTTP status | [status](/vc-rs/reference/syntax/status/) |
+| `headers` | Response headers | [expect.headers](/vc-rs/reference/syntax/expect-headers/) |
+| `body` | `match`, `equals` and `schema` on the body | [expect.body](/vc-rs/reference/syntax/expect-body/) |
+| `size` | Body size | [expect.size](/vc-rs/reference/syntax/size/) |
+| `timing` | Time per phase | [expect.timing](/vc-rs/reference/syntax/timing/) |
+| `cel` | Named CEL expressions | [expect.cel](/vc-rs/reference/syntax/cel/) |
+| `custom` | Your own functions | [expect.custom](/vc-rs/reference/syntax/custom/) |
+| `replace` | Drop inherited checks | [expect.replace](/vc-rs/reference/syntax/replace/) |
+
+## Rules that apply everywhere
+
+- **camelCase keys.** `saveOn`, `firstByte`, `beforeAll`. Never `save-on` or `save_on`. An unknown key is [V1004](/vc-rs/reference/diagnostics/v1004/), usually with a fix.
+- **IDs.** Every item has a camelCase `id`. The full ID is `<fileId>#<id>`, such as `users.crud#createsMember`. The file ID comes from the path. Inside one file the short `id` works.
+- **Merging.** A test starts from the api it calls. Vars, query, headers and checks merge key by key, and the more specific level wins. `body` is replaced whole unless it uses [`$extend`](/vc-rs/reference/syntax/extend/).
+- **Templates.** Most values can use `${…}` templates: `${var.x}`, `${response.body.id}`, `${fake.person.fullName}`. See [Templates](/vc-rs/reference/templates/). `status` cannot.
+- **Check first.** `vc check` parses and links every file without sending a request. Run it after every edit.
+
+<Aside type="caution">
+These parts of the syntax pass `vc check` but are not built yet, and fail at run time or send the wrong thing:
+
+- A request `body` with `$file`, or sent as `application/x-www-form-urlencoded` or `multipart/form-data`. See [body](/vc-rs/reference/syntax/body/).
+- `examples` given as a template, such as `examples: ${var.rows}`. Inline rows, a dataset and `$file` work. See [examples](/vc-rs/reference/syntax/examples/).
+</Aside>

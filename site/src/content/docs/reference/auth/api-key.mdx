@@ -1,0 +1,106 @@
+---
+title: "apiKey"
+description: "The apiKey auth type sends a key in a named header or query parameter."
+sidebar: { order: 3 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`type: apiKey` adds a key to every request, in a header or in the query string.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+auth:
+  - id: labHeaderKey
+    type: apiKey
+    in: header
+    name: x-api-key
+    value: ${secret.LAB_KEY}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `apiKey` | — | yes | |
+| `in` | `header` or `query` | — | yes | |
+| `name` | text | — | yes | The header or parameter name |
+| `value` | text or template | — | yes | Use `${secret.X}` |
+| `vars` | map | — | no | Defaults for the templates here |
+
+## Examples
+
+A key in a header. The server received `x-api-key: key-77aa`; the output masks it:
+
+```console
+✕ lab.peek#showsHeaderKey                                        13ms
+  error[V5101]: expect.body.match.headers.x-api-key
+   --> services/lab/peek.test.yaml:9:30
+    |
+  9 |           headers.x-api-key: wrong
+    |                              ^^^^^ expected "wrong", got "••••"
+```
+
+A key in the query string:
+
+```yaml
+auth:
+  - id: labQueryKey
+    type: apiKey
+    in: query
+    name: api_key
+    value: ${secret.LAB_KEY}
+```
+
+The server received `GET /whoami?api_key=key-77aa`. The output masks it too:
+
+```console
+  error[V5101]: expect.body.match.query.api_key
+    --> services/lab/peek.test.yaml:23:26
+     |
+  23 |           query.api_key: wrong
+     |                          ^^^^^ expected "wrong", got "••••"
+```
+
+Only `header` and `query` are accepted. A cookie key is a `vc check` error:
+
+```console
+error[V2302]: expected one of header, query, found `cookie`
+```
+
+To send a cookie, use a [flow](/vc-rs/reference/auth/flow/) with `apply.cookies`.
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+auth:
+  - id: labHeaderKey
+    type: apiKey
+    in: header
+    name: x-api-key
+    value: \${secret.LAB_KEY}
+  - id: labQueryKey
+    type: apiKey
+    in: query
+    name: api_key
+    value: \${secret.LAB_KEY}
+`} />
+
+## How it behaves
+
+- The key is added to each request as written. Nothing is fetched.
+- A `${secret.X}` value is masked wherever it appears, including in URLs.
+
+## Common errors
+
+- [V2302](/vc-rs/reference/diagnostics/v2302/): `in` is not `header` or `query`.
+- [V5114](/vc-rs/reference/diagnostics/v5114/): a field is missing at run time.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="bearer" href="/vc-rs/reference/auth/bearer/" />
+  <LinkCard title="flow" href="/vc-rs/reference/auth/flow/" />
+  <LinkCard title="Redaction" href="/vc-rs/reference/auth/redaction/" />
+</CardGrid>

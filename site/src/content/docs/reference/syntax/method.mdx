@@ -1,0 +1,186 @@
+---
+title: method
+description: The HTTP method an api sends, written in uppercase; GET when left out.
+sidebar: { order: 110, badge: { text: 'api', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`method` sets the HTTP method of an api. Leave it out and the api sends `GET`.
+
+```yaml title="services/sample/sample.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `method` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD` or `OPTIONS` | `GET` | no | Uppercase only. Not a template: the value is fixed when the file is read. |
+
+`method` belongs to an api. A test or step can't change it. To send a different method, call a different api.
+
+## Examples
+
+### The default is GET
+
+This api has no `method`. The demo's `/echo` endpoint returns what it received, so the reply shows the method that was sent.
+
+```yaml title="services/req/req.api.yaml"
+id: req
+baseUrl: ${var.sampleUrl}
+headers:
+  x-team: payments
+  x-trace: file-level
+apis:
+  - id: defaultMethod
+    path: /echo
+```
+
+```console
+$ vc call req#defaultMethod
+200 OK · 4 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2",
+    "x-team": "payments",
+    "x-trace": "file-level"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+`vc explain` prints the method before the URL:
+
+```console
+$ vc explain req#search
+req#search
+profile  default
+  GET http://localhost:7432/echo
+  vars
+    sampleUrl  http://localhost:7432  (vibranium.config.yaml)
+    adminPassword  s3cret  (vibranium.config.yaml)
+    pageSize  20  (file req)
+    term  café & co  (api req#search)
+  expect
+```
+
+### HEAD and OPTIONS
+
+`HEAD` gets no response body, so `vc call` prints only the status line. `OPTIONS` works like any other method.
+
+```yaml title="services/req/req.api.yaml"
+  - id: head
+    method: HEAD
+    path: /echo
+  - id: opts
+    method: OPTIONS
+    path: /echo
+```
+
+```console
+$ vc call req#head
+200 OK · 2 ms · api expect passed
+
+$ vc call req#opts
+200 OK · 11 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2",
+    "x-team": "payments",
+    "x-trace": "file-level"
+  },
+  "method": "OPTIONS",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+### One api per method
+
+A REST resource usually has one api for each method. Tests pick the api, not the method.
+
+```yaml title="services/sample/sample.api.yaml"
+apis:
+  - id: listUsers
+    method: GET
+    path: /users
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: ${var.name}
+      email: ${var.email}
+  - id: deleteUser
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`id: req
+baseUrl: \${var.sampleUrl}
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: Ada
+      email: ada@example.com
+`} />
+
+## How it behaves
+
+- The method is part of the api. Tests, steps and actions can override `vars`, `headers`, `query`, `body` and `auth`, but never `method`.
+- A method that takes no body (`GET`, `HEAD`) still sends one if you write one. `vc check` warns with [V3205](/vc-rs/reference/diagnostics/v3205/) only when a test-level `body` default reaches a GET or HEAD step. See [body](/vc-rs/reference/syntax/body/).
+- [`http.retry`](/vc-rs/reference/syntax/http-retry/) retries `GET`, `HEAD`, `OPTIONS`, `PUT` and `DELETE` by default. `POST` and `PATCH` are retried only when you list them in `methods`.
+
+## Common errors
+
+The value is case-sensitive. A lowercase method fails `vc check` with a certain fix:
+
+```console
+error[V2302]: expected one of GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, found `post`
+ --> services/m/m.api.yaml:4:13
+  |
+4 |     method: post
+  |             ^^^^ not a known value
+  = help: did you mean `POST`?
+  = fix: Replace with POST (certain)
+```
+
+A method outside the list has no fix:
+
+```console
+error[V2302]: expected one of GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, found `FETCH`
+ --> services/m/m.api.yaml:7:13
+  |
+7 |     method: FETCH
+  |             ^^^^^ not a known value
+  = help: expected one of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`
+```
+
+See [V2302](/vc-rs/reference/diagnostics/v2302/).
+
+## Related
+
+- [path](/vc-rs/reference/syntax/path/) and [base-url](/vc-rs/reference/syntax/base-url/): where the request goes
+- [body](/vc-rs/reference/syntax/body/): what a `POST`, `PUT` or `PATCH` sends
+- [http.retry](/vc-rs/reference/syntax/http-retry/): which methods are retried
+- [apis](/vc-rs/reference/syntax/apis/): the other keys of an api

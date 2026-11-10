@@ -1,0 +1,93 @@
+---
+title: "V4001 — Test ID breaks the convention"
+description: "A test ID describes the behaviour in the third person, in camelCase, with the subject implied: getsUser, rejectsDeclinedCard."
+sidebar:
+  label: "V4001 Test ID breaks the convention"
+  order: 4001
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4001` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | rename from the name, with references |
+
+A test ID describes the behaviour in the third person, in camelCase, with the subject implied: `getsUser`,
+`rejectsDeclinedCard`. An imperative or a noun (`getUser`, `userTest`) reads badly in reports. `vc check --fix`
+renames the test from its `name` and updates every reference.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getUser
+    call: users#getUser
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/crud.test.yaml"
+id: users.crud
+name: Users CRUD
+tests:
+  - id: test_list_users
+    name: Lists users
+    call: users#listUsers
+```
+
+```console
+$ vc check
+warning[V4001]: test ID `test_list_users` is not camelCase
+ --> services/users/crud.test.yaml:4:9
+  |
+4 |   - id: test_list_users
+  |         ^^^^^^^^^^^^^^^ rename it
+  = help: test IDs are camelCase: `listsUsers`
+  = fix: Rename to listsUsers (certain)
+
+0 errors · 1 warning · 3 files checked
+$ echo $?
+0
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4001
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

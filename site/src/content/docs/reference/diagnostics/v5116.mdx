@@ -1,0 +1,78 @@
+---
+title: "V5116 — Hook ran past its time or memory budget"
+description: "A hook ran past its time or memory budget and was stopped."
+sidebar:
+  label: "V5116 Hook ran past its time or memory budget"
+  order: 5116
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5116` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A hook ran past its time or memory budget and was stopped. The message says which budget it overran and the
+TypeScript line it was on, and the action it belongs to fails. Hooks run inside the engine with every other hook of
+the run, so a loop that never ends or an array that only grows is stopped rather than left to hold up the run. Bound
+the work by the input it is given.
+
+## Wrong
+
+```yaml title="services/orders/orders.test.yaml"
+tests:
+  - id: listsOrders
+    call: orders#listOrders
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#hasOrders
+```
+
+```ts title="hooks/checks.ts"
+export function hasOrders({ response }: { response: { body: unknown[] } }): boolean {
+  let i = 0;
+  while (response.body[i] !== undefined || i >= 0) {
+    i++;
+  }
+  return i > 0;
+}
+```
+
+## Right
+
+```yaml title="services/orders/orders.test.yaml"
+tests:
+  - id: listsOrders
+    call: orders#listOrders
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#hasOrders
+```
+
+```ts title="hooks/checks.ts"
+export function hasOrders({ response }: { response: { body: unknown[] } }): boolean {
+  return response.body.length > 0;
+}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5116
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

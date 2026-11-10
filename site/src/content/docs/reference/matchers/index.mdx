@@ -1,0 +1,224 @@
+---
+title: "Checks and matchers"
+description: "The expect block: every kind of check, how values and matchers are written, and how checks merge."
+sidebar: { order: 0 }
+---
+
+import Playground from '~/components/Playground.svelte';
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+`expect` says what a response must look like. It has the same shape everywhere: on an api, a test, a step or an action, in `poll.until`, and in load thresholds.
+
+```yaml
+expect:
+  status: 200
+  body:
+    match:
+      body.total: {gt: 40}
+```
+
+## The expect shape
+
+| Key | Value | Page |
+| --- | --- | --- |
+| `status` | A code, a class such as `2xx`, a list of them, or a matcher | [status](/vc-rs/reference/matchers/status/) |
+| `headers.<name>` | A literal or matcher. Names are case-insensitive | [headers](/vc-rs/reference/matchers/headers/) |
+| `body.match.<path>` | A literal or matcher at a path in the body | This page, and one page per matcher below |
+| `body.equals` | The whole body, compared deeply | [body.equals](/vc-rs/reference/matchers/body-equals/) |
+| `body.schema` | A JSON Schema, usually from `$file` | [body.schema](/vc-rs/reference/matchers/body-schema/) |
+| `size` | A matcher on the body size, such as `{lt: 100kb}` | [size](/vc-rs/reference/matchers/size/) |
+| `timing.<phase>` | A matcher on `dns`, `connect`, `tls`, `firstByte`, `download` or `total` | [timing](/vc-rs/reference/matchers/timing/) |
+| `cel.<label>` | A CEL expression that must be `true` | [cel](/vc-rs/reference/matchers/cel/) |
+| `custom` | A list of `- function: path#export` | [custom](/vc-rs/reference/matchers/custom/) |
+| `replace` | `true` drops every inherited check | [Merging and replace](/vc-rs/reference/matchers/merging/) |
+
+Each check is reported on its own, with its source line, the expected value and the actual value. Objects and lists also get a diff.
+
+## Following along
+
+Every example in this section runs against the demo service that ships with `vc`. Start it in a project made by `vc init`:
+
+```console
+$ vc demo start
+```
+
+The `vc init` sample already has `sample#listUsers` and `sample#createUser`. Most matcher examples also use this api, added to `services/sample/sample.api.yaml`:
+
+```yaml title="services/sample/sample.api.yaml"
+  # POST /echo: the demo sends the request back, so the order shows up under `body`.
+  - id: echoOrder
+    name: Echo a sample order
+    method: POST
+    path: /echo
+    body:
+      id: ord_123
+      status: active
+      total: 42.5
+      qty: 3
+      name: Ada Lovelace
+      email: ada@example.com
+      tags: [new, vip]
+      items:
+        - {sku: A1, price: 10}
+        - {sku: B2, price: 32.5}
+      note: null
+      day: "2026-11-10"
+      created: "2026-11-10T09:30:00Z"
+      ip: 10.0.0.1
+      uuid: 3f2b8c1e-9a4d-4e2f-8b7a-1c2d3e4f5a6b
+      site: https://shop.example/a
+      empty: []
+```
+
+The demo answers `/echo` with the request it got: `{"body": <the order>, "headers": ..., "method": "POST", "path": "/echo", "query": ...}`. That is why the paths in the examples start with `body.`, as in `body.total`: the first `body` is a key in the echoed response.
+
+## A full example
+
+One test can mix every kind of check. Here is one that passes and one that fails twice:
+
+```yaml title="services/sample/overview.test.yaml"
+tests:
+  - id: checksAnOrder
+    name: Checks an echoed order
+    call: sample#echoOrder
+    expect:
+      status: 200
+      headers:
+        content-type: {contains: json}
+      body:
+        match:
+          body.id: {type: string, startsWith: ord_, length: 7}
+          body.status: active
+          body.total: {between: [40, 50]}
+          body.items[*].price: {every: {gt: 0}}
+      timing:
+        total: {lt: 2s}
+  - id: failsTwoWays
+    name: Fails two checks
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {type: string, length: 9}
+          body.items[*].price: {gt: 0}
+```
+
+```console
+$ vc run sample.overview
+plan  2 tests in 1 file · profile default
+
+✓ sample.overview#checksAnOrder                                   0ms
+✕ sample.overview#failsTwoWays                                    0ms
+  error[V5101]: expect.body.match.body.id
+    --> services/sample/overview.test.yaml:23:20
+     |
+  23 |           body.id: {type: string, length: 9}
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"length":9,"type":"string"}, got "ord_123"
+  error[V5101]: expect.body.match.body.items[*].price
+    --> services/sample/overview.test.yaml:24:32
+     |
+  24 |           body.items[*].price: {gt: 0}
+     |                                ^^^^^^^ expected {"gt":0}, got [10,32.5]
+
+1 passed · 1 failed                                          183ms · profile default
+```
+
+## Literal or matcher
+
+Every value in `expect` is either a literal or a matcher.
+
+- A **literal** is a plain value: `body.status: active`, `body.tags: [new, vip]`. The check passes when the response value equals it, deeply. See [literal equality](/vc-rs/reference/matchers/literal/).
+- A **matcher** is a map whose keys are matcher names: `body.total: {gt: 40}`.
+
+A map counts as a matcher when at least one of its keys is a matcher name. Otherwise the whole map is a literal object.
+
+<Aside type="caution" title="Spell matcher names carefully">
+A misspelled name on its own, such as `{gtt: 40}`, is read as a literal object and fails at run time with `expected {"gtt":40}`. When it sits next to a real matcher, as in `{gt: 1, gtt: 2}`, `vc check` reports [V1004](/vc-rs/reference/diagnostics/v1004/) and suggests the right name.
+</Aside>
+
+## Several matchers in one map
+
+All matchers in one map must pass. This is the same as [allOf](/vc-rs/reference/matchers/all-of/), and shorter:
+
+```yaml
+body.id: {type: string, startsWith: ord_, length: 7}
+```
+
+A failure reports the whole map, as in `expected {"length":9,"type":"string"}` above.
+
+## Paths
+
+A `body.match` path starts at the root of the response body.
+
+| Path | Reads |
+| --- | --- |
+| `body.status` | A key, then a key inside it |
+| `body.items[0].sku` | The first element of a list, then a key |
+| `body.items[*].price` | One field from every element, collected into a list |
+
+A `[*]` path gives a list, so it takes a list matcher: [every](/vc-rs/reference/matchers/every/), [some](/vc-rs/reference/matchers/some/), [none](/vc-rs/reference/matchers/none/), [length](/vc-rs/reference/matchers/length/), [contains](/vc-rs/reference/matchers/contains/) or a literal list. A scalar matcher such as `{gt: 0}` on a `[*]` path compares the whole list and fails, as in the example above. Write `{every: {gt: 0}}` instead.
+
+A path that is not in the body has no value. Most matchers fail on it and report `got nothing`. `ne`, `notIn` and `not` pass on it, and `exists: false` checks for it.
+
+## Merging
+
+Checks are inherited from the api, then the test, then the step. Each check has a key: its kind plus its path, such as `status`, `headers.content-type` or a `body.match` path. A check with the same key at a more specific level replaces the inherited one, and the rest still apply. `cel` and `custom` checks are only ever added. `replace: true` drops everything inherited. See [Merging and replace](/vc-rs/reference/matchers/merging/).
+
+## All matchers
+
+| Matcher | Passes when | Example |
+| --- | --- | --- |
+| [literal](/vc-rs/reference/matchers/literal/) | The value equals it, deeply | `status: active` |
+| [eq](/vc-rs/reference/matchers/eq/), [ne](/vc-rs/reference/matchers/ne/) | Equal, not equal | `{ne: null}` |
+| [gt](/vc-rs/reference/matchers/gt/), [gte](/vc-rs/reference/matchers/gte/), [lt](/vc-rs/reference/matchers/lt/), [lte](/vc-rs/reference/matchers/lte/) | Number, string, duration or size comparison | `{gte: 1}` |
+| [between](/vc-rs/reference/matchers/between/) | Inside an inclusive range | `{between: [1, 10]}` |
+| [in](/vc-rs/reference/matchers/in/), [notIn](/vc-rs/reference/matchers/not-in/) | One of, none of a list | `{in: [active, pending]}` |
+| [type](/vc-rs/reference/matchers/type/) | Has a JSON type | `{type: string}` |
+| [exists](/vc-rs/reference/matchers/exists/) | The path is present or absent | `{exists: false}` |
+| [empty](/vc-rs/reference/matchers/empty/) | A string, list or object is empty | `{empty: false}` |
+| [length](/vc-rs/reference/matchers/length/) | The length is a number or matches a matcher | `{length: {gte: 1}}` |
+| [format](/vc-rs/reference/matchers/format/) | A string is an email, UUID, URI, date, date-time or IPv4 | `{format: uuid}` |
+| [contains](/vc-rs/reference/matchers/contains/) | A string has a substring; a list has an element | `{contains: vip}` |
+| [startsWith](/vc-rs/reference/matchers/starts-with/), [endsWith](/vc-rs/reference/matchers/ends-with/) | A string prefix or suffix | `{endsWith: .com}` |
+| [regex](/vc-rs/reference/matchers/regex/) | A string matches a pattern | `{regex: "^ord_\\d+$"}` |
+| [every](/vc-rs/reference/matchers/every/), [some](/vc-rs/reference/matchers/some/), [none](/vc-rs/reference/matchers/none/) | All, at least one, or no elements match | `{every: {gt: 0}}` |
+| [not](/vc-rs/reference/matchers/not/) | The nested matcher fails | `{not: {contains: test}}` |
+| [allOf](/vc-rs/reference/matchers/all-of/), [anyOf](/vc-rs/reference/matchers/any-of/) | All, or at least one, of a list of matchers pass | `{anyOf: [{eq: 0}, {gt: 10}]}` |
+
+There is no `oneOf` matcher. For JSON Schema, use [body.schema](/vc-rs/reference/matchers/body-schema/).
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: checksAnOrder
+    name: Checks an echoed order
+    call: sample#echoOrder
+    expect:
+      status: 200
+      body:
+        match:
+          body.id: {type: string, startsWith: ord_}
+          body.total: {between: [40, 50]}
+          body.items[*].price: {every: {gt: 0}}
+`} />
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): an unknown key, such as a misspelled matcher next to a real one, or an unknown timing phase.
+- [V2301](/vc-rs/reference/diagnostics/v2301/): a duration or size with no unit, such as `500` instead of `500ms`.
+- [V2303](/vc-rs/reference/diagnostics/v2303/): a status that is not a code from 100 to 599 or a class from `1xx` to `5xx`.
+- [V2306](/vc-rs/reference/diagnostics/v2306/): a matcher argument it does not accept, such as `{type: int}` or `{between: 5}`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): a check did not hold at run time.
+- [V5102](/vc-rs/reference/diagnostics/v5102/): a CEL check was not `true`.
+- [V5103](/vc-rs/reference/diagnostics/v5103/): a custom check failed or threw.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Literal equality" href="/vc-rs/reference/matchers/literal/" />
+  <LinkCard title="Merging and replace" href="/vc-rs/reference/matchers/merging/" />
+  <LinkCard title="cel" href="/vc-rs/reference/matchers/cel/" />
+  <LinkCard title="body.schema" href="/vc-rs/reference/matchers/body-schema/" />
+</CardGrid>

@@ -1,0 +1,80 @@
+---
+title: "V1004 — Unknown key"
+description: "The key is not one this place accepts."
+sidebar:
+  label: "V1004 Unknown key"
+  order: 1004
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Syntax" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V1004` |
+| Category | V1xxx: Syntax |
+| Severity | error |
+| Certain fix | rename when one known key is close |
+
+The key is not one this place accepts. It is usually a typo, and the diagnostic suggests the closest key with a certain
+fix. Keys are checked so that a misspelt setting is reported instead of silently ignored.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+nmae: Users
+apis: []
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+name: Users
+apis: []
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/users.api.yaml"
+id: users
+name: Users
+baseUrl: http://localhost:7421
+apis:
+  - id: listUsers
+    name: List users
+    path: /users
+    methd: GET
+```
+
+```console
+$ vc check
+error[V1004]: unknown key `methd` in apiEntry
+ --> services/users/users.api.yaml:8:5
+  |
+8 |     methd: GET
+  |     ^^^^^ not a known key
+  = help: did you mean `method`?
+  = fix: Replace with method (certain)
+
+1 error · 0 warnings · 2 files checked
+$ echo $?
+2
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V1004
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

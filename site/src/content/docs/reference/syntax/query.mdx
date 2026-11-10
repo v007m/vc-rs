@@ -1,0 +1,229 @@
+---
+title: query
+description: Query-string parameters for an api, a test or a step; vc percent-encodes every value.
+sidebar: { order: 113, badge: { text: 'api + test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`query` is a map of query-string parameters. vc encodes each value and adds the string to the URL.
+
+```yaml title="services/req/req.api.yaml"
+apis:
+  - id: search
+    path: /echo
+    query:
+      limit: ${var.pageSize}
+      q: ${var.term}
+      sort: name
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `query` | map of name to template | — | no | On an api, a test, a step or a `call`/`test` action. |
+| value | string, number, boolean, list or template | — | — | Numbers and booleans are sent as text. A list repeats the name. A value that renders `null` is left out. |
+
+## Examples
+
+### Values are encoded for you
+
+The term `café & co` holds an accent, spaces and `&`. Write it as is:
+
+```yaml title="services/req/req.api.yaml"
+id: req
+baseUrl: ${var.sampleUrl}
+vars:
+  pageSize: 20
+apis:
+  - id: search
+    path: /echo
+    query:
+      limit: ${var.pageSize}
+      q: ${var.term}
+      sort: name
+    vars:
+      term: café & co
+```
+
+The request line on the wire:
+
+```console
+GET /echo?limit=20&q=caf%C3%A9%20%26%20co&sort=name HTTP/1.1
+```
+
+The demo's `/echo` decodes it back:
+
+```console
+$ vc call req#search
+200 OK · 2 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2",
+    "x-team": "payments",
+    "x-trace": "file-level"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {
+    "limit": "20",
+    "q": "café & co",
+    "sort": "name"
+  }
+}
+```
+
+### Numbers, booleans and null
+
+Numbers and booleans become text. A template that renders `null` drops the parameter, so an optional filter can be switched off with a var.
+
+```yaml title="services/qlab/qlab.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: typed
+    path: /echo
+    query:
+      n: 5
+      flag: true
+      gone: ${var.nothing}
+    headers:
+      x-n: 5
+    vars:
+      nothing: null
+```
+
+```console
+GET /echo?n=5&flag=true HTTP/1.1
+```
+
+```console
+$ vc call qlab#typed
+200 OK · 73 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2",
+    "x-n": "5"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {
+    "flag": "true",
+    "n": "5"
+  }
+}
+```
+
+### Lists repeat the name
+
+A list value sends the parameter once per item:
+
+```yaml title="services/req/req.api.yaml"
+  - id: listQuery
+    path: /echo
+    query:
+      ids: ${var.ids}
+    vars:
+      ids: [1, 2]
+```
+
+```console
+GET /echo?ids=1&ids=2 HTTP/1.1
+```
+
+<Aside>
+The demo's `/echo` keeps only the last value of a repeated name, so it shows `"ids": "2"`. The request did carry both.
+</Aside>
+
+### A test adds to the api's query
+
+A test's or step's `query` merges over the api's, key by key. Here the test adds `page` and keeps `limit`, `q` and `sort`:
+
+```yaml title="services/req/shape.test.yaml"
+tests:
+  - id: mergesQuery
+    call: req#search
+    query:
+      page: ${var.page}
+    vars:
+      page: 3
+    expect:
+      body:
+        match:
+          query:
+            limit: "20"
+            q: café & co
+            sort: name
+            page: "3"
+```
+
+```console
+$ vc run req.shape
+plan  2 tests in 1 file · profile default
+
+✓ req.shape#overridesHeaders                                      3ms
+✓ req.shape#mergesQuery                                           3ms
+
+2 passed                                                     3ms · profile default
+```
+
+To remove one of the api's parameters for one call, set it to a var that holds `null`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: req.shape
+tests:
+  - id: mergesQuery
+    call: req#search
+    query:
+      page: "3"
+    expect:
+      body:
+        match:
+          query.page: "3"
+`} />
+
+## How it behaves
+
+- Layers merge per key, the later one winning: the api's `query`, then the test's, then the step's.
+- Every value is percent-encoded. Don't add `| urlEncode`: it encodes a second time. `tag: ${var.tag | urlEncode}` with `tag: a&b` sends `tag=a%2526b`, and the server reads `a%26b`.
+- A value is a template. It can read any var in scope, a saved value, or a [`fake`](/vc-rs/reference/templates/) value.
+- A key keeps the order you wrote it in.
+- An auth of type `apiKey` with `in: query` adds its own parameter. See [auth](/vc-rs/reference/syntax/auth/).
+
+## Common errors
+
+A literal `null` value fails `vc check`, because a query value must be a template or a scalar. Put the `null` in a var instead, as above:
+
+```yaml title="services/m/m.api.yaml"
+  - id: nq
+    path: /echo
+    query:
+      gone: null
+```
+
+```console
+error[V2302]: expected template, found null
+  --> services/m/m.api.yaml:12:13
+   |
+12 |       gone: null
+   |             ^^^^ expected template
+```
+
+A var no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/). See also [V2302](/vc-rs/reference/diagnostics/v2302/).
+
+## Related
+
+- [path](/vc-rs/reference/syntax/path/): path values are not encoded, so they do need `urlEncode`
+- [headers](/vc-rs/reference/syntax/headers/): merged the same way
+- [vars](/vc-rs/reference/syntax/vars/)
+- [Pipes](/vc-rs/reference/pipes/)

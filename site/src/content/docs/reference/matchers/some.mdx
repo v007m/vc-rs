@@ -1,0 +1,135 @@
+---
+title: "some"
+description: "The some matcher checks that at least one element of a list matches."
+sidebar: { order: 30 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`some` passes when at least one element of a list matches the nested matcher.
+
+```yaml
+expect:
+  body:
+    match:
+      body.items[*].price: {some: {gt: 30}}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `some` | matcher or value | — | yes | A plain value means some element equals it. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### At least one large price
+
+A `[*]` path, such as `body.items[*].price`, collects one field from every element into a list. Use it to apply a matcher to one field of each element.
+
+```yaml title="services/sample/some.test.yaml"
+tests:
+  - id: hasBigItem
+    name: Some price is over 30
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].price: {some: {gt: 30}}
+```
+
+```console
+$ vc run sample.some#hasBigItem
+plan  1 test in 1 file · profile default
+
+✓ sample.some#hasBigItem                                          3ms
+
+1 passed                                                     6ms · profile default
+```
+
+### Match whole elements
+
+A plain object is compared deeply with each element.
+
+```yaml title="services/sample/some.test.yaml"
+tests:
+  - id: hasB2
+    name: Some item is B2 at 32.5
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items: {some: {sku: B2, price: 32.5}}
+```
+
+```console
+$ vc run sample.some#hasB2
+plan  1 test in 1 file · profile default
+
+✓ sample.some#hasB2                                               3ms
+
+1 passed                                                     6ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/some.test.yaml"
+tests:
+  - id: failsOnPrice
+    name: Some price is over 100
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].price: {some: {gt: 100}}
+```
+
+```console
+$ vc run sample.some#failsOnPrice
+plan  1 test in 1 file · profile default
+
+✕ sample.some#failsOnPrice                                        3ms
+  error[V5101]: expect.body.match.body.items[*].price
+    --> services/sample/some.test.yaml:22:32
+     |
+  22 |           body.items[*].price: {some: {gt: 100}}
+     |                                ^^^^^^^^^^^^^^^^^ expected {"some":{"gt":100}}, got [10,32.5]
+
+0 passed · 1 failed                                          4ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: hasBigItem
+    name: Some price is over 30
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].price: {some: {gt: 30}}
+`} />
+
+## How it behaves
+
+- The value must be a list. Anything else, including a missing value, fails.
+- An empty list fails: no element matches.
+- For a plain value, [contains](/vc-rs/reference/matchers/contains/) does the same check.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [every](/vc-rs/reference/matchers/every/)
+- [none](/vc-rs/reference/matchers/none/)
+- [contains](/vc-rs/reference/matchers/contains/)
+- [All matchers](/vc-rs/reference/matchers//)

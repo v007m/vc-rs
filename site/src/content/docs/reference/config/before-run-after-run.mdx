@@ -1,0 +1,52 @@
+---
+title: "beforeRun and afterRun"
+description: "Actions that run once before the first test and once after the last, such as starting a service or creating an admin user."
+sidebar: { order: 75 }
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+`beforeRun` runs once before any test starts. `afterRun` runs once after the last test ends.
+
+```yaml title="vibranium.config.yaml"
+beforeRun:
+  - call: sample#listUsers
+afterRun:
+  - command: echo run finished
+```
+
+The plan line names them:
+
+```console
+$ vc run slow.par
+plan  4 tests in 1 file · lifecycle: beforeRun call sample#listUsers · profile default
+
+✓ slow.par#waits2                                               488ms
+✓ slow.par#waits4                                               489ms
+✓ slow.par#waits1                                               491ms
+✓ slow.par#waits3                                               491ms
+
+4 passed                                                     528ms · profile default
+```
+
+A failed `beforeRun` action is reported once. Only tests that read its values are blocked; here no test does, so they all run:
+
+```console
+$ vc run slow.par
+plan  4 tests in 1 file · lifecycle: beforeRun call sample#listUsers · profile default
+
+✕ call sample#listUsers (run) failed
+  error[V5105]: cannot connect to localhost:7462: Connection refused (os error 61)
+     = at: call sample#listUsers
+✓ slow.par#waits4                                               508ms
+✓ slow.par#waits1                                               508ms
+✓ slow.par#waits3                                               508ms
+✓ slow.par#waits2                                               509ms
+
+4 passed                                                     551ms · profile default
+```
+
+Actions are `call`, `test`, `command` and `function`, as in every lifecycle block. Give an action an `id` to share what it saves, as `${var.<id>.<name>}`.
+
+<LinkCard title="beforeRun" href="/vc-rs/reference/lifecycle/before-run/" />
+<LinkCard title="Lifecycle" href="/vc-rs/reference/lifecycle/" />

@@ -1,0 +1,110 @@
+---
+title: "vc config explain"
+description: "Print a config value, the layer that set it, and every value it replaced."
+sidebar: { order: 2 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`vc config explain <key>` prints a setting's value and where it came from. It then lists each lower value it replaced, with its layer.
+
+```console
+$ vc config explain defaults.timeout
+defaults.timeout = 30s  (vibranium.config.yaml)
+  over 30s  (built-in)
+```
+
+## Syntax
+
+```console
+vc config explain [--profile <IDS>] [--set <KEY=VALUE>] [--project <DIR>] <KEY>
+```
+
+| Argument or flag | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `KEY` | text | — | yes | A settable key: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats`, `reports.html.layout` or `vars.<name>`. |
+| `--profile` | comma list | the default profile | no | The active profiles. Later ones win. |
+| `--set` | `KEY=VALUE` | — | no | Adds a value on the top layer, as `vc run` would. |
+| `--project` | folder | nearest config upward | no | The project to read. |
+
+## Examples
+
+A value from a `VIB_*` variable:
+
+```console
+$ VIB_DEFAULTS_TIMEOUT=5s vc config explain defaults.timeout
+defaults.timeout = 5s  (VIB_DEFAULTS_TIMEOUT)
+  over 30s  (built-in)
+```
+
+A value from the user config shows the file's full path:
+
+```console
+$ vc config explain defaults.timeout
+defaults.timeout = 12s  (/home/ana/.config/vibranium/config.yaml)
+  over 30s  (built-in)
+```
+
+Which profile is active, and why:
+
+```console
+$ VIB_PROFILE=eu vc config explain profile
+profile = eu  (VIB_PROFILE)
+  over default  (vibranium.config.yaml)
+```
+
+The whole chain for one var:
+
+```console
+$ VIB_VAR_region=envvar vc config explain vars.region --profile staging --set vars.region=flag
+vars.region = flag  (--set)
+  over envvar  (VIB_VAR_region)
+  over dotenv  (.env)
+  over us  (profile staging)
+  over local  (vibranium.config.yaml)
+```
+
+A key it does not know (exit 2). The help line lists every key you can ask about, including your vars:
+
+```console
+$ vc config explain history.keep
+error: no setting `history.keep`
+  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, reports.dir, reports.formats, reports.html.layout, vars.region, vars.sampleUrl and vars.<name>
+```
+
+## Try it
+
+Write a config, then run `vc config explain vars.shopUrl --profile staging` against it.
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+
+vars:
+  shopUrl: http://localhost:7421
+
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+    vars:
+      shopUrl: https://shop.staging.example
+`} />
+
+## How it behaves
+
+- It reads the same layers as `vc run`: built-in, user config, the project file, profiles, `.env`, `VIB_*` and `--set`.
+- It prints only layers that set the key. A layer that leaves it unset is skipped.
+- A user-config value that the project overrides is not listed, because it never counted.
+- It runs nothing and sends no request.
+
+## Common errors
+
+- `error: no setting ...`: the key is not settable or the var does not exist (exit 2).
+- `error: VIB_...: ...`: a `VIB_*` variable holds a bad value (exit 2).
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Layering and precedence" href="/vc-rs/reference/config/layering/" />
+  <LinkCard title="VIB_* variables" href="/vc-rs/reference/config/vib-variables/" />
+</CardGrid>

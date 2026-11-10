@@ -1,0 +1,234 @@
+---
+title: "CI"
+description: "Run vc in GitHub Actions, GitLab CI or Jenkins, publish its reports, gate on its exit codes and keep its cache between runs."
+sidebar: { order: 1 }
+---
+
+import { Tabs, TabItem, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+A CI job needs three `vc` commands, from cheap to expensive:
+
+```console
+$ vc check                                  # parse and link every file; sends nothing
+$ vc sync --check                           # fail if an imported spec drifted
+$ vc run --profile ci --report junit,ctrf,html --out reports
+```
+
+Each one fails the step with a non-zero exit code, so you need no extra scripting. The [CI walkthrough](/vc-rs/walkthroughs/ci-pipeline/) builds this up step by step for GitHub Actions. This page is the short version, for more CI systems.
+
+## Install vc
+
+There is no release download or setup action yet. Build it with Cargo (Rust 1.99 or later):
+
+```console
+$ cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+```
+
+`vc-demo` is only needed if your tests call the [demo service](/vc-rs/reference/cli/demo/), like the `vc init` sample does.
+
+## Exit codes
+
+| Code | Meaning | Typical cause in CI |
+| --- | --- | --- |
+| `0` | Passed | Every test passed, was skipped, or was flaky |
+| `1` | Failed | A test failed or was blocked |
+| `2` | Nothing ran | An error in the YAML, an empty selection, a bad flag or profile |
+| `3` | Load threshold breached | `vc load` |
+| `4` | Sync drift | `vc sync --check` found a changed spec |
+| `70` | Internal error in `vc` | A bug; please report it |
+| `130` | Cancelled | The job was stopped |
+
+`vc check` and `vc run` refuse to run on a project with errors, so a broken file fails the job before any request is sent.
+
+## Reports
+
+`--report` picks the files and `--out` puts them in one folder that CI can collect:
+
+```console
+$ vc run --profile ci --report junit,ctrf,html --out reports
+...
+4 passed                                                     130ms · profile ci
+reports  /home/ada/shop/reports/{junit.xml,ctrf.json,index.html}
+```
+
+- `junit.xml`: one `<testsuite>` per test file and one `<testcase>` per test instance, with the file and line. A failure holds the message and the full diagnostic; its `type` is the diagnostic code, such as `V5101`. Every CI system reads it.
+- `ctrf.json`: [CTRF](https://ctrf.io) JSON, with every check, step and lifecycle action under `extra`.
+- `index.html` and a `data/` folder. Add `--single-file` for one self-contained `report.html` that is easier to attach.
+
+`--out` writes into the folder as it is and does not empty it first. Without `--out`, each run writes to `.vibranium/reports/<run>/`. Set the default formats once in [`reports.formats`](/vc-rs/reference/config/reports/) and drop `--report`.
+
+For logs that a script reads, `--reporter json` replaces the console output with one JSON event per line. See [Reporters and history](/vc-rs/guides/reporters-and-history/).
+
+## Run only what changed
+
+On a pull request, `--changed <ref>` runs the tests in test files changed since `<ref>`, and every test that calls an api in a changed api file. A changed `vibranium.config.yaml` selects everything. Without a ref, it uses the uncommitted and untracked changes.
+
+```console
+$ vc plan --changed origin/master
+plan  4 tests in 1 file · lifecycle: beforeAll command · profile default
+```
+
+The ref must exist in the clone, so fetch the history (`fetch-depth: 0` in GitHub Actions, `GIT_DEPTH: 0` in GitLab). When nothing relevant changed, the selection is empty and `vc run` exits `2`. Guard it with `vc list tests --changed`, which prints nothing and exits `0` in that case:
+
+```bash
+if [ -n "$(vc list tests --changed origin/master)" ]; then
+  vc run --changed origin/master --profile ci --report junit --out reports
+fi
+```
+
+## Pipelines
+
+<Tabs>
+  <TabItem label="GitHub Actions">
+```yaml title=".github/workflows/api-tests.yml"
+name: API tests
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install vc
+        run: cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+      - uses: actions/cache@v4
+        with:
+          path: .vibranium
+          key: vibranium-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: vibranium-${{ github.ref_name }}-
+      - run: vc check
+      - run: vc sync --check
+      - run: vc run --profile ci --report junit,ctrf,html --out reports
+        env:
+          VIB_CACHE_KEY: ${{ secrets.VIB_CACHE_KEY }}
+          SHOP_API_TOKEN: ${{ secrets.SHOP_API_TOKEN }}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vc-reports
+          path: reports/
+```
+  </TabItem>
+  <TabItem label="GitLab CI">
+```yaml title=".gitlab-ci.yml"
+api-tests:
+  image: rust:1.99
+  variables:
+    GIT_DEPTH: 0
+  cache:
+    key: vibranium-$CI_COMMIT_REF_SLUG
+    paths:
+      - .vibranium/
+  before_script:
+    - cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
+  script:
+    - vc check
+    - vc sync --check
+    - vc run --profile ci --report junit,ctrf,html --out reports
+  artifacts:
+    when: always
+    paths:
+      - reports/
+    reports:
+      junit: reports/junit.xml
+```
+Set `VIB_CACHE_KEY` and your secrets as masked CI/CD variables. GitLab passes them to the job as environment variables.
+  </TabItem>
+  <TabItem label="Jenkins">
+```groovy title="Jenkinsfile"
+pipeline {
+  agent any
+  environment {
+    VIB_CACHE_KEY  = credentials('vib-cache-key')
+    SHOP_API_TOKEN = credentials('shop-api-token')
+  }
+  stages {
+    stage('Check') {
+      steps {
+        sh 'vc check'
+        sh 'vc sync --check'
+      }
+    }
+    stage('Test') {
+      steps {
+        sh 'vc run --profile ci --report junit,ctrf,html --out reports'
+      }
+    }
+  }
+  post {
+    always {
+      junit allowEmptyResults: true, testResults: 'reports/junit.xml'
+      archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+    }
+  }
+}
+```
+Install `vc` on the agent once, with the `cargo install` line above. A Jenkins workspace persists between builds, so `.vibranium/` is kept without extra setup.
+  </TabItem>
+</Tabs>
+
+`${secret.NAME}` reads the environment by default, so a CI secret named `SHOP_API_TOKEN` reaches `${secret.SHOP_API_TOKEN}`. See [Secrets](/vc-rs/guides/secrets/).
+
+## Cache between CI runs
+
+`.vibranium/` (git-ignored by `vc init`) holds what makes the next run faster or smarter:
+
+| Path | What it gives the next run |
+| --- | --- |
+| `.vibranium/cache/` | The compiled files. Only changed files are parsed again |
+| `.vibranium/cache.db` | Results of lifecycle actions with [`cache:`](/vc-rs/reference/lifecycle/cache/), such as a test user made once a day |
+| `.vibranium/history.db` | Past runs, for `vc run --failed`, `vc history` and flaky-test insights |
+| `.vibranium/plugins/` | Installed plugins |
+
+Keep it with your CI system's cache, as in the pipelines above.
+
+### VIB_CACHE_KEY
+
+The `cache:` entries are encrypted. On a laptop the key lives in the OS keychain. A CI runner has no keychain, so without a key the cross-run cache is off: every `cache:` action runs each time, and the run warns:
+
+```console
+$ vc run
+...
+warning: cache: V5113: no cache key: the OS keychain cannot be used: Platform failure: A default keychain could not be found.; `cache:` actions run every time this run (set `VIB_CACHE_KEY` to 64 hex digits, as CI does, or run where the OS keychain is unlocked)
+```
+
+Make a key once, store it as a CI secret, and pass it to the job as `VIB_CACHE_KEY`:
+
+```console
+$ openssl rand -hex 32
+```
+
+It must be 64 hex digits and the same on every run. With another key, existing entries are not readable and count as misses, so they are made again; nothing fails. A malformed key prints the same V5113 warning:
+
+```console
+$ VIB_CACHE_KEY=nothex vc run
+...
+warning: cache: V5113: no cache key: `VIB_CACHE_KEY` is not 64 hex digits; `cache:` actions run every time this run (...)
+```
+
+With a good key, the second run takes the cached result and skips the call. `vc cache list` shows what is kept:
+
+```console
+$ vc cache list
+sample#createUser  expires 2026-11-11 06:19Z  profile default
+```
+
+Pass `--no-cache` to ignore the cache for one run.
+
+<Aside type="caution">
+A pull request from a fork can read the cache of the branch it targets in some CI systems. Do not give fork builds the `VIB_CACHE_KEY` secret if cached values include anything sensitive.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="CI walkthrough" href="/vc-rs/walkthroughs/ci-pipeline/" description="Build the GitHub Actions job step by step." />
+  <LinkCard title="vc run" href="/vc-rs/reference/cli/run/" description="Every flag." />
+  <LinkCard title="Reporters and history" href="/vc-rs/guides/reporters-and-history/" description="What each report holds." />
+  <LinkCard title="vc cache" href="/vc-rs/reference/cli/cache/" description="List and clear cached results." />
+</CardGrid>

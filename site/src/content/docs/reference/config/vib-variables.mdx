@@ -1,0 +1,114 @@
+---
+title: "VIB_* variables"
+description: "Override settings from the environment with VIB_PROFILE, VIB_DEFAULTS_*, VIB_REPORTS_* and VIB_VAR_<name>."
+sidebar: { order: 6 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A `VIB_*` environment variable sets one config value. It beats the config file, the profiles and `.env`, and loses only to `--set`.
+
+```console
+$ VIB_DEFAULTS_TIMEOUT=5s vc config explain defaults.timeout
+defaults.timeout = 5s  (VIB_DEFAULTS_TIMEOUT)
+  over 30s  (built-in)
+```
+
+## Syntax
+
+A variable's name is its `--set` key in upper snake case.
+
+| Variable | Sets | Value | Example |
+| --- | --- | --- | --- |
+| `VIB_PROFILE` | `profile` | profile IDs | `VIB_PROFILE=staging` |
+| `VIB_DEFAULTS_CONCURRENCY` | `defaults.concurrency` | whole number above 0 | `VIB_DEFAULTS_CONCURRENCY=4` |
+| `VIB_DEFAULTS_PER_HOST` | `defaults.perHost` | whole number above 0 | `VIB_DEFAULTS_PER_HOST=2` |
+| `VIB_DEFAULTS_TIMEOUT` | `defaults.timeout` | duration | `VIB_DEFAULTS_TIMEOUT=5s` |
+| `VIB_REPORTS_DIR` | `reports.dir` | folder | `VIB_REPORTS_DIR=out` |
+| `VIB_REPORTS_FORMATS` | `reports.formats` | comma list | `VIB_REPORTS_FORMATS=junit,html` |
+| `VIB_VAR_<name>` | `vars.<name>` | text | `VIB_VAR_userId=7` |
+
+For a var, write the name exactly as in the config, case and all: `VIB_VAR_userId`, not `VIB_VAR_USERID`.
+
+## Examples
+
+Pick a profile in CI:
+
+```console
+$ VIB_PROFILE=eu vc config explain profile
+profile = eu  (VIB_PROFILE)
+  over default  (vibranium.config.yaml)
+```
+
+Override a var:
+
+```console
+$ VIB_VAR_region=envvar vc config explain vars.region
+vars.region = envvar  (VIB_VAR_region)
+  over dotenv  (.env)
+  over local  (vibranium.config.yaml)
+```
+
+Change the report formats for one run:
+
+```console
+$ VIB_REPORTS_FORMATS=junit,html vc run
+...
+reports  out/reports/6/{junit.xml,report.html}
+```
+
+Write the reports somewhere else:
+
+```console
+$ VIB_REPORTS_DIR=elsewhere vc run
+...
+reports  elsewhere/7/{ctrf.json,junit.xml,report.html}
+```
+
+A bad value stops the command with exit code 2:
+
+```console
+$ VIB_DEFAULTS_TIMEOUT=abc vc run
+error: VIB_DEFAULTS_TIMEOUT: `defaults.timeout`: `abc` is not a duration such as `250ms`, `2s` or `1m`
+$ VIB_PROFILE=nope vc run
+error: VIB_PROFILE: no profile `nope`
+  = help: the profiles are default, staging, eu
+```
+
+## Try it
+
+Each `VIB_*` variable overrides a key you can also write here.
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+
+defaults:
+  timeout: 30s
+  concurrency: 16
+
+reports:
+  dir: .vibranium/reports
+  formats: [ctrf]
+
+vars:
+  region: local
+
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- A `VIB_*` line in [`.env`](/vc-rs/reference/config/dotenv/) sets the same value one layer lower.
+- `--set` beats every `VIB_*` variable.
+- Values are checked the same way as `--set` values.
+- Only the keys in the table can be set this way.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Layering and precedence" href="/vc-rs/reference/config/layering/" />
+  <LinkCard title=".env" href="/vc-rs/reference/config/dotenv/" />
+  <LinkCard title="vc config explain" href="/vc-rs/reference/config/config-explain/" />
+</CardGrid>

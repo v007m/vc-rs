@@ -1,0 +1,158 @@
+---
+title: "Plugin protocol"
+description: "The contract a plugin is written against, JSON-RPC 2.0 over stdio with Content-Length framing, its lifecycle, methods, deadlines and error codes."
+sidebar: { order: 7 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A plugin is a program that `vc` starts and talks to over stdin and stdout, using JSON-RPC 2.0. Any language works, as long as it can read and write framed JSON.
+
+```text
+Content-Length: 119\r\n
+\r\n
+{"id": 1, "jsonrpc": "2.0", "method": "initialize", "params": {"config": null, "plugin": "dump", "protocolVersion": 1}}
+```
+
+## Transport
+
+| Rule | Value |
+| --- | --- |
+| Encoding | JSON-RPC 2.0, UTF-8 |
+| Framing | As in LSP: a `Content-Length: <bytes>` header, a blank line (`\r\n\r\n`), then the JSON body. Other headers are ignored |
+| Largest message | 16 MiB |
+| stdout | Protocol messages only |
+| stderr | Passed through to your terminal. Use it for logs |
+| Processes | One per plugin per run, started on first use, in the plugin's installed folder |
+| Unread messages | The host keeps at most 1023 of the plugin's messages unread; more stops the plugin |
+
+A message that is not a framed JSON-RPC object stops the plugin for the rest of the run. So does a call it does not read within the call's deadline. A stopped plugin's process is killed, and later calls to it fail at once.
+
+## Lifecycle
+
+| Step | Direction | Deadline | Params | Result |
+| --- | --- | --- | --- | --- |
+| `initialize` | host → plugin | 5 s | `{"protocolVersion": 1, "plugin": "<id>", "config": <plugins[].config or null>}` | Anything; any result means ready |
+| calls for its kind | host → plugin | 30 s each | see below | see below |
+| `shutdown` | host → plugin | 1 s | none | ignored |
+
+An error or timeout in `initialize` fails every call to that plugin in the run.
+
+<Aside type="caution" title="Do not rely on shutdown">
+In the current build the plugin process ends with `vc`, right after the run's last call. A test plugin that logged every message never saw `shutdown`, an end of stdin or a SIGTERM. Write your files and flush your state by the end of your last call, such as `reporter/finish`.
+</Aside>
+
+## Methods the host calls
+
+| Kind | Method | Params | Result |
+| --- | --- | --- | --- |
+| reporter | `reporter/onEvent` | `{"event": <event>}` | ignored |
+| reporter | `reporter/finish` | `{"summary": <run summary>}` | `{"files": [{"name": "<relative path>", "content": "<text>"}]}` |
+| auth | `auth/credentials` | `{"auth": "<auth id>", "config": <the auth's config or null>}` | `{"headers": {…}, "query": {…}, "cookies": {…}, "expiresIn": <seconds>}` |
+
+Events have the same shape as the `json` console format prints. See [reporter plugins](/vc-rs/reference/plugins/reporter-plugins/) for a full run and [auth plugins](/vc-rs/reference/plugins/auth-plugins/) for the credential rules.
+
+## Methods the plugin calls
+
+| Method | Params | Result |
+| --- | --- | --- |
+| `secrets/get` | `{"name": "<secret>"}` | `{"value": "<text>"}` |
+
+The host answers only for a secret the manifest declares, the lock grants and the run has. Otherwise it returns error `-32001`. A plugin can call `secrets/get` while it handles a host call, and must keep reading stdin for the answer.
+
+## Errors
+
+| Code | Meaning |
+| --- | --- |
+| `-32001` | Permission denied: a secret, or a start-up, that the lock does not grant |
+| `-32002` | Deadline passed (set by the host when a call times out) |
+| `-32601` | Method not found |
+| `-32603` | Internal error (also used for an error object without a code) |
+
+Every plugin failure is [V5118](/vc-rs/reference/diagnostics/v5118/), naming the plugin, the method and the code. A reporter's failure becomes a run warning and its report is not written. An auth plugin's failure fails the requests that use it, as [V5114](/vc-rs/reference/diagnostics/v5114/).
+
+## Examples
+
+**A whole reporter session.** These are the messages a test plugin received during `vc run sample.basics#listsUsers`, one per line:
+
+```json
+{"id": 1, "jsonrpc": "2.0", "method": "initialize", "params": {"config": null, "plugin": "dump", "protocolVersion": 1}}
+{"id": 2, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"event": "runStarted", "files": 1, "instances": 1}}}
+{"id": 3, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"event": "fileStarted", "file": "sample.basics"}}}
+{"id": 4, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"action": "call sample#listUsers", "event": "actionStarted", "owner": {"instance": 0, "kind": "instance"}}}}
+{"id": 5, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"action": "call sample#listUsers", "event": "exchanged", "method": "GET", "ms": 2, "owner": {"instance": 0, "kind": "instance"}, "status": 200, "url": "http://localhost:7467/users"}}}
+{"id": 6, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"action": "call sample#listUsers", "check": {"actual": 200, "expected": [200], "key": "status", "passed": true, "...": "..."}, "event": "checkEvaluated", "owner": {"instance": 0, "kind": "instance"}}}}
+{"id": 7, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"action": "call sample#listUsers", "event": "actionFinished", "failure": null, "owner": {"instance": 0, "kind": "instance"}, "status": "passed"}}}
+{"id": 8, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"attempts": 1, "durationMs": 0, "event": "testFinished", "failure": null, "instance": 0, "label": "sample.basics#listsUsers", "skipReason": null, "status": "passed", "test": "sample.basics#listsUsers"}}}
+{"id": 9, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"event": "fileFinished", "file": "sample.basics", "totals": {"blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}}}}
+{"id": 10, "jsonrpc": "2.0", "method": "reporter/onEvent", "params": {"event": {"event": "runFinished", "status": "passed", "totals": {"blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}}}}
+{"id": 11, "jsonrpc": "2.0", "method": "reporter/finish", "params": {"summary": {"artifacts": [], "durationMs": 26, "event": "summary", "profiles": ["default"], "startedMs": 1794332389609, "status": "passed", "totals": {"blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}}}}
+```
+
+(The `check` object in message 6 is shortened. It also carries `code`, `diff`, `error`, `location` and `origin`.)
+
+**Reading and writing a frame in Python.** This is all the framing code a plugin needs.
+
+```python
+import json, sys
+
+def read():
+    length = None
+    while True:
+        line = sys.stdin.buffer.readline()
+        if not line:
+            return None                      # stdin closed
+        line = line.strip()
+        if not line:
+            break                            # blank line ends the headers
+        name, _, value = line.decode().partition(":")
+        if name.strip().lower() == "content-length":
+            length = int(value)
+    return json.loads(sys.stdin.buffer.read(length))
+
+def send(message):
+    body = json.dumps(dict(message, jsonrpc="2.0")).encode()
+    sys.stdout.buffer.write(b"Content-Length: %d\r\n\r\n%s" % (len(body), body))
+    sys.stdout.buffer.flush()
+```
+
+**Asking for a secret.** Send a request with your own ID, then read until the answer with that ID comes back.
+
+```python
+def secret(name):
+    send({"id": "s-" + name, "method": "secrets/get", "params": {"name": name}})
+    while True:
+        message = read()
+        if message is None or message.get("id") == "s-" + name:
+            return message
+```
+
+A refused secret comes back as `{"error": {"code": -32001, ...}}`.
+
+## Try it
+
+The protocol has no YAML of its own. This is the config that starts both kinds of plugin.
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: summary
+    source: path:plugins/summary
+  - id: stamp
+    source: path:plugins/stamp
+reports:
+  formats: [ctrf, summary]
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+`} />
+
+## Related
+
+- [Write a plugin](/vc-rs/reference/plugins/writing-a-plugin/)
+- [Permissions](/vc-rs/reference/plugins/permissions/)
+- [vibranium-plugin.yaml](/vc-rs/reference/plugins/manifest/)

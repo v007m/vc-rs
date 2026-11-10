@@ -1,0 +1,180 @@
+---
+title: repeat
+description: Run a whole test, or one step, a set number of times.
+sidebar: { order: 241, badge: { text: 'test + step', variant: 'note' } }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`repeat` runs something several times. On a test, it runs the whole test that many times and reports each run as its own instance. On a step or action, it repeats that one call inside the test.
+
+```yaml
+  - id: echoesEachRun
+    repeat: 3
+    call: echo#json
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `repeat` (test) | integer | `1` | no | Runs the whole test this many times. Each run is a separate instance. |
+| `repeat` (step or action) | integer | `1` | no | Runs that one call or command this many times, in order. Add [`parallel`](/vc-rs/reference/syntax/parallel/) to overlap them. |
+| `${iteration.index}` | integer | — | — | The current run, counting from 1. |
+| `${iteration.count}` | integer | — | — | The total number of runs. |
+
+`vc run --repeat <N>` runs every selected test N times, instead of its own `repeat`.
+
+## Examples
+
+### Repeat a whole test
+
+```yaml title="services/sample/repeat.test.yaml"
+id: sample.repeat
+name: Repeat
+
+tests:
+  - id: echoesEachRun
+    name: Echoes the run number three times
+    repeat: 3
+    call: echo#json
+    vars:
+      name: run ${iteration.index} of ${iteration.count}
+    expect:
+      body:
+        match:
+          body.name: run ${iteration.index} of ${iteration.count}
+```
+
+Each run is its own instance, with its own `before`, cleanups and report entry:
+
+```console
+$ vc plan sample.repeat
+plan  2 tests in 1 file · profile default
+sample.repeat
+  sample.repeat#echoesEachRun [repeat 1]
+  sample.repeat#echoesEachRun [repeat 2]
+  sample.repeat#echoesEachRun [repeat 3]
+  sample.repeat#createsFiveUsers
+```
+
+The first run sends `"name": "run 1 of 3"`. Run a single instance with `:n`:
+
+```console
+$ vc run 'sample.repeat#echoesEachRun:3'
+plan  1 test in 1 file · profile default
+
+✓ sample.repeat#echoesEachRun [repeat 3]                          0ms
+
+1 passed                                                     7ms · profile default
+```
+
+### Repeat one step
+
+On a step, `repeat` stays inside one test instance. A value saved inside the loop collects a list, one entry per run:
+
+```yaml
+  - id: createsFiveUsers
+    name: Creates five users and keeps every id
+    steps:
+      - call: sample#createUser
+        repeat: 5
+        vars:
+          email: user${iteration.index}@example.com
+        save:
+          ids: ${response.body.id}
+      - call: sample#getUser
+        vars:
+          userId: ${var.ids[4]}
+        expect:
+          status: 200
+          cel:
+            five ids: size(var.ids) == 5
+```
+
+Every created user registers its own cleanup, so all five are deleted after the test.
+
+```console
+$ vc run sample.repeat
+plan  2 tests in 1 file · profile default
+
+✓ sample.repeat#echoesEachRun [repeat 3]                          4ms
+✓ sample.repeat#echoesEachRun [repeat 1]                          4ms
+✓ sample.repeat#echoesEachRun [repeat 2]                          4ms
+✓ sample.repeat#createsFiveUsers                                 11ms
+
+4 passed                                                     14ms · profile default
+```
+
+### Repeat from the command line
+
+`--repeat` replaces each selected test's own `repeat`. It also repeats tests that have none:
+
+```console
+$ vc plan 'sample.repeat#createsFiveUsers' --repeat 2
+plan  1 test in 1 file · profile default
+sample.repeat
+  sample.repeat#createsFiveUsers [repeat 1]
+  sample.repeat#createsFiveUsers [repeat 2]
+```
+
+```console
+$ vc run 'sample.repeat#echoesEachRun' --repeat 2
+plan  1 test in 1 file · profile default
+
+✓ sample.repeat#echoesEachRun [repeat 2]                          0ms
+✓ sample.repeat#echoesEachRun [repeat 1]                          1ms
+
+2 passed                                                     10ms · profile default
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: echoesEachRun
+    name: Echoes the run number three times
+    repeat: 3
+    call: echo#json
+    vars:
+      name: run \${iteration.index} of \${iteration.count}
+`} />
+
+## How it behaves
+
+- A repeated test's instances run in parallel, like any other tests, up to `defaults.concurrency`.
+- A repeated step runs one iteration after another, in order. Use [`parallel`](/vc-rs/reference/syntax/parallel/) to run several at once.
+- Every name saved inside a repeated step is a list, in iteration order.
+- If one iteration of a step fails, the step fails. The cleanups of the iterations that passed still run.
+- With both [`examples`](/vc-rs/reference/syntax/examples/) and `repeat`, every row runs `repeat` times: `[row 1, repeat 1]`, `[row 1, repeat 2]`, `[row 2, repeat 1]` and so on.
+- `repeat` and [`forEach`](/vc-rs/reference/syntax/for-each/) on the same step: `forEach` wins and `repeat` is ignored.
+
+<Aside type="caution">
+With `--repeat`, `${iteration.count}` still reads the test's own `repeat`. A test with `repeat: 3` run with `--repeat 2` sends `run 1 of 3` and `run 2 of 3`.
+
+`repeat: 0` on a test drops it from the run without a warning. Use [`skip`](/vc-rs/reference/syntax/skip/) to park a test.
+</Aside>
+
+## Common errors
+
+`${iteration.*}` outside a loop or a repeated test:
+
+```console
+error[V2102]: `iteration` is not available here
+ --> services/sample/loopsbad.test.yaml:5:17
+  |
+5 |       name: run ${iteration.index}
+  |                 ^^^^^^^^^^^^^^^^^^
+  = help: `iteration` is available only inside repeat, forEach or a repeated test
+```
+
+- [V2102](/vc-rs/reference/diagnostics/v2102/): `iteration` used where no loop is running.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="forEach" href="/vc-rs/reference/syntax/for-each/" />
+  <LinkCard title="parallel" href="/vc-rs/reference/syntax/parallel/" />
+  <LinkCard title="examples" href="/vc-rs/reference/syntax/examples/" />
+  <LinkCard title="save" href="/vc-rs/reference/syntax/save/" />
+</CardGrid>

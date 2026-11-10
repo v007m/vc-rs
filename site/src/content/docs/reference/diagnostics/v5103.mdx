@@ -1,0 +1,73 @@
+---
+title: "V5103 — Custom check failed or threw"
+description: "A custom check's function returned a failure, or threw."
+sidebar:
+  label: "V5103 Custom check failed or threw"
+  order: 5103
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5103` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A `custom` check's function returned a failure, or threw. The report shows the message the function gave. A check
+function receives the response and returns `true`, or a message that says what is wrong; here the function is given
+the wrong export, one that checks orders rather than users.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: listUsers
+    path: /users
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: listsUsersSorted
+    call: users#listUsers
+    expect:
+      custom:
+        - function: hooks/checks.ts#ordersAreSorted
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: listUsers
+    path: /users
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: listsUsersSorted
+    call: users#listUsers
+    expect:
+      custom:
+        - function: hooks/checks.ts#usersAreSorted
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5103
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

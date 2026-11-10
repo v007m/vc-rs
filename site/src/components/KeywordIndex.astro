@@ -1,0 +1,144 @@
+---
+import { getCollection } from 'astro:content';
+
+interface Item {
+  term: string;
+  kind: string;
+  summary: string;
+  href: string;
+}
+
+const KINDS: Record<string, string> = {
+  syntax: 'keyword',
+  config: 'config',
+  templates: 'template',
+  pipes: 'pipe',
+  matchers: 'matcher',
+  lifecycle: 'lifecycle',
+  data: 'data',
+  auth: 'auth',
+  load: 'load',
+  plugins: 'plugin',
+  cli: 'command',
+  diagnostics: 'diagnostic',
+};
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+function firstSentence(text: string): string {
+  const m = text.match(/^.*?[.!?](\s|$)/);
+  return (m ? m[0] : text).trim();
+}
+
+function toItem(id: string, title: string, description: string): Item | null {
+  const [root, folder, ...rest] = id.split('/');
+  const kind = KINDS[folder ?? ''];
+  if (root !== 'reference' || !kind || rest.length === 0) return null;
+  const href = `${base}/${id}/`;
+  const code = title.match(/^(V\d{4})\s*[—-]\s*(.*)$/);
+  if (code) return { term: code[1], kind, summary: code[2], href };
+  const isTerm = !/\s/.test(title.trim()) || /^vc\s/.test(title);
+  if (!isTerm) return null;
+  return { term: title, kind, summary: firstSentence(description), href };
+}
+
+const entries = await getCollection('docs');
+const items = entries
+  .map((e) => toItem(e.id.replace(/\/index$/, ''), e.data.title, e.data.description ?? ''))
+  .filter((i): i is Item => i !== null)
+  .sort((a, b) => a.term.localeCompare(b.term, 'en', { sensitivity: 'base' }));
+
+const groups = new Map<string, Item[]>();
+for (const item of items) {
+  const ch = item.term.replace(/^[^a-z0-9]+/i, '').charAt(0).toUpperCase();
+  const letter = /[A-Z]/.test(ch) ? ch : '#';
+  groups.set(letter, [...(groups.get(letter) ?? []), item]);
+}
+const letters = [...groups.keys()].sort((a, b) => (a === '#' ? -1 : b === '#' ? 1 : a.localeCompare(b)));
+---
+
+{items.length === 0 ? (
+  <p>No reference pages yet.</p>
+) : (
+  <>
+    <nav class="ki-jump not-content" aria-label="Jump to letter">
+      {letters.map((l) => <a href={`#ki-${l === '#' ? 'sym' : l.toLowerCase()}`}>{l}</a>)}
+    </nav>
+    <p class="ki-count">{items.length} entries</p>
+    {letters.map((l) => (
+      <section>
+        <h2 id={`ki-${l === '#' ? 'sym' : l.toLowerCase()}`}>{l}</h2>
+        <ul class="ki-list">
+          {groups.get(l)!.map((i) => (
+            <li>
+              <a href={i.href}><code>{i.term}</code></a>
+              <span class="ki-kind" data-kind={i.kind}>{i.kind}</span>
+              <span class="ki-sum">{i.summary}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+  </>
+)}
+
+<style>
+  .ki-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    position: sticky;
+    top: calc(var(--sl-nav-height, 4rem) + 0.25rem);
+    z-index: 1;
+    padding: 0.4rem;
+    background: var(--sl-color-bg);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+  }
+  .ki-jump a {
+    min-width: 2rem;
+    min-height: 2rem;
+    display: inline-grid;
+    place-items: center;
+    font-family: var(--sl-font-mono);
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 0.25rem;
+    color: var(--sl-color-accent-high);
+  }
+  .ki-jump a:hover,
+  .ki-jump a:focus-visible {
+    background: var(--sl-color-accent-low);
+  }
+  .ki-count {
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+  }
+  .ki-list {
+    list-style: none;
+    padding: 0;
+  }
+  .ki-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.6rem;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid var(--sl-color-hairline);
+    margin: 0;
+  }
+  .ki-list a {
+    text-decoration: none;
+  }
+  .ki-kind {
+    font-size: var(--sl-text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sl-color-gray-3);
+  }
+  .ki-sum {
+    flex: 1 1 16rem;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+  }
+</style>

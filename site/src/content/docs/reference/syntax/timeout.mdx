@@ -1,0 +1,234 @@
+---
+title: timeout
+description: How long a request, a call, or a whole test may take before it fails with V5104.
+sidebar: { order: 118, badge: { text: 'api + test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`timeout` sets how long vc waits. What it limits depends on where you write it. On an api or a `call` step, it limits each request. On a test, it limits the whole test.
+
+```yaml title="services/slow/slow.api.yaml"
+apis:
+  - id: wait
+    path: /slow
+    timeout: 1s
+```
+
+## Syntax
+
+| Where | Limits | Default |
+| --- | --- | --- |
+| config `defaults.timeout` | each request, project-wide | `30s` |
+| api `timeout` | each request attempt of that api | `defaults.timeout` |
+| `call` step or action `timeout` | each request attempt of that call; wins over the api's | the api's |
+| test `timeout` | the whole test, all its calls together | none beyond the requests' own limits |
+| `test:` action `timeout` | all calls of the reused test together | — |
+| `function` / `command` action `timeout` | the run budget or process time | see [function](/vc-rs/reference/syntax/function/), [command](/vc-rs/reference/syntax/command/) |
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `timeout` | duration | see above | no | A whole number and a unit: `250ms`, `2s`, `1m`, `12h`. Write it literally; a template is not applied (see below). |
+
+## Examples
+
+The examples call a small local server whose `/slow?s=N` answers after `N` seconds.
+
+### An api's limit
+
+```yaml title="services/slow/slow.api.yaml"
+baseUrl: http://localhost:7442
+apis:
+  - id: wait
+    path: /slow
+    timeout: 1s
+    query:
+      s: ${var.seconds}
+    vars:
+      seconds: "2"
+```
+
+```yaml title="services/slow/time.test.yaml"
+tests:
+  - id: apiTimeoutHits
+    call: slow#wait
+  - id: stepTimeoutWins
+    steps:
+      - call: slow#wait
+        timeout: 3s
+  - id: testTimeout
+    timeout: 1500ms
+    steps:
+      - call: slow#wait
+        timeout: 5s
+        vars:
+          seconds: "1"
+      - call: slow#wait
+        timeout: 5s
+        vars:
+          seconds: "1"
+```
+
+```console
+$ vc run slow.time#apiTimeoutHits slow.time#stepTimeoutWins slow.time#testTimeout
+plan  3 tests in 1 file · profile default
+
+✕ slow.time#apiTimeoutHits                                      981ms
+  error[V5104]: no response within 1000ms
+     = at: call slow#wait
+✕ slow.time#testTimeout                                          1.4s
+  error[V5104]: the test ran past its `timeout`
+     = at: call slow#wait
+✓ slow.time#stepTimeoutWins                                      1.9s
+
+1 passed · 2 failed                                          2.0s · profile default
+```
+
+- `apiTimeoutHits` fails: the server needs 2 s and the api allows 1 s.
+- `stepTimeoutWins` passes: the step's `3s` replaces the api's `1s` for that call.
+- `testTimeout` fails: each call takes 1 s and is allowed 5 s, but the test as a whole is allowed 1.5 s.
+
+### A test timeout does not lift a request timeout
+
+On a test with `call:`, `timeout` is the whole-test limit. The api's per-request `1s` still applies:
+
+```yaml title="services/slow/t2.test.yaml"
+tests:
+  - id: testTimeoutDoesNotLiftApiTimeout
+    call: slow#wait
+    timeout: 3s
+  - id: usesDefaultsTimeout
+    call: slow#waitDefault
+```
+
+```console
+$ vc run slow.t2
+plan  2 tests in 1 file · profile default
+
+✕ slow.t2#testTimeoutDoesNotLiftApiTimeout                      978ms
+  error[V5104]: no response within 1000ms
+     = at: call slow#wait
+✓ slow.t2#usesDefaultsTimeout                                   983ms
+
+1 passed · 1 failed                                          1.0s · profile default
+```
+
+To give one call more time, put `timeout` on a step inside `steps`, as in `stepTimeoutWins`.
+
+### The project default
+
+`slow#waitDefault` sets no `timeout`, so it uses `defaults.timeout` (`30s` here). Change it for one run with `--set`:
+
+```console
+$ vc run slow.t2 --set defaults.timeout=500ms
+plan  2 tests in 1 file · profile default
+
+✕ slow.t2#usesDefaultsTimeout                                   502ms
+  error[V5104]: no response within 500ms
+     = at: call slow#waitDefault
+✕ slow.t2#testTimeoutDoesNotLiftApiTimeout                       1.0s
+  error[V5104]: no response within 1000ms
+     = at: call slow#wait
+
+0 passed · 2 failed                                          1.0s · profile default
+```
+
+The api's own `1s` still wins over the default.
+
+### Reused tests and `after`
+
+On a `test:` action, `timeout` limits all of the reused test's calls together. An `after` action is outside the test's `timeout`, so a 1 s cleanup call does not fail a test limited to 500 ms:
+
+```yaml title="services/slow/t3.test.yaml"
+tests:
+  - id: reusedTestTimeout
+    steps:
+      - test: slow.t2#usesDefaultsTimeout
+        timeout: 500ms
+  - id: afterOutsideTimeout
+    timeout: 500ms
+    call: slow#count
+    after:
+      - call: slow#wait
+        timeout: 3s
+        vars:
+          seconds: "1"
+```
+
+```console
+$ vc run slow.t3
+plan  2 tests in 1 file · profile default
+
+✕ slow.t3#reusedTestTimeout                                     499ms
+  error[V5104]: the reused test ran past its `timeout`
+     = at: test slow.t2#usesDefaultsTimeout
+✓ slow.t3#afterOutsideTimeout                                    1.0s
+
+1 passed · 1 failed                                          1.0s · profile default
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: slow.time
+tests:
+  - id: stepTimeoutWins
+    timeout: 10s
+    steps:
+      - call: slow#wait
+        timeout: 3s
+`} />
+
+## How it behaves
+
+- Per-request limits, most specific first: the `call` step or action, the api, `defaults.timeout`.
+- A request limit applies to each attempt. With [`http.retry`](/vc-rs/reference/syntax/http-retry/), every retry gets the full limit again.
+- A test's `timeout` covers the whole test. When it runs out, the call in flight fails with V5104, "the test ran past its `timeout`".
+- `after` and `afterEach` actions are outside a test's `timeout`.
+- Durations are a whole number and a unit: `ms`, `s`, `m` or `h`. Decimals and words are rejected.
+
+<Aside type="caution" title="Known issue: templated timeouts are ignored">
+`timeout: ${var.t}` passes `vc check`, but the value is not applied. An api with `timeout: ${var.t}` and `t: 100ms` waited 2 s for a slow reply and passed. The same api with `timeout: 100ms` failed with `no response within 100ms`. Write the duration literally.
+</Aside>
+
+## Common errors
+
+A bare number has no unit. `vc check` offers a certain fix:
+
+```console
+error[V2301]: invalid duration `500`
+ --> services/bad/t.test.yaml:4:14
+  |
+4 |     timeout: 500
+  |              ^^^
+  = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+  = fix: Write 500ms (certain)
+```
+
+Decimals and words are not durations:
+
+```console
+error[V2301]: invalid duration `1.5s`
+  --> services/bad/bad.api.yaml:20:14
+   |
+20 |     timeout: 1.5s
+   |              ^^^^
+   = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+
+error[V2301]: invalid duration `2 seconds`
+ --> services/bad/t.test.yaml:7:14
+  |
+7 |     timeout: 2 seconds
+  |              ^^^^^^^^^
+  = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+```
+
+Write `1500ms` instead of `1.5s`. See [V2301](/vc-rs/reference/diagnostics/v2301/) and [V5104](/vc-rs/reference/diagnostics/v5104/).
+
+## Related
+
+- [http.retry](/vc-rs/reference/syntax/http-retry/): retry a request that timed out
+- [poll](/vc-rs/reference/syntax/poll/): its own `timeout` for waiting on a condition
+- [retry](/vc-rs/reference/syntax/retry/): re-run a whole test
+- [timing](/vc-rs/reference/syntax/timing/): assert how fast a response was
+- [Config](/vc-rs/reference/config/): `defaults.timeout`

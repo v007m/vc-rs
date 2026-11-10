@@ -1,0 +1,101 @@
+---
+title: "Claude Code skill"
+description: "Install the Vibranium skill for Claude Code, and add short AGENTS.md or CLAUDE.md notes so any coding agent writes good vc tests."
+sidebar: { order: 7 }
+---
+
+import { Tabs, TabItem, Aside, Steps } from '@astrojs/starlight/components';
+
+A [Claude Code skill](https://docs.claude.com/en/docs/claude-code/skills) is a folder with a `SKILL.md` file. Claude loads it when a task matches its description. The Vibranium skill teaches Claude the file kinds, the ID rules, a checked syntax cheat sheet, the check, plan, run and explain loop, how to act on diagnostics, how to use the MCP tools, and what not to do.
+
+It lives in the repository at [`skills/vibranium/`](https://github.com/v007m/vc-rs/tree/master/skills/vibranium):
+
+```text
+skills/vibranium/
+├── SKILL.md              # loaded when the task matches
+└── reference/
+    └── syntax.md         # longer examples, read on demand
+```
+
+The skill's description makes Claude load it for work on `*.test.yaml`, `*.api.yaml`, `*.load.yaml` or `vibranium.config.yaml` files, for `vc` commands, and for Vibranium diagnostic codes.
+
+## Install
+
+<Tabs syncKey="skill-scope">
+  <TabItem label="For one project">
+    Copy the folder into the project's `.claude/skills/` and commit it, so everyone on the team gets it:
+
+    ```console
+    mkdir -p .claude/skills
+    cp -R /path/to/vc-rs/skills/vibranium .claude/skills/
+    ```
+  </TabItem>
+  <TabItem label="For all your projects">
+    Copy it into your user skills folder:
+
+    ```console
+    mkdir -p ~/.claude/skills
+    cp -R /path/to/vc-rs/skills/vibranium ~/.claude/skills/
+    ```
+  </TabItem>
+</Tabs>
+
+Without a clone, download just the folder:
+
+```console
+mkdir -p .claude/skills/vibranium/reference
+curl -fsSL -o .claude/skills/vibranium/SKILL.md https://raw.githubusercontent.com/v007m/vc-rs/master/skills/vibranium/SKILL.md
+curl -fsSL -o .claude/skills/vibranium/reference/syntax.md https://raw.githubusercontent.com/v007m/vc-rs/master/skills/vibranium/reference/syntax.md
+```
+
+Start a new Claude Code session and ask, for example, "add a test that creates an order and checks it is pending". Claude reads the skill, writes the test, runs `vc check`, and runs the test.
+
+<Aside type="tip">
+The skill and the MCP server work together. The skill says how to write good tests; the [MCP server](/vc-rs/agents/mcp-setup/) gives Claude tools to check, run and read results under your [agent rules](/vc-rs/agents/policy-and-approvals/). Set up both.
+</Aside>
+
+## What the skill tells Claude
+
+- **File kinds and places**: `services/<service>/<service>.api.yaml`, `services/<service>/<area>.test.yaml`, `load/<service>/<name>.load.yaml`, and the one `vibranium.config.yaml`.
+- **IDs**: file IDs come from paths (`services/users/crud.test.yaml` is `users.crud`); full IDs are `<fileId>#<id>`; test IDs are camelCase third-person verbs (`rejectsBadEmail`).
+- **The loop**: `vc check` after every edit, `vc plan` to preview a selection, `vc run`, and `vc history show`, `vc explain` and `vc call` when something fails.
+- **Diagnostics**: read `help:` first, use `vc explain <code>`, and review `vc check --fix` diffs.
+- **MCP**: which tool to use for what, the exact `run_tests` arguments, and that refusals are not to be worked around.
+- **Rules**: no secrets in YAML (use `${secret.NAME}`, `.env.schema` and a gitignored `.env`), no edits to the `openapi/` snapshots, reuse apis, give created resources a `cleanup`.
+
+## AGENTS.md and CLAUDE.md snippets
+
+Agents that do not load skills (Codex, Cursor, Copilot and others) read a project file such as `AGENTS.md`. Claude Code reads `CLAUDE.md`. Paste this into either and adjust the service names:
+
+```markdown title="AGENTS.md"
+## API tests (Vibranium)
+
+API tests are YAML files run by `vc` (Vibranium). Docs for agents: https://v007m.github.io/vc-rs/llms.txt
+
+- Apis: `services/<service>/<service>.api.yaml`. Tests: `services/<service>/<area>.test.yaml`. Load: `load/<service>/<name>.load.yaml`.
+- File IDs come from the path (`services/users/crud.test.yaml` is `users.crud`). Do not add `id:` keys to files.
+- Item IDs are camelCase. Test IDs are third-person verbs (`getsCreatedUser`); full ID `users.crud#getsCreatedUser`.
+- Tests `call:` an existing api and override `vars`, `body` and `expect`. Add an api only for a new endpoint.
+- Never put secrets in YAML. Use `${secret.NAME}`, declare NAME in `.env.schema`, keep the value in `.env` (gitignored).
+- Do not edit `openapi/*.yaml`: `vc import` and `vc sync` own those snapshots.
+- After every change: `vc check` (exit 2 = errors; read `help:`, run `vc explain <code>`). Then `vc run <fileId or testId>`.
+- When a test fails: `vc history show <run> --json`, `vc explain <testId>`, `vc call <apiId> --var name=value`.
+- Prefer `--json` output (`vc check --json`, `vc plan --json`, `vc run --reporter json`) over console text.
+```
+
+For Claude Code with the MCP server connected, add:
+
+```markdown title="CLAUDE.md"
+- Use the `vibranium` MCP tools for API tests: `check` after every `write_definition`, then `run_tests` with `ids`.
+- If a tool call is refused or waits for approval, stop and tell me. Do not edit `vibranium.config.yaml` to get around it.
+```
+
+## Keep it current
+
+The skill describes the `vc` version it was written for (0.1.0). When you update `vc`, copy the skill folder again from the same release.
+
+## Related
+
+- [Set up the MCP server](/vc-rs/agents/mcp-setup/)
+- [Agent workflows](/vc-rs/agents/workflows/)
+- [llms.txt](/vc-rs/agents/llms-txt/)

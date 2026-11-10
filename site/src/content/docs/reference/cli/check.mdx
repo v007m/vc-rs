@@ -1,0 +1,175 @@
+---
+title: "vc check"
+description: "Compiles and links every definition file, prints errors and warnings with the line they point at, and applies certain fixes on request."
+sidebar: { order: 2 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Compiles and links every definition file in the project and prints its errors and warnings. It sends no requests, so it is safe to run anywhere, as often as you like.
+
+```console
+$ vc check [OPTIONS] [PATHS]...
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `[PATHS]` | paths | the whole project | Prints only the diagnostics whose main line is in a file at or under these paths. The whole project is still compiled |
+| `--json` | | | Prints the diagnostics as JSON on stdout |
+| `--fix` | | | Shows the certain fixes as a diff, asks, then applies them and checks again |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### A clean project
+
+```console
+$ vc check
+0 errors · 0 warnings · 3 files checked
+```
+
+### Errors
+
+```console
+$ vc check
+error[V2003]: unknown api "sample#creatUser"
+ --> services/orders/checkout.test.yaml:5:11
+  |
+5 |     call: sample#creatUser
+  |           ^^^^^^^^^^^^^^^^ no api has this ID
+  = help: did you mean one of `sample#createUser`, `sample#getUser`, `sample#deleteUser`?
+
+error[V2101]: ${var.userId} is used but never set
+  --> services/sample/sample.api.yaml:45:18
+   |
+45 |     path: /users/${var.userId}
+   |                  ^^^^^^^^^^^^^ no level sets userId for profile default
+  ::: services/orders/checkout.test.yaml:8:11
+   |
+ 8 |     call: sample#getUser
+   |           -------------- called from here
+   = help: set it in this test's vars, in the file's vars, or in the config's vars
+
+2 errors · 0 warnings · 15 files checked
+$ echo $?
+2
+```
+
+Each diagnostic has a code, the file, line and column, the lines it points at, and a `help:` line. A `:::` block shows a second place that matters, here the test whose call needs the var. Run [`vc explain V2101`](/vc-rs/reference/cli/explain/) for a longer explanation, or open the [diagnostics reference](/vc-rs/reference/diagnostics/).
+
+### Warnings with fixes
+
+```console
+$ vc check
+warning[V4004]: tag `Slow_Net` is not lower kebab-case
+ --> services/orders/checkout.test.yaml:1:8
+  |
+1 | tags: [Slow_Net]
+  |        ^^^^^^^^ rename it
+  = help: tags are lower case, with a dash between words: `slow-net`
+  = fix: Rename to slow-net (certain)
+
+warning[V4001]: test ID `PlacesOrder` is not camelCase
+ --> services/orders/checkout.test.yaml:3:9
+  |
+3 |   - id: PlacesOrder
+  |         ^^^^^^^^^^^ rename it
+  = help: test IDs are camelCase: `placesAnOrder`
+  = fix: Rename to placesAnOrder (certain)
+
+warning[V3104]: this skip expired after 2026-01-01
+  --> services/orders/checkout.test.yaml:11:14
+   |
+11 |       until: 2026-01-01
+   |              ^^^^^^^^^^ today is 2026-11-10
+   = note: an expired skip is ignored, so the test runs again
+   = help: remove the skip, or move `until` later if the reason still holds
+   = fix: Remove the skip (certain)
+
+0 errors · 3 warnings · 15 files checked
+```
+
+Warnings do not change the exit code. A `fix:` marked `(certain)` is one `--fix` can apply.
+
+### Apply the fixes
+
+```console
+$ vc check --fix
+--- a/services/orders/checkout.test.yaml
++++ b/services/orders/checkout.test.yaml
+@@ -1,11 +1,8 @@
+-tags: [Slow_Net]
++tags: [slow-net]
+ tests:
+-  - id: PlacesOrder
++  - id: placesAnOrder
+     name: Places an order
+     call: sample#createUser
+   - id: findsUser
+     name: Finds a user
+     call: sample#listUsers
+-    skip:
+-      reason: flaky upstream
+-      until: 2026-01-01
+Apply 3 fixes? [y/N] y
+✓ applied 3 fixes
+0 errors · 0 warnings · 15 files checked
+```
+
+Answer `n` (or press Enter) and it prints `nothing changed`. With nothing to fix it prints the diagnostics, then `no certain fixes to apply`.
+
+### JSON for scripts and editors
+
+```console
+$ vc check --json
+{"summary":{"errors":0,"warnings":0,"infos":0},"diagnostics":[]}
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | No errors. Warnings and infos are allowed |
+| `2` | At least one error |
+
+## JSON output
+
+```json
+{
+  "summary": { "errors": 1, "warnings": 0, "infos": 0 },
+  "diagnostics": [
+    {
+      "code": "V2003",
+      "severity": "error",
+      "message": "unknown api \"sample#creatUser\"",
+      "primary": {
+        "span": { "path": "services/orders/checkout.test.yaml", "line": 5, "column": 11, "endLine": 5, "endColumn": 27 },
+        "text": "no api has this ID"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": ["did you mean one of `sample#createUser`, `sample#getUser`, `sample#deleteUser`?"],
+      "fixes": []
+    }
+  ]
+}
+```
+
+`severity` is `error`, `warning` or `info`. `secondary` holds the `:::` spans, each with a `span` and `text`. Lines and columns start at 1.
+
+## How it behaves
+
+- `vc run`, `vc watch` and `vc plan` run the same check first and stop on any error.
+- Codes start with a letter and a digit for their group: V1 syntax, V2 references and types, V3 lifecycle, V4 conventions, V5 run time. `vc check` prints V1 to V4. V5 codes appear during a run.
+- `NO_COLOR` turns off colors. Output to a pipe has no colors either.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Diagnostics" href="/vc-rs/reference/diagnostics/" description="Every code, with examples and fixes." />
+  <LinkCard title="Errors and fixes" href="/vc-rs/guides/errors-and-fixes/" description="Read an error, then fix it." />
+  <LinkCard title="vc explain" href="/vc-rs/reference/cli/explain/" description="Explain a code at length." />
+  <LinkCard title="vc fmt" href="/vc-rs/reference/cli/fmt/" description="Tidy files in the house style." />
+</CardGrid>

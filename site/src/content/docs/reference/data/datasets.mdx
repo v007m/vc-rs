@@ -1,0 +1,196 @@
+---
+title: "Datasets"
+description: "Rows of test data in CSV, JSON or YAML files under datasets/, how their IDs are made, and three ways to use them in tests."
+sidebar: { order: 5 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A dataset is a list of rows in a CSV, JSON or YAML file under `datasets/`, used in tests as `${dataset.<id>}`.
+
+```csv title="datasets/capitals.csv"
+name,country,population
+Tokyo,JP,37400000
+Delhi,IN,32900000
+Paris,FR,11200000
+```
+
+```yaml title="services/sample/data.test.yaml"
+tests:
+  - id: echoesEveryCapital
+    name: Echo returns each capital
+    examples: ${dataset.capitals}
+    call: sample#echo
+    body:
+      city: ${example.name}
+```
+
+## Syntax
+
+| Item | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `datasets/<path>.csv` | CSV with a header row | — | — | Each row is a map from column name to text. |
+| `datasets/<path>.json` | JSON list of objects | — | — | Values keep their JSON types. |
+| `datasets/<path>.yaml` | YAML list of maps | — | — | Values keep their YAML types. |
+| `${dataset.<id>}` | template | — | — | The whole list. Combine with pipes such as `random`, `shuffle`, `take(n)`. |
+| `datasets.files` (config) | list of `id`, `file` | — | no | Names a data file outside `datasets/`. |
+| `datasets.allowRoots` (config) | list of folders | `[]` | no | Folders outside the project that `datasets.files` may point into. See the caution below. |
+
+### Dataset IDs
+
+The ID comes from the path under `datasets/`, without the extension. Folders add words with dots:
+
+| File | ID |
+| --- | --- |
+| `datasets/capitals.csv` | `capitals` |
+| `datasets/plans.yaml` | `plans` |
+| `datasets/users/admins.json` | `users.admins` |
+
+## Three ways to use a dataset
+
+### 1. One test instance per row: `examples`
+
+`examples:` runs the test once per row. Each row is `${example.<column>}`. The result lists each row:
+
+```console
+$ vc run sample.data
+✓ sample.data#echoesEveryCapital [row 2]                          0ms
+✓ sample.data#echoesEveryCapital [row 1]                         11ms
+✓ sample.data#echoesEveryCapital [row 3]                         12ms
+```
+
+Rows run in parallel, so they can finish in any order. To pick one row, add `:n` to the test ID: `vc run sample.data#echoesEveryCapital:2`.
+
+### 2. One call per row inside a test: `forEach`
+
+`forEach` repeats a step for each row; the row is `${item}`. Values saved in the loop are collected into a list.
+
+```yaml title="services/sample/data.test.yaml"
+  - id: createsUsersFromAdmins
+    name: Creates one user per admin row
+    steps:
+      - call: sample#createUser
+        forEach: ${dataset.users.admins}
+        vars:
+          email: ${item.email}
+        save:
+          createdIds: ${response.body.id}
+      - call: sample#echo
+        body:
+          ids: ${var.createdIds}
+        expect:
+          body:
+            match:
+              body.ids:
+                length: 2
+```
+
+```json title="datasets/users/admins.json"
+[{"email":"root@example.com","level":3},{"email":"ops@example.com","level":2}]
+```
+
+### 3. Pick rows with pipes
+
+`random` picks one row; `shuffle | take(2)` picks two in random order. Both follow [`--seed`](/vc-rs/reference/data/seeds/).
+
+```yaml title="services/sample/data.test.yaml"
+  - id: picksOneRandomPlan
+    name: Picks one plan row at random
+    vars:
+      plan: ${dataset.plans | random}
+    call: sample#echo
+    body:
+      plan: ${var.plan.plan}
+      seats: ${var.plan.seats}
+      firstTwo: ${dataset.capitals | shuffle | take(2)}
+```
+
+With `--seed 42` the demo received:
+
+```json
+{ "plan": "team", "seats": 10,
+  "firstTwo": [ { "country": "IN", "name": "Delhi", "population": "32900000" },
+                { "country": "FR", "name": "Paris", "population": "11200000" } ] }
+```
+
+`seats` is the number `10` because YAML keeps types. `population` is the text `"32900000"` because **CSV cells are always text**. Convert with the `int` pipe where you need a number: `${example.population | int}`.
+
+## More examples
+
+### Rows next to the test with `$file`
+
+For rows that belong to one test file, point `examples` at a file next to it. The path is relative to the test file.
+
+```yaml title="services/sample/dserr.test.yaml"
+  - id: readsRowsNextToTest
+    examples:
+      $file: rows.yaml
+    call: sample#echo
+    body:
+      q: ${example.q}
+```
+
+### A file outside `datasets/`
+
+`datasets.files` gives any data file in the project a dataset ID.
+
+```yaml title="vibranium.config.yaml"
+datasets:
+  files:
+    - id: smokeUsers
+      file: fixtures/smoke-users.yaml
+```
+
+```yaml
+examples: ${dataset.smokeUsers}
+```
+
+<Aside type="caution" title="allowRoots doesn't work yet">
+`datasets.allowRoots` is meant to let `datasets.files` read files outside the project. In the current build, `vc check` accepts it but `vc run` refuses the file with [V1012](/vc-rs/reference/diagnostics/v1012/) (`links to a file outside the project`). Keep data files inside the project for now.
+</Aside>
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: echoesEveryCapital
+    name: Echo returns each capital
+    examples: \${dataset.capitals}
+    call: sample#echo
+    body:
+      city: \${example.name}
+      population: \${example.population | int}
+  - id: picksOnePlan
+    name: Picks one plan at random
+    vars:
+      plan: \${dataset.plans | random}
+    call: sample#echo
+    body:
+      seats: \${var.plan.seats}
+`} />
+
+## How it behaves
+
+- `vc check` reads every dataset before the run. A malformed file, a duplicate column or a column name that no row has is caught before any request.
+- With `examples`, every `${example.<column>}` must be a column of the rows ([V2103](/vc-rs/reference/diagnostics/v2103/)).
+- A row missing a field that `${item.<field>}` reads fails that iteration at run time ([V5112](/vc-rs/reference/diagnostics/v5112/)).
+- Datasets are read-only. Tests that change data should create their own.
+
+## Common errors
+
+| Code | When | Real message |
+| --- | --- | --- |
+| [V1001](/vc-rs/reference/diagnostics/v1001/) | A CSV row has the wrong number of cells | `not valid CSV: this row has 3 cells, but the header has 2` |
+| [V1002](/vc-rs/reference/diagnostics/v1002/) | The file isn't a list of rows | `the dataset datasets/bad/notlist.json is not a list of rows` |
+| [V1006](/vc-rs/reference/diagnostics/v1006/) | A CSV header names a column twice | `` the column `a` is named twice `` |
+| [V1012](/vc-rs/reference/diagnostics/v1012/) | A `datasets.files` path leaves the project | ``the dataset file `…` is outside the project``, help: `` paths are relative to the project root; add a folder outside it to `datasets.allowRoots` `` |
+| [V2002](/vc-rs/reference/diagnostics/v2002/) | `${dataset.<id>}` names no dataset | `` `dataset.capitols` names no dataset ``, help: `` did you mean `capitals`? ``, fix: `Replace with capitals (certain)` |
+| [V2103](/vc-rs/reference/diagnostics/v2103/) | `${example.<column>}` names no column | `${example.mayor} names no column of this test's examples`, help: `` the columns are `country`, `name`, `population` `` |
+| [V5112](/vc-rs/reference/diagnostics/v5112/) | A row lacks a field at run time | `` iteration 2: `item.team` is missing: `item` is {"email":"b@example.com"} `` |
+
+## Related
+
+- [`examples`](/vc-rs/reference/syntax/examples/)
+- [`example` templates](/vc-rs/reference/templates/example/) and [`item` templates](/vc-rs/reference/templates/item/)
+- [`dataset` templates](/vc-rs/reference/templates/dataset/)
+- [Pipes](/vc-rs/reference/pipes/)

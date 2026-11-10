@@ -1,0 +1,57 @@
+---
+title: "V2302 — Wrong value type"
+description: "A value has the wrong type for its key: text where a number is expected, a map where a list is expected, a date that is not YYYY-MM-DD."
+sidebar:
+  label: "V2302 Wrong value type"
+  order: 2302
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2302` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | convert |
+
+A value has the wrong type for its key: text where a number is expected, a map where a list is expected, a date that is
+not `YYYY-MM-DD`. Quoting a number makes it text, so `'2'` is not the integer `2`.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: '2'
+project: shop
+profiles:
+  - id: dev
+    default: true
+```
+
+## Right
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2302
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

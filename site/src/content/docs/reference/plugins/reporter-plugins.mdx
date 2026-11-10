@@ -1,0 +1,111 @@
+---
+title: "Reporter plugins"
+description: "A reporter plugin receives every run event and returns report files, and runs when its ID is listed in reports.formats."
+sidebar: { order: 9 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A reporter plugin turns a run into your own report files. It runs when its ID is in `reports.formats`, next to the built-in `ctrf`, `junit` and `html`.
+
+```yaml title="vibranium.config.yaml"
+plugins:
+  - id: digest
+    source: path:plugins/digest
+reports:
+  formats: [ctrf, digest]
+```
+
+## Syntax
+
+| Method | Params | Result | Notes |
+| --- | --- | --- | --- |
+| `reporter/onEvent` | `{"event": <event>}` | ignored | One call per run event, in order |
+| `reporter/finish` | `{"summary": <run summary>}` | `{"files": [{"name", "content"}]}` | Sent once every event has been answered |
+
+| File field | Type | Notes |
+| --- | --- | --- |
+| `name` | relative path | Saved under the run's report folder, `.vibranium/reports/<run>/`. Subfolders are fine; it must stay inside the folder |
+| `content` | text | Written as is |
+
+## Examples
+
+**Events a one-test run sends.** In order: `runStarted`, `fileStarted`, `actionStarted`, `exchanged`, `checkEvaluated`, `actionFinished`, `testFinished`, `fileFinished`, `runFinished`. Two of them:
+
+```json
+{"event": "testFinished", "test": "sample.basics#listsUsers", "label": "sample.basics#listsUsers", "instance": 0, "status": "passed", "attempts": 1, "durationMs": 0, "failure": null, "skipReason": null}
+```
+
+```json
+{"event": "exchanged", "action": "call sample#listUsers", "method": "GET", "url": "http://localhost:7467/users", "status": 200, "ms": 2, "owner": {"instance": 0, "kind": "instance"}}
+```
+
+**The summary sent to `reporter/finish`.**
+
+```json
+{"event": "summary", "status": "passed", "profiles": ["default"], "startedMs": 1794332389609, "durationMs": 26, "totals": {"blocked": 0, "failed": 0, "flaky": 0, "passed": 1, "skipped": 0}, "artifacts": []}
+```
+
+**A file in a subfolder.** The sample reporter returns `plugin/report.txt`; the run lists it with the other reports:
+
+```console
+reports  .vibranium/reports/16/ctrf.json, .vibranium/reports/16/plugin/report.txt
+```
+
+**A name outside the report folder.** The report is not written and the run warns. The run's result does not change.
+
+```console
+warning: cannot write the `escape` report: `../../escape.txt` is not a file name inside the report folder
+```
+
+**An auth plugin listed as a format.** Only reporter plugins write reports.
+
+```console
+warning: plugin `stamp` is a `auth` plugin, not `reporter`; its report is not written
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+plugins:
+  - id: digest
+    source: path:plugins/digest
+reports:
+  formats: [ctrf, junit, digest]
+`} />
+
+## How it behaves
+
+- Events are queued (up to 1024) and sent one at a time, in order, without holding up the run. A plugin that falls a whole queue behind gets no more events, its report is not written, and the run names it once in a warning.
+- A failed reporter plugin never changes the run's result or exit code. It shows as a `warning: cannot write the ... report: ...` line after the run.
+- Each reporter plugin is one process for the whole run.
+
+<Aside type="note">
+`vc check` accepts an auth plugin's ID in `reports.formats` today. The run then warns and writes no report for it.
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2302](/vc-rs/reference/diagnostics/v2302/) | A format is neither `ctrf`, `junit`, `html` nor a plugin ID |
+| [V5118](/vc-rs/reference/diagnostics/v5118/) | The plugin failed, timed out, was refused a secret or its files changed |
+
+```console
+error[V2302]: expected one of ctrf, junit, html or a reporter plugin's ID, found `nosuch`
+  --> vibranium.config.yaml:49:35
+   |
+49 |   formats: [ctrf, summary, ghost, nosuch]
+   |                                   ^^^^^^ not a report format or plugin
+   = help: expected one of `ctrf`, `junit`, `html`, `ghost`, `stamp`, `summary`
+```
+
+## Related
+
+- [Write a plugin](/vc-rs/reference/plugins/writing-a-plugin/)
+- [Protocol](/vc-rs/reference/plugins/protocol/)
+- [Reports config](/vc-rs/reference/config/reports/)

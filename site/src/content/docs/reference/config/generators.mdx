@@ -1,0 +1,54 @@
+---
+title: "generators"
+description: "Project-wide named fake-data generators, used in templates as fake.name."
+sidebar: { order: 71 }
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+`generators` defines your own fake-data generators. Use one anywhere with `${fake.<id>}`.
+
+```yaml title="vibranium.config.yaml"
+generators:
+  - id: teamName
+    fromRegExp: '[A-Z][a-z]{4,8} Team'
+  - id: seats
+    int: { min: 1, max: 5 }
+  - id: visibility
+    oneOf: [PRIVATE, PUBLIC]
+```
+
+```yaml title="services/slow/gen.test.yaml"
+    vars:
+      payload:
+        team: ${fake.teamName}
+        seats: ${fake.seats}
+        visibility: ${fake.visibility}
+```
+
+With `--seed 7`, the echo endpoint got:
+
+```json
+{"seats":3,"team":"Wkteuhjz Team","visibility":"PUBLIC"}
+```
+
+A retry gets fresh values, such as `{"seats":2,"team":"Jllmruvvb Team","visibility":"PRIVATE"}`. The run prints its seed, so `--seed` repeats the same data.
+
+A name that is not a generator:
+
+```console
+$ vc check
+error[V2002]: `fake.teamNam` is not a generator
+ --> services/slow/gen.test.yaml:7:15
+  |
+7 |         team: ${fake.teamNam}
+  |               ^^^^^^^^^^^^^^^ no generator has this name
+  = note: the generators are `commerce.price`, `date.future`, …, `seats`, …, `teamName`, `visibility`
+  = help: did you mean `teamName`?
+  = fix: Replace with teamName (certain)
+```
+
+Every generator kind, and the built-in ones, are in the data reference.
+
+<LinkCard title="Named generators" href="/vc-rs/reference/data/named-generators/" />
+<LinkCard title="Generators" href="/vc-rs/reference/data/generators/" />

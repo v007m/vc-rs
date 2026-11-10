@@ -1,0 +1,50 @@
+:root {
+  --sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sl-color-accent-low: #1e1747;
+  --sl-color-accent: #7c5cff;
+  --sl-color-accent-high: #d4caff;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #e4ddff;
+  --sl-color-accent: #5b36f2;
+  --sl-color-accent-high: #2a1680;
+}
+.sl-markdown-content code:not(pre code) {
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3em;
+}
+.expressive-code {
+  --ec-codeFontSize: 0.875rem;
+}
+.hero .tagline {
+  max-width: 40rem;
+}
+
+/* Playground editor tokens (dark is Starlight's default; light below). */
+:root {
+  --pg-bg: #16161e;
+  --pg-fg: #d6d8e6;
+  --pg-key: #a99bff;
+  --pg-string: #9ece6a;
+  --pg-number: #ff9e64;
+  --pg-comment: #7a7f9a;
+  --pg-punct: #8a8fa8;
+  --pg-meta: #7dcfff;
+  --pg-active: rgba(124, 92, 255, 0.1);
+  --pg-selection: rgba(124, 92, 255, 0.35);
+  --pg-error: #ff6b81;
+}
+:root[data-theme='light'] {
+  --pg-bg: #fbfbfe;
+  --pg-fg: #24263a;
+  --pg-key: #5b36f2;
+  --pg-string: #1f7a3a;
+  --pg-number: #b4520c;
+  --pg-comment: #6b7089;
+  --pg-punct: #6b7089;
+  --pg-meta: #0b6e99;
+  --pg-active: rgba(91, 54, 242, 0.07);
+  --pg-selection: rgba(91, 54, 242, 0.2);
+  --pg-error: #c8102e;
+}

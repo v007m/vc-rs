@@ -1,0 +1,85 @@
+---
+title: "oauth2Refresh"
+description: "The oauth2Refresh auth type trades a long-lived refresh token for access tokens, for CI."
+sidebar: { order: 7 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`type: oauth2Refresh` posts a refresh token you already hold to the token endpoint and sends the access token it gets. Use it in CI where nobody can sign in through a browser.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+auth:
+  - id: labRefresh
+    type: oauth2Refresh
+    tokenUrl: ${var.labUrl}/token
+    clientId: ci-runner
+    clientSecret: ${secret.LAB_CLIENT_SECRET}
+    refreshToken: ${secret.LAB_REFRESH_TOKEN}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `oauth2Refresh` | — | yes | |
+| `tokenUrl` | URL template | — | yes | |
+| `clientId` | text | — | yes | |
+| `clientSecret` | text or template | — | no | Without it, the client is public |
+| `refreshToken` | text or template | — | yes | Use `${secret.X}` |
+| `scopes` | list of text | — | no | |
+| `audience` | text | — | no | |
+| `refreshBefore`, `refreshOn` | | `1m`, `[401]` | no | See [Token cache and refresh](/vc-rs/reference/auth/token-cache-refresh/) |
+| `vars` | map | — | no | |
+
+## Examples
+
+The token request the server received:
+
+```console
+POST /token
+authorization: Basic Y2ktcnVubmVyOmNzLTMxMzM3
+grant_type=refresh_token&refresh_token=rt-long-lived
+```
+
+The calls then carried the new access token as `Authorization: Bearer …`.
+
+In CI, pass the refresh token as an environment variable from your secret store. The process environment beats `.env`:
+
+```yaml title=".github/workflows/api-tests.yml (excerpt)"
+env:
+  LAB_REFRESH_TOKEN: ${{ secrets.LAB_REFRESH_TOKEN }}
+  LAB_CLIENT_SECRET: ${{ secrets.LAB_CLIENT_SECRET }}
+```
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+vars:
+  labUrl: http://127.0.0.1:7486
+auth:
+  - id: labRefresh
+    type: oauth2Refresh
+    tokenUrl: \${var.labUrl}/token
+    clientId: ci-runner
+    clientSecret: \${secret.LAB_CLIENT_SECRET}
+    refreshToken: \${secret.LAB_REFRESH_TOKEN}
+`} />
+
+## How it behaves
+
+- The access token is fetched before the first request that needs it and shared for the run.
+
+## Common errors
+
+- [V5114](/vc-rs/reference/diagnostics/v5114/): the token endpoint refused the refresh token.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="oauth2AuthorizationCode" href="/vc-rs/reference/auth/oauth2-authorization-code/" />
+  <LinkCard title="Secrets" href="/vc-rs/reference/auth/secrets/" />
+  <LinkCard title="Token cache and refresh" href="/vc-rs/reference/auth/token-cache-refresh/" />
+</CardGrid>

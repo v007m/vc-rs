@@ -1,0 +1,86 @@
+---
+title: beforeAll
+description: File-level actions that run once before the file's first test (beforeAll) and once after its last (afterAll), with values shared under the action's id.
+sidebar: { order: 222, badge: { text: 'test', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`beforeAll` runs once for the whole test file, before any test. `afterAll` runs once after the last one. Values saved in `beforeAll` are shared with every test in the file.
+
+```yaml title="services/flow/reuse.test.yaml"
+id: flow.reuse
+beforeAll:
+  - id: shared
+    test: shared.flows#memberWithEcho
+tests:
+  - id: readsSharedMember
+    call: sample#getUser
+    vars:
+      userId: ${var.shared.userId}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `beforeAll` | list of actions | — | no | Runs once, before the file's first test. |
+| `afterAll` | list of actions | — | no | Runs once, after the file's last test, then the file's cleanups. |
+| action `id` | camelCase | — | when it saves | Values are read as `${var.<id>.<name>}`. Without an `id`, a saving action is error V2210. |
+| action `cache` | map | — | no | Reuse the result across runs. See [cache](/vc-rs/reference/syntax/cache/). |
+
+## How it behaves
+
+- Saved values are shared under the action's `id`: `${var.shared.userId}`, not `${var.userId}`.
+- `vc plan` shows the block and which tests read it:
+
+```console
+$ vc plan flow.reuse
+plan  2 tests in 1 file · lifecycle: beforeAll shared · profile default
+flow.reuse
+  beforeAll
+    shared
+  flow.reuse#readsSharedMember  needs: shared
+  flow.reuse#reusesInSteps
+```
+
+- A failed `beforeAll` action blocks only the tests that read its values (`needs:` in the plan). The rest still run.
+- Cleanups registered in `beforeAll` run after `afterAll`, at the end of the file.
+- For data shared by every file in a run, use `beforeRun` in the config. See [Lifecycle](/vc-rs/reference/lifecycle/).
+
+## Common errors
+
+```console
+error[V2210]: this beforeAll action saves values but has no `id`
+ --> services/flow/noid.test.yaml:3:5
+  |
+3 |   - call: sample#createUser
+  |     ^^^^ needs an `id`
+  = help: shared values are read as `${var.<id>.<name>}`; give the action an `id`
+  = fix: Add id: createUser (certain)
+```
+
+See [V2210](/vc-rs/reference/diagnostics/v2210/).
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.reuse
+beforeAll:
+  - id: admin
+    call: sample#createUser
+afterAll:
+  - command: echo finished
+tests:
+  - id: readsAdmin
+    call: sample#getUser
+    vars:
+      userId: \${var.admin.userId}
+`} />
+
+## Related
+
+- [Lifecycle](/vc-rs/reference/lifecycle/): beforeRun, beforeAll and the full order
+- [beforeEach](/vc-rs/reference/syntax/before-each/): once per test instance
+- [cache](/vc-rs/reference/syntax/cache/): keep a `beforeAll` result across runs
+- [test](/vc-rs/reference/syntax/test/): reuse a flow in `beforeAll`

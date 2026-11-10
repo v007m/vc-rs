@@ -1,0 +1,105 @@
+---
+title: expect.size
+description: A matcher on the size of the response body, with units such as 512b, 4kb and 1mb.
+sidebar: { order: 404, badge: { text: 'expect', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`expect.size` checks the size of the response body in bytes.
+
+```yaml
+expect:
+  size:
+    lt: 100kb
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `size` | number or matcher | none | no | A number is an exact byte count. A matcher compares the byte count. |
+
+Sizes in matchers are a whole number and a unit, with no space:
+
+| Unit | Bytes |
+| --- | --- |
+| `b` | 1 |
+| `kb` | 1024 |
+| `mb` | 1024 × 1024 |
+| `gb` | 1024 × 1024 × 1024 |
+
+Units work in `gt`, `gte`, `lt`, `lte` and `between`. A bare number is bytes.
+
+## Examples
+
+**An upper bound.** Catch a response that grew by accident, such as a list that lost its paging.
+
+```yaml
+expect:
+  size:
+    lt: 50b
+```
+
+```console
+✕ sz.size#tooBig                                                  3ms
+  error[V5101]: expect.size
+    --> services/sz/size.test.yaml:28:9
+     |
+  28 |         lt: 50b
+     |         ^^^^^^^ expected {"lt":50}, got 67
+```
+
+The expected value is shown in bytes.
+
+**A range.**
+
+```yaml
+expect:
+  size:
+    between: [100b, 2kb]
+```
+
+**An exact size.** Write the byte count as a plain number.
+
+```yaml
+- id: emptyBody
+  call: users#delete
+  vars:
+    userId: "1"
+  expect:
+    size: 0
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: staysSmall
+    call: users#list
+    expect:
+      size:
+        lte: 1kb
+`} />
+
+## How it behaves
+
+- **What is measured.** The response body in bytes. Headers are not counted.
+- **Merging.** `size` is one check. A more specific level replaces it.
+
+<Aside type="caution">
+Units are only converted inside `gt`, `gte`, `lt`, `lte` and `between`. A literal such as `size: 32b`, or `eq: 32b`, is compared as the text `"32b"` and fails with `expected "32b", got 32`. Write `size: 32` for an exact size.
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2301](/vc-rs/reference/diagnostics/v2301/) | The size is not a whole number and a unit, such as `10 kb` with a space. The help reads: write a whole number and a unit, `512b`, `4kb`, `1mb` or `2gb`. |
+| [V5101](/vc-rs/reference/diagnostics/v5101/) | The body size did not match. |
+
+## Related
+
+- [expect](/vc-rs/reference/syntax/expect/)
+- [timing](/vc-rs/reference/syntax/timing/)
+- [Matchers](/vc-rs/reference/matchers/)

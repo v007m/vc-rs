@@ -1,0 +1,111 @@
+---
+title: standalone
+description: Mark a test that runs only when another test reuses it with test:, never on its own.
+sidebar: { order: 215, badge: { text: 'test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`standalone: false` turns a test into a reusable flow. It runs only through a [`test:`](/vc-rs/reference/syntax/test/) action.
+
+```yaml title="services/shared/flows.test.yaml"
+tests:
+  - id: memberWithEcho
+    standalone: false
+    steps:
+      - call: sample#createUser
+      - call: echo#json
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `standalone` | boolean | `true` | no | `false`: the test is left out of every selection and runs only when reused with `test:`. |
+
+## Examples
+
+### A flow that only runs when reused
+
+```yaml title="services/shared/flows.test.yaml"
+id: shared.flows
+name: Reusable flows
+tests:
+  - id: memberWithEcho
+    name: Create a member, then echo its id
+    standalone: false
+    steps:
+      - call: sample#createUser
+        vars:
+          email: member@example.com
+      - call: echo#json
+        vars:
+          name: ${var.userId}
+        save:
+          echoedName: ${response.body.body.name}
+```
+
+Selecting the file, or even the test by its full ID, runs nothing:
+
+```console
+$ vc run shared.flows
+plan  0 tests in 0 files · profile default
+
+
+0 passed                                                     0ms · profile default
+```
+
+The exit code is 2, "nothing ran". `vc list tests` does not list the test either.
+
+### Running it through another test
+
+```yaml title="services/flow/reuse2.test.yaml"
+id: flow.reuse2
+tests:
+  - id: readsDeclared
+    steps:
+      - test: shared.flows#memberWithEcho
+        provides: [echoedName, userId]
+      - call: echo#json
+        vars:
+          name: ${var.echoedName}
+```
+
+```console
+$ vc run flow.reuse2
+plan  1 test in 1 file · profile default
+
+✓ flow.reuse2#readsDeclared                                       4ms
+
+1 passed                                                     5ms · profile default
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: shared.flows
+tests:
+  - id: memberWithEcho
+    standalone: false
+    steps:
+      - call: sample#createUser
+      - call: echo#json
+        vars:
+          name: \${var.userId}
+`} />
+
+## How it behaves
+
+- A `standalone: false` test is still checked by `vc check`, like any other test.
+- It is left out when you select its file, and even when you select its own full ID. A run that selects only such tests exits 2.
+- It can be reused from any file, as a step or in `before`, `after`, `beforeEach` and `beforeAll`.
+
+## Common errors
+
+Selecting only `standalone: false` tests is not an error, but nothing runs and `vc run` exits 2. Run a test that reuses it instead.
+
+## Related
+
+- [test](/vc-rs/reference/syntax/test/): the action that runs it
+- [provides](/vc-rs/reference/syntax/provides/)
+- [skip](/vc-rs/reference/syntax/skip/): leave a test out for a reason, but keep it in reports

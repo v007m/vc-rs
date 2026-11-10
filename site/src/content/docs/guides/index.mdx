@@ -1,0 +1,22 @@
+---
+title: "Guides"
+description: "Task-focused guides: CI, reports and history, OpenAPI import and sync, HAR capture, secrets, skipping tests, the terminal and web UIs, and migrating from v1."
+sidebar: { order: 0 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Each guide walks through one job from start to finish. For every flag and key, see the [reference](/vc-rs/reference/).
+
+<CardGrid>
+  <LinkCard title="CI" href="/vc-rs/guides/ci/" description="Run vc in GitHub Actions, GitLab CI or Jenkins, publish its reports, gate on its exit codes and keep its cache between runs." />
+  <LinkCard title="Errors and fixes" href="/vc-rs/guides/errors-and-fixes/" description="Read a vc diagnostic, apply its fix, look up its code, and read the same diagnostics as JSON." />
+  <LinkCard title="HAR and capture" href="/vc-rs/guides/har-and-capture/" description="Turn a browser session into api definitions and a replay test, and save real calls as tests." />
+  <LinkCard title="Migrating from v1" href="/vc-rs/guides/migrating-from-v1/" description="Move a Vibranium v1 project to v2 with vc migrate, settle what it could not convert, and learn what each v1 construct became." />
+  <LinkCard title="OpenAPI import and sync" href="/vc-rs/guides/openapi-import-and-sync/" description="Create api files and tests from an OpenAPI spec, then keep them in step with the spec without losing your edits." />
+  <LinkCard title="Reporters and history" href="/vc-rs/guides/reporters-and-history/" description="What vc prints while it runs, the report files it writes, and how to find and report on past runs." />
+  <LinkCard title="Secrets" href="/vc-rs/guides/secrets/" description="Keep API keys and passwords out of your test files, give them values on a laptop and in CI, and see how vc masks them." />
+  <LinkCard title="Skipping tests" href="/vc-rs/guides/skipping-tests/" description="Park a test with a reason and an end date, find what is parked, and keep skips from piling up." />
+  <LinkCard title="Terminal UI" href="/vc-rs/guides/tui/" description="Run tests, browse the project, compare runs, watch load tests and import apis from one keyboard-driven screen with vc tui." />
+  <LinkCard title="Web UI" href="/vc-rs/guides/web-ui/" description="Browse, edit, call and run your tests in the browser with vc ui, and connect AI agents to the same server over MCP." />
+</CardGrid>

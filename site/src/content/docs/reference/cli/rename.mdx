@@ -1,0 +1,91 @@
+---
+title: "vc rename"
+description: "Renames an api, test, file, var, auth or dataset and updates every reference to it."
+sidebar: { order: 11 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Renames one ID and rewrites every place that refers to it, in every file of the project.
+
+```console
+$ vc rename [OPTIONS] <OLD> <NEW>
+```
+
+## Arguments
+
+| Argument | Description |
+| --- | --- |
+| `<OLD>` | What to rename: an api or test (`users#create`), a file (`users.crud`), or a var, auth or dataset with its kind (`var.userId`, `auth.partnerToken`, `dataset.capitals`) |
+| `<NEW>` | Its new ID. An api or test stays in its file (`users#createUser`). A new file ID moves the file. A var, auth or dataset keeps its kind (`var.accountId`) |
+| `--project <DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### An api
+
+```console
+$ vc rename users#listUsers users#listAll
+✓ renamed users#listUsers to users#listAll
+```
+
+The api's `id` changes, and so does every `call: users#listUsers` in the tests.
+
+### A file
+
+```console
+$ vc rename users.crud users.admin
+✓ renamed users.crud to users.admin
+```
+
+`services/users/crud.test.yaml` moves to `services/users/admin.test.yaml`, and every full ID that starts with `users.crud#` follows.
+
+### A var or an auth
+
+```console
+$ vc rename var.billingUrl var.invoicesUrl
+✓ renamed var.billingUrl to var.invoicesUrl
+$ vc rename auth.partnerToken auth.partnerAuth
+✓ renamed auth.partnerToken to auth.partnerAuth
+```
+
+The config key and every `${var.billingUrl}` or `auth: partnerToken` change together.
+
+Comments are not rewritten. The `# users#listUsers · …` lines that [`vc new`](/vc-rs/reference/cli/new/) wrote keep the old ID; drop them with [`vc fmt --strip-comments`](/vc-rs/reference/cli/fmt/) or edit them.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Renamed |
+| `2` | Nothing changed: the old ID does not exist, the new one is taken or breaks a convention, or an item would move to another file |
+
+```console
+$ vc rename users#listAll users#deactivate
+error: `users#deactivate` is already taken
+  = help: pick another ID, or rename `users#deactivate` first
+$ vc rename users#listAll users#ListAll
+error: `ListAll` breaks the ID convention
+  = help: did you mean `users#listAll`? Item IDs are camelCase
+$ vc rename users#listAll billing#listAll
+error: `billing#listAll` is in another file than `users#listAll`
+  = help: rename it to `users#listAll`; `vc rename users <file ID>` moves a whole file
+$ vc rename var.nope var.x
+error: there is no var `nope`
+  = help: a var is a key under `vars` or `save`, used as `${var.<name>}`
+```
+
+A word with no kind and no `#` is read as a file ID:
+
+```console
+$ vc rename userId accountId
+error: `accountId` breaks the file ID convention
+  = help: did you mean `account-id`? A file ID is lower-case words joined with dots
+```
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc check --fix" href="/vc-rs/reference/cli/check/" description="Rename every ID that breaks a convention at once." />
+  <LinkCard title="Naming conventions" href="/vc-rs/start/project-layout/" description="IDs, file IDs and var names." />
+</CardGrid>

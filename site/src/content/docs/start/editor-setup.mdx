@@ -1,0 +1,147 @@
+---
+title: Editor setup
+description: Get key completion, hover docs and error squiggles for Vibranium YAML in VS Code, JetBrains IDEs and Neovim, and keep files tidy with vc fmt.
+sidebar: { order: 5 }
+---
+
+import { Tabs, TabItem, Aside, Steps } from '@astrojs/starlight/components';
+
+Vibranium files are plain YAML, so any editor with a YAML language server can complete keys, show the description of each key on hover and flag mistakes as you type. All it needs is the JSON Schema for each kind of file. `vc` prints them.
+
+## Export the schemas
+
+`vc schema export --out <dir>` writes one schema per kind of file:
+
+```console
+$ vc schema export --out .vibranium/schemas
+wrote 4 schemas to .vibranium/schemas
+$ ls .vibranium/schemas
+api.schema.json  config.schema.json  load.schema.json  test.schema.json
+```
+
+Without `--out`, it prints all four as one JSON object keyed by kind (`api`, `config`, `load`, `test`). The command works inside or outside a project.
+
+`.vibranium/` is git-ignored, so each person on the team runs this once. Run it again after you upgrade `vc`, so the schemas match the version you run.
+
+| Schema | Files it describes |
+| --- | --- |
+| `config.schema.json` | `vibranium.config.yaml` |
+| `api.schema.json` | `*.api.yaml` |
+| `test.schema.json` | `*.test.yaml` |
+| `load.schema.json` | `*.load.yaml` |
+
+## The schema line in generated files
+
+Files that `vc init` and `vc new` write start with a line like this:
+
+```yaml
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/test.schema.json
+```
+
+Editors that use the YAML language server read it and load that schema.
+
+<Aside title="Hosted schemas">
+The schemas are published at `https://v007m.github.io/vc-rs/schema/<kind>.schema.json`, with a catalog at `https://v007m.github.io/vc-rs/schema/index.json`. You can map those URLs instead of exported files. [JSON Schemas](/vc-rs/reference/schemas/) lists every URL and shows the VS Code and JetBrains settings for them.
+</Aside>
+
+## Map the schemas in your editor
+
+<Tabs>
+  <TabItem label="VS Code">
+    <Steps>
+    1. Install the **YAML** extension by Red Hat (`redhat.vscode-yaml`).
+
+    2. Add the mapping to `.vscode/settings.json` in your project. Paths are relative to the workspace folder.
+
+       ```json title=".vscode/settings.json"
+       {
+         "yaml.schemas": {
+           "./.vibranium/schemas/config.schema.json": "vibranium.config.yaml",
+           "./.vibranium/schemas/api.schema.json": "*.api.yaml",
+           "./.vibranium/schemas/test.schema.json": "*.test.yaml",
+           "./.vibranium/schemas/load.schema.json": "*.load.yaml"
+         }
+       }
+       ```
+
+    3. Open a test file and press <kbd>Ctrl</kbd>+<kbd>Space</kbd> under a test to see the keys you can use.
+    </Steps>
+  </TabItem>
+  <TabItem label="JetBrains">
+    IntelliJ IDEA, WebStorm, RustRover and the other JetBrains IDEs have JSON Schema support built in.
+
+    <Steps>
+    1. Open **Settings → Languages & Frameworks → Schemas and DTDs → JSON Schema Mappings**.
+
+    2. Click **+** and add one mapping per kind. For each, pick the exported file as **Schema file or URL** and add a **File path pattern**:
+
+       | Schema file | File path pattern |
+       | --- | --- |
+       | `.vibranium/schemas/config.schema.json` | `vibranium.config.yaml` |
+       | `.vibranium/schemas/api.schema.json` | `*.api.yaml` |
+       | `.vibranium/schemas/test.schema.json` | `*.test.yaml` |
+       | `.vibranium/schemas/load.schema.json` | `*.load.yaml` |
+
+    3. Leave **JSON Schema version** on automatic and apply.
+    </Steps>
+  </TabItem>
+  <TabItem label="Neovim">
+    Use `yaml-language-server` (`yamlls`) through `nvim-lspconfig`. Map each schema file to a glob:
+
+    ```lua title="init.lua"
+    local schemas = vim.fn.getcwd() .. '/.vibranium/schemas/'
+
+    require('lspconfig').yamlls.setup({
+      settings = {
+        yaml = {
+          schemas = {
+            [schemas .. 'config.schema.json'] = 'vibranium.config.yaml',
+            [schemas .. 'api.schema.json'] = '*.api.yaml',
+            [schemas .. 'test.schema.json'] = '*.test.yaml',
+            [schemas .. 'load.schema.json'] = '*.load.yaml',
+          },
+        },
+      },
+    })
+    ```
+
+    This reads the schemas from the folder you start Neovim in, so start it at the project root.
+  </TabItem>
+</Tabs>
+
+The schema catches wrong keys and wrong types while you type. It can't know your IDs or vars, so run `vc check` for those. It resolves every reference across files and points at the exact line.
+
+<Aside type="tip">
+The [playground](/vc-rs/playground/) runs the same schemas in your browser, if you want to try a snippet without any setup.
+</Aside>
+
+## Format with `vc fmt`
+
+`vc fmt` rewrites definition files in the house style: block YAML, a fixed key order and consistent quoting. It keeps your comments.
+
+```console
+$ vc fmt
+✓ formatted 3 files
+$ vc fmt
+✓ formatted 0 files
+```
+
+- `vc fmt services/users` formats only the files under that path.
+- `vc fmt --strip-comments` removes the one-line comments `vc new` wrote above the items it created. Your own comments stay.
+- A file that does not parse, or one whose meaning formatting would change, is left alone, and the command exits with code 2.
+
+For example, `vc fmt` turns flow lists into block lists:
+
+```diff lang="yaml"
+-tags: [sample]
++tags:
++  - sample
+```
+
+<Aside type="caution">
+In this release `vc fmt` can drop a comment at the end of a flow list it rewrites (such as `status: [204, 404]   # note`), and it moves commented-out keys out to the indentation of their parent. Review the diff before you commit.
+</Aside>
+
+## Shell completion
+
+`vc completion <shell>` completes commands, flags and the IDs in your project. See [Install](/vc-rs/start/install/#shell-completion) for setup.

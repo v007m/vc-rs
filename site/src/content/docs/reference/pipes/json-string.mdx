@@ -1,0 +1,75 @@
+---
+title: "jsonString"
+description: "Encode any value as compact JSON text."
+sidebar: { order: 6 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`jsonString` encodes any value as compact JSON text. Use it when a field must hold JSON as a string, such as a form field or a header.
+
+```yaml
+      metadata: ${var.order | jsonString}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | any value | — | yes |  |
+| output | text | — | — | Compact JSON, with no spaces. |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  order:
+    id: 7
+    items: [a, b]
+  cities: [Tokyo, Delhi, Paris, Lima]
+  nothing: null
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.order \| jsonString}` | `"{\"id\":7,\"items\":[\"a\",\"b\"]}"` |
+| `${var.cities \| jsonString}` | `"[\"Tokyo\",\"Delhi\",\"Paris\",\"Lima\"]"` |
+| `"hi"` piped to `jsonString` | `"\"hi\""` |
+| `${var.nothing \| jsonString}` | `"null"` |
+
+Unlike [`string`](/vc-rs/reference/pipes/string/), text gets JSON quotes: `string` gives `hi`, `jsonString` gives `"hi"`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: sendsJsonText
+    call: sample#echo
+    vars:
+      order:
+        id: 7
+        items: [a, b]
+      payload:
+        metadata: \${var.order | jsonString}
+`} />
+
+## How it behaves
+
+- It never fails.
+- The reverse is [`json`](/vc-rs/reference/pipes/json/).
+
+## Common errors
+
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the value before the pipe is missing. Add `default` first.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="json" href="/vc-rs/reference/pipes/json/" />
+  <LinkCard title="string" href="/vc-rs/reference/pipes/string/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

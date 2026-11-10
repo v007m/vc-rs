@@ -1,0 +1,321 @@
+---
+title: "Functions and request hooks"
+description: "Run TypeScript or JavaScript from your tests with beforeRequest, afterResponse, function actions and custom checks, and what a hook file may import."
+sidebar: { order: 6 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+When YAML can't say it, a function can: every hook is `function: path#exportName`, an exported function in a `.ts`, `.mts`, `.js` or `.mjs` file that runs inside the engine.
+
+```yaml title="services/signed/signed.api.yaml"
+apis:
+  - id: upload
+    name: Upload a file
+    method: POST
+    path: /echo
+    body:
+      file: report.pdf
+    beforeRequest:
+      - function: ../../hooks/sign.ts#addUploadSignature
+```
+
+## Syntax
+
+| Where | Key | The function receives | It returns |
+| --- | --- | --- | --- |
+| api file or api | `beforeRequest` | `{ request }`: `method`, `url`, `path`, `query`, `headers`, `body` | The request, changed or not, or `null` to send it unchanged. |
+| api file or api | `afterResponse` | `{ request, response }`: request `method`, `url`, `headers`, `body`; response `status`, `headers`, `body`, `timing` | Nothing. The return value is ignored; throwing fails the call. |
+| lifecycle block or step | `- function: path#export` | `{ vars, run }`: the resolved vars, and `run.profiles` | An object whose fields are saved as vars, or nothing |
+| `expect` | `custom: [- function: path#export]` | `{ response, vars }` | `true` to pass, or a text that is the failure message |
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `function` | `path#export` | — | yes | Path relative to the YAML file that holds it, like a `$file` path. |
+| `vars` | map | — | no | Function actions only: extra vars for this call. |
+| `timeout` | duration | `200ms` | no | Function actions only: the run budget. Past it the function is stopped ([V5116](/vc-rs/reference/diagnostics/v5116/)). |
+| `provides` | list of names | — | no | Function actions only: the names it saves, so `vc check` knows they are set. |
+| `id` | camelCase | — | in `beforeRun`/`beforeAll` | Shared values are saved under this ID. |
+
+### What a hook file may import
+
+- Other hook files in the project, by a path starting `./` or `../`. The extension may be left off, and `./util.js` finds `util.ts`.
+- `vibranium:std`: `hmacSha256Hex(key, data)`, `sha256Hex(data)`, `base64Encode`, `base64Decode`, `urlEncode`, `urlDecode`.
+- Types, with `import type { … } from "@vibranium/sdk"`. Types are stripped before the hook runs.
+
+Packages and `node:` modules are not allowed ([V2008](/vc-rs/reference/diagnostics/v2008/)). Hooks run inside the engine, not in Node, so there is no `fs`, no network and no `console`.
+
+## Examples
+
+### Sign every request: `beforeRequest`
+
+This hook adds a body digest and an HMAC signature. It was run against the demo, and the signature matched one computed with Node's `crypto` module.
+
+```ts title="hooks/sign.ts"
+import type { BeforeRequestHook } from "@vibranium/sdk";
+import { hmacSha256Hex, sha256Hex } from "vibranium:std";
+
+export const addUploadSignature: BeforeRequestHook = ({ request }) => {
+  const digest = sha256Hex(JSON.stringify(request.body));
+  const signature = hmacSha256Hex("demo-signing-key", `${request.method} ${request.path} ${digest}`);
+  return {
+    ...request,
+    headers: { ...request.headers, "x-content-sha256": digest, "x-signature": signature },
+  };
+};
+```
+
+```yaml title="services/signed/upload.test.yaml"
+tests:
+  - id: sendsSignature
+    name: The upload carries an HMAC signature
+    call: signed#upload
+    expect:
+      status: 200
+      body:
+        match:
+          headers.x-content-sha256:
+            regex: "^[0-9a-f]{64}$"
+          headers.x-signature: 05adb6136df81e3e602f08cc5dc869eaebe29840103fa0be61c89e3aa04091ce
+```
+
+```console
+$ vc run signed.upload
+plan  1 test in 1 file · profile default
+
+✓ signed.upload#sendsSignature                                   15ms
+
+1 passed                                                     17ms · profile default
+```
+
+The request the hook sees looks like this (from the demo, with a secret header set to `${secret.UPLOAD_KEY}`):
+
+```json
+{ "body": { "file": "report.pdf" },
+  "headers": { "accept": "application/json", "content-type": "application/json",
+               "user-agent": "vibranium/2", "x-key": "••••" },
+  "method": "POST", "path": "/echo", "query": { "v": "2" },
+  "url": "http://localhost:7466/echo?v=2" }
+```
+
+Secret values are masked as `••••` in what the hook sees. If the hook returns the masked header unchanged, the real value is still sent.
+
+<Aside type="caution" title="Secrets in hooks don't work yet">
+A hook is meant to read a secret with the global `secret("NAME")`. In the current build, every call fails with ``ReferenceError: no secret `UPLOAD_KEY` `` (reported as [V5115](/vc-rs/reference/diagnostics/v5115/)), even when the secret is declared in `.env.schema` and set. Until that is fixed, a hook can't sign with a secret key.
+</Aside>
+
+### Fail on server errors: `afterResponse`
+
+An `afterResponse` hook can't change the response. It is useful as a guard: throw, and the call fails.
+
+```ts title="hooks/sign.ts"
+export const failOnServerError = ({ request, response }) => {
+  if (response.status >= 500) {
+    throw new Error(`${request.method} ${request.url} answered ${response.status}`);
+  }
+};
+```
+
+```yaml title="services/signed/signed.api.yaml"
+id: signed
+name: Signed uploads on the demo
+baseUrl: ${var.sampleUrl}
+afterResponse:                  # every api in this file
+  - function: ../../hooks/sign.ts#failOnServerError
+```
+
+Hooks on the api file run first, then the api's own.
+
+### Seed data: a `function:` action
+
+A function action gets `{ vars, run }` and may return an object; each field is saved as a var.
+
+```ts title="hooks/seed.ts"
+import { base64Encode, urlEncode } from "vibranium:std";
+
+export const makeAccount = ({ vars, run }) => {
+  return {
+    accountId: `acc-${vars.prefix}-42`,
+    token: base64Encode(`${vars.prefix}:${run.profiles.join(",")}`),
+    query: urlEncode("a b&c"),
+  };
+};
+```
+
+```yaml title="services/sample/hooks.test.yaml"
+tests:
+  - id: usesSeededAccount
+    name: A function action seeds an account and saves its fields
+    before:
+      - function: ../../hooks/seed.ts#makeAccount
+        vars:
+          prefix: demo
+        provides: [accountId, token, query]
+    call: sample#echo
+    body:
+      accountId: ${var.accountId}
+      token: ${var.token}
+      query: ${var.query}
+    expect:
+      status: 200
+      body:
+        match:
+          body.accountId: acc-demo-42
+          body.token: ZGVtbzpkZWZhdWx0
+          body.query: a%20b%26c
+```
+
+The input the function got was `{"run":{"profiles":["default"]},"vars":{"prefix":"demo","sampleUrl":"http://localhost:7466"}}`.
+
+### Custom checks: `expect.custom`
+
+A custom check returns `true`, or a text that becomes the failure message.
+
+```ts title="hooks/checks.ts"
+import type { CustomCheck } from "@vibranium/sdk";
+
+export const fileIsPdf: CustomCheck = ({ response, vars }) => {
+  const file = response.body.body.file;
+  return file.endsWith(vars.extension) || `${file} does not end in ${vars.extension}`;
+};
+```
+
+```yaml title="services/sample/hooks.test.yaml"
+  - id: checksWithCode
+    name: Custom checks read the response and vars
+    call: sample#echo
+    vars:
+      extension: .txt
+    body:
+      file: report.pdf
+    expect:
+      status: 200
+      custom:
+        - function: ../../hooks/checks.ts#fileIsPdf
+```
+
+```console
+$ vc run sample.hooks#checksWithCode
+✕ sample.hooks#checksWithCode                                    13ms
+  error[V5103]: expect.custom
+    --> services/sample/hooks.test.yaml:35:11
+     |
+  35 |         - function: ../../hooks/checks.ts#fileIsPdf
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ report.pdf does not end in .txt
+```
+
+### Share code between hook files
+
+```ts title="hooks/util.ts"
+export function endsWithAny(text: string, endings: string[]): boolean {
+  return endings.some((ending) => text.endsWith(ending));
+}
+```
+
+```ts title="hooks/checks.ts"
+import { endsWithAny } from "./util.js";   // finds util.ts
+
+export const isDocument: CustomCheck = ({ response }) => {
+  const file: string = response.body.body.file;
+  return endsWithAny(file, [".pdf", ".docx"]) || `${file} is not a document`;
+};
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: usesSeededAccount
+    name: Seeds an account with a function
+    before:
+      - function: ../../hooks/seed.ts#makeAccount
+        vars:
+          prefix: demo
+        provides: [accountId]
+        timeout: 500ms
+    call: sample#echo
+    body:
+      accountId: \${var.accountId}
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#fileIsPdf
+`} />
+
+## How it behaves
+
+- **Checked before the run.** `vc check` parses every hook file a `function:` reaches, resolves its imports and finds each export.
+- **Time budget.** A function gets 200 ms by default. A function action's `timeout` changes its own budget. A loop that never ends is stopped:
+
+  ```console
+  ⊘ sample.hooks#spinsTooLong blocked                              75ms
+    error[V5116]: `hooks/seed.ts#spin`: the hook ran past its time budget and was stopped (line 11)
+       = at: function hooks/seed.ts#spin
+  ```
+
+- **A throw fails the action.** It is reported as [V5115](/vc-rs/reference/diagnostics/v5115/) with the error and the line in the hook file. A failing `before` function marks the test **blocked**.
+
+  ```console
+  ✕ peek.one#readsSecret                                           59ms
+    error[V5115]: `hooks/peek.ts#readSecret`: the hook threw: ReferenceError: no secret `UPLOAD_KEY` (line 2)
+       = at: call peek#upload
+  ```
+- **`provides`.** Without it, `vc check` can't see what a function saves, and reading such a var is [V2101](/vc-rs/reference/diagnostics/v2101/) (`is used but never set`). A declared name the function didn't return is [V5109](/vc-rs/reference/diagnostics/v5109/) at run time: ``declared in `provides` but not saved: `ownerId` ``.
+- **Order.** The api file's hooks run before the api's own.
+
+## Common errors
+
+Real messages from `vc check`:
+
+```console
+error[V1013]: the hook file is not valid TypeScript or JavaScript: Expected `,` or `)` but found `=>`
+ --> hooks/broken.ts:1:31
+  |
+1 | export const half = ({ vars } => {
+  |                               ^^ `,` or `)` expected
+  = help: hooks are ES modules; `tsc --noEmit` reports the same error
+
+error[V2004]: ../../hooks/seeds.ts is not in the project
+  --> services/sample/hookerr.test.yaml:10:19
+   |
+10 |       - function: ../../hooks/seeds.ts#makeAccount
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no file at hooks/seeds.ts
+   = help: did you mean one of `../../hooks/seed.ts`, `../../hooks/checks.ts`, `../../hooks/nodey.ts`?
+
+error[V2005]: ../../hooks/seed.ts exports no function `makeAcount`
+  --> services/sample/hookerr.test.yaml:15:19
+   |
+15 |       - function: ../../hooks/seed.ts#makeAcount
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not exported
+   = help: did you mean `makeAccount`?
+   = fix: Replace with makeAccount (certain)
+
+error[V2008]: a hook can import only files, by relative path, and `vibranium:std`, not node:fs
+ --> hooks/nodey.ts:1:30
+  |
+1 | import { readFileSync } from "node:fs";
+  |                              ^^^^^^^^^ not allowed
+  = help: hooks run in the engine, not Node: `vibranium:std` has the helpers a hook may use
+
+error[V2008]: ../../services/sample/rows.yaml is not a TypeScript or JavaScript module
+  --> services/sample/hookerr.test.yaml:30:19
+   |
+30 |       - function: ../../services/sample/rows.yaml#x
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a hook file
+   = help: hook files are ES modules ending in .ts, .mts, .js or .mjs
+```
+
+| Code | Meaning |
+| --- | --- |
+| [V1013](/vc-rs/reference/diagnostics/v1013/) | The hook file doesn't parse |
+| [V2004](/vc-rs/reference/diagnostics/v2004/) | No file at that path |
+| [V2005](/vc-rs/reference/diagnostics/v2005/) | The file has no such export |
+| [V2008](/vc-rs/reference/diagnostics/v2008/) | Not a hook file, or a forbidden import (a package such as `dayjs`, or a `node:` module) |
+| [V5115](/vc-rs/reference/diagnostics/v5115/) | The hook threw |
+| [V5116](/vc-rs/reference/diagnostics/v5116/) | The hook ran past its time budget |
+
+## Related
+
+- [`function` actions](/vc-rs/reference/syntax/function/)
+- [Function actions in lifecycle blocks](/vc-rs/reference/lifecycle/function/)
+- [`beforeRequest` and `afterResponse` keys](/vc-rs/reference/syntax/request-hooks/)
+- [`expect`](/vc-rs/reference/syntax/expect/)

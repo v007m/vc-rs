@@ -1,0 +1,132 @@
+---
+title: provides
+description: Declare the values a function or reused test saves, so later steps can read them and the run checks they were set.
+sidebar: { order: 232, badge: { text: 'step', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`provides` lists the var names a [`function`](/vc-rs/reference/syntax/function/) or [`test`](/vc-rs/reference/syntax/test/) action saves. `vc check` treats them as set, and the run fails the action if one is missing.
+
+```yaml title="services/flow/fn.test.yaml"
+before:
+  - function: ../../hooks/seed.ts#seedUser
+    provides: [userId, userEmail]
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `provides` | list of var names | — | no | Names this action saves. Each must be saved, or the action fails with V5109. |
+
+## Examples
+
+### A function's return values
+
+`vc check` cannot read what a function returns. Without `provides`, a later read of a name that nothing else sets is an error:
+
+```yaml title="services/flow/prov.test.yaml"
+id: flow.prov
+tests:
+  - id: needsProvides
+    before:
+      - function: ../../hooks/seed.ts#seedUser
+    call: echo#json
+    vars:
+      name: ${var.userEmail}
+```
+
+```console
+error[V2101]: ${var.userEmail} is used but never set
+ --> services/flow/prov.test.yaml:8:13
+  |
+8 |       name: ${var.userEmail}
+  |             ^^^^^^^^^^^^^^^^ no level sets userEmail for profile default
+  = help: set it in this test's vars, in the file's vars, or in the config's vars
+```
+
+Add `provides: [userEmail]` to the function and the check passes. The same works for `userId` below:
+
+```yaml title="services/flow/fn.test.yaml"
+id: flow.fn
+tests:
+  - id: getsSeededUser
+    before:
+      - function: ../../hooks/seed.ts#seedUser
+        provides: [userId, userEmail]
+    call: sample#getUser
+    expect:
+      status: 200
+```
+
+```console
+$ vc run flow.fn
+plan  1 test in 1 file · profile default
+
+✓ flow.fn#getsSeededUser                                          3ms
+
+1 passed                                                     4ms · profile default
+```
+
+### A reused test's saves
+
+```yaml title="services/flow/reuse2.test.yaml"
+id: flow.reuse2
+tests:
+  - id: readsDeclared
+    steps:
+      - test: shared.flows#memberWithEcho
+        provides: [echoedName, userId]
+      - call: echo#json
+        vars:
+          name: ${var.echoedName}
+```
+
+### Missing and undeclared names
+
+A name in `provides` that the action did not save fails it. In `before`, that blocks the test:
+
+```console
+⊘ flow.fn3#declaresMissing blocked
+  error[V5109]: declared in `provides` but not saved: `orderId`
+```
+
+A saved name that `provides` does not list is a warning. The run goes on, and the value is still set:
+
+```console
+! V5108: `var.userId` was saved by a `function:` step that does not declare it; add `provides: [userId]` to that step
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.fn
+tests:
+  - id: getsSeededUser
+    before:
+      - function: ../../hooks/seed.ts#seedUser
+        provides: [userId, userEmail]
+    call: sample#getUser
+`} />
+
+## How it behaves
+
+- `provides` matters for `function` and `test` actions. A `call` already declares its saves in the api and the test.
+- The names are plain var names, without `var.`.
+- Values from a `function` win over the test file's vars of the same name.
+- For a `test:` action, `vc check` already knows what the reused test saves. The run still prints V5108 for each name not in `provides`, so list them.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2101](/vc-rs/reference/diagnostics/v2101/) | A var is read, but no api, test, action or `provides` sets it. |
+| [V5108](/vc-rs/reference/diagnostics/v5108/) | An action saved a name it does not list in `provides` (warning). |
+| [V5109](/vc-rs/reference/diagnostics/v5109/) | A name in `provides` was not saved. |
+
+## Related
+
+- [function](/vc-rs/reference/syntax/function/) and [test](/vc-rs/reference/syntax/test/)
+- [save](/vc-rs/reference/syntax/save/)
+- [vars](/vc-rs/reference/syntax/vars/)

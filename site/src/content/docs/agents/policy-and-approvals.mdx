@@ -1,0 +1,226 @@
+---
+title: "Policy and approvals"
+description: "The agents block that says what an AI agent may run, call and write, the approval queue, vc approvals and vc approve, and the agent action log."
+sidebar: { order: 4 }
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+An agent connected over MCP can always read: list, search, show definitions, check, and read history. Anything that sends a request or writes a file goes through the **agent policy** first. The policy lives in each profile's `agents` block in `vibranium.config.yaml`. For each call it does one of three things:
+
+- **allows** it;
+- **refuses** it, naming the rule that applied;
+- or **asks**: it puts a request in the approval queue and waits up to 10 minutes for a person to decide.
+
+## The `agents` block
+
+```yaml title="vibranium.config.yaml"
+profiles:
+  - id: dev
+    default: true
+    agents:
+      run: true
+      call: [GET, POST, PUT, DELETE]
+      writeDefinitions: true
+  - id: staging
+    vars:
+      usersUrl: https://users.staging.shop.example
+    agents:
+      run: true
+      call: [GET, POST]
+      approve: [PUT, PATCH, DELETE]
+      writeDefinitions: ask
+  - id: prod
+    vars:
+      usersUrl: https://users.shop.example
+    agents:
+      run: true
+      call: [GET]
+      approve: [POST, PUT, PATCH, DELETE]
+      writeDefinitions: false
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `run` | boolean | `false` | The agent may run tests with `run_tests` |
+| `call` | list of methods | `[]` | Methods its requests send without asking |
+| `approve` | list of methods | `[]` | Methods sent only once a person approves |
+| `writeDefinitions` | `true`, `false` or `ask` | `false` | Whether `write_definition` writes, refuses, or asks first |
+
+Methods are `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD` and `OPTIONS`. A method in neither `call` nor `approve` is refused.
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+project: shop
+
+vars:
+  usersUrl: http://localhost:7531
+
+profiles:
+  - id: local
+    default: true
+    agents:
+      run: true
+      call: [GET]
+      approve: [POST, PUT, PATCH, DELETE]
+      writeDefinitions: ask
+`} />
+
+### Rules
+
+- **No block means read only.** A profile without `agents` lets the agent list, search, show, check and read history. `run_tests`, `call_api` and `write_definition` are refused.
+- **The agent cannot pick the profile.** It is fixed when `vc mcp` or `vc ui` starts (`--profile`). With several active profiles (`--profile staging,eu`), each field is judged on its own and the strictest profile wins.
+- **The config is off limits.** `write_definition` never writes `vibranium.config.yaml`, since it holds these rules. A person edits it.
+- **Writes are compiled first.** A write that would add an error is refused before any approval is asked, so you never approve a broken file.
+- **Code always asks.** A run or call that reaches a `command:` or `function:` action asks a person every time, even if `run` is `true` and every method is in `call`, and no "always allow" rule skips that ask. Request hooks (`beforeRequest`, `afterResponse`) do not count as code here.
+- **The same rules cover every agent route**: MCP over stdio, MCP over HTTP, and anything else that reaches the engine as an agent. A person running `vc run` or `vc call` in a terminal is never gated.
+
+### What a run or call reaches
+
+The gate judges everything a call could send, before it sends anything:
+
+- **`call_api`**: the api's method, plus the methods of its `cleanup` chain unless `keep: true`. Calling `users#createUser`, whose cleanup calls `deleteUser`, needs POST and DELETE.
+- **`run_tests`**: `run: true`, plus every method the plan can send: `beforeRun`, each file's `beforeAll`, `beforeEach`, the tests and their steps, `afterEach`, `afterAll`, `afterRun`, and every cleanup. The steps of any `type: flow` auth those calls use count too.
+- A run asks **once** for everything it needs, not once per request.
+
+## What refusals look like
+
+With no `agents` block, all three act tools are refused. These are the real tool results (`isError: true`):
+
+```json title="run_tests"
+{ "kind": "refused", "reason": "refused: default: agents.run is false", "help": "a person can widen the profile's `agents` block in vibranium.config.yaml, or approve the call with `vc approve <id>`" }
+```
+
+```json title="call_api on a GET api"
+{ "kind": "refused", "reason": "refused: default: agents.call and agents.approve leave out GET", "help": "a person can widen the profile's `agents` block in vibranium.config.yaml, or approve the call with `vc approve <id>`" }
+```
+
+```json title="write_definition"
+{ "kind": "refused", "reason": "refused: default: agents.writeDefinitions is false", "help": "a person can widen the profile's `agents` block in vibranium.config.yaml, or approve the call with `vc approve <id>`" }
+```
+
+A hard refusal creates no approval request. To let the agent go ahead, a person widens the `agents` block.
+
+## Approving requests
+
+When a call needs approval, the tool call does not return. The agent waits while the request sits in the queue in `.vibranium/history.db`. Every process on the project shares that queue, so you can decide from any terminal or from the web UI.
+
+<Steps>
+1. The agent calls something that needs approval. For example, with `call: [GET]` and `approve: [POST, DELETE]`, it calls `call_api` on `sample#createUser` (POST, with a DELETE cleanup).
+
+2. List the waiting requests:
+
+   ```console
+   $ vc approvals
+   #1  docs-agent  call_api  default  POST sample#createUser
+   ```
+
+   Each row is the request number, the agent's name (from its MCP client), the tool, the profile and a one-line summary. The approval covers every method the call reaches, so this one covers the cleanup's DELETE too.
+
+3. Decide:
+
+   ```console
+   $ vc approve 1
+   ✓ approved request #1
+   ```
+
+   The agent's tool call returns at once with the real response, and the cleanup runs.
+</Steps>
+
+### Choices
+
+| Command | Effect | Output |
+| --- | --- | --- |
+| `vc approve <id>` | Lets this one call through | `✓ approved request #1` |
+| `vc approve <id> --always` | Lets it through and saves a standing rule for the same profile, tool and method, so similar calls stop asking | `✓ approved request #2, and calls like it from now on` |
+| `vc approve <id> --deny` | Refuses it. The agent gets `refused: request 3 was denied` | `✓ denied request #3` |
+| `vc approvals --all` | Also lists decided and expired requests | rows end in `(waiting)`, `(approved)`, `(denied)` or `(expired)` |
+
+`--always` and `--deny` cannot be combined. A request nobody decides within 10 minutes expires, and the agent gets "no one approved request N within 10 minutes". Deciding a request that is gone fails with exit 2:
+
+```console
+$ vc approve 1
+error: history: approval request 1 is no longer pending
+  = help: `vc approvals` lists the waiting requests
+```
+
+The person who decided is recorded under your OS user name (`USER` or `USERNAME`).
+
+### What "always allow" covers
+
+Standing rules are stored in `.vibranium/history.db` (table `approval_rules`), one per profile, tool and method. They are not written to `vibranium.config.yaml`, so they are not in git. They apply only to calls that write no file and reach no `command:` or `function:` action:
+
+- `call_api` and `run_tests` calls that only need methods with a standing rule go through without asking.
+- `write_definition` with `writeDefinitions: ask` asks every time, even after `--always`.
+- A run that reaches a `command:` or `function:` action asks every time.
+
+<Aside type="caution">
+`vc approve --always` prints "and calls like it from now on" even for a write or a run with code, but saves no rule for them. Expect to be asked again.
+</Aside>
+
+### A run that asks
+
+The sample project from `vc init` starts and stops the demo service with `command:` actions, so an agent run of it always asks:
+
+```console
+$ vc approvals
+#4  docs-agent  run_tests  default  run 4 tests sample.basics; runs sample.basics beforeAll: command `vc demo start --port 7531 --detach`; sample.basics afterAll: command `vc demo stop --port 7531`
+```
+
+The summary lists every command the run would start, so you know what you approve.
+
+### Approving in the web UI
+
+`vc ui` has an **Agents** page with the same queue. Each waiting request shows the agent, tool, profile and summary, with **Approve once**, **Always allow on &lt;profile&gt;** and **Deny**. It also has the **Connect** panel (see [MCP setup](/vc-rs/agents/mcp-setup/#http-the-mcp-endpoint-of-vc-ui)) and the **Activity** log.
+
+## The agent action log
+
+Every MCP tool call is logged in `.vibranium/history.db` (table `agent_actions`), whether it was allowed, refused or failed:
+
+| Column | Holds |
+| --- | --- |
+| `at` | When it was logged |
+| `agent` | The MCP client's name |
+| `tool` | The tool called |
+| `profile` | The active profile |
+| `arguments` | The arguments, with secrets redacted |
+| `result` | `ok`, `failed`, or `failed: <reason>` |
+| `approved_by` | Who approved it, when a person did |
+
+Calls that fail before the gate are logged too, such as a selection that matches no test or a write that would not compile.
+
+Read the log on the web UI's Agents page (**Activity**: filter by agent, expand a row to see its arguments and result). There is no `vc` command that prints it yet; from a terminal, query the database:
+
+```console
+sqlite3 .vibranium/history.db "select at, agent, tool, result, approved_by from agent_actions order by id desc limit 20"
+```
+
+Four rows from a real session:
+
+```text
+1794332527977|docs-agent|get_definition|failed: no test or api `people#nope`|
+1794332280930|docs-agent|call_api|ok|
+1794331742466|docs-agent|write_definition|failed: `notes.txt` is not a definition file|
+1794331730587|docs-agent|run_tests|ok|sarath
+```
+
+`at` is milliseconds since the Unix epoch.
+
+## People and agents
+
+`vc ui` serves two kinds of client and treats them differently:
+
+- **The browser is you.** Pages under `/api` use the session cookie from your sign-in link. Running tests or calling an api from the web UI is not gated and not written to the agent log.
+- **`/mcp` is an agent.** It uses the agent token, and every call goes through the policy and the log, exactly like `vc mcp`.
+
+The agent token works only on `/mcp`, so an agent cannot use it to reach the browser's ungated `/api`.
+
+## Common errors
+
+- [V2302](/vc-rs/reference/diagnostics/v2302/): a method or `writeDefinitions` value that is not known, such as `call: [GET, FETCH]`.
+
+## Related
+
+- [MCP tools](/vc-rs/agents/mcp-tools/)
+- [Set up the MCP server](/vc-rs/agents/mcp-setup/)
+- [`vc approvals`](/vc-rs/reference/cli/approvals/) and [`vc approve`](/vc-rs/reference/cli/approve/)

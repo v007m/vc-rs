@@ -1,0 +1,72 @@
+---
+title: "fromBase64"
+description: "Decode standard base64 into UTF-8 text."
+sidebar: { order: 8 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`fromBase64` decodes standard base64 back into text. The decoded bytes must be UTF-8.
+
+```yaml
+      token: ${var.encoded | fromBase64}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text | — | yes | Standard base64 with `=` padding. |
+| output | text | — | — |  |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+| Input | Result |
+| --- | --- |
+| `aGVsbG8=` | `hello` |
+| `w4lDT0xFIFN0cmHDn2U=` | `ÉCOLE Straße` |
+
+Decode a field from a response and save it:
+
+```yaml
+    save:
+      note: ${response.body.encodedNote | fromBase64}
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: decodesText
+    call: sample#echo
+    vars:
+      encoded: aGVsbG8=
+      payload:
+        decoded: \${var.encoded | fromBase64}
+`} />
+
+## How it behaves
+
+- Padding is required: `abc` fails.
+- Bytes that are not UTF-8 text, such as an image, fail.
+
+## Common errors
+
+| Input | Message |
+| --- | --- |
+| `abc` | ``pipe `fromBase64` cannot take "abc": the text is not base64: Invalid padding`` |
+| `/w==` | ``pipe `fromBase64` cannot take "/w==": the decoded bytes are not UTF-8 text`` |
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be text.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the text is not base64, or the bytes are not UTF-8.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="base64" href="/vc-rs/reference/pipes/base64/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

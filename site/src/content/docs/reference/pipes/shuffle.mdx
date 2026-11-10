@@ -1,0 +1,71 @@
+---
+title: "shuffle"
+description: "Return a list in random order, repeatable with --seed."
+sidebar: { order: 15 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`shuffle` returns the list in a random order. Like `random`, it follows `--seed`.
+
+```yaml
+      order: ${var.cities | shuffle}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | list | — | yes | May be empty. |
+| output | list | — | — | The same elements, reordered. |
+| arguments | none | — | — |  |
+
+## Examples
+
+```yaml
+vars:
+  cities: [Tokyo, Delhi, Paris, Lima]
+```
+
+One test, run with `--seed 7`:
+
+| Template | Result |
+| --- | --- |
+| `${var.cities \| shuffle}` | `["Delhi", "Paris", "Tokyo", "Lima"]` |
+| `${var.cities \| shuffle \| take(2)}` | `["Delhi", "Paris"]` |
+
+With `--seed 42` the same test sent `["Paris", "Tokyo", "Lima", "Delhi"]` for the first.
+
+`shuffle | take(n)` is a random sample of `n` elements with no repeats.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: samplesCities
+    call: sample#echo
+    vars:
+      cities: [Tokyo, Delhi, Paris, Lima]
+      payload:
+        sample: \${var.cities | shuffle | take(2)}
+`} />
+
+## How it behaves
+
+- It never fails on a list, even an empty one.
+- Each use draws again from the run's seeded generator.
+- The same seed repeats the same result for the same test. Another test, or the same template in another place, can get a different order with that seed.
+
+## Common errors
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be a list.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the input is not a list at run time.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="random" href="/vc-rs/reference/pipes/random/" />
+  <LinkCard title="take" href="/vc-rs/reference/pipes/take/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

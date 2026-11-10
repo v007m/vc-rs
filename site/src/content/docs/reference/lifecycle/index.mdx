@@ -1,0 +1,110 @@
+---
+title: "Lifecycle overview"
+description: "The six lifecycle blocks, the four action kinds, and the order in which vc runs them around your tests."
+sidebar: { order: 0 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Lifecycle blocks run actions before and after your tests: set up data, start services, and tidy up. Each block is a list of actions.
+
+```yaml title="services/users/crud.test.yaml"
+beforeAll:
+  - id: catalog
+    call: catalog#seedProducts   # once for the file, shared as ${var.catalog.…}
+
+beforeEach:
+  - call: users#create           # once per test, saved as ${var.userId}
+
+tests:
+  - id: getsCreatedUser
+    call: users#get
+```
+
+## The blocks
+
+| Block | Where you write it | Runs | Saved values |
+| --- | --- | --- | --- |
+| `beforeRun` | `vibranium.config.yaml` | Once at the start of a run that selects at least one test | Shared under the action's `id`: `${var.admin.userId}` |
+| `afterRun` | `vibranium.config.yaml` | Once after every test has finished | — |
+| `beforeAll` | a `*.test.yaml` file | Once per file, before any of its selected tests | Shared under the action's `id`: `${var.shared.userId}` |
+| `afterAll` | a `*.test.yaml` file | Once per file, after all its tests | — |
+| `beforeEach` | a `*.test.yaml` file | Before every test instance in the file | Plain names: `${var.userId}` |
+| `afterEach` | a `*.test.yaml` file | After every test instance, even a failed one | — |
+| `before` | a test | Before that test's call or steps | Plain names |
+| `after` | a test | After that test, even when it failed | — |
+
+## The actions
+
+Every entry in a block (and every entry in a test's `steps`) is one action.
+
+| Action | Does | Page |
+| --- | --- | --- |
+| `call: <api>` | Calls an api with its URL, auth, checks, saves and cleanup | [call](/vc-rs/reference/lifecycle/call/) |
+| `test: <test>` | Runs another test's calls in order | [test](/vc-rs/reference/lifecycle/test-action/) |
+| `function: path#export` | Runs a function from a hook file and saves what it returns | [function](/vc-rs/reference/lifecycle/function/) |
+| `command: <shell command>` | Runs a shell command in the project root | [command](/vc-rs/reference/lifecycle/command/) |
+
+## Order of work
+
+`vc plan` shows the blocks a run will use. This file has a `beforeAll`, `afterAll`, `beforeEach` and one test, and the config has a `beforeRun` and `afterRun`:
+
+```console
+$ vc plan life.blocks
+plan  1 test in 1 file · lifecycle: beforeRun command, admin · beforeAll shared · beforeEach ×1 calls · profile default
+beforeRun
+  command
+  admin
+life.blocks
+  beforeAll
+    shared
+  life.blocks#readsSharedValues  needs: admin, shared
+  afterAll
+    command
+afterRun
+  command
+```
+
+Unnamed actions show as their kind (`command`) and named ones by their `id`. A real run of that file, read from the `--reporter json` event stream, went in this order:
+
+1. `beforeRun` actions
+2. the file starts, then its `beforeAll`
+3. for each test instance: `beforeEach` → `before` → the call or steps → `after` → `afterEach` → that instance's cleanups, newest first
+4. `afterAll`, then the file's cleanups
+5. `afterRun`, then the run's cleanups
+
+<Aside>
+`after`, `afterEach` and cleanups run even when something before them failed. A failed `before` or `beforeEach` marks the test **blocked**, not failed. See [Shared values and blocked tests](/vc-rs/reference/lifecycle/shared-values/).
+</Aside>
+
+<Playground client:visible kind="test" code={`beforeAll:
+  - id: shared
+    call: sample#createUser
+    vars:
+      name: File Owner
+
+beforeEach:
+  - call: sample#createUser
+
+afterEach:
+  - command: echo after each
+
+tests:
+  - id: readsSharedValues
+    name: Reads values from every block
+    call: sample#getUser
+    vars:
+      userId: \${var.shared.userId}
+`} />
+
+## Related
+
+<CardGrid>
+  <LinkCard title="beforeRun and afterRun" href="/vc-rs/reference/lifecycle/before-run/" />
+  <LinkCard title="beforeAll and afterAll" href="/vc-rs/reference/lifecycle/before-all/" />
+  <LinkCard title="beforeEach and afterEach" href="/vc-rs/reference/lifecycle/before-each/" />
+  <LinkCard title="before and after" href="/vc-rs/reference/lifecycle/before-after/" />
+  <LinkCard title="Cleanups" href="/vc-rs/reference/lifecycle/cleanups/" />
+  <LinkCard title="Cross-run cache" href="/vc-rs/reference/lifecycle/cache/" />
+</CardGrid>

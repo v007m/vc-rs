@@ -1,0 +1,61 @@
+---
+title: "vc ui"
+description: "Starts the local web UI for your project, with MCP over HTTP at /mcp for AI agents."
+sidebar: { order: 28 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Starts a web server on `127.0.0.1` and opens the web UI in your browser. The UI works on the same files and run history as the CLI. The same server answers MCP at `/mcp`, so an agent can work next to you. The [Web UI guide](/vc-rs/guides/web-ui/) covers the screens.
+
+```console
+$ vc ui [OPTIONS]
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `--port` | `<PORT>` | `7420` | The port to listen on. `0` picks a free one |
+| `--no-open` | | | Prints the links but does not open a browser |
+| `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
+| `--set` | `<KEY=VALUE>` | | Sets one config value over every other layer, as on `vc run` |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Example
+
+```console
+$ vc ui --no-open
+vc ui: http://127.0.0.1:7420/?token=3q2-…
+vc ui: mcp http://127.0.0.1:7420/mcp token Xk9…
+```
+
+- The first line is a sign-in link. It works once: it signs that browser in with a cookie.
+- The second line is where an MCP client connects, and the agent token it sends as `Authorization: Bearer <token>`. The `agents` block of the active profile decides what the agent may do, and calls that need a person show up under **AI agents** and in [`vc approvals`](/vc-rs/reference/cli/approvals/).
+
+Each start makes new tokens. Press Ctrl-C to stop the server.
+
+The server answers only to `127.0.0.1` and `localhost`. A request that names another host gets `403`, and `/mcp` without the agent token gets `401`.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Stopped with Ctrl-C |
+| `2` | No project, the port is taken, or this `vc` was built without the UI |
+
+```console
+$ vc ui
+error: this vc was built without UI
+  = help: build vc with `pnpm -C web build`, then `cargo build -p vc-cli --features web-ui`
+```
+
+When the port is in use, it says so and suggests `pass another --port, or stop the program that is using this one`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Web UI guide" href="/vc-rs/guides/web-ui/" description="The screens, signing in and connecting an agent." />
+  <LinkCard title="vc mcp" href="/vc-rs/reference/cli/mcp/" description="MCP over stdio instead." />
+  <LinkCard title="vc tui" href="/vc-rs/reference/cli/tui/" description="The same work in a terminal." />
+</CardGrid>

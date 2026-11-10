@@ -1,0 +1,148 @@
+---
+title: parallel
+description: Run the iterations of a repeat or forEach step several at a time.
+sidebar: { order: 243, badge: { text: 'step', variant: 'note' } }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`parallel` sets how many iterations of a looped step run at once. It goes next to [`repeat`](/vc-rs/reference/syntax/repeat/) or [`forEach`](/vc-rs/reference/syntax/for-each/). Without it, iterations run one after another.
+
+```yaml
+      - call: sample#createUser
+        repeat: 3
+        parallel: 3
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `parallel` | integer | `1` | no | The most iterations in flight at once. Only has an effect with `repeat` or `forEach` on the same step. |
+
+Tests already run in parallel, up to `defaults.concurrency`. `parallel` is only about the iterations inside one step.
+
+## Examples
+
+### Overlap slow iterations
+
+Two steps that each run `sleep 1` three times. The first runs them together:
+
+```yaml title="services/sample/naps.test.yaml"
+id: sample.naps
+name: Naps
+
+tests:
+  - id: napsTogether
+    name: Three naps at once
+    steps:
+      - command: sleep 1
+        repeat: 3
+        parallel: 3
+
+  - id: napsInTurn
+    name: Three naps in turn
+    steps:
+      - command: sleep 1
+        repeat: 3
+```
+
+```console
+$ vc run sample.naps
+plan  2 tests in 1 file · profile default
+
+✓ sample.naps#napsTogether                                       1.0s
+✓ sample.naps#napsInTurn                                         3.0s
+
+2 passed                                                     3.0s · profile default
+```
+
+### Saved lists keep their order
+
+Iterations may finish in any order, but saved values stay in iteration order:
+
+```yaml title="services/sample/parallel.test.yaml"
+id: sample.parallel
+name: Parallel
+
+tests:
+  - id: echoesSixNames
+    name: Echoes six names, three at a time
+    steps:
+      - call: echo#json
+        forEach: [a, b, c, d, e, f]
+        parallel: 3
+        vars:
+          name: ${item}
+        save:
+          names: ${response.body.body.name}
+      - call: echo#json
+        expect:
+          cel:
+            order kept: var.names == ['a', 'b', 'c', 'd', 'e', 'f']
+
+  - id: createsThreeAtOnce
+    name: Creates three users at once
+    steps:
+      - call: sample#createUser
+        repeat: 3
+        parallel: 3
+```
+
+```console
+$ vc run sample.parallel
+plan  2 tests in 1 file · profile default
+
+✓ sample.parallel#echoesSixNames                                  6ms
+✓ sample.parallel#createsThreeAtOnce                              6ms
+
+2 passed                                                     7ms · profile default
+```
+
+### Seed data faster
+
+`parallel` also works on actions in lifecycle blocks:
+
+```yaml
+beforeAll:
+  - id: team
+    call: sample#createUser
+    forEach: ${dataset.people}
+    parallel: 2
+    vars:
+      email: ${item.email}
+      name: ${item.name}
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: echoesSixNames
+    name: Echoes six names, three at a time
+    steps:
+      - call: echo#json
+        forEach: [a, b, c, d, e, f]
+        parallel: 3
+        vars:
+          name: \${item}
+`} />
+
+## How it behaves
+
+- At most `parallel` iterations are in flight at once. When one finishes, the next starts.
+- Saved lists are in iteration order, not in the order calls finished.
+- Each iteration that succeeds registers its own cleanup.
+- If an iteration fails, the step fails once the iterations in flight finish.
+
+<Aside>
+`parallel` on a step without `repeat` or `forEach` is accepted and does nothing. `parallel: 0` is accepted too and runs the iterations one after another, like `parallel: 1`.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="repeat" href="/vc-rs/reference/syntax/repeat/" />
+  <LinkCard title="forEach" href="/vc-rs/reference/syntax/for-each/" />
+  <LinkCard title="Config" href="/vc-rs/reference/config/" />
+</CardGrid>

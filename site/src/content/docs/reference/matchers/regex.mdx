@@ -1,0 +1,165 @@
+---
+title: "regex"
+description: "The regex matcher checks a string against a regular expression."
+sidebar: { order: 28 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`regex` passes when a string matches the pattern anywhere in it.
+
+```yaml
+expect:
+  body:
+    match:
+      body.id: {regex: "^ord_\\d+$"}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `regex` | string | — | yes | Rust regex syntax. Not anchored: add `^` and `$` to match the whole string. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Match the whole string
+
+Quote the pattern, and double each backslash inside double quotes.
+
+```yaml title="services/sample/regex.test.yaml"
+tests:
+  - id: idPattern
+    name: ID is ord_ and digits
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {regex: "^ord_\\d+$"}
+```
+
+```console
+$ vc run sample.regex#idPattern
+plan  1 test in 1 file · profile default
+
+✓ sample.regex#idPattern                                         36ms
+
+1 passed                                                     39ms · profile default
+```
+
+### Ignore case
+
+Start the pattern with `(?i)`.
+
+```yaml title="services/sample/regex.test.yaml"
+tests:
+  - id: idAnyCase
+    name: ID starts with ORD in any case
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {regex: "(?i)^ORD"}
+```
+
+```console
+$ vc run sample.regex#idAnyCase
+plan  1 test in 1 file · profile default
+
+✓ sample.regex#idAnyCase                                         25ms
+
+1 passed                                                     79ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/regex.test.yaml"
+tests:
+  - id: failsOnCase
+    name: ID starts with ORD
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {regex: "^ORD"}
+```
+
+```console
+$ vc run sample.regex#failsOnCase
+plan  1 test in 1 file · profile default
+
+✕ sample.regex#failsOnCase                                        0ms
+  error[V5101]: expect.body.match.body.id
+    --> services/sample/regex.test.yaml:22:20
+     |
+  22 |           body.id: {regex: "^ORD"}
+     |                    ^^^^^^^^^^^^^^^ expected {"regex":"^ORD"}, got "ord_123"
+
+0 passed · 1 failed                                          17ms · profile default
+```
+
+### Numbers do not match
+
+`regex` reads strings only. To check a number, use a comparison.
+
+```yaml title="services/sample/regex.test.yaml"
+tests:
+  - id: failsOnNumber
+    name: Quantity has a 3
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.qty: {regex: "3"}
+```
+
+```console
+$ vc run sample.regex#failsOnNumber
+plan  1 test in 1 file · profile default
+
+✕ sample.regex#failsOnNumber                                      0ms
+  error[V5101]: expect.body.match.body.qty
+    --> services/sample/regex.test.yaml:29:21
+     |
+  29 |           body.qty: {regex: "3"}
+     |                     ^^^^^^^^^^^^ expected {"regex":"3"}, got 3
+
+0 passed · 1 failed                                          25ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: idPattern
+    name: ID is ord_ and digits
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {regex: "^ord_\\\\d+$"}
+`} />
+
+## How it behaves
+
+- The pattern uses [Rust regex syntax](https://docs.rs/regex/latest/regex/#syntax). It has no look-around or back-references.
+- The match is unanchored: `ord` matches `my_ord_1`. Use `^` and `$` for a full match.
+- `vc check` compiles every pattern and reports one that does not compile.
+- Only strings can pass. A number or a missing value fails.
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): the pattern does not compile, for example `regex has an invalid pattern: ... unclosed character class`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [format](/vc-rs/reference/matchers/format/)
+- [startsWith](/vc-rs/reference/matchers/starts-with/)
+- [contains](/vc-rs/reference/matchers/contains/)
+- [All matchers](/vc-rs/reference/matchers//)

@@ -1,0 +1,99 @@
+---
+title: "plugin"
+description: "The plugin auth type gets credentials from an auth plugin, for schemes the built-in types do not cover."
+sidebar: { order: 9 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`type: plugin` asks an `auth` plugin for the headers, query values or cookies to add. Use it for request signing or any scheme your own code must compute.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config:
+      tenant: eu
+
+plugins:
+  - id: stamp
+    source: path:plugins/stamp
+    config:
+      realm: partners
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `plugin` | — | yes | |
+| `plugin` | plugin ID | — | yes | An `auth` plugin listed in `plugins:` |
+| `config` | any value | — | no | Sent with each `auth/credentials` call; templates are rendered |
+| `refreshBefore`, `refreshOn` | | `1m`, `[401]` | no | See [Token cache and refresh](/vc-rs/reference/auth/token-cache-refresh/) |
+| `vars` | map | — | no | |
+
+## Examples
+
+The `stamp` plugin returns an `x-stamp` header and a `realm` query value. The server received `GET /whoami?realm=partners`, and the output masks the header:
+
+```console
+stamp: credentials for partnerStamp (tenant eu)
+✕ lab.plugin#sendsPluginCredentials                             148ms
+  error[V5101]: expect.body.match.headers.x-stamp
+   --> services/lab/plugin.test.yaml:9:28
+    |
+  9 |           headers.x-stamp: wrong
+    |                            ^^^^^ expected "wrong", got "••••"
+```
+
+The first line is the plugin's own stderr, passed through.
+
+Pass a secret to the plugin. Writing it in `config` is what grants the plugin that secret, and it stays masked in output:
+
+```yaml
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config:
+      tenant: eu
+      key: ${secret.stampKey}
+```
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+auth:
+  - id: partnerStamp
+    type: plugin
+    plugin: stamp
+    config:
+      tenant: eu
+plugins:
+  - id: stamp
+    source: path:plugins/stamp
+    config:
+      realm: partners
+`} />
+
+## How it behaves
+
+- vc sends `auth/credentials` with the auth's ID and its rendered `config`. The answer's `headers`, `query` and `cookies` are added to each request.
+- Values the plugin returns are masked in output.
+- A plugin that is not ready, or answers with no values, fails the call with V5114.
+
+## Common errors
+
+- [V5114](/vc-rs/reference/diagnostics/v5114/): the plugin returned no credentials or was not ready.
+- [V5118](/vc-rs/reference/diagnostics/v5118/): the plugin failed or ran past its deadline.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Auth plugins" href="/vc-rs/reference/plugins/auth-plugins/" />
+  <LinkCard title="Plugins" href="/vc-rs/reference/plugins/" />
+  <LinkCard title="flow" href="/vc-rs/reference/auth/flow/" />
+</CardGrid>

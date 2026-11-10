@@ -1,0 +1,113 @@
+---
+title: "fromRegExp patterns"
+description: "The regex subset that fake.string.fromRegExp and fromRegExp generators can make text from, with real samples and the V2309 messages."
+sidebar: { order: 2 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`fake.string.fromRegExp('pattern')` makes random text that matches a pattern, such as an order code or a SKU.
+
+```yaml
+body:
+  orderCode: ${fake.string.fromRegExp('[A-Z]{3}-\d{4}')}    # BHI-0220
+```
+
+The same patterns work in a [named generator](/vc-rs/reference/data/named-generators/) of kind `fromRegExp`.
+
+## Syntax
+
+| Feature | Example | Supported | Notes |
+| --- | --- | --- | --- |
+| Literal characters | `abc` | yes | |
+| Escaped punctuation | `\.`, `\-`, `\(` | yes | Escape only punctuation. |
+| Shorthand classes | `\d`, `\w`, `\s` | yes | `\d` is `0-9`; `\w` is `0-9`, `A-Z`, `_`, `a-z`; `\s` is a space. |
+| Any character | `.` | yes | Picks printable ASCII, from space to `~`. |
+| Classes and ranges | `[A-Z]`, `[a-f0-9]` | yes | A range must go low to high. |
+| Negated classes | `[^,]` | yes | Picks printable ASCII not in the class. |
+| Groups | `(…)`, `(?:…)` | yes | Nested up to 32 deep. |
+| Alternation | `red\|green\|blue` | yes | Picks one branch. |
+| Quantifiers | `?`, `*`, `+`, `{n}`, `{n,}`, `{n,m}` | yes | Counts go up to 256. An open repeat (`*`, `+`, `{n,}`) adds at most 16 copies. |
+| Anchors | `^`, `$` | yes | Accepted and ignored. |
+| Lookarounds, named groups | `(?=x)`, `(?<name>…)` | no | [V2309](/vc-rs/reference/diagnostics/v2309/) |
+| Backreferences | `\1` | no | V2309 |
+| Word boundaries | `\b` | no | V2309 |
+| Unicode classes | `\p{L}` | no | V2309 |
+
+A pattern can make at most 10,000 characters.
+
+## Examples
+
+All samples are real output with `--seed 3`.
+
+| Template | Sample |
+| --- | --- |
+| `${fake.string.fromRegExp('[A-Z]{3}-\d{4}')}` | `BHI-0220` |
+| `${fake.string.fromRegExp('(red\|green\|blue)-[a-f0-9]{6}')}` | `green-0dbefe` |
+| `${fake.string.fromRegExp('(?:ab){2,3}')}` | `ababab` |
+| `${fake.string.fromRegExp('[^,]{5}')}` | `Q6sX&` |
+| `${fake.string.fromRegExp('.{8}')}` | `4,}F+<_+` |
+| `${fake.string.fromRegExp('x+y*')}` | `xxxxxxxxyyyyyyyyyy` |
+| `${fake.string.fromRegExp('^colou?r$')}` | `color` |
+
+### An order code in a request body
+
+```yaml title="services/orders/checkout.test.yaml"
+tests:
+  - id: placesOrderWithCode
+    name: Places an order with a client reference
+    call: orders#place
+    body:
+      reference: ${fake.string.fromRegExp('ORD-[0-9]{8}')}
+```
+
+### A reusable pattern
+
+When the same pattern appears in many files, give it a name in `vibranium.config.yaml` and write `${fake.teamName}` instead:
+
+```yaml title="vibranium.config.yaml"
+generators:
+  - id: teamName
+    fromRegExp: "[A-Z][a-z]{4,12} Team"     # Kuuxm Team
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: sendsCodes
+    name: Sends generated codes
+    call: sample#echo
+    body:
+      sku: \${fake.string.fromRegExp('[A-Z]{2}-[0-9]{5}')}
+      color: \${fake.string.fromRegExp('(red|green|blue)')}
+      hex: \${fake.string.fromRegExp('#[a-f0-9]{6}')}
+`} />
+
+## How it behaves
+
+- The pattern is checked by `vc check`, before anything runs. A pattern that can't be made is an error, not a run-time surprise.
+- Write the pattern in single quotes inside the template. Inside a YAML double-quoted string, a backslash must be doubled; in a plain or single-quoted YAML value, write it once.
+- Open repeats are capped so the text stays short: `x+` gives between 1 and 17 `x`s.
+
+## Common errors
+
+Each of these is [V2309](/vc-rs/reference/diagnostics/v2309/), reported as `` `fake.string.fromRegExp` cannot make text for this pattern: `` followed by the reason:
+
+| Pattern | Reason (real text) |
+| --- | --- |
+| `(?=x)y` | `` lookarounds and named groups `(?…)` are not supported; use `(…)` or `(?:…)` `` |
+| `\b` | `` `\b` is not supported; escape only punctuation, or use `\d`, `\w` or `\s` `` |
+| `(a)\1` | `` `\1` is not supported; escape only punctuation, or use `\d`, `\w` or `\s` `` |
+| `\p{L}{3}` | `` `\p` is not supported; escape only punctuation, or use `\d`, `\w` or `\s` `` |
+| `a{300}` | `repeat counts go up to 256` |
+| `a{2,1}` | `` the repeat `{2,1}` is out of order `` |
+| `[z-a]` | `` the range `z-a` is out of order `` |
+
+Text arguments must use single quotes: `fromRegExp("[a-z]{3}")` is [V2305](/vc-rs/reference/diagnostics/v2305/), with a certain fix.
+
+## Related
+
+- [Built-in generators](/vc-rs/reference/data/generators/)
+- [Named generators](/vc-rs/reference/data/named-generators/)
+- [Generation and seeds](/vc-rs/reference/data/seeds/)

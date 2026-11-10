@@ -1,0 +1,278 @@
+---
+title: vars
+description: Named values that fill templates, set at eight levels where the closest one wins.
+sidebar:
+  order: 103
+  badge: { text: 'api + test', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`vars` are named values. You read one with `${var.<name>}` in any template. An api declares its inputs as `vars` with defaults, and every caller can override them.
+
+```yaml title="services/sample/sample.api.yaml"
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+    vars:
+      userId: "1"
+```
+
+## Syntax
+
+`vars` is a map from a camelCase name to a value. It can be written in these places:
+
+| Where | Applies to |
+| --- | --- |
+| `vibranium.config.yaml` | Every request in the project |
+| Top of an api file | Every api in the file |
+| An `apis` entry | That api (its defaults) |
+| Top of a test file | Every test in the file |
+| A test, step or action | That call only |
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `vars.<name>` | string, number, boolean, list, map, or template | — | no | Templates are resolved when the request is built |
+
+Names end in `Id` or `Url` where that applies: `userId`, `sampleUrl`. A value can be a template itself, such as `${fake.internet.email}` or `${response.body.id}` in a step.
+
+## Where a value comes from
+
+When a template reads `${var.x}`, Vibranium looks through eight levels and takes the closest one:
+
+1. `vars` on the call itself: a test, a step or an action
+2. Values saved earlier in the same test, by its `beforeEach` and `before` blocks and its steps; the latest wins
+3. Values saved by the file's `beforeAll`, under the action's `id` (`${var.catalog.productIds}`)
+4. The test file's `vars`
+5. Values saved by `beforeRun`, under the action's `id` (`${var.admin.userId}`)
+6. The api's own `vars` (its defaults)
+7. The api file's `vars`
+8. The config's `vars`
+
+[Profiles](/vc-rs/reference/syntax/profiles/) slot in at each file level. A file's profile vars override that file's `vars`, and a config profile's vars override the config's `vars`. They never jump a level: an api's own `vars` still beat its file's profile vars.
+
+## Examples
+
+### Seeing every level with `vc explain`
+
+Set the same names at several levels, then ask `vc explain` where each value came from.
+
+<Tabs>
+<TabItem label="config">
+
+```yaml title="vibranium.config.yaml (excerpt)"
+vars:
+  sampleUrl: http://localhost:7433
+  e: from-config
+  f: from-config
+```
+
+</TabItem>
+<TabItem label="api file">
+
+```yaml title="services/prec/prec.api.yaml"
+id: prec
+baseUrl: ${var.sampleUrl}
+vars:
+  a: from-api-file
+  b: from-api-file
+  c: from-api-file
+  d: from-api-file
+profiles:
+  - id: default
+    vars:
+      d: from-api-file-profile
+apis:
+  - id: show
+    method: POST
+    path: /echo
+    vars:
+      a: from-api
+      b: from-api
+    body:
+      a: ${var.a}
+      b: ${var.b}
+      c: ${var.c}
+      d: ${var.d}
+      e: ${var.e}
+      f: ${var.f}
+```
+
+</TabItem>
+<TabItem label="test file">
+
+```yaml title="services/prec/levels.test.yaml"
+vars:
+  b: from-test-file
+  e: from-test-file
+tests:
+  - id: showsLevels
+    call: prec#show
+    vars:
+      a: from-test
+    expect:
+      body:
+        match:
+          body.a: from-test
+```
+
+</TabItem>
+</Tabs>
+
+```console
+$ vc explain prec.levels#showsLevels
+prec.levels#showsLevels
+profile  default
+call prec#show
+  POST http://localhost:7433/echo
+  vars
+    sampleUrl  http://localhost:7433  (vibranium.config.yaml)
+    e  from-test-file  (file prec.levels)
+    f  from-config  (vibranium.config.yaml)
+    a  from-test  (test)
+    b  from-test-file  (file prec.levels)
+    c  from-api-file  (file prec)
+    d  from-api-file-profile  (file prec, profile default)
+  expect
+    match body.a: equals  (test prec.levels#showsLevels)
+```
+
+Read it line by line: the test's `a` beats the api's `a`; the test file's `b` beats the api's `b`; `c` falls through to the api file; `d` comes from the api file's profile; `f` falls through to the config.
+
+Call the api on its own and the api's defaults win instead:
+
+```console
+$ vc explain prec#show
+prec#show
+profile  default
+  POST http://localhost:7433/echo
+  vars
+    sampleUrl  http://localhost:7433  (vibranium.config.yaml)
+    e  from-config  (vibranium.config.yaml)
+    f  from-config  (vibranium.config.yaml)
+    a  from-api  (api prec#show)
+    b  from-api  (api prec#show)
+    c  from-api-file  (file prec)
+    d  from-api-file-profile  (file prec, profile default)
+  expect
+```
+
+### Overriding an api's input from a test
+
+```yaml title="services/sample/users.test.yaml"
+tests:
+  - id: getsGrace
+    call: sample#getUser
+    vars:
+      userId: "2"
+    expect:
+      body:
+        match:
+          name: Grace Hopper
+```
+
+### Saved values beat file vars
+
+A value saved during the test (level 2) beats the test file's `vars` (level 4). Here `sample#createUser` saves `userId`, so the next step sees the new ID, not `from-file`.
+
+```yaml title="services/prec/saves.test.yaml (excerpt)"
+vars:
+  userId: from-file
+tests:
+  - id: savesFromSteps
+    steps:
+      - call: sample#createUser
+      - call: prec#show
+        vars:
+          a: ${var.userId}
+        expect:
+          cel:
+            api save beats file var: response.body.body.a != 'from-file'
+```
+
+<Aside>
+`vc explain` resolves vars statically, before anything runs. It shows `a  from-file` for this step because it cannot know what a save will produce. The run uses the saved value.
+</Aside>
+
+### Vars that are templates
+
+A var can hold a template. It is resolved for each call, so `${fake...}` gives a fresh value every time.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: createUser
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`
+vars:
+  userId: "1"
+tests:
+  - id: getsAda
+    call: sample#getUser
+  - id: getsGrace
+    call: sample#getUser
+    vars:
+      userId: "2"
+`} />
+
+## How it behaves
+
+- **The closest level wins**, by name. Maps are not merged: a step that sets `opts: {a: 9}` over a file's `opts: {a: 1, b: 2}` sends just `{a: 9}`.
+- **There is no "required" flag.** A template that no level sets is a `vc check` error (V2101) that names the var and the call.
+- **Vars are resolved per call.** A step's `vars` apply to that step only; they do not leak into later steps. Use [`save`](/vc-rs/reference/syntax/save/) to pass a value forward.
+- **What can be templated:** any var value. A var can read other vars, `${env.X}`, `${secret.X}`, `${fake...}`, `${dataset...}` and, in a test, earlier responses.
+- **Profiles** override vars at their own level. See [`profiles`](/vc-rs/reference/syntax/profiles/).
+
+## Common errors
+
+```yaml title="services/layer/unset.test.yaml"
+tests:
+  - id: greetsSomeone
+    call: layer#show
+    body:
+      greeting: hello ${var.nickname}
+```
+
+```console
+$ vc check
+error[V2101]: ${var.nickname} is used but never set
+ --> services/layer/unset.test.yaml:5:23
+  |
+5 |       greeting: hello ${var.nickname}
+  |                       ^^^^^^^^^^^^^^^ no level sets nickname for any profile
+  = help: set it in this test's vars, in the file's vars, or in the config's vars
+```
+
+A template root used where it does not exist yet is V2105:
+
+```console
+$ vc check
+error[V2105]: `response` is not available here
+ --> services/layer/root.test.yaml:2:11
+  |
+2 |   lastId: ${response.body.id}
+  |           ^^^^^^^^^^^^^^^^^^^
+  = help: `response` is available once a call is made: in expect, save, poll and cleanup
+```
+
+| Code | When |
+| --- | --- |
+| [V2101](/vc-rs/reference/diagnostics/v2101/) | A `${var.x}` that no level sets for the active profile |
+| [V2105](/vc-rs/reference/diagnostics/v2105/) | A template root that is not available here, such as `${response...}` in a file's `vars` |
+| [V2002](/vc-rs/reference/diagnostics/v2002/) | A file profile ID that the config does not define |
+
+## Related
+
+- [`profiles`](/vc-rs/reference/syntax/profiles/), [`save`](/vc-rs/reference/syntax/save/)
+- [Templates](/vc-rs/reference/templates/), [Config](/vc-rs/reference/config/)
+- [`vc explain`](/vc-rs/reference/cli/)

@@ -1,0 +1,170 @@
+---
+title: "OpenAPI import and sync"
+description: "Create api files and tests from an OpenAPI spec, then keep them in step with the spec without losing your edits."
+sidebar: { order: 5 }
+---
+
+import { Steps, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+If your service has an OpenAPI 3.0 or 3.1 spec, import it once, then let `vc sync` bring each change in the spec into your api files. Your own edits to those files are kept.
+
+## Import
+
+<Steps>
+
+1. **Preview.** Pass a path in the project or a URL. `--dry-run` prints the plan and every file's diff, and writes nothing:
+
+   ```console
+   $ vc import openapi specs/users.yaml --dry-run
+   Import 4 apis from specs/users.yaml
+   --- /dev/null
+   +++ b/services/users/users.api.yaml
+   ...
+   ```
+
+2. **Import, with tests if you want them.**
+
+   ```console
+   $ vc import openapi specs/users.yaml --tests --negative --auth
+   ✓ imported specs/users.yaml
+   $ vc list tests 'users.*'
+   users.openapi#listsUsers  listUsers returns 200
+   users.openapi#createsUser  createUser returns 201
+   users.openapi#rejectsCreateUserWithoutEmail  createUser without email returns 400
+   users.openapi#getsUser  getUser returns 200
+   users.openapi#deletesUser  deleteUser returns 204
+   users.openapi#rejectsDeleteUserWithoutAuth  deleteUser without auth returns 401
+   ```
+
+   - `--tests` writes one happy-path test per operation.
+   - `--negative` writes tests that leave out a required field and expect the spec's 4xx.
+   - `--auth` writes a test per secured operation that sends no auth and expects 401.
+
+   To take part of a spec, use `--include <tag-or-path>` or `--only <operationId>`, and `--id` to name the file.
+
+3. **Check what it wrote.** Three things change:
+
+   | File | What |
+   | --- | --- |
+   | `services/users/users.api.yaml` | One api per operation, each with its `operationId`, and `source.openapi` pointing at the spec |
+   | `vibranium.config.yaml` | A `usersUrl` var, taken from the spec's first server |
+   | `openapi/users.yaml` | A snapshot of the spec, which `vc sync` merges against |
+
+   Request bodies get a var per field, filled with [generated data](/vc-rs/reference/data/generators/) that fits the schema.
+
+4. **Point it at your service and run.**
+
+   ```console
+   $ vc config explain vars.usersUrl
+   $ vc run users.openapi
+   ```
+
+5. **Commit the api file and the snapshot together.** Without the snapshot, `vc sync` cannot tell your edits from the spec's changes.
+
+</Steps>
+
+Edit the api files freely from here on: rename apis, add `expect`, set vars. `vc sync` keeps your changes.
+
+### A protected spec URL
+
+If the spec URL needs a token, add `source.headers` to the api file. They can use vars and secrets, and `--profile` picks the profile whose vars fill them. See [`source`](/vc-rs/reference/syntax/source/).
+
+## Sync
+
+When the spec changes, run `vc sync`. It compares three versions of each api: the snapshot (the spec as of the last import or sync), the spec now, and your file.
+
+```console
+$ vc sync users
+fetched specs/users.yaml (5 operations)
+  + users#restoreUser new operation POST /users/${var.id}/restore
+✓ synced · snapshot openapi/users.yaml updated
+```
+
+Each line says what happened to one api:
+
+| Marker | Means |
+| --- | --- |
+| `+` | A new operation, added as a new api |
+| `↑` | A change in the spec, taken into your file |
+| `=` | Your value, kept |
+| `-` | An operation left the spec. The api stays, marked `deprecated: true` |
+| `!` | A conflict |
+
+Run `vc sync --dry-run` first to see the diff of each file.
+
+### Your edits are kept
+
+Say you renamed `listUsers` and set `query.limit`, and the spec then added a required `page` parameter. Sync adds `page` and keeps the rest:
+
+```console
+$ vc sync users
+fetched specs/users.yaml (5 operations)
+  ↑ users#listUsers query page none → ${var.page}
+✓ synced · snapshot openapi/users.yaml updated
+```
+
+### A removed operation
+
+An api is never deleted. It is marked deprecated, and every test that still calls it gets a warning:
+
+```console
+$ vc sync users
+fetched specs/users.yaml (4 operations)
+  - users#restoreUser removed from the spec: kept, marked deprecated
+✓ synced · snapshot openapi/users.yaml updated
+$ vc check
+warning[V3203]: this api is deprecated
+  --> services/users/openapi.test.yaml:42:11
+   |
+42 |     call: users#restoreUser
+   |           ^^^^^^^^^^^^^^^^^ deprecated api
+  ::: services/users/users.api.yaml:50:5
+   |
+50 |     deprecated: true
+   |     ---------- marked deprecated here
+   = help: the operation left the spec; call the api that replaces it, or remove the call
+
+0 errors · 1 warning · 9 files checked
+```
+
+### Conflicts
+
+When you and the spec changed the same thing, sync leaves that api as it is, syncs the rest, and tells you how to settle it:
+
+```console
+$ vc sync users
+fetched specs/users.yaml (5 operations)
+  ! users#deleteUser conflict: the spec and the file both changed method
+    resolve: vc sync users --take spec users#deleteUser | --take mine users#deleteUser | edit, then --resolved users#deleteUser
+✓ synced · 1 conflict left
+```
+
+- `--take spec <api>`: use the spec's value.
+- `--take mine <api>`: keep yours.
+- Edit the file by hand, then `--resolved <api>`.
+
+## In CI
+
+`vc sync --check` writes nothing and exits `4` when a spec moved on since its snapshot, or a conflict is still open:
+
+```console
+$ vc sync --check
+fetched specs/users.yaml (5 operations)
+  + users#restoreUser new operation POST /users/${var.id}/restore
+$ echo $?
+4
+```
+
+Put it before `vc run` so drift fails the build early. To fix it, run `vc sync` locally and commit the api file and the snapshot. See [CI](/vc-rs/guides/ci/).
+
+<Aside type="note">
+`vc sync` takes every operation the spec has, even for a file you imported with `--only`. New operations are added on the next sync.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc import" href="/vc-rs/reference/cli/import/" description="Every source and flag." />
+  <LinkCard title="vc sync" href="/vc-rs/reference/cli/sync/" description="Every flag and exit code." />
+  <LinkCard title="Contract testing" href="/vc-rs/walkthroughs/contract-testing/" description="Check responses against the spec's schemas." />
+</CardGrid>

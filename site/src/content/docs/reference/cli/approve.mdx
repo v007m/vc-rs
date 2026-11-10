@@ -1,0 +1,68 @@
+---
+title: "vc approve"
+description: "Approves or denies an agent call that is waiting, once or for every call like it."
+sidebar: { order: 22 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Decides a request that [`vc approvals`](/vc-rs/reference/cli/approvals/) lists. The waiting agent wakes at once: an approved call goes ahead, a denied one is refused. The decision is recorded in `.vibranium/history.db` under your OS user name.
+
+```console
+$ vc approve [OPTIONS] <ID>
+```
+
+## Options
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `<ID>` | | The request number, as `vc approvals` lists it, without the `#` |
+| `--always` | | Also allows calls like it (same profile, tool and method) from now on |
+| `--deny` | | Refuses the call instead. Cannot be combined with `--always` |
+| `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+```console
+$ vc approvals
+#1  claude-code  call_api  default  POST sample#createUser
+$ vc approve 1
+✓ approved request #1
+```
+
+```console
+$ vc approve 2 --deny
+✓ denied request #2
+```
+
+### Allow calls like it from now on
+
+```console
+$ vc approve 3 --always
+✓ approved request #3, and calls like it from now on
+```
+
+The rule is kept in `.vibranium/history.db`, never in the YAML, so it stays on this machine. It covers every method the call needed: approving a `POST` whose cleanup sends a `DELETE` allows both. A run or call that reaches a `command:` or `function:` action still asks every time; see [what "always allow" covers](/vc-rs/agents/policy-and-approvals/).
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Decided |
+| `2` | No such request, it was already decided or expired, or the ID is not a number |
+
+```console
+$ vc approve 3
+error: history: approval request 3 is no longer pending
+  = help: `vc approvals` lists the waiting requests
+$ vc approve 99
+error: history: no approval request 99
+  = help: `vc approvals` lists the waiting requests
+```
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Policy and approvals" href="/vc-rs/agents/policy-and-approvals/" description="The agents block and when a call waits." />
+  <LinkCard title="vc mcp" href="/vc-rs/reference/cli/mcp/" description="The server whose calls wait here." />
+</CardGrid>

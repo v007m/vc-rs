@@ -1,0 +1,144 @@
+---
+title: "Merging and replace"
+description: "How checks from an api, a test and a step combine, and how replace drops them."
+sidebar: { order: 10 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+Checks are inherited from the api, then the test, then the step. A check with the same key replaces the inherited one; `replace: true` drops them all.
+
+```yaml
+expect:
+  replace: true
+  status: 503
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `replace` | `true` | — | no | Drop every inherited check and keep only the ones written here. |
+
+## Examples
+
+The examples call `sample#createUser`, which `vc init` creates with `expect: {status: 201}`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### The api's checks still apply
+
+`sample#createUser` declares `status: 201`. A test that adds a body check keeps that status check. Without an email, the demo answers 400, so the inherited check fails. The report points at the api file.
+
+```yaml title="services/sample/merging.test.yaml"
+tests:
+  - id: keepsApiStatus
+    name: Missing email, api status still expected
+    call: sample#createUser
+    vars:
+      email: null
+    expect:
+      body:
+        match:
+          error: {contains: email}
+```
+
+```console
+$ vc run sample.merging#keepsApiStatus
+plan  1 test in 1 file · profile default
+
+✕ sample.merging#keepsApiStatus                                   0ms
+  error[V5101]: expect.status
+    --> services/sample/sample.api.yaml:35:15
+     |
+  35 |       status: 201
+     |               ^^^ expected [201], got 400
+     = note: expected by api sample#createUser
+
+0 passed · 1 failed                                          33ms · profile default
+```
+
+### A check with the same key replaces it
+
+The test's `status: 400` replaces the api's `status: 201`. Every other inherited check still applies.
+
+```yaml title="services/sample/merging.test.yaml"
+tests:
+  - id: rejectsMissingEmail
+    name: Rejects a user without an email
+    call: sample#createUser
+    vars:
+      email: null
+    expect:
+      status: 400
+      body:
+        match:
+          error: {contains: email}
+```
+
+```console
+$ vc run sample.merging#rejectsMissingEmail
+plan  1 test in 1 file · profile default
+
+✓ sample.merging#rejectsMissingEmail                              0ms
+
+1 passed                                                     27ms · profile default
+```
+
+### replace drops everything inherited
+
+With `replace: true`, only the checks written here apply.
+
+```yaml title="services/sample/merging.test.yaml"
+tests:
+  - id: onlyChecksId
+    name: Only the ID matters
+    call: sample#createUser
+    expect:
+      replace: true
+      body:
+        match:
+          id: {exists: true}
+```
+
+```console
+$ vc run sample.merging#onlyChecksId
+plan  1 test in 1 file · profile default
+
+✓ sample.merging#onlyChecksId                                     4ms
+
+1 passed                                                     10ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: keepsApiStatus
+    name: Missing email, api status still expected
+    call: sample#createUser
+    vars:
+      email: null
+    expect:
+      body:
+        match:
+          error: {contains: email}
+`} />
+
+## How it behaves
+
+- Checks are keyed by kind and leaf path: `status`, `headers.content-type`, `timing.total`, or a `body.match` path.
+- A key written at a more specific level replaces the inherited check with the same key. Other inherited checks still apply.
+- `cel` and `custom` checks are never replaced, only added.
+- `replace: true` drops every inherited check, including `cel` and `custom`.
+- A failure from an inherited check points at the file that declared it, with a note such as `expected by api sample#createUser`.
+
+## Common errors
+
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [status](/vc-rs/reference/matchers/status/)
+- [cel](/vc-rs/reference/matchers/cel/)
+- [custom](/vc-rs/reference/matchers/custom/)
+- [All matchers](/vc-rs/reference/matchers//)

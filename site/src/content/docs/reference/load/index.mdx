@@ -1,0 +1,97 @@
+---
+title: "Load files"
+description: "A load file turns existing tests into a weighted traffic mix with stages, think time and thresholds, and vc load runs it."
+sidebar: { order: 0 }
+---
+
+import { LinkCard, CardGrid, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A `*.load.yaml` file reuses tests you already have as a traffic mix; it adds no requests or checks of its own.
+
+```yaml title="load/sample/smoke.load.yaml"
+name: Sample smoke load
+mix:
+  - test: sample.basics#listsUsers
+    weight: 3
+  - test: sample.basics#getsCreatedUser
+    weight: 1
+stages:
+  - duration: 5s
+    users: 5
+  - duration: 5s
+    users: 0
+thresholds:
+  p99:
+    lt: 500ms
+```
+
+## Syntax
+
+| Key | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| [`id`](/vc-rs/reference/load/id/) | file ID | from the path | no | `load/sample/smoke.load.yaml` is `sample.smoke`. |
+| [`name`](/vc-rs/reference/load/name/) | text | — | no | Free text for people. |
+| [`mix`](/vc-rs/reference/load/mix/) | list of `test`, `weight`, `thresholds` | — | yes | The tests and their relative shares. |
+| [`stages`](/vc-rs/reference/load/stages/) | list of `duration`, `users` | — | yes | Users ramp from the previous stage's count. |
+| [`thinkTime`](/vc-rs/reference/load/thinktime/) | duration, or `min` and `max` | `0s` | no | Pause after each iteration. |
+| [`checks`](/vc-rs/reference/load/checks/) | `api` or `full` | `api` | no | `full` also runs each test's own `expect`. |
+| [`thresholds`](/vc-rs/reference/load/thresholds/) | metric → matcher | — | no | `p50`, `p90`, `p95`, `p99`, `max`, `errorRate`, `rps`. |
+| [`abortOn`](/vc-rs/reference/load/abort-on/) | list of metrics | `[]` | no | Stop early when one of these thresholds is breached. |
+
+## Example
+
+Running the file above against the demo server:
+
+```console
+$ vc load sample.smoke
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  1 users  4 rps  p50 3 ms  p95 5 ms  p99 5 ms  0 errors
+    ...
+    6s  5 users  20 rps  p50 3 ms  p95 6 ms  p99 8 ms  0 errors
+    ...
+   10s  0 users  20 rps  p50 3 ms  p95 7 ms  p99 8 ms  0 errors
+sample.smoke finished after 10 s · 198 iterations · 19.8 rps · 0 errors
+latency p50 3.4 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+```
+
+## Try it
+
+<Playground client:visible kind="load" code={`name: Checkout peak
+mix:
+  - test: users.crud#getsCreatedUser
+    weight: 3
+  - test: orders.checkout#placesOrder
+    weight: 1
+stages:
+  - duration: 1m
+    users: 50
+  - duration: 30s
+    users: 0
+thinkTime:
+  min: 500ms
+  max: 2s
+thresholds:
+  p99:
+    lt: 800ms
+  errorRate:
+    lt: 1%
+`} />
+
+## How it behaves
+
+- Load files live under `load/`, and their file IDs share one namespace with test files. A load file and a test file with the same ID are [V2001](/vc-rs/reference/diagnostics/v2001/).
+- `vc check` checks load files like any other file: unknown tests, bad durations and rates, unknown keys.
+- One iteration is one run of one mix test, picked by weight. Each iteration is one sample for the [metrics](/vc-rs/reference/load/metrics/).
+- The exit code is 3 when a threshold is breached. See [`vc load`](/vc-rs/reference/load/vc-load/).
+
+## Pages
+
+<CardGrid>
+  <LinkCard title="mix" href="/vc-rs/reference/load/mix/" />
+  <LinkCard title="stages" href="/vc-rs/reference/load/stages/" />
+  <LinkCard title="thresholds" href="/vc-rs/reference/load/thresholds/" />
+  <LinkCard title="Metrics" href="/vc-rs/reference/load/metrics/" />
+  <LinkCard title="vc load" href="/vc-rs/reference/load/vc-load/" />
+  <LinkCard title="Lifecycle in load runs" href="/vc-rs/reference/load/lifecycle/" />
+</CardGrid>

@@ -1,0 +1,195 @@
+---
+title: "Errors and fixes"
+description: "Read a vc diagnostic, apply its fix, look up its code, and read the same diagnostics as JSON."
+sidebar: { order: 9 }
+---
+
+import { Steps, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Vibranium checks every file before it sends a request. When something is wrong, it prints a **diagnostic**: a code, the place in your YAML, what is wrong, and often the exact edit that fixes it.
+
+## The loop
+
+<Steps>
+
+1. **Check.** `vc check` compiles the whole project and sends nothing:
+
+   ```console
+   $ vc check
+   error[V2003]: unknown api "sample#whoAmi"
+    --> services/sample/secret.test.yaml:4:11
+     |
+   4 |     call: sample#whoAmi
+     |           ^^^^^^^^^^^^^ no api has this ID
+     = help: did you mean `sample#whoAmI`?
+     = fix: Replace with sample#whoAmI (certain)
+
+   1 error · 0 warnings · 4 files checked
+   ```
+
+2. **Fix.** A `fix:` marked `(certain)` is an edit `vc` can make. `vc check --fix` shows every certain fix as a diff and applies them when you confirm:
+
+   ```console
+   $ vc check --fix
+   --- a/services/sample/secret.test.yaml
+   +++ b/services/sample/secret.test.yaml
+   @@ -1,7 +1,7 @@
+    tests:
+      - id: sendsApiKey
+        name: Sends the api key
+   -    call: sample#whoAmi
+   +    call: sample#whoAmI
+        expect:
+          body:
+            match:
+   Apply 1 fix? [y/N] y
+   ✓ applied 1 fix
+   0 errors · 0 warnings · 4 files checked
+   ```
+
+   For a diagnostic without a certain fix, follow its `help:` lines and edit the file yourself.
+
+3. **Look it up** when the message is not enough. `vc explain` prints what the code means, with a wrong and a right example:
+
+   ```console
+   $ vc explain V2003
+   V2003: Unknown api or test
+
+   A `call`, `test` or `cleanup.call` names an api or test that does not exist. Another file's items are referred to by
+   their full ID, `fileId#id`; the diagnostic suggests the closest ID of the right kind, same-file IDs first.
+
+   Wrong
+   ...
+   ```
+
+   Every code also has a page under [Diagnostic codes](/vc-rs/reference/diagnostics/).
+
+4. **Check again** until it prints `0 errors`.
+
+</Steps>
+
+`vc run` does the same check first. With an error, it prints the diagnostics, sends nothing and exits `2`:
+
+```console
+$ vc run sample.secret
+error[V2003]: unknown api "sample#whoAmi"
+...
+1 error · 0 warnings · 4 files checked
+error: the project has 1 error(s); nothing ran
+```
+
+## Reading a diagnostic
+
+The first line has the severity, the code and the message. Below it:
+
+- `-->` is the file, line and column, from the project root.
+- The numbered lines are your YAML, with `^^^` under the exact span and a label beside it.
+- `:::` with `---` marks shows a second place that matters, such as the call that reached an unset var:
+
+  ```console
+  error[V2101]: ${var.userId} is used but never set
+    --> services/sample/sample.api.yaml:45:18
+     |
+  45 |     path: /users/${var.userId}
+     |                  ^^^^^^^^^^^^^ no level sets userId for profile default
+    ::: services/sample/oops.test.yaml:4:11
+     |
+   4 |     call: sample#getUser
+     |           -------------- called from here
+     = help: set it in this test's vars, in the file's vars, or in the config's vars
+  ```
+
+- `note:` adds context, `help:` says what to do, and `fix:` is an edit `vc` can make.
+
+The [Diagnostic codes](/vc-rs/reference/diagnostics/#reading-a-diagnostic) overview has a table of every part.
+
+## Errors and warnings
+
+An **error** stops `vc check` and `vc run` with exit code `2`. A **warning** is printed, but the run goes ahead and `vc check` exits `0`:
+
+```console
+$ vc check
+warning[V4001]: test ID `user_list` is not camelCase
+ --> services/sample/oops.test.yaml:8:9
+  |
+8 |   - id: user_list
+  |         ^^^^^^^^^ rename it
+  = help: test IDs are camelCase: `userList`
+  = fix: Rename to userList (certain)
+
+0 errors · 1 warning · 5 files checked
+```
+
+Warnings point at things that work today but will hurt later: a [skip that expired](/vc-rs/guides/skipping-tests/#when-the-date-passes), a call to a [deprecated api](/vc-rs/guides/openapi-import-and-sync/#a-removed-operation), or a name that breaks the conventions.
+
+## What each code range means
+
+| Codes | Kind | Found by | Typical example |
+| --- | --- | --- | --- |
+| V1xxx | Syntax: the YAML or its shape | `vc check` | An unknown key such as `expct`, with `expect` as the fix |
+| V2xxx | References and types | `vc check` | An api ID with a typo, a var nobody sets, an undeclared secret |
+| V3xxx | Lifecycle | `vc check` | An expired skip, a call to a deprecated api, a profile missing |
+| V4xxx | Conventions | `vc check` | A test ID that is not camelCase, a file in the wrong folder |
+| V5xxx | Run time | `vc run` | A check that failed, a timeout, a value that could not be filled in |
+
+V1 to V4 come from reading the files, so `vc check` finds them without sending anything. V5 diagnostics happen during a run, and point at the line in your YAML that set the failing check:
+
+```console
+$ vc run sample.secret
+✕ sample.secret#sendsApiKey                                      10ms
+  error[V5101]: expect.body.match.headers.x-api-key
+   --> services/sample/secret.test.yaml:8:30
+    |
+  8 |           headers.x-api-key: nope
+    |                              ^^^^ expected "nope", got "••••"
+```
+
+A V5 error with no line of its own says where it happened with `= at:`, such as `= at: call sample#whoAmI`.
+
+## Diagnostics as JSON
+
+Editors, scripts and agents read diagnostics with `vc check --json`. It prints one JSON object on stdout and exits like `vc check`:
+
+```console
+$ vc check --json
+{
+  "summary": { "errors": 1, "warnings": 0, "infos": 0 },
+  "diagnostics": [
+    {
+      "code": "V2003",
+      "severity": "error",
+      "message": "unknown api \"sample#whoAmi\"",
+      "primary": {
+        "span": { "path": "services/sample/secret.test.yaml", "line": 4, "column": 11, "endLine": 4, "endColumn": 24 },
+        "text": "no api has this ID"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": ["did you mean `sample#whoAmI`?"],
+      "fixes": [
+        {
+          "title": "Replace with sample#whoAmI",
+          "certain": true,
+          "edits": [
+            { "path": "services/sample/secret.test.yaml", "range": { "start": 65, "end": 78 }, "newText": "sample#whoAmI" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+A fix's `range` is in bytes from the start of the file. The [`vc check` page](/vc-rs/reference/cli/check/) describes every field.
+
+<Aside type="tip">
+Many V1 mistakes never reach `vc check` if your editor knows the file shapes. See [Editor setup](/vc-rs/start/editor-setup/).
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Diagnostic codes" href="/vc-rs/reference/diagnostics/" description="Every code, with examples." />
+  <LinkCard title="vc check" href="/vc-rs/reference/cli/check/" description="Flags, JSON shape and exit codes." />
+  <LinkCard title="vc explain" href="/vc-rs/reference/cli/explain/" description="Look up a code, a test or an api." />
+</CardGrid>

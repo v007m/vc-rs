@@ -1,0 +1,194 @@
+---
+title: id
+description: How files, apis, tests, steps and actions are named, and how one refers to another.
+sidebar:
+  order: 101
+  badge: { text: 'api + test', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Every api and test has a camelCase `id`. Its file has an ID too, taken from its path. Together they make the full ID, `<fileId>#<id>`, which is how you call, select and report on anything.
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsCreatedUser        # full ID: users.crud#getsCreatedUser
+    call: users#getUser        # the api getUser in users.api.yaml
+```
+
+## Syntax
+
+| Where | Field | Type | Required | Notes |
+| --- | --- | --- | --- | --- |
+| Top of any file | `id` | dotted lower-case words | no | Must equal the ID the path gives (V2007). Usually left out |
+| `apis` entry | `id` | camelCase | yes | Unique in the file. A verb or verb phrase: `createUser` |
+| `tests` entry | `id` | camelCase | yes | Unique in the file. A third-person verb: `rejectsDeclinedCard` |
+| Step or action | `id` | camelCase | no | Names its response (`${made.body.id}`) and, in `beforeAll`, its saved values |
+
+### File IDs come from the path
+
+The file ID is the path under `services/`, with folders and file name joined by dots and the `.api.yaml` or `.test.yaml` suffix dropped.
+
+| Path | File ID |
+| --- | --- |
+| `services/users/users.api.yaml` | `users` (an api file named like its folder collapses to one word) |
+| `services/prec/clean.api.yaml` | `prec.clean` |
+| `services/users/crud.test.yaml` | `users.crud` (test files never collapse) |
+| `services/payments/refunds/partial.test.yaml` | `payments.refunds.partial` |
+
+A bare dotted word is always a file ID. `#` separates the file from the item. Add `:n` to pick one example row: `users.crud#rejectsBadEmail:2`.
+
+## Examples
+
+### Calling an api in another file
+
+A test names the api by its full ID. Within the same api file, a `cleanup` can use the short ID.
+
+```yaml title="services/sample/sample.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      email: ${fake.internet.email}
+    cleanup:
+      call: deleteUser          # short ID: same file
+      vars:
+        userId: ${response.body.id}
+  - id: deleteUser
+    method: DELETE
+    path: /users/${var.userId}
+```
+
+```yaml title="services/sample/users.test.yaml"
+tests:
+  - id: createsUser
+    call: sample#createUser     # full ID: another file
+```
+
+### A file whose ID has two words
+
+`services/prec/clean.api.yaml` is not named like its folder, so its ID is `prec.clean`. Writing just `clean` fails:
+
+```console
+$ vc check
+error[V2003]: unknown api "clean#make"
+ --> services/prec/order.test.yaml:4:15
+  |
+4 |       - call: clean#make
+  |               ^^^^^^^^^^ no api has this ID
+  = help: check the file ID and the item's `id`; another file's item is `fileId#id`
+```
+
+The fix is `call: prec.clean#make`.
+
+### Step IDs name a response
+
+Give a step an `id` and later steps can read its response as `${<stepId>.body...}`. In a `beforeAll` block, the `id` also groups the action's saved values: `${var.shared.userId}`.
+
+```yaml title="services/prec/saves.test.yaml"
+beforeAll:
+  - id: shared
+    call: sample#createUser
+tests:
+  - id: savesFromSteps
+    steps:
+      - id: made
+        call: sample#createUser
+      - call: prec#show
+        vars:
+          c: ${made.body.id}          # the step's response
+          d: ${var.shared.userId}     # saved by the beforeAll action
+```
+
+`vc run prec.saves` passed with these values read back from the echo service.
+
+### Selecting by ID on the command line
+
+```console
+$ vc list tests tagged.flows
+tagged.flows#listsUsers  Lists every user  [users, smoke]
+tagged.flows#listsSlowly  [users, smoke, slow-network]
+tagged.flows#listsNightly  [users, smoke, nightly]
+```
+
+`vc run tagged.flows` runs the whole file, and `vc run tagged.flows#listsUsers` runs one test.
+
+## Try it
+
+<Playground client:visible kind="test" code={`
+tests:
+  - id: getsCreatedUser
+    steps:
+      - id: created
+        call: sample#createUser
+      - call: sample#getUser
+        vars:
+          userId: \${created.body.id}
+`} />
+
+## How it behaves
+
+- **IDs are unique within a file across every kind.** An api, a test, a step and a `beforeAll` action cannot share an `id` in the same file (V2001).
+- **File IDs must be unique across the project.** `services/prec/saveon.api.yaml` and `services/prec/saveon.test.yaml` both have the ID `prec.saveon`, which is error V2001. Rename one.
+- **The `id:` key at the top of a file is optional.** If you write it, it must match the path, or `vc check` reports V2007 with a certain fix.
+- **Some words are reserved.** An item cannot be called `var`, `env`, `secret`, `response`, `request`, `example`, `item`, `iteration`, `fake`, `dataset` or `run` (V2006). These are template roots, so a step with that ID would be ambiguous.
+- **Naming is linted.** `vc check` warns when a test ID (V4001) or an api ID (V4002) is not camelCase, and `vc check --fix` renames it and every reference.
+
+<Aside type="caution">
+Today V4001 and V4002 only check that an ID is camelCase. A camelCase test ID that is not a third-person verb, such as `getUser`, passes without a warning. Follow the convention anyway: reports read better.
+</Aside>
+
+## Common errors
+
+```console
+$ vc check
+error[V2007]: the file ID is `prec.clean` from its path, not `clean`
+ --> services/prec/clean.api.yaml:1:5
+  |
+1 | id: clean
+  |     ^^^^^ does not match the path
+  = help: remove the `id:` key, or move the file to match it
+  = fix: Write prec.clean (certain)
+```
+
+```console
+$ vc check
+error[V2001]: two files have the ID `prec.saveon`
+ --> services/prec/saveon.test.yaml:1:1
+  |
+1 | vars:
+  | ^^^^ this file's ID
+ ::: services/prec/saveon.api.yaml:1:1
+  |
+1 | baseUrl: ${var.sampleUrl}
+  | ------- the other file with that ID
+  = help: rename or move one of the files
+```
+
+```console
+$ vc check
+warning[V4002]: api ID `get_user` is not camelCase
+...
+  = help: api IDs are camelCase: `getUser`
+  = fix: Rename to getUser (certain)
+```
+
+| Code | When |
+| --- | --- |
+| [V1005](/vc-rs/reference/diagnostics/v1005/) | An api or test entry has no `id` |
+| [V2001](/vc-rs/reference/diagnostics/v2001/) | Duplicate ID in a file, or two files with one file ID |
+| [V2003](/vc-rs/reference/diagnostics/v2003/) | A call names an api that does not exist |
+| [V2006](/vc-rs/reference/diagnostics/v2006/) | The ID is a reserved word such as `response` |
+| [V2007](/vc-rs/reference/diagnostics/v2007/) | The file's `id:` does not match its path |
+| [V2210](/vc-rs/reference/diagnostics/v2210/) | A `beforeAll` action saves values but has no `id` |
+| [V4001](/vc-rs/reference/diagnostics/v4001/) | A test ID is not camelCase |
+| [V4002](/vc-rs/reference/diagnostics/v4002/) | An api ID is not camelCase |
+
+## Related
+
+- [`name`](/vc-rs/reference/syntax/name/), [`apis`](/vc-rs/reference/syntax/apis/), [`tests`](/vc-rs/reference/syntax/tests/)
+- [`call`](/vc-rs/reference/syntax/call/), [`steps`](/vc-rs/reference/syntax/steps/), [`save`](/vc-rs/reference/syntax/save/)
+- [Templates](/vc-rs/reference/templates/)

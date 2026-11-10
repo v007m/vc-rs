@@ -1,0 +1,113 @@
+---
+title: "V5101 — Expectation failed"
+description: "A check in expect did not hold for the response: a status, header, body match, schema or timing."
+sidebar:
+  label: "V5101 Expectation failed"
+  order: 5101
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5101` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A check in `expect` did not hold for the response: a status, header, body match, schema or timing. The report shows
+the expected and the actual value side by side. Here the service answers `201 Created`, but the test expects `200`; a
+test's `status` replaces the api's.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: Ada
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: createsUser
+    call: users#createUser
+    expect:
+      status: 200
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: Ada
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: createsUser
+    call: users#createUser
+    expect:
+      status: 201
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/crud.test.yaml"
+id: users.crud
+name: Users CRUD
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+    expect:
+      status: 201
+  - id: countsUsers
+    name: Counts users
+    call: users#listUsers
+    expect:
+      cel:
+        returns users: response.body.users.size() > 0
+```
+
+```console
+$ vc run users.crud#listsUsers
+plan  1 test in 1 file · profile default
+
+✕ users.crud#listsUsers                                           2ms
+  error[V5101]: expect.status
+   --> services/users/crud.test.yaml:8:15
+    |
+  8 |       status: 201
+    |               ^^^ expected [201], got 200
+
+0 passed · 1 failed                                          3ms · profile default
+$ echo $?
+1
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5101
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

@@ -1,0 +1,175 @@
+---
+title: "Literal equality"
+description: "A plain value in expect is compared for equality with the response."
+sidebar: { order: 1 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+Any value that is not a matcher is a literal: the check passes when the response value equals it.
+
+```yaml
+expect:
+  body:
+    match:
+      body.status: active
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `<path>: <value>` | any value | — | — | A string, number, boolean, `null`, list or object. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Strings and numbers
+
+Numbers compare by value, so `3.0` equals `3`.
+
+```yaml title="services/sample/literal.test.yaml"
+tests:
+  - id: plainValues
+    name: Plain values
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: active
+          body.qty: 3.0
+          body.tags: [new, vip]
+```
+
+```console
+$ vc run sample.literal#plainValues
+plan  1 test in 1 file · profile default
+
+✓ sample.literal#plainValues                                      0ms
+
+1 passed                                                     21ms · profile default
+```
+
+### Objects
+
+An object is compared deeply. Key order does not matter.
+
+```yaml title="services/sample/literal.test.yaml"
+tests:
+  - id: firstItem
+    name: First item
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[0]: {sku: A1, price: 10}
+```
+
+```console
+$ vc run sample.literal#firstItem
+plan  1 test in 1 file · profile default
+
+✓ sample.literal#firstItem                                        0ms
+
+1 passed                                                     22ms · profile default
+```
+
+### A failing object shows a diff
+
+When an object or list differs, the report adds a unified diff.
+
+```yaml title="services/sample/literal.test.yaml"
+tests:
+  - id: failsOnPrice
+    name: First item costs 11
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[0]: {sku: A1, price: 11}
+```
+
+```console
+$ vc run sample.literal#failsOnPrice
+plan  1 test in 1 file · profile default
+
+✕ sample.literal#failsOnPrice                                     3ms
+  error[V5101]: expect.body.match.body.items[0]
+    --> services/sample/literal.test.yaml:24:26
+     |
+  24 |           body.items[0]: {sku: A1, price: 11}
+     |                          ^^^^^^^^^^^^^^^^^^^^ expected {"price":11,"sku":"A1"}, got {"price":10,"sku":"A1"}
+     = diff:
+       --- expected
+       +++ actual
+       @@ -1,4 +1,4 @@
+        {
+       -  "price": 11,
+       +  "price": 10,
+          "sku": "A1"
+        }
+       \ No newline at end of file
+
+0 passed · 1 failed                                          5ms · profile default
+```
+
+### Lists from a list path
+
+A `[*]` path gives a list, which you can compare with a literal list.
+
+```yaml title="services/sample/literal.test.yaml"
+tests:
+  - id: allPrices
+    name: Prices in order
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].price: [10, 32.5]
+```
+
+```console
+$ vc run sample.literal#allPrices
+plan  1 test in 1 file · profile default
+
+✓ sample.literal#allPrices                                        0ms
+
+1 passed                                                     30ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: plainValues
+    name: Plain values
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: active
+          body.qty: 3.0
+          body.tags: [new, vip]
+`} />
+
+## How it behaves
+
+- A map is a matcher when at least one of its keys is a matcher name, such as `{gt: 1}`. Otherwise the whole map is a literal object.
+- So a misspelled matcher on its own, such as `{gtt: 1}`, is read as the object `{"gtt": 1}` and compared for equality. It fails at run time with `expected {"gtt":1}`. Next to a real matcher, as in `{gt: 1, gtt: 2}`, `vc check` reports V1004.
+- To compare with an object whose keys are matcher names, use `eq`: `{eq: {gt: 1}}`.
+- Lists compare element by element, in order. Objects compare key by key, in any order.
+- Equality is the same as [eq](/vc-rs/reference/matchers/eq/): numbers by value, `"3"` is not `3`, and a missing path fails even against `null`.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [eq](/vc-rs/reference/matchers/eq/)
+- [body.equals](/vc-rs/reference/matchers/body-equals/)
+- [contains](/vc-rs/reference/matchers/contains/)
+- [All matchers](/vc-rs/reference/matchers//)

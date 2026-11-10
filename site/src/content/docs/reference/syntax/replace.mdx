@@ -1,0 +1,139 @@
+---
+title: expect.replace
+description: Drop every inherited check and keep only the checks written at this level.
+sidebar: { order: 408, badge: { text: 'expect', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`replace: true` drops every check inherited from the api (and from the test, on a step). Only the checks written next to it run.
+
+```yaml
+expect:
+  replace: true
+  status: 503
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `replace` | boolean | `false` | no | `true` drops every inherited `status`, `headers`, `body`, `size`, `timing`, `cel` and `custom` check. |
+
+## Examples
+
+**Without `replace`.** The api `checked#post` has five checks. A test that writes only `status` replaces one of them and keeps four:
+
+```console
+$ vc explain lab.expect#overridesOne
+...
+  expect
+    status: 200, 201  (test lab.expect#overridesOne)
+    header content-type: contains  (api checked#post)
+    match method: equals  (api checked#post)
+    match body.word: equals  (api checked#post)
+    cel echoes the path: equals  (api checked#post)
+```
+
+**With `replace`.** Only the test's own check is left:
+
+```yaml
+- id: replacesAll
+  call: checked#post
+  expect:
+    replace: true
+    status: 200
+```
+
+```console
+$ vc explain lab.expect#replacesAll
+...
+  expect
+    status: 200  (test lab.expect#replacesAll)
+```
+
+**A negative test, whatever the body.** The api's checks describe a success. For an error case, drop them and check what matters.
+
+```yaml
+- id: answersAnything
+  call: users#create
+  body:
+    name: No Email
+  expect:
+    replace: true
+    status: 4xx
+```
+
+**On a test with steps.** A test-level `expect` is a default for every `call` and `test:` step, and `replace: true` goes with it. Each step drops its api's checks and starts from the test's. A step's own checks then merge over that as usual.
+
+```yaml
+- id: testReplace
+  expect:
+    replace: true
+    status: 200
+  steps:
+    - call: checked#post
+    - call: checked#post
+      expect:
+        headers:
+          content-type:
+            contains: json
+```
+
+```console
+$ vc explain lab.merge#testReplace
+call checked#post
+  ...
+  expect
+    status: 200  (test lab.merge#testReplace)
+call checked#post
+  ...
+  expect
+    status: 200  (test lab.merge#testReplace)
+    header content-type: contains  (step call checked#post)
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: rejectsMissingEmail
+    call: users#create
+    body:
+      name: No Email
+    expect:
+      replace: true
+      status: 400
+`} />
+
+## How it behaves
+
+- **What is dropped.** Every inherited check, including `cel` and `custom` checks, which are otherwise never replaced.
+- **What is kept.** The checks written at the same level as `replace`. More specific levels still merge on top: a step under a test with `replace: true` adds its own checks.
+- **The default status stays.** When no level writes `status`, the response must still be `2xx`, even with `replace: true`. Write `status` next to `replace` if another status is expected.
+- **Steps.** A step's `replace: true` drops the test-level checks as well as its api's.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V3206](/vc-rs/reference/diagnostics/v3206/) | Warning. A test-level `expect` that no step uses, for example because the only step writes `replace: true`. |
+| [V1004](/vc-rs/reference/diagnostics/v1004/) | `replace` is misspelt, or used outside `expect`. |
+
+The V3206 warning looks like this:
+
+```console
+warning[V3206]: no step uses the test-level `expect`
+  --> services/lab/merge.test.yaml:36:11
+   |
+36 |           exists: false
+   |           ^^^^^^^^^^^^^ unused default
+   = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+   = help: remove it, or remove the steps' own values that replace it
+```
+
+## Related
+
+- [expect](/vc-rs/reference/syntax/expect/)
+- [status](/vc-rs/reference/syntax/status/)
+- [steps](/vc-rs/reference/syntax/steps/)

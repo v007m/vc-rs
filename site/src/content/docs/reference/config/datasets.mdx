@@ -1,0 +1,38 @@
+---
+title: "datasets"
+description: "Data lists kept outside the datasets folder, and the outside folders they may come from."
+sidebar: { order: 72 }
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+Files in `datasets/` are found on their own. `datasets` in the config adds lists kept elsewhere, used as `${dataset.<id>}`.
+
+```yaml title="vibranium.config.yaml"
+datasets:
+  files:
+    - id: worldCities
+      file: datasets/cities.csv
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `datasets.files[].id` | text | Required. Used as `${dataset.<id>}`. |
+| `datasets.files[].file` | path | Required. A CSV, JSON or YAML file, from the project root. |
+| `datasets.allowRoots` | list of paths | Folders outside the project that `files` may read. |
+
+A file outside the project is refused:
+
+```console
+$ vc check
+error[V1012]: the dataset file `../sbc-scratch/shared/world-cities.csv` is outside the project
+  --> vibranium.config.yaml:89:13
+   |
+89 |       file: ../sbc-scratch/shared/world-cities.csv
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not under the project or an allowed root
+   = help: paths are relative to the project root; add a folder outside it to `datasets.allowRoots`
+```
+
+<Aside type="caution">Adding the folder to `allowRoots` does not work today. `vc check` then reports `error[V1012]: ../sbc-scratch/shared/world-cities.csv: links to a file outside the project`. Copy the file into the project instead.</Aside>
+
+<LinkCard title="Datasets" href="/vc-rs/reference/data/datasets/" />

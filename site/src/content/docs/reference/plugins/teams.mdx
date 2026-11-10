@@ -1,0 +1,91 @@
+---
+title: "teams"
+description: "The teams alert channel posts an Adaptive Card to a Microsoft Teams incoming webhook when an alert rule fires."
+sidebar: { order: 15 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+The `teams` channel posts an Adaptive Card to a Microsoft Teams incoming webhook or workflow URL. Keep the URL in a secret.
+
+```yaml title="vibranium.config.yaml"
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - teams:
+          webhook: ${secret.teamsWebhook}
+```
+
+## Syntax
+
+| Setting | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `webhook` | http or https URL | — | yes | The Teams webhook URL |
+
+The message is a `message` with one Adaptive Card (version 1.4) attachment. The card body, in order:
+
+| Element | Holds |
+| --- | --- |
+| `TextBlock` (bold, medium) | `<project>: <what> (<profiles>)` |
+| `TextBlock` | `N passed, N failed, N blocked, N flaky, N skipped` |
+| `FactSet` | One fact per failure, up to ten: the test ID as the title, the message as the value (only when something failed) |
+| `TextBlock` | `and N more` (only past ten failures) |
+| `TextBlock` | `Breached: …` (only for a load breach) |
+| `TextBlock` | `Report: <path>` (only when a report was written) |
+
+## Examples
+
+**A failed run.**
+
+```json
+{"attachments":[{"content":{"$schema":"http://adaptivecards.io/schemas/adaptive-card.json","body":[{"size":"Medium","text":"try-syntax-b: run failed (default)","type":"TextBlock","weight":"Bolder","wrap":true},{"text":"0 passed, 1 failed, 0 blocked, 0 flaky, 0 skipped","type":"TextBlock","wrap":true},{"facts":[{"title":"sample.flip#listsUsersWithStatus","value":"status: expected [418], got 200"}],"type":"FactSet"},{"text":"Report: .vibranium/reports/18/ctrf.json","type":"TextBlock","wrap":true}],"type":"AdaptiveCard","version":"1.4"},"contentType":"application/vnd.microsoft.card.adaptive"}],"type":"message"}
+```
+
+**Teams next to Slack.** Both get the same alert.
+
+```yaml
+alerts:
+  - on: [failure]
+    notify:
+      - teams:
+          webhook: ${secret.teamsWebhook}
+      - slack:
+          webhook: ${secret.slackWebhook}
+```
+
+**A URL that is not http or https.**
+
+```console
+warning: V5117: the `teams` alert channel `webhook` is not an http or https URL
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - teams:
+          webhook: \${secret.teamsWebhook}
+`} />
+
+## How it behaves
+
+- Each failure message is cut to 200 characters, ending in `…`.
+- Any non-2xx answer is a `V5117` warning. The run's exit code does not change.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5117](/vc-rs/reference/diagnostics/v5117/) | `webhook` is missing or not an http or https URL, or the POST failed |
+| [V2106](/vc-rs/reference/diagnostics/v2106/) | `${secret.X}` names a secret `.env.schema` does not declare |
+
+## Related
+
+- [alerts](/vc-rs/reference/plugins/alerts/)
+- [Triggers](/vc-rs/reference/plugins/triggers/)
+- [slack](/vc-rs/reference/plugins/slack/)

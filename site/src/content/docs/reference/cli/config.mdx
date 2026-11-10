@@ -1,0 +1,88 @@
+---
+title: "vc config"
+description: "Shows a config value, the layer that set it, and the values it replaced."
+sidebar: { order: 17 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+A setting can come from several [layers](/vc-rs/reference/config/layering/): the built-in default, your user config, `vibranium.config.yaml`, the active profiles, `.env`, `VIB_*` environment variables and `--set`. `vc config explain` shows which one won.
+
+```console
+$ vc config explain [OPTIONS] <KEY>
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `<KEY>` | | | A setting or a var, by its `--set` key: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats`, `reports.html.layout`, or `vars.<name>` |
+| `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
+| `--set` | `<KEY=VALUE>` | | Sets one config value over every other layer, as on `vc run` |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### A setting
+
+```console
+$ vc config explain defaults.timeout
+defaults.timeout = 30s  (vibranium.config.yaml)
+  over 30s  (built-in)
+```
+
+The first line is the value in force and where it came from. Each `over` line is a value it replaced, highest layer first.
+
+### What a flag or an environment variable changes
+
+```console
+$ vc config explain defaults.timeout --set defaults.timeout=5s
+defaults.timeout = 5s  (--set)
+  over 30s  (vibranium.config.yaml)
+  over 30s  (built-in)
+$ VIB_DEFAULTS_TIMEOUT=9s vc config explain defaults.timeout
+defaults.timeout = 9s  (VIB_DEFAULTS_TIMEOUT)
+  over 30s  (vibranium.config.yaml)
+  over 30s  (built-in)
+```
+
+### A var, and the profile
+
+```console
+$ vc config explain vars.sampleUrl
+vars.sampleUrl = http://localhost:7421  (vibranium.config.yaml)
+$ vc config explain reports.formats
+reports.formats = ctrf,junit,html  (vibranium.config.yaml)
+  over ctrf  (built-in)
+$ vc config explain profile
+profile = default  (vibranium.config.yaml)
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Shown |
+| `2` | No such key or profile |
+
+```console
+$ vc config explain defaults.timeoot
+error: no setting `defaults.timeoot`
+  = help: did you mean `defaults.timeout` or `defaults.perHost`?
+$ vc config explain history.keep
+error: no setting `history.keep`
+  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, reports.dir, reports.formats, reports.html.layout, vars.sampleUrl and vars.<name>
+$ vc config explain reports.dir --profile nope
+error: --profile: no profile `nope`
+  = help: the profiles are default
+```
+
+Only the keys listed above can be explained. Other settings, such as `history.keep`, are not covered yet; read them in `vibranium.config.yaml`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Config layering" href="/vc-rs/reference/config/layering/" description="Every layer, in order." />
+  <LinkCard title="VIB_ variables" href="/vc-rs/reference/config/vib-variables/" description="Set config from the environment." />
+  <LinkCard title="config explain in depth" href="/vc-rs/reference/config/config-explain/" description="More examples with profiles and the user config." />
+</CardGrid>

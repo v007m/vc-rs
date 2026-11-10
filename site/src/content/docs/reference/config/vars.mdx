@@ -1,0 +1,133 @@
+---
+title: "vars"
+description: "Project-wide values that every api and test can read as var.name, and that profiles can change."
+sidebar: { order: 40 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`vars` holds values for the whole project. Read one anywhere with `${var.name}`.
+
+```yaml title="vibranium.config.yaml"
+vars:
+  region: local
+  sampleUrl: http://localhost:7462
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `vars` | map | none | no | Name to value. |
+| `vars.<name>` | any YAML value | — | — | Text, number, boolean, list or map. |
+
+Name vars in camelCase. End a name with `Id` or `Url` where that fits: `orgId`, `sampleUrl`.
+
+## Examples
+
+Where a value comes from:
+
+```console
+$ vc config explain vars.region
+vars.region = local  (vibranium.config.yaml)
+```
+
+A [profile](/vc-rs/reference/config/profiles/) changes it:
+
+```console
+$ vc config explain vars.region --profile eu
+vars.region = eu  (profile eu)
+  over local  (vibranium.config.yaml)
+```
+
+So do `--set`, `VIB_VAR_<name>` and `.env`:
+
+```console
+$ vc config explain vars.region --set vars.region=ap
+vars.region = ap  (--set)
+  over local  (vibranium.config.yaml)
+
+$ VIB_VAR_region=xx vc config explain vars.region
+vars.region = xx  (VIB_VAR_region)
+  over local  (vibranium.config.yaml)
+```
+
+With `VIB_VAR_region=dotenv` in `.env`:
+
+```console
+$ vc config explain vars.region
+vars.region = dotenv  (.env)
+  over local  (vibranium.config.yaml)
+```
+
+`--set` can also add a var that the file doesn't have:
+
+```console
+$ vc config explain vars.newOne --set vars.newOne=5
+vars.newOne = 5  (--set)
+```
+
+Maps and lists work:
+
+```yaml title="vibranium.config.yaml"
+vars:
+  owner:
+    name: ana
+    team: core
+  ports: [80, 443]
+```
+
+```console
+$ vc config explain vars.owner
+vars.owner = {name: ana, team: core}  (vibranium.config.yaml)
+```
+
+A typo is caught before anything runs, with a certain fix:
+
+```console
+$ vc check
+error[V2101]: ${var.regoin} is used but never set
+  --> vibranium.config.yaml:21:13
+   |
+21 |     x-team: ${var.regoin}
+   |             ^^^^^^^^^^^^^ no level sets regoin for any profile
+   = help: set it in this test's vars, in the file's vars, or in the config's vars
+   = help: did you mean `region`?
+   = fix: Replace with region (certain)
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+vars:
+  region: local
+  sampleUrl: http://localhost:7462
+defaults:
+  headers:
+    x-region: \${var.region}
+profiles:
+  - id: dev
+    default: true
+  - id: eu
+    vars:
+      region: eu
+`} />
+
+## How it behaves
+
+- Closest wins. A call's `vars`, saved values, the test file's `vars`, the api's and the api file's all beat these.
+- Above the file, the [layers](/vc-rs/reference/config/layering/) apply: profiles, then `.env`, then `VIB_VAR_*`, then `--set`.
+- A var set by a profile replaces the whole value. A profile that sets `owner: {team: edge}` drops `owner.name`.
+- Never put secrets in vars. Use [`${secret.NAME}`](/vc-rs/reference/config/secrets/).
+
+## Common errors
+
+- [V2101](/vc-rs/reference/diagnostics/v2101/): a var is used but never set.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="profiles" href="/vc-rs/reference/config/profiles/" />
+  <LinkCard title="Layering" href="/vc-rs/reference/config/layering/" />
+</CardGrid>

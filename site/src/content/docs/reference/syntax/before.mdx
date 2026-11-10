@@ -1,0 +1,120 @@
+---
+title: before
+description: Actions that run before one test's call or steps (before) and after them (after), even when the test fails.
+sidebar: { order: 220, badge: { text: 'test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`before` and `after` are lists of actions on a single test. `before` sets up what the test needs; `after` runs once the test is done.
+
+```yaml title="services/flow/fn.test.yaml"
+tests:
+  - id: getsSeededUser
+    before:
+      - function: ../../hooks/seed.ts#seedUser
+        provides: [userId, userEmail]
+    call: sample#getUser
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `before` | list of actions | — | no | Runs before the test's `call` or `steps`, for every instance. |
+| `after` | list of actions | — | no | Runs after the test-level `save`, even if the test failed or was blocked. |
+
+Each entry is an action: [`call`](/vc-rs/reference/syntax/call/), [`test`](/vc-rs/reference/syntax/test/), [`function`](/vc-rs/reference/syntax/function/) or [`command`](/vc-rs/reference/syntax/command/), with that action's keys.
+
+## Examples
+
+### Setup with a call
+
+The api `sample#createUser` saves `userId`, so the test's own call reads that user. Its cleanup deletes the user after the test.
+
+```yaml title="services/flow/order.test.yaml"
+tests:
+  - id: runsInOrder
+    before:
+      - command: echo before >> build/order.txt
+      - call: sample#createUser
+    after:
+      - command: echo after-sees-${var.userId} >> build/order.txt
+    steps:
+      - command: echo steps >> build/order.txt
+      - call: sample#getUser
+```
+
+`after` sees values saved in `before` and in the steps. With `beforeAll`, `beforeEach`, `afterEach` and `afterAll` in the same file, `build/order.txt` reads:
+
+```console
+$ cat build/order.txt
+beforeAll
+beforeEach
+before
+steps
+after-sees-21
+afterEach
+afterAll
+```
+
+### after runs when before fails
+
+```yaml title="services/flow/order2.test.yaml"
+id: flow.order2
+afterEach:
+  - command: echo afterEach-ran >> build/order2.txt
+tests:
+  - id: blockedByBefore
+    before:
+      - command: exit 3
+    after:
+      - command: echo after-ran >> build/order2.txt
+    call: sample#listUsers
+```
+
+```console
+$ vc run flow.order2
+plan  1 test in 1 file · profile default
+
+⊘ flow.order2#blockedByBefore blocked                            82ms
+  error[V5110]: the command exited with 3
+     = at: command
+
+0 passed · 1 blocked                                         99ms · profile default
+```
+
+The call never ran, so the test is **blocked**, not failed. `build/order2.txt` still gets `after-ran` and `afterEach-ran`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.order
+tests:
+  - id: runsInOrder
+    before:
+      - call: sample#createUser
+    call: sample#getUser
+    after:
+      - command: echo done-with-\${var.userId}
+`} />
+
+## How it behaves
+
+- Order inside one instance: `beforeEach`, `before`, the `call` or `steps`, the test-level `save`, `after`, `afterEach`, then cleanups, newest first.
+- `before` runs again for every instance. A test with two example rows and `repeat: 2` runs its `before` four times.
+- A failed `before` action blocks the instance. A blocked test is not retried.
+- `after` and `afterEach` run even when the test failed or was blocked.
+- Test-level `headers`, `query`, `body` and `expect` are defaults for `steps` only. They do not reach `before` or `after` actions.
+- Prefer an api's [`cleanup`](/vc-rs/reference/syntax/cleanup/) to an `after` that deletes. It is tied to the call that made the data, and [`keep`](/vc-rs/reference/syntax/keep/) can turn it off.
+
+## Common errors
+
+A failed `before` shows the action's own error with the test marked blocked, such as V5110 for a command or V5101 for a call whose `expect` failed. See [Lifecycle](/vc-rs/reference/lifecycle/) for how blocking spreads.
+
+## Related
+
+- [beforeEach](/vc-rs/reference/syntax/before-each/): the same, for every test in the file
+- [beforeAll](/vc-rs/reference/syntax/before-all/): once per file
+- [cleanup](/vc-rs/reference/syntax/cleanup/)
+- [Lifecycle](/vc-rs/reference/lifecycle/)

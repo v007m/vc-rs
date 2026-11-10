@@ -1,0 +1,65 @@
+---
+title: "urlEncode"
+description: "Percent-encode text for use in a URL path or query."
+sidebar: { order: 12 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`urlEncode` percent-encodes text so it is safe in a URL path segment or a query value. Only letters, digits and `-`, `.`, `_`, `~` are left as they are.
+
+```yaml
+      path: /search?q=${var.term | urlEncode}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text | — | yes |  |
+| output | text | — | — |  |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+| Input | Result |
+| --- | --- |
+| `a b&c=d/é` | `a%20b%26c%3Dd%2F%C3%A9` |
+| `ÉCOLE Straße` | `%C3%89COLE%20Stra%C3%9Fe` |
+
+A space becomes `%20`, not `+`.
+
+Chain with [`trim`](/vc-rs/reference/pipes/trim/): `"\t hi \n"` piped to `trim | urlEncode` gives `hi`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: encodesForUrls
+    call: sample#echo
+    vars:
+      query: "a b&c=d/é"
+      payload:
+        encoded: \${var.query | urlEncode}
+`} />
+
+## How it behaves
+
+- Non-ASCII letters are encoded as their UTF-8 bytes.
+- `/` is encoded too, so the result is one path segment.
+
+## Common errors
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be text.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the value is not text at run time, or it is missing.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Paths" href="/vc-rs/reference/templates/paths/" />
+  <LinkCard title="trim" href="/vc-rs/reference/pipes/trim/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

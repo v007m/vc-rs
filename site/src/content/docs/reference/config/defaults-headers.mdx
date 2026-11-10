@@ -1,0 +1,99 @@
+---
+title: "defaults.headers"
+description: "Headers sent with every request, unless an api or call sets the same header."
+sidebar: { order: 25 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`defaults.headers` is a map of headers sent with every request.
+
+```yaml title="vibranium.config.yaml"
+defaults:
+  headers:
+    accept: application/json
+    user-agent: vibranium/2
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `defaults.headers` | map of text | none | no | Header name to value. Values may use templates. |
+
+## Examples
+
+A header from a var, so it changes with the profile:
+
+```yaml title="vibranium.config.yaml"
+defaults:
+  headers:
+    accept: application/json
+    user-agent: vibranium/2
+    x-team: ${var.region}
+```
+
+An endpoint that echoes the request headers shows what was sent:
+
+```console
+$ vc call slow#hdr --profile eu
+200 OK · 3 ms · api expect passed
+{
+  "body": "",
+  "headers": {
+    "accept": "text/plain",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "authorization": "••••",
+    "host": "localhost:7469",
+    "user-agent": "vibranium/2",
+    "x-team": "eu",
+    "x-token": "••••"
+  },
+  "secret": "••••",
+  "tokenStartsWith": "tok-"
+}
+```
+
+`accept` is `text/plain` because the api sets its own. `authorization` comes from the api's `auth`, and `x-token` from its `headers`:
+
+```yaml title="services/slow/slow.api.yaml"
+  - id: hdr
+    path: /hdr
+    headers:
+      accept: text/plain
+      x-token: ${secret.API_TOKEN}
+```
+
+`accept-encoding: gzip, br, zstd, deflate` is always sent, and responses are decoded for you.
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+vars:
+  region: local
+defaults:
+  headers:
+    accept: application/json
+    x-team: \${var.region}
+profiles:
+  - id: dev
+    default: true
+  - id: eu
+    vars:
+      region: eu
+`} />
+
+## How it behaves
+
+- An api's own `headers` win over `defaults.headers` for the same name.
+- Auth headers come from [`auth`](/vc-rs/reference/config/auth/). Do not put tokens here.
+- `authorization`, `cookie` and `set-cookie` are always masked in output.
+- `vc check` does not flag a number as a header value. Quote values so they stay text.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="headers on an api" href="/vc-rs/reference/syntax/headers/" />
+  <LinkCard title="redact" href="/vc-rs/reference/config/redact/" />
+</CardGrid>

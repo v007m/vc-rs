@@ -1,0 +1,132 @@
+---
+title: "vc mcp"
+description: "Starts the Vibranium MCP server over stdio, so an AI agent can list, check, run and call under the project's agent rules."
+sidebar: { order: 26 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Starts the MCP (Model Context Protocol) server on stdin and stdout. An agent such as Claude Code starts this command itself and then uses its tools to read the project, run checks and tests, call apis and write definition files. Every call, run and write follows the `agents` rules of the active profile.
+
+```console
+$ vc mcp [OPTIONS]
+```
+
+You rarely run `vc mcp` by hand. Register it with your agent instead; see [Set up the MCP server](/vc-rs/agents/mcp-setup/).
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `--profile` | `<IDS>` | the config's default | The profiles the agent works under. The agent cannot change them |
+| `--set` | `<KEY=VALUE>` | | Sets one config value over every other layer |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags). Use it when the client starts `vc mcp` outside the project |
+
+## Examples
+
+### Register it with Claude Code
+
+```console
+$ claude mcp add vibranium -- vc mcp
+```
+
+### What the server announces
+
+On `initialize`, the server answers with:
+
+```json
+{
+  "protocolVersion": "2025-06-18",
+  "capabilities": { "tools": {} },
+  "serverInfo": { "name": "vibranium", "version": "0.1.0" },
+  "instructions": "Vibranium tests HTTP APIs from YAML files. List or search the definitions, check the project, run tests and read their results. Calls, runs and writes follow the project's agent rules, which may refuse them or wait for a person's approval."
+}
+```
+
+### The tools
+
+| Tool | Arguments | Does |
+| --- | --- | --- |
+| `list_definitions` | `kind`, `ids`, `tags` | Lists tests, apis or definition files, like [`vc list`](/vc-rs/reference/cli/list/) |
+| `search` | `query` | Finds tests and apis whose ID or name contains the text |
+| `get_definition` | `id` | Shows a test or api resolved, like [`vc explain`](/vc-rs/reference/cli/explain/) |
+| `check` | `paths` | Returns every diagnostic, like [`vc check`](/vc-rs/reference/cli/check/) |
+| `run_tests` | `ids`, `tags`, `grep` | Runs tests and returns each status, like [`vc run`](/vc-rs/reference/cli/run/) |
+| `call_api` | `api`, `vars`, `keep` | Sends one api, like [`vc call`](/vc-rs/reference/cli/call/) |
+| `query_history` | `limit`, `run` | Lists stored runs, or one run's tests |
+| `explain_failure` | `run`, `test` | Shows how a test ended in a stored run, with its definition |
+| `write_definition` | `path`, `text` | Writes one api, test or load file whole, only if the project stays free of errors |
+
+The server offers no resources or prompts. See [MCP tools](/vc-rs/agents/mcp-tools/) for every argument and result.
+
+### A run, as the agent sees it
+
+`run_tests` with `{"ids": ["sample.extra#echoesBody"]}` returns this `structuredContent`:
+
+```json
+{
+  "exit": 0,
+  "notices": [],
+  "run": 64,
+  "seed": 17401354332062284216,
+  "tests": [
+    {
+      "attempts": 1,
+      "blockedBy": null,
+      "durationMs": 59.6,
+      "id": "sample.extra#echoesBody",
+      "message": null,
+      "skipReason": null,
+      "status": "passed"
+    }
+  ]
+}
+```
+
+The run is stored in history and its report files are written, as for `vc run`.
+
+### A refused write
+
+With no `writeDefinitions` in the profile's `agents` block, `write_definition` returns `isError: true` and:
+
+```json
+{
+  "kind": "refused",
+  "reason": "refused: default: agents.writeDefinitions is false",
+  "help": "a person can widen the profile's `agents` block in vibranium.config.yaml, or approve the call with `vc approve <id>`"
+}
+```
+
+A tool that needs a person's approval waits until someone runs [`vc approve`](/vc-rs/reference/cli/approve/).
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | The client closed the connection after a session |
+| `2` | No project was found |
+| `70` | The connection closed before `initialize` finished, or the server could not start (for example, an unknown `--profile`) |
+
+```console
+$ vc mcp
+error: no vibranium.config.yaml in /tmp or any folder above it
+  = help: run it inside a project, pass `--project <dir>`, or create one with `vc init`
+```
+
+<Aside type="caution">
+`vc mcp --profile nope` does not stop at once with a profile error, as `vc run` does. Check the profile name with `vc config explain profile --profile <name>` before you register the server.
+</Aside>
+
+## How it behaves
+
+- stdout carries only the protocol. Diagnostics go to stderr.
+- The profile is fixed when the server starts. The agent cannot pick another one.
+- While [`vc ui`](/vc-rs/reference/cli/ui/) runs, the same tools are served over HTTP at `/mcp`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Set up the MCP server" href="/vc-rs/agents/mcp-setup/" description="Claude Code, Cursor, VS Code and more." />
+  <LinkCard title="Policy and approvals" href="/vc-rs/agents/policy-and-approvals/" description="What an agent may do, and who approves." />
+  <LinkCard title="vc approvals" href="/vc-rs/reference/cli/approvals/" description="See what waits for a person." />
+</CardGrid>

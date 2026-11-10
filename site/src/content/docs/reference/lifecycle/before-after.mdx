@@ -1,0 +1,116 @@
+---
+title: "before and after"
+description: "Test-level blocks that run actions right before and right after one test's call or steps."
+sidebar: { order: 4 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`before` and `after` belong to one test. `before` runs just before the test's call or steps; `after` runs just after, even when the test failed.
+
+```yaml title="services/life/blocks.test.yaml (excerpt)"
+tests:
+  - id: readsSharedValues
+    before:
+      - call: sample#echo
+        vars:
+          payload: from before
+        save:
+          note: ${response.body.body}
+    after:
+      - id: afterCmd
+        command: echo after test
+    call: sample#echo
+    vars:
+      payload:
+        note: ${var.note}
+    expect:
+      body:
+        match:
+          body.note: from before
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `before` | list of actions | — | no | On a test |
+| `after` | list of actions | — | no | On a test; runs even when something before it failed |
+| `id` (on an action) | camelCase text | — | no | Names the action in output (`afterCmd`) |
+
+## Examples
+
+Create the resource this test changes, so no other test sees the change:
+
+```yaml
+tests:
+  - id: renamesUser
+    before:
+      - call: users#create
+    call: users#update
+    body:
+      name: Renamed
+```
+
+Save a value in `before` and read it in the call. An action's own `save` gives plain names:
+
+```yaml
+before:
+  - call: sample#echo
+    vars:
+      payload: from before
+    save:
+      note: ${response.body.body}
+```
+
+Run a hook to seed data, then use its return value:
+
+```yaml
+before:
+  - function: ../../hooks/seed.ts#seedTenant
+    vars:
+      name: acme
+    provides: [tenantId]
+call: lab#whoami
+query:
+  tenant: ${var.tenantId}
+```
+
+A failure in `before` blocks the test. Its `after` still runs, and so do the cleanups of what `before` created.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: readsNote
+    name: Reads a value saved in before
+    before:
+      - call: sample#echo
+        vars:
+          payload: from before
+        save:
+          note: \${response.body.body}
+    after:
+      - command: echo after test
+    call: sample#echo
+    vars:
+      payload: \${var.note}
+`} />
+
+## How it behaves
+
+- Order: `beforeEach` → `before` → the call or steps → the test-level `save` → `after` → `afterEach` → cleanups.
+- `before` runs again for every instance of the test (each `examples` row, each `repeat`).
+- Test-level `auth`, `headers`, `query` and `body` are defaults for the test's own call and steps. They do not reach the actions in `before` and `after`.
+
+## Common errors
+
+- [V2101](/vc-rs/reference/diagnostics/v2101/): a value read in the call is never set. If a `function:` sets it, declare it with [`provides`](/vc-rs/reference/lifecycle/provides/).
+- Any run-time failure in `before` blocks the test.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="beforeEach and afterEach" href="/vc-rs/reference/lifecycle/before-each/" />
+  <LinkCard title="call action" href="/vc-rs/reference/lifecycle/call/" />
+  <LinkCard title="function action" href="/vc-rs/reference/lifecycle/function/" />
+  <LinkCard title="Cleanups" href="/vc-rs/reference/lifecycle/cleanups/" />
+</CardGrid>
