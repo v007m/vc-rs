@@ -40,7 +40,8 @@ pub struct RunReport {
 }
 
 impl Engine {
-    /// Runs what `request` selects. The reporters print to stdout and write the report files;
+    /// Runs what `request` selects. The reporters print to stdout and write the report files,
+    /// and `request.watch` gets the live feed, `Done` once the reporters have finished;
     /// each value of `interrupts` is one Ctrl-C. Call it from within a Tokio runtime.
     ///
     /// # Errors
@@ -62,6 +63,7 @@ impl Engine {
         let inputs = inputs(&prepared, random, run_id).with_secrets(secrets).with_started_at(self.clock.now_ms());
         let (executor, sweep) = self.executor(&prepared, inputs, request).await?;
         let bus = EventBus::spawn();
+        let watching = request.watch.as_ref().map(|watch| watch.follow(&bus));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
         let started = self.clock.now_ms();
         let ran = match executor.start(Arc::clone(&prepared.plan), bus.clone()) {
@@ -81,7 +83,11 @@ impl Engine {
         notices.extend(fanout.reporters.finish(run).await);
         let exit = vc_executor::exit_code(summary);
         self.settle(admitted, exit == 0)?;
-        Ok(RunReport { exit, seed, notices, run: Some(run_id).filter(|id| *id > 0) })
+        let report = RunReport { exit, seed, notices, run: Some(run_id).filter(|id| *id > 0) };
+        if let Some(watching) = watching {
+            watching.finish(report.clone());
+        }
+        Ok(report)
     }
 
     /// The reporters `request` chooses, recording into the history; a history that cannot be
