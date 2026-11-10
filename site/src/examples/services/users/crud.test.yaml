@@ -1,0 +1,48 @@
+name: User accounts
+tags: [users, smoke]
+
+beforeAll:
+  - command: vc demo start --port 7421 --detach
+afterAll:
+  - command: vc demo stop --port 7421
+
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#list
+    expect:
+      status: 200
+
+  - id: createsUser
+    name: Creates a user with the given email
+    call: users#create
+    vars:
+      email: ada@example.com
+    expect:
+      body:
+        match:
+          email: ada@example.com
+          id:
+            type: string
+
+  - id: getsCreatedUser
+    name: Returns the user that was just created
+    before:
+      - call: users#create
+    call: users#get
+    expect:
+      status: 200
+      body:
+        match:
+          id: ${var.userId}
+      timing:
+        total:
+          lt: 500ms
+
+  - id: rejectsMissingEmail
+    name: Rejects a user without an email
+    call: users#create
+    body:
+      name: No Email
+    expect:
+      status: 400

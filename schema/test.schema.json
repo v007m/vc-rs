@@ -1,0 +1,700 @@
+{
+  "$defs": {
+    "action": {
+      "additionalProperties": false,
+      "description": "One entry of a lifecycle block or of a test's steps",
+      "oneOf": [
+        {
+          "required": [
+            "call"
+          ]
+        },
+        {
+          "required": [
+            "test"
+          ]
+        },
+        {
+          "required": [
+            "function"
+          ]
+        },
+        {
+          "required": [
+            "command"
+          ]
+        }
+      ],
+      "properties": {
+        "auth": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/authUse"
+            }
+          ],
+          "description": "Auth ID, `none`, or `id` + `vars`"
+        },
+        "body": {
+          "description": "Replaces the api's body"
+        },
+        "cache": {
+          "$ref": "#/$defs/cache",
+          "description": "Reuse the saves across runs"
+        },
+        "call": {
+          "description": "The api to call",
+          "examples": [
+            "users#create"
+          ],
+          "type": "string"
+        },
+        "command": {
+          "description": "A shell command to run",
+          "examples": [
+            "docker compose up -d --wait"
+          ],
+          "type": "string"
+        },
+        "expect": {
+          "$ref": "#/$defs/expect",
+          "description": "Merged with the api's checks"
+        },
+        "forEach": {
+          "description": "Run once per element of a list",
+          "examples": [
+            "${dataset.capitals}"
+          ]
+        },
+        "function": {
+          "description": "`path#export` to run",
+          "examples": [
+            "hooks/seed.ts#seedDb"
+          ],
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Merged over the api's headers",
+          "type": "object"
+        },
+        "id": {
+          "description": "Names its saved values in shared blocks",
+          "examples": [
+            "catalog"
+          ],
+          "type": "string"
+        },
+        "keep": {
+          "default": false,
+          "description": "Skip the api's cleanup",
+          "type": "boolean"
+        },
+        "parallel": {
+          "default": 1,
+          "description": "Iterations at a time",
+          "examples": [
+            5
+          ],
+          "type": "integer"
+        },
+        "poll": {
+          "$ref": "#/$defs/poll",
+          "description": "`until`, `every`, `timeout`"
+        },
+        "provides": {
+          "description": "Names a `function` or `test` action saves (D128)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "query": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Merged over the api's query",
+          "type": "object"
+        },
+        "repeat": {
+          "description": "Run the action this many times",
+          "examples": [
+            10
+          ],
+          "type": "integer"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry",
+          "description": "`attempts`, `delay`"
+        },
+        "save": {
+          "additionalProperties": {},
+          "description": "Values named for later steps, templated over `response`",
+          "type": "object"
+        },
+        "test": {
+          "description": "A test whose calls to run",
+          "examples": [
+            "shared.flows#checksOut"
+          ],
+          "type": "string"
+        },
+        "timeout": {
+          "description": "Time limit",
+          "examples": [
+            "30s"
+          ],
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Values for this call",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "authUse": {
+      "additionalProperties": false,
+      "description": "An auth with vars for it",
+      "properties": {
+        "id": {
+          "description": "The auth's ID",
+          "examples": [
+            "shopOauth"
+          ],
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Vars passed to the auth",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "bodyExpect": {
+      "additionalProperties": false,
+      "description": "Checks on the response body",
+      "properties": {
+        "equals": {
+          "description": "The whole body, compared deeply"
+        },
+        "match": {
+          "additionalProperties": {},
+          "description": "Matcher at a path in the body",
+          "type": "object"
+        },
+        "schema": {
+          "description": "JSON Schema the body must match, usually `$file`",
+          "examples": [
+            {
+              "$file": "schemas/user.json"
+            }
+          ],
+          "type": [
+            "object",
+            "string"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "cache": {
+      "additionalProperties": false,
+      "description": "Keep the action's saves across runs",
+      "properties": {
+        "check": {
+          "$ref": "#/$defs/action",
+          "description": "Quick call that confirms the cached data still exists"
+        },
+        "for": {
+          "description": "How long the result is reused",
+          "examples": [
+            "12h"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "for"
+      ],
+      "type": "object"
+    },
+    "expect": {
+      "additionalProperties": false,
+      "description": "Checks on a response; each value is a literal (equals) or a matcher",
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/bodyExpect",
+          "description": "Checks on the body: schema, match, equals"
+        },
+        "cel": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "CEL expressions that must be true, by label",
+          "examples": [
+            {
+              "has items": "size(response.body.items) > 0"
+            }
+          ],
+          "type": "object"
+        },
+        "custom": {
+          "description": "Functions that check the response",
+          "items": {
+            "$ref": "#/$defs/function"
+          },
+          "type": "array"
+        },
+        "headers": {
+          "additionalProperties": {},
+          "description": "Matcher per header; names are case-insensitive",
+          "examples": [
+            {
+              "content-type": {
+                "contains": "json"
+              }
+            }
+          ],
+          "type": "object"
+        },
+        "replace": {
+          "default": false,
+          "description": "Drop every inherited check and keep only these",
+          "type": "boolean"
+        },
+        "size": {
+          "description": "Matcher on the body size",
+          "examples": [
+            {
+              "lt": "100kb"
+            }
+          ]
+        },
+        "status": {
+          "description": "Code, list of codes, class (`2xx`) or matcher",
+          "examples": [
+            [
+              200,
+              201
+            ]
+          ],
+          "type": [
+            "integer",
+            "string",
+            "array",
+            "object"
+          ]
+        },
+        "timing": {
+          "$ref": "#/$defs/timing",
+          "description": "Matchers on the request phases",
+          "examples": [
+            {
+              "total": {
+                "lt": "500ms"
+              }
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "function": {
+      "additionalProperties": false,
+      "description": "A function in a code file",
+      "properties": {
+        "function": {
+          "description": "`path#export`",
+          "examples": [
+            "hooks/checks.ts#isSorted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "function"
+      ],
+      "type": "object"
+    },
+    "poll": {
+      "additionalProperties": false,
+      "description": "Re-send until `until` holds, then check `expect`",
+      "properties": {
+        "every": {
+          "description": "Pause between calls",
+          "examples": [
+            "2s"
+          ],
+          "type": "string"
+        },
+        "timeout": {
+          "description": "Give up after this long",
+          "examples": [
+            "1m"
+          ],
+          "type": "string"
+        },
+        "until": {
+          "$ref": "#/$defs/expect",
+          "description": "Checks that end the polling"
+        }
+      },
+      "required": [
+        "until",
+        "every",
+        "timeout"
+      ],
+      "type": "object"
+    },
+    "profileVars": {
+      "additionalProperties": false,
+      "description": "A profile's overrides of this file's vars",
+      "properties": {
+        "id": {
+          "description": "A profile defined in the config",
+          "examples": [
+            "staging"
+          ],
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Values that replace the file's vars under that profile",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "retry": {
+      "additionalProperties": false,
+      "description": "Re-run the whole test instance after a failure (D126)",
+      "properties": {
+        "attempts": {
+          "description": "Further attempts after the first",
+          "examples": [
+            2
+          ],
+          "type": "integer"
+        },
+        "delay": {
+          "default": "0s",
+          "description": "Pause between attempts",
+          "examples": [
+            "1s"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "attempts"
+      ],
+      "type": "object"
+    },
+    "skip": {
+      "additionalProperties": false,
+      "description": "Why and until when to skip",
+      "properties": {
+        "reason": {
+          "description": "Shown in reports",
+          "examples": [
+            "flaky upstream, see"
+          ],
+          "type": "string"
+        },
+        "until": {
+          "description": "Last day of the skip; after it the test runs again and `vc check` warns (V3104)",
+          "examples": [
+            "2026-12-01"
+          ],
+          "format": "date",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "type": "object"
+    },
+    "testEntry": {
+      "additionalProperties": false,
+      "description": "One test: a call or steps, with checks",
+      "oneOf": [
+        {
+          "required": [
+            "call"
+          ]
+        },
+        {
+          "required": [
+            "steps"
+          ]
+        }
+      ],
+      "properties": {
+        "after": {
+          "description": "Run after this test, inside `afterEach`",
+          "items": {
+            "$ref": "#/$defs/action"
+          },
+          "type": "array"
+        },
+        "auth": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/authUse"
+            }
+          ],
+          "description": "Auth ID, `none`, or `id` + `vars`"
+        },
+        "before": {
+          "description": "Run before this test, inside `beforeEach`",
+          "items": {
+            "$ref": "#/$defs/action"
+          },
+          "type": "array"
+        },
+        "body": {
+          "description": "Replaces the api's body"
+        },
+        "call": {
+          "description": "The api to call",
+          "examples": [
+            "users#get"
+          ],
+          "type": "string"
+        },
+        "examples": {
+          "description": "One test instance per row: a list of maps, `$file` or a template"
+        },
+        "expect": {
+          "$ref": "#/$defs/expect",
+          "description": "Merged with the api's checks"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Merged over the api's headers",
+          "type": "object"
+        },
+        "id": {
+          "description": "Third-person verb, such as `rejectsDeclinedCard`",
+          "examples": [
+            "getsCreatedUser"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Shown in reports",
+          "type": "string"
+        },
+        "poll": {
+          "$ref": "#/$defs/poll",
+          "description": "`until`, `every`, `timeout`"
+        },
+        "query": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Merged over the api's query",
+          "type": "object"
+        },
+        "repeat": {
+          "default": 1,
+          "description": "Run the whole test this many times",
+          "type": "integer"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry",
+          "description": "`attempts`, `delay`"
+        },
+        "save": {
+          "additionalProperties": {},
+          "description": "Values named for later steps, templated over `response`",
+          "type": "object"
+        },
+        "skip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/skip"
+            }
+          ],
+          "description": "Skip with a reason, optionally until a date"
+        },
+        "standalone": {
+          "default": true,
+          "description": "`false`: runs only when reused with `test:`",
+          "type": "boolean"
+        },
+        "steps": {
+          "description": "Several actions in order",
+          "items": {
+            "$ref": "#/$defs/action"
+          },
+          "type": "array"
+        },
+        "tags": {
+          "description": "Added to the file's tags",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "timeout": {
+          "description": "Time limit",
+          "examples": [
+            "30s"
+          ],
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Values for this call",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "timing": {
+      "additionalProperties": false,
+      "description": "Matchers on the request phases",
+      "properties": {
+        "connect": {
+          "description": "TCP connect"
+        },
+        "dns": {
+          "description": "Name lookup"
+        },
+        "download": {
+          "description": "Reading the body"
+        },
+        "firstByte": {
+          "description": "Until the first response byte"
+        },
+        "tls": {
+          "description": "TLS handshake"
+        },
+        "total": {
+          "description": "The whole request",
+          "examples": [
+            {
+              "lt": "500ms"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/v007m/vc-rs/master/schema/test.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A test file, `services/<service>/<area>.test.yaml`",
+  "properties": {
+    "afterAll": {
+      "description": "Run once after the file's tests",
+      "items": {
+        "$ref": "#/$defs/action"
+      },
+      "type": "array"
+    },
+    "afterEach": {
+      "description": "Run after every test instance",
+      "items": {
+        "$ref": "#/$defs/action"
+      },
+      "type": "array"
+    },
+    "beforeAll": {
+      "description": "Run once before the file's tests",
+      "items": {
+        "$ref": "#/$defs/action"
+      },
+      "type": "array"
+    },
+    "beforeEach": {
+      "description": "Run before every test instance",
+      "items": {
+        "$ref": "#/$defs/action"
+      },
+      "type": "array"
+    },
+    "id": {
+      "description": "File ID; must match the path (D139)",
+      "examples": [
+        "users.crud"
+      ],
+      "type": "string"
+    },
+    "name": {
+      "description": "Shown in reports",
+      "type": "string"
+    },
+    "profiles": {
+      "description": "Per-profile overrides of the file's vars",
+      "items": {
+        "$ref": "#/$defs/profileVars"
+      },
+      "type": "array"
+    },
+    "skip": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/skip"
+        }
+      ],
+      "description": "Skip every test in the file"
+    },
+    "tags": {
+      "description": "Added to every test in the file",
+      "examples": [
+        [
+          "smoke"
+        ]
+      ],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "tests": {
+      "description": "The tests",
+      "items": {
+        "$ref": "#/$defs/testEntry"
+      },
+      "type": "array"
+    },
+    "vars": {
+      "additionalProperties": {},
+      "description": "File-level vars",
+      "type": "object"
+    }
+  },
+  "title": "Vibranium test file",
+  "type": "object"
+}

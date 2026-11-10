@@ -1,0 +1,134 @@
+---
+title: expect.timing
+description: Matchers on how long each phase of the request took, from DNS lookup to the last byte.
+sidebar: { order: 405, badge: { text: 'expect', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`expect.timing` checks how long a request took, in total or per phase.
+
+```yaml
+expect:
+  timing:
+    total:
+      lt: 500ms
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `timing.dns` | matcher | none | no | Resolving the host name. |
+| `timing.connect` | matcher | none | no | Opening the TCP connection. |
+| `timing.tls` | matcher | none | no | The TLS handshake. Only on `https`. |
+| `timing.firstByte` | matcher | none | no | From sending the request to the first byte of the response. |
+| `timing.download` | matcher | none | no | Reading the response body. |
+| `timing.total` | matcher | none | no | The whole request. |
+
+Durations are a whole number and a unit, with no space: `250ms`, `2s`, `1m`, `12h`. Use them in `gt`, `gte`, `lt`, `lte` and `between`. Times are compared in milliseconds.
+
+## Examples
+
+**A response-time budget.** The most common timing check.
+
+```yaml
+expect:
+  timing:
+    total:
+      lt: 500ms
+```
+
+A failure shows both sides in milliseconds:
+
+```console
+✕ tm.timing#tooSlowSeconds                                       22ms
+  error[V5101]: expect.timing.total
+    --> services/tm/timing.test.yaml:23:11
+     |
+  23 |           gt: 1s
+     |           ^^^^^^ expected {"gt":1000.0}, got 2.7995
+```
+
+**Several phases.** Each phase is its own check.
+
+```yaml
+expect:
+  timing:
+    total:
+      lt: 500ms
+    firstByte:
+      lt: 2s
+    download:
+      lte: 100ms
+```
+
+**A budget on every call of an api.** Put it on the api, and every test that calls it inherits it. A test can loosen it for one slow case by writing `timing.total` again.
+
+```yaml
+apis:
+  - id: list
+    path: /users
+    expect:
+      status: 200
+      timing:
+        total:
+          lt: 300ms
+```
+
+```yaml
+tests:
+  - id: listsUnderLoad
+    call: users#list
+    expect:
+      timing:
+        total:
+          lt: 2s
+```
+
+**In CEL.** `response.timing.total` is a number of milliseconds, so it can be combined with other values.
+
+```yaml
+expect:
+  cel:
+    fast: response.timing.total < 1000.0
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: listsQuickly
+    call: users#list
+    expect:
+      timing:
+        total:
+          lt: 500ms
+        firstByte:
+          lt: 300ms
+`} />
+
+## How it behaves
+
+- **Merging.** Each phase is its own check. A more specific level replaces the check for that phase only.
+- **Phases that did not happen** report `got nothing` and fail. A `tls` check on an `http` URL fails with `expected {"lt":1000.0}, got nothing`.
+- **Timing is noisy.** Keep functional budgets generous. For latency targets under load, use thresholds in a load file instead.
+
+<Aside type="caution">
+`dns` and `connect` only happen when a new connection is opened. When a later step of a test reuses the connection to the same host, those phases are absent, and a `dns` or `connect` check fails with `got nothing`. Check `total` or `firstByte` on steps after the first.
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V1004](/vc-rs/reference/diagnostics/v1004/) | A phase name that is not one of the six. |
+| [V2301](/vc-rs/reference/diagnostics/v2301/) | Not a valid duration, such as `soon`. The help reads: write a whole number and a unit, `250ms`, `2s`, `1m` or `12h`. |
+| [V5101](/vc-rs/reference/diagnostics/v5101/) | A phase took longer (or shorter) than allowed, or did not happen. |
+
+## Related
+
+- [expect](/vc-rs/reference/syntax/expect/)
+- [size](/vc-rs/reference/syntax/size/)
+- [timeout](/vc-rs/reference/syntax/timeout/), which stops a request instead of checking it afterward
+- [cel](/vc-rs/reference/syntax/cel/)

@@ -39,7 +39,11 @@
       aria-controls="{uid}-panel"
       tabindex={selected === tab.id ? 0 : -1}
       onclick={() => (selected = tab.id)}
-      {onkeydown}>{tab.label}</button
+      {onkeydown}
+      >{tab.count ? `${tab.label} ` : tab.label}{#if tab.count}<span
+          class="count"
+          class:bad={tab.bad}>{tab.count}</span
+        >{/if}</button
     >
   {/each}
 </div>
@@ -66,6 +70,13 @@
   .tab[aria-selected='true'] {
     border-bottom-color: var(--accent);
     color: var(--ink);
+  }
+  .count {
+    color: var(--ink2);
+    font-weight: 400;
+  }
+  .count.bad {
+    color: var(--fail);
   }
   .panel {
     padding: 12px 0;

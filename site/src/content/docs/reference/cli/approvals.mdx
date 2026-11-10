@@ -1,0 +1,69 @@
+---
+title: "vc approvals"
+description: "Lists the agent calls that are waiting for a person to approve or deny them."
+sidebar: { order: 21 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+When a profile's [`agents`](/vc-rs/reference/config/agents/) block puts a method under `approve`, an agent's call with that method waits for a person. `vc approvals` shows what is waiting; [`vc approve`](/vc-rs/reference/cli/approve/) decides it.
+
+```console
+$ vc approvals [OPTIONS]
+```
+
+## Options
+
+| Flag | Value | Description |
+| --- | --- | --- |
+| `--all` | | Also lists the requests already decided or expired, each with its status |
+| `--project` | `<DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+Given this profile:
+
+```yaml title="vibranium.config.yaml"
+profiles:
+  - id: default
+    default: true
+    agents:
+      call: [GET]
+      approve: [POST]
+```
+
+an agent's `call_api` on `sample#createUser` waits:
+
+```console
+$ vc approvals
+#1  claude-code  call_api  default  POST sample#createUser
+```
+
+The columns are the request number, the agent's name (the MCP client's), the tool, the profile and a summary of the call. Newest first.
+
+```console
+$ vc approvals --all
+#4  claude-code  call_api  default  POST sample#createUser  (waiting)
+#3  claude-code  call_api  default  POST sample#createUser  (approved)
+#2  claude-code  call_api  default  POST sample#createUser  (denied)
+#1  claude-code  call_api  default  POST sample#createUser  (approved)
+```
+
+With nothing waiting, it prints `no requests waiting`, or `no requests` with `--all`.
+
+A request that nobody decides within 10 minutes expires, and the agent is refused.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Listed, including when nothing waits |
+| `2` | No project was found |
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc approve" href="/vc-rs/reference/cli/approve/" description="Approve or deny a request." />
+  <LinkCard title="Policy and approvals" href="/vc-rs/agents/policy-and-approvals/" description="What an agent may do on its own." />
+  <LinkCard title="Web UI" href="/vc-rs/guides/web-ui/" description="The same queue, in the browser." />
+</CardGrid>

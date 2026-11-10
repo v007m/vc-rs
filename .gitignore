@@ -25,6 +25,8 @@ rustc-ice-*.txt
 
 # Node / web
 node_modules/
+site/dist/
+site/.astro/
 
 # Vibranium local state and secrets
 .vibranium/

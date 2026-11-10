@@ -1,0 +1,189 @@
+---
+title: "status"
+description: "The status check matches the response's HTTP status code."
+sidebar: { order: 2 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`status` checks the HTTP status code. Write a code, a class such as `2xx`, a list of them, or a matcher.
+
+```yaml
+expect:
+  status: 201
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `status` | integer, class, list or matcher | — | no | Codes are 100 to 599. Classes are `1xx` to `5xx`, lowercase. |
+
+## Examples
+
+The examples call `sample#listUsers` on the demo service, which answers `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### One code
+
+
+
+```yaml title="services/sample/status.test.yaml"
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: sample#listUsers
+    expect:
+      status: 200
+```
+
+```console
+$ vc run sample.status#listsUsers
+plan  1 test in 1 file · profile default
+
+✓ sample.status#listsUsers                                        9ms
+
+1 passed                                                     12ms · profile default
+```
+
+### A class or a list
+
+A class covers a hundred codes. A list passes when any entry matches, and can mix codes and classes.
+
+```yaml title="services/sample/status.test.yaml"
+tests:
+  - id: anySuccess
+    name: Any success
+    call: sample#listUsers
+    expect:
+      status: 2xx
+  - id: okOrNoContent
+    name: 200 or 204
+    call: sample#listUsers
+    expect:
+      status: [200, 204]
+```
+
+```console
+$ vc run sample.status#anySuccess sample.status#okOrNoContent
+plan  2 tests in 1 file · profile default
+
+✓ sample.status#anySuccess                                       41ms
+✓ sample.status#okOrNoContent                                     0ms
+
+2 passed                                                     46ms · profile default
+```
+
+### A matcher
+
+Any matcher works on the code, such as a range.
+
+```yaml title="services/sample/status.test.yaml"
+tests:
+  - id: inRange
+    name: Status is from 200 to 299
+    call: sample#listUsers
+    expect:
+      status: {gte: 200, lt: 300}
+```
+
+```console
+$ vc run sample.status#inRange
+plan  1 test in 1 file · profile default
+
+✓ sample.status#inRange                                           4ms
+
+1 passed                                                     6ms · profile default
+```
+
+### A failing check
+
+The report shows what was expected and the code that came back.
+
+```yaml title="services/sample/status.test.yaml"
+tests:
+  - id: failsOnClass
+    name: Expects a client error
+    call: sample#listUsers
+    expect:
+      status: 4xx
+  - id: failsOnList
+    name: Expects 201 or 204
+    call: sample#listUsers
+    expect:
+      status: [201, 204]
+```
+
+```console
+$ vc run sample.status#failsOnClass sample.status#failsOnList
+plan  2 tests in 1 file · profile default
+
+✕ sample.status#failsOnClass                                      0ms
+  error[V5101]: expect.status
+    --> services/sample/status.test.yaml:26:15
+     |
+  26 |       status: 4xx
+     |               ^^^ expected ["4xx"], got 200
+✕ sample.status#failsOnList                                       0ms
+  error[V5101]: expect.status
+    --> services/sample/status.test.yaml:31:15
+     |
+  31 |       status: [201, 204]
+     |               ^^^^^^^^^^ expected [201,204], got 200
+
+0 passed · 2 failed                                          15ms · profile default
+```
+
+### An invalid status
+
+`vc check` rejects a code outside 100 to 599 and an uppercase class.
+
+```yaml title="services/sample/statuserrors.test.yaml"
+tests:
+  - id: badStatus
+    name: Bad status
+    call: sample#listUsers
+    expect:
+      status: 2XX
+```
+
+```console
+$ vc check
+error[V2303]: invalid status `2XX`
+ --> services/sample/statuserrors.test.yaml:6:15
+  |
+6 |       status: 2XX
+  |               ^^^
+  = help: write a code from 100 to 599 or a class from 1xx to 5xx
+
+1 error · 0 warnings · 41 files checked
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: listsUsers
+    name: Lists users
+    call: sample#listUsers
+    expect:
+      status: 200
+`} />
+
+## How it behaves
+
+- A list passes when any entry matches.
+- Classes are written in lowercase: `2xx`, not `2XX`.
+- An api's `status` applies to every call of that api. A test's `status` replaces it; see [merging](/vc-rs/reference/matchers/merging/).
+
+## Common errors
+
+- [V2303](/vc-rs/reference/diagnostics/v2303/): the status is not a code from 100 to 599 or a class from `1xx` to `5xx`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [Merging and replace](/vc-rs/reference/matchers/merging/)
+- [in](/vc-rs/reference/matchers/in/)
+- [headers](/vc-rs/reference/matchers/headers/)
+- [All matchers](/vc-rs/reference/matchers//)

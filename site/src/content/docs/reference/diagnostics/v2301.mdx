@@ -1,0 +1,95 @@
+---
+title: "V2301 — Invalid duration or size"
+description: "A duration or size is not written in a form Vibranium reads."
+sidebar:
+  label: "V2301 Invalid duration or size"
+  order: 2301
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2301` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | add the unit when unambiguous |
+
+A duration or size is not written in a form Vibranium reads. Units are always written out: durations as `250ms`, `2s`
+or `1m`, sizes as `4kb` or `1mb`. A bare number is never milliseconds.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    timeout: soon
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    timeout: 5s
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/users.api.yaml"
+id: users
+name: Users
+baseUrl: http://localhost:7421
+apis:
+  - id: listUsers
+    name: List users
+    path: /users
+    timeout: 5 seconds
+```
+
+```console
+$ vc check
+error[V2301]: invalid duration `5 seconds`
+ --> services/users/users.api.yaml:8:14
+  |
+8 |     timeout: 5 seconds
+  |              ^^^^^^^^^
+  = help: write a whole number and a unit: `250ms`, `2s`, `1m` or `12h`
+
+1 error · 0 warnings · 2 files checked
+$ echo $?
+2
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2301
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

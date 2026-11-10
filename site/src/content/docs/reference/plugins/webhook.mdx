@@ -1,0 +1,111 @@
+---
+title: "webhook"
+description: "The webhook alert channel POSTs a small CTRF JSON document to any http or https URL when an alert rule fires."
+sidebar: { order: 13 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+The `webhook` channel POSTs a JSON summary of the run to a URL you choose. Use it for your own services, chat tools without a built-in channel, or a quick catcher while you set alerts up.
+
+```yaml title="vibranium.config.yaml"
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - webhook:
+          url: https://hooks.example.com/vibranium
+```
+
+## Syntax
+
+| Setting | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `url` | http or https URL | — | yes | May use `${secret.X}` and `${env.X}` |
+
+The request:
+
+| Part | Value |
+| --- | --- |
+| Method | `POST` |
+| `content-type` | `application/json` |
+| Body | A CTRF report (`reportFormat: "CTRF"`, `specVersion: "0.2.0"`) with the alert under `results.extra` |
+
+The fields under `results.extra`:
+
+| Field | Notes |
+| --- | --- |
+| `trigger` | `failure`, `recovery`, `flaky` or `threshold` |
+| `project` | The project name from `vibranium.config.yaml` |
+| `profiles` | The run's profiles |
+| `failures` | Up to ten `{test, message}` items |
+| `moreFailures` | How many failures were left out of `failures` |
+| `breaches` | The breached load thresholds, such as `["p95"]` |
+| `report` | The path of the run's CTRF report, or `null` |
+
+In `results.summary`, `passed` counts flaky tests as passed.
+
+## Examples
+
+**A failed run.**
+
+```json
+{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[{"message":"status: expected [418], got 200","test":"sample.flip#listsUsersWithStatus"}],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/15/ctrf.json","trigger":"failure"},"summary":{"failed":1,"other":0,"passed":0,"pending":0,"skipped":0,"start":1794332027009,"stop":1794332027017,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
+```
+
+**The URL from the environment.** `${env.X}` and `${secret.X}` are rendered when the run ends.
+
+```yaml
+alerts:
+  - notify:
+      - webhook:
+          url: ${env.QA_HOOK_URL}
+```
+
+**A server that answers with an error.** The run's exit code does not change.
+
+```console
+warning: V5117: the `webhook` alert was not sent: HTTP 500
+```
+
+**A server that is not running.**
+
+```console
+warning: V5117: the `webhook` alert was not sent: cannot connect to 127.0.0.1:7999: Connection refused (os error 61)
+```
+
+**A URL that is not http or https.**
+
+```console
+warning: V5117: the `webhook` alert channel `url` is not an http or https URL
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - webhook:
+          url: https://hooks.example.com/vibranium
+`} />
+
+## How it behaves
+
+- Any 2xx answer counts as sent. Any other status is a `V5117` warning naming the status.
+- When the request cannot be sent at all, the warning shows the host but replaces the URL's path and query with `/…`, so a token in the URL stays out of logs.
+- The body is the same for every trigger; read `results.extra.trigger` to tell them apart.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5117](/vc-rs/reference/diagnostics/v5117/) | `url` is missing or not an http or https URL, or the POST failed |
+
+## Related
+
+- [alerts](/vc-rs/reference/plugins/alerts/)
+- [Triggers](/vc-rs/reference/plugins/triggers/)
+- [Reports config](/vc-rs/reference/config/reports/)

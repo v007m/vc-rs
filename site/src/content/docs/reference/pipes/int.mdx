@@ -1,0 +1,103 @@
+---
+title: "int"
+description: "Convert text or a number to a whole number, cutting off any fraction."
+sidebar: { order: 2 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`int` turns text or a number into a whole number. A fraction is cut off toward zero, not rounded.
+
+```yaml
+      page: ${var.page | int}   # "2" becomes 2
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text or a number | — | yes | Surrounding spaces are ignored. |
+| output | whole number | — | — | `42.9` gives `42`; `-3.7` gives `-3`. |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  count: "42"
+  fraction: 42.9
+  neg: "-12"
+  sci: "1e3"
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.count \| int}` | `42` |
+| `${var.fraction \| int}` | `42` |
+| `"42.9"` piped to `int` | `42` |
+| `-3.7` piped to `int` | `-3` |
+| `${var.neg \| int}` | `-12` |
+| `${var.sci \| int}` | `1000` |
+
+Compare a response field with a var that holds text. This check passed:
+
+```yaml
+vars:
+  count: "42"
+tests:
+  - id: comparesWithAPipe
+    call: sample#echo
+    vars:
+      payload:
+        n: 42
+    expect:
+      body:
+        match:
+          body.n: ${var.count | int}
+```
+
+Inside other text the result is text: `"n=${var.count | int}"` sent `"n=42"`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: sendsWholeNumbers
+    call: sample#echo
+    vars:
+      count: "42"
+      fraction: 42.9
+      payload:
+        page: \${var.count | int}
+        cut: \${var.fraction | int}
+`} />
+
+## How it behaves
+
+- A whole number passes through unchanged. A decimal is truncated toward zero.
+- A number too large for a 64-bit whole number fails at run time.
+- Like `number`, `vc check` accepts a boolean input, but the run rejects it.
+
+## Common errors
+
+Run-time messages:
+
+| Input | Message |
+| --- | --- |
+| `"abc"` | ``pipe `int` cannot take "abc": the text is not a number`` |
+| `1e30` | ``pipe `int` cannot take 1e+30: the number is too large for a whole number`` |
+| `true` | ``pipe `int` cannot take true: it takes text or a number`` |
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known to be a list or an object.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the text is not a number, the number is too large, or the input is a boolean.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="number" href="/vc-rs/reference/pipes/number/" />
+  <LinkCard title="Types" href="/vc-rs/reference/templates/types/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

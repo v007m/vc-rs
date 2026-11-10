@@ -1,0 +1,72 @@
+---
+title: "V2102 — ${item}, ${example} or ${iteration} used outside its block"
+description: "${item}, ${example} and ${iteration} exist only inside the block that makes them: item inside forEach, example in a test with examples, and iteration inside repeat, forEach or a repeated test."
+sidebar:
+  label: "V2102 ${item}, ${example} or ${iteration} used outside its block"
+  order: 2102
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2102` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+`${item}`, `${example}` and `${iteration}` exist only inside the block that makes them: `item` inside `forEach`,
+`example` in a test with `examples`, and `iteration` inside `repeat`, `forEach` or a repeated test.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    vars:
+      userId: ${item.id}
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    examples:
+      - id: 1
+      - id: 2
+    call: users#getUser
+    vars:
+      userId: ${example.id}
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2102
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

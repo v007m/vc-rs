@@ -1,0 +1,227 @@
+---
+title: beforeRequest and afterResponse
+description: JavaScript or TypeScript functions that change a request before it is sent or inspect the response after.
+sidebar:
+  order: 133
+  badge: { text: 'api', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Request hooks are small functions that run around a call. `beforeRequest` can change the request, for example to add a signature header. `afterResponse` sees the request and the response and can fail the call by throwing.
+
+```yaml title="services/hooked/hooked.api.yaml"
+beforeRequest:
+  - function: ../../hooks/sign.ts#addSignature
+```
+
+## Syntax
+
+Both keys take a list of functions. Write them at the top of an api file (for every api in it) or on one `apis` entry.
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `beforeRequest[].function` | `<path>#<export>` | — | yes | Runs before the request is sent; may return a changed request |
+| `afterResponse[].function` | `<path>#<export>` | — | yes | Runs after the response arrives; its return value is ignored |
+
+The path is relative to the YAML file and ends in `.ts`, `.mts`, `.js` or `.mjs` (ES modules only). The export must be a named function.
+
+| Hook | Receives | Returns |
+| --- | --- | --- |
+| `beforeRequest` | `{ request }` with `method`, `url`, `path`, `query`, `headers`, `body` | The changed request, or nothing to keep it as is |
+| `afterResponse` | `{ request, response }`; `response` has `status`, `headers`, `body`, `timing` | Ignored. Throw to fail the call |
+
+## Examples
+
+### Signing every request in a file
+
+<Tabs>
+<TabItem label="api file">
+
+```yaml title="services/hooked/hooked.api.yaml"
+baseUrl: ${var.sampleUrl}
+beforeRequest:
+  - function: ../../hooks/sign.ts#addSignature
+afterResponse:
+  - function: ../../hooks/sign.ts#requireOk
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    body:
+      hello: world
+    beforeRequest:
+      - function: ../../hooks/sign.ts#addTrace
+```
+
+</TabItem>
+<TabItem label="hook file">
+
+```ts title="hooks/sign.ts"
+import { sha256Hex } from "vibranium:std";
+
+export function addSignature({ request }) {
+  const signature = sha256Hex(request.path);
+  return { ...request, headers: { ...request.headers, "x-signature": signature } };
+}
+
+export function addTrace({ request }) {
+  return { ...request, headers: { ...request.headers, "x-trace": "api-level" } };
+}
+
+export function requireOk({ response }) {
+  if (response.status >= 500) {
+    throw new Error(`server error ${response.status}`);
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+The file-level hook runs first, then the api's own. (A pair of hooks that each append to one header produced `x-order: file,api`.) The echo service shows both headers arrived:
+
+```console
+$ vc call hooked#echo
+200 OK · 4 ms · api expect passed
+{
+  "body": {
+    "hello": "world"
+  },
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "content-length": "17",
+    "content-type": "application/json",
+    "host": "localhost:7433",
+    "user-agent": "vibranium/2",
+    "x-signature": "cb9c1f54d8102d68b7a40c2376e1f0e85e330f2df11a0bb83c8084694f5c73c2",
+    "x-trace": "api-level"
+  },
+  "method": "POST",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+A test can check what the hooks added:
+
+```yaml title="services/hooked/sign.test.yaml"
+tests:
+  - id: signsRequests
+    call: hooked#echo
+    expect:
+      body:
+        match:
+          headers.x-trace: api-level
+          headers.x-signature:
+            type: string
+```
+
+### Failing a call from `afterResponse`
+
+```yaml title="services/hooked/hooked.api.yaml (excerpt)"
+  - id: missing
+    path: /users/999
+    expect:
+      status: 404
+    afterResponse:
+      - function: ../../hooks/sign.ts#rejectNotFound
+```
+
+```ts title="hooks/sign.ts (excerpt)"
+export function rejectNotFound({ request, response }) {
+  if (response.status === 404) {
+    throw new Error(`${request.method} ${request.url} returned 404`);
+  }
+}
+```
+
+```console
+$ vc call hooked#missing
+✗ `hooks/sign.ts#rejectNotFound`: the hook threw: Error: GET http://localhost:7433/users/999 returned 404 (line 24)
+```
+
+The `expect` passed, but the hook's throw still fails the call.
+
+### Helpers from `vibranium:std`
+
+Hooks run in an embedded JavaScript engine, not Node. There is no `fetch`, file system or `console`. Import helpers from `vibranium:std`:
+
+| Helper | Does |
+| --- | --- |
+| `sha256Hex(text)` | SHA-256 digest as hex |
+| `hmacSha256Hex(key, text)` | HMAC-SHA-256 as hex |
+| `base64Encode(text)`, `base64Decode(text)` | Base64 |
+| `urlEncode(text)`, `urlDecode(text)` | Percent-encoding |
+
+<Aside type="caution">
+The design gives hooks a global `secret(name)` for signing keys. In the current build it is not wired up: `secret("API_KEY")` throws `ReferenceError: no secret` even when the secret is declared and set. Until that is fixed, pass non-secret values through the request, and keep real keys out of hooks.
+</Aside>
+
+## Try it
+
+<Playground client:visible kind="api" code={`
+baseUrl: \${var.sampleUrl}
+beforeRequest:
+  - function: ../../hooks/sign.ts#addSignature
+apis:
+  - id: echo
+    method: POST
+    path: /echo
+    body:
+      hello: world
+`} />
+
+## How it behaves
+
+- **Order.** File-level hooks run before the api's own, each list in the order written.
+- **`beforeRequest` returns the new request.** Changes to `headers`, `body`, `url`, `path` and `query` are applied. Returning nothing (or `null`) keeps the request unchanged. Returning anything that is not an object fails the call with V5115.
+- **`afterResponse` cannot change the response.** It can only throw. A throw fails the call, even when `expect` passed.
+- **Budget.** Each hook gets 200 ms and 64 MiB by default. Going over is V5116.
+- **No console.** `console.log` throws `ReferenceError: console is not defined`, which fails the call with V5115.
+- Hooks are checked by `vc check`: the file must exist, parse, and export the named function.
+
+## Common errors
+
+```console
+$ vc check
+error[V2005]: ../../hooks/sign.ts exports no function `addSignatur`
+ --> services/errs/errs.api.yaml:7:19
+  |
+7 |       - function: ../../hooks/sign.ts#addSignatur
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not exported
+  = help: did you mean `addSignature`?
+  = fix: Replace with addSignature (certain)
+
+error[V2004]: ../../hooks/nope.ts is not in the project
+  --> services/errs/errs.api.yaml:11:19
+   |
+11 |       - function: ../../hooks/nope.ts#check
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^ no file at hooks/nope.ts
+   = help: did you mean `../../hooks/sign.ts`?
+   = fix: Replace with ../../hooks/sign.ts (certain)
+```
+
+A hook that calls `console.log` fails at run time:
+
+```console
+$ vc call hooked2#logged
+✗ `hooks/sign.ts#logStatus`: the hook threw: ReferenceError: console is not defined (line 33)
+```
+
+| Code | When |
+| --- | --- |
+| [V1013](/vc-rs/reference/diagnostics/v1013/) | The hook file does not parse |
+| [V2004](/vc-rs/reference/diagnostics/v2004/) | The hook file does not exist |
+| [V2005](/vc-rs/reference/diagnostics/v2005/) | The file has no export with that name |
+| [V2008](/vc-rs/reference/diagnostics/v2008/) | The hook imports something not allowed, or has a wrong extension |
+| [V5115](/vc-rs/reference/diagnostics/v5115/) | The hook threw, or returned something that is not a request |
+| [V5116](/vc-rs/reference/diagnostics/v5116/) | The hook ran past its time or memory budget |
+
+## Related
+
+- [`function`](/vc-rs/reference/syntax/function/) actions and [`custom`](/vc-rs/reference/syntax/custom/) checks use the same runtime
+- [`auth`](/vc-rs/reference/syntax/auth/), [`headers`](/vc-rs/reference/syntax/headers/)
+- [Plugins](/vc-rs/reference/plugins/)

@@ -1,0 +1,149 @@
+---
+title: status
+description: The HTTP status a response must have. A code, a class such as 2xx, a list of both, or a matcher.
+sidebar: { order: 401, badge: { text: 'expect', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`expect.status` sets the HTTP status the response must have.
+
+```yaml
+expect:
+  status: 201
+```
+
+## Syntax
+
+| Form | Example | Passes when |
+| --- | --- | --- |
+| code | `status: 201` | the status is 201 |
+| quoted code | `status: "201"` | the same as the number |
+| class | `status: 4xx` | the status is from 400 to 499 |
+| list | `status: [200, 201, 3xx]` | the status matches any item |
+| matcher | `status: { gte: 200, lt: 300 }` | the matcher passes on the number |
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `status` | code, class, list or matcher | `2xx` when no level sets it | no | Codes are 100 to 599. Classes are `1xx` to `5xx`, lowercase. Cannot be templated. |
+
+## Examples
+
+**One code.** The most common form.
+
+```yaml
+expect:
+  status: 201
+```
+
+A mismatch shows the expected list and the actual code:
+
+```console
+✕ lab.fails#badStatus                                             4ms
+  error[V5101]: expect.status
+   --> services/lab/fails.test.yaml:5:15
+    |
+  5 |       status: 201
+    |               ^^^ expected [201], got 200
+```
+
+**A class.** `4xx` accepts any client error. This is handy for negative tests where the exact code does not matter.
+
+```yaml
+expect:
+  status: 4xx
+```
+
+**A list.** Codes and classes can be mixed. The status passes if it matches any item.
+
+```yaml
+expect:
+  status: [201, 2xx]
+```
+
+**A matcher.** Any [matcher](/vc-rs/reference/matchers/) that works on a number works here.
+
+```yaml
+expect:
+  status:
+    gte: 200
+    lt: 300
+```
+
+```yaml
+expect:
+  status:
+    in: [200, 204]
+```
+
+```yaml
+expect:
+  status:
+    not:
+      eq: 500
+```
+
+**Override the api's status in a negative test.** The test's `status` replaces the api's. The api's other checks still run (see [expect](/vc-rs/reference/syntax/expect/)).
+
+```yaml
+tests:
+  - id: returnsNotFound
+    call: users#get
+    vars:
+      userId: "999"
+    expect:
+      status: 404
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: returnsNotFound
+    call: users#get
+    vars:
+      userId: "999"
+    expect:
+      status: [404, 410]
+`} />
+
+## How it behaves
+
+- **Default.** When no level writes `status`, the response must be `2xx`. This holds even under `replace: true`. The failure carries a note naming the api: `expected ["2xx"], got 404` and `= note: expected by api dflt#bare`.
+- **Merging.** `status` is one check. A test's `status` replaces the api's, and a step's replaces the test's. It never combines with the inherited value.
+- **Validation.** `vc check` rejects codes outside 100 to 599, classes outside `1xx` to `5xx`, uppercase classes such as `2XX`, and words.
+- **Templates.** `status` cannot be templated. `status: ${var.okStatus}` is [V2303](/vc-rs/reference/diagnostics/v2303/). To expect a different status per example row, accept both in `status` and pin the exact code with a `cel` check:
+
+  ```yaml
+  - id: answersPerRow
+    call: users#get
+    examples:
+      - userId: "1"
+        code: 200
+      - userId: "999"
+        code: 404
+    vars:
+      userId: ${example.userId}
+    expect:
+      status: [2xx, 4xx]
+      cel:
+        status per row: response.status == example.code
+  ```
+
+<Aside type="note">
+`vc explain` does not list the default `2xx`, although the run applies it.
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2303](/vc-rs/reference/diagnostics/v2303/) | Not a valid code, class or matcher, or a template. The message reads `invalid status 6xx` with `help: write a code from 100 to 599 or a class from 1xx to 5xx`. |
+| [V5101](/vc-rs/reference/diagnostics/v5101/) | The response had another status. |
+
+## Related
+
+- [expect](/vc-rs/reference/syntax/expect/)
+- [replace](/vc-rs/reference/syntax/replace/)
+- [Matchers](/vc-rs/reference/matchers/)
+- [cel](/vc-rs/reference/syntax/cel/)

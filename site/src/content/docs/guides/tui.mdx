@@ -1,0 +1,201 @@
+---
+title: "Terminal UI"
+description: "Run tests, browse the project, compare runs, watch load tests and import apis from one keyboard-driven screen with vc tui."
+sidebar: { order: 3 }
+---
+
+import { Tabs, TabItem, Aside, Steps, Card, CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
+
+`vc tui` opens a full-screen terminal app on your project. It has five tabs: **Run**, **Explore**, **History**, **Load** and **Import**. Everything is driven from the keyboard, and it runs on the same engine as `vc run`, `vc explain`, `vc history`, `vc load` and `vc import`.
+
+## Start it
+
+Run it from the project folder, or point it at one:
+
+```console
+$ vc tui
+$ vc tui --profile staging
+$ vc tui --project ./api-tests --profile ci,eu
+```
+
+| Flag | What it does |
+| --- | --- |
+| `--profile <IDS>` | The active profiles, as a comma list or repeated. Later ones win. |
+| `--project <DIR>` | The project folder. Defaults to the current folder. |
+
+The TUI needs a real terminal. Piped or in CI, it stops with exit code 2:
+
+```console
+$ vc tui | cat
+error: vc tui needs a terminal
+  = help: run it in a terminal; `vc run` reports to a pipe or a CI log
+```
+
+Output that plugins write to stderr goes to a log file under `.vibranium/plugin-logs/`, so it doesn't break the screen.
+
+## The screen
+
+The top line shows the project folder name and the active profiles (`default` when you set none). The tab bar sits on the right:
+
+```
+◆ vibranium shop  profile staging                 1 Run  2 Explore  3 History  4 Load  5 Import
+```
+
+The bottom line lists the keys for the tab you're on, followed by `? help` and `q quit`. Press `?` for a help panel with the same keys, written out.
+
+### Keys that work everywhere
+
+| Key | Action |
+| --- | --- |
+| `1` to `5` | Go to a tab |
+| `tab` / `shift-tab` | Next / previous tab |
+| `?` | Open or close the help |
+| `esc` | Close the help |
+| `q` | Quit (asks first while a run is going) |
+| `ctrl-c` | Quit right away |
+
+When a tab asks you to type something (a skip reason, an import source), every key goes into that field. `enter` keeps the text, `esc` cancels, `backspace` deletes. `ctrl-c` still quits.
+
+### One run at a time
+
+A test run and a load run can't overlap. If you start one while the other is going, the status line says `a run or load run is in progress: x on its tab stops it`.
+
+## Run
+
+Runs tests and shows results as they arrive.
+
+| Key | Action |
+| --- | --- |
+| `↑` `↓` or `j` `k` | Move between tests |
+| `a` | Run every test |
+| `r` | Rerun the selected test |
+| `R` | Rerun the last run's failures |
+| `f` | Show only failed and blocked tests (press again to show all) |
+| `x` | Stop the run. Press `x` again to skip cleanups |
+
+The screen has three panes:
+
+- **Tests**: the files with their counts, and each test with its status mark. A test that took more than one attempt shows `×3` and so on.
+- **Test detail**: the selected test's ID, its `path:line`, why it failed or was skipped, and each check with its line, plus `expected …, got …` for a check that failed.
+- **Requests**: the latest requests as `METHOD path  status  time  action`. 2xx and 3xx are green; other codes are red.
+
+| Mark | Meaning |
+| --- | --- |
+| `✓` | Passed |
+| `✕` | Failed |
+| `⊘` | Blocked |
+| `↻` | Flaky (passed on a retry) |
+| `–` | Skipped |
+
+The status line tracks progress (`running 12/40` with counts and the number of requests). When the run ends, it shows the outcome and the run number: `passed`, `failed`, `nothing ran (exit 2)` or `cancelled (130)`. If the screen couldn't keep up and dropped events, it says `missed N events; vc history has them`.
+
+<Aside type="tip">
+`x` asks the run to stop the way Ctrl-C does in `vc run`: tests wind down and cleanups still run. Press `x` a second time if you don't want to wait for the cleanups.
+</Aside>
+
+## Explore
+
+Browses every api and test in the project, and shows how a run sees each one.
+
+| Key | Action |
+| --- | --- |
+| `↑` `↓` | Move between items |
+| `enter` | Explain the selected item |
+| `pgup` / `pgdn` | Scroll the explanation |
+| `t` | Skip or unskip the selected test |
+| `r` | Reload the project |
+
+- **Project**: items grouped by file, apis first. Skipped tests are marked `– skipped`.
+- **Details**: the ID, name, file and tags. For a test, it also says whether the test runs or is skipped.
+- **Explain**: press `enter` to see what `vc explain` prints for the item under your active profiles: its URL, vars and checks.
+
+Press `t` on a test to skip it. You're asked for a reason (`skip users.crud#getsCreatedUser because: …`), which is written to the test file and shows up in reports. A skip with no reason is refused. Press `t` on a skipped test to unskip it. Apis can't be skipped; `t` on one only shows a hint.
+
+## History
+
+Lists the last 30 stored runs, newest first, and compares them.
+
+| Key | Action |
+| --- | --- |
+| `↑` `↓` | Move between runs |
+| `enter` | Compare the selected run with the one before it |
+| `r` | Reload |
+
+- **Runs**: the run number, start time, `branch@commit`, pass rate, counts (`✓ ✕ ⊘ ↻`) and duration. The pass rate counts flaky tests as passed.
+- **Trends**: sparklines for pass rate and duration across the test runs shown.
+- **Flaky and failing**: the tests that flaked or failed most often, worst first, with their mean time.
+- **Compare**: `enter` compares the selected run with the previous run of the same kind. It lists tests that are newly failing, newly blocked, fixed, slower by more than 20%, and still failing. Load runs aren't compared.
+
+When a run finishes while you're on another tab, History reloads the next time you open it.
+
+## Load
+
+Runs the load scenarios in your `*.load.yaml` files and shows them second by second.
+
+| Key | Action |
+| --- | --- |
+| `↑` `↓` | Move between scenarios |
+| `enter` | Run the selected scenario |
+| `x` | Stop it. Press `x` again to skip cleanups |
+| `r` | Reload the scenario list |
+
+- **Scenarios**: each scenario's ID and name.
+- **Live**: the latest second, as `vc load` prints it: virtual users, requests per second, p50, p95 and p99 latency, errors, and any threshold being breached. Below it are sparklines for requests per second and p95.
+- **Seconds**: the recent seconds, newest first. When the run ends, this pane shows the `vc load` summary instead.
+
+The status line ends with the exit code and run number. Exit code 3 means a threshold was breached.
+
+## Import
+
+Drafts api and test files from an existing source, shows you the diffs, and writes them only when you say so.
+
+| Key | Action |
+| --- | --- |
+| `↑` `↓` | Move between fields |
+| `←` `→` | Change the importer (on the importer field) |
+| `enter` or `space` | Edit the field, or toggle it |
+| `d` | Draft the import |
+| `n` | Show the next file's diff |
+| `pgup` / `pgdn` | Scroll the diff |
+| `w` | Write the drafted files |
+| `x` | Discard the draft |
+
+The form has these fields:
+
+| Field | What it sets |
+| --- | --- |
+| importer | The format to read: `curl`, `har`, `http`, `openapi` or `postman` |
+| source | A URL, or a path inside the project |
+| file id | The file ID for the new files. Defaults to the source's name |
+| tests | Add a happy-path test for each api |
+| negative | Add tests with bad input that the schema rejects |
+| auth | Add a 401 test for each secured api |
+
+<Steps>
+
+1. Choose the importer and type the source.
+2. Press `d`. The **Draft** pane lists each file as new or changed, and the **Diff** pane shows the change. Nothing is written yet.
+3. Step through the files with `n`.
+4. Press `w` to write them, or `x` to throw the draft away.
+
+</Steps>
+
+If the project already has everything the source describes, the draft says `nothing to import: the project has it all`. After a write, the Explore tab reloads so the new items show up there.
+
+## Quitting during a run
+
+If a run or load run is going, `q` asks first:
+
+```
+a run is in progress: press q again to stop it and quit, any other key to stay
+```
+
+Press `q` again to stop the run and quit. Its cleanups get a few seconds to finish before the TUI exits. `ctrl-c` skips the question and quits right away.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc tui reference" href="/vc-rs/reference/cli/tui/" />
+  <LinkCard title="vc run reference" href="/vc-rs/reference/cli/run/" />
+  <LinkCard title="Web UI" href="/vc-rs/guides/web-ui/" />
+</CardGrid>

@@ -1,0 +1,80 @@
+---
+title: "Escaping"
+description: "Write ${ to send a literal ${ instead of starting a template."
+sidebar: { order: 15 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Write `$${` where you want a literal `${` in a value.
+
+```yaml
+    body:
+      template: Hello $${name}     # sends "Hello ${name}"
+```
+
+## Syntax
+
+| You write | You get |
+| --- | --- |
+| `$${` | `${` |
+| `${…}` | a template |
+
+## Examples
+
+With `count: 42`:
+
+```yaml title="services/tpl/roots.test.yaml"
+      payload:
+        escaped: $${var.count}
+        escapedMixed: cost $${var.count} is ${var.count}
+```
+
+```json
+{ "escaped": "${var.count}", "escapedMixed": "cost ${var.count} is 42" }
+```
+
+Sending a template to a server that has its own `${…}` syntax, such as a notification template:
+
+```yaml
+    body:
+      subject: Welcome, $${user.firstName}
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`vars:
+  count: 42
+tests:
+  - id: escapesTemplates
+    call: sample#echo
+    vars:
+      payload: cost $\${var.count} is \${var.count}
+`} />
+
+## How it behaves
+
+- Only `${` needs escaping. A `$` on its own, or `{` on its own, is plain text.
+- Quoted keys and single-quoted pipe arguments have no escapes.
+
+## Common errors
+
+An unclosed `${` that you meant as text is a syntax error:
+
+```console
+error[V2305]: invalid template: expected `}` or `|`
+  --> services/tpl/p2.test.yaml:12:27
+   |
+12 |       payload: ${var.order
+   |                           ^
+   = help: write `${namespace.path | pipe}`; write `$${` for a literal `${`
+```
+
+- [V2305](/vc-rs/reference/diagnostics/v2305/): the template does not parse.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Templates" href="/vc-rs/reference/templates/" />
+</CardGrid>

@@ -1,0 +1,95 @@
+---
+title: "vc cache"
+description: "Lists or clears the cross-run cache that cache: actions fill."
+sidebar: { order: 9 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+A `call` or `test` action with [`cache:`](/vc-rs/reference/lifecycle/cache/) keeps what it saved across runs, so a slow setup step runs once and later runs reuse it. `vc cache` lists those entries and clears them.
+
+```console
+$ vc cache list [OPTIONS]
+$ vc cache clear [OPTIONS] [ID]
+```
+
+## Options
+
+| Command | Flag | Description |
+| --- | --- | --- |
+| `vc cache list` | `--json` | Prints the entries as JSON on stdout |
+| `vc cache clear` | `[ID]` | The action whose entries go, as `users#createUser`. Every entry when left out |
+| both | `--project <DIR>` | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+Given a cached setup step:
+
+```yaml title="services/sample/fixture.test.yaml"
+beforeAll:
+  - id: fixture
+    call: sample#createUser
+    cache:
+      for: 12h
+tests:
+  - id: getsFixture
+    name: Gets the fixture
+    call: sample#getUser
+    vars:
+      userId: ${var.fixture.userId}
+```
+
+### List the entries
+
+```console
+$ vc run sample.fixture
+...
+$ vc cache list
+sample#createUser  expires 2026-11-11 06:01Z  profile default
+$ vc cache list --json
+[
+  {
+    "createdMs": 1794333719522,
+    "expiresMs": 1794376919522,
+    "label": "sample#createUser",
+    "profiles": ["default"]
+  }
+]
+```
+
+With nothing cached, `vc cache list` prints `the cache is empty` and `--json` prints `[]`.
+
+### Clear one action, or everything
+
+```console
+$ vc cache clear sample#createUser
+cleared 1 entry
+$ vc cache clear
+cleared 0 entries
+```
+
+Clearing runs each entry's cleanup, so what the cached action created is removed too. An ID with no entries clears nothing and still exits 0.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Listed or cleared |
+| `2` | The cache cannot be opened, for example because `VIB_CACHE_KEY` is not 64 hex digits |
+
+```console
+$ VIB_CACHE_KEY=nothex vc cache list
+error: cache: V5113: no cache key: `VIB_CACHE_KEY` is not 64 hex digits
+  = help: set `VIB_CACHE_KEY` to 64 hex digits, as CI does, or run where the OS keychain is unlocked
+```
+
+<Aside type="note">
+Cache entries are encrypted. The key comes from the OS keychain, or from `VIB_CACHE_KEY` where there is no keychain, as in CI. See [Running in CI](/vc-rs/guides/ci/#cache-between-ci-runs).
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Cross-run cache" href="/vc-rs/reference/lifecycle/cache/" description="The cache key on actions." />
+  <LinkCard title="vc run --no-cache" href="/vc-rs/reference/cli/run/" description="Run without reading or writing the cache." />
+</CardGrid>

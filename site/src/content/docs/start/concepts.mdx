@@ -1,0 +1,95 @@
+---
+title: Concepts
+description: The mental model behind Vibranium, from config, apis and tests to vars, profiles, lifecycle blocks, runs and results.
+sidebar: { order: 3 }
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Vibranium tests HTTP APIs from plain YAML files in your repo. One engine runs functional, contract and load tests. The CLI, the TUI, the web UI and the MCP server for AI agents all drive that same engine.
+
+## The pieces
+
+A project is one `vibranium.config.yaml` at the root, plus api, test and load files anywhere below it.
+
+| Piece | File | What it holds | Referred to as |
+| --- | --- | --- | --- |
+| **Config** | `vibranium.config.yaml` | Project-wide vars, profiles, auth, secrets, defaults, reports and history settings | — |
+| **Api** | `services/<service>/<service>.api.yaml` | How to call one endpoint: method, path, headers, body, and its own `expect`, `save` and `cleanup` | `users#createUser` |
+| **Test** | `services/<service>/<area>.test.yaml` | Tests that call apis and state what they expect, plus lifecycle blocks around them | `users.crud#getsCreatedUser` |
+| **Load scenario** | `load/<area>/<name>.load.yaml` | A mix of existing tests, run at a rate in stages, with thresholds | `checkout.peak` |
+| **Dataset** | `datasets/*.csv`, `*.json`, `*.yaml` | Rows of your own data for data-driven tests | `${dataset.cities}` |
+| **Hook** | `hooks/*.ts`, `*.js`, … | Functions for setup actions, request hooks and custom checks | `../../hooks/seed.ts#seedUser` (a path from the file, then `#` and the export) |
+
+An api knows how to call an endpoint. A test decides what to call and what to expect. Many tests reuse one api, so a change to the endpoint is a change in one place.
+
+## How a run flows
+
+```
+ YAML files ──► vc check ──► vc plan ──────────► vc run ──────────► results
+               parse, link   which tests,        send requests,     terminal, reports,
+               and type-     in which order,     check, save,       history, exit code
+               check         with what setup     clean up
+```
+
+- **`vc check`** reads every file and resolves every ID and `${…}` reference before anything is sent. Mistakes come back as diagnostics with a code, the line, and often a fix.
+- **`vc plan`** shows what a run would do: the tests, the lifecycle blocks around them and the active profile.
+- **`vc run`** runs tests in parallel. Each test instance ends as **passed**, **failed**, **blocked** (its setup failed), **skipped** or **flaky** (passed on a retry).
+- Each run writes reports to `.vibranium/reports/<n>/` and a row to the run history. `vc history` lists past runs.
+
+## Inside a test
+
+A test is a `call` of one api, or `steps` of several actions in order. Around it:
+
+- **`expect`** states the checks: status, headers, body matches, schema and timing. The api's own `expect` applies too, and the test's checks merge over it. A test's `status` replaces the api's.
+- **`save`** names values from a response, such as `userId: ${response.body.id}`, for later steps.
+- **`cleanup`** on an api undoes a successful call automatically, after the test. Create a user, and it gets deleted for you.
+- **Lifecycle blocks** prepare data: `beforeAll` and `afterAll` once per file, `beforeEach` and `afterEach` around every test, `before` and `after` around one test. Where a block sits decides how long its data lives.
+- **Loops and data**: `examples` runs one instance per row, `repeat` runs a test several times, and `forEach` loops inside a block.
+- **Waiting**: `poll` re-sends a request until a condition holds, and `retry` re-runs a whole flaky test.
+
+## Values: vars, profiles and templates
+
+Every dynamic value is a template, `${namespace.path}`:
+
+| Template | Where the value comes from |
+| --- | --- |
+| `${var.userId}` | A var: set in the config, an api or test file, a call, a profile, or saved from a response |
+| `${secret.API_KEY}` | The secrets provider, such as the environment or a `.env` file. Always redacted |
+| `${env.CI_COMMIT_SHA}` | An environment variable |
+| `${response.body.id}` | The current response, in `expect`, `save`, `poll` and `cleanup` |
+| `${fake.internet.email}` | Generated data, a new value on every call |
+| `${example.email}` | The current row of `examples` |
+
+A **profile** is a named set of var overrides, such as `staging` or `public`. Every run has one active profile: the one marked `default: true`, or the one you pass with `--profile`. The config's profiles override config vars, and any api or test file can carry its own `profiles` list for its own vars. `vc config explain vars.<name>` shows which value wins.
+
+## IDs
+
+Everything has an ID, and IDs come from paths:
+
+- A file's ID comes from its path under `services/` (or `load/` or `datasets/`). `services/users/crud.test.yaml` is `users.crud`. `services/users/users.api.yaml` is `users`.
+- An item's full ID is `<fileId>#<id>`: `users.crud#getsCreatedUser`, `users#createUser`.
+- Item IDs are camelCase. Test IDs read as third-person verbs: `rejectsDeclinedCard`.
+
+These IDs are what you pass to `vc run`, `vc call` and `vc explain`. See [Project layout](/vc-rs/start/project-layout/) for the full rules.
+
+<Aside type="tip">
+`vc explain` takes a diagnostic code (`vc explain V2003`) or an ID (`vc explain sample.basics#getsCreatedUser`). For an ID, it shows the resolved request, where each var comes from, and the checks that apply.
+</Aside>
+
+## Where to go next
+
+<CardGrid>
+  <LinkCard title="Syntax reference" href="/vc-rs/reference/" description="Every key in api and test files, one page each." />
+  <LinkCard title="Config" href="/vc-rs/reference/config/" description="Profiles, vars, defaults, secrets, reports and history." />
+  <LinkCard title="Templates" href="/vc-rs/reference/templates/" description="Namespaces, paths, and converting types with pipes." />
+  <LinkCard title="Matchers" href="/vc-rs/reference/matchers/" description="Every check you can put under expect." />
+  <LinkCard title="Lifecycle" href="/vc-rs/reference/lifecycle/" description="beforeAll, beforeEach, before, cleanup and actions." />
+  <LinkCard title="Auth" href="/vc-rs/reference/auth/" description="Bearer, OAuth 2, API keys and multi-step flows." />
+  <LinkCard title="Data" href="/vc-rs/reference/data/" description="Generators, fake data and datasets." />
+  <LinkCard title="Load testing" href="/vc-rs/reference/load/" description="Mix, stages, thresholds and abort rules." />
+  <LinkCard title="CLI" href="/vc-rs/reference/cli/" description="Every vc command and flag." />
+  <LinkCard title="Diagnostics" href="/vc-rs/reference/diagnostics/" description="Every V-code, with examples." />
+  <LinkCard title="For AI agents" href="/vc-rs/agents/" description="The MCP server, policies and approvals." />
+  <LinkCard title="Guides" href="/vc-rs/guides/" description="CI, reporters, the TUI, the web UI, history and OpenAPI." />
+</CardGrid>

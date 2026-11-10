@@ -178,6 +178,11 @@ const RECORDED: [&str; 7] = [
 /// A shop project whose `shop` file points at the recording's api host, with an api the
 /// recording calls under another var name, and a schema that declares one secret.
 fn shop_engine() -> Engine {
+    shop_engine_with(b"SHOP_TOKEN=\n")
+}
+
+/// [`shop_engine`] with `schema` as its `.env.schema`.
+fn shop_engine_with(schema: &'static [u8]) -> Engine {
     let files: [(&str, &[u8]); 3] = [
         (
             "vibranium.config.yaml",
@@ -187,7 +192,7 @@ fn shop_engine() -> Engine {
             "services/shop/shop.api.yaml",
             b"baseUrl: ${var.shopUrl}\nauth: shopToken\napis:\n  - id: getCart\n    path: /carts/${var.id}\n",
         ),
-        (".env.schema", b"SHOP_TOKEN=\n"),
+        (".env.schema", schema),
     ];
     let served = FakeTransport::new(|_, _| {
         let mut response = status(200);
@@ -280,4 +285,17 @@ fn a_typed_spec_path_is_read_from_the_project_and_a_url_as_given() {
     };
     assert!(reason.starts_with("../shop.yaml: not a file or folder in the project at"), "{reason}");
     assert_eq!(help.as_deref(), Some("give a URL, or a path inside the project"));
+}
+
+#[tokio::test]
+async fn a_recording_stops_on_a_secrets_schema_it_cannot_read() {
+    let request = ImportRequest {
+        flow: Some("shop.checkout#replaysCheckout".to_owned()),
+        ..request("har", "https://recordings.test/shop.har")
+    };
+    let error = shop_engine_with(b"SHOP_TOKEN=\xff\n").import(&request).await.unwrap_err();
+    let EngineError::Invalid(report) = error else { panic!("{error:?}") };
+    let codes: Vec<_> = report.diagnostics.iter().map(|found| found.code.to_string()).collect();
+    assert_eq!(codes, ["V1012"]);
+    assert_eq!(report.files.len(), 1, "the one file is the schema the diagnostic points into");
 }

@@ -1,0 +1,135 @@
+---
+title: "Shared values and blocked tests"
+description: "How values from beforeRun and beforeAll are shared by parallel tests, and which tests are blocked when a shared action fails."
+sidebar: { order: 10 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Tests run in parallel, up to `defaults.concurrency`. Values saved in `beforeRun` and `beforeAll` are computed once and shared by every test, so treat them as read-only. When a shared action fails, only the tests that read its values are blocked.
+
+```yaml title="services/lab/blocked.test.yaml"
+beforeAll:
+  - id: seed
+    call: lab#status
+    vars:
+      code: 503
+
+tests:
+  - id: needsSeed
+    call: lab#whoami
+    query:
+      seed: ${var.seed.code}     # reads the shared value: blocked if seed fails
+  - id: ignoresSeed
+    call: lab#whoami             # reads nothing from seed: still runs
+```
+
+## The rules
+
+| Where the value is saved | Who sees it | Name | Safe to change? |
+| --- | --- | --- | --- |
+| `beforeRun` | every test in the run | `${var.<id>.<name>}` | no |
+| `beforeAll` | every test in the file | `${var.<id>.<name>}` | no |
+| `beforeEach`, `before`, steps | one test instance | `${var.<name>}` | yes |
+
+Within one test, actions and steps run in order. Different tests run at the same time.
+
+## Examples
+
+A failing `beforeAll` blocks only the test that reads it:
+
+```console
+$ vc run lab.blocked
+✕ seed (file lab.blocked) failed
+  error[V5101]: status: expected ["2xx"], got 503
+     = at: seed
+⊘ lab.blocked#needsSeed blocked
+  error[V5101]: status: expected ["2xx"], got 503
+     = at: seed
+✓ lab.blocked#ignoresSeed                                         0ms
+```
+
+A failing `beforeRun` works the same way across the whole run:
+
+```console
+✕ admin (run) failed
+  error[V5101]: status: expected ["2xx"], got 503
+     = at: admin
+⊘ lab.needsadmin#readsAdmin blocked
+  error[V5101]: status: expected ["2xx"], got 503
+     = at: admin
+✓ lab.needsadmin#ignoresAdmin                                     1ms
+
+1 passed · 1 blocked
+```
+
+A test that changes data makes its own copy. This one deletes an item, so it creates the item in `before`, not in `beforeAll`:
+
+```yaml
+tests:
+  - id: deletesItem
+    before:
+      - call: lab#createItem
+        keep: true             # the test deletes it itself
+    call: lab#deleteItem
+```
+
+`vc check` warns when a `PUT`, `PATCH` or `DELETE` call uses a shared value:
+
+```console
+warning[V3201]: the call to `lab#deleteItem` changes a value shared from `beforeAll`
+ --> services/lab/shared.test.yaml:8:15
+  |
+2 |   - id: shared
+  |         ------ shared from `beforeAll`
+...
+8 |       itemId: ${var.shared.itemId}
+  |               ^^^^^^^^^^^^^^^^^^^^ shared with every test
+  = help: one test's change is seen by every test that reads it; make the resource in `before` or `beforeEach`
+```
+
+<Playground client:visible kind="test" code={`beforeAll:
+  - id: seed
+    call: lab#createItem
+    vars:
+      label: shared
+
+tests:
+  - id: readsSeed
+    name: Reads the shared item
+    call: lab#whoami
+    query:
+      item: \${var.seed.itemId}
+  - id: ignoresSeed
+    name: Does not need the shared item
+    call: lab#whoami
+`} />
+
+## How it behaves
+
+- `beforeRun` runs once at the start of any run that selects a test, and finishes before any test starts. `beforeAll` runs once for each file with a selected test, before any of its tests start.
+- Each shared action runs at most once. What stays lazy is reuse: [cached](/vc-rs/reference/lifecycle/cache/) actions and auth tokens are fetched again only when missing or expired.
+- A shared action that fails, after its `retry`, is reported once with its request, response and failed check. Each test that reads one of its values is marked **blocked** and points to that failure.
+- When `beforeEach` or `before` fails, that instance is blocked. Its `after`, `afterEach` and cleanups still run.
+- A blocked test is never retried, and it counts toward exit code 1.
+- `vc run --failed` reruns failed and blocked tests from the last run.
+
+<Aside type="tip">
+Which tests are blocked depends on what each test reads, so keep shared values to what tests really need. A test that reads nothing from a broken setup still runs and reports its own result.
+</Aside>
+
+## Common errors
+
+- [V3201](/vc-rs/reference/diagnostics/v3201/): a `PUT`, `PATCH` or `DELETE` call uses a shared value.
+- [V2210](/vc-rs/reference/diagnostics/v2210/): a `beforeRun` or `beforeAll` action saves values but has no `id`.
+- [V5106](/vc-rs/reference/diagnostics/v5106/): a lifecycle action this test needs failed.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="beforeAll and afterAll" href="/vc-rs/reference/lifecycle/before-all/" />
+  <LinkCard title="beforeRun and afterRun" href="/vc-rs/reference/lifecycle/before-run/" />
+  <LinkCard title="beforeEach and afterEach" href="/vc-rs/reference/lifecycle/before-each/" />
+  <LinkCard title="Cleanups" href="/vc-rs/reference/lifecycle/cleanups/" />
+</CardGrid>

@@ -1,0 +1,101 @@
+---
+title: "Metrics"
+description: "What p50, p90, p95, p99, max, errorRate and rps measure in a load run, and where each one is shown."
+sidebar: { order: 9 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+Every iteration of a mix test is one sample; the metrics summarize those samples.
+
+```console
+latency p50 3.4 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+```
+
+## Syntax
+
+| Metric | Measures | Threshold value | Live line | Summary | `--json` field |
+| --- | --- | --- | --- | --- | --- |
+| `p50` | Median iteration time | duration (`lt: 200ms`) | yes | yes | `p50Ms` |
+| `p90` | 90th percentile | duration | no | no | — |
+| `p95` | 95th percentile | duration | yes | yes | `p95Ms` |
+| `p99` | 99th percentile | duration | yes | yes | `p99Ms` |
+| `max` | Slowest iteration | duration | no | yes | `maxMs` |
+| `errorRate` | Failed iterations ÷ iterations | rate (`lt: 1%` or `lt: 0.01`) | as an `errors` count | as an `errors` count | `errors`, with `iterations` |
+| `rps` | Iterations per second | number (`gte: 100`) | yes | yes | `rps` |
+
+`p90` can be used in [`thresholds`](/vc-rs/reference/load/thresholds/) even though no output prints it.
+
+## Examples
+
+### The live line
+
+One line a second, on stderr. Latency is rounded to whole milliseconds; `breaching:` appears only when a threshold is breached on the last 10 seconds:
+
+```console
+    4s  3 users  417 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+```
+
+### The summary
+
+```console
+sample.strict finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
+latency p50 2.7 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
+breached p99 at 15.615
+breached sample.basics#getsCreatedUser: p95 at 11.215
+```
+
+### The JSON report
+
+```console
+$ vc load sample.smoke --json
+{
+  "blocked": null,
+  "breaches": [],
+  "ending": "finished",
+  "errorKinds": [],
+  "errors": 0,
+  "exit": 0,
+  "iterations": 207,
+  "maxMs": 10.047,
+  "notices": [],
+  "p50Ms": 3.2369999999999997,
+  "p95Ms": 5.751,
+  "p99Ms": 7.427,
+  "rps": 20.7,
+  "runId": 62,
+  "scenario": "sample.smoke",
+  "seconds": 10,
+  "seed": 98585524695896057
+}
+```
+
+## Try it
+
+<Playground client:visible kind="load" code={`mix:
+  - test: users.crud#getsCreatedUser
+    weight: 1
+stages:
+  - duration: 1m
+    users: 20
+thresholds:
+  p90:
+    lt: 300ms
+  max:
+    lt: 2s
+  rps:
+    gte: 15
+`} />
+
+## How it behaves
+
+- **A sample is an iteration, not a request.** A test with three steps is one sample, timed over all three. `rps` is iterations per second.
+- **Setup isn't sampled.** Requests from `beforeAll`, `beforeEach` and `before` are not samples. See [Lifecycle in load runs](/vc-rs/reference/load/lifecycle/).
+- **Think time isn't latency.** The pause from [`thinkTime`](/vc-rs/reference/load/thinktime/) is not counted in any latency metric.
+- **Errors.** An iteration fails when a check fails (which checks count depends on [`checks`](/vc-rs/reference/load/checks/)) or a request fails. The summary's `errors` line groups failures by api and status, as `errors sample#listUsers 200 × 10`; the JSON has the same groups in `errorKinds`.
+- **Scope.** Scenario thresholds use every mix test together; a mix entry's thresholds use that test's samples only.
+
+## Related
+
+- [`thresholds`](/vc-rs/reference/load/thresholds/)
+- [`vc load`](/vc-rs/reference/load/vc-load/)

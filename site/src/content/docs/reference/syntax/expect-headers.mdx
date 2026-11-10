@@ -1,0 +1,140 @@
+---
+title: expect.headers
+description: Checks on response headers. Each header name maps to a literal value or a matcher, and names are case-insensitive.
+sidebar: { order: 402, badge: { text: 'expect', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`expect.headers` checks response headers. Each key is a header name, and each value is either a literal or a [matcher](/vc-rs/reference/matchers/).
+
+```yaml
+expect:
+  headers:
+    content-type:
+      contains: json
+```
+
+This page covers checks on the **response**. To send request headers, see [headers](/vc-rs/reference/syntax/headers/).
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `headers.<name>` | string or matcher | none | no | The name is case-insensitive. A string must equal the whole header value. Values can use templates. |
+
+Header values are always strings. The matchers that make sense are `eq`, `ne`, `in`, `notIn`, `exists`, `contains`, `startsWith`, `endsWith`, `regex`, `empty`, `length` and `not`.
+
+## Examples
+
+**Exact value.** A plain string must equal the whole header value.
+
+```yaml
+expect:
+  headers:
+    content-type: application/json
+```
+
+A literal compares the full text, so a parameter you did not expect makes it fail:
+
+```console
+✕ hd.headers#literalMismatch                                      4ms
+  error[V5101]: expect.headers.content-type
+    --> services/hd/headers.test.yaml:31:23
+     |
+  31 |         content-type: application/json; charset=utf-8
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected "application/json; charset=utf-8", got "application/json"
+```
+
+**Part of the value.** Use `contains` or `startsWith` when the server may add parameters such as `charset`.
+
+```yaml
+expect:
+  headers:
+    content-type:
+      contains: json
+```
+
+**Present or absent.** `exists: false` asserts a header is not sent.
+
+```yaml
+expect:
+  headers:
+    x-request-id:
+      exists: false
+    content-length:
+      regex: "^[0-9]+$"
+```
+
+A missing header reports `got nothing`:
+
+```console
+  error[V5101]: expect.headers.x-missing
+    --> services/lab/fails.test.yaml:13:11
+     |
+  13 |           exists: true
+     |           ^^^^^^^^^^^^ expected {"exists":true}, got nothing
+```
+
+**From a var.** A value can be a template. The name can be written in any case.
+
+```yaml
+vars:
+  ct: application/json
+tests:
+  - id: templated
+    call: echo#json
+    expect:
+      headers:
+        Content-Type: ${var.ct}
+```
+
+**Compare a header as a number.** Header values are text, so `gt`, `lt` and similar numeric matchers do not work on them. Convert in a `cel` check instead:
+
+```yaml
+expect:
+  cel:
+    sizable: int(response.headers['content-length']) > 10
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: returnsJson
+    call: users#list
+    expect:
+      headers:
+        content-type:
+          contains: json
+        x-powered-by:
+          exists: false
+`} />
+
+## How it behaves
+
+- **Case.** Names are case-insensitive, both when matching the response and when merging levels. A test's `Content-Type` replaces an api's `content-type`.
+- **Merging.** Each header name is its own check. A more specific level replaces the check for that name only. Other inherited header checks still run.
+- **Literals** compare the full header value as text.
+- **Templates.** Values can use `${…}` templates. Names cannot.
+- **Missing headers** report `got nothing`. Only `exists: false` passes on a missing header.
+
+<Aside type="caution">
+A numeric matcher on a header compares a string with a number and fails: `content-length: { gt: 10 }` reports `expected {"gt":10}, got "301"`. Use the `cel` form above.
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V1004](/vc-rs/reference/diagnostics/v1004/) | An unknown matcher name next to a known one, such as `startWith` (with the fix `startsWith`). |
+| [V2306](/vc-rs/reference/diagnostics/v2306/) | A matcher argument is invalid, such as a regex that does not compile. |
+| [V2101](/vc-rs/reference/diagnostics/v2101/) | A template reads a var that no level sets. |
+| [V5101](/vc-rs/reference/diagnostics/v5101/) | A header check failed at run time. |
+
+## Related
+
+- [expect](/vc-rs/reference/syntax/expect/)
+- [headers](/vc-rs/reference/syntax/headers/) for request headers
+- [Matchers](/vc-rs/reference/matchers/)
+- [cel](/vc-rs/reference/syntax/cel/)

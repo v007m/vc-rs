@@ -1,0 +1,33 @@
+---
+title: Playground
+description: Edit Vibranium test, api, config and load files in the browser and see schema errors, completions and key docs as you type.
+tableOfContents: false
+---
+
+import PlaygroundFull from '~/components/PlaygroundFull.svelte';
+import { Aside } from '@astrojs/starlight/components';
+
+Pick a starter, then change it. The editor checks every keystroke against the same JSON Schemas that `vc schema export` writes, so you get:
+
+- **Errors** under the editor, with line and column. Click one to jump to it.
+- **Completions** for keys and values. Press <kbd>Ctrl</kbd>+<kbd>Space</kbd>.
+- **Docs on hover** for every key.
+
+<PlaygroundFull client:load />
+
+## Run the examples for real
+
+All nine files belong to one project, and it passes `vc check` and `vc run` as shown. To try it on your machine:
+
+```console
+$ vc init --no-sample             # in an empty folder
+$ vc demo start --detach          # the demo service on localhost:7421
+$ vc check
+$ vc run
+```
+
+Copy each example into the path shown above its editor, and replace the generated `vibranium.config.yaml` with the config example.
+
+<Aside type="note" title="What the browser can and can't check">
+The playground checks the shape of one file: keys, types and allowed values. `vc check` does more. It resolves references across files (`users#create`, `${var.userId}`), checks that IDs match file paths, parses durations and runs every convention rule. Always run `vc check` before you commit.
+</Aside>

@@ -1,0 +1,84 @@
+---
+title: "lower"
+description: "Lowercase text, with full Unicode rules."
+sidebar: { order: 9 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`lower` lowercases text.
+
+```yaml
+      email: ${var.email | lower}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text | — | yes |  |
+| output | text | — | — |  |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  name: "  Ada Lovelace  "
+  word: "ÉCOLE Straße"
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.name \| trim \| lower}` | `"ada lovelace"` |
+| `${var.word \| lower}` | `"école straße"` |
+
+Normalize a generated value before you compare it:
+
+```yaml
+    expect:
+      body:
+        match:
+          email: ${var.email | lower}
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: lowercasesText
+    call: sample#echo
+    vars:
+      name: "  Ada Lovelace  "
+      payload:
+        handle: \${var.name | trim | lower}
+`} />
+
+## How it behaves
+
+- Accented and non-Latin letters are lowercased too.
+- Spaces are kept. Chain [`trim`](/vc-rs/reference/pipes/trim/) to remove them.
+
+## Common errors
+
+```console
+error[V2304]: pipe `lower` takes text, not a list
+  --> services/tpl/pe.test.yaml:13:27
+   |
+13 |         d: ${var.cities | lower}
+   |                           ^^^^^
+```
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known not to be text.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the value is not text at run time, or it is missing.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="upper" href="/vc-rs/reference/pipes/upper/" />
+  <LinkCard title="trim" href="/vc-rs/reference/pipes/trim/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

@@ -1,0 +1,99 @@
+---
+title: "request"
+description: "Read the request as it was sent, its method, url, headers and body, wherever response is available."
+sidebar: { order: 5 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`${request.…}` reads the request the current call actually sent, after every template and default was applied.
+
+```yaml
+    save:
+      sentUrl: ${request.url}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `request.method` | text | — | — | Such as `POST`. |
+| `request.url` | text | — | — | The full URL, with the query string. |
+| `request.headers.<name>` | text | — | — | Lowercase names: `request.headers["x-request-id"]`. |
+| `request.body` | any value | — | — | The body as sent. |
+
+Available in the same places as [`response`](/vc-rs/reference/templates/response/): `expect`, `save`, `poll` and an api's `cleanup`.
+
+## Examples
+
+Save what was sent. A call to the demo's `/echo` with `payload: { n: 1 }` saved these values:
+
+```yaml title="services/tpl/flow.test.yaml"
+tests:
+  - id: readsResponseAndRequest
+    steps:
+      - id: first
+        call: sample#echo
+        vars:
+          payload:
+            n: 1
+        save:
+          sentMethod: ${request.method}
+          sentUrl: ${request.url}
+          sentType: ${request.headers["content-type"]}
+          reqBody: ${request.body}
+```
+
+```json
+{
+  "sentMethod": "POST",
+  "sentUrl": "http://localhost:7463/echo",
+  "sentType": "text/plain; charset=utf-8",
+  "reqBody": { "n": 1 }
+}
+```
+
+<Aside type="note">
+The `content-type` above is a known issue: a body written as a single `${…}` template that renders to an object is sent as JSON text but labeled `text/plain`. Write the body as nested YAML, or set the `content-type` header, until it is fixed.
+</Aside>
+
+Check that a header you set was sent:
+
+```yaml
+    headers:
+      x-request-id: ${fake.string.uuid}
+    expect:
+      cel:
+        sent an id: size(request.headers["x-request-id"]) == 36
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: savesTheRequest
+    call: sample#echo
+    vars:
+      payload: { n: 1 }
+    save:
+      sentUrl: \${request.url}
+      sentMethod: \${request.method}
+`} />
+
+## How it behaves
+
+- `request` shows the request after merging config, api file, api and action headers, so it is the best way to see what really went out.
+- Masked headers (`authorization`, `cookie` and secrets) are masked in reports and output, as everywhere else.
+- Outside `expect`, `save`, `poll` and `cleanup` it is V2105.
+
+## Common errors
+
+- [V2105](/vc-rs/reference/diagnostics/v2105/): `request` used before a call is made.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): a path that the request does not have, such as a header that was not sent.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="response" href="/vc-rs/reference/templates/response/" />
+  <LinkCard title="Step ids" href="/vc-rs/reference/templates/step-ids/" />
+</CardGrid>

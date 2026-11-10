@@ -1,0 +1,187 @@
+---
+title: "vc run"
+description: "Runs the selected tests, prints each result as it finishes, and writes report files and a history entry."
+sidebar: { order: 4 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Runs the selected tests. `vc run` checks the project first, plans the run, sends the requests, prints each test as it finishes, then writes the report files and stores the run in history.
+
+```console
+$ vc run [OPTIONS] [SELECTORS]...
+```
+
+With no selector, every test in the project runs. Selectors are test IDs (`users.crud#getsUser`, with `:n` for one instance), file IDs, globs over IDs, or paths to test files and folders. See [Selectors](/vc-rs/reference/cli/#selectors).
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `-t`, `--tag` | `<TAGS>` | | Only tests with this tag expression. `!` excludes, `,` means or. Repeat to require every one |
+| `-g`, `--grep` | `<TEXT>` | | Only tests whose full ID or name contains this text, ignoring case |
+| `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
+| `--include-skipped` | | | Also runs the tests marked `skip` |
+| `--failed` | | | Runs the tests that failed or were blocked in the last run, under its profiles |
+| `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
+| `--set` | `<KEY=VALUE>` | | Sets one config value for this run (`defaults.timeout=5s`, `vars.userId=7`), over every other layer |
+| `--repeat` | `<N>` | | Runs every selected test this many times, instead of its own `repeat` |
+| `--seed` | `<N>` | random | The seed for generated data. A failing run prints its seed so you can pass it here |
+| `--bail` | | | Starts no more tests after the first failure |
+| `--concurrency` | `<N>` | `defaults.concurrency` | Test instances at once |
+| `--reporter` | `<FORMAT>` | `spec` | The console format: `spec` or `json` (one JSON event per line) |
+| `--report` | `<FORMATS>` | `reports.formats`, else `ctrf` | The report files to write, as a comma list or repeated: `ctrf`, `junit`, `html` |
+| `--out` | `<DIR>` | `<reports.dir>/<run>/` | The folder the report files go in, as they are |
+| `--single-file` | | | Writes the HTML report as one self-contained `report.html` |
+| `--no-cache` | | | Runs `cache:` actions every time, without reading or writing the cross-run cache |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### Run one file
+
+```console
+$ vc run sample.basics
+plan  4 tests in 1 file · lifecycle: beforeAll command · profile default
+
+✓ sample.basics#rejectsMissingEmail                               0ms
+✓ sample.basics#listsUsers                                        0ms
+✓ sample.basics#createsUser                                       0ms
+✓ sample.basics#getsCreatedUser                                  52ms
+
+4 passed                                                     122ms · profile default
+reports  /home/ada/shop/.vibranium/reports/34/{ctrf.json,junit.xml,index.html}
+```
+
+The first line is the plan: how many tests, which lifecycle actions run around them, and the active profile. Each test prints when it finishes, so the order can differ from the file.
+
+### A failing test
+
+```console
+$ vc run sample.extra --include-skipped
+plan  3 tests in 1 file · profile default
+
+✓ sample.extra#echoesBody                                         0ms
+✕ sample.extra#findsAda                                           0ms
+  error[V5101]: expect.body.match.[0].name
+    --> services/sample/extra.test.yaml:35:23
+     |
+  35 |           "[0].name": Grace Hopper
+     |                       ^^^^^^^^^^^^ expected "Grace Hopper", got "Ada Lovelace"
+✓ sample.extra#rejectsBadEmail [row 1]                            4ms
+✓ sample.extra#rejectsBadEmail [row 2]                            5ms
+
+3 passed · 1 failed                                          12ms · profile default
+reports  /home/ada/shop/.vibranium/reports/35/{ctrf.json,junit.xml,index.html}
+next     vc run --failed
+seed 17152763302880056576: pass `--seed 17152763302880056576` to run with the same generated data
+$ echo $?
+1
+```
+
+A failure points at the line in your YAML that set the check, with what was expected and what came back. The `seed` line goes to stderr.
+
+### Rerun only what failed
+
+```console
+$ vc run --failed
+plan  1 test in 1 file · profile default
+
+✕ sample.extra#findsAda                                           3ms
+  ...
+0 passed · 1 failed                                          4ms · profile default
+```
+
+### Repeat a test and choose the reports
+
+```console
+$ vc run sample.extra#echoesBody --repeat 2 --concurrency 1 --report junit
+plan  1 test in 1 file · profile default
+
+✓ sample.extra#echoesBody                                         5ms
+✓ sample.extra#echoesBody [repeat 2]                              1ms
+
+2 passed                                                     9ms · profile default
+reports  /home/ada/shop/.vibranium/reports/38/junit.xml
+```
+
+Each example row and each repeat is its own instance, labeled `[row n]` or `[repeat n]`.
+
+### Stop at the first failure
+
+```console
+$ vc run sample.extra --include-skipped --bail
+...
+- sample.extra#rejectsBadEmail [row 1] skipped: cancelled
+0 passed · 1 failed · 3 skipped
+```
+
+### Machine-readable output for a script
+
+```console
+$ vc run sample.extra#echoesBody --reporter json --report ctrf --out build/vc
+{"event":"runStarted","files":1,"instances":1}
+{"event":"fileStarted","file":"sample.extra"}
+{"action":"call sample#listUsers","event":"actionStarted","owner":{"instance":0,"kind":"instance"}}
+{"action":"call sample#listUsers","event":"exchanged","method":"GET","ms":2,"owner":{"instance":0,"kind":"instance"},"status":200,"url":"http://localhost:7421/users"}
+{"action":"call sample#listUsers","check":{"actual":200,"code":null,"diff":null,"error":null,"expected":[200],"key":"status","location":{"column":15,"line":12,"path":"services/sample/extra.test.yaml"},"origin":"test sample.extra#echoesBody","passed":true},"event":"checkEvaluated","owner":{"instance":0,"kind":"instance"}}
+{"action":"call sample#listUsers","event":"actionFinished","failure":null,"owner":{"instance":0,"kind":"instance"},"status":"passed"}
+{"attempts":1,"durationMs":22,"event":"testFinished","failure":null,"instance":0,"label":"sample.extra#echoesBody","skipReason":null,"status":"passed","test":"sample.extra#echoesBody"}
+{"event":"fileFinished","file":"sample.extra","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+{"event":"runFinished","status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+{"artifacts":[{"path":"/home/ada/shop/build/vc/ctrf.json","reporter":"ctrf"}],"durationMs":23,"event":"summary","profiles":["default"],"startedMs":1794332843979,"status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Every instance passed, was skipped, or was flaky (failed, then passed on a retry) |
+| `1` | An instance failed or was blocked |
+| `2` | Nothing ran: the project has errors, the selection is empty, or a flag is wrong (an unknown profile, a bad `--set` key, a bad `--changed` ref) |
+| `130` | Cancelled with Ctrl-C |
+
+```console
+$ vc run --profile staging
+error: --profile: no profile `staging`
+  = help: the profiles are default
+$ vc run --changed nosuchref
+error: --changed: cannot list the files changed since nosuchref: fatal: Needed a single revision
+```
+
+## JSON output
+
+`--reporter json` prints one JSON object per line (NDJSON) on stdout, each with an `event` field:
+
+| Event | Fields |
+| --- | --- |
+| `runStarted` | `files`, `instances` |
+| `fileStarted` / `fileFinished` | `file`; `fileFinished` adds `totals` |
+| `actionStarted` | `action` (`call sample#listUsers`, `command`, …), `owner` `{instance, kind}` |
+| `exchanged` | `action`, `owner`, `method`, `url`, `status`, `ms` |
+| `checkEvaluated` | `action`, `owner`, `check` `{key, expected, actual, passed, diff, error, code, origin, location {path, line, column}}` |
+| `actionFinished` | `action`, `owner`, `status`, `failure` |
+| `testFinished` | `test`, `instance`, `label`, `status`, `attempts`, `durationMs`, `failure` `{action, code, message}`, `skipReason` |
+| `cleanupFinished` | A cleanup action finished |
+| `runFinished` | `status`, `totals` `{passed, failed, blocked, skipped, flaky}` |
+| `summary` | `status`, `totals`, `durationMs`, `startedMs`, `profiles`, `artifacts` `[{reporter, path}]` |
+
+`status` on a test is `passed`, `failed`, `blocked`, `skipped` or `flaky`.
+
+## How it behaves
+
+- **Check first.** `vc run` compiles the whole project before it sends anything. Any error stops the run with exit code 2 and the same output as [`vc check`](/vc-rs/reference/cli/check/).
+- **Reports.** Each run writes its report files to `<reports.dir>/<run number>/` (default `.vibranium/reports/<n>/`). The HTML report is `index.html` with its assets beside it, or one `report.html` with `--single-file`. `--out <dir>` writes the files straight into `<dir>`.
+- **History.** Every run is stored in `.vibranium/history.db`, so [`vc history`](/vc-rs/reference/cli/history/), [`vc report`](/vc-rs/reference/cli/report/) and `--failed` can use it later.
+- **Skipped tests.** A test with `skip` prints `- <id> skipped: <reason>` and does not run, unless you pass `--include-skipped`.
+- **Blocked tests.** When a `before` action or a lifecycle action a test needs fails, the test is blocked rather than failed.
+- **Seed.** Generated data (`${fake.…}`) comes from a seed. Pass `--seed` with the printed value to get the same data again.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc plan" href="/vc-rs/reference/cli/plan/" description="See what a run would do first." />
+  <LinkCard title="vc watch" href="/vc-rs/reference/cli/watch/" description="Run again on every save." />
+  <LinkCard title="Reporters and history" href="/vc-rs/guides/reporters-and-history/" description="CTRF, JUnit, HTML and NDJSON." />
+  <LinkCard title="Running in CI" href="/vc-rs/guides/ci/" description="Use vc run in a pipeline." />
+</CardGrid>

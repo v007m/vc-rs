@@ -1,0 +1,128 @@
+---
+title: "Templates"
+description: "Write dynamic values as ${namespace.path}, with pipes to convert them and $cel for arithmetic."
+sidebar: { order: 0 }
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A template puts a dynamic value into any field: `${namespace.path}`, optionally followed by pipes.
+
+```yaml title="services/sample/basics.test.yaml"
+tests:
+  - id: getsCreatedUser
+    before:
+      - call: sample#createUser
+    call: sample#getUser
+    expect:
+      body:
+        match:
+          id: ${var.userId}
+```
+
+## Syntax
+
+| Part | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `${` … `}` | delimiters | — | yes | Write `$${` for a literal `${`. |
+| namespace | one of the roots below, or a step id | — | yes | `var`, `env`, `secret`, `response`, `request`, `example`, `item`, `iteration`, `fake`, `dataset`, `run`. |
+| path | dotted names, `[n]`, `[*]`, quoted keys | — | no | See [Paths](/vc-rs/reference/templates/paths/). |
+| `\| pipe` | pipe name, with arguments in `( )` | — | no | Chains left to right. See [Pipes](/vc-rs/reference/pipes/). |
+
+The roots and where you can use them:
+
+| Root | Value | Available |
+| --- | --- | --- |
+| [`var`](/vc-rs/reference/templates/var/) | vars: defaults, call values, profile values, saved values | everywhere |
+| [`env`](/vc-rs/reference/templates/env/) | environment variables (and `.env`) | everywhere |
+| [`secret`](/vc-rs/reference/templates/secret/) | secrets declared in `.env.schema`, always masked | everywhere |
+| [`fake`](/vc-rs/reference/templates/fake/) | generated data | everywhere |
+| [`dataset`](/vc-rs/reference/templates/dataset/) | your datasets, as lists of rows | everywhere |
+| [`run`](/vc-rs/reference/templates/run/) | `id`, `profiles` | everywhere |
+| [`response`](/vc-rs/reference/templates/response/) | the current call's `status`, `headers`, `body`, `timing` | `expect`, `save`, `poll`, an api's `cleanup` |
+| [`request`](/vc-rs/reference/templates/request/) | the current call's `method`, `url`, `headers`, `body` | where `response` is |
+| [step id](/vc-rs/reference/templates/step-ids/) | the last response of the action with that `id` | after that action, same test or block |
+| [`example`](/vc-rs/reference/templates/example/) | the current row of `examples` | a test with `examples` |
+| [`item`](/vc-rs/reference/templates/item/) | the current element of `forEach` | inside `forEach` |
+| [`iteration`](/vc-rs/reference/templates/iteration/) | `index` (from 1) and `count` | `repeat`, `forEach`, a repeated test |
+
+## Examples
+
+A var in a path. The api's `path` is rendered before the call.
+
+```yaml title="services/sample/sample.api.yaml"
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+A value saved from one call and read by the next. `response` is available in `save`.
+
+```yaml
+    save:
+      userId: ${response.body.id}
+```
+
+A pipe chain. This one trims, then lowercases.
+
+```yaml
+    vars:
+      handle: ${var.name | trim | lower}
+```
+
+A whole template keeps its type; a template inside text gives text. With `count: 42`, this test sent the body shown below it through the demo's `/echo` api.
+
+```yaml
+      payload:
+        num: ${var.count}
+        quotedNum: "${var.count}"
+        inText: n-${var.count}
+        escaped: $${var.count}
+```
+
+```json
+{ "num": 42, "quotedNum": 42, "inText": "n-42", "escaped": "${var.count}" }
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: echoesTemplates
+    call: sample#echo
+    vars:
+      count: 42
+      payload:
+        num: \${var.count}
+        inText: n-\${var.count}
+        name: \${fake.person.firstName | upper}
+    expect:
+      status: 200
+`} />
+
+## How it behaves
+
+- `vc check` resolves every reference before anything runs. It reports unknown vars (V2101), roots used where they are not available (V2102, V2105), unknown generators and datasets (V2002), unknown pipes (V2308) and pipes given the wrong type (V2304).
+- What `vc check` cannot know, such as a field missing from a real response, fails the action at run time with V5111, showing the path and the value it found.
+- `vc check` reports in passes. When it shows template syntax errors (V2305, V2308), fix them and run it again: type and reference errors (V2304, V2105) can show up next.
+- There are no shorthands. Write `response.status`, not `status`, in `expect` too.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2101](/vc-rs/reference/diagnostics/v2101/) | `${var.x}` is used but never set |
+| [V2102](/vc-rs/reference/diagnostics/v2102/) | `item`, `example` or `iteration` outside the place it exists |
+| [V2105](/vc-rs/reference/diagnostics/v2105/) | a root that is not available here, or a bare `status` |
+| [V2305](/vc-rs/reference/diagnostics/v2305/) | the template does not parse |
+| [V2308](/vc-rs/reference/diagnostics/v2308/) | unknown pipe, or wrong pipe arguments |
+| [V5111](/vc-rs/reference/diagnostics/v5111/) | the template failed at run time |
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Paths" href="/vc-rs/reference/templates/paths/" description="Dots, indexes, [*] and quoted keys." />
+  <LinkCard title="Types" href="/vc-rs/reference/templates/types/" description="When a value keeps its type." />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" description="Convert and tidy values." />
+  <LinkCard title="Computed values" href="/vc-rs/reference/templates/cel-values/" description="Arithmetic and choices with $cel." />
+</CardGrid>

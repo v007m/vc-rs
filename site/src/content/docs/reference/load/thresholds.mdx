@@ -1,0 +1,147 @@
+---
+title: "thresholds"
+description: "Pass or fail rules on load metrics such as p99 and errorRate; a breach at the end of the run makes vc load exit with code 3."
+sidebar: { order: 7 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`thresholds` puts a matcher on each metric you care about; if any is breached over the whole run, `vc load` exits 3.
+
+```yaml
+thresholds:
+  p99:
+    lt: 500ms
+  errorRate:
+    lt: 1%
+```
+
+## Syntax
+
+| Field | Value | Notes |
+| --- | --- | --- |
+| `p50`, `p90`, `p95`, `p99` | matcher on a duration: `lt: 500ms` | Latency percentiles. |
+| `max` | matcher on a duration | Slowest iteration. |
+| `errorRate` | matcher on a rate: `lt: 1%` or `lt: 0.01` | Failed iterations ÷ iterations. 0% to 100%, or 0 to 1. |
+| `rps` | matcher on a number: `gte: 10` | Iterations per second. |
+
+Each metric takes a [matcher](/vc-rs/reference/matchers/) such as `lt`, `lte`, `gt` or `gte`. Thresholds are optional; a scenario without them passes whenever it isn't blocked. A mix entry can have its own `thresholds`, measured on that test only (see [`mix`](/vc-rs/reference/load/mix/)).
+
+## Examples
+
+### Passing thresholds
+
+`sample.smoke` sets `p99` below `500ms` and `errorRate` below `1%`. The run stays well within them and exits 0:
+
+```console
+sample.smoke finished after 10 s · 198 iterations · 19.8 rps · 0 errors
+latency p50 3.4 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
+```
+
+### A deliberate breach: exit code 3
+
+```yaml title="load/sample/strict.load.yaml"
+name: Too strict on purpose
+mix:
+  - test: sample.basics#listsUsers
+    weight: 3
+  - test: sample.basics#getsCreatedUser
+    weight: 1
+    thresholds:
+      p95:
+        lt: 2ms
+stages:
+  - duration: 3s
+    users: 3
+  - duration: 2s
+    users: 0
+thresholds:
+  p99:
+    lt: 1ms
+  rps:
+    gte: 10
+```
+
+```console
+$ vc load sample.strict; echo "exit $?"
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors  breaching: rps
+    2s  1 users  139 rps  p50 2 ms  p95 7 ms  p99 19 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+    3s  2 users  249 rps  p50 2 ms  p95 10 ms  p99 19 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+    4s  3 users  417 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+    5s  2 users  462 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
+    5s  0 users  462 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors
+sample.strict finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
+latency p50 2.7 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
+breached p99 at 15.615
+breached sample.basics#getsCreatedUser: p95 at 11.215
+exit 3
+```
+
+`rps` was "breaching" in the first second, while no user had started yet, but the whole run made 463 rps, so it is not in the final list.
+
+### An error-rate breach
+
+```console
+breached errorRate at 1.000
+errors sample#listUsers 200 × 10
+```
+
+The value after `at` is in milliseconds for latency metrics and a share from 0 to 1 for `errorRate`: `1.000` means every iteration failed.
+
+## Try it
+
+<Playground client:visible kind="load" code={`mix:
+  - test: users.crud#getsCreatedUser
+    weight: 1
+stages:
+  - duration: 1m
+    users: 50
+thresholds:
+  p50:
+    lt: 200ms
+  p99:
+    lt: 800ms
+  max:
+    lt: 2s
+  errorRate:
+    lt: 0.5%
+  rps:
+    gte: 20
+`} />
+
+## How it behaves
+
+- **Live:** each second, the live line's `breaching:` list shows the thresholds breached on the last 10 seconds.
+- **Final:** the verdict and the exit code use the whole run. Only the final breaches are printed as `breached …`.
+- A mix entry's breach names its test: `breached sample.basics#getsCreatedUser: p95 at 11.215`.
+- In `vc load --json`, breaches are listed as `{"metric": "errorRate", "actual": 1.0, "test": null}`.
+
+## Common errors
+
+```console
+error[V1004]: unknown key `p98` in thresholds
+  --> load/bad/one.load.yaml:10:3
+   |
+10 |   p98:
+   |   ^^^ not a known key
+   = help: did you mean one of `p90`, `p95`, `p99`?
+
+error[V2301]: invalid rate `200%`
+  --> load/bad/one.load.yaml:13:9
+   |
+13 |     lt: 200%
+   |         ^^^^
+   = help: write a percentage from 0% to 100% (`1%`) or a share from 0 to 1 (`0.01`)
+```
+
+| Code | When |
+| --- | --- |
+| [V1004](/vc-rs/reference/diagnostics/v1004/) | A metric that doesn't exist |
+| [V2301](/vc-rs/reference/diagnostics/v2301/) | A duration or rate that can't be read |
+
+## Related
+
+- [Metrics](/vc-rs/reference/load/metrics/)
+- [`abortOn`](/vc-rs/reference/load/abort-on/)
+- [`vc load` exit codes](/vc-rs/reference/load/vc-load/)

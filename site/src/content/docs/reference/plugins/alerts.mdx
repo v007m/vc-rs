@@ -1,0 +1,153 @@
+---
+title: "alerts"
+description: "The alerts key in vibranium.config.yaml sends a message to webhook, Slack, Teams or PagerDuty channels when a run fails, recovers, turns flaky or breaches a load threshold."
+sidebar: { order: 11 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`alerts` is a list of rules. Each rule says which runs to report and which channels to tell. `vc run` and `vc load` send them once the run ends.
+
+```yaml title="vibranium.config.yaml"
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - slack:
+          webhook: ${secret.slackWebhook}
+          channel: "#qa-alerts"
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `on` | list of `failure`, `recovery`, `flaky`, `threshold` | `[failure]` | no | The [triggers](/vc-rs/reference/plugins/triggers/) this rule fires on |
+| `profiles` | list of profile IDs | all | no | The rule applies only to runs under one of these profiles |
+| `tags` | list of tags | all | no | The rule sees only tests with one of these tags (a test's own tags or its file's) |
+| `notify` | list of channel maps | — | yes | Each key is a channel: `webhook`, `slack`, `teams` or `pagerduty`, with its settings |
+
+Channel settings may use `${secret.X}` and `${env.X}`, and nothing else. They are rendered when the run ends.
+
+## Examples
+
+**The smallest rule.** Without `on`, it fires on `failure`.
+
+```yaml
+alerts:
+  - notify:
+      - webhook:
+          url: https://hooks.example.com/vibranium
+```
+
+**Failures and recoveries to Slack, from one profile.**
+
+```yaml
+alerts:
+  - on: [failure, recovery]
+    profiles: [staging]
+    notify:
+      - slack:
+          webhook: ${secret.slackWebhook}
+          channel: "#qa-alerts"
+```
+
+**Only the tests that matter.** This rule sees only tests tagged `smoke`. A failure in an untagged test does not fire it.
+
+```yaml
+alerts:
+  - on: [failure]
+    tags: [smoke]
+    notify:
+      - pagerduty:
+          routingKey: ${secret.pdRoutingKey}
+```
+
+**Several channels.** Channels are sent in the order written. You can list them as separate items, or as several keys of one item.
+
+```yaml
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - slack:
+          webhook: ${secret.slackWebhook}
+      - teams:
+          webhook: ${secret.teamsWebhook}
+      - webhook:
+          url: ${env.QA_HOOK_URL}
+        pagerduty:
+          routingKey: ${secret.pdRoutingKey}
+```
+
+**What a failed send looks like.** It is a warning after the run; the exit code does not change.
+
+```console
+warning: V5117: the `webhook` alert was not sent: cannot connect to 127.0.0.1:7999: Connection refused (os error 61)
+warning: V5117: the `webhook` alert was not sent: HTTP 500
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+  - id: staging
+alerts:
+  - on: [failure, recovery, flaky]
+    profiles: [staging]
+    tags: [smoke]
+    notify:
+      - slack:
+          webhook: \${secret.slackWebhook}
+          channel: "#qa-alerts"
+      - webhook:
+          url: https://hooks.example.com/vibranium
+`} />
+
+## How it behaves
+
+- Every rule is checked on its own. A rule sends at most one message per run, for the first of its triggers that happened (see [triggers](/vc-rs/reference/plugins/triggers/)).
+- A rule whose `profiles` share none of the run's profiles is skipped.
+- Alerts go out after the reports are written, so a message can name the report file.
+- A channel that cannot be built or reached adds a `V5117` warning. The run's result and exit code stay the same. The warning never holds the channel's URL path or key.
+- A message lists at most ten failures, each cut to 200 characters, and counts the rest.
+- `vc check` warns about an unknown channel name. It does not check channel settings; a missing `webhook` or a bad `severity` shows up when the run ends.
+
+<Aside type="caution" title="No email channel">
+`email` is not a channel. `vc check` warns, and the run sends nothing to it:
+
+```console
+warning[V5117]: no alert channel `email`; a run cannot send to it
+  --> vibranium.config.yaml:72:9
+   |
+72 |       - email:
+   |         ^^^^^ unknown channel
+   = help: the alert channels are pagerduty, slack, teams, webhook
+```
+</Aside>
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5117](/vc-rs/reference/diagnostics/v5117/) | An unknown channel (at check time), or a channel that could not be built or sent to (after the run) |
+| [V2106](/vc-rs/reference/diagnostics/v2106/) | `${secret.X}` names a secret `.env.schema` does not declare |
+| [V2107](/vc-rs/reference/diagnostics/v2107/) | `${env.X}` reads a name `.env.schema` declares as a secret. Use `${secret.X}` |
+
+```console
+error[V2107]: `${env.pdKey}` reads a secret that `.env.schema` declares
+  --> vibranium.config.yaml:81:16
+   |
+81 |           url: ${env.pdKey}
+   |                ^^^^^^^^^^^^ pdKey is a secret
+   = note: a declared secret is reachable only as `${secret.X}`, so it is masked everywhere
+   = help: write `${secret.pdKey}`
+   = fix: Replace with secret.pdKey (certain)
+```
+
+## Related
+
+- [Triggers](/vc-rs/reference/plugins/triggers/)
+- [webhook](/vc-rs/reference/plugins/webhook/), [slack](/vc-rs/reference/plugins/slack/), [teams](/vc-rs/reference/plugins/teams/), [pagerduty](/vc-rs/reference/plugins/pagerduty/)
+- [Profiles](/vc-rs/reference/config/profiles/)

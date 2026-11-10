@@ -1,0 +1,236 @@
+---
+title: headers
+description: Request headers set in the config, an api file, an api, a test or a step, merged by name.
+sidebar: { order: 114, badge: { text: 'api + test', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`headers` is a map of request headers. You can set it at five levels. vc merges them by name, and the most specific level wins.
+
+```yaml title="services/req/req.api.yaml"
+headers:
+  x-team: payments
+apis:
+  - id: hdrs
+    path: /echo
+    headers:
+      accept: text/plain
+```
+
+## Syntax
+
+| Where | Key | Applies to |
+| --- | --- | --- |
+| `vibranium.config.yaml` | `defaults.headers` | every request in the project |
+| api file | `headers` | every api in the file |
+| api | `headers` | that api |
+| test | `headers` | the test's call, or every `call` and `test:` step as a default |
+| step or action | `headers` | that one call |
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| name | text | — | — | A literal header name. Case doesn't matter. Not a template. |
+| value | string, number or template | — | — | Numbers are sent as text. A template that renders `null` removes the header. |
+
+`vc init` writes `accept: application/json` and `user-agent: vibranium/2` into `defaults.headers`. vc also adds `accept-encoding: gzip, br, zstd, deflate` and `host`. When a body is sent it adds `content-type` and `content-length`.
+
+## Examples
+
+### Layers merge by name
+
+The config sets `accept`. The file sets `x-team` and `x-trace`. The api replaces `accept` and `x-trace`:
+
+```yaml title="vibranium.config.yaml"
+defaults:
+  headers:
+    accept: application/json
+    user-agent: vibranium/2
+```
+
+```yaml title="services/req/req.api.yaml"
+id: req
+baseUrl: ${var.sampleUrl}
+headers:
+  x-team: payments
+  x-trace: file-level
+apis:
+  - id: hdrs
+    path: /echo
+    headers:
+      x-trace: api-level
+      accept: text/plain
+```
+
+```console
+$ vc call req#hdrs
+200 OK · 2 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "text/plain",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2",
+    "x-team": "payments",
+    "x-trace": "api-level"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+### A test overrides or removes a header
+
+A test's `headers` win over the api's. Names match in any case, so `X-Team` replaces the file's `x-team`. A var that holds `null` removes the header:
+
+```yaml title="services/req/shape.test.yaml"
+vars:
+  nothing: null
+tests:
+  - id: overridesHeaders
+    call: req#hdrs
+    headers:
+      x-trace: test-level
+      X-Team: ${var.nothing}
+    expect:
+      body:
+        match:
+          headers.x-trace: test-level
+          headers.x-team:
+            exists: false
+```
+
+```console
+$ vc run req.shape
+plan  2 tests in 1 file · profile default
+
+✓ req.shape#overridesHeaders                                      3ms
+✓ req.shape#mergesQuery                                           3ms
+
+2 passed                                                     3ms · profile default
+```
+
+### Values are text
+
+A number is sent as text:
+
+```yaml title="services/qlab/qlab.api.yaml"
+  - id: typed
+    path: /echo
+    headers:
+      x-n: 5
+```
+
+```console
+$ vc call qlab#typed
+200 OK · 73 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2",
+    "x-n": "5"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {
+    "flag": "true",
+    "n": "5"
+  }
+}
+```
+
+### A default for every step
+
+A test-level `headers` map is a default for each `call` and `test:` step. A step's own value wins. If every step replaces it, `vc check` warns that the default is unused:
+
+```yaml title="services/bodylab/e.test.yaml"
+  - id: unusedDefault
+    headers:
+      x-a: "1"
+    steps:
+      - call: bodylab#get
+        headers:
+          x-a: "2"
+```
+
+```console
+$ vc check
+warning[V3206]: no step uses the test-level `headers.x-a`
+  --> services/bodylab/e.test.yaml:22:7
+   |
+22 |       x-a: "1"
+   |       ^^^ unused default
+   = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+   = help: remove it, or remove the steps' own values that replace it
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`id: req
+baseUrl: \${var.sampleUrl}
+headers:
+  x-team: payments
+apis:
+  - id: hdrs
+    path: /echo
+    headers:
+      x-trace: \${fake.string.uuid}
+      accept: text/plain
+`} />
+
+## How it behaves
+
+- Levels merge per header name, later winning: `defaults.headers`, the api file, the api, the test, the step.
+- Names are case-insensitive: `X-Team` and `x-team` are the same header.
+- A value is a template, rendered for each request. A template that renders `null` removes the header, even one set by a lower level.
+- The [auth](/vc-rs/reference/syntax/auth/) in effect adds its own header (`authorization`, or the `apiKey` name). Use `auth:` rather than writing that header by hand.
+- `vc explain` does not list headers. Call the api against an echo endpoint, such as the demo's `/echo`, to see what is sent.
+- Credentials that auth adds are masked as `••••` in `vc call` output.
+
+## Common errors
+
+A literal `null` fails `vc check`. Use a var that holds `null` instead:
+
+```console
+error[V2302]: expected template, found null
+  --> services/m/m.api.yaml:12:12
+   |
+12 |       x-a: null
+   |            ^^^^ expected template
+```
+
+A header name with a space, or a template as a name, passes `vc check` and fails when sent:
+
+```yaml title="services/h/h.api.yaml"
+  - id: badName
+    path: /echo
+    headers:
+      x bad: "1"
+```
+
+```console
+$ vc run h.t
+✕ h.t#a                                                           0ms
+  error[V5111]: `x bad` is not a header name: invalid HTTP header name
+     = at: call h#badName
+```
+
+A templated name fails the same way: `` `${var.h}` is not a header name: invalid HTTP header name ``.
+
+A header var that no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/) once a test calls the api. `vc call` on an api no test calls reports it only when sent, as `` ✗ `var.n` is not set ``.
+
+See [V2302](/vc-rs/reference/diagnostics/v2302/), [V3206](/vc-rs/reference/diagnostics/v3206/) and [V5111](/vc-rs/reference/diagnostics/v5111/).
+
+## Related
+
+- [query](/vc-rs/reference/syntax/query/): merged the same way
+- [auth](/vc-rs/reference/syntax/auth/): the credential header
+- [body](/vc-rs/reference/syntax/body/): `content-type` picks the encoding
+- [Config](/vc-rs/reference/config/): `defaults.headers`
+- [expect-headers](/vc-rs/reference/syntax/expect-headers/): checking response headers

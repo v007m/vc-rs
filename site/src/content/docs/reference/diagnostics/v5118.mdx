@@ -1,0 +1,73 @@
+---
+title: "V5118 — A plugin failed, ran past its deadline or asked for what it was not granted"
+description: "A plugin is a separate program the engine talks to over JSON-RPC."
+sidebar:
+  label: "V5118 A plugin failed, ran past its deadline or asked for what it was not granted"
+  order: 5118
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5118` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A plugin is a separate program the engine talks to over JSON-RPC. It failed: it crashed, did not answer within its
+deadline (5 seconds to start, 30 seconds a call), answered something that is not the protocol, or asked for a secret
+its manifest does not declare. Only the work that used the plugin fails. A plugin gets only the secrets that
+`vibranium-plugin.yaml` lists under `permissions.secrets` and that `vibranium.lock` approved, so a plugin that needs
+another one must declare it, and `vc plugin add` asks you to approve it again. A `path:` plugin whose installed files
+changed since `vibranium.lock` approved them is refused the same way on its first call, until `vc plugin add` approves
+them again. A plugin must not write into its install folder (`.vibranium/plugins/<id>/`): it keeps its own files in the
+folder that `$VIB_PLUGIN_DATA` names (`.vibranium/plugin-data/<id>/`, made on first use). Write state to
+`$VIB_PLUGIN_DATA`; re-approve with `vc plugin add` if the change was intended.
+
+## Wrong
+
+```yaml title=".vibranium/plugins/acmeReport/vibranium-plugin.yaml"
+id: acmeReport
+version: 1.0.0
+kind: reporter
+entry: {command: python3, args: [report.py]}
+permissions: {secrets: [reportToken]}
+```
+
+```python title=".vibranium/plugins/acmeReport/report.py"
+key = rpc.request("secrets/get", {"name": "apiKey"})
+```
+
+## Right
+
+```yaml title=".vibranium/plugins/acmeReport/vibranium-plugin.yaml"
+id: acmeReport
+version: 1.0.0
+kind: reporter
+entry: {command: python3, args: [report.py]}
+permissions: {secrets: [reportToken]}
+```
+
+```python title=".vibranium/plugins/acmeReport/report.py"
+token = rpc.request("secrets/get", {"name": "reportToken"})
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5118
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

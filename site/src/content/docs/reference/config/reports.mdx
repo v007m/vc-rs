@@ -1,0 +1,108 @@
+---
+title: "reports"
+description: "Which report files each run writes, and where: CTRF, JUnit and HTML."
+sidebar: { order: 60 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`reports` picks the report files each run writes and the folder they go in.
+
+```yaml title="vibranium.config.yaml"
+reports:
+  dir: .vibranium/reports
+  formats: [ctrf, junit, html]
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `reports.dir` | path | `.vibranium/reports` | no | Each run writes to a numbered folder inside it. |
+| `reports.formats` | list | `[ctrf]` | no | `ctrf`, `junit`, `html` or a reporter plugin's ID. |
+| `reports.html.layout` | `folder` or `single` | `folder` | no | `folder`: `index.html` plus a `data/` folder. `single`: one `report.html`. |
+
+All three can be changed with `--set`.
+
+## Examples
+
+With the config above, run 70 writes three files. The last line of the run says where:
+
+```console
+$ vc run slow.par
+✓ slow.par#waits1                                               509ms
+
+4 passed                                                     531ms · profile default
+reports  /…/try-sb-config/.vibranium/reports/70/{ctrf.json,junit.xml,index.html}
+```
+
+Where the formats come from:
+
+```console
+$ vc config explain reports.formats
+reports.formats = ctrf,junit,html  (vibranium.config.yaml)
+  over ctrf  (built-in)
+```
+
+One HTML file, in another folder:
+
+```console
+$ vc run slow.par --set reports.html.layout=single --set reports.dir=out/reports
+reports  /…/try-sb-config/out/reports/71/{ctrf.json,junit.xml,report.html}
+```
+
+Only CTRF:
+
+```console
+$ vc run slow.par --set reports.formats=ctrf
+reports  /…/try-sb-config/.vibranium/reports/72/ctrf.json
+```
+
+An unknown format, in the file and on the command line:
+
+```console
+$ vc check
+error[V2302]: expected one of ctrf, junit, html or a reporter plugin's ID, found `pdf`
+  --> vibranium.config.yaml:53:19
+   |
+53 |   formats: [ctrf, pdf]
+   |                   ^^^ not a report format or plugin
+   = help: expected one of `ctrf`, `junit`, `html`
+
+$ vc run slow.par --set reports.formats=pdf
+error: --set: no report format `pdf`
+  = help: the report formats are ctrf, junit, html
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+reports:
+  dir: out/reports
+  formats: [ctrf, junit, html]
+  html:
+    layout: single
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- The folder number is the run's number in [history](/vc-rs/reference/config/history/), so `vc history show 70` and `reports/70/` match.
+- Reports are masked by [secrets](/vc-rs/reference/config/secrets/) and [`redact`](/vc-rs/reference/config/redact/) before they are written.
+- Request and response bodies appear in reports only when [`history.bodies`](/vc-rs/reference/config/history/) keeps them.
+- Use `single` when you want one file to attach to a CI job.
+- A reporter plugin adds its own format ID. See [plugins](/vc-rs/reference/config/plugins/).
+
+## Common errors
+
+- [V2302](/vc-rs/reference/diagnostics/v2302/): an unknown format.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="history" href="/vc-rs/reference/config/history/" />
+  <LinkCard title="plugins" href="/vc-rs/reference/config/plugins/" />
+</CardGrid>

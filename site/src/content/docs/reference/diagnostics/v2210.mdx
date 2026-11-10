@@ -1,0 +1,90 @@
+---
+title: "V2210 — Shared action saves values but has no id"
+description: "An action in beforeRun or beforeAll saves values, but has no id."
+sidebar:
+  label: "V2210 Shared action saves values but has no id"
+  order: 2210
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2210` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | add an id derived from the api |
+
+An action in `beforeRun` or `beforeAll` saves values, but has no `id`. Values saved there are shared under the action's
+ID (`${var.member.userId}`), so without one nothing can read them.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+  - id: renameUser
+    method: PUT
+    path: /users/${var.userId}
+    body:
+      name: Bo
+```
+
+```yaml title="services/users/crud.test.yaml"
+beforeAll:
+  - call: users#createUser
+tests:
+  - id: getsUser
+    call: users#getUser
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+  - id: renameUser
+    method: PUT
+    path: /users/${var.userId}
+    body:
+      name: Bo
+```
+
+```yaml title="services/users/crud.test.yaml"
+beforeAll:
+  - id: member
+    call: users#createUser
+tests:
+  - id: getsUser
+    call: users#getUser
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2210
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

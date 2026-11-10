@@ -1,0 +1,112 @@
+---
+title: "Alert triggers"
+description: "The four alert triggers, failure, threshold, flaky and recovery, what each one means and the order in which a rule tries them."
+sidebar: { order: 12 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+A trigger is a reason to send an alert. A rule lists its triggers in `on`, and fires for the first one that happened.
+
+```yaml
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - webhook:
+          url: https://hooks.example.com/vibranium
+```
+
+## Syntax
+
+The rule tries them in this order, whatever order `on` lists them in:
+
+| Trigger | Fires when | Sent by |
+| --- | --- | --- |
+| `failure` | A test the rule sees failed or was blocked | `vc run` |
+| `threshold` | A load threshold was breached, whatever the rule's `tags` | `vc load` |
+| `flaky` | A test the rule sees passed on a retry | `vc run` |
+| `recovery` | The previous run failed, and this one ran something, was not cancelled, breached nothing and had no failed test | `vc run`, `vc load` |
+
+`on` defaults to `[failure]`.
+
+## Examples
+
+Each example posts to a local `webhook` channel, so you can see exactly what was sent. The notice is under `results.extra`.
+
+**failure.** A test expected `418` and got `200`.
+
+```json
+{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[{"message":"status: expected [418], got 200","test":"sample.flip#listsUsersWithStatus"}],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/15/ctrf.json","trigger":"failure"},"summary":{"failed":1,"other":0,"passed":0,"pending":0,"skipped":0,"start":1794332027009,"stop":1794332027017,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
+```
+
+**recovery.** The next run, after fixing the test. A third passing run sends nothing, because the previous run did not fail.
+
+```json
+{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/16/ctrf.json","trigger":"recovery"},"summary":{"failed":0,"other":0,"passed":1,"pending":0,"skipped":0,"start":1794332034557,"stop":1794332034566,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
+```
+
+**flaky.** A test with `retry: {attempts: 2}` that failed once, then passed.
+
+```console
+~ sample.wobble#passesOnRetry flaky (2 attempts)                306ms
+
+0 passed · 1 flaky                                           310ms · profile default
+```
+
+```json
+{"reportFormat":"CTRF","results":{"extra":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/20/ctrf.json","trigger":"flaky"},"summary":{"failed":0,"other":0,"passed":1,"pending":0,"skipped":0,"start":1794332094217,"stop":1794332094527,"tests":1},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
+```
+
+**threshold.** A `vc load` scenario with `p95: {lt: 1ms}`, which a real server cannot meet. `vc load` exits 3, and the alert lists the breach.
+
+```console
+$ vc load sample.burst
+...
+breached p95 at 4.107
+```
+
+```json
+{"reportFormat":"CTRF","results":{"extra":{"breaches":["p95"],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":null,"trigger":"threshold"},"summary":{"failed":0,"other":0,"passed":0,"pending":0,"skipped":0,"start":1794332109570,"stop":1794332112843,"tests":0},"tool":{"name":"vibranium"}},"specVersion":"0.2.0"}
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - webhook:
+          url: https://hooks.example.com/qa
+  - on: [threshold]
+    notify:
+      - pagerduty:
+          routingKey: \${secret.pdRoutingKey}
+`} />
+
+## How it behaves
+
+- **One message per rule.** When a run both failed and turned flaky, a rule with `on: [failure, flaky]` sends one `failure` message.
+- **The previous run** is the last finished run of the same kind (`run` or `load`) under the same profiles, among the last 50 runs in the history. A `vc run` in which nothing ran (exit 2) is passed over.
+- **Recovery needs a run that ran.** A run where nothing ran never recovers.
+- **`threshold` never fires from `vc run`**, which has no load thresholds. A rule with `tags` still sees load breaches.
+- **A run the executor could not finish** (exit 70, or cancelled) sends no alerts.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5117](/vc-rs/reference/diagnostics/v5117/) | A channel could not be built or sent to |
+| [V2302](/vc-rs/reference/diagnostics/v2302/) | A value in `on` is not one of the four triggers |
+
+```console
+error[V2302]: expected one of failure, recovery, flaky, threshold, found `failed`
+```
+
+## Related
+
+- [alerts](/vc-rs/reference/plugins/alerts/)
+- [Retries and flaky tests](/vc-rs/reference/syntax/retry/)
+- [Load thresholds](/vc-rs/reference/load/thresholds/)

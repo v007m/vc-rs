@@ -1,0 +1,68 @@
+---
+title: "defaults.concurrency"
+description: "How many test instances run at the same time."
+sidebar: { order: 22 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`defaults.concurrency` is how many test instances run at once.
+
+```yaml title="vibranium.config.yaml"
+defaults:
+  concurrency: 4
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `defaults.concurrency` | integer | `16` | no | A whole number above 0. |
+
+## Examples
+
+Four tests each wait 500ms. One at a time takes two seconds:
+
+```console
+$ vc run slow.par --set defaults.concurrency=1
+4 passed                                                     2.0s · profile default
+```
+
+Four at a time takes half a second:
+
+```console
+$ vc run slow.par --set defaults.concurrency=4
+4 passed                                                     510ms · profile default
+```
+
+A value that is not a whole number above 0 is refused on the command line:
+
+```console
+$ vc run --set defaults.concurrency=x
+error: --set: `defaults.concurrency`: `x` is not a whole number above 0
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+defaults:
+  concurrency: 4
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- Connections to one host are also capped by [`defaults.perHost`](/vc-rs/reference/config/defaults-per-host/). The lower limit wins.
+- Override it with `--set defaults.concurrency=4`, `VIB_DEFAULTS_CONCURRENCY=4` or the user config.
+
+<Aside type="caution">Write a number of 1 or more. `concurrency: 0` in the file is not reported by `vc check` today.</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="defaults.perHost" href="/vc-rs/reference/config/defaults-per-host/" />
+  <LinkCard title="defaults" href="/vc-rs/reference/config/defaults/" />
+</CardGrid>

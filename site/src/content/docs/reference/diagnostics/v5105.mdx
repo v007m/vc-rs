@@ -1,0 +1,110 @@
+---
+title: "V5105 — Transport error"
+description: "The request never got a response: the host name did not resolve, the connection was refused or reset, or TLS failed."
+sidebar:
+  label: "V5105 Transport error"
+  order: 5105
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5105` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+The request never got a response: the host name did not resolve, the connection was refused or reset, or TLS failed.
+A status code, even 500, is never a transport error. Check the base URL the active profile gives (`vc explain
+<apiId>` shows the final URL) and that the service is running.
+
+## Wrong
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+vars:
+  usersUrl: http://localhost:9
+```
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: ${var.usersUrl}
+apis:
+  - id: listUsers
+    path: /users
+```
+
+## Right
+
+```yaml title="vibranium.config.yaml"
+syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+vars:
+  usersUrl: http://localhost:7421
+```
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: ${var.usersUrl}
+apis:
+  - id: listUsers
+    path: /users
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/users.api.yaml"
+id: users
+name: Users
+baseUrl: http://localhost:7499
+apis:
+  - id: listUsers
+    name: List users
+    path: /users
+```
+
+```yaml title="services/users/crud.test.yaml"
+id: users.crud
+name: Users CRUD
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+```
+
+```console
+$ vc run
+plan  1 test in 1 file · profile default
+
+✕ users.crud#listsUsers                                           1ms
+  error[V5105]: cannot connect to localhost:7499: Connection refused (os error 61)
+     = at: call users#listUsers
+
+0 passed · 1 failed                                          2ms · profile default
+$ echo $?
+1
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5105
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

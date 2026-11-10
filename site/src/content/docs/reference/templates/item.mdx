@@ -1,0 +1,116 @@
+---
+title: "item"
+description: "Read the current element of a forEach loop with ${item} or ${item.field}."
+sidebar: { order: 8 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Inside a `forEach`, `${item}` is the current element of the list, and `${item.field}` reads a field of a row.
+
+```yaml
+      - call: geo#createCity
+        forEach: ${dataset.capitals}
+        vars:
+          cityName: ${item.name}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `item` | any value | — | yes | The element: text, a number or a whole row. |
+| `item.<path>` | any value | — | no | A field of the element. |
+
+Available only inside the action that has the `forEach` (anything else is V2102). [`iteration`](/vc-rs/reference/templates/iteration/) is available there too.
+
+## Examples
+
+A literal list. Each name saved inside the loop collects a list, in iteration order:
+
+```yaml title="services/tpl/flow.test.yaml"
+tests:
+  - id: loopsForEach
+    steps:
+      - id: each
+        call: sample#echo
+        forEach: [red, green]
+        vars:
+          payload:
+            item: ${item}
+            index: ${iteration.index}
+            count: ${iteration.count}
+        save:
+          echoed: ${response.body.body.item}
+      - call: sample#echo
+        vars:
+          payload:
+            collected: ${var.echoed}
+```
+
+The second step sent `{"collected": ["red", "green"]}`.
+
+Rows from a dataset, with a fallback for a field the rows lack:
+
+```yaml
+      - call: sample#echo
+        forEach: ${dataset.capitals}
+        vars:
+          payload: "${item.name} has ${item.mayor | default('no mayor')}"
+        save:
+          said: ${response.body.body}
+```
+
+`said` became `["Tokyo has no mayor", "Delhi has no mayor", "Paris has no mayor"]`.
+
+A list from a var: `forEach: ${var.cities}`.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: createsThreeUsers
+    steps:
+      - call: sample#createUser
+        forEach: [Ada, Grace, Linus]
+        vars:
+          name: \${item}
+`} />
+
+## How it behaves
+
+- Iterations run one after another unless the action sets `parallel`.
+- A field that a row does not have fails that iteration with V5112, unless a `default` pipe stands in. The message names the iteration.
+- If an iteration fails, the action fails once the running ones finish.
+
+## Common errors
+
+A field the row does not have, at run time:
+
+```console
+✕ tpl.col#readsMissingItemField                                   0ms
+  error[V5112]: iteration 1: `item.mayor` is missing: `item` is {"country":"JP","name":"Tokyo","population":"37400000"}
+     = at: call sample#echo
+```
+
+Used outside a `forEach`:
+
+```console
+error[V2102]: `item` is not available here
+  --> services/tpl/bad.test.yaml:11:16
+   |
+11 |       payload: ${item}
+   |                ^^^^^^^
+   = help: `item` is available only inside forEach
+```
+
+- [V2102](/vc-rs/reference/diagnostics/v2102/): `item` outside `forEach`.
+- [V5112](/vc-rs/reference/diagnostics/v5112/): the element has no such field.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="iteration" href="/vc-rs/reference/templates/iteration/" />
+  <LinkCard title="example" href="/vc-rs/reference/templates/example/" />
+  <LinkCard title="dataset" href="/vc-rs/reference/templates/dataset/" />
+</CardGrid>

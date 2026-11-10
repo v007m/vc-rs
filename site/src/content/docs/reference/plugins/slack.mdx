@@ -1,0 +1,100 @@
+---
+title: "slack"
+description: "The slack alert channel posts a Block Kit message to a Slack incoming webhook when an alert rule fires."
+sidebar: { order: 14 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+The `slack` channel posts to a Slack [incoming webhook](https://api.slack.com/messaging/webhooks). Keep the webhook URL in a secret.
+
+```yaml title="vibranium.config.yaml"
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - slack:
+          webhook: ${secret.slackWebhook}
+          channel: "#qa-alerts"
+```
+
+## Syntax
+
+| Setting | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `webhook` | http or https URL | — | yes | The incoming webhook URL |
+| `channel` | text | the webhook's own channel | no | Sent as `channel` in the message |
+
+The message has a plain-text `text` (for notifications) and these blocks, in order:
+
+| Block | Holds |
+| --- | --- |
+| `header` | `<project>: <what> (<profiles>)`, where `<what>` is `run failed`, `run recovered`, `flaky tests` or `load thresholds breached` |
+| `section` | `N passed, N failed, N blocked, N flaky, N skipped` |
+| `section` | One `• <test>: <message>` line per failure, up to ten, then `and N more` (only when something failed) |
+| `section` | `Breached: …` (only for a load breach) |
+| `context` | `Report: <path>` (only when a report was written) |
+
+## Examples
+
+**A failed run.**
+
+```json
+{"blocks":[{"text":{"text":"try-syntax-b: run failed (default)","type":"plain_text"},"type":"header"},{"text":{"text":"0 passed, 1 failed, 0 blocked, 0 flaky, 0 skipped","type":"mrkdwn"},"type":"section"},{"text":{"text":"• sample.flip#listsUsersWithStatus: status: expected [418], got 200","type":"mrkdwn"},"type":"section"},{"elements":[{"text":"Report: .vibranium/reports/18/ctrf.json","type":"mrkdwn"}],"type":"context"}],"channel":"#qa-alerts","text":"try-syntax-b: run failed (default)"}
+```
+
+**The next run, after the fix.** No failures, so no failure section. No `channel`, so Slack uses the webhook's own.
+
+```json
+{"blocks":[{"text":{"text":"try-syntax-b: run recovered (default)","type":"plain_text"},"type":"header"},{"text":{"text":"1 passed, 0 failed, 0 blocked, 0 flaky, 0 skipped","type":"mrkdwn"},"type":"section"},{"elements":[{"text":"Report: .vibranium/reports/33/ctrf.json","type":"mrkdwn"}],"type":"context"}],"text":"try-syntax-b: run recovered (default)"}
+```
+
+**Only for the nightly profile.**
+
+```yaml
+alerts:
+  - on: [failure, flaky]
+    profiles: [nightly]
+    notify:
+      - slack:
+          webhook: ${secret.slackWebhook}
+```
+
+**A missing webhook.**
+
+```console
+warning: V5117: the `slack` alert channel needs `webhook`
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - slack:
+          webhook: \${secret.slackWebhook}
+          channel: "#qa-alerts"
+`} />
+
+## How it behaves
+
+- `&`, `<` and `>` in the counts, failure and breach text are escaped for Slack, so a failure message cannot turn into a link or a mention.
+- Each failure message is cut to 200 characters, ending in `…`.
+- Slack may ignore `channel`, depending on how the webhook was created.
+- Any non-2xx answer from Slack is a `V5117` warning. The run's exit code does not change.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5117](/vc-rs/reference/diagnostics/v5117/) | `webhook` is missing or not an http or https URL, or the POST failed |
+| [V2106](/vc-rs/reference/diagnostics/v2106/) | `${secret.X}` names a secret `.env.schema` does not declare |
+
+## Related
+
+- [alerts](/vc-rs/reference/plugins/alerts/)
+- [Triggers](/vc-rs/reference/plugins/triggers/)
+- [teams](/vc-rs/reference/plugins/teams/)

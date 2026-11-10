@@ -1,0 +1,88 @@
+---
+title: "basic"
+description: "The basic auth type sends a username and password as an HTTP Basic Authorization header."
+sidebar: { order: 1 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`type: basic` sends `Authorization: Basic <base64 of username:password>` on every request that uses it.
+
+```yaml title="vibranium.config.yaml (excerpt)"
+auth:
+  - id: labBasic
+    type: basic
+    username: ada
+    password: ${secret.LAB_PASSWORD}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `type` | `basic` | — | yes | |
+| `username` | text or template | — | yes | |
+| `password` | text or template | — | yes | Use `${secret.X}` |
+| `vars` | map | — | no | Defaults for the templates here |
+
+## Examples
+
+With `LAB_PASSWORD=open-sesame` in `.env`, the server received:
+
+```console
+GET /whoami  authorization: Basic YWRhOm9wZW4tc2VzYW1l
+```
+
+Take the username from a var, so each profile can log in as its own user:
+
+```yaml
+auth:
+  - id: adminBasic
+    type: basic
+    username: ${var.adminUser}
+    password: ${secret.ADMIN_PASSWORD}
+```
+
+Log in as someone else for one test:
+
+```yaml
+tests:
+  - id: rejectsReadOnlyUser
+    call: users#create
+    auth:
+      id: adminBasic
+      vars:
+        adminUser: viewer
+    expect:
+      status: 403
+```
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+auth:
+  - id: labBasic
+    type: basic
+    username: ada
+    password: \${secret.LAB_PASSWORD}
+`} />
+
+## How it behaves
+
+- The header is built for each request from the rendered values. Nothing is fetched.
+- The `Authorization` header is masked in all output.
+
+## Common errors
+
+- [V5114](/vc-rs/reference/diagnostics/v5114/): a field is missing at run time.
+- [V2106](/vc-rs/reference/diagnostics/v2106/): the secret is not declared in `.env.schema`.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Using auth" href="/vc-rs/reference/auth/using-auth/" />
+  <LinkCard title="Secrets" href="/vc-rs/reference/auth/secrets/" />
+  <LinkCard title="bearer" href="/vc-rs/reference/auth/bearer/" />
+</CardGrid>

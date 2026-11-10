@@ -1,3 +1,4 @@
+import { ConnectError } from '@connectrpc/connect';
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -32,9 +33,17 @@ const definitions = [
   },
 ];
 
-async function setup(runs: string[][] = [], asked: boolean[] = []) {
+async function setup(
+  runs: string[][] = [],
+  asked: boolean[] = [],
+  sinces: (string | undefined)[] = [],
+) {
   const engine = fakeEngine({
     listDefinitions: (request) => {
+      const since = request.selection?.changed;
+      if (since) sinces.push(since);
+      if (since === 'bad') throw new ConnectError('unknown revision bad');
+      if (since) return { definitions: definitions.filter((d) => d.id.startsWith('orders.')) };
       asked.push(request.skipped);
       return { definitions };
     },
@@ -80,6 +89,34 @@ describe('Explorer', () => {
     expect(within(tree).getAllByRole('treeitem')).toHaveLength(2);
     await user.type(screen.getByRole('searchbox'), ' nothing');
     expect(screen.getByText('No test matches “service:orders nothing”.')).toBeTruthy();
+  });
+
+  it('asks the engine which tests changed since a git ref', async () => {
+    const asked: (string | undefined)[] = [];
+    const { user } = await setup([], [], asked);
+    await user.type(screen.getByRole('searchbox'), 'changed:main');
+    expect(screen.getByRole('status').textContent).toBe('Finding the tests changed since main…');
+    expect(await screen.findByText('Places an order')).toBeTruthy();
+    const tree = screen.getByRole('tree', { name: 'Tests' });
+    expect(within(tree).getAllByRole('treeitem')).toHaveLength(2);
+    expect(asked).toEqual(['main']);
+    await user.clear(screen.getByRole('searchbox'));
+    await user.type(screen.getByRole('searchbox'), 'changed:bad');
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Could not find the changed tests: bad: unknown revision bad',
+    );
+  });
+
+  it('shows a failure only for the refs in the query', async () => {
+    const { user } = await setup();
+    await user.type(screen.getByRole('searchbox'), 'changed:bad');
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'Could not find the changed tests: bad: unknown revision bad',
+    );
+    await user.clear(screen.getByRole('searchbox'));
+    await user.type(screen.getByRole('searchbox'), 'changed:main');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('Finding the tests changed since main…');
   });
 
   it('selects tests with Space and runs the selection', async () => {

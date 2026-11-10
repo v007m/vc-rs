@@ -1,0 +1,82 @@
+---
+title: "bool"
+description: "Convert the text \"true\" or \"false\" to a JSON boolean."
+sidebar: { order: 3 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`bool` turns the text `true` or `false` into a JSON boolean.
+
+```yaml
+      active: ${env.FEATURE_ON | bool}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| input | text or a boolean | — | yes | Only `true` and `false`, in lowercase. Surrounding spaces are ignored. |
+| output | boolean | — | — |  |
+| arguments | none | — | — |  |
+
+## Examples
+
+Results below are the body that the demo's `/echo` api sent back.
+
+```yaml
+vars:
+  flag: "true"
+  ok: " true "
+```
+
+| Template | Result |
+| --- | --- |
+| `${var.flag \| bool}` | `true` |
+| `${var.ok \| bool}` | `true` |
+
+Env values are text, so a feature switch needs `bool`:
+
+```yaml
+    body:
+      dryRun: ${env.DRY_RUN | default('false') | bool}
+```
+
+Case matters. `" TRUE "` fails with `` the text is not `true` or `false` ``.
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: sendsABoolean
+    call: sample#echo
+    vars:
+      flag: "true"
+      payload:
+        active: \${var.flag | bool}
+`} />
+
+## How it behaves
+
+- A boolean passes through unchanged.
+- Only lowercase `true` and `false` convert. `yes`, `1` and `TRUE` fail.
+- A number fails at run time.
+
+## Common errors
+
+| Input | Message |
+| --- | --- |
+| `"abc"` | `` pipe `bool` cannot take "abc": the text is not `true` or `false` `` |
+| `5` | `` pipe `bool` cannot take 5: it takes `true` or `false` `` |
+
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known to be a list or an object.
+- [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
+- [V5111](/vc-rs/reference/diagnostics/v5111/): the text is not `true` or `false`, or the input is a number.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="number" href="/vc-rs/reference/pipes/number/" />
+  <LinkCard title="default" href="/vc-rs/reference/pipes/default/" />
+  <LinkCard title="Pipes" href="/vc-rs/reference/pipes/" />
+</CardGrid>

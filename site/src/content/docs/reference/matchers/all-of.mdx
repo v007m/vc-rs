@@ -1,0 +1,134 @@
+---
+title: "allOf"
+description: "The allOf matcher passes when every matcher in a list passes."
+sidebar: { order: 33 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`allOf` passes when every matcher in the list passes.
+
+```yaml
+expect:
+  body:
+    match:
+      body.id: {allOf: [{startsWith: ord_}, {length: 7}]}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `allOf` | list of matchers | — | yes | Every entry must pass. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Two rules on one value
+
+
+
+```yaml title="services/sample/allof.test.yaml"
+tests:
+  - id: idShape
+    name: ID starts with ord_ and has 7 characters
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {allOf: [{startsWith: ord_}, {length: 7}]}
+```
+
+```console
+$ vc run sample.allof#idShape
+plan  1 test in 1 file · profile default
+
+✓ sample.allof#idShape                                            0ms
+
+1 passed                                                     35ms · profile default
+```
+
+### The same thing in one map
+
+Several matchers in one map must all pass too, so this is equivalent and shorter.
+
+```yaml title="services/sample/allof.test.yaml"
+tests:
+  - id: idShapeMap
+    name: ID is a 7-character string starting with ord_
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {type: string, length: 7, startsWith: ord_}
+```
+
+```console
+$ vc run sample.allof#idShapeMap
+plan  1 test in 1 file · profile default
+
+✓ sample.allof#idShapeMap                                         0ms
+
+1 passed                                                     14ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/allof.test.yaml"
+tests:
+  - id: failsOnLength
+    name: ID has 8 characters
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {allOf: [{startsWith: ord_}, {length: 8}]}
+```
+
+```console
+$ vc run sample.allof#failsOnLength
+plan  1 test in 1 file · profile default
+
+✕ sample.allof#failsOnLength                                      0ms
+  error[V5101]: expect.body.match.body.id
+    --> services/sample/allof.test.yaml:22:20
+     |
+  22 |           body.id: {allOf: [{startsWith: ord_}, {length: 8}]}
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"allOf":[{"startsWith":"ord_"},{"length":8}]}, got "ord_123"
+
+0 passed · 1 failed                                          15ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: idShape
+    name: ID starts with ord_ and has 7 characters
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.id: {allOf: [{startsWith: ord_}, {length: 7}]}
+`} />
+
+## How it behaves
+
+- Every entry must pass. An empty list passes.
+- A map with several matchers, such as `{gte: 1, lte: 10}`, means the same as `allOf`. Use `allOf` when you repeat a matcher, such as two `regex` patterns, which one map cannot hold.
+- The argument must be a list of matchers.
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): the argument is not a list: `allOf needs a list of matchers`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [anyOf](/vc-rs/reference/matchers/any-of/)
+- [not](/vc-rs/reference/matchers/not/)
+- [All matchers](/vc-rs/reference/matchers//)

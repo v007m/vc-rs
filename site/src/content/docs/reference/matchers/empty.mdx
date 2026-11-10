@@ -1,0 +1,163 @@
+---
+title: "empty"
+description: "The empty matcher checks whether a string, list or object is empty."
+sidebar: { order: 22 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`empty: true` passes for an empty string, list or object. `empty: false` passes when it has content.
+
+```yaml
+expect:
+  body:
+    match:
+      body.tags: {empty: false}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `empty` | `true` or `false` | — | yes | Works on strings, lists and objects. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### A list with items
+
+
+
+```yaml title="services/sample/empty.test.yaml"
+tests:
+  - id: hasTags
+    name: Tags are set
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.tags: {empty: false}
+```
+
+```console
+$ vc run sample.empty#hasTags
+plan  1 test in 1 file · profile default
+
+✓ sample.empty#hasTags                                           16ms
+
+1 passed                                                     20ms · profile default
+```
+
+### An empty list
+
+
+
+```yaml title="services/sample/empty.test.yaml"
+tests:
+  - id: noExtras
+    name: The empty list is empty
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.empty: {empty: true}
+```
+
+```console
+$ vc run sample.empty#noExtras
+plan  1 test in 1 file · profile default
+
+✓ sample.empty#noExtras                                         159ms
+
+1 passed                                                     168ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/empty.test.yaml"
+tests:
+  - id: failsOnTags
+    name: Tags are empty
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.tags: {empty: true}
+```
+
+```console
+$ vc run sample.empty#failsOnTags
+plan  1 test in 1 file · profile default
+
+✕ sample.empty#failsOnTags                                        0ms
+  error[V5101]: expect.body.match.body.tags
+    --> services/sample/empty.test.yaml:22:22
+     |
+  22 |           body.tags: {empty: true}
+     |                      ^^^^^^^^^^^^^ expected {"empty":true}, got ["new","vip"]
+
+0 passed · 1 failed                                          85ms · profile default
+```
+
+### Missing values fail both ways
+
+A path that is not there is neither empty nor non-empty.
+
+```yaml title="services/sample/empty.test.yaml"
+tests:
+  - id: failsOnMissing
+    name: Missing list has items
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.missing: {empty: false}
+```
+
+```console
+$ vc run sample.empty#failsOnMissing
+plan  1 test in 1 file · profile default
+
+✕ sample.empty#failsOnMissing                                    25ms
+  error[V5101]: expect.body.match.body.missing
+    --> services/sample/empty.test.yaml:29:25
+     |
+  29 |           body.missing: {empty: false}
+     |                         ^^^^^^^^^^^^^^ expected {"empty":false}, got nothing
+
+0 passed · 1 failed                                          48ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: hasTags
+    name: Tags are set
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.tags: {empty: false}
+`} />
+
+## How it behaves
+
+- A string is empty when it has no characters; a list when it has no items; an object when it has no keys.
+- A missing value, a number, a boolean or `null` fails both `empty: true` and `empty: false`.
+- To check an exact size, use [length](/vc-rs/reference/matchers/length/).
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): the argument is not `true` or `false`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [length](/vc-rs/reference/matchers/length/)
+- [exists](/vc-rs/reference/matchers/exists/)
+- [All matchers](/vc-rs/reference/matchers//)

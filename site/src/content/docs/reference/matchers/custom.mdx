@@ -1,0 +1,190 @@
+---
+title: "custom"
+description: "The custom check calls your own function to judge a response."
+sidebar: { order: 9 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`custom` runs functions from a hook file. Each returns `true` to pass, or a message to fail.
+
+```yaml
+expect:
+  custom:
+    - function: ../../hooks/checks.ts#pricesAscend
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `custom` | list | — | no | Each entry is one function. |
+| `custom[].function` | `path#export` | — | yes | Path relative to the file that holds it. TypeScript or JavaScript: `.ts`, `.mts`, `.js`, `.mjs`. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Write the function
+
+A custom check gets `response` and `vars`. It returns `true`, a failure message, or `{pass, message}`.
+
+```yaml title="services/sample/custom.test.yaml"
+tests:
+  - id: pricesInOrder
+    name: Item prices ascend
+    call: sample#echoOrder
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#pricesAscend
+        - function: ../../hooks/checks.ts#totalMatchesItems
+```
+
+```console
+$ vc run sample.custom#pricesInOrder
+plan  1 test in 1 file · profile default
+
+✓ sample.custom#pricesInOrder                                     0ms
+
+1 passed                                                     28ms · profile default
+```
+
+```ts title="hooks/checks.ts"
+import type { CustomCheck } from "@vibranium/sdk";
+
+// Passes when item prices go up; otherwise returns the failure message.
+export const pricesAscend: CustomCheck = ({ response }) => {
+  const prices = response.body.body.items.map((item: { price: number }) => item.price);
+  const sorted = [...prices].sort((a, b) => a - b);
+  return prices.every((p: number, i: number) => p === sorted[i]) || `prices are not sorted: ${prices.join(", ")}`;
+};
+
+// Passes when the total is the sum of the item prices.
+export const totalMatchesItems: CustomCheck = ({ response }) => {
+  const order = response.body.body;
+  const sum = order.items.reduce((acc: number, item: { price: number }) => acc + item.price, 0);
+  return sum === order.total || `total is ${order.total}, items add up to ${sum}`;
+};
+
+// Reads a var from the test: { pass, message } is the other way to answer.
+export const hasMinItems: CustomCheck = ({ response, vars }) => {
+  const count = response.body.body.items.length;
+  return { pass: count >= vars.minItems, message: `${count} items, need ${vars.minItems}` };
+};
+```
+
+### Read a var, fail with a message
+
+The function reads `vars.minItems` from the test. When it fails, its message is the report.
+
+```yaml title="services/sample/custom.test.yaml"
+tests:
+  - id: failsOnMinItems
+    name: At least five items
+    call: sample#echoOrder
+    vars:
+      minItems: 5
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#hasMinItems
+```
+
+```console
+$ vc run sample.custom#failsOnMinItems
+plan  1 test in 1 file · profile default
+
+✕ sample.custom#failsOnMinItems                                   7ms
+  error[V5103]: expect.custom
+    --> services/sample/custom.test.yaml:16:11
+     |
+  16 |         - function: ../../hooks/checks.ts#hasMinItems
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 2 items, need 5
+
+0 passed · 1 failed                                          9ms · profile default
+```
+
+### A missing export
+
+`vc check` loads the hook file and lists the exports it has.
+
+```yaml title="services/sample/customerrors.test.yaml"
+tests:
+  - id: wrongExport
+    name: Wrong export
+    call: sample#echoOrder
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#isSorted
+```
+
+```console
+$ vc check
+error[V2005]: ../../hooks/checks.ts exports no function `isSorted`
+ --> services/sample/customerrors.test.yaml:7:21
+  |
+7 |         - function: ../../hooks/checks.ts#isSorted
+  |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not exported
+  = help: expected one of `hasMinItems`, `pricesAscend`, `totalMatchesItems`
+
+1 error · 0 warnings · 41 files checked
+```
+
+### A path from the wrong folder
+
+Hook paths are relative to the file that holds them.
+
+```yaml title="services/sample/customerrors.test.yaml"
+tests:
+  - id: wrongFolder
+    name: Wrong folder
+    call: sample#echoOrder
+    expect:
+      custom:
+        - function: hooks/checks.ts#pricesAscend
+```
+
+```console
+$ vc check
+error[V2004]: hooks/checks.ts is not in the project
+ --> services/sample/customerrors.test.yaml:7:21
+  |
+7 |         - function: hooks/checks.ts#pricesAscend
+  |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no file at services/sample/hooks/checks.ts
+  = help: hook paths are relative to the file that holds them, here services/sample
+
+1 error · 0 warnings · 41 files checked
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: pricesInOrder
+    name: Item prices ascend
+    call: sample#echoOrder
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#pricesAscend
+`} />
+
+## How it behaves
+
+- The function gets one argument with `response` and `vars`.
+- It passes when it returns `true` or `{pass: true}`. A string, or `{pass: false, message}`, fails with that message.
+- Any other return value fails, with `the function returned ...` as the message. A function that throws fails with the error and its line.
+- Custom checks are never replaced by merging; each level adds its own.
+- Use CEL for one-line rules and a custom function for anything longer.
+
+## Common errors
+
+- [V2004](/vc-rs/reference/diagnostics/v2004/): the hook file is not in the project. The path is relative to the file that holds it.
+- [V2005](/vc-rs/reference/diagnostics/v2005/): the hook file has no export with that name. The help line lists the exports it has.
+- [V5103](/vc-rs/reference/diagnostics/v5103/): the function returned a failure, or threw.
+
+## Related
+
+- [cel](/vc-rs/reference/matchers/cel/)
+- [Lifecycle hooks](/vc-rs/reference/lifecycle/)
+- [Plugins](/vc-rs/reference/plugins/)
+- [All matchers](/vc-rs/reference/matchers//)

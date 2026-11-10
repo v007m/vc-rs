@@ -1,0 +1,47 @@
+---
+title: "plugins"
+description: "Third-party reporters, auth types, importers and executors, listed in the config and approved with vc plugin add."
+sidebar: { order: 74 }
+---
+
+import { LinkCard } from '@astrojs/starlight/components';
+
+`plugins` lists the plugins a project uses. Each is approved and installed with `vc plugin add`.
+
+```yaml title="vibranium.config.yaml"
+plugins:
+  - id: acmeAuth
+    source: path:./plugins/acme-auth
+    config:
+      realm: dev
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `plugins[].id` | text | Required. Other files refer to it, such as `plugin: acmeAuth`. |
+| `plugins[].source` | text | Required. `npm:<package>[@<range>]` or `path:<folder>`. |
+| `plugins[].config` | any | Settings passed to the plugin. |
+
+Listed but not yet approved:
+
+```console
+$ vc plugin list
+acmeAuth  -  path:./plugins/acme-auth  not approved: `vc plugin add` it  may reach: nothing
+```
+
+A plugin without an `id`:
+
+```console
+$ vc check
+error[V1005]: a plugin needs `id`
+  --> vibranium.config.yaml:87:5
+   |
+87 |   - source: npm:@acme/vibranium-auth@2
+   |     ^^^^^^ `id` is missing
+   = help: add `id: acmeAuth`: Referenced by `plugin:`
+```
+
+`vc check` does not open the plugin, so a wrong `source` shows up only when you run `vc plugin add`.
+
+<LinkCard title="Plugins config" href="/vc-rs/reference/plugins/plugins-config/" />
+<LinkCard title="Writing a plugin" href="/vc-rs/reference/plugins/writing-a-plugin/" />

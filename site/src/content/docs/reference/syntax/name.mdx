@@ -1,0 +1,144 @@
+---
+title: name
+description: Free text that tells people what an api, test or file is for.
+sidebar:
+  order: 102
+  badge: { text: 'api + test', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`name` is a human label. The `id` is what tools and other files use; the `name` is a sentence for people. It is always optional.
+
+```yaml title="services/tagged/flows.test.yaml"
+tests:
+  - id: listsUsers
+    name: Lists every user
+    call: tagged#list
+```
+
+## Syntax
+
+| Where | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| Top of an api or test file | string | — | no | Describes the file |
+| `apis` entry | string | — | no | `vc import openapi` fills it from the operation summary |
+| `tests` entry | string | — | no | Used by `vc check --fix` to derive a better ID |
+
+`name` is plain text, not a template. A `${...}` inside it is kept as written and never resolved.
+
+## Examples
+
+### Names on a file, an api and a test
+
+```yaml title="services/sample/sample.api.yaml"
+id: sample
+name: Demo service built into Vibranium
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    name: List users
+    path: /users
+```
+
+```yaml title="services/tagged/flows.test.yaml"
+tags: [users, smoke]
+tests:
+  - id: listsUsers
+    name: Lists every user
+    call: tagged#list
+  - id: listsSlowly
+    call: tagged#list
+    tags: [slow-network]
+```
+
+### Where the name shows up
+
+`vc list tests` prints it after the ID. A test without a name shows just its ID and tags.
+
+```console
+$ vc list tests tagged.flows
+tagged.flows#listsUsers  Lists every user  [users, smoke]
+tagged.flows#listsSlowly  [users, smoke, slow-network]
+tagged.flows#listsNightly  [users, smoke, nightly]
+```
+
+`--grep` (`-g`) matches the name as well as the full ID, ignoring case:
+
+```console
+$ vc plan -g "every user"
+plan  1 test in 1 file · profile default
+tagged.flows
+  tagged.flows#listsUsers
+```
+
+### Names written by the OpenAPI importer
+
+`vc import openapi` turns each operation's summary into a `name`:
+
+```yaml title="services/pets/pets.api.yaml"
+apis:
+  - id: listPets
+    name: List pets
+    path: /pets
+    operationId: listPets
+```
+
+### Names help `--fix` rename a test
+
+When a test ID is not camelCase, V4001 suggests a new ID. If the test has a `name`, the suggestion is built from it:
+
+```yaml title="services/layer/named.test.yaml"
+tests:
+  - id: Lists_Twice
+    name: Rejects a declined card
+    call: sample#listUsers
+```
+
+```console
+$ vc check services/layer
+warning[V4001]: test ID `Lists_Twice` is not camelCase
+ --> services/layer/named.test.yaml:5:9
+  |
+5 |   - id: Lists_Twice
+  |         ^^^^^^^^^^^ rename it
+  = help: test IDs are camelCase: `rejectsADeclinedCard`
+  = fix: Rename to rejectsADeclinedCard (certain)
+```
+
+`vc check --fix` applies the rename and updates every reference.
+
+## Try it
+
+<Playground client:visible kind="test" code={`
+name: User flows
+tests:
+  - id: listsUsers
+    name: Lists every user
+    call: sample#listUsers
+`} />
+
+## How it behaves
+
+- `name` never changes what runs. Two tests can share a name; they cannot share an ID.
+- Selectors, reports and history key on the ID, not the name. Renaming a test's `name` keeps its history.
+- Today the name appears in `vc list tests` and is searched by `--grep`. The console run output, the CTRF and JUnit reports and the HTML report show the full ID, not the name.
+
+## Common errors
+
+`name` has no errors of its own. A value that is not text is error V2302:
+
+```console
+$ vc check
+error[V2302]: expected text, found a list
+ --> services/layer/named.test.yaml:9:11
+  |
+9 |     name: [a, b]
+  |           ^^^^^^ expected text
+```
+
+## Related
+
+- [`id`](/vc-rs/reference/syntax/id/), [`tags`](/vc-rs/reference/syntax/tags/)
+- [`apis`](/vc-rs/reference/syntax/apis/), [`tests`](/vc-rs/reference/syntax/tests/)

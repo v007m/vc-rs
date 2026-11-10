@@ -1,0 +1,75 @@
+---
+title: "V1001 — File is not valid YAML or JSON, or its suffix is not a known kind"
+description: "The file could not be read as YAML (or as JSON, for a .json definition file), so nothing else in it is checked until it parses."
+sidebar:
+  label: "V1001 File is not valid YAML or JSON, or its suffix is not a known kind"
+  order: 1001
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Syntax" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V1001` |
+| Category | V1xxx: Syntax |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+The file could not be read as YAML (or as JSON, for a `.json` definition file), so nothing else in it is checked until it
+parses. The usual causes are a quote or bracket left open, or a tab used for indentation. A definition file must also end
+in a suffix Vibranium knows, such as `.api.yaml` or `.test.yaml`.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+name: "Users
+apis: []
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+name: "Users"
+apis: []
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/users.api.yaml"
+id: users
+name: "Users
+apis: []
+```
+
+```console
+$ vc check
+error[V1001]: not valid YAML: invalid indentation in quoted scalar
+ --> services/users/users.api.yaml:2:7
+  |
+2 | name: "Users
+  |       ^ here
+  = help: quote values that contain `: ` or ` #` or start with a special character such as `*`, `&` or `!`
+
+1 error · 0 warnings · 2 files checked
+$ echo $?
+2
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V1001
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { callTool, e2eAgent } from './mcp';
 import { fromSetup, requiresVcUi } from './support';
 
 requiresVcUi();
@@ -48,8 +49,12 @@ test('keeps a call and a run made in the browser out of the agent log', async ({
   await page.getByRole('button', { name: 'Run all tests' }).click();
   await expect(page.getByRole('status')).toHaveText(/Passed|Failed/, { timeout: 30_000 });
 
+  await callTool('list_definitions');
+
   await page.goto('/agents');
-  await expect(page.getByRole('region', { name: 'Activity' })).toContainText(
-    'No agent has called a tool yet.',
-  );
+  const log = page.getByRole('region', { name: 'Activity' });
+  await expect(log.getByRole('button', { name: 'list_definitions' })).toBeVisible();
+  await expect(log.getByRole('combobox', { name: 'Agent' })).toContainText(e2eAgent);
+  await expect(log.getByRole('button', { name: 'call_api' })).toHaveCount(0);
+  await expect(log.getByRole('button', { name: 'run_tests' })).toHaveCount(0);
 });

@@ -1,0 +1,145 @@
+---
+title: tags
+description: Labels on a test file or a test that let you select groups of tests to run.
+sidebar:
+  order: 201
+  badge: { text: 'test', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`tags` label tests so you can run a slice of them: `vc run -t smoke`. Tags on the file apply to every test in it, and a test can add its own.
+
+```yaml title="services/tagged/flows.test.yaml"
+tags: [users, smoke]
+tests:
+  - id: listsSlowly
+    tags: [slow-network]
+    call: tagged#list
+```
+
+## Syntax
+
+| Where | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| Top of a test file | list of strings | — | no | Every test in the file gets them |
+| A `tests` entry | list of strings | — | no | Added to the file's tags |
+
+Tags are lower kebab-case: `smoke`, `slow-network`, `needs-admin`.
+
+## Examples
+
+### File tags plus test tags
+
+```yaml title="services/tagged/flows.test.yaml"
+name: Tagged flows
+tags: [users, smoke]
+tests:
+  - id: listsUsers
+    name: Lists every user
+    call: tagged#list
+  - id: listsSlowly
+    tags: [slow-network]
+    call: tagged#list
+  - id: listsNightly
+    tags: [nightly]
+    call: tagged#list
+```
+
+`vc list tests` shows each test's full set of tags:
+
+```console
+$ vc list tests tagged.flows
+tagged.flows#listsUsers  Lists every user  [users, smoke]
+tagged.flows#listsSlowly  [users, smoke, slow-network]
+tagged.flows#listsNightly  [users, smoke, nightly]
+```
+
+### Selecting by tag
+
+`-t` (`--tag`) takes a tag expression. `!` excludes, `,` means or, and repeating `-t` requires every expression.
+
+<Tabs>
+<TabItem label="one tag">
+
+```console
+$ vc plan -t slow-network
+plan  1 test in 1 file · profile default
+tagged.flows
+  tagged.flows#listsSlowly
+```
+
+</TabItem>
+<TabItem label="and, not">
+
+```console
+$ vc plan -t smoke -t '!nightly'
+plan  2 tests in 1 file · profile default
+tagged.flows
+  tagged.flows#listsUsers
+  tagged.flows#listsSlowly
+```
+
+</TabItem>
+<TabItem label="or">
+
+```console
+$ vc plan -t 'nightly,slow-network'
+plan  2 tests in 1 file · profile default
+tagged.flows
+  tagged.flows#listsSlowly
+  tagged.flows#listsNightly
+```
+
+</TabItem>
+</Tabs>
+
+Quote expressions that start with `!` so your shell does not expand them. `vc plan` shows what would run; `vc run` takes the same flags.
+
+### Tags in reports
+
+The CTRF report lists each test's tags, so a dashboard can group results by them.
+
+## Try it
+
+<Playground client:visible kind="test" code={`
+tags: [users, smoke]
+tests:
+  - id: listsUsers
+    call: sample#listUsers
+  - id: listsSlowly
+    tags: [slow-network]
+    call: sample#listUsers
+`} />
+
+## How it behaves
+
+- A test's tags are the file's tags followed by its own. You cannot remove a file tag from one test; move that test to another file instead.
+- Tag selection works on tests, not files. A file is planned only if at least one of its tests matches.
+- `--grep` (`-g`) is the other way to slice a run: it matches the full ID or the `name`.
+- Tags are case-sensitive in selection. Keep them lower case and the lint keeps you honest.
+
+## Common errors
+
+```console
+$ vc check
+warning[V4004]: tag `Bad_Tag` is not lower kebab-case
+  --> services/tagged/flows.test.yaml:11:21
+   |
+11 |     tags: [nightly, Bad_Tag]
+   |                     ^^^^^^^ rename it
+   = help: tags are lower case, with a dash between words: `bad-tag`
+   = fix: Rename to bad-tag (certain)
+```
+
+`vc check --fix` applies the rename.
+
+| Code | When |
+| --- | --- |
+| [V4004](/vc-rs/reference/diagnostics/v4004/) | A tag is not lower kebab-case |
+
+## Related
+
+- [`name`](/vc-rs/reference/syntax/name/), [`tests`](/vc-rs/reference/syntax/tests/), [`skip`](/vc-rs/reference/syntax/skip/)
+- [`vc run` and `vc plan`](/vc-rs/reference/cli/)

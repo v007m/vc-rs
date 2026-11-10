@@ -1,0 +1,144 @@
+---
+title: expect.custom
+description: Check a response with your own TypeScript or JavaScript function, for logic too long for a CEL line.
+sidebar: { order: 407, badge: { text: 'expect', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`expect.custom` runs your own function on the response. The function returns `true` to pass, or a message that says what is wrong.
+
+```yaml
+expect:
+  custom:
+    - function: ../../hooks/checks.ts#tagsSorted
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `custom` | list | none | no | Each item is one check. |
+| `custom[].function` | `path#export` | none | yes | The path is relative to the YAML file. The file ends in `.ts`, `.mts`, `.js` or `.mjs`. |
+
+### The function
+
+The function gets one argument, an object with two fields:
+
+| Field | Holds |
+| --- | --- |
+| `response` | `status`, `headers`, `body` and the rest of the response |
+| `vars` | the vars in scope for this call |
+
+Its return value decides the result:
+
+| Return | Result |
+| --- | --- |
+| `true` | pass |
+| `{ pass: true }` | pass |
+| a string | fail, with the string as the message |
+| `{ pass: false, message }` | fail, with the message |
+| `false`, `null`, a number or an array | fail: `the function returned false` (or what it returned) |
+| it throws | fail: `the hook threw: Error: boom (line 2)` |
+| a function or other non-JSON value | fail: `the hook returned a value of type function, which is not JSON` |
+
+## Examples
+
+**A check that returns a message.** Return `true`, or a string that explains the failure.
+
+```ts
+// hooks/checks.ts
+export function tagsSorted({ response }: { response: any }) {
+  const tags: string[] = response.body.body.tags;
+  const sorted = [...tags].sort();
+  return JSON.stringify(tags) === JSON.stringify(sorted) || `tags are not sorted: ${tags.join(", ")}`;
+}
+```
+
+```yaml
+# services/lab/custom.test.yaml
+tests:
+  - id: checksSortedTags
+    call: echo#json
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#tagsSorted
+```
+
+**Use the vars.** The second field of the input holds the vars, here the api's `name`.
+
+```ts
+export function nameMatches({ response, vars }: { response: any; vars: any }) {
+  return { pass: response.body.body.name === vars.name, message: `expected ${vars.name}` };
+}
+```
+
+**What a failure looks like.** The message the function returned is shown under the line that names it:
+
+```console
+✕ cu.c#objFail                                                    6ms
+  error[V5103]: expect.custom
+    --> services/cu/c.test.yaml:11:11
+     |
+  11 |         - function: ../../hooks/probe.ts#objFail
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ two users expected
+```
+
+A function that throws reports the error and the line:
+
+```console
+✕ cu.c#throws                                                   225ms
+  error[V5103]: expect.custom
+   --> services/cu/c.test.yaml:6:11
+    |
+  6 |         - function: ../../hooks/probe.ts#throws
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the hook threw: Error: boom (line 2)
+```
+
+A function that never finishes is stopped:
+
+```console
+✕ cu.c#spins                                                    210ms
+  error[V5116]: expect.custom
+    --> services/cu/c.test.yaml:21:11
+     |
+  21 |         - function: ../../hooks/probe.ts#spins
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the hook ran past its time budget and was stopped (line 10)
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`tests:
+  - id: checksSortedTags
+    call: echo#json
+    expect:
+      custom:
+        - function: ../../hooks/checks.ts#tagsSorted
+`} />
+
+## How it behaves
+
+- **Where it runs.** Hook files run inside the engine, not in Node. They can import other project files (`./` or `../`) and `vibranium:std`. Packages and `node:` modules are refused ([V2008](/vc-rs/reference/diagnostics/v2008/)).
+- **Merging.** Custom checks are only added, never replaced. Only `replace: true` removes inherited ones.
+- **Order.** Every custom check runs, even after another check fails.
+- **Budget.** Each call has a time and memory budget. A loop that never ends is stopped with [V5116](/vc-rs/reference/diagnostics/v5116/).
+- **When to use it.** Prefer [cel](/vc-rs/reference/syntax/cel/) for one-line logic. Use `custom` when the check needs several statements or helper functions.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V2004](/vc-rs/reference/diagnostics/v2004/) | The file is not in the project. `vc check` suggests a close match with a certain fix. |
+| [V2005](/vc-rs/reference/diagnostics/v2005/) | The file has no such export. The help lists the exports it has. |
+| [V2008](/vc-rs/reference/diagnostics/v2008/) | The file is not a hook file (`.ts`, `.mts`, `.js`, `.mjs`), or it imports something a hook may not. |
+| [V5103](/vc-rs/reference/diagnostics/v5103/) | The function returned a failure, or threw. |
+| [V5115](/vc-rs/reference/diagnostics/v5115/) | The function returned a value that is not JSON, such as a function. |
+| [V5116](/vc-rs/reference/diagnostics/v5116/) | The function ran past its time or memory budget. |
+
+## Related
+
+- [expect](/vc-rs/reference/syntax/expect/)
+- [cel](/vc-rs/reference/syntax/cel/)
+- [request hooks](/vc-rs/reference/syntax/request-hooks/) (`beforeRequest`, `afterResponse`)
+- [function](/vc-rs/reference/syntax/function/) steps

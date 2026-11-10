@@ -1,0 +1,75 @@
+---
+title: keep
+description: Skip the api's cleanup for one call, so the data it made is left in place.
+sidebar: { order: 230, badge: { text: 'step', variant: 'note' } }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`keep: true` on a call turns off the cleanup its api would register. The data it creates stays after the test.
+
+```yaml title="services/flow/keep.test.yaml"
+- call: sample#createUser
+  keep: true
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `keep` | boolean | `false` | no | `true`: do not register this call's `cleanup`. Valid on `call` and `test` actions. |
+
+## Examples
+
+`sample#createUser` has `cleanup: call: sample#deleteUser`. This test makes two users and keeps the first.
+
+```yaml title="services/flow/keep.test.yaml"
+id: flow.keep
+tests:
+  - id: keepsUser
+    steps:
+      - call: sample#createUser
+        keep: true
+      - call: sample#createUser
+```
+
+```console
+$ vc run flow.keep
+plan  1 test in 1 file · profile default
+
+✓ flow.keep#keepsUser                                             3ms
+
+1 passed                                                     5ms · profile default
+```
+
+The JSON reporter shows a single cleanup, for the second user:
+
+```console
+$ vc run flow.keep --reporter json | grep cleanupFinished
+{"cleanup":{"action":"call sample#deleteUser","failure":null,"owner":{"instance":0,"kind":"instance"},"status":"passed"},"event":"cleanupFinished"}
+```
+
+## Try it
+
+<Playground client:visible kind="test" code={`id: flow.keep
+tests:
+  - id: keepsUser
+    steps:
+      - call: sample#createUser
+        keep: true
+      - call: sample#getUser
+        expect:
+          status: 200
+`} />
+
+## How it behaves
+
+- `keep` affects only the call it is on. Other calls to the same api still clean up.
+- Nothing removes kept data later. Use it for data you want to look at by hand, or that another system owns.
+- To reuse setup data across runs and still clean it up in the end, use [`cache`](/vc-rs/reference/syntax/cache/) instead.
+
+## Related
+
+- [cleanup](/vc-rs/reference/syntax/cleanup/): what `keep` turns off
+- [cache](/vc-rs/reference/syntax/cache/): keep data across runs and clean it up later

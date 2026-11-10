@@ -1,0 +1,104 @@
+---
+title: "pagerduty"
+description: "The pagerduty alert channel sends a PagerDuty Events API v2 event, triggering an incident on failure and resolving it on recovery."
+sidebar: { order: 16 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+The `pagerduty` channel sends an event to the PagerDuty Events API v2. A failure, flaky or threshold alert triggers an incident; a recovery resolves it.
+
+```yaml title="vibranium.config.yaml"
+alerts:
+  - on: [failure, recovery]
+    notify:
+      - pagerduty:
+          routingKey: ${secret.pdRoutingKey}
+```
+
+## Syntax
+
+| Setting | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `routingKey` | text | — | yes | The integration key of your PagerDuty service |
+| `severity` | `critical`, `error`, `warning` or `info` | `error` | no | The event's severity |
+| `url` | http or https URL | `https://events.pagerduty.com/v2/enqueue` | no | Another Events API endpoint, such as a proxy |
+
+The event:
+
+| Field | Value |
+| --- | --- |
+| `routing_key` | `routingKey` |
+| `event_action` | `resolve` for a recovery, otherwise `trigger` |
+| `dedup_key` | `<project>#<profiles>`, with several profiles joined by `+` |
+| `payload.summary` | `<headline> — <counts>` |
+| `payload.source` | The project name |
+| `payload.severity` | `severity` |
+| `payload.custom_details` | `trigger`, `project`, `profiles`, `failures`, `moreFailures`, `breaches` and `report`, as in the [webhook](/vc-rs/reference/plugins/webhook/) body |
+
+## Examples
+
+**A failed run triggers.**
+
+```json
+{"dedup_key":"try-syntax-b#default","event_action":"trigger","payload":{"custom_details":{"breaches":[],"failures":[{"message":"status: expected [418], got 200","test":"sample.flip#listsUsersWithStatus"}],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/18/ctrf.json","trigger":"failure"},"severity":"error","source":"try-syntax-b","summary":"try-syntax-b: run failed (default) — 0 passed, 1 failed, 0 blocked, 0 flaky, 0 skipped"},"routing_key":"R0UTINGKEY123"}
+```
+
+**The next passing run resolves.** It has the same `dedup_key`, so PagerDuty closes the same incident. This rule set `severity: critical`.
+
+```json
+{"dedup_key":"try-syntax-b#default","event_action":"resolve","payload":{"custom_details":{"breaches":[],"failures":[],"moreFailures":0,"profiles":["default"],"project":"try-syntax-b","report":".vibranium/reports/33/ctrf.json","trigger":"recovery"},"severity":"critical","source":"try-syntax-b","summary":"try-syntax-b: run recovered (default) — 1 passed, 0 failed, 0 blocked, 0 flaky, 0 skipped"},"routing_key":"R0UTE"}
+```
+
+**Page only for load breaches.**
+
+```yaml
+alerts:
+  - on: [threshold]
+    notify:
+      - pagerduty:
+          routingKey: ${secret.pdRoutingKey}
+          severity: warning
+```
+
+**A missing key, and a severity PagerDuty does not know.**
+
+```console
+warning: V5117: the `pagerduty` alert channel needs `routingKey`
+warning: V5117: the `pagerduty` alert channel `severity` is one of critical, error, warning, info
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: dev
+    default: true
+  - id: prod
+alerts:
+  - on: [failure, recovery]
+    profiles: [prod]
+    notify:
+      - pagerduty:
+          routingKey: \${secret.pdRoutingKey}
+          severity: critical
+`} />
+
+## How it behaves
+
+- One incident per project and profile set. Runs under `prod` and under `staging` open separate incidents.
+- Add `recovery` to `on` if you want incidents closed for you. Without it, they stay open until someone resolves them.
+- Any non-2xx answer is a `V5117` warning. The run's exit code does not change.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V5117](/vc-rs/reference/diagnostics/v5117/) | `routingKey` is missing, `severity` is unknown, `url` is not an http or https URL, or the POST failed |
+| [V2107](/vc-rs/reference/diagnostics/v2107/) | `${env.X}` reads a name `.env.schema` declares as a secret |
+
+## Related
+
+- [alerts](/vc-rs/reference/plugins/alerts/)
+- [Triggers](/vc-rs/reference/plugins/triggers/)
+- [webhook](/vc-rs/reference/plugins/webhook/)

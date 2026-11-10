@@ -1,0 +1,141 @@
+---
+title: "vc sync"
+description: "Merges changes in an OpenAPI spec into the api files imported from it, keeps your edits, and reports conflicts."
+sidebar: { order: 20 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Brings api files up to date with the spec they were imported from. `vc sync` compares three versions of each api: the snapshot in `openapi/` (the spec as it was last imported or synced), the spec now, and your api file. It takes what changed in the spec, keeps what you changed in the file, and stops at a conflict when both changed the same thing.
+
+```console
+$ vc sync [OPTIONS] [FILES]...
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `[FILES]` | file IDs | every api file with a `source` | The api files to sync, by file ID (`users`), not by path |
+| `--dry-run` | | | Prints the changes and the diff without writing them |
+| `--check` | | | Writes nothing; exits 4 when a spec changed since its snapshot or a conflict is left |
+| `--take` | `<SIDE> <API_ID>` | | Settles a conflict: `--take spec users#deleteUser` takes the spec's values, `--take mine users#deleteUser` keeps the file's. Repeat for more |
+| `--resolved` | `<API_ID>` | | Settles a conflict you fixed by hand: the file stays, and the snapshot takes the spec |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### Nothing changed
+
+```console
+$ vc sync users
+fetched specs/users.yaml (4 operations)
+✓ synced
+```
+
+### A new operation in the spec
+
+```console
+$ vc sync users --check
+fetched specs/users.yaml (5 operations)
+  + users#restoreUser new operation POST /users/${var.id}/restore
+$ echo $?
+4
+$ vc sync users
+fetched specs/users.yaml (5 operations)
+  + users#restoreUser new operation POST /users/${var.id}/restore
+✓ synced · snapshot openapi/users.yaml updated
+```
+
+`--dry-run` prints the same lines, then the diff of the api file and of the snapshot.
+
+### A change merged next to your edit
+
+You renamed `listUsers` and set `query.limit` in the api file. The spec then added a required `page` query parameter:
+
+```console
+$ vc sync users
+fetched specs/users.yaml (5 operations)
+  ↑ users#listUsers query page none → ${var.page}
+✓ synced · snapshot openapi/users.yaml updated
+```
+
+Your name and `limit` stay. The new parameter is added with a generated var.
+
+### A conflict
+
+You changed `deleteUser` to `method: DELETE`, and the spec changed it to `put`:
+
+```console
+$ vc sync users
+fetched specs/users.yaml (5 operations)
+  ! users#deleteUser conflict: the spec and the file both changed method
+    resolve: vc sync users --take spec users#deleteUser | --take mine users#deleteUser | edit, then --resolved users#deleteUser
+✓ synced · 1 conflict left
+```
+
+The rest of the file is synced; the conflicting api is left as it is. Settle it one of three ways:
+
+```console
+$ vc sync users --take spec users#deleteUser
+fetched specs/users.yaml (5 operations)
+  ↑ users#deleteUser method DELETE → PUT
+✓ synced · snapshot openapi/users.yaml updated
+
+$ vc sync users --take mine users#createUser
+fetched specs/users.yaml (5 operations)
+  = users#createUser kept your method
+✓ synced · snapshot openapi/users.yaml updated
+
+$ vc sync users --resolved users#deleteUser
+fetched specs/users.yaml (5 operations)
+  = users#deleteUser kept your method
+✓ synced · snapshot openapi/users.yaml updated
+```
+
+Use `--resolved` after you edit the api file by hand.
+
+### In CI
+
+```console
+$ vc sync --check
+```
+
+Exit code 4 means a spec has moved on since the last sync, or a conflict is still open. Run `vc sync` locally and commit the result.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Synced. A plain `vc sync` also exits 0 when it leaves a conflict; it says `1 conflict left` |
+| `2` | No such api file or api, or the spec cannot be read |
+| `4` | `--check` only: a spec changed since its snapshot, or a conflict is left |
+
+```console
+$ vc sync services/users/users.api.yaml
+error: there is no api file `services/users/users.api.yaml`
+$ vc sync users --resolved users#nope
+error: there is no api `users#nope`
+  = help: `vc list apis` lists them
+```
+
+## Change markers
+
+| Marker | Means |
+| --- | --- |
+| `+` | A new operation, added as a new api |
+| `↑` | A spec change taken into the file |
+| `=` | Your value kept |
+| `!` | A conflict, with the commands that settle it |
+
+<Aside type="note">
+`vc sync` only looks at the operations the spec has. An api file imported with `--only` or `--include` still gets every new operation in the spec added on the next sync.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard title="OpenAPI import and sync" href="/vc-rs/guides/openapi-import-and-sync/" description="The whole workflow, with CI." />
+  <LinkCard title="vc import" href="/vc-rs/reference/cli/import/" description="The first import." />
+  <LinkCard title="Running in CI" href="/vc-rs/guides/ci/" description="Fail a build on spec drift." />
+</CardGrid>

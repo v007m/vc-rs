@@ -185,6 +185,30 @@ fn only_the_config_and_definition_files_outside_hidden_folders_open() {
 }
 
 #[test]
+fn the_root_env_schema_opens_and_saves_with_its_digest() {
+    let (_dir, engine) = project();
+    let created = engine.save_file(&save(".env.schema", "TOKEN=\n", None)).unwrap();
+    let opened = engine.read_file(".env.schema").unwrap();
+    assert_eq!((opened.text.as_str(), &opened.digest), ("TOKEN=\n", &created.digest));
+    engine.save_file(&save(".env.schema", "TOKEN=\nKEY=\n", Some(&opened.digest))).unwrap();
+    let stale = engine.save_file(&save(".env.schema", "X=\n", Some(&opened.digest)));
+    assert!(matches!(stale, Err(EngineError::Stale { .. })), "{stale:?}");
+}
+
+#[test]
+fn no_other_dotenv_file_opens() {
+    let (dir, engine) = project();
+    fs::write(dir.path().join(".env.local"), "TOKEN=local\n").unwrap();
+    fs::create_dir_all(dir.path().join(".env.schema.d")).unwrap();
+    for path in [".env", ".env.local", ".env.schema.bak", ".ENV.SCHEMA", "services/.env.schema", ".env.schema.d/x"] {
+        assert_left_out(&engine, path);
+    }
+    assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=abc\n");
+    assert_eq!(fs::read_to_string(dir.path().join(".env.local")).unwrap(), "TOKEN=local\n");
+    assert!(!dir.path().join("services/.env.schema").exists());
+}
+
+#[test]
 fn a_path_discovery_leaves_out_is_neither_read_nor_written() {
     let (dir, engine) = project();
     fs::write(dir.path().join(".gitignore"), "generated/\n").unwrap();
@@ -244,6 +268,21 @@ fn a_link_out_of_the_project_or_to_a_hidden_file_is_neither_read_nor_written() {
         assert!(matches!(written, Err(EngineError::Edit { .. })), "{written:?}");
     }
     assert_eq!(fs::read_to_string(outside.path().join("secret.test.yaml")).unwrap(), "kept\n");
+    assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=abc\n");
+}
+
+#[cfg(unix)]
+#[test]
+fn an_env_schema_linked_to_the_env_file_is_neither_read_nor_written() {
+    let (dir, engine) = project();
+    std::os::unix::fs::symlink(dir.path().join(".env"), dir.path().join(".env.schema")).unwrap();
+    let read = engine.read_file(".env.schema");
+    assert!(
+        matches!(&read, Err(EngineError::Edit { reason, .. }) if reason.contains("links to a file outside")),
+        "{read:?}"
+    );
+    let written = engine.save_file(&save(".env.schema", "A=\n", None));
+    assert!(matches!(written, Err(EngineError::Edit { .. })), "{written:?}");
     assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=abc\n");
 }
 

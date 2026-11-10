@@ -1,0 +1,218 @@
+---
+title: saveOn
+description: The response statuses on which an api's save runs.
+sidebar:
+  order: 131
+  badge: { text: 'api', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`saveOn` decides when an api's [`save`](/vc-rs/reference/syntax/save/) runs. By default an api saves only when the status matches its own `expect.status`. Set `saveOn` to save on other statuses, such as an error body on a 400.
+
+```yaml title="services/prec/saveon.api.yaml"
+apis:
+  - id: createAny
+    method: POST
+    path: /users
+    expect:
+      status: [201, 400]
+    saveOn: 400
+    save:
+      problem: ${response.body.error}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `saveOn` | status code, list of codes, class (`2xx`) or matcher | the api's `expect.status`, else `2xx` | no | Same forms as [`status`](/vc-rs/reference/syntax/status/) |
+
+`saveOn` is written on an `apis` entry only. A test's or step's own `save` has no `saveOn`; it runs whatever the status, once its checks hold.
+
+| Form | Example | Saves on |
+| --- | --- | --- |
+| Code | `saveOn: 201` | 201 only |
+| Class | `saveOn: 4xx` | any 400–499 |
+| List | `saveOn: [400, 422]` | 400 or 422 |
+| Matcher | `saveOn: {in: [400, 409]}`, `saveOn: {between: [400, 499]}` | what the matcher accepts |
+
+## Examples
+
+### The default follows the api's status
+
+The demo's `create` expects 201 and saves `userId`. A test that sends a bad body expects 400 instead. The api's save is skipped, so the file's `userId: none-yet` survives.
+
+```yaml title="services/prec/saveon.api.yaml (excerpt)"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: create
+    method: POST
+    path: /users
+    vars:
+      email: a@example.com
+    body:
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+```
+
+```yaml title="services/prec/status.test.yaml (excerpt)"
+vars:
+  userId: none-yet
+tests:
+  - id: skipsSaveOn400
+    steps:
+      - call: prec.saveon#create
+        body:
+          name: no email
+        expect:
+          status: 400
+      - call: prec#show
+        vars:
+          a: ${var.userId}
+        expect:
+          body:
+            match:
+              body.a: none-yet
+```
+
+### Saving the error from a 400
+
+`createAny` accepts 201 or 400, and saves only on 400. On a 201 nothing is saved.
+
+```yaml title="services/prec/saveon.api.yaml (excerpt)"
+  - id: createAny
+    method: POST
+    path: /users
+    vars:
+      email: a@example.com
+    body:
+      email: ${var.email}
+    expect:
+      status: [201, 400]
+    saveOn: 400
+    save:
+      problem: ${response.body.error}
+```
+
+```yaml title="services/prec/status.test.yaml (excerpt)"
+vars:
+  problem: none-yet
+tests:
+  - id: savesOn400
+    steps:
+      - call: prec.saveon#createAny
+        body: {}
+      - call: prec#show
+        vars:
+          a: ${var.problem}
+        expect:
+          body:
+            match:
+              body.a: a user needs an email
+  - id: skipsOn201
+    steps:
+      - call: prec.saveon#createAny
+      - call: prec#show
+        vars:
+          a: ${var.problem}
+        expect:
+          body:
+            match:
+              body.a: none-yet
+```
+
+```console
+$ vc run prec.status
+plan  3 tests in 1 file · profile default
+
+✓ prec.status#skipsOn201                                         26ms
+✓ prec.status#skipsSaveOn400                                     30ms
+✓ prec.status#savesOn400                                         30ms
+
+3 passed                                                     35ms · profile default
+```
+
+### Classes, lists and matchers
+
+All three of these saved the 400 error body in a run against the demo:
+
+```yaml title="services/prof/so.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: tryCreate
+    method: POST
+    path: /users
+    body: {}
+    expect:
+      status: [201, 400]
+    saveOn: 4xx
+    save:
+      problem: ${response.body.error}
+  - id: tryCreateList
+    method: POST
+    path: /users
+    body: {}
+    expect:
+      status: [201, 400]
+    saveOn: [400, 422]
+    save:
+      problem: ${response.body.error}
+  - id: tryCreateMatcher
+    method: POST
+    path: /users
+    body: {}
+    expect:
+      status: [201, 400]
+    saveOn:
+      in: [400, 409]
+    save:
+      problem: ${response.body.error}
+```
+
+```console
+$ vc run prof.saving
+✓ prof.saving#savesOn4xx                                          4ms
+✓ prof.saving#savesOnMatcher                                      4ms
+✓ prof.saving#savesOnList                                         4ms
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`
+baseUrl: \${var.sampleUrl}
+apis:
+  - id: createAny
+    method: POST
+    path: /users
+    body: {}
+    expect:
+      status: [201, 400]
+    saveOn: 4xx
+    save:
+      problem: \${response.body.error}
+`} />
+
+## How it behaves
+
+- `saveOn` gates the api's `save` only. It does not change the api's checks, and it does not affect [`cleanup`](/vc-rs/reference/syntax/cleanup/): cleanup is registered only for a `2xx` response.
+- The default is the api's own `expect.status`, not the caller's. A test that expects another status skips the api's save unless `saveOn` covers it.
+- A skipped save leaves the var at its next level down, such as the test file's `vars`. If no level sets it, `vc check` already reported V2101.
+- Test and step `save` blocks ignore `saveOn`.
+
+<Aside type="caution">
+A map with a key that is not a matcher, such as `saveOn: {oneOf: [400, 409]}`, is not reported by `vc check` today. It never matches, so the save silently never runs. Use `in`.
+</Aside>
+
+## Common errors
+
+`saveOn` has no codes of its own. Its values are checked like [`status`](/vc-rs/reference/syntax/status/).
+
+## Related
+
+- [`save`](/vc-rs/reference/syntax/save/), [`status`](/vc-rs/reference/syntax/status/), [`cleanup`](/vc-rs/reference/syntax/cleanup/)
+- [Matchers](/vc-rs/reference/matchers/)

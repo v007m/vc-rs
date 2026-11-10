@@ -1,0 +1,204 @@
+---
+title: apis
+description: The list of HTTP requests an api file declares, one entry per endpoint.
+sidebar:
+  order: 100
+  badge: { text: 'api', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`apis` is the list at the heart of an api file. Each entry describes one HTTP request: where it goes, what it sends, what must always hold, and what it saves. Tests never repeat this. They `call` an api by its ID.
+
+```yaml title="services/users/users.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    path: /users
+```
+
+## Syntax
+
+An api file lives at `services/<service>/<name>.api.yaml`. `apis` is a top-level key. Each entry takes these keys:
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| [`id`](/vc-rs/reference/syntax/id/) | camelCase string | — | yes | Unique within the file. Called as `<fileId>#<id>` |
+| [`path`](/vc-rs/reference/syntax/path/) | template string | — | yes | Joined to the file's `baseUrl` |
+| [`name`](/vc-rs/reference/syntax/name/) | string | — | no | Free text for people |
+| [`method`](/vc-rs/reference/syntax/method/) | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` | `GET` | no | |
+| [`vars`](/vc-rs/reference/syntax/vars/) | map | — | no | The api's inputs, with defaults any caller can override |
+| [`query`](/vc-rs/reference/syntax/query/) | map | — | no | Query string |
+| [`headers`](/vc-rs/reference/syntax/headers/) | map | — | no | Merged over the file's and config's headers |
+| [`body`](/vc-rs/reference/syntax/body/) | any | — | no | JSON by default |
+| [`auth`](/vc-rs/reference/syntax/auth/) | auth ID or `none` | file's `auth` | no | |
+| [`timeout`](/vc-rs/reference/syntax/timeout/) | duration | `defaults.timeout` | no | Per request attempt |
+| [`http.retry`](/vc-rs/reference/syntax/http-retry/) | object | — | no | Transport retries |
+| [`expect`](/vc-rs/reference/syntax/expect/) | expect block | `status: 2xx` | no | Checks that hold on every call |
+| [`save`](/vc-rs/reference/syntax/save/) | map | — | no | Values every caller gets as vars |
+| [`saveOn`](/vc-rs/reference/syntax/save-on/) | status matcher | the api's `expect.status` | no | When `save` runs |
+| [`cleanup`](/vc-rs/reference/syntax/cleanup/) | `call` + `vars` | — | no | Undoes a successful call |
+| [`beforeRequest`, `afterResponse`](/vc-rs/reference/syntax/request-hooks/) | list of `function` | — | no | Request hooks |
+| [`operationId`](/vc-rs/reference/syntax/operation-id/) | string | — | no | Links the api to an OpenAPI operation |
+| [`deprecated`](/vc-rs/reference/syntax/deprecated/) | boolean | `false` | no | Calls warn with V3203 |
+
+The file around `apis` can also set `id`, `name`, [`baseUrl`](/vc-rs/reference/syntax/base-url/), `auth`, `headers`, `vars`, [`profiles`](/vc-rs/reference/syntax/profiles/), [`source`](/vc-rs/reference/syntax/source/) and file-level request hooks. Those apply to every entry.
+
+## Examples
+
+### The smallest api
+
+An `id` and a `path` are enough. The method defaults to `GET`, and the api expects a `2xx` status.
+
+```yaml title="services/sample/sample.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: listUsers
+    name: List users
+    path: /users
+```
+
+```console
+$ vc call sample#listUsers
+200 OK · 3 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  {
+    "id": "2",
+    "name": "Grace Hopper"
+  }
+]
+```
+
+### An api with inputs, checks, saves and cleanup
+
+This is the `createUser` api from the demo project. Its `vars` are defaults a test can override. Its `expect` holds on every call. Its `save` hands `userId` to the caller, and its `cleanup` deletes the user when the test ends.
+
+```yaml title="services/sample/sample.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+
+  - id: deleteUser
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]
+```
+
+A test calls it with one line:
+
+```yaml title="services/sample/users.test.yaml"
+tests:
+  - id: createsUser
+    call: sample#createUser
+```
+
+### File-level settings shared by every api
+
+`baseUrl`, `headers`, `vars` and request hooks written at the top of the file apply to each entry. An entry can still override a var or a header.
+
+```yaml title="services/layer/layer.api.yaml"
+baseUrl: ${var.sampleUrl}
+vars:
+  a: from-api-file
+  c: from-api-file
+apis:
+  - id: show
+    method: POST
+    path: /echo
+    vars:
+      a: from-api
+    body:
+      a: ${var.a}
+      c: ${var.c}
+```
+
+```console
+$ vc call layer#show
+200 OK · 1 ms · api expect passed
+{
+  "body": {
+    "a": "from-api",
+    "c": "from-api-file"
+  },
+  ...
+}
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`
+baseUrl: \${var.sampleUrl}
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      email: \${fake.internet.email}
+    expect:
+      status: 201
+    save:
+      userId: \${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: \${response.body.id}
+  - id: deleteUser
+    method: DELETE
+    path: /users/\${var.userId}
+`} />
+
+## How it behaves
+
+- An api is a definition, not a test. It runs only when a test, step, hook block or `vc call` calls it.
+- Every entry needs `id` and `path`. A missing one is error V1005, which suggests a camelCase ID.
+- IDs are unique within a file across every kind. Two entries with the same `id` are error V2001.
+- An api with no `expect` still checks the status: it expects `2xx`. A test that expects another status, such as `400`, replaces the api's status check.
+- Request values merge from the outside in: config defaults, then the file, then the api entry, then the caller. See [`vars`](/vc-rs/reference/syntax/vars/) for the exact order.
+- Calls to another file's api use the full ID (`sample#createUser`). Calls within the same file, such as a `cleanup`, can use the short ID (`deleteUser`).
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V1005](/vc-rs/reference/diagnostics/v1005/) | An entry is missing `id` or `path` |
+| [V1004](/vc-rs/reference/diagnostics/v1004/) | An unknown key, often a typo |
+| [V2001](/vc-rs/reference/diagnostics/v2001/) | Two entries share an ID |
+| [V2003](/vc-rs/reference/diagnostics/v2003/) | A test calls an api ID that does not exist |
+| [V4002](/vc-rs/reference/diagnostics/v4002/) | An api ID is not camelCase |
+
+```console
+$ vc check
+error[V1005]: an apiEntry needs `id`
+...
+  = help: add `id: create`: camelCase; `create` is referenced as `users#create`
+```
+
+## Related
+
+- [`id`](/vc-rs/reference/syntax/id/), [`call`](/vc-rs/reference/syntax/call/), [`tests`](/vc-rs/reference/syntax/tests/)
+- [`base-url`](/vc-rs/reference/syntax/base-url/), [`vars`](/vc-rs/reference/syntax/vars/), [`expect`](/vc-rs/reference/syntax/expect/)
+- [OpenAPI import and sync](/vc-rs/guides/)

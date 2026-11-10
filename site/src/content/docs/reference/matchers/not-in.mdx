@@ -1,0 +1,135 @@
+---
+title: "notIn"
+description: "The notIn matcher passes when a value is none of a list."
+sidebar: { order: 19 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`notIn` passes when the value equals none of the values in the list.
+
+```yaml
+expect:
+  body:
+    match:
+      body.status: {notIn: [closed, cancelled]}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `notIn` | list | — | yes | Each element is compared deeply, like `eq`. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Rule out several values
+
+
+
+```yaml title="services/sample/notin.test.yaml"
+tests:
+  - id: isOpen
+    name: Order is not closed or cancelled
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {notIn: [closed, cancelled]}
+```
+
+```console
+$ vc run sample.notin#isOpen
+plan  1 test in 1 file · profile default
+
+✓ sample.notin#isOpen                                             4ms
+
+1 passed                                                     5ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/notin.test.yaml"
+tests:
+  - id: failsOnQty
+    name: Quantity is not 3
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.qty: {notIn: [3]}
+```
+
+```console
+$ vc run sample.notin#failsOnQty
+plan  1 test in 1 file · profile default
+
+✕ sample.notin#failsOnQty                                         4ms
+  error[V5101]: expect.body.match.body.qty
+    --> services/sample/notin.test.yaml:15:21
+     |
+  15 |           body.qty: {notIn: [3]}
+     |                     ^^^^^^^^^^^^ expected {"notIn":[3]}, got 3
+
+0 passed · 1 failed                                          5ms · profile default
+```
+
+### A missing path passes
+
+Nothing is in the list, so a missing path passes. Add `exists: true` when the field is required.
+
+```yaml title="services/sample/notin.test.yaml"
+tests:
+  - id: passesOnMissing
+    name: Missing field is not closed
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.state: {notIn: [closed]}
+```
+
+```console
+$ vc run sample.notin#passesOnMissing
+plan  1 test in 1 file · profile default
+
+✓ sample.notin#passesOnMissing                                    3ms
+
+1 passed                                                     4ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: isOpen
+    name: Order is not closed or cancelled
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {notIn: [closed, cancelled]}
+`} />
+
+## How it behaves
+
+- The value must deeply equal no element of the list.
+- A missing path passes. Pair it with `exists: true` when the field is required.
+- The argument must be a list.
+
+## Common errors
+
+- [V2306](/vc-rs/reference/diagnostics/v2306/): the argument is not a list.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [in](/vc-rs/reference/matchers/in/)
+- [ne](/vc-rs/reference/matchers/ne/)
+- [not](/vc-rs/reference/matchers/not/)
+- [All matchers](/vc-rs/reference/matchers//)

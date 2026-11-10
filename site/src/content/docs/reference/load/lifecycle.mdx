@@ -1,0 +1,98 @@
+---
+title: "Lifecycle in load runs"
+description: "Which lifecycle blocks run once per load run, which run in every iteration, and how their requests are counted."
+sidebar: { order: 10 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+In a load run, `beforeRun` and each mix file's `beforeAll` run once before the first stage; `beforeEach` and `before` run in every iteration.
+
+| Block | Runs | Counts as a sample |
+| --- | --- | --- |
+| `beforeRun` | Once per load run | no |
+| `beforeAll` of each file in the mix | Once per load run | no |
+| `beforeEach` | Before every iteration of a test in that file | no |
+| `before` on the test | Every iteration | no |
+| The test's call or steps | Every iteration | yes |
+
+## Syntax
+
+There is nothing to add to the load file. The blocks are the ones in the test files, exactly as for `vc run`. See [Lifecycle](/vc-rs/reference/lifecycle/).
+
+## Examples
+
+### Create once, read many times
+
+```yaml title="services/sample/life.test.yaml"
+beforeAll:
+  - call: sample#createUser
+    id: owner
+beforeEach:
+  - call: sample#listUsers
+tests:
+  - id: readsOwner
+    name: Reads the user made once before the load
+    call: sample#getUser
+    vars:
+      userId: ${var.owner.userId}
+```
+
+```yaml title="load/sample/lifecycle.load.yaml"
+mix:
+  - test: sample.life#readsOwner
+    weight: 1
+stages:
+  - duration: 2s
+    users: 2
+thinkTime: 200ms
+```
+
+```console
+$ vc load sample.lifecycle
+    1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
+    2s  1 users  3 rps  p50 11 ms  p95 21 ms  p99 21 ms  0 errors
+    2s  0 users  3 rps  p50 11 ms  p95 21 ms  p99 21 ms  0 errors
+sample.lifecycle finished after 2 s · 5 iterations · 2.5 rps · 0 errors
+latency p50 12.0 ms · p95 21.1 ms · p99 21.1 ms · max 21.1 ms
+```
+
+The demo hands out user IDs in order. A user created just before this run got ID `1479` and one created just after got `1481`: the five iterations made only one user, so `beforeAll` ran once. The five `beforeEach` calls to `sample#listUsers` don't appear in `iterations` or `rps`.
+
+A value saved by `beforeAll` is read as `${var.<actionId>.<name>}`, here `${var.owner.userId}`.
+
+### A failing shared setup blocks the run
+
+```console
+$ vc load bad.blocked; echo "exit $?"
+bad.blocked blocked after 0 s · 0 iterations · 0.0 rps · 0 errors
+latency p50 0.0 ms · p95 0.0 ms · p99 0.0 ms · max 0.0 ms
+blocked: V5106: the shared action `owner` failed: status: expected [418], got 200
+exit 1
+```
+
+No stage starts, and the exit code is 1.
+
+## Try it
+
+<Playground client:visible kind="load" code={`mix:
+  - test: sample.life#readsOwner
+    weight: 1
+stages:
+  - duration: 30s
+    users: 10
+thinkTime: 200ms
+`} />
+
+## How it behaves
+
+- `beforeRun` and `beforeAll` run before the first live line; their time isn't part of the stages.
+- A failing `beforeRun` or `beforeAll` blocks the whole run with [V5106](/vc-rs/reference/diagnostics/v5106/) and exit code 1.
+- A failing `beforeEach` or `before` fails that iteration, which counts toward `errorRate`.
+
+## Related
+
+- [Lifecycle](/vc-rs/reference/lifecycle/)
+- [`beforeAll`](/vc-rs/reference/lifecycle/before-all/)
+- [`beforeEach`](/vc-rs/reference/lifecycle/before-each/)
+- [Metrics](/vc-rs/reference/load/metrics/)

@@ -1,0 +1,119 @@
+---
+title: deprecated
+description: Marks an api as on its way out, so every call to it warns.
+sidebar:
+  order: 142
+  badge: { text: 'api', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`deprecated: true` keeps an api working but flags every call to it with warning V3203. `vc sync` sets it when an operation leaves the OpenAPI spec, so nothing breaks the moment the spec changes.
+
+```yaml title="services/pets/pets.api.yaml"
+apis:
+  - id: getPet
+    path: /pets/${var.petId}
+    deprecated: true
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `deprecated` | boolean | `false` | no | On an `apis` entry |
+
+## Examples
+
+### Set by `vc sync`
+
+When `getPet` disappears from the spec, sync keeps the api and marks it:
+
+```console
+$ vc sync pets
+fetched specs/pets.yaml (2 operations)
+  ↑ pets#createPet method POST → PUT
+  - pets#getPet removed from the spec: kept, marked deprecated
+✓ synced · snapshot openapi/pets.yaml updated
+```
+
+```yaml title="services/pets/pets.api.yaml (excerpt)"
+  - id: getPet
+    name: Get pet
+    path: /pets/${var.petId}
+    vars:
+      petId: ${fake.lorem.word}
+    operationId: getPet
+    deprecated: true
+```
+
+### Calls to it warn
+
+```yaml title="services/pets/crud.test.yaml"
+tests:
+  - id: getsPet
+    call: pets#getPet
+    expect:
+      status: 404
+```
+
+```console
+$ vc check services/pets
+warning[V3203]: this api is deprecated
+  --> services/pets/crud.test.yaml:3:11
+   |
+ 3 |     call: pets#getPet
+   |           ^^^^^^^^^^^ deprecated api
+  ::: services/pets/pets.api.yaml:31:5
+   |
+31 |     deprecated: true
+   |     ---------- marked deprecated here
+   = help: the operation left the spec; call the api that replaces it, or remove the call
+
+0 errors · 1 warning · 2 files checked
+```
+
+It is a warning, not an error: the test still runs.
+
+### Marking one by hand
+
+You can set it yourself on any api, imported or not, to steer people to a replacement before you remove it.
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: listUsersV1
+    path: /v1/users
+    deprecated: true
+  - id: listUsers
+    path: /users
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`
+baseUrl: \${var.sampleUrl}
+apis:
+  - id: listUsersV1
+    path: /v1/users
+    deprecated: true
+  - id: listUsers
+    path: /users
+`} />
+
+## How it behaves
+
+- A deprecated api still runs normally.
+- Every `call` to it, from a test, step, hook block or `cleanup`, gets warning V3203 at `vc check` time.
+- `vc sync` sets `deprecated: true` and never deletes an api. Delete it yourself once nothing calls it.
+- The `help:` line always says the operation left the spec, even for an api you marked by hand.
+
+## Common errors
+
+| Code | When |
+| --- | --- |
+| [V3203](/vc-rs/reference/diagnostics/v3203/) | A call to a deprecated api (warning) |
+
+## Related
+
+- [`source`](/vc-rs/reference/syntax/source/), [`operationId`](/vc-rs/reference/syntax/operation-id/)
+- [OpenAPI import and sync guide](/vc-rs/guides/)

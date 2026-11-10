@@ -1,0 +1,232 @@
+---
+title: cleanup
+description: The api call that undoes a successful call, run automatically when its owner finishes.
+sidebar:
+  order: 132
+  badge: { text: 'api', variant: 'note' }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`cleanup` names the call that undoes an api. Each successful call registers its cleanup, and Vibranium runs them when the test ends, newest first. No test has to delete what it created.
+
+```yaml title="services/sample/sample.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `cleanup.call` | api ID | — | yes | Short ID in the same file (`deleteUser`), or a full ID (`users#deleteUser`) |
+| `cleanup.vars` | map of templates | — | no | Vars for the cleanup call. `response` is the original call's response |
+
+`cleanup` is written on an `apis` entry. A step can opt out with [`keep: true`](/vc-rs/reference/syntax/keep/).
+
+## Examples
+
+### Create, then delete automatically
+
+```yaml title="services/sample/sample.api.yaml (excerpt)"
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      email: ${fake.internet.email}
+    expect:
+      status: 201
+    save:
+      userId: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+
+  - id: deleteUser
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]          # already gone is fine for a cleanup
+```
+
+`deleteUser` accepts 404 too, so a test that deletes the user itself does not make the cleanup fail.
+
+### Order, `keep` and failures
+
+This api's cleanup is built to fail, so the console shows each cleanup as it runs.
+
+```yaml title="services/prec/clean.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: make
+    method: POST
+    path: /echo
+    vars:
+      label: one
+    body:
+      label: ${var.label}
+    cleanup:
+      call: undo
+      vars:
+        undoLabel: ${response.body.body.label}
+  - id: undo
+    method: DELETE
+    path: /echo
+    query:
+      label: ${var.undoLabel}
+    expect:
+      body:
+        match:
+          query.label: never
+```
+
+```yaml title="services/prec/order.test.yaml"
+tests:
+  - id: undoesNewestFirst
+    steps:
+      - call: prec.clean#make
+        vars:
+          label: first
+      - call: prec.clean#make
+        vars:
+          label: second
+      - call: prec.clean#make
+        keep: true
+        vars:
+          label: kept
+```
+
+```console
+$ vc run prec.order
+plan  1 test in 1 file · profile default
+
+! cleanup call prec.clean#undo (instance 0) failed: match.query.label: expected "never", got "second"
+! cleanup call prec.clean#undo (instance 0) failed: match.query.label: expected "never", got "first"
+✓ prec.order#undoesNewestFirst                                    6ms
+
+1 passed                                                     8ms · profile default
+```
+
+Three things show here:
+
+- `second` is undone before `first`: newest first.
+- `kept` is never undone, because its step says `keep: true`.
+- A failed cleanup is a warning (`!`). The test still passes.
+
+The JSON reporter emits one `cleanupFinished` event per cleanup:
+
+```console
+$ vc run prec.order --reporter json | grep cleanupFinished
+{"cleanup":{"action":"call prec.clean#undo","failure":{"action":"call prec.clean#undo","code":"V5101","message":"match.query.label: expected \"never\", got \"second\""},"owner":{"instance":0,"kind":"instance"},"status":"failed"},"event":"cleanupFinished"}
+```
+
+### Cleanups run even when the test fails
+
+A cleanup belongs to whoever made the call. A test instance owns its steps' cleanups; the file owns its `beforeAll` cleanups, which run after every test in the file.
+
+```yaml title="services/prec/fails.test.yaml"
+beforeAll:
+  - id: seed
+    call: prec.clean#make
+    vars:
+      label: from-before-all
+tests:
+  - id: stillCleansUp
+    steps:
+      - call: prec.clean#make
+        vars:
+          label: before-failure
+      - call: sample#listUsers
+        expect:
+          status: 500
+```
+
+```console
+$ vc run prec.fails
+plan  1 test in 1 file · lifecycle: beforeAll seed · profile default
+
+! cleanup call prec.clean#undo (instance 0) failed: match.query.label: expected "never", got "before-failure"
+✕ prec.fails#stillCleansUp                                        2ms
+  error[V5101]: expect.status
+    --> services/prec/fails.test.yaml:14:19
+     |
+  14 |           status: 500
+     |                   ^^^ expected [500], got 200
+! cleanup call prec.clean#undo (file prec.fails) failed: match.query.label: expected "never", got "from-before-all"
+
+0 passed · 1 failed                                          7ms · profile default
+```
+
+### No cleanup for a failed create
+
+A call that does not return `2xx` creates nothing, so it registers no cleanup. This test expects a 400 from `createUser`; its JSON events contain an `exchanged` event and no `cleanupFinished`.
+
+```yaml title="services/prec/loops.test.yaml (excerpt)"
+  - id: noCleanupOn400
+    call: sample#createUser
+    body:
+      name: nobody
+    expect:
+      status: 400
+```
+
+## Try it
+
+<Playground client:visible kind="api" code={`
+baseUrl: \${var.sampleUrl}
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      email: \${fake.internet.email}
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: \${response.body.id}
+  - id: deleteUser
+    method: DELETE
+    path: /users/\${var.userId}
+    expect:
+      status: [204, 404]
+`} />
+
+## How it behaves
+
+- **Registered on success only.** A call registers its cleanup when its status is `2xx`. A 400 registers nothing.
+- **Newest first.** Cleanups run in reverse order of the calls that registered them.
+- **Owned by the caller.** A test instance's cleanups run when that instance ends, pass or fail. A `beforeAll` action's cleanups run when the file ends.
+- **Every repeat counts.** A step with `repeat: 3` registers three cleanups.
+- **A failed cleanup is a warning**, shown with `!` and reported as a `cleanupFinished` event with `status: failed`. It does not fail the test.
+- **`keep: true`** on a step skips that call's cleanup.
+- **What can be templated:** `cleanup.vars` values. They see the original call's `response`, not the cleanup call's own.
+
+## Common errors
+
+```console
+$ vc check
+error[V2003]: unknown api "errs#undoIt"
+ --> services/errs/errs.api.yaml:7:13
+  |
+7 |       call: undoIt
+  |             ^^^^^^ no api has this ID
+  = help: check the file ID and the item's `id`; another file's item is `fileId#id`
+```
+
+| Code | When |
+| --- | --- |
+| [V2003](/vc-rs/reference/diagnostics/v2003/) | `cleanup.call` names an api that does not exist |
+| [V5101](/vc-rs/reference/diagnostics/v5101/) | At run time, a cleanup's check failed (reported as a warning) |
+
+## Related
+
+- [`keep`](/vc-rs/reference/syntax/keep/), [`save`](/vc-rs/reference/syntax/save/), [`saveOn`](/vc-rs/reference/syntax/save-on/)
+- [Lifecycle](/vc-rs/reference/lifecycle/)

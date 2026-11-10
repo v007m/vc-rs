@@ -1,0 +1,86 @@
+---
+title: "V5107 — Cleanup failed"
+description: "An api's cleanup ran after a successful call and failed."
+sidebar:
+  label: "V5107 Cleanup failed"
+  order: 5107
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5107` |
+| Category | V5xxx: Run time |
+| Severity | warning |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+An api's `cleanup` ran after a successful call and failed. It is a warning: the test's result stays as it was, but the
+data it made may be left behind. A cleanup that deletes should accept "already gone" too, since a test may have
+deleted the item itself.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: Ada
+    expect:
+      status: 201
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: deleteUser
+    method: DELETE
+    path: /users/${var.userId}
+    vars:
+      userId: 0
+    expect:
+      status: 204
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: createUser
+    method: POST
+    path: /users
+    body:
+      name: Ada
+    expect:
+      status: 201
+    cleanup:
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+  - id: deleteUser
+    method: DELETE
+    path: /users/${var.userId}
+    vars:
+      userId: 0
+    expect:
+      status: [204, 404]
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5107
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

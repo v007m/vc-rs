@@ -1,0 +1,99 @@
+---
+title: "vc demo"
+description: "Starts or stops the small local service that the vc init sample tests call."
+sidebar: { order: 30 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+`vc init` writes a sample service whose tests call `http://localhost:7421`. `vc demo start` runs a small service there, so the sample passes before you point Vibranium at your own API.
+
+```console
+$ vc demo start [--port <PORT>] [--detach]
+$ vc demo stop [--port <PORT>]
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `--port` | `<PORT>` | `7421` | The port to listen on, or for `stop`, the port it listens on |
+| `--detach` | | | `start` only. Runs it in the background and returns once it answers; `vc demo stop` ends it |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags). The demo does not read the project |
+
+## Examples
+
+### Start it in the background
+
+```console
+$ vc demo start --detach
+demo running on http://localhost:7421 (pid 71526)
+$ vc run
+```
+
+Without `--detach`, it stays in the foreground and prints nothing until you stop it with Ctrl-C.
+
+If something already answers on the port, it does not start a second one:
+
+```console
+$ vc demo start --detach
+a demo already answers on port 7421
+```
+
+<Aside type="caution">
+It only checks that the port answers. If another program holds it, you still see this message, and your tests call that program. Pick another `--port` and change `sampleUrl` in `vibranium.config.yaml` to match.
+</Aside>
+
+### What it serves
+
+| Request | Answer |
+| --- | --- |
+| `GET /users` | `200` `[{"id":"1","name":"Ada Lovelace"},{"id":"2","name":"Grace Hopper"}]` |
+| `GET /users/{id}` | `200` `{"id":"1","name":"Ada Lovelace"}` for `1` and `2`, `200` `{"id":"3"}` for an ID it handed out, else `404` |
+| `POST /users` | `201` with the name, email and a new `id` (`3`, then `4`, …); `400` `{"error":"a user needs an email"}` without an `email` |
+| `DELETE /users/{id}` | `204` |
+| any `/echo` | `200` with the method, path, query, headers and body it received |
+| anything else | `404` |
+
+It stores no users: a created or deleted user does not change `GET /users`.
+
+```console
+$ curl -s -X POST localhost:7421/echo -H 'content-type: application/json' -d '{"a":1}'
+{"body":{"a":1},"headers":{"accept":"*/*","content-length":"7","content-type":"application/json","host":"localhost:7421","user-agent":"curl/8.7.1"},"method":"POST","path":"/echo","query":{}}
+```
+
+### Stop it
+
+```console
+$ vc demo stop
+stopped the demo on port 7421
+$ vc demo stop
+no demo running on port 7421
+```
+
+Stopping when none runs is not an error. `stop` ends only a demo that `start --detach` started on that port.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | Started, already running, stopped, or nothing to stop |
+| `1` | The foreground demo ended with an error |
+| `2` | A bad flag, or `vc-demo` is not installed |
+
+`vc demo` runs a separate program, `vc-demo`, which the installers put next to `vc`:
+
+```console
+$ vc demo start --detach
+error: `vc-demo` is not next to vc or on PATH
+  = help: install `vc-demo` next to `vc`; the installers ship both
+$ vc demo start --port 99999
+error: invalid value '99999' for '--port <PORT>': 99999 is not in 0..=65535
+```
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc init" href="/vc-rs/reference/cli/init/" description="Writes the sample that calls the demo." />
+  <LinkCard title="vc run" href="/vc-rs/reference/cli/run/" description="Run the sample against it." />
+</CardGrid>

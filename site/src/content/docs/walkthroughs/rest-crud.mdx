@@ -1,0 +1,645 @@
+---
+title: Test a REST CRUD API
+description: Describe a users endpoint once, then test create, read, update and delete, clean up after every test, and check that bad input is rejected.
+sidebar: { order: 1 }
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+## Goal
+
+You will test a small `/users` REST API from end to end:
+
+- one **api file** that says how to call each endpoint,
+- one **test file** with a test for create, read, replace, rename and delete,
+- **saved IDs** that carry from one call to the next,
+- a **cleanup** that deletes every user a test created, and
+- **example rows** that send bad input and check the error status.
+
+It takes about 15 minutes.
+
+## Prerequisites
+
+- `vc` on your `PATH`. See [Install](/vc-rs/start/install/).
+- A clone of the [vc-rs repo](https://github.com/v007m/vc-rs). The repo has a mock server with a real `/users` collection. Start it in its own terminal and leave it running:
+
+  ```sh
+  # inside the vc-rs clone
+  mise run mock
+  # or, without mise:
+  cargo run -p vc-mock-server -- --port 18080
+  ```
+
+  It listens on `http://localhost:18080`. It stores users in memory, so a restart empties it.
+
+The mock's `/users` collection behaves like a typical REST API:
+
+| Request | Answer |
+| --- | --- |
+| `POST /users` with a JSON object | `201` and the object plus a numeric `id` |
+| `GET /users/{id}` | `200` and the user, or `404` |
+| `PUT /users/{id}` | `200`; the body replaces the user |
+| `PATCH /users/{id}` | `200`; the body is merged into the user |
+| `DELETE /users/{id}` | `204`, or `404` when there is no such user |
+| a body that is not `application/json` | `415` |
+| broken JSON | `400` |
+| JSON that is not an object | `422` |
+| an ID that is not a number | `400` |
+
+## Steps
+
+<Steps>
+
+1. **Create a project.** Make an empty folder and run `vc init` without the sample service:
+
+   ```console
+   $ mkdir crud && cd crud
+   $ vc init --no-sample
+   ✓ created a Vibranium project in /…/crud
+     .env.schema
+     .gitignore
+     vibranium.config.yaml
+     schemas/  datasets/  hooks/  openapi/  load/
+   next: vc new api <service>#<id> --path /…
+   ```
+
+2. **Scaffold the apis.** `vc new api` adds one entry to an api file and creates the file if needed. The first call takes a full `--url`. vc splits it: the host goes into a config var named after the service (`usersUrl`), and the path goes into the api.
+
+   ```console
+   $ vc new api users#create --method POST --url http://localhost:18080/users
+   ✓ added users#create to services/users/users.api.yaml:6
+   $ vc new api users#get --path '/users/{userId}'
+   ✓ added users#get to services/users/users.api.yaml:10
+   $ vc new api users#delete --method DELETE --path '/users/{userId}'
+   ✓ added users#delete to services/users/users.api.yaml:13
+   ```
+
+   Add `users#list` (`--path /users`), `users#replace` (`--method PUT`) and `users#rename` (`--method PATCH`) the same way. The path parameter `{userId}` becomes `${var.userId}`:
+
+   ```yaml title="services/users/users.api.yaml (scaffolded)"
+   baseUrl: ${var.usersUrl}
+   apis:
+     # users#create · POST /users · keys: …
+     - id: create
+       method: POST
+       path: /users
+     # users#get · GET /users/{userId} · keys: …
+     - id: get
+       path: /users/${var.userId}
+     # users#delete · DELETE /users/{userId} · keys: …
+     - id: delete
+       method: DELETE
+       path: /users/${var.userId}
+   ```
+
+   And in `vibranium.config.yaml`:
+
+   ```yaml title="vibranium.config.yaml (excerpt)"
+   vars:
+     usersUrl: http://localhost:18080
+   ```
+
+   The file ID comes from the path: `services/users/users.api.yaml` is `users`, so its apis are `users#create`, `users#get` and so on.
+
+3. **Fill in the api file.** Give each api a `name`, a body where it needs one, and what a normal answer looks like. Three keys on `create` do most of the work:
+
+   - `vars` gives each field a default. `${fake.person.fullName}` and `${fake.internet.email}` generate a fresh name and email for every test, so tests don't collide.
+   - `save` keeps the new user's ID as `userId`. Every later call in the same test can read it as `${var.userId}`.
+   - `cleanup` registers a `delete` call each time a create succeeds. It runs when the test ends, pass or fail.
+
+   ```yaml title="services/users/users.api.yaml" {10-13,20-25}
+   # yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
+   name: Users service
+   baseUrl: ${var.usersUrl}
+
+   apis:
+     - id: create
+       name: Create a user
+       method: POST
+       path: /users
+       vars:
+         name: ${fake.person.fullName}
+         email: ${fake.internet.email}
+         role: member
+       body:
+         name: ${var.name}
+         email: ${var.email}
+         role: ${var.role}
+       expect:
+         status: 201
+       save:
+         userId: ${response.body.id}
+       cleanup:
+         call: delete
+         vars:
+           userId: ${response.body.id}
+
+     - id: list
+       name: List users
+       path: /users
+
+     - id: get
+       name: Get a user
+       path: /users/${var.userId}
+
+     - id: replace
+       name: Replace a user
+       method: PUT
+       path: /users/${var.userId}
+       body:
+         name: ${var.name}
+         email: ${var.email}
+         role: ${var.role}
+
+     - id: rename
+       name: Rename a user
+       method: PATCH
+       path: /users/${var.userId}
+       body:
+         name: ${var.name}
+
+     - id: delete
+       name: Delete a user
+       method: DELETE
+       path: /users/${var.userId}
+       expect:
+         status: [204, 404]
+   ```
+
+   `delete` accepts `204` or `404`. A cleanup should not fail just because a test already deleted the user.
+
+4. **Write the CRUD tests.** Create `services/users/crud.test.yaml`. Its file ID is `users.crud`, so the first test is `users.crud#createsUser`. Test IDs are third-person verbs.
+
+   ```yaml title="services/users/crud.test.yaml"
+   # yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/test.schema.json
+   name: User CRUD
+   tags: [users, crud]
+
+   tests:
+     - id: createsUser
+       name: Creates a user and returns its ID
+       call: users#create
+       vars:
+         email: ada@example.com
+       expect:
+         headers:
+           content-type:
+             contains: json
+         body:
+           match:
+             id:
+               type: integer
+             email: ada@example.com
+             role: member
+
+     - id: readsCreatedUser
+       name: Reads back the user that was just created
+       before:
+         - call: users#create
+           vars:
+             name: Grace Hopper
+       call: users#get
+       expect:
+         status: 200
+         body:
+           match:
+             id: ${var.userId}
+             name: Grace Hopper
+         timing:
+           total:
+             lt: 500ms
+
+     - id: replacesUser
+       name: PUT replaces every field of a user
+       before:
+         - call: users#create
+       call: users#replace
+       vars:
+         name: Ada Lovelace
+         email: ada@example.com
+         role: admin
+       expect:
+         status: 200
+         body:
+           equals:
+             id: ${var.userId}
+             name: Ada Lovelace
+             email: ada@example.com
+             role: admin
+
+     - id: renamesUser
+       name: PATCH changes the name and keeps the other fields
+       steps:
+         - id: created
+           call: users#create
+           vars:
+             role: admin
+         - call: users#rename
+           vars:
+             name: Countess of Lovelace
+           expect:
+             status: 200
+         - call: users#get
+           expect:
+             body:
+               match:
+                 name: Countess of Lovelace
+                 role: admin
+                 email: ${created.body.email}
+
+     - id: deletesUser
+       name: A deleted user is gone
+       steps:
+         - call: users#create
+           keep: true
+         - call: users#delete
+           expect:
+             status: 204
+         - call: users#get
+           expect:
+             status: 404
+   ```
+
+   What each test shows:
+
+   | Test | Pattern |
+   | --- | --- |
+   | `createsUser` | Override one var (`email`) and keep the api's defaults for the rest. The api's `status: 201` still applies. `match` checks only the fields you list. |
+   | `readsCreatedUser` | A `before` action creates the user. Its `save` sets `${var.userId}`, so `users#get` reads the right user. `timing.total` fails the test if the answer takes 500 ms or more. |
+   | `replacesUser` | `equals` checks the whole body, so an extra or missing field fails the test. |
+   | `renamesUser` | `steps` run in order. The step `id: created` makes that response readable later as `${created.body.email}`. |
+   | `deletesUser` | `keep: true` tells vc not to register the cleanup for this create, because the test deletes the user itself. |
+
+5. **Check the files.** `vc check` reads every file and resolves every `${…}` before anything is sent:
+
+   ```console
+   $ vc check
+   0 errors · 0 warnings · 3 files checked
+   ```
+
+6. **Run the tests.**
+
+   ```console
+   $ vc run
+   plan  5 tests in 1 file · profile default
+
+   ✓ users.crud#createsUser                                         34ms
+   ✓ users.crud#replacesUser                                        34ms
+   ✓ users.crud#deletesUser                                         37ms
+   ✓ users.crud#readsCreatedUser                                    37ms
+   ✓ users.crud#renamesUser                                         37ms
+
+   5 passed                                                    48ms · profile default
+   reports  …/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
+   ```
+
+   Tests run in parallel, so the order changes from run to run. The report path is shortened here; vc prints the full path.
+
+   Now look at the mock's store:
+
+   ```console
+   $ curl localhost:18080/users
+   []
+   ```
+
+   It is empty. Each successful create registered a delete, and the cleanups ran when their tests ended. `deletesUser` deleted its own user.
+
+7. **Add examples for bad input.** An `examples` list turns one test into one instance per row. Each row's values are read as `${example.<key>}`. Add these two tests to the end of `crud.test.yaml`:
+
+   ```yaml title="services/users/crud.test.yaml (continued)"
+     - id: rejectsBadBody
+       name: Rejects a create request whose body is not a JSON object
+       examples:
+         - name: plain text
+           contentType: text/plain
+           body: just some text
+           status: 415
+         - name: broken JSON
+           contentType: application/json
+           body: "{bad"
+           status: 400
+         - name: a list, not an object
+           contentType: application/json
+           body: "[1, 2]"
+           status: 422
+       call: users#create
+       headers:
+         content-type: ${example.contentType}
+       body: ${example.body}
+       expect:
+         status:
+           eq: ${example.status}
+
+     - id: rejectsUnknownUser
+       name: Answers 400 or 404 for IDs that name no user
+       examples:
+         - userId: not-a-number
+           status: 400
+         - userId: 999999
+           status: 404
+       call: users#get
+       vars:
+         userId: ${example.userId}
+       expect:
+         status:
+           eq: ${example.status}
+   ```
+
+   The test's `body` replaces the api's body, and its `headers` override the content type. Each row sends a different kind of bad body. No cleanup runs for these rows: a cleanup is registered only when the create succeeds.
+
+   <Aside type="caution" title="Write status: { eq: … } for a templated status">
+   `status: ${example.status}` is rejected today, even though the row holds a number:
+
+   ```console
+   error[V2303]: invalid status `${example.status}`
+      --> services/users/crud.test.yaml:109:15
+       |
+   109 |       status: ${example.status}
+       |               ^^^^^^^^^^^^^^^^^
+       = help: write a code from 100 to 599 or a class from 1xx to 5xx
+   ```
+
+   Use the `eq` matcher instead, as above: `status: { eq: ${example.status} }`. See [V2303](/vc-rs/reference/diagnostics/v2303/).
+   </Aside>
+
+8. **Run the new rows.** Each row is reported as its own instance, labeled `[row n]`:
+
+   ```console
+   $ vc run
+   plan  7 tests in 1 file · profile default
+
+   ✓ users.crud#rejectsUnknownUser [row 2]                           4ms
+   ✓ users.crud#rejectsBadBody [row 1]                               4ms
+   ✓ users.crud#rejectsBadBody [row 3]                               4ms
+   ✓ users.crud#rejectsUnknownUser [row 1]                           4ms
+   ✓ users.crud#createsUser                                          5ms
+   ✓ users.crud#rejectsBadBody [row 2]                               5ms
+   ✓ users.crud#readsCreatedUser                                     5ms
+   ✓ users.crud#deletesUser                                          5ms
+   ✓ users.crud#replacesUser                                         6ms
+   ✓ users.crud#renamesUser                                          6ms
+
+   10 passed                                                    7ms · profile default
+   reports  …/.vibranium/reports/6/{ctrf.json,junit.xml,index.html}
+   ```
+
+   `vc plan` lists the instances without sending anything:
+
+   ```console
+   $ vc plan users.crud
+   plan  7 tests in 1 file · profile default
+   users.crud
+     users.crud#createsUser
+     users.crud#readsCreatedUser
+     users.crud#replacesUser
+     users.crud#renamesUser
+     users.crud#deletesUser
+     users.crud#rejectsBadBody [row 1]
+     users.crud#rejectsBadBody [row 2]
+     users.crud#rejectsBadBody [row 3]
+     users.crud#rejectsUnknownUser [row 1]
+     users.crud#rejectsUnknownUser [row 2]
+   ```
+
+   To run a single row, add `:n` to the test ID:
+
+   ```console
+   $ vc run users.crud#rejectsBadBody:2
+   plan  1 test in 1 file · profile default
+
+   ✓ users.crud#rejectsBadBody [row 2]                               3ms
+
+   1 passed                                                     5ms · profile default
+   reports  …/.vibranium/reports/8/{ctrf.json,junit.xml,index.html}
+   ```
+
+   <Aside type="note">
+   The rows have a `name` key, but the console and reports still say `[row 1]`, `[row 2]`. Use `:n` with the row's position.
+   </Aside>
+
+9. **See a failure.** Change `role: admin` to `role: owner` in the `equals` block of `replacesUser` and run it:
+
+   ```console
+   $ vc run users.crud#replacesUser
+   plan  1 test in 1 file · profile default
+
+   ✕ users.crud#replacesUser                                         7ms
+     error[V5101]: expect.body.equals
+       --> services/users/crud.test.yaml:52:11
+        |
+     52 |           id: ${var.userId}
+        |           ^^^^^^^^^^^^^^^^^
+     53 |           name: Ada Lovelace
+        |           ^^^^^^^^^^^^^^^^^^
+     54 |           email: ada@example.com
+        |           ^^^^^^^^^^^^^^^^^^^^^^
+     55 |           role: owner
+        |           ^^^^^^^^^^^ expected {"email":"ada@example.com","id":6,"name":"Ada Lovelace","role":"owner"}, got {"email":"ada@example.com","id":6,"name":"Ada Lovelace","role":"admin"}
+        = diff:
+          --- expected
+          +++ actual
+          @@ -2,5 +2,5 @@
+             "email": "ada@example.com",
+             "id": 6,
+             "name": "Ada Lovelace",
+          -  "role": "owner"
+          +  "role": "admin"
+           }
+          \ No newline at end of file
+
+   0 passed · 1 failed                                          8ms · profile default
+   reports  …/.vibranium/reports/7/{ctrf.json,junit.xml,index.html}
+   next     vc run --failed
+   seed 17766941730403560844: pass `--seed 17766941730403560844` to run with the same generated data
+   ```
+
+   The failure points at the lines in your file and shows a diff. The exit code is `1`. The seed lets you replay the same generated names and emails. Change `owner` back to `admin`.
+
+</Steps>
+
+## Final files
+
+The final `services/users/users.api.yaml` is the one in step 3. The test file is steps 4 and 7 together:
+
+<Tabs>
+<TabItem label="crud.test.yaml">
+
+```yaml title="services/users/crud.test.yaml"
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/test.schema.json
+name: User CRUD
+tags: [users, crud]
+
+tests:
+  - id: createsUser
+    name: Creates a user and returns its ID
+    call: users#create
+    vars:
+      email: ada@example.com
+    expect:
+      headers:
+        content-type:
+          contains: json
+      body:
+        match:
+          id:
+            type: integer
+          email: ada@example.com
+          role: member
+
+  - id: readsCreatedUser
+    name: Reads back the user that was just created
+    before:
+      - call: users#create
+        vars:
+          name: Grace Hopper
+    call: users#get
+    expect:
+      status: 200
+      body:
+        match:
+          id: ${var.userId}
+          name: Grace Hopper
+      timing:
+        total:
+          lt: 500ms
+
+  - id: replacesUser
+    name: PUT replaces every field of a user
+    before:
+      - call: users#create
+    call: users#replace
+    vars:
+      name: Ada Lovelace
+      email: ada@example.com
+      role: admin
+    expect:
+      status: 200
+      body:
+        equals:
+          id: ${var.userId}
+          name: Ada Lovelace
+          email: ada@example.com
+          role: admin
+
+  - id: renamesUser
+    name: PATCH changes the name and keeps the other fields
+    steps:
+      - id: created
+        call: users#create
+        vars:
+          role: admin
+      - call: users#rename
+        vars:
+          name: Countess of Lovelace
+        expect:
+          status: 200
+      - call: users#get
+        expect:
+          body:
+            match:
+              name: Countess of Lovelace
+              role: admin
+              email: ${created.body.email}
+
+  - id: deletesUser
+    name: A deleted user is gone
+    steps:
+      - call: users#create
+        keep: true
+      - call: users#delete
+        expect:
+          status: 204
+      - call: users#get
+        expect:
+          status: 404
+
+  - id: rejectsBadBody
+    name: Rejects a create request whose body is not a JSON object
+    examples:
+      - name: plain text
+        contentType: text/plain
+        body: just some text
+        status: 415
+      - name: broken JSON
+        contentType: application/json
+        body: "{bad"
+        status: 400
+      - name: a list, not an object
+        contentType: application/json
+        body: "[1, 2]"
+        status: 422
+    call: users#create
+    headers:
+      content-type: ${example.contentType}
+    body: ${example.body}
+    expect:
+      status:
+        eq: ${example.status}
+
+  - id: rejectsUnknownUser
+    name: Answers 400 or 404 for IDs that name no user
+    examples:
+      - userId: not-a-number
+        status: 400
+      - userId: 999999
+        status: 404
+    call: users#get
+    vars:
+      userId: ${example.userId}
+    expect:
+      status:
+        eq: ${example.status}
+```
+
+</TabItem>
+<TabItem label="vibranium.config.yaml (vars)">
+
+```yaml title="vibranium.config.yaml (excerpt)"
+vars:
+  usersUrl: http://localhost:18080
+```
+
+`vc init --no-sample` also leaves a `sampleUrl` var for the demo service. This project doesn't use it, so you can delete that line.
+
+</TabItem>
+</Tabs>
+
+## Try a variation
+
+Add a row to `rejectsUnknownUser` that uses a negative ID, or change a matcher and watch the editor flag what is wrong:
+
+<Playground client:visible kind="test" title="crud.test.yaml" code={`name: User CRUD
+tests:
+  - id: rejectsUnknownUser
+    name: Answers 400 or 404 for IDs that name no user
+    examples:
+      - userId: not-a-number
+        status: 400
+      - userId: 999999
+        status: 404
+    call: users#get
+    vars:
+      userId: \${example.userId}
+    expect:
+      status:
+        eq: \${example.status}
+`} />
+
+## What you learned
+
+- An **api file** describes each endpoint once. Tests call it by ID (`users#create`) and override only what differs.
+- **`vars`** with `${fake.*}` give every test fresh data. A test's own `vars` win.
+- **`save`** keeps a value from a response for later calls in the same test.
+- An api's **`cleanup`** runs after every test that created something, even when the test fails. `keep: true` skips it for one action.
+- **`match`** checks the fields you list. **`equals`** checks the whole body.
+- **`examples`** run one test per row. Select one row with `:n`.
+- A failure points at your YAML line and shows a diff.
+
+## Next
+
+- [Data-driven tests](/vc-rs/walkthroughs/data-driven/): datasets, `forEach`, `repeat` and generated data.
+- [`examples`](/vc-rs/reference/syntax/examples/), [`steps`](/vc-rs/reference/syntax/steps/) and [`expect.body`](/vc-rs/reference/syntax/expect-body/) in the syntax reference.
+- [Matchers](/vc-rs/reference/matchers/) for every check you can write.
+- [`vc run`](/vc-rs/reference/cli/run/) for selectors, `--failed` and `--seed`.
+- [V2303](/vc-rs/reference/diagnostics/v2303/): invalid status.

@@ -1,0 +1,75 @@
+---
+title: "vc report"
+description: "Writes the report files of a stored run again, in any format, to any folder."
+sidebar: { order: 8 }
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Writes the report files for a run stored in [history](/vc-rs/reference/cli/history/), without running anything again. Use it to get an HTML report for a run that only wrote JUnit, or to copy a report somewhere to share.
+
+```console
+$ vc report [OPTIONS] [RUN]
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `[RUN]` | `last` or a run number | `last` | The run to report |
+| `--format` | `<FORMATS>` | `html` | The report files to write, as a comma list or repeated: `html`, `ctrf`, `junit` |
+| `--out` | `<DIR>` | `.vibranium/reports/<run>/` | The folder the files go in |
+| `--single-file` | | | Writes the HTML report as one self-contained `report.html` |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### HTML for the last run
+
+```console
+$ vc report
+/home/ada/shop/.vibranium/reports/82/index.html
+```
+
+It prints the path of each file it wrote.
+
+### JUnit and CTRF for an older run, into a folder
+
+```console
+$ vc report 80 --format junit,ctrf --out build/reports
+/home/ada/shop/build/reports/junit.xml
+/home/ada/shop/build/reports/ctrf.json
+```
+
+### One HTML file to attach or send
+
+```console
+$ vc report --single-file --out build/share
+/home/ada/shop/build/share/report.html
+```
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | The files were written |
+| `2` | No such run, or an unknown format |
+
+```console
+$ vc report 999
+error: history: no run 999 is stored
+  = help: `vc history` lists the stored runs
+$ vc report --format pdf
+error: --format: no report format `pdf`
+  = help: the report formats are ctrf, junit, html
+```
+
+`vc report` works for test runs. For a load run it currently fails with an error about the stored snapshot; pass the run number of a test run.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Reporters and history" href="/vc-rs/guides/reporters-and-history/" description="What each format holds." />
+  <LinkCard title="vc history" href="/vc-rs/reference/cli/history/" description="Find the run number." />
+  <LinkCard title="Report settings" href="/vc-rs/reference/config/reports/" description="reports.dir, formats and html.layout." />
+</CardGrid>

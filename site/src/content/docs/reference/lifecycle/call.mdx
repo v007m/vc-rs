@@ -1,0 +1,123 @@
+---
+title: "call action"
+description: "The call action sends one api with its base URL, auth, checks, saves and cleanup, from any lifecycle block or step."
+sidebar: { order: 5 }
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`call: <api>` sends an api you already defined. The api brings its URL, auth, body, checks, saved values and cleanup, so the action only says which api and which values.
+
+```yaml
+beforeEach:
+  - call: lab#createItem
+    vars:
+      label: first
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `call` | api ID | — | yes | The full ID, `<service>#<api>` (`lab#createItem`) |
+| `id` | camelCase text | — | in `beforeRun`/`beforeAll` when it saves | Names the action; shared values live under it |
+| `vars` | map | — | no | Values for this call; they beat every other level |
+| `auth` | auth ID, `none`, or `id` + `vars` | the api's | no | See [Using auth](/vc-rs/reference/auth/using-auth/) |
+| `headers`, `query`, `body` | map / any | the api's | no | Merged over the api's own |
+| `expect` | checks | the api's | no | Merged with the api's checks |
+| `save` | map of templates | — | no | Runs whatever the status, once checks hold |
+| `poll`, `retry` | object | — | no | As on a test |
+| `keep` | boolean | `false` | no | Skip the api's cleanup for this call |
+| `cache` | object | — | no | Reuse the result across runs; see [Cross-run cache](/vc-rs/reference/lifecycle/cache/) |
+| `repeat`, `forEach`, `parallel` | number / list / number | — | no | See [Loops on actions](/vc-rs/reference/lifecycle/loops/) |
+| `timeout` | duration | the api's, else `defaults.timeout` | no | Limit on each request attempt; see [Action timeout](/vc-rs/reference/lifecycle/timeout/) |
+
+## Examples
+
+The simplest action: call an api with its defaults.
+
+```yaml
+before:
+  - call: users#create
+```
+
+Pass values. The api's `save` (here `itemId`) and `cleanup` still apply:
+
+```yaml
+before:
+  - call: lab#createItem
+    vars:
+      label: second
+```
+
+Share a result with every test in the file. In `beforeAll` and `beforeRun`, the saved values live under the `id`:
+
+```yaml
+beforeAll:
+  - id: shared
+    call: sample#createUser
+    vars:
+      name: File Owner
+# later: ${var.shared.userId}
+```
+
+Keep what the call made. With `keep: true` the api's cleanup does not run:
+
+```yaml
+steps:
+  - call: lab#createItem
+    vars:
+      label: first
+  - call: lab#createItem
+    keep: true
+    vars:
+      label: kept
+```
+
+Override the api's checks and save something extra:
+
+```yaml
+before:
+  - call: sample#echo
+    vars:
+      payload: from before
+    expect:
+      status: 200
+    save:
+      note: ${response.body.body}
+```
+
+<Playground client:visible kind="test" code={`tests:
+  - id: usesAnItem
+    name: Uses an item made in before
+    before:
+      - call: lab#createItem
+        vars:
+          label: first
+        timeout: 5s
+    call: lab#whoami
+    query:
+      item: \${var.itemId}
+`} />
+
+## How it behaves
+
+- An api's `save` runs on every call whose status matches its `saveOn`. A `call` action's own `save` runs once its checks hold.
+- A successful call registers its api's `cleanup`. It runs after the test, file or run that owns the call, newest first.
+- `vc call <api>` sends one api from the terminal the same way; `vc call --keep` skips its cleanup. See [Cleanups](/vc-rs/reference/lifecycle/cleanups/).
+
+## Common errors
+
+- [V2003](/vc-rs/reference/diagnostics/v2003/): the api ID does not exist (`unknown api "lab#nope"`). A bare `whoami` is read as an item of this file, and the fix suggests `lab#whoami`.
+- [V2210](/vc-rs/reference/diagnostics/v2210/): a `beforeRun` or `beforeAll` call saves values but has no `id`.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): a check failed. [V5104](/vc-rs/reference/diagnostics/v5104/): no response within the timeout. [V5105](/vc-rs/reference/diagnostics/v5105/): the connection failed.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="test action" href="/vc-rs/reference/lifecycle/test-action/" />
+  <LinkCard title="Cleanups" href="/vc-rs/reference/lifecycle/cleanups/" />
+  <LinkCard title="Loops on actions" href="/vc-rs/reference/lifecycle/loops/" />
+  <LinkCard title="Action timeout" href="/vc-rs/reference/lifecycle/timeout/" />
+</CardGrid>

@@ -1,0 +1,81 @@
+---
+title: "V2007 — File ID doesn't match its path"
+description: "A file's ID comes from its path (services/users/users.api.yaml is users, services/users/crud.test.yaml is users.crud)."
+sidebar:
+  label: "V2007 File ID doesn't match its path"
+  order: 2007
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="References and types" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V2007` |
+| Category | V2xxx: References and types |
+| Severity | error |
+| Certain fix | rename the ID and its references |
+
+A file's ID comes from its path (`services/users/users.api.yaml` is `users`, `services/users/crud.test.yaml` is
+`users.crud`). An `id:` key is optional, and when written it must match; rename the file to change its ID.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+id: user
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/crud.test.yaml"
+id: users.basics
+name: Users CRUD
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+```
+
+```console
+$ vc check
+error[V2007]: the file ID is `users.crud` from its path, not `users.basics`
+ --> services/users/crud.test.yaml:1:5
+  |
+1 | id: users.basics
+  |     ^^^^^^^^^^^^ does not match the path
+  = help: remove the `id:` key, or move the file to match it
+  = fix: Write users.crud (certain)
+
+1 error · 0 warnings · 3 files checked
+$ echo $?
+2
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V2007
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

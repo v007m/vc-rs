@@ -1,0 +1,160 @@
+---
+title: "vc call"
+description: "Sends one api with its vars, auth and checks, prints the response, and can save the call as a test."
+sidebar: { order: 18 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Sends one api, prints the status and the body, and runs the api's own `expect` checks. Use it to try an api while you write it, or to turn a working call into a test.
+
+```console
+$ vc call [OPTIONS] <API>
+```
+
+## Options
+
+| Flag | Value | Default | Description |
+| --- | --- | --- | --- |
+| `<API>` | api ID | | The api to call, as `file#id` (`users#listUsers`) |
+| `--var` | `<NAME=VALUE>` | | Sets one var for this call. Repeat it for more. It beats the vars the api and the config define |
+| `--keep` | | | Leaves what the call made: the api's `cleanup` does not run afterwards |
+| `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
+| `--set` | `<KEY=VALUE>` | | Sets one config value over every other layer |
+| `--save-as-test` | `<TEST_ID>` | | Writes the call as a test with this ID (`users.crud#listsUsers`) that expects the status it got. No schema is inferred |
+| `--expect-field` | `<body.PATH>` | | With `--save-as-test`, also expects this body field at the value it came back with (`body.id`, `body.items[0].id`). Repeat it for more |
+| `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
+
+## Examples
+
+### Call an api
+
+```console
+$ vc call sample#listUsers
+200 OK · 2 ms · api expect passed
+[
+  {
+    "id": "1",
+    "name": "Ada Lovelace"
+  },
+  {
+    "id": "2",
+    "name": "Grace Hopper"
+  }
+]
+```
+
+The first line is the status, the time, and whether the api's `expect` passed. JSON bodies are pretty-printed.
+
+### Set a var
+
+```console
+$ vc call sample#getUser --var userId=1
+200 OK · 8 ms · api expect passed
+{
+  "id": "1",
+  "name": "Ada Lovelace"
+}
+```
+
+### A response that breaks the api's expect
+
+```console
+$ vc call sample#getUser --var userId=999
+404 Not Found · 1 ms · api expect failed
+✗ status: expected ["2xx"], got 404
+$ echo $?
+1
+```
+
+### Generated data and cleanup
+
+```console
+$ vc call sample#createUser
+201 Created · 1 ms · api expect passed
+{
+  "email": "maryjane@example.com",
+  "id": "5",
+  "name": "Durward Kulas"
+}
+```
+
+`sample#createUser` fills `name` and `email` with `${fake.…}` values and declares `cleanup: sample#deleteUser`, so the cleanup call runs after a successful call. Add `--keep` to leave what the call made.
+
+### Save the call as a test
+
+```console
+$ vc call sample#getUser --var userId=1 --save-as-test sample.calls#getsAda --expect-field body.name --expect-field body.id
+200 OK · 1 ms · api expect passed
+{
+  "id": "1",
+  "name": "Ada Lovelace"
+}
+✓ wrote sample.calls#getsAda to services/sample/calls.test.yaml:5
+```
+
+It writes:
+
+```yaml title="services/sample/calls.test.yaml"
+tests:
+  # sample.calls#getsAda · saved from vc call sample#getUser · keys: …
+  - id: getsAda
+    name: Gets ada
+    call: sample#getUser
+    vars:
+      userId: "1"
+    expect:
+      status: 200
+      body:
+        match:
+          name: Ada Lovelace
+          id: "1"
+```
+
+The test file is created when it does not exist yet.
+
+## Exit codes
+
+| Code | When |
+| --- | --- |
+| `0` | A response came back and the api's `expect` passed |
+| `1` | The response broke the api's `expect`, or no response came back |
+| `2` | The project has errors, no such api, a flag is wrong, or the test could not be saved |
+
+```console
+$ vc call sample#nope
+error: no api `sample#nope`
+$ vc call sample#getUser --var bad
+error: --var: `bad` is not `name=value`
+  = help: write it as `--var userId=7`
+$ vc call sample#getUser --var userId=1 --save-as-test sample.calls#getsAda
+...
+error: `sample.calls#getsAda` already exists
+  = help: pick another ID, or `vc rename sample.calls#getsAda` first
+$ vc call sample#getUser --var userId=1 --save-as-test sample.calls#x --expect-field body.nope
+...
+error: `body.nope` is missing: `body` is {"id":"1","name":"Ada Lovelace"}
+  = help: name a field in the JSON body: `--expect-field body.id` or `body.items[0].id`
+```
+
+When the server cannot be reached, `vc call` prints `✗ cannot connect to localhost:7421: Connection refused (os error 61)` and exits 1.
+
+`--expect-field` needs `--save-as-test`; without it, the command stops with a usage error.
+
+<Aside type="caution">
+Write `vc call` output to a file rather than piping it into a command that stops reading early (such as `| true`). If the pipe closes before `vc call` finishes writing, it reports an internal error and exits 70.
+</Aside>
+
+## How it behaves
+
+- **Check first.** Like `vc run`, `vc call` checks the whole project before it sends anything. Any error stops it with exit code 2 and `error: the project has 1 error(s); nothing ran`.
+- The api's `cleanup` runs after a successful call unless you pass `--keep`.
+- Agents get the same action through the [`call_api` MCP tool](/vc-rs/agents/mcp-tools/), with the project's `agents` rules applied.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="vc new" href="/vc-rs/reference/cli/new/" description="Add an api, from a URL or a curl command." />
+  <LinkCard title="vc explain" href="/vc-rs/reference/cli/explain/" description="See the request before you send it." />
+  <LinkCard title="vc approve" href="/vc-rs/reference/cli/approve/" description="Approve a call an agent asked for." />
+</CardGrid>

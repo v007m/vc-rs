@@ -1,0 +1,53 @@
+---
+title: "V1011 — Nesting deeper than 128 levels"
+description: "The value is nested more than 128 levels deep."
+sidebar:
+  label: "V1011 Nesting deeper than 128 levels"
+  order: 1011
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Syntax" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V1011` |
+| Category | V1xxx: Syntax |
+| Severity | error |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+The value is nested more than 128 levels deep. Vibranium stops there so that a hostile or broken file cannot exhaust the
+stack; real definitions are never this deep.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+vars:
+  deep: [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+apis: []
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+vars:
+  deep: [[1, 2], [3]]
+apis: []
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V1011
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

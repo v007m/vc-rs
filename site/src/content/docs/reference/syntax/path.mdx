@@ -1,0 +1,182 @@
+---
+title: path
+description: The part of the URL an api adds after its file's baseUrl, with templates for IDs.
+sidebar: { order: 111, badge: { text: 'api', variant: 'note' } }
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`path` is the end of an api's URL. vc puts the file's [`baseUrl`](/vc-rs/reference/syntax/base-url/) in front of it, exactly as written.
+
+```yaml title="services/sample/sample.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: getUser
+    path: /users/${var.userId}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `path` | template | — | yes | Start it with `/`. Joined to `baseUrl` as plain text. Not percent-encoded. |
+
+The query string does not go in `path`. Put it in [`query`](/vc-rs/reference/syntax/query/), which encodes each value for you.
+
+## Examples
+
+### A path with a var
+
+`getUser` reads the user whose ID is in `userId`. Any caller can set it.
+
+```yaml title="services/sample/sample.api.yaml"
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+```
+
+```console
+$ vc call sample#getUser --var userId=1
+200 OK · 27 ms · api expect passed
+{
+  "id": "1",
+  "name": "Ada Lovelace"
+}
+```
+
+In a test, the var usually comes from an earlier call's [`save`](/vc-rs/reference/syntax/save/), such as `userId: ${response.body.id}` on `createUser`.
+
+### Encode values that may hold spaces or slashes
+
+vc does not encode the path. A value with a space makes an invalid URL, and the call fails before it is sent:
+
+```yaml title="services/h/h.api.yaml"
+  - id: badPath
+    path: /users/${var.userId}
+    vars:
+      userId: a b
+```
+
+```console
+$ vc run h.t
+✕ h.t#b                                                           0ms
+  error[V5111]: `http://localhost:7432/users/a b` is not a URL: invalid uri character
+     = at: call h#badPath
+```
+
+Add the [`urlEncode`](/vc-rs/reference/pipes/) pipe to any path value that is not a plain ID:
+
+```yaml title="services/req/req.api.yaml"
+  - id: getUser
+    path: /users/${var.userId | urlEncode}
+    vars:
+      userId: "1"
+```
+
+```console
+$ vc call req#getUser
+200 OK · 12 ms · api expect passed
+{
+  "id": "1",
+  "name": "Ada Lovelace"
+}
+```
+
+With `userId: a b/c` the same api sends `/users/a%20b%2Fc`, one path segment. The demo has no such user, so it answers 404:
+
+```console
+$ vc call req#badEnc
+404 Not Found · 2 ms · api expect failed
+✗ status: expected ["2xx"], got 404
+```
+
+### A full URL in the path
+
+An api file without a `baseUrl` can put a whole URL in `path`. This suits a one-off endpoint on another host.
+
+```yaml title="services/nobase/nobase.api.yaml"
+apis:
+  - id: full
+    path: http://localhost:7432/echo
+```
+
+```console
+$ vc call nobase#full
+200 OK · 8 ms · api expect passed
+{
+  "body": null,
+  "headers": {
+    "accept": "application/json",
+    "accept-encoding": "gzip, br, zstd, deflate",
+    "host": "localhost:7432",
+    "user-agent": "vibranium/2"
+  },
+  "method": "GET",
+  "path": "/echo",
+  "query": {}
+}
+```
+
+### Check the URL before you send it
+
+`vc explain` prints the joined URL with the vars filled in:
+
+```console
+$ vc explain req#put
+req#put
+profile  default
+  PUT http://localhost:7432/echo/abc 123
+```
+
+Here the space in `abc 123` shows that the path needs `urlEncode`. A template with a pipe is shown unrendered, as in `GET http://localhost:7432/users/${var.userId | urlEncode}`.
+
+## Try it
+
+<Playground client:visible kind="api" code={`id: sample
+baseUrl: \${var.sampleUrl}
+apis:
+  - id: getUser
+    path: /users/\${var.userId | urlEncode}
+    vars:
+      userId: "1"
+`} />
+
+## How it behaves
+
+- The URL is `baseUrl` followed by `path`, joined as plain text. vc adds no `/` and removes none.
+- A path without a leading `/` runs into the host. With `baseUrl` `http://localhost:7432` and `path: echo`, the URL is `http://localhost:7432echo`. `vc check` does not warn, and the run fails to connect. See below.
+- A `baseUrl` that ends in `/` plus a path that starts with `/` gives `//`, which most servers answer with 404.
+- Templates in the path are rendered, not encoded. Use `| urlEncode` for user-supplied text. Values in [`query`](/vc-rs/reference/syntax/query/) are encoded automatically, so don't use the pipe there.
+- Any var in scope can be used: the api's own `vars`, the file's, the config's, a test's, or a saved value.
+
+## Common errors
+
+A missing leading slash passes `vc check` and fails at run time. `7432echo` is not a port, so vc ends up connecting to port 80:
+
+```yaml title="services/h/h.api.yaml"
+  - id: noSlash
+    path: echo
+```
+
+```console
+$ vc explain h#noSlash
+h#noSlash
+profile  default
+  GET http://localhost:7432echo
+
+$ vc run h.t
+✕ h.t#c                                                           4ms
+  error[V5105]: cannot connect to localhost:80: Connection refused (os error 61)
+     = at: call h#noSlash
+```
+
+A path var that no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/). A path that is not a valid URL fails the call with [V5111](/vc-rs/reference/diagnostics/v5111/). A host that refuses the connection fails with [V5105](/vc-rs/reference/diagnostics/v5105/).
+
+## Related
+
+- [base-url](/vc-rs/reference/syntax/base-url/): the part in front of the path
+- [query](/vc-rs/reference/syntax/query/): the query string
+- [method](/vc-rs/reference/syntax/method/)
+- [vars](/vc-rs/reference/syntax/vars/): where path values come from
+- [Pipes](/vc-rs/reference/pipes/): `urlEncode`

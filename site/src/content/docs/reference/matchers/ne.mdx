@@ -1,0 +1,175 @@
+---
+title: "ne"
+description: "The ne matcher passes when a value does not equal its argument."
+sidebar: { order: 12 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`ne` passes when the value at the path is not equal to the argument.
+
+```yaml
+expect:
+  body:
+    match:
+      body.status: {ne: closed}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `ne` | any value | — | yes | Compared deeply, like `eq`. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Rule out a value
+
+Check that an order is not closed.
+
+```yaml title="services/sample/ne.test.yaml"
+tests:
+  - id: isNotClosed
+    name: Order is not closed
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {ne: closed}
+```
+
+```console
+$ vc run sample.ne#isNotClosed
+plan  1 test in 1 file · profile default
+
+✓ sample.ne#isNotClosed                                           3ms
+
+1 passed                                                     4ms · profile default
+```
+
+### Require a value that is not null
+
+`ne: null` passes for any value other than null.
+
+```yaml title="services/sample/ne.test.yaml"
+tests:
+  - id: hasEmail
+    name: Email is set
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.email: {ne: null}
+```
+
+```console
+$ vc run sample.ne#hasEmail
+plan  1 test in 1 file · profile default
+
+✓ sample.ne#hasEmail                                              4ms
+
+1 passed                                                     5ms · profile default
+```
+
+### A failing check
+
+`note` is null, so `ne: null` fails.
+
+```yaml title="services/sample/ne.test.yaml"
+tests:
+  - id: failsOnNullNote
+    name: Note is set
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.note: {ne: null}
+```
+
+```console
+$ vc run sample.ne#failsOnNullNote
+plan  1 test in 1 file · profile default
+
+✕ sample.ne#failsOnNullNote                                       3ms
+  error[V5101]: expect.body.match.body.note
+    --> services/sample/ne.test.yaml:22:22
+     |
+  22 |           body.note: {ne: null}
+     |                      ^^^^^^^^^^ expected {"ne":null}, got null
+
+0 passed · 1 failed                                          4ms · profile default
+```
+
+### A missing path passes
+
+A path that is not in the body is not equal to anything, so `ne` passes. Add `exists: true` when the field must be there.
+
+```yaml title="services/sample/ne.test.yaml"
+tests:
+  - id: passesOnMissing
+    name: Missing field is not closed
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.state: {ne: closed}
+  - id: needsTheField
+    name: State is present and not closed
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.state: {exists: true, ne: closed}
+```
+
+```console
+$ vc run sample.ne#passesOnMissing sample.ne#needsTheField
+plan  2 tests in 1 file · profile default
+
+✓ sample.ne#passesOnMissing                                       6ms
+✕ sample.ne#needsTheField                                         1ms
+  error[V5101]: expect.body.match.body.state
+    --> services/sample/ne.test.yaml:36:23
+     |
+  36 |           body.state: {exists: true, ne: closed}
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"exists":true,"ne":"closed"}, got nothing
+
+1 passed · 1 failed                                          9ms · profile default
+```
+
+The second test fails because `state` is not in the body.
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: isNotClosed
+    name: Order is not closed
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {ne: closed}
+`} />
+
+## How it behaves
+
+- `ne` is the opposite of [eq](/vc-rs/reference/matchers/eq/): deep comparison, numbers by value.
+- A missing path passes `ne`. Pair it with `exists: true` when the field is required.
+- To rule out several values, use [notIn](/vc-rs/reference/matchers/not-in/).
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [eq](/vc-rs/reference/matchers/eq/)
+- [notIn](/vc-rs/reference/matchers/not-in/)
+- [not](/vc-rs/reference/matchers/not/)
+- [exists](/vc-rs/reference/matchers/exists/)
+- [All matchers](/vc-rs/reference/matchers//)

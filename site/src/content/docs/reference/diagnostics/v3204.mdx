@@ -1,0 +1,95 @@
+---
+title: "V3204 — Unquoted value that YAML cut at   #  (a comment)"
+description: "YAML reads a  # in an unquoted value as the start of a comment, so the value was cut short: see #212 keeps only see."
+sidebar:
+  label: "V3204 Unquoted value that YAML cut at   #  (a comment)"
+  order: 3204
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Lifecycle" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V3204` |
+| Category | V3xxx: Lifecycle |
+| Severity | warning |
+| Certain fix | — (suggested: quote it) |
+
+YAML reads a ` #` in an unquoted value as the start of a comment, so the value was cut short: `see #212` keeps only
+`see`. Quote the value to keep the `#` and what follows it.
+
+## Wrong
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    skip: flaky upstream, see #212
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: getsUser
+    call: users#getUser
+    skip: 'flaky upstream, see #212'
+```
+
+## Seen in practice
+
+This is real output from `vc`, run against the files below.
+
+```yaml title="services/users/crud.test.yaml"
+id: users.crud
+name: Users CRUD
+tests:
+  - id: listsUsers
+    name: Lists users
+    call: users#listUsers
+    skip: flaky upstream, see #212
+```
+
+```console
+$ vc check
+warning[V3204]: YAML reads `#212` as a comment, cutting the value short
+ --> services/users/crud.test.yaml:7:11
+  |
+7 |     skip: flaky upstream, see #212
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^ the value ends before the `#`
+  = help: quote the value to keep the `#` and what follows it
+  = fix: Quote the value
+
+0 errors · 1 warning · 3 files checked
+$ echo $?
+0
+```
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V3204
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

@@ -1,0 +1,167 @@
+---
+title: "not"
+description: "The not matcher passes when its nested matcher fails."
+sidebar: { order: 32 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`not` passes when the nested matcher does not.
+
+```yaml
+expect:
+  body:
+    match:
+      body.status: {not: {in: [closed, cancelled]}}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `not` | matcher or value | — | yes | A plain value means the value does not equal it. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Invert a matcher
+
+
+
+```yaml title="services/sample/not.test.yaml"
+tests:
+  - id: isOpen
+    name: Status is not closed or cancelled
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {not: {in: [closed, cancelled]}}
+```
+
+```console
+$ vc run sample.not#isOpen
+plan  1 test in 1 file · profile default
+
+✓ sample.not#isOpen                                               3ms
+
+1 passed                                                     5ms · profile default
+```
+
+### Invert a text check
+
+
+
+```yaml title="services/sample/not.test.yaml"
+tests:
+  - id: notTestEmail
+    name: Email does not contain test
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.email: {not: {contains: test}}
+```
+
+```console
+$ vc run sample.not#notTestEmail
+plan  1 test in 1 file · profile default
+
+✓ sample.not#notTestEmail                                         4ms
+
+1 passed                                                     5ms · profile default
+```
+
+### A failing check
+
+
+
+```yaml title="services/sample/not.test.yaml"
+tests:
+  - id: failsOnStatus
+    name: Status is not active
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {not: {eq: active}}
+```
+
+```console
+$ vc run sample.not#failsOnStatus
+plan  1 test in 1 file · profile default
+
+✕ sample.not#failsOnStatus                                        0ms
+  error[V5101]: expect.body.match.body.status
+    --> services/sample/not.test.yaml:22:24
+     |
+  22 |           body.status: {not: {eq: active}}
+     |                        ^^^^^^^^^^^^^^^^^^^ expected {"not":{"eq":"active"}}, got "active"
+
+0 passed · 1 failed                                          18ms · profile default
+```
+
+### A missing path passes
+
+The nested matcher fails on a missing value, so `not` passes. Add `exists: true` when the field is required.
+
+```yaml title="services/sample/not.test.yaml"
+tests:
+  - id: passesOnMissing
+    name: Missing field is not 1
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.state: {not: {eq: 1}}
+  - id: needsTheField
+    name: Status is present and not closed
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {exists: true, not: {eq: closed}}
+```
+
+```console
+$ vc run sample.not#passesOnMissing sample.not#needsTheField
+plan  2 tests in 1 file · profile default
+
+✓ sample.not#passesOnMissing                                      0ms
+✓ sample.not#needsTheField                                        0ms
+
+2 passed                                                     15ms · profile default
+```
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: isOpen
+    name: Status is not closed or cancelled
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.status: {not: {in: [closed, cancelled]}}
+`} />
+
+## How it behaves
+
+- `not` inverts the result of its nested matcher, whatever it is.
+- A missing value passes, because the nested matcher fails on it.
+- For simple cases, [ne](/vc-rs/reference/matchers/ne/) and [notIn](/vc-rs/reference/matchers/not-in/) read better.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [ne](/vc-rs/reference/matchers/ne/)
+- [notIn](/vc-rs/reference/matchers/not-in/)
+- [none](/vc-rs/reference/matchers/none/)
+- [All matchers](/vc-rs/reference/matchers//)

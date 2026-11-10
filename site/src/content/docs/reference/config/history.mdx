@@ -1,0 +1,142 @@
+---
+title: "history"
+description: "How many past runs vc keeps in .vibranium/history.db, and which request and response bodies it stores."
+sidebar: { order: 61 }
+---
+
+import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+Every run is saved in `.vibranium/history.db`. `history` sets how many runs to keep and which bodies to store with them.
+
+```yaml title="vibranium.config.yaml"
+history:
+  bodies: failures
+  maxBodySize: 64kb
+  keep: 50
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `history.bodies` | `none`, `failures` or `all` | `failures` | no | Which exchanges keep their request and response bodies. |
+| `history.maxBodySize` | size | `64kb` | no | A longer body is cut. Units: `b`, `kb`, `mb`, `gb`. |
+| `history.keep` | integer or `all` | `50` | no | Runs kept after each run. |
+
+## Examples
+
+List the stored runs, newest first:
+
+```console
+$ vc history
+   72  2026-11-10 17:56Z  passed     4 passed · 0 failed · 0 blocked · 0 skipped  profile default  slow.par
+   71  2026-11-10 17:56Z  passed     4 passed · 0 failed · 0 blocked · 0 skipped  profile default  slow.par
+   70  2026-11-10 17:56Z  passed     4 passed · 0 failed · 0 blocked · 0 skipped  profile default  slow.par
+```
+
+With `keep: 3`, only three runs are listed however many you have made.
+
+One run as JSON:
+
+```console
+$ vc history show last --json
+{
+  "run": {
+    "finishedMs": 1794333371544,
+    "id": 72,
+    "kind": "run",
+    "profiles": [
+      "default"
+    ],
+    "seed": 8842075909049134427,
+    "selector": "slow.par",
+    "startedMs": 1794333370502,
+    "status": "passed",
+    "totals": {
+      "blocked": 0,
+      "failed": 0,
+      "flaky": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "vcVersion": "0.1.0"
+  },
+  "tests": [
+    {
+      "attempts": 1,
+      "blockedBy": null,
+      "durationMs": 488.41491599999995,
+      "id": "slow.par#waits2",
+      ...
+```
+
+Drop old runs now, without waiting for the next run:
+
+```console
+$ vc history prune --keep 1
+pruned 2 runs
+```
+
+What each `bodies` value stored, for one passing and one failing test:
+
+| `bodies` | Passing test | Failing test |
+| --- | --- | --- |
+| `all` | body kept | body kept |
+| `failures` | no body | body kept |
+| `none` | no body | no body |
+
+With `maxBodySize: 20b`, a body is cut short and marked as truncated.
+
+Bad values:
+
+```console
+$ vc check
+error[V2302]: expected one of none, failures, all, found `some`
+  --> vibranium.config.yaml:56:11
+   |
+56 |   bodies: some
+   |           ^^^^ not a known value
+   = help: expected one of `none`, `failures`, `all`
+
+error[V2301]: invalid size `lots`
+  --> vibranium.config.yaml:57:16
+   |
+57 |   maxBodySize: lots
+   |                ^^^^
+   = help: write a whole number and a unit: `512b`, `4kb`, `1mb` or `2gb`
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+history:
+  bodies: all
+  maxBodySize: 1mb
+  keep: 100
+profiles:
+  - id: dev
+    default: true
+`} />
+
+## How it behaves
+
+- Bodies are masked by [secrets](/vc-rs/reference/config/secrets/) and [`redact`](/vc-rs/reference/config/redact/) before they are stored, and cut only after masking.
+- `bodies` also decides whether bodies appear in [reports](/vc-rs/reference/config/reports/).
+- Old runs are dropped after each run, once there are more than `keep`.
+- `--set` can't change `history`.
+- Add `.vibranium/` to `.gitignore`. `vc init` does this for you.
+
+<Aside type="caution">`keep` removes runs from `history.db`, but the folders under `.vibranium/reports/` stay. Clear old report folders yourself.</Aside>
+
+## Common errors
+
+- [V2302](/vc-rs/reference/diagnostics/v2302/): an unknown `bodies` value.
+- [V2301](/vc-rs/reference/diagnostics/v2301/): a size without a unit.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="reports" href="/vc-rs/reference/config/reports/" />
+  <LinkCard title="redact" href="/vc-rs/reference/config/redact/" />
+</CardGrid>

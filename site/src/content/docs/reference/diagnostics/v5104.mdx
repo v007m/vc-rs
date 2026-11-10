@@ -1,0 +1,59 @@
+---
+title: "V5104 — Timeout"
+description: "A request, a poll or a whole test ran past its time limit."
+sidebar:
+  label: "V5104 Timeout"
+  order: 5104
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5104` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A request, a `poll` or a whole test ran past its time limit. A request waits for the api's `timeout`, else
+`defaults.timeout`, else 30 s; a test's `timeout` covers each attempt. Raise the limit where the slow work really
+needs it, rather than for the whole project.
+
+## Wrong
+
+```yaml title="services/reports/reports.api.yaml"
+apis:
+  - id: buildReport
+    method: POST
+    path: /reports
+    timeout: 100ms
+```
+
+## Right
+
+```yaml title="services/reports/reports.api.yaml"
+apis:
+  - id: buildReport
+    method: POST
+    path: /reports
+    timeout: 20s
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5104
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

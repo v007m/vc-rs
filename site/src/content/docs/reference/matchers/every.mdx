@@ -1,0 +1,191 @@
+---
+title: "every"
+description: "The every matcher checks that all elements of a list match."
+sidebar: { order: 29 }
+---
+
+import Playground from '~/components/Playground.svelte';
+
+`every` passes when each element of a list matches the nested matcher.
+
+```yaml
+expect:
+  body:
+    match:
+      body.items[*].price: {every: {gt: 0}}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `every` | matcher or value | — | yes | A plain value means each element equals it. |
+
+## Examples
+
+The examples call `sample#echoOrder`, which posts a sample order to the demo service; the demo sends it back under `body`. See [Following along](/vc-rs/reference/matchers/#following-along).
+
+### Every price is positive
+
+A `[*]` path, such as `body.items[*].price`, collects one field from every element into a list. Use it to apply a matcher to one field of each element.
+
+```yaml title="services/sample/every.test.yaml"
+tests:
+  - id: pricesPositive
+    name: Every price is positive
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].price: {every: {gt: 0}}
+```
+
+```console
+$ vc run sample.every#pricesPositive
+plan  1 test in 1 file · profile default
+
+✓ sample.every#pricesPositive                                     0ms
+
+1 passed                                                     11ms · profile default
+```
+
+### Several matchers per element
+
+
+
+```yaml title="services/sample/every.test.yaml"
+tests:
+  - id: tagsShort
+    name: Every tag is short text
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.tags: {every: {type: string, length: {lte: 5}}}
+```
+
+```console
+$ vc run sample.every#tagsShort
+plan  1 test in 1 file · profile default
+
+✓ sample.every#tagsShort                                          0ms
+
+1 passed                                                     5ms · profile default
+```
+
+### An empty list passes
+
+No element breaks the rule.
+
+```yaml title="services/sample/every.test.yaml"
+tests:
+  - id: emptyPasses
+    name: Every element of an empty list
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.empty: {every: {gt: 0}}
+```
+
+```console
+$ vc run sample.every#emptyPasses
+plan  1 test in 1 file · profile default
+
+✓ sample.every#emptyPasses                                        0ms
+
+1 passed                                                     14ms · profile default
+```
+
+### A failing check
+
+The report shows the whole list.
+
+```yaml title="services/sample/every.test.yaml"
+tests:
+  - id: failsOnPrice
+    name: Every price is under 20
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].price: {every: {lt: 20}}
+```
+
+```console
+$ vc run sample.every#failsOnPrice
+plan  1 test in 1 file · profile default
+
+✕ sample.every#failsOnPrice                                       3ms
+  error[V5101]: expect.body.match.body.items[*].price
+    --> services/sample/every.test.yaml:29:32
+     |
+  29 |           body.items[*].price: {every: {lt: 20}}
+     |                                ^^^^^^^^^^^^^^^^^ expected {"every":{"lt":20}}, got [10,32.5]
+
+0 passed · 1 failed                                          5ms · profile default
+```
+
+### Use a list path for fields
+
+Inside `every`, the matcher applies to the element itself. A map whose keys are not matcher names is a literal object, so this compares each item to the object `{price: {gt: 0}}`.
+
+```yaml title="services/sample/every.test.yaml"
+tests:
+  - id: failsOnFieldMap
+    name: Every item has a positive price
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items: {every: {price: {gt: 0}}}
+```
+
+```console
+$ vc run sample.every#failsOnFieldMap
+plan  1 test in 1 file · profile default
+
+✕ sample.every#failsOnFieldMap                                    5ms
+  error[V5101]: expect.body.match.body.items
+    --> services/sample/every.test.yaml:36:23
+     |
+  36 |           body.items: {every: {price: {gt: 0}}}
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"every":{"price":{"gt":0}}}, got [{"price":10,"sku":"A1"},{"price":32.5,"sku":"B2"}]
+
+0 passed · 1 failed                                          7ms · profile default
+```
+
+Write `body.items[*].price: {every: {gt: 0}}` instead.
+
+## Try it
+
+Edit the test below. The editor checks it against the real schema as you type.
+
+<Playground client:visible kind="test" code={`tests:
+  - id: pricesPositive
+    name: Every price is positive
+    call: sample#echoOrder
+    expect:
+      body:
+        match:
+          body.items[*].price: {every: {gt: 0}}
+`} />
+
+## How it behaves
+
+- The value must be a list. Anything else, including a missing value, fails.
+- An empty list passes.
+- A scalar matcher written straight on a `[*]` path, such as `body.items[*].price: {gt: 0}`, compares the whole list and fails. Wrap it in `every`, `some` or `none`.
+- To check fields of each element, put the field in the path with `[*]`.
+
+## Common errors
+
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
+
+## Related
+
+- [some](/vc-rs/reference/matchers/some/)
+- [none](/vc-rs/reference/matchers/none/)
+- [length](/vc-rs/reference/matchers/length/)
+- [All matchers](/vc-rs/reference/matchers//)

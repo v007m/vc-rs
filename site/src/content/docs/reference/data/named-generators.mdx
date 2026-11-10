@@ -1,0 +1,129 @@
+---
+title: "Named generators"
+description: "Declare your own fake.* generators in the config with one of four kinds, fromRegExp, oneOf, int and lorem, and use them by name."
+sidebar: { order: 3 }
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+A named generator is a fake-data shape you declare once under `generators:` in `vibranium.config.yaml` and use anywhere as `${fake.<id>}`.
+
+```yaml title="vibranium.config.yaml"
+generators:
+  - id: teamName
+    fromRegExp: "[A-Z][a-z]{4,12} Team"
+```
+
+```yaml title="services/teams/crud.test.yaml"
+body:
+  name: ${fake.teamName}        # Kuuxm Team
+```
+
+## Syntax
+
+Each entry has an `id` and exactly one kind.
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | camelCase text | — | yes | Used as `${fake.<id>}`. Can't be a Faker module name such as `person` or `lorem`. |
+| `fromRegExp` | pattern text | — | one kind | Text matching the pattern. Same subset as [fromRegExp patterns](/vc-rs/reference/data/fromregexp/). |
+| `oneOf` | list | — | one kind | Picks one item. Items keep their type. |
+| `int` | `min`, `max` | `0`, `9007199254740991` | one kind | A whole number in the inclusive range. |
+| `lorem` | `words` | `3` | one kind | That many lorem words, from 0 to 10000. |
+
+## Examples
+
+### All four kinds
+
+```yaml title="vibranium.config.yaml"
+generators:
+  - id: teamName
+    fromRegExp: "[A-Z][a-z]{4,12} Team"
+  - id: visibility
+    oneOf: [PRIVATE, PUBLIC]
+  - id: quantity
+    int:
+      min: 1
+      max: 5
+  - id: shortBio
+    lorem:
+      words: 8
+```
+
+```yaml title="services/sample/named.test.yaml"
+tests:
+  - id: usesNamedGenerators
+    name: Sends one value from each named generator
+    call: sample#echo
+    body:
+      team: ${fake.teamName}
+      visibility: ${fake.visibility}
+      quantity: ${fake.quantity}
+      bio: ${fake.shortBio}
+```
+
+With `vc run sample.named --seed 42`, the demo echoed back:
+
+```json
+{ "team": "Kuuxm Team", "visibility": "PUBLIC", "quantity": 2,
+  "bio": "aut dolores explicabo est a architecto animi dolorum" }
+```
+
+`quantity` arrives as the number `2`, not the text `"2"`, because `int` makes numbers.
+
+### Named and built-in side by side
+
+Named generators mix freely with the built-in ones and with plain text.
+
+```yaml
+vars:
+  email: ${fake.internet.email}
+body:
+  owner: ${var.email}
+  team: ${fake.teamName}
+  label: user-${fake.string.alphanumeric(4)}     # user-dVxS
+```
+
+## Try it
+
+<Playground client:visible kind="config" code={`syntaxVersion: 2
+profiles:
+  - id: default
+    default: true
+generators:
+  - id: orderCode
+    fromRegExp: "ORD-[0-9]{6}"
+  - id: plan
+    oneOf: [free, team, enterprise]
+  - id: seats
+    int:
+      min: 1
+      max: 50
+  - id: tagline
+    lorem:
+      words: 5
+`} />
+
+## How it behaves
+
+- A named generator takes **no arguments**: `${fake.quantity(3)}` is an error. Put the settings in the config.
+- Named generators are project-wide. Every file can use every one.
+- They follow the same timing and seed rules as built-in ones: see [Generation and seeds](/vc-rs/reference/data/seeds/).
+- `vc check` reads every pattern and range before the run, so a broken generator never reaches the server.
+
+## Common errors
+
+| Code | When | Real message |
+| --- | --- | --- |
+| [V1005](/vc-rs/reference/diagnostics/v1005/) | An entry has no kind | `this generator has no kind`, help: `` write one of `fromRegExp`, `oneOf`, `int`, `lorem` `` |
+| [V2302](/vc-rs/reference/diagnostics/v2302/) | Two kinds in one entry, a kind with the wrong shape, or arguments passed at the call site | `a generator has one kind, but this one has several`; `` `fake.quantity` is a named generator and takes no arguments `` |
+| [V2006](/vc-rs/reference/diagnostics/v2006/) | The `id` is a Faker module | `` `person` is a Faker module and cannot name a generator `` |
+| [V2309](/vc-rs/reference/diagnostics/v2309/) | A `fromRegExp` pattern outside the subset | see [fromRegExp patterns](/vc-rs/reference/data/fromregexp/) |
+| [V2002](/vc-rs/reference/diagnostics/v2002/) | `${fake.<id>}` names no generator | |
+
+## Related
+
+- [`fake` templates](/vc-rs/reference/templates/fake/)
+- [Built-in generators](/vc-rs/reference/data/generators/)
+- [Generation and seeds](/vc-rs/reference/data/seeds/)

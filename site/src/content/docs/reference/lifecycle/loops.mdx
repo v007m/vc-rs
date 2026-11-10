@@ -1,0 +1,148 @@
+---
+title: "Loops on actions"
+description: "repeat, forEach and parallel run one call or test action several times, and every name it saves collects a list."
+sidebar: { order: 11 }
+---
+
+import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import Playground from '~/components/Playground.svelte';
+
+`repeat` and `forEach` run one `call` or `test` action several times without writing it several times. `parallel` lets iterations overlap. Each name the action saves becomes a list, in iteration order.
+
+```yaml title="services/lab/loops.test.yaml"
+tests:
+  - id: collectsSavedIds
+    before:
+      - call: lab#createItem
+        forEach: [red, green, blue]
+        parallel: 3
+        vars:
+          label: ${item}
+    call: lab#whoami
+    query:
+      ids: ${var.itemId}
+      first: ${var.itemId[0]}
+```
+
+## Syntax
+
+| Field | Type | Default | Required | Notes |
+| --- | --- | --- | --- | --- |
+| `repeat` | number | — | no | Runs the action that many times |
+| `forEach` | list, list template, or `$file` | — | no | Runs it once per element. Wins when both are written |
+| `parallel` | number | `1` | no | How many iterations may run at once |
+
+Inside the action:
+
+| Template | Holds |
+| --- | --- |
+| `${iteration.index}` | The iteration number, from 1 |
+| `${iteration.count}` | The total number of iterations |
+| `${item}` | The current element (`forEach` only); `${item.name}` for a row |
+
+## Examples
+
+Make three items with numbered labels:
+
+```yaml
+steps:
+  - call: lab#createItem
+    repeat: 3
+    vars:
+      label: item-${iteration.index}-of-${iteration.count}
+```
+
+```console
+POST /items body={"label":"item-1-of-3"}
+POST /items body={"label":"item-2-of-3"}
+POST /items body={"label":"item-3-of-3"}
+```
+
+Run iterations in parallel. The saved list keeps iteration order even when responses arrive out of order. In this run, `green` was created first and got `i10`, yet the list still starts with `red`:
+
+```console
+POST /items body={"label":"red"}
+POST /items body={"label":"green"}
+POST /items body={"label":"blue"}
+GET /whoami?ids=i11&ids=i10&ids=i12&first=i11
+DELETE /items/i12
+DELETE /items/i11
+DELETE /items/i10
+```
+
+Loop over a var or a data file:
+
+```yaml
+- call: geo#createCity
+  forEach: ${dataset.capitals}
+  vars:
+    cityName: ${item.name}
+    country: ${item.country}
+```
+
+Collect objects and read one field from every entry with `[*]`:
+
+```yaml
+steps:
+  - call: geo#createCity
+    repeat: 10
+    parallel: 5
+    save:
+      cities:
+        id: ${response.body.id}
+        name: ${response.body.name}
+  - call: geo#createLocationGroup
+    vars:
+      cityIds: ${var.cities[*].id}
+```
+
+A failed iteration fails the action. Run one at a time, the loop stops there; here the third code, `204`, is never sent:
+
+```yaml
+steps:
+  - call: lab#status
+    forEach: [200, 500, 204]
+    vars:
+      code: ${item}
+```
+
+```console
+GET /status/200
+GET /status/500
+```
+
+<Playground client:visible kind="test" code={`tests:
+  - id: collectsSavedIds
+    name: Makes three items and reads their IDs
+    before:
+      - call: lab#createItem
+        forEach: [red, green, blue]
+        parallel: 3
+        vars:
+          label: \${item}
+    call: lab#whoami
+    query:
+      ids: \${var.itemId}
+      first: \${var.itemId[0]}
+`} />
+
+## How it behaves
+
+- Loops work on `call` and `test` actions, in any lifecycle block or in `steps`.
+- Every saved name collects a list with one entry per iteration, in iteration order.
+- Each successful iteration registers its own cleanup. All of them run when the owner ends, newest first.
+- When an iteration fails, the action fails once the iterations in flight finish. The cleanups of the iterations that passed still run.
+- `repeat` on a test is different: it runs the whole test that many times and reports each instance.
+
+## Common errors
+
+- [V5101](/vc-rs/reference/diagnostics/v5101/): an iteration's check failed.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="call action" href="/vc-rs/reference/lifecycle/call/" />
+  <LinkCard title="test action" href="/vc-rs/reference/lifecycle/test-action/" />
+  <LinkCard title="Cleanups" href="/vc-rs/reference/lifecycle/cleanups/" />
+  <LinkCard title="Datasets" href="/vc-rs/reference/data/datasets/" />
+</CardGrid>

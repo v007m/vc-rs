@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use vc_compiler::{CompileCache, CompileInput, SourceGlobs};
 use vc_diagnostics::Diagnostics;
-use vc_interfaces::{Discovery, SourceFilter};
+use vc_interfaces::{Discovery, SourceError, SourceFilter};
 use vc_model::{DEFAULT_SECRETS_SCHEMA, Program, SourceFile, SourceFiles, SourcePath};
 
 use crate::edit::{self, FileChange};
@@ -116,10 +116,17 @@ impl Engine {
     }
 
     /// `.env.schema` as it is now, for an import to add the secret names it references; none
-    /// when the project has none or it cannot be read.
-    pub(crate) fn secrets_schema(&self) -> Option<SourceFile> {
-        let path = SourcePath::new(DEFAULT_SECRETS_SCHEMA).ok()?;
-        self.sources.read(&[path]).ok()?.files.pop()
+    /// when the project has none. One there that cannot be read is a V1012 error, not none.
+    pub(crate) fn secrets_schema(&self) -> Result<Option<SourceFile>, EngineError> {
+        let path = SourcePath::new(DEFAULT_SECRETS_SCHEMA).map_err(sources_error)?;
+        let mut read = self.sources.read(&[path]).map_err(sources_error)?;
+        read.problems.retain(|problem| !matches!(problem, SourceError::Missing { .. }));
+        if read.problems.is_empty() {
+            return Ok(read.files.pop());
+        }
+        let (mut diagnostics, mut files) = (Diagnostics::default(), SourceFiles::default());
+        problems::add_problems(&read.problems, &mut diagnostics, &mut files);
+        Err(invalid(diagnostics, files, Vec::new()))
     }
 
     fn walk(&self, filter: &SourceFilter) -> Result<Discovery, EngineError> {
