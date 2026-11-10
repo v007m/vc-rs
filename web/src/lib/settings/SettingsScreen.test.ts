@@ -63,13 +63,36 @@ describe('SettingsScreen', () => {
     expect(screen.getByRole('row', { name: /^profile/ }).textContent).toContain('dev');
   });
 
-  it('says when the engine cannot explain the config yet', async () => {
+  it('explains the config through the engine under the default profile', async () => {
+    const asked: string[][] = [];
+    const settings = new EffectiveSettings(
+      enginePort(
+        fakeEngine({
+          getProject: () => ({ name: 's', profiles: ['dev'], defaultProfile: 'dev' }),
+          explainConfig: ({ profiles }) => {
+            asked.push(profiles);
+            return {
+              values: [{ key: 'vars.apiToken', layers: [{ value: MASKED, source: '.env' }] }],
+            };
+          },
+        }),
+      ),
+    );
+    await settings.load();
+    render(SettingsScreen, { settings });
+    expect(asked).toEqual([['dev']]);
+    expect(screen.getByRole('row', { name: /vars\.apiToken/ }).textContent).toContain(
+      `${MASKED} (secret, masked)`,
+    );
+  });
+
+  it('says what went wrong when the engine cannot explain the config', async () => {
     const settings = new EffectiveSettings(
       enginePort(fakeEngine({ getProject: () => ({ name: 's', profiles: ['dev'] }) })),
     );
     await settings.load();
     render(SettingsScreen, { settings });
-    expect(screen.getByRole('alert').textContent).toBe('this needs a newer vc ui');
+    expect(screen.getByRole('alert').textContent).not.toBe('');
     expect(screen.getByRole('combobox', { name: 'Profile' })).toHaveProperty('value', 'dev');
   });
 });

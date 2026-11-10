@@ -1,4 +1,4 @@
-import { Code, ConnectError, type Client } from '@connectrpc/connect';
+import type { Client } from '@connectrpc/connect';
 import type { EngineService } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 
 /** What the redactor puts in place of a secret; the server never sends the value itself. */
@@ -23,13 +23,24 @@ export interface SettingsPort {
   explain(profiles: readonly string[]): Promise<Explained>;
 }
 
-/** The port over the engine client; ExplainConfig is not served yet. */
-export function enginePort(client: Pick<Client<typeof EngineService>, 'getProject'>): SettingsPort {
+/** The port over the engine client: GetProject for the profiles, ExplainConfig for the values. */
+export function enginePort(
+  client: Pick<Client<typeof EngineService>, 'getProject' | 'explainConfig'>,
+): SettingsPort {
   return {
     async profiles() {
       const { profiles, defaultProfile } = await client.getProject({});
       return defaultProfile === undefined ? { profiles } : { profiles, defaultProfile };
     },
-    explain: () => Promise.reject(new ConnectError('this needs a newer vc ui', Code.Unimplemented)),
+    async explain(profiles) {
+      const { values, notices } = await client.explainConfig({ profiles: [...profiles] });
+      return {
+        values: values.map(({ key, layers }) => ({
+          key,
+          layers: layers.map(({ value, source }) => ({ value, source })),
+        })),
+        notices,
+      };
+    },
   };
 }
