@@ -1069,7 +1069,7 @@ When a run ends, `engine/src/alerts.rs` decides which rules fire. It is pure: `d
 - `finish` returns an `Ending`: the results and the first report file, which the notice gives relative to the project root.
 - `previous` is the status of the last finished run of the same kind (`run` or `load`) in the history under the same profiles, searching the last 50 runs. A `vc run` in which no test ran (exit 2) is passed over, so it never replaces the previous run.
 - `vc run` has no load breaches, so `threshold` never fires there.
-- A run the executor fails still finishes its reporters and gives a watcher `Done` (exit 70 for an internal error, else 2) before returning the error; it sends no alerts.
+- A run the executor fails still finishes its reporters and gives a watcher `Done` (exit 70 for an internal error, else 2) before returning the error; it sends no alerts. Its reports and history row say `Cancelled` with no totals, since it has no result, rather than a failed run of zero tests.
 - `vc load` sends its alerts once its history run is closed (`Engine::load_alerts`): no tests, each breach as `metric` or `metric of <test>`, and "ran" when it recorded an iteration.
 - The notice's `project` is the config's `project`, else the root folder's name.
 - Each channel's settings are rendered when the run ends.

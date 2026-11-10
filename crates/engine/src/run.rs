@@ -67,7 +67,8 @@ impl Engine {
     }
 
     /// Executes the admitted plan with its secrets and reporters, and gathers its report. A
-    /// run the executor fails still finishes its reporters and its watch before the error.
+    /// run the executor fails still finishes its reporters and its watch before the error, and
+    /// is reported and recorded as cancelled, not as a failed run with no tests.
     async fn execute(
         &self,
         request: &RunRequest,
@@ -90,8 +91,8 @@ impl Engine {
         bus.flush().await;
         fanout.drain().await;
         let swept = sweep.finish(interrupts).await;
-        let failed = |_: &EngineError| (RunStatus::Failed, Totals::default());
-        let (status, totals) = ran.as_ref().map_or_else(failed, |ran| (ran.status, ran.totals));
+        let stopped = |_: &EngineError| (RunStatus::Cancelled, Totals::default());
+        let (status, totals) = ran.as_ref().map_or_else(stopped, |ran| (ran.status, ran.totals));
         let elapsed = Duration::from_millis(self.clock.now_ms().saturating_sub(started));
         let run = RunSummary::new(status, totals).timed(started, elapsed).profiles(prepared.names.clone());
         let mut notices = prepared.notices;
