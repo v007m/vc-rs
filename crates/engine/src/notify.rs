@@ -29,7 +29,7 @@ pub struct Alerting {
 }
 
 /// Builds each channel's notifier from its settings, `${secret.…}` and `${env.…}` filled in.
-struct Senders {
+pub struct Senders {
     factory: Arc<dyn NotifierFactory>,
     secrets: Secrets,
     environment: Arc<dyn Environment>,
@@ -52,12 +52,25 @@ impl Engine {
         if program.config.alerts.is_empty() {
             return Ok(None);
         }
-        let factory = self.notifiers(self.transport(prepared.environment.as_ref())?);
-        let environment = Arc::clone(&prepared.environment);
-        let senders = Senders { factory, secrets: secrets.clone(), environment };
+        let senders = self.senders(prepared, secrets)?;
         let previous = previous(self.history_reader().as_ref(), (run, kind), &prepared.names);
-        let project = program.config.project.clone().unwrap_or_else(|| folder(self.root()));
+        let project = self.project_name(&program);
         Ok(Some(Alerting { program, project, root: self.root().to_path_buf(), previous, senders }))
+    }
+
+    /// What sends `prepared`'s alerts, with `secrets` to fill their settings in.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Internal`] when the HTTP client cannot be built.
+    pub(crate) fn senders(&self, prepared: &Prepared, secrets: &Secrets) -> Result<Senders, EngineError> {
+        let factory = self.notifiers(self.transport(prepared.environment.as_ref())?);
+        Ok(Senders { factory, secrets: secrets.clone(), environment: Arc::clone(&prepared.environment) })
+    }
+
+    /// The project a notice names: the config's `project`, else the root folder's name.
+    pub(crate) fn project_name(&self, program: &Program) -> String {
+        program.config.project.clone().unwrap_or_else(|| folder(self.root()))
     }
 }
 
@@ -106,7 +119,7 @@ pub async fn send(alerting: Option<Alerting>, run: RunSummary, ending: Ending) -
 
 impl Senders {
     /// Sends `notice` to `channel`: why it was not sent, otherwise.
-    async fn send(&self, program: &Program, channel: &AlertChannel, notice: &Notice) -> Result<(), String> {
+    pub async fn send(&self, program: &Program, channel: &AlertChannel, notice: &Notice) -> Result<(), String> {
         let settings = self.settings(program, channel)?;
         let notifier = self.factory.create(&channel.kind, &settings).map_err(|error| error.to_string())?;
         notifier.notify(notice).await.map_err(|error| error.to_string())

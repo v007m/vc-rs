@@ -51,12 +51,15 @@ type Case = (&'static str, &'static [AlertTrigger], Finished, Option<RunStatus>,
 
 #[test]
 fn each_rule_fires_for_the_first_trigger_it_lists_that_happened() {
-    use AlertTrigger::{Failure, Flaky, Recovery, Threshold};
+    use AlertTrigger::{Blocked, Failure, Flaky, Recovery, Threshold};
     let failed = Some(RunStatus::Failed);
     let passed = Some(RunStatus::Passed);
     let table: &[Case] = &[
         ("a failure", ALL, run(RunStatus::Failed, FAILED, &[]), passed, Some(Failure)),
         ("a blocked test is a failure", &[Failure], run(RunStatus::Failed, BLOCKED, &[]), None, Some(Failure)),
+        ("blocked alone", &[Blocked], run(RunStatus::Failed, BLOCKED, &[]), None, Some(Blocked)),
+        ("failure outranks blocked", &[Blocked, Failure], run(RunStatus::Failed, BLOCKED, &[]), None, Some(Failure)),
+        ("a failed test is not blocked", &[Blocked], run(RunStatus::Failed, FAILED, &[]), None, None),
         ("failure outranks flaky", &[Flaky, Failure], run(RunStatus::Failed, FAILED, &[]), None, Some(Failure)),
         ("flaky when it is all that is listed", &[Flaky], run(RunStatus::Failed, FAILED, &[]), None, Some(Flaky)),
         ("a flaky pass", ALL, run(RunStatus::Passed, FLAKY, &[]), None, Some(Flaky)),

@@ -8,8 +8,13 @@ use vc_interfaces::{Notice, NoticeFailure, Row, RunSummary};
 use vc_model::{Alert, AlertTrigger, Program, RunStatus, Tag, Test, TestStatus};
 
 /// The order triggers are tried in: a rule sends one notice per run, for the first that fires.
-const PRECEDENCE: [AlertTrigger; 4] =
-    [AlertTrigger::Failure, AlertTrigger::Threshold, AlertTrigger::Flaky, AlertTrigger::Recovery];
+const PRECEDENCE: [AlertTrigger; 5] = [
+    AlertTrigger::Failure,
+    AlertTrigger::Blocked,
+    AlertTrigger::Threshold,
+    AlertTrigger::Flaky,
+    AlertTrigger::Recovery,
+];
 
 /// One test's result, as alerts read it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -112,7 +117,8 @@ pub fn decide<'r>(rules: &'r [Alert], run: &Finished, previous: Option<RunStatus
     rules.iter().filter(|rule| in_profiles(rule, &run.summary)).filter_map(|rule| fire(rule, run, previous)).collect()
 }
 
-fn in_profiles(rule: &Alert, summary: &RunSummary) -> bool {
+/// Whether `rule` covers a run under `summary`'s profiles: every run when it names none.
+pub fn in_profiles(rule: &Alert, summary: &RunSummary) -> bool {
     rule.profiles.is_empty() || summary.profiles.iter().any(|profile| rule.profiles.contains(profile))
 }
 
@@ -151,6 +157,7 @@ impl Seen<'_> {
     fn fires(&self, trigger: AlertTrigger) -> bool {
         match trigger {
             AlertTrigger::Failure => self.any(failed),
+            AlertTrigger::Blocked => self.any(|status| status == TestStatus::Blocked),
             AlertTrigger::Threshold => !self.run.breaches.is_empty(),
             AlertTrigger::Flaky => self.any(|status| status == TestStatus::Flaky),
             AlertTrigger::Recovery => self.recovered(),
