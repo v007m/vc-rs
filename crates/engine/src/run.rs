@@ -128,7 +128,7 @@ impl Engine {
         };
         let headline = format!("plan  {}", prepared.report().line());
         let (program, plan) = (Arc::clone(&prepared.program), Arc::clone(&prepared.plan));
-        let setup = Setup { program, plan, headline, color: request.color, seed, quiet: request.agent.is_some() };
+        let setup = Setup { program, plan, headline, color: request.color, seed, quiet: request.quiet() };
         Ok((Reporters::create(chosen, setup, recording)?, notice))
     }
 
