@@ -54,11 +54,12 @@ jobs:
         run: |
           rustup toolchain install nightly --profile minimal
           mise run public-api:check
-      # D101: proto/ passes buf lint, and vc-contracts' checked-in code is what proto/ generates.
+      # D101: proto/ passes buf lint, and the checked-in code of vc-contracts and the web UI is
+      # what proto/ generates.
       - name: proto
         run: |
           mise run proto
-          git status --porcelain crates/contracts/src/gen | tee /dev/stderr | (! grep -q .)
+          git status --porcelain crates/contracts/src/gen web/src/lib/gen | tee /dev/stderr | (! grep -q .)
       - if: github.event_name == 'pull_request'
         run: scripts/commit-check.sh "origin/${{ github.base_ref }}"
 
