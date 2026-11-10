@@ -9,7 +9,7 @@ use ratatui::widgets::{List, ListItem, ListState, Paragraph, Wrap};
 use vc_engine::{Changes, FileChange};
 
 use crate::explore_view::failed;
-use crate::import_screen::{Form, ImportPhase, ImportScreen, KINDS};
+use crate::import_screen::{ImportPhase, ImportScreen};
 use crate::theme::{self, clean};
 
 /// The labels of the form's rows, and what each toggle asks for.
@@ -76,7 +76,7 @@ fn draw_form(screen: &ImportScreen, frame: &mut Frame<'_>, area: Rect) {
     let rows = ROWS.iter().enumerate().map(|(row, (label, about))| {
         let typing = typed.as_ref().filter(|_| row == screen.field());
         let value =
-            typing.map_or_else(|| value(screen.form(), row, about), |text| Span::styled(text.clone(), theme::WARN));
+            typing.map_or_else(|| value(screen, row, about), |text| Span::styled(text.clone(), theme::WARN));
         ListItem::new(Line::from(vec![Span::styled(format!("{label:<9} "), theme::DIM), value]))
     });
     let list = List::new(rows).block(theme::pane("Import")).highlight_style(theme::SELECTED).highlight_symbol("▸ ");
@@ -84,9 +84,10 @@ fn draw_form(screen: &ImportScreen, frame: &mut Frame<'_>, area: Rect) {
 }
 
 /// What the form holds in `row`.
-fn value(form: &Form, row: usize, about: &str) -> Span<'static> {
+fn value(screen: &ImportScreen, row: usize, about: &str) -> Span<'static> {
+    let form = screen.form();
     match row {
-        0 => Span::raw(format!("‹ {} ›", KINDS.get(form.kind).copied().unwrap_or_default())),
+        0 => Span::raw(format!("‹ {} ›", clean(screen.importer()))),
         1 if form.source.is_empty() => Span::styled("a URL or a project path", theme::DIM),
         1 => Span::raw(clean(&form.source)),
         2 if form.file_id.is_empty() => Span::styled("from the source's name", theme::DIM),

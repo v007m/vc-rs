@@ -4,6 +4,7 @@
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::Frame;
+use vc_engine::Engine;
 
 use crate::screen::{Ask, Screen, Update};
 use crate::{tabs, view};
@@ -16,13 +17,15 @@ pub struct TuiOptions {
     pub project: String,
     /// The active profiles (`--profile`); the config's default when empty.
     pub profiles: Vec<String>,
+    /// The importers the Import tab offers, by name.
+    pub importers: Vec<String>,
 }
 
 impl TuiOptions {
-    /// Options for `project` under `profiles`.
+    /// Options for `project` under `profiles`, offering the engine's importers.
     #[must_use]
     pub fn new(project: impl Into<String>, profiles: Vec<String>) -> Self {
-        Self { project: project.into(), profiles }
+        Self { project: project.into(), profiles, importers: Engine::importers() }
     }
 }
 

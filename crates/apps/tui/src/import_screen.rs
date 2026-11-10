@@ -22,8 +22,8 @@ const KEYS: [(&str, &str); 7] = [
     ("w", "write"),
     ("x", "discard"),
 ];
-/// The importers, as `vc import <kind>` names them.
-pub const KINDS: [&str; 6] = ["openapi", "curl", "har", "http", "postman", "bruno"];
+/// The importer the form starts on, when the engine has it: the spec most imports are of.
+const FIRST: &str = "openapi";
 /// The form's rows: the importer, the source, the file ID, then the three kinds of test.
 const FIELDS: usize = 6;
 /// The first of the rows that toggle.
@@ -50,7 +50,7 @@ pub enum ImportPhase {
 /// What `vc import` takes, as the form holds it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Form {
-    /// The importer's position in [`KINDS`].
+    /// The importer's position among the engine's importers.
     pub kind: usize,
     /// The URL or path.
     pub source: String,
@@ -64,6 +64,7 @@ pub struct Form {
 #[derive(Debug, Default)]
 pub struct ImportScreen {
     profiles: Vec<String>,
+    importers: Vec<String>,
     form: Form,
     field: usize,
     editing: Option<Input>,
@@ -72,9 +73,16 @@ pub struct ImportScreen {
 }
 
 impl ImportScreen {
-    /// The tab with an empty form, importing under `profiles`.
-    pub fn new(profiles: Vec<String>) -> Self {
-        Self { profiles, ..Self::default() }
+    /// The tab with an empty form, importing under `profiles` with one of `importers`, the
+    /// engine's importers by name.
+    pub fn new(profiles: Vec<String>, importers: Vec<String>) -> Self {
+        let kind = importers.iter().position(|name| name == FIRST).unwrap_or_default();
+        Self { profiles, importers, form: Form { kind, ..Form::default() }, ..Self::default() }
+    }
+
+    /// The chosen importer's name.
+    pub fn importer(&self) -> &str {
+        self.importers.get(self.form.kind).map_or("", String::as_str)
     }
 
     /// What the form holds.
@@ -106,7 +114,7 @@ impl ImportScreen {
     fn request(&self) -> ImportRequest {
         let [tests, negative, auth] = self.form.tests;
         let file_id = Some(self.form.file_id.trim().to_owned()).filter(|id| !id.is_empty());
-        let kind = KINDS.get(self.form.kind).copied().unwrap_or_default().to_owned();
+        let kind = self.importer().to_owned();
         let source = self.form.source.trim().to_owned();
         ImportRequest {
             kind,
@@ -158,8 +166,8 @@ impl ImportScreen {
 
     /// Steps the importer: on, or back.
     const fn turn(&mut self, on: bool) {
-        self.form.kind =
-            if on { (self.form.kind + 1) % KINDS.len() } else { (self.form.kind + KINDS.len() - 1) % KINDS.len() };
+        let count = if self.importers.is_empty() { 1 } else { self.importers.len() };
+        self.form.kind = if on { (self.form.kind + 1) % count } else { (self.form.kind + count - 1) % count };
     }
 
     /// Hands `key` to the text being typed; `enter` puts it into its row.

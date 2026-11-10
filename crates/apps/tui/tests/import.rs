@@ -6,7 +6,7 @@ mod support;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use insta::assert_snapshot;
 use support::{CURLS_URL, Outcome, importing, press, screen, tui};
-use vc_engine::{Changes, ImportRequest};
+use vc_engine::{Changes, Engine, ImportRequest};
 use vc_tui::{Ask, Tui, Update};
 
 const SIZE: (u16, u16) = (120, 30);
@@ -23,11 +23,19 @@ fn status(tui: &Tui) -> String {
     screen(tui, SIZE).lines().nth(1).unwrap_or_default().to_owned()
 }
 
-/// The UI on the Import tab, the curl importer chosen, [`CURLS_URL`] typed as the source and
-/// `--tests` on.
+/// The importer chosen.
+fn importer(tui: &Tui) -> String {
+    let shown = screen(tui, SIZE);
+    let name = shown.split_once("‹ ").and_then(|(_, rest)| rest.split_once(" ›")).map(|(name, _)| name);
+    name.unwrap_or_default().to_owned()
+}
+
+/// The UI on the Import tab, the curl importer chosen (back from openapi past http and har),
+/// [`CURLS_URL`] typed as the source and `--tests` on.
 fn filled() -> Tui {
     let mut tui = tui();
-    press(&mut tui, &[KeyCode::Char('5'), KeyCode::Right, KeyCode::Down, KeyCode::Enter]);
+    press(&mut tui, &[KeyCode::Char('5'), KeyCode::Left, KeyCode::Left, KeyCode::Left]);
+    press(&mut tui, &[KeyCode::Down, KeyCode::Enter]);
     type_text(&mut tui, CURLS_URL);
     press(&mut tui, &[KeyCode::Enter, KeyCode::Down, KeyCode::Down, KeyCode::Char(' ')]);
     tui
@@ -54,8 +62,25 @@ fn the_form_starts_empty_on_the_openapi_importer() {
     assert_snapshot!("import_form", screen(&tui, SIZE));
     assert_eq!(press(&mut tui, &[KeyCode::Char('d')]), None);
     assert_eq!(status(&tui), "error a source is needed: a URL, or a path inside the project");
+    press(&mut tui, &[KeyCode::Right, KeyCode::Right]);
+    assert_eq!(importer(&tui), "bruno", "→ steps round past the last importer to the first");
     press(&mut tui, &[KeyCode::Left]);
-    assert!(screen(&tui, SIZE).contains("‹ bruno ›"), "← steps back round to the last importer");
+    assert_eq!(importer(&tui), "postman", "← steps back round to the last importer");
+}
+
+#[test]
+fn the_importers_offered_are_the_engines() {
+    let mut tui = tui();
+    press(&mut tui, &[KeyCode::Char('5')]);
+    let mut offered: Vec<String> = Engine::importers()
+        .iter()
+        .map(|_| {
+            press(&mut tui, &[KeyCode::Right]);
+            importer(&tui)
+        })
+        .collect();
+    offered.sort();
+    assert_eq!(offered, Engine::importers());
 }
 
 #[test]

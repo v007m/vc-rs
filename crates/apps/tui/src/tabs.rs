@@ -16,6 +16,6 @@ pub fn screens(options: &TuiOptions) -> Vec<Box<dyn Screen>> {
         Box::new(ExploreScreen::new(options.profiles.clone())),
         Box::new(HistoryScreen::default()),
         Box::new(LoadScreen::new(options.profiles.clone())),
-        Box::new(ImportScreen::new(options.profiles.clone())),
+        Box::new(ImportScreen::new(options.profiles.clone(), options.importers.clone())),
     ]
 }
