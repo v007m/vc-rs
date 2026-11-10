@@ -6,12 +6,13 @@ requiresVcUi();
 test('shows each setting with its value and the layer that set it', async ({ page }) => {
   await page.goto('/settings');
   const table = page.getByRole('table', { name: 'Effective settings' });
-  const timeout = table.getByRole('row', { name: /defaults\.timeout/ });
-  await expect(timeout.getByRole('cell').nth(1)).toHaveText('30s');
-  await expect(timeout.getByRole('cell').nth(2)).toContainText('built-in');
-  const mockUrl = table.getByRole('row', { name: /vars\.mockUrl/ });
-  await expect(mockUrl.getByRole('cell').nth(1)).toHaveText('http://127.0.0.1:18080');
-  await expect(mockUrl.getByRole('cell').nth(2)).toContainText('vibranium.config.yaml');
+  // The key is the row's header, so its cells are the value, then the layer that set it.
+  const timeout = table.getByRole('row', { name: /defaults\.timeout/ }).getByRole('cell');
+  await expect(timeout.nth(0)).toHaveText('30s');
+  await expect(timeout.nth(1)).toContainText('built-in');
+  const mockUrl = table.getByRole('row', { name: /vars\.mockUrl/ }).getByRole('cell');
+  await expect(mockUrl.nth(0)).toHaveText('http://127.0.0.1:18080');
+  await expect(mockUrl.nth(1)).toContainText('vibranium.config.yaml');
 });
 
 test('explains the settings under the chosen profile', async ({ page }) => {

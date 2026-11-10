@@ -33,3 +33,14 @@ test('the sidebar collapses to an icon rail and expands again', async ({ page })
   await page.getByRole('button', { name: 'Expand sidebar' }).click();
   await expect(page.getByRole('link', { name: 'Tests' }).locator('.label')).toBeVisible();
 });
+
+test('announces a route change from a live region kept out of sight', async ({ page }) => {
+  await page.goto('/tests');
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Runs' }).click();
+  const announcer = page.locator('#svelte-announcer');
+  await expect(announcer).toHaveAttribute('aria-live', 'assertive');
+  await expect(page).toHaveTitle('Runs · Vibranium');
+  await expect(announcer).toHaveText('Runs · Vibranium');
+  // The CSP blocks SvelteKit's own style attribute; shell.css hides it instead.
+  expect(await announcer.boundingBox()).toMatchObject({ width: 1, height: 1 });
+});

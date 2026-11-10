@@ -8,8 +8,9 @@ test('runs every test of the seed project and shows the outcome', async ({ page 
   await page.getByRole('button', { name: 'Run all tests' }).click();
   await expect(page.getByRole('status')).toHaveText(/Passed|Failed/, { timeout: 30_000 });
   await expect(page.getByRole('img', { name: /of 3 tests/ })).toBeVisible();
+  // The log names a test by its label: the full ID, plus the row and repeat it ran as.
   await expect(page.getByRole('log', { name: 'Run events, newest first' })).toContainText(
-    'Lists users',
+    'users.crud#listsUsers passed',
   );
 });
 

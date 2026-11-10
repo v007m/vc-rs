@@ -21,7 +21,7 @@ test('saves an edit and keeps it after a reload', async ({ page }) => {
   await text.pressSequentially('# saved by e2e\n');
   await expect(page.getByText('Unsaved changes')).toBeVisible();
   await page.keyboard.press('ControlOrMeta+s');
-  await expect(page.getByText('Saved')).toBeVisible();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('textbox', { name: crud })).toHaveValue(/# saved by e2e\n$/);
 });

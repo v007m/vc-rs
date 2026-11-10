@@ -9,3 +9,8 @@ vars:
 profiles:
   - id: dev
     default: true
+    # The web UI runs and calls under the profile's agent policy, as `web-ui` (D178).
+    agents:
+      run: true
+      call: [GET, POST, PUT, DELETE]
+      writeDefinitions: true

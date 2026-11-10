@@ -35,6 +35,7 @@ test('filters by text and runs one test from its detail', async ({ page }) => {
     page.getByRole('heading', { name: 'Creates a user with the given email' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Run this test' }).click();
-  await page.goto('/runs');
+  // The detail links to the run; a reload would drop the page's live run.
+  await page.getByRole('link', { name: 'See it in Runs' }).click();
   await expect(page.getByRole('status')).toHaveText(/Running|Passed|Failed/, { timeout: 30_000 });
 });
