@@ -233,6 +233,19 @@ mod unix {
     }
 
     #[test]
+    fn a_hidden_name_linked_to_another_hidden_file_is_neither_read_nor_written() {
+        let dir = project(&[(".env", b"TOKEN=kept\n")]);
+        symlink(dir.path().join(".env"), dir.path().join(".env.schema")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        let path = SourcePath::new(".env.schema").unwrap();
+        let outside = || SourceError::OutsideRoot { path: ".env.schema".to_owned() };
+        assert_eq!(sources.read(std::slice::from_ref(&path)).unwrap().problems, [outside()]);
+        assert_eq!(sources.write(&path, "A=\n"), Err(outside()));
+        assert_eq!(sources.write_unchanged(&path, "A=\n", None), Err(outside()));
+        assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), "TOKEN=kept\n");
+    }
+
+    #[test]
     fn an_unchanged_write_goes_through_a_link_inside_the_root_and_keeps_the_mode() {
         let dir = project(&[("real/users.api.yaml", b"apis: []\n")]);
         let real = dir.path().join("real/users.api.yaml");

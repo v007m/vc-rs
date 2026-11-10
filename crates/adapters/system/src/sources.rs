@@ -189,13 +189,13 @@ impl FsSources {
         }
     }
 
-    /// Whether `resolved`, where `path` leads on disk, is inside the root and, unless `path`
-    /// itself names a hidden file or folder, outside every hidden one: a link named
-    /// `x.test.yaml` cannot open `.env`.
+    /// Whether `resolved`, where `path` leads on disk, is inside the root and outside every
+    /// hidden file or folder, unless it is the hidden `path` itself: a link named `x.test.yaml`
+    /// cannot open `.env`, nor can a link named `.env.schema` (D247).
     fn leads_in(&self, path: &SourcePath, resolved: &Path) -> bool {
         let Ok(rest) = resolved.strip_prefix(&self.root) else { return false };
         let hidden = rest.components().any(|part| hidden_part(&part.as_os_str().to_string_lossy()));
-        !hidden || path.is_hidden()
+        !hidden || (path.is_hidden() && rest == Path::new(path.as_str()))
     }
 
     /// Whether discovery's walk reaches `at`, which is there: no ignore file leaves it or a
