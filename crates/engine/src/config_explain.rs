@@ -16,7 +16,7 @@ use crate::{Engine, EngineError, ExplainRequest, reporting};
 /// The timeout a call has when nothing sets one: the executor's.
 const TIMEOUT: &str = "30s";
 /// Where a built-in value comes from.
-const BUILT_IN: &str = "built-in";
+pub const BUILT_IN: &str = "built-in";
 
 /// What `vibranium.config.yaml` sets a key to, if anything.
 type Written = fn(&Program) -> Option<String>;
@@ -36,7 +36,7 @@ const SETTINGS: &[Setting] = &[
 ];
 
 /// One value a key was set to, and where.
-type Layer = (String, String);
+pub type Layer = (String, String);
 
 impl Engine {
     /// The value `key` has under `request`, the layer that set it, and the values it replaced.
@@ -52,15 +52,26 @@ impl Engine {
         let program = layered.program.as_ref();
         let (active, names) = plan::profiles(program, layered.settings.profiles.as_ref())?;
         let explainer = Explainer { program, active: &active, names: &names, entries: &layered.entries };
-        let layers = match key.strip_prefix(VARS) {
-            Some(name) => var_layers(&explainer, name),
-            None => setting_layers(&explainer, key).ok_or_else(|| unknown(&explainer, key))?,
-        };
-        if layers.is_empty() {
-            return Err(unknown(&explainer, key));
-        }
+        let layers = layers_of(&explainer, key).filter(|layers| !layers.is_empty());
+        let layers = layers.ok_or_else(|| unknown(&explainer, key))?;
         Ok(ExplainReport { text: text(key, &layers), notices: layered.notices })
     }
+}
+
+/// The values `key` had, lowest first; `None` when it is no setting, and none when it is a
+/// var nothing sets.
+pub fn layers_of(explainer: &Explainer<'_>, key: &str) -> Option<Vec<Layer>> {
+    match key.strip_prefix(VARS) {
+        Some(name) => Some(var_layers(explainer, name)),
+        None => setting_layers(explainer, key),
+    }
+}
+
+/// Every setting `vc config explain` knows, then `vars.<name>` for each var some layer sets.
+pub fn every_key(explainer: &Explainer<'_>) -> Vec<String> {
+    let mut keys: Vec<String> = SETTINGS.iter().map(|(name, _, _)| (*name).to_owned()).collect();
+    keys.extend(explainer.config_vars().into_iter().map(|var| format!("{VARS}{}", var.name)));
+    keys
 }
 
 /// `key = value  (origin)`, then each value it replaced, latest first.
@@ -119,7 +130,7 @@ fn entries(explainer: &Explainer<'_>, key: &str) -> Vec<Layer> {
 }
 
 /// `key` is no setting, or a var nothing sets; the closest keys are the help.
-fn unknown(explainer: &Explainer<'_>, key: &str) -> EngineError {
+pub fn unknown(explainer: &Explainer<'_>, key: &str) -> EngineError {
     let mut known: Vec<String> = KEYS.iter().map(|(name, _)| (*name).to_owned()).collect();
     known.extend(explainer.config_vars().into_iter().map(|var| format!("{VARS}{}", var.name)));
     let near = vc_planner::closest(key, known.iter().map(String::as_str));
