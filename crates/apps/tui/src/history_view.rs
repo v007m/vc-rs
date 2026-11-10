@@ -113,7 +113,7 @@ fn draw_trends(runs: &[RunRow], frame: &mut Frame<'_>, area: Rect) {
 }
 
 /// A label, then its bars.
-fn draw_bars(frame: &mut Frame<'_>, area: Rect, (label, bars): (&str, Sparkline<'_>)) {
+pub fn draw_bars(frame: &mut Frame<'_>, area: Rect, (label, bars): (&str, Sparkline<'_>)) {
     let [label_area, bars_area] = Layout::horizontal([Constraint::Length(11), Constraint::Fill(1)]).areas(area);
     frame.render_widget(Span::styled(label.to_owned(), theme::DIM), label_area);
     frame.render_widget(bars, bars_area);

@@ -6,7 +6,9 @@ use std::fmt::Debug;
 use crossterm::event::KeyEvent;
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use vc_engine::{Listed, RunFeed, RunRequest, RunRow, SkipRequest, TestRow, TestTrend};
+use vc_engine::{
+    Event, Listed, LoadReport, LoadRequest, RunFeed, RunRequest, RunRow, SkipRequest, TestRow, TestTrend,
+};
 
 /// Work a key asks for that needs the engine; [`crate::run`] carries it out and sends back
 /// [`Update`]s.
@@ -39,6 +41,11 @@ pub enum Ask {
     Skip(SkipRequest),
     /// Remove a test's skip, write the change and read the project again.
     Unskip(String),
+    /// List the project's load scenarios: [`Update::Scenarios`].
+    Scenarios,
+    /// Start this load run, its seconds watched: [`Update::Load`], then [`Update::Loaded`].
+    /// [`Ask::Stop`] interrupts it.
+    Load(LoadRequest),
 }
 
 /// What the engine sent back for an [`Ask`].
@@ -83,6 +90,15 @@ pub enum Update {
     },
     /// The project could not be read, explained or changed; the error's text.
     ExploreFailed(String),
+    /// The project's load files, in project order.
+    Scenarios(Vec<Listed>),
+    /// One closed second of the load run: an [`Event::LoadTick`].
+    Load(Event),
+    /// The load run is over.
+    Loaded(Box<LoadReport>),
+    /// The scenarios could not be listed, or the load run could not start or ended in an
+    /// error; the error's text.
+    LoadFailed(String),
 }
 
 /// One tab's screen.

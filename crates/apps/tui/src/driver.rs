@@ -6,8 +6,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task::JoinHandle;
 use vc_engine::{
-    Changes, Engine, EngineError, ExplainRequest, Interrupter, ListKind, ListRequest, RunFeed, RunRequest, RunWatch,
-    interrupts,
+    Changes, Engine, EngineError, ExplainRequest, Interrupter, ListKind, ListRequest, LoadRequest, LoadWatch, RunRequest,
+    RunWatch, interrupts,
 };
 
 use crate::screen::{Ask, Update};
@@ -16,6 +16,10 @@ use crate::screen::{Ask, Update};
 const FEED: usize = 4_096;
 /// The stored runs the History tab lists, and the runs its trends cover (G15).
 const RUNS: usize = 30;
+/// Load seconds the run may get ahead of the UI by before it drops some.
+const TICKS: usize = 64;
+/// Why a run or load run was not started.
+const BUSY: &str = "a run or load run is in progress: x on its tab stops it";
 
 /// The engine side of the UI.
 pub struct Driver {
@@ -24,7 +28,7 @@ pub struct Driver {
     running: Option<Running>,
 }
 
-/// The run in progress.
+/// The run or load run in progress.
 struct Running {
     interrupter: Interrupter,
     task: JoinHandle<()>,
@@ -51,6 +55,8 @@ impl Driver {
             Ask::Explain { id, profiles } => self.read(move |engine| vec![explain(engine, id, profiles)]),
             Ask::Skip(request) => self.read(move |engine| edited(engine, engine.skip(&request), (request.target, true))),
             Ask::Unskip(target) => self.read(move |engine| edited(engine, engine.unskip(&target), (target, false))),
+            Ask::Scenarios => self.read(|engine| vec![scenarios(engine)]),
+            Ask::Load(request) => self.load(request),
         }
     }
 
@@ -77,9 +83,14 @@ impl Driver {
         }
     }
 
-    /// Starts a watched run, unless one is in progress.
+    /// Whether a run or a load run is in progress.
+    fn busy(&self) -> bool {
+        self.running.as_ref().is_some_and(|running| !running.task.is_finished())
+    }
+
+    /// Starts a watched run, unless a run or load run is in progress.
     fn start(&mut self, mut request: RunRequest) {
-        if self.running.as_ref().is_some_and(|running| !running.task.is_finished()) {
+        if self.busy() {
             return;
         }
         let (watch, feed) = mpsc::channel(FEED);
@@ -88,10 +99,30 @@ impl Driver {
         let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
         let task = tokio::spawn(async move {
             let run = async move { engine.run(&request, interrupts).await };
-            let (ran, ()) = tokio::join!(run, forward(feed, &updates));
+            let (ran, ()) = tokio::join!(run, forward(feed, &updates, Update::Run));
             if let Err(error) = ran {
                 updates.send(Update::RunFailed(error.to_string())).await.ok();
             }
+        });
+        self.running = Some(Running { interrupter, task });
+    }
+
+    /// Starts a load run with its seconds watched, unless a run or load run is in progress.
+    fn load(&mut self, request: LoadRequest) {
+        let updates = self.updates.clone();
+        if self.busy() {
+            tokio::spawn(async move { updates.send(Update::LoadFailed(BUSY.to_owned())).await.ok() });
+            return;
+        }
+        let (ticks, heard) = mpsc::channel(TICKS);
+        let (interrupter, interrupts) = interrupts();
+        let engine = Arc::clone(&self.engine);
+        let task = tokio::spawn(async move {
+            let load = async move { engine.load(&request, LoadWatch { interrupts, ticks: Some(ticks) }).await };
+            let (loaded, ()) = tokio::join!(load, forward(heard, &updates, Update::Load));
+            let update = loaded
+                .map_or_else(|error| Update::LoadFailed(error.to_string()), |report| Update::Loaded(Box::new(report)));
+            updates.send(update).await.ok();
         });
         self.running = Some(Running { interrupter, task });
     }
@@ -140,10 +171,21 @@ fn edited(engine: &Engine, changes: Result<Changes, EngineError>, (target, skipp
     }
 }
 
-/// Passes the run's feed on until it ends or the UI stops listening.
-async fn forward(mut feed: Receiver<RunFeed>, updates: &Sender<Update>) {
+/// The project's load scenarios: the load files `vc list files` lists.
+fn scenarios(engine: &Engine) -> Update {
+    match engine.list(&ListRequest { kind: ListKind::Files, ..ListRequest::default() }) {
+        Ok(report) => {
+            Update::Scenarios(report.items.into_iter().filter(|file| file.path.ends_with(".load.yaml")).collect())
+        }
+        Err(error) => Update::LoadFailed(error.to_string()),
+    }
+}
+
+/// Passes a watched feed on, each item as `wrap` makes it an update, until it ends or the UI
+/// stops listening.
+async fn forward<T>(mut feed: Receiver<T>, updates: &Sender<Update>, wrap: fn(T) -> Update) {
     while let Some(item) = feed.recv().await {
-        if updates.send(Update::Run(item)).await.is_err() {
+        if updates.send(wrap(item)).await.is_err() {
             break;
         }
     }

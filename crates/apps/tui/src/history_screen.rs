@@ -139,7 +139,7 @@ impl Screen for HistoryScreen {
 
     fn take(&mut self, update: &Update) {
         match update {
-            Update::Run(RunFeed::Done(_)) => self.stale = true,
+            Update::Run(RunFeed::Done(_)) | Update::Loaded(_) => self.stale = true,
             Update::History { runs, trends } => self.read(runs, trends),
             Update::Compared { before, after } if self.comparing == Some((before.0, after.0)) => {
                 self.compared = Some(Comparison::new((before.0, after.0), &before.1, &after.1));

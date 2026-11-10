@@ -37,6 +37,13 @@ const CRUD: &[u8] = b"tests:
     skip: {reason: waits for DELETE}
 ";
 const ORDERS: &[u8] = b"tests:\n  - id: listsOrders\n    call: users#list\n";
+const PEAK: &[u8] = b"mix:
+  - {test: users.crud#listsUsers, weight: 1}
+stages:
+  - {duration: 1s, users: 1}
+thinkTime: 1s
+thresholds: {errorRate: {lt: 0.5}}
+";
 
 /// The UI of the project `shop` under the profile `staging`.
 pub fn tui() -> Tui {
@@ -66,11 +73,12 @@ pub fn engine() -> Outcome<Engine> {
 /// An engine over the project that stores its runs in `history` and answers every request
 /// with `code`.
 pub fn engine_over(history: &Arc<MemoryHistory>, code: u16) -> Outcome<Engine> {
-    let files: [(&str, &[u8]); 4] = [
+    let files: [(&str, &[u8]); 5] = [
         ("vibranium.config.yaml", CONFIG),
         ("services/users/users.api.yaml", USERS),
         ("services/users/crud.test.yaml", CRUD),
         ("services/orders/flow.test.yaml", ORDERS),
+        ("load/users/peak.load.yaml", PEAK),
     ];
     let engine = EngineBuilder::new(PathBuf::from("/project"))
         .sources(Arc::new(MemorySources::new(&files)))
