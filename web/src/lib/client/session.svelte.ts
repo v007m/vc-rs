@@ -1,5 +1,5 @@
 import { ConnectError } from '@connectrpc/connect';
-import type { ApiInfo, CallInput, CallOutput, ClientPort } from './port.ts';
+import type { ApiInfo, CallInput, CallOutput, ClientPort, FlowInfo } from './port.ts';
 import { parseResponse, scalarFields, varArg, type CallResponse } from './response.ts';
 
 /** A var row in the request: a name the api declares, or one the user added. */
@@ -24,6 +24,7 @@ function message(error: unknown): string {
  */
 export class ClientSession {
   apis: readonly ApiInfo[] = $state([]);
+  flows: readonly FlowInfo[] = $state([]);
   current: ApiInfo | undefined = $state();
   vars: VarRow[] = $state([]);
   keep = $state(false);
@@ -38,7 +39,7 @@ export class ClientSession {
 
   async load(): Promise<void> {
     try {
-      this.apis = await this.#port.apis();
+      [this.apis, this.flows] = await Promise.all([this.#port.apis(), this.#port.flows()]);
       this.error = undefined;
     } catch (error) {
       this.error = message(error);

@@ -7,12 +7,17 @@ export interface NavItem {
   readonly icon: readonly string[];
 }
 
-/** The M9a screens, in the mockups' nav order (brief-shell-v2). */
+/** The screens built so far, in the mockups' nav order (brief-shell-v2). */
 export const navItems: readonly NavItem[] = [
   {
     route: '/tests',
     label: 'Tests',
     icon: ['m2.5 4.5 1.5 1.5 2.5-3M2.5 11l1.5 1.5 2.5-3M9 5h4.5M9 11.5h4.5'],
+  },
+  {
+    route: '/client',
+    label: 'API client',
+    icon: ['M2.5 5.5h9l-2.5-2.5M13.5 10.5h-9l2.5 2.5'],
   },
   { route: '/editor', label: 'Editor', icon: ['M10.5 2.5l3 3L6 13H3v-3zM9 4l3 3'] },
   {

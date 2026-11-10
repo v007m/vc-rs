@@ -18,6 +18,7 @@ const created = JSON.stringify({ status: 201, headers: {}, body: { id: 'u_1', ta
 function fakePort(overrides: Partial<ClientPort> = {}): ClientPort {
   return {
     apis: () => Promise.resolve(apis),
+    flows: () => Promise.resolve([]),
     call: () =>
       Promise.resolve({ exit: 0, text: '201 Created', notices: [], responseJson: created }),
     saveCallAsTest: () => Promise.resolve({ files: [], titles: [], notices: [] }),

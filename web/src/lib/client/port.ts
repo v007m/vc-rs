@@ -4,6 +4,9 @@ import { DefinitionKind, type EngineService } from '#lib/gen/vibranium/engine/v1
 /** An api the client can call, with the names of the vars it declares. */
 export type ApiInfo = Readonly<{ id: string; name: string; path: string; vars: readonly string[] }>;
 
+/** A flow test: a test whose `steps` call apis in order (R43). */
+export type FlowInfo = Readonly<{ id: string; name: string; steps: number }>;
+
 /** One ad hoc call, as `vc call` takes it. */
 export type CallInput = Readonly<{
   api: string;
@@ -52,10 +55,12 @@ export type HarInput = Readonly<{ source: string; flow?: string; write: boolean 
 
 /**
  * What the API client asks of the engine. The M9b protos (Call, SaveCallAsTest, Import) are
- * not generated yet; `enginePort` maps this onto the generated client once they are.
+ * not generated yet; `enginePort` maps this onto the generated client once they are, and
+ * Definition carries api vars and test steps from C6.
  */
 export interface ClientPort {
   apis(): Promise<ApiInfo[]>;
+  flows(): Promise<FlowInfo[]>;
   call(input: CallInput): Promise<CallOutput>;
   saveCallAsTest(input: SaveCallInput): Promise<ChangesOutput>;
   importHar(input: HarInput): Promise<ChangesOutput>;
@@ -74,6 +79,8 @@ export function enginePort(
       const { definitions } = await client.listDefinitions({ kind: DefinitionKind.APIS });
       return definitions.map((d) => ({ id: d.id, name: d.name ?? d.id, path: d.path, vars: [] }));
     },
+    // Definition says how many steps a test has from C6 on; until then no test reads as a flow.
+    flows: () => Promise.resolve([]),
     call: notYet,
     saveCallAsTest: notYet,
     importHar: notYet,
