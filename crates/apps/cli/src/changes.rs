@@ -5,10 +5,11 @@ use std::io::{BufRead, Write};
 use vc_engine::{Changes, Engine, EngineError};
 
 use crate::Outcome;
+use crate::stdout;
 
 /// Each changed file as a unified diff, on stdout.
 pub fn preview(changes: &Changes) -> anyhow::Result<()> {
-    let mut out = std::io::stdout().lock();
+    let mut out = stdout::out();
     for file in &changes.files {
         write!(out, "{}", file.diff())?;
     }
@@ -26,7 +27,9 @@ pub fn write(engine: &Engine, made: Result<Changes, EngineError>, done: &str) ->
     if let Err(error) = engine.write(&changes) {
         return Outcome::Engine(error);
     }
-    println!("{done}");
+    if let Err(error) = writeln!(stdout::out(), "{done}") {
+        eprintln!("warning: cannot print to stdout: {error}");
+    }
     Outcome::Done
 }
 

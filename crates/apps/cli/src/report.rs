@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use clap::Args;
@@ -5,6 +6,7 @@ use vc_engine::{ReportFlags, ReportRequest};
 
 use crate::Outcome;
 use crate::project;
+use crate::stdout;
 
 #[derive(Args)]
 pub struct ReportArgs {
@@ -46,7 +48,7 @@ pub fn run(args: &ReportArgs, project: Option<&Path>) -> anyhow::Result<Outcome>
         eprintln!("warning: {notice}");
     }
     for file in &written.files {
-        println!("{}", file.display());
+        writeln!(stdout::out(), "{}", file.display())?;
     }
     Ok(if written.files.is_empty() { Outcome::Failed } else { Outcome::Done })
 }

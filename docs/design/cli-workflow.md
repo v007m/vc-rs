@@ -685,7 +685,7 @@ next     vc run --failed · vc report 483 --open
 
 Every test instance ends as `passed`, `failed`, `blocked` (a setup it needs failed; never retried), `skipped` or `flaky` (failed, then passed when its `retry` re-ran the whole test) (D126).
 
-Console formats: `spec` (above, the default in a terminal), `dots` (compact), `json` (one event per line, for tools). In CI, where there is no terminal, colour and progress bars switch off and output stays line-based.
+Console formats: `spec` (above, the default in a terminal), `dots` (compact), `json` (one event per line, for tools). In CI, where there is no terminal, colour and progress bars switch off and output stays line-based. When the reader of stdout goes away (`vc run | head -1`), the rest of the output is dropped quietly and the command ends with the exit code it would have had.
 
 | Exit code | Means |
 | --- | --- |

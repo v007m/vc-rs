@@ -36,6 +36,7 @@ mod save_call;
 mod schema;
 mod select;
 mod skip;
+mod stdout;
 mod tui;
 mod ui;
 mod watch;

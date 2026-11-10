@@ -7,6 +7,7 @@ use std::path::Path;
 use clap::{Args, Subcommand, ValueEnum};
 use vc_engine::{Added, Engine, EngineError, FileKind, NewApi, NewAuth, NewTest, auth_fields};
 
+use crate::stdout;
 use crate::{Outcome, changes, project};
 
 #[derive(Args)]
@@ -119,7 +120,7 @@ fn api(engine: &Engine, args: ApiArgs) -> anyhow::Result<Outcome> {
     let outcome = written(engine, made, false);
     let shown = if matches!(outcome, Outcome::Done) { notes.as_slice() } else { &[] };
     for note in shown {
-        println!("  {note}");
+        writeln!(stdout::out(), "  {note}")?;
     }
     Ok(outcome)
 }

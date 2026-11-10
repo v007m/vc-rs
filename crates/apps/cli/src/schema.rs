@@ -6,6 +6,7 @@ use vc_engine::Engine;
 
 use crate::Outcome;
 use crate::project;
+use crate::stdout;
 
 #[derive(Args)]
 pub struct ExportArgs {
@@ -19,7 +20,7 @@ pub struct ExportArgs {
 /// project root.
 pub fn export(args: &ExportArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let Some(out) = &args.out else {
-        std::io::stdout().lock().write_all(Engine::schema_bundle()?.as_bytes())?;
+        stdout::out().write_all(Engine::schema_bundle()?.as_bytes())?;
         return Ok(Outcome::Done);
     };
     let dir = match project.map(project::root).transpose()? {

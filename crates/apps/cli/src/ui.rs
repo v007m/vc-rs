@@ -4,12 +4,14 @@
 //! `vc ui: mcp <url> token <token>`, for MCP clients. A build without the `web-ui` feature
 //! refuses with exit 2 (G12).
 
+use std::io::Write;
 use std::path::Path;
 
 use clap::Args;
 
 use crate::Outcome;
 use crate::explain::LayerArgs;
+use crate::stdout;
 
 /// `vc ui`.
 #[derive(Args)]
@@ -85,9 +87,9 @@ mod serve {
         if let Some(problem) = server.csp_problem() {
             eprintln!("error: {problem}; the page will not load, so rebuild it with `pnpm -C web build`");
         }
-        println!("vc ui: {}", server.launch_url().expose());
+        writeln!(stdout::out(), "vc ui: {}", server.launch_url().expose())?;
         if let Some(mcp) = server.mcp() {
-            println!("vc ui: mcp {} token {}", mcp.url(), mcp.token());
+            writeln!(stdout::out(), "vc ui: mcp {} token {}", mcp.url(), mcp.token())?;
         }
         if !args.no_open {
             open(server.launch_url());

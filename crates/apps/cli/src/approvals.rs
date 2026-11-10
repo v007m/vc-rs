@@ -1,10 +1,12 @@
 //! `vc approvals` and `vc approve <id>`: the agent calls waiting for a person (D195).
 
+use std::io::Write;
 use std::path::Path;
 
 use clap::Args;
 use vc_engine::{Approval, ApprovalId, ApprovalStatus, Verdict};
 
+use crate::stdout;
 use crate::{Outcome, project};
 
 /// `vc approvals`.
@@ -36,12 +38,12 @@ pub fn list(args: &ApprovalsArgs, project: Option<&Path>) -> anyhow::Result<Outc
     };
     Ok(match located.engine.approvals_list(!args.all) {
         Ok(approvals) if approvals.is_empty() => {
-            println!("{}", if args.all { "no requests" } else { "no requests waiting" });
+            writeln!(stdout::out(), "{}", if args.all { "no requests" } else { "no requests waiting" })?;
             Outcome::Done
         }
         Ok(approvals) => {
             for approval in &approvals {
-                println!("{}", row(approval, args.all));
+                writeln!(stdout::out(), "{}", row(approval, args.all))?;
             }
             Outcome::Done
         }
@@ -62,7 +64,7 @@ pub fn approve(args: &ApproveArgs, project: Option<&Path>) -> anyhow::Result<Out
     };
     Ok(match located.engine.approvals_decide(ApprovalId::new(args.id), verdict) {
         Ok(_) => {
-            println!("{}", decided(args.id, verdict));
+            writeln!(stdout::out(), "{}", decided(args.id, verdict))?;
             Outcome::Done
         }
         Err(error) => Outcome::Engine(error),
