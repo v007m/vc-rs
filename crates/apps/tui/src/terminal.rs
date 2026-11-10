@@ -4,6 +4,8 @@
 //! be drawing.
 
 use std::io::{self, Stdout};
+use std::panic::{self, PanicHookInfo};
+use std::sync::Arc;
 use std::time::Duration;
 
 use crossterm::event::{self, Event};
@@ -114,23 +116,26 @@ fn read_keys(sender: &mpsc::Sender<Event>) -> io::Result<()> {
     Ok(())
 }
 
-/// The terminal in raw mode on the alternate screen; dropping it restores the terminal.
+/// The terminal in raw mode on the alternate screen; dropping it restores the terminal, and
+/// so does a panic while it is open, before the panic is printed.
 struct Raw {
     terminal: Terminal<CrosstermBackend<Stdout>>,
+    _hook: PanicRestore,
 }
 
 impl Raw {
     fn open() -> io::Result<Self> {
         enable_raw_mode()?;
-        let mut raw = Self::restoring(Terminal::new(CrosstermBackend::new(io::stdout())))?;
+        let hook = PanicRestore::install(restore);
+        let mut raw = Self::restoring(Terminal::new(CrosstermBackend::new(io::stdout())), hook)?;
         execute!(raw.terminal.backend_mut(), EnterAlternateScreen)?;
         raw.terminal.clear()?;
         Ok(raw)
     }
 
     /// `terminal` wrapped so that raw mode ends even when it could not be made.
-    fn restoring(terminal: io::Result<Terminal<CrosstermBackend<Stdout>>>) -> io::Result<Self> {
-        terminal.map(|terminal| Self { terminal }).inspect_err(|_| {
+    fn restoring(terminal: io::Result<Terminal<CrosstermBackend<Stdout>>>, hook: PanicRestore) -> io::Result<Self> {
+        terminal.map(|terminal| Self { terminal, _hook: hook }).inspect_err(|_| {
             let _ = disable_raw_mode();
         })
     }
@@ -141,6 +146,43 @@ impl Drop for Raw {
         let _ = execute!(self.terminal.backend_mut(), LeaveAlternateScreen);
         let _ = disable_raw_mode();
         let _ = self.terminal.show_cursor();
+    }
+}
+
+/// Leaves the alternate screen and raw mode, showing the cursor, for a panic's message.
+fn restore() {
+    let _ = execute!(io::stdout(), LeaveAlternateScreen, crossterm::cursor::Show);
+    let _ = disable_raw_mode();
+}
+
+/// A panic hook, shared so that the one put in front of it can call it and it can be put back.
+type Hook = Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static>;
+
+/// The panic hook that runs `restore` and then the hook it replaced, which prints the panic;
+/// dropping it puts the replaced hook back.
+struct PanicRestore {
+    previous: Hook,
+}
+
+impl PanicRestore {
+    fn install(restore: impl Fn() + Send + Sync + 'static) -> Self {
+        let previous: Hook = Arc::from(panic::take_hook());
+        let chained = Arc::clone(&previous);
+        panic::set_hook(Box::new(move |info| {
+            restore();
+            chained(info);
+        }));
+        Self { previous }
+    }
+}
+
+impl Drop for PanicRestore {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            return;
+        }
+        let previous = Arc::clone(&self.previous);
+        panic::set_hook(Box::new(move |info| previous(info)));
     }
 }
 
