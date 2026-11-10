@@ -16,7 +16,7 @@ use crate::{ConfigValue, Engine, EngineError, ExplainRequest, reporting};
 /// The timeout a call has when nothing sets one: the executor's.
 const TIMEOUT: &str = "30s";
 /// Where a built-in value comes from.
-const BUILT_IN: &str = "built-in";
+pub const BUILT_IN: &str = "built-in";
 
 /// What `vibranium.config.yaml` sets a key to, if anything.
 type Written = fn(&Program) -> Option<String>;

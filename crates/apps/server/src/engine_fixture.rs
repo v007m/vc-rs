@@ -12,7 +12,7 @@ use crate::EngineApi;
 
 /// The secret's value: test data, in no real provider's key format.
 pub const SECRET: &str = "tok-fixture-5c2e81";
-pub const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars:\n  baseUrl: 'http://127.0.0.1:9'\n  note: 'sent ${secret.SHOP_TOKEN}'\nprofiles:\n  - id: dev\n    default: true\n    agents: {run: true, call: [GET], writeDefinitions: true}\n  - id: bare\n";
+pub const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars:\n  baseUrl: 'http://127.0.0.1:9'\n  note: 'sent tok-fixture-5c2e81'\nprofiles:\n  - id: dev\n    default: true\n    agents: {run: true, call: [GET], writeDefinitions: true}\n  - id: bare\n";
 pub const API: &str = "services/users/users.api.yaml";
 pub const USERS: &str = "baseUrl: ${var.baseUrl}\napis:\n  - id: list\n    name: List users\n    path: /users\n  - id: create\n    name: Create a user\n    method: POST\n    path: /users\n";
 pub const TESTS: &str = "services/users/crud.test.yaml";
