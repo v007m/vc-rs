@@ -151,7 +151,7 @@ async fn a_stream_that_fails_ends_with_its_error() {
 async fn a_message_that_cannot_be_written_ends_the_stream_with_an_internal_error() {
     let reply = post("Unwritable", "application/connect+json", enveloped(b"{}")).await;
     let (messages, end) = payloads(&reply.body);
-    assert!(messages.is_empty());
+    assert_eq!(messages, Vec::<&[u8]>::new());
     let error = json!({ "code": "internal", "message": "the response could not be written as JSON" });
     assert_eq!(end, json!({ "error": error }));
 }
