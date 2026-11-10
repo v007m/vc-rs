@@ -1,6 +1,6 @@
-//! `vc ui`: the local web UI and MCP at `/mcp`, on 127.0.0.1 only (G11). The only place the
-//! access token is shown is the one `vc ui: <url>` line on stdout, printed whether or not a
-//! browser is opened. A build without the `web-ui` feature refuses with exit 2 (G12).
+//! `vc ui`: the local web UI, its engine service at `/api` and MCP at `/mcp`, over one engine,
+//! on 127.0.0.1 only (G11). The only place the access token is shown is the one
+//! `vc ui: <url>` line on stdout, printed whether or not a browser is opened. A build without the `web-ui` feature refuses with exit 2 (G12).
 
 use std::path::Path;
 
@@ -51,7 +51,7 @@ mod serve {
     use std::sync::Arc;
 
     use vc_mcp::VcServer;
-    use vc_server::{EmbeddedUi, LaunchUrl, ServerBuilder, ServerError};
+    use vc_server::{EmbeddedUi, EngineApi, LaunchUrl, ServerBuilder, ServerError};
 
     use super::UiArgs;
     use crate::Outcome;
@@ -66,12 +66,14 @@ mod serve {
 
     /// Binds, prints the launch URL, opens it unless `--no-open`, and serves until Ctrl-C.
     pub async fn serve(mcp: VcServer, args: &UiArgs) -> anyhow::Result<Outcome> {
+        let layers = args.layers.request();
+        let engine = EngineApi::new(mcp.engine(), layers.profiles, layers.sets).into_service();
         let (service, stop_mcp) = mcp.into_http();
         let ui = EmbeddedUi::default();
         if ui.is_empty() {
             eprintln!("warning: this vc was built before `web/build` existed, so only /api and /mcp answer");
         }
-        let builder = ServerBuilder::new(args.port).mount("/mcp", service).files(Arc::new(ui));
+        let builder = ServerBuilder::new(args.port).service(engine).mount("/mcp", service).files(Arc::new(ui));
         let server = match builder.bind().await {
             Ok(server) => server,
             Err(error @ ServerError::Bind { .. }) => return Ok(not_listening(&error)),
