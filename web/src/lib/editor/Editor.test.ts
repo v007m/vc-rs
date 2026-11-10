@@ -41,13 +41,17 @@ async function setup(conflict = { next: false }) {
       disk.set(path, text);
       return { digest: 'd', diagnostics: [] };
     },
-    check: ({ paths }) => ({ diagnostics: paths.includes(crud) ? [badId] : [] }),
+    // The unsaved text when the editor sends it, else the file on disk.
+    check: ({ paths, overlay }) => {
+      const text = overlay[crud] ?? (paths.includes(crud) ? disk.get(crud) : '');
+      return { diagnostics: text?.includes('GetUser') ? [badId] : [] };
+    },
     // eslint-disable-next-line require-yield -- the run ends without events
     async *run(request) {
       runs.push(request.selection?.paths ?? []);
     },
   });
-  const editor = new EditorSession(engine);
+  const editor = new EditorSession(engine, 0);
   await editor.loadFiles();
   render(Editor, { editor, session: new RunSession(engine) });
   const user = userEvent.setup();
@@ -60,13 +64,29 @@ async function setup(conflict = { next: false }) {
 describe('Editor', () => {
   it('opens a file from the tree, edits it and saves with Ctrl+S', async () => {
     const { disk, user, open } = await setup();
-    await open('crud.test.yaml');
-    const text = await screen.findByRole('textbox', { name: crud });
+    await open('users.api.yaml');
+    const text = await screen.findByRole('textbox', { name: api });
     await user.type(text, '# done');
     expect(screen.getByText('Unsaved changes')).toBeTruthy();
     await user.keyboard('{Control>}s{/Control}');
     expect(await screen.findByText('Saved')).toBeTruthy();
-    expect(disk.get(crud)).toBe('name: crud\nid: GetUser\n# done');
+    expect(disk.get(api)).toBe('name: users\n# done');
+  });
+
+  it('blocks saving while the unsaved text has errors', async () => {
+    const { disk, user, open } = await setup();
+    await open('crud.test.yaml');
+    await user.type(await screen.findByRole('textbox', { name: crud }), '# more');
+    expect(await screen.findByText('Fix 1 error to save')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
+    await user.keyboard('{Control>}s{/Control}');
+    expect(disk.get(crud)).toBe('name: crud\nid: GetUser\n');
+    const problems = screen.getByRole('region', { name: 'Problems' });
+    await user.click(within(problems).getByRole('button', { name: 'Rename to getsUser' }));
+    expect(await screen.findByText('Unsaved changes')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Saved')).toBeTruthy();
+    expect(disk.get(crud)).toBe('name: crud\nid: getsUser\n# more');
   });
 
   it('asks before dropping unsaved changes for another file', async () => {
@@ -83,14 +103,14 @@ describe('Editor', () => {
 
   it('offers reload or keep-mine when the file changed on disk', async () => {
     const { disk, user, open } = await setup({ next: true });
-    await open('crud.test.yaml');
-    await user.type(await screen.findByRole('textbox', { name: crud }), '!');
+    await open('users.api.yaml');
+    await user.type(await screen.findByRole('textbox', { name: api }), '!');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const banner = await screen.findByRole('alert');
     expect(banner.textContent).toContain('changed on disk');
     await user.click(within(banner).getByRole('button', { name: 'Keep my version' }));
     expect(await screen.findByText('Saved')).toBeTruthy();
-    expect(disk.get(crud)).toContain('!');
+    expect(disk.get(api)).toContain('!');
   });
 
   it('lists problems, jumps to one and applies its fix', async () => {

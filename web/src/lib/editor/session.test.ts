@@ -1,7 +1,7 @@
 import { create } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { FixSchema } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
-import { describe, expect, it } from 'vitest';
+import { FixSchema, Severity } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import { describe, expect, it, vi } from 'vitest';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import { EditorSession } from './session.svelte.ts';
 
@@ -38,7 +38,36 @@ function disk(text = 'name: one\n') {
   return { state, editor: new EditorSession(client) };
 }
 
+/** An engine whose check reports an error while the unsaved text has `bad` in it. */
+function overlayDisk() {
+  const overlays: string[] = [];
+  const client = fakeEngine({
+    readFile: () => ({ text: 'name: one\n', digest: 'd1' }),
+    writeFile: () => ({ digest: 'd2', diagnostics: [] }),
+    check: (request) => {
+      const text = request.overlay[path];
+      if (text !== undefined) overlays.push(text);
+      const error = { ...diagnostic(path, 'V1001'), severity: Severity.ERROR };
+      return { diagnostics: text?.includes('bad') ? [error] : [] };
+    },
+  });
+  return { overlays, editor: new EditorSession(client, 0) };
+}
+
 describe('EditorSession', () => {
+  it('checks the unsaved text once typing pauses and blocks saving while it has errors', async () => {
+    const { overlays, editor } = overlayDisk();
+    await editor.open(path);
+    editor.edit('name: b');
+    editor.edit('name: bad');
+    await vi.waitFor(() => expect(editor.errorCount).toBe(1));
+    expect(overlays).toEqual(['name: bad']);
+    expect(editor.canSave).toBe(false);
+    editor.edit('name: good');
+    await vi.waitFor(() => expect(editor.errorCount).toBe(0));
+    expect(editor.canSave).toBe(true);
+  });
+
   it('lists the files sorted and opens one with its diagnostics', async () => {
     const { editor } = disk();
     await editor.loadFiles();

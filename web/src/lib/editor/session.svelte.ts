@@ -1,6 +1,7 @@
 import { Code, ConnectError, type Client } from '@connectrpc/connect';
 import {
   DefinitionKind,
+  Severity,
   type Diagnostic,
   type EngineService,
   type Fix,
@@ -27,9 +28,15 @@ export class EditorSession {
   state: EditorState = $state('idle');
   error: string | undefined = $state();
   readonly #client: EditorClient;
+  readonly #checkDelayMs: number;
+  /** Bumped by every edit, open and save, so a check of older text cannot land. */
+  #version = 0;
+  #timer: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(client: EditorClient) {
+  /** `checkDelayMs` is how long typing must pause before the unsaved text is checked. */
+  constructor(client: EditorClient, checkDelayMs = 300) {
     this.#client = client;
+    this.#checkDelayMs = checkDelayMs;
   }
 
   get dirty(): boolean {
@@ -41,6 +48,15 @@ export class EditorSession {
     return this.diagnostics.filter((d) => d.primary?.span?.file === this.buffer?.path);
   }
 
+  /** How many errors the open file has; Save is blocked while there are any (R44). */
+  get errorCount(): number {
+    return this.fileDiagnostics.filter((d) => d.severity === Severity.ERROR).length;
+  }
+
+  get canSave(): boolean {
+    return this.dirty && this.errorCount === 0 && this.state !== 'saving';
+  }
+
   async loadFiles(): Promise<void> {
     await this.#attempt(async () => {
       const response = await this.#client.listDefinitions({ kind: DefinitionKind.FILES });
@@ -50,6 +66,7 @@ export class EditorSession {
 
   /** Opens `path`, dropping unsaved changes to the open file; the screen asks first. */
   async open(path: string): Promise<void> {
+    this.#invalidate();
     this.state = 'loading';
     await this.#attempt(async () => {
       const { text, digest } = await this.#client.readFile({ path });
@@ -59,8 +76,16 @@ export class EditorSession {
     this.state = 'idle';
   }
 
+  /** Changes the open file's text and checks it, unsaved, once typing pauses. */
   edit(text: string): void {
-    if (this.buffer) this.buffer = { ...this.buffer, text };
+    if (!this.buffer) return;
+    this.buffer = { ...this.buffer, text };
+    const { path } = this.buffer;
+    const version = this.#invalidate();
+    this.#timer = setTimeout(
+      () => void this.#attempt(() => this.#checkUnsaved(version, path, text)),
+      this.#checkDelayMs,
+    );
   }
 
   /** Drops the edits since the last read or save. */
@@ -71,7 +96,8 @@ export class EditorSession {
   /** Saves the open file unless it changed on disk since it was read. */
   async save(): Promise<void> {
     const buffer = this.buffer;
-    if (!buffer || this.state === 'saving') return;
+    if (!buffer || !this.canSave) return;
+    this.#invalidate();
     this.state = 'saving';
     try {
       const { path, text, digest } = buffer;
@@ -114,6 +140,20 @@ export class EditorSession {
 
   async #check(path: string): Promise<void> {
     this.diagnostics = (await this.#client.check({ paths: [path] })).diagnostics;
+  }
+
+  /** Checks `text` in place of the file on disk; the result is dropped if the text moved on. */
+  async #checkUnsaved(version: number, path: string, text: string): Promise<void> {
+    const { diagnostics } = await this.#client.check({ paths: [path], overlay: { [path]: text } });
+    if (version === this.#version) this.diagnostics = diagnostics;
+  }
+
+  /** Cancels the pending check and makes any check in flight stale. */
+  #invalidate(): number {
+    clearTimeout(this.#timer);
+    this.#timer = undefined;
+    this.#version += 1;
+    return this.#version;
   }
 
   async #attempt(step: () => Promise<void>): Promise<void> {

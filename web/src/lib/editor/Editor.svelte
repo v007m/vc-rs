@@ -25,9 +25,12 @@
       del: lines.filter((l) => l.kind === 'del').length,
     };
   });
-  let status = $derived(
-    editor.state === 'saving' ? 'Saving…' : editor.dirty ? 'Unsaved changes' : 'Saved',
-  );
+  let status = $derived.by(() => {
+    if (editor.state === 'saving') return 'Saving…';
+    if (!editor.dirty) return 'Saved';
+    const n = editor.errorCount;
+    return n ? `Fix ${n} ${n === 1 ? 'error' : 'errors'} to save` : 'Unsaved changes';
+  });
 
   function choose(path: string): void {
     if (path === buffer?.path) return;
@@ -44,7 +47,7 @@
   function onkeydown(event: KeyboardEvent): void {
     if (event.key !== 's' || !(event.metaKey || event.ctrlKey)) return;
     event.preventDefault();
-    if (editor.dirty) void editor.save();
+    void editor.save();
   }
 
   function go(d: Diagnostic): void {
@@ -128,7 +131,7 @@
         <button
           type="button"
           class="btn sm primary"
-          disabled={!editor.dirty || editor.state === 'saving'}
+          disabled={!editor.canSave}
           title="Save (Ctrl+S or Cmd+S)"
           onclick={() => void editor.save()}>Save</button
         >
