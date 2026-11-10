@@ -1,22 +1,22 @@
 //! `vc config explain <key>`: a setting's value and the layer that set it, over the values it
 //! replaced (D129): built-in, `vibranium.config.yaml`, profiles, the user config, `.env`,
-//! `VIB_*`, flags and `--set`.
+//! `VIB_*`, flags and `--set`. Every value is masked as [`Engine::config_values`] masks it, so a
+//! secret's value never reaches the terminal (D232).
 
 use std::fmt::Write as _;
 
-use vc_interfaces::ConfigEntry;
 use vc_model::{Program, TemplateValue, VarName};
 
+use crate::config_values::shown_unless_secret;
 use crate::explain::{CONFIG, ExplainReport, Explainer, VARS, did_you_mean};
-use crate::plan::{self, profile_flag};
 use crate::settings::KEYS;
 use crate::shown::Shown;
-use crate::{Engine, EngineError, ExplainRequest, reporting};
+use crate::{ConfigValue, Engine, EngineError, ExplainRequest, reporting};
 
 /// The timeout a call has when nothing sets one: the executor's.
 const TIMEOUT: &str = "30s";
 /// Where a built-in value comes from.
-const BUILT_IN: &str = "built-in";
+pub const BUILT_IN: &str = "built-in";
 
 /// What `vibranium.config.yaml` sets a key to, if anything.
 type Written = fn(&Program) -> Option<String>;
@@ -36,41 +36,46 @@ const SETTINGS: &[Setting] = &[
 ];
 
 /// One value a key was set to, and where.
-type Layer = (String, String);
+pub type Layer = (String, String);
 
 impl Engine {
-    /// The value `key` has under `request`, the layer that set it, and the values it replaced.
+    /// The value `key` has under `request`, the layer that set it, and the values it replaced,
+    /// each masked.
     ///
     /// # Errors
     ///
     /// [`EngineError::Invalid`] when the project has errors, [`EngineError::Setting`] for a bad
     /// setting or an unknown profile, and [`EngineError::Selection`] when `key` is not a setting
     /// or a var anything sets, with the closest keys as help.
-    pub fn config_explain(&self, key: &str, request: &ExplainRequest) -> Result<ExplainReport, EngineError> {
-        let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
-        let layered = self.layered(&request.sets, &flags)?;
-        let program = layered.program.as_ref();
-        let (active, names) = plan::profiles(program, layered.settings.profiles.as_ref())?;
-        let explainer = Explainer { program, active: &active, names: &names, entries: &layered.entries };
-        let layers = match key.strip_prefix(VARS) {
-            Some(name) => var_layers(&explainer, name),
-            None => setting_layers(&explainer, key).ok_or_else(|| unknown(&explainer, key))?,
-        };
-        if layers.is_empty() {
-            return Err(unknown(&explainer, key));
-        }
-        Ok(ExplainReport { text: text(key, &layers), notices: layered.notices })
+    pub async fn config_explain(&self, key: &str, request: &ExplainRequest) -> Result<ExplainReport, EngineError> {
+        let found = self.config_values(&[key.to_owned()], request).await?;
+        let text = found.values.first().map(text).unwrap_or_default();
+        Ok(ExplainReport { text, notices: found.notices })
     }
 }
 
+/// The values `key` had, lowest first; `None` when it is no setting, and none when it is a
+/// var nothing sets.
+pub fn layers_of(explainer: &Explainer<'_>, key: &str) -> Option<Vec<Layer>> {
+    key.strip_prefix(VARS).map_or_else(|| setting_layers(explainer, key), |name| Some(var_layers(explainer, name)))
+}
+
+/// Every setting `vc config explain` knows, then `vars.<name>` for each var some layer sets.
+pub fn every_key(explainer: &Explainer<'_>) -> Vec<String> {
+    let mut keys: Vec<String> = SETTINGS.iter().map(|(name, _, _)| (*name).to_owned()).collect();
+    keys.extend(explainer.config_vars().into_iter().map(|var| format!("{VARS}{}", var.name)));
+    keys
+}
+
 /// `key = value  (origin)`, then each value it replaced, latest first.
-fn text(key: &str, layers: &[Layer]) -> String {
+fn text(value: &ConfigValue) -> String {
     let mut text = String::new();
-    for (at, (value, origin)) in layers.iter().rev().enumerate() {
+    for (at, layer) in value.layers.iter().enumerate() {
+        let (shown, origin) = (&layer.value, &layer.source);
         let _ = if at == 0 {
-            writeln!(text, "{key} = {value}  ({origin})")
+            writeln!(text, "{} = {shown}  ({origin})", value.key)
         } else {
-            writeln!(text, "  over {value}  ({origin})")
+            writeln!(text, "  over {shown}  ({origin})")
         };
     }
     text
@@ -98,7 +103,8 @@ fn var_layers(explainer: &Explainer<'_>, name: &str) -> Vec<Layer> {
         found.push((defined, format!("profile {profile}")));
     }
     let shown = Shown { program, vars: &[] };
-    let mut layers: Vec<Layer> = found.into_iter().filter_map(|(value, at)| Some((shown.value(value?), at))).collect();
+    let mut layers: Vec<Layer> =
+        found.into_iter().filter_map(|(value, at)| Some((shown_unless_secret(&shown, value?), at))).collect();
     layers.extend(entries(explainer, &format!("{VARS}{name}")));
     layers
 }
@@ -119,7 +125,7 @@ fn entries(explainer: &Explainer<'_>, key: &str) -> Vec<Layer> {
 }
 
 /// `key` is no setting, or a var nothing sets; the closest keys are the help.
-fn unknown(explainer: &Explainer<'_>, key: &str) -> EngineError {
+pub fn unknown(explainer: &Explainer<'_>, key: &str) -> EngineError {
     let mut known: Vec<String> = KEYS.iter().map(|(name, _)| (*name).to_owned()).collect();
     known.extend(explainer.config_vars().into_iter().map(|var| format!("{VARS}{}", var.name)));
     let near = vc_planner::closest(key, known.iter().map(String::as_str));

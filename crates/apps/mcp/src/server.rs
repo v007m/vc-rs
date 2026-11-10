@@ -40,6 +40,12 @@ impl VcServer {
         Self { engine: Arc::new(engine), tools: Arc::new(Tools::standard()), layers: (profiles, sets) }
     }
 
+    /// The engine, shared with the web UI's engine service so both serve one project state.
+    #[must_use]
+    pub fn engine(&self) -> Arc<Engine> {
+        Arc::clone(&self.engine)
+    }
+
     /// Serves MCP over this process's stdin and stdout until the agent closes them.
     ///
     /// # Errors

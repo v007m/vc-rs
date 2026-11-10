@@ -7,7 +7,7 @@
 use std::time::Duration;
 
 use http::HeaderMap;
-use vc_model::{Bodies, Exchange, Timing};
+use vc_model::{Bodies, Exchange, Timing, cut_body};
 
 use crate::view::{ExchangeView, TimingView};
 
@@ -32,8 +32,8 @@ impl Keeping {
 
 /// `exchange` with its bodies cut at `max_body` bytes; the caller names the action and api.
 pub fn view(exchange: &Exchange, max_body: usize) -> ExchangeView {
-    let (request_body, request_cut) = cut(&exchange.request.body, max_body);
-    let (response_body, response_cut) = cut(&exchange.response.body, max_body);
+    let (request_body, request_cut) = cut_body(&exchange.request.body, max_body);
+    let (response_body, response_cut) = cut_body(&exchange.response.body, max_body);
     ExchangeView {
         action: String::new(),
         api: None,
@@ -52,19 +52,6 @@ pub fn view(exchange: &Exchange, max_body: usize) -> ExchangeView {
 /// The same exchange without its bodies.
 pub fn without_bodies(view: ExchangeView) -> ExchangeView {
     ExchangeView { request_body: None, response_body: None, truncated: false, ..view }
-}
-
-/// `body` as text, at most `max` bytes, ending on a character boundary; and whether it was cut.
-fn cut(body: &[u8], max: usize) -> (Option<String>, bool) {
-    if body.is_empty() {
-        return (None, false);
-    }
-    let text = String::from_utf8_lossy(body);
-    if text.len() <= max {
-        return (Some(text.into_owned()), false);
-    }
-    let end = text.floor_char_boundary(max);
-    (Some(text.get(..end).unwrap_or_default().to_owned()), true)
 }
 
 fn headers(map: &HeaderMap) -> Vec<(String, String)> {

@@ -1,0 +1,16 @@
+# D101: what `mise run proto` generates from proto/. Every output is checked in and CI fails on drift.
+version: v2
+clean: true
+inputs:
+  - directory: proto
+plugins:
+  # vc-contracts' Rust types (prost 0.14). The task marks each file @generated afterwards.
+  - local: protoc-gen-prost
+    out: crates/contracts/src/gen
+    # One file per package, named after it, as the include! lines in src/lib.rs expect.
+    opt: flat_output_dir
+  # The web UI's TypeScript types and service descriptors (protobuf-es 2), from web/'s pinned
+  # @bufbuild/protoc-gen-es; `pnpm install` puts it there.
+  - local: web/node_modules/.bin/protoc-gen-es
+    out: web/src/lib/gen
+    opt: target=ts

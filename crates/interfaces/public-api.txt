@@ -440,11 +440,15 @@ impl core::fmt::Display for vc_interfaces::SecretError
 pub fn vc_interfaces::SecretError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::SecretError
 #[non_exhaustive] pub enum vc_interfaces::SourceError
+pub vc_interfaces::SourceError::Changed
+pub vc_interfaces::SourceError::Changed::path: alloc::string::String
 pub vc_interfaces::SourceError::InvalidGlob
 pub vc_interfaces::SourceError::InvalidGlob::glob: alloc::string::String
 pub vc_interfaces::SourceError::InvalidGlob::reason: alloc::string::String
 pub vc_interfaces::SourceError::InvalidPath
 pub vc_interfaces::SourceError::InvalidPath::path: alloc::string::String
+pub vc_interfaces::SourceError::Missing
+pub vc_interfaces::SourceError::Missing::path: alloc::string::String
 pub vc_interfaces::SourceError::NotUtf8
 pub vc_interfaces::SourceError::NotUtf8::path: alloc::string::String
 pub vc_interfaces::SourceError::OutsideRoot
@@ -1073,6 +1077,17 @@ pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -
 impl core::fmt::Display for vc_interfaces::KeychainError
 pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::KeychainError
+pub struct vc_interfaces::LoggedAction
+pub vc_interfaces::LoggedAction::action: vc_interfaces::AgentAction
+pub vc_interfaces::LoggedAction::at_ms: u64
+impl core::clone::Clone for vc_interfaces::LoggedAction
+pub fn vc_interfaces::LoggedAction::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::LoggedAction
+impl core::cmp::PartialEq for vc_interfaces::LoggedAction
+pub fn vc_interfaces::LoggedAction::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::LoggedAction
+pub fn vc_interfaces::LoggedAction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::LoggedAction
 pub struct vc_interfaces::Notice
 pub vc_interfaces::Notice::breaches: alloc::vec::Vec<alloc::string::String>
 pub vc_interfaces::Notice::failures: alloc::vec::Vec<vc_interfaces::NoticeFailure>
@@ -1413,6 +1428,10 @@ pub const vc_interfaces::PERMISSION_DENIED: i64
 pub const vc_interfaces::PLUGINS_DIR: &str
 pub trait vc_interfaces::ActionRunner: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::ActionRunner::run<'life0, 'async_trait>(&'life0 self) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Credentials, vc_interfaces::AuthError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
+pub trait vc_interfaces::AgentActionLog: vc_interfaces::AgentActionWriter + vc_interfaces::AgentActionReader
+impl<T: vc_interfaces::AgentActionWriter + vc_interfaces::AgentActionReader + ?core::marker::Sized> vc_interfaces::AgentActionLog for T
+pub trait vc_interfaces::AgentActionReader: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::AgentActionReader::recent(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::LoggedAction>, vc_interfaces::ApprovalError>
 pub trait vc_interfaces::AgentActionWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::AgentActionWriter::record(&self, &vc_interfaces::AgentAction) -> core::result::Result<(), vc_interfaces::ApprovalError>
 pub trait vc_interfaces::Approvals: core::marker::Send + core::marker::Sync
@@ -1493,10 +1512,12 @@ pub trait vc_interfaces::SecretProvider: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SecretProvider::load<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 vc_interfaces::SecretQuery) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Secrets, vc_interfaces::SecretError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub trait vc_interfaces::SourceProvider: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceProvider::discover(&self, &vc_interfaces::SourceFilter) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceProvider::ignores(&self, &vc_model::source::SourcePath) -> bool
 pub fn vc_interfaces::SourceProvider::read(&self, &[vc_model::source::SourcePath]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
 pub trait vc_interfaces::SourceWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceWriter::remove(&self, &vc_model::source::SourcePath) -> core::result::Result<(), vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceWriter::write(&self, &vc_model::source::SourcePath, &str) -> core::result::Result<(), vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceWriter::write_unchanged(&self, &vc_model::source::SourcePath, &str, core::option::Option<vc_model::source::ContentHash>) -> core::result::Result<(), vc_interfaces::SourceError>
 pub trait vc_interfaces::SpecFetcher: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SpecFetcher::decode(&self, &str, &[u8]) -> core::result::Result<serde_json::value::Value, vc_interfaces::FetchError>
 pub fn vc_interfaces::SpecFetcher::fetch<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<u8>, vc_interfaces::FetchError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait

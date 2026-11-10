@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use ignore::{DirEntry, WalkBuilder};
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter};
-use vc_model::SourcePath;
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter, content_hash};
+use vc_model::{ContentHash, SourcePath, hidden_part};
 
 /// Reads a project's definition files from disk, and lists the other files as assets; reads
 /// any file by path on request.
@@ -10,7 +10,8 @@ use vc_model::SourcePath;
 /// Walks the root with `ignore`, so `.gitignore` (and `.ignore`) files are respected even
 /// outside a git repository; the user's global git excludes are not, so every machine finds
 /// the same files. Folders the filter excludes are not entered. Links to folders are not
-/// followed; a link to a file is read only when its target is inside the root.
+/// followed; a link to a file is read only when its target is inside the root and, unless the
+/// link's own path is hidden, outside every hidden file and folder.
 #[derive(Clone, Debug)]
 pub struct FsSources {
     root: PathBuf,
@@ -33,10 +34,16 @@ impl FsSources {
         &self.root
     }
 
-    fn walk(&self, filter: &SourceFilter) -> ignore::Walk {
-        let (root, dirs) = (self.root.clone(), filter.clone());
+    /// The walk discovery makes from the root, before any filter is added.
+    fn builder(&self) -> WalkBuilder {
         let mut walk = WalkBuilder::new(&self.root);
         walk.hidden(false).git_global(false).require_git(false).follow_links(false);
+        walk
+    }
+
+    fn walk(&self, filter: &SourceFilter) -> ignore::Walk {
+        let (root, dirs) = (self.root.clone(), filter.clone());
+        let mut walk = self.builder();
         walk.filter_entry(move |entry| relative(&root, entry.path()).is_none_or(|(text, _)| !dirs.skips(&text)));
         walk.build()
     }
@@ -61,9 +68,12 @@ impl FsSources {
 
     /// Reads the file through its resolved path, so a link cannot lead out of the root.
     fn load(&self, path: SourcePath, on_disk: &Path) -> Result<vc_model::SourceFile, SourceError> {
-        let failed = |error: std::io::Error| SourceError::Read { path: path.to_string(), reason: error.to_string() };
+        let failed = |error: std::io::Error| match error.kind() {
+            std::io::ErrorKind::NotFound => SourceError::Missing { path: path.to_string() },
+            _ => SourceError::Read { path: path.to_string(), reason: error.to_string() },
+        };
         let target = std::fs::canonicalize(on_disk).map_err(failed)?;
-        if !target.starts_with(&self.root) {
+        if !self.leads_in(&path, &target) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
         if target.is_dir() {
@@ -104,6 +114,17 @@ impl SourceProvider for FsSources {
         found.sort();
         Ok(found)
     }
+
+    /// Walks only the folders on the way to `path`, with the same ignore rules as
+    /// [`SourceProvider::discover`], so a file in an ignored folder is never reached. Discovery
+    /// does not follow a link to a folder, so a path under one, there or not yet, is left out
+    /// too. A file or folder not there yet is matched against the ignore files in the folders
+    /// above it.
+    fn ignores(&self, path: &SourcePath) -> bool {
+        let target = self.root.join(path.as_str());
+        let Some(nearest) = target.ancestors().find(|at| at.symlink_metadata().is_ok()) else { return false };
+        self.under_link(&target) || !self.reached(nearest) || (nearest != target && name_ignored(&target))
+    }
 }
 
 impl SourceWriter for FsSources {
@@ -115,6 +136,25 @@ impl SourceWriter for FsSources {
             std::fs::create_dir_all(folder).map_err(|error| write_error(path, &error))?;
         }
         std::fs::write(&target, text).map_err(|error| write_error(path, &error))
+    }
+
+    /// Checks the hash of the file at `path` (of what a link there leads to, inside the root)
+    /// against `was` before anything is created, then writes the text to a hidden file beside
+    /// it, checks the hash again, and renames the hidden file over it, which replaces it at once
+    /// on Unix and Windows. A refused save creates no folder, and the hidden file is removed
+    /// when anything after it fails.
+    fn write_unchanged(&self, path: &SourcePath, text: &str, was: Option<ContentHash>) -> Result<(), SourceError> {
+        let target = self.resolved(path)?;
+        unchanged(path, &target, was)?;
+        let temp = temp_beside(&target);
+        let written = stage(&target, &temp, text)
+            .map_err(|error| write_error(path, &error))
+            .and_then(|()| unchanged(path, &target, was))
+            .and_then(|()| std::fs::rename(&temp, &target).map_err(|error| write_error(path, &error)));
+        if written.is_err() {
+            let _ = std::fs::remove_file(&temp);
+        }
+        written
     }
 
     /// Removes only inside the root, as [`FsSources::write`] writes.
@@ -131,10 +171,50 @@ impl FsSources {
         let target = self.root.join(path.as_str());
         let existing = target.ancestors().find(|at| at.symlink_metadata().is_ok()).unwrap_or(&self.root);
         let resolved = std::fs::canonicalize(existing).map_err(|error| write_error(path, &error))?;
-        if !resolved.starts_with(&self.root) {
+        if !self.leads_in(path, &resolved) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
         Ok(target)
+    }
+
+    /// Where `path` is on disk, as [`FsSources::inside`] finds it, with a link at its end
+    /// followed once its target is known to be inside the root.
+    fn resolved(&self, path: &SourcePath) -> Result<PathBuf, SourceError> {
+        let target = self.inside(path)?;
+        match std::fs::canonicalize(&target) {
+            Ok(real) if self.leads_in(path, &real) => Ok(real),
+            Ok(_) => Err(SourceError::OutsideRoot { path: path.to_string() }),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(target),
+            Err(error) => Err(write_error(path, &error)),
+        }
+    }
+
+    /// Whether `resolved`, where `path` leads on disk, is inside the root and, unless `path`
+    /// itself names a hidden file or folder, outside every hidden one: a link named
+    /// `x.test.yaml` cannot open `.env`.
+    fn leads_in(&self, path: &SourcePath, resolved: &Path) -> bool {
+        let Ok(rest) = resolved.strip_prefix(&self.root) else { return false };
+        let hidden = rest.components().any(|part| hidden_part(&part.as_os_str().to_string_lossy()));
+        !hidden || path.is_hidden()
+    }
+
+    /// Whether discovery's walk reaches `at`, which is there: no ignore file leaves it or a
+    /// folder above it out, and no link to a folder leads to it.
+    /// Whether a folder between the root and `target` is a link, which discovery never walks
+    /// into.
+    fn under_link(&self, target: &Path) -> bool {
+        let folders = target.ancestors().skip(1).take_while(|at| *at != self.root);
+        folders.filter_map(|at| at.symlink_metadata().ok()).any(|found| found.file_type().is_symlink())
+    }
+
+    fn reached(&self, at: &Path) -> bool {
+        if at == self.root {
+            return true;
+        }
+        let on_the_way: Vec<PathBuf> = at.ancestors().map(Path::to_path_buf).collect();
+        let mut walk = self.builder();
+        walk.filter_entry(move |entry| on_the_way.iter().any(|folder| folder == entry.path()));
+        walk.build().flatten().any(|entry| entry.path() == at)
     }
 
     fn walk_problem(&self, error: &ignore::Error) -> SourceError {
@@ -153,6 +233,57 @@ fn relative(root: &Path, path: &Path) -> Option<(String, bool)> {
     }
     let utf8 = parts.iter().all(|part| part.to_str().is_some());
     Some((parts.iter().map(|part| part.to_string_lossy()).collect::<Vec<_>>().join("/"), utf8))
+}
+
+/// Whether an ignore file in a folder above `target`, which is not there, leaves it or a folder
+/// it would be in out: the nearest file that matches decides, `.ignore` before `.gitignore`, as
+/// the walk reads them.
+fn name_ignored(target: &Path) -> bool {
+    let files = target.ancestors().skip(1).flat_map(|folder| [folder.join(".ignore"), folder.join(".gitignore")]);
+    let decide = |file: PathBuf| {
+        let (rules, _) = ignore::gitignore::Gitignore::new(file);
+        let matched = rules.matched_path_or_any_parents(target, false);
+        (!matched.is_none()).then(|| matched.is_ignore())
+    };
+    files.filter(|file| file.is_file()).find_map(decide).unwrap_or(false)
+}
+
+/// A hidden file beside `target` for one write to stage its text in, named after the file, the
+/// process, the thread and the time, so two writes never share one.
+fn temp_beside(target: &Path) -> PathBuf {
+    let name = target.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    let thread: String = format!("{:?}", std::thread::current().id()).chars().filter(char::is_ascii_digit).collect();
+    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos();
+    target.with_file_name(format!(".{name}.{}-{thread}-{nanos}.vc-tmp", std::process::id()))
+}
+
+/// Writes `text` to `temp`, a new file, with the folders it needs and the permissions of
+/// `target` when it exists; a read-only `target` is refused, as a plain write refuses it.
+fn stage(target: &Path, temp: &Path, text: &str) -> std::io::Result<()> {
+    let kept = std::fs::metadata(target).ok().map(|found| found.permissions());
+    if kept.as_ref().is_some_and(std::fs::Permissions::readonly) {
+        return Err(std::io::ErrorKind::PermissionDenied.into());
+    }
+    if let Some(folder) = target.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(temp)?;
+    std::io::Write::write_all(&mut file, text.as_bytes())?;
+    if let Some(kept) = kept {
+        file.set_permissions(kept)?;
+    }
+    file.sync_all()
+}
+
+/// Refuses with [`SourceError::Changed`] unless the file at `target` hashes to `was`, or, for
+/// `None`, is not there.
+fn unchanged(path: &SourcePath, target: &Path, was: Option<ContentHash>) -> Result<(), SourceError> {
+    let now = match std::fs::read(target) {
+        Ok(bytes) => Some(content_hash(&bytes)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => return Err(write_error(path, &error)),
+    };
+    if now == was { Ok(()) } else { Err(SourceError::Changed { path: path.to_string() }) }
 }
 
 fn write_error(path: &SourcePath, error: &std::io::Error) -> SourceError {

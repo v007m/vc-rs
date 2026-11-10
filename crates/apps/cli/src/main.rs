@@ -37,6 +37,7 @@ mod schema;
 mod select;
 mod skip;
 mod tui;
+mod ui;
 mod watch;
 
 use outcome::Outcome;
@@ -112,6 +113,8 @@ enum Command {
     Mcp(mcp::McpArgs),
     /// Opens the terminal UI.
     Tui(tui::TuiArgs),
+    /// Starts the local web UI, and MCP at `/mcp`, on 127.0.0.1 and opens it in a browser.
+    Ui(ui::UiArgs),
     /// Starts or stops the demo service the `vc init` sample calls.
     Demo(demo::DemoArgs),
     /// Prints the shell completion script for bash, zsh, fish or powershell.
@@ -163,6 +166,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Plugin(args) => plugin::run(&args, project),
         Command::Mcp(args) => mcp::run(&args, project),
         Command::Tui(args) => tui::run(&args, project),
+        Command::Ui(args) => ui::run(&args, project),
         Command::Demo(args) => demo::run(&args),
         Command::Completion(args) => completion::run(&args),
         Command::Complete(args) => completion::complete(&args, project),

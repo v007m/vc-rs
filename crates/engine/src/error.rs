@@ -86,6 +86,13 @@ pub enum EngineError {
         /// What to do instead, when the engine knows.
         help: Option<String>,
     },
+    /// An editor's save was refused, so nothing was written: the file changed, appeared or was
+    /// removed since the editor opened it.
+    #[error("{reason}")]
+    Stale {
+        /// The file and what happened to it.
+        reason: String,
+    },
     /// The agent policy refused an agent's call, or no one approved it in time (D195).
     #[error("refused: {reason}")]
     Refused {
@@ -123,6 +130,9 @@ impl EngineError {
             | Self::Cache { help, .. }
             | Self::Edit { help, .. }
             | Self::Refused { help, .. } => help.clone(),
+            Self::Stale { .. } => {
+                Some("open the file again to see it as it is now, then make the change there".to_owned())
+            }
             _ => None,
         }
     }

@@ -53,7 +53,7 @@ mod vcs_suite;
 mod watcher_suite;
 
 pub use action_cache_suite::{MakeCacheStore, cache_store_suite};
-pub use approvals_suite::{MakeApprovals, agent_action_writer_suite, approvals_suite};
+pub use approvals_suite::{MakeApprovals, agent_action_reader_suite, agent_action_writer_suite, approvals_suite};
 pub use auth_suite::{action_runner_suite, auth_provider_suite, browser_suite, keychain_suite};
 pub use cache_suite::{MakeCompileCache, compile_cache_store_suite};
 pub use clock_suite::clock_suite;
