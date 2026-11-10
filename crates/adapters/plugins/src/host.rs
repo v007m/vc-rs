@@ -189,7 +189,10 @@ impl PluginHost for StdioPluginHost {
 ///
 /// Why the data folder cannot be used; the log's own failure comes back inside, as the plugin
 /// still starts without it.
-fn prepare(data: Option<&(PathBuf, PathBuf)>, log: Option<&(PathBuf, PathBuf)>) -> io::Result<Option<io::Result<File>>> {
+fn prepare(
+    data: Option<&(PathBuf, PathBuf)>,
+    log: Option<&(PathBuf, PathBuf)>,
+) -> io::Result<Option<io::Result<File>>> {
     if let Some((home, under)) = data {
         owned::folder(home, under)?;
     }

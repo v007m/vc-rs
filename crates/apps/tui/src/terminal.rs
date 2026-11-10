@@ -182,13 +182,13 @@ impl PanicRestore {
         let up = Arc::new(AtomicBool::new(true));
         let ui_up = Arc::clone(&up);
         let ui = std::thread::current().id();
-        let (hold, held) = std_mpsc::channel();
+        let (keep, held) = std_mpsc::channel();
         panic::set_hook(Box::new(move |info| {
             if std::thread::current().id() == ui && ui_up.swap(false, Ordering::SeqCst) {
                 restore();
             }
             if ui_up.load(Ordering::SeqCst) {
-                let _ = hold.send(told(info));
+                let _ = keep.send(told(info));
             } else {
                 chained(info);
             }
