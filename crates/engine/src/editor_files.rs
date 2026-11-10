@@ -30,6 +30,17 @@ const PATH_HELP: &str =
 const LEFT_OUT_HELP: &str =
     "pick a path the project reads, or change `paths` in vibranium.config.yaml or the ignore file that leaves it out";
 
+/// What a path the editor opens holds, which decides when it opens and whether it is checked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EditorKind {
+    /// `vibranium.config.yaml`: always read, so it opens even when the `paths` globs do not parse.
+    Config,
+    /// The root `.env.schema`: secret names, always read, never checked as a definition (D247).
+    SecretsSchema,
+    /// An api, test or load file outside a hidden folder: opens when discovery reads it.
+    Definition,
+}
+
 /// A project file as the editor opens it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -77,7 +88,7 @@ impl Engine {
     /// [`EngineError::Sources`] when it cannot be read or is not UTF-8, or the config's `paths`
     /// globs do not parse.
     pub fn read_file(&self, path: &str) -> Result<OpenedFile, EngineError> {
-        let path = self.editable(path)?;
+        let (path, _) = self.editable(path)?;
         let file = self.current(&path)?.ok_or_else(|| EngineError::NoFilesMatch { path: path.to_string() })?;
         Ok(OpenedFile { digest: hex(file.hash.as_bytes()), text: file.text })
     }
@@ -92,7 +103,7 @@ impl Engine {
     /// changed, appeared or was removed since it was opened; [`EngineError::Sources`] when it
     /// cannot be written.
     pub fn save_file(&self, request: &SaveFile) -> Result<SavedFile, EngineError> {
-        let path = self.editable(&request.path)?;
+        let (path, _) = self.editable(&request.path)?;
         let before = self.current(&path)?;
         fresh(&path, before.as_ref(), request.expected_digest.as_deref())?;
         let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
@@ -113,12 +124,15 @@ impl Engine {
     ///
     /// [`EngineError::Edit`] and [`EngineError::Sources`] as [`Engine::read_file`].
     pub(crate) fn editor_path(&self, text: &str) -> Result<SourcePath, EngineError> {
-        let path = self.editable(text)?;
-        if path.as_str() == DEFAULT_SECRETS_SCHEMA {
-            return Err(refused(format!("`{path}` is not a definition file to check"), PATH_HELP));
+        match self.editable(text)? {
+            (path, EditorKind::SecretsSchema) => {
+                Err(refused(format!("`{path}` is not a definition file to check"), PATH_HELP))
+            }
+            (path, EditorKind::Config | EditorKind::Definition) => {
+                self.current(&path)?;
+                Ok(path)
+            }
         }
-        self.current(&path)?;
-        Ok(path)
     }
 
     /// The file at `path` as it is now; `None` when there is no file there. A file that is there
@@ -138,11 +152,14 @@ impl Engine {
     /// `text` as a definition path the editor opens ([`definition`]) that discovery would read:
     /// the config's `paths` globs and the project's ignore files keep it in. The config and
     /// `.env.schema` are always read, so they open even when the globs do not parse.
-    fn editable(&self, text: &str) -> Result<SourcePath, EngineError> {
-        let path = definition(text)?;
-        let root = path.as_str() == DEFAULT_SECRETS_SCHEMA || FileKind::from_path(&path) == Some(FileKind::Config);
-        if root || (self.source_filter()?.allows(&path) && !self.sources.ignores(&path)) {
-            return Ok(path);
+    fn editable(&self, text: &str) -> Result<(SourcePath, EditorKind), EngineError> {
+        let (path, kind) = definition(text)?;
+        let read = match kind {
+            EditorKind::Config | EditorKind::SecretsSchema => true,
+            EditorKind::Definition => self.source_filter()?.allows(&path) && !self.sources.ignores(&path),
+        };
+        if read {
+            return Ok((path, kind));
         }
         Err(refused(format!("`{path}` is a path the project leaves out of discovery"), LEFT_OUT_HELP))
     }
@@ -151,16 +168,22 @@ impl Engine {
 /// `text` as a project path naming the config, the root `.env.schema` (D247) or an api, test or
 /// load file outside a hidden folder. No other hidden path opens: not `.env`, not `.env.local`,
 /// not a `.env.schema` in a folder.
-fn definition(text: &str) -> Result<SourcePath, EngineError> {
+fn definition(text: &str) -> Result<(SourcePath, EditorKind), EngineError> {
     let path =
         SourcePath::new(text).map_err(|_| refused(format!("`{text}` is not a path in the project"), PATH_HELP))?;
-    if path.as_str() == DEFAULT_SECRETS_SCHEMA {
-        return Ok(path);
-    }
-    match FileKind::from_path(&path) {
-        Some(_) if !path.is_hidden() => Ok(path),
-        _ => Err(refused(format!("`{text}` is not a definition file the editor opens"), PATH_HELP)),
-    }
+    let kind = match FileKind::from_path(&path) {
+        _ if path.as_str() == DEFAULT_SECRETS_SCHEMA => EditorKind::SecretsSchema,
+        Some(_) if path.is_hidden() => return Err(not_opened(text)),
+        Some(FileKind::Config) => EditorKind::Config,
+        Some(_) => EditorKind::Definition,
+        None => return Err(not_opened(text)),
+    };
+    Ok((path, kind))
+}
+
+/// The refusal of `text`, which names no file the editor opens.
+fn not_opened(text: &str) -> EngineError {
+    refused(format!("`{text}` is not a definition file the editor opens"), PATH_HELP)
 }
 
 /// Whether the file at `path`, `before`, is the one the editor opened with `expected`.
