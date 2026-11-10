@@ -1204,7 +1204,7 @@ M5 stream B adds these commands:
 
 - **`vc explain <code>`** prints `Code::explain()`, the page from `crates/diagnostics/explain/<code>.md`, which is built into the binary with `include_str!`. Headings lose their `#`s and example lines are indented without their fences. It needs no project. A code with no page yet prints its title alone.
 - **`vc explain <id>`** calls `Engine::explain(target, &ExplainRequest { profiles, sets })`. It resolves the settings as `vc plan` does, then shows the api or test for the active profile: the request line with the final URL, vars with their level, auth, the merged `expect`, steps, and lifecycle and cleanup.
-- **`vc config explain <key>`** calls `Engine::config_explain`. It lists the layer that set the value, then each value it replaced (`  over 30s  (built-in)`). An unknown key is an `EngineError::Selection` with the closest key.
+- **`vc config explain <key>`** calls `Engine::config_explain`, which is `Engine::config_values` for one key printed as text, so its values are masked the same way (D232). It lists the layer that set the value, then each value it replaced (`  over 30s  (built-in)`). An unknown key is an `EngineError::Selection` with the closest key.
 - **`vc completion <shell>`** writes the `clap_complete` script for bash, zsh, fish or PowerShell, plus a short hook. The hook calls the hidden `vc __complete <command|flag> <word>`, which prints `Engine::complete(CompleteKind, prefix)`, one candidate per line:
   - `Tests`: file and test IDs, after `run`, `plan` and `list`.
   - `Apis`: api file and api IDs, after `call`.

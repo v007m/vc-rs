@@ -51,8 +51,9 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// As [`Engine::config_explain`]: [`EngineError::Selection`] for a key that is no setting
-    /// or a var nothing sets, with the closest keys as help.
+    /// [`EngineError::Invalid`] when the project has errors, [`EngineError::Setting`] for a bad
+    /// setting or an unknown profile, and [`EngineError::Selection`] for a key that is no
+    /// setting or a var nothing sets, with the closest keys as help.
     pub async fn config_values(&self, keys: &[String], request: &ExplainRequest) -> Result<ConfigValues, EngineError> {
         let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
         let mut layered = self.layered(&request.sets, &flags)?;

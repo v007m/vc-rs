@@ -84,3 +84,12 @@ async fn secrets_that_cannot_load_mask_every_value_but_the_built_in_ones() {
     assert!(found.notices.iter().any(|notice| notice.contains("is masked")), "{:?}", found.notices);
     assert!(!format!("{found:?}").contains(SECRET));
 }
+
+#[tokio::test]
+async fn config_explain_prints_a_secret_masked() {
+    let report = project(CONFIG).config_explain("vars.note", &ExplainRequest::default()).await.unwrap();
+    assert_eq!(
+        report.text,
+        format!("vars.note = {MASKED}  (VIB_VAR_note)\n  over sent {MASKED}  (vibranium.config.yaml)\n")
+    );
+}

@@ -432,6 +432,7 @@ Round 36 additions (10 November 2026, M9 lane C: the Connect layer, the local we
 | D229 | `ExplainConfig` (orchestrator; Sarath away) | The web UI's effective settings are masked by the redactor a run would use: a declared secret's value wherever it appears, a var named like a declared secret or a `redact.fields` entry whole, then `redact.rules`, in every layer including those replaced. When the secrets cannot be loaded, every value but the built-in ones is masked and a notice says so | — |
 | D230 | A pasted import's name (orchestrator; Sarath away) | An `Import` given text names its snapshot after the spec's or recording's title, since the browser gives no file name | — |
 | D231 | Links into hidden files (orchestrator; Sarath away) | The file source refuses a path that resolves out of the project or, through a link, into a hidden file or folder the path does not name. This holds for every command, so `vc check`, `vc run` and authoring refuse such links as well as the editor | — |
+| D232 | `vc config explain` masks secrets (orchestrator; Sarath away; **flagged for Sarath**, a security fix) | `vc config explain` masks every value as `ExplainConfig` does (D229): a declared secret's value wherever it appears, in the replaced layers too, and a var named like a secret whole; when the secrets cannot be loaded, every value but the built-in ones is masked and a warning says so. It used to print them raw | — |
 
 ## Open
 
