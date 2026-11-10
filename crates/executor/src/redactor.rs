@@ -13,8 +13,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use serde_json::Value;
-use vc_model::{ActionOutcome, CheckKind, CheckResult, Config, Event, Failure, Segment, TestResult};
+use serde_json::{Map, Value};
+use vc_model::{ActionOutcome, CheckKind, CheckResult, Config, Event, Exchange, Failure, Segment, TestResult};
 
 use crate::EventBus;
 use crate::mask::{MaskRule, MaskRules, Masking, Masks};
@@ -86,6 +86,12 @@ impl Redactor {
         }
     }
 
+    /// Whether the header `name` (any case) is masked: always-masked, or in `redact.headers`.
+    #[must_use]
+    pub fn hides_header(&self, name: &str) -> bool {
+        self.masks.load().hides_header(&name.to_ascii_lowercase())
+    }
+
     /// `text` with every secret value masked: the built-in masking only, for what cannot
     /// wait; events get the rules too.
     #[must_use]
@@ -106,17 +112,38 @@ impl Redactor {
         Masking { masks: &masks, rules: &self.rules }.value(value).await
     }
 
+    /// `text` with the built-in masking, then the rules in order, as an event's text is.
+    pub async fn masked_text(&self, text: &str) -> String {
+        let masks = self.masks.load_full();
+        Masking { masks: &masks, rules: &self.rules }.text(text).await
+    }
+
+    /// `exchange` masked as its `Exchanged` event is: the built-in masking, then the rules.
+    pub async fn exchange(&self, exchange: Exchange) -> Exchange {
+        let masks = self.masks.load_full();
+        crate::exchange_mask::exchange(&Masking { masks: &masks, rules: &self.rules }, exchange).await
+    }
+
+    /// `check` masked as its `CheckEvaluated` event is: the built-in masking, then the rules.
+    pub async fn checked(&self, check: CheckResult) -> CheckResult {
+        let masks = self.masks.load_full();
+        checked(&Masking { masks: &masks, rules: &self.rules }, check).await
+    }
+
     /// `check` with the built-in masking: a masked header's expected and actual values
-    /// replaced by [`MASKED`], and every secret value and hidden field masked in the rest; its
-    /// diff is made again from the masked values. Its event gets the rules too.
+    /// replaced by [`MASKED`], and every secret value and hidden field masked in the rest, a
+    /// `body.match` value as it would be at its path in the body; its diff is made again from
+    /// the masked values. Its event gets the rules too.
     #[must_use]
     pub fn check(&self, check: CheckResult) -> CheckResult {
         let masks = self.masks.load();
         if hides_header(&masks, &check) {
             return header_masked(check);
         }
-        let (expected, actual) = (masks.value(check.expected), check.actual.map(|actual| masks.value(actual)));
-        let error = check.error.map(|error| masks.without_values(&error));
+        let path = body_path(&check);
+        let mask = |value: Value| unplaced(&path, masks.value(placed(&path, value)));
+        let (expected, actual) = (mask(check.expected), check.actual.map(mask));
+        let error = check.error.map(|error| hidden_error(actual.as_ref(), masks.without_values(&error)));
         rediffed(CheckResult { expected, actual, error, ..check })
     }
 
@@ -181,13 +208,47 @@ async fn checked(masking: &Masking<'_>, check: CheckResult) -> CheckResult {
     if hides_header(masking.masks, &check) {
         return header_masked(check);
     }
-    let expected = masking.value(check.expected).await;
+    let path = body_path(&check);
+    let expected = unplaced(&path, masking.value(placed(&path, check.expected)).await);
     let actual = match check.actual {
-        Some(actual) => Some(masking.value(actual).await),
+        Some(actual) => Some(unplaced(&path, masking.value(placed(&path, actual)).await)),
         None => None,
     };
-    let error = text_of(masking, check.error).await;
+    let error = text_of(masking, check.error).await.map(|error| hidden_error(actual.as_ref(), error));
     rediffed(CheckResult { expected, actual, error, ..check })
+}
+
+/// The path in the body a `body.match` check reads; empty for every other check.
+fn body_path(check: &CheckResult) -> Vec<Segment> {
+    match &check.target {
+        Some(path) if check.kind == CheckKind::Match => path.segments.clone(),
+        _ => Vec::new(),
+    }
+}
+
+/// `value` put back at `path`, `{"profile": {"password": value}}`, so a hidden field on the way
+/// masks it as it would in the body.
+fn placed(path: &[Segment], value: Value) -> Value {
+    path.iter().rev().fold(value, |inner, segment| match segment {
+        Segment::Key(name) => Value::Object(Map::from_iter([(name.clone(), inner)])),
+        Segment::Index(_) | Segment::All => Value::Array(vec![inner]),
+    })
+}
+
+/// The value at `path` in what [`placed`] built, once masked; [`MASKED`] when a field on the way
+/// was masked whole.
+fn unplaced(path: &[Segment], value: Value) -> Value {
+    let taken = path.iter().try_fold(value, |outer, segment| match (segment, outer) {
+        (Segment::Key(name), Value::Object(mut fields)) => fields.remove(name),
+        (Segment::Index(_) | Segment::All, Value::Array(items)) => items.into_iter().next(),
+        _ => None,
+    });
+    taken.unwrap_or_else(|| Value::String(MASKED.to_owned()))
+}
+
+/// A check's `error`, masked whole when its actual value was: the error may quote it.
+fn hidden_error(actual: Option<&Value>, error: String) -> String {
+    if actual.and_then(Value::as_str) == Some(MASKED) { MASKED.to_owned() } else { error }
 }
 
 async fn text_of(masking: &Masking<'_>, text: Option<String>) -> Option<String> {
