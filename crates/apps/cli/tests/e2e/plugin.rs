@@ -1,7 +1,8 @@
 //! `vc plugin add` from a folder asks before it installs, records what the plugin may reach in
 //! `vibranium.lock`, and `vc plugin list` and `remove` read and undo it. A reporter plugin named
 //! in `reports.formats` gets the run's events, reads the secret the lock grants, is refused one
-//! it does not, and writes its report.
+//! it does not, and writes its report. An auth plugin named by a `type: plugin` definition signs
+//! requests with the headers and cookies it answers.
 
 use std::fs;
 use std::process::Command;
@@ -76,4 +77,50 @@ async fn a_reporter_plugin_reads_its_granted_secret_only_and_writes_its_report()
     assert_eq!(lines[0], "status passed", "{report}");
     assert!(lines[1].strip_prefix("events ").unwrap().parse::<u32>().unwrap() > 0, "{report}");
     assert_eq!(lines[2..], ["reportToken 8 chars", "apiKey refused -32001"], "{report}");
+}
+
+/// An auth plugin that answers with a header from its config and a session cookie.
+const STAMP_PY: &str = include_str!("../fixtures/plugin/stamp.py");
+
+/// A project whose `partnerStamp` auth is the `stamp` plugin, with a secret in its `config`, and
+/// whose two tests call an echo api with it, expecting what the plugin answered the first time.
+fn stamped() -> Project {
+    let config = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\n\
+                  auth:\n  - id: partnerStamp\n    type: plugin\n    plugin: stamp\n\
+                  \x20   config: {tenant: eu, key: '${secret.STAMP_KEY}'}\n";
+    let apis = "baseUrl: ${var.baseUrl}\napis:\n  - id: echo\n    path: /echo\n    auth: partnerStamp\n\
+                \x20   expect:\n      body:\n        match:\n          \"headers['x-stamp']\": eu:k3y\n\
+                \x20         \"headers['x-calls']\": '1'\n          headers.cookie: session=s-partnerStamp\n";
+    let tests =
+        "tests:\n  - id: echoesStamped\n    call: partner#echo\n  - id: echoesStampedAgain\n    call: partner#echo\n";
+    let manifest = "id: stamp\nversion: 0.1.0\nkind: auth\nentry: {command: python3, args: [stamp.py]}\n";
+    Project::new(&[
+        ("vibranium.config.yaml", config),
+        ("services/partner/partner.api.yaml", apis),
+        ("services/partner/stamp.test.yaml", tests),
+        (".env.schema", "STAMP_KEY=\n"),
+        ("plugin/vibranium-plugin.yaml", manifest),
+        ("plugin/stamp.py", STAMP_PY),
+    ])
+}
+
+/// `type: plugin` sends the rendered `config` to the plugin `plugin` names and applies its
+/// headers and cookies; with no `expiresIn` its answer is kept for the run. Before the plugin is
+/// added, the call fails with V5114.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_auth_plugin_signs_every_request_with_what_it_answered_once() {
+    if Command::new("python3").arg("--version").output().is_err() {
+        eprintln!("skipped: no python3 on PATH");
+        return;
+    }
+    let server = MockServer::start().await.unwrap();
+    let project = stamped();
+    let refused = project.run(&server.base_url(), &[]).env("STAMP_KEY", "k3y").output().unwrap();
+    assert_eq!(refused.status.code(), Some(1), "{}", said(&refused));
+    assert!(said(&refused).contains("V5114"), "{}", said(&refused));
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    let run = project.run(&server.base_url(), &["--concurrency", "1"]).env("STAMP_KEY", "k3y").output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    assert_eq!(server.stats().await.unwrap().count("GET /echo"), 2);
 }

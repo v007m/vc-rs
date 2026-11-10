@@ -1,6 +1,6 @@
 //! Hooks (D172): a `beforeRequest` hook signs the request, a `function:` step saves a value, a
 //! custom check judges the response, and a hook past its time or memory budget is stopped and
-//! reported with its TypeScript line.
+//! reported with its TypeScript line. A file-level hook reads a declared secret with `secret(name)`.
 
 use vc_mock_server::MockServer;
 
@@ -91,4 +91,32 @@ async fn a_hook_past_its_time_or_memory_budget_is_stopped_with_its_line() {
         let line = said.split(stopped.as_str()).nth(1).and_then(|rest| rest.split(')').next());
         assert!(matches!(line, Some("3" | "4")), "the loop's TypeScript line for {limit}: {said}");
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "issue: hooks get no secrets; HookBridge never calls HookCall::with_secrets (crates/executor/src/action/hooks/mod.rs)"]
+async fn a_file_level_hook_reads_a_declared_secret() {
+    let server = MockServer::start().await.unwrap();
+    let apis = concat!(
+        "baseUrl: ${var.baseUrl}\nbeforeRequest:\n  - function: ../../hooks/key.ts#addKey\n",
+        "apis:\n  - id: echo\n    method: POST\n    path: /echo\n",
+        "    expect:\n      body:\n        match:\n          \"headers['x-key']\": k3y\n",
+    );
+    let key = concat!(
+        "import type { BeforeRequestHook } from \"@vibranium/sdk\";\n\n",
+        "export const addKey: BeforeRequestHook = ({ request, secret }) => ({\n",
+        "  ...request,\n",
+        "  headers: { ...request.headers, \"x-key\": secret(\"API_KEY\") },\n",
+        "});\n",
+    );
+    let files = [
+        CONFIG,
+        (".env.schema", "API_KEY=\n"),
+        ("hooks/key.ts", key),
+        ("services/keyed/keyed.api.yaml", apis),
+        ("services/keyed/key.test.yaml", "tests:\n  - id: sendsTheKey\n    call: keyed#echo\n"),
+    ];
+    let output = Project::new(&files).run(&server.base_url(), &[]).env("API_KEY", "k3y").output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", crate::said(&output));
+    assert_eq!(server.stats().await.unwrap().count("POST /echo"), 1);
 }

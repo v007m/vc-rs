@@ -23,7 +23,8 @@ type Fields = BTreeMap<String, String>;
 /// An OAuth 2.0 authorization server: `POST /oauth/token` answers the `client_credentials`,
 /// `password`, `refresh_token` and `authorization_code` grants, and `GET /oauth/authorize`
 /// signs in at once and redirects to `redirect_uri` with a code and the `state`.
-/// Its access tokens work on `/auth/me` and last an hour, or `?expiresIn=` seconds.
+/// Its access tokens work on `/auth/me` and last an hour, or `?expiresIn=` seconds. A token URL
+/// with `?audience=` refuses a form whose `audience` field is not that value (`invalid_target`).
 pub fn routes(store: &Store) -> Router {
     Router::new()
         .route("/oauth/token", routing::post(token))
@@ -39,6 +40,9 @@ async fn token(
 ) -> Response {
     if !known_client(&headers, &fields) {
         return refused(StatusCode::UNAUTHORIZED, "invalid_client");
+    }
+    if !audience_holds(&query, &fields) {
+        return refused(StatusCode::BAD_REQUEST, "invalid_target");
     }
     match grant(&store, &fields).await {
         Ok(Some(refresh)) => issue(&store, refresh, lifetime(&query)).await.unwrap_or_else(IntoResponse::into_response),
@@ -109,6 +113,11 @@ async fn authorize(State(store): State<Store>, Query(query): Query<Fields>) -> R
 /// The `expiresIn` the token URL's query asks for, else an hour.
 fn lifetime(query: &Fields) -> u64 {
     query.get("expiresIn").and_then(|secs| secs.parse().ok()).unwrap_or(EXPIRES_IN_SECS)
+}
+
+/// Whether the form names the audience the token URL's `?audience=` asks for, when it asks.
+fn audience_holds(query: &Fields, fields: &Fields) -> bool {
+    query.get("audience").is_none_or(|wanted| fields.get("audience") == Some(wanted))
 }
 
 fn known_client(headers: &HeaderMap, fields: &Fields) -> bool {
