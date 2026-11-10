@@ -9,8 +9,11 @@ import {
 /** The part of the engine client the Agents screen needs, so tests can pass a fake. */
 export type DeskClient = Pick<
   Client<typeof EngineService>,
-  'listApprovals' | 'decideApproval' | 'listAgentActions'
+  'listApprovals' | 'decideApproval' | 'listAgentActions' | 'connection'
 >;
+
+/** Where an MCP client reaches this vc ui and the agent token it sends; held in memory only. */
+export type McpLink = Readonly<{ url: string; token: string }>;
 
 /** How many log entries the screen loads. */
 const logLimit = 200;
@@ -22,6 +25,8 @@ export class AgentDesk {
   error: string | undefined = $state();
   /** The approval being decided, so its buttons stay disabled until the engine answers. */
   deciding: bigint | undefined = $state();
+  link: McpLink | undefined = $state.raw();
+  linkError: string | undefined = $state();
   readonly #client: DeskClient;
 
   constructor(client: DeskClient) {
@@ -58,8 +63,21 @@ export class AgentDesk {
     if (failure) this.error = failure;
   }
 
-  /** Refreshes now and every `ms`; the returned function stops it. */
+  /** Loads the MCP endpoint and agent token once, since they hold while vc ui runs. */
+  async connect(): Promise<void> {
+    if (this.link) return;
+    try {
+      const { mcpUrl, agentToken } = await this.#client.connection({});
+      this.link = { url: mcpUrl, token: agentToken };
+      this.linkError = undefined;
+    } catch (error) {
+      this.linkError = ConnectError.from(error).rawMessage;
+    }
+  }
+
+  /** Loads the MCP endpoint, then refreshes now and every `ms`; the returned function stops it. */
   poll(ms: number): () => void {
+    void this.connect();
     void this.refresh();
     const timer = setInterval(() => void this.refresh(), ms);
     return () => clearInterval(timer);
