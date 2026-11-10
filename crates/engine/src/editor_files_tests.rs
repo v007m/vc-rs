@@ -247,6 +247,7 @@ fn a_link_out_of_the_project_or_to_a_hidden_file_is_not_checked_as_unsaved_text(
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn a_file_that_cannot_be_read_or_is_not_utf8_is_an_error_and_is_never_saved_over() {
     use std::os::unix::fs::PermissionsExt as _;
