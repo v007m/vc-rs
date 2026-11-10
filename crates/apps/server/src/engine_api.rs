@@ -36,6 +36,7 @@ impl EngineApi {
     }
 
     /// The engine.
+    #[cfg(test)]
     pub(crate) fn engine(&self) -> &Engine {
         &self.engine
     }

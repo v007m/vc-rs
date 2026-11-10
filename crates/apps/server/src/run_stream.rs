@@ -1,15 +1,18 @@
 //! The engine service's `Run` stream (C6c): runs a selection and streams its events, then its
 //! report. Closing the stream interrupts the run once, as one Ctrl-C does, so its cleanups still
 //! run; the feed is drained, unsent, until the run returns. A run that cannot start ends the
-//! stream with the engine's error.
+//! stream with the engine's error. The run, which compiles and plans the project before it
+//! starts, is driven from the blocking pool, so the compile never holds an async worker; the
+//! relay to the client stays on the async side.
 
 use std::sync::Arc;
 
+use tokio::runtime::Handle;
 use tokio::sync::mpsc::{self, Receiver};
 use vc_contracts::engine::v1 as wire;
 use vc_engine::{Interrupter, PlanRequest, RunFeed, RunRequest, RunWatch};
 
-use crate::engine_api::{EngineApi, Rpcs, failed};
+use crate::engine_api::{EngineApi, Rpcs};
 use crate::project_rpcs::select;
 use crate::wire_events::WireFeed;
 use crate::{ConnectError, Sink};
@@ -31,9 +34,9 @@ async fn run(
     let (sender, feed) = mpsc::channel(FEED);
     let request = run_request(&api, request, RunWatch::new(sender));
     let (interrupter, interrupts) = vc_engine::interrupts();
-    let running = async move { api.engine().run(&request, interrupts).await };
+    let running = api.blocking(move |engine| Handle::current().block_on(engine.run(&request, interrupts)));
     let (ran, ()) = tokio::join!(running, relay(feed, &sink, &interrupter));
-    ran.map_err(|error| failed(&error))?;
+    ran?;
     Ok(())
 }
 
