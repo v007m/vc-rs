@@ -3,14 +3,17 @@
 
 use std::convert::Infallible;
 use std::fmt;
+use std::future::IntoFuture as _;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::Router;
 use axum::extract::Request;
 use axum::middleware::from_fn_with_state;
 use axum::response::IntoResponse;
 use tokio::net::TcpListener;
+use tokio::sync::watch;
 use tower::Service;
 
 use crate::guard::{self, Guard};
@@ -18,24 +21,39 @@ use crate::site::{self, Files, INDEX};
 use crate::token::Token;
 use crate::{ConnectService, ServerError, csp};
 
+/// How long the requests in flight at shutdown get to finish, once their streams were told to
+/// stop, before the server returns without them.
+const GRACE: Duration = Duration::from_secs(5);
+
 /// The parts of a server, before it listens.
 pub struct ServerBuilder {
     port: u16,
     routes: Router,
     files: Option<Arc<dyn Files>>,
+    /// Turns true at shutdown, which ends every open stream.
+    stop: watch::Sender<bool>,
+    grace: Duration,
 }
 
 impl ServerBuilder {
     /// A server that will listen on `127.0.0.1:port`; port 0 picks a free one.
     #[must_use]
     pub fn new(port: u16) -> Self {
-        Self { port, routes: Router::new(), files: None }
+        Self { port, routes: Router::new(), files: None, stop: watch::channel(false).0, grace: GRACE }
+    }
+
+    /// Gives the requests in flight at shutdown `grace` instead of [`GRACE`].
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) const fn grace(mut self, grace: Duration) -> Self {
+        self.grace = grace;
+        self
     }
 
     /// Serves a Connect service's methods.
     #[must_use]
     pub fn service(mut self, service: ConnectService) -> Self {
-        self.routes = self.routes.merge(service.into_router());
+        self.routes = self.routes.merge(service.stopped_by(self.stop.subscribe()).into_router());
         self
     }
 
@@ -71,7 +89,8 @@ impl ServerBuilder {
         let listener = TcpListener::bind(address).await.map_err(|source| ServerError::Bind { address, source })?;
         let address = listener.local_addr().map_err(|source| ServerError::Bind { address, source })?;
         let launch = LaunchUrl(format!("http://{address}/?token={}", token.expose()));
-        Ok(Server { listener, app: self.app(token, address.port()), launch })
+        let (stop, grace) = (self.stop.clone(), self.grace);
+        Ok(Server { listener, app: self.app(token, address.port()), launch, stop, grace })
     }
 
     /// The routes behind the guard, for a server on `port` with `token`.
@@ -89,6 +108,8 @@ pub struct Server {
     listener: TcpListener,
     app: Router,
     launch: LaunchUrl,
+    stop: watch::Sender<bool>,
+    grace: Duration,
 }
 
 impl Server {
@@ -98,13 +119,32 @@ impl Server {
         &self.launch
     }
 
-    /// Serves until `shutdown` resolves, then lets the requests in flight finish.
+    /// Serves until `shutdown` resolves. Then every open stream is told to stop (a run is
+    /// interrupted, so its cleanups run) and the requests in flight get a few seconds to finish
+    /// before the server returns without them.
     ///
     /// # Errors
     ///
     /// [`ServerError::Serve`] when the listener fails.
     pub async fn serve(self, shutdown: impl Future<Output = ()> + Send + 'static) -> Result<(), ServerError> {
-        axum::serve(self.listener, self.app).with_graceful_shutdown(shutdown).await.map_err(ServerError::Serve)
+        let Self { listener, app, stop, grace, .. } = self;
+        let mut stopped = stop.subscribe();
+        let signal = async move {
+            shutdown.await;
+            stop.send_replace(true);
+        };
+        let serving = axum::serve(listener, app).with_graceful_shutdown(signal).into_future();
+        let expired = async move {
+            if stopped.wait_for(|stop| *stop).await.is_ok() {
+                tokio::time::sleep(grace).await;
+            } else {
+                std::future::pending::<()>().await;
+            }
+        };
+        tokio::select! {
+            served = serving => served.map_err(ServerError::Serve),
+            () = expired => Ok(()),
+        }
     }
 }
 

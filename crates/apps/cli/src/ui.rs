@@ -84,11 +84,20 @@ mod serve {
             open(server.launch_url());
         }
         let stop = async move {
-            let _ = tokio::signal::ctrl_c().await;
+            interrupted(tokio::signal::ctrl_c()).await;
             stop_mcp();
         };
         server.serve(stop).await?;
         Ok(Outcome::Done)
+    }
+
+    /// Resolves on Ctrl-C. When Ctrl-C cannot be listened for, says so and never resolves, so
+    /// the UI serves until the process is ended rather than stopping at once.
+    async fn interrupted(signal: impl Future<Output = std::io::Result<()>>) {
+        if let Err(error) = signal.await {
+            eprintln!("warning: vc ui cannot listen for Ctrl-C ({error}); end the process to stop it");
+            std::future::pending::<()>().await;
+        }
     }
 
     fn not_listening(error: &ServerError) -> Outcome {
@@ -107,5 +116,19 @@ mod serve {
                 eprintln!("vc ui: could not open a browser; open the URL above");
             }
         });
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use std::time::Duration;
+
+        use super::interrupted;
+
+        #[tokio::test]
+        async fn a_ctrl_c_that_cannot_be_listened_for_never_stops_the_ui() {
+            let failing = async { Err(std::io::Error::other("no signals here")) };
+            assert!(tokio::time::timeout(Duration::from_millis(50), interrupted(failing)).await.is_err());
+            assert!(tokio::time::timeout(Duration::from_millis(50), interrupted(async { Ok(()) })).await.is_ok());
+        }
     }
 }

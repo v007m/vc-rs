@@ -1,5 +1,6 @@
 use std::io::{Read as _, Write as _};
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::Router;
 use axum::body::Body;
@@ -7,11 +8,14 @@ use axum::http::{Method, Request, StatusCode, header};
 use axum::routing::post;
 use bytes::Bytes;
 use http_body_util::BodyExt as _;
+use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+use tokio::sync::oneshot;
+use tokio::task::JoinHandle;
 use tower::ServiceExt as _;
 
-use crate::ServerBuilder;
 use crate::fixture::{INDEX_HTML, TestFiles};
 use crate::token::Token;
+use crate::{ConnectService, ServerBuilder, ServerError, Sink};
 
 async fn fetch(builder: ServerBuilder, method: Method, uri: &str) -> (StatusCode, Option<String>, Bytes) {
     let token = Arc::new(Token::generate().unwrap());
@@ -102,5 +106,56 @@ fn tokens_are_random_compared_whole_and_hidden_from_debug() {
     assert!(!one.matches(two.expose()));
     assert!(!one.matches(&one.expose()[..42]));
     assert!(!one.matches(""));
+    assert!(one.session_matches(one.session()) && !one.session_matches(one.expose()) && !one.matches(one.session()));
+    assert_ne!(one.session(), two.session());
     assert_eq!(format!("{one:?}"), "Token(<redacted>)");
+}
+
+/// A server with one `Wait` stream open, whose handler winds up when told to stop when `heeds`,
+/// and otherwise never ends; with the sender that shuts the server down.
+async fn one_stream_open(
+    builder: ServerBuilder,
+    heeds: bool,
+) -> (oneshot::Sender<()>, JoinHandle<Result<(), ServerError>>) {
+    let wait = move |(): (), sink: Sink<()>| async move {
+        if heeds {
+            sink.closed().await;
+        } else {
+            std::future::pending::<()>().await;
+        }
+        Ok(())
+    };
+    let server =
+        builder.service(ConnectService::new("test.v1.Waiter").server_stream("Wait", wait)).bind().await.unwrap();
+    let url = server.launch_url().expose().to_owned();
+    let (port, token) = url.strip_prefix("http://127.0.0.1:").unwrap().split_once("/?token=").unwrap();
+    let (stop, stopped) = oneshot::channel::<()>();
+    let serving = tokio::spawn(server.serve(async move { stopped.await.unwrap_or(()) }));
+    let mut stream = tokio::net::TcpStream::connect(format!("127.0.0.1:{port}")).await.unwrap();
+    let head = format!(
+        "POST /api/test.v1.Waiter/Wait HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {token}\r\n\
+         Content-Type: application/connect+proto\r\nContent-Length: 5\r\n\r\n"
+    );
+    stream.write_all(&[head.as_bytes(), &[0; 5]].concat()).await.unwrap();
+    let mut reply = [0; 12];
+    stream.read_exact(&mut reply).await.unwrap();
+    assert_eq!(&reply, b"HTTP/1.1 200");
+    tokio::spawn(async move { stream.read_to_end(&mut Vec::new()).await });
+    (stop, serving)
+}
+
+#[tokio::test]
+async fn shutting_down_ends_the_open_streams_first() {
+    let (stop, serving) = one_stream_open(ServerBuilder::new(0), true).await;
+    stop.send(()).unwrap();
+    let served = tokio::time::timeout(Duration::from_secs(3), serving).await;
+    assert!(matches!(served, Ok(Ok(Ok(())))), "{served:?}");
+}
+
+#[tokio::test]
+async fn a_request_that_outlives_the_grace_period_does_not_hold_the_shutdown() {
+    let (stop, serving) = one_stream_open(ServerBuilder::new(0).grace(Duration::from_millis(100)), false).await;
+    stop.send(()).unwrap();
+    let served = tokio::time::timeout(Duration::from_secs(3), serving).await;
+    assert!(matches!(served, Ok(Ok(Ok(())))), "{served:?}");
 }
