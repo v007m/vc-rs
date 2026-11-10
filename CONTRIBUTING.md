@@ -17,7 +17,7 @@ Read `CLAUDE.md` and `docs/design/HANDOVER.md` first. The design docs in `docs/d
 | `mise run commit-check` | Checks the commits on your branch against `origin/master` |
 | `mise run gates:selftest` | Checks that each gate still rejects its bad patch in `tests/gate-fixtures/` |
 
-Each gate prints its ID (`GATE-FMT`, `GATE-CLIPPY`, `GATE-ARCH`, `GATE-DENY`, `GATE-MACHETE`, `GATE-DUP`, `GATE-TEST`, `GATE-MUTANTS`, `GATE-COMMIT`, `GATE-REFACTOR`) and `FAILED <id>` when it fails. The rules behind them are in the LLD's "Design rules and quality gates". Gate files are owned by the maintainer (`.github/CODEOWNERS`); if a gate looks wrong, ask instead of changing it.
+Each gate prints its ID (`GATE-FMT`, `GATE-CLIPPY`, `GATE-ARCH`, `GATE-DENY`, `GATE-JSLICENSE`, `GATE-PROTO`, `GATE-MACHETE`, `GATE-DUP`, `GATE-TEST`, `GATE-MUTANTS`, `GATE-COMMIT`, `GATE-REFACTOR`) and `FAILED <id>` when it fails. The rules behind them are in the LLD's "Design rules and quality gates". Gate files are owned by the maintainer (`.github/CODEOWNERS`); if a gate looks wrong, ask instead of changing it.
 
 ## Branches, commits and PRs
 
