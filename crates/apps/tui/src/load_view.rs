@@ -27,8 +27,21 @@ pub fn draw(screen: &LoadScreen, frame: &mut Frame<'_>, area: Rect) {
     frame.render_widget(below_pane(screen, below.height), below);
 }
 
-/// What has been read, or where the run has got to.
+/// What has been read, or where the run has got to, then why the last reload failed when a
+/// run is under way or over.
 fn status_line(screen: &LoadScreen) -> Line<'static> {
+    let mut line = phase_line(screen);
+    if let ReadState::Failed(reason) = screen.reading()
+        && !matches!(screen.phase(), LoadPhase::Idle)
+    {
+        line.push_span(Span::styled("  reload failed: ", theme::FAIL));
+        line.push_span(Span::raw(reason.clone()));
+    }
+    line
+}
+
+/// What has been read, or where the run has got to.
+fn phase_line(screen: &LoadScreen) -> Line<'static> {
     match (screen.reading(), screen.phase()) {
         (_, LoadPhase::Failed(reason)) | (ReadState::Failed(reason), LoadPhase::Idle) => {
             Line::from(vec![Span::styled("error ", theme::FAIL), Span::raw(reason.clone())])
@@ -79,7 +92,9 @@ fn draw_scenarios(screen: &LoadScreen, frame: &mut Frame<'_>, area: Rect) {
         let name = scenario.name.as_deref().map(|name| Span::styled(format!("  {}", clean(name)), theme::DIM));
         ListItem::new(Line::from(std::iter::once(Span::raw(clean(&scenario.id))).chain(name).collect::<Vec<_>>()))
     });
-    let list = List::new(items).block(theme::pane("Scenarios")).highlight_style(theme::SELECTED).highlight_symbol("▸ ");
+    let stale = matches!(screen.reading(), ReadState::Failed(_)) && !screen.scenarios().is_empty();
+    let title = if stale { "Scenarios (stale)" } else { "Scenarios" };
+    let list = List::new(items).block(theme::pane(title)).highlight_style(theme::SELECTED).highlight_symbol("▸ ");
     let chosen = (!screen.scenarios().is_empty()).then_some(screen.cursor());
     frame.render_stateful_widget(list, area, &mut ListState::default().with_selected(chosen));
 }

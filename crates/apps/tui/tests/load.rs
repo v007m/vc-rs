@@ -120,9 +120,11 @@ fn a_reload_that_fails_during_a_load_run_leaves_the_run_alone() {
     tui.update(&tick(1, 0, &[]));
     assert_eq!(press(&mut tui, &[KeyCode::Char('r')]), Some(Ask::Scenarios));
     tui.update(&Update::ScenariosFailed("peak.load.yaml:2: bad indent".to_owned()));
-    assert_eq!(status(&tui), "running users.peak · 1s · x stops it");
+    let failed = "reload failed: peak.load.yaml:2: bad indent";
+    assert_eq!(status(&tui), format!("running users.peak · 1s · x stops it  {failed}"));
+    assert!(screen(&tui, SIZE).contains("Scenarios (stale)"), "the list shown is the one before");
     tui.update(&tick(2, 0, &[]));
-    assert_eq!(status(&tui), "running users.peak · 2s · x stops it", "its seconds still come in");
+    assert_eq!(status(&tui), format!("running users.peak · 2s · x stops it  {failed}"), "its seconds still come in");
     assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop), "x still stops it");
 }
 
