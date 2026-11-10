@@ -10,6 +10,10 @@ body {
   background: var(--bg1);
   -webkit-font-smoothing: antialiased;
 }
+/* app.html's root holder; a class, not a style attribute, so the CSP needs no unsafe-inline. */
+.sveltekit-body {
+  display: contents;
+}
 a {
   color: var(--accentInk);
 }
