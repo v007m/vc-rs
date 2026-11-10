@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use axum::Router;
 use axum::extract::Request;
+use axum::http::HeaderValue;
 use axum::middleware::from_fn_with_state;
 use axum::response::IntoResponse;
 use tokio::net::TcpListener;
@@ -89,22 +90,31 @@ impl ServerBuilder {
         let listener = TcpListener::bind(address).await.map_err(|source| ServerError::Bind { address, source })?;
         let address = listener.local_addr().map_err(|source| ServerError::Bind { address, source })?;
         let launch = LaunchUrl(format!("http://{address}/?token={}", token.expose()));
-        let (stop, grace, csp_problem) = (self.stop.clone(), self.grace, self.csp().err());
-        Ok(Server { listener, app: self.app(token, address.port()), launch, stop, grace, csp_problem })
+        let (csp, csp_problem) = self.csp();
+        let guard = Guard::new(token, address.port(), csp);
+        let (stop, grace) = (self.stop.clone(), self.grace);
+        Ok(Server { listener, app: self.app(guard), launch, stop, grace, csp_problem })
     }
 
-    /// The routes behind the guard, for a server on `port` with `token`.
-    pub(crate) fn app(self, token: Arc<Token>, port: u16) -> Router {
-        let policy = self.csp().unwrap_or_else(|_| csp::FALLBACK.to_owned());
-        let guard = Arc::new(Guard::new(token, port, &policy));
+    /// The routes behind `guard`.
+    pub(crate) fn app(self, guard: Guard) -> Router {
+        let guard = Arc::new(guard);
         let site = Router::new().fallback(site::serve).with_state(self.files);
         self.routes.fallback_service(site).layer(from_fn_with_state(guard, guard::check))
     }
 
-    /// The CSP header for the web UI's `index.html`, or why its script hashes cannot be read.
-    fn csp(&self) -> Result<String, &'static str> {
+    /// The CSP header for the web UI's `index.html`, and why it is [`csp::FALLBACK`] when its
+    /// script hashes cannot be read ([`csp::header`]).
+    fn csp(&self) -> (HeaderValue, Option<&'static str>) {
         let index = self.files.as_ref().and_then(|files| files.get(INDEX));
-        csp::policy(index.as_deref())
+        csp::header(index.as_deref())
+    }
+
+    /// The routes behind a guard for `port` with `token`, as [`ServerBuilder::bind`] puts them.
+    #[cfg(test)]
+    pub(crate) fn guarded(self, token: Arc<Token>, port: u16) -> Router {
+        let (csp, _) = self.csp();
+        self.app(Guard::new(token, port, csp))
     }
 }
 

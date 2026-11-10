@@ -23,7 +23,7 @@ struct Reply {
 async fn send(token: &Arc<Token>, request: Request<Body>) -> Reply {
     let service = ConnectService::new("test.v1.TestService")
         .unary("ReadFile", |_: ReadFileRequest| async { Ok(ReadFileResponse::default()) });
-    let app = ServerBuilder::new(0).service(service).files(Arc::new(TestFiles)).app(Arc::clone(token), 7420);
+    let app = ServerBuilder::new(0).service(service).files(Arc::new(TestFiles)).guarded(Arc::clone(token), 7420);
     let response = app.oneshot(request).await.unwrap();
     let (parts, body) = response.into_parts();
     Reply { status: parts.status, headers: parts.headers, body: body.collect().await.unwrap().to_bytes() }

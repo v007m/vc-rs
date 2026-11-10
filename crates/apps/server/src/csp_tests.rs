@@ -1,4 +1,4 @@
-use super::{FALLBACK, NO_HASHES, NOT_UTF8, policy};
+use super::{FALLBACK, NO_HASHES, NOT_UTF8, header as sent, policy};
 
 const HASH: &str = "'sha256-CbculNcflElcZFscHVVSn37ckaTi9ym23lQrblhKGW4='";
 
@@ -74,6 +74,14 @@ fn no_page_falls_back_and_a_page_without_hashes_is_an_error() {
     ] {
         assert_eq!(of(&html), Err(NO_HASHES), "{html}");
     }
+}
+
+#[test]
+fn the_fallback_header_is_the_strict_policy_and_still_forbids_framing() {
+    assert!(FALLBACK.contains("frame-ancestors 'none'"));
+    assert_eq!(sent(None), (FALLBACK.parse().unwrap(), None));
+    let (value, problem) = sent(Some(b"\xff<meta>"));
+    assert_eq!((value.to_str().unwrap(), problem), (FALLBACK, Some(NOT_UTF8)));
 }
 
 #[test]

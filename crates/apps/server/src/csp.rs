@@ -2,6 +2,8 @@
 //! `'sha256-…'` sources of the embedded `index.html`'s own CSP meta are taken from it, so a meta
 //! that allowed more (`'unsafe-inline'`, another host) cannot widen the policy.
 
+use axum::http::HeaderValue;
+
 /// The policy when there is no page, or its script hashes cannot be read: no inline script runs.
 pub const FALLBACK: &str = "default-src 'self'; frame-ancestors 'none'";
 
@@ -12,13 +14,27 @@ const NOT_UTF8: &str = "the web UI's index.html is not UTF-8, so its CSP script 
 const NO_HASHES: &str =
     "the web UI's index.html has no content-security-policy meta whose script-src lists a 'sha256-…' hash";
 
+/// Why a page gave no usable script hashes: one cannot be sent in a header.
+const NOT_A_HEADER: &str = "the web UI's index.html lists a CSP script hash that cannot be sent in a header";
+
+/// The header the guard sends for the web UI whose `index.html` is `index`, and why it is
+/// [`FALLBACK`] when there is a page whose script hashes cannot be read or sent. Every response
+/// gets one of the two, never a weaker policy.
+pub fn header(index: Option<&[u8]>) -> (HeaderValue, Option<&'static str>) {
+    let built = policy(index).and_then(|policy| HeaderValue::from_str(&policy).map_err(|_| NOT_A_HEADER));
+    match built {
+        Ok(header) => (header, None),
+        Err(problem) => (HeaderValue::from_static(FALLBACK), Some(problem)),
+    }
+}
+
 /// The header for the web UI whose `index.html` is `index`; [`FALLBACK`] when there is none.
 ///
 /// # Errors
 ///
 /// Why, when there is a page but its script hashes cannot be read; its inline scripts would
 /// not run under [`FALLBACK`], so the caller says so rather than serve a page that never loads.
-pub fn policy(index: Option<&[u8]>) -> Result<String, &'static str> {
+fn policy(index: Option<&[u8]>) -> Result<String, &'static str> {
     let Some(bytes) = index else { return Ok(FALLBACK.to_owned()) };
     let html = std::str::from_utf8(bytes).map_err(|_| NOT_UTF8)?;
     let hashes = script_hashes(html);

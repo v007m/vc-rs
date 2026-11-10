@@ -26,7 +26,7 @@ async fn fetch(builder: ServerBuilder, method: Method, uri: &str) -> (StatusCode
         .header(header::AUTHORIZATION, format!("Bearer {}", token.expose()))
         .body(Body::empty())
         .unwrap();
-    let response = builder.app(token, 7420).oneshot(request).await.unwrap();
+    let response = builder.guarded(token, 7420).oneshot(request).await.unwrap();
     let content_type = response.headers().get(header::CONTENT_TYPE).map(|v| v.to_str().unwrap().to_owned());
     (response.status(), content_type, response.into_body().collect().await.unwrap().to_bytes())
 }
@@ -177,7 +177,8 @@ async fn a_page_whose_csp_hashes_cannot_be_read_is_reported_and_gets_the_strict_
     assert!(builder().bind().await.unwrap().csp_problem().is_some_and(|problem| problem.contains("index.html")));
     let token = Arc::new(Token::generate().unwrap());
     let request = Request::builder().uri("/").header(header::HOST, "127.0.0.1:7420").body(Body::empty()).unwrap();
-    let response = builder().app(token, 7420).oneshot(request).await.unwrap();
+    let response = builder().guarded(token, 7420).oneshot(request).await.unwrap();
     let csp = response.headers().get(header::CONTENT_SECURITY_POLICY).map(|value| value.to_str().unwrap().to_owned());
-    assert_eq!(csp.as_deref(), Some("default-src 'self'; frame-ancestors 'none'"));
+    assert_eq!(csp.as_deref(), Some(crate::csp::FALLBACK));
+    assert!(csp.is_some_and(|csp| csp.contains("frame-ancestors 'none'")), "the fallback still forbids framing");
 }

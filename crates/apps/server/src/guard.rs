@@ -36,11 +36,11 @@ enum Verdict {
 }
 
 impl Guard {
-    /// The check for a server on loopback `port`, answering with the `csp` header.
-    pub fn new(token: Arc<Token>, port: u16, csp: &str) -> Self {
+    /// The check for a server on loopback `port`, answering with the `csp` header, which the
+    /// builder made once ([`crate::csp::header`]).
+    pub fn new(token: Arc<Token>, port: u16, csp: HeaderValue) -> Self {
         let hosts = [format!("127.0.0.1:{port}"), format!("localhost:{port}")];
         let origins = hosts.clone().map(|host| format!("http://{host}"));
-        let csp = HeaderValue::from_str(csp).unwrap_or_else(|_| HeaderValue::from_static("default-src 'self'"));
         Self { token, hosts, origins, csp }
     }
 
