@@ -15,13 +15,13 @@ import { AgentDesk, ago } from './desk.svelte.ts';
 
 const now = 1_800_000_000_000;
 
-function ask(id: bigint): Approval {
+function ask(id: bigint, methods = ['POST']): Approval {
   return create(ApprovalSchema, {
     id,
     agent: 'Claude Code',
     tool: 'call_api',
     profile: 'staging',
-    methods: ['POST'],
+    methods,
     summary: 'POST /users on staging',
     arguments: '{"api":"users.create"}',
     createdMs: BigInt(now - 120_000),
@@ -29,8 +29,8 @@ function ask(id: bigint): Approval {
   });
 }
 
-async function setup() {
-  let pending = [ask(1n)];
+async function setup(methods?: string[]) {
+  let pending = [ask(1n, methods)];
   const verdicts: Verdict[] = [];
   const desk = new AgentDesk(
     fakeEngine({
@@ -85,11 +85,24 @@ describe('ApprovalQueue', () => {
   it('asks before always allowing, and can cancel', async () => {
     const { verdicts, user } = await setup();
     await user.click(screen.getByRole('button', { name: 'Always allow on staging' }));
-    expect(screen.getByRole('group', { name: 'Confirm always allow' })).toBeTruthy();
+    const confirm = screen.getByRole('group', { name: 'Confirm always allow' });
+    expect(confirm.textContent).toContain('.vibranium/history.db');
+    expect(confirm.textContent).toContain('send only POST');
+    expect(confirm.textContent).not.toContain('vibranium.config.yaml');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(verdicts).toEqual([]);
     await user.click(screen.getByRole('button', { name: 'Always allow on staging' }));
     await user.click(screen.getByRole('button', { name: 'Save rule and approve' }));
+    expect(verdicts).toEqual([Verdict.ALWAYS_ALLOW]);
+  });
+
+  it('says always allow keeps no rule for a write or code, and approves once', async () => {
+    const { verdicts, user } = await setup([]);
+    await user.click(screen.getByRole('button', { name: 'Always allow on staging' }));
+    const confirm = screen.getByRole('group', { name: 'Confirm always allow' });
+    expect(confirm.textContent).toContain('No rule can cover this');
+    expect(screen.queryByRole('button', { name: 'Save rule and approve' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Approve this once' }));
     expect(verdicts).toEqual([Verdict.ALWAYS_ALLOW]);
   });
 

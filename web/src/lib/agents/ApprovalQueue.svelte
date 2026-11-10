@@ -37,18 +37,26 @@
       </details>
       {#if confirming === approval.id}
         <div class="confirm" role="group" aria-label="Confirm always allow">
-          <p>
-            Always allow saves a rule to <code>vibranium.config.yaml</code>, so later
-            <span class="mono">{approval.tool}</span> calls on {approval.profile} run without asking.
-            You can change it back in Settings.
-          </p>
+          {#if approval.methods.length > 0}
+            <p>
+              Always allow keeps a rule in <code>.vibranium/history.db</code> on this machine, never
+              in the YAML, so later <span class="mono">{approval.tool}</span> calls on
+              {approval.profile} that send only {approval.methods.join(', ')} run without asking. A write,
+              or a run that reaches a <code>command:</code> or <code>function:</code> action, still asks.
+            </p>
+          {:else}
+            <p>
+              No rule can cover this: a write, or a run that reaches a <code>command:</code> or
+              <code>function:</code> action, asks every time. Always allow approves it once.
+            </p>
+          {/if}
           <button
             class="btn primary sm"
             type="button"
             disabled={busy}
             onclick={() => decide(approval, Verdict.ALWAYS_ALLOW)}
           >
-            Save rule and approve
+            {approval.methods.length > 0 ? 'Save rule and approve' : 'Approve this once'}
           </button>
           <button class="btn sm" type="button" onclick={() => (confirming = undefined)}
             >Cancel</button
