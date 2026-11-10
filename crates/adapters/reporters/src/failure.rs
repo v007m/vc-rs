@@ -4,10 +4,9 @@
 use std::fmt::Write as _;
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Render as _, TextRenderer};
-use vc_model::{CheckResult, Failure, Origin};
+use vc_model::{CheckResult, Failure, Names, Origin};
 
 use crate::collect::TestRecord;
-use crate::names::{self, Names};
 use crate::{Color, encode, text};
 
 /// The indent of a block under its test line.
@@ -30,7 +29,7 @@ pub fn block(names: &Names, record: &TestRecord, color: Color) -> String {
 /// One failed check, as a diagnostic at its `expect` line when the program has the file.
 pub fn check(names: &Names, check: &CheckResult, color: Color) -> String {
     let code = check.code.as_deref().and_then(|code| code.parse::<Code>().ok()).unwrap_or(Code::V5101);
-    let message = format!("expect.{}", names::check_label(check));
+    let message = format!("expect.{}", vc_model::check_label(check));
     let mut diagnostic = Diagnostic::new(code, check.span, message).label(detail(check));
     if let Origin::Api(_) = check.origin {
         diagnostic = diagnostic.note(format!("expected by {}", encode::origin(names, check.origin)));

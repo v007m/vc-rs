@@ -1,11 +1,10 @@
 //! History rows built from the recorder's views: what `.vibranium/history.db` stores of a test.
 
 use vc_interfaces::{CheckRow, ExchangeRow, TestRow, TimingRow};
-use vc_model::CheckResult;
+use vc_model::{CheckResult, Names};
 
 use crate::collect::TestRecord;
 use crate::encode;
-use crate::names::{self, Names};
 use crate::view::{ExchangeView, TestView};
 
 /// A finished test's row, with its checks and its kept exchanges.
@@ -52,7 +51,7 @@ pub fn exchange(view: &ExchangeView) -> ExchangeRow {
 }
 
 fn check(names: &Names, check: &CheckResult) -> CheckRow {
-    let (kind, path) = names::check_parts(check);
+    let (kind, path) = vc_model::check_parts(check);
     let location = names.location(check.span);
     CheckRow {
         kind: kind.to_owned(),

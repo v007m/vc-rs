@@ -3,10 +3,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 use vc_interfaces::{Artifact, ReportError, Reporter, RunSummary};
-use vc_model::{ActionId, Event, InstanceId, OwnerKey};
+use vc_model::{ActionId, Event, InstanceId, Names, OwnerKey};
 
 use crate::collect::Collector;
-use crate::names::Names;
 use crate::{Destination, ReporterContext, encode, text};
 
 /// The `json` console format: one JSON object per event and line, for tools (NDJSON). Tests

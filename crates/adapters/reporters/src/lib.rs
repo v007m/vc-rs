@@ -22,7 +22,8 @@ mod html;
 mod html_data;
 mod json;
 mod junit;
-mod names;
+#[cfg(test)]
+mod names_tests;
 mod noop;
 mod record;
 mod registry;
