@@ -1,0 +1,572 @@
+{
+  "$defs": {
+    "apiEntry": {
+      "additionalProperties": false,
+      "description": "One api: a request and the checks that always hold for it",
+      "properties": {
+        "afterResponse": {
+          "description": "Functions run after this api's responses, after the file's",
+          "items": {
+            "$ref": "#/$defs/function"
+          },
+          "type": "array"
+        },
+        "auth": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/authUse"
+            }
+          ],
+          "description": "Overrides the file's auth"
+        },
+        "beforeRequest": {
+          "description": "Functions run before this api's requests, after the file's",
+          "items": {
+            "$ref": "#/$defs/function"
+          },
+          "type": "array"
+        },
+        "body": {
+          "description": "Request body: a map, text, `$file`, `$base64` or `$extend`"
+        },
+        "cleanup": {
+          "$ref": "#/$defs/cleanup",
+          "description": "How to undo a successful call"
+        },
+        "deprecated": {
+          "default": false,
+          "description": "Set by sync when the operation leaves the spec",
+          "type": "boolean"
+        },
+        "expect": {
+          "$ref": "#/$defs/expect",
+          "default": {
+            "status": "2xx"
+          },
+          "description": "Checks that hold on every call"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Merged over the file's headers",
+          "type": "object"
+        },
+        "http": {
+          "$ref": "#/$defs/http",
+          "description": "Transport retry for this api; keys replace the config's (D143)"
+        },
+        "id": {
+          "description": "camelCase; `create` is referenced as `users#create`",
+          "examples": [
+            "create"
+          ],
+          "type": "string"
+        },
+        "method": {
+          "default": "GET",
+          "description": "HTTP method",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "OPTIONS"
+          ]
+        },
+        "name": {
+          "description": "Shown in listings",
+          "type": "string"
+        },
+        "operationId": {
+          "description": "Link to the OpenAPI operation, kept by sync",
+          "type": "string"
+        },
+        "path": {
+          "description": "Appended to `baseUrl`",
+          "examples": [
+            "/users/${var.userId}"
+          ],
+          "type": "string"
+        },
+        "query": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Query string",
+          "type": "object"
+        },
+        "save": {
+          "additionalProperties": {},
+          "description": "Values every caller gets as vars",
+          "type": "object"
+        },
+        "saveOn": {
+          "description": "The statuses on which `save` runs (D191)",
+          "examples": [
+            201
+          ],
+          "type": [
+            "integer",
+            "string",
+            "array",
+            "object"
+          ]
+        },
+        "timeout": {
+          "description": "Per request attempt",
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Defaults for this api; callers override them",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "path"
+      ],
+      "type": "object"
+    },
+    "authUse": {
+      "additionalProperties": false,
+      "description": "An auth with vars for it",
+      "properties": {
+        "id": {
+          "description": "The auth's ID",
+          "examples": [
+            "shopOauth"
+          ],
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Vars passed to the auth",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "backoff": {
+      "additionalProperties": false,
+      "description": "Exponential backoff",
+      "properties": {
+        "base": {
+          "default": "100ms",
+          "description": "First pause",
+          "type": "string"
+        },
+        "jitter": {
+          "default": true,
+          "description": "Randomise each pause",
+          "type": "boolean"
+        },
+        "max": {
+          "default": "2s",
+          "description": "Longest pause",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "bodyExpect": {
+      "additionalProperties": false,
+      "description": "Checks on the response body",
+      "properties": {
+        "equals": {
+          "description": "The whole body, compared deeply"
+        },
+        "match": {
+          "additionalProperties": {},
+          "description": "Matcher at a path in the body",
+          "type": "object"
+        },
+        "schema": {
+          "description": "JSON Schema the body must match, usually `$file`",
+          "examples": [
+            {
+              "$file": "schemas/user.json"
+            }
+          ],
+          "type": [
+            "object",
+            "string"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "cleanup": {
+      "additionalProperties": false,
+      "description": "How to undo a successful call",
+      "properties": {
+        "call": {
+          "description": "The api that undoes it",
+          "examples": [
+            "users#delete"
+          ],
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Vars for that call, templated over the response",
+          "type": "object"
+        }
+      },
+      "required": [
+        "call"
+      ],
+      "type": "object"
+    },
+    "expect": {
+      "additionalProperties": false,
+      "description": "Checks on a response; each value is a literal (equals) or a matcher",
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/bodyExpect",
+          "description": "Checks on the body: schema, match, equals"
+        },
+        "cel": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "CEL expressions that must be true, by label",
+          "examples": [
+            {
+              "has items": "size(response.body.items) > 0"
+            }
+          ],
+          "type": "object"
+        },
+        "custom": {
+          "description": "Functions that check the response",
+          "items": {
+            "$ref": "#/$defs/function"
+          },
+          "type": "array"
+        },
+        "headers": {
+          "additionalProperties": {},
+          "description": "Matcher per header; names are case-insensitive",
+          "examples": [
+            {
+              "content-type": {
+                "contains": "json"
+              }
+            }
+          ],
+          "type": "object"
+        },
+        "replace": {
+          "default": false,
+          "description": "Drop every inherited check and keep only these",
+          "type": "boolean"
+        },
+        "size": {
+          "description": "Matcher on the body size",
+          "examples": [
+            {
+              "lt": "100kb"
+            }
+          ]
+        },
+        "status": {
+          "description": "Code, list of codes, class (`2xx`) or matcher",
+          "examples": [
+            [
+              200,
+              201
+            ]
+          ],
+          "type": [
+            "integer",
+            "string",
+            "array",
+            "object"
+          ]
+        },
+        "timing": {
+          "$ref": "#/$defs/timing",
+          "description": "Matchers on the request phases",
+          "examples": [
+            {
+              "total": {
+                "lt": "500ms"
+              }
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "function": {
+      "additionalProperties": false,
+      "description": "A function in a code file",
+      "properties": {
+        "function": {
+          "description": "`path#export`",
+          "examples": [
+            "hooks/checks.ts#isSorted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "function"
+      ],
+      "type": "object"
+    },
+    "http": {
+      "additionalProperties": false,
+      "description": "Transport settings",
+      "properties": {
+        "retry": {
+          "$ref": "#/$defs/httpRetry",
+          "default": {
+            "attempts": 0
+          },
+          "description": "Retry one request on a transport failure (D143)"
+        }
+      },
+      "type": "object"
+    },
+    "httpRetry": {
+      "additionalProperties": false,
+      "description": "Transport retry of one request (D143)",
+      "properties": {
+        "attempts": {
+          "default": 0,
+          "description": "Further attempts; 0 is off",
+          "examples": [
+            2
+          ],
+          "type": "integer"
+        },
+        "backoff": {
+          "$ref": "#/$defs/backoff",
+          "description": "Pause between attempts"
+        },
+        "methods": {
+          "default": [
+            "GET",
+            "HEAD",
+            "OPTIONS",
+            "PUT",
+            "DELETE"
+          ],
+          "description": "Methods that are retried",
+          "items": {
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "HEAD",
+              "OPTIONS"
+            ]
+          },
+          "type": "array"
+        },
+        "on": {
+          "default": [
+            "connect",
+            "timeout",
+            502,
+            503,
+            504
+          ],
+          "description": "Failures and statuses that are retried",
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "enum": [
+                  "connect",
+                  "timeout"
+                ]
+              }
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "profileVars": {
+      "additionalProperties": false,
+      "description": "A profile's overrides of this file's vars",
+      "properties": {
+        "id": {
+          "description": "A profile defined in the config",
+          "examples": [
+            "staging"
+          ],
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Values that replace the file's vars under that profile",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "source": {
+      "additionalProperties": false,
+      "description": "The OpenAPI spec an api file syncs from",
+      "properties": {
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Headers for a protected URL",
+          "type": "object"
+        },
+        "include": {
+          "description": "Take only operations with these tags",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "openapi": {
+          "description": "A URL or a file, JSON or YAML",
+          "examples": [
+            "specs/users.yaml"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "openapi"
+      ],
+      "type": "object"
+    },
+    "timing": {
+      "additionalProperties": false,
+      "description": "Matchers on the request phases",
+      "properties": {
+        "connect": {
+          "description": "TCP connect"
+        },
+        "dns": {
+          "description": "Name lookup"
+        },
+        "download": {
+          "description": "Reading the body"
+        },
+        "firstByte": {
+          "description": "Until the first response byte"
+        },
+        "tls": {
+          "description": "TLS handshake"
+        },
+        "total": {
+          "description": "The whole request",
+          "examples": [
+            {
+              "lt": "500ms"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://v007m.github.io/vc-rs/schema/api.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An api file, `services/<service>/<service>.api.yaml`",
+  "properties": {
+    "afterResponse": {
+      "description": "Functions run after every response in the file",
+      "items": {
+        "$ref": "#/$defs/function"
+      },
+      "type": "array"
+    },
+    "apis": {
+      "description": "The apis",
+      "items": {
+        "$ref": "#/$defs/apiEntry"
+      },
+      "type": "array"
+    },
+    "auth": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/authUse"
+        }
+      ],
+      "description": "Default auth for the file"
+    },
+    "baseUrl": {
+      "description": "Prefixed to every `path`",
+      "examples": [
+        "${var.baseUrl}"
+      ],
+      "type": "string"
+    },
+    "beforeRequest": {
+      "description": "Functions run before every request in the file",
+      "items": {
+        "$ref": "#/$defs/function"
+      },
+      "type": "array"
+    },
+    "headers": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Default headers",
+      "type": "object"
+    },
+    "id": {
+      "description": "File ID; must match the path (D139)",
+      "examples": [
+        "users"
+      ],
+      "type": "string"
+    },
+    "name": {
+      "description": "Shown in listings",
+      "type": "string"
+    },
+    "profiles": {
+      "description": "Per-profile overrides of the file's vars",
+      "items": {
+        "$ref": "#/$defs/profileVars"
+      },
+      "type": "array"
+    },
+    "source": {
+      "$ref": "#/$defs/source",
+      "description": "The OpenAPI spec this file syncs from"
+    },
+    "vars": {
+      "additionalProperties": {},
+      "description": "Defaults for every api in the file",
+      "type": "object"
+    }
+  },
+  "title": "Vibranium api file",
+  "type": "object"
+}

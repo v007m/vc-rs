@@ -1,0 +1,194 @@
+{
+  "$defs": {
+    "mixEntry": {
+      "additionalProperties": false,
+      "description": "One test in the traffic mix",
+      "properties": {
+        "test": {
+          "description": "The test's full ID",
+          "examples": [
+            "orders.checkout#placesOrder"
+          ],
+          "type": "string"
+        },
+        "thresholds": {
+          "$ref": "#/$defs/thresholds",
+          "description": "Thresholds for this test only"
+        },
+        "weight": {
+          "description": "Relative share of iterations",
+          "examples": [
+            3
+          ],
+          "type": "integer"
+        }
+      },
+      "required": [
+        "test",
+        "weight"
+      ],
+      "type": "object"
+    },
+    "stage": {
+      "additionalProperties": false,
+      "description": "One load stage",
+      "properties": {
+        "duration": {
+          "description": "How long the stage lasts",
+          "examples": [
+            "2m"
+          ],
+          "type": "string"
+        },
+        "users": {
+          "description": "Users at the end of the stage",
+          "examples": [
+            50
+          ],
+          "type": "integer"
+        }
+      },
+      "required": [
+        "duration",
+        "users"
+      ],
+      "type": "object"
+    },
+    "thinkTime": {
+      "additionalProperties": false,
+      "description": "A random pause",
+      "properties": {
+        "max": {
+          "description": "Longest pause",
+          "type": "string"
+        },
+        "min": {
+          "description": "Shortest pause",
+          "type": "string"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "type": "object"
+    },
+    "thresholds": {
+      "additionalProperties": false,
+      "description": "Matchers on load metrics",
+      "properties": {
+        "errorRate": {
+          "description": "Share of failed iterations",
+          "examples": [
+            {
+              "lt": "1%"
+            }
+          ]
+        },
+        "max": {
+          "description": "Slowest request"
+        },
+        "p50": {
+          "description": "Median latency",
+          "examples": [
+            {
+              "lt": "200ms"
+            }
+          ]
+        },
+        "p90": {
+          "description": "90th percentile latency"
+        },
+        "p95": {
+          "description": "95th percentile latency"
+        },
+        "p99": {
+          "description": "99th percentile latency"
+        },
+        "rps": {
+          "description": "Requests per second",
+          "examples": [
+            {
+              "gte": 100
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://v007m.github.io/vc-rs/schema/load.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A load file: existing tests as a traffic mix",
+  "properties": {
+    "abortOn": {
+      "default": [],
+      "description": "Stop early when one of these is breached",
+      "items": {
+        "enum": [
+          "p50",
+          "p90",
+          "p95",
+          "p99",
+          "max",
+          "errorRate",
+          "rps"
+        ]
+      },
+      "type": "array"
+    },
+    "checks": {
+      "default": "api",
+      "description": "`full` evaluates every test's `expect`",
+      "enum": [
+        "api",
+        "full"
+      ]
+    },
+    "id": {
+      "description": "Scenario ID; must match the path (D139)",
+      "type": "string"
+    },
+    "mix": {
+      "description": "The tests and their weights",
+      "items": {
+        "$ref": "#/$defs/mixEntry"
+      },
+      "type": "array"
+    },
+    "name": {
+      "description": "Shown in the load report",
+      "type": "string"
+    },
+    "stages": {
+      "description": "Users ramp from the previous stage's count",
+      "items": {
+        "$ref": "#/$defs/stage"
+      },
+      "type": "array"
+    },
+    "thinkTime": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/thinkTime"
+        }
+      ],
+      "default": "0s",
+      "description": "Pause between iterations"
+    },
+    "thresholds": {
+      "$ref": "#/$defs/thresholds",
+      "description": "Matchers on load metrics"
+    }
+  },
+  "required": [
+    "mix",
+    "stages"
+  ],
+  "title": "Vibranium load file",
+  "type": "object"
+}

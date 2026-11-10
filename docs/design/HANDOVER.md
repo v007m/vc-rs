@@ -70,7 +70,7 @@ Each item has a default the plan assumes. Ask before relying on it past the mile
 | Question | Default | Needed by |
 | --- | --- | --- |
 | Sample project target: a demo service built into the binary (`vc demo`, localhost:7421) or a public echo API? | Built-in `vc demo` (D89) | M5 |
-| Docs and JSON Schema hosting | GitHub raw URLs on `master` of `v007m/vc-rs`, e.g. `https://raw.githubusercontent.com/v007m/vc-rs/master/schema/<kind>.schema.json`, plus SchemaStore entries | v2.0 release |
+| Docs and JSON Schema hosting | The docs site on GitHub Pages publishes the committed `schema/` at `https://v007m.github.io/vc-rs/schema/<kind>.schema.json`, the `$id` and modeline (D258); the raw `master` URLs keep working. SchemaStore entries to follow | v2.0 release |
 | Staging agent policy: should PATCH and definition edits also need approval? | `approve: [PUT, PATCH, DELETE]`, `writeDefinitions: ask` | M7 |
 | Review of the LLD and a click-through of the mockups in Play mode | Treat both as accepted | Before M2 and M9 |
 | Default secrets provider: Varlock or plain env | Decided: plain env, Varlock opt-in (D163) | M3 kick-off |

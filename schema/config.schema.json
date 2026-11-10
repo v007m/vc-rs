@@ -1,0 +1,1355 @@
+{
+  "$defs": {
+    "action": {
+      "additionalProperties": false,
+      "description": "One entry of a lifecycle block or of a test's steps",
+      "oneOf": [
+        {
+          "required": [
+            "call"
+          ]
+        },
+        {
+          "required": [
+            "test"
+          ]
+        },
+        {
+          "required": [
+            "function"
+          ]
+        },
+        {
+          "required": [
+            "command"
+          ]
+        }
+      ],
+      "properties": {
+        "auth": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/authUse"
+            }
+          ],
+          "description": "Auth ID, `none`, or `id` + `vars`"
+        },
+        "body": {
+          "description": "Replaces the api's body"
+        },
+        "cache": {
+          "$ref": "#/$defs/cache",
+          "description": "Reuse the saves across runs"
+        },
+        "call": {
+          "description": "The api to call",
+          "examples": [
+            "users#create"
+          ],
+          "type": "string"
+        },
+        "command": {
+          "description": "A shell command to run",
+          "examples": [
+            "docker compose up -d --wait"
+          ],
+          "type": "string"
+        },
+        "expect": {
+          "$ref": "#/$defs/expect",
+          "description": "Merged with the api's checks"
+        },
+        "forEach": {
+          "description": "Run once per element of a list",
+          "examples": [
+            "${dataset.capitals}"
+          ]
+        },
+        "function": {
+          "description": "`path#export` to run",
+          "examples": [
+            "hooks/seed.ts#seedDb"
+          ],
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Merged over the api's headers",
+          "type": "object"
+        },
+        "id": {
+          "description": "Names its saved values in shared blocks",
+          "examples": [
+            "catalog"
+          ],
+          "type": "string"
+        },
+        "keep": {
+          "default": false,
+          "description": "Skip the api's cleanup",
+          "type": "boolean"
+        },
+        "parallel": {
+          "default": 1,
+          "description": "Iterations at a time",
+          "examples": [
+            5
+          ],
+          "type": "integer"
+        },
+        "poll": {
+          "$ref": "#/$defs/poll",
+          "description": "`until`, `every`, `timeout`"
+        },
+        "provides": {
+          "description": "Names a `function` or `test` action saves (D128)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "query": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Merged over the api's query",
+          "type": "object"
+        },
+        "repeat": {
+          "description": "Run the action this many times",
+          "examples": [
+            10
+          ],
+          "type": "integer"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry",
+          "description": "`attempts`, `delay`"
+        },
+        "save": {
+          "additionalProperties": {},
+          "description": "Values named for later steps, templated over `response`",
+          "type": "object"
+        },
+        "test": {
+          "description": "A test whose calls to run",
+          "examples": [
+            "shared.flows#checksOut"
+          ],
+          "type": "string"
+        },
+        "timeout": {
+          "description": "Time limit",
+          "examples": [
+            "30s"
+          ],
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Values for this call",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "agents": {
+      "additionalProperties": false,
+      "description": "What an agent may do under a profile (D195)",
+      "properties": {
+        "approve": {
+          "default": [],
+          "description": "Methods sent once a person approves",
+          "items": {
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "HEAD",
+              "OPTIONS"
+            ]
+          },
+          "type": "array"
+        },
+        "call": {
+          "default": [],
+          "description": "Methods sent without asking",
+          "examples": [
+            [
+              "GET",
+              "POST"
+            ]
+          ],
+          "items": {
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "HEAD",
+              "OPTIONS"
+            ]
+          },
+          "type": "array"
+        },
+        "run": {
+          "default": false,
+          "description": "Run tests, within `call` and `approve`",
+          "type": "boolean"
+        },
+        "writeDefinitions": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "ask"
+              ]
+            }
+          ],
+          "default": false,
+          "description": "Change definition files: `true`, `false` or `ask`"
+        }
+      },
+      "type": "object"
+    },
+    "alert": {
+      "additionalProperties": false,
+      "description": "A notification rule",
+      "properties": {
+        "notify": {
+          "description": "Channels: webhook, slack, teams, pagerduty, email",
+          "items": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "on": {
+          "description": "Events that notify",
+          "items": {
+            "enum": [
+              "failure",
+              "blocked",
+              "recovery",
+              "flaky",
+              "threshold"
+            ]
+          },
+          "type": "array"
+        },
+        "profiles": {
+          "description": "Only runs under these profiles",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tags": {
+          "description": "Only tests with these tags",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "apply": {
+      "additionalProperties": false,
+      "description": "What a flow auth adds to each request",
+      "properties": {
+        "cookies": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Cookies",
+          "type": "object"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Headers",
+          "type": "object"
+        },
+        "query": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Query parameters",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "auth": {
+      "additionalProperties": false,
+      "description": "An auth definition; the keys used depend on `type`",
+      "properties": {
+        "apply": {
+          "$ref": "#/$defs/apply",
+          "description": "`flow`: what is added to each request"
+        },
+        "audience": {
+          "description": "`oauth2ClientCredentials`: audience",
+          "type": "string"
+        },
+        "authorizeUrl": {
+          "description": "`oauth2AuthorizationCode`: authorize endpoint",
+          "type": "string"
+        },
+        "cache": {
+          "default": false,
+          "description": "Keep the credentials across runs, encrypted",
+          "type": "boolean"
+        },
+        "clientId": {
+          "description": "`oauth2*`: client ID",
+          "type": "string"
+        },
+        "clientSecret": {
+          "description": "`oauth2*`: client secret, where the server wants one",
+          "type": "string"
+        },
+        "config": {
+          "description": "`plugin`: its settings"
+        },
+        "expiresIn": {
+          "description": "`flow`: when the credentials go stale; a template is fine",
+          "type": "string"
+        },
+        "id": {
+          "description": "Referenced as `auth: <id>`",
+          "examples": [
+            "shopOauth"
+          ],
+          "type": "string"
+        },
+        "in": {
+          "description": "`apiKey`: where the key goes",
+          "enum": [
+            "header",
+            "query"
+          ]
+        },
+        "name": {
+          "description": "Display name; for `apiKey`, the header or query name",
+          "type": "string"
+        },
+        "password": {
+          "description": "`basic`, `oauth2Password`",
+          "type": "string"
+        },
+        "pkce": {
+          "description": "`oauth2AuthorizationCode`: use PKCE",
+          "type": "boolean"
+        },
+        "plugin": {
+          "description": "`plugin`: the auth plugin",
+          "type": "string"
+        },
+        "redirectPort": {
+          "description": "`oauth2AuthorizationCode`: local redirect port",
+          "type": "integer"
+        },
+        "refreshBefore": {
+          "default": "1m",
+          "description": "`flow`: re-run this long before expiry",
+          "type": "string"
+        },
+        "refreshOn": {
+          "default": [
+            401
+          ],
+          "description": "`flow`: statuses that re-run the flow",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "refreshToken": {
+          "description": "`oauth2Refresh`: long-lived refresh token",
+          "type": "string"
+        },
+        "scopes": {
+          "description": "`oauth2*`: scopes requested",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "steps": {
+          "description": "`flow`: the requests that produce credentials",
+          "items": {
+            "$ref": "#/$defs/flowStep"
+          },
+          "type": "array"
+        },
+        "token": {
+          "description": "`bearer`: a fixed token",
+          "type": "string"
+        },
+        "tokenUrl": {
+          "description": "`oauth2*`: token endpoint",
+          "type": "string"
+        },
+        "type": {
+          "description": "The scheme",
+          "enum": [
+            "basic",
+            "bearer",
+            "apiKey",
+            "oauth2ClientCredentials",
+            "oauth2Password",
+            "oauth2AuthorizationCode",
+            "oauth2Refresh",
+            "flow",
+            "plugin"
+          ]
+        },
+        "username": {
+          "description": "`basic`, `oauth2Password`",
+          "type": "string"
+        },
+        "value": {
+          "description": "`apiKey`: the key",
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Values for the auth's templates",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "type": "object"
+    },
+    "authUse": {
+      "additionalProperties": false,
+      "description": "An auth with vars for it",
+      "properties": {
+        "id": {
+          "description": "The auth's ID",
+          "examples": [
+            "shopOauth"
+          ],
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Vars passed to the auth",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "backoff": {
+      "additionalProperties": false,
+      "description": "Exponential backoff",
+      "properties": {
+        "base": {
+          "default": "100ms",
+          "description": "First pause",
+          "type": "string"
+        },
+        "jitter": {
+          "default": true,
+          "description": "Randomise each pause",
+          "type": "boolean"
+        },
+        "max": {
+          "default": "2s",
+          "description": "Longest pause",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "bodyExpect": {
+      "additionalProperties": false,
+      "description": "Checks on the response body",
+      "properties": {
+        "equals": {
+          "description": "The whole body, compared deeply"
+        },
+        "match": {
+          "additionalProperties": {},
+          "description": "Matcher at a path in the body",
+          "type": "object"
+        },
+        "schema": {
+          "description": "JSON Schema the body must match, usually `$file`",
+          "examples": [
+            {
+              "$file": "schemas/user.json"
+            }
+          ],
+          "type": [
+            "object",
+            "string"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "cache": {
+      "additionalProperties": false,
+      "description": "Keep the action's saves across runs",
+      "properties": {
+        "check": {
+          "$ref": "#/$defs/action",
+          "description": "Quick call that confirms the cached data still exists"
+        },
+        "for": {
+          "description": "How long the result is reused",
+          "examples": [
+            "12h"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "for"
+      ],
+      "type": "object"
+    },
+    "dataset": {
+      "additionalProperties": false,
+      "description": "A data list kept outside `datasets/`",
+      "properties": {
+        "file": {
+          "description": "CSV, JSON or YAML file",
+          "examples": [
+            "../shared-data/world-cities.csv"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "description": "Used as `${dataset.<id>}`",
+          "examples": [
+            "worldCities"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "file"
+      ],
+      "type": "object"
+    },
+    "datasets": {
+      "additionalProperties": false,
+      "description": "Data lists beyond the files in `datasets/`",
+      "properties": {
+        "allowRoots": {
+          "description": "Folders outside the project that `files` may read, from the project root",
+          "examples": [
+            [
+              "../shared-data"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "files": {
+          "description": "Data lists kept outside `datasets/`",
+          "items": {
+            "$ref": "#/$defs/dataset"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "defaults": {
+      "additionalProperties": false,
+      "description": "Defaults for every request and test",
+      "properties": {
+        "concurrency": {
+          "default": 16,
+          "description": "Test instances in flight",
+          "type": "integer"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Sent with every request",
+          "type": "object"
+        },
+        "perHost": {
+          "default": 8,
+          "description": "Connections per host",
+          "type": "integer"
+        },
+        "retry": {
+          "$ref": "#/$defs/retry",
+          "description": "Applied to every test unless overridden (D126)"
+        },
+        "timeout": {
+          "default": "30s",
+          "description": "Per request",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "expect": {
+      "additionalProperties": false,
+      "description": "Checks on a response; each value is a literal (equals) or a matcher",
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/bodyExpect",
+          "description": "Checks on the body: schema, match, equals"
+        },
+        "cel": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "CEL expressions that must be true, by label",
+          "examples": [
+            {
+              "has items": "size(response.body.items) > 0"
+            }
+          ],
+          "type": "object"
+        },
+        "custom": {
+          "description": "Functions that check the response",
+          "items": {
+            "$ref": "#/$defs/function"
+          },
+          "type": "array"
+        },
+        "headers": {
+          "additionalProperties": {},
+          "description": "Matcher per header; names are case-insensitive",
+          "examples": [
+            {
+              "content-type": {
+                "contains": "json"
+              }
+            }
+          ],
+          "type": "object"
+        },
+        "replace": {
+          "default": false,
+          "description": "Drop every inherited check and keep only these",
+          "type": "boolean"
+        },
+        "size": {
+          "description": "Matcher on the body size",
+          "examples": [
+            {
+              "lt": "100kb"
+            }
+          ]
+        },
+        "status": {
+          "description": "Code, list of codes, class (`2xx`) or matcher",
+          "examples": [
+            [
+              200,
+              201
+            ]
+          ],
+          "type": [
+            "integer",
+            "string",
+            "array",
+            "object"
+          ]
+        },
+        "timing": {
+          "$ref": "#/$defs/timing",
+          "description": "Matchers on the request phases",
+          "examples": [
+            {
+              "total": {
+                "lt": "500ms"
+              }
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "flowStep": {
+      "additionalProperties": false,
+      "description": "One request of a flow auth",
+      "properties": {
+        "body": {
+          "description": "Request body"
+        },
+        "expect": {
+          "$ref": "#/$defs/expect",
+          "description": "Checks on the response"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Request headers",
+          "type": "object"
+        },
+        "id": {
+          "description": "Names the step",
+          "examples": [
+            "login"
+          ],
+          "type": "string"
+        },
+        "method": {
+          "default": "GET",
+          "description": "HTTP method",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "OPTIONS"
+          ]
+        },
+        "query": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Query string",
+          "type": "object"
+        },
+        "save": {
+          "additionalProperties": {},
+          "description": "Values for later steps and `apply`",
+          "type": "object"
+        },
+        "url": {
+          "description": "The whole URL",
+          "examples": [
+            "${var.identityUrl}/login"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object"
+    },
+    "function": {
+      "additionalProperties": false,
+      "description": "A function in a code file",
+      "properties": {
+        "function": {
+          "description": "`path#export`",
+          "examples": [
+            "hooks/checks.ts#isSorted"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "function"
+      ],
+      "type": "object"
+    },
+    "generator": {
+      "additionalProperties": false,
+      "description": "A named fake-data generator; write one kind key",
+      "properties": {
+        "fromRegExp": {
+          "description": "Text matching a pattern",
+          "examples": [
+            "[A-Z][a-z]{4,12} Team"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "description": "Used as `${fake.<id>}`",
+          "examples": [
+            "teamName"
+          ],
+          "type": "string"
+        },
+        "int": {
+          "$ref": "#/$defs/intRange",
+          "description": "A whole number in a range"
+        },
+        "lorem": {
+          "$ref": "#/$defs/lorem",
+          "description": "Placeholder text"
+        },
+        "oneOf": {
+          "description": "One of the values",
+          "examples": [
+            [
+              "PRIVATE",
+              "PUBLIC"
+            ]
+          ],
+          "items": {},
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "history": {
+      "additionalProperties": false,
+      "description": "Run history and retention",
+      "properties": {
+        "bodies": {
+          "default": "failures",
+          "description": "Which exchanges keep their bodies",
+          "enum": [
+            "none",
+            "failures",
+            "all"
+          ]
+        },
+        "keep": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "enum": [
+                "all"
+              ]
+            }
+          ],
+          "default": 50,
+          "description": "Runs kept after each run, or `all`"
+        },
+        "maxBodySize": {
+          "default": "64kb",
+          "description": "A longer body is cut to this size",
+          "examples": [
+            "1mb"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "html": {
+      "additionalProperties": false,
+      "description": "HTML report settings",
+      "properties": {
+        "layout": {
+          "default": "folder",
+          "description": "An index plus data files, or one file",
+          "enum": [
+            "folder",
+            "single"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "http": {
+      "additionalProperties": false,
+      "description": "Transport settings",
+      "properties": {
+        "retry": {
+          "$ref": "#/$defs/httpRetry",
+          "default": {
+            "attempts": 0
+          },
+          "description": "Retry one request on a transport failure (D143)"
+        }
+      },
+      "type": "object"
+    },
+    "httpRetry": {
+      "additionalProperties": false,
+      "description": "Transport retry of one request (D143)",
+      "properties": {
+        "attempts": {
+          "default": 0,
+          "description": "Further attempts; 0 is off",
+          "examples": [
+            2
+          ],
+          "type": "integer"
+        },
+        "backoff": {
+          "$ref": "#/$defs/backoff",
+          "description": "Pause between attempts"
+        },
+        "methods": {
+          "default": [
+            "GET",
+            "HEAD",
+            "OPTIONS",
+            "PUT",
+            "DELETE"
+          ],
+          "description": "Methods that are retried",
+          "items": {
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "HEAD",
+              "OPTIONS"
+            ]
+          },
+          "type": "array"
+        },
+        "on": {
+          "default": [
+            "connect",
+            "timeout",
+            502,
+            503,
+            504
+          ],
+          "description": "Failures and statuses that are retried",
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "enum": [
+                  "connect",
+                  "timeout"
+                ]
+              }
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "intRange": {
+      "additionalProperties": false,
+      "description": "A range of whole numbers",
+      "properties": {
+        "max": {
+          "description": "Largest value",
+          "type": "integer"
+        },
+        "min": {
+          "description": "Smallest value",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "lorem": {
+      "additionalProperties": false,
+      "description": "Placeholder text",
+      "properties": {
+        "words": {
+          "description": "How many words",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "paths": {
+      "additionalProperties": false,
+      "description": "Where definition files are found",
+      "properties": {
+        "exclude": {
+          "description": "Globs of files to leave out",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "include": {
+          "description": "Globs of files to read",
+          "examples": [
+            [
+              "services/**"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "plugin": {
+      "additionalProperties": false,
+      "description": "A third-party plugin",
+      "properties": {
+        "config": {
+          "description": "Its settings"
+        },
+        "id": {
+          "description": "Referenced by `plugin:`",
+          "examples": [
+            "acmeAuth"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "description": "Where it comes from",
+          "examples": [
+            "npm:@acme/vibranium-auth@2"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source"
+      ],
+      "type": "object"
+    },
+    "poll": {
+      "additionalProperties": false,
+      "description": "Re-send until `until` holds, then check `expect`",
+      "properties": {
+        "every": {
+          "description": "Pause between calls",
+          "examples": [
+            "2s"
+          ],
+          "type": "string"
+        },
+        "timeout": {
+          "description": "Give up after this long",
+          "examples": [
+            "1m"
+          ],
+          "type": "string"
+        },
+        "until": {
+          "$ref": "#/$defs/expect",
+          "description": "Checks that end the polling"
+        }
+      },
+      "required": [
+        "until",
+        "every",
+        "timeout"
+      ],
+      "type": "object"
+    },
+    "profile": {
+      "additionalProperties": false,
+      "description": "A named set of var overrides",
+      "properties": {
+        "agents": {
+          "$ref": "#/$defs/agents",
+          "description": "What agents may do under this profile; reads only when left out (D195)"
+        },
+        "default": {
+          "default": false,
+          "description": "Active when no profile is named",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Lowercase profile name",
+          "examples": [
+            "staging"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "Shown in reports",
+          "type": "string"
+        },
+        "vars": {
+          "additionalProperties": {},
+          "description": "Values that replace the config's vars",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "redact": {
+      "additionalProperties": false,
+      "description": "Extra values to mask",
+      "properties": {
+        "fields": {
+          "description": "Body field names",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "headers": {
+          "description": "Header names",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rules": {
+          "description": "Your own masking rules (D171)",
+          "items": {
+            "$ref": "#/$defs/redactRule"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "redactRule": {
+      "additionalProperties": false,
+      "description": "One masking rule; write `regex`, `cel` or `function`",
+      "properties": {
+        "cel": {
+          "description": "Masks a JSON field when true; `item.name` and `item.value` are the field",
+          "examples": [
+            "item.name == 'ssn'"
+          ],
+          "type": "string"
+        },
+        "function": {
+          "description": "`path#export` of a hook that masks texts and fields",
+          "examples": [
+            "hooks/redact.ts#maskCards"
+          ],
+          "type": "string"
+        },
+        "regex": {
+          "description": "Masks every match in any text",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "reports": {
+      "additionalProperties": false,
+      "description": "Report formats and folder",
+      "properties": {
+        "dir": {
+          "description": "Output folder",
+          "type": "string"
+        },
+        "formats": {
+          "description": "Report formats: ctrf, junit, html or a reporter plugin's ID",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "html": {
+          "$ref": "#/$defs/html",
+          "description": "HTML report settings"
+        }
+      },
+      "type": "object"
+    },
+    "retry": {
+      "additionalProperties": false,
+      "description": "Re-run the whole test instance after a failure (D126)",
+      "properties": {
+        "attempts": {
+          "description": "Further attempts after the first",
+          "examples": [
+            2
+          ],
+          "type": "integer"
+        },
+        "delay": {
+          "default": "0s",
+          "description": "Pause between attempts",
+          "examples": [
+            "1s"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "attempts"
+      ],
+      "type": "object"
+    },
+    "secrets": {
+      "additionalProperties": false,
+      "description": "Where secrets come from",
+      "properties": {
+        "provider": {
+          "default": "env",
+          "description": "The secrets provider (D163)",
+          "enum": [
+            "env",
+            "varlock"
+          ]
+        },
+        "schema": {
+          "description": "The file that declares the secret names",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "timing": {
+      "additionalProperties": false,
+      "description": "Matchers on the request phases",
+      "properties": {
+        "connect": {
+          "description": "TCP connect"
+        },
+        "dns": {
+          "description": "Name lookup"
+        },
+        "download": {
+          "description": "Reading the body"
+        },
+        "firstByte": {
+          "description": "Until the first response byte"
+        },
+        "tls": {
+          "description": "TLS handshake"
+        },
+        "total": {
+          "description": "The whole request",
+          "examples": [
+            {
+              "lt": "500ms"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://v007m.github.io/vc-rs/schema/config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The project config, `vibranium.config.yaml`",
+  "properties": {
+    "afterRun": {
+      "description": "Actions run once after the last test",
+      "items": {
+        "$ref": "#/$defs/action"
+      },
+      "type": "array"
+    },
+    "alerts": {
+      "description": "Notifications",
+      "items": {
+        "$ref": "#/$defs/alert"
+      },
+      "type": "array"
+    },
+    "auth": {
+      "description": "Auth definitions",
+      "items": {
+        "$ref": "#/$defs/auth"
+      },
+      "type": "array"
+    },
+    "beforeRun": {
+      "description": "Actions run once before any test starts",
+      "items": {
+        "$ref": "#/$defs/action"
+      },
+      "type": "array"
+    },
+    "datasets": {
+      "$ref": "#/$defs/datasets",
+      "description": "Your own data lists"
+    },
+    "defaults": {
+      "$ref": "#/$defs/defaults",
+      "description": "Defaults for every request and test"
+    },
+    "generators": {
+      "description": "Named fake-data generators",
+      "items": {
+        "$ref": "#/$defs/generator"
+      },
+      "type": "array"
+    },
+    "history": {
+      "$ref": "#/$defs/history",
+      "description": "Run history and retention"
+    },
+    "http": {
+      "$ref": "#/$defs/http",
+      "description": "Transport settings"
+    },
+    "paths": {
+      "$ref": "#/$defs/paths",
+      "description": "Where definition files are found"
+    },
+    "plugins": {
+      "description": "Third-party plugins",
+      "items": {
+        "$ref": "#/$defs/plugin"
+      },
+      "type": "array"
+    },
+    "profiles": {
+      "description": "Named sets of var overrides",
+      "items": {
+        "$ref": "#/$defs/profile"
+      },
+      "type": "array"
+    },
+    "project": {
+      "description": "Display name in reports and on the server",
+      "type": "string"
+    },
+    "redact": {
+      "$ref": "#/$defs/redact",
+      "description": "Extra values to mask"
+    },
+    "reports": {
+      "$ref": "#/$defs/reports",
+      "description": "Output formats and folder"
+    },
+    "secrets": {
+      "$ref": "#/$defs/secrets",
+      "description": "Where `${secret.*}` comes from"
+    },
+    "syntaxVersion": {
+      "description": "File-format version",
+      "examples": [
+        2
+      ],
+      "type": "integer"
+    },
+    "vars": {
+      "additionalProperties": {},
+      "description": "Project-wide values",
+      "type": "object"
+    }
+  },
+  "required": [
+    "syntaxVersion"
+  ],
+  "title": "Vibranium config file",
+  "type": "object"
+}

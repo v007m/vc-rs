@@ -22,7 +22,7 @@ fn has_one_object_schema_per_kind() {
         assert_eq!(schema["type"], "object");
         assert_eq!(schema["additionalProperties"], false);
         let id = schema["$id"].as_str().unwrap();
-        assert!(id.starts_with("https://raw.githubusercontent.com/v007m/vc-rs/master/schema/"), "{id}");
+        assert!(id.starts_with("https://v007m.github.io/vc-rs/schema/"), "{id}");
     }
     assert!(schema(FileKind::Test)["$id"].as_str().unwrap().ends_with("/test.schema.json"));
 }
@@ -82,4 +82,15 @@ fn reads_yaml_values_as_json() {
     let json = |text| super::to_json(&super::yaml(text).unwrap());
     assert_eq!(json("{a: [1, 2.5, true, null, x], b: '3'}"), json!({ "a": [1, 2.5, true, null, "x"], "b": "3" }));
     assert_eq!(json("0x1F"), json!("0x1F"));
+}
+
+#[test]
+fn the_committed_schemas_match_the_export() {
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schema");
+    for schema in super::schemas() {
+        let file = folder.join(format!("{}.schema.json", schema.kind.name()));
+        let text = std::fs::read_to_string(&file).unwrap_or_default();
+        let committed: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+        assert!(committed == schema.schema, "{} is stale; run `vc schema export --out schema`", file.display());
+    }
 }
