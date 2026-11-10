@@ -11,12 +11,13 @@ pub fn find_project_root(start: &Path) -> Option<PathBuf> {
     start.ancestors().find(|dir| dir.join(CONFIG_FILE).is_file()).map(Path::to_path_buf)
 }
 
-/// `path` relative to `root`, links resolved, with `/` between its parts; `None` when it does
-/// not exist or is not under `root`.
+/// `path` relative to `root`, links resolved in both, with `/` between its parts; `None` when it
+/// does not exist or is not under `root`.
 #[must_use]
 pub fn project_path(root: &Path, path: &Path) -> Option<String> {
     let resolved = std::fs::canonicalize(path).ok()?;
-    let relative = resolved.strip_prefix(root).ok()?;
+    let root = std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    let relative = resolved.strip_prefix(&root).ok()?;
     let parts: Vec<_> = relative.components().map(|part| part.as_os_str().to_string_lossy()).collect();
     Some(parts.join("/"))
 }
@@ -54,5 +55,19 @@ mod tests {
         assert_eq!(project_path(&root, &root.join("specs/../specs/shop.yaml")).as_deref(), Some("specs/shop.yaml"));
         assert_eq!(project_path(&root, &root.join("specs/missing.yaml")), None);
         assert_eq!(project_path(&root.join("specs"), &root), None, "the root is outside a folder in it");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_root_given_through_a_link_or_dot_dot_still_holds_its_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let (real, link) = (dir.path().join("real"), dir.path().join("link"));
+        fs::create_dir_all(real.join("specs")).unwrap();
+        fs::write(real.join("specs/shop.yaml"), "openapi: 3.1.0\n").unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        assert_eq!(project_path(&link, &link.join("specs/shop.yaml")).as_deref(), Some("specs/shop.yaml"));
+        assert_eq!(project_path(&link, &real.join("specs/shop.yaml")).as_deref(), Some("specs/shop.yaml"));
+        let dotted = real.join("specs/..");
+        assert_eq!(project_path(&dotted, &real.join("specs/shop.yaml")).as_deref(), Some("specs/shop.yaml"));
     }
 }
