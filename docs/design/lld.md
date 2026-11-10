@@ -177,11 +177,13 @@ The feasibility spike showed that Rust's borrow checker stays out of the way whe
 | Duplication | A copied block of 10 lines or more (D135) | `jscpd` |
 | Architecture | A crate imports something the layer table forbids, or a rule above is broken: `static` state, a lock outside the D113 allow-list, `pub mod` in a library crate, more than 3 parameters, a file over 400 lines, a trait over 7 methods, an external type outside the D111 allow-list, `anyhow` outside `vc-cli`, `vc-testkit` as a normal dependency, an interface impl without its contract suite | `arch-tests` (cargo metadata plus a syntax scan); each failure prints a stable rule ID |
 | Dependencies | A licence outside the allow-list, a known vulnerability, a duplicate version (`multiple-versions = deny`, with a skip list), a banned crate (`openssl-sys`, `v8`, `deno_core`), an unknown registry or git source, an unused dependency (D135) | `cargo-deny`, `cargo-machete` |
+| JS licences | A production dependency of any pnpm workspace package has a licence outside `deny.toml`'s `[licenses] allow` list, the one allow-list for Rust and JS; SPDX `OR`, `AND` and `WITH` are read as cargo-deny reads them (D246) | `pnpm licenses list --prod --recursive`, `scripts/js-licenses.mjs` |
+| Wire contract | `proto/` fails `buf lint` (STANDARD), or breaks compatibility (FILE rules) with `proto/` on the base branch; the breaking check is skipped with a notice when the base has no `proto/` (D246) | `buf lint`, `buf breaking` |
 | Formatting | Unformatted code | `cargo fmt --check` |
 | Tests | Any failing test or doctest (D135) | `cargo nextest run --workspace` plus `cargo test --doc` |
-| Mutation score | Below 85% caught mutants in `executor`, `planner`, `template` and `compiler`: on the diff in PRs (the commits since the PR's previous run, D205), the full run nightly (D119) | `cargo-mutants` |
+| Mutation score | Below 85% caught mutants: on the diff in PRs (the commits since the PR's previous run, D205) in `executor`, `planner`, `template`, `compiler`, `vc-server`, `vc-contracts` (not its generated `src/gen/`) and every adapter (D246); the full run nightly covers the first four (D119) | `cargo-mutants` |
 | Performance | An instruction-count bench regresses by more than 5% on a PR (D120) | `gungraun` |
-| Commits | A commit message that is not a conventional commit, or a `refactor:` commit that changes test assertions (D116) | `scripts/commit-check.sh` |
+| Commits | A commit message that is not a conventional commit, or a `refactor:` commit that changes test assertions or a test file: `*_tests.rs`, a `tests/` folder outside `src/`, `*.test.ts`, `*.spec.ts` or `e2e/` (D116, D246) | `scripts/commit-check.sh` |
 
 CI (D119): Ubuntu runs every gate; macOS and Windows build and run the tests; a nightly job runs full mutation testing and the wall-clock budgets. `scripts/gates-selftest.sh` applies one bad patch per gate and asserts that the expected gate rejects it, so a gate cannot silently stop working (D121). From the end of M2, `cargo public-api` snapshots for `vc-model`, `vc-interfaces` and `vc-engine` make any public API change visible in review (D117).
 
