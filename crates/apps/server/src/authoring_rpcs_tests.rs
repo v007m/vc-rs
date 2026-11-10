@@ -63,3 +63,12 @@ async fn a_pasted_spec_cannot_pull_in_the_env_file() {
     let refused = import(api, request).await.unwrap_err();
     assert!(!format!("{refused:?}").contains(crate::engine_fixture::SECRET), "{refused:?}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_pasted_spec_cannot_make_the_server_fetch_a_url() {
+    let (_dir, api) = project();
+    let spec = "openapi: 3.0.3\ninfo: {title: Pets, version: '1'}\npaths:\n  /pets:\n    $ref: 'http://169.254.169.254/latest/meta-data'\n";
+    let request = wire::ImportRequest { kind: "openapi".into(), source: spec.into(), ..wire::ImportRequest::default() };
+    let refused = import(api, request).await.unwrap_err();
+    assert!(refused.message.contains("may not fetch URLs"), "{refused:?}");
+}

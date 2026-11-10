@@ -8,7 +8,7 @@ use super::ProjectFetcher;
 
 fn fetcher(transport: FakeTransport) -> ProjectFetcher {
     let sources = MemorySources::new(&[("specs/users.yaml", b"openapi: 3.1.0\ninfo: {title: Users}\n")]);
-    ProjectFetcher { sources: Arc::new(sources), transport: Arc::new(transport) }
+    ProjectFetcher { sources: Arc::new(sources), transport: Some(Arc::new(transport)) }
 }
 
 #[tokio::test]
@@ -41,9 +41,9 @@ async fn what_cannot_be_fetched_says_why() {
     }
     assert!(matches!(outside, Err(FetchError::NotAllowed { .. } | FetchError::Failed { .. })), "{outside:?}");
     let down = ProjectFetcher {
-        transport: Arc::new(FakeTransport::scripted(vec![Err(TransportError::InvalidRequest {
+        transport: Some(Arc::new(FakeTransport::scripted(vec![Err(TransportError::InvalidRequest {
             reason: "down".to_owned(),
-        })])),
+        })]))),
         ..fetcher
     };
     let failed = down.fetch("https://specs.test/a.json").await;

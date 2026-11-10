@@ -1,6 +1,7 @@
 //! The importers' [`SpecFetcher`]: a URL through the transport, a path through the project's
 //! sources (so nothing outside the project is read, nor a hidden file such as `.env` that a
-//! pasted spec's `$ref` names), YAML and JSON read with `vc-parser`.
+//! pasted spec's `$ref` names), YAML and JSON read with `vc-parser`. A pasted spec's fetcher has
+//! no transport, so its `$ref`s never reach the network.
 
 use std::sync::Arc;
 
@@ -14,7 +15,8 @@ use vc_parser::Syntax;
 /// Fetches specs for one import or sync.
 pub struct ProjectFetcher {
     pub sources: Arc<dyn SourceProvider>,
-    pub transport: Arc<dyn Transport>,
+    /// How URLs are fetched; none for a pasted spec, whose URLs are refused.
+    pub transport: Option<Arc<dyn Transport>>,
 }
 
 #[async_trait]
@@ -38,10 +40,13 @@ impl SpecFetcher for ProjectFetcher {
 impl ProjectFetcher {
     async fn get(&self, location: &str) -> Result<Vec<u8>, FetchError> {
         let failed = |reason: String| FetchError::Failed { location: location.to_owned(), reason };
+        let Some(transport) = &self.transport else {
+            return Err(failed("a pasted spec may not fetch URLs; import it from its URL with `vc import`".to_owned()));
+        };
         let uri = location.parse().map_err(|error: http::uri::InvalidUri| failed(error.to_string()))?;
         let request = RenderedRequest::new(http::Method::GET, uri);
         let exchange =
-            self.transport.send(request, &SendContext::default()).await.map_err(|error| failed(error.to_string()))?;
+            transport.send(request, &SendContext::default()).await.map_err(|error| failed(error.to_string()))?;
         let status = exchange.response.status;
         if !status.is_success() {
             return Err(failed(format!("the server answered {status}")));

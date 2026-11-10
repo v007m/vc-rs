@@ -1,6 +1,7 @@
 //! The authoring RPCs: `Call`, `SaveCallAsTest` and `Import`. The web UI's call goes through
 //! the profiles' agent policy and the agent log as `web-ui` (D178). An import reads only the
-//! text the request carries, never a URL or path, and writes only when asked.
+//! text the request carries, never a URL or path, and fetches none of its `$ref`s from the
+//! network; it reads and compiles off the async workers, and writes only when asked.
 
 use std::sync::Arc;
 
@@ -81,9 +82,15 @@ async fn import(api: Arc<EngineApi>, request: wire::ImportRequest) -> Result<wir
         flow: request.flow,
         keep: Keep { hosts: keep.hosts, assets: keep.assets },
     };
-    let changes = api.engine().import(&import).await.map_err(|error| failed(&error))?;
-    let changes =
-        if write { api.blocking(move |engine| engine.write(&changes).map(|()| changes)).await? } else { changes };
+    let changes = api
+        .blocking(move |engine| {
+            let changes = tokio::runtime::Handle::current().block_on(engine.import(&import))?;
+            if write {
+                engine.write(&changes)?;
+            }
+            Ok(changes)
+        })
+        .await?;
     Ok(response(changes))
 }
 

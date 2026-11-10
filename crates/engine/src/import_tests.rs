@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use vc_interfaces::SourceProvider;
 use vc_testkit::{FakeTransport, FakeVcs, MemorySources, status};
@@ -60,6 +61,32 @@ async fn a_spec_given_as_text_is_read_without_fetching_and_named_by_its_source()
     let paths: Vec<_> = changes.files.iter().map(|file| file.path.as_str()).collect();
     assert!(paths.contains(&"services/petstore/petstore.api.yaml"), "{paths:?}");
     assert_eq!(changes.titles, ["Import 5 apis from pasted/petstore.json"]);
+}
+
+#[tokio::test]
+async fn a_pasted_spec_may_not_fetch_a_remote_ref() {
+    let fetched = Arc::new(AtomicUsize::new(0));
+    let counted = Arc::clone(&fetched);
+    let served = FakeTransport::new(move |_, _| {
+        counted.fetch_add(1, Ordering::SeqCst);
+        let mut response = status(200);
+        response.body = r#"{"type": "object"}"#.into();
+        Ok(response)
+    });
+    let engine = builder(FakeVcs::default()).transport(Arc::new(served)).build().unwrap();
+    let schema = r#"{"$ref": "http://internal.test/schemas.json#/User"}"#;
+    let spec = format!(
+        r#"{{"openapi": "3.1.0", "info": {{"title": "Users", "version": "1"}}, "paths": {{"/users": {{"get": {{
+        "operationId": "listUsers", "responses": {{"200": {{"description": "ok",
+        "content": {{"application/json": {{"schema": {schema}}}}}}}}}}}}}}}}}"#
+    );
+    let given = ImportRequest { text: Some(spec), ..request("openapi", "pasted") };
+    let refused = engine.import(&given).await;
+    assert!(
+        matches!(&refused, Err(EngineError::Edit { reason, .. }) if reason.contains("may not fetch URLs")),
+        "{refused:?}"
+    );
+    assert_eq!(fetched.load(Ordering::SeqCst), 0);
 }
 
 #[tokio::test]

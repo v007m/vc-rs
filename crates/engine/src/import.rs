@@ -80,7 +80,7 @@ impl Engine {
     /// file to create exists; [`EngineError::Invalid`] when the result would not compile.
     pub async fn import(&self, request: &ImportRequest) -> Result<Changes, EngineError> {
         let project = self.authoring()?;
-        let fetcher = self.fetcher()?;
+        let fetcher = if request.text.is_some() { self.pasted_fetcher() } else { self.fetcher()? };
         let importer = ImporterRegistry::builtin().create(&request.kind, fetcher.clone()).map_err(|error| {
             let kinds: Vec<_> = ImporterRegistry::builtin().names().map(str::to_owned).collect();
             refused(error.to_string(), &format!("the importers are {}", kinds.join(", ")))
@@ -111,7 +111,13 @@ impl Engine {
     pub(crate) fn fetcher(&self) -> Result<Arc<ProjectFetcher>, EngineError> {
         let environment = self.environment.clone().unwrap_or_else(|| Arc::new(SystemEnvironment::capture()));
         let transport = self.transport(environment.as_ref())?;
-        Ok(Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport }))
+        Ok(Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport: Some(transport) }))
+    }
+
+    /// Fetches through the project's sources only: a pasted spec's `$ref`s never reach the
+    /// network, so the web UI cannot be made to fetch from the server's side.
+    fn pasted_fetcher(&self) -> Arc<ProjectFetcher> {
+        Arc::new(ProjectFetcher { sources: Arc::clone(&self.sources), transport: None })
     }
 }
 
