@@ -319,7 +319,7 @@ pub struct ListDefinitionsRequest {
     pub kind: i32,
     #[prost(message, optional, tag="2")]
     pub selection: ::core::option::Option<Selection>,
-    /// List skipped tests too.
+    /// List only the skipped tests, as `vc list --skipped` does; without it, skipped tests are listed with the rest.
     #[prost(bool, tag="3")]
     pub skipped: bool,
 }

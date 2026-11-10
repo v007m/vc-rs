@@ -141,7 +141,7 @@ export type ListDefinitionsRequest = Message<"vibranium.engine.v1.ListDefinition
   selection?: Selection | undefined;
 
   /**
-   * List skipped tests too.
+   * List only the skipped tests, as `vc list --skipped` does; without it, skipped tests are listed with the rest.
    *
    * @generated from field: bool skipped = 3;
    */
