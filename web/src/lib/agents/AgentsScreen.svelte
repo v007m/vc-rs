@@ -23,7 +23,7 @@
 <div class="agents">
   <ApprovalQueue {desk} {now} />
   <ConnectPanel />
-  <AgentLog actions={desk.actions} />
+  <AgentLog actions={desk.actions} {now} />
 </div>
 
 <style>

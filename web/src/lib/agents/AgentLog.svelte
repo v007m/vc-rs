@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { AgentAction } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+  import { ago } from './desk.svelte.ts';
 
-  let { actions }: { actions: readonly AgentAction[] } = $props();
+  let { actions, now }: { actions: readonly AgentAction[]; now: number } = $props();
 
   let agent = $state('');
   let text = $state('');
@@ -39,9 +40,9 @@
     <table>
       <thead>
         <tr
-          ><th scope="col">Tool</th><th scope="col">Agent</th><th scope="col">Profile</th><th
-            scope="col">Approved by</th
-          ></tr
+          ><th scope="col">Tool</th><th scope="col">When</th><th scope="col">Agent</th><th
+            scope="col">Profile</th
+          ><th scope="col">Approved by</th></tr
         >
       </thead>
       <tbody>
@@ -56,13 +57,18 @@
                 onclick={() => (open = open === index ? undefined : index)}>{action.tool}</button
               >
             </td>
+            <td>
+              <time datetime={new Date(Number(action.atMs)).toISOString()}
+                >{ago(action.atMs, now)}</time
+              >
+            </td>
             <td>{action.agent}</td>
             <td>{action.profile ?? '—'}</td>
             <td>{action.approvedBy ?? '—'}</td>
           </tr>
           {#if open === index}
             <tr id="act-{index}">
-              <td colspan="4">
+              <td colspan="5">
                 <h3 class="sub">Arguments</h3>
                 <pre class="mono">{action.arguments}</pre>
                 <h3 class="sub">Result returned to {action.agent}</h3>

@@ -12,6 +12,12 @@
       code: '{\n  "mcpServers": {\n    "vibranium": { "command": "vc", "args": ["mcp"] }\n  }\n}',
     },
     { label: 'Other', lead: 'Add a stdio MCP server that runs:', code: 'vc mcp' },
+    {
+      label: 'HTTP',
+      lead: 'While vc ui runs, an agent can use its MCP endpoint instead:',
+      code: `claude mcp add --transport http vibranium ${location.origin}/mcp --header "Authorization: Bearer <token>"`,
+      note: 'Replace <token> with the token in the vc ui: line vc ui printed. It changes each time vc ui starts, and this page never shows it.',
+    },
   ] as const;
 
   let label: string = $state(setups[0].label);
@@ -48,6 +54,7 @@
     <pre class="mono">{chosen.code}</pre>
     <button class="btn sm" type="button" onclick={copy}>Copy</button>
   </div>
+  {#if 'note' in chosen}<p class="lead">{chosen.note}</p>{/if}
   <p class="note" role="status">{copied}</p>
   <p class="lead">
     The agent works under the default profile. Add <code>--profile &lt;name&gt;</code> to give it another;
