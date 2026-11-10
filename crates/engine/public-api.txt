@@ -22,6 +22,7 @@ pub use vc_engine::PluginPermissions
 pub use vc_engine::Render
 pub use vc_engine::RunId
 pub use vc_engine::RunRow
+pub use vc_engine::RunStart
 pub use vc_engine::RunStatus
 pub use vc_engine::Sequenced
 pub use vc_engine::SourceFiles
@@ -992,3 +993,4 @@ pub const vc_engine::APPROVAL_WAIT: core::time::Duration
 pub const vc_engine::INIT_FOLDERS: [&str; 5]
 pub fn vc_engine::auth_fields(&str) -> &'static [&'static str]
 pub fn vc_engine::interrupts() -> (vc_engine::Interrupter, vc_engine::Interrupts)
+pub fn vc_engine::started(u64) -> alloc::string::String

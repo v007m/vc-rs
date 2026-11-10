@@ -266,8 +266,8 @@ fn instance(test: &TestRow) -> String {
     id
 }
 
-/// A Unix-milliseconds time as `2026-11-05 10:22Z`.
 /// A Unix time in milliseconds as `2026-11-05 09:30Z`.
+#[must_use]
 pub fn started(ms: u64) -> String {
     let days = i64::try_from(ms / DAY_MS).unwrap_or(i64::MAX);
     let minutes = (ms % DAY_MS) / 60_000;
