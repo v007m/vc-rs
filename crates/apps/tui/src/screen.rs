@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use crossterm::event::KeyEvent;
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use vc_engine::{RunFeed, RunRequest, RunRow, TestRow, TestTrend};
+use vc_engine::{Listed, RunFeed, RunRequest, RunRow, SkipRequest, TestRow, TestTrend};
 
 /// Work a key asks for that needs the engine; [`crate::run`] carries it out and sends back
 /// [`Update`]s.
@@ -26,6 +26,19 @@ pub enum Ask {
         /// The later run's number.
         after: u64,
     },
+    /// Read the project's apis and tests: [`Update::Explored`].
+    Explore,
+    /// Explain a test or api as a run under `profiles` sees it: [`Update::Explained`].
+    Explain {
+        /// Its full ID.
+        id: String,
+        /// The active profiles.
+        profiles: Vec<String>,
+    },
+    /// Skip a test with a reason, write the change and read the project again.
+    Skip(SkipRequest),
+    /// Remove a test's skip, write the change and read the project again.
+    Unskip(String),
 }
 
 /// What the engine sent back for an [`Ask`].
@@ -52,6 +65,24 @@ pub enum Update {
     },
     /// The history could not be read; the error's text.
     HistoryFailed(String),
+    /// The project's apis, then its tests, each in project order.
+    Explored(Vec<Listed>),
+    /// How a run sees the test or api an [`Ask::Explain`] named.
+    Explained {
+        /// Its full ID.
+        id: String,
+        /// The explanation, one item per line.
+        text: String,
+    },
+    /// A skip was written (`skipped`) or removed for `target`.
+    Quarantined {
+        /// The test.
+        target: String,
+        /// Whether it is skipped now.
+        skipped: bool,
+    },
+    /// The project could not be read, explained or changed; the error's text.
+    ExploreFailed(String),
 }
 
 /// One tab's screen.
@@ -63,6 +94,10 @@ pub trait Screen: Debug + Send {
     /// The tab was chosen; what it asks of the engine to show, if anything.
     fn shown(&mut self) -> Option<Ask> {
         None
+    }
+    /// Whether the screen is taking text, so the shell hands it every key but `ctrl-c`.
+    fn typing(&self) -> bool {
+        false
     }
     /// Applies a key the shell did not take; what it asks of the engine, if anything.
     fn press(&mut self, key: KeyEvent) -> Option<Ask>;

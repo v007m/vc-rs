@@ -49,7 +49,8 @@ impl Tui {
     /// Applies one key: the digits choose a tab, `tab` and `shift-tab` cycle them, `?` opens
     /// and closes the help, `esc` closes it, and `q` or `ctrl-c` quits; any other key goes to
     /// the chosen tab, which may ask the engine for something, as may a tab when it is chosen.
-    /// A release or repeat event is ignored.
+    /// While the chosen tab takes text, every key but `ctrl-c` goes to it. A release or repeat
+    /// event is ignored.
     pub fn press(&mut self, key: KeyEvent) -> Option<Ask> {
         if key.kind != KeyEventKind::Press {
             return None;
@@ -57,15 +58,21 @@ impl Tui {
         let interrupt = key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c');
         match key.code {
             _ if interrupt => self.quitting = true,
+            _ if self.current().is_some_and(|screen| screen.typing()) => return self.hand_on(key),
             KeyCode::Char('q') => self.quitting = true,
             KeyCode::Char('?') => self.help = !self.help,
             KeyCode::Esc => self.help = false,
             KeyCode::Tab => return self.choose(self.tab + 1),
             KeyCode::BackTab => return self.choose(self.tab + self.screens.len() - 1),
             KeyCode::Char(digit) if digit.is_ascii_digit() => return self.choose_number(digit),
-            _ => return self.screens.get_mut(self.tab).and_then(|screen| screen.press(key)),
+            _ => return self.hand_on(key),
         }
         None
+    }
+
+    /// Hands `key` to the chosen tab; what it asks for.
+    fn hand_on(&mut self, key: KeyEvent) -> Option<Ask> {
+        self.screens.get_mut(self.tab).and_then(|screen| screen.press(key))
     }
 
     /// Hands what the engine sent back to the tabs.

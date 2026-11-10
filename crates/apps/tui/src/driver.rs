@@ -5,7 +5,10 @@ use std::sync::Arc;
 
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task::JoinHandle;
-use vc_engine::{Engine, Interrupter, RunFeed, RunRequest, RunWatch, interrupts};
+use vc_engine::{
+    Changes, Engine, EngineError, ExplainRequest, Interrupter, ListKind, ListRequest, RunFeed, RunRequest, RunWatch,
+    interrupts,
+};
 
 use crate::screen::{Ask, Update};
 
@@ -42,16 +45,26 @@ impl Driver {
                     running.interrupter.interrupt();
                 }
             }
-            Ask::History => self.read(history),
-            Ask::Compare { before, after } => self.read(move |engine| compare(engine, before, after)),
+            Ask::History => self.read(|engine| vec![history(engine)]),
+            Ask::Compare { before, after } => self.read(move |engine| vec![compare(engine, before, after)]),
+            Ask::Explore => self.read(|engine| vec![explore(engine)]),
+            Ask::Explain { id, profiles } => self.read(move |engine| vec![explain(engine, id, profiles)]),
+            Ask::Skip(request) => self.read(move |engine| edited(engine, engine.skip(&request), (request.target, true))),
+            Ask::Unskip(target) => self.read(move |engine| edited(engine, engine.unskip(&target), (target, false))),
         }
     }
 
-    /// Reads the history on a blocking thread, as SQLite does, and sends back what `read` makes
-    /// of it.
-    fn read(&self, read: impl FnOnce(&Engine) -> Update + Send + 'static) {
+    /// Reads or writes the project or the history on a blocking thread, as file reads and
+    /// SQLite do, and sends back the updates `read` makes of it.
+    fn read(&self, read: impl FnOnce(&Engine) -> Vec<Update> + Send + 'static) {
         let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
-        tokio::task::spawn_blocking(move || updates.blocking_send(read(&engine)).ok());
+        tokio::task::spawn_blocking(move || {
+            for update in read(&engine) {
+                if updates.blocking_send(update).is_err() {
+                    break;
+                }
+            }
+        });
     }
 
     /// Ends the run in progress, if any, as one Ctrl-C ends `vc run`: work in flight gets its
@@ -99,6 +112,31 @@ fn compare(engine: &Engine, before: u64, after: u64) -> Update {
     match tests(before).and_then(|before| Ok((before, tests(after)?))) {
         Ok((before, after)) => Update::Compared { before, after },
         Err(error) => Update::HistoryFailed(error.to_string()),
+    }
+}
+
+/// The project's apis, then its tests.
+fn explore(engine: &Engine) -> Update {
+    let list = |kind| engine.list(&ListRequest { kind, ..ListRequest::default() }).map(|report| report.items);
+    match list(ListKind::Apis).and_then(|apis| Ok([apis, list(ListKind::Tests)?].concat())) {
+        Ok(items) => Update::Explored(items),
+        Err(error) => Update::ExploreFailed(error.to_string()),
+    }
+}
+
+/// How a run under `profiles` sees the test or api `id`.
+fn explain(engine: &Engine, id: String, profiles: Vec<String>) -> Update {
+    match engine.explain(&id, &ExplainRequest { profiles, ..ExplainRequest::default() }) {
+        Ok(report) => Update::Explained { id, text: report.text },
+        Err(error) => Update::ExploreFailed(error.to_string()),
+    }
+}
+
+/// Writes the skip or unskip `changes` of `target`, then reads the project again.
+fn edited(engine: &Engine, changes: Result<Changes, EngineError>, (target, skipped): (String, bool)) -> Vec<Update> {
+    match changes.and_then(|changes| engine.write(&changes)) {
+        Ok(()) => vec![Update::Quarantined { target, skipped }, explore(engine)],
+        Err(error) => vec![Update::ExploreFailed(error.to_string())],
     }
 }
 

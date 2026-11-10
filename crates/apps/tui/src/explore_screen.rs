@@ -1,0 +1,227 @@
+//! The Explore tab: the project's apis and tests by file, the chosen one's details and how a
+//! run sees it (`vc explain`), and `t` to skip a test with a reason or to unskip it. It reads
+//! the project when first shown, again on `r`, and after each skip or unskip.
+
+use crossterm::event::{KeyCode, KeyEvent};
+use ratatui::Frame;
+use ratatui::layout::Rect;
+use vc_engine::{Listed, SkipRequest};
+
+use crate::explore_view;
+use crate::history_screen::ReadState;
+use crate::input::{Input, Typed};
+use crate::screen::{Ask, Screen, Update};
+use crate::theme::clean;
+
+/// The Explore tab's keys.
+const KEYS: [(&str, &str); 4] = [("↑↓", "move"), ("enter", "explain"), ("t", "skip/unskip"), ("r", "reload")];
+
+/// What the last key came to, for the status line.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Note {
+    /// It worked, or is under way.
+    Said(String),
+    /// It was refused or failed: the first line of why.
+    Failed(String),
+}
+
+/// The Explore tab.
+#[derive(Debug, Default)]
+pub struct ExploreScreen {
+    profiles: Vec<String>,
+    reading: ReadState,
+    items: Vec<Listed>,
+    cursor: usize,
+    explaining: Option<String>,
+    explained: Option<(String, String)>,
+    reason: Option<Input>,
+    note: Option<Note>,
+}
+
+/// Whether `item` is an api, not a test.
+pub fn is_api(item: &Listed) -> bool {
+    item.path.ends_with(".api.yaml")
+}
+
+impl ExploreScreen {
+    /// The tab before the project is read, explaining under `profiles`.
+    pub fn new(profiles: Vec<String>) -> Self {
+        Self { profiles, ..Self::default() }
+    }
+
+    /// Where reading the project has got to.
+    pub const fn reading(&self) -> &ReadState {
+        &self.reading
+    }
+
+    /// The apis and tests, by folder, each folder's apis first.
+    pub fn items(&self) -> &[Listed] {
+        &self.items
+    }
+
+    /// The chosen item's position.
+    pub const fn cursor(&self) -> usize {
+        self.cursor
+    }
+
+    /// The chosen item.
+    pub fn chosen(&self) -> Option<&Listed> {
+        self.items.get(self.cursor)
+    }
+
+    /// The item being explained.
+    pub fn explaining(&self) -> Option<&str> {
+        self.explaining.as_deref()
+    }
+
+    /// The last explanation read: the item's ID and the text.
+    pub const fn explained(&self) -> Option<&(String, String)> {
+        self.explained.as_ref()
+    }
+
+    /// The skip reason being typed.
+    pub const fn reason(&self) -> Option<&Input> {
+        self.reason.as_ref()
+    }
+
+    /// What the last key came to.
+    pub const fn note(&self) -> Option<&Note> {
+        self.note.as_ref()
+    }
+
+    /// Asks for the project again, unless it is being read.
+    fn reload(&mut self) -> Option<Ask> {
+        if self.reading == ReadState::Reading {
+            return None;
+        }
+        self.reading = ReadState::Reading;
+        Some(Ask::Explore)
+    }
+
+    /// Asks how a run sees the chosen item.
+    fn explain(&mut self) -> Option<Ask> {
+        let id = self.chosen()?.id.clone();
+        self.explaining = Some(id.clone());
+        Some(Ask::Explain { id, profiles: self.profiles.clone() })
+    }
+
+    /// Unskips the chosen test when it is skipped, or starts on the reason to skip it.
+    fn quarantine(&mut self) -> Option<Ask> {
+        let chosen = self.chosen()?;
+        let (id, api, skipped) = (chosen.id.clone(), is_api(chosen), chosen.skipped);
+        if api {
+            self.note = Some(Note::Failed(format!("{id} is an api: t skips a test")));
+            return None;
+        }
+        if skipped {
+            self.note = Some(Note::Said(format!("unskipping {id}…")));
+            return Some(Ask::Unskip(id));
+        }
+        self.note = None;
+        self.reason = Some(Input::default());
+        None
+    }
+
+    /// Applies a key to the reason being typed; on `enter`, asks to skip with it.
+    fn type_reason(&mut self, key: KeyEvent) -> Option<Ask> {
+        match self.reason.as_mut()?.press(key) {
+            Typed::Editing => None,
+            Typed::Dropped => {
+                self.reason = None;
+                None
+            }
+            Typed::Done => self.skip(),
+        }
+    }
+
+    /// Asks to skip the chosen test with the reason typed, unless the reason is blank.
+    fn skip(&mut self) -> Option<Ask> {
+        let reason = self.reason.as_ref()?.text().trim().to_owned();
+        if reason.is_empty() {
+            self.note = Some(Note::Failed("a skip needs a reason, for the report".to_owned()));
+            return None;
+        }
+        let target = self.chosen()?.id.clone();
+        self.reason = None;
+        self.note = Some(Note::Said(format!("skipping {target}…")));
+        Some(Ask::Skip(SkipRequest { target, reason, until: None }))
+    }
+
+    fn step(&mut self, down: bool) {
+        let last = self.items.len().saturating_sub(1);
+        self.cursor = if down { (self.cursor + 1).min(last) } else { self.cursor.saturating_sub(1) };
+    }
+
+    /// Takes the listing: each folder's apis, then its tests, each file in project order.
+    fn read(&mut self, items: &[Listed]) {
+        let folder = |item: &Listed| item.path.rsplit_once('/').map_or("", |(folder, _)| folder).to_owned();
+        let mut items = items.to_vec();
+        items.sort_by_cached_key(|item| (folder(item), !is_api(item)));
+        self.items = items;
+        self.reading = ReadState::Read;
+        self.cursor = self.cursor.min(self.items.len().saturating_sub(1));
+    }
+
+    fn failed(&mut self, reason: &str) {
+        let first = clean(reason.lines().next().unwrap_or_default());
+        self.explaining = None;
+        if self.reading == ReadState::Reading {
+            self.reading = ReadState::Failed(first);
+        } else {
+            self.note = Some(Note::Failed(first));
+        }
+    }
+}
+
+impl Screen for ExploreScreen {
+    fn title(&self) -> &'static str {
+        "Explore"
+    }
+
+    fn keys(&self) -> &'static [(&'static str, &'static str)] {
+        &KEYS
+    }
+
+    fn shown(&mut self) -> Option<Ask> {
+        if self.reading == ReadState::Unread { self.reload() } else { None }
+    }
+
+    fn typing(&self) -> bool {
+        self.reason.is_some()
+    }
+
+    fn press(&mut self, key: KeyEvent) -> Option<Ask> {
+        if self.reason.is_some() {
+            return self.type_reason(key);
+        }
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => self.step(false),
+            KeyCode::Down | KeyCode::Char('j') => self.step(true),
+            KeyCode::Enter => return self.explain(),
+            KeyCode::Char('t') => return self.quarantine(),
+            KeyCode::Char('r') => return self.reload(),
+            _ => {}
+        }
+        None
+    }
+
+    fn take(&mut self, update: &Update) {
+        match update {
+            Update::Explored(items) => self.read(items),
+            Update::Explained { id, text } if self.explaining.as_ref() == Some(id) => {
+                self.explained = Some((id.clone(), text.clone()));
+                self.explaining = None;
+            }
+            Update::Quarantined { target, skipped } => {
+                let done = if *skipped { "skipped" } else { "unskipped" };
+                self.note = Some(Note::Said(format!("{target} {done}")));
+            }
+            Update::ExploreFailed(reason) => self.failed(reason),
+            _ => {}
+        }
+    }
+
+    fn draw(&self, frame: &mut Frame<'_>, area: Rect) {
+        explore_view::draw(self, frame, area);
+    }
+}
