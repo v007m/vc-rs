@@ -4,12 +4,28 @@
 //! unary calls as `application/proto` and server streams as `application/connect+proto`
 //! envelopes, ending with an end-stream message. A failed call is a [`ConnectError`], sent as
 //! Connect error JSON. Bodies are binary protobuf only; the JSON codec waits on pbjson.
+//!
+//! [`ServerBuilder`] puts the services, the mounts (MCP over HTTP) and the web UI's [`Files`]
+//! behind one guard and listens on `127.0.0.1` only. Every request needs the process's random
+//! token, which only the [`LaunchUrl`] shows: its `GET /?token=…` sets an `HttpOnly`,
+//! `SameSite=Strict` cookie and redirects to `/`; other clients send `Authorization: Bearer`.
+//! `Host` must name the server, a write from another site's page is refused, there is no CORS,
+//! and the CSP is built here from the page's script hashes alone.
 
+mod builder;
 mod code;
+mod csp;
 mod envelope;
 mod error;
+#[cfg(test)]
+mod fixture;
+mod guard;
 mod service;
+mod site;
+mod token;
 
+pub use builder::{LaunchUrl, Server, ServerBuilder};
 pub use code::Code;
-pub use error::ConnectError;
+pub use error::{ConnectError, ServerError};
 pub use service::{ConnectService, Sink};
+pub use site::Files;
