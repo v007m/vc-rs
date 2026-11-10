@@ -131,10 +131,12 @@ fn files_pane(changes: &Changes, shown: usize) -> Paragraph<'static> {
     Paragraph::new(rows.chain(notes).collect::<Vec<_>>()).scroll((first, 0)).block(theme::pane("Draft"))
 }
 
-/// The chosen file's diff, its added lines green and its removed ones red.
-pub fn diff_pane(file: Option<&FileChange>) -> Paragraph<'static> {
-    let diff = file.map(FileChange::diff).unwrap_or_default();
-    let lines: Vec<Line<'static>> = diff.lines().map(|line| Line::styled(clean(line), diff_style(line))).collect();
+/// The diffs of `files`, one after another, each headed by its path; added lines green and
+/// removed ones red.
+pub fn diff_pane<'a>(files: impl IntoIterator<Item = &'a FileChange>) -> Paragraph<'static> {
+    let diffs: Vec<String> = files.into_iter().map(FileChange::diff).collect();
+    let lines = diffs.iter().flat_map(|diff| diff.lines());
+    let lines: Vec<Line<'static>> = lines.map(|line| Line::styled(clean(line), diff_style(line))).collect();
     Paragraph::new(lines).block(theme::pane("Diff"))
 }
 

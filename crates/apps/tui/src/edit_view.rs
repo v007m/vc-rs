@@ -1,5 +1,6 @@
 //! Draws the file being edited in the Explore tab: its text with the cursor kept in view and
-//! why the guard refused the last draft, or the draft's diff; and its status line.
+//! why the guard refused the last draft, or the diff of every file the draft writes; and its
+//! status line.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
@@ -18,7 +19,7 @@ pub fn draw(session: &EditSession, frame: &mut Frame<'_>, area: Rect) {
     match session.stage() {
         Stage::Opening => frame.render_widget(Paragraph::new("").block(theme::pane(&title(session))), area),
         Stage::Drafted(changes) | Stage::Saving(changes) => {
-            frame.render_widget(diff_pane(changes.files.first()).scroll((session.scroll(), 0)), area);
+            frame.render_widget(diff_pane(&changes.files).scroll((session.scroll(), 0)), area);
         }
         Stage::Text | Stage::Drafting => draw_text(session, frame, area),
     }
@@ -77,3 +78,7 @@ pub fn status_line(session: &EditSession) -> Line<'static> {
         Stage::Saving(_) => Line::styled(format!("writing {path}…"), theme::INFO),
     }
 }
+
+#[cfg(test)]
+#[path = "edit_view_tests.rs"]
+mod tests;
