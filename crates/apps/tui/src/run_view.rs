@@ -48,7 +48,7 @@ fn status_line(model: &RunModel) -> Line<'static> {
 fn progress(word: &'static str, style: Style, model: &RunModel) -> Vec<Span<'static>> {
     let mut spans = vec![Span::styled(word, style), Span::raw(format!(" {}/{} ", model.finished(), model.planned))];
     spans.extend(counts(&model.totals, true));
-    spans.push(Span::styled(format!("  {} requests", model.requests.len()), theme::DIM));
+    spans.push(Span::styled(format!("  {} requests", model.sent), theme::DIM));
     spans
 }
 

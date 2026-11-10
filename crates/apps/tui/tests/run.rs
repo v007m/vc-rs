@@ -5,8 +5,8 @@ mod support;
 
 use crossterm::event::KeyCode;
 use insta::assert_snapshot;
-use support::{carry, press, run_of, screen, tui};
-use vc_engine::{RunFeed, SelectRequest};
+use support::{carry, engine, feed_of, press, run_of, screen, tui};
+use vc_engine::{Event, OwnerKey, RunFeed, SelectRequest, Sequenced};
 use vc_tui::{Ask, Update};
 
 const SIZE: (u16, u16) = (100, 24);
@@ -67,4 +67,58 @@ fn missed_events_are_counted_and_control_characters_never_reach_the_terminal() {
     tui.update(&Update::RunFailed("bad\u{1b}[2Jname".to_owned()));
     let status = screen(&tui, SIZE).lines().nth(1).unwrap_or_default().to_owned();
     assert_eq!(status, "error bad·[2Jname  missed 3 events; `vc history` has them");
+}
+
+#[tokio::test]
+async fn the_request_count_is_every_request_sent_not_only_those_the_pane_keeps() {
+    let mut tui = tui();
+    let ask = press(&mut tui, &[KeyCode::Char('a')]);
+    for item in feed_of(&engine().unwrap(), ask).await.unwrap() {
+        let times = if matches!(&item, RunFeed::Event(Sequenced { event: Event::Exchanged { .. }, .. })) { 100 } else { 1 };
+        for _ in 0..times {
+            tui.update(&Update::Run(item.clone()));
+        }
+    }
+    let status = screen(&tui, SIZE).lines().nth(1).unwrap_or_default().to_owned();
+    assert!(status.contains("  300 requests"), "{status}");
+}
+
+#[tokio::test]
+async fn a_retried_test_shows_the_checks_of_its_last_attempt_only() {
+    let mut tui = tui();
+    let ask = press(&mut tui, &[KeyCode::Char('a')]);
+    for item in retried(feed_of(&engine().unwrap(), ask).await.unwrap()) {
+        tui.update(&Update::Run(item));
+    }
+    press(&mut tui, &[KeyCode::Down, KeyCode::Down]);
+    let shown = screen(&tui, SIZE);
+    assert_eq!(shown.matches("✕ status :8").count(), 1, "{shown}");
+    assert!(shown.contains("  6 requests"), "{shown}");
+}
+
+/// The feed as it would be had each test instance run twice, as `retry` runs a failed one:
+/// its events come again before it finishes.
+fn retried(items: Vec<RunFeed>) -> Vec<RunFeed> {
+    let (mut attempt, mut retried) = (Vec::new(), Vec::new());
+    for item in items {
+        match &item {
+            RunFeed::Event(Sequenced { event: Event::TestFinished { .. }, .. }) => retried.append(&mut attempt),
+            RunFeed::Event(Sequenced { event, .. }) if of_an_instance(event) => attempt.push(item.clone()),
+            _ => {}
+        }
+        retried.push(item);
+    }
+    retried
+}
+
+fn of_an_instance(event: &Event) -> bool {
+    let owner = match event {
+        Event::ActionStarted { owner, .. }
+        | Event::ActionFinished { owner, .. }
+        | Event::Exchanged { owner, .. }
+        | Event::CheckEvaluated { owner, .. }
+        | Event::Warned { owner, .. } => owner,
+        _ => return false,
+    };
+    matches!(owner, OwnerKey::Instance(_))
 }

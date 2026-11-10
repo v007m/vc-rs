@@ -131,15 +131,24 @@ pub async fn carry(tui: &mut Tui, ask: Option<Ask>) -> Outcome<()> {
 
 /// [`carry`] on `engine`.
 pub async fn carry_on(engine: &Engine, tui: &mut Tui, ask: Option<Ask>) -> Outcome<()> {
+    for item in feed_of(engine, ask).await? {
+        tui.update(&Update::Run(item));
+    }
+    Ok(())
+}
+
+/// The feed of the run `ask` asks for on `engine`, one instance at a time, up to its `Done`.
+pub async fn feed_of(engine: &Engine, ask: Option<Ask>) -> Outcome<Vec<RunFeed>> {
     let (sender, mut feed) = mpsc::channel(1_024);
     let request = RunRequest { watch: Some(RunWatch::new(sender)), concurrency: Some(1), ..run_of(ask)? };
     engine.run(&request, interrupts().1).await?;
     drop(request);
+    let mut items = Vec::new();
     while let Some(item) = feed.recv().await {
         let done = matches!(item, RunFeed::Done(_));
-        tui.update(&Update::Run(item));
+        items.push(item);
         if done {
-            return Ok(());
+            return Ok(items);
         }
     }
     Err("the feed ended without Done".into())

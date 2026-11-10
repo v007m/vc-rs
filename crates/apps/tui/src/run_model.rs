@@ -94,9 +94,42 @@ pub struct RunModel {
     pub files: Vec<FileGroup>,
     /// The latest requests, newest last.
     pub requests: VecDeque<RequestLine>,
+    /// Every request the run has sent, those [`Self::requests`] no longer keeps included.
+    pub sent: u64,
     /// Events the feed dropped because the screen fell behind.
     pub missed: u64,
+    checks: Attempts,
+}
+
+/// The checks of each test instance's attempt in progress. A retry runs the instance again
+/// from its first action, so that action starting again begins a new attempt. Checks of
+/// `beforeRun` and `beforeAll` are not kept: no test shows them.
+#[derive(Debug, Default)]
+struct Attempts {
+    first: HashMap<OwnerKey, u32>,
     checks: HashMap<OwnerKey, Vec<CheckLine>>,
+}
+
+impl Attempts {
+    /// The action at `index` started in `owner`'s frame.
+    fn started(&mut self, owner: OwnerKey, index: u32) {
+        if matches!(owner, OwnerKey::Instance(_)) && *self.first.entry(owner).or_insert(index) == index {
+            self.checks.remove(&owner);
+        }
+    }
+
+    /// A check of an action in `owner`'s frame.
+    fn push(&mut self, owner: OwnerKey, line: CheckLine) {
+        if matches!(owner, OwnerKey::Instance(_)) {
+            self.checks.entry(owner).or_default().push(line);
+        }
+    }
+
+    /// The checks of the instance's last attempt, which is over.
+    fn take(&mut self, owner: OwnerKey) -> Vec<CheckLine> {
+        self.first.remove(&owner);
+        self.checks.remove(&owner).unwrap_or_default()
+    }
 }
 
 impl RunModel {
@@ -138,12 +171,11 @@ impl RunModel {
         let Some(names) = self.names.as_ref() else { return };
         match event {
             Event::RunStarted { instances, .. } => self.planned = *instances,
-            Event::CheckEvaluated { owner, check, .. } => {
-                let line = check_line(names, check);
-                self.checks.entry(*owner).or_default().push(line);
-            }
+            Event::ActionStarted { action, owner } => self.checks.started(*owner, action.index()),
+            Event::CheckEvaluated { owner, check, .. } => self.checks.push(*owner, check_line(names, check)),
             Event::Exchanged { action, exchange, .. } => {
                 let line = request_line(exchange, &names.action(*action));
+                self.sent = self.sent.saturating_add(1);
                 self.requests.push_back(line);
                 if self.requests.len() > REQUESTS {
                     self.requests.pop_front();
@@ -156,7 +188,7 @@ impl RunModel {
 
     fn finish(&mut self, result: &TestResult) {
         let Some(names) = self.names.as_ref() else { return };
-        let checks = result.instance.and_then(|id| self.checks.remove(&OwnerKey::Instance(id))).unwrap_or_default();
+        let checks = result.instance.map(|id| self.checks.take(OwnerKey::Instance(id))).unwrap_or_default();
         let file = names.file_of(result.test);
         let finished = finished(names, result, checks);
         self.totals.add(result.status);
