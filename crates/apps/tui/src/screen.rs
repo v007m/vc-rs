@@ -7,7 +7,8 @@ use crossterm::event::KeyEvent;
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use vc_engine::{
-    Event, Listed, LoadReport, LoadRequest, RunFeed, RunRequest, RunRow, SkipRequest, TestRow, TestTrend,
+    Changes, Event, ImportRequest, Listed, LoadReport, LoadRequest, RunFeed, RunRequest, RunRow, SkipRequest, TestRow,
+    TestTrend,
 };
 
 /// Work a key asks for that needs the engine; [`crate::run`] carries it out and sends back
@@ -46,6 +47,10 @@ pub enum Ask {
     /// Start this load run, its seconds watched: [`Update::Load`], then [`Update::Loaded`].
     /// [`Ask::Stop`] interrupts it.
     Load(LoadRequest),
+    /// Draft this import, writing nothing: [`Update::Drafted`].
+    Import(Box<ImportRequest>),
+    /// Write a drafted import: [`Update::Written`].
+    Write(Changes),
 }
 
 /// What the engine sent back for an [`Ask`].
@@ -99,6 +104,12 @@ pub enum Update {
     /// The scenarios could not be listed, or the load run could not start or ended in an
     /// error; the error's text.
     LoadFailed(String),
+    /// The files the import would create or change, not written.
+    Drafted(Changes),
+    /// The drafted files were written; the change's titles.
+    Written(Vec<String>),
+    /// The import was refused, or could not be written; the error's text and its help.
+    ImportFailed(String),
 }
 
 /// One tab's screen.

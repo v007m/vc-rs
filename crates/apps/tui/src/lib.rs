@@ -18,7 +18,6 @@
 //! assert_eq!(request.plan.profiles, ["staging"]);
 //! ```
 
-mod about;
 mod app;
 mod driver;
 mod error;
@@ -27,6 +26,8 @@ mod explore_view;
 mod history_model;
 mod history_screen;
 mod history_view;
+mod import_screen;
+mod import_view;
 mod input;
 mod load_screen;
 mod load_view;

@@ -45,6 +45,11 @@ thinkTime: 1s
 thresholds: {errorRate: {lt: 0.5}}
 ";
 
+/// Where [`importing`] serves [`CURLS`].
+pub const CURLS_URL: &str = "https://specs.test/orders.curl";
+/// Two curl commands, as copied from a browser's dev tools.
+pub const CURLS: &str = "curl https://api.orders.test/v1/orders?status=open\n\ncurl -X POST https://api.orders.test/v1/orders -H 'content-type: application/json' --data-raw '{\"sku\":\"a1\"}'\n";
+
 /// The UI of the project `shop` under the profile `staging`.
 pub fn tui() -> Tui {
     Tui::new(TuiOptions::new("shop", vec!["staging".to_owned()]))
@@ -73,6 +78,25 @@ pub fn engine() -> Outcome<Engine> {
 /// An engine over the project that stores its runs in `history` and answers every request
 /// with `code`.
 pub fn engine_over(history: &Arc<MemoryHistory>, code: u16) -> Outcome<Engine> {
+    engine_with(history, FakeTransport::new(move |_, _| Ok(status(code))))
+}
+
+/// An engine over the project whose transport serves [`CURLS`] at [`CURLS_URL`] and
+/// answers anything else 404.
+pub fn importing() -> Outcome<Engine> {
+    engine_with(
+        &Arc::new(MemoryHistory::new()),
+        FakeTransport::new(|request, _| {
+            let found = request.uri.path() == "/orders.curl";
+            let mut response = status(if found { 200 } else { 404 });
+            response.body = (if found { CURLS } else { "" }).into();
+            Ok(response)
+        }),
+    )
+}
+
+/// An engine over the project that stores its runs in `history` and sends through `transport`.
+fn engine_with(history: &Arc<MemoryHistory>, transport: FakeTransport) -> Outcome<Engine> {
     let files: [(&str, &[u8]); 5] = [
         ("vibranium.config.yaml", CONFIG),
         ("services/users/users.api.yaml", USERS),
@@ -85,7 +109,7 @@ pub fn engine_over(history: &Arc<MemoryHistory>, code: u16) -> Outcome<Engine> {
         .compile_cache(Arc::new(MemoryCompileCache::new()))
         .environment(Arc::new(MemoryEnvironment::new(&[])))
         .vcs(Arc::new(FakeVcs::default()))
-        .transport(Arc::new(FakeTransport::new(move |_, _| Ok(status(code)))))
+        .transport(Arc::new(transport))
         .history(history.clone(), history.clone())
         .build()?;
     Ok(engine)

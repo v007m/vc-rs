@@ -41,7 +41,7 @@ fn status_line(screen: &ExploreScreen) -> Line<'static> {
 }
 
 /// `error <reason>`.
-fn failed(reason: &str) -> Line<'static> {
+pub fn failed(reason: &str) -> Line<'static> {
     Line::from(vec![Span::styled("error ", theme::FAIL), Span::raw(clean(reason))])
 }
 

@@ -6,8 +6,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::task::JoinHandle;
 use vc_engine::{
-    Changes, Engine, EngineError, ExplainRequest, Interrupter, ListKind, ListRequest, LoadRequest, LoadWatch, RunRequest,
-    RunWatch, interrupts,
+    Changes, Engine, EngineError, ExplainRequest, ImportRequest, Interrupter, ListKind, ListRequest, LoadRequest, LoadWatch,
+    RunRequest, RunWatch, interrupts,
 };
 
 use crate::screen::{Ask, Update};
@@ -57,6 +57,8 @@ impl Driver {
             Ask::Unskip(target) => self.read(move |engine| edited(engine, engine.unskip(&target), (target, false))),
             Ask::Scenarios => self.read(|engine| vec![scenarios(engine)]),
             Ask::Load(request) => self.load(request),
+            Ask::Import(request) => self.import(*request),
+            Ask::Write(changes) => self.read(move |engine| vec![written(engine, &changes)]),
         }
     }
 
@@ -126,6 +128,16 @@ impl Driver {
         });
         self.running = Some(Running { interrupter, task });
     }
+
+    /// Drafts an import: the spec fetched and read, the files it would make passed through
+    /// the compile guard, nothing written.
+    fn import(&self, request: ImportRequest) {
+        let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
+        tokio::spawn(async move {
+            let update = engine.import(&request).await.map_or_else(|error| Update::ImportFailed(told(&error)), Update::Drafted);
+            updates.send(update).await.ok();
+        });
+    }
 }
 
 /// The newest stored runs and the tests' trends over them.
@@ -179,6 +191,19 @@ fn scenarios(engine: &Engine) -> Update {
         }
         Err(error) => Update::LoadFailed(error.to_string()),
     }
+}
+
+/// Writes a drafted import.
+fn written(engine: &Engine, changes: &Changes) -> Update {
+    match engine.write(changes) {
+        Ok(()) => Update::Written(changes.titles.clone()),
+        Err(error) => Update::ImportFailed(told(&error)),
+    }
+}
+
+/// `error`'s text, then its help on a line of its own, as the CLI prints them.
+fn told(error: &EngineError) -> String {
+    error.help().map_or_else(|| error.to_string(), |help| format!("{error}\nhelp: {help}"))
 }
 
 /// Passes a watched feed on, each item as `wrap` makes it an update, until it ends or the UI
