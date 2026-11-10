@@ -1,10 +1,15 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::{ActionId, ApiId, Duration, Path, Size, SourceSpan, StatusPattern, TemplateValue, TestId};
 
 /// The merged checks for one call: api, then test, then step, the more specific replacing a
 /// check with the same key; `cel` and `custom` checks are added instead (D123).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Expect {
     /// The checks, in source order within each level.
     pub checks: Vec<Check>,
@@ -14,6 +19,10 @@ pub struct Expect {
 
 /// One check, reported on its own with its source line.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Check {
     /// What it looks at.
     pub kind: CheckKind,
@@ -28,13 +37,18 @@ pub struct Check {
 }
 
 /// The kinds of check, one per `expect` key.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum CheckKind {
     /// `status`.
     Status,
     /// `headers.<name>`.
     Header,
-    /// `body.schema`.
+    /// `body.schema`: the matcher is the literal key of the schema in [`crate::Program::schemas`],
+    /// with any `#/pointer` inside it (D201).
     Schema,
     /// `body.match.<path>`.
     Match,
@@ -51,7 +65,11 @@ pub enum CheckKind {
 }
 
 /// The level a check was written at.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum Origin {
     /// The api's own `expect`.
     Api(ApiId),
@@ -63,6 +81,10 @@ pub enum Origin {
 
 /// A literal (equals) or a set of matchers that must all pass.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum Matcher {
     /// The value equals this one (deep for objects).
     Equals(TemplateValue),
@@ -74,6 +96,10 @@ pub enum Matcher {
 
 /// One registered matcher with its argument, such as `gt: 0`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct MatcherCall {
     /// The matcher's name as registered (`gt`, `every`, `format`).
     pub name: String,
@@ -85,6 +111,10 @@ pub struct MatcherCall {
 
 /// A matcher's argument, already checked against the matcher's signature (V2306).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum MatcherArg {
     /// A value: a number, text, list or flag.
     Value(TemplateValue),
@@ -98,6 +128,36 @@ pub enum MatcherArg {
     Matcher(Box<Matcher>),
     /// Several nested matchers (`allOf`, `anyOf`).
     Matchers(Vec<Matcher>),
+}
+
+/// One evaluated check, reported on its own: where it was written, what it expected, what came
+/// back and, for objects and lists that differ, a line diff.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct CheckResult {
+    /// What the check reads.
+    pub kind: CheckKind,
+    /// The header, body path or timing phase it reads.
+    pub target: Option<Path>,
+    /// The level it was written at.
+    pub origin: Origin,
+    /// Where it was written.
+    pub span: SourceSpan,
+    /// Whether it held.
+    pub passed: bool,
+    /// What it expected, rendered: a value, or the matchers with their arguments.
+    pub expected: Value,
+    /// What the response held there; `None` when the path is absent.
+    pub actual: Option<Value>,
+    /// A unified diff of the expected and actual JSON, when both are objects or lists.
+    pub diff: Option<String>,
+    /// Why it could not be evaluated, such as a matcher argument that did not render.
+    pub error: Option<String>,
+    /// The diagnostic code if it failed: V5101, V5102 for CEL, V5103 for custom.
+    pub code: Option<String>,
 }
 
 #[cfg(test)]

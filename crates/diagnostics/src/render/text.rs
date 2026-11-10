@@ -1,8 +1,7 @@
 use vc_model::{SourceFiles, SourceSpan};
 
-use self::escape::escape;
-use self::excerpt::{Excerpt, FileExcerpts, Underline, excerpts, gutter_width};
-use super::{Render, path_of};
+use self::excerpt::{Excerpt, FileExcerpts, Underline};
+use super::Render;
 use crate::{Diagnostic, Diagnostics, DiagnosticsError, Severity};
 
 mod escape;
@@ -45,8 +44,8 @@ impl Render for TextRenderer {
         let mut out = String::new();
         for diagnostic in diagnostics.iter() {
             check_edit_files(diagnostic, files)?;
-            let excerpts = excerpts(diagnostic);
-            let width = gutter_width(&excerpts);
+            let excerpts = excerpt::excerpts(diagnostic);
+            let width = excerpt::gutter_width(&excerpts);
             Writer { files, paint: Paint(self.color), width, out: &mut out }.diagnostic(diagnostic, &excerpts)?;
         }
         Ok(out)
@@ -57,7 +56,7 @@ impl Render for TextRenderer {
 /// the JSON renderer does.
 fn check_edit_files(diagnostic: &Diagnostic, files: &SourceFiles) -> Result<(), DiagnosticsError> {
     for edit in diagnostic.fixes.iter().flat_map(|fix| &fix.edits) {
-        path_of(files, edit.file)?;
+        super::path_of(files, edit.file)?;
     }
     Ok(())
 }
@@ -74,7 +73,7 @@ impl Writer<'_> {
     fn diagnostic(&mut self, diagnostic: &Diagnostic, files: &[FileExcerpts<'_>]) -> Result<(), DiagnosticsError> {
         let tone = Tone::of(diagnostic.severity);
         let head = self.paint.apply(&format!("{}[{}]", diagnostic.severity, diagnostic.code), tone);
-        self.push(&format!("{head}: {}", escape(&diagnostic.message)));
+        self.push(&format!("{head}: {}", escape::escape(&diagnostic.message)));
         for (index, file) in files.iter().enumerate() {
             self.location(if index == 0 { "-->" } else { ":::" }, &file.anchor)?;
             self.file(file, tone);
@@ -95,10 +94,10 @@ impl Writer<'_> {
     }
 
     fn location(&mut self, arrow: &str, span: &SourceSpan) -> Result<(), DiagnosticsError> {
-        let path = path_of(self.files, span.file)?;
+        let path = super::path_of(self.files, span.file)?;
         let arrow = self.paint.apply(arrow, Tone::Gutter);
         let pad = " ".repeat(self.width);
-        self.push(&format!("{pad}{arrow} {}:{}:{}", escape(path.as_str()), span.start.line, span.start.column));
+        self.push(&format!("{pad}{arrow} {}:{}:{}", escape::escape(path.as_str()), span.start.line, span.start.column));
         Ok(())
     }
 
@@ -113,7 +112,7 @@ impl Writer<'_> {
 
     fn source_line(&mut self, excerpt: &Excerpt<'_>, number: u32, tone: Tone) {
         let Some(text) = self.files.line(excerpt.file, number) else { return };
-        self.gutter(&number.to_string(), &escape(text));
+        self.gutter(&number.to_string(), &escape::escape(text));
         for mark in excerpt.marks_on(number) {
             let tone = if mark.primary { tone } else { Tone::Secondary };
             self.underline(&mark.underline(number, text), tone);
@@ -124,7 +123,7 @@ impl Writer<'_> {
         let carets = String::from(tone.caret()).repeat(underline.width);
         let mut marks = format!("{}{}", underline.pad, self.paint.apply(&carets, tone));
         if let Some(text) = underline.text {
-            marks = format!("{marks} {}", self.paint.apply(&escape(text), tone));
+            marks = format!("{marks} {}", self.paint.apply(&escape::escape(text), tone));
         }
         self.gutter("", &marks);
     }
@@ -142,7 +141,7 @@ impl Writer<'_> {
         let pad = " ".repeat(self.width + 1);
         let equals = self.paint.apply("=", Tone::Gutter);
         for (kind, text, suffix) in notes.chain(help).chain(fixes) {
-            self.push(&format!("{pad}{equals} {kind}: {}{suffix}", escape(text)));
+            self.push(&format!("{pad}{equals} {kind}: {}{suffix}", escape::escape(text)));
         }
     }
 

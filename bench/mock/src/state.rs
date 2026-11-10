@@ -18,6 +18,8 @@ pub struct State {
     pub traffic: Traffic,
     pub flaky: Counters,
     pub polls: Counters,
+    /// Which users spec `/openapi/users.yaml` serves: 0 for v1, 1 for v2.
+    pub spec_version: usize,
 }
 
 impl State {

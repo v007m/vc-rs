@@ -1,0 +1,13 @@
+name: Geo
+baseUrl: ${var.baseUrl}
+apis:
+  - id: createCity
+    method: POST
+    path: /cities
+    body: {name: '${var.cityName}', rank: '${var.rank}'}
+    expect:
+      status: 201
+    save:
+      cityId: ${response.body.id}
+  - id: getCity
+    path: /cities/${var.cityId}

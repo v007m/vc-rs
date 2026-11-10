@@ -1,20 +1,20 @@
 use serde_json::{Value, json};
 use vc_model::FileKind;
 
-use super::{fits, schemas, to_json, yaml};
-use crate::shapes::{Shape, Ty, Unit, root};
+use crate::shapes;
+use crate::shapes::{Shape, Ty, Unit};
 
 fn config() -> &'static Shape {
-    root(FileKind::Config)
+    shapes::root(FileKind::Config)
 }
 
 fn schema(kind: FileKind) -> Value {
-    schemas().into_iter().find(|schema| schema.kind == kind).unwrap().schema
+    super::schemas().into_iter().find(|schema| schema.kind == kind).unwrap().schema
 }
 
 #[test]
 fn has_one_object_schema_per_kind() {
-    let all = schemas();
+    let all = super::schemas();
     assert_eq!(all.iter().map(|s| s.kind).collect::<Vec<_>>(), FileKind::ALL);
     for schema in all {
         let schema = schema.schema;
@@ -25,6 +25,12 @@ fn has_one_object_schema_per_kind() {
         assert!(id.starts_with("https://raw.githubusercontent.com/v007m/vc-rs/master/schema/"), "{id}");
     }
     assert!(schema(FileKind::Test)["$id"].as_str().unwrap().ends_with("/test.schema.json"));
+}
+
+#[test]
+fn a_created_file_names_its_schema_on_its_first_line() {
+    let line = super::schema_line(FileKind::Api);
+    assert_eq!(line, format!("# yaml-language-server: $schema={}", schema(FileKind::Api)["$id"].as_str().unwrap()));
 }
 
 #[test]
@@ -59,7 +65,7 @@ fn refers_to_nested_shapes_through_defs() {
 
 #[test]
 fn keeps_only_defaults_that_are_values_of_the_type() {
-    let fit = |ty, text| fits(ty, &yaml(text).unwrap());
+    let fit = |ty, text| super::fits(ty, &super::yaml(text).unwrap());
     assert!(fit(Ty::Int, "8") && !fit(Ty::Int, "eight"));
     assert!(fit(Ty::Bool, "false") && !fit(Ty::Bool, "'false'"));
     assert!(fit(Ty::Enum(&["api", "full"]), "api") && !fit(Ty::Enum(&["api"]), "all"));
@@ -73,7 +79,7 @@ fn keeps_only_defaults_that_are_values_of_the_type() {
 
 #[test]
 fn reads_yaml_values_as_json() {
-    let json = |text| to_json(&yaml(text).unwrap());
+    let json = |text| super::to_json(&super::yaml(text).unwrap());
     assert_eq!(json("{a: [1, 2.5, true, null, x], b: '3'}"), json!({ "a": [1, 2.5, true, null, "x"], "b": "3" }));
     assert_eq!(json("0x1F"), json!("0x1F"));
 }

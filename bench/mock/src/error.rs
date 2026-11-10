@@ -6,6 +6,7 @@ use axum::response::{IntoResponse, Response};
 
 /// Errors raised while starting, querying or stopping the mock server.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum MockError {
     /// The listener could not bind to the requested address.
     #[error("cannot bind the mock server to {addr}: {source}")]

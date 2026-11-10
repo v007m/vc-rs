@@ -2,6 +2,7 @@ use thiserror::Error;
 
 /// Why an edit could not be made.
 #[derive(Clone, Debug, PartialEq, Eq, Error)]
+#[non_exhaustive]
 pub enum ParserError {
     /// The text does not parse, before or after the edit; holds the first error's message.
     #[error("the text does not parse: {0}")]
@@ -34,4 +35,7 @@ pub enum ParserError {
         /// The byte after the last.
         end: usize,
     },
+    /// The file cannot be written in the house style without changing what it says.
+    #[error("it cannot be formatted: {0}")]
+    Unformattable(String),
 }

@@ -1,0 +1,45 @@
+{
+    "accounts": {
+        "shop_public": {
+            "url": "",
+            "api_url": "http://localhost:7421",
+            "method": "none"
+        },
+        "shop_admin": {
+            "url": "http://localhost:7421/admin",
+            "api_url": "http://localhost:7421",
+            "method": "basic",
+            "credentials": {
+                "username": "fixture-admin",
+                "password": "fixture-admin-password"
+            }
+        },
+        "shop_partner": {
+            "url": "",
+            "api_url": "http://localhost:7421",
+            "method": "client-credentials",
+            "oauth_url": "http://localhost:7421/oauth/token",
+            "credentials": {
+                "clientid": "fixture-partner-client",
+                "secret": "fixture-partner-secret"
+            },
+            "variables": {
+                "tenant": "acme"
+            }
+        }
+    },
+    "default_account": "shop_public",
+    "tests_directory": "Vibranium-Tests",
+    "env_vars": {
+        "short_text": "[a-zA-Z 0-9]{5,20}",
+        "currency": "EUR"
+    },
+    "executor": {
+        "max_parallel_executors": 8
+    },
+    "logger": {
+        "default_log_level": "INFO",
+        "max_log_history_to_keep": "30d",
+        "max_job_history_to_keep": "30"
+    }
+}

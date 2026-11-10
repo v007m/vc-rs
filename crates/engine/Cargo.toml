@@ -9,21 +9,45 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+async-trait.workspace = true
+http.workspace = true
+indexmap.workspace = true
 serde_json.workspace = true
+similar.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
+vc-adapter-auth.workspace = true
+vc-adapter-hooks.workspace = true
+vc-adapter-http.workspace = true
+vc-adapter-importers.workspace = true
+vc-adapter-reporters.workspace = true
+vc-adapter-secrets.workspace = true
+vc-adapter-store.workspace = true
 vc-adapter-system.workspace = true
 vc-compiler.workspace = true
 vc-diagnostics.workspace = true
+vc-executor.workspace = true
 vc-interfaces.workspace = true
+vc-loadtest.workspace = true
 vc-model.workspace = true
+vc-parser.workspace = true
+vc-planner.workspace = true
+vc-template.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+vc-mock-server.workspace = true
 vc-testkit.workspace = true
 
 # gungraun needs valgrind, so its instruction-count bench only builds and runs on Linux (D120).
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 gungraun.workspace = true
+
+# The load bench reads the process CPU clock (`clock_gettime`), so it builds and runs on Unix.
+[target.'cfg(unix)'.dev-dependencies]
+rustix = { workspace = true, features = ["time"] }
 
 [[bench]]
 name = "compile_wall"
@@ -31,6 +55,14 @@ harness = false
 
 [[bench]]
 name = "compile_instructions"
+harness = false
+
+[[bench]]
+name = "request_overhead"
+harness = false
+
+[[bench]]
+name = "load_5k"
 harness = false
 
 [lints]

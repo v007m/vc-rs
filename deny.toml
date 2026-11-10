@@ -5,8 +5,12 @@ all-features = false
 yanked = "deny"
 
 [licenses]
-allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-3-Clause", "ISC", "Unicode-3.0", "Zlib"]
+allow = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-3-Clause", "CC0-1.0", "ISC", "Unicode-3.0", "Zlib"]
 confidence-threshold = 0.9
+
+[[licenses.exceptions]]
+crate = "borrow-or-share"
+allow = ["MIT-0"]
 
 [licenses.private]
 ignore = true
@@ -16,7 +20,16 @@ multiple-versions = "deny"
 wildcards = "deny"
 allow-wildcard-paths = true
 # Duplicate versions that cannot be avoided yet; each entry needs a reason.
-skip = []
+skip = [
+  { crate = "getrandom@0.2", reason = "ring 0.17 (rustls crypto provider); aws-lc-rs carries an OpenSSL licence term" },
+  { crate = "windows-sys@0.52", reason = "ring 0.17 (rustls crypto provider); aws-lc-rs carries an OpenSSL licence term" },
+  { crate = "syn@2", reason = "phf_macros via oxc_ast_macros (hook analysis, D172) and the gungraun dev-dep are on syn 2 (D183)" },
+  { crate = "getrandom@0.3", reason = "jsonschema 0.61 (body.schema, D201) via ahash" },
+  { crate = "r-efi@5", reason = "jsonschema 0.61 (body.schema, D201) via getrandom 0.3" },
+  { crate = "bit-set@0.8", reason = "jsonschema 0.61 (body.schema, D201) via fancy-regex" },
+  { crate = "bit-vec@0.8", reason = "jsonschema 0.61 (body.schema, D201) via fancy-regex" },
+  { crate = "num-bigint@0.4", reason = "jsonschema 0.61 (body.schema, D201) via fraction" },
+]
 deny = [
   { name = "openssl-sys", reason = "rustls only" },
   { name = "v8", reason = "hooks run in QuickJS" },

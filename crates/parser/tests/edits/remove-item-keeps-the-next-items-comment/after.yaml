@@ -1,0 +1,6 @@
+apis:
+  - id: list
+    path: /users
+  # the last one
+  - id: remove
+    path: /users/1

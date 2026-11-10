@@ -2,6 +2,7 @@ use std::fmt;
 
 /// One broken rule: a stable rule ID, a workspace-relative location and a message.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[expect(clippy::exhaustive_structs, reason = "internal gate crate; no external users")]
 pub struct Violation {
     /// Stable rule ID, such as `ARCH-LAYER`.
     pub rule: &'static str,

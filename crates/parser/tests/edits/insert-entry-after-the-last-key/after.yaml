@@ -1,0 +1,6 @@
+tests:
+  - id: listsUsers  # first
+    call: users#list
+    skip: upstream down
+  - id: getsUser
+    call: users#get

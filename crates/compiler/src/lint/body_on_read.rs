@@ -5,7 +5,7 @@ use vc_model::{Method, SourceSpan};
 use vc_parser::Node;
 
 use super::{Lint, LintCx};
-use crate::link::{list, method, text};
+use crate::link;
 
 /// The methods that send no body.
 const READS: [Method; 2] = [Method::Get, Method::Head];
@@ -22,8 +22,8 @@ impl Lint for BodyOnRead {
         let mut found = Vec::new();
         for (source, test) in cx.tests() {
             let Some(body) = test.entry("body") else { continue };
-            let bare = list(test, "steps").iter().filter(|step| step.get("body").is_none());
-            let reads = bare.filter(|step| cx.api(source, step).is_some_and(|api| READS.contains(&method(api))));
+            let bare = link::list(test, "steps").iter().filter(|step| step.get("body").is_none());
+            let reads = bare.filter(|step| cx.api(source, step).is_some_and(|api| READS.contains(&link::method(api))));
             found.extend(reads.filter_map(|step| self.reaches(step, body.key_span)));
         }
         found
@@ -33,7 +33,7 @@ impl Lint for BodyOnRead {
 impl BodyOnRead {
     fn reaches(&self, step: &Node, body: SourceSpan) -> Option<Diagnostic> {
         let call = step.entry("call")?;
-        let name = text(step, "call").unwrap_or_default();
+        let name = link::text(step, "call").unwrap_or_default();
         let message = format!("the test's `body` is sent with `{name}`, a call that takes no body");
         let diagnostic = Diagnostic::new(self.code(), call.value.span, message).label("a GET or HEAD call");
         let diagnostic = diagnostic.secondary(body, "the test-level default");

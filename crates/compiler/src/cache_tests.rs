@@ -7,7 +7,7 @@ use vc_model::{ContentHash, SourceFile, SourceFileId, SourcePath, StringTable};
 use super::{BUILD, Body, CacheEntry, CompileCache, MAGIC, Stored, VERSION};
 use crate::parts::Tools;
 use crate::stage::{self, FileUnit};
-use crate::{CompileInput, Compiled, compile};
+use crate::{CompileInput, Compiled};
 
 const API: &str = "services/users/users.api.yaml";
 const API_TEXT: &str = "apis:\n  - id: getUser\n    path: /users/${var.userId}\n";
@@ -15,7 +15,8 @@ const BAD: &str = "services/orders/orders.api.yaml";
 const HEADER: usize = MAGIC.len() + 8;
 
 fn entry(path: &str, byte: u8, file: u32) -> CacheEntry {
-    let unit = FileUnit { kind: None, root: None, parts: IndexMap::new(), diagnostics: Diagnostics::new() };
+    let unit =
+        FileUnit { kind: None, root: None, parts: IndexMap::new(), script: None, diagnostics: Diagnostics::new() };
     let path = SourcePath::new(path).unwrap();
     CacheEntry { path, hash: ContentHash::new([byte; 32]), file: SourceFileId::new(file), unit: Some(Arc::new(unit)) }
 }
@@ -175,7 +176,12 @@ fn damaged_bytes_read_as_empty() {
 #[test]
 fn a_path_or_string_table_that_does_not_read_back_reads_as_empty() {
     assert_eq!(CompileCache::from_bytes(&blob(&body(&["a", "b"], "a.api.yaml", None), &[])).len(), 1);
-    assert!(CompileCache::from_bytes(&blob(&body(&[], "../a.api.yaml", None), &[])).is_empty());
+    assert!(CompileCache::from_bytes(&blob(&body(&[], "/a.api.yaml", None), &[])).is_empty());
+    assert_eq!(
+        CompileCache::from_bytes(&blob(&body(&[], "../shared/a.csv", None), &[])).len(),
+        1,
+        "data may be outside"
+    );
     assert!(CompileCache::from_bytes(&blob(&body(&["a", "a"], "a.api.yaml", None), &[])).is_empty());
 }
 
@@ -210,14 +216,18 @@ fn a_cache_read_back_from_bytes_does_not_parse_unchanged_files_again() {
     const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n";
     let config = source("vibranium.config.yaml", CONFIG, 0);
     let api = "apis:\n  - id: getUser\n    path: /users\n";
-    let first = compile(CompileInput { files: vec![config.clone(), source(API, api, 1)], ..CompileInput::default() });
+    let first =
+        crate::compile(CompileInput { files: vec![config.clone(), source(API, api, 1)], ..CompileInput::default() });
     assert!(!codes(&first).contains(&Code::V1004));
     let previous = CompileCache::from_bytes(&first.cache.to_bytes());
     assert_eq!(previous.units(), 2);
     let files = vec![config.clone(), source(API, "nme: x\n", 1)];
-    let same_hash = compile(CompileInput { files, previous: previous.clone(), ..CompileInput::default() });
+    let same_hash = crate::compile(CompileInput { files, previous: previous.clone(), ..CompileInput::default() });
     assert_eq!(codes(&same_hash), codes(&first), "the stored unit was used, so the new text was not read");
-    let changed =
-        compile(CompileInput { files: vec![config, source(API, "nme: x\n", 2)], previous, ..CompileInput::default() });
+    let changed = crate::compile(CompileInput {
+        files: vec![config, source(API, "nme: x\n", 2)],
+        previous,
+        ..CompileInput::default()
+    });
     assert!(codes(&changed).contains(&Code::V1004));
 }

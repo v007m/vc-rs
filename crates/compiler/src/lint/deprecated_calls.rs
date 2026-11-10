@@ -6,7 +6,8 @@ use vc_model::FileKind;
 use vc_parser::Node;
 
 use super::{Lint, LintCx};
-use crate::link::{Source, actions, flag, list};
+use crate::link;
+use crate::link::Source;
 use crate::shapes;
 
 /// Reports every call to a deprecated api.
@@ -25,7 +26,7 @@ impl Lint for DeprecatedCalls {
 
 impl DeprecatedCalls {
     fn deprecated(&self, cx: &LintCx<'_, '_>, source: &Source<'_>, call: &Node) -> Option<Diagnostic> {
-        let api = cx.api(source, call).filter(|api| flag(shapes::api(), api, "deprecated"))?;
+        let api = cx.api(source, call).filter(|api| link::flag(shapes::api(), api, "deprecated"))?;
         let at = call.entry("call")?.value.span;
         let marked = api.entry("deprecated").map_or(api.span, |entry| entry.key_span);
         let diagnostic = Diagnostic::new(self.code(), at, "this api is deprecated").label("deprecated api");
@@ -36,10 +37,10 @@ impl DeprecatedCalls {
 
 /// Every node with a `call` in `source`: actions, tests with `call` and apis' `cleanup`.
 fn calls<'a>(source: &Source<'a>) -> Vec<&'a Node> {
-    let mut nodes = actions(source);
+    let mut nodes = link::actions(source);
     match source.kind {
-        FileKind::Test => nodes.extend(list(source.root, "tests")),
-        FileKind::Api => nodes.extend(list(source.root, "apis").iter().filter_map(|api| api.get("cleanup"))),
+        FileKind::Test => nodes.extend(link::list(source.root, "tests")),
+        FileKind::Api => nodes.extend(link::list(source.root, "apis").iter().filter_map(|api| api.get("cleanup"))),
         FileKind::Config | FileKind::Load => {}
     }
     nodes

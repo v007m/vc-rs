@@ -7,6 +7,7 @@ use crate::ArchError;
 
 /// Where a source file comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(clippy::exhaustive_structs, reason = "internal gate crate; no external users")]
 pub struct Origin {
     /// Package that owns the file.
     pub package: String,

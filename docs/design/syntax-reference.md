@@ -117,10 +117,14 @@ Reserved names: no `id` (test, api, action, step, dataset…) can be a root name
 
 Settings are layered, lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line. Every value keeps the layer it came from, and `vc config explain <key>` prints it (D129).
 
+- **User config.** `$XDG_CONFIG_HOME/vibranium/config.yaml`, else `$HOME/.config/vibranium/config.yaml` (`%APPDATA%\vibranium\config.yaml` on Windows). Only its `profile`, `defaults`, `reports` and `vars` keys are settings, and each counts only where `vibranium.config.yaml` and its profiles leave the value unset; other keys are preferences that commands read. A file that cannot be read or is not YAML stops the command with exit 2 and names the file.
+- **`VIB_*` names (D182).** A setting's variable is its `--set` key upper-snaked: `VIB_PROFILE`, `VIB_DEFAULTS_CONCURRENCY`, `VIB_DEFAULTS_PER_HOST`, `VIB_DEFAULTS_TIMEOUT`, `VIB_REPORTS_DIR`, `VIB_REPORTS_FORMATS`. A var uses `VIB_VAR_<name>`, with the name exactly as written (`VIB_VAR_userId`). A `VIB_*` line in `.env` sets the same thing one layer lower.
+- **`.env`.** Read from the project root, also when the environment is injected (tests, the MCP server). Its other lines fill `${env.X}` only for names the process environment does not set.
+
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `syntaxVersion` | integer | required, `2` | File-format version (see Files at a glance) |
-| `project` | string | folder name | Display name in reports and on the server |
+| `project` | string | `vibranium` (`vc init` writes the folder name) | Display name in reports (CTRF's `environment.appName`, JUnit's `<testsuites name>`) and on the server |
 | `paths.include`, `paths.exclude` | lists of globs | everything except `node_modules` and `.vibranium` | Where definition files are found; written excludes replace the default ones, and `vibranium.config.yaml` itself is always read |
 | `defaults.timeout` | duration | `30s` | Per request |
 | `defaults.concurrency` | integer | `16` | Test instances in flight |
@@ -131,14 +135,14 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `vars` | map | — | Project-wide values |
 | `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles) |
 | `auth` | list | — | Auth definitions (see Authentication) |
-| `secrets` | `provider`, `schema` | Varlock with `.env.schema` | Where `${secret.*}` comes from |
+| `secrets` | `provider`, `schema` | `env` with `.env.schema` | Where `${secret.*}` comes from |
 | `generators` | list | — | Named fake-data generators |
-| `datasets` | list | every file in `datasets/` | Your own data lists |
+| `datasets` | `allowRoots`, `files` | every file in `datasets/` | Your own data lists: `files` lists data kept outside `datasets/` (each `id`, `file`), and `allowRoots` the folders outside the project those files may be in (see Datasets) |
 | `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file) |
-| `history` | `bodies`, `maxBodySize`, `retain` | SQLite, bodies of failures only | Run history and retention |
+| `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends |
 | `alerts` | list | none | Notifications |
 | `plugins` | list | none | Third-party plugins |
-| `redact` | `headers`, `fields` | auth headers and secrets | Extra values to mask |
+| `redact` | `headers`, `fields`, `rules` | auth headers and secrets | Extra values to mask; `rules` are your own `regex`, `cel` or `function` masks (see Secrets) |
 | `beforeRun`, `afterRun` | lists of actions | none | Run-level lifecycle blocks (see Lifecycle blocks) |
 
 ```yaml
@@ -195,19 +199,18 @@ auth:
     scopes: [users.read, users.write, orders.write]
 
 secrets:
-  provider: varlock
+  provider: varlock    # opt-in; the default is env
   schema: .env.schema
 
 reports:
-  dir: .vibranium/reports
+  dir: .vibranium/reports          # each run's files go in <dir>/<run>/
   formats: [ctrf, junit, html]
+  html: {layout: folder}           # or single: one self-contained report.html
 
 history:
   bodies: failures
   maxBodySize: 4kb
-  retain:
-    runs: 500
-    days: 90
+  keep: 50
 
 alerts:
   - on: [failure, recovery, flaky, threshold]
@@ -257,6 +260,7 @@ Profiles replace environments and work like Spring Boot profiles. In Vibranium, 
 - **Every run has an active profile.** Name it with `--profile staging` (or `VIB_PROFILE=staging`); otherwise the profile marked `default: true` applies. A project with no profiles, or a run with none active, is a `vc check` error.
 - **Several profiles apply in order, later ones winning:** `--profile staging,eu`.
 - **Profiles override vars at each level.** The config's `profiles` override config `vars`. Any api or test file can carry its own `profiles` list to override that file's `vars`; a profile id used there must exist in the config, so a typo is an error, not a silent no-op.
+- **A config profile's `agents` block says what an AI agent may do under it** (MCP or the web UI, D195): `run` (bool, default `false`) lets it run tests; `call` lists the methods its requests send without asking and `approve` those sent once a person approves (both default `[]`); `writeDefinitions` is `true`, `false` (default) or `ask`, which goes through the same approval flow. A profile with no `agents` block allows only reads: list, search, get, check and query history. With several active profiles, the most restrictive rule wins for each field.
 
 ```yaml
 # services/orders/checkout.test.yaml (excerpt)
@@ -276,7 +280,7 @@ Saving values from a response: `save` maps names to templates over `response`; a
 
 - **On a test, step or per-test action** (`before`, `beforeEach`): the values are vars for the rest of that test.
 - **In `beforeAll` and `beforeRun`:** everything an action saves is shared under the action's `id`, which those blocks require.
-- **On an api:** `save` runs on every call of it, so every caller gets the same names.
+- **On an api:** `save` runs on every call of it whose status matches the api's `saveOn`, so every caller gets the same names. `saveOn` takes what `expect.status` takes (`201`, `2xx`, `[200, 201]`) and defaults to the api's own `expect.status`, or `2xx` when it has none. A test that expects another status, such as a 400, therefore skips the api's `save`, just as a non-2xx call registers no cleanup (D191). A test's or step's own `save` runs whatever the status, once its checks hold.
 - **Inside a loop:** every saved name collects a list (see Loops: repeat and forEach).
 
 ```yaml
@@ -323,7 +327,8 @@ Each item in `apis`:
 | `timeout` | duration | `defaults.timeout` | Per request attempt |
 | `http.retry` | as in config | config's `http.retry` | Transport retry for this api; keys given here replace the config's (D143) |
 | `expect` | checks | `status: 2xx` | Checks that hold on every call; a test's `expect` adds to them and replaces matching keys |
-| `save` | map of templates over `response` | — | Values every caller gets as vars |
+| `save` | map of templates over `response` | — | Values every caller gets as vars, when the status matches `saveOn` |
+| `saveOn` | status: code, list of codes, class (`2xx`) or matcher | the api's `expect.status`, else `2xx` | The statuses on which `save` runs (D191) |
 | `cleanup` | `call` + `vars` | — | How to undo a successful call; registered automatically (see Cleanup on an api) |
 | `operationId` | text | — | Link to the OpenAPI operation, kept by sync |
 | `beforeRequest`, `afterResponse` | lists of functions | — | Run around this api's requests, after the file's |
@@ -416,7 +421,7 @@ JSON pasted as is works too:
     body: {"name": "${var.name}", "tags": ["renamed"]}
 ```
 
-OpenAPI import and sync (`vc import openapi`, `vc sync users`) are described in the Vibranium v2 CLI and Developer Workflow doc. In short: the spec can be a URL or a file, JSON or YAML (Swagger 2.0 is converted). Every import and sync saves a snapshot to `openapi/<fileId>.yaml`, which you commit; sync uses it as the merge base. Sync updates `method`, `path`, parameter vars and `operationId`, and never touches names, `expect`, `save`, `cleanup`, hooks or defaults you wrote. Conflicts are reported instead of overwritten, and an operation removed from the spec leaves its api in place with `deprecated: true`.
+OpenAPI import and sync (`vc import openapi`, `vc sync users`) are described in the Vibranium v2 CLI and Developer Workflow doc. In short: the spec can be a URL or a file, JSON or YAML (Swagger 2.0 is converted). Every import and sync saves a snapshot to `openapi/<fileId>.yaml`, which you commit; sync uses it as the merge base. Sync updates `method`, `path`, each `query` entry and the `content-type` header, and never touches IDs, names, `body`, `expect`, `save`, `cleanup`, hooks or defaults you wrote. Conflicts are reported instead of overwritten, and an operation removed from the spec leaves its api in place with `deprecated: true`.
 
 ### Reusing a payload with changes
 
@@ -455,7 +460,7 @@ An api that creates something says once how to undo it. Every call with a 2xx st
 | a test's steps, `before` or `beforeEach` | after the test's `after` and `afterEach`, whether the test passed or not |
 | the file's `beforeAll` | after the file's `afterAll` |
 | the config's `beforeRun` | after `afterRun` |
-| an action with `cache` | when the cache entry expires, or on `vc cache clear`; not at the end of the run |
+| an action with `cache` | when the cache entry expires, when a fresh result replaces it (at the end of that run), or on `vc cache clear`; not at the end of the run that made it |
 
 Cleanups also run after Ctrl-C. A failed cleanup is reported but does not change test results; the cleanup call itself never registers a cleanup.
 
@@ -503,7 +508,7 @@ Each item in `tests`:
 | `examples` | list of maps, or `$file` | — | One test instance per row; values in `${example.*}` |
 | `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
-| `timeout` | duration | per-request timeout × calls | Whole-test limit |
+| `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
 
@@ -608,7 +613,7 @@ tests:
                 gt: 0
 ```
 
-Notes on the example: `users#create` saves `userId` and declares its own cleanup, so no test here has to delete anything. `getsCreatedUser` creates a fresh user in `before` for each of its five instances and reads it as `${var.userId}`. `rejectsBadEmail` replaces the api's `status: 201` with `400` simply by stating it; a 400 creates nothing, so no cleanup is registered.
+Notes on the example: `users#create` saves `userId` and declares its own cleanup, so no test here has to delete anything. `getsCreatedUser` creates a fresh user in `before` for each of its five instances and reads it as `${var.userId}`. `rejectsBadEmail` replaces the api's `status: 201` with `400` simply by stating it; a 400 creates nothing, so no cleanup is registered, and the api's `save` is skipped because 400 does not match its `saveOn`, which defaults to the api's own `status: 201` (D191). The error body needs no `id` for the test to pass.
 
 ### Skipping
 
@@ -641,13 +646,15 @@ An action is one entry in a lifecycle block or in a test's `steps`. Most actions
 | `call: <api>` | Calls an api with its base URL, auth, checks, saves and cleanup | Almost everything |
 | `test: <test>` | Runs another test's calls in order, each with its api's checks; that test's own test-level `expect` is not checked | A multi-step flow that already exists as a test (see Reusing a multi-step flow) |
 | `function: path#export` | Runs a function from a code file | Work no api does: seeding a database, reading a mailbox; it may return an object whose fields are saved |
-| `command: <shell command>` | Runs a command; a non-zero exit fails the action, and its output is attached to the report | Starting services, `docker compose up -d --wait` |
+| `command: <shell command>` | Runs a command through `sh -c` (`cmd /C` on Windows) in the project root; a non-zero exit fails the action (V5110), and its output is attached to the report (details below) | Starting services, `docker compose up -d --wait` |
 
-`call` and `test` actions also take `id`, `vars`, `auth`, `headers`, `query`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars` and `timeout`. `function` and `test` actions may also declare `provides` (below).
+**`command:` safety (D181).** The text you write runs as written; each `${…}` in it is quoted. On unix every rendered value becomes one POSIX word in single quotes (a `'` inside is written `'\''`), so `--set "vars.word=it's; touch x"` echoes that text and runs nothing else. On Windows a value is wrapped in double quotes, and a value holding any of `& | < > ^ % ! " ( )` or a newline fails the action with V5111 before anything runs; pass such a value through an environment variable instead. The child's environment is the process environment, plus the `.env` lines the process does not set, plus `VIB_VAR_<name>` for each config var; it is never logged. It keeps the last 64 KiB of stdout and of stderr, both passing through the redactor, and a V5110 failure shows the exit code and the last 20 lines. The limit is the action's own `timeout`, else `defaults.timeout` (30 s when unset); past it the whole process group is killed (unix) and the action fails with V5104. Ctrl-C ends the command the same way. The action ends when the command exits: a process it leaves in the background (`./server &`) keeps running while vc runs, and what that process writes after the command's exit (and a further 200 ms) is discarded. Once vc exits, such a process ends at its next write to that output; one that must outlive vc should send its output elsewhere (`./server > server.log 2>&1 &`).
+
+`call` and `test` actions also take `id`, `vars`, `auth`, `headers`, `query`, `body`, `expect`, `save`, `poll`, `retry`, `keep`, `cache` and the loop keys `repeat`, `forEach` and `parallel`, each meaning the same as on a test. `function` and `command` take `id`, `vars` and `timeout`. `timeout` on an action is that action's own limit (D192): a `command`'s process timeout, a `function`'s run budget (200 ms by default), a `call`'s limit on each request attempt (it wins over the api's `timeout` and `defaults.timeout`), and a reused `test`'s limit on all its calls together (past it the call in flight fails with V5104). Without it, each kind keeps its usual limit. `function` and `test` actions may also declare `provides` (below).
 
 In `beforeRun` and `beforeAll` every action that produces values needs an `id`, and everything it saves, including its api's `save`, is shared under that id: `${var.catalog.productIds}`. In per-test blocks and steps, saved names are plain (`${var.userId}`), as for any step.
 
-A `function:` or `test:` action can't always be read ahead of time to see what it saves, so it may declare `provides: [name, …]`; `vc check` then counts those names as set when it looks for vars that are never set (V2101). At run time, using a name such an action saved without declaring it is V5108, and a declared name it did not save is V5109 (D128).
+A `function:` or `test:` action can't always be read ahead of time to see what it saves, so it may declare `provides: [name, …]`; `vc check` then counts those names as set when it looks for vars that are never set (V2101). At run time, using a name such an action saved without declaring it is a V5108 warning (the run goes on, D186), and a declared name it did not save is V5109 (D128).
 
 ```yaml
 # services/orders/checkout.test.yaml (excerpt)
@@ -688,6 +695,8 @@ Any `call` or `test` action can run several times without being written several 
 | `repeat: 10` | 10 times | `${iteration.index}` (from 1) and `${iteration.count}` |
 | `forEach: <list>` | once per element of a literal list, a list-valued template (`${var.cities}`) or a `$file` with a CSV, JSON or YAML list | `${item}` is the element (`${item.name}` for a row), plus `iteration` |
 | `parallel: 5` | up to 5 iterations at a time | default `1`: one after another, in order |
+
+Write one of `repeat` and `forEach` on an action; when both are written, `forEach` is used.
 
 Every name saved inside a loop collects a list, one entry per iteration in iteration order, even when iterations run in parallel. `${var.cities[*].id}` reads one field from every entry. Each successful iteration registers its own cleanup. If an iteration fails, the action fails once the iterations in flight finish, and the cleanups of the ones that succeeded still run.
 
@@ -799,10 +808,12 @@ Data that is slow or rate-limited to create can outlive a run. `cache` on a `cal
 
 Rules:
 
-- The cache key is the api (or test), its resolved `vars` and the profile, so `users#create` with `role: admin` and with `role: member` are cached separately.
-- A cached action's cleanup does not run at the end of the run. It runs when the entry expires (at the start of the next run that finds it expired) or on `vc cache clear`.
-- Cached values that came from secrets or auth are encrypted with a key kept in the OS keychain; where there is no keychain, as in most CI, set `VIB_CACHE_KEY`.
-- `vc run --no-cache` ignores the cache for one run; `vc cache list` shows the entries and when they expire.
+- The cache key is the api (or test), the action's own resolved `vars` and the active profiles, so `users#create` with `role: admin` and with `role: member` are cached separately. Vars that read `fake.*` are left out of the key, so a fresh fake name does not defeat the cache.
+- A hit returns only what the action saved; no request is made and nothing is checked. `cache.check` runs first, seeing the cached values both by name and under the action's `id` (`${var.admin.userId}`); when the check fails, the action runs again, its new result replaces the entry and the old entry's cleanup runs at the end of that run, after every test, since another test may still be using what it made. If that run is killed or interrupted a third time first, the next run cleans the old entry up when it starts, as an expired one.
+- Only a result that passed is stored, and only when each cleanup it registered is its api's `cleanup`; anything else runs every time.
+- A cached action's cleanup does not run at the end of the run. It runs, under the profiles the entry was made with, when the entry expires (at the start of the next run that finds it expired), when a fresh result replaces it (at the end of that run), or on `vc cache clear [id]`. A cleanup that fails is a warning, not a failure.
+- The whole entry is encrypted (ChaCha20-Poly1305). The key is `VIB_CACHE_KEY` (64 hex digits) when it is set, else the one the OS keychain holds, generated and stored there on first use. Where there is neither, as in most CI, the cache is off: `cache` actions run every time and the run prints warning V5113. An entry sealed under another key, or changed on disk, reads as a miss.
+- `vc run --no-cache` neither reads nor writes the cache for one run, and cleans up no expired entry; `vc cache list` shows the entries and when they expire.
 - `cache` belongs in `beforeRun` and `beforeAll`. On a per-test action `vc check` warns, because every test instance would share one cached object.
 
 ```yaml
@@ -864,7 +875,7 @@ beforeEach:
 | `size` | matcher on body size | `size: {lt: 100kb}` |
 | `timing.<phase>` | matcher on `dns`, `connect`, `tls`, `firstByte`, `download`, `total` | `total: {lt: 500ms}` |
 | `cel.<label>` | CEL expression that must be true; variables are the roots available there (see Templates and references); write `response.body`, not `body` (D125, D150) | `has items: size(response.body.items) > 0` |
-| `custom` | list of functions, `- function: path#export` | `- function: hooks/checks.ts#isSorted` |
+| `custom` | list of functions, `- function: path#export` | `- function: ../../hooks/checks.ts#isSorted` |
 | `replace` | `true` | Drop every inherited check and keep only the ones written here (D123) | `replace: true` |
 
 Merging (D123): checks are inherited from the api, then the test, then the step, and the more specific level wins. Each check is keyed by its kind and leaf path, such as `status`, `headers.content-type` or `body.$.id`; a check with the same key replaces the inherited one, and every other inherited check still applies. `cel` and `custom` checks are never replaced, only added. `replace: true` drops everything inherited. That is how a negative test expects 400 from an api whose normal result is 201.
@@ -933,8 +944,19 @@ A load file turns existing tests into a traffic mix; it adds no request or check
 | `stages` | list | required | Each: `duration`, `users`; users ramp from the previous stage's count |
 | `thinkTime` | duration, or `min` and `max` | `0s` | Pause between iterations |
 | `checks` | `api` \| `full` | `api` | `full` evaluates every test's `expect`; `api` evaluates only the apis' own `expect`, to keep the tool fast |
-| `thresholds` | map of metric → matcher | — | `p50`, `p90`, `p95`, `p99`, `max`, `errorRate`, `rps` |
-| `abortOn` | list of metrics | `[]` | Stop early when one of these thresholds is breached |
+| `thresholds` | map of metric → matcher | — | `p50`, `p90`, `p95`, `p99`, `max`, `errorRate`, `rps`; rolling thresholds use the last 10 s; the final verdict uses the whole run |
+| `abortOn` | list of metrics | `[]` | Stop early when one of these thresholds is breached on the rolling window; exit code 3 comes from the final verdict |
+
+The metrics count one sample per iteration of a mix test, timed from its scheduled start, so a tool that falls behind cannot hide a slow server. Scenario `thresholds` cover every mix test together; a mix entry's `thresholds` cover only that test. Requests made by `beforeEach` and `before` are not samples.
+
+| Metric | Measures |
+| --- | --- |
+| `p50`, `p90`, `p95`, `p99` | Latency percentile, in ms (written as a duration: `lt: 800ms`) |
+| `max` | Slowest iteration, in ms |
+| `errorRate` | Failed iterations ÷ iterations; errorRate takes `1%` or a share such as `0.01` |
+| `rps` | Iterations per second |
+
+Each test's iterations and errors are stored per second, as one row per test per second.
 
 Lifecycle blocks work as in functional runs: `beforeRun` and the `beforeAll` of every file in the mix run once, before the first stage. `beforeEach` and `before` run in every iteration; their requests count toward the load but are reported apart from the mix. Cleanups registered during an iteration run at its end.
 
@@ -979,9 +1001,12 @@ Auth definitions live in `vibranium.config.yaml` under `auth`, are written once,
 | `basic` | `username`, `password` |  |
 | `bearer` | `token` | A fixed token |
 | `apiKey` | `in` (`header` or `query`), `name`, `value` |  |
-| `oauth2ClientCredentials` | `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `audience`, `cache` | Token shared for the run, refreshed before expiry |
-| `oauth2AuthorizationCode` | `authorizeUrl`, `tokenUrl`, `clientId`, `scopes`, `pkce`, `redirectPort` | Opens a browser once; refresh token kept in the OS keychain |
-| `oauth2Refresh` | `tokenUrl`, `clientId`, `refreshToken` | For CI with a long-lived refresh token |
+| `oauth2ClientCredentials` | `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `audience` | Token shared for the run, refreshed before expiry |
+| `oauth2Password` | `tokenUrl`, `clientId`, `clientSecret`, `username`, `password`, `scopes`, `audience` | The resource-owner password grant, for test users |
+| `oauth2AuthorizationCode` | `authorizeUrl`, `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `audience`, `pkce`, `redirectPort` | Opens a browser once; refresh token kept in the OS keychain |
+| `oauth2Refresh` | `tokenUrl`, `clientId`, `clientSecret`, `refreshToken`, `scopes`, `audience` | For CI with a long-lived refresh token |
+
+The `oauth2*` types post to `tokenUrl` with the client in HTTP Basic when `clientSecret` is set, and as a `client_id` form field when it is not (a public client). A refused token request fails the call with V5114, naming the endpoint's status but never its body.
 | `flow` | `steps`, `apply`, `expiresIn`, `refreshBefore`, `refreshOn`, `cache` | Any sequence of requests that ends in credentials (below) |
 | `plugin` | `plugin`, `config` | Custom schemes through an auth plugin |
 
@@ -997,16 +1022,16 @@ auth:
 
 ### Multi-step auth with `flow`
 
-A `flow` runs steps, then applies what they saved to every request that uses it. Its steps use the same syntax as test steps; a step either `call`s an api by ID or describes its request inline with the api fields (`method`, `url`, `headers`, `body`, `expect`, `save`), so login endpoints need no api file of their own.
+A `flow` runs steps, then applies what they saved to every request that uses it. Each step describes its request inline with the api fields (`method`, `url`, `query`, `headers`, `body`, `expect`, `save`), so login endpoints need no api file of their own. A step that `call`s an api by ID is not supported yet. The steps run in a frame of their own that starts with the definition's `vars`; each step's `save` values are visible to the later steps, `apply` and `expiresIn`, and nowhere else.
 
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `steps` | list of steps | required | The requests that produce credentials |
 | `apply.headers`, `apply.query`, `apply.cookies` | maps of templates | — | What is added to each request |
 | `expiresIn` | duration (a template is fine) | never | When the credentials go stale |
-| `refreshBefore` | duration | `1m` | Re-run the flow this long before expiry |
+| `refreshBefore` | duration | `1m` | Re-run the flow this long before expiry, capped at half the credential's lifetime (D193) |
 | `refreshOn` | list of status codes | `[401]` | Re-run the flow once and retry the request when a response has one of these |
-| `cache` | boolean | `false` | `true` keeps the credentials in `.vibranium/cache.db`, encrypted, and reuses them across runs until they expire |
+| `cache` | boolean | `false` | `true` keeps the credentials in `.vibranium/cache.db`, encrypted, and reuses them across runs until they expire (not built yet: today credentials last one run) |
 
 ```yaml
 # vibranium.config.yaml (excerpt)
@@ -1058,11 +1083,28 @@ auth:
     expiresIn: ${var.expiresIn}s
 ```
 
-The same definition serves every profile: under `--profile prod` it logs in to `id.shop.example` as tenant `acme`. Within a run the flow runs once for each set of `vars`, before the first request that needs it, and again when it expires or a response matches `refreshOn`; tests that need it at the same moment wait for that one login. If a step fails, every test using it is reported as blocked by it, with the failing request and response; credentials and saved values are redacted in all output.
+The same definition serves every profile: under `--profile prod` it logs in to `id.shop.example` as tenant `acme`. Within a run the flow runs once for each set of `vars`, before the first request that needs it, and again when it expires or a response matches `refreshOn`; tests that need it at the same moment wait for that one login. If a step fails, every call that uses it fails with V5114, naming the step and its code but not its request or response. A failed flow login is kept for the run, so tests don't each retry it and lock the account. Only the built-in token types (`oauth2*`) drop a failure that may pass (network, timeout, 429, 5xx), so the next request tries again; a refusal (400, 401, 403) is kept there too. Credentials, and the token after a scheme such as `Bearer`, are redacted in all output from the moment they arrive.
 
 ## Secrets
 
-`secrets` defaults to `provider: varlock` with `schema: .env.schema`. Secrets are named in `.env.schema` and resolved by Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). `provider: env` reads plain environment variables instead. Every `${secret.*}` value is redacted everywhere, including inside response bodies.
+`secrets` defaults to `provider: env` with `schema: .env.schema` (D163). Each secret is declared in `.env.schema` as a `NAME=` line (comments and `# @…` annotations are allowed), and `env` resolves the declared names from the process environment, with the project's `.env` filling the ones it does not set. `provider: varlock` is opt-in: it runs `varlock load` and takes the names from Varlock's providers (1Password, Vault, AWS, GCP, Azure, Bitwarden, Infisical, environment variables). A missing secret fails the run with V5114.
+
+`vc check` checks names against `.env.schema`: a `${secret.X}` it does not declare is V2106 (with the closest declared name as the fix), and a `${env.X}` that reads a declared secret is V2107, because it would bypass the redactor (the certain fix is `${secret.X}`).
+
+Every `${secret.*}` value of four characters or more is redacted everywhere it appears, including inside response bodies, and shows as `••••`. So are the values of `Authorization`, `Cookie`, `Set-Cookie` and `redact.headers`, and the JSON fields named in `redact.fields`, at any depth. `redact.rules` add masks of your own, applied after those:
+
+```yaml
+redact:
+  fields: [password]
+  rules:
+    - regex: '\d{3}-\d{2}-\d{4}'       # each match becomes ••••
+    - cel: item.name == 'ssn'          # a JSON field whose rule is true is masked whole
+    - function: hooks/redact.ts#maskCards   # a hook masks what it chooses
+```
+
+A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that runs within its hook budget (D185) and is given each piece of output whole, `{ text }` for a text or `{ json }` for a JSON value, and returns it masked (a string for a text). Rules fail closed: a regex that does not compile masks every text, a CEL rule that errors masks the field, and a hook that throws, overruns or returns a text that is not a string masks the whole piece.
+
+The requests and responses kept in `history.db` and reports are masked the same way before they are stored: the URL (path and query, where a secret also counts in its percent-encoded form), every header and both bodies. Bodies are cut at `history.maxBodySize` only after masking, so a cut never leaves part of a secret showing.
 
 ## Generators and datasets
 
@@ -1085,6 +1127,9 @@ Rules:
 - A var defined as `${fake.…}` is generated once per test instance, or once per loop iteration, and every `${var.…}` read of it gets the same value: put it in `vars` once (`email: ${fake.internet.email}`) and use `${var.email}` (D131).
 - A `${fake.…}` written inline in a field generates a new value every time it is rendered (D131).
 - `vc run --seed 42` makes generated data repeatable; the seed is printed in every report and with every failure (D131).
+- A name that is not a generator is V2002, with the close names and the list of generators. Wrong arguments are V2302: `string.alphanumeric`, `lorem.words` and `lorem.paragraphs` take one count up to 10,000 (defaults 1, 3 and 3); `number.int` takes two whole numbers, the first no larger (default 0 to 9,007,199,254,740,991); `number.float` and `commerce.price` take two numbers (defaults 0 to 1 and 1 to 1000); `helpers.arrayElement` takes one or more values; the rest take none.
+- What they give: `number.int` and `number.float` are numbers, `commerce.price` is a number with two decimals, `helpers.arrayElement` is the argument it picked, and everything else is text. Dates are RFC 3339 in UTC, counted from the run's start: `date.recent` within the day before, `date.past` within the year before, `date.future` within the year after. Text is in English.
+- `string.fromRegExp` (and a `fromRegExp` generator) follows a bounded subset of regex: literals, escapes (`\d`, `\w`, `\s`, `\D`, `\W`, `\S`, `\.`), `.` (printable ASCII), classes and ranges (`[A-Z0-9_]`, `[^,]`), groups (`(…)`, `(?:…)`), alternation (`a|b`), and quantifiers (`?`, `*`, `+`, `{n}`, `{n,m}`, `{n,}`). An open repeat adds at most 16 copies; a count is at most 256 and the text at most 10,000 characters; groups nest at most 32 deep; `^` and `$` only at the ends. Lookarounds, backreferences, `\b`, named groups and Unicode classes are V2309.
 
 Named generators, for settings you reuse, are declared once in `vibranium.config.yaml` and used in the same `fake` namespace:
 
@@ -1103,11 +1148,11 @@ generators:
       words: 500
 ```
 
-Then `${fake.teamName}`, `${fake.quantity}`. A named generator cannot reuse a Faker module name such as `person`.
+Then `${fake.teamName}`, `${fake.quantity}`. Each generator has exactly one kind: `fromRegExp` (a pattern, as `string.fromRegExp`), `oneOf` (a list, as `helpers.arrayElement`), `int` (`min` and `max`, either optional, as `number.int`) or `lorem` (`words`, as `lorem.words`). None is V1005; several, or settings of the wrong shape, are V2302. A named generator takes no arguments (`${fake.quantity(2)}` is V2302) and cannot reuse a Faker module name such as `person` (V2006).
 
 ### Datasets
 
-A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its file, so `datasets/capitals.csv` is `capitals`; files kept elsewhere are listed under `datasets` in the config. `${dataset.capitals}` is the whole list, and there are three ways to use it.
+A dataset is a named list of rows from your own file. Every CSV (with a header row), JSON array or YAML list in `datasets/` is a dataset named after its path, so `datasets/capitals.csv` is `capitals` and `datasets/users/admins.json` is `users.admins`; files kept elsewhere are listed under `datasets.files` in the config, and an entry there wins over a file with the same ID. `${dataset.capitals}` is the whole list, and there are three ways to use it.
 
 ```
 # datasets/capitals.csv
@@ -1170,17 +1215,33 @@ Rules:
 - `random` and `shuffle` follow `--seed`, so a run can be repeated exactly.
 - CSV cells are text: convert with a pipe (`${item.population | int}`), or use JSON or YAML when the data has types.
 - A dataset is read once per run and never changed by it.
+- `examples` and `forEach` may also read a file next to the test: `examples: { $file: rows.yaml }`.
+- `vc check` reads the rows of `${dataset.<id>}` and `$file` written alone: an `${example.…}` column no row has is V2103, and a `${dataset.…}` that names no dataset is V2002. A CSV record with the wrong number of cells is V1001, a column named twice V1006, and a JSON or YAML dataset that is not a list V1002. A row without a column it reads fails at run time with V5112.
 
 ```yaml
-# vibranium.config.yaml: a dataset kept outside datasets/
+# vibranium.config.yaml: datasets kept outside datasets/
 datasets:
-  - id: worldCities
-    file: ../shared-data/world-cities.csv
+  allowRoots: [../shared-data]
+  files:
+    - id: worldCities
+      file: ../shared-data/world-cities.csv
+    - id: smokeUsers
+      file: fixtures/smoke-users.yaml
 ```
+
+`file` is relative to the project root. A file outside the project must be inside one of `allowRoots` (also relative to the project root), after `..` and symbolic links are resolved; any other path is V1012, so a dataset cannot read `/etc/passwd` or climb out through a link.
 
 ## Functions and request hooks
 
-Code runs in two kinds of places. In lifecycle blocks and steps, a `function:` or `command:` action runs at that point (see Lifecycle blocks). On api files and apis, request hooks run around every request. Every entry is `function: path#exportName`, a function in a code file.
+Code runs in two kinds of places. In lifecycle blocks and steps, a `function:` or `command:` action runs at that point (see Lifecycle blocks). On api files and apis, request hooks run around every request. Every entry is `function: path#exportName`, a function in a code file. The path is relative to the file that holds the entry, like a `$file` path, and ends in `.ts`, `.mts`, `.js` or `.mjs`.
+
+`vc check` reads every hook file a `function:` reaches (D172): one that does not parse is V1013, a path to no file is V2004 (with a fix when one hook file has a close name), an export the file does not have is V2005 (with a fix when one export has a close name; a file with `export * from` is not checked), and a file that is not a hook file is V2008. Types are stripped before a hook runs; errors at run time name the TypeScript line. A hook file may import only:
+
+- other hook files in the project, by a path starting `./` or `../`, relative to the importing file; the extension may be left off, and `./util.js` finds `util.ts`;
+- `vibranium:std`, the helpers a hook may use: `hmacSha256Hex`, `sha256Hex`, `base64Encode`, `base64Decode`, `urlEncode`, `urlDecode`;
+- types, with `import type { … } from "@vibranium/sdk"`, which is removed with the other types.
+
+Packages, `node:` modules and `import()` are V2008: hooks run inside the engine, not in Node.
 
 | Where | Key | The function receives |
 | --- | --- | --- |
@@ -1227,11 +1288,11 @@ alerts:
 
 ## v1 to v2
 
-Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc migrate v1` performs these conversions and lists anything it could not convert.
+Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc migrate v1` performs these conversions and lists anything it could not convert (JavaScript asserts beyond the common shapes and `scripts`) in its report, with a `# TODO(vc migrate)` comment in the output (D200). It inlines a v1 `schema` reference as `expect.body.schema`, and gives a var that only a v1 script set an empty value with a TODO; a dropped `delay`, `async`, `timing.wait` or repeat delay is listed as a note.
 
 | v1 construct | Problem | v2 replacement |
 | --- | --- | --- |
-| `{var}`, `{dataset.names}`, `{lorem_500}`, `[PRIVATE\|PUBLIC]`, `[a-z]{10}` | Five template syntaxes, some colliding with regex | `${var.x}`, `${fake.lorem.words(500)}`, `${fake.helpers.arrayElement('PRIVATE', 'PUBLIC')}`, `${dataset.names \| random}`, named `generators` |
+| `{var}`, `{dataset.names}`, `{lorem_500}`, `[PRIVATE\|PUBLIC]`, `[a-z]{10}` | Five template syntaxes, some colliding with regex | `${var.x}`, a named `fromRegExp` generator `[a-z]{500}` (v1 counted characters), `${fake.helpers.arrayElement('PRIVATE', 'PUBLIC')}` (v1 read this as a character class), a Faker call for each built-in v1 dataset, named `generators` (D200) |
 | `"!userSchemas/allUsers"` | Sigil inside a string | `$file: schemas/all-users.json` |
 | `repeat-delay`, `before-endpoint`, `firstByte`, `max_parallel_executors`, `created_on` | Three casing styles | camelCase everywhere |
 | `tags: "a,b,c"` | List hidden in a string | `tags: [a, b, c]` |
@@ -1244,7 +1305,7 @@ Every duplicate or inconsistent construct in v1 has exactly one replacement; `vc
 | `expect.response: { "desc": "JS expression" }`, `schema` mixed in | JavaScript strings run through vm2 | `expect.body.match`, `expect.body.schema`, `expect.cel.<label>`, `expect.custom` |
 | `timing: { total: "<700" }`, `delay: 500`, `timeout: 120000` | Unitless numbers, comparison strings | `lt: 700ms`, `500ms`, `2m` |
 | `status: 200` only | No ranges or alternatives | `status: 2xx`, `[200, 204]` or a matcher |
-| `cache: true` | Cache ignored input values | `cache: {for: 12h}` on a lifecycle action, keyed by api, vars and profile |
+| `cache: true` | Cache ignored input values | A `beforeAll` call with `save` (one response per run, as in v1, D200); `cache: {for: 12h}` on a lifecycle action for reuse across runs, keyed by api, vars and profile |
 | `async: true` | Meant "run repeats in parallel" | `parallel: N` on a looped action; the scheduler and `defaults.concurrency` for tests |
 | `repeat-until` | Separate loop construct | `poll` with `until`, `every`, `timeout` |
 | `ignore: true` | No reason recorded | `skip: "reason"` |
@@ -1263,7 +1324,7 @@ This small shop project uses every file kind; the interface mockups show the sam
 ```
 shop/
   vibranium.config.yaml        # vars, profiles, auth, beforeRun (shown above)
-  .env.schema                  # secret names for Varlock
+  .env.schema                  # secret names (NAME= lines)
   openapi/
     users.yaml
     orders.yaml

@@ -4,8 +4,8 @@
 use std::sync::Arc;
 
 use crate::{
-    Action, ActionId, Api, ApiGroup, Config, Lifecycle, ModelError, Profile, Program, SourceFiles, StringTable, Sym,
-    Test, TestFile,
+    Action, ActionId, Api, ApiGroup, AuthDef, Config, Dataset, GeneratorDef, HookModules, LoadScenario, ModelError,
+    Profile, Program, RunBlocks, SourceFiles, StringTable, Sym, Test, TestFile,
 };
 
 /// Accumulates a [`Program`]; nothing can change it after [`ProgramBuilder::freeze`].
@@ -37,6 +37,11 @@ impl ProgramBuilder {
     /// Adds a profile, keeping the first one with its ID.
     pub fn profile(&mut self, profile: Profile) {
         self.program.profiles.entry(profile.id).or_insert(profile);
+    }
+
+    /// Adds an auth definition, keeping the first one with its ID.
+    pub fn auth(&mut self, auth: AuthDef) {
+        self.program.auth.entry(auth.id).or_insert(auth);
     }
 
     /// Adds an api file.
@@ -78,9 +83,34 @@ impl ProgramBuilder {
         Ok(id)
     }
 
+    /// Adds a named generator, keeping the first one with its ID.
+    pub fn generator(&mut self, generator: GeneratorDef) {
+        self.program.generators.entry(generator.id).or_insert(generator);
+    }
+
+    /// Adds a load scenario, keeping the first one with its ID.
+    pub fn load(&mut self, scenario: LoadScenario) {
+        self.program.loads.entry(scenario.id).or_insert(scenario);
+    }
+
+    /// Adds a dataset, keeping the first one with its ID.
+    pub fn dataset(&mut self, dataset: Dataset) {
+        self.program.datasets.entry(dataset.id).or_insert(dataset);
+    }
+
     /// Sets the config's `beforeRun` and `afterRun` actions.
-    pub fn run_blocks(&mut self, blocks: Lifecycle) {
+    pub fn run_blocks(&mut self, blocks: RunBlocks) {
         self.program.run_blocks = blocks;
+    }
+
+    /// Sets the hook files the program refers to (D172).
+    pub fn hooks(&mut self, hooks: HookModules) {
+        self.program.hooks = hooks;
+    }
+
+    /// Adds the JSON Schema a `body.schema` check names by `key`, keeping the first one (D201).
+    pub fn schema(&mut self, key: String, schema: serde_json::Value) {
+        self.program.schemas.entry(key).or_insert(schema);
     }
 
     /// The finished program, shared read-only from here on.
@@ -96,30 +126,14 @@ mod tests {
 
     use super::ProgramBuilder;
     use crate::{
-        Action, ActionKind, ApiId, Expect, Owner, Pos, Profile, ProfileId, SaveSpec, SourceFileId, SourceFiles,
-        SourceSpan, StringTable, VarDefs,
+        Action, ActionKind, AgentPolicy, ApiId, Pos, Profile, ProfileId, SourceFileId, SourceFiles, SourceSpan,
+        StringTable,
     };
 
     fn action(builder: &mut ProgramBuilder) -> Action {
         let api = ApiId::new(builder.intern("users#get").unwrap());
-        Action {
-            id: None,
-            kind: ActionKind::Call(api),
-            owner: Owner::Instance,
-            vars: VarDefs::default(),
-            auth: None,
-            headers: IndexMap::new(),
-            query: IndexMap::new(),
-            body: None,
-            expect: Expect::default(),
-            save: SaveSpec::default(),
-            poll: None,
-            retry: None,
-            keep: false,
-            cache: None,
-            repeat: None,
-            span: SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0)),
-        }
+        let span = SourceSpan::new(SourceFileId::new(0), Pos::new(1, 1, 0), Pos::new(1, 1, 0));
+        Action::new(ActionKind::Call(api), span)
     }
 
     #[test]
@@ -130,8 +144,9 @@ mod tests {
         assert_eq!(builder.action(first.clone()).unwrap().index(), 0);
         assert_eq!(builder.action(first).unwrap().index(), 1);
         let id = ProfileId::new(builder.intern("dev").unwrap());
-        builder.profile(Profile { id, name: None, default: true, vars: IndexMap::new() });
-        builder.profile(Profile { id, name: Some("again".into()), default: false, vars: IndexMap::new() });
+        let profile = Profile { id, name: None, default: true, vars: IndexMap::new(), agents: AgentPolicy::default() };
+        builder.profile(profile.clone());
+        builder.profile(Profile { name: Some("again".into()), default: false, ..profile });
         let program = builder.freeze();
         assert_eq!(program.actions.len(), 2);
         assert_eq!(program.profiles.len(), 1);

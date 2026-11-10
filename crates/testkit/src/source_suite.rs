@@ -1,4 +1,5 @@
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, content_hash};
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter};
+use vc_model::SourcePath;
 
 /// Builds a provider over a project holding these files (relative path, bytes).
 pub type MakeSources<'a> = dyn FnMut(&[(&str, &[u8])]) -> Box<dyn SourceProvider> + 'a;
@@ -10,6 +11,7 @@ pub fn source_provider_suite(make: &mut MakeSources<'_>) {
     applies_the_filter(make);
     reports_files_that_are_not_utf8(make);
     finds_nothing_in_an_empty_project(make);
+    reads_any_file_by_path(make);
 }
 
 const CONFIG: &[u8] = b"syntaxVersion: 2\n";
@@ -49,7 +51,11 @@ fn finds_definition_files_in_path_order(make: &mut MakeSources<'_>) {
     assert_eq!(found.problems, []);
     assert_eq!(asset_paths(&found), ["README.md", "schemas/user.json"], "the other files are listed as assets");
     let api = &found.files[2];
-    assert_eq!((api.text.as_bytes(), api.hash), (API, content_hash(API)), "text and BLAKE3 hash of the bytes");
+    assert_eq!(
+        (api.text.as_bytes(), api.hash),
+        (API, vc_interfaces::content_hash(API)),
+        "text and BLAKE3 hash of the bytes"
+    );
 }
 
 fn applies_the_filter(make: &mut MakeSources<'_>) {
@@ -88,4 +94,76 @@ fn reports_files_that_are_not_utf8(make: &mut MakeSources<'_>) {
 fn finds_nothing_in_an_empty_project(make: &mut MakeSources<'_>) {
     let provider = make(&[]);
     assert_eq!(discover(provider.as_ref(), &SourceFilter::default()), Discovery::default());
+}
+
+fn reads_any_file_by_path(make: &mut MakeSources<'_>) {
+    let provider = make(&[
+        ("vibranium.config.yaml", CONFIG),
+        ("hooks/sign.ts", b"export const a = 1;\n"),
+        ("datasets/users.json", b"[]"),
+        ("datasets/bad.csv", &[0xff]),
+    ]);
+    let wanted = ["hooks/sign.ts", "datasets/users.json", "datasets/bad.csv", "datasets/gone.json", "hooks/sign.ts"];
+    let wanted: Vec<SourcePath> = wanted.iter().filter_map(|path| SourcePath::new(path).ok()).collect();
+    let result = provider.read(&wanted);
+    assert_eq!(result.as_ref().err(), None, "read failed");
+    let found = result.unwrap_or_default();
+    assert_eq!(paths(&found), ["datasets/users.json", "hooks/sign.ts"], "any kind, in path order, each once");
+    assert_eq!(found.files.get(1).map(|file| file.text.as_str()), Some("export const a = 1;\n"));
+    let problems: Vec<(Option<&str>, bool)> =
+        found.problems.iter().map(|problem| (problem.path(), matches!(problem, SourceError::NotUtf8 { .. }))).collect();
+    assert_eq!(problems, [(Some("datasets/bad.csv"), true), (Some("datasets/gone.json"), false)], "the rest are read");
+    assert!(
+        matches!(found.problems.get(1), Some(SourceError::Read { .. })),
+        "a missing file is a read problem: {:?}",
+        found.problems
+    );
+    assert_eq!(asset_paths(&found), Vec::<&str>::new(), "nothing is listed");
+    assert_eq!(
+        discover(provider.as_ref(), &SourceFilter::default()).files.len(),
+        1,
+        "discover still reads only definitions"
+    );
+}
+
+/// Builds a writer, and a provider that reads the same project, over a project holding these
+/// files (relative path, bytes).
+pub type MakeWriter<'a> = dyn FnMut(&[(&str, &[u8])]) -> (Box<dyn SourceWriter>, Box<dyn SourceProvider>) + 'a;
+
+/// The contract every [`SourceWriter`] meets (D107): a write replaces a file or creates it with
+/// its folders, a remove takes it away, and removing a file that is not there names its path.
+pub fn source_writer_suite(make: &mut MakeWriter<'_>) {
+    writes_a_file_with_its_folders_and_replaces_one(make);
+    removes_a_file_and_names_one_that_is_not_there(make);
+}
+
+/// Writes `text` at `path` and says what the writer answered.
+fn write(writer: &dyn SourceWriter, path: &str, text: &str) -> Result<(), SourceError> {
+    let path = SourcePath::new(path).map_err(|_| SourceError::InvalidPath { path: path.to_owned() })?;
+    writer.write(&path, text)
+}
+
+fn writes_a_file_with_its_folders_and_replaces_one(make: &mut MakeWriter<'_>) {
+    let (writer, provider) = make(&[("users.api.yaml", b"apis: []\n")]);
+    assert_eq!(write(writer.as_ref(), "users.api.yaml", "apis: {}\n"), Ok(()), "replaces a file");
+    assert_eq!(write(writer.as_ref(), "services/new/new.test.yaml", "tests: []\n"), Ok(()), "creates one");
+    let wanted = ["users.api.yaml", "services/new/new.test.yaml"];
+    let wanted: Vec<SourcePath> = wanted.iter().filter_map(|path| SourcePath::new(path).ok()).collect();
+    let found = provider.read(&wanted).unwrap_or_default();
+    let texts: Vec<(&str, &str)> = found.files.iter().map(|file| (file.path.as_str(), file.text.as_str())).collect();
+    let expected = [("services/new/new.test.yaml", "tests: []\n"), ("users.api.yaml", "apis: {}\n")];
+    assert_eq!(texts, expected, "reads back what was written");
+}
+
+fn removes_a_file_and_names_one_that_is_not_there(make: &mut MakeWriter<'_>) {
+    let (writer, provider) = make(&[("services/old/old.api.yaml", b"apis: []\n"), ("kept.api.yaml", API)]);
+    let Ok(path) = SourcePath::new("services/old/old.api.yaml") else { return };
+    assert_eq!(writer.remove(&path), Ok(()), "removes a file");
+    let left = discover(provider.as_ref(), &SourceFilter::default());
+    assert_eq!(paths(&left), ["kept.api.yaml"], "the rest stay");
+    let again = writer.remove(&path);
+    assert!(
+        matches!(&again, Err(SourceError::Write { path, .. }) if path == "services/old/old.api.yaml"),
+        "a file that is not there names its path: {again:?}"
+    );
 }

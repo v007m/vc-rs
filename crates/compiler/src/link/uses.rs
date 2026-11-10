@@ -137,6 +137,16 @@ pub fn did_you_mean(
     diagnostic.fix(Fix::certain(format!("Replace with {one}"), vec![edit]))
 }
 
+/// Every reference to `ns` in `source` outside CEL, once per spot, in file order.
+pub fn references<'a>(source: &Source<'a>, ns: Namespace) -> Vec<&'a Reference> {
+    let mut found = Vec::new();
+    let pieces = source.pieces(source.root.span, &[]).filter(|piece| !matches!(piece, Piece::Cel(_)));
+    pieces.for_each(|piece| piece_refs(piece, &mut found));
+    let mut seen = HashSet::new();
+    found.retain(|reference| reference.ns == ns && seen.insert(reference.span));
+    found
+}
+
 /// Every reference in a piece, in order.
 pub fn piece_refs<'p>(piece: &'p Piece, found: &mut Vec<&'p Reference>) {
     match piece {

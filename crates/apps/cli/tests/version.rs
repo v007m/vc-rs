@@ -1,4 +1,5 @@
-use assert_cmd::{Command, cargo::cargo_bin_cmd};
+use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 
 fn vc() -> Command {
     cargo_bin_cmd!("vc")

@@ -1,0 +1,8 @@
+tests:
+  - id: listsUsers
+    call: users#list
+    skip:
+      reason: upstream down
+      until: 2099-01-01
+  - id: getsUser
+    call: users#get

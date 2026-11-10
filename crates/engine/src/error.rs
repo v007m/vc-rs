@@ -1,5 +1,11 @@
+use crate::CheckReport;
+
 /// Why the engine could not do what it was asked.
+///
+/// Every variant but [`EngineError::Internal`] is something the user can fix; the CLI shows
+/// it as `error: …` with [`EngineError::help`] and exits 2.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum EngineError {
     /// No folder at or above the start folder holds a `vibranium.config.yaml`.
     #[error("no vibranium.config.yaml in {start} or any folder above it")]
@@ -25,4 +31,105 @@ pub enum EngineError {
         /// What went wrong.
         reason: String,
     },
+    /// The definitions have errors, so nothing can be planned or run; the report holds them.
+    #[error("the project has {} error(s); nothing ran", .0.summary().errors)]
+    Invalid(Box<CheckReport>),
+    /// The selectors or flags select nothing that can run.
+    #[error("{reason}")]
+    Selection {
+        /// What is wrong.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
+    /// A setting from `.env`, `VIB_*`, `--set` or a flag is not one the run knows, or its
+    /// value does not fit.
+    #[error("{origin}: {reason}")]
+    Setting {
+        /// The layer that set it: `.env`, `VIB_PROFILE`, `--set`, `--concurrency`.
+        origin: String,
+        /// What is wrong.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
+    /// A reporter name is unknown, not built yet, or given to the wrong flag.
+    #[error("{reason}")]
+    Reporter {
+        /// What is wrong.
+        reason: String,
+        /// What to do instead.
+        help: Option<String>,
+    },
+    /// The run history cannot be read or written, or holds no such run.
+    #[error("history: {reason}")]
+    History {
+        /// What is wrong.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
+    /// The cross-run cache has no key or cannot be opened or read.
+    #[error("cache: {reason}")]
+    Cache {
+        /// What is wrong.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
+    /// An authoring change was refused, so nothing was written: it would add an error, or it
+    /// breaks a naming convention, or what it names does not exist.
+    #[error("{reason}")]
+    Edit {
+        /// What is wrong.
+        reason: String,
+        /// What to do instead, when the engine knows.
+        help: Option<String>,
+    },
+    /// The agent policy refused an agent's call, or no one approved it in time (D195).
+    #[error("refused: {reason}")]
+    Refused {
+        /// The rule, the denial or the wait that ran out.
+        reason: String,
+        /// What a person can change to let it through.
+        help: Option<String>,
+    },
+    /// The feature is designed but not built yet.
+    #[error("{feature} is not built yet")]
+    NotBuilt {
+        /// The command or method, such as `vc load`.
+        feature: String,
+    },
+    /// Something inside the engine failed; this is a bug to report, not a user error.
+    #[error("{reason}")]
+    Internal {
+        /// What went wrong.
+        reason: String,
+    },
+}
+
+impl EngineError {
+    /// The `help:` line to show under the error, when there is one.
+    #[must_use]
+    pub fn help(&self) -> Option<String> {
+        match self {
+            Self::NoProject { .. } => {
+                Some("run it inside a project, pass `--project <dir>`, or create one with `vc init`".to_owned())
+            }
+            Self::Selection { help, .. }
+            | Self::Setting { help, .. }
+            | Self::Reporter { help, .. }
+            | Self::History { help, .. }
+            | Self::Cache { help, .. }
+            | Self::Edit { help, .. }
+            | Self::Refused { help, .. } => help.clone(),
+            _ => None,
+        }
+    }
+
+    /// Whether this is a bug in the engine rather than something the user can fix.
+    #[must_use]
+    pub const fn is_internal(&self) -> bool {
+        matches!(self, Self::Internal { .. })
+    }
 }

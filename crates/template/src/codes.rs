@@ -18,3 +18,7 @@ pub const LOOP_ROOT: Code = Code::V2102;
 pub const UNIT: Code = Code::V2301;
 /// An invalid status code or class.
 pub const STATUS: Code = Code::V2303;
+/// A `${fake.…}` or named generator with the wrong arguments or settings.
+pub const FAKE_ARGS: Code = Code::V2302;
+/// A `fromRegExp` pattern outside the supported subset (D174).
+pub const FAKE_PATTERN: Code = Code::V2309;

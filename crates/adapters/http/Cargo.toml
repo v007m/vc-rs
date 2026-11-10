@@ -8,5 +8,30 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[dependencies]
+async-trait.workspace = true
+brotli-decompressor.workspace = true
+bytes.workspace = true
+flate2.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+rustls.workspace = true
+rustls-native-certs.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["io-util"] }
+tokio-rustls.workspace = true
+tower-service.workspace = true
+vc-interfaces.workspace = true
+vc-model.workspace = true
+zstd.workspace = true
+
+[dev-dependencies]
+hyper = { workspace = true, features = ["server"] }
+serde_json.workspace = true
+vc-mock-server.workspace = true
+vc-testkit.workspace = true
+
 [lints]
 workspace = true

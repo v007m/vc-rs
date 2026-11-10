@@ -1,14 +1,16 @@
-use vc_compiler::{CompileCache, CompileInput, SourceGlobs, compile};
 use vc_diagnostics::{Diagnostics, Summary};
-use vc_interfaces::{Discovery, SourceFilter};
 use vc_model::SourceFiles;
 
-use crate::problems::add_problems;
+use crate::project::Compiled;
 use crate::selection::Selection;
 use crate::{Engine, EngineError};
 
 /// What `vc check` asks for.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct CheckRequest {
     /// Report only on files at or under these paths (relative to the project root, `/`
     /// separators); every file when empty. The whole project is compiled either way, so
@@ -18,6 +20,7 @@ pub struct CheckRequest {
 
 /// What a check found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct CheckReport {
     /// The diagnostics on the selected files, in display order.
     pub diagnostics: Diagnostics,
@@ -58,65 +61,17 @@ impl Engine {
     /// parse;
     /// [`EngineError::NoFilesMatch`] when a requested path selects no definition file.
     pub fn check(&self, request: &CheckRequest) -> Result<CheckReport, EngineError> {
-        let found = self.discover()?;
-        let mut notices = Vec::new();
-        let previous = self.previous_cache(&mut notices);
-        let input = CompileInput {
-            files: found.files,
-            previous: previous.clone(),
-            today: Some(self.clock.today()),
-            assets: Some(found.assets.into_iter().collect()),
-        };
-        let compiled = compile(input);
-        self.save_cache(&compiled.cache, &previous, &mut notices);
-        let (mut diagnostics, mut files) = (compiled.diagnostics, compiled.files);
-        add_problems(&found.problems, &mut diagnostics, &mut files);
+        Self::selected(self.compiled()?, request)
+    }
+
+    /// The diagnostics of `compiled` on the files `request` selects.
+    pub(crate) fn selected(compiled: Compiled, request: &CheckRequest) -> Result<CheckReport, EngineError> {
+        let (diagnostics, files) = (compiled.diagnostics, compiled.files);
         let selection = Selection::new(&request.paths, &files)?;
         let mut diagnostics = selection.keep(diagnostics, &files);
         diagnostics.sort();
-        Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices })
+        Ok(CheckReport { checked: selection.count(&files), diagnostics, files, notices: compiled.notices })
     }
-
-    /// The project's files, found with the config's `paths` globs: discovery runs again with
-    /// them only when the config writes some.
-    fn discover(&self) -> Result<Discovery, EngineError> {
-        let found = self.walk(&SourceFilter::default())?;
-        let globs = SourceGlobs::of(&found.files);
-        if globs.is_default() {
-            return Ok(found);
-        }
-        let filter = SourceFilter::written(&globs.include, globs.exclude.as_deref()).map_err(sources_error)?;
-        self.walk(&filter)
-    }
-
-    fn walk(&self, filter: &SourceFilter) -> Result<Discovery, EngineError> {
-        self.sources.discover(filter).map_err(sources_error)
-    }
-
-    /// Saves `cache` unless it remembers the same files as `previous`, which the store holds.
-    fn save_cache(&self, cache: &CompileCache, previous: &CompileCache, notices: &mut Vec<String>) {
-        if cache == previous {
-            return;
-        }
-        if let Err(error) = self.compile_cache.save(&cache.to_bytes()) {
-            notices.push(format!("the compile cache was not saved: {error}"));
-        }
-    }
-
-    fn previous_cache(&self, notices: &mut Vec<String>) -> CompileCache {
-        match self.compile_cache.load() {
-            Ok(Some(bytes)) => CompileCache::from_bytes(&bytes),
-            Ok(None) => CompileCache::new(),
-            Err(error) => {
-                notices.push(format!("the compile cache was not used: {error}"));
-                CompileCache::new()
-            }
-        }
-    }
-}
-
-fn sources_error(error: impl std::fmt::Display) -> EngineError {
-    EngineError::Sources { reason: error.to_string() }
 }
 
 #[cfg(test)]

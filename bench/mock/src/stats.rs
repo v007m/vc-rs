@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 /// Routes are keyed by method and route template, for example `DELETE /users/{id}`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Stats {
     /// Requests received per route.
     pub requests: BTreeMap<String, u64>,

@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
-use axum::body::{Bytes, to_bytes};
+use axum::body;
+use axum::body::Bytes;
 use axum::extract::{Query, Request};
 use axum::http::StatusCode;
 use axum::http::request::Parts;
 use axum::response::{IntoResponse, Response};
-use axum::routing::any;
+use axum::routing;
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
@@ -13,12 +14,12 @@ const BODY_LIMIT: usize = 16 * 1024 * 1024;
 
 /// `ANY /echo` returns the request's method, path, query, headers and body as JSON.
 pub fn routes() -> Router {
-    Router::new().route("/echo", any(echo))
+    Router::new().route("/echo", routing::any(echo))
 }
 
 async fn echo(request: Request) -> Response {
     let (parts, body) = request.into_parts();
-    match to_bytes(body, BODY_LIMIT).await {
+    match body::to_bytes(body, BODY_LIMIT).await {
         Ok(bytes) => Json(describe(&parts, &bytes)).into_response(),
         Err(error) => (StatusCode::BAD_REQUEST, error.to_string()).into_response(),
     }

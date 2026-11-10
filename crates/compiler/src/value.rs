@@ -1,15 +1,25 @@
 //! Lowers a parsed value to a [`TemplateValue`]: text becomes a template, numbers and flags
-//! keep their type, and a map whose only key is `$cel` becomes a checked CEL value.
+//! keep their type, a map whose only key is `$cel` becomes a checked CEL value, and a map with
+//! an `$extend` key extends that base with its other keys, then drops its `$remove` paths.
 
 use indexmap::IndexMap;
 use serde_json::Number;
-use vc_model::TemplateValue;
+use vc_diagnostics::{Code, Diagnostic};
+use vc_model::{Path, TemplateValue};
 use vc_parser::{Entry, Scalar, ScalarKind, Value};
 
-use crate::parts::{At, Cx, cel, template};
+use crate::link::body_path;
+use crate::parts;
+use crate::parts::{At, Cx};
 
 /// The key of a computed value: `{ $cel: var.price * 2 }`.
 const CEL_KEY: &str = "$cel";
+
+/// The key of the value a map extends: `{ $extend: ${original.body}, city: Pune }`.
+const EXTEND_KEY: &str = "$extend";
+
+/// The key of the paths an extended map drops: `$remove: [id, shipping.geo]`.
+const REMOVE_KEY: &str = "$remove";
 
 /// The value at `at`, or `None` when part of it does not compile (the reasons are recorded).
 pub fn lower(cx: &mut Cx<'_>, at: At<'_>) -> Option<TemplateValue> {
@@ -27,9 +37,41 @@ fn map(cx: &mut Cx<'_>, at: At<'_>, entries: &[Entry]) -> Option<TemplateValue> 
     if let [only] = entries
         && only.key == CEL_KEY
     {
-        return cel(cx, at.child(&only.value)).map(TemplateValue::Cel);
+        return parts::cel(cx, at.child(&only.value)).map(TemplateValue::Cel);
     }
-    let lowered: Vec<_> = entries.iter().map(|entry| (&entry.key, lower(cx, at.child(&entry.value)))).collect();
+    if let Some(base) = entries.iter().find(|entry| entry.key == EXTEND_KEY) {
+        return extend(cx, at, (base, entries));
+    }
+    plain_map(cx, at, entries.iter())
+}
+
+/// `$extend`'s base, the other keys as the changes merged into it, and the `$remove` paths.
+fn extend(cx: &mut Cx<'_>, at: At<'_>, (base, entries): (&Entry, &[Entry])) -> Option<TemplateValue> {
+    let base = parts::template(cx, at.child(&base.value));
+    let changes = entries.iter().filter(|entry| entry.key != EXTEND_KEY && entry.key != REMOVE_KEY);
+    let changes = plain_map(cx, at, changes);
+    let remove = entries
+        .iter()
+        .find(|entry| entry.key == REMOVE_KEY)
+        .map_or_else(|| Some(Vec::new()), |entry| removed(cx, entry));
+    Some(TemplateValue::Extend { base: base?, changes: Box::new(changes?), remove: remove? })
+}
+
+/// The paths a `$remove` list names; `None`, with a V2302, when it is not a list of texts.
+fn removed(cx: &mut Cx<'_>, entry: &Entry) -> Option<Vec<Path>> {
+    let paths = match &entry.value.value {
+        Value::Seq(items) => items.iter().map(|item| item.as_scalar().map(|scalar| body_path(&scalar.text))).collect(),
+        Value::Scalar(_) | Value::Map(_) => None,
+    };
+    if paths.is_none() {
+        let message = format!("expected a list of paths, found {}", entry.value.kind_name());
+        cx.push(Diagnostic::new(Code::V2302, entry.value.span, message).label("expected a list of paths"));
+    }
+    paths
+}
+
+fn plain_map<'e>(cx: &mut Cx<'_>, at: At<'_>, entries: impl Iterator<Item = &'e Entry>) -> Option<TemplateValue> {
+    let lowered: Vec<_> = entries.map(|entry| (&entry.key, lower(cx, at.child(&entry.value)))).collect();
     let mut values = IndexMap::with_capacity(lowered.len());
     for (key, value) in lowered {
         values.insert(key.clone(), value?);
@@ -45,7 +87,7 @@ fn scalar_value(cx: &mut Cx<'_>, at: At<'_>, scalar: &Scalar) -> Option<Template
         ScalarKind::Float => scalar.text.parse().ok().and_then(Number::from_f64).map(TemplateValue::Number),
         ScalarKind::String => None,
     };
-    typed.or_else(|| template(cx, at).map(TemplateValue::String))
+    typed.or_else(|| parts::template(cx, at).map(TemplateValue::String))
 }
 
 /// A YAML 1.2 integer: decimal, `0x` hex or `0o` octal; `None` past the 64-bit range.

@@ -9,7 +9,11 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+base64.workspace = true
 cel.workspace = true
+fake.workspace = true
+percent-encoding.workspace = true
+rand_core.workspace = true
 regex.workspace = true
 serde_json.workspace = true
 strsim.workspace = true

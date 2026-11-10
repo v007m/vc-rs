@@ -1,0 +1,13 @@
+baseUrl: ${var.baseUrl}
+apis:
+  # every user
+  - id: list
+    path: /users
+  - id: create  # makes one
+    method: POST
+    path: /users
+  - id: deactivate
+    method: POST
+    path: /users/${var.id}/deactivate
+
+# end of apis

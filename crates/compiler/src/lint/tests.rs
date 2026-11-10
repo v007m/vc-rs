@@ -4,7 +4,7 @@ use vc_diagnostics::{Category, Code};
 use vc_model::{ContentHash, SourceFile, SourcePath};
 
 use super::LintRegistry;
-use crate::{CompileInput, compile};
+use crate::CompileInput;
 
 const CONFIG: &str =
     "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
@@ -73,7 +73,7 @@ fn expired(file_until: &str, test_until: &str) -> crate::Compiled {
     );
     let mut input = input(CONFIG, &text);
     input.today = vc_model::Date::parse("2026-11-03");
-    compile(input)
+    crate::compile(input)
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn a_skip_on_a_line_it_shares_has_no_fix() {
     let text = "name: Crud\ntests:\n  - {id: a, call: users#get, skip: {reason: x, until: 2020-01-01}}\n";
     let mut input = input(CONFIG, text);
     input.today = vc_model::Date::parse("2026-11-03");
-    let compiled = compile(input);
+    let compiled = crate::compile(input);
     let found: Vec<_> = compiled.diagnostics.iter().map(|d| (d.code, d.fixes.len())).collect();
     assert_eq!(found, [(Code::V3104, 0)]);
 }
@@ -187,7 +187,7 @@ fn input(config: &str, tests: &str) -> CompileInput {
 }
 
 fn compiled(config: &str, tests: &str) -> crate::Compiled {
-    compile(input(config, tests))
+    crate::compile(input(config, tests))
 }
 
 #[test]

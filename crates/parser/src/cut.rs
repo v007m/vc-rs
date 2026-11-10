@@ -3,7 +3,7 @@
 use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};
 use vc_model::{Pos, SourceSpan};
 
-use crate::scalar::double_quote;
+use crate::scalar;
 
 /// A warning when the plain text scalar at `at` is followed on its line by a comment that looks
 /// like the rest of the value: `see #212`, or a value ending in a comma. The caller passes only
@@ -38,5 +38,5 @@ fn diagnostic(span: SourceSpan, whole: &str, comment: &str) -> Diagnostic {
     Diagnostic::new(Code::V3204, span, format!("YAML reads `{comment}` as a comment, cutting the value short"))
         .label("the value ends before the `#`")
         .help("quote the value to keep the `#` and what follows it")
-        .fix(Fix::suggested("Quote the value", vec![TextEdit::replace(span, double_quote(whole))]))
+        .fix(Fix::suggested("Quote the value", vec![TextEdit::replace(span, scalar::double_quote(whole))]))
 }

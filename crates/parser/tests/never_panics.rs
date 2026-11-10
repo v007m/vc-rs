@@ -1,7 +1,7 @@
-use proptest::prelude::*;
+use proptest::prelude::{Just, Strategy, TestCaseError, prop, prop_assert, prop_oneof, proptest};
 use vc_diagnostics::Code;
 use vc_model::SourceFileId;
-use vc_parser::{Document, Node, Syntax, parse};
+use vc_parser::{Document, Node, Syntax};
 
 const YAMLISH: &str = "[a-z: \\-\\[\\]{},#&*!|>'\"\n\t\r\u{feff}é?%@`\\\\]{0,64}";
 const VALUE: &str = "[a-z0-9 ,:#'\"\\[\\]{}\\-.~é]{0,12}";
@@ -42,13 +42,25 @@ fn scalars(root: &Node) -> Vec<&Node> {
 
 proptest! {
     #[test]
-    fn parse_never_panics_on_any_text(text in any::<String>()) {
-        let _ = parse(SourceFileId::new(0), Syntax::Yaml, &text);
+    fn parse_never_panics_on_any_text(text in prop::arbitrary::any::<String>()) {
+        let _ = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, &text);
+    }
+
+    #[test]
+    fn csv_spans_stay_inside_the_text(text in "[a-c,\"\n\ré ]{0,48}") {
+        let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Csv, &text);
+        prop_assert!(root.is_some() || diagnostics.has_errors());
+        for diagnostic in diagnostics.iter() {
+            prop_assert!(text.get(diagnostic.primary.span.byte_range()).is_some());
+        }
+        for row in root.iter().flat_map(Node::items) {
+            prop_assert!(text.get(row.span.byte_range()).is_some());
+        }
     }
 
     #[test]
     fn parse_never_panics_on_yaml_shaped_text(text in YAMLISH) {
-        let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, &text);
+        let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, &text);
         prop_assert!(root.is_some() || diagnostics.has_errors());
         for diagnostic in diagnostics.iter() {
             prop_assert!(text.get(diagnostic.primary.span.byte_range()).is_some());
@@ -58,7 +70,7 @@ proptest! {
     #[test]
     fn every_fix_still_parses(text in YAMLISH) {
         let Ok(document) = Document::parse(SourceFileId::new(0), Syntax::Yaml, text.as_str()) else { return Ok(()) };
-        let (_, diagnostics) = parse(SourceFileId::new(0), Syntax::Yaml, &text);
+        let (_, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Yaml, &text);
         for fix in diagnostics.iter().flat_map(|d| &d.fixes) {
             prop_assert!(document.apply(&fix.edits).is_ok(), "{:?}", fix.edits);
         }
@@ -70,13 +82,13 @@ proptest! {
     }
 
     #[test]
-    fn the_json_reader_never_panics_on_any_text(text in any::<String>()) {
-        let _ = parse(SourceFileId::new(0), Syntax::Json, &text);
+    fn the_json_reader_never_panics_on_any_text(text in prop::arbitrary::any::<String>()) {
+        let _ = vc_parser::parse(SourceFileId::new(0), Syntax::Json, &text);
     }
 
     #[test]
     fn the_json_reader_never_panics_on_json_shaped_text(text in JSONISH) {
-        let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Json, &text);
+        let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Json, &text);
         prop_assert!(root.is_some() || diagnostics.has_errors(), "{text:?}");
         for diagnostic in diagnostics.iter() {
             prop_assert!(text.get(diagnostic.primary.span.byte_range()).is_some());
@@ -85,7 +97,7 @@ proptest! {
 
     #[test]
     fn valid_json_reads_with_at_most_duplicate_keys(text in json_documents()) {
-        let (root, diagnostics) = parse(SourceFileId::new(0), Syntax::Json, &text);
+        let (root, diagnostics) = vc_parser::parse(SourceFileId::new(0), Syntax::Json, &text);
         prop_assert!(root.is_some(), "{text:?}");
         prop_assert!(diagnostics.iter().all(|d| d.code == Code::V1006), "{text:?}: {diagnostics:?}");
     }

@@ -6,15 +6,17 @@ use vc_model::{FileKind, SourceSpan};
 use vc_parser::Node;
 
 use super::layer::{Layer, Scope};
-use super::project::{FILE_BLOCKS, Item, Project, RUN_BLOCKS, Source, TEST_BLOCKS, holes, list, text};
-use super::saves::{Saves, called, keys};
+use super::project;
+use super::project::{FILE_BLOCKS, Item, Project, RUN_BLOCKS, Source, TEST_BLOCKS};
+use super::saves;
+use super::saves::Saves;
 use super::uses::{Checker, Spot};
 
 /// Checks what every spot reads.
 pub fn check(project: &Project<'_>) -> Diagnostics {
     let config = project.config();
-    let profiles = config.map(|config| list(config.root, "profiles")).unwrap_or_default();
-    let profiles = profiles.iter().filter_map(|profile| text(profile, "id")).map(str::to_owned).collect();
+    let profiles = config.map(|config| project::list(config.root, "profiles")).unwrap_or_default();
+    let profiles = profiles.iter().filter_map(|profile| project::text(profile, "id")).map(str::to_owned).collect();
     let mut flow = Flow { checker: Checker::new(project, profiles), saves: Saves::new(project) };
     let run = config.map_or_else(Scope::default, |config| flow.config(config));
     for source in project.sources.iter().filter(|source| source.kind == FileKind::Test) {
@@ -44,12 +46,27 @@ impl<'p, 'a> Flow<'p, 'a> {
     fn config(&mut self, source: &'p Source<'a>) -> Scope<'a> {
         let root = source.root;
         let base = Scope::default().with(Layer::vars(source, root));
-        self.spot(source, (root, &holes(root, &RUN_BLOCKS)), &base);
+        let mut keys = vec!["auth"];
+        keys.extend(RUN_BLOCKS);
+        self.spot(source, (root, &project::holes(root, &keys)), &base);
+        self.auth(source, &base);
         let mut before = base.clone();
-        let shared = self.block(source, list(root, "beforeRun"), (&mut before, Saved::Shared));
+        let shared = self.block(source, project::list(root, "beforeRun"), (&mut before, Saved::Shared));
         let run = base.with(shared);
-        self.block(source, list(root, "afterRun"), (&mut run.clone(), Saved::Plain));
+        self.block(source, project::list(root, "afterRun"), (&mut run.clone(), Saved::Plain));
         run
+    }
+
+    /// Each `auth` entry with its own vars; its `steps` run in order and `apply` sees their saves.
+    fn auth(&mut self, source: &'p Source<'a>, base: &Scope<'a>) {
+        for entry in project::list(source.root, "auth") {
+            let mut scope = base.with(Layer::vars(source, entry));
+            self.spot(source, (entry, &project::holes(entry, &["steps", "apply"])), &scope);
+            self.block(source, project::list(entry, "steps"), (&mut scope, Saved::Plain));
+            if let Some(apply) = entry.get("apply") {
+                self.spot(source, (apply, &[]), &scope);
+            }
+        }
     }
 
     /// A test file: its values, its lifecycle blocks and its tests.
@@ -58,31 +75,31 @@ impl<'p, 'a> Flow<'p, 'a> {
         let mut file = run.with(Layer::vars(source, root));
         let mut keys = vec!["tests"];
         keys.extend(FILE_BLOCKS);
-        self.spot(source, (root, &holes(root, &keys)), &file);
-        let shared = self.block(source, list(root, "beforeAll"), (&mut file.clone(), Saved::Shared));
+        self.spot(source, (root, &project::holes(root, &keys)), &file);
+        let shared = self.block(source, project::list(root, "beforeAll"), (&mut file.clone(), Saved::Shared));
         file.push(shared);
-        let each = self.block(source, list(root, "beforeEach"), (&mut file.clone(), Saved::Plain));
+        let each = self.block(source, project::list(root, "beforeEach"), (&mut file.clone(), Saved::Plain));
         let per_test = file.with(each);
-        for test in list(root, "tests") {
+        for test in project::list(root, "tests") {
             self.test(source, test, &per_test);
         }
-        self.block(source, list(root, "afterEach"), (&mut per_test.clone(), Saved::Plain));
-        self.block(source, list(root, "afterAll"), (&mut file, Saved::Plain));
+        self.block(source, project::list(root, "afterEach"), (&mut per_test.clone(), Saved::Plain));
+        self.block(source, project::list(root, "afterAll"), (&mut file, Saved::Plain));
     }
 
     /// One test: `before`, its call or steps, then `after`.
     fn test(&mut self, source: &'p Source<'a>, test: &'a Node, scope: &Scope<'a>) {
         let mut run = scope.with(Layer::vars(source, test));
-        self.block(source, list(test, "before"), (&mut run, Saved::Plain));
+        self.block(source, project::list(test, "before"), (&mut run, Saved::Plain));
         if test.get("call").is_some() {
             let saved = self.action(source, test, &run);
             run.push(Layer::names(saved));
         } else {
-            self.block(source, list(test, "steps"), (&mut run, Saved::Plain));
-            self.spot(source, (test, &holes(test, &TEST_BLOCKS)), &run);
-            run.push(Layer::names(keys(test.get("save"))));
+            self.block(source, project::list(test, "steps"), (&mut run, Saved::Plain));
+            self.spot(source, (test, &project::holes(test, &TEST_BLOCKS)), &run);
+            run.push(Layer::names(saves::keys(test.get("save"))));
         }
-        self.block(source, list(test, "after"), (&mut run, Saved::Plain));
+        self.block(source, project::list(test, "after"), (&mut run, Saved::Plain));
     }
 
     /// Runs `actions` in order in `scope`, which gains each one's saves and id; gives the
@@ -91,7 +108,7 @@ impl<'p, 'a> Flow<'p, 'a> {
         let mut added = Layer::default();
         for action in actions {
             let names = self.action(source, action, scope);
-            let id = text(action, "id");
+            let id = project::text(action, "id");
             let names = if saved == Saved::Shared { id.map(str::to_owned).into_iter().collect() } else { names };
             let layer = Layer::names(names);
             added.absorb(&layer);
@@ -104,16 +121,16 @@ impl<'p, 'a> Flow<'p, 'a> {
     /// One action, or a test with `call`: its own values, then the api it calls; gives its saves.
     fn action(&mut self, source: &'p Source<'a>, node: &'a Node, scope: &Scope<'a>) -> Vec<String> {
         let own = scope.with(Layer::vars(source, node));
-        let api = called(self.checker.project, (source, node));
+        let api = saves::called(self.checker.project, (source, node));
         let inner = api.map_or_else(|| own.clone(), |api| own.with(self.api_layer(api)));
-        self.spot(source, (node, &holes(node, &ACTION_PARTS)), &inner);
+        self.spot(source, (node, &project::holes(node, &ACTION_PARTS)), &inner);
         if let Some(api) = api {
             self.api(api, &inner, call_site(node));
         }
         let saved = self.saves.action(source, node);
         if let Some(check) = node.get("cache").and_then(|cache| cache.get("check")) {
             let mut cached = saved.clone();
-            cached.extend(text(node, "id").map(str::to_owned));
+            cached.extend(project::text(node, "id").map(str::to_owned));
             self.action(source, check, &own.with(Layer::names(cached)));
         }
         saved
@@ -127,9 +144,9 @@ impl<'p, 'a> Flow<'p, 'a> {
         inner.steps.clear();
         self.api_templates(api, &inner, site);
         let Some(cleanup) = api.node.get("cleanup") else { return };
-        let after = inner.with(Layer::names(keys(api.node.get("save")))).with(Layer::vars(source, cleanup));
+        let after = inner.with(Layer::names(saves::keys(api.node.get("save")))).with(Layer::vars(source, cleanup));
         self.checker.check(&Spot { source, span: cleanup.span, holes: &[], site: Some(site) }, &after);
-        if let Some(target) = called(project, (source, cleanup)) {
+        if let Some(target) = saves::called(project, (source, cleanup)) {
             self.api_templates(target, &after.with(self.api_layer(target)), call_site(cleanup));
         }
     }
@@ -137,9 +154,9 @@ impl<'p, 'a> Flow<'p, 'a> {
     /// An api entry, without its cleanup, and the values of its file.
     fn api_templates(&mut self, api: Item<'a>, scope: &Scope<'a>, site: SourceSpan) {
         let source = self.checker.project.source(api);
-        let entry = holes(api.node, &["cleanup"]);
+        let entry = project::holes(api.node, &["cleanup"]);
         self.checker.check(&Spot { source, span: api.node.span, holes: &entry, site: Some(site) }, scope);
-        let file = holes(source.root, &["apis"]);
+        let file = project::holes(source.root, &["apis"]);
         self.checker.check(&Spot { source, span: source.root.span, holes: &file, site: Some(site) }, scope);
     }
 

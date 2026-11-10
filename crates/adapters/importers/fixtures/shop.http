@@ -1,0 +1,35 @@
+# The shop's requests, kept next to its code for the REST Client.
+@baseUrl = https://api.shop.test/v1
+@contentType = application/json
+@authToken = not-a-real-token
+
+### Rename a user
+PATCH {{baseUrl}}/users/u_7f3k HTTP/1.1
+Authorization: Bearer {{authToken}}
+Content-Type: {{contentType}}
+Accept: application/json
+
+{
+  "name": "Ada",
+  "password": "not-a-real-password"
+}
+
+### List open orders
+GET {{baseUrl}}/orders
+    ?status=open
+    &page=2
+
+###
+# @name createOrder
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{"sku": "{{sku}}", "quantity": 2, "ref": "{{$guid}}"}
+
+> {% client.global.set("orderId", response.body.id); %}
+
+### The order just made
+GET {{baseUrl}}/orders/{{createOrder.response.body.$.id}}
+
+### Ping
+GET https://status.shop.test/ping

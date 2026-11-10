@@ -1,0 +1,49 @@
+{
+    "id": "c3f0a9d2-58b1-4e0c-b7a4-91d2e6f3c840",
+    "app": "shop",
+    "name": "catalog_browse",
+    "tags": "catalog",
+    "generate": {
+        "searchTerm": "{dataset.pokemon}",
+        "pageSize": 20
+    },
+    "endpoints": [
+        {
+            "name": "01_list_categories",
+            "description": "List product categories",
+            "url": "/api/v1/categories",
+            "cache": true,
+            "headers": {
+                "Accept": "application/json"
+            }
+        },
+        {
+            "name": "02_search_products",
+            "description": "Search products in a random category",
+            "url": "/api/v1/products?q={searchTerm}&category={categoryCode}&limit={pageSize}",
+            "async": true,
+            "repeat": 5,
+            "dependencies": [
+                {
+                    "api": "01_list_categories",
+                    "variable": {
+                        "categoryCode": "response.any.code"
+                    }
+                }
+            ],
+            "expect": {
+                "status": 200,
+                "response": {
+                    "No more results than asked for": "{response.items.length} <= {pageSize}",
+                    "Every product is in the category": "{response.items.all.category}.every(c => c === '{categoryCode}')"
+                }
+            }
+        },
+        {
+            "name": "03_legacy_search",
+            "description": "Old search endpoint, kept for reference",
+            "url": "/api/v0/search?q={searchTerm}",
+            "ignore": true
+        }
+    ]
+}

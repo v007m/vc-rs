@@ -29,11 +29,31 @@ jobs:
       - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: pnpm install --frozen-lockfile
+      # D205: on a PR update, mutation testing covers only the commits pushed since the last run.
+      # A PR's first run, or a history that was rewritten, measures against the base branch.
+      - id: mutants-base
+        env:
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref || 'master' }}
+        run: |
+          base="origin/$BASE_REF"
+          if [[ "$ACTION" == synchronize && -n "$BEFORE" ]] && git merge-base --is-ancestor "$BEFORE" HEAD; then
+            base="$BEFORE"
+          fi
+          echo "mutation base: $base"
+          echo "base=$base" >>"$GITHUB_OUTPUT"
       - run: scripts/gates.sh
         env:
           # The LLD's mutation floor applies to the diff on every PR; the full run is nightly.
           GATES_MUTANTS: ${{ github.event_name == 'pull_request' && '1' || '0' }}
-          GATES_BASE: origin/${{ github.base_ref || 'master' }}
+          GATES_BASE: ${{ steps.mutants-base.outputs.base }}
+      # D117: the public API of vc-model, vc-interfaces and vc-engine matches its snapshot.
+      # cargo-public-api reads rustdoc JSON, which needs a nightly toolchain.
+      - name: public-api
+        run: |
+          rustup toolchain install nightly --profile minimal
+          mise run public-api:check
       - if: github.event_name == 'pull_request'
         run: scripts/commit-check.sh "origin/${{ github.base_ref }}"
 

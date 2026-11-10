@@ -9,12 +9,20 @@ members = [
   "crates/planner",
   "crates/interfaces",
   "crates/executor",
+  "crates/loadtest",
   "crates/engine",
   "crates/testkit",
   "crates/adapters/system",
   "crates/adapters/http",
   "crates/adapters/reporters",
+  "crates/adapters/hooks",
+  "crates/adapters/store",
+  "crates/adapters/secrets",
+  "crates/adapters/auth",
+  "crates/adapters/importers",
+  "crates/apps/mcp",
   "crates/apps/cli",
+  "crates/apps/demo",
   "crates/arch-tests",
   "bench/mock",
 ]
@@ -37,40 +45,100 @@ vc-compiler = { path = "crates/compiler" }
 vc-planner = { path = "crates/planner" }
 vc-interfaces = { path = "crates/interfaces" }
 vc-executor = { path = "crates/executor" }
+vc-loadtest = { path = "crates/loadtest" }
 vc-engine = { path = "crates/engine" }
 vc-testkit = { path = "crates/testkit" }
 vc-adapter-system = { path = "crates/adapters/system" }
 vc-adapter-http = { path = "crates/adapters/http" }
 vc-adapter-reporters = { path = "crates/adapters/reporters" }
+vc-adapter-hooks = { path = "crates/adapters/hooks" }
+vc-adapter-store = { path = "crates/adapters/store" }
+vc-adapter-secrets = { path = "crates/adapters/secrets" }
+vc-adapter-auth = { path = "crates/adapters/auth" }
+vc-adapter-importers = { path = "crates/adapters/importers" }
+vc-mcp = { path = "crates/apps/mcp" }
+vc-mock-server = { path = "bench/mock" }
+aho-corasick = "1.1.5"
 anyhow = "1.0.104"
+apple-native-keyring-store = { version = "1.0.2", features = ["keychain"] }
+arc-swap = "1.7.1"
 assert_cmd = "2.2.2"
-axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "matched-path", "query", "tokio"] }
+async-trait = "0.1.92"
+axum = { version = "0.8.9", default-features = false, features = ["form", "http1", "json", "matched-path", "query", "tokio"] }
+base64 = "0.23.1"
 blake3 = "1.8.7"
+brotli-decompressor = "6.2.0"
+bytes = "1.12.1"
 cargo_metadata = "0.23.1"
 cel = { version = "0.15.0", default-features = false, features = ["regex"] }
+chacha20poly1305 = { version = "0.11.0", features = ["zeroize"] }
 clap = { version = "4.6.7", features = ["derive"] }
+clap_complete = "4.6.11"
 criterion = { version = "0.8.2", default-features = false }
+csv = "1.4.0"
+fake = { version = "5.1.0", default-features = false }
+flate2 = "1.1.10"
 globset = "0.4.21"
 gungraun = "0.20.0"
+har = "0.9.0"
+hdrhistogram = { version = "7.6", default-features = false }
+hmac = "0.13.0"
+http = "1.5.0"
+http-body-util = "0.1.5"
+hyper = { version = "1.12.0", features = ["client", "http1", "http2"] }
+hyper-util = { version = "0.1.21", features = ["client-legacy", "client-proxy", "http1", "http2", "tokio"] }
 ignore = "0.4.34"
 indexmap = { version = "2.14.2", features = ["serde"] }
 insta = { version = "1.49.0", default-features = false }
+jsonschema = { version = "0.61.0", default-features = false }
+keyring-core = "1.0.1"
+linux-keyutils-keyring-store = "1.0.0"
+notify = "=8.2.1"
+oas3 = { version = "0.22.0", default-features = false }
+oxc_allocator = "0.155.0"
+oxc_ast = "0.155.0"
+oxc_codegen = "0.155.0"
+oxc_diagnostics = "0.155.0"
+oxc_parser = "0.155.0"
+oxc_semantic = "0.155.0"
+oxc_span = "0.155.0"
+oxc_syntax = "0.155.0"
+oxc_transformer = "0.155.0"
+percent-encoding = "2.3.2"
 postcard = { version = "1.1.3", default-features = false, features = ["use-std"] }
 predicates = "3.1.4"
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 proptest = "1.12.0"
+rand_core = "0.10.1"
 regex = "1.13.1"
+ring = "0.17.14"
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+rmcp = { version = "3.9.0", default-features = false, features = ["server", "transport-io"] }
+rquickjs = { version = "0.14.0", features = ["loader"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-native-certs = "0.8.5"
+rusqlite = { version = "0.41.1", features = ["bundled", "fallible_uint"] }
+rustix = { version = "1.1.6", default-features = false, features = ["process", "std"] }
 saphyr-parser = "0.3.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
+sha2 = "0.11.1"
+similar = "2.7.0"
+smallvec = "1.16.4"
 strsim = "0.11.1"
 syn = { version = "3.0.9", features = ["full", "visit"] }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["macros", "net", "rt", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
+tokio-util = "0.7.20"
+tower = { version = "0.5.3", default-features = false, features = ["util"] }
+tower-service = "0.3.3"
 tower-http = { version = "0.6.11", features = ["compression-br", "compression-gzip"] }
+windows-native-keyring-store = "1.1.0"
 winnow = "1.0.4"
+zeroize = "1.9.1"
+zstd = { version = "0.14.3", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -87,6 +155,8 @@ todo = "deny"
 unimplemented = "deny"
 dbg_macro = "deny"
 panic = "deny"
+exhaustive_enums = "deny"
+exhaustive_structs = "deny"
 
 [profile.release]
 lto = "thin"

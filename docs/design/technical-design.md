@@ -210,7 +210,7 @@ The default `ResultStore` adapter is SQLite in WAL mode at `.vibranium/history.d
 | `load_intervals` | Test × second in a load run | run id, test id, second, count, errors, HDR histogram blob |
 
 - Body policy (D22): headers plus the first 4 KB of the body on failure by default; `none`, `failures` or `all` configurable; always redacted.
-- Retention: keep the last N runs or N days, configurable; `vc history prune` on demand.
+- Retention: keep the last N runs (`history.keep`, D170); `vc history prune` on demand.
 - Indexes on test id and start time keep the common queries (last failures, flaky tests, trend for one test) fast.
 
 ### Reports

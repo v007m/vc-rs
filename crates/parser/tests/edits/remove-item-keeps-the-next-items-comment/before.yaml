@@ -1,0 +1,9 @@
+apis:
+  - id: list
+    path: /users
+  - id: create
+    method: POST
+    path: /users
+  # the last one
+  - id: remove
+    path: /users/1

@@ -1,7 +1,7 @@
 //! Wall-clock time of `vc check` on a 1,000-file project: cold, warm and with one file changed.
 //! `scripts/bench-budgets.sh` holds the medians to the D120 budgets.
 
-use std::hint::black_box;
+use std::hint;
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
@@ -21,7 +21,7 @@ fn compile(c: &mut Criterion) {
                 || bench.engine(scenario),
                 |engine| {
                     let count = fixture::check(&engine);
-                    (engine, black_box(count))
+                    (engine, hint::black_box(count))
                 },
                 BatchSize::PerIteration,
             );

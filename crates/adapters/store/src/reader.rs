@@ -1,0 +1,144 @@
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+use rusqlite::{Connection, OptionalExtension, Row as SqlRow};
+use vc_interfaces::{CheckRow, HistoryError, HistoryReader, RunId, RunRef, RunRow, RunStart, TestRow};
+use vc_model::Totals;
+
+use crate::codec::{Location, decompress, from_json, run_status, test_status, unreadable};
+use crate::schema;
+
+/// The columns a run is read from, in [`run_row`]'s order.
+const RUN_COLUMNS: &str = "id, started_at, finished_at, profiles, selector, git_commit, git_branch, seed, vc_version,
+    config_hash, kind, status, passed, failed, blocked, skipped, flaky";
+
+/// Reads the history at a path. Each query opens its own read-only connection, so readers run
+/// beside the writer and other processes; a missing file is an empty history.
+#[derive(Clone, Debug)]
+pub struct SqliteHistoryReader {
+    path: PathBuf,
+}
+
+impl SqliteHistoryReader {
+    /// A reader of the history at `path`; nothing is opened until a query.
+    #[must_use]
+    pub fn new(path: &Path) -> Self {
+        Self { path: path.to_path_buf() }
+    }
+
+    /// Runs `query` on a fresh read-only connection, or answers the default with no file.
+    fn read<T: Default>(&self, query: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> Result<T, HistoryError> {
+        let Some(connection) = schema::open_for_reading(&self.path)? else { return Ok(T::default()) };
+        query(&connection).map_err(|error| Location::of(&self.path).error(&error))
+    }
+}
+
+impl HistoryReader for SqliteHistoryReader {
+    fn runs(&self, limit: usize) -> Result<Vec<RunRow>, HistoryError> {
+        self.read(|connection| {
+            let sql = format!("SELECT {RUN_COLUMNS} FROM runs ORDER BY id DESC LIMIT ?1");
+            let mut statement = connection.prepare(&sql)?;
+            statement.query_map([limit], run_row)?.collect()
+        })
+    }
+
+    fn run(&self, which: RunRef) -> Result<Option<RunRow>, HistoryError> {
+        self.read(|connection| {
+            let id = match which {
+                RunRef::Last => None,
+                RunRef::Id(id) => Some(id.get()),
+            };
+            let sql = format!("SELECT {RUN_COLUMNS} FROM runs WHERE ?1 IS NULL OR id = ?1 ORDER BY id DESC LIMIT 1");
+            connection.query_row(&sql, [id], run_row).optional()
+        })
+    }
+
+    fn tests(&self, run: RunId) -> Result<Vec<TestRow>, HistoryError> {
+        self.read(|connection| {
+            let mut checks = checks(connection, run)?;
+            let mut statement = connection.prepare(
+                "SELECT id, test_id, example_row, repeat_index, status, duration_ms, attempts, blocked_by, skip_reason,
+                        message
+                 FROM test_results WHERE run_id = ?1 ORDER BY id",
+            )?;
+            let tests = statement.query_map([run.get()], |row| Ok((row.get::<_, i64>(0)?, test_row(row)?)))?;
+            tests
+                .map(|test| test.map(|(id, test)| TestRow { checks: checks.remove(&id).unwrap_or_default(), ..test }))
+                .collect()
+        })
+    }
+
+    fn snapshot(&self, run: RunId) -> Result<Option<Vec<u8>>, HistoryError> {
+        self.read(|connection| {
+            let data: Option<Vec<u8>> = connection
+                .query_row("SELECT data FROM snapshots WHERE run_id = ?1", [run.get()], |row| row.get(0))
+                .optional()?;
+            data.map(|data| decompress(0, &data)).transpose()
+        })
+    }
+}
+
+fn run_row(row: &SqlRow<'_>) -> rusqlite::Result<RunRow> {
+    let start = RunStart {
+        started_ms: row.get(1)?,
+        profiles: from_json(3, &row.get::<_, String>(3)?)?,
+        selector: row.get(4)?,
+        git_commit: row.get(5)?,
+        git_branch: row.get(6)?,
+        seed: row.get::<_, Option<i64>>(7)?.map(i64::cast_unsigned),
+        vc_version: row.get(8)?,
+        config_hash: row.get(9)?,
+        kind: row.get(10)?,
+    };
+    let status: Option<String> = row.get(11)?;
+    let status = status.map(|text| run_status(&text).ok_or_else(|| unreadable(11, &text))).transpose()?;
+    let count = |column| row.get::<_, Option<usize>>(column).map(Option::unwrap_or_default);
+    let totals =
+        Totals { passed: count(12)?, failed: count(13)?, blocked: count(14)?, skipped: count(15)?, flaky: count(16)? };
+    Ok(RunRow { id: RunId::new(row.get(0)?), start, finished_ms: row.get(2)?, status, totals })
+}
+
+fn test_row(row: &SqlRow<'_>) -> rusqlite::Result<TestRow> {
+    let status: String = row.get(4)?;
+    Ok(TestRow {
+        test_id: row.get(1)?,
+        example_row: row.get(2)?,
+        repeat_index: row.get(3)?,
+        status: Some(test_status(&status).ok_or_else(|| unreadable(4, &status))?),
+        duration_ms: row.get(5)?,
+        attempts: row.get(6)?,
+        blocked_by: row.get(7)?,
+        skip_reason: row.get(8)?,
+        message: row.get(9)?,
+        checks: Vec::new(),
+        exchanges: Vec::new(),
+    })
+}
+
+/// Every check of `run`'s tests, by test result, in the order they were stored.
+fn checks(connection: &Connection, run: RunId) -> rusqlite::Result<BTreeMap<i64, Vec<CheckRow>>> {
+    let mut statement = connection.prepare(
+        "SELECT c.test_result_id, c.kind, c.path, c.expected, c.actual, c.passed, c.origin, c.file, c.line
+         FROM checks c JOIN test_results t ON t.id = c.test_result_id
+         WHERE t.run_id = ?1 ORDER BY c.rowid",
+    )?;
+    let rows = statement.query_map([run.get()], |row| {
+        let check = CheckRow {
+            kind: row.get(1)?,
+            path: row.get(2)?,
+            expected: row.get::<_, Option<String>>(3)?.unwrap_or_default(),
+            actual: row.get(4)?,
+            passed: row.get(5)?,
+            origin: row.get(6)?,
+            file: row.get(7)?,
+            line: row.get(8)?,
+        };
+        Ok((row.get::<_, i64>(0)?, check))
+    })?;
+    let mut checks: BTreeMap<i64, Vec<CheckRow>> = BTreeMap::new();
+    for row in rows {
+        let (test, check) = row?;
+        checks.entry(test).or_default().push(check);
+    }
+    Ok(checks)
+}

@@ -1,0 +1,1273 @@
+pub mod vc_interfaces
+#[non_exhaustive] pub enum vc_interfaces::ApprovalError
+pub vc_interfaces::ApprovalError::Decided
+pub vc_interfaces::ApprovalError::Decided::id: vc_interfaces::ApprovalId
+pub vc_interfaces::ApprovalError::Store
+pub vc_interfaces::ApprovalError::Store::location: alloc::string::String
+pub vc_interfaces::ApprovalError::Store::reason: alloc::string::String
+pub vc_interfaces::ApprovalError::Unknown
+pub vc_interfaces::ApprovalError::Unknown::id: vc_interfaces::ApprovalId
+impl core::clone::Clone for vc_interfaces::ApprovalError
+pub fn vc_interfaces::ApprovalError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ApprovalError
+impl core::cmp::PartialEq for vc_interfaces::ApprovalError
+pub fn vc_interfaces::ApprovalError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::ApprovalError
+impl core::fmt::Debug for vc_interfaces::ApprovalError
+pub fn vc_interfaces::ApprovalError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::ApprovalError
+pub fn vc_interfaces::ApprovalError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ApprovalError
+pub enum vc_interfaces::ApprovalStatus
+pub vc_interfaces::ApprovalStatus::Approved
+pub vc_interfaces::ApprovalStatus::Denied
+pub vc_interfaces::ApprovalStatus::Expired
+pub vc_interfaces::ApprovalStatus::Pending
+impl core::clone::Clone for vc_interfaces::ApprovalStatus
+pub fn vc_interfaces::ApprovalStatus::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ApprovalStatus
+impl core::cmp::PartialEq for vc_interfaces::ApprovalStatus
+pub fn vc_interfaces::ApprovalStatus::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::ApprovalStatus
+pub fn vc_interfaces::ApprovalStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::ApprovalStatus
+impl core::marker::StructuralPartialEq for vc_interfaces::ApprovalStatus
+#[non_exhaustive] pub enum vc_interfaces::AuthError
+pub vc_interfaces::AuthError::Browser
+pub vc_interfaces::AuthError::Browser::auth: alloc::string::String
+pub vc_interfaces::AuthError::Browser::reason: alloc::string::String
+pub vc_interfaces::AuthError::Flow
+pub vc_interfaces::AuthError::Flow::auth: alloc::string::String
+pub vc_interfaces::AuthError::Flow::reason: alloc::string::String
+pub vc_interfaces::AuthError::Malformed
+pub vc_interfaces::AuthError::Malformed::auth: alloc::string::String
+pub vc_interfaces::AuthError::Malformed::missing: alloc::string::String
+pub vc_interfaces::AuthError::Missing
+pub vc_interfaces::AuthError::Missing::auth: alloc::string::String
+pub vc_interfaces::AuthError::Missing::key: alloc::string::String
+pub vc_interfaces::AuthError::Rejected
+pub vc_interfaces::AuthError::Rejected::auth: alloc::string::String
+pub vc_interfaces::AuthError::Rejected::status: u16
+pub vc_interfaces::AuthError::Unknown
+pub vc_interfaces::AuthError::Unknown::kind: alloc::string::String
+pub vc_interfaces::AuthError::Unreachable
+pub vc_interfaces::AuthError::Unreachable::auth: alloc::string::String
+pub vc_interfaces::AuthError::Unreachable::reason: alloc::string::String
+impl vc_interfaces::AuthError
+pub const fn vc_interfaces::AuthError::code(&self) -> vc_diagnostics::code::Code
+pub const fn vc_interfaces::AuthError::help(&self) -> &'static str
+pub const fn vc_interfaces::AuthError::may_pass(&self) -> bool
+pub const fn vc_interfaces::AuthError::refused(&self) -> bool
+impl core::clone::Clone for vc_interfaces::AuthError
+pub fn vc_interfaces::AuthError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::AuthError
+impl core::cmp::PartialEq for vc_interfaces::AuthError
+pub fn vc_interfaces::AuthError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::AuthError
+impl core::fmt::Debug for vc_interfaces::AuthError
+pub fn vc_interfaces::AuthError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::AuthError
+pub fn vc_interfaces::AuthError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::AuthError
+#[non_exhaustive] pub enum vc_interfaces::CacheStoreError
+pub vc_interfaces::CacheStoreError::Failed
+pub vc_interfaces::CacheStoreError::Failed::reason: alloc::string::String
+pub vc_interfaces::CacheStoreError::Open
+pub vc_interfaces::CacheStoreError::Open::location: alloc::string::String
+pub vc_interfaces::CacheStoreError::Open::reason: alloc::string::String
+pub vc_interfaces::CacheStoreError::Stopped
+impl core::clone::Clone for vc_interfaces::CacheStoreError
+pub fn vc_interfaces::CacheStoreError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CacheStoreError
+impl core::cmp::PartialEq for vc_interfaces::CacheStoreError
+pub fn vc_interfaces::CacheStoreError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::CacheStoreError
+impl core::fmt::Debug for vc_interfaces::CacheStoreError
+pub fn vc_interfaces::CacheStoreError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::CacheStoreError
+pub fn vc_interfaces::CacheStoreError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CacheStoreError
+#[non_exhaustive] pub enum vc_interfaces::CommandError
+pub vc_interfaces::CommandError::Failed
+pub vc_interfaces::CommandError::Failed::program: alloc::string::String
+pub vc_interfaces::CommandError::Failed::reason: alloc::string::String
+pub vc_interfaces::CommandError::NotFound
+pub vc_interfaces::CommandError::NotFound::program: alloc::string::String
+pub vc_interfaces::CommandError::TimedOut
+pub vc_interfaces::CommandError::TimedOut::after: core::time::Duration
+pub vc_interfaces::CommandError::TimedOut::program: alloc::string::String
+impl core::clone::Clone for vc_interfaces::CommandError
+pub fn vc_interfaces::CommandError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CommandError
+impl core::cmp::PartialEq for vc_interfaces::CommandError
+pub fn vc_interfaces::CommandError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::CommandError
+impl core::fmt::Debug for vc_interfaces::CommandError
+pub fn vc_interfaces::CommandError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::CommandError
+pub fn vc_interfaces::CommandError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CommandError
+#[non_exhaustive] pub enum vc_interfaces::CompileCacheError
+pub vc_interfaces::CompileCacheError::Read
+pub vc_interfaces::CompileCacheError::Read::location: alloc::string::String
+pub vc_interfaces::CompileCacheError::Read::reason: alloc::string::String
+pub vc_interfaces::CompileCacheError::Write
+pub vc_interfaces::CompileCacheError::Write::location: alloc::string::String
+pub vc_interfaces::CompileCacheError::Write::reason: alloc::string::String
+impl core::clone::Clone for vc_interfaces::CompileCacheError
+pub fn vc_interfaces::CompileCacheError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CompileCacheError
+impl core::cmp::PartialEq for vc_interfaces::CompileCacheError
+pub fn vc_interfaces::CompileCacheError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::CompileCacheError
+impl core::fmt::Debug for vc_interfaces::CompileCacheError
+pub fn vc_interfaces::CompileCacheError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::CompileCacheError
+pub fn vc_interfaces::CompileCacheError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CompileCacheError
+#[non_exhaustive] pub enum vc_interfaces::ConfigSourceError
+pub vc_interfaces::ConfigSourceError::Malformed
+pub vc_interfaces::ConfigSourceError::Malformed::entry: alloc::string::String
+pub vc_interfaces::ConfigSourceError::Malformed::origin: alloc::string::String
+pub vc_interfaces::ConfigSourceError::Unreadable
+pub vc_interfaces::ConfigSourceError::Unreadable::origin: alloc::string::String
+pub vc_interfaces::ConfigSourceError::Unreadable::reason: alloc::string::String
+impl core::clone::Clone for vc_interfaces::ConfigSourceError
+pub fn vc_interfaces::ConfigSourceError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ConfigSourceError
+impl core::cmp::PartialEq for vc_interfaces::ConfigSourceError
+pub fn vc_interfaces::ConfigSourceError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::ConfigSourceError
+impl core::fmt::Debug for vc_interfaces::ConfigSourceError
+pub fn vc_interfaces::ConfigSourceError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::ConfigSourceError
+pub fn vc_interfaces::ConfigSourceError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ConfigSourceError
+#[non_exhaustive] pub enum vc_interfaces::FetchError
+pub vc_interfaces::FetchError::Failed
+pub vc_interfaces::FetchError::Failed::location: alloc::string::String
+pub vc_interfaces::FetchError::Failed::reason: alloc::string::String
+pub vc_interfaces::FetchError::NotAllowed
+pub vc_interfaces::FetchError::NotAllowed::location: alloc::string::String
+pub vc_interfaces::FetchError::Undecodable
+pub vc_interfaces::FetchError::Undecodable::location: alloc::string::String
+pub vc_interfaces::FetchError::Undecodable::reason: alloc::string::String
+impl core::clone::Clone for vc_interfaces::FetchError
+pub fn vc_interfaces::FetchError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::FetchError
+impl core::cmp::PartialEq for vc_interfaces::FetchError
+pub fn vc_interfaces::FetchError::eq(&self, &Self) -> bool
+impl core::convert::From<vc_interfaces::FetchError> for vc_interfaces::ImportError
+pub fn vc_interfaces::ImportError::from(vc_interfaces::FetchError) -> Self
+impl core::error::Error for vc_interfaces::FetchError
+impl core::fmt::Debug for vc_interfaces::FetchError
+pub fn vc_interfaces::FetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::FetchError
+pub fn vc_interfaces::FetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::FetchError
+#[non_exhaustive] pub enum vc_interfaces::HistoryError
+pub vc_interfaces::HistoryError::Busy
+pub vc_interfaces::HistoryError::Busy::location: alloc::string::String
+pub vc_interfaces::HistoryError::Failed
+pub vc_interfaces::HistoryError::Failed::reason: alloc::string::String
+pub vc_interfaces::HistoryError::Open
+pub vc_interfaces::HistoryError::Open::location: alloc::string::String
+pub vc_interfaces::HistoryError::Open::reason: alloc::string::String
+pub vc_interfaces::HistoryError::Stopped
+impl core::clone::Clone for vc_interfaces::HistoryError
+pub fn vc_interfaces::HistoryError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::HistoryError
+impl core::cmp::PartialEq for vc_interfaces::HistoryError
+pub fn vc_interfaces::HistoryError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::HistoryError
+impl core::fmt::Debug for vc_interfaces::HistoryError
+pub fn vc_interfaces::HistoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::HistoryError
+pub fn vc_interfaces::HistoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::HistoryError
+#[non_exhaustive] pub enum vc_interfaces::HookError
+pub vc_interfaces::HookError::BadValue
+pub vc_interfaces::HookError::BadValue::what: alloc::string::String
+pub vc_interfaces::HookError::NotFound
+pub vc_interfaces::HookError::NotFound::hook: alloc::string::String
+pub vc_interfaces::HookError::Overran
+pub vc_interfaces::HookError::Overran::limit: vc_interfaces::Limit
+pub vc_interfaces::HookError::Overran::line: core::option::Option<u32>
+pub vc_interfaces::HookError::Threw
+pub vc_interfaces::HookError::Threw::line: core::option::Option<u32>
+pub vc_interfaces::HookError::Threw::message: alloc::string::String
+pub vc_interfaces::HookError::Unavailable
+pub vc_interfaces::HookError::Unavailable::reason: alloc::string::String
+impl vc_interfaces::HookError
+pub const fn vc_interfaces::HookError::code(&self) -> vc_diagnostics::code::Code
+impl core::clone::Clone for vc_interfaces::HookError
+pub fn vc_interfaces::HookError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::HookError
+impl core::cmp::PartialEq for vc_interfaces::HookError
+pub fn vc_interfaces::HookError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::HookError
+impl core::fmt::Debug for vc_interfaces::HookError
+pub fn vc_interfaces::HookError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::HookError
+pub fn vc_interfaces::HookError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::HookError
+#[non_exhaustive] pub enum vc_interfaces::ImportError
+pub vc_interfaces::ImportError::Cycle
+pub vc_interfaces::ImportError::Cycle::chain: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::ImportError::Fetch(vc_interfaces::FetchError)
+pub vc_interfaces::ImportError::Invalid
+pub vc_interfaces::ImportError::Invalid::location: alloc::string::String
+pub vc_interfaces::ImportError::Invalid::reason: alloc::string::String
+pub vc_interfaces::ImportError::UnknownKind
+pub vc_interfaces::ImportError::UnknownKind::kind: alloc::string::String
+pub vc_interfaces::ImportError::UnknownKind::known: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vc_interfaces::ImportError
+pub fn vc_interfaces::ImportError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ImportError
+impl core::cmp::PartialEq for vc_interfaces::ImportError
+pub fn vc_interfaces::ImportError::eq(&self, &Self) -> bool
+impl core::convert::From<vc_interfaces::FetchError> for vc_interfaces::ImportError
+pub fn vc_interfaces::ImportError::from(vc_interfaces::FetchError) -> Self
+impl core::error::Error for vc_interfaces::ImportError
+pub fn vc_interfaces::ImportError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for vc_interfaces::ImportError
+pub fn vc_interfaces::ImportError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::ImportError
+pub fn vc_interfaces::ImportError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ImportError
+#[non_exhaustive] pub enum vc_interfaces::Limit
+pub vc_interfaces::Limit::Memory
+pub vc_interfaces::Limit::Time
+impl core::clone::Clone for vc_interfaces::Limit
+pub fn vc_interfaces::Limit::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Limit
+impl core::cmp::PartialEq for vc_interfaces::Limit
+pub fn vc_interfaces::Limit::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Limit
+pub fn vc_interfaces::Limit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::Limit
+pub fn vc_interfaces::Limit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::Limit
+impl core::marker::StructuralPartialEq for vc_interfaces::Limit
+#[non_exhaustive] pub enum vc_interfaces::ReportError
+pub vc_interfaces::ReportError::Encode
+pub vc_interfaces::ReportError::Encode::reason: alloc::string::String
+pub vc_interfaces::ReportError::Encode::reporter: alloc::string::String
+pub vc_interfaces::ReportError::Unknown
+pub vc_interfaces::ReportError::Unknown::known: alloc::string::String
+pub vc_interfaces::ReportError::Unknown::name: alloc::string::String
+pub vc_interfaces::ReportError::Write
+pub vc_interfaces::ReportError::Write::location: alloc::string::String
+pub vc_interfaces::ReportError::Write::reason: alloc::string::String
+impl core::clone::Clone for vc_interfaces::ReportError
+pub fn vc_interfaces::ReportError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ReportError
+impl core::cmp::PartialEq for vc_interfaces::ReportError
+pub fn vc_interfaces::ReportError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::ReportError
+impl core::fmt::Debug for vc_interfaces::ReportError
+pub fn vc_interfaces::ReportError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::ReportError
+pub fn vc_interfaces::ReportError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ReportError
+pub enum vc_interfaces::Row
+pub vc_interfaces::Row::Exchange(vc_interfaces::ExchangeRow)
+pub vc_interfaces::Row::Interval(vc_interfaces::IntervalRow)
+pub vc_interfaces::Row::Test(vc_interfaces::TestRow)
+impl core::clone::Clone for vc_interfaces::Row
+pub fn vc_interfaces::Row::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_interfaces::Row
+pub fn vc_interfaces::Row::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Row
+pub fn vc_interfaces::Row::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Row
+pub enum vc_interfaces::RunRef
+pub vc_interfaces::RunRef::Id(vc_interfaces::RunId)
+pub vc_interfaces::RunRef::Last
+impl vc_interfaces::RunRef
+pub fn vc_interfaces::RunRef::parse(&str) -> core::option::Option<Self>
+impl core::clone::Clone for vc_interfaces::RunRef
+pub fn vc_interfaces::RunRef::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::RunRef
+impl core::cmp::PartialEq for vc_interfaces::RunRef
+pub fn vc_interfaces::RunRef::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::RunRef
+pub fn vc_interfaces::RunRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::RunRef
+impl core::marker::StructuralPartialEq for vc_interfaces::RunRef
+#[non_exhaustive] pub enum vc_interfaces::SecretError
+pub vc_interfaces::SecretError::Malformed
+pub vc_interfaces::SecretError::Malformed::provider: alloc::string::String
+pub vc_interfaces::SecretError::Malformed::reason: alloc::string::String
+pub vc_interfaces::SecretError::Unavailable
+pub vc_interfaces::SecretError::Unavailable::provider: alloc::string::String
+pub vc_interfaces::SecretError::Unavailable::reason: alloc::string::String
+pub vc_interfaces::SecretError::Unknown
+pub vc_interfaces::SecretError::Unknown::provider: alloc::string::String
+impl vc_interfaces::SecretError
+pub const fn vc_interfaces::SecretError::code(&self) -> vc_diagnostics::code::Code
+pub const fn vc_interfaces::SecretError::help(&self) -> &'static str
+impl core::clone::Clone for vc_interfaces::SecretError
+pub fn vc_interfaces::SecretError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::SecretError
+impl core::cmp::PartialEq for vc_interfaces::SecretError
+pub fn vc_interfaces::SecretError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::SecretError
+impl core::fmt::Debug for vc_interfaces::SecretError
+pub fn vc_interfaces::SecretError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::SecretError
+pub fn vc_interfaces::SecretError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::SecretError
+#[non_exhaustive] pub enum vc_interfaces::SourceError
+pub vc_interfaces::SourceError::InvalidGlob
+pub vc_interfaces::SourceError::InvalidGlob::glob: alloc::string::String
+pub vc_interfaces::SourceError::InvalidGlob::reason: alloc::string::String
+pub vc_interfaces::SourceError::InvalidPath
+pub vc_interfaces::SourceError::InvalidPath::path: alloc::string::String
+pub vc_interfaces::SourceError::NotUtf8
+pub vc_interfaces::SourceError::NotUtf8::path: alloc::string::String
+pub vc_interfaces::SourceError::OutsideRoot
+pub vc_interfaces::SourceError::OutsideRoot::path: alloc::string::String
+pub vc_interfaces::SourceError::Read
+pub vc_interfaces::SourceError::Read::path: alloc::string::String
+pub vc_interfaces::SourceError::Read::reason: alloc::string::String
+pub vc_interfaces::SourceError::Root
+pub vc_interfaces::SourceError::Root::reason: alloc::string::String
+pub vc_interfaces::SourceError::Root::root: alloc::string::String
+pub vc_interfaces::SourceError::Write
+pub vc_interfaces::SourceError::Write::path: alloc::string::String
+pub vc_interfaces::SourceError::Write::reason: alloc::string::String
+impl vc_interfaces::SourceError
+pub fn vc_interfaces::SourceError::path(&self) -> core::option::Option<&str>
+impl core::clone::Clone for vc_interfaces::SourceError
+pub fn vc_interfaces::SourceError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::SourceError
+impl core::cmp::PartialEq for vc_interfaces::SourceError
+pub fn vc_interfaces::SourceError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::SourceError
+impl core::fmt::Debug for vc_interfaces::SourceError
+pub fn vc_interfaces::SourceError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::SourceError
+pub fn vc_interfaces::SourceError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::SourceError
+#[non_exhaustive] pub enum vc_interfaces::TransportError
+pub vc_interfaces::TransportError::BodyTooLarge
+pub vc_interfaces::TransportError::BodyTooLarge::limit: vc_model::units::Size
+pub vc_interfaces::TransportError::Connect
+pub vc_interfaces::TransportError::Connect::host: alloc::string::String
+pub vc_interfaces::TransportError::Connect::reason: alloc::string::String
+pub vc_interfaces::TransportError::Credentials(vc_interfaces::AuthError)
+pub vc_interfaces::TransportError::Decode
+pub vc_interfaces::TransportError::Decode::encoding: alloc::string::String
+pub vc_interfaces::TransportError::Decode::reason: alloc::string::String
+pub vc_interfaces::TransportError::Dns
+pub vc_interfaces::TransportError::Dns::host: alloc::string::String
+pub vc_interfaces::TransportError::Dns::reason: alloc::string::String
+pub vc_interfaces::TransportError::InvalidRequest
+pub vc_interfaces::TransportError::InvalidRequest::reason: alloc::string::String
+pub vc_interfaces::TransportError::Protocol
+pub vc_interfaces::TransportError::Protocol::reason: alloc::string::String
+pub vc_interfaces::TransportError::Timeout
+pub vc_interfaces::TransportError::Timeout::after: core::time::Duration
+pub vc_interfaces::TransportError::Tls
+pub vc_interfaces::TransportError::Tls::host: alloc::string::String
+pub vc_interfaces::TransportError::Tls::reason: alloc::string::String
+impl vc_interfaces::TransportError
+pub const fn vc_interfaces::TransportError::code(&self) -> vc_diagnostics::code::Code
+impl core::clone::Clone for vc_interfaces::TransportError
+pub fn vc_interfaces::TransportError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::TransportError
+impl core::cmp::PartialEq for vc_interfaces::TransportError
+pub fn vc_interfaces::TransportError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::TransportError
+impl core::fmt::Debug for vc_interfaces::TransportError
+pub fn vc_interfaces::TransportError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::TransportError
+pub fn vc_interfaces::TransportError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::TransportError
+#[non_exhaustive] pub enum vc_interfaces::VcsError
+pub vc_interfaces::VcsError::Failed
+pub vc_interfaces::VcsError::Failed::base: alloc::string::String
+pub vc_interfaces::VcsError::Failed::reason: alloc::string::String
+pub vc_interfaces::VcsError::InvalidRef
+pub vc_interfaces::VcsError::InvalidRef::base: alloc::string::String
+pub vc_interfaces::VcsError::Unavailable
+pub vc_interfaces::VcsError::Unavailable::reason: alloc::string::String
+impl core::clone::Clone for vc_interfaces::VcsError
+pub fn vc_interfaces::VcsError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::VcsError
+impl core::cmp::PartialEq for vc_interfaces::VcsError
+pub fn vc_interfaces::VcsError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::VcsError
+impl core::fmt::Debug for vc_interfaces::VcsError
+pub fn vc_interfaces::VcsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::VcsError
+pub fn vc_interfaces::VcsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::VcsError
+pub enum vc_interfaces::Verdict
+pub vc_interfaces::Verdict::AlwaysAllow
+pub vc_interfaces::Verdict::Approve
+pub vc_interfaces::Verdict::Deny
+impl core::clone::Clone for vc_interfaces::Verdict
+pub fn vc_interfaces::Verdict::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Verdict
+impl core::cmp::PartialEq for vc_interfaces::Verdict
+pub fn vc_interfaces::Verdict::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Verdict
+pub fn vc_interfaces::Verdict::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::Verdict
+impl core::marker::StructuralPartialEq for vc_interfaces::Verdict
+pub struct vc_interfaces::AgentAction
+pub vc_interfaces::AgentAction::agent: alloc::string::String
+pub vc_interfaces::AgentAction::approved_by: core::option::Option<alloc::string::String>
+pub vc_interfaces::AgentAction::arguments: alloc::string::String
+pub vc_interfaces::AgentAction::profile: core::option::Option<alloc::string::String>
+pub vc_interfaces::AgentAction::result: alloc::string::String
+pub vc_interfaces::AgentAction::tool: alloc::string::String
+impl core::clone::Clone for vc_interfaces::AgentAction
+pub fn vc_interfaces::AgentAction::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::AgentAction
+impl core::cmp::PartialEq for vc_interfaces::AgentAction
+pub fn vc_interfaces::AgentAction::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::AgentAction
+pub fn vc_interfaces::AgentAction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::AgentAction
+pub struct vc_interfaces::Approval
+pub vc_interfaces::Approval::created_ms: u64
+pub vc_interfaces::Approval::decided_by: core::option::Option<alloc::string::String>
+pub vc_interfaces::Approval::id: vc_interfaces::ApprovalId
+pub vc_interfaces::Approval::request: vc_interfaces::ApprovalRequest
+pub vc_interfaces::Approval::status: vc_interfaces::ApprovalStatus
+impl core::clone::Clone for vc_interfaces::Approval
+pub fn vc_interfaces::Approval::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Approval
+impl core::cmp::PartialEq for vc_interfaces::Approval
+pub fn vc_interfaces::Approval::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Approval
+pub fn vc_interfaces::Approval::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Approval
+pub struct vc_interfaces::ApprovalId(_)
+impl vc_interfaces::ApprovalId
+pub const fn vc_interfaces::ApprovalId::get(self) -> u64
+pub const fn vc_interfaces::ApprovalId::new(u64) -> Self
+impl core::clone::Clone for vc_interfaces::ApprovalId
+pub fn vc_interfaces::ApprovalId::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ApprovalId
+impl core::cmp::Ord for vc_interfaces::ApprovalId
+pub fn vc_interfaces::ApprovalId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_interfaces::ApprovalId
+pub fn vc_interfaces::ApprovalId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_interfaces::ApprovalId
+pub fn vc_interfaces::ApprovalId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_interfaces::ApprovalId
+pub fn vc_interfaces::ApprovalId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::ApprovalId
+pub fn vc_interfaces::ApprovalId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_interfaces::ApprovalId
+pub fn vc_interfaces::ApprovalId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_interfaces::ApprovalId
+impl core::marker::StructuralPartialEq for vc_interfaces::ApprovalId
+pub struct vc_interfaces::ApprovalRequest
+pub vc_interfaces::ApprovalRequest::agent: alloc::string::String
+pub vc_interfaces::ApprovalRequest::arguments: alloc::string::String
+pub vc_interfaces::ApprovalRequest::methods: alloc::vec::Vec<vc_model::defs::Method>
+pub vc_interfaces::ApprovalRequest::profile: alloc::string::String
+pub vc_interfaces::ApprovalRequest::summary: alloc::string::String
+pub vc_interfaces::ApprovalRequest::tool: alloc::string::String
+impl core::clone::Clone for vc_interfaces::ApprovalRequest
+pub fn vc_interfaces::ApprovalRequest::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ApprovalRequest
+impl core::cmp::PartialEq for vc_interfaces::ApprovalRequest
+pub fn vc_interfaces::ApprovalRequest::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::ApprovalRequest
+pub fn vc_interfaces::ApprovalRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ApprovalRequest
+pub struct vc_interfaces::Artifact
+pub vc_interfaces::Artifact::path: std::path::PathBuf
+pub vc_interfaces::Artifact::reporter: alloc::string::String
+impl vc_interfaces::Artifact
+pub fn vc_interfaces::Artifact::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<std::path::PathBuf>) -> Self
+impl core::clone::Clone for vc_interfaces::Artifact
+pub fn vc_interfaces::Artifact::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Artifact
+impl core::cmp::PartialEq for vc_interfaces::Artifact
+pub fn vc_interfaces::Artifact::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Artifact
+pub fn vc_interfaces::Artifact::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Artifact
+#[non_exhaustive] pub struct vc_interfaces::AuthRequest
+pub vc_interfaces::AuthRequest::auth: alloc::string::String
+pub vc_interfaces::AuthRequest::flow: core::option::Option<alloc::rcs::arc::Arc<dyn vc_interfaces::ActionRunner>>
+pub vc_interfaces::AuthRequest::kind: alloc::string::String
+pub vc_interfaces::AuthRequest::settings: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl vc_interfaces::AuthRequest
+pub fn vc_interfaces::AuthRequest::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> Self
+pub fn vc_interfaces::AuthRequest::text(&self, &str) -> core::option::Option<&str>
+pub fn vc_interfaces::AuthRequest::with_flow(self, alloc::rcs::arc::Arc<dyn vc_interfaces::ActionRunner>) -> Self
+impl core::clone::Clone for vc_interfaces::AuthRequest
+pub fn vc_interfaces::AuthRequest::clone(&self) -> Self
+impl core::fmt::Debug for vc_interfaces::AuthRequest
+pub fn vc_interfaces::AuthRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct vc_interfaces::BrowserError
+pub vc_interfaces::BrowserError::reason: alloc::string::String
+impl vc_interfaces::BrowserError
+pub fn vc_interfaces::BrowserError::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_interfaces::BrowserError
+pub fn vc_interfaces::BrowserError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::BrowserError
+impl core::cmp::PartialEq for vc_interfaces::BrowserError
+pub fn vc_interfaces::BrowserError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::BrowserError
+impl core::fmt::Debug for vc_interfaces::BrowserError
+pub fn vc_interfaces::BrowserError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::BrowserError
+pub fn vc_interfaces::BrowserError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::BrowserError
+#[non_exhaustive] pub struct vc_interfaces::Budget
+pub vc_interfaces::Budget::memory: usize
+pub vc_interfaces::Budget::time: core::time::Duration
+impl vc_interfaces::Budget
+pub const fn vc_interfaces::Budget::new(core::time::Duration, usize) -> Self
+impl core::clone::Clone for vc_interfaces::Budget
+pub fn vc_interfaces::Budget::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Budget
+impl core::cmp::PartialEq for vc_interfaces::Budget
+pub fn vc_interfaces::Budget::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::Budget
+pub fn vc_interfaces::Budget::default() -> Self
+impl core::fmt::Debug for vc_interfaces::Budget
+pub fn vc_interfaces::Budget::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::Budget
+impl core::marker::StructuralPartialEq for vc_interfaces::Budget
+pub struct vc_interfaces::CacheEntry
+pub vc_interfaces::CacheEntry::cleanups: alloc::vec::Vec<vc_interfaces::CachedCleanup>
+pub vc_interfaces::CacheEntry::key: vc_interfaces::CacheKey
+pub vc_interfaces::CacheEntry::listing: vc_interfaces::CacheListing
+pub vc_interfaces::CacheEntry::saved: vc_interfaces::CachedValues
+impl core::clone::Clone for vc_interfaces::CacheEntry
+pub fn vc_interfaces::CacheEntry::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CacheEntry
+impl core::cmp::PartialEq for vc_interfaces::CacheEntry
+pub fn vc_interfaces::CacheEntry::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::CacheEntry
+pub fn vc_interfaces::CacheEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CacheEntry
+pub struct vc_interfaces::CacheKey(_)
+impl vc_interfaces::CacheKey
+pub const fn vc_interfaces::CacheKey::bytes(&self) -> &[u8; 32]
+pub const fn vc_interfaces::CacheKey::new([u8; 32]) -> Self
+impl core::clone::Clone for vc_interfaces::CacheKey
+pub fn vc_interfaces::CacheKey::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CacheKey
+impl core::cmp::Ord for vc_interfaces::CacheKey
+pub fn vc_interfaces::CacheKey::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_interfaces::CacheKey
+pub fn vc_interfaces::CacheKey::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_interfaces::CacheKey
+pub fn vc_interfaces::CacheKey::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_interfaces::CacheKey
+pub fn vc_interfaces::CacheKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_interfaces::CacheKey
+pub fn vc_interfaces::CacheKey::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_interfaces::CacheKey
+impl core::marker::StructuralPartialEq for vc_interfaces::CacheKey
+pub struct vc_interfaces::CacheListing
+pub vc_interfaces::CacheListing::created_ms: u64
+pub vc_interfaces::CacheListing::expires_ms: u64
+pub vc_interfaces::CacheListing::label: alloc::string::String
+pub vc_interfaces::CacheListing::profiles: alloc::string::String
+impl core::clone::Clone for vc_interfaces::CacheListing
+pub fn vc_interfaces::CacheListing::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CacheListing
+impl core::cmp::PartialEq for vc_interfaces::CacheListing
+pub fn vc_interfaces::CacheListing::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::CacheListing
+pub fn vc_interfaces::CacheListing::default() -> Self
+impl core::fmt::Debug for vc_interfaces::CacheListing
+pub fn vc_interfaces::CacheListing::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CacheListing
+pub struct vc_interfaces::CachedCleanup
+pub vc_interfaces::CachedCleanup::api: alloc::string::String
+pub vc_interfaces::CachedCleanup::vars: vc_interfaces::CachedValues
+impl core::clone::Clone for vc_interfaces::CachedCleanup
+pub fn vc_interfaces::CachedCleanup::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CachedCleanup
+impl core::cmp::PartialEq for vc_interfaces::CachedCleanup
+pub fn vc_interfaces::CachedCleanup::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::CachedCleanup
+pub fn vc_interfaces::CachedCleanup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CachedCleanup
+pub struct vc_interfaces::CheckRow
+pub vc_interfaces::CheckRow::actual: core::option::Option<alloc::string::String>
+pub vc_interfaces::CheckRow::expected: alloc::string::String
+pub vc_interfaces::CheckRow::file: alloc::string::String
+pub vc_interfaces::CheckRow::kind: alloc::string::String
+pub vc_interfaces::CheckRow::line: u32
+pub vc_interfaces::CheckRow::origin: alloc::string::String
+pub vc_interfaces::CheckRow::passed: bool
+pub vc_interfaces::CheckRow::path: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vc_interfaces::CheckRow
+pub fn vc_interfaces::CheckRow::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CheckRow
+impl core::cmp::PartialEq for vc_interfaces::CheckRow
+pub fn vc_interfaces::CheckRow::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::CheckRow
+pub fn vc_interfaces::CheckRow::default() -> Self
+impl core::fmt::Debug for vc_interfaces::CheckRow
+pub fn vc_interfaces::CheckRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CheckRow
+#[non_exhaustive] pub struct vc_interfaces::CommandOutput
+pub vc_interfaces::CommandOutput::status: core::option::Option<i32>
+pub vc_interfaces::CommandOutput::stderr: alloc::vec::Vec<u8>
+pub vc_interfaces::CommandOutput::stdout: alloc::vec::Vec<u8>
+pub vc_interfaces::CommandOutput::truncated: bool
+impl vc_interfaces::CommandOutput
+pub fn vc_interfaces::CommandOutput::capped(self, usize) -> Self
+pub fn vc_interfaces::CommandOutput::new(core::option::Option<i32>, impl core::convert::Into<alloc::vec::Vec<u8>>) -> Self
+pub fn vc_interfaces::CommandOutput::success(&self) -> bool
+impl core::clone::Clone for vc_interfaces::CommandOutput
+pub fn vc_interfaces::CommandOutput::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CommandOutput
+impl core::cmp::PartialEq for vc_interfaces::CommandOutput
+pub fn vc_interfaces::CommandOutput::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::CommandOutput
+pub fn vc_interfaces::CommandOutput::default() -> Self
+impl core::fmt::Debug for vc_interfaces::CommandOutput
+pub fn vc_interfaces::CommandOutput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CommandOutput
+#[non_exhaustive] pub struct vc_interfaces::CommandSpec
+pub vc_interfaces::CommandSpec::args: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::CommandSpec::cwd: core::option::Option<std::path::PathBuf>
+pub vc_interfaces::CommandSpec::env: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+pub vc_interfaces::CommandSpec::output_cap: usize
+pub vc_interfaces::CommandSpec::program: alloc::string::String
+pub vc_interfaces::CommandSpec::timeout: core::time::Duration
+impl vc_interfaces::CommandSpec
+pub fn vc_interfaces::CommandSpec::in_dir(self, impl core::convert::Into<std::path::PathBuf>) -> Self
+pub fn vc_interfaces::CommandSpec::new(impl core::convert::Into<alloc::string::String>, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
+pub fn vc_interfaces::CommandSpec::with_output_cap(self, usize) -> Self
+pub fn vc_interfaces::CommandSpec::with_timeout(self, core::time::Duration) -> Self
+impl core::clone::Clone for vc_interfaces::CommandSpec
+pub fn vc_interfaces::CommandSpec::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::CommandSpec
+impl core::cmp::PartialEq for vc_interfaces::CommandSpec
+pub fn vc_interfaces::CommandSpec::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::CommandSpec
+pub fn vc_interfaces::CommandSpec::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::CommandSpec
+#[non_exhaustive] pub struct vc_interfaces::ConfigEntry
+pub vc_interfaces::ConfigEntry::key: alloc::string::String
+pub vc_interfaces::ConfigEntry::origin: alloc::string::String
+pub vc_interfaces::ConfigEntry::value: alloc::string::String
+impl vc_interfaces::ConfigEntry
+pub fn vc_interfaces::ConfigEntry::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_interfaces::ConfigEntry
+pub fn vc_interfaces::ConfigEntry::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ConfigEntry
+impl core::cmp::PartialEq for vc_interfaces::ConfigEntry
+pub fn vc_interfaces::ConfigEntry::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::ConfigEntry
+pub fn vc_interfaces::ConfigEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ConfigEntry
+#[non_exhaustive] pub struct vc_interfaces::Credentials
+pub vc_interfaces::Credentials::cookies: alloc::vec::Vec<(alloc::string::String, vc_interfaces::Secret)>
+pub vc_interfaces::Credentials::expires_in: core::option::Option<core::time::Duration>
+pub vc_interfaces::Credentials::headers: alloc::vec::Vec<(alloc::string::String, vc_interfaces::Secret)>
+pub vc_interfaces::Credentials::query: alloc::vec::Vec<(alloc::string::String, vc_interfaces::Secret)>
+impl vc_interfaces::Credentials
+pub fn vc_interfaces::Credentials::expiring(self, core::option::Option<core::time::Duration>) -> Self
+pub fn vc_interfaces::Credentials::header(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn vc_interfaces::Credentials::query(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn vc_interfaces::Credentials::values(&self) -> impl core::iter::traits::iterator::Iterator<Item = &str>
+impl core::clone::Clone for vc_interfaces::Credentials
+pub fn vc_interfaces::Credentials::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Credentials
+impl core::cmp::PartialEq for vc_interfaces::Credentials
+pub fn vc_interfaces::Credentials::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::Credentials
+pub fn vc_interfaces::Credentials::default() -> Self
+impl core::fmt::Debug for vc_interfaces::Credentials
+pub fn vc_interfaces::Credentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Credentials
+pub struct vc_interfaces::Decision
+pub vc_interfaces::Decision::by: alloc::string::String
+pub vc_interfaces::Decision::id: vc_interfaces::ApprovalId
+pub vc_interfaces::Decision::verdict: vc_interfaces::Verdict
+impl core::clone::Clone for vc_interfaces::Decision
+pub fn vc_interfaces::Decision::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Decision
+impl core::cmp::PartialEq for vc_interfaces::Decision
+pub fn vc_interfaces::Decision::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Decision
+pub fn vc_interfaces::Decision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Decision
+pub struct vc_interfaces::Discovery
+pub vc_interfaces::Discovery::assets: alloc::vec::Vec<vc_model::source::SourcePath>
+pub vc_interfaces::Discovery::files: alloc::vec::Vec<vc_model::source::SourceFile>
+pub vc_interfaces::Discovery::problems: alloc::vec::Vec<vc_interfaces::SourceError>
+impl vc_interfaces::Discovery
+pub fn vc_interfaces::Discovery::sort(&mut self)
+impl core::clone::Clone for vc_interfaces::Discovery
+pub fn vc_interfaces::Discovery::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Discovery
+impl core::cmp::PartialEq for vc_interfaces::Discovery
+pub fn vc_interfaces::Discovery::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::Discovery
+pub fn vc_interfaces::Discovery::default() -> Self
+impl core::fmt::Debug for vc_interfaces::Discovery
+pub fn vc_interfaces::Discovery::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Discovery
+pub struct vc_interfaces::DraftApi
+pub vc_interfaces::DraftApi::body: core::option::Option<serde_json::value::Value>
+pub vc_interfaces::DraftApi::content_type: core::option::Option<alloc::string::String>
+pub vc_interfaces::DraftApi::id: alloc::string::String
+pub vc_interfaces::DraftApi::matches: core::option::Option<alloc::string::String>
+pub vc_interfaces::DraftApi::method: vc_model::defs::Method
+pub vc_interfaces::DraftApi::name: core::option::Option<alloc::string::String>
+pub vc_interfaces::DraftApi::operation_id: core::option::Option<alloc::string::String>
+pub vc_interfaces::DraftApi::path: alloc::string::String
+pub vc_interfaces::DraftApi::query: indexmap::map::IndexMap<alloc::string::String, alloc::string::String>
+pub vc_interfaces::DraftApi::vars: indexmap::map::IndexMap<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for vc_interfaces::DraftApi
+pub fn vc_interfaces::DraftApi::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::DraftApi
+impl core::cmp::PartialEq for vc_interfaces::DraftApi
+pub fn vc_interfaces::DraftApi::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::DraftApi
+pub fn vc_interfaces::DraftApi::default() -> Self
+impl core::fmt::Debug for vc_interfaces::DraftApi
+pub fn vc_interfaces::DraftApi::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::DraftApi
+pub struct vc_interfaces::DraftFlow
+pub vc_interfaces::DraftFlow::file_id: alloc::string::String
+pub vc_interfaces::DraftFlow::steps: alloc::vec::Vec<vc_interfaces::DraftStep>
+pub vc_interfaces::DraftFlow::test_id: alloc::string::String
+impl core::clone::Clone for vc_interfaces::DraftFlow
+pub fn vc_interfaces::DraftFlow::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::DraftFlow
+impl core::cmp::PartialEq for vc_interfaces::DraftFlow
+pub fn vc_interfaces::DraftFlow::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::DraftFlow
+pub fn vc_interfaces::DraftFlow::default() -> Self
+impl core::fmt::Debug for vc_interfaces::DraftFlow
+pub fn vc_interfaces::DraftFlow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::DraftFlow
+pub struct vc_interfaces::DraftGroup
+pub vc_interfaces::DraftGroup::apis: alloc::vec::Vec<vc_interfaces::DraftApi>
+pub vc_interfaces::DraftGroup::base_url: core::option::Option<alloc::string::String>
+pub vc_interfaces::DraftGroup::config_vars: indexmap::map::IndexMap<alloc::string::String, serde_json::value::Value>
+pub vc_interfaces::DraftGroup::file_id: alloc::string::String
+pub vc_interfaces::DraftGroup::name: core::option::Option<alloc::string::String>
+pub vc_interfaces::DraftGroup::tests: alloc::vec::Vec<vc_interfaces::DraftTest>
+impl core::clone::Clone for vc_interfaces::DraftGroup
+pub fn vc_interfaces::DraftGroup::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::DraftGroup
+impl core::cmp::PartialEq for vc_interfaces::DraftGroup
+pub fn vc_interfaces::DraftGroup::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::DraftGroup
+pub fn vc_interfaces::DraftGroup::default() -> Self
+impl core::fmt::Debug for vc_interfaces::DraftGroup
+pub fn vc_interfaces::DraftGroup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::DraftGroup
+pub struct vc_interfaces::DraftStep
+pub vc_interfaces::DraftStep::call: alloc::string::String
+pub vc_interfaces::DraftStep::save: indexmap::map::IndexMap<alloc::string::String, alloc::string::String>
+pub vc_interfaces::DraftStep::vars: indexmap::map::IndexMap<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for vc_interfaces::DraftStep
+pub fn vc_interfaces::DraftStep::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::DraftStep
+impl core::cmp::PartialEq for vc_interfaces::DraftStep
+pub fn vc_interfaces::DraftStep::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::DraftStep
+pub fn vc_interfaces::DraftStep::default() -> Self
+impl core::fmt::Debug for vc_interfaces::DraftStep
+pub fn vc_interfaces::DraftStep::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::DraftStep
+pub struct vc_interfaces::DraftTest
+pub vc_interfaces::DraftTest::call: alloc::string::String
+pub vc_interfaces::DraftTest::id: alloc::string::String
+pub vc_interfaces::DraftTest::name: alloc::string::String
+pub vc_interfaces::DraftTest::no_auth: bool
+pub vc_interfaces::DraftTest::status: u16
+pub vc_interfaces::DraftTest::vars: indexmap::map::IndexMap<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for vc_interfaces::DraftTest
+pub fn vc_interfaces::DraftTest::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::DraftTest
+impl core::cmp::PartialEq for vc_interfaces::DraftTest
+pub fn vc_interfaces::DraftTest::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::DraftTest
+pub fn vc_interfaces::DraftTest::default() -> Self
+impl core::fmt::Debug for vc_interfaces::DraftTest
+pub fn vc_interfaces::DraftTest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::DraftTest
+pub struct vc_interfaces::ExchangeRow
+pub vc_interfaces::ExchangeRow::action: alloc::string::String
+pub vc_interfaces::ExchangeRow::api_id: core::option::Option<alloc::string::String>
+pub vc_interfaces::ExchangeRow::body_truncated: bool
+pub vc_interfaces::ExchangeRow::method: alloc::string::String
+pub vc_interfaces::ExchangeRow::request_body: core::option::Option<alloc::vec::Vec<u8>>
+pub vc_interfaces::ExchangeRow::request_headers: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+pub vc_interfaces::ExchangeRow::response_body: core::option::Option<alloc::vec::Vec<u8>>
+pub vc_interfaces::ExchangeRow::response_headers: alloc::vec::Vec<(alloc::string::String, alloc::string::String)>
+pub vc_interfaces::ExchangeRow::status: core::option::Option<u16>
+pub vc_interfaces::ExchangeRow::timing: vc_interfaces::TimingRow
+pub vc_interfaces::ExchangeRow::url: alloc::string::String
+impl core::clone::Clone for vc_interfaces::ExchangeRow
+pub fn vc_interfaces::ExchangeRow::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_interfaces::ExchangeRow
+pub fn vc_interfaces::ExchangeRow::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::ExchangeRow
+pub fn vc_interfaces::ExchangeRow::default() -> Self
+impl core::fmt::Debug for vc_interfaces::ExchangeRow
+pub fn vc_interfaces::ExchangeRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ExchangeRow
+#[non_exhaustive] pub struct vc_interfaces::HookCall
+pub vc_interfaces::HookCall::budget: vc_interfaces::Budget
+pub vc_interfaces::HookCall::hook: vc_model::defs::HookRef
+pub vc_interfaces::HookCall::input: serde_json::value::Value
+pub vc_interfaces::HookCall::modules: vc_model::hooks::HookModules
+pub vc_interfaces::HookCall::secrets: vc_interfaces::Secrets
+impl vc_interfaces::HookCall
+pub fn vc_interfaces::HookCall::new(vc_model::hooks::HookModules, vc_model::defs::HookRef, serde_json::value::Value) -> Self
+pub fn vc_interfaces::HookCall::with_budget(self, vc_interfaces::Budget) -> Self
+pub fn vc_interfaces::HookCall::with_secrets(self, vc_interfaces::Secrets) -> Self
+impl core::clone::Clone for vc_interfaces::HookCall
+pub fn vc_interfaces::HookCall::clone(&self) -> Self
+impl core::fmt::Debug for vc_interfaces::HookCall
+pub fn vc_interfaces::HookCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct vc_interfaces::HookOutput
+pub vc_interfaces::HookOutput::secrets_used: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::HookOutput::value: serde_json::value::Value
+impl vc_interfaces::HookOutput
+pub const fn vc_interfaces::HookOutput::new(serde_json::value::Value) -> Self
+pub fn vc_interfaces::HookOutput::reading(self, alloc::vec::Vec<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_interfaces::HookOutput
+pub fn vc_interfaces::HookOutput::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_interfaces::HookOutput
+pub fn vc_interfaces::HookOutput::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::HookOutput
+pub fn vc_interfaces::HookOutput::default() -> Self
+impl core::fmt::Debug for vc_interfaces::HookOutput
+pub fn vc_interfaces::HookOutput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::HookOutput
+pub struct vc_interfaces::ImportDraft
+pub vc_interfaces::ImportDraft::flow: core::option::Option<vc_interfaces::DraftFlow>
+pub vc_interfaces::ImportDraft::groups: alloc::vec::Vec<vc_interfaces::DraftGroup>
+pub vc_interfaces::ImportDraft::notes: alloc::vec::Vec<vc_interfaces::ImportNote>
+pub vc_interfaces::ImportDraft::secrets: alloc::vec::Vec<vc_interfaces::SecretFinding>
+pub vc_interfaces::ImportDraft::snapshot: core::option::Option<serde_json::value::Value>
+pub vc_interfaces::ImportDraft::summary: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vc_interfaces::ImportDraft
+pub fn vc_interfaces::ImportDraft::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ImportDraft
+impl core::cmp::PartialEq for vc_interfaces::ImportDraft
+pub fn vc_interfaces::ImportDraft::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::ImportDraft
+pub fn vc_interfaces::ImportDraft::default() -> Self
+impl core::fmt::Debug for vc_interfaces::ImportDraft
+pub fn vc_interfaces::ImportDraft::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ImportDraft
+pub struct vc_interfaces::ImportNote
+pub vc_interfaces::ImportNote::at: alloc::string::String
+pub vc_interfaces::ImportNote::message: alloc::string::String
+impl core::clone::Clone for vc_interfaces::ImportNote
+pub fn vc_interfaces::ImportNote::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ImportNote
+impl core::cmp::PartialEq for vc_interfaces::ImportNote
+pub fn vc_interfaces::ImportNote::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::ImportNote
+pub fn vc_interfaces::ImportNote::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ImportNote
+pub struct vc_interfaces::ImportOptions
+pub vc_interfaces::ImportOptions::auth: bool
+pub vc_interfaces::ImportOptions::file_id: alloc::string::String
+pub vc_interfaces::ImportOptions::flow: core::option::Option<alloc::string::String>
+pub vc_interfaces::ImportOptions::include: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::ImportOptions::negative: bool
+pub vc_interfaces::ImportOptions::only: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::ImportOptions::recording: vc_interfaces::RecordingFilter
+pub vc_interfaces::ImportOptions::tests: bool
+impl core::clone::Clone for vc_interfaces::ImportOptions
+pub fn vc_interfaces::ImportOptions::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ImportOptions
+impl core::cmp::PartialEq for vc_interfaces::ImportOptions
+pub fn vc_interfaces::ImportOptions::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::ImportOptions
+pub fn vc_interfaces::ImportOptions::default() -> Self
+impl core::fmt::Debug for vc_interfaces::ImportOptions
+pub fn vc_interfaces::ImportOptions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ImportOptions
+pub struct vc_interfaces::ImportSource
+pub vc_interfaces::ImportSource::bytes: alloc::vec::Vec<u8>
+pub vc_interfaces::ImportSource::location: alloc::string::String
+impl core::clone::Clone for vc_interfaces::ImportSource
+pub fn vc_interfaces::ImportSource::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::ImportSource
+impl core::cmp::PartialEq for vc_interfaces::ImportSource
+pub fn vc_interfaces::ImportSource::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::ImportSource
+pub fn vc_interfaces::ImportSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::ImportSource
+pub struct vc_interfaces::IntervalRow
+pub vc_interfaces::IntervalRow::count: u64
+pub vc_interfaces::IntervalRow::errors: u64
+pub vc_interfaces::IntervalRow::histogram: alloc::vec::Vec<u8>
+pub vc_interfaces::IntervalRow::second: u64
+pub vc_interfaces::IntervalRow::test_id: alloc::string::String
+impl core::clone::Clone for vc_interfaces::IntervalRow
+pub fn vc_interfaces::IntervalRow::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::IntervalRow
+impl core::cmp::PartialEq for vc_interfaces::IntervalRow
+pub fn vc_interfaces::IntervalRow::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::IntervalRow
+pub fn vc_interfaces::IntervalRow::default() -> Self
+impl core::fmt::Debug for vc_interfaces::IntervalRow
+pub fn vc_interfaces::IntervalRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::IntervalRow
+#[non_exhaustive] pub struct vc_interfaces::KeychainError
+pub vc_interfaces::KeychainError::reason: alloc::string::String
+impl vc_interfaces::KeychainError
+pub fn vc_interfaces::KeychainError::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_interfaces::KeychainError
+pub fn vc_interfaces::KeychainError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::KeychainError
+impl core::cmp::PartialEq for vc_interfaces::KeychainError
+pub fn vc_interfaces::KeychainError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::KeychainError
+impl core::fmt::Debug for vc_interfaces::KeychainError
+pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::KeychainError
+pub fn vc_interfaces::KeychainError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::KeychainError
+pub struct vc_interfaces::RecordingFilter
+pub vc_interfaces::RecordingFilter::hosts: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::RecordingFilter::include_hosts: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::RecordingFilter::keep_static: bool
+impl core::clone::Clone for vc_interfaces::RecordingFilter
+pub fn vc_interfaces::RecordingFilter::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::RecordingFilter
+impl core::cmp::PartialEq for vc_interfaces::RecordingFilter
+pub fn vc_interfaces::RecordingFilter::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::RecordingFilter
+pub fn vc_interfaces::RecordingFilter::default() -> Self
+impl core::fmt::Debug for vc_interfaces::RecordingFilter
+pub fn vc_interfaces::RecordingFilter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::RecordingFilter
+pub struct vc_interfaces::RunEnd
+pub vc_interfaces::RunEnd::finished_ms: u64
+pub vc_interfaces::RunEnd::snapshot: alloc::vec::Vec<u8>
+pub vc_interfaces::RunEnd::status: vc_model::outcome::RunStatus
+pub vc_interfaces::RunEnd::totals: vc_model::outcome::Totals
+impl core::clone::Clone for vc_interfaces::RunEnd
+pub fn vc_interfaces::RunEnd::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::RunEnd
+impl core::cmp::PartialEq for vc_interfaces::RunEnd
+pub fn vc_interfaces::RunEnd::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::RunEnd
+pub fn vc_interfaces::RunEnd::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::RunEnd
+pub struct vc_interfaces::RunId(_)
+impl vc_interfaces::RunId
+pub const fn vc_interfaces::RunId::get(self) -> u64
+pub const fn vc_interfaces::RunId::new(u64) -> Self
+impl core::clone::Clone for vc_interfaces::RunId
+pub fn vc_interfaces::RunId::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::RunId
+impl core::cmp::Ord for vc_interfaces::RunId
+pub fn vc_interfaces::RunId::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vc_interfaces::RunId
+pub fn vc_interfaces::RunId::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for vc_interfaces::RunId
+pub fn vc_interfaces::RunId::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vc_interfaces::RunId
+pub fn vc_interfaces::RunId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::RunId
+pub fn vc_interfaces::RunId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vc_interfaces::RunId
+pub fn vc_interfaces::RunId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vc_interfaces::RunId
+impl core::marker::StructuralPartialEq for vc_interfaces::RunId
+pub struct vc_interfaces::RunRow
+pub vc_interfaces::RunRow::finished_ms: core::option::Option<u64>
+pub vc_interfaces::RunRow::id: vc_interfaces::RunId
+pub vc_interfaces::RunRow::start: vc_interfaces::RunStart
+pub vc_interfaces::RunRow::status: core::option::Option<vc_model::outcome::RunStatus>
+pub vc_interfaces::RunRow::totals: vc_model::outcome::Totals
+impl core::clone::Clone for vc_interfaces::RunRow
+pub fn vc_interfaces::RunRow::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::RunRow
+impl core::cmp::PartialEq for vc_interfaces::RunRow
+pub fn vc_interfaces::RunRow::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::RunRow
+pub fn vc_interfaces::RunRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::RunRow
+pub struct vc_interfaces::RunStart
+pub vc_interfaces::RunStart::config_hash: alloc::string::String
+pub vc_interfaces::RunStart::git_branch: core::option::Option<alloc::string::String>
+pub vc_interfaces::RunStart::git_commit: core::option::Option<alloc::string::String>
+pub vc_interfaces::RunStart::kind: alloc::string::String
+pub vc_interfaces::RunStart::profiles: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::RunStart::seed: core::option::Option<u64>
+pub vc_interfaces::RunStart::selector: alloc::string::String
+pub vc_interfaces::RunStart::started_ms: u64
+pub vc_interfaces::RunStart::vc_version: alloc::string::String
+impl core::clone::Clone for vc_interfaces::RunStart
+pub fn vc_interfaces::RunStart::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::RunStart
+impl core::cmp::PartialEq for vc_interfaces::RunStart
+pub fn vc_interfaces::RunStart::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::RunStart
+pub fn vc_interfaces::RunStart::default() -> Self
+impl core::fmt::Debug for vc_interfaces::RunStart
+pub fn vc_interfaces::RunStart::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::RunStart
+pub struct vc_interfaces::RunSummary
+pub vc_interfaces::RunSummary::artifacts: alloc::vec::Vec<vc_interfaces::Artifact>
+pub vc_interfaces::RunSummary::duration: core::time::Duration
+pub vc_interfaces::RunSummary::profiles: alloc::vec::Vec<alloc::string::String>
+pub vc_interfaces::RunSummary::started_ms: u64
+pub vc_interfaces::RunSummary::status: vc_model::outcome::RunStatus
+pub vc_interfaces::RunSummary::totals: vc_model::outcome::Totals
+impl vc_interfaces::RunSummary
+pub fn vc_interfaces::RunSummary::artifacts(self, alloc::vec::Vec<vc_interfaces::Artifact>) -> Self
+pub const fn vc_interfaces::RunSummary::new(vc_model::outcome::RunStatus, vc_model::outcome::Totals) -> Self
+pub fn vc_interfaces::RunSummary::profiles(self, impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
+pub fn vc_interfaces::RunSummary::timed(self, u64, core::time::Duration) -> Self
+impl core::clone::Clone for vc_interfaces::RunSummary
+pub fn vc_interfaces::RunSummary::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::RunSummary
+impl core::cmp::PartialEq for vc_interfaces::RunSummary
+pub fn vc_interfaces::RunSummary::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::RunSummary
+pub fn vc_interfaces::RunSummary::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::RunSummary
+pub struct vc_interfaces::Secret(_)
+impl vc_interfaces::Secret
+pub fn vc_interfaces::Secret::expose(&self) -> &str
+pub fn vc_interfaces::Secret::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_interfaces::Secret
+pub fn vc_interfaces::Secret::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Secret
+impl core::cmp::PartialEq for vc_interfaces::Secret
+pub fn vc_interfaces::Secret::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Secret
+pub fn vc_interfaces::Secret::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Secret
+pub struct vc_interfaces::SecretFinding
+pub vc_interfaces::SecretFinding::found_at: alloc::string::String
+pub vc_interfaces::SecretFinding::name: alloc::string::String
+impl core::clone::Clone for vc_interfaces::SecretFinding
+pub fn vc_interfaces::SecretFinding::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::SecretFinding
+impl core::cmp::PartialEq for vc_interfaces::SecretFinding
+pub fn vc_interfaces::SecretFinding::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::SecretFinding
+pub fn vc_interfaces::SecretFinding::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::SecretFinding
+#[non_exhaustive] pub struct vc_interfaces::SecretQuery
+pub vc_interfaces::SecretQuery::names: alloc::vec::Vec<alloc::string::String>
+impl vc_interfaces::SecretQuery
+pub fn vc_interfaces::SecretQuery::new(impl core::iter::traits::collect::IntoIterator<Item = impl core::convert::Into<alloc::string::String>>) -> Self
+impl core::clone::Clone for vc_interfaces::SecretQuery
+pub fn vc_interfaces::SecretQuery::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::SecretQuery
+impl core::cmp::PartialEq for vc_interfaces::SecretQuery
+pub fn vc_interfaces::SecretQuery::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::SecretQuery
+pub fn vc_interfaces::SecretQuery::default() -> Self
+impl core::fmt::Debug for vc_interfaces::SecretQuery
+pub fn vc_interfaces::SecretQuery::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::SecretQuery
+pub struct vc_interfaces::Secrets
+impl vc_interfaces::Secrets
+pub fn vc_interfaces::Secrets::get(&self, &str) -> core::option::Option<&vc_interfaces::Secret>
+pub fn vc_interfaces::Secrets::insert(&mut self, impl core::convert::Into<alloc::string::String>, vc_interfaces::Secret)
+pub fn vc_interfaces::Secrets::is_empty(&self) -> bool
+pub fn vc_interfaces::Secrets::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&str, &vc_interfaces::Secret)>
+pub fn vc_interfaces::Secrets::len(&self) -> usize
+pub fn vc_interfaces::Secrets::new() -> Self
+impl core::clone::Clone for vc_interfaces::Secrets
+pub fn vc_interfaces::Secrets::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Secrets
+impl core::cmp::PartialEq for vc_interfaces::Secrets
+pub fn vc_interfaces::Secrets::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::Secrets
+pub fn vc_interfaces::Secrets::default() -> Self
+impl core::fmt::Debug for vc_interfaces::Secrets
+pub fn vc_interfaces::Secrets::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Secrets
+pub struct vc_interfaces::SendContext
+pub vc_interfaces::SendContext::body_limit: vc_model::units::Size
+impl vc_interfaces::SendContext
+pub const vc_interfaces::SendContext::DEFAULT_BODY_LIMIT: vc_model::units::Size
+impl core::clone::Clone for vc_interfaces::SendContext
+pub fn vc_interfaces::SendContext::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::SendContext
+impl core::cmp::PartialEq for vc_interfaces::SendContext
+pub fn vc_interfaces::SendContext::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::SendContext
+pub fn vc_interfaces::SendContext::default() -> Self
+impl core::fmt::Debug for vc_interfaces::SendContext
+pub fn vc_interfaces::SendContext::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::SendContext
+impl core::marker::StructuralPartialEq for vc_interfaces::SendContext
+pub struct vc_interfaces::SourceFilter
+impl vc_interfaces::SourceFilter
+pub fn vc_interfaces::SourceFilter::allows(&self, &vc_model::source::SourcePath) -> bool
+pub fn vc_interfaces::SourceFilter::asset(&self, &str) -> core::option::Option<vc_model::source::SourcePath>
+pub fn vc_interfaces::SourceFilter::new<S: core::convert::AsRef<str>>(&[S], &[S]) -> core::result::Result<Self, vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceFilter::select(&self, &str) -> core::option::Option<core::result::Result<vc_model::source::SourcePath, vc_interfaces::SourceError>>
+pub fn vc_interfaces::SourceFilter::skips(&self, &str) -> bool
+pub fn vc_interfaces::SourceFilter::written<S: core::convert::AsRef<str>>(&[S], core::option::Option<&[S]>) -> core::result::Result<Self, vc_interfaces::SourceError>
+impl core::clone::Clone for vc_interfaces::SourceFilter
+pub fn vc_interfaces::SourceFilter::clone(&self) -> Self
+impl core::default::Default for vc_interfaces::SourceFilter
+pub fn vc_interfaces::SourceFilter::default() -> Self
+impl core::fmt::Debug for vc_interfaces::SourceFilter
+pub fn vc_interfaces::SourceFilter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct vc_interfaces::StandingRule
+pub vc_interfaces::StandingRule::method: vc_model::defs::Method
+pub vc_interfaces::StandingRule::profile: alloc::string::String
+pub vc_interfaces::StandingRule::tool: alloc::string::String
+impl core::clone::Clone for vc_interfaces::StandingRule
+pub fn vc_interfaces::StandingRule::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::StandingRule
+impl core::cmp::PartialEq for vc_interfaces::StandingRule
+pub fn vc_interfaces::StandingRule::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::StandingRule
+pub fn vc_interfaces::StandingRule::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::StandingRule
+pub struct vc_interfaces::TestRow
+pub vc_interfaces::TestRow::attempts: u32
+pub vc_interfaces::TestRow::blocked_by: core::option::Option<alloc::string::String>
+pub vc_interfaces::TestRow::checks: alloc::vec::Vec<vc_interfaces::CheckRow>
+pub vc_interfaces::TestRow::duration_ms: f64
+pub vc_interfaces::TestRow::example_row: core::option::Option<u32>
+pub vc_interfaces::TestRow::exchanges: alloc::vec::Vec<vc_interfaces::ExchangeRow>
+pub vc_interfaces::TestRow::message: core::option::Option<alloc::string::String>
+pub vc_interfaces::TestRow::repeat_index: u32
+pub vc_interfaces::TestRow::skip_reason: core::option::Option<alloc::string::String>
+pub vc_interfaces::TestRow::status: core::option::Option<vc_model::outcome::TestStatus>
+pub vc_interfaces::TestRow::test_id: alloc::string::String
+impl core::clone::Clone for vc_interfaces::TestRow
+pub fn vc_interfaces::TestRow::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_interfaces::TestRow
+pub fn vc_interfaces::TestRow::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::TestRow
+pub fn vc_interfaces::TestRow::default() -> Self
+impl core::fmt::Debug for vc_interfaces::TestRow
+pub fn vc_interfaces::TestRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::TestRow
+pub struct vc_interfaces::TimingRow
+pub vc_interfaces::TimingRow::connect_ms: core::option::Option<f64>
+pub vc_interfaces::TimingRow::dns_ms: core::option::Option<f64>
+pub vc_interfaces::TimingRow::download_ms: f64
+pub vc_interfaces::TimingRow::first_byte_ms: f64
+pub vc_interfaces::TimingRow::tls_ms: core::option::Option<f64>
+pub vc_interfaces::TimingRow::total_ms: f64
+impl core::clone::Clone for vc_interfaces::TimingRow
+pub fn vc_interfaces::TimingRow::clone(&self) -> Self
+impl core::cmp::PartialEq for vc_interfaces::TimingRow
+pub fn vc_interfaces::TimingRow::eq(&self, &Self) -> bool
+impl core::default::Default for vc_interfaces::TimingRow
+pub fn vc_interfaces::TimingRow::default() -> Self
+impl core::fmt::Debug for vc_interfaces::TimingRow
+pub fn vc_interfaces::TimingRow::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vc_interfaces::TimingRow
+impl core::marker::StructuralPartialEq for vc_interfaces::TimingRow
+#[non_exhaustive] pub struct vc_interfaces::WatchError
+pub vc_interfaces::WatchError::reason: alloc::string::String
+impl vc_interfaces::WatchError
+pub fn vc_interfaces::WatchError::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vc_interfaces::WatchError
+pub fn vc_interfaces::WatchError::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::WatchError
+impl core::cmp::PartialEq for vc_interfaces::WatchError
+pub fn vc_interfaces::WatchError::eq(&self, &Self) -> bool
+impl core::error::Error for vc_interfaces::WatchError
+impl core::fmt::Debug for vc_interfaces::WatchError
+pub fn vc_interfaces::WatchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for vc_interfaces::WatchError
+pub fn vc_interfaces::WatchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::WatchError
+pub trait vc_interfaces::ActionRunner: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::ActionRunner::run<'life0, 'async_trait>(&'life0 self) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Credentials, vc_interfaces::AuthError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
+pub trait vc_interfaces::AgentActionWriter: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::AgentActionWriter::record(&self, &vc_interfaces::AgentAction) -> core::result::Result<(), vc_interfaces::ApprovalError>
+pub trait vc_interfaces::Approvals: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Approvals::always_allowed(&self, &vc_interfaces::StandingRule) -> core::result::Result<bool, vc_interfaces::ApprovalError>
+pub fn vc_interfaces::Approvals::create(&self, &vc_interfaces::ApprovalRequest) -> core::result::Result<vc_interfaces::ApprovalId, vc_interfaces::ApprovalError>
+pub fn vc_interfaces::Approvals::decide(&self, &vc_interfaces::Decision) -> core::result::Result<vc_interfaces::ApprovalStatus, vc_interfaces::ApprovalError>
+pub fn vc_interfaces::Approvals::get(&self, vc_interfaces::ApprovalId) -> core::result::Result<core::option::Option<vc_interfaces::Approval>, vc_interfaces::ApprovalError>
+pub fn vc_interfaces::Approvals::list(&self, bool) -> core::result::Result<alloc::vec::Vec<vc_interfaces::Approval>, vc_interfaces::ApprovalError>
+pub fn vc_interfaces::Approvals::wait<'life0, 'async_trait>(&'life0 self, vc_interfaces::ApprovalId, core::time::Duration) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::ApprovalStatus, vc_interfaces::ApprovalError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
+pub trait vc_interfaces::AuthProvider: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::AuthProvider::credentials<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 vc_interfaces::AuthRequest) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Credentials, vc_interfaces::AuthError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::Browser: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Browser::open<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), vc_interfaces::BrowserError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::CacheStore: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::CacheStore::clear(&self, core::option::Option<&str>) -> core::result::Result<alloc::vec::Vec<vc_interfaces::CacheEntry>, vc_interfaces::CacheStoreError>
+pub fn vc_interfaces::CacheStore::get(&self, &vc_interfaces::CacheKey, u64) -> core::result::Result<core::option::Option<vc_interfaces::CacheEntry>, vc_interfaces::CacheStoreError>
+pub fn vc_interfaces::CacheStore::list(&self) -> core::result::Result<alloc::vec::Vec<vc_interfaces::CacheListing>, vc_interfaces::CacheStoreError>
+pub fn vc_interfaces::CacheStore::put(&self, vc_interfaces::CacheEntry) -> core::result::Result<core::option::Option<vc_interfaces::CacheEntry>, vc_interfaces::CacheStoreError>
+pub fn vc_interfaces::CacheStore::remove(&self, &vc_interfaces::CacheKey) -> core::result::Result<(), vc_interfaces::CacheStoreError>
+pub fn vc_interfaces::CacheStore::take_expired(&self, u64) -> core::result::Result<alloc::vec::Vec<vc_interfaces::CacheEntry>, vc_interfaces::CacheStoreError>
+pub trait vc_interfaces::Clock: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Clock::now_ms(&self) -> u64
+pub fn vc_interfaces::Clock::today(&self) -> vc_model::date::Date
+pub trait vc_interfaces::CommandRunner: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::CommandRunner::run<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 vc_interfaces::CommandSpec) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::CommandOutput, vc_interfaces::CommandError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::CompileCacheStore: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::CompileCacheStore::load(&self) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, vc_interfaces::CompileCacheError>
+pub fn vc_interfaces::CompileCacheStore::save(&self, &[u8]) -> core::result::Result<(), vc_interfaces::CompileCacheError>
+pub trait vc_interfaces::ConfigSource: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::ConfigSource::entries(&self) -> core::result::Result<alloc::vec::Vec<vc_interfaces::ConfigEntry>, vc_interfaces::ConfigSourceError>
+pub trait vc_interfaces::Environment: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Environment::names(&self) -> alloc::vec::Vec<alloc::string::String>
+pub fn vc_interfaces::Environment::var(&self, &str) -> core::option::Option<alloc::string::String>
+pub trait vc_interfaces::FileWatcher: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::FileWatcher::watch(&self, &vc_interfaces::SourceFilter) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_interfaces::WatchError>
+pub trait vc_interfaces::HistoryReader: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::HistoryReader::run(&self, vc_interfaces::RunRef) -> core::result::Result<core::option::Option<vc_interfaces::RunRow>, vc_interfaces::HistoryError>
+pub fn vc_interfaces::HistoryReader::runs(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::RunRow>, vc_interfaces::HistoryError>
+pub fn vc_interfaces::HistoryReader::snapshot(&self, vc_interfaces::RunId) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, vc_interfaces::HistoryError>
+pub fn vc_interfaces::HistoryReader::tests(&self, vc_interfaces::RunId) -> core::result::Result<alloc::vec::Vec<vc_interfaces::TestRow>, vc_interfaces::HistoryError>
+pub trait vc_interfaces::HistoryWriter: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::HistoryWriter::begin(&self, &vc_interfaces::RunStart) -> core::result::Result<vc_interfaces::RunId, vc_interfaces::HistoryError>
+pub fn vc_interfaces::HistoryWriter::finish(&self, vc_interfaces::RunId, vc_interfaces::RunEnd) -> core::result::Result<(), vc_interfaces::HistoryError>
+pub fn vc_interfaces::HistoryWriter::prune(&self, vc_model::history::Keep) -> core::result::Result<usize, vc_interfaces::HistoryError>
+pub fn vc_interfaces::HistoryWriter::record(&self, vc_interfaces::RunId, alloc::vec::Vec<vc_interfaces::Row>) -> core::result::Result<(), vc_interfaces::HistoryError>
+pub trait vc_interfaces::HookRunner: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::HookRunner::call<'life0, 'async_trait>(&'life0 self, vc_interfaces::HookCall) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::HookOutput, vc_interfaces::HookError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
+pub trait vc_interfaces::Importer: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Importer::read<'life0, 'life1, 'life2, 'async_trait>(&'life0 self, &'life1 vc_interfaces::ImportSource, &'life2 vc_interfaces::ImportOptions) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::ImportDraft, vc_interfaces::ImportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait, 'life2: 'async_trait
+pub fn vc_interfaces::Importer::source_help(&self) -> core::option::Option<&'static str>
+pub trait vc_interfaces::Keychain: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Keychain::delete(&self, &str, &str) -> core::result::Result<(), vc_interfaces::KeychainError>
+pub fn vc_interfaces::Keychain::get(&self, &str, &str) -> core::result::Result<core::option::Option<vc_interfaces::Secret>, vc_interfaces::KeychainError>
+pub fn vc_interfaces::Keychain::set(&self, &str, &str, &vc_interfaces::Secret) -> core::result::Result<(), vc_interfaces::KeychainError>
+pub trait vc_interfaces::Random: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Random::next_u64(&self) -> u64
+pub trait vc_interfaces::Reporter: core::marker::Send
+pub fn vc_interfaces::Reporter::finish<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 vc_interfaces::RunSummary) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<vc_interfaces::Artifact>, vc_interfaces::ReportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub fn vc_interfaces::Reporter::on_event<'life0, 'life1, 'async_trait>(&'life0 mut self, &'life1 vc_model::event::Event) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), vc_interfaces::ReportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::SecretProvider: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::SecretProvider::load<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 vc_interfaces::SecretQuery) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::Secrets, vc_interfaces::SecretError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::SourceProvider: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::SourceProvider::discover(&self, &vc_interfaces::SourceFilter) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceProvider::read(&self, &[vc_model::source::SourcePath]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
+pub trait vc_interfaces::SourceWriter: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::SourceWriter::remove(&self, &vc_model::source::SourcePath) -> core::result::Result<(), vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceWriter::write(&self, &vc_model::source::SourcePath, &str) -> core::result::Result<(), vc_interfaces::SourceError>
+pub trait vc_interfaces::SpecFetcher: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::SpecFetcher::decode(&self, &str, &[u8]) -> core::result::Result<serde_json::value::Value, vc_interfaces::FetchError>
+pub fn vc_interfaces::SpecFetcher::fetch<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<u8>, vc_interfaces::FetchError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::Transport: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Transport::send<'life0, 'life1, 'async_trait>(&'life0 self, vc_model::exchange::RenderedRequest, &'life1 vc_interfaces::SendContext) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_model::exchange::Exchange, vc_interfaces::TransportError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
+pub trait vc_interfaces::Vcs: core::marker::Send + core::marker::Sync
+pub fn vc_interfaces::Vcs::changed(&self, &str) -> core::result::Result<alloc::vec::Vec<vc_model::source::SourcePath>, vc_interfaces::VcsError>
+pub fn vc_interfaces::checked_ref(&str) -> core::result::Result<&str, vc_interfaces::VcsError>
+pub fn vc_interfaces::content_hash(&[u8]) -> vc_model::source::ContentHash
+pub fn vc_interfaces::resolve_reference(&str, &str) -> core::option::Option<alloc::string::String>
+pub fn vc_interfaces::source_file(vc_model::source::SourcePath, alloc::vec::Vec<u8>) -> core::result::Result<vc_model::source::SourceFile, vc_interfaces::SourceError>
+pub type vc_interfaces::CachedValues = serde_json::map::Map<alloc::string::String, serde_json::value::Value>

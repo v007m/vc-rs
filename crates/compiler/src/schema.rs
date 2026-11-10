@@ -4,12 +4,12 @@
 use serde_json::{Map, Value, json};
 use vc_model::{FileKind, SourceFileId};
 use vc_parser::{Node, ScalarKind, Syntax};
-use vc_template::{parse_duration, parse_size};
 
 use crate::shapes::{self, Key, Shape, Ty};
 
 /// The JSON Schema of one kind of definition file, for editors (`vc schema export`).
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct FileSchema {
     /// The kind of file the schema describes.
     pub kind: FileKind,
@@ -19,6 +19,12 @@ pub struct FileSchema {
 
 /// Where the published schemas live; `<kind>.schema.json` is appended.
 const BASE_URL: &str = "https://raw.githubusercontent.com/v007m/vc-rs/master/schema/";
+
+/// The first line of every file of `kind` Vibranium creates, which points editors at its schema.
+#[must_use]
+pub fn schema_line(kind: FileKind) -> String {
+    format!("# yaml-language-server: $schema={BASE_URL}{}.schema.json", kind.name())
+}
 
 /// One schema per [`FileKind`], in [`FileKind::ALL`] order.
 #[must_use]
@@ -117,8 +123,8 @@ fn fits(ty: Ty, node: &Node) -> bool {
         Ty::Int => kind == Some(ScalarKind::Int),
         Ty::Bool => kind == Some(ScalarKind::Bool),
         Ty::Enum(words) => node.as_str().is_some_and(|text| words.contains(&text)),
-        Ty::Duration => node.as_str().is_some_and(|text| parse_duration(text, span).is_ok()),
-        Ty::Size => node.as_str().is_some_and(|text| parse_size(text, span).is_ok()),
+        Ty::Duration => node.as_str().is_some_and(|text| vc_template::parse_duration(text, span).is_ok()),
+        Ty::Size => node.as_str().is_some_and(|text| vc_template::parse_size(text, span).is_ok()),
         Ty::List(item) => node.as_scalar().is_none() && node.items().iter().all(|node| fits(*item, node)),
         Ty::Obj(_) => !node.entries().is_empty(),
         Ty::Either(alternatives) => alternatives.iter().any(|ty| fits(*ty, node)),
@@ -127,7 +133,8 @@ fn fits(ty: Ty, node: &Node) -> bool {
 }
 
 /// A YAML value as JSON, with YAML 1.2 core types.
-fn to_json(node: &Node) -> Value {
+#[must_use]
+pub fn to_json(node: &Node) -> Value {
     match &node.value {
         vc_parser::Value::Seq(items) => items.iter().map(to_json).collect(),
         vc_parser::Value::Map(entries) => {

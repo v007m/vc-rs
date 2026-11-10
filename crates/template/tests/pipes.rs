@@ -1,9 +1,14 @@
 #![cfg(test)]
 
-use serde_json::json;
+use serde_json::{Value, json};
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{Part, Pos, ScalarSource, ScalarStyle, SourceFileId, SourceSpan, StringTable};
-use vc_template::{ArgType, PipeRegistry, PipeSignature, TemplateError, ValueType, parse};
+use vc_template::{ArgType, PipeArgs, PipeDef, PipeRegistry, PipeSignature, TemplateError, ValueType};
+
+#[expect(clippy::unnecessary_wraps, reason = "a pipe has the `PipeFn` signature")]
+fn mask(_: &Value, _: &PipeArgs<'_>) -> Result<Value, String> {
+    Ok(json!("***"))
+}
 
 /// Parses `${var.x | <pipes>}` on one plain line and returns its pipe calls.
 fn calls(pipes: &str) -> Vec<vc_model::PipeCall> {
@@ -14,7 +19,8 @@ fn calls(pipes: &str) -> Vec<vc_model::PipeCall> {
 }
 
 fn pipes_of(text: &str, source: ScalarSource) -> Vec<vc_model::PipeCall> {
-    let Some(Part::Ref(reference)) = parse(text, source, &mut StringTable::new()).unwrap().parts.pop() else {
+    let Some(Part::Ref(reference)) = vc_template::parse(text, source, &mut StringTable::new()).unwrap().parts.pop()
+    else {
         panic!("expected a trailing reference")
     };
     reference.pipes
@@ -97,7 +103,8 @@ fn value_types_accept_themselves_any_and_scalars() {
 fn plugins_register_pipes_under_their_prefix() {
     let mut registry = PipeRegistry::builtin();
     assert!(registry.get("acme.mask").is_none());
-    registry.register("acme.mask", PipeSignature::new(ValueType::Text, ValueType::Text, &[ArgType::Any])).unwrap();
+    let signature = PipeSignature::new(ValueType::Text, ValueType::Text, &[ArgType::Any]);
+    registry.register("acme.mask", PipeDef::new(signature, mask)).unwrap();
     assert_eq!(registry.get("acme.mask").unwrap().signature.args, [ArgType::Any]);
     assert_eq!(registry.check_chain(&calls("acme.mask('*')"), ValueType::Text).unwrap(), ValueType::Text);
     assert_eq!(registry.check(&calls("acme.mask(1)")[0]).unwrap().input, ValueType::Text);
@@ -107,7 +114,7 @@ fn plugins_register_pipes_under_their_prefix() {
 #[test]
 fn registering_rejects_a_taken_name() {
     let mut registry = PipeRegistry::builtin();
-    let signature = PipeSignature::new(ValueType::Text, ValueType::Text, &[]);
+    let signature = PipeDef::new(PipeSignature::new(ValueType::Text, ValueType::Text, &[]), mask);
     assert!(registry.register("acme.mask", signature).is_ok());
     let duplicate = registry.register("acme.mask", signature).unwrap_err();
     assert!(matches!(&duplicate, TemplateError::DuplicatePipe(name) if name == "acme.mask"));
@@ -118,7 +125,7 @@ fn registering_rejects_a_taken_name() {
 #[test]
 fn registering_rejects_names_without_a_prefix() {
     let mut registry = PipeRegistry::builtin();
-    let signature = PipeSignature::new(ValueType::Text, ValueType::Text, &[]);
+    let signature = PipeDef::new(PipeSignature::new(ValueType::Text, ValueType::Text, &[]), mask);
     for name in ["mask", "trim", "acme.", ".mask", "acme..mask", ""] {
         let error = registry.register(name, signature).unwrap_err();
         assert!(matches!(&error, TemplateError::UnprefixedPipe(n) if n == name), "{name}");

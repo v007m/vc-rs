@@ -11,13 +11,14 @@ mod rng;
 mod suite;
 
 use crate::MemorySources;
-use rng::{Rng, service_name};
+use rng::Rng;
 
 /// Test files per service, at most; one per area.
 const TESTS_PER_SERVICE: usize = suite::AREAS.len();
 
 /// One generated file: its project-relative path and its text.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct GeneratedFile {
     pub path: String,
     pub text: String,
@@ -87,7 +88,7 @@ pub fn generate_project(seed: u64, files: usize) -> GeneratedProject {
 
 /// Enough service names for `files` service files: one api file plus up to four test files each.
 fn service_names(files: usize) -> Vec<String> {
-    (0..files.div_ceil(TESTS_PER_SERVICE + 1)).map(service_name).collect()
+    (0..files.div_ceil(TESTS_PER_SERVICE + 1)).map(rng::service_name).collect()
 }
 
 /// A service's api file and its first `tests` test files.

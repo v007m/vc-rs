@@ -6,6 +6,7 @@ use crate::{Syntax, json};
 
 /// How a scalar was written in the source.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[expect(clippy::exhaustive_enums, reason = "closed set (D160)")]
 pub enum ScalarStyle {
     /// Unquoted: `value`.
     Plain,
@@ -21,6 +22,7 @@ pub enum ScalarStyle {
 
 /// What a scalar means under the YAML 1.2 core schema; only plain scalars can be anything but text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[expect(clippy::exhaustive_enums, reason = "closed set (D160)")]
 pub enum ScalarKind {
     /// `null`, `~` or nothing.
     Null,
@@ -36,6 +38,7 @@ pub enum ScalarKind {
 
 /// A scalar value: its text as written (quotes removed and escapes applied), style and kind.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Scalar {
     /// The content: `0x1F` stays `0x1F`; the exact source bytes are the node's span.
     pub text: String,
@@ -175,6 +178,7 @@ fn write_json(kind: ScalarKind, text: &str) -> Option<String> {
 
 /// Text in the house style: plain when YAML reads it back as the same text, otherwise
 /// double-quoted with escapes. `flow` is true inside `[..]` or `{..}`.
+#[must_use]
 pub fn write_text(text: &str, flow: bool) -> String {
     if needs_quotes(text, flow) { double_quote(text) } else { text.to_owned() }
 }

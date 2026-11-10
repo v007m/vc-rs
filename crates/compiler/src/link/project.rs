@@ -20,6 +20,8 @@ pub const TEST_BLOCKS: [&str; 3] = ["before", "steps", "after"];
 pub struct Source<'a> {
     /// Its number.
     pub file: SourceFileId,
+    /// Its project path.
+    pub path: &'a str,
     /// Its text, for exact spans.
     pub text: &'a str,
     /// Its kind.
@@ -42,7 +44,7 @@ impl<'a> Source<'a> {
         pieces.sort_by_key(|(start, end, _)| (*start, *end));
         let id = (kind != FileKind::Config).then(|| file_id(source.path.as_str(), kind));
         let broken = unit.diagnostics.has_errors();
-        Some(Self { file, text: &source.text, kind, root, id, broken, pieces })
+        Some(Self { file, path: source.path.as_str(), text: &source.text, kind, root, id, broken, pieces })
     }
 
     /// The pieces inside `span`, minus those inside any of `holes`.
@@ -82,18 +84,9 @@ impl<'a> Source<'a> {
     }
 }
 
-/// A file's ID from its path: the root folder and kind suffix dropped, the rest joined with dots,
-/// and an api file named like its folder collapsed (D139, D142).
+/// A file's ID from its path (D139, D142; see [`FileKind::file_id`]).
 pub fn file_id(path: &str, kind: FileKind) -> String {
-    let path = ["services/", "load/"].iter().find_map(|root| path.strip_prefix(root)).unwrap_or(path);
-    let suffix = format!(".{}.yaml", kind.name());
-    let path = path.strip_suffix(&suffix).unwrap_or(path);
-    let mut words: Vec<&str> = path.split('/').collect();
-    let collapses = kind == FileKind::Api && words.len() > 1 && words[words.len() - 1] == words[words.len() - 2];
-    if collapses {
-        words.pop();
-    }
-    words.join(".")
+    kind.file_id(path)
 }
 
 /// An item that other files reference: an api or a test.

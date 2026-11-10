@@ -18,10 +18,46 @@ pub trait SourceProvider: Send + Sync {
     ///
     /// [`SourceError::Root`] when the project cannot be searched at all.
     fn discover(&self, filter: &SourceFilter) -> Result<Discovery, SourceError>;
+
+    /// The files at `paths`, whatever their kind, read and hashed with [`source_file`], in
+    /// path order. The engine reads with it the data and hook files the compiler wants, which
+    /// [`Self::discover`] only lists as assets.
+    ///
+    /// A path that cannot be used (missing, unreadable, not UTF-8, a link out of the project)
+    /// goes into [`Discovery::problems`] and the rest are still read; a path given twice is
+    /// read once. [`Discovery::assets`] stays empty.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::Root`] when the project cannot be read at all.
+    fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError>;
+}
+
+/// Writes the definition files authoring commands change (D107). The engine calls it only with
+/// text its compile guard passed; the implementation knows the project root.
+pub trait SourceWriter: Send + Sync {
+    /// Replaces the file at `path` with `text`, or creates it with the folders it needs.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::OutsideRoot`] when `path` leads through a link out of the project, and
+    /// [`SourceError::Write`] when the system refuses.
+    fn write(&self, path: &SourcePath, text: &str) -> Result<(), SourceError>;
+
+    /// Removes the file at `path`, which a move (`vc rename` of a file ID) left behind.
+    ///
+    /// # Errors
+    ///
+    /// As [`SourceWriter::write`].
+    fn remove(&self, path: &SourcePath) -> Result<(), SourceError>;
 }
 
 /// What one discovery found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Discovery {
     /// The files read, in path order.
     pub files: Vec<SourceFile>,
@@ -46,10 +82,19 @@ impl Discovery {
 /// Paths are relative to the project root with `/` separators. They are plain text, not
 /// [`SourcePath`]s, because some of them are exactly the names a `SourcePath` refuses.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum SourceError {
     /// The file exists but reading it failed.
     #[error("{path}: cannot be read: {reason}")]
     Read {
+        /// The file.
+        path: String,
+        /// What the system said.
+        reason: String,
+    },
+    /// Writing the file failed.
+    #[error("{path}: cannot be written: {reason}")]
+    Write {
         /// The file.
         path: String,
         /// What the system said.
@@ -97,6 +142,7 @@ impl SourceError {
     pub fn path(&self) -> Option<&str> {
         match self {
             Self::Read { path, .. }
+            | Self::Write { path, .. }
             | Self::NotUtf8 { path }
             | Self::InvalidPath { path }
             | Self::OutsideRoot { path } => Some(path),

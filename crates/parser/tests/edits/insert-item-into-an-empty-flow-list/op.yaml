@@ -1,0 +1,5 @@
+op: insertItem
+at: apis
+value: |
+  id: list
+  path: /users

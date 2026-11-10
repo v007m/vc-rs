@@ -6,8 +6,9 @@ use std::collections::HashMap;
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_parser::Node;
 
-use super::project::{Project, TEST_BLOCKS, list};
-use super::saves::reused;
+use super::project;
+use super::project::{Project, TEST_BLOCKS};
+use super::saves;
 
 /// One `test:` reuse: the test reused and the value naming it.
 struct Edge<'a> {
@@ -39,9 +40,9 @@ fn edges<'a>(project: &Project<'a>) -> HashMap<String, Vec<Edge<'a>>> {
     let mut edges = HashMap::new();
     for (full, item) in &project.tests {
         let source = project.source(*item);
-        let mine = TEST_BLOCKS.iter().flat_map(|key| list(item.node, key));
+        let mine = TEST_BLOCKS.iter().flat_map(|key| project::list(item.node, key));
         let found = mine.filter_map(|action| {
-            let (to, _) = reused(project, (source, action))?;
+            let (to, _) = saves::reused(project, (source, action))?;
             Some(Edge { to, node: action.get("test")? })
         });
         edges.insert(full.clone(), found.collect());

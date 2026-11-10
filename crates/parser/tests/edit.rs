@@ -160,6 +160,19 @@ fn edits_refuse_the_wrong_kind_of_node() {
 }
 
 #[test]
+fn a_flow_map_gets_an_entry_after_its_last() {
+    let flow = |text: &str, key: &str, value: &str| -> Result<String, ParserError> {
+        let before = doc(text)?;
+        let edit = before.insert_flow_entry(before.root().get("vars").unwrap(), key, value)?;
+        Ok(before.apply(&[edit])?.text().to_owned())
+    };
+    assert_eq!(flow("vars: {a: 'x'}\n", "bUrl", "http://b").unwrap(), "vars: {a: 'x', bUrl: http://b}\n");
+    assert_eq!(flow("vars: {}\nname: n\n", "b", "x, y").unwrap(), "vars: {b: \"x, y\"}\nname: n\n");
+    assert_eq!(flow("vars: {a: 1}\n", "a", "2").unwrap_err(), ParserError::DuplicateKey("a".into()));
+    assert!(matches!(flow("vars:\n  a: 1\n", "b", "2"), Err(ParserError::WrongNode { .. })));
+}
+
+#[test]
 fn a_scalar_edit_whose_text_would_not_parse_is_refused() {
     assert!(matches!(set(":\t:%", "", "a"), Err(ParserError::Unparsable(_))));
     assert_eq!(set(": :%", "", "a").unwrap(), ": a");

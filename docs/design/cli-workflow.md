@@ -24,7 +24,7 @@ Every command that writes a file compiles the result first and refuses to write 
 ```
 shop/
   vibranium.config.yaml              project settings with defaults, one profile
-  .env.schema                        secret names (none yet), for Varlock
+  .env.schema                        secret names (none yet), one NAME= line each
   .gitignore                         adds .vibranium/
   services/sample/sample.api.yaml    four reference apis, annotated
   services/sample/basics.test.yaml   four reference tests, annotated
@@ -58,7 +58,7 @@ How much more is written is a personal preference in `~/.config/vibranium/config
 # ─ Project config ─────────────────────────────────────────────
 # One per project, at the root: profiles, project-wide vars, auth,
 # secrets and run settings. Only syntaxVersion and one profile are required.
-# Reference: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#project-config
+# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#project-config
 # See where a value comes from: vc config explain defaults.timeout
 # ─────────────────────────────────────────────────────────────
 syntaxVersion: 2
@@ -90,8 +90,8 @@ profiles:
 #     clientSecret: ${secret.CLIENT_SECRET}
 
 secrets:
-  provider: varlock        # 1Password, Vault, AWS, env and more, via .env.schema
-  schema: .env.schema
+  provider: env            # environment and .env; varlock adds 1Password, Vault, AWS and more
+  schema: .env.schema      # declares the secret names
 
 reports:
   dir: .vibranium/reports
@@ -99,13 +99,11 @@ reports:
 
 history:
   bodies: failures         # store request/response bodies for failures only
-  maxBodySize: 4kb
-  retain:
-    runs: 500
-    days: 90
+  maxBodySize: 4kb         # cut longer bodies (default 64kb)
+  keep: 50                 # runs kept after each run, or `all`
 ```
 
-Any value here can be set from several places. Layers apply lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line, so `vc run --set defaults.timeout=60s` wins over everything else for one run. `vc config explain <key>` shows the value and the layer that set it (D129).
+Any value here can be set from several places. Layers apply lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line, so `vc run --set defaults.timeout=60s` wins over everything else for one run. A setting's `VIB_*` variable is its `--set` key upper-snaked (`VIB_DEFAULTS_PER_HOST=4`, `VIB_REPORTS_DIR=out`), and a var's is `VIB_VAR_<name>` with the name as written (`VIB_VAR_userId=7`, D182). The user config is `$XDG_CONFIG_HOME/vibranium/config.yaml` (else `~/.config/…`, or `%APPDATA%` on Windows); its `profile`, `defaults`, `reports` and `vars` count only where the project's config is silent. `vc config explain <key>` shows the value and the layer that set it (D129).
 
 ### `services/sample/sample.api.yaml`
 
@@ -114,7 +112,7 @@ Any value here can be set from several places. Layers apply lowest to highest: b
 # ─ Api file: sample ───────────────────────────────────────────
 # How to call one service. Tests call each api by its full ID, sample#<id>.
 # Safe to delete once you have your own api files.
-# Reference: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#api-files
+# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
 # Try one: vc call sample#listUsers
 # ─────────────────────────────────────────────────────────────
 id: sample
@@ -171,7 +169,7 @@ apis:
 # ─ Test file: sample.basics ───────────────────────────────────
 # Tests call apis and state what they expect.
 # Run this file: vc run sample.basics    One test: vc run sample.basics#createsUser
-# Reference: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#tests
+# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#tests
 # ─────────────────────────────────────────────────────────────
 id: sample.basics
 name: Sample tests
@@ -229,10 +227,12 @@ tests:
       status: 400
 ```
 
+`rejectsMissingEmail` expects 400 although `sample#createUser` expects 201: expect checks merge by kind and leaf path, and the more specific level replaces the other (D123).
+
 With `brief` comments, `vc new api users#deactivate` adds a single line above the new item:
 
 ```yaml
-  # users#deactivate · POST /users/{id}/deactivate · keys: https://github.com/sarathm09/vibranium/blob/v2/docs/syntax.md#api-files
+  # users#deactivate · POST /users/{id}/deactivate · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
   - id: deactivate
     method: POST
     path: /users/${var.id}/deactivate
@@ -256,7 +256,7 @@ Tests and apis are the definitions; everything else is something they point at.
 | `datasets/` | Your own rows of data: CSV, JSON or YAML | `examples`, `forEach` and `vars`, by dataset name | `examples: ${dataset.capitals}` |
 | `hooks/` | Code: lifecycle functions, request signing, custom checks | `function: path#export` | `function: ../../hooks/sign.ts#addUploadSignature` |
 | `openapi/` | Snapshots of each spec as it was at the last import or sync; written only by `vc import` and `vc sync` | `vc sync`, as the merge base | `openapi/users.yaml` |
-| `.env.schema` | Secret names and where each comes from (Varlock) | `${secret.X}` anywhere | `${secret.SHOP_CLIENT_SECRET}` |
+| `.env.schema` | Secret names (`NAME=` lines), and where each comes from when Varlock is the provider | `${secret.X}` anywhere | `${secret.SHOP_CLIENT_SECRET}` |
 | `vibranium.lock` | Approved plugin permissions | `vc plugin add` | — |
 | `.vibranium/` | Reports, `history.db`, `cache.db`; generated, git-ignored | `vc report`, `vc history`, the TUI and web UI | `.vibranium/reports/report.html` |
 
@@ -287,58 +287,66 @@ One service per folder keeps an api file next to the tests that use it, and test
 
 ## Commands
 
-Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text.
+Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text. `vc import` reads `openapi`, `curl`, `har`, `http`, `postman` and `bruno`; another kind exits 2, naming the importers there are.
 
 **Start and author**
 
 | Command | Does |
 | --- | --- |
-| `vc init [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, `.env.schema`, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi`, also runs the import below |
-| `vc import openapi <url-or-file> --id <fileId> [--tests] [--negative] [--auth]` | Creates an api file from a spec (one api per operation), saves the spec snapshot, adds a base-URL var to the config, and optionally generates tests |
-| `vc import har\|postman\|bruno\|http\|v1 <path>` | Converts browser HAR recordings (see Importing from a HAR file), other tools' collections, or Vibranium v1 projects |
-| `vc new api <fileId#apiId> [--method] [--path] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--from-curl`, method, URL, headers and body come from the curl command |
+| `vc init [--no-sample] [--from-openapi <url-or-file>]` | Creates `vibranium.config.yaml` with a `default` profile, the sample api and test files (not with `--no-sample`), `.env.schema` when there is none, the conventional folders, a `.gitignore` entry for `.vibranium/`, and the editor schema hint; with `--from-openapi`, then runs `vc import openapi` on it (when the import is refused, the project stays written and the import can be run again). A definition file it would write that exists already (a project is here) is named and nothing is written: exit 2 |
+| `vc import openapi <url-or-file> [--id <fileId>] [--tests] [--negative] [--auth] [--include <tag-or-path>]… [--only <operationId>]…` | Creates an api file from a spec (one api per operation), saves the spec snapshot `openapi/<fileId>.yaml`, adds a base-URL var to the config, and optionally generates tests in `<fileId>.openapi` (`services/<fileId>/openapi.test.yaml`). Without `--id` the file ID is the spec's file name up to its first dot. What the spec holds that has no api form is listed after the change. An api file that exists is refused (use `vc sync`), and so is a result that would not compile: exit 2, nothing written |
+| `vc import curl <file> [--id <fileId>]` | Creates an api file from a file of curl commands, as browser dev tools and API docs copy them: one api per distinct method and path, all calling one origin, which becomes a base-URL var. IDs in a path become vars; JSON body fields become api vars with the command's values as defaults; form and `-F` data become body maps. A credential (`authorization` and other secret-named headers, cookies, `-u`, a URL's user, secret-named query and body fields) is never written: the notes after the change name each one left out, without its value |
+| `vc import har <file> [--flow <fileId#testId>] [--include-host <host>]… [--keep-static] [--profile <ids>] [--dry-run]` | Turns a browser recording into apis in the api files whose base URLs its hosts render to (new files for unknown hosts), credentials dropped and secrets made `${secret.…}` references, plus with `--flow` a test replaying it (see Importing from a HAR file). `--dry-run` prints the plan and the diffs without writing. A result that would not compile is refused: exit 2, nothing written |
+| `vc import http <file> [--id <fileId>]` | Creates an api file from a `.http` file (VS Code REST Client, JetBrains HTTP Client) by the curl rules: one api per request, named by its `###` title or `# @name`. File variables are written as their values, except one named like a credential, which stays a var; `{{$guid}}` and `{{$randomInt a b}}` become fake data; a variable the file does not define, or another request's response, becomes an empty var with a note. Response handlers and bodies read from files are not imported |
+| `vc import postman <file> [--flow <fileId#testId>] [--profile <ids>] [--dry-run]` | Turns a Postman collection (v2.1 export) into apis in the api files whose base URLs its URLs render to (new files for unknown hosts), one api per request named after it. `{{variables}}` become `${var.…}` with the collection's values as defaults, Postman's dynamic variables (`{{$guid}}`) the matching `${fake.…}`, and a base URL without a value `http://localhost`, noted. Auth and credential headers are never written; secret-named or random values become `${secret.…}` references; other headers and scripts are noted, not imported. With `--flow`, a test calling the requests in collection order, saving what their test scripts set from the response (`pm.environment.set("cartId", pm.response.json().id)`). `--dry-run` as for `har` |
+| `vc import bruno <path> [--flow <fileId#testId>] [--profile <ids>] [--dry-run]` | Turns a Bruno collection, exported from Bruno as one JSON file (D209), into apis by the `postman` rules. The vars default to the collection's vars and its first environment's values (other environments are noted); an environment variable marked secret and `{{process.env.NAME}}` become `${secret.…}` references. Auth inherits from folder and collection; scripts, tests, assertions and request vars are noted, not imported. With `--flow`, each step saves the post-response vars that read the response body (`cartId: res.body.id`). A collection folder of `.bru` files exits 2: export the collection as JSON from Bruno |
+| `vc new api <fileId#apiId> [--method] [--path \| --url <full-url>] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--url`, the origin becomes a base-URL var and the rest the path and query (D177); with `--from-curl '<curl>'` (M6, D176), the method, URL, query, content type and body come from one curl command and no credential is written |
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
 | `vc new file api\|test\|load <fileId>` | Creates an empty file of that kind with its header filled in |
-| `vc call <apiId> [--var k=v] [--save-as-test <testId>]` | Calls one api ad hoc with project auth and the active profile; optionally saves the call as a test with expectations taken from the response |
-| `vc fmt [paths]` | Rewrites files in the house style (nested YAML, key order, quoting) |
-| `vc rename <oldId> <newId>` | Renames an api, test, file, var, auth or dataset ID and updates every reference; moves the file when a file ID changes |
+| `vc call <apiId> [--var k=v] [--keep] [--save-as-test <testId> [--expect-field body.<path>]...]` | Calls one api ad hoc with project auth and the active profile (`--profile`, `--set` as for `vc run`), then runs the api's cleanup unless `--keep`; `beforeRun` and `beforeAll` are skipped and the call is stored in the history as `adhoc`. Exits 1 when the api's `expect` fails, 2 for an unknown api (with the closest) or a `--var` that is not `name=value`. Optionally saves the call as a test expecting its status and the named body fields (a missing field exits 2 and writes nothing) |
+| `vc fmt [--strip-comments] [paths]` | Rewrites definition files in the house style (block YAML, key order, quoting) and keeps comments; `--strip-comments` drops the one-line comments `vc new` wrote above its items. Refuses, writing nothing, a file that does not parse or that formatting would change in meaning; exits 2 then, 0 otherwise |
+| `vc rename <oldId> <newId>` | Renames an api, test, file, var, auth or dataset ID and updates every reference; moves the file when a file ID changes. A var, auth or dataset is written with its kind: `vc rename var.userId var.accountId`, `auth.partnerToken`, `dataset.capitals`; a dataset named by its path under `datasets/` is renamed by moving its file |
 
 **Check and explore**
 
 | Command | Does |
 | --- | --- |
-| `vc check [--json] [paths...]` | Compiles and links everything; prints errors and warnings with file, line and column, then a summary (`1 error · 0 warnings · 3 files checked`); exits 2 on errors, 0 otherwise. With paths (files or folders, relative to the working folder), reports only on the files under them; the whole project is still compiled, so references into other files are checked. `--json` prints the diagnostics as JSON on stdout instead. With --fix, previews and applies the certain fixes. Run anywhere inside a project: it looks up from the working folder for `vibranium.config.yaml` |
-| `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions, with search and filters; `--json` for scripts and agents (D130) |
-| `vc explain <id>` | Shows one api or test fully resolved for the active profile: final URL, vars and where each came from, auth, merged `expect`, the lifecycle actions it triggers and the cleanups it registers |
-| `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request; `--json` for scripts and agents (D130) |
-| `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …) with a wrong and a right example |
+| `vc check [--json] [paths...]` | Compiles and links everything; prints errors and warnings with file, line and column, then a summary (`1 error · 0 warnings · 3 files checked`); exits 2 on errors, 0 otherwise. With paths (files or folders, relative to the working folder), reports only on the files under them; the whole project is still compiled, so references into other files are checked. `--json` prints the diagnostics as JSON on stdout instead. With `--fix`, prints each certain fix as a unified diff, asks `Apply N fixes? [y/N]` and on yes writes them and checks again; the exit code is that of the final check. Nothing is written when you decline, when there are no certain fixes, or when the fixes would add an error. Run anywhere inside a project: it looks up from the working folder for `vibranium.config.yaml` |
+| `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions: one line per item (full ID, name, tags, `(skipped)`), or `--json` (`id`, `name`, `path`, `tags`, `skipped`) for scripts and agents (D130). `tests` takes the selectors and flags of `vc run` and lists the skipped tests too; `--skipped` lists only those. `apis` take the same positional selectors, `--grep` and `--changed` (an api file ID such as `users` names its apis; `-t` is refused, as apis have no tags), and `files` take them all, a file's tags being its test file's |
+| `vc explain <id> [--profile] [--set]` | Shows one api or test fully resolved for the active profile: final URL, vars and where each came from, auth, merged `expect`, the lifecycle actions it triggers and the cleanups it registers. An unknown ID exits 2 and names the closest |
+| `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request: the plan line, then a tree of lifecycle blocks and test instances. Takes the selectors, `--profile`, `--set` and `--repeat` of `vc run`; `--json` for scripts and agents (D130), `--dot` for a Graphviz graph |
+| `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …) with a wrong and a right example. The pages are built into the binary, so it works outside a project; an unknown code exits 2 |
 
 **Run**
 
 | Command | Does |
 | --- | --- |
 | `vc run [selector...]` | Runs tests (see Selecting what to run) |
-| `vc watch [selector...]` | Re-runs the affected tests whenever a definition, dataset, schema or hook file is saved |
-| `vc load <scenarioId>` | Runs a load scenario with live metrics |
+| `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; Ctrl-C ends it with exit 130 |
+| `vc load <scenarioId>` | Runs a load scenario: `beforeRun` and `beforeAll` once, a live line each second on stderr, then the summary (`--json` for the report as JSON). Exit 0 within thresholds, 1 blocked by a shared action, 2 unknown scenario, 3 a threshold breached, 130 cancelled |
 | `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping) |
 
 **Keep in sync**
 
 | Command | Does |
 | --- | --- |
-| `vc sync [fileId...] [--dry-run] [--check]` | Merges OpenAPI changes into api files (see OpenAPI import and sync) |
+| `vc sync [fileId...] [--dry-run] [--check] [--take spec\|mine <apiId>]… [--resolved <apiId>]…` | Merges OpenAPI changes into api files (see OpenAPI import and sync) |
 | `vc sync <fileId> --take spec\|mine <apiId>`, `--resolved <apiId>` | Settles a sync conflict |
 | `vc migrate` | Upgrades files to a newer `syntaxVersion` |
+| `vc migrate v1 <path>` | Converts the Vibranium v1 project in a folder inside the project into v2 files in the project root (D194, D200): the config, an api file per collection, a test file per scenario and the secret names in `.env.schema`, passed by the compile guard. It prints each file, each `TODO(vc migrate) <path> <item>: <v1 text>` it left as a comment above the item, and each note. Exit 2, writing nothing, when the project has a config already or the folder holds no `config.json` |
 
 **Results and housekeeping**
 
 | Command | Does |
 | --- | --- |
-| `vc history [query]` | Past runs, failures, flaky tests, trends; `vc history compare 481 482` |
-| `vc report [run] --format html\|junit\|ctrf [--open]` | Writes a report for any stored run |
-| `vc cache list\|clear [id]` | Shows or clears cached lifecycle data (clearing runs its cleanup) |
-| `vc config explain <key>` | Shows a config value and which layer set it (D129) |
+| `vc history [--limit N] [--json]` | Lists the stored runs, newest first: number, start (UTC), status, totals, profiles and selectors; `--json` also gives each run's `kind` (`run`, `adhoc`) |
+| `vc history show [run\|last] [--json]` | One stored run and the tests in it that did not pass, with why |
+| `vc history prune [--keep N]` | Drops the oldest runs beyond `N` (else the config's `history.keep`); a run also prunes when it ends |
+| `vc history [query]`, `vc history compare 481 482` | Failures, flaky tests and trends across runs (later) |
+| `vc report [run\|last] [--format html,junit,ctrf] [--out DIR] [--single-file]` | Writes a stored run's report files again from its snapshot (D167), `html` when `--format` names none, into `.vibranium/reports/<run>/` unless `--out` says; prints each file. `--open` comes later |
+| `vc cache list\|clear [id]` | Shows the cached lifecycle data (`--json` for scripts) or clears it, all of it or one action's (`users#create`), running each entry's cleanup under its profiles; a cleanup that fails is a warning. Needs the cache key (`VIB_CACHE_KEY` or the OS keychain) |
+| `vc config explain <key> [--profile] [--set]` | Shows a config value and which layer set it, then each value it replaced (`defaults.timeout = 1m  (--set)`, `  over 30s  (built-in)`; D129). Takes the `--set` keys; an unknown key exits 2 and names the closest |
 | `vc plugin add\|list\|remove` | Manages plugins and their permissions |
 
 **Other interfaces**
@@ -346,10 +354,19 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | Command | Does |
 | --- | --- |
 | `vc tui` | Opens the terminal UI |
-| `vc mcp` | Starts the MCP server for AI agents |
+| `vc mcp [--profile] [--set]` | Starts the MCP server for AI agents over stdio; the profiles' `agents` rules judge every call (D195, D197) |
+| `vc approvals [--all]` | Lists the agent calls waiting for a person (D195), newest first: `#<id>  <agent>  <tool>  <profile>  <summary>`, or `no requests waiting`; `--all` also lists the decided and expired ones, each with its status. A waiting agent is refused after 10 minutes |
+| `vc approve <id> [--always \| --deny]` | Approves a waiting agent call once; `--always` also allows calls like it (same profiles, tool and method) from now on, kept in `history.db`, never in YAML (D195); `--deny` refuses it. The waiting agent wakes at once. The decision is recorded under the OS user (`USER`/`USERNAME`). An unknown or already decided request exits 2 |
 | `vc serve` | Starts the self-hosted team server (later release). For the local web UI of this project, use vc ui, which opens http://localhost:7420 |
-| `vc completion bash\|zsh\|fish\|powershell` | Prints shell completion, including test and api IDs |
+| `vc completion bash\|zsh\|fish\|powershell` | Prints shell completion, including test and api IDs: the commands and flags, plus a hook that asks the hidden `vc __complete <command> <word>` for the project's file, test and api IDs, profiles and tags (nothing outside a project) |
+| `vc demo start [--port 7421] [--detach]`, `vc demo stop [--port]` | Starts the demo service the sample calls (the `vc-demo` binary installed next to `vc`); `--detach` returns once it answers and keeps a pidfile in the temp folder, which `stop` uses. Stopping when none runs exits 0 and says so |
 | `vc schema export [--out <dir>]` | Writes the JSON Schema of each file kind (config, api, test, load) for editors: one JSON object keyed by kind on stdout, or one `<kind>.schema.json` per kind in `<dir>`. Needs no project |
+
+## Global flags
+
+| Flag | Does |
+| --- | --- |
+| `--project <dir>` | Works on the project in `<dir>`, or in the nearest folder above it with a `vibranium.config.yaml`, instead of the one around the working folder. Relative paths, path selectors and `vc schema export --out` then start at the project root. Goes before or after the command (`vc --project api-tests run`, `vc run --project api-tests`). A missing folder, or one with no config above it, exits 2 with a hint. It has no short form and no environment variable |
 
 ## Selecting what to run
 
@@ -363,15 +380,17 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | a file ID | every test in one file | `vc run users.crud` |
 | a glob over IDs | matching tests | `vc run 'users.*' 'orders.checkout#places*'` |
 | a path | every test file under a folder, or one file | `vc run services/orders/` |
-| `-t`, `--tag` | tests with a tag; `!` excludes, `,` means or | `vc run -t smoke,checkout -t '!slow'` |
+| `-t`, `--tag` | tests with a tag; `!` excludes, `,` means or. A test's tags are its file's tags plus its own | `vc run -t smoke,checkout -t '!slow'` |
 | `-g`, `--grep` | tests whose ID or name contains text | `vc run -g export` |
-| `--changed [ref]` | tests in files git reports as changed since a ref, plus tests that call apis in changed api files (D130) | `vc run --changed origin/main` |
-| `--failed` | the tests that failed or were blocked in the last run | `vc run --failed` |
+| `--changed [ref]` | tests in files git reports as changed since a ref, plus tests that call apis in changed api files (D130). With no ref, the working tree against `HEAD`: uncommitted and untracked files. A changed `vibranium.config.yaml` or `.env.schema` selects every test (D179) | `vc run --changed origin/main` |
+| `--failed` | the tests that failed or were blocked in the last run, under its profiles unless `--profile` names some; a failed `examples` row reruns as its own instances. Takes no other selector; exits 2 when no run is stored or the last one had nothing to rerun | `vc run --failed` |
 | `--include-skipped` | also runs tests marked `skip` | `vc run users.crud --include-skipped` |
 
 A full ID joins the file ID and the item ID with `#` (`users.crud#getsCreatedUser`); a bare dotted word is always a file ID (D138). A `#` inside a word is not a comment in bash, zsh, fish or PowerShell, so selectors work unquoted; quote them only under zsh's `extendedglob` option. Web UI URLs percent-encode it (`%23`).
 
-Useful run flags: `--profile staging,eu` (profiles, later wins), `--bail` (stop at the first failure), `--repeat 20` (repeat every selected test, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data), `--set key=value` (override one config value for this run, D129), `--no-cache` (ignore cached lifecycle data), `--reporter spec|dots|json` (console format), `--report html,junit` (files to write).
+Useful run flags: `--profile staging,eu` (profiles, as a comma list or repeated; later wins), `--bail` (start no more tests after the first failure), `--repeat 20` (run every selected test this many times instead of its own `repeat`, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data; a failing run prints the seed it used), `--set key=value` (override one config value for this run, D129), `--no-cache` (`cache:` actions run every time; the cache is neither read nor written, and no expired entry is cleaned up), `--reporter spec|json` (console format; `dots` comes later), `--report ctrf,junit,html` (files to write, as a comma list or repeated, over the config's `reports.formats`; `ctrf` when neither names any), `--out <dir>` (where the report files go, as they are, over the config's `reports.dir`; without it each run's files go in `<reports.dir>/<run>/`, named by the run's number in the history), `--single-file` (the HTML report as one self-contained `report.html`, over `reports.html.layout`). Every run is stored in `.vibranium/history.db` (D170); a history that cannot be opened leaves the run unrecorded with a warning and its files straight in `reports.dir`. `plan`, `run` and `list` exit 2 when they refuse to start: errors in the definitions, an empty selection, or an unknown flag value.
+
+`--set` takes `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats`, `reports.html.layout` and `vars.<name>`; any other key exits 2 and lists these.
 
 Selecting a few tests never runs other files' setup. Running one checkout test runs the config's `beforeRun` (it runs for any run that selects a test), its own file's `beforeAll` and its `beforeEach`; other files' `beforeAll` blocks don't run. `beforeRun` and `beforeAll` finish before any selected test starts (D122). `vc plan` prints this before you run, and the first line of `vc run` output repeats it:
 
@@ -384,7 +403,7 @@ plan  1 test · lifecycle: beforeAll catalog (cached, 3h left) · beforeEach ×3
 
 ### A new api
 
-`vc new api <fileId>#<apiId>` appends to the api file with that ID, creating it if none exists at the path its ID derives from (D139): the ID's words become folders and the last word the file name, and a one-word ID gets its own folder (`users` → `services/users/users.api.yaml`, `payments.refunds` → `services/payments/refunds.api.yaml`). Path parameters become vars, so `{id}` is written as `${var.id}`:
+`vc new api <fileId>#<apiId>` appends to the api file with that ID, creating it if none exists at the path its ID derives from (D139): the ID's words become folders and the last word the file name, and a one-word ID gets its own folder (`users` → `services/users/users.api.yaml`, `payments.refunds` → `services/payments/refunds.api.yaml`). Path parameters become vars, so `{id}` is written as `${var.id}`, and the method is written only when it is not GET. With `--url https://api.example.com/users?q=ann` instead of `--path`, the origin becomes a config var named after the file ID's last word (`searchUrl`), or the var that already holds it, and the new file's `baseUrl`; the rest becomes the path and `query` (D177):
 
 ```
 $ vc new api users#deactivate --method POST --path /users/{id}/deactivate
@@ -400,17 +419,16 @@ $ vc new api users#deactivate --method POST --path /users/{id}/deactivate
 From a curl command, copied from browser dev tools or API docs, Vibranium also fills in what it can read:
 
 ```
-$ vc new api --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v1/users/u_7f3k \
+$ vc new api users#rename --from-curl 'curl -X PATCH https://users.staging.shop.example/api/v1/users/u_7f3k \
     -H "content-type: application/json" -H "authorization: Bearer eyJ…" -d "{\"name\":\"Ada\"}"'
-? Api ID  users#rename
 ✓ added users#rename to services/users/users.api.yaml:91
-  host matches var usersUrl (profile staging) · path id u_7f3k → ${var.id} · body name → var name, default "Ada"
-  authorization header dropped: the file already uses auth shopOauth
+  PATCH /api/v1/users/${var.userId}: header authorization: a credential is never written; add it with `vc new auth`
 ```
 
-- The host is matched against the base-URL vars of the active profile; an unknown host adds a new var.
-- IDs in the path become vars; body fields become api vars with the curl's values as defaults, so tests can override them.
-- Credentials in headers are never written to YAML: if the file has an auth definition it is used, otherwise the command suggests `vc new auth`.
+- The origin is matched against the config's vars, as with `--url`: a var that already holds it is used, otherwise a new `<last word>Url` var is added.
+- IDs in the path become vars (`u_7f3k` → `${var.userId}`); the fields of a JSON body become api vars with the curl's values as defaults, so tests can override them. The query, form data and the content type are kept too.
+- Credentials (`authorization`, cookies, `-u`, secret-named headers, query and body fields) are never written to YAML: each is named in a note, never its value, and a body field is written empty. An api file's own `auth` still applies.
+- One command per call; for a file of them, use `vc import curl <file>`.
 
 ### Generated tests
 
@@ -469,13 +487,15 @@ A `name` in an example row labels that instance in reports, so a failure reads "
 
 ### Capturing a real call
 
-`vc call` sends one request with the project's auth and active profile and prints the response. Adding `--save-as-test` writes it as a test, with expectations suggested from what came back (status, schema when known, the fields you name with `--expect-field`); the web and terminal UIs offer the same with checkboxes.
+`vc call` sends one request with the project's auth and active profile and prints the response. Adding `--save-as-test` writes it as a test, expecting what came back: the status, and the body fields you name with `--expect-field body.<path>` at the values they had (no schema is inferred, D176); the web and terminal UIs offer the same with checkboxes.
 
 ```
 $ vc call users#deactivate --var id=u_7f3k29qp --profile staging --save-as-test users.crud#deactivatesUser
 200 OK · 148 ms · api expect passed
-✓ wrote users.crud#deactivatesUser to services/users/crud.test.yaml:72 (expects status 200, schema User)
+✓ wrote users.crud#deactivatesUser to services/users/crud.test.yaml:72
 ```
+
+Without `--save-as-test` it prints the status line, then the body (indented when it is JSON) and, when the api's `expect` fails, the failed check after `✗`; secrets are masked as in reports. `--var` values are strings and beat the vars the api and the config define. A cleanup that fails is a warning; it does not change the exit code.
 
 ### Importing from a HAR file
 
@@ -488,28 +508,30 @@ $ vc import har ~/Downloads/checkout-session.har --flow orders.checkout#recorded
 What the import does, in order:
 
 1. **Filters noise.** It drops static assets, third-party hosts (analytics, CDNs) and `OPTIONS` preflights; `--include-host` and `--keep-static` override this.
-2. **Maps hosts to api files.** Each host goes to the api file whose `baseUrl` resolves to it for the active profile; an unknown host creates a new file following the naming conventions.
+2. **Maps hosts to api files.** Each host goes to the api file whose `baseUrl` renders to it under the active profile (`--profile`), the longest base path winning; an unknown host creates a new api file named by the conventions (`api.shop.test` → `shop`), with a base-URL var such as `shopUrl` added to the config. A new host whose file ID already has an api file pointing elsewhere is refused: pass the `--profile` whose vars point that file there, or rename the file first.
 3. **Turns requests into apis.**
    - IDs come from the method and path (`POST /carts/{id}/items` → `addItem`).
    - IDs and UUIDs in paths become vars (`/orders/ord_8Kq2Tz` → `/orders/${var.orderId}`).
    - Repeated calls are merged into one api.
-   - A request matching an existing api is reused rather than duplicated.
+   - A request with the method and path shape of an existing api is reused rather than duplicated; the rest are appended to the file, the base URL's path taken off theirs.
    - Body fields become api vars, with the recorded values as defaults.
-4. **Removes secrets.** Authorization headers and session cookies are never written. They map to the file's auth definition, or to a suggested new one, and API keys in query strings become `${secret.…}` references with a reminder to add them to `.env.schema`.
-5. **Optionally writes a flow test** (`--flow <testId>`). This is one test whose steps replay the session, with values chained: the order ID saved from the place response feeds the next get.
-6. **Checks before writing.** `--dry-run` prints the plan and the diff of every file without writing.
+4. **Removes secrets.** Authorization headers and cookies are never written. They map to the file's auth, or the line suggests one (`vc new auth payAuth --type bearer`). Query or body fields with secret-like names, and high-entropy values, become `${secret.<FILE>_<FIELD>}` references (`${secret.PAY_API_KEY}`), declared in `.env.schema` when the project has one; otherwise the line says what to add to it. A recorded value never reaches a written file, the output or the dry-run diff.
+5. **Optionally writes a flow test** (`--flow <fileId>#<testId>`, or a bare test ID for `<firstFile>.recorded`). This is one test whose steps replay the session, with values chained: the cart ID saved from the create response feeds the next calls. Its calls point at the apis reused or added, with their var names. A test ID the file already has is refused.
+6. **Checks before writing.** The result must compile, or nothing is written. `--dry-run` prints the same lines and the diff of every file without writing.
 
 ```
-read 46 entries · filtered 21 static, 6 third-party, 5 OPTIONS → 14 requests
-  users.staging.shop.example     → users     (existing)   2 matched, 1 new
-  carts.staging.shop.example     → carts     (existing)   3 matched (addItem merged ×3)
-  orders.staging.shop.example    → orders    (existing)   2 matched
-  payments.staging.shop.example  → payments  (existing)   1 matched, 1 new
-secrets  authorization → auth shopOauth · cookie session dropped · query api_key → ${secret.PAYMENTS_KEY}
-✓ updated 2 api files · flow orders.checkout#recordedCheckout (6 steps)
+$ vc import har checkout-session.har --flow shop.checkout#replaysCheckout
+✓ imported checkout-session.har
+read 12 entries · filtered 3 static, 1 third-party, 1 OPTIONS → 7 requests
+  api.shop.test → shop (existing)  1 matched, 4 new · auth shopToken
+  pay.shop.test → pay (new)  1 new · no auth yet: `vc new auth payAuth --type bearer`
+secrets  header authorization, cookie dropped → each file's auth · body field token → ${secret.PAY_TOKEN} · body field nonce → ${secret.PAY_NONCE} · query api_key → ${secret.PAY_API_KEY} · body field password → ${secret.SHOP_PASSWORD}
+.env.schema  declares PAY_TOKEN, PAY_NONCE, PAY_API_KEY, SHOP_PASSWORD
+flow shop.checkout#replaysCheckout (7 steps)
+POST /v1/carts/${var.cartId}/items: recorded 2 times, merged into one api
 ```
 
-A host that no api file's `baseUrl` resolves to becomes a new api file named by the conventions, with a base-URL var added to the config for the active profile.
+The lines after the first are the plan: what was read and filtered, where each host went (`existing` or `new`, apis matched and added), what became a secret reference, what `.env.schema` gains, the flow test, then the importer's notes, one line per message (`GET /a and 2 more: …` when several places share it).
 
 ## OpenAPI import and sync
 
@@ -520,7 +542,7 @@ An api file can be generated from an OpenAPI spec and kept in step with it, whil
 | Source | Works | Notes |
 | --- | --- | --- |
 | URL | `vc import openapi https://users.staging.shop.example/v3/api-docs` | The usual case for Spring, FastAPI, NestJS and others that serve their spec; private URLs take headers (below) |
-| File in your repo or next to it | `vc import openapi ../backend/openapi.json` | For monorepos, or a spec checked in by the backend team |
+| File in your repo | `vc import openapi specs/openapi.json` | For monorepos, or a spec checked in by the backend team; the path is from the working folder and must be inside the project (a file outside it is refused) |
 | JSON or YAML | both | Detected from content, not the extension |
 | OpenAPI 3.0, 3.1, or Swagger 2.0 | all | Swagger 2.0 is converted to OpenAPI 3.1 on import |
 | A spec split over several files | yes | `$ref`s to other files are resolved and bundled |
@@ -541,7 +563,7 @@ source:
 
 ### Do you need to keep a copy of the spec?
 
-You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; generated tests also point their schemas into it. Runs never need the spec or the network to reach it.
+You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; generated tests are to point their schemas into it (not drafted yet). Runs never need the spec or the network to reach it.
 
 ### What sync does
 
@@ -553,24 +575,26 @@ You don't keep one yourself, but Vibranium does: every import and sync writes `o
 | changed | unchanged | The api is updated from the spec |
 | changed | changed the same way | Nothing to do |
 | changed | changed differently | Conflict: reported, the api is left as it is, until `--take spec`, `--take mine` or `--resolved` |
-| new operation | — | New api added (and its tests, with `--tests`) |
+| new operation | — | New api added (its tests are not drafted yet) |
 | operation removed | — | The api is kept and marked `deprecated: true`; `vc check` warns where tests still call it |
 
-- **What sync owns:** `method`, `path`, path and query parameters (as vars), `operationId` and the request content type. It never touches IDs, names, `expect`, `save`, `cleanup`, hooks or the defaults you set. When the spec adds a required body field, sync tells you rather than rewriting your body.
+- **What sync owns:** `method`, `path`, each `query` entry and the `content-type` header. A value it takes from the spec that reads a var the api lacks (`${var.cursor}`) brings that var with the spec's default. It never touches IDs, names, `body`, `expect`, `save`, `cleanup`, hooks or the defaults you set, and does not yet write tests for new operations. A change it cannot make in the file as written (taking an entry out of a `{..}` map) is refused, naming the api, for you to make by hand.
+- **Which files:** `vc sync` with no file IDs syncs every api file with a `source` key; a file named that has none is refused.
+- **Conflicts:** an api whose field both sides changed differently, or a new operation whose ID the file already uses, is left as it is and listed with how to settle it. `--take spec <apiId>` takes the spec's values; `--take mine <apiId>` keeps yours; after editing by hand, `--resolved <apiId>` keeps the file as it is. Until then its snapshot entry stays as it was, together with the old snapshot's components it may refer to, so the next sync shows the same conflict. A conflict does not change the exit code of `vc sync`; under `--check` it exits 4, like drift.
 - **Matching:** apis are matched to operations by `operationId`, so you can rename an api ID freely. New IDs come from the operationId in camelCase; without one, from the method and path (`POST /users/{id}/deactivate` → `postUsersIdDeactivate`).
-- **Previewing and CI:** `vc sync --dry-run` prints the changes without writing anything. `vc sync --check` writes nothing and exits with code 4 when any spec has changed since its snapshot (D127), so a CI job can flag drift before tests start failing.
+- **Previewing and CI:** `vc sync --dry-run` prints the changes and their diffs without writing anything. `vc sync --check` prints them, writes nothing and exits with code 4 when any spec has changed since its snapshot (D127), so a CI job can flag drift before tests start failing.
 
 ```
 $ vc sync users
-fetched https://users.staging.shop.example/v3/api-docs (OpenAPI 3.0.3, 8 operations)
-  ↑ users#list     query param cursor → var cursor
-  ↑ users#get      path /users/{id} → /users/{userId}
-  + users#restore  new operation POST /users/{userId}/restore
-  = users#create   kept your edit (header x-idempotency-key)
-  ! users#update   conflict: spec changed PUT → PATCH, you changed the path
-                   resolve: vc sync users --take spec users#update | --take mine | edit, then --resolved
-  - users#legacyImport  removed from the spec → kept, marked deprecated
-snapshot openapi/users.yaml updated · 1 conflict left
+fetched https://users.staging.shop.example/v3/api-docs (8 operations)
+  ↑ users#list query cursor none → ${var.cursor}
+  ↑ users#get path /users/${var.id} → /users/${var.userId}
+  + users#restoreUser new operation POST /users/${var.userId}/restore
+  = users#create kept your content type
+  ! users#update conflict: the spec and the file both changed method
+    resolve: vc sync users --take spec users#update | --take mine users#update | edit, then --resolved users#update
+  - users#legacyImport removed from the spec: kept, marked deprecated
+✓ synced · snapshot openapi/users.yaml updated · 1 conflict left
 ```
 
 ## Skipping tests and files
@@ -666,7 +690,7 @@ Console formats: `spec` (above, the default in a terminal), `dots` (compact), `j
 | 1 | At least one test failed or was blocked |
 | 2 | Nothing ran: `vc check` errors, an empty selection, or no active profile |
 | 3 | A load threshold was breached |
-| 4 | `vc sync --check` found drift |
+| 4 | `vc sync --check` found drift or a conflict left unsettled; a plain `vc sync` that leaves conflicts exits 0 |
 | 70 | Internal error in Vibranium: prints a "please report" hint and the path of a redacted debug bundle to attach (D127) |
 | 130 | Cancelled by a signal (Ctrl-C); cleanups have run (D127) |
 
@@ -686,6 +710,6 @@ A typical CI job:
 
 - **Autocomplete and validation in YAML.** `vc init` adds a JSON Schema hint to each file, so VS Code, JetBrains IDEs and Neovim (via the YAML language server) complete keys and flag mistakes as you type. A language server (`vc lsp`), which also completes api and test IDs and vars and jumps to definitions, follows in a later release.
 - **Shell completion.** `vc completion zsh` (or bash, fish, powershell) completes commands, flags, and the project's own api, test, file and tag IDs, so `vc run users.c<Tab>` works.
-- **Watch mode.** `vc watch` re-runs only the tests affected by a save: editing an api file re-runs the tests that call it, editing a dataset re-runs the tests that read it.
+- **Watch mode.** `vc watch` re-runs only the tests affected by a save: editing a test file re-runs its tests, editing an api file re-runs the tests that call it, and editing the config, `.env` or `.env.schema` re-runs them all. Saving a dataset, schema or hook file does not re-run anything yet.
 - **One-keystroke loops in the TUI.** `vc tui` offers the same selectors with search, `r` to re-run, `f` for failures only, and inline editing with checks before saving.
 - **Explain anything.** `vc explain orders.checkout#placesOrder` shows the test exactly as it will run for the active profile: URLs, every var with the level that set it, auth, the merged checks and the lifecycle work around it. It is the first thing to try when a value isn't what you expected.

@@ -1,0 +1,9 @@
+apis:
+  - id: create
+    path: /users
+    cleanup:
+      call: remove
+      vars: {userId: '${response.body.id}'}
+  - id: remove
+    method: DELETE
+    path: /users/${var.userId}

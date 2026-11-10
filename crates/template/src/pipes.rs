@@ -5,10 +5,12 @@ use serde_json::Value;
 use vc_diagnostics::{Diagnostic, Fix, TextEdit};
 use vc_model::PipeCall;
 
+use crate::pipe_fns::PipeFn;
 use crate::{TemplateError, codes};
 
 /// The type of a value as far as the compiler can tell before the run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ValueType {
     /// Not known until run time; fits everywhere.
     Any,
@@ -57,6 +59,7 @@ impl fmt::Display for ValueType {
 
 /// The kind of literal a pipe argument must be.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ArgType {
     /// Any literal.
     Any,
@@ -87,6 +90,7 @@ impl fmt::Display for ArgType {
 
 /// What a pipe takes and gives.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct PipeSignature {
     /// One entry per argument, in order.
     pub args: &'static [ArgType],
@@ -104,11 +108,31 @@ impl PipeSignature {
     }
 }
 
-/// One registered pipe. Run-time application is added here in M2.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// One registered pipe: what it takes and gives, and what it does at run time.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct PipeDef {
     /// What it takes and gives.
     pub signature: PipeSignature,
+    /// What it does.
+    pub apply: PipeFn,
+    /// Whether it also runs on a value that is missing, given as `null` (`default`).
+    pub takes_missing: bool,
+}
+
+impl PipeDef {
+    /// A pipe with `signature` that runs `apply` on values that are present.
+    #[must_use]
+    pub const fn new(signature: PipeSignature, apply: PipeFn) -> Self {
+        Self { signature, apply, takes_missing: false }
+    }
+
+    /// The same pipe, also run on a missing value, given as `null`.
+    #[must_use]
+    pub const fn taking_missing(mut self) -> Self {
+        self.takes_missing = true;
+        self
+    }
 }
 
 /// The pipes by name: the built-ins, plus any a plugin registers under its prefix.
@@ -122,7 +146,7 @@ impl PipeRegistry {
     #[must_use]
     pub fn builtin() -> Self {
         let pipes = crate::builtin_pipes::BUILTIN.iter();
-        Self { pipes: pipes.map(|(name, signature)| ((*name).to_owned(), PipeDef { signature: *signature })).collect() }
+        Self { pipes: pipes.map(|(name, def)| ((*name).to_owned(), *def)).collect() }
     }
 
     /// Adds a plugin pipe, named under its plugin's prefix: `acme.mask`.
@@ -131,7 +155,7 @@ impl PipeRegistry {
     ///
     /// [`TemplateError::UnprefixedPipe`] for a name without a `prefix.`, and
     /// [`TemplateError::DuplicatePipe`] for a name already registered.
-    pub fn register(&mut self, name: &str, signature: PipeSignature) -> Result<(), TemplateError> {
+    pub fn register(&mut self, name: &str, def: PipeDef) -> Result<(), TemplateError> {
         let words: Vec<&str> = name.split('.').collect();
         if words.len() < 2 || words.contains(&"") {
             return Err(TemplateError::UnprefixedPipe(name.to_owned()));
@@ -139,7 +163,7 @@ impl PipeRegistry {
         if self.pipes.contains_key(name) {
             return Err(TemplateError::DuplicatePipe(name.to_owned()));
         }
-        self.pipes.insert(name.to_owned(), PipeDef { signature });
+        self.pipes.insert(name.to_owned(), def);
         Ok(())
     }
 

@@ -3,7 +3,7 @@ use std::ops::Range;
 use serde::Serialize;
 use vc_model::{SourceFiles, SourceSpan};
 
-use super::{Render, path_of};
+use super::Render;
 use crate::{Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, Label, Severity, Summary, TextEdit};
 
 /// Renders diagnostics as the stable JSON of `vc check --json`, for scripts, editors and agents.
@@ -11,6 +11,7 @@ use crate::{Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, Label, Severit
 /// Spans name the file by path, with 1-based lines and character columns; fix edits keep
 /// their byte ranges. The shape is documented in the LLD, "Diagnostics and fixes".
 #[derive(Clone, Copy, Debug, Default)]
+#[expect(clippy::exhaustive_structs, reason = "unit renderer other crates build; every user is in this repo (D160)")]
 pub struct JsonRenderer;
 
 impl Render for JsonRenderer {
@@ -81,7 +82,7 @@ struct Location<'a> {
 impl<'a> Location<'a> {
     fn new(span: &SourceSpan, files: &'a SourceFiles) -> Result<Self, DiagnosticsError> {
         Ok(Self {
-            path: path_of(files, span.file)?.as_str(),
+            path: super::path_of(files, span.file)?.as_str(),
             line: span.start.line,
             column: span.start.column,
             end_line: span.end.line,
@@ -114,6 +115,10 @@ struct JsonEdit<'a> {
 
 impl<'a> JsonEdit<'a> {
     fn new(edit: &'a TextEdit, files: &'a SourceFiles) -> Result<Self, DiagnosticsError> {
-        Ok(Self { path: path_of(files, edit.file)?.as_str(), range: edit.range.clone(), new_text: &edit.new_text })
+        Ok(Self {
+            path: super::path_of(files, edit.file)?.as_str(),
+            range: edit.range.clone(),
+            new_text: &edit.new_text,
+        })
     }
 }

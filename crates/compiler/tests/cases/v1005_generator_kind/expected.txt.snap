@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1005_generator_kind/project
+---
+error[V1005]: this generator has no kind
+ --> vibranium.config.yaml:7:5
+  |
+7 |   - id: teamName
+  |     ^^^^^^^^^^^^
+  = help: write one of `fromRegExp`, `oneOf`, `int`, `lorem`

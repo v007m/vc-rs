@@ -34,6 +34,7 @@ const TABLE: &[(&str, &[&str])] = &[
     ("vc-testkit", &["vc-model", "vc-interfaces"]),
     ("vc-arch-tests", &[]),
     ("vc-mock-server", &[]),
+    ("vc-demo", &[]),
 ];
 
 /// L0–L4: the engine is the composition root, the only crate that names adapters.

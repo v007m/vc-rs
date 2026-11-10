@@ -1,0 +1,25 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2103_dataset_column/project
+---
+error[V2103]: ${example.nmae} names no column of this test's examples
+ --> services/geo/cities.test.yaml:6:17
+  |
+4 |     examples: ${dataset.cities}
+  |               ----------------- the rows
+5 |     vars:
+6 |       cityName: ${example.nmae}
+  |                 ^^^^^^^^^^^^^^^ no row has `nmae`
+  = help: the columns are `country`, `name`
+  = help: did you mean `name`?
+  = fix: Replace with name (certain)
+
+error[V2103]: ${example.country} names no column of this test's examples
+  --> services/geo/cities.test.yaml:11:17
+   |
+ 9 |     examples: {$file: rows.yaml}
+   |               ------------------ the rows
+10 |     vars:
+11 |       cityName: ${example.country}
+   |                 ^^^^^^^^^^^^^^^^^^ no row has `country`
+   = help: the columns are `name`

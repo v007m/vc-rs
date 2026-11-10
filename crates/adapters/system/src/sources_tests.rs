@@ -2,8 +2,8 @@ use std::fs;
 use std::path::Path;
 
 use tempfile::TempDir;
-use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider};
-use vc_testkit::source_provider_suite;
+use vc_interfaces::{Discovery, SourceError, SourceFilter, SourceProvider, SourceWriter};
+use vc_model::SourcePath;
 
 use super::FsSources;
 
@@ -28,7 +28,7 @@ fn paths(found: &Discovery) -> Vec<&str> {
 #[test]
 fn meets_the_source_provider_contract() {
     let mut dirs = Vec::new();
-    source_provider_suite(&mut |files| {
+    vc_testkit::source_provider_suite(&mut |files| {
         let dir = project(files);
         let sources = FsSources::new(dir.path()).unwrap();
         dirs.push(dir);
@@ -60,12 +60,42 @@ fn a_missing_root_is_an_error() {
     assert!(matches!(sources.discover(&SourceFilter::default()), Err(SourceError::Root { .. })));
 }
 
+#[test]
+fn a_folder_read_as_a_file_is_named_as_one() {
+    let dir = project(&[("bruno/shop/carts.bru", b"")]);
+    let found = FsSources::new(dir.path()).unwrap().read(&[SourcePath::new("bruno/shop").unwrap()]).unwrap();
+    let reason = "it is a folder, not a file".to_owned();
+    assert_eq!(found.problems, [SourceError::Read { path: "bruno/shop".to_owned(), reason }]);
+}
+
+#[test]
+fn meets_the_source_writer_contract() {
+    let mut dirs = Vec::new();
+    vc_testkit::source_writer_suite(&mut |files| {
+        let dir = project(files);
+        let writer = FsSources::new(dir.path()).unwrap();
+        let reader = FsSources::new(dir.path()).unwrap();
+        dirs.push(dir);
+        (Box::new(writer), Box::new(reader))
+    });
+    assert!(!dirs.is_empty(), "the suite built writers");
+}
+
+#[test]
+fn a_write_the_system_refuses_names_its_file() {
+    let dir = project(&[("taken", b"a file, not a folder")]);
+    let sources = FsSources::new(dir.path()).unwrap();
+    let refused = sources.write(&SourcePath::new("taken/x.api.yaml").unwrap(), "");
+    assert!(matches!(refused, Err(SourceError::Write { path, .. }) if path == "taken/x.api.yaml"));
+}
+
 #[cfg(unix)]
 mod unix {
     use std::fs;
     use std::os::unix::fs::{PermissionsExt, symlink};
 
-    use vc_interfaces::SourceError;
+    use vc_interfaces::{SourceError, SourceWriter};
+    use vc_model::SourcePath;
 
     use super::{FsSources, discover, paths, project};
 
@@ -115,6 +145,24 @@ mod unix {
         fs::set_permissions(&locked, fs::Permissions::from_mode(0o600)).unwrap();
         assert_eq!(paths(&found), ["ok.api.yaml"]);
         assert!(matches!(&found.problems[..], [SourceError::Read { path, .. }] if path == "locked.api.yaml"));
+    }
+
+    #[test]
+    fn refuses_to_write_through_a_link_out_of_the_root() {
+        let outside = project(&[("services/x.api.yaml", b"kept\n")]);
+        let dir = project(&[]);
+        symlink(outside.path().join("services"), dir.path().join("services")).unwrap();
+        symlink(outside.path().join("services/x.api.yaml"), dir.path().join("x.api.yaml")).unwrap();
+        let sources = FsSources::new(dir.path()).unwrap();
+        for path in ["services/x.api.yaml", "services/new/y.api.yaml", "x.api.yaml"] {
+            let refused = sources.write(&SourcePath::new(path).unwrap(), "changed\n");
+            assert_eq!(refused, Err(SourceError::OutsideRoot { path: path.to_owned() }), "{path}");
+        }
+        assert_eq!(fs::read_to_string(outside.path().join("services/x.api.yaml")).unwrap(), "kept\n");
+        assert!(!outside.path().join("services/new").exists());
+        let removed = sources.remove(&SourcePath::new("services/x.api.yaml").unwrap());
+        assert_eq!(removed, Err(SourceError::OutsideRoot { path: "services/x.api.yaml".to_owned() }));
+        assert!(outside.path().join("services/x.api.yaml").exists());
     }
 
     #[test]

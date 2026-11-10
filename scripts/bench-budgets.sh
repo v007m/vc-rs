@@ -34,6 +34,10 @@ check() {
 check compile/cold_1000 500
 check compile/warm_1000 100
 check compile/changed_1000 0
+check request/overhead 0.05
+# load/5k_users is CPU-ms per wall second: 5,600 is 70% of 8 cores.
+check load/5k_users 5600
 check startup/version 20
+check report/html_10k 1000
 
 exit "$failed"

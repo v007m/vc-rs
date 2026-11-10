@@ -3,7 +3,7 @@ use std::time::Duration;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing;
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -16,11 +16,11 @@ const KB_CHUNK: usize = 1000;
 /// Routes with scripted behaviour: delays, failures, polling, fixed statuses and large bodies.
 pub fn routes(store: &Store) -> Router {
     Router::new()
-        .route("/slow", get(slow))
-        .route("/flaky", get(flaky))
-        .route("/poll/{id}", get(poll))
-        .route("/status/{code}", get(status))
-        .route("/large", get(large))
+        .route("/slow", routing::get(slow))
+        .route("/flaky", routing::get(flaky))
+        .route("/poll/{id}", routing::get(poll))
+        .route("/status/{code}", routing::get(status))
+        .route("/large", routing::get(large))
         .with_state(store.clone())
 }
 

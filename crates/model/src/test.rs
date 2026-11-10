@@ -2,11 +2,15 @@ use indexmap::IndexMap;
 
 use crate::{
     ApiId, AuthRef, BodySpec, CacheSpec, Duration, Examples, Expect, FileId, HookRef, Lifecycle, Loop, Method, Owner,
-    Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs,
+    Poll, Retry, SaveSpec, Skip, SourceSpan, Sym, Tag, Template, TestId, VarDefs, VarName,
 };
 
 /// One test file: what its tests share.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct TestFile {
     /// The file ID, from the path (D139).
     pub id: FileId,
@@ -26,6 +30,10 @@ pub struct TestFile {
 
 /// One test.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Test {
     /// `<fileId>#<id>` (D138).
     pub id: TestId,
@@ -63,6 +71,10 @@ pub struct Test {
 
 /// What a test runs.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum TestBody {
     /// `call:` one api.
     Call(crate::ActionId),
@@ -72,6 +84,10 @@ pub enum TestBody {
 
 /// One entry in a lifecycle block, a test's steps, or a flow auth.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Action {
     /// `id`; needed in `beforeRun` and `beforeAll` when the action saves values.
     pub id: Option<Sym>,
@@ -97,8 +113,12 @@ pub struct Action {
     pub poll: Option<Poll>,
     /// `retry`.
     pub retry: Option<Retry>,
+    /// `timeout`: this action's own limit (D192), over the source its kind uses without it.
+    pub timeout: Option<Duration>,
     /// `keep`: skip the api's cleanup.
     pub keep: bool,
+    /// `provides`: the names a `function:` or `test:` action says it saves (D128).
+    pub provides: Vec<VarName>,
     /// `cache`.
     pub cache: Option<CacheSpec>,
     /// `repeat` or `forEach`.
@@ -107,8 +127,39 @@ pub struct Action {
     pub span: SourceSpan,
 }
 
+impl Action {
+    /// An action of `kind` written at `span`, run by its instance, with nothing else set.
+    #[must_use]
+    pub fn new(kind: ActionKind, span: SourceSpan) -> Self {
+        Self {
+            id: None,
+            kind,
+            owner: Owner::Instance,
+            vars: VarDefs::default(),
+            auth: None,
+            headers: IndexMap::new(),
+            query: IndexMap::new(),
+            body: None,
+            expect: Expect::default(),
+            save: SaveSpec::default(),
+            poll: None,
+            retry: None,
+            timeout: None,
+            keep: false,
+            provides: Vec::new(),
+            cache: None,
+            repeat: None,
+            span,
+        }
+    }
+}
+
 /// The kinds of action.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum ActionKind {
     /// `call:` an api.
     Call(ApiId),
@@ -119,16 +170,22 @@ pub enum ActionKind {
     /// `command:` a shell command.
     Command(Template),
     /// A request written in place, in flow auth steps only.
-    Inline(InlineRequest),
+    Inline(Box<InlineRequest>),
 }
 
 /// A request written in place in a flow auth.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct InlineRequest {
     /// `method`.
     pub method: Method,
     /// `url`.
     pub url: Template,
+    /// `query`, appended to the URL.
+    pub query: IndexMap<String, Template>,
     /// `headers`.
     pub headers: IndexMap<String, Template>,
     /// `body`.

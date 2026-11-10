@@ -1,9 +1,10 @@
 use std::fs;
 use std::path::Path;
 
-use assert_cmd::{Command, cargo::cargo_bin_cmd};
+use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::PredicateBooleanExt;
-use predicates::str::contains;
+use predicates::str;
 use tempfile::TempDir;
 
 const CONFIG: (&str, &[u8]) =
@@ -43,7 +44,7 @@ fn a_second_check_reads_the_compiled_files_back_from_the_cache() {
     let summary = "0 errors · 0 warnings · 2 files checked\n";
     check(dir.path()).assert().success().stdout(summary).stderr("");
     let blob = fs::read(dir.path().join(".vibranium/cache/compile.bin")).unwrap();
-    assert!(blob.starts_with(b"VCCC\x06\0\0\0"), "layout version 6");
+    assert!(blob.starts_with(b"VCCC\x0b\0\0\0"), "layout version 11");
     let body = String::from_utf8_lossy(&blob[12..]);
     assert!(body.contains("services/users/users.api.yaml") && body.contains("getUser"), "{body}");
     check(dir.path()).assert().success().stdout(summary).stderr("");
@@ -52,7 +53,7 @@ fn a_second_check_reads_the_compiled_files_back_from_the_cache() {
 #[test]
 fn finds_the_project_from_a_subfolder() {
     let dir = project(&[CONFIG, USERS]).unwrap();
-    check(&dir.path().join("services/users")).assert().success().stdout(contains("2 files checked"));
+    check(&dir.path().join("services/users")).assert().success().stdout(str::contains("2 files checked"));
 }
 
 #[test]
@@ -63,8 +64,8 @@ fn reports_an_unreadable_file_and_exits_2() {
     check(dir.path())
         .assert()
         .code(2)
-        .stdout(contains(expected).and(contains("= help: save the file as UTF-8")))
-        .stdout(contains("1 error · 0 warnings · 3 files checked\n").and(contains("\u{1b}[").not()));
+        .stdout(str::contains(expected).and(str::contains("= help: save the file as UTF-8")))
+        .stdout(str::contains("1 error · 0 warnings · 3 files checked\n").and(str::contains("\u{1b}[").not()));
 }
 
 #[test]
@@ -80,18 +81,18 @@ fn prints_json_with_the_flag() {
 fn reports_only_on_the_paths_given() {
     let dir = project(&[CONFIG, USERS, BAD]).unwrap();
     check(dir.path()).arg("services/users").assert().success().stdout("0 errors · 0 warnings · 1 file checked\n");
-    check(&dir.path().join("services")).arg("orders").assert().code(2).stdout(contains("1 error"));
+    check(&dir.path().join("services")).arg("orders").assert().code(2).stdout(str::contains("1 error"));
 }
 
 #[test]
 fn refuses_a_path_with_no_definition_files() {
     let dir = project(&[CONFIG, USERS, ("docs/readme.md", b"")]).unwrap();
-    check(dir.path()).arg("docs").assert().code(2).stderr(contains("error: docs: no definition file"));
-    check(dir.path()).arg("missing").assert().code(2).stderr(contains("error: missing: not a file or folder"));
+    check(dir.path()).arg("docs").assert().code(2).stderr(str::contains("error: docs: no definition file"));
+    check(dir.path()).arg("missing").assert().code(2).stderr(str::contains("error: missing: not a file or folder"));
 }
 
 #[test]
 fn refuses_to_run_outside_a_project() {
     let dir = project(&[USERS]).unwrap();
-    check(dir.path()).assert().code(2).stdout("").stderr(contains("error: no vibranium.config.yaml in"));
+    check(dir.path()).assert().code(2).stdout("").stderr(str::contains("error: no vibranium.config.yaml in"));
 }

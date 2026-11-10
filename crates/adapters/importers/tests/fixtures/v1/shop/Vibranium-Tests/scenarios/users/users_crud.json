@@ -1,0 +1,128 @@
+{
+    "id": "7b1e2c4a-0f3d-4d8e-9a51-2f6c8e0d1a77",
+    "app": "shop",
+    "name": "users_crud",
+    "email": "qa@shop.example",
+    "created_on": "2020-6-2 14:05:11",
+    "tags": "crud,smoke",
+    "scripts": {
+        "before-scenario": "logger.log('users_crud starting')"
+    },
+    "endpoints": [
+        {
+            "name": "01_list_users",
+            "description": "List all users",
+            "url": "/api/v1/users",
+            "expect": {
+                "status": 200,
+                "headers": {
+                    "content-type": "application/json"
+                },
+                "response": {
+                    "There is at least one user": "{response.length} > 0",
+                    "Every user has a 32 character id": "{response.all.id}.every(id => id.length === 32)",
+                    "At least one user is an admin": "{response.all.isAdmin}.filter(isAdmin => isAdmin).length >= 1"
+                },
+                "timing": {
+                    "total": "<700",
+                    "firstByte": "<300"
+                }
+            }
+        },
+        {
+            "name": "02_create_user",
+            "description": "Create a new user with a random name",
+            "url": "/api/v1/users",
+            "method": "POST",
+            "variables": {
+                "userName": "{dataset.names}",
+                "email": "[a-z]{8}@shop.example",
+                "role": "[ADMIN|MEMBER]"
+            },
+            "payload": {
+                "name": "{userName}",
+                "email": "{email}",
+                "role": "{role}",
+                "bio": "{lorem_50}"
+            },
+            "repeat": 3,
+            "repeat-delay": 200,
+            "expect": {
+                "status": 201,
+                "response": {
+                    "User id is valid": "{response.id.length} === 32",
+                    "User name is the one sent": "'{response.name}' === '{userName}'",
+                    "User is not an admin by default": "{response.isAdmin} === false"
+                },
+                "timing": {
+                    "total": "<1000"
+                }
+            }
+        },
+        {
+            "name": "03_get_user",
+            "description": "Get the user that was just created",
+            "url": "/api/v1/users/{userId}",
+            "dependencies": [
+                {
+                    "api": "02_create_user",
+                    "variable": "userId",
+                    "path": "response.id"
+                }
+            ],
+            "expect": {
+                "status": 200,
+                "response": {
+                    "schema": "!users/user"
+                }
+            }
+        },
+        {
+            "name": "04_update_user",
+            "description": "Rename a user",
+            "url": "/api/v1/users/{userId}",
+            "method": "PUT",
+            "language": "de",
+            "timeout": 5000,
+            "variables": {
+                "newName": "{dataset.harrypotter}"
+            },
+            "payload": {
+                "name": "{newName}"
+            },
+            "dependencies": [
+                {
+                    "api": "02_create_user",
+                    "variable": {
+                        "userId": "response.id",
+                        "oldName": "response.name"
+                    }
+                }
+            ],
+            "expect": {
+                "status": 200,
+                "response": {
+                    "Name changed": "'{response.name}' !== '{oldName}'"
+                }
+            }
+        },
+        {
+            "name": "05_delete_user",
+            "description": "Delete a user as an admin",
+            "url": "/api/v1/users/{userId}",
+            "method": "DELETE",
+            "system": "shop_admin",
+            "dependencies": [
+                {
+                    "api": "02_create_user",
+                    "variable": {
+                        "userId": "id"
+                    }
+                }
+            ],
+            "expect": {
+                "status": 204
+            }
+        }
+    ]
+}

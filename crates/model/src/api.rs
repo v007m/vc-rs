@@ -1,12 +1,16 @@
 use indexmap::IndexMap;
 
 use crate::{
-    ActionId, ApiId, AuthRef, Duration, Expect, FileId, Method, Path, RequestHooks, SaveSpec, SourceSpan, Template,
-    TemplateValue, VarDefs,
+    ActionId, ApiId, AuthRef, Duration, Expect, FileId, HttpRetry, Matcher, Method, Path, RequestHooks, SaveSpec,
+    SourceSpan, Template, TemplateValue, VarDefs,
 };
 
 /// One api file: what its apis share.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct ApiGroup {
     /// The file ID, from the path (D139).
     pub id: FileId,
@@ -22,12 +26,33 @@ pub struct ApiGroup {
     pub vars: VarDefs,
     /// `beforeRequest` and `afterResponse` for every api in the file.
     pub hooks: RequestHooks,
+    /// `source`: the API spec the file syncs from.
+    pub source: Option<ApiSource>,
     /// The apis, in file order.
     pub apis: Vec<ApiId>,
 }
 
+/// An api file's `source`: the API spec `vc sync` reads.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct ApiSource {
+    /// `openapi`: a URL or a project-relative file, JSON or YAML, as written.
+    pub openapi: String,
+    /// `headers` sent when fetching a protected URL.
+    pub headers: IndexMap<String, Template>,
+    /// `include`: only operations with one of these tags; every operation when empty.
+    pub include: Vec<String>,
+}
+
 /// One api: a request and the checks that always hold for it.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Api {
     /// `<fileId>#<id>` (D138).
     pub id: ApiId,
@@ -51,22 +76,33 @@ pub struct Api {
     pub auth: AuthRef,
     /// `timeout`.
     pub timeout: Option<Duration>,
+    /// `http.retry`, its keys over the config's; `None` when the api writes none (D143).
+    pub http_retry: Option<HttpRetry>,
     /// `expect`; `status: 2xx` when none is written.
     pub expect: Expect,
     /// `save`.
     pub save: SaveSpec,
+    /// `saveOn`: the statuses on which `save` runs; the api's `expect.status`, else `2xx`, when
+    /// none is written (D191).
+    pub save_on: Matcher,
     /// `cleanup`: a call action with vars templated over the response.
     pub cleanup: Option<ActionId>,
     /// `beforeRequest` and `afterResponse`.
     pub hooks: RequestHooks,
     /// `deprecated`.
     pub deprecated: bool,
+    /// `operationId`: the spec operation the api was imported from, kept by sync.
+    pub operation_id: Option<String>,
     /// The whole item.
     pub span: SourceSpan,
 }
 
 /// A request body.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum BodySpec {
     /// No body.
     #[default]
@@ -96,6 +132,10 @@ pub enum BodySpec {
 
 /// One part of a multipart body.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_enums,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
 pub enum PartSpec {
     /// A field value.
     Value(TemplateValue),

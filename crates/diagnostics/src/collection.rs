@@ -4,6 +4,10 @@ use crate::{Diagnostic, Severity};
 
 /// How many diagnostics there are of each severity.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct Summary {
     /// Diagnostics with severity `Error`.
     pub errors: usize,

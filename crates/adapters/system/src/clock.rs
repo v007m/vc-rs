@@ -5,8 +5,12 @@ use vc_model::Date;
 
 const SECONDS_PER_DAY: i64 = 86_400;
 
-/// The system clock: today's date in UTC.
+/// The system clock: today's date in UTC, and the time in milliseconds since the epoch.
 #[derive(Clone, Copy, Debug, Default)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "unit adapter built by the engine builder, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct SystemClock;
 
 impl Clock for SystemClock {
@@ -16,6 +20,12 @@ impl Clock for SystemClock {
             Err(before) => i64::try_from(before.duration().as_secs()).map_or(i64::MIN, |s| -s),
         };
         Date::from_unix_days(seconds.div_euclid(SECONDS_PER_DAY)).unwrap_or(Date::UNIX_EPOCH)
+    }
+
+    fn now_ms(&self) -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |after| u64::try_from(after.as_millis()).unwrap_or(u64::MAX))
     }
 }
 
@@ -31,5 +41,6 @@ mod tests {
     fn passes_the_clock_suite_and_reads_a_recent_day() {
         clock_suite(&SystemClock);
         assert!(SystemClock.today() >= Date::new(2026, 1, 1).unwrap());
+        assert!(SystemClock.now_ms() > 1_767_225_600_000, "after 2026-01-01");
     }
 }

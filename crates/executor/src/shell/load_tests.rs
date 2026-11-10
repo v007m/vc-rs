@@ -1,0 +1,144 @@
+use std::sync::Arc;
+use std::time::Duration;
+
+use vc_model::{Check, CheckKind, Matcher, Origin, StatusPattern, TestId};
+
+use super::{IterationSetup, ProgramIterations};
+use crate::cancel::CancelTree;
+use crate::fixture::{Fixture, Sent, Server, span};
+use crate::{ActionExecutors, EventBus, ExecutorError, HostLimits, IterationReport, Iterations, PipelineParts};
+
+/// Prepares the iterations of a plan of `before_all` and one instance of each of `tests`.
+async fn prepare(
+    fixture: Fixture,
+    (before_all, tests): (&[vc_model::ActionId], &[TestId]),
+    full_checks: bool,
+) -> (Result<ProgramIterations, ExecutorError>, Sent) {
+    let plan = fixture.plan(before_all, &tests.iter().map(|&test| (test, 1)).collect::<Vec<_>>());
+    let (server, sent) = Server::new();
+    let executors = ActionExecutors::standard(PipelineParts::new(server, HostLimits::spawn(64)));
+    let setup = IterationSetup { bus: EventBus::spawn(), cancel: CancelTree::new(Duration::from_secs(5)), full_checks };
+    (ProgramIterations::prepare(fixture.cx(executors), Arc::new(plan), setup).await, sent)
+}
+
+fn statuses(report: &IterationReport) -> Vec<Option<u16>> {
+    report.calls.iter().map(|call| call.status).collect()
+}
+
+#[tokio::test]
+async fn before_all_runs_once_each_iteration_reports_its_calls_and_finish_cleans_up() {
+    let mut fixture = Fixture::new();
+    let cleanup = fixture.call("/cleanup");
+    let (seed, browse) = (fixture.creating("/seed", cleanup), fixture.call("/browse"));
+    let api = fixture.api_mut(browse).id;
+    let test = fixture.test(vec![browse], None);
+    let (iterations, sent) = prepare(fixture, (&[seed], &[test]), false).await;
+    let iterations = iterations.unwrap();
+    let mut reports = Vec::new();
+    for user in 1..=3 {
+        reports.push(iterations.iterate(test, user).await);
+    }
+    iterations.finish().await;
+    assert!(reports.iter().all(|report| report.passed && report.failure.is_none()));
+    assert!(reports.iter().all(|report| statuses(report) == [Some(200)]));
+    assert!(reports.iter().all(|report| report.calls[0].api == Some(api)));
+    let counts = sent.counts();
+    assert_eq!((counts["/seed"], counts["/browse"], counts["/cleanup"]), (1, 3, 1));
+}
+
+#[tokio::test]
+async fn a_failing_iteration_reports_its_failure_and_status() {
+    let mut fixture = Fixture::new();
+    let fail = fixture.call("/fail");
+    let test = fixture.test(vec![fail], None);
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert!(!report.passed);
+    assert!(report.failure.is_some());
+    assert_eq!(statuses(&report), [Some(500)]);
+}
+
+#[tokio::test]
+async fn with_checks_api_a_test_check_is_not_judged_and_the_default_status_stays() {
+    for (path, full, passed) in [("/browse", false, true), ("/browse", true, false)] {
+        let mut fixture = Fixture::new();
+        let call = fixture.call(path);
+        let test = fixture.test(vec![call], None);
+        let matcher = Matcher::Status(vec![StatusPattern::Code(500)]);
+        let check = Check { kind: CheckKind::Status, target: None, matcher, origin: Origin::Test(test), span: span() };
+        fixture.action_mut(call).expect.checks.push(check);
+        let (iterations, _sent) = prepare(fixture, (&[], &[test]), full).await;
+        let report = iterations.unwrap().iterate(test, 1).await;
+        assert_eq!(report.passed, passed, "{path} with full checks {full}");
+    }
+}
+
+#[tokio::test]
+async fn with_checks_api_the_default_2xx_holds_unless_the_api_checks_the_status() {
+    for (api_checks_500, passed) in [(false, false), (true, true)] {
+        let mut fixture = Fixture::new();
+        let call = fixture.call("/fail");
+        let test = fixture.test(vec![call], None);
+        if api_checks_500 {
+            let origin = Origin::Api(fixture.api_mut(call).id);
+            let matcher = Matcher::Status(vec![StatusPattern::Code(500)]);
+            let check = Check { kind: CheckKind::Status, target: None, matcher, origin, span: span() };
+            fixture.action_mut(call).expect.checks.push(check);
+        }
+        let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+        let report = iterations.unwrap().iterate(test, 1).await;
+        assert_eq!(report.passed, passed, "a 500 when the api checks for 500: {api_checks_500}");
+    }
+}
+
+#[tokio::test]
+async fn a_failed_before_all_stops_the_load_run_and_cleans_up_what_ran() {
+    let mut fixture = Fixture::new();
+    let cleanup = fixture.call("/cleanup");
+    let (seed, fail, browse) = (fixture.creating("/seed", cleanup), fixture.call("/fail"), fixture.call("/browse"));
+    let test = fixture.test(vec![browse], None);
+    let (iterations, sent) = prepare(fixture, (&[seed, fail], &[test]), false).await;
+    assert!(matches!(iterations, Err(ExecutorError::SharedFailed { action, .. }) if action == fail));
+    let counts = sent.counts();
+    assert_eq!((counts["/seed"], counts["/fail"], counts["/cleanup"]), (1, 1, 1));
+}
+
+#[tokio::test]
+async fn a_test_outside_the_plan_fails_without_a_request() {
+    let mut fixture = Fixture::new();
+    let (browse, other) = (fixture.call("/browse"), fixture.call("/other"));
+    let (test, unplanned) = (fixture.test(vec![browse], None), fixture.test(vec![other], None));
+    let (iterations, sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(unplanned, 1).await;
+    assert!(!report.passed && report.calls.is_empty() && report.failure.is_some());
+    assert!(sent.counts().is_empty());
+}
+
+#[tokio::test]
+async fn finish_runs_every_cleanup_an_owner_registered() {
+    let mut fixture = Fixture::new();
+    let (undo_a, undo_b) = (fixture.call("/cleanup/a"), fixture.call("/cleanup/b"));
+    let seeds = [fixture.creating("/seed/a", undo_a), fixture.creating("/seed/b", undo_b)];
+    let browse = fixture.call("/browse");
+    let test = fixture.test(vec![browse], None);
+    let (iterations, sent) = prepare(fixture, (&seeds, &[test]), false).await;
+    iterations.unwrap().finish().await;
+    let counts = sent.counts();
+    assert_eq!((counts.get("/cleanup/a"), counts.get("/cleanup/b")), (Some(&1), Some(&1)), "{counts:?}");
+}
+
+#[tokio::test]
+async fn an_iteration_reads_what_its_file_before_all_saved() {
+    let mut fixture = Fixture::new();
+    let seed = fixture.call("/seed");
+    fixture.action_mut(seed).id = Some(fixture.sym("user"));
+    fixture.action_mut(seed).save.values = fixture.vars(&[("token", "t")]);
+    let read = fixture.call("/users");
+    fixture.api_mut(read).path = fixture.template("/users/${var.user.token}");
+    let test = fixture.test(vec![read], None);
+    let (iterations, sent) = prepare(fixture, (&[seed], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert!(report.passed, "{report:?}");
+    let counts = sent.counts();
+    assert_eq!((counts.get("/seed"), counts.get("/users/t")), (Some(&1), Some(&1)), "{counts:?}");
+}

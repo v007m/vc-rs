@@ -1,13 +1,27 @@
 //! Structural changes as minimal text edits that keep comments, quoting and spacing (D107).
 //!
-//! Only the shape lives here for now: setting a scalar and adding a map entry. Editing proper,
-//! and the engine's compile guard around it, come in M5.
+//! Setting a scalar and adding an entry live here; list items and new entries in `items`,
+//! removal in `remove`, reference renames in `refs`, var, auth and dataset renames in `names`,
+//! undo in `command`, and the whole file in the house style in `format`. The compile guard that
+//! refuses an edit adding an error lives in the engine.
+
+mod command;
+mod format;
+mod items;
+mod names;
+mod refs;
+mod remove;
 
 use vc_diagnostics::TextEdit;
 use vc_model::{SourceFileId, SourceSpan};
 
-use crate::scalar::{Spelling, resolve_in, write_text};
-use crate::{Node, ParserError, ScalarKind, ScalarStyle, Syntax, Value, parse};
+use crate::scalar;
+use crate::scalar::Spelling;
+use crate::{Entry, Node, ParserError, ScalarKind, ScalarStyle, Syntax, Value};
+
+pub use command::EditCommand;
+pub use format::FormatRules;
+pub use refs::references;
 
 /// A parsed file kept with its text, so changes to its tree become edits on that text.
 ///
@@ -28,11 +42,12 @@ pub struct Document {
     root: Node,
 }
 
-/// Where a node sits in its document: the key it is the value of, and whether a flow collection
-/// (`[..]` or `{..}`) holds it.
+/// Where a node sits in its document: the key it is the value of, whether it is a list item,
+/// and whether a flow collection (`[..]` or `{..}`) holds it.
 #[derive(Clone, Copy, Debug, Default)]
 struct Place {
     key_span: Option<SourceSpan>,
+    item: bool,
     in_flow: bool,
 }
 
@@ -47,7 +62,7 @@ impl Document {
     /// [`ParserError::Unparsable`] when the text has a parse error; warnings are accepted.
     pub fn parse(file: SourceFileId, syntax: Syntax, text: impl Into<String>) -> Result<Self, ParserError> {
         let text = text.into();
-        let (root, diagnostics) = parse(file, syntax, &text);
+        let (root, diagnostics) = crate::parse(file, syntax, &text);
         let error = diagnostics.iter().find(|d| d.is_error()).map(|d| d.message.clone());
         match (root, error) {
             (Some(root), None) => Ok(Self { file, syntax, text, root }),
@@ -77,7 +92,7 @@ impl Document {
     /// As [`Document::set_typed`].
     pub fn set_scalar(&self, node: &Node, value: &str) -> Result<TextEdit, ParserError> {
         let kind = match node.as_scalar().map_or(ScalarKind::String, |scalar| scalar.kind) {
-            ScalarKind::Null => resolve_in(self.syntax, value),
+            ScalarKind::Null => scalar::resolve_in(self.syntax, value),
             kind => kind,
         };
         self.set_typed(node, value, kind)
@@ -120,24 +135,10 @@ impl Document {
     /// JSON object, which is a flow map, is refused), and
     /// [`ParserError::DuplicateKey`] when it already has `key`.
     pub fn insert_entry(&self, map: &Node, key: &str, value: &str) -> Result<TextEdit, ParserError> {
-        self.locate(map)?;
-        let wrong = || ParserError::WrongNode { expected: "a block map with entries", found: map.kind_name() };
-        let (Value::Map(entries), false) = (&map.value, self.is_flow(map)) else {
-            return Err(wrong());
-        };
-        let (first, last) = entries.first().zip(entries.last()).ok_or_else(wrong)?;
-        if entries.iter().any(|entry| entry.key == key) {
-            return Err(ParserError::DuplicateKey(key.to_owned()));
-        }
-        let indent = " ".repeat(usize::try_from(first.key_span.start.column.saturating_sub(1)).unwrap_or(0));
-        let at = self.next_line(last.value.span.end.offset);
-        let newline = self.newline();
-        let lead = if self.text.get(..at).is_some_and(|before| before.is_empty() || before.ends_with('\n')) {
-            ""
-        } else {
-            newline
-        };
-        let new_text = format!("{lead}{indent}{}: {}{newline}", write_text(key, false), write_text(value, false));
+        let (first, last) = self.block_entries(map, key)?;
+        let (at, lead) = self.line_after(last.value.span.end.offset);
+        let line = format!("{}: {}", scalar::write_text(key, false), scalar::write_text(value, false));
+        let new_text = format!("{lead}{}{line}{}", indent(first.key_span), self.newline());
         Ok(TextEdit { file: self.file, range: at..at, new_text })
     }
 
@@ -172,12 +173,46 @@ impl Document {
                 return Ok(place);
             }
             let in_flow = place.in_flow || self.is_flow(node);
-            stack.extend(node.items().iter().map(|item| (item, Place { key_span: None, in_flow })));
-            let values =
-                node.entries().iter().map(|entry| (&entry.value, Place { key_span: Some(entry.key_span), in_flow }));
+            stack.extend(node.items().iter().map(|item| (item, Place { key_span: None, item: true, in_flow })));
+            let values = node
+                .entries()
+                .iter()
+                .map(|entry| (&entry.value, Place { key_span: Some(entry.key_span), item: false, in_flow }));
             stack.extend(values);
         }
         Err(ParserError::BadRange { start: target.span.start.offset, end: target.span.end.offset })
+    }
+
+    /// The first and last entries of the block map `map`, which must not have `key` yet.
+    fn block_entries<'n>(&self, map: &'n Node, key: &str) -> Result<(&'n Entry, &'n Entry), ParserError> {
+        self.locate(map)?;
+        let wrong = || ParserError::WrongNode { expected: "a block map with entries", found: map.kind_name() };
+        let (Value::Map(entries), false) = (&map.value, self.is_flow(map)) else {
+            return Err(wrong());
+        };
+        let (first, last) = entries.first().zip(entries.last()).ok_or_else(wrong)?;
+        if entries.iter().any(|entry| entry.key == key) {
+            return Err(ParserError::DuplicateKey(key.to_owned()));
+        }
+        Ok((first, last))
+    }
+
+    /// Where a new line after the value ending at `offset` goes, and the line ending to write
+    /// first when the file does not end with one.
+    fn line_after(&self, offset: usize) -> (usize, &'static str) {
+        let at = self.next_line(offset);
+        let ended = self.text.get(..at).is_some_and(|before| before.is_empty() || before.ends_with('\n'));
+        (at, if ended { "" } else { self.newline() })
+    }
+
+    /// The start of the line holding `offset`.
+    fn line_start(&self, offset: usize) -> usize {
+        self.text.get(..offset).and_then(|before| before.rfind('\n')).map_or(0, |i| i + 1)
+    }
+
+    /// Whether only spaces come before `offset` on its line.
+    fn blank_before(&self, offset: usize) -> bool {
+        self.text.get(self.line_start(offset)..offset).is_some_and(|before| before.bytes().all(|b| b == b' '))
     }
 
     /// Whether `node` is a flow collection: `[..]` or `{..}`.
@@ -217,4 +252,9 @@ impl Document {
     fn newline(&self) -> &'static str {
         if self.text.contains("\r\n") { "\r\n" } else { "\n" }
     }
+}
+
+/// The spaces before the text at `span`, for a new line lined up with it.
+fn indent(span: SourceSpan) -> String {
+    " ".repeat(usize::try_from(span.start.column.saturating_sub(1)).unwrap_or(0))
 }

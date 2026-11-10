@@ -1,0 +1,101 @@
+{
+    "id": "e9a4b6c1-2d7f-4a3e-8c05-6b1f0d9e2a13",
+    "app": "shop",
+    "name": "orders_checkout",
+    "tags": "orders,checkout",
+    "endpoints": [
+        {
+            "name": "01_place_order",
+            "description": "Place an order for two products as a partner",
+            "url": "/api/v1/orders",
+            "method": "POST",
+            "system": "shop_partner",
+            "delay": 500,
+            "variables": {
+                "quantity": 2
+            },
+            "payload": "!orders/new_order",
+            "dependencies": [
+                {
+                    "collection": "users",
+                    "scenario": "users_crud",
+                    "api": "02_create_user",
+                    "repeat": 1,
+                    "cache": false,
+                    "variable": {
+                        "customerId": "response.id"
+                    }
+                },
+                {
+                    "collection": "catalog",
+                    "scenario": "catalog_browse",
+                    "api": "02_search_products",
+                    "variable": {
+                        "productIds": "response.items.all.id"
+                    }
+                }
+            ],
+            "expect": {
+                "status": 201,
+                "headers": {
+                    "location": "/api/v1/orders/"
+                },
+                "response": {
+                    "Order belongs to the customer": "'{response.customerId}' === '{customerId}'",
+                    "Order is pending": "'{response.status}' === 'PENDING'"
+                },
+                "timing": {
+                    "total": "<1500"
+                }
+            }
+        },
+        {
+            "name": "02_wait_for_confirmation",
+            "description": "Poll the order until it is confirmed",
+            "url": "/api/v1/orders/{orderId}",
+            "system": "shop_partner",
+            "repeat-delay": 1000,
+            "repeat-until": {
+                "status": 200,
+                "response": {
+                    "Order is confirmed": "'{response.status}' === 'CONFIRMED'"
+                }
+            },
+            "dependencies": [
+                {
+                    "api": "01_place_order",
+                    "variable": {
+                        "orderId": "response.id"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "03_cancel_order",
+            "description": "Cancel a single-item order",
+            "url": "/api/v1/orders/{orderId}/cancel",
+            "method": "POST",
+            "system": "shop_partner",
+            "scripts": {
+                "before-endpoint": "variables.reason = 'test-' + Date.now(); return { variables }"
+            },
+            "payload": {
+                "reason": "{reason}"
+            },
+            "dependencies": [
+                {
+                    "api": "01_place_order",
+                    "variables": {
+                        "quantity": 1
+                    },
+                    "variable": {
+                        "orderId": "id"
+                    }
+                }
+            ],
+            "expect": {
+                "status": 200
+            }
+        }
+    ]
+}

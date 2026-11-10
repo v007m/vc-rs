@@ -66,6 +66,7 @@ impl Activation {
 
 /// Why evaluating an expression failed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum ExprError {
     /// The expression failed: no such key, a division by zero, mismatched types…
     #[error("{0}")]

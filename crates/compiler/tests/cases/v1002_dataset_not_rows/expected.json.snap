@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1002_dataset_not_rows/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V1002",
+      "severity": "error",
+      "message": "the dataset datasets/cities.yaml is not a list of rows",
+      "primary": {
+        "span": {
+          "path": "datasets/cities.yaml",
+          "line": 1,
+          "column": 1,
+          "endLine": 2,
+          "endColumn": 12
+        },
+        "text": "a list expected"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "a dataset is a CSV file, or a JSON or YAML list with one item per row"
+      ],
+      "fixes": []
+    }
+  ]
+}

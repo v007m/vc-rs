@@ -1,15 +1,20 @@
 //! The config, profiles, api files and test files, with their apis and tests.
 
 use indexmap::IndexMap;
+use vc_diagnostics::Diagnostics;
 use vc_model::{
-    Api, ApiGroup, ApiId, Config, Defaults, FileId, Lifecycle, Origin, Owner, Profile, ProfileId, RequestHooks,
-    SaveSpec, Test, TestBody, TestFile, TestId, VarDefs,
+    Api, ApiGroup, ApiId, Bodies, Config, Defaults, Examples, FileId, GeneratorDef, HistoryConfig, HttpRetry, Keep,
+    Lifecycle, Origin, Owner, Profile, ProfileId, RequestHooks, RunBlocks, SaveSpec, Test, TestBody, TestFile, TestId,
+    VarDefs,
 };
 use vc_parser::Node;
+use vc_template::FakeRegistry;
 
 use super::action::Place;
-use super::{Build, Built, expect, read};
-use crate::link::project::{Source, list, text};
+use super::{Build, Built, auth, expect, http_retry, read};
+use crate::link::fakes;
+use crate::link::project;
+use crate::link::project::Source;
 use crate::shapes;
 
 impl<'a> Build<'_, 'a> {
@@ -19,33 +24,56 @@ impl<'a> Build<'_, 'a> {
         let defaults = root.get("defaults");
         let reports = root.get("reports");
         let redact = root.get("redact");
+        self.http_retry = http_retry::over(source, root, &HttpRetry::default()).unwrap_or_default();
         let config = Config {
             syntax_version: read::number(root, "syntaxVersion").unwrap_or_default(),
             project: read::owned(root, "project"),
             defaults: defaults.map(|defaults| Self::defaults(source, defaults)).unwrap_or_default(),
-            http_retry: vc_model::HttpRetry::default(),
+            http_retry: self.http_retry.clone(),
             vars: VarDefs { values: self.values(source, root.get("vars"))?, by_profile: IndexMap::new() },
             reports_dir: reports.and_then(|reports| read::owned(reports, "dir")),
             report_formats: reports.map(|reports| read::texts(reports, "formats")).unwrap_or_default(),
+            html_single_file: reports
+                .and_then(|reports| reports.get("html"))
+                .is_some_and(|html| project::text(html, "layout") == Some("single")),
             redact_headers: redact.map(|redact| read::texts(redact, "headers")).unwrap_or_default(),
             redact_fields: redact.map(|redact| read::texts(redact, "fields")).unwrap_or_default(),
+            history: root.get("history").map(|history| Self::history(source, history)).unwrap_or_default(),
+            ..Config::default()
         };
-        self.builder.config(config);
-        for profile in list(root, "profiles") {
-            let Some(id) = text(profile, "id") else { continue };
+        self.builder.config(auth::with_secrets(config, source, self.secrets));
+        self.profiles(source)?;
+        let before_run = self.block(source, (project::list(root, "beforeRun"), Owner::Run))?;
+        let after_run = self.block(source, (project::list(root, "afterRun"), Owner::Run))?;
+        self.builder.run_blocks(RunBlocks { before_run, after_run });
+        self.generators(source)
+    }
+
+    /// The config's `profiles`, with their `vars` and `agents` rules.
+    fn profiles(&mut self, source: &Source<'a>) -> Built<()> {
+        for profile in project::list(source.root, "profiles") {
+            let Some(id) = project::text(profile, "id") else { continue };
             let id = ProfileId::new(self.sym(id)?);
             let vars = self.values(source, profile.get("vars"))?;
-            let name = read::owned(profile, "name");
             self.builder.profile(Profile {
                 id,
-                name,
+                name: read::owned(profile, "name"),
                 default: read::flag(shapes::profile(), profile, "default"),
                 vars,
+                agents: read::agents(profile.get("agents")),
             });
         }
-        let before_all = self.block(source, (list(root, "beforeRun"), Owner::Run))?;
-        let after_all = self.block(source, (list(root, "afterRun"), Owner::Run))?;
-        self.builder.run_blocks(Lifecycle { before_all, after_all, ..Lifecycle::default() });
+        Ok(())
+    }
+
+    /// The named `generators`, as the built-in calls they make (D174); the link checks have
+    /// already reported any that do not lower.
+    fn generators(&mut self, source: &Source<'a>) -> Built<()> {
+        let mut rejected = Diagnostics::new();
+        for named in fakes::lower(source, &FakeRegistry::builtin(), &mut rejected) {
+            let id = self.sym(named.id)?;
+            self.builder.generator(GeneratorDef { id, fake: named.call.name.to_owned(), args: named.call.args });
+        }
         Ok(())
     }
 
@@ -54,7 +82,21 @@ impl<'a> Build<'_, 'a> {
             timeout: read::duration(source, node, "timeout"),
             concurrency: read::number(node, "concurrency"),
             per_host: read::number(node, "perHost"),
+            retry: read::retry(source, node),
             headers: read::templates(source, node, "headers"),
+        }
+    }
+
+    fn history(source: &Source<'_>, node: &Node) -> HistoryConfig {
+        let defaults = HistoryConfig::default();
+        let keep = match project::text(node, "keep") {
+            Some("all") => Keep::All,
+            written => written.and_then(|text| text.parse().ok()).map_or(defaults.keep, Keep::Runs),
+        };
+        HistoryConfig {
+            bodies: project::text(node, "bodies").and_then(Bodies::parse).unwrap_or(defaults.bodies),
+            max_body_size: read::size(source, node, "maxBodySize").unwrap_or(defaults.max_body_size),
+            keep,
         }
     }
 
@@ -63,7 +105,7 @@ impl<'a> Build<'_, 'a> {
         let root = source.root;
         let group = FileId::new(self.sym(source.id.as_deref().unwrap_or_default())?);
         let mut apis = Vec::new();
-        for node in list(root, "apis") {
+        for node in project::list(root, "apis") {
             let Some(api) = self.api(source, node, group)? else { continue };
             apis.push(api.id);
             self.builder.api(api);
@@ -71,13 +113,15 @@ impl<'a> Build<'_, 'a> {
         let base_url = root.get("baseUrl").and_then(|url| read::template(source, url));
         let auth = self.auth(source, root)?.unwrap_or_default();
         let headers = read::templates(source, root, "headers");
-        let (name, vars, hooks) = (read::owned(root, "name"), self.vars(source, root)?, hooks(root));
-        self.builder.api_group(ApiGroup { id: group, name, base_url, auth, headers, vars, hooks, apis });
+        let (name, vars, hooks) = (read::owned(root, "name"), self.vars(source, root)?, hooks(source, root));
+        let source = read::api_source(source, root);
+        self.builder.api_group(ApiGroup { id: group, name, base_url, auth, headers, vars, hooks, source, apis });
         Ok(())
     }
 
     fn api(&mut self, source: &Source<'a>, node: &Node, group: FileId) -> Built<Option<Api>> {
-        let (Some(id), Some(path)) = (text(node, "id"), node.get("path").and_then(|path| read::template(source, path)))
+        let (Some(id), Some(path)) =
+            (project::text(node, "id"), node.get("path").and_then(|path| read::template(source, path)))
         else {
             return Ok(None);
         };
@@ -86,6 +130,8 @@ impl<'a> Build<'_, 'a> {
             Some(cleanup) => self.block(source, (std::slice::from_ref(cleanup), Owner::Instance))?.first().copied(),
             None => None,
         };
+        let expect = self.api_expects.get(&id).cloned().unwrap_or_default();
+        let save_on = expect::save_on(source, node.get("saveOn"), &expect);
         Ok(Some(Api {
             id,
             name: read::owned(node, "name"),
@@ -98,11 +144,14 @@ impl<'a> Build<'_, 'a> {
             body: node.get("body").and_then(|body| read::body(source, body)).unwrap_or_default(),
             auth: self.auth(source, node)?.unwrap_or_default(),
             timeout: read::duration(source, node, "timeout"),
-            expect: self.api_expects.get(&id).cloned().unwrap_or_default(),
+            http_retry: http_retry::over(source, node, &self.http_retry),
+            expect,
             save: SaveSpec { values: self.values(source, node.get("save"))? },
+            save_on,
             cleanup,
-            hooks: hooks(node),
+            hooks: hooks(source, node),
             deprecated: read::flag(shapes::api(), node, "deprecated"),
+            operation_id: read::owned(node, "operationId"),
             span: node.span,
         }))
     }
@@ -112,13 +161,13 @@ impl<'a> Build<'_, 'a> {
         let root = source.root;
         let file = FileId::new(self.sym(source.id.as_deref().unwrap_or_default())?);
         let lifecycle = Lifecycle {
-            before_all: self.block(source, (list(root, "beforeAll"), Owner::File(file)))?,
-            after_all: self.block(source, (list(root, "afterAll"), Owner::File(file)))?,
-            before_each: self.block(source, (list(root, "beforeEach"), Owner::Instance))?,
-            after_each: self.block(source, (list(root, "afterEach"), Owner::Instance))?,
+            before_all: self.block(source, (project::list(root, "beforeAll"), Owner::File(file)))?,
+            after_all: self.block(source, (project::list(root, "afterAll"), Owner::File(file)))?,
+            before_each: self.block(source, (project::list(root, "beforeEach"), Owner::Instance))?,
+            after_each: self.block(source, (project::list(root, "afterEach"), Owner::Instance))?,
         };
         let mut tests = Vec::new();
-        for node in list(root, "tests") {
+        for node in project::list(root, "tests") {
             let Some(test) = self.test(source, node, file)? else { continue };
             tests.push(test.id);
             self.builder.test(test);
@@ -130,11 +179,11 @@ impl<'a> Build<'_, 'a> {
     }
 
     fn test(&mut self, source: &Source<'a>, node: &Node, file: FileId) -> Built<Option<Test>> {
-        let Some(id) = text(node, "id") else { return Ok(None) };
+        let Some(id) = project::text(node, "id") else { return Ok(None) };
         let id = TestId::new(self.sym(&source.full(id))?);
-        let before = self.block(source, (list(node, "before"), Owner::Instance))?;
+        let before = self.block(source, (project::list(node, "before"), Owner::Instance))?;
         let Some(body) = self.body(source, node, id)? else { return Ok(None) };
-        let after = self.block(source, (list(node, "after"), Owner::Instance))?;
+        let after = self.block(source, (project::list(node, "after"), Owner::Instance))?;
         Ok(Some(Test {
             id,
             file,
@@ -145,7 +194,10 @@ impl<'a> Build<'_, 'a> {
             body,
             vars: self.vars(source, node)?,
             expect: expect::read(source, node.get("expect"), Origin::Test(id)),
-            examples: read::examples(source, node.get("examples")),
+            examples: self
+                .rows(source, node.get("examples"))
+                .map(Examples::Rows)
+                .or_else(|| read::examples(source, node.get("examples"))),
             repeat: read::number(node, "repeat").unwrap_or(1),
             retry: read::retry(source, node),
             timeout: read::duration(source, node, "timeout"),
@@ -164,7 +216,7 @@ impl<'a> Build<'_, 'a> {
             return Ok(Some(TestBody::Call(self.builder.action(action)?)));
         }
         let place = Place { owner: Owner::Instance, defaults: Some((id, node)), test: None };
-        let steps = list(node, "steps");
+        let steps = project::list(node, "steps");
         let mut ids = Vec::with_capacity(steps.len());
         for (index, step) in steps.iter().enumerate() {
             let Some(mut action) = self.action(source, step, &place)? else { continue };
@@ -179,9 +231,9 @@ impl<'a> Build<'_, 'a> {
     }
 }
 
-fn hooks(node: &Node) -> RequestHooks {
+fn hooks(source: &Source<'_>, node: &Node) -> RequestHooks {
     RequestHooks {
-        before_request: read::hooks(node, "beforeRequest"),
-        after_response: read::hooks(node, "afterResponse"),
+        before_request: read::hooks(source, node, "beforeRequest"),
+        after_response: read::hooks(source, node, "afterResponse"),
     }
 }

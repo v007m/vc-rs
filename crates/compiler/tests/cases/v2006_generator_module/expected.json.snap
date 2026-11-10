@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2006_generator_module/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2006",
+      "severity": "error",
+      "message": "`person` is a Faker module and cannot name a generator",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 7,
+          "column": 9,
+          "endLine": 7,
+          "endColumn": 15
+        },
+        "text": "a Faker module"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "pick another ID; `${fake.person.…}` is the built-in"
+      ],
+      "fixes": []
+    }
+  ]
+}

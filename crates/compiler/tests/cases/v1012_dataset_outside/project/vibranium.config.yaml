@@ -1,0 +1,16 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+datasets:
+  allowRoots: [../shared]
+  files:
+    - id: shared
+      file: ../shared/ok.csv
+    - id: sibling
+      file: ../shared-data/x.csv
+    - id: escape
+      file: ../shared/../secrets/x.csv
+    - id: absolute
+      file: /etc/passwd

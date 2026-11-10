@@ -4,14 +4,15 @@ use std::sync::Arc;
 use vc_diagnostics::Diagnostics;
 use vc_model::{Date, Program, SourceFile, SourceFileId, SourceFiles, SourcePath, StringTable};
 
-use crate::CompileCache;
 use crate::cache::CacheEntry;
+use crate::link::DataWanted;
 use crate::parts::Tools;
-use crate::{link, stage};
+use crate::{CompileCache, link, stage};
 
 /// What one compile needs: the project's files, the cache the previous compile returned, and
 /// what the files cannot say themselves (today's date, the project's other files).
 #[derive(Clone, Debug, Default)]
+#[expect(clippy::exhaustive_structs, reason = "options struct filled with `..Default::default()` (D160)")]
 pub struct CompileInput {
     /// Every definition file, in any order; the compiler numbers them in path order.
     pub files: Vec<SourceFile>,
@@ -22,10 +23,14 @@ pub struct CompileInput {
     /// The project's other files, relative to the root, that a `$file:` may point at; the
     /// definition files count without being listed. `None` leaves `$file` paths unchecked (V2004).
     pub assets: Option<BTreeSet<SourcePath>>,
+    /// The project root's `.env.schema`, which declares the secret names (D165); `None` leaves
+    /// undeclared `${secret.X}` (V2106) and `${env.X}` of a secret (V2107) unchecked.
+    pub secret_schema: Option<SourceFile>,
 }
 
 /// What one compile produced.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct Compiled {
     /// The frozen program; `Some` only when no diagnostic is an error.
     pub program: Option<Arc<Program>>,
@@ -35,6 +40,17 @@ pub struct Compiled {
     pub files: SourceFiles,
     /// The cache to persist and pass to the next compile.
     pub cache: CompileCache,
+    /// The data files the project names that were not in [`CompileInput::files`] (D173): every
+    /// file under `datasets/` that [`CompileInput::assets`] lists, each `datasets.files` entry,
+    /// and each literal `$file` an `examples` or `forEach` reads. The engine reads them (an
+    /// outside one only while its canonical path stays under its root, else V1012) and compiles
+    /// again with them; until then their rows are unchecked and read at run time.
+    pub data_wanted: Vec<DataWanted>,
+    /// The hook files the project's `function:` references reach, directly or through relative
+    /// imports, that were not in [`CompileInput::files`] (D172). The engine reads them and
+    /// compiles again with them, until none is wanted; until then their exports are unchecked
+    /// and [`Program::hooks`] lacks them.
+    pub hooks_wanted: Vec<SourcePath>,
 }
 
 /// Compiles `input` into a program, or into the diagnostics that stop one.
@@ -52,11 +68,18 @@ pub fn compile(input: CompileInput) -> Compiled {
     for unit in entries.iter().filter_map(|entry| entry.unit.as_deref()) {
         diagnostics.extend(unit.diagnostics.iter().cloned());
     }
-    let world = link::World { strings: &strings, today: input.today, assets: input.assets.as_ref() };
+    let declared = input.secret_schema.map(|schema| vc_model::schema_names(&schema.text));
+    let world = link::World {
+        strings: &strings,
+        today: input.today,
+        assets: input.assets.as_ref(),
+        secrets: declared.as_deref(),
+    };
     let linked = link::link(&entries, &files, &world);
     diagnostics.extend(linked.diagnostics);
-    let program = linked.program;
-    Compiled { program, diagnostics, files, cache: CompileCache::of(entries, strings) }
+    let (program, data_wanted, hooks_wanted) = (linked.program, linked.data_wanted, linked.hooks_wanted);
+    let cache = CompileCache::of(entries, strings);
+    Compiled { program, diagnostics, files, cache, data_wanted, hooks_wanted }
 }
 
 /// Runs the per-file stages over every file the previous cache does not hold.

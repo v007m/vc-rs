@@ -2,7 +2,8 @@
 
 use vc_model::{Pos, SourceSpan};
 
-use crate::scan::{Cursor, Fault, shown};
+use crate::scan;
+use crate::scan::{Cursor, Fault};
 
 /// The one-letter escapes and what they stand for.
 const SIMPLE: [(char, char); 8] =
@@ -49,7 +50,7 @@ fn escape(cursor: &mut Cursor<'_>) -> Result<char, Fault> {
     let simple = letter.and_then(|letter| SIMPLE.iter().find(|&&(l, _)| l == letter).map(|&(_, c)| c));
     simple.ok_or_else(|| {
         let at = cursor.span_from(start);
-        let message = format!("`{}` is not a JSON escape", shown(cursor.slice(start, cursor.pos())));
+        let message = format!("`{}` is not a JSON escape", scan::shown(cursor.slice(start, cursor.pos())));
         Fault { at, message, help: ESCAPE_HELP }
     })
 }

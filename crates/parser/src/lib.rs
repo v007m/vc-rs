@@ -1,13 +1,14 @@
-//! YAML and JSON parsing with source spans, and minimal text edits.
+//! YAML, JSON and CSV parsing with source spans, and minimal text edits.
 //!
 //! [`parse`] turns a file's text into a [`Node`] tree in which every node, and every map key,
 //! carries its [`SourceSpan`](vc_model::SourceSpan). YAML is read from `saphyr`'s events and JSON
-//! by a reader of its own; a file's [`Syntax`] comes from its suffix. Nothing outside this crate
+//! and CSV datasets by readers of their own; a file's [`Syntax`] comes from its suffix. Nothing outside this crate
 //! sees `saphyr`. [`Document`] turns structural changes into
 //! [`TextEdit`](vc_diagnostics::TextEdit)s on the original text and checks that the result
-//! parses again (D107).
+//! parses again (D107), or writes a whole file in the house style ([`Document::format`]).
 
 mod build;
+mod csv;
 mod cut;
 mod edit;
 mod error;
@@ -22,9 +23,9 @@ mod scan;
 mod syntax;
 mod yaml;
 
-pub use edit::Document;
+pub use edit::{Document, EditCommand, FormatRules, references};
 pub use error::ParserError;
 pub use node::{Entry, Node, Value};
 pub use parse::parse;
-pub use scalar::{Scalar, ScalarKind, ScalarStyle};
+pub use scalar::{Scalar, ScalarKind, ScalarStyle, write_text};
 pub use syntax::Syntax;

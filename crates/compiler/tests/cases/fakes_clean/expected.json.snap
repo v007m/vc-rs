@@ -1,0 +1,12 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/fakes_clean/project
+---
+{
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": []
+}

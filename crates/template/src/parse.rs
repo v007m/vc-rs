@@ -1,11 +1,9 @@
 use vc_diagnostics::Diagnostic;
 use vc_model::{Namespace, Part, Path, PipeCall, Reference, ScalarSource, StringTable, Template};
 
-use crate::TemplateError;
-use crate::codes;
 use crate::grammar::{self, RawPart, RawPipe, RawRef};
-use crate::literals;
 use crate::span_map::SpanMap;
+use crate::{TemplateError, codes, literals};
 
 /// The fixed roots by name (D125); any other root is an action or step id.
 const ROOTS: &[(&str, Namespace)] = &[

@@ -8,6 +8,7 @@ use serde::Serialize;
 /// Run-time results that the code table calls a failure or blocked (V5xxx) are errors here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "lowercase")]
+#[expect(clippy::exhaustive_enums, reason = "closed set (D160)")]
 pub enum Severity {
     /// Extra information.
     Info,

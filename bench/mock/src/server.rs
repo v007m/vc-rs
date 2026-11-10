@@ -5,11 +5,12 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
 use crate::error::MockError;
-use crate::routes::router;
+use crate::routes;
 use crate::stats::Stats;
 use crate::store::Store;
 
 /// Entry point: starts a mock server on the current tokio runtime.
+#[non_exhaustive]
 pub struct MockServer;
 
 impl MockServer {
@@ -30,7 +31,7 @@ impl MockServer {
         let listener = TcpListener::bind(addr).await.map_err(bind)?;
         let addr = listener.local_addr().map_err(bind)?;
         let store = Store::spawn();
-        let app = router(&store);
+        let app = routes::router(&store);
         let (stop, stopped) = oneshot::channel::<()>();
         let task = tokio::spawn(async move {
             axum::serve(listener, app)

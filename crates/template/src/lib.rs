@@ -16,31 +16,49 @@
 //! ```
 //!
 //! [`PipeRegistry`] checks pipes, [`Roots`] checks where a root may be used (D125), and
-//! [`parse_duration`], [`parse_size`] and [`parse_status`] read units and statuses.
+//! [`parse_duration`], [`parse_size`], [`parse_rate`] and [`parse_status`] read units and statuses.
 //!
 //! [`CelCompiler::check`] checks a CEL expression into a [`vc_model::CelProgram`] at compile
 //! time; [`CelCompiler::prepare`] turns it into an [`Expr`] evaluated against an [`Activation`].
+//!
+//! At run time a [`Renderer`] renders templates and template values against a [`Resolve`],
+//! which gives the value of each root; [`select`] follows a path into a value, and [`extend`]
+//! applies `$extend` and `$remove`. A failure is a [`RenderError`].
 
 mod builtin_pipes;
 mod cel_compile;
 mod cel_eval;
 mod cel_lex;
 mod cel_refs;
+mod cel_time;
 mod codes;
 mod error;
 mod expr;
+mod fake_fns;
+mod fakes;
 mod grammar;
 mod literals;
+mod merge;
 mod parse;
+mod pipe_fns;
 mod pipes;
+mod regex_gen;
+mod render;
 mod roots;
+mod select;
 mod span_map;
+mod time;
 mod units;
 
 pub use cel_compile::CelCompiler;
-pub use error::TemplateError;
+pub use error::{RenderError, TemplateError};
 pub use expr::{Activation, DEFAULT_STEP_LIMIT, Expr, ExprError};
+pub use fakes::{ArgCheck, FakeCall, FakeCx, FakeDef, FakeError, FakeFn, FakeRegistry};
+pub use merge::extend;
 pub use parse::{parse, root_name};
+pub use pipe_fns::{Chance, PipeArgs, PipeFn};
 pub use pipes::{ArgType, PipeDef, PipeRegistry, PipeSignature, ValueType};
+pub use render::{Renderer, Resolve, to_text};
 pub use roots::Roots;
-pub use units::{parse_duration, parse_size, parse_status};
+pub use select::{path_text, preview, select};
+pub use units::{parse_duration, parse_rate, parse_size, parse_status};

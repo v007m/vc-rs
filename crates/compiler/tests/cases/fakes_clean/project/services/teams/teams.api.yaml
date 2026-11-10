@@ -1,0 +1,15 @@
+baseUrl: https://api.example.com
+vars:
+  name: ${fake.teamName}
+  visibility: ${fake.visibility}
+  bio: ${fake.longBio}
+  owner: ${fake.person.fullName | upper}
+  email: ${fake.internet.email}
+  code: ${fake.string.fromRegExp('[A-Z]{3}-[0-9]{4}')}
+  size: ${fake.number.int(1, 100) | string}
+  seats: ${fake.quantity | string}
+  price: ${fake.commerce.price(5, 50)}
+  started: ${fake.date.past}
+  words: ${fake.lorem.words(5) | default('x')}
+  tier: ${fake.helpers.arrayElement('gold', 'silver')}
+apis: []

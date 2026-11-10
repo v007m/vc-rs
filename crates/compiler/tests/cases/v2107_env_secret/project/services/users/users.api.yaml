@@ -1,0 +1,6 @@
+apis:
+  - id: getUser
+    path: /users/1
+    headers:
+      authorization: Bearer ${env.API_TOKEN}
+      x-home: ${env.HOME}

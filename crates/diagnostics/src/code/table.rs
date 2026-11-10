@@ -33,6 +33,7 @@ code_table! {
     V1010 = 1010, Error, "More than one YAML document in a file";
     V1011 = 1011, Error, "Nesting deeper than 128 levels";
     V1012 = 1012, Error, "File cannot be read (permissions, not UTF-8, outside the project, bad name)";
+    V1013 = 1013, Error, "Hook file is not valid TypeScript or JavaScript";
     // V2xxx: references and types
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";
@@ -41,10 +42,13 @@ code_table! {
     V2005 = 2005, Error, "Hook export not found";
     V2006 = 2006, Error, "Reserved ID";
     V2007 = 2007, Error, "File ID doesn't match its path";
+    V2008 = 2008, Error, "Hook import not allowed";
     V2101 = 2101, Error, "Var used but never set for some profile";
     V2102 = 2102, Error, "`${item}`, `${example}` or `${iteration}` used outside its block";
     V2103 = 2103, Error, "Unknown example or dataset column";
     V2105 = 2105, Error, "Template or CEL root not available at that spot";
+    V2106 = 2106, Error, "`${secret.X}` names a secret `.env.schema` does not declare";
+    V2107 = 2107, Error, "`${env.X}` names a secret declared in `.env.schema`";
     V2201 = 2201, Error, "Exactly one of `call` or `steps` needed";
     V2205 = 2205, Error, "Cycle through `test:` reuse";
     V2210 = 2210, Error, "Shared action saves values but has no `id`";
@@ -55,6 +59,7 @@ code_table! {
     V2305 = 2305, Error, "Template or CEL does not parse";
     V2306 = 2306, Error, "Matcher argument invalid";
     V2308 = 2308, Error, "Unknown pipe or wrong pipe arguments";
+    V2309 = 2309, Error, "fromRegExp pattern not supported";
     // V3xxx: lifecycle
     V3101 = 3101, Error, "No profile defined, or no active profile for this run";
     V3102 = 3102, Error, "More than one default profile";
@@ -79,8 +84,13 @@ code_table! {
     V5105 = 5105, Error, "Transport error";
     V5106 = 5106, Error, "A lifecycle action this test needs failed";
     V5107 = 5107, Warning, "Cleanup failed";
-    V5108 = 5108, Error, "A dynamically saved value is used but not declared in `provides`";
+    V5108 = 5108, Warning, "A dynamically saved value is used but not declared in `provides`";
     V5109 = 5109, Error, "A value declared in `provides` was not saved";
     V5110 = 5110, Error, "Command exited non-zero";
     V5111 = 5111, Error, "Template failed to render at run time";
+    V5112 = 5112, Error, "Dataset row missing a column";
+    V5113 = 5113, Warning, "No cache key: the cross-run cache is off";
+    V5114 = 5114, Error, "Credentials could not be obtained";
+    V5115 = 5115, Error, "Hook threw or returned a value that is not JSON";
+    V5116 = 5116, Error, "Hook ran past its time or memory budget";
 }

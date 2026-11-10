@@ -1,8 +1,9 @@
 use indexmap::IndexMap;
+use serde_json::Value;
 
 use crate::{
-    Action, Api, ApiGroup, ApiId, AuthDef, AuthId, Config, Dataset, DatasetId, FileId, GeneratorDef, Lifecycle,
-    LoadScenario, Profile, ProfileId, SourceFiles, StringTable, Sym, Test, TestFile, TestId,
+    Action, Api, ApiGroup, ApiId, AuthDef, AuthId, Config, Dataset, DatasetId, FileId, GeneratorDef, HookModules,
+    LoadScenario, Profile, ProfileId, RunBlocks, SourceFiles, StringTable, Sym, Test, TestFile, TestId,
 };
 
 /// Everything `vc check` produced, frozen and shared read-only as `Arc<Program>`.
@@ -31,13 +32,19 @@ pub struct Program {
     /// Every action anywhere, by [`crate::ActionId`].
     pub actions: Vec<Action>,
     /// `beforeRun` and `afterRun`.
-    pub run_blocks: Lifecycle,
+    pub run_blocks: RunBlocks,
     /// One entry per load file.
     pub loads: IndexMap<FileId, LoadScenario>,
     /// `datasets`.
     pub datasets: IndexMap<DatasetId, Dataset>,
     /// `generators`.
     pub generators: IndexMap<Sym, GeneratorDef>,
+    /// Every hook file a `function:`, hook or custom check refers to, with its imports (D172).
+    pub hooks: HookModules,
+    /// The JSON Schemas `body.schema` checks name (D201): a schema file's whole document by its
+    /// project path, or one written inline by `<file>:<line>:<column>`. A check's key may add a
+    /// `#/pointer` into the document; a file the compile was not given is missing.
+    pub schemas: IndexMap<String, Value>,
 }
 
 impl Program {

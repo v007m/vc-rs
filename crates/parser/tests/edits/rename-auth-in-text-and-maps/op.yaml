@@ -1,0 +1,3 @@
+op: renameAuth
+from: partnerToken
+to: partnerLogin

@@ -2,9 +2,13 @@
 //! rule is a [`Lint`] in a file of its own, listed once in [`LintRegistry::builtin`].
 
 mod body_on_read;
+#[cfg(test)]
+mod convention_tests;
 mod default_profiles;
 mod deprecated_calls;
 mod expired_skips;
+mod item_ids;
+mod names;
 mod shared_writes;
 mod skip_reasons;
 mod test_cache;
@@ -16,7 +20,8 @@ use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{Date, FileKind, Program};
 use vc_parser::Node;
 
-use crate::link::{Project, Source, list, text};
+use crate::link;
+use crate::link::{Project, Source};
 
 /// What a lint reads: the project's trees and the program built from them.
 pub struct LintCx<'p, 'a> {
@@ -57,6 +62,17 @@ impl LintRegistry {
         Self { lints }
     }
 
+    /// The naming-convention lints (V4, D180): warnings, each a registry entry like the rest.
+    pub fn conventions() -> Self {
+        let lints: Vec<Box<dyn Lint>> = vec![
+            Box::new(item_ids::TestIds),
+            Box::new(item_ids::ApiIds),
+            Box::new(names::FileNames),
+            Box::new(names::Labels),
+        ];
+        Self { lints }
+    }
+
     /// Runs every lint over `cx`.
     pub fn run(&self, cx: &LintCx<'_, '_>) -> Diagnostics {
         self.lints.iter().flat_map(|lint| lint.check(cx)).collect()
@@ -71,12 +87,12 @@ impl<'a> LintCx<'_, 'a> {
 
     /// Every test, with its file.
     fn tests(&self) -> impl Iterator<Item = (&Source<'a>, &'a Node)> {
-        self.test_files().flat_map(|source| list(source.root, "tests").iter().map(move |test| (source, test)))
+        self.test_files().flat_map(|source| link::list(source.root, "tests").iter().map(move |test| (source, test)))
     }
 
     /// The api `node`'s `call` names, written in `source`.
     fn api(&self, source: &Source<'_>, node: &Node) -> Option<&'a Node> {
-        let call = text(node, "call")?;
+        let call = link::text(node, "call")?;
         self.project.apis.get(&source.resolve(call)).map(|item| item.node)
     }
 }

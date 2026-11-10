@@ -1,0 +1,20 @@
+# Copied from the browser's dev tools and from the shop's API docs.
+curl 'https://api.shop.test/v1/users/u_7f3k' \
+  -X 'PATCH' \
+  -H 'accept: application/json' \
+  -H 'authorization: Bearer eyJhbGciOiJIUzI1NiJ9.e30.c2ln' \
+  -H 'content-type: application/json' \
+  -b 'sid=abc123' \
+  --data-raw '{"name":"Ada","address":{"city":"Paris"},"password":"hunter2"}'
+
+curl -u ada:s3cret "https://api.shop.test/v1/orders?status=open&page=2&access_token=t0k3n"
+
+curl https://api.shop.test/v1/orders/42/items -F 'note=gift' -F 'receipt=@receipt.pdf'
+
+curl -G https://api.shop.test/v1/search --data-urlencode 'q=red shoes'
+
+curl https://api.shop.test/v1/login -d 'user=ada&password=hunter2'
+
+$ curl https://api.shop.test/v1/users/u_9xq2 | jq .
+curl -X get https://api.shop.test/v1/users/u_8zz9
+curl https://cdn.shop.test/logo.png

@@ -11,17 +11,25 @@
 //! let test: TestId = api;
 //! ```
 
+mod agents;
 mod api;
 mod builder;
 mod config;
 mod date;
 mod defs;
 mod error;
+mod event;
+mod exchange;
 mod expect;
 mod files;
+mod history;
+mod hooks;
 mod ids;
 mod json_text;
+mod outcome;
+mod plan;
 mod program;
+mod secrets;
 mod source;
 mod span;
 mod strings;
@@ -29,22 +37,30 @@ mod template;
 mod test;
 mod units;
 
-pub use api::{Api, ApiGroup, BodySpec, PartSpec};
+pub use agents::{AgentPolicy, WriteDefinitions};
+pub use api::{Api, ApiGroup, ApiSource, BodySpec, PartSpec};
 pub use builder::ProgramBuilder;
 pub use config::{
     AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, Profile,
 };
 pub use date::Date;
 pub use defs::{
-    AuthRef, CacheSpec, Examples, HookRef, Lifecycle, Loop, Method, Owner, Poll, RequestHooks, Retry, SaveSpec, Skip,
-    Tag, VarDefs,
+    AuthRef, CacheSpec, Examples, HookRef, Lifecycle, Loop, Method, Owner, Poll, RequestHooks, Retry, RunBlocks,
+    SaveSpec, Skip, Tag, VarDefs,
 };
 pub use error::ModelError;
-pub use expect::{Check, CheckKind, Expect, Matcher, MatcherArg, MatcherCall, Origin};
+pub use event::{Event, Feed, Sequenced};
+pub use exchange::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
+pub use expect::{Check, CheckKind, CheckResult, Expect, Matcher, MatcherArg, MatcherCall, Origin};
 pub use files::SourceFiles;
+pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep};
+pub use hooks::{HookModule, HookModules, import_paths};
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
+pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};
+pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use program::Program;
-pub use source::{ContentHash, FileKind, SourceFile, SourcePath};
+pub use secrets::{DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, RedactRule, SecretsConfig, schema_names};
+pub use source::{ContentHash, FileKind, SourceFile, SourcePath, resolve_path};
 pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};
 pub use template::{

@@ -1,0 +1,19 @@
+---
+source: crates/planner/tests/plan/render.rs
+expression: "explain(&program, &plan)"
+---
+orders.checkout#paysOrder
+  call orders#pay
+    status: 2xx  (api orders#pay)
+orders.checkout#voidsOrder
+  call orders#pay
+    status: 2xx  (api orders#pay)
+users.crud#listsUsers
+  call users#list
+    status: 200  (api users#list)
+users.crud#createsUser
+  call users#create
+    status: 201  (api users#create)
+users.crud#readsWarm
+  call users#list
+    status: 200  (api users#list)

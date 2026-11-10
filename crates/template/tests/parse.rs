@@ -1,13 +1,13 @@
 #![cfg(test)]
 
-use proptest::prelude::*;
+use proptest::prelude::proptest;
 use serde_json::json;
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{
     ModelError, Namespace, Part, Pos, Reference, ScalarSource, ScalarStyle, Segment, SourceFileId, SourceSpan,
     StringTable, Template,
 };
-use vc_template::{TemplateError, parse, root_name};
+use vc_template::TemplateError;
 
 const LINE: u32 = 2;
 const COLUMN: u32 = 5;
@@ -35,7 +35,7 @@ fn plain(text: &str) -> ScalarSource {
 }
 
 fn ok(text: &str) -> Template {
-    parse(text, plain(text), &mut StringTable::new()).unwrap()
+    vc_template::parse(text, plain(text), &mut StringTable::new()).unwrap()
 }
 
 fn syntax(result: Result<Template, TemplateError>) -> Diagnostic {
@@ -46,7 +46,7 @@ fn syntax(result: Result<Template, TemplateError>) -> Diagnostic {
 }
 
 fn err(text: &str) -> Diagnostic {
-    syntax(parse(text, plain(text), &mut StringTable::new()))
+    syntax(vc_template::parse(text, plain(text), &mut StringTable::new()))
 }
 
 fn only_ref(text: &str) -> Reference {
@@ -124,11 +124,11 @@ fn escapes_and_lone_dollars_are_literal() {
 #[test]
 fn other_roots_are_step_ids() {
     let mut strings = StringTable::new();
-    let template = parse("${place.body.total}", plain("${place.body.total}"), &mut strings).unwrap();
+    let template = vc_template::parse("${place.body.total}", plain("${place.body.total}"), &mut strings).unwrap();
     let Namespace::Step(id) = template.single_ref().unwrap().ns else { panic!("expected a step") };
     assert_eq!(strings.resolve(id), Some("place"));
-    assert_eq!(root_name(Namespace::Step(id)), None);
-    assert_eq!(root_name(Namespace::Iteration), Some("iteration"));
+    assert_eq!(vc_template::root_name(Namespace::Step(id)), None);
+    assert_eq!(vc_template::root_name(Namespace::Iteration), Some("iteration"));
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn every_fixed_root_parses_to_its_namespace() {
     for root in
         ["var", "env", "secret", "response", "request", "example", "item", "iteration", "fake", "dataset", "run"]
     {
-        assert_eq!(root_name(only_ref(&format!("${{{root}}}")).ns), Some(root));
+        assert_eq!(vc_template::root_name(only_ref(&format!("${{{root}}}")).ns), Some(root));
     }
 }
 
@@ -174,7 +174,8 @@ fn only_generators_take_arguments() {
 #[test]
 fn quoted_scalars_shift_by_the_quote_and_others_map_to_the_whole_scalar() {
     let text = "${var.x}";
-    let span_of = |span, style| parse(text, ScalarSource { span, style }, &mut StringTable::new()).unwrap();
+    let span_of =
+        |span, style| vc_template::parse(text, ScalarSource { span, style }, &mut StringTable::new()).unwrap();
     let span_of = |span, style| span_of(span, style).single_ref().unwrap().span;
     for style in [ScalarStyle::DoubleQuoted { escaped: false }, ScalarStyle::SingleQuoted { escaped: false }] {
         assert_eq!(span_of(scalar(text, 1), style), cols(1, 9), "{style:?}");
@@ -238,7 +239,7 @@ fn literal_numbers_are_json_numbers() {
 #[test]
 fn bare_status_headers_and_body_are_step_ids_and_roots_have_spans() {
     let mut strings = StringTable::new();
-    let template = parse("${body.items[0]}", plain("${body.items[0]}"), &mut strings).unwrap();
+    let template = vc_template::parse("${body.items[0]}", plain("${body.items[0]}"), &mut strings).unwrap();
     let reference = template.single_ref().unwrap();
     let Namespace::Step(id) = reference.ns else { panic!("expected a step") };
     assert_eq!(strings.resolve(id), Some("body"));
@@ -274,11 +275,12 @@ fn double_quoted_arguments_get_no_fix_when_single_quotes_would_break() {
     }
     let text = r#"${var.x | default("none")}"#;
     for style in [ScalarStyle::SingleQuoted { escaped: false }, ScalarStyle::DoubleQuoted { escaped: true }] {
-        let diagnostic = syntax(parse(text, ScalarSource { span: scalar(text, 1), style }, &mut StringTable::new()));
+        let diagnostic =
+            syntax(vc_template::parse(text, ScalarSource { span: scalar(text, 1), style }, &mut StringTable::new()));
         assert_eq!((diagnostic.code, diagnostic.fixes.len()), (Code::V2305, 0), "{style:?}");
     }
     let quoted = ScalarSource { span: scalar(text, 1), style: ScalarStyle::DoubleQuoted { escaped: false } };
-    assert_eq!(syntax(parse(text, quoted, &mut StringTable::new())).fixes.len(), 1);
+    assert_eq!(syntax(vc_template::parse(text, quoted, &mut StringTable::new())).fixes.len(), 1);
 }
 
 #[test]
@@ -294,11 +296,11 @@ proptest! {
     #[test]
     fn parse_never_panics(text in "\\PC{0,60}", quotes in 0usize..3) {
         let style = if quotes == 0 { ScalarStyle::Plain } else { ScalarStyle::DoubleQuoted { escaped: quotes > 1 } };
-        let _ = parse(&text, ScalarSource { span: scalar(&text, quotes), style }, &mut StringTable::new());
+        let _ = vc_template::parse(&text, ScalarSource { span: scalar(&text, quotes), style }, &mut StringTable::new());
     }
 
     #[test]
     fn parse_never_panics_on_template_like_text(text in r#"[$${}a-z.|()'"\[\]*0-9, -]{0,40}"#) {
-        let _ = parse(&text, plain(&text), &mut StringTable::new());
+        let _ = vc_template::parse(&text, plain(&text), &mut StringTable::new());
     }
 }

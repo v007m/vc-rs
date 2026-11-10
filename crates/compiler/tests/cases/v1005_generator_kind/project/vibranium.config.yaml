@@ -1,0 +1,7 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+generators:
+  - id: teamName

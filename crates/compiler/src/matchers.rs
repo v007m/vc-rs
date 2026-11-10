@@ -5,12 +5,11 @@
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{Matcher, MatcherArg, MatcherCall, SourceSpan, TemplateValue};
 use vc_parser::{Entry, Node, ScalarKind, Value};
-use vc_template::{parse_duration, parse_size};
 
 use crate::parts::{At, Cx};
 use crate::shapes::Unit;
 use crate::suggest::{self, Misspelling};
-use crate::value::lower;
+use crate::value;
 
 /// What a matcher takes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,9 +81,9 @@ struct Spot<'n> {
 
 /// The matcher or literal at `at`, comparing in `unit`.
 pub fn matcher(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
-    let Value::Map(entries) = &at.node.value else { return lower(cx, at).map(Matcher::Equals) };
+    let Value::Map(entries) = &at.node.value else { return value::lower(cx, at).map(Matcher::Equals) };
     if !entries.iter().any(|entry| find(&entry.key).is_some()) {
-        return lower(cx, at).map(Matcher::Equals);
+        return value::lower(cx, at).map(Matcher::Equals);
     }
     let calls: Vec<_> = entries.iter().map(|entry| call(cx, at, (entry, unit))).collect();
     calls.into_iter().collect::<Option<Vec<_>>>().map(Matcher::All)
@@ -109,7 +108,7 @@ fn call(cx: &mut Cx<'_>, at: At<'_>, (entry, unit): (&Entry, Unit)) -> Option<Ma
 
 fn argument(cx: &mut Cx<'_>, spot: Spot<'_>, kind: Arg) -> Option<MatcherArg> {
     match kind {
-        Arg::Value => lower(cx, spot.at).map(MatcherArg::Value),
+        Arg::Value => value::lower(cx, spot.at).map(MatcherArg::Value),
         Arg::Ordered => ordered(cx, spot),
         Arg::Range => range(cx, spot),
         Arg::List => list(cx, spot),
@@ -127,9 +126,14 @@ fn ordered(cx: &mut Cx<'_>, spot: Spot<'_>) -> Option<MatcherArg> {
     let node = spot.at.node;
     let text = node.as_scalar().map(|s| s.text.as_str()).filter(|text| !text.contains("${"));
     match (spot.unit, text) {
-        (Unit::Duration, Some(text)) => cx.check(parse_duration(text, node.span)).map(MatcherArg::Duration),
-        (Unit::Size, Some(text)) => cx.check(parse_size(text, node.span)).map(MatcherArg::Size),
-        _ => lower(cx, spot.at).map(MatcherArg::Value),
+        (Unit::Duration, Some(text)) => {
+            cx.check(vc_template::parse_duration(text, node.span)).map(MatcherArg::Duration)
+        }
+        (Unit::Size, Some(text)) => cx.check(vc_template::parse_size(text, node.span)).map(MatcherArg::Size),
+        (Unit::Rate, Some(text)) => cx
+            .check(vc_template::parse_rate(text, node.span))
+            .map(|share| MatcherArg::Value(TemplateValue::Number(share))),
+        _ => value::lower(cx, spot.at).map(MatcherArg::Value),
     }
 }
 
@@ -145,7 +149,7 @@ fn list(cx: &mut Cx<'_>, spot: Spot<'_>) -> Option<MatcherArg> {
     if !matches!(spot.at.node.value, Value::Seq(_)) {
         return invalid(cx, spot, "needs a list of values");
     }
-    lower(cx, spot.at).map(MatcherArg::Value)
+    value::lower(cx, spot.at).map(MatcherArg::Value)
 }
 
 fn word(cx: &mut Cx<'_>, spot: Spot<'_>, words: &'static [&'static str]) -> Option<MatcherArg> {
@@ -172,7 +176,7 @@ fn length(cx: &mut Cx<'_>, spot: Spot<'_>) -> Option<MatcherArg> {
     match &spot.at.node.value {
         Value::Map(_) => matcher(cx, spot.at, Unit::Plain).map(|m| MatcherArg::Matcher(Box::new(m))),
         Value::Scalar(s) if s.kind == ScalarKind::Int || s.text.contains("${") => {
-            lower(cx, spot.at).map(MatcherArg::Value)
+            value::lower(cx, spot.at).map(MatcherArg::Value)
         }
         _ => invalid(cx, spot, "takes a whole number or a matcher"),
     }
@@ -186,7 +190,7 @@ fn regex(cx: &mut Cx<'_>, spot: Spot<'_>) -> Option<MatcherArg> {
         let reason = error.to_string().lines().last().unwrap_or_default().trim().to_owned();
         return invalid(cx, spot, &format!("has an invalid pattern: {reason}"));
     }
-    lower(cx, spot.at).map(MatcherArg::Value)
+    value::lower(cx, spot.at).map(MatcherArg::Value)
 }
 
 fn several(cx: &mut Cx<'_>, spot: Spot<'_>) -> Option<MatcherArg> {

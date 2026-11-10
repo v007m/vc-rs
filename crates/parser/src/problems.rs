@@ -88,3 +88,17 @@ pub fn too_deep(at: SourceSpan, limit: usize) -> Diagnostic {
         .label("too deep")
         .help("flatten the structure, or load deep data from a file with `$file`")
 }
+
+/// A CSV header that names a column twice; the first one is kept.
+pub fn duplicate_column(at: SourceSpan, column: &str) -> Diagnostic {
+    Diagnostic::new(Code::V1006, at, format!("the column `{column}` is named twice"))
+        .label("in this header")
+        .help("give every column of a CSV dataset its own name")
+}
+
+/// A CSV file the reader cannot read, at the record it stopped in.
+pub fn csv_syntax(at: SourceSpan, message: &str) -> Diagnostic {
+    Diagnostic::new(Code::V1001, at, format!("not valid CSV: {message}"))
+        .label("here")
+        .help("a CSV dataset is a header row of column names, then one line per row with as many cells")
+}

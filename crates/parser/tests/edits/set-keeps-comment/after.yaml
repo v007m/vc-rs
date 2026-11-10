@@ -1,0 +1,7 @@
+# users
+apis:
+  - id: create   # makes one
+    method: POST
+    path: '/users'
+    expect:
+      status: 201  # was 201 once

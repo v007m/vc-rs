@@ -1,13 +1,21 @@
 use vc_interfaces::Clock;
 use vc_model::Date;
 
-/// A clock stopped on one day.
+/// A clock stopped on one day. Its time stays at 0 ms, so reports built in tests are stable.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
 pub struct FixedClock(pub Date);
 
 impl Clock for FixedClock {
     fn today(&self) -> Date {
         self.0
+    }
+
+    fn now_ms(&self) -> u64 {
+        0
     }
 }
 
@@ -25,5 +33,6 @@ mod tests {
         let clock = FixedClock(day);
         clock_suite(&clock);
         assert_eq!(clock.today(), day);
+        assert_eq!(clock.now_ms(), 0);
     }
 }

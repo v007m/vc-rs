@@ -1,0 +1,12 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema",
+    "type": "object",
+    "required": ["id", "name", "email", "isAdmin"],
+    "properties": {
+        "id": { "type": "string", "minLength": 32, "maxLength": 32 },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "MEMBER"] },
+        "isAdmin": { "type": "boolean" }
+    }
+}

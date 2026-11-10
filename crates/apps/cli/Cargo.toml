@@ -15,13 +15,25 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
+tokio.workspace = true
 vc-engine.workspace = true
+vc-mcp.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
 
 [dev-dependencies]
 assert_cmd.workspace = true
 criterion.workspace = true
 predicates.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
 tempfile.workspace = true
+tokio.workspace = true
+vc-mock-server.workspace = true
+vc-testkit.workspace = true
+zstd.workspace = true
 
 [[bench]]
 name = "startup"

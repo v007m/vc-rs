@@ -1,15 +1,16 @@
 use std::sync::Arc;
 
 use vc_model::{
-    Action, ActionKind, AuthRef, BodySpec, CheckKind, ContentHash, Duration, Examples, Method, Origin, Owner, Program,
-    Segment, SourceFile, SourcePath, Test, TestBody,
+    Action, ActionKind, AuthRef, Bodies, BodySpec, CheckKind, ContentHash, Duration, Examples, Keep, Loop, Matcher,
+    Method, Origin, Owner, Program, Retry, Segment, SourceFile, SourcePath, StatusPattern, TemplateValue, Test,
+    TestBody,
 };
 
-use crate::{CompileInput, compile};
+use crate::CompileInput;
 
-const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n    vars: {region: eu}\nauth:\n  - id: admin\n    type: bearer\n    token: t\nbeforeRun:\n  - id: warm\n    call: users#list\nreports: {dir: out, formats: [ctrf]}\nredact: {headers: [x-key], fields: [password]}\n";
+const CONFIG: &str = "syntaxVersion: 2\nproject: shop\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n    vars: {region: eu}\nauth:\n  - id: admin\n    type: bearer\n    token: t\nbeforeRun:\n  - id: warm\n    call: users#list\nreports: {dir: out, formats: [ctrf], html: {layout: single}}\nredact: {headers: [x-key], fields: [password]}\nhistory: {bodies: all, maxBodySize: 1kb, keep: 7}\n";
 
-const APIS: &str = "name: Users\nbaseUrl: ${var.baseUrl}\nheaders: {accept: json}\nvars: {page: 1}\nprofiles:\n  - id: dev\n    vars: {page: 2}\napis:\n  - id: list\n    path: /users\n    expect: {status: 200}\n  - id: create\n    method: POST\n    path: /users\n    body: {name: Ada}\n    expect:\n      status: 201\n      headers: {Content-Type: {contains: json}}\n      cel: {named: response.body.name == 'Ada'}\n    save: {userId: '${response.body.id}'}\n    cleanup: {call: remove, vars: {id: '${response.body.id}'}}\n  - id: remove\n    method: DELETE\n    path: /users/${var.id}\n    deprecated: true\n";
+const APIS: &str = "name: Users\nbaseUrl: ${var.baseUrl}\nheaders: {accept: json}\nvars: {page: 1}\nprofiles:\n  - id: dev\n    vars: {page: 2}\napis:\n  - id: list\n    path: /users\n    expect: {status: 200}\n  - id: create\n    method: POST\n    path: /users\n    body: {name: Ada}\n    expect:\n      status: 201\n      headers: {Content-Type: {contains: json}}\n      cel: {named: response.body.name == 'Ada'}\n    save: {userId: '${response.body.id}'}\n    cleanup: {call: remove, vars: {id: '${response.body.id}'}}\n  - id: remove\n    method: DELETE\n    path: /users/${var.id}\n    saveOn: [200, 404]\n    deprecated: true\n";
 
 const TESTS: &str = "name: Crud\ntags: [smoke]\nbeforeAll:\n  - id: seed\n    call: users#create\nbeforeEach:\n  - function: hooks/a.ts#reset\ntests:\n  - id: listsUsers\n    call: users#list\n    vars: {limit: 2}\n    retry: {attempts: 2}\n    repeat: 3\n    expect: {status: 202}\n  - id: createsTwice\n    auth: admin\n    headers: {x-a: '1', x-b: '2'}\n    body: {name: Bo}\n    expect: {status: 299, size: {lt: 1kb}}\n    save: {last: '${response.status}'}\n    steps:\n      - call: users#create\n        headers: {x-b: '3'}\n        expect: {status: 201, cel: {more: response.body.name == 'Bo'}}\n      - id: again\n        call: users#create\n        auth: none\n        body: {name: Cy}\n        expect: {replace: true, size: {lt: 2kb}}\n        save: {last: '${response.body.id}'}\n      - function: hooks/a.ts#check\n";
 
@@ -23,7 +24,7 @@ fn program() -> Arc<Program> {
         file("services/users/users.api.yaml", APIS),
         file("services/users/crud.test.yaml", TESTS),
     ];
-    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
     assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()
@@ -69,9 +70,17 @@ fn builds_the_config_profiles_and_run_blocks() {
     assert_eq!(program.config.report_formats, ["ctrf"]);
     let profile = program.profiles.values().next().unwrap();
     assert!(profile.default && profile.vars.len() == 1);
-    let [warm] = program.run_blocks.before_all[..] else { panic!("one beforeRun action") };
+    let [warm] = program.run_blocks.before_run[..] else { panic!("one beforeRun action") };
     assert_eq!(action(&program, warm).owner, Owner::Run);
     assert_eq!(action(&program, warm).id.map(|id| name(&program, id)), Some("warm"));
+}
+
+#[test]
+fn builds_the_report_and_history_settings() {
+    let program = program();
+    assert!(program.config.html_single_file);
+    let history = program.config.history;
+    assert_eq!((history.bodies, history.max_body_size.bytes(), history.keep), (Bodies::All, 1024, Keep::Runs(7)));
 }
 
 #[test]
@@ -84,7 +93,8 @@ fn builds_api_groups_with_their_apis_and_cleanups() {
     assert_eq!((create.method, name(&program, create.id.sym())), (Method::Post, "users#create"));
     assert!(matches!(create.body, BodySpec::Json(_)));
     assert_eq!(create.save.values.len(), 1);
-    assert!(program.apis[&group.apis[2]].deprecated);
+    let remove = &program.apis[&group.apis[2]];
+    assert!(remove.deprecated);
     let header = create.expect.checks.iter().find(|check| check.kind == CheckKind::Header).unwrap();
     assert_eq!(header.target.as_ref().unwrap().segments, [Segment::Key("content-type".into())]);
 }
@@ -98,6 +108,9 @@ fn an_apis_cleanup_calls_another_api_with_its_vars() {
     let ActionKind::Call(target) = cleanup.kind else { panic!("cleanup calls an api") };
     assert_eq!(name(&program, target.sym()), "users#remove");
     assert_eq!(cleanup.vars.values.len(), 1);
+    let remove = &program.apis[&group.apis[2]];
+    assert_eq!(remove.save_on, Matcher::Status(vec![StatusPattern::Code(200), StatusPattern::Code(404)]), "saveOn");
+    assert_eq!(create.save_on, Matcher::Status(vec![StatusPattern::Code(201)]), "D191: its expect.status");
 }
 
 #[test]
@@ -155,11 +168,11 @@ fn step_checks_merge_api_then_test_then_step() {
     assert_eq!(twice.expect.checks.len(), 2);
 }
 
-const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndefaults: {timeout: 5s, concurrency: 4, perHost: 2, headers: {x-d: '1'}}\nafterRun:\n  - function: hooks/a.ts#report\n";
+const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\ndefaults: {timeout: 5s, concurrency: 4, perHost: 2, retry: {attempts: 3, delay: 1s}, headers: {x-d: '1'}}\nafterRun:\n  - function: hooks/a.ts#report\n";
 
-const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
+const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: ../../hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
 
-const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n  - id: reusesTheWait\n    headers: {x-t: '1'}\n    expect: {status: 202}\n    steps:\n      - test: waitsForOrder\n        expect: {size: {lt: 1kb}}\n      - function: hooks/a.ts#check\n";
+const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    timeout: 9s\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n  - id: reusesTheWait\n    headers: {x-t: '1'}\n    expect: {status: 202}\n    steps:\n      - test: waitsForOrder\n        expect: {size: {lt: 1kb}}\n        timeout: 3s\n      - function: hooks/a.ts#check\n";
 
 fn more() -> Arc<Program> {
     let files = vec![
@@ -167,7 +180,7 @@ fn more() -> Arc<Program> {
         file("services/orders/orders.api.yaml", ORDERS),
         file("services/orders/flow.test.yaml", FLOW),
     ];
-    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
     assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()
@@ -183,7 +196,8 @@ fn builds_the_config_defaults_and_after_run() {
     let defaults = &program.config.defaults;
     assert_eq!((defaults.timeout, defaults.concurrency, defaults.per_host), (Some(seconds(5)), Some(4), Some(2)));
     assert_eq!(defaults.headers.len(), 1);
-    assert_eq!(program.run_blocks.after_all.len(), 1);
+    assert_eq!(defaults.retry, Some(Retry { attempts: 3, delay: seconds(1) }));
+    assert_eq!(program.run_blocks.after_run.len(), 1);
 }
 
 #[test]
@@ -193,8 +207,10 @@ fn reads_request_hooks_and_file_bodies() {
     let [sign] = &group.hooks.before_request[..] else { panic!("one file hook") };
     assert_eq!((sign.file.as_str(), sign.export.as_str()), ("hooks/a.ts", "sign"));
     let (upload, mixed) = (&program.apis[&group.apis[0]], &program.apis[&group.apis[1]]);
-    assert_eq!(upload.hooks.after_response.len(), 1);
+    let [log] = &upload.hooks.after_response[..] else { panic!("one api hook") };
+    assert_eq!(log.file, "services/orders/hooks/a.ts", "a hook path is relative to the file holding it");
     assert!(matches!(upload.body, BodySpec::File(_)));
+    assert_eq!(upload.save_on, Matcher::Status(vec![StatusPattern::Class(2)]), "D191: 2xx when no status is expected");
     assert!(matches!(mixed.body, BodySpec::Json(_)), "a `$file` map with other keys is JSON");
 }
 
@@ -210,6 +226,7 @@ fn reads_skips_polls_and_body_and_function_checks() {
     let call = action(&program, call);
     let poll = call.poll.as_ref().unwrap();
     assert_eq!((poll.every, poll.timeout, poll.until.checks.len()), (seconds(2), seconds(30), 1));
+    assert_eq!((waits.timeout, call.timeout), (Some(seconds(9)), None), "a test's timeout is not its call's");
     let kinds: Vec<_> = call.expect.checks.iter().map(|check| check.kind).collect();
     assert_eq!(kinds, [CheckKind::Equals, CheckKind::Custom]);
 }
@@ -221,19 +238,42 @@ fn test_steps_take_the_tests_defaults_and_function_steps_take_none() {
     let [reuse, hook] = steps(&program, reuses)[..] else { panic!("two steps") };
     assert!(matches!(reuse.kind, ActionKind::Test(_)));
     assert_eq!(reuse.headers.keys().map(String::as_str).collect::<Vec<_>>(), ["x-t"]);
-    assert_eq!(checks(reuse), [(CheckKind::Status, 16, 't'), (CheckKind::Size, 19, 's')]);
+    assert_eq!(checks(reuse), [(CheckKind::Status, 17, 't'), (CheckKind::Size, 20, 's')]);
+    assert_eq!((reuse.timeout, hook.timeout), (Some(seconds(3)), None));
     assert!(hook.headers.is_empty() && hook.expect.checks.is_empty());
 }
 
 const ROWS: &str = "vars: {rows: [{page: 3}]}\ntests:\n  - id: listsEachPage\n    call: users#list\n    examples:\n      - {page: 1}\n      - {page: '${var.rows}'}\n  - id: listsFilePages\n    call: users#list\n    standalone: false\n    examples: {$file: data/pages.csv}\n  - id: listsVarPages\n    call: users#list\n    standalone: true\n    examples: ${var.rows}\n";
 
+/// The config alone, with `extra` appended to a minimal one.
+fn config_with(extra: &str) -> Arc<Program> {
+    let text = format!("syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n{extra}");
+    let files = vec![file("vibranium.config.yaml", &text)];
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
+    let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
+    assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
+    compiled.program.unwrap()
+}
+
+#[test]
+fn history_keeps_every_run_or_falls_back_to_the_defaults() {
+    let all = config_with("history: {keep: all}\nreports: {html: {layout: folder}}\n");
+    assert_eq!(all.config.history.keep, Keep::All);
+    assert_eq!(all.config.history.bodies, Bodies::Failures, "unwritten keys keep their defaults");
+    assert!(!all.config.html_single_file);
+    let none = config_with("");
+    assert_eq!((none.config.history.max_body_size.bytes(), none.config.history.keep), (64 * 1024, Keep::Runs(50)));
+}
+
 fn rows() -> Arc<Program> {
-    let files = vec![
-        file("vibranium.config.yaml", CONFIG),
-        file("services/users/users.api.yaml", APIS),
-        file("services/users/rows.test.yaml", ROWS),
-    ];
-    let compiled = compile(CompileInput { files, ..CompileInput::default() });
+    with_tests("services/users/rows.test.yaml", ROWS)
+}
+
+/// The config and the users apis, with one test file.
+fn with_tests(path: &str, text: &str) -> Arc<Program> {
+    let files =
+        vec![file("vibranium.config.yaml", CONFIG), file("services/users/users.api.yaml", APIS), file(path, text)];
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let lint = |found: &vc_diagnostics::Diagnostic| found.code.category() == vc_diagnostics::Category::Lifecycle;
     assert!(compiled.diagnostics.iter().all(lint), "{:?}", compiled.diagnostics);
     compiled.program.unwrap()
@@ -259,4 +299,101 @@ fn builds_examples_written_inline_from_a_file_or_from_a_template() {
     assert!(matches!(examples("users.rows#listsFilePages"), Some(Examples::File(_))));
     let Some(Examples::Template(template)) = examples("users.rows#listsVarPages") else { panic!("a template") };
     assert!(template.single_ref().is_some());
+}
+
+const LOOPS: &str = "beforeEach:\n  - call: users#create\n    forEach: [a, b]\n    parallel: 2\n    vars: {name: '${item}'}\ntests:\n  - id: listsTwice\n    call: users#list\n    repeat: 2\n  - id: createsMany\n    steps:\n      - call: users#create\n        repeat: 3\n        vars: {n: '${iteration.index}'}\n      - call: users#list\n";
+
+#[test]
+fn lowers_repeat_and_for_each_on_actions_but_not_a_tests_repeat() {
+    let program = with_tests("services/users/loops.test.yaml", LOOPS);
+    let file = program.test_files.values().next().unwrap();
+    let seed = action(&program, file.lifecycle.before_each[0]);
+    let Some(Loop::ForEach { items: TemplateValue::List(items), parallel: 2 }) = &seed.repeat else {
+        panic!("a forEach over a literal list, two at a time: {:?}", seed.repeat)
+    };
+    assert_eq!(items.len(), 2);
+    let twice = test(&program, "users.loops#listsTwice");
+    let TestBody::Call(call) = twice.body else { panic!("expected a call") };
+    assert_eq!((twice.repeat, &action(&program, call).repeat), (2, &None), "a test's repeat stays on the test");
+    let [many, list] = steps(&program, test(&program, "users.loops#createsMany"))[..] else { panic!("two steps") };
+    assert_eq!(many.repeat, Some(Loop::Repeat { times: 3, parallel: 1 }));
+    assert_eq!(list.repeat, None);
+}
+
+const DATA: &str = "tests:\n  - id: listsEachCity\n    call: users#list\n    examples: ${dataset.cities}\n  - id: listsFileRows\n    call: users#list\n    examples: {$file: rows.yaml}\n  - id: createsEachCity\n    steps:\n      - call: users#create\n        forEach: ${dataset.cities}\n        vars: {name: '${item.city}'}\n";
+
+/// The users apis and [`DATA`], with the data files when `given`.
+fn data(given: bool) -> crate::Compiled {
+    let data =
+        [file("datasets/cities.csv", "city,n\nOslo,1\nKöln,2\n"), file("services/users/rows.yaml", "- {page: 1}\n")];
+    let assets = Some(data.iter().map(|file| file.path.clone()).collect());
+    let mut files = vec![file("vibranium.config.yaml", CONFIG), file("services/users/users.api.yaml", APIS)];
+    files.push(file("services/users/data.test.yaml", DATA));
+    files.extend(data.into_iter().filter(|_| given));
+    crate::compile(CompileInput { files, assets, ..CompileInput::default() })
+}
+
+#[test]
+fn rows_from_a_given_dataset_or_file_are_built_as_literal_rows() {
+    let wanted = data(false);
+    let paths: Vec<&str> = wanted.data_wanted.iter().map(|data| data.path.as_str()).collect();
+    assert_eq!(paths, ["datasets/cities.csv", "services/users/rows.yaml"]);
+    let program = wanted.program.unwrap();
+    assert!(matches!(test(&program, "users.data#listsEachCity").examples, Some(Examples::Template(_))));
+    let compiled = data(true);
+    assert_eq!((compiled.data_wanted.len(), compiled.diagnostics.has_errors()), (0, false));
+    let program = compiled.program.unwrap();
+    let examples = |id: &str| test(&program, id).examples.clone();
+    let rows = |found| if let Some(Examples::Rows(rows)) = found { rows.len() } else { 0 };
+    assert_eq!((rows(examples("users.data#listsEachCity")), rows(examples("users.data#listsFileRows"))), (2, 1));
+    let [each] = steps(&program, test(&program, "users.data#createsEachCity"))[..] else { panic!("one step") };
+    let Some(Loop::ForEach { items: TemplateValue::List(items), .. }) = &each.repeat else { panic!("{each:?}") };
+    let cities = program.datasets.values().next().unwrap();
+    assert_eq!((items.len(), cities.file.as_str(), cities.rows.len()), (2, "datasets/cities.csv", 2));
+    assert_eq!(cities.rows[1]["city"], "Köln");
+}
+
+const RETRY_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nhttp:\n  retry:\n    attempts: 2\n    on: [connect, 503]\n    backoff: {base: 50ms, jitter: false}\n";
+
+const RETRY_APIS: &str = "apis:\n  - id: list\n    path: /users\n  - id: put\n    method: PUT\n    path: /users\n    http:\n      retry: {methods: [PUT, PATCH], backoff: {max: 1s}}\n";
+
+#[test]
+fn http_retry_takes_the_configs_keys_and_an_apis_keys_over_them() {
+    let files = vec![file("vibranium.config.yaml", RETRY_CONFIG), file("services/users/users.api.yaml", RETRY_APIS)];
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
+    let program = compiled.program.unwrap();
+    let retry = &program.config.http_retry;
+    assert_eq!(
+        (retry.attempts, &retry.on_status[..], &retry.on_transport[..]),
+        (2, &[StatusPattern::Code(503)][..], &["connect".to_owned()][..])
+    );
+    let millis = |ms| Duration::new(std::time::Duration::from_millis(ms));
+    assert_eq!((retry.base, retry.max, retry.jitter, retry.methods.len()), (millis(50), seconds(2), false, 5));
+    let api = |id: &str| program.apis.values().find(|api| name(&program, api.id.sym()) == id).unwrap();
+    assert_eq!(api("users#list").http_retry, None, "an api without `http` uses the config's");
+    let put = api("users#put").http_retry.clone().unwrap();
+    assert_eq!(
+        (put.attempts, &put.methods[..], put.base, put.max),
+        (2, &[Method::Put, Method::Patch][..], millis(50), seconds(1))
+    );
+    assert!(!put.jitter);
+}
+
+#[test]
+fn for_each_wins_over_repeat_when_both_are_written() {
+    let text = "tests:\n  - id: createsEach\n    steps:\n      - call: users#create\n        forEach: ['${var.baseUrl}']\n        repeat: 4\n";
+    let program = with_tests("services/users/both.test.yaml", text);
+    let [each] = steps(&program, test(&program, "users.both#createsEach"))[..] else { panic!("one step") };
+    assert!(matches!(each.repeat, Some(Loop::ForEach { parallel: 1, .. })), "{:?}", each.repeat);
+}
+
+#[test]
+fn lowers_cache_with_its_check_built_before_the_action() {
+    let text = "beforeAll:\n  - id: admin\n    call: users#create\n    cache: {for: 12h, check: {call: users#list}}\ntests:\n  - id: listsUsers\n    call: users#list\n";
+    let program = with_tests("services/users/cached.test.yaml", text);
+    let admin = program.test_files.values().next().unwrap().lifecycle.before_all[0];
+    let Some(cache) = action(&program, admin).cache else { panic!("a cache") };
+    let check = cache.check.unwrap();
+    assert_eq!((cache.ttl, check < admin), (seconds(12 * 3600), true));
+    assert!(matches!(action(&program, check).kind, ActionKind::Call(_)));
 }

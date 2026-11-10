@@ -1,0 +1,15 @@
+vars:
+  accountId: u_1  # the default
+tests:
+  - id: getsUser
+    name: Reads var.userId back
+    vars: {accountId: '${var.accountId}', userIdOld: x}
+    call: users#get
+    body: |
+      {"id": "${var.accountId}", "old": "${var.userIdOld}", "literal": "$${var.userId}"}
+    query: {name: "${var.accountId.name | trim}"}
+    expect:
+      cel:
+        same user: response.body.id == var.accountId
+    save:
+      accountId: ${response.body.id}

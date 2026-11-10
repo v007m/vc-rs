@@ -1,6 +1,6 @@
 //! Wall-clock time of `vc --version`, the startup cost of every command (D120 budget: 20 ms).
 
-use std::hint::black_box;
+use std::hint;
 use std::process::{Command, Output};
 
 use criterion::{Criterion, criterion_group, criterion_main};
@@ -16,7 +16,7 @@ fn startup(c: &mut Criterion) {
         Err(error) => exit_with(&format!("`vc --version` did not start: {error}")),
     }
     let mut group = c.benchmark_group("startup");
-    group.bench_function("version", |b| b.iter(|| black_box(version())));
+    group.bench_function("version", |b| b.iter(|| hint::black_box(version())));
     group.finish();
 }
 

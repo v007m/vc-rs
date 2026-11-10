@@ -1,3 +1,4 @@
+use serde_json::Number;
 use vc_diagnostics::{Diagnostic, Fix, TextEdit};
 use vc_model::{Duration, Size, SourceSpan, StatusPattern};
 
@@ -37,6 +38,29 @@ pub fn parse_size(text: &str, span: SourceSpan) -> Result<Size, Box<Diagnostic>>
                 .help("write a whole number and a unit: `512b`, `4kb`, `1mb` or `2gb`"),
         )
     })
+}
+
+/// Parses a rate as a share from 0 to 1: a percentage from `0%` to `100%` (`1%`, `0.5%`) or
+/// the share itself (`0.01`).
+///
+/// # Errors
+///
+/// V2301 when the text is neither, or is out of range.
+pub fn parse_rate(text: &str, span: SourceSpan) -> Result<Number, Box<Diagnostic>> {
+    let (digits, scale) = text.strip_suffix('%').map_or((text, 1.0), |digits| (digits, 100.0));
+    let share = decimal(digits).map(|value| value / scale).filter(|share| (0.0..=1.0).contains(share));
+    share.and_then(Number::from_f64).ok_or_else(|| {
+        Box::new(
+            Diagnostic::new(codes::UNIT, span, format!("invalid rate `{text}`"))
+                .help("write a percentage from 0% to 100% (`1%`) or a share from 0 to 1 (`0.01`)"),
+        )
+    })
+}
+
+/// An unsigned decimal number: digits and at most one point.
+fn decimal(text: &str) -> Option<f64> {
+    let plain = text.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.');
+    if plain { text.parse().ok() } else { None }
 }
 
 /// Parses an expected status: a code from 100 to 599 (`201`) or a class (`2xx`).

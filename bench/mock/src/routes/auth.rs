@@ -1,7 +1,7 @@
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing;
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
@@ -12,7 +12,10 @@ const EXPIRES_IN_SECS: u64 = 3600;
 
 /// `POST /auth/token` issues a bearer token; `GET /auth/me` accepts only issued tokens.
 pub fn routes(store: &Store) -> Router {
-    Router::new().route("/auth/token", post(token)).route("/auth/me", get(me)).with_state(store.clone())
+    Router::new()
+        .route("/auth/token", routing::post(token))
+        .route("/auth/me", routing::get(me))
+        .with_state(store.clone())
 }
 
 async fn token(State(store): State<Store>) -> Result<Json<Value>, MockError> {

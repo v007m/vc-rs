@@ -1,0 +1,81 @@
+openapi: 3.0.3
+info:
+  title: Users
+  version: 2.0.0
+servers:
+  - url: http://localhost:18080
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      summary: List users
+      tags: [users]
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, default: 20}}
+      responses:
+        '200':
+          description: The users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/User'}
+    post:
+      operationId: createUser
+      summary: Create user
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NewUser'}
+      responses:
+        '201':
+          description: The new user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+  /users/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer}}
+    get:
+      operationId: getUser
+      summary: Get user
+      tags: [users]
+      responses:
+        '200':
+          description: The user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+    patch:
+      operationId: updateUser
+      summary: Update user
+      tags: [users]
+      requestBody:
+        content:
+          application/merge-patch+json:
+            schema: {$ref: '#/components/schemas/NewUser'}
+      responses:
+        '200':
+          description: The updated user
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+components:
+  schemas:
+    NewUser:
+      type: object
+      required: [name, email]
+      properties:
+        name: {type: string, example: Ada}
+        email: {type: string, format: email, example: ada@example.com}
+        nickname: {type: string, nullable: true}
+        role: {type: string, enum: [admin, member], default: member}
+    User:
+      allOf:
+        - $ref: '#/components/schemas/NewUser'
+        - type: object
+          required: [id]
+          properties:
+            id: {type: integer, minimum: 0, exclusiveMinimum: true}

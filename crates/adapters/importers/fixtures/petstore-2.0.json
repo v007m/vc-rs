@@ -1,0 +1,79 @@
+{
+  "swagger": "2.0",
+  "info": { "title": "Petstore", "version": "1.0.0" },
+  "host": "petstore.test",
+  "basePath": "/v1",
+  "schemes": ["https"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "security": [{ "apiKey": [] }],
+  "securityDefinitions": { "apiKey": { "type": "apiKey", "in": "header", "name": "x-api-key" } },
+  "parameters": {
+    "NewPet": { "name": "pet", "in": "body", "required": true, "schema": { "$ref": "#/definitions/NewPet" } }
+  },
+  "paths": {
+    "/pets": {
+      "get": {
+        "operationId": "listPets",
+        "summary": "List pets",
+        "tags": ["pets"],
+        "parameters": [
+          { "name": "limit", "in": "query", "type": "integer", "default": 20 },
+          { "name": "tag", "in": "query", "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "The pets", "schema": { "type": "array", "items": { "$ref": "#/definitions/Pet" } } }
+        }
+      },
+      "post": {
+        "operationId": "create_pet",
+        "summary": "Create a pet",
+        "tags": ["pets"],
+        "parameters": [{ "$ref": "#/parameters/NewPet" }],
+        "responses": { "201": { "description": "The new pet", "schema": { "$ref": "#/definitions/Pet" } } }
+      }
+    },
+    "/pets/{petId}": {
+      "parameters": [{ "name": "petId", "in": "path", "required": true, "type": "integer", "minimum": 1 }],
+      "get": {
+        "operationId": "getPet",
+        "summary": "Get a pet",
+        "tags": ["pets"],
+        "responses": {
+          "200": { "description": "The pet", "schema": { "$ref": "#/definitions/Pet" } },
+          "404": { "description": "No such pet" }
+        }
+      },
+      "delete": {
+        "tags": ["pets"],
+        "security": [],
+        "responses": { "204": { "description": "Gone" } }
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "tags": ["ops"],
+        "security": [],
+        "responses": { "200": { "description": "Up" } }
+      }
+    }
+  },
+  "definitions": {
+    "NewPet": {
+      "type": "object",
+      "required": ["name"],
+      "properties": { "name": { "type": "string" }, "tag": { "type": "string", "x-nullable": true } }
+    },
+    "Pet": {
+      "allOf": [
+        { "$ref": "#/definitions/NewPet" },
+        {
+          "type": "object",
+          "required": ["id"],
+          "properties": { "id": { "type": "integer", "minimum": 0, "exclusiveMinimum": true } }
+        }
+      ]
+    }
+  }
+}

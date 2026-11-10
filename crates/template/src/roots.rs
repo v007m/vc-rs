@@ -2,7 +2,7 @@ use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};
 use vc_model::{Namespace, Reference, StringTable, Sym};
 
 use crate::codes;
-use crate::parse::root_name;
+use crate::parse;
 
 /// Roots available everywhere (D125).
 const EVERYWHERE: &[Namespace] =
@@ -94,7 +94,7 @@ impl Roots {
             .map_or((codes::ROOT_UNAVAILABLE, "only after that action, in the same test or block"), |(_, c, n)| {
                 (*c, *n)
             });
-        let name = root_name(ns).or(step).unwrap_or("step");
+        let name = parse::root_name(ns).or(step).unwrap_or("step");
         let diagnostic = Diagnostic::new(code, reference.span, format!("`{name}` is not available here"));
         Err(Box::new(diagnostic.help(format!("`{name}` is available {needs}"))))
     }

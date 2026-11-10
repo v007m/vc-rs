@@ -1,25 +1,33 @@
 //! The built-in pipes (LLD "Rendering", syntax reference "Converting types with pipes").
 
-use crate::{ArgType, PipeSignature, ValueType};
+use crate::{ArgType, PipeDef, PipeSignature, ValueType, pipe_fns as run};
 
 const NONE: &[ArgType] = &[];
 
-/// Each built-in pipe's name and signature.
-pub const BUILTIN: &[(&str, PipeSignature)] = &[
-    ("number", PipeSignature::new(ValueType::Scalar, ValueType::Number, NONE)),
-    ("int", PipeSignature::new(ValueType::Scalar, ValueType::Number, NONE)),
-    ("bool", PipeSignature::new(ValueType::Scalar, ValueType::Bool, NONE)),
-    ("string", PipeSignature::new(ValueType::Any, ValueType::Text, NONE)),
-    ("json", PipeSignature::new(ValueType::Text, ValueType::Any, NONE)),
-    ("jsonString", PipeSignature::new(ValueType::Any, ValueType::Text, NONE)),
-    ("base64", PipeSignature::new(ValueType::Text, ValueType::Text, NONE)),
-    ("fromBase64", PipeSignature::new(ValueType::Text, ValueType::Text, NONE)),
-    ("lower", PipeSignature::new(ValueType::Text, ValueType::Text, NONE)),
-    ("upper", PipeSignature::new(ValueType::Text, ValueType::Text, NONE)),
-    ("trim", PipeSignature::new(ValueType::Text, ValueType::Text, NONE)),
-    ("urlEncode", PipeSignature::new(ValueType::Text, ValueType::Text, NONE)),
-    ("default", PipeSignature::new(ValueType::Any, ValueType::Any, &[ArgType::Any])),
-    ("random", PipeSignature::new(ValueType::List, ValueType::Any, NONE)),
-    ("shuffle", PipeSignature::new(ValueType::List, ValueType::List, NONE)),
-    ("take", PipeSignature::new(ValueType::List, ValueType::List, &[ArgType::Count])),
+const fn pipe(input: ValueType, output: ValueType, apply: run::PipeFn) -> PipeDef {
+    PipeDef::new(PipeSignature::new(input, output, NONE), apply)
+}
+
+/// Each built-in pipe's name, signature and run-time function.
+pub const BUILTIN: &[(&str, PipeDef)] = &[
+    ("number", pipe(ValueType::Scalar, ValueType::Number, run::number)),
+    ("int", pipe(ValueType::Scalar, ValueType::Number, run::int)),
+    ("bool", pipe(ValueType::Scalar, ValueType::Bool, run::bool)),
+    ("string", pipe(ValueType::Any, ValueType::Text, run::string)),
+    ("json", pipe(ValueType::Text, ValueType::Any, run::json)),
+    ("jsonString", pipe(ValueType::Any, ValueType::Text, run::json_string)),
+    ("base64", pipe(ValueType::Text, ValueType::Text, run::base64)),
+    ("fromBase64", pipe(ValueType::Text, ValueType::Text, run::from_base64)),
+    ("lower", pipe(ValueType::Text, ValueType::Text, run::lower)),
+    ("upper", pipe(ValueType::Text, ValueType::Text, run::upper)),
+    ("trim", pipe(ValueType::Text, ValueType::Text, run::trim)),
+    ("urlEncode", pipe(ValueType::Text, ValueType::Text, run::url_encode)),
+    (
+        "default",
+        PipeDef::new(PipeSignature::new(ValueType::Any, ValueType::Any, &[ArgType::Any]), run::default)
+            .taking_missing(),
+    ),
+    ("random", pipe(ValueType::List, ValueType::Any, run::random)),
+    ("shuffle", pipe(ValueType::List, ValueType::List, run::shuffle)),
+    ("take", PipeDef::new(PipeSignature::new(ValueType::List, ValueType::List, &[ArgType::Count]), run::take)),
 ];

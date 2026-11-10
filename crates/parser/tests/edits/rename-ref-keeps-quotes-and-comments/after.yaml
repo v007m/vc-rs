@@ -1,0 +1,9 @@
+tests:
+  - id: createsUser
+    call: users#createUser   # the api
+  - id: createsMember
+    call: users#createMember
+  - id: createsTwice
+    steps:
+      - call: 'users#createUser'
+      - test: users.crud#createsUser

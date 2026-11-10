@@ -1,0 +1,155 @@
+{
+  "version": "1",
+  "name": "Shop",
+  "root": {
+    "request": {
+      "headers": [{"name": "X-Client", "value": "vc", "enabled": true}],
+      "auth": {"mode": "bearer", "bearer": {"token": "{{apiToken}}"}},
+      "script": {"req": "bru.setVar('started', Date.now());"},
+      "vars": {"req": [{"name": "currency", "value": "EUR", "enabled": true}]}
+    }
+  },
+  "environments": [
+    {
+      "name": "Local",
+      "variables": [
+        {"name": "baseUrl", "value": "https://api.shop.test/v1", "enabled": true, "secret": false, "type": "text"},
+        {"name": "payUrl", "value": "https://pay.shop.test", "enabled": true, "secret": false, "type": "text"},
+        {"name": "apiToken", "value": "Rt7Ny2Kb4Hd6Fj9Zq8Wv3Lp5", "enabled": true, "secret": true, "type": "text"},
+        {"name": "payKey", "value": "", "enabled": true, "secret": true, "type": "text"},
+        {"name": "quantity", "value": "2", "enabled": true, "secret": false, "type": "text"}
+      ]
+    },
+    {
+      "name": "Staging",
+      "variables": [
+        {"name": "baseUrl", "value": "https://staging.shop.test/v1", "enabled": true, "secret": false, "type": "text"}
+      ]
+    }
+  ],
+  "items": [
+    {
+      "type": "folder",
+      "name": "Carts",
+      "seq": 1,
+      "items": [
+        {
+          "type": "http",
+          "name": "Get cart",
+          "seq": 3,
+          "request": {
+            "url": "{{baseUrl}}/carts/{{cartId}}",
+            "method": "GET",
+            "script": {"req": "console.log('fetching the cart');"}
+          }
+        },
+        {
+          "type": "http",
+          "name": "Create cart",
+          "seq": 1,
+          "request": {
+            "url": "{{baseUrl}}/carts",
+            "method": "POST",
+            "headers": [
+              {"name": "Content-Type", "value": "application/json", "enabled": true},
+              {"name": "Accept", "value": "application/json", "enabled": false}
+            ],
+            "body": {"mode": "json", "json": "{\n  \"currency\": \"{{currency}}\"\n}"},
+            "vars": {"res": [{"name": "cartId", "value": "res.body.id", "enabled": true}]},
+            "tests": "test('created', () => expect(res.status).to.equal(201));"
+          }
+        },
+        {
+          "type": "http",
+          "name": "Add item",
+          "seq": 2,
+          "request": {
+            "url": "{{baseUrl}}/carts/:cartId/items",
+            "method": "POST",
+            "params": [{"name": "cartId", "value": "{{cartId}}", "type": "path", "enabled": true}],
+            "body": {"mode": "json", "json": "{\"sku\": \"sku_red42\", \"quantity\": {{quantity}}}"},
+            "assertions": [{"name": "res.status", "value": "eq 201", "enabled": true}]
+          }
+        }
+      ]
+    },
+    {
+      "type": "folder",
+      "name": "Checkout",
+      "seq": 2,
+      "root": {
+        "request": {"auth": {"mode": "apikey", "apikey": {"key": "api_key", "value": "{{payKey}}", "placement": "queryparams"}}}
+      },
+      "items": [
+        {
+          "type": "http",
+          "name": "Pay",
+          "seq": 1,
+          "request": {
+            "url": "{{payUrl}}/payments?currency={{currency}}",
+            "method": "POST",
+            "auth": {"mode": "inherit"},
+            "params": [{"name": "currency", "value": "{{currency}}", "type": "query", "enabled": true}],
+            "body": {
+              "mode": "formUrlEncoded",
+              "formUrlEncoded": [
+                {"name": "cartId", "value": "{{cartId}}", "enabled": true},
+                {"name": "nonce", "value": "Xk9pQ2mZ7vR4tL8wB3nY6cH1", "enabled": true},
+                {"name": "merchant", "value": "{{process.env.MERCHANT_ID}}", "enabled": true},
+                {"name": "email", "value": "{{$randomEmail}}", "enabled": true},
+                {"name": "coupon", "value": "WELCOME", "enabled": false}
+              ]
+            },
+            "vars": {"res": [
+              {"name": "orderId", "value": "res.body.order.id", "enabled": true},
+              {"name": "stamp", "value": "Date.now()", "enabled": true}
+            ]}
+          }
+        },
+        {
+          "type": "http",
+          "name": "Upload receipt",
+          "seq": 2,
+          "request": {
+            "url": "{{payUrl}}/payments/:paymentId/receipt",
+            "method": "POST",
+            "params": [{"name": "paymentId", "value": "pay_3Hs8Lw", "type": "path", "enabled": true}],
+            "body": {"mode": "multipartForm", "multipartForm": [{"name": "file", "value": ["receipt.pdf"], "type": "file", "enabled": true}]}
+          }
+        }
+      ]
+    },
+    {"type": "http", "name": "Health", "seq": 3, "request": {"url": "{{baseUrl}}/health", "method": "GET"}},
+    {
+      "type": "http",
+      "name": "Search",
+      "seq": 4,
+      "request": {
+        "url": "https://api.shop.test/v1/products?q=red&access_token={{apiToken}}",
+        "method": "GET",
+        "auth": {"mode": "none"},
+        "params": [
+          {"name": "q", "value": "red", "type": "query", "enabled": true},
+          {"name": "limit", "value": "10", "type": "query", "enabled": false},
+          {"name": "access_token", "value": "{{apiToken}}", "type": "query", "enabled": true}
+        ]
+      }
+    },
+    {
+      "type": "http",
+      "name": "Login",
+      "seq": 5,
+      "request": {
+        "url": "{{baseUrl}}/login",
+        "method": "POST",
+        "auth": {"mode": "none"},
+        "headers": [
+          {"name": "Authorization", "value": "Basic YW5uOmh1bnRlcjI=", "enabled": true},
+          {"name": "X-Request-Id", "value": "req-1", "enabled": true}
+        ],
+        "body": {"mode": "json", "json": "{\"username\": \"ann\", \"password\": \"hunter2\"}"}
+      }
+    },
+    {"type": "grpc", "name": "Stream prices", "seq": 6, "request": {"url": "grpc://prices.shop.test", "method": "Watch"}}
+  ]
+}

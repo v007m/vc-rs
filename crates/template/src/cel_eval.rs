@@ -13,6 +13,7 @@ use serde_json::Value as Json;
 use vc_model::Namespace;
 
 use crate::cel_lex::VAR_ALIAS;
+use crate::cel_time;
 use crate::expr::{Activation, Expr, ExprError};
 
 /// The function every comprehension's range is passed through, to count steps. The `@` keeps
@@ -54,13 +55,17 @@ impl CelExpr {
 impl Expr for CelExpr {
     fn eval(&self, activation: &Activation) -> Result<Json, ExprError> {
         let context = self.context(activation)?;
-        let value = Value::resolve(&self.expr, &context).map_err(|error| match error {
+        let failed = |error| match error {
             ExecutionError::FunctionError { function, .. } if function == STEPS => {
                 ExprError::StepLimit(activation.step_limit())
             }
             other => ExprError::Eval(other.to_string()),
-        })?;
-        to_json(&value)
+        };
+        let value = Value::resolve_val(&self.expr, &context).map_err(failed)?;
+        if let Some(time) = cel_time::to_json(value.as_ref()) {
+            return Ok(time);
+        }
+        to_json(&Value::try_from(value.as_ref()).map_err(failed)?)
     }
 }
 

@@ -1,0 +1,51 @@
+# ─ Api file: sample ───────────────────────────────────────────
+# How to call one service. Tests call each api by its full ID, sample#<id>.
+# Safe to delete once you have your own api files.
+# Reference: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#api-files
+# Try one: vc call sample#listUsers
+# ─────────────────────────────────────────────────────────────
+id: sample
+name: Demo service built into Vibranium
+baseUrl: ${var.sampleUrl}
+# auth: myOauth            # an auth ID from vibranium.config.yaml, or none
+# headers: {}              # sent with every api in this file
+
+apis:
+  # GET /users: the simplest api is a method and a path.
+  - id: listUsers
+    name: List users
+    method: GET
+    path: /users
+    # query:               # query string; values can be templates
+    #   limit: ${var.pageSize}
+
+  # POST /users: vars are the api's inputs, with defaults any caller can override.
+  - id: createUser
+    name: Create a user
+    method: POST
+    path: /users
+    vars:
+      name: ${fake.person.fullName}    # a new realistic value on every call
+      email: ${fake.internet.email}
+    body:
+      name: ${var.name}
+      email: ${var.email}
+    expect:                            # checks that hold on every call of this api
+      status: 201
+    save:                              # values every caller gets as vars
+      userId: ${response.body.id}
+    cleanup:                           # undoes a successful call, automatically
+      call: deleteUser
+      vars:
+        userId: ${response.body.id}
+
+  - id: getUser
+    name: Get a user
+    path: /users/${var.userId}
+
+  - id: deleteUser
+    name: Delete a user
+    method: DELETE
+    path: /users/${var.userId}
+    expect:
+      status: [204, 404]               # already gone is fine for a cleanup

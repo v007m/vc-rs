@@ -1,10 +1,14 @@
 //! `expect` blocks as checks, and the merge of the levels a call inherits (D123).
 
-use vc_model::{Check, CheckKind, Expect, Matcher, Origin, Path, Segment, SourceSpan, TemplateValue};
+use vc_model::{
+    Check, CheckKind, Expect, Matcher, Origin, Part, Path, Segment, SourceSpan, StatusPattern, Template, TemplateValue,
+};
 use vc_parser::Node;
 
 use super::read;
-use crate::link::project::{Source, text};
+use crate::link::body_schema;
+use crate::link::project;
+use crate::link::project::Source;
 use crate::parts::Piece;
 use crate::shapes;
 
@@ -15,6 +19,7 @@ pub fn read(source: &Source<'_>, node: Option<&Node>, origin: Origin) -> Expect 
     reader.matcher(CheckKind::Status, node.get("status"), None);
     reader.keyed(CheckKind::Header, node.get("headers"), |name| Path { segments: vec![key(&name.to_lowercase())] });
     let body = node.get("body");
+    reader.schema(body.and_then(|body| body.get("schema")));
     reader.keyed(CheckKind::Match, body.and_then(|body| body.get("match")), path);
     reader.equals(body.and_then(|body| body.get("equals")));
     reader.matcher(CheckKind::Size, node.get("size"), None);
@@ -68,6 +73,13 @@ impl Reader<'_, '_> {
         }
     }
 
+    /// A JSON Schema check, naming its schema by its key in the program (D201).
+    fn schema(&mut self, node: Option<&Node>) {
+        let Some(node) = node else { return };
+        let key = TemplateValue::String(Template { parts: vec![Part::Literal(body_schema::key(self.source, node))] });
+        self.push((CheckKind::Schema, None), Matcher::Equals(key), node.span);
+    }
+
     fn equals(&mut self, node: Option<&Node>) {
         let Some(node) = node else { return };
         if let Some(value) = read::value(self.source, node) {
@@ -88,8 +100,9 @@ impl Reader<'_, '_> {
     /// A function check, by `path#export`; it holds when the function passes.
     fn custom(&mut self, node: Option<&Node>) {
         for item in node.map(Node::items).unwrap_or_default() {
-            let Some(function) = text(item, "function") else { continue };
-            let target = Some(Path { segments: vec![key(function)] });
+            let Some(function) = project::text(item, "function") else { continue };
+            let hook = read::hook(self.source, function);
+            let target = Some(Path { segments: vec![key(&format!("{}#{}", hook.file, hook.export))] });
             self.push((CheckKind::Custom, target), Matcher::Equals(TemplateValue::Bool(true)), item.span);
         }
     }
@@ -127,6 +140,18 @@ fn bracket(text: &str) -> (Option<Segment>, &str) {
         _ => inner.parse().map_or_else(|_| key(inner), Segment::Index),
     };
     (Some(segment), &text[end + 1..])
+}
+
+/// When an api's `save` runs (D191): its `saveOn` at `node`, else the status its `expect`
+/// checks, else `2xx`.
+pub fn save_on(source: &Source<'_>, node: Option<&Node>, expect: &Expect) -> Matcher {
+    let written = node.and_then(|node| match source.piece(node) {
+        Some(Piece::Matcher(matcher)) => Some(matcher.clone()),
+        _ => None,
+    });
+    let status = expect.checks.iter().find(|check| check.kind == CheckKind::Status);
+    let expected = status.map(|check| check.matcher.clone());
+    written.or(expected).unwrap_or_else(|| Matcher::Status(vec![StatusPattern::Class(2)]))
 }
 
 /// The checks under `until`, for `poll`.

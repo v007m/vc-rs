@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2102_iteration_root/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2102",
+      "severity": "error",
+      "message": "`iteration` is not available here",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 8,
+          "column": 26,
+          "endLine": 8,
+          "endColumn": 44
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`iteration` is available only inside repeat, forEach or a repeated test"
+      ],
+      "fixes": []
+    }
+  ]
+}

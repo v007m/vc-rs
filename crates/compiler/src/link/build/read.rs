@@ -1,23 +1,22 @@
 //! Reads compiled pieces and plain scalars off a file's tree for the program build.
 
 use indexmap::IndexMap;
-use vc_model::{BodySpec, Duration, Examples, HookRef, Method, Retry, Skip, Tag, Template, TemplateValue};
+use vc_model::{
+    AgentPolicy, ApiSource, BodySpec, Duration, Examples, HookRef, Loop, Method, Retry, Size, Skip, Tag, Template,
+    TemplateValue, WriteDefinitions,
+};
 use vc_parser::Node;
 
-use crate::link::project::{Source, list, text};
+use crate::link::assets;
+use crate::link::project;
+use crate::link::project::Source;
 use crate::parts::Piece;
+use crate::shapes;
 use crate::shapes::Shape;
 
-/// The methods an api may name, as written.
-const METHODS: [(&str, Method); 7] = [
-    ("GET", Method::Get),
-    ("POST", Method::Post),
-    ("PUT", Method::Put),
-    ("PATCH", Method::Patch),
-    ("DELETE", Method::Delete),
-    ("HEAD", Method::Head),
-    ("OPTIONS", Method::Options),
-];
+/// The values `writeDefinitions` may take, as written.
+const WRITES: [(&str, WriteDefinitions); 3] =
+    [("true", WriteDefinitions::Allow), ("ask", WriteDefinitions::Ask), ("false", WriteDefinitions::Deny)];
 
 /// Makes a body of one kind from its template.
 type MakeBody = fn(Template) -> BodySpec;
@@ -49,6 +48,14 @@ pub fn duration(source: &Source<'_>, node: &Node, key: &str) -> Option<Duration>
     }
 }
 
+/// The size under `key`.
+pub fn size(source: &Source<'_>, node: &Node, key: &str) -> Option<Size> {
+    match source.piece(node.get(key)?)? {
+        Piece::Size(size) => Some(*size),
+        _ => None,
+    }
+}
+
 /// The templates of the map under `key`, by name.
 pub fn templates(source: &Source<'_>, node: &Node, key: &str) -> IndexMap<String, Template> {
     let entries = node.get(key).map(Node::entries).unwrap_or_default();
@@ -57,23 +64,23 @@ pub fn templates(source: &Source<'_>, node: &Node, key: &str) -> IndexMap<String
 
 /// `key` as a whole number.
 pub fn number(node: &Node, key: &str) -> Option<u32> {
-    text(node, key)?.parse().ok()
+    project::text(node, key)?.parse().ok()
 }
 
 /// Whether `key` is `true`, taking the default `shape` declares for it when it is not written.
 pub fn flag(shape: &Shape, node: &Node, key: &str) -> bool {
-    let written = text(node, key).or_else(|| shape.find(key)?.default);
+    let written = project::text(node, key).or_else(|| shape.find(key)?.default);
     written.is_some_and(|value| value.eq_ignore_ascii_case("true"))
 }
 
 /// `key` as owned text.
 pub fn owned(node: &Node, key: &str) -> Option<String> {
-    text(node, key).map(str::to_owned)
+    project::text(node, key).map(str::to_owned)
 }
 
 /// The texts of the list under `key`.
 pub fn texts(node: &Node, key: &str) -> Vec<String> {
-    list(node, key).iter().filter_map(|item| item.as_scalar()).map(|scalar| scalar.text.clone()).collect()
+    project::list(node, key).iter().filter_map(|item| item.as_scalar()).map(|scalar| scalar.text.clone()).collect()
 }
 
 /// The tags under `tags`.
@@ -83,8 +90,35 @@ pub fn tags(node: &Node) -> Vec<Tag> {
 
 /// `method`, `GET` when it is left out.
 pub fn method(node: &Node) -> Method {
-    let written = text(node, "method").unwrap_or_default();
-    METHODS.iter().find(|(name, _)| *name == written).map_or(Method::Get, |(_, method)| *method)
+    Method::named(project::text(node, "method").unwrap_or_default()).unwrap_or(Method::Get)
+}
+
+/// The methods of the list under `key`; the shape check has reported any other text.
+pub fn methods(node: &Node, key: &str) -> Vec<Method> {
+    texts(node, key).iter().filter_map(|name| Method::named(name)).collect()
+}
+
+/// A profile's `agents` rules; reads only when there is no `agents` block (D195).
+pub fn agents(node: Option<&Node>) -> AgentPolicy {
+    let Some(node) = node else { return AgentPolicy::default() };
+    let written = project::text(node, "writeDefinitions").unwrap_or_default();
+    let write = WRITES.iter().find(|(name, _)| name.eq_ignore_ascii_case(written));
+    AgentPolicy {
+        run: flag(shapes::agents(), node, "run"),
+        call: methods(node, "call"),
+        approve: methods(node, "approve"),
+        write_definitions: write.map_or(WriteDefinitions::Deny, |(_, write)| *write),
+    }
+}
+
+/// An api file's `source`: the API spec it syncs from.
+pub fn api_source(source: &Source<'_>, root: &Node) -> Option<ApiSource> {
+    let node = root.get("source")?;
+    Some(ApiSource {
+        openapi: owned(node, "openapi")?,
+        headers: templates(source, node, "headers"),
+        include: texts(node, "include"),
+    })
 }
 
 /// `skip`: a reason, or a reason with an end date.
@@ -103,15 +137,27 @@ pub fn retry(source: &Source<'_>, node: &Node) -> Option<Retry> {
     Some(Retry { attempts: number(retry, "attempts")?, delay })
 }
 
-/// A `path#export` function reference.
-pub fn hook(written: &str) -> HookRef {
+/// `forEach` or `repeat` on an action, `parallel` iterations at a time (1 when not written);
+/// `forEach` wins when both are written.
+pub fn looping(source: &Source<'_>, node: &Node) -> Option<Loop> {
+    let parallel = number(node, "parallel").unwrap_or(1);
+    if let Some(items) = node.get("forEach") {
+        return Some(Loop::ForEach { items: value(source, items)?, parallel });
+    }
+    Some(Loop::Repeat { times: number(node, "repeat")?, parallel })
+}
+
+/// A `path#export` function reference, with the path made project-relative (D172).
+pub fn hook(source: &Source<'_>, written: &str) -> HookRef {
     let (file, export) = written.split_once('#').unwrap_or((written, ""));
-    HookRef { file: file.to_owned(), export: export.to_owned() }
+    let file = assets::resolve(&assets::folder(source.path), file).unwrap_or_else(|| file.to_owned());
+    HookRef { file, export: export.to_owned() }
 }
 
 /// The functions listed under `key`.
-pub fn hooks(node: &Node, key: &str) -> Vec<HookRef> {
-    list(node, key).iter().filter_map(|item| text(item, "function")).map(hook).collect()
+pub fn hooks(source: &Source<'_>, node: &Node, key: &str) -> Vec<HookRef> {
+    let written = project::list(node, key).iter().filter_map(|item| project::text(item, "function"));
+    written.map(|written| hook(source, written)).collect()
 }
 
 /// The request body at `node`: text, `$file`, `$base64`, or JSON.

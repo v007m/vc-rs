@@ -2,9 +2,18 @@
 //! each action merged with what it inherits (D123, D124).
 
 mod action;
+mod auth;
 mod expect;
+mod http_retry;
 mod items;
+mod load;
+#[cfg(test)]
+mod load_tests;
 mod read;
+mod rows;
+#[cfg(test)]
+mod schema_tests;
+mod schemas;
 #[cfg(test)]
 mod tests;
 
@@ -13,31 +22,45 @@ use std::sync::Arc;
 
 use indexmap::IndexMap;
 use vc_model::{
-    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, ModelError, Origin, Owner, ProfileId, Program, ProgramBuilder,
-    SourceFiles, Sym, TemplateValue, VarDefs, VarName,
+    ActionId, ApiId, AuthId, AuthRef, Expect, FileKind, HookModules, HttpRetry, ModelError, Origin, Owner, ProfileId,
+    Program, ProgramBuilder, SourceFiles, Sym, TemplateValue, VarDefs, VarName,
 };
 use vc_parser::Node;
 
-use super::project::{Project, Source, list, text};
+use super::data::Data;
+use super::project;
+use super::project::{Project, Source};
 use action::Place;
+pub use expect::path as body_path;
 pub use read::{flag, method};
 
 /// What a build step gives; it fails only when a table is full.
 type Built<T> = Result<T, ModelError>;
 
 /// The program, or `None` when a table overflowed.
-pub fn program(project: &Project<'_>, files: SourceFiles) -> Option<Arc<Program>> {
-    let builder = ProgramBuilder::new(project.strings.clone(), files);
-    let mut build = Build { project, builder, api_expects: HashMap::new() };
+pub fn program(
+    (project, data): (&Project<'_>, &Data<'_>),
+    (files, hooks): (SourceFiles, HookModules),
+    secrets: &[String],
+) -> Option<Arc<Program>> {
+    let mut builder = ProgramBuilder::new(project.strings.clone(), files);
+    builder.hooks(hooks);
+    let (api_expects, http_retry) = (HashMap::new(), HttpRetry::default());
+    let mut build = Build { project, data, builder, api_expects, http_retry, secrets };
     build.all().ok()?;
     Some(build.builder.freeze())
 }
 
 struct Build<'p, 'a> {
     project: &'p Project<'a>,
+    data: &'p Data<'a>,
     builder: ProgramBuilder,
     /// Every api's own checks, by full ID, read before any call merges them.
     api_expects: HashMap<ApiId, Expect>,
+    /// The config's `http.retry`, which an api's keys replace (D143).
+    http_retry: HttpRetry,
+    /// The secret names `.env.schema` declares (D165).
+    secrets: &'p [String],
 }
 
 impl<'a> Build<'_, 'a> {
@@ -49,6 +72,7 @@ impl<'a> Build<'_, 'a> {
         }
         for source in of(FileKind::Config) {
             self.config(source)?;
+            self.auth_defs(source)?;
         }
         for source in of(FileKind::Api) {
             self.api_file(source)?;
@@ -56,13 +80,17 @@ impl<'a> Build<'_, 'a> {
         for source in of(FileKind::Test) {
             self.test_file(source)?;
         }
-        Ok(())
+        for source in of(FileKind::Load) {
+            self.load_file(source)?;
+        }
+        self.schemas();
+        self.datasets()
     }
 
     /// Reads every api's own `expect` under its full ID.
     fn api_checks(&mut self, source: &Source<'a>) -> Built<()> {
-        for node in list(source.root, "apis") {
-            let Some(id) = text(node, "id") else { continue };
+        for node in project::list(source.root, "apis") {
+            let Some(id) = project::text(node, "id") else { continue };
             let id = ApiId::new(self.sym(&source.full(id))?);
             self.api_expects.insert(id, expect::read(source, node.get("expect"), Origin::Api(id)));
         }
@@ -77,8 +105,8 @@ impl<'a> Build<'_, 'a> {
     fn vars(&mut self, source: &Source<'a>, node: &Node) -> Built<VarDefs> {
         let values = self.values(source, node.get("vars"))?;
         let mut by_profile = IndexMap::new();
-        for profile in list(node, "profiles") {
-            let Some(id) = text(profile, "id") else { continue };
+        for profile in project::list(node, "profiles") {
+            let Some(id) = project::text(profile, "id") else { continue };
             by_profile.insert(ProfileId::new(self.sym(id)?), self.values(source, profile.get("vars"))?);
         }
         Ok(VarDefs { values, by_profile })
@@ -97,7 +125,7 @@ impl<'a> Build<'_, 'a> {
     /// `auth`: an ID, `none`, or an ID with vars.
     fn auth(&mut self, source: &Source<'a>, node: &Node) -> Built<Option<AuthRef>> {
         let Some(auth) = node.get("auth") else { return Ok(None) };
-        let Some(id) = auth.as_scalar().map(|id| id.text.as_str()).or_else(|| text(auth, "id")) else {
+        let Some(id) = auth.as_scalar().map(|id| id.text.as_str()).or_else(|| project::text(auth, "id")) else {
             return Ok(None);
         };
         if id == "none" {

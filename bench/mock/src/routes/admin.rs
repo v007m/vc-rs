@@ -1,6 +1,6 @@
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::routing::{get, post};
+use axum::routing;
 use axum::{Json, Router};
 
 use crate::error::MockError;
@@ -10,7 +10,10 @@ use crate::store::Store;
 
 /// `GET /__stats` and `POST /__reset`. These are not counted themselves.
 pub fn routes(store: &Store) -> Router {
-    Router::new().route("/__stats", get(stats)).route("/__reset", post(reset)).with_state(store.clone())
+    Router::new()
+        .route("/__stats", routing::get(stats))
+        .route("/__reset", routing::post(reset))
+        .with_state(store.clone())
 }
 
 async fn stats(State(store): State<Store>) -> Result<Json<Stats>, MockError> {

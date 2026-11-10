@@ -1,0 +1,12 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1002_dataset_not_rows/project
+---
+error[V1002]: the dataset datasets/cities.yaml is not a list of rows
+ --> datasets/cities.yaml:1:1
+  |
+1 | name: Oslo
+  | ^^^^^^^^^^
+2 | country: NO
+  | ^^^^^^^^^^^ a list expected
+  = help: a dataset is a CSV file, or a JSON or YAML list with one item per row
