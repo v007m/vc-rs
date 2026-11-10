@@ -23,6 +23,12 @@ const definitions = [
     name: 'Places an order',
     path: 'services/orders/place.test.yaml',
     tags: ['smoke'],
+    span: { file: 'services/orders/place.test.yaml', startLine: 12 },
+    steps: 2,
+    calls: [
+      { api: 'orders#create', method: 'POST', path: '/orders' },
+      { api: 'orders#get', method: 'GET', path: '/orders/{orderId}' },
+    ],
   },
 ];
 
@@ -90,5 +96,17 @@ describe('Explorer', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Run this test' }));
     expect(runs).toEqual([['orders.place#placesOrder']]);
+  });
+
+  it('shows where a test is defined, its steps and the apis it calls', async () => {
+    const { user } = await setup();
+    await user.click(screen.getByText('Places an order'));
+    expect(screen.getByText('services/orders/place.test.yaml:12')).toBeTruthy();
+    expect(screen.getByText('A flow of 2 steps')).toBeTruthy();
+    const calls = within(screen.getByRole('list', { name: 'Calls' })).getAllByRole('listitem');
+    expect(calls.map((li) => li.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+      'POST /orders orders#create',
+      'GET /orders/{orderId} orders#get',
+    ]);
   });
 });
