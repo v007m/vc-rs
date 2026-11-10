@@ -34,10 +34,17 @@ fn installs_reads_back_and_uninstalls(store: &dyn PluginStore) {
     let Some(fetched) = fetch(store, "path:plugin") else { return };
     assert_eq!(fetched.manifest, MANIFEST);
     assert_eq!(manifest(store, "suite"), None, "not installed until approved");
+    assert_eq!(store.integrity("suite"), Ok(None), "nothing installed has no integrity");
     assert_eq!(store.install(&fetched, "suite"), Ok(()));
     assert_eq!(manifest(store, "suite").as_deref(), Some(MANIFEST));
+    assert_eq!(store.integrity("suite"), Ok(Some(fetched.integrity)), "the installed files hash as fetched");
+    uninstalls(store);
+}
+
+fn uninstalls(store: &dyn PluginStore) {
     assert_eq!(store.uninstall("suite"), Ok(()));
     assert_eq!(manifest(store, "suite"), None);
+    assert_eq!(store.integrity("suite"), Ok(None));
     assert_eq!(store.uninstall("suite"), Ok(()), "nothing to remove is not an error");
 }
 

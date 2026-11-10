@@ -56,6 +56,14 @@ pub trait PluginStore: Send + Sync {
     ///
     /// [`PluginStoreError::Read`] when it is there but cannot be read.
     fn manifest(&self, id: &str) -> Result<Option<String>, PluginStoreError>;
+
+    /// The `blake3-…` integrity of the installed plugin `id`'s files, hashed as a `path:` fetch
+    /// hashes them, to check against the lock; `None` when it is not installed.
+    ///
+    /// # Errors
+    ///
+    /// [`PluginStoreError::Read`] when it is there but cannot be read.
+    fn integrity(&self, id: &str) -> Result<Option<String>, PluginStoreError>;
 }
 
 /// A plugin fetched into a staging folder, waiting for approval.

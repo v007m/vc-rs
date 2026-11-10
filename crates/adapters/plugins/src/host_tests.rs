@@ -76,6 +76,49 @@ async fn a_plugin_that_exits_fails_the_call_it_left() {
     assert_eq!(later.to_string(), "plugin `suitePlugin` stopped: it stopped earlier in this run");
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn a_plugin_that_breaks_the_protocol_is_stopped_and_later_calls_fail_at_once() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let manifest = vc_interfaces::PluginManifest {
+        command: "python3".into(),
+        args: vec!["-c".into(), format!("{READ}{BREAKS}")],
+        ..suite_plugin_manifest()
+    };
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted());
+    let broken = host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+    assert!(matches!(broken, PluginError::Protocol { .. }), "{broken:?}");
+    let started = std::time::Instant::now();
+    let later = host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+    assert_eq!(later.to_string(), "plugin `suitePlugin` stopped: it stopped earlier in this run");
+    assert!(started.elapsed() < Duration::from_secs(1), "a stopped plugin fails at once");
+}
+
+/// Reads one framed message from stdin.
+const READ: &str = r#"
+import json, sys, time
+def read():
+    length = 0
+    while True:
+        line = sys.stdin.buffer.readline().strip()
+        if not line: break
+        if line.lower().startswith(b"content-length:"): length = int(line.split(b":")[1])
+    return json.loads(sys.stdin.buffer.read(length))
+def send(body):
+    sys.stdout.buffer.write(b"Content-Length: %d\r\n\r\n%s" % (len(body), body)); sys.stdout.buffer.flush()
+"#;
+
+/// Answers `initialize`, answers the next call with a message that is not an object, then hangs.
+const BREAKS: &str = r#"
+first = read()
+send(json.dumps({"jsonrpc": "2.0", "id": first["id"], "result": None}).encode())
+read()
+send(b"[1, 2]")
+time.sleep(30)
+"#;
+
 /// Answers `initialize`, then exits on the next call.
 const EXITS: &str = r#"
 import json, sys

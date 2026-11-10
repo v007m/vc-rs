@@ -8,7 +8,7 @@ A Vibranium plugin is a separate program that the engine starts and talks to ove
 
 - **Sources.** `npm:<package>[@<range>]` (packed with `npm pack`) or `path:<folder>` (a folder relative to the project root). No other scheme is accepted.
 - **Where.** The plugin is installed to `.vibranium/plugins/<id>/`.
-- **Lock.** `vibranium.lock` (YAML) records each approved plugin: its source, resolved version, integrity hash and the permissions granted. The host refuses to start a plugin whose manifest asks for more than the lock grants; run `vc plugin add` again to approve the new permissions.
+- **Lock.** `vibranium.lock` (YAML) records each approved plugin: its source, resolved version, integrity hash and the permissions granted. The host refuses to start a plugin whose manifest asks for more than the lock grants; run `vc plugin add` again to approve the new permissions. For a `path:` plugin the integrity is a `blake3-…` hash over the installed files (`.git`, `.vibranium` and `__pycache__` skipped), checked again at each run: files changed since the lock approved them make the plugin unusable (V5118) until `vc plugin add` approves them again. An npm integrity is the tarball's and is checked when it is fetched. Installed files keep their permissions, so an executable entry stays executable.
 
 ## Manifest: `vibranium-plugin.yaml`
 
@@ -34,6 +34,7 @@ permissions:
 - JSON-RPC 2.0, one process per plugin per run, started on first use in the plugin's folder.
 - Each message is framed as in LSP: a `Content-Length: <bytes>` header, a blank line (`\r\n\r\n`), then the UTF-8 JSON body. Other headers are ignored. A message is at most 16 MiB.
 - stdout carries only protocol messages. stderr is passed through to the user's terminal.
+- A message that is not a framed JSON-RPC object stops the plugin for the rest of the run: the calls in flight fail, and so does every later call.
 - The process gets only `PATH`, `HOME`, `USER`, `LANG`, `TMPDIR`, `TEMP`, `TMP`, `SYSTEMROOT` and `USERPROFILE` from the environment. It never gets the run's secrets that way.
 
 ## Lifecycle
