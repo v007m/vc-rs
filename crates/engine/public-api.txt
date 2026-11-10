@@ -396,6 +396,7 @@ pub fn vc_engine::Engine::stored(&self, &str) -> core::result::Result<vc_engine:
 pub fn vc_engine::Engine::trends(&self, usize) -> core::result::Result<alloc::vec::Vec<vc_interfaces::trend::TestTrend>, vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::import(&self, &vc_engine::ImportRequest) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
+pub fn vc_engine::Engine::importers() -> alloc::vec::Vec<alloc::string::String>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::init(&self, bool) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 impl vc_engine::Engine
