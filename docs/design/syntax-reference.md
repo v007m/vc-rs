@@ -65,7 +65,7 @@ Every dynamic value is written `${namespace.path}`; `vc check` resolves each ref
 | `iteration` | `index` (from 1) and `count` in a `repeat` or `forEach` loop, or a repeated test | `${iteration.index}` |
 | `fake` | Generated data (see Generators and datasets) | `${fake.location.city}` |
 | `dataset` | One of your datasets: its whole list of rows (see Generators and datasets) | `${dataset.capitals}` |
-| `run` | `id`, `startedAt`, `profiles` | `${run.id}` |
+| `run` | `id` (the history run number, 0 when unrecorded), `startedAt` (RFC 3339 in UTC), `profiles` | `${run.id}` |
 
 Where each root is available (D125): `response` and `request` exist only once a call has been made (in `expect`, `save`, `poll` and an api's `cleanup`); `item` only inside `forEach`; `iteration` only inside `repeat`, `forEach` or a repeated test; `example` only in a test with `examples`; an action or step id only after that action, in the same test or block. `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere. There are no shorthands: write `response.status`, `response.headers` and `response.body`, in `expect` too. A bare `status`, `headers` or `body` that is not a step id is V2105, with a fix that inserts `response.` (D150). Using a root where it is not available is V2105 (`${item}` outside `forEach`, `${example}` without `examples` and `${iteration}` outside a loop are V2102) (D125, D137).
 

@@ -59,7 +59,8 @@ impl<'a> Render<'a> {
             reads: Reads::of(&request.frame),
             chance: RandomChance(cx.values.inputs().random.as_ref()),
         };
-        let run = json!({ "id": render.values.inputs().run_id, "profiles": render.values.profiles() });
+        let (id, started) = (render.values.inputs().run_id, vc_template::rfc3339(render.values.inputs().started_ms));
+        let run = json!({ "id": id, "profiles": render.values.profiles(), "startedAt": started });
         render.bind(Namespace::Run, run);
         render.roots.insert(Namespace::Secret, render.values.secrets());
         render.roots.insert(Namespace::Dataset, render.values.datasets());

@@ -61,4 +61,5 @@ pub use pipes::{ArgType, PipeDef, PipeRegistry, PipeSignature, ValueType};
 pub use render::{Renderer, Resolve, to_text};
 pub use roots::Roots;
 pub use select::{path_text, preview, select};
+pub use time::rfc3339;
 pub use units::{parse_duration, parse_rate, parse_size, parse_status};

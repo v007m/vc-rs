@@ -1,10 +1,10 @@
 ---
 title: "run"
-description: "Read facts about the current run, its id and active profiles, with ${run.id} and ${run.profiles}."
+description: "Read facts about the current run, its id, start time and active profiles, with ${run.id}, ${run.startedAt} and ${run.profiles}."
 sidebar: { order: 12 }
 ---
 
-import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 `${run.…}` reads facts about the current run. Use it to tag data a run creates.
@@ -20,10 +20,7 @@ import Playground from '~/components/Playground.svelte';
 | --- | --- | --- | --- | --- |
 | `run.id` | number | — | — | The run's number in history. |
 | `run.profiles` | list of text | — | — | The active profiles, in order. |
-
-<Aside type="caution">
-The design also lists `run.startedAt`. `vc check` accepts it, but it is not filled in yet: a template that reads it fails at run time with V5111.
-</Aside>
+| `run.startedAt` | text | — | — | When the run started, as RFC 3339 in UTC: `2026-11-11T09:30:00.123Z`. |
 
 ## Examples
 
@@ -33,10 +30,11 @@ A run sent this payload:
       payload:
         runId: ${run.id}
         profiles: ${run.profiles}
+        startedAt: ${run.startedAt}
 ```
 
 ```json
-{ "runId": 7, "profiles": ["default"] }
+{ "runId": 7, "profiles": ["default"], "startedAt": "2026-11-11T09:30:00.123Z" }
 ```
 
 Inside text, the id becomes part of the string: `user-${run.id}` gives `"user-7"`.
@@ -57,8 +55,8 @@ Inside text, the id becomes part of the string: `user-${run.id}` gives `"user-7"
 ## Common errors
 
 ```console
-✕ tpl.run#readsStartTime                                          0ms
-  error[V5111]: `run.startedAt` is missing: `run` is {"id":40,"profiles":["default"]}
+✕ tpl.run#readsRunName                                             0ms
+  error[V5111]: `run.name` is missing: `run` is {"id":40,"profiles":["default"],"startedAt":"2026-11-11T09:30:00.123Z"}
      = at: call sample#echo
 ```
 

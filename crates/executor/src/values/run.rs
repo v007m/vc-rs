@@ -33,7 +33,7 @@ pub struct RunInputs {
     pub environment: Arc<dyn Environment>,
     /// What `${fake.…}` generates.
     pub fakes: FakeRegistry,
-    /// When the run started, in milliseconds since 1970; `date.past` and the other dates are
+    /// When the run started, in milliseconds since 1970: `${run.startedAt}`; `date.past` and the other dates are
     /// relative to it, so a seeded run repeats.
     pub started_ms: u64,
     /// What `${secret.X}` reads; every value is masked in all output.
@@ -50,7 +50,7 @@ impl RunInputs {
         Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets: Secrets::new(), run_id: 0 }
     }
 
-    /// The same inputs with the run starting at `started_ms`, for the generated dates.
+    /// The same inputs with the run starting at `started_ms`, for `${run.startedAt}` and the generated dates.
     #[must_use]
     pub fn with_started_at(self, started_ms: u64) -> Self {
         Self { started_ms, ..self }
