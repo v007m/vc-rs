@@ -72,8 +72,17 @@ fn confine(policy: &Policy) -> Result<(), RulesetError> {
 
 /// Everything outside `root`: at each folder from `root`'s parent up to `/`, every entry but the
 /// one on the way to `root`. Landlock only grants, so this is how all but the project is opened.
+/// A rule follows links, so an entry that leads back into `root`, or to a folder holding it, is
+/// left out.
 fn outside(root: &Path) -> Vec<PathBuf> {
-    root.ancestors().zip(root.ancestors().skip(1)).flat_map(|(on_the_way, parent)| beside(parent, on_the_way)).collect()
+    let ancestors = root.ancestors().zip(root.ancestors().skip(1));
+    ancestors.flat_map(|(on_the_way, parent)| beside(parent, on_the_way)).filter(|path| apart(path, root)).collect()
+}
+
+/// Whether `path`, links resolved, leads neither into `root` (a real path) nor to a folder
+/// holding it; a path that cannot be resolved leads nowhere and is left out too.
+fn apart(path: &Path, root: &Path) -> bool {
+    std::fs::canonicalize(path).is_ok_and(|real| !real.starts_with(root) && !root.starts_with(&real))
 }
 
 /// The entries of `parent` other than `on_the_way`; none when it cannot be read.

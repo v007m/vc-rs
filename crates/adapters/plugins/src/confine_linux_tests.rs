@@ -37,6 +37,23 @@ fn outside_is_every_entry_beside_the_way_to_the_root() {
 }
 
 #[test]
+fn outside_leaves_out_an_entry_that_links_back_to_the_project() {
+    let tree = tempfile::tempdir().unwrap();
+    let tree = tree.path().canonicalize().unwrap();
+    let root = tree.join("dev/project");
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::create_dir_all(tree.join("dev/other")).unwrap();
+    for (link, to) in [("dev/work", root.clone()), ("dev/code", root.join("src")), ("home", tree.join("dev"))] {
+        std::os::unix::fs::symlink(to, tree.join(link)).unwrap();
+    }
+    let found = outside(&root);
+    assert!(found.contains(&tree.join("dev/other")), "{found:?}");
+    for link in ["dev/work", "dev/code", "home"] {
+        assert!(!found.contains(&tree.join(link)), "{link} leads into the project: {found:?}");
+    }
+}
+
+#[test]
 fn a_confined_process_reads_and_writes_only_what_its_policy_opens() {
     if !landlock() {
         return eprintln!("skipped: the kernel does not enforce Landlock");
