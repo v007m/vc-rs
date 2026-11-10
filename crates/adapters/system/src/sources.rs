@@ -92,14 +92,42 @@ impl FsSources {
         }
         read_file(path.clone(), &target)
     }
+
+    /// Each of `wanted`, asked for once, read by `load`: the files and the problems; an error
+    /// when the root cannot be read.
+    fn gathered<T: Ord>(
+        &self,
+        wanted: &[T],
+        load: impl Fn(&T) -> Result<vc_model::SourceFile, SourceError>,
+    ) -> Result<Discovery, SourceError> {
+        if let Err(error) = std::fs::read_dir(&self.root) {
+            return Err(root_error(&self.root, &error));
+        }
+        let mut found = Discovery::default();
+        for item in unique(wanted) {
+            match load(item) {
+                Ok(file) => found.files.push(file),
+                Err(problem) => found.problems.push(problem),
+            }
+        }
+        found.sort();
+        Ok(found)
+    }
 }
 
-/// The file at `target`, where `path` resolved to, read and hashed.
+/// The file at `target`, where `path` resolved to, read and hashed. A link swapped in on the
+/// way after `target` was resolved and checked is caught by resolving it again after the read:
+/// a file that no longer resolves to `target` is refused. Residual risk: a link swapped in and
+/// back again while the file is read goes unseen; std has no safe, portable way to ask an open
+/// file for its path, and the crate forbids `unsafe`.
 fn read_file(path: SourcePath, target: &Path) -> Result<vc_model::SourceFile, SourceError> {
     if target.is_dir() {
         return Err(SourceError::Read { path: path.to_string(), reason: "it is a folder, not a file".to_owned() });
     }
     let bytes = std::fs::read(target).map_err(|error| read_error(&path, &error))?;
+    if std::fs::canonicalize(target).ok().as_deref() != Some(target) {
+        return Err(SourceError::OutsideRoot { path: path.to_string() });
+    }
     vc_interfaces::source_file(path, bytes)
 }
 
@@ -128,33 +156,11 @@ impl SourceProvider for FsSources {
     }
 
     fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError> {
-        if let Err(error) = std::fs::read_dir(&self.root) {
-            return Err(root_error(&self.root, &error));
-        }
-        let mut found = Discovery::default();
-        for path in unique(paths) {
-            match self.load(path.clone(), &self.root.join(path.as_str())) {
-                Ok(file) => found.files.push(file),
-                Err(problem) => found.problems.push(problem),
-            }
-        }
-        found.sort();
-        Ok(found)
+        self.gathered(paths, |path| self.load(path.clone(), &self.root.join(path.as_str())))
     }
 
     fn read_outside(&self, wanted: &[(SourcePath, SourcePath)]) -> Result<Discovery, SourceError> {
-        if let Err(error) = std::fs::read_dir(&self.root) {
-            return Err(root_error(&self.root, &error));
-        }
-        let mut found = Discovery::default();
-        for (path, allowed) in wanted {
-            match self.load_outside(path, allowed) {
-                Ok(file) => found.files.push(file),
-                Err(problem) => found.problems.push(problem),
-            }
-        }
-        found.sort();
-        Ok(found)
+        self.gathered(wanted, |(path, allowed)| self.load_outside(path, allowed))
     }
 
     /// Walks only the folders on the way to `path`, with the same ignore rules as
@@ -345,8 +351,8 @@ fn write_error(path: &SourcePath, error: &std::io::Error) -> SourceError {
 }
 
 /// `paths` in order, each once.
-fn unique(paths: &[SourcePath]) -> std::collections::BTreeSet<&SourcePath> {
-    paths.iter().collect()
+fn unique<T: Ord>(items: &[T]) -> std::collections::BTreeSet<&T> {
+    items.iter().collect()
 }
 
 fn error_path(error: &ignore::Error) -> Option<&Path> {

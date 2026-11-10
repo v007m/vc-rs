@@ -177,8 +177,9 @@ mod unix {
         let mut wanted: Vec<(SourcePath, SourcePath)> =
             names.iter().map(|path| (data(path), data("../shared"))).collect();
         wanted.push((data("../shared/none.csv"), data("../shared")));
+        wanted.push((data(names[0]), data("../shared")));
         let found = sources.read_outside(&wanted).unwrap();
-        assert_eq!(paths(&found), ["../shared/users.csv"]);
+        assert_eq!(paths(&found), ["../shared/users.csv"], "a pair asked for twice is read once");
         assert_eq!(found.files[0].text.as_str(), "id\n1\n");
         let outside = |path: &str| SourceError::OutsideRoot { path: path.to_owned() };
         let missing = SourceError::Missing { path: "../shared/none.csv".to_owned() };

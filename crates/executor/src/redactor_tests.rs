@@ -43,8 +43,12 @@ fn masks_the_always_masked_and_configured_headers_in_any_case() {
     }
     assert!(!masked(&redactor, CheckKind::Header, "content-type"));
     assert!(!masked(&redactor, CheckKind::Match, "authorization"));
-    let check = redactor.check(result(CheckKind::Header, "authorization", Some(json!("Bearer actual"))));
+    let mut quoted = result(CheckKind::Header, "authorization", Some(json!("Bearer actual")));
+    quoted.error = Some("got Bearer actual".to_owned());
+    quoted.diff = Some("- Bearer x\n+ Bearer actual".to_owned());
+    let check = redactor.check(quoted);
     assert_eq!((check.actual, check.diff, check.code), (Some(json!(MASKED)), None, Some("V5101".to_owned())));
+    assert_eq!(check.error.as_deref(), Some(MASKED), "the error may quote the header");
     let missing = redactor.check(result(CheckKind::Header, "authorization", None));
     assert_eq!(missing.actual, None);
 }
@@ -277,6 +281,21 @@ async fn a_match_on_a_hidden_field_is_masked_as_it_is_in_the_body_and_so_is_its_
     }
     let shown = configured().check(matched(vec![key("name")], json!("hunter22")));
     assert_eq!((shown.actual, shown.error.as_deref()), (Some(json!("hunter22")), Some("got hunter22")));
+}
+
+#[tokio::test]
+async fn a_failed_check_on_a_map_holding_a_hidden_field_has_its_error_masked_whole() {
+    let profile = vec![Segment::Key("profile".to_owned())];
+    let mut check = matched(profile, json!({"password": "hunter22", "name": "ada"}));
+    check.error = Some(r#"expected text, got {"password":"hunter22","name":"ada"}"#.to_owned());
+    let redactor = configured();
+    for masked in [redactor.check(check.clone()), redactor.checked(check).await] {
+        assert_eq!(masked.actual, Some(json!({"password": MASKED, "name": "ada"})));
+        assert_eq!(masked.error.as_deref(), Some(MASKED), "the error quotes the map");
+    }
+    let mut plain = matched(vec![Segment::Key("profile".to_owned())], json!({"name": "ada"}));
+    plain.error = Some("got ada".to_owned());
+    assert_eq!(redactor.checked(plain).await.error.as_deref(), Some("got ada"), "nothing hidden, error kept");
 }
 
 #[tokio::test]

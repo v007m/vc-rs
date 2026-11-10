@@ -7,7 +7,7 @@
 
 use serde_json::{Value, json};
 use vc_executor::{MASKED, MaskRules, Redactor};
-use vc_interfaces::ConfigEntry;
+use vc_interfaces::{ConfigEntry, Secrets};
 use vc_model::{Namespace, Part, Template, TemplateValue};
 
 use crate::config_explain::{BUILT_IN, Layer, every_key, layers_of, unknown};
@@ -72,14 +72,17 @@ impl Engine {
         Ok(ConfigValues { values, notices: layered.notices })
     }
 
-    /// The redactor a run would mask with, told the declared secrets' values and names; when
-    /// they cannot be loaded, one that masks every value but the built-in ones.
+    /// The redactor a run would mask with, told the declared secrets' values and names (and its
+    /// `function:` rules given them); when they cannot be loaded, one that masks every value
+    /// but the built-in ones.
     async fn masker(&self, layered: &mut Layered) -> Masker {
         let program = &layered.program;
-        let rules = MaskRules::standard().with_hooks(self.hook_runner(program), program).for_config(&program.config);
+        let loaded = self.secrets(&program.config.secrets, &layered.environment).await;
+        let hooks = (self.hook_runner(program), loaded.as_ref().map_or_else(|_| Secrets::new(), Clone::clone));
+        let rules = MaskRules::standard().with_hooks(hooks, program).for_config(&program.config);
         let redactor = Redactor::for_config(&program.config).with_rules(rules);
         redactor.hide_fields(&program.config.secrets.declared);
-        match self.secrets(&program.config.secrets, &layered.environment).await {
+        match loaded {
             Ok(secrets) => {
                 redactor.hide_values(secrets.iter().map(|(_, secret)| secret.expose()));
                 Masker { redactor, blind: false }

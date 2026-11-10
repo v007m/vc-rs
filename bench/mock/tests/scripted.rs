@@ -5,8 +5,8 @@ mod support;
 
 use std::time::{Duration, Instant};
 
-use reqwest::StatusCode;
 use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING, HeaderValue};
+use reqwest::{Method, StatusCode};
 use serde_json::Value;
 use support::{Mock, TestResult};
 
@@ -55,6 +55,8 @@ async fn status_answers_with_the_requested_code() -> TestResult {
     assert_eq!(mock.get("/status/418").send().await?.status(), StatusCode::IM_A_TEAPOT);
     assert_eq!(mock.get("/status/204").send().await?.status(), StatusCode::NO_CONTENT);
     assert_eq!(mock.get("/status/1000").send().await?.status(), StatusCode::BAD_REQUEST);
+    let posted = mock.request(Method::POST, "/status/503").send().await?;
+    assert_eq!(posted.status(), StatusCode::SERVICE_UNAVAILABLE, "any method");
     Ok(())
 }
 

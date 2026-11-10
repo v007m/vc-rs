@@ -109,3 +109,30 @@ async fn the_text_response_and_exchange_of_a_call_are_masked_by_the_redact_rules
         assert!(!shown.contains(value), "{value} shows: {shown}");
     }
 }
+
+const SESSIONS: (&str, &[u8]) = (
+    "vibranium.config.yaml",
+    b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\nredact:\n  fields: [session]\n",
+);
+const SESSION_API: (&str, &[u8]) = (
+    "services/auth/auth.api.yaml",
+    b"baseUrl: ${var.baseUrl}\napis:\n  - id: login\n    path: /login\n    save:\n      sessionToken: ${response.body.session.token}\n      gone: ${response.body.gone}\n",
+);
+
+#[tokio::test]
+async fn a_value_saved_from_inside_a_field_masked_whole_is_masked_and_a_null_one_is_kept() {
+    let engine = builder(FakeVcs::default())
+        .sources(Arc::new(MemorySources::new(&[SESSIONS, SESSION_API])))
+        .transport(Arc::new(FakeTransport::new(|_, _| {
+            let mut response = status(200);
+            response.body = format!(r#"{{"session": {{"token": "{TOKEN}"}}, "gone": null}}"#).into();
+            Ok(response)
+        })))
+        .build()
+        .unwrap();
+    let report = engine.call(&CallRequest { api: "auth#login".into(), ..CallRequest::default() }).await.unwrap();
+    let saved: Vec<(&str, Value)> =
+        report.saved.iter().map(|saved| (saved.name.as_str(), saved.value.clone())).collect();
+    assert_eq!(saved, [("gone", Value::Null), ("sessionToken", json!(MASKED))]);
+    assert!(!format!("{report:?}").contains(TOKEN), "the token leaks: {report:?}");
+}

@@ -1103,7 +1103,7 @@ redact:
     - function: hooks/redact.ts#maskCards   # a hook masks what it chooses
 ```
 
-A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that runs within its hook budget (D185) and is given each piece of output whole, `{ text }` for a text or `{ json }` for a JSON value, and returns it masked (a string for a text). Rules fail closed: a regex that does not compile masks every text, a CEL rule that errors masks the field, and a hook that throws, overruns or returns a text that is not a string masks the whole piece.
+A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that runs within its hook budget (D185) and is given each piece of output whole, `{ text }` for a text or `{ json }` for a JSON value, and returns it masked (a string for a text). Like every hook it can read `secret(name)`; what it returns is masked again, so a secret it read never shows. Rules fail closed: a regex that does not compile masks every text, a CEL rule that errors masks the field, and a hook that throws, overruns or returns a text that is not a string masks the whole piece.
 
 The requests and responses kept in `history.db` and reports are masked the same way before they are stored: the URL (path and query, where a secret also counts in its percent-encoded form), every header and both bodies. Bodies are cut at `history.maxBodySize` only after masking, so a cut never leaves part of a secret showing.
 
@@ -1287,7 +1287,7 @@ alerts:
           routingKey: ${secret.PD_ROUTING_KEY}
 ```
 
-An alert's `on` lists what fires it: `failure` (a test failed or was blocked; the default), `blocked` (a test was blocked because a setup it needs, such as a `beforeRun` action, failed), `recovery` (a run passed after a failed one), `flaky` (a test passed only on a retry) and `threshold` (a load threshold was breached). A rule sends one notice per run, for the first of `failure`, `blocked`, `threshold`, `flaky`, `recovery` that it lists and that happened (D256).
+An alert's `on` lists what fires it: `failure` (a test failed or was blocked; the default), `blocked` (a test was blocked because a setup it needs, such as a `beforeRun` action, failed), `recovery` (a run passed after a failed one), `flaky` (a test passed only on a retry) and `threshold` (a load threshold was breached). A rule sends one notice per run, for the first of `failure`, `blocked`, `threshold`, `flaky`, `recovery` that it lists and that happened (D256). A `blocked` notice lists only the blocked tests; every other notice lists the failed and the blocked ones.
 
 `vc plugin add` shows the permissions a plugin asks for (network hosts, secrets, files); the approved list is recorded in `vibranium.lock`. A source is `npm:<package>[@<range>]` or `path:<folder>` (relative to the project root); the plugin is installed to `.vibranium/plugins/<id>/`.
 

@@ -64,9 +64,10 @@ impl CallReport {
         for check in report.checks.iter().cloned() {
             checks.push(redactor.checked(check).await);
         }
-        let response = match report.response.as_deref() {
-            Some(response) => Some(redactor.masked(headers_masked(redactor, response.clone())).await),
-            None => None,
+        let response = match (exchange.as_ref(), report.response.as_deref()) {
+            (Some(exchange), _) => Some(vc_executor::received(exchange)),
+            (None, Some(response)) => Some(redactor.masked(response.clone()).await),
+            (None, None) => None,
         };
         let api = called_api(names.program(), action).map(|api| (names.program(), api));
         let saved = saved(redactor, api, (&report, response.as_ref().unwrap_or(&Value::Null))).await;
@@ -81,16 +82,6 @@ fn called_api(program: &Program, action: ActionId) -> Option<&Api> {
     let found = usize::try_from(action.index()).ok().and_then(|index| program.actions.get(index));
     let Some(ActionKind::Call(api)) = found.map(|found| &found.kind) else { return None };
     program.apis.get(api)
-}
-
-/// `response` (`status`, `headers`, `body`) with the value of every header `redactor` masks
-/// masked whole, as an exchange's are.
-fn headers_masked(redactor: &Redactor, mut response: Value) -> Value {
-    if let Some(Value::Object(headers)) = response.get_mut("headers") {
-        let hidden = headers.iter_mut().filter(|(name, _)| redactor.hides_header(name));
-        hidden.for_each(|(_, value)| *value = Value::String(MASKED.to_owned()));
-    }
-    response
 }
 
 /// The values `report` saved, each with the template the api's `save` took it from. A value
@@ -122,13 +113,14 @@ fn save_of<'p>(program: &Program, api: &'p Api, name: &str) -> Option<&'p Templa
     found.map(|(_, value)| value)
 }
 
-/// Whether `value` reads a part of `response`, the masked response, that is masked.
+/// Whether `value` reads a part of `response`, the masked response, that is masked, or one
+/// the masked response no longer has (a field inside a field masked whole): failing closed.
 fn reads_masked(value: &TemplateValue, response: &Value) -> bool {
     let mut references = Vec::new();
     references_in(value, &mut references);
     references.into_iter().filter(|reference| reference.ns == Namespace::Response).any(|reference| {
         let found = vc_template::select("response", response, &reference.path.segments);
-        found.is_ok_and(|found| found.to_string().contains(MASKED))
+        found.ok().is_none_or(|found| found.to_string().contains(MASKED))
     })
 }
 
@@ -153,8 +145,8 @@ fn references_in<'v>(value: &'v TemplateValue, found: &mut Vec<&'v Reference>) {
     }
 }
 
-/// The status line, the body of `exchange` (masked with the rules already), and the failure,
-/// masked with the rules, when the expect did not hold.
+/// The status line, the body of `exchange` (masked already), and the failure, masked with the
+/// rules, when the expect did not hold.
 async fn shown(cx: &ActionCx, exchange: Option<&Exchange>, outcome: &ActionOutcome) -> String {
     let passed = matches!(outcome, ActionOutcome::Passed);
     let mut out = String::new();
@@ -162,7 +154,7 @@ async fn shown(cx: &ActionCx, exchange: Option<&Exchange>, outcome: &ActionOutco
         let verdict = if passed { "api expect passed" } else { "api expect failed" };
         let millis = exchange.timing.total.as_millis();
         let _ = writeln!(out, "{} · {millis} ms · {verdict}", exchange.response.status);
-        out.push_str(&body(cx, &exchange.response.body));
+        out.push_str(&body(&exchange.response.body));
     }
     if let ActionOutcome::Failed(failure) = outcome {
         let _ = writeln!(out, "✗ {}", cx.redactor.masked_text(&failure.message).await);
@@ -170,14 +162,14 @@ async fn shown(cx: &ActionCx, exchange: Option<&Exchange>, outcome: &ActionOutco
     out
 }
 
-/// The body as indented JSON when it is JSON, else as text; masked, with a closing newline.
-fn body(cx: &ActionCx, bytes: &[u8]) -> String {
+/// The masked body as indented JSON when it is JSON, else as text, with a closing newline.
+fn body(bytes: &[u8]) -> String {
     if bytes.is_empty() {
         return String::new();
     }
     let text = serde_json::from_slice::<Value>(bytes).map_or_else(
-        |_| cx.redactor.text(&String::from_utf8_lossy(bytes)),
-        |json| serde_json::to_string_pretty(&cx.redactor.value(json)).unwrap_or_default(),
+        |_| String::from_utf8_lossy(bytes).into_owned(),
+        |json| serde_json::to_string_pretty(&json).unwrap_or_default(),
     );
     format!("{}\n", text.trim_end())
 }

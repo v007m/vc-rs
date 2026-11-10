@@ -11,7 +11,7 @@ use serde_json::Value;
 use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1 as results;
-use vc_engine::{CallAsTest, CallReport, CallRequest, Changes, Exchange, FileChange, ImportRequest, Keep};
+use vc_engine::{CallAsTest, CallReport, CallRequest, Changes, Exchange, FileChange, ImportRequest, Keep, cut_body};
 
 use crate::engine_api::{EngineApi, Rpcs};
 use crate::{Code, ConnectError, wire_results};
@@ -28,7 +28,7 @@ async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::C
     let (profiles, sets) = api.layers(request.profiles, request.sets);
     let call = CallRequest { api: request.api, vars: request.vars, keep: request.keep, profiles, sets, agent: None };
     let report = api.blocking(move |engine| Handle::current().block_on(engine.call(&call))).await?;
-    let exchange = report.exchange.as_ref().map(|exchange| whole(&report, exchange));
+    let exchange = report.exchange.as_ref().map(|exchange| bodied(&report, exchange));
     let checks = report.checks.iter().map(|check| wire_results::check(&report.names, check)).collect();
     let saved = report.saved.iter().map(|saved| wire::SavedValue {
         name: saved.name.clone(),
@@ -46,13 +46,18 @@ async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::C
     })
 }
 
-/// The call's exchange with both bodies whole, whatever `history.bodies` says: the Client shows
-/// the call the person just made, and the engine masked the bodies already.
-fn whole(report: &CallReport, exchange: &Exchange) -> results::Exchange {
+/// The call's exchange with both bodies, whatever `history.bodies` says: the Client shows the
+/// call the person just made, and the engine masked the bodies already. Each is cut to
+/// `history.maxBodySize`, as the history cuts it, so one large body cannot outgrow the
+/// envelope; `body_truncated` says if either was.
+fn bodied(report: &CallReport, exchange: &Exchange) -> results::Exchange {
+    let max = report.names.program().config.history.max_body();
+    let (request_body, request_cut) = cut_body(&exchange.request.body, max);
+    let (response_body, response_cut) = cut_body(&exchange.response.body, max);
     results::Exchange {
-        request_body: exchange.request.body.to_vec(),
-        response_body: exchange.response.body.to_vec(),
-        body_truncated: false,
+        request_body: request_body.map(String::into_bytes).unwrap_or_default(),
+        response_body: response_body.map(String::into_bytes).unwrap_or_default(),
+        body_truncated: request_cut || response_cut,
         ..wire_results::exchange(&report.names, report.action, exchange)
     }
 }

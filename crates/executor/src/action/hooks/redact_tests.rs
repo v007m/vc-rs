@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
 
 use serde_json::{Value, json};
-use vc_interfaces::{HookCall, HookError, HookOutput, HookRunner, Limit};
+use vc_interfaces::{HookCall, HookError, HookOutput, HookRunner, Limit, Secret, Secrets};
 use vc_model::{ActionId, ActionOutcome, Config, Event, Failure, HookRef, OwnerKey, Program, RedactRule};
 use vc_testkit::FakeHooks;
 
@@ -23,7 +23,7 @@ fn program() -> Arc<Program> {
 /// The `function:` rule made with `hooks` as the run's runner (none when `None`).
 fn made(hooks: Option<FakeHooks>) -> Arc<dyn MaskRule> {
     let runner = hooks.map(|hooks| Arc::new(hooks) as Arc<dyn HookRunner>);
-    MaskRules::standard().with_hooks(runner, &program()).rule(&rule())
+    MaskRules::standard().with_hooks((runner, Secrets::new()), &program()).rule(&rule())
 }
 
 /// A hook that masks every `4111…` card number it is given, in a text or in a JSON value.
@@ -77,7 +77,7 @@ async fn without_a_runner_or_the_hook_a_function_rule_masks_everything() {
 async fn the_standard_rules_alone_mask_a_function_rule_whole_and_with_hooks_keeps_the_others() {
     let blind = MaskRules::standard().rule(&rule());
     assert_eq!(blind.text("plain".to_owned()).await, MASKED, "no function maker: fail closed");
-    let rules = MaskRules::standard().with_hooks(None, &program());
+    let rules = MaskRules::standard().with_hooks((None, Secrets::new()), &program());
     let regex = rules.rule(&RedactRule::Regex(r"\d{3}".to_owned()));
     assert_eq!(regex.text("pin 123".to_owned()).await, format!("pin {MASKED}"));
 }
@@ -91,8 +91,8 @@ async fn the_hook_runs_after_the_built_in_masking_so_it_never_sees_a_secret() {
     });
     let runner = Some(Arc::new(hooks) as Arc<dyn HookRunner>);
     let config = Config { redact_rules: vec![rule()], ..Config::default() };
-    let redactor =
-        Redactor::new(&[]).with_rules(MaskRules::standard().with_hooks(runner, &program()).for_config(&config));
+    let redactor = Redactor::new(&[])
+        .with_rules(MaskRules::standard().with_hooks((runner, Secrets::new()), &program()).for_config(&config));
     redactor.hide_values(["s3cr3t-key"]);
     let failure = Failure::new("key s3cr3t-key card 4111111111111111");
     let (action, owner) = (ActionId::new(0), OwnerKey::Run);
@@ -104,4 +104,24 @@ async fn the_hook_runs_after_the_built_in_masking_so_it_never_sees_a_secret() {
     drop(redactor);
     let seen = seen.try_iter().collect::<Vec<_>>().join("\n");
     assert!(!seen.is_empty() && !seen.contains("s3cr3t-key"), "{seen}");
+}
+
+#[tokio::test]
+async fn a_hook_can_read_the_run_secrets_but_what_it_returns_is_masked_again() {
+    let hooks = FakeHooks::new().on(MASK, |call| {
+        let key = call.secrets.get("API_KEY").map(|secret| secret.expose().to_owned()).unwrap_or_default();
+        Ok(HookOutput::new(match &call.input["text"] {
+            Value::String(text) => json!(format!("{text} with {key}")),
+            _ => json!({"key": key}),
+        }))
+    });
+    let mut secrets = Secrets::new();
+    secrets.insert("API_KEY", Secret::new("s3cr3t-key"));
+    let runner = Some(Arc::new(hooks) as Arc<dyn HookRunner>);
+    let config = Config { redact_rules: vec![rule()], ..Config::default() };
+    let rules = MaskRules::standard().with_hooks((runner, secrets), &program()).for_config(&config);
+    let redactor = Redactor::new(&[]).with_rules(rules);
+    redactor.hide_values(["s3cr3t-key"]);
+    assert_eq!(redactor.masked_text("sent").await, format!("sent with {MASKED}"), "secret() returned the value");
+    assert_eq!(redactor.masked(json!({"a": 1})).await, json!({"key": MASKED}));
 }

@@ -19,7 +19,7 @@ pub fn routes(store: &Store) -> Router {
         .route("/slow", routing::get(slow))
         .route("/flaky", routing::get(flaky))
         .route("/poll/{id}", routing::get(poll))
-        .route("/status/{code}", routing::get(status))
+        .route("/status/{code}", routing::any(status))
         .route("/large", routing::get(large))
         .with_state(store.clone())
 }
@@ -70,7 +70,7 @@ async fn poll(
     Ok(Json(json!({ "status": status, "attempt": attempt })))
 }
 
-/// `GET /status/{code}` answers with that status; an invalid code gets 400.
+/// `/status/{code}`, by any method, answers with that status; an invalid code gets 400.
 async fn status(Path(code): Path<u16>) -> Response {
     StatusCode::from_u16(code).map_or_else(
         |_| StatusCode::BAD_REQUEST.into_response(),

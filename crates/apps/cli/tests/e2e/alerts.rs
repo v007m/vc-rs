@@ -20,7 +20,7 @@ async fn sends_the_sample_to_each_channel_and_exits_1_when_one_refuses() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
     assert_eq!(lines[0], "✓ webhook (rule 1)");
-    assert!(lines[1].starts_with("✗ slack (rule 1): ") && lines[1].contains("HTTP 405"), "{stdout}");
+    assert!(lines[1].starts_with("✗ slack (rule 1): ") && lines[1].contains("HTTP 500"), "{stdout}");
     assert!(!stdout.contains("/status/500"), "a channel's URL is never shown: {stdout}");
 }
 

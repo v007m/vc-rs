@@ -127,7 +127,8 @@ fn fire<'r>(rule: &'r Alert, run: &Finished, previous: Option<RunStatus>) -> Opt
     let seen = Seen { tests: &tests, run, previous };
     let trigger =
         PRECEDENCE.into_iter().filter(|trigger| rule.on.contains(trigger)).find(|&trigger| seen.fires(trigger))?;
-    let failures = tests.iter().filter(|test| failed(test.status));
+    let listed = listed(trigger);
+    let failures = tests.iter().filter(|test| listed(test.status));
     let failures = failures.map(|test| NoticeFailure::new(test.test.clone(), test.message.clone())).collect();
     let notice = Notice::new(trigger, run.project.clone(), run.summary.clone()).failures(failures);
     let notice = notice.breaches(run.breaches.clone());
@@ -146,6 +147,16 @@ const fn failed(status: TestStatus) -> bool {
     matches!(status, TestStatus::Failed | TestStatus::Blocked)
 }
 
+fn blocked(status: TestStatus) -> bool {
+    status == TestStatus::Blocked
+}
+
+/// The tests a notice for `trigger` lists: only the blocked ones for `blocked`, the failed and
+/// blocked ones otherwise (D256).
+fn listed(trigger: AlertTrigger) -> fn(TestStatus) -> bool {
+    if trigger == AlertTrigger::Blocked { blocked } else { failed }
+}
+
 /// What one rule sees of a run: the tests its tags pick, and the run around them.
 struct Seen<'s> {
     tests: &'s [&'s Ended],
@@ -157,7 +168,7 @@ impl Seen<'_> {
     fn fires(&self, trigger: AlertTrigger) -> bool {
         match trigger {
             AlertTrigger::Failure => self.any(failed),
-            AlertTrigger::Blocked => self.any(|status| status == TestStatus::Blocked),
+            AlertTrigger::Blocked => self.any(blocked),
             AlertTrigger::Threshold => !self.run.breaches.is_empty(),
             AlertTrigger::Flaky => self.any(|status| status == TestStatus::Flaky),
             AlertTrigger::Recovery => self.recovered(),

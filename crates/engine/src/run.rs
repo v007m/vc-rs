@@ -155,14 +155,15 @@ impl Engine {
     /// What the actions of `prepared` share with `inputs`: the action executors and the auth
     /// types over one transport, the auth plugins among `plugins` (the run's, built once from
     /// `inputs`' secrets), and events masked by the config's redact rules (a `function:` rule
-    /// through the hook runner). Every run, call and cache cleanup starts from it.
+    /// through the hook runner, with `inputs`' secrets). Every run, call and cache cleanup
+    /// starts from it.
     pub(crate) fn action_cx(
         &self,
         prepared: &Prepared,
         (inputs, plugins): (RunInputs, &Hosts),
     ) -> Result<ActionCx, EngineError> {
         let hooks = self.hook_runner(&prepared.program);
-        let rules = MaskRules::standard().with_hooks(hooks.clone(), &prepared.program);
+        let rules = MaskRules::standard().with_hooks((hooks.clone(), inputs.secrets.clone()), &prepared.program);
         let transport = self.transport(prepared.environment.as_ref())?;
         let auth = self.auth(Arc::clone(&transport), plugins);
         let executors = self.executors(prepared, transport, hooks);

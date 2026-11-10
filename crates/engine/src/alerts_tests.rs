@@ -107,3 +107,22 @@ fn a_notice_carries_the_failures_its_rule_sees_the_breaches_and_the_report() {
     assert_eq!(slow.notice.trigger, AlertTrigger::Threshold, "a breach outranks flaky, whatever the tags");
     assert!(slow.notice.failures.is_empty(), "a rule's notice lists only the tests its tags pick");
 }
+
+#[test]
+fn a_blocked_notice_lists_only_the_blocked_tests_and_a_failure_notice_the_failed_and_blocked() {
+    use AlertTrigger::{Blocked, Failure};
+    let tests = &[
+        ("users.crud#getsUser", "smoke", TestStatus::Failed),
+        ("users.crud#listsUsers", "smoke", TestStatus::Blocked),
+        ("users.crud#makesUser", "smoke", TestStatus::Flaky),
+    ];
+    let finished = run(RunStatus::Failed, tests, &[]);
+    let rules = [rule(&[Blocked], &[], &[]), rule(&[Failure], &[], &[])];
+    let fired = decide(&rules, &finished, None);
+    let listed =
+        |index: usize| fired[index].notice.failures.iter().map(|failure| failure.test.clone()).collect::<Vec<_>>();
+    assert_eq!(fired[0].notice.trigger, Blocked);
+    assert_eq!(listed(0), ["users.crud#listsUsers"]);
+    assert_eq!(fired[1].notice.trigger, Failure);
+    assert_eq!(listed(1), ["users.crud#getsUser", "users.crud#listsUsers"]);
+}
