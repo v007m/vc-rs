@@ -4,8 +4,8 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use vc_interfaces::{HistoryError, HistoryWriter, Row, RunEnd, RunId, RunStart};
 use vc_loadtest::Ending;
-use vc_model::{Event, Keep, RenderedRequest, RunStatus};
-use vc_testkit::{FakeTransport, FakeVcs, MemoryHistory, MemorySources, status};
+use vc_model::{AlertTrigger, Event, Keep, RenderedRequest, RunStatus};
+use vc_testkit::{FakeNotifiers, FakeTransport, FakeVcs, MemoryHistory, MemorySources, status};
 
 use super::exit;
 use crate::sample::builder;
@@ -139,6 +139,31 @@ async fn a_failing_api_breaches_the_error_rate_and_is_counted_by_kind() {
     assert_eq!((json["exit"].as_u64(), json["ending"].as_str()), (Some(3), Some("finished")));
     assert_eq!(json["errorKinds"][0]["api"].as_str(), Some("users#broken"));
     assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Failed))));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_breached_threshold_sends_the_threshold_alert_naming_it() {
+    let (notifiers, log) = FakeNotifiers::new(&["webhook"]);
+    let alerts = "alerts:\n  - on: [threshold]\n    notify:\n      - webhook: {url: 'http://hook'}\n";
+    let config = format!("{}{alerts}", String::from_utf8_lossy(CONFIG.1));
+    let peak = scenario("breaksUsers", "{duration: 3s, users: 2}");
+    let sources = [(CONFIG.0, config.as_bytes()), USERS, CRUD, ("load/users/peak.load.yaml", peak.as_slice())];
+    let engine = builder(FakeVcs::default())
+        .sources(Arc::new(MemorySources::new(&sources)))
+        .transport(Arc::new(FakeTransport::new(|_: &RenderedRequest, _| Ok(status(500)))))
+        .history(Arc::new(MemoryHistory::new()), Arc::new(MemoryHistory::new()))
+        .notifiers(Arc::new(notifiers))
+        .build()
+        .unwrap();
+    let (_interrupter, interrupts) = interrupts();
+    let report = load(&engine, interrupts, None).await;
+    assert_eq!(report.exit, 3, "{report:?}");
+    let sent = log.take();
+    let [sent] = sent.as_slice() else { panic!("{sent:?}") };
+    assert_eq!(
+        (sent.notice.trigger, sent.notice.breaches.as_slice()),
+        (AlertTrigger::Threshold, ["errorRate".to_owned()].as_slice())
+    );
 }
 
 #[tokio::test(start_paused = true)]

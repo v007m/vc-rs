@@ -36,7 +36,7 @@ async fn every_written_type_meets_the_auth_provider_contract() {
     }
     let flow = Arc::new(FixedFlow::new(Ok(Credentials::header("authorization", "Bearer f"))));
     auth_provider_suite(&types, &request("flow", &json!({})).with_flow(flow), &request("flow", &json!({}))).await;
-    auth_provider_suite(&types, &request("bearer", &json!({"token": "t0k3n"})), &request("plugin", &json!({}))).await;
+    auth_provider_suite(&types, &request("bearer", &json!({"token": "t0k3n"})), &request("saml", &json!({}))).await;
 }
 
 #[tokio::test]

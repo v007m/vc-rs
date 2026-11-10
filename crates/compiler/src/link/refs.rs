@@ -1,4 +1,5 @@
-//! References between items: apis and tests (V2003), auths and profiles (V2002).
+//! References between items: apis and tests (V2003), auths and profiles (V2002), and the
+//! report formats (V2302).
 
 use std::collections::{HashMap, HashSet};
 
@@ -9,6 +10,9 @@ use vc_parser::Node;
 use super::project;
 use super::project::{Item, Project, Source};
 use crate::suggest;
+
+/// The report files `reports.formats` names besides a reporter plugin's ID.
+const REPORT_FORMATS: [&str; 3] = ["ctrf", "junit", "html"];
 
 /// At most this many names in a "did you mean one of" help.
 const MAX_SUGGESTIONS: usize = 3;
@@ -39,6 +43,9 @@ pub fn check(project: &Project<'_>, diagnostics: &mut Diagnostics) {
         for profile in project::list(source.root, "profiles").iter().filter(|_| source.kind != FileKind::Config) {
             diagnostics.extend(profile.get("id").and_then(|id| globals.profile(id)));
         }
+    }
+    if let Some(reports) = project.config().and_then(|config| config.root.get("reports")) {
+        diagnostics.extend(project::list(reports, "formats").iter().filter_map(|name| globals.format(name)));
     }
 }
 
@@ -93,10 +100,11 @@ fn hint(diagnostic: Diagnostic, (source, node, written): (&Source<'_>, &Node, &s
     diagnostic.fix(Fix::certain(format!("Replace with {text}"), vec![TextEdit::replace(node.span, text)]))
 }
 
-/// The config's auth and profile IDs.
+/// The config's auth, profile and plugin IDs.
 struct Globals<'a> {
     auth: HashSet<&'a str>,
     profiles: HashSet<&'a str>,
+    plugins: HashSet<&'a str>,
     /// Whether the config could be read; without it nothing is reported.
     known: bool,
 }
@@ -108,7 +116,7 @@ impl<'a> Globals<'a> {
             let items = config.map(|config| project::list(config.root, key)).unwrap_or_default();
             items.iter().filter_map(|item| item.get("id")?.as_scalar()).map(|id| id.text.as_str()).collect()
         };
-        Self { auth: ids("auth"), profiles: ids("profiles"), known: config.is_some() }
+        Self { auth: ids("auth"), profiles: ids("profiles"), plugins: ids("plugins"), known: config.is_some() }
     }
 
     /// V2002 for an `auth` naming no auth; `none` turns auth off.
@@ -123,6 +131,21 @@ impl<'a> Globals<'a> {
     /// V2002 for a file's `profiles` entry naming no profile.
     fn profile(&self, id: &Node) -> Option<Diagnostic> {
         self.unknown(id, &self.profiles, "profile")
+    }
+
+    /// V2302 for a `reports.formats` name that is neither a report format nor a plugin's ID.
+    fn format(&self, node: &Node) -> Option<Diagnostic> {
+        let name = node.as_scalar()?.text.as_str();
+        if !self.known || REPORT_FORMATS.contains(&name) || self.plugins.contains(name) {
+            return None;
+        }
+        let message =
+            format!("expected one of {} or a reporter plugin's ID, found `{name}`", REPORT_FORMATS.join(", "));
+        let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label("not a report format or plugin");
+        let mut plugins: Vec<&str> = self.plugins.iter().copied().collect();
+        plugins.sort_unstable();
+        let known = [REPORT_FORMATS.as_slice(), &plugins].concat();
+        Some(suggest::hint(diagnostic, &suggest::Misspelling { word: name, span: node.span, known: &known }))
     }
 
     fn unknown(&self, node: &Node, known: &HashSet<&str>, kind: &str) -> Option<Diagnostic> {

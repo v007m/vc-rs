@@ -138,7 +138,7 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `secrets` | `provider`, `schema` | `env` with `.env.schema` | Where `${secret.*}` comes from |
 | `generators` | list | — | Named fake-data generators |
 | `datasets` | `allowRoots`, `files` | every file in `datasets/` | Your own data lists: `files` lists data kept outside `datasets/` (each `id`, `file`), and `allowRoots` the folders outside the project those files may be in (see Datasets) |
-| `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file) |
+| `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file). A format may also be the ID of a reporter plugin in `plugins:`; any other unknown name is V2302 |
 | `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends |
 | `alerts` | list | none | Notifications |
 | `plugins` | list | none | Third-party plugins |
@@ -1008,7 +1008,7 @@ Auth definitions live in `vibranium.config.yaml` under `auth`, are written once,
 
 The `oauth2*` types post to `tokenUrl` with the client in HTTP Basic when `clientSecret` is set, and as a `client_id` form field when it is not (a public client). A refused token request fails the call with V5114, naming the endpoint's status but never its body.
 | `flow` | `steps`, `apply`, `expiresIn`, `refreshBefore`, `refreshOn`, `cache` | Any sequence of requests that ends in credentials (below) |
-| `plugin` | `plugin`, `config` | Custom schemes through an auth plugin |
+| `plugin` | `plugin`, `config` | Custom schemes through an auth plugin: `plugin` is the ID of an `auth` plugin in `plugins:`, and `config` is passed to its `auth/credentials` call. `config` is rendered like other auth settings, so a `${secret.x}` in it is sent to the plugin whatever the lock grants (writing it there is the grant), and stays masked in output. A plugin that is not ready or answers with no values fails the call with V5114 |
 
 Every definition can also have `vars` (its defaults). Use one by ID on an api file, an api, a test, a step or an action: `auth: shopOauth`, `auth: none`, or with values:
 
@@ -1284,7 +1284,58 @@ alerts:
           routingKey: ${secret.PD_ROUTING_KEY}
 ```
 
-`vc plugin add` shows the permissions a plugin asks for (network hosts, secrets, files); the approved list is recorded in `vibranium.lock`. Alert channels: `webhook`, `slack`, `teams`, `pagerduty`, `email`.
+`vc plugin add` shows the permissions a plugin asks for (network hosts, secrets, files); the approved list is recorded in `vibranium.lock`. A source is `npm:<package>[@<range>]` or `path:<folder>` (relative to the project root); the plugin is installed to `.vibranium/plugins/<id>/`.
+
+Every plugin has a `vibranium-plugin.yaml` at the top of its folder. `id` is a camelCase word, `kind` is one of `reporter`, `auth`, `importer`, `executor`, and `entry` is the program the host starts, never through a shell:
+
+```yaml
+id: htmlReport
+version: 1.2.0
+kind: reporter
+entry:
+  command: node
+  args: [dist/index.js]
+permissions:
+  network: [reports.acme.io]
+  secrets: [reportToken]
+  files: [reports/]
+```
+
+`vibranium.lock` is written by `vc plugin add` and `vc plugin remove` and committed with the project. A run refuses a plugin whose installed manifest asks for more than its entry grants:
+
+```yaml
+# The plugins `vc plugin add` approved, with what each may reach. Written by vc; commit it and
+# review changes to it like code. A run refuses a plugin that asks for more than this grants.
+lockVersion: 1
+plugins:
+  - id: htmlReport
+    source: npm:@acme/vibranium-html@^1
+    resolved: "@acme/vibranium-html@1.2.0"
+    integrity: sha512-…
+    permissions:
+      network: [reports.acme.io]
+      secrets: [reportToken]
+      files: [reports/]
+```
+
+`integrity` is npm's hash for an `npm:` source and a `blake3-…` hash over the folder's files for a `path:` one. A run checks a `blake3-…` hash against the installed files and refuses the plugin (V5118) when they changed.
+
+A plugin's `config` holds literal values only: a `${…}` in it makes the plugin unusable for the run, with a notice. A plugin reads a secret with `secrets/get`, and gets only those its lock entry grants. The one other way a secret reaches a plugin is a `${secret.x}` in the `config` of a `type: plugin` auth definition, which the author writes on purpose. A reporter plugin runs when its ID is in `reports.formats`, and an auth plugin when an auth definition of `type: plugin` names it:
+
+```yaml
+reports:
+  formats: [ctrf, htmlReport]      # a reporter plugin, by its ID
+
+auth:
+  - id: partnerSso
+    type: plugin
+    plugin: acmeAuth
+    config: {tenant: eu}
+```
+
+Each plugin runs as one process per run, started the first time the run uses it; a plugin that fails or is not ready fails only the work that used it. `plugin-protocol.md` is the contract a plugin author writes against.
+
+Alert channels: `webhook`, `slack`, `teams`, `pagerduty`, `email`.
 
 ## v1 to v2
 

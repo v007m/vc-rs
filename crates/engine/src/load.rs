@@ -1,18 +1,22 @@
 //! `vc load <scenario>`: a load scenario from a `*.load.yaml` file, run against its profile.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use vc_diagnostics::Code;
 use vc_executor::{CancelTree, EventBus, ExecutorError, IterationSetup, ProgramIterations, RunOptions};
-use vc_interfaces::{Random, RunEnd, RunStart};
+use vc_interfaces::{Random, RunEnd, RunStart, RunSummary};
 use vc_loadtest::{Ending, LoadError, LoadOutcome};
 use vc_model::{ActionId, ActionKind, LoadScenario, Program, RunStatus, Totals};
 
 use crate::load_live::{self, Live};
-use crate::load_report::{self, LoadEnding};
+use crate::load_report::{self, LoadBreach, LoadEnding};
+use crate::notify::{self, Alerting};
 use crate::plan::{Extra, Prepared};
 use crate::run::{executor_error, inputs};
-use crate::{Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, history, ports};
+use crate::{
+    Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history, ports,
+};
 
 /// A load run between its plan and its report.
 struct Session {
@@ -24,6 +28,8 @@ struct Session {
     root: CancelTree,
     started_ms: u64,
     report: LoadReport,
+    /// What the run's end sends its alerts with.
+    alerting: Option<Alerting>,
 }
 
 impl Engine {
@@ -47,10 +53,12 @@ impl Engine {
         let secrets = self.secrets(&session.prepared.program.config.secrets, &session.prepared.environment).await?;
         let live = Live::new(Arc::clone(&session.prepared.program), self.load_recording(&mut session), watch.ticks);
         let run_id = live.run_id().unwrap_or(0);
+        session.alerting = self.alerting(&session.prepared, &secrets, (run_id, "load"))?;
+        let plugins = self.plugin_hosts(&session.prepared.program, &secrets);
         let inputs = inputs(&session.prepared, Arc::clone(&session.random), run_id)
             .with_secrets(secrets)
             .with_started_at(session.started_ms);
-        let cx = Arc::new(self.action_cx(&session.prepared, inputs)?);
+        let cx = Arc::new(self.action_cx(&session.prepared, (inputs, &plugins))?);
         let full_checks = session.scenario.full_checks;
         let setup = IterationSetup { bus: EventBus::spawn(), cancel: session.root.clone(), full_checks };
         let prepared = ProgramIterations::prepare(cx, Arc::clone(&session.prepared.plan), setup);
@@ -80,7 +88,7 @@ impl Engine {
         let (seed, random) = ports::random(None);
         let report = LoadReport { scenario: request.scenario.clone(), seed, ..LoadReport::default() };
         let (root, started_ms) = (CancelTree::new(RunOptions::default().grace), self.clock.now_ms());
-        Ok(Session { prepared, scenario, seed, random, root, started_ms, report })
+        Ok(Session { prepared, scenario, seed, random, root, started_ms, report, alerting: None })
     }
 
     /// Starts recording the load run; a history that cannot be opened leaves it unrecorded,
@@ -122,7 +130,22 @@ impl Engine {
         {
             report.notices.push(format!("history: {error}"));
         }
+        if outcome.is_ok() {
+            let sent = self.load_alerts(&mut session, &report, status).await;
+            report.notices.extend(sent);
+        }
         outcome.map(|_| report).map_err(|error| load_error(&error))
+    }
+
+    /// Sends the alerts of the load run `report` describes, which ended as `status`: `threshold`
+    /// with the thresholds breached; `recovery` once a run that recorded iterations breaches none.
+    async fn load_alerts(&self, session: &mut Session, report: &LoadReport, status: RunStatus) -> Vec<String> {
+        let elapsed = Duration::from_millis(self.clock.now_ms().saturating_sub(session.started_ms));
+        let run = RunSummary::new(status, Totals::default()).timed(session.started_ms, elapsed);
+        let run = run.profiles(session.prepared.names.clone());
+        let breaches = report.breaches.iter().map(breach).collect();
+        let ending = alerts::Ending { breaches, ran: report.iterations > 0, ..alerts::Ending::default() };
+        notify::send(session.alerting.take(), run, ending).await
     }
 }
 
@@ -149,6 +172,11 @@ fn shared_failure(program: &Program, action: ActionId, message: &str) -> String 
     });
     let name = name.unwrap_or_else(|| format!("action {}", action.index()));
     format!("{}: the shared action `{name}` failed: {message}", Code::V5106)
+}
+
+/// How an alert names `breached`: its metric, and the test whose threshold it is.
+fn breach(breached: &LoadBreach) -> String {
+    breached.test.as_ref().map_or_else(|| breached.metric.clone(), |test| format!("{} of {test}", breached.metric))
 }
 
 /// The scenario whose load file has the ID `id`.

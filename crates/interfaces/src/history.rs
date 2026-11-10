@@ -7,6 +7,8 @@ use std::fmt;
 
 use vc_model::{Keep, RunStatus, TestStatus, Totals};
 
+use crate::TestTrend;
+
 /// Stores runs as they happen.
 ///
 /// One writer task owns the store; calls only queue work for it, except
@@ -74,6 +76,14 @@ pub trait HistoryReader: Send + Sync {
     ///
     /// [`HistoryError`] when the store cannot be read.
     fn snapshot(&self, run: RunId) -> Result<Option<Vec<u8>>, HistoryError>;
+
+    /// How each test did over the newest `window` runs of kind `run` (G15), one trend per test
+    /// in test ID order.
+    ///
+    /// # Errors
+    ///
+    /// [`HistoryError`] when the store cannot be read.
+    fn trends(&self, window: usize) -> Result<Vec<TestTrend>, HistoryError>;
 }
 
 /// A stored run's number: 483, shown as `483` and used in `.vibranium/reports/483/`.

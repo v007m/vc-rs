@@ -21,6 +21,7 @@ mod layers;
 mod lifecycle;
 mod mcp;
 mod migrate;
+mod plugin;
 mod redaction;
 mod reports;
 mod scheduling;

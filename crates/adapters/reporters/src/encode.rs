@@ -2,11 +2,10 @@
 
 use serde_json::{Value, json};
 use vc_model::{
-    ActionOutcome, CheckResult, CleanupRecord, Event, Exchange, Failure, Origin, OwnerKey, RunStatus, Totals,
+    ActionOutcome, CheckResult, CleanupRecord, Event, Exchange, Failure, Names, Origin, OwnerKey, RunStatus, Totals,
 };
 
 use crate::collect::StepRecord;
-use crate::names::{self, Names};
 use crate::view::{CheckView, CleanupView, FailureView, OwnerView, StepView};
 
 /// `{"kind": "file", "file": "users.crud"}`.
@@ -21,7 +20,7 @@ pub fn owner(names: &Names, owner: OwnerKey) -> OwnerView {
 /// A check with the `expect` key it was written under and where.
 pub fn check(names: &Names, check: &CheckResult) -> CheckView {
     CheckView {
-        key: names::check_label(check),
+        key: vc_model::check_label(check),
         passed: check.passed,
         expected: check.expected.clone(),
         actual: check.actual.clone(),

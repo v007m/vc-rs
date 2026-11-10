@@ -14,7 +14,9 @@
 //! policy and, when it asks, the approval queue ([`Engine::policy_check`], [`Engine::admit`],
 //! [`Engine::approvals_list`], [`Engine::approvals_decide`]); an agent's `vc call`, run and
 //! definition write are gated so ([`Engine::write_definition`]).
-//! A load scenario runs its stages and judges its thresholds ([`Engine::load`]). The model and
+//! A load scenario runs its stages and judges its thresholds ([`Engine::load`]). Plugins are
+//! fetched, approved and removed ([`Engine::plugin_fetch`], [`Engine::plugin_approve`],
+//! [`Engine::plugin_list`], [`Engine::plugin_remove`]). The model and
 //! diagnostics types apps need are re-exported here (D108).
 //!
 //! ```
@@ -26,12 +28,14 @@
 
 mod agent_gate;
 mod agent_write;
+mod alerts;
 mod approvals;
 mod authoring;
 mod builder;
 mod cache;
 mod call;
 mod check;
+mod check_alerts;
 mod complete;
 mod config_explain;
 mod create;
@@ -58,7 +62,13 @@ mod load;
 mod load_live;
 mod load_report;
 mod migrate;
+mod notify;
 mod plan;
+mod plugin_hosts;
+mod plugin_intact;
+mod plugin_lock;
+mod plugin_manifest;
+mod plugins;
 mod policy;
 mod ports;
 mod problems;
@@ -68,6 +78,7 @@ mod rename_name;
 mod reporting;
 mod request;
 mod run;
+mod run_feed;
 #[cfg(test)]
 mod sample;
 mod save_call;
@@ -108,11 +119,13 @@ pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
 pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadWatch};
 pub use plan::PlanReport;
+pub use plugins::{PluginListing, PluginOffer, PluginState};
 pub use policy::{AgentCall, Permission};
 pub use request::{
     CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
 };
 pub use run::RunReport;
+pub use run_feed::{RunFeed, RunWatch};
 pub use save_call::CallAsTest;
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;
@@ -120,5 +133,11 @@ pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
-pub use vc_interfaces::{Approval, ApprovalId, ApprovalRequest, ApprovalStatus, Verdict};
-pub use vc_model::{Event, FileKind, Method, SourceFiles, SourcePath};
+pub use vc_interfaces::{
+    Approval, ApprovalId, ApprovalRequest, ApprovalStatus, PluginKind, PluginManifest, PluginPermissions, RunId,
+    RunRow, TestRow, TestTrend, Verdict,
+};
+pub use vc_model::{
+    CheckResult, Event, Exchange, Failure, FileKind, Location, Method, Names, OwnerKey, RunStatus, Sequenced,
+    SourceFiles, SourcePath, TestResult, TestStatus, Totals, check_label,
+};

@@ -93,4 +93,6 @@ code_table! {
     V5114 = 5114, Error, "Credentials could not be obtained";
     V5115 = 5115, Error, "Hook threw or returned a value that is not JSON";
     V5116 = 5116, Error, "Hook ran past its time or memory budget";
+    V5117 = 5117, Warning, "An alert could not be sent";
+    V5118 = 5118, Error, "A plugin failed, ran past its deadline or asked for what it was not granted";
 }

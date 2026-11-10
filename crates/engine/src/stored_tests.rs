@@ -6,7 +6,7 @@ use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{FakeVcs, MemoryHistory};
 
 use super::{ReportRequest, report_choice, started};
-use crate::{Engine, ReportFlags, sample};
+use crate::{Engine, ReportFlags, TestTrend, sample};
 
 /// 2026-11-05 10:22 UTC.
 const STARTED: u64 = 1_793_874_120_000;
@@ -55,6 +55,18 @@ fn lists_the_runs_newest_first() {
 }
 
 #[test]
+fn hands_screens_the_stored_rows() {
+    let engine = engine();
+    let runs = engine.history(10).unwrap();
+    let ids: Vec<u64> = runs.runs().iter().map(|run| run.id.get()).collect();
+    assert_eq!(ids, [2, 1]);
+    let shown = engine.stored("1").unwrap();
+    assert_eq!((shown.run().id.get(), shown.run().status), (1, Some(RunStatus::Failed)));
+    let tests: Vec<&str> = shown.tests().iter().map(|test| test.test_id.as_str()).collect();
+    assert_eq!(tests, ["users.crud#rejectsBadEmail", "users.crud#listsUsers"]);
+}
+
+#[test]
 fn shows_a_run_and_the_tests_that_did_not_pass() {
     let shown = engine().stored("1").unwrap();
     let text = shown.text();
@@ -88,4 +100,20 @@ fn report_formats_default_to_html_and_go_in_the_run_folder() {
 fn start_times_read_as_utc_minutes() {
     assert_eq!(started(STARTED), "2026-11-05 10:22Z");
     assert_eq!(started(0), "1970-01-01 00:00Z");
+}
+
+#[test]
+fn trends_sum_up_each_test_over_the_newest_runs() {
+    let history = Arc::new(MemoryHistory::new());
+    let run = history.begin(&RunStart { kind: "run".into(), ..RunStart::default() }).unwrap();
+    let flaky = TestRow {
+        test_id: "users.crud#listsUsers".into(),
+        status: Some(TestStatus::Flaky),
+        duration_ms: 8.0,
+        ..TestRow::default()
+    };
+    history.record(run, vec![Row::Test(flaky)]).unwrap();
+    let engine = sample::builder(FakeVcs::default()).history(history.clone(), history).build().unwrap();
+    let trend = TestTrend { test_id: "users.crud#listsUsers".into(), results: 1, failed: 0, flaky: 1, mean_ms: 8.0 };
+    assert_eq!(engine.trends(10).unwrap(), vec![trend]);
 }

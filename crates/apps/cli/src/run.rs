@@ -86,6 +86,7 @@ impl RunArgs {
             failed: self.failed,
             no_cache: self.no_cache,
             agent: None,
+            watch: None,
         }))
     }
 }

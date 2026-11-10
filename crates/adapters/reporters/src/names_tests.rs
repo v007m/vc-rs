@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
 use vc_model::{
-    ActionId, CheckKind, InstanceId, OwnerKey, Path, Plan, Pos, Program, Segment, SourceFileId, SourceFiles,
-    SourceSpan, StringTable, TestId, TestResult, TestStatus,
+    ActionId, CheckKind, InstanceId, Names, OwnerKey, Path, Plan, Pos, Program, Segment, SourceFileId, SourceFiles,
+    SourceSpan, StringTable, TestId, TestResult, TestStatus, check_label,
 };
 
-use super::*;
 use crate::testing;
 
 /// Names over the sample project.

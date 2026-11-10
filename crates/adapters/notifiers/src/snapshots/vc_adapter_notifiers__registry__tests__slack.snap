@@ -1,0 +1,47 @@
+---
+source: crates/adapters/notifiers/src/registry_tests.rs
+expression: "serde_json::to_string_pretty(&body).unwrap()"
+---
+{
+  "blocks": [
+    {
+      "text": {
+        "text": "shop: run failed (staging+eu)",
+        "type": "plain_text"
+      },
+      "type": "header"
+    },
+    {
+      "text": {
+        "text": "7 passed, 1 failed, 1 blocked, 1 flaky, 2 skipped",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
+      "text": {
+        "text": "• users.crud#getsUser: expected 200, got &lt;500&gt; &amp; more\n• users.crud#rejectsBadEmail:2: blocked: `beforeAll` seedUsers failed",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
+      "text": {
+        "text": "Breached: errorRate, p95 of checkout.flow#paysOrder",
+        "type": "mrkdwn"
+      },
+      "type": "section"
+    },
+    {
+      "elements": [
+        {
+          "text": "Report: reports/ctrf.json",
+          "type": "mrkdwn"
+        }
+      ],
+      "type": "context"
+    }
+  ],
+  "channel": "#qa",
+  "text": "shop: run failed (staging+eu)"
+}

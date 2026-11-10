@@ -3,10 +3,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 use vc_interfaces::{Artifact, ReportError, Reporter, RunSummary};
-use vc_model::{ActionId, Event, InstanceId, OwnerKey};
+use vc_model::{ActionId, Event, InstanceId, Names, OwnerKey};
 
 use crate::collect::Collector;
-use crate::names::Names;
 use crate::{Destination, ReporterContext, encode, text};
 
 /// The `json` console format: one JSON object per event and line, for tools (NDJSON). Tests
@@ -27,6 +26,13 @@ impl JsonReporter {
 
     fn line(&self, value: &Value) -> Result<(), ReportError> {
         self.destination.print(&format!("{value}\n"))
+    }
+
+    /// `event` as its line, after the collector has seen it (a `testFinished` line reads the
+    /// test it collected).
+    pub fn event(&mut self, event: &Event) -> Value {
+        self.collector.take(event);
+        self.encode(event)
     }
 
     fn encode(&self, event: &Event) -> Value {
@@ -93,24 +99,28 @@ impl JsonReporter {
 #[async_trait]
 impl Reporter for JsonReporter {
     async fn on_event(&mut self, event: &Event) -> Result<(), ReportError> {
-        self.collector.take(event);
-        self.line(&self.encode(event))
+        let line = self.event(event);
+        self.line(&line)
     }
 
     async fn finish(&mut self, run: &RunSummary) -> Result<Vec<Artifact>, ReportError> {
-        let artifacts: Vec<Value> =
-            run.artifacts.iter().map(|a| json!({"reporter": a.reporter, "path": a.path})).collect();
-        self.line(&json!({
-            "event": "summary",
-            "status": encode::run_status(run.status),
-            "totals": encode::totals(run.totals),
-            "startedMs": run.started_ms,
-            "durationMs": text::millis(run.duration),
-            "profiles": run.profiles,
-            "artifacts": artifacts,
-        }))?;
+        self.line(&summary(run))?;
         Ok(Vec::new())
     }
+}
+
+/// The `summary` line: how the run ended, its totals and the files its reporters wrote.
+pub fn summary(run: &RunSummary) -> Value {
+    let artifacts: Vec<Value> = run.artifacts.iter().map(|a| json!({"reporter": a.reporter, "path": a.path})).collect();
+    json!({
+        "event": "summary",
+        "status": encode::run_status(run.status),
+        "totals": encode::totals(run.totals),
+        "startedMs": run.started_ms,
+        "durationMs": text::millis(run.duration),
+        "profiles": run.profiles,
+        "artifacts": artifacts,
+    })
 }
 
 /// `base` with the keys of `more` added.

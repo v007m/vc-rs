@@ -8,7 +8,8 @@
 //! A [`Recorder`] follows the same events and gives the history its rows and, at the end, the
 //! run's [`RunSnapshot`] (D167). The report files are [`Format`]s from the [`FormatRegistry`]:
 //! `ctrf` writes the canonical `ctrf.json`, `junit` writes `junit.xml` and `html` the HTML
-//! report (D169), each rendered from a snapshot, so `vc report` renders them again later.
+//! report (D169), each rendered from a snapshot, so `vc report` renders them again later. A
+//! [`PluginReporter`] hands the run to a reporter plugin named in `reports.formats` (G6).
 
 mod collect;
 mod context;
@@ -22,8 +23,10 @@ mod html;
 mod html_data;
 mod json;
 mod junit;
-mod names;
+#[cfg(test)]
+mod names_tests;
 mod noop;
+mod plugin;
 mod record;
 mod registry;
 mod rows;
@@ -39,6 +42,7 @@ pub use context::{Color, ReporterContext, Stopwatch, SystemStopwatch};
 pub use destination::{Destination, FsDestination};
 pub use format::{Format, FormatRegistry, HtmlLayout};
 pub use noop::NoopReporter;
+pub use plugin::PluginReporter;
 pub use record::Recorder;
 pub use registry::{ReporterFactory, ReporterRegistry};
 #[doc(hidden)]

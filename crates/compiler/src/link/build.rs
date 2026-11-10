@@ -2,6 +2,9 @@
 //! each action merged with what it inherits (D123, D124).
 
 mod action;
+mod alerts;
+#[cfg(test)]
+mod alerts_tests;
 mod auth;
 mod expect;
 mod http_retry;

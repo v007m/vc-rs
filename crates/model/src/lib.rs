@@ -12,6 +12,7 @@
 //! ```
 
 mod agents;
+mod alerts;
 mod api;
 mod builder;
 mod config;
@@ -26,6 +27,7 @@ mod history;
 mod hooks;
 mod ids;
 mod json_text;
+mod names;
 mod outcome;
 mod plan;
 mod program;
@@ -38,10 +40,11 @@ mod test;
 mod units;
 
 pub use agents::{AgentPolicy, WriteDefinitions};
+pub use alerts::{Alert, AlertChannel, AlertTrigger};
 pub use api::{Api, ApiGroup, ApiSource, BodySpec, PartSpec};
 pub use builder::ProgramBuilder;
 pub use config::{
-    AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, Profile,
+    AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry, PluginRef, Profile,
 };
 pub use date::Date;
 pub use defs::{
@@ -56,6 +59,7 @@ pub use files::SourceFiles;
 pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep};
 pub use hooks::{HookModule, HookModules, import_paths};
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
+pub use names::{Location, Names, check_label, check_parts};
 pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};
 pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use program::Program;

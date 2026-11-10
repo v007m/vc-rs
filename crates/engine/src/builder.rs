@@ -2,12 +2,13 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use vc_adapter_plugins::FsPluginStore;
 use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
     AgentActionWriter, Approvals, AuthProvider, Browser, CacheStore, Clock, CommandRunner, CompileCacheStore,
-    Environment, FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, SourceProvider, SourceWriter,
-    Transport, Vcs,
+    Environment, FileWatcher, HistoryReader, HistoryWriter, HookRunner, Keychain, NotifierFactory, PluginStore,
+    SourceProvider, SourceWriter, Transport, Vcs,
 };
 
 use crate::EngineError;
@@ -33,6 +34,8 @@ pub struct EngineBuilder {
     watcher: Option<Arc<dyn FileWatcher>>,
     auth: Option<Arc<dyn AuthProvider>>,
     browser: Option<Arc<dyn Browser>>,
+    notifiers: Option<Arc<dyn NotifierFactory>>,
+    plugins: Option<Arc<dyn PluginStore>>,
 }
 
 /// The history's writer and reader, given together.
@@ -64,6 +67,8 @@ impl EngineBuilder {
             watcher: None,
             auth: None,
             browser: None,
+            notifiers: None,
+            plugins: None,
         }
     }
 
@@ -205,6 +210,20 @@ impl EngineBuilder {
         self
     }
 
+    /// Sends the `alerts` notices through `notifiers` instead of the standard channels.
+    #[must_use]
+    pub fn notifiers(mut self, notifiers: Arc<dyn NotifierFactory>) -> Self {
+        self.notifiers = Some(notifiers);
+        self
+    }
+
+    /// Keeps plugins in `store` instead of `.vibranium/plugins/` and `vibranium.lock`.
+    #[must_use]
+    pub fn plugins(mut self, store: Arc<dyn PluginStore>) -> Self {
+        self.plugins = Some(store);
+        self
+    }
+
     /// The engine.
     ///
     /// # Errors
@@ -221,25 +240,24 @@ impl EngineBuilder {
         let clock = self.clock.unwrap_or_else(|| Arc::new(SystemClock));
         let vcs = self.vcs.unwrap_or_else(|| Arc::new(GitVcs::new(&self.root)));
         let commands = self.commands.unwrap_or_else(|| Arc::new(ProcessRunner::new()));
-        let (environment, transport, hooks, user_config) =
-            (self.environment, self.transport, self.hooks, self.user_config);
         let (history, history_reader) = self.history.unzip();
         let keychain =
             self.keychain.or_else(|| OsKeychain::platform().ok().map(|os| Arc::new(os) as Arc<dyn Keychain>));
         let (cache, watcher, auth, browser) = (self.cache, self.watcher, self.auth, self.browser);
         let watcher = watcher.unwrap_or_else(|| Arc::new(NotifyWatcher::new(&self.root)));
         Ok(Engine {
+            plugins: self.plugins.unwrap_or_else(|| Arc::new(FsPluginStore::new(&self.root))),
             root: self.root,
             sources,
             writer,
             compile_cache,
             clock,
-            environment,
-            transport,
+            environment: self.environment,
+            transport: self.transport,
             vcs,
             commands,
-            hooks,
-            user_config,
+            hooks: self.hooks,
+            user_config: self.user_config,
             history,
             history_reader,
             approvals: self.approvals,
@@ -248,6 +266,7 @@ impl EngineBuilder {
             watcher,
             auth,
             browser,
+            notifiers: self.notifiers,
         })
     }
 }
@@ -280,6 +299,8 @@ pub struct Engine {
     pub(crate) watcher: Arc<dyn FileWatcher>,
     pub(crate) auth: Option<Arc<dyn AuthProvider>>,
     pub(crate) browser: Option<Arc<dyn Browser>>,
+    pub(crate) notifiers: Option<Arc<dyn NotifierFactory>>,
+    pub(crate) plugins: Arc<dyn PluginStore>,
 }
 
 impl Engine {

@@ -106,7 +106,8 @@ pub enum RunStatus {
     Passed,
     /// A test failed or was blocked.
     Failed,
-    /// Cancelled by a signal; cleanups ran unless aborted.
+    /// Cancelled by a signal (cleanups ran unless aborted), or stopped by an engine error
+    /// before it had a result.
     Cancelled,
 }
 

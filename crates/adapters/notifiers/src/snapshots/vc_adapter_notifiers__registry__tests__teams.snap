@@ -1,0 +1,54 @@
+---
+source: crates/adapters/notifiers/src/registry_tests.rs
+expression: "serde_json::to_string_pretty(&body).unwrap()"
+---
+{
+  "attachments": [
+    {
+      "content": {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "body": [
+          {
+            "size": "Medium",
+            "text": "shop: run failed (staging+eu)",
+            "type": "TextBlock",
+            "weight": "Bolder",
+            "wrap": true
+          },
+          {
+            "text": "7 passed, 1 failed, 1 blocked, 1 flaky, 2 skipped",
+            "type": "TextBlock",
+            "wrap": true
+          },
+          {
+            "facts": [
+              {
+                "title": "users.crud#getsUser",
+                "value": "expected 200, got <500> & more"
+              },
+              {
+                "title": "users.crud#rejectsBadEmail:2",
+                "value": "blocked: `beforeAll` seedUsers failed"
+              }
+            ],
+            "type": "FactSet"
+          },
+          {
+            "text": "Breached: errorRate, p95 of checkout.flow#paysOrder",
+            "type": "TextBlock",
+            "wrap": true
+          },
+          {
+            "text": "Report: reports/ctrf.json",
+            "type": "TextBlock",
+            "wrap": true
+          }
+        ],
+        "type": "AdaptiveCard",
+        "version": "1.4"
+      },
+      "contentType": "application/vnd.microsoft.card.adaptive"
+    }
+  ],
+  "type": "message"
+}

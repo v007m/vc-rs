@@ -4,11 +4,10 @@
 use std::collections::HashMap;
 
 use vc_interfaces::Row;
-use vc_model::{ActionId, ActionOutcome, Event, InstanceId, OwnerKey, TestResult, TestStatus};
+use vc_model::{ActionId, ActionOutcome, Event, InstanceId, Names, OwnerKey, TestResult, TestStatus};
 
 use crate::collect::{Collector, TestRecord};
 use crate::exchange::{self, Keeping};
-use crate::names::Names;
 use crate::view::{AbandonedView, ExchangeView, Gathered, RunFacts, TestView};
 use crate::{Color, ReporterContext, RunSnapshot, encode, failure, rows, text};
 

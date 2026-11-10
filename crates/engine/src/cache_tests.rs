@@ -9,6 +9,7 @@ use vc_interfaces::{
 use vc_testkit::{FakeVcs, MemoryCacheStore, MemoryEnvironment, MemoryKeychain};
 
 use super::{ACCOUNT, Buried, SERVICE, Sweep};
+use crate::plugin_hosts::Hosts;
 use crate::{Engine, interrupts, ports, sample};
 
 const KEY: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -127,7 +128,7 @@ fn tombstone(store: &Arc<MemoryCacheStore>) -> CacheEntry {
 fn sweep(engine: &Engine, store: &Arc<MemoryCacheStore>, buried: CacheEntry) -> Sweep {
     let prepared = super::unplanned(engine.layered(&[], &[]).unwrap());
     let inputs = RunInputs::new(ports::random(None).1, Arc::clone(&prepared.environment));
-    let cx = Arc::new(engine.action_cx(&prepared, inputs).unwrap());
+    let cx = Arc::new(engine.action_cx(&prepared, (inputs, &Hosts::default())).unwrap());
     let (replaced, tombstones) = mpsc::unbounded_channel();
     replaced.send(buried).unwrap();
     let store: Arc<dyn vc_interfaces::CacheStore> = Arc::clone(store) as _;

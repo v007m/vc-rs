@@ -4,8 +4,9 @@
 use std::collections::BTreeMap;
 
 use serde_json::{Map, Value, json};
+use vc_model::Location;
 
-use crate::view::{CheckView, ExchangeView, Location, RunSnapshot, TestView};
+use crate::view::{CheckView, ExchangeView, RunSnapshot, TestView};
 use crate::{encode, text};
 
 /// Tests per `tests/<shard>` key: the detail pane loads one shard at a time.

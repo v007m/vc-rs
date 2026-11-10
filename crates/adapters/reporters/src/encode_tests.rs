@@ -1,12 +1,11 @@
 use serde_json::json;
 use vc_model::{
-    ActionId, ActionOutcome, CheckResult, CleanupRecord, Failure, InstanceId, Origin, OwnerKey, Pos, RunStatus,
+    ActionId, ActionOutcome, CheckResult, CleanupRecord, Failure, InstanceId, Names, Origin, OwnerKey, Pos, RunStatus,
     SourceFileId, SourceSpan, TestId, Totals,
 };
 
 use super::*;
 use crate::collect::StepRecord;
-use crate::names::Names;
 use crate::testing;
 
 fn sample() -> (Names, TestId, ActionId) {

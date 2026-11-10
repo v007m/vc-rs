@@ -1,9 +1,10 @@
+use std::collections::BTreeMap;
 use std::sync::mpsc::{self, Sender};
 
 use vc_interfaces::{
-    HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart, TestRow,
+    HistoryError, HistoryReader, HistoryWriter, Row, RunEnd, RunId, RunRef, RunRow, RunStart, TestRow, TestTrend,
 };
-use vc_model::{Keep, Totals};
+use vc_model::{Keep, TestStatus, Totals};
 
 /// A run history held in memory.
 ///
@@ -25,6 +26,7 @@ enum Request {
     Run(RunRef, Sender<Option<RunRow>>),
     Tests(RunId, Sender<Vec<TestRow>>),
     Snapshot(RunId, Sender<Option<Vec<u8>>>),
+    Trends(usize, Sender<Vec<TestTrend>>),
 }
 
 /// One stored run.
@@ -63,6 +65,7 @@ impl State {
             Request::Snapshot(run, reply) => {
                 drop(reply.send(self.find(RunRef::Id(run)).and_then(|run| run.snapshot.clone())));
             }
+            Request::Trends(window, reply) => drop(reply.send(self.trends(window))),
         }
     }
 
@@ -108,6 +111,26 @@ impl State {
     fn tests(&self, run: RunId) -> Vec<TestRow> {
         let tests = self.find(RunRef::Id(run)).map(|stored| stored.tests.clone()).unwrap_or_default();
         tests.into_iter().map(|test| TestRow { exchanges: Vec::new(), ..test }).collect()
+    }
+
+    /// Each test's trend over the newest `window` runs of kind `run`, its mean summed first.
+    fn trends(&self, window: usize) -> Vec<TestTrend> {
+        let mut trends: BTreeMap<&str, TestTrend> = BTreeMap::new();
+        let runs = self.runs.iter().rev().filter(|stored| stored.row.start.kind == "run").take(window);
+        let ran = runs.flat_map(|stored| &stored.tests).filter(|test| test.status != Some(TestStatus::Skipped));
+        for test in ran {
+            let trend = trends
+                .entry(test.test_id.as_str())
+                .or_insert_with(|| TestTrend { test_id: test.test_id.clone(), ..TestTrend::default() });
+            trend.results += 1;
+            trend.failed += u32::from(matches!(test.status, Some(TestStatus::Failed | TestStatus::Blocked)));
+            trend.flaky += u32::from(test.status == Some(TestStatus::Flaky));
+            trend.mean_ms += test.duration_ms;
+        }
+        trends
+            .into_values()
+            .map(|trend| TestTrend { mean_ms: trend.mean_ms / f64::from(trend.results), ..trend })
+            .collect()
     }
 }
 
@@ -172,6 +195,10 @@ impl HistoryReader for MemoryHistory {
 
     fn snapshot(&self, run: RunId) -> Result<Option<Vec<u8>>, HistoryError> {
         self.ask(|reply| Request::Snapshot(run, reply))
+    }
+
+    fn trends(&self, window: usize) -> Result<Vec<TestTrend>, HistoryError> {
+        self.ask(|reply| Request::Trends(window, reply))
     }
 }
 

@@ -35,6 +35,12 @@
 //!   [`SpecFetcher`] fetches the documents its `$ref`s name.
 //! - [`Approvals`] and [`AgentActionWriter`]: the agent approval queue and the agent call log in
 //!   `history.db` (D195).
+//! - [`Notifier`] and [`NotifierFactory`]: send an alert rule's [`Notice`] to a webhook, Slack, Teams
+//!   or `PagerDuty` channel at the end of a run; a failure is a V5117 warning.
+//! - [`PluginHost`]: one running plugin, called over JSON-RPC within a deadline, given only the
+//!   secrets its [`PluginManifest`] declares.
+//! - [`PluginStore`]: fetches a plugin for `vc plugin add`, installs it under
+//!   `.vibranium/plugins/`, and reads `vibranium.lock` and the installed manifests.
 //!
 //! ```
 //! use vc_interfaces::{SourceFilter, content_hash, source_file};
@@ -62,11 +68,15 @@ mod history;
 mod hooks;
 mod import;
 mod keychain;
+mod notifier;
+mod plugin;
+mod plugin_store;
 mod random;
 mod reporter;
 mod secrets;
 mod source;
 mod transport;
+mod trend;
 mod vcs;
 mod watch;
 
@@ -94,10 +104,17 @@ pub use import::{
     ImportSource, Importer, RecordingFilter, SecretFinding,
 };
 pub use keychain::{Keychain, KeychainError};
+pub use notifier::{Notice, NoticeFailure, Notifier, NotifierFactory, NotifyError};
+pub use plugin::{
+    CALL_DEADLINE, DEADLINE_PASSED, INITIALIZE_DEADLINE, PERMISSION_DENIED, PluginError, PluginHost, PluginKind,
+    PluginManifest, PluginPermissions,
+};
+pub use plugin_store::{Fetched, LOCK_FILE, MANIFEST_FILE, PLUGINS_DIR, PluginStore, PluginStoreError};
 pub use random::Random;
 pub use reporter::{Artifact, ReportError, Reporter, RunSummary};
 pub use secrets::{Secret, SecretError, SecretProvider, SecretQuery, Secrets};
 pub use source::{Discovery, SourceError, SourceProvider, SourceWriter, content_hash, source_file};
 pub use transport::{SendContext, Transport, TransportError};
+pub use trend::TestTrend;
 pub use vcs::{Vcs, VcsError, checked_ref};
 pub use watch::{FileWatcher, WatchError};
