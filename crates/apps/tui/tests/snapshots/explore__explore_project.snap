@@ -1,0 +1,28 @@
+---
+source: crates/apps/tui/tests/explore.rs
+expression: "screen(&tui, SIZE)"
+---
+◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import
+4 tests and 2 apis · enter explains, t skips or unskips
+┌ Project ──────────────────────────────────┐┌ Details ────────────────────────────────────────────┐
+│  services/orders/flow.test.yaml           ││id      orders.flow#listsOrders                      │
+│▸   listsOrders                            ││name    —                                            │
+│  services/users/users.api.yaml            ││file    services/orders/flow.test.yaml               │
+│    list                                   ││tags    —                                            │
+│    create                                 ││status  runs                                         │
+│  services/users/crud.test.yaml            │└─────────────────────────────────────────────────────┘
+│    listsUsers                             │┌ Explain ────────────────────────────────────────────┐
+│    createsUser                            ││enter shows how a run sees orders.flow#listsOrders:  │
+│    deletesUser  – skipped                 ││its URL, vars and checks                             │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+└───────────────────────────────────────────┘└─────────────────────────────────────────────────────┘
+  ↑↓  move  enter  explain  t  skip/unskip  r  reload  ?  help  q  quit

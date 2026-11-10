@@ -1,0 +1,34 @@
+---
+source: crates/apps/tui/tests/import.rs
+expression: "screen(&tui, SIZE)"
+---
+◆ vibranium shop  profile staging                                    1 Run   2 Explore   3 History   4 Load   5 Import
+choose the importer and the source, then d drafts the import
+┌ Import ──────────────────────────────────────┐┌ Draft ───────────────────────────────────────────────────────────────┐
+│▸ importer  ‹ openapi ›                       ││d drafts the api and test files `vc import` would create or change,   │
+│  source    a URL or a project path           ││each shown as a diff; nothing is written before w                     │
+│  file id   from the source's name            ││                                                                      │
+│  tests     [ ] a happy-path test per api     ││                                                                      │
+│  negative  [ ] bad input the schema rejects  ││                                                                      │
+│  auth      [ ] a 401 test per secured api    ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+│                                              ││                                                                      │
+└──────────────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────┘
+  ↑↓  field  ←→  importer  enter  edit/toggle  d  draft  n  next file  w  write  x  discard  ?  help  q  quit
