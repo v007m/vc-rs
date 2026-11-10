@@ -10,10 +10,11 @@ plugins:
     # One file per package, named after it, as the include! lines in src/lib.rs expect.
     opt: flat_output_dir
   # Their protobuf JSON mapping (pbjson serde impls), for Connect's JSON bodies (D254): one
-  # `<package>.serde.rs` per package beside the types.
+  # `<package>.serde.rs` per package beside the types, which src/lib.rs includes itself
+  # (`no_include`), so the types' file is not changed.
   - local: protoc-gen-prost-serde
     out: crates/contracts/src/gen
-    opt: flat_output_dir
+    opt: [flat_output_dir, no_include]
   # The web UI's TypeScript types and service descriptors (protobuf-es 2), from web/'s pinned
   # @bufbuild/protoc-gen-es; `pnpm install` puts it there.
   - local: web/node_modules/.bin/protoc-gen-es
