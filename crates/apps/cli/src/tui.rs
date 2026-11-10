@@ -17,8 +17,8 @@ pub struct TuiArgs {
     profiles: Vec<String>,
 }
 
-/// `vc tui [--profile]`: runs until `q`; exit 0, or 2 without a terminal or a project. Plugins
-/// log their stderr to their data folder, so it cannot garble the screen.
+/// `vc tui [--profile]`: runs until `q`; exit 0, or 2 without a terminal or a project. Plugins'
+/// stderr goes to `.vibranium/plugin-logs/<id>/stderr.log`, so it cannot garble the screen.
 pub fn run(args: &TuiArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     if !(std::io::stdin().is_terminal() && std::io::stdout().is_terminal()) {
         let help = "run it in a terminal; `vc run` reports to a pipe or a CI log".to_owned();
