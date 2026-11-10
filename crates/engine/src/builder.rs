@@ -2,7 +2,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use vc_adapter_plugins::FsPluginStore;
+use vc_adapter_plugins::{Confiner, FsPluginStore};
 use vc_adapter_secrets::OsKeychain;
 use vc_adapter_system::{FsCompileCache, FsSources, GitVcs, NotifyWatcher, ProcessRunner, SystemClock};
 use vc_interfaces::{
@@ -39,11 +39,11 @@ pub struct EngineBuilder {
     plugin_processes: PluginProcesses,
 }
 
-/// How the engine starts plugin processes: where their stderr goes, and the program that confines
-/// them on Linux (`vc` itself, run as the plugin launcher), if any.
+/// How the engine starts plugin processes: where their stderr goes, and how it confines them
+/// (on Linux through `vc` itself, run as the plugin launcher, if any), shared by every host.
 pub struct PluginProcesses {
     pub stderr: PluginStderr,
-    pub launcher: Option<PathBuf>,
+    pub confiner: Arc<Confiner>,
 }
 
 /// The history's writer and reader, given together.
@@ -77,7 +77,7 @@ impl EngineBuilder {
             browser: None,
             notifiers: None,
             plugins: None,
-            plugin_processes: PluginProcesses { stderr: PluginStderr::Inherit, launcher: None },
+            plugin_processes: PluginProcesses { stderr: PluginStderr::Inherit, confiner: Arc::default() },
         }
     }
 
@@ -246,7 +246,7 @@ impl EngineBuilder {
     /// runs unconfined; on macOS it runs under Seatbelt either way (D254).
     #[must_use]
     pub fn plugin_launcher(mut self, launcher: PathBuf) -> Self {
-        self.plugin_processes.launcher = Some(launcher);
+        self.plugin_processes.confiner = Arc::new(Confiner::new(Some(launcher)));
         self
     }
 

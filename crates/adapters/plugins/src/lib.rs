@@ -28,7 +28,7 @@ mod session;
 mod stderr_log;
 mod store;
 
-pub use confine::{LAUNCHER_ARG, launch};
+pub use confine::{Confiner, LAUNCHER_ARG, launch};
 pub use host::{DATA_ENV, PROTOCOL_VERSION, StdioPluginHost};
 pub use stderr_log::{LOG_LIMIT, STDERR_LOG};
 pub use store::FsPluginStore;

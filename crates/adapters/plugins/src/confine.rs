@@ -14,6 +14,7 @@ use std::ffi::OsString;
 use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use tokio::sync::OnceCell;
 use vc_interfaces::PluginPermissions;
 
 #[cfg(target_os = "linux")]
@@ -46,6 +47,43 @@ pub const FAIL_CLOSED: bool = platform::FAIL_CLOSED;
 /// any other OS.
 pub fn ready(launcher: Option<&Path>) -> Result<(), String> {
     platform::ready(launcher)
+}
+
+/// How this process confines plugins: with `vc` as their launcher on Linux, if any; and whether
+/// the OS can confine them here ([`ready`]), learned once and shared by every host given it.
+#[derive(Debug, Default)]
+pub struct Confiner {
+    launcher: Option<PathBuf>,
+    ready: OnceCell<Result<(), String>>,
+}
+
+impl Confiner {
+    /// A confiner starting plugins through `launcher` (`vc`) on Linux; none there leaves them
+    /// unconfined.
+    #[must_use]
+    pub fn new(launcher: Option<PathBuf>) -> Self {
+        Self { launcher, ready: OnceCell::new() }
+    }
+
+    /// Whether a plugin can be confined here; why not otherwise. The first call asks the OS, off
+    /// the runtime's workers; later ones reuse its answer.
+    ///
+    /// # Errors
+    ///
+    /// Why it cannot, as [`ready`] says.
+    pub async fn ready(&self) -> Result<(), String> {
+        let launcher = self.launcher.clone();
+        let probe = || async move {
+            let probed = tokio::task::spawn_blocking(move || ready(launcher.as_deref())).await;
+            probed.unwrap_or_else(|error| Err(error.to_string()))
+        };
+        self.ready.get_or_init(probe).await.clone()
+    }
+
+    /// What to run so that `entry` runs confined to `policy` ([`Policy::entry`]).
+    pub fn entry(&self, policy: &Policy, entry: Entry) -> Result<Entry, String> {
+        policy.entry(self.launcher.as_deref(), entry)
+    }
 }
 
 /// What a plugin's process may touch: real paths, links resolved.

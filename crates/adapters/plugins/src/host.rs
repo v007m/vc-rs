@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -14,7 +15,7 @@ use tokio::process::Command;
 use tokio::sync::{OnceCell, broadcast, mpsc, oneshot};
 use vc_interfaces::{INITIALIZE_DEADLINE, PluginError, PluginHost, PluginManifest, PluginPermissions, Secrets};
 
-use crate::confine::{self, Entry, Policy};
+use crate::confine::{self, Confiner, Entry, Policy};
 use crate::owned;
 use crate::session::{Call, Session};
 use crate::stderr_log;
@@ -54,7 +55,7 @@ pub struct StdioPluginHost {
     data: Option<(PathBuf, PathBuf)>,
     log: Option<(PathBuf, PathBuf)>,
     told: Option<broadcast::Sender<String>>,
-    confined: Option<(PathBuf, Option<PathBuf>)>,
+    confined: Option<(PathBuf, Arc<Confiner>)>,
     unconfined: bool,
     calls: OnceCell<Result<mpsc::UnboundedSender<Call>, PluginError>>,
 }
@@ -118,11 +119,11 @@ impl StdioPluginHost {
     }
 
     /// The same host, holding the plugin to its manifest's permissions in the project at `root`
-    /// where the OS can (`crate::confine`): Landlock on Linux through `launcher`, `vc` itself (no
-    /// launcher, no confinement), and Seatbelt on macOS.
+    /// where the OS can, as `confiner` does: Landlock on Linux through its launcher, `vc` itself
+    /// (no launcher, no confinement), and Seatbelt on macOS.
     #[must_use]
-    pub fn confined(self, root: impl Into<PathBuf>, launcher: Option<PathBuf>) -> Self {
-        Self { confined: Some((root.into(), launcher)), ..self }
+    pub fn confined(self, root: impl Into<PathBuf>, confiner: Arc<Confiner>) -> Self {
+        Self { confined: Some((root.into(), confiner)), ..self }
     }
 
     /// The same host, running the plugin unconfined, with a warning, where it cannot be confined
@@ -141,17 +142,17 @@ impl StdioPluginHost {
     /// OS can; otherwise as [`StdioPluginHost::unconfined`] says. Not started when a file it
     /// names is outside the project.
     async fn entry(&self) -> Result<Entry, PluginError> {
-        let entry = entry(&self.manifest, &self.dir);
-        let Some((root, launcher)) = &self.confined else {
+        let not_started = |reason: String| PluginError::Start { plugin: self.plugin(), reason };
+        let (manifest, dir) = (self.manifest.clone(), self.dir.clone());
+        let data = self.data.as_ref().map(|(home, under)| home.join(under));
+        let within = self.confined.as_ref().map(|(root, _)| (root.clone(), data));
+        let planned = tokio::task::spawn_blocking(move || plan(&manifest, &dir, within)).await;
+        let (entry, policy) = planned.map_err(|error| not_started(error.to_string()))?.map_err(not_started)?;
+        let (Some(policy), Some((_, confiner))) = (policy, &self.confined) else {
             return Ok(entry);
         };
-        let not_started = |reason: String| PluginError::Start { plugin: self.plugin(), reason };
-        let data = self.data.as_ref().map(|(home, under)| home.join(under));
-        let policy = Policy::new(root, &self.dir, &self.manifest.permissions).map_err(not_started)?;
-        let probed = launcher.clone();
-        let ready = tokio::task::spawn_blocking(move || confine::ready(probed.as_deref())).await;
-        match ready.unwrap_or_else(|error| Err(error.to_string())) {
-            Ok(()) => policy.writing(data.as_deref()).entry(launcher.as_deref(), entry).map_err(not_started),
+        match confiner.ready().await {
+            Ok(()) => confiner.entry(&policy, entry).map_err(not_started),
             Err(why) => self.unconfined(entry, why),
         }
     }
@@ -303,6 +304,21 @@ async fn ask(
         Ok(Err(_)) => Err(Failure::Gone),
         Err(_) => Err(Failure::Late),
     }
+}
+
+/// The plugin's `entry` in `dir` and, when it runs confined `within` the project at a root with
+/// a data folder, its policy (why not, when its manifest names a file outside the project):
+/// blocking file-system calls, so the host runs them off the runtime's workers.
+fn plan(
+    manifest: &PluginManifest,
+    dir: &Path,
+    within: Option<(PathBuf, Option<PathBuf>)>,
+) -> Result<(Entry, Option<Policy>), String> {
+    let policy = match within {
+        Some((root, data)) => Some(Policy::new(&root, dir, &manifest.permissions)?.writing(data.as_deref())),
+        None => None,
+    };
+    Ok((entry(manifest, dir), policy))
 }
 
 /// The plugin's `entry` in `dir`: a `command` naming a file in `dir` runs that file, any other is

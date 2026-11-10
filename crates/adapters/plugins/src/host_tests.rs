@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::json;
@@ -157,7 +158,7 @@ async fn a_confined_plugin_naming_a_file_outside_the_project_never_starts() {
     let mut manifest = suite_plugin_manifest();
     manifest.permissions.files = vec!["../elsewhere".into()];
     let granted = manifest.permissions.clone();
-    let host = StdioPluginHost::new(manifest, suite_dir(), granted).confined(root.path(), None);
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted).confined(root.path(), Arc::default());
     let refused = host.call("suite/echo", json!({}), CALL_DEADLINE).await.unwrap_err();
     let PluginError::Start { reason, .. } = refused else { panic!("{refused:?}") };
     assert_eq!(reason, "its file permission `../elsewhere` is not a path inside the project");
@@ -194,7 +195,7 @@ async fn a_confined_plugin_without_a_launcher_runs_unconfined_and_says_so_once()
     let host = StdioPluginHost::new(suite_plugin_manifest(), suite_dir(), granted())
         .secrets(&secrets)
         .told(told)
-        .confined(root.path(), None);
+        .confined(root.path(), Arc::default());
     for _ in 0..2 {
         host.call("suite/echo", json!({"said": "hi"}), Duration::from_secs(5)).await.unwrap();
     }
@@ -222,7 +223,7 @@ async fn a_confined_plugin_writes_its_data_folder_and_nothing_else_in_the_projec
     let data = root.path().join(".vibranium/plugin-data/suitePlugin");
     let host = StdioPluginHost::new(manifest, suite_dir(), granted())
         .data(root.path(), ".vibranium/plugin-data/suitePlugin")
-        .confined(root.path(), None);
+        .confined(root.path(), Arc::default());
     host.call("suite/keep", json!({}), Duration::from_secs(5)).await.unwrap();
     assert_eq!(std::fs::read_to_string(data.join("state.txt")).unwrap(), "kept");
     assert!(!root.path().join("leaked.txt").exists(), "the project outside its data folder is closed");
