@@ -141,6 +141,9 @@ function problemFor(e: ErrorObject, doc: ReturnType<typeof parseDocument>, lc: L
   if (e.keyword === 'additionalProperties') {
     const pair = findPair(node, String((e.params as Record<string, unknown>).additionalProperty));
     target = (pair?.key as Node) ?? target;
+  } else if (e.keyword === 'required' && !keyNode && isMap(node) && node.items.length > 0) {
+    // A root map or a list item has no key of its own: mark its first key, not the whole block.
+    target = (node.items[0].key as Node) ?? target;
   } else if (e.keyword !== 'required' && node && !isMap(node) && !isSeq(node)) {
     target = node;
   }

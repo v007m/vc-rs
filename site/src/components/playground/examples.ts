@@ -1,6 +1,7 @@
 import config from '~/examples/vibranium.config.yaml?raw';
 import smokeLoad from '~/examples/load/smoke.load.yaml?raw';
 import authTest from '~/examples/services/echo/auth.test.yaml?raw';
+import echoApi from '~/examples/services/echo/echo.api.yaml?raw';
 import searchTest from '~/examples/services/echo/search.test.yaml?raw';
 import crudTest from '~/examples/services/users/crud.test.yaml?raw';
 import pollingTest from '~/examples/services/users/polling.test.yaml?raw';
@@ -58,6 +59,14 @@ export const examples: Example[] = [
     file: 'services/users/polling.test.yaml',
     blurb: 'Re-send a request until a condition holds, then check `expect`. `until`, `every` and `timeout` are all required.',
     code: pollingTest,
+  },
+  {
+    id: 'echoApi',
+    label: 'Echo api',
+    kind: 'api',
+    file: 'services/echo/echo.api.yaml',
+    blurb: 'The echo service that the query and auth examples call: query parameters from vars, and an api that signs in through a flow.',
+    code: echoApi,
   },
   {
     id: 'auth',

@@ -3,7 +3,7 @@ import { KINDS, SCHEMA_BASE, schemaDescription, schemaUrl } from '~/lib/schemas'
 
 type Doc = CollectionEntry<'docs'>;
 
-export const SITE = 'https://v007m.github.io';
+export const SITE = (import.meta.env.SITE ?? '').replace(/\/$/, '');
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 const SECTIONS: Array<[prefix: string, label: string]> = [

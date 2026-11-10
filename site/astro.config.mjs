@@ -4,11 +4,14 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import svelte from '@astrojs/svelte';
 
+/** The Pages path; llms.txt, the schema URLs and every link derive from it and `site`. */
+const base = '/vc-rs';
+
 const dir = (label, directory, collapsed = false) => ({ label, collapsed, items: [{ autogenerate: { directory } }] });
 
 export default defineConfig({
   site: 'https://v007m.github.io',
-  base: '/vc-rs',
+  base,
   trailingSlash: 'always',
   integrations: [
     svelte(),
@@ -27,7 +30,7 @@ export default defineConfig({
         './src/styles/custom.css',
       ],
       head: [
-        { tag: 'link', attrs: { rel: 'alternate', type: 'text/plain', href: '/vc-rs/llms.txt', title: 'llms.txt' } },
+        { tag: 'link', attrs: { rel: 'alternate', type: 'text/plain', href: `${base}/llms.txt`, title: 'llms.txt' } },
       ],
       sidebar: [
         dir('Start here', 'start'),
