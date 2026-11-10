@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf';
+import { Code, ConnectError } from '@connectrpc/connect';
 import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -46,6 +47,24 @@ async function setup() {
   render(ApprovalQueue, { desk, now });
   return { verdicts, user: userEvent.setup() };
 }
+
+describe('AgentDesk', () => {
+  it('keeps a failed verdict shown after the refresh that follows it', async () => {
+    const desk = new AgentDesk(
+      fakeEngine({
+        listApprovals: () => ({ approvals: [ask(1n)] }),
+        listAgentActions: () => ({ actions: [] }),
+        decideApproval: () => {
+          throw new ConnectError('approval 1 was already decided', Code.FailedPrecondition);
+        },
+      }),
+    );
+    await desk.decide(1n, Verdict.APPROVE);
+    expect(desk.error).toBe('approval 1 was already decided');
+    expect(desk.deciding).toBeUndefined();
+    expect(desk.pending.map((a) => a.id)).toEqual([1n]);
+  });
+});
 
 describe('ApprovalQueue', () => {
   it('shows what the agent wants and how long it has waited', async () => {

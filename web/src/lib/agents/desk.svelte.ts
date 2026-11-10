@@ -43,17 +43,19 @@ export class AgentDesk {
     }
   }
 
-  /** Sends a person's verdict on approval `id`, then refreshes. */
+  /** Sends a person's verdict on approval `id`, then refreshes; a failed verdict stays shown. */
   async decide(id: bigint, verdict: Verdict): Promise<void> {
     this.deciding = id;
+    let failure: string | undefined;
     try {
       await this.#client.decideApproval({ id, verdict });
     } catch (error) {
-      this.error = ConnectError.from(error).rawMessage;
+      failure = ConnectError.from(error).rawMessage;
     } finally {
       this.deciding = undefined;
     }
     await this.refresh();
+    if (failure) this.error = failure;
   }
 
   /** Refreshes now and every `ms`; the returned function stops it. */
