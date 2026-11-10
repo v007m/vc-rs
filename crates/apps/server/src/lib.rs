@@ -6,11 +6,12 @@
 //! Connect error JSON. Bodies are binary protobuf only; the JSON codec waits on pbjson.
 //!
 //! [`ServerBuilder`] puts the services, the mounts (MCP over HTTP) and the web UI's [`Files`]
-//! behind one guard and listens on `127.0.0.1` only. Every request needs the process's random
-//! token, which only the [`LaunchUrl`] shows: its `GET /?token=…` sets an `HttpOnly`,
-//! `SameSite=Strict` cookie and redirects to `/`; other clients send `Authorization: Bearer`.
-//! `Host` must name the server, a write from another site's page is refused, there is no CORS,
-//! and the CSP is built here from the page's script hashes alone.
+//! behind one guard and listens on `127.0.0.1` only. Every request needs one of the process's
+//! random secrets (D239, D240). The [`LaunchUrl`]'s `GET /?token=…` works once: it sets the
+//! `HttpOnly`, `SameSite=Strict` cookie `vc_token_<port>` that `/api` and the pages take, and
+//! redirects to `/`. `/mcp` takes only the agent token that [`McpAccess`] shows, as
+//! `Authorization: Bearer`. `Host` must name the server, a write from another site's page is
+//! refused, there is no CORS, and the CSP is built here from the page's script hashes alone.
 //!
 //! [`EngineApi`] is `vibranium.engine.v1.EngineService` over one engine: each RPC a thin
 //! adapter over one engine facade method, and `Run` the run's events as they happen.
@@ -40,7 +41,7 @@ mod wire_events;
 mod wire_history;
 mod wire_results;
 
-pub use builder::{LaunchUrl, Server, ServerBuilder};
+pub use builder::{LaunchUrl, McpAccess, Server, ServerBuilder};
 pub use code::Code;
 #[cfg(feature = "ui")]
 pub use embedded::EmbeddedUi;

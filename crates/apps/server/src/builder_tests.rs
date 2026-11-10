@@ -14,16 +14,18 @@ use tokio::task::JoinHandle;
 use tower::ServiceExt as _;
 
 use crate::fixture::{INDEX_HTML, TestFiles};
-use crate::token::Token;
+use crate::token::{Exchange, Token};
 use crate::{ConnectService, ServerBuilder, ServerError, Sink};
 
+/// `method uri` as the signed-in browser sends it.
 async fn fetch(builder: ServerBuilder, method: Method, uri: &str) -> (StatusCode, Option<String>, Bytes) {
     let token = Arc::new(Token::generate().unwrap());
     let request = Request::builder()
         .method(method)
         .uri(uri)
         .header(header::HOST, "127.0.0.1:7420")
-        .header(header::AUTHORIZATION, format!("Bearer {}", token.expose()))
+        .header(header::ORIGIN, "http://127.0.0.1:7420")
+        .header(header::COOKIE, format!("vc_token_7420={}", token.session()))
         .body(Body::empty())
         .unwrap();
     let response = builder.guarded(token, 7420).oneshot(request).await.unwrap();
@@ -62,11 +64,18 @@ async fn a_missing_file_an_unknown_api_or_a_write_is_not_found() {
 }
 
 #[tokio::test]
-async fn a_mount_answers_under_its_path_behind_the_guard() {
-    let mcp = Router::new().route("/", post(|| async { "mcp" }));
-    let builder = site().mount("/mcp", mcp);
-    let (status, _, body) = fetch(builder, Method::POST, "/mcp").await;
-    assert_eq!((status, body.as_ref()), (StatusCode::OK, &b"mcp"[..]));
+async fn mcp_answers_under_its_path_behind_the_guard_to_the_agent_token_only() {
+    let token = Arc::new(Token::generate().unwrap());
+    let app = site().mcp(Router::new().route("/", post(|| async { "mcp" }))).guarded(Arc::clone(&token), 7420);
+    let request = |secret: &str| {
+        let request = Request::builder().method(Method::POST).uri("/mcp").header(header::HOST, "127.0.0.1:7420");
+        request.header(header::AUTHORIZATION, format!("Bearer {secret}")).body(Body::empty()).unwrap()
+    };
+    let response = app.clone().oneshot(request(token.agent())).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.into_body().collect().await.unwrap().to_bytes().as_ref(), b"mcp");
+    assert_eq!(app.oneshot(request(token.expose())).await.unwrap().status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(fetch(site().mcp(Router::new()), Method::POST, "/mcp").await.0, StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -79,6 +88,7 @@ async fn listens_on_loopback_and_shows_the_token_only_in_the_launch_url() {
     assert_eq!(token.len(), 43);
     assert!(token.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'));
     assert_eq!(format!("{:?}", server.launch_url()), "LaunchUrl(<redacted>)");
+    assert!(server.mcp().is_none(), "no /mcp, so no agent token is shown");
 
     let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
     let serving = tokio::spawn(server.serve(async move { stopped.await.unwrap_or(()) }));
@@ -101,14 +111,43 @@ async fn listens_on_loopback_and_shows_the_token_only_in_the_launch_url() {
 #[test]
 fn tokens_are_random_compared_whole_and_hidden_from_debug() {
     let (one, two) = (Token::generate().unwrap(), Token::generate().unwrap());
-    assert_ne!(one.expose(), two.expose());
-    assert!(one.matches(one.expose()));
-    assert!(!one.matches(two.expose()));
-    assert!(!one.matches(&one.expose()[..42]));
-    assert!(!one.matches(""));
-    assert!(one.session_matches(one.session()) && !one.session_matches(one.expose()) && !one.matches(one.session()));
-    assert_ne!(one.session(), two.session());
+    assert_ne!((one.expose(), one.session(), one.agent()), (two.expose(), two.session(), two.agent()));
+    for wrong in [two.expose(), &one.expose()[..42], "", one.session(), one.agent()] {
+        assert_eq!(one.exchange(wrong), Exchange::Wrong, "{wrong}");
+    }
+    assert!(one.session_matches(one.session()) && !one.session_matches(one.expose()));
+    assert!(one.agent_matches(one.agent()) && !one.agent_matches(one.session()) && !one.agent_matches(one.expose()));
     assert_eq!(format!("{one:?}"), "Token(<redacted>)");
+}
+
+#[test]
+fn the_launch_token_is_traded_once() {
+    let token = Token::generate().unwrap();
+    assert_eq!(token.exchange(token.expose()), Exchange::SignedIn);
+    assert_eq!(token.exchange(token.expose()), Exchange::Used);
+    assert_eq!(token.exchange("guess"), Exchange::Wrong);
+}
+
+#[tokio::test]
+async fn a_server_with_mcp_shows_its_url_and_hides_the_agent_token_from_debug() {
+    let server = site().mcp(Router::new()).bind().await.unwrap();
+    let port = server.launch_url().expose().strip_prefix("http://127.0.0.1:").unwrap().split_once('/').unwrap().0;
+    let mcp = server.mcp().unwrap();
+    assert_eq!(mcp.url(), format!("http://127.0.0.1:{port}/mcp"));
+    assert!(mcp.token().len() == 43 && !server.launch_url().expose().contains(mcp.token()));
+    assert_eq!(format!("{mcp:?}"), format!("McpAccess {{ url: \"{}\", .. }}", mcp.url()));
+}
+
+/// Trades `token` for the cookie at the server on `port`, as a browser does; `name=value`.
+async fn signed_in(port: &str, token: &str) -> String {
+    let mut stream = tokio::net::TcpStream::connect(format!("127.0.0.1:{port}")).await.unwrap();
+    let head = format!("GET /?token={token} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n");
+    stream.write_all(head.as_bytes()).await.unwrap();
+    let mut reply = String::new();
+    stream.read_to_string(&mut reply).await.unwrap();
+    let set =
+        reply.lines().find_map(|line| line.split_once(':').filter(|(name, _)| name.eq_ignore_ascii_case("set-cookie")));
+    set.unwrap().1.trim().split(';').next().unwrap().to_owned()
 }
 
 /// A server with one `Wait` stream open, whose handler winds up when told to stop when `heeds`,
@@ -131,10 +170,11 @@ async fn one_stream_open(
     let (port, token) = url.strip_prefix("http://127.0.0.1:").unwrap().split_once("/?token=").unwrap();
     let (stop, stopped) = oneshot::channel::<()>();
     let serving = tokio::spawn(server.serve(async move { stopped.await.unwrap_or(()) }));
+    let cookie = signed_in(port, token).await;
     let mut stream = tokio::net::TcpStream::connect(format!("127.0.0.1:{port}")).await.unwrap();
     let head = format!(
-        "POST /api/test.v1.Waiter/Wait HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {token}\r\n\
-         Content-Type: application/connect+proto\r\nContent-Length: 5\r\n\r\n"
+        "POST /api/test.v1.Waiter/Wait HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nCookie: {cookie}\r\n\
+         Origin: http://127.0.0.1:{port}\r\nContent-Type: application/connect+proto\r\nContent-Length: 5\r\n\r\n"
     );
     stream.write_all(&[head.as_bytes(), &[0; 5]].concat()).await.unwrap();
     let mut reply = [0; 12];

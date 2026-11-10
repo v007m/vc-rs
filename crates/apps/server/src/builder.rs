@@ -1,5 +1,5 @@
-//! Puts the server together: the Connect services, the mounts (MCP over HTTP), the web UI's
-//! files and the guard in front of them all, listening on loopback only.
+//! Puts the server together: the Connect services, MCP over HTTP at `/mcp`, the web UI's files
+//! and the guard in front of them all, listening on loopback only.
 
 use std::convert::Infallible;
 use std::fmt;
@@ -17,10 +17,10 @@ use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tower::Service;
 
-use crate::guard::{self, Guard};
+use crate::guard::{self, Guard, MCP};
 use crate::site::{self, Files, INDEX};
 use crate::token::Token;
-use crate::{ConnectService, ServerError, csp};
+use crate::{ConnectService, ServerError, csp, engine_api};
 
 /// How long the requests in flight at shutdown get to finish, once their streams were told to
 /// stop, before the server returns without them.
@@ -29,7 +29,9 @@ const GRACE: Duration = Duration::from_secs(5);
 /// The parts of a server, before it listens.
 pub struct ServerBuilder {
     port: u16,
-    routes: Router,
+    services: Vec<ConnectService>,
+    /// What answers at [`MCP`], if anything does.
+    mcp: Option<Router>,
     files: Option<Arc<dyn Files>>,
     /// Turns true at shutdown, which ends every open stream.
     stop: watch::Sender<bool>,
@@ -40,7 +42,7 @@ impl ServerBuilder {
     /// A server that will listen on `127.0.0.1:port`; port 0 picks a free one.
     #[must_use]
     pub fn new(port: u16) -> Self {
-        Self { port, routes: Router::new(), files: None, stop: watch::channel(false).0, grace: GRACE }
+        Self { port, services: Vec::new(), mcp: None, files: None, stop: watch::channel(false).0, grace: GRACE }
     }
 
     /// Gives the requests in flight at shutdown `grace` instead of [`GRACE`].
@@ -54,20 +56,20 @@ impl ServerBuilder {
     /// Serves a Connect service's methods.
     #[must_use]
     pub fn service(mut self, service: ConnectService) -> Self {
-        self.routes = self.routes.merge(service.stopped_by(self.stop.subscribe()).into_router());
+        self.services.push(service);
         self
     }
 
-    /// Serves everything under `path` (such as `/mcp`) with `service`, behind the same guard.
-    /// `path` starts with `/` and is not `/` itself.
+    /// Serves everything under `/mcp` with `service`, for MCP clients that send the agent token.
+    /// The engine service then also answers `Connection`, with where they connect and that token.
     #[must_use]
-    pub fn mount<S>(mut self, path: &'static str, service: S) -> Self
+    pub fn mcp<S>(mut self, service: S) -> Self
     where
         S: Service<Request, Error = Infallible> + Clone + Send + Sync + 'static,
         S::Response: IntoResponse,
         S::Future: Send + 'static,
     {
-        self.routes = self.routes.nest_service(path, service);
+        self.mcp = Some(Router::new().nest_service(MCP, service));
         self
     }
 
@@ -90,17 +92,24 @@ impl ServerBuilder {
         let listener = TcpListener::bind(address).await.map_err(|source| ServerError::Bind { address, source })?;
         let address = listener.local_addr().map_err(|source| ServerError::Bind { address, source })?;
         let launch = LaunchUrl(format!("http://{address}/?token={}", token.expose()));
-        let (csp, csp_problem) = self.csp();
-        let guard = Guard::new(token, address.port(), csp);
         let (stop, grace) = (self.stop.clone(), self.grace);
-        Ok(Server { listener, app: self.app(guard), launch, stop, grace, csp_problem })
+        let Assembled { app, mcp, csp_problem } = self.assemble(token, address.port());
+        Ok(Server { listener, app, launch, mcp, stop, grace, csp_problem })
     }
 
-    /// The routes behind `guard`.
-    pub(crate) fn app(self, guard: Guard) -> Router {
-        let guard = Arc::new(guard);
-        let site = Router::new().fallback(site::serve).with_state(self.files);
-        self.routes.fallback_service(site).layer(from_fn_with_state(guard, guard::check))
+    /// The routes behind a guard for `port` with `token`, and the CSP's problem, if any.
+    fn assemble(self, token: Arc<Token>, port: u16) -> Assembled {
+        let mcp = self.mcp.is_some().then(|| McpAccess::new(port, token.agent()));
+        let (csp, csp_problem) = self.csp();
+        let guard = Arc::new(Guard::new(token, port, csp));
+        let Self { services, mcp: mounted, files, stop, .. } = self;
+        let services = services.into_iter().map(|service| engine_api::connected(service, mcp.as_ref()));
+        let routes = services.fold(mounted.unwrap_or_default(), |routes, service| {
+            routes.merge(service.stopped_by(stop.subscribe()).into_router())
+        });
+        let site = Router::new().fallback(site::serve).with_state(files);
+        let app = routes.fallback_service(site).layer(from_fn_with_state(guard, guard::check));
+        Assembled { app, mcp, csp_problem }
     }
 
     /// The CSP header for the web UI's `index.html`, and why it is [`csp::FALLBACK`] when its
@@ -113,9 +122,15 @@ impl ServerBuilder {
     /// The routes behind a guard for `port` with `token`, as [`ServerBuilder::bind`] puts them.
     #[cfg(test)]
     pub(crate) fn guarded(self, token: Arc<Token>, port: u16) -> Router {
-        let (csp, _) = self.csp();
-        self.app(Guard::new(token, port, csp))
+        self.assemble(token, port).app
     }
+}
+
+/// What [`ServerBuilder::assemble`] puts together.
+struct Assembled {
+    app: Router,
+    mcp: Option<McpAccess>,
+    csp_problem: Option<&'static str>,
 }
 
 /// A server listening on loopback, ready to serve.
@@ -123,6 +138,7 @@ pub struct Server {
     listener: TcpListener,
     app: Router,
     launch: LaunchUrl,
+    mcp: Option<McpAccess>,
     stop: watch::Sender<bool>,
     grace: Duration,
     csp_problem: Option<&'static str>,
@@ -140,6 +156,12 @@ impl Server {
     #[must_use]
     pub const fn launch_url(&self) -> &LaunchUrl {
         &self.launch
+    }
+
+    /// Where MCP clients connect and the agent token they send, when the server serves `/mcp`.
+    #[must_use]
+    pub const fn mcp(&self) -> Option<&McpAccess> {
+        self.mcp.as_ref()
     }
 
     /// Serves until `shutdown` resolves. Then every open stream is told to stop (a run is
@@ -186,6 +208,40 @@ impl LaunchUrl {
 impl fmt::Debug for LaunchUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("LaunchUrl(<redacted>)")
+    }
+}
+
+/// `http://127.0.0.1:<port>/mcp` and the agent token, the only secret `/mcp` takes (D239).
+///
+/// `Debug` shows the URL and hides the token, which is read only through [`McpAccess::token`],
+/// to print it once for the user and to show it in the Connect panel.
+#[derive(Clone)]
+pub struct McpAccess {
+    url: String,
+    token: String,
+}
+
+impl McpAccess {
+    fn new(port: u16, token: &str) -> Self {
+        Self { url: format!("http://{}:{port}{MCP}", Ipv4Addr::LOCALHOST), token: token.to_owned() }
+    }
+
+    /// The URL MCP clients connect to.
+    #[must_use]
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+
+    /// The agent token, for `Authorization: Bearer`.
+    #[must_use]
+    pub fn token(&self) -> &str {
+        &self.token
+    }
+}
+
+impl fmt::Debug for McpAccess {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("McpAccess").field("url", &self.url).finish_non_exhaustive()
     }
 }
 

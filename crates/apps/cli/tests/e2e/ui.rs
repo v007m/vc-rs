@@ -1,6 +1,8 @@
-//! `vc ui` (G11, G12). Without the `web-ui` feature it refuses with exit 2. With it, the token is
-//! printed once on stdout, signs a browser in, lets an MCP client run tests at `/mcp`, and appears
-//! in no log, error, report or history file, even under `RUST_LOG=trace`.
+//! `vc ui` (G11, G12, D239–D241). Without the `web-ui` feature it refuses with exit 2. With it,
+//! the launch link and the agent token are printed once on stdout. The link signs a browser in
+//! once; the agent token lets an MCP client run tests at `/mcp`, under the agent policy and log,
+//! and opens nothing else. No secret appears in a log, error, report or history file, even under
+//! `RUST_LOG=trace`.
 
 #[cfg(not(feature = "web-ui"))]
 #[test]
@@ -16,7 +18,8 @@ mod served {
     use std::io::{BufRead as _, BufReader, Read as _, Write as _};
     use std::net::TcpStream;
     use std::path::Path;
-    use std::process::{Command, Stdio};
+    use std::process::{Child, ChildStdout, Command, Stdio};
+    use std::thread::JoinHandle;
     use std::time::Duration;
 
     use assert_cmd::cargo::cargo_bin;
@@ -27,6 +30,10 @@ mod served {
 
     const CRUD: (&str, &str) = ("services/users/crud.test.yaml", "tests:\n  - id: listsUsers\n    call: users#list\n");
     const ACCEPT: &str = "Accept: application/json, text/event-stream\r\nContent-Type: application/json\r\n";
+    const ENGINE: &str = "/api/vibranium.engine.v1.EngineService";
+    const HELLO: &str = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"ui-agent","version":"1"}}}"#;
+    const RUN: &str = r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"run_tests","arguments":{"ids":["users.crud"]}}}"#;
+    const CREATE: &str = r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"call_api","arguments":{"api":"users#create"}}}"#;
 
     /// One HTTP/1.1 exchange on loopback `port`; the whole reply. `head` is the method and path,
     /// then any further header lines.
@@ -52,18 +59,24 @@ mod served {
             .map(|(_, value)| value.trim())
     }
 
-    /// Initializes an MCP session over `/mcp` and runs `users.crud`; the run's reply.
-    fn run_over_mcp(port: &str, token: &str) -> String {
+    /// Initializes an MCP session over `/mcp` with `token` and calls a tool with `call`; its reply.
+    fn mcp_tool(port: &str, token: &str, call: &str) -> String {
         let auth = format!("POST /mcp\r\nAuthorization: Bearer {token}\r\n{ACCEPT}");
         let auth = auth.trim_end();
-        let hello = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"ui-agent","version":"1"}}}"#;
-        let started = http(port, auth, hello);
+        let started = http(port, auth, HELLO);
         assert!(started.starts_with("HTTP/1.1 200"), "{started}");
         let session = header(&started, "mcp-session-id").unwrap().to_owned();
         let auth = format!("{auth}\r\nMcp-Session-Id: {session}\r\nMcp-Protocol-Version: 2025-11-25");
         http(port, &auth, r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#);
-        let run = r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"run_tests","arguments":{"ids":["users.crud"]}}}"#;
-        http(port, &auth, run)
+        http(port, &auth, call)
+    }
+
+    /// The browser's unary call of `method` with `cookie`; the whole reply.
+    fn rpc(port: &str, method: &str, cookie: &str) -> String {
+        let head = format!(
+            "POST {ENGINE}/{method}\r\nCookie: {cookie}\r\nOrigin: http://127.0.0.1:{port}\r\nContent-Type: application/proto"
+        );
+        http(port, &head, "")
     }
 
     /// Every file under `dir` that holds `needle`.
@@ -80,49 +93,120 @@ mod served {
         found
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn the_token_signs_in_and_serves_mcp_yet_never_reaches_a_log_report_or_history() {
-        let server = MockServer::start().await.unwrap();
+    /// A project whose default profile lets agents run tests and send only `GET`, against `base`.
+    fn project(base: &str) -> Project {
         let config = CONFIG
             .1
-            .replace("http://x", &server.base_url())
+            .replace("http://x", base)
             .replace("default: true\n", "default: true\n    agents: {run: true, call: [GET]}\n");
         let project = Project::new(&[USERS, CRUD]);
         project.write(CONFIG.0, &config);
-        let mut vc = Command::new(cargo_bin!("vc"));
-        vc.current_dir(project.path()).args(["ui", "--no-open", "--port", "0", "--profile", "dev"]);
-        vc.env("HOME", project.home()).env("XDG_CONFIG_HOME", project.home()).env("RUST_LOG", "trace");
-        let mut child = vc.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
-        let mut stdout = BufReader::new(child.stdout.take().unwrap());
-        let mut stderr = child.stderr.take().unwrap();
-        let logs = std::thread::spawn(move || {
-            let mut text = String::new();
-            stderr.read_to_string(&mut text).map(|_| text).unwrap()
-        });
-        let mut line = String::new();
-        stdout.read_line(&mut line).unwrap();
-        let (port, token) =
-            line.trim_end().strip_prefix("vc ui: http://127.0.0.1:").unwrap().split_once("/?token=").unwrap();
-        let (port, token) = (port.to_owned(), token.to_owned());
-        assert_eq!(token.len(), 43, "{line}");
+        project
+    }
 
-        let signed_in = http(&port, &format!("GET /?token={token}"), "");
-        assert!(signed_in.starts_with("HTTP/1.1 303") && signed_in.contains("vc_token="), "{signed_in}");
-        let elsewhere = http(&port, &format!("GET /runs?token={token}"), "");
-        assert!(elsewhere.starts_with("HTTP/1.1 400") && !elsewhere.contains(&token), "{elsewhere}");
+    /// `vc ui` serving a project under `RUST_LOG=trace`, with its two stdout lines read.
+    struct Ui {
+        child: Child,
+        stdout: BufReader<ChildStdout>,
+        logs: JoinHandle<String>,
+        port: String,
+        launch: String,
+        agent: String,
+    }
+
+    impl Ui {
+        fn start(project: &Project) -> Self {
+            let mut vc = Command::new(cargo_bin!("vc"));
+            vc.current_dir(project.path()).args(["ui", "--no-open", "--port", "0", "--profile", "dev"]);
+            vc.env("HOME", project.home()).env("XDG_CONFIG_HOME", project.home()).env("RUST_LOG", "trace");
+            let mut child = vc.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap();
+            let mut stdout = BufReader::new(child.stdout.take().unwrap());
+            let mut stderr = child.stderr.take().unwrap();
+            let logs = std::thread::spawn(move || {
+                let mut text = String::new();
+                stderr.read_to_string(&mut text).map(|_| text).unwrap()
+            });
+            let (mut first, mut second) = (String::new(), String::new());
+            stdout.read_line(&mut first).unwrap();
+            stdout.read_line(&mut second).unwrap();
+            let rest = first.trim_end().strip_prefix("vc ui: http://127.0.0.1:").unwrap();
+            let (port, launch) = rest.split_once("/?token=").unwrap();
+            let agent =
+                second.trim_end().strip_prefix(&format!("vc ui: mcp http://127.0.0.1:{port}/mcp token ")).unwrap();
+            assert!(launch.len() == 43 && agent.len() == 43 && launch != agent, "{first}{second}");
+            let (port, launch, agent) = (port.to_owned(), launch.to_owned(), agent.to_owned());
+            Self { child, stdout, logs, port, launch, agent }
+        }
+
+        /// Trades the launch link for the cookie; `vc_token_<port>=<value>`.
+        fn sign_in(&self) -> String {
+            let signed_in = http(&self.port, &format!("GET /?token={}", self.launch), "");
+            assert!(signed_in.starts_with("HTTP/1.1 303"), "{signed_in}");
+            let cookie = header(&signed_in, "set-cookie").unwrap().split(';').next().unwrap();
+            assert!(cookie.starts_with(&format!("vc_token_{}=", self.port)), "{signed_in}");
+            cookie.to_owned()
+        }
+
+        /// Ends it with Ctrl-C and exit 0; what it printed after its two lines, then its stderr.
+        fn stop(mut self) -> (String, String) {
+            let pid = Pid::from_raw(i32::try_from(self.child.id()).unwrap()).unwrap();
+            kill_process(pid, Signal::INT).unwrap();
+            assert_eq!(self.child.wait().unwrap().code(), Some(0));
+            let mut rest = String::new();
+            self.stdout.read_to_string(&mut rest).unwrap();
+            (rest, self.logs.join().unwrap())
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn the_secrets_sign_in_once_and_serve_mcp_yet_never_reach_a_log_report_or_history() {
+        let server = MockServer::start().await.unwrap();
+        let project = project(&server.base_url());
+        let ui = Ui::start(&project);
+        let port = ui.port.clone();
+        let cookie = ui.sign_in();
+        let again = http(&port, &format!("GET /?token={}", ui.launch), "");
+        assert!(again.starts_with("HTTP/1.1 401") && again.contains("restart vc ui"), "{again}");
+        let elsewhere = http(&port, &format!("GET /runs?token={}", ui.launch), "");
+        assert!(elsewhere.starts_with("HTTP/1.1 400") && !elsewhere.contains(&ui.launch), "{elsewhere}");
         assert!(http(&port, "GET /?token=wrong", "").starts_with("HTTP/1.1 401"));
-        let ran = run_over_mcp(&port, &token);
+        let ran = mcp_tool(&port, &ui.agent, RUN);
         assert!(ran.contains(r#"\"exit\":0"#) || ran.contains(r#""exit":0"#), "{ran}");
 
-        let pid = Pid::from_raw(i32::try_from(child.id()).unwrap()).unwrap();
-        kill_process(pid, Signal::INT).unwrap();
-        assert_eq!(child.wait().unwrap().code(), Some(0));
-        let mut rest = String::new();
-        stdout.read_to_string(&mut rest).unwrap();
-        let logs = logs.join().unwrap();
-        assert!(!rest.contains(&token) && !logs.contains(&token), "stdout: {rest}\nstderr: {logs}");
-        let leaked = [project.path(), project.home()].map(|dir| files_holding(dir, token.as_bytes()));
-        assert_eq!(leaked, [Vec::<String>::new(), Vec::new()]);
+        let session = cookie.split_once('=').unwrap().1.to_owned();
+        let secrets = [ui.launch.clone(), ui.agent.clone(), session];
+        let (rest, logs) = ui.stop();
+        for secret in &secrets {
+            assert!(!rest.contains(secret) && !logs.contains(secret), "stdout: {rest}\nstderr: {logs}");
+            let leaked = [project.path(), project.home()].map(|dir| files_holding(dir, secret.as_bytes()));
+            assert_eq!(leaked, [Vec::<String>::new(), Vec::new()]);
+        }
         assert_eq!(server.stats().await.unwrap().count("GET /users"), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn each_secret_opens_only_its_door_and_mcp_goes_through_the_agent_policy_and_log() {
+        let server = MockServer::start().await.unwrap();
+        let project = project(&server.base_url());
+        let ui = Ui::start(&project);
+        let port = ui.port.clone();
+        let cookie = ui.sign_in();
+        let as_agent = format!(
+            "POST {ENGINE}/GetProject\r\nAuthorization: Bearer {}\r\nContent-Type: application/proto",
+            ui.agent
+        );
+        assert!(http(&port, &as_agent, "").starts_with("HTTP/1.1 401"));
+        let at_mcp = format!("POST /mcp\r\nCookie: {cookie}\r\nOrigin: http://127.0.0.1:{port}\r\n{ACCEPT}");
+        assert!(http(&port, at_mcp.trim_end(), HELLO).starts_with("HTTP/1.1 401"));
+        assert!(rpc(&port, "GetProject", &cookie).starts_with("HTTP/1.1 200"));
+
+        let refused = mcp_tool(&port, &ui.agent, CREATE);
+        assert!(refused.contains(r#""isError":true"#), "the policy lets agents send only GET: {refused}");
+        mcp_tool(&port, &ui.agent, RUN);
+        let logged = rpc(&port, "ListAgentActions", &cookie);
+        let each = ["ui-agent", "call_api", "refused", "run_tests"].map(|word| logged.contains(word));
+        assert_eq!(each, [true; 4], "{logged}");
+        ui.stop();
+        assert_eq!(server.stats().await.unwrap().count("POST /users"), 0);
     }
 }
