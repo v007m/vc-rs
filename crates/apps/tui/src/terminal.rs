@@ -82,6 +82,7 @@ impl Session {
             },
             Some(update) = self.updates.recv() => self.tui.update(&update),
         }
+        drain(&mut self.tui, &mut self.updates);
         !self.tui.quitting()
     }
 
@@ -89,6 +90,17 @@ impl Session {
     async fn close(self) {
         drop((self.keys, self.updates));
         self.driver.finish().await;
+    }
+}
+
+/// Applies the updates already waiting, up to a queue's worth, so one frame is drawn for a
+/// burst of them rather than one each: drawing after every one lets the engine get ahead.
+fn drain(tui: &mut Tui, updates: &mut Receiver<Update>) {
+    for _ in 0..QUEUE {
+        match updates.try_recv() {
+            Ok(update) => tui.update(&update),
+            Err(_) => break,
+        }
     }
 }
 
@@ -131,3 +143,7 @@ impl Drop for Raw {
         let _ = self.terminal.show_cursor();
     }
 }
+
+#[cfg(test)]
+#[path = "terminal_tests.rs"]
+mod tests;
