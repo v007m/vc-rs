@@ -199,11 +199,10 @@ fn compare(engine: &Engine, before: u64, after: u64) -> Update {
     }
 }
 
-/// The project's apis, then its tests.
+/// The project's apis, then its tests, from one read of it.
 fn explore(engine: &Engine) -> Update {
-    let list = |kind| engine.list(&ListRequest { kind, ..ListRequest::default() }).map(|report| report.items);
-    match list(ListKind::Apis).and_then(|apis| Ok([apis, list(ListKind::Tests)?].concat())) {
-        Ok(items) => Update::Explored(items),
+    match engine.catalog() {
+        Ok(report) => Update::Explored { items: report.items, notices: report.notices },
         Err(error) => Update::ExploreFailed(error.to_string()),
     }
 }

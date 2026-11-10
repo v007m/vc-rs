@@ -87,7 +87,12 @@ pub enum Update {
         reason: String,
     },
     /// The project's apis, then its tests, each in project order.
-    Explored(Vec<Listed>),
+    Explored {
+        /// The apis and tests.
+        items: Vec<Listed>,
+        /// Problems that did not stop the reading, one line each.
+        notices: Vec<String>,
+    },
     /// How a run sees the test or api an [`Ask::Explain`] named.
     Explained {
         /// Its full ID.

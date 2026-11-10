@@ -36,7 +36,7 @@ fn status_line(screen: &ExploreScreen) -> Line<'static> {
         (ReadState::Unread | ReadState::Reading, _) => Line::styled("reading the project…", theme::INFO),
         (ReadState::Failed(reason), _) | (ReadState::Read, Some(Note::Failed(reason))) => failed(reason),
         (ReadState::Read, Some(Note::Said(said))) => Line::styled(clean(said), theme::INFO),
-        (ReadState::Read, None) => Line::styled(summary(screen.items()), theme::DIM),
+        (ReadState::Read, None) => summary(screen.items(), screen.notices()),
     }
 }
 
@@ -59,10 +59,11 @@ fn prompt(reason: &Input, id: &str, note: Option<&Note>) -> Line<'static> {
     ])
 }
 
-/// `5 tests and 2 apis · enter explains, t skips or unskips`.
-fn summary(items: &[Listed]) -> String {
+/// `5 tests and 2 apis · enter explains, t skips or unskips`, then the notices.
+fn summary(items: &[Listed], notices: &[String]) -> Line<'static> {
     let apis = items.iter().filter(|item| is_api(item)).count();
-    format!("{} tests and {apis} apis · enter explains, t skips or unskips", items.len() - apis)
+    let counted = format!("{} tests and {apis} apis · enter explains, t skips or unskips", items.len() - apis);
+    Line::from_iter(std::iter::once(Span::styled(counted, theme::DIM)).chain(theme::notices(notices)))
 }
 
 /// The items under their files' paths, the chosen one highlighted.

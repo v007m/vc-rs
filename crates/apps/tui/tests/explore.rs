@@ -6,16 +6,15 @@ mod support;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use insta::assert_snapshot;
 use support::{Outcome, engine, press, screen, tui};
-use vc_engine::{Engine, ExplainRequest, FileChange, ListKind, ListRequest, SkipRequest};
+use vc_engine::{Engine, ExplainRequest, FileChange, SkipRequest};
 use vc_tui::{Ask, Tui, Update};
 
 const SIZE: (u16, u16) = (100, 24);
 
 /// What the terminal would send back for [`Ask::Explore`]: the apis, then the tests.
 fn explored(engine: &Engine) -> Outcome<Update> {
-    let mut items = engine.list(&ListRequest { kind: ListKind::Apis, ..ListRequest::default() })?.items;
-    items.extend(engine.list(&ListRequest::default())?.items);
-    Ok(Update::Explored(items))
+    let report = engine.catalog()?;
+    Ok(Update::Explored { items: report.items, notices: report.notices })
 }
 
 /// The UI on the Explore tab, the project read: `listsOrders`, then the users apis `list`
@@ -98,9 +97,9 @@ fn the_test_skipped_is_the_one_chosen_when_t_was_pressed_though_a_re_read_moved_
     let mut tui = on_explore(&engine).unwrap();
     press(&mut tui, &[KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Char('t')]);
     type_text(&mut tui, "quota");
-    let Update::Explored(mut items) = explored(&engine).unwrap() else { panic!("the project") };
+    let Update::Explored { mut items, notices } = explored(&engine).unwrap() else { panic!("the project") };
     items.retain(|item| !item.id.ends_with("#listsOrders"));
-    tui.update(&Update::Explored(items));
+    tui.update(&Update::Explored { items, notices });
     assert!(status(&tui).starts_with("skip users.crud#listsUsers because: quota▏"), "{}", status(&tui));
     let ask = press(&mut tui, &[KeyCode::Enter]);
     let Some(Ask::Skip(request)) = ask else { panic!("enter skips: {ask:?}") };
@@ -130,4 +129,14 @@ fn t_unskips_a_skipped_test_and_refuses_an_api() {
     assert!(!engine.unskip("users.crud#deletesUser").unwrap().is_empty());
     tui.update(&Update::ExploreFailed("crud.test.yaml could not be written: read-only".to_owned()));
     assert_eq!(status(&tui), "error crud.test.yaml could not be written: read-only");
+}
+
+#[test]
+fn what_did_not_stop_the_reading_is_shown_on_the_status_line() {
+    let mut tui = on_explore(&engine().unwrap()).unwrap();
+    let Update::Explored { items, .. } = explored(&engine().unwrap()).unwrap() else { panic!("the project") };
+    let notices = vec!["plugin `audit` is not trusted\n  help: trust it first".to_owned(), "other".to_owned()];
+    tui.update(&Update::Explored { items, notices });
+    let status = status(&tui);
+    assert!(status.ends_with("  warning: plugin `audit` is not trusted (+1 more)"), "{status}");
 }

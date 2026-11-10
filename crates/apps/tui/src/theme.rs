@@ -64,3 +64,12 @@ pub fn clean(text: &str) -> String {
 pub fn first_line(text: &str) -> String {
     clean(text.lines().next().unwrap_or_default())
 }
+
+/// `  warning: <the first notice> (+2 more)`, as the CLI prints a report's notices: problems
+/// that did not stop the engine. Nothing when there are none.
+pub fn notices(notices: &[String]) -> Option<Span<'static>> {
+    let first = notices.first()?;
+    let more = notices.len() - 1;
+    let more = if more > 0 { format!(" (+{more} more)") } else { String::new() };
+    Some(Span::styled(format!("  warning: {}{more}", first_line(first)), WARN))
+}

@@ -122,3 +122,17 @@ fn of_an_instance(event: &Event) -> bool {
     };
     matches!(owner, OwnerKey::Instance(_))
 }
+
+#[tokio::test]
+async fn a_finished_runs_notices_are_shown_on_the_status_line() {
+    let mut tui = tui();
+    let ask = press(&mut tui, &[KeyCode::Char('a')]);
+    for mut item in feed_of(&engine().unwrap(), ask).await.unwrap() {
+        if let RunFeed::Done(report) = &mut item {
+            report.notices.push("report junit could not be written: read-only".to_owned());
+        }
+        tui.update(&Update::Run(item));
+    }
+    let status = screen(&tui, (140, 24)).lines().nth(1).unwrap_or_default().to_owned();
+    assert!(status.ends_with("run #1  warning: report junit could not be written: read-only"), "{status}");
+}

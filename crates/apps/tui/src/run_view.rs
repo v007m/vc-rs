@@ -35,7 +35,8 @@ fn status_line(model: &RunModel) -> Line<'static> {
         Phase::Running => progress("running", theme::INFO, model),
         Phase::Done(report) => {
             let (word, style) = ending(report);
-            progress(word, style, model).into_iter().chain(report.run.map(run_number)).collect()
+            let numbered = progress(word, style, model).into_iter().chain(report.run.map(run_number));
+            numbered.chain(theme::notices(&report.notices)).collect()
         }
         Phase::Failed(reason) => vec![Span::styled("error ", theme::FAIL), Span::raw(reason.clone())],
     };

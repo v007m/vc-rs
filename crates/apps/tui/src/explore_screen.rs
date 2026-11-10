@@ -31,6 +31,7 @@ pub struct ExploreScreen {
     profiles: Vec<String>,
     reading: ReadState,
     items: Vec<Listed>,
+    notices: Vec<String>,
     cursor: usize,
     explaining: Option<String>,
     explained: Option<(String, String)>,
@@ -57,6 +58,11 @@ impl ExploreScreen {
     /// The apis and tests, by folder, each folder's apis first.
     pub fn items(&self) -> &[Listed] {
         &self.items
+    }
+
+    /// What did not stop the last reading of the project.
+    pub fn notices(&self) -> &[String] {
+        &self.notices
     }
 
     /// The chosen item's position.
@@ -153,11 +159,12 @@ impl ExploreScreen {
     }
 
     /// Takes the listing: each folder's apis, then its tests, each file in project order.
-    fn read(&mut self, items: &[Listed]) {
+    fn read(&mut self, items: &[Listed], notices: &[String]) {
         let folder = |item: &Listed| item.path.rsplit_once('/').map_or("", |(folder, _)| folder).to_owned();
         let mut items = items.to_vec();
         items.sort_by_cached_key(|item| (folder(item), !is_api(item)));
         self.items = items;
+        self.notices = notices.to_vec();
         self.reading = ReadState::Read;
         self.cursor = self.cursor.min(self.items.len().saturating_sub(1));
     }
@@ -209,7 +216,7 @@ impl Screen for ExploreScreen {
 
     fn take(&mut self, update: &Update) {
         match update {
-            Update::Explored(items) => self.read(items),
+            Update::Explored { items, notices } => self.read(items, notices),
             Update::Explained { id, text } if self.explaining.as_ref() == Some(id) => {
                 self.explained = Some((id.clone(), text.clone()));
                 self.explaining = None;
