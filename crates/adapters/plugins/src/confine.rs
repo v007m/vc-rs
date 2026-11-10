@@ -204,19 +204,18 @@ fn canonical(path: &Path) -> Option<PathBuf> {
     std::fs::canonicalize(path).ok().map(plain)
 }
 
-/// A resolved drive path without the `\\?\` that Windows puts before it, which a path that does
-/// not exist (the project's, as given) lacks.
-#[cfg(windows)]
+/// A resolved path as a path that does not exist (the project's, as given) is written: only
+/// Windows writes a resolved path apart, with `\\?\` before it.
 fn plain(path: PathBuf) -> PathBuf {
+    if cfg!(windows) { without_verbatim(path) } else { path }
+}
+
+/// A drive path (`\\?\C:\x`) without its `\\?\`; any other path as it is. Pure, so every OS
+/// tests it.
+fn without_verbatim(path: PathBuf) -> PathBuf {
     let drive = path.to_str().and_then(|text| text.strip_prefix(r"\\?\"));
     let drive = drive.filter(|rest| rest.as_bytes().get(1) == Some(&b':')).map(PathBuf::from);
     drive.unwrap_or(path)
-}
-
-/// `path` itself: only Windows writes a resolved path apart.
-#[cfg(not(windows))]
-const fn plain(path: PathBuf) -> PathBuf {
-    path
 }
 
 /// Where the OS cannot confine a plugin: its permissions stay declared only.

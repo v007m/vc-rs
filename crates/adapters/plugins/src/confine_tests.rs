@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use vc_interfaces::PluginPermissions;
 
-use super::{DEVICES, LAUNCHER_ARG, Policy, launch, real};
+use super::{DEVICES, LAUNCHER_ARG, Policy, launch, plain, real, without_verbatim};
 
 fn permissions(files: &[&str], network: &[&str]) -> PluginPermissions {
     PluginPermissions {
@@ -70,6 +70,21 @@ fn a_file_not_made_yet_is_checked_where_its_nearest_existing_folder_really_is() 
     }
     let made = Policy::new(&root, &root, &permissions(&["reports/summary.json"], &[])).unwrap();
     assert_eq!(made.write.last(), Some(&root.join("reports/summary.json")));
+}
+
+#[test]
+fn only_a_drive_path_loses_its_verbatim_prefix() {
+    assert_eq!(without_verbatim(PathBuf::from(r"\\?\C:\x")), PathBuf::from(r"C:\x"));
+    for kept in [r"\\?\UNC\srv\s", r"\\?\C", r"C:\x", "/srv/project"] {
+        assert_eq!(without_verbatim(PathBuf::from(kept)), PathBuf::from(kept));
+    }
+}
+
+#[test]
+fn only_windows_writes_a_resolved_path_apart() {
+    let verbatim = PathBuf::from(r"\\?\C:\x");
+    let expected = if cfg!(windows) { PathBuf::from(r"C:\x") } else { verbatim.clone() };
+    assert_eq!(plain(verbatim), expected);
 }
 
 #[test]
