@@ -44,7 +44,7 @@ pub struct StdioPluginHost {
     secrets: Secrets,
     config: Value,
     data: Option<PathBuf>,
-    log: Option<PathBuf>,
+    log: Option<(PathBuf, PathBuf)>,
     calls: OnceCell<Result<mpsc::UnboundedSender<Call>, PluginError>>,
 }
 
@@ -84,13 +84,14 @@ impl StdioPluginHost {
         Self { data: Some(data.into()), ..self }
     }
 
-    /// The same host, keeping the plugin's stderr in [`crate::STDERR_LOG`] in `folder` rather
-    /// than passing it through, up to [`crate::LOG_LIMIT`] a start, the log before kept as
-    /// `stderr.log.1`. `folder` must be the host's own, never the plugin's data folder; the plugin
-    /// is never told of it.
+    /// The same host, keeping the plugin's stderr in [`crate::STDERR_LOG`] in the folder `under`
+    /// in `home` rather than passing it through, up to [`crate::LOG_LIMIT`] a start, the log
+    /// before kept as `stderr.log.1`. The folder must be the host's own, never the plugin's data
+    /// folder; the plugin is never told of it. When a folder on the way from `home` is a link
+    /// ([`crate::log_folder`]), the stderr is dropped.
     #[must_use]
-    pub fn stderr_log(self, folder: impl Into<PathBuf>) -> Self {
-        Self { log: Some(folder.into()), ..self }
+    pub fn stderr_log(self, home: impl Into<PathBuf>, under: impl Into<PathBuf>) -> Self {
+        Self { log: Some((home.into(), under.into())), ..self }
     }
 
     fn plugin(&self) -> String {
@@ -126,7 +127,7 @@ impl StdioPluginHost {
             let made = std::fs::create_dir_all(data);
             made.map_err(|error| not_started(format!("cannot make its data folder: {error}")))?;
         }
-        let log = self.log.as_deref().and_then(stderr_log::open);
+        let log = self.log.as_ref().and_then(|(home, under)| stderr_log::open(home, under));
         let mut child = self
             .command(log.is_some())
             .spawn()

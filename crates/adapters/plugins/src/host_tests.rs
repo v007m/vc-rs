@@ -213,7 +213,7 @@ async fn a_logged_stderr_goes_to_the_log_folder_and_the_log_before_is_kept() {
     for word in ["first", "second"] {
         let host = StdioPluginHost::new(writes_to_stderr(word), suite_dir(), granted())
             .data(data.path())
-            .stderr_log(logs.path());
+            .stderr_log(logs.path(), "");
         host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
         logged(&logs.path().join(crate::STDERR_LOG), word).await;
     }
@@ -233,7 +233,7 @@ async fn a_link_planted_at_the_log_is_never_followed() {
     for name in [crate::STDERR_LOG, "stderr.log.1"] {
         std::os::unix::fs::symlink(&target, logs.path().join(name)).unwrap();
     }
-    let host = StdioPluginHost::new(writes_to_stderr("noise"), suite_dir(), granted()).stderr_log(logs.path());
+    let host = StdioPluginHost::new(writes_to_stderr("noise"), suite_dir(), granted()).stderr_log(logs.path(), "");
     host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
     logged(&logs.path().join(crate::STDERR_LOG), "noise").await;
     assert_eq!(std::fs::read_to_string(&target).unwrap(), "keep me");

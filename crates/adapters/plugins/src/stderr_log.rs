@@ -2,11 +2,12 @@
 //! host's UI is drawing on.
 //!
 //! The folder is never the plugin's data folder, which the plugin may write to: a link planted
-//! there would make the host write over the file it points at.
+//! there would make the host write over the file it points at. Nor is it ever reached through a
+//! link: each folder on the way to it is checked, and a link refused.
 
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use tokio::io::{AsyncRead, AsyncReadExt};
 
@@ -19,13 +20,13 @@ const OLD_LOG: &str = "stderr.log.1";
 /// The most of one process's stderr its log keeps; the rest is read and dropped.
 pub const LOG_LIMIT: u64 = 1024 * 1024;
 
-/// A new, empty [`STDERR_LOG`] in `folder` for a process about to start, the log before it kept
-/// as `stderr.log.1`; `None` when it cannot be made. The log is created only where nothing is,
-/// so a link at its path is never followed (`O_CREAT | O_EXCL`), and on Windows a reparse point
-/// is refused. When the log before cannot be kept it is removed, and the new log's first line
-/// says so.
-pub fn open(folder: &Path) -> Option<File> {
-    std::fs::create_dir_all(folder).ok()?;
+/// A new, empty [`STDERR_LOG`] in the folder `under` in `home` ([`log_folder`]) for a process
+/// about to start, the log before it kept as `stderr.log.1`; `None` when it cannot be made. The
+/// log is created only where nothing is, so a link at its path is never followed
+/// (`O_CREAT | O_EXCL`), and on Windows a reparse point is refused. When the log before cannot
+/// be kept it is removed, and the new log's first line says so.
+pub fn open(home: &Path, under: &Path) -> Option<File> {
+    let folder = log_folder(home, under).ok()?;
     let log = folder.join(STDERR_LOG);
     let rotated = rotate(&log, &folder.join(OLD_LOG));
     let mut file = create(&log)?;
@@ -33,6 +34,38 @@ pub fn open(folder: &Path) -> Option<File> {
         writeln!(file, "vibranium: the log before could not be kept as {OLD_LOG} ({error}), so it was removed").ok();
     }
     Some(file)
+}
+
+/// The folder `under` in `home`, each folder on the way made when missing.
+///
+/// It is refused, with why, when one of them is a link or not a folder, or `under` would leave
+/// `home`, so a log is never rotated, removed or made through a link. `home` itself is taken as
+/// it is.
+///
+/// # Errors
+///
+/// Why the folder cannot be used.
+pub fn log_folder(home: &Path, under: &Path) -> io::Result<PathBuf> {
+    let mut folder = home.to_path_buf();
+    for part in under.components() {
+        let Component::Normal(name) = part else {
+            return Err(io::Error::other(format!("`{}` leaves `{}`", under.display(), home.display())));
+        };
+        folder.push(name);
+        made(&folder)?;
+    }
+    Ok(folder)
+}
+
+/// Makes the folder `path` when nothing is there; a folder already there is used, anything else
+/// (a link, a file) is refused.
+fn made(path: &Path) -> io::Result<()> {
+    match std::fs::symlink_metadata(path) {
+        Ok(found) if found.is_dir() && !found.file_type().is_symlink() => Ok(()),
+        Ok(_) => Err(io::Error::other(format!("`{}` is a link or not a folder", path.display()))),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => std::fs::create_dir(path),
+        Err(error) => Err(error),
+    }
 }
 
 /// Renames `log` to `old`, over it; when that fails, removes `log` (a link itself, never what

@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde_json::Value;
 use vc_adapter_plugins::FsPluginStore;
 use vc_adapter_system::FsSources;
-use vc_interfaces::{PluginError, PluginKind, Secrets};
+use vc_interfaces::{PluginError, PluginKind, PluginStderr, Secrets};
 use vc_testkit::{FakeVcs, MemoryCompileCache, MemoryEnvironment};
 
 use super::PluginState;
@@ -22,6 +22,11 @@ const MANIFEST: &str = concat!(
 
 /// A project with a plugin folder `plugin/`, and its engine rooted there with the standard plugin store.
 fn project() -> (tempfile::TempDir, Engine) {
+    project_with(PluginStderr::Inherit)
+}
+
+/// [`project`], its plugins' stderr going to `stderr`.
+fn project_with(stderr: PluginStderr) -> (tempfile::TempDir, Engine) {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("vibranium.config.yaml"), CONFIG).unwrap();
     fs::create_dir_all(dir.path().join("plugin")).unwrap();
@@ -35,6 +40,7 @@ fn project() -> (tempfile::TempDir, Engine) {
         .sources(folder.clone())
         .writer(folder)
         .plugins(Arc::new(FsPluginStore::new(dir.path())))
+        .plugin_stderr(stderr)
         .build()
         .unwrap();
     (dir, engine)
@@ -243,4 +249,19 @@ async fn a_plugin_s_files_are_checked_on_its_first_call_and_it_keeps_its_own_in_
     let PluginError::Start { reason, .. } = call(hosts).await else { panic!("a changed plugin does not start") };
     assert!(reason.starts_with("V5118: its installed files changed since vibranium.lock approved them"), "{reason}");
     assert!(reason.contains("$VIB_PLUGIN_DATA"), "{reason}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_plugin_whose_log_folder_is_a_link_has_its_stderr_dropped_and_the_run_is_told() {
+    let (dir, engine) = project_with(PluginStderr::Log);
+    added(&engine, "path:plugin");
+    let elsewhere = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join(".vibranium/plugin-logs")).unwrap();
+    std::os::unix::fs::symlink(elsewhere.path(), dir.path().join(".vibranium/plugin-logs/report")).unwrap();
+    let notices = hosts(&engine).notices();
+    let [notice] = notices.as_slice() else { panic!("one notice, not {notices:?}") };
+    assert!(notice.starts_with("plugin `report`: its stderr is dropped: `"), "{notice}");
+    assert!(notice.ends_with("` is a link or not a folder"), "{notice}");
+    assert_eq!(fs::read_dir(elsewhere.path()).unwrap().count(), 0, "nothing is made through the link");
 }
