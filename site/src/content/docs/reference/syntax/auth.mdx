@@ -33,7 +33,7 @@ This page covers choosing an auth. The definitions themselves (`apiKey`, `basic`
 | --- | --- | --- |
 | api file `auth` | every api in the file | no auth |
 | api `auth` | that api | the file's |
-| test `auth` | the test's call, or every `call` and `test:` step as a default | the api's |
+| test `auth` | the test's call, or every `call` step as a default | the api's |
 | step or action `auth` | that one call | the test's, then the api's |
 
 ## Examples
@@ -186,7 +186,7 @@ tests:
 
 ### Steps take the test's auth
 
-A test-level `auth` is the default for each `call` and `test:` step. A step's own `auth` wins, even over an api with `auth: none`:
+A test-level `auth` is the default for each `call` step. A step's own `auth` wins, even over an api with `auth: none`:
 
 ```yaml title="services/authlab/who.test.yaml"
   - id: stepDefaults

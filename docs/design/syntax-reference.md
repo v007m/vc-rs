@@ -512,7 +512,7 @@ Each item in `tests`:
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
 
-With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every `call` and `test:` step, and a step's own value wins; `function` and `command` steps take none (D124). They do not reach the calls of a test that a `test:` step reuses, which runs as written (D270). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205) and when no step uses a default (V3206).
+With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every `call` step, and a step's own value wins; `test:`, `function` and `command` steps take none (D124). A `test:` step runs the reused test as written, so neither the defaults nor those keys written on the step itself reach its calls (D270). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205), when no step uses a default (V3206), and when a `test:` action has one of those keys (V3207).
 
 ```yaml
   - id: renamesUser

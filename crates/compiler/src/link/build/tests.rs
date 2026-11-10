@@ -232,13 +232,13 @@ fn reads_skips_polls_and_body_and_function_checks() {
 }
 
 #[test]
-fn test_steps_take_the_tests_defaults_and_function_steps_take_none() {
+fn test_and_function_steps_take_none_of_the_tests_defaults() {
     let program = more();
     let reuses = test(&program, "orders.flow#reusesTheWait");
     let [reuse, hook] = steps(&program, reuses)[..] else { panic!("two steps") };
     assert!(matches!(reuse.kind, ActionKind::Test(_)));
-    assert_eq!(reuse.headers.keys().map(String::as_str).collect::<Vec<_>>(), ["x-t"]);
-    assert_eq!(checks(reuse), [(CheckKind::Status, 17, 't'), (CheckKind::Size, 20, 's')]);
+    assert!(reuse.headers.is_empty(), "D270: a `test:` step runs the reused test as written");
+    assert_eq!(checks(reuse), [(CheckKind::Size, 20, 's')], "only its own, which V3207 reports");
     assert_eq!((reuse.timeout, hook.timeout), (Some(seconds(3)), None));
     assert!(hook.headers.is_empty() && hook.expect.checks.is_empty());
 }

@@ -25,7 +25,7 @@ input_file: crates/compiler/tests/cases/v3206_unused_default/project
       },
       "secondary": [],
       "notes": [
-        "`call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none"
+        "`call` steps take the test's defaults and their own values win; `test:`, `function` and `command` steps take none"
       ],
       "help": [
         "remove it, or remove the steps' own values that replace it"
@@ -48,7 +48,7 @@ input_file: crates/compiler/tests/cases/v3206_unused_default/project
       },
       "secondary": [],
       "notes": [
-        "`call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none"
+        "`call` steps take the test's defaults and their own values win; `test:`, `function` and `command` steps take none"
       ],
       "help": [
         "remove it, or remove the steps' own values that replace it"
