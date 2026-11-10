@@ -1,6 +1,8 @@
-use vc_testkit::FakeVcs;
+use std::sync::Arc;
 
-use crate::sample::engine;
+use vc_testkit::{FakeVcs, MemorySources};
+
+use crate::sample::{builder, engine};
 use crate::{ListKind, ListRequest, SelectRequest};
 
 fn ids(request: &ListRequest) -> Vec<String> {
@@ -68,4 +70,25 @@ fn the_text_and_json_carry_every_field() {
     assert!(text.ends_with("users.crud#skipsUsers  [smoke]  (skipped)\n"), "{text}");
     assert_eq!(report.json()[2]["skipped"], true);
     assert_eq!(report.json()[1]["path"], "services/users/crud.test.yaml");
+}
+
+#[test]
+fn tests_carry_their_calls_and_steps_and_apis_their_vars() {
+    let config = "syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
+    let api = "baseUrl: ${var.baseUrl}\napis:\n  - id: get\n    path: /users/${var.userId}\n    vars: {userId: '1', expand: none}\n  - id: make\n    method: POST\n    path: /users\n";
+    let flow = "tests:\n  - id: makesThenGets\n    steps:\n      - command: echo hi\n      - call: users#make\n      - call: users#get\n";
+    let files: [(&str, &[u8]); 3] = [
+        ("vibranium.config.yaml", config.as_bytes()),
+        ("services/users/users.api.yaml", api.as_bytes()),
+        ("services/users/flow.test.yaml", flow.as_bytes()),
+    ];
+    let listing = builder(FakeVcs::default()).sources(Arc::new(MemorySources::new(&files))).build().unwrap();
+    let tests = listing.list(&ListRequest::default()).unwrap();
+    let flow = &tests.items[0];
+    let calls: Vec<_> = flow.calls.iter().map(|call| (&*call.api, &*call.method, &*call.path)).collect();
+    assert_eq!(calls, [("users#make", "POST", "/users"), ("users#get", "GET", "/users/${var.userId}")]);
+    assert_eq!((flow.steps, flow.span.map(|span| span.start.line)), (3, Some(2)));
+    let apis = listing.list(&ListRequest { kind: ListKind::Apis, ..ListRequest::default() }).unwrap();
+    assert_eq!(apis.items[0].vars, ["userId", "expand"]);
+    assert!(apis.items[1].vars.is_empty() && apis.items[1].span.is_some());
 }

@@ -3,9 +3,10 @@
 use std::collections::BTreeSet;
 
 use serde_json::{Value, json};
-use vc_model::{Api, Program, SourceFileId, Sym, Test, TestId};
+use vc_model::{Api, Program, SourceFileId, SourceSpan, Sym, Test, TestId};
 use vc_planner::{PlanError, PlanOptions};
 
+use crate::list_detail::{self, ApiCall};
 use crate::{Engine, EngineError, ListKind, ListRequest};
 
 /// One listed definition.
@@ -22,6 +23,14 @@ pub struct Listed {
     pub tags: Vec<String>,
     /// Whether the test, or its file, is marked `skip`.
     pub skipped: bool,
+    /// Where a test or api is written; `None` for a file.
+    pub span: Option<SourceSpan>,
+    /// The apis a test calls, in order.
+    pub calls: Vec<ApiCall>,
+    /// A test's step count; 0 for a test with one `call`.
+    pub steps: u32,
+    /// The vars an api declares, in order.
+    pub vars: Vec<String>,
 }
 
 /// What `vc list` found, in project order.
@@ -106,6 +115,8 @@ impl Engine {
         let ids = vc_planner::select_apis(program, &selection).map_err(|error| selection_error(&error))?;
         let api = |api: &Api| Listed {
             name: api.name.clone(),
+            span: Some(api.span),
+            vars: list_detail::vars(program, api),
             ..listed(program, api.span.file, text(program, api.id.sym()))
         };
         Ok(ids.iter().filter_map(|id| program.apis.get(id)).map(api).collect())
@@ -139,13 +150,17 @@ fn listed_test(program: &Program, test: &Test, skipped: bool) -> Listed {
         path: program.files.get(test.span.file).map(|f| f.path.as_str().to_owned()).unwrap_or_default(),
         tags,
         skipped,
+        span: Some(test.span),
+        calls: list_detail::calls(program, test),
+        steps: list_detail::steps(test),
+        vars: Vec::new(),
     }
 }
 
 /// An unnamed, untagged, unskipped definition `id` in `file`.
 fn listed(program: &Program, file: SourceFileId, id: String) -> Listed {
     let path = program.files.get(file).map(|f| f.path.as_str().to_owned()).unwrap_or_default();
-    Listed { id, name: None, path, tags: Vec::new(), skipped: false }
+    Listed { id, name: None, path, tags: Vec::new(), skipped: false, span: None, calls: Vec::new(), steps: 0, vars: Vec::new() }
 }
 
 fn text(program: &Program, sym: Sym) -> String {
