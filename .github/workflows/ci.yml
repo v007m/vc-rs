@@ -54,6 +54,12 @@ jobs:
         run: |
           cargo clippy -p vc-cli -p vc-server -p vc-mcp --all-targets --features vc-cli/web-ui --locked -- -D warnings
           cargo nextest run -p vc-cli -p vc-server -p vc-mcp -p vc-demo --features vc-cli/web-ui --locked
+      # The HTML report's committed script and style match a fresh build of `web/report`. The
+      # sync writes `.svelte-kit/tsconfig.json`, which the report's build extends.
+      - name: report-check
+        run: |
+          pnpm --dir web exec svelte-kit sync
+          mise run report:check
       # D117: the public API of vc-model, vc-interfaces and vc-engine matches its snapshot.
       # cargo-public-api reads rustdoc JSON, which needs a nightly toolchain.
       - name: public-api
