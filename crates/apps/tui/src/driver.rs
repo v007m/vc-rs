@@ -10,7 +10,7 @@ use tokio::sync::watch;
 use tokio::task::{JoinError, JoinHandle};
 use vc_engine::{
     Changes, Engine, EngineError, ExplainRequest, FileKind, ImportRequest, Interrupter, ListKind, ListRequest,
-    LoadRequest, LoadWatch, RunRequest, RunWatch, interrupts,
+    LoadRequest, LoadWatch, RunFeed, RunRequest, RunWatch, interrupts,
 };
 
 use crate::screen::{Ask, Flight, Update};
@@ -196,10 +196,10 @@ impl Driver {
         let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
         let work = tokio::spawn(async move {
             let run = async move { engine.run(&request, interrupts).await };
-            let (ran, ()) = tokio::join!(run, forward(feed, &updates, Update::Run));
-            if let Err(error) = ran {
-                updates.send(Update::RunFailed(error.to_string())).await.ok();
-            }
+            let (ran, ()) = tokio::join!(run, forward(feed, &updates, ongoing));
+            let end = ran
+                .map_or_else(|error| Update::RunFailed(error.to_string()), |report| Update::Run(RunFeed::Done(report)));
+            updates.send(end).await.ok();
         });
         let (task, done) = watched(work, self.updates.clone(), Update::RunFailed);
         self.running = Some(Running { kind: Flight::Run, interrupter, task, done, stopped: false });
@@ -212,7 +212,7 @@ impl Driver {
         let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
         let work = tokio::spawn(async move {
             let load = async move { engine.load(&request, LoadWatch { interrupts, ticks: Some(ticks) }).await };
-            let (loaded, ()) = tokio::join!(load, forward(heard, &updates, Update::Load));
+            let (loaded, ()) = tokio::join!(load, forward(heard, &updates, |tick| Some(Update::Load(tick))));
             let update = loaded
                 .map_or_else(|error| Update::LoadFailed(error.to_string()), |report| Update::Loaded(Box::new(report)));
             updates.send(update).await.ok();
@@ -339,14 +339,23 @@ fn told(error: &EngineError) -> String {
     error.help().map_or_else(|| error.to_string(), |help| format!("{error}\nhelp: {help}"))
 }
 
-/// Passes a watched feed on, each item as `wrap` makes it an update, until it ends or the UI
-/// stops listening.
-async fn forward<T>(mut feed: Receiver<T>, updates: &Sender<Update>, wrap: fn(T) -> Update) {
+/// Passes a watched feed on, each item as `wrap` makes it an update (none drops it), until it
+/// ends or the UI stops listening.
+async fn forward<T>(mut feed: Receiver<T>, updates: &Sender<Update>, wrap: fn(T) -> Option<Update>) {
     while let Some(item) = feed.recv().await {
-        if updates.send(wrap(item)).await.is_err() {
+        if let Some(update) = wrap(item)
+            && updates.send(update).await.is_err()
+        {
             break;
         }
     }
+}
+
+/// A run's feed item as an update, but for its `Done`: a run is ended once, when
+/// [`Engine::run`] returns, with its report or why it failed, so a run that fails after its
+/// feed ends is never heard ending twice, the second taken for a run started in between.
+fn ongoing(item: RunFeed) -> Option<Update> {
+    (!matches!(item, RunFeed::Done(_))).then_some(Update::Run(item))
 }
 
 #[cfg(test)]

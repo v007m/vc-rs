@@ -6,10 +6,10 @@ use std::time::Duration;
 use tokio::sync::mpsc::{self, Receiver};
 use tokio::sync::{oneshot, watch};
 use tokio::time::Instant;
-use vc_engine::{EngineBuilder, ImportRequest, LoadRequest, interrupts};
+use vc_engine::{EngineBuilder, ImportRequest, LoadRequest, RunFeed, interrupts};
 use vc_testkit::{FakeVcs, MemoryCompileCache, MemoryEnvironment, MemorySources};
 
-use super::{BUSY, Driver, PANICKED, PATIENCE, Running, SETTLE, watched};
+use super::{BUSY, Driver, PANICKED, PATIENCE, Running, SETTLE, ongoing, watched};
 use crate::screen::{Ask, Flight, Update};
 
 /// A driver over an empty project, and where its updates come out.
@@ -171,4 +171,30 @@ async fn a_stop_asked_on_one_tab_leaves_the_other_tabs_run_going() {
     assert!(driver.running.as_ref().is_some_and(|running| !running.stopped), "a load stop leaves a run be");
     driver.carry(Ask::Stop(Flight::Run));
     assert!(driver.running.as_ref().is_some_and(|running| running.stopped), "a run stop stops it");
+}
+
+/// Whether `update` ends a run.
+const fn ends_a_run(update: &Update) -> bool {
+    matches!(update, Update::RunFailed(_) | Update::Run(RunFeed::Done(_)))
+}
+
+#[tokio::test]
+async fn a_run_is_heard_ending_once_as_it_returns() {
+    let (_dir, mut driver, mut updates) = on_disk();
+    driver.carry(Ask::Run(Box::default()));
+    let mut heard = Vec::new();
+    while !heard.iter().any(ends_a_run) {
+        heard.push(updates.recv().await.unwrap());
+    }
+    driver.running.take().unwrap().task.await.unwrap();
+    heard.extend(std::iter::from_fn(|| updates.try_recv().ok()));
+    assert_eq!(heard.iter().filter(|update| ends_a_run(update)).count(), 1, "{heard:?}");
+    let last = heard.last().unwrap();
+    assert!(matches!(last, Update::Run(RunFeed::Done(_))), "its feed's Done, once, last: {heard:?}");
+}
+
+#[test]
+fn a_run_feed_is_passed_on_but_for_its_end() {
+    let passed = ongoing(RunFeed::Missed { count: 2 });
+    assert!(matches!(passed, Some(Update::Run(RunFeed::Missed { count: 2 }))), "{passed:?}");
 }

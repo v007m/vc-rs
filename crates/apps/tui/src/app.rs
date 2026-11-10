@@ -149,13 +149,13 @@ impl Tui {
         self.confirming
     }
 
-    /// Whether the help is open.
     /// The run and the load run in progress, in the order they were asked for: one may be
     /// starting as the other is still returning.
     pub(crate) fn in_flight(&self) -> &[Flight] {
         &self.in_flight
     }
 
+    /// Whether the help is open.
     pub(crate) const fn help(&self) -> bool {
         self.help
     }

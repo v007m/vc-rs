@@ -166,7 +166,9 @@ impl Screen for HistoryScreen {
 
     fn take(&mut self, update: &Update) {
         match update {
-            Update::Run(RunFeed::Done(_)) | Update::Loaded(_) => self.finished = self.finished.saturating_add(1),
+            Update::Run(RunFeed::Done(_)) | Update::RunFailed(_) | Update::Loaded(_) => {
+                self.finished = self.finished.saturating_add(1);
+            }
             Update::History { runs, trends } => self.read(runs, trends),
             Update::Compared { before, after } => self.compared_runs(before, after),
             Update::HistoryFailed(reason) => self.reading = ReadState::Failed(first_line(reason)),

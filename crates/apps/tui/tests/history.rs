@@ -172,6 +172,13 @@ fn a_comparison_that_cannot_be_read_says_why_on_its_pane_and_leaves_the_runs_lis
 }
 
 #[test]
+fn a_run_that_ends_in_an_error_is_reread_as_it_may_be_stored() {
+    let mut tui = on_history();
+    tui.update(&Update::RunFailed("the run stopped".to_owned()));
+    assert_eq!(press(&mut tui, &[KeyCode::Char('1'), KeyCode::Char('3')]), Some(Ask::History));
+}
+
+#[test]
 fn a_run_that_finishes_while_the_history_is_read_leaves_it_stale() {
     let mut tui = tui();
     assert_eq!(press(&mut tui, &[KeyCode::Char('3')]), Some(Ask::History));
