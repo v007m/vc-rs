@@ -36,6 +36,7 @@ mod save_call;
 mod schema;
 mod select;
 mod skip;
+mod tui;
 mod ui;
 mod watch;
 
@@ -110,6 +111,8 @@ enum Command {
     Plugin(plugin::PluginArgs),
     /// Starts the MCP server for AI agents, over stdio.
     Mcp(mcp::McpArgs),
+    /// Opens the terminal UI.
+    Tui(tui::TuiArgs),
     /// Starts the local web UI, and MCP at `/mcp`, on 127.0.0.1 and opens it in a browser.
     Ui(ui::UiArgs),
     /// Starts or stops the demo service the `vc init` sample calls.
@@ -162,6 +165,7 @@ fn run(cli: Cli) -> anyhow::Result<Outcome> {
         Command::Migrate(command) => migrate::run(&command, project),
         Command::Plugin(args) => plugin::run(&args, project),
         Command::Mcp(args) => mcp::run(&args, project),
+        Command::Tui(args) => tui::run(&args, project),
         Command::Ui(args) => ui::run(&args, project),
         Command::Demo(args) => demo::run(&args),
         Command::Completion(args) => completion::run(&args),

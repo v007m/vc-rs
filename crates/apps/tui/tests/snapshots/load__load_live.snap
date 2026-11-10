@@ -1,0 +1,28 @@
+---
+source: crates/apps/tui/tests/load.rs
+expression: "screen(&tui, SIZE)"
+---
+◆ vibranium shop  profile staging                                    1 Run   2 Explore   3 History   4 Load   5 Import
+running users.peak · 11s · x stops it
+┌ Scenarios ─────────────────┐┌ Live ──────────────────────────────────────────────────────────────────────────────────┐
+│▸ users.peak                ││   11s  110 users  440 rps  p50 41 ms  p95 124 ms  p99 239 ms  1 errors  breaching: p95 │
+│                            ││rps         ▁▂▂▃▄▅▅▆▇█                                                                  │
+│                            ││p95 ms     ▅▅▅▆▆▆▆▇▇▇█                                                                  │
+│                            │└────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │┌ Seconds ───────────────────────────────────────────────────────────────────────────────┐
+│                            ││   11s  110 users  440 rps  p50 41 ms  p95 124 ms  p99 239 ms  1 errors  breaching: p95 │
+│                            ││   10s  100 users  400 rps  p50 40 ms  p95 120 ms  p99 230 ms  1 errors  breaching: p95 │
+│                            ││    9s  90 users  360 rps  p50 39 ms  p95 116 ms  p99 221 ms  0 errors                  │
+│                            ││    8s  80 users  320 rps  p50 38 ms  p95 112 ms  p99 212 ms  0 errors                  │
+│                            ││    7s  70 users  280 rps  p50 37 ms  p95 108 ms  p99 203 ms  0 errors                  │
+│                            ││    6s  60 users  240 rps  p50 36 ms  p95 104 ms  p99 194 ms  0 errors                  │
+│                            ││    5s  50 users  200 rps  p50 35 ms  p95 100 ms  p99 185 ms  0 errors                  │
+│                            ││    4s  40 users  160 rps  p50 34 ms  p95 96 ms  p99 176 ms  0 errors                   │
+│                            ││    3s  30 users  120 rps  p50 33 ms  p95 92 ms  p99 167 ms  0 errors                   │
+│                            ││    2s  20 users  80 rps  p50 32 ms  p95 88 ms  p99 158 ms  0 errors                    │
+│                            ││    1s  10 users  40 rps  p50 31 ms  p95 84 ms  p99 149 ms  0 errors                    │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+│                            ││                                                                                        │
+└────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘
+  ↑↓  move  enter  run  x  stop  r  reload  ?  help  q  quit

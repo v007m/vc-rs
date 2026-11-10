@@ -3,11 +3,13 @@
 //! cannot use is named with the reason, and fails only the work that needs it.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::Arc;
 
 use serde_json::Value;
+use tokio::sync::broadcast;
 use vc_adapter_plugins::StdioPluginHost;
-use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, Secrets};
+use vc_interfaces::{PLUGINS_DIR, PluginHost, PluginKind, PluginStderr, Secrets};
 use vc_model::{CelProgram, Program, Reference, TemplateValue};
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
 
@@ -19,16 +21,36 @@ use crate::plugins::{self, PluginState};
 
 /// Where each plugin keeps its own files, in a folder named by its id: its install folder is
 /// checked against the lock, so it must not change.
+/// Each folder on the way from the project root is made as the plugin starts, and a link among
+/// them keeps it from starting.
 const PLUGIN_DATA: &str = ".vibranium/plugin-data";
+
+/// Where the host keeps each plugin's stderr log ([`PluginStderr::Log`]), in a folder named by
+/// its id: never under [`PLUGIN_DATA`], which the plugin writes to. Each folder on the way from
+/// the project root is made as the plugin starts, and refused when it is a link.
+const PLUGIN_LOGS: &str = ".vibranium/plugin-logs";
+
+/// The most lines the run's plugins can say as they start before the run hears them: one each
+/// at most.
+const HEARD: usize = 64;
 
 /// Why a plugin's `config` cannot read a template value.
 const LITERAL_ONLY: &str = "a plugin's `config` takes literal values; the plugin reads a secret with `secrets/get`";
 
-/// The run's plugins: a host for each one it can use, and why each other one cannot be used.
-#[derive(Clone, Default)]
+/// The run's plugins: a host for each one it can use, why each other one cannot be used, and
+/// where they say why one starts with its stderr dropped.
+#[derive(Clone)]
 pub struct Hosts {
     ready: BTreeMap<String, Arc<dyn PluginHost>>,
     unusable: BTreeMap<String, String>,
+    told: broadcast::Sender<String>,
+}
+
+impl Default for Hosts {
+    fn default() -> Self {
+        let (told, _) = broadcast::channel(HEARD);
+        Self { ready: BTreeMap::new(), unusable: BTreeMap::new(), told }
+    }
 }
 
 impl Hosts {
@@ -59,6 +81,12 @@ impl Hosts {
     pub fn notices(&self) -> Vec<String> {
         self.unusable.iter().map(|(id, reason)| format!("plugin `{id}`: {reason}")).collect()
     }
+
+    /// What the plugins say from now on as they start: a line for each whose stderr is dropped
+    /// as its log cannot be made, and why. A plugin never started says nothing.
+    pub fn heard(&self) -> broadcast::Receiver<String> {
+        self.told.subscribe()
+    }
 }
 
 impl Engine {
@@ -81,7 +109,7 @@ impl Engine {
                 .and_then(|(host, approved)| Ok((host.config(literal(plugin.config.as_ref())?), approved)));
             match host {
                 Ok((host, approved)) => {
-                    let host = intact(host.secrets(secrets), approved, &self.plugins);
+                    let host = intact(host.secrets(secrets).told(hosts.told.clone()), approved, &self.plugins);
                     drop(hosts.ready.insert(id, host));
                 }
                 Err(reason) => drop(hosts.unusable.insert(id, reason)),
@@ -99,8 +127,11 @@ impl Engine {
         let (PluginState::Ready, Some(lock), Some(manifest)) = (&state, lock, manifest) else {
             return Err(state.to_string());
         };
-        let (dir, data) = (self.root().join(PLUGINS_DIR).join(id), self.root().join(PLUGIN_DATA).join(id));
-        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone()).data(data);
+        let dir = self.root().join(PLUGINS_DIR).join(id);
+        let host = StdioPluginHost::new(manifest, dir, lock.permissions.clone())
+            .data(self.root(), Path::new(PLUGIN_DATA).join(id));
+        let logged = self.plugin_stderr == PluginStderr::Log;
+        let host = if logged { host.stderr_log(self.root(), Path::new(PLUGIN_LOGS).join(id)) } else { host };
         Ok((host, lock.integrity.clone()))
     }
 }

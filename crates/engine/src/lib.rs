@@ -140,7 +140,7 @@ pub use run_feed::{RunFeed, RunWatch};
 pub use save_call::CallAsTest;
 pub use schema::SchemaFile;
 pub use skip::SkipRequest;
-pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
+pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun, instance_label, started};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use vc_diagnostics::{
@@ -148,7 +148,7 @@ pub use vc_diagnostics::{
 };
 pub use vc_interfaces::{
     AgentAction, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, ExchangeRow, LoggedAction,
-    PluginKind, PluginManifest, PluginPermissions, RunId, RunRow, TestRow, TestTrend, Verdict,
+    PluginKind, PluginManifest, PluginPermissions, PluginStderr, RunId, RunRow, RunStart, TestRow, TestTrend, Verdict,
 };
 pub use vc_model::{
     ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, InstanceId, Location,

@@ -1,0 +1,20 @@
+---
+source: crates/apps/tui/tests/shell.rs
+expression: screen(&tui)
+---
+◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import
+reading the history…
+┌ Runs ────────────────────────────────────────────────────────────────────────────────────────────┐
+│run    started           branch@commit                         pass   ✓    ✕    ⊘    ↻    time    │
+│                                                                                                  │
+│                                                                                                  │
+│                                                                                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌ Trends · last 0 runs ──────────────────────────┐┌ Compare ───────────────────────────────────────┐
+│pass rate                                       ││                                                │
+│duration                                        ││                                                │
+└────────────────────────────────────────────────┘│                                                │
+┌ Flaky and failing ─────────────────────────────┐│                                                │
+│                                                ││                                                │
+└────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+  ↑↓  move  enter  compare  r  reload  ?  help  q  quit

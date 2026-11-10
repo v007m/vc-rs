@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde_json::json;
@@ -129,11 +129,26 @@ async fn a_plugin_keeps_its_own_files_in_the_data_folder_it_is_given() {
         ..suite_plugin_manifest()
     };
     let root = tempfile::tempdir().unwrap();
-    let data = root.path().join("plugin-data/suitePlugin");
-    let host = StdioPluginHost::new(manifest, suite_dir(), granted()).data(&data);
+    let data = root.path().join(".vibranium/plugin-data/suitePlugin");
+    let host =
+        StdioPluginHost::new(manifest, suite_dir(), granted()).data(root.path(), ".vibranium/plugin-data/suitePlugin");
     let kept = host.call("suite/keep", json!({}), Duration::from_secs(5)).await.unwrap();
     assert_eq!(kept, json!(data.to_string_lossy()));
     assert_eq!(std::fs::read_to_string(data.join("state.txt")).unwrap(), "kept");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_data_folder_reached_through_a_link_is_refused_and_the_plugin_never_starts() {
+    let (root, elsewhere) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    std::os::unix::fs::symlink(elsewhere.path(), root.path().join(".vibranium")).unwrap();
+    let host = StdioPluginHost::new(suite_plugin_manifest(), suite_dir(), granted())
+        .data(root.path(), ".vibranium/plugin-data/suitePlugin");
+    let refused = host.call("suite/echo", json!({}), CALL_DEADLINE).await.unwrap_err();
+    let PluginError::Start { reason, .. } = refused else { panic!("{refused:?}") };
+    assert!(reason.starts_with("cannot make its data folder: `"), "{reason}");
+    assert!(reason.ends_with("/.vibranium` is a link or not a folder"), "{reason}");
+    assert_eq!(std::fs::read_dir(elsewhere.path()).unwrap().count(), 0, "nothing is made through the link");
 }
 
 /// Reads one framed message from stdin.
@@ -193,3 +208,76 @@ sys.stdout.buffer.write(b"Content-Length: %d\r\n\r\n%s" % (len(body), body)); sy
 read()
 sys.exit(3)
 "#;
+
+/// The suite's plugin, but writing `word` to its stderr and exiting.
+fn writes_to_stderr(word: &str) -> vc_interfaces::PluginManifest {
+    vc_interfaces::PluginManifest {
+        command: "python3".into(),
+        args: vec!["-c".into(), format!("import sys; sys.stderr.write('{word}')")],
+        ..suite_plugin_manifest()
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_logged_stderr_goes_to_the_log_folder_and_the_log_before_is_kept() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let (data, logs) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    for word in ["first", "second"] {
+        let host = StdioPluginHost::new(writes_to_stderr(word), suite_dir(), granted())
+            .data(data.path(), "")
+            .stderr_log(logs.path(), "");
+        host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+        logged(&logs.path().join(crate::STDERR_LOG), word).await;
+    }
+    assert_eq!(std::fs::read_to_string(logs.path().join("stderr.log.1")).unwrap(), "first");
+    assert!(!data.path().join(crate::STDERR_LOG).exists(), "the plugin's own folder holds no log");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_link_planted_at_the_log_is_never_followed() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let (logs, elsewhere) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let target = elsewhere.path().join("notes.txt");
+    std::fs::write(&target, "keep me").unwrap();
+    for name in [crate::STDERR_LOG, "stderr.log.1"] {
+        std::os::unix::fs::symlink(&target, logs.path().join(name)).unwrap();
+    }
+    let host = StdioPluginHost::new(writes_to_stderr("noise"), suite_dir(), granted()).stderr_log(logs.path(), "");
+    host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+    logged(&logs.path().join(crate::STDERR_LOG), "noise").await;
+    assert_eq!(std::fs::read_to_string(&target).unwrap(), "keep me");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_log_that_cannot_be_made_drops_the_stderr_and_says_why_as_the_plugin_starts() {
+    let (logs, elsewhere) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    std::os::unix::fs::symlink(elsewhere.path(), logs.path().join("suite")).unwrap();
+    let (told, mut heard) = tokio::sync::broadcast::channel(4);
+    let host = StdioPluginHost::new(writes_to_stderr("noise"), suite_dir(), granted())
+        .stderr_log(logs.path(), "suite")
+        .told(told);
+    assert!(heard.try_recv().is_err(), "nothing is said before the plugin starts");
+    host.call("suite/echo", json!({}), Duration::from_secs(5)).await.unwrap_err();
+    let said = heard.try_recv().unwrap();
+    assert!(said.starts_with("plugin `") && said.contains("`: its stderr is dropped: `"), "{said}");
+    assert!(said.ends_with("` is a link or not a folder"), "{said}");
+    assert_eq!(std::fs::read_dir(elsewhere.path()).unwrap().count(), 0, "nothing is made through the link");
+}
+
+/// Waits up to five seconds for `log` to hold `text`.
+async fn logged(log: &Path, text: &str) {
+    for _ in 0..100 {
+        if std::fs::read_to_string(log).is_ok_and(|logged| logged == text) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("{} never held {text}", log.display());
+}

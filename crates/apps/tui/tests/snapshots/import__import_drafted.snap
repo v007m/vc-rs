@@ -1,0 +1,34 @@
+---
+source: crates/apps/tui/tests/import.rs
+expression: "screen(&tui, SIZE)"
+---
+◆ vibranium shop  profile staging                                    1 Run   2 Explore   3 History   4 Load   5 Import
+2 files drafted · n shows the next diff, w writes them, x discards
+┌ Import ──────────────────────────────────────┐┌ Draft ───────────────────────────────────────────────────────────────┐
+│  importer  ‹ curl ›                          ││▸ new     services/orders/orders.api.yaml                             │
+│  source    https://specs.test/orders.curl    ││  changed vibranium.config.yaml                                       │
+│  file id   from the source's name            ││  Import 2 apis from https://specs.test/orders.curl                   │
+│▸ tests     [x] a happy-path test per api     ││    api.orders.test → orders (new)  2 new                             │
+│  negative  [ ] bad input the schema rejects  │└──────────────────────────────────────────────────────────────────────┘
+│  auth      [ ] a 401 test per secured api    │┌ Diff ────────────────────────────────────────────────────────────────┐
+│                                              ││--- /dev/null                                                         │
+│                                              ││+++ b/services/orders/orders.api.yaml                                 │
+│                                              ││@@ -0,0 +1,21 @@                                                      │
+│                                              ││+# yaml-language-server: $schema=https://raw.githubusercontent.com/v00│
+│                                              ││+# orders · api file · keys: https://github.com/v007m/vc-rs/blob/maste│
+│                                              ││+id: orders                                                           │
+│                                              ││+baseUrl: ${var.ordersUrl}                                            │
+│                                              ││+                                                                     │
+│                                              ││+apis:                                                                │
+│                                              ││+  - id: getV1Orders                                                  │
+│                                              ││+    name: Get v1 orders                                              │
+│                                              ││+    path: /v1/orders                                                 │
+│                                              ││+    query:                                                           │
+│                                              ││+      status: open                                                   │
+│                                              ││+  - id: postV1Orders                                                 │
+│                                              ││+    name: Post v1 orders                                             │
+│                                              ││+    method: POST                                                     │
+│                                              ││+    path: /v1/orders                                                 │
+│                                              ││+    vars:                                                            │
+└──────────────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────┘
+  ↑↓  field  ←→  importer  enter  edit  d  draft  n  next  pgup/pgdn  scroll  w  write  x  discard  ?  help  q  quit

@@ -13,7 +13,7 @@ async-trait.workspace = true
 blake3.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
-tokio = { workspace = true, features = ["io-util", "process", "time"] }
+tokio = { workspace = true, features = ["fs", "io-util", "process", "time"] }
 vc-interfaces.workspace = true
 
 [dev-dependencies]

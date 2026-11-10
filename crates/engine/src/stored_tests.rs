@@ -5,7 +5,7 @@ use vc_interfaces::{HistoryWriter as _, Row, RunEnd, RunStart, TestRow};
 use vc_model::{RunStatus, TestStatus, Totals};
 use vc_testkit::{FakeVcs, MemoryHistory};
 
-use super::{ReportRequest, report_choice, started};
+use super::{ReportRequest, instance_label, report_choice, started};
 use crate::{Engine, ReportFlags, TestTrend, sample};
 
 /// 2026-11-05 10:22 UTC.
@@ -116,4 +116,12 @@ fn trends_sum_up_each_test_over_the_newest_runs() {
     let engine = sample::builder(FakeVcs::default()).history(history.clone(), history).build().unwrap();
     let trend = TestTrend { test_id: "users.crud#listsUsers".into(), results: 1, failed: 0, flaky: 1, mean_ms: 8.0 };
     assert_eq!(engine.trends(10).unwrap(), vec![trend]);
+}
+
+#[test]
+fn an_instance_label_numbers_its_row_and_repeat_from_one() {
+    let plain = TestRow { test_id: "users.crud#listsUsers".into(), ..TestRow::default() };
+    assert_eq!(instance_label(&plain), "users.crud#listsUsers");
+    let repeated = TestRow { example_row: Some(0), repeat_index: 2, ..plain };
+    assert_eq!(instance_label(&repeated), "users.crud#listsUsers [row 1] (repeat 3)");
 }

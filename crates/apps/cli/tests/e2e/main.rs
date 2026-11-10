@@ -25,6 +25,7 @@ mod plugin;
 mod redaction;
 mod reports;
 mod scheduling;
+mod tui;
 mod ui;
 mod values;
 

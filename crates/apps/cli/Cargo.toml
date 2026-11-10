@@ -20,6 +20,7 @@ tokio.workspace = true
 vc-engine.workspace = true
 vc-mcp.workspace = true
 vc-server = { workspace = true, optional = true }
+vc-tui.workspace = true
 
 [features]
 # `vc ui`: the web UI and `/mcp` on loopback (G12). Off by default; build `web/` first.

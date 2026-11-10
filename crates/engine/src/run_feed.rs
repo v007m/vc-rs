@@ -32,7 +32,8 @@ pub enum RunFeed {
         count: u64,
     },
     /// The run ended and its reporters have finished: the history and the report files are
-    /// written. Nothing follows it. A run that fails ends the feed without it.
+    /// written. Nothing follows it. A run that fails before it executes ends the feed without
+    /// it; one that fails as it executes or after has sent it already.
     Done(RunReport),
 }
 

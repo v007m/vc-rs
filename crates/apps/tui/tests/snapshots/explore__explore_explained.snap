@@ -1,0 +1,28 @@
+---
+source: crates/apps/tui/tests/explore.rs
+expression: "screen(&tui, SIZE)"
+---
+◆ vibranium shop  profile staging                1 Run   2 Explore   3 History   4 Load   5 Import
+4 tests and 2 apis · enter explains, t skips or unskips
+┌ Project ──────────────────────────────────┐┌ Details ────────────────────────────────────────────┐
+│  services/orders/flow.test.yaml           ││id      users.crud#listsUsers                        │
+│    listsOrders                            ││name    —                                            │
+│  services/users/users.api.yaml            ││file    services/users/crud.test.yaml                │
+│    list                                   ││tags    —                                            │
+│    create                                 ││status  runs                                         │
+│  services/users/crud.test.yaml            │└─────────────────────────────────────────────────────┘
+│▸   listsUsers                             │┌ Explain ────────────────────────────────────────────┐
+│    createsUser                            ││users.crud#listsUsers                                │
+│    deletesUser  – skipped                 ││profile  staging                                     │
+│                                           ││call users#list                                      │
+│                                           ││  GET http://x/users                                 │
+│                                           ││  vars                                               │
+│                                           ││    baseUrl  http://x  (vibranium.config.yaml)       │
+│                                           ││  expect                                             │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+│                                           ││                                                     │
+└───────────────────────────────────────────┘└─────────────────────────────────────────────────────┘
+  ↑↓  move  enter  explain  pgup/pgdn  scroll  t  skip/unskip  r  reload  ?  help  q  quit
