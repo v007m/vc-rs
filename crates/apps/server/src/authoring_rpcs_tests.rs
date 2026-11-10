@@ -28,7 +28,8 @@ async fn a_call_sends_its_exchange_with_the_body_whole_and_its_checks() {
     let config = CONFIG.replace("http://127.0.0.1:9", &large_body_server(200));
     let config = format!("{config}history: {{bodies: all, maxBodySize: 1kb}}\n");
     fs::write(dir.path().join("vibranium.config.yaml"), config).unwrap();
-    let padded = USERS.replacen("    path: /users\n", &format!("    path: /users\n    body: {{pad: {}}}\n", "p".repeat(PAD)), 1);
+    let padded =
+        USERS.replacen("    path: /users\n", &format!("    path: /users\n    body: {{pad: {}}}\n", "p".repeat(PAD)), 1);
     fs::write(dir.path().join(API), padded).unwrap();
     let sent = call(api, wire::CallRequest { api: "users#list".into(), ..wire::CallRequest::default() }).await;
     let sent = sent.unwrap();
