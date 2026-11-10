@@ -33,6 +33,15 @@ export const navItems: readonly NavItem[] = [
       'M8 2.5V5M6 8.5v1.5M10 8.5v1.5',
     ],
   },
+  {
+    route: '/settings',
+    label: 'Settings',
+    icon: [
+      'M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6',
+      'M8.5 4.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0',
+      'M4.5 11.5a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0',
+    ],
+  },
 ];
 
 /** Whether `pathname` is `route` or a page under it. */
