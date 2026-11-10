@@ -36,7 +36,7 @@ fn a_panic_restores_the_terminal_before_the_hook_before_prints_it_and_the_hook_i
 }
 
 #[test]
-fn a_panic_on_another_thread_leaves_the_terminal_to_the_ui() {
+fn a_panic_on_another_thread_leaves_the_terminal_to_the_ui_and_is_not_printed_over_it() {
     let original = panic::take_hook();
     let (said, heard) = std_mpsc::channel();
     let printed = said.clone();
@@ -46,5 +46,5 @@ fn a_panic_on_another_thread_leaves_the_terminal_to_the_ui() {
     drop(hook);
     panic::set_hook(original);
     let order: Vec<_> = heard.try_iter().collect();
-    assert_eq!(order, ["printed"], "{order:?}");
+    assert!(order.is_empty(), "{order:?}");
 }

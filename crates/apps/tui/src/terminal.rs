@@ -77,7 +77,7 @@ impl Session {
             key = self.keys.recv() => match key {
                 Some(Event::Key(key)) => {
                     if let Some(ask) = self.tui.press(key) {
-                        self.driver.carry(ask);
+                        self.driver.carry(ask).await;
                     }
                 }
                 Some(_) => {}
@@ -118,7 +118,7 @@ fn read_keys(sender: &mpsc::Sender<Event>) -> io::Result<()> {
 }
 
 /// The terminal in raw mode on the alternate screen; dropping it restores the terminal, and
-/// so does a panic while it is open, before the panic is printed.
+/// so does a panic on the UI thread while it is open, before the panic is printed.
 struct Raw {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     _hook: PanicRestore,
@@ -161,8 +161,8 @@ type Hook = Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static>;
 
 /// The panic hook that runs `restore` when the thread installing it panics, then the hook it
 /// replaced, which prints the panic; dropping it puts the replaced hook back. A panic on
-/// another thread, as in an engine task, leaves the terminal to the UI, which hears of it as
-/// a failed update.
+/// another thread, as in an engine task, is not printed, as that would write over the screen
+/// in raw mode: the terminal stays the UI's, which hears of it as a failed update.
 struct PanicRestore {
     previous: Hook,
 }
@@ -175,8 +175,8 @@ impl PanicRestore {
         panic::set_hook(Box::new(move |info| {
             if std::thread::current().id() == ui {
                 restore();
+                chained(info);
             }
-            chained(info);
         }));
         Self { previous }
     }

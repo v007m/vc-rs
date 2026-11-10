@@ -22,6 +22,9 @@ const RUNS: usize = 30;
 const TICKS: usize = 64;
 /// Why a run or load run was not started.
 const BUSY: &str = "a run or load run is in progress: x on its tab stops it";
+/// How long a run or load run asked for waits on the last one's task to return, as it does
+/// just after its feed's end, before it is refused.
+const SETTLE: Duration = Duration::from_millis(250);
 /// How long quitting waits on the run in progress after each interrupt.
 const PATIENCE: Duration = Duration::from_secs(5);
 /// The interrupts that end a run outright, as `vc run` counts Ctrl-Cs.
@@ -65,10 +68,11 @@ impl Driver {
         Self { engine: Arc::new(engine), base: base.into(), updates, running: None }
     }
 
-    /// Carries out `ask`.
-    pub fn carry(&mut self, ask: Ask) {
+    /// Carries out `ask`. A run or load run asked for while the last one's task is returning
+    /// waits up to [`SETTLE`] for it.
+    pub async fn carry(&mut self, ask: Ask) {
         match ask {
-            Ask::Run(request) => self.start(*request),
+            Ask::Run(request) => self.start(*request).await,
             Ask::Stop => {
                 if let Some(running) = &self.running {
                     running.interrupter.interrupt();
@@ -91,7 +95,7 @@ impl Driver {
                 self.read(Update::SkipFailed, move |engine| edited(engine, engine.unskip(&target), (target, false)));
             }
             Ask::Scenarios => self.read(Update::ScenariosFailed, |engine| vec![scenarios(engine)]),
-            Ask::Load(request) => self.load(request),
+            Ask::Load(request) => self.load(request).await,
             Ask::Import(request) => self.import(*request),
             Ask::Write(changes) => self.read(Update::ImportFailed, move |engine| vec![written(engine, &changes)]),
         }
@@ -130,10 +134,15 @@ impl Driver {
         self.running.as_ref().is_some_and(|running| !running.task.is_finished())
     }
 
-    /// When a run or load run is in progress, sends back `refused` with why and is `true`: a
-    /// tab that asked for one is never left waiting on it.
-    fn refused(&self, refused: fn(String) -> Update) -> bool {
-        if !self.busy() {
+    /// When a run or load run is in progress, and its task does not return within [`SETTLE`],
+    /// sends back `refused` with why and is `true`: a tab that asked for one is never left
+    /// waiting on it.
+    async fn refused(&mut self, refused: fn(String) -> Update) -> bool {
+        let Some(running) = self.running.as_mut().filter(|running| !running.task.is_finished()) else {
+            return false;
+        };
+        if tokio::time::timeout(SETTLE, &mut running.task).await.is_ok() {
+            self.running = None;
             return false;
         }
         let updates = self.updates.clone();
@@ -142,8 +151,8 @@ impl Driver {
     }
 
     /// Starts a watched run, unless a run or load run is in progress.
-    fn start(&mut self, mut request: RunRequest) {
-        if self.refused(Update::RunFailed) {
+    async fn start(&mut self, mut request: RunRequest) {
+        if self.refused(Update::RunFailed).await {
             return;
         }
         let (watch, feed) = mpsc::channel(FEED);
@@ -162,8 +171,8 @@ impl Driver {
     }
 
     /// Starts a load run with its seconds watched, unless a run or load run is in progress.
-    fn load(&mut self, request: LoadRequest) {
-        if self.refused(Update::LoadFailed) {
+    async fn load(&mut self, request: LoadRequest) {
+        if self.refused(Update::LoadFailed).await {
             return;
         }
         let (ticks, heard) = mpsc::channel(TICKS);

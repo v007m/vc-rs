@@ -49,10 +49,10 @@ fn curl(source: &str) -> Ask {
 #[tokio::test]
 async fn a_typed_spec_path_starts_from_the_base_as_vc_import_reads_it() {
     let (_dir, mut driver, mut updates) = on_disk();
-    driver.carry(curl("orders.curl"));
+    driver.carry(curl("orders.curl")).await;
     let update = updates.recv().await;
     assert!(matches!(update, Some(Update::Drafted(_))), "{update:?}");
-    driver.carry(curl("../outside.curl"));
+    driver.carry(curl("../outside.curl")).await;
     let Some(Update::ImportFailed(reason)) = updates.recv().await else { panic!("the import tab hears why") };
     assert!(reason.starts_with("../outside.curl: not a file or folder in the project at"), "{reason}");
     assert!(reason.ends_with("\nhelp: give a URL, or a path inside the project"), "{reason}");
@@ -68,16 +68,26 @@ fn finishing() -> Running {
 async fn a_run_asked_for_while_another_is_finishing_is_refused_not_dropped() {
     let (mut driver, mut updates) = driver();
     driver.running = Some(finishing());
-    driver.carry(Ask::Run(Box::default()));
+    driver.carry(Ask::Run(Box::default())).await;
     let Some(Update::RunFailed(reason)) = updates.recv().await else { panic!("the run tab hears why") };
     assert_eq!(reason, BUSY);
+}
+
+#[tokio::test]
+async fn a_run_asked_for_as_the_last_one_returns_waits_for_it_rather_than_being_refused() {
+    let (mut driver, mut updates) = driver();
+    let task = tokio::spawn(tokio::time::sleep(Duration::from_millis(50)));
+    driver.running = Some(Running { interrupter: interrupts().0, task });
+    driver.carry(Ask::Run(Box::default())).await;
+    let update = updates.recv().await;
+    assert!(!matches!(&update, Some(Update::RunFailed(reason)) if reason == BUSY), "{update:?}");
 }
 
 #[tokio::test]
 async fn a_load_run_asked_for_while_a_run_is_in_progress_is_refused() {
     let (mut driver, mut updates) = driver();
     driver.running = Some(finishing());
-    driver.carry(Ask::Load(LoadRequest::default()));
+    driver.carry(Ask::Load(LoadRequest::default())).await;
     let Some(Update::LoadFailed(reason)) = updates.recv().await else { panic!("the load tab hears why") };
     assert_eq!(reason, BUSY);
 }
