@@ -122,7 +122,9 @@ pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
 pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
-pub use vc_interfaces::{Approval, ApprovalId, ApprovalRequest, ApprovalStatus, TestTrend, Verdict};
+pub use vc_interfaces::{
+    Approval, ApprovalId, ApprovalRequest, ApprovalStatus, RunId, RunRow, TestRow, TestTrend, Verdict,
+};
 pub use vc_model::{
     CheckResult, Event, Exchange, Failure, FileKind, Location, Method, Names, OwnerKey, RunStatus, Sequenced,
     SourceFiles, SourcePath, TestResult, TestStatus, Totals, check_label,

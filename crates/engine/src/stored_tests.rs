@@ -55,6 +55,18 @@ fn lists_the_runs_newest_first() {
 }
 
 #[test]
+fn hands_screens_the_stored_rows() {
+    let engine = engine();
+    let runs = engine.history(10).unwrap();
+    let ids: Vec<u64> = runs.runs().iter().map(|run| run.id.get()).collect();
+    assert_eq!(ids, [2, 1]);
+    let shown = engine.stored("1").unwrap();
+    assert_eq!((shown.run().id.get(), shown.run().status), (1, Some(RunStatus::Failed)));
+    let tests: Vec<&str> = shown.tests().iter().map(|test| test.test_id.as_str()).collect();
+    assert_eq!(tests, ["users.crud#rejectsBadEmail", "users.crud#listsUsers"]);
+}
+
+#[test]
 fn shows_a_run_and_the_tests_that_did_not_pass() {
     let shown = engine().stored("1").unwrap();
     let text = shown.text();
