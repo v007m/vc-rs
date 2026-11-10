@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use vc_interfaces::{ApprovalRequest, ApprovalStatus, Approvals, Decision, Verdict};
 use vc_model::Method;
-use vc_testkit::{agent_action_writer_suite, approvals_suite};
+use vc_testkit::{agent_action_reader_suite, agent_action_writer_suite, approvals_suite};
 
 use super::SqliteApprovals;
 
@@ -30,6 +30,12 @@ fn request() -> ApprovalRequest {
 async fn passes_the_approvals_suite() {
     let mut dirs = Vec::new();
     approvals_suite(&mut || Box::new(fresh(&mut dirs)) as Box<dyn Approvals>).await;
+}
+
+#[test]
+fn passes_the_agent_action_reader_suite() {
+    let mut dirs = Vec::new();
+    agent_action_reader_suite(&fresh(&mut dirs));
 }
 
 #[test]

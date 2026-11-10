@@ -64,6 +64,43 @@ pub enum CheckKind {
     Custom,
 }
 
+impl CheckKind {
+    /// Every kind, in `expect` key order.
+    pub const ALL: [Self; 9] = [
+        Self::Status,
+        Self::Header,
+        Self::Schema,
+        Self::Match,
+        Self::Equals,
+        Self::Size,
+        Self::Timing,
+        Self::Cel,
+        Self::Custom,
+    ];
+
+    /// The `expect` key it is written under, which the history stores: `body.match`.
+    #[must_use]
+    pub const fn key(self) -> &'static str {
+        match self {
+            Self::Status => "status",
+            Self::Header => "headers",
+            Self::Schema => "body.schema",
+            Self::Match => "body.match",
+            Self::Equals => "body.equals",
+            Self::Size => "size",
+            Self::Timing => "timing",
+            Self::Cel => "cel",
+            Self::Custom => "custom",
+        }
+    }
+
+    /// The kind written under `key`, as [`CheckKind::key`] gives it.
+    #[must_use]
+    pub fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.key() == key)
+    }
+}
+
 /// The level a check was written at.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[expect(
@@ -162,7 +199,7 @@ pub struct CheckResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{Expect, Matcher, MatcherArg};
+    use super::{CheckKind, Expect, Matcher, MatcherArg};
     use crate::TemplateValue;
 
     #[test]
@@ -171,5 +208,24 @@ mod tests {
         assert!(expect.checks.is_empty() && !expect.replace);
         let nested = MatcherArg::Matcher(Box::new(Matcher::Equals(TemplateValue::Null)));
         assert_ne!(nested, MatcherArg::Value(TemplateValue::Null));
+    }
+
+    #[test]
+    fn every_check_kind_is_listed_once_and_read_back_from_its_key() {
+        let listed = |kind: CheckKind| match kind {
+            CheckKind::Status
+            | CheckKind::Header
+            | CheckKind::Schema
+            | CheckKind::Match
+            | CheckKind::Equals
+            | CheckKind::Size
+            | CheckKind::Timing
+            | CheckKind::Cel
+            | CheckKind::Custom => CheckKind::ALL.iter().filter(|other| **other == kind).count(),
+        };
+        for kind in CheckKind::ALL {
+            assert_eq!((listed(kind), CheckKind::from_key(kind.key())), (1, Some(kind)), "{kind:?}");
+        }
+        assert_eq!(CheckKind::from_key("body"), None);
     }
 }

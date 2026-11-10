@@ -131,6 +131,10 @@ pub struct TestResult {
     pub failure: Option<Failure>,
     /// Why it was skipped.
     pub skip_reason: Option<String>,
+    /// How long the instance ran, by the executor's clock, from when it got its turn to its
+    /// verdict, across its retries; zero for a test that never ran.
+    #[serde(default)]
+    pub duration: std::time::Duration,
 }
 
 /// One cleanup that ran: a failed cleanup is reported (V5107) and changes no result.

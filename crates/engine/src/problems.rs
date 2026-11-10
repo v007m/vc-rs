@@ -28,6 +28,7 @@ pub fn add_problems(problems: &[SourceError], diagnostics: &mut Diagnostics, fil
 
 const fn help(problem: &SourceError) -> Option<&'static str> {
     match problem {
+        SourceError::Missing { .. } => Some("check the path, or create the file"),
         SourceError::Read { .. } => Some("check that the file is readable"),
         SourceError::NotUtf8 { .. } => Some("save the file as UTF-8"),
         SourceError::InvalidPath { .. } => {

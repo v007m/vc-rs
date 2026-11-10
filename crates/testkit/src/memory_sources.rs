@@ -54,7 +54,7 @@ impl MemorySources {
     /// The file at `path`, or why it cannot be read.
     fn read_one(&self, path: &SourcePath) -> Result<vc_model::SourceFile, SourceError> {
         let held = self.files.iter().find(|(relative, _)| relative == path.as_str());
-        let missing = || SourceError::Read { path: path.to_string(), reason: "no such file".to_owned() };
+        let missing = || SourceError::Missing { path: path.to_string() };
         let (_, bytes) = held.ok_or_else(missing)?;
         vc_interfaces::source_file(path.clone(), bytes.clone())
     }

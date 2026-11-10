@@ -3,30 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file: 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:">
 <title>Vibranium run <!--VIB:RUN--></title>
 <!--VIB:STYLE-->
 </head>
 <body>
-<header class="top">
-  <div class="title"><span class="brand">vc</span> <span id="run-title">run</span> <span id="run-status" class="badge"></span></div>
-  <div id="run-meta" class="meta"></div>
-</header>
-<section id="totals" class="totals" aria-label="Totals"></section>
-<section id="lifecycle" class="lifecycle" hidden></section>
-<main class="layout">
-  <section class="list" aria-label="Tests">
-    <div class="filters">
-      <input id="search" type="search" placeholder="Filter by ID, name or tag" aria-label="Filter tests">
-      <div id="chips" class="chips" role="group" aria-label="Status"></div>
-    </div>
-    <div class="head row"><span>Test</span><span>File</span><span class="num">ms</span></div>
-    <div id="viewport" class="viewport" tabindex="0"><div id="spacer" class="spacer"><div id="rows"></div></div></div>
-    <div id="count" class="count"></div>
-  </section>
-  <aside id="detail" class="detail" aria-live="polite"><p class="empty">Select a test to see its checks and exchanges.</p></aside>
-</main>
-<noscript><p class="empty">This report needs JavaScript.</p></noscript>
+<div id="app"></div>
+<noscript><p>This report needs JavaScript.</p></noscript>
 <!--VIB:SCRIPT-->
 <!--VIB:DATA-->
 </body>

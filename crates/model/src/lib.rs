@@ -56,15 +56,15 @@ pub use event::{Event, Feed, Sequenced};
 pub use exchange::{ConnectionInfo, Exchange, HttpResponse, Protocol, RenderedRequest, Timing};
 pub use expect::{Check, CheckKind, CheckResult, Expect, Matcher, MatcherArg, MatcherCall, Origin};
 pub use files::SourceFiles;
-pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep};
+pub use history::{Bodies, DEFAULT_KEEP, DEFAULT_MAX_BODY, HistoryConfig, Keep, cut_body};
 pub use hooks::{HookModule, HookModules, import_paths};
 pub use ids::{ActionId, ApiId, AuthId, DatasetId, FileId, ProfileId, SourceFileId, TestId, VarName};
-pub use names::{Location, Names, check_label, check_parts};
+pub use names::{Location, Names, Planned, check_label, check_parts};
 pub use outcome::{ActionOutcome, CleanupRecord, Failure, OwnerKey, RunStatus, TestResult, TestStatus, Totals};
 pub use plan::{Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, SkippedTest};
 pub use program::Program;
 pub use secrets::{DEFAULT_SECRETS_PROVIDER, DEFAULT_SECRETS_SCHEMA, RedactRule, SecretsConfig, schema_names};
-pub use source::{ContentHash, FileKind, SourceFile, SourcePath, resolve_path};
+pub use source::{ContentHash, FileKind, SourceFile, SourcePath, hidden_part, resolve_path};
 pub use span::{Pos, SourceSpan};
 pub use strings::{StringTable, Sym};
 pub use template::{

@@ -1,0 +1,179 @@
+// Run, test, check and exchange records: what a run reports and what the history keeps. A
+// record names everything by its full ID text (`users.crud#getsCreatedUser`, D138), never by an
+// index into a compiled program. Values that were secrets are already masked by the redactor.
+syntax = "proto3";
+
+package vibranium.results.v1;
+
+// How a test instance ended.
+enum TestStatus {
+  TEST_STATUS_UNSPECIFIED = 0;
+  TEST_STATUS_PASSED = 1;
+  TEST_STATUS_FAILED = 2;
+  // A shared action it needs failed, so it did not run.
+  TEST_STATUS_BLOCKED = 3;
+  // It failed, then passed on a retry.
+  TEST_STATUS_FLAKY = 4;
+  TEST_STATUS_SKIPPED = 5;
+}
+
+// How a run ended.
+enum RunStatus {
+  RUN_STATUS_UNSPECIFIED = 0;
+  RUN_STATUS_PASSED = 1;
+  RUN_STATUS_FAILED = 2;
+  RUN_STATUS_CANCELLED = 3;
+}
+
+// What a check judged.
+enum CheckKind {
+  CHECK_KIND_UNSPECIFIED = 0;
+  CHECK_KIND_STATUS = 1;
+  CHECK_KIND_HEADER = 2;
+  CHECK_KIND_SCHEMA = 3;
+  CHECK_KIND_MATCH = 4;
+  CHECK_KIND_EQUALS = 5;
+  CHECK_KIND_SIZE = 6;
+  CHECK_KIND_TIMING = 7;
+  CHECK_KIND_CEL = 8;
+  CHECK_KIND_CUSTOM = 9;
+}
+
+// The HTTP version a call used.
+enum Protocol {
+  PROTOCOL_UNSPECIFIED = 0;
+  PROTOCOL_HTTP1 = 1;
+  PROTOCOL_HTTP2 = 2;
+}
+
+// Test instances by status.
+message Totals {
+  uint32 passed = 1;
+  uint32 failed = 2;
+  uint32 blocked = 3;
+  uint32 flaky = 4;
+  uint32 skipped = 5;
+}
+
+// Why an action, a test or a run did not pass.
+message Failure {
+  // The action that failed, by its label, when one did.
+  optional string action = 1;
+  // The diagnostic code, such as `V5101`, when there is one.
+  optional string code = 2;
+  string message = 3;
+}
+
+// A place in a source file; lines and columns count from 1.
+message Span {
+  // The file's path, relative to the project root.
+  string file = 1;
+  uint32 start_line = 2;
+  uint32 start_column = 3;
+  uint32 end_line = 4;
+  uint32 end_column = 5;
+}
+
+// One header as sent or received.
+message Header {
+  string name = 1;
+  string value = 2;
+}
+
+// The phases of a call, in milliseconds; a phase that did not happen (a reused connection has
+// no DNS lookup) is absent.
+message Timing {
+  optional double dns_ms = 1;
+  optional double connect_ms = 2;
+  optional double tls_ms = 3;
+  double first_byte_ms = 4;
+  double download_ms = 5;
+  double total_ms = 6;
+}
+
+// A request as sent and its response as received.
+message Exchange {
+  // The action that made the call, by its label.
+  string action = 1;
+  // The api it called, by full ID, when it called one.
+  optional string api = 2;
+  string method = 3;
+  string url = 4;
+  // Absent when no response came back.
+  optional uint32 status = 5;
+  Timing timing = 6;
+  repeated Header request_headers = 7;
+  repeated Header response_headers = 8;
+  // The bodies, kept as `history.bodies` says; empty when not kept. The Run stream sends them
+  // only with `bodies: all`: with `failures` an exchange's failure is known only when its action
+  // or test ends, so those bodies come from GetRun once the report arrives.
+  bytes request_body = 9;
+  bytes response_body = 10;
+  // The bodies were cut at `history.maxBodySize`.
+  bool body_truncated = 11;
+  // The response's size on the wire, in bytes.
+  uint64 wire_size = 12;
+  bool connection_reused = 13;
+  Protocol protocol = 14;
+}
+
+// A check and how it went.
+message Check {
+  CheckKind kind = 1;
+  // The header name or the body path it checked, when it checked one.
+  optional string target = 2;
+  // Where it was declared: an api, a test or an action, by full ID or label.
+  string origin = 3;
+  Span span = 4;
+  bool passed = 5;
+  // What was expected, as JSON text.
+  string expected = 6;
+  // What came back, as JSON text, when anything did.
+  optional string actual = 7;
+  // A diff of expected against actual, when one helps.
+  optional string diff = 8;
+  // Why the check could not be evaluated.
+  optional string error = 9;
+  // The diagnostic code, when there is one.
+  optional string code = 10;
+}
+
+// A test instance's result, or a selected test that was skipped.
+message Test {
+  // The test's full ID.
+  string id = 1;
+  // The ID with the example row and repeat it ran as: `users.crud#rejectsBadEmail [row 2]`.
+  string label = 2;
+  // The example row, from 0, when the test has examples.
+  optional uint32 example_row = 3;
+  // The repeat, from 0.
+  uint32 repeat_index = 4;
+  TestStatus status = 5;
+  uint32 attempts = 6;
+  double duration_ms = 7;
+  // Set when it did not pass.
+  Failure failure = 8;
+  // The shared action whose failure blocked it.
+  optional string blocked_by = 9;
+  optional string skip_reason = 10;
+  repeated Check checks = 11;
+  repeated Exchange exchanges = 12;
+}
+
+// A run as the history keeps it.
+message Run {
+  uint64 id = 1;
+  // What ran: `run`, `load` and so on.
+  string kind = 2;
+  uint64 started_ms = 3;
+  // Absent while the run is going or when it never finished.
+  optional uint64 finished_ms = 4;
+  repeated string profiles = 5;
+  string selector = 6;
+  optional uint64 seed = 7;
+  optional string git_commit = 8;
+  optional string git_branch = 9;
+  string vc_version = 10;
+  RunStatus status = 11;
+  Totals totals = 12;
+}

@@ -143,7 +143,7 @@ impl Tool for Check {
     }
 
     async fn call(&self, cx: &Cx, args: &Args) -> Result<Value, McpError> {
-        let report = cx.engine.check(&CheckRequest { paths: texts(args, "paths")? })?;
+        let report = cx.engine.check(&CheckRequest { paths: texts(args, "paths")?, ..CheckRequest::default() })?;
         let rendered = JsonRenderer.render(&report.diagnostics, &report.files).map_err(internal)?;
         let diagnostics: Value = serde_json::from_str(&rendered).map_err(internal)?;
         let summary = report.summary();

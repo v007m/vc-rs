@@ -9,9 +9,12 @@
 //! guarded authoring changes and writes them ([`Engine::fix`], [`Engine::skip`],
 //! [`Engine::unskip`], [`Engine::rename`], [`Engine::new_api`], [`Engine::new_api_from_curl`],
 //! [`Engine::new_test`], [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
-//! [`Engine::save_call_as_test`], [`Engine::write`]), and imports specs and keeps api files in
-//! step with them ([`Engine::import`], [`Engine::sync`]). Agent calls pass the profiles' agent
-//! policy and, when it asks, the approval queue ([`Engine::policy_check`], [`Engine::admit`],
+//! [`Engine::save_call_as_test`], [`Engine::write`]), opens and saves the web UI editor's files
+//! ([`Engine::read_file`], [`Engine::save_file`]), describes the project and its effective
+//! settings, masked ([`Engine::project_info`], [`Engine::config_values`]), and imports specs and
+//! keeps api files in step with them ([`Engine::import`], [`Engine::sync`]).
+//! Agent calls pass the profiles' agent policy and, when it asks, the approval queue
+//! ([`Engine::policy_check`], [`Engine::admit`],
 //! [`Engine::approvals_list`], [`Engine::approvals_decide`]); an agent's `vc call`, run and
 //! definition write are gated so ([`Engine::write_definition`]).
 //! A load scenario runs its stages and judges its thresholds ([`Engine::load`]). Plugins are
@@ -38,11 +41,13 @@ mod check;
 mod check_alerts;
 mod complete;
 mod config_explain;
+mod config_values;
 mod create;
 mod create_api;
 mod create_auth;
 mod create_curl;
 mod edit;
+mod editor_files;
 mod error;
 mod explain;
 mod failed;
@@ -58,6 +63,7 @@ mod import_write;
 mod init;
 mod interrupt;
 mod list;
+mod list_detail;
 mod load;
 mod load_live;
 mod load_report;
@@ -73,6 +79,7 @@ mod policy;
 mod ports;
 mod problems;
 mod project;
+mod project_info;
 mod rename;
 mod rename_name;
 mod reporting;
@@ -106,10 +113,12 @@ pub use cache::CacheReport;
 pub use call::CallReport;
 pub use check::{CheckReport, CheckRequest};
 pub use complete::CompleteKind;
+pub use config_values::{ConfigLayer, ConfigValue, ConfigValues};
 pub use create::{Added, NewTest};
 pub use create_api::NewApi;
 pub use create_auth::{NewAuth, auth_fields};
 pub use edit::{Changes, FileChange};
+pub use editor_files::{OpenedFile, SaveFile, SavedFile};
 pub use error::EngineError;
 pub use explain::ExplainReport;
 pub use fix::FixReport;
@@ -117,10 +126,12 @@ pub use import::{ImportRequest, Keep};
 pub use init::INIT_FOLDERS;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
+pub use list_detail::{ApiCall, action_call};
 pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadWatch};
 pub use plan::PlanReport;
 pub use plugins::{PluginListing, PluginOffer, PluginState};
 pub use policy::{AgentCall, Permission};
+pub use project_info::ProjectInfo;
 pub use request::{
     CallRequest, ExplainRequest, ListKind, ListRequest, PlanRequest, ReportFlags, RunRequest, SelectRequest,
 };
@@ -132,12 +143,15 @@ pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun, instance_label, started};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
-pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
+pub use vc_diagnostics::{
+    Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, JsonRenderer, Label, Render, Severity, Summary, TextRenderer,
+};
 pub use vc_interfaces::{
-    Approval, ApprovalId, ApprovalRequest, ApprovalStatus, PluginKind, PluginManifest, PluginPermissions, PluginStderr,
-    RunId, RunRow, RunStart, TestRow, TestTrend, Verdict,
+    AgentAction, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, ExchangeRow, LoggedAction,
+    PluginKind, PluginManifest, PluginPermissions, PluginStderr, RunId, RunRow, RunStart, TestRow, TestTrend, Verdict,
 };
 pub use vc_model::{
-    CheckResult, Event, Exchange, Failure, FileKind, Location, Method, Names, OwnerKey, RunStatus, Sequenced,
-    SourceFiles, SourcePath, TestResult, TestStatus, Totals, check_label,
+    ActionId, Bodies, CheckKind, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, InstanceId, Location,
+    Method, Names, Origin, OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath, SourceSpan,
+    TestResult, TestStatus, Totals, check_label, check_parts, cut_body,
 };
