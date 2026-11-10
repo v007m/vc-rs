@@ -108,9 +108,10 @@ pub fn troubled(trends: &[TestTrend]) -> Vec<&TestTrend> {
 }
 
 /// The newest run older than the one at `at` and of its kind: the one it compares with, as a
-/// load run's totals and tests are not a test run's.
+/// load run's totals and tests are not a test run's. A load run stores no tests, so it compares
+/// with none.
 pub fn earlier(runs: &[RunRow], at: usize) -> Option<&RunRow> {
-    let kind = &runs.get(at)?.start.kind;
+    let kind = &runs.get(at).filter(|run| ran_tests(run))?.start.kind;
     runs.iter().skip(at + 1).find(|run| run.start.kind == *kind)
 }
 

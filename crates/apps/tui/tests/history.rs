@@ -117,7 +117,7 @@ fn run_of(kind: &str, id: u64, totals: Totals) -> RunRow {
 }
 
 #[test]
-fn a_run_compares_with_the_run_of_its_kind_before_it_and_load_runs_stay_out_of_the_trends() {
+fn a_run_compares_with_the_run_of_tests_before_it_and_load_runs_stay_out_of_the_trends_and_compares() {
     let mut tui = tui();
     press(&mut tui, &[KeyCode::Char('3')]);
     let runs = vec![
@@ -128,11 +128,11 @@ fn a_run_compares_with_the_run_of_its_kind_before_it_and_load_runs_stay_out_of_t
     ];
     tui.update(&Update::History { runs, trends: Vec::new() });
     assert!(screen(&tui, SIZE).contains("Trends · last 2 runs"), "the load runs ran no tests");
-    assert!(screen(&tui, SIZE).contains("enter compares #482 with #480"));
-    assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Compare { before: 480, after: 482 }));
-    tui.update(&Update::Compared { before: (480, Vec::new()), after: (482, Vec::new()) });
+    assert!(screen(&tui, SIZE).contains("#482 is a load run"), "{}", screen(&tui, SIZE));
+    assert_eq!(press(&mut tui, &[KeyCode::Enter]), None, "a load run stored no tests to compare");
+    assert!(!screen(&tui, SIZE).contains("nothing failing"));
     assert_eq!(press(&mut tui, &[KeyCode::Down, KeyCode::Enter]), Some(Ask::Compare { before: 479, after: 481 }));
-    assert_eq!(press(&mut tui, &[KeyCode::Down, KeyCode::Enter]), None, "no load run before #480");
+    assert_eq!(press(&mut tui, &[KeyCode::Down, KeyCode::Enter]), None, "#480 is a load run");
 }
 
 #[test]

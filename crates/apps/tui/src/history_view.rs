@@ -162,6 +162,9 @@ fn hint(screen: &HistoryScreen) -> String {
     let runs = screen.runs();
     match (runs.get(screen.cursor()), history_model::earlier(runs, screen.cursor())) {
         (Some(after), Some(before)) => format!("enter compares #{} with #{}", after.id.get(), before.id.get()),
+        (Some(load), None) if !history_model::ran_tests(load) => {
+            format!("#{} is a load run: only test runs compare", load.id.get())
+        }
         (Some(only), None) => format!("#{} is the oldest run here: nothing to compare it with", only.id.get()),
         _ => String::new(),
     }
@@ -176,7 +179,7 @@ fn compared(comparison: &Comparison) -> Vec<Line<'static>> {
     let slower = comparison
         .slower
         .iter()
-        .map(|slow| format!("{}  {} → {}", slow.test, mean(slow.before_ms), mean(slow.after_ms)));
+        .map(|slow| format!("{}  {} → {}", theme::clean(&slow.test), mean(slow.before_ms), mean(slow.after_ms)));
     let mut lines = Vec::new();
     section(&mut lines, ("Newly failing", theme::FAIL), &comparison.newly_failing);
     section(&mut lines, ("Newly blocked", theme::WARN), &comparison.newly_blocked);
@@ -192,5 +195,5 @@ fn section(lines: &mut Vec<Line<'static>>, (title, style): (&str, Style), tests:
         return;
     }
     lines.push(Line::styled(format!("{title} · {}", tests.len()), style));
-    lines.extend(tests.iter().map(|test| Line::raw(format!("  {test}"))));
+    lines.extend(tests.iter().map(|test| Line::raw(format!("  {}", theme::clean(test)))));
 }
