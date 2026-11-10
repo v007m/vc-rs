@@ -33,7 +33,7 @@ export class EditorSession {
   readonly #checkDelayMs: number;
   /** Bumped by every edit, open and save, so a check of older text cannot land. */
   #version = 0;
-  /** Bumped by every open, so the read of a file no longer chosen cannot land. */
+  /** Bumped by every open, so a read or save of a file no longer chosen cannot land. */
   #opening = 0;
   #timer: ReturnType<typeof setTimeout> | undefined;
   /** Why the last open, save or listing failed; only another of those clears it. */
@@ -117,6 +117,7 @@ export class EditorSession {
     const buffer = this.buffer;
     if (!buffer || !this.canSave) return;
     const { path, text, digest } = buffer;
+    const opening = this.#opening;
     const version = this.#invalidate();
     this.state = 'saving';
     try {
@@ -125,12 +126,15 @@ export class EditorSession {
         const response = await this.#client.writeFile({ path, text, expectedDigest: digest });
         this.#saved(version, buffer, response);
       }
-      this.#failed(undefined);
-      this.state = 'idle';
+      this.#settled(opening, 'idle');
     } catch (error) {
       const failure = ConnectError.from(error);
-      this.state = failure.code === Code.Aborted ? 'conflict' : 'idle';
-      this.#failed(failure.code === Code.Aborted ? undefined : failure.rawMessage);
+      const aborted = failure.code === Code.Aborted;
+      this.#settled(
+        opening,
+        aborted ? 'conflict' : 'idle',
+        aborted ? undefined : failure.rawMessage,
+      );
     }
   }
 
@@ -143,12 +147,17 @@ export class EditorSession {
   async keepMine(): Promise<void> {
     const buffer = this.buffer;
     if (!buffer) return;
-    const read = await this.#attempt(async () => {
+    const opening = this.#opening;
+    try {
       const { digest } = await this.#client.readFile({ path: buffer.path });
-      if (this.buffer?.path === buffer.path) this.buffer = { ...this.buffer, digest };
+      if (opening !== this.#opening || !this.buffer) return;
+      this.buffer = { ...this.buffer, digest };
       this.state = 'idle';
-    });
-    if (read) await this.save();
+    } catch (error) {
+      if (opening === this.#opening) this.#failed(ConnectError.from(error).rawMessage);
+      return;
+    }
+    await this.save();
   }
 
   /** Applies the fix's edits to the open file, unsaved. */
@@ -192,6 +201,13 @@ export class EditorSession {
     }
   }
 
+  /** Ends a save of the file opened as `opening`; a file opened since keeps its own state. */
+  #settled(opening: number, state: EditorState, failure?: string): void {
+    if (opening !== this.#opening) return;
+    this.state = state;
+    this.#failed(failure);
+  }
+
   /** Shows why an open, save or listing failed, or clears it when it succeeded. */
   #failed(failure: string | undefined): void {
     this.#failure = failure;
@@ -211,15 +227,13 @@ export class EditorSession {
     return this.#version;
   }
 
-  /** Runs `step`, showing why it failed or clearing the last failure; says whether it worked. */
-  async #attempt(step: () => Promise<void>): Promise<boolean> {
+  /** Runs `step`, showing why it failed or clearing the last failure. */
+  async #attempt(step: () => Promise<void>): Promise<void> {
     try {
       await step();
       this.#failed(undefined);
-      return true;
     } catch (error) {
       this.#failed(ConnectError.from(error).rawMessage);
-      return false;
     }
   }
 }

@@ -180,6 +180,62 @@ describe('EditorSession', () => {
     expect(editor.dirty).toBe(true);
   });
 
+  it('leaves a file opened during a save or keep-mine alone when that answers late', async () => {
+    const other = 'services/users/other.test.yaml';
+    const held = new Set<string>();
+    const reads = new Map<string, (file: { text: string; digest: string }) => void>();
+    const answer = (file: string, text: string, digest: string) => {
+      held.delete(file);
+      reads.get(file)?.({ text, digest });
+    };
+    let refuse: (error: ConnectError) => void = () => {};
+    const writes: string[] = [];
+    const editor = new EditorSession(
+      fakeEngine({
+        readFile: ({ path: file }) =>
+          held.has(file)
+            ? new Promise((resolve) => reads.set(file, resolve))
+            : { text: `${file}\n`, digest: 'd1' },
+        check: () => ({ diagnostics: [] }),
+        writeFile: ({ path: file }) => {
+          writes.push(file);
+          return new Promise<never>((_, reject) => (refuse = reject));
+        },
+      }),
+      60_000,
+    );
+    await editor.open(path);
+    editor.edit('mine\n');
+    const saving = editor.save();
+    await vi.waitFor(() => expect(writes).toEqual([path]));
+    held.add(other);
+    const opening = editor.open(other);
+    refuse(new ConnectError('changed on disk', Code.Aborted));
+    await saving;
+    expect(editor.state).toBe('loading');
+    answer(other, 'theirs\n', 'd7');
+    await opening;
+    expect(editor.state).toBe('idle');
+    expect(editor.buffer).toMatchObject({ path: other, text: 'theirs\n', digest: 'd7' });
+
+    await editor.open(path);
+    editor.edit('mine again\n');
+    const conflicting = editor.save();
+    await vi.waitFor(() => expect(writes).toHaveLength(2));
+    refuse(new ConnectError('changed on disk', Code.Aborted));
+    await conflicting;
+    expect(editor.state).toBe('conflict');
+    held.add(path);
+    const keeping = editor.keepMine();
+    await editor.open(other);
+    editor.edit('edited\n');
+    answer(path, 'disk\n', 'd9');
+    await keeping;
+    expect(editor.buffer).toMatchObject({ path: other, text: 'edited\n', digest: 'd1' });
+    expect(writes).toHaveLength(2);
+    expect(editor.state).toBe('idle');
+  });
+
   it('shows the file opened last when an earlier read answers after it', async () => {
     const reads = new Map<string, (file: { text: string; digest: string }) => void>();
     const editor = new EditorSession(
