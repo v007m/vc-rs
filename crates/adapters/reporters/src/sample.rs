@@ -9,7 +9,8 @@ use crate::{RunFacts, RunSnapshot};
 
 /// Tests per file in the synthetic run.
 const PER_FILE: usize = 50;
-/// One test in this many fails, with an exchange and a failed check.
+/// One test in this many fails, with an exchange and a failed check; the first one's response
+/// body tries to close the report's script.
 const FAILING: usize = 10;
 
 /// A finished run of `tests` tests in files of 50, one in ten failed with its exchange.
@@ -99,7 +100,12 @@ fn exchange(index: usize) -> ExchangeView {
         request_headers: vec![("accept".to_owned(), "application/json".to_owned())],
         response_headers: vec![("content-type".to_owned(), "application/json".to_owned())],
         request_body: None,
-        response_body: Some(format!("{{\"error\":\"boom\",\"user\":{index}}}")),
+        response_body: Some(format!("{{\"error\":\"{}\",\"user\":{index}}}", error(index))),
         truncated: false,
     }
+}
+
+/// The first failed test's error tries to close the report's script, as a hostile server's might.
+fn error(index: usize) -> &'static str {
+    if index == FAILING - 1 { "</script><script>alert(1)</script>" } else { "boom" }
 }
