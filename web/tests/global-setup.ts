@@ -1,4 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { cp, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type FullConfig } from '@playwright/test';
 
@@ -30,7 +33,7 @@ function readTokenUrl(child: ChildProcess): Promise<string> {
 }
 
 /**
- * Starts `vc ui --no-open` on the seed project, opens the token URL once so the server sets
+ * Starts `vc ui --no-open` on a copy of the seed project (the editor spec saves files), opens the token URL once so the server sets
  * its session cookie, and saves that cookie for the tests. Returns the teardown that stops vc ui.
  * VC_BIN points at a vc other than the one on PATH, such as target/debug/vc.
  */
@@ -38,12 +41,15 @@ export default async function globalSetup(config: FullConfig): Promise<() => Pro
   const baseURL = config.projects[0]?.use.baseURL ?? 'http://127.0.0.1:7420';
   const port = new URL(baseURL).port;
   const vc = process.env.VC_BIN ?? 'vc';
+  const projectDir = await mkdtemp(join(tmpdir(), 'vc-e2e-'));
+  await cp(seedDir, projectDir, { recursive: true });
   const child = spawn(vc, ['ui', '--no-open', '--port', port, '--profile', 'dev'], {
-    cwd: seedDir,
+    cwd: projectDir,
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   const stop = async (): Promise<void> => {
     child.kill();
+    await rm(projectDir, { recursive: true, force: true });
   };
   try {
     const url = await readTokenUrl(child);
