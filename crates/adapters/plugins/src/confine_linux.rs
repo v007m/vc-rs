@@ -10,14 +10,18 @@ use std::os::unix::process::CommandExt as _;
 use std::path::{Path, PathBuf};
 
 use landlock::{
-    ABI, Access, AccessFs, AccessNet, CompatLevel, Compatible as _, Ruleset, RulesetAttr, RulesetCreatedAttr,
-    RulesetError, path_beneath_rules,
+    ABI, Access, AccessFs, AccessNet, BitFlags, CompatLevel, Compatible as _, Ruleset, RulesetAttr, RulesetCreatedAttr,
+    RulesetError, make_bitflags, path_beneath_rules,
 };
 
 use crate::confine::{Entry, LAUNCHER_ARG, Policy};
 
 /// The Landlock version whose rights are asked for: file rights, and TCP bind and connect.
 const LANDLOCK: ABI = ABI::V4;
+
+/// What a plugin may do beneath the folder of a file it may write that does not exist yet: make
+/// it (and folders on the way) and write it, but not read or remove what is there.
+const CREATING: BitFlags<AccessFs> = make_bitflags!(AccessFs::{MakeReg | MakeDir | WriteFile | Truncate});
 
 /// A plugin that cannot be confined runs unconfined, with a warning: Landlock is best effort.
 pub const FAIL_CLOSED: bool = false;
@@ -62,10 +66,12 @@ fn confine(policy: &Policy) -> Result<(), RulesetError> {
         ruleset = ruleset.handle_access(AccessNet::from_all(LANDLOCK))?;
     }
     let readable = outside(&policy.root).into_iter().chain(policy.read.iter().cloned());
+    let (existing, missing): (Vec<&PathBuf>, Vec<&PathBuf>) = policy.write.iter().partition(|path| path.exists());
     ruleset
         .create()?
         .add_rules(path_beneath_rules(readable, AccessFs::from_read(LANDLOCK)))?
-        .add_rules(path_beneath_rules(&policy.write, AccessFs::from_all(LANDLOCK)))?
+        .add_rules(path_beneath_rules(existing, AccessFs::from_all(LANDLOCK)))?
+        .add_rules(path_beneath_rules(creatable(&policy.root, &missing), CREATING))?
         .restrict_self()?;
     Ok(())
 }
@@ -83,6 +89,15 @@ fn outside(root: &Path) -> Vec<PathBuf> {
 /// holding it; a path that cannot be resolved leads nowhere and is left out too.
 fn apart(path: &Path, root: &Path) -> bool {
     std::fs::canonicalize(path).is_ok_and(|real| !real.starts_with(root) && !root.starts_with(&real))
+}
+
+/// Where each of `missing`, paths a plugin may write that do not exist yet, can be made: its
+/// nearest existing folder, when that is inside `root` (Landlock grants only what exists). Not
+/// `root` itself, which would open every project file to writes; such a path stays closed until
+/// it exists.
+fn creatable(root: &Path, missing: &[&PathBuf]) -> Vec<PathBuf> {
+    let folders = missing.iter().filter_map(|path| path.ancestors().skip(1).find(|folder| folder.exists()));
+    folders.filter(|folder| folder.starts_with(root) && *folder != root).map(Path::to_path_buf).collect()
 }
 
 /// The entries of `parent` other than `on_the_way`; none when it cannot be read.
