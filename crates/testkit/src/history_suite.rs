@@ -162,7 +162,8 @@ fn sums_up_each_test_over_the_newest_runs(make: &mut MakeHistory<'_>) {
     stored("run", vec![ended(a, TestStatus::Failed, 99.0)]);
     stored("run", vec![ended(a, TestStatus::Passed, 10.0), ended(b, TestStatus::Blocked, 0.0)]);
     stored("load", vec![ended(a, TestStatus::Failed, 500.0)]);
-    let last = vec![ended(a, TestStatus::Flaky, 30.0), ended(a, TestStatus::Failed, 20.0), ended(b, TestStatus::Skipped, 0.0)];
+    let last =
+        vec![ended(a, TestStatus::Flaky, 30.0), ended(a, TestStatus::Failed, 20.0), ended(b, TestStatus::Skipped, 0.0)];
     stored("run", last);
     let expected = vec![
         TestTrend { test_id: a.into(), results: 3, failed: 1, flaky: 1, mean_ms: 20.0 },

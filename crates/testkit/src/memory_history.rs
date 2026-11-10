@@ -119,16 +119,18 @@ impl State {
         let runs = self.runs.iter().rev().filter(|stored| stored.row.start.kind == "run").take(window);
         let ran = runs.flat_map(|stored| &stored.tests).filter(|test| test.status != Some(TestStatus::Skipped));
         for test in ran {
-            let trend = trends.entry(test.test_id.as_str()).or_insert_with(|| TestTrend {
-                test_id: test.test_id.clone(),
-                ..TestTrend::default()
-            });
+            let trend = trends
+                .entry(test.test_id.as_str())
+                .or_insert_with(|| TestTrend { test_id: test.test_id.clone(), ..TestTrend::default() });
             trend.results += 1;
             trend.failed += u32::from(matches!(test.status, Some(TestStatus::Failed | TestStatus::Blocked)));
             trend.flaky += u32::from(test.status == Some(TestStatus::Flaky));
             trend.mean_ms += test.duration_ms;
         }
-        trends.into_values().map(|trend| TestTrend { mean_ms: trend.mean_ms / f64::from(trend.results), ..trend }).collect()
+        trends
+            .into_values()
+            .map(|trend| TestTrend { mean_ms: trend.mean_ms / f64::from(trend.results), ..trend })
+            .collect()
     }
 }
 

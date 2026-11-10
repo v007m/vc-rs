@@ -2,8 +2,7 @@
 
 use serde_json::{Value, json};
 use vc_model::{
-    ActionOutcome, CheckResult, CleanupRecord, Event, Exchange, Failure, Names, Origin, OwnerKey, RunStatus,
-    Totals,
+    ActionOutcome, CheckResult, CleanupRecord, Event, Exchange, Failure, Names, Origin, OwnerKey, RunStatus, Totals,
 };
 
 use crate::collect::StepRecord;
