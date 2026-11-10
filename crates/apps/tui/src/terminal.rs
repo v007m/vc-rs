@@ -37,7 +37,8 @@ pub async fn run(engine: Engine, options: TuiOptions) -> Result<(), TuiError> {
     let (sender, keys) = mpsc::channel(QUEUE);
     let reader = tokio::task::spawn_blocking(move || read_keys(&sender));
     let (updates_sender, updates) = mpsc::channel(QUEUE);
-    let mut session = Session { tui: Tui::new(options), keys, updates, driver: Driver::new(engine, updates_sender) };
+    let driver = Driver::new(engine, options.base.clone(), updates_sender);
+    let mut session = Session { tui: Tui::new(options), keys, updates, driver };
     let drawn = loop {
         if let Err(error) = raw.terminal.draw(|frame| session.tui.draw(frame)) {
             break Err(TuiError::Terminal(error));

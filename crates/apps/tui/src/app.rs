@@ -2,6 +2,8 @@
 //! engine: a key that needs the engine gives back an [`Ask`], and what the engine sends back
 //! comes in as an [`Update`].
 
+use std::path::PathBuf;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::Frame;
 use vc_engine::Engine;
@@ -19,13 +21,16 @@ pub struct TuiOptions {
     pub profiles: Vec<String>,
     /// The importers the Import tab offers, by name.
     pub importers: Vec<String>,
+    /// Where a path typed into a tab starts from: the working folder, or the project root
+    /// with `--project`; the process's working folder when empty.
+    pub base: PathBuf,
 }
 
 impl TuiOptions {
     /// Options for `project` under `profiles`, offering the engine's importers.
     #[must_use]
     pub fn new(project: impl Into<String>, profiles: Vec<String>) -> Self {
-        Self { project: project.into(), profiles, importers: Engine::importers() }
+        Self { project: project.into(), profiles, importers: Engine::importers(), base: PathBuf::new() }
     }
 }
 

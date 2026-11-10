@@ -1,6 +1,7 @@
 //! Carries out what the tabs ask of the engine, each on a task of its own, and sends what
 //! comes back as updates; the UI never waits on the engine.
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -29,6 +30,7 @@ const INTERRUPTS: usize = 3;
 /// The engine side of the UI.
 pub struct Driver {
     engine: Arc<Engine>,
+    base: Arc<Path>,
     updates: Sender<Update>,
     running: Option<Running>,
 }
@@ -55,9 +57,10 @@ impl Running {
 }
 
 impl Driver {
-    /// A driver for `engine`, sending what comes back into `updates`.
-    pub fn new(engine: Engine, updates: Sender<Update>) -> Self {
-        Self { engine: Arc::new(engine), updates, running: None }
+    /// A driver for `engine`, sending what comes back into `updates`; a typed path starts
+    /// from `base`.
+    pub fn new(engine: Engine, base: PathBuf, updates: Sender<Update>) -> Self {
+        Self { engine: Arc::new(engine), base: base.into(), updates, running: None }
     }
 
     /// Carries out `ask`.
@@ -160,16 +163,22 @@ impl Driver {
         self.running = Some(Running { interrupter, task });
     }
 
-    /// Drafts an import: the spec fetched and read, the files it would make passed through
-    /// the compile guard, nothing written.
+    /// Drafts an import: the spec found as `vc import` finds it, fetched and read, the files
+    /// it would make passed through the compile guard, nothing written.
     fn import(&self, request: ImportRequest) {
-        let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
+        let (engine, base, updates) = (Arc::clone(&self.engine), Arc::clone(&self.base), self.updates.clone());
         tokio::spawn(async move {
-            let update =
-                engine.import(&request).await.map_or_else(|error| Update::ImportFailed(told(&error)), Update::Drafted);
-            updates.send(update).await.ok();
+            let drafted = drafted(&engine, &base, request).await;
+            updates.send(drafted.map_or_else(|error| Update::ImportFailed(told(&error)), Update::Drafted)).await.ok();
         });
     }
+}
+
+/// The draft of `request`, its source a path in the project when it was typed as a path from
+/// `base`.
+async fn drafted(engine: &Engine, base: &Path, mut request: ImportRequest) -> Result<Changes, EngineError> {
+    request.source = engine.spec_location(base, &request.source)?;
+    engine.import(&request).await
 }
 
 /// The newest stored runs and the tests' trends over them.
