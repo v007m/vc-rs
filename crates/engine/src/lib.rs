@@ -125,7 +125,7 @@ pub use import::{ImportRequest, Keep};
 pub use init::INIT_FOLDERS;
 pub use interrupt::{Interrupter, Interrupts, interrupts};
 pub use list::{ListReport, Listed};
-pub use list_detail::ApiCall;
+pub use list_detail::{ApiCall, action_call};
 pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadWatch};
 pub use plan::PlanReport;
 pub use plugins::{PluginListing, PluginOffer, PluginState};
@@ -142,12 +142,15 @@ pub use skip::SkipRequest;
 pub use stored::{HistoryReport, ReportFiles, ReportRequest, StoredRun};
 pub use sync::{SyncMode, SyncReport, SyncRequest};
 pub use sync_plan::SyncSide;
-pub use vc_diagnostics::{Code, Diagnostics, DiagnosticsError, JsonRenderer, Render, Summary, TextRenderer};
+pub use vc_diagnostics::{
+    Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, JsonRenderer, Label, Render, Severity, Summary, TextRenderer,
+};
 pub use vc_interfaces::{
-    AgentAction, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, LoggedAction, PluginKind, PluginManifest,
-    PluginPermissions, RunId, RunRow, TestRow, TestTrend, Verdict,
+    AgentAction, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, ExchangeRow, LoggedAction,
+    PluginKind, PluginManifest, PluginPermissions, RunId, RunRow, TestRow, TestTrend, Verdict,
 };
 pub use vc_model::{
-    CheckResult, Event, Exchange, Failure, FileKind, Location, Method, Names, OwnerKey, RunStatus, Sequenced,
-    SourceFiles, SourcePath, TestResult, TestStatus, Totals, check_label,
+    ActionId, CheckResult, CleanupRecord, Event, Exchange, Failure, FileKind, Location, Method, Names, Origin,
+    OwnerKey, Planned, RunStatus, Sequenced, SourceFileId, SourceFiles, SourcePath, SourceSpan, TestResult, TestStatus,
+    Totals, check_label, check_parts,
 };

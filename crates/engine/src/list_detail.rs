@@ -1,7 +1,7 @@
 //! What the web UI shows of a listed definition beyond `vc list`: the apis a test calls, its
 //! step count, and an api's declared vars.
 
-use vc_model::{ActionId, ActionKind, Api, Program, Test, TestBody};
+use vc_model::{ActionId, ActionKind, Api, Names, Program, Test, TestBody};
 
 use crate::shown::Shown;
 
@@ -33,6 +33,13 @@ pub fn steps(test: &Test) -> u32 {
 /// The names of the vars `api` declares, in the order written.
 pub fn vars(program: &Program, api: &Api) -> Vec<String> {
     api.vars.values.keys().map(|name| program.str(name.sym()).unwrap_or_default().to_owned()).collect()
+}
+
+/// The api `action` calls, with its method and path template, when it calls one: what the web
+/// UI's run view shows of an action.
+#[must_use]
+pub fn action_call(names: &Names, action: ActionId) -> Option<ApiCall> {
+    called(names.program(), action)
 }
 
 fn body(test: &Test) -> &[ActionId] {

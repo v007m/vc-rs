@@ -4724,10 +4724,12 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "tokio",
  "tower",
  "vc-contracts",
+ "vc-engine",
 ]
 
 [[package]]

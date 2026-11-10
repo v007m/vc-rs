@@ -22,13 +22,15 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tower.workspace = true
+vc-contracts.workspace = true
+vc-engine.workspace = true
 
 [features]
 # The web UI from `web/build`, built into the binary (`vc ui`, G12).
 ui = ["dep:rust-embed"]
 
 [dev-dependencies]
-vc-contracts.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true
