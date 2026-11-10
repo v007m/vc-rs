@@ -106,6 +106,22 @@ fn the_source_is_typed_in_place_though_it_holds_q_and_digits() {
     assert_eq!(press(&mut tui, &[KeyCode::Char('d')]), None, "one draft at a time");
 }
 
+#[test]
+fn editing_a_row_again_starts_from_what_it_holds() {
+    let mut tui = tui();
+    press(&mut tui, &[KeyCode::Char('5'), KeyCode::Down, KeyCode::Enter]);
+    type_text(&mut tui, "specs/q1.yml");
+    press(&mut tui, &[KeyCode::Enter, KeyCode::Enter, KeyCode::Backspace, KeyCode::Backspace]);
+    type_text(&mut tui, "aml");
+    press(&mut tui, &[KeyCode::Enter, KeyCode::Down, KeyCode::Enter]);
+    type_text(&mut tui, "shop");
+    press(&mut tui, &[KeyCode::Enter, KeyCode::Enter]);
+    type_text(&mut tui, "Api");
+    let ask = press(&mut tui, &[KeyCode::Enter, KeyCode::Char('d')]);
+    let Some(Ask::Import(request)) = ask else { panic!("d drafts: {ask:?}") };
+    assert_eq!((request.source.as_str(), request.file_id.as_deref()), ("specs/q1.yaml", Some("shopApi")));
+}
+
 #[tokio::test]
 async fn d_drafts_the_files_as_diffs_and_w_writes_them() {
     let mut tui = filled();

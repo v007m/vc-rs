@@ -21,6 +21,11 @@ pub struct Input {
 }
 
 impl Input {
+    /// An input that starts from `text`, to be edited.
+    pub fn new(text: &str) -> Self {
+        Self { text: text.to_owned() }
+    }
+
     /// The text typed so far.
     pub fn text(&self) -> &str {
         &self.text

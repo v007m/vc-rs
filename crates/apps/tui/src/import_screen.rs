@@ -153,7 +153,8 @@ impl ImportScreen {
     /// Edits the chosen text row, or flips the chosen toggle.
     fn enter(&mut self) {
         match self.field {
-            1 | 2 => self.editing = Some(Input::default()),
+            1 => self.editing = Some(Input::new(&self.form.source)),
+            2 => self.editing = Some(Input::new(&self.form.file_id)),
             row => self.toggle(row),
         }
     }
