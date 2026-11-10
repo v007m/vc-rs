@@ -137,6 +137,12 @@ fn report_choice(flags: &ReportFlags) -> Result<Chosen, EngineError> {
 }
 
 impl HistoryReport {
+    /// The runs, newest first, for a screen that shows them its own way.
+    #[must_use]
+    pub fn runs(&self) -> &[RunRow] {
+        &self.runs
+    }
+
     /// One line per run: number, start, status, totals, profiles and selectors.
     #[must_use]
     pub fn text(&self) -> String {
@@ -158,6 +164,18 @@ impl HistoryReport {
 }
 
 impl StoredRun {
+    /// The run's row.
+    #[must_use]
+    pub const fn run(&self) -> &RunRow {
+        &self.run
+    }
+
+    /// Every test of the run, in the order they were stored.
+    #[must_use]
+    pub fn tests(&self) -> &[TestRow] {
+        &self.tests
+    }
+
     /// The run's line, then a line per test that did not pass.
     #[must_use]
     pub fn text(&self) -> String {
