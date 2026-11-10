@@ -7,14 +7,14 @@ function play(view: RunView, ...kinds: Parameters<typeof events>): RunView {
   return events(...kinds).reduce(apply, view);
 }
 
-const finished = (id: string, exampleRow: number | undefined, label: string) =>
+const finished = (id: string, instance: number | undefined) =>
   ({
     case: 'testFinished',
-    value: { test: { id, label, exampleRow, status: TestStatus.PASSED, durationMs: 7 } },
+    value: { test: { id, label: 'same', status: TestStatus.PASSED, durationMs: 7 }, instance },
   }) as const;
 
 describe('run model', () => {
-  it('finds each finished test by what it ran, whatever its label', () => {
+  it('finds each finished test by its plan instance, whatever its label', () => {
     const view = play(
       startingRun(),
       {
@@ -24,20 +24,25 @@ describe('run model', () => {
             { instance: 1, test: 'users.crud#rejects', label: '', exampleRow: 0 },
             { instance: 2, test: 'users.crud#rejects', label: '', exampleRow: 1 },
             { instance: 3, test: 'users.crud#lists', label: 'same' },
-            { instance: 4, test: 'orders.crud#lists', label: 'same' },
+            { instance: 4, test: 'users.crud#lists', label: 'same', repeatIndex: 1 },
+            { instance: 5, test: 'orders.crud#lists', label: 'same' },
           ],
         },
       },
       { case: 'actionStarted', value: { owner: { kind: { case: 'instance', value: 2 } } } },
-      finished('users.crud#rejects', 1, 'users.crud#rejects [row 1]'),
-      finished('orders.crud#lists', undefined, 'same'),
+      finished('users.crud#rejects', 2),
+      finished('users.crud#lists', 4),
+      finished('orders.crud#lists', 5),
+      finished('orders.crud#skipped', undefined),
     );
-    expect(view.plan.map((row) => [row.instance, row.label, row.state])).toEqual([
-      [1, 'users.crud#rejects', 'queued'],
-      [2, 'users.crud#rejects', 'passed'],
-      [3, 'same', 'queued'],
-      [4, 'same', 'passed'],
+    expect(view.plan.map((row) => [row.instance, row.label, row.state, row.ms])).toEqual([
+      [1, 'users.crud#rejects', 'queued', undefined],
+      [2, 'users.crud#rejects', 'passed', 7],
+      [3, 'same', 'queued', undefined],
+      [4, 'same', 'passed', 7],
+      [5, 'same', 'passed', 7],
     ]);
+    expect(view.counts.passed).toBe(4);
   });
 
   it('keeps the last lines of a long stream and counts the rest', () => {

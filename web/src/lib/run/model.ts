@@ -98,11 +98,12 @@ const steps: Partial<Record<NonNullable<RunEvent['kind']['case']>, Step>> = {
     return plan === view.plan ? view : { ...view, plan };
   },
   testFinished: (view, { kind }) => {
-    const test = kind.case === 'testFinished' ? kind.value.test : undefined;
+    if (kind.case !== 'testFinished') return view;
+    const test = kind.value.test;
     const key = test && outcomeOf(test.status);
-    if (!test || !key) return view;
+    if (!key) return view;
     const counts = { ...view.counts, [key]: view.counts[key] + 1 };
-    return { ...view, counts, plan: markFinished(view.plan, view.planIndex, test) };
+    return { ...view, counts, plan: markFinished(view.plan, view.planIndex, kind.value) };
   },
   runFinished: (view, { kind }) =>
     kind.case === 'runFinished'

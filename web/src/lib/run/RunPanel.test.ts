@@ -58,7 +58,10 @@ const plannedRun = events(
   },
   {
     case: 'testFinished',
-    value: { test: { id: 'a#passes', label: 'Passes', status: TestStatus.PASSED, durationMs: 42 } },
+    value: {
+      test: { id: 'a#passes', label: 'Passes', status: TestStatus.PASSED, durationMs: 42 },
+      instance: 0,
+    },
   },
 );
 
