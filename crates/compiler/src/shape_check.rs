@@ -14,9 +14,9 @@ use crate::suggest::{self, Misspelling};
 pub enum LeafTy {
     /// A template.
     Template,
-    /// A duration, or a template for one.
+    /// A duration, written out (a template is V2301).
     Duration,
-    /// A size, or a template for one.
+    /// A size, written out (a template is V2301).
     Size,
     /// A status, a list of them, or a matcher.
     Status,

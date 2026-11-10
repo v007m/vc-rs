@@ -104,7 +104,7 @@ shape! {
         types::key("cache", Ty::Bool).default("false").doc("Keep the credentials across runs, encrypted"),
         types::key("steps", Ty::List(&Ty::Obj(flow_step))).doc("`flow`: the requests that produce credentials"),
         types::key("apply", Ty::Obj(apply)).doc("`flow`: what is added to each request"),
-        types::key("expiresIn", Ty::Duration).doc("`flow`: when the credentials go stale; a template is fine"),
+        types::key("expiresIn", Ty::Template).doc("`flow`: a duration, when the credentials go stale; a template is fine"),
         types::key("refreshBefore", Ty::Duration).default("1m").doc("`flow`: re-run this long before expiry"),
         types::key("refreshOn", Ty::List(&Ty::Int)).default("[401]").doc("`flow`: statuses that re-run the flow"),
         types::key("plugin", Ty::Ref).doc("`plugin`: the auth plugin"),

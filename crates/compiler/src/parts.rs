@@ -96,8 +96,8 @@ pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan
 fn piece(cx: &mut Cx<'_>, at: At<'_>, leaf: &Leaf) -> Option<Piece> {
     match leaf.ty {
         LeafTy::Template => template(cx, at).map(Piece::Template),
-        LeafTy::Duration => unit(cx, at, |text, span| vc_template::parse_duration(text, span).map(Piece::Duration)),
-        LeafTy::Size => unit(cx, at, |text, span| vc_template::parse_size(text, span).map(Piece::Size)),
+        LeafTy::Duration => unit(cx, at, &DURATION),
+        LeafTy::Size => unit(cx, at, &SIZE),
         LeafTy::Status => status(cx, at).map(Piece::Matcher),
         LeafTy::Matcher(unit) => matchers::matcher(cx, at, unit).map(Piece::Matcher),
         LeafTy::Cel => cel(cx, at).map(Piece::Cel),
@@ -107,13 +107,40 @@ fn piece(cx: &mut Cx<'_>, at: At<'_>, leaf: &Leaf) -> Option<Piece> {
 
 type UnitParser = fn(&str, SourceSpan) -> Result<Piece, Box<Diagnostic>>;
 
-/// A duration or size; text holding `${` is a template that gives one at run time.
-fn unit(cx: &mut Cx<'_>, at: At<'_>, parse: UnitParser) -> Option<Piece> {
+/// A kind of unit a leaf is written in: what it is called, how to write one, and its parser.
+struct UnitKind {
+    name: &'static str,
+    help: &'static str,
+    parse: UnitParser,
+}
+
+const DURATION: UnitKind = UnitKind {
+    name: "duration",
+    help: "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`",
+    parse: |text, span| vc_template::parse_duration(text, span).map(Piece::Duration),
+};
+
+const SIZE: UnitKind = UnitKind {
+    name: "size",
+    help: "write it out, such as `4kb`",
+    parse: |text, span| vc_template::parse_size(text, span).map(Piece::Size),
+};
+
+/// A duration or size, written out. Nothing renders a template there at run time, so one is
+/// V2301 rather than a value that is silently left out; `expiresIn`, which is rendered, is a
+/// template key.
+fn unit(cx: &mut Cx<'_>, at: At<'_>, kind: &UnitKind) -> Option<Piece> {
     let text = at.node.as_scalar()?.text.as_str();
     if text.contains("${") {
-        return template(cx, at).map(Piece::Template);
+        cx.push(templated(at.node.span, text, kind));
+        return None;
     }
-    cx.check(parse(text, at.node.span))
+    cx.check((kind.parse)(text, at.node.span))
+}
+
+fn templated(span: SourceSpan, text: &str, kind: &UnitKind) -> Diagnostic {
+    let message = format!("a {} cannot be a template: `{text}`", kind.name);
+    Diagnostic::new(Code::V2301, span, message).help(kind.help)
 }
 
 /// A code, a class, a list of them, or a matcher.

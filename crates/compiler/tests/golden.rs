@@ -109,6 +109,7 @@ cases!(
     v1011_too_deep,
     v2201_one_of,
     v2301_bad_unit,
+    v2301_templated_timeout,
     v2302_wrong_type,
     v2303_bad_status,
     v2305_template_syntax,

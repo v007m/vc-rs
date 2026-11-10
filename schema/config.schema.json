@@ -324,7 +324,7 @@
           "description": "`plugin`: its settings"
         },
         "expiresIn": {
-          "description": "`flow`: when the credentials go stale; a template is fine",
+          "description": "`flow`: a duration, when the credentials go stale; a template is fine",
           "type": "string"
         },
         "id": {
