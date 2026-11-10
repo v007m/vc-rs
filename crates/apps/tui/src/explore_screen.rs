@@ -11,7 +11,7 @@ use vc_engine::{FileKind, Listed, SkipRequest};
 use crate::explore_view;
 use crate::history_screen::ReadState;
 use crate::input::{Input, Typed};
-use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move, scrolled};
+use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move, refound, scrolled};
 use crate::theme::first_line;
 
 /// The Explore tab's keys.
@@ -173,15 +173,17 @@ impl ExploreScreen {
         self.scroll = 0;
     }
 
-    /// Takes the listing: each folder's apis, then its tests, each file in project order.
+    /// Takes the listing: each folder's apis, then its tests, each file in project order; the
+    /// cursor kept on the item it was on.
     fn read(&mut self, items: &[Listed], notices: &[String]) {
+        let chosen = self.items.get(self.cursor).map(|item| item.id.clone());
         let folder = |item: &Listed| item.path.rsplit_once('/').map_or("", |(folder, _)| folder).to_owned();
         let mut items = items.to_vec();
         items.sort_by_cached_key(|item| (folder(item), !is_api(item)));
         self.items = items;
         self.notices = notices.to_vec();
         self.reading = ReadState::Read;
-        self.cursor = self.cursor.min(self.items.len().saturating_sub(1));
+        self.cursor = refound(&self.items, |item| chosen.as_ref() == Some(&item.id), self.cursor);
     }
 
     /// Files were written elsewhere: the project shown is stale, so it is read again when the

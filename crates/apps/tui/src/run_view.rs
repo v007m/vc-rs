@@ -25,25 +25,38 @@ pub fn draw(screen: &RunScreen, frame: &mut Frame<'_>, area: Rect) {
     frame.render_widget(requests_pane(screen.model(), requests.height), requests);
 }
 
-/// `running 2/3  ✓ 1  ✕ 1 …`, or what the run is waiting for or how it ended.
+/// `running 2/3  ✓ 1  ✕ 1 …`, or what the run is waiting for or how it ended, or why the run
+/// asked for did not start.
 fn status_line(model: &RunModel) -> Line<'static> {
-    let mut spans = match &model.phase {
+    let mut spans = model.refused.as_deref().map_or_else(|| phase_spans(model), failed);
+    if model.missed > 0 {
+        spans.push(Span::styled(format!("  missed {} events; `vc history` has them", model.missed), theme::WARN));
+    }
+    Line::from(spans)
+}
+
+/// `error …`.
+fn failed(reason: &str) -> Vec<Span<'static>> {
+    vec![Span::styled("error ", theme::FAIL), Span::raw(reason.to_owned())]
+}
+
+/// Where the run is, `stopping` once `x` asked it to stop.
+fn phase_spans(model: &RunModel) -> Vec<Span<'static>> {
+    match &model.phase {
         Phase::Idle => {
             vec![Span::styled("no run yet · a runs every test, R reruns the last run's failures", theme::DIM)]
         }
+        Phase::Starting if model.stopping => vec![Span::styled("stopping…", theme::WARN)],
         Phase::Starting => vec![Span::styled("starting…", theme::INFO)],
+        Phase::Running if model.stopping => progress("stopping…", theme::WARN, model),
         Phase::Running => progress("running", theme::INFO, model),
         Phase::Done(report) => {
             let (word, style) = ending(report);
             let numbered = progress(word, style, model).into_iter().chain(report.run.map(run_number));
             numbered.chain(theme::notices(&report.notices)).collect()
         }
-        Phase::Failed(reason) => vec![Span::styled("error ", theme::FAIL), Span::raw(reason.clone())],
-    };
-    if model.missed > 0 {
-        spans.push(Span::styled(format!("  missed {} events; `vc history` has them", model.missed), theme::WARN));
+        Phase::Failed(reason) => failed(reason),
     }
-    Line::from(spans)
 }
 
 fn progress(word: &'static str, style: Style, model: &RunModel) -> Vec<Span<'static>> {
@@ -86,28 +99,52 @@ fn run_number(run: u64) -> Span<'static> {
     Span::styled(format!("  run #{run}"), theme::DIM)
 }
 
-/// The tests by file, the chosen one highlighted and kept in view.
-fn draw_tests(screen: &RunScreen, frame: &mut Frame<'_>, area: Rect) {
-    let mut rows = Vec::new();
-    let mut chosen = None;
-    let mut position = 0;
+/// A row of the Tests pane: a file, or a test of it listed.
+enum Row<'a> {
+    File(&'a FileGroup),
+    Test(&'a Finished),
+}
+
+/// The Tests pane's rows, each file then its tests listed, and the chosen test's position.
+fn rows(screen: &RunScreen) -> (Vec<Row<'_>>, Option<usize>) {
+    let (mut rows, mut chosen, mut position) = (Vec::new(), None, 0);
     for group in &screen.model().files {
-        let listed: Vec<&Finished> = group.tests.iter().filter(|test| screen.shows(test)).collect();
-        if listed.is_empty() {
+        let mut listed = group.tests.iter().filter(|test| screen.shows(test)).peekable();
+        if listed.peek().is_none() {
             continue;
         }
-        rows.push(ListItem::new(file_row(group)));
+        rows.push(Row::File(group));
         for test in listed {
             chosen = chosen.or_else(|| (position == screen.cursor()).then_some(rows.len()));
-            rows.push(ListItem::new(test_row(test)));
+            rows.push(Row::Test(test));
             position += 1;
         }
     }
+    (rows, chosen)
+}
+
+/// The first of the rows shown when `room` rows fit: the chosen one last when it would be
+/// below them, as the list itself scrolls.
+fn first_shown(chosen: Option<usize>, room: usize) -> usize {
+    chosen.map_or(0, |chosen| chosen.saturating_add(1).saturating_sub(room))
+}
+
+/// The tests by file, the chosen one highlighted and kept in view; only the rows in view are
+/// drawn.
+fn draw_tests(screen: &RunScreen, frame: &mut Frame<'_>, area: Rect) {
+    let (rows, chosen) = rows(screen);
+    let room = usize::from(area.height.saturating_sub(2)).max(1);
+    let first = first_shown(chosen, room);
+    let items = rows.iter().skip(first).take(room).map(|row| match row {
+        Row::File(group) => ListItem::new(file_row(group)),
+        Row::Test(test) => ListItem::new(test_row(test)),
+    });
     let files = screen.model().files.len();
     let only = if screen.failures_only() { " · failures only" } else { "" };
     let list =
-        List::new(rows).block(theme::pane(&format!("Tests · {files} files{only}"))).highlight_style(theme::SELECTED);
-    frame.render_stateful_widget(list, area, &mut ListState::default().with_selected(chosen));
+        List::new(items).block(theme::pane(&format!("Tests · {files} files{only}"))).highlight_style(theme::SELECTED);
+    let selected = chosen.map(|chosen| chosen.saturating_sub(first));
+    frame.render_stateful_widget(list, area, &mut ListState::default().with_selected(selected));
 }
 
 /// `▾ users.crud  1✕ 2✓`.

@@ -1,15 +1,16 @@
+use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::mpsc::{self, Receiver};
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, watch};
 use tokio::time::Instant;
 use vc_engine::{EngineBuilder, ImportRequest, LoadRequest, interrupts};
 use vc_testkit::{FakeVcs, MemoryCompileCache, MemoryEnvironment, MemorySources};
 
-use super::{BUSY, Driver, PANICKED, PATIENCE, Running, watched};
-use crate::screen::{Ask, Update};
+use super::{BUSY, Driver, PANICKED, PATIENCE, Running, SETTLE, watched};
+use crate::screen::{Ask, Flight, Update};
 
 /// A driver over an empty project, and where its updates come out.
 fn driver() -> (Driver, Receiver<Update>) {
@@ -49,45 +50,61 @@ fn curl(source: &str) -> Ask {
 #[tokio::test]
 async fn a_typed_spec_path_starts_from_the_base_as_vc_import_reads_it() {
     let (_dir, mut driver, mut updates) = on_disk();
-    driver.carry(curl("orders.curl")).await;
+    driver.carry(curl("orders.curl"));
     let update = updates.recv().await;
     assert!(matches!(update, Some(Update::Drafted(_))), "{update:?}");
-    driver.carry(curl("../outside.curl")).await;
+    driver.carry(curl("../outside.curl"));
     let Some(Update::ImportFailed(reason)) = updates.recv().await else { panic!("the import tab hears why") };
     assert!(reason.starts_with("../outside.curl: not a file or folder in the project at"), "{reason}");
     assert!(reason.ends_with("\nhelp: give a URL, or a path inside the project"), "{reason}");
 }
 
+/// A `kind` in progress, `work` waited on as the driver waits on a run's.
+fn running(kind: Flight, work: impl Future<Output = ()> + Send + 'static) -> Running {
+    let (task, done) = watched(tokio::spawn(work), mpsc::channel(1).0, Update::RunFailed);
+    Running { kind, interrupter: interrupts().0, task, done, stopped: false }
+}
+
+/// A run in progress, its task `task`.
+fn with_task(task: tokio::task::JoinHandle<()>) -> Running {
+    Running { kind: Flight::Run, interrupter: interrupts().0, task, done: watch::channel(()).1, stopped: false }
+}
+
 /// A run in progress that never ends by itself, as a run is between its feed's `Done` and
 /// the end of its task.
 fn finishing() -> Running {
-    Running { interrupter: interrupts().0, task: tokio::spawn(std::future::pending()) }
+    running(Flight::Run, std::future::pending())
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn a_run_asked_for_while_another_is_finishing_is_refused_not_dropped() {
     let (mut driver, mut updates) = driver();
     driver.running = Some(finishing());
-    driver.carry(Ask::Run(Box::default())).await;
+    let begun = Instant::now();
+    driver.carry(Ask::Run(Box::default()));
     let Some(Update::RunFailed(reason)) = updates.recv().await else { panic!("the run tab hears why") };
-    assert_eq!(reason, BUSY);
+    assert_eq!((reason.as_str(), begun.elapsed()), (BUSY, SETTLE));
 }
 
 #[tokio::test]
-async fn a_run_asked_for_as_the_last_one_returns_waits_for_it_rather_than_being_refused() {
+async fn a_run_asked_for_as_the_last_one_returns_is_carried_again_once_it_has_and_the_ui_never_waits() {
     let (mut driver, mut updates) = driver();
-    let task = tokio::spawn(tokio::time::sleep(Duration::from_millis(50)));
-    driver.running = Some(Running { interrupter: interrupts().0, task });
-    driver.carry(Ask::Run(Box::default())).await;
-    let update = updates.recv().await;
-    assert!(!matches!(&update, Some(Update::RunFailed(reason)) if reason == BUSY), "{update:?}");
+    let (end, ended) = oneshot::channel::<()>();
+    driver.running = Some(running(Flight::Run, async move { ended.await.unwrap_or_default() }));
+    driver.carry(Ask::Run(Box::default()));
+    tokio::task::yield_now().await;
+    assert!(updates.try_recv().is_err(), "nothing yet: the run waits off the UI");
+    end.send(()).unwrap();
+    let again = driver.retried().await;
+    assert!(matches!(again, Some(Ask::Run(_))), "{again:?}");
+    assert!(driver.running.as_ref().is_some_and(Running::ended), "the last one is over");
 }
 
 #[tokio::test]
 async fn a_load_run_asked_for_while_a_run_is_in_progress_is_refused() {
     let (mut driver, mut updates) = driver();
     driver.running = Some(finishing());
-    driver.carry(Ask::Load(LoadRequest::default())).await;
+    driver.carry(Ask::Load(LoadRequest::default()));
     let Some(Update::LoadFailed(reason)) = updates.recv().await else { panic!("the load tab hears why") };
     assert_eq!(reason, BUSY);
 }
@@ -100,7 +117,7 @@ async fn quitting_abandons_a_run_that_outlasts_three_interrupts() {
         std::future::pending::<()>().await;
     });
     let begun = Instant::now();
-    Running { interrupter: interrupts().0, task }.wind_down(PATIENCE).await;
+    with_task(task).wind_down(PATIENCE).await;
     assert_eq!(begun.elapsed(), PATIENCE * 3, "a patience after each of three interrupts");
     assert!(dropped.await.is_err(), "the run's task was aborted");
 }
@@ -109,7 +126,7 @@ async fn quitting_abandons_a_run_that_outlasts_three_interrupts() {
 async fn quitting_waits_no_longer_than_the_run_takes_to_end() {
     let task = tokio::spawn(tokio::time::sleep(PATIENCE + Duration::from_secs(2)));
     let begun = Instant::now();
-    Running { interrupter: interrupts().0, task }.wind_down(PATIENCE).await;
+    with_task(task).wind_down(PATIENCE).await;
     assert_eq!(begun.elapsed(), PATIENCE + Duration::from_secs(2));
 }
 
@@ -125,8 +142,8 @@ async fn a_read_that_panics_is_told_to_the_tab_that_asked() {
 async fn a_run_or_load_run_that_panics_is_told_and_is_no_longer_in_progress() {
     let (mut driver, mut updates) = driver();
     let work = tokio::spawn(async { panic!("{}", "the run broke") });
-    let task = watched(work, driver.updates.clone(), Update::RunFailed);
-    driver.running = Some(Running { interrupter: interrupts().0, task });
+    let (task, done) = watched(work, driver.updates.clone(), Update::RunFailed);
+    driver.running = Some(Running { kind: Flight::Run, interrupter: interrupts().0, task, done, stopped: false });
     let Some(Update::RunFailed(reason)) = updates.recv().await else { panic!("the run tab hears why") };
     assert_eq!(reason, format!("{PANICKED}: the run broke"));
     tokio::task::yield_now().await;
@@ -141,7 +158,17 @@ async fn quitting_aborts_the_work_a_watched_run_waits_on() {
         std::future::pending::<()>().await;
     });
     let (updates, _received) = mpsc::channel(1);
-    let task = watched(work, updates, Update::RunFailed);
-    Running { interrupter: interrupts().0, task }.wind_down(PATIENCE).await;
+    let (task, _done) = watched(work, updates, Update::RunFailed);
+    with_task(task).wind_down(PATIENCE).await;
     assert!(dropped.await.is_err(), "the run's own task was aborted with the wait on it");
+}
+
+#[tokio::test]
+async fn a_stop_asked_on_one_tab_leaves_the_other_tabs_run_going() {
+    let (mut driver, _updates) = driver();
+    driver.running = Some(finishing());
+    driver.carry(Ask::Stop(Flight::Load));
+    assert!(driver.running.as_ref().is_some_and(|running| !running.stopped), "a load stop leaves a run be");
+    driver.carry(Ask::Stop(Flight::Run));
+    assert!(driver.running.as_ref().is_some_and(|running| running.stopped), "a run stop stops it");
 }

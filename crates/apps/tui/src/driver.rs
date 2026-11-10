@@ -6,13 +6,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::watch;
 use tokio::task::{JoinError, JoinHandle};
 use vc_engine::{
     Changes, Engine, EngineError, ExplainRequest, FileKind, ImportRequest, Interrupter, ListKind, ListRequest,
     LoadRequest, LoadWatch, RunRequest, RunWatch, interrupts,
 };
 
-use crate::screen::{Ask, Update};
+use crate::screen::{Ask, Flight, Update};
 
 /// Feed items the run may get ahead of the UI by before it drops some (counted as missed).
 const FEED: usize = 4_096;
@@ -22,9 +23,11 @@ const RUNS: usize = 30;
 const TICKS: usize = 64;
 /// Why a run or load run was not started.
 const BUSY: &str = "a run or load run is in progress: x on its tab stops it";
-/// How long a run or load run asked for waits on the last one's task to return, as it does
-/// just after its feed's end, before it is refused.
+/// How long a run or load run asked for waits, off the UI, on the last one's task to return,
+/// as it does just after its feed's end, before it is refused.
 const SETTLE: Duration = Duration::from_millis(250);
+/// Runs or load runs that waited on the last one and may be carried out again, ahead of the UI.
+const RETRIES: usize = 8;
 /// How long quitting waits on the run in progress after each interrupt.
 const PATIENCE: Duration = Duration::from_secs(5);
 /// The interrupts that end a run outright, as `vc run` counts Ctrl-Cs.
@@ -38,15 +41,26 @@ pub struct Driver {
     base: Arc<Path>,
     updates: Sender<Update>,
     running: Option<Running>,
+    retry: Sender<Ask>,
+    retried: Receiver<Ask>,
 }
 
-/// The run or load run in progress.
+/// The run or load run in progress: which it is, how to interrupt it, its task, which `done`
+/// hears the end of, and whether it was asked to stop.
 struct Running {
+    kind: Flight,
     interrupter: Interrupter,
     task: JoinHandle<()>,
+    done: watch::Receiver<()>,
+    stopped: bool,
 }
 
 impl Running {
+    /// Whether its task is over, the wait on its work included.
+    fn ended(&self) -> bool {
+        self.done.has_changed().is_err()
+    }
+
     /// Interrupts the run up to three times, as three Ctrl-Cs do: it is cancelled, then its
     /// grace period ends, then its cleanups are abandoned. It waits `patience` after each,
     /// and aborts the task if it has not ended by then.
@@ -65,19 +79,18 @@ impl Driver {
     /// A driver for `engine`, sending what comes back into `updates`; a typed path starts
     /// from `base`.
     pub fn new(engine: Engine, base: PathBuf, updates: Sender<Update>) -> Self {
-        Self { engine: Arc::new(engine), base: base.into(), updates, running: None }
+        let (retry, retried) = mpsc::channel(RETRIES);
+        Self { engine: Arc::new(engine), base: base.into(), updates, running: None, retry, retried }
     }
 
-    /// Carries out `ask`. A run or load run asked for while the last one's task is returning
-    /// waits up to [`SETTLE`] for it.
-    pub async fn carry(&mut self, ask: Ask) {
+    /// Carries out `ask` without waiting on it. A run or load run asked for while the last one
+    /// is still returning is handed back by [`Driver::retried`] once it has, to be carried out
+    /// again, or refused should that take longer than [`SETTLE`].
+    pub fn carry(&mut self, ask: Ask) {
+        let Some(ask) = self.settled(ask) else { return };
         match ask {
-            Ask::Run(request) => self.start(*request).await,
-            Ask::Stop => {
-                if let Some(running) = &self.running {
-                    running.interrupter.interrupt();
-                }
-            }
+            Ask::Run(request) => self.start(*request),
+            Ask::Stop(kind) => self.stop(kind),
             Ask::History => self.read(Update::HistoryFailed, |engine| vec![history(engine)]),
             Ask::Compare { before, after } => self.read(
                 move |reason| Update::CompareFailed { before, after, reason },
@@ -95,8 +108,11 @@ impl Driver {
                 self.read(Update::SkipFailed, move |engine| edited(engine, engine.unskip(&target), (target, false)));
             }
             Ask::Scenarios => self.read(Update::ScenariosFailed, |engine| vec![scenarios(engine)]),
-            Ask::Load(request) => self.load(request).await,
-            Ask::Import(request) => self.import(*request),
+            Ask::Load(request) => self.load(request),
+            Ask::Import(request) => {
+                let base = Arc::clone(&self.base);
+                self.read(Update::ImportFailed, move |engine| vec![draft(engine, &base, *request)]);
+            }
             Ask::Write(changes) => self.read(Update::ImportFailed, move |engine| vec![written(engine, &changes)]),
         }
     }
@@ -116,7 +132,12 @@ impl Driver {
                 }
             }
         });
-        watched(work, self.updates.clone(), failed);
+        drop(watched(work, self.updates.clone(), failed));
+    }
+
+    /// A run or load run that waited on the last one to return, to be carried out again.
+    pub async fn retried(&mut self) -> Option<Ask> {
+        self.retried.recv().await
     }
 
     /// Ends the run in progress, if any, as Ctrl-C ends `vc run`: the first interrupt gives
@@ -134,27 +155,41 @@ impl Driver {
         self.running.as_ref().is_some_and(|running| !running.task.is_finished())
     }
 
-    /// When a run or load run is in progress, and its task does not return within [`SETTLE`],
-    /// sends back `refused` with why and is `true`: a tab that asked for one is never left
-    /// waiting on it.
-    async fn refused(&mut self, refused: fn(String) -> Update) -> bool {
-        let Some(running) = self.running.as_mut().filter(|running| !running.task.is_finished()) else {
-            return false;
+    /// `ask`, when it can be carried out now: it is not a run or load run, or none is in
+    /// progress. Otherwise a task waits up to [`SETTLE`] for the one in progress to return, then
+    /// hands `ask` back through [`Driver::retried`], or sends back why it is refused: a tab that
+    /// asked for one is never left waiting on it, nor is the UI.
+    fn settled(&self, ask: Ask) -> Option<Ask> {
+        let refused: fn(String) -> Update = match &ask {
+            Ask::Run(_) => Update::RunFailed,
+            Ask::Load(_) => Update::LoadFailed,
+            _ => return Some(ask),
         };
-        if tokio::time::timeout(SETTLE, &mut running.task).await.is_ok() {
-            self.running = None;
-            return false;
-        }
-        let updates = self.updates.clone();
-        tokio::spawn(async move { updates.send(refused(BUSY.to_owned())).await.ok() });
-        true
+        let Some(running) = self.running.as_ref().filter(|running| !running.ended()) else { return Some(ask) };
+        let (mut done, retry, updates) = (running.done.clone(), self.retry.clone(), self.updates.clone());
+        tokio::spawn(async move {
+            if tokio::time::timeout(SETTLE, done.changed()).await.is_ok() {
+                retry.send(ask).await.ok();
+            } else {
+                updates.send(refused(BUSY.to_owned())).await.ok();
+            }
+        });
+        None
     }
 
-    /// Starts a watched run, unless a run or load run is in progress.
-    async fn start(&mut self, mut request: RunRequest) {
-        if self.refused(Update::RunFailed).await {
-            return;
+    /// Interrupts the run or load run in progress when it is a `kind`: once, as one Ctrl-C
+    /// does; asked again, as many more times as end it outright, its cleanups abandoned.
+    fn stop(&mut self, kind: Flight) {
+        let Some(running) = self.running.as_mut().filter(|running| running.kind == kind) else { return };
+        let times = if running.stopped { INTERRUPTS - 1 } else { 1 };
+        running.stopped = true;
+        for _ in 0..times {
+            running.interrupter.interrupt();
         }
+    }
+
+    /// Starts a watched run; none is in progress.
+    fn start(&mut self, mut request: RunRequest) {
         let (watch, feed) = mpsc::channel(FEED);
         request.watch = Some(RunWatch::new(watch));
         let (interrupter, interrupts) = interrupts();
@@ -166,15 +201,12 @@ impl Driver {
                 updates.send(Update::RunFailed(error.to_string())).await.ok();
             }
         });
-        let task = watched(work, self.updates.clone(), Update::RunFailed);
-        self.running = Some(Running { interrupter, task });
+        let (task, done) = watched(work, self.updates.clone(), Update::RunFailed);
+        self.running = Some(Running { kind: Flight::Run, interrupter, task, done, stopped: false });
     }
 
-    /// Starts a load run with its seconds watched, unless a run or load run is in progress.
-    async fn load(&mut self, request: LoadRequest) {
-        if self.refused(Update::LoadFailed).await {
-            return;
-        }
+    /// Starts a load run with its seconds watched; none is in progress.
+    fn load(&mut self, request: LoadRequest) {
         let (ticks, heard) = mpsc::channel(TICKS);
         let (interrupter, interrupts) = interrupts();
         let (engine, updates) = (Arc::clone(&self.engine), self.updates.clone());
@@ -185,19 +217,8 @@ impl Driver {
                 .map_or_else(|error| Update::LoadFailed(error.to_string()), |report| Update::Loaded(Box::new(report)));
             updates.send(update).await.ok();
         });
-        let task = watched(work, self.updates.clone(), Update::LoadFailed);
-        self.running = Some(Running { interrupter, task });
-    }
-
-    /// Drafts an import: the spec found as `vc import` finds it, fetched and read, the files
-    /// it would make passed through the compile guard, nothing written.
-    fn import(&self, request: ImportRequest) {
-        let (engine, base, updates) = (Arc::clone(&self.engine), Arc::clone(&self.base), self.updates.clone());
-        let work = tokio::spawn(async move {
-            let drafted = drafted(&engine, &base, request).await;
-            updates.send(drafted.map_or_else(|error| Update::ImportFailed(told(&error)), Update::Drafted)).await.ok();
-        });
-        watched(work, self.updates.clone(), Update::ImportFailed);
+        let (task, done) = watched(work, self.updates.clone(), Update::LoadFailed);
+        self.running = Some(Running { kind: Flight::Load, interrupter, task, done, stopped: false });
     }
 }
 
@@ -211,20 +232,23 @@ impl Drop for AbortOnDrop {
 }
 
 /// Waits on `work` and sends `failed` with why should it panic, so the tab that asked for it
-/// is never left waiting; aborting the wait aborts `work`.
+/// is never left waiting; aborting the wait aborts `work`. The receiver hears the wait end.
 fn watched(
     work: JoinHandle<()>,
     updates: Sender<Update>,
     failed: impl FnOnce(String) -> Update + Send + 'static,
-) -> JoinHandle<()> {
-    tokio::spawn(async move {
+) -> (JoinHandle<()>, watch::Receiver<()>) {
+    let (ended, done) = watch::channel(());
+    let task = tokio::spawn(async move {
+        let _ended = ended;
         let mut work = AbortOnDrop(work);
         if let Err(error) = (&mut work.0).await
             && let Some(reason) = panicked(error)
         {
             updates.send(failed(reason)).await.ok();
         }
-    })
+    });
+    (task, done)
 }
 
 /// What a task's panic said, when it panicked rather than being aborted.
@@ -233,6 +257,14 @@ fn panicked(error: JoinError) -> Option<String> {
     let said = payload.downcast_ref::<&str>().map(|said| (*said).to_owned());
     let said = said.or_else(|| payload.downcast_ref::<String>().cloned()).unwrap_or_default();
     Some(format!("{PANICKED}: {said}"))
+}
+
+/// Drafts an import: the spec found as `vc import` finds it, fetched and read, the files it
+/// would make passed through the compile guard, nothing written. It runs on the blocking
+/// thread a read is carried out on.
+fn draft(engine: &Engine, base: &Path, request: ImportRequest) -> Update {
+    let drafted = tokio::runtime::Handle::current().block_on(drafted(engine, base, request));
+    drafted.map_or_else(|error| Update::ImportFailed(told(&error)), Update::Drafted)
 }
 
 /// The draft of `request`, its source a path in the project when it was typed as a path from

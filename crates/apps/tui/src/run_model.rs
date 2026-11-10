@@ -98,6 +98,12 @@ pub struct RunModel {
     pub sent: u64,
     /// Events the feed dropped because the screen fell behind.
     pub missed: u64,
+    /// Whether `x` asked for the run to stop.
+    pub stopping: bool,
+    /// Why the run asked for did not start, the last run's results still shown.
+    pub refused: Option<String>,
+    /// Where the last run had got to when this one was asked for.
+    before: Option<Phase>,
     checks: Attempts,
     /// Planned instances skipped at run time, as a cancelled run skips those it had not begun.
     skipped_planned: usize,
@@ -135,9 +141,11 @@ impl Attempts {
 }
 
 impl RunModel {
-    /// A run just asked for: everything from the last one is cleared.
-    pub fn starting() -> Self {
-        Self { phase: Phase::Starting, ..Self::default() }
+    /// A run was asked for: the last one's results stay until its feed starts, so a run that
+    /// is refused or cannot start leaves them shown.
+    pub fn ask(&mut self) {
+        self.before = Some(std::mem::replace(&mut self.phase, Phase::Starting));
+        (self.stopping, self.refused) = (false, None);
     }
 
     /// Whether a run is asked for or in progress.
@@ -156,7 +164,8 @@ impl RunModel {
     pub fn feed(&mut self, item: &RunFeed) {
         match item {
             RunFeed::Started(names) => {
-                *self = Self { names: Some(names.clone()), phase: Phase::Running, ..Self::default() };
+                let stopping = self.stopping;
+                *self = Self { names: Some(names.clone()), phase: Phase::Running, stopping, ..Self::default() };
             }
             RunFeed::Event(sequenced) => self.event(&sequenced.event),
             RunFeed::Missed { count } => self.missed = self.missed.saturating_add(*count),
@@ -165,9 +174,13 @@ impl RunModel {
         }
     }
 
-    /// The run could not start or ended in an error.
+    /// The run could not start, the last one's results kept, or it ended in an error.
     pub fn failed(&mut self, reason: &str) {
-        self.phase = Phase::Failed(first_line(reason));
+        let reason = first_line(reason);
+        match self.before.take() {
+            Some(before) if self.phase == Phase::Starting => (self.phase, self.refused) = (before, Some(reason)),
+            _ => self.phase = Phase::Failed(reason),
+        }
     }
 
     fn event(&mut self, event: &Event) {

@@ -4,7 +4,7 @@ use ratatui::text::Line;
 use ratatui::widgets::Widget;
 use vc_engine::TestStatus;
 
-use super::{detail_pane, file_row, test_row};
+use super::{detail_pane, file_row, first_shown, test_row};
 use crate::run_model::{FileGroup, Finished};
 
 /// A failed test whose ID, label and location carry an OSC title sequence and a bell.
@@ -37,4 +37,12 @@ fn a_test_or_file_named_with_control_characters_cannot_drive_the_terminal() {
     for cleaned in ["a·]0;owned·", "users.crud#a·]0;owned·", "crud.test.yaml·[2J:4"] {
         assert!(shown.contains(cleaned), "{cleaned} in {shown}");
     }
+}
+
+#[test]
+fn only_the_rows_in_view_are_drawn_the_chosen_one_last_when_it_is_below_the_first_screen() {
+    assert_eq!(first_shown(None, 10), 0, "nothing chosen: the top");
+    assert_eq!(first_shown(Some(9), 10), 0, "in view on the first screen");
+    assert_eq!(first_shown(Some(10), 10), 1);
+    assert_eq!(first_shown(Some(500), 20), 481, "the chosen row is the last of the 20 shown");
 }

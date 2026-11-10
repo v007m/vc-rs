@@ -107,6 +107,19 @@ fn the_test_skipped_is_the_one_chosen_when_t_was_pressed_though_a_re_read_moved_
 }
 
 #[test]
+fn the_chosen_item_stays_chosen_when_a_reread_drops_one_above_it() {
+    let engine = engine().unwrap();
+    let mut tui = on_explore(&engine).unwrap();
+    press(&mut tui, &[KeyCode::Down, KeyCode::Down, KeyCode::Down]);
+    assert_eq!(press(&mut tui, &[KeyCode::Char('r')]), Some(Ask::Explore));
+    let Update::Explored { mut items, notices } = explored(&engine).unwrap() else { panic!("the project") };
+    items.retain(|item| !item.id.ends_with("#listsOrders"));
+    tui.update(&Update::Explored { items, notices });
+    let ask = press(&mut tui, &[KeyCode::Enter]);
+    assert!(matches!(&ask, Some(Ask::Explain { id, .. }) if id == "users.crud#listsUsers"), "{ask:?}");
+}
+
+#[test]
 fn a_blank_reason_is_refused_esc_drops_it_and_ctrl_c_still_quits() {
     let mut tui = on_explore(&engine().unwrap()).unwrap();
     assert_eq!(press(&mut tui, &[KeyCode::Char('t'), KeyCode::Char(' '), KeyCode::Enter]), None);

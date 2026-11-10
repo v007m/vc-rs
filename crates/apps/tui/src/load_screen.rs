@@ -11,11 +11,14 @@ use vc_engine::{Event, Listed, LoadReport, LoadRequest};
 
 use crate::history_screen::ReadState;
 use crate::load_view;
-use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
+use crate::screen::{Ask, Flight, Screen, Update, clamp_step, cursor_move};
 use crate::theme::{clean, first_line};
 
 /// The Load tab's keys.
 const KEYS: [(&str, &str); 4] = [("↑↓", "move"), ("enter", "run"), ("x", "stop"), ("r", "reload")];
+/// The Load tab's keys once `x` asked the load run to stop.
+const KEYS_STOPPING: [(&str, &str); 4] =
+    [("↑↓", "move"), ("enter", "run"), ("x", "again: skip cleanups"), ("r", "reload")];
 /// The seconds the tab keeps, newest last.
 const KEPT: usize = 120;
 
@@ -73,6 +76,9 @@ pub struct LoadScreen {
     cursor: usize,
     phase: LoadPhase,
     ticks: VecDeque<Tick>,
+    stopping: bool,
+    refused: Option<String>,
+    before: Option<LoadPhase>,
 }
 
 impl LoadScreen {
@@ -106,6 +112,16 @@ impl LoadScreen {
         &self.ticks
     }
 
+    /// Whether `x` asked the load run to stop.
+    pub const fn stopping(&self) -> bool {
+        self.stopping
+    }
+
+    /// Why the load run asked for did not start, the last one's still shown.
+    pub fn refused(&self) -> Option<&str> {
+        self.refused.as_deref()
+    }
+
     /// Whether a run is starting or running.
     const fn busy(&self) -> bool {
         matches!(self.phase, LoadPhase::Starting(_) | LoadPhase::Running(_))
@@ -120,14 +136,16 @@ impl LoadScreen {
         Some(Ask::Scenarios)
     }
 
-    /// Runs the chosen scenario, unless a run is under way.
+    /// Runs the chosen scenario, unless a run is under way. The last run's seconds or summary
+    /// stay until the new one's first second, so a run that is refused or cannot start leaves
+    /// them shown.
     fn start(&mut self) -> Option<Ask> {
         if self.busy() {
             return None;
         }
         let scenario = self.scenarios.get(self.cursor)?.id.clone();
-        self.phase = LoadPhase::Starting(scenario.clone());
-        self.ticks.clear();
+        self.before = Some(std::mem::replace(&mut self.phase, LoadPhase::Starting(scenario.clone())));
+        (self.stopping, self.refused) = (false, None);
         Some(Ask::Load(LoadRequest { scenario, profiles: self.profiles.clone(), sets: Vec::new() }))
     }
 
@@ -141,11 +159,45 @@ impl LoadScreen {
         else {
             return;
         };
-        self.phase = LoadPhase::Running(scenario.clone());
+        let scenario = scenario.clone();
+        self.begun();
+        self.phase = LoadPhase::Running(scenario);
         if self.ticks.len() == KEPT {
             self.ticks.pop_front();
         }
         self.ticks.push_back(tick);
+    }
+
+    /// The run asked for has begun: the last one's seconds go.
+    fn begun(&mut self) {
+        if matches!(self.phase, LoadPhase::Starting(_)) {
+            self.ticks.clear();
+            self.before = None;
+        }
+    }
+
+    /// The load run is over.
+    fn loaded(&mut self, report: &LoadReport) {
+        self.begun();
+        self.phase = LoadPhase::Done(Box::new(report.clone()));
+    }
+
+    /// The load run could not start, the last one kept, or it ended in an error.
+    fn failed(&mut self, reason: &str) {
+        let reason = first_line(reason);
+        match self.before.take() {
+            Some(before) if matches!(self.phase, LoadPhase::Starting(_)) => {
+                (self.phase, self.refused) = (before, Some(reason));
+            }
+            _ => self.phase = LoadPhase::Failed(reason),
+        }
+    }
+
+    /// Stops the load run: the first `x` lets its cleanups run, the next skips them, as the
+    /// footer then says.
+    const fn stop(&mut self) -> Ask {
+        self.stopping = true;
+        Ask::Stop(Flight::Load)
     }
 
     /// Takes the load files the project lists.
@@ -162,7 +214,7 @@ impl Screen for LoadScreen {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &KEYS
+        if self.stopping && self.busy() { &KEYS_STOPPING } else { &KEYS }
     }
 
     fn press(&mut self, key: KeyEvent) -> Option<Ask> {
@@ -172,7 +224,7 @@ impl Screen for LoadScreen {
         }
         match key.code {
             KeyCode::Enter => return self.start(),
-            KeyCode::Char('x') if self.busy() => return Some(Ask::Stop),
+            KeyCode::Char('x') if self.busy() => return Some(self.stop()),
             KeyCode::Char('r') => return self.reload(),
             _ => {}
         }
@@ -184,8 +236,8 @@ impl Screen for LoadScreen {
             Update::Scenarios(scenarios) => self.read(scenarios),
             Update::ScenariosFailed(reason) => self.reading = ReadState::Failed(first_line(reason)),
             Update::Load(event) => self.tick(event),
-            Update::Loaded(report) if self.busy() => self.phase = LoadPhase::Done(report.clone()),
-            Update::LoadFailed(reason) if self.busy() => self.phase = LoadPhase::Failed(first_line(reason)),
+            Update::Loaded(report) if self.busy() => self.loaded(report),
+            Update::LoadFailed(reason) if self.busy() => self.failed(reason),
             _ => {}
         }
     }

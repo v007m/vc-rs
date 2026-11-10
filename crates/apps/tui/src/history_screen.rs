@@ -9,7 +9,7 @@ use vc_engine::{RunFeed, RunRow, TestRow, TestTrend};
 
 use crate::history_model::{self, Comparison};
 use crate::history_view;
-use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
+use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move, refound};
 use crate::theme::first_line;
 
 /// The History tab's keys.
@@ -110,12 +110,14 @@ impl HistoryScreen {
         self.cursor = clamp_step(self.cursor, self.runs.len(), down);
     }
 
+    /// Takes the runs read, the cursor kept on the run it was on.
     fn read(&mut self, runs: &[RunRow], trends: &[TestTrend]) {
+        let chosen = self.runs.get(self.cursor).map(|run| run.id.get());
         self.runs = runs.to_vec();
         self.trends = trends.to_vec();
         self.reading = ReadState::Read;
         self.seen = self.asked;
-        self.cursor = self.cursor.min(self.runs.len().saturating_sub(1));
+        self.cursor = refound(&self.runs, |run| Some(run.id.get()) == chosen, self.cursor);
     }
 
     /// Takes the two runs' tests, if they are the ones asked for.

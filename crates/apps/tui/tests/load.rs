@@ -10,7 +10,7 @@ use insta::assert_snapshot;
 use support::{Outcome, engine, press, screen, tui};
 use tokio::sync::mpsc;
 use vc_engine::{Engine, Event, ListKind, ListRequest, LoadEnding, LoadReport, LoadRequest, LoadWatch, interrupts};
-use vc_tui::{Ask, Tui, Update};
+use vc_tui::{Ask, Flight, Tui, Update};
 
 const SIZE: (u16, u16) = (120, 24);
 
@@ -82,7 +82,19 @@ fn enter_runs_the_chosen_scenario_once_and_x_stops_it() {
     assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Load(wanted)));
     assert_eq!(status(&tui), "starting users.peak…");
     assert_eq!(press(&mut tui, &[KeyCode::Enter]), None, "one load run at a time");
-    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop));
+    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop(Flight::Load)));
+}
+
+#[test]
+fn x_says_the_load_run_is_stopping_and_the_footer_says_a_second_x_skips_its_cleanups() {
+    let mut tui = on_load(&engine().unwrap()).unwrap();
+    press(&mut tui, &[KeyCode::Enter]);
+    tui.update(&tick(1, 0, &[]));
+    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop(Flight::Load)));
+    assert_eq!(status(&tui), "stopping users.peak · 1s");
+    let shown = screen(&tui, SIZE);
+    assert!(shown.lines().last().unwrap_or_default().contains("x  again: skip cleanups"), "{shown}");
+    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop(Flight::Load)), "as the footer says");
 }
 
 #[test]
@@ -102,15 +114,32 @@ fn the_summary_shows_once_the_run_is_over() {
     let mut tui = on_load(&engine().unwrap()).unwrap();
     press(&mut tui, &[KeyCode::Enter]);
     tui.update(&tick(1, 0, &[]));
+    tui.update(&Update::Loaded(Box::new(report())));
+    assert_eq!(status(&tui), "users.peak finished after 30 s · exit 0 · run #7");
+    assert_snapshot!("load_summary", screen(&tui, SIZE));
+    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), None, "the run is over");
+}
+
+/// The summary of a load run of `users.peak` that finished.
+fn report() -> LoadReport {
     let mut report = LoadReport::default();
     (report.scenario, report.ending, report.exit, report.run_id) =
         ("users.peak".to_owned(), LoadEnding::Finished, 0, Some(7));
     (report.seconds, report.iterations, report.rps) = (30, 1_200, 40.0);
     (report.p50_ms, report.p95_ms, report.p99_ms, report.max_ms) = (31.0, 88.0, 140.0, 212.0);
-    tui.update(&Update::Loaded(Box::new(report)));
-    assert_eq!(status(&tui), "users.peak finished after 30 s · exit 0 · run #7");
-    assert_snapshot!("load_summary", screen(&tui, SIZE));
-    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), None, "the run is over");
+    report
+}
+
+#[test]
+fn a_load_run_refused_while_another_run_is_in_progress_leaves_the_last_summary_shown() {
+    let mut tui = on_load(&engine().unwrap()).unwrap();
+    press(&mut tui, &[KeyCode::Enter]);
+    tui.update(&Update::Loaded(Box::new(report())));
+    assert!(matches!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Load(_))));
+    tui.update(&Update::LoadFailed("a run or load run is in progress: x on its tab stops it".to_owned()));
+    assert_eq!(status(&tui), "error a run or load run is in progress: x on its tab stops it");
+    assert!(screen(&tui, SIZE).contains("latency p50"), "the last summary stays");
+    assert!(matches!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Load(_))), "it may be asked for again");
 }
 
 #[test]
@@ -125,7 +154,7 @@ fn a_reload_that_fails_during_a_load_run_leaves_the_run_alone() {
     assert!(screen(&tui, SIZE).contains("Scenarios (stale)"), "the list shown is the one before");
     tui.update(&tick(2, 0, &[]));
     assert_eq!(status(&tui), format!("running users.peak · 2s · x stops it  {failed}"), "its seconds still come in");
-    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop), "x still stops it");
+    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop(Flight::Load)), "x still stops it");
 }
 
 #[test]

@@ -109,6 +109,16 @@ fn enter_compares_the_chosen_run_with_the_one_before() {
     assert_snapshot!("history_compared", screen(&tui, SIZE));
 }
 
+#[test]
+fn the_chosen_run_stays_chosen_when_a_reread_puts_a_newer_run_above_it() {
+    let mut tui = on_history();
+    assert_eq!(press(&mut tui, &[KeyCode::Down, KeyCode::Char('r')]), Some(Ask::History));
+    let Update::History { mut runs, trends } = history() else { panic!("the history") };
+    runs.insert(0, RunRow { id: RunId::new(483), ..run(482, totals(409, 0, 0, 0), 48_000) });
+    tui.update(&Update::History { runs, trends });
+    assert_eq!(press(&mut tui, &[KeyCode::Enter]), Some(Ask::Compare { before: 480, after: 481 }));
+}
+
 /// Run `id` of `kind`, otherwise as [`run`] makes it.
 fn run_of(kind: &str, id: u64, totals: Totals) -> RunRow {
     let mut row = run(id, totals, 30_000);

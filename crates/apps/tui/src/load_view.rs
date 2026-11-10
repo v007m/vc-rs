@@ -27,10 +27,10 @@ pub fn draw(screen: &LoadScreen, frame: &mut Frame<'_>, area: Rect) {
     frame.render_widget(below_pane(screen, below.height), below);
 }
 
-/// What has been read, or where the run has got to, then why the last reload failed when a
-/// run is under way or over.
+/// What has been read, or where the run has got to, or why the run asked for did not start,
+/// then why the last reload failed when a run is under way or over.
 fn status_line(screen: &LoadScreen) -> Line<'static> {
-    let mut line = phase_line(screen);
+    let mut line = screen.refused().map_or_else(|| phase_line(screen), failed);
     if let ReadState::Failed(reason) = screen.reading()
         && !matches!(screen.phase(), LoadPhase::Idle)
     {
@@ -43,19 +43,31 @@ fn status_line(screen: &LoadScreen) -> Line<'static> {
 /// What has been read, or where the run has got to.
 fn phase_line(screen: &LoadScreen) -> Line<'static> {
     match (screen.reading(), screen.phase()) {
-        (_, LoadPhase::Failed(reason)) | (ReadState::Failed(reason), LoadPhase::Idle) => {
-            Line::from(vec![Span::styled("error ", theme::FAIL), Span::raw(reason.clone())])
-        }
+        (_, LoadPhase::Failed(reason)) | (ReadState::Failed(reason), LoadPhase::Idle) => failed(reason),
         (ReadState::Unread | ReadState::Reading, LoadPhase::Idle) => {
             Line::styled("reading the scenarios…", theme::INFO)
         }
         (_, LoadPhase::Idle) => Line::styled(idle(screen.scenarios()), theme::DIM),
-        (_, LoadPhase::Starting(scenario)) => Line::styled(format!("starting {}…", clean(scenario)), theme::INFO),
-        (_, LoadPhase::Running(scenario)) => {
-            let second = screen.ticks().back().map_or(0, |tick| tick.second);
-            Line::styled(format!("running {} · {second}s · x stops it", clean(scenario)), theme::INFO)
-        }
+        (_, LoadPhase::Starting(scenario) | LoadPhase::Running(scenario)) => under_way(screen, scenario),
         (_, LoadPhase::Done(report)) => ended(report),
+    }
+}
+
+/// `error …`.
+fn failed(reason: &str) -> Line<'static> {
+    Line::from(vec![Span::styled("error ", theme::FAIL), Span::raw(reason.to_owned())])
+}
+
+/// `starting users.peak…`, then `running users.peak · 12s · x stops it`, or `stopping` once
+/// `x` asked it to stop.
+fn under_way(screen: &LoadScreen, scenario: &str) -> Line<'static> {
+    let scenario = clean(scenario);
+    let second = screen.ticks().back().map_or(0, |tick| tick.second);
+    match (matches!(screen.phase(), LoadPhase::Running(_)), screen.stopping()) {
+        (false, false) => Line::styled(format!("starting {scenario}…"), theme::INFO),
+        (false, true) => Line::styled(format!("stopping {scenario}…"), theme::WARN),
+        (true, false) => Line::styled(format!("running {scenario} · {second}s · x stops it"), theme::INFO),
+        (true, true) => Line::styled(format!("stopping {scenario} · {second}s"), theme::WARN),
     }
 }
 

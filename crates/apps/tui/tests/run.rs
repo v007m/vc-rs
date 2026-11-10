@@ -7,7 +7,7 @@ use crossterm::event::KeyCode;
 use insta::assert_snapshot;
 use support::{carry, engine, feed_of, press, run_of, screen, tui};
 use vc_engine::{Event, OwnerKey, RunFeed, SelectRequest, Sequenced, TestStatus};
-use vc_tui::{Ask, Update};
+use vc_tui::{Ask, Flight, Update};
 
 const SIZE: (u16, u16) = (100, 24);
 
@@ -19,8 +19,37 @@ fn a_runs_every_test_under_the_profiles_and_only_one_run_at_a_time() {
     assert_eq!((request.plan.select, request.failed, request.watch), (SelectRequest::default(), false, None));
     assert_eq!(press(&mut tui, &[KeyCode::Char('a')]), None, "a run is already starting");
     assert_eq!(press(&mut tui, &[KeyCode::Char('R')]), None);
-    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop));
     assert!(screen(&tui, SIZE).lines().nth(1).unwrap_or_default().starts_with("starting…"));
+    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop(Flight::Run)));
+}
+
+#[test]
+fn x_says_the_run_is_stopping_and_the_footer_says_a_second_x_skips_its_cleanups() {
+    let mut tui = tui();
+    press(&mut tui, &[KeyCode::Char('a')]);
+    assert!(!screen(&tui, SIZE).contains("again: skip cleanups"), "nothing is stopping yet");
+    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop(Flight::Run)));
+    let shown = screen(&tui, SIZE);
+    assert!(shown.lines().nth(1).unwrap_or_default().starts_with("stopping…"), "{shown}");
+    assert!(shown.lines().last().unwrap_or_default().contains("x  again: skip cleanups"), "{shown}");
+    assert_eq!(press(&mut tui, &[KeyCode::Char('x')]), Some(Ask::Stop(Flight::Run)), "as the footer says");
+}
+
+#[tokio::test]
+async fn a_run_refused_while_another_is_in_progress_leaves_the_last_ones_results_shown() {
+    let mut tui = tui();
+    let ask = press(&mut tui, &[KeyCode::Char('a')]);
+    carry(&mut tui, ask).await.unwrap();
+    press(&mut tui, &[KeyCode::Down, KeyCode::Down]);
+    let before = screen(&tui, SIZE);
+    assert!(matches!(press(&mut tui, &[KeyCode::Char('a')]), Some(Ask::Run(_))));
+    tui.update(&Update::RunFailed("a run or load run is in progress: x on its tab stops it".to_owned()));
+    let after = screen(&tui, SIZE);
+    assert_eq!(
+        after.lines().nth(1).unwrap_or_default(),
+        "error a run or load run is in progress: x on its tab stops it"
+    );
+    assert!(after.lines().skip(2).eq(before.lines().skip(2)), "the results and the chosen test stay:\n{after}");
 }
 
 #[tokio::test]

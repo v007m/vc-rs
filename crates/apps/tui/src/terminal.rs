@@ -6,6 +6,7 @@
 use std::io::{self, Stdout};
 use std::panic::{self, PanicHookInfo};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crossterm::event::{self, Event};
@@ -71,19 +72,21 @@ struct Session {
 }
 
 impl Session {
-    /// Waits for the next key or update and applies it; `false` once the UI is to stop.
+    /// Waits for the next key, update or run asked for again, and applies it; `false` once the
+    /// UI is to stop.
     async fn next(&mut self) -> bool {
         tokio::select! {
             key = self.keys.recv() => match key {
                 Some(Event::Key(key)) => {
                     if let Some(ask) = self.tui.press(key) {
-                        self.driver.carry(ask).await;
+                        self.driver.carry(ask);
                     }
                 }
                 Some(_) => {}
                 None => return false,
             },
             Some(update) = self.updates.recv() => self.tui.update(&update),
+            Some(ask) = self.driver.retried() => self.driver.carry(ask),
         }
         drain(&mut self.tui, &mut self.updates);
         !self.tui.quitting()
@@ -160,30 +163,37 @@ fn restore() {
 type Hook = Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static>;
 
 /// The panic hook that runs `restore` when the thread installing it panics, then the hook it
-/// replaced, which prints the panic; dropping it puts the replaced hook back. A panic on
-/// another thread, as in an engine task, is not printed, as that would write over the screen
-/// in raw mode: the terminal stays the UI's, which hears of it as a failed update.
+/// replaced, which prints the panic; dropping it puts the replaced hook back. While the UI is
+/// up, a panic on another thread, as in an engine task, is not printed, as that would write
+/// over the screen in raw mode: the terminal stays the UI's, which hears of it as a failed
+/// update. Once the terminal is restored, or the hook dropped, every panic is printed.
 struct PanicRestore {
     previous: Hook,
+    up: Arc<AtomicBool>,
 }
 
 impl PanicRestore {
     fn install(restore: impl Fn() + Send + Sync + 'static) -> Self {
         let previous: Hook = Arc::from(panic::take_hook());
         let chained = Arc::clone(&previous);
+        let up = Arc::new(AtomicBool::new(true));
+        let ui_up = Arc::clone(&up);
         let ui = std::thread::current().id();
         panic::set_hook(Box::new(move |info| {
-            if std::thread::current().id() == ui {
+            if std::thread::current().id() == ui && ui_up.swap(false, Ordering::SeqCst) {
                 restore();
+            }
+            if !ui_up.load(Ordering::SeqCst) {
                 chained(info);
             }
         }));
-        Self { previous }
+        Self { previous, up }
     }
 }
 
 impl Drop for PanicRestore {
     fn drop(&mut self) {
+        self.up.store(false, Ordering::SeqCst);
         if std::thread::panicking() {
             return;
         }

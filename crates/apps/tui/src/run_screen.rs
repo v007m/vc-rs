@@ -4,15 +4,24 @@
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use vc_engine::{PlanRequest, RunRequest, SelectRequest, TestStatus};
+use vc_engine::{PlanRequest, RunFeed, RunRequest, SelectRequest, TestStatus};
 
 use crate::run_model::{Finished, RunModel};
 use crate::run_view;
-use crate::screen::{Ask, Screen, Update, clamp_step, cursor_move};
+use crate::screen::{Ask, Flight, Screen, Update, clamp_step, cursor_move};
 
 /// The Run tab's keys.
 const KEYS: [(&str, &str); 6] =
     [("↑↓", "move"), ("a", "run all"), ("r", "rerun test"), ("R", "rerun failed"), ("f", "failures"), ("x", "stop")];
+/// The Run tab's keys once `x` asked the run to stop.
+const KEYS_STOPPING: [(&str, &str); 6] = [
+    ("↑↓", "move"),
+    ("a", "run all"),
+    ("r", "rerun test"),
+    ("R", "rerun failed"),
+    ("f", "failures"),
+    ("x", "again: skip cleanups"),
+];
 
 /// The Run tab.
 #[derive(Debug)]
@@ -66,8 +75,7 @@ impl RunScreen {
             return None;
         }
         let plan = PlanRequest { select, profiles: self.profiles.clone(), ..PlanRequest::default() };
-        self.model = RunModel::starting();
-        self.cursor = 0;
+        self.model.ask();
         Some(Ask::Run(Box::new(RunRequest { plan, failed, ..RunRequest::default() })))
     }
 
@@ -79,6 +87,13 @@ impl RunScreen {
     fn step(&mut self, down: bool) {
         self.cursor = clamp_step(self.cursor, self.listed().count(), down);
     }
+
+    /// Stops the run: the first `x` lets its cleanups run, the next skips them, as the footer
+    /// then says.
+    const fn stop(&mut self) -> Ask {
+        self.model.stopping = true;
+        Ask::Stop(Flight::Run)
+    }
 }
 
 impl Screen for RunScreen {
@@ -87,7 +102,7 @@ impl Screen for RunScreen {
     }
 
     fn keys(&self) -> &'static [(&'static str, &'static str)] {
-        &KEYS
+        if self.model.stopping && self.model.busy() { &KEYS_STOPPING } else { &KEYS }
     }
 
     fn press(&mut self, key: KeyEvent) -> Option<Ask> {
@@ -103,7 +118,7 @@ impl Screen for RunScreen {
                 self.failures_only = !self.failures_only;
                 self.cursor = 0;
             }
-            KeyCode::Char('x') if self.model.busy() => return Some(Ask::Stop),
+            KeyCode::Char('x') if self.model.busy() => return Some(self.stop()),
             _ => {}
         }
         None
@@ -111,7 +126,12 @@ impl Screen for RunScreen {
 
     fn take(&mut self, update: &Update) {
         match update {
-            Update::Run(item) => self.model.feed(item),
+            Update::Run(item) => {
+                if matches!(item, RunFeed::Started(_)) {
+                    self.cursor = 0;
+                }
+                self.model.feed(item);
+            }
             Update::RunFailed(reason) => self.model.failed(reason),
             _ => {}
         }

@@ -18,8 +18,9 @@ use vc_engine::{
 pub enum Ask {
     /// Start this run, watched; its feed comes back as [`Update::Run`].
     Run(Box<RunRequest>),
-    /// Interrupt the run in progress, as one Ctrl-C does to `vc run`.
-    Stop,
+    /// Interrupt the run or load run in progress, when it is of this kind, as one Ctrl-C does
+    /// to `vc run`; asked again, end it outright, its cleanups abandoned.
+    Stop(Flight),
     /// Read the newest stored runs and the tests' trends over them: [`Update::History`].
     History,
     /// Read the tests of two stored runs: [`Update::Compared`].
@@ -51,6 +52,17 @@ pub enum Ask {
     Import(Box<ImportRequest>),
     /// Write a drafted import: [`Update::Written`].
     Write(Changes),
+}
+
+/// The work in flight that [`Ask::Stop`] stops and quitting ends: a run or a load run, one at
+/// a time.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Flight {
+    /// A run, on the Run tab.
+    Run,
+    /// A load run, on the Load tab.
+    Load,
 }
 
 /// What the engine sent back for an [`Ask`].
@@ -162,6 +174,12 @@ pub fn scrolled(scroll: u16, code: KeyCode, lines: usize) -> Option<u16> {
 /// The cursor one row down or up a list of `len` rows, kept on the list.
 pub fn clamp_step(cursor: usize, len: usize, down: bool) -> usize {
     if down { (cursor + 1).min(len.saturating_sub(1)) } else { cursor.saturating_sub(1) }
+}
+
+/// The cursor on a list read again: on the row `chosen` finds, wherever the new read put it,
+/// otherwise `cursor` kept on the list.
+pub fn refound<T>(rows: &[T], chosen: impl Fn(&T) -> bool, cursor: usize) -> usize {
+    rows.iter().position(chosen).unwrap_or_else(|| cursor.min(rows.len().saturating_sub(1)))
 }
 
 /// One tab's screen.

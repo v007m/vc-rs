@@ -48,3 +48,18 @@ fn a_panic_on_another_thread_leaves_the_terminal_to_the_ui_and_is_not_printed_ov
     let order: Vec<_> = heard.try_iter().collect();
     assert!(order.is_empty(), "{order:?}");
 }
+
+#[test]
+fn once_a_panic_on_the_ui_thread_restored_the_terminal_a_panic_on_another_thread_is_printed() {
+    let original = panic::take_hook();
+    let (said, heard) = std_mpsc::channel();
+    let printed = said.clone();
+    panic::set_hook(Box::new(move |_| printed.send("printed").unwrap_or_default()));
+    let hook = PanicRestore::install(move || said.send("restored").unwrap_or_default());
+    assert!(panic::catch_unwind(|| panic!("a panic in the UI")).is_err());
+    assert!(std::thread::spawn(|| panic!("a panic in an engine task")).join().is_err());
+    drop(hook);
+    panic::set_hook(original);
+    let order: Vec<_> = heard.try_iter().collect();
+    assert_eq!(order, ["restored", "printed", "printed"], "{order:?}");
+}

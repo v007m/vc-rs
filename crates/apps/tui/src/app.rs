@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::Frame;
 use vc_engine::{Engine, RunFeed};
 
-use crate::screen::{Ask, Screen, Update};
+use crate::screen::{Ask, Flight, Screen, Update};
 use crate::{tabs, view};
 
 /// What `vc tui` was started with.
@@ -32,13 +32,6 @@ impl TuiOptions {
     pub fn new(project: impl Into<String>, profiles: Vec<String>) -> Self {
         Self { project: project.into(), profiles, importers: Engine::importers(), base: PathBuf::new() }
     }
-}
-
-/// The work in flight that quitting would stop: a run or a load run, one at a time.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Flight {
-    Run,
-    Load,
 }
 
 /// The terminal UI's state: the tabs' screens, the chosen one, whether the help is open, the
