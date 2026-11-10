@@ -10,8 +10,7 @@ import { ClientSession } from './session.svelte.ts';
 const body = { id: 'u_1', email: 'grace@example.com' };
 const changes = {
   files: [{ path: 'services/users/recorded.test.yaml', before: '', after: 'id: users.recorded\n' }],
-  titles: ['Add users.recorded#replaysSession'],
-  notices: ['read 3 entries · filtered 1 static → 2 requests'],
+  titles: ['Add users.recorded#replaysSession', 'read 3 entries · filtered 1 static → 2 requests'],
 };
 
 function setup() {
@@ -41,7 +40,11 @@ function setup() {
     },
     saveCallAsTest: (input) => {
       sent.saves.push(input);
-      return Promise.resolve({ files: [], titles: [`Add ${input.testId}`], notices: [] });
+      return Promise.resolve({
+        id: input.testId,
+        path: 'u.test.yaml',
+        titles: [`Add ${input.testId}`],
+      });
     },
     importHar: (input) => {
       sent.imports.push(input);
@@ -113,10 +116,10 @@ describe('ClientScreen', () => {
     expect(
       within(dialog).getByRole('region', { name: /recorded\.test\.yaml/ }).textContent,
     ).toContain('Added: id: users.recorded');
-    expect(true).toBeTruthy();
+    expect(within(dialog).getByText(/filtered 1 static/)).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Write files' }));
     expect(sent.imports.map((i) => i.write)).toEqual([false, true]);
-    expect(screen.getByRole('status').textContent).toBe('Add users.recorded#replaysSession');
+    expect(screen.getByRole('status').textContent).toContain('Add users.recorded#replaysSession');
   });
 
   it('lists flow tests in Flow mode and runs one', async () => {

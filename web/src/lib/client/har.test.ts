@@ -6,7 +6,6 @@ import type { HarInput } from './port.ts';
 const changes = {
   files: [{ path: 'services/users/recorded.test.yaml', before: '', after: 'id: users.recorded\n' }],
   titles: ['Add users.recorded#replaysSession'],
-  notices: ['read 3 entries · filtered 1 static → 2 requests'],
 };
 
 function setup(fail = false) {

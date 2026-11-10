@@ -47,7 +47,7 @@
       <p class="error" role="alert">{har.error}</p>
     {/if}
     {#if har.preview}
-      {#each har.preview.notices as notice, i (i)}
+      {#each har.preview.titles as notice, i (i)}
         <p class="mono notice">{notice}</p>
       {/each}
       <ul class="changes" aria-label="Changes">
