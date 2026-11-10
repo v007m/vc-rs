@@ -73,9 +73,7 @@ async fn a_reporter_plugin_reads_its_granted_secret_only_and_writes_its_report()
     let run = run.env("reportToken", "t0ken-42").env("apiKey", "k3y").output().unwrap();
     assert_eq!(run.status.code(), Some(0), "{}", said(&run));
     let said = said(&run);
-    let mut dropped =
-        said.lines().filter(|line| line.contains("plugin `report`") && !line.contains(" runs unconfined: "));
-    assert!(dropped.next().is_none(), "the reporter plugin was dropped (V5118): {said}");
+    assert!(!said.contains("warning[V5118]"), "the reporter plugin was dropped: {said}");
     assert!(project.path().join("out/ctrf.json").is_file());
     let report = fs::read_to_string(project.path().join("out/plugin/report.txt")).unwrap();
     let lines: Vec<&str> = report.lines().collect();
