@@ -27,7 +27,6 @@ export class EditorSession {
   buffer: Buffer | undefined = $state();
   diagnostics: readonly Diagnostic[] = $state([]);
   state: EditorState = $state('idle');
-  error: string | undefined = $state();
   /** Why the check after the last save could not run; the file was written all the same. */
   checkError: string | undefined = $state();
   readonly #client: EditorClient;
@@ -37,11 +36,20 @@ export class EditorSession {
   /** Bumped by every open, so the read of a file no longer chosen cannot land. */
   #opening = 0;
   #timer: ReturnType<typeof setTimeout> | undefined;
+  /** Why the last open, save or listing failed; only another of those clears it. */
+  #failure: string | undefined = $state();
+  /** Why the check of the typed text failed; the next check of it clears it. */
+  #checkFailure: string | undefined = $state();
 
   /** `checkDelayMs` is how long typing must pause before the unsaved text is checked. */
   constructor(client: EditorClient, checkDelayMs = 300) {
     this.#client = client;
     this.#checkDelayMs = checkDelayMs;
+  }
+
+  /** What went wrong, to show until it is put right; a failed save outranks a failed check. */
+  get error(): string | undefined {
+    return this.#failure ?? this.#checkFailure;
   }
 
   get dirty(): boolean {
@@ -79,9 +87,9 @@ export class EditorSession {
       if (ticket !== this.#opening) return;
       this.buffer = { path, original: text, text, digest };
       await this.#checkAs(this.#invalidate(), path);
-      this.error = undefined;
+      this.#failed(undefined);
     } catch (error) {
-      if (ticket === this.#opening) this.error = ConnectError.from(error).rawMessage;
+      if (ticket === this.#opening) this.#failed(ConnectError.from(error).rawMessage);
     } finally {
       if (ticket === this.#opening) this.state = 'idle';
     }
@@ -93,8 +101,7 @@ export class EditorSession {
     this.buffer = { ...this.buffer, text };
     const { path } = this.buffer;
     const version = this.#invalidate();
-    const check = async () => void (await this.#checkAs(version, path, text));
-    this.#timer = setTimeout(() => void this.#attempt(check), this.#checkDelayMs);
+    this.#timer = setTimeout(() => void this.#checkTyped(version, path, text), this.#checkDelayMs);
   }
 
   /** Drops the edits since the last read or save. */
@@ -118,12 +125,12 @@ export class EditorSession {
         const response = await this.#client.writeFile({ path, text, expectedDigest: digest });
         this.#saved(version, buffer, response);
       }
-      this.error = undefined;
+      this.#failed(undefined);
       this.state = 'idle';
     } catch (error) {
       const failure = ConnectError.from(error);
       this.state = failure.code === Code.Aborted ? 'conflict' : 'idle';
-      this.error = failure.code === Code.Aborted ? undefined : failure.rawMessage;
+      this.#failed(failure.code === Code.Aborted ? undefined : failure.rawMessage);
     }
   }
 
@@ -136,12 +143,12 @@ export class EditorSession {
   async keepMine(): Promise<void> {
     const buffer = this.buffer;
     if (!buffer) return;
-    await this.#attempt(async () => {
+    const read = await this.#attempt(async () => {
       const { digest } = await this.#client.readFile({ path: buffer.path });
       if (this.buffer?.path === buffer.path) this.buffer = { ...this.buffer, digest };
       this.state = 'idle';
-      await this.save();
     });
+    if (read) await this.save();
   }
 
   /** Applies the fix's edits to the open file, unsaved. */
@@ -176,9 +183,24 @@ export class EditorSession {
     this.checkError = response.checkError || undefined;
   }
 
+  /** Checks the typed text; a good check clears only a failed check, never a failed save. */
+  async #checkTyped(version: number, path: string, text: string): Promise<void> {
+    try {
+      await this.#checkAs(version, path, text);
+    } catch (error) {
+      if (version === this.#version) this.#checkFailure = ConnectError.from(error).rawMessage;
+    }
+  }
+
+  /** Shows why an open, save or listing failed, or clears it when it succeeded. */
+  #failed(failure: string | undefined): void {
+    this.#failure = failure;
+  }
+
   #checked(diagnostics: Diagnostic[]): void {
     this.diagnostics = diagnostics;
     this.checkError = undefined;
+    this.#checkFailure = undefined;
   }
 
   /** Cancels the pending check and makes any check in flight stale. */
@@ -189,12 +211,15 @@ export class EditorSession {
     return this.#version;
   }
 
-  async #attempt(step: () => Promise<void>): Promise<void> {
+  /** Runs `step`, showing why it failed or clearing the last failure; says whether it worked. */
+  async #attempt(step: () => Promise<void>): Promise<boolean> {
     try {
       await step();
-      this.error = undefined;
+      this.#failed(undefined);
+      return true;
     } catch (error) {
-      this.error = ConnectError.from(error).rawMessage;
+      this.#failed(ConnectError.from(error).rawMessage);
+      return false;
     }
   }
 }

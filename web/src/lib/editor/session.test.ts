@@ -222,6 +222,43 @@ describe('EditorSession', () => {
     await vi.waitFor(() => expect(editor.checkError).toBeUndefined());
   });
 
+  it('keeps a save conflict or failure shown while later edits check clean', async () => {
+    const checked: string[] = [];
+    let refusal = new ConnectError('changed on disk', Code.Aborted);
+    const client = fakeEngine({
+      readFile: () => ({ text: 'name: one\n', digest: 'd1' }),
+      writeFile: () => {
+        throw refusal;
+      },
+      check: (request) => {
+        const text = request.overlay[path];
+        if (text === 'name: down\n') throw new ConnectError('engine went away', Code.Unavailable);
+        if (text !== undefined) checked.push(text);
+        return { diagnostics: [] };
+      },
+    });
+    const editor = new EditorSession(client, 0);
+    await editor.open(path);
+    editor.edit('mine\n');
+    await editor.save();
+    editor.edit('mine, more\n');
+    await vi.waitFor(() => expect(checked.at(-1)).toBe('mine, more\n'));
+    expect(editor.state).toBe('conflict');
+
+    refusal = new ConnectError('disk full', Code.ResourceExhausted);
+    await editor.keepMine();
+    expect(editor.error).toBe('disk full');
+    editor.edit('mine, still more\n');
+    await vi.waitFor(() => expect(checked.at(-1)).toBe('mine, still more\n'));
+    expect(editor.error).toBe('disk full');
+
+    await editor.open(path);
+    editor.edit('name: down\n');
+    await vi.waitFor(() => expect(editor.error).toBe('engine went away'));
+    editor.edit('name: up\n');
+    await vi.waitFor(() => expect(editor.error).toBeUndefined());
+  });
+
   it('shows a failed read as an error', async () => {
     const editor = new EditorSession(fakeEngine({}));
     await editor.open(path);
