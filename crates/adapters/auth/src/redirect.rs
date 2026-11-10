@@ -1,5 +1,7 @@
 //! The loopback redirect listener: waits for the browser's `GET /callback?code=…&state=…`.
 
+use std::time::Duration;
+
 use percent_encoding::percent_decode_str;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
@@ -7,43 +9,58 @@ use tokio::net::{TcpListener, TcpStream};
 /// The most of a request it reads; a redirect's request line is far shorter.
 const MAX_REQUEST: usize = 8 * 1024;
 
+/// How long one connection may take to send its request line. A browser's idle preconnect is
+/// answered and dropped after it, so the real redirect on another connection is still read.
+const READ: Duration = Duration::from_secs(2);
+
 /// What the browser shows when the sign-in completes.
 const DONE: &str = "Signed in. You can close this tab and return to the terminal.";
 
-/// The `code` from the first request to `/callback` whose `state` matches; other paths get a
-/// 404 and are skipped.
+/// What the browser shows when the sign-in fails.
+const FAILED: &str = "Sign-in failed. Return to the terminal for details.";
+
+/// What a `/callback` for another sign-in is shown.
+const FOREIGN: &str = "This redirect does not belong to the sign-in in progress.";
+
+/// The `code` from the first request to `/callback` whose `state` matches. Other paths get a
+/// 404, and a `/callback` with another state a 400; both are skipped.
 ///
 /// # Errors
 ///
-/// The reason, without the code, when the server answered with an `error`, the state does not
-/// match or the listener fails.
+/// The reason, without the code, when the server answered this sign-in with an `error` or no
+/// code, or the listener fails.
 pub async fn receive(listener: &TcpListener, state: &str) -> Result<String, String> {
     loop {
         let (mut stream, _) = listener.accept().await.map_err(|error| error.to_string())?;
-        let target = request_target(&mut stream).await.unwrap_or_default();
-        let Some(query) = target.strip_prefix("/callback?") else {
+        let target = tokio::time::timeout(READ, request_target(&mut stream)).await.ok().flatten();
+        let Some(query) = target.as_deref().and_then(|target| target.strip_prefix("/callback?")) else {
             respond(&mut stream, "404 Not Found", "Not found").await;
             continue;
         };
-        let outcome = callback(query, state);
-        let shown = if outcome.is_ok() { DONE } else { "Sign-in failed. Return to the terminal for details." };
-        respond(&mut stream, if outcome.is_ok() { "200 OK" } else { "400 Bad Request" }, shown).await;
+        let Some(outcome) = callback(query, state) else {
+            respond(&mut stream, "400 Bad Request", FOREIGN).await;
+            continue;
+        };
+        let (status, shown) = if outcome.is_ok() { ("200 OK", DONE) } else { ("400 Bad Request", FAILED) };
+        respond(&mut stream, status, shown).await;
         return outcome;
     }
 }
 
-/// The code in a `/callback` query, once its state is checked.
-fn callback(query: &str, state: &str) -> Result<String, String> {
+/// The code in a `/callback` query, or the server's error; `None` when its state is not this
+/// sign-in's.
+fn callback(query: &str, state: &str) -> Option<Result<String, String>> {
     let pairs: Vec<(String, String)> = query.split('&').filter_map(pair).collect();
     let get = |key: &str| pairs.iter().find(|(name, _)| name == key).map(|(_, value)| value.as_str());
+    if !get("state").is_some_and(|got| same(got.as_bytes(), state.as_bytes())) {
+        return None;
+    }
     if let Some(error) = get("error") {
         let error: String = error.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '_').take(64).collect();
-        return Err(format!("the server answered `error={error}`"));
+        return Some(Err(format!("the server answered `error={error}`")));
     }
-    if !get("state").is_some_and(|got| same(got.as_bytes(), state.as_bytes())) {
-        return Err("the redirect's state does not match this sign-in".to_owned());
-    }
-    get("code").filter(|code| !code.is_empty()).map(str::to_owned).ok_or_else(|| "the redirect has no code".to_owned())
+    let code = get("code").filter(|code| !code.is_empty()).map(str::to_owned);
+    Some(code.ok_or_else(|| "the redirect has no code".to_owned()))
 }
 
 /// Compares in time that does not depend on where the inputs differ.
@@ -86,12 +103,13 @@ mod tests {
 
     #[test]
     fn a_callback_gives_its_code_only_when_the_state_matches() {
-        assert_eq!(callback("code=a%2Bb+c&state=s1", "s1"), Ok("a+b c".to_owned()));
-        assert!(callback("code=x&state=s2", "s1").unwrap_err().contains("state"));
-        assert!(callback("code=x", "s1").is_err());
-        assert!(callback("state=s1", "s1").unwrap_err().contains("no code"));
-        assert!(callback("code=&state=s1", "s1").is_err());
-        let refused = callback("error=access_denied%3Cscript%3E&state=s1", "s1").unwrap_err();
+        assert_eq!(callback("code=a%2Bb+c&state=s1", "s1"), Some(Ok("a+b c".to_owned())));
+        assert_eq!(callback("code=x&state=s2", "s1"), None);
+        assert_eq!(callback("code=x", "s1"), None);
+        assert_eq!(callback("error=access_denied&state=s2", "s1"), None);
+        assert!(callback("state=s1", "s1").unwrap().unwrap_err().contains("no code"));
+        assert!(callback("code=&state=s1", "s1").unwrap().is_err());
+        let refused = callback("error=access_denied%3Cscript%3E&state=s1", "s1").unwrap().unwrap_err();
         assert_eq!(refused, "the server answered `error=access_deniedscript`");
         assert!(same(b"abc", b"abc") && !same(b"abc", b"abd") && !same(b"abc", b"ab"));
     }

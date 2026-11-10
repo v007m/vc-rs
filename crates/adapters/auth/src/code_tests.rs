@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -40,17 +41,22 @@ async fn get(port: &str, target: &str) -> String {
     answer.lines().next().unwrap_or_default().to_owned()
 }
 
+/// The redirect listener's port, from the authorize URL's query.
+fn port(pairs: &[(String, String)]) -> String {
+    let redirect = field(pairs, "redirect_uri").unwrap();
+    redirect.strip_prefix("http://127.0.0.1:").unwrap().strip_suffix("/callback").unwrap().to_owned()
+}
+
 /// Plays the browser: checks the authorize URL, then follows the redirect with `state` (the
 /// URL's own when `None`). Gives the authorize URL's query.
 async fn sign_in(mut urls: UnboundedReceiver<String>, state: Option<&str>) -> Vec<(String, String)> {
     let url = urls.recv().await.unwrap();
     assert!(url.starts_with("https://id.test/authorize?"), "{url}");
     let pairs = query(&url);
-    let redirect = field(&pairs, "redirect_uri").unwrap().to_owned();
-    let port = redirect.strip_prefix("http://127.0.0.1:").unwrap().strip_suffix("/callback").unwrap();
-    assert_eq!(get(port, "/favicon.ico").await, "HTTP/1.1 404 Not Found");
+    let port = port(&pairs);
+    assert_eq!(get(&port, "/favicon.ico").await, "HTTP/1.1 404 Not Found");
     let state = state.unwrap_or_else(|| field(&pairs, "state").unwrap());
-    let line = get(port, &format!("/callback?code=c0de&state={state}")).await;
+    let line = get(&port, &format!("/callback?code=c0de&state={state}")).await;
     let expected = if field(&pairs, "state") == Some(state) { "HTTP/1.1 200 OK" } else { "HTTP/1.1 400 Bad Request" };
     assert_eq!(line, expected);
     pairs
@@ -126,14 +132,40 @@ async fn a_refresh_that_fails_for_a_while_keeps_the_token_and_gives_the_error() 
 }
 
 #[tokio::test]
-async fn a_redirect_with_another_state_is_refused() {
+async fn a_redirect_with_another_state_is_refused_and_the_sign_in_waits_for_its_own() {
     let (transport, recordings) = token_server(TOKEN);
     let (browser, urls) = RecordingBrowser::new();
     let code = AuthorizationCode::new(transport, Arc::new(browser), None);
     let auth = request("oauth2AuthorizationCode", &settings(&json!({})));
-    let (got, _) = tokio::join!(code.credentials(&auth), sign_in(urls, Some("forged")));
-    assert!(matches!(got, Err(AuthError::Browser { ref reason, .. }) if reason.contains("state")), "{got:?}");
-    assert!(recordings.take().is_empty(), "no code was exchanged");
+    let browse = async {
+        let pairs = sign_in(urls, Some("forged")).await;
+        let own = format!("/callback?code=r3al&state={}", field(&pairs, "state").unwrap());
+        get(&port(&pairs), &own).await
+    };
+    let (got, line) = tokio::join!(code.credentials(&auth), browse);
+    assert_eq!(line, "HTTP/1.1 200 OK");
+    assert!(got.is_ok(), "{got:?}");
+    let mut sent = recordings.take();
+    assert_eq!(sent.len(), 1, "only the sign-in's own code was exchanged");
+    assert_eq!(field(&form(&sent.remove(0).request), "code"), Some("r3al"));
+}
+
+#[tokio::test]
+async fn an_idle_connection_does_not_hold_up_the_redirect() {
+    let (transport, _) = token_server(TOKEN);
+    let (browser, mut urls) = RecordingBrowser::new();
+    let code = AuthorizationCode::new(transport, Arc::new(browser), None);
+    let auth = request("oauth2AuthorizationCode", &settings(&json!({})));
+    let browse = async {
+        let pairs = query(&urls.recv().await.unwrap());
+        let port = port(&pairs);
+        let _preconnect = TcpStream::connect(format!("127.0.0.1:{port}")).await.unwrap();
+        get(&port, &format!("/callback?code=c0de&state={}", field(&pairs, "state").unwrap())).await
+    };
+    let both = async { tokio::join!(code.credentials(&auth), browse) };
+    let (got, line) = tokio::time::timeout(Duration::from_secs(30), both).await.expect("the redirect was read");
+    assert_eq!(line, "HTTP/1.1 200 OK");
+    assert!(got.is_ok(), "{got:?}");
 }
 
 #[tokio::test]
