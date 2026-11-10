@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# Mutation testing for the crates with a score floor (D119): fails when fewer than 85 % of the
-# viable mutants are caught. Usage: mutants.sh diff <base-ref> | mutants.sh full
+# Mutation testing with a score floor (D119): fails when fewer than 85 % of the viable mutants are
+# caught. The full run covers the floor crates; the diff run also covers the server, the contracts
+# and every adapter. Usage: mutants.sh diff <base-ref> | mutants.sh full
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 readonly MIN_PERCENT=85
 readonly CRATES="executor planner template compiler"
+# <folder under crates/>:<package> pairs that only the diff run covers; adapters are added below.
+readonly DIFF_ONLY="apps/server:vc-server contracts:vc-contracts"
+# Generated code is never mutated.
+readonly EXCLUDES=(--exclude 'crates/contracts/src/gen/**')
 mode=${1:-}
 base=${2:-origin/master}
 
@@ -14,14 +19,24 @@ diff_file=""
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 
+diff_crates() {
+  local crate dir
+  for crate in $CRATES; do echo "$crate:vc-$crate"; done
+  for crate in $DIFF_ONLY; do echo "$crate"; done
+  for dir in crates/adapters/*/; do
+    dir=${dir%/}
+    echo "${dir#crates/}:vc-adapter-${dir##*/}"
+  done
+}
+
 case "$mode" in
   full)
     for crate in $CRATES; do packages+=(-p "vc-$crate"); done
     ;;
   diff)
     merge_base=$(git merge-base "$base" HEAD)
-    for crate in $CRATES; do
-      if ! git diff --quiet "$merge_base" -- "crates/$crate"; then packages+=(-p "vc-$crate"); fi
+    for pair in $(diff_crates); do
+      if ! git diff --quiet "$merge_base" -- "crates/${pair%%:*}"; then packages+=(-p "${pair#*:}"); fi
     done
     diff_file="$out/changes.diff"
     git diff "$merge_base" >"$diff_file"
@@ -33,11 +48,11 @@ case "$mode" in
 esac
 
 if [[ ${#packages[@]} -eq 0 ]]; then
-  echo "no changes in: $CRATES; skipping"
+  echo "no changes in the mutation-tested crates; skipping"
   exit 0
 fi
 
-args=("${packages[@]}" --output "$out" --test-tool nextest)
+args=("${packages[@]}" "${EXCLUDES[@]}" --output "$out" --test-tool nextest)
 if [[ -n "$diff_file" ]]; then args+=(--in-diff "$diff_file"); fi
 
 status=0

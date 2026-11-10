@@ -1,0 +1,31 @@
+# expect: GATE-JSLICENSE BSD-2-Clause
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -169,6 +169,12 @@
+       jscpd:
+         specifier: 5.4.2
+         version: 5.4.2
+
++  sdks/gate-fixture:
++    dependencies:
++      espree:
++        specifier: 11.2.0
++        version: 11.2.0
++
+   web:
+     dependencies:
+diff --git a/sdks/gate-fixture/package.json b/sdks/gate-fixture/package.json
+new file mode 100644
+--- /dev/null
++++ b/sdks/gate-fixture/package.json
+@@ -0,0 +1,9 @@
++{
++  "name": "gate-fixture",
++  "private": true,
++  "license": "Apache-2.0",
++  "description": "Gate fixture: a production dependency (espree, BSD-2-Clause) outside deny.toml's allow list.",
++  "dependencies": {
++    "espree": "11.2.0"
++  }
++}
