@@ -28,6 +28,8 @@ export class EditorSession {
   diagnostics: readonly Diagnostic[] = $state([]);
   state: EditorState = $state('idle');
   error: string | undefined = $state();
+  /** Why the check after the last save could not run; the file was written all the same. */
+  checkError: string | undefined = $state();
   readonly #client: EditorClient;
   readonly #checkDelayMs: number;
   /** Bumped by every edit, open and save, so a check of older text cannot land. */
@@ -157,7 +159,7 @@ export class EditorSession {
   async #checkAs(version: number, path: string, text?: string): Promise<Diagnostic[]> {
     const overlay = text === undefined ? {} : { [path]: text };
     const { diagnostics } = await this.#client.check({ paths: [path], overlay });
-    if (version === this.#version) this.diagnostics = diagnostics;
+    if (version === this.#version) this.#checked(diagnostics);
     return diagnostics;
   }
 
@@ -169,7 +171,14 @@ export class EditorSession {
     const live = this.buffer;
     if (live?.path === saved.path)
       this.buffer = { ...live, original: saved.text, digest: response.digest };
-    if (version === this.#version) this.diagnostics = response.diagnostics;
+    if (version !== this.#version) return;
+    this.#checked(response.diagnostics);
+    this.checkError = response.checkError || undefined;
+  }
+
+  #checked(diagnostics: Diagnostic[]): void {
+    this.diagnostics = diagnostics;
+    this.checkError = undefined;
   }
 
   /** Cancels the pending check and makes any check in flight stale. */

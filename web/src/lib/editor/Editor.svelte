@@ -166,6 +166,7 @@
       {/if}
       <Problems
         diagnostics={editor.fileDiagnostics}
+        failure={editor.checkError}
         live={false}
         ongo={go}
         onfix={(fix) => editor.applyFix(fix)}

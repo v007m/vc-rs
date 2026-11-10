@@ -4,11 +4,14 @@
 
   let {
     diagnostics,
+    failure,
     live,
     ongo,
     onfix,
   }: {
     diagnostics: readonly Diagnostic[];
+    /** Why the last check could not run; shown in place of its diagnostics. */
+    failure?: string | undefined;
     /** Whether the list follows the unsaved text, or only the last check of the file on disk. */
     live: boolean;
     ongo: (diagnostic: Diagnostic) => void;
@@ -44,7 +47,9 @@
     >
   </div>
   {#if open}
-    {#if sorted.length === 0}
+    {#if failure}
+      <p class="none failed">The file was saved, but checking it failed: {failure}</p>
+    {:else if sorted.length === 0}
       <p class="none">No problems in this file.</p>
     {:else}
       <ul>
@@ -107,6 +112,9 @@
   .where {
     color: var(--ink3);
     font-size: 12px;
+  }
+  .none.failed {
+    color: var(--fail);
   }
   ul {
     list-style: none;

@@ -203,6 +203,25 @@ describe('EditorSession', () => {
     expect(editor.state).toBe('idle');
   });
 
+  it('takes the new digest when the check after a save fails, and says so until the next check', async () => {
+    const editor = new EditorSession(
+      fakeEngine({
+        readFile: () => ({ text: 'name: one\n', digest: 'd1' }),
+        check: () => ({ diagnostics: [] }),
+        writeFile: () => ({ digest: 'd2', diagnostics: [], checkError: 'hook timed out' }),
+      }),
+      0,
+    );
+    await editor.open(path);
+    editor.edit('name: two\n');
+    await editor.save();
+    expect(editor.buffer).toMatchObject({ original: 'name: two\n', digest: 'd2' });
+    expect(editor.dirty).toBe(false);
+    expect(editor.checkError).toBe('hook timed out');
+    editor.edit('name: three\n');
+    await vi.waitFor(() => expect(editor.checkError).toBeUndefined());
+  });
+
   it('shows a failed read as an error', async () => {
     const editor = new EditorSession(fakeEngine({}));
     await editor.open(path);
