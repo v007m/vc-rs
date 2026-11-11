@@ -4,6 +4,7 @@ mod crud;
 mod echo;
 mod oauth;
 mod openapi;
+mod owned;
 mod scripted;
 mod track;
 
@@ -20,6 +21,7 @@ pub fn router(store: &Store) -> Router {
     let counted = Router::new()
         .merge(crud::routes(store, "users"))
         .merge(crud::routes(store, "orders"))
+        .merge(owned::routes(store))
         .merge(auth::routes(store))
         .merge(echo::routes())
         .merge(oauth::routes(store))
