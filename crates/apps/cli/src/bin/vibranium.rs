@@ -1,25 +1,32 @@
 //! `vibranium`, the long name of `vc` (D39, D44). It runs the `vc` installed beside it with the
 //! same arguments and exits with its code, so the long name works where another tool owns `vc`.
+//! It never looks on `PATH`, so it cannot run another tool's `vc`.
 
-use std::env;
 use std::io;
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
+use std::{env, fs};
 
 /// How to install both names.
 const INSTALL: &str = "cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked";
 
 fn main() -> ExitCode {
-    let mut vc = Command::new(vc());
-    vc.args(env::args_os().skip(1));
-    run(&mut vc)
+    match vc() {
+        Ok(path) => run(Command::new(path).args(env::args_os().skip(1))),
+        Err(error) => failed(&error),
+    }
 }
 
-/// The `vc` in this binary's folder, else the first on `PATH`.
-fn vc() -> PathBuf {
+/// The `vc` in the folder of this binary's real file, after any symlinks.
+fn vc() -> io::Result<PathBuf> {
     let name = format!("vc{}", env::consts::EXE_SUFFIX);
-    let beside = env::current_exe().ok().and_then(|exe| Some(exe.parent()?.join(&name)));
-    beside.filter(|path| path.is_file()).unwrap_or_else(|| PathBuf::from(name))
+    let exe = fs::canonicalize(env::current_exe()?)?;
+    let folder = exe.parent().ok_or_else(|| io::Error::other(format!("{} has no folder", exe.display())))?;
+    let beside = folder.join(&name);
+    if beside.is_file() {
+        return Ok(beside);
+    }
+    Err(io::Error::new(io::ErrorKind::NotFound, format!("there is no `{name}` in {}", folder.display())))
 }
 
 /// Replaces this process with `vc`; returns only when it cannot start.
@@ -38,9 +45,9 @@ fn run(vc: &mut Command) -> ExitCode {
     }
 }
 
-/// Exit 2: `vc` is not installed beside `vibranium` or on `PATH`.
+/// Exit 2: `vc` is not installed beside `vibranium`.
 fn failed(error: &io::Error) -> ExitCode {
-    eprintln!("error: `vibranium` runs `vc`, which is not next to it or on PATH: {error}");
+    eprintln!("error: `vibranium` runs the `vc` next to it, and cannot: {error}");
     eprintln!("  = help: install both with `{INSTALL}`");
     ExitCode::from(2)
 }

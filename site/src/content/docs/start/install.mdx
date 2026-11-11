@@ -67,6 +67,14 @@ $ vibranium --version
 vc 0.1.0
 ```
 
+It looks for `vc` only in the folder of its real file, after following any link to it, and never on your `PATH`, so it can't run another tool's `vc`. If `vc` isn't in that folder, it exits 2:
+
+```console
+$ vibranium --version
+error: `vibranium` runs the `vc` next to it, and cannot: there is no `vc` in /home/me/bin
+  = help: install both with `cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked`
+```
+
 Every example in these docs uses `vc`. Swap in `vibranium` if you need to.
 
 ## Shell completion
