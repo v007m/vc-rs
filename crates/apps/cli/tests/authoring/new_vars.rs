@@ -8,7 +8,7 @@ use crate::{CONFIG, Project, checks_clean, said};
 
 /// A spec whose one operation has an integer, a uuid and a boolean path parameter.
 const SPEC: (&str, &str) = (
-    "openapi/shop.yaml",
+    "specs/shop.yaml",
     "openapi: 3.1.0\ninfo: {title: Shop, version: '1'}\nservers:\n  - url: http://localhost\npaths:\n\
      \x20 /orders/{orderId}/items/{itemId}/{gift}:\n    get:\n      operationId: getItem\n      parameters:\n\
      \x20       - {name: orderId, in: path, required: true, schema: {type: integer, minimum: 1, maximum: 9}}\n\

@@ -28,16 +28,15 @@ If your service has an OpenAPI 3.0 or 3.1 spec, import it once, then let `vc syn
    $ vc import openapi specs/users.yaml --tests --negative --auth
    ✓ imported specs/users.yaml
    $ vc list tests 'users.*'
-   users.openapi#listsUsers  listUsers returns 200
-   users.openapi#createsUser  createUser returns 201
-   users.openapi#rejectsCreateUserWithoutEmail  createUser without email returns 400
-   users.openapi#getsUser  getUser returns 200
-   users.openapi#deletesUser  deleteUser returns 204
-   users.openapi#rejectsDeleteUserWithoutAuth  deleteUser without auth returns 401
+   users.openapi#listsUsers  List users
+   users.openapi#createsUser  Create user
+   users.openapi#rejectsInvalidCreateUser  Create user: rejects an invalid body
+   users.openapi#getsUser  Get user
+   users.openapi#deletesUser  Delete user
    ```
 
-   - `--tests` writes one happy-path test per operation.
-   - `--negative` writes tests that leave out a required field and expect the spec's 4xx.
+   - `--tests` writes one happy-path test per operation. It expects the first 2xx the spec lists and checks the body against the response's schema in the snapshot. A test whose path names an item (`/users/{id}`) creates one first in `before`, through the `POST` on the collection, which the api file now saves as `userId` and cleans up, and passes it to the path with `vars: {id: ${var.userId}}`. When nothing creates the item, the test is skipped, its reason naming the var to set: set it to an existing item's ID and remove the `skip` to run the test.
+   - `--negative` writes one test per operation with a JSON body. Each example row breaks one field (missing, wrong type, outside its enum), and the test expects 400, or 422 when that is what the spec lists.
    - `--auth` writes a test per secured operation that sends no auth and expects 401.
 
    To take part of a spec, use `--include <tag-or-path>` or `--only <operationId>`, and `--id` to name the file.
@@ -158,7 +157,7 @@ $ echo $?
 Put it before `vc run` so drift fails the build early. To fix it, run `vc sync` locally and commit the api file and the snapshot. See [CI](/vc-rs/guides/ci/).
 
 <Aside type="note">
-`vc sync` takes every operation the spec has, even for a file you imported with `--only`. New operations are added on the next sync.
+A file you imported with `--include` or `--only` keeps them in `source.include` and `source.only`, and `vc sync` takes only those operations. A new operation outside them is not added; edit the keys to take it.
 </Aside>
 
 ## Related

@@ -26,10 +26,12 @@ enum Noise {
     Preflight,
 }
 
-/// The entries kept, and a line saying what was filtered.
+/// The entries kept, a line saying what was filtered, and the third-party hosts left out, each
+/// once in recorded order.
 pub struct Kept {
     pub entries: Vec<Entry>,
     pub summary: String,
+    pub third_party: Vec<String>,
 }
 
 /// What is not noise: the project's sites, the hosts kept whatever their site, and whether
@@ -55,9 +57,14 @@ pub fn kept(entries: Vec<Entry>, rules: &Rules) -> Kept {
     let first = || entries.iter().find_map(|entry| host(&entry.request.url)).map(|host| site(&host));
     let homes = if rules.sites.is_empty() { first().into_iter().collect() } else { rules.sites.clone() };
     let mut counts = [0_usize; 3];
-    let mut kept = Vec::new();
+    let (mut kept, mut third_party) = (Vec::new(), Vec::<String>::new());
     for entry in entries {
-        match noise(&entry, &homes, rules).and_then(|noise| counts.get_mut(noise as usize)) {
+        let noise = noise(&entry, &homes, rules);
+        let host = host(&entry.request.url).unwrap_or_default();
+        if matches!(noise, Some(Noise::ThirdParty)) && !third_party.contains(&host) {
+            third_party.push(host);
+        }
+        match noise.and_then(|noise| counts.get_mut(noise as usize)) {
             Some(count) => *count += 1,
             None => kept.push(entry),
         }
@@ -67,7 +74,7 @@ pub fn kept(entries: Vec<Entry>, rules: &Rules) -> Kept {
         "read {read} entries · filtered {assets} static, {third} third-party, {preflights} OPTIONS → {} requests",
         kept.len()
     );
-    Kept { entries: kept, summary }
+    Kept { entries: kept, summary, third_party }
 }
 
 fn noise(entry: &Entry, homes: &[String], rules: &Rules) -> Option<Noise> {

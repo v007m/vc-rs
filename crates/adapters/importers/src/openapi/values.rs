@@ -1,6 +1,9 @@
 //! Values for a draft from JSON Schemas: a parameter's default, a body field's generator.
 
+use std::borrow::Cow;
+
 use indexmap::IndexMap;
+use percent_encoding::percent_decode_str;
 use serde_json::{Map, Value, json};
 
 /// How many `$ref`s in a row are followed before giving up on a schema.
@@ -29,13 +32,24 @@ const NAMES: [(&str, &str); 5] = [
 pub fn resolve<'a>(doc: &'a Value, schema: &'a Value) -> &'a Value {
     let mut current = schema;
     for _ in 0..MAX_HOPS {
-        let pointer = current.get("$ref").and_then(Value::as_str).and_then(|at| at.strip_prefix('#'));
-        match pointer.and_then(|pointer| doc.pointer(pointer)) {
+        let pointer = current.get("$ref").and_then(Value::as_str).and_then(local);
+        match pointer.and_then(|pointer| doc.pointer(&pointer)) {
             Some(next) => current = next,
             None => return current,
         }
     }
     current
+}
+
+/// The JSON pointer a local `$ref` names, [`decoded`]; none for another document's.
+pub fn local(reference: &str) -> Option<Cow<'_, str>> {
+    reference.strip_prefix('#').map(decoded)
+}
+
+/// A `$ref`'s fragment as the JSON pointer it is, percent-decoded as a URI fragment is
+/// (`/paths/~1items~1%7Bid%7D` gives `/paths/~1items~1{id}`).
+pub fn decoded(fragment: &str) -> Cow<'_, str> {
+    percent_decode_str(fragment).decode_utf8().unwrap_or(Cow::Borrowed(fragment))
 }
 
 /// The value the schema shows or defaults to: its first example, `example`, `default`,
@@ -71,7 +85,7 @@ const GENERATORS: [(&str, Generator); 5] = [
 type Generator = fn(&Value) -> Value;
 
 /// An object schema's properties and its required fields.
-type Fields = (Map<String, Value>, Vec<String>);
+pub type Fields = (Map<String, Value>, Vec<String>);
 
 /// The body a request sends for `schema`, and the vars it reads: each required field of an
 /// object is `${var.<field>}`, with the field's generated value as the var's default.
@@ -89,6 +103,18 @@ pub fn body(doc: &Value, schema: &Value) -> (Value, IndexMap<String, Value>) {
         body.insert(field, json!(format!("${{var.{var}}}")));
     }
     (body.into(), vars)
+}
+
+/// The properties and required fields `schema` gives an object, its `$ref`s followed and its
+/// `allOf` parts merged; none when it is not an object's.
+pub fn fields(doc: &Value, schema: &Value) -> Option<Fields> {
+    object(doc, shape(doc, schema))
+}
+
+/// `schema` with its `$ref`s followed and, for an `anyOf` or `oneOf`, its first alternative
+/// that is not `null`.
+pub fn shape<'a>(doc: &'a Value, schema: &'a Value) -> &'a Value {
+    alternative(doc, resolve(doc, schema))
 }
 
 /// The properties and required fields of an object schema, `allOf` parts merged.
@@ -123,12 +149,40 @@ fn alternative<'a>(doc: &'a Value, schema: &'a Value) -> &'a Value {
 }
 
 /// The schema's type, the first that is not `null` when it lists several.
-fn ty(schema: &Value) -> Option<&str> {
+pub fn ty(schema: &Value) -> Option<&str> {
     match schema.get("type") {
         Some(Value::String(ty)) => Some(ty),
         Some(Value::Array(types)) => types.iter().filter_map(Value::as_str).find(|ty| *ty != "null"),
         _ => None,
     }
+}
+
+/// The JSON types `schema` accepts, `$ref`s followed: its `type` or types, `null` among them,
+/// else those of every `anyOf` or `oneOf` alternative; none when some part accepts any type.
+pub fn types<'a>(doc: &'a Value, schema: &'a Value) -> Option<Vec<&'a str>> {
+    accepted(doc, schema, 0)
+}
+
+/// [`types`], `depth` alternatives down.
+fn accepted<'a>(doc: &'a Value, schema: &'a Value, depth: usize) -> Option<Vec<&'a str>> {
+    let schema = resolve(doc, schema);
+    match schema.get("type") {
+        Some(Value::String(ty)) => return Some(vec![ty]),
+        Some(Value::Array(types)) => return Some(types.iter().filter_map(Value::as_str).collect()),
+        _ => {}
+    }
+    let choices = ["anyOf", "oneOf"].iter().find_map(|key| schema.get(*key).and_then(Value::as_array));
+    let choices = choices.filter(|_| depth < MAX_HOPS)?;
+    let mut all = Vec::new();
+    for choice in choices {
+        all.extend(accepted(doc, choice, depth + 1)?);
+    }
+    Some(all.into_iter().fold(Vec::new(), |mut once, ty| {
+        if !once.contains(&ty) {
+            once.push(ty);
+        }
+        once
+    }))
 }
 
 fn integer(schema: &Value) -> Value {

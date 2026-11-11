@@ -137,7 +137,7 @@ impl Reader<'_> {
     }
 
     /// A path parameter becomes a var; a query parameter that is required or has a default
-    /// becomes a var and a `query` entry reading it.
+    /// becomes a var and a `query` entry reading it, and any other is listed as optional.
     fn parameter(&self, api: &mut DraftApi, param: &Parameter) {
         let schema = param.schema.as_ref().and_then(|schema| serde_json::to_value(schema).ok()).unwrap_or(Value::Null);
         let shown = param.example.clone().or_else(|| sample(super::values::resolve(self.doc, &schema)));
@@ -150,6 +150,7 @@ impl Reader<'_> {
                 api.query.insert(param.name.clone(), format!("${{var.{var}}}"));
                 api.vars.insert(var, shown.unwrap_or_else(|| generated(self.doc, &param.name, &schema)));
             }
+            ParameterIn::Query => api.optional_query.push(param.name.clone()),
             _ => {}
         }
     }

@@ -43,8 +43,11 @@ pub struct ApiSource {
     pub openapi: String,
     /// `headers` sent when fetching a protected URL.
     pub headers: IndexMap<String, Template>,
-    /// `include`: only operations with one of these tags; every operation when empty.
+    /// `include`: only operations with one of these tags or path prefixes; every operation when
+    /// empty.
     pub include: Vec<String>,
+    /// `only`: only the operations with these operation IDs; every operation when empty (D277).
+    pub only: Vec<String>,
 }
 
 /// One api: a request and the checks that always hold for it.

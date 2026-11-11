@@ -118,6 +118,7 @@ pub fn api_source(source: &Source<'_>, root: &Node) -> Option<ApiSource> {
         openapi: owned(node, "openapi")?,
         headers: templates(source, node, "headers"),
         include: texts(node, "include"),
+        only: texts(node, "only"),
     })
 }
 

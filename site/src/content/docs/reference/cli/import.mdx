@@ -24,12 +24,12 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 
 | Flag | Value | Applies to | Description |
 | --- | --- | --- | --- |
-| `--id` | `<FILE_ID>` | all | The file ID of the api file to fill, such as `users`. Derived from the spec or the host when left out |
+| `--id` | `<FILE_ID>` | all | The file ID of the api file to fill, such as `users`. Derived from the spec or the host when left out. A recording of one origin goes to this file even when another file's base URL renders to that origin. For a recording of several origins it is refused with exit 2, naming them: leave `--id` out and each origin goes to its own file |
 | `--tests` | | openapi | Also writes a happy-path test per api |
 | `--negative` | | openapi | Also writes tests that send what the schema rejects |
 | `--auth` | | openapi | Also writes a test per secured api that expects 401 without auth |
 | `--include` | `<TAG_OR_PATH>` | openapi | Only the operations with this tag or path prefix. Repeat for more |
-| `--only` | `<OPERATION_ID>` | openapi | Only the operation with this operation ID. Repeat for more |
+| `--only` | `<OPERATION_ID>` | openapi | Only the operation with this operation ID. Repeat for more. Kept in `source.only`, so `vc sync` takes the same operations |
 | `--profile` | `<IDS>` | all | The active profiles. Their vars fill `source.headers`, and a recording's hosts are matched against their base URLs |
 | `--flow` | `<TEST_ID>` | har | Also writes a test that replays the recording, as `fileId#testId` or a bare test ID |
 | `--include-host` | `<HOST>` | har | Keeps a recording's calls to this third-party host. Repeat for more |
@@ -99,15 +99,14 @@ Request bodies get a var per field, filled with generated data that fits the sch
 $ vc import openapi specs/users.yaml --tests --negative --auth
 ✓ imported specs/users.yaml
 $ vc list tests 'users.*'
-users.openapi#listsUsers  listUsers returns 200
-users.openapi#createsUser  createUser returns 201
-users.openapi#rejectsCreateUserWithoutEmail  createUser without email returns 400
-users.openapi#getsUser  getUser returns 200
-users.openapi#deletesUser  deleteUser returns 204
-users.openapi#rejectsDeleteUserWithoutAuth  deleteUser without auth returns 401
+users.openapi#listsUsers  List users
+users.openapi#createsUser  Create user
+users.openapi#rejectsInvalidCreateUser  Create user: rejects an invalid body
+users.openapi#getsUser  Get user
+users.openapi#deletesUser  Delete user
 ```
 
-The tests go to `services/users/openapi.test.yaml`. A negative test drops a required field (`vars: { email: null }`) and expects the spec's 4xx status. An auth test sends `auth: none` and expects 401.
+The tests go to `services/users/openapi.test.yaml`. A happy test expects the operation's first 2xx and checks the body against its schema in the snapshot (`$file: ../../openapi/users.yaml#/components/schemas/User`). When the path names an item, the test creates one first in `before` through the collection's `POST`, which gets a `save` named after the resource (`userId` for `POST /users`) and a `cleanup` in the api file, and the test passes the saved ID to the path's parameter (`vars: {id: ${var.userId}}`); a test that deletes that same item keeps it (`keep: true`). With no such `POST`, the test is skipped, its reason naming the var to set: set it to an existing item's ID and remove the `skip` to run the test. A negative test has an example row per broken field (missing, wrong type, outside its enum), sends `body: ${example.body}` and expects 400, or 422 when the spec lists only that. An auth test sends `auth: none` and expects 401.
 
 ### Import part of a spec
 
@@ -115,7 +114,7 @@ The tests go to `services/users/openapi.test.yaml`. A negative test drops a requ
 $ vc import openapi specs/users.yaml --id people --only getUser
 ✓ imported specs/users.yaml
 $ vc import openapi specs/users.yaml --id admin --include admin --dry-run
-Import 1 apis from specs/users.yaml
+Import 1 api from specs/users.yaml
 ...
 ```
 
@@ -187,7 +186,7 @@ A request whose host and path match an existing api is reported as `matched` and
 | Code | When |
 | --- | --- |
 | `0` | Imported, or the dry run printed |
-| `2` | The source cannot be read, the kind is unknown, or the api file exists already |
+| `2` | The source cannot be read, the kind is unknown, the api file exists already, the spec is kept in `openapi/`, where snapshots go, the snapshot path `openapi/<fileId>.yaml` is a link, names another file in a different case or is the spec another api file syncs from, or `--id` is given for a recording of several origins |
 
 ```console
 $ vc import openapi specs/users.yaml
@@ -201,7 +200,7 @@ error: unknown import kind "pdf"; known: …
 ```
 
 <Aside type="tip">
-Commit the `openapi/` snapshot with the api file. `vc sync` needs it to tell your edits apart from changes in the spec.
+Commit the `openapi/` snapshot with the api file. `vc sync` needs it to tell your edits apart from changes in the spec. Keep your own copy of the spec somewhere else, such as `specs/`: importing any spec from `openapi/` is refused, under any `--id`, because a later import or sync would replace it with a snapshot. Re-importing over a snapshot that is there shows it as a diff with `--dry-run`, and the snapshot is replaced, never written into, so a hard link there leaves the file it shared as it was.
 </Aside>
 
 ## Related
