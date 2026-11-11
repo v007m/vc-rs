@@ -52,12 +52,8 @@ struct InstanceShell {
     deadline: Option<Deadline>,
     /// Each request its actions and cleanups sent, in order.
     calls: Vec<IterationCall>,
-    /// The action that sent each of `calls`.
-    senders: Vec<ActionId>,
-    /// Where the current attempt's calls start in `calls`.
-    attempt_from: usize,
-    /// The current attempt's first failed action and which of `calls` its failure sent.
-    failing: Option<(ActionId, Range<usize>)>,
+    /// Which of `calls` the current attempt's first failure sent, once an action failed.
+    failing: Option<Range<usize>>,
     /// When the instance got its turn, which its result's duration runs from.
     started: Instant,
 }
@@ -73,8 +69,6 @@ impl InstanceShell {
             script,
             deadline: None,
             calls: Vec::new(),
-            senders: Vec::new(),
-            attempt_from: 0,
             failing: None,
             started: Instant::now(),
         };
@@ -101,7 +95,6 @@ impl InstanceShell {
     /// Starts the attempt's clock: each attempt gets the test's whole `timeout`, and only its
     /// own calls can be blamed for its failure.
     fn start_attempt(&mut self) {
-        self.attempt_from = self.calls.len();
         self.failing = None;
         let test = self.crew.cx.program.tests.get(&self.ticket.launch.instance.test);
         self.deadline = test.and_then(|test| test.timeout).map(|timeout| Deadline::attempt(timeout.get()));
@@ -161,7 +154,7 @@ impl InstanceShell {
         let cancelled = self.ticket.cancel.is_cancelled().then_some(InstanceInput::Cancelled);
         let result = match ran {
             Ran::Done(report) => {
-                self.note_failing(action, &report);
+                self.note_failing(&report);
                 self.record(action, &report);
                 self.frame.absorb(&self.crew.cx.program, action, &report);
                 InstanceInput::ActionDone(report)
@@ -193,13 +186,12 @@ impl InstanceShell {
             elapsed: exchange.timing.total,
         });
         self.calls.extend(calls);
-        self.senders.resize(self.calls.len(), action);
     }
 
-    /// Keeps which calls `action` failed on, if it is the attempt's first action to fail.
-    fn note_failing(&mut self, action: ActionId, report: &ActionReport) {
+    /// Keeps which calls a failed `report` sent, if it is the attempt's first to fail.
+    fn note_failing(&mut self, report: &ActionReport) {
         if self.failing.is_none() && report.outcome.failure().is_some() {
-            self.failing = Some((action, report.failing_after(self.calls.len())));
+            self.failing = Some(report.failing_after(self.calls.len()));
         }
     }
 
@@ -208,26 +200,14 @@ impl InstanceShell {
         self.crew.cx.action(action).and_then(|found| called(&self.crew.cx.program, found)).map(|api| api.id)
     }
 
-    /// `failure` with the api its action calls and the status of the call it failed on in this
-    /// attempt, if it got one.
+    /// `failure` with the api its action calls and the status of the last call it sent. The
+    /// verdict's failure is the last attempt's first, so that is the call `failing` notes, also
+    /// for a step of a `test:` reuse, whose calls are recorded under the reusing action. A failure
+    /// an earlier attempt left, when the last was cut short, gets no status.
     fn blame(&self, failure: Failure) -> IterationFailure {
         let Failure { action, code, message } = failure;
-        let span = action.and_then(|action| self.failed_on(action));
-        let status = span.and_then(|span| self.calls.get(span)?.last()).and_then(|call| call.status);
+        let status = self.failing.clone().and_then(|span| self.calls.get(span)?.last()).and_then(|call| call.status);
         IterationFailure { api: action.and_then(|action| self.api(action)), status, code, message }
-    }
-
-    /// This attempt's calls that `action`'s failure came from: the attempt's first failed
-    /// action's when that is `action`, else `action`'s last call, else, for a step of a `test:`
-    /// reuse, whose calls are recorded under the reusing action, the first failed action's.
-    fn failed_on(&self, action: ActionId) -> Option<Range<usize>> {
-        let failing = self.failing.as_ref();
-        if let Some((_, span)) = failing.filter(|(failed, _)| *failed == action) {
-            return Some(span.clone());
-        }
-        let mine = self.senders.get(self.attempt_from..)?.iter().rposition(|&sender| sender == action);
-        let at = mine.map(|at| self.attempt_from + at);
-        at.map(|at| at..at + 1).or_else(|| failing.map(|(_, span)| span.clone()))
     }
 
     /// Waits out the retry delay, unless the frame is cancelled or aborted first.

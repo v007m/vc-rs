@@ -212,3 +212,17 @@ async fn a_failed_step_of_a_reused_test_is_blamed_with_its_status() {
     let failure = report.failure.unwrap_or_default();
     assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(500), Some(Code::V5101.to_string())));
 }
+
+#[tokio::test]
+async fn a_failed_after_action_does_not_take_the_blame_from_the_body_s_failure() {
+    let mut fixture = Fixture::new();
+    let (fail, missing) = (fixture.call("/fail"), fixture.call("/missing"));
+    let api = fixture.api_mut(fail).id;
+    let test = fixture.test(vec![fail], None);
+    fixture.test_mut(test).after = vec![missing];
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!(statuses(&report), [Some(500), Some(404)], "the body's call and the after's");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(500), Some(Code::V5101.to_string())));
+}
