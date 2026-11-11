@@ -172,7 +172,8 @@ async fn a_failing_api_breaches_the_error_rate_and_is_counted_by_kind() {
 #[tokio::test(start_paused = true)]
 async fn a_breach_s_json_actual_is_the_measured_value_not_rounded() {
     let every_third = FakeTransport::new(|_: &RenderedRequest, call| Ok(status(if call % 3 == 0 { 500 } else { 200 })));
-    let file = scenario("listsUsers", "{duration: 3s, users: 3}").replace("lt: 0.5", "lt: 0.01");
+    let file =
+        String::from_utf8_lossy(&scenario("listsUsers", "{duration: 3s, users: 3}")).replace("lt: 0.5", "lt: 0.01");
     let (engine, _seen) = engine_over(CONFIG, file.as_bytes(), every_third);
     let (_interrupter, interrupts) = interrupts();
     let report = load(&engine, interrupts, None).await;
@@ -311,10 +312,10 @@ async fn ctrl_c_stops_the_users_and_exits_130() {
 
 #[tokio::test(start_paused = true)]
 async fn ctrl_c_counts_no_kind_for_an_iteration_it_drops() {
-    let (engine, _) = engine(CONFIG, &scenario("breaksUsers", "{duration: 1m, users: 2}"));
+    let (engine, _) = engine(CONFIG, &scenario("breaksUsers", "{duration: 10s, users: 10}"));
     let (interrupter, interrupts) = interrupts();
     let press = async {
-        tokio::time::sleep(Duration::from_millis(2500)).await;
+        tokio::time::sleep(Duration::from_millis(3500)).await;
         interrupter.interrupt();
     };
     let (report, ()) = tokio::join!(load(&engine, interrupts, None), press);

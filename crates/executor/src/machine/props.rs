@@ -245,8 +245,8 @@ fn instance_input() -> impl Strategy<Value = InstanceInput> {
 fn file_input() -> impl Strategy<Value = FileInput> {
     prop_oneof![
         Just(FileInput::Start(super::FailedActions::new())),
-        Just(FileInput::ActionDone(ActionReport::passed())),
-        Just(FileInput::ActionDone(sim::passing_with(&[100]))),
+        Just(FileInput::ActionDone(Box::new(ActionReport::passed()))),
+        Just(FileInput::ActionDone(Box::new(sim::passing_with(&[100])))),
         Just(FileInput::ActionCut(Vec::new())),
         Just(FileInput::ActionCut(vec![PendingCleanup::new(sim::act(101))])),
         Just(FileInput::CleanupDone),
