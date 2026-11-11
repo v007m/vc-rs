@@ -175,7 +175,8 @@ impl<'a> Build<'_, 'a> {
         }
         let (name, tags, vars, skip) =
             (read::owned(root, "name"), read::tags(root), self.vars(source, root)?, read::skip(root));
-        self.builder.test_file(TestFile { id: file, name, tags, vars, skip, lifecycle, tests });
+        let allow_failure = read::allow_failure(root);
+        self.builder.test_file(TestFile { id: file, name, tags, vars, skip, allow_failure, lifecycle, tests });
         Ok(())
     }
 
@@ -203,6 +204,7 @@ impl<'a> Build<'_, 'a> {
             retry: read::retry(source, node),
             timeout: read::duration(source, node, "timeout"),
             skip: read::skip(node),
+            allow_failure: read::allow_failure(node),
             standalone: read::flag(shapes::test(), node, "standalone"),
             span: node.span,
         }))

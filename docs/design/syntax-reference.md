@@ -488,6 +488,7 @@ File-level keys of a test file:
 | `beforeEach`, `afterEach` | lists of actions | Run around every test instance in the file |
 | `tests` | list | The tests |
 | `skip` | a reason, or reason and until | Skip every test in the file (see Skipping) |
+| `allowFailure` | `true`, or reason and until | Every test in the file may fail without failing the run (see Allowing a failure) |
 
 Each item in `tests`:
 
@@ -511,6 +512,7 @@ Each item in `tests`:
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
 | `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
+| `allowFailure` | `true`, or reason and until | the file's | Run and report the test, but a failure does not fail the run (see Allowing a failure) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
 
 With `steps`, the test-level `auth`, `headers`, `query`, `body`, `poll` and `expect` are defaults for every `call` step, and a step's own value wins; `test:`, `function` and `command` steps take none (D124). A `test:` step runs the reused test as written, so neither the defaults nor those keys written on the step itself reach its calls (D270). A test-level `save` reads the last step's response. `vc check` warns when a `body` default reaches a `GET` or `HEAD` step (V3205), when no step uses a default (V3206), and when a `test:` action has one of those keys (V3207).
@@ -625,6 +627,20 @@ Notes on the example: `users#create` saves `userId` and declares its own cleanup
     skip:
       reason: "coupon service flaky on staging, see #212"
       until: 2026-11-15
+```
+
+### Allowing a failure
+
+`allowFailure` keeps a known failure from failing the run while it is still worth running, like GitLab CI's `allow_failure`. It is `true`, or a map with the same shape as `skip`: a required `reason` and an optional `until` date (`YYYY-MM-DD`, UTC). Written at the top of a file it covers every test in the file; a test's own `allowFailure` wins over the file's. The test still runs and is reported. When it fails (after its `retry`), it ends as **allowed to fail** (`allowedFailure`, shown as ⚠ with the reason), is counted apart in the summary (`1 allowed to fail`), in CTRF (`other`) and in JUnit (a skipped case whose message gives the reason and the failure), and does not change the exit code. A test that passes, or is blocked by a setup, is reported as usual. After `until`, the setting is ignored, so a failure fails the run again, and `vc check` warns that it expired (V4008); an expired test-level setting falls back to the file's. `vc run --strict` treats every allowed failure as a failure (D248).
+
+```yaml
+allowFailure: {reason: "payments sandbox is down, see #340", until: 2026-12-01}
+tests:
+  - id: refundsOrder
+    call: payments#refund
+  - id: listsRefunds
+    call: payments#list
+    allowFailure: true
 ```
 
 ## Lifecycle blocks

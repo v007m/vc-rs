@@ -93,6 +93,21 @@ pub struct Skip {
     pub until: Option<String>,
 }
 
+/// `allowFailure` on a file or test: it still runs, and a failure is reported as allowed and does not
+/// fail the run (D248).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "vc-model data type, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct AllowFailure {
+    /// The reason shown in reports; none for `allowFailure: true`.
+    pub reason: Option<String>,
+    /// The last day a failure is allowed, as written (`2026-12-01`); after it a failure fails the
+    /// run again and a lint warns (V4008).
+    pub until: Option<String>,
+}
+
 /// `retry` on a test (re-run the whole instance), in `defaults` (every test that writes none) or on
 /// an action (re-run the action).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -1,8 +1,8 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ActionId, FileId, TestId};
+use crate::{ActionId, AllowFailure, FileId, TestId};
 
 /// A test instance, as its position in the plan: one test, example row and repeat (D103).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -126,6 +126,9 @@ pub struct Plan {
     pub after_run: Vec<ActionId>,
     /// Selected tests that are skipped.
     pub skipped: Vec<SkippedTest>,
+    /// The planned tests whose failure is allowed in this run, with their `allowFailure`: not
+    /// past `until`, and not under `--strict` (D248).
+    pub allowed_failures: BTreeMap<TestId, AllowFailure>,
 }
 
 impl Plan {

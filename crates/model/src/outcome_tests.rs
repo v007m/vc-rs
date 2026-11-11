@@ -14,20 +14,26 @@ fn failures_carry_code_and_action() {
 #[test]
 fn totals_count_each_status_in_its_own_field() {
     let mut totals = Totals::default();
-    let statuses =
-        [TestStatus::Passed, TestStatus::Failed, TestStatus::Blocked, TestStatus::Flaky, TestStatus::Skipped];
+    let statuses = [
+        TestStatus::Passed,
+        TestStatus::Failed,
+        TestStatus::Blocked,
+        TestStatus::Flaky,
+        TestStatus::Skipped,
+        TestStatus::AllowedFailure,
+    ];
     for (n, status) in statuses.into_iter().enumerate() {
         for _ in 0..=n {
             totals.add(status);
         }
     }
-    assert_eq!(totals, Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5 });
-    assert_eq!((totals.total(), totals.failures()), (15, 5));
+    assert_eq!(totals, Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5, allowed: 6 });
+    assert_eq!((totals.total(), totals.failures()), (21, 5), "an allowed failure does not fail the run (D248)");
 }
 
 #[test]
 fn merged_totals_add_field_by_field() {
-    let mut totals = Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5 };
-    totals.merge(Totals { passed: 10, failed: 20, blocked: 30, flaky: 40, skipped: 50 });
-    assert_eq!(totals, Totals { passed: 11, failed: 22, blocked: 33, flaky: 44, skipped: 55 });
+    let mut totals = Totals { passed: 1, failed: 2, blocked: 3, flaky: 4, skipped: 5, allowed: 6 };
+    totals.merge(Totals { passed: 10, failed: 20, blocked: 30, flaky: 40, skipped: 50, allowed: 60 });
+    assert_eq!(totals, Totals { passed: 11, failed: 22, blocked: 33, flaky: 44, skipped: 55, allowed: 66 });
 }

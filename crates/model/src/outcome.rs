@@ -93,6 +93,8 @@ pub enum TestStatus {
     Flaky,
     /// Not run: `skip`, or the run was cancelled first.
     Skipped,
+    /// Failed under `allowFailure`: reported, and does not fail the run (D248).
+    AllowedFailure,
 }
 
 /// How a whole run ended.
@@ -129,7 +131,7 @@ pub struct TestResult {
     /// The failure that decided a failed or blocked status, or the failed attempt before a
     /// flaky pass.
     pub failure: Option<Failure>,
-    /// Why it was skipped.
+    /// Why it was skipped, or for an allowed failure, the `allowFailure` reason (D248).
     pub skip_reason: Option<String>,
     /// How long the instance ran, by the executor's clock, from when it got its turn to its
     /// verdict, across its retries; zero for a test that never ran.
@@ -169,6 +171,9 @@ pub struct Totals {
     pub flaky: usize,
     /// Skipped.
     pub skipped: usize,
+    /// Failed under `allowFailure`: they do not fail the run (D248).
+    #[serde(default)]
+    pub allowed: usize,
 }
 
 impl Totals {
@@ -180,6 +185,7 @@ impl Totals {
             TestStatus::Blocked => self.blocked += 1,
             TestStatus::Flaky => self.flaky += 1,
             TestStatus::Skipped => self.skipped += 1,
+            TestStatus::AllowedFailure => self.allowed += 1,
         }
     }
 
@@ -190,12 +196,13 @@ impl Totals {
         self.blocked += other.blocked;
         self.flaky += other.flaky;
         self.skipped += other.skipped;
+        self.allowed += other.allowed;
     }
 
     /// Every instance and skipped test counted.
     #[must_use]
     pub const fn total(&self) -> usize {
-        self.passed + self.failed + self.blocked + self.flaky + self.skipped
+        self.passed + self.failed + self.blocked + self.flaky + self.skipped + self.allowed
     }
 
     /// Failed plus blocked: what makes a run fail.
