@@ -127,7 +127,7 @@ The name is written from the ID. When the api comes from an OpenAPI spec, the te
 
 ### Path vars
 
-When the api's path holds a var that the config does not set, the new test sets it, so the file passes `vc check`. It gets the api's own value when the api has one (an api imported from an OpenAPI spec carries the spec's sample), or else `replace-me`. Either way a `# replace` comment marks the line:
+When the api's path holds a var that the config does not set, the new test sets it, so the file passes `vc check`. It gets the api's own value when the api has one, with its type: `7`, `false` and a uuid stay as the api writes them. An api imported from an OpenAPI spec has a value for each path parameter, taken from the schema's type and format (an integer generator, a uuid generator, `true`). A var with no value anywhere gets `replace-me`. Either way a `# replace` comment marks the line:
 
 ```console
 $ vc new test billing.invoices#getsInvoice --from billing#getInvoice

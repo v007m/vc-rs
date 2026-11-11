@@ -16,6 +16,7 @@ mod fix;
 mod fmt;
 mod init;
 mod new;
+mod new_vars;
 mod rename;
 mod skip;
 mod watch;
