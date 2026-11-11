@@ -9,7 +9,7 @@ import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 Does one of two things, depending on what you give it:
 
 - a **diagnostic code** such as `V2003`: prints what it means, with a wrong and a right example
-- a **test or api ID**: prints the request it would send under the active profile, where each var came from, and the checks that apply
+- a **test or api ID**: prints the request it would send under the active profile, where each var, header and auth came from, the values its checks expect, and the lifecycle actions around it
 
 ```console
 $ vc explain [OPTIONS] <TARGET>
@@ -61,17 +61,24 @@ Codes work outside a project. Write them in upper case: `vc explain v2003` looks
 $ vc explain sample.basics#getsCreatedUser
 sample.basics#getsCreatedUser  Returns the user that was just created
 profile  default
+beforeAll  command
+before  call sample#createUser (cleanup sample#deleteUser)
 call sample#getUser
   GET http://localhost:7421/users/${var.userId}
   vars
     sampleUrl  http://localhost:7421  (vibranium.config.yaml)
+    userId  ${response.body.id}  (saved by call sample#createUser)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
     status: 200  (test sample.basics#getsCreatedUser)
-    match id: equals  (test sample.basics#getsCreatedUser)
-    timing total: lt  (test sample.basics#getsCreatedUser)
+    match id: ${var.userId}  (test sample.basics#getsCreatedUser)
+    timing total: lt 500ms  (test sample.basics#getsCreatedUser)
+afterAll  command
 ```
 
-Each var and check shows, in brackets, where it was set. `${var.userId}` stays as written here, because a `before` step sets it at run time.
+The lifecycle blocks a run of the test triggers come before and after its steps, in the order they run: `beforeRun`, `beforeAll`, `beforeEach` and `before`, then `after`, `afterEach`, `afterAll` and `afterRun`, each with the cleanup its call registers. Each var, header and check shows, in brackets, where it was set; a header set at several levels shows once, from the closest. `auth` shows the auth in effect and the level that chose it, when one does. A value an earlier call saves is shown as written, with `saved by`, and `${var.userId}` stays as written in the URL and the checks, because the run fills it in. A known var is shown through its pipes: `/users/${var.userId | urlEncode}` with `userId` set to `a b` shows `/users/a%20b`. A `cel` check shows its expression.
 
 ### An api, with a var set on the command line
 
@@ -83,8 +90,14 @@ profile  default
   vars
     sampleUrl  http://localhost:7421  (vibranium.config.yaml)
     userId  7  (--set)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
+    status: 2xx  (default)
 ```
+
+An api that checks no status is judged by `status: 2xx`, as a run would judge it.
 
 ### An api with generated data and a cleanup
 
@@ -97,6 +110,9 @@ profile  default
     sampleUrl  http://localhost:7421  (vibranium.config.yaml)
     name  ${fake.person.fullName}  (api sample#createUser)
     email  ${fake.internet.email}  (api sample#createUser)
+  headers
+    accept  application/json  (vibranium.config.yaml)
+    user-agent  vibranium/2  (vibranium.config.yaml)
   expect
     status: 201  (api sample#createUser)
   cleanup  sample#deleteUser

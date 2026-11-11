@@ -1,13 +1,21 @@
 //! `vc explain <id>`: a test or api as a run under the active profiles sees it (D88): the final
-//! URL, each var with the level that set it, the merged expect and the cleanup it registers.
+//! URL, each var with the level that set it, the headers and auth, the merged expect with the
+//! values it checks, the cleanup it registers and, for a test, the lifecycle around it.
+
+#[path = "explain_call.rs"]
+mod call;
+#[path = "explain_steps.rs"]
+mod steps;
 
 use std::fmt::Write as _;
 
 use vc_interfaces::ConfigEntry;
-use vc_model::{Action, ActionId, ActionKind, Api, Expect, ProfileId, Program, Sym, Test, TestBody, VarDefs};
+use vc_model::{Action, ActionId, ActionKind, Api, ProfileId, Program, Sym, VarDefs};
+
+use self::call::Called;
 
 use crate::plan::{self, profile_flag};
-use crate::shown::{self, Shown, Var};
+use crate::shown::{self, Var};
 use crate::{Engine, EngineError, ExplainRequest};
 
 /// The config file, as the level its vars come from.
@@ -63,7 +71,7 @@ impl Explainer<'_> {
         let mut out = self.header(id, api.name.as_deref());
         let mut vars = self.config_vars();
         self.api_vars(api, &mut vars);
-        out.push_str(&self.request(api, &vars, &api.expect));
+        out.push_str(&self.request(&Called { api, action: None }, &vars));
         Ok(out)
     }
 
@@ -79,51 +87,6 @@ impl Explainer<'_> {
         out
     }
 
-    /// Each request the test's body makes, with the vars in force at it.
-    fn test(&self, test: &Test) -> String {
-        let mut out = self.header(&self.text(test.id.sym()), test.name.as_deref());
-        let body = match &test.body {
-            TestBody::Call(action) => std::slice::from_ref(action),
-            TestBody::Steps(actions) => actions.as_slice(),
-        };
-        for (id, action) in body.iter().filter_map(|id| Some((*id, self.action(*id)?))) {
-            let _ = writeln!(out, "{}", vc_planner::action_label(self.program, id));
-            let ActionKind::Call(api) = &action.kind else { continue };
-            let Some(api) = self.program.apis.get(api) else { continue };
-            let mut vars = self.config_vars();
-            self.api_vars(api, &mut vars);
-            let file = self.program.test_files.get(&test.file);
-            if let Some(file) = file {
-                self.level(&mut vars, &file.vars, &format!("file {}", self.text(file.id.sym())));
-            }
-            self.level(&mut vars, &test.vars, "test");
-            self.level(&mut vars, &action.vars, "call");
-            out.push_str(&self.request(api, &vars, &action.expect));
-        }
-        out
-    }
-
-    /// The method and URL, the vars, the checks and the cleanup of a call to `api`.
-    fn request(&self, api: &Api, vars: &[Var], expect: &Expect) -> String {
-        let mut out = String::new();
-        let shown = Shown { program: self.program, vars };
-        let base = self.program.api_groups.get(&api.group).and_then(|group| group.base_url.as_ref());
-        let base = base.map(|base| shown.template(base)).unwrap_or_default();
-        let _ = writeln!(out, "  {} {base}{}", method(api), shown.template(&api.path));
-        let _ = writeln!(out, "  vars");
-        for var in vars {
-            let _ = writeln!(out, "    {}  {}  ({})", var.name, shown.value(&var.value), var.origin);
-        }
-        let _ = writeln!(out, "  expect");
-        for line in vc_planner::check_lines(self.program, expect) {
-            let _ = writeln!(out, "    {line}");
-        }
-        if let Some(cleanup) = api.cleanup {
-            let _ = writeln!(out, "  cleanup  {}", self.cleanup(cleanup));
-        }
-        out
-    }
-
     /// The config's vars, each active profile's over them, then the settings' (D129).
     pub(crate) fn config_vars(&self) -> Vec<Var> {
         let mut vars = Vec::new();
@@ -133,13 +96,18 @@ impl Explainer<'_> {
             for (name, value) in &profile.vars {
                 shown::set(
                     &mut vars,
-                    Var { name: self.text(name.sym()), value: value.clone(), origin: origin.clone() },
+                    Var { name: self.text(name.sym()), value: value.clone(), origin: origin.clone(), saved: false },
                 );
             }
         }
         for entry in self.entries {
             let Some(name) = entry.key.strip_prefix(VARS).filter(|name| !name.is_empty()) else { continue };
-            let var = Var { name: name.to_owned(), value: shown::literal(&entry.value), origin: entry.origin.clone() };
+            let var = Var {
+                name: name.to_owned(),
+                value: shown::literal(&entry.value),
+                origin: entry.origin.clone(),
+                saved: false,
+            };
             shown::set(&mut vars, var);
         }
         vars
@@ -159,7 +127,9 @@ impl Explainer<'_> {
         let profiles = profiles.map(|(id, values)| (format!("{origin}, profile {}", self.text(id.sym())), values));
         for (origin, values) in std::iter::once((origin.to_owned(), &defs.values)).chain(profiles) {
             for (name, value) in values {
-                shown::set(vars, Var { name: self.text(name.sym()), value: value.clone(), origin: origin.clone() });
+                let var =
+                    Var { name: self.text(name.sym()), value: value.clone(), origin: origin.clone(), saved: false };
+                shown::set(vars, var);
             }
         }
     }
@@ -179,11 +149,6 @@ impl Explainer<'_> {
     fn text(&self, sym: Sym) -> String {
         self.program.str(sym).unwrap_or_default().to_owned()
     }
-}
-
-/// `GET`, `POST`…
-fn method(api: &Api) -> String {
-    format!("{:?}", api.method).to_uppercase()
 }
 
 /// No test or api has the ID `id`; the closest ones are the help.
