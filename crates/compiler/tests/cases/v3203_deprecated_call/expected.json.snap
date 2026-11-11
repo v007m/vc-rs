@@ -5,7 +5,7 @@ input_file: crates/compiler/tests/cases/v3203_deprecated_call/project
 {
   "summary": {
     "errors": 0,
-    "warnings": 1,
+    "warnings": 2,
     "infos": 0
   },
   "diagnostics": [
@@ -30,6 +30,38 @@ input_file: crates/compiler/tests/cases/v3203_deprecated_call/project
             "line": 14,
             "column": 5,
             "endLine": 14,
+            "endColumn": 15
+          },
+          "text": "marked deprecated here"
+        }
+      ],
+      "notes": [],
+      "help": [
+        "call the api that replaces it, or remove the call"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V3203",
+      "severity": "warning",
+      "message": "this api is deprecated",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 5,
+          "column": 11,
+          "endLine": 5,
+          "endColumn": 29
+        },
+        "text": "deprecated api"
+      },
+      "secondary": [
+        {
+          "span": {
+            "path": "services/users/users.api.yaml",
+            "line": 18,
+            "column": 5,
+            "endLine": 18,
             "endColumn": 15
           },
           "text": "marked deprecated here"

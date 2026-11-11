@@ -54,6 +54,17 @@ A test that fails every attempt shows each attempt's errors and fails:
      |               ^^^ expected [200], got 503
 ```
 
+`--set`, `VIB_DEFAULTS_RETRY_ATTEMPTS` and `VIB_DEFAULTS_RETRY_DELAY` set either field for one run, over the file's. `vc config explain defaults.retry` shows both and where each came from:
+
+```console
+$ vc config explain defaults.retry --set defaults.retry.attempts=3
+defaults.retry.attempts = 3  (--set)
+  over 1  (vibranium.config.yaml)
+  over 0  (built-in)
+defaults.retry.delay = 100ms  (vibranium.config.yaml)
+  over 0s  (built-in)
+```
+
 A test opts out with its own `retry`:
 
 ```yaml title="services/slow/tr.test.yaml"
@@ -97,7 +108,8 @@ profiles:
 
 - It re-runs the whole test instance: setup, the call, checks and cleanup.
 - Each attempt generates fresh `${fake.*}` data.
-- A test's own [`retry`](/vc-rs/reference/syntax/retry/) replaces it.
+- A test's own [`retry`](/vc-rs/reference/syntax/retry/) replaces it, even when `--set` sets `defaults.retry`.
+- `--set defaults.retry.attempts=1` on a project with no `defaults.retry` retries with no delay.
 - It is not the same as [`http.retry`](/vc-rs/reference/config/http-retry/), which re-sends one request after a network error or a 502/503/504, before any check runs.
 
 <Aside>Retries hide real failures. Prefer fixing a flaky test over raising `attempts`.</Aside>

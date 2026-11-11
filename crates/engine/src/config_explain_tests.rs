@@ -58,6 +58,21 @@ async fn each_setting_reads_the_config() {
 }
 
 #[tokio::test]
+async fn the_retry_group_explains_each_of_its_settings() {
+    let config: (&str, &[u8]) = (
+        "vibranium.config.yaml",
+        b"syntaxVersion: 2\ndefaults: {retry: {attempts: 1}}\nprofiles:\n  - id: dev\n    default: true\n",
+    );
+    let retrying = builder(FakeVcs::default()).sources(Arc::new(MemorySources::new(&[config]))).build().unwrap();
+    let request = ExplainRequest { sets: vec!["defaults.retry.delay=50ms".into()], ..ExplainRequest::default() };
+    let expected = "defaults.retry.attempts = 1  (vibranium.config.yaml)\n  over 0  (built-in)\n\
+                    defaults.retry.delay = 50ms  (--set)\n  over 0s  (vibranium.config.yaml)\n  over 0s  (built-in)\n";
+    assert_eq!(explained(&retrying, "defaults.retry", &request).await, expected);
+    let bare = explained(&engine(FakeVcs::default()), "defaults.retry.attempts", &ExplainRequest::default()).await;
+    assert_eq!(bare, "defaults.retry.attempts = 0  (built-in)\n");
+}
+
+#[tokio::test]
 async fn a_var_shows_the_level_of_each_value() {
     let engine = project(&[("VIB_VAR_baseUrl", "http://env")]);
     let expected = "vars.baseUrl = http://env  (VIB_VAR_baseUrl)\n  over http://dev  (profile dev)\n  over http://x  (vibranium.config.yaml)\n";

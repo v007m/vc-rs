@@ -108,12 +108,16 @@ Exit code 4 means a spec has moved on since the last sync, or a conflict is stil
 | Code | When |
 | --- | --- |
 | `0` | Synced. A plain `vc sync` also exits 0 when it leaves a conflict; it says `1 conflict left` |
-| `2` | No such api file or api, the spec cannot be read, the spec is kept in `openapi/`, where snapshots go, or the snapshot path `openapi/<fileId>.yaml` is a link, names another file in a different case or is the spec another api file syncs from |
+| `2` | No such api file or api, a path where a file ID goes, the spec cannot be read, the spec is kept in `openapi/`, where snapshots go, or the snapshot path `openapi/<fileId>.yaml` is a link, names another file in a different case or is the spec another api file syncs from |
 | `4` | `--check` only: a spec changed since its snapshot, or a conflict is left |
 
 ```console
 $ vc sync services/users/users.api.yaml
-error: there is no api file `services/users/users.api.yaml`
+error: `services/users/users.api.yaml` is a path; `vc sync` names an api file by its file ID
+  = help: did you mean `vc sync users`?
+$ vc sync nosuch
+error: there is no api file `nosuch`
+  = help: `vc list files` lists them
 $ vc sync users --resolved users#nope
 error: there is no api `users#nope`
   = help: `vc list apis` lists them

@@ -112,7 +112,7 @@ alerts:
 - Alerts go out after the reports are written, so a message can name the report file.
 - A channel that cannot be built or reached adds a `V5117` warning. The run's result and exit code stay the same. The warning never holds the channel's URL path or key.
 - A message lists at most ten failures, each cut to 200 characters, and counts the rest.
-- `vc check` warns about an unknown channel name. It does not check channel settings; a missing `webhook` or a bad `severity` shows up when the run ends.
+- `vc check` warns about an unknown channel name, and about settings the channel refuses, such as a missing `webhook` or a `severity` PagerDuty does not know. A setting written as a `${…}` template is checked when the run ends.
 
 <Aside type="caution" title="No email channel">
 `email` is not a channel. `vc check` warns, and the run sends nothing to it:
@@ -131,7 +131,7 @@ warning[V5117]: no alert channel `email`; a run cannot send to it
 
 | Code | When |
 | --- | --- |
-| [V5117](/vc-rs/reference/diagnostics/v5117/) | An unknown channel (at check time), or a channel that could not be built or sent to (after the run) |
+| [V5117](/vc-rs/reference/diagnostics/v5117/) | An unknown channel or settings the channel refuses (at check time), or a channel that could not be built or sent to (after the run) |
 | [V2106](/vc-rs/reference/diagnostics/v2106/) | `${secret.X}` names a secret `.env.schema` does not declare |
 | [V2107](/vc-rs/reference/diagnostics/v2107/) | `${env.X}` reads a name `.env.schema` declares as a secret. Use `${secret.X}` |
 

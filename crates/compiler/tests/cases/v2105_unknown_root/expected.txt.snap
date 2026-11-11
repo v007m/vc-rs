@@ -1,0 +1,21 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2105_unknown_root/project
+---
+error[V2105]: `fecth` is not a root or a step id
+ --> services/users/crud.test.yaml:7:21
+  |
+7 |         vars: {id: "${fecth.body.id}", note: "${nowhere.status}"}
+  |                     ^^^^^^^^^^^^^^^^ unknown root
+  = note: ran earlier here: fetch
+  = help: start it with a root (var, env, secret, response, request, example, item, iteration, fake, dataset, run) or the id of an action that ran earlier in the same test or block
+  = help: did you mean `fetch`?
+  = fix: Replace with fetch (certain)
+
+error[V2105]: `nowhere` is not a root or a step id
+ --> services/users/crud.test.yaml:7:47
+  |
+7 |         vars: {id: "${fecth.body.id}", note: "${nowhere.status}"}
+  |                                               ^^^^^^^^^^^^^^^^^ unknown root
+  = note: ran earlier here: fetch
+  = help: start it with a root (var, env, secret, response, request, example, item, iteration, fake, dataset, run) or the id of an action that ran earlier in the same test or block

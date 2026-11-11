@@ -68,6 +68,8 @@ warning: V5117: the `pagerduty` alert channel needs `routingKey`
 warning: V5117: the `pagerduty` alert channel `severity` is one of critical, error, warning, info
 ```
 
+`vc check` reports these too, at the channel's key, when the settings hold no `${…}` template; a templated setting is checked when the run ends.
+
 ## Try it
 
 <Playground client:visible kind="config" code={`syntaxVersion: 2

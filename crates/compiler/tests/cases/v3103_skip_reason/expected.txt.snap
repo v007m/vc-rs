@@ -7,11 +7,18 @@ error[V3103]: `skip` needs a reason
   |
 1 | skip: {reason: ' '}
   |                ^^^ no reason given
-  = help: say why, for the report: `skip: flaky upstream, see #123`
+  = help: say why, for the report: `skip: flaky upstream, see issue 123`
 
 error[V3103]: `skip` needs a reason
  --> services/users/crud.test.yaml:5:11
   |
 5 |     skip: ''
   |           ^^ no reason given
-  = help: say why, for the report: `skip: flaky upstream, see #123`
+  = help: say why, for the report: `skip: flaky upstream, see issue 123`
+
+error[V3103]: `skip` needs a reason
+  --> services/users/crud.test.yaml:11:11
+   |
+11 |     skip: true
+   |           ^^^^ `true` is not a reason
+   = help: `skip` takes the reason itself, not `true`: `skip: flaky upstream, see issue 123`; to run the test, delete `skip`

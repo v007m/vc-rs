@@ -31,7 +31,7 @@ shop/
   schemas/  datasets/  hooks/  openapi/  load/   empty, ready to use
 ```
 
-The sample calls a small demo service built into Vibranium (`vc demo`: a users endpoint and an echo endpoint on `localhost:7421`), which the sample file starts and stops itself. The sample works offline and never depends on a third-party site. Delete `services/sample/` when you have your own apis, or skip it with `vc init --no-sample`.
+The sample calls a small demo service built into Vibranium (`vc demo`: a users endpoint and an echo endpoint on `localhost:7421`), which the sample file starts and stops itself. The sample works offline and never depends on a third-party site. Delete `services/sample/` when you have your own apis, or skip it with `vc init --no-sample`, whose config then has no `sampleUrl` var. Every file `vc init` writes is already in the house style, so `vc fmt` on a fresh project changes nothing.
 
 ### The documentation header
 
@@ -95,7 +95,10 @@ secrets:
 
 reports:
   dir: .vibranium/reports
-  formats: [ctrf, junit, html]
+  formats:
+    - ctrf
+    - junit
+    - html
 
 history:
   bodies: failures         # store request/response bodies for failures only
@@ -103,7 +106,7 @@ history:
   keep: 50                 # runs kept after each run, or `all`
 ```
 
-Any value here can be set from several places. Layers apply lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line, so `vc run --set defaults.timeout=60s` wins over everything else for one run. A setting's `VIB_*` variable is its `--set` key upper-snaked (`VIB_DEFAULTS_PER_HOST=4`, `VIB_REPORTS_DIR=out`), and a var's is `VIB_VAR_<name>` with the name as written (`VIB_VAR_userId=7`, D182). The user config is `$XDG_CONFIG_HOME/vibranium/config.yaml` (else `~/.config/…`, or `%APPDATA%` on Windows); its `profile`, `defaults`, `reports` and `vars` count only where the project's config is silent. `vc config explain <key>` shows the value and the layer that set it (D129); a secret's value is shown as `••••` (D232).
+Any value here can be set from several places. Layers apply lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line, so `vc run --set defaults.timeout=60s` wins over everything else for one run. A setting's `VIB_*` variable is its `--set` key upper-snaked (`VIB_DEFAULTS_PER_HOST=4`, `VIB_DEFAULTS_RETRY_ATTEMPTS=1`, `VIB_REPORTS_DIR=out`), and a var's is `VIB_VAR_<name>` with the name as written (`VIB_VAR_userId=7`, D182). The user config is `$XDG_CONFIG_HOME/vibranium/config.yaml` (else `~/.config/…`, or `%APPDATA%` on Windows); its `profile`, `defaults`, `reports` and `vars` count only where the project's config is silent. `vc config explain <key>` shows the value and the layer that set it (D129); a secret's value is shown as `••••` (D232).
 
 ### `services/sample/sample.api.yaml`
 
@@ -159,7 +162,9 @@ apis:
     method: DELETE
     path: /users/${var.userId}
     expect:
-      status: [204, 404]               # already gone is fine for a cleanup
+      status:                          # already gone is fine for a cleanup
+        - 204
+        - 404
 ```
 
 ### `services/sample/basics.test.yaml`
@@ -173,7 +178,8 @@ apis:
 # ─────────────────────────────────────────────────────────────
 id: sample.basics
 name: Sample tests
-tags: [sample]
+tags:
+  - sample
 
 beforeAll:                 # once, before this file's tests
   - command: vc demo start --port 7421 --detach
@@ -306,35 +312,35 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc new file api\|test\|load <fileId>` | Creates an empty file of that kind with its header filled in; a load file also gets a `mix` of the project's first test by ID and one stage (`30s`, 1 user), so it checks. With no test in the project, exit 2 |
 | `vc call <apiId> [--var k=v] [--keep] [--save-as-test <testId> [--expect-field body.<path>]...]` | Calls one api ad hoc with project auth and the active profile (`--profile`, `--set` as for `vc run`), then runs the api's cleanup unless `--keep`; `beforeRun` and `beforeAll` are skipped and the call is stored in the history as `adhoc`. Exits 1 when the api's `expect` fails, 2 for an unknown api (with the closest) or a `--var` that is not `name=value`. Optionally saves the call as a test expecting its status and the named body fields (a missing field exits 2 and writes nothing) |
 | `vc fmt [--strip-comments] [paths]` | Rewrites definition files in the house style (block YAML, key order, quoting) and keeps comments; `--strip-comments` drops the one-line comments `vc new` wrote above its items. Refuses, writing nothing, a file that does not parse or that formatting would change in meaning; exits 2 then, 0 otherwise |
-| `vc rename <oldId> <newId>` | Renames an api, test, file, var, auth or dataset ID and updates every reference; moves the file when a file ID changes. A var, auth or dataset is written with its kind: `vc rename var.userId var.accountId`, `auth.partnerToken`, `dataset.capitals`; a dataset named by its path under `datasets/` is renamed by moving its file |
+| `vc rename <oldId> <newId>` | Renames an api, test, file, var, auth or dataset ID and updates every reference; moves the file when a file ID changes. A var, auth or dataset is written with its kind: `vc rename var.userId var.accountId`, `auth.partnerToken`, `dataset.capitals`; a dataset named by its path under `datasets/` is renamed by moving its file. The comments `vc new` wrote follow the new ID; other comments are left alone |
 
 **Check and explore**
 
 | Command | Does |
 | --- | --- |
-| `vc check [--json] [paths...]` | Compiles and links everything; prints errors and warnings with file, line and column, then a summary (`1 error · 0 warnings · 3 files checked`); exits 2 on errors, 0 otherwise. With paths (files or folders, relative to the working folder), reports only on the files under them; the whole project is still compiled, so references into other files are checked. `--json` prints the diagnostics as JSON on stdout instead. With `--fix`, prints each certain fix as a unified diff, asks `Apply N fixes? [y/N]` and on yes writes them and checks again; the exit code is that of the final check. Nothing is written when you decline, when there are no certain fixes, or when the fixes would add an error. Run anywhere inside a project: it looks up from the working folder for `vibranium.config.yaml` |
-| `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions: one line per item (full ID, name, tags, `(skipped)`), or `--json` (`id`, `name`, `path`, `tags`, `skipped`) for scripts and agents (D130). `tests` takes the selectors and flags of `vc run` and lists the skipped tests too; `--skipped` lists only those. `apis` take the same positional selectors, `--grep` and `--changed` (an api file ID such as `users` names its apis; `-t` is refused, as apis have no tags), and `files` take them all, a file's tags being its test file's |
-| `vc explain <id> [--profile] [--set]` | Shows one api or test fully resolved for the active profile: final URL, vars and where each came from, auth, merged `expect`, the lifecycle actions it triggers and the cleanups it registers. An unknown ID exits 2 and names the closest |
-| `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request: the plan line, then a tree of lifecycle blocks and test instances. Takes the selectors, `--profile`, `--set` and `--repeat` of `vc run`; `--json` for scripts and agents (D130), `--dot` for a Graphviz graph |
-| `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …) with a wrong and a right example. The pages are built into the binary, so it works outside a project; an unknown code exits 2 |
+| `vc check [--json \| --fix [--yes]] [paths...]` | Compiles and links everything; prints errors and warnings with file, line and column, then a summary (`1 error · 0 warnings · 3 files checked`); exits 2 on errors, 0 otherwise. With paths (files or folders, relative to the working folder), reports only on the files under them and on problems elsewhere that point into them, such as a var left unset in an api that a test there calls (V2101); the whole project is still compiled, so references into other files are checked. `--json` prints the diagnostics as JSON on stdout instead. With `--fix`, prints each certain fix as a unified diff, asks `Apply N fixes? [y/N]` (`--yes` skips the question, for scripts and agents) and on yes writes them and checks again; the exit code is that of the final check. Nothing is written when you decline, when there are no certain fixes, or when the fixes would add an error. Run anywhere inside a project: it looks up from the working folder for `vibranium.config.yaml` |
+| `vc list apis\|tests\|files [selector] [--skipped] [--tag] [--json]` | Lists definitions: one line per item (full ID, name, tags, `(skipped: <reason>, until <date>)`, or `(skip ended <date>: <reason>)` for a skip past its `until`, which runs again), or `--json` (`id`, `name`, `path`, `tags`, `skipped`, `skipExpired`, `skipReason`, `skipUntil`) for scripts and agents (D130). `tests` takes the selectors and flags of `vc run` and lists the skipped tests too; `--skipped` lists only those, and the tests whose skip has ended, so a stale `skip` can be found and removed. `apis` take the same positional selectors, `--grep` and `--changed` (an api file ID such as `users` names its apis; `-t` is refused, as apis have no tags), and `files` take them all, a file's tags being its test file's |
+| `vc explain <id> [--profile] [--set]` | Shows one api or test fully resolved for the active profile: final URL with known vars piped, vars, merged headers and auth with where each came from, merged `expect` with the values it checks (and `status: 2xx  (default)` when none checks the status), values earlier calls save, the lifecycle actions it triggers and the cleanups it registers. An unknown ID exits 2 and names the closest |
+| `vc plan [selector] [--dot] [--json]` | Shows what a run would do, in order, without sending a request: the plan line, then a tree of lifecycle blocks and test instances. Takes the selectors, `--profile`, `--set` and `--repeat` of `vc run`; `--json` for scripts and agents (D130), `--dot` for a Graphviz graph: a cluster per file, a node per lifecycle action and instance, dashed edges for the order they run in and solid ones from a node to each `beforeRun` or `beforeAll` action whose saved values it reads |
+| `vc explain <code>` | Explains a diagnostic code (V2003, V2101, …; a lowercase `v2101` too) with a wrong and a right example. The pages are built into the binary, so it works outside a project; an unknown code exits 2 |
 
 **Run**
 
 | Command | Does |
 | --- | --- |
 | `vc run [selector...]` | Runs tests (see Selecting what to run) |
-| `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; Ctrl-C ends it with exit 130 |
+| `vc watch [selector...]` | Runs the selection, then re-runs the affected tests 200 ms after a definition file, `.env` or `.env.schema` is saved. Takes `vc run`'s flags; a flag value the first run refuses (`--profile nope`) ends it with exit 2, since no save can fix it; Ctrl-C ends it with exit 130 |
 | `vc load <scenarioId>` | Runs a load scenario: `beforeRun` and `beforeAll` once, the stages with a live line each second on stderr (its rps over the last 3 s), `afterAll` and `afterRun` once, then the summary: latency p50/p90/p95/p99/max, each breach in its unit with its limit (`breached p99 at 45.471 ms (lt 30 ms)`) and each error kind by the api that failed, its status and code (`errors users#list 200 V5101 × 12`); `--json` for the report as JSON, each breach as `{metric, test, actual, unit, limit}` and each error kind as `{api, test, status, code, count}`. Exit 0 within thresholds, 1 blocked by a shared action, 2 unknown scenario, 3 a threshold breached, 130 cancelled |
-| `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping) |
+| `vc skip <testId\|fileId> --reason <text> [--until <date>]`, `vc unskip <id>` | Writes or removes a `skip` in the YAML (see Skipping). An `--until` before today (UTC) is refused with V3104, as the skip would have expired already |
 
 **Keep in sync**
 
 | Command | Does |
 | --- | --- |
-| `vc sync [fileId...] [--dry-run] [--check] [--take spec\|mine <apiId>]… [--resolved <apiId>]…` | Merges OpenAPI changes into api files (see OpenAPI import and sync) |
+| `vc sync [fileId...] [--dry-run] [--check] [--take spec\|mine <apiId>]… [--resolved <apiId>]…` | Merges OpenAPI changes into api files (see OpenAPI import and sync). Files are named by file ID; a path (`services/users/users.api.yaml`) is refused with the file ID to use instead |
 | `vc sync <fileId> --take spec\|mine <apiId>`, `--resolved <apiId>` | Settles a sync conflict |
 | `vc migrate` | Upgrades files to a newer `syntaxVersion` |
-| `vc migrate v1 <path>` | Converts the Vibranium v1 project in a folder inside the project into v2 files in the project root (D194, D200): the config, an api file per collection, a test file per scenario and the secret names in `.env.schema`, passed by the compile guard. It prints each file, each `TODO(vc migrate) <path> <item>: <v1 text>` it left as a comment above the item, and each note. Exit 2, writing nothing, when the project has a config already or the folder holds no `config.json` |
+| `vc migrate v1 <path>` | Converts the Vibranium v1 project in a folder inside the project into v2 files in the project root (D194, D200): the config, an api file per collection, a test file per scenario and the secret names in `.env.schema`, passed by the compile guard. It prints each file, each `TODO(vc migrate) <path> <item>: <v1 text>` it left as a comment above the item, and each note. Exit 2, writing nothing, when the project has a config already, the folder holds no `config.json`, or it is not inside the folder the v2 project is written to |
 
 **Results and housekeeping**
 
@@ -346,7 +352,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc history [query]`, `vc history compare 481 482` | Failures, flaky tests and trends across runs (later) |
 | `vc report [run\|last] [--format html,junit,ctrf] [--out DIR] [--single-file]` | Writes a stored run's report files again from its snapshot (D167), `html` when `--format` names none, into `.vibranium/reports/<run>/` unless `--out` says; prints each file. A load run exits 2 (it stores no snapshot), pointing at `vc history` and at `--json` on the next `vc load <scenario>`, which sends the load again. `--open` comes later |
 | `vc cache list\|clear [id]` | Shows the cached lifecycle data (`--json` for scripts) or clears it, all of it or one action's (`users#create`), running each entry's cleanup under its profiles; a cleanup that fails is a warning. Needs the cache key (`VIB_CACHE_KEY` or the OS keychain) |
-| `vc config explain <key> [--profile] [--set]` | Shows a config value and which layer set it, then each value it replaced (`defaults.timeout = 1m  (--set)`, `  over 30s  (built-in)`; D129). A secret's value, and a var named like a secret, are masked as `••••` (D232). Takes the `--set` keys; an unknown key exits 2 and names the closest |
+| `vc config explain <key> [--profile] [--set]` | Shows a config value and which layer set it, then each value it replaced (`defaults.timeout = 1m  (--set)`, `  over 30s  (built-in)`; D129). A secret's value, and a var named like a secret, are masked as `••••` (D232). Takes the `--set` keys, or a group of them such as `defaults.retry`, which shows each; an unknown key exits 2 and names the closest |
 | `vc alerts test [--profile] [--set]` | Sends one sample notice, titled `[test]` (a fixed 1 passed, 1 failed summary naming `<project>#sampleTest`), through every channel of every `alerts` rule whose `profiles` match, ignoring its `tags` and `on` (D257). Secrets fill the settings as in a run; nothing runs and nothing is recorded. PagerDuty gets an `info` event under `<project>#test`, resolved at once. Prints `✓ slack (rule 1)` or `✗ webhook (rule 2): <why>` per channel, never a URL or key. Exit 0 every channel took it, 1 one did not, 2 no rule matches |
 | `vc plugin add <source> [--yes]` | Fetches a plugin (`npm:<package>[@<range>]` through `npm pack`, or `path:<folder>` in the project) into `.vibranium/plugins/.staged/`, prints its ID, version, kind, command and what it asks to reach (network hosts, secrets, files), and asks to approve. On yes it adds the `plugins:` item to the config (through the compile guard; nothing when it is there from the same source), writes the approved permissions to `vibranium.lock`, and installs it to `.vibranium/plugins/<id>/`. Without a terminal it needs `--yes`, else it exits 2 and keeps nothing; a declined plugin is dropped. A different source for an ID the config has exits 2 (`vc plugin remove` it first) |
 | `vc plugin list` | One line for each plugin in the config or the lock: ID, kind and version, source, state and what the lock lets it reach. The state is `ready`, `not installed` (`.vibranium/` is not committed: add it again), `not approved`, `asks for more` (its installed manifest asks beyond the lock) or `not in the config` |
@@ -356,14 +362,14 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 | Command | Does |
 | --- | --- |
-| `vc tui [--profile <ids>]` | Opens the terminal UI: the tabs Run, Explore, History, Load and Import (`1`–`5`, `tab`), `?` for the keys, `q` to quit (pressed twice during a run or load run). On Run: `a` runs every test, `R` reruns the failures, `r` the chosen test, `f` lists only failures, `x` stops the run (letting its cleanups run; `x` again, as the footer then says, abandons them). On Explore: `enter` explains the chosen api or test (`pgup`/`pgdn` scroll it), `t` skips the chosen test with a reason typed on the status line or unskips it, `r` reloads. On History: `enter` compares the chosen run of tests with the one before it, `r` reloads. On Load: `enter` runs the chosen scenario and shows each second as `vc load` prints it, then its summary, `x` stops it (and `x` again abandons its cleanups), `r` reloads. On Import: choose the importer with `←→`, type the source and file ID, toggle the tests to generate, then `d` drafts the files and shows their diffs (`n` the next, `pgup`/`pgdn` scroll), `w` writes them, `x` discards them. Quitting during a run or load run stops it first, as up to three Ctrl-Cs would, then abandons it. Plugins' stderr goes to `.vibranium/plugin-logs/<id>/stderr.log` rather than the screen; when that log cannot be made (a folder on its path is a link, or something is in the way), it is dropped instead and a notice says so. Without a terminal on stdin and stdout it exits 2 |
+| `vc tui [--profile <ids>]` | Opens the terminal UI: the tabs Run, Explore, History, Load and Import (`1`–`5`, `tab`, `shift-tab` back), `↑`/`↓` or `j`/`k` to move in a list, `?` opens and closes the keys (`esc` closes them), `q` to quit (pressed twice during a run or load run), `ctrl-c` to quit at once, even while typing. On Run: `a` runs every test, `R` reruns the failures, `r` the chosen test, `f` lists only failures, `x` stops the run (letting its cleanups run; `x` again, as the footer then says, abandons them). On Explore: `enter` explains the chosen api or test (`pgup`/`pgdn` scroll it), `t` skips the chosen test with a reason typed on the status line or unskips it, `r` reloads. On History: `enter` compares the chosen run of tests with the one before it, `r` reloads. On Load: `enter` runs the chosen scenario and shows each second as `vc load` prints it, then its summary, `x` stops it (and `x` again abandons its cleanups), `r` reloads. On Import: choose the importer with `←→`, type the source and file ID, toggle the tests to generate, then `d` drafts the files and shows their diffs (`n` the next, `pgup`/`pgdn` scroll), `w` writes them, `x` discards them. Quitting during a run or load run stops it first, as up to three Ctrl-Cs would, then abandons it. Plugins' stderr goes to `.vibranium/plugin-logs/<id>/stderr.log` rather than the screen; when that log cannot be made (a folder on its path is a link, or something is in the way), it is dropped instead and a notice says so. Without a terminal on stdin and stdout it exits 2 |
 | `vc mcp [--profile] [--set]` | Starts the MCP server for AI agents over stdio; the profiles' `agents` rules judge every call (D195, D197). A bad `--set`, or an unknown profile from any layer (`--profile`, `VIB_PROFILE`, the user config), exits 2 before it serves; a project with errors still serves. A client that closes stdin, even before `initialize`, ends it with exit 0 |
 | `vc ui [--port 7420] [--no-open] [--profile] [--set]` | Starts the local web UI, and MCP at `/mcp`, on 127.0.0.1 only, and opens it in a browser unless `--no-open`. It prints two lines on stdout, the only place its secrets appear: `vc ui: http://127.0.0.1:<port>/?token=<token>`, a link that signs one browser in once (it sets the cookie `vc_token_<port>`; opened again it is 401, so use the open tab or restart `vc ui`), and `vc ui: mcp http://127.0.0.1:<port>/mcp token <agent token>`, which MCP clients send as `Authorization: Bearer` to `/mcp` only. Calls from the browser are the person's and skip the agent policy and log; MCP calls go through both, as `vc mcp`'s do. Ctrl-C stops it (exit 0). A port in use, or a vc built without the `web-ui` feature, exits 2 |
 | `vc approvals [--all]` | Lists the agent calls waiting for a person (D195), newest first: `#<id>  <agent>  <tool>  <profile>  <summary>`, or `no requests waiting`; `--all` also lists the decided and expired ones, each with its status. A waiting agent is refused after 10 minutes |
-| `vc approve <id> [--always \| --deny]` | Approves a waiting agent call once; `--always` also allows calls like it (same profiles, tool and method) from now on, kept in `history.db`, never in YAML (D195), and prints the methods it kept a rule for; for a write or a run that reaches code it keeps no rule and says the call was approved once (D202); `--deny` refuses it. The waiting agent wakes at once. The decision is recorded under the OS user (`USER`/`USERNAME`). An unknown or already decided request exits 2 |
+| `vc approve <id> [--always \| --deny]` | Approves a waiting agent call once; `--always` also allows calls like it (same profiles, tool and method) from now on, kept in `history.db`, never in YAML (D195), and prints the methods it kept a rule for; for a write or a run that reaches code it keeps no rule and says the call was approved once (D202); `--deny` refuses it. The waiting agent wakes at once. The decision is recorded under the OS user (`USER`/`USERNAME`). The ID is the number `vc approvals` lists, with or without its `#`. An unknown or already decided request, or an ID that is not a number, exits 2 |
 | `vc serve` | Starts the self-hosted team server (later release). For the local web UI of this project, use vc ui, which opens http://localhost:7420 |
-| `vc completion bash\|zsh\|fish\|powershell` | Prints shell completion, including test and api IDs: the commands and flags, plus a hook that asks the hidden `vc __complete <command> <word>` for the project's file, test and api IDs, profiles and tags (nothing outside a project). Each script completes both `vc` and `vibranium` |
-| `vc demo start [--port 7421] [--detach]`, `vc demo stop [--port]` | Starts the demo service the sample calls (the `vc-demo` binary installed next to `vc`, else on `PATH`; without it, exit 2 naming where it looked and the install command); `--detach` returns once it answers and keeps a pidfile in the temp folder, which `stop` uses. Stopping when none runs exits 0 and says so |
+| `vc completion bash\|zsh\|fish\|powershell` | Prints shell completion, including test and api IDs: the commands and flags, plus a hook that asks the hidden `vc __complete <command> <word>` for the project's file, test and api IDs, profiles and tags (nothing outside a project). Tab never offers `__complete` itself. Each script completes both `vc` and `vibranium` |
+| `vc demo start [--port 7421] [--detach]`, `vc demo stop [--port]` | Starts the demo service the sample calls (the `vc-demo` binary installed next to `vc`, else on `PATH`; without it, exit 2 naming where it looked and the install command); `--detach` returns once it answers and keeps a pidfile in a private folder of the user in the temp folder (`vibranium-demo-<uid>`, mode 0700; a folder that is a link or another user's is refused, exit 2), which `stop` uses; either way it prints `demo running on http://localhost:<port> (pid <n>)` and how it stops once it answers. A `start` that finds the demo already answering (its `/echo` replies) joins it, and the `stop` after it leaves the demo running for the one that launched it (`left the demo on port <port> running, as another `vc demo start` uses it`), so two runs of the sample share one demo; a join counts while its calling process lives and for an hour after it joined (the caller may be a shell line that ended first), and is dropped after both. Two `start`s at once leave one demo: the one whose demo did not get the port joins the other, and only a demo that names its own pid (`x-vc-demo-pid` on `/echo`) is written to the pidfile. Another program on the port is refused, exit 2. Stopping when none runs exits 0 and says so |
 | `vc schema export [--out <dir>]` | Writes the JSON Schema of each file kind (config, api, test, load) for editors: one JSON object keyed by kind on stdout, or one `<kind>.schema.json` per kind in `<dir>`. Needs no project |
 
 ## Global flags
@@ -392,9 +398,9 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 
 A full ID joins the file ID and the item ID with `#` (`users.crud#getsCreatedUser`); a bare dotted word is always a file ID (D138). A `#` inside a word is not a comment in bash, zsh, fish or PowerShell, so selectors work unquoted; quote them only under zsh's `extendedglob` option. Web UI URLs percent-encode it (`%23`).
 
-Useful run flags: `--profile staging,eu` (profiles, as a comma list or repeated; later wins), `--bail` (start no more tests after the first failure), `--repeat 20` (run every selected test this many times instead of its own `repeat`, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data; a failing run prints the seed it used), `--set key=value` (override one config value for this run, D129), `--no-cache` (`cache:` actions run every time; the cache is neither read nor written, and no expired entry is cleaned up), `--reporter spec|json` (console format; `dots` comes later), `--report ctrf,junit,html` (files to write, as a comma list or repeated, over the config's `reports.formats`; `ctrf` when neither names any), `--out <dir>` (where the report files go, as they are, over the config's `reports.dir`; without it each run's files go in `<reports.dir>/<run>/`, named by the run's number in the history), `--single-file` (the HTML report as one self-contained `report.html`, over `reports.html.layout`). Every run is stored in `.vibranium/history.db` (D170); a history that cannot be opened leaves the run unrecorded with a warning and its files straight in `reports.dir`. `plan`, `run` and `list` exit 2 when they refuse to start: errors in the definitions, an empty selection, or an unknown flag value.
+Useful run flags: `--profile staging,eu` (profiles, as a comma list or repeated; later wins), `--bail` (start no more tests after the first failure), `--repeat 20` (run every selected test this many times instead of its own `repeat`, to hunt flakiness), `--concurrency 4`, `--seed 42` (repeatable generated data; a failing run prints the seed it used), `--set key=value` (override one config value for this run, D129), `--no-cache` (`cache:` actions run every time; the cache is neither read nor written, and no expired entry is cleaned up), `--reporter spec|json` (console format; `dots` comes later), `--report ctrf,junit,html` (files to write, as a comma list or repeated, over the config's `reports.formats`; `ctrf` when neither names any), `--out <dir>` (where the report files go, as they are, over the config's `reports.dir`; without it each run's files go in `<reports.dir>/<run>/`, named by the run's number in the history), `--single-file` (the HTML report as one self-contained `report.html`, over `reports.html.layout`). Every run is stored in `.vibranium/history.db` (D170); a history that cannot be opened leaves the run unrecorded with a warning and its files straight in `reports.dir`. `plan`, `run` and `list` exit 2 when they refuse to start: errors in the definitions, an empty selection, a selector that picks only `standalone: false` tests (the error says they run only when reused), or an unknown flag value.
 
-`--set` takes `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats`, `reports.html.layout` and `vars.<name>`; any other key exits 2 and lists these.
+`--set` takes `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `defaults.retry.attempts`, `defaults.retry.delay`, `reports.dir`, `reports.formats`, `reports.html.layout` and `vars.<name>`; any other key exits 2 and lists these.
 
 Selecting a few tests never runs other files' setup. Running one checkout test runs the config's `beforeRun` (it runs for any run that selects a test), its own file's `beforeAll` and its `beforeEach`; other files' `beforeAll` blocks don't run. `beforeRun` and `beforeAll` finish before any selected test starts (D122). `vc plan` prints this before you run, and the first line of `vc run` output repeats it:
 
@@ -464,7 +470,7 @@ What the generator fills in for you:
         schema:
           $file: ../../openapi/users.yaml#/components/schemas/User
 
-  - id: deactivateRejectsInvalidBody
+  - id: rejectsInvalidDeactivate
     name: Deactivate rejects an invalid body
     vars:
       id: replace-me  # replace with a real id
@@ -478,7 +484,7 @@ What the generator fills in for you:
     expect:
       status: 400
 
-  - id: deactivateRejectsAnonymous
+  - id: rejectsAnonymousDeactivate
     name: Deactivate needs a signed-in caller
     call: users#deactivate
     auth: none
@@ -488,7 +494,7 @@ What the generator fills in for you:
       status: 401
 ```
 
-A `name` in an example row labels that instance in reports, so a failure reads "deactivateRejectsInvalidBody › notify is not a boolean".
+A `name` in an example row labels that instance in reports, so a failure reads "rejectsInvalidDeactivate › notify is not a boolean".
 
 `vc import openapi` writes these tests for every operation into `services/<fileId>/openapi.test.yaml` (file ID `<fileId>.openapi`), the same three cases with these differences:
 

@@ -1,0 +1,9 @@
+mix:
+  - test: users.crud#listsUsers
+    weight: 0
+stages:
+  - duration: 1m
+    users: -1
+thinkTime:
+  min: 2s
+  max: 1s

@@ -1,0 +1,75 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2105_unknown_root/project
+---
+{
+  "summary": {
+    "errors": 2,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`fecth` is not a root or a step id",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 7,
+          "column": 21,
+          "endLine": 7,
+          "endColumn": 37
+        },
+        "text": "unknown root"
+      },
+      "secondary": [],
+      "notes": [
+        "ran earlier here: fetch"
+      ],
+      "help": [
+        "start it with a root (var, env, secret, response, request, example, item, iteration, fake, dataset, run) or the id of an action that ran earlier in the same test or block",
+        "did you mean `fetch`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with fetch",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/crud.test.yaml",
+              "range": {
+                "start": 149,
+                "end": 154
+              },
+              "newText": "fetch"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`nowhere` is not a root or a step id",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 7,
+          "column": 47,
+          "endLine": 7,
+          "endColumn": 64
+        },
+        "text": "unknown root"
+      },
+      "secondary": [],
+      "notes": [
+        "ran earlier here: fetch"
+      ],
+      "help": [
+        "start it with a root (var, env, secret, response, request, example, item, iteration, fake, dataset, run) or the id of an action that ran earlier in the same test or block"
+      ],
+      "fixes": []
+    }
+  ]
+}

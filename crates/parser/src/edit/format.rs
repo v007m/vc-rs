@@ -132,11 +132,12 @@ impl<'d> Writer<'d> {
         self.entry(entry, indent);
     }
 
-    /// `key:` and its value, from where the caller left the line.
+    /// `key:` and its value, from where the caller left the line; a plain key as written, a
+    /// quoted one plain unless YAML needs the quotes.
     fn entry(&mut self, entry: &'d Entry, indent: usize) {
-        let written =
-            self.doc.text.get(entry.key_span.byte_range()).filter(|key| !key.is_empty() && !key.contains('\n'));
-        let key = written.map_or_else(|| scalar::write_text(&entry.key, false), str::to_owned);
+        let written = self.doc.text.get(entry.key_span.byte_range());
+        let plain = written.filter(|key| !key.is_empty() && !key.contains('\n') && !key.starts_with(['"', '\'']));
+        let key = plain.map_or_else(|| scalar::write_text(&entry.key, false), str::to_owned);
         self.out.push_str(&key);
         self.out.push(':');
         let after = self.colon_end(entry.key_span.end.offset);

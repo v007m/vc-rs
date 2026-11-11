@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v1003_older_version/project
+---
+error[V1003]: `syntaxVersion: 1` is not a file format; the first is 2
+ --> vibranium.config.yaml:1:16
+  |
+1 | syntaxVersion: 1
+  |                ^ older than 2
+  = help: write `syntaxVersion: 2`; to convert a Vibranium v1 project, run `vc migrate v1 <folder>`

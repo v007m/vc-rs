@@ -1,0 +1,70 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2304_scalar_pipes/project
+---
+{
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2304",
+      "severity": "error",
+      "message": "pipe `number` takes text or a number, not a boolean",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 9,
+          "column": 22,
+          "endLine": 9,
+          "endColumn": 28
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    },
+    {
+      "code": "V2304",
+      "severity": "error",
+      "message": "pipe `int` takes text or a number, not a boolean",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 10,
+          "column": 22,
+          "endLine": 10,
+          "endColumn": 25
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    },
+    {
+      "code": "V2304",
+      "severity": "error",
+      "message": "pipe `bool` takes text or a boolean, not a number",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 11,
+          "column": 24,
+          "endLine": 11,
+          "endColumn": 28
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    }
+  ]
+}

@@ -106,8 +106,9 @@ impl Authoring {
     /// The refusal for `wanted`, which names no `what`, with the close ones in `known`.
     pub fn unknown(what: &str, wanted: &str, known: &[String]) -> EngineError {
         let close = vc_planner::closest(wanted, known.iter().map(String::as_str));
+        let listed = what.rsplit(' ').next().unwrap_or(what);
         let help = match close.as_slice() {
-            [] => format!("`vc list {what}s` lists them"),
+            [] => format!("`vc list {listed}s` lists them"),
             [one] => format!("did you mean `{one}`?"),
             several => format!(
                 "did you mean one of {}?",
@@ -162,6 +163,7 @@ mod tests {
         let help = |error: EngineError| error.help().unwrap_or_default();
         assert_eq!(help(Authoring::unknown("api", "users#lst", &known)), "did you mean `users#list`?");
         assert_eq!(help(Authoring::unknown("api", "zzz", &known)), "`vc list apis` lists them");
+        assert_eq!(help(Authoring::unknown("api file", "zzz", &known)), "`vc list files` lists them");
         let two = ["a#ab".to_owned(), "a#ac".to_owned()];
         assert_eq!(help(Authoring::unknown("test", "a#aa", &two)), "did you mean one of `a#ab`, `a#ac`?");
     }

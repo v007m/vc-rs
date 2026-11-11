@@ -17,6 +17,11 @@ pub struct FileSchema {
     pub schema: Value,
 }
 
+/// What a duration is written as: a whole number and `ms`, `s`, `m` or `h`.
+const DURATION: &str = "^[0-9]+(ms|s|m|h)$";
+/// What a size is written as: a whole number and `b`, `kb`, `mb` or `gb`.
+const SIZE: &str = "^[0-9]+(b|kb|mb|gb)$";
+
 /// Where the docs site publishes the schemas (D258); `<kind>.schema.json` is appended.
 const BASE_URL: &str = "https://v007m.github.io/vc-rs/schema/";
 
@@ -83,6 +88,9 @@ fn object(shape: &Shape) -> Value {
 fn property(key: &Key) -> Value {
     let mut schema = of_type(key.ty);
     merge(&mut schema, json!({ "description": key.doc }));
+    if let Some(min) = key.min {
+        merge(&mut schema, json!({ "minimum": min }));
+    }
     if let Some(default) = key.default.and_then(yaml).filter(|node| fits(key.ty, node)) {
         merge(&mut schema, json!({ "default": to_json(&default) }));
     }
@@ -105,7 +113,9 @@ fn of_type(ty: Ty) -> Value {
         Ty::MapOf(value) => json!({ "type": "object", "additionalProperties": of_type(*value) }),
         Ty::Obj(shape) => json!({ "$ref": format!("#/$defs/{}", shape().title) }),
         Ty::Either(alternatives) => json!({ "anyOf": alternatives.iter().map(|ty| of_type(*ty)).collect::<Vec<_>>() }),
-        Ty::Text | Ty::Id | Ty::Ref | Ty::Template | Ty::Duration | Ty::Size | Ty::Cel => json!({ "type": "string" }),
+        Ty::Duration => json!({ "type": "string", "pattern": DURATION }),
+        Ty::Size => json!({ "type": "string", "pattern": SIZE }),
+        Ty::Text | Ty::Id | Ty::Ref | Ty::Template | Ty::Cel => json!({ "type": "string" }),
     }
 }
 

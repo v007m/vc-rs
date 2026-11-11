@@ -24,6 +24,7 @@ afterRun:
 | `id` | camelCase text | — | no | Names the action in output |
 | `vars` | map | — | no | Values for the templates in the command |
 | `timeout` | duration | `defaults.timeout` (30s when unset) | no | Past it the whole process group is killed |
+| `repeat`, `forEach`, `parallel` | number, list, number | — | no | Runs the command several times; see [loops](/vc-rs/reference/lifecycle/loops/) |
 
 A `command` action saves nothing.
 
@@ -99,7 +100,7 @@ before:
 ## How it behaves
 
 - **Quoting.** On unix every `${…}` value becomes one POSIX word in single quotes (a `'` inside is written `'\''`). On Windows a value is wrapped in double quotes, and a value holding any of `& | < > ^ % ! " ( )` or a newline fails the action with V5111 before anything runs. Pass such a value through an environment variable instead.
-- **Environment.** The child sees the process environment, plus the `.env` lines the process does not set, plus `VIB_VAR_<name>` for each config var. The environment is never logged.
+- **Environment.** The child sees the process environment, plus the `.env` lines the process does not set, plus `VIB_VAR_<name>` for each config var. The folder of the running `vc` is added to the end of `PATH` when it is not there, so a line calling `vc` finds it; a `vc` already on `PATH` comes first. The environment is never logged.
 - **Output.** vc keeps the last 64 KiB of stdout and of stderr. Both pass through the redactor, so a declared secret prints as `••••`. A V5110 failure shows the exit code and the last 20 lines of stderr, or of stdout when stderr is empty.
 - **Timeout and Ctrl-C.** Past the `timeout`, or on Ctrl-C, the whole process group is killed (unix) and the action fails with V5104.
 - **Background processes.** The action ends when the command exits. A process it leaves running (`./server &`) keeps going while vc runs, but its output after the command exits (plus 200 ms) is discarded. A process that must outlive vc should write its output elsewhere: `./server > server.log 2>&1 &`.

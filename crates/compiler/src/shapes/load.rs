@@ -23,7 +23,7 @@ shape! {
 shape! {
     mix = Shape::new("mixEntry", "One test in the traffic mix", &[
         types::key("test", Ty::Ref).required().doc("The test's full ID").example("orders.checkout#placesOrder"),
-        types::key("weight", Ty::Int).required().doc("Relative share of iterations").example("3"),
+        types::key("weight", Ty::Int).required().min(1).doc("Relative share of iterations").example("3"),
         types::key("thresholds", Ty::Obj(thresholds)).doc("Thresholds for this test only"),
     ])
 }
@@ -31,7 +31,7 @@ shape! {
 shape! {
     stage = Shape::new("stage", "One load stage", &[
         types::key("duration", Ty::Duration).required().doc("How long the stage lasts").example("2m"),
-        types::key("users", Ty::Int).required().doc("Users at the end of the stage").example("50"),
+        types::key("users", Ty::Int).required().min(0).doc("Users at the end of the stage").example("50"),
     ])
 }
 

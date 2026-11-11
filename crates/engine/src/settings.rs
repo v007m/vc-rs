@@ -1,8 +1,11 @@
 //! The run settings from the config layers above the project's files (D129): `.env`, the
 //! `VIB_*` variables, the run's flags and `--set`, later layers winning.
 
+use std::sync::Arc;
+use std::time::Duration as StdDuration;
+
 use vc_interfaces::{ConfigEntry, ConfigSource, ConfigSourceError};
-use vc_model::{Duration, Pos, SourceFileId, SourceSpan};
+use vc_model::{Duration, Pos, Program, Retry, SourceFileId, SourceSpan};
 
 use crate::EngineError;
 
@@ -24,6 +27,10 @@ pub struct Settings {
     pub per_host: Option<u32>,
     /// `defaults.timeout`.
     pub timeout: Option<Duration>,
+    /// `defaults.retry.attempts`: further attempts of a failed test instance.
+    pub retry_attempts: Option<u32>,
+    /// `defaults.retry.delay`: the pause between them.
+    pub retry_delay: Option<Duration>,
     /// `reports.dir`, absolute or relative to the root.
     pub reports_dir: Option<String>,
     /// `reports.formats`.
@@ -43,6 +50,8 @@ pub const KEYS: &[(&str, Apply)] = &[
     ("defaults.concurrency", concurrency),
     ("defaults.perHost", per_host),
     ("defaults.timeout", timeout),
+    ("defaults.retry.attempts", retry_attempts),
+    ("defaults.retry.delay", retry_delay),
     ("reports.dir", reports_dir),
     ("reports.formats", formats),
     ("reports.html.layout", html_layout),
@@ -52,6 +61,21 @@ pub const KEYS: &[(&str, Apply)] = &[
 const VARS: &str = "vars.";
 
 impl Settings {
+    /// `program` with the `defaults` these settings set in place of its config's: the timeout,
+    /// and the retry's attempts and delay, each over the config's own.
+    pub fn apply(&self, program: &mut Arc<Program>) {
+        if self.timeout.is_none() && self.retry_attempts.is_none() && self.retry_delay.is_none() {
+            return;
+        }
+        let defaults = &mut Arc::make_mut(program).config.defaults;
+        defaults.timeout = self.timeout.or(defaults.timeout);
+        if self.retry_attempts.is_some() || self.retry_delay.is_some() {
+            let written = defaults.retry.unwrap_or(Retry { attempts: 0, delay: Duration::new(StdDuration::ZERO) });
+            let attempts = self.retry_attempts.unwrap_or(written.attempts);
+            defaults.retry = Some(Retry { attempts, delay: self.retry_delay.unwrap_or(written.delay) });
+        }
+    }
+
     /// The settings `layers` give, lowest first, with `flags` (the run's own flags, such as
     /// `--profile`) between the last two.
     ///
@@ -76,10 +100,10 @@ impl Settings {
     }
 
     fn apply_all(&mut self, entries: &[ConfigEntry]) -> Result<(), EngineError> {
-        entries.iter().try_for_each(|entry| self.apply(entry))
+        entries.iter().try_for_each(|entry| self.apply_entry(entry))
     }
 
-    fn apply(&mut self, entry: &ConfigEntry) -> Result<(), EngineError> {
+    fn apply_entry(&mut self, entry: &ConfigEntry) -> Result<(), EngineError> {
         let setting = |reason: String, help: Option<String>| EngineError::Setting {
             origin: entry.origin.clone(),
             reason: format!("`{}`: {reason}", entry.key),
@@ -148,10 +172,18 @@ fn per_host(settings: &mut Settings, entry: &ConfigEntry) -> Result<(), String> 
 }
 
 fn timeout(settings: &mut Settings, entry: &ConfigEntry) -> Result<(), String> {
-    let nowhere = SourceSpan::new(SourceFileId::new(0), Pos::START, Pos::START);
-    let parsed = vc_template::parse_duration(entry.value.trim(), nowhere)
-        .map_err(|_| format!("`{}` is not a duration such as `250ms`, `2s` or `1m`", entry.value))?;
-    settings.timeout = Some(parsed);
+    settings.timeout = Some(duration(&entry.value)?);
+    Ok(())
+}
+
+fn retry_attempts(settings: &mut Settings, entry: &ConfigEntry) -> Result<(), String> {
+    let attempts = entry.value.trim().parse::<u32>().map_err(|_| format!("`{}` is not a whole number", entry.value))?;
+    settings.retry_attempts = Some(attempts);
+    Ok(())
+}
+
+fn retry_delay(settings: &mut Settings, entry: &ConfigEntry) -> Result<(), String> {
+    settings.retry_delay = Some(duration(&entry.value)?);
     Ok(())
 }
 
@@ -183,6 +215,12 @@ fn html_layout(settings: &mut Settings, entry: &ConfigEntry) -> Result<(), Strin
 fn named(entry: &ConfigEntry) -> Named {
     let names = entry.value.split(',').map(str::trim).filter(|name| !name.is_empty()).map(str::to_owned).collect();
     Named { names, origin: entry.origin.clone() }
+}
+
+fn duration(value: &str) -> Result<Duration, String> {
+    let nowhere = SourceSpan::new(SourceFileId::new(0), Pos::START, Pos::START);
+    vc_template::parse_duration(value.trim(), nowhere)
+        .map_err(|_| format!("`{value}` is not a duration such as `250ms`, `2s` or `1m`"))
 }
 
 fn count(value: &str) -> Result<u32, String> {

@@ -16,7 +16,7 @@ $ vc init [OPTIONS]
 
 | Flag | Value | Default | Description |
 | --- | --- | --- | --- |
-| `--no-sample` | | | Writes the config and folders only, without the sample api and test files |
+| `--no-sample` | | | Writes the config and folders only, without the sample api and test files or the `sampleUrl` var |
 | `--from-openapi` | `<URL_OR_FILE>` | | Then imports this OpenAPI spec, a URL or a path in the project, as [`vc import openapi`](/vc-rs/reference/cli/import/) does |
 | `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
 
@@ -37,7 +37,7 @@ $ vc init
 next: vc run
 ```
 
-`vc run` then passes without a network. The sample test file starts the demo service in `beforeAll` and stops it in `afterAll` (see [`vc demo`](/vc-rs/reference/cli/demo/)).
+`vc run` then passes without a network. The sample test file starts the demo service in `beforeAll` and stops it in `afterAll` (see [`vc demo`](/vc-rs/reference/cli/demo/)). Every file is already in the house style, so [`vc fmt`](/vc-rs/reference/cli/fmt/) changes nothing.
 
 ### Config and folders only
 
@@ -50,6 +50,8 @@ $ vc init --no-sample
   schemas/  datasets/  hooks/  openapi/  load/
 next: vc new api <service>#<id> --path /…
 ```
+
+The config has no `vars:`, since nothing calls the demo service.
 
 ### Start from an OpenAPI spec
 

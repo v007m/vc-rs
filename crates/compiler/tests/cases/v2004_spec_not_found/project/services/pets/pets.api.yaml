@@ -1,0 +1,6 @@
+baseUrl: ${var.baseUrl}
+source:
+  openapi: https://specs.example.com/pets.json
+apis:
+  - id: listPets
+    path: /pets

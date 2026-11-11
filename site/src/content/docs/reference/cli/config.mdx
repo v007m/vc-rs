@@ -16,7 +16,7 @@ $ vc config explain [OPTIONS] <KEY>
 
 | Flag | Value | Default | Description |
 | --- | --- | --- | --- |
-| `<KEY>` | | | A setting or a var, by its `--set` key: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats`, `reports.html.layout`, or `vars.<name>` |
+| `<KEY>` | | | A setting or a var, by its `--set` key: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `defaults.retry.attempts`, `defaults.retry.delay`, `reports.dir`, `reports.formats`, `reports.html.layout`, or `vars.<name>` |
 | `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
 | `--set` | `<KEY=VALUE>` | | Sets one config value over every other layer, as on `vc run` |
 | `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
@@ -71,7 +71,7 @@ error: no setting `defaults.timeoot`
   = help: did you mean `defaults.timeout` or `defaults.perHost`?
 $ vc config explain history.keep
 error: no setting `history.keep`
-  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, reports.dir, reports.formats, reports.html.layout, vars.sampleUrl and vars.<name>
+  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, defaults.retry.attempts, defaults.retry.delay, reports.dir, reports.formats, reports.html.layout, vars.sampleUrl and vars.<name>
 $ vc config explain reports.dir --profile nope
 error: --profile: no profile `nope`
   = help: the profiles are default

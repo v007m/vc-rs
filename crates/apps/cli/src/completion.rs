@@ -125,8 +125,15 @@ pub fn run(args: &CompletionArgs) -> anyhow::Result<Outcome> {
 /// The `clap_complete` script for the commands and flags, completing `name`.
 fn generated(generator: Generator, name: &str) -> anyhow::Result<String> {
     let mut script = Vec::new();
-    clap_complete::generate(generator, &mut crate::Cli::command(), name, &mut script);
+    clap_complete::generate(generator, &mut completed(), name, &mut script);
     Ok(String::from_utf8(script)?)
+}
+
+/// `vc`'s commands and flags without the hidden commands, which `clap_complete` would offer.
+fn completed() -> clap::Command {
+    let full = crate::Cli::command();
+    let shown = full.get_subcommands().filter(|command| !command.is_hide_set()).cloned();
+    clap::Command::new("vc").version(env!("CARGO_PKG_VERSION")).args(full.get_arguments().cloned()).subcommands(shown)
 }
 
 /// fish completes a command only by the lines that name it, so `vibranium` gets lines of its

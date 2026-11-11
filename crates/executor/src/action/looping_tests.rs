@@ -155,3 +155,18 @@ async fn for_each_needs_a_list() {
     let report = run(fixture, call, Arc::new(FakeTransport::scripted(vec![]))).await;
     assert_eq!(report.outcome.failure().and_then(|failure| failure.code.clone()), Some(Code::V5111.to_string()));
 }
+
+#[tokio::test]
+async fn a_loop_with_no_turns_saves_each_name_as_an_empty_list() {
+    let mut fixture = Fixture::new();
+    let call = fixture.call("/items");
+    fixture.api_mut(call).save.values = fixture.vars(&[("lastId", "${response.body.id}")]);
+    fixture.action_mut(call).save.values = fixture.vars(&[("path", "${response.body.path}")]);
+    fixture.action_mut(call).repeat = Some(Loop::ForEach { items: TemplateValue::List(Vec::new()), parallel: 1 });
+    let transport = FakeTransport::scripted(vec![]);
+    let report = run(fixture, call, Arc::new(transport.clone())).await;
+    assert_eq!(report.outcome.failure(), None);
+    assert_eq!(report.saved.get("path"), Some(&json!([])));
+    assert_eq!(report.saved.get("lastId"), Some(&json!([])));
+    assert_eq!((transport.calls(), report.checks.len()), (0, 0));
+}

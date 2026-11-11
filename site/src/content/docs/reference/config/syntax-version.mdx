@@ -17,7 +17,7 @@ syntaxVersion: 2
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `syntaxVersion` | integer | — | yes | This `vc` reads up to `2`. Write it without quotes. |
+| `syntaxVersion` | integer | — | yes | This `vc` reads `2`, the first and newest version. Write it without quotes. |
 
 ## Examples
 
@@ -43,6 +43,18 @@ error[V1003]: `syntaxVersion: 3` is newer than this Vibranium reads
 1 | syntaxVersion: 3
   |                ^ reads up to 2
   = help: upgrade vc to read this project
+```
+
+Older than the first version. A Vibranium v1 project has no `syntaxVersion`; convert it with `vc migrate v1 <folder>`:
+
+```console
+$ vc check
+error[V1003]: `syntaxVersion: 1` is not a file format; the first is 2
+ --> vibranium.config.yaml:1:16
+  |
+1 | syntaxVersion: 1
+  |                ^ older than 2
+  = help: write `syntaxVersion: 2`; to convert a Vibranium v1 project, run `vc migrate v1 <folder>`
 ```
 
 Quoted, so it is text, not a number:
@@ -71,11 +83,11 @@ profiles:
 ## How it behaves
 
 - Only `vibranium.config.yaml` carries it.
-- A version newer than `vc` reads is refused rather than half understood.
+- A version newer than `vc` reads is refused rather than half understood, and so is one below `2`.
 
 ## Common errors
 
-- [V1003](/vc-rs/reference/diagnostics/v1003/): missing, or newer than this `vc`.
+- [V1003](/vc-rs/reference/diagnostics/v1003/): missing, newer than this `vc`, or below `2`.
 - [V2302](/vc-rs/reference/diagnostics/v2302/): not an integer.
 
 ## Related

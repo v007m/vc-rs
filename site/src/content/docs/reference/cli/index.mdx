@@ -105,12 +105,12 @@ error: no vibranium.config.yaml in /tmp or any folder above it
 | `--set` | `<KEY=VALUE>` | run, watch, plan, explain, call, load, mcp, ui, config explain | Sets one config value over every other layer |
 | `--json` | | check, plan, list, history, cache list, load, new auth | Prints JSON instead of text |
 
-`--set` accepts these keys: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `reports.dir`, `reports.formats`, `reports.html.layout`, and `vars.<name>`. Anything else stops with exit code 2:
+`--set` accepts these keys: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `defaults.retry.attempts`, `defaults.retry.delay`, `reports.dir`, `reports.formats`, `reports.html.layout`, and `vars.<name>`. Anything else stops with exit code 2:
 
 ```console
 $ vc run --set defaults.foo=1
 error: --set: `defaults.foo`: not a setting
-  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, reports.dir, reports.formats, reports.html.layout, vars.sampleUrl and vars.<name>
+  = help: the settings are profile, defaults.concurrency, defaults.perHost, defaults.timeout, defaults.retry.attempts, defaults.retry.delay, reports.dir, reports.formats, reports.html.layout, vars.sampleUrl and vars.<name>
 ```
 
 ## Selectors
@@ -140,7 +140,7 @@ sample.extra
 $ vc list tests -t '!sample' -t extra
 sample.extra#echoesBody  Echoes the body back  [extra, smoke]
 sample.extra#rejectsBadEmail  Rejects a bad email  [extra]
-sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped)
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped: demo data changed)
 ```
 
 A selector that matches nothing stops `vc plan`, `vc run` and `vc list` with exit code 2:
@@ -171,6 +171,8 @@ error: no test or test file matches `sample.nope`
 | `VIB_DEFAULTS_CONCURRENCY` | `defaults.concurrency` |
 | `VIB_DEFAULTS_PER_HOST` | `defaults.perHost` |
 | `VIB_DEFAULTS_TIMEOUT` | `defaults.timeout`, for example `9s` |
+| `VIB_DEFAULTS_RETRY_ATTEMPTS` | `defaults.retry.attempts`, for example `1` |
+| `VIB_DEFAULTS_RETRY_DELAY` | `defaults.retry.delay`, for example `100ms` |
 | `VIB_REPORTS_DIR` | `reports.dir` |
 | `VIB_REPORTS_FORMATS` | `reports.formats`, for example `ctrf,junit` |
 | `VIB_CACHE_KEY` | The key for the cross-run cache, as 64 hex digits. Set it in CI, where there is no OS keychain |

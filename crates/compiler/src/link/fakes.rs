@@ -13,6 +13,8 @@ use super::project;
 use super::project::{Project, Source};
 use super::uses;
 use crate::schema;
+use crate::shape_check;
+use crate::shapes;
 use crate::suggest;
 
 /// A named generator that lowers cleanly.
@@ -58,14 +60,15 @@ pub fn lower<'a>(config: &Source<'a>, fakes: &FakeRegistry, diagnostics: &mut Di
         }
         match generator(node, fakes) {
             Ok(call) => named.push(Named { id, call }),
-            Err(diagnostic) => diagnostics.push(*diagnostic),
+            Err(diagnostic) => diagnostics.extend(diagnostic.map(|diagnostic| *diagnostic)),
         }
     }
     named
 }
 
-/// The call one generator makes: it writes exactly one kind key, with settings that fit.
-fn generator(node: &Node, fakes: &FakeRegistry) -> Result<FakeCall, Box<Diagnostic>> {
+/// The call one generator makes: it writes exactly one kind key, with settings that fit. Settings
+/// of the wrong shape have no diagnostic here: the shape check reports them.
+fn generator(node: &Node, fakes: &FakeRegistry) -> Result<FakeCall, Option<Box<Diagnostic>>> {
     let kinds = FakeRegistry::kinds();
     let written: Vec<_> = node.entries().iter().filter(|entry| kinds.contains(&entry.key.as_str())).collect();
     let [entry] = written.as_slice() else {
@@ -74,11 +77,13 @@ fn generator(node: &Node, fakes: &FakeRegistry) -> Result<FakeCall, Box<Diagnost
             _ => (Code::V2302, "a generator has one kind, but this one has several".to_owned()),
         };
         let diagnostic = Diagnostic::new(code, node.span, message);
-        return Err(Box::new(diagnostic.help(format!("write one of {}", suggest::quoted(&kinds)))));
+        return Err(Some(Box::new(diagnostic.help(format!("write one of {}", suggest::quoted(&kinds))))));
     };
+    let shaped = shapes::generator().find(&entry.key).is_some_and(|key| shape_check::fits(key.ty, &entry.value));
     fakes.named(&entry.key, &schema::to_json(&entry.value)).map_err(|error| {
         let id = project::text(node, "id").unwrap_or_default();
-        Box::new(Diagnostic::new(error.code, entry.value.span, format!("generator `{id}` {}", error.message)))
+        let message = format!("generator `{id}` {}", error.message);
+        shaped.then(|| Box::new(Diagnostic::new(error.code, entry.value.span, message)))
     })
 }
 
@@ -118,6 +123,45 @@ fn unknown(source: &Source<'_>, reference: &Reference, (name, known): (&str, &Kn
     let mut names = known.fakes.names();
     names.extend(known.named.keys().map(String::as_str));
     names.sort_unstable();
-    let diagnostic = uses::did_you_mean(diagnostic, (source, reference, name), &names);
+    let diagnostic = uses::offer(diagnostic, (source, reference, name), &close(name, &names));
     diagnostic.note(format!("the generators are {}", suggest::quoted(&names)))
+}
+
+/// The generators close to `name`: by its last word among its namespace's (`person.fullname` is
+/// close to `person.fullName` only), or by the whole name when none of those is.
+fn close<'a>(name: &str, names: &[&'a str]) -> Vec<&'a str> {
+    let word_in = |ns: &str, generator: &'a str| generator.strip_prefix(ns)?.strip_prefix('.');
+    if let Some((ns, word)) = name.rsplit_once('.') {
+        let words = suggest::close(word, names.iter().filter_map(|generator| word_in(ns, generator)));
+        let full = |word: &str| names.iter().copied().find(|generator| word_in(ns, generator) == Some(word));
+        if !words.is_empty() {
+            return words.into_iter().filter_map(full).collect();
+        }
+    }
+    suggest::close(name, names.iter().copied())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::close;
+
+    const NAMES: [&str; 7] = [
+        "internet.email",
+        "lorem.word",
+        "lorem.words",
+        "person.firstName",
+        "person.fullName",
+        "person.jobTitle",
+        "phone.number",
+    ];
+
+    #[test]
+    fn a_generator_is_close_by_its_last_word_in_its_namespace_or_else_by_its_whole_name() {
+        assert_eq!(close("person.fullname", &NAMES), ["person.fullName"]);
+        assert_eq!(close("person.fulName", &NAMES), ["person.fullName"]);
+        assert_eq!(close("internet.emial", &NAMES), ["internet.email"]);
+        assert_eq!(close("persn.fullName", &NAMES), ["person.fullName"]);
+        assert_eq!(close("person.zzz", &NAMES), [] as [&str; 0]);
+        assert_eq!(close("lorem.wordz", &NAMES), ["lorem.word", "lorem.words"]);
+    }
 }

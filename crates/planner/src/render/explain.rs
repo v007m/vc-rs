@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-use vc_model::{Check, CheckKind, Expect, Matcher, Origin, Path, Plan, Program, Segment, StatusPattern};
+use vc_model::{Check, CheckKind, Expect, Origin, Path, Plan, Program, Segment, TemplateValue};
 
+use super::matcher::{self, Show};
 use crate::visit;
 
 /// Each planned test once, in plan order, with its checks.
@@ -30,14 +31,26 @@ pub fn explain(program: &Program, plan: &Plan) -> String {
 /// Each check of `expect` on a line, with where it came from: `status: 201  (api users#create)`.
 #[must_use]
 pub fn check_lines(program: &Program, expect: &Expect) -> Vec<String> {
-    expect.checks.iter().map(|check| format!("{}  ({})", check_text(check), origin(program, check.origin))).collect()
+    lines(program, expect, None)
+}
+
+/// [`check_lines`] with the value each matcher expects, shown by `show`:
+/// `body: equals {id: 1}  (api users#get)`, `timing total: lt 500ms  (test …)`.
+#[must_use]
+pub fn shown_check_lines(program: &Program, expect: &Expect, show: &dyn Fn(&TemplateValue) -> String) -> Vec<String> {
+    lines(program, expect, Some(show))
+}
+
+fn lines(program: &Program, expect: &Expect, show: Show<'_>) -> Vec<String> {
+    let line = |check: &Check| format!("{}  ({})", check_text(check, show), origin(program, check.origin));
+    expect.checks.iter().map(line).collect()
 }
 
 /// `header content-type: contains` or `status: 200, 2xx`.
-fn check_text(check: &Check) -> String {
+fn check_text(check: &Check, show: Show<'_>) -> String {
     let target = check.target.as_ref().map(path).filter(|text| !text.is_empty());
     let kind = target.map_or_else(|| kind(check.kind).to_owned(), |target| format!("{} {target}", kind(check.kind)));
-    format!("{kind}: {}", matcher(&check.matcher))
+    format!("{kind}: {}", matcher::text(check, show))
 }
 
 const fn kind(kind: CheckKind) -> &'static str {
@@ -70,22 +83,6 @@ fn path(path: &Path) -> String {
         }
     }
     text
-}
-
-fn matcher(matcher: &Matcher) -> String {
-    match matcher {
-        Matcher::Equals(_) => "equals".to_owned(),
-        Matcher::StatusOf(_) => "status".to_owned(),
-        Matcher::All(calls) => calls.iter().map(|call| call.name.as_str()).collect::<Vec<_>>().join(", "),
-        Matcher::Status(patterns) => patterns.iter().map(|pattern| status(*pattern)).collect::<Vec<_>>().join(", "),
-    }
-}
-
-fn status(pattern: StatusPattern) -> String {
-    match pattern {
-        StatusPattern::Code(code) => code.to_string(),
-        StatusPattern::Class(class) => format!("{class}xx"),
-    }
 }
 
 fn origin(program: &Program, origin: Origin) -> String {

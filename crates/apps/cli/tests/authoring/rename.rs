@@ -112,3 +112,36 @@ fn renaming_a_listed_dataset_updates_its_entry_and_every_reference() {
     let output = project.vc(&["rename", "dataset.towns", "dataset.villages"]).output().unwrap();
     assert!(said(&output).contains("datasets.files"), "only a listed dataset is renamed: {}", said(&output));
 }
+
+/// The comments `vc new` wrote in `path`, without the link each ends with.
+fn generated(project: &Project, path: &str) -> Vec<String> {
+    let text = project.read(path);
+    let lines = text.lines().filter_map(|line| line.trim().split_once(" · keys: "));
+    lines.map(|(comment, _)| comment.to_owned()).collect()
+}
+
+#[test]
+fn the_comments_vc_new_wrote_follow_a_renamed_api_test_and_file() {
+    let project = Project::new(&[CONFIG, USERS]);
+    project
+        .vc(&["new", "api", "users#deactivate", "--method", "POST", "--path", "/users/{id}/deactivate"])
+        .assert()
+        .code(0);
+    project.vc(&["new", "test", "users.orders#listsUsers", "--from", "users#list"]).assert().code(0);
+    project.vc(&["rename", "users#deactivate", "users#disable"]).assert().code(0);
+    project.vc(&["rename", "users#list", "users#listAll"]).assert().code(0);
+    project.vc(&["rename", "users.orders", "users.shop"]).assert().code(0);
+    assert!(generated(&project, USERS.0).contains(&"# users#disable · POST /users/{id}/deactivate".to_owned()));
+    let shop = generated(&project, "services/users/shop.test.yaml");
+    assert_eq!(shop, ["# users.shop · test file", "# users.shop#listsUsers · calls users#listAll"]);
+    checks_clean(&project);
+}
+
+#[test]
+fn the_comment_vc_new_wrote_follows_a_renamed_auth() {
+    let project = Project::new(&[CONFIG]);
+    let mut vc = project.vc(&["new", "auth", "partnerToken", "--type", "bearer"]);
+    vc.write_stdin("").assert().code(0);
+    project.vc(&["rename", "auth.partnerToken", "auth.partnerAuth"]).assert().code(0);
+    assert_eq!(generated(&project, CONFIG.0), ["# partnerAuth · bearer"]);
+}

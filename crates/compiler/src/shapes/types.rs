@@ -116,12 +116,24 @@ pub struct Key {
     pub example: Option<&'static str>,
     /// Roots it adds for the templates under it.
     pub scope: Scope,
+    /// The smallest whole number it takes, written as a number.
+    pub min: Option<i64>,
 }
 
 /// Starts a key declaration: `key("path", Ty::Template).required().doc("…")`.
 #[must_use]
 pub const fn key(name: &'static str, ty: Ty) -> Key {
-    Key { name, ty, required: false, missing: Code::V1005, default: None, doc: "", example: None, scope: Scope::NONE }
+    Key {
+        name,
+        ty,
+        required: false,
+        missing: Code::V1005,
+        default: None,
+        doc: "",
+        example: None,
+        scope: Scope::NONE,
+        min: None,
+    }
 }
 
 impl Key {
@@ -165,6 +177,13 @@ impl Key {
     #[must_use]
     pub const fn scope(mut self, scope: Scope) -> Self {
         self.scope = scope;
+        self
+    }
+
+    /// Takes no whole number below `min`.
+    #[must_use]
+    pub const fn min(mut self, min: i64) -> Self {
+        self.min = Some(min);
         self
     }
 }

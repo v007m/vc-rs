@@ -1,0 +1,59 @@
+---
+title: "V4006 — A path holds a {name} placeholder"
+description: "An api's path is a template, so a path parameter is written as a var: /poll/${var.jobId}."
+sidebar:
+  label: "V4006 A path holds a {name} placeholder"
+  order: 4006
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Conventions" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V4006` |
+| Category | V4xxx: Conventions |
+| Severity | warning |
+| Certain fix | write `${var.name}` (suggested fix) |
+
+An api's `path` is a template, so a path parameter is written as a var: `/poll/${var.jobId}`. The OpenAPI style
+`/poll/{jobId}` is not a template; the request is sent with the text `{jobId}` in its URL. Write each placeholder as
+`${var.name}` and set the var where the test or the api can see it. The suggested fix rewrites each one. Braces around
+anything but a name (`{ x }`, `{1}`) and `${…}` templates are left alone.
+
+## Wrong
+
+```yaml title="services/jobs/jobs.api.yaml"
+baseUrl: https://api.example.com
+apis:
+  - id: getJob
+    path: /poll/{jobId}
+```
+
+## Right
+
+```yaml title="services/jobs/jobs.api.yaml"
+baseUrl: https://api.example.com
+apis:
+  - id: getJob
+    path: /poll/${var.jobId}
+    vars:
+      jobId: j-1
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V4006
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

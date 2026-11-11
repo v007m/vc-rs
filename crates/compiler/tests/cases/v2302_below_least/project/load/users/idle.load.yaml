@@ -1,0 +1,4 @@
+mix:
+  - test: users.crud#listsUsers
+    weight: 1
+stages: []

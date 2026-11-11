@@ -448,12 +448,14 @@ async fn poll_sends_until_its_checks_hold_or_its_timeout_passes() {
         vec![vc_testkit::status(503), vc_testkit::status(202), vc_testkit::status(200)],
     )
     .await;
-    assert_eq!((report.outcome.failure(), sent.len()), (None, 3));
+    assert_eq!((report.outcome.failure(), sent.len(), report.exchanges.len()), (None, 3, 1));
     let (fixture, call) = polling();
     let (report, sent) = send(fixture, call, Frame::default(), vec![vc_testkit::status(503)]).await;
     let failure = report.outcome.failure().cloned().unwrap_or_else(|| unreachable!("never 200"));
     assert_eq!((failure.code, sent.len()), (Some(Code::V5104.to_string()), 4));
     assert!(failure.message.starts_with("`poll.until` did not hold within 3s: status"), "{}", failure.message);
+    let statuses: Vec<u16> = report.exchanges.iter().map(|exchange| exchange.response.status.as_u16()).collect();
+    assert_eq!(statuses, [503], "a poll that gives up keeps what the server last answered");
 }
 
 #[tokio::test(start_paused = true)]

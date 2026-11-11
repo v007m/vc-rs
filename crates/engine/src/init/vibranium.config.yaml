@@ -15,14 +15,11 @@ defaults:
     accept: application/json
     user-agent: vibranium/2
 
-vars:
-  sampleUrl: http://localhost:7421    # the demo service used by services/sample
-
-profiles:
+{sampleVars}profiles:
   - id: default
     default: true
     # vars:                # override vars for this profile
-    #   sampleUrl: https://sample.staging.example
+    #   {profileVar}
   # - id: staging          # add one per environment; select with --profile staging
 
 # auth:                    # how requests prove who they are
@@ -38,7 +35,10 @@ secrets:
 
 reports:
   dir: .vibranium/reports
-  formats: [ctrf, junit, html]
+  formats:
+    - ctrf
+    - junit
+    - html
 
 history:
   bodies: failures         # store request/response bodies for failures only

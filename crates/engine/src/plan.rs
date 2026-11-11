@@ -133,9 +133,7 @@ impl Engine {
         flags.splice(0..0, profile_flag(&request.profiles));
         let Layered { mut program, notices, settings, environment, dot_env, .. } =
             self.layered(&request.sets, &flags)?;
-        if let Some(timeout) = settings.timeout {
-            Arc::make_mut(&mut program).config.defaults.timeout = Some(timeout);
-        }
+        settings.apply(&mut program);
         let (profiles, names) = profiles(&program, settings.profiles.as_ref())?;
         let mut selection = self.selection(&request.select)?;
         if !rerun.is_empty() {

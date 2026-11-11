@@ -16,11 +16,14 @@ pub struct CheckArgs {
     /// Shows the certain fixes as a diff and applies them when you confirm.
     #[arg(long)]
     fix: bool,
+    /// With `--fix`, applies the fixes without asking, for scripts and agents.
+    #[arg(long, requires = "fix")]
+    yes: bool,
     /// Reports only on files at or under these paths; the whole project is compiled either way.
     paths: Vec<PathBuf>,
 }
 
-/// `vc check [--json | --fix] [paths…]`: exit 0 without errors, 2 with errors or when it cannot
+/// `vc check [--json | --fix [--yes]] [paths…]`: exit 0 without errors, 2 with errors or when it cannot
 /// start.
 pub fn run(args: &CheckArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let located = match project::locate(project)? {
@@ -32,7 +35,7 @@ pub fn run(args: &CheckArgs, project: Option<&Path>) -> anyhow::Result<Outcome> 
         Err(reason) => return Ok(Outcome::Refused(reason)),
     };
     if args.fix {
-        return crate::fix::run(&located.engine, &CheckRequest { paths, ..CheckRequest::default() });
+        return crate::fix::run(&located.engine, &CheckRequest { paths, ..CheckRequest::default() }, args.yes);
     }
     let report = match located.engine.check(&CheckRequest { paths, ..CheckRequest::default() }) {
         Ok(report) => report,

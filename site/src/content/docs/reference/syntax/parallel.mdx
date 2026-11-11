@@ -4,7 +4,7 @@ description: Run the iterations of a repeat or forEach step several at a time.
 sidebar: { order: 243, badge: { text: 'step', variant: 'note' } }
 ---
 
-import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 `parallel` sets how many iterations of a looped step run at once. It goes next to [`repeat`](/vc-rs/reference/syntax/repeat/) or [`forEach`](/vc-rs/reference/syntax/for-each/). Without it, iterations run one after another.
@@ -19,7 +19,7 @@ import Playground from '~/components/Playground.svelte';
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `parallel` | integer | `1` | no | The most iterations in flight at once. Only has an effect with `repeat` or `forEach` on the same step. |
+| `parallel` | integer, at least 1 | `1` | no | The most iterations in flight at once. Needs `repeat` or `forEach` on the same step. |
 
 Tests already run in parallel, up to `defaults.concurrency`. `parallel` is only about the iterations inside one step.
 
@@ -134,10 +134,8 @@ beforeAll:
 - Saved lists are in iteration order, not in the order calls finished.
 - Each iteration that succeeds registers its own cleanup.
 - If an iteration fails, the step fails once the iterations in flight finish.
-
-<Aside>
-`parallel` on a step without `repeat` or `forEach` is accepted and does nothing. `parallel: 0` is accepted too and runs the iterations one after another, like `parallel: 1`.
-</Aside>
+- `parallel` on a step without `repeat` or `forEach` is an error (`V2211`): the step has one iteration.
+- `parallel: 0`, or any number below 1, is an error (`V2302`).
 
 ## Related
 

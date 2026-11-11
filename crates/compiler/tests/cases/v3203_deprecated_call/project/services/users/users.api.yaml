@@ -12,3 +12,7 @@ apis:
   - id: listLegacyUsers
     path: /legacy/users
     deprecated: true
+  - id: listOldUsers
+    path: /old/users
+    operationId: listOldUsers
+    deprecated: true

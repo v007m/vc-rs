@@ -124,7 +124,7 @@ async fn a_person_lists_and_decides_the_requests() {
 fn deciding_an_unknown_request_says_how_to_list_them() {
     let engine = agent_engine(&MemoryApprovals::new());
     let decided = engine.approvals_decide(ApprovalId::new(7), Verdict::Deny);
-    let Err(EngineError::History { reason, help }) = decided else { panic!("{decided:?}") };
+    let Err(EngineError::Selection { reason, help }) = decided else { panic!("{decided:?}") };
     assert_eq!(reason, "no approval request 7");
     assert_eq!(help.as_deref(), Some("`vc approvals` lists the waiting requests"));
 }

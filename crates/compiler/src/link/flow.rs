@@ -23,7 +23,7 @@ pub fn check(project: &Project<'_>) -> Diagnostics {
     for source in project.sources.iter().filter(|source| source.kind == FileKind::Test) {
         flow.test_file(source, &run);
     }
-    flow.checker.diagnostics
+    flow.checker.finish()
 }
 
 /// The parts of an action checked on their own: its blocks, and its `cache`, whose `check`

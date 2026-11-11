@@ -198,24 +198,13 @@ tests:
 - In a `body`, the result is sent as JSON.
 
 <Aside type="caution">
-`$extend` needs an object. If its template renders anything else, such as the number `5`, vc drops it without a warning and sends only the other keys. `$remove` without `$extend` is not special: it is sent as a key named `$remove`.
+`$extend` needs an object. A base that renders anything else, such as the number `5`, fails the call before anything is sent:
 
 ```console
-✕ bodylab.e2#extendsNumber                                       10ms
-  error[V5101]: expect.body.match.body
-    --> services/bodylab/e2.test.yaml:12:17
-     |
-  12 |           body: x
-     |                 ^ expected "x", got {"a":1}
-✕ bodylab.e2#removeAlone                                         10ms
-  error[V5101]: expect.body.match.body
-    --> services/bodylab/e2.test.yaml:21:17
-     |
-  21 |           body: x
-     |                 ^ expected "x", got {"$remove":["name"],"a":1}
+✕ bodylab.e2#extendsNumber                                        0ms
+  error[V5111]: `$extend` needs an object to start from, but its base is a number
+     = at: call bodylab#post
 ```
-
-These tests use `body: x` on purpose, to print what was sent.
 </Aside>
 
 ## Common errors
@@ -246,8 +235,28 @@ error[V1001]: not valid YAML: while parsing a flow sequence, expected ',' or ']'
   = help: quote values that contain `: ` or ` #` or start with a special character such as `*`, `&` or `!`
 ```
 
-Write `$remove: ["items[0]"]`. See [V2101](/vc-rs/reference/diagnostics/v2101/) and [V1001](/vc-rs/reference/diagnostics/v1001/).
+Write `$remove: ["items[0]"]`.
 
+A base written in place, rather than a template, fails `vc check`; so does `$remove` without `$extend`:
+
+```console
+error[V2302]: expected a template that renders an object, found a number
+ --> services/m/w.test.yaml:6:18
+  |
+6 |         $extend: 5
+  |                  ^ never an object
+  = help: start from an object you have: `$extend: ${original.body}` or `$extend: ${var.baseUser}`
+
+error[V2211]: `$remove` in a map without `$extend`
+ --> services/m/w.test.yaml:10:9
+   |
+10 |         $remove: [id]
+   |         ^^^^^^^ needs `$extend`
+   = note: without `$extend` it would be sent as a key
+   = help: `$remove` drops paths from the object `$extend` starts from: add `$extend: ${…}`, or remove `$remove`
+```
+
+See [V2101](/vc-rs/reference/diagnostics/v2101/), [V1001](/vc-rs/reference/diagnostics/v1001/), [V2302](/vc-rs/reference/diagnostics/v2302/), [V2211](/vc-rs/reference/diagnostics/v2211/) and [V5111](/vc-rs/reference/diagnostics/v5111/). 
 ## Related
 
 - [body](/vc-rs/reference/syntax/body/)

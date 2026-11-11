@@ -20,8 +20,8 @@ pub struct ApprovalsArgs {
 /// `vc approve <id>`.
 #[derive(Args)]
 pub struct ApproveArgs {
-    /// The request to decide, as `vc approvals` lists it.
-    id: u64,
+    /// The request to decide, as `vc approvals` lists it (`3` or `#3`).
+    id: String,
     /// Also allows calls like it (same profile, tool and method) from now on (D195). A write,
     /// or a run that reaches a `command:` or `function:` action, still asks every time (D202).
     #[arg(long, conflicts_with = "deny")]
@@ -55,6 +55,10 @@ pub fn list(args: &ApprovalsArgs, project: Option<&Path>) -> anyhow::Result<Outc
 
 /// `vc approve <id> [--always | --deny]`: exit 0 decided, 2 unknown or already decided.
 pub fn approve(args: &ApproveArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
+    let Some(id) = request_number(&args.id) else {
+        let help = "pass the number `vc approvals` lists, such as `vc approve 3`";
+        return Ok(Outcome::Helped(format!("`{}` is not a request number", args.id), Some(help.to_owned())));
+    };
     let located = match project::locate(project)? {
         Ok(located) => located,
         Err(outcome) => return Ok(outcome),
@@ -64,13 +68,18 @@ pub fn approve(args: &ApproveArgs, project: Option<&Path>) -> anyhow::Result<Out
         (_, true) => Verdict::Deny,
         _ => Verdict::Approve,
     };
-    Ok(match located.engine.approvals_decide(ApprovalId::new(args.id), verdict) {
+    Ok(match located.engine.approvals_decide(ApprovalId::new(id), verdict) {
         Ok(done) => {
-            writeln!(stdout::out(), "{}", decided(args.id, verdict, &done.kept))?;
+            writeln!(stdout::out(), "{}", decided(id, verdict, &done.kept))?;
             Outcome::Done
         }
         Err(error) => Outcome::Engine(error),
     })
+}
+
+/// The request number in `text`: `3`, or `#3` as `vc approvals` lists it.
+fn request_number(text: &str) -> Option<u64> {
+    text.strip_prefix('#').unwrap_or(text).parse().ok()
 }
 
 /// `#3  claude  call_api  staging  DELETE users#remove`, with the status when `all`.

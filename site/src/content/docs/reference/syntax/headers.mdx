@@ -31,7 +31,7 @@ apis:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| name | text | — | — | A literal header name. Case doesn't matter. Not a template. |
+| name | text | — | — | A literal header name: letters, digits and `` !#$%&'*+-.^_`|~ `` (V2310). Case doesn't matter. Not a template. |
 | value | string, number or template | — | — | Numbers are sent as text. A template that renders `null` removes the header. |
 
 `vc init` writes `accept: application/json` and `user-agent: vibranium/2` into `defaults.headers`. vc also adds `accept-encoding: gzip, br, zstd, deflate` and `host`. When a body is sent it adds `content-type` and `content-length`.
@@ -205,7 +205,7 @@ error[V2302]: expected template, found null
    |            ^^^^ expected template
 ```
 
-A header name with a space, or a template as a name, passes `vc check` and fails when sent:
+A header name with a space or a colon, or a template as a name, fails `vc check`. A name is never rendered, so it must be the header's own name:
 
 ```yaml title="services/h/h.api.yaml"
   - id: badName
@@ -215,17 +215,17 @@ A header name with a space, or a template as a name, passes `vc check` and fails
 ```
 
 ```console
-$ vc run h.t
-✕ h.t#a                                                           0ms
-  error[V5111]: `x bad` is not a header name: invalid HTTP header name
-     = at: call h#badName
+error[V2310]: `x bad` is not an HTTP header name, so no request can send it
+  --> services/h/h.api.yaml:9:7
+   |
+ 9 |       x bad: "1"
+   |       ^^^^^ not a header name
+   = help: a header name has letters, digits and !#$%&'*+-.^_`|~ only, such as `X-Request-Id`
 ```
-
-A templated name fails the same way: `` `${var.h}` is not a header name: invalid HTTP header name ``.
 
 A header var that no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/) once a test calls the api. `vc call` on an api no test calls reports it only when sent, as `` ✗ `var.n` is not set ``.
 
-See [V2302](/vc-rs/reference/diagnostics/v2302/), [V3206](/vc-rs/reference/diagnostics/v3206/) and [V5111](/vc-rs/reference/diagnostics/v5111/).
+See [V2302](/vc-rs/reference/diagnostics/v2302/), [V2310](/vc-rs/reference/diagnostics/v2310/), [V3206](/vc-rs/reference/diagnostics/v3206/) and [V5111](/vc-rs/reference/diagnostics/v5111/).
 
 ## Related
 

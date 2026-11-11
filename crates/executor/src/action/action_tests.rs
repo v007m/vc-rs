@@ -122,6 +122,17 @@ async fn a_var_that_is_not_set_fails_the_call_before_it_is_sent() {
 }
 
 #[tokio::test]
+async fn a_relative_url_with_no_base_url_and_no_profile_says_so() {
+    let mut fixture = Fixture::new();
+    let get = fixture.call("/users");
+    fixture.group_mut().base_url = None;
+    let report = execute(fixture, standard(Arc::new(FakeTransport::echo())), get).await;
+    let message = failure(&report).map(|failure| failure.message.clone()).unwrap_or_default();
+    assert_eq!(code(&report), Some(Code::V5111.to_string().as_str()));
+    assert!(message.contains("which is not a full URL") && message.contains("` (no profile); help:"), "{message}");
+}
+
+#[tokio::test]
 async fn a_url_that_does_not_parse_fails_the_call() {
     let mut fixture = Fixture::new();
     let get = fixture.call("/a path with spaces");

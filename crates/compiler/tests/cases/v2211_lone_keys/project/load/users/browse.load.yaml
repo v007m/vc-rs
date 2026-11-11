@@ -1,0 +1,13 @@
+mix:
+  - test: users.crud#listsUsers
+    weight: 1
+    thresholds:
+      p99:
+        lt: 2s
+stages:
+  - duration: 1m
+    users: 10
+thresholds:
+  errorRate:
+    lt: 1%
+abortOn: [errorRate, p99, p95]

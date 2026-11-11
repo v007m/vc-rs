@@ -46,6 +46,21 @@ fn a_profile_var_names_its_profile() {
     assert!(text.contains("http://x"), "the value it overrides is shown too:\n{text}");
 }
 
+/// `defaults.retry` names its two settings; `--set` overrides one and leaves the other.
+#[test]
+fn the_retry_group_shows_its_attempts_and_delay_and_set_overrides_one() {
+    let config = format!("{}defaults:\n  retry: {{attempts: 1}}\n", CONFIG.1);
+    let project = Project::new(&[(CONFIG.0, &config)]);
+    let expected = "defaults.retry.attempts = 1  (vibranium.config.yaml)\n  over 0  (built-in)\n\
+                    defaults.retry.delay = 0s  (vibranium.config.yaml)\n  over 0s  (built-in)\n";
+    assert_eq!(explain(&project, "defaults.retry", None), expected);
+    let set = ["config", "explain", "defaults.retry.attempts", "--set", "defaults.retry.attempts=3"];
+    let output = project.vc(&set).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.starts_with("defaults.retry.attempts = 3  (--set)\n  over 1  (vibranium.config.yaml)"), "{text}");
+}
+
 #[test]
 fn an_unknown_key_is_refused_with_the_closest_one() {
     let project = Project::new(&[CONFIG]);

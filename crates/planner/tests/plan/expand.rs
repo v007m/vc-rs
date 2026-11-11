@@ -152,6 +152,18 @@ fn a_test_that_is_not_standalone_is_left_out_entirely() {
 }
 
 #[test]
+fn a_selector_that_picks_only_tests_that_are_not_standalone_says_so() {
+    let mut program = common::project();
+    let test = common::test_id(&program, "orders.checkout#refundsOrder");
+    program.tests[&test].standalone = false;
+    let refused = vc_planner::plan(&program, &common::ids(&["orders.checkout#refundsOrder"]), &options(|_| ()));
+    let Err(PlanError::ReuseOnly { selector, test }) = refused else { panic!("{refused:?}") };
+    assert_eq!((selector.as_str(), test.as_str()), ("orders.checkout#refundsOrder", "orders.checkout#refundsOrder"));
+    let both = common::ids(&["orders.checkout#refundsOrder", "orders.checkout#paysOrder"]);
+    assert!(matches!(vc_planner::plan(&program, &both, &options(|_| ())), Err(PlanError::ReuseOnly { .. })));
+}
+
+#[test]
 fn lifecycle_is_planned_only_where_an_instance_runs() {
     let program = common::project();
     let plan = common::planned(&program, &common::ids(&["orders.checkout#paysOrder"]));

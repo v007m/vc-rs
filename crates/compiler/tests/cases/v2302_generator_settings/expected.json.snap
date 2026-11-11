@@ -1,0 +1,87 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_generator_settings/project
+---
+{
+  "summary": {
+    "errors": 3,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "expected a map of `min`, `max`, found an integer",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 8,
+          "column": 10,
+          "endLine": 8,
+          "endColumn": 11
+        },
+        "text": "expected a map of `min`, `max`"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    },
+    {
+      "code": "V1004",
+      "severity": "error",
+      "message": "unknown key `wordz` in lorem",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 11,
+          "column": 7,
+          "endLine": 11,
+          "endColumn": 12
+        },
+        "text": "not a known key"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "did you mean `words`?"
+      ],
+      "fixes": [
+        {
+          "title": "Replace with words",
+          "certain": true,
+          "edits": [
+            {
+              "path": "vibranium.config.yaml",
+              "range": {
+                "start": 143,
+                "end": 148
+              },
+              "newText": "words"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V2302",
+      "severity": "error",
+      "message": "expected list of value, found text",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 13,
+          "column": 12,
+          "endLine": 13,
+          "endColumn": 18
+        },
+        "text": "expected list of value"
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [],
+      "fixes": []
+    }
+  ]
+}

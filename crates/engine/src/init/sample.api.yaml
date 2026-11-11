@@ -48,4 +48,6 @@ apis:
     method: DELETE
     path: /users/${var.userId}
     expect:
-      status: [204, 404]               # already gone is fine for a cleanup
+      status:                          # already gone is fine for a cleanup
+        - 204
+        - 404

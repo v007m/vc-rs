@@ -1,7 +1,7 @@
 //! `vc skip` and `vc unskip`: write or remove the `skip` of a test, or of a test file at its top
 //! (D77). Unskipping a skip `vc skip` wrote gives back the original bytes.
 
-use vc_diagnostics::TextEdit;
+use vc_diagnostics::{Code, TextEdit};
 use vc_model::{Date, FileKind};
 use vc_parser::{Node, write_text};
 
@@ -30,15 +30,11 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// [`EngineError::Edit`] for a blank reason, a date that is not one, an unknown target
-    /// (with the close ones), a target already skipped, or a change the guard refuses.
+    /// [`EngineError::Edit`] for a blank reason, a date that is not one or is already past
+    /// (V3104), an unknown target (with the close ones), a target already skipped, or a change
+    /// the guard refuses.
     pub fn skip(&self, request: &SkipRequest) -> Result<Changes, EngineError> {
-        if request.reason.trim().is_empty() {
-            return Err(refused("a skip needs a reason", "say why, for the report: `--reason \"flaky upstream\"`"));
-        }
-        if let Some(until) = request.until.as_deref().filter(|until| Date::parse(until).is_none()) {
-            return Err(refused(format!("`{until}` is not a date"), "write it as YYYY-MM-DD: `--until 2026-12-01`"));
-        }
+        checked(request, self.clock.today())?;
         let project = self.authoring()?;
         let opened = target(&project, &request.target)?;
         let host = host(&opened, &request.target)?;
@@ -69,6 +65,24 @@ impl Engine {
             .map_err(|error| refused(format!("cannot remove this skip: {error}"), "remove it by hand"))?;
         let changes = Changes { files: vec![opened.change(&[edit])?], titles: vec![format!("Unskip {target_text}")] };
         self.guarded(&project, changes)
+    }
+}
+
+/// Refuses a blank reason, and an `until` that is not a date or is before `today` (in UTC), as
+/// such a skip would have expired already (V3104).
+fn checked(request: &SkipRequest, today: Date) -> Result<(), EngineError> {
+    if request.reason.trim().is_empty() {
+        return Err(refused("a skip needs a reason", "say why, for the report: `--reason \"flaky upstream\"`"));
+    }
+    let Some(until) = request.until.as_deref() else { return Ok(()) };
+    match Date::parse(until) {
+        None => Err(refused(format!("`{until}` is not a date"), "write it as YYYY-MM-DD: `--until 2026-12-01`")),
+        Some(date) if date < today => {
+            let reason =
+                format!("{}: `--until {until}` is before today ({today}), so the skip has expired", Code::V3104);
+            Err(refused(reason, "give today or a later date, or leave `--until` out"))
+        }
+        Some(_) => Ok(()),
     }
 }
 
@@ -120,11 +134,23 @@ fn long_form(reason: &str, until: &str, indent: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::long_form;
+    use vc_model::Date;
+
+    use super::{SkipRequest, checked, long_form};
 
     #[test]
     fn the_long_form_quotes_a_reason_only_when_yaml_needs_it() {
         assert_eq!(long_form("upstream down", "2099-01-01", ""), "reason: upstream down\nuntil: 2099-01-01\n");
         assert_eq!(long_form("see: #12", "2099-01-01", "  "), "  reason: \"see: #12\"\n  until: 2099-01-01\n");
+    }
+
+    #[test]
+    fn an_until_before_today_is_refused_with_v3104_and_today_is_kept() {
+        let today = Date::new(2026, 11, 11).unwrap();
+        let until =
+            |date: &str| SkipRequest { reason: "flaky".into(), until: Some(date.into()), ..SkipRequest::default() };
+        let error = checked(&until("2026-11-10"), today).unwrap_err().to_string();
+        assert!(error.contains("V3104: `--until 2026-11-10` is before today (2026-11-11)"), "{error}");
+        assert!(checked(&until("2026-11-11"), today).is_ok() && checked(&until("2026-12-01"), today).is_ok());
     }
 }

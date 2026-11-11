@@ -110,8 +110,8 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// [`EngineError::History`] when there is no request `id`, it is decided already, or the
-    /// queue cannot be written.
+    /// [`EngineError::Selection`] when there is no request `id` or it is decided already;
+    /// [`EngineError::History`] when the queue cannot be written.
     pub fn approvals_decide(&self, id: ApprovalId, verdict: Verdict) -> Result<Decided, EngineError> {
         let decision = Decision { id, verdict, by: self.person() };
         self.approval_queue().decide(&decision).map_err(|error| store_error(&error))
@@ -198,11 +198,13 @@ fn span(wait: Duration) -> String {
     }
 }
 
-/// A queue or log failure as the engine's error.
+/// A queue or log failure as the engine's error: a request that is not waiting is a wrong
+/// selection, anything else a history that cannot be used.
 pub fn store_error(error: &ApprovalError) -> EngineError {
-    EngineError::History {
-        reason: error.to_string(),
-        help: Some("`vc approvals` lists the waiting requests".to_owned()),
+    let (reason, help) = (error.to_string(), Some("`vc approvals` lists the waiting requests".to_owned()));
+    match error {
+        ApprovalError::Unknown { .. } | ApprovalError::Decided { .. } => EngineError::Selection { reason, help },
+        _ => EngineError::History { reason, help },
     }
 }
 

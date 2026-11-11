@@ -1,8 +1,11 @@
 //! Definitions shown as written, for `vc explain` and `vc config explain`: a value's text,
-//! with `${var.x}` replaced by what `x` is set to where the vars are known.
+//! with `${var.x}` replaced by what `x` is set to where the vars are known, its pipes applied.
 
 use serde_json::Value;
-use vc_model::{Namespace, Part, Program, Reference, Segment, Template, TemplateValue};
+use vc_model::{CelProgram, Namespace, Part, Program, Reference, Segment, Template, TemplateValue};
+use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
+
+use crate::notify::Steady;
 
 /// A var in force: its name, its value and the level that set it.
 #[derive(Clone, Debug)]
@@ -10,6 +13,9 @@ pub struct Var {
     pub name: String,
     pub value: TemplateValue,
     pub origin: String,
+    /// Whether a run saves it from a response, so it is known only then and a reference to it
+    /// is shown as written.
+    pub saved: bool,
 }
 
 /// How deep `${var.x}` is followed before it is shown as written, so a var that names itself
@@ -67,15 +73,18 @@ impl Shown<'_> {
         text
     }
 
-    /// What a plain `${var.x}` is set to, when `x` is known and not too deep.
+    /// What `${var.x}` is set to, its pipes applied, when `x` is known and not too deep.
     fn var(&self, reference: &Reference, depth: u8) -> Option<String> {
-        let plain = reference.ns == Namespace::Var && reference.pipes.is_empty() && reference.args.is_empty();
         let [Segment::Key(name)] = reference.path.segments.as_slice() else { return None };
-        if !plain || depth >= DEPTH {
+        if reference.ns != Namespace::Var || !reference.args.is_empty() || depth >= DEPTH {
             return None;
         }
-        let var = self.vars.iter().find(|var| var.name == *name)?;
-        Some(self.value_at(&var.value, depth.saturating_add(1)))
+        let var = self.vars.iter().find(|var| var.name == *name && !var.saved)?;
+        let text = self.value_at(&var.value, depth.saturating_add(1));
+        if reference.pipes.is_empty() {
+            return Some(text);
+        }
+        piped(reference, text)
     }
 
     /// `reference` as written: `${response.body.id | int}`.
@@ -104,6 +113,35 @@ fn args(args: &[Value]) -> String {
         })
         .collect();
     format!("({})", args.join(", "))
+}
+
+/// `text` through `reference`'s pipes; none when it still holds a reference or a pipe fails.
+/// The value is text, so a list pipe such as `random` fails and is left to the run.
+fn piped(reference: &Reference, text: String) -> Option<String> {
+    if text.contains("${") {
+        return None;
+    }
+    let known = Known(Value::String(text));
+    let pipes = PipeRegistry::builtin();
+    let template = Template { parts: vec![Part::Ref(reference.clone())] };
+    Renderer::new(&pipes, &known).text(&template).ok()
+}
+
+/// A var's known value, before its pipes.
+struct Known(Value);
+
+impl Resolve for Known {
+    fn resolve(&self, _reference: &Reference) -> Result<Value, RenderError> {
+        Ok(self.0.clone())
+    }
+
+    fn evaluate(&self, _program: &CelProgram) -> Result<Value, RenderError> {
+        Err(RenderError::invalid("evaluated when the run sends it"))
+    }
+
+    fn chance(&self) -> &dyn Chance {
+        &Steady
+    }
 }
 
 /// A literal string value, as a setting from outside the files sets a var.

@@ -16,6 +16,11 @@ const CONFIG: &str = include_str!("init/vibranium.config.yaml");
 const SAMPLE_API: &str = include_str!("init/sample.api.yaml");
 const SAMPLE_TESTS: &str = include_str!("init/basics.test.yaml");
 pub const ENV_SCHEMA: &str = include_str!("init/env.schema");
+/// The config's sample-only parts: placeholder, text with the sample, text without it.
+const SAMPLE_PARTS: [(&str, &str, &str); 2] = [
+    ("{sampleVars}", "vars:\n  sampleUrl: http://localhost:7421    # the demo service used by services/sample\n\n", ""),
+    ("{profileVar}", "sampleUrl: https://sample.staging.example", "baseUrl: https://api.staging.example"),
+];
 const GITIGNORE: &str = ".gitignore";
 const IGNORED: &str = ".vibranium/";
 
@@ -48,7 +53,10 @@ impl Engine {
         let project = self.authoring()?;
         let name =
             self.root().file_name().map_or_else(|| "project".to_owned(), |name| name.to_string_lossy().into_owned());
-        let files = wanted.iter().map(|(path, kind, text)| created(path, &definition(*kind, text, &name))).collect();
+        let files = wanted
+            .iter()
+            .map(|(path, kind, text)| created(path, &definition(*kind, &sampled(text, sample), &name)))
+            .collect();
         let titles = wanted.iter().map(|(path, _, _)| format!("Create {path}")).collect();
         let mut changes = self.guarded(&project, Changes { files, titles })?;
         self.scaffold(&mut changes)?;
@@ -96,6 +104,13 @@ fn definition(kind: FileKind, text: &str, name: &str) -> String {
     format!("{}\n{}", schema_line(kind), text.replace("{project}", &write_text(name, false)))
 }
 
+/// `text` with the config's sample-only parts filled in, or left out without the sample.
+fn sampled(text: &str, sample: bool) -> String {
+    SAMPLE_PARTS.iter().fold(text.to_owned(), |text, (placeholder, with, without)| {
+        text.replace(placeholder, if sample { with } else { without })
+    })
+}
+
 /// `.gitignore`'s text `text` with `.vibranium/` on a line of its own at the end.
 fn ignored(text: &str) -> String {
     let newline = if text.is_empty() || text.ends_with('\n') { "" } else { "\n" };
@@ -106,13 +121,20 @@ fn ignored(text: &str) -> String {
 mod tests {
     use vc_model::FileKind;
 
-    use super::{definition, ignored};
+    use super::{CONFIG, definition, ignored, sampled};
 
     #[test]
     fn the_ignore_line_goes_on_a_line_of_its_own() {
         assert_eq!(ignored(""), ".vibranium/\n");
         assert_eq!(ignored("target"), "target\n.vibranium/\n");
         assert_eq!(ignored("target\n"), "target\n.vibranium/\n");
+    }
+
+    #[test]
+    fn the_config_mentions_the_sample_only_with_it() {
+        assert!(sampled(CONFIG, true).contains("\nvars:\n  sampleUrl: http://localhost:7421 "));
+        let bare = sampled(CONFIG, false);
+        assert!(!bare.contains("sample") && !bare.contains("{sampleVars}") && !bare.contains("{profileVar}"), "{bare}");
     }
 
     #[test]
