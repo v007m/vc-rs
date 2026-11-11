@@ -276,6 +276,8 @@ async fn an_abort_on_breach_stops_the_run_early_and_exits_3() {
     let report = load(&engine, interrupts, None).await;
     assert_eq!((report.exit, report.ending), (3, LoadEnding::Aborted), "{report:?}");
     assert!(report.seconds < 60 && report.errors > 0, "{report:?}");
+    let kinds: u64 = report.error_kinds.iter().map(|kind| kind.count).sum();
+    assert_eq!(kinds, report.errors, "an iteration the abort drops is in no kind: {report:?}");
     assert!(report.text().starts_with("users.peak aborted after "), "{}", report.text());
     assert_eq!(report.json()["ending"].as_str(), Some("aborted"));
     assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Failed))));
@@ -305,6 +307,20 @@ async fn ctrl_c_stops_the_users_and_exits_130() {
     assert_eq!((report.exit, report.ending), (130, LoadEnding::Cancelled), "{report:?}");
     assert!(report.seconds < 60, "{report:?}");
     assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Cancelled))));
+}
+
+#[tokio::test(start_paused = true)]
+async fn ctrl_c_counts_no_kind_for_an_iteration_it_drops() {
+    let (engine, _) = engine(CONFIG, &scenario("breaksUsers", "{duration: 1m, users: 2}"));
+    let (interrupter, interrupts) = interrupts();
+    let press = async {
+        tokio::time::sleep(Duration::from_millis(2500)).await;
+        interrupter.interrupt();
+    };
+    let (report, ()) = tokio::join!(load(&engine, interrupts, None), press);
+    assert_eq!((report.ending, report.errors > 0), (LoadEnding::Cancelled, true), "{report:?}");
+    let kinds: u64 = report.error_kinds.iter().map(|kind| kind.count).sum();
+    assert_eq!(kinds, report.errors, "{report:?}");
 }
 
 #[tokio::test]

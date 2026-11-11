@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 use tokio::time::Instant;
-use vc_executor::{Arguments, CancelTree, Iterations, Judge, MatcherRegistry};
+use vc_executor::{Arguments, CancelTree, IterationReport, Iterations, Judge, MatcherRegistry};
 use vc_interfaces::Random;
-use vc_model::LoadScenario;
+use vc_model::{LoadScenario, TestId};
 
 use crate::user::{Crew, Seat, user};
 use crate::{
@@ -33,7 +33,13 @@ pub struct LoadParts {
     pub cancel: CancelTree,
     /// Receives each second as it closes; a receiver that has gone away is not an error.
     pub seconds: mpsc::Sender<Second>,
+    /// Receives each failed iteration the run counts, with its test, as it is counted: one that
+    /// ends after the run is cancelled is neither. A receiver that has gone away is not an error.
+    pub failed: mpsc::UnboundedSender<Failed>,
 }
+
+/// A failed iteration of a load run, with the mix test it ran.
+pub type Failed = (TestId, IterationReport);
 
 /// One closed second of a load run, for the live view and the store.
 #[derive(Clone, Debug)]
@@ -111,6 +117,7 @@ async fn drive(scenario: &LoadScenario, parts: LoadParts, matching: Matching<'_>
         think: (min.get(), max.get()),
         start: Instant::now(),
         samples,
+        failed: parts.failed,
     };
     let mut run = Run::new(scenario, Arc::new(crew), parts.cancel)?;
     let mut ticks = tokio::time::interval(Duration::from_secs(1));

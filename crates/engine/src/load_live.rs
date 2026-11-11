@@ -6,12 +6,11 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_trait::async_trait;
 use serde_json::{Map, Value};
 use tokio::sync::mpsc;
-use vc_executor::{Arguments, CancelTree, IterationReport, Iterations, MatcherRegistry, ProgramIterations};
+use vc_executor::{Arguments, CancelTree, IterationReport, MatcherRegistry, ProgramIterations};
 use vc_interfaces::{IntervalRow, Random, Row};
-use vc_loadtest::{Breach, LoadError, LoadOutcome, LoadParts, Second, run_load};
+use vc_loadtest::{Breach, Failed, LoadError, LoadOutcome, LoadParts, Second, run_load};
 use vc_model::{ApiId, Event, LoadScenario, Part, Program, TemplateValue, TestId};
 use vc_template::RenderError;
 
@@ -62,18 +61,23 @@ impl Live {
     }
 
     /// Writes each second as it closes and sends its tick, until the stage loop is done.
-    async fn follow(mut self, mut seconds: mpsc::Receiver<Second>, mut kinds: mpsc::UnboundedReceiver<Kind>) -> Self {
+    async fn follow(
+        mut self,
+        mut seconds: mpsc::Receiver<Second>,
+        mut failed: mpsc::UnboundedReceiver<Failed>,
+    ) -> Self {
         while let Some(second) = seconds.recv().await {
-            self.count(&mut kinds);
+            self.count(&mut failed);
             self.second(&second);
         }
-        self.count(&mut kinds);
+        self.count(&mut failed);
         self
     }
 
-    fn count(&mut self, kinds: &mut mpsc::UnboundedReceiver<Kind>) {
-        while let Ok(kind) = kinds.try_recv() {
-            let count = self.kinds.entry(kind).or_default();
+    /// Counts by kind the failed iterations the run has kept so far.
+    fn count(&mut self, failed: &mut mpsc::UnboundedReceiver<Failed>) {
+        while let Ok((test, report)) = failed.try_recv() {
+            let count = self.kinds.entry(kind(test, &report)).or_default();
             *count = count.saturating_add(1);
         }
     }
@@ -129,23 +133,6 @@ fn breach_name(program: &Program, breach: &Breach) -> String {
     test.map_or_else(|| breach.metric.clone(), |test| format!("{test}: {}", breach.metric))
 }
 
-/// The program's iterations, each failure sent on as its kind.
-struct Counted {
-    inner: Arc<ProgramIterations>,
-    errors: mpsc::UnboundedSender<Kind>,
-}
-
-#[async_trait]
-impl Iterations for Counted {
-    async fn iterate(&self, test: TestId, user: u32) -> IterationReport {
-        let report = self.inner.iterate(test, user).await;
-        if !report.passed {
-            let _gone = self.errors.send(kind(test, &report));
-        }
-        report
-    }
-}
-
 /// The kind of `test`'s failed iteration: by the action that failed it, not by the calls
 /// before or after (a `before` call, a cleanup); by the test when that action calls no api.
 fn kind(test: TestId, report: &IterationReport) -> Kind {
@@ -192,12 +179,11 @@ pub async fn measure(
     random: &Arc<dyn Random>,
 ) -> (Result<LoadOutcome, LoadError>, Live) {
     let (seconds, closed) = mpsc::channel(SECONDS_QUEUE);
-    let (errors, kinds) = mpsc::unbounded_channel();
-    let counted = Counted { inner: Arc::clone(&iterations), errors };
-    let cancel = iterations.users();
-    let parts = LoadParts { iterations: Arc::new(counted), random: Arc::clone(random), cancel, seconds };
+    let (failed, kept) = mpsc::unbounded_channel();
+    let (shared, cancel) = (Arc::clone(&iterations), iterations.users());
+    let parts = LoadParts { iterations: shared, random: Arc::clone(random), cancel, seconds, failed };
     let registry = MatcherRegistry::standard();
-    let (outcome, live) = tokio::join!(run_load(scenario, parts, (&registry, &Literal)), live.follow(closed, kinds));
+    let (outcome, live) = tokio::join!(run_load(scenario, parts, (&registry, &Literal)), live.follow(closed, kept));
     iterations.finish().await;
     (outcome, live)
 }
