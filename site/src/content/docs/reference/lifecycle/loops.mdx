@@ -129,7 +129,7 @@ GET /status/500
 ## How it behaves
 
 - Loops work on `call` and `test` actions, in any lifecycle block or in `steps`.
-- Every saved name collects a list with one entry per iteration, in iteration order.
+- Every saved name collects a list with one entry per iteration, in iteration order. A `forEach` over an empty list runs nothing and saves each name as `[]`; `repeat` is at least 1.
 - Each successful iteration registers its own cleanup. All of them run when the owner ends, newest first.
 - When an iteration fails, the action fails once the iterations in flight finish. The cleanups of the iterations that passed still run.
 - `repeat` on a test is different: it runs the whole test that many times and reports each instance.

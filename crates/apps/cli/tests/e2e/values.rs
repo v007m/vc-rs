@@ -1,6 +1,7 @@
 //! Computed bodies: `$extend` merges changes into an earlier response (and fails on a base
 //! that is no object), `$remove` drops fields,
-//! and `$cel` computes a value, all as the server receives them. A dataset outside the project
+//! and `$cel` computes a value, all as the server receives them. A `forEach` over no items saves
+//! each name as an empty list. A dataset outside the project
 //! is read from a `datasets.allowRoots` folder, and from nowhere else. A templated status is read
 //! as a written one, from a number, text, a class or a list.
 
@@ -46,6 +47,21 @@ async fn an_extend_whose_base_renders_no_object_fails_the_call_and_sends_nothing
         "{said}"
     );
     assert_eq!(server.stats().await.unwrap().count("POST /echo"), 0);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_for_each_over_an_empty_list_saves_each_name_as_an_empty_list() {
+    let server = MockServer::start().await.unwrap();
+    let test = concat!(
+        "tests:\n  - id: sendsWhatNoTurnSaved\n    vars:\n      none: []\n    steps:\n",
+        "      - call: scripted#echo\n        forEach: ${var.none}\n        save:\n          got: ${response.status}\n",
+        "      - call: scripted#echo\n        body: {got: ${var.got}}\n",
+        "        expect:\n          cel:\n            empty: response.body.body.got == []\n",
+    );
+    let project = Project::new(&[CONFIG, SCRIPTED, ("services/scripted/values.test.yaml", test)]);
+    let output = project.run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", crate::said(&output));
+    assert_eq!(server.stats().await.unwrap().count("POST /echo"), 1);
 }
 
 #[tokio::test(flavor = "multi_thread")]

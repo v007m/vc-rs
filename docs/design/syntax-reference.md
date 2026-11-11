@@ -699,7 +699,7 @@ Any `call` or `test` action can run several times without being written several 
 
 Write one of `repeat` and `forEach` on an action; when both are written, `forEach` is used.
 
-Every name saved inside a loop collects a list, one entry per iteration in iteration order, even when iterations run in parallel. `${var.cities[*].id}` reads one field from every entry. Each successful iteration registers its own cleanup. If an iteration fails, the action fails once the iterations in flight finish, and the cleanups of the ones that succeeded still run.
+Every name saved inside a loop collects a list, one entry per iteration in iteration order, even when iterations run in parallel. A `forEach` whose items render as an empty list runs nothing and passes, and each name the action (or its api) saves is an empty list. `${var.cities[*].id}` reads one field from every entry. Each successful iteration registers its own cleanup. If an iteration fails, the action fails once the iterations in flight finish, and the cleanups of the ones that succeeded still run.
 
 `repeat` on a test is different: it runs the whole test that many times and reports each instance.
 

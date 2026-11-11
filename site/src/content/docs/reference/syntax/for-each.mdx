@@ -170,6 +170,7 @@ tests:
 - Each successful iteration registers its own cleanup. Three created users mean three `deleteUser` cleanups after the test.
 - Every name saved inside the loop is a list, in iteration order, even when iterations run in [`parallel`](/vc-rs/reference/syntax/parallel/).
 - An api's own `save` also collects a list when its call runs in a loop.
+- A `forEach` over an empty list sends nothing and passes; each name it saves is an empty list, `[]`.
 - If an iteration fails, the step fails once the iterations in flight finish. Iterations that have not started don't run. The cleanups of the iterations that passed still run.
 - With both `forEach` and [`repeat`](/vc-rs/reference/syntax/repeat/) on one step, `forEach` wins.
 - `forEach` is not a test key. Use [`examples`](/vc-rs/reference/syntax/examples/) to run a whole test per row.
