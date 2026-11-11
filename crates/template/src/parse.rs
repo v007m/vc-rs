@@ -20,6 +20,11 @@ const ROOTS: &[(&str, Namespace)] = &[
     ("run", Namespace::Run),
 ];
 
+/// The fixed roots' names, in order.
+pub(crate) fn root_names() -> impl Iterator<Item = &'static str> {
+    ROOTS.iter().map(|(name, _)| *name)
+}
+
 /// The name a root is written with, or `None` for a step id.
 #[must_use]
 pub fn root_name(ns: Namespace) -> Option<&'static str> {

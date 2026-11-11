@@ -8,7 +8,7 @@ use vc_model::{Matcher, MatcherArg, Namespace, Reference, Segment, SourceSpan};
 use vc_template::{PipeRegistry, Roots};
 
 use super::layer::Scope;
-use super::project::{Project, Source};
+use super::project::{self, Project, Source};
 use crate::parts::Piece;
 use crate::suggest;
 
@@ -56,7 +56,7 @@ impl<'p, 'a> Checker<'p, 'a> {
         for reference in found {
             let diagnostic = match reference.ns {
                 Namespace::Var => self.var(spot, reference, scope),
-                Namespace::Step(id) => self.step(reference, id, scope),
+                Namespace::Step(id) => self.step((spot.source, reference), id, scope),
                 _ => None,
             };
             if let Some(diagnostic) = diagnostic {
@@ -85,12 +85,24 @@ impl<'p, 'a> Checker<'p, 'a> {
         first.secondary.extend(sites);
     }
 
-    fn step(&self, reference: &Reference, id: vc_model::Sym, scope: &Scope<'_>) -> Option<Diagnostic> {
+    /// V2105 for a step id that did not run earlier: "not available here" when an action in the
+    /// file or the config declares it, else "not a root or a step id".
+    fn step(
+        &self,
+        (source, reference): (&Source<'_>, &Reference),
+        id: vc_model::Sym,
+        scope: &Scope<'_>,
+    ) -> Option<Diagnostic> {
         let name = self.project.strings.resolve(id)?;
         if scope.ran(name) {
             return None;
         }
-        Roots::new().check(reference, self.project.strings).err().map(|diagnostic| *diagnostic)
+        let unavailable = *Roots::new().check(reference, self.project.strings).err()?;
+        let mut declared = std::iter::once(source).chain(self.project.config()).flat_map(project::actions);
+        if declared.any(|action| project::text(action, "id") == Some(name)) {
+            return Some(unavailable);
+        }
+        Some(Roots::undeclared(reference, name, &scope.steps).unwrap_or(unavailable))
     }
 
     fn var(&self, spot: &Spot<'_, '_>, reference: &Reference, scope: &Scope<'_>) -> Option<Diagnostic> {

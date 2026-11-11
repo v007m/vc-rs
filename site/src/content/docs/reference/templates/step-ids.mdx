@@ -101,15 +101,15 @@ error[V2105]: `later` is not available here
   = help: `later` is available only after that action, in the same test or block
 ```
 
-A name that is neither a root nor a step id gets the same code and help text:
+A name that no action in the file or the config declares is neither a root nor a step id. The help lists the roots, a note lists the steps that ran earlier there, and a close name is offered as a fix (`${fecth.body.id}` gets "did you mean `fetch`?"):
 
 ```console
-error[V2105]: `nowhere` is not available here
+error[V2105]: `nowhere` is not a root or a step id
   --> services/tpl/bad.test.yaml:14:16
    |
 14 |       payload: ${nowhere.status}
-   |                ^^^^^^^^^^^^^^^^^
-   = help: `nowhere` is available only after that action, in the same test or block
+   |                ^^^^^^^^^^^^^^^^^ unknown root
+   = help: start it with a root (var, env, secret, response, request, example, item, iteration, fake, dataset, run) or the id of an action that ran earlier in the same test or block
 ```
 
 - [V2105](/vc-rs/reference/diagnostics/v2105/): the step has not run yet here, or no step has that id.

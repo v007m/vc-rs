@@ -136,6 +136,7 @@ cases!(
     v2101_unset_var,
     v2103_example_column,
     v2105_step_order,
+    v2105_unknown_root,
     v2106_undeclared_secret,
     v2107_env_secret,
     v2205_cycle,

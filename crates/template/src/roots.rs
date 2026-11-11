@@ -125,6 +125,46 @@ fn step_name(ns: Namespace, strings: &StringTable) -> Option<&str> {
     }
 }
 
+impl Roots {
+    /// V2105 for a step id that no action in reach declares, where [`Roots::check`] says only
+    /// that it is not available: the roots there are, the `steps` that ran earlier, and the close
+    /// names. `None` for a bare `status`, `headers` or `body`, which [`Roots::check`] reports.
+    #[must_use]
+    pub fn undeclared(reference: &Reference, name: &str, steps: &[&str]) -> Option<Diagnostic> {
+        if RESPONSE_FIELDS.contains(&name) {
+            return None;
+        }
+        let roots = parse::root_names().collect::<Vec<_>>().join(", ");
+        let message = format!("`{name}` is not a root or a step id");
+        let diagnostic = Diagnostic::new(codes::ROOT_UNAVAILABLE, reference.span, message).label("unknown root").help(
+            format!("start it with a root ({roots}) or the id of an action that ran earlier in the same test or block"),
+        );
+        let diagnostic = match steps {
+            [] => diagnostic,
+            some => diagnostic.note(format!("ran earlier here: {}", some.join(", "))),
+        };
+        Some(closest(diagnostic, (reference, name), steps))
+    }
+}
+
+/// `diagnostic` with the roots and `steps` close to `name`: as help, and as a certain fix when
+/// exactly one is and the root's span is exact.
+fn closest(diagnostic: Diagnostic, (reference, name): (&Reference, &str), steps: &[&str]) -> Diagnostic {
+    let limit = (name.chars().count() / 3).max(1);
+    let distance = |known: &str| strsim::damerau_levenshtein(&name.to_lowercase(), &known.to_lowercase());
+    let close: Vec<&str> = parse::root_names().chain(steps.iter().copied()).filter(|k| distance(k) <= limit).collect();
+    let one = match close.as_slice() {
+        [] => return diagnostic,
+        [one] => *one,
+        several => return diagnostic.help(format!("did you mean one of {}?", several.join(", "))),
+    };
+    let diagnostic = diagnostic.help(format!("did you mean `{one}`?"));
+    if reference.root_span.byte_range().len() != name.len() {
+        return diagnostic;
+    }
+    diagnostic.fix(Fix::certain(format!("Replace with {one}"), vec![TextEdit::replace(reference.root_span, one)]))
+}
+
 fn bare_response_field(reference: &Reference, name: &str) -> Diagnostic {
     let message = format!("`{name}` is not a root; did you mean `response.{name}`?");
     let diagnostic = Diagnostic::new(codes::ROOT_UNAVAILABLE, reference.span, message);
