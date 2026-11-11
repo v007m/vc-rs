@@ -5,12 +5,12 @@ use std::cell::OnceCell;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-use serde_json::{Map, Value, json};
-use vc_diagnostics::Code;
+use serde_json::{Value, json};
 use vc_interfaces::Random;
-use vc_model::{CelProgram, Examples, Failure, Namespace, Program, Reference, Segment, Template, TemplateValue};
-use vc_template::{Activation, CelCompiler, Chance, FakeCx, RenderError, Renderer, Resolve};
+use vc_model::{Examples, Failure, Namespace, Program, Template, TemplateValue};
+use vc_template::{Chance, RenderError, Renderer};
 
+use super::lookup::Lookup;
 use super::reads::Reads;
 use super::run::{Defined, RunValues};
 use super::scope::{Found, Scope};
@@ -25,12 +25,12 @@ type Drawn = BTreeMap<String, OnceCell<Value>>;
 /// One action's renderer: its scope, the roots bound so far (`run`, `dataset`, `iteration`,
 /// `example`, step ids, then `request` and `response`) and the fake-data memo.
 pub struct Render<'a> {
-    values: &'a RunValues,
-    program: &'a Program,
+    pub(super) values: &'a RunValues,
+    pub(super) program: &'a Program,
     redactor: &'a Redactor,
     schemas: &'a Schemas,
     scope: Scope,
-    roots: HashMap<Namespace, Arc<Value>>,
+    pub(super) roots: HashMap<Namespace, Arc<Value>>,
     memo: Saved,
     drawn: Drawn,
     reads: Reads,
@@ -221,7 +221,7 @@ impl<'a> Render<'a> {
 
     /// The value of `var.<name>`, looking from the closest level unless `within` is the
     /// definition of the same name, which continues past its own level.
-    fn var(&self, name: &str, within: Option<&Within<'_>>) -> Result<Value, RenderError> {
+    pub(super) fn var(&self, name: &str, within: Option<&Within<'_>>) -> Result<Value, RenderError> {
         let (from, depth) = within.map_or((0, 0), |within| (within.after(name), within.depth));
         if depth > MAX_DEPTH {
             let message =
@@ -245,7 +245,12 @@ impl<'a> Render<'a> {
         Renderer::new(self.values.pipes(), &Lookup { render: self, within: Some(within) }).value(def)
     }
 
-    fn label(&self, ns: Namespace) -> String {
+    /// The run's random source, for the pipes.
+    pub(super) fn chance(&self) -> &dyn Chance {
+        &self.chance
+    }
+
+    pub(super) fn label(&self, ns: Namespace) -> String {
         match ns {
             Namespace::Step(id) => self.program.str(id).unwrap_or("step").to_owned(),
             other => vc_template::root_name(other).unwrap_or("root").to_owned(),
@@ -259,18 +264,8 @@ fn is_fake(def: &TemplateValue) -> bool {
     template.single_ref().is_some_and(|reference| reference.ns == Namespace::Fake)
 }
 
-/// V5112 when an `example` or `item` row is a map without the column `reference` reads (D173).
-fn row_column(error: RenderError, (ns, row): (Namespace, &Value), reference: &Reference) -> RenderError {
-    let Some(Segment::Key(column)) = reference.path.segments.first() else { return error };
-    let rows = matches!(ns, Namespace::Example | Namespace::Item);
-    match row {
-        Value::Object(row) if rows && !row.contains_key(column.as_str()) => error.coded(Code::V5112),
-        _ => error,
-    }
-}
-
 /// The var definition being rendered.
-struct Within<'n> {
+pub(super) struct Within<'n> {
     name: &'n str,
     level: usize,
     depth: usize,
@@ -289,112 +284,5 @@ struct RandomChance<'a>(&'a dyn Random);
 impl Chance for RandomChance<'_> {
     fn next_u64(&self) -> u64 {
         self.0.next_u64()
-    }
-}
-
-/// Answers the renderer's lookups for one template.
-struct Lookup<'r> {
-    render: &'r Render<'r>,
-    within: Option<&'r Within<'r>>,
-}
-
-impl Resolve for Lookup<'_> {
-    fn resolve(&self, reference: &Reference) -> Result<Value, RenderError> {
-        match reference.ns {
-            Namespace::Var => {
-                let (name, rest) = named("var", reference)?;
-                vc_template::select(&format!("var.{name}"), &self.render.var(name, self.within)?, rest)
-            }
-            Namespace::Env => {
-                let (name, rest) = named("env", reference)?;
-                vc_template::select(&format!("env.{name}"), &self.env(name)?, rest)
-            }
-            Namespace::Fake => self.fake(reference),
-            ns => {
-                let label = self.render.label(ns);
-                let value = self.render.roots.get(&ns);
-                let value = value.ok_or_else(|| RenderError::invalid(format!("`{label}` has no value here")))?;
-                let selected = vc_template::select(&label, value, &reference.path.segments);
-                selected.map_err(|error| row_column(error, (ns, value), reference))
-            }
-        }
-    }
-
-    fn evaluate(&self, program: &CelProgram) -> Result<Value, RenderError> {
-        let expr = CelCompiler::new().prepare(program).map_err(|error| RenderError::invalid(error.to_string()))?;
-        let roots =
-            self.render.roots.iter().fold(Activation::new(), |roots, (ns, value)| roots.with(*ns, Arc::clone(value)));
-        let activation = roots.with(Namespace::Var, self.vars(program)?).with(Namespace::Env, self.envs(program));
-        expr.eval(&activation).map_err(|error| RenderError::invalid(error.to_string()))
-    }
-
-    fn chance(&self) -> &dyn Chance {
-        &self.render.chance
-    }
-}
-
-impl Lookup<'_> {
-    fn env(&self, name: &str) -> Result<Value, RenderError> {
-        if self.render.program.config.secrets.declares(name) {
-            let message = format!("`env.{name}` is a declared secret; use `${{secret.{name}}}` so it is masked");
-            return Err(RenderError::invalid(message));
-        }
-        let value = self.render.values.inputs().environment.var(name);
-        value.map(Value::String).ok_or_else(|| RenderError::missing(format!("`env.{name}` is not set")))
-    }
-
-    fn fake(&self, reference: &Reference) -> Result<Value, RenderError> {
-        let keys = reference.path.segments.iter().filter_map(|segment| match segment {
-            Segment::Key(key) => Some(key.as_str()),
-            Segment::Index(_) | Segment::All => None,
-        });
-        let name = keys.collect::<Vec<_>>().join(".");
-        let inputs = self.render.values.inputs();
-        let cx = FakeCx::new(self.chance(), inputs.started_ms);
-        let program = self.render.program;
-        let named = program.generators.values().find(|def| program.str(def.id) == Some(name.as_str()));
-        let (name, args) = named.map_or((name.as_str(), reference.args.as_slice()), |def| (&def.fake, &def.args));
-        inputs.fakes.generate(name, args, &cx).map_err(RenderError::invalid)
-    }
-
-    /// The `var` root of a `$cel` value: each var it reads that is set.
-    fn vars(&self, program: &CelProgram) -> Result<Value, RenderError> {
-        let mut vars = Map::new();
-        for name in read_names(program, Namespace::Var) {
-            match self.render.var(name, self.within) {
-                Ok(value) => drop(vars.insert(name.to_owned(), value)),
-                Err(error) if error.missing => {}
-                Err(error) => return Err(error),
-            }
-        }
-        Ok(Value::Object(vars))
-    }
-
-    /// The `env` root of a `$cel` value: each variable it reads that is set.
-    fn envs(&self, program: &CelProgram) -> Value {
-        let found =
-            read_names(program, Namespace::Env).filter_map(|name| Some((name.to_owned(), self.env(name).ok()?)));
-        Value::Object(found.collect())
-    }
-}
-
-/// The names a `$cel` value reads under `ns`.
-fn read_names(program: &CelProgram, ns: Namespace) -> impl Iterator<Item = &str> {
-    program.refs.iter().filter(move |reference| reference.ns == ns).filter_map(|reference| {
-        match reference.path.segments.first() {
-            Some(Segment::Key(name)) => Some(name.as_str()),
-            _ => None,
-        }
-    })
-}
-
-/// A name and the path after it.
-type Named<'r> = (&'r str, &'r [Segment]);
-
-/// The name after `root` and the path after it.
-fn named<'r>(root: &str, reference: &'r Reference) -> Result<Named<'r>, RenderError> {
-    match reference.path.segments.split_first() {
-        Some((Segment::Key(name), rest)) => Ok((name.as_str(), rest)),
-        _ => Err(RenderError::invalid(format!("`{root}` needs a name after it, such as `{root}.name`"))),
     }
 }
