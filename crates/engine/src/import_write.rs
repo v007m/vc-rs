@@ -10,7 +10,7 @@ use crate::create::{derived_path, header, sentence};
 use crate::create_api::base_var;
 use crate::edit::FileChange;
 use crate::yaml_out::{body, entry, fields_item};
-use crate::{Changes, EngineError, ImportRequest};
+use crate::{Changes, EngineError, ImportRequest, import_titles};
 
 /// The file ID the generated tests go in, under the api file's.
 const TESTS: &str = "openapi";
@@ -30,7 +30,7 @@ pub fn drafted(
     }
     files.sort_by(|a, b| a.path.cmp(&b.path));
     let count: usize = draft.groups.iter().map(|group| group.apis.len()).sum();
-    let mut titles = vec![format!("Import {count} apis from {}", request.source)];
+    let mut titles = vec![import_titles::heading(count, &request.source)];
     titles.extend(draft.notes.iter().map(|note| format!("{}: {}", note.at, note.message)));
     Ok((Changes { files, titles }, snapshots))
 }

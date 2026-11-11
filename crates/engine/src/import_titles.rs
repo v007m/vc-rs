@@ -59,7 +59,7 @@ impl Placed {
 /// Every line, the first `Import <n> apis from <source>`.
 pub fn titles(draft: &ImportDraft, source: &str, written: &Written<'_>) -> Vec<String> {
     let count: usize = draft.groups.iter().map(|group| group.apis.len()).sum();
-    let mut titles = vec![format!("Import {count} apis from {source}")];
+    let mut titles = vec![heading(count, source)];
     titles.extend(draft.summary.clone());
     let headers = dropped(&draft.notes);
     titles.extend(written.placed.iter().map(|placed| placed.line(!headers.is_empty())));
@@ -71,6 +71,12 @@ pub fn titles(draft: &ImportDraft, source: &str, written: &Written<'_>) -> Vec<S
 }
 
 /// The credential headers the notes say were dropped, each once, in order.
+/// `Import <n> api(s) from <source>`, the first line of every import.
+pub fn heading(count: usize, source: &str) -> String {
+    let apis = if count == 1 { "api" } else { "apis" };
+    format!("Import {count} {apis} from {source}")
+}
+
 fn dropped(notes: &[ImportNote]) -> Vec<&str> {
     let mut headers = Vec::new();
     for note in notes {
@@ -115,7 +121,7 @@ fn noted(notes: &[ImportNote]) -> Vec<String> {
 mod tests {
     use vc_interfaces::ImportNote;
 
-    use super::{Placed, dropped, noted};
+    use super::{Placed, dropped, heading, noted};
 
     fn note(at: &str, message: &str) -> ImportNote {
         ImportNote { at: at.to_owned(), message: message.to_owned() }
@@ -138,6 +144,12 @@ mod tests {
                 "GET /c: recorded 2 times, merged into one api"
             ]
         );
+    }
+
+    #[test]
+    fn the_heading_counts_one_api_in_the_singular() {
+        assert_eq!(heading(1, "specs/users.yaml"), "Import 1 api from specs/users.yaml");
+        assert_eq!(heading(2, "specs/users.yaml"), "Import 2 apis from specs/users.yaml");
     }
 
     #[test]
