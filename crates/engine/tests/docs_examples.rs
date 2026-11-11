@@ -12,7 +12,8 @@
 //! `vc init` writes"). It is still an excerpt, and so a fragment, when its top level is a list or
 //! indented (the entries of a file's list) or when a line of just `...` stands for lines left
 //! out. A title marked `(excerpt)`, such as `vibranium.config.yaml (excerpt)`, makes its block a
-//! fragment whatever its first line or the heading over it.
+//! fragment whatever its first line or the heading over it. A block fenced as `dotenv` and titled
+//! `.env.schema` is the project's secret schema, a whole file too.
 //!
 //! A page's whole files are checked together as one project. Writing a path again (a walkthrough
 //! growing a file, or a reference page showing one file several ways) starts a new version of the
@@ -32,12 +33,16 @@
 //!
 //! A block whose info string holds `skip` is left out. One that holds `wrong` (```` ```yaml wrong
 //! title="…" ````; expressive-code ignores a bare word it does not know) is wrong on purpose, as
-//! a diagnostic page's "Wrong" example is: it is kept out of the page's project. The `wrong`
+//! a diagnostic page's "Wrong" example is: it is kept out of the page's project. Its title, when
+//! it names a `.yaml` file, is its path even when `vc` refuses the name (V1012). The `wrong`
 //! blocks in a row under one heading are one example (an api file and the test that calls it
 //! wrongly), and it must have an error, so an example that has become right cannot hide behind
-//! the word: an error in one of its files, checked as written (its config not completed) over
-//! the page's files so far, or a fragment of it that does not parse. An example that passes
-//! `vc check` and fails only when sent, or gets only a warning, is not marked.
+//! the word: an error in one of its files, checked over the page's files so far, or a fragment
+//! of it that does not parse. Its files are checked as written, but a config of it gets the
+//! `syntaxVersion` and `profiles` it leaves out from the page's config, and an error the page
+//! check forgives ([`elsewhere`]) does not count. A fragment is only parsed, so a wrong example
+//! whose mistake is a V2–V5 one is written as a whole file. An example that passes `vc check` and
+//! fails only when sent, or gets only a warning, is not marked.
 
 mod support;
 
@@ -69,11 +74,20 @@ const SKIP: &str = "skip";
 /// The word in a fence's info string that marks its block wrong on purpose.
 const WRONG: &str = "wrong";
 
+/// The secret schema's path: a `dotenv` block titled with it is a whole file.
+const SCHEMA: &str = ".env.schema";
+
+/// The keys a config must write, which a page's config gets when it leaves them out.
+const REQUIRED: [&str; 2] = ["syntaxVersion", "profiles"];
+
+/// What a config gets for the [`REQUIRED`] keys it leaves out, when the page has no config.
+const DEFAULTS: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n";
+
+/// What a wrong example whose fragments are only parsed is told when it has no error.
+const WHOLE: &str = " (a fragment is only parsed, so write it as a whole file to check the rest)";
+
 /// The mark at the end of a title that makes its block a fragment.
 const EXCERPT: &str = "(excerpt)";
-
-/// The default profile a config gets when it writes none.
-const PROFILES: &str = "profiles:\n  - id: dev\n    default: true\n";
 
 /// The repository root.
 fn root() -> PathBuf {
@@ -95,16 +109,22 @@ fn files_under(dir: &Path, extension: &str) -> Outcome<Vec<PathBuf>> {
     Ok(found)
 }
 
-/// `text` when it is the path of a definition file.
+/// `text` when it is the path of a definition file or the secret schema.
 fn definition(text: &str) -> Option<String> {
+    if text == SCHEMA {
+        return Some(text.to_owned());
+    }
     let path = SourcePath::new(text).ok()?;
     FileKind::from_path(&path).map(|_| text.to_owned())
 }
 
-/// Whether the check reads `block`: fenced as `yaml`, without [`SKIP`].
+/// Whether the check reads `block`: fenced as `yaml`, or as `dotenv` titled [`SCHEMA`], without
+/// [`SKIP`].
 fn checked(block: &Block) -> bool {
     let mut words = block.info.split_whitespace();
-    words.next() == Some("yaml") && !words.any(|word| word == SKIP)
+    let language = words.next();
+    let schema = language == Some("dotenv") && title(&block.info) == Some(SCHEMA);
+    (language == Some("yaml") || schema) && !words.any(|word| word == SKIP)
 }
 
 /// Whether `block` is marked [`WRONG`].
@@ -129,6 +149,11 @@ fn named_path(heading: &str, block: &Block) -> Option<String> {
     let first = block.first.strip_prefix("# ").and_then(definition);
     let headed = || heading.strip_prefix('`').and_then(|rest| rest.strip_suffix('`')).and_then(definition);
     titled.or(first).or_else(headed)
+}
+
+/// The `.yaml` file a [`WRONG`] block's title names, as written: it may be a name `vc` refuses.
+fn written(block: &Block) -> Option<String> {
+    title(&block.info).filter(|title| title.ends_with(".yaml")).map(str::to_owned)
 }
 
 /// Whether `text` is an excerpt though it names its file: its top level is a list or indented,
@@ -157,16 +182,24 @@ struct Example {
     under: (String, String),
     files: Files,
     fragments: Vec<String>,
+    /// Its blocks in page order, each under a `-- <path> (<page:line>)` header, for the report.
+    listing: Vec<String>,
 }
 
 impl Example {
     fn is_empty(&self) -> bool {
-        self.files.is_empty() && self.fragments.is_empty()
+        self.listing.is_empty()
     }
 
-    /// Its text, file after file, for the report.
-    fn text(&self) -> String {
-        self.files.values().chain(&self.fragments).cloned().collect()
+    /// Adds the block at `at` on the page: its `file` is its path, when it names one, and its text.
+    fn add(&mut self, at: &str, file: (Option<String>, String)) {
+        let (path, text) = file;
+        let name = path.as_deref().unwrap_or("a fragment");
+        self.listing.push(format!("-- {name} ({at})\n{text}"));
+        match path {
+            Some(path) => drop(self.files.insert(path, text)),
+            None => self.fragments.push(text),
+        }
     }
 }
 
@@ -193,18 +226,15 @@ impl Reading {
     /// `file` is its path, when it names one, and its text. A new heading, or a path the example
     /// holds already, starts the next example.
     fn wrong(&mut self, at: String, under: (String, String), file: (Option<String>, String)) -> Outcome<()> {
-        let (path, text) = file;
-        let again = path.as_ref().is_some_and(|path| self.example.files.contains_key(path));
+        let again = file.0.as_ref().is_some_and(|path| self.example.files.contains_key(path));
         if again || self.example.under != under {
             self.close_example()?;
         }
         if self.example.is_empty() {
-            (self.example.at, self.example.under) = (at, under);
+            self.example.at.clone_from(&at);
+            self.example.under = under;
         }
-        match path {
-            Some(path) => drop(self.example.files.insert(path, text)),
-            None => self.example.fragments.push(text),
-        }
+        self.example.add(&at, file);
         Ok(())
     }
 
@@ -214,13 +244,17 @@ impl Reading {
         if example.is_empty() {
             return Ok(());
         }
-        let mut failed = fails(&self.files, &example.files)?;
+        let mut failed = false;
         for fragment in &example.fragments {
             failed = failed || !parse_errors(fragment)?.is_empty();
         }
+        if !failed && !example.files.is_empty() {
+            failed = fails(&self.files, &example.files)?;
+        }
         if !failed {
-            let (at, text) = (&example.at, example.text());
-            self.problems.push(format!("{at}: a `wrong` example has no error; drop `wrong`:\n{text}"));
+            let (at, text) = (&example.at, example.listing.concat());
+            let whole = if example.fragments.is_empty() { "" } else { WHOLE };
+            self.problems.push(format!("{at}: a `wrong` example has no error{whole}; drop `wrong`:\n{text}"));
         }
         Ok(())
     }
@@ -249,14 +283,15 @@ fn read(name: &str, doc: &str) -> Outcome<Page> {
     for (section, heading, block) in support::blocks(doc).into_iter().filter(|(_, _, block)| checked(block)) {
         let text = format!("{}\n{}", block.first, block.body);
         let first_under = heading != seen;
-        let path = named_path(if first_under { &heading } else { "" }, &block).filter(|_| !excerpt(&text));
+        seen.clone_from(&heading);
+        let path = named_path(if first_under { &heading } else { "" }, &block);
         if wrong(&block) {
+            let path = path.or_else(|| written(&block)).filter(|_| !excerpt(&text));
             reading.wrong(format!("{name}:{}", block.line), (section, heading), (path, text))?;
             continue;
         }
         reading.close_example()?;
-        seen.clone_from(&heading);
-        match path {
+        match path.filter(|_| !excerpt(&text)) {
             Some(path) => reading.write(path, text),
             None => reading.fragment(name, &text)?,
         }
@@ -268,11 +303,30 @@ fn read(name: &str, doc: &str) -> Outcome<Page> {
 /// `config` with `syntaxVersion` and a default profile added after it when it leaves them out (a
 /// page often shows only the keys its point needs), so its lines keep their numbers.
 fn completed(config: &str) -> String {
-    let has = |key: &str| config.lines().any(|line| line.strip_prefix(key).is_some_and(|rest| rest.starts_with(':')));
+    completed_like(config, DEFAULTS)
+}
+
+/// `config` with the [`REQUIRED`] keys it leaves out added after it, as `like` writes them.
+fn completed_like(config: &str, like: &str) -> String {
     let ended = if config.is_empty() || config.ends_with('\n') { "" } else { "\n" };
-    let version = if has("syntaxVersion") { "" } else { "syntaxVersion: 2\n" };
-    let profiles = if has("profiles") { "" } else { PROFILES };
-    format!("{config}{ended}{version}{profiles}")
+    let missing = REQUIRED.into_iter().filter(|key| !config.lines().any(|line| keyed(line, key)));
+    let added: String = missing.map(|key| entry(like, key)).collect();
+    format!("{config}{ended}{added}")
+}
+
+/// Whether `line` starts the top-level `key`.
+fn keyed(line: &str, key: &str) -> bool {
+    line.strip_prefix(key).is_some_and(|rest| rest.starts_with(':'))
+}
+
+/// The lines of `config`'s top-level `key`: its own and those nested under it.
+fn entry(config: &str, key: &str) -> String {
+    let mut lines = config.lines().skip_while(|line| !keyed(line, key));
+    let Some(first) = lines.next() else {
+        return String::new();
+    };
+    let nested = lines.take_while(|line| line.is_empty() || line.starts_with([' ', '\t', '-']));
+    std::iter::once(first).chain(nested).fold(String::new(), |kept, line| kept + line + "\n")
 }
 
 /// Whether `found` is about a name defined in a file a page does not show.
@@ -299,14 +353,26 @@ fn errors(files: &Files, allowed: Allowed) -> Outcome<Vec<String>> {
     reported(&with_config(files), allowed)
 }
 
-/// Whether `vc check` reports an error in one of a wrong example's `files`, written as they are
-/// over a page's `files` (whose config is [`completed`]).
+/// Whether `vc check` reports an error the page check does not forgive in one of a wrong example's
+/// `files`, written as they are over a page's `files` (whose config is [`completed`]); a config of
+/// the example gets the [`REQUIRED`] keys it leaves out from the page's.
 fn fails(page: &Files, example: &Files) -> Outcome<bool> {
-    let mut files: Files = with_config(page).into_iter().collect();
-    files.extend(example.iter().map(|(path, text)| (path.clone(), text.clone())));
-    let report = support::check(&files.into_iter().collect::<Vec<_>>())?;
-    let in_example = |found: &&Diagnostic| example.contains_key(&file_of(found, &report.files));
-    Ok(report.diagnostics.iter().filter(in_example).any(|found| found.severity == Severity::Error))
+    let like = page.get(support::CONFIG_PATH).map_or_else(|| support::CONFIG.to_owned(), |config| completed(config));
+    let mut files = with_config(page);
+    files.retain(|(path, _)| !example.contains_key(path));
+    for (path, text) in example {
+        let text = if path == support::CONFIG_PATH { completed_like(text, &like) } else { text.clone() };
+        files.push((path.clone(), text));
+    }
+    let report = support::check(&files)?;
+    let shown: BTreeSet<String> = example.keys().map(String::as_str).map(shown_as).collect();
+    let in_example = |found: &&Diagnostic| shown.contains(&file_of(found, &report.files));
+    Ok(report.diagnostics.iter().filter(in_example).any(|found| found.severity == Severity::Error && !elsewhere(found)))
+}
+
+/// `path` as a diagnostic names it: a name `vc` refuses (V1012) has its bad characters replaced.
+fn shown_as(path: &str) -> String {
+    SourcePath::lossy(path).map_or_else(|_| path.to_owned(), |path| path.to_string())
 }
 
 /// The errors `vc check` reports on `files` (path, text) as they are, but for those `allowed`.
@@ -390,10 +456,14 @@ fn wrong_examples_are_left_out_and_configs_completed() {
     assert!(wrong(&block(r#"yaml wrong title="services/a/a.test.yaml""#)) && !wrong(&block("yaml")));
     assert!(!checked(&block("yaml skip")));
     assert!(!checked(&block("console")));
+    assert!(checked(&block(r#"dotenv title=".env.schema""#)) && !checked(&block("dotenv")));
     assert_eq!(named_path("", &block(r#"yaml title="vibranium.config.yaml (excerpt)""#)), None);
-    assert_eq!(completed("vars: {}\n"), format!("vars: {{}}\nsyntaxVersion: 2\n{PROFILES}"));
-    assert_eq!(completed("vars: {}"), format!("vars: {{}}\nsyntaxVersion: 2\n{PROFILES}"));
+    assert_eq!(completed("vars: {}\n"), format!("vars: {{}}\n{DEFAULTS}"));
+    assert_eq!(completed("vars: {}"), format!("vars: {{}}\n{DEFAULTS}"));
     assert_eq!(completed("syntaxVersion: 2\nprofiles: []\n"), "syntaxVersion: 2\nprofiles: []\n");
+    let like = "syntaxVersion: 2\nprofiles:\n  - id: qa\n    default: true\nvars: {}\n";
+    let profiles = "profiles:\n  - id: qa\n    default: true\n";
+    assert_eq!(completed_like("syntaxVersion: 3\n", like), format!("syntaxVersion: 3\n{profiles}"));
 }
 
 #[test]
@@ -413,16 +483,40 @@ fn an_excerpt_title_makes_a_fragment_whatever_names_the_file() {
     assert_eq!(named_path("", &first).as_deref(), Some("vibranium.config.yaml"));
 }
 
+/// Whether `doc` gets exactly one problem, a wrong example with no error.
+fn has_no_error(doc: &str) -> Outcome<bool> {
+    let (_, problems) = read("p", doc)?;
+    Ok(problems.len() == 1 && problems[0].starts_with("p:1: a `wrong` example has no error"))
+}
+
 #[test]
 fn a_wrong_example_must_have_an_error() -> Outcome<()> {
-    let page = |path: &str, text: &str| format!("```yaml wrong title=\"services/a/{path}\"\n{text}```\n");
-    let (_, problems) = read("p", &page("a.test.yaml", "tests:\n  - id: callsNothing\n    call: a#missing\n"))?;
-    assert!(problems.is_empty(), "{problems:?}");
-    let (_, problems) = read("p", &page("a.api.yaml", "apis:\n  - id: lists\n    path: /a\n"))?;
-    assert!(problems.len() == 1 && problems[0].starts_with("p:1: a `wrong` example has no error"), "{problems:?}");
-    let config = "```yaml wrong title=\"vibranium.config.yaml\"\nproject: shop\n```\n";
-    let (_, problems) = read("p", config)?;
-    assert!(problems.is_empty(), "a wrong config is not completed: {problems:?}");
+    let page = |path: &str, text: &str| format!("```yaml wrong title=\"{path}\"\n{text}```\n");
+    let (_, problems) = read("p", &page("services/a/a.test.yaml", "tests:\n  - id: callsNothing\n"))?;
+    assert!(problems.is_empty(), "neither call nor steps (V2201): {problems:?}");
+    let missing = page("services/a/a.test.yaml", "tests:\n  - id: callsMissing\n    call: a#missing\n");
+    assert!(has_no_error(&missing)?, "an api the page does not show (V2003) is forgiven");
+    assert!(has_no_error(&page("services/a/a.api.yaml", "apis:\n  - id: lists\n    path: /a\n"))?);
+    let config = |text: &str| page(support::CONFIG_PATH, text);
+    assert!(has_no_error(&config("project: shop\n"))?, "a config gets the required keys it leaves out");
+    let (_, problems) = read("p", &config("syntaxVersion: 3\nproject: shop\n"))?;
+    assert!(problems.is_empty(), "a key it writes is checked as written (V1003): {problems:?}");
+    let (_, problems) = read("p", &page("services/users/users:old.api.yaml", "apis: []\n"))?;
+    assert!(problems.is_empty(), "a name vc refuses is its path (V1012): {problems:?}");
+    Ok(())
+}
+
+#[test]
+fn a_wrong_example_reads_the_pages_secret_schema() -> Outcome<()> {
+    let schema = "```dotenv title=\".env.schema\"\nAPI_TOKEN=\n```\n";
+    let api = |name: &str| {
+        let header = format!("    headers: {{authorization: '${{secret.{name}}}'}}\n");
+        format!("```yaml wrong title=\"services/a/a.api.yaml\"\napis:\n  - id: lists\n    path: /a\n{header}```\n")
+    };
+    let (_, problems) = read("p", &format!("{schema}\n{}", api("API_TOKN")))?;
+    assert!(problems.is_empty(), "a secret the schema does not declare (V2106): {problems:?}");
+    let (_, problems) = read("p", &format!("{schema}\n{}", api("API_TOKEN")))?;
+    assert!(problems.len() == 1 && problems[0].starts_with("p:5: a `wrong` example has no error"), "{problems:?}");
     Ok(())
 }
 
@@ -430,12 +524,24 @@ fn a_wrong_example_must_have_an_error() -> Outcome<()> {
 fn the_wrong_blocks_in_a_row_are_one_example() -> Outcome<()> {
     let block = |path: &str, text: &str| format!("```yaml wrong title=\"services/a/{path}\"\n{text}```\n");
     let api = block("a.api.yaml", "apis:\n  - id: lists\n    path: /a\n");
-    let calls = block("a.test.yaml", "tests:\n  - id: callsIt\n    call: a#lsts\n");
+    let calls = block("a.test.yaml", "tests:\n  - id: callsIt\n    cal: a#lists\n");
     let (_, problems) = read("p", &format!("## Wrong\n\n{api}\n{calls}"))?;
     assert!(problems.is_empty(), "the error is in the second file: {problems:?}");
     let (_, problems) = read("p", &format!("## Wrong\n\n{api}\n## Seen in practice\n\n{calls}"))?;
     assert!(problems.len() == 1 && problems[0].starts_with("p:3: a `wrong` example"), "a new heading: {problems:?}");
     let (_, problems) = read("p", &format!("## Wrong\n\n{calls}\n{api}\n{api}"))?;
     assert!(problems.len() == 1 && problems[0].starts_with("p:15: a `wrong` example"), "a path again: {problems:?}");
+    Ok(())
+}
+
+#[test]
+fn an_untitled_wrong_block_after_the_first_under_a_path_heading_is_a_fragment_of_its_example() -> Outcome<()> {
+    let untitled = |text: &str| format!("```yaml wrong\n{text}```\n");
+    let api = untitled("apis:\n  - id: lists\n    path: /a\n");
+    let (_, problems) = read("p", &format!("### `services/a/a.api.yaml`\n\n{api}\n{}", untitled("apis: [\n")))?;
+    assert!(problems.is_empty(), "one example, whose fragment does not parse: {problems:?}");
+    let (_, problems) = read("p", &format!("### `services/a/a.api.yaml`\n\n{api}\n{}", untitled("apis: []\n")))?;
+    assert!(problems.len() == 1 && problems[0].contains(WHOLE), "{problems:?}");
+    assert!(problems[0].contains("-- services/a/a.api.yaml (p:3)\n") && problems[0].contains("-- a fragment (p:9)\n"));
     Ok(())
 }
