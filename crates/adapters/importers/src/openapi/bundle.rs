@@ -104,7 +104,8 @@ impl Inliner<'_> {
     }
 
     /// Replaces `value`, a `$ref` read from `at`, by its target; a reference into the root
-    /// becomes a local one.
+    /// becomes a local one. A target is known by its pointer decoded, so `x#/a` and `x#/%61` are
+    /// the same one in a cycle.
     fn replace(&mut self, value: &mut Value, at: &str, reference: &str) -> Result<(), ImportError> {
         let location = target(at, reference)?;
         let pointer = reference.split_once('#').map_or("", |(_, pointer)| pointer);
@@ -112,12 +113,13 @@ impl Inliner<'_> {
             *value = serde_json::json!({ "$ref": format!("#{pointer}") });
             return Ok(());
         }
+        let pointer = decoded(pointer);
         let key = format!("{location}#{pointer}");
         if let Some(first) = self.stack.iter().position(|seen| *seen == key) {
             let chain = self.stack.get(first..).unwrap_or_default().iter().cloned().chain([key]).collect();
             return Err(ImportError::Cycle { chain });
         }
-        let found = self.documents.get(&location).and_then(|document| document.pointer(&decoded(pointer)));
+        let found = self.documents.get(&location).and_then(|document| document.pointer(&pointer));
         let mut found = found.cloned().ok_or_else(|| ImportError::Invalid {
             location: at.to_owned(),
             reason: format!("`$ref: {reference}` names nothing"),

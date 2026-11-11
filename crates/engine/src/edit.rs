@@ -2,9 +2,11 @@
 //! a change that would add an error `vc check` reports is refused, so nothing is written.
 
 use vc_diagnostics::{Diagnostic, Diagnostics};
+use vc_interfaces::{SourceError, SourceWriter};
 use vc_model::{SourceFile, SourceFiles, SourcePath, schema_names};
 
 use crate::project::sources_error;
+use crate::snapshot_guard::is_snapshot;
 use crate::{Engine, EngineError};
 
 /// One definition file an authoring command changes or creates.
@@ -61,12 +63,12 @@ impl Engine {
     ///
     /// [`EngineError::Sources`] naming the first file that could not be written; the files
     /// before it are written. A moved file is written at its new path before the old one is
-    /// removed.
+    /// removed. A spec snapshot is written as [`written`] writes it.
     pub fn write(&self, changes: &Changes) -> Result<(), EngineError> {
         let writer = self.writer.as_ref().ok_or_else(|| internal("this engine has no folder to write into"))?;
         for change in &changes.files {
             let path = SourcePath::new(&change.path).map_err(internal)?;
-            writer.write(&path, &change.after).map_err(sources_error)?;
+            written(writer.as_ref(), &path, change).map_err(sources_error)?;
             if let Some(was) = &change.moved_from {
                 writer.remove(&SourcePath::new(was).map_err(internal)?).map_err(sources_error)?;
             }
@@ -107,6 +109,18 @@ impl Engine {
             Some(new) => Err(refusal(new, &after.files)),
         }
     }
+}
+
+/// Writes `change` at `path`. A spec snapshot `openapi/<fileId>.yaml` is written only while
+/// the file there is still the one read, or still not there, and it replaces that file rather
+/// than writing into it: a hard link there leaves the file it shares as it was, and a file or
+/// link put there since the guard ran is refused.
+fn written(writer: &dyn SourceWriter, path: &SourcePath, change: &FileChange) -> Result<(), SourceError> {
+    if !is_snapshot(&change.path) {
+        return writer.write(path, &change.after);
+    }
+    let was = change.before.as_deref().map(|before| vc_interfaces::content_hash(before.as_bytes()));
+    writer.write_unchanged(path, &change.after, was)
 }
 
 /// Whether a new error, in the file at the path given, is one a change means to leave.

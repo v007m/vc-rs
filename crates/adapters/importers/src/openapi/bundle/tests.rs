@@ -53,6 +53,15 @@ async fn a_cycle_is_an_error_naming_the_chain() {
 }
 
 #[tokio::test]
+async fn a_cycle_through_a_pointer_spelled_two_ways_is_one_target() {
+    let node = json!({ "Node": { "properties": { "next": { "$ref": "#/%4Eode" } } } });
+    let fetcher = MapFetcher::with(&[("specs/node.json", node)]);
+    let result = bundled(&fetcher, json!({ "n": { "$ref": "node.json#/Node" } })).await;
+    let chain = vec!["specs/node.json#/Node".to_owned(), "specs/node.json#/Node".to_owned()];
+    assert_eq!(result, Err(ImportError::Cycle { chain }));
+}
+
+#[tokio::test]
 async fn documents_that_refer_to_each_other_are_fetched_once_each() -> Result<(), ImportError> {
     let a = json!({ "A": { "type": "string" }, "toB": { "$ref": "b.json#/B" } });
     let b = json!({ "B": { "type": "integer" }, "toA": { "$ref": "a.json#/A" } });

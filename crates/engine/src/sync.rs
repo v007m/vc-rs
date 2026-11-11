@@ -7,14 +7,14 @@ use std::sync::Arc;
 use indexmap::IndexMap;
 use serde_json::Value;
 use vc_adapter_importers::ImporterRegistry;
-use vc_interfaces::{DraftApi, ImportOptions, ImportSource, Importer, SourceProvider, SpecFetcher};
+use vc_interfaces::{DraftApi, ImportOptions, ImportSource, Importer, SpecFetcher};
 use vc_model::{FileKind, SourceFile, SourceFileId};
 use vc_parser::Node;
 
 use crate::authoring::{Authoring, Named, Opened, refused};
 use crate::edit::{FileChange, internal};
 use crate::fetch::ProjectFetcher;
-use crate::import::not_the_snapshot;
+use crate::snapshot_guard::{SnapshotGuard, snapshot_path};
 use crate::sync_plan::{Mine, SyncSide, Versions, plan};
 use crate::sync_snapshot::kept;
 use crate::{Changes, Engine, EngineError, import_write, sync_apply};
@@ -66,12 +66,14 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Edit`] for an unknown file, one with no `source`, a spec that cannot be
-    /// fetched or read, a snapshot path that is the spec or leads to another file, or a change
+    /// fetched or read, a snapshot that would be written over a spec (the spec is at a snapshot
+    /// path, or the snapshot path is a link or another api file's spec), or a change
     /// that cannot be made in the file as written;
     /// [`EngineError::Invalid`] when the result would not compile.
     pub async fn sync(&self, request: &SyncRequest) -> Result<SyncReport, EngineError> {
         let project = self.authoring()?;
-        let syncing = Syncing { project: &project, fetcher: self.fetcher()?, sources: self.sources.as_ref(), request };
+        let guard = SnapshotGuard::new(self.sources.as_ref(), &project);
+        let syncing = Syncing { project: &project, fetcher: self.fetcher()?, guard, request };
         let mut report = SyncReport::default();
         let mut snapshots = Vec::new();
         for file_id in selected(&project, &request.files)? {
@@ -113,7 +115,7 @@ fn sourced(found: (SourceFileId, &SourceFile)) -> bool {
 struct Syncing<'p> {
     project: &'p Authoring,
     fetcher: Arc<ProjectFetcher>,
-    sources: &'p dyn SourceProvider,
+    guard: SnapshotGuard<'p>,
     request: &'p SyncRequest,
 }
 
@@ -147,18 +149,19 @@ impl<'p> Syncing<'p> {
         let found = self.project.find(FileKind::Api, file_id).ok_or_else(|| internal("the file went away"))?;
         let opened = Authoring::open(found)?;
         let Source { location, include, only } = source(opened.document.root(), file_id)?;
-        not_the_snapshot(self.sources, &location, file_id)?;
+        self.guard.check(&location, file_id)?;
         let opts = ImportOptions { file_id: file_id.to_owned(), include, only, ..ImportOptions::default() };
         let fetcher: Arc<dyn SpecFetcher> = Arc::clone(&self.fetcher) as _;
         let reader =
             Reader { importer: ImporterRegistry::builtin().create("openapi", fetcher).map_err(internal)?, opts };
         let bytes = self.fetcher.fetch(&location).await.map_err(|error| refused(error.to_string(), FETCH_HELP))?;
         let theirs = reader.read(&location, bytes).await?;
-        let snapshot_path = format!("openapi/{file_id}.yaml");
-        let base = match self.fetcher.fetch(&snapshot_path).await {
-            Ok(bytes) => Some(reader.read(&snapshot_path, bytes).await?),
+        let snapshot = snapshot_path(file_id);
+        let base = match self.fetcher.fetch(&snapshot).await {
+            Ok(bytes) => Some(reader.read(&snapshot, bytes).await?),
             Err(_) => None,
         };
+        self.guard.check(&location, file_id)?;
         self.merged(&Read { file_id, opened, location, theirs, base })
     }
 

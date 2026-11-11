@@ -5,9 +5,7 @@ use std::sync::Arc;
 
 use vc_adapter_importers::ImporterRegistry;
 use vc_adapter_system::SystemEnvironment;
-use vc_interfaces::{
-    DraftGroup, FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SourceProvider, SpecFetcher,
-};
+use vc_interfaces::{DraftGroup, FetchError, ImportOptions, ImportSource, Importer, RecordingFilter, SpecFetcher};
 use vc_model::SourcePath;
 
 use crate::authoring::refused;
@@ -15,6 +13,7 @@ use crate::fetch::ProjectFetcher;
 use crate::import_homes::Home;
 use crate::import_recorded::{Recording, recorded};
 use crate::import_titles::origin_of;
+use crate::snapshot_guard::SnapshotGuard;
 use crate::{Changes, Engine, EngineError, import_write};
 
 /// What `vc import <kind> <url-or-file>` reads and what it makes of it.
@@ -83,7 +82,8 @@ impl Engine {
     /// # Errors
     ///
     /// [`EngineError::Edit`] when the spec cannot be fetched or read, the kind is unknown, a
-    /// file to create exists, the spec is read from the snapshot path it would write, or `--id` is
+    /// file to create exists, writing the snapshot would change a spec (the spec is read from a
+    /// snapshot path, the snapshot path is a link or another api file's spec), or `--id` is
     /// given for a recording of several origins; [`EngineError::Invalid`] when the result would
     /// not compile.
     pub async fn import(&self, request: &ImportRequest) -> Result<Changes, EngineError> {
@@ -93,8 +93,9 @@ impl Engine {
             refused(error.to_string(), &format!("the importers are {}", Self::importers().join(", ")))
         })?;
         let mut opts = options(request);
+        let guard = SnapshotGuard::new(self.sources.as_ref(), &project);
         if importer.keeps_snapshot() {
-            not_the_snapshot(self.sources.as_ref(), &request.source, &opts.file_id)?;
+            guard.check(&request.source, &opts.file_id)?;
         }
         let source = source(importer.as_ref(), fetcher.as_ref(), request).await?;
         let homes = self.homes(&request.profiles);
@@ -107,8 +108,11 @@ impl Engine {
             let recording = Recording { project: &project, homes: &homes, schema: schema.as_ref(), file_id };
             return self.guarded(&project, recorded(&recording, &draft, &request.source)?);
         }
-        not_the_snapshot(self.sources.as_ref(), &request.source, &opts.file_id)?;
-        let (mut changes, snapshots) = import_write::drafted(&project, &draft, request)?;
+        guard.check(&request.source, &opts.file_id)?;
+        let (mut changes, mut snapshots) = import_write::drafted(&project, &draft, request)?;
+        for snapshot in &mut snapshots {
+            snapshot.before = self.kept_text(&snapshot.path);
+        }
         changes.files.extend(snapshots);
         self.guarded(&project, changes)
     }
@@ -134,6 +138,13 @@ impl Engine {
     #[must_use]
     pub fn importers() -> Vec<String> {
         ImporterRegistry::builtin().names().map(str::to_owned).collect()
+    }
+
+    /// The text of the file at `path` as it is now, to diff and write over; none when there is
+    /// no file there.
+    fn kept_text(&self, path: &str) -> Option<String> {
+        let bytes = self.sources.read_bytes(&SourcePath::new(path).ok()?).ok()?;
+        Some(String::from_utf8_lossy(&bytes).into_owned())
     }
 
     /// Fetches specs through the project's sources and the run's transport.
@@ -168,31 +179,6 @@ async fn source(
     }
     let bytes = fetcher.fetch(&location).await.map_err(unread)?;
     Ok(ImportSource { location, bytes })
-}
-
-/// Refuses an import or sync that would write the snapshot `openapi/<fileId>.yaml` over the spec
-/// it reads: one read from that path, or from the file a link there leads to. A snapshot path
-/// that leads elsewhere (a link, or a file in another case on a file system that ignores case)
-/// is refused too, as writing it would change that other file.
-pub fn not_the_snapshot(sources: &dyn SourceProvider, source: &str, file_id: &str) -> Result<(), EngineError> {
-    let snapshot = format!("openapi/{file_id}.yaml");
-    let slashed = source.replace('\\', "/");
-    let path = slashed.trim_start_matches("./");
-    let real = |path: &str| SourcePath::new(path).ok().and_then(|path| sources.real(&path));
-    let at = real(&snapshot);
-    if let Some(elsewhere) = at.as_ref().filter(|at| at.as_str() != snapshot) {
-        let reason = format!("{snapshot}, where `vc import` keeps the snapshot, leads to {elsewhere}");
-        return Err(refused(reason, &format!("make `{snapshot}` a plain file of its own, or use another file ID")));
-    }
-    if path != snapshot && (at.is_none() || at != real(path)) {
-        return Ok(());
-    }
-    let reason = format!("{path} is where `vc import` keeps the snapshot `vc sync {file_id}` merges against");
-    let help = format!(
-        "move the spec out of `openapi/` (to `specs/{file_id}.yaml`, say), then import it from there or point \
-         `source.openapi` at it"
-    );
-    Err(refused(reason, &help))
 }
 
 /// The file `--id` names for a recording, refused when the recording calls several origins:

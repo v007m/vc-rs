@@ -125,7 +125,7 @@ async fn what_cannot_be_imported_is_refused_with_help() {
 }
 
 #[tokio::test]
-async fn a_spec_kept_at_its_snapshot_path_is_refused_so_it_is_never_overwritten() {
+async fn a_spec_kept_at_a_snapshot_path_is_refused_so_it_is_never_overwritten() {
     let files: [(&str, &[u8]); 2] = [
         ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n"),
         ("openapi/coll.yaml", PETSTORE.as_bytes()),
@@ -143,11 +143,10 @@ async fn a_spec_kept_at_its_snapshot_path_is_refused_so_it_is_never_overwritten(
     let named = engine.import(&request("openapi", "./openapi/coll.yaml")).await;
     assert!(matches!(&named, Err(EngineError::Edit { reason, .. }) if reason.contains("snapshot")), "{named:?}");
     let other = ImportRequest { file_id: Some("shop".to_owned()), ..request("openapi", "openapi/coll.yaml") };
-    let changes = engine.import(&other).await.unwrap();
-    assert!(
-        changes.files.iter().any(|file| file.path == "openapi/shop.yaml"),
-        "a different ID writes its own snapshot"
-    );
+    let Err(EngineError::Edit { reason: under_another, .. }) = engine.import(&other).await else {
+        panic!("a spec at another file's snapshot path is refused too: a sync of `coll` would overwrite it")
+    };
+    assert_eq!(under_another, reason);
 }
 
 #[tokio::test]

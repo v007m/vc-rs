@@ -9,6 +9,7 @@ use crate::authoring::{Authoring, refused};
 use crate::create::{derived_path, header, sentence};
 use crate::create_api::base_var;
 use crate::edit::FileChange;
+use crate::snapshot_guard::snapshot_path;
 use crate::yaml_out::{body, entry, fields_item};
 use crate::{Changes, EngineError, ImportRequest, import_titles};
 
@@ -212,11 +213,6 @@ pub fn snapshot(file_id: &str, source: &str, doc: &Value) -> FileChange {
     );
     body(&mut after, 0, doc);
     FileChange { path: snapshot_path(file_id), before: None, after, moved_from: None }
-}
-
-/// Where the spec snapshot of the api file `file_id` is: `openapi/<fileId>.yaml`.
-fn snapshot_path(file_id: &str) -> String {
-    format!("openapi/{file_id}.yaml")
 }
 
 #[cfg(test)]
