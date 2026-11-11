@@ -51,8 +51,8 @@ export function enginePort(
 ): InsightsPort {
   return {
     async runs(limit) {
-      const { runs } = await client.listRuns({ limit });
-      return runs.filter((r) => r.kind === 'run').map(summary);
+      const { runs } = await client.listRuns({ limit, kind: 'run' });
+      return runs.map(summary);
     },
     async trends(window) {
       const { trends } = await client.trends({ window });

@@ -85,21 +85,25 @@ describe('InsightsScreen', () => {
 });
 
 describe('enginePort', () => {
-  it('keeps only `run` runs and times the finished ones', async () => {
+  it('asks for the last `run` runs and times the finished ones', async () => {
+    const asked: unknown[] = [];
     const port = enginePort(
       fakeEngine({
-        listRuns: () => ({
-          runs: [
-            { id: 5n, kind: 'run', startedMs: 1000n, finishedMs: 3500n, totals: { passed: 2 } },
-            { id: 4n, kind: 'load', startedMs: 500n },
-            { id: 3n, kind: 'run', startedMs: 100n },
-          ],
-        }),
+        listRuns: ({ limit, kind }) => {
+          asked.push({ limit, kind });
+          return {
+            runs: [
+              { id: 5n, kind: 'run', startedMs: 1000n, finishedMs: 3500n, totals: { passed: 2 } },
+              { id: 3n, kind: 'run', startedMs: 100n },
+            ],
+          };
+        },
       }),
     );
     expect(await port.runs(10)).toEqual([
       { id: 5, startedMs: 1000, durationMs: 2500, passed: 2, failed: 0, blocked: 0, flaky: 0 },
       { id: 3, startedMs: 100, passed: 0, failed: 0, blocked: 0, flaky: 0 },
     ]);
+    expect(asked).toEqual([{ limit: 10, kind: 'run' }]);
   });
 });

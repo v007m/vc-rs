@@ -413,6 +413,8 @@ message ImportResponse {
 message ListRunsRequest {
   // At most this many; all when 0.
   uint32 limit = 1;
+  // Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
+  optional string kind = 2;
 }
 
 message ListRunsResponse {

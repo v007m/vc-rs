@@ -744,11 +744,14 @@ pub struct ImportResponse {
     #[prost(string, repeated, tag="2")]
     pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListRunsRequest {
     /// At most this many; all when 0.
     #[prost(uint32, tag="1")]
     pub limit: u32,
+    /// Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
+    #[prost(string, optional, tag="2")]
+    pub kind: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListRunsResponse {
