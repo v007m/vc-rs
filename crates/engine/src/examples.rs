@@ -48,9 +48,9 @@ pub fn planned(
     (inputs, draw, mut options): (RunInputs, &mut Draw, PlanOptions),
 ) -> Result<Plan, EngineError> {
     let templated = program.tests.values().any(|test| matches!(test.examples, Some(Examples::Template(_))));
-    if templated {
-        let wanted =
-            vc_planner::rows_wanted(program, selection, &options).map_err(|error| plan_error(error, program))?;
+    let wanted = if templated { vc_planner::rows_wanted(program, selection, &options) } else { Ok(Vec::new()) };
+    let wanted = wanted.map_err(|error| plan_error(error, program))?;
+    if !wanted.is_empty() {
         let values = RunValues::new(program, inputs);
         for test in wanted.iter().filter_map(|id| program.tests.get(id)) {
             let Some(rows) = rendered(program, (&values, draw.seed), test)? else { continue };
