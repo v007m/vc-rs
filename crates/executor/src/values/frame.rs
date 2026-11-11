@@ -106,8 +106,9 @@ impl Frame {
 }
 
 /// Whether `saver` is a `function:` or `test:` action that saves `name` without declaring it in
-/// `provides`.
+/// `provides`. A `test:` action declares what the compiler sees the reused test save (D282).
 fn undeclared(program: &Program, saver: &Action, name: &str) -> bool {
     let dynamic = matches!(saver.kind, ActionKind::Function(_) | ActionKind::Test(_));
-    dynamic && !saver.provides.iter().any(|declared| program.str(declared.sym()) == Some(name))
+    let mut declared = saver.provides.iter().chain(&saver.implied);
+    dynamic && !declared.any(|declared| program.str(declared.sym()) == Some(name))
 }

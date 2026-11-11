@@ -124,3 +124,28 @@ async fn hooks_read_the_run_s_secrets_and_never_show_them() {
     assert_eq!(output.status.code(), Some(0), "the hooks read the key: {said}");
     assert!(!said.contains(SIGN_KEY), "{said}");
 }
+
+/// A value a reused test saves is declared by the `test:` step (D282); one a `function:` step
+/// saves without `provides` is still V5108 when it is read (the file's `vars` let `vc check` pass).
+#[tokio::test(flavor = "multi_thread")]
+async fn only_an_undeclared_function_save_is_v5108_when_read() {
+    let server = MockServer::start().await.unwrap();
+    let test = concat!(
+        "vars: {orderId: none}\ntests:\n  - id: makesOrder\n    standalone: false\n    steps:\n",
+        "      - call: signed#echo\n        body: {orderId: o-1}\n",
+        "        save: {madeId: '${response.body.body.orderId}'}\n",
+        "  - id: reusesTheOrder\n    steps:\n      - test: makesOrder\n",
+        "      - call: signed#echo\n        body: {orderId: '${var.madeId}'}\n",
+        "        expect:\n          body: {match: {body.orderId: o-1}}\n",
+        "  - id: readsAnUndeclaredSeed\n    steps:\n",
+        "      - function: ../../hooks/seed.ts#seed\n",
+        "      - call: signed#echo\n        body: {orderId: '${var.orderId}'}\n",
+    );
+    let files = [CONFIG, SIGNED, SIGN, NAMES, SEED, ("services/signed/declared.test.yaml", test)];
+    let output = Project::new(&files).run(&server.base_url(), &[]).output().unwrap();
+    let said = crate::said(&output);
+    assert_eq!(output.status.code(), Some(0), "{said}");
+    assert_eq!(said.matches("V5108").count(), 1, "only the function's undeclared `orderId`: {said}");
+    assert!(said.contains("add `provides: [orderId]`"), "{said}");
+    assert!(!said.contains("madeId` was saved"), "the reused test's save is declared: {said}");
+}

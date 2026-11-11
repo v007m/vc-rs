@@ -664,6 +664,7 @@ pub vc_model::Action::cache: core::option::Option<vc_model::CacheSpec>
 pub vc_model::Action::expect: vc_model::Expect
 pub vc_model::Action::headers: indexmap::map::IndexMap<alloc::string::String, vc_model::Template>
 pub vc_model::Action::id: core::option::Option<vc_model::Sym>
+pub vc_model::Action::implied: alloc::vec::Vec<vc_model::VarName>
 pub vc_model::Action::keep: bool
 pub vc_model::Action::kind: vc_model::ActionKind
 pub vc_model::Action::owner: vc_model::Owner

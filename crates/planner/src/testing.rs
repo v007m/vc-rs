@@ -80,6 +80,7 @@ impl Fixture {
             timeout: None,
             keep: false,
             provides: vec![],
+            implied: vec![],
         });
         action
     }
