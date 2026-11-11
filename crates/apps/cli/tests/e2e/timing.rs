@@ -1,5 +1,6 @@
 //! `expect.timing` checks one phase of an exchange: `firstByte` is the wait for the server's
-//! answer, `download` the reading of its body. A failed timing check names its phase.
+//! answer, `download` the reading of its body. A failed timing check names its phase in its
+//! message (`expect.timing.firstByte`), not only in the excerpt of the file.
 
 use vc_mock_server::MockServer;
 
@@ -30,14 +31,17 @@ async fn first_byte_measures_the_wait_for_the_servers_answer() {
     assert_eq!(code, Some(0), "the 300 ms sleep is before the first byte: {text}");
     let (code, text) = checked("slow", "firstByte: {lt: 100ms}").await;
     assert_eq!(code, Some(1), "{text}");
-    assert!(text.contains("firstByte"), "the failure names the phase: {text}");
+    assert!(text.contains("expect.timing.firstByte"), "the failure names the phase: {text}");
 }
 
+/// The 300 ms wait comes before the first byte, so it counts in `total` but not in `download`.
 #[tokio::test(flavor = "multi_thread")]
 async fn download_measures_reading_the_body() {
     let (code, text) = checked("large", "download: {lt: 10s}").await;
     assert_eq!(code, Some(0), "{text}");
-    let (code, text) = checked("large", "download: {gte: 1h}").await;
+    let (code, text) = checked("slow", "download: {lt: 200ms}, total: {gte: 250ms}").await;
+    assert_eq!(code, Some(0), "the wait is in total, not in download: {text}");
+    let (code, text) = checked("slow", "download: {gte: 250ms}").await;
     assert_eq!(code, Some(1), "{text}");
-    assert!(text.contains("download"), "the failure names the phase: {text}");
+    assert!(text.contains("expect.timing.download"), "the failure names the phase: {text}");
 }

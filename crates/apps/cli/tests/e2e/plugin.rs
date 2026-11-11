@@ -14,6 +14,21 @@ use crate::{CONFIG, Project, USERS, said};
 /// A reporter plugin in Python's standard library.
 const REPORT_PY: &str = include_str!("../fixtures/plugin/report.py");
 
+/// The JSON-RPC framing both Python plugins import.
+const RPC: (&str, &str) = ("plugin/rpc.py", include_str!("../fixtures/plugin/rpc.py"));
+
+/// Whether `python3` runs. Starting the interpreter once (site-packages and all) also warms it,
+/// so a plugin's own cold start on a loaded runner stays inside the initialize deadline (D217).
+/// A non-zero exit, such as the Windows Store alias's, counts as no Python.
+fn has_python() -> bool {
+    let ran = Command::new("python3").args(["-c", "pass"]).output();
+    if ran.as_ref().is_ok_and(|output| output.status.success()) {
+        return true;
+    }
+    eprintln!("skipped: no python3 on PATH");
+    false
+}
+
 /// A test that lists the users.
 const LISTS: (&str, &str) = ("services/users/list.test.yaml", "tests:\n  - id: listsUsers\n    call: users#list\n");
 
@@ -56,16 +71,13 @@ fn listed_then_removed(project: &Project) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_reporter_plugin_reads_its_granted_secret_only_and_writes_its_report() {
-    // Starting the interpreter once (site-packages and all) warms it, so the plugin's own cold
-    // start on a loaded runner stays inside the initialize deadline (D217).
-    if Command::new("python3").args(["-c", "pass"]).output().is_err() {
-        eprintln!("skipped: no python3 on PATH");
+    if !has_python() {
         return;
     }
     let server = MockServer::start().await.unwrap();
     let schema = (".env.schema", "reportToken=\napiKey=\n");
     let plugin = [("plugin/vibranium-plugin.yaml", MANIFEST), ("plugin/report.py", REPORT_PY)];
-    let project = Project::new(&[CONFIG, USERS, LISTS, schema, plugin[0], plugin[1]]);
+    let project = Project::new(&[CONFIG, USERS, LISTS, schema, plugin[0], plugin[1], RPC]);
     let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
     assert_eq!(added.status.code(), Some(0), "{}", said(&added));
     let config = fs::read_to_string(project.path().join(CONFIG.0)).unwrap();
@@ -107,6 +119,7 @@ fn stamped() -> Project {
         (".env.schema", "STAMP_KEY=\n"),
         ("plugin/vibranium-plugin.yaml", manifest),
         ("plugin/stamp.py", STAMP_PY),
+        RPC,
     ])
 }
 
@@ -115,8 +128,7 @@ fn stamped() -> Project {
 /// added, the call fails with V5114.
 #[tokio::test(flavor = "multi_thread")]
 async fn an_auth_plugin_signs_every_request_with_what_it_answered_once() {
-    if Command::new("python3").arg("--version").output().is_err() {
-        eprintln!("skipped: no python3 on PATH");
+    if !has_python() {
         return;
     }
     let server = MockServer::start().await.unwrap();

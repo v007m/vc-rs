@@ -43,7 +43,8 @@ fn breaches(report: &Value) -> Vec<(String, Value)> {
 async fn a_p90_within_its_threshold_passes() {
     let (code, report) = load(&scenario("p90: {lt: 10s}", "p90: {lt: 10s}")).await;
     assert_eq!(code, Some(0), "{report:#}");
-    assert!(breaches(&report).is_empty(), "{report:#}");
+    let listed = report["breaches"].as_array();
+    assert!(listed.is_some_and(Vec::is_empty), "the report lists no breaches: {report:#}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
