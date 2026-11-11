@@ -38,17 +38,18 @@ type Seen = HashSet<(String, usize)>;
 
 impl Checker<'_, '_> {
     /// V2105 at `test`'s `examples`, when it is a `$file` whose path holds a template, or when it
-    /// is one template or a `$file` and a var it reads, directly or through the vars that one
-    /// reads, has no value before the run.
+    /// is one template and a var it reads, directly or through the vars that one reads, has no
+    /// value before the run.
     pub fn examples(&mut self, source: &Source<'_>, test: &Node, scope: &Scope<'_>) {
         let Some(rows) = test.get("examples").filter(|rows| !matches!(rows.value, Value::Seq(_))) else { return };
-        let mut found = Vec::new();
-        source.pieces(rows.span, &[]).for_each(|piece| piece_refs(piece, &mut found));
-        if is_file(rows) && !found.is_empty() {
-            let diagnostic = Diagnostic::new(Code::V2105, rows.span, FILE_TEMPLATED).help(FILE_HELP);
-            self.diagnostics.push(diagnostic);
+        if let Some(path) = rows.get("$file") {
+            if !refs(source, path).is_empty() {
+                let diagnostic = Diagnostic::new(Code::V2105, rows.span, FILE_TEMPLATED).help(FILE_HELP);
+                self.diagnostics.push(diagnostic);
+            }
             return;
         }
+        let found = refs(source, rows);
         let mut seen = Seen::new();
         let needed = found.into_iter().find_map(|reference| {
             let needed = self.needed((reference, 0), scope, &mut seen)?;
@@ -81,16 +82,16 @@ impl Checker<'_, '_> {
     }
 
     /// What the definition of the var `name` at the level `at`, reading `reads`, needs that is
-    /// not there before the run: a root it reads itself, else what a var it reads needs. A read
-    /// of `name` itself starts at the next level out, any other name at the innermost, as the
-    /// engine looks them up.
+    /// not there before the run: a root it reads itself, unless a `default` pipe stands in for
+    /// it, else what a var it reads needs. A read of `name` itself starts at the next level out,
+    /// any other name at the innermost, as the engine looks them up.
     fn defined(
         &self,
         (name, reads, at): (&str, &[Reference], usize),
         scope: &Scope<'_>,
         seen: &mut Seen,
     ) -> Option<Needed> {
-        let outside = reads.iter().find(|read| !ROW_ROOTS.contains(&read.ns));
+        let outside = reads.iter().find(|read| !ROW_ROOTS.contains(&read.ns) && !self.takes_missing(read));
         if let Some(read) = outside {
             return Some(Needed { var: name.to_owned(), root: row_root_label(read.ns) });
         }
@@ -101,9 +102,11 @@ impl Checker<'_, '_> {
     }
 }
 
-/// Whether `rows` is a `$file` map, whose path is all it holds.
-fn is_file(rows: &Node) -> bool {
-    matches!(rows.entries(), [entry] if entry.key == "$file")
+/// The references in `node`, in order.
+fn refs<'a>(source: &Source<'a>, node: &Node) -> Vec<&'a Reference> {
+    let mut found = Vec::new();
+    source.pieces(node.span, &[]).for_each(|piece| piece_refs(piece, &mut found));
+    found
 }
 
 /// The var a `${var.…}` reference names.

@@ -124,6 +124,39 @@ fn a_file_of_rows_has_a_path_written_as_it_is() {
 }
 
 #[test]
+fn a_file_of_rows_with_other_keys_still_has_a_path_written_as_it_is() {
+    let tests = "tests:\n  - id: listsRegion\n    call: users#get\n    examples: {$file: 'rows-${var.baseUrl}.csv', format: csv}\n";
+    let found = unavailable(tests);
+    let [(line, diagnostic)] = found.as_slice() else { panic!("one V2105 expected: {found:?}") };
+    assert_eq!((*line, diagnostic.message.as_str()), (4, "the `$file` path of `examples` holds a template"));
+}
+
+#[test]
+fn a_root_a_followed_var_reads_with_a_default_is_not_needed() {
+    let config = config_vars("  a: '${secret.ROWS | default(\"[]\")}'\n");
+    assert_eq!(unavailable_with(&config, &reads_a("{}")), [], "the render gives the default before the run");
+}
+
+#[test]
+fn a_save_counts_only_where_the_lookup_would_find_it() {
+    let each = "beforeEach:\n  - call: users#get\n    save: {rows: '${response.body}'}\n";
+    let tests = format!(
+        "{each}tests:\n  - id: listsRows\n    call: users#get\n    vars: {{rows: '${{var.rows | take(2)}}'}}\n    examples: ${{var.rows}}\n"
+    );
+    let help = help_at(&tests, 8);
+    assert!(help.starts_with("`var.rows` needs a save"), "the test's `rows` reads the one beforeEach saves: {help}");
+    let config = config_vars("  a: 'x${var.a}'\n");
+    let saved = format!(
+        "beforeEach:\n  - call: users#get\n    save: {{a: '${{response.body}}'}}\ntests:\n  - id: listsA\n    call: users#get\n    examples: ${{var.a}}\n"
+    );
+    let found = unavailable_with(&config, &saved);
+    assert!(
+        found.iter().all(|(_, found)| !found.help.join("\n").contains("needs a save")),
+        "the config's `a` reads past the config, where no save is: {found:?}"
+    );
+}
+
+#[test]
 fn a_default_still_reads_a_defined_var_but_covers_one_only_a_save_sets() {
     let tests = "tests:\n  - id: listsWithToken\n    call: users#get\n    examples: ${var.token | default('x')}\n";
     let help = help_at(tests, 4);

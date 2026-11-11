@@ -161,15 +161,16 @@ impl<'a> Scope<'a> {
     }
 
     /// Where `name`'s value comes from before the run, looked up from the level `from` out (0 is
-    /// the innermost): the first level whose base `vars` define it; else `Saved` when a save
-    /// sets it. Saves have no value yet, so their levels are passed over, which leaves the order
-    /// the engine renders rows in (`Scope::of_test`): the test's vars, its file's, the config's.
+    /// the innermost): the first level whose base `vars` define it; else `Saved` when a save at
+    /// one of those levels sets it, as the lookup would find it once the save ran. Saves have no
+    /// value yet, so their levels are passed over, which leaves the order the engine renders
+    /// rows in (`Scope::of_test`): the test's vars, its file's, the config's.
     pub fn origin(&self, name: &str, from: usize) -> Origin<'_> {
-        let mut levels = self.layers.iter().rev().enumerate().skip(from);
-        if let Some((at, reads)) = levels.find_map(|(at, layer)| Some((at, layer.reads.get(name)?.as_slice()))) {
+        let levels = || self.layers.iter().rev().enumerate().skip(from);
+        if let Some((at, reads)) = levels().find_map(|(at, layer)| Some((at, layer.reads.get(name)?.as_slice()))) {
             return Origin::Defined { reads, at };
         }
-        if self.layers.iter().any(|layer| layer.saves(name)) { Origin::Saved } else { Origin::Unset }
+        if levels().any(|(_, layer)| layer.saves(name)) { Origin::Saved } else { Origin::Unset }
     }
 
     /// The type of `name` when every definition of it is a literal of that one type.
