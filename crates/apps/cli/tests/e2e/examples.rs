@@ -31,8 +31,10 @@ fn project(examples: &str) -> Project {
 /// The label and status of each finished test of a `--reporter json` run, sorted by label.
 fn finished(stdout: &[u8]) -> Vec<(Value, Value)> {
     let events = events(stdout);
-    let mut finished: Vec<(Value, Value)> =
-        of_kind(&events, "testFinished").iter().map(|event| (event["label"].clone(), event["status"].clone())).collect();
+    let mut finished: Vec<(Value, Value)> = of_kind(&events, "testFinished")
+        .iter()
+        .map(|event| (event["label"].clone(), event["status"].clone()))
+        .collect();
     finished.sort_by_key(|(label, _)| label.to_string());
     finished
 }
