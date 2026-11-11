@@ -170,6 +170,11 @@ async fn what_cannot_be_synced_is_refused_with_help() {
     let misspelt = SyncRequest { files: vec!["user".to_owned()], ..SyncRequest::default() };
     let unknown = engine(&api_file("put"), &theirs()).sync(&misspelt).await;
     assert_eq!(help(unknown).as_deref(), Some("did you mean `users`?"));
+    for path in ["services/users/users.api.yaml", "./services/users/users.api.yaml"] {
+        let by_path = SyncRequest { files: vec![path.to_owned()], ..SyncRequest::default() };
+        let refused = engine(&api_file("put"), &theirs()).sync(&by_path).await;
+        assert_eq!(help(refused).as_deref(), Some("did you mean `vc sync users`?"), "{path}");
+    }
     let unsourced = engine("apis:\n  - id: list\n    path: /users\n", &theirs());
     let refused = unsourced.sync(&SyncRequest { files: vec!["users".to_owned()], ..SyncRequest::default() }).await;
     assert_eq!(help(refused).as_deref(), Some("add one, or import the spec with `vc import openapi`"));
