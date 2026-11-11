@@ -83,7 +83,7 @@ impl Engine {
         let sent = masked_headers(&masker, explainer.sent_headers(&called, &shown)).await;
         let auth = explainer.auth_shown(&called, &masker).await;
         let url = masker.text(&url(&program, api, &shown)).await;
-        let curl = curl(api, &url, &sent, auth.is_some());
+        let curl = curl(api, &url, &sent) + if auth.is_some() { BEARER } else { "" };
         let headers = sent.into_iter().filter(|header| !writes(api, &header.name)).collect();
         let vars = layers(&masker, &program, used(&explainer, &called, vars)).await;
         Ok(ApiExplained { vars, headers, auth, curl, notices: layered.notices })
@@ -220,15 +220,15 @@ fn url(program: &Program, api: &Api, shown: &Shown<'_>) -> String {
     url
 }
 
-/// `curl -X GET 'url'`, a `-H` for each header, and the auth's token as `$TOKEN`.
-fn curl(api: &Api, url: &str, headers: &[SentHeader], auth: bool) -> String {
+/// The header that stands for the auth's token, in double quotes so a shell fills in `$TOKEN`.
+const BEARER: &str = " \\\n  -H \"Authorization: Bearer $TOKEN\"";
+
+/// `curl -X GET 'url'` and a `-H` for each header.
+fn curl(api: &Api, url: &str, headers: &[SentHeader]) -> String {
     let method = format!("{:?}", api.method).to_uppercase();
     let mut curl = format!("curl -X {method} {}", quoted(url));
     for header in headers {
         let _ = write!(curl, " \\\n  -H {}", quoted(&format!("{}: {}", header.name, header.value)));
-    }
-    if auth {
-        curl.push_str(" \\\n  -H \"Authorization: Bearer $TOKEN\"");
     }
     curl
 }
