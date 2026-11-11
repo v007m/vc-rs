@@ -38,10 +38,12 @@ header.header {
 starlight-menu-button button {
   top: calc((var(--vc-bar-height) - var(--sl-menu-button-size)) / 2);
 }
+/* Content scrolling under the header must not read through it: a near-solid tint plus a blur.
+ * Only the standard backdrop-filter is written (Safari 18 reads it too): writing the -webkit- copy
+ * as well made the CSS minifier keep only the prefixed one, which Chromium ignores. */
 header.header {
-  background-color: color-mix(in srgb, var(--sl-color-bg-nav) 80%, transparent);
-  backdrop-filter: saturate(1.4) blur(12px);
-  -webkit-backdrop-filter: saturate(1.4) blur(12px);
+  background-color: color-mix(in srgb, var(--sl-color-bg-nav) 90%, transparent);
+  backdrop-filter: saturate(1.4) blur(16px);
   border-bottom-color: var(--sl-color-hairline);
 }
 header.header::after {

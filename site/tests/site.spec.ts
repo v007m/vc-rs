@@ -20,18 +20,38 @@ for (const theme of ['dark', 'light']) {
       await page.addInitScript((t) => localStorage.setItem('starlight-theme', t), theme);
     });
 
-    test('window cards in a row share one height', async ({ page }) => {
+    test('window cards side by side share one height and show whole lines', async ({ page }) => {
       await page.setViewportSize(DESKTOP);
       await page.goto(`${BASE}/`);
       const rows = page.locator('.lp-window-row');
       expect(await rows.count()).toBeGreaterThan(0);
       for (const row of await rows.all()) {
-        const heights = await row
-          .locator('.lp-window')
-          .evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)));
-        expect(heights.length).toBe(3);
-        expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);
+        const boxes = await row.locator('.lp-window').evaluateAll((els) =>
+          els.map((e) => {
+            const r = e.getBoundingClientRect();
+            const pre = e.querySelector('pre');
+            const clipped = pre ? pre.scrollWidth - pre.clientWidth : 0;
+            return { top: Math.round(r.top), height: Math.round(r.height), clipped };
+          }),
+        );
+        expect(boxes.length).toBe(3);
+        const [first, second] = boxes;
+        expect(second.top).toBe(first.top);
+        expect(Math.abs(second.height - first.height)).toBeLessThanOrEqual(1);
+        expect(boxes.map((b) => b.clipped)).toEqual([0, 0, 0]);
       }
+    });
+
+    test('content scrolled under the header does not read through it', async ({ page }) => {
+      await page.setViewportSize(DESKTOP);
+      await page.goto(`${BASE}/`);
+      await page.evaluate(() => window.scrollTo(0, 1800));
+      const { background, blur } = await page.locator('header.header').evaluate((h) => {
+        const style = getComputedStyle(h);
+        return { background: style.backgroundColor, blur: style.backdropFilter };
+      });
+      expect(backgroundAlpha(background), background).toBeGreaterThanOrEqual(0.85);
+      expect(blur).toContain('blur(');
     });
 
     for (const path of PAGES) {
@@ -46,6 +66,13 @@ for (const theme of ['dark', 'light']) {
       });
     }
   });
+}
+
+/** The alpha of a computed colour: `rgb(…)` is opaque, `rgba(… , a)` and `color(… / a)` carry it. */
+function backgroundAlpha(color: string): number {
+  const alpha = /(?:\/\s*|,\s*)([\d.]+)\)$/.exec(color);
+  if (color.startsWith('rgb(') || !alpha) return color === 'transparent' ? 0 : 1;
+  return Number(alpha[1]);
 }
 
 /** How far the search box's centre sits from the viewport's centre, in pixels. */
