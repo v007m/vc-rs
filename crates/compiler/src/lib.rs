@@ -39,6 +39,7 @@ mod stage;
 mod suggest;
 mod value;
 mod version;
+mod wanted;
 
 pub use body_files::{FilePath, FileSlot, Unreadable, body_files};
 pub use cache::CompileCache;
@@ -49,3 +50,4 @@ pub use naming::{camel_id, file_id, is_camel_id, is_file_id};
 pub use paths::SourceGlobs;
 pub use schema::{FileSchema, schema_line, schemas, to_json};
 pub use shapes::key_order;
+pub use wanted::{Wanted, WantedError, WantedRead, compile_wanted};

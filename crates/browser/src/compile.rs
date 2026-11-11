@@ -1,20 +1,16 @@
-//! Reads the project and compiles it, as the engine does for every command (`engine/project.rs`
-//! and `engine/wanted.rs`): discovery with the config's `paths` globs, `.env.schema`, then the
-//! data and hook files the compile wants, read and compiled again for at most eight rounds.
+//! Reads the project and compiles it, as the engine does for every command (`engine/project.rs`):
+//! discovery with the config's `paths` globs, `.env.schema`, then the data and hook files the
+//! compile wants, through the compiler's own loop ([`vc_compiler::compile_wanted`]).
 //! There is no compile cache: each run compiles from scratch.
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use vc_compiler::{CompileCache, CompileInput, Compiled, SourceGlobs};
+use vc_compiler::{CompileCache, CompileInput, Compiled, SourceGlobs, Wanted, WantedRead};
 use vc_diagnostics::Diagnostics;
 use vc_interfaces::{Discovery, MemorySources, SourceError, SourceFilter, SourceProvider};
 use vc_model::{Date, Program, SourceFiles, SourcePath};
 
 use crate::BrowserError;
-
-/// How many times wanted files are read and compiled again, as in the engine.
-const ROUNDS: usize = 8;
 
 /// The project as compiled: the program when nothing stops one, every diagnostic and the files
 /// they point into.
@@ -64,45 +60,19 @@ fn discover(project: &MemorySources) -> Result<Discovery, BrowserError> {
     project.discover(&filter).map_err(sources_error)
 }
 
-/// Compiles `input`, then reads the files the compile wants that were not asked for yet and
-/// compiles again; the files that could not be read come back as problems.
-fn compile_wanted(
-    project: &MemorySources,
-    mut input: CompileInput,
-) -> Result<(Compiled, Vec<SourceError>), BrowserError> {
-    let (mut asked, mut problems) = (BTreeSet::new(), Vec::new());
-    let mut compiled = vc_compiler::compile(input.clone());
-    for _ in 0..ROUNDS {
-        let wanted = fresh(&compiled, &asked);
-        if wanted.is_empty() {
-            return Ok((compiled, problems));
-        }
-        let found = project.read(&wanted).map_err(sources_error)?;
-        asked.extend(wanted);
-        input.files.extend(found.files);
-        problems.extend(found.problems);
-        input.previous = compiled.cache;
-        compiled = vc_compiler::compile(input.clone());
-    }
-    let left = fresh(&compiled, &asked);
-    if left.is_empty() { Ok((compiled, problems)) } else { Err(too_deep(&left)) }
-}
-
-/// The data and hook files `compiled` wants that were not asked for, in path order. A data file
-/// outside the project is read like any other, so it is a file that cannot be read.
-fn fresh(compiled: &Compiled, asked: &BTreeSet<SourcePath>) -> Vec<SourcePath> {
-    let data = compiled.data_wanted.iter().map(|data| &data.path);
-    let wanted: BTreeSet<&SourcePath> = compiled.hooks_wanted.iter().chain(data).collect();
-    wanted.into_iter().filter(|path| !asked.contains(*path)).cloned().collect()
-}
-
-fn too_deep(left: &[SourcePath]) -> BrowserError {
-    let paths: Vec<&str> = left.iter().map(SourcePath::as_str).collect();
-    let reason = format!(
-        "the project still names files after {ROUNDS} rounds of reading them: {}; a hook's imports may be nested too deep",
-        paths.join(", ")
-    );
-    BrowserError::refused(reason, None)
+/// Compiles `input` through the compiler's loop, reading the files it wants from `project`;
+/// the files that could not be read come back as problems.
+///
+/// The playground has no filesystem outside the project, so it drops `datasets.allowRoots`: a
+/// data file outside the project is asked for like any other and is a file that cannot be read.
+fn compile_wanted(project: &MemorySources, input: CompileInput) -> Result<(Compiled, Vec<SourceError>), BrowserError> {
+    let read = |wanted: &[Wanted]| -> Result<WantedRead<SourceError>, BrowserError> {
+        let paths: Vec<SourcePath> = wanted.iter().map(|(path, _)| path.clone()).collect();
+        let found = project.read(&paths).map_err(sources_error)?;
+        Ok((found.files, found.problems))
+    };
+    vc_compiler::compile_wanted(input, read)
+        .map_err(|error| error.into_error(|reason| BrowserError::refused(reason, None)))
 }
 
 fn sources_error(error: impl std::fmt::Display) -> BrowserError {
