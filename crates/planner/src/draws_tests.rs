@@ -7,7 +7,13 @@ use crate::testing::{Fixture, read, span};
 fn planned(fixture: &Fixture, test: TestId) -> Plan {
     let instance =
         Instance { id: InstanceId::new(0), test, example_row: None, repeat_index: 0, needs: Needs::default() };
-    let file = PlannedFile { id: fixture.file, before_all: vec![], instances: vec![instance], after_all: vec![] };
+    let file = PlannedFile {
+        id: fixture.file,
+        before_all: vec![],
+        instances: vec![instance],
+        after_all: vec![],
+        skipped: vec![],
+    };
     Plan { files: vec![file], ..Plan::default() }
 }
 

@@ -5,6 +5,7 @@
 //! same rows whatever else the run selects. Rows from a `$file` are the compile's to give, never
 //! rendered here. A test whose examples gave no rows is skipped with a notice.
 
+use std::collections::BTreeMap;
 use std::iter;
 use std::sync::Arc;
 
@@ -12,7 +13,7 @@ use serde_json::Value;
 use vc_diagnostics::{Code, Diagnostic};
 use vc_executor::{ExampleRows, RunInputs, RunValues, UnreadVar};
 use vc_interfaces::Random;
-use vc_model::{Examples, Plan, Program, Test, TestId};
+use vc_model::{Examples, Plan, Program, TemplateValue, Test, TestId};
 use vc_planner::{NO_ROWS, PlanOptions, Selection};
 use vc_template::{PipeRegistry, ROW_HELP, RenderError};
 
@@ -58,7 +59,33 @@ pub fn planned(
             drop(draw.rows.insert(test.id, rows));
         }
     }
-    vc_planner::plan(program, selection, &options).map_err(|error| plan_error(error, program))
+    let mut plan = vc_planner::plan(program, selection, &options).map_err(|error| plan_error(error, program))?;
+    plan.row_names = row_names(program, &plan, &draw.rows);
+    Ok(plan)
+}
+
+/// The `name` of each planned example row that gives one as plain text, in the row as written
+/// (or read from a `$file`) or in a row an `examples:` template gave: the instance's label.
+fn row_names(program: &Program, plan: &Plan, rendered: &ExampleRows) -> BTreeMap<(TestId, u32), String> {
+    let instances = plan.files.iter().flat_map(|file| &file.instances);
+    let rows = instances.filter_map(|instance| Some((instance.test, instance.example_row?)));
+    rows.filter_map(|slot| Some((slot, row_name(program, rendered, slot)?))).collect()
+}
+
+/// Row `row`'s `name` of `test`, when it is non-empty text; a `name` with a reference in an
+/// inline row is rendered only as the instance runs, so it does not label it.
+fn row_name(program: &Program, rendered: &ExampleRows, (test, row): (TestId, u32)) -> Option<String> {
+    let at = usize::try_from(row).ok()?;
+    let name = match &program.tests.get(&test)?.examples {
+        Some(Examples::Rows(rows)) => {
+            let Some(TemplateValue::Map(row)) = rows.get(at) else { return None };
+            let Some(TemplateValue::String(name)) = row.get("name") else { return None };
+            name.as_literal()?
+        }
+        Some(Examples::Template(_)) => rendered.get(&test)?.get(at)?.get("name")?.as_str()?,
+        Some(Examples::File(_)) | None => return None,
+    };
+    (!name.is_empty()).then(|| name.to_owned())
 }
 
 /// Whether running `plan` generates data from the run's seed: a `${fake.…}`, or a built-in pipe

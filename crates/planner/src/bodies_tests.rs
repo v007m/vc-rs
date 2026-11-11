@@ -10,7 +10,13 @@ type Place = fn(&mut Fixture, ActionId, &mut Plan);
 fn planned(fixture: &Fixture, test: vc_model::TestId) -> Plan {
     let instance =
         Instance { id: InstanceId::new(0), test, example_row: None, repeat_index: 0, needs: Needs::default() };
-    let file = PlannedFile { id: fixture.file, before_all: vec![], instances: vec![instance], after_all: vec![] };
+    let file = PlannedFile {
+        id: fixture.file,
+        before_all: vec![],
+        instances: vec![instance],
+        after_all: vec![],
+        skipped: vec![],
+    };
     Plan { files: vec![file], ..Plan::default() }
 }
 

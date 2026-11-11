@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write as _;
 use std::sync::Arc;
 
@@ -54,6 +54,10 @@ pub struct Names {
     instances: HashMap<InstanceId, (Option<u32>, u32)>,
     /// The plan's instances in plan order.
     planned: Vec<Planned>,
+    /// The tests the plan runs more than once, by `repeat` or `--repeat`.
+    repeated: HashSet<TestId>,
+    /// The `name` of each example row that gives one.
+    row_names: BTreeMap<(TestId, u32), String>,
 }
 
 impl Names {
@@ -67,7 +71,8 @@ impl Names {
             .map(|i| Planned { instance: i.id, test: i.test, example_row: i.example_row, repeat_index: i.repeat_index })
             .collect();
         let instances = planned.iter().map(|p| (p.instance, (p.example_row, p.repeat_index))).collect();
-        Self { program, instances, planned }
+        let repeated = planned.iter().filter(|p| p.repeat_index > 0).map(|p| p.test).collect();
+        Self { program, instances, planned, repeated, row_names: plan.row_names.clone() }
     }
 
     /// The plan's instances, in plan order.
@@ -111,7 +116,9 @@ impl Names {
     }
 
     /// The instance as people know it: `users.crud#rejectsBadEmail [row 2, repeat 1]`, numbered
-    /// from 1; the repeat shows only when the test repeats.
+    /// from 1, or `users.crud#rejectsBadEmail › missing @ [repeat 1]` for a row with a `name`;
+    /// the repeat shows on every instance of a test the plan repeats, and on none of one it
+    /// does not.
     #[must_use]
     pub fn instance(&self, result: &TestResult) -> String {
         self.label(result.test, result.instance)
@@ -123,9 +130,12 @@ impl Names {
         let mut label = self.test(test).to_owned();
         let slot = instance.and_then(|id| self.instances.get(&id));
         let Some(&(row, repeat)) = slot else { return label };
-        let repeats = repeat > 0 || self.program.tests.get(&test).is_some_and(|t| t.repeat > 1);
-        let row = row.map(|r| format!("row {}", u64::from(r) + 1));
-        let repeat = repeats.then(|| format!("repeat {}", u64::from(repeat) + 1));
+        let named = row.and_then(|row| self.row_names.get(&(test, row)));
+        if let Some(name) = named {
+            let _ = write!(label, " › {name}");
+        }
+        let row = row.filter(|_| named.is_none()).map(|r| format!("row {}", u64::from(r) + 1));
+        let repeat = self.repeated.contains(&test).then(|| format!("repeat {}", u64::from(repeat) + 1));
         let marks: Vec<String> = row.into_iter().chain(repeat).collect();
         if !marks.is_empty() {
             let _ = write!(label, " [{}]", marks.join(", "));
