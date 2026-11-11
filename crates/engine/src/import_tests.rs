@@ -294,7 +294,7 @@ async fn an_explicit_id_puts_a_recording_of_one_origin_in_that_file() {
         "{paths:?}"
     );
     let demo = after(&changes, "services/demo/demo.api.yaml");
-    assert!(demo.starts_with("id: demo\n") && demo.contains("baseUrl: ${var.demoUrl}\n"), "{demo}");
+    assert!(demo.contains("\nid: demo\n") && demo.contains("baseUrl: ${var.demoUrl}\n"), "{demo}");
     assert!(after(&changes, "vibranium.config.yaml").contains("demoUrl: https://api.shop.test"), "{changes:?}");
     assert!(changes.titles.iter().any(|title| title.contains("api.shop.test → demo")), "{:?}", changes.titles);
     let into_shop = ImportRequest { file_id: Some("shop".to_owned()), ..curl };
