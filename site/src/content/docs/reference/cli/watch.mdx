@@ -79,9 +79,16 @@ Fix the file and save; the next run starts.
 
 | Code | When |
 | --- | --- |
+| `2` | The first run refused a flag's value, such as `--profile nope`: no save can fix the command |
 | `130` | Stopped with Ctrl-C, the normal way to end it |
 
-Failing tests and project errors do not stop `vc watch`. Neither does a wrong flag: `vc watch --profile nope` prints the `no profile` error and then waits for saves, so stop it and fix the command.
+Failing tests and project errors do not stop `vc watch`: it prints them and waits for the save that fixes them. A wrong flag does stop it:
+
+```console
+$ vc watch --profile nope
+error: --profile: no profile `nope`
+  = help: the profiles are default, staging
+```
 
 ## How it behaves
 

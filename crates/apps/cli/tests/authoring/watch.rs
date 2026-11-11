@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use vc_mock_server::MockServer;
 
-use crate::{CONFIG, CRUD, Project, USERS};
+use crate::{CONFIG, CRUD, Project, USERS, said};
 
 /// A running `vc watch` whose stdout lines arrive on a channel; killed when dropped.
 struct Watch {
@@ -96,4 +96,13 @@ async fn saving_an_api_file_re_runs_the_tests_that_call_it() {
     assert!(watch.next_summary().is_some(), "no first run");
     project.write(USERS.0, &format!("{}# saved again\n", USERS.1));
     assert!(watch.next_summary().is_some(), "no run after the api file was saved");
+}
+
+#[test]
+fn a_flag_the_run_refuses_ends_the_watch_with_exit_2() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let output = project.vc(&["watch", "--profile", "nope"]).timeout(Duration::from_secs(20)).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
+    assert!(said(&output).contains("error: --profile: no profile `nope`"), "{}", said(&output));
+    assert!(!said(&output).contains("watching for saves"), "{}", said(&output));
 }

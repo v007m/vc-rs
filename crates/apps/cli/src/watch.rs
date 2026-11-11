@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::mpsc::Receiver;
 
 use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
-use vc_engine::{Engine, RunRequest, SourcePath};
+use vc_engine::{Engine, EngineError, RunRequest, SourcePath};
 
 use crate::run::{self, RunArgs};
 use crate::{Outcome, outcome, project};
@@ -12,8 +12,8 @@ const CANCELLED: u8 = 130;
 
 /// `vc watch [selectors] [flags]`: runs the selection as `vc run` does, then, after each burst
 /// of saves, the selected tests in the saved files and those that call an api in one (D180).
-/// A save that leaves the project with errors prints them and waits for the next save. Ctrl-C
-/// ends it with exit 130.
+/// A save that leaves the project with errors prints them and waits for the next save. A flag
+/// the first run refuses ends it with exit 2, since no save can fix it; Ctrl-C with exit 130.
 pub fn run(args: &RunArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     let located = match project::locate(project)? {
         Ok(located) => located,
@@ -77,6 +77,9 @@ async fn watch(
         match run::execute(engine, &request, &mut inbox.stops).await {
             Ok(report) if report.exit == CANCELLED => return Ok(run::finished(&report)),
             Ok(report) => run::notes(&report),
+            Err(error) if request.plan.select.saved.is_none() && from_a_flag(&error) => {
+                return Ok(Outcome::Engine(error));
+            }
             // The watch goes on: the error is printed and its exit code is not used.
             Err(error) => _ = outcome::finish(Ok(Outcome::Engine(error))),
         }
@@ -84,4 +87,9 @@ async fn watch(
         let Some(saved) = inbox.saved().await else { return Ok(Outcome::Exit(CANCELLED)) };
         request.plan.select.saved = Some(saved);
     }
+}
+
+/// Whether `error` refuses a flag's value (`--profile nope`), which no save can fix.
+fn from_a_flag(error: &EngineError) -> bool {
+    matches!(error, EngineError::Setting { origin, .. } if origin.starts_with("--"))
 }
