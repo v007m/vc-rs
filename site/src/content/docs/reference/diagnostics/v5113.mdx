@@ -24,7 +24,7 @@ caching does not matter. `--no-cache` turns the cache off on purpose and silence
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 apis:
   - id: createUser
     method: POST
@@ -35,7 +35,7 @@ apis:
       userId: ${response.body.id}
 ```
 
-```yaml wrong title="services/users/admin.test.yaml"
+```yaml title="services/users/admin.test.yaml"
 beforeAll:
   - id: admin
     call: users#createUser

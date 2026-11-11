@@ -23,13 +23,13 @@ this warning only keeps projects alike. `vc rename` moves a file and updates eve
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml wrong title="crud.test.yaml"
+```yaml title="crud.test.yaml"
 tests:
   - id: getsUser
     call: users#getUser

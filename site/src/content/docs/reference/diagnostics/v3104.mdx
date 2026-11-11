@@ -23,13 +23,13 @@ still holds.
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml title="services/users/crud.test.yaml"
 tests:
   - id: getsUser
     call: users#getUser

@@ -24,7 +24,7 @@ A status code, even 500, is never a transport error. Check the base URL the acti
 
 ## Wrong
 
-```yaml wrong title="vibranium.config.yaml"
+```yaml title="vibranium.config.yaml"
 syntaxVersion: 2
 profiles:
   - id: dev
@@ -33,7 +33,7 @@ vars:
   usersUrl: http://localhost:9
 ```
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 baseUrl: ${var.usersUrl}
 apis:
   - id: listUsers
@@ -62,7 +62,7 @@ apis:
 
 This is real output from `vc`, run against the files below.
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 id: users
 name: Users
 baseUrl: http://localhost:7499
@@ -72,7 +72,7 @@ apis:
     path: /users
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml title="services/users/crud.test.yaml"
 id: users.crud
 name: Users CRUD
 tests:

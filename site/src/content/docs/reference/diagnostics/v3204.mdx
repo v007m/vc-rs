@@ -22,13 +22,13 @@ YAML reads a ` #` in an unquoted value as the start of a comment, so the value w
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml title="services/users/crud.test.yaml"
 tests:
   - id: getsUser
     call: users#getUser

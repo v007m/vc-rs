@@ -26,7 +26,7 @@ call is made.
 
 ## Wrong
 
-```yaml wrong title="vibranium.config.yaml"
+```yaml title="vibranium.config.yaml"
 syntaxVersion: 2
 profiles:
   - id: dev
@@ -39,7 +39,7 @@ auth:
     clientSecret: ${env.SHOP_SECRT}
 ```
 
-```yaml wrong title="services/orders/orders.api.yaml"
+```yaml title="services/orders/orders.api.yaml"
 auth: shopOauth
 apis:
   - id: listOrders

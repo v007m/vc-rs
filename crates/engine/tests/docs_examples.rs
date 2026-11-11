@@ -32,10 +32,12 @@
 //!
 //! A block whose info string holds `skip` is left out. One that holds `wrong` (```` ```yaml wrong
 //! title="…" ````; expressive-code ignores a bare word it does not know) is wrong on purpose, as
-//! a diagnostic page's "Wrong" example is: it is kept out of the page's project, and must itself
-//! have an error, checked with the page's files so far when it names its file and parsed when
-//! it is a fragment, so an example that has become right cannot hide behind the word. An example
-//! that passes `vc check` and fails only when sent is not marked.
+//! a diagnostic page's "Wrong" example is: it is kept out of the page's project. The `wrong`
+//! blocks in a row under one heading are one example (an api file and the test that calls it
+//! wrongly), and it must have an error, so an example that has become right cannot hide behind
+//! the word: an error in one of its files, checked as written (its config not completed) over
+//! the page's files so far, or a fragment of it that does not parse. An example that passes
+//! `vc check` and fails only when sent, or gets only a warning, is not marked.
 
 mod support;
 
@@ -146,12 +148,35 @@ fn parse_errors(text: &str) -> Outcome<Vec<Code>> {
     Ok(compiled.diagnostics.iter().map(|found| found.code).filter(|code| code.number() < 2000).collect())
 }
 
-/// A page as read so far: the versions of its project, the files of the current one, and the
-/// fragments that do not parse.
+/// A run of [`WRONG`] blocks under one heading: one wrong example.
+#[derive(Default)]
+struct Example {
+    /// Where it starts on the page (`page:line`).
+    at: String,
+    /// The `##` and `###` headings it sits under.
+    under: (String, String),
+    files: Files,
+    fragments: Vec<String>,
+}
+
+impl Example {
+    fn is_empty(&self) -> bool {
+        self.files.is_empty() && self.fragments.is_empty()
+    }
+
+    /// Its text, file after file, for the report.
+    fn text(&self) -> String {
+        self.files.values().chain(&self.fragments).cloned().collect()
+    }
+}
+
+/// A page as read so far: the versions of its project, the files of the current one, the wrong
+/// example being read, and the problems found.
 #[derive(Default)]
 struct Reading {
     versions: Vec<Files>,
     files: Files,
+    example: Example,
     problems: Vec<String>,
 }
 
@@ -164,19 +189,37 @@ impl Reading {
         self.files.insert(path, text);
     }
 
-    /// Checks a block marked [`WRONG`], at `at` on the page: its `file` (path, when it names one,
-    /// and text) must have an error, with the files so far.
-    fn wrong(&mut self, at: &str, file: (Option<String>, String)) -> Outcome<()> {
+    /// Adds a block marked [`WRONG`], at `at` on the page under `under`, to the wrong example: its
+    /// `file` is its path, when it names one, and its text. A new heading, or a path the example
+    /// holds already, starts the next example.
+    fn wrong(&mut self, at: String, under: (String, String), file: (Option<String>, String)) -> Outcome<()> {
         let (path, text) = file;
-        let failed = match path {
-            Some(path) => {
-                let mut files = self.files.clone();
-                files.insert(path.clone(), text.clone());
-                fails(&files, &path)?
-            }
-            None => !parse_errors(&text)?.is_empty(),
-        };
+        let again = path.as_ref().is_some_and(|path| self.example.files.contains_key(path));
+        if again || self.example.under != under {
+            self.close_example()?;
+        }
+        if self.example.is_empty() {
+            (self.example.at, self.example.under) = (at, under);
+        }
+        match path {
+            Some(path) => drop(self.example.files.insert(path, text)),
+            None => self.example.fragments.push(text),
+        }
+        Ok(())
+    }
+
+    /// Checks the wrong example read so far, which must have an error, and starts the next.
+    fn close_example(&mut self) -> Outcome<()> {
+        let example = std::mem::take(&mut self.example);
+        if example.is_empty() {
+            return Ok(());
+        }
+        let mut failed = fails(&self.files, &example.files)?;
+        for fragment in &example.fragments {
+            failed = failed || !parse_errors(fragment)?.is_empty();
+        }
         if !failed {
+            let (at, text) = (&example.at, example.text());
             self.problems.push(format!("{at}: a `wrong` example has no error; drop `wrong`:\n{text}"));
         }
         Ok(())
@@ -203,20 +246,22 @@ impl Reading {
 fn read(name: &str, doc: &str) -> Outcome<Page> {
     let mut reading = Reading::default();
     let mut seen = String::new();
-    for (_, heading, block) in support::blocks(doc).into_iter().filter(|(_, _, block)| checked(block)) {
+    for (section, heading, block) in support::blocks(doc).into_iter().filter(|(_, _, block)| checked(block)) {
         let text = format!("{}\n{}", block.first, block.body);
         let first_under = heading != seen;
         let path = named_path(if first_under { &heading } else { "" }, &block).filter(|_| !excerpt(&text));
         if wrong(&block) {
-            reading.wrong(&format!("{name}:{}", block.line), (path, text))?;
+            reading.wrong(format!("{name}:{}", block.line), (section, heading), (path, text))?;
             continue;
         }
+        reading.close_example()?;
         seen.clone_from(&heading);
         match path {
             Some(path) => reading.write(path, text),
             None => reading.fragment(name, &text)?,
         }
     }
+    reading.close_example()?;
     Ok(reading.finish())
 }
 
@@ -254,11 +299,14 @@ fn errors(files: &Files, allowed: Allowed) -> Outcome<Vec<String>> {
     reported(&with_config(files), allowed)
 }
 
-/// Whether `vc check` reports an error in the file at `path` among a page's `files`.
-fn fails(files: &Files, path: &str) -> Outcome<bool> {
-    let report = support::check(&with_config(files))?;
-    let in_path = |found: &&Diagnostic| file_of(found, &report.files) == path;
-    Ok(report.diagnostics.iter().filter(in_path).any(|found| found.severity == Severity::Error))
+/// Whether `vc check` reports an error in one of a wrong example's `files`, written as they are
+/// over a page's `files` (whose config is [`completed`]).
+fn fails(page: &Files, example: &Files) -> Outcome<bool> {
+    let mut files: Files = with_config(page).into_iter().collect();
+    files.extend(example.iter().map(|(path, text)| (path.clone(), text.clone())));
+    let report = support::check(&files.into_iter().collect::<Vec<_>>())?;
+    let in_example = |found: &&Diagnostic| example.contains_key(&file_of(found, &report.files));
+    Ok(report.diagnostics.iter().filter(in_example).any(|found| found.severity == Severity::Error))
 }
 
 /// The errors `vc check` reports on `files` (path, text) as they are, but for those `allowed`.
@@ -372,5 +420,22 @@ fn a_wrong_example_must_have_an_error() -> Outcome<()> {
     assert!(problems.is_empty(), "{problems:?}");
     let (_, problems) = read("p", &page("a.api.yaml", "apis:\n  - id: lists\n    path: /a\n"))?;
     assert!(problems.len() == 1 && problems[0].starts_with("p:1: a `wrong` example has no error"), "{problems:?}");
+    let config = "```yaml wrong title=\"vibranium.config.yaml\"\nproject: shop\n```\n";
+    let (_, problems) = read("p", config)?;
+    assert!(problems.is_empty(), "a wrong config is not completed: {problems:?}");
+    Ok(())
+}
+
+#[test]
+fn the_wrong_blocks_in_a_row_are_one_example() -> Outcome<()> {
+    let block = |path: &str, text: &str| format!("```yaml wrong title=\"services/a/{path}\"\n{text}```\n");
+    let api = block("a.api.yaml", "apis:\n  - id: lists\n    path: /a\n");
+    let calls = block("a.test.yaml", "tests:\n  - id: callsIt\n    call: a#lsts\n");
+    let (_, problems) = read("p", &format!("## Wrong\n\n{api}\n{calls}"))?;
+    assert!(problems.is_empty(), "the error is in the second file: {problems:?}");
+    let (_, problems) = read("p", &format!("## Wrong\n\n{api}\n## Seen in practice\n\n{calls}"))?;
+    assert!(problems.len() == 1 && problems[0].starts_with("p:3: a `wrong` example"), "a new heading: {problems:?}");
+    let (_, problems) = read("p", &format!("## Wrong\n\n{calls}\n{api}\n{api}"))?;
+    assert!(problems.len() == 1 && problems[0].starts_with("p:15: a `wrong` example"), "a path again: {problems:?}");
     Ok(())
 }

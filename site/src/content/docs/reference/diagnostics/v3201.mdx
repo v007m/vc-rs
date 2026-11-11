@@ -22,7 +22,7 @@ tests then depend on the order they run in; give the test its own data instead, 
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
@@ -38,7 +38,7 @@ apis:
       name: Bo
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml title="services/users/crud.test.yaml"
 beforeAll:
   - id: member
     call: users#createUser

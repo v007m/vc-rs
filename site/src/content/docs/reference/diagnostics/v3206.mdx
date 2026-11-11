@@ -22,7 +22,7 @@ default is never used. Remove it, or remove the steps' own values so that the de
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
@@ -38,7 +38,7 @@ apis:
       name: Bo
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml title="services/users/crud.test.yaml"
 tests:
   - id: createsTwice
     headers: {x-trace: '1'}
