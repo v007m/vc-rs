@@ -102,4 +102,5 @@ code_table! {
     V5117 = 5117, Warning, "An alert could not be sent";
     V5118 = 5118, Error, "A plugin failed, ran past its deadline or asked for what it was not granted";
     V5119 = 5119, Error, "A plugin cannot be confined to its permissions";
+    V5120 = 5120, Warning, "A run cannot use a plugin in the config";
 }

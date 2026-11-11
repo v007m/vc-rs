@@ -1329,7 +1329,7 @@ plugins:
 
 `integrity` is npm's hash for an `npm:` source and a `blake3-…` hash over the folder's files for a `path:` one. A run checks a `blake3-…` hash against the installed files and refuses the plugin (V5118) when they changed.
 
-A plugin's `config` holds literal values only: a `${…}` in it makes the plugin unusable for the run, with a notice. A plugin reads a secret with `secrets/get`, and gets only those its lock entry grants. The one other way a secret reaches a plugin is a `${secret.x}` in the `config` of a `type: plugin` auth definition, which the author writes on purpose. A reporter plugin runs when its ID is in `reports.formats`, and an auth plugin when an auth definition of `type: plugin` names it:
+A plugin's `config` holds literal values only: a `${…}` in it makes the plugin unusable for the run, with a notice. `vc check` gives a V5120 warning for it, and for an entry the lock does not approve, that is not installed or that asks for more than the lock grants; a `reports.formats` name that is an installed plugin other than a reporter is V2302. A plugin reads a secret with `secrets/get`, and gets only those its lock entry grants. The one other way a secret reaches a plugin is a `${secret.x}` in the `config` of a `type: plugin` auth definition, which the author writes on purpose. A reporter plugin runs when its ID is in `reports.formats`, and an auth plugin when an auth definition of `type: plugin` names it:
 
 ```yaml
 reports:

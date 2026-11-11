@@ -1393,7 +1393,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V2210 | error | Shared action saves values but has no `id` | add an id derived from the api |
 | V2211 | error | A key that works only beside another one that is missing (`parallel` without a loop, an `abortOn` metric with no threshold, `$remove` without `$extend`) | add the partner, or remove the key |
 | V2301 | error | Invalid duration or size (`500` instead of `500ms`) | add the unit when unambiguous |
-| V2302 | error | Wrong value type (`"3"` for an integer); also wrong generator arguments or settings, a named generator given arguments (D174), and an `$extend` base that is no template | convert |
+| V2302 | error | Wrong value type (`"3"` for an integer); also wrong generator arguments or settings, a named generator given arguments (D174), an `$extend` base that is no template, and a `reports.formats` name that is an installed plugin other than a reporter (from `vc check`, which reads the manifest) | convert |
 | V2303 | error | Invalid status code or class, or an empty status map or list | — |
 | V2304 | error | Pipe or path cannot apply to that value's type | — |
 | V2305 | error | Template or CEL does not parse (unclosed `${`, empty `${}`, bad path segment, malformed pipe arguments; D144) | — |
@@ -1438,6 +1438,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V5117 | warning | An alert could not be sent: the channel was unreachable or refused it. The run's results and exit code are unchanged, and the message never holds the channel's URL or key | — |
 | V5118 | failure | A plugin crashed, ran past its deadline (5 s to `initialize`, 30 s a call), broke the protocol, asked for a secret its manifest does not declare (JSON-RPC −32001 permission, −32002 deadline), or its installed files no longer match the lock's integrity. Only the work that used it fails | — |
 | V5119 | failure | A plugin cannot be confined to its permissions on macOS (`sandbox-exec` cannot start, for example when `vc` itself runs sandboxed), so it is not started. The message says why and names the opt-out, `plugins.allowUnconfined: true` in the user config or `VIB_PLUGINS_ALLOW_UNCONFINED=1`, never read from the project (D260). Only the work that used it fails | — |
+| V5120 | warning | `vc check` finds a `plugins` item a run would leave out: `vibranium.lock` cannot be read or does not approve it, it is not installed, its manifest asks for more than the lock grants, or its `config` holds a `${…}` value. The run warns the same way and goes on without it. A `reports.formats` name that is an installed plugin other than a reporter is V2302 | — |
 V3204 is new: the skip-reason example that silently lost `see #212` showed that an unquoted `  # ` inside a value is an easy mistake, and the parser can see it (a comment that starts mid-value on a line whose value looks cut). The parser flags a one-line plain value that resolves to text, followed by `  #` when the `#` is directly followed by a non-space (`#212`) or the value ends with a comma; typed values (`retries: 3 #max`, `enabled: true #flag`) are never flagged. The fix double-quotes the value and the comment together; it is a suggestion, not a certain fix, because the `#` may really start a comment.
 
 ## Testing, budgets, build and release

@@ -237,10 +237,8 @@ fn a_paths_glob_that_does_not_parse_is_an_error() {
 
 #[test]
 fn profiles_with_no_default_are_an_error_unless_a_layer_names_one() {
-    let config: (&str, &[u8]) = (
-        "vibranium.config.yaml",
-        b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: false\n  - id: staging\n",
-    );
+    let config: (&str, &[u8]) =
+        ("vibranium.config.yaml", b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: false\n  - id: staging\n");
     let checked = |vars: &[(&str, &str)]| {
         let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&[config, USERS]));
         let environment = Arc::new(vc_testkit::MemoryEnvironment::new(vars));

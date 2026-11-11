@@ -64,7 +64,9 @@ impl Engine {
     /// clock, for expired skips (V3104), and the project's other files, for `$file` paths (V2004).
     /// An `alerts` channel no notifier builds, or whose untemplated settings its notifier
     /// refuses, is a V5117 warning, and profiles of which none is active without `--profile` a
-    /// V3101 error.
+    /// V3101 error. A `plugins` item a run would refuse (not approved, not installed, asking for
+    /// more than `vibranium.lock` grants, or a `${…}` in its `config`) is a V5120 warning, and a
+    /// `reports.formats` name that is an installed plugin other than a reporter V2302.
     ///
     /// # Errors
     ///
@@ -82,6 +84,7 @@ impl Engine {
         if let Some(program) = compiled.program.clone() {
             compiled.diagnostics.extend(self.channel_settings(&program, &compiled.files));
             compiled.diagnostics.extend(self.no_active_profile(&program, &compiled.files));
+            compiled.diagnostics.extend(self.plugin_problems(&program, &compiled.files));
         }
         Self::selected(compiled, request)
     }
