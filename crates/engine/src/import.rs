@@ -194,8 +194,7 @@ fn one_origin<'id>(file_id: Option<&'id str>, groups: &[DraftGroup]) -> Result<O
     let Some(id) = file_id.filter(|_| groups.len() > 1) else {
         return Ok(file_id);
     };
-    let origin = |group: &'_ DraftGroup| group.config_vars.values().next().and_then(|url| url.as_str());
-    let origins: Vec<&str> = groups.iter().map(|group| origin(group).unwrap_or(&group.file_id)).collect();
+    let origins: Vec<&str> = groups.iter().map(origin).collect();
     let reason = format!(
         "`--id {id}` names one api file, but the recording calls {} origins: {}",
         origins.len(),
@@ -205,6 +204,11 @@ fn one_origin<'id>(file_id: Option<&'id str>, groups: &[DraftGroup]) -> Result<O
         reason,
         "import without `--id`: each origin goes to the api file whose base URL renders to it, or to a new one",
     ))
+}
+
+/// The origin a recording's group calls: its base-URL var's value, or its file ID.
+fn origin(group: &DraftGroup) -> &str {
+    group.config_vars.values().next().and_then(|url| url.as_str()).unwrap_or(&group.file_id)
 }
 
 const FETCH_HELP: &str = "give a URL, or a path inside the project";
