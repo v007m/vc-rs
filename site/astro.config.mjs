@@ -29,6 +29,20 @@ export default defineConfig({
         '@fontsource/jetbrains-mono/600.css',
         './src/styles/custom.css',
       ],
+      components: { Hero: './src/components/landing/Hero.astro' },
+      expressiveCode: {
+        styleOverrides: {
+          borderRadius: '0.625rem',
+          codeFontSize: '0.875rem',
+          codeLineHeight: '1.7',
+          codePaddingBlock: '0.9rem',
+          codePaddingInline: '1.1rem',
+          frames: {
+            frameBoxShadowCssValue: '0 8px 24px -16px rgb(0 0 0 / 0.45)',
+            editorTabBarBorderBottomColor: 'transparent',
+          },
+        },
+      },
       head: [
         { tag: 'link', attrs: { rel: 'alternate', type: 'text/plain', href: `${base}/llms.txt`, title: 'llms.txt' } },
       ],
