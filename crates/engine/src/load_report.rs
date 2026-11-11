@@ -71,7 +71,7 @@ pub struct LoadBreach {
     pub metric: String,
     /// The test whose own threshold it is, or `None` for the scenario's.
     pub test: Option<String>,
-    /// The value the run measured, in `unit`.
+    /// The value the run measured, in `unit`, not rounded.
     pub actual: f64,
     /// The metric's unit: `ms` for latencies, `share` (0 to 1) for `errorRate`, `perSecond`
     /// for `rps`.
@@ -243,8 +243,7 @@ pub fn fill(report: &mut LoadReport, program: &Program, outcome: &LoadOutcome) -
 fn breach(program: &Program, breach: &Breach) -> LoadBreach {
     let test = breach.test.and_then(|test| program.str(test.sym())).map(str::to_owned);
     let (unit, limit) = (breach.unit, breach.limit.clone());
-    let shown = format!("{} ({})", unit.show(breach.actual), unit.limit(&limit));
-    let actual = unit.round(breach.actual);
+    let (shown, actual) = (unit.breach(breach.actual, &limit), breach.actual);
     LoadBreach { metric: breach.metric.clone(), test, actual, unit: unit.name().to_owned(), limit, shown }
 }
 

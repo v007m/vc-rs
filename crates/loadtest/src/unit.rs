@@ -38,7 +38,21 @@ impl Unit {
     /// `value` as a report shows it: `45.471 ms`, `100%`, `12.5/s`.
     #[must_use]
     pub fn show(self, value: f64) -> String {
-        format!("{}{}", number(value * self.scale), self.suffix)
+        format!("{}{}", number(value * self.scale, PLACES), self.suffix)
+    }
+
+    /// A breached `actual` next to its threshold's `limit`: `31.25 ms (lt 30 ms)`. The actual
+    /// gets more decimals, up to six, where three would show it as a number in the
+    /// limit, or as 0 when it is not, so a breach never reads as a pass: `30.0004 ms (lte 30 ms)`.
+    #[must_use]
+    pub fn breach(self, actual: f64, limit: &Value) -> String {
+        let (value, limits) = (actual * self.scale, numbers(limit));
+        let reads_wrong = |places| {
+            let text = number(value, places);
+            (text == "0" && value.abs() > 0.0) || limits.iter().any(|limit| number(limit * self.scale, places) == text)
+        };
+        let places = (PLACES..MOST_PLACES).find(|&places| !reads_wrong(places)).unwrap_or(MOST_PLACES);
+        format!("{}{} ({})", number(value, places), self.suffix, self.limit(limit))
     }
 
     /// A threshold's limit as a report shows it, each number in the unit: `lt 30 ms`,
@@ -56,10 +70,26 @@ impl Unit {
     }
 }
 
-/// `value` with at most three decimals and no trailing zeros: `30`, `45.471`.
-fn number(value: f64) -> String {
-    let text = format!("{value:.3}");
+/// The decimals a report shows a value with.
+const PLACES: usize = 3;
+
+/// The most decimals a breached value gets so as not to read as its limit.
+const MOST_PLACES: usize = 6;
+
+/// `value` with at most `places` decimals and no trailing zeros: `30`, `45.471`.
+fn number(value: f64, places: usize) -> String {
+    let text = format!("{value:.places$}");
     text.trim_end_matches('0').trim_end_matches('.').to_owned()
+}
+
+/// Every number in a threshold's limit.
+fn numbers(limit: &Value) -> Vec<f64> {
+    match limit {
+        Value::Number(number) => number.as_f64().into_iter().collect(),
+        Value::Array(items) => items.iter().flat_map(numbers).collect(),
+        Value::Object(fields) => fields.values().flat_map(numbers).collect(),
+        _ => Vec::new(),
+    }
 }
 
 #[cfg(test)]

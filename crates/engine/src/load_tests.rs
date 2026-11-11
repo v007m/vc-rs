@@ -87,6 +87,15 @@ fn engine(config: (&str, &[u8]), load: &[u8]) -> (Engine, mpsc::UnboundedReceive
         "/broken" => Ok(status(500)),
         _ => Ok(status(200)),
     });
+    engine_over(config, load, transport)
+}
+
+/// An engine over the users project as [`engine`] makes it, sending its requests to `transport`.
+fn engine_over(
+    config: (&str, &[u8]),
+    load: &[u8],
+    transport: FakeTransport,
+) -> (Engine, mpsc::UnboundedReceiver<Seen>) {
     let (writer, seen) = mpsc::unbounded_channel();
     let sources = MemorySources::new(&[config, USERS, CRUD, ("load/users/peak.load.yaml", load)]);
     let engine = builder(FakeVcs::default())
@@ -158,6 +167,19 @@ async fn a_failing_api_breaches_the_error_rate_and_is_counted_by_kind() {
     let kind = json!({"api": "users#broken", "test": null, "status": 500, "code": "V5101", "count": report.errors});
     assert_eq!(json["errorKinds"], json!([kind]));
     assert!(matches!(written(seen).last(), Some(Seen::End(RunStatus::Failed))));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_breach_s_json_actual_is_the_measured_value_not_rounded() {
+    let every_third = FakeTransport::new(|_: &RenderedRequest, call| Ok(status(if call % 3 == 0 { 500 } else { 200 })));
+    let file = scenario("listsUsers", "{duration: 3s, users: 3}").replace("lt: 0.5", "lt: 0.01");
+    let (engine, _seen) = engine_over(CONFIG, file.as_bytes(), every_third);
+    let (_interrupter, interrupts) = interrupts();
+    let report = load(&engine, interrupts, None).await;
+    let measured = crate::load_report::rate(report.errors, report.iterations);
+    assert!(report.errors > 0 && report.errors < report.iterations, "{report:?}");
+    assert_eq!(report.json()["breaches"][0]["actual"].as_f64(), Some(measured), "{report:?}");
+    assert!(report.text().contains("\nbreached errorRate at "), "{}", report.text());
 }
 
 /// No error kind yet: `report`'s errors, all of one kind.

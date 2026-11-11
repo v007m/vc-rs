@@ -115,7 +115,8 @@ thresholds:
 - **Live:** each second, the live line's `breaching:` list shows the thresholds breached on the last 10 seconds.
 - **Final:** the verdict and the exit code use the whole run. Only the final breaches are printed as `breached …`.
 - A mix entry's breach names its test: `breached sample.basics#getsCreatedUser: p95 at 11.215 ms (lt 2 ms)`.
-- In `vc load --json`, breaches are listed as `{"metric": "errorRate", "test": null, "actual": 1.0, "unit": "share", "limit": {"lt": 0.01}}`: `unit` is `ms`, `share` (0 to 1) or `perSecond`, and `limit` is the matcher's arguments in that unit.
+- In `vc load --json`, breaches are listed as `{"metric": "errorRate", "test": null, "actual": 1.0, "unit": "share", "limit": {"lt": 0.01}}`: `unit` is `ms`, `share` (0 to 1) or `perSecond`, `actual` is not rounded, and `limit` is the matcher's arguments in that unit.
+- A breach close to its limit is printed with the decimals it needs, up to six, not to read as the limit: `breached p95 at 30.0004 ms (lte 30 ms)`, `breached errorRate at 0.0001% (lte 0%)`.
 
 ## Common errors
 
