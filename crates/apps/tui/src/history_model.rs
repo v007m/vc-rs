@@ -133,6 +133,12 @@ pub fn percent(totals: &Totals) -> String {
     pass_rate(totals).map_or_else(|| "–".to_owned(), |rate| format!("{}.{}%", rate / 10, rate % 10))
 }
 
+/// `load · 40 iterations · 3 errors`, as `vc history` lists a load run: its totals count
+/// iterations, the failed ones as errors.
+pub fn iterations(totals: &Totals) -> String {
+    format!("load · {} iterations · {} errors", totals.passed.saturating_add(totals.failed), totals.failed)
+}
+
 /// How long a run took, in milliseconds; `None` until it ends.
 pub fn took(run: &RunRow) -> Option<u64> {
     run.finished_ms.map(|finished| finished.saturating_sub(run.start.started_ms))

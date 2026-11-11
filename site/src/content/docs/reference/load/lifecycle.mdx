@@ -6,7 +6,7 @@ sidebar: { order: 10 }
 
 import Playground from '~/components/Playground.svelte';
 
-In a load run, `beforeRun` and each mix file's `beforeAll` run once before the first stage; `beforeEach` and `before` run in every iteration.
+In a load run, `beforeRun` and each mix file's `beforeAll` run once before the first stage, and each mix file's `afterAll` and then `afterRun` run once after the last; `beforeEach` and `before` run in every iteration.
 
 | Block | Runs | Counts as a sample |
 | --- | --- | --- |
@@ -15,6 +15,9 @@ In a load run, `beforeRun` and each mix file's `beforeAll` run once before the f
 | `beforeEach` | Before every iteration of a test in that file | no |
 | `before` on the test | Every iteration | no |
 | The test's call or steps | Every iteration | yes |
+| `after` and cleanups of the iteration | Every iteration | no |
+| `afterAll` of each file in the mix, then its cleanups | Once, after the last stage | no |
+| `afterRun`, then the run's cleanups | Once, after the last stage | no |
 
 ## Syntax
 
@@ -54,7 +57,7 @@ $ vc load sample.lifecycle
     2s  1 users  3 rps  p50 11 ms  p95 21 ms  p99 21 ms  0 errors
     2s  0 users  3 rps  p50 11 ms  p95 21 ms  p99 21 ms  0 errors
 sample.lifecycle finished after 2 s · 5 iterations · 2.5 rps · 0 errors
-latency p50 12.0 ms · p95 21.1 ms · p99 21.1 ms · max 21.1 ms
+latency p50 12.0 ms · p90 17.5 ms · p95 21.1 ms · p99 21.1 ms · max 21.1 ms
 ```
 
 The demo hands out user IDs in order. A user created just before this run got ID `1479` and one created just after got `1481`: the five iterations made only one user, so `beforeAll` ran once. The five `beforeEach` calls to `sample#listUsers` don't appear in `iterations` or `rps`.
@@ -66,7 +69,7 @@ A value saved by `beforeAll` is read as `${var.<actionId>.<name>}`, here `${var.
 ```console
 $ vc load bad.blocked; echo "exit $?"
 bad.blocked blocked after 0 s · 0 iterations · 0.0 rps · 0 errors
-latency p50 0.0 ms · p95 0.0 ms · p99 0.0 ms · max 0.0 ms
+latency p50 0.0 ms · p90 0.0 ms · p95 0.0 ms · p99 0.0 ms · max 0.0 ms
 blocked: V5106: the shared action `owner` failed: status: expected [418], got 200
 exit 1
 ```
@@ -86,9 +89,11 @@ thinkTime: 200ms
 
 ## How it behaves
 
-- `beforeRun` and `beforeAll` run before the first live line; their time isn't part of the stages.
+- `beforeRun` and `beforeAll` run before the first live line, and `afterAll` and `afterRun` after the last; their time isn't part of the stages.
+- A file that stops a service in `afterAll` stops it after every load run that mixes one of its tests, as it does after `vc run`.
+- An `abortOn` breach still runs `afterAll` and `afterRun`. Ctrl-C skips them, and the cleanups still run unless a third Ctrl-C abandons them.
 - A failing `beforeRun` or `beforeAll` blocks the whole run with [V5106](/vc-rs/reference/diagnostics/v5106/) and exit code 1.
-- A failing `beforeEach` or `before` fails that iteration, which counts toward `errorRate`.
+- A failing `beforeEach` or `before` fails that iteration, which counts toward `errorRate`, under the api of the call that failed.
 
 ## Related
 

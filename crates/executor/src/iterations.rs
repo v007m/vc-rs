@@ -49,8 +49,27 @@ pub struct IterationReport {
     pub passed: bool,
     /// Each request the instance sent, in order, cleanups included.
     pub calls: Vec<IterationCall>,
-    /// The first failure, as a functional run reports it, when it did not pass.
-    pub failure: Option<String>,
+    /// What failed it, when it did not pass.
+    pub failure: Option<IterationFailure>,
+}
+
+/// What failed an iteration: the first failure, as a functional run reports it, and where.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built by the executor and by load-engine test fakes; every user is in this repo (D160)"
+)]
+pub struct IterationFailure {
+    /// The api the failing action calls; `None` when the failure is not at a call to an api
+    /// (a `command:` step, an inline request, a test that is not in the plan).
+    pub api: Option<ApiId>,
+    /// The failing action's last response status; `None` when it got none (a timeout, a
+    /// refused connection, a template that failed before the request).
+    pub status: Option<u16>,
+    /// The diagnostic code (`V5101` for a check, `V5105` for the transport), when it has one.
+    pub code: Option<String>,
+    /// What went wrong.
+    pub message: String,
 }
 
 /// One request an iteration sent.

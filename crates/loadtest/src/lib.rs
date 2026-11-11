@@ -20,6 +20,7 @@ mod stage;
 #[cfg(test)]
 mod test_support;
 mod threshold;
+mod unit;
 mod user;
 mod window;
 
@@ -27,7 +28,8 @@ pub use error::LoadError;
 pub use latency::Latencies;
 pub use mix::Mix;
 pub use record::{Interval, Recorder, Sample, Tally};
-pub use run::{Ending, LoadOutcome, LoadParts, Matching, Second, run_load};
+pub use run::{Ending, Failed, LoadOutcome, LoadParts, Matching, Second, run_load};
 pub use stage::{StageCommand, StageController, StageInput};
 pub use threshold::{Breach, aborts, breaches};
-pub use window::{Totals, WINDOW_SECONDS, Window};
+pub use unit::Unit;
+pub use window::{RATE_SECONDS, Totals, WINDOW_SECONDS, Window};
