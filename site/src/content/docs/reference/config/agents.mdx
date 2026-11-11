@@ -63,16 +63,15 @@ error[V2302]: expected one of GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, foun
    = help: expected one of `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`
 ```
 
-A bad `writeDefinitions` value. The message lists only `ask`, but `true` and `false` are allowed too:
+A bad `writeDefinitions` value:
 
 ```console
 $ vc check
-error[V2302]: expected one of ask, found `maybe`
+error[V2302]: expected one of true, false, ask, found `maybe`
   --> vibranium.config.yaml:32:25
    |
 32 |       writeDefinitions: maybe
    |                         ^^^^^ not a known value
-   = help: expected one of `ask`
 ```
 
 ## Try it

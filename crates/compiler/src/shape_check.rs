@@ -108,8 +108,10 @@ impl Walker {
     }
 
     fn either(&mut self, node: &Node, alternatives: &[Ty], scope: Scope) {
-        if let Some(ty) = alternatives.iter().find(|ty| accepts(**ty, node)) {
-            self.value(node, *ty, scope);
+        let Some(ty) = alternatives.iter().find(|ty| accepts(**ty, node)) else { return };
+        match (ty, node.as_str()) {
+            (Ty::Enum(words), Some(text)) if !words.contains(&text) => self.push(other_word(node, text, alternatives)),
+            _ => self.value(node, *ty, scope),
         }
     }
 
@@ -272,6 +274,25 @@ const fn found(node: &Node) -> &'static str {
         Value::Scalar(scalar) => scalar.kind.name(),
         _ => node.kind_name(),
     }
+}
+
+/// V2302 for a word that is none of an `Either`'s, named with every alternative: `writeDefinitions`
+/// takes `one of true, false, ask`, `http.retry.on` `an integer or one of connect, timeout`.
+fn other_word(node: &Node, text: &str, alternatives: &[Ty]) -> Diagnostic {
+    let words_of = |ty: &Ty| match ty {
+        Ty::Bool => &["true", "false"][..],
+        Ty::Enum(words) => *words,
+        _ => &[],
+    };
+    let words: Vec<&str> = alternatives.iter().flat_map(words_of).copied().collect();
+    let others = alternatives.iter().filter(|ty| words_of(ty).is_empty()).map(|ty| article(&ty.describe()));
+    let expected: Vec<String> = others.chain([format!("one of {}", words.join(", "))]).collect();
+    let message = format!("expected {}, found `{text}`", expected.join(" or "));
+    let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label("not a known value");
+    if suggest::close(text, words.iter().copied()).is_empty() {
+        return diagnostic;
+    }
+    suggest::hint(diagnostic, &Misspelling { word: text, span: node.span, known: &words })
 }
 
 /// How a message names what `ty` takes: a map by its first keys, not by its shape's name.

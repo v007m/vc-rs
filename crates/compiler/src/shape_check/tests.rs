@@ -78,6 +78,21 @@ fn checks_maps_lists_and_words() {
 }
 
 #[test]
+fn a_word_no_alternative_takes_is_named_with_every_alternative() {
+    let flag =
+        walk_config("syntaxVersion: 2\nprofiles: [{id: dev, default: true, agents: {writeDefinitions: maybe}}]\n");
+    let flag = only(&flag);
+    assert_eq!(flag.message, "expected one of true, false, ask, found `maybe`");
+    assert_eq!(flag.help, Vec::<String>::new());
+    let close =
+        walk_config("syntaxVersion: 2\nprofiles: [{id: dev, default: true, agents: {writeDefinitions: aks}}]\n");
+    assert_eq!(only(&close).help, ["did you mean `ask`?"]);
+    let retry =
+        walk(FileKind::Api, "apis: [{id: a, path: /, http: {retry: {attempts: 2, on: [timeout, teapot, 503]}}}]\n");
+    assert_eq!(only(&retry).message, "expected an integer or one of connect, timeout, found `teapot`");
+}
+
+#[test]
 fn needs_exactly_one_of_a_group() {
     let none = walk(FileKind::Test, "tests: [{id: getsUser}]\n");
     assert_eq!(
