@@ -27,22 +27,45 @@ $ vc demo stop [--port <PORT>]
 
 ```console
 $ vc demo start --detach
-demo running on http://localhost:7421 (pid 71526)
+demo running on http://localhost:7421 (pid 71526); `vc demo stop` stops it
 $ vc run
 ```
 
-Without `--detach`, it stays in the foreground and prints nothing until you stop it with Ctrl-C.
+Without `--detach`, it stays in the foreground, says where it listens once it answers, and runs until you press Ctrl-C:
 
-If something already answers on the port, it does not start a second one:
+```console
+$ vc demo start
+demo running on http://localhost:7421 (pid 71530); Ctrl-C stops it
+```
+
+### Share a running demo
+
+If the demo already answers on the port, `start` does not start a second one. It joins the running one instead, and the `stop` that follows leaves it running for whoever else uses it:
+
+```console
+$ vc demo start --detach
+demo running on http://localhost:7421 (pid 71526); `vc demo stop` stops it
+$ vc run
+$ vc demo stop
+stopped the demo on port 7421
+```
+
+Here `vc run` runs the sample, whose `beforeAll` calls `vc demo start` and finds your demo, and whose `afterAll` calls `vc demo stop`, which leaves your demo running. Two projects running the sample at once share one demo the same way: it stops when the last of them is done.
 
 ```console
 $ vc demo start --detach
 a demo already answers on port 7421
+$ vc demo stop
+left the demo on port 7421 running, as another `vc demo start` uses it
 ```
 
-<Aside type="caution">
-It only checks that the port answers. If another program holds it, you still see this message, and your tests call that program. Pick another `--port` and change `sampleUrl` in `vibranium.config.yaml` to match.
-</Aside>
+If another program holds the port, `start` refuses rather than let your tests call that program:
+
+```console
+$ vc demo start --port 7454 --detach
+error: port 7454 is taken by a program that is not the demo
+  = help: pick another `--port`, and change `sampleUrl` in vibranium.config.yaml to match
+```
 
 ### What it serves
 
@@ -71,15 +94,15 @@ $ vc demo stop
 no demo running on port 7421
 ```
 
-Stopping when none runs is not an error. `stop` ends only a demo that `start --detach` started on that port.
+Stopping when none runs is not an error. `stop` ends only a demo that `start --detach` started on that port, and only once every `start` that joined it has stopped.
 
 ## Exit codes
 
 | Code | When |
 | --- | --- |
-| `0` | Started, already running, stopped, or nothing to stop |
+| `0` | Started, joined one already running, stopped, left running for another, or nothing to stop |
 | `1` | The foreground demo ended with an error |
-| `2` | A bad flag, or `vc-demo` is not installed |
+| `2` | A bad flag, `vc-demo` is not installed, or another program holds the port |
 
 `vc demo` runs a separate program, `vc-demo`. It looks in the folder `vc` is in, then on your `PATH`, and names both when it finds neither:
 

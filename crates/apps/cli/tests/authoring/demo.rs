@@ -1,8 +1,9 @@
 //! `vc demo` is the small built-in service the `vc init` sample calls (D175): `start --detach`
-//! re-launches `vc` in the background and writes a pidfile, `stop` reads it and ends it.
+//! re-launches `vc` in the background and writes a pidfile, `stop` reads it and ends it. A
+//! `start` that finds it running joins it, and its `stop` leaves it to the others.
 
-use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
@@ -11,9 +12,9 @@ use crate::Project;
 /// A port of its own, so this test never meets the sample's demo on 7421.
 const PORT: u16 = 7431;
 
-/// The status line of `GET <path>` on the demo, or `None` when nothing answers.
-fn get(path: &str) -> Option<String> {
-    let mut stream = TcpStream::connect(("127.0.0.1", PORT)).ok()?;
+/// The status line of `GET <path>` on the demo on `port`, or `None` when nothing answers.
+fn get(port: u16, path: &str) -> Option<String> {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).ok()?;
     stream.set_read_timeout(Some(Duration::from_secs(5))).ok()?;
     write!(stream, "GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").ok()?;
     let mut reply = String::new();
@@ -21,11 +22,12 @@ fn get(path: &str) -> Option<String> {
     reply.lines().next().map(str::to_owned)
 }
 
-/// Polls until the demo answers (or stops answering, for `up == false`), for up to 10 s.
-fn wait_until(up: bool) -> bool {
+/// Polls until the demo on `port` answers (or stops answering, for `up == false`), for up to
+/// 10 s.
+fn wait_until(port: u16, up: bool) -> bool {
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
-        if get("/users").is_some() == up {
+        if get(port, "/users").is_some() == up {
             return true;
         }
         std::thread::sleep(Duration::from_millis(50));
@@ -55,15 +57,15 @@ fn starts_in_the_background_answers_and_stops() {
     let project = Project::empty();
     let port = PORT.to_string();
     let started = exit_code(&project, &["demo", "start", "--port", &port, "--detach"]);
-    let up = wait_until(true);
-    let users = get("/users");
-    let echo = get("/echo");
+    let up = wait_until(PORT, true);
+    let users = get(PORT, "/users");
+    let echo = get(PORT, "/echo");
     let stopped = exit_code(&project, &["demo", "stop", "--port", &port]);
     assert_eq!((started, stopped), (Some(0), Some(0)), "`vc demo start --detach` and `stop` exit 0");
     assert!(up, "the demo answers on {PORT}");
     assert!(users.is_some_and(|line| line.contains(" 200 ")), "GET /users is 200");
     assert!(echo.is_some(), "it has an echo endpoint");
-    assert!(wait_until(false), "`vc demo stop` ends it");
+    assert!(wait_until(PORT, false), "`vc demo stop` ends it");
 }
 
 /// The sample's `afterAll` stops the demo even when `beforeAll` failed to start it, so stopping
@@ -74,4 +76,59 @@ fn stopping_a_demo_that_is_not_running_succeeds_and_says_so() {
     let output = project.vc(&["demo", "stop", "--port", "7432"]).timeout(Duration::from_secs(20)).output().unwrap();
     assert_eq!(output.status.code(), Some(0));
     assert!(crate::said(&output).contains("7432"), "names the port");
+}
+
+/// What `vc demo <args>` prints, run with pipes: only for a `vc` that launches no demo.
+fn printed(project: &Project, args: &[&str]) -> String {
+    let output = project.vc(args).timeout(Duration::from_secs(20)).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", crate::said(&output));
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+#[test]
+fn a_start_that_found_the_demo_running_leaves_it_to_the_one_that_launched_it() {
+    let project = Project::empty();
+    let port = "7434";
+    let launched = exit_code(&project, &["demo", "start", "--port", port, "--detach"]);
+    let joined = printed(&project, &["demo", "start", "--port", port, "--detach"]);
+    let first = printed(&project, &["demo", "stop", "--port", port]);
+    let still_up = wait_until(7434, true);
+    let second = printed(&project, &["demo", "stop", "--port", port]);
+    assert_eq!(launched, Some(0));
+    assert_eq!(joined, "a demo already answers on port 7434\n");
+    assert_eq!(first, "left the demo on port 7434 running, as another `vc demo start` uses it\n");
+    assert!(still_up, "the first stop leaves it running");
+    assert_eq!(second, "stopped the demo on port 7434\n");
+    assert!(wait_until(7434, false), "the second stop ends it");
+}
+
+#[test]
+fn refuses_a_port_another_program_holds() {
+    let project = Project::empty();
+    let _held = TcpListener::bind(("127.0.0.1", 7435)).unwrap();
+    let output = project.vc(&["demo", "start", "--port", "7435", "--detach"]).timeout(Duration::from_secs(20)).output();
+    let output = output.unwrap();
+    let text = crate::said(&output);
+    assert_eq!(output.status.code(), Some(2), "{text}");
+    assert!(text.contains("error: port 7435 is taken by a program that is not the demo"), "{text}");
+    assert!(text.contains("help: pick another `--port`, and change `sampleUrl`"), "{text}");
+}
+
+#[test]
+fn in_the_foreground_it_says_where_it_listens_and_how_to_stop_it() {
+    let project = Project::empty();
+    let mut vc = project.process(&["demo", "start", "--port", "7436"]);
+    let mut child = vc.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();
+    let mut line = String::new();
+    BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+    let pid = line.split("(pid ").nth(1).and_then(|rest| rest.split(')').next()).unwrap_or_default().to_owned();
+    let ended = if cfg!(windows) {
+        std::process::Command::new("taskkill").args(["/PID", &pid, "/F"]).status()
+    } else {
+        std::process::Command::new("kill").arg(&pid).status()
+    };
+    let exited = child.wait();
+    assert!(line.starts_with("demo running on http://localhost:7436 (pid "), "{line}");
+    assert!(line.ends_with("); Ctrl-C stops it\n"), "{line}");
+    assert!(ended.is_ok_and(|status| status.success()) && exited.is_ok(), "the printed pid is the demo's");
 }
