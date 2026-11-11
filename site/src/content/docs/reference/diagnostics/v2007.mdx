@@ -22,7 +22,7 @@ A file's ID comes from its path (`services/users/users.api.yaml` is `users`, `se
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 id: user
 apis:
   - id: getUser
@@ -41,7 +41,7 @@ apis:
 
 This is real output from `vc`, run against the files below.
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 id: users.basics
 name: Users CRUD
 tests:

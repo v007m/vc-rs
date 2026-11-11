@@ -39,6 +39,22 @@ async fn each_grant_issues_a_token_that_auth_me_accepts() -> TestResult {
 }
 
 #[tokio::test]
+async fn each_refresh_token_is_new_whoever_issues_it() -> TestResult {
+    let mock = Mock::start().await?;
+    let (_, signed_in) =
+        token(&mock, None, "grant_type=password&username=ada&password=lovelace&client_id=vc-public").await?;
+    let granted = signed_in["refresh_token"].as_str().ok_or("no refresh_token")?.to_owned();
+    let (first, second) = (mock.handle.refresh_token().await?, mock.handle.refresh_token().await?);
+    assert!(first != second && first != granted && second != granted, "{granted} {first} {second}");
+    for refresh in [first, second, granted] {
+        let (status, _) =
+            token(&mock, Some(CLIENT), &format!("grant_type=refresh_token&refresh_token={refresh}")).await?;
+        assert_eq!(status, StatusCode::OK, "{refresh} is still unused");
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn expires_in_on_the_token_url_sets_the_lifetime() -> TestResult {
     let mock = Mock::start().await?;
     let request = mock.request(Method::POST, "/oauth/token?expiresIn=30").header(AUTHORIZATION, CLIENT);
@@ -64,12 +80,13 @@ async fn unknown_clients_wrong_passwords_and_unknown_grants_are_refused() -> Tes
 #[tokio::test]
 async fn authorize_redirects_with_a_code_that_is_exchanged_once() -> TestResult {
     let mock = Mock::start().await?;
+    mock.handle.refresh_token().await?;
     let client = Client::builder().redirect(redirect::Policy::none()).build()?;
     let url = format!("{}/oauth/authorize?redirect_uri=http://127.0.0.1:9/cb&state=xyz", mock.handle.base_url());
     let response = client.get(url).send().await?;
     assert!(response.status().is_redirection());
     let location = response.headers().get(LOCATION).ok_or("no location")?.to_str()?.to_owned();
-    assert_eq!(location, "http://127.0.0.1:9/cb?code=mock-code-1&state=xyz");
+    assert_eq!(location, "http://127.0.0.1:9/cb?code=mock-code-1&state=xyz", "a refresh token leaves codes at 1");
     let exchange = "grant_type=authorization_code&code=mock-code-1&client_id=vc-public";
     let (status, issued) = token(&mock, None, exchange).await?;
     assert!(status == StatusCode::OK && issued["refresh_token"].is_string());

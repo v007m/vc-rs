@@ -109,7 +109,7 @@ A hook is meant to read a secret with the global `secret("NAME")`. In the curren
 
 An `afterResponse` hook can't change the response. It is useful as a guard: throw, and the call fails.
 
-```ts title="hooks/sign.ts"
+```ts title="hooks/guard.ts"
 export const failOnServerError = ({ request, response }) => {
   if (response.status >= 500) {
     throw new Error(`${request.method} ${request.url} answered ${response.status}`);
@@ -122,7 +122,7 @@ id: signed
 name: Signed uploads on the demo
 baseUrl: ${var.sampleUrl}
 afterResponse:                  # every api in this file
-  - function: ../../hooks/sign.ts#failOnServerError
+  - function: ../../hooks/guard.ts#failOnServerError
 ```
 
 Hooks on the api file run first, then the api's own.
