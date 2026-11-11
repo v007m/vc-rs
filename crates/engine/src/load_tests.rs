@@ -140,7 +140,8 @@ async fn a_failing_api_breaches_the_error_rate_and_is_counted_by_kind() {
     assert!(report.errors > 0 && report.errors == report.iterations, "{report:?}");
     let metrics: Vec<_> = report.breaches.iter().map(|breach| (breach.metric.as_str(), breach.test.clone())).collect();
     assert_eq!(metrics, [("errorRate", None)]);
-    let kind = ErrorKind { api: Some("users#broken".to_owned()), status: Some(500), code: v5101(), ..failed(&report) };
+    let kind =
+        ErrorKind { api: Some("users#broken".to_owned()), status: Some(500), code: Some(v5101()), ..failed(&report) };
     assert_eq!(report.error_kinds, [kind]);
     let text = report.text();
     assert!(text.starts_with("users.peak finished after "), "{text}");
@@ -164,8 +165,8 @@ fn failed(report: &LoadReport) -> ErrorKind {
     ErrorKind { count: report.errors, ..ErrorKind::default() }
 }
 
-fn v5101() -> Option<String> {
-    Some("V5101".to_owned())
+fn v5101() -> String {
+    "V5101".to_owned()
 }
 
 #[tokio::test(start_paused = true)]
@@ -176,7 +177,8 @@ async fn a_failed_check_on_a_tests_second_call_is_counted_under_that_call_not_th
     let (_interrupter, interrupts) = interrupts();
     let report = load(&engine, interrupts, None).await;
     assert!(report.errors > 0 && report.errors == report.iterations, "{report:?}");
-    let kind = ErrorKind { api: Some("users#get".to_owned()), status: Some(200), code: v5101(), ..failed(&report) };
+    let kind =
+        ErrorKind { api: Some("users#get".to_owned()), status: Some(200), code: Some(v5101()), ..failed(&report) };
     assert_eq!(report.error_kinds, [kind], "not its `before` call nor its `after` one");
     assert!(report.text().contains("\nerrors users#get 200 V5101 × "), "{}", report.text());
 }

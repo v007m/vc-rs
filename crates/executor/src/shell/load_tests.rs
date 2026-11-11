@@ -74,7 +74,7 @@ async fn a_failed_check_on_the_second_call_blames_that_call_not_the_cleanup_afte
     let (iterations, _sent) = prepare(fixture, (&[], &[test]), true).await;
     let report = iterations.unwrap().iterate(test, 1).await;
     assert_eq!(statuses(&report), [Some(200), Some(200), Some(200)], "the seed, the browse and its cleanup");
-    let failure = report.failure.clone().unwrap_or_default();
+    let failure = report.failure.unwrap_or_default();
     assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(200), Some(Code::V5101.to_string())));
 }
 

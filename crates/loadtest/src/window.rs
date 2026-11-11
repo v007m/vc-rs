@@ -113,7 +113,7 @@ impl Window {
         let start = self.end.saturating_sub(RATE_SECONDS);
         let recent = self.rows.iter().filter(|row| row.second >= start);
         let count = recent.fold(0_u64, |count, row| count.saturating_add(row.tally.count()));
-        let span = self.end.min(RATE_SECONDS).max(1);
+        let span = self.end.clamp(1, RATE_SECONDS);
         count.saturating_add(span / 2) / span
     }
 }
