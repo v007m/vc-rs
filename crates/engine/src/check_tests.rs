@@ -150,6 +150,27 @@ fn reports_only_on_the_requested_paths() {
 }
 
 #[test]
+fn a_path_reports_an_unset_var_in_an_api_its_tests_call() {
+    let api: &[u8] = b"baseUrl: http://localhost\napis:\n  - id: getUser\n    path: /users/${var.userId}\n";
+    let call: &[u8] = b"tests:\n  - id: getsUser\n    call: users#getUser\n";
+    let files = [
+        CONFIG,
+        ("services/users/users.api.yaml", api),
+        ("services/flow/a.test.yaml", call),
+        ("services/flow/b.test.yaml", call),
+        ("services/other/c.test.yaml", b"tests:\n  - id: getsUser\n    call: users#getUser\n    vars: {userId: u1}\n"),
+    ];
+    let engine = engine(&files, Arc::new(MemoryCompileCache::new()));
+    let codes = |path: &str| -> Vec<Code> {
+        engine.check(&request(&[path])).unwrap().diagnostics.iter().map(|found| found.code).collect()
+    };
+    assert_eq!(codes("."), [Code::V2101]);
+    assert_eq!(codes("services/flow"), [Code::V2101]);
+    assert_eq!(codes("services/flow/b.test.yaml"), [Code::V2101]);
+    assert_eq!(codes("services/other"), Vec::<Code>::new());
+}
+
+#[test]
 fn a_path_that_selects_nothing_is_an_error() {
     let engine = engine(&[CONFIG, USERS], Arc::new(MemoryCompileCache::new()));
     let error = engine.check(&request(&["services/users", "services/user"])).unwrap_err();
@@ -212,4 +233,48 @@ fn a_paths_glob_that_does_not_parse_is_an_error() {
     let files = [("vibranium.config.yaml", config), USERS];
     let error = engine(&files, Arc::new(MemoryCompileCache::new())).check(&CheckRequest::default()).unwrap_err();
     assert!(matches!(error, EngineError::Sources { reason } if reason.contains("services/[a")));
+}
+
+#[test]
+fn profiles_with_no_default_are_an_error_unless_a_layer_names_one() {
+    let config: (&str, &[u8]) = (
+        "vibranium.config.yaml",
+        b"syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: false\n  - id: staging\n",
+    );
+    let checked = |vars: &[(&str, &str)]| {
+        let sources: Arc<dyn SourceProvider> = Arc::new(MemorySources::new(&[config, USERS]));
+        let environment = Arc::new(vc_testkit::MemoryEnvironment::new(vars));
+        let builder = EngineBuilder::new(PathBuf::from("/project")).sources(sources).environment(environment);
+        let report = builder.compile_cache(Arc::new(MemoryCompileCache::new())).build().unwrap();
+        report.check(&CheckRequest::default()).unwrap().diagnostics
+    };
+    let found = checked(&[]);
+    let codes: Vec<Code> = found.iter().map(|found| found.code).collect();
+    assert_eq!(codes, [Code::V3101], "{found:?}");
+    let message = found.iter().next().map(|found| found.message.clone()).unwrap_or_default();
+    assert_eq!(message, "no profile is marked `default: true`, so a run without `--profile` has none active");
+    assert!(checked(&[("VIB_PROFILE", "staging")]).is_empty());
+}
+
+#[test]
+fn alert_settings_a_notifier_refuses_are_a_warning_unless_templated() {
+    let config: (&str, &[u8]) = (
+        "vibranium.config.yaml",
+        concat!(
+            "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nalerts:\n  - notify:\n",
+            "      - slack: {channel: '#qa'}\n      - pagerduty: {routingKey: abc, severity: fatal}\n",
+            "      - teams: {webhook: '${secret.TEAMS_HOOK}'}\n      - webhook: {url: 'https://hooks.example.com/qa'}\n",
+        )
+        .as_bytes(),
+    );
+    let found = engine(&[config, USERS], Arc::new(MemoryCompileCache::new())).check(&CheckRequest::default());
+    let found = found.unwrap().diagnostics;
+    let shown: Vec<(Code, u32, &str)> =
+        found.iter().map(|found| (found.code, found.primary.span.start.line, found.message.as_str())).collect();
+    assert_eq!(shown.len(), 2, "{found:?}");
+    assert_eq!((shown[0].0, shown[0].1), (Code::V5117, 7));
+    assert!(shown[0].2.starts_with("the `slack` alert channel ") && shown[0].2.contains("webhook"), "{shown:?}");
+    assert_eq!((shown[1].0, shown[1].1), (Code::V5117, 8));
+    assert!(shown[1].2.contains("severity"), "{shown:?}");
+    assert!(found.iter().all(|found| !found.is_error()), "an alert never fails a check");
 }

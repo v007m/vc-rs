@@ -79,6 +79,8 @@ warning: V5117: the `webhook` alert was not sent: cannot connect to 127.0.0.1:79
 warning: V5117: the `webhook` alert channel `url` is not an http or https URL
 ```
 
+`vc check` reports this too, at the channel's key, when the settings hold no `${…}` template; a templated setting is checked when the run ends.
+
 ## Try it
 
 <Playground client:visible kind="config" code={`syntaxVersion: 2

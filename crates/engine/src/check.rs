@@ -62,7 +62,9 @@ impl Engine {
     /// that cannot be read or written only adds a notice. A definition file that cannot be read
     /// is reported as a V1012 error at its path. The compiler is given today's date from the
     /// clock, for expired skips (V3104), and the project's other files, for `$file` paths (V2004).
-    /// An `alerts` channel no notifier builds is a V5117 warning.
+    /// An `alerts` channel no notifier builds, or whose untemplated settings its notifier
+    /// refuses, is a V5117 warning, and profiles of which none is active without `--profile` a
+    /// V3101 error.
     ///
     /// # Errors
     ///
@@ -77,6 +79,10 @@ impl Engine {
         let overlay = overlay.collect::<Result<Vec<_>, _>>()?;
         let mut compiled = self.compiled_with(&overlay)?;
         compiled.diagnostics.extend(check_alerts::unknown_channels(&compiled.files, &self.channels()));
+        if let Some(program) = compiled.program.clone() {
+            compiled.diagnostics.extend(self.channel_settings(&program, &compiled.files));
+            compiled.diagnostics.extend(self.no_active_profile(&program, &compiled.files));
+        }
         Self::selected(compiled, request)
     }
 
