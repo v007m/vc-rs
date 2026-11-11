@@ -307,7 +307,7 @@ File-level keys:
 | `headers` | map | Default headers |
 | `vars` | map | Defaults for every api in the file |
 | `profiles` | list | Per-profile overrides of the file's `vars` |
-| `source.openapi` | path or URL | Spec this file syncs from: a URL or a file, JSON or YAML; with source.headers for a protected URL and source.include to take only some tags |
+| `source.openapi` | path or URL | Spec this file syncs from: a URL or a file, JSON or YAML; with source.headers for a protected URL, source.include to take only some tags or path prefixes, and source.only to take only some operation IDs (D277) |
 | `beforeRequest`, `afterResponse` | lists of functions | Run around every request in the file (see Functions and request hooks) |
 | `apis` | list | The apis |
 

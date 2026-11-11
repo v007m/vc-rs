@@ -129,7 +129,7 @@ error: there is no api `users#nope`
 | `!` | A conflict, with the commands that settle it |
 
 <Aside type="note">
-`vc sync` only looks at the operations the spec has. An api file imported with `--only` or `--include` still gets every new operation in the spec added on the next sync.
+`vc sync` takes the operations the import took. An api file imported with `--include` or `--only` keeps them in `source.include` and `source.only`, and a new operation outside them is not added. Edit or remove those keys to take more.
 </Aside>
 
 ## Related

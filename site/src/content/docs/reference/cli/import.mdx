@@ -29,7 +29,7 @@ $ vc import [OPTIONS] <KIND> <SOURCE>
 | `--negative` | | openapi | Also writes tests that send what the schema rejects |
 | `--auth` | | openapi | Also writes a test per secured api that expects 401 without auth |
 | `--include` | `<TAG_OR_PATH>` | openapi | Only the operations with this tag or path prefix. Repeat for more |
-| `--only` | `<OPERATION_ID>` | openapi | Only the operation with this operation ID. Repeat for more |
+| `--only` | `<OPERATION_ID>` | openapi | Only the operation with this operation ID. Repeat for more. Kept in `source.only`, so `vc sync` takes the same operations |
 | `--profile` | `<IDS>` | all | The active profiles. Their vars fill `source.headers`, and a recording's hosts are matched against their base URLs |
 | `--flow` | `<TEST_ID>` | har | Also writes a test that replays the recording, as `fileId#testId` or a bare test ID |
 | `--include-host` | `<HOST>` | har | Keeps a recording's calls to this third-party host. Repeat for more |

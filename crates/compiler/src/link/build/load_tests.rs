@@ -10,7 +10,7 @@ use crate::{CompileInput, Compiled};
 
 const CONFIG: &str = "syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n    agents:\n      run: true\n      call: [GET, POST]\n      approve: [PUT, DELETE]\n      writeDefinitions: ask\n  - id: prod\n    agents: {writeDefinitions: true}\n  - id: local\n";
 
-const APIS: &str = "baseUrl: ${var.baseUrl}\nsource:\n  openapi: specs/users.yaml\n  headers: {x-key: '${var.baseUrl}'}\n  include: [users]\napis:\n  - id: list\n    path: /users\n    operationId: listUsers\n  - id: get\n    path: /users/1\n";
+const APIS: &str = "baseUrl: ${var.baseUrl}\nsource:\n  openapi: specs/users.yaml\n  headers: {x-key: '${var.baseUrl}'}\n  include: [users]\n  only: [listUsers]\napis:\n  - id: list\n    path: /users\n    operationId: listUsers\n  - id: get\n    path: /users/1\n";
 
 const TESTS: &str = "tests:\n  - id: listsUsers\n    call: users#list\n  - id: getsUser\n    call: users#get\n";
 
@@ -121,6 +121,7 @@ fn builds_an_api_files_source_and_operation_ids() {
     let source = group.source.as_ref().unwrap();
     assert_eq!((source.openapi.as_str(), &source.include[..]), ("specs/users.yaml", &["users".to_owned()][..]));
     assert_eq!(source.headers.keys().collect::<Vec<_>>(), ["x-key"]);
+    assert_eq!(source.only, ["listUsers"]);
     let ids: Vec<_> = program.apis.values().map(|api| api.operation_id.as_deref()).collect();
     assert_eq!(ids, [Some("listUsers"), None]);
 }

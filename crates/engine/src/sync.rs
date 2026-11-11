@@ -86,7 +86,7 @@ impl Engine {
     }
 }
 
-const READ_HELP: &str = "fix the spec, or narrow it with `source.include`";
+const READ_HELP: &str = "fix the spec, or narrow it with `source.include` or `source.only`";
 
 /// The api files named, or every one with a `source`.
 fn selected(project: &Authoring, files: &[String]) -> Result<Vec<String>, EngineError> {
@@ -143,8 +143,8 @@ impl<'p> Syncing<'p> {
     async fn file(&self, file_id: &'p str) -> Result<Synced, EngineError> {
         let found = self.project.find(FileKind::Api, file_id).ok_or_else(|| internal("the file went away"))?;
         let opened = Authoring::open(found)?;
-        let (location, include) = source(opened.document.root(), file_id)?;
-        let opts = ImportOptions { file_id: file_id.to_owned(), include, ..ImportOptions::default() };
+        let Source { location, include, only } = source(opened.document.root(), file_id)?;
+        let opts = ImportOptions { file_id: file_id.to_owned(), include, only, ..ImportOptions::default() };
         let fetcher: Arc<dyn SpecFetcher> = Arc::clone(&self.fetcher) as _;
         let reader =
             Reader { importer: ImporterRegistry::builtin().create("openapi", fetcher).map_err(internal)?, opts };
@@ -191,14 +191,25 @@ impl<'p> Syncing<'p> {
 
 const FETCH_HELP: &str = "check `source.openapi` in the api file: a URL, or a path inside the project";
 
-/// `source.openapi` and `source.include` of the api file `file_id`.
-fn source(root: &Node, file_id: &str) -> Result<(String, Vec<String>), EngineError> {
+/// What an api file syncs from: `source.openapi`, and the `include` and `only` the import took
+/// (D277).
+struct Source {
+    location: String,
+    include: Vec<String>,
+    only: Vec<String>,
+}
+
+/// The [`Source`] of the api file `file_id`.
+fn source(root: &Node, file_id: &str) -> Result<Source, EngineError> {
     let source = root.get("source");
     let location = source.and_then(|source| source.get("openapi")).and_then(Node::as_str).ok_or_else(|| {
         refused(format!("`{file_id}` has no `source.openapi`"), "add one, or import the spec with `vc import openapi`")
     })?;
-    let include = source.and_then(|source| source.get("include")).map(Node::items).unwrap_or_default();
-    Ok((location.to_owned(), include.iter().filter_map(Node::as_str).map(str::to_owned).collect()))
+    let texts = |key: &str| -> Vec<String> {
+        let items = source.and_then(|source| source.get(key)).map(Node::items).unwrap_or_default();
+        items.iter().filter_map(Node::as_str).map(str::to_owned).collect()
+    };
+    Ok(Source { location: location.to_owned(), include: texts("include"), only: texts("only") })
 }
 
 /// The conflicts settled in `file_id`, by api ID (`users#update` or `update`).

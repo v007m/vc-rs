@@ -81,8 +81,10 @@ pub fn api_file(group: &DraftGroup, base: &str, synced: Option<&ImportRequest>) 
     if let Some(request) = synced {
         out.push_str("source:\n");
         entry(&mut out, 2, (&request.kind, &json!(request.source)));
-        if !request.include.is_empty() {
-            entry(&mut out, 2, ("include", &json!(request.include)));
+        for (key, values) in [("include", &request.include), ("only", &request.only)] {
+            if !values.is_empty() {
+                entry(&mut out, 2, (key, &json!(values)));
+            }
         }
     }
     out.push_str("\napis:\n");

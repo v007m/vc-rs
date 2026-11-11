@@ -162,3 +162,13 @@ fn a_config_var_that_holds_the_origin_is_reused_and_files_that_exist_are_refused
     let help = refused.as_ref().and_then(EngineError::help);
     assert_eq!(help.as_deref(), Some("`vc sync users` merges the spec into it"), "{refused:?}");
 }
+
+#[test]
+fn the_operations_an_import_took_by_id_are_kept_in_its_source_for_sync() {
+    let project = engine(FakeVcs::default()).authoring().unwrap();
+    let only = ImportRequest { only: vec!["createPet".to_owned()], ..request() };
+    let (changes, _) = drafted(&project, &draft(false), &only).unwrap();
+    let api = changes.files.iter().find(|file| file.path == "services/pets/pets.api.yaml");
+    let source = "  include:\n    - pets\n  only:\n    - createPet\n\napis:";
+    assert!(api.is_some_and(|api| api.after.contains(source)), "{api:?}");
+}

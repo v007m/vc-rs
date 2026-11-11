@@ -158,7 +158,7 @@ $ echo $?
 Put it before `vc run` so drift fails the build early. To fix it, run `vc sync` locally and commit the api file and the snapshot. See [CI](/vc-rs/guides/ci/).
 
 <Aside type="note">
-`vc sync` takes every operation the spec has, even for a file you imported with `--only`. New operations are added on the next sync.
+A file you imported with `--include` or `--only` keeps them in `source.include` and `source.only`, and `vc sync` takes only those operations. A new operation outside them is not added; edit the keys to take it.
 </Aside>
 
 ## Related
