@@ -1,7 +1,7 @@
 use prost::Message as _;
 use vc_contracts::engine::v1 as wire;
 
-use super::{check, explain_config, get_project, list_definitions, read_file, write_file};
+use super::{check, check_secrets, explain_config, get_project, list_definitions, read_file, write_file};
 use crate::Code;
 use crate::engine_fixture::{CRUD, SECRET, TESTS, project};
 
@@ -143,4 +143,24 @@ async fn explain_config_refuses_an_unknown_key_with_help() {
     let refused = explain_config(api, request).await.unwrap_err();
     assert_eq!(refused.code, Code::InvalidArgument);
     assert!(refused.message.contains("help: did you mean `defaults.timeout`"), "{refused:?}");
+}
+
+#[tokio::test]
+async fn check_secrets_says_each_declared_secret_resolves_and_never_sends_its_value() {
+    let (dir, api) = project();
+    std::fs::write(dir.path().join(".env.schema"), "SHOP_TOKEN=\nSHOP_CLIENT_ID=\n").unwrap();
+    let request = wire::CheckSecretsRequest { profiles: vec!["bare".into()], ..wire::CheckSecretsRequest::default() };
+    let found = check_secrets(api, request).await.unwrap();
+    let states: Vec<(&str, bool)> = found.secrets.iter().map(|check| (check.name.as_str(), check.resolved)).collect();
+    assert_eq!(states, [("SHOP_TOKEN", true), ("SHOP_CLIENT_ID", false)]);
+    assert_eq!((found.provider.as_str(), found.error.as_deref()), ("env", None));
+    let bytes = found.encode_to_vec();
+    assert!(!bytes.windows(SECRET.len()).any(|window| window == SECRET.as_bytes()));
+}
+
+#[tokio::test]
+async fn check_secrets_refuses_an_unknown_profile() {
+    let (_dir, api) = project();
+    let request = wire::CheckSecretsRequest { profiles: vec!["prod".into()], ..wire::CheckSecretsRequest::default() };
+    assert_eq!(check_secrets(api, request).await.unwrap_err().code, Code::InvalidArgument);
 }

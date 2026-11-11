@@ -1,6 +1,7 @@
 //! The project's RPCs: `GetProject`, `ListDefinitions`, `Check`, the editor's `ReadFile` and
-//! `WriteFile`, and `ExplainConfig`, whose values the engine masks (D229). Each reads and
-//! compiles the project on the blocking pool, never on an async worker.
+//! `WriteFile`, `ExplainConfig`, whose values the engine masks (D229), and `CheckSecrets`,
+//! which sends no value. Each reads and compiles the project on the blocking pool, never on an
+//! async worker.
 
 use std::sync::Arc;
 
@@ -8,7 +9,8 @@ use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1::Span;
 use vc_engine::{
-    ApiCall, CheckRequest, ConfigValue, ExplainRequest, ListKind, ListRequest, Listed, SaveFile, SelectRequest,
+    ApiCall, CheckRequest, ConfigValue, ExplainRequest, ListKind, ListRequest, Listed, SaveFile, SecretCheck,
+    SelectRequest,
 };
 
 use crate::ConnectError;
@@ -23,6 +25,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
         .unary("ReadFile", read_file)
         .unary("WriteFile", write_file)
         .unary("ExplainConfig", explain_config)
+        .unary("CheckSecrets", check_secrets)
 }
 
 async fn get_project(
@@ -147,6 +150,25 @@ async fn explain_config(
 pub fn config_value(value: ConfigValue) -> wire::ConfigValue {
     let layers = value.layers.into_iter().map(|layer| wire::ConfigLayer { value: layer.value, source: layer.source });
     wire::ConfigValue { key: value.key, layers: layers.collect() }
+}
+
+async fn check_secrets(
+    api: Arc<EngineApi>,
+    request: wire::CheckSecretsRequest,
+) -> Result<wire::CheckSecretsResponse, ConnectError> {
+    let (profiles, sets) = api.layers(request.profiles, request.sets);
+    let explain = ExplainRequest { profiles, sets };
+    let found = api.blocking(move |engine| Handle::current().block_on(engine.check_secrets(&explain))).await?;
+    Ok(wire::CheckSecretsResponse {
+        provider: found.provider,
+        secrets: found.secrets.into_iter().map(secret_check).collect(),
+        error: found.error,
+        notices: found.notices,
+    })
+}
+
+fn secret_check(check: SecretCheck) -> wire::SecretCheck {
+    wire::SecretCheck { name: check.name, resolved: check.resolved }
 }
 
 #[cfg(test)]

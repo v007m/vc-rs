@@ -56,6 +56,8 @@ service EngineService {
   rpc Trends(TrendsRequest) returns (TrendsResponse);
   // Each setting's value and the layers it replaced, as `vc config explain` shows them, masked.
   rpc ExplainConfig(ExplainConfigRequest) returns (ExplainConfigResponse);
+  // Whether each secret `.env.schema` declares resolves under a profile; never a value.
+  rpc CheckSecrets(CheckSecretsRequest) returns (CheckSecretsResponse);
   // Where an MCP client connects and the agent token it sends, for the Connect panel. Only the
   // browser's session cookie reaches it, never the agent token (D239).
   rpc Connection(ConnectionRequest) returns (ConnectionResponse);
@@ -659,6 +661,30 @@ message ConfigValue {
 message ExplainConfigResponse {
   repeated ConfigValue values = 1;
   repeated string notices = 2;
+}
+
+message CheckSecretsRequest {
+  // As `--profile`; the default profiles when empty.
+  repeated string profiles = 1;
+  // As `--set key=value`.
+  repeated string sets = 2;
+}
+
+// One declared secret: its name and whether it resolves, never its value.
+message SecretCheck {
+  string name = 1;
+  // The provider gave it a value that is not blank, as a run needs (V5114).
+  bool resolved = 2;
+}
+
+message CheckSecretsResponse {
+  // `env` or `varlock`.
+  string provider = 1;
+  // In the order `.env.schema` writes them.
+  repeated SecretCheck secrets = 2;
+  // Why the provider could not load them, holding no value; then none resolves.
+  optional string error = 3;
+  repeated string notices = 4;
 }
 
 message ConnectionRequest {}

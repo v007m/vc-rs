@@ -11,7 +11,8 @@
 //! [`Engine::new_test`], [`Engine::new_auth`], [`Engine::new_file`], [`Engine::fmt`], [`Engine::init`],
 //! [`Engine::save_call_as_test`], [`Engine::write`]), opens and saves the web UI editor's files
 //! ([`Engine::read_file`], [`Engine::save_file`]), describes the project and its effective
-//! settings, masked ([`Engine::project_info`], [`Engine::config_values`]), and imports specs and
+//! settings, masked, and whether its secrets resolve ([`Engine::project_info`],
+//! [`Engine::config_values`], [`Engine::check_secrets`]), and imports specs and
 //! keeps api files in step with them ([`Engine::import`], [`Engine::sync`]).
 //! Agent calls pass the profiles' agent policy and, when it asks, the approval queue
 //! ([`Engine::policy_check`], [`Engine::admit`],
@@ -45,6 +46,7 @@ mod check;
 mod check_alerts;
 mod check_plugins;
 mod check_profiles;
+mod check_secrets;
 mod complete;
 mod config_explain;
 mod config_values;
@@ -125,6 +127,7 @@ pub use cache::CacheReport;
 pub use call_draft::{CallDraft, WrittenNode};
 pub use call_report::{CallReport, SavedValue};
 pub use check::{CheckReport, CheckRequest};
+pub use check_secrets::{SecretCheck, SecretsChecked};
 pub use complete::CompleteKind;
 pub use config_values::{ConfigLayer, ConfigValue, ConfigValues};
 pub use create::{Added, NewTest};

@@ -1052,6 +1052,38 @@ pub struct ExplainConfigResponse {
     #[prost(string, repeated, tag="2")]
     pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CheckSecretsRequest {
+    /// As `--profile`; the default profiles when empty.
+    #[prost(string, repeated, tag="1")]
+    pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// As `--set key=value`.
+    #[prost(string, repeated, tag="2")]
+    pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// One declared secret: its name and whether it resolves, never its value.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SecretCheck {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The provider gave it a value that is not blank, as a run needs (V5114).
+    #[prost(bool, tag="2")]
+    pub resolved: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckSecretsResponse {
+    /// `env` or `varlock`.
+    #[prost(string, tag="1")]
+    pub provider: ::prost::alloc::string::String,
+    /// In the order `.env.schema` writes them.
+    #[prost(message, repeated, tag="2")]
+    pub secrets: ::prost::alloc::vec::Vec<SecretCheck>,
+    /// Why the provider could not load them, holding no value; then none resolves.
+    #[prost(string, optional, tag="3")]
+    pub error: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ConnectionRequest {
 }
