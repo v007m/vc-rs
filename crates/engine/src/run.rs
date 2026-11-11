@@ -15,6 +15,7 @@ use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals}
 
 use crate::agent_gate::run_call;
 use crate::cache::Sweep;
+use crate::load::RUN_KIND;
 use crate::notify::Alerting;
 use crate::plan::{Extra, Prepared};
 use crate::plugin_hosts::Hosts;
@@ -85,7 +86,7 @@ impl Engine {
         let (seed, random) = ports::random(request.seed);
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone()))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
-        let alerting = self.alerting(&prepared, &secrets, (run_id, "run"))?;
+        let alerting = self.alerting(&prepared, &secrets, (run_id, RUN_KIND))?;
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
@@ -123,7 +124,7 @@ impl Engine {
         let selector = history::selector(&request.plan.select);
         let selector = if request.failed { format!("--failed {selector}").trim_end().to_owned() } else { selector };
         let start = RunStart {
-            kind: "run".to_owned(),
+            kind: RUN_KIND.to_owned(),
             started_ms: self.clock.now_ms(),
             profiles: prepared.names.clone(),
             selector,

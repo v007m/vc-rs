@@ -76,7 +76,7 @@ _vc_ids() {
     [[ $prev == (--profile|-t|--tag) ]] && kind=$prev
     if (( CURRENT > 2 )) && [[ $words[CURRENT] != -* ]]; then
         local -a ids
-        ids=(${(f)"$($words[1] __complete $kind $words[CURRENT] 2>/dev/null)"})
+        ids=(${(f)"$(${~words[1]} __complete $kind $words[CURRENT] 2>/dev/null)"})
         (( $#ids )) && compadd -Q -- $ids
     fi
 }

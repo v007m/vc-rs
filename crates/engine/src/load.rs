@@ -18,7 +18,9 @@ use crate::{
     Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history, ports,
 };
 
-/// The kind a load run is stored and alerted as, beside test runs' `run`.
+/// The kind a test run is stored and alerted as.
+pub const RUN_KIND: &str = "run";
+/// The kind a load run is stored and alerted as.
 pub const LOAD_KIND: &str = "load";
 
 /// A load run between its plan and its report.

@@ -157,6 +157,7 @@ fn an_unknown_profile_from_the_environment_or_the_user_config_is_refused() {
     let from_env = project.vc(&["mcp"]).env("VIB_PROFILE", "nope").stdin(Stdio::null()).output().unwrap();
     assert_eq!(from_env.status.code(), Some(2), "{}", said(&from_env));
     assert!(said(&from_env).contains("error: VIB_PROFILE: no profile `nope`"), "{}", said(&from_env));
+    assert!(from_env.stdout.is_empty(), "stdout carries only the protocol: {}", said(&from_env));
     let user = project.home().join("vibranium");
     std::fs::create_dir_all(&user).unwrap();
     std::fs::write(user.join("config.yaml"), "profile: nope\n").unwrap();
@@ -164,6 +165,7 @@ fn an_unknown_profile_from_the_environment_or_the_user_config_is_refused() {
     assert_eq!(from_user.status.code(), Some(2), "{}", said(&from_user));
     assert!(said(&from_user).contains("no profile `nope`"), "{}", said(&from_user));
     assert!(said(&from_user).contains("  = help: the profiles are dev\n"), "{}", said(&from_user));
+    assert!(from_user.stdout.is_empty(), "stdout carries only the protocol: {}", said(&from_user));
 }
 
 #[test]

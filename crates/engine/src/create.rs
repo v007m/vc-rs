@@ -96,8 +96,8 @@ impl Added {
 impl Engine {
     /// The change that appends a test calling `request.from` to the test file its ID derives
     /// from, creating that file when there is none; with `request.auth`, a second test after it
-    /// calls the api with `auth: none` and expects 401. Each var in the api's path that the
-    /// config leaves unset is set, marked `# replace` (D262).
+    /// calls the api with `auth: none` and expects 401. Each var in the api's path that neither
+    /// the config, a profile, the api file nor the test file sets is set, marked `# replace` (D262).
     ///
     /// # Errors
     ///

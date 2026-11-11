@@ -144,3 +144,37 @@ fn a_base_url_var_a_profile_sets_is_reused_with_no_note() {
     assert_eq!(project.read(CONFIG.0), config.1, "the config is left as it was");
     checks_clean(&project);
 }
+
+#[test]
+fn a_url_api_never_reuses_another_services_localhost_var() {
+    let project = Project::new(&[CONFIG]);
+    project.vc(&["new", "api", "refunds#list", "--path", "/refunds"]).assert().code(0);
+    let output = project.vc(&["new", "api", "orders#list", "--url", "http://localhost/orders"]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    let text = project.read("services/orders/orders.api.yaml");
+    assert!(text.contains("\nbaseUrl: ${var.ordersUrl}\napis:\n"), "its own var, not refundsUrl:\n{text}");
+    let config = project.read(CONFIG.0);
+    assert!(
+        config.contains("refundsUrl: http://localhost") && config.contains("ordersUrl: http://localhost"),
+        "{config}"
+    );
+    checks_clean(&project);
+}
+
+#[test]
+fn a_url_api_whose_var_a_profile_sets_is_refused_not_shadowed() {
+    let dev = "    default: true\n    vars: {refundsUrl: 'http://r'}\n";
+    let config = (CONFIG.0, CONFIG.1.replace("    default: true\n", dev));
+    let project = Project::new(&[(config.0, &config.1)]);
+    let args = ["new", "api", "refunds#list", "--url", "https://refunds.example/list"];
+    let output = project.vc(&args).output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{}", said(&output));
+    let text = said(&output);
+    assert!(text.contains("the config already sets `refundsUrl`, to another URL or in a profile"), "{text}");
+    assert!(
+        text.contains("help: set `vars.refundsUrl` to https://refunds.example, or add the api by `--path`"),
+        "{text}"
+    );
+    assert_eq!(project.read(CONFIG.0), config.1, "the config is left as it was");
+    assert!(!project.path().join("services/refunds").exists(), "no api file is written");
+}

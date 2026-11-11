@@ -150,16 +150,24 @@ pub fn config(project: &Authoring) -> Result<(SourceFileId, &SourceFile), Engine
     config.ok_or_else(|| internal("a project without its config"))
 }
 
-/// As [`base_var`], in the config `opened`.
+/// As [`base_var`], in the config `opened`. Another var holding `http://localhost` is never
+/// reused: it is the placeholder `--path` added for its own service. A `<last word>Url` the
+/// config or a profile sets to anything else is refused rather than shadowed.
 pub fn base_var_in(opened: &Opened<'_>, file: &str, origin: &str) -> Result<(Option<FileChange>, String), EngineError> {
-    let entries = opened.document.root().get("vars").map(Node::entries).unwrap_or_default();
-    if let Some(same) = entries.iter().find(|entry| entry.value.as_str() == Some(origin)) {
+    let root = opened.document.root();
+    let entries = root.get("vars").map(Node::entries).unwrap_or_default();
+    let name = base_name(file);
+    let holds = |key: &str| entries.iter().any(|entry| entry.key == key && entry.value.as_str() == Some(origin));
+    if holds(&name) {
+        return Ok((None, name));
+    }
+    let other = |value: Option<&str>| value == Some(origin) && origin != LOCAL;
+    if let Some(same) = entries.iter().find(|entry| other(entry.value.as_str())) {
         return Ok((None, same.key.clone()));
     }
-    let name = base_name(file);
-    if entries.iter().any(|entry| entry.key == name) {
+    if vars_set(root).contains(&name) {
         let help = format!("set `vars.{name}` to {origin}, or add the api by `--path`");
-        return Err(refused(format!("the config var `{name}` holds another URL"), &help));
+        return Err(refused(format!("the config already sets `{name}`, to another URL or in a profile"), &help));
     }
     Ok((Some(add_var(opened, &name, origin)?), name))
 }

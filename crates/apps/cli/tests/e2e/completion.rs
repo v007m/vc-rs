@@ -39,6 +39,8 @@ fn each_script_registers_both_names() {
     assert!(!script("bash").contains("$(vc __complete"), "the hook asks the name that was typed");
     let tilde = "    [[ $typed == \"~/\"* ]] && typed=\"$HOME/${typed#\\~/}\"\n";
     assert!(script("bash").contains(tilde), "bash expands a typed `~/`");
+    let zsh = "        ids=(${(f)\"$(${~words[1]} __complete $kind $words[CURRENT] 2>/dev/null)\"})\n";
+    assert!(script("zsh").contains(zsh), "zsh expands a typed `~/`");
 }
 
 /// fish completes a name only by its own lines; `vibranium`'s ask `vibranium`, never the `vc`
