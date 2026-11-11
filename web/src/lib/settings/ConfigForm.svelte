@@ -122,9 +122,11 @@
         <li>
           <label class="var grow">
             <span class="mono">{name}</span>
-            {#if form.draft.vars[name] === MASKED}
+            {#if form.draft.vars[name]?.includes(MASKED)}
               <span class="masked"
-                >{MASKED}<span class="sr"> (reads a secret; change it in the editor)</span></span
+                >{form.draft.vars[name]}<span class="sr">
+                  (reads a secret; change it in the editor)</span
+                ></span
               >
             {:else}
               <input

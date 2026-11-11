@@ -81,11 +81,22 @@ function live(list: readonly Row[]): Map<string, string> {
   return new Map(on.map((row) => [row.name.trim(), row.value]));
 }
 
-/** The edits that turn the map at `at` from `base`'s rows into `form`'s. */
+/** The rows of `after` that hold the mask under a name `before` does not have: renamed. */
+function renamed(before: Map<string, string>, after: Map<string, string>): [string, string][] {
+  return [...after].filter(([name, value]) => !before.has(name) && !writable(value));
+}
+
+/**
+ * The edits that turn the map at `at` from `base`'s rows into `form`'s. A masked row that was
+ * renamed keeps its old name, since its value cannot be written under the new one.
+ */
 function mapEdits(at: string, base: readonly Row[], form: readonly Row[]): PointerEdit[] {
   const [before, after] = [live(base), live(form)];
   if (after.size === 0) return before.size === 0 ? [] : [{ pointer: at, op: 'remove' }];
-  const removed = [...before.keys()].filter((name) => !after.has(name));
+  const moved = new Set(renamed(before, after).map(([, value]) => value));
+  const removed = [...before]
+    .filter(([name, value]) => !after.has(name) && !moved.has(value))
+    .map(([name]) => name);
   const changed = [...after].filter(
     ([name, value]) => before.get(name) !== value && writable(value),
   );
@@ -132,6 +143,36 @@ export function editsBetween(at: string, base: ApiForm, form: ApiForm): PointerE
   ];
 }
 
+const kept = (what: string): string =>
+  `${what} holds a secret, so the form does not save it; edit it in the api file.`;
+
+/** Why each changed row of a map that holds the mask is not saved. */
+function rowNotices(noun: string, base: readonly Row[], form: readonly Row[]): string[] {
+  const [before, after] = [live(base), live(form)];
+  const moved = new Set(renamed(before, after).map(([name]) => name));
+  return [...after]
+    .filter(([name, value]) => before.get(name) !== value && !writable(value))
+    .map(([name]) =>
+      moved.has(name)
+        ? `${noun} ${name} holds a secret, so it is not saved under a new name; rename it in the api file.`
+        : kept(`${noun} ${name}`),
+    );
+}
+
+/** Why each edit `form` makes to a value that holds the mask is not saved; none when none is. */
+export function maskedNotices(base: ApiForm, form: ApiForm): string[] {
+  const scalars = (['method', 'path'] as const).filter(
+    (key) => base[key] !== form[key] && !writable(form[key]),
+  );
+  const body = base.bodyMode !== form.bodyMode || base.body !== form.body;
+  return [
+    ...scalars.map((key) => kept(`The ${key}`)),
+    ...rowNotices('Query parameter', base.query, form.query),
+    ...rowNotices('Header', base.headers, form.headers),
+    ...(body && !writable(form.body) ? [kept('The body')] : []),
+  ];
+}
+
 /** `text` as the JSON it reads as, else the text: `201` is a number, `500ms` text. */
 function literal(value: string): unknown {
   try {
@@ -160,17 +201,40 @@ function has(api: WrittenApi, keys: readonly string[]): boolean {
   return node !== undefined;
 }
 
-/** The edits that add `checks` to the api at `at`, each replacing a check of its key. */
+/** `check` as one matcher of several on its key: an equality is `eq`. */
+function matcher(check: AddedCheck): unknown {
+  return check.op === 'equals' ? { eq: literal(check.value.trim()) } : expected(check);
+}
+
+/**
+ * What the checks on one key write: the one check as it is, else every matcher in one object
+ * (all must pass), a later check of the same op replacing an earlier one.
+ */
+function together(checks: readonly AddedCheck[]): unknown {
+  const [only, ...more] = [...new Map(checks.map((check) => [check.op, check])).values()];
+  if (only !== undefined && more.length === 0) return expected(only);
+  return Object.assign({}, ...checks.map(matcher)) as unknown;
+}
+
+/**
+ * The edits that add `checks` to the api at `at`: one set per key, with every check on it,
+ * after a remove when the api has a check there, since a set never lands on a written node.
+ */
 export function checkEdits(
   at: string,
   api: WrittenApi,
   checks: readonly AddedCheck[],
 ): PointerEdit[] {
-  return checks.flatMap((check) => {
+  const keyed = new Map<string, { keys: string[]; checks: AddedCheck[] }>();
+  for (const check of checks) {
     const keys = place(check);
     const pointer = `${at}/expect/${keys.map(token).join('/')}`;
-    const set: PointerEdit = { pointer, op: 'set', value: expected(check) };
-    return has(api, keys) ? [{ pointer, op: 'remove' }, set] : [set];
+    const group = keyed.get(pointer) ?? { keys, checks: [] };
+    keyed.set(pointer, { keys, checks: [...group.checks, check] });
+  }
+  return [...keyed].flatMap(([pointer, group]): PointerEdit[] => {
+    const set: PointerEdit = { pointer, op: 'set', value: together(group.checks) };
+    return has(api, group.keys) ? [{ pointer, op: 'remove' }, set] : [set];
   });
 }
 

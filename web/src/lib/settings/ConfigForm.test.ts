@@ -13,7 +13,8 @@ type Sent = { digest: string; edits: Edit[]; write: boolean };
 
 const CONFIG = 'vibranium.config.yaml';
 const file = (value: string) => ({ value, source: CONFIG });
-const TEXT = 'vars:\n  usersUrl: ${env.USERS_URL}\n  token: ${secret.TOKEN}\n';
+const TEXT =
+  'vars:\n  usersUrl: ${env.USERS_URL}\n  token: ${secret.TOKEN}\n  auth: Bearer ${secret.TOKEN}\n';
 
 async function rendered(refuse?: ConnectError) {
   const sent: Sent[] = [];
@@ -25,6 +26,7 @@ async function rendered(refuse?: ConnectError) {
         { key: 'defaults.timeout', layers: [file('10s')] },
         { key: 'vars.usersUrl', layers: [file('http://localhost:8080')] },
         { key: 'vars.token', layers: [file(MASKED)] },
+        { key: 'vars.auth', layers: [file(`Bearer ${MASKED}`)] },
       ],
       notices: [],
     }),
@@ -46,7 +48,7 @@ async function rendered(refuse?: ConnectError) {
 const status = () => screen.getByRole('status').textContent ?? '';
 
 describe('ConfigForm', () => {
-  it('shows what the file sets, a secret var masked and read-only', async () => {
+  it('shows what the file sets, a var with a secret in it masked and read-only', async () => {
     await rendered();
     expect(screen.getByRole('textbox', { name: 'Project' })).toHaveProperty('value', 'shop');
     expect(screen.getByRole('textbox', { name: 'Timeout' })).toHaveProperty('value', '10s');
@@ -58,6 +60,8 @@ describe('ConfigForm', () => {
     expect(document.body.textContent).not.toContain('resolved');
     expect(document.body.textContent).not.toContain('secret.TOKEN');
     expect(screen.queryByRole('textbox', { name: /token/ })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: /auth/ })).toBeNull();
+    expect(document.body.textContent).toContain(`Bearer ${MASKED}`);
     expect(document.body.textContent).toContain(MASKED);
     expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);
   });

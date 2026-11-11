@@ -81,9 +81,10 @@ function varsOf(set: ReadonlyMap<string, string>, raw: ReadonlyMap<string, strin
   for (const [key, value] of set) {
     if (!key.startsWith('vars.')) continue;
     const name = key.slice(5);
-    const written = value === MASKED ? undefined : raw.get(name);
+    const masked = value.includes(MASKED);
+    const written = masked ? undefined : raw.get(name);
     vars[name] = written ?? value;
-    if (written === undefined && value !== MASKED) resolved.push(name);
+    if (written === undefined && !masked) resolved.push(name);
   }
   return { vars, resolved };
 }
@@ -130,7 +131,7 @@ function fieldEdits(base: ConfigDraft, draft: ConfigDraft): PointerEdit[] {
 function varEdits(base: ConfigDraft, draft: ConfigDraft): PointerEdit[] {
   const removed = Object.keys(base.vars).filter((name) => !(name in draft.vars));
   const changed = Object.entries(draft.vars).filter(
-    ([name, value]) => value !== MASKED && base.vars[name] !== value,
+    ([name, value]) => !value.includes(MASKED) && base.vars[name] !== value,
   );
   return [
     ...removed.map((name): PointerEdit => ({ pointer: pointerOf(`vars.${name}`), op: 'remove' })),

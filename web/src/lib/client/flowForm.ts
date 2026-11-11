@@ -44,15 +44,27 @@ export type Stage = {
 
 type Node = Readonly<Record<string, unknown>>;
 
-const LOOP_KEYS = ['forEach', 'repeat', 'poll'] as const;
-const DURATION = /^\d+(ms|s|m|h)$/;
+const LOOP_KEYS = ['forEach', 'repeat', 'poll', 'parallel'] as const;
+/** The loops `parallel` may sit beside (V2211 otherwise). */
+const PARALLEL_WITH: readonly LoopKind[] = ['repeat', 'forEach'];
+/** Each duration unit in milliseconds, as the engine's `parse_duration` reads them. */
+const UNITS: Readonly<Record<string, bigint>> = { ms: 1n, s: 1000n, m: 60_000n, h: 3_600_000n };
+const U64_MAX = 2n ** 64n - 1n;
+
+/** Whether the engine reads `text` as a duration: a whole number and one unit, within a u64 of ms. */
+function isDuration(text: string): boolean {
+  const [, digits = '', unit = ''] = /^(\d+)(ms|s|m|h)$/.exec(text) ?? [];
+  const scale = UNITS[unit];
+  return scale !== undefined && BigInt(digits) * scale <= U64_MAX;
+}
 
 function record(value: unknown): Node {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? { ...value } : {};
 }
 
 function text(value: unknown): string {
-  return typeof value === 'string' ? value : JSON.stringify(value ?? '');
+  if (value === undefined || value === null) return '';
+  return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
 function once(): Loop {
@@ -140,7 +152,7 @@ function loopProblem(loop: Loop): string | undefined {
   }
   if (kind !== 'poll') return undefined;
   if (!/^[1-5]\d\d$/.test(until)) return 'poll until needs a status such as 200';
-  if (!DURATION.test(every) || !DURATION.test(timeout)) {
+  if (!isDuration(every) || !isDuration(timeout)) {
     return 'poll every and timeout need durations such as 2s or 1m';
   }
   return undefined;
@@ -157,6 +169,11 @@ export function flowProblem(stages: readonly Stage[]): string | undefined {
   return undefined;
 }
 
+/** The loop keys of `keys` a change to a `kind` loop removes: all but `parallel` beside a loop. */
+function dropped(keys: readonly string[], kind: LoopKind): string[] {
+  return keys.filter((key) => key !== 'parallel' || !PARALLEL_WITH.includes(kind));
+}
+
 /** The edits that turn the step `before` at `pointer` into `after`. */
 function stageEdits(pointer: string, before: Stage, after: Stage): PointerEdit[] {
   const edits: PointerEdit[] = [];
@@ -166,9 +183,8 @@ function stageEdits(pointer: string, before: Stage, after: Stage): PointerEdit[]
   const entry = loopEntry(after.loop);
   if (after.locked || JSON.stringify(entry) === JSON.stringify(loopEntry(before.loop)))
     return edits;
-  edits.push(
-    ...before.keys.map((key) => ({ pointer: `${pointer}/${key}`, op: 'remove' as const })),
-  );
+  const removes = dropped(before.keys, after.loop.kind);
+  edits.push(...removes.map((key) => ({ pointer: `${pointer}/${key}`, op: 'remove' as const })));
   if (entry) edits.push({ pointer: `${pointer}/${entry[0]}`, op: 'set', value: entry[1] });
   return edits;
 }

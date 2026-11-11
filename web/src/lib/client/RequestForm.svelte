@@ -33,6 +33,13 @@
     bind:value={request.form.path}
   />
 </div>
+{#if request.notices.length > 0}
+  <ul class="notices" aria-label="Not saved">
+    {#each request.notices as notice (notice)}
+      <li>{notice}</li>
+    {/each}
+  </ul>
+{/if}
 
 <h3 class="h3">Query parameters</h3>
 <RowsEditor {request} list="query" noun="Query parameter" empty="No query parameters." />
@@ -139,5 +146,10 @@
   }
   .error {
     color: var(--fail);
+  }
+  .notices {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    color: var(--ink2);
   }
 </style>

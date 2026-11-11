@@ -51,6 +51,19 @@ describe('draftOf', () => {
   });
 });
 
+describe('a partly masked var', () => {
+  const values: ConfigValue[] = [{ key: 'vars.authHeader', layers: [layer(`Bearer ${MASKED}`)] }];
+  const text = 'vars:\n  authHeader: Bearer ${secret.TOKEN}\n';
+
+  it('stays masked, is not marked resolved, and is never written back', () => {
+    const draft = draftOf(PROJECT, values, text);
+    expect([draft.vars, draft.resolved]).toEqual([{ authHeader: `Bearer ${MASKED}` }, []]);
+    expect(draftOf(PROJECT, values, '').resolved).toEqual([]);
+    const edited = { ...draft, vars: { authHeader: `Basic ${MASKED}` } };
+    expect(editsBetween(draft, edited)).toEqual([]);
+  });
+});
+
 describe('editsBetween', () => {
   it('gives nothing for an unchanged draft', () => {
     expect(editsBetween(base(), base())).toEqual([]);

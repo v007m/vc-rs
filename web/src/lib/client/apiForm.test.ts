@@ -8,6 +8,7 @@ import {
   editsBetween,
   expectLines,
   formOf,
+  maskedNotices,
   type ApiForm,
 } from './apiForm.ts';
 
@@ -81,6 +82,43 @@ describe('editsBetween', () => {
     });
   });
 
+  it('keeps a masked row under its old name when it is renamed, and says why', () => {
+    const form = base();
+    form.headers[0] = { name: 'X-Api-Key', value: MASKED, on: true };
+    expect(editsBetween(AT, base(), form)).toEqual([]);
+    expect(maskedNotices(base(), form)).toEqual([
+      'Header X-Api-Key holds a secret, so it is not saved under a new name; rename it in the api file.',
+    ]);
+    form.headers[0] = { name: 'X-Api-Key', value: MASKED, on: false };
+    expect(editsBetween(AT, base(), form)).toEqual([
+      { pointer: '/apis/1/headers/X-Key', op: 'remove' },
+    ]);
+    expect(maskedNotices(base(), form)).toEqual([]);
+  });
+
+  it('says which edits to a masked value it does not save', () => {
+    const api = formOf({
+      path: `/tenants/${MASKED}/users`,
+      query: { sig: `v1:${MASKED}` },
+      headers: { Authorization: `Bearer ${MASKED}` },
+      body: `token=${MASKED}`,
+    });
+    expect(maskedNotices(api, api)).toEqual([]);
+    const form = structuredClone(api);
+    form.path = `/tenants/${MASKED}/people`;
+    form.query[0] = { name: 'sig', value: `v2:${MASKED}`, on: true };
+    form.headers[0] = { name: 'Authorization', value: `Basic ${MASKED}`, on: true };
+    form.body = `token=${MASKED}&x=1`;
+    expect(editsBetween(AT, api, form)).toEqual([]);
+    const kept = 'holds a secret, so the form does not save it; edit it in the api file.';
+    expect(maskedNotices(api, form)).toEqual([
+      `The path ${kept}`,
+      `Query parameter sig ${kept}`,
+      `Header Authorization ${kept}`,
+      `The body ${kept}`,
+    ]);
+  });
+
   it('replaces the body as JSON or text, and removes it for none', () => {
     const form = base();
     form.body = '{"name": "Ada", "tags": []}';
@@ -131,6 +169,26 @@ describe('added checks', () => {
       'body $.id exists false',
       'body $.name contains Ada',
       'timing total lt 500ms',
+    ]);
+  });
+
+  it('on one key are written once, together, so no set lands on another', () => {
+    const checks = [
+      { kind: 'body', path: '$.age', op: 'gt', value: '17' },
+      { kind: 'status', path: '', op: 'equals', value: '201' },
+      { kind: 'body', path: '$.age ', op: 'lt', value: '65' },
+      { kind: 'status', path: '', op: 'equals', value: '202' },
+      { kind: 'body', path: '$.age', op: 'equals', value: '30' },
+      { kind: 'body', path: '$.age', op: 'lt', value: '40' },
+    ] as const;
+    expect(checkEdits(AT, API, checks)).toEqual([
+      {
+        pointer: '/apis/1/expect/body/match/$.age',
+        op: 'set',
+        value: { gt: 17, lt: 40, eq: 30 },
+      },
+      { pointer: '/apis/1/expect/status', op: 'remove' },
+      { pointer: '/apis/1/expect/status', op: 'set', value: 202 },
     ]);
   });
 

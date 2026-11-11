@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MASKED } from '#lib/settings/port.ts';
-import { flowEdits, flowProblem, newStage, stagesOf } from './flowForm.ts';
+import { flowEdits, flowProblem, newStage, stagesOf, type Stage } from './flowForm.ts';
 
 const TEST = {
   id: 'createsThenPolls',
@@ -40,6 +40,12 @@ describe('stagesOf', () => {
     });
     expect(seeded?.loop).toMatchObject({ kind: 'forEach', over: '${var.ids}' });
     expect(matched?.locked).toBe(true);
+  });
+
+  it('shows a poll field the step does not write as empty', () => {
+    const steps = [{ call: 'jobs#get', poll: { until: { status: 200 }, timeout: '30s' } }];
+    const [stage] = stagesOf({ steps });
+    expect(stage?.loop).toMatchObject({ kind: 'poll', until: '200', every: '', timeout: '30s' });
   });
 
   it('locks a forEach whose list reads a secret', () => {
@@ -89,6 +95,32 @@ describe('flowEdits', () => {
     ]);
   });
 
+  it('drops parallel with the loop it runs beside, and keeps it while the step still loops', () => {
+    const test = { steps: [{ call: 'users#get', repeat: 3, parallel: 2 }] };
+    const switched = (change: (stage: Stage) => void) => {
+      const stages = stagesOf(test);
+      if (stages[0]) change(stages[0]);
+      return flowEdits(AT, stagesOf(test), stages);
+    };
+    expect(switched((s) => (s.loop.kind = 'once'))).toEqual([
+      { pointer: '/tests/0/steps/0/repeat', op: 'remove' },
+      { pointer: '/tests/0/steps/0/parallel', op: 'remove' },
+    ]);
+    expect(switched((s) => (s.loop.kind = 'poll'))).toEqual([
+      { pointer: '/tests/0/steps/0/repeat', op: 'remove' },
+      { pointer: '/tests/0/steps/0/parallel', op: 'remove' },
+      {
+        pointer: '/tests/0/steps/0/poll',
+        op: 'set',
+        value: { until: { status: 200 }, every: '1s', timeout: '30s' },
+      },
+    ]);
+    expect(switched((s) => (s.loop.times = '5'))).toEqual([
+      { pointer: '/tests/0/steps/0/repeat', op: 'remove' },
+      { pointer: '/tests/0/steps/0/repeat', op: 'set', value: 5 },
+    ]);
+  });
+
   it('writes a poll as a status check with its interval and timeout', () => {
     const stages = stagesOf(TEST);
     const polled = stages[1];
@@ -133,6 +165,19 @@ describe('flowProblem', () => {
     ] as const;
     for (const [loop, said] of loops) {
       expect(flowProblem([{ ...stage, loop: { ...stage.loop, ...loop } }])).toBe(said);
+    }
+  });
+
+  it('takes a poll duration exactly as the engine reads one: a whole number and one unit', () => {
+    const stage = newStage('jobs#get');
+    const poll = (every: string) =>
+      flowProblem([{ ...stage, loop: { ...stage.loop, kind: 'poll', every } }]);
+    for (const every of ['250ms', '2s', '1m', '12h', '0s', '18446744073709551615ms']) {
+      expect(poll(every)).toBeUndefined();
+    }
+    const rejects = ['1m30s', '1h30m', '1.5s', '2', '2S', ' 2s', '-1s', '+2s', '2 s', '1d'];
+    for (const every of [...rejects, '18446744073709551616ms', '18446744073709552s']) {
+      expect(poll(every)).toBe('Stage 1: poll every and timeout need durations such as 2s or 1m.');
     }
   });
 });

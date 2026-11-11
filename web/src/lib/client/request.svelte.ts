@@ -4,6 +4,7 @@ import {
   checkProblem,
   editsBetween,
   formOf,
+  maskedNotices,
   type AddedCheck,
   type ApiForm,
 } from './apiForm.ts';
@@ -31,6 +32,7 @@ export class ApiRequest extends DefinitionDraft {
     this.written ? editsBetween(this.written.pointer, this.#base, this.form) : [],
   );
   readonly problem = $derived(bodyProblem(this.form));
+  readonly notices = $derived(maskedNotices(this.#base, this.form));
   readonly #port: Pick<ClientPort, 'explainApi'>;
 
   constructor(port: DraftPort & Pick<ClientPort, 'explainApi'>, api: string) {
@@ -52,6 +54,11 @@ export class ApiRequest extends DefinitionDraft {
     this.explained = await this.#port.explainApi(this.id, []);
     this.#base = formOf(written.node);
     this.form = formOf(written.node);
+  }
+
+  /** Explains the request as a call with `vars` sends it now: the draft in place of the file. */
+  async explain(vars: readonly string[]): Promise<void> {
+    this.explained = await this.#port.explainApi(this.id, vars, this.draft);
   }
 
   discard(): void {
