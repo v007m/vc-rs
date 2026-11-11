@@ -39,6 +39,7 @@ pub use inline::InlineExecutor;
 pub use reuse::{TestExecutor, body_actions};
 pub use sink::{CleanupCollector, CleanupSink};
 
+pub use hooks::RuleHooks;
 pub use request::{encode, received};
 
 /// How long an action may run when neither it nor the config's `defaults` sets a `timeout`.

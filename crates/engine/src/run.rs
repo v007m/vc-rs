@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
-    MaskRules, PipelineParts, RunHandle, RunInputs, RunOptions,
+    MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
 use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Transport};
 use vc_model::{Feed, Part, RunStatus, Template, TemplateValue, Totals};
@@ -163,7 +163,7 @@ impl Engine {
         (inputs, plugins): (RunInputs, &Hosts),
     ) -> Result<ActionCx, EngineError> {
         let hooks = self.hook_runner(&prepared.program);
-        let rules = MaskRules::standard().with_hooks((hooks.clone(), inputs.secrets.clone()), &prepared.program);
+        let rules = MaskRules::standard().with_hooks(RuleHooks::new(hooks.clone(), inputs.secrets.clone()), &prepared.program);
         let transport = self.transport(prepared.environment.as_ref())?;
         let auth = self.auth(Arc::clone(&transport), plugins);
         let executors = self.executors(prepared, transport, hooks);

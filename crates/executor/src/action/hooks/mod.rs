@@ -15,6 +15,7 @@ use vc_interfaces::{Budget, HookCall, HookError, HookRunner, Secrets};
 use vc_model::{Api, Failure, HookModules, HookRef, Program, RequestHooks};
 
 pub use custom::judge;
+pub use redact::RuleHooks;
 pub use stage::HookStage;
 
 /// Calls hooks with the program's hook files through the run's runner, when it has one.

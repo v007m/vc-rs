@@ -6,7 +6,7 @@
 //! notice says so (D229, D232).
 
 use serde_json::{Value, json};
-use vc_executor::{MASKED, MaskRules, Redactor};
+use vc_executor::{MASKED, MaskRules, Redactor, RuleHooks};
 use vc_interfaces::{ConfigEntry, Secrets};
 use vc_model::{Namespace, Part, Template, TemplateValue};
 
@@ -78,7 +78,8 @@ impl Engine {
     async fn masker(&self, layered: &mut Layered) -> Masker {
         let program = &layered.program;
         let loaded = self.secrets(&program.config.secrets, &layered.environment).await;
-        let hooks = (self.hook_runner(program), loaded.as_ref().map_or_else(|_| Secrets::new(), Clone::clone));
+        let secrets = loaded.as_ref().map_or_else(|_| Secrets::new(), Clone::clone);
+        let hooks = RuleHooks::new(self.hook_runner(program), secrets);
         let rules = MaskRules::standard().with_hooks(hooks, program).for_config(&program.config);
         let redactor = Redactor::for_config(&program.config).with_rules(rules);
         redactor.hide_fields(&program.config.secrets.declared);
