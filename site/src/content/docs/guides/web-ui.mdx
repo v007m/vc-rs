@@ -199,7 +199,7 @@ The agent policy and the activity log apply to agents only. What you do in the b
 
 Shows the effective value of every setting under the profile you pick, as `vc config explain` does. The **Set by** column says where each value comes from, and lists any values it replaced. Secrets always show as `••••`.
 
-**Project config** is a form over `vibranium.config.yaml`: the project's name, `defaults.timeout`, `defaults.concurrency` and `defaults.perHost`, the profiles (pick the default, add or remove one) and the vars. It shows what the file itself sets, not a profile's or `.env`'s value. A var that reads a secret shows as `••••`; you can remove it here, but change it in the Editor.
+**Project config** is a form over `vibranium.config.yaml`: the project's name, `defaults.timeout`, `defaults.concurrency` and `defaults.perHost`, the profiles (pick the default, add or remove one) and the vars. It shows what the file itself sets, as written (`${env.USERS_URL}` stays as it is), not a profile's or `.env`'s value. A var marked **resolved** is shown with its references filled in, because the page couldn't read it as written; if you change it, what you type replaces it. A var that reads a secret shows as `••••`; you can remove it here, but change it in the Editor.
 
 1. Change the values you want. The status line counts the unsaved changes.
 2. Click **Review changes** to see the diff of the file. Nothing is written yet, and secret values are masked in the diff too.

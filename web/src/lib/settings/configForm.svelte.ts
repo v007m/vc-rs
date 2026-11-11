@@ -44,12 +44,7 @@ export function configPort(client: ConfigClient): ConfigPort {
         client.explainConfig({ profiles: [] }),
         client.readFile({ path: CONFIG_PATH }),
       ]);
-      const draft = draftOf(
-        project.name,
-        explained.values,
-        project.profiles,
-        project.defaultProfile,
-      );
+      const draft = draftOf(project, explained.values, file.text);
       return { draft, digest: file.digest };
     },
     async edit(edits, digest, write) {
@@ -78,6 +73,7 @@ function empty(): ConfigDraft {
     project: '',
     fields: { 'defaults.timeout': '', 'defaults.concurrency': '', 'defaults.perHost': '' },
     vars: {},
+    resolved: [],
     profiles: [],
   };
 }

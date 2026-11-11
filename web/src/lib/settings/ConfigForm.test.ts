@@ -13,6 +13,7 @@ type Sent = { digest: string; edits: Edit[]; write: boolean };
 
 const CONFIG = 'vibranium.config.yaml';
 const file = (value: string) => ({ value, source: CONFIG });
+const TEXT = 'vars:\n  usersUrl: ${env.USERS_URL}\n  token: ${secret.TOKEN}\n';
 
 async function rendered(refuse?: ConnectError) {
   const sent: Sent[] = [];
@@ -27,7 +28,7 @@ async function rendered(refuse?: ConnectError) {
       ],
       notices: [],
     }),
-    readFile: ({ path }) => ({ text: '', digest: path === CONFIG ? digest : '' }),
+    readFile: ({ path }) => ({ text: path === CONFIG ? TEXT : '', digest }),
     editFile: (request) => {
       const edits = request.edits.map(({ pointer, op, valueJson }) => ({ pointer, op, valueJson }));
       sent.push({ digest: request.digest, edits, write: request.write });
@@ -52,8 +53,10 @@ describe('ConfigForm', () => {
     expect(screen.getByRole('radio', { name: /dev/ })).toHaveProperty('checked', true);
     expect(screen.getByRole('textbox', { name: /usersUrl/ })).toHaveProperty(
       'value',
-      'http://localhost:8080',
+      '${env.USERS_URL}',
     );
+    expect(document.body.textContent).not.toContain('resolved');
+    expect(document.body.textContent).not.toContain('secret.TOKEN');
     expect(screen.queryByRole('textbox', { name: /token/ })).toBeNull();
     expect(document.body.textContent).toContain(MASKED);
     expect(screen.getByRole('button', { name: 'Save' })).toHaveProperty('disabled', true);

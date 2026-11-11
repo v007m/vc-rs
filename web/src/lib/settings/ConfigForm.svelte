@@ -134,6 +134,13 @@
                 disabled={busy}
                 bind:value={form.draft.vars[name]}
               />
+              {#if form.draft.resolved.includes(name)}
+                <span class="tag"
+                  >resolved<span class="sr">
+                    (shown with its references filled in; a change is written as typed)</span
+                  ></span
+                >
+              {/if}
             {/if}
           </label>
           <button

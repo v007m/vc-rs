@@ -1,4 +1,5 @@
 import { MASKED, type ConfigValue } from './port.ts';
+import { rawVars } from './rawVars.ts';
 
 /** The config file a form edit goes to, and the source `ExplainConfig` names it by. */
 export const CONFIG_PATH = 'vibranium.config.yaml';
@@ -25,13 +26,23 @@ export type DraftProfile = { id: string; isDefault: boolean; at?: number };
 /**
  * What the form shows of `vibranium.config.yaml`: the values the file itself sets (no
  * profile's, no `.env`'s), and its profiles in file order, `at` being each one's place there.
+ * A var is shown as written, `${env.X}` and all; `resolved` names the ones that could only be
+ * shown with their references filled in.
  */
 export type ConfigDraft = {
   project: string;
   fields: Record<FieldKey, string>;
   vars: Record<string, string>;
+  resolved: string[];
   profiles: DraftProfile[];
 };
+
+/** The project as `GetProject` gives it: its name and its profiles in file order. */
+export type ProjectNamed = Readonly<{
+  name: string;
+  profiles: readonly string[];
+  defaultProfile?: string;
+}>;
 
 /** A JSON pointer token (RFC 6901): `~` and `/` escaped. */
 function token(name: string): string {
@@ -51,12 +62,28 @@ function fileValue(value: ConfigValue): string | undefined {
   return value.layers.find((layer) => layer.source === CONFIG_PATH)?.value;
 }
 
-/** The draft of the config as `values` (every layer of every key) and the profiles show it. */
+/** Each var the file sets, as written where `raw` has it; masked values stay masked. */
+function varsOf(set: ReadonlyMap<string, string>, raw: ReadonlyMap<string, string>) {
+  const vars: Record<string, string> = {};
+  const resolved: string[] = [];
+  for (const [key, value] of set) {
+    if (!key.startsWith('vars.')) continue;
+    const name = key.slice(5);
+    const written = value === MASKED ? undefined : raw.get(name);
+    vars[name] = written ?? value;
+    if (written === undefined && value !== MASKED) resolved.push(name);
+  }
+  return { vars, resolved };
+}
+
+/**
+ * The draft of the config as `values` (every layer of every key), the project and the file's
+ * own `text` show it.
+ */
 export function draftOf(
-  project: string,
+  project: ProjectNamed,
   values: readonly ConfigValue[],
-  profiles: readonly string[],
-  defaultProfile?: string,
+  text: string,
 ): ConfigDraft {
   const set = new Map(
     values.flatMap((value) => {
@@ -65,15 +92,11 @@ export function draftOf(
     }),
   );
   const fields = Object.fromEntries(FIELDS.map(({ key }) => [key, set.get(key) ?? '']));
-  const vars = Object.fromEntries(
-    [...set]
-      .filter(([key]) => key.startsWith('vars.'))
-      .map(([key, value]) => [key.slice(5), value]),
-  );
+  const { name, profiles, defaultProfile } = project;
   return {
-    project,
+    project: name,
     fields: fields as Record<FieldKey, string>,
-    vars,
+    ...varsOf(set, rawVars(text)),
     profiles: profiles.map((id, at) => ({ id, isDefault: id === defaultProfile, at })),
   };
 }

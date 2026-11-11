@@ -20,8 +20,11 @@ const VALUES: ConfigValue[] = [
   { key: 'vars.fromEnv', layers: [layer('x', '.env')] },
 ];
 
+const TEXT = 'vars:\n  usersUrl: ${env.USERS_URL}\n  token: ${secret.TOKEN}\n';
+const PROJECT = { name: 'shop', profiles: ['dev', 'staging', 'qa'], defaultProfile: 'dev' };
+
 function base(): ConfigDraft {
-  return draftOf('shop', VALUES, ['dev', 'staging', 'qa'], 'dev');
+  return draftOf(PROJECT, VALUES, '');
 }
 
 describe('draftOf', () => {
@@ -30,12 +33,21 @@ describe('draftOf', () => {
       project: 'shop',
       fields: { 'defaults.timeout': '10s', 'defaults.concurrency': '', 'defaults.perHost': '' },
       vars: { usersUrl: 'http://localhost:8080', token: MASKED },
+      resolved: ['usersUrl'],
       profiles: [
         { id: 'dev', isDefault: true, at: 0 },
         { id: 'staging', isDefault: false, at: 1 },
         { id: 'qa', isDefault: false, at: 2 },
       ],
     });
+  });
+
+  it('shows a var as the file writes it, never unmasking one that reads a secret', () => {
+    const draft = draftOf(PROJECT, VALUES, TEXT);
+    expect([draft.vars, draft.resolved]).toEqual([
+      { usersUrl: '${env.USERS_URL}', token: MASKED },
+      [],
+    ]);
   });
 });
 
