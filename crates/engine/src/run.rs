@@ -163,7 +163,8 @@ impl Engine {
         (inputs, plugins): (RunInputs, &Hosts),
     ) -> Result<ActionCx, EngineError> {
         let hooks = self.hook_runner(&prepared.program);
-        let rules = MaskRules::standard().with_hooks(RuleHooks::new(hooks.clone(), inputs.secrets.clone()), &prepared.program);
+        let rules =
+            MaskRules::standard().with_hooks(RuleHooks::new(hooks.clone(), inputs.secrets.clone()), &prepared.program);
         let transport = self.transport(prepared.environment.as_ref())?;
         let auth = self.auth(Arc::clone(&transport), plugins);
         let executors = self.executors(prepared, transport, hooks);

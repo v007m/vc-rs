@@ -91,8 +91,9 @@ async fn the_hook_runs_after_the_built_in_masking_so_it_never_sees_a_secret() {
     });
     let runner = Some(Arc::new(hooks) as Arc<dyn HookRunner>);
     let config = Config { redact_rules: vec![rule()], ..Config::default() };
-    let redactor = Redactor::new(&[])
-        .with_rules(MaskRules::standard().with_hooks(RuleHooks::new(runner, Secrets::new()), &program()).for_config(&config));
+    let redactor = Redactor::new(&[]).with_rules(
+        MaskRules::standard().with_hooks(RuleHooks::new(runner, Secrets::new()), &program()).for_config(&config),
+    );
     redactor.hide_values(["s3cr3t-key"]);
     let failure = Failure::new("key s3cr3t-key card 4111111111111111");
     let (action, owner) = (ActionId::new(0), OwnerKey::Run);

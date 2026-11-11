@@ -34,12 +34,16 @@ async fn a_call_sends_its_exchange_with_both_bodies_cut_at_max_body_size_and_its
     let padded =
         USERS.replacen("    path: /users\n", &format!("    path: /users\n    body: {{pad: {}}}\n", "p".repeat(PAD)), 1);
     fs::write(dir.path().join(API), padded).unwrap();
-    let sent = call(api, wire::CallRequest { api: "users#list".into(), ..wire::CallRequest::default() }).await;
-    let sent = sent.unwrap();
+    let request = wire::CallRequest { api: "users#list".into(), ..wire::CallRequest::default() };
+    let sent = call(api.clone(), request.clone()).await.unwrap();
     let exchange = sent.exchange.unwrap();
     assert_eq!((exchange.status, exchange.method.as_str()), (Some(200), "GET"));
     let lengths = (exchange.request_body.len(), exchange.response_body.len(), exchange.body_truncated);
     assert_eq!(lengths, (KB, KB, true), "both bodies cut at history.maxBodySize, though bodies: none");
+    fs::write(dir.path().join(API), USERS).unwrap();
+    let alone = call(api, request).await.unwrap().exchange.unwrap();
+    let lengths = (alone.request_body.len(), alone.response_body.len(), alone.body_truncated);
+    assert_eq!(lengths, (0, KB, true), "one body cut is enough to flag it");
     assert_eq!((exchange.action.as_str(), exchange.api.as_deref()), ("call users#list", Some("users#list")));
     assert!(sent.checks.iter().all(|check| check.passed) && sent.saved.is_empty(), "{:?}", sent.checks);
 }
