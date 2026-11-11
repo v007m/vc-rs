@@ -49,6 +49,8 @@ mod create;
 mod create_api;
 mod create_auth;
 mod create_curl;
+mod create_load;
+mod create_vars;
 mod edit;
 mod editor_files;
 mod error;

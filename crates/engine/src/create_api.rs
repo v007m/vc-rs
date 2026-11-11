@@ -6,7 +6,8 @@ use vc_model::{FileKind, SourceFile, SourceFileId};
 use vc_parser::{Node, write_text};
 
 use crate::authoring::{Authoring, Opened, refused};
-use crate::create::{DOCS, NewItem, checked};
+use crate::create::{DOCS, NewItem, checked, sentence};
+use crate::create_vars::vars_set;
 use crate::edit::{FileChange, internal};
 use crate::{Added, Engine, EngineError};
 
@@ -26,6 +27,9 @@ pub struct NewApi {
     /// A full URL instead of a path: `https://api.example.com/users?q=ann`.
     pub url: Option<String>,
 }
+
+/// The base URL a new api file from `--path` gets when the config has no var for it.
+const LOCAL: &str = "http://localhost";
 
 /// Where an api sends its request: the origin (empty for a bare path), path and query.
 #[derive(Debug, PartialEq, Eq)]
@@ -49,17 +53,19 @@ impl Engine {
         let named = checked(&request.id)?;
         let target = target(request)?;
         let project = self.authoring()?;
-        let (root, also) = match target.origin {
-            "" => (String::new(), Vec::new()),
-            origin => based(&project, named.file, origin)?,
+        let fresh = target.origin.is_empty() && project.find(FileKind::Api, named.file).is_none();
+        let (root, also, note) = match target.origin {
+            "" if fresh => local_base(&project, named.file)?,
+            "" => (String::new(), Vec::new(), None),
+            origin => based(&project, named.file, origin).map(|(root, also)| (root, also, None))?,
         };
         let method = request.method.as_deref().unwrap_or("GET").to_ascii_uppercase();
         let yaml = api_yaml(named.item.unwrap_or_default(), &method, &target);
         let comment = format!("# {} · {method} {} · keys: {DOCS}#api-files", request.id, target.path);
-        self.added(
-            &project,
-            NewItem { kind: FileKind::Api, list: "apis", named, yaml, comment, root, also, next: None },
-        )
+        let new = NewItem { kind: FileKind::Api, list: "apis", named, yaml, comment, root, also, next: None };
+        let mut added = self.added(&project, new)?;
+        added.changes.titles.extend(note);
+        Ok(added)
     }
 }
 
@@ -97,13 +103,41 @@ pub fn based(project: &Authoring, file: &str, origin: &str) -> Result<(String, V
     let wanted = format!("${{var.{name}}}");
     if let Some(found) = project.find(FileKind::Api, file) {
         let opened = Authoring::open(found)?;
-        let base = opened.document.root().get("baseUrl").and_then(Node::as_str).unwrap_or("none");
-        if base != wanted {
-            let help = format!("use `--path` to add to {}, or another file ID for {origin}", found.1.path);
-            return Err(refused(format!("`{file}` takes its base URL from {base}, not {wanted}"), &help));
+        let base = opened.document.root().get("baseUrl").and_then(Node::as_str);
+        if base != Some(wanted.as_str()) {
+            let path = &found.1.path;
+            let (reason, add) = base.map_or_else(
+                || (format!("`{file}` has no `baseUrl`"), format!("add `baseUrl: {wanted}` to it, or ")),
+                |base| (format!("`{file}` takes its base URL from {base}, not {wanted}"), String::new()),
+            );
+            return Err(refused(
+                reason,
+                &format!("{add}use `--path` to add to {path}, or another file ID for {origin}"),
+            ));
         }
     }
     Ok((format!("baseUrl: {wanted}\n"), change.into_iter().collect()))
+}
+
+/// A new api file's root lines, the config changes they need, and the note to show.
+type Based = (String, Vec<FileChange>, Option<String>);
+
+/// The root line and config change of a new api file from `--path`: `baseUrl` from the config
+/// var `<last word>Url`, added as `http://localhost` when neither the config nor a profile sets
+/// it, with the note that says to set it. Another var that holds `http://localhost` is never
+/// reused: it is another service's placeholder.
+fn local_base(project: &Authoring, file: &str) -> Result<Based, EngineError> {
+    let opened = Authoring::open(config(project)?)?;
+    let name = base_name(file);
+    let set = vars_set(opened.document.root()).contains(&name);
+    let change = if set { None } else { Some(add_var(&opened, &name, LOCAL)?) };
+    let note = change.as_ref().map(|_| format!("set `vars.{name}` in the config to the service's URL; it is {LOCAL}"));
+    Ok((format!("baseUrl: ${{var.{name}}}\n"), change.into_iter().collect(), note))
+}
+
+/// The base-URL var named after the last word of the file ID `file`: `usersUrl`.
+fn base_name(file: &str) -> String {
+    format!("{}Url", camel_id(file.rsplit('.').next().unwrap_or(file)))
 }
 
 /// The config var that holds `origin`: one already set to it, or `<last word>Url` with the
@@ -119,31 +153,43 @@ pub fn config(project: &Authoring) -> Result<(SourceFileId, &SourceFile), Engine
     config.ok_or_else(|| internal("a project without its config"))
 }
 
-/// As [`base_var`], in the config `opened`.
+/// As [`base_var`], in the config `opened`. Another var holding `http://localhost` is never
+/// reused: it is the placeholder `--path` added for its own service. A `<last word>Url` the
+/// config or a profile sets to anything else is refused rather than shadowed.
 pub fn base_var_in(opened: &Opened<'_>, file: &str, origin: &str) -> Result<(Option<FileChange>, String), EngineError> {
-    let (document, root) = (&opened.document, opened.document.root());
-    let vars = root.get("vars");
-    let entries = vars.map(Node::entries).unwrap_or_default();
-    if let Some(same) = entries.iter().find(|entry| entry.value.as_str() == Some(origin)) {
+    let root = opened.document.root();
+    let entries = root.get("vars").map(Node::entries).unwrap_or_default();
+    let name = base_name(file);
+    let holds = |key: &str| entries.iter().any(|entry| entry.key == key && entry.value.as_str() == Some(origin));
+    if holds(&name) {
+        return Ok((None, name));
+    }
+    let other = |value: Option<&str>| value == Some(origin) && origin != LOCAL;
+    if let Some(same) = entries.iter().find(|entry| other(entry.value.as_str())) {
         return Ok((None, same.key.clone()));
     }
-    let name = format!("{}Url", camel_id(file.rsplit('.').next().unwrap_or(file)));
-    if entries.iter().any(|entry| entry.key == name) {
+    if vars_set(root).contains(&name) {
         let help = format!("set `vars.{name}` to {origin}, or add the api by `--path`");
-        return Err(refused(format!("the config var `{name}` holds another URL"), &help));
+        return Err(refused(format!("the config already sets `{name}`, to another URL or in a profile"), &help));
     }
-    let added = vars.map_or_else(
-        || document.insert_yaml(root, "vars", &format!("{name}: {}", write_text(origin, false))),
-        |vars| document.insert_flow_entry(vars, &name, origin).or_else(|_| document.insert_entry(vars, &name, origin)),
+    Ok((Some(add_var(opened, &name, origin)?), name))
+}
+
+/// The change that adds `name: value` to the `vars` of the config `opened`.
+fn add_var(opened: &Opened<'_>, name: &str, value: &str) -> Result<FileChange, EngineError> {
+    let (document, root) = (&opened.document, opened.document.root());
+    let added = root.get("vars").map_or_else(
+        || document.insert_yaml(root, "vars", &format!("{name}: {}", write_text(value, false))),
+        |vars| document.insert_flow_entry(vars, name, value).or_else(|_| document.insert_entry(vars, name, value)),
     );
     let edit =
         added.map_err(|error| refused(format!("cannot add `{name}` to the config: {error}"), "add it by hand"))?;
-    Ok((Some(opened.change(&[edit])?), name))
+    opened.change(&[edit])
 }
 
-/// The api's YAML: its ID, its method unless GET, its path with vars, and its query.
+/// The api's YAML: its ID, its name (the ID as a sentence), its method unless GET, its path with vars, and its query.
 fn api_yaml(id: &str, method: &str, target: &Target<'_>) -> String {
-    let mut lines = vec![format!("id: {id}")];
+    let mut lines = vec![format!("id: {id}"), format!("name: {}", write_text(&sentence(id), false))];
     lines.extend((method != "GET").then(|| format!("method: {}", write_text(method, false))));
     lines.push(format!("path: {}", write_text(&as_vars(target.path), false)));
     lines.extend((!target.query.is_empty()).then(|| "query:".to_owned()));
@@ -190,8 +236,8 @@ mod tests {
     #[test]
     fn an_api_is_written_with_its_method_only_when_not_get() {
         let target = Target { origin: "", path: "/users/{id}", query: vec![("q", "ann")] };
-        assert_eq!(api_yaml("find", "GET", &target), "id: find\npath: /users/${var.id}\nquery:\n  q: ann");
+        assert_eq!(api_yaml("find", "GET", &target), "id: find\nname: Find\npath: /users/${var.id}\nquery:\n  q: ann");
         let post = Target { origin: "", path: "/users", query: Vec::new() };
-        assert_eq!(api_yaml("create", "POST", &post), "id: create\nmethod: POST\npath: /users");
+        assert_eq!(api_yaml("create", "POST", &post), "id: create\nname: Create\nmethod: POST\npath: /users");
     }
 }

@@ -4,7 +4,7 @@ description: "Starts the Vibranium MCP server over stdio, so an AI agent can lis
 sidebar: { order: 26 }
 ---
 
-import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 Starts the MCP (Model Context Protocol) server on stdin and stdout. An agent such as Claude Code starts this command itself and then uses its tools to read the project, run checks and tests, call apis and write definition files. Every call, run and write follows the `agents` rules of the active profile.
 
@@ -103,9 +103,9 @@ A tool that needs a person's approval waits until someone runs [`vc approve`](/v
 
 | Code | When |
 | --- | --- |
-| `0` | The client closed the connection after a session |
-| `2` | No project was found |
-| `70` | The connection closed before `initialize` finished, or the server could not start (for example, an unknown `--profile`) |
+| `0` | The client closed the connection, after a session or before one began |
+| `2` | No project was found, a `--set` is bad, or a profile from `--profile`, `VIB_PROFILE` or your user config does not exist. The server does not start |
+| `70` | The session failed inside Vibranium |
 
 ```console
 $ vc mcp
@@ -113,9 +113,13 @@ error: no vibranium.config.yaml in /tmp or any folder above it
   = help: run it inside a project, pass `--project <dir>`, or create one with `vc init`
 ```
 
-<Aside type="caution">
-`vc mcp --profile nope` does not stop at once with a profile error, as `vc run` does. Check the profile name with `vc config explain profile --profile <name>` before you register the server.
-</Aside>
+```console
+$ vc mcp --profile nope
+error: --profile: no profile `nope`
+  = help: the profiles are dev, staging
+```
+
+A project with errors still serves, so the agent can read them with the `check` tool.
 
 ## How it behaves
 

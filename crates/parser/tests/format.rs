@@ -58,7 +58,46 @@ fn writes_lists_of_scalars_and_empty_collections_in_block_style() {
 }
 
 #[test]
-fn refuses_to_lose_a_comment_inside_a_flow_collection() {
+fn keeps_the_comment_after_a_flow_collection_on_its_key() {
+    let text = "name: x\nstatus: [204, 404]   # gone is fine\nvars: {a: 1, b: 2}  # both\n";
+    let tidy = "name: x\nstatus:   # gone is fine\n  - 204\n  - 404\nvars:  # both\n  a: 1\n  b: 2\n";
+    assert_eq!(format(text, false), Ok(tidy.to_owned()));
+    assert_eq!(format(tidy, false), Ok(tidy.to_owned()), "formatting twice changes nothing");
+}
+
+#[test]
+fn moves_each_comment_in_a_flow_map_to_its_entry() {
+    let text = "name: x\nvars: {  # the vars\n  a: 1,  # first\n  # about b\n  b: 2}\n";
+    let tidy = "name: x\nvars:  # the vars\n  a: 1  # first\n  # about b\n  b: 2\n";
+    assert_eq!(format(text, false), Ok(tidy.to_owned()));
+}
+
+#[test]
+fn moves_a_comment_line_in_a_flow_list_with_the_item_below_it() {
     let text = "name: x\ntags: [a,\n  # why\n  b]\n";
+    assert_eq!(format(text, false), Ok("name: x\ntags:\n  - a\n  # why\n  - b\n".to_owned()));
+}
+
+#[test]
+fn keeps_commented_out_lines_as_deep_as_the_block_they_end() {
+    let text = concat!(
+        "name: x\n",
+        "apis:\n",
+        "  - id: a\n",
+        "    path: /a\n",
+        "    # body:\n",
+        "    #   n: 1\n",
+        "  # - id: b\n",
+        "\n",
+        "# later\n",
+        "other: 1\n",
+        "  # the end\n",
+    );
+    assert_eq!(format(text, false), Ok(text.to_owned()));
+}
+
+#[test]
+fn refuses_to_lose_a_comment_before_a_flow_collection_closes() {
+    let text = "name: x\ntags: [a,\n  # why\n]\n";
     assert!(matches!(format(text, false), Err(ParserError::Unformattable(_))));
 }

@@ -21,6 +21,9 @@ const PORT: u16 = 7421;
 /// The demo's binary, shipped next to `vc`.
 const BINARY: &str = "vc-demo";
 
+/// How to install `vc-demo` from the repo, until there are prebuilt installers.
+const INSTALL: &str = "cargo install --git https://github.com/v007m/vc-rs vc-demo --locked";
+
 /// How long `start --detach` waits for the demo to answer.
 const WAIT: Duration = Duration::from_secs(10);
 
@@ -63,8 +66,7 @@ pub fn run(args: &DemoArgs) -> anyhow::Result<Outcome> {
 
 fn start(port: u16, detach: bool) -> anyhow::Result<Outcome> {
     let Some(binary) = binary() else {
-        let help = format!("install `{BINARY}` next to `vc`; the installers ship both");
-        return Ok(Outcome::Helped(format!("`{BINARY}` is not next to vc or on PATH"), Some(help)));
+        return Ok(missing());
     };
     if answers(port) {
         writeln!(stdout::out(), "a demo already answers on port {port}")?;
@@ -107,6 +109,14 @@ fn stop(port: u16) -> anyhow::Result<Outcome> {
     let said = if stopped { "stopped the demo on port" } else { "no demo running on port" };
     writeln!(stdout::out(), "{said} {port}")?;
     Ok(Outcome::Done)
+}
+
+/// Exit 2: `vc-demo` is in neither place [`binary`] looks, named in the order it looks.
+fn missing() -> Outcome {
+    let folder = env::current_exe().ok().and_then(|exe| Some(exe.parent()?.display().to_string()));
+    let beside = folder.map_or_else(String::new, |folder| format!(" (in {folder})"));
+    let help = format!("install it with `{INSTALL}`, or put `{BINARY}` next to `vc`");
+    Outcome::Helped(format!("`{BINARY}` is not next to vc{beside} or on PATH"), Some(help))
 }
 
 /// `vc-demo` in the folder of the running `vc`, else the first on `PATH`.

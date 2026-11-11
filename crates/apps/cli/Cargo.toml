@@ -12,6 +12,11 @@ publish.workspace = true
 name = "vc"
 path = "src/main.rs"
 
+# The long name of `vc` (D39), which runs the `vc` installed beside it.
+[[bin]]
+name = "vibranium"
+path = "src/bin/vibranium.rs"
+
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
