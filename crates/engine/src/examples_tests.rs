@@ -71,6 +71,19 @@ fn an_example_row_with_a_name_is_labeled_by_it() {
 }
 
 #[test]
+fn rows_that_share_a_name_keep_their_numbers_so_no_two_labels_match() {
+    let tests = "tests:\n  - id: createsUsers\n    call: users#get\n    examples:\n      - {name: Bob, email: a}\n      - {name: Ann, email: b}\n      - {name: Bob, email: c}\n";
+    let expected = [
+        "users.rows#createsUsers › Bob [row 1]",
+        "users.rows#createsUsers › Ann",
+        "users.rows#createsUsers › Bob [row 3]",
+    ];
+    assert_eq!(labels(tests, None), expected, "only the rows named alike show their numbers");
+    let repeated = labels(tests, Some(2));
+    assert_eq!(repeated[0], "users.rows#createsUsers › Bob [row 1, repeat 1]", "{repeated:?}");
+}
+
+#[test]
 fn every_instance_of_a_repeated_test_shows_its_repeat_however_it_repeats() {
     let tests =
         "tests:\n  - id: getsUsers\n    call: users#get\n  - id: getsAgain\n    call: users#get\n    repeat: 2\n";

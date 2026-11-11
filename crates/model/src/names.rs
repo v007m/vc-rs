@@ -58,6 +58,8 @@ pub struct Names {
     repeated: HashSet<TestId>,
     /// The `name` of each example row that gives one.
     row_labels: BTreeMap<(TestId, u32), String>,
+    /// The rows whose `name` another row of the same test gives too.
+    shared_rows: HashSet<(TestId, u32)>,
 }
 
 impl Names {
@@ -72,7 +74,8 @@ impl Names {
             .collect();
         let instances = planned.iter().map(|p| (p.instance, (p.example_row, p.repeat_index))).collect();
         let repeated = planned.iter().filter(|p| p.repeat_index > 0).map(|p| p.test).collect();
-        Self { program, instances, planned, repeated, row_labels: plan.row_names.clone() }
+        let shared_rows = shared_names(&plan.row_names);
+        Self { program, instances, planned, repeated, row_labels: plan.row_names.clone(), shared_rows }
     }
 
     /// The plan's instances, in plan order.
@@ -137,8 +140,9 @@ impl Names {
 
     /// The instance as people know it: `users.crud#rejectsBadEmail [row 2, repeat 1]`, numbered
     /// from 1, or `users.crud#rejectsBadEmail › missing @ [repeat 1]` for a row with a `name`;
-    /// the repeat shows on every instance of a test the plan repeats, and on none of one it
-    /// does not.
+    /// a row whose `name` another row of the test gives too keeps its number as well
+    /// (`› Bob [row 2]`), so no two instances share a label. The repeat shows on every instance
+    /// of a test the plan repeats, and on none of one it does not.
     #[must_use]
     pub fn instance(&self, result: &TestResult) -> String {
         self.label(result.test, result.instance)
@@ -165,7 +169,8 @@ impl Names {
         if let Some(name) = named {
             let _ = write!(label, " › {name}");
         }
-        let row = row.filter(|_| named.is_none()).map(|r| format!("row {}", u64::from(r) + 1));
+        let numbered = |r: &u32| named.is_none() || self.shared_rows.contains(&(test, *r));
+        let row = row.filter(numbered).map(|r| format!("row {}", u64::from(r) + 1));
         let repeat = self.repeated.contains(&test).then(|| format!("repeat {}", u64::from(repeat) + 1));
         let marks: Vec<String> = row.into_iter().chain(repeat).collect();
         if !marks.is_empty() {
@@ -277,4 +282,14 @@ fn path_text(segments: &[Segment]) -> String {
         }
     }
     out
+}
+
+/// The rows of `names` whose `name` another row of the same test gives too.
+fn shared_names(names: &BTreeMap<(TestId, u32), String>) -> HashSet<(TestId, u32)> {
+    let mut counts: HashMap<(TestId, &str), usize> = HashMap::new();
+    for (&(test, _), name) in names {
+        *counts.entry((test, name.as_str())).or_default() += 1;
+    }
+    let shared = |test: TestId, name: &String| counts.get(&(test, name.as_str())).is_some_and(|&count| count > 1);
+    names.iter().filter(|&(&(test, _), name)| shared(test, name)).map(|(&key, _)| key).collect()
 }
