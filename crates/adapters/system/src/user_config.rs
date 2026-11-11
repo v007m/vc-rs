@@ -229,6 +229,16 @@ mod tests {
     }
 
     #[test]
+    fn a_missing_file_keeps_its_path_and_only_a_missing_file_is_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.yaml");
+        let empty = UserConfig::parse("", path.display().to_string()).unwrap();
+        assert_eq!(UserConfig::read(&path).unwrap(), empty, "the empty layer still names the file it would be");
+        let error = UserConfig::read(dir.path()).unwrap_err();
+        assert!(matches!(error, ConfigSourceError::Unreadable { .. }), "a folder is not a missing file: {error}");
+    }
+
+    #[test]
     fn the_default_path_follows_xdg_then_home_then_appdata() {
         let path = |vars: &[(&str, &str)]| UserConfig::default_path(&MemoryEnvironment::new(vars));
         let xdg = path(&[("XDG_CONFIG_HOME", "/x"), ("HOME", "/h")]);
