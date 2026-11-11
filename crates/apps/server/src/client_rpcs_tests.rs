@@ -115,7 +115,8 @@ async fn explains_an_api_under_the_profiles_and_sets_the_request_gives() {
 #[tokio::test(flavor = "multi_thread")]
 async fn explains_the_draft_the_form_holds_in_place_of_the_file() {
     let (_dir, api) = project();
-    let draft = wire::ApiDraft { path: API.into(), digest: digest_of(&api), edits: vec![set("/apis/0/path", "\"/people\"")] };
+    let draft =
+        wire::ApiDraft { path: API.into(), digest: digest_of(&api), edits: vec![set("/apis/0/path", "\"/people\"")] };
     let request = wire::ExplainApiRequest { draft: Some(draft), ..explain("users#list", &[]) };
     let explained = explain_api(api.clone(), request).await.unwrap();
     assert!(explained.curl.starts_with("curl -X GET 'http://127.0.0.1:9/people'"), "{}", explained.curl);

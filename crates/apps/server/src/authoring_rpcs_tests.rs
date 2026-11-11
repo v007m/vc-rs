@@ -155,7 +155,9 @@ async fn a_skip_previews_then_writes_and_its_unskip_gives_back_the_original_byte
     let undo = unskip(api.clone(), undoing.clone()).await.unwrap();
     assert_eq!(undo.files[0].after, CRUD);
     assert_ne!(on_disk(), CRUD, "a preview writes nothing");
-    unskip(api, wire::UnskipRequest { write: true, expected_digest: Some(undo.digest.clone()), ..undoing }).await.unwrap();
+    unskip(api, wire::UnskipRequest { write: true, expected_digest: Some(undo.digest.clone()), ..undoing })
+        .await
+        .unwrap();
     assert_eq!(on_disk(), CRUD);
     assert!(!format!("{preview:?} {undo:?}").contains(SECRET));
 }
