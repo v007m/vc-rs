@@ -75,7 +75,8 @@ fn edges(graph: &str) -> Vec<String> {
     let named = |id: &str| labels.get(id).copied().unwrap_or(id).to_owned();
     let edge = |line: &str| {
         let (from, rest) = line.trim().split_once(" -> ")?;
-        let (to, kind) = rest.split_once(' ').map_or((rest.trim_end_matches(';'), "needs"), |(to, _)| (to, "order"));
+        let (to, kind) =
+            rest.split_once(' ').map_or_else(|| (rest.trim_end_matches(';'), "needs"), |(to, _)| (to, "order"));
         Some(format!("{} -> {} ({kind})", named(from), named(to)))
     };
     graph.lines().filter_map(edge).collect()

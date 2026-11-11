@@ -152,7 +152,8 @@ impl Roots {
 fn closest(diagnostic: Diagnostic, (reference, name): (&Reference, &str), steps: &[&str]) -> Diagnostic {
     let limit = (name.chars().count() / 3).max(1);
     let distance = |known: &str| strsim::damerau_levenshtein(&name.to_lowercase(), &known.to_lowercase());
-    let close: Vec<&str> = parse::root_names().chain(steps.iter().copied()).filter(|k| distance(k) <= limit).collect();
+    let roots = parse::root_names().map(|root| -> &str { root });
+    let close: Vec<&str> = roots.chain(steps.iter().copied()).filter(|known| distance(known) <= limit).collect();
     let one = match close.as_slice() {
         [] => return diagnostic,
         [one] => *one,

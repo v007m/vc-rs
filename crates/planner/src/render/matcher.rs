@@ -53,14 +53,14 @@ fn named(name: &str, value: Option<String>) -> String {
 /// `2s` when whole seconds, else `250ms`.
 fn duration(duration: Duration) -> String {
     let millis = duration.get().as_millis();
-    if millis > 0 && millis % 1000 == 0 { format!("{}s", millis / 1000) } else { format!("{millis}ms") }
+    if millis > 0 && millis.is_multiple_of(1000) { format!("{}s", millis / 1000) } else { format!("{millis}ms") }
 }
 
 /// The largest binary unit the size is a whole number of: `4kb`, else `32b` (D146).
 fn size(size: Size) -> String {
     let bytes = size.bytes();
     let units = [(1 << 30, "gb"), (1 << 20, "mb"), (1 << 10, "kb")];
-    let unit = units.into_iter().find(|(unit, _)| bytes > 0 && bytes % unit == 0);
+    let unit = units.into_iter().find(|(unit, _)| bytes > 0 && bytes.is_multiple_of(*unit));
     unit.map_or_else(|| format!("{bytes}b"), |(unit, name)| format!("{}{name}", bytes / unit))
 }
 

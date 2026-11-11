@@ -35,9 +35,10 @@ pub fn third_person(id: &str) -> String {
     verb + rest
 }
 
-/// Whether the camelCase `id` starts with a word that reads as a third-person verb: one ending
-/// in `s` but not `ss` or `us` (`getsUser`, `isHealthy`; not `getUser`, `userTest`,
-/// `processOrder`). A plural noun (`usersList`) passes: the words alone cannot tell.
+/// Whether the camelCase `id` starts with a word that reads as a third-person verb.
+///
+/// That is a word ending in `s` but not `ss` or `us` (`getsUser`, `isHealthy`; not `getUser`,
+/// `userTest`, `processOrder`). A plural noun (`usersList`) passes: the words alone cannot tell.
 #[must_use]
 pub fn is_third_person(id: &str) -> bool {
     let (verb, _) = first_word(id);

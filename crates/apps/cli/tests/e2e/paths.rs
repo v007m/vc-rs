@@ -62,8 +62,8 @@ async fn a_path_value_arrives_as_one_segment_and_url_encode_is_not_applied_twice
     assert_eq!(output.status.code(), Some(0), "{}", said(&output));
     assert_eq!(server.stats().await.unwrap().count("GET /echo/{*rest}"), 7);
     let checked = project.vc(&["check"]).output().unwrap();
-    let text = said(&checked);
-    assert!(text.contains("warning[V4007]: `urlEncode` is not needed in a `path`"), "{text}");
-    assert!(text.contains("fix: Remove `| urlEncode` (certain)"), "{text}");
-    assert_eq!(text.matches("V4007").count(), 1, "{text}");
+    let warned = said(&checked);
+    assert!(warned.contains("warning[V4007]: `urlEncode` is not needed in a `path`"), "{warned}");
+    assert!(warned.contains("fix: Remove `| urlEncode` (certain)"), "{warned}");
+    assert_eq!(warned.matches("V4007").count(), 1, "{warned}");
 }

@@ -1,4 +1,4 @@
-//! V4006: a `{name}` placeholder in an api's `path`, the way OpenAPI writes one. A path is a
+//! V4006: a `{name}` placeholder in an api's `path`, the way an `OpenAPI` spec writes one. A path is a
 //! template, so `{jobId}` is sent as the text `{jobId}`; the var is `${var.jobId}`.
 
 use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};

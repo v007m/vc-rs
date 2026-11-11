@@ -15,6 +15,9 @@ pub struct Called<'a> {
     pub action: Option<&'a Action>,
 }
 
+/// The headers one level sets on a call, with that level's origin.
+type HeaderLevel<'h> = (String, &'h IndexMap<String, Template>);
+
 /// The origin of the action's own `vars`, `headers` and `auth`.
 const CALL: &str = "call";
 
@@ -64,7 +67,7 @@ impl Explainer<'_> {
     }
 
     /// Each level that sets headers on the call, furthest first, with its origin.
-    fn header_levels<'h>(&'h self, called: &Called<'h>) -> Vec<(String, &'h IndexMap<String, Template>)> {
+    fn header_levels<'h>(&'h self, called: &Called<'h>) -> Vec<HeaderLevel<'h>> {
         let api = called.api;
         let mut levels = vec![(CONFIG.to_owned(), &self.program.config.defaults.headers)];
         if let Some(group) = self.program.api_groups.get(&api.group) {

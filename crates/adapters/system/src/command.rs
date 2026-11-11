@@ -210,12 +210,14 @@ fn trim(kept: &mut Vec<u8>, cap: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::OsString;
+    use std::path::Path;
     use std::time::Duration;
 
     use vc_interfaces::{CommandError, CommandOutput, CommandRunner, CommandSpec};
     use vc_testkit::command_runner_suite;
 
-    use super::{ProcessRunner, trim};
+    use super::{ProcessRunner, path_ending_in, trim};
 
     #[tokio::test]
     async fn the_process_runner_meets_the_command_runner_contract() {

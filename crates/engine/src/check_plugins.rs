@@ -33,10 +33,10 @@ impl Engine {
                 continue;
             };
             ids.push(id);
-            let problem = match self.refused(id, &locked) {
-                Some(reason) => Some(unusable((node, id), &reason, LIST_HELP)),
-                None => literal(plugin.config.as_ref()).err().map(|reason| templated((node, id), &reason)),
-            };
+            let problem = self.refused(id, &locked).map_or_else(
+                || literal(plugin.config.as_ref()).err().map(|reason| templated((node, id), &reason)),
+                |reason| Some(unusable((node, id), &reason, LIST_HELP)),
+            );
             found.extend(problem);
         }
         found.extend(self.misused_formats(&root, &ids));

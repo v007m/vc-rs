@@ -1,7 +1,7 @@
 //! What a spot reads: vars set at some level for every profile (V2101), pipes that fit the
 //! var's type (V2304), and step ids that ran earlier in the same test or block (V2105).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
 use vc_model::{Matcher, MatcherArg, Namespace, Reference, Segment, SourceSpan};

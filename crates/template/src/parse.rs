@@ -21,7 +21,7 @@ const ROOTS: &[(&str, Namespace)] = &[
 ];
 
 /// The fixed roots' names, in order.
-pub(crate) fn root_names() -> impl Iterator<Item = &'static str> {
+pub fn root_names() -> impl Iterator<Item = &'static str> {
     ROOTS.iter().map(|(name, _)| *name)
 }
 

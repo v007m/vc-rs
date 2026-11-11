@@ -100,10 +100,10 @@ impl Settings {
     }
 
     fn apply_all(&mut self, entries: &[ConfigEntry]) -> Result<(), EngineError> {
-        entries.iter().try_for_each(|entry| self.apply(entry))
+        entries.iter().try_for_each(|entry| self.apply_entry(entry))
     }
 
-    fn apply(&mut self, entry: &ConfigEntry) -> Result<(), EngineError> {
+    fn apply_entry(&mut self, entry: &ConfigEntry) -> Result<(), EngineError> {
         let setting = |reason: String, help: Option<String>| EngineError::Setting {
             origin: entry.origin.clone(),
             reason: format!("`{}`: {reason}", entry.key),

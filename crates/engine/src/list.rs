@@ -97,10 +97,7 @@ fn line(item: &Listed) -> String {
 /// `  (skipped: flaky upstream, until 2026-12-01)`, or `  (skipped)` without a reason.
 fn skipped(item: &Listed) -> String {
     let until = item.skip_until.as_ref().map(|until| format!(", until {until}")).unwrap_or_default();
-    match &item.skip_reason {
-        Some(reason) => format!("  (skipped: {reason}{until})"),
-        None => "  (skipped)".to_owned(),
-    }
+    item.skip_reason.as_ref().map_or_else(|| "  (skipped)".to_owned(), |reason| format!("  (skipped: {reason}{until})"))
 }
 
 impl Engine {

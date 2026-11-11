@@ -19,14 +19,14 @@ impl Engine {
         if named.is_some_and(|named| !named.names.is_empty()) {
             return None;
         }
-        let names: Vec<&str> = program.profiles.keys().filter_map(|id| program.str(id.sym())).collect();
-        let first = names.first().copied().unwrap_or("dev");
+        let profile_names: Vec<&str> = program.profiles.keys().filter_map(|id| program.str(id.sym())).collect();
+        let first = profile_names.first().copied().unwrap_or("dev");
         let span = profiles_key(files)?;
         let message = "no profile is marked `default: true`, so a run without `--profile` has none active";
         let help = format!(
             "mark one `default: true` (`- id: {first}` then `default: true`), or name one with `--profile` or \
              `VIB_PROFILE` on every run; the profiles are {}",
-            names.join(", ")
+            profile_names.join(", ")
         );
         Some(Diagnostic::new(Code::V3101, span, message).label("none marked default").help(help))
     }

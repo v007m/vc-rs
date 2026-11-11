@@ -145,8 +145,8 @@ async fn the_check_reads_the_cached_saves_and_a_failed_check_reruns_the_action_a
     assert_eq!(sent.len(), 1, "no check before anything is cached");
     let (hit, sent) = run(&target, (Some(&store), 1_001), vec![json_response(200, &json!({}))]).await;
     let paths: Vec<_> = sent.iter().map(|recorded| recorded.request.uri.path().to_owned()).collect();
-    assert_eq!((hit.saved, paths), (saved(json!({ "userId": 7 })), vec!["/users/7/7".to_owned()]));
     assert_eq!(reported(&hit), ["/users/7/7"], "a hit reports its check's exchange");
+    assert_eq!((hit.saved, paths), (saved(json!({ "userId": 7 })), vec!["/users/7/7".to_owned()]));
     let answers = vec![json_response(404, &json!({})), json_response(201, &json!({ "id": 8 }))];
     let (rerun, sent, replaced) = replacing(&target, (Some(&store), 1_002), answers).await;
     assert_eq!(reported(&rerun), ["/users/7/7", "/users"], "a miss reports the check's exchange, then its own");
