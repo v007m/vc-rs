@@ -20,6 +20,9 @@
 
 mod app;
 mod driver;
+mod driver_edit;
+mod edit_session;
+mod edit_view;
 mod error;
 mod explore_screen;
 mod explore_view;
@@ -37,6 +40,7 @@ mod run_view;
 mod screen;
 mod tabs;
 mod terminal;
+mod text_area;
 mod theme;
 mod view;
 

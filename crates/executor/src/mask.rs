@@ -290,20 +290,22 @@ pub struct Masking<'m> {
 }
 
 impl Masking<'_> {
-    /// `text` with every secret value masked, then every rule applied.
+    /// `text` with every secret value masked, then every rule applied, each rule's output
+    /// masked again: a `function:` rule's hook may read a secret and return it.
     pub async fn text(&self, text: &str) -> String {
         let mut text = self.masks.without_values(text);
         for rule in self.rules {
-            text = rule.text(text).await;
+            text = self.masks.without_values(&rule.text(text).await);
         }
         text
     }
 
-    /// `value` with every secret value and hidden field masked, then every rule applied.
+    /// `value` with every secret value and hidden field masked, then every rule applied, each
+    /// rule's output masked again.
     pub async fn value(&self, value: Value) -> Value {
         let mut value = self.masks.value(value);
         for rule in self.rules {
-            value = rule.value(value).await;
+            value = self.masks.value(rule.value(value).await);
         }
         value
     }

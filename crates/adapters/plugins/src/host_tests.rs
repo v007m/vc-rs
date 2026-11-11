@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::json;
@@ -151,6 +152,96 @@ async fn a_data_folder_reached_through_a_link_is_refused_and_the_plugin_never_st
     assert_eq!(std::fs::read_dir(elsewhere.path()).unwrap().count(), 0, "nothing is made through the link");
 }
 
+#[tokio::test]
+async fn a_confined_plugin_naming_a_file_outside_the_project_never_starts() {
+    let root = tempfile::tempdir().unwrap();
+    let mut manifest = suite_plugin_manifest();
+    manifest.permissions.files = vec!["../elsewhere".into()];
+    let granted = manifest.permissions.clone();
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted).confined(root.path(), Arc::default());
+    let refused = host.call("suite/echo", json!({}), CALL_DEADLINE).await.unwrap_err();
+    let PluginError::Start { reason, .. } = refused else { panic!("{refused:?}") };
+    assert_eq!(reason, "its file permission `../elsewhere` is not a path inside the project");
+}
+
+#[test]
+fn a_plugin_that_cannot_be_confined_is_refused_on_macos_and_elsewhere_runs_unconfined_and_says_so() {
+    let (told, mut heard) = tokio::sync::broadcast::channel(4);
+    let host = StdioPluginHost::new(suite_plugin_manifest(), suite_dir(), granted()).told(told);
+    let entry = (PathBuf::from("python3"), Vec::new());
+    let first = host.unconfined(entry.clone(), "no sandbox".to_owned());
+    if crate::confine::FAIL_CLOSED {
+        let Err(PluginError::Unconfined { plugin, reason }) = &first else { panic!("{first:?}") };
+        assert_eq!((plugin.as_str(), reason.as_str()), ("suitePlugin", "no sandbox"));
+        assert!(heard.try_recv().is_err(), "a plugin never started says nothing");
+    } else {
+        assert_eq!(first.unwrap(), entry);
+        assert_eq!(heard.try_recv().unwrap(), "plugin `suitePlugin` runs unconfined: no sandbox");
+    }
+    let allowed = host.allow_unconfined(true).unconfined(entry.clone(), "no sandbox".to_owned());
+    assert_eq!(allowed.unwrap(), entry);
+    assert_eq!(heard.try_recv().unwrap(), "plugin `suitePlugin` runs unconfined: no sandbox");
+}
+
+#[test]
+fn a_file_a_confined_plugin_cannot_make_is_named_with_the_remedy() {
+    let (told, mut heard) = tokio::sync::broadcast::channel(4);
+    let host = StdioPluginHost::new(suite_plugin_manifest(), suite_dir(), granted()).told(told);
+    let root = Path::new("/work/shop");
+    host.cannot_make(root, &[root.join("out.json")]);
+    let said = heard.try_recv().unwrap();
+    let expected = "plugin `suitePlugin` cannot make `out.json`, which it may write, until it exists: create the \
+                    file first, or grant a path in a folder of the project";
+    assert_eq!(said, expected);
+    assert!(heard.try_recv().is_err(), "one line a file");
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn a_confined_plugin_without_a_launcher_runs_unconfined_and_says_so_once() {
+    if !python() {
+        return eprintln!("skipped: python3 is not installed");
+    }
+    let (root, (told, mut heard)) = (tempfile::tempdir().unwrap(), tokio::sync::broadcast::channel(4));
+    let mut secrets = Secrets::new();
+    secrets.insert("suiteToken", Secret::new("t0k3n"));
+    let host = StdioPluginHost::new(suite_plugin_manifest(), suite_dir(), granted())
+        .secrets(&secrets)
+        .told(told)
+        .confined(root.path(), Arc::default());
+    for _ in 0..2 {
+        host.call("suite/echo", json!({"said": "hi"}), Duration::from_secs(5)).await.unwrap();
+    }
+    let said = heard.try_recv().unwrap();
+    assert!(said.starts_with("plugin `suitePlugin` runs unconfined: `vc` cannot find its own program"), "{said}");
+    assert!(heard.try_recv().is_err(), "one warning a run");
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn a_confined_plugin_writes_its_data_folder_and_nothing_else_in_the_project() {
+    let seatbelt = std::process::Command::new("/usr/bin/sandbox-exec")
+        .args(["-p", "(version 1)(allow default)", "/usr/bin/true"])
+        .status()
+        .is_ok_and(|status| status.success());
+    if !python() || !seatbelt {
+        return eprintln!("skipped: python3 is not installed, or sandbox-exec cannot apply a profile here");
+    }
+    let manifest = vc_interfaces::PluginManifest {
+        command: "python3".into(),
+        args: vec!["-c".into(), format!("{READ}{LEAKS}")],
+        ..suite_plugin_manifest()
+    };
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join(".vibranium/plugin-data/suitePlugin");
+    let host = StdioPluginHost::new(manifest, suite_dir(), granted())
+        .data(root.path(), ".vibranium/plugin-data/suitePlugin")
+        .confined(root.path(), Arc::default());
+    host.call("suite/keep", json!({}), Duration::from_secs(5)).await.unwrap();
+    assert_eq!(std::fs::read_to_string(data.join("state.txt")).unwrap(), "kept");
+    assert!(!root.path().join("leaked.txt").exists(), "the project outside its data folder is closed");
+}
+
 /// Reads one framed message from stdin.
 const READ: &str = r#"
 import json, sys, time
@@ -183,6 +274,21 @@ for _ in range(2):
     if request["method"] == "suite/keep":
         open(os.path.join(data, "state.txt"), "w").write("kept")
     send(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": data}).encode())
+"#;
+
+/// Answers `initialize`, then writes a file in its data folder and tries one beside the
+/// project's `.vibranium` folder, three folders up.
+#[cfg(target_os = "macos")]
+const LEAKS: &str = r#"
+import os
+for _ in range(2):
+    request = read()
+    if request["method"] == "suite/keep":
+        data = os.environ["VIB_PLUGIN_DATA"]
+        open(os.path.join(data, "state.txt"), "w").write("kept")
+        try: open(os.path.join(data, "..", "..", "..", "leaked.txt"), "w").write("no")
+        except OSError: pass
+    send(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": None}).encode())
 "#;
 
 /// Answers `initialize`, then never reads its input again.

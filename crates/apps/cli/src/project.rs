@@ -39,12 +39,22 @@ pub fn locate_with(
         Some(dir) => cwd.join(dir),
         None => cwd.clone(),
     };
-    let engine = match EngineBuilder::for_project(&start).map(configure).and_then(EngineBuilder::build) {
+    let builder = EngineBuilder::for_project(&start).map(configure).map(launcher);
+    let engine = match builder.and_then(EngineBuilder::build) {
         Ok(engine) => engine,
         Err(error) => return Ok(Err(Outcome::Engine(error))),
     };
     let base = if project.is_some() { engine.root().to_path_buf() } else { cwd };
     Ok(Ok(Located { engine, base }))
+}
+
+/// `builder`, confining plugins on Linux through this program as their launcher (D254); as it
+/// is when the program's path cannot be found.
+fn launcher(builder: EngineBuilder) -> EngineBuilder {
+    match std::env::current_exe() {
+        Ok(vc) => builder.plugin_launcher(vc),
+        Err(_) => builder,
+    }
 }
 
 /// The project root at or above `dir`, for commands that need only the folder.

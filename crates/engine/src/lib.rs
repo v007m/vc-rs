@@ -31,12 +31,14 @@
 
 mod agent_gate;
 mod agent_write;
+mod alert_samples;
 mod alerts;
 mod approvals;
 mod authoring;
 mod builder;
 mod cache;
 mod call;
+mod call_report;
 mod check;
 mod check_alerts;
 mod complete;
@@ -107,10 +109,11 @@ mod watch;
 mod yaml_out;
 
 pub use agent_write::WriteRequest;
+pub use alert_samples::AlertSent;
 pub use approvals::{APPROVAL_WAIT, Admission, AgentOutcome};
 pub use builder::{Engine, EngineBuilder};
 pub use cache::CacheReport;
-pub use call::CallReport;
+pub use call_report::{CallReport, SavedValue};
 pub use check::{CheckReport, CheckRequest};
 pub use complete::CompleteKind;
 pub use config_values::{ConfigLayer, ConfigValue, ConfigValues};
@@ -129,6 +132,7 @@ pub use list::{ListReport, Listed};
 pub use list_detail::{ApiCall, action_call};
 pub use load_report::{ErrorKind, LoadBreach, LoadEnding, LoadReport, LoadRequest, LoadWatch};
 pub use plan::PlanReport;
+pub use plugin_hosts::launch_plugin;
 pub use plugins::{PluginListing, PluginOffer, PluginState};
 pub use policy::{AgentCall, Permission};
 pub use project_info::ProjectInfo;

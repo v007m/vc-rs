@@ -10,7 +10,7 @@ use vc_interfaces::{PluginError, PluginKind, PluginStderr, Secrets};
 use vc_testkit::{FakeVcs, MemoryCompileCache, MemoryEnvironment};
 
 use super::PluginState;
-use crate::plugin_hosts::Hosts;
+use crate::plugin_hosts::{ALLOW_UNCONFINED_ENV, Hosts};
 use crate::{Engine, EngineBuilder, EngineError};
 
 const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\n";
@@ -251,12 +251,13 @@ async fn a_plugin_s_files_are_checked_on_its_first_call_and_it_keeps_its_own_in_
     assert!(reason.contains("$VIB_PLUGIN_DATA"), "{reason}");
 }
 
-/// Starts the plugin `report` among `hosts` with a call; what the hosts said meanwhile.
+/// Starts the plugin `report` among `hosts` with a call; what the hosts said meanwhile, but for
+/// the warning that it runs unconfined (on Linux, as these engines have no launcher).
 async fn started(hosts: &Hosts) -> Vec<String> {
     let mut heard = hosts.heard();
     let host = hosts.get("report", PluginKind::Reporter).unwrap();
     drop(host.call("reporter/finish", Value::Null, Duration::from_secs(5)).await);
-    std::iter::from_fn(|| heard.try_recv().ok()).collect()
+    std::iter::from_fn(|| heard.try_recv().ok()).filter(|line| !line.contains("` runs unconfined: ")).collect()
 }
 
 #[cfg(unix)]
@@ -285,4 +286,35 @@ async fn a_fresh_project_makes_the_log_folder_only_as_the_plugin_starts() {
     assert!(!logs.exists(), "no folder is made for a plugin the run may never start");
     assert_eq!(started(&hosts).await, Vec::<String>::new(), "nothing is dropped");
     assert!(logs.join("report").join(vc_adapter_plugins::STDERR_LOG).is_file());
+}
+
+/// Whether an engine for the project at `root`, with the process environment `vars` and the
+/// user config `user`, lets plugins run unconfined.
+fn allowing(root: &Path, vars: &[(&str, &str)], user: &Path) -> bool {
+    let engine = EngineBuilder::new(root.to_path_buf())
+        .vcs(Arc::new(FakeVcs::default()))
+        .environment(Arc::new(MemoryEnvironment::new(vars)))
+        .user_config(user.to_path_buf())
+        .build()
+        .unwrap();
+    engine.unconfined_allowed()
+}
+
+#[test]
+fn only_the_user_lets_plugins_run_unconfined_never_the_project() {
+    let (dir, engine) = project();
+    let (home, none) = (tempfile::tempdir().unwrap(), Path::new("/nonexistent/vibranium/config.yaml"));
+    let user = home.path().join("config.yaml");
+    fs::write(&user, "plugins:\n  allowUnconfined: true\n").unwrap();
+    assert!(!allowing(dir.path(), &[], none), "confined unless the user says otherwise");
+    assert!(allowing(dir.path(), &[], &user), "the user config can");
+    assert!(allowing(dir.path(), &[(ALLOW_UNCONFINED_ENV, "1")], none), "the process environment can");
+    fs::write(dir.path().join(".env"), format!("{ALLOW_UNCONFINED_ENV}=1\n")).unwrap();
+    assert!(!allowing(dir.path(), &[], none), "the project's .env cannot");
+    let config = dir.path().join("vibranium.config.yaml");
+    fs::write(&config, format!("{CONFIG}plugins:\n  allowUnconfined: true\n")).unwrap();
+    assert!(engine.program().is_err(), "the project's config cannot: its `plugins` is a list");
+    fs::write(&config, format!("{CONFIG}    plugins: {{allowUnconfined: true}}\n")).unwrap();
+    assert!(engine.program().is_err(), "nor can a profile");
+    assert!(!allowing(dir.path(), &[], none));
 }

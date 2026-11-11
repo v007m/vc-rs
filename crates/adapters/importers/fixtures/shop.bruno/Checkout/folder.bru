@@ -1,0 +1,14 @@
+meta {
+  name: Checkout
+  seq: 2
+}
+
+auth {
+  mode: apikey
+}
+
+auth:apikey {
+  key: api_key
+  value: {{payKey}}
+  placement: queryparams
+}

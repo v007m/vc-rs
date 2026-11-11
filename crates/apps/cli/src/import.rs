@@ -14,7 +14,7 @@ use crate::{Outcome, changes, project};
 pub struct ImportArgs {
     /// The kind of file: `openapi`, `curl`, `har`, `postman`, `bruno` or `http`.
     kind: String,
-    /// The URL or path of the spec or recording.
+    /// The URL or path of the spec or recording, or the folder of a Bruno collection.
     source: String,
     /// The file ID of the api file to fill, such as `users`; derived from the spec when left
     /// out.

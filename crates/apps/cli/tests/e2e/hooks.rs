@@ -1,6 +1,6 @@
 //! Hooks (D172): a `beforeRequest` hook signs the request, a `function:` step saves a value, a
 //! custom check judges the response, and a hook past its time or memory budget is stopped and
-//! reported with its TypeScript line. A file-level hook reads a declared secret with `secret(name)`.
+//! reported with its TypeScript line.
 
 use vc_mock_server::MockServer;
 
@@ -93,30 +93,35 @@ async fn a_hook_past_its_time_or_memory_budget_is_stopped_with_its_line() {
     }
 }
 
+const SIGN_KEY: &str = "Wm5c-Ry8d-Kp2t";
+
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "issue: hooks get no secrets; HookBridge never calls HookCall::with_secrets (crates/executor/src/action/hooks/mod.rs)"]
-async fn a_file_level_hook_reads_a_declared_secret() {
+async fn hooks_read_the_run_s_secrets_and_never_show_them() {
     let server = MockServer::start().await.unwrap();
-    let apis = concat!(
-        "baseUrl: ${var.baseUrl}\nbeforeRequest:\n  - function: ../../hooks/key.ts#addKey\n",
-        "apis:\n  - id: echo\n    method: POST\n    path: /echo\n",
-        "    expect:\n      body:\n        match:\n          \"headers['x-key']\": k3y\n",
+    let sign = concat!(
+        "import { hmacSha256Hex } from \"vibranium:std\";\n",
+        "export const sign = ({ request }) =>\n",
+        "  ({ ...request, headers: { ...request.headers, \"x-signature\": hmacSha256Hex(secret(\"SIGN_KEY\"), request.path) } });\n",
+        "export const seed = () => ({ keyed: secret(\"SIGN_KEY\").length === 14 ? \"yes\" : \"no\" });\n",
     );
-    let key = concat!(
-        "import type { BeforeRequestHook } from \"@vibranium/sdk\";\n\n",
-        "export const addKey: BeforeRequestHook = ({ request, secret }) => ({\n",
-        "  ...request,\n",
-        "  headers: { ...request.headers, \"x-key\": secret(\"API_KEY\") },\n",
-        "});\n",
+    let test = concat!(
+        "tests:\n  - id: signsWithTheKey\n    steps:\n",
+        "      - function: ../../hooks/sign.ts#seed\n        provides: [keyed]\n",
+        "      - call: signed#echo\n        body: {keyed: '${var.keyed}'}\n",
+        "        expect:\n          body: {match: {body.keyed: 'yes'}}\n",
+        "          cel:\n            signed: \"size(response.body.headers['x-signature']) == 64\"\n",
     );
     let files = [
         CONFIG,
-        (".env.schema", "API_KEY=\n"),
-        ("hooks/key.ts", key),
-        ("services/keyed/keyed.api.yaml", apis),
-        ("services/keyed/key.test.yaml", "tests:\n  - id: sendsTheKey\n    call: keyed#echo\n"),
+        SIGNED,
+        ("hooks/sign.ts", sign),
+        (".env.schema", "# the signing key\nSIGN_KEY=\n"),
+        ("services/signed/keyed.test.yaml", test),
     ];
-    let output = Project::new(&files).run(&server.base_url(), &[]).env("API_KEY", "k3y").output().unwrap();
-    assert_eq!(output.status.code(), Some(0), "{}", crate::said(&output));
-    assert_eq!(server.stats().await.unwrap().count("POST /echo"), 1);
+    let project = Project::new(&files);
+    let mut vc = project.run(&server.base_url(), &[]);
+    let output = vc.env("SIGN_KEY", SIGN_KEY).output().unwrap();
+    let said = crate::said(&output);
+    assert_eq!(output.status.code(), Some(0), "the hooks read the key: {said}");
+    assert!(!said.contains(SIGN_KEY), "{said}");
 }

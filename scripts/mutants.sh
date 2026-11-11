@@ -23,8 +23,10 @@ diff_crates() {
   local crate dir
   for crate in $CRATES; do echo "$crate:vc-$crate"; done
   for crate in $DIFF_ONLY; do echo "$crate"; done
-  for dir in crates/adapters/*/; do
-    dir=${dir%/}
+  # Only folders that are crates; a stray folder would name a package cargo cannot find.
+  for dir in crates/adapters/*/Cargo.toml; do
+    [[ -f "$dir" ]] || continue
+    dir=${dir%/Cargo.toml}
     echo "${dir#crates/}:vc-adapter-${dir##*/}"
   done
 }

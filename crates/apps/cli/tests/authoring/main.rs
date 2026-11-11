@@ -65,9 +65,7 @@ pub(crate) const CRUD: (&str, &str) = (
 
 /// The schema line every file Vibranium creates starts with, for a file `kind`.
 pub(crate) fn schema_line(kind: &str) -> String {
-    format!(
-        "# yaml-language-server: $schema=https://raw.githubusercontent.com/v007m/vc-rs/master/schema/{kind}.schema.json"
-    )
+    format!("# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/{kind}.schema.json")
 }
 
 impl Project {

@@ -117,7 +117,7 @@ Reserved names: no `id` (test, api, action, step, dataset…) can be a root name
 
 Settings are layered, lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line. Every value keeps the layer it came from, and `vc config explain <key>` prints it (D129).
 
-- **User config.** `$XDG_CONFIG_HOME/vibranium/config.yaml`, else `$HOME/.config/vibranium/config.yaml` (`%APPDATA%\vibranium\config.yaml` on Windows). Only its `profile`, `defaults`, `reports` and `vars` keys are settings, and each counts only where `vibranium.config.yaml` and its profiles leave the value unset; other keys are preferences that commands read. A file that cannot be read or is not YAML stops the command with exit 2 and names the file.
+- **User config.** `$XDG_CONFIG_HOME/vibranium/config.yaml`, else `$HOME/.config/vibranium/config.yaml` (`%APPDATA%\vibranium\config.yaml` on Windows). Only its `profile`, `defaults`, `reports` and `vars` keys are settings, and each counts only where `vibranium.config.yaml` and its profiles leave the value unset; other keys are preferences that commands read, such as `plugins.allowUnconfined: true`, which lets plugins run unconfined where they cannot be confined (D260; never read from the project, see `plugin-protocol.md`). A file that cannot be read or is not YAML stops the command with exit 2 and names the file.
 - **`VIB_*` names (D182).** A setting's variable is its `--set` key upper-snaked: `VIB_PROFILE`, `VIB_DEFAULTS_CONCURRENCY`, `VIB_DEFAULTS_PER_HOST`, `VIB_DEFAULTS_TIMEOUT`, `VIB_REPORTS_DIR`, `VIB_REPORTS_FORMATS`. A var uses `VIB_VAR_<name>`, with the name exactly as written (`VIB_VAR_userId`). A `VIB_*` line in `.env` sets the same thing one layer lower.
 - **`.env`.** Read from the project root, also when the environment is injected (tests, the MCP server). Its other lines fill `${env.X}` only for names the process environment does not set.
 
@@ -341,6 +341,7 @@ Each item in `apis`:
 | no `body` key | empty | none |
 | nested YAML, or pasted JSON | JSON | `application/json` |
 | a string | the text as written | `text/plain` |
+| one `${…}` that renders to a map or list (`body: ${var.payload}`) | JSON | `application/json` |
 | `$file: path` | the file's bytes | from the file extension |
 | `$base64: …` | the decoded bytes | `application/octet-stream` |
 | `$extend: <object>` plus changes | the object with your changes (see below) | `application/json` |
@@ -1102,7 +1103,7 @@ redact:
     - function: hooks/redact.ts#maskCards   # a hook masks what it chooses
 ```
 
-A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that runs within its hook budget (D185) and is given each piece of output whole, `{ text }` for a text or `{ json }` for a JSON value, and returns it masked (a string for a text). Rules fail closed: a regex that does not compile masks every text, a CEL rule that errors masks the field, and a hook that throws, overruns or returns a text that is not a string masks the whole piece.
+A `regex` rule masks every match in any text; a `cel` rule sees each JSON field as `item` (`item.name`, `item.value`); a `function` rule is a hook (`path#export`, relative to the project root) that runs within its hook budget (D185) and is given each piece of output whole, `{ text }` for a text or `{ json }` for a JSON value, and returns it masked (a string for a text). Like every hook it can read `secret(name)`; what it returns is masked again, so a secret it read never shows. Rules fail closed: a regex that does not compile masks every text, a CEL rule that errors masks the field, and a hook that throws, overruns or returns a text that is not a string masks the whole piece.
 
 The requests and responses kept in `history.db` and reports are masked the same way before they are stored: the URL (path and query, where a secret also counts in its percent-encoded form), every header and both bodies. Bodies are cut at `history.maxBodySize` only after masking, so a cut never leaves part of a secret showing.
 
@@ -1229,7 +1230,7 @@ datasets:
       file: fixtures/smoke-users.yaml
 ```
 
-`file` is relative to the project root. A file outside the project must be inside one of `allowRoots` (also relative to the project root), after `..` and symbolic links are resolved; any other path is V1012, so a dataset cannot read `/etc/passwd` or climb out through a link.
+`file` is relative to the project root. A file outside the project must be inside one of `allowRoots` (also relative to the project root), after `..` and symbolic links are resolved, and in no hidden folder below it; any other path is V1012, so a dataset cannot read `/etc/passwd` or climb out through a link.
 
 ## Functions and request hooks
 
@@ -1251,13 +1252,15 @@ Packages, `node:` modules and `import()` are V2008: hooks run inside the engine,
 
 Custom checks go under `expect.custom`, receive the response and resolved values, and return `true` or a failure message.
 
+Every hook can call the global `secret(name)`, which returns a secret the run loaded (a name `.env.schema` declares); a name the run did not load throws. A value it returns is masked wherever it shows, like `${secret.X}`.
+
 ```ts
 // hooks/sign.ts
 import type { BeforeRequestHook } from "@vibranium/sdk";
 import { hmacSha256Hex } from "vibranium:std"; // hooks run in the engine, not Node: no node: imports
 
-export const addUploadSignature: BeforeRequestHook = ({ request, secret }) => {
-  const signature = hmacSha256Hex(secret("UPLOAD_KEY"), request.path);
+export const addUploadSignature: BeforeRequestHook = ({ request }) => {
+  const signature = hmacSha256Hex(secret("UPLOAD_KEY"), request.path); // `secret` is a global
   return { ...request, headers: { ...request.headers, "x-signature": signature } };
 };
 ```
@@ -1283,6 +1286,8 @@ alerts:
       - pagerduty:
           routingKey: ${secret.PD_ROUTING_KEY}
 ```
+
+An alert's `on` lists what fires it: `failure` (a test failed or was blocked; the default), `blocked` (a test was blocked because a setup it needs, such as a `beforeRun` action, failed), `recovery` (a run passed after a failed one), `flaky` (a test passed only on a retry) and `threshold` (a load threshold was breached). A rule sends one notice per run, for the first of `failure`, `blocked`, `threshold`, `flaky`, `recovery` that it lists and that happened (D256). A `blocked` notice lists only the blocked tests; every other notice lists the failed and the blocked ones.
 
 `vc plugin add` shows the permissions a plugin asks for (network hosts, secrets, files); the approved list is recorded in `vibranium.lock`. A source is `npm:<package>[@<range>]` or `path:<folder>` (relative to the project root); the plugin is installed to `.vibranium/plugins/<id>/`.
 

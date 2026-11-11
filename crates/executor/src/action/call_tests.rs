@@ -151,6 +151,15 @@ async fn each_body_kind_sets_its_content_type_unless_one_is_given() {
 }
 
 #[tokio::test]
+async fn a_body_that_is_one_reference_to_a_map_is_sent_as_json() {
+    let lone = |fixture: &mut Fixture| {
+        fixture.program.config.vars.values = [(fixture.var("token"), object(&[("a", 1)]))].into();
+        BodySpec::Text(fixture.template("${var.token}"))
+    };
+    assert_eq!(sent_body(lone, &[]).await, Ok((Bytes::from(r#"{"a":1}"#), "application/json".to_owned())));
+}
+
+#[tokio::test]
 async fn bodies_and_headers_that_cannot_be_built_fail_before_sending() {
     let v5111 = Err(Some(Code::V5111.to_string()));
     assert_eq!(sent_body(|_| BodySpec::Base64(fixture::literal("not base64!")), &[]).await, v5111);

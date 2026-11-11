@@ -54,7 +54,7 @@ How much more is written is a personal preference in `~/.config/vibranium/config
 ### `vibranium.config.yaml`
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/v007m/vc-rs/master/schema/config.schema.json
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/config.schema.json
 # ─ Project config ─────────────────────────────────────────────
 # One per project, at the root: profiles, project-wide vars, auth,
 # secrets and run settings. Only syntaxVersion and one profile are required.
@@ -108,7 +108,7 @@ Any value here can be set from several places. Layers apply lowest to highest: b
 ### `services/sample/sample.api.yaml`
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/v007m/vc-rs/master/schema/api.schema.json
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/api.schema.json
 # ─ Api file: sample ───────────────────────────────────────────
 # How to call one service. Tests call each api by its full ID, sample#<id>.
 # Safe to delete once you have your own api files.
@@ -165,7 +165,7 @@ apis:
 ### `services/sample/basics.test.yaml`
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/v007m/vc-rs/master/schema/test.schema.json
+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/test.schema.json
 # ─ Test file: sample.basics ───────────────────────────────────
 # Tests call apis and state what they expect.
 # Run this file: vc run sample.basics    One test: vc run sample.basics#createsUser
@@ -299,7 +299,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc import har <file> [--flow <fileId#testId>] [--include-host <host>]… [--keep-static] [--profile <ids>] [--dry-run]` | Turns a browser recording into apis in the api files whose base URLs its hosts render to (new files for unknown hosts), credentials dropped and secrets made `${secret.…}` references, plus with `--flow` a test replaying it (see Importing from a HAR file). `--dry-run` prints the plan and the diffs without writing. A result that would not compile is refused: exit 2, nothing written |
 | `vc import http <file> [--id <fileId>]` | Creates an api file from a `.http` file (VS Code REST Client, JetBrains HTTP Client) by the curl rules: one api per request, named by its `###` title or `# @name`. File variables are written as their values, except one named like a credential, which stays a var; `{{$guid}}` and `{{$randomInt a b}}` become fake data; a variable the file does not define, or another request's response, becomes an empty var with a note. Response handlers and bodies read from files are not imported |
 | `vc import postman <file> [--flow <fileId#testId>] [--profile <ids>] [--dry-run]` | Turns a Postman collection (v2.1 export) into apis in the api files whose base URLs its URLs render to (new files for unknown hosts), one api per request named after it. `{{variables}}` become `${var.…}` with the collection's values as defaults, Postman's dynamic variables (`{{$guid}}`) the matching `${fake.…}`, and a base URL without a value `http://localhost`, noted. Auth and credential headers are never written; secret-named or random values become `${secret.…}` references; other headers and scripts are noted, not imported. With `--flow`, a test calling the requests in collection order, saving what their test scripts set from the response (`pm.environment.set("cartId", pm.response.json().id)`). `--dry-run` as for `har` |
-| `vc import bruno <path> [--flow <fileId#testId>] [--profile <ids>] [--dry-run]` | Turns a Bruno collection, exported from Bruno as one JSON file (D209), into apis by the `postman` rules. The vars default to the collection's vars and its first environment's values (other environments are noted); an environment variable marked secret and `{{process.env.NAME}}` become `${secret.…}` references. Auth inherits from folder and collection; scripts, tests, assertions and request vars are noted, not imported. With `--flow`, each step saves the post-response vars that read the response body (`cartId: res.body.id`). A collection folder of `.bru` files exits 2: export the collection as JSON from Bruno |
+| `vc import bruno <path> [--flow <fileId#testId>] [--profile <ids>] [--dry-run]` | Turns a Bruno collection, its folder (the one with its `bruno.json`, D254) or the collection exported from Bruno as one JSON file (D209), into apis by the `postman` rules; both draft the same. The vars default to the collection's vars and its first environment's values (other environments are noted); an environment variable marked secret and `{{process.env.NAME}}` become `${secret.…}` references. Auth inherits from folder and collection; scripts, tests, assertions and request vars are noted, not imported. With `--flow`, each step saves the post-response vars that read the response body (`cartId: res.body.id`). The folder's `bruno.json` `ignore` paths are not read; a folder without `bruno.json` exits 2 |
 | `vc new api <fileId#apiId> [--method] [--path \| --url <full-url>] [--from-curl '<curl>']` | Appends an api to the right api file (creating the file if needed); with `--url`, the origin becomes a base-URL var and the rest the path and query (D177); with `--from-curl '<curl>'` (M6, D176), the method, URL, query, content type and body come from one curl command and no credential is written |
 | `vc new test <fileId#testId> --from <apiId> [--negative] [--auth]` | Generates tests for an api (see Creating apis and tests) |
 | `vc new auth <id> --type <type>` | Adds an auth definition to the config, prompting for its fields |
@@ -347,6 +347,7 @@ Commands are grouped by the job they do. `vc help <command>` shows every flag wi
 | `vc report [run\|last] [--format html,junit,ctrf] [--out DIR] [--single-file]` | Writes a stored run's report files again from its snapshot (D167), `html` when `--format` names none, into `.vibranium/reports/<run>/` unless `--out` says; prints each file. `--open` comes later |
 | `vc cache list\|clear [id]` | Shows the cached lifecycle data (`--json` for scripts) or clears it, all of it or one action's (`users#create`), running each entry's cleanup under its profiles; a cleanup that fails is a warning. Needs the cache key (`VIB_CACHE_KEY` or the OS keychain) |
 | `vc config explain <key> [--profile] [--set]` | Shows a config value and which layer set it, then each value it replaced (`defaults.timeout = 1m  (--set)`, `  over 30s  (built-in)`; D129). A secret's value, and a var named like a secret, are masked as `••••` (D232). Takes the `--set` keys; an unknown key exits 2 and names the closest |
+| `vc alerts test [--profile] [--set]` | Sends one sample notice, titled `[test]` (a fixed 1 passed, 1 failed summary naming `<project>#sampleTest`), through every channel of every `alerts` rule whose `profiles` match, ignoring its `tags` and `on` (D257). Secrets fill the settings as in a run; nothing runs and nothing is recorded. PagerDuty gets an `info` event under `<project>#test`, resolved at once. Prints `✓ slack (rule 1)` or `✗ webhook (rule 2): <why>` per channel, never a URL or key. Exit 0 every channel took it, 1 one did not, 2 no rule matches |
 | `vc plugin add <source> [--yes]` | Fetches a plugin (`npm:<package>[@<range>]` through `npm pack`, or `path:<folder>` in the project) into `.vibranium/plugins/.staged/`, prints its ID, version, kind, command and what it asks to reach (network hosts, secrets, files), and asks to approve. On yes it adds the `plugins:` item to the config (through the compile guard; nothing when it is there from the same source), writes the approved permissions to `vibranium.lock`, and installs it to `.vibranium/plugins/<id>/`. Without a terminal it needs `--yes`, else it exits 2 and keeps nothing; a declined plugin is dropped. A different source for an ID the config has exits 2 (`vc plugin remove` it first) |
 | `vc plugin list` | One line for each plugin in the config or the lock: ID, kind and version, source, state and what the lock lets it reach. The state is `ready`, `not installed` (`.vibranium/` is not committed: add it again), `not approved`, `asks for more` (its installed manifest asks beyond the lock) or `not in the config` |
 | `vc plugin remove <id>` | Takes the plugin out of the config (through the guard, so an auth that still uses it refuses) and the lock, and uninstalls it. An unknown ID exits 2 and names the closest |

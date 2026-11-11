@@ -1,0 +1,23 @@
+meta {
+  name: Add item
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/carts/:cartId/items
+  body: json
+  auth: inherit
+}
+
+params:path {
+  cartId: {{cartId}}
+}
+
+body:json {
+  {"sku": "sku_red42", "quantity": {{quantity}}}
+}
+
+assert {
+  res.status: eq 201
+}

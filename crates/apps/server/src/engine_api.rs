@@ -5,6 +5,8 @@
 
 use std::sync::Arc;
 
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use vc_contracts::engine::v1 as wire;
 use vc_engine::{Engine, EngineError};
 
@@ -74,8 +76,8 @@ impl Rpcs {
     /// Serves `method` as a unary call to `handler`.
     pub fn unary<Req, Resp, F, Fut>(self, method: &'static str, handler: F) -> Self
     where
-        Req: prost::Message + Default + 'static,
-        Resp: prost::Message + 'static,
+        Req: prost::Message + Default + DeserializeOwned + 'static,
+        Resp: prost::Message + Serialize + 'static,
         F: Fn(Arc<EngineApi>, Req) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<Resp, ConnectError>> + Send + 'static,
     {
@@ -86,8 +88,8 @@ impl Rpcs {
     /// Serves `method` as a server stream from `handler`.
     pub fn server_stream<Req, Resp, F, Fut>(self, method: &'static str, handler: F) -> Self
     where
-        Req: prost::Message + Default + 'static,
-        Resp: prost::Message + 'static,
+        Req: prost::Message + Default + DeserializeOwned + 'static,
+        Resp: prost::Message + Serialize + 'static,
         F: Fn(Arc<EngineApi>, Req, Sink<Resp>) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<(), ConnectError>> + Send + 'static,
     {

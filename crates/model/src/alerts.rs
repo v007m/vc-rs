@@ -12,6 +12,8 @@ use crate::{Tag, TemplateValue};
 pub enum AlertTrigger {
     /// A test failed or was blocked.
     Failure,
+    /// A test was blocked: a lifecycle action it needs, such as `beforeRun`, failed (D256).
+    Blocked,
     /// The run passed after the previous run of the same selection and profiles failed.
     Recovery,
     /// A test passed only on a retry.
@@ -22,13 +24,14 @@ pub enum AlertTrigger {
 
 impl AlertTrigger {
     /// Every trigger, in the order the syntax reference lists them.
-    pub const ALL: [Self; 4] = [Self::Failure, Self::Recovery, Self::Flaky, Self::Threshold];
+    pub const ALL: [Self; 5] = [Self::Failure, Self::Blocked, Self::Recovery, Self::Flaky, Self::Threshold];
 
     /// The name an `on:` list uses.
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::Failure => "failure",
+            Self::Blocked => "blocked",
             Self::Recovery => "recovery",
             Self::Flaky => "flaky",
             Self::Threshold => "threshold",
@@ -73,7 +76,7 @@ mod tests {
     #[test]
     fn a_trigger_is_named_as_the_on_list_writes_it() {
         let names = AlertTrigger::ALL.map(AlertTrigger::name);
-        assert_eq!(names, ["failure", "recovery", "flaky", "threshold"]);
+        assert_eq!(names, ["failure", "blocked", "recovery", "flaky", "threshold"]);
         for trigger in AlertTrigger::ALL {
             assert_eq!(serde_json::to_value(trigger).unwrap(), trigger.name());
         }

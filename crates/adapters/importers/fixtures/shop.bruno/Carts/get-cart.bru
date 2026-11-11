@@ -1,0 +1,15 @@
+meta {
+  name: Get cart
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/carts/{{cartId}}
+  body: none
+  auth: inherit
+}
+
+script:pre-request {
+  console.log('fetching the cart');
+}

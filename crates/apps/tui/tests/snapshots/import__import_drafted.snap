@@ -14,7 +14,7 @@ expression: "screen(&tui, SIZE)"
 │                                              ││--- /dev/null                                                         │
 │                                              ││+++ b/services/orders/orders.api.yaml                                 │
 │                                              ││@@ -0,0 +1,21 @@                                                      │
-│                                              ││+# yaml-language-server: $schema=https://raw.githubusercontent.com/v00│
+│                                              ││+# yaml-language-server: $schema=https://v007m.github.io/vc-rs/schema/│
 │                                              ││+# orders · api file · keys: https://github.com/v007m/vc-rs/blob/maste│
 │                                              ││+id: orders                                                           │
 │                                              ││+baseUrl: ${var.ordersUrl}                                            │

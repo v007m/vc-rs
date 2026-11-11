@@ -60,7 +60,7 @@ impl Engine {
     }
 
     /// The user config: the builder's path, else the default one `environment` names.
-    fn user_layer(&self, environment: &dyn Environment) -> Result<UserConfig, EngineError> {
+    pub(crate) fn user_layer(&self, environment: &dyn Environment) -> Result<UserConfig, EngineError> {
         let path = self.user_config.clone().or_else(|| UserConfig::default_path(environment));
         path.map_or_else(|| Ok(UserConfig::default()), |path| UserConfig::read(&path))
             .map_err(|error| settings::source_error(&error))

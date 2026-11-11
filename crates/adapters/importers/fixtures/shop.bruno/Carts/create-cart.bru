@@ -1,0 +1,30 @@
+meta {
+  name: Create cart
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/carts
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+  ~Accept: application/json
+}
+
+body:json {
+  {
+    "currency": "{{currency}}"
+  }
+}
+
+vars:post-response {
+  cartId: res.body.id
+}
+
+tests {
+  test('created', () => expect(res.status).to.equal(201));
+}
