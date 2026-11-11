@@ -116,7 +116,7 @@ async fn a_named_test_file_and_profile_show_their_names_in_every_report() {
     assert!(junit.contains("<property name=\"name\" value=\"Lists every user\"/>"), "{junit}");
     let json = project.run(&server.base_url(), &["--reporter", "json"]).output().unwrap();
     let events = events(&json.stdout);
-    let names: Vec<&Value> = of_kind(&events, "testFinished").iter().map(|event| &event["name"]).collect();
-    assert!(names.contains(&&Value::from("Lists every user")) && names.contains(&&Value::Null), "{events:#?}");
+    let given: Vec<&Value> = of_kind(&events, "testFinished").iter().map(|event| &event["name"]).collect();
+    assert!(given.contains(&&Value::from("Lists every user")) && given.contains(&&Value::Null), "{events:#?}");
     assert_eq!(of_kind(&events, "summary")[0]["profileNames"]["dev"], "Local dev");
 }

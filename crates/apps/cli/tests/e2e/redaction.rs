@@ -207,7 +207,8 @@ async fn a_row_named_with_a_secrets_value_is_labelled_masked_in_every_report() {
     assert!(ctrf.contains(label) && junit.contains(label), "{ctrf}\n{junit}");
     let mut json = project.run(&server.base_url(), &["--reporter", "json"]);
     let json = json.env("API_TOKEN", TOKEN).output().unwrap();
-    let finished = of_kind(&events(&json.stdout), "testFinished");
+    let events = events(&json.stdout);
+    let finished = of_kind(&events, "testFinished");
     assert_eq!(finished.iter().map(|event| event["label"].clone()).collect::<Vec<_>>(), [label], "{}", said(&json));
     let history = history_text(&project.path().join(".vibranium/history.db"));
     let shown = said(&console) + &said(&json);

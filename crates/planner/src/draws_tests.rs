@@ -1,21 +1,7 @@
-use vc_model::{Instance, InstanceId, Namespace, Needs, Part, PipeCall, Plan, PlannedFile, Template, TestBody, TestId};
+use vc_model::{Namespace, Part, PipeCall, Template, TestBody};
 
 use super::generates;
 use crate::testing::{Fixture, read, span};
-
-/// A plan running one instance of `test`.
-fn planned(fixture: &Fixture, test: TestId) -> Plan {
-    let instance =
-        Instance { id: InstanceId::new(0), test, example_row: None, repeat_index: 0, needs: Needs::default() };
-    let file = PlannedFile {
-        id: fixture.file,
-        before_all: vec![],
-        instances: vec![instance],
-        after_all: vec![],
-        skipped: vec![],
-    };
-    Plan { files: vec![file], ..Plan::default() }
-}
 
 /// `${<ns>.x.token}`, through `pipe` when given.
 fn template(ns: Namespace, pipe: Option<&str>) -> Template {
@@ -33,7 +19,7 @@ fn generated(header: Template, on: &str) -> bool {
     let test = if on == "a" { a } else { b };
     let TestBody::Call(call) = fixture.program.tests[&test].body.clone() else { panic!("a test of one call") };
     fixture.action_mut(call).headers.insert("x-data".to_owned(), header);
-    let plan = planned(&fixture, a);
+    let plan = fixture.plan_of(a);
     generates(&fixture.program, &plan, |pipe| ["random", "shuffle"].contains(&pipe))
 }
 
@@ -51,5 +37,5 @@ fn the_run_scope_counts_too() {
     let mut fixture = Fixture::new();
     let a = fixture.test("a", &[]);
     fixture.program.config.defaults.headers.insert("x-who".to_owned(), template(Namespace::Fake, None));
-    assert!(generates(&fixture.program, &planned(&fixture, a), |_| false), "a config default header");
+    assert!(generates(&fixture.program, &fixture.plan_of(a), |_| false), "a config default header");
 }

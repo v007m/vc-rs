@@ -37,9 +37,13 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
           "status": "passed"
         }
       ],
+      "profileNames": {
+        "dev": "Local dev"
+      },
       "profiles": [
         "dev"
       ],
+      "seed": null,
       "status": "failed",
       "totals": {
         "blocked": 1,
@@ -84,8 +88,10 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
           ],
           "failure": null,
           "file": "users.crud",
+          "fileName": "Crud",
           "id": "users.crud#getsUser",
           "instance": 0,
+          "name": null,
           "skipReason": null,
           "steps": [
             {
@@ -173,8 +179,10 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
             "message": "expected 400, got 201"
           },
           "file": "users.crud",
+          "fileName": "Crud",
           "id": "users.crud#rejectsBadEmail",
           "instance": 1,
+          "name": null,
           "skipReason": null,
           "steps": [
             {
@@ -250,8 +258,10 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
             "message": "needs seed, which failed"
           },
           "file": "users.crud",
+          "fileName": "Crud",
           "id": "users.crud#rejectsBadEmail",
           "instance": 2,
+          "name": null,
           "skipReason": null,
           "steps": []
         },
@@ -312,8 +322,10 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
             "message": "expected 200, got 503"
           },
           "file": "users.crud",
+          "fileName": "Crud",
           "id": "users.crud#listsUsers",
           "instance": 3,
+          "name": "Lists every user",
           "skipReason": null,
           "steps": [
             {
@@ -396,8 +408,10 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
           "checks": [],
           "failure": null,
           "file": "users.crud",
+          "fileName": "Crud",
           "id": "users.crud#listsUsers",
           "instance": 4,
+          "name": "Lists every user",
           "skipReason": null,
           "steps": [
             {
@@ -433,14 +447,16 @@ expression: "serde_json::to_string_pretty(&document).unwrap()"
           "checks": [],
           "failure": null,
           "file": "users.crud",
+          "fileName": "Crud",
           "id": "users.crud#parksLegacy",
           "instance": null,
+          "name": null,
           "skipReason": "rewrite pending",
           "steps": []
         },
         "filePath": "services/users/crud.test.yaml",
         "flaky": false,
-        "line": 25,
+        "line": 26,
         "message": "rewrite pending",
         "name": "users.crud#parksLegacy",
         "rawStatus": "skipped",
