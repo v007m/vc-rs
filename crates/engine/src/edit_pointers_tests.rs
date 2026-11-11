@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use vc_adapter_system::FsSources;
 use vc_executor::MASKED;
-use vc_testkit::FakeVcs;
+use vc_testkit::{FakeVcs, MemoryEnvironment};
 
 use super::{EditOp, PointerEdit, PointerEdits};
 use crate::sample::builder;
@@ -50,7 +50,9 @@ fn project() -> (tempfile::TempDir, Engine) {
         fs::write(dir.path().join(path), text).unwrap();
     }
     let folder = Arc::new(FsSources::new(dir.path()).unwrap());
-    (dir, builder(FakeVcs::default()).sources(folder.clone()).writer(folder).build().unwrap())
+    let environment = Arc::new(MemoryEnvironment::new(&[("SHOP_TOKEN", "tok-edit-31f")]));
+    let engine = builder(FakeVcs::default()).sources(folder.clone()).writer(folder).environment(environment);
+    (dir, engine.build().unwrap())
 }
 
 fn edit(pointer: &str, op: EditOp, value: &str) -> PointerEdit {
@@ -129,7 +131,7 @@ async fn inserts_and_removes_list_items_and_keys_one_after_another() {
 #[tokio::test]
 async fn the_diff_masks_a_secret_value_the_file_repeats() {
     let (dir, engine) = project();
-    let config = CONFIG.replace("vars:\n", "vars:\n  note: 'sent tok-edit-31f'\n");
+    let config = CONFIG.replacen("vars:\n", "vars:\n  note: 'sent tok-edit-31f'\n", 1);
     fs::write(dir.path().join(CONFIG_PATH), config).unwrap();
     let request = edits(&engine, CONFIG_PATH, vec![edit("/vars/usersUrl", EditOp::Set, "\"http://localhost:9090\"")]);
     let edited = engine.edit_by_pointer(&request).await.unwrap();

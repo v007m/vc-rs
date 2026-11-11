@@ -34,7 +34,7 @@ async fn edit_file(
 }
 
 /// The `at`th edit as the engine takes it; one with no op is refused by its place.
-pub(crate) fn pointer_edit((at, edit): (usize, &wire::PointerEdit)) -> Result<PointerEdit, ConnectError> {
+pub fn pointer_edit((at, edit): (usize, &wire::PointerEdit)) -> Result<PointerEdit, ConnectError> {
     let op = match edit.op() {
         wire::EditOp::Set => EditOp::Set,
         wire::EditOp::Remove => EditOp::Remove,

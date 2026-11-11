@@ -5,13 +5,13 @@ use serde_json::{Value, json};
 use vc_adapter_system::FsSources;
 use vc_executor::MASKED;
 use vc_model::{HttpResponse, RenderedRequest};
-use vc_testkit::{FakeTransport, FakeVcs, RecordingTransport, Recordings, status};
+use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, RecordingTransport, Recordings, status};
 
 use super::CallDraft;
 use crate::sample::builder;
 use crate::{CallRequest, EditOp, Engine, EngineError, PointerEdit};
 
-const CONFIG: &str = "syntaxVersion: 2\nvars:\n  baseUrl: http://x\n";
+const CONFIG: &str = "syntaxVersion: 2\nvars:\n  baseUrl: http://x\nprofiles:\n  - id: dev\n    default: true\n";
 const API: &str = "services/users/users.api.yaml";
 const USERS: &str = "\
 baseUrl: ${var.baseUrl}
@@ -50,19 +50,16 @@ fn answer(request: &RenderedRequest) -> HttpResponse {
 fn project() -> (tempfile::TempDir, Engine, Recordings) {
     let dir = tempfile::tempdir().unwrap();
     fs::create_dir_all(dir.path().join("services/users")).unwrap();
-    for (path, text) in [
-        ("vibranium.config.yaml", CONFIG),
-        (API, USERS),
-        (FLOW, STEPS),
-        (".env", "SHOP_KEY=tok-draft-5c1\n"),
-        (".env.schema", "SHOP_KEY=\n"),
-    ] {
+    for (path, text) in [("vibranium.config.yaml", CONFIG), (API, USERS), (FLOW, STEPS), (".env.schema", "SHOP_KEY=\n")]
+    {
         fs::write(dir.path().join(path), text).unwrap();
     }
     let (transport, recordings) =
         RecordingTransport::new(Arc::new(FakeTransport::new(|request, _| Ok(answer(request)))));
     let folder = Arc::new(FsSources::new(dir.path()).unwrap());
+    let environment = Arc::new(MemoryEnvironment::new(&[("SHOP_KEY", "tok-draft-5c1")]));
     let engine = builder(FakeVcs::default()).sources(folder.clone()).writer(folder).transport(Arc::new(transport));
+    let engine = engine.environment(environment);
     (dir, engine.build().unwrap(), recordings)
 }
 
@@ -154,7 +151,7 @@ async fn a_draft_over_a_file_changed_since_it_was_opened_sends_nothing() {
     fs::write(dir.path().join(API), USERS.replace("/users/${var.userId}", "/people/${var.userId}")).unwrap();
     let stale = engine.call(&request).await.unwrap_err();
     assert!(matches!(stale, EngineError::Stale { .. }), "{stale:?}");
-    assert!(sent(&recordings).is_empty());
+    assert_eq!(sent(&recordings), Vec::<String>::new());
 }
 
 #[tokio::test]
@@ -165,7 +162,7 @@ async fn a_draft_that_breaks_the_api_is_its_diagnostics_and_sends_nothing() {
     assert!(matches!(invalid, EngineError::Invalid { .. }), "{invalid:?}");
     let refused = engine.call(&drafted(&engine, API, vec![edit("/apis/9", EditOp::Remove, "")])).await.unwrap_err();
     assert!(refused.to_string().contains("edit 1 points at nothing"), "{refused}");
-    assert!(sent(&recordings).is_empty());
+    assert_eq!(sent(&recordings), Vec::<String>::new());
 }
 
 #[tokio::test]
@@ -178,5 +175,5 @@ async fn a_draft_never_reads_or_compiles_a_file_the_editor_does_not_open() {
         assert!(matches!(refused, EngineError::Edit { .. }), "{path}: {refused:?}");
         assert!(!format!("{refused} {refused:?}").contains("tok-draft-5c1"), "{path}: {refused}");
     }
-    assert!(sent(&recordings).is_empty());
+    assert_eq!(sent(&recordings), Vec::<String>::new());
 }

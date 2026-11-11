@@ -110,7 +110,7 @@ impl Engine {
 }
 
 /// `text` with `edits` made, one after another.
-pub(crate) fn edited(path: &SourcePath, text: &str, edits: &[PointerEdit]) -> Result<String, EngineError> {
+pub fn edited(path: &SourcePath, text: &str, edits: &[PointerEdit]) -> Result<String, EngineError> {
     let file = SourceFileId::new(0);
     let mut document = Document::parse(file, Syntax::of(path), text)
         .map_err(|_| refused(format!("{path} does not parse"), "fix it in the editor first; `vc check` shows where"))?;
@@ -152,7 +152,7 @@ fn child<'n>(node: &'n Node, token: &str) -> Option<&'n Node> {
     match &node.value {
         Value::Map(_) => node.get(token),
         Value::Seq(items) => token.parse::<usize>().ok().and_then(|at| items.get(at)),
-        _ => None,
+        Value::Scalar(_) => None,
     }
 }
 

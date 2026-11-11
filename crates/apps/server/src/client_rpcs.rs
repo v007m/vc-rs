@@ -44,7 +44,7 @@ fn explain_api(
 }
 
 /// A call's draft as the engine takes it; an edit with no op is refused by its place.
-pub(crate) fn draft(draft: &wire::ApiDraft) -> Result<CallDraft, ConnectError> {
+pub fn draft(draft: &wire::ApiDraft) -> Result<CallDraft, ConnectError> {
     let edits = draft.edits.iter().enumerate().map(pointer_edit).collect::<Result<Vec<_>, _>>()?;
     Ok(CallDraft { path: draft.path.clone(), digest: draft.digest.clone(), edits })
 }

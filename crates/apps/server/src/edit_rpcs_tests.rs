@@ -1,7 +1,6 @@
 use std::fs;
 use std::sync::Arc;
 
-use prost::Message as _;
 use vc_contracts::engine::v1 as wire;
 
 use super::edit_file;

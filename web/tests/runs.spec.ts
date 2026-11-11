@@ -30,9 +30,12 @@ test('lists the finished run in recent runs and opens it from the history', asyn
   await page.goto('/runs');
   await page.getByRole('button', { name: 'Run all tests' }).click();
   await expect(page.getByRole('status')).toHaveText(/Passed|Failed/, { timeout: 30_000 });
+  // Other workers share this vc ui: the newest run may still be going, or be a Client call
+  // (adhoc) that keeps no tests. Open a finished run of tests.
   const recent = page.getByRole('list', { name: 'Recent runs' });
   await recent
-    .getByRole('button', { name: /^Run #\d+/ })
+    .getByRole('button', { name: /^Run #\d+, (passed|failed)$/ })
+    .filter({ hasNotText: 'adhoc' })
     .first()
     .click();
   await expect(page.getByRole('heading', { name: /^Run #\d+$/ })).toBeVisible();

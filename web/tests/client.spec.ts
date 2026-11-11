@@ -83,8 +83,8 @@ test('imports a HAR file with a flow test after a preview', async ({ page }) => 
 test('reaches every part of the request from the keyboard', async ({ page }) => {
   await openApi(page, 'List users');
   const tabs = page.getByRole('tablist', { name: 'Request' });
-  await tabs.getByRole('tab', { name: 'Vars' }).focus();
+  await tabs.getByRole('tab', { name: 'Request', selected: true }).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(tabs.getByRole('tab', { selected: true })).not.toHaveAccessibleName('Vars');
+  await expect(tabs.getByRole('tab', { selected: true })).toHaveAccessibleName('Vars');
   await expect(page.getByRole('button', { name: 'Send' })).toBeEnabled();
 });

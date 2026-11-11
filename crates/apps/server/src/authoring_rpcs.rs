@@ -24,7 +24,7 @@ pub fn register(rpcs: Rpcs) -> Rpcs {
     rpcs.unary("Call", call).unary("SaveCallAsTest", save_call_as_test).unary("Import", import)
 }
 
-pub(crate) async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
+pub async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
     let (profiles, sets) = api.layers(request.profiles, request.sets);
     let draft = request.draft.as_ref().map(client_rpcs::draft).transpose()?;
     let call =

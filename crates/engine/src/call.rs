@@ -194,7 +194,7 @@ fn called(api: &Api, keep: bool) -> Action {
     }
 }
 
-pub(crate) fn unknown(program: &Program, id: &str) -> EngineError {
+pub fn unknown(program: &Program, id: &str) -> EngineError {
     let names = program.apis.keys().filter_map(|api| program.str(api.sym()));
     EngineError::Selection { reason: format!("no api `{id}`"), help: did_you_mean(&vc_planner::closest(id, names)) }
 }
