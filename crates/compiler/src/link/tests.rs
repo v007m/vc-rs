@@ -163,6 +163,33 @@ fn a_close_id_is_offered_as_it_was_written() {
     assert_eq!(fixes(&text), ["readsUser", "users.crud#readsUser"]);
 }
 
+/// The help and the fixes' new text of the one V2003 that `call` raises with `apis`.
+fn hinted(apis: &str, call: &str) -> (Vec<String>, Vec<String>) {
+    let found = diagnostics(CONFIG, apis, &tests(&format!("  - id: callsIt\n    call: {call}\n")));
+    assert_eq!(found.iter().map(|found| found.code).collect::<Vec<_>>(), [Code::V2003], "{found:?}");
+    let fixes = found[0].fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.clone());
+    (found[0].help.clone(), fixes.collect())
+}
+
+/// Within the file a reference names, only the item IDs are compared, so the shared file ID
+/// does not make `echo` look like a typo of `nah`.
+#[test]
+fn a_close_api_is_a_certain_fix_only_when_its_own_id_is_close() {
+    let people = concat!(
+        "baseUrl: ${var.baseUrl}\napis:\n",
+        "  - id: listPeople\n    path: /people\n  - id: createPerson\n    method: POST\n    path: /people\n",
+        "  - id: getPerson\n    path: /people/1\n  - id: echo\n    method: POST\n    path: /echo\n",
+    );
+    let (help, fixes) = hinted(people, "users#nah");
+    assert_eq!(fixes, [] as [String; 0]);
+    assert_eq!(help, ["check the file ID and the item's `id`; another file's item is `fileId#id`"]);
+    assert_eq!(hinted(people, "users#getPersn").1, ["users#getPerson"]);
+    assert_eq!(hinted(people, "usres#getPerson").1, ["users#getPerson"]);
+    let (help, fixes) = hinted(APIS, "users#gut");
+    assert_eq!(fixes, [] as [String; 0]);
+    assert_eq!(help, ["did you mean one of `users#get`, `users#put`?"]);
+}
+
 #[test]
 fn references_into_a_file_that_could_not_be_read_are_not_reported() {
     let broken = format!("{APIS}    colour: red\n");

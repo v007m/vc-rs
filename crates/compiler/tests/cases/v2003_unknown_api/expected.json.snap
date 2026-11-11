@@ -98,9 +98,24 @@ input_file: crates/compiler/tests/cases/v2003_unknown_api/project
       "secondary": [],
       "notes": [],
       "help": [
-        "did you mean one of `users.crud#listsUsers`, `users.crud#getsUser`?"
+        "did you mean `users.crud#listsUsers`?"
       ],
-      "fixes": []
+      "fixes": [
+        {
+          "title": "Replace with users.crud#listsUsers",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/crud.test.yaml",
+              "range": {
+                "start": 133,
+                "end": 152
+              },
+              "newText": "users.crud#listsUsers"
+            }
+          ]
+        }
+      ]
     },
     {
       "code": "V2003",

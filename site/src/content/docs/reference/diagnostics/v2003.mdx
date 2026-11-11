@@ -15,10 +15,10 @@ import { Badge } from '@astrojs/starlight/components';
 | Code | `V2003` |
 | Category | V2xxx: References and types |
 | Severity | error |
-| Certain fix | close match; after a file move, the moved file's new ID (D139) |
+| Certain fix | exactly one close match; after a file move, the moved file's new ID (D139) |
 
 A `call`, `test` or `cleanup.call` names an api or test that does not exist. Another file's items are referred to by
-their full ID, `fileId#id`; the diagnostic suggests the closest ID of the right kind, same-file IDs first.
+their full ID, `fileId#id`; the diagnostic suggests the closest ID of the right kind, same-file IDs first. Within the named file only the part after `#` is compared, so `people#nah` is not a typo of `people#echo`. With several close IDs it lists them in `help:` and offers no fix.
 
 ## Wrong
 

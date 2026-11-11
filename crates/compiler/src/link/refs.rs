@@ -75,12 +75,26 @@ fn close<'t>(source: &Source<'_>, full: &str, kind: &Kind<'t, '_>) -> Vec<&'t st
     let same = source.full("");
     let (here, elsewhere): (Vec<&str>, Vec<&str>) =
         kind.table.keys().map(String::as_str).partition(|id| id.starts_with(&same));
-    let mut found = suggest::close(full, here);
+    let mut found = nearest(full, here);
     if found.is_empty() {
-        found = suggest::close(full, elsewhere);
+        found = nearest(full, elsewhere);
     }
     found.truncate(MAX_SUGGESTIONS);
     found
+}
+
+/// The `ids` close to `full`. Those in the file `full` names are compared by their own ID alone,
+/// so the shared file ID cannot make an unrelated item look close; without that file (a misspelt
+/// file ID) whole IDs are compared.
+fn nearest<'t>(full: &str, ids: Vec<&'t str>) -> Vec<&'t str> {
+    let (file, item) = full.split_once('#').unwrap_or_default();
+    let in_file: Vec<(&'t str, &'t str)> =
+        ids.iter().filter_map(|id| Some((id.strip_prefix(file)?.strip_prefix('#')?, *id))).collect();
+    if in_file.is_empty() {
+        return suggest::close(full, ids);
+    }
+    let items = suggest::close(item, in_file.iter().map(|(own, _)| *own));
+    items.into_iter().filter_map(|item| in_file.iter().find(|(own, _)| *own == item).map(|(_, id)| *id)).collect()
 }
 
 /// The help, and a certain fix when exactly one ID is close.
