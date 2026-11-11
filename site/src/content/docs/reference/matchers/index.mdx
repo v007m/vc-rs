@@ -100,7 +100,7 @@ tests:
       body:
         match:
           body.id: {type: string, length: 9}
-          body.items[*].price: {gt: 0}
+          body.total: {lt: 40}
 ```
 
 ```console
@@ -114,11 +114,11 @@ plan  2 tests in 1 file · profile default
      |
   23 |           body.id: {type: string, length: 9}
      |                    ^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"length":9,"type":"string"}, got "ord_123"
-  error[V5101]: expect.body.match.body.items[*].price
-    --> services/sample/overview.test.yaml:24:32
+  error[V5101]: expect.body.match.body.total
+    --> services/sample/overview.test.yaml:24:23
      |
-  24 |           body.items[*].price: {gt: 0}
-     |                                ^^^^^^^ expected {"gt":0}, got [10,32.5]
+  24 |           body.total: {lt: 40}
+     |                       ^^^^^^^^ expected {"lt":40}, got 42.5
 
 1 passed · 1 failed                                          183ms · profile default
 ```
@@ -160,7 +160,7 @@ A `body.match` path starts at the root of the response body.
 | `body.items[0].sku` | The first element of a list, then a key |
 | `body.items[*].price` | One field from every element, collected into a list |
 
-A `[*]` path gives a list, so it takes a list matcher: [every](/vc-rs/reference/matchers/every/), [some](/vc-rs/reference/matchers/some/), [none](/vc-rs/reference/matchers/none/), [length](/vc-rs/reference/matchers/length/), [contains](/vc-rs/reference/matchers/contains/) or a literal list. A scalar matcher such as `{gt: 0}` on a `[*]` path compares the whole list and fails, as in the example above. Write `{every: {gt: 0}}` instead.
+A `[*]` path gives a list, so it takes a list matcher: [every](/vc-rs/reference/matchers/every/), [some](/vc-rs/reference/matchers/some/), [none](/vc-rs/reference/matchers/none/), [length](/vc-rs/reference/matchers/length/), [contains](/vc-rs/reference/matchers/contains/) or a literal list. A scalar matcher (`gt`, `gte`, `lt`, `lte`, `between`, `startsWith`, `endsWith`, `regex`, `format`) on a `[*]` path would compare the whole list, so `vc check` reports it as [V2306](/vc-rs/reference/diagnostics/v2306/), even inside `not`, `allOf` or `anyOf`. Write `{every: {gt: 0}}` instead.
 
 A path that is not in the body has no value. Most matchers fail on it and report `got nothing`. `ne`, `notIn` and `not` pass on it, and `exists: false` checks for it.
 

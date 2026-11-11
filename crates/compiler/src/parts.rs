@@ -87,10 +87,21 @@ pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan
     for leaf in &walk.leaves {
         let Some(node) = shape_check::at(root, &leaf.path) else { continue };
         if let Some(piece) = piece(cx, At { node, scope: leaf.scope }, leaf) {
+            if let (Piece::Matcher(matcher), Some(key)) = (&piece, list_key(root, leaf)) {
+                matchers::on_list(cx, matcher, key);
+            }
             pieces.insert(node.span, piece);
         }
     }
     pieces
+}
+
+/// The key a matcher leaf sits under when it holds `[*]`, so the matcher sees a list.
+fn list_key<'n>(root: &'n Node, leaf: &Leaf) -> Option<&'n str> {
+    let LeafTy::Matcher(_) = leaf.ty else { return None };
+    let (last, parent) = leaf.path.split_last()?;
+    let Value::Map(entries) = &shape_check::at(root, parent)?.value else { return None };
+    entries.get(*last).map(|entry| entry.key.as_str()).filter(|key| key.contains("[*]"))
 }
 
 fn piece(cx: &mut Cx<'_>, at: At<'_>, leaf: &Leaf) -> Option<Piece> {

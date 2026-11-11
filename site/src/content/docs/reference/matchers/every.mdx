@@ -175,12 +175,12 @@ Edit the test below. The editor checks it against the real schema as you type.
 
 - The value must be a list. Anything else, including a missing value, fails.
 - An empty list passes.
-- A scalar matcher written straight on a `[*]` path, such as `body.items[*].price: {gt: 0}`, compares the whole list and fails. Wrap it in `every`, `some` or `none`.
 - To check fields of each element, put the field in the path with `[*]`.
 
 ## Common errors
 
-- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name. A misspelled name on its own is not flagged: the map is compared as a literal value instead.
+- [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`, or on its own when its name has five or more letters, such as `{startWith: A}`. The help line suggests the closest name. To compare with an object that has such a key, put it under `eq:`.
+- [V2306](/vc-rs/reference/diagnostics/v2306/): a scalar matcher written straight on a `[*]` path, such as `body.items[*].price: {gt: 0}`. It would compare the whole list, so `vc check` refuses it. Wrap it in `every`, `some` or `none`.
 - [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
 
 ## Related

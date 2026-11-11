@@ -121,6 +121,29 @@ fn misspelt(entries: &[Entry]) -> bool {
     entry.key.chars().count() >= MISSPELT_FROM && !suggest::close(&entry.key, names()).is_empty()
 }
 
+/// The matchers that compare one value, which the list a `[*]` path yields never is.
+const SCALAR: &[&str] = &["gt", "gte", "lt", "lte", "between", "startsWith", "endsWith", "regex", "format"];
+
+/// Reports each scalar matcher in `matcher`, written at the `[*]` path `key`, as V2306. `not`,
+/// `allOf` and `anyOf` still see the list; `every`, `some` and `none` see each element.
+pub fn on_list(cx: &mut Cx<'_>, matcher: &Matcher, key: &str) {
+    let Matcher::All(calls) = matcher else { return };
+    for call in calls {
+        match &call.arg {
+            _ if SCALAR.contains(&call.name.as_str()) => cx.push(scalar_on_list(call, key)),
+            MatcherArg::Matcher(inner) if call.name == "not" => on_list(cx, inner, key),
+            MatcherArg::Matchers(all) => all.iter().for_each(|inner| on_list(cx, inner, key)),
+            _ => {}
+        }
+    }
+}
+
+fn scalar_on_list(call: &MatcherCall, key: &str) -> Diagnostic {
+    let message = format!("`{}` compares one value, but `{key}` is a list", call.name);
+    let help = format!("to check each element, put it under `every:`, as in `{{every: {{{}: …}}}}`", call.name);
+    Diagnostic::new(Code::V2306, call.span, message).label("not a list matcher").help(help)
+}
+
 fn names() -> impl Iterator<Item = &'static str> {
     MATCHERS.iter().map(|(name, _)| *name)
 }

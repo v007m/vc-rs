@@ -102,6 +102,23 @@ fn a_lone_misspelt_matcher_is_v1004_and_a_status_map_takes_only_matchers() {
 }
 
 #[test]
+fn a_scalar_matcher_on_a_list_path_is_v2306_and_list_matchers_pass() {
+    let scalar = unit_with("    expect:\n      body:\n        match:\n          items[*].price: {gt: 0}\n");
+    let [found] = &scalar.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", scalar.diagnostics) };
+    assert_eq!(found.code, Code::V2306);
+    assert_eq!(found.message, "`gt` compares one value, but `items[*].price` is a list");
+    assert!(found.help[0].contains("`every:`"), "{:?}", found.help);
+    let nested = unit_with(
+        "    expect:\n      body:\n        match:\n          a[*]: {not: {startsWith: x}}\n          b[*].c: {anyOf: [{regex: x}, {length: 2}]}\n",
+    );
+    assert_eq!(codes(&nested.diagnostics), [Code::V2306, Code::V2306]);
+    let list = unit_with(
+        "    expect:\n      body:\n        match:\n          items[*].price: {every: {gt: 0}, length: {gt: 1}, contains: 3}\n          items[0].price: {gt: 0}\n          tags[*]: [a, b]\n",
+    );
+    assert!(list.diagnostics.is_empty(), "{:?}", list.diagnostics);
+}
+
+#[test]
 fn reads_ranges_and_lengths_in_their_unit() {
     let timing = unit_with("    expect:\n      timing: {total: {between: [1s, 2s]}}\n");
     assert!(timing.diagnostics.is_empty(), "{:?}", timing.diagnostics);
