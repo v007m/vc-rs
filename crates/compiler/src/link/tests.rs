@@ -116,7 +116,9 @@ fn vars_in_expected_matchers_are_checked() {
 
 #[test]
 fn an_unset_var_read_through_default_is_not_reported_but_through_another_pipe_is() {
-    let header = |pipe: &str| tests(&format!("  - id: a\n    call: users#get\n    headers: {{x-note: \"${{var.note | {pipe}}}\"}}\n"));
+    let header = |pipe: &str| {
+        tests(&format!("  - id: a\n    call: users#get\n    headers: {{x-note: \"${{var.note | {pipe}}}\"}}\n"))
+    };
     assert_eq!(found(&header("default('none')")), []);
     assert_eq!(found(&header("lower")), [(Code::V2101, 4)]);
 }
