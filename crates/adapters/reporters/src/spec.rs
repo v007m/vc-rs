@@ -158,15 +158,16 @@ const fn mark(status: TestStatus) -> (&'static str, Tone) {
     }
 }
 
-/// What follows the name: ` blocked`, ` flaky (2 attempts)`, ` skipped: rewrite pending`.
+/// What follows the name: ` blocked`, ` flaky (2 attempts)`, ` (3 attempts)` for a retried
+/// failure, ` skipped: rewrite pending`.
 fn suffix(record: &TestRecord) -> String {
     let result = &record.result;
+    let attempts = || text::count(usize::try_from(result.attempts).unwrap_or(0), "attempt");
     match result.status {
+        TestStatus::Failed if result.attempts > 1 => format!(" ({})", attempts()),
         TestStatus::Passed | TestStatus::Failed => String::new(),
         TestStatus::Blocked => " blocked".to_owned(),
-        TestStatus::Flaky => {
-            format!(" flaky ({})", text::count(usize::try_from(result.attempts).unwrap_or(0), "attempt"))
-        }
+        TestStatus::Flaky => format!(" flaky ({})", attempts()),
         TestStatus::Skipped => {
             result.skip_reason.as_ref().map_or_else(|| " skipped".to_owned(), |r| format!(" skipped: {r}"))
         }

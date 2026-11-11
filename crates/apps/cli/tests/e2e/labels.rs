@@ -65,3 +65,17 @@ async fn a_skipped_test_is_reported_inside_its_file_and_counted_in_its_totals() 
     assert_eq!((&totals["passed"], &totals["skipped"]), (&1.into(), &1.into()), "{events:#?}");
     assert_eq!(of_kind(&events, "testFinished").len(), 2, "reported once: {events:#?}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_retried_failure_is_shown_once_under_its_attempts() {
+    let server = MockServer::start().await.unwrap();
+    let test = "tests:\n  - id: wantsAnError\n    call: users#list\n    expect: {status: 500}\n\
+                \x20   retry: {attempts: 2, delay: 10ms}\n";
+    let project = Project::new(&[CONFIG, USERS, ("services/users/retried.test.yaml", test)]);
+    let run = project.run(&server.base_url(), &[]).output().unwrap();
+    let printed = String::from_utf8_lossy(&run.stdout);
+    assert!(printed.contains("✕ users.retried#wantsAnError (3 attempts)"), "{printed}");
+    assert!(printed.contains("attempts 1, 2 and 3 of 3:"), "{printed}");
+    assert_eq!(printed.matches("expect.status").count(), 1, "one block, not one per attempt: {printed}");
+    assert_eq!(server.stats().await.unwrap().count("GET /users"), 3);
+}
