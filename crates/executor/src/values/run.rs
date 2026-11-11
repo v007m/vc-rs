@@ -15,6 +15,9 @@ use vc_template::{FakeRegistry, PipeRegistry};
 /// The var definitions of one level, by name, with the active profiles applied.
 pub type Defined = HashMap<String, TemplateValue>;
 
+/// The rows each test's `examples: ${…}` template gave before the run, by test.
+pub type ExampleRows = HashMap<TestId, Vec<Value>>;
+
 /// What a run is given from outside the program: the active profiles, the `--set vars.*`
 /// values, the random source (seeded by `--seed`), the environment snapshot and the fake-data
 /// generators.
@@ -40,6 +43,9 @@ pub struct RunInputs {
     pub secrets: Secrets,
     /// `${run.id}`: the run's number in the history; 0 when the history is not kept.
     pub run_id: u64,
+    /// The rows each `examples: ${…}` template gave before the run; `example` binds them as they
+    /// are.
+    pub examples: Arc<ExampleRows>,
 }
 
 impl RunInputs {
@@ -47,7 +53,8 @@ impl RunInputs {
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
         let (profiles, vars, fakes) = (Vec::new(), Defined::new(), FakeRegistry::builtin());
-        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets: Secrets::new(), run_id: 0 }
+        let (secrets, examples) = (Secrets::new(), Arc::default());
+        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets, run_id: 0, examples }
     }
 
     /// The same inputs with the run starting at `started_ms`, for `${run.startedAt}` and the generated dates.
@@ -78,6 +85,12 @@ impl RunInputs {
     #[must_use]
     pub fn with_secrets(self, secrets: Secrets) -> Self {
         Self { secrets, ..self }
+    }
+
+    /// The same inputs with the rows the `examples: ${…}` templates gave.
+    #[must_use]
+    pub fn with_examples(self, examples: ExampleRows) -> Self {
+        Self { examples: Arc::new(examples), ..self }
     }
 }
 

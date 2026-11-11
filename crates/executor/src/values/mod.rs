@@ -4,12 +4,14 @@
 mod frame;
 mod reads;
 mod render;
+mod rows;
 mod run;
 mod scope;
 
 pub use frame::{Frame, Iteration};
 pub use render::Render;
-pub use run::{Defined, RunInputs, RunValues};
+pub use rows::example_rows;
+pub use run::{Defined, ExampleRows, RunInputs, RunValues};
 
 #[cfg(test)]
 #[path = "values_tests.rs"]

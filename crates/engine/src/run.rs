@@ -20,7 +20,7 @@ use crate::plan::{Extra, Prepared};
 use crate::plugin_hosts::Hosts;
 use crate::reporting::{self, Reporters, Setup};
 use crate::run_feed::Watching;
-use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify, ports};
+use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify};
 
 /// Room for this many events between the bus and the reporters before they miss some.
 const FEED: usize = 65_536;
@@ -58,8 +58,9 @@ impl Engine {
     /// reaches an action this build cannot run; with `--failed`, [`EngineError::History`] when
     /// no run is stored and [`EngineError::Selection`] when the last one had nothing to rerun.
     pub async fn run(&self, request: &RunRequest, mut interrupts: Interrupts) -> Result<RunReport, EngineError> {
-        let planned =
-            self.rerun(request).and_then(|(plan, rerun)| self.prepare(&plan, Extra { flags: flags(request), rerun }));
+        let planned = self
+            .rerun(request)
+            .and_then(|(plan, rerun)| self.prepare(&plan, Extra { flags: flags(request), rerun, seed: request.seed }));
         let prepared = self.before_gate(run_call(request).as_ref(), planned).await?;
         let admitted = self.run_gate(request, &prepared).await?;
         let report = self.execute(request, prepared, &mut interrupts).await?;
@@ -79,7 +80,7 @@ impl Engine {
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let heard = plugins.heard();
-        let (seed, random) = ports::random(request.seed);
+        let (seed, random) = (prepared.draw.seed, Arc::clone(&prepared.draw.random));
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone()))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let alerting = self.alerting(&prepared, &secrets, (run_id, "run"))?;
@@ -197,6 +198,7 @@ pub fn inputs(prepared: &Prepared, random: Arc<dyn Random>, run_id: u64) -> RunI
         .with_profiles(prepared.profiles.clone())
         .with_vars(vars(&prepared.settings.vars))
         .with_run_id(run_id)
+        .with_examples(prepared.draw.rows.clone())
 }
 
 /// The run flags that are settings, as the layer between `VIB_*` and `--set` (D129).
@@ -295,7 +297,7 @@ async fn pump(
 }
 
 /// `--set vars.name=value` as literal config vars.
-fn vars(set: &[(String, String)]) -> Defined {
+pub fn vars(set: &[(String, String)]) -> Defined {
     let literal = |text: &str| TemplateValue::String(Template { parts: vec![Part::Literal(text.to_owned())] });
     set.iter().map(|(name, value)| (name.clone(), literal(value))).collect::<HashMap<_, _>>()
 }

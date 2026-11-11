@@ -20,10 +20,12 @@ const LIMITED: &[(Namespace, Code, &str)] = &[
 /// Which template and CEL roots are available at one spot in a file (D125).
 ///
 /// `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere; the others
-/// only where the builder methods add them.
+/// only where the builder methods add them. A spot read before the run starts takes only the
+/// roots [`Roots::only`] names.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Roots {
     added: Vec<Namespace>,
+    only: Option<(&'static [Namespace], &'static str)>,
 }
 
 /// Parts of `response` written without it; a bare one is a step id unless reported (D150).
@@ -66,6 +68,13 @@ impl Roots {
         self.with(&[Namespace::Step(id)])
     }
 
+    /// Only `roots`, whatever else is added; any other root is V2105 with `why` as its help, such
+    /// as "`examples` is read before the run starts, so it reads only `var`, `env` and `dataset`".
+    #[must_use]
+    pub fn only(self, roots: &'static [Namespace], why: &'static str) -> Self {
+        Self { only: Some((roots, why)), ..self }
+    }
+
     fn with(mut self, roots: &[Namespace]) -> Self {
         self.added.extend_from_slice(roots);
         self
@@ -81,6 +90,9 @@ impl Roots {
     /// is the linker's check.
     pub fn check(&self, reference: &Reference, strings: &StringTable) -> Result<(), Box<Diagnostic>> {
         let ns = reference.ns;
+        if let Some((roots, why)) = self.only {
+            return if roots.contains(&ns) { Ok(()) } else { Err(Box::new(outside(reference, strings, why))) };
+        }
         if EVERYWHERE.contains(&ns) || self.added.contains(&ns) {
             return Ok(());
         }
@@ -98,6 +110,12 @@ impl Roots {
         let diagnostic = Diagnostic::new(code, reference.span, format!("`{name}` is not available here"));
         Err(Box::new(diagnostic.help(format!("`{name}` is available {needs}"))))
     }
+}
+
+/// V2105 for a root a [`Roots::only`] spot does not read.
+fn outside(reference: &Reference, strings: &StringTable, why: &str) -> Diagnostic {
+    let name = parse::root_name(reference.ns).or_else(|| step_name(reference.ns, strings)).unwrap_or("step");
+    Diagnostic::new(codes::ROOT_UNAVAILABLE, reference.span, format!("`{name}` is not available here")).help(why)
 }
 
 fn step_name(ns: Namespace, strings: &StringTable) -> Option<&str> {

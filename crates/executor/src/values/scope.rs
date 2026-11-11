@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use smallvec::SmallVec;
-use vc_model::{Action, ActionKind, FileId, OwnerKey, Program, TemplateValue};
+use vc_model::{Action, ActionKind, FileId, OwnerKey, Program, TemplateValue, Test};
 
 use super::run::{Defined, RunValues};
 use crate::{ActionRequest, Frame, Saved, SharedSlots};
@@ -112,6 +112,16 @@ impl Scope {
         );
         scope.levels.push(Level::Run(Arc::clone(&frame.run)));
         scope.api_levels(values, &cx.program, action);
+        scope.levels.push(Level::Config(values.config()));
+        scope
+    }
+
+    /// The scope `test`'s example rows render in before the run: the test's vars, its file's and
+    /// the config's.
+    pub fn of_test(values: &RunValues, test: &Test) -> Self {
+        let mut scope = Self::default();
+        scope.push(values.test(test.id).map(Level::Call));
+        scope.push(values.test_file(test.file).map(Level::TestFile));
         scope.levels.push(Level::Config(values.config()));
         scope
     }

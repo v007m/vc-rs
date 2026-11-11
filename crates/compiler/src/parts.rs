@@ -204,8 +204,17 @@ const SCOPE_ROOTS: &[(Scope, AddRoots)] = &[
     (Scope::FOR_EACH, Roots::in_for_each),
 ];
 
+/// The roots a row source reads: the engine renders it before the run starts, when nothing else
+/// has a value (V6).
+const ROW_ROOTS: &[Namespace] = &[Namespace::Var, Namespace::Env, Namespace::Dataset];
+
+/// Why a row source reads only [`ROW_ROOTS`].
+const ROW_HELP: &str = "`examples` is read before the run starts, so it reads only `var`, `env` and `dataset`";
+
 fn roots(scope: Scope) -> Roots {
-    SCOPE_ROOTS.iter().filter(|(added, _)| scope.has(*added)).fold(Roots::new(), |roots, (_, add)| add(roots))
+    let roots =
+        SCOPE_ROOTS.iter().filter(|(added, _)| scope.has(*added)).fold(Roots::new(), |roots, (_, add)| add(roots));
+    if scope.has(Scope::ROWS) { roots.only(ROW_ROOTS, ROW_HELP) } else { roots }
 }
 
 /// Bare names that mean `response.<name>` unless a step has that id (D150).

@@ -67,7 +67,7 @@ Every dynamic value is written `${namespace.path}`; `vc check` resolves each ref
 | `dataset` | One of your datasets: its whole list of rows (see Generators and datasets) | `${dataset.capitals}` |
 | `run` | `id` (the history run number, 0 when unrecorded), `startedAt` (RFC 3339 in UTC), `profiles` | `${run.id}` |
 
-Where each root is available (D125): `response` and `request` exist only once a call has been made (in `expect`, `save`, `poll` and an api's `cleanup`); `item` only inside `forEach`; `iteration` only inside `repeat`, `forEach` or a repeated test; `example` only in a test with `examples`; an action or step id only after that action, in the same test or block. `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere. There are no shorthands: write `response.status`, `response.headers` and `response.body`, in `expect` too. A bare `status`, `headers` or `body` that is not a step id is V2105, with a fix that inserts `response.` (D150). Using a root where it is not available is V2105 (`${item}` outside `forEach`, `${example}` without `examples` and `${iteration}` outside a loop are V2102) (D125, D137).
+Where each root is available (D125): `response` and `request` exist only once a call has been made (in `expect`, `save`, `poll` and an api's `cleanup`); `item` only inside `forEach`; `iteration` only inside `repeat`, `forEach` or a repeated test; `example` only in a test with `examples`; an action or step id only after that action, in the same test or block. `var`, `env`, `secret`, `fake`, `dataset` and `run` are available everywhere, except in an `examples` written as one template (`examples: ${…}`): it is read once before the run starts, so it reads only `var`, `env` and `dataset`, and any other root there is V2105. Inline rows are rendered per instance and may read every root. There are no shorthands: write `response.status`, `response.headers` and `response.body`, in `expect` too. A bare `status`, `headers` or `body` that is not a step id is V2105, with a fix that inserts `response.` (D150). Using a root where it is not available is V2105 (`${item}` outside `forEach`, `${example}` without `examples` and `${iteration}` outside a loop are V2102) (D125, D137).
 
 Paths: after a namespace, and as keys under `expect.body.match`, paths use dotted names, `[n]` for an index (negative counts from the end), `[*]` for every element, and quotes for unusual keys (`headers["x-request-id"]` or `['x-request-id']`; quoted keys and text arguments have no escapes). Arguments to pipes and generators are numbers written as in JSON (`-2`, `0.5`, `1e3`, without leading zeros), `true`, `false` and single-quoted text (`default('none')`); `null` and double-quoted text are V2305 (D151). Filtering is done with CEL.
 
@@ -505,7 +505,7 @@ Each item in `tests`:
 | `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
 | `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect` |
-| `examples` | list of maps, or `$file` | — | One test instance per row; values in `${example.*}` |
+| `examples` | list of maps, `$file`, or one template giving a list of maps | — | One test instance per row; values in `${example.*}`. A template is read once before the run, from `var`, `env` and `dataset` only |
 | `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
 | `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
@@ -1213,6 +1213,7 @@ Rules:
 
 - Large datasets can be trimmed with pipes: `${dataset.capitals | take(10)}` keeps the first ten rows, and `${dataset.capitals | shuffle | take(10)}` keeps ten random ones.
 - `random` and `shuffle` follow `--seed`, so a run can be repeated exactly.
+- `examples: ${…}` is read once before the run starts, under the run's profiles and `--set`, so a profile can choose the rows (`examples: ${var.rows}`). It reads only `var`, `env` and `dataset` (V2105), and rows that are not a list of maps stop the run with V5111.
 - CSV cells are text: convert with a pipe (`${item.population | int}`), or use JSON or YAML when the data has types.
 - A dataset is read once per run and never changed by it.
 - `examples` and `forEach` may also read a file next to the test: `examples: { $file: rows.yaml }`.

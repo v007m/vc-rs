@@ -116,6 +116,7 @@ cases!(
     v2306_matcher_arg,
     v2308_unknown_pipe,
     v2105_unavailable_root,
+    v2105_row_source,
     v2102_loop_root,
     v2102_iteration_root,
     loops_clean,

@@ -8,7 +8,7 @@ use std::sync::Arc;
 use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
 use vc_interfaces::Random;
-use vc_model::{CelProgram, Examples, Failure, Namespace, Program, Reference, Segment, Template, TemplateValue};
+use vc_model::{CelProgram, Failure, Namespace, Program, Reference, Segment, Template, TemplateValue};
 use vc_template::{Activation, CelCompiler, Chance, FakeCx, RenderError, Renderer, Resolve};
 
 use super::reads::Reads;
@@ -47,23 +47,14 @@ impl<'a> Render<'a> {
     /// When the instance's example row does not render.
     pub fn new(request: &'a ActionRequest) -> Result<Self, RenderError> {
         let cx = &*request.cx;
-        let mut render = Self {
-            values: &cx.values,
-            program: &cx.program,
-            redactor: &cx.redactor,
-            schemas: cx.schemas(),
-            scope: Scope::of(request),
-            roots: HashMap::new(),
-            memo: Saved::clone(&request.frame.fakes),
-            drawn: Drawn::new(),
-            reads: Reads::of(&request.frame),
-            chance: RandomChance(cx.values.inputs().random.as_ref()),
-        };
+        let (values, program, redactor) = (&cx.values, &cx.program, &cx.redactor);
+        let mut render = Self::over(Shared { values, program, redactor, schemas: cx.schemas() }, Scope::of(request));
+        render.memo.clone_from(&request.frame.fakes);
+        render.reads = Reads::of(&request.frame);
         let (id, started) = (render.values.inputs().run_id, vc_template::rfc3339(render.values.inputs().started_ms));
         let run = json!({ "id": id, "profiles": render.values.profiles(), "startedAt": started });
         render.bind(Namespace::Run, run);
         render.roots.insert(Namespace::Secret, render.values.secrets());
-        render.roots.insert(Namespace::Dataset, render.values.datasets());
         for (id, response) in request.frame.steps.iter() {
             render.roots.insert(Namespace::Step(*id), Arc::clone(response));
         }
@@ -71,6 +62,16 @@ impl<'a> Render<'a> {
         render.bind_instance(&request.frame)?;
         render.bind_iteration(&request.frame);
         Ok(render)
+    }
+
+    /// A renderer over `scope` that reads `dataset` and no other root: nothing saved, drawn or
+    /// bound yet. The example rows render in one before the run starts.
+    pub(super) fn over(shared: Shared<'a>, scope: Scope) -> Self {
+        let Shared { values, program, redactor, schemas } = shared;
+        let roots = HashMap::from([(Namespace::Dataset, values.datasets())]);
+        let chance = RandomChance(values.inputs().random.as_ref());
+        let (memo, drawn, reads) = (Saved::new(), Drawn::new(), Reads::default());
+        Self { values, program, redactor, schemas, scope, roots, memo, drawn, reads, chance }
     }
 
     /// The same render with `given` found before every other level: an auth definition's
@@ -192,12 +193,7 @@ impl<'a> Render<'a> {
         let index = u64::from(instance.repeat_index) + 1;
         self.bind(Namespace::Iteration, json!({ "index": index, "count": test.repeat }));
         let Some(row) = instance.example_row else { return Ok(()) };
-        let row = match &test.examples {
-            Some(Examples::Rows(rows)) => rows.get(usize::try_from(row).unwrap_or(usize::MAX)),
-            _ => return Err(RenderError::invalid("examples from a file or a template arrive in a later milestone")),
-        };
-        let row = row.ok_or_else(|| RenderError::invalid("the example row is not in the test"))?;
-        let value = self.value(row)?;
+        let value = self.example(test, usize::try_from(row).unwrap_or(usize::MAX))?;
         self.bind(Namespace::Example, value);
         Ok(())
     }
@@ -260,6 +256,15 @@ fn row_column(error: RenderError, (ns, row): (Namespace, &Value), reference: &Re
         Value::Object(row) if rows && !row.contains_key(column.as_str()) => error.coded(Code::V5112),
         _ => error,
     }
+}
+
+/// What every render of a run reads besides its scope.
+#[derive(Clone, Copy)]
+pub(super) struct Shared<'a> {
+    pub values: &'a RunValues,
+    pub program: &'a Program,
+    pub redactor: &'a Redactor,
+    pub schemas: &'a Schemas,
 }
 
 /// The var definition being rendered.

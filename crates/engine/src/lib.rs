@@ -49,6 +49,7 @@ mod create_curl;
 mod edit;
 mod editor_files;
 mod error;
+mod examples;
 mod explain;
 mod failed;
 mod fetch;

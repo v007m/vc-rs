@@ -1,0 +1,10 @@
+tests:
+  - id: createsDrawnUsers
+    examples: ${fake.string.uuid}
+    call: users#createUser
+  - id: createsEachUser
+    examples:
+      - email: ${fake.internet.email}
+    call: users#createUser
+    body:
+      email: ${example.email}

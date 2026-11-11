@@ -89,7 +89,7 @@ impl Walker {
             Ty::List(item) | Ty::MapOf(item) => self.children(node, *item, scope),
             Ty::Either(alternatives) => self.either(node, alternatives, scope),
             Ty::Enum(words) => self.word(node, words),
-            other => self.leaf(other, scope),
+            other => self.leaf(other, row_source(node, scope)),
         }
     }
 
@@ -180,6 +180,12 @@ impl Walker {
 }
 
 /// The roots that sibling keys such as `examples` and `forEach` add for `key`.
+/// Inline rows are rendered per instance, so they read every root a test may; only a row source
+/// read before the run (one template, a `$file` map) keeps [`Scope::ROWS`].
+const fn row_source(node: &Node, scope: Scope) -> Scope {
+    if matches!(node.value, Value::Seq(_)) { scope.without(Scope::ROWS) } else { scope }
+}
+
 fn sibling_scope(shape: &Shape, entries: &[Entry], key: &Key) -> Scope {
     shape
         .scopes

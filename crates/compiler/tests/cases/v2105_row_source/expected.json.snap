@@ -1,0 +1,34 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2105_row_source/project
+---
+{
+  "summary": {
+    "errors": 1,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2105",
+      "severity": "error",
+      "message": "`fake` is not available here",
+      "primary": {
+        "span": {
+          "path": "services/users/rows.test.yaml",
+          "line": 3,
+          "column": 15,
+          "endLine": 3,
+          "endColumn": 34
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "`examples` is read before the run starts, so it reads only `var`, `env` and `dataset`"
+      ],
+      "fixes": []
+    }
+  ]
+}
