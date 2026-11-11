@@ -87,15 +87,5 @@ fn name(program: &Program, test: TestId) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{fnv1a, row_seed};
-
-    #[test]
-    fn a_test_seeds_its_rows_from_the_run_seed_and_its_id_alone() {
-        assert_eq!(row_seed(7, "users.crud#listsPages"), row_seed(7, "users.crud#listsPages"));
-        assert_ne!(row_seed(7, "users.crud#listsPages"), row_seed(7, "users.crud#listsUsers"));
-        assert_ne!(row_seed(7, "users.crud#listsPages"), row_seed(8, "users.crud#listsPages"));
-        assert_eq!(fnv1a(""), 0xcbf2_9ce4_8422_2325, "the FNV-1a offset basis");
-        assert_eq!(fnv1a("a"), 0xaf63_dc4c_8601_ec8c, "FNV-1a of `a`");
-    }
-}
+#[path = "draw_tests.rs"]
+mod tests;

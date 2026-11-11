@@ -32,3 +32,7 @@ fn row_name(program: &Program, rendered: &ExampleRows, (test, row): (TestId, u32
     };
     (!name.is_empty()).then(|| name.to_owned())
 }
+
+#[cfg(test)]
+#[path = "labels_tests.rs"]
+mod tests;
