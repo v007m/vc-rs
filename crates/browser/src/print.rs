@@ -28,7 +28,7 @@ pub fn error(sink: &dyn Sink, error: &BrowserError, color: bool) -> u8 {
             sink.line(Stream::Err, &format!("error: {error}"));
         }
         BrowserError::Refused { reason, help } => {
-            sink.line(Stream::Err, &format!("error: {reason}"));
+            sink.line(Stream::Err, &labelled("error", reason));
             if let Some(help) = help {
                 sink.line(Stream::Err, &format!("  = help: {help}"));
             }
@@ -43,10 +43,15 @@ pub fn error(sink: &dyn Sink, error: &BrowserError, color: bool) -> u8 {
 
 /// A run's notice as the CLI warns it: `warning[V5118]: …` when it starts with a code.
 pub fn warning(notice: &str) -> String {
-    let coded = notice.split_once(": ").filter(|(code, _)| {
+    labelled("warning", notice)
+}
+
+/// `text` under `level`, as `level[V5118]: …` when it starts with a code.
+fn labelled(level: &str, text: &str) -> String {
+    let coded = text.split_once(": ").filter(|(code, _)| {
         code.len() == 5 && code.starts_with('V') && code.bytes().skip(1).all(|byte| byte.is_ascii_digit())
     });
-    coded.map_or_else(|| format!("warning: {notice}"), |(code, rest)| format!("warning[{code}]: {rest}"))
+    coded.map_or_else(|| format!("{level}: {text}"), |(code, rest)| format!("{level}[{code}]: {rest}"))
 }
 
 /// Prints a run's notices, and the seed of a failed run.

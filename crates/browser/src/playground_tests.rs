@@ -73,16 +73,18 @@ async fn another_host_is_a_failure_that_says_there_is_no_network() {
 }
 
 #[tokio::test]
-async fn a_hook_is_refused_with_help() {
+async fn a_hook_is_refused_with_its_code_and_help() {
     let mut files = examples();
-    let api = "apis:\n  - id: hooked\n    function: hooks/ping.js\n";
-    files.insert("services/hooked/hooked.api.yaml".to_owned(), api.to_owned());
-    files.insert("hooks/ping.js".to_owned(), "export default () => ({});\n".to_owned());
-    let test = "tests:\n  - id: callsHook\n    call: hooked#hooked\n";
-    files.insert("services/hooked/calls.test.yaml".to_owned(), test.to_owned());
+    files.insert("hooks/ping.js".to_owned(), "export function ping() {\n  return {};\n}\n".to_owned());
+    let test = "tests:\n  - id: runsHook\n    before:\n      - function: ../../hooks/ping.js#ping\n    \
+                call: echo#search\n    vars:\n      term: shoes\n";
+    files.insert("services/echo/hooked.test.yaml".to_owned(), test.to_owned());
     let (exit, out, err) = play(files, Command::Run).await;
-    assert_ne!(exit, 0, "{out}{err}");
-    assert!(!err.contains("internal error"), "{out}{err}");
+    assert_eq!(exit, 2, "{out}{err}");
+    let refused = "error[V5115]: the project runs hooks (hooks/ping.js), which the playground cannot run\n  \
+                   = help: leave the `function:` entries out of the project, or run the project with `vc run` on \
+                   your machine\n";
+    assert!(err.contains(refused), "{out}{err}");
 }
 
 #[tokio::test]

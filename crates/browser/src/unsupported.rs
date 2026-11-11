@@ -1,7 +1,9 @@
-//! What a page cannot hold, said plainly: a project that needs secrets is refused, and plugins,
-//! alerts, report files and the cross-run cache are left out with a notice. Hooks and
-//! `command:` actions are refused when the run starts (`run.rs`).
+//! What a page cannot hold, said plainly: a project that needs secrets or runs hooks is refused
+//! before anything runs, and plugins, alerts, report files and the cross-run cache are left out
+//! with a notice. A `command:` line the page cannot answer fails as the action runs
+//! (`commands.rs`).
 
+use vc_diagnostics::Code;
 use vc_model::Program;
 
 use crate::BrowserError;
@@ -9,8 +11,24 @@ use crate::BrowserError;
 /// Run the project with `vc run` for what the playground leaves out.
 const NATIVE: &str = "run the project with `vc run` on your machine";
 
-/// Refuses a project that declares secrets: the page has no keychain or `.env` to load them from.
+/// Refuses a project that declares secrets, since the page has no keychain or `.env` to load
+/// them from, or that uses a hook file, since the page has no runtime to run one in (V5115).
 pub fn refuse(program: &Program) -> Result<(), BrowserError> {
+    secrets(program)?;
+    hooks(program)
+}
+
+fn hooks(program: &Program) -> Result<(), BrowserError> {
+    if program.hooks.is_empty() {
+        return Ok(());
+    }
+    let paths: Vec<&str> = program.hooks.iter().map(|(path, _)| path).collect();
+    let reason =
+        format!("{}: the project runs hooks ({}), which the playground cannot run", Code::V5115, paths.join(", "));
+    Err(BrowserError::refused(reason, Some(format!("leave the `function:` entries out of the project, or {NATIVE}"))))
+}
+
+fn secrets(program: &Program) -> Result<(), BrowserError> {
     let declared = &program.config.secrets.declared;
     if declared.is_empty() {
         return Ok(());

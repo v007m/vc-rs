@@ -158,12 +158,14 @@ fn widen(count: u32) -> usize {
     usize::try_from(count).unwrap_or(usize::MAX)
 }
 
-/// An action the playground cannot run is the user's to avoid; anything else is a bug.
+/// An action the playground cannot run is the user's to avoid; anything else is a bug. Hooks
+/// never get here: [`unsupported::refuse`] refuses them before the run.
 fn executor_error(error: &ExecutorError) -> BrowserError {
     match error {
         ExecutorError::NoExecutor { .. } => {
-            let help = "leave the `function:` action out of the selected tests and lifecycle blocks";
-            BrowserError::refused(format!("{error}: the playground runs no hooks"), Some(help.to_owned()))
+            let help = "leave that action out of the selected tests and lifecycle blocks, or run the project with \
+                        `vc run` on your machine";
+            BrowserError::refused(error.to_string(), Some(help.to_owned()))
         }
         _ => BrowserError::Internal { reason: error.to_string() },
     }
