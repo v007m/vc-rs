@@ -1,10 +1,12 @@
 ---
 /**
  * Replaces Starlight's `Hero` (only the landing page has `hero:` frontmatter). The title, tagline
- * and actions still come from that frontmatter; the install command and the terminal session are
- * the ones the install page and the quickstart show.
+ * and actions still come from that frontmatter; the install commands come from `~/lib/install`
+ * and the terminal session is the quickstart's. It also owns the landing page's one background
+ * (fixed behind every section, drifting with the scroll) and the scroll-reveal of its sections.
  */
 import { Icon } from '@astrojs/starlight/components';
+import { INSTALL, type InstallMethod } from '~/lib/install';
 import LineIcon from './LineIcon.astro';
 import Terminal from './Terminal.astro';
 
@@ -12,37 +14,49 @@ const { data } = Astro.locals.starlightRoute.entry;
 const { title = data.title, tagline, actions = [] } = data.hero ?? {};
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
-const install = 'cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked';
+const methods = Object.entries(INSTALL) as Array<[InstallMethod, (typeof INSTALL)[InstallMethod]]>;
+const noteHtml = (note: string) => note.replace(/`([^`]+)`/g, '<code>$1</code>');
 
 /** Copied from the quickstart's `vc check` and `vc run` steps. */
 const session = [
   '$ vc check',
   '0 errors · 0 warnings · 3 files checked',
   '$ vc run',
-  'plan  4 tests in 1 file · lifecycle: beforeAll command · profile default',
+  'plan  2 tests in 1 file · profile default',
   '',
-  '✓ sample.basics#listsUsers                                        5ms',
-  '✓ sample.basics#createsUser                                       5ms',
-  '✓ sample.basics#rejectsMissingEmail                               5ms',
-  '✓ sample.basics#getsCreatedUser                                   8ms',
+  '✓ users.accounts#listsSeedUsers                                   4ms',
+  '✓ users.accounts#createsUser                                      5ms',
   '',
-  '4 passed                                                     90ms · profile default',
+  '2 passed                                                     6ms · profile default',
   'reports  /home/you/shop/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}',
 ];
 ---
 
+<div class="lp-bg" aria-hidden="true">
+  <div class="lp-bg-grid"></div>
+  <div class="lp-bg-glows">
+    <i class="g1"></i><i class="g2"></i><i class="g3"></i><i class="g4"></i><i class="g5"></i><i class="g6"></i>
+  </div>
+</div>
+
+<script is:inline>
+  // Before the sections below are parsed, so they start hidden instead of flashing.
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    document.documentElement.classList.add('lp-motion');
+  }
+</script>
+
 <section class="lp-hero not-content">
-  <div class="lp-glow" aria-hidden="true"></div>
-  <a class="lp-pill" href={`${base}/start/concepts/`}>
+  <a class="lp-pill lp-rise" href={`${base}/start/concepts/`} style="--lp-i:0">
     <span class="lp-pill-tag">YAML</span>
     <span>Functional, contract and load tests in one engine</span>
     <LineIcon name="arrow" class="lp-pill-arrow" />
   </a>
-  <h1 id="_top" data-page-title set:html={title} />
-  {tagline && <p class="lp-tagline" set:html={tagline} />}
+  <h1 id="_top" class="lp-rise" style="--lp-i:1" data-page-title set:html={title} />
+  {tagline && <p class="lp-tagline lp-rise" style="--lp-i:2" set:html={tagline} />}
   {
     actions.length > 0 && (
-      <div class="lp-actions">
+      <div class="lp-actions lp-rise" style="--lp-i:3">
         {actions.map(({ text, link, variant, icon, attrs }) => (
           <a class:list={['lp-btn', `lp-btn-${variant}`]} href={link} {...attrs}>
             {icon?.type === 'icon' && variant !== 'primary' && <Icon name={icon.name} size="1.15rem" />}
@@ -53,22 +67,41 @@ const session = [
       </div>
     )
   }
-  <div class="lp-install">
-    <code><span class="lp-install-prompt" aria-hidden="true">$</span>{install}</code>
-    <button type="button" class="lp-copy" data-copy={install} aria-label="Copy the install command">
-      <LineIcon name="copy" class="lp-copy-idle" />
-      <LineIcon name="done" class="lp-copy-done" />
-    </button>
+  <div class="lp-install-box lp-rise" style="--lp-i:4">
+    <div class="lp-install-tabs" role="tablist" aria-label="Install with">
+      {
+        methods.map(([id, { label }], i) => (
+          <button type="button" role="tab" id={`lp-tab-${id}`} aria-controls={`lp-install-${id}`} aria-selected={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1} data-method={id}>
+            {label}
+          </button>
+        ))
+      }
+    </div>
+    {
+      methods.map(([id, { command, note }], i) => (
+        <div class="lp-install-panel" role="tabpanel" id={`lp-install-${id}`} aria-labelledby={`lp-tab-${id}`} hidden={i !== 0}>
+          <div class="lp-install">
+            <code><span class="lp-install-prompt" aria-hidden="true">$</span>{command}</code>
+            <button type="button" class="lp-copy" data-copy={command} aria-label="Copy the install command">
+              <LineIcon name="copy" class="lp-copy-idle" />
+              <LineIcon name="done" class="lp-copy-done" />
+            </button>
+          </div>
+          <p class="lp-install-note" set:html={noteHtml(note)} />
+        </div>
+      ))
+    }
+    <p class="lp-install-more">
+      <a href={`${base}/start/install/`}>All install options</a>
+    </p>
   </div>
-  <p class="lp-install-note">
-    Builds <code>vc</code> and the demo service from source with Cargo (Rust 1.99+). Prebuilt releases are planned.
-  </p>
-  <div class="lp-term">
+  <div class="lp-term lp-rise" style="--lp-i:5">
     <Terminal title="~/shop" lines={session} />
   </div>
 </section>
 
 <script>
+  /* Copy buttons. */
   for (const button of document.querySelectorAll<HTMLButtonElement>('.lp-copy')) {
     button.addEventListener('click', async () => {
       try {
@@ -84,41 +117,160 @@ const session = [
       }
     });
   }
+
+  /* The install tabs: click or arrow keys switch the command shown. */
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('.lp-install-tabs [role="tab"]')];
+  const select = (tab: HTMLButtonElement): void => {
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      const panel = document.getElementById(t.getAttribute('aria-controls') ?? '');
+      if (panel) panel.hidden = !on;
+    }
+  };
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => select(tab));
+    tab.addEventListener('keydown', (e) => {
+      const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!step) return;
+      const next = tabs[(i + step + tabs.length) % tabs.length];
+      select(next);
+      next.focus();
+    });
+  });
+
+  /* Scroll-reveal and parallax, only when the reader has not asked for less motion. */
+  if (document.documentElement.classList.contains('lp-motion')) {
+    /** Once shown, an element drops out of the reveal so its own hover transitions apply again. */
+    const settle = (el: Element): void => {
+      const done = (ev: Event): void => {
+        if (ev.target !== el) return;
+        el.removeAttribute('data-reveal');
+        el.removeEventListener('transitionend', done);
+      };
+      el.addEventListener('transitionend', done);
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          e.target.classList.add('is-in');
+          settle(e.target);
+          observer.unobserve(e.target);
+        }
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+    );
+    for (const el of document.querySelectorAll<HTMLElement>('[data-reveal]')) {
+      const siblings = el.parentElement ? [...el.parentElement.children].filter((c) => c.hasAttribute('data-reveal')) : [];
+      el.style.setProperty('--lp-i', String(Math.max(0, siblings.indexOf(el))));
+      observer.observe(el);
+    }
+
+    const bg = document.querySelector<HTMLElement>('.lp-bg');
+    let queued = false;
+    const paint = (): void => {
+      queued = false;
+      bg?.style.setProperty('--lp-scroll', String(window.scrollY));
+    };
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(paint);
+      },
+      { passive: true },
+    );
+    paint();
+  }
 </script>
 
 <style>
-  .lp-hero {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding-block: clamp(2.5rem, 2rem + 5vw, 6rem) 1rem;
-    isolation: isolate;
-  }
-  .lp-glow {
-    position: absolute;
+  /* ---------- The page's one background ---------- */
+  .lp-bg {
+    --lp-scroll: 0;
+    position: fixed;
+    inset: 0;
     z-index: -1;
-    inset: -6rem calc(50% - 50vw) auto;
-    height: 46rem;
+    overflow: hidden;
     pointer-events: none;
-    background:
-      radial-gradient(40rem 22rem at 50% 18%, var(--lp-glow-1), transparent 70%),
-      radial-gradient(28rem 18rem at 22% 40%, var(--lp-glow-2), transparent 70%),
-      radial-gradient(28rem 18rem at 80% 36%, var(--lp-glow-3), transparent 70%);
   }
-  .lp-glow::after {
-    content: '';
+  .lp-bg-grid {
     position: absolute;
     inset: 0;
     background-image:
       linear-gradient(var(--lp-grid) 1px, transparent 1px),
       linear-gradient(90deg, var(--lp-grid) 1px, transparent 1px);
     background-size: 44px 44px;
-    background-position: center top;
-    mask-image: radial-gradient(ellipse 60% 55% at 50% 30%, #000 20%, transparent 75%);
+    background-position: center calc(var(--lp-scroll) * -0.4px);
+    mask-image: radial-gradient(ellipse 75% 70% at 50% 35%, #000 25%, transparent 80%);
+  }
+  .lp-bg-glows {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 300vh;
+    transform: translate3d(0, calc(var(--lp-scroll) * -0.3px), 0);
+    will-change: transform;
+  }
+  .lp-bg-glows i {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(10px);
+  }
+  .g1 {
+    inset: -12rem 50% auto auto;
+    translate: 50% 0;
+    width: 80rem;
+    height: 46rem;
+    background: radial-gradient(closest-side, var(--lp-glow-1), transparent);
+  }
+  .g2 {
+    top: 8rem;
+    left: -14rem;
+    width: 42rem;
+    height: 32rem;
+    background: radial-gradient(closest-side, var(--lp-glow-2), transparent);
+  }
+  .g3 {
+    top: 6rem;
+    right: -12rem;
+    width: 40rem;
+    height: 30rem;
+    background: radial-gradient(closest-side, var(--lp-glow-3), transparent);
+  }
+  .g4 {
+    top: 95vh;
+    right: -18rem;
+    width: 52rem;
+    height: 40rem;
+    background: radial-gradient(closest-side, var(--lp-glow-2), transparent);
+  }
+  .g5 {
+    top: 165vh;
+    left: -20rem;
+    width: 56rem;
+    height: 42rem;
+    background: radial-gradient(closest-side, var(--lp-glow-1), transparent);
+    opacity: 0.6;
+  }
+  .g6 {
+    top: 235vh;
+    right: -10rem;
+    width: 48rem;
+    height: 36rem;
+    background: radial-gradient(closest-side, var(--lp-glow-3), transparent);
   }
 
+  /* ---------- Hero ---------- */
+  .lp-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-block: clamp(2rem, 1.5rem + 4vw, 5rem) 1rem;
+  }
   .lp-pill {
     display: inline-flex;
     align-items: center;
@@ -157,13 +309,12 @@ const session = [
     width: 0.9rem;
     height: 0.9rem;
   }
-
   h1 {
     margin: 1.5rem 0 0;
-    max-width: 16ch;
-    font-size: clamp(2.375rem, 1.2rem + 5.2vw, 4.75rem);
+    max-width: 15ch;
+    font-size: clamp(2.25rem, 1.3rem + 4.2vw, 4.25rem);
     font-weight: 700;
-    line-height: 1.04;
+    line-height: 1.05;
     letter-spacing: -0.035em;
     color: var(--sl-color-white);
     text-wrap: balance;
@@ -176,19 +327,55 @@ const session = [
   }
   .lp-tagline {
     margin: 1.25rem 0 0;
-    max-width: 40rem;
-    font-size: clamp(1.0625rem, 0.95rem + 0.5vw, 1.25rem);
+    max-width: 38rem;
+    font-size: clamp(1.0625rem, 0.97rem + 0.4vw, 1.1875rem);
     line-height: 1.6;
     color: var(--sl-color-gray-2);
     text-wrap: pretty;
   }
+  .lp-hero .lp-actions {
+    margin-top: 2rem;
+  }
 
+  /* ---------- Install ---------- */
+  .lp-install-box {
+    width: min(100%, 40rem);
+    margin-top: 2.25rem;
+  }
+  .lp-install-tabs {
+    display: inline-flex;
+    gap: 0.25rem;
+    margin-bottom: 0.6rem;
+    padding: 0.2rem;
+    border: 1px solid var(--lp-border);
+    border-radius: 0.6rem;
+    background: var(--lp-surface);
+  }
+  .lp-install-tabs button {
+    padding: 0.3rem 0.8rem;
+    border: 0;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background-color 0.15s,
+      color 0.15s;
+  }
+  .lp-install-tabs button:hover {
+    color: var(--sl-color-white);
+  }
+  .lp-install-tabs button[aria-selected='true'] {
+    background: var(--lp-accent-solid);
+    color: #fff;
+  }
   .lp-install {
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    width: min(100%, 42rem);
-    margin-top: 2rem;
     padding: 0.35rem 0.35rem 0.35rem 1rem;
     border: 1px solid var(--lp-border);
     border-radius: 0.75rem;
@@ -241,25 +428,58 @@ const session = [
     visibility: visible;
     color: var(--lp-ok);
   }
-  .lp-install-note {
-    margin: 0.75rem 0 0;
+  .lp-install-note,
+  .lp-install-more {
+    margin: 0.7rem 0 0;
     font-size: var(--sl-text-xs);
+    line-height: 1.55;
     color: var(--sl-color-gray-3);
+    text-wrap: pretty;
   }
-  .lp-install-note code {
+  .lp-install-note :global(code) {
     font-family: var(--__sl-font-mono);
     font-size: 0.95em;
     background: none;
     padding: 0;
     color: var(--sl-color-gray-2);
   }
-
-  .lp-hero .lp-actions {
-    margin-top: 2rem;
+  .lp-install-more {
+    margin-top: 0.35rem;
+  }
+  .lp-install-more a {
+    color: var(--sl-color-text-accent);
   }
   .lp-term {
     width: min(100%, 50rem);
     margin-top: clamp(2.5rem, 2rem + 3vw, 4rem);
   }
+</style>
 
+<style is:global>
+  /* Scroll-reveal: set up by the script above only when motion is welcome. */
+  .lp-motion [data-reveal] {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+    transition:
+      opacity 0.6s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: calc(min(var(--lp-i, 0), 6) * 70ms);
+  }
+  .lp-motion [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
+  }
+  /* The hero rises in on load; CSS only, so it never waits for a script. */
+  @media (prefers-reduced-motion: no-preference) {
+    .lp-rise {
+      animation: lp-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      animation-delay: calc(var(--lp-i, 0) * 80ms);
+    }
+  }
+  @keyframes lp-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0);
+    }
+  }
 </style>

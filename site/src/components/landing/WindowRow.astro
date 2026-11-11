@@ -1,0 +1,29 @@
+---
+/** Windows side by side with equal heights: three across on wide screens, stacked in one
+ * readable column below 72rem. */
+---
+
+<div class="lp-window-row not-content">
+  <slot />
+</div>
+
+<style>
+  .lp-window-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: stretch;
+    max-width: 44rem;
+    margin-inline: auto;
+  }
+  /* Wide screens: three across, grown past the 67.5rem column so each window fits its widest line. */
+  @media (min-width: 72rem) {
+    .lp-window-row {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      max-width: none;
+      --lp-row-w: min(100vw - 4rem, 80rem);
+      width: var(--lp-row-w);
+      margin-inline: calc((100% - var(--lp-row-w)) / 2);
+    }
+  }
+</style>
