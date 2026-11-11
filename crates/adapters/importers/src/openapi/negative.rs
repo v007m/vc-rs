@@ -130,3 +130,6 @@ fn unlisted(field: &Field<'_>) -> Option<(String, Option<Value>)> {
     let value = json!(UNLISTED);
     (!listed.contains(&value)).then(|| ("outside its enum".to_owned(), Some(value)))
 }
+
+#[cfg(test)]
+mod tests;
