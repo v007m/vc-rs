@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use vc_model::Program;
-use vc_planner::{PlanError, PlanOptions, Selection};
+use vc_planner::{NO_ROWS, PlanError, PlanOptions, Selection};
 
 use crate::common;
 
@@ -23,6 +23,9 @@ tests:
     call: users#list
     repeat: 2
     examples: {$file: data/pages.csv}
+  - id: listsNoPages
+    call: users#list
+    examples: []
 ";
 
 fn with_examples() -> Program {
@@ -80,6 +83,20 @@ fn rows_from_a_file_come_preloaded_in_the_options() {
     let loaded = options(|options| options.example_rows = BTreeMap::from([(test, 1)]));
     let plan = vc_planner::plan(&program, &selection, &loaded).unwrap();
     assert_eq!(common::slots(&program, &plan, "users.rows#listsFilePages"), [(Some(0), 0), (Some(0), 1)]);
+}
+
+#[test]
+fn a_test_whose_examples_give_no_rows_is_skipped_not_dropped() {
+    let program = with_examples();
+    let none = common::planned(&program, &common::ids(&["users.rows#listsNoPages"]));
+    assert_eq!(common::skipped(&program, &none), ["listsNoPages"]);
+    assert_eq!(none.skipped[0].reason, NO_ROWS);
+    let selection = common::ids(&["users.rows#listsFilePages"]);
+    let test = common::test_id(&program, "users.rows#listsFilePages");
+    let empty = options(|options| options.example_rows = BTreeMap::from([(test, 0)]));
+    let plan = vc_planner::plan(&program, &selection, &empty).unwrap();
+    assert_eq!(common::skipped(&program, &plan), ["listsFilePages"]);
+    assert!(plan.files.iter().all(|file| file.instances.is_empty()));
 }
 
 #[test]

@@ -12,6 +12,10 @@ use crate::{PlanError, PlanOptions};
 /// An (example row, repeat index) pair.
 type Slot = (Option<u32>, u32);
 
+/// Why a test whose examples gave no rows is skipped: it has nothing to run, and a run that
+/// passed without it must say so.
+pub const NO_ROWS: &str = "examples gave no rows";
+
 /// The instances to run, by file, and the selected tests that are skipped.
 #[derive(Debug, Default)]
 pub struct Expanded {
@@ -52,12 +56,21 @@ impl<'p> Expander<'p> {
         let mut instances = Vec::new();
         let tests = file.tests.iter().filter_map(|id| Some((self.program.tests.get(id)?, picked.get(id)?)));
         for (test, pick) in tests.filter(|(test, _)| test.standalone) {
-            match self.skip(file, test) {
+            match self.not_run(file, test)? {
                 Some(reason) => skipped.push(SkippedTest { test: test.id, reason }),
                 None => instances.extend(self.instances(test, pick)?),
             }
         }
         Ok(instances)
+    }
+
+    /// Why `test` does not run: its file's `skip` or its own, else examples that gave no rows;
+    /// `None` when it runs.
+    fn not_run(&self, file: &TestFile, test: &Test) -> Result<Option<String>, PlanError> {
+        if let Some(reason) = self.skip(file, test) {
+            return Ok(Some(reason));
+        }
+        Ok((self.rows(test)? == Some(0)).then(|| NO_ROWS.to_owned()))
     }
 
     /// The reason `test` is skipped, from its file's `skip` or its own; `None` when it runs.

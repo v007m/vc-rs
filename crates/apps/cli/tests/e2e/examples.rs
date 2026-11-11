@@ -1,6 +1,7 @@
 //! `examples: ${…}`: the rows a template gives are read once before the run, from the vars the
-//! profiles and `--set` give and the datasets; `--seed` repeats a shuffle of them, and rows that
-//! are not a list of maps are V5111.
+//! profiles and `--set` give and the datasets, and only for the tests the run selects; `--seed`
+//! repeats a shuffle of them, rows that are not a list of maps are V5111, and a test given no rows
+//! is skipped with a warning.
 
 use serde_json::Value;
 use vc_mock_server::MockServer;
@@ -73,4 +74,32 @@ async fn rows_a_set_var_makes_text_are_v5111() {
     let run = project.run("http://127.0.0.1:9", &["--set", "vars.rows=oops"]).output().unwrap();
     assert_ne!(run.status.code(), Some(0), "{}", said(&run));
     assert!(said(&run).contains("V5111") && said(&run).contains("list of maps"), "{}", said(&run));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_test_given_no_rows_is_skipped_with_a_warning() {
+    let server = MockServer::start().await.unwrap();
+    let project = project("${dataset.cities | take(0)}");
+    let run = project.run(&server.base_url(), &["--reporter", "json"]).output().unwrap();
+    let statuses: Vec<Value> = finished(&run.stdout).into_iter().map(|(_, status)| status).collect();
+    assert_eq!(statuses, ["skipped"], "{}", said(&run));
+    assert_eq!(server.stats().await.unwrap().count("POST /echo"), 0);
+    let stderr = String::from_utf8_lossy(&run.stderr);
+    assert!(stderr.contains("warning: `scripted.cities#visitsEachCity`: examples gave no rows"), "{stderr}");
+    assert_eq!(run.status.code(), Some(0), "a skipped test exits 0, as any skip does: {}", said(&run));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn only_the_selected_tests_rows_are_rendered() {
+    let server = MockServer::start().await.unwrap();
+    let tests = "tests:\n  - id: visitsEachCity\n    examples: ${dataset.cities | take(2)}\n    call: scripted#echo\n\
+                 \x20   body: {city: '${example.name}'}\n  - id: readsTheRows\n    examples: ${var.rows}\n\
+                 \x20   call: scripted#echo\n";
+    let project = Project::new(&[CONFIG, CITIES, SCRIPTED, ("services/scripted/cities.test.yaml", tests)]);
+    let selected = ["--set", "vars.rows=oops", "scripted.cities#visitsEachCity"];
+    let run = project.run(&server.base_url(), &selected).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "the unselected test's rows are never rendered: {}", said(&run));
+    assert_eq!(server.stats().await.unwrap().count("POST /echo"), 2);
+    let all = project.run(&server.base_url(), &["--set", "vars.rows=oops"]).output().unwrap();
+    assert!(said(&all).contains("V5111"), "selected, its rows are rendered and refused: {}", said(&all));
 }

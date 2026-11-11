@@ -506,7 +506,7 @@ Each item in `tests`:
 | `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
 | `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect` |
-| `examples` | list of maps, `$file`, or one template giving a list of maps | — | One test instance per row; values in `${example.*}`. A template is read once before the run, from `var`, `env` and `dataset` only |
+| `examples` | list of maps, `$file`, or one template giving a list of maps | — | One test instance per row; values in `${example.*}`. A template is read once before the run, from `var`, `env` and `dataset` only. A test given no rows is skipped, with a warning |
 | `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
 | `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
 | `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
@@ -1216,7 +1216,8 @@ Rules:
 
 - Large datasets can be trimmed with pipes: `${dataset.capitals | take(10)}` keeps the first ten rows, and `${dataset.capitals | shuffle | take(10)}` keeps ten random ones.
 - `random` and `shuffle` follow `--seed`, so a run can be repeated exactly.
-- `examples: ${…}` is read once before the run starts, under the run's profiles and `--set`, so a profile can choose the rows (`examples: ${var.rows}`). It reads only `var`, `env` and `dataset` (V2105), and rows that are not a list of maps stop the run with V5111.
+- `examples: ${…}` is read once before the run starts, under the run's profiles and `--set`, so a profile can choose the rows (`examples: ${var.rows}`). It is read only for the tests the run selects and does not skip. It reads only `var`, `env` and `dataset`, as do the vars it reads (V2105), and rows that are not a list of maps stop the run with V5111.
+- A test whose `examples` give no rows (`examples: []`, an empty file or dataset, or a template that keeps none) is skipped with the reason "examples gave no rows", and the run warns about it, so it is never passed over without a trace.
 - CSV cells are text: convert with a pipe (`${item.population | int}`), or use JSON or YAML when the data has types.
 - A dataset is read once per run and never changed by it.
 - `examples` and `forEach` may also read a file next to the test: `examples: { $file: rows.yaml }`.

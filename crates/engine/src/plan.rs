@@ -10,7 +10,7 @@ use vc_interfaces::{ConfigEntry, Environment, TestRow, VcsError};
 use vc_model::{Plan, ProfileId, Program, SourcePath};
 use vc_planner::{PlanError, PlanOptions, Selection};
 
-use crate::examples::{self, Draw};
+use crate::examples::{self, Draw, Loader};
 use crate::failed;
 use crate::ports::Layered;
 use crate::project::invalid;
@@ -141,15 +141,16 @@ impl Engine {
         if !rerun.is_empty() {
             selection.ids = failed::selectors(&program, &rerun, request.repeat)?;
         }
-        let mut draw = Draw::new(seed);
+        let draw = Draw::new(seed);
         let inputs = RunInputs::new(Arc::clone(&draw.random), Arc::clone(&environment));
         let inputs = inputs.with_profiles(profiles.clone()).with_vars(run::vars(&settings.vars));
-        let unrendered = examples::render(&program, inputs, &mut draw);
-        let (repeat, today, example_rows) =
-            (request.repeat, Some(self.clock.today().to_string()), examples::counts(&draw.rows));
-        let options = PlanOptions { repeat, today, example_rows };
-        let refused = |error| unrendered.refused(&error, &program).unwrap_or_else(|| plan_error(error, &program));
-        let plan = vc_planner::plan(&program, &selection, &options).map_err(refused)?;
+        let today = Some(self.clock.today().to_string());
+        let options = PlanOptions { repeat: request.repeat, today, ..PlanOptions::default() };
+        let mut loader = Loader::new(&program, inputs, draw);
+        let plan = examples::planned(&mut loader, &selection, options)?;
+        let draw = loader.into_draw();
+        let mut notices = notices;
+        notices.extend(examples::empty(&program, &plan));
         Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment, dot_env, draw })
     }
 
@@ -234,7 +235,7 @@ fn known(program: &Program) -> String {
 
 /// The planner's refusal as the engine's: definition problems as a check report, selector
 /// problems with their help.
-fn plan_error(error: PlanError, program: &Program) -> EngineError {
+pub(crate) fn plan_error(error: PlanError, program: &Program) -> EngineError {
     match error {
         PlanError::Diagnostics(found) => invalid(found.into_iter().collect(), program.files.clone(), Vec::new()),
         other => EngineError::Selection { reason: other.to_string(), help: other.help() },
