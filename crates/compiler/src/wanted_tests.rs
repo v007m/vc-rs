@@ -88,7 +88,7 @@ fn an_outside_data_file_is_asked_for_with_its_allowed_root() {
     let (hooks, mut asks) = (chain(0), Vec::new());
     let (_, problems) = compile_wanted(input(&config), reader(&hooks, &mut asks)).unwrap();
     assert_eq!(problems, ["../shared/ok.csv"]);
-    let outside = (SourcePath::new("../shared/ok.csv").unwrap(), Some(SourcePath::new("../shared").unwrap()));
+    let outside = (SourcePath::data("../shared/ok.csv").unwrap(), Some(SourcePath::data("../shared").unwrap()));
     assert_eq!(asks[0], [outside, (SourcePath::new("hooks/h0.ts").unwrap(), None)]);
 }
 
