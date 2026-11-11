@@ -155,7 +155,7 @@ error: no test or test file matches `sample.nope`
 | Code | Meaning |
 | --- | --- |
 | `0` | Everything passed. Skipped tests and flaky tests that passed on a retry count as passing |
-| `1` | A test failed or was blocked, or `vc call` got a response that broke the api's `expect` |
+| `1` | A test failed or was blocked, an `afterAll` or `afterRun` action failed, or `vc call` got a response that broke the api's `expect` |
 | `2` | Nothing ran: the project has errors, a selector matched nothing, a flag or value is wrong, or a file or ID was not found |
 | `3` | `vc load` breached a threshold |
 | `4` | `vc sync --check` found drift or a conflict |

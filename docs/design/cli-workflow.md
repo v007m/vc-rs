@@ -779,12 +779,14 @@ next     vc run --failed · vc report 483 --open
 
 Every test instance ends as `passed`, `failed`, `blocked` (a setup it needs failed; never retried), `skipped` or `flaky` (failed, then passed when its `retry` re-ran the whole test) (D126).
 
+A failed check or action in an `afterAll` or `afterRun` leaves every test's verdict as it was, but the run fails (exit 1) and the summary adds a line under the counts naming each block that failed, once: `teardown failed: afterAll in users.crud, afterRun` (D279).
+
 Console formats: `spec` (above, the default in a terminal), `dots` (compact), `json` (one event per line, for tools). In CI, where there is no terminal, colour and progress bars switch off and output stays line-based. When the reader of stdout goes away (`vc run | head -1`), the rest of the output is dropped quietly and the command ends with the exit code it would have had.
 
 | Exit code | Means |
 | --- | --- |
 | 0 | Every selected test passed or was skipped; flaky passes count as passed |
-| 1 | At least one test failed or was blocked |
+| 1 | At least one test failed or was blocked, or an `afterAll` or `afterRun` action failed (D279) |
 | 2 | Nothing ran: `vc check` errors, an empty selection, or no active profile |
 | 3 | A load threshold was breached |
 | 4 | `vc sync --check` found drift or a conflict left unsettled; a plain `vc sync` that leaves conflicts exits 0 |

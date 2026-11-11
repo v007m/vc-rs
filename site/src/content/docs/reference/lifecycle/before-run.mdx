@@ -115,6 +115,7 @@ afterRun:
 - In the json event stream, these actions belong to the `run` owner, and the run's cleanups (such as the admin's delete) run after `afterRun`.
 - `vc plan` lists the `beforeRun` and `afterRun` actions at the top and bottom of the plan, and the summary line names them (`lifecycle: beforeRun command, admin`).
 - `vc plan` marks each test with the shared values it reads (`needs: admin, shared`). Only those tests are blocked when the action fails.
+- A failed check or action in `afterRun` doesn't change any test's verdict, but the run exits 1 and the summary names the block: `teardown failed: afterRun`.
 
 ## Common errors
 

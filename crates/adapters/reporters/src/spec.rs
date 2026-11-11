@@ -7,16 +7,18 @@ use vc_interfaces::{Artifact, ReportError, Reporter, RunSummary};
 use vc_model::{ActionId, ActionOutcome, CleanupRecord, Event, Names, OwnerKey, RunStatus, TestStatus, Totals};
 
 use crate::collect::{Collector, TestRecord};
+use crate::teardown::Teardown;
 use crate::{Color, Destination, ReporterContext, failure, text};
 
 /// The width test names are padded to, so durations line up.
 const NAME_WIDTH: usize = 60;
 
 /// The `spec` console format: a plan line, one line per test as it finishes with a detailed
-/// block under each failure, and a summary.
+/// block under each failure, and a summary that names any teardown block that failed (D279).
 #[derive(Debug)]
 pub struct SpecReporter {
     names: Names,
+    teardown: Teardown,
     destination: Arc<dyn Destination>,
     color: Color,
     collector: Collector,
@@ -26,8 +28,10 @@ pub struct SpecReporter {
 impl SpecReporter {
     /// A reporter printing to the context's destination.
     pub fn new(context: &ReporterContext) -> Self {
+        let names = Names::new(context.program(), context.plan());
         Self {
-            names: Names::new(context.program(), context.plan()),
+            teardown: Teardown::new(context.plan(), &names),
+            names,
             destination: context.destination(),
             color: context.color_mode(),
             collector: Collector::new(context.clock()),
@@ -102,6 +106,10 @@ impl SpecReporter {
         let mut tail = vec![text::duration(run.duration)];
         tail.extend(profiles(&self.names, &run.profiles));
         let mut out = format!("\n{counts:<NAME_WIDTH$} {}\n", tail.join(" · "));
+        let teardown = self.teardown.failed(&self.collector.lifecycle);
+        if !teardown.is_empty() {
+            let _ = writeln!(out, "teardown failed: {}", teardown.join(", "));
+        }
         if !run.artifacts.is_empty() {
             let _ = writeln!(out, "reports  {}", reports(&run.artifacts));
         }

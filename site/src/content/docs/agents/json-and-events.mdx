@@ -254,7 +254,7 @@ A seed the run picks itself is below 2<sup>53</sup>, so `JSON.parse` reads it ex
 | Code | Meaning |
 | --- | --- |
 | 0 | Passed |
-| 1 | A test failed or was blocked |
+| 1 | A test failed or was blocked, or an `afterAll` or `afterRun` action failed |
 | 2 | Nothing ran: no test matched ("no test or test file matches"), or the project has errors (`error: the project has 1 error(s); nothing ran`). `vc check` also exits 2 on errors |
 | 3 | `vc load`: a threshold was breached |
 | 4 | `vc sync --check`: a spec drifted from its snapshot |

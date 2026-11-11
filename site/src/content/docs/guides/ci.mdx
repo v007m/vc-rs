@@ -31,7 +31,7 @@ $ cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
 | Code | Meaning | Typical cause in CI |
 | --- | --- | --- |
 | `0` | Passed | Every test passed, was skipped, or was flaky |
-| `1` | Failed | A test failed or was blocked |
+| `1` | Failed | A test failed or was blocked, or an `afterAll` or `afterRun` action failed |
 | `2` | Nothing ran | An error in the YAML, an empty selection, a bad flag or profile |
 | `3` | Load threshold breached | `vc load` |
 | `4` | Sync drift | `vc sync --check` found a changed spec |
