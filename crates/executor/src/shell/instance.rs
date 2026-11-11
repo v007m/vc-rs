@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::ops::Range;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -53,6 +54,10 @@ struct InstanceShell {
     calls: Vec<IterationCall>,
     /// The action that sent each of `calls`.
     senders: Vec<ActionId>,
+    /// Where the current attempt's calls start in `calls`.
+    attempt_from: usize,
+    /// The current attempt's first failed action and which of `calls` its failure sent.
+    failing: Option<(ActionId, Range<usize>)>,
     /// When the instance got its turn, which its result's duration runs from.
     started: Instant,
 }
@@ -69,6 +74,8 @@ impl InstanceShell {
             deadline: None,
             calls: Vec::new(),
             senders: Vec::new(),
+            attempt_from: 0,
+            failing: None,
             started: Instant::now(),
         };
         shell.start_attempt();
@@ -91,8 +98,11 @@ impl InstanceShell {
         None
     }
 
-    /// Starts the attempt's clock: each attempt gets the test's whole `timeout`.
+    /// Starts the attempt's clock: each attempt gets the test's whole `timeout`, and only its
+    /// own calls can be blamed for its failure.
     fn start_attempt(&mut self) {
+        self.attempt_from = self.calls.len();
+        self.failing = None;
         let test = self.crew.cx.program.tests.get(&self.ticket.launch.instance.test);
         self.deadline = test.and_then(|test| test.timeout).map(|timeout| Deadline::attempt(timeout.get()));
     }
@@ -151,6 +161,7 @@ impl InstanceShell {
         let cancelled = self.ticket.cancel.is_cancelled().then_some(InstanceInput::Cancelled);
         let result = match ran {
             Ran::Done(report) => {
+                self.note_failing(action, &report);
                 self.record(action, &report);
                 self.frame.absorb(&self.crew.cx.program, action, &report);
                 InstanceInput::ActionDone(report)
@@ -185,17 +196,38 @@ impl InstanceShell {
         self.senders.resize(self.calls.len(), action);
     }
 
+    /// Keeps which calls `action` failed on, if it is the attempt's first action to fail.
+    fn note_failing(&mut self, action: ActionId, report: &ActionReport) {
+        if self.failing.is_none() && report.outcome.failure().is_some() {
+            self.failing = Some((action, report.failing_after(self.calls.len())));
+        }
+    }
+
     /// The api `action` calls, if it calls one.
     fn api(&self, action: ActionId) -> Option<ApiId> {
         self.crew.cx.action(action).and_then(|found| called(&self.crew.cx.program, found)).map(|api| api.id)
     }
 
-    /// `failure` with the api its action calls and that action's last response status.
+    /// `failure` with the api its action calls and the status of the call it failed on in this
+    /// attempt, if it got one.
     fn blame(&self, failure: Failure) -> IterationFailure {
         let Failure { action, code, message } = failure;
-        let sent = action.and_then(|action| self.senders.iter().rposition(|&sender| sender == action));
-        let status = sent.and_then(|at| self.calls.get(at)).and_then(|call| call.status);
+        let span = action.and_then(|action| self.failed_on(action));
+        let status = span.and_then(|span| self.calls.get(span)?.last()).and_then(|call| call.status);
         IterationFailure { api: action.and_then(|action| self.api(action)), status, code, message }
+    }
+
+    /// This attempt's calls that `action`'s failure came from: the attempt's first failed
+    /// action's when that is `action`, else `action`'s last call, else, for a step of a `test:`
+    /// reuse, whose calls are recorded under the reusing action, the first failed action's.
+    fn failed_on(&self, action: ActionId) -> Option<Range<usize>> {
+        let failing = self.failing.as_ref();
+        if let Some((_, span)) = failing.filter(|(failed, _)| *failed == action) {
+            return Some(span.clone());
+        }
+        let mine = self.senders.get(self.attempt_from..)?.iter().rposition(|&sender| sender == action);
+        let at = mine.map(|at| self.attempt_from + at);
+        at.map(|at| at..at + 1).or_else(|| failing.map(|(_, span)| span.clone()))
     }
 
     /// Waits out the retry delay, unless the frame is cancelled or aborted first.

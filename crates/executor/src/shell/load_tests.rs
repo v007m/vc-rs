@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use vc_diagnostics::Code;
-use vc_model::{Check, CheckKind, Matcher, Origin, StatusPattern, TestId};
+use vc_model::{ActionKind, Check, CheckKind, Loop, Matcher, Origin, Retry, StatusPattern, TemplateValue, TestId};
 
 use super::{IterationSetup, ProgramIterations};
 use crate::cancel::CancelTree;
@@ -166,4 +166,49 @@ async fn an_iteration_reads_what_its_file_before_all_saved() {
     assert!(report.passed, "{report:?}");
     let counts = sent.counts();
     assert_eq!((counts.get("/seed"), counts.get("/users/t")), (Some(&1), Some(&1)), "{counts:?}");
+}
+
+#[tokio::test]
+async fn a_retried_iteration_blames_its_last_attempt_not_an_earlier_one_s_call() {
+    let mut fixture = Fixture::new();
+    let get = fixture.call("/sinking");
+    let api = fixture.api_mut(get).id;
+    let retry = Retry { attempts: 1, delay: vc_model::Duration::new(Duration::from_millis(10)) };
+    let test = fixture.test(vec![get], Some(retry));
+    let (iterations, sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!((statuses(&report), sent.counts()["/sinking"]), (vec![Some(503)], 2), "the refused call got nothing");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), None, Some(Code::V5105.to_string())));
+}
+
+#[tokio::test]
+async fn a_failed_for_each_turn_is_blamed_with_its_own_status() {
+    let mut fixture = Fixture::new();
+    let get = fixture.call("/items");
+    let api = fixture.api_mut(get).id;
+    fixture.api_mut(get).path = fixture.template("/${item}");
+    let items = ["missing", "a", "b"].map(|item| fixture.value(item));
+    fixture.action_mut(get).repeat = Some(Loop::ForEach { items: TemplateValue::List(items.to_vec()), parallel: 3 });
+    let test = fixture.test(vec![get], None);
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!(statuses(&report), [Some(404), Some(200), Some(200)]);
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(404), Some(Code::V5101.to_string())));
+}
+
+#[tokio::test]
+async fn a_failed_step_of_a_reused_test_is_blamed_with_its_status() {
+    let mut fixture = Fixture::new();
+    let (browse, create) = (fixture.call("/users"), fixture.call("/fail"));
+    let api = fixture.api_mut(create).id;
+    let reused = fixture.test(vec![browse, create], None);
+    let reuse = fixture.action(ActionKind::Test(reused));
+    let test = fixture.test(vec![reuse], None);
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!(statuses(&report), [Some(200), Some(500)]);
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(500), Some(Code::V5101.to_string())));
 }
