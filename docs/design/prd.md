@@ -149,7 +149,7 @@ Every interface is a thin adapter over the same engine, so a capability added to
 
 ### CLI
 
-The command is `vibranium`, aliased `vc` (D44). Every command accepts `--json` for machine-readable output, `--profile` to pick profiles and `--set key=value` to override config. The full command set, run selectors, OpenAPI sync, generated tests and skipping are specified in the Vibranium v2 CLI and Developer Workflow doc (D77–D82); the table below is the summary.
+The command is `vibranium`, aliased `vc` (D44). Commands that print data accept `--json` for machine-readable output (`vc run` takes `--reporter json`), `--profile` to pick profiles and `--set key=value` to override every other config layer (D129, D287). The full command set, run selectors, OpenAPI sync, generated tests and skipping are specified in the Vibranium v2 CLI and Developer Workflow doc (D77–D82); the table below is the summary.
 
 | Command | Does |
 | --- | --- |

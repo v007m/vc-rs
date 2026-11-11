@@ -15,7 +15,7 @@ This is how a developer works with Vibranium day to day from the terminal: start
 | Keep in step with the backend | `vc sync users`; in CI, `vc sync --check` | Spec changes merged into api files without losing your edits; CI fails when the spec drifts |
 | Park a flaky test | `vc skip orders.checkout#appliesCoupon --reason "…" --until 2026-11-15` | The test is reported as skipped with its reason, and runs again after the date |
 
-Every command that writes a file compiles the result first and refuses to write something `vc check` would reject, so generated files always load. Every command takes `--json` for scripts and agents, and `--profile` where a profile matters.
+Every command that writes a file compiles the result first and refuses to write something `vc check` would reject, so generated files always load. The commands that print data (`check`, `plan`, `list`, `history`, `cache list`, `load`, `new auth`) take `--json` for scripts and agents; `vc run` takes `--reporter json` instead (D287). `--profile` is taken where a profile matters.
 
 ## What `vc init` writes
 
@@ -106,7 +106,7 @@ history:
   keep: 50                 # runs kept after each run, or `all`
 ```
 
-Any value here can be set from several places. Layers apply lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line, so `vc run --set defaults.timeout=60s` wins over everything else for one run. A setting's `VIB_*` variable is its `--set` key upper-snaked (`VIB_DEFAULTS_PER_HOST=4`, `VIB_DEFAULTS_RETRY_ATTEMPTS=1`, `VIB_REPORTS_DIR=out`), and a var's is `VIB_VAR_<name>` with the name as written (`VIB_VAR_userId=7`, D182). The user config is `$XDG_CONFIG_HOME/vibranium/config.yaml` (else `~/.config/…`, or `%APPDATA%` on Windows); its `profile`, `defaults`, `reports` and `vars` count only where the project's config is silent. `vc config explain <key>` shows the value and the layer that set it (D129); a secret's value is shown as `••••` (D232).
+Any value here can be set from several places. Layers apply lowest to highest: built-in defaults < user config (`~/.config/vibranium/config.yaml`) < `vibranium.config.yaml` < the active profiles, in the order given < `.env` < `VIB_*` environment variables < `--set key=value` on the command line, so `vc run --set defaults.timeout=60s` wins over every other config layer for one run. `--set vars.<name>` sets a config var, so a file's, test's or step's own `vars` still win over it (D287). A setting's `VIB_*` variable is its `--set` key upper-snaked (`VIB_DEFAULTS_PER_HOST=4`, `VIB_DEFAULTS_RETRY_ATTEMPTS=1`, `VIB_REPORTS_DIR=out`), and a var's is `VIB_VAR_<name>` with the name as written (`VIB_VAR_userId=7`, D182). The user config is `$XDG_CONFIG_HOME/vibranium/config.yaml` (else `~/.config/…`, or `%APPDATA%` on Windows); its `profile`, `defaults`, `reports` and `vars` count only where the project's config is silent. `vc config explain <key>` shows the value and the layer that set it (D129); a secret's value is shown as `••••` (D232).
 
 ### `services/sample/sample.api.yaml`
 
@@ -293,7 +293,7 @@ One service per folder keeps an api file next to the tests that use it, and test
 
 ## Commands
 
-Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `vc <command> --json` prints structured output instead of text. `vc import` reads `openapi`, `curl`, `har`, `http`, `postman` and `bruno`; another kind exits 2, naming the importers there are.
+Commands are grouped by the job they do. `vc help <command>` shows every flag with an example; `--json` prints structured output instead of text where a command takes it, and `vc run --reporter json` streams JSON events. `vc import` reads `openapi`, `curl`, `har`, `http`, `postman` and `bruno`; another kind exits 2, naming the importers there are.
 
 **Start and author**
 

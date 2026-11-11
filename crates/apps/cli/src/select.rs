@@ -64,7 +64,8 @@ pub struct PlanArgs {
     #[arg(long = "profile", value_name = "IDS")]
     profiles: Vec<String>,
     /// Sets one config value for this run (`defaults.timeout=5s`, `vars.userId=7`), over
-    /// every other layer (D129).
+    /// every other config layer (D129); a file's, test's or step's own `vars` still win over a
+    /// config var.
     #[arg(long = "set", value_name = "KEY=VALUE")]
     sets: Vec<String>,
     /// Runs every selected test this many times, instead of its own `repeat`.

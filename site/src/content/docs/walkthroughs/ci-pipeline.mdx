@@ -136,7 +136,7 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    1
    ```
 
-   `--set` overrides one config value for a single run, over every other layer. `--bail` starts no new tests after the first failure; the rest are reported as `skipped: cancelled`.
+   `--set` overrides one config value for a single run, over every other config layer. `--bail` starts no new tests after the first failure; the rest are reported as `skipped: cancelled`.
 
 6. **Get machine-readable events.** `--reporter json` replaces the console output with NDJSON on stdout: one JSON object per line, for every test, request and check. Hints such as the seed line go to stderr, so stdout stays clean.
 

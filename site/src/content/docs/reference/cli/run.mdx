@@ -24,7 +24,7 @@ With no selector, every test in the project runs. Selectors are test IDs (`users
 | `--include-skipped` | | | Also runs the tests marked `skip` |
 | `--failed` | | | Runs the tests that failed or were blocked in the last run, under its profiles. A `vc call` since then does not count as the last run |
 | `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
-| `--set` | `<KEY=VALUE>` | | Sets one config value for this run (`defaults.timeout=5s`, `vars.userId=7`), over every other layer |
+| `--set` | `<KEY=VALUE>` | | Sets one config value for this run (`defaults.timeout=5s`, `vars.userId=7`), over every other config layer. A file's, test's or step's own `vars` still win over a config var |
 | `--repeat` | `<N>` | | Runs every selected test this many times, instead of its own `repeat` |
 | `--seed` | `<N>` | random | The seed for generated data. A failing run prints its seed so you can pass it here |
 | `--bail` | | | Starts no more tests after the first failure |

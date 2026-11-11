@@ -23,7 +23,7 @@ $ vc plan [OPTIONS] [SELECTORS]...
 | `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
 | `--include-skipped` | | | Also plans the tests marked `skip` |
 | `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
-| `--set` | `<KEY=VALUE>` | | Sets one config value, over every other layer |
+| `--set` | `<KEY=VALUE>` | | Sets one config value, over every other config layer |
 | `--repeat` | `<N>` | | Plans every selected test this many times, instead of its own `repeat` |
 | `--json` | | | Prints the plan as JSON on stdout |
 | `--dot` | | | Prints the plan as a Graphviz DOT graph |

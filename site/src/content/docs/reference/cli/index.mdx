@@ -102,7 +102,7 @@ error: no vibranium.config.yaml in /tmp or any folder above it
 | Flag | Value | Used by | Description |
 | --- | --- | --- | --- |
 | `--profile` | `<IDS>` | run, watch, plan, explain, call, load, import, mcp, tui, ui, config explain | The active profiles, as a comma list or repeated; later ones win |
-| `--set` | `<KEY=VALUE>` | run, watch, plan, explain, call, load, mcp, ui, config explain | Sets one config value over every other layer |
+| `--set` | `<KEY=VALUE>` | run, watch, plan, explain, call, load, mcp, ui, config explain | Sets one config value over every other config layer |
 | `--json` | | check, plan, list, history, cache list, load, new auth | Prints JSON instead of text |
 
 `--set` accepts these keys: `profile`, `defaults.concurrency`, `defaults.perHost`, `defaults.timeout`, `defaults.retry.attempts`, `defaults.retry.delay`, `reports.dir`, `reports.formats`, `reports.html.layout`, and `vars.<name>`. Anything else stops with exit code 2:
