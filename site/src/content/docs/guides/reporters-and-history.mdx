@@ -149,7 +149,7 @@ history:
   maxBodySize: 64kb   # a longer body is cut
 ```
 
-To drop old runs now, run `vc history prune --keep 20`. A dropped run's report folder, `.vibranium/reports/<run>/`, goes with it.
+To drop old runs now, run `vc history prune --keep 20`. A dropped run's report folder, `.vibranium/reports/<run>/`, goes with it. `vc` marks each run's folder with an empty `.vc-run` file and removes no other folder.
 
 <Aside type="note">
 `.vibranium/` is git-ignored, so history stays on each machine. To keep it in CI, cache the folder; see [CI](/vc-rs/guides/ci/#cache-between-ci-runs).

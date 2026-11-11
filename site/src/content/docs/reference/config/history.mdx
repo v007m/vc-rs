@@ -22,7 +22,7 @@ history:
 | --- | --- | --- | --- | --- |
 | `history.bodies` | `none`, `failures` or `all` | `failures` | no | Which exchanges keep their request and response bodies. |
 | `history.maxBodySize` | size | `64kb` | no | A longer body is cut. Units: `b`, `kb`, `mb`, `gb`. |
-| `history.keep` | integer or `all` | `50` | no | Runs kept after each run. |
+| `history.keep` | integer or `all` | `50` | no | Runs kept after each run. A dropped run's report folder goes with it, and only a folder `vc` made for a run, which holds an empty `.vc-run` file: a folder of your own under `reports.dir` stays, even one named by a number. With `0`, a run still keeps the folder it just wrote. |
 
 ## Examples
 

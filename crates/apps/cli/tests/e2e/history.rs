@@ -86,11 +86,37 @@ async fn a_pruned_runs_report_folder_goes_with_it() {
         project.run(&server.base_url(), &["users.mixed#listsUsers"]).assert().code(0);
     }
     fs::write(reports.join("notes.txt"), "mine").unwrap();
+    fs::create_dir(reports.join("0")).unwrap();
+    fs::write(reports.join("0/notes.txt"), "mine").unwrap();
     let folders = || ["1", "2", "3"].map(|run| reports.join(run).is_dir());
     assert_eq!(folders(), [false, true, true], "`history.keep: 2` keeps the folders of runs 2 and 3");
+    assert!(reports.join("3/.vc-run").is_file(), "vc marks each run's folder as its own");
     project.vc(&["history", "prune", "--keep", "1"]).assert().code(0).stdout("pruned 1 run\n");
     assert_eq!(folders(), [false, false, true], "`vc history prune --keep 1` drops run 2's folder");
     assert!(reports.join("notes.txt").is_file(), "anything not a run's folder stays");
+    assert!(reports.join("0/notes.txt").is_file(), "a folder named by a number that vc did not mark stays");
+}
+
+/// With `history.keep: 0` no run is kept, yet each run keeps the report folder it just printed;
+/// a folder of the user's own named by a number stays, and pruning an empty history removes no
+/// folder.
+#[tokio::test(flavor = "multi_thread")]
+async fn keep_zero_keeps_the_folder_the_run_printed_and_an_empty_history_prunes_none() {
+    let server = MockServer::start().await.unwrap();
+    let config = format!("{}history: {{keep: 0}}\n", CONFIG.1);
+    let project = Project::new(&[(CONFIG.0, config.as_str()), USERS, MIXED]);
+    let reports = project.path().join(".vibranium/reports");
+    fs::create_dir_all(reports.join("0")).unwrap();
+    fs::write(reports.join("0/notes.txt"), "mine").unwrap();
+    for _ in 0..2 {
+        let run = project.run(&server.base_url(), &["users.mixed#listsUsers"]).output().unwrap();
+        assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+        assert!(said(&run).contains(".vibranium/reports/1/"), "{}", said(&run));
+        assert!(reports.join("1/ctrf.json").is_file(), "the folder the run printed is still there");
+    }
+    project.vc(&["history", "prune", "--keep", "0"]).assert().code(0).stdout("pruned 0 runs\n");
+    assert!(reports.join("1/ctrf.json").is_file(), "an empty history removes no folder");
+    assert!(reports.join("0/notes.txt").is_file(), "a folder vc did not mark stays");
 }
 
 #[tokio::test(flavor = "multi_thread")]
