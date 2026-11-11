@@ -488,7 +488,7 @@
       "type": "object"
     }
   },
-  "$id": "https://raw.githubusercontent.com/v007m/vc-rs/master/schema/api.schema.json",
+  "$id": "https://v007m.github.io/vc-rs/schema/api.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "An api file, `services/<service>/<service>.api.yaml`",

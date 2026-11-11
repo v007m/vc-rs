@@ -101,7 +101,8 @@ impl CallExecutor {
         let retry = http_retry::policy(program, call.0, &request.cx.values.inputs().random);
         let prepared = auth::prepare(request, render, call)?;
         let parts = auth::added(PipelineParts { retry, ..self.parts.clone() }, &request.cx, prepared);
-        let bridge = HookBridge::new(self.parts.hook_runner.clone(), program);
+        let bridge = HookBridge::new(self.parts.hook_runner.clone(), program)
+            .with_secrets(request.cx.values.inputs().secrets.clone());
         Ok(Flight::new(parts, (hooks::request_hooks(program, call.0), bridge), Arc::clone(&self.matchers)))
     }
 }

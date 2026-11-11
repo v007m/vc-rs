@@ -51,12 +51,15 @@ type Case = (&'static str, &'static [AlertTrigger], Finished, Option<RunStatus>,
 
 #[test]
 fn each_rule_fires_for_the_first_trigger_it_lists_that_happened() {
-    use AlertTrigger::{Failure, Flaky, Recovery, Threshold};
+    use AlertTrigger::{Blocked, Failure, Flaky, Recovery, Threshold};
     let failed = Some(RunStatus::Failed);
     let passed = Some(RunStatus::Passed);
     let table: &[Case] = &[
         ("a failure", ALL, run(RunStatus::Failed, FAILED, &[]), passed, Some(Failure)),
         ("a blocked test is a failure", &[Failure], run(RunStatus::Failed, BLOCKED, &[]), None, Some(Failure)),
+        ("blocked alone", &[Blocked], run(RunStatus::Failed, BLOCKED, &[]), None, Some(Blocked)),
+        ("failure outranks blocked", &[Blocked, Failure], run(RunStatus::Failed, BLOCKED, &[]), None, Some(Failure)),
+        ("a failed test is not blocked", &[Blocked], run(RunStatus::Failed, FAILED, &[]), None, None),
         ("failure outranks flaky", &[Flaky, Failure], run(RunStatus::Failed, FAILED, &[]), None, Some(Failure)),
         ("flaky when it is all that is listed", &[Flaky], run(RunStatus::Failed, FAILED, &[]), None, Some(Flaky)),
         ("a flaky pass", ALL, run(RunStatus::Passed, FLAKY, &[]), None, Some(Flaky)),
@@ -103,4 +106,23 @@ fn a_notice_carries_the_failures_its_rule_sees_the_breaches_and_the_report() {
     assert_eq!(smoke.notice.summary.profiles, ["staging"]);
     assert_eq!(slow.notice.trigger, AlertTrigger::Threshold, "a breach outranks flaky, whatever the tags");
     assert!(slow.notice.failures.is_empty(), "a rule's notice lists only the tests its tags pick");
+}
+
+#[test]
+fn a_blocked_notice_lists_only_the_blocked_tests_and_a_failure_notice_the_failed_and_blocked() {
+    use AlertTrigger::{Blocked, Failure};
+    let tests = &[
+        ("users.crud#getsUser", "smoke", TestStatus::Failed),
+        ("users.crud#listsUsers", "smoke", TestStatus::Blocked),
+        ("users.crud#makesUser", "smoke", TestStatus::Flaky),
+    ];
+    let finished = run(RunStatus::Failed, tests, &[]);
+    let rules = [rule(&[Blocked], &[], &[]), rule(&[Failure], &[], &[])];
+    let fired = decide(&rules, &finished, None);
+    let listed =
+        |index: usize| fired[index].notice.failures.iter().map(|failure| failure.test.clone()).collect::<Vec<_>>();
+    assert_eq!(fired[0].notice.trigger, Blocked);
+    assert_eq!(listed(0), ["users.crud#listsUsers"]);
+    assert_eq!(fired[1].notice.trigger, Failure);
+    assert_eq!(listed(1), ["users.crud#getsUser", "users.crud#listsUsers"]);
 }

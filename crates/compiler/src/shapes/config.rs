@@ -200,7 +200,7 @@ shape! {
 
 shape! {
     alert = Shape::new("alert", "A notification rule", &[
-        types::key("on", Ty::List(&Ty::Enum(&["failure", "recovery", "flaky", "threshold"]))).doc("Events that notify"),
+        types::key("on", Ty::List(&Ty::Enum(&["failure", "blocked", "recovery", "flaky", "threshold"]))).doc("Events that notify"),
         types::key("profiles", TEXTS).doc("Only runs under these profiles"),
         types::key("tags", TEXTS).doc("Only tests with these tags"),
         types::key("notify", Ty::List(&VARS)).doc("Channels: webhook, slack, teams, pagerduty, email"),

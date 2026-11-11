@@ -11,7 +11,7 @@ const PROJECT: &str = "<project>";
 /// a [`SourcePath`] refuses is shown with the bad characters replaced.
 pub fn add_problems(problems: &[SourceError], diagnostics: &mut Diagnostics, files: &mut SourceFiles) {
     for problem in problems {
-        let path = problem.path().and_then(|path| SourcePath::lossy(path).ok());
+        let path = problem.path().and_then(|path| SourcePath::lossy(path).or_else(|_| SourcePath::data(path)).ok());
         let Some(path) = path.or_else(|| SourcePath::new(PROJECT).ok()) else { continue };
         let Ok(id) = files.push(SourceFile { path, text: String::new(), hash: vc_interfaces::content_hash(&[]) })
         else {

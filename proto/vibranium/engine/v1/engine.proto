@@ -326,6 +326,23 @@ message CallResponse {
   repeated string notices = 3;
   // The response as JSON text, when one came.
   optional string response_json = 4;
+  // The request as sent, with the inherited and auth headers, and the response with its
+  // timing; bodies whole. Everything secret is masked. Absent when no response came back.
+  optional vibranium.results.v1.Exchange exchange = 5;
+  // The api's checks, in the order they ran, masked.
+  repeated vibranium.results.v1.Check checks = 6;
+  // The values the api's `save` took from the response, masked.
+  repeated SavedValue saved = 7;
+}
+
+// A value a call saved.
+message SavedValue {
+  // The var it was saved as.
+  string name = 1;
+  // Where it came from, as written: `${response.body.id}`.
+  string from = 2;
+  // The value as JSON text, masked.
+  string value = 3;
 }
 
 message SaveCallAsTestRequest {

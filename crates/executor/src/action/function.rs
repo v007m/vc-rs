@@ -47,7 +47,8 @@ impl FunctionExecutor {
         let input = json!({ "vars": render.hook_vars(), "run": { "profiles": render.values().profiles() } });
         let fakes = render.into_memo();
         let bridge = HookBridge::new(self.runner.clone(), &request.cx.program)
-            .within(action.timeout.map(vc_model::Duration::get));
+            .within(action.timeout.map(vc_model::Duration::get))
+            .with_secrets(request.cx.values.inputs().secrets.clone());
         let returned = bridge.call(hook, input).await.map_err(|error| hooks::failure(hook, &error))?;
         let saved = saved(returned);
         if let Some(failure) = provides::unsaved(&request.cx.program, action, &saved) {

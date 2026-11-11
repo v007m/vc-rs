@@ -2,7 +2,6 @@
 //! (D178). No plan runs, so `beforeRun` and `beforeAll` are skipped; the api's cleanup runs
 //! afterwards unless `--keep`, and the call is recorded in the history as `adhoc`.
 
-use std::fmt::Write as _;
 use std::iter;
 use std::sync::Arc;
 
@@ -10,10 +9,12 @@ use serde_json::{Map, Value, json};
 use vc_executor::{ActionCx, ActionReport, ActionRequest, Frame, Saved};
 use vc_interfaces::{ConfigEntry, RunEnd, RunStart};
 use vc_model::{
-    Action, ActionId, ActionKind, ActionOutcome, Api, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals, VarDefs,
+    Action, ActionId, ActionKind, ActionOutcome, Api, Names, Owner, Program, RunStatus, SaveSpec, TestStatus, Totals,
+    VarDefs,
 };
 
 use crate::agent_gate::{Gated, call_reach};
+use crate::call_report::CallReport;
 use crate::examples::Draw;
 use crate::explain::did_you_mean;
 use crate::history::Recording;
@@ -27,21 +28,6 @@ const KIND: &str = "adhoc";
 
 /// The tool an agent's call is judged and logged as.
 const CALL_TOOL: &str = "call_api";
-
-/// What `vc call` got back.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct CallReport {
-    /// 0 when the api's expect held, 1 when it did not or nothing came back.
-    pub exit: u8,
-    /// `200 OK · 148 ms · api expect passed`, the body, and the failure when there is one.
-    pub text: String,
-    /// What the run should still say: settings notices, failed cleanups, an unrecorded history.
-    pub notices: Vec<String>,
-    /// The response as the checks saw it (`status`, `headers`, `body`), masked; what
-    /// `--save-as-test` takes its expectations from.
-    pub response: Option<Value>,
-}
 
 impl Engine {
     /// Sends the api `request.api` once, runs its cleanup unless `request.keep`, and records
@@ -69,12 +55,12 @@ impl Engine {
         let report = cx.executors.execute(sent).await;
         notices.extend(clean(&cx, &report).await);
         let passed = matches!(report.outcome, ActionOutcome::Passed);
-        if let Some(recording) = recording {
-            notices.extend(self.closed(recording, passed, &prepared.program).await);
-        }
+        notices.extend(self.closed(recording, passed, &prepared.program).await);
         self.settle(admitted, passed).await?;
-        let response = report.response.as_deref().map(|response| cx.redactor.value(response.clone()));
-        Ok(CallReport { exit: u8::from(!passed), text: shown(&cx, &report), notices, response })
+        let names = Names::new(Arc::clone(&prepared.program), &prepared.plan);
+        let mut called = CallReport::masked(&cx, (names, action), report).await;
+        called.notices = notices;
+        Ok(called)
     }
 
     /// For an agent's call, the agent policy's gate on what `action` reaches: the api's method,
@@ -105,7 +91,7 @@ impl Engine {
     }
 
     /// The layered settings and active profiles of `request`, with nothing planned.
-    fn adhoc(&self, request: &CallRequest) -> Result<Prepared, EngineError> {
+    pub(crate) fn adhoc(&self, request: &CallRequest) -> Result<Prepared, EngineError> {
         let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
         let Layered { mut program, notices, settings, environment, dot_env, .. } =
             self.layered(&request.sets, &flags)?;
@@ -132,7 +118,9 @@ impl Engine {
             .ok()
     }
 
-    async fn closed(&self, recording: Recording, passed: bool, program: &Program) -> Option<String> {
+    /// Closes the call's history record, when it has one; a notice when that fails.
+    async fn closed(&self, recording: Option<Recording>, passed: bool, program: &Program) -> Option<String> {
+        let recording = recording?;
         let mut totals = Totals::default();
         totals.add(if passed { TestStatus::Passed } else { TestStatus::Failed });
         let status = if passed { RunStatus::Passed } else { RunStatus::Failed };
@@ -222,38 +210,10 @@ async fn clean(cx: &Arc<ActionCx>, report: &ActionReport) -> Vec<String> {
     for cleanup in report.cleanups.iter().rev() {
         let done = cx.executors.execute(ActionRequest::cleanup(cx, cleanup.action, &cleanup.vars)).await;
         if let ActionOutcome::Failed(failure) = done.outcome {
-            notices.push(format!("cleanup failed: {}", cx.redactor.text(&failure.message)));
+            notices.push(format!("cleanup failed: {}", cx.redactor.masked_text(&failure.message).await));
         }
     }
     notices
-}
-
-/// The status line, the masked body, and the failure when the expect did not hold.
-fn shown(cx: &ActionCx, report: &ActionReport) -> String {
-    let passed = matches!(report.outcome, ActionOutcome::Passed);
-    let mut out = String::new();
-    if let Some(exchange) = report.exchanges.last() {
-        let verdict = if passed { "api expect passed" } else { "api expect failed" };
-        let millis = exchange.timing.total.as_millis();
-        let _ = writeln!(out, "{} · {millis} ms · {verdict}", exchange.response.status);
-        out.push_str(&body(cx, &exchange.response.body));
-    }
-    if let ActionOutcome::Failed(failure) = &report.outcome {
-        let _ = writeln!(out, "✗ {}", cx.redactor.text(&failure.message));
-    }
-    out
-}
-
-/// The body as indented JSON when it is JSON, else as text; masked, with a closing newline.
-fn body(cx: &ActionCx, bytes: &[u8]) -> String {
-    if bytes.is_empty() {
-        return String::new();
-    }
-    let text = serde_json::from_slice::<Value>(bytes).map_or_else(
-        |_| cx.redactor.text(&String::from_utf8_lossy(bytes)),
-        |json| serde_json::to_string_pretty(&cx.redactor.value(json)).unwrap_or_default(),
-    );
-    format!("{}\n", text.trim_end())
 }
 
 #[cfg(test)]
