@@ -24,6 +24,7 @@ afterRun:
 | `id` | camelCase text | — | no | Names the action in output |
 | `vars` | map | — | no | Values for the templates in the command |
 | `timeout` | duration | `defaults.timeout` (30s when unset) | no | Past it the whole process group is killed |
+| `repeat`, `forEach`, `parallel` | number, list, number | — | no | Runs the command several times; see [loops](/vc-rs/reference/lifecycle/loops/) |
 
 A `command` action saves nothing.
 

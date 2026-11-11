@@ -1,5 +1,6 @@
 //! `command:` actions through `sh -c` (D181): a non-zero exit fails the test with V5110, an
-//! interpolated value stays one word, and the child sees `.env` and the config vars.
+//! interpolated value stays one word, the child sees `.env` and the config vars, and `repeat` runs
+//! the command once per turn.
 #![cfg(unix)]
 
 use std::fs;
@@ -35,4 +36,13 @@ fn the_child_sees_dot_env_and_the_config_vars() {
     project.write(".env", "FROM_FILE=file\n");
     project.vc(&["run", "--set", "vars.word=set"]).assert().code(0);
     assert_eq!(fs::read_to_string(project.path().join("env.txt")).unwrap(), "file set\n");
+}
+
+#[test]
+fn a_repeated_command_runs_once_per_turn() {
+    let (path, test) =
+        steps("      - command: echo ${iteration.index}/${iteration.count} >> turns.txt\n        repeat: 3\n");
+    let project = Project::new(&[CONFIG, (path, &test)]);
+    project.vc(&["run"]).assert().code(0);
+    assert_eq!(fs::read_to_string(project.path().join("turns.txt")).unwrap(), "1/3\n2/3\n3/3\n");
 }

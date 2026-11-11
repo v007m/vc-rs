@@ -1,13 +1,13 @@
 ---
 title: "Loops on actions"
-description: "repeat, forEach and parallel run one call or test action several times, and every name it saves collects a list."
+description: "repeat, forEach and parallel run one action of any kind several times, and every name it saves collects a list."
 sidebar: { order: 11 }
 ---
 
 import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
-`repeat` and `forEach` run one `call` or `test` action several times without writing it several times. `parallel` lets iterations overlap. Each name the action saves becomes a list, in iteration order.
+`repeat` and `forEach` run one action several times without writing it several times. They work on every kind: `call`, `test`, `function` and `command`. `parallel` lets iterations overlap. Each name the action saves becomes a list, in iteration order.
 
 ```yaml title="services/lab/loops.test.yaml"
 tests:
