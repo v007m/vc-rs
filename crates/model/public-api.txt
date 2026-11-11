@@ -594,6 +594,7 @@ pub vc_model::TemplateValue::Null
 pub vc_model::TemplateValue::Number(serde_json::number::Number)
 pub vc_model::TemplateValue::String(vc_model::Template)
 impl vc_model::TemplateValue
+pub fn vc_model::TemplateValue::collect_references<'v>(&'v self, &mut alloc::vec::Vec<&'v vc_model::Reference>)
 pub fn vc_model::TemplateValue::references(&self) -> alloc::vec::Vec<&vc_model::Reference>
 impl core::clone::Clone for vc_model::TemplateValue
 pub fn vc_model::TemplateValue::clone(&self) -> Self

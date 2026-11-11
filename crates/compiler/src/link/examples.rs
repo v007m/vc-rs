@@ -9,7 +9,7 @@
 use std::collections::HashSet;
 
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Namespace, Reference, Segment, TemplateValue};
+use vc_model::{Namespace, Reference, Segment, SourceSpan, TemplateValue};
 use vc_parser::{Node, Value};
 use vc_template::{row_readable, row_root_label, row_var_unread};
 
@@ -54,7 +54,7 @@ impl Checker<'_, '_> {
             }
             return;
         }
-        let found = refs(source, rows);
+        let found = refs(source, rows.span);
         let mut seen = Seen::new();
         let needed = found.into_iter().find_map(|reference| {
             let needed = self.needed((reference, 0), scope, &mut seen)?;
@@ -82,20 +82,22 @@ impl Checker<'_, '_> {
             Origin::Unset => None,
             Origin::Saved if self.takes_missing(reference) => None,
             Origin::Saved => Some(Needed { var: name.to_owned(), root: SAVED.to_owned() }),
-            Origin::Defined { reads, at } => self.defined((name, reads, at), scope, seen),
+            Origin::Defined { value, at } => self.defined((name, value, at), scope, seen),
         }
     }
 
-    /// What the definition of the var `name` at the level `at`, reading `reads`, needs that is
-    /// not there before the run: a root it reads itself, unless it is a secret read with
-    /// `default` (`row_readable`), else what a var it reads needs. A read of `name` itself starts
-    /// at the next level out, any other name at the innermost, as the engine looks them up.
+    /// What the definition of the var `name` at the level `at`, to `value`, needs that is not
+    /// there before the run: a root it reads itself, unless it is a secret read with `default`
+    /// (`row_readable`), else what a var it reads needs. A read of `name` itself starts at the
+    /// next level out, any other name at the innermost, as the engine looks them up.
     fn defined(
         &self,
-        (name, reads, at): (&str, &[Reference], usize),
+        (name, value, at): (&str, SourceSpan, usize),
         scope: &Scope<'_>,
         seen: &mut Seen,
     ) -> Option<Needed> {
+        let source = self.project.sources.iter().find(|source| source.file == value.file)?;
+        let reads = refs(source, value);
         let outside = reads.iter().find(|read| !row_readable(read, self.pipes()));
         if let Some(read) = outside {
             return Some(Needed { var: name.to_owned(), root: row_root_label(read.ns) });
@@ -117,10 +119,10 @@ impl Checker<'_, '_> {
     }
 }
 
-/// The references in `node`, in order.
-fn refs<'a>(source: &Source<'a>, node: &Node) -> Vec<&'a Reference> {
+/// The references in `span`, in order.
+fn refs<'a>(source: &Source<'a>, span: SourceSpan) -> Vec<&'a Reference> {
     let mut found = Vec::new();
-    source.pieces(node.span, &[]).for_each(|piece| piece_refs(piece, &mut found));
+    source.pieces(span, &[]).for_each(|piece| piece_refs(piece, &mut found));
     found
 }
 

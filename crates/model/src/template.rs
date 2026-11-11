@@ -269,7 +269,9 @@ impl TemplateValue {
         found
     }
 
-    fn collect_references<'v>(&'v self, found: &mut Vec<&'v Reference>) {
+    /// Adds every reference the value makes to `found`, as [`TemplateValue::references`] gives
+    /// them, without a list of its own.
+    pub fn collect_references<'v>(&'v self, found: &mut Vec<&'v Reference>) {
         match self {
             Self::Null | Self::Bool(_) | Self::Number(_) => {}
             Self::String(template) => found.extend(template.references()),

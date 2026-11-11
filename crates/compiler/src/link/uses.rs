@@ -163,7 +163,7 @@ pub fn references<'a>(source: &Source<'a>, ns: Namespace) -> Vec<&'a Reference> 
 pub fn piece_refs<'p>(piece: &'p Piece, found: &mut Vec<&'p Reference>) {
     match piece {
         Piece::Template(template) => found.extend(template.references()),
-        Piece::Value(value) => found.extend(value.references()),
+        Piece::Value(value) => value.collect_references(found),
         Piece::Matcher(matcher) => matcher_refs(matcher, found),
         Piece::Cel(cel) => found.extend(&cel.refs),
         Piece::Duration(_) | Piece::Size(_) => {}
@@ -172,7 +172,7 @@ pub fn piece_refs<'p>(piece: &'p Piece, found: &mut Vec<&'p Reference>) {
 
 fn matcher_refs<'p>(matcher: &'p Matcher, found: &mut Vec<&'p Reference>) {
     match matcher {
-        Matcher::Equals(value) => found.extend(value.references()),
+        Matcher::Equals(value) => value.collect_references(found),
         Matcher::All(calls) => calls.iter().for_each(|call| arg_refs(&call.arg, found)),
         Matcher::Status(_) => {}
     }
@@ -180,7 +180,7 @@ fn matcher_refs<'p>(matcher: &'p Matcher, found: &mut Vec<&'p Reference>) {
 
 fn arg_refs<'p>(arg: &'p MatcherArg, found: &mut Vec<&'p Reference>) {
     match arg {
-        MatcherArg::Value(value) => found.extend(value.references()),
+        MatcherArg::Value(value) => value.collect_references(found),
         MatcherArg::Range(pair) => pair.iter().for_each(|arg| arg_refs(arg, found)),
         MatcherArg::Matcher(matcher) => matcher_refs(matcher, found),
         MatcherArg::Matchers(matchers) => matchers.iter().for_each(|matcher| matcher_refs(matcher, found)),

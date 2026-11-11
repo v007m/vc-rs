@@ -3,36 +3,41 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use vc_model::{Reference, TemplateValue};
+use vc_model::{SourceSpan, TemplateValue};
 use vc_parser::Node;
 use vc_template::ValueType;
 
 use super::project;
 use super::project::Source;
-use super::uses::piece_refs;
 use crate::parts::Piece;
 
 /// What a definition holds, when it is a literal; `None` when it is only known at run time.
 pub type Type = Option<ValueType>;
 
+/// A name a level sets for every profile.
+#[derive(Clone, Copy, Debug)]
+struct Def {
+    ty: Type,
+    /// The value its base `vars` define it to; `None` when a save sets it, so it has no value
+    /// before the run.
+    written: Option<SourceSpan>,
+}
+
 /// One level: the names it sets for every profile, and those it sets for one profile only.
 #[derive(Debug, Default)]
 pub struct Layer {
-    all: HashMap<String, Type>,
+    all: HashMap<String, Def>,
     by_profile: HashMap<String, HashMap<String, Type>>,
-    /// What each name its base `vars` define reads. A profile's own `vars` are left out: which
-    /// profiles are active is known only at run time, so the engine checks those before it
-    /// renders the rows. A name in `all` with no entry here is saved, so it has no value before
-    /// the run.
-    reads: HashMap<String, Vec<Reference>>,
 }
 
 /// Where a var's value comes from before the run starts.
-pub enum Origin<'s> {
-    /// A base `vars` definition at the level `at` (0 is the innermost), reading `reads`.
+pub enum Origin {
+    /// A base `vars` definition at the level `at` (0 is the innermost). A profile's own `vars`
+    /// are left out: which profiles are active is known only at run time, so the engine checks
+    /// those before it renders the rows.
     Defined {
-        /// What the definition reads.
-        reads: &'s [Reference],
+        /// The value it is defined to.
+        value: SourceSpan,
         /// The level that defines it, counted from the innermost.
         at: usize,
     },
@@ -45,44 +50,35 @@ pub enum Origin<'s> {
 impl Layer {
     /// A level setting `names` for every profile, to values known only at run time: saves.
     pub fn names(names: impl IntoIterator<Item = String>) -> Self {
-        Self { all: names.into_iter().map(|name| (name, None)).collect(), ..Self::default() }
+        let saved = Def { ty: None, written: None };
+        Self { all: names.into_iter().map(|name| (name, saved)).collect(), by_profile: HashMap::new() }
     }
 
-    /// The `vars` of `node`, and the `vars` of each entry in its `profiles` list; what each base
-    /// definition reads.
+    /// The `vars` of `node`, and the `vars` of each entry in its `profiles` list.
     pub fn vars(source: &Source<'_>, node: &Node) -> Self {
-        let mut layer = Self { all: defs(source, node.get("vars")), ..Self::default() };
-        layer.read(source, node.get("vars"));
+        let base = defs(source, node.get("vars")).map(|(name, ty, at)| (name, Def { ty, written: Some(at) }));
+        let mut layer = Self { all: base.collect(), by_profile: HashMap::new() };
         for profile in project::list(node, "profiles") {
             let Some(id) = project::text(profile, "id") else { continue };
-            layer.by_profile.entry(id.to_owned()).or_default().extend(defs(source, profile.get("vars")));
+            let names = defs(source, profile.get("vars")).map(|(name, ty, _)| (name, ty));
+            layer.by_profile.entry(id.to_owned()).or_default().extend(names);
         }
         layer
-    }
-
-    /// Records what each definition in a base `vars` map reads.
-    fn read(&mut self, source: &Source<'_>, vars: Option<&Node>) {
-        for entry in vars.map(Node::entries).unwrap_or_default() {
-            let mut found = Vec::new();
-            source.pieces(entry.value.span, &[]).for_each(|piece| piece_refs(piece, &mut found));
-            self.reads.insert(entry.key.clone(), found.into_iter().cloned().collect());
-        }
     }
 
     /// Adds every name `other` sets; a definition in `other` stands in for one of the same name
     /// here, as the closer level.
     pub fn absorb(&mut self, other: &Self) {
-        self.all.extend(other.all.iter().map(|(name, ty)| (name.clone(), *ty)));
+        self.all.extend(other.all.iter().map(|(name, def)| (name.clone(), *def)));
         for (profile, names) in &other.by_profile {
             let mine = self.by_profile.entry(profile.clone()).or_default();
             mine.extend(names.iter().map(|(name, ty)| (name.clone(), *ty)));
         }
-        self.reads.extend(other.reads.iter().map(|(name, reads)| (name.clone(), reads.clone())));
     }
 
-    /// Whether a save sets `name` here: it is set for every profile with no definition.
+    /// Whether a save sets `name` here.
     fn saves(&self, name: &str) -> bool {
-        self.all.contains_key(name) && !self.reads.contains_key(name)
+        self.all.get(name).is_some_and(|def| def.written.is_none())
     }
 
     fn sets(&self, name: &str, profile: &str) -> bool {
@@ -90,8 +86,8 @@ impl Layer {
     }
 
     fn types<'s>(&'s self, name: &'s str) -> impl Iterator<Item = Type> + 's {
-        let profiles = self.by_profile.values().filter_map(move |names| names.get(name));
-        self.all.get(name).into_iter().chain(profiles).copied()
+        let profiles = self.by_profile.values().filter_map(move |names| names.get(name)).copied();
+        self.all.get(name).map(|def| def.ty).into_iter().chain(profiles)
     }
 
     fn names_for<'s>(&'s self, profile: &'s str) -> impl Iterator<Item = &'s str> + 's {
@@ -100,10 +96,10 @@ impl Layer {
     }
 }
 
-/// The names in each entry of a `vars` map, with their types.
-fn defs(source: &Source<'_>, vars: Option<&Node>) -> HashMap<String, Type> {
+/// The name in each entry of a `vars` map, with its type and value.
+fn defs<'n>(source: &'n Source<'_>, vars: Option<&'n Node>) -> impl Iterator<Item = (String, Type, SourceSpan)> + 'n {
     let entries = vars.map(Node::entries).unwrap_or_default();
-    entries.iter().map(|entry| (entry.key.clone(), source.piece(&entry.value).and_then(piece_type))).collect()
+    entries.iter().map(|entry| (entry.key.clone(), source.piece(&entry.value).and_then(piece_type), entry.value.span))
 }
 
 /// What a var's value holds, when that is known without running; a var is always a value.
@@ -165,10 +161,10 @@ impl<'a> Scope<'a> {
     /// one of those levels sets it, as the lookup would find it once the save ran. Saves have no
     /// value yet, so their levels are passed over, which leaves the order the engine renders
     /// rows in (`Scope::of_test`): the test's vars, its file's, the config's.
-    pub fn origin(&self, name: &str, from: usize) -> Origin<'_> {
+    pub fn origin(&self, name: &str, from: usize) -> Origin {
         let levels = || self.layers.iter().rev().enumerate().skip(from);
-        if let Some((at, reads)) = levels().find_map(|(at, layer)| Some((at, layer.reads.get(name)?.as_slice()))) {
-            return Origin::Defined { reads, at };
+        if let Some((at, value)) = levels().find_map(|(at, layer)| Some((at, layer.all.get(name)?.written?))) {
+            return Origin::Defined { value, at };
         }
         if levels().any(|(_, layer)| layer.saves(name)) { Origin::Saved } else { Origin::Unset }
     }
