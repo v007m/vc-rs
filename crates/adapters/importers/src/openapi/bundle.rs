@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use serde_json::Value;
 use vc_interfaces::{FetchError, ImportError, SpecFetcher, resolve_reference};
 
+use super::values::decoded;
+
 /// How many documents one spec may pull in, the root included.
 const MAX_DOCUMENTS: usize = 64;
 
@@ -115,7 +117,7 @@ impl Inliner<'_> {
             let chain = self.stack.get(first..).unwrap_or_default().iter().cloned().chain([key]).collect();
             return Err(ImportError::Cycle { chain });
         }
-        let found = self.documents.get(&location).and_then(|document| document.pointer(pointer));
+        let found = self.documents.get(&location).and_then(|document| document.pointer(&decoded(pointer)));
         let mut found = found.cloned().ok_or_else(|| ImportError::Invalid {
             location: at.to_owned(),
             reason: format!("`$ref: {reference}` names nothing"),

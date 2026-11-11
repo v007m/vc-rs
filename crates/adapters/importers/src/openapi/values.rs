@@ -41,11 +41,15 @@ pub fn resolve<'a>(doc: &'a Value, schema: &'a Value) -> &'a Value {
     current
 }
 
-/// The JSON pointer a local `$ref` names, percent-decoded as a URI fragment is
-/// (`#/paths/~1items~1%7Bid%7D` gives `/paths/~1items~1{id}`); none for another document's.
+/// The JSON pointer a local `$ref` names, [`decoded`]; none for another document's.
 pub fn local(reference: &str) -> Option<Cow<'_, str>> {
-    let fragment = reference.strip_prefix('#')?;
-    Some(percent_decode_str(fragment).decode_utf8().unwrap_or(Cow::Borrowed(fragment)))
+    reference.strip_prefix('#').map(decoded)
+}
+
+/// A `$ref`'s fragment as the JSON pointer it is, percent-decoded as a URI fragment is
+/// (`/paths/~1items~1%7Bid%7D` gives `/paths/~1items~1{id}`).
+pub fn decoded(fragment: &str) -> Cow<'_, str> {
+    percent_decode_str(fragment).decode_utf8().unwrap_or(Cow::Borrowed(fragment))
 }
 
 /// The value the schema shows or defaults to: its first example, `example`, `default`,
