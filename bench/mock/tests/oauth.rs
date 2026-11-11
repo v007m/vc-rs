@@ -47,7 +47,8 @@ async fn each_refresh_token_is_new_whoever_issues_it() -> TestResult {
     let (first, second) = (mock.handle.refresh_token().await?, mock.handle.refresh_token().await?);
     assert!(first != second && first != granted && second != granted, "{granted} {first} {second}");
     for refresh in [first, second, granted] {
-        let (status, _) = token(&mock, Some(CLIENT), &format!("grant_type=refresh_token&refresh_token={refresh}")).await?;
+        let (status, _) =
+            token(&mock, Some(CLIENT), &format!("grant_type=refresh_token&refresh_token={refresh}")).await?;
         assert_eq!(status, StatusCode::OK, "{refresh} is still unused");
     }
     Ok(())

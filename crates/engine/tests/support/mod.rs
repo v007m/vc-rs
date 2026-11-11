@@ -48,7 +48,11 @@ pub fn blocks(markdown: &str) -> Vec<(String, String, Block)> {
                 inner.iter().map(|line| line.get(indent..).unwrap_or_else(|| line.trim_start())).collect();
             let first = inner.first().copied().unwrap_or_default().to_owned();
             let body = inner.iter().skip(1).fold(String::new(), |body, line| body + line + "\n");
-            found.push((section.clone(), heading.clone(), Block { line: at + 1, info: info.trim().to_owned(), first, body }));
+            found.push((
+                section.clone(),
+                heading.clone(),
+                Block { line: at + 1, info: info.trim().to_owned(), first, body },
+            ));
         }
     }
     found

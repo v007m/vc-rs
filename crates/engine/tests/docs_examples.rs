@@ -350,8 +350,12 @@ fn wrong_examples_are_left_out_and_configs_completed() {
 
 #[test]
 fn an_excerpt_title_makes_a_fragment_whatever_names_the_file() {
-    let block =
-        |info: &str, first: &str| Block { line: 1, info: info.to_owned(), first: first.to_owned(), body: String::new() };
+    let block = |info: &str, first: &str| Block {
+        line: 1,
+        info: info.to_owned(),
+        first: first.to_owned(),
+        body: String::new(),
+    };
     let excerpt = r#"yaml title="vibranium.config.yaml (excerpt)""#;
     let heading = "`vibranium.config.yaml`";
     assert_eq!(named_path("", &block(excerpt, "# vibranium.config.yaml")), None, "a `# path` first line");
