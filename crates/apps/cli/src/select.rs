@@ -2,11 +2,15 @@
 //! settings a plan is made with.
 
 use std::path::Path;
+use std::time::Duration;
 
 use clap::Args;
 use vc_engine::{PlanRequest, SelectRequest};
 
 use crate::project::Located;
+
+/// The units `--changed-since` takes, and their length in seconds.
+const WINDOW_UNITS: &[(char, u64)] = &[('h', 3_600), ('d', 86_400), ('w', 604_800)];
 
 /// The selectors (cli-workflow "Selecting what to run").
 #[derive(Args)]
@@ -25,6 +29,10 @@ pub struct SelectArgs {
     /// none is given.
     #[arg(long, value_name = "REF", num_args = 0..=1, default_missing_value = "")]
     changed: Option<String>,
+    /// Only files a commit in this window touched (`12h`, `7d`, `2w`), or that are uncommitted
+    /// or untracked (D249).
+    #[arg(long, value_name = "DURATION", value_parser = window, conflicts_with = "changed")]
+    changed_since: Option<Duration>,
     /// Also plans the tests marked `skip`.
     #[arg(long)]
     include_skipped: bool,
@@ -41,6 +49,7 @@ impl SelectArgs {
             tags: self.tags.clone(),
             grep: self.grep.clone(),
             changed: self.changed.clone(),
+            changed_since: self.changed_since,
             include_skipped: self.include_skipped,
             ..SelectRequest::default()
         };
@@ -53,6 +62,17 @@ impl SelectArgs {
         }
         Ok(select)
     }
+}
+
+/// `--changed-since`'s window: a whole number above zero and `h`, `d` or `w`.
+fn window(text: &str) -> Result<Duration, String> {
+    let wrong = || format!("`{text}` is not a duration such as `12h`, `7d` or `2w`");
+    let unit = text.chars().last().ok_or_else(wrong)?;
+    let (_, seconds) = WINDOW_UNITS.iter().find(|(name, _)| *name == unit).ok_or_else(wrong)?;
+    let digits = text.strip_suffix(unit).filter(|digits| digits.bytes().all(|b| b.is_ascii_digit()));
+    let count: u64 = digits.ok_or_else(wrong)?.parse().map_err(|_| wrong())?;
+    let total = count.checked_mul(*seconds).filter(|total| *total > 0).ok_or_else(wrong)?;
+    Ok(Duration::from_secs(total))
 }
 
 /// The selectors, and the profiles and settings a plan is made with.
@@ -86,5 +106,22 @@ impl PlanArgs {
             profiles: self.profiles.clone(),
             sets: self.sets.clone(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::window;
+
+    #[test]
+    fn a_window_is_a_whole_number_of_hours_days_or_weeks() {
+        assert_eq!(window("12h"), Ok(Duration::from_hours(12)));
+        assert_eq!(window("7d"), Ok(Duration::from_hours(7 * 24)));
+        assert_eq!(window("2w"), Ok(Duration::from_hours(14 * 24)));
+        for bad in ["", "d", "7", "0d", "-1d", "+1d", "1.5d", "7dd", "7 d", "3m", "99999999999999999w"] {
+            assert!(window(bad).is_err(), "{bad:?}");
+        }
     }
 }

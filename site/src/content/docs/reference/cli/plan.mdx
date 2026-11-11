@@ -21,6 +21,7 @@ $ vc plan [OPTIONS] [SELECTORS]...
 | `-t`, `--tag` | `<TAGS>` | | Only tests with this tag expression. `!` excludes, `,` means or. Repeat to require every one |
 | `-g`, `--grep` | `<TEXT>` | | Only tests whose full ID or name contains this text, ignoring case |
 | `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
+| `--changed-since` | `<DURATION>` | | Only files committed in the last hours, days or weeks (`12h`, `7d`, `2w`), plus the uncommitted and untracked changes. Not with `--changed` |
 | `--include-skipped` | | | Also plans the tests marked `skip` |
 | `--profile` | `<IDS>` | the config's default | The active profiles, as a comma list or repeated. Later ones win |
 | `--set` | `<KEY=VALUE>` | | Sets one config value, over every other config layer |
