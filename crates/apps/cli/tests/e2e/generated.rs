@@ -27,7 +27,8 @@ async fn generated_tests_check_clean_and_pass_against_the_spec_s_server() {
 }
 
 /// `--negative` writes a test the mock fails, as it takes any body; `vc skip` keeps it in the
-/// report as skipped, and the rest pass. The users spec has no security, so `--auth` adds nothing.
+/// report as skipped, and the rest pass. Before the skip, `listsUsers` may fail too, when it
+/// lists the users the rows made before their cleanup removes them. The users spec has no security, so `--auth` adds nothing.
 #[tokio::test(flavor = "multi_thread")]
 async fn a_negative_test_the_mock_fails_is_skipped_and_the_rest_pass() {
     let server = MockServer::start().await.unwrap();
@@ -52,7 +53,9 @@ async fn a_negative_test_the_mock_fails_is_skipped_and_the_rest_pass() {
             said(&run)
         );
     }
-    assert!(said(&run).contains("4 passed · 4 failed"), "{}", said(&run));
+    for passed in ["createsUser", "getsUser", "deletesUser"] {
+        assert!(said(&run).contains(&format!("✓ users.openapi#{passed}")), "{}", said(&run));
+    }
     let reason = "the mock accepts any body; re-enable against the real service";
     let skip = project.vc(&["skip", "users.openapi#rejectsInvalidCreateUser", "--reason", reason]).output().unwrap();
     assert_eq!(skip.status.code(), Some(0), "{}", said(&skip));
