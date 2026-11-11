@@ -66,6 +66,17 @@ fn fix_previews_a_diff_then_renames_with_every_reference_when_confirmed() {
 }
 
 #[test]
+fn fix_with_yes_applies_without_asking() {
+    let project = Project::new(&[CONFIG, USERS, BAD_ID, FLOWS]);
+    let output = project.vc(&["check", "--fix", "--yes"]).write_stdin("").output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", said(&output));
+    assert!(!said(&output).contains("[y/N]"), "no question with --yes:\n{}", said(&output));
+    assert_eq!(project.read(FLOWS.0), FLOWS.1.replace("Lists_users", "listsUsers"));
+    let alone = project.vc(&["check", "--yes"]).output().unwrap();
+    assert_eq!(alone.status.code(), Some(2), "--yes needs --fix: {}", said(&alone));
+}
+
+#[test]
 fn fix_changes_nothing_when_declined() {
     let project = Project::new(&[CONFIG, USERS, BAD_ID, FLOWS]);
     project.vc(&["check", "--fix"]).write_stdin("n\n").output().unwrap();

@@ -19,6 +19,7 @@ $ vc check [OPTIONS] [PATHS]...
 | `[PATHS]` | paths | the whole project | Prints only the diagnostics that point into a file at or under these paths: at their main line, or at a place involved, such as the test call that reaches an api's unset var (V2101). The whole project is still compiled |
 | `--json` | | | Prints the diagnostics as JSON on stdout |
 | `--fix` | | | Shows the certain fixes as a diff, asks, then applies them and checks again |
+| `--yes` | | | With `--fix`, applies the fixes without asking, for scripts and agents |
 | `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
 
 ## Examples
