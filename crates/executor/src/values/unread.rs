@@ -26,9 +26,10 @@ pub struct UnreadVar {
 }
 
 /// The first var `test`'s `examples:` template reads that needs a root other than `var`, `env`
-/// and `dataset`, following each name as the rows' render would (the test's vars, its file's,
-/// then the config's, with the run's profiles applied); `None` when every var it reads renders
-/// before the run, or it has no template.
+/// and `dataset`; `None` when every var it reads renders before the run, or it has no template.
+///
+/// Each name is followed as the rows' render would: the test's vars, its file's, then the
+/// config's, with the run's profiles applied.
 #[must_use]
 pub fn unread_var(program: &Program, values: &RunValues, test: &Test) -> Option<UnreadVar> {
     let Some(Examples::Template(template)) = &test.examples else { return None };

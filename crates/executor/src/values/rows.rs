@@ -11,9 +11,11 @@ use super::run::RunValues;
 use super::scope::Scope;
 use crate::{Redactor, Schemas};
 
-/// The rows `test`'s `examples:` template gives, with `shuffle` and `random` drawing from
-/// `random` (the test's own source, so its rows do not depend on what else the run renders), or
-/// `None` when its rows are written in the test or come from a file.
+/// The rows `test`'s `examples:` template gives, or `None` when its rows are written in the
+/// test or come from a file.
+///
+/// `shuffle` and `random` draw from `random`, the test's own source, so its rows do not depend on
+/// what else the run renders.
 ///
 /// # Errors
 ///

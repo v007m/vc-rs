@@ -233,7 +233,7 @@ fn known(program: &Program) -> String {
 
 /// The planner's refusal as the engine's: definition problems as a check report, selector
 /// problems with their help.
-pub(crate) fn plan_error(error: PlanError, program: &Program) -> EngineError {
+pub fn plan_error(error: PlanError, program: &Program) -> EngineError {
     match error {
         PlanError::Diagnostics(found) => invalid(found.into_iter().collect(), program.files.clone(), Vec::new()),
         other => EngineError::Selection { reason: other.to_string(), help: other.help() },

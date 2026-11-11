@@ -88,8 +88,8 @@ fn decision(id: ApprovalId, verdict: Verdict) -> Decision {
 }
 
 /// What deciding a request should give: `status`, with a rule `kept` for each of these methods.
-fn settled(status: ApprovalStatus, kept: &[Method]) -> Result<Decided, ApprovalError> {
-    Ok(Decided { status, kept: kept.to_vec() })
+fn settled(status: ApprovalStatus, kept: &[Method]) -> Decided {
+    Decided { status, kept: kept.to_vec() }
 }
 
 fn rule(profile: &str, tool: &str, method: Method) -> StandingRule {
@@ -110,8 +110,8 @@ fn queues_requests_newest_first(queue: &dyn Approvals) {
 fn decides_a_request_once(queue: &dyn Approvals) {
     let approved = ask(queue, "staging", &[Method::Delete]);
     let denied = ask(queue, "staging", &[Method::Delete]);
-    assert_eq!(queue.decide(&decision(approved, Verdict::Approve)), settled(ApprovalStatus::Approved, &[]));
-    assert_eq!(queue.decide(&decision(denied, Verdict::Deny)), settled(ApprovalStatus::Denied, &[]));
+    assert_eq!(queue.decide(&decision(approved, Verdict::Approve)), Ok(settled(ApprovalStatus::Approved, &[])));
+    assert_eq!(queue.decide(&decision(denied, Verdict::Deny)), Ok(settled(ApprovalStatus::Denied, &[])));
     assert_eq!(must(queue.list(true)), []);
     let all = must(queue.list(false));
     let statuses: Vec<_> = all.iter().map(|approval| (approval.status, approval.decided_by.as_deref())).collect();
@@ -128,7 +128,7 @@ fn decides_a_request_once(queue: &dyn Approvals) {
 fn keeps_always_allow_per_profile_tool_and_method(queue: &dyn Approvals) {
     assert_eq!(queue.always_allowed(&rule("staging", "call_api", Method::Put)), Ok(false));
     let id = ask(queue, "staging", &[Method::Put, Method::Delete]);
-    let kept = settled(ApprovalStatus::Approved, &[Method::Put, Method::Delete]);
+    let kept = Ok(settled(ApprovalStatus::Approved, &[Method::Put, Method::Delete]));
     assert_eq!(queue.decide(&decision(id, Verdict::AlwaysAllow)), kept, "the result names the rules kept");
     assert_eq!(queue.always_allowed(&rule("staging", "call_api", Method::Put)), Ok(true));
     assert_eq!(queue.always_allowed(&rule("staging", "call_api", Method::Delete)), Ok(true));
@@ -136,13 +136,13 @@ fn keeps_always_allow_per_profile_tool_and_method(queue: &dyn Approvals) {
     assert_eq!(queue.always_allowed(&rule("prod", "call_api", Method::Put)), Ok(false));
     assert_eq!(queue.always_allowed(&rule("staging", "run_tests", Method::Put)), Ok(false));
     let code = ask(queue, "staging", &[]);
-    let nothing = settled(ApprovalStatus::Approved, &[]);
+    let nothing = Ok(settled(ApprovalStatus::Approved, &[]));
     assert_eq!(queue.decide(&decision(code, Verdict::AlwaysAllow)), nothing, "no method, no rule (D202)");
 }
 
 async fn waits_for_a_decision_or_expires(queue: &dyn Approvals) {
     let decided = ask(queue, "staging", &[Method::Delete]);
-    assert_eq!(queue.decide(&decision(decided, Verdict::Deny)), settled(ApprovalStatus::Denied, &[]));
+    assert_eq!(queue.decide(&decision(decided, Verdict::Deny)), Ok(settled(ApprovalStatus::Denied, &[])));
     assert_eq!(queue.wait(decided, Duration::from_secs(5)).await, Ok(ApprovalStatus::Denied));
     let waiting = ask(queue, "staging", &[Method::Delete]);
     assert_eq!(queue.wait(waiting, Duration::from_millis(50)).await, Ok(ApprovalStatus::Expired));

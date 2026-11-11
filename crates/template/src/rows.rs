@@ -11,10 +11,11 @@ use crate::pipes::PipeRegistry;
 /// The roots a row source, and every var it reads, may read.
 pub const ROW_ROOTS: &[Namespace] = &[Namespace::Var, Namespace::Env, Namespace::Dataset];
 
-/// Whether a var a row source follows may read `reference` before the run: a read of one of
-/// the [`ROW_ROOTS`], or of a `secret` whose first pipe takes a missing value (`default`), since
-/// no secret is loaded before the run and the render then gives the default. Every other root
-/// has no value there at all, which `default` does not stand in for.
+/// Whether a var a row source follows may read `reference` before the run.
+///
+/// It may read one of the [`ROW_ROOTS`], or a `secret` whose first pipe takes a missing value
+/// (`default`), since no secret is loaded before the run and the render then gives the default.
+/// Every other root has no value there at all, which `default` does not stand in for.
 #[must_use]
 pub fn row_readable(reference: &Reference, pipes: &PipeRegistry) -> bool {
     let takes_missing =

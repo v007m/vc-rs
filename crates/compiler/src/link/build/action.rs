@@ -12,6 +12,9 @@ use crate::link::project;
 use crate::link::project::Source;
 use crate::shapes;
 
+/// What a step sends, checks and polls for.
+type Sent = (Request, Expect, Option<Poll>);
+
 /// The test a step takes its defaults from, and its node.
 pub type Defaults<'n> = Option<(TestId, &'n Node)>;
 
@@ -106,7 +109,7 @@ impl<'a> Build<'_, 'a> {
         source: &Source<'a>,
         (node, kind): (&Node, &ActionKind),
         (origin, defaults): (Origin, Defaults<'_>),
-    ) -> Built<(Request, Expect, Option<Poll>)> {
+    ) -> Built<Sent> {
         if matches!(kind, ActionKind::Test(_)) {
             return Ok((Request::default(), Expect::default(), None));
         }

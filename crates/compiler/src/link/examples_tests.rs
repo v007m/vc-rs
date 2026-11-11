@@ -169,10 +169,8 @@ fn a_save_counts_only_where_the_lookup_would_find_it() {
     let help = help_at(&tests, 8);
     assert!(help.starts_with("`var.rows` needs a save"), "the test's `rows` reads the one beforeEach saves: {help}");
     let config = config_vars("  a: 'x${var.a}'\n");
-    let saved = format!(
-        "beforeEach:\n  - call: users#get\n    save: {{a: '${{response.body}}'}}\ntests:\n  - id: listsA\n    call: users#get\n    examples: ${{var.a}}\n"
-    );
-    let found = unavailable_with(&config, &saved);
+    let saved = "beforeEach:\n  - call: users#get\n    save: {a: '${response.body}'}\ntests:\n  - id: listsA\n    call: users#get\n    examples: ${var.a}\n";
+    let found = unavailable_with(&config, saved);
     assert!(
         found.iter().all(|(_, found)| !found.help.join("\n").contains("needs a save")),
         "the config's `a` reads past the config, where no save is: {found:?}"

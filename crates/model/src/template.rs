@@ -346,11 +346,11 @@ mod tests {
             |reference: &Reference| TemplateValue::String(Template { parts: vec![Part::Ref(reference.clone())] });
         let map = IndexMap::from([("a".to_owned(), read(&env)), ("b".to_owned(), TemplateValue::Null)]);
         let changes = Box::new(TemplateValue::List(vec![read(&reference()), TemplateValue::Map(map)]));
-        let base = Template { parts: vec![Part::Literal("x".into()), Part::Ref(env.clone())] };
+        let base = Template { parts: vec![Part::Literal("x".into()), Part::Ref(env)] };
         let value = TemplateValue::Extend { base, changes, remove: Vec::new() };
         let namespaces: Vec<Namespace> = value.references().iter().map(|reference| reference.ns).collect();
         assert_eq!(namespaces, [Namespace::Env, Namespace::Var, Namespace::Env]);
-        assert!(TemplateValue::Bool(true).references().is_empty());
+        assert_eq!(TemplateValue::Bool(true).references(), Vec::<&Reference>::new());
     }
 
     #[test]
