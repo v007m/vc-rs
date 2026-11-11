@@ -137,7 +137,7 @@ fn body(render: &Render<'_>, spec: &BodySpec) -> Result<Option<Body>, Failure> {
     let body = match spec {
         BodySpec::None => return Ok(None),
         BodySpec::Json(value) => (Bytes::from(render.value(value).map_err(failed)?.to_string()), JSON),
-        BodySpec::Text(template) => (Bytes::from(render.text(template).map_err(failed)?), TEXT),
+        BodySpec::Text(template) => text_body(render, template)?,
         BodySpec::Base64(template) => (decode(&render.text(template).map_err(failed)?)?, OCTETS),
         BodySpec::Extend { base, changes, remove } => {
             let base = render.template(base).map_err(failed)?;
@@ -149,6 +149,15 @@ fn body(render: &Render<'_>, spec: &BodySpec) -> Result<Option<Body>, Failure> {
         }
     };
     Ok(Some(body))
+}
+
+/// A text body; a lone reference to an object or array (`body: ${var.payload}`) is sent as JSON.
+fn text_body(render: &Render<'_>, template: &Template) -> Result<Body, Failure> {
+    let value = render.template(template).map_err(failed)?;
+    if value.is_object() || value.is_array() {
+        return Ok((Bytes::from(value.to_string()), JSON));
+    }
+    Ok((Bytes::from(vc_template::to_text(&value)), TEXT))
 }
 
 fn decode(text: &str) -> Result<Bytes, Failure> {

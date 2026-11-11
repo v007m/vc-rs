@@ -43,8 +43,12 @@ fn masks_the_always_masked_and_configured_headers_in_any_case() {
     }
     assert!(!masked(&redactor, CheckKind::Header, "content-type"));
     assert!(!masked(&redactor, CheckKind::Match, "authorization"));
-    let check = redactor.check(result(CheckKind::Header, "authorization", Some(json!("Bearer actual"))));
+    let mut quoted = result(CheckKind::Header, "authorization", Some(json!("Bearer actual")));
+    quoted.error = Some("got Bearer actual".to_owned());
+    quoted.diff = Some("- Bearer x\n+ Bearer actual".to_owned());
+    let check = redactor.check(quoted);
     assert_eq!((check.actual, check.diff, check.code), (Some(json!(MASKED)), None, Some("V5101".to_owned())));
+    assert_eq!(check.error.as_deref(), Some(MASKED), "the error may quote the header");
     let missing = redactor.check(result(CheckKind::Header, "authorization", None));
     assert_eq!(missing.actual, None);
 }
@@ -228,4 +232,88 @@ async fn masks_an_exchange_url_headers_and_both_bodies() {
         assert!(!text.contains(leak), "{leak} in {text}");
     }
     assert_eq!((request.headers[AUTHORIZATION].as_bytes(), response.status), (MASKED.as_bytes(), StatusCode::OK));
+}
+
+#[tokio::test]
+async fn an_exchange_and_a_check_masked_alone_are_masked_as_their_events_are() {
+    let redactor = configured();
+    let (action, owner) = (ActionId::new(0), OwnerKey::Run);
+    let sent = exchange("https://api.test/k/s3cr3t-key", r#"{"password":"pw-1","ssn":"123-45-6789"}"#);
+    let event = Event::Exchanged { action, owner, exchange: Box::new(sent.clone()) };
+    let Event::Exchanged { exchange: as_event, .. } = redactor.event(event).await else { panic!("not an exchange") };
+    assert_eq!(redactor.exchange(sent).await, *as_event);
+    let event = Event::CheckEvaluated { action, owner, check: Box::new(leaky_check()) };
+    let Event::CheckEvaluated { check: as_event, .. } = redactor.event(event).await else { panic!("not a check") };
+    let alone = redactor.checked(leaky_check()).await;
+    assert_eq!(alone, *as_event);
+    assert_masked(alone, &["pw-1", "pw-2", "s3cr3t-key", "123-45-6789"]);
+}
+
+fn matched(segments: Vec<Segment>, actual: Value) -> CheckResult {
+    let check = result(CheckKind::Match, "x", Some(actual));
+    CheckResult { target: Some(Path { segments }), expected: json!("x"), error: Some("got hunter22".into()), ..check }
+}
+
+#[tokio::test]
+async fn a_match_on_a_hidden_field_is_masked_as_it_is_in_the_body_and_so_is_its_failure() {
+    let key = |name: &str| Segment::Key(name.to_owned());
+    let hidden = [
+        vec![key("password")],
+        vec![key("profile"), key("PASSWORD")],
+        vec![key("items"), Segment::All, key("password")],
+        vec![key("password"), Segment::Index(0)],
+    ];
+    for segments in hidden {
+        let check = matched(segments.clone(), json!("hunter22"));
+        let redactor = configured();
+        let event = redactor.event(Event::CheckEvaluated {
+            action: ActionId::new(0),
+            owner: OwnerKey::Run,
+            check: Box::new(check.clone()),
+        });
+        let Event::CheckEvaluated { check: evented, .. } = event.await else { panic!("not a check") };
+        for masked in [configured().check(check), *evented] {
+            assert_eq!((&masked.expected, &masked.actual), (&json!(MASKED), &Some(json!(MASKED))), "{segments:?}");
+            assert_eq!(masked.error.as_deref(), Some(MASKED));
+            let failure = crate::check::verdict(&[masked]).unwrap_or_else(|| Failure::new("passed"));
+            assert!(!failure.message.contains("hunter22"), "{}", failure.message);
+        }
+    }
+    let shown = configured().check(matched(vec![key("name")], json!("hunter22")));
+    assert_eq!((shown.actual, shown.error.as_deref()), (Some(json!("hunter22")), Some("got hunter22")));
+}
+
+#[tokio::test]
+async fn a_failed_check_on_a_map_holding_a_hidden_field_has_its_error_masked_whole() {
+    let profile = vec![Segment::Key("profile".to_owned())];
+    let mut check = matched(profile, json!({"password": "hunter22", "name": "ada"}));
+    check.error = Some(r#"expected text, got {"password":"hunter22","name":"ada"}"#.to_owned());
+    let redactor = configured();
+    for masked in [redactor.check(check.clone()), redactor.checked(check).await] {
+        assert_eq!(masked.actual, Some(json!({"password": MASKED, "name": "ada"})));
+        assert_eq!(masked.error.as_deref(), Some(MASKED), "the error quotes the map");
+    }
+    let mut plain = matched(vec![Segment::Key("profile".to_owned())], json!({"name": "ada"}));
+    plain.error = Some("got ada".to_owned());
+    assert_eq!(redactor.checked(plain).await.error.as_deref(), Some("got ada"), "nothing hidden, error kept");
+}
+
+#[tokio::test]
+async fn hides_header_and_masked_text_follow_the_masks_and_the_rules() {
+    let redactor = configured();
+    redactor.hide_headers(["X-Session"]);
+    assert_eq!(["AUTHORIZATION", "x-session", "x-trace"].map(|name| redactor.hides_header(name)), [true, true, false]);
+    let text = redactor.masked_text("key s3cr3t-key for 123-45-6789, id 7").await;
+    assert_eq!(text, format!("key {MASKED} for {MASKED}, id 7"));
+}
+
+#[tokio::test]
+async fn only_a_match_check_reads_the_body_and_a_shown_field_in_a_list_keeps_its_value() {
+    let key = |name: &str| Segment::Key(name.to_owned());
+    let redactor = configured();
+    let listed = redactor.checked(matched(vec![key("items"), Segment::All, key("name")], json!("ada"))).await;
+    assert_eq!((listed.expected, listed.actual), (json!("x"), Some(json!("ada"))));
+    let header = CheckResult { kind: CheckKind::Header, ..matched(vec![key("password")], json!("ada")) };
+    let header = redactor.checked(header).await;
+    assert_eq!((header.expected, header.actual), (json!("x"), Some(json!("ada"))), "a header is not a body field");
 }

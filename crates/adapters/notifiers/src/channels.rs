@@ -105,13 +105,24 @@ impl Payload for PagerDuty {
     fn body(&self, notice: &Notice, settings: &Map<String, Value>) -> Value {
         let resolve = notice.trigger == AlertTrigger::Recovery;
         let summary = format!("{} — {}", text::headline(notice), text::counts(notice));
-        let payload = json!({"summary": summary, "source": notice.project,
-            "severity": text_at(settings, "severity").unwrap_or("error"), "custom_details": details(notice)});
+        let severity = if notice.test { "info" } else { text_at(settings, "severity").unwrap_or("error") };
+        let payload = json!({"summary": summary, "source": notice.project, "severity": severity,
+            "custom_details": details(notice)});
+        let key = if notice.test { "test".to_owned() } else { notice.profile_key() };
         json!({
             "routing_key": text_at(settings, "routingKey").unwrap_or_default(),
             "event_action": if resolve { "resolve" } else { "trigger" },
-            "dedup_key": format!("{}#{}", notice.project, notice.profile_key()),
+            "dedup_key": format!("{}#{key}", notice.project),
             "payload": payload,
+        })
+    }
+
+    /// A sample's incident is resolved as soon as it opens, with the same `dedup_key` (D257).
+    fn then(&self, notice: &Notice, settings: &Map<String, Value>) -> Option<Value> {
+        notice.test.then(|| {
+            let mut resolve = self.body(notice, settings);
+            resolve["event_action"] = json!("resolve");
+            resolve
         })
     }
 }
@@ -128,6 +139,7 @@ fn details(notice: &Notice) -> Value {
         "moreFailures": notice.failures.len().saturating_sub(text::listed(notice).len()),
         "breaches": notice.breaches,
         "report": notice.report,
+        "test": notice.test,
     })
 }
 

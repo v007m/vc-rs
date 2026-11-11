@@ -163,6 +163,53 @@ mod unix {
     }
 
     #[test]
+    fn reads_a_data_file_outside_the_root_only_while_it_stays_under_its_allowed_folder() {
+        let space = project(&[
+            ("project/vibranium.config.yaml", b""),
+            ("shared/users.csv", b"id\n1\n"),
+            ("shared/.private/keys.csv", b"key\n"),
+            ("other/x.csv", b"x\n"),
+        ]);
+        symlink(space.path().join("other/x.csv"), space.path().join("shared/escape.csv")).unwrap();
+        let sources = FsSources::new(&space.path().join("project")).unwrap();
+        let data = |path: &str| SourcePath::data(path).unwrap();
+        let names = ["../shared/users.csv", "../shared/.private/keys.csv", "../shared/escape.csv", "../other/x.csv"];
+        let mut wanted: Vec<(SourcePath, SourcePath)> =
+            names.iter().map(|path| (data(path), data("../shared"))).collect();
+        wanted.push((data("../shared/none.csv"), data("../shared")));
+        wanted.push((data(names[0]), data("../shared")));
+        let found = sources.read_outside(&wanted).unwrap();
+        assert_eq!(paths(&found), ["../shared/users.csv"], "a pair asked for twice is read once");
+        assert_eq!(found.files[0].text.as_str(), "id\n1\n");
+        let outside = |path: &str| SourceError::OutsideRoot { path: path.to_owned() };
+        let missing = SourceError::Missing { path: "../shared/none.csv".to_owned() };
+        let expected = [outside("../other/x.csv"), outside(names[1]), outside(names[2]), missing];
+        assert_eq!(found.problems, expected);
+        let plain = sources.read(&[data(names[0])]).unwrap();
+        assert_eq!(plain.problems, [outside(names[0])], "a plain read never leaves the root");
+    }
+
+    #[test]
+    fn an_outside_read_never_lands_inside_the_project_even_through_an_overlapping_root() {
+        let space =
+            project(&[("project/.env", b"KEY=k\n"), ("project/.vibranium/history.db", b"x"), ("shared/a.csv", b"")]);
+        symlink(space.path().join("project/.env"), space.path().join("shared/env.csv")).unwrap();
+        let sources = FsSources::new(&space.path().join("project")).unwrap();
+        let data = |path: &str| SourcePath::data(path).unwrap();
+        let pairs = [
+            ("../shared/env.csv", "../shared"),
+            ("../project/.env", "../project"),
+            ("../project/.vibranium/history.db", "../project/.vibranium"),
+        ];
+        let wanted: Vec<_> = pairs.iter().map(|(path, root)| (data(path), data(root))).collect();
+        let found = sources.read_outside(&wanted).unwrap();
+        assert!(found.files.is_empty(), "{:?}", paths(&found));
+        let refused = pairs.map(|(path, _)| SourceError::OutsideRoot { path: path.to_owned() });
+        assert_eq!(found.problems.len(), refused.len());
+        assert!(refused.iter().all(|problem| found.problems.contains(problem)), "{:?}", found.problems);
+    }
+
+    #[test]
     fn does_not_follow_links_to_folders() {
         let outside = project(&[("services/x.api.yaml", b"")]);
         let dir = project(&[("users.api.yaml", b"")]);

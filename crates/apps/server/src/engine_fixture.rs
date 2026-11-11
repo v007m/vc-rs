@@ -3,7 +3,10 @@
 //! `--set` value repeat, so a test can look for it in what the server sends.
 
 use std::fs;
+use std::io::{Read as _, Write as _};
+use std::net::TcpListener;
 use std::sync::Arc;
+use std::thread;
 
 use tempfile::TempDir;
 use vc_engine::EngineBuilder;
@@ -35,4 +38,30 @@ pub fn project() -> (TempDir, Arc<EngineApi>) {
     }
     let engine = EngineBuilder::for_project(dir.path()).unwrap().build().unwrap();
     (dir, Arc::new(EngineApi::new(Arc::new(engine), Vec::new(), Vec::new())))
+}
+
+/// The body the large-body server answers with: past the default `history.maxBodySize` of 64 KiB.
+pub const LARGE: usize = 70 * 1024;
+
+/// A server on a free local port that answers every request with `status` and `LARGE` bytes; its
+/// base URL.
+pub fn large_body_server(status: u16) -> String {
+    serving(status, vec![b'a'; LARGE])
+}
+
+/// A server on a free local port that answers every request with `status` and `body`; its base
+/// URL.
+pub fn serving(status: u16, body: Vec<u8>) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    thread::spawn(move || {
+        for mut socket in listener.incoming().flatten() {
+            let mut request = [0_u8; 4096];
+            let _ = socket.read(&mut request);
+            let length = body.len();
+            let head = format!("HTTP/1.1 {status} X\r\ncontent-length: {length}\r\nconnection: close\r\n\r\n");
+            let _ = socket.write_all(&[head.as_bytes(), &body].concat());
+        }
+    });
+    url
 }

@@ -12,10 +12,10 @@ use std::time::Duration;
 use serde_json::Value;
 use vc_adapter_store::SqliteApprovals;
 use vc_adapter_system::SystemEnvironment;
-use vc_executor::{MaskRules, Redactor};
+use vc_executor::{MaskRules, Redactor, RuleHooks};
 use vc_interfaces::{
     AgentAction, AgentActionLog, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
-    Decision, LoggedAction, Verdict,
+    Decision, LoggedAction, Secrets, Verdict,
 };
 use vc_model::Program;
 
@@ -171,7 +171,8 @@ impl Engine {
     /// `arguments` as JSON, masked as a run's events are: the config's built-in masking, then
     /// its `redact.rules` in order (a `function:` rule through the hook runner).
     async fn redacted(&self, program: &Program, arguments: &Value) -> String {
-        let rules = MaskRules::standard().with_hooks(self.hook_runner(program), program).for_config(&program.config);
+        let hooks = RuleHooks::new(self.hook_runner(program), Secrets::new());
+        let rules = MaskRules::standard().with_hooks(hooks, program).for_config(&program.config);
         Redactor::for_config(&program.config).with_rules(rules).masked(arguments.clone()).await.to_string()
     }
 

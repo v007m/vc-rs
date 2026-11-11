@@ -22,6 +22,12 @@ pub trait Payload: Send + Sync {
 
     /// The JSON body announcing `notice`.
     fn body(&self, notice: &Notice, settings: &Map<String, Value>) -> Value;
+
+    /// A second body to post once the first was taken, such as the resolve that closes a
+    /// sample's incident; none by default.
+    fn then(&self, _notice: &Notice, _settings: &Map<String, Value>) -> Option<Value> {
+        None
+    }
 }
 
 /// Every channel kind by the key a `notify` entry gives it, posting through one transport.

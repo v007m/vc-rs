@@ -58,13 +58,22 @@ pub struct Notice {
     pub breaches: Vec<String>,
     /// Where the run's report is: a file path or a URL.
     pub report: Option<String>,
+    /// A sample `vc alerts test` sends, not a run's: titled `[test]`, and a `PagerDuty`
+    /// incident it opens is resolved at once (D257).
+    pub test: bool,
 }
 
 impl Notice {
     /// A notice of `trigger` about `project`'s run, with no failures, breaches or report.
     #[must_use]
     pub const fn new(trigger: AlertTrigger, project: String, summary: RunSummary) -> Self {
-        Self { trigger, project, summary, failures: Vec::new(), breaches: Vec::new(), report: None }
+        Self { trigger, project, summary, failures: Vec::new(), breaches: Vec::new(), report: None, test: false }
+    }
+
+    /// The same notice, as a sample `vc alerts test` sends.
+    #[must_use]
+    pub fn as_test(self) -> Self {
+        Self { test: true, ..self }
     }
 
     /// The same notice listing `failures`.
@@ -174,6 +183,7 @@ mod tests {
             (&["errorRate".to_owned()][..], Some("reports/ctrf.json"))
         );
         assert_eq!(notice.profile_key(), "default");
+        assert!(!notice.test && notice.as_test().test);
         let profiled = Notice::new(AlertTrigger::Recovery, "shop".into(), summary.profiles(["staging", "eu"]));
         assert_eq!(profiled.profile_key(), "staging+eu");
     }

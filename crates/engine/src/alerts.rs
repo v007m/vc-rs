@@ -8,8 +8,13 @@ use vc_interfaces::{Notice, NoticeFailure, Row, RunSummary};
 use vc_model::{Alert, AlertTrigger, Program, RunStatus, Tag, Test, TestStatus};
 
 /// The order triggers are tried in: a rule sends one notice per run, for the first that fires.
-const PRECEDENCE: [AlertTrigger; 4] =
-    [AlertTrigger::Failure, AlertTrigger::Threshold, AlertTrigger::Flaky, AlertTrigger::Recovery];
+const PRECEDENCE: [AlertTrigger; 5] = [
+    AlertTrigger::Failure,
+    AlertTrigger::Blocked,
+    AlertTrigger::Threshold,
+    AlertTrigger::Flaky,
+    AlertTrigger::Recovery,
+];
 
 /// One test's result, as alerts read it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -112,7 +117,8 @@ pub fn decide<'r>(rules: &'r [Alert], run: &Finished, previous: Option<RunStatus
     rules.iter().filter(|rule| in_profiles(rule, &run.summary)).filter_map(|rule| fire(rule, run, previous)).collect()
 }
 
-fn in_profiles(rule: &Alert, summary: &RunSummary) -> bool {
+/// Whether `rule` covers a run under `summary`'s profiles: every run when it names none.
+pub fn in_profiles(rule: &Alert, summary: &RunSummary) -> bool {
     rule.profiles.is_empty() || summary.profiles.iter().any(|profile| rule.profiles.contains(profile))
 }
 
@@ -121,7 +127,8 @@ fn fire<'r>(rule: &'r Alert, run: &Finished, previous: Option<RunStatus>) -> Opt
     let seen = Seen { tests: &tests, run, previous };
     let trigger =
         PRECEDENCE.into_iter().filter(|trigger| rule.on.contains(trigger)).find(|&trigger| seen.fires(trigger))?;
-    let failures = tests.iter().filter(|test| failed(test.status));
+    let listed = listed(trigger);
+    let failures = tests.iter().filter(|test| listed(test.status));
     let failures = failures.map(|test| NoticeFailure::new(test.test.clone(), test.message.clone())).collect();
     let notice = Notice::new(trigger, run.project.clone(), run.summary.clone()).failures(failures);
     let notice = notice.breaches(run.breaches.clone());
@@ -140,6 +147,16 @@ const fn failed(status: TestStatus) -> bool {
     matches!(status, TestStatus::Failed | TestStatus::Blocked)
 }
 
+fn blocked(status: TestStatus) -> bool {
+    status == TestStatus::Blocked
+}
+
+/// The tests a notice for `trigger` lists: only the blocked ones for `blocked`, the failed and
+/// blocked ones otherwise (D256).
+fn listed(trigger: AlertTrigger) -> fn(TestStatus) -> bool {
+    if trigger == AlertTrigger::Blocked { blocked } else { failed }
+}
+
 /// What one rule sees of a run: the tests its tags pick, and the run around them.
 struct Seen<'s> {
     tests: &'s [&'s Ended],
@@ -151,6 +168,7 @@ impl Seen<'_> {
     fn fires(&self, trigger: AlertTrigger) -> bool {
         match trigger {
             AlertTrigger::Failure => self.any(failed),
+            AlertTrigger::Blocked => self.any(blocked),
             AlertTrigger::Threshold => !self.run.breaches.is_empty(),
             AlertTrigger::Flaky => self.any(|status| status == TestStatus::Flaky),
             AlertTrigger::Recovery => self.recovered(),

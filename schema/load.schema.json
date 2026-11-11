@@ -117,7 +117,7 @@
       "type": "object"
     }
   },
-  "$id": "https://raw.githubusercontent.com/v007m/vc-rs/master/schema/load.schema.json",
+  "$id": "https://v007m.github.io/vc-rs/schema/load.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "A load file: existing tests as a traffic mix",

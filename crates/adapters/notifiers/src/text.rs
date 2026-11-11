@@ -9,9 +9,10 @@ const LISTED: usize = 10;
 /// The most characters of a failure message a message keeps.
 const MESSAGE_CHARS: usize = 200;
 
-/// `shop: run failed (staging)`.
+/// `shop: run failed (staging)`; `[test] shop: …` for a sample `vc alerts test` sends (D257).
 pub fn headline(notice: &Notice) -> String {
-    format!("{}: {} ({})", notice.project, what(notice.trigger), notice.profile_key())
+    let test = if notice.test { "[test] " } else { "" };
+    format!("{test}{}: {} ({})", notice.project, what(notice.trigger), notice.profile_key())
 }
 
 /// `7 passed, 1 failed, 1 blocked, 1 flaky, 2 skipped`.
@@ -56,6 +57,7 @@ fn clip(message: &str) -> String {
 const fn what(trigger: AlertTrigger) -> &'static str {
     match trigger {
         AlertTrigger::Failure => "run failed",
+        AlertTrigger::Blocked => "tests blocked",
         AlertTrigger::Recovery => "run recovered",
         AlertTrigger::Flaky => "flaky tests",
         AlertTrigger::Threshold => "load thresholds breached",

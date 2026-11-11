@@ -239,6 +239,7 @@
           "items": {
             "enum": [
               "failure",
+              "blocked",
               "recovery",
               "flaky",
               "threshold"
@@ -1243,7 +1244,7 @@
       "type": "object"
     }
   },
-  "$id": "https://raw.githubusercontent.com/v007m/vc-rs/master/schema/config.schema.json",
+  "$id": "https://v007m.github.io/vc-rs/schema/config.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "description": "The project config, `vibranium.config.yaml`",

@@ -92,3 +92,36 @@ async fn a_hook_past_its_time_or_memory_budget_is_stopped_with_its_line() {
         assert!(matches!(line, Some("3" | "4")), "the loop's TypeScript line for {limit}: {said}");
     }
 }
+
+const SIGN_KEY: &str = "Wm5c-Ry8d-Kp2t";
+
+#[tokio::test(flavor = "multi_thread")]
+async fn hooks_read_the_run_s_secrets_and_never_show_them() {
+    let server = MockServer::start().await.unwrap();
+    let sign = concat!(
+        "import { hmacSha256Hex } from \"vibranium:std\";\n",
+        "export const sign = ({ request }) =>\n",
+        "  ({ ...request, headers: { ...request.headers, \"x-signature\": hmacSha256Hex(secret(\"SIGN_KEY\"), request.path) } });\n",
+        "export const seed = () => ({ keyed: secret(\"SIGN_KEY\").length === 14 ? \"yes\" : \"no\" });\n",
+    );
+    let test = concat!(
+        "tests:\n  - id: signsWithTheKey\n    steps:\n",
+        "      - function: ../../hooks/sign.ts#seed\n        provides: [keyed]\n",
+        "      - call: signed#echo\n        body: {keyed: '${var.keyed}'}\n",
+        "        expect:\n          body: {match: {body.keyed: 'yes'}}\n",
+        "          cel:\n            signed: \"size(response.body.headers['x-signature']) == 64\"\n",
+    );
+    let files = [
+        CONFIG,
+        SIGNED,
+        ("hooks/sign.ts", sign),
+        (".env.schema", "# the signing key\nSIGN_KEY=\n"),
+        ("services/signed/keyed.test.yaml", test),
+    ];
+    let project = Project::new(&files);
+    let mut vc = project.run(&server.base_url(), &[]);
+    let output = vc.env("SIGN_KEY", SIGN_KEY).output().unwrap();
+    let said = crate::said(&output);
+    assert_eq!(output.status.code(), Some(0), "the hooks read the key: {said}");
+    assert!(!said.contains(SIGN_KEY), "{said}");
+}

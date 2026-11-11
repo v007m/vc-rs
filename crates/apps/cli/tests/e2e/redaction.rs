@@ -2,7 +2,7 @@
 //! (masked there by a `redact.rules` regex), and a `redact.fields` password, never reach the
 //! history or a report file, even where `history.maxBodySize` cuts a body in the middle of one
 //! (masked first, then cut: D184). A `${secret.X}` the environment gives is sent, and shows
-//! nowhere either.
+//! nowhere either. Nor does a hidden field a failed check quotes.
 
 use std::fs;
 use std::path::Path;
@@ -70,6 +70,38 @@ pub fn assert_hidden(seen: &[(String, String)], values: &[&str]) {
             assert!(leak.is_none(), "{name} holds part of a secret: {:?}", leak.map(String::from_utf8_lossy));
         }
     }
+}
+
+const FIELD_PASSWORD: &str = "Hq8m-Vt3c-Np6w-Zr1k";
+
+/// A check on a `redact.fields` field, at the top and nested: its failure quotes the value.
+const FIELD_API: (&str, &str) = (
+    "services/echo/echo.api.yaml",
+    "baseUrl: ${var.baseUrl}\napis:\n  - id: send\n    method: POST\n    path: /echo\n\
+     \x20   body: {password: Hq8m-Vt3c-Np6w-Zr1k, profile: {password: Hq8m-Vt3c-Np6w-Zr1k}}\n\
+     \x20   expect: {body: {match: {body.password: wrong, body.profile.password: wrong}}}\n",
+);
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failed_check_on_a_hidden_field_shows_it_nowhere() {
+    let server = MockServer::start().await.unwrap();
+    let config = (
+        "vibranium.config.yaml",
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\n\
+         redact: {fields: [password]}\n",
+    );
+    let test = ("services/echo/send.test.yaml", "tests:\n  - id: checksThePassword\n    call: echo#send\n");
+    let project = Project::new(&[config, FIELD_API, test]);
+    let run = project.run(&server.base_url(), &["--report", "ctrf,junit"]).output().unwrap();
+    assert_eq!(run.status.code(), Some(1), "{}", said(&run));
+    assert!(said(&run).contains("••••"), "the failure was shown, masked: {}", said(&run));
+    let shown = project.vc(&["history", "show", "1"]).output().unwrap();
+    let history = history_text(&project.path().join(".vibranium/history.db"));
+    let mut seen = vec![("history.db rows".to_owned(), history), ("vc output".to_owned(), said(&run) + &said(&shown))];
+    files(project.path().join(".vibranium").as_path(), &mut seen);
+    let reports = ["ctrf.json", "junit.xml"].map(|name| seen.iter().any(|(path, _)| path.ends_with(name)));
+    assert_eq!(reports, [true, true], "both reports were written");
+    assert_hidden(&seen, &[FIELD_PASSWORD]);
 }
 
 const TOKEN: &str = "Kd4R-8wNq-Yb6T-2hVz-Jc5M";
