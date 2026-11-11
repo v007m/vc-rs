@@ -133,13 +133,13 @@ Settings are layered, lowest to highest: built-in defaults < user config (`~/.co
 | `defaults.headers` | map | none | Sent with every request |
 | `http.retry` | `attempts`, `on`, `methods`, `backoff` | `attempts: 0` (off) | Transport retry of one request (D143). `on` defaults to `[connect, timeout, 502, 503, 504]`, `methods` to `[GET, HEAD, OPTIONS, PUT, DELETE]`, `backoff` to `{ base: 100ms, max: 2s, jitter: true }` (exponential). Each attempt gets the full `timeout` |
 | `vars` | map | — | Project-wide values |
-| `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles) |
+| `profiles` | list | required, at least one; `vc init` creates `default` | Each: `id`, `name`, `default`, `vars`, `agents` (see Vars and profiles). A profile's `name` follows its ID in the run summary (`profile dev "Local dev"`), in the json summary's `profileNames` and in CTRF's `results.extra.profileNames` |
 | `auth` | list | — | Auth definitions (see Authentication) |
 | `secrets` | `provider`, `schema` | `env` with `.env.schema` | Where `${secret.*}` comes from |
 | `generators` | list | — | Named fake-data generators |
 | `datasets` | `allowRoots`, `files` | every file in `datasets/` | Your own data lists: `files` lists data kept outside `datasets/` (each `id`, `file`), and `allowRoots` the folders outside the project those files may be in (see Datasets) |
 | `reports` | `dir`, `formats` | CTRF only | Output formats and folder; html.layout is folder (default: an index plus data files loaded on demand) or single (one self-contained file). A format may also be the ID of a reporter plugin in `plugins:`; any other unknown name is V2302 |
-| `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends |
+| `history` | `bodies` (`none`, `failures`, `all`), `maxBodySize`, `keep` (a number of runs or `all`) | bodies of failures only, `64kb`, `50` (D170) | Run history and retention: bodies are cut at `maxBodySize` before they are stored, and the oldest runs past `keep` are deleted when a run ends, each with its report folder `<reports.dir>/<run>/`; anything else under `reports.dir` stays |
 | `alerts` | list | none | Notifications |
 | `plugins` | list | none | Third-party plugins |
 | `redact` | `headers`, `fields`, `rules` | auth headers and secrets | Extra values to mask; `rules` are your own `regex`, `cel` or `function` masks (see Secrets) |
@@ -480,7 +480,7 @@ File-level keys of a test file:
 | Key | Type | Purpose |
 | --- | --- | --- |
 | `id` | file ID, optional; must match the path (D139) | Prefix of every test in the file |
-| `name` | text | Shown in reports |
+| `name` | text | Shown in reports: after the file ID in the HTML report's file list (`users.crud — Crud`), as CTRF's `extra.fileName` on each test and as a `name` property of the JUnit testsuite |
 | `tags` | list | Added to every test in the file |
 | `vars` | map | File-level vars |
 | `profiles` | list | Per-profile overrides of the file's `vars` |
@@ -494,7 +494,7 @@ Each item in `tests`:
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `id` | camelCase, required | — | Reference, e.g. `users.crud#getsCreatedUser` |
-| `name` | text | `id` | Shown in reports |
+| `name` | text | `id` | Shown in reports: after the test's label in the console and the HTML report (`users.crud#listsUsers — Lists every user`), as `name` in the json `testFinished` event, as CTRF's `extra.name` and as a `name` property of the JUnit testcase. CTRF and JUnit keep the label as the test's name |
 | `tags` | list | — | Added to the file's tags |
 | `before`, `after` | lists of actions | — | Run around this test only, inside `beforeEach` and `afterEach` |
 | `call` | api ID | one of `call` or `steps` | The api to call |
@@ -506,9 +506,9 @@ Each item in `tests`:
 | `expect` | checks | the api's `expect` | Merged with the api's checks (see Checks and matchers) |
 | `save` | map of templates over `response` | — | Name values for later steps, `after` and `afterEach`; with `steps`, reads the last step's response (D124) |
 | `poll` | `until`, `every`, `timeout` | none: all three are required (D156) | Re-send until `until` (checks) holds, then check `expect` |
-| `examples` | list of maps, `$file`, or one template giving a list of maps | — | One test instance per row; values in `${example.*}`. A template is read once before the run, from `var`, `env` and `dataset` only. A run skips a test given no rows, with a warning |
-| `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance |
-| `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126) |
+| `examples` | list of maps, `$file`, or one template giving a list of maps | — | One test instance per row; values in `${example.*}`. A row's `name` labels its instance (`users.pages#listsEachPage › first page`); a row without one, or read from a `$file`, is labelled by its number (`[row 2]`). A template is read once before the run, from `var`, `env` and `dataset` only. A run skips a test given no rows, with a warning |
+| `repeat` | integer | `1` | Run the whole test this many times, each reported as its own instance and labelled `[repeat n]`, the same as with `vc run --repeat` |
+| `retry` | `attempts`, `delay` | `defaults.retry` | Re-run the whole test instance after a failure, cleanups included; a pass after a failure is reported as flaky (D126). A failure that repeats across attempts is shown once, under the attempts it happened in (`attempts 1, 2 and 3 of 3:`) |
 | `timeout` | duration | per-request timeout × calls | Whole-test limit, per attempt. `after` and `afterEach` actions are outside it: one with its own `timeout` is limited by that, one without only by its requests' timeouts |
 | `skip` | a reason, or reason and until | — | Skip with a reason, optionally until a date; reported as skipped (see Skipping) |
 | `standalone` | boolean | `true` | `false`: runs only when reused with `test:`, never on its own |
@@ -940,7 +940,7 @@ A load file turns existing tests into a traffic mix; it adds no request or check
 | Key | Type | Default | Purpose |
 | --- | --- | --- | --- |
 | `id` | file ID, optional; must match the path (D139) | path-derived | Scenario ID for `vc load <id>` |
-| `name` | text | — | Shown in the load report |
+| `name` | text | — | Shown in the load report, after the scenario ID in its summary line (`checkout.peak — Peak checkout · finished after …`) and as `name` in `vc load --json` |
 | `mix` | list | required | Each: `test` (ID), `weight` (integer), optional `thresholds` for that test |
 | `stages` | list | required | Each: `duration`, `users`; users ramp from the previous stage's count |
 | `thinkTime` | duration, or `min` and `max` | `0s` | Pause between iterations |
@@ -1129,7 +1129,7 @@ Rules:
 - Arguments are literals only: numbers, booleans and single-quoted strings; `null` and double quotes are V2305 (D151).
 - A var defined as `${fake.…}` is generated once per test instance, or once per loop iteration, and every `${var.…}` read of it gets the same value: put it in `vars` once (`email: ${fake.internet.email}`) and use `${var.email}` (D131).
 - A `${fake.…}` written inline in a field generates a new value every time it is rendered (D131).
-- `vc run --seed 42` makes generated data repeatable; the seed is printed in every report and with every failure (D131).
+- `vc run --seed 42` makes generated data repeatable; the seed is recorded in the run's report files (D131): CTRF's `results.extra.seed`, a `seed` property of each JUnit testsuite and the HTML report. A failed run prints it (`seed 42: pass --seed 42 to run with the same generated data`) only when it generates data: a `${fake.…}`, or a `random` or `shuffle` pipe, in anything it runs. A seed the run picks itself is below 2^53, so it reads exactly as a JSON number.
 - A name that is not a generator is V2002, with the close names and the list of generators. Wrong arguments are V2302: `string.alphanumeric`, `lorem.words` and `lorem.paragraphs` take one count up to 10,000 (defaults 1, 3 and 3); `number.int` takes two whole numbers, the first no larger (default 0 to 9,007,199,254,740,991); `number.float` and `commerce.price` take two numbers (defaults 0 to 1 and 1 to 1000); `helpers.arrayElement` takes one or more values; the rest take none.
 - What they give: `number.int` and `number.float` are numbers, `commerce.price` is a number with two decimals, `helpers.arrayElement` is the argument it picked, and everything else is text. Dates are RFC 3339 in UTC, counted from the run's start: `date.recent` within the day before, `date.past` within the year before, `date.future` within the year after. Text is in English.
 - `string.fromRegExp` (and a `fromRegExp` generator) follows a bounded subset of regex: literals, escapes (`\d`, `\w`, `\s`, `\D`, `\W`, `\S`, `\.`), `.` (printable ASCII), classes and ranges (`[A-Z0-9_]`, `[^,]`), groups (`(…)`, `(?:…)`), alternation (`a|b`), and quantifiers (`?`, `*`, `+`, `{n}`, `{n,m}`, `{n,}`). An open repeat adds at most 16 copies; a count is at most 256 and the text at most 10,000 characters; groups nest at most 32 deep; `^` and `$` only at the ends. Lookarounds, backreferences, `\b`, named groups and Unicode classes are V2309.

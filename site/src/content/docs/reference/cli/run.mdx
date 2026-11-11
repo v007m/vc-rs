@@ -44,10 +44,10 @@ With no selector, every test in the project runs. Selectors are test IDs (`users
 $ vc run sample.basics
 plan  4 tests in 1 file · lifecycle: beforeAll command · profile default
 
-✓ sample.basics#rejectsMissingEmail                               0ms
-✓ sample.basics#listsUsers                                        0ms
-✓ sample.basics#createsUser                                       0ms
-✓ sample.basics#getsCreatedUser                                  52ms
+✓ sample.basics#rejectsMissingEmail — Rejects a user without an email  0ms
+✓ sample.basics#listsUsers — Lists users  0ms
+✓ sample.basics#createsUser — Creates a user with the given email  0ms
+✓ sample.basics#getsCreatedUser — Returns the user that was just created  52ms
 
 4 passed                                                     122ms · profile default
 reports  /home/ada/shop/.vibranium/reports/34/{ctrf.json,junit.xml,index.html}
@@ -61,15 +61,15 @@ The first line is the plan: how many tests, which lifecycle actions run around t
 $ vc run sample.extra --include-skipped
 plan  3 tests in 1 file · profile default
 
-✓ sample.extra#echoesBody                                         0ms
-✕ sample.extra#findsAda                                           0ms
+✓ sample.extra#echoesBody — Echoes the body back  0ms
+✕ sample.extra#findsAda — Finds Ada first  0ms
   error[V5101]: expect.body.match.[0].name
     --> services/sample/extra.test.yaml:35:23
      |
   35 |           "[0].name": Grace Hopper
      |                       ^^^^^^^^^^^^ expected "Grace Hopper", got "Ada Lovelace"
-✓ sample.extra#rejectsBadEmail [row 1]                            4ms
-✓ sample.extra#rejectsBadEmail [row 2]                            5ms
+✓ sample.extra#rejectsBadEmail › empty — Rejects a bad email  4ms
+✓ sample.extra#rejectsBadEmail › no at sign — Rejects a bad email  5ms
 
 3 passed · 1 failed                                          12ms · profile default
 reports  /home/ada/shop/.vibranium/reports/35/{ctrf.json,junit.xml,index.html}
@@ -87,7 +87,7 @@ A failure points at the line in your YAML that set the check, with what was expe
 $ vc run --failed
 plan  1 test in 1 file · profile default
 
-✕ sample.extra#findsAda                                           3ms
+✕ sample.extra#findsAda — Finds Ada first  3ms
   ...
 0 passed · 1 failed                                          4ms · profile default
 ```
@@ -98,14 +98,14 @@ plan  1 test in 1 file · profile default
 $ vc run sample.extra#echoesBody --repeat 2 --concurrency 1 --report junit
 plan  1 test in 1 file · profile default
 
-✓ sample.extra#echoesBody                                         5ms
-✓ sample.extra#echoesBody [repeat 2]                              1ms
+✓ sample.extra#echoesBody [repeat 1] — Echoes the body back  5ms
+✓ sample.extra#echoesBody [repeat 2] — Echoes the body back  1ms
 
 2 passed                                                     9ms · profile default
 reports  /home/ada/shop/.vibranium/reports/38/junit.xml
 ```
 
-Each example row and each repeat is its own instance, labeled `[row n]` or `[repeat n]`.
+Each example row and each repeat is its own instance, labeled `[row n]` or `[repeat n]`. Every repeat is marked, the first too, whether it comes from `--repeat` or the test's `repeat`. A row with a `name` is labeled by it instead of its number: `sample.extra#rejectsBadEmail › empty`. A test with a `name` shows it after the label: `sample.extra#echoesBody — Echoes the body back`.
 
 ### Stop at the first failure
 
@@ -126,10 +126,10 @@ $ vc run sample.extra#echoesBody --reporter json --report ctrf --out build/vc
 {"action":"call sample#listUsers","event":"exchanged","method":"GET","ms":2,"owner":{"instance":0,"kind":"instance"},"status":200,"url":"http://localhost:7421/users"}
 {"action":"call sample#listUsers","check":{"actual":200,"code":null,"diff":null,"error":null,"expected":[200],"key":"status","location":{"column":15,"line":12,"path":"services/sample/extra.test.yaml"},"origin":"test sample.extra#echoesBody","passed":true},"event":"checkEvaluated","owner":{"instance":0,"kind":"instance"}}
 {"action":"call sample#listUsers","event":"actionFinished","failure":null,"owner":{"instance":0,"kind":"instance"},"status":"passed"}
-{"attempts":1,"durationMs":22,"event":"testFinished","failure":null,"instance":0,"label":"sample.extra#echoesBody","skipReason":null,"status":"passed","test":"sample.extra#echoesBody"}
+{"attempts":1,"durationMs":22,"event":"testFinished","failure":null,"instance":0,"label":"sample.extra#echoesBody","name":"Echoes the body back","skipReason":null,"status":"passed","test":"sample.extra#echoesBody"}
 {"event":"fileFinished","file":"sample.extra","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
 {"event":"runFinished","status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
-{"artifacts":[{"path":"/home/ada/shop/build/vc/ctrf.json","reporter":"ctrf"}],"durationMs":23,"event":"summary","profiles":["default"],"startedMs":1794332843979,"status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
+{"artifacts":[{"path":"/home/ada/shop/build/vc/ctrf.json","reporter":"ctrf"}],"durationMs":23,"event":"summary","profileNames":{},"profiles":["default"],"startedMs":1794332843979,"status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":1,"skipped":0}}
 ```
 
 ## Exit codes

@@ -117,7 +117,8 @@ Running `--seed 42` twice in a row gave byte-for-byte the same request bodies.
 - The seed covers every generator: `fake.*`, named generators, and the `random` and `shuffle` [pipes](/vc-rs/reference/pipes/).
 - A seed repeats the data, not the server. If the server's answers change, later values that depend on them change too.
 - Without `--seed`, each run picks a new seed.
-- The seed is printed on the terminal after a failing run. `vc load --json` also includes `seed` in its report.
+- The seed is printed on the terminal after a failing run that generated data; a run that draws nothing prints no seed. The CTRF report (`results.extra.seed`), the JUnit report (a `seed` property on each testsuite) and the HTML report keep it for every run, and `vc load --json` includes `seed` in its report.
+- Without `--seed`, the seed a run picks is below 2<sup>53</sup>, so a JSON reader gets it exactly.
 - `--seed` is a flag of `vc run`. `vc load` has no `--seed` flag.
 
 <Aside type="tip">

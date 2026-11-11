@@ -70,7 +70,8 @@ The command in `passesOnSecondTry` fails on its first run and passes on its seco
 $ vc run sample.retry
 plan  3 tests in 1 file · profile default
 
-✕ sample.retry#neverPasses                                       12ms
+✕ sample.retry#neverPasses — Fails on every attempt (3 attempts)  12ms
+  attempts 1, 2 and 3 of 3:
   error[V5101]: expect.status
     --> services/sample/sample.api.yaml:43:5
      |
@@ -81,19 +82,15 @@ plan  3 tests in 1 file · profile default
   45 |     path: /users/${var.userId}
      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected ["2xx"], got 404
      = note: expected by api sample#getUser
-  error[V5101]: expect.status
-  ...
-  error[V5101]: expect.status
-  ...
-⊘ sample.retry#blockedNotRetried blocked                         12ms
+⊘ sample.retry#blockedNotRetried — Is blocked by its before, so is not retried blocked  12ms
   error[V5110]: the command exited with 1
      = at: command
-~ sample.retry#passesOnSecondTry flaky (2 attempts)             268ms
+~ sample.retry#passesOnSecondTry — Passes on the second attempt flaky (2 attempts)  268ms
 
 0 passed · 1 failed · 1 blocked · 1 flaky                    278ms · profile default
 ```
 
-A failed test prints the failure of every attempt, one block per attempt. The `...` lines stand for the same block repeated.
+A failed test prints each different failure once, headed by the attempts that hit it: `attempts 1, 2 and 3 of 3:` when every attempt failed the same way, or `attempt 1 of 3:` and `attempts 2 and 3 of 3:` when they differ. A test's `name` follows its ID.
 
 ### Flaky counts as passed for the exit code
 
@@ -103,7 +100,7 @@ A run whose only result is flaky exits with 0:
 $ vc run 'sample.retry#passesOnSecondTry'
 plan  1 test in 1 file · profile default
 
-~ sample.retry#passesOnSecondTry flaky (2 attempts)             244ms
+~ sample.retry#passesOnSecondTry — Passes on the second attempt flaky (2 attempts)  244ms
 
 0 passed · 1 flaky                                           246ms · profile default
 ```

@@ -64,8 +64,8 @@ pub fn planned(
     Ok(plan)
 }
 
-/// The `name` of each planned example row that gives one as plain text, in the row as written
-/// (or read from a `$file`) or in a row an `examples:` template gave: the instance's label.
+/// The `name` of each planned example row that gives one as plain text, in a row written inline
+/// or in a row an `examples:` template gave: the instance's label.
 fn row_names(program: &Program, plan: &Plan, rendered: &ExampleRows) -> BTreeMap<(TestId, u32), String> {
     let instances = plan.files.iter().flat_map(|file| &file.instances);
     let rows = instances.filter_map(|instance| Some((instance.test, instance.example_row?)));

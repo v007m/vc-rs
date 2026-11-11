@@ -154,13 +154,13 @@ There is no prebuilt release, installer or GitHub setup action for `vc` yet. The
    ```json
    {"event":"runStarted","files":1,"instances":4}
    {"event":"runFinished","status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
-   {"artifacts":[{"path":"/home/you/shop/reports/ctrf.json","reporter":"ctrf"}],"durationMs":124,"event":"summary","profiles":["ci"],"startedMs":1794332325603,"status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
+   {"artifacts":[{"path":"/home/you/shop/reports/ctrf.json","reporter":"ctrf"}],"durationMs":124,"event":"summary","profileNames":{},"profiles":["ci"],"startedMs":1794332325603,"status":"passed","totals":{"blocked":0,"failed":0,"flaky":0,"passed":4,"skipped":0}}
    ```
 
    A failed test carries its diagnostic code and message:
 
    ```json
-   {"attempts":1,"durationMs":0,"event":"testFinished","failure":{"action":"call sample#listUsers","code":"V5105","message":"cannot connect to 127.0.0.1:18099: Connection refused (os error 61)"},"instance":0,"label":"sample.basics#listsUsers","skipReason":null,"status":"failed","test":"sample.basics#listsUsers"}
+   {"attempts":1,"durationMs":0,"event":"testFinished","failure":{"action":"call sample#listUsers","code":"V5105","message":"cannot connect to 127.0.0.1:18099: Connection refused (os error 61)"},"instance":0,"label":"sample.basics#listsUsers","name":"Lists users","skipReason":null,"status":"failed","test":"sample.basics#listsUsers"}
    ```
 
    Between those you also get `fileStarted`, `actionStarted`, `exchanged` (method, URL, status and time of each request), `checkEvaluated`, `actionFinished`, `cleanupFinished` and `fileFinished`. The console reporters are `spec` (the default) and `json`.

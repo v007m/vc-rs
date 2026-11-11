@@ -65,7 +65,7 @@ The first run sends `"name": "run 1 of 3"`. Run a single instance with `:n`:
 $ vc run 'sample.repeat#echoesEachRun:3'
 plan  1 test in 1 file · profile default
 
-✓ sample.repeat#echoesEachRun [repeat 3]                          0ms
+✓ sample.repeat#echoesEachRun [repeat 3] — Echoes the run number three times  0ms
 
 1 passed                                                     7ms · profile default
 ```
@@ -99,10 +99,10 @@ Every created user registers its own cleanup, so all five are deleted after the 
 $ vc run sample.repeat
 plan  2 tests in 1 file · profile default
 
-✓ sample.repeat#echoesEachRun [repeat 3]                          4ms
-✓ sample.repeat#echoesEachRun [repeat 1]                          4ms
-✓ sample.repeat#echoesEachRun [repeat 2]                          4ms
-✓ sample.repeat#createsFiveUsers                                 11ms
+✓ sample.repeat#echoesEachRun [repeat 3] — Echoes the run number three times  4ms
+✓ sample.repeat#echoesEachRun [repeat 1] — Echoes the run number three times  4ms
+✓ sample.repeat#echoesEachRun [repeat 2] — Echoes the run number three times  4ms
+✓ sample.repeat#createsFiveUsers — Creates five users and keeps every id  11ms
 
 4 passed                                                     14ms · profile default
 ```
@@ -123,8 +123,8 @@ sample.repeat
 $ vc run 'sample.repeat#echoesEachRun' --repeat 2
 plan  1 test in 1 file · profile default
 
-✓ sample.repeat#echoesEachRun [repeat 2]                          0ms
-✓ sample.repeat#echoesEachRun [repeat 1]                          1ms
+✓ sample.repeat#echoesEachRun [repeat 2] — Echoes the run number three times  0ms
+✓ sample.repeat#echoesEachRun [repeat 1] — Echoes the run number three times  1ms
 
 2 passed                                                     10ms · profile default
 ```
@@ -146,6 +146,7 @@ plan  1 test in 1 file · profile default
 - A repeated step runs one iteration after another, in order. Use [`parallel`](/vc-rs/reference/syntax/parallel/) to run several at once.
 - Every name saved inside a repeated step is a list, in iteration order.
 - If one iteration of a step fails, the step fails. The cleanups of the iterations that passed still run.
+- Every instance of a repeated test is labeled `[repeat n]`, the first one too, whether the count comes from `repeat` or from `vc run --repeat`.
 - With both [`examples`](/vc-rs/reference/syntax/examples/) and `repeat`, every row runs `repeat` times: `[row 1, repeat 1]`, `[row 1, repeat 2]`, `[row 2, repeat 1]` and so on.
 - `repeat` and [`forEach`](/vc-rs/reference/syntax/for-each/) on the same step: `forEach` wins and `repeat` is ignored.
 

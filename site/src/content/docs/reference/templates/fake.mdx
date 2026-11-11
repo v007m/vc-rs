@@ -55,7 +55,7 @@ A pipe after a generator: `${fake.person.firstName | upper}`.
 ## How it behaves
 
 - A fake in `vars` is drawn once per test instance (or loop iteration). A fake written inline in a field is drawn every time that field is rendered.
-- The run's seed is printed at the end of every run. Pass it back with `--seed` to get the same data.
+- A failed run that drew fakes prints its seed at the end (`seed 42: pass --seed 42 to run with the same generated data`). Pass it back with `--seed` to get the same data. The seed is also kept in the CTRF (`results.extra.seed`), JUnit (a `seed` property) and HTML reports.
 - `fake` is not available in `$cel`. Set a var from the template and read the var.
 
 ## Common errors
