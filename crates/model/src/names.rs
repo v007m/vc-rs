@@ -115,6 +115,26 @@ impl Names {
         self.text(file.sym())
     }
 
+    /// A test's `name`, when it gives one.
+    #[must_use]
+    pub fn test_name(&self, test: TestId) -> Option<&str> {
+        self.program.tests.get(&test).and_then(|found| found.name.as_deref())
+    }
+
+    /// The `name` of a test's file, when it gives one.
+    #[must_use]
+    pub fn file_name_of(&self, test: TestId) -> Option<&str> {
+        let file = self.program.tests.get(&test)?.file;
+        self.program.test_files.get(&file).and_then(|found| found.name.as_deref())
+    }
+
+    /// The `name` of profile `id`, when it gives one.
+    #[must_use]
+    pub fn profile_name(&self, id: &str) -> Option<&str> {
+        let found = self.program.profiles.values().find(|profile| self.text(profile.id.sym()) == id);
+        found.and_then(|profile| profile.name.as_deref())
+    }
+
     /// The instance as people know it: `users.crud#rejectsBadEmail [row 2, repeat 1]`, numbered
     /// from 1, or `users.crud#rejectsBadEmail › missing @ [repeat 1]` for a row with a `name`;
     /// the repeat shows on every instance of a test the plan repeats, and on none of one it
@@ -122,6 +142,17 @@ impl Names {
     #[must_use]
     pub fn instance(&self, result: &TestResult) -> String {
         self.label(result.test, result.instance)
+    }
+
+    /// The instance's label followed by its test's `name`, as the console and the HTML report
+    /// show it: `users.crud#listsUsers — Lists every user`; the bare label when it has none.
+    #[must_use]
+    pub fn titled(&self, result: &TestResult) -> String {
+        let label = self.instance(result);
+        match self.test_name(result.test) {
+            Some(name) => format!("{label} — {name}"),
+            None => label,
+        }
     }
 
     /// The label of [`Names::instance`] for `test` run as `instance`.

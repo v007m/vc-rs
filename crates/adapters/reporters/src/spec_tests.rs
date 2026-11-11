@@ -109,7 +109,10 @@ fn lists_reports_by_folder_when_they_share_one() {
     assert_eq!(reports(&artifacts(&["out/ctrf.json", "elsewhere/junit.xml"])), "out/ctrf.json, elsewhere/junit.xml");
     assert_eq!(reports(&artifacts(&["out/ctrf.json"])), "out/ctrf.json");
     assert_eq!(reports(&artifacts(&["/", "out/a"])), "/, out/a");
-    assert_eq!(profiles(&[]), None);
+    let (program, plan) = testing::project();
+    let names = Names::new(program, &plan);
+    assert_eq!(profiles(&names, &[]), None);
+    assert_eq!(profiles(&names, &["dev".into(), "eu".into()]).as_deref(), Some("profiles dev \"Local dev\", eu"));
 }
 
 #[tokio::test]
@@ -156,4 +159,14 @@ async fn a_retried_failure_shows_each_different_failure_once_under_its_attempts(
     assert!(printed.contains("  attempts 1 and 2 of 3:\n") && printed.contains("  attempt 3 of 3:\n"), "{printed}");
     assert_eq!(printed.matches("got 503").count(), 1, "the same failure once: {printed}");
     assert_eq!(printed.matches("got 500").count(), 1, "{printed}");
+}
+
+#[tokio::test]
+async fn follows_a_named_test_and_profile_with_their_names() {
+    let (mut reporter, captured, events) = spec(Color::Plain);
+    testing::run(&mut reporter, &events, &testing::summary()).await;
+    let printed = captured.take().0;
+    assert!(printed.contains("✓ users.crud#listsUsers [repeat 2] — Lists every user"), "{printed}");
+    assert!(printed.contains("✓ users.crud#getsUser "), "an unnamed test shows its ID alone: {printed}");
+    assert!(printed.contains(" · profile dev \"Local dev\""), "{printed}");
 }

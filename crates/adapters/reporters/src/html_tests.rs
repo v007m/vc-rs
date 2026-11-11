@@ -57,8 +57,11 @@ fn bundles_everything_into_one_page() {
     GzDecoder::new(bytes.as_slice()).read_to_string(&mut json).unwrap();
     let data: Value = serde_json::from_str(&json).unwrap();
     assert_eq!(data["summary"]["run"]["id"], 7);
-    assert_eq!(data["summary"]["files"][0], "users.crud");
+    assert_eq!(data["summary"]["files"][0], "users.crud — Crud", "the file's `name` follows its ID");
+    assert_eq!(data["summary"]["run"]["profiles"][0], "dev \"Local dev\"");
     assert_eq!(data["index"].as_array().unwrap().len(), 6);
+    assert_eq!(data["index"][0][1], Value::Null, "an unnamed test shows its label");
+    assert_eq!(data["index"][4][1], "users.crud#listsUsers [repeat 2] — Lists every user");
     assert_eq!(data["index"][2][3], "blocked");
     let test = &data["tests/0"]["1"];
     let hash = test["exchanges"][0]["responseBody"].as_str().unwrap();

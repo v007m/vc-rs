@@ -91,7 +91,8 @@ impl Engine {
         let plan = PlanRequest { select, profiles: request.profiles.clone(), sets: request.sets.clone(), repeat: None };
         let prepared = self.prepare(&plan, Extra::default())?;
         let (seed, random) = (prepared.draw.seed, Arc::clone(&prepared.draw.random));
-        let report = LoadReport { scenario: request.scenario.clone(), seed, ..LoadReport::default() };
+        let (name, id) = (scenario.name.clone(), request.scenario.clone());
+        let report = LoadReport { scenario: id, name, seed, ..LoadReport::default() };
         let (root, started_ms) = (CancelTree::new(RunOptions::default().grace), self.clock.now_ms());
         Ok(Session { prepared, scenario, seed, random, root, started_ms, report, alerting: None })
     }

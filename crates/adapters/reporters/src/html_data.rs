@@ -44,15 +44,22 @@ fn files(snapshot: &RunSnapshot) -> Vec<String> {
     files
 }
 
+/// The run, its totals and lifecycle, and its files; a profile or file with a `name` is shown
+/// with it: `dev "Local dev"`, `users.crud — Users CRUD`.
 fn summary(snapshot: &RunSnapshot, files: &[String]) -> Value {
     let run = &snapshot.run;
+    let profiles = run.profiles.iter().map(|id| match snapshot.profile_names.get(id) {
+        Some(name) => format!("{id} \"{name}\""),
+        None => id.clone(),
+    });
+    let files: Vec<String> = files.iter().map(|file| file_title(snapshot, file)).collect();
     json!({
         "run": {
             "id": run.id,
             "status": encode::run_status(run.status),
             "startedMs": run.started_ms,
             "durationMs": run.duration_ms,
-            "profiles": run.profiles,
+            "profiles": profiles.collect::<Vec<_>>(),
             "seed": run.seed,
         },
         "totals": encode::totals(run.totals),
@@ -60,6 +67,12 @@ fn summary(snapshot: &RunSnapshot, files: &[String]) -> Value {
         "files": files,
         "shardSize": SHARD,
     })
+}
+
+/// A file's ID, followed by its `name` when it gives one.
+fn file_title(snapshot: &RunSnapshot, file: &str) -> String {
+    let name = snapshot.tests.iter().find(|view| view.file == file).and_then(|view| view.file_name.as_deref());
+    name.map_or_else(|| file.to_owned(), |name| format!("{file} — {name}"))
 }
 
 /// Lifecycle actions, cleanups and abandoned cleanups as one list of lines.
@@ -77,11 +90,13 @@ fn lifecycle(snapshot: &RunSnapshot) -> Vec<Value> {
     steps.chain(cleanups).chain(abandoned).collect()
 }
 
-/// One row per test: `[label, name, file, status, ms, tags]`; the label is unique per instance.
+/// One row per test: `[label, name, file, status, ms, tags]`; the label is unique per instance,
+/// and the name, shown in its place, is the label followed by the test's `name`.
 fn index(snapshot: &RunSnapshot, files: &[String]) -> Value {
     let rows = snapshot.tests.iter().map(|view| {
         let file = files.iter().position(|file| *file == view.file);
-        json!([view.label, Value::Null, file, text::status(view.status), view.duration_ms(), view.tags])
+        let name = view.name.as_ref().map(|_| view.titled());
+        json!([view.label, name, file, text::status(view.status), view.duration_ms(), view.tags])
     });
     Value::Array(rows.collect())
 }

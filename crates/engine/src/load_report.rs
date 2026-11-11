@@ -120,6 +120,8 @@ pub struct LoadReport {
     pub exit: u8,
     /// The scenario's ID.
     pub scenario: String,
+    /// The scenario's `name`, when its load file gives one.
+    pub name: Option<String>,
     /// How it ended.
     pub ending: LoadEnding,
     /// The seconds it ran.
@@ -163,10 +165,13 @@ impl LoadReport {
         }
     }
 
-    /// The summary `vc load` prints once the run is over.
+    /// The summary `vc load` prints once the run is over; a scenario with a `name` starts
+    /// `checkout.peak — Peak checkout · finished after …`.
     #[must_use]
     pub fn text(&self) -> String {
-        let (scenario, ending, seconds) = (&self.scenario, self.ending.as_str(), self.seconds);
+        let named = |name: &String| format!("{} — {name} ·", self.scenario);
+        let scenario = self.name.as_ref().map_or_else(|| self.scenario.clone(), named);
+        let (ending, seconds) = (self.ending.as_str(), self.seconds);
         let (iterations, rps, errors) = (self.iterations, self.rps, self.errors);
         let (p50, p90, p95, p99) = (self.p50_ms, self.p90_ms, self.p95_ms, self.p99_ms);
         let mut lines = vec![
@@ -199,6 +204,7 @@ impl LoadReport {
         let ms = |value: f64| Unit::MS.round(value);
         json!({
             "scenario": self.scenario,
+            "name": self.name,
             "ending": self.ending.as_str(),
             "exit": self.exit,
             "seconds": self.seconds,

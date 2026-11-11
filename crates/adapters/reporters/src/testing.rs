@@ -3,7 +3,8 @@
 //!
 //! `users.crud` has `getsUser` (passes), `rejectsBadEmail` with two example rows (the first
 //! fails two checks, the second is blocked by `seed`), `listsUsers` repeated twice (the first
-//! repeat is flaky) and `parksLegacy`, skipped.
+//! repeat is flaky) and `parksLegacy`, skipped. The file is named `Crud`, `listsUsers` is named
+//! `Lists every user` and profile `dev` is named `Local dev`.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -27,6 +28,7 @@ use crate::{Destination, Recorder, ReporterContext, RunFacts, RunSnapshot, Stopw
 const CONFIG: &str = "syntaxVersion: 2
 profiles:
   - id: dev
+    name: Local dev
     default: true
 vars: {baseUrl: 'http://x'}
 ";
@@ -63,6 +65,7 @@ tests:
         match:
           errors[0].field: email
   - id: listsUsers
+    name: Lists every user
     call: users#get
     repeat: 2
   - id: parksLegacy

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use vc_interfaces::{Artifact, ReportError, Reporter, RunSummary};
 use vc_model::{ActionId, Event, InstanceId, Names, OwnerKey};
 
@@ -87,6 +87,7 @@ impl JsonReporter {
             "test": self.names.test(result.test),
             "instance": result.instance.map(InstanceId::index),
             "label": self.names.instance(result),
+            "name": self.names.test_name(result.test),
             "status": text::status(result.status),
             "attempts": result.attempts,
             "durationMs": text::millis(record.duration()),
@@ -104,13 +105,14 @@ impl Reporter for JsonReporter {
     }
 
     async fn finish(&mut self, run: &RunSummary) -> Result<Vec<Artifact>, ReportError> {
-        self.line(&summary(run))?;
+        self.line(&summary(&self.names, run))?;
         Ok(Vec::new())
     }
 }
 
-/// The `summary` line: how the run ended, its totals and the files its reporters wrote.
-pub fn summary(run: &RunSummary) -> Value {
+/// The `summary` line: how the run ended, its totals, its profiles with the `name` of each that
+/// gives one, and the files its reporters wrote.
+pub fn summary(names: &Names, run: &RunSummary) -> Value {
     let artifacts: Vec<Value> = run.artifacts.iter().map(|a| json!({"reporter": a.reporter, "path": a.path})).collect();
     json!({
         "event": "summary",
@@ -119,8 +121,15 @@ pub fn summary(run: &RunSummary) -> Value {
         "startedMs": run.started_ms,
         "durationMs": text::millis(run.duration),
         "profiles": run.profiles,
+        "profileNames": profile_names(names, &run.profiles),
         "artifacts": artifacts,
     })
+}
+
+/// The `name` of each of `profiles` that gives one, by its ID.
+pub fn profile_names(names: &Names, profiles: &[String]) -> Map<String, Value> {
+    let named = profiles.iter().filter_map(|id| names.profile_name(id).map(|name| (id.clone(), name.into())));
+    named.collect()
 }
 
 /// `base` with the keys of `more` added.

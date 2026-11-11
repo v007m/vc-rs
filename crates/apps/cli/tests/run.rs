@@ -82,10 +82,13 @@ async fn a_failing_run_with_no_generated_data_prints_no_seed_hint() {
     let server = MockServer::start().await.unwrap();
     let dir = project(&[CONFIG, USERS, PASSING, FAILING]).unwrap();
     let base = format!("vars.baseUrl={}", server.base_url());
-    let run = vc(dir.path(), &["run", "--set", &base, "--seed", "42", "--out", "out"]).assert().code(1);
+    let args = ["run", "--set", &base, "--seed", "42", "--report", "ctrf,junit", "--out", "out"];
+    let run = vc(dir.path(), &args).assert().code(1);
     run.stderr(str::contains("--seed").not());
-    let ctrf = fs::read_to_string(dir.path().join("out/ctrf.json")).unwrap();
-    assert!(ctrf.contains(r#""seed": 42"#), "the report keeps the seed: {ctrf}");
+    let ctrf: serde_json::Value = serde_json::from_slice(&fs::read(dir.path().join("out/ctrf.json")).unwrap()).unwrap();
+    assert_eq!(ctrf["results"]["extra"]["seed"], 42, "the report keeps the seed (D131): {ctrf:#}");
+    let junit = fs::read_to_string(dir.path().join("out/junit.xml")).unwrap();
+    assert!(junit.contains("<property name=\"seed\" value=\"42\"/>"), "{junit}");
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -67,7 +67,7 @@ impl SpecReporter {
     fn test(&self, record: &TestRecord) -> String {
         let result = &record.result;
         let (glyph, tone) = mark(result.status);
-        let subject = format!("{}{}", self.names.instance(result), suffix(record));
+        let subject = format!("{}{}", self.names.titled(result), suffix(record));
         let time = if record.start.is_some() { text::duration(record.duration()) } else { String::new() };
         let subject = text::sanitize(&subject);
         let mut out = format!("{} {subject:<NAME_WIDTH$} {time:>6}", self.paint(glyph, tone)).trim_end().to_owned();
@@ -94,13 +94,13 @@ impl SpecReporter {
         format!("{} {}\n", self.paint("!", Tone::Warn), text::sanitize(&line))
     }
 
-    fn summary(run: &RunSummary) -> String {
+    fn summary(&self, run: &RunSummary) -> String {
         let mut counts = counts(run.totals);
         if run.status == RunStatus::Cancelled {
             counts.push_str(" · cancelled");
         }
         let mut tail = vec![text::duration(run.duration)];
-        tail.extend(profiles(&run.profiles));
+        tail.extend(profiles(&self.names, &run.profiles));
         let mut out = format!("\n{counts:<NAME_WIDTH$} {}\n", tail.join(" · "));
         if !run.artifacts.is_empty() {
             let _ = writeln!(out, "reports  {}", reports(&run.artifacts));
@@ -124,7 +124,7 @@ impl Reporter for SpecReporter {
     }
 
     async fn finish(&mut self, run: &RunSummary) -> Result<Vec<Artifact>, ReportError> {
-        self.print(&Self::summary(run))?;
+        self.print(&self.summary(run))?;
         Ok(Vec::new())
     }
 }
@@ -182,9 +182,14 @@ fn counts(totals: Totals) -> String {
     std::iter::once(format!("{} passed", totals.passed)).chain(shown).collect::<Vec<_>>().join(" · ")
 }
 
-/// `profile dev`, `profiles staging, eu`, or nothing.
-fn profiles(profiles: &[String]) -> Option<String> {
-    match profiles {
+/// `profile dev`, `profiles staging "Staging (us-east)", eu` with each profile's `name`, or
+/// nothing.
+fn profiles(names: &Names, profiles: &[String]) -> Option<String> {
+    let shown: Vec<String> = profiles
+        .iter()
+        .map(|id| names.profile_name(id).map_or_else(|| id.clone(), |name| format!("{id} \"{name}\"")))
+        .collect();
+    match shown.as_slice() {
         [] => None,
         [one] => Some(format!("profile {one}")),
         many => Some(format!("profiles {}", many.join(", "))),
