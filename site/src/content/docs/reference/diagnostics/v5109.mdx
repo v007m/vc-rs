@@ -24,13 +24,13 @@ Here `seedUser` returns only `userId`.
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/${var.userId}
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml title="services/users/crud.test.yaml"
 tests:
   - id: getsSeededUser
     before:

@@ -24,13 +24,13 @@ the wrong export, one that checks orders rather than users.
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml title="services/users/users.api.yaml"
 apis:
   - id: listUsers
     path: /users
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml title="services/users/crud.test.yaml"
 tests:
   - id: listsUsersSorted
     call: users#listUsers

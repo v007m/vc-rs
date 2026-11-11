@@ -22,7 +22,7 @@ config var, or profile. The diagnostic names the profiles where it is missing an
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2101 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/${var.userId}
@@ -54,7 +54,7 @@ tests:
 
 This is real output from `vc`, run against the files below.
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2101 title="services/users/users.api.yaml"
 id: users
 name: Users
 baseUrl: http://localhost:7421
