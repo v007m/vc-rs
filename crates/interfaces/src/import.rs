@@ -200,14 +200,51 @@ pub struct DraftTest {
     pub id: String,
     /// `name`.
     pub name: String,
+    /// `skip`: why the test cannot run as drafted, such as the existing item it needs.
+    pub skip: Option<String>,
+    /// `before`: the apis that create what the call needs, in order.
+    pub before: Vec<DraftBefore>,
     /// The api it calls, `<fileId>#<id>`.
     pub call: String,
     /// `vars` on the call.
     pub vars: IndexMap<String, Value>,
     /// `auth: none` on the call.
     pub no_auth: bool,
+    /// `body` on the call, replacing the api's.
+    pub body: Option<Value>,
+    /// `examples`: one instance per row.
+    pub examples: Vec<DraftExample>,
     /// `expect.status`.
     pub status: u16,
+    /// `expect.body.schema`: the JSON pointer to the response's schema in the spec snapshot
+    /// (`/components/schemas/User`); the engine names the snapshot file.
+    pub schema: Option<String>,
+}
+
+/// One `before` action of a [`DraftTest`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct DraftBefore {
+    /// The api it calls, `<fileId>#<id>`.
+    pub call: String,
+    /// `keep: true`: its cleanup is not registered, as the test's own call removes the item.
+    pub keep: bool,
+}
+
+/// One row of a [`DraftTest`]'s `examples`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct DraftExample {
+    /// `name`: the case, such as `email missing`.
+    pub name: String,
+    /// `body`: what the case sends.
+    pub body: Value,
 }
 
 /// HAR: the recorded session as one test's steps.

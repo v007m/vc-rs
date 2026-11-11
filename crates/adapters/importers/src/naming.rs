@@ -19,11 +19,30 @@ pub fn from_route(method: &str, path: &str) -> String {
     camel(&format!("{} {path}", method.to_ascii_lowercase()))
 }
 
+/// Verbs written as one word whose first part is the verb (`login` is `log in`), as each reads
+/// in the third person.
+const COMPOUND_VERBS: [(&str, &str); 10] = [
+    ("backup", "backsUp"),
+    ("checkout", "checksOut"),
+    ("login", "logsIn"),
+    ("logoff", "logsOff"),
+    ("logon", "logsOn"),
+    ("logout", "logsOut"),
+    ("setup", "setsUp"),
+    ("signin", "signsIn"),
+    ("signout", "signsOut"),
+    ("signup", "signsUp"),
+];
+
 /// `id` with its first word as a third-person verb (`getUser` gives `getsUser`,
-/// `searchUsers` gives `searchesUsers`, `copyUser` gives `copiesUser`).
+/// `searchUsers` gives `searchesUsers`, `copyUser` gives `copiesUser`, `loginUser` gives
+/// `logsInUser`).
 pub fn third_person(id: &str) -> String {
     let split = id.find(|c: char| c.is_ascii_uppercase()).unwrap_or(id.len());
     let (verb, rest) = id.split_at_checked(split).unwrap_or((id, ""));
+    if let Some((_, conjugated)) = COMPOUND_VERBS.iter().find(|(word, _)| *word == verb) {
+        return (*conjugated).to_owned() + rest;
+    }
     let verb = if ["s", "sh", "ch", "x", "z"].iter().any(|end| verb.ends_with(end)) {
         format!("{verb}es")
     } else if let Some(stem) = verb.strip_suffix('y').filter(|stem| !stem.ends_with(['a', 'e', 'i', 'o', 'u'])) {
@@ -45,6 +64,23 @@ pub fn singular(word: &str) -> String {
     let plain = word.ends_with('s') && !["ss", "us", "is"].iter().any(|end| word.ends_with(end));
     let cut = if es { 2 } else { usize::from(plain) };
     word.get(..word.len() - cut).unwrap_or(word).to_owned()
+}
+
+/// `id` as a sentence: its words split at capitals, lowercased, the first capitalised
+/// (`deleteUserById` gives `Delete user by id`).
+pub fn sentence(id: &str) -> String {
+    let mut out = String::with_capacity(id.len() + 4);
+    for (at, c) in id.chars().enumerate() {
+        if at == 0 {
+            out.extend(c.to_uppercase());
+        } else if c.is_uppercase() {
+            out.push(' ');
+            out.extend(c.to_lowercase());
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 /// `word` with its first letter in capitals.
@@ -88,7 +124,7 @@ fn lowered(word: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{camel, from_route, singular, third_person};
+    use super::{camel, from_route, sentence, singular, third_person};
 
     #[test]
     fn ids_are_camel_case_whatever_the_spec_wrote() {
@@ -114,6 +150,26 @@ mod tests {
         assert_eq!(third_person("copyUser"), "copiesUser");
         assert_eq!(third_person("deployApp"), "deploysApp");
         assert_eq!(third_person("list"), "lists");
+    }
+
+    #[test]
+    fn verbs_written_as_one_word_keep_their_particle() {
+        let read: Vec<_> =
+            ["loginUser", "logout", "signupMember", "signinUser", "setupAccount", "checkoutCart", "logUser"]
+                .iter()
+                .map(|id| third_person(id))
+                .collect();
+        assert_eq!(
+            read,
+            ["logsInUser", "logsOut", "signsUpMember", "signsInUser", "setsUpAccount", "checksOutCart", "logsUser"]
+        );
+    }
+
+    #[test]
+    fn an_id_reads_as_a_sentence() {
+        assert_eq!(sentence("deletePetsPetId"), "Delete pets pet id");
+        assert_eq!(sentence("health"), "Health");
+        assert_eq!(sentence(""), "");
     }
 
     #[test]

@@ -71,7 +71,7 @@ const GENERATORS: [(&str, Generator); 5] = [
 type Generator = fn(&Value) -> Value;
 
 /// An object schema's properties and its required fields.
-type Fields = (Map<String, Value>, Vec<String>);
+pub type Fields = (Map<String, Value>, Vec<String>);
 
 /// The body a request sends for `schema`, and the vars it reads: each required field of an
 /// object is `${var.<field>}`, with the field's generated value as the var's default.
@@ -89,6 +89,18 @@ pub fn body(doc: &Value, schema: &Value) -> (Value, IndexMap<String, Value>) {
         body.insert(field, json!(format!("${{var.{var}}}")));
     }
     (body.into(), vars)
+}
+
+/// The properties and required fields `schema` gives an object, its `$ref`s followed and its
+/// `allOf` parts merged; none when it is not an object's.
+pub fn fields(doc: &Value, schema: &Value) -> Option<Fields> {
+    object(doc, shape(doc, schema))
+}
+
+/// `schema` with its `$ref`s followed and, for an `anyOf` or `oneOf`, its first alternative
+/// that is not `null`.
+pub fn shape<'a>(doc: &'a Value, schema: &'a Value) -> &'a Value {
+    alternative(doc, resolve(doc, schema))
 }
 
 /// The properties and required fields of an object schema, `allOf` parts merged.
@@ -123,7 +135,7 @@ fn alternative<'a>(doc: &'a Value, schema: &'a Value) -> &'a Value {
 }
 
 /// The schema's type, the first that is not `null` when it lists several.
-fn ty(schema: &Value) -> Option<&str> {
+pub fn ty(schema: &Value) -> Option<&str> {
     match schema.get("type") {
         Some(Value::String(ty)) => Some(ty),
         Some(Value::Array(types)) => types.iter().filter_map(Value::as_str).find(|ty| *ty != "null"),
