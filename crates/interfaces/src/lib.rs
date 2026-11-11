@@ -102,8 +102,8 @@ pub use history::{
 };
 pub use hooks::{Budget, HookCall, HookError, HookOutput, HookRunner, Limit};
 pub use import::{
-    DraftApi, DraftFlow, DraftGroup, DraftStep, DraftTest, ImportDraft, ImportError, ImportNote, ImportOptions,
-    ImportSource, Importer, RecordingFilter, SecretFinding,
+    DraftApi, DraftCleanup, DraftFlow, DraftGroup, DraftStep, DraftTest, ImportDraft, ImportError, ImportNote,
+    ImportOptions, ImportSource, Importer, RecordingFilter, SecretFinding,
 };
 pub use keychain::{Keychain, KeychainError};
 pub use notifier::{Notice, NoticeFailure, Notifier, NotifierFactory, NotifyError};

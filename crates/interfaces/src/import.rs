@@ -161,6 +161,26 @@ pub struct DraftApi {
     pub operation_id: Option<String>,
     /// The full ID of an existing api with the same method and path, which is reused.
     pub matches: Option<String>,
+    /// The spec's optional query parameters the api does not send, by name; sync reports their
+    /// changes.
+    pub optional_query: Vec<String>,
+    /// `save`: names and the templates over `response` they read.
+    pub save: IndexMap<String, String>,
+    /// `cleanup`: the api in the same file that undoes a call, and its vars.
+    pub cleanup: Option<DraftCleanup>,
+}
+
+/// The `cleanup` of a [`DraftApi`]: an api in the same file and the vars it is called with.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct DraftCleanup {
+    /// The api's own ID in the same file.
+    pub call: String,
+    /// Its vars, as template text over `response`.
+    pub vars: IndexMap<String, String>,
 }
 
 /// One test of a draft: a call and the status it expects.
