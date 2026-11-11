@@ -44,6 +44,20 @@ async fn defaults_retry_applies_unless_the_test_writes_its_own() {
     assert_eq!(server.stats().await.unwrap().count("GET /flaky"), 3);
 }
 
+/// `--set defaults.retry.attempts=1` retries a test the project gives no `retry`.
+#[tokio::test(flavor = "multi_thread")]
+async fn set_defaults_retry_retries_a_test_without_its_own() {
+    let server = MockServer::start().await.unwrap();
+    let test = "tests:\n  - id: passesOnTheRetry\n    call: scripted#flaky\n    expect: {status: 200}\n";
+    let project = Project::new(&[CONFIG, SCRIPTED, ("services/scripted/flaky.test.yaml", test)]);
+    let args = ["--set", "defaults.retry.attempts=1", "--set", "defaults.retry.delay=10ms", "--reporter", "json"];
+    let output = project.run(&server.base_url(), &args).assert().code(0).get_output().clone();
+    let events = events(&output.stdout);
+    let finished = of_kind(&events, "testFinished");
+    assert_eq!((&finished[0]["status"], &finished[0]["attempts"]), (&"flaky".into(), &2.into()), "{events:#?}");
+    assert_eq!(server.stats().await.unwrap().count("GET /flaky"), 2);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn a_poll_resends_until_its_check_holds() {
     let server = MockServer::start().await.unwrap();

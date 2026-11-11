@@ -25,6 +25,8 @@ A variable's name is its `--set` key in upper snake case.
 | `VIB_DEFAULTS_CONCURRENCY` | `defaults.concurrency` | whole number above 0 | `VIB_DEFAULTS_CONCURRENCY=4` |
 | `VIB_DEFAULTS_PER_HOST` | `defaults.perHost` | whole number above 0 | `VIB_DEFAULTS_PER_HOST=2` |
 | `VIB_DEFAULTS_TIMEOUT` | `defaults.timeout` | duration | `VIB_DEFAULTS_TIMEOUT=5s` |
+| `VIB_DEFAULTS_RETRY_ATTEMPTS` | `defaults.retry.attempts` | whole number, `0` or more | `VIB_DEFAULTS_RETRY_ATTEMPTS=1` |
+| `VIB_DEFAULTS_RETRY_DELAY` | `defaults.retry.delay` | duration | `VIB_DEFAULTS_RETRY_DELAY=100ms` |
 | `VIB_REPORTS_DIR` | `reports.dir` | folder | `VIB_REPORTS_DIR=out` |
 | `VIB_REPORTS_FORMATS` | `reports.formats` | comma list | `VIB_REPORTS_FORMATS=junit,html` |
 | `VIB_VAR_<name>` | `vars.<name>` | text | `VIB_VAR_userId=7` |
