@@ -187,7 +187,7 @@ describe('RequestPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Copy as cURL' }));
     const dialog = screen.getByRole('dialog', { name: 'Copy as cURL' });
     expect(within(dialog).getByLabelText('cURL command').textContent).toContain('curl -X PUT');
-    expect(within(dialog).getByText('vc auth token')).toBeTruthy();
+    expect(within(dialog).getByText('vc call')).toBeTruthy();
     const last = explained.at(-1);
     expect(last?.draft?.edits).toEqual([{ pointer: '/apis/1/method', op: 'set', value: 'PUT' }]);
     expect(last?.draft?.digest).toBe('d1');
