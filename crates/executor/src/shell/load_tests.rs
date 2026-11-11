@@ -226,3 +226,32 @@ async fn a_failed_after_action_does_not_take_the_blame_from_the_body_s_failure()
     let failure = report.failure.unwrap_or_default();
     assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(500), Some(Code::V5101.to_string())));
 }
+
+#[tokio::test]
+async fn a_flaky_iteration_is_an_error_blamed_on_its_failed_attempt_s_status() {
+    let mut fixture = Fixture::new();
+    let get = fixture.call("/flaky");
+    let api = fixture.api_mut(get).id;
+    let retry = Retry { attempts: 1, delay: vc_model::Duration::new(Duration::from_millis(10)) };
+    let test = fixture.test(vec![get], Some(retry));
+    let (iterations, _sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!((report.passed, statuses(&report)), (false, vec![Some(503), Some(200)]), "flaky is not passed");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), Some(503), Some(Code::V5101.to_string())));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_retry_past_the_test_timeout_is_blamed_on_its_own_timeout_not_the_earlier_status() {
+    let mut fixture = Fixture::new();
+    let (flaky, slow) = (fixture.call("/flaky"), fixture.call("/slow"));
+    let api = fixture.api_mut(slow).id;
+    let retry = Retry { attempts: 1, delay: vc_model::Duration::new(Duration::from_millis(10)) };
+    let test = fixture.test(vec![flaky, slow], Some(retry));
+    fixture.test_mut(test).timeout = Some(vc_model::Duration::new(Duration::from_secs(2)));
+    let (iterations, sent) = prepare(fixture, (&[], &[test]), false).await;
+    let report = iterations.unwrap().iterate(test, 1).await;
+    assert_eq!((statuses(&report), sent.counts()["/slow"]), (vec![Some(503), Some(200)], 1), "the slow call got none");
+    let failure = report.failure.unwrap_or_default();
+    assert_eq!((failure.api, failure.status, failure.code), (Some(api), None, Some(Code::V5104.to_string())));
+}

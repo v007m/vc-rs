@@ -93,7 +93,7 @@ thresholds:
 - **A sample is an iteration, not a request.** A test with three steps is one sample, timed over all three. `rps` is iterations per second.
 - **Setup isn't sampled.** Requests from `beforeAll`, `beforeEach` and `before` are not samples. See [Lifecycle in load runs](/vc-rs/reference/load/lifecycle/).
 - **Think time isn't latency.** The pause from [`thinkTime`](/vc-rs/reference/load/thinktime/) is not counted in any latency metric.
-- **Errors.** An iteration fails when a check fails (which checks count depends on [`checks`](/vc-rs/reference/load/checks/)) or a request fails. The summary's `errors` line groups failures by the api of the call that failed, the status it got and the failure's code, as `errors sample#listUsers 200 V5101 × 10`; a `before` call or cleanup around it is never blamed. The JSON has the same groups in `errorKinds`, as `{api, test, status, code, count}`.
+- **Errors.** An iteration fails when a check fails (which checks count depends on [`checks`](/vc-rs/reference/load/checks/)) or a request fails. An iteration that passes only on a [`retry`](/vc-rs/reference/syntax/retry/) counts as an error too, blamed on the call that failed its last failed attempt. The summary's `errors` line groups failures by the api of the call that failed, the status it got and the failure's code, as `errors sample#listUsers 200 V5101 × 10`; a `before` call or cleanup around it is never blamed. The JSON has the same groups in `errorKinds`, as `{api, test, status, code, count}`.
 - **Scope.** Scenario thresholds use every mix test together; a mix entry's thresholds use that test's samples only.
 
 ## Related

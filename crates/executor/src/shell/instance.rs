@@ -54,6 +54,8 @@ struct InstanceShell {
     calls: Vec<IterationCall>,
     /// Which of `calls` the current attempt's first failure sent, once an action failed.
     failing: Option<Range<usize>>,
+    /// Which of `calls` the previous attempt's first failure sent, once the instance retries.
+    earlier_failing: Option<Range<usize>>,
     /// When the instance got its turn, which its result's duration runs from.
     started: Instant,
 }
@@ -70,6 +72,7 @@ impl InstanceShell {
             deadline: None,
             calls: Vec::new(),
             failing: None,
+            earlier_failing: None,
             started: Instant::now(),
         };
         shell.start_attempt();
@@ -92,10 +95,10 @@ impl InstanceShell {
         None
     }
 
-    /// Starts the attempt's clock: each attempt gets the test's whole `timeout`, and only its
-    /// own calls can be blamed for its failure.
+    /// Starts the attempt's clock: each attempt gets the test's whole `timeout`. Only a failed
+    /// attempt is retried, so the calls its failure sent move to `earlier_failing`.
     fn start_attempt(&mut self) {
-        self.failing = None;
+        self.earlier_failing = self.failing.take();
         let test = self.crew.cx.program.tests.get(&self.ticket.launch.instance.test);
         self.deadline = test.and_then(|test| test.timeout).map(|timeout| Deadline::attempt(timeout.get()));
     }
@@ -200,13 +203,14 @@ impl InstanceShell {
         self.crew.cx.action(action).and_then(|found| called(&self.crew.cx.program, found)).map(|api| api.id)
     }
 
-    /// `failure` with the api its action calls and the status of the last call it sent. The
-    /// verdict's failure is the last attempt's first, so that is the call `failing` notes, also
-    /// for a step of a `test:` reuse, whose calls are recorded under the reusing action. A failure
-    /// an earlier attempt left, when the last was cut short, gets no status.
+    /// `failure` with the api its action calls and the status of the last call it sent. As in
+    /// the workflow, the verdict's failure is the last attempt's first, or the attempt before's
+    /// when the last passed or was cut short, so its calls are `failing` or `earlier_failing`.
+    /// A step of a `test:` reuse has its calls recorded under the reusing action.
     fn blame(&self, failure: Failure) -> IterationFailure {
         let Failure { action, code, message } = failure;
-        let status = self.failing.clone().and_then(|span| self.calls.get(span)?.last()).and_then(|call| call.status);
+        let span = self.failing.clone().or_else(|| self.earlier_failing.clone());
+        let status = span.and_then(|span| self.calls.get(span)?.last()).and_then(|call| call.status);
         IterationFailure { api: action.and_then(|action| self.api(action)), status, code, message }
     }
 
