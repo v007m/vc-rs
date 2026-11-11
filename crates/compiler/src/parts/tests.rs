@@ -74,8 +74,8 @@ fn a_templated_status_is_compared_at_run_time() {
     let templated = unit_with(&format!("{rows}    expect:\n      status: ${{example.status}}\n"));
     assert!(templated.diagnostics.is_empty(), "{:?}", templated.diagnostics);
     assert!(matches!(pieces(&templated)[..], [.., Piece::Matcher(Matcher::Equals(TemplateValue::String(_)))]));
-    let unknown = unit_with(&format!("{rows}    expect:\n      status: ${{nope.status}}\n"));
-    assert_eq!(codes(&unknown.diagnostics), [Code::V2105]);
+    let unknown = unit_with(&format!("{rows}    expect:\n      status: ${{item.status}}\n"));
+    assert_eq!(codes(&unknown.diagnostics), [Code::V2102]);
 }
 
 #[test]

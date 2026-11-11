@@ -66,15 +66,15 @@ async fn dns_for_an_ip_literal_and_tls_over_plain_http_read_zero() {
 #[tokio::test(flavor = "multi_thread")]
 async fn connect_on_a_reused_connection_reads_zero() {
     let server = MockServer::start().await.unwrap();
-    let test = |second: &str| {
+    let steps = |second: &str| {
         format!(
             "tests:\n  - id: reusesTheConnection\n    steps:\n      - call: timed#quick\n        expect:\n          timing: {{connect: {{gt: 0ms}}}}\n      - call: timed#quick\n        expect:\n          timing: {{connect: {second}}}\n"
         )
     };
-    let project = Project::new(&[CONFIG, TIMED, ("services/timed/reuse.test.yaml", &test("{lt: 5ms}"))]);
+    let project = Project::new(&[CONFIG, TIMED, ("services/timed/reuse.test.yaml", &steps("{lt: 5ms}"))]);
     let output = project.run(&server.base_url(), &[]).output().unwrap();
     assert_eq!(output.status.code(), Some(0), "a new connection is measured, a reused one is 0: {}", said(&output));
-    project.write("services/timed/reuse.test.yaml", &test("{gt: 0ms}"));
+    project.write("services/timed/reuse.test.yaml", &steps("{gt: 0ms}"));
     let output = project.run(&server.base_url(), &[]).output().unwrap();
     let text = said(&output);
     assert_eq!(output.status.code(), Some(1), "{text}");

@@ -18,7 +18,7 @@ use vc_template::{CelCompiler, PipeRegistry, Roots, TemplateError, ValueType};
 
 use crate::shape_check;
 use crate::shape_check::{Leaf, LeafTy, Walk};
-use crate::shapes::{Scope, Unit};
+use crate::shapes::Scope;
 use crate::{matchers, value};
 
 /// One compiled value, keyed by its node's span in a [`FileUnit`](crate::stage::FileUnit).
