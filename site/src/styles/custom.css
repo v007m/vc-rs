@@ -18,6 +18,26 @@
 }
 
 /* ---------- Header ---------- */
+/* Two rows (see components/Header.astro): the bar, then the tabs. Starlight sizes the page from --sl-nav-height. */
+:root {
+  --vc-bar-height: 3.5rem;
+  --vc-tabs-height: 2.75rem;
+  --sl-nav-height: calc(var(--vc-bar-height) + var(--vc-tabs-height));
+}
+@media (min-width: 50em) {
+  :root {
+    --vc-bar-height: 4rem;
+  }
+}
+:root[data-has-sidebar] header.header {
+  --vc-header-pad-end: calc(var(--sl-nav-gap) + var(--sl-nav-pad-x) + var(--sl-menu-button-size));
+}
+header.header {
+  padding-block: 0;
+}
+starlight-menu-button button {
+  top: calc((var(--vc-bar-height) - var(--sl-menu-button-size)) / 2);
+}
 header.header {
   background-color: color-mix(in srgb, var(--sl-color-bg-nav) 80%, transparent);
   backdrop-filter: saturate(1.4) blur(12px);
