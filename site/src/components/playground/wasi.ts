@@ -12,6 +12,7 @@ const EINVAL = 28;
 const ENOSYS = 52;
 
 const CLOCK_REALTIME = 0;
+const CLOCK_MONOTONIC = 1;
 const SUBSCRIPTION = 48;
 const EVENT = 32;
 const TAG_CLOCK = 0;
@@ -34,15 +35,34 @@ export interface WasiOptions {
   write: (stream: Stream, text: string) => void;
 }
 
-/** Nanoseconds on the clock `id`: the wall clock, or the page's monotonic clock. */
-function now(id: number): bigint {
-  const ms = id === CLOCK_REALTIME ? performance.timeOrigin + performance.now() : performance.now();
+/** Nanoseconds on the clock `id`: the wall clock (`Date.now()`), or the page's monotonic clock
+ * (`performance.now()`). */
+export function now(id: number): bigint {
+  const ms = id === CLOCK_REALTIME ? Date.now() : performance.now();
   return BigInt(Math.round(ms * 1e6));
+}
+
+/** A clock subscription: which clock, its timeout in nanoseconds, and whether the timeout is an
+ * absolute time on that clock rather than a span from now. */
+export interface ClockWait {
+  clock: number;
+  timeout: bigint;
+  absolute: boolean;
+}
+
+/** When `wait` is due on the monotonic clock: a span from now, an absolute monotonic time as it
+ * is, or an absolute wall-clock time moved by how far it is from the wall clock now. */
+export function due(
+  wait: ClockWait,
+  at = { realtime: now(CLOCK_REALTIME), monotonic: now(CLOCK_MONOTONIC) },
+): bigint {
+  if (!wait.absolute) return at.monotonic + wait.timeout;
+  return wait.clock === CLOCK_REALTIME ? at.monotonic + (wait.timeout - at.realtime) : wait.timeout;
 }
 
 /** Waits until the monotonic clock reaches `deadline`; see the module note. */
 function waitUntil(deadline: bigint): void {
-  while (now(1) < deadline) {
+  while (now(CLOCK_MONOTONIC) < deadline) {
     // Busy wait: a worker has no blocking sleep without SharedArrayBuffer.
   }
 }
@@ -169,15 +189,19 @@ export class Wasi {
     const dues: bigint[] = [];
     for (let i = 0; i < count; i++) {
       const sub = subs + i * SUBSCRIPTION;
-      const absolute = (view.getUint16(sub + 40, true) & ABSTIME) !== 0;
+      if (view.getUint8(sub + 8) !== TAG_CLOCK) {
+        dues.push(0n);
+        continue;
+      }
+      const clock = view.getUint32(sub + 16, true);
       const timeout = view.getBigUint64(sub + 24, true);
-      const clock = view.getUint8(sub + 8) === TAG_CLOCK;
-      dues.push(!clock ? 0n : absolute ? timeout : now(1) + timeout);
+      const absolute = (view.getUint16(sub + 40, true) & ABSTIME) !== 0;
+      dues.push(due({ clock, timeout, absolute }));
     }
     waitUntil(dues.reduce((earliest, due) => (due < earliest ? due : earliest)));
     let fired = 0;
     for (let i = 0; i < count; i++) {
-      if (dues[i] > now(1)) continue;
+      if (dues[i] > now(CLOCK_MONOTONIC)) continue;
       const sub = subs + i * SUBSCRIPTION;
       const event = events + fired * EVENT;
       new Uint8Array(view.buffer, event, EVENT).fill(0);

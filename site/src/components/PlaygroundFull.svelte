@@ -24,16 +24,16 @@
       runner ??= await import('./playground/runner');
       exit = await runner.play($state.snapshot(files), command, (_, text) => (output += text));
     } catch (error) {
-      output += `The runner could not start: ${error instanceof Error ? error.message : String(error)}\n`;
+      if (runner && error instanceof runner.Stopped) output += '\nStopped.\n';
+      else output += `The runner could not start: ${error instanceof Error ? error.message : String(error)}\n`;
     } finally {
       busy = false;
     }
   }
 
+  /** Ends the run; its `play` above then prints that it stopped and clears `busy`. */
   function stop() {
     runner?.stop();
-    output += '\nStopped.\n';
-    busy = false;
   }
 
   function inlineCode(text: string): string {

@@ -29,3 +29,22 @@ test('a broken value shows the failure excerpt and its code', async ({ page }) =
   await expect(output(page)).toContainText('q: boots');
   await expect(output(page)).toContainText('pass `--seed');
 });
+
+test('stop ends a run that has not finished, and the next run starts afresh', async ({ page }) => {
+  // Hold the module's download so the first run is still loading when Stop is pressed.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.context().route('**/vc-playground.wasm', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('playground/');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await expect(output(page)).toContainText('Stopped.');
+  await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
+  await expect(page.getByText('Running…')).toHaveCount(0);
+  release();
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  await expect(page.getByText(/^exit \d+$/)).toHaveText('exit 0', { timeout: 60_000 });
+});

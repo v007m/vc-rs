@@ -11,10 +11,20 @@ export type Command = 'run' | 'check';
 const MODULE = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/playground/vc-playground.wasm`;
 
 let worker: Worker | undefined;
+/** Rejects the run in flight, if any. */
+let abandon: ((error: Stopped) => void) | undefined;
+
+/** Why a run's promise rejects when `stop` ends it. */
+export class Stopped extends Error {
+  constructor() {
+    super('stopped');
+  }
+}
 
 /**
  * `vc <command>` on `files`: `print` gets each piece of output, with ANSI colours; the promise
- * gives the exit code, or rejects when the runner could not load.
+ * gives the exit code, or rejects when the runner could not load, or with `Stopped` when `stop`
+ * ends the run.
  */
 export function play(
   files: Record<string, string>,
@@ -23,6 +33,7 @@ export function play(
 ): Promise<number> {
   const running = (worker ??= new Worker(new URL('./runner.worker.ts', import.meta.url), { type: 'module' }));
   return new Promise((resolve, reject) => {
+    abandon = reject;
     running.onmessage = (event: MessageEvent<WorkerMessage>) => {
       const message = event.data;
       if (message.kind === 'out') print(message.stream, message.text);
@@ -35,8 +46,11 @@ export function play(
   });
 }
 
-/** Ends a run that is taking too long; the next run starts a fresh worker. */
+/** Ends a run that is taking too long, rejecting its promise with `Stopped`; the next run starts
+ * a fresh worker. */
 export function stop(): void {
   worker?.terminate();
   worker = undefined;
+  abandon?.(new Stopped());
+  abandon = undefined;
 }
