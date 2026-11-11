@@ -50,7 +50,7 @@ $ vc demo stop
 stopped the demo on port 7421
 ```
 
-Here `vc run` runs the sample, whose `beforeAll` calls `vc demo start` and finds your demo, and whose `afterAll` calls `vc demo stop`, which leaves your demo running. Two projects running the sample at once share one demo the same way: it stops when the last of them is done. A run that crashed before its `stop` no longer counts once its process is gone.
+Here `vc run` runs the sample, whose `beforeAll` calls `vc demo start` and finds your demo, and whose `afterAll` calls `vc demo stop`, which leaves your demo running. Two projects running the sample at once share one demo the same way: it stops when the last of them is done. A join counts while the process that ran `start` lives, and for an hour after it joined, since a `start` in a longer shell line outlives its shell. A run that crashed before its `stop` stops counting once both have passed.
 
 ```console
 $ vc demo start --detach
@@ -75,7 +75,7 @@ error: port 7454 is taken by a program that is not the demo
 | `GET /users/{id}` | `200` `{"id":"1","name":"Ada Lovelace"}` for `1` and `2`, `200` `{"id":"3"}` for an ID it handed out, else `404` |
 | `POST /users` | `201` with the name, email and a new `id` (`3`, then `4`, …); `400` `{"error":"a user needs an email"}` without an `email` |
 | `DELETE /users/{id}` | `204` |
-| any `/echo` | `200` with the method, path, query, headers and body it received |
+| any `/echo` | `200` with the method, path, query, headers and body it received, and the demo's pid in the `x-vc-demo-pid` header |
 | anything else | `404` |
 
 It stores no users: a created or deleted user does not change `GET /users`.
@@ -94,7 +94,15 @@ $ vc demo stop
 no demo running on port 7421
 ```
 
-Stopping when none runs is not an error. `stop` ends only a demo that `start --detach` started on that port, and only once every `start` that joined it has stopped.
+Stopping when none runs is not an error. `stop` ends only a demo that `start --detach` started on that port, and only once every `start` that joined it has stopped. Two `start`s at the same moment leave one demo: the second joins the first.
+
+The pidfile and the joins live in `vibranium-demo-<uid>` in the temp folder, which only you can open. When that folder is a link or belongs to another user, `start --detach` refuses (exit 2) and `stop` does not read it:
+
+```console
+$ vc demo start --detach
+error: /tmp/vibranium-demo-501 is not a private folder of this user
+  = help: remove it, so `vc demo start` can make it again
+```
 
 ## Exit codes
 
@@ -102,7 +110,7 @@ Stopping when none runs is not an error. `stop` ends only a demo that `start --d
 | --- | --- |
 | `0` | Started, joined one already running, stopped, left running for another, or nothing to stop |
 | `1` | The foreground demo ended with an error |
-| `2` | A bad flag, `vc-demo` is not installed, or another program holds the port |
+| `2` | A bad flag, `vc-demo` is not installed, another program holds the port, or the demo folder is not private to you |
 
 `vc demo` runs a separate program, `vc-demo`. It looks in the folder `vc` is in, then on your `PATH`, and names both when it finds neither:
 

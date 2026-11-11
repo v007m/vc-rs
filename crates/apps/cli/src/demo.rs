@@ -36,6 +36,13 @@ const PROBE: Duration = Duration::from_secs(2);
 /// How many joins one caller can hold on a demo at once.
 const JOINS: u32 = 64;
 
+/// How long a join counts after its caller is gone: the caller may be a shell that ran `start`
+/// and ended, while the run around it still uses the demo.
+const JOINED: Duration = Duration::from_secs(60 * 60);
+
+/// The header the demo names its pid in (`vc-demo`'s `/echo`).
+const PID_HEADER: &str = "x-vc-demo-pid";
+
 /// `vc demo …`.
 #[derive(Args)]
 pub struct DemoArgs {
@@ -76,9 +83,7 @@ fn start(port: u16, detach: bool) -> anyhow::Result<Outcome> {
         return Ok(missing());
     };
     if is_demo(port) {
-        join(port);
-        writeln!(stdout::out(), "a demo already answers on port {port}")?;
-        return Ok(Outcome::Done);
+        return joined(port);
     }
     if TcpStream::connect_timeout(&local(port), POLL).is_ok() {
         let help = "pick another `--port`, and change `sampleUrl` in vibranium.config.yaml to match";
@@ -87,46 +92,82 @@ fn start(port: u16, detach: bool) -> anyhow::Result<Outcome> {
             Some(help.into()),
         ));
     }
-    fs::remove_dir_all(users(port)).ok();
+    if let Some(users) = users(port) {
+        fs::remove_dir_all(users).ok();
+    }
     let mut command = Command::new(binary);
     command.arg("--port").arg(port.to_string());
-    if !detach {
-        return foreground(&mut command, port);
-    }
-    detached(&mut command);
+    if detach { background(&mut command, port) } else { foreground(&mut command, port) }
+}
+
+/// Launches the demo in the background and writes the pidfile `stop` reads, once the demo it
+/// launched answers; refuses when there is nowhere private to write it, as `stop` could not find
+/// it.
+fn background(command: &mut Command, port: u16) -> anyhow::Result<Outcome> {
+    let Some(pidfile) = pidfile(port) else {
+        let folder = env::temp_dir().join(folder_name());
+        let refused = format!("{} is not a private folder of this user", folder.display());
+        return Ok(Outcome::Helped(refused, Some("remove it, so `vc demo start` can make it again".into())));
+    };
+    detached(command);
     let mut child = command.spawn()?;
-    fs::write(pidfile(port), child.id().to_string())?;
-    up(&mut child, port, "`vc demo stop` stops it")
+    match up(&mut child, port, "`vc demo stop` stops it")? {
+        Up::Ours => fs::write(pidfile, child.id().to_string()).map(|()| Outcome::Done).map_err(Into::into),
+        Up::Taken => joined(port),
+        Up::Failed(reason) => Ok(Outcome::Refused(reason)),
+    }
+}
+
+/// Joins the demo another `start` launched on `port`.
+fn joined(port: u16) -> anyhow::Result<Outcome> {
+    join(port);
+    writeln!(stdout::out(), "a demo already answers on port {port}")?;
+    Ok(Outcome::Done)
 }
 
 /// Runs the demo until it ends, saying where once it answers; exit 1 when it ends with an error.
 fn foreground(command: &mut Command, port: u16) -> anyhow::Result<Outcome> {
     let mut child = command.spawn()?;
-    let started = up(&mut child, port, "Ctrl-C stops it")?;
-    if !matches!(started, Outcome::Done) {
-        child.kill().ok();
-        return Ok(started);
+    match up(&mut child, port, "Ctrl-C stops it")? {
+        Up::Ours => {},
+        Up::Taken => return joined(port),
+        Up::Failed(reason) => {
+            child.kill().ok();
+            return Ok(Outcome::Refused(reason));
+        },
     }
     let code = child.wait()?.code().and_then(|code| u8::try_from(code).ok());
     Ok(code.map_or(Outcome::Exit(1), Outcome::Exit))
 }
 
-/// Waits for the demo to answer, then says where and how it stops (`stopping`); refuses when it
-/// ends first or never answers.
-fn up(child: &mut Child, port: u16, stopping: &str) -> anyhow::Result<Outcome> {
+/// How a launched demo came up.
+enum Up {
+    /// It answers on the port.
+    Ours,
+    /// It ended, and another demo answers: a `start` at the same time took the port first.
+    Taken,
+    /// It ended first, or never answered, for this reason.
+    Failed(String),
+}
+
+/// Waits for `child` to answer, then says where and how it stops (`stopping`). Another demo that
+/// answers while `child` runs is not taken for it: only one that names `child`'s pid, or names no
+/// pid (an older `vc-demo`).
+fn up(child: &mut Child, port: u16, stopping: &str) -> anyhow::Result<Up> {
     let deadline = Instant::now() + WAIT;
     while Instant::now() < deadline {
-        if is_demo(port) {
-            writeln!(stdout::out(), "demo running on http://localhost:{port} (pid {}); {stopping}", child.id())?;
-            return Ok(Outcome::Done);
-        }
         if let Some(status) = child.try_wait()? {
-            fs::remove_file(pidfile(port)).ok();
-            return Ok(Outcome::Refused(format!("{BINARY} stopped before it answered on port {port} ({status})")));
+            let ended = format!("{BINARY} stopped before it answered on port {port} ({status})");
+            return Ok(if is_demo(port) { Up::Taken } else { Up::Failed(ended) });
+        }
+        if demo_pid(port).is_some_and(|pid| pid.is_none_or(|pid| pid == child.id())) {
+            writeln!(stdout::out(), "demo running on http://localhost:{port} (pid {}); {stopping}", child.id())?;
+            return Ok(Up::Ours);
         }
         thread::sleep(POLL);
     }
-    Ok(Outcome::Refused(format!("{BINARY} did not answer on port {port} within {}s", WAIT.as_secs())))
+    let late = format!("{BINARY} did not answer on port {port} within {}s", WAIT.as_secs());
+    Ok(Up::Failed(late))
 }
 
 fn stop(port: u16) -> anyhow::Result<Outcome> {
@@ -135,9 +176,11 @@ fn stop(port: u16) -> anyhow::Result<Outcome> {
         return Ok(Outcome::Done);
     }
     let path = pidfile(port);
-    let pid = fs::read_to_string(&path).ok().and_then(|text| text.trim().parse::<u32>().ok());
+    let pid = path.as_ref().and_then(|path| fs::read_to_string(path).ok()).and_then(|text| text.trim().parse().ok());
     let stopped = pid.is_some_and(terminate);
-    fs::remove_file(&path).ok();
+    if let Some(path) = path {
+        fs::remove_file(path).ok();
+    }
     let said = if stopped { "stopped the demo on port" } else { "no demo running on port" };
     writeln!(stdout::out(), "{said} {port}")?;
     Ok(Outcome::Done)
@@ -159,21 +202,46 @@ fn binary() -> Option<PathBuf> {
     beside.into_iter().chain(on_path.map(|dir| dir.join(&name))).find(|path| path.is_file())
 }
 
-/// The pidfile of the demo on `port`, in the temp folder so `stop` finds it from any folder.
-fn pidfile(port: u16) -> PathBuf {
-    env::temp_dir().join(format!("vibranium-demo-{port}.pid"))
+/// The pidfile of the demo on `port`, in this user's [`folder`] so `stop` finds it from any
+/// folder; `None` when that folder is not this user's own.
+fn pidfile(port: u16) -> Option<PathBuf> {
+    folder().map(|folder| folder.join(format!("{port}.pid")))
 }
 
 /// The folder with one file per `start` that joined the demo on `port`, named `<pid>.<n>` for
-/// the process that called it: each still uses the demo while that process lives.
-fn users(port: u16) -> PathBuf {
-    env::temp_dir().join(format!("vibranium-demo-{port}.users"))
+/// the process that called it: each still uses the demo while that process lives, and for
+/// [`JOINED`] after it joined.
+fn users(port: u16) -> Option<PathBuf> {
+    folder().map(|folder| folder.join(format!("{port}.users")))
+}
+
+/// This user's folder for the demo's pidfiles and joins, made private to the user. The temp
+/// folder may be shared, so it is named for the user and refused unless it is the user's own
+/// folder, not a link.
+fn folder() -> Option<PathBuf> {
+    let folder = env::temp_dir().join(folder_name());
+    let mut builder = fs::DirBuilder::new();
+    builder.recursive(true);
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    builder.create(&folder).ok()?;
+    own_folder(&folder).then_some(folder)
+}
+
+#[cfg(unix)]
+fn folder_name() -> String {
+    format!("vibranium-demo-{}", rustix::process::getuid().as_raw())
+}
+
+#[cfg(not(unix))]
+fn folder_name() -> String {
+    "vibranium-demo".into()
 }
 
 /// Notes that this `start` uses a demo another one launched; when it cannot, the next `stop`
 /// ends the demo as before.
 fn join(port: u16) {
-    let folder = users(port);
+    let Some(folder) = users(port) else { return };
     if !fs::create_dir_all(&folder).is_ok_and(|()| own_folder(&folder)) {
         return;
     }
@@ -185,21 +253,29 @@ fn join(port: u16) {
     }
 }
 
-/// Takes one joined `start` whose caller still runs off the demo on `port`, and drops those
-/// whose caller is gone (it crashed before its `stop`); whether one was taken, so the demo
-/// keeps running.
+/// Takes one joined `start` that still [`counts`] off the demo on `port`, and drops those that
+/// no longer do (the caller crashed before its `stop`); whether one was taken, so the demo keeps
+/// running.
 fn left_to_another(port: u16) -> bool {
-    let folder = users(port);
-    let Some(entries) = own_folder(&folder).then(|| fs::read_dir(&folder).ok()).flatten() else { return false };
+    let Some(folder) = users(port).filter(|folder| own_folder(folder)) else { return false };
+    let Ok(entries) = fs::read_dir(&folder) else { return false };
     let mut taken = false;
     for entry in entries.flatten() {
         let Some(pid) = joined_by(&entry.file_name().to_string_lossy()) else { continue };
-        if !taken || !alive(pid) {
+        let live = counts(&entry, pid);
+        if !taken || !live {
             let removed = fs::remove_file(entry.path()).is_ok();
-            taken |= removed && alive(pid);
+            taken |= removed && live;
         }
     }
     taken
+}
+
+/// Whether a join still keeps the demo up: its caller runs, or it joined less than [`JOINED`]
+/// ago.
+fn counts(entry: &fs::DirEntry, pid: u32) -> bool {
+    let age = entry.metadata().and_then(|metadata| metadata.modified()).ok().and_then(|made| made.elapsed().ok());
+    age.is_some_and(|age| age < JOINED) || alive(pid)
 }
 
 /// The pid a joined file `<pid>.<n>` names.
@@ -208,7 +284,8 @@ fn joined_by(name: &str) -> Option<u32> {
 }
 
 /// The process that called this `start`, which outlives it: the run whose `command:` it is (a
-/// one-command shell line runs it in the shell's place), or the user's shell.
+/// one-command shell line runs it in the shell's place), or the user's shell. A longer shell
+/// line ends before the run does, so a join also counts for [`JOINED`].
 #[cfg(unix)]
 fn caller() -> u32 {
     u32::try_from(rustix::process::Pid::as_raw(rustix::process::getppid())).unwrap_or_else(|_| process::id())
@@ -226,10 +303,10 @@ fn alive(pid: u32) -> bool {
     matches!(rustix::process::test_kill_process(pid), Ok(()) | Err(rustix::io::Errno::PERM))
 }
 
-/// Elsewhere every join counts until its `stop`, or until a new demo starts on the port.
+/// Elsewhere a join counts until its `stop`, or for [`JOINED`].
 #[cfg(not(unix))]
 const fn alive(_pid: u32) -> bool {
-    true
+    false
 }
 
 /// Whether `path` is a folder this user owns, not a link: the temp folder may be shared, and
@@ -247,16 +324,29 @@ fn local(port: u16) -> SocketAddr {
     SocketAddr::from((Ipv4Addr::LOCALHOST, port))
 }
 
-/// Whether the demo answers on `port`: its `/echo` returns the path it was asked for, which a
-/// program that only holds the port does not.
+/// Whether the demo answers on `port`.
 fn is_demo(port: u16) -> bool {
-    let Ok(mut stream) = TcpStream::connect_timeout(&local(port), POLL) else { return false };
+    echo(port).is_some()
+}
+
+/// The pid the demo on `port` names, inside `None` when it names none (an older `vc-demo`);
+/// `None` when no demo answers.
+fn demo_pid(port: u16) -> Option<Option<u32>> {
+    let reply = echo(port)?;
+    let headers = reply.lines().take_while(|line| !line.is_empty());
+    let named = headers.filter_map(|line| line.split_once(':')).find(|(name, _)| name.eq_ignore_ascii_case(PID_HEADER));
+    Some(named.and_then(|(_, pid)| pid.trim().parse().ok()))
+}
+
+/// The demo's reply on `port`: its `/echo` returns the path it was asked for, which a program
+/// that only holds the port does not.
+fn echo(port: u16) -> Option<String> {
+    let mut stream = TcpStream::connect_timeout(&local(port), POLL).ok()?;
     let mut reply = String::new();
-    stream.set_read_timeout(Some(PROBE)).is_ok()
+    let answered = stream.set_read_timeout(Some(PROBE)).is_ok()
         && write!(stream, "GET /echo HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").is_ok()
-        && stream.take(64 * 1024).read_to_string(&mut reply).is_ok()
-        && reply.starts_with("HTTP/1.1 200")
-        && reply.contains(r#""path":"/echo""#)
+        && stream.take(64 * 1024).read_to_string(&mut reply).is_ok();
+    (answered && reply.starts_with("HTTP/1.1 200") && reply.contains(r#""path":"/echo""#)).then_some(reply)
 }
 
 /// No terminal: the demo outlives `vc`, and a Ctrl-C to the shell does not reach it (its own
