@@ -3,7 +3,9 @@
 use std::time::Duration;
 
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Pos, Reference, ScalarSource, ScalarStyle, SourceFileId, SourceSpan, StatusPattern, StringTable};
+use vc_model::{
+    Namespace, Pos, Reference, ScalarSource, ScalarStyle, SourceFileId, SourceSpan, StatusPattern, StringTable,
+};
 use vc_template::Roots;
 
 fn span() -> SourceSpan {
@@ -33,6 +35,20 @@ fn code(roots: &Roots, text: &str) -> Code {
 fn everyday_roots_are_available_everywhere() {
     for text in ["${var.a}", "${env.HOME}", "${secret.key}", "${fake.uuid}", "${dataset.users}", "${run.id}"] {
         assert!(check(&Roots::new(), text).is_ok(), "{text}");
+    }
+}
+
+#[test]
+fn only_keeps_the_named_roots_whatever_else_is_added() {
+    let why = "read before the run";
+    let roots = Roots::new().with_call().in_for_each().only(&[Namespace::Var, Namespace::Dataset], why);
+    assert!(check(&roots, "${var.a}").is_ok() && check(&roots, "${dataset.users | take(3)}").is_ok());
+    for (text, name) in
+        [("${fake.uuid}", "fake"), ("${response.body}", "response"), ("${item.n}", "item"), ("${seed.id}", "seed")]
+    {
+        let diagnostic = *check(&roots, text).unwrap_err();
+        assert_eq!((diagnostic.code, diagnostic.message), (Code::V2105, format!("`{name}` is not available here")));
+        assert_eq!(diagnostic.help, [why]);
     }
 }
 
@@ -156,10 +172,15 @@ fn bad_durations_have_no_fix() {
 fn sizes_are_binary() {
     let ok = |text| vc_template::parse_size(text, span()).unwrap().bytes();
     assert_eq!((ok("512b"), ok("4kb"), ok("1mb"), ok("2gb")), (512, 4096, 1_048_576, 2_147_483_648));
-    for text in ["4", "4k", "4KB", "kb", "4 kb", "18446744073709551615kb"] {
+    for text in ["4", "4k", "4KB", "kb", "4 kb", "18446744073709551615kb", "99999999999999999999", "+4", ""] {
         let diagnostic = *vc_template::parse_size(text, span()).unwrap_err();
         assert_eq!((diagnostic.code, diagnostic.message.clone()), (Code::V2301, format!("invalid size `{text}`")));
+        assert_eq!(diagnostic.fixes.len(), usize::from(text == "4"), "only a bare number gets a fix: {text}");
     }
+    let diagnostic = *vc_template::parse_size("1024", span()).unwrap_err();
+    let [fix] = &diagnostic.fixes[..] else { panic!("expected one fix") };
+    assert!(fix.certain);
+    assert_eq!((fix.title.as_str(), fix.edits[0].new_text.as_str()), ("Write 1024b", "1024b"));
 }
 
 #[test]

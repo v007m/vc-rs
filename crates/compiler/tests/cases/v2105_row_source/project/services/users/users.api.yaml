@@ -1,0 +1,4 @@
+apis:
+  - id: createUser
+    method: POST
+    path: /users

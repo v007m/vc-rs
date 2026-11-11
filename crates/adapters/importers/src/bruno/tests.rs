@@ -81,6 +81,7 @@ fn folder(location: &str) -> ImportSource {
 async fn behaves_as_an_importer() {
     importer_suite(&importer(&FOLDER), &source(SAMPLE)).await;
     importer_suite(&importer(&FOLDER), &folder("bruno/shop")).await;
+    assert!(importer(&FOLDER).reads_folders(), "`vc import bruno` takes the collection's folder as well as a file");
 }
 
 #[tokio::test]

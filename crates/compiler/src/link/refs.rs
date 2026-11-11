@@ -17,6 +17,35 @@ const REPORT_FORMATS: [&str; 3] = ["ctrf", "junit", "html"];
 /// At most this many names in a "did you mean one of" help.
 const MAX_SUGGESTIONS: usize = 3;
 
+/// Where the close IDs were found, which decides whether a single one is a certain fix.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Found {
+    /// Among the items of the file the reference names, or of a file close to it.
+    InNamedFile,
+    /// Among the items of every file, as the named file has none close: help only, since the
+    /// fix would change which service is called.
+    InAnyFile,
+    /// By whole ID, as no file is close: certain only for a bare ID, which names no file.
+    ByWholeId,
+}
+
+/// The IDs close to a reference, and where they were found.
+struct Close<'t> {
+    ids: Vec<&'t str>,
+    found: Found,
+}
+
+impl Close<'_> {
+    /// Whether a single close ID may replace `written` without asking.
+    fn certain(&self, written: &str) -> bool {
+        match self.found {
+            Found::InNamedFile => true,
+            Found::InAnyFile => false,
+            Found::ByWholeId => !written.contains('#'),
+        }
+    }
+}
+
 /// One kind of item a reference names.
 struct Kind<'t, 'a> {
     /// `api` or `test`.
@@ -71,32 +100,79 @@ fn item(project: &Project<'_>, (source, node): (&Source<'_>, &Node), kind: &Kind
 }
 
 /// The IDs close to `full`, those in the same file first.
-fn close<'t>(source: &Source<'_>, full: &str, kind: &Kind<'t, '_>) -> Vec<&'t str> {
+fn close<'t>(source: &Source<'_>, full: &str, kind: &Kind<'t, '_>) -> Close<'t> {
+    let mut ids: Vec<&'t str> = kind.table.keys().map(String::as_str).collect();
+    ids.sort_unstable();
+    let mut close = nearest(full, &ids);
     let same = source.full("");
-    let (here, elsewhere): (Vec<&str>, Vec<&str>) =
-        kind.table.keys().map(String::as_str).partition(|id| id.starts_with(&same));
-    let mut found = suggest::close(full, here);
-    if found.is_empty() {
-        found = suggest::close(full, elsewhere);
+    close.ids.sort_by_key(|id| !id.starts_with(&same));
+    close.ids.truncate(MAX_SUGGESTIONS);
+    close
+}
+
+/// The `ids` close to `full`. The file ID and the item's own ID are measured apart, so a shared
+/// or misspelt file ID cannot make an unrelated item look close: the items of the file `full`
+/// names, or else of the files close to it, are compared by their own ID. When none of those is
+/// close, the items of every file are, so an item moved to another file is still found. Only
+/// when no file is close (a bare ID resolved to the wrong file) are whole IDs compared.
+fn nearest<'t>(full: &str, ids: &[&'t str]) -> Close<'t> {
+    let (file, item) = full.split_once('#').unwrap_or_default();
+    let files = near_files(file, ids);
+    let in_files = own_ids(ids, |own_file| files.contains(&own_file));
+    if in_files.is_empty() {
+        return Close { ids: suggest::close(full, ids.iter().copied()), found: Found::ByWholeId };
     }
-    found.truncate(MAX_SUGGESTIONS);
+    let found = by_own_id(item, &in_files);
+    if found.is_empty() {
+        return Close { ids: by_own_id(item, &own_ids(ids, |_| true)), found: Found::InAnyFile };
+    }
+    Close { ids: found, found: Found::InNamedFile }
+}
+
+/// Each of the `ids` whose file is kept, as its own ID and its full ID.
+fn own_ids<'t>(ids: &[&'t str], keep: impl Fn(&str) -> bool) -> Vec<(&'t str, &'t str)> {
+    let split = |id: &&'t str| id.split_once('#').filter(|(file, _)| keep(file)).map(|(_, own)| (own, *id));
+    ids.iter().filter_map(split).collect()
+}
+
+/// The full IDs whose own ID is close to `item`, nearest first.
+fn by_own_id<'t>(item: &str, pairs: &[(&'t str, &'t str)]) -> Vec<&'t str> {
+    let mut found: Vec<&'t str> = Vec::new();
+    for close in suggest::close(item, pairs.iter().map(|(own, _)| *own)) {
+        for (own, id) in pairs {
+            if *own == close && !found.contains(id) {
+                found.push(id);
+            }
+        }
+    }
     found
 }
 
-/// The help, and a certain fix when exactly one ID is close.
-fn hint(diagnostic: Diagnostic, (source, node, written): (&Source<'_>, &Node, &str), close: &[&str]) -> Diagnostic {
-    let [one] = close else {
-        if close.is_empty() {
+/// `file` itself when an ID lives in it, else the file IDs close to it.
+fn near_files<'t>(file: &str, ids: &[&'t str]) -> Vec<&'t str> {
+    let mut files: Vec<&'t str> = ids.iter().filter_map(|id| id.split_once('#').map(|(own, _)| own)).collect();
+    files.sort_unstable();
+    files.dedup();
+    if let Some(own) = files.iter().copied().find(|own| *own == file) {
+        return vec![own];
+    }
+    suggest::close(file, files)
+}
+
+/// The help, and a certain fix when exactly one ID is close where it may be taken without asking.
+fn hint(diagnostic: Diagnostic, (source, node, written): (&Source<'_>, &Node, &str), close: &Close<'_>) -> Diagnostic {
+    let [one] = close.ids.as_slice() else {
+        if close.ids.is_empty() {
             return diagnostic.help("check the file ID and the item's `id`; another file's item is `fileId#id`");
         }
-        return diagnostic.help(format!("did you mean one of {}?", suggest::quoted(close)));
+        return diagnostic.help(format!("did you mean one of {}?", suggest::quoted(&close.ids)));
     };
-    let short = one.strip_prefix(&source.full("")).filter(|_| !written.contains('#'));
-    let text = short.unwrap_or(one);
     let diagnostic = diagnostic.help(format!("did you mean `{one}`?"));
-    if node.span.byte_range().len() != written.len() {
+    if !close.certain(written) || node.span.byte_range().len() != written.len() {
         return diagnostic;
     }
+    let short = one.strip_prefix(&source.full("")).filter(|_| !written.contains('#'));
+    let text = short.unwrap_or(one);
     diagnostic.fix(Fix::certain(format!("Replace with {text}"), vec![TextEdit::replace(node.span, text)]))
 }
 

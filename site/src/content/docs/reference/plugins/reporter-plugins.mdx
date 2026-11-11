@@ -56,7 +56,7 @@ reports  .vibranium/reports/16/ctrf.json, .vibranium/reports/16/plugin/report.tx
 **A name outside the report folder.** The report is not written and the run warns. The run's result does not change.
 
 ```console
-warning: cannot write the `escape` report: `../../escape.txt` is not a file name inside the report folder
+warning[V5118]: cannot write the `escape` report: `../../escape.txt` is not a file name inside the report folder
 ```
 
 **An auth plugin listed as a format.** Only reporter plugins write reports.
@@ -81,7 +81,7 @@ reports:
 ## How it behaves
 
 - Events are queued (up to 1024) and sent one at a time, in order, without holding up the run. A plugin that falls a whole queue behind gets no more events, its report is not written, and the run names it once in a warning.
-- A failed reporter plugin never changes the run's result or exit code. It shows as a `warning: cannot write the ... report: ...` line after the run.
+- A failed reporter plugin never changes the run's result or exit code. It shows as a `warning[V5118]: cannot write the ... report: ...` line after the run.
 - Each reporter plugin is one process for the whole run.
 
 <Aside type="note">

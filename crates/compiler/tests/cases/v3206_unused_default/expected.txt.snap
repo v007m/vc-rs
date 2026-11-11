@@ -7,7 +7,7 @@ warning[V3206]: no step uses the test-level `headers.x-trace`
   |
 3 |     headers: {x-trace: '1', x-team: qa}
   |               ^^^^^^^ unused default
-  = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+  = note: `call` steps take the test's defaults and their own values win; `test:`, `function` and `command` steps take none
   = help: remove it, or remove the steps' own values that replace it
 
 warning[V3206]: no step uses the test-level `expect`
@@ -15,5 +15,5 @@ warning[V3206]: no step uses the test-level `expect`
   |
 4 |     expect: {status: 201}
   |                      ^^^ unused default
-  = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+  = note: `call` steps take the test's defaults and their own values win; `test:`, `function` and `command` steps take none
   = help: remove it, or remove the steps' own values that replace it

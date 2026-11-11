@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use serde_json::json;
-use vc_interfaces::{ApprovalId, ApprovalStatus, Approvals, Verdict};
+use vc_interfaces::{ApprovalId, ApprovalStatus, Approvals, Decided, Verdict};
 use vc_model::Method;
 use vc_testkit::MemoryApprovals;
 
@@ -113,7 +113,7 @@ async fn a_person_lists_and_decides_the_requests() {
         engine.approvals_decide(ApprovalId::new(1), Verdict::AlwaysAllow)
     };
     let (admitted, decided) = tokio::join!(waiting, decide);
-    assert_eq!(decided, Ok(ApprovalStatus::Approved));
+    assert_eq!(decided, Ok(Decided { status: ApprovalStatus::Approved, kept: vec![Method::Delete] }));
     assert_eq!(admitted, Ok(Admission::Allowed { approved_by: Some("someone".into()) }));
     assert_eq!(engine.approvals_list(true), Ok(Vec::new()));
     let again = engine.admit(&delete("staging"), Duration::from_secs(5)).await;

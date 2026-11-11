@@ -19,6 +19,7 @@ use vc_executor::{ActionCx, ActionRequest, RunCache};
 use vc_interfaces::{CacheEntry, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Environment, Secret};
 use vc_model::Plan;
 
+use crate::examples::Draw;
 use crate::plan::Prepared;
 use crate::ports::Layered;
 use crate::stored::started;
@@ -268,7 +269,7 @@ async fn run_cleanup(cx: &Arc<ActionCx>, cleanup: &CachedCleanup) -> Result<(), 
 fn unplanned(layered: Layered) -> Prepared {
     let Layered { program, notices, settings, environment, dot_env, .. } = layered;
     let (plan, profiles, names) = (Arc::new(Plan::default()), Vec::new(), Vec::new());
-    Prepared { program, plan, settings, profiles, names, notices, environment, dot_env }
+    Prepared { program, plan, settings, profiles, names, notices, environment, dot_env, draw: Draw::new(None) }
 }
 
 /// The cache has no key: V5113.

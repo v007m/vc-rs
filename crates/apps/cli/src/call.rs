@@ -11,6 +11,7 @@ use crate::Outcome;
 use crate::explain::LayerArgs;
 use crate::project;
 use crate::save_call::{self, Made, SaveArgs};
+use crate::stdout;
 
 #[derive(Args)]
 pub struct CallArgs {
@@ -61,6 +62,6 @@ fn shown(report: &CallReport) -> anyhow::Result<()> {
     for notice in &report.notices {
         eprintln!("warning: {notice}");
     }
-    write!(std::io::stdout().lock(), "{}", report.text)?;
+    write!(stdout::out(), "{}", report.text)?;
     Ok(())
 }

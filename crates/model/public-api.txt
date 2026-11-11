@@ -293,6 +293,7 @@ pub enum vc_model::Matcher
 pub vc_model::Matcher::All(alloc::vec::Vec<vc_model::MatcherCall>)
 pub vc_model::Matcher::Equals(vc_model::TemplateValue)
 pub vc_model::Matcher::Status(alloc::vec::Vec<vc_model::StatusPattern>)
+pub vc_model::Matcher::StatusOf(vc_model::TemplateValue)
 impl core::clone::Clone for vc_model::Matcher
 pub fn vc_model::Matcher::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::Matcher
@@ -566,6 +567,7 @@ pub vc_model::StatusPattern::Class(u8)
 pub vc_model::StatusPattern::Code(u16)
 impl vc_model::StatusPattern
 pub fn vc_model::StatusPattern::matches(self, u16) -> bool
+pub fn vc_model::StatusPattern::parse(&str) -> core::option::Option<Self>
 impl core::clone::Clone for vc_model::StatusPattern
 pub fn vc_model::StatusPattern::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::StatusPattern
@@ -593,6 +595,9 @@ pub vc_model::TemplateValue::Map(indexmap::map::IndexMap<alloc::string::String, 
 pub vc_model::TemplateValue::Null
 pub vc_model::TemplateValue::Number(serde_json::number::Number)
 pub vc_model::TemplateValue::String(vc_model::Template)
+impl vc_model::TemplateValue
+pub fn vc_model::TemplateValue::collect_references<'v>(&'v self, &mut alloc::vec::Vec<&'v vc_model::Reference>)
+pub fn vc_model::TemplateValue::references(&self) -> alloc::vec::Vec<&vc_model::Reference>
 impl core::clone::Clone for vc_model::TemplateValue
 pub fn vc_model::TemplateValue::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::TemplateValue
@@ -2053,6 +2058,7 @@ pub vc_model::Template::parts: alloc::vec::Vec<vc_model::Part>
 impl vc_model::Template
 pub fn vc_model::Template::as_literal(&self) -> core::option::Option<&str>
 pub const fn vc_model::Template::preserves_type(&self) -> bool
+pub fn vc_model::Template::references(&self) -> impl core::iter::traits::iterator::Iterator<Item = &vc_model::Reference>
 pub const fn vc_model::Template::single_ref(&self) -> core::option::Option<&vc_model::Reference>
 impl core::clone::Clone for vc_model::Template
 pub fn vc_model::Template::clone(&self) -> Self

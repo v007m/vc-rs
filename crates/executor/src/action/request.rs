@@ -261,7 +261,8 @@ fn body_value(body: &Bytes) -> Value {
     serde_json::from_slice(body).unwrap_or_else(|_| Value::String(String::from_utf8_lossy(body).into_owned()))
 }
 
-/// The phases in milliseconds; those the transport did not measure are left out.
+/// The phases in milliseconds. A phase that did not happen (a reused connection, an IP literal,
+/// plain HTTP) reads 0; the exchange itself still holds `None` for it.
 fn timing(timing: &Timing) -> Value {
     let ms = |duration: std::time::Duration| json!(duration.as_secs_f64() * 1000.0);
     let mut map = Map::new();
@@ -269,7 +270,7 @@ fn timing(timing: &Timing) -> Value {
     map.insert("firstByte".into(), ms(timing.first_byte));
     map.insert("download".into(), ms(timing.download));
     let phases = [("dns", timing.dns), ("connect", timing.connect), ("tls", timing.tls)];
-    map.extend(phases.into_iter().filter_map(|(name, phase)| Some((name.to_owned(), ms(phase?)))));
+    map.extend(phases.into_iter().map(|(name, phase)| (name.to_owned(), ms(phase.unwrap_or_default()))));
     Value::Object(map)
 }
 

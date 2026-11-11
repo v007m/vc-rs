@@ -13,6 +13,7 @@ use std::{env, fs, thread};
 use clap::{Args, Subcommand};
 
 use crate::Outcome;
+use crate::stdout;
 
 /// The port the sample's demo listens on.
 const PORT: u16 = 7421;
@@ -68,7 +69,7 @@ fn start(port: u16, detach: bool) -> anyhow::Result<Outcome> {
         return Ok(missing());
     };
     if answers(port) {
-        writeln!(std::io::stdout().lock(), "a demo already answers on port {port}")?;
+        writeln!(stdout::out(), "a demo already answers on port {port}")?;
         return Ok(Outcome::Done);
     }
     let mut command = Command::new(binary);
@@ -88,7 +89,7 @@ fn up(child: &mut Child, port: u16) -> anyhow::Result<Outcome> {
     let deadline = Instant::now() + WAIT;
     while Instant::now() < deadline {
         if answers(port) {
-            writeln!(std::io::stdout().lock(), "demo running on http://localhost:{port} (pid {})", child.id())?;
+            writeln!(stdout::out(), "demo running on http://localhost:{port} (pid {})", child.id())?;
             return Ok(Outcome::Done);
         }
         if let Some(status) = child.try_wait()? {
@@ -106,7 +107,7 @@ fn stop(port: u16) -> anyhow::Result<Outcome> {
     let stopped = pid.is_some_and(terminate);
     fs::remove_file(&path).ok();
     let said = if stopped { "stopped the demo on port" } else { "no demo running on port" };
-    writeln!(std::io::stdout().lock(), "{said} {port}")?;
+    writeln!(stdout::out(), "{said} {port}")?;
     Ok(Outcome::Done)
 }
 

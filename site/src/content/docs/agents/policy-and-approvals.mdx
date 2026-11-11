@@ -4,7 +4,7 @@ description: "The agents block that says what an AI agent may run, call and writ
 sidebar: { order: 4 }
 ---
 
-import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 An agent connected over MCP can always read: list, search, show definitions, check, and read history. Anything that sends a request or writes a file goes through the **agent policy** first. The policy lives in each profile's `agents` block in `vibranium.config.yaml`. For each call it does one of three things:
@@ -132,7 +132,7 @@ When a call needs approval, the tool call does not return. The agent waits while
 | Command | Effect | Output |
 | --- | --- | --- |
 | `vc approve <id>` | Lets this one call through | `✓ approved request #1` |
-| `vc approve <id> --always` | Lets it through and saves a standing rule for the same profile, tool and method, so similar calls stop asking | `✓ approved request #2, and calls like it from now on` |
+| `vc approve <id> --always` | Lets it through and saves a standing rule for the same profile, tool and method, so similar calls stop asking | `✓ approved request #2, and POST calls like it from now on; a write or code still asks` |
 | `vc approve <id> --deny` | Refuses it. The agent gets `refused: request 3 was denied` | `✓ denied request #3` |
 | `vc approvals --all` | Also lists decided and expired requests | rows end in `(waiting)`, `(approved)`, `(denied)` or `(expired)` |
 
@@ -154,9 +154,7 @@ Standing rules are stored in `.vibranium/history.db` (table `approval_rules`), o
 - `write_definition` with `writeDefinitions: ask` asks every time, even after `--always`.
 - A run that reaches a `command:` or `function:` action asks every time.
 
-<Aside type="caution">
-`vc approve --always` prints "and calls like it from now on" even for a write or a run with code, but saves no rule for them. Expect to be asked again.
-</Aside>
+For a write, or a run that reaches code, `--always` approves the call once and says so: `✓ approved request #4 once; no rule kept: a write or a run that reaches code asks every time`.
 
 ### A run that asks
 

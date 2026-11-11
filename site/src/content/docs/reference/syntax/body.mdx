@@ -394,7 +394,7 @@ apis:
 - A template that is the whole value keeps its type, such as a number or a map. A template inside other text makes a string.
 - `body: ${var.payload}` sends the whole var. A map var is sent as JSON.
 - A test's or step's `body` replaces the api's. It does not merge. Use [`$extend`](/vc-rs/reference/syntax/extend/) to change part of a body.
-- A test-level `body` is a default for every `call` and `test:` step.
+- A test-level `body` is a default for every `call` step.
 - vc sends a body on any method, including `GET`, without a warning on the api. It warns only when a test-level `body` default reaches a GET or HEAD step.
 
 ## Common errors

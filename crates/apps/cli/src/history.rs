@@ -5,6 +5,7 @@ use clap::{Args, Subcommand};
 
 use crate::Outcome;
 use crate::project;
+use crate::stdout;
 
 #[derive(Args)]
 pub struct HistoryArgs {
@@ -58,7 +59,7 @@ pub fn run(args: &HistoryArgs, project: Option<&Path>) -> anyhow::Result<Outcome
             Err(error) => return Ok(Outcome::Engine(error)),
         },
     };
-    let mut out = std::io::stdout().lock();
+    let mut out = stdout::out();
     match json {
         Some(json) => writeln!(out, "{json:#}")?,
         None => write!(out, "{text}")?,

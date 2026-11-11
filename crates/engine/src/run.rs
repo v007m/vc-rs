@@ -21,7 +21,7 @@ use crate::plan::{Extra, Prepared};
 use crate::plugin_hosts::Hosts;
 use crate::reporting::{self, Reporters, Setup};
 use crate::run_feed::Watching;
-use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify, ports};
+use crate::{Engine, EngineError, Interrupts, RunRequest, history, notify};
 
 /// Room for this many events between the bus and the reporters before they miss some.
 const FEED: usize = 65_536;
@@ -62,8 +62,9 @@ impl Engine {
     /// reaches an action this build cannot run; with `--failed`, [`EngineError::History`] when
     /// no run is stored and [`EngineError::Selection`] when the last one had nothing to rerun.
     pub async fn run(&self, request: &RunRequest, mut interrupts: Interrupts) -> Result<RunReport, EngineError> {
-        let planned =
-            self.rerun(request).and_then(|(plan, rerun)| self.prepare(&plan, Extra { flags: flags(request), rerun }));
+        let planned = self
+            .rerun(request)
+            .and_then(|(plan, rerun)| self.prepare(&plan, Extra { flags: flags(request), rerun, seed: request.seed }));
         let prepared = self.before_gate(run_call(request).as_ref(), planned).await?;
         let admitted = self.run_gate(request, &prepared).await?;
         let report = self.execute(request, prepared, &mut interrupts).await?;
@@ -83,13 +84,13 @@ impl Engine {
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let heard = plugins.heard();
-        let (seed, random) = ports::random(request.seed);
-        let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone()))?;
+        let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
+        let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let alerting = self.alerting(&prepared, &secrets, (run_id, RUN_KIND))?;
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
-        let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
+        let inputs = inputs.with_secrets(secrets).with_started_at(started_ms);
         let (executor, sweep) = self.executor(&prepared, (inputs, &plugins), request).await?;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
@@ -112,12 +113,13 @@ impl Engine {
 
     /// The reporters `request` chooses, the reporter plugins among `plugins`, recording into the
     /// history, and a notice for each plugin the run cannot use; a history that cannot be opened
-    /// leaves the run unrecorded, with a notice saying so.
+    /// leaves the run unrecorded, with a notice saying so. The history's start is `started_ms`,
+    /// the clock read `${run.startedAt}` gives too.
     fn reporters(
         &self,
         request: &RunRequest,
         prepared: &Prepared,
-        (seed, plugins): (u64, Hosts),
+        (seed, plugins, started_ms): (u64, Hosts, u64),
     ) -> Result<(Reporters, Vec<String>), EngineError> {
         let chosen = reporting::choose(request.console.as_deref(), &prepared.settings, &prepared.program)?;
         let chosen = chosen.under(self.root()).flat(request.files.out.is_some());
@@ -125,7 +127,7 @@ impl Engine {
         let selector = if request.failed { format!("--failed {selector}").trim_end().to_owned() } else { selector };
         let start = RunStart {
             kind: RUN_KIND.to_owned(),
-            started_ms: self.clock.now_ms(),
+            started_ms,
             profiles: prepared.names.clone(),
             selector,
             seed: Some(seed),
@@ -209,10 +211,11 @@ impl Engine {
             .with_vars(vars(&prepared.settings.vars))
             .with_run_id(run_id)
             .with_bodies(bodies)
+            .with_examples(prepared.draw.rows.clone())
     }
 
     /// The action context of a run with no plan: `vc call`'s, or the cleanups `vc cache clear`
-    /// runs. It holds `secrets`, an unseeded random source and the `$file` bodies `actions`
+    /// runs. It holds `secrets`, the draw's unseeded random source and the `$file` bodies `actions`
     /// reach (D272), and starts now.
     pub(crate) async fn adhoc_cx(
         &self,
@@ -221,7 +224,7 @@ impl Engine {
     ) -> Result<Arc<ActionCx>, EngineError> {
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let reached = vc_planner::bodies_from(&prepared.program, actions);
-        let inputs = self.inputs(prepared, (ports::random(None).1, run_id, reached)).await;
+        let inputs = self.inputs(prepared, (Arc::clone(&prepared.draw.random), run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
         Ok(Arc::new(self.action_cx(prepared, (inputs, &plugins))?))
     }
@@ -323,7 +326,7 @@ async fn pump(
 }
 
 /// `--set vars.name=value` as literal config vars.
-fn vars(set: &[(String, String)]) -> Defined {
+pub fn vars(set: &[(String, String)]) -> Defined {
     let literal = |text: &str| TemplateValue::String(Template { parts: vec![Part::Literal(text.to_owned())] });
     set.iter().map(|(name, value)| (name.clone(), literal(value))).collect::<HashMap<_, _>>()
 }

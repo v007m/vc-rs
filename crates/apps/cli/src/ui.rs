@@ -49,6 +49,7 @@ pub fn run(args: &UiArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
 
 #[cfg(feature = "web-ui")]
 mod serve {
+    use std::io::Write;
     use std::process::{Command, Stdio};
     use std::sync::Arc;
 
@@ -56,7 +57,7 @@ mod serve {
     use vc_server::{EmbeddedUi, EngineApi, LaunchUrl, ServerBuilder, ServerError};
 
     use super::UiArgs;
-    use crate::Outcome;
+    use crate::{Outcome, stdout};
 
     /// The program that opens a URL in the default browser, and its leading arguments.
     #[cfg(target_os = "macos")]
@@ -85,9 +86,9 @@ mod serve {
         if let Some(problem) = server.csp_problem() {
             eprintln!("error: {problem}; the page will not load, so rebuild it with `pnpm -C web build`");
         }
-        println!("vc ui: {}", server.launch_url().expose());
+        writeln!(stdout::out(), "vc ui: {}", server.launch_url().expose())?;
         if let Some(mcp) = server.mcp() {
-            println!("vc ui: mcp {} token {}", mcp.url(), mcp.token());
+            writeln!(stdout::out(), "vc ui: mcp {} token {}", mcp.url(), mcp.token())?;
         }
         if !args.no_open {
             open(server.launch_url());

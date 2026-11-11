@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use tokio::sync::watch;
 use vc_interfaces::{
     AgentAction, AgentActionReader, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest,
-    ApprovalStatus, Approvals, Decision, LoggedAction, StandingRule, Verdict,
+    ApprovalStatus, Approvals, Decided, Decision, LoggedAction, StandingRule, Verdict,
 };
 
 /// An approval queue and agent call log held in memory.
@@ -86,7 +86,7 @@ const fn settled(verdict: Verdict) -> ApprovalStatus {
 }
 
 impl State {
-    fn decide(&mut self, decision: &Decision) -> Result<ApprovalStatus, ApprovalError> {
+    fn decide(&mut self, decision: &Decision) -> Result<Decided, ApprovalError> {
         let id = decision.id;
         let approval =
             self.approvals.iter_mut().find(|approval| approval.id == id).ok_or(ApprovalError::Unknown { id })?;
@@ -95,16 +95,18 @@ impl State {
         }
         approval.status = settled(decision.verdict);
         approval.decided_by = Some(decision.by.clone());
-        if decision.verdict == Verdict::AlwaysAllow {
-            let request = &approval.request;
-            let rules = request.methods.iter().map(|&method| StandingRule {
-                profile: request.profile.clone(),
-                tool: request.tool.clone(),
-                method,
-            });
-            self.rules.extend(rules);
+        let status = approval.status;
+        if decision.verdict != Verdict::AlwaysAllow {
+            return Ok(Decided { status, kept: Vec::new() });
         }
-        Ok(approval.status)
+        let request = &approval.request;
+        let rules = request.methods.iter().map(|&method| StandingRule {
+            profile: request.profile.clone(),
+            tool: request.tool.clone(),
+            method,
+        });
+        self.rules.extend(rules);
+        Ok(Decided { status, kept: request.methods.clone() })
     }
 }
 
@@ -133,7 +135,7 @@ impl Approvals for MemoryApprovals {
         Ok(id)
     }
 
-    fn decide(&self, decision: &Decision) -> Result<ApprovalStatus, ApprovalError> {
+    fn decide(&self, decision: &Decision) -> Result<Decided, ApprovalError> {
         let mut decided = Err(ApprovalError::Unknown { id: decision.id });
         self.state.send_modify(|state| decided = state.decide(decision));
         decided

@@ -8,6 +8,7 @@ use tokio::sync::mpsc::{self, Receiver, UnboundedReceiver};
 use vc_engine::{Engine, EngineError, Event, LoadReport, LoadRequest, LoadWatch};
 
 use crate::explain::LayerArgs;
+use crate::stdout;
 use crate::{Outcome, project};
 
 /// Live lines the printer may fall behind by before ticks are dropped.
@@ -103,7 +104,7 @@ fn finished(report: &LoadReport, json: bool) -> anyhow::Result<Outcome> {
     for notice in &report.notices {
         eprintln!("warning: {notice}");
     }
-    let mut out = std::io::stdout().lock();
+    let mut out = stdout::out();
     if json {
         writeln!(out, "{:#}", report.json())?;
     } else {

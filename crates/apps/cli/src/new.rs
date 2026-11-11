@@ -7,6 +7,7 @@ use std::path::Path;
 use clap::{Args, Subcommand, ValueEnum};
 use vc_engine::{Added, Engine, EngineError, FileKind, NewApi, NewAuth, NewTest, auth_fields};
 
+use crate::stdout;
 use crate::{Outcome, changes, project};
 
 #[derive(Args)]
@@ -110,11 +111,11 @@ pub fn run(args: NewArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
 fn api(engine: &Engine, args: ApiArgs) -> anyhow::Result<Outcome> {
     let Some(curl) = args.from_curl else {
         let request = NewApi { id: args.id, method: args.method, path: args.path, url: args.url };
-        return Ok(noted(engine, engine.new_api(&request), false));
+        return noted(engine, engine.new_api(&request), false);
     };
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let made = runtime.block_on(engine.new_api_from_curl(&args.id, &curl));
-    Ok(noted(engine, made, false))
+    noted(engine, made, false)
 }
 
 /// `vc new auth`: the type and fields from the flags, and on a terminal (without `--json`)
@@ -133,7 +134,7 @@ fn auth(engine: &Engine, args: AuthArgs) -> anyhow::Result<Outcome> {
     for field in auth_fields(&auth_type).iter().filter(|_| asks) {
         fields.push(((*field).to_owned(), ask(&format!("{field} (Enter to leave it out):"))?));
     }
-    Ok(noted(engine, engine.new_auth(&NewAuth { id: args.id, auth_type, fields }), args.json))
+    noted(engine, engine.new_auth(&NewAuth { id: args.id, auth_type, fields }), args.json)
 }
 
 /// Asks `question` on stderr and reads one answer line from stdin, trimmed.
@@ -147,15 +148,15 @@ fn ask(question: &str) -> anyhow::Result<String> {
 
 /// Like [`written`], then a line for each note on the change (its titles after the first): on
 /// stdout, or on stderr when stdout is JSON.
-fn noted(engine: &Engine, made: Result<Added, EngineError>, json: bool) -> Outcome {
+fn noted(engine: &Engine, made: Result<Added, EngineError>, json: bool) -> anyhow::Result<Outcome> {
     let notes: Vec<String> =
         made.as_ref().map(|added| added.changes.titles.iter().skip(1).cloned().collect()).unwrap_or_default();
     let outcome = written(engine, made, json);
     let shown = if matches!(outcome, Outcome::Done) { notes.as_slice() } else { &[] };
     for note in shown {
-        if json { eprintln!("  {note}") } else { println!("  {note}") }
+        if json { eprintln!("  {note}") } else { writeln!(stdout::out(), "  {note}")? }
     }
-    outcome
+    Ok(outcome)
 }
 
 /// Writes what was added and says where: `✓ added users#deactivate to <path>:<line>`, or the

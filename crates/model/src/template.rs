@@ -33,6 +33,14 @@ impl Template {
         }
     }
 
+    /// Its references, in written order.
+    pub fn references(&self) -> impl Iterator<Item = &Reference> {
+        self.parts.iter().filter_map(|part| match part {
+            Part::Ref(reference) => Some(reference),
+            Part::Literal(_) => None,
+        })
+    }
+
     /// The text when the template holds no reference, such as a `$file` path (D272).
     #[must_use]
     pub fn as_literal(&self) -> Option<&str> {
@@ -251,6 +259,33 @@ pub enum TemplateValue {
     },
 }
 
+impl TemplateValue {
+    /// Every reference the value makes, anywhere inside it, in written order; a `$cel` value
+    /// gives the roots its expression reads.
+    #[must_use]
+    pub fn references(&self) -> Vec<&Reference> {
+        let mut found = Vec::new();
+        self.collect_references(&mut found);
+        found
+    }
+
+    /// Adds every reference the value makes to `found`, as [`TemplateValue::references`] gives
+    /// them, without a list of its own.
+    pub fn collect_references<'v>(&'v self, found: &mut Vec<&'v Reference>) {
+        match self {
+            Self::Null | Self::Bool(_) | Self::Number(_) => {}
+            Self::String(template) => found.extend(template.references()),
+            Self::Cel(program) => found.extend(&program.refs),
+            Self::List(items) => items.iter().for_each(|item| item.collect_references(found)),
+            Self::Map(map) => map.values().for_each(|item| item.collect_references(found)),
+            Self::Extend { base, changes, .. } => {
+                found.extend(base.references());
+                changes.collect_references(found);
+            }
+        }
+    }
+}
+
 /// An expected status: one code (`201`) or a class (`2xx`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[expect(
@@ -265,6 +300,18 @@ pub enum StatusPattern {
 }
 
 impl StatusPattern {
+    /// Reads an expected status as written: a code from 100 to 599 (`201`) or a class from
+    /// `1xx` to `5xx`; `None` for anything else.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        // One char that parses is a digit; three that parse into 100..=599 are three digits.
+        let class = text.strip_suffix("xx").filter(|d| d.len() == 1).and_then(|d| d.parse::<u8>().ok());
+        let code = Some(text).filter(|t| t.len() == 3).and_then(|t| t.parse::<u16>().ok());
+        let class = class.filter(|c| (1..=5).contains(c));
+        let code = code.filter(|c| (100..=599).contains(c));
+        class.map(Self::Class).or_else(|| code.map(Self::Code))
+    }
+
     /// Whether `status` matches.
     #[must_use]
     pub fn matches(self, status: u16) -> bool {
@@ -277,7 +324,9 @@ impl StatusPattern {
 
 #[cfg(test)]
 mod tests {
-    use super::{Namespace, Part, Path, Reference, StatusPattern, Template};
+    use indexmap::IndexMap;
+
+    use super::{Namespace, Part, Path, Reference, StatusPattern, Template, TemplateValue};
     use crate::{Pos, SourceFileId, SourceSpan};
 
     fn reference() -> Reference {
@@ -301,6 +350,21 @@ mod tests {
         assert!(!mixed.preserves_type());
         assert_eq!(mixed.single_ref(), None);
         assert!(!Template::default().preserves_type());
+    }
+
+    #[test]
+    fn a_value_gives_the_references_anywhere_inside_it_in_order() {
+        let mut env = reference();
+        env.ns = Namespace::Env;
+        let read =
+            |reference: &Reference| TemplateValue::String(Template { parts: vec![Part::Ref(reference.clone())] });
+        let map = IndexMap::from([("a".to_owned(), read(&env)), ("b".to_owned(), TemplateValue::Null)]);
+        let changes = Box::new(TemplateValue::List(vec![read(&reference()), TemplateValue::Map(map)]));
+        let base = Template { parts: vec![Part::Literal("x".into()), Part::Ref(env)] };
+        let value = TemplateValue::Extend { base, changes, remove: Vec::new() };
+        let namespaces: Vec<Namespace> = value.references().iter().map(|reference| reference.ns).collect();
+        assert_eq!(namespaces, [Namespace::Env, Namespace::Var, Namespace::Env]);
+        assert_eq!(TemplateValue::Bool(true).references(), Vec::<&Reference>::new());
     }
 
     #[test]

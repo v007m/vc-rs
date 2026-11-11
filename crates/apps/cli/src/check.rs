@@ -6,6 +6,7 @@ use vc_engine::{CheckReport, CheckRequest, JsonRenderer, Render, Summary, TextRe
 
 use crate::Outcome;
 use crate::project;
+use crate::stdout;
 
 #[derive(Args)]
 pub struct CheckArgs {
@@ -51,11 +52,11 @@ pub fn outcome(report: &CheckReport) -> Outcome {
 
 /// The diagnostics on stdout, as text with the summary line or as JSON.
 pub fn print(report: &CheckReport, json: bool) -> anyhow::Result<()> {
-    let mut out = std::io::stdout().lock();
+    let mut out = stdout::out();
     if json {
         writeln!(out, "{}", JsonRenderer.render(&report.diagnostics, &report.files)?)?;
     } else {
-        let renderer = TextRenderer::default().color(use_color(&out));
+        let renderer = TextRenderer::default().color(use_color(&std::io::stdout()));
         write!(out, "{}", renderer.render(&report.diagnostics, &report.files)?)?;
         writeln!(out, "{}", summary_line(report.summary(), report.checked))?;
     }

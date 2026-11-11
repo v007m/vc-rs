@@ -23,7 +23,8 @@ error[V2003]: unknown test "users.crud#listUser"
   |
 8 |       - test: users.crud#listUser
   |               ^^^^^^^^^^^^^^^^^^^ no test has this ID
-  = help: did you mean one of `users.crud#listsUsers`, `users.crud#getsUser`?
+  = help: did you mean `users.crud#listsUsers`?
+  = fix: Replace with users.crud#listsUsers (certain)
 
 error[V2003]: unknown api "orders#place"
  --> services/users/crud.test.yaml:9:15

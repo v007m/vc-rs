@@ -77,6 +77,16 @@ fn run_id_is_the_history_run_number() {
 }
 
 #[test]
+fn run_started_at_is_the_start_of_the_run_in_rfc_3339() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let probe = fixture.value("${run.startedAt}");
+    let inputs = fixture::inputs(&[]).with_started_at(1_793_750_400_500);
+    let cx = Arc::new(ActionCx::new(Arc::new(fixture.program), Arc::new(ActionExecutors::new()), inputs));
+    assert_eq!(run_level(&cx, action, &probe), Ok(json!("2026-11-04T00:00:00.5Z")));
+}
+
+#[test]
 fn vars_set_from_outside_win_over_the_config_and_its_profiles() {
     let mut fixture = Fixture::new();
     let action = fixture.call("/users");

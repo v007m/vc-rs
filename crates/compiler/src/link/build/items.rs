@@ -208,8 +208,8 @@ impl<'a> Build<'_, 'a> {
         }))
     }
 
-    /// The test's call, or its steps with the test's keys as defaults; a test-level `save` reads
-    /// the last step's response (D124).
+    /// The test's call, or its steps with the test's keys as defaults for each `call` step; a
+    /// test-level `save` reads the last step's response (D124, D270).
     fn body(&mut self, source: &Source<'a>, node: &Node, id: TestId) -> Built<Option<TestBody>> {
         if node.get("call").is_some() {
             let place = Place { owner: Owner::Instance, defaults: None, test: Some(id) };

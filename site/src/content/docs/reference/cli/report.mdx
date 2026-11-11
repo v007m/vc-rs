@@ -16,7 +16,7 @@ $ vc report [OPTIONS] [RUN]
 
 | Flag | Value | Default | Description |
 | --- | --- | --- | --- |
-| `[RUN]` | `last` or a run number | `last` | The run to report |
+| `[RUN]` | `last` or a run number | `last` | The run to report. `last` is the newest run that is not a `vc call` |
 | `--format` | `<FORMATS>` | `html` | The report files to write, as a comma list or repeated: `html`, `ctrf`, `junit` |
 | `--out` | `<DIR>` | `.vibranium/reports/<run>/` | The folder the files go in |
 | `--single-file` | | | Writes the HTML report as one self-contained `report.html` |

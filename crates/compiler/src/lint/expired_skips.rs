@@ -1,12 +1,10 @@
 //! V3104: a `skip` on a test file or a test whose `until` day has passed, so it runs again.
 
-use std::ops::Range;
-
 use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};
 use vc_model::Date;
 use vc_parser::Entry;
 
-use super::{Lint, LintCx};
+use super::{Lint, LintCx, whole_lines};
 use crate::link;
 use crate::link::Source;
 
@@ -46,16 +44,4 @@ impl ExpiredSkips {
         let edit = TextEdit { file: source.file, range, new_text: String::new() };
         Some(diagnostic.fix(Fix::certain("Remove the skip", vec![edit])))
     }
-}
-
-/// The lines `entry` is written on, newline included, when nothing else shares its first line.
-fn whole_lines(text: &str, entry: &Entry) -> Option<Range<usize>> {
-    let start = entry.key_span.start.offset;
-    let line = text.get(..start)?.rfind('\n').map_or(0, |at| at + 1);
-    if !text.get(line..start)?.trim().is_empty() {
-        return None;
-    }
-    let end = entry.value.span.end.offset;
-    let after = text.get(end..)?.find('\n').map_or(text.len(), |at| end + at + 1);
-    Some(line..after)
 }

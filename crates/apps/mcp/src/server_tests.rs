@@ -69,6 +69,21 @@ async fn a_bad_argument_or_tool_name_is_reported() {
     assert_eq!(unknown.message, "no tool is called `run`");
 }
 
+#[tokio::test]
+async fn an_unknown_argument_is_refused_before_the_tool_runs() {
+    let (dir, _engine) = project();
+    let server = server(dir.path(), "dev");
+    let answered = server.answer("run_tests", "claude", args(json!({"select": "users.crud"}))).await.unwrap();
+    assert_eq!(answered.is_error, Some(true));
+    assert_eq!(content(&answered)["kind"], "arguments");
+    let reason = content(&answered)["reason"].as_str().unwrap();
+    assert!(reason.starts_with("argument `select`: is not one this tool takes; it takes "), "{reason}");
+    let runs = rusqlite::Connection::open(dir.path().join(".vibranium/history.db"))
+        .and_then(|db| db.query_row("SELECT count(*) FROM runs", [], |row| row.get::<_, i64>(0)))
+        .unwrap_or(0);
+    assert_eq!(runs, 0, "nothing runs");
+}
+
 #[test]
 fn the_server_offers_tools_and_says_what_it_is() {
     let (dir, _engine) = project();

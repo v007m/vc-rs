@@ -1,10 +1,12 @@
 //! `vc approvals` and `vc approve <id>`: the agent calls waiting for a person (D195).
 
+use std::io::Write;
 use std::path::Path;
 
 use clap::Args;
-use vc_engine::{Approval, ApprovalId, ApprovalStatus, Verdict};
+use vc_engine::{Approval, ApprovalId, ApprovalStatus, Method, Verdict};
 
+use crate::stdout;
 use crate::{Outcome, project};
 
 /// `vc approvals`.
@@ -20,7 +22,8 @@ pub struct ApprovalsArgs {
 pub struct ApproveArgs {
     /// The request to decide, as `vc approvals` lists it.
     id: u64,
-    /// Also allows calls like it (same profile, tool and method) from now on (D195).
+    /// Also allows calls like it (same profile, tool and method) from now on (D195). A write,
+    /// or a run that reaches a `command:` or `function:` action, still asks every time (D202).
     #[arg(long, conflicts_with = "deny")]
     always: bool,
     /// Refuses the call instead.
@@ -36,12 +39,13 @@ pub fn list(args: &ApprovalsArgs, project: Option<&Path>) -> anyhow::Result<Outc
     };
     Ok(match located.engine.approvals_list(!args.all) {
         Ok(approvals) if approvals.is_empty() => {
-            println!("{}", if args.all { "no requests" } else { "no requests waiting" });
+            writeln!(stdout::out(), "{}", if args.all { "no requests" } else { "no requests waiting" })?;
             Outcome::Done
         }
         Ok(approvals) => {
+            let mut out = stdout::out();
             for approval in &approvals {
-                println!("{}", row(approval, args.all));
+                writeln!(out, "{}", row(approval, args.all))?;
             }
             Outcome::Done
         }
@@ -61,8 +65,8 @@ pub fn approve(args: &ApproveArgs, project: Option<&Path>) -> anyhow::Result<Out
         _ => Verdict::Approve,
     };
     Ok(match located.engine.approvals_decide(ApprovalId::new(args.id), verdict) {
-        Ok(_) => {
-            println!("{}", decided(args.id, verdict));
+        Ok(done) => {
+            writeln!(stdout::out(), "{}", decided(args.id, verdict, &done.kept))?;
             Outcome::Done
         }
         Err(error) => Outcome::Engine(error),
@@ -86,10 +90,18 @@ const fn status(status: ApprovalStatus) -> &'static str {
     }
 }
 
-fn decided(id: u64, verdict: Verdict) -> String {
+/// What deciding request `id` did; `kept`, the methods an always-allow kept a rule for. A request
+/// that asked for no method asked for a write or for code, which no rule covers (D202).
+fn decided(id: u64, verdict: Verdict, kept: &[Method]) -> String {
     match verdict {
         Verdict::Approve => format!("✓ approved request #{id}"),
-        Verdict::AlwaysAllow => format!("✓ approved request #{id}, and calls like it from now on"),
+        Verdict::AlwaysAllow if kept.is_empty() => {
+            format!("✓ approved request #{id} once; no rule kept: a write or a run that reaches code asks every time")
+        }
+        Verdict::AlwaysAllow => {
+            let methods = kept.iter().map(|method| method.name()).collect::<Vec<_>>().join(", ");
+            format!("✓ approved request #{id}, and {methods} calls like it from now on; a write or code still asks")
+        }
         Verdict::Deny => format!("✓ denied request #{id}"),
     }
 }

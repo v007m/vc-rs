@@ -38,7 +38,7 @@ fn tests(body: &str) -> String {
 #[test]
 fn the_registry_holds_one_lint_per_lifecycle_code() {
     let codes: Vec<Code> = LintRegistry::builtin().lints.iter().map(|lint| lint.code()).collect();
-    assert_eq!(codes.len(), 8);
+    assert_eq!(codes.len(), 9);
     assert_eq!(codes.iter().collect::<HashSet<_>>().len(), codes.len());
     assert!(codes.iter().all(|code| code.category() == Category::Lifecycle));
 }
@@ -158,23 +158,37 @@ fn a_body_default_is_reported_at_each_read_step_without_its_own() {
 }
 
 #[test]
-fn defaults_every_taking_step_replaces_are_unused() {
+fn defaults_every_call_step_replaces_are_unused() {
     let text = tests(concat!(
         "  - id: a\n    auth: none\n    body: {n: 1}\n    headers: {x-a: '1', x-b: '2'}\n    query: {q: '1'}\n",
         "    expect: {status: 201, size: {lt: 1kb}}\n    steps:\n",
         "      - call: users#make\n        auth: none\n        body: {n: 2}\n        headers: {x-a: '3'}\n        expect: {status: 200}\n",
-        "      - test: users.crud#b\n        auth: none\n        body: {n: 3}\n        headers: {x-a: '4'}\n        expect: {status: 202}\n",
-        "      - function: hooks/a.ts#check\n  - id: b\n    call: users#make\n",
+        "      - test: users.crud#b\n      - function: hooks/a.ts#check\n  - id: b\n    call: users#make\n",
     ));
     assert_eq!(found(&text), [(Code::V3206, 4), (Code::V3206, 5), (Code::V3206, 6), (Code::V3206, 8)]);
 }
 
 #[test]
 fn defaults_of_a_test_whose_steps_take_none_are_unused() {
-    let text = tests(
+    let text = tests(concat!(
         "  - id: a\n    headers: {x-a: '1'}\n    expect: {status: 200}\n    steps:\n      - function: hooks/a.ts#check\n",
+        "      - test: users.crud#b\n  - id: b\n    call: users#make\n",
+    ));
+    assert_eq!(found(&text), [(Code::V3206, 4), (Code::V3206, 5)], "D270: a `test:` step takes no defaults");
+}
+
+#[test]
+fn keys_a_test_action_ignores_are_reported_with_a_fix_that_removes_them() {
+    let text = concat!(
+        "name: Crud\nbeforeAll:\n  - id: seed\n    test: users.crud#b\n    query: {q: '1'}\ntests:\n",
+        "  - id: a\n    steps:\n      - test: users.crud#b\n        headers: {x-a: '1'}\n        expect:\n",
+        "          status: 202\n        timeout: 2s\n      - {test: users.crud#b, auth: none}\n",
+        "  - id: b\n    call: users#make\n",
     );
-    assert_eq!(found(&text), [(Code::V3206, 4), (Code::V3206, 5)]);
+    assert_eq!(found(text), [(Code::V3207, 5), (Code::V3207, 10), (Code::V3207, 11), (Code::V3207, 14)]);
+    let compiled = compiled(CONFIG, text);
+    let fixes = compiled.diagnostics.iter().filter(|found| found.code == Code::V3207).map(|found| found.fixes.len());
+    assert_eq!(fixes.collect::<Vec<_>>(), [1, 1, 1, 0], "no fix for a key that shares its line");
 }
 
 fn input(config: &str, tests: &str) -> CompileInput {

@@ -9,6 +9,7 @@ use vc_engine::{Code, Engine, EngineError, ExplainReport, ExplainRequest};
 
 use crate::Outcome;
 use crate::project;
+use crate::stdout;
 
 /// The profiles and settings `explain`, `config explain` and `call` resolve with.
 #[derive(Args)]
@@ -73,7 +74,7 @@ fn is_code(target: &str) -> bool {
 fn code(target: &str) -> anyhow::Result<Outcome> {
     match target.parse::<Code>() {
         Ok(code) => {
-            write!(std::io::stdout().lock(), "{}", code.explain())?;
+            write!(stdout::out(), "{}", code.explain())?;
             Ok(Outcome::Done)
         }
         Err(error) => Ok(Outcome::Refused(error.to_string())),
@@ -96,6 +97,6 @@ fn explained(
     for notice in &report.notices {
         eprintln!("warning: {notice}");
     }
-    write!(std::io::stdout().lock(), "{}", report.text)?;
+    write!(stdout::out(), "{}", report.text)?;
     Ok(Outcome::Done)
 }

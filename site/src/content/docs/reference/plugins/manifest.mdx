@@ -105,7 +105,7 @@ reports:
 - `vc plugin add` checks the manifest's shape, but not that `entry.command` exists. A missing program shows up at run time:
 
   ```console
-  warning: cannot write the `ghost` report: plugin `ghost` could not start: cannot run `no-such-program`: No such file or directory (os error 2)
+  warning[V5118]: cannot write the `ghost` report: plugin `ghost` could not start: cannot run `no-such-program`: No such file or directory (os error 2)
   ```
 - When you change `permissions`, run `vc plugin add` again. Until then the run refuses the plugin, because it asks for more than `vibranium.lock` grants.
 

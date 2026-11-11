@@ -10,6 +10,7 @@ use vc_adapter_reporters::{
     Color, Format, FormatRegistry, FsDestination, HtmlLayout, PluginReporter, Recorder, ReporterContext,
     ReporterRegistry, RunFacts, RunSnapshot,
 };
+use vc_diagnostics::Code;
 use vc_interfaces::{Artifact, PluginKind, ReportError, Reporter, RunEnd, RunId, RunSummary};
 use vc_model::{Event, Feed, Keep, Plan, Program};
 
@@ -252,7 +253,7 @@ impl Reporters {
             match plugin.on_event(event).await {
                 Ok(()) => kept.push(plugin),
                 Err(error) => {
-                    self.problems.insert(format!("{error}; its report is not written"));
+                    self.problems.insert(format!("{}: {error}; its report is not written", Code::V5118));
                 }
             }
         }
@@ -308,7 +309,7 @@ async fn finish(plugins: Vec<PluginReporter>, run: &RunSummary) -> Rendered {
     for mut plugin in plugins {
         match plugin.finish(run).await {
             Ok(written) => artifacts.extend(written),
-            Err(error) => problems.push(error.to_string()),
+            Err(error) => problems.push(format!("{}: {error}", Code::V5118)),
         }
     }
     (artifacts, problems)

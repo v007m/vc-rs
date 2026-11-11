@@ -260,6 +260,8 @@ Seeds are unsigned 64-bit numbers, and JSON prints them as bare numbers, such as
 | 70 | Internal error |
 | 130 | Cancelled |
 
+A reader that stops early, as in `vc run --reporter json | head -1`, does not change the exit code: `vc` drops the output it can no longer write and ends as it would have.
+
 ## Related
 
 - [MCP tools](/vc-rs/agents/mcp-tools/): the same objects, returned as `structuredContent`.

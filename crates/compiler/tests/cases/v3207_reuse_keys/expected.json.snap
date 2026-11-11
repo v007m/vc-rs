@@ -1,0 +1,89 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3207_reuse_keys/project
+---
+{
+  "summary": {
+    "errors": 0,
+    "warnings": 2,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V3207",
+      "severity": "warning",
+      "message": "a `test:` action ignores `headers`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 8,
+          "column": 9,
+          "endLine": 8,
+          "endColumn": 16
+        },
+        "text": "has no effect"
+      },
+      "secondary": [],
+      "notes": [
+        "a `test:` action runs the reused test as written, with its own requests and checks (D270)"
+      ],
+      "help": [
+        "remove `headers`, or set it in the reused test"
+      ],
+      "fixes": [
+        {
+          "title": "Remove `headers`",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/crud.test.yaml",
+              "range": {
+                "start": 141,
+                "end": 173
+              },
+              "newText": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "V3207",
+      "severity": "warning",
+      "message": "a `test:` action ignores `expect`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 9,
+          "column": 9,
+          "endLine": 9,
+          "endColumn": 15
+        },
+        "text": "has no effect"
+      },
+      "secondary": [],
+      "notes": [
+        "a `test:` action runs the reused test as written, with its own requests and checks (D270)"
+      ],
+      "help": [
+        "remove `expect`, or set it in the reused test"
+      ],
+      "fixes": [
+        {
+          "title": "Remove `expect`",
+          "certain": true,
+          "edits": [
+            {
+              "path": "services/users/crud.test.yaml",
+              "range": {
+                "start": 173,
+                "end": 203
+              },
+              "newText": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

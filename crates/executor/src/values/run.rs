@@ -17,6 +17,9 @@ use crate::values::BodyFiles;
 /// The var definitions of one level, by name, with the active profiles applied.
 pub type Defined = HashMap<String, TemplateValue>;
 
+/// The rows each test's `examples: ${…}` template gave before the run, by test.
+pub type ExampleRows = HashMap<TestId, Vec<Value>>;
+
 /// What a run is given from outside the program: the active profiles, the `--set vars.*`
 /// values, the random source (seeded by `--seed`), the environment snapshot and the fake-data
 /// generators.
@@ -35,13 +38,16 @@ pub struct RunInputs {
     pub environment: Arc<dyn Environment>,
     /// What `${fake.…}` generates.
     pub fakes: FakeRegistry,
-    /// When the run started, in milliseconds since 1970; `date.past` and the other dates are
+    /// When the run started, in milliseconds since 1970: `${run.startedAt}`; `date.past` and the other dates are
     /// relative to it, so a seeded run repeats.
     pub started_ms: u64,
     /// What `${secret.X}` reads; every value is masked in all output.
     pub secrets: Secrets,
     /// `${run.id}`: the run's number in the history; 0 when the history is not kept.
     pub run_id: u64,
+    /// The rows each `examples: ${…}` template gave before the run; `example` binds them as they
+    /// are.
+    pub examples: Arc<ExampleRows>,
     /// The bytes of the `$file` request bodies, read before the run (D272).
     pub bodies: BodyFiles,
 }
@@ -51,11 +57,11 @@ impl RunInputs {
     #[must_use]
     pub fn new(random: Arc<dyn Random>, environment: Arc<dyn Environment>) -> Self {
         let (profiles, vars, fakes) = (Vec::new(), Defined::new(), FakeRegistry::builtin());
-        let (secrets, bodies) = (Secrets::new(), BodyFiles::default());
-        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets, run_id: 0, bodies }
+        let (secrets, examples, bodies) = (Secrets::new(), Arc::default(), BodyFiles::default());
+        Self { profiles, vars, random, environment, fakes, started_ms: 0, secrets, run_id: 0, examples, bodies }
     }
 
-    /// The same inputs with the run starting at `started_ms`, for the generated dates.
+    /// The same inputs with the run starting at `started_ms`, for `${run.startedAt}` and the generated dates.
     #[must_use]
     pub fn with_started_at(self, started_ms: u64) -> Self {
         Self { started_ms, ..self }
@@ -83,6 +89,12 @@ impl RunInputs {
     #[must_use]
     pub fn with_secrets(self, secrets: Secrets) -> Self {
         Self { secrets, ..self }
+    }
+
+    /// The same inputs with the rows the `examples: ${…}` templates gave.
+    #[must_use]
+    pub fn with_examples(self, examples: ExampleRows) -> Self {
+        Self { examples: Arc::new(examples), ..self }
     }
 
     /// The same inputs with the bytes of the `$file` bodies.

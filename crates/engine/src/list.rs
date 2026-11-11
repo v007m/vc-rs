@@ -1,9 +1,9 @@
 //! `vc list tests|apis|files`: the definitions, for people and scripts (D130).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
-use vc_model::{Api, FileKind, Program, SourceFileId, SourcePath, SourceSpan, Sym, Test, TestId};
+use vc_model::{Api, Examples, FileKind, Program, SourceFileId, SourcePath, SourceSpan, Sym, Test, TestId};
 use vc_planner::{PlanError, PlanOptions};
 
 use crate::list_detail::{self, ApiCall};
@@ -118,7 +118,8 @@ impl Engine {
     /// The selected tests, in project order, each once however many instances it has.
     fn tests(&self, program: &Program, request: &ListRequest) -> Result<Vec<Listed>, EngineError> {
         let selection = self.selection(&request.select)?;
-        let options = PlanOptions { today: Some(self.clock.today().to_string()), ..PlanOptions::default() };
+        let (today, example_rows) = (Some(self.clock.today().to_string()), unread_rows(program));
+        let options = PlanOptions { today, example_rows, ..PlanOptions::default() };
         let plan = vc_planner::plan(program, &selection, &options).map_err(|error| selection_error(&error))?;
         let skipped: BTreeSet<TestId> = plan.skipped.iter().map(|skipped| skipped.test).collect();
         let runs: BTreeSet<TestId> = plan.files.iter().flat_map(|file| &file.instances).map(|i| i.test).collect();
@@ -151,6 +152,13 @@ impl Engine {
         let file = |id: &SourceFileId| Some(listed(program, *id, program.files.get(*id)?.path.file_id()?));
         Ok(ids.iter().filter_map(file).collect())
     }
+}
+
+/// One row for each test whose rows come from a file or a template: a list says which tests run,
+/// not how many times, so their rows are not read.
+fn unread_rows(program: &Program) -> BTreeMap<TestId, u32> {
+    let unread = |test: &&Test| matches!(test.examples, Some(Examples::File(_) | Examples::Template(_)));
+    program.tests.values().filter(unread).map(|test| (test.id, 1)).collect()
 }
 
 fn selection_error(error: &PlanError) -> EngineError {

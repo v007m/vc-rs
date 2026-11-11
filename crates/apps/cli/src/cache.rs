@@ -8,6 +8,7 @@ use vc_engine::Engine;
 
 use crate::Outcome;
 use crate::project;
+use crate::stdout;
 
 /// `vc cache …`.
 #[derive(Args)]
@@ -50,7 +51,7 @@ pub fn run(args: &CacheArgs, project: Option<&Path>) -> anyhow::Result<Outcome> 
             Err(error) => return Ok(Outcome::Engine(error)),
         },
     };
-    write!(std::io::stdout().lock(), "{text}")?;
+    write!(stdout::out(), "{text}")?;
     Ok(Outcome::Done)
 }
 

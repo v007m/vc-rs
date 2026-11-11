@@ -100,7 +100,7 @@ tests:
       body:
         match:
           body.id: {type: string, length: 9}
-          body.items[*].price: {gt: 0}
+          body.total: {lt: 40}
 ```
 
 ```console
@@ -114,11 +114,11 @@ plan  2 tests in 1 file · profile default
      |
   23 |           body.id: {type: string, length: 9}
      |                    ^^^^^^^^^^^^^^^^^^^^^^^^^ expected {"length":9,"type":"string"}, got "ord_123"
-  error[V5101]: expect.body.match.body.items[*].price
-    --> services/sample/overview.test.yaml:24:32
+  error[V5101]: expect.body.match.body.total
+    --> services/sample/overview.test.yaml:24:23
      |
-  24 |           body.items[*].price: {gt: 0}
-     |                                ^^^^^^^ expected {"gt":0}, got [10,32.5]
+  24 |           body.total: {lt: 40}
+     |                       ^^^^^^^^ expected {"lt":40}, got 42.5
 
 1 passed · 1 failed                                          183ms · profile default
 ```
@@ -133,7 +133,11 @@ Every value in `expect` is either a literal or a matcher.
 A map counts as a matcher when at least one of its keys is a matcher name. Otherwise the whole map is a literal object.
 
 <Aside type="caution" title="Spell matcher names carefully">
-A misspelled name on its own, such as `{gtt: 40}`, is read as a literal object and fails at run time with `expected {"gtt":40}`. When it sits next to a real matcher, as in `{gt: 1, gtt: 2}`, `vc check` reports [V1004](/vc-rs/reference/diagnostics/v1004/) and suggests the right name.
+A map whose one key is close to a matcher name, such as `{startWith: A}`, `{lenght: 3}` or `{Length: 3}`, is most likely a misspelled matcher. It is still compared as a literal object, but `vc check` warns [V3208](/vc-rs/reference/diagnostics/v3208/) and suggests the right name. To compare with an object that really has such a key, put it under [eq](/vc-rs/reference/matchers/eq/): `{eq: {startWith: A}}`.
+
+Keys shorter than five characters are not read this way, because names like `id` and `note` are one letter away from `in` and `not`. So a short misspelling on its own, such as `{gtt: 40}`, is compared as a literal with no warning and fails at run time with `expected {"gtt":40}`. A misspelled name next to a real matcher, as in `{gt: 1, gtt: 2}`, is always [V1004](/vc-rs/reference/diagnostics/v1004/).
+
+A map at a [status](/vc-rs/reference/matchers/status/) is never a literal, so any key there that is not a matcher, such as `status: {oneOf: [200, 201]}`, is V1004, and an empty one, `status: {}`, is V2303.
 </Aside>
 
 ## Several matchers in one map
@@ -156,7 +160,7 @@ A `body.match` path starts at the root of the response body.
 | `body.items[0].sku` | The first element of a list, then a key |
 | `body.items[*].price` | One field from every element, collected into a list |
 
-A `[*]` path gives a list, so it takes a list matcher: [every](/vc-rs/reference/matchers/every/), [some](/vc-rs/reference/matchers/some/), [none](/vc-rs/reference/matchers/none/), [length](/vc-rs/reference/matchers/length/), [contains](/vc-rs/reference/matchers/contains/) or a literal list. A scalar matcher such as `{gt: 0}` on a `[*]` path compares the whole list and fails, as in the example above. Write `{every: {gt: 0}}` instead.
+A `[*]` path gives a list, so it takes a list matcher: [every](/vc-rs/reference/matchers/every/), [some](/vc-rs/reference/matchers/some/), [none](/vc-rs/reference/matchers/none/), [length](/vc-rs/reference/matchers/length/), [contains](/vc-rs/reference/matchers/contains/) or a literal list. A scalar matcher (`gt`, `gte`, `lt`, `lte`, `between`, `startsWith`, `endsWith`, `regex`, `format`) on a `[*]` path would compare the whole list, so `vc check` reports it as [V2306](/vc-rs/reference/diagnostics/v2306/), even inside `not`, `allOf` or `anyOf`. Write `{every: {gt: 0}}` instead.
 
 A path that is not in the body has no value. Most matchers fail on it and report `got nothing`. `ne`, `notIn` and `not` pass on it, and `exists: false` checks for it.
 
@@ -206,7 +210,8 @@ Edit the test below. The editor checks it against the real schema as you type.
 
 ## Common errors
 
-- [V1004](/vc-rs/reference/diagnostics/v1004/): an unknown key, such as a misspelled matcher next to a real one, or an unknown timing phase.
+- [V1004](/vc-rs/reference/diagnostics/v1004/): an unknown key, such as a misspelled matcher next to a real one (`{gt: 1, gtt: 2}`) or in a status map, or an unknown timing phase.
+- [V3208](/vc-rs/reference/diagnostics/v3208/): a warning for a lone key close to a matcher name (`{startWith: A}`), which is still compared as a literal.
 - [V2301](/vc-rs/reference/diagnostics/v2301/): a duration or size with no unit, such as `500` instead of `500ms`.
 - [V2303](/vc-rs/reference/diagnostics/v2303/): a status that is not a code from 100 to 599 or a class from `1xx` to `5xx`.
 - [V2306](/vc-rs/reference/diagnostics/v2306/): a matcher argument it does not accept, such as `{type: int}` or `{between: 5}`.

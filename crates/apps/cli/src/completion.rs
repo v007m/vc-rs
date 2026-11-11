@@ -13,6 +13,7 @@ use vc_engine::CompleteKind;
 
 use crate::Outcome;
 use crate::project;
+use crate::stdout;
 
 /// The shells `vc completion` writes a script for.
 #[derive(Clone, Copy, ValueEnum)]
@@ -117,7 +118,7 @@ pub fn run(args: &CompletionArgs) -> anyhow::Result<Outcome> {
             script.replacen(POWERSHELL_STATIC, "$global:VcStaticCompleter = {", 1) + POWERSHELL_HOOK
         }
     };
-    write!(std::io::stdout().lock(), "{script}")?;
+    write!(stdout::out(), "{script}")?;
     Ok(Outcome::Done)
 }
 
@@ -145,7 +146,7 @@ pub fn complete(args: &CompleteArgs, project: Option<&Path>) -> anyhow::Result<O
         return Ok(Outcome::Done);
     };
     let kind = KINDS.iter().find(|(name, _)| *name == args.command).map_or(CompleteKind::Tests, |(_, kind)| *kind);
-    let mut out = std::io::stdout().lock();
+    let mut out = stdout::out();
     for word in located.engine.complete(kind, &args.word) {
         writeln!(out, "{word}")?;
     }

@@ -4,7 +4,7 @@ description: Run another test's call or steps as one action, to reuse a multi-st
 sidebar: { order: 212, badge: { text: 'step', variant: 'note' } }
 ---
 
-import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 The `test:` action runs another test's call or steps in place, so one flow can be shared by many tests.
@@ -143,15 +143,13 @@ tests:
 
 ## How it behaves
 
-- The reused test's own steps run, with its own step defaults. Its test-level `expect` is applied to its steps, the same as when it runs on its own.
+- The reused test's own steps run, with its own step defaults. Its test-level `expect` is applied to its steps, the same as when it runs on its own. The calling test's step defaults do not reach them.
 - Values the reused test saves become vars of the caller. In `beforeAll` and `beforeRun` they are shared under the action's `id` instead.
 - Cleanups the reused test registers belong to the caller. As a step they run after the calling test; in `beforeAll` they run after the file's last test.
 - A test can be reused from any file. Reuse is checked at compile time: a cycle (a test that reuses itself, directly or through others) is an error.
 - `timeout` on a `test` action limits all its calls together, not each one.
 
-<Aside type="caution">
-The design says a reused test's own test-level `expect` is not checked. Today it is: a reused test with `expect: {status: 418}` fails the caller with `expected [418], got 201`. Put checks you want only on standalone runs in a separate test.
-</Aside>
+A reused test with `expect: {status: 418}` fails the caller with `expected [418], got 201`. Put checks you want only on standalone runs in a separate test.
 
 ## Common errors
 

@@ -163,6 +163,105 @@ fn a_close_id_is_offered_as_it_was_written() {
     assert_eq!(fixes(&text), ["readsUser", "users.crud#readsUser"]);
 }
 
+/// The help and the fixes' new text of the one V2003 that `call` raises with `apis`.
+fn hinted(apis: &str, call: &str) -> (Vec<String>, Vec<String>) {
+    let found = diagnostics(CONFIG, apis, &tests(&format!("  - id: callsIt\n    call: {call}\n")));
+    assert_eq!(found.iter().map(|found| found.code).collect::<Vec<_>>(), [Code::V2003], "{found:?}");
+    let fixes = found[0].fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.clone());
+    (found[0].help.clone(), fixes.collect())
+}
+
+/// Within the file a reference names, only the item IDs are compared, so the shared file ID
+/// does not make `echo` look like a typo of `nah`. A whole-ID match into another file than the
+/// one named is only offered.
+#[test]
+fn a_close_api_is_a_certain_fix_only_when_its_own_id_is_close() {
+    let people = concat!(
+        "baseUrl: ${var.baseUrl}\napis:\n",
+        "  - id: listPeople\n    path: /people\n  - id: createPerson\n    method: POST\n    path: /people\n",
+        "  - id: getPerson\n    path: /people/1\n  - id: echo\n    method: POST\n    path: /echo\n",
+    );
+    let (help, fixes) = hinted(people, "users#nah");
+    assert_eq!(fixes, [] as [String; 0]);
+    assert_eq!(help, ["check the file ID and the item's `id`; another file's item is `fileId#id`"]);
+    assert_eq!(hinted(people, "users#getPersn").1, ["users#getPerson"]);
+    assert_eq!(hinted(people, "usres#getPerson").1, ["users#getPerson"]);
+    let (help, fixes) = hinted(APIS, "users#gut");
+    assert_eq!(fixes, [] as [String; 0]);
+    assert_eq!(help, ["did you mean one of `users#get`, `users#put`?"]);
+    let (help, fixes) = hinted(APIS, "usersxyz#make");
+    assert_eq!(
+        (help, fixes),
+        (vec!["did you mean `users#make`?".to_owned()], Vec::new()),
+        "a named file is not swapped"
+    );
+}
+
+/// With a second api file, a reference into a file that exists compares that file's items, not
+/// the other file's.
+#[test]
+fn a_named_file_is_searched_even_beside_another_api_file() {
+    let orders =
+        file("services/orders/orders.api.yaml", "baseUrl: ${var.baseUrl}\napis:\n  - id: place\n    path: /o\n");
+    let calls = tests("  - id: callsIt\n    call: users#gte\n");
+    let files = vec![
+        file("vibranium.config.yaml", CONFIG),
+        file("services/users/users.api.yaml", APIS),
+        orders,
+        file("services/users/crud.test.yaml", &calls),
+    ];
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
+    let found: Vec<_> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2003).collect();
+    let [unknown] = found.as_slice() else { panic!("one V2003, not {found:?}") };
+    let replacements: Vec<&str> =
+        unknown.fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.as_str()).collect();
+    assert_eq!(replacements, ["users#get"], "{:?}", unknown.help);
+}
+
+/// A V2003's help, and its fixes' new text.
+type HelpAndFixes = (Vec<String>, Vec<String>);
+
+/// Each V2003's help and fixes' new text, in line order, for a project of the users api and
+/// `tests` (the file, then its text).
+fn unknown_refs(tests: &[(&str, &str)]) -> Vec<HelpAndFixes> {
+    let mut files = vec![file("vibranium.config.yaml", CONFIG), file("services/users/users.api.yaml", APIS)];
+    files.extend(tests.iter().map(|(path, text)| file(path, text)));
+    let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
+    let mut found: Vec<&Diagnostic> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2003).collect();
+    found.sort_by_key(|found| found.primary.span.start.line);
+    let replacements = |found: &Diagnostic| -> Vec<String> {
+        found.fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.clone()).collect()
+    };
+    found.iter().map(|found| (found.help.clone(), replacements(found))).collect()
+}
+
+/// A named file is found across the whole project, not only beside the reference: in
+/// `users.crud`, `users.admin#getsUser` means `users.admin#getsUsers`, not `users.crud#getsUser`.
+/// When the named file has nothing close, the items of every file are compared, same-file ones
+/// first; those are only offered, never a certain fix, since they change which item is called.
+#[test]
+fn a_named_file_is_searched_first_and_then_every_files_items() {
+    let crud = tests(concat!(
+        "  - id: getsUser\n    call: users#get\n  - id: removesUser\n    call: users#get\n",
+        "  - id: chainsThem\n    steps:\n      - test: users.admin#getsUser\n",
+        "      - test: users.crud#deletesUser\n      - test: users.admin#removesUsr\n",
+    ));
+    let admin = tests("  - id: getsUsers\n    call: users#get\n  - id: deletesUser\n    call: users#get\n");
+    let audit = tests("  - id: removesUser\n    call: users#get\n");
+    let found = unknown_refs(&[
+        ("services/users/crud.test.yaml", &crud),
+        ("services/users/admin.test.yaml", &admin),
+        ("services/users/audit.test.yaml", &audit),
+    ]);
+    let none: Vec<String> = Vec::new();
+    let expected = [
+        (vec!["did you mean `users.admin#getsUsers`?".to_owned()], vec!["users.admin#getsUsers".to_owned()]),
+        (vec!["did you mean `users.admin#deletesUser`?".to_owned()], none.clone()),
+        (vec!["did you mean one of `users.crud#removesUser`, `users.audit#removesUser`?".to_owned()], none),
+    ];
+    assert_eq!(found, expected);
+}
+
 #[test]
 fn references_into_a_file_that_could_not_be_read_are_not_reported() {
     let broken = format!("{APIS}    colour: red\n");

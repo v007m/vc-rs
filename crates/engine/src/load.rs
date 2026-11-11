@@ -14,9 +14,7 @@ use crate::load_report::{self, LoadBreach, LoadEnding};
 use crate::notify::{self, Alerting};
 use crate::plan::{Extra, Prepared};
 use crate::run::executor_error;
-use crate::{
-    Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history, ports,
-};
+use crate::{Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history};
 
 /// The kind a test run is stored and alerted as.
 pub const RUN_KIND: &str = "run";
@@ -90,7 +88,7 @@ impl Engine {
         let select = SelectRequest { ids, ..SelectRequest::default() };
         let plan = PlanRequest { select, profiles: request.profiles.clone(), sets: request.sets.clone(), repeat: None };
         let prepared = self.prepare(&plan, Extra::default())?;
-        let (seed, random) = ports::random(None);
+        let (seed, random) = (prepared.draw.seed, Arc::clone(&prepared.draw.random));
         let report = LoadReport { scenario: request.scenario.clone(), seed, ..LoadReport::default() };
         let (root, started_ms) = (CancelTree::new(RunOptions::default().grace), self.clock.now_ms());
         Ok(Session { prepared, scenario, seed, random, root, started_ms, report, alerting: None })
