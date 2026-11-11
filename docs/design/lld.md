@@ -1377,7 +1377,7 @@ Codes are stable once released: a code is never reused for a different problem, 
 | V1012 | error | File cannot be read: permissions, not UTF-8, a link outside the project root, or a name that is not a valid path (D154) | — |
 | V2001 | error | Duplicate ID | — |
 | V2002 | error | Unknown auth, profile, dataset or generator | close match |
-| V2003 | error | Unknown api or test | close match; after a file move, the moved file's new ID (D139) |
+| V2003 | error | Unknown api or test | one close match in the named file, or by whole ID for a bare ID; a moved file's new ID (D139) |
 | V2004 | error | `$file` or snapshot reference not found | close path |
 | V2005 | error | Hook export not found | close export |
 | V2006 | error | Reserved ID (D137), or a generator ID that is a Faker module (`person`; D174) | — |

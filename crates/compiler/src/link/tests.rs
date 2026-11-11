@@ -225,8 +225,10 @@ fn unknown_refs(tests: &[(&str, &str)]) -> Vec<(Vec<String>, Vec<String>)> {
     let compiled = crate::compile(CompileInput { files, ..CompileInput::default() });
     let mut found: Vec<&Diagnostic> = compiled.diagnostics.iter().filter(|found| found.code == Code::V2003).collect();
     found.sort_by_key(|found| found.primary.span.start.line);
-    let fixes = |found: &Diagnostic| found.fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.clone());
-    found.iter().map(|found| (found.help.clone(), fixes(found).collect())).collect()
+    let fixes = |found: &Diagnostic| -> Vec<String> {
+        found.fixes.iter().flat_map(|fix| &fix.edits).map(|edit| edit.new_text.clone()).collect()
+    };
+    found.iter().map(|found| (found.help.clone(), fixes(found))).collect()
 }
 
 /// A named file is found across the whole project, not only beside the reference: in
