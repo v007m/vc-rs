@@ -152,7 +152,7 @@ mod tests {
 
     use serde_json::json;
 
-    use super::{Accounts, config};
+    use super::{Accounts, auth, config};
     use crate::v1::source::Source;
     use crate::v1::template::Templates;
 
@@ -192,6 +192,24 @@ mod tests {
         );
         assert!(!doc.to_string().contains("hunter2") && !doc.to_string().contains("s3cret"));
         assert!(templates.notes.iter().any(|note| note.at == "legacy" && note.message.contains("saml")));
+    }
+
+    #[test]
+    fn an_account_s_secrets_are_named_in_upper_snake_case_one_word_per_acronym() {
+        let names = [
+            ("shopAdmin", "SHOP_ADMIN"),
+            ("shop_admin", "SHOP_ADMIN"),
+            ("shop__admin", "SHOP_ADMIN"),
+            ("_legacy", "LEGACY"),
+            ("QA", "QA"),
+            ("APIKey", "API_KEY"),
+        ];
+        for (name, expected) in names {
+            let config = json!({"accounts": {name: {"method": "basic"}}});
+            let mut templates = Templates::new(None);
+            let (_, secrets) = auth(&config, &mut templates);
+            assert_eq!(secrets, [format!("{expected}_USERNAME"), format!("{expected}_PASSWORD")], "{name}");
+        }
     }
 
     #[test]

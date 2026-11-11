@@ -21,16 +21,10 @@ const OTHER: &str = "other-fixture-5e21";
 
 /// The project with `environment`, and how many requests it sent.
 fn project(environment: &[(&str, &str)]) -> (Engine, Arc<AtomicUsize>) {
-    project_with(SCHEMA.1, environment)
-}
-
-/// The project with `schema` as its `.env.schema` and `environment`, and how many requests it
-/// sent.
-fn project_with(schema: &[u8], environment: &[(&str, &str)]) -> (Engine, Arc<AtomicUsize>) {
     let sent = Arc::new(AtomicUsize::new(0));
     let counted = Arc::clone(&sent);
     let engine = builder(FakeVcs::default())
-        .sources(Arc::new(MemorySources::new(&[CONFIG, USERS, CRUD, (SCHEMA.0, schema)])))
+        .sources(Arc::new(MemorySources::new(&[CONFIG, USERS, CRUD, SCHEMA])))
         .environment(Arc::new(MemoryEnvironment::new(environment)))
         .transport(Arc::new(FakeTransport::new(move |_, _| {
             counted.fetch_add(1, Ordering::SeqCst);
@@ -68,16 +62,4 @@ async fn a_run_with_every_declared_secret_set_sends_its_requests() {
     let (engine, sent) = project(&[("API_TOKEN", "tok-fixture-71"), ("OTHER_KEY", OTHER)]);
     let report = engine.run(&RunRequest::default(), interrupts().1).await.unwrap();
     assert_eq!((report.exit, sent.load(Ordering::SeqCst)), (0, 1));
-}
-
-#[tokio::test]
-async fn a_declared_default_counts_as_a_value_and_is_sent_when_the_environment_has_none() {
-    let schema = b"# @required\nAPI_TOKEN=tok-default-9a # a fixture\nOTHER_KEY=\n";
-    let (engine, sent) = project_with(schema, &[("OTHER_KEY", OTHER)]);
-    let report = engine.run(&RunRequest::default(), interrupts().1).await.unwrap();
-    assert_eq!((report.exit, sent.load(Ordering::SeqCst)), (0, 1));
-    let (engine, sent) = project_with(schema, &[]);
-    let shown = refusal(&engine.run(&RunRequest::default(), interrupts().1).await.unwrap_err());
-    assert!(shown.starts_with("secrets: V5114: the declared secret `OTHER_KEY` has no value"), "{shown}");
-    assert_eq!(sent.load(Ordering::SeqCst), 0);
 }
