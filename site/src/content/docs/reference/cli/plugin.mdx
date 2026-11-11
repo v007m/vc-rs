@@ -99,6 +99,19 @@ The columns are the ID, kind, version, source, state, and what it may reach. The
 | `not approved` | `vc plugin add` it |
 | `asks for more: …` | `vc plugin add` it again |
 | `not in the config` | `vc plugin remove` it |
+| `V5118: its installed files changed since vibranium.lock approved them; …` | `vc plugin add` it again, if the change was intended |
+| ``its entry program `…` cannot be found: …`` | install the program, or fix `entry.command` in its `vibranium-plugin.yaml` |
+
+`vc plugin add` checks the entry program too. When it cannot find it, in the plugin's folder or on `PATH`, it still installs the plugin, with a warning:
+
+```console
+$ vc plugin add path:plugins/summary --yes
+summary 1.0.0 · reporter plugin from path:plugins/summary (plugins/summary)
+  runs: python3.13 report.py
+  asks to reach: secret reportToken
+  warning: its entry program `python3.13` cannot be found: install it, or fix `entry.command` in its vibranium-plugin.yaml
+✓ added plugin summary from path:plugins/summary
+```
 
 With none, it prints ``no plugins; `vc plugin add <source>` adds one``.
 

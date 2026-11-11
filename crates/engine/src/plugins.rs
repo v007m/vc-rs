@@ -5,7 +5,11 @@
 
 use std::fmt;
 
-use vc_interfaces::{Fetched, LOCK_FILE, MANIFEST_FILE, PluginManifest, PluginPermissions, PluginStoreError};
+use vc_adapter_plugins::entry_found;
+use vc_diagnostics::Code;
+use vc_interfaces::{
+    Fetched, LOCK_FILE, MANIFEST_FILE, PLUGINS_DIR, PluginManifest, PluginPermissions, PluginStoreError,
+};
 use vc_model::FileKind;
 use vc_parser::{Node, write_text};
 
@@ -32,6 +36,8 @@ pub struct PluginOffer {
     pub resolved: String,
     /// A hash of what was fetched.
     pub integrity: String,
+    /// What a run will trip over unless it is fixed: its entry program cannot be found.
+    pub warnings: Vec<String>,
     fetched: Fetched,
 }
 
@@ -65,10 +71,15 @@ pub enum PluginState {
     AsksForMore(Vec<String>),
     /// In `vibranium.lock` but not in the config.
     NotInConfig,
+    /// Its installed files no longer hash to what `vibranium.lock` approved (V5118): a run
+    /// refuses to start it.
+    Changed,
+    /// The program its `entry.command` names cannot be found: a run cannot start it.
+    NoEntry(String),
 }
 
 impl fmt::Display for PluginState {
-    /// `ready`, or what is wrong and the `vc plugin` command that fixes it.
+    /// `ready`, or what is wrong and how to fix it.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Ready => f.write_str("ready"),
@@ -76,8 +87,19 @@ impl fmt::Display for PluginState {
             Self::NotApproved => f.write_str("not approved: `vc plugin add` it"),
             Self::AsksForMore(more) => write!(f, "asks for more: {}; `vc plugin add` it again", more.join(", ")),
             Self::NotInConfig => f.write_str("not in the config: `vc plugin remove` it"),
+            Self::Changed => write!(
+                f,
+                "{}: its installed files changed since {LOCK_FILE} approved them; `vc plugin add` it again",
+                Code::V5118
+            ),
+            Self::NoEntry(command) => write!(f, "{}", no_entry(command)),
         }
     }
+}
+
+/// Why a run cannot start a plugin whose entry program `command` cannot be found.
+fn no_entry(command: &str) -> String {
+    format!("its entry program `{command}` cannot be found: install it, or fix `entry.command` in its {MANIFEST_FILE}")
 }
 
 impl Engine {
@@ -100,6 +122,7 @@ impl Engine {
         match plugin_manifest::manifest(&fetched.manifest) {
             Ok(manifest) => Ok(PluginOffer {
                 source: source.to_owned(),
+                warnings: warnings(&manifest, &fetched),
                 manifest,
                 resolved: fetched.resolved.clone(),
                 integrity: fetched.integrity.clone(),
@@ -164,7 +187,28 @@ impl Engine {
         ids.extend(known.1.iter().map(|plugin| plugin.id.as_str()));
         ids.sort_unstable();
         ids.dedup();
-        ids.into_iter().map(|id| Ok(listing(id, self.installed(id)?, &known))).collect()
+        ids.into_iter().map(|id| self.checked(listing(id, self.installed(id)?, &known), &known.1)).collect()
+    }
+
+    /// `listing`, with the state a run finds when it starts a ready plugin.
+    fn checked(&self, mut listing: PluginListing, locked: &[Locked]) -> Result<PluginListing, EngineError> {
+        if let Some(state) = self.unusable(&listing, locked)? {
+            listing.state = state;
+        }
+        Ok(listing)
+    }
+
+    /// Why a run cannot start the ready plugin `listing` after all: its installed files changed
+    /// since `locked` approved them (V5118), or its entry program cannot be found.
+    fn unusable(&self, listing: &PluginListing, locked: &[Locked]) -> Result<Option<PluginState>, EngineError> {
+        let (PluginState::Ready, Some(manifest)) = (&listing.state, &listing.manifest) else { return Ok(None) };
+        let Some(lock) = locked.iter().find(|plugin| plugin.id == listing.id) else { return Ok(None) };
+        let unchanged = crate::plugin_intact::unchanged(self.plugins.as_ref(), &listing.id, &lock.integrity);
+        if !unchanged.map_err(|error| store_error(&error))? {
+            return Ok(Some(PluginState::Changed));
+        }
+        let dir = self.root().join(PLUGINS_DIR).join(&listing.id);
+        Ok((!entry_found(manifest, &dir)).then(|| PluginState::NoEntry(manifest.command.clone())))
     }
 
     /// The installed manifest of `id`; none when it is not installed or does not parse.
@@ -271,6 +315,11 @@ fn listing(id: &str, manifest: Option<PluginManifest>, (configured, locked): &Kn
         granted: lock.map(|plugin| plugin.permissions.clone()).unwrap_or_default(),
         manifest,
     }
+}
+
+/// What a run will trip over in a fetched plugin: an entry program that cannot be found.
+fn warnings(manifest: &PluginManifest, fetched: &Fetched) -> Vec<String> {
+    if entry_found(manifest, &fetched.staged) { Vec::new() } else { vec![no_entry(&manifest.command)] }
 }
 
 /// What removing the plugin `item` takes out of the config: the item, or the whole `plugins:`

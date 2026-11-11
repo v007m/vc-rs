@@ -167,3 +167,25 @@ async fn a_plugin_hears_shutdown_then_its_stdin_close_before_vc_exits() {
     let last: Vec<&str> = heard.lines().rev().take(3).collect();
     assert_eq!(last, ["EOF", "shutdown", "reporter/finish"], "{heard}");
 }
+
+/// `vc plugin add` warns that a plugin's entry program cannot be found, and `vc plugin list`
+/// shows it, and a plugin whose installed files changed since the lock (V5118), as not usable.
+#[test]
+fn the_list_shows_a_plugin_whose_files_changed_or_whose_entry_program_is_missing_as_not_usable() {
+    let missing = MANIFEST.replace("command: python3", "command: vibranium-no-such-program");
+    let project =
+        Project::new(&[CONFIG, ("plugin/vibranium-plugin.yaml", &missing), ("plugin/report.py", "print()\n")]);
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    let entry = "its entry program `vibranium-no-such-program` cannot be found: install it, or fix \
+                 `entry.command` in its vibranium-plugin.yaml";
+    assert!(said(&added).contains(&format!("  warning: {entry}\n")), "{}", said(&added));
+    let listed = project.vc(&["plugin", "list"]).output().unwrap();
+    let row = format!("report  reporter 1.0.0  path:plugin  {entry}  may reach: secret reportToken\n");
+    assert_eq!(String::from_utf8_lossy(&listed.stdout), row);
+    project.write(".vibranium/plugins/report/report.py", "print('changed')\n");
+    let listed = project.vc(&["plugin", "list"]).output().unwrap();
+    let row = "report  reporter 1.0.0  path:plugin  V5118: its installed files changed since vibranium.lock \
+               approved them; `vc plugin add` it again  may reach: secret reportToken\n";
+    assert_eq!(String::from_utf8_lossy(&listed.stdout), row);
+}

@@ -19,6 +19,7 @@ mod confine_linux;
 #[cfg(target_os = "macos")]
 mod confine_macos;
 mod folder;
+mod found;
 mod framing;
 mod host;
 mod npm;
@@ -29,6 +30,7 @@ mod stderr_log;
 mod store;
 
 pub use confine::{Confiner, LAUNCHER_ARG, launch};
+pub use found::entry_found;
 pub use host::{DATA_ENV, PROTOCOL_VERSION, StdioPluginHost};
 pub use stderr_log::{LOG_LIMIT, STDERR_LOG};
 pub use store::FsPluginStore;

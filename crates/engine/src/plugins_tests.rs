@@ -167,6 +167,29 @@ fn the_list_says_why_a_run_cannot_use_a_plugin() {
 }
 
 #[test]
+fn the_list_says_a_plugin_changed_since_the_lock_or_without_its_entry_program_is_not_usable() {
+    let (dir, engine) = project();
+    added(&engine, "path:plugin");
+    fs::write(dir.path().join(".vibranium/plugins/report/report.py"), "print('changed')\n").unwrap();
+    let state = engine.plugin_list().unwrap().remove(0).state;
+    assert_eq!(state, PluginState::Changed);
+    assert_eq!(
+        state.to_string(),
+        "V5118: its installed files changed since vibranium.lock approved them; `vc plugin add` it again"
+    );
+    let missing = MANIFEST.replace("command: python3", "command: vibranium-no-such-program");
+    fs::write(dir.path().join("plugin/vibranium-plugin.yaml"), missing).unwrap();
+    let offer = engine.plugin_fetch("path:plugin").unwrap();
+    let warning = "its entry program `vibranium-no-such-program` cannot be found: install it, or fix \
+                   `entry.command` in its vibranium-plugin.yaml";
+    assert_eq!(offer.warnings, [warning]);
+    engine.write(&engine.plugin_approve(&offer).unwrap()).unwrap();
+    let state = engine.plugin_list().unwrap().remove(0).state;
+    assert_eq!(state, PluginState::NoEntry("vibranium-no-such-program".to_owned()));
+    assert_eq!(state.to_string(), warning);
+}
+
+#[test]
 fn a_removed_plugin_leaves_the_config_the_lock_and_its_folder() {
     let (dir, engine) = project();
     added(&engine, "path:plugin");

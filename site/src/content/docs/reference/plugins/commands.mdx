@@ -64,6 +64,14 @@ $ vc plugin list
 summary  reporter 1.0.0  path:plugins/summary  asks for more: secret reportToken; `vc plugin add` it again  may reach: nothing
 ```
 
+**Spot a plugin a run cannot start.** Its installed files changed since the lock approved them, or its entry program is not installed.
+
+```console
+$ vc plugin list
+stamp  auth 0.1.0  path:plugins/stamp  V5118: its installed files changed since vibranium.lock approved them; `vc plugin add` it again  may reach: secret stampKey
+summary  reporter 1.0.0  path:plugins/summary  its entry program `python3.13` cannot be found: install it, or fix `entry.command` in its vibranium-plugin.yaml  may reach: secret reportToken
+```
+
 **Remove a plugin.** `vc` refuses when the config still uses it, and writes nothing.
 
 ```console
