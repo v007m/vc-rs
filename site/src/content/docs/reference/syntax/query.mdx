@@ -204,7 +204,8 @@ tests:
 
 A literal `null` value fails `vc check`, because a query value must be a template or a scalar. Put the `null` in a var instead, as above:
 
-```yaml title="services/m/m.api.yaml"
+```yaml wrong title="services/m/m.api.yaml"
+apis:
   - id: nq
     path: /echo
     query:
@@ -213,10 +214,10 @@ A literal `null` value fails `vc check`, because a query value must be a templat
 
 ```console
 error[V2302]: expected template, found null
-  --> services/m/m.api.yaml:12:13
-   |
-12 |       gone: null
-   |             ^^^^ expected template
+ --> services/m/m.api.yaml:5:13
+  |
+5 |       gone: null
+  |             ^^^^ expected template
 ```
 
 A var no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/). See also [V2302](/vc-rs/reference/diagnostics/v2302/).

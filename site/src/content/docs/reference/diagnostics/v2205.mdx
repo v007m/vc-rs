@@ -22,13 +22,13 @@ never end. The diagnostic shows the whole chain; break it by removing one `test:
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong title="services/users/crud.test.yaml"
 tests:
   - id: signsUp
     steps:

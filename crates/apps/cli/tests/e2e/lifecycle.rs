@@ -139,21 +139,21 @@ fn after_blocks(orders: u8, status: u16) -> String {
 
 /// `afterEach` runs after every test, a failed one too; `afterAll` runs once, after the last
 /// test and before the file's cleanups, so it still sees the order `beforeAll` made, and a
-/// failed `expect` in it is reported. The exit code counts tests only (cli-workflow's table),
-/// so it is not asserted for that case.
+/// failed `expect` in it is reported. The exit code counts tests only (cli-workflow's table), so
+/// a failed `afterAll` exits 0 today; whether it should exit 1 is a question still open for
+/// Sarath, and this pins the current value until he answers.
 #[tokio::test(flavor = "multi_thread")]
 async fn after_each_follows_every_test_and_after_all_runs_once_before_the_file_cleanups() {
-    for (orders, status, exit) in [(1, 200, Some(0)), (0, 200, None), (1, 500, Some(1))] {
+    for (orders, status, exit) in [(1, 200, 0), (0, 200, 0), (1, 500, 1)] {
         let server = MockServer::start().await.unwrap();
         let file = after_blocks(orders, status);
         let files = [CONFIG, USERS, ORDERS, crate::SCRIPTED, ("services/scripted/after.test.yaml", &file)];
         let output = Project::new(&files).run(&server.base_url(), &[]).output().unwrap();
         let case = format!("orders {orders}, status {status}");
         let said = crate::said(&output);
-        match exit {
-            Some(exit) => assert_eq!(output.status.code(), Some(exit), "{case}: {said}"),
-            None => assert!(said.contains("V5102") && said.contains("cel.seeded"), "{case}: {said}"),
-        }
+        assert_eq!(output.status.code(), Some(exit), "{case}: {said}");
+        let reported = said.contains("V5102") && said.contains("cel.seeded");
+        assert_eq!(reported, orders == 0, "{case}: a failed afterAll is reported: {said}");
         let stats = server.stats().await.unwrap();
         assert_eq!(stats.count("GET /users"), 3, "{case}: afterEach after each test: {stats:?}");
         let orders = (stats.count("GET /orders"), stats.count("DELETE /orders/{id}"));
