@@ -142,8 +142,10 @@ fn a_bad_source_or_manifest_is_refused_with_why() {
         "the vibranium-plugin.yaml of `path:plugin`: its kind `pager` is none of reporter, auth, importer, executor"
     );
     assert!(fs::read_dir(dir.path().join(".vibranium/plugins/.staged")).unwrap().next().is_none());
-    let (reason, _) = refusal(&engine.plugin_fetch("path:nowhere").unwrap_err());
+    let (reason, help) = refusal(&engine.plugin_fetch("path:nowhere").unwrap_err());
     assert!(reason.starts_with("cannot fetch `path:nowhere`: "), "{reason}");
+    let folder = "check the folder: a `path:` source is a folder, from the project root, holding vibranium-plugin.yaml";
+    assert_eq!(help.as_deref(), Some(folder));
 }
 
 #[test]

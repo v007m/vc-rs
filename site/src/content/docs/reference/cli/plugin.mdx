@@ -137,7 +137,10 @@ error: `nope:x` is not a plugin source
   = help: a plugin source is `npm:<package>[@<range>]` or `path:<folder>`
 $ vc plugin add path:nope --yes
 error: cannot fetch `path:nope`: /home/ada/shop/nope: No such file or directory (os error 2)
-  = help: check the source; an `npm:` source needs `npm` on the path
+  = help: check the folder: a `path:` source is a folder, from the project root, holding vibranium-plugin.yaml
+$ vc plugin add npm:@acme/nothing --yes
+error: cannot fetch `npm:@acme/nothing`: `npm` failed: E404: 404 Not Found - GET https://registry.npmjs.org/@acme%2fnothing - Not found
+  = help: check the package name and range, and that `npm` is on the path and can reach its registry
 $ vc plugin add path:plugins/bad --yes
 error: the vibranium-plugin.yaml of `path:plugins/bad`: its id `Bad-Name` is not a camelCase word, such as `badName`
   = help: a plugin's vibranium-plugin.yaml has id, version, kind, entry.command and permissions

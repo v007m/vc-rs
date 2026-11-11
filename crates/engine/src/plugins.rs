@@ -21,8 +21,11 @@ use crate::plugin_lock::{self, Locked};
 use crate::plugin_manifest;
 use crate::{Engine, EngineError};
 
-/// The sources `vc plugin add` takes.
-const SCHEMES: [&str; 2] = ["npm:", "path:"];
+/// The sources `vc plugin add` takes, each with the help for one it cannot fetch.
+const SCHEMES: [(&str, &str); 2] = [
+    ("npm:", "check the package name and range, and that `npm` is on the path and can reach its registry"),
+    ("path:", "check the folder: a `path:` source is a folder, from the project root, holding vibranium-plugin.yaml"),
+];
 
 /// A plugin `vc plugin add` fetched, waiting for what it asks to reach to be approved.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -112,13 +115,11 @@ impl Engine {
     /// [`EngineError::Edit`] for another kind of source, one that cannot be fetched, or a
     /// manifest that is missing or wrong; nothing is left behind.
     pub fn plugin_fetch(&self, source: &str) -> Result<PluginOffer, EngineError> {
-        if !SCHEMES.iter().any(|scheme| source.starts_with(scheme)) {
+        let Some((_, help)) = SCHEMES.iter().find(|(scheme, _)| source.starts_with(scheme)) else {
             let help = "a plugin source is `npm:<package>[@<range>]` or `path:<folder>`";
             return Err(refused(format!("`{source}` is not a plugin source"), help));
-        }
-        let fetched = self.plugins.fetch(source).map_err(|error| {
-            refused(error.to_string(), "check the source; an `npm:` source needs `npm` on the path")
-        })?;
+        };
+        let fetched = self.plugins.fetch(source).map_err(|error| refused(error.to_string(), help))?;
         match plugin_manifest::manifest(&fetched.manifest) {
             Ok(manifest) => Ok(PluginOffer {
                 source: source.to_owned(),

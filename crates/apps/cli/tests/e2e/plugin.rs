@@ -211,3 +211,42 @@ async fn a_reporter_plugin_asking_for_more_than_the_lock_grants_gets_one_run_not
                   not written";
     assert!(said.contains(notice), "{said}");
 }
+
+/// An `npm` that fails as npm 10 does for a package the registry does not have: its code, the
+/// reason, and last the pointer to its log.
+#[cfg(unix)]
+const NPM_E404: &str = concat!(
+    "#!/bin/sh\n",
+    "echo 'npm error code E404' >&2\n",
+    "echo 'npm error 404 Not Found - GET https://registry.npmjs.org/@acme%2fnothing - Not found' >&2\n",
+    "echo 'npm error 404' >&2\n",
+    "echo \"npm error 404  '@acme/nothing@*' is not in this registry.\" >&2\n",
+    "echo 'npm error A complete log of this run can be found in: /home/a/.npm/_logs/debug-0.log' >&2\n",
+    "exit 1\n",
+);
+
+/// `vc plugin add` says why npm could not fetch a package, not where npm logged it, and a
+/// `path:` source it cannot fetch gets help about the folder.
+#[cfg(unix)]
+#[test]
+fn a_source_that_cannot_be_fetched_says_npm_s_reason_or_points_at_the_folder() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let project = Project::new(&[CONFIG, ("bin/npm", NPM_E404)]);
+    let npm = project.path().join("bin/npm");
+    fs::set_permissions(&npm, fs::Permissions::from_mode(0o755)).unwrap();
+    let path = std::env::join_paths(
+        std::iter::once(project.path().join("bin")).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+    )
+    .unwrap();
+    let fetched = project.vc(&["plugin", "add", "npm:@acme/nothing", "--yes"]).env("PATH", path).output().unwrap();
+    assert_eq!(fetched.status.code(), Some(2), "{}", said(&fetched));
+    let reason = "error: cannot fetch `npm:@acme/nothing`: `npm` failed: E404: 404 Not Found - GET \
+                  https://registry.npmjs.org/@acme%2fnothing - Not found\n  = help: check the package name and \
+                  range, and that `npm` is on the path and can reach its registry\n";
+    assert!(said(&fetched).contains(reason), "{}", said(&fetched));
+    let folder = project.vc(&["plugin", "add", "path:nope", "--yes"]).output().unwrap();
+    assert_eq!(folder.status.code(), Some(2), "{}", said(&folder));
+    let help = "  = help: check the folder: a `path:` source is a folder, from the project root, holding \
+                vibranium-plugin.yaml\n";
+    assert!(said(&folder).contains(help), "{}", said(&folder));
+}

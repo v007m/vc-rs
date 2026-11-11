@@ -122,7 +122,7 @@ reports:
 | --- | --- |
 | `cannot ask for approval: stdin is not a terminal` | Pass `--yes` |
 | `cannot fetch ...: No such file or directory` | Check the `path:` folder, relative to the project root |
-| `cannot fetch ...: npm failed` | Check the package name and that `npm` works; the full log is in `~/.npm/_logs/` |
+| ``cannot fetch ...: `npm` failed: E404: …`` | npm's error code and its first line that says why. Check the package name and range, and that `npm` can reach its registry; the full log is in `~/.npm/_logs/` |
 | [V2302](/vc-rs/reference/diagnostics/v2302/) | `vc plugin remove` would leave the config naming a missing plugin |
 | [V5118](/vc-rs/reference/diagnostics/v5118/) | At run time: re-run `vc plugin add` when the plugin's files or permissions changed |
 
