@@ -139,7 +139,8 @@ function parsed(json: string): Readonly<Record<string, unknown>> {
   return typeof node === 'object' && node !== null && !Array.isArray(node) ? { ...node } : {};
 }
 
-function fileChange(file: GenFileChange): FileChange {
+/** A file change as the engine sends it, `before` empty for a new file. */
+export function fileChange(file: GenFileChange): FileChange {
   const { path, before = '', after, movedFrom } = file;
   return movedFrom === undefined ? { path, before, after } : { path, before, after, movedFrom };
 }

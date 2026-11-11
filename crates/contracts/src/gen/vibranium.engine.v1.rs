@@ -885,6 +885,44 @@ pub struct ImportResponse {
     pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SkipRequest {
+    /// A test (`users.crud#listsUsers`) or a test file (`users.crud`).
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Why, for the report; never blank.
+    #[prost(string, tag="2")]
+    pub reason: ::prost::alloc::string::String,
+    /// The last day of the skip, `YYYY-MM-DD`; no end date when absent.
+    #[prost(string, optional, tag="3")]
+    pub until: ::core::option::Option<::prost::alloc::string::String>,
+    /// Write the file; a preview when false.
+    #[prost(bool, tag="4")]
+    pub write: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SkipResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UnskipRequest {
+    /// A skipped test or test file.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Write the file; a preview when false.
+    #[prost(bool, tag="2")]
+    pub write: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UnskipResponse {
+    #[prost(message, repeated, tag="1")]
+    pub files: ::prost::alloc::vec::Vec<FileChange>,
+    #[prost(string, repeated, tag="2")]
+    pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListRunsRequest {
     /// At most this many; all when 0.
     #[prost(uint32, tag="1")]
@@ -892,6 +930,12 @@ pub struct ListRunsRequest {
     /// Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
     #[prost(string, optional, tag="2")]
     pub kind: ::core::option::Option<::prost::alloc::string::String>,
+    /// Only runs under this profile; every profile when absent.
+    #[prost(string, optional, tag="3")]
+    pub profile: ::core::option::Option<::prost::alloc::string::String>,
+    /// Only runs on this git branch; every branch when absent.
+    #[prost(string, optional, tag="4")]
+    pub branch: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListRunsResponse {
@@ -911,11 +955,17 @@ pub struct GetRunResponse {
     #[prost(message, repeated, tag="2")]
     pub tests: ::prost::alloc::vec::Vec<super::super::results::v1::Test>,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct TrendsRequest {
     /// Over this many runs; the engine's default when 0.
     #[prost(uint32, tag="1")]
     pub window: u32,
+    /// Only runs under this profile, the window counted among them; every profile when absent.
+    #[prost(string, optional, tag="2")]
+    pub profile: ::core::option::Option<::prost::alloc::string::String>,
+    /// Only runs on this git branch, the window counted among them; every branch when absent.
+    #[prost(string, optional, tag="3")]
+    pub branch: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// One test's results over the window.
 #[derive(Clone, PartialEq, ::prost::Message)]

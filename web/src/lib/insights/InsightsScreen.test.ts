@@ -1,24 +1,69 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+import type { SkipInput, SkipPort } from '#lib/skip/port.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import { Insights } from './insights.svelte.ts';
 import InsightsScreen from './InsightsScreen.svelte';
-import { enginePort, type InsightsPort, type RunSummary } from './port.ts';
+import { enginePort, type InsightsPort, type RunSummary, type Scope } from './port.ts';
 
 const t0 = Date.UTC(2026, 10, 10, 9);
 const runs: RunSummary[] = [
-  { id: 3, startedMs: t0 + 2e6, durationMs: 4_000, passed: 9, failed: 0, blocked: 1, flaky: 0 },
-  { id: 2, startedMs: t0 + 1e6, durationMs: 2_000, passed: 10, failed: 0, blocked: 0, flaky: 0 },
+  {
+    id: 3,
+    startedMs: t0 + 2e6,
+    durationMs: 4_000,
+    passed: 9,
+    failed: 0,
+    blocked: 1,
+    flaky: 0,
+    branch: 'main',
+  },
+  {
+    id: 2,
+    startedMs: t0 + 1e6,
+    durationMs: 2_000,
+    passed: 10,
+    failed: 0,
+    blocked: 0,
+    flaky: 0,
+    branch: 'tax-line',
+  },
 ];
+
+const CRUD = `tests:
+  - id: createsOne
+    steps:
+      - call: users#create
+`;
+
+/** A skip port that answers with a real test file's change and keeps what it was sent. */
+function skipPort(sent: [SkipInput | string, boolean][]): SkipPort {
+  const after = `${CRUD}    skip:\n      reason: flaky on staging\n      until: 2026-11-20\n`;
+  const files = [{ path: 'services/users/crud.test.yaml', before: CRUD, after }];
+  return {
+    skip: (input, write) => {
+      sent.push([input, write]);
+      return Promise.resolve({ files, titles: [`Skip ${input.target}`] });
+    },
+    unskip: (target, write) => {
+      sent.push([target, write]);
+      return Promise.resolve({ files, titles: [`Unskip ${target}`] });
+    },
+  };
+}
 
 async function rendered(port?: Partial<InsightsPort>) {
   const asked: number[] = [];
+  const scopes: Scope[] = [];
+  const sent: [SkipInput | string, boolean][] = [];
   const insights = new Insights({
-    runs: (limit) => {
+    runs: (limit, scope) => {
       asked.push(limit);
+      scopes.push(scope);
       return Promise.resolve(runs);
     },
+    profiles: () => Promise.resolve(['dev', 'staging']),
     trends: () =>
       Promise.resolve([
         { testId: 'users.crud#createsOne', results: 2, failed: 0, flaky: 1, meanMs: 12 },
@@ -26,9 +71,9 @@ async function rendered(port?: Partial<InsightsPort>) {
       ]),
     ...port,
   });
-  await insights.load();
-  render(InsightsScreen, { insights });
-  return { asked, user: userEvent.setup() };
+  await insights.open();
+  render(InsightsScreen, { insights, skips: skipPort(sent) });
+  return { asked, scopes, sent, user: userEvent.setup() };
 }
 
 describe('InsightsScreen', () => {
@@ -77,6 +122,64 @@ describe('InsightsScreen', () => {
     expect(within(range).getByRole('button', { name: 'Last 10 runs' }).ariaPressed).toBe('true');
   });
 
+  it('narrows to one profile and one branch, and widens again', async () => {
+    const { scopes, user } = await rendered();
+    const profile = screen.getByRole('group', { name: 'Profile' });
+    expect(
+      within(profile)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['All profiles', 'dev', 'staging']);
+    await user.click(within(profile).getByRole('button', { name: 'staging' }));
+    const branch = screen.getByRole('group', { name: 'Branch' });
+    expect(
+      within(branch)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['All branches', 'main', 'tax-line']);
+    await user.click(within(branch).getByRole('button', { name: 'main' }));
+    expect(within(branch).getByRole('button', { name: 'main' }).ariaPressed).toBe('true');
+    await user.click(within(profile).getByRole('button', { name: 'All profiles' }));
+    expect(scopes).toEqual([
+      { profile: undefined, branch: undefined },
+      { profile: 'staging', branch: undefined },
+      { profile: 'staging', branch: 'main' },
+      { profile: undefined, branch: 'main' },
+    ]);
+  });
+
+  it('skips a flaky test until a date after a preview, and undoes it', async () => {
+    const { sent, user } = await rendered();
+    await user.click(screen.getByRole('button', { name: 'Skip users.crud#createsOne until…' }));
+    const form = screen.getByRole('group', { name: 'Skip users.crud#createsOne' });
+    await user.type(within(form).getByLabelText('Until'), '2026-11-20');
+    await user.type(within(form).getByRole('textbox', { name: 'Reason' }), 'flaky on staging');
+    await user.click(within(form).getByRole('button', { name: 'Preview' }));
+    expect(within(form).getByRole('region').textContent).toContain('until: 2026-11-20');
+    await user.click(within(form).getByRole('button', { name: 'Write skip' }));
+    const input = {
+      target: 'users.crud#createsOne',
+      reason: 'flaky on staging',
+      until: '2026-11-20',
+    };
+    expect(sent).toEqual([
+      [input, false],
+      [input, true],
+    ]);
+    expect(screen.getByText('skipped until 2026-11-20')).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: 'Undo the skip of users.crud#createsOne' }),
+    );
+    const undo = screen.getByRole('group', { name: 'Unskip users.crud#createsOne' });
+    await user.click(within(undo).getByRole('button', { name: 'Preview' }));
+    await user.click(within(undo).getByRole('button', { name: 'Remove skip' }));
+    expect(sent.slice(2)).toEqual([
+      ['users.crud#createsOne', false],
+      ['users.crud#createsOne', true],
+    ]);
+    expect(screen.getByRole('button', { name: 'Skip users.crud#createsOne until…' })).toBeTruthy();
+  });
+
   it('says so when there is no history yet', async () => {
     await rendered({ runs: () => Promise.resolve([]), trends: () => Promise.resolve([]) });
     expect(screen.getByText('No flaky or failing tests in this range.')).toBeTruthy();
@@ -85,25 +188,51 @@ describe('InsightsScreen', () => {
 });
 
 describe('enginePort', () => {
-  it('asks for the last `run` runs and times the finished ones', async () => {
+  it('asks for the last `run` runs in a scope and times the finished ones', async () => {
     const asked: unknown[] = [];
     const port = enginePort(
       fakeEngine({
-        listRuns: ({ limit, kind }) => {
-          asked.push({ limit, kind });
+        listRuns: ({ limit, kind, profile, branch }) => {
+          asked.push({ limit, kind, profile, branch });
           return {
             runs: [
-              { id: 5n, kind: 'run', startedMs: 1000n, finishedMs: 3500n, totals: { passed: 2 } },
+              {
+                id: 5n,
+                kind: 'run',
+                startedMs: 1000n,
+                finishedMs: 3500n,
+                totals: { passed: 2 },
+                gitBranch: 'main',
+              },
               { id: 3n, kind: 'run', startedMs: 100n },
             ],
           };
         },
+        trends: ({ window, profile, branch }) => {
+          asked.push({ window, profile, branch });
+          return { trends: [] };
+        },
+        getProject: () => ({ name: 'shop', profiles: ['dev', 'staging'] }),
       }),
     );
-    expect(await port.runs(10)).toEqual([
-      { id: 5, startedMs: 1000, durationMs: 2500, passed: 2, failed: 0, blocked: 0, flaky: 0 },
+    expect(await port.runs(10, { profile: 'staging', branch: 'main' })).toEqual([
+      {
+        id: 5,
+        startedMs: 1000,
+        durationMs: 2500,
+        passed: 2,
+        failed: 0,
+        blocked: 0,
+        flaky: 0,
+        branch: 'main',
+      },
       { id: 3, startedMs: 100, passed: 0, failed: 0, blocked: 0, flaky: 0 },
     ]);
-    expect(asked).toEqual([{ limit: 10, kind: 'run' }]);
+    await port.trends(30, {});
+    expect(await port.profiles()).toEqual(['dev', 'staging']);
+    expect(asked).toEqual([
+      { limit: 10, kind: 'run', profile: 'staging', branch: 'main' },
+      { window: 30, profile: undefined, branch: undefined },
+    ]);
   });
 });

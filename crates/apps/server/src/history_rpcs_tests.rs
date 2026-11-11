@@ -19,7 +19,9 @@ async fn an_empty_history_lists_no_run_and_has_no_last_one() {
 async fn a_stored_run_comes_back_with_its_tests_and_trends() {
     let (_dir, api) = project();
     api.engine().run(&RunRequest::default(), interrupts().1).await.unwrap();
-    let runs = list_runs(api.clone(), wire::ListRunsRequest { limit: 0, kind: None }).await.unwrap();
+    let runs = list_runs(api.clone(), wire::ListRunsRequest { limit: 0, kind: None, profile: None, branch: None })
+        .await
+        .unwrap();
     let [listed] = runs.runs.as_slice() else { panic!("{runs:?}") };
     assert_eq!((listed.kind.as_str(), listed.status()), ("run", RunStatus::Failed));
     let found = get_run(api.clone(), wire::GetRunRequest { id: Some(listed.id) }).await.unwrap();
@@ -37,7 +39,8 @@ async fn runs_list_by_kind_with_the_limit_counted_among_them() {
     for _ in 0..2 {
         api.engine().run(&RunRequest::default(), interrupts().1).await.unwrap();
     }
-    let of = |kind: &str, limit| wire::ListRunsRequest { limit, kind: Some(kind.to_owned()) };
+    let of =
+        |kind: &str, limit| wire::ListRunsRequest { limit, kind: Some(kind.to_owned()), profile: None, branch: None };
     let runs = list_runs(api.clone(), of("run", 0)).await.unwrap();
     let [newest, older] = runs.runs.as_slice() else { panic!("{runs:?}") };
     assert_eq!((newest.kind.as_str(), older.kind.as_str()), ("run", "run"));

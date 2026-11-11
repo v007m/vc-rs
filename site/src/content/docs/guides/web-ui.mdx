@@ -76,6 +76,8 @@ Keyboard: `↑` `↓` `Home` `End` move, `←` `→` close and open files, `Ente
 
 The detail panel shows the test's name, ID, `path:line`, its steps, tags and the apis it calls, with **Run this test** and **Open in editor**.
 
+**Skip…** parks the test, as [`vc skip`](/vc-rs/reference/cli/skip/) does: type a reason, optionally pick an **Until** date, then **Preview** shows the change to the test file and **Write skip** writes it. A skipped test has **Unskip…**, which previews and removes the `skip` block. Either is refused if the result would not compile.
+
 ## API client
 
 Calls a single api, the way `vc call` does, with the project's auth and the active profile.
@@ -166,12 +168,14 @@ Secret values are masked, as the history keeps them. **Re-run failed** runs that
 
 ## Insights
 
-Trends across stored test runs. Choose **Last 10**, **30** or **100 runs**.
+Trends across stored test runs. Choose **Last 10**, **30** or **100 runs**. **Profile** and **Branch** narrow every figure to the runs under one profile or on one git branch; the branches listed are the ones the runs read so far were on.
 
 - Summary figures: last run's pass rate, average pass rate, median run duration, number of runs, and flaky tests.
 - **Pass rate per run**: passed tests (flaky included) out of the tests that ran. Runs with blocked tests are marked.
 - **Run duration**: wall-clock time of the whole suite.
 - A table of the latest runs, and **Flakiest tests**: the top ten by flaky and failed results.
+
+Each flakiest test has **Skip until…**: give a reason and a date, preview the change, and write it. The test is then reported as skipped with its reason, and runs again after the date. **Undo** removes the skip the same way.
 
 ## AI agents
 

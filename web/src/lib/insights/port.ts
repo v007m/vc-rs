@@ -12,6 +12,8 @@ export type RunSummary = Readonly<{
   failed: number;
   blocked: number;
   flaky: number;
+  /** The git branch the run was on, when known. */
+  branch?: string;
 }>;
 
 /** One test over the window: results that ran, how many failed or were blocked, how many flaky. */
@@ -23,11 +25,16 @@ export type TestTrend = Readonly<{
   meanMs: number;
 }>;
 
+/** Which runs Insights reads: under one profile, on one branch; every one when absent. */
+export type Scope = Readonly<{ profile?: string; branch?: string }>;
+
 /** What Insights asks of the history (G15). */
 export interface InsightsPort {
-  /** The newest `limit` runs of kind `run`, newest first. */
-  runs(limit: number): Promise<RunSummary[]>;
-  trends(window: number): Promise<TestTrend[]>;
+  /** The newest `limit` runs of kind `run` in `scope`, newest first. */
+  runs(limit: number, scope: Scope): Promise<RunSummary[]>;
+  trends(window: number, scope: Scope): Promise<TestTrend[]>;
+  /** The profiles the config defines. */
+  profiles(): Promise<string[]>;
 }
 
 function summary(run: Run): RunSummary {
@@ -40,22 +47,26 @@ function summary(run: Run): RunSummary {
     blocked,
     flaky,
   };
-  return run.finishedMs === undefined
-    ? base
-    : { ...base, durationMs: Number(run.finishedMs - run.startedMs) };
+  const branch = run.gitBranch === undefined ? {} : { branch: run.gitBranch };
+  const finished =
+    run.finishedMs === undefined ? {} : { durationMs: Number(run.finishedMs - run.startedMs) };
+  return { ...base, ...branch, ...finished };
 }
 
-/** The port over the engine client's ListRuns and Trends. */
+/** The port over the engine client's ListRuns, Trends and GetProject. */
 export function enginePort(
-  client: Pick<Client<typeof EngineService>, 'listRuns' | 'trends'>,
+  client: Pick<Client<typeof EngineService>, 'listRuns' | 'trends' | 'getProject'>,
 ): InsightsPort {
   return {
-    async runs(limit) {
-      const { runs } = await client.listRuns({ limit, kind: 'run' });
+    async runs(limit, scope) {
+      const { runs } = await client.listRuns({ limit, kind: 'run', ...scope });
       return runs.map(summary);
     },
-    async trends(window) {
-      const { trends } = await client.trends({ window });
+    async profiles() {
+      return (await client.getProject({})).profiles;
+    },
+    async trends(window, scope) {
+      const { trends } = await client.trends({ window, ...scope });
       return trends.map(({ testId, results, failed, flaky, meanMs }) => ({
         testId,
         results,

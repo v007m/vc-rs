@@ -43,6 +43,11 @@ service EngineService {
   rpc SaveCallAsTest(SaveCallAsTestRequest) returns (SaveCallAsTestResponse);
   // Imports a spec or recording, as `vc import` does: a preview, or the files written.
   rpc Import(ImportRequest) returns (ImportResponse);
+  // Writes a test's or test file's `skip`, as `vc skip` does: a preview with the diff, or the
+  // file written. Refused when the result adds an error (D107).
+  rpc Skip(SkipRequest) returns (SkipResponse);
+  // Removes a test's or test file's `skip`, as `vc unskip` does: a preview, or the file written.
+  rpc Unskip(UnskipRequest) returns (UnskipResponse);
   // The runs the history keeps, newest first.
   rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
   // One run of the history with its tests.
@@ -532,11 +537,43 @@ message ImportResponse {
   repeated string titles = 2;
 }
 
+message SkipRequest {
+  // A test (`users.crud#listsUsers`) or a test file (`users.crud`).
+  string target = 1;
+  // Why, for the report; never blank.
+  string reason = 2;
+  // The last day of the skip, `YYYY-MM-DD`; no end date when absent.
+  optional string until = 3;
+  // Write the file; a preview when false.
+  bool write = 4;
+}
+
+message SkipResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+}
+
+message UnskipRequest {
+  // A skipped test or test file.
+  string target = 1;
+  // Write the file; a preview when false.
+  bool write = 2;
+}
+
+message UnskipResponse {
+  repeated FileChange files = 1;
+  repeated string titles = 2;
+}
+
 message ListRunsRequest {
   // At most this many; all when 0.
   uint32 limit = 1;
   // Only runs of this kind (`run`, `load`), the limit counted among them; every kind when absent.
   optional string kind = 2;
+  // Only runs under this profile; every profile when absent.
+  optional string profile = 3;
+  // Only runs on this git branch; every branch when absent.
+  optional string branch = 4;
 }
 
 message ListRunsResponse {
@@ -556,6 +593,10 @@ message GetRunResponse {
 message TrendsRequest {
   // Over this many runs; the engine's default when 0.
   uint32 window = 1;
+  // Only runs under this profile, the window counted among them; every profile when absent.
+  optional string profile = 2;
+  // Only runs on this git branch, the window counted among them; every branch when absent.
+  optional string branch = 3;
 }
 
 // One test's results over the window.
