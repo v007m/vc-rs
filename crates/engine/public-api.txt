@@ -741,6 +741,7 @@ pub vc_engine::Listed::calls: alloc::vec::Vec<vc_engine::ApiCall>
 pub vc_engine::Listed::id: alloc::string::String
 pub vc_engine::Listed::name: core::option::Option<alloc::string::String>
 pub vc_engine::Listed::path: alloc::string::String
+pub vc_engine::Listed::skip_expired: bool
 pub vc_engine::Listed::skip_reason: core::option::Option<alloc::string::String>
 pub vc_engine::Listed::skip_until: core::option::Option<alloc::string::String>
 pub vc_engine::Listed::skipped: bool
