@@ -19,7 +19,9 @@ import { Badge } from '@astrojs/starlight/components';
 
 A template root is used where it does not exist yet: `response` and `request` only once a call has been made, and an
 action or step ID only after that action has run, in the same test or block. Move the use later, or the action earlier.
-An `examples` written as one template is read before the run starts, so it reads only `var`, `env` and `dataset`.
+An `examples` written as one template is read before the run starts, so it reads only `var`, `env` and `dataset`,
+and so must each var it reads (one a profile defines is checked when a run starts under that profile). The `$file`
+path of `examples` is written as it is, with no template.
 
 ## Wrong
 
