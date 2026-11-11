@@ -101,7 +101,7 @@ fn checks_matcher_arguments() {
 fn a_lone_key_close_to_a_matcher_warns_and_still_compiles_as_a_literal() {
     let misspelt = unit_with("    expect:\n      body:\n        match:\n          name: {startWith: A}\n");
     let [found] = &misspelt.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", misspelt.diagnostics) };
-    assert_eq!((found.code, found.severity), (Code::V3207, Severity::Warning));
+    assert_eq!((found.code, found.severity), (Code::V3208, Severity::Warning));
     assert_eq!(found.message, "`startWith` is compared as a literal object's key, not as a matcher");
     assert_eq!(found.primary.text, "close to the matcher name `startsWith`");
     assert!(found.help[0].contains("write `eq:` to keep it as a literal"), "{:?}", found.help);
@@ -109,7 +109,7 @@ fn a_lone_key_close_to_a_matcher_warns_and_still_compiles_as_a_literal() {
     let near = unit_with(
         "    expect:\n      body:\n        match:\n          a: {Length: 3}\n          b: {exist: true}\n          c: {types: [a]}\n",
     );
-    assert_eq!(codes(&near.diagnostics), [Code::V3207; 3]);
+    assert_eq!(codes(&near.diagnostics), [Code::V3208; 3]);
     assert!(pieces(&near).iter().all(|piece| matches!(piece, Piece::Matcher(Matcher::Equals(_)))));
     let literal = unit_with(
         "    expect:\n      body:\n        match:\n          user: {id: 5}\n          meta: {note: hi}\n          tags: {colour: red}\n          size: {LENGTH: 3}\n",

@@ -133,7 +133,7 @@ Every value in `expect` is either a literal or a matcher.
 A map counts as a matcher when at least one of its keys is a matcher name. Otherwise the whole map is a literal object.
 
 <Aside type="caution" title="Spell matcher names carefully">
-A map whose one key is close to a matcher name, such as `{startWith: A}`, `{lenght: 3}` or `{Length: 3}`, is most likely a misspelled matcher. It is still compared as a literal object, but `vc check` warns [V3207](/vc-rs/reference/diagnostics/v3207/) and suggests the right name. To compare with an object that really has such a key, put it under [eq](/vc-rs/reference/matchers/eq/): `{eq: {startWith: A}}`.
+A map whose one key is close to a matcher name, such as `{startWith: A}`, `{lenght: 3}` or `{Length: 3}`, is most likely a misspelled matcher. It is still compared as a literal object, but `vc check` warns [V3208](/vc-rs/reference/diagnostics/v3208/) and suggests the right name. To compare with an object that really has such a key, put it under [eq](/vc-rs/reference/matchers/eq/): `{eq: {startWith: A}}`.
 
 Keys shorter than five characters are not read this way, because names like `id` and `note` are one letter away from `in` and `not`. So a short misspelling on its own, such as `{gtt: 40}`, is compared as a literal with no warning and fails at run time with `expected {"gtt":40}`. A misspelled name next to a real matcher, as in `{gt: 1, gtt: 2}`, is always [V1004](/vc-rs/reference/diagnostics/v1004/).
 
@@ -211,7 +211,7 @@ Edit the test below. The editor checks it against the real schema as you type.
 ## Common errors
 
 - [V1004](/vc-rs/reference/diagnostics/v1004/): an unknown key, such as a misspelled matcher next to a real one (`{gt: 1, gtt: 2}`) or in a status map, or an unknown timing phase.
-- [V3207](/vc-rs/reference/diagnostics/v3207/): a warning for a lone key close to a matcher name (`{startWith: A}`), which is still compared as a literal.
+- [V3208](/vc-rs/reference/diagnostics/v3208/): a warning for a lone key close to a matcher name (`{startWith: A}`), which is still compared as a literal.
 - [V2301](/vc-rs/reference/diagnostics/v2301/): a duration or size with no unit, such as `500` instead of `500ms`.
 - [V2303](/vc-rs/reference/diagnostics/v2303/): a status that is not a code from 100 to 599 or a class from `1xx` to `5xx`.
 - [V2306](/vc-rs/reference/diagnostics/v2306/): a matcher argument it does not accept, such as `{type: int}` or `{between: 5}`.

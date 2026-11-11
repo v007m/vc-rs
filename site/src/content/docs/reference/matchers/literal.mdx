@@ -157,7 +157,7 @@ Edit the test below. The editor checks it against the real schema as you type.
 ## How it behaves
 
 - A map is a matcher when at least one of its keys is a matcher name, such as `{gt: 1}`. Otherwise the whole map is a literal object.
-- So a misspelled matcher on its own, such as `{gtt: 1}`, is read as the object `{"gtt": 1}` and compared for equality. It fails at run time with `expected {"gtt":1}`. A name of five or more letters, such as `{startWith: A}`, is read the same way, and `vc check` also warns V3207. Next to a real matcher, as in `{gt: 1, gtt: 2}`, `vc check` reports V1004.
+- So a misspelled matcher on its own, such as `{gtt: 1}`, is read as the object `{"gtt": 1}` and compared for equality. It fails at run time with `expected {"gtt":1}`. A name of five or more letters, such as `{startWith: A}`, is read the same way, and `vc check` also warns V3208. Next to a real matcher, as in `{gt: 1, gtt: 2}`, `vc check` reports V1004.
 - To compare with an object whose keys are matcher names, use `eq`: `{eq: {gt: 1}}`.
 - Lists compare element by element, in order. Objects compare key by key, in any order.
 - Equality is the same as [eq](/vc-rs/reference/matchers/eq/): numbers by value, `"3"` is not `3`, and a missing path fails even against `null`.
@@ -165,7 +165,7 @@ Edit the test below. The editor checks it against the real schema as you type.
 ## Common errors
 
 - [V1004](/vc-rs/reference/diagnostics/v1004/): a misspelled matcher next to a real one, such as `{gt: 1, gtt: 2}`. The help line suggests the closest name.
-- [V3207](/vc-rs/reference/diagnostics/v3207/): a warning for a misspelled matcher on its own when its name has five or more letters, such as `{startWith: A}`. It is still compared as a literal object; fix the name, or put the object under `eq:` to keep it.
+- [V3208](/vc-rs/reference/diagnostics/v3208/): a warning for a misspelled matcher on its own when its name has five or more letters, such as `{startWith: A}`. It is still compared as a literal object; fix the name, or put the object under `eq:` to keep it.
 - [V5101](/vc-rs/reference/diagnostics/v5101/): the check did not hold for the response. The report shows the expected and the actual value.
 
 ## Related

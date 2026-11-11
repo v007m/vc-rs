@@ -1,7 +1,7 @@
 //! Matchers (see Checks and matchers): a map with a matcher name as a key is a matcher, any
 //! other value is a literal that must be equal. Each matcher's argument is checked here, and a
 //! wrong one is V2306; an unknown key next to a matcher is V1004, and a literal object whose one
-//! key is close to a matcher's name is V3207.
+//! key is close to a matcher's name is V3208.
 
 use vc_diagnostics::{Code, Diagnostic};
 use vc_model::{Duration, Matcher, MatcherArg, MatcherCall, Size, SourceSpan, TemplateValue};
@@ -104,7 +104,7 @@ struct Spot<'n> {
 }
 
 /// The matcher or literal at `at`, comparing in `unit`. A map with no matcher's name as a key is
-/// a literal object; one lone key close to a matcher's name is V3207.
+/// a literal object; one lone key close to a matcher's name is V3208.
 pub fn matcher(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
     let Value::Map(entries) = &at.node.value else { return literal(cx, at, unit) };
     if !entries.iter().any(|entry| find(&entry.key).is_some()) {
@@ -149,7 +149,7 @@ fn calls(cx: &mut Cx<'_>, at: At<'_>, (entries, unit): (&[Entry], Unit)) -> Opti
 /// edit from a matcher (`in`, `not`) and are far more often plain fields.
 const MISSPELT_FROM: usize = 5;
 
-/// V3207 when `entries` is one key close to a matcher's name, as written (`startWith`, `lenght`,
+/// V3208 when `entries` is one key close to a matcher's name, as written (`startWith`, `lenght`,
 /// `Length`): likely a misspelt matcher, though it is still compared as a literal object.
 fn near_matcher(entries: &[Entry]) -> Option<Diagnostic> {
     let [entry] = entries else { return None };
@@ -162,7 +162,7 @@ fn near_matcher(entries: &[Entry]) -> Option<Diagnostic> {
     }
     let message = format!("`{}` is compared as a literal object's key, not as a matcher", entry.key);
     let label = format!("close to the matcher name {}", suggest::quoted(&close));
-    let diagnostic = Diagnostic::new(Code::V3207, entry.key_span, message).label(label);
+    let diagnostic = Diagnostic::new(Code::V3208, entry.key_span, message).label(label);
     Some(diagnostic.help("fix the name to use the matcher, or write `eq:` to keep it as a literal"))
 }
 
