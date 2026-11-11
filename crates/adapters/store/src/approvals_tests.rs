@@ -100,8 +100,9 @@ async fn a_wait_nothing_ends_does_not_keep_waking_itself() {
 /// A watcher as slow to start as the macOS file event service was in a full gates run.
 const SLOW_WATCH: Duration = Duration::from_secs(6);
 
-#[tokio::test(flavor = "multi_thread")]
-async fn a_decision_ends_the_wait_while_its_watcher_is_still_starting() {
+/// Its runtime shuts down in the background, so the test does not wait for the slow watcher.
+#[test]
+fn a_decision_ends_the_wait_while_its_watcher_is_still_starting() {
     let mut dirs = Vec::new();
     let agent = fresh(&mut dirs);
     let id = agent.create(&request()).unwrap();
@@ -114,8 +115,12 @@ async fn a_decision_ends_the_wait_while_its_watcher_is_still_starting() {
         std::thread::sleep(SLOW_WATCH);
         None::<()>
     };
+    let runtime = tokio::runtime::Runtime::new().unwrap();
     let started = Instant::now();
-    assert_eq!(agent.wait_watched((id, Duration::from_secs(30)), slow).await, Ok(ApprovalStatus::Approved));
-    assert!(started.elapsed() < SLOW_WATCH / 2, "the wait waited for its watcher: {:?}", started.elapsed());
+    let waited = runtime.block_on(agent.wait_watched((id, Duration::from_secs(30)), slow));
+    let elapsed = started.elapsed();
+    runtime.shutdown_background();
+    assert_eq!(waited, Ok(ApprovalStatus::Approved));
+    assert!(elapsed < SLOW_WATCH / 2, "the wait waited for its watcher: {elapsed:?}");
     assert_eq!(decided.join().unwrap(), Ok(ApprovalStatus::Approved));
 }
