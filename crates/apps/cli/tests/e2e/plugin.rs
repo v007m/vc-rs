@@ -189,3 +189,25 @@ fn the_list_shows_a_plugin_whose_files_changed_or_whose_entry_program_is_missing
                approved them; `vc plugin add` it again  may reach: secret reportToken\n";
     assert_eq!(String::from_utf8_lossy(&listed.stdout), row);
 }
+
+/// A reporter plugin whose installed manifest asks for more than the lock grants is named in
+/// one run notice, which says its report is not written.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_reporter_plugin_asking_for_more_than_the_lock_grants_gets_one_run_notice() {
+    let server = MockServer::start().await.unwrap();
+    let granted = MANIFEST.replace("{secrets: [reportToken]}", "{}");
+    let plugin = [("plugin/vibranium-plugin.yaml", granted.as_str()), ("plugin/report.py", "print()\n")];
+    let project = Project::new(&[CONFIG, USERS, LISTS, plugin[0], plugin[1]]);
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    project.write(".vibranium/plugins/report/vibranium-plugin.yaml", MANIFEST);
+    let config = fs::read_to_string(project.path().join(CONFIG.0)).unwrap();
+    project.write(CONFIG.0, &format!("{config}reports: {{formats: [report]}}\n"));
+    let run = project.run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let said = said(&run);
+    assert_eq!(said.matches("asks for more").count(), 1, "{said}");
+    let notice = "plugin `report`: asks for more: secret reportToken; `vc plugin add` it again; its report is \
+                  not written";
+    assert!(said.contains(notice), "{said}");
+}

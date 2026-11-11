@@ -83,9 +83,11 @@ impl Hosts {
         self.unusable.iter().map(|(id, reason)| (id.as_str(), reason.as_str()))
     }
 
-    /// One line for each plugin the run cannot use, and why.
-    pub fn notices(&self) -> Vec<String> {
-        self.unusable.iter().map(|(id, reason)| format!("plugin `{id}`: {reason}")).collect()
+    /// One line for each plugin the run cannot use, and why, but for the reporter plugins in
+    /// `reported`: the run's reports name each of those once, with its report not written.
+    pub fn notices(&self, reported: &[String]) -> Vec<String> {
+        let unusable = self.unusable.iter().filter(|(id, _)| !reported.contains(*id));
+        unusable.map(|(id, reason)| format!("plugin `{id}`: {reason}")).collect()
     }
 
     /// What the plugins say from now on as they start: a line for each whose stderr is dropped
