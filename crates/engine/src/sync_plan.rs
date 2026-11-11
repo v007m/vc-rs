@@ -159,13 +159,13 @@ fn optional_query(plan: &mut Plan, file_id: &str, (base, theirs, mine): (Option<
     let Some(base) = base else { return };
     let full = format!("{file_id}#{}", mine.id);
     let sent = |name: &String| mine.owned.query.contains_key(name);
-    let added = theirs.optional_query.iter().filter(|name| !base.optional_query.contains(*name) && !sent(*name));
+    let added = theirs.optional_query.iter().filter(|name| !base.optional_query.contains(*name) && !sent(name));
     for name in added {
         plan.lines
             .push(format!("~ {full} optional query {name} added to the spec: not sent, add `query.{name}` to send it"));
     }
     let gone = |name: &&String| !theirs.optional_query.contains(*name) && !theirs.query.contains_key(*name);
-    for name in base.optional_query.iter().filter(gone).filter(|name| sent(*name)) {
+    for name in base.optional_query.iter().filter(gone).filter(|name| sent(name)) {
         plan.lines.push(format!("~ {full} optional query {name} dropped from the spec: the file still sends it"));
     }
 }
