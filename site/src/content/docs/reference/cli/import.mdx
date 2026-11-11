@@ -99,15 +99,14 @@ Request bodies get a var per field, filled with generated data that fits the sch
 $ vc import openapi specs/users.yaml --tests --negative --auth
 ✓ imported specs/users.yaml
 $ vc list tests 'users.*'
-users.openapi#listsUsers  listUsers returns 200
-users.openapi#createsUser  createUser returns 201
-users.openapi#rejectsCreateUserWithoutEmail  createUser without email returns 400
-users.openapi#getsUser  getUser returns 200
-users.openapi#deletesUser  deleteUser returns 204
-users.openapi#rejectsDeleteUserWithoutAuth  deleteUser without auth returns 401
+users.openapi#listsUsers  List users
+users.openapi#createsUser  Create user
+users.openapi#rejectsInvalidCreateUser  Create user: rejects an invalid body
+users.openapi#getsUser  Get user
+users.openapi#deletesUser  Delete user
 ```
 
-The tests go to `services/users/openapi.test.yaml`. A negative test drops a required field (`vars: { email: null }`) and expects the spec's 4xx status. An auth test sends `auth: none` and expects 401.
+The tests go to `services/users/openapi.test.yaml`. A happy test expects the operation's first 2xx and checks the body against its schema in the snapshot (`$file: ../../openapi/users.yaml#/components/schemas/User`). When the path names an item, the test creates one first in `before` through the collection's `POST`, which gets a `save` and a `cleanup` in the api file; a `DELETE` test keeps that item (`keep: true`). With no such `POST`, the test is skipped with the var to set. A negative test has an example row per broken field (missing, wrong type, outside its enum), sends `body: ${example.body}` and expects 400, or 422 when the spec lists only that. An auth test sends `auth: none` and expects 401.
 
 ### Import part of a spec
 

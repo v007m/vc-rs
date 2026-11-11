@@ -490,6 +490,87 @@ What the generator fills in for you:
 
 A `name` in an example row labels that instance in reports, so a failure reads "deactivateRejectsInvalidBody › notify is not a boolean".
 
+`vc import openapi` writes these tests for every operation into `services/<fileId>/openapi.test.yaml` (file ID `<fileId>.openapi`), the same three cases with these differences:
+
+- **Names and IDs.** A test is named after the operation's summary without its full stop, else the api's ID as a sentence (`deletePetsPetId` → "Delete pets pet id"). IDs are the api ID as a third-person verb (`createUser` → `createsUser`, `login` → `logsIn`), `rejectsInvalid<Api>` and `rejects<Api>WithoutAuth`; the negative and auth names add ": rejects an invalid body" and ": needs a signed-in caller".
+- **Status and schema.** The happy test expects the operation's first documented 2xx (`201` for a create that lists only `201`) and, when that response has a JSON schema, `body.schema` pointing into the snapshot: at `#/components/schemas/<Name>` for a `$ref`, else at the schema inside the operation. The negative test expects `400`, or `422` when the spec lists that and not `400`.
+- **What a call needs.** For each `{param}` in the path, the `POST` on the collection above it (`POST /users` for `/users/{id}`) is the creator when its success response has a property named like the parameter, or `id`. The creator gets `save: {<param>: ${response.body.<property>}}`, and a `cleanup` calling the `DELETE` on the item's path when the spec has one; each test calls it in `before`, outermost first. A `DELETE` test's last `before` has `keep: true`, as the call itself removes the item. When nothing creates an item, the test is written with `skip: {reason: "needs an existing <item>: set vars.<param> to one"}` instead.
+- **Invalid bodies.** The rows start from the api's drafted JSON body, its vars filled in, and break one field it sends at a time: missing when required, a value of the wrong type, a value outside its enum.
+
+From the mock users spec with `--tests --negative`, the api file's `createUser` gains
+
+```yaml
+    save:
+      id: ${response.body.id}
+    cleanup:
+      call: deleteUser
+      vars:
+        id: ${response.body.id}
+```
+
+and the test file reads:
+
+```yaml
+id: users.openapi
+
+tests:
+  - id: listsUsers
+    name: List users
+    call: users#listUsers
+    expect:
+      status: 200
+      body:
+        schema:
+          $file: ../../openapi/users.yaml#/paths/~1users/get/responses/200/content/application~1json/schema
+  - id: createsUser
+    name: Create user
+    call: users#createUser
+    expect:
+      status: 201
+      body:
+        schema:
+          $file: ../../openapi/users.yaml#/components/schemas/User
+  - id: rejectsInvalidCreateUser
+    name: "Create user: rejects an invalid body"
+    call: users#createUser
+    examples:
+      - name: email missing
+        body:
+          name: Ada
+      - name: email is not a string
+        body:
+          email: 123
+          name: Ada
+      - name: name missing
+        body:
+          email: ada@example.com
+      - name: name is not a string
+        body:
+          email: ada@example.com
+          name: 123
+    body: ${example.body}
+    expect:
+      status: 400
+  - id: getsUser
+    name: Get user
+    before:
+      - call: users#createUser
+    call: users#getUser
+    expect:
+      status: 200
+      body:
+        schema:
+          $file: ../../openapi/users.yaml#/components/schemas/User
+  - id: deletesUser
+    name: Delete user
+    before:
+      - call: users#createUser
+        keep: true
+    call: users#deleteUser
+    expect:
+      status: 204
+```
+
 ### Capturing a real call
 
 `vc call` sends one request with the project's auth and active profile and prints the response. Adding `--save-as-test` writes it as a test, expecting what came back: the status, and the body fields you name with `--expect-field body.<path>` at the values they had (no schema is inferred, D176); the web and terminal UIs offer the same with checkboxes.
@@ -568,7 +649,7 @@ source:
 
 ### Do you need to keep a copy of the spec?
 
-You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; generated tests are to point their schemas into it (not drafted yet). Runs never need the spec or the network to reach it.
+You don't keep one yourself, but Vibranium does: every import and sync writes `openapi/<fileId>.yaml`, a snapshot of the spec as it was at that moment. It is converted to OpenAPI 3.1 YAML with references bundled, so it diffs cleanly in pull requests. Commit it. It is the merge base that lets `vc sync` tell a change in the spec from a change you made, and it lets everyone on the team, and CI, sync the same way. Only `vc import` and `vc sync` write it; the tests `vc import openapi --tests` writes point their schemas into it. Runs never need the spec or the network to reach it.
 
 ### What sync does
 

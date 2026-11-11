@@ -39,7 +39,7 @@ import Playground from '~/components/Playground.svelte';
    $ git init
    ```
 
-2. **Import the spec.** `--id users` names the api file. `--tests` writes one happy-path test per operation. `--negative` adds tests that send a body the schema rejects. `--auth` adds a test per secured operation that expects `401` without credentials.
+2. **Import the spec.** `--id users` names the api file. `--tests` writes one happy-path test per operation, which creates the user a `GET` or `DELETE` needs first and checks the response against the snapshot's schema. `--negative` adds a test with a row per body field the schema rejects. `--auth` adds a test per secured operation that expects `401` without credentials.
 
    ```console
    $ vc import openapi http://localhost:18080/openapi/users.yaml --id users --tests --negative --auth
@@ -593,7 +593,7 @@ tests:
 `services/users/contract.test.yaml` and `schemas/users/user.json` are shown in step 11.
 
 <Aside type="tip" title="What the generator leaves to you">
-The generated tests are a starting point. They do not create the resource a `GET` or `DELETE` needs. `--negative` writes one missing-field test per operation that has a required body field. Review them as you would any generated code.
+The generated tests are a starting point. They create the resource a `GET` or `DELETE` needs through the collection's `POST`, or skip the test when the spec has none. `--negative` writes one test per operation with a JSON body, a row per field it breaks. Review them as you would any generated code.
 </Aside>
 
 ## What you learned

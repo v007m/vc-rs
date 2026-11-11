@@ -28,16 +28,15 @@ If your service has an OpenAPI 3.0 or 3.1 spec, import it once, then let `vc syn
    $ vc import openapi specs/users.yaml --tests --negative --auth
    ✓ imported specs/users.yaml
    $ vc list tests 'users.*'
-   users.openapi#listsUsers  listUsers returns 200
-   users.openapi#createsUser  createUser returns 201
-   users.openapi#rejectsCreateUserWithoutEmail  createUser without email returns 400
-   users.openapi#getsUser  getUser returns 200
-   users.openapi#deletesUser  deleteUser returns 204
-   users.openapi#rejectsDeleteUserWithoutAuth  deleteUser without auth returns 401
+   users.openapi#listsUsers  List users
+   users.openapi#createsUser  Create user
+   users.openapi#rejectsInvalidCreateUser  Create user: rejects an invalid body
+   users.openapi#getsUser  Get user
+   users.openapi#deletesUser  Delete user
    ```
 
-   - `--tests` writes one happy-path test per operation.
-   - `--negative` writes tests that leave out a required field and expect the spec's 4xx.
+   - `--tests` writes one happy-path test per operation. It expects the first 2xx the spec lists and checks the body against the response's schema in the snapshot. A test whose path names an item (`/users/{id}`) creates one first in `before`, through the `POST` on the collection, which the api file now saves and cleans up. When nothing creates the item, the test is skipped with the var to set.
+   - `--negative` writes one test per operation with a JSON body. Each example row breaks one field (missing, wrong type, outside its enum), and the test expects 400, or 422 when that is what the spec lists.
    - `--auth` writes a test per secured operation that sends no auth and expects 401.
 
    To take part of a spec, use `--include <tag-or-path>` or `--only <operationId>`, and `--id` to name the file.
