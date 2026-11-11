@@ -38,7 +38,7 @@ code_table! {
     V2001 = 2001, Error, "Duplicate ID";
     V2002 = 2002, Error, "Unknown auth, profile, dataset or generator";
     V2003 = 2003, Error, "Unknown api or test";
-    V2004 = 2004, Error, "`$file` or snapshot reference not found";
+    V2004 = 2004, Error, "`$file`, spec or snapshot reference not found";
     V2005 = 2005, Error, "Hook export not found";
     V2006 = 2006, Error, "Reserved ID";
     V2007 = 2007, Error, "File ID doesn't match its path";

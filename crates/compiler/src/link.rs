@@ -20,6 +20,7 @@ mod refs;
 mod saves;
 mod secrets;
 mod shared;
+mod spec_files;
 mod uses;
 
 #[cfg(test)]
@@ -84,6 +85,7 @@ pub fn link(entries: &[CacheEntry], files: &SourceFiles, world: &World<'_>) -> L
     ids::check(&project, &mut diagnostics);
     refs::check(&project, &mut diagnostics);
     diagnostics.extend(world.assets.map(|assets| assets::check(&project, files, assets)).unwrap_or_default());
+    diagnostics.extend(world.assets.map(|assets| spec_files::check(&project, files, assets)).unwrap_or_default());
     diagnostics.extend(columns::check(&project, &data));
     diagnostics.extend(data::unknown(&project, &data));
     diagnostics.extend(fakes::check(&project));

@@ -131,6 +131,7 @@ cases!(
     v2003_unknown_api,
     v2006_reserved_id,
     v2004_file_not_found,
+    v2004_spec_not_found,
     v2007_file_id,
     v2101_unset_var,
     v2103_example_column,
