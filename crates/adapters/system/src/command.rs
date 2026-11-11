@@ -76,12 +76,14 @@ fn running_folder() -> Option<PathBuf> {
 }
 
 /// The `PATH` `spec` sets, else this process's, with `folder` added at its end; `None` when it
-/// holds `folder` already.
+/// holds `folder` already, or is unset or empty, so the system's default search stays. An empty
+/// entry means the working directory, so it is dropped rather than kept ahead of `folder`.
 fn path_ending_in(folder: &Path, spec: &CommandSpec) -> Option<OsString> {
     let set = spec.env.iter().rev().find(|(name, _)| name == "PATH").map(|(_, value)| OsString::from(value));
     let path = set.or_else(|| std::env::var_os("PATH")).unwrap_or_default();
-    let mut folders: Vec<PathBuf> = std::env::split_paths(&path).collect();
-    if folders.iter().any(|known| known == folder) {
+    let mut folders: Vec<PathBuf> =
+        std::env::split_paths(&path).filter(|known| !known.as_os_str().is_empty()).collect();
+    if folders.is_empty() || folders.iter().any(|known| known == folder) {
         return None;
     }
     folders.push(folder.to_path_buf());
@@ -255,6 +257,19 @@ mod tests {
             path_ending_in(Path::new("/opt/vc"), &spec)
                 .is_some_and(|path| path.to_string_lossy().ends_with(":/opt/vc"))
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_empty_path_is_left_alone_and_empty_entries_are_dropped() {
+        let with = |path: &str| {
+            let mut spec = CommandSpec::new("vc", Vec::<String>::new());
+            spec.env.push(("PATH".into(), path.into()));
+            path_ending_in(Path::new("/opt/vc"), &spec)
+        };
+        assert_eq!(with(""), None, "an unset or empty PATH keeps the system's default search, not `:/opt/vc`");
+        assert_eq!(with("::"), None);
+        assert_eq!(with(":/usr/bin::"), Some(OsString::from("/usr/bin:/opt/vc")), "no working directory first");
     }
 
     #[test]
