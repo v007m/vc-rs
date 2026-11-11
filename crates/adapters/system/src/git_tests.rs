@@ -7,7 +7,7 @@ use vc_interfaces::{Vcs, VcsError};
 use vc_model::SourcePath;
 use vc_testkit::{VcsHistory, vcs_suite};
 
-use super::GitVcs;
+use super::{GitVcs, older_git};
 
 fn git(root: &Path, args: &[&str]) {
     git_dated(root, args, None);
@@ -112,4 +112,15 @@ fn outside_a_repository_it_fails_with_gits_message() {
     assert_ne!(reason.trim(), "", "git explains the failure");
     let recent = GitVcs::new(folder.path()).changed_within(Duration::from_secs(60));
     assert!(matches!(recent, Err(VcsError::Failed { .. })), "{recent:?}");
+}
+
+#[test]
+fn a_git_older_than_2_37_is_named_as_the_reason_and_other_failures_keep_gits_message() {
+    let base = "604800 seconds ago".to_owned();
+    let refused = "fatal: unrecognized argument: --since-as-filter=604800 seconds ago".to_owned();
+    let named = format!("this needs git 2.37 or later, which has `--since-as-filter` ({refused})");
+    let expected = VcsError::Failed { base: base.clone(), reason: named };
+    assert_eq!(older_git(VcsError::Failed { base: base.clone(), reason: refused }), expected);
+    let other = VcsError::Failed { base, reason: "fatal: not a git repository".to_owned() };
+    assert_eq!(older_git(other.clone()), other);
 }

@@ -55,9 +55,21 @@ impl Vcs for GitVcs {
         let since = format!("{} seconds ago", window.as_secs());
         let filter = format!("--since-as-filter={since}");
         let log = ["log", &filter, "--name-only", "--format=", "-z", "--no-renames", "--relative", "HEAD", "--"];
-        let mut paths = sorted(&self.paths(&since, &log)?);
+        let mut paths = sorted(&self.paths(&since, &log).map_err(older_git)?);
         paths.extend(self.changed("HEAD")?);
         Ok(paths.into_iter().collect())
+    }
+}
+
+/// `error`, saying what is missing when the `git` on the `PATH` is older than 2.37 and refuses
+/// `--since-as-filter` (`fatal: unrecognized argument`), so it never lists the wrong files.
+fn older_git(error: VcsError) -> VcsError {
+    match error {
+        VcsError::Failed { base, reason } if reason.contains("--since-as-filter") => VcsError::Failed {
+            base,
+            reason: format!("this needs git 2.37 or later, which has `--since-as-filter` ({reason})"),
+        },
+        other => other,
     }
 }
 
