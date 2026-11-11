@@ -101,6 +101,6 @@ fn only_the_launcher_argument_makes_vc_the_launcher() {
 #[tokio::test]
 async fn without_a_launcher_or_a_confining_os_no_plugin_can_be_confined() {
     let why = super::ready(None).unwrap_err();
-    assert!(!why.is_empty());
+    assert_ne!(why, "", "the refusal says why");
     assert_eq!(super::Confiner::new(None).ready().await, Err(why), "the confiner asks the OS the same");
 }
