@@ -39,8 +39,6 @@ export interface InsightsPort {
   /** The newest `limit` runs of kind `run` in `scope`, newest first. */
   runs(limit: number, scope: Scope): Promise<RunSummary[]>;
   trends(window: number, scope: Scope): Promise<TestTrend[]>;
-  /** The profiles the config defines. */
-  profiles(): Promise<string[]>;
   /** The skips that have an end date, expired ones included. */
   skips(): Promise<SkipLine[]>;
 }
@@ -61,20 +59,14 @@ function summary(run: Run): RunSummary {
   return { ...base, ...branch, ...finished };
 }
 
-/** The port over the engine client's ListRuns, Trends, GetProject and ListDefinitions. */
+/** The port over the engine client's ListRuns, Trends and ListDefinitions. */
 export function enginePort(
-  client: Pick<
-    Client<typeof EngineService>,
-    'listRuns' | 'trends' | 'getProject' | 'listDefinitions'
-  >,
+  client: Pick<Client<typeof EngineService>, 'listRuns' | 'trends' | 'listDefinitions'>,
 ): InsightsPort {
   return {
     async runs(limit, scope) {
       const { runs } = await client.listRuns({ limit, kind: 'run', ...scope });
       return runs.map(summary);
-    },
-    async profiles() {
-      return (await client.getProject({})).profiles;
     },
     async skips() {
       const { definitions } = await client.listDefinitions({

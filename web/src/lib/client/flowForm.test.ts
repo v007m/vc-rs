@@ -52,6 +52,17 @@ describe('stagesOf', () => {
     const [stage] = stagesOf({ steps: [{ call: 'a#b', forEach: [MASKED, 'x'] }] });
     expect(stage?.locked).toBe(true);
   });
+
+  it('locks a poll masked in blind mode, so its durations neither block a save nor are written', () => {
+    const poll = { until: { status: 200 }, every: MASKED, timeout: MASKED };
+    const base = stagesOf({ steps: [{ call: 'jobs#get', poll }] });
+    expect(base[0]?.locked).toBe(true);
+    const stages = base.map((stage) => ({ ...stage, target: 'jobs#list' }));
+    expect(flowProblem(stages)).toBeUndefined();
+    expect(flowEdits(AT, base, stages)).toEqual([
+      { pointer: `${AT}/steps/0/call`, op: 'set', value: 'jobs#list' },
+    ]);
+  });
 });
 
 describe('flowEdits', () => {

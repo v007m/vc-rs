@@ -82,7 +82,6 @@ async function rendered(port?: Partial<InsightsPort>) {
         scopes.push(scope);
         return Promise.resolve(runs);
       },
-      profiles: () => Promise.resolve(['dev', 'staging']),
       skips: () => {
         skipReads.push(skipReads.length + 1);
         return Promise.resolve(SKIPS);
@@ -153,7 +152,7 @@ describe('InsightsScreen', () => {
     expect(screen.queryByRole('group', { name: 'Branch' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'staging' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'main' })).toBeNull();
-    expect(scopes).toEqual([{ profile: undefined, branch: undefined }]);
+    expect(scopes).toEqual([{}]);
   });
 
   it('skips a flaky test until a date after a preview, and undoes it', async () => {
@@ -254,7 +253,6 @@ describe('enginePort', () => {
           asked.push({ window, profile, branch });
           return { trends: [] };
         },
-        getProject: () => ({ name: 'shop', profiles: ['dev', 'staging'] }),
         listDefinitions: ({ kind, skipped }) => {
           asked.push({ kind, skipped });
           return {
@@ -285,7 +283,6 @@ describe('enginePort', () => {
       { id: 3, startedMs: 100, passed: 0, failed: 0, blocked: 0, flaky: 0 },
     ]);
     await port.trends(30, {});
-    expect(await port.profiles()).toEqual(['dev', 'staging']);
     expect(asked).toEqual([
       { kind: DefinitionKind.TESTS, skipped: true },
       { limit: 10, kind: 'run', profile: 'staging', branch: 'main' },
