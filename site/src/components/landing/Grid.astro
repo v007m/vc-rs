@@ -1,0 +1,34 @@
+---
+/** A responsive card grid for the landing page: 1, 2 or `columns` columns as the width allows. */
+interface Props {
+  columns?: 3 | 4;
+  as?: 'div' | 'ol';
+}
+
+const { columns = 4, as: Tag = 'div' } = Astro.props;
+---
+
+<Tag class="lp-grid" style={`--lp-cols:${columns}`}>
+  <slot />
+</Tag>
+
+<style>
+  .lp-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 40rem) {
+    .lp-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 64rem) {
+    .lp-grid {
+      grid-template-columns: repeat(var(--lp-cols), minmax(0, 1fr));
+    }
+  }
+</style>
