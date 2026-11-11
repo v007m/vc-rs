@@ -4,6 +4,7 @@
   import SkipForm from '#lib/skip/SkipForm.svelte';
   import { SkipChange } from '#lib/skip/skip.svelte.ts';
   import BarChart, { type Bar } from './BarChart.svelte';
+  import ExpiringSkips from './ExpiringSkips.svelte';
   import { windows, type Insights } from './insights.svelte.ts';
   import type { RunSummary } from './port.ts';
   import { duration, flakiest, mean, median, niceMax, passRate, when } from './stats.ts';
@@ -24,6 +25,7 @@
     if (change.removing) skipped.delete(change.target);
     else skipped.set(change.target, change.until ? `skipped until ${change.until}` : 'skipped');
     skipping = undefined;
+    void insights.loadSkips();
   }
 
   const pct = (value: number | undefined) => (value === undefined ? '—' : `${Math.round(value)}%`);
@@ -226,6 +228,13 @@
       </p>
     {/if}
   </section>
+
+  <ExpiringSkips
+    skips={insights.skips}
+    today={insights.today}
+    port={skips}
+    onchanged={() => void insights.loadSkips()}
+  />
 </div>
 
 <style>

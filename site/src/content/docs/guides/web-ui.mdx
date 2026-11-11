@@ -177,6 +177,8 @@ Trends across stored test runs. Choose **Last 10**, **30** or **100 runs**. **Pr
 
 Each flakiest test has **Skip until…**: give a reason and a date, preview the change, and write it. The test is then reported as skipped with its reason, and runs again after the date. **Undo** removes the skip the same way.
 
+**Skips expiring soon** lists the skipped tests whose `until` date is in the next 14 days or has already passed (the test runs again then, and `vc check` warns), with the reason. **Unskip…** previews and removes the skip.
+
 ## AI agents
 
 Connect agents to your project, decide on what they ask to do, and review what they did. The screen refreshes every two seconds.

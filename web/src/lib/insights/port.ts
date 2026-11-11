@@ -1,5 +1,5 @@
 import type { Client } from '@connectrpc/connect';
-import type { EngineService } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
+import { DefinitionKind, type EngineService } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import type { Run } from '#lib/gen/vibranium/results/v1/results_pb.ts';
 
 /** A stored `vc run`, as Insights charts it; counts are disjoint (a flaky test is not also passed). */
@@ -25,6 +25,9 @@ export type TestTrend = Readonly<{
   meanMs: number;
 }>;
 
+/** A skipped test that has an end date: its full ID, `skip.until` (`YYYY-MM-DD`) and reason. */
+export type SkipLine = Readonly<{ id: string; until: string; reason?: string }>;
+
 /** Which runs Insights reads: under one profile, on one branch; every one when absent. */
 export type Scope = Readonly<{ profile?: string; branch?: string }>;
 
@@ -35,6 +38,8 @@ export interface InsightsPort {
   trends(window: number, scope: Scope): Promise<TestTrend[]>;
   /** The profiles the config defines. */
   profiles(): Promise<string[]>;
+  /** The skipped tests that have an end date. */
+  skips(): Promise<SkipLine[]>;
 }
 
 function summary(run: Run): RunSummary {
@@ -53,9 +58,12 @@ function summary(run: Run): RunSummary {
   return { ...base, ...branch, ...finished };
 }
 
-/** The port over the engine client's ListRuns, Trends and GetProject. */
+/** The port over the engine client's ListRuns, Trends, GetProject and ListDefinitions. */
 export function enginePort(
-  client: Pick<Client<typeof EngineService>, 'listRuns' | 'trends' | 'getProject'>,
+  client: Pick<
+    Client<typeof EngineService>,
+    'listRuns' | 'trends' | 'getProject' | 'listDefinitions'
+  >,
 ): InsightsPort {
   return {
     async runs(limit, scope) {
@@ -64,6 +72,15 @@ export function enginePort(
     },
     async profiles() {
       return (await client.getProject({})).profiles;
+    },
+    async skips() {
+      const { definitions } = await client.listDefinitions({
+        kind: DefinitionKind.TESTS,
+        skipped: true,
+      });
+      return definitions.flatMap(({ id, skipReason, skipUntil }) =>
+        skipUntil ? [{ id, until: skipUntil, ...(skipReason ? { reason: skipReason } : {}) }] : [],
+      );
     },
     async trends(window, scope) {
       const { trends } = await client.trends({ window, ...scope });

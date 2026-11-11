@@ -2930,6 +2930,12 @@ impl serde::Serialize for Definition {
         if !self.vars.is_empty() {
             len += 1;
         }
+        if self.skip_reason.is_some() {
+            len += 1;
+        }
+        if self.skip_until.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.Definition", len)?;
         if !self.id.is_empty() {
             struct_ser.serialize_field("id", &self.id)?;
@@ -2958,6 +2964,12 @@ impl serde::Serialize for Definition {
         if !self.vars.is_empty() {
             struct_ser.serialize_field("vars", &self.vars)?;
         }
+        if let Some(v) = self.skip_reason.as_ref() {
+            struct_ser.serialize_field("skipReason", v)?;
+        }
+        if let Some(v) = self.skip_until.as_ref() {
+            struct_ser.serialize_field("skipUntil", v)?;
+        }
         struct_ser.end()
     }
 }
@@ -2977,6 +2989,10 @@ impl<'de> serde::Deserialize<'de> for Definition {
             "calls",
             "steps",
             "vars",
+            "skip_reason",
+            "skipReason",
+            "skip_until",
+            "skipUntil",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -2990,6 +3006,8 @@ impl<'de> serde::Deserialize<'de> for Definition {
             Calls,
             Steps,
             Vars,
+            SkipReason,
+            SkipUntil,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -3020,6 +3038,8 @@ impl<'de> serde::Deserialize<'de> for Definition {
                             "calls" => Ok(GeneratedField::Calls),
                             "steps" => Ok(GeneratedField::Steps),
                             "vars" => Ok(GeneratedField::Vars),
+                            "skipReason" | "skip_reason" => Ok(GeneratedField::SkipReason),
+                            "skipUntil" | "skip_until" => Ok(GeneratedField::SkipUntil),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -3048,6 +3068,8 @@ impl<'de> serde::Deserialize<'de> for Definition {
                 let mut calls__ = None;
                 let mut steps__ = None;
                 let mut vars__ = None;
+                let mut skip_reason__ = None;
+                let mut skip_until__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Id => {
@@ -3106,6 +3128,18 @@ impl<'de> serde::Deserialize<'de> for Definition {
                             }
                             vars__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::SkipReason => {
+                            if skip_reason__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("skipReason"));
+                            }
+                            skip_reason__ = map_.next_value()?;
+                        }
+                        GeneratedField::SkipUntil => {
+                            if skip_until__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("skipUntil"));
+                            }
+                            skip_until__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(Definition {
@@ -3118,6 +3152,8 @@ impl<'de> serde::Deserialize<'de> for Definition {
                     calls: calls__.unwrap_or_default(),
                     steps: steps__.unwrap_or_default(),
                     vars: vars__.unwrap_or_default(),
+                    skip_reason: skip_reason__,
+                    skip_until: skip_until__,
                 })
             }
         }

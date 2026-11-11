@@ -121,6 +121,10 @@ message Definition {
   uint32 steps = 8;
   // An api's declared var names, in order.
   repeated string vars = 9;
+  // Why a skipped test does not run: its `skip.reason`, or that its examples gave no rows.
+  optional string skip_reason = 10;
+  // The `skip.until` date of a skipped test (`YYYY-MM-DD`), as written; absent without one.
+  optional string skip_until = 11;
 }
 
 // An api a test calls.

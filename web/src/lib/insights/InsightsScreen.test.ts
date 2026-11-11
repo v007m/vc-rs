@@ -1,11 +1,18 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+import { DefinitionKind } from '#lib/gen/vibranium/engine/v1/engine_pb.ts';
 import type { SkipInput, SkipPort } from '#lib/skip/port.ts';
 import { fakeEngine } from '#lib/testing/engine.ts';
 import { Insights } from './insights.svelte.ts';
 import InsightsScreen from './InsightsScreen.svelte';
-import { enginePort, type InsightsPort, type RunSummary, type Scope } from './port.ts';
+import {
+  enginePort,
+  type InsightsPort,
+  type RunSummary,
+  type Scope,
+  type SkipLine,
+} from './port.ts';
 
 const t0 = Date.UTC(2026, 10, 10, 9);
 const runs: RunSummary[] = [
@@ -53,27 +60,45 @@ function skipPort(sent: [SkipInput | string, boolean][]): SkipPort {
   };
 }
 
+const TODAY = '2026-11-12';
+
+/** One skip per case: ended, ends in a week, ends in 14 days (still listed), in 15 (not listed). */
+const SKIPS: SkipLine[] = [
+  { id: 'users.crud#deletesOne', until: '2026-11-19', reason: 'waits on #41' },
+  { id: 'users.crud#updatesOne', until: '2026-11-27' },
+  { id: 'users.crud#listsAll', until: '2026-11-26' },
+  { id: 'users.crud#getsOne', until: '2026-11-10', reason: 'flaky upstream' },
+];
+
 async function rendered(port?: Partial<InsightsPort>) {
   const asked: number[] = [];
+  const skipReads: number[] = [];
   const scopes: Scope[] = [];
   const sent: [SkipInput | string, boolean][] = [];
-  const insights = new Insights({
-    runs: (limit, scope) => {
-      asked.push(limit);
-      scopes.push(scope);
-      return Promise.resolve(runs);
+  const insights = new Insights(
+    {
+      runs: (limit, scope) => {
+        asked.push(limit);
+        scopes.push(scope);
+        return Promise.resolve(runs);
+      },
+      profiles: () => Promise.resolve(['dev', 'staging']),
+      skips: () => {
+        skipReads.push(skipReads.length + 1);
+        return Promise.resolve(SKIPS);
+      },
+      trends: () =>
+        Promise.resolve([
+          { testId: 'users.crud#createsOne', results: 2, failed: 0, flaky: 1, meanMs: 12 },
+          { testId: 'users.crud#getsOne', results: 2, failed: 0, flaky: 0, meanMs: 8 },
+        ]),
+      ...port,
     },
-    profiles: () => Promise.resolve(['dev', 'staging']),
-    trends: () =>
-      Promise.resolve([
-        { testId: 'users.crud#createsOne', results: 2, failed: 0, flaky: 1, meanMs: 12 },
-        { testId: 'users.crud#getsOne', results: 2, failed: 0, flaky: 0, meanMs: 8 },
-      ]),
-    ...port,
-  });
+    TODAY,
+  );
   await insights.open();
   render(InsightsScreen, { insights, skips: skipPort(sent) });
-  return { asked, scopes, sent, user: userEvent.setup() };
+  return { asked, scopes, sent, skipReads, user: userEvent.setup() };
 }
 
 describe('InsightsScreen', () => {
@@ -180,6 +205,40 @@ describe('InsightsScreen', () => {
     expect(screen.getByRole('button', { name: 'Skip users.crud#createsOne until…' })).toBeTruthy();
   });
 
+  it('lists the skips that end within 14 days or have ended, soonest first', async () => {
+    await rendered();
+    const panel = screen.getByRole('region', { name: 'Skips expiring soon' });
+    const rows = within(panel)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent.replace(/\s+/g, ' ').trim());
+    expect(rows).toEqual([
+      'users.crud#getsOne ended 2026-11-10 flaky upstream Unskip…',
+      'users.crud#deletesOne until 2026-11-19 waits on #41 Unskip…',
+      'users.crud#listsAll until 2026-11-26 Unskip…',
+    ]);
+  });
+
+  it('unskips an expiring test after a preview and reads the skips again', async () => {
+    const { sent, skipReads, user } = await rendered();
+    const panel = screen.getByRole('region', { name: 'Skips expiring soon' });
+    await user.click(within(panel).getByRole('button', { name: 'Unskip users.crud#getsOne' }));
+    const form = within(panel).getByRole('group', { name: 'Unskip users.crud#getsOne' });
+    await user.click(within(form).getByRole('button', { name: 'Preview' }));
+    await user.click(within(form).getByRole('button', { name: 'Remove skip' }));
+    expect(sent).toEqual([
+      ['users.crud#getsOne', false],
+      ['users.crud#getsOne', true],
+    ]);
+    expect(skipReads).toEqual([1, 2]);
+    expect(within(panel).queryByRole('group')).toBeNull();
+  });
+
+  it('says when no skip ends soon', async () => {
+    await rendered({ skips: () => Promise.resolve([]) });
+    const panel = screen.getByRole('region', { name: 'Skips expiring soon' });
+    expect(within(panel).getByText('No skip ends in the next 14 days.')).toBeTruthy();
+  });
+
   it('says so when there is no history yet', async () => {
     await rendered({ runs: () => Promise.resolve([]), trends: () => Promise.resolve([]) });
     expect(screen.getByText('No flaky or failing tests in this range.')).toBeTruthy();
@@ -213,8 +272,22 @@ describe('enginePort', () => {
           return { trends: [] };
         },
         getProject: () => ({ name: 'shop', profiles: ['dev', 'staging'] }),
+        listDefinitions: ({ kind, skipped }) => {
+          asked.push({ kind, skipped });
+          return {
+            definitions: [
+              { id: 'users.crud#getsOne', skipped: true, skipUntil: '2026-11-20', skipReason: 'x' },
+              { id: 'users.crud#listsAll', skipped: true, skipReason: 'no end date' },
+              { id: 'users.crud#updatesOne', skipped: true, skipUntil: '2026-12-01' },
+            ],
+          };
+        },
       }),
     );
+    expect(await port.skips()).toEqual([
+      { id: 'users.crud#getsOne', until: '2026-11-20', reason: 'x' },
+      { id: 'users.crud#updatesOne', until: '2026-12-01' },
+    ]);
     expect(await port.runs(10, { profile: 'staging', branch: 'main' })).toEqual([
       {
         id: 5,
@@ -231,6 +304,7 @@ describe('enginePort', () => {
     await port.trends(30, {});
     expect(await port.profiles()).toEqual(['dev', 'staging']);
     expect(asked).toEqual([
+      { kind: DefinitionKind.TESTS, skipped: true },
       { limit: 10, kind: 'run', profile: 'staging', branch: 'main' },
       { window: 30, profile: undefined, branch: undefined },
     ]);

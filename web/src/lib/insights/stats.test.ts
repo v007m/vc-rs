@@ -1,9 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { duration, flakiest, median, niceMax, passRate } from './stats.ts';
+import { duration, expiring, flakiest, localDay, median, niceMax, passRate } from './stats.ts';
 
 const run = { id: 1, startedMs: 0, passed: 7, failed: 1, blocked: 1, flaky: 1 };
 
 describe('stats', () => {
+  it('keeps the skips ending within the days given, across a month end, soonest first', () => {
+    const skips = [
+      { id: 'b', until: '2026-12-01' },
+      { id: 'a', until: '2026-12-02' },
+      { id: 'c', until: '2026-11-01' },
+      { id: 'a2', until: '2026-12-01' },
+    ];
+    expect(expiring(skips, '2026-11-17').map(({ id }) => id)).toEqual(['c', 'a2', 'b']);
+    expect(expiring(skips, '2026-11-17', 15).map(({ id }) => id)).toEqual(['c', 'a2', 'b', 'a']);
+  });
+
+  it('writes a local day as skip.until is written', () => {
+    expect(localDay(new Date(2026, 0, 5, 23, 59).getTime())).toBe('2026-01-05');
+  });
+
   it('counts a flaky pass as passed and leaves skipped tests out', () => {
     expect(passRate(run)).toBe(80);
     expect(passRate({ ...run, passed: 0, failed: 0, blocked: 0, flaky: 0 })).toBeUndefined();

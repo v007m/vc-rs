@@ -1,5 +1,6 @@
 import { ConnectError } from '@connectrpc/connect';
-import type { InsightsPort, RunSummary, Scope, TestTrend } from './port.ts';
+import type { InsightsPort, RunSummary, Scope, SkipLine, TestTrend } from './port.ts';
+import { localDay } from './stats.ts';
 
 /** The time ranges Insights offers, in runs. */
 export const windows = [10, 30, 100] as const;
@@ -19,22 +20,36 @@ export class Insights {
   /** Oldest first, as the charts read left to right. */
   runs: readonly RunSummary[] = $state([]);
   trends: readonly TestTrend[] = $state([]);
+  /** The skipped tests that have an end date. */
+  skips: readonly SkipLine[] = $state([]);
   loading = $state(false);
   error: string | undefined = $state();
+  /** The local day the skips' dates are read against, `YYYY-MM-DD`. */
+  readonly today: string;
   readonly #port: InsightsPort;
 
-  constructor(port: InsightsPort) {
+  constructor(port: InsightsPort, today = localDay(Date.now())) {
     this.#port = port;
+    this.today = today;
   }
 
-  /** Reads the profiles, then the runs. */
+  /** Reads the profiles and the skips, then the runs. */
   async open(): Promise<void> {
     try {
       this.profiles = await this.#port.profiles();
     } catch (error) {
       this.error = ConnectError.from(error).rawMessage;
     }
-    await this.load();
+    await Promise.all([this.load(), this.loadSkips()]);
+  }
+
+  /** Reads the skips again, after one is written or removed. */
+  async loadSkips(): Promise<void> {
+    try {
+      this.skips = await this.#port.skips();
+    } catch (error) {
+      this.error = ConnectError.from(error).rawMessage;
+    }
   }
 
   async load(): Promise<void> {
