@@ -77,7 +77,8 @@ impl Engine {
 
     /// Executes the admitted plan with its secrets and reporters, and gathers its report. A
     /// run the executor fails still finishes its reporters and its watch before the error, and
-    /// is reported and recorded as cancelled, not as a failed run with no tests.
+    /// is reported and recorded as cancelled, not as a failed run with no tests. The plugins it
+    /// started are ended either way, an error before the run starts among them.
     async fn execute(
         &self,
         request: &RunRequest,
@@ -86,6 +87,16 @@ impl Engine {
     ) -> Result<RunReport, EngineError> {
         let (prepared, secrets) = self.secured(prepared).await?;
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
+        plugins.around(Box::pin(self.execute_with(request, (prepared, secrets, &plugins), interrupts))).await
+    }
+
+    /// [`Engine::execute`]'s work with the run's `plugins`, which it leaves running.
+    async fn execute_with(
+        &self,
+        request: &RunRequest,
+        (prepared, secrets, plugins): (Prepared, Secrets, &Hosts),
+        interrupts: &mut Interrupts,
+    ) -> Result<RunReport, EngineError> {
         let heard = plugins.heard();
         let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
@@ -94,7 +105,7 @@ impl Engine {
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(started_ms);
-        let (executor, sweep) = self.executor(&prepared, (inputs, &plugins), request).await?;
+        let (executor, sweep) = self.executor(&prepared, (inputs, plugins), request).await?;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
@@ -113,9 +124,7 @@ impl Engine {
         let generated = crate::examples::generates(&prepared.program, &prepared.plan);
         let run_id = Some(run_id).filter(|id| *id > 0);
         let closing = Closing { seed: (seed, generated), run: run_id, notices, alerting, watching, heard };
-        let closed = close(fanout.reporters, closing, (ran, run)).await;
-        plugins.shutdown().await;
-        closed
+        close(fanout.reporters, closing, (ran, run)).await
     }
 
     /// `prepared` with its declared secrets, and with its example-row labels masked by a redactor

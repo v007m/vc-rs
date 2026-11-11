@@ -107,6 +107,14 @@ impl Hosts {
         }
         while ending.join_next().await.is_some() {}
     }
+
+    /// Does `work`, then ends every plugin it started ([`Hosts::shutdown`]) whether it finished
+    /// or stopped at an error, and gives back what it returned.
+    pub async fn around<T>(&self, work: impl Future<Output = T>) -> T {
+        let done = work.await;
+        self.shutdown().await;
+        done
+    }
 }
 
 impl Engine {
@@ -199,5 +207,51 @@ impl Resolve for Literal {
 
     fn chance(&self) -> &dyn Chance {
         &Steady
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    use async_trait::async_trait;
+    use serde_json::Value;
+    use vc_interfaces::{PluginError, PluginHost, PluginManifest};
+    use vc_testkit::suite_plugin_manifest;
+
+    use super::Hosts;
+
+    /// A plugin that counts the times it is ended.
+    struct Ends {
+        manifest: PluginManifest,
+        ended: AtomicUsize,
+    }
+
+    #[async_trait]
+    impl PluginHost for Ends {
+        fn manifest(&self) -> &PluginManifest {
+            &self.manifest
+        }
+
+        async fn call(&self, _method: &str, _params: Value, _deadline: Duration) -> Result<Value, PluginError> {
+            Ok(Value::Null)
+        }
+
+        async fn shutdown(&self) {
+            self.ended.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[tokio::test]
+    async fn work_that_stops_at_an_error_still_ends_every_plugin() {
+        let plugin = Arc::new(Ends { manifest: suite_plugin_manifest(), ended: AtomicUsize::new(0) });
+        let mut hosts = Hosts::default();
+        drop(hosts.ready.insert("suitePlugin".to_owned(), Arc::clone(&plugin) as Arc<dyn PluginHost>));
+        let failed: Result<(), &str> = hosts.around(async { Err("the transport cannot be built") }).await;
+        assert_eq!((failed, plugin.ended.load(Ordering::SeqCst)), (Err("the transport cannot be built"), 1));
+        assert_eq!(hosts.around(async { 7 }).await, 7);
+        assert_eq!(plugin.ended.load(Ordering::SeqCst), 2, "a run that finishes ends its plugins too");
     }
 }
