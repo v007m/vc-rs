@@ -25,3 +25,8 @@ tests:
         forEach: ${dataset.users.admins}
         vars:
           cityName: ${item.name}
+  - id: createsEuCities
+    call: geo#createCity
+    examples: ${dataset.euCities}
+    vars:
+      cityName: ${example.name}

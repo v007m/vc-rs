@@ -68,7 +68,7 @@ impl Hosts {
         let host = self.ready.get(id).ok_or_else(|| format!("there is no plugin `{id}` in the config"))?;
         let found = host.manifest().kind;
         if found != kind {
-            return Err(format!("plugin `{id}` is a `{}` plugin, not `{}`", found.name(), kind.name()));
+            return Err(format!("plugin `{id}` is {} plugin, not `{}`", a_kind(found), kind.name()));
         }
         Ok(Arc::clone(host))
     }
@@ -166,10 +166,17 @@ pub fn launch_plugin(args: impl Iterator<Item = OsString>) -> Option<String> {
 
 /// A plugin's `config`, which holds literal values only, so it never carries a secret the lock
 /// did not grant.
-fn literal(config: Option<&TemplateValue>) -> Result<Value, String> {
+pub fn literal(config: Option<&TemplateValue>) -> Result<Value, String> {
     let Some(config) = config else { return Ok(Value::Null) };
     let pipes = PipeRegistry::builtin();
     Renderer::new(&pipes, &Literal).value(config).map_err(|error| format!("its `config`: {error}"))
+}
+
+/// The plugin `kind` with its article: "a `reporter`", "an `auth`".
+pub fn a_kind(kind: PluginKind) -> String {
+    let name = kind.name();
+    let article = if name.starts_with(['a', 'e', 'i', 'o', 'u']) { "an" } else { "a" };
+    format!("{article} `{name}`")
 }
 
 /// Answers no lookups: a plugin's `config` has no `${…}` values.

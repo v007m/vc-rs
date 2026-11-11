@@ -57,7 +57,7 @@ $ vc cache list
 sample#createUser  expires 2026-11-10 18:42Z  profile default
 ```
 
-On the next run, the `POST` is not sent. The test still reads `${var.admin.userId}`. With `--reporter json`, the only `exchanged` event is the test's own `GET`.
+On the next run, the `POST` is not sent. The test still reads `${var.admin.userId}`. With `--reporter json`, there are two `exchanged` events: the check's `GET`, then the test's own.
 
 ### When the data is gone
 
@@ -101,9 +101,9 @@ tests:
 
 - Entries are stored in `.vibranium/cache.db`, per profile.
 - The key is the api or test, the action's resolved vars and the active profiles. Vars that read `fake.*` are left out, so a call with a fake email still hits.
-- A hit returns only the saved values. No request is made and the action's `expect` is not checked.
+- A hit returns only the saved values. The action sends no request and its `expect` is not checked. The `check` call is reported like any other, hit or miss.
 - Only a passed result is stored.
-- A cached action's cleanup runs when you clear the entry with `vc cache clear`, not at the end of the run.
+- A cached action's cleanup runs when you clear the entry with `vc cache clear`, not at the end of the run. A replaced or expired entry's cleanup runs outside any test, so it shows only when it fails, as a warning.
 - Entries are encrypted with ChaCha20-Poly1305. The key comes from `VIB_CACHE_KEY` (64 hex digits) or the OS keychain. With neither, the cache is off and `vc` prints V5113.
 
 <Aside type="tip">

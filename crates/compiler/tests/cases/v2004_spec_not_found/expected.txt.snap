@@ -1,0 +1,20 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2004_spec_not_found/project
+---
+error[V2004]: `source.openapi` names ../outside.yaml, which is not in the project
+ --> services/orders/orders.api.yaml:3:12
+  |
+3 |   openapi: ../outside.yaml
+  |            ^^^^^^^^^^^^^^^ leads out of the project
+  = note: `vc sync` reads the spec from it
+  = help: `source.openapi` paths are relative to the project root
+
+error[V2004]: `source.openapi` names specs/user.yaml, which is not in the project
+ --> services/users/users.api.yaml:3:12
+  |
+3 |   openapi: specs/user.yaml
+  |            ^^^^^^^^^^^^^^^ no file at specs/user.yaml
+  = note: `vc sync` reads the spec from it
+  = help: did you mean `specs/users.yaml`?
+  = fix: Replace with specs/users.yaml (certain)

@@ -88,7 +88,7 @@ impl<'a> Renderer<'a> {
             TemplateValue::Map(entries) => Value::Object(self.object(entries.iter())?),
             TemplateValue::Cel(program) => self.resolve.evaluate(program)?,
             TemplateValue::Extend { base, changes, remove } => {
-                merge::extend(self.template(base)?, self.value(changes)?, remove)
+                merge::extend(self.template(base)?, self.value(changes)?, remove)?
             }
         })
     }

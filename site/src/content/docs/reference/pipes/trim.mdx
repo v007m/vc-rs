@@ -40,7 +40,7 @@ vars:
 Clean a value read from a file or env before using it in a URL:
 
 ```yaml
-    path: /search?q=${var.term | trim | urlEncode}
+    path: /search/${var.term | trim}
 ```
 
 ## Try it

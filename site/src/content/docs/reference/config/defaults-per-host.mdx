@@ -4,7 +4,7 @@ description: "How many connections vc opens to one host at a time."
 sidebar: { order: 23 }
 ---
 
-import { Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 `defaults.perHost` caps the connections open to one host at a time. Use it to stay gentle with a small server.
@@ -53,8 +53,7 @@ profiles:
 
 - It works with [`defaults.concurrency`](/vc-rs/reference/config/defaults-concurrency/). Tests may be ready to run, but they wait for a free connection to their host.
 - Override it with `--set defaults.perHost=2`, `VIB_DEFAULTS_PER_HOST=2` or the user config.
-
-<Aside type="caution">Write a number of 1 or more. A negative value in the file is not reported by `vc check` today; the built-in `8` is used instead.</Aside>
+- A number below 1 in a file is an error, `V2302`: `defaults.perHost` takes a whole number of at least 1.
 
 ## Related
 

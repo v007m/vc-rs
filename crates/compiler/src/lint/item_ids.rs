@@ -1,8 +1,8 @@
-//! V4001 and V4002: a test or api ID that is not camelCase, with the rename (and every
-//! reference to it) as the fix.
+//! V4001 and V4002: a test ID that is not a camelCase third-person verb, or an api ID that is
+//! not camelCase, with the rename (and every reference to it) as the fix.
 
 use vc_diagnostics::{Code, Diagnostic, Fix, TextEdit};
-use vc_model::FileKind;
+use vc_model::{FileKind, is_third_person, third_person};
 use vc_parser::Node;
 
 use super::{Lint, LintCx};
@@ -38,7 +38,7 @@ impl Lint for ApiIds {
     }
 }
 
-/// The warning for an item whose ID is not camelCase; `name` is its `name:`, if any.
+/// The warning for an item whose ID breaks the convention; `name` is its `name:`, if any.
 fn badly_named(
     cx: &LintCx<'_, '_>,
     code: Code,
@@ -46,24 +46,47 @@ fn badly_named(
 ) -> Option<Diagnostic> {
     let node = item.get("id")?;
     let id = node.as_scalar()?.text.as_str();
-    if naming::is_camel_id(id) {
-        return None;
-    }
-    let from_name = name.map(naming::camel_id).filter(|derived| naming::is_camel_id(derived));
-    let better = from_name.unwrap_or_else(|| naming::camel_id(id));
+    let fault = fault(code, id)?;
     let what = if code == Code::V4001 { "test" } else { "api" };
-    let diagnostic = Diagnostic::new(code, node.span, format!("{what} ID `{id}` is not camelCase")).label("rename it");
+    let diagnostic = Diagnostic::new(code, node.span, format!("{what} ID `{id}` {fault}")).label("rename it");
+    let (better, certain) = better(code, id, name);
     if !naming::is_camel_id(&better) {
         return Some(diagnostic.help(format!("{what} IDs are camelCase letters and digits")));
     }
-    let diagnostic = diagnostic.help(format!("{what} IDs are camelCase: `{better}`"));
+    let rule = if code == Code::V4001 { "test IDs are camelCase third-person verbs" } else { "api IDs are camelCase" };
+    let diagnostic = diagnostic.help(format!("{rule}: `{better}`"));
     let (from, to) = (source.full(id), source.full(&better));
     if cx.project.tests.contains_key(&to) || cx.project.apis.contains_key(&to) {
         return Some(diagnostic);
     }
     let mut edits = vec![respelled(source, node, &better)];
     edits.extend(reference_edits(cx, &from, &to));
-    Some(diagnostic.fix(Fix::certain(format!("Rename to {better}"), edits)))
+    let title = format!("Rename to {better}");
+    Some(diagnostic.fix(if certain { Fix::certain(title, edits) } else { Fix::suggested(title, edits) }))
+}
+
+/// What breaks the convention in `id`, for the message; `None` when nothing does. A test ID
+/// starts with a third-person verb as well (`getsUser`, not `getUser` or `userTest`).
+fn fault(code: Code, id: &str) -> Option<&'static str> {
+    if !naming::is_camel_id(id) {
+        return Some("is not camelCase");
+    }
+    (code == Code::V4001 && !is_third_person(id)).then_some("does not start with a third-person verb")
+}
+
+/// The ID to rename `id` to, and whether the rename is certain: the item's `name` as an ID when
+/// that keeps the convention, else `id` in camelCase. A test ID whose first word is then not a
+/// third-person verb has it conjugated (`getUser` gives `getsUser`), which is only a guess.
+fn better(code: Code, id: &str, name: Option<&str>) -> (String, bool) {
+    let from_name = name.map(naming::camel_id).filter(|derived| fault(code, derived).is_none());
+    if let Some(from_name) = from_name {
+        return (from_name, true);
+    }
+    let camel = naming::camel_id(id);
+    if camel.is_empty() || fault(code, &camel).is_none() {
+        return (camel, true);
+    }
+    (third_person(&camel), false)
 }
 
 /// The edits that point every reference to the full ID `from` at `to` instead, keeping a

@@ -1,5 +1,6 @@
 //! The shape-check stage: walks a parsed file against its [`Shape`] and reports unknown keys
-//! (V1004), missing keys (V1005, V1003), wrong value types (V2302) and one-of groups (V2201).
+//! (V1004), missing keys (V1005, V1003), wrong value types and numbers below a key's least
+//! (V2302), and one-of groups (V2201).
 //! Values the next stage compiles (templates, units, matchers, CEL) are collected as leaves.
 
 use vc_diagnostics::{Code, Diagnostic, Diagnostics, Fix, TextEdit};
@@ -107,8 +108,10 @@ impl Walker {
     }
 
     fn either(&mut self, node: &Node, alternatives: &[Ty], scope: Scope) {
-        if let Some(ty) = alternatives.iter().find(|ty| accepts(**ty, node)) {
-            self.value(node, *ty, scope);
+        let Some(ty) = alternatives.iter().find(|ty| accepts(**ty, node)) else { return };
+        match (ty, node.as_str()) {
+            (Ty::Enum(words), Some(text)) if !words.contains(&text) => self.push(other_word(node, text, alternatives)),
+            _ => self.value(node, *ty, scope),
         }
     }
 
@@ -138,10 +141,28 @@ impl Walker {
             self.path.push(index);
             self.value(&entry.value, key.ty, scope.with(key.scope).with(sibling_scope(shape, entries, key)));
             self.path.pop();
+            self.least(&entry.value, key);
         }
         self.required(node, shape);
         self.one_of(node, shape);
         self.step(node, shape);
+    }
+
+    /// V2302 for a whole number below the least `key` takes: `repeat: 0`.
+    fn least(&mut self, node: &Node, key: &Key) {
+        let Some(min) = key.min else { return };
+        let scalar = node.as_scalar().filter(|scalar| scalar.kind == ScalarKind::Int);
+        let Some(number) = scalar.and_then(|scalar| scalar.text.parse::<i64>().ok()).filter(|number| *number < min)
+        else {
+            return;
+        };
+        let message = format!("`{}` takes a whole number of at least {min}, found {number}", key.name);
+        let help = key.example.map_or_else(
+            || format!("write {min} or more"),
+            |example| format!("write {min} or more: `{}: {example}`", key.name),
+        );
+        let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label(format!("below {min}"));
+        self.push(diagnostic.help(help));
     }
 
     fn required(&mut self, node: &Node, shape: &'static Shape) {
@@ -194,6 +215,24 @@ fn sibling_scope(shape: &Shape, entries: &[Entry], key: &Key) -> Scope {
         .fold(Scope::NONE, |scope, (_, added)| scope.with(*added))
 }
 
+/// Whether `node` fits `ty` all the way down, so the shape check reports nothing in it: a later
+/// stage that finds it does not fit leaves the report to the shape check, not making a second.
+pub fn fits(ty: Ty, node: &Node) -> bool {
+    if !accepts(ty, node) {
+        return false;
+    }
+    match (ty, &node.value) {
+        (Ty::Obj(shape), Value::Map(entries)) => {
+            entries.iter().all(|entry| shape().find(&entry.key).is_some_and(|key| fits(key.ty, &entry.value)))
+        }
+        (Ty::List(item), Value::Seq(items)) => items.iter().all(|child| fits(*item, child)),
+        (Ty::MapOf(item), Value::Map(entries)) => entries.iter().all(|entry| fits(*item, &entry.value)),
+        (Ty::Either(alternatives), _) => alternatives.iter().any(|ty| fits(*ty, node)),
+        (Ty::Enum(words), _) => node.as_str().is_none_or(|text| words.contains(&text)),
+        _ => true,
+    }
+}
+
 /// Whether `node` has the kind `ty` takes; scalars are checked loosely where the next stage
 /// parses them (durations, sizes, statuses).
 fn accepts(ty: Ty, node: &Node) -> bool {
@@ -237,9 +276,44 @@ const fn found(node: &Node) -> &'static str {
     }
 }
 
+/// V2302 for a word that is none of an `Either`'s, named with every alternative: `writeDefinitions`
+/// takes `one of true, false, ask`, `http.retry.on` `an integer or one of connect, timeout`.
+fn other_word(node: &Node, text: &str, alternatives: &[Ty]) -> Diagnostic {
+    let words_of = |ty: &Ty| match ty {
+        Ty::Bool => &["true", "false"][..],
+        Ty::Enum(words) => *words,
+        _ => &[],
+    };
+    let words: Vec<&str> = alternatives.iter().flat_map(words_of).copied().collect();
+    let others = alternatives.iter().filter(|ty| words_of(ty).is_empty()).map(|ty| article(&ty.describe()));
+    let expected: Vec<String> = others.chain([format!("one of {}", words.join(", "))]).collect();
+    let message = format!("expected {}, found `{text}`", expected.join(" or "));
+    let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label("not a known value");
+    if suggest::close(text, words.iter().copied()).is_empty() {
+        return diagnostic;
+    }
+    suggest::hint(diagnostic, &Misspelling { word: text, span: node.span, known: &words })
+}
+
+/// How a message names what `ty` takes: a map by its first keys, not by its shape's name.
+fn expected(ty: Ty) -> String {
+    match ty {
+        Ty::Obj(shape) => format!("a map of {}", first_keys(shape())),
+        Ty::List(Ty::Obj(shape)) => format!("a list of maps of {}", first_keys(shape())),
+        other => other.describe(),
+    }
+}
+
+/// `` `min`, `max` ``: a shape's first three keys, and `…` when it has more.
+fn first_keys(shape: &Shape) -> String {
+    let names: Vec<String> = shape.all_keys().take(3).map(|key| format!("`{}`", key.name)).collect();
+    let more = if shape.all_keys().nth(3).is_some() { ", …" } else { "" };
+    format!("{}{more}", names.join(", "))
+}
+
 fn mismatch(node: &Node, ty: Ty) -> Diagnostic {
-    let message = format!("expected {}, found {}", ty.describe(), found(node));
-    let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label(format!("expected {}", ty.describe()));
+    let message = format!("expected {}, found {}", expected(ty), found(node));
+    let diagnostic = Diagnostic::new(Code::V2302, node.span, message).label(format!("expected {}", expected(ty)));
     match unquoted(node, ty) {
         Some(text) => {
             let help = format!("write `{text}` without quotes");

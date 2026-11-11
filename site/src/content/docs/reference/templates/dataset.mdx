@@ -7,7 +7,7 @@ sidebar: { order: 11 }
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
-`${dataset.<id>}` is the whole list of rows of one of your datasets. Files under `datasets/` are datasets named after their path. See [Data](/vc-rs/reference/data/) for files and settings.
+`${dataset.<id>}` is the whole list of rows of one of your datasets. Files under `datasets/` are datasets named after their path, each word in camelCase. See [Data](/vc-rs/reference/data/) for files and settings.
 
 ```yaml
     examples: ${dataset.capitals}
@@ -17,7 +17,7 @@ import Playground from '~/components/Playground.svelte';
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `dataset.<id>` | list of rows | — | yes | `datasets/capitals.csv` is `capitals`; `datasets/users/admins.json` is `users.admins`. |
+| `dataset.<id>` | list of rows | — | yes | `datasets/capitals.csv` is `capitals`; `datasets/world-cities.csv` is `worldCities`; `datasets/users/admins.json` is `users.admins`. |
 
 ## Examples
 

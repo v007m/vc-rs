@@ -9,6 +9,7 @@ use vc_parser::{Document, Node, ParserError};
 use crate::EngineError;
 use crate::authoring::{Authoring, Opened, item, refused};
 use crate::edit::{FileChange, internal};
+use crate::format::is_generated;
 
 /// The edits that rename `from` to `to` in one document.
 type Renames = fn(&Document, &str, &str) -> Result<Vec<TextEdit>, ParserError>;
@@ -25,6 +26,8 @@ struct NameKind {
     unknown_help: &'static str,
     /// Whether a name keeps its convention.
     valid: fn(&str) -> bool,
+    /// Whether the comments `vc new` writes name it (`# partnerToken · bearer`).
+    commented: bool,
     /// The edits that rename `from` to `to` in one document: references and, for a var, the
     /// keys that define it.
     edits: Renames,
@@ -38,6 +41,7 @@ const KINDS: [NameKind; 3] = [
         reserved: &[],
         unknown_help: "a var is a key under `vars` or `save`, used as `${var.<name>}`",
         valid: is_camel_id,
+        commented: false,
         edits: Document::rename_var,
     },
     NameKind {
@@ -46,6 +50,7 @@ const KINDS: [NameKind; 3] = [
         reserved: &["none"],
         unknown_help: "the config's `auth` list defines the auths",
         valid: is_camel_id,
+        commented: true,
         edits: Document::rename_auth,
     },
     NameKind {
@@ -55,6 +60,7 @@ const KINDS: [NameKind; 3] = [
         unknown_help: "only a dataset listed under the config's `datasets.files` is renamed here; move a file \
                        under `datasets/` by hand, and `vc check` shows each reference to fix",
         valid: is_dataset_id,
+        commented: false,
         edits: Document::rename_dataset,
     },
 ];
@@ -99,7 +105,10 @@ impl NameKind {
         let mut files = Vec::new();
         for found in project.entries().filter(|(_, file)| file.kind().is_some()) {
             let opened = Authoring::open(found)?;
-            let edits = self.file_edits(&opened, old, new)?;
+            let mut edits = self.file_edits(&opened, old, new)?;
+            if self.commented {
+                edits.extend(opened.document.rename_in_comments((old, new), &is_generated));
+            }
             if !edits.is_empty() {
                 files.push(opened.change(&edits)?);
             }

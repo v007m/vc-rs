@@ -62,6 +62,8 @@ async fn a_spec_given_as_text_is_read_without_fetching_and_named_by_its_source()
     let paths: Vec<_> = changes.files.iter().map(|file| file.path.as_str()).collect();
     assert!(paths.contains(&"services/petstore/petstore.api.yaml"), "{paths:?}");
     assert_eq!(changes.titles, ["Import 5 apis from pasted/petstore.json"]);
+    let api = changes.files.iter().find(|file| file.path.ends_with(".api.yaml")).map(|file| file.after.as_str());
+    assert!(!api.unwrap_or_default().contains("\nsource:"), "nothing to sync from: {api:?}");
 }
 
 #[tokio::test]

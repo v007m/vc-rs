@@ -1,0 +1,13 @@
+syntaxVersion: 2
+project: shop
+profiles:
+  - id: dev
+    default: true
+generators:
+  - id: badShape
+    int: 5
+  - id: oddKey
+    lorem:
+      wordz: 3
+  - id: notList
+    oneOf: PUBLIC

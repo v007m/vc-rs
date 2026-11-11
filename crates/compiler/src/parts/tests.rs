@@ -298,6 +298,26 @@ fn lowers_an_extended_map_to_its_base_changes_and_removed_paths() {
 }
 
 #[test]
+fn an_extend_base_must_be_a_template_and_remove_needs_extend() {
+    for base in ["5", "plain", "[a]", "{a: 1}", "null"] {
+        let unit = unit_with(&format!("    body: {{$extend: {base}, a: 1}}\n"));
+        assert_eq!(codes(&unit.diagnostics), [Code::V2302], "{base}");
+        assert!(
+            unit.diagnostics
+                .iter()
+                .next()
+                .is_some_and(|first| first.message.starts_with("expected a template that renders an object, found "))
+        );
+    }
+    let lone = unit_with("    body: {$remove: [name], a: 1}\n");
+    assert_eq!(codes(&lone.diagnostics), [Code::V2211]);
+    assert_eq!(
+        lone.diagnostics.iter().map(|found| found.message.as_str()).collect::<Vec<_>>(),
+        ["`$remove` in a map without `$extend`"]
+    );
+}
+
+#[test]
 fn maps_scalar_styles_for_exact_spans() {
     use vc_parser::ScalarStyle as Parsed;
     assert_eq!(super::style(Parsed::Plain, "a"), ScalarStyle::Plain);

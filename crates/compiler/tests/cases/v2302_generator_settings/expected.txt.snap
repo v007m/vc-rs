@@ -1,0 +1,23 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2302_generator_settings/project
+---
+error[V2302]: expected a map of `min`, `max`, found an integer
+ --> vibranium.config.yaml:8:10
+  |
+8 |     int: 5
+  |          ^ expected a map of `min`, `max`
+
+error[V1004]: unknown key `wordz` in lorem
+  --> vibranium.config.yaml:11:7
+   |
+11 |       wordz: 3
+   |       ^^^^^ not a known key
+   = help: did you mean `words`?
+   = fix: Replace with words (certain)
+
+error[V2302]: expected list of value, found text
+  --> vibranium.config.yaml:13:12
+   |
+13 |     oneOf: PUBLIC
+   |            ^^^^^^ expected list of value

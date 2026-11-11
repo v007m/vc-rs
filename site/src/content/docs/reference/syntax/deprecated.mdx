@@ -105,7 +105,7 @@ apis:
 - A deprecated api still runs normally.
 - Every `call` to it, from a test, step, hook block or `cleanup`, gets warning V3203 at `vc check` time.
 - `vc sync` sets `deprecated: true` and never deletes an api. Delete it yourself once nothing calls it.
-- The `help:` line always says the operation left the spec, even for an api you marked by hand.
+- The `help:` line says the operation left the spec only for an api that syncs from one (it has an `operationId`, or its file a `source`). For an api you marked by hand it reads `call the api that replaces it, or remove the call`.
 
 ## Common errors
 

@@ -5,8 +5,8 @@
 use indexmap::IndexMap;
 use serde_json::Number;
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Path, TemplateValue};
-use vc_parser::{Entry, Scalar, ScalarKind, Value};
+use vc_model::{Path, Template, TemplateValue};
+use vc_parser::{Entry, Node, Scalar, ScalarKind, Value};
 
 use crate::link::body_path;
 use crate::parts;
@@ -42,12 +42,19 @@ fn map(cx: &mut Cx<'_>, at: At<'_>, entries: &[Entry]) -> Option<TemplateValue> 
     if let Some(base) = entries.iter().find(|entry| entry.key == EXTEND_KEY) {
         return extend(cx, at, (base, entries));
     }
+    if let Some(remove) = entries.iter().find(|entry| entry.key == REMOVE_KEY) {
+        let diagnostic = Diagnostic::new(Code::V2211, remove.key_span, "`$remove` in a map without `$extend`");
+        let help =
+            "`$remove` drops paths from the object `$extend` starts from: add `$extend: ${…}`, or remove `$remove`";
+        cx.push(diagnostic.label("needs `$extend`").note("without `$extend` it would be sent as a key").help(help));
+        return None;
+    }
     plain_map(cx, at, entries.iter())
 }
 
 /// `$extend`'s base, the other keys as the changes merged into it, and the `$remove` paths.
 fn extend(cx: &mut Cx<'_>, at: At<'_>, (base, entries): (&Entry, &[Entry])) -> Option<TemplateValue> {
-    let base = parts::template(cx, at.child(&base.value));
+    let base = based(cx, at, base);
     let changes = entries.iter().filter(|entry| entry.key != EXTEND_KEY && entry.key != REMOVE_KEY);
     let changes = plain_map(cx, at, changes);
     let remove = entries
@@ -55,6 +62,37 @@ fn extend(cx: &mut Cx<'_>, at: At<'_>, (base, entries): (&Entry, &[Entry])) -> O
         .find(|entry| entry.key == REMOVE_KEY)
         .map_or_else(|| Some(Vec::new()), |entry| removed(cx, entry));
     Some(TemplateValue::Extend { base: base?, changes: Box::new(changes?), remove: remove? })
+}
+
+/// `$extend`'s base as a template; `None`, with a V2302, when it is written as a literal,
+/// which is never the object it must render.
+fn based(cx: &mut Cx<'_>, at: At<'_>, base: &Entry) -> Option<Template> {
+    let text = matches!(&base.value.value, Value::Scalar(scalar) if scalar.kind == ScalarKind::String);
+    if text {
+        let template = parts::template(cx, at.child(&base.value))?;
+        if template.as_literal().is_none() {
+            return Some(template);
+        }
+    }
+    let message = format!("expected a template that renders an object, found {}", found(&base.value));
+    let diagnostic = Diagnostic::new(Code::V2302, base.value.span, message).label("never an object");
+    cx.push(
+        diagnostic.help("start from an object you have: `$extend: ${original.body}` or `$extend: ${var.baseUser}`"),
+    );
+    None
+}
+
+/// What a literal `node` is, in a message's words.
+const fn found(node: &Node) -> &'static str {
+    match &node.value {
+        Value::Scalar(scalar) => match scalar.kind {
+            ScalarKind::Null => "null",
+            ScalarKind::Bool => "a boolean",
+            ScalarKind::Int | ScalarKind::Float => "a number",
+            ScalarKind::String => "plain text",
+        },
+        Value::Seq(_) | Value::Map(_) => node.kind_name(),
+    }
 }
 
 /// The paths a `$remove` list names; `None`, with a V2302, when it is not a list of texts.

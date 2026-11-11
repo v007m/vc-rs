@@ -188,11 +188,12 @@ fn given<'a>(entries: &'a [CacheEntry], files: &'a SourceFiles) -> HashMap<&'a s
     entries.iter().filter_map(root).collect()
 }
 
-/// The ID a file under `datasets/` has: its path below the folder, dotted, without its suffix.
+/// The ID a file under `datasets/` has: its path below the folder without its suffix, each
+/// word in camelCase and dotted (`datasets/world-cities.csv` is `worldCities`, CW naming).
 fn folder_id(path: &str) -> Option<String> {
     let inside = path.strip_prefix(FOLDER)?;
     let stem = SUFFIXES.iter().find_map(|suffix| inside.strip_suffix(suffix)).filter(|stem| !stem.is_empty())?;
-    Some(stem.replace('/', "."))
+    Some(stem.split('/').map(crate::naming::camel_id).collect::<Vec<_>>().join("."))
 }
 
 /// The dataset ID in a template that is exactly `${dataset.<id>}`.
@@ -261,6 +262,8 @@ mod tests {
     fn files_under_the_folder_are_named_by_their_path() {
         assert_eq!(folder_id("datasets/cities.csv").as_deref(), Some("cities"));
         assert_eq!(folder_id("datasets/users/seed.yml").as_deref(), Some("users.seed"));
+        assert_eq!(folder_id("datasets/world-cities.csv").as_deref(), Some("worldCities"));
+        assert_eq!(folder_id("datasets/eu-west/top_users.json").as_deref(), Some("euWest.topUsers"));
         for other in ["datasets/notes.txt", "data/cities.csv", "datasets/.csv"] {
             assert_eq!(folder_id(other), None, "{other}");
         }

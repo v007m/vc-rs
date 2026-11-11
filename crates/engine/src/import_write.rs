@@ -37,6 +37,7 @@ pub fn drafted(
 }
 
 /// `synced` is the request whose spec the api file's `source` names; none for a draft of no spec.
+/// A pasted spec (one given as text) has no file to sync from, so its api file has no `source`.
 fn group_files(
     project: &Authoring,
     group: &DraftGroup,
@@ -56,7 +57,8 @@ fn group_files(
         base = base.replace(&format!("${{var.{draft_var}}}"), &format!("${{var.{var}}}"));
         files.extend(change);
     }
-    files.push(new_file(FileKind::Api, id, &api_file(group, &base, synced))?);
+    let fetched = synced.filter(|request| request.text.is_none());
+    files.push(new_file(FileKind::Api, id, &api_file(group, &base, fetched))?);
     if !group.tests.is_empty() {
         files.push(tests_file(project, group, synced.is_some())?);
     }

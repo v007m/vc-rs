@@ -227,12 +227,11 @@ apis:
 `on` takes `connect`, `timeout` and status codes only:
 
 ```console
-error[V2302]: expected one of connect, timeout, found `reset`
+error[V2302]: expected an integer or one of connect, timeout, found `reset`
   --> services/bad/bad.api.yaml:24:28
    |
 24 |         on: [connect, 500, reset]
    |                            ^^^^^ not a known value
-   = help: expected one of `connect`, `timeout`
 ```
 
 Backoff values are durations:

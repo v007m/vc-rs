@@ -106,7 +106,29 @@ $ vc plan sample.extra#echoesBody --json
 $ vc plan sample.basics --dot | dot -Tsvg > plan.svg
 ```
 
-The DOT output has one cluster per file, with a node for each lifecycle action and test instance.
+The DOT output has one cluster per file, with a node for each test instance and each lifecycle action, labelled with its block (`beforeRun`, `beforeAll`, `beforeEach`, `afterEach`, `afterAll`, `afterRun`). A dashed edge runs from each node to the ones that run after it. A solid edge runs from a node to each `beforeRun` or `beforeAll` action whose saved values it reads. For a file whose `readsSeed` test sends `${var.seed.userId}`:
+
+```dot
+digraph plan {
+  rankdir=LR;
+  subgraph cluster_0 {
+    label="users.blocks";
+    a2 [label="beforeAll seed"];
+    a3 [label="beforeEach call users#list"];
+    i0 [label="users.blocks#listsUsers"];
+    i1 [label="users.blocks#readsSeed"];
+    a4 [label="afterEach command"];
+    a5 [label="afterAll command"];
+  }
+  i1 -> a2;
+  a2 -> a3 [style=dashed];
+  a3 -> i0 [style=dashed];
+  a3 -> i1 [style=dashed];
+  i0 -> a4 [style=dashed];
+  i1 -> a4 [style=dashed];
+  a4 -> a5 [style=dashed];
+}
+```
 
 ## Exit codes
 

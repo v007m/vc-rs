@@ -79,7 +79,7 @@ fn under(file: &str, wanted: &str) -> bool {
 }
 
 /// Whether `comment` is one `vc new` wrote above an item: `# users#get · GET /users · keys: …`.
-fn is_generated(comment: &str) -> bool {
+pub fn is_generated(comment: &str) -> bool {
     comment.starts_with('#') && comment.contains(&format!(" · keys: {DOCS}#"))
 }
 

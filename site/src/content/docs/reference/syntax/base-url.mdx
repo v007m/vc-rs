@@ -186,14 +186,14 @@ apis:
 
 ## How it behaves
 
-- The URL is `baseUrl` plus `path`, joined as plain text. Write `baseUrl` without a trailing `/` and every path with a leading `/`.
+- The URL is `baseUrl` plus `path`, joined as plain text. Write `baseUrl` without a trailing `/` and every path with a leading `/`; `vc check` warns ([V4005](/vc-rs/reference/diagnostics/v4005/)) when either is missed.
 - Each api takes `baseUrl` from its own file. A test that calls two services sends each request to the right host without saying so.
 - `baseUrl` is a template, rendered for each request. The var behind it follows the normal [vars](/vc-rs/reference/syntax/vars/) precedence. `vc explain` names the level that won: `(vibranium.config.yaml)`, `(profile staging)`, `(test)` or `(--set)`.
 - Use a var even with one environment. The test files never change when the address does.
 
 ## Common errors
 
-A trailing slash in `baseUrl` doubles the slash. `baseUrl: ${var.sampleUrl}/` with `path: /echo` sends `http://localhost:7432//echo`, and the demo answers 404. `vc check` does not warn, so `vc explain` is the quickest way to spot it.
+A trailing slash in `baseUrl` doubles the slash. `baseUrl: ${var.sampleUrl}/` with `path: /echo` sends `http://localhost:7432//echo`, and the demo answers 404. `vc check` warns with [V4005](/vc-rs/reference/diagnostics/v4005/), and `vc check --fix` removes the `/`.
 
 A relative path with no `baseUrl` also passes `vc check`, then fails when sent:
 
@@ -209,7 +209,7 @@ profile  default
   GET /echo
 
 $ vc call nobase#rel
-✗ cannot send the request: /echo is not an http(s) URL
+✗ error[V5111]: `nobase#rel` sends to `/echo`, which is not a full URL: no `baseUrl` is set for `nobase` (profile default); help: add `baseUrl: ${var.nobaseUrl}` to its api file and set `nobaseUrl` in the config, a profile, or with `--set vars.nobaseUrl=http://…`
 ```
 
 A `baseUrl` var that no level sets fails `vc check` with [V2101](/vc-rs/reference/diagnostics/v2101/). A host that can't be reached fails the call with [V5105](/vc-rs/reference/diagnostics/v5105/).

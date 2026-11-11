@@ -519,6 +519,12 @@ Round 44 (11 November 2026; gaps found by the WP7 import and sync triage. Orches
 | --- | --- | --- | --- |
 | D277 | `source.only` | `vc import openapi --only <operationId>` is kept in the api file as `source.only`, beside `source.include` (D79, D177). `vc sync` drafts the spec with both, so an operation the spec adds outside them is not added to the file; an operation must match both when both are set. Removing the keys takes the whole spec again | D79, D177 (extended) |
 
+Round 45 (11 November 2026; orchestrator; Sarath away):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D278 | How a `path` is encoded | A `path`'s literal text is sent as written. Each `${…}` value is percent-encoded as one segment (RFC 3986 `pchar`: `/`, `?`, `#`, `%` and a space are encoded), and a lone `.` or `..` is sent as `%2E` or `%2E%2E`, so a value cannot change the path's shape. A value before the path's first `/` is sent as written only when it renders to an absolute `http://` or `https://` URL (`${var.usersUrl}/users`); any other leading value is one segment like the rest, so `${var.id}/orders` with `id: ../admin` sends `..%2Fadmin/orders`. A value after a literal `?` is encoded as a query value. A value whose last pipe is `urlEncode` is sent as the pipe left it, not encoded twice, and `vc check` warns with V4007, whose certain fix removes the pipe. The `baseUrl` and a flow auth's inline URL are sent as written. `vc explain` shows a path's values before they are encoded | D268 (clarified) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

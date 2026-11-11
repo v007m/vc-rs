@@ -46,17 +46,15 @@ tests:
           echoedName: ${response.body.body.name}
 ```
 
-Selecting the file, or even the test by its full ID, runs nothing:
+Selecting the file, or the test by its full ID, when it picks only such tests, is refused with exit code 2:
 
 ```console
 $ vc run shared.flows
-plan  0 tests in 0 files · profile default
-
-
-0 passed                                                     0ms · profile default
+error: `shared.flows` picks only tests with `standalone: false`, which run only when a `test:` action reuses them
+  = help: run a test that has a `test: shared.flows#memberWithEcho` action, or remove `standalone: false`
 ```
 
-The exit code is 2, "nothing ran". `vc list tests` does not list the test either.
+A file that also holds standalone tests runs those and leaves this one out. `vc list tests` does not list the test either.
 
 ### Running it through another test
 
@@ -97,12 +95,12 @@ tests:
 ## How it behaves
 
 - A `standalone: false` test is still checked by `vc check`, like any other test.
-- It is left out when you select its file, and even when you select its own full ID. A run that selects only such tests exits 2.
+- It is left out when you select its file. A selector that picks only such tests, such as the test's own full ID, is refused with exit 2 and says why.
 - It can be reused from any file, as a step or in `before`, `after`, `beforeEach` and `beforeAll`.
 
 ## Common errors
 
-Selecting only `standalone: false` tests is not an error, but nothing runs and `vc run` exits 2. Run a test that reuses it instead.
+`picks only tests with standalone: false`: a selector named only tests that run when reused, so `vc run`, `vc plan` and `vc list tests` exit 2. Run a test that reuses it instead.
 
 ## Related
 

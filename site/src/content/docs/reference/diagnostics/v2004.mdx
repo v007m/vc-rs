@@ -1,8 +1,8 @@
 ---
-title: "V2004 — $file or snapshot reference not found"
+title: "V2004 — $file, spec or snapshot reference not found"
 description: "A $file names a file that is not in the project."
 sidebar:
-  label: "V2004 $file or snapshot reference not found"
+  label: "V2004 $file, spec or snapshot reference not found"
   order: 2004
 ---
 
@@ -19,6 +19,9 @@ import { Badge } from '@astrojs/starlight/components';
 
 A `$file` names a file that is not in the project. The path is relative to the file that holds the `$file`, and a
 `#/pointer` after it points inside the file. When exactly one file has a close name, the fix rewrites the path.
+
+An api file's `source.openapi` that is a path, not a URL, must name a file in the project too. That path is relative
+to the project root.
 
 ## Wrong
 

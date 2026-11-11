@@ -90,9 +90,7 @@ impl Engine {
         let draft = request.draft.iter().map(|draft| self.draft_change(draft)).collect::<Result<Vec<_>, _>>()?;
         let Layered { mut program, notices, settings, environment, dot_env, .. } =
             self.layered_with(&request.sets, &flags, &draft)?;
-        if let Some(timeout) = settings.timeout {
-            Arc::make_mut(&mut program).config.defaults.timeout = Some(timeout);
-        }
+        settings.apply(&mut program);
         let (profiles, names) = plan::profiles(&program, settings.profiles.as_ref())?;
         let (plan, draw) = (Arc::default(), Draw::new(None));
         Ok(Prepared { program, plan, settings, profiles, names, notices, environment, dot_env, draw })

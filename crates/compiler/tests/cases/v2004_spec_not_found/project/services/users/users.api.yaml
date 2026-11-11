@@ -1,0 +1,6 @@
+baseUrl: ${var.baseUrl}
+source:
+  openapi: specs/user.yaml
+apis:
+  - id: listUsers
+    path: /users

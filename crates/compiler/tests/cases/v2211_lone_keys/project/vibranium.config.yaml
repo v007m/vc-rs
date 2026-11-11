@@ -1,0 +1,7 @@
+syntaxVersion: 2
+project: shop
+vars:
+  usersUrl: http://localhost
+profiles:
+  - id: dev
+    default: true

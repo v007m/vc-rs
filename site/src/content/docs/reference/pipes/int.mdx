@@ -78,7 +78,7 @@ Inside other text the result is text: `"n=${var.count | int}"` sent `"n=42"`.
 
 - A whole number passes through unchanged. A decimal is truncated toward zero.
 - A number too large for a 64-bit whole number fails at run time.
-- Like `number`, `vc check` accepts a boolean input, but the run rejects it.
+- Like `number`, a var known to be a boolean is V2304 at check time; a boolean known only at run time fails there.
 
 ## Common errors
 
@@ -90,7 +90,7 @@ Run-time messages:
 | `1e30` | ``pipe `int` cannot take 1e+30: the number is too large for a whole number`` |
 | `true` | ``pipe `int` cannot take true: it takes text or a number`` |
 
-- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known to be a list or an object.
+- [V2304](/vc-rs/reference/diagnostics/v2304/): the input is known to be a list, an object or a boolean.
 - [V2308](/vc-rs/reference/diagnostics/v2308/): an unknown pipe name, or the wrong number of arguments.
 - [V5111](/vc-rs/reference/diagnostics/v5111/): the text is not a number, the number is too large, or the input is a boolean.
 

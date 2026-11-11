@@ -14,6 +14,7 @@ mod inline;
 mod looping;
 mod media;
 mod multipart;
+mod path;
 mod provides;
 mod request;
 mod retrying;

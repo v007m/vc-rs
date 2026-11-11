@@ -63,9 +63,7 @@ async fn hooks_sign_the_request_save_values_and_judge_the_response() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_hook_past_its_time_or_memory_budget_is_stopped_with_its_line() {
     let server = MockServer::start().await.unwrap();
-    // QuickJS stops a loop at its back-edge, where a frame's line is its first, unless a native
-    // call such as `concat` is running; nearly all of this loop's time is inside `concat`.
-    let spin = "export function spin(): boolean {\n  let n: number = 0;\n  while (true) {\n    n = [n].concat([1]).length;\n  }\n}\n";
+    let spin = "export function spin(): boolean {\n  let n: number = 0;\n  while (true) {\n    n++;\n  }\n}\n";
     let hog = "export function hog(): boolean {\n  const kept: number[][] = [];\n  for (;;) {\n    kept.push(new Array(1 << 16).fill(7));\n  }\n}\n";
     let test = concat!(
         "tests:\n  - id: spins\n    call: signed#echo\n",
@@ -86,11 +84,12 @@ async fn a_hook_past_its_time_or_memory_budget_is_stopped_with_its_line() {
     let said = crate::said(&output);
     assert_eq!(output.status.code(), Some(1), "{said}");
     assert!(said.contains("V5116"), "{said}");
-    for limit in ["time", "memory"] {
+    let line = |limit: &str| {
         let stopped = format!("{limit} budget and was stopped (line ");
-        let line = said.split(stopped.as_str()).nth(1).and_then(|rest| rest.split(')').next());
-        assert!(matches!(line, Some("3" | "4")), "the loop's TypeScript line for {limit}: {said}");
-    }
+        said.split(stopped.as_str()).nth(1).and_then(|rest| rest.split(')').next()).map(str::to_owned)
+    };
+    assert_eq!(line("time").as_deref(), Some("3"), "a loop of plain arithmetic names its own line: {said}");
+    assert!(matches!(line("memory").as_deref(), Some("3" | "4")), "the loop's TypeScript line: {said}");
 }
 
 const SIGN_KEY: &str = "Wm5c-Ry8d-Kp2t";

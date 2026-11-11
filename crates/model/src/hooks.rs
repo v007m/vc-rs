@@ -21,6 +21,10 @@ pub struct HookModule {
 }
 
 impl HookModule {
+    /// The global the compiler calls just before each loop, a no-op the hook runtime defines:
+    /// a hook stopped in a loop names the line of the code before the loop's start, which is this.
+    pub const LOOP_TICK: &str = "__vcTick";
+
     /// The TypeScript line that JavaScript line `js_line` (from 1) came from.
     #[must_use]
     pub fn ts_line(&self, js_line: u32) -> Option<u32> {

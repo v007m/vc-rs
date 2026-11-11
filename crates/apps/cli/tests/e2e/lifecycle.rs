@@ -1,7 +1,7 @@
 //! `beforeAll` runs once per file, cleanups run newest first on a pass, a failure and Ctrl-C, an
 //! api's `save` runs only on a status its `saveOn` matches (D191), `afterEach` follows every test
-//! and `afterAll` the last one, a `standalone: false` test runs only where `test:` reuses it, and
-//! a `test:` reuse runs the reused test as written (D270).
+//! and `afterAll` the last one, a `standalone: false` test runs only where `test:` reuses it (and
+//! selecting it alone says so), and a `test:` reuse runs the reused test as written (D270).
 
 use vc_mock_server::MockServer;
 
@@ -212,4 +212,18 @@ async fn a_test_that_is_not_standalone_runs_only_where_it_is_reused() {
         let made = server.stats().await.unwrap().count("POST /users");
         assert_eq!(usize::try_from(made), Ok(ran), "standalone: {standalone}");
     }
+}
+
+/// Selecting a test that is not standalone exits 2 and says why, rather than planning nothing.
+#[tokio::test(flavor = "multi_thread")]
+async fn selecting_a_test_that_is_not_standalone_says_it_runs_only_when_reused() {
+    let server = MockServer::start().await.unwrap();
+    let [flow, test] = reused(false);
+    let files = [CONFIG, USERS, (flow.0, flow.1.as_str()), (test.0, test.1.as_str())];
+    let output = Project::new(&files).run(&server.base_url(), &["shared.flows#makesUser"]).output().unwrap();
+    let said = crate::said(&output);
+    assert_eq!(output.status.code(), Some(2), "{said}");
+    assert!(said.contains("`shared.flows#makesUser` picks only tests with `standalone: false`"), "{said}");
+    assert!(said.contains("run a test that has a `test: shared.flows#makesUser` action"), "{said}");
+    assert_eq!(server.stats().await.unwrap().count("POST /users"), 0);
 }

@@ -5,7 +5,8 @@
 # ─────────────────────────────────────────────────────────────
 id: sample.basics
 name: Sample tests
-tags: [sample]
+tags:
+  - sample
 
 beforeAll:                 # once, before this file's tests
   - command: vc demo start --port 7421 --detach

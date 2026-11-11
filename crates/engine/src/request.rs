@@ -135,7 +135,8 @@ pub struct ListRequest {
     pub kind: ListKind,
     /// What to list: tests, apis (no tags) or definition files.
     pub select: SelectRequest,
-    /// `--skipped`: only the skipped tests.
+    /// `--skipped`: only the skipped tests, and those whose skip has ended (still written, past its
+    /// `until`), so a stale skip can be found.
     pub skipped: bool,
 }
 

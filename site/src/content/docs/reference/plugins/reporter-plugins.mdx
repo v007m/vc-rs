@@ -59,10 +59,16 @@ reports  .vibranium/reports/16/ctrf.json, .vibranium/reports/16/plugin/report.tx
 warning[V5118]: cannot write the `escape` report: `../../escape.txt` is not a file name inside the report folder
 ```
 
-**An auth plugin listed as a format.** Only reporter plugins write reports.
+**An auth plugin listed as a format.** Only reporter plugins write reports. `vc check` reads the installed manifest and reports it:
 
 ```console
-warning: plugin `stamp` is a `auth` plugin, not `reporter`; its report is not written
+error[V2302]: `stamp` is an `auth` plugin, not a reporter, so it writes no report
+```
+
+A run that goes ahead anyway warns and writes no report for it:
+
+```console
+warning: plugin `stamp` is an `auth` plugin, not `reporter`; its report is not written
 ```
 
 ## Try it
@@ -85,7 +91,7 @@ reports:
 - Each reporter plugin is one process for the whole run.
 
 <Aside type="note">
-`vc check` accepts an auth plugin's ID in `reports.formats` today. The run then warns and writes no report for it.
+`vc check` knows a plugin's kind only once it is installed. Before `vc plugin add`, it gives the V5120 warning for the plugin instead.
 </Aside>
 
 ## Common errors

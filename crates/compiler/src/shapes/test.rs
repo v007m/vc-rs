@@ -33,7 +33,7 @@ shape! {
         types::key("call", Ty::Ref).doc("The api to call").example("users#get"),
         types::key("steps", ACTIONS).doc("Several actions in order"),
         types::key("examples", Ty::Value).scope(Scope::ROWS).doc("One test instance per row: a list of maps, `$file` or a template"),
-        types::key("repeat", Ty::Int).default("1").doc("Run the whole test this many times"),
+        types::key("repeat", Ty::Int).default("1").min(1).doc("Run the whole test this many times"),
         types::key("skip", SKIP).doc("Skip with a reason, optionally until a date"),
         types::key("standalone", Ty::Bool).default("true").doc("`false`: runs only when reused with `test:`"),
     ])

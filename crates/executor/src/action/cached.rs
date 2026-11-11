@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
 use vc_interfaces::{CacheEntry, CacheKey, CacheListing, CacheStore, CachedCleanup, Clock};
-use vc_model::{Action, ActionId, ActionKind, ActionOutcome, CacheSpec, Program};
+use vc_model::{Action, ActionId, ActionKind, ActionOutcome, CacheSpec, Exchange, Program};
 
 use super::{ActionExecutor, ActionRequest};
 use crate::{ActionReport, CleanupCollector, PendingCleanup, Render, Saved};
@@ -37,7 +37,8 @@ impl RunCache {
 /// Runs `call:` and `test:` actions with `cache:` through the cross-run cache.
 ///
 /// A decorator around the kind's executor. A live entry under the action's key stands in for the action
-/// once its `cache.check` passes; otherwise the action runs and, when it passes, its saves and
+/// once its `cache.check` passes, whose exchanges the action reports before its own, hit or
+/// miss; otherwise the action runs and, when it passes, its saves and
 /// cleanups are stored for `cache.for`. A stored action's cleanups run when its entry expires,
 /// is cleared or is replaced by a fresh one, not when its frame closes; a replaced entry's wait
 /// for the end of the run as a tombstone in the store, since another instance may still use
@@ -71,11 +72,13 @@ impl CachedExecutor {
         Self { inner }
     }
 
-    /// The cached saves, if a live entry holds them and its check passes. The check reads them
-    /// as saved values, and under the action's `id` (`${var.admin.userId}`).
-    async fn hit(request: &ActionRequest, cacheable: &Cacheable) -> Option<Saved> {
-        let entry = cacheable.cache.store.get(&cacheable.entry.key, cacheable.entry.listing.created_ms).ok()??;
-        let Some(check) = cacheable.spec.check else { return Some(entry.saved) };
+    /// The cached saves, if a live entry holds them and its check passes, and the check's
+    /// exchanges, which the action reports either way. The check reads the saves as saved
+    /// values, and under the action's `id` (`${var.admin.userId}`).
+    async fn hit(request: &ActionRequest, cacheable: &Cacheable) -> (Option<Saved>, Vec<Exchange>) {
+        let stored = cacheable.cache.store.get(&cacheable.entry.key, cacheable.entry.listing.created_ms);
+        let Some(entry) = stored.ok().flatten() else { return (None, Vec::new()) };
+        let Some(check) = cacheable.spec.check else { return (Some(entry.saved), Vec::new()) };
         let mut frame = request.frame.clone();
         let saved = Arc::make_mut(&mut frame.saved);
         saved.extend(entry.saved.clone());
@@ -83,7 +86,7 @@ impl CachedExecutor {
             saved.insert(id.clone(), Value::Object(entry.saved.clone()));
         }
         let checked = request.cx.executors.execute(ActionRequest { action: check, frame, ..request.clone() }).await;
-        matches!(checked.outcome, ActionOutcome::Passed).then_some(entry.saved)
+        (matches!(checked.outcome, ActionOutcome::Passed).then_some(entry.saved), checked.exchanges)
     }
 
     /// Runs the action and, when it passes, stores its saves and cleanups; stored cleanups
@@ -114,10 +117,13 @@ impl CachedExecutor {
 impl ActionExecutor for CachedExecutor {
     async fn execute(&self, request: ActionRequest) -> ActionReport {
         let Some(cacheable) = cacheable(&request) else { return self.inner.execute(request).await };
-        if let Some(saved) = Self::hit(&request, &cacheable).await {
-            return ActionReport { saved, ..ActionReport::passed() };
+        let (hit, checked) = Self::hit(&request, &cacheable).await;
+        if let Some(saved) = hit {
+            return ActionReport { saved, exchanges: checked, ..ActionReport::passed() };
         }
-        self.miss(request, cacheable).await
+        let mut report = self.miss(request, cacheable).await;
+        report.exchanges.splice(0..0, checked);
+        report
     }
 
     fn follows(&self, program: &Program, action: &Action) -> Vec<ActionId> {

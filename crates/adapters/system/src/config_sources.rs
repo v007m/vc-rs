@@ -13,6 +13,8 @@ const VIB_VARS: &[(&str, &str)] = &[
     ("VIB_DEFAULTS_CONCURRENCY", "defaults.concurrency"),
     ("VIB_DEFAULTS_PER_HOST", "defaults.perHost"),
     ("VIB_DEFAULTS_TIMEOUT", "defaults.timeout"),
+    ("VIB_DEFAULTS_RETRY_ATTEMPTS", "defaults.retry.attempts"),
+    ("VIB_DEFAULTS_RETRY_DELAY", "defaults.retry.delay"),
     ("VIB_REPORTS_DIR", "reports.dir"),
     ("VIB_REPORTS_FORMATS", "reports.formats"),
 ];

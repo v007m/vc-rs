@@ -70,7 +70,7 @@ profiles:
 
 ## How it behaves
 
-- `timeout`, `concurrency` and `perHost` can be set from outside the file with `--set`, `VIB_*` or the user config. `retry` and `headers` cannot.
+- `timeout`, `concurrency`, `perHost`, `retry.attempts` and `retry.delay` can be set from outside the file with `--set`, `VIB_*` or the user config. `headers` cannot.
 - An unknown key under `defaults` is [V1004](/vc-rs/reference/diagnostics/v1004/).
 
 ## Common errors

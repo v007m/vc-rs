@@ -16,13 +16,16 @@ fn file(path: &str, text: &str) -> SourceFile {
 }
 
 /// The lifecycle diagnostics, as code and line, for a project with `config` and the test file
-/// `tests`.
+/// `tests`, which has no other error or warning but conventions (its IDs are short).
 fn found_with(config: &str, tests: &str) -> Vec<(Code, u32)> {
     let compiled = compiled(config, tests);
     let lifecycle = compiled.diagnostics.iter().filter(|found| found.code.category() == Category::Lifecycle);
     let mut found: Vec<(Code, u32)> = lifecycle.map(|found| (found.code, found.primary.span.start.line)).collect();
     found.sort_by_key(|(code, line)| (*line, *code));
-    let others = compiled.diagnostics.iter().filter(|found| found.code.category() != Category::Lifecycle);
+    let others = compiled
+        .diagnostics
+        .iter()
+        .filter(|found| !matches!(found.code.category(), Category::Lifecycle | Category::Convention));
     assert_eq!(others.count(), 0, "{:?}", compiled.diagnostics);
     found
 }
@@ -36,11 +39,11 @@ fn tests(body: &str) -> String {
 }
 
 #[test]
-fn the_registry_holds_one_lint_per_lifecycle_code() {
+fn the_registry_holds_one_lint_per_lifecycle_or_check_time_value_code() {
     let codes: Vec<Code> = LintRegistry::builtin().lints.iter().map(|lint| lint.code()).collect();
-    assert_eq!(codes.len(), 9);
+    assert_eq!(codes.len(), 13);
     assert_eq!(codes.iter().collect::<HashSet<_>>().len(), codes.len());
-    assert!(codes.iter().all(|code| code.category() == Category::Lifecycle));
+    assert!(codes.iter().all(|code| matches!(code.category(), Category::Lifecycle | Category::Reference)));
 }
 
 #[test]
@@ -69,7 +72,7 @@ fn a_blank_skip_reason_is_reported_and_a_written_one_is_not() {
 /// A file skipped until `file_until`, holding a test skipped until `test_until`, compiled on 2026-11-03.
 fn expired(file_until: &str, test_until: &str) -> crate::Compiled {
     let text = format!(
-        "name: Crud\nskip: {{reason: down, until: {file_until}}}\ntests:\n  - id: a\n    call: users#get\n    skip:\n      reason: flaky\n      until: {test_until}\n  - id: b\n    call: users#get\n"
+        "name: Crud\nskip: {{reason: down, until: {file_until}}}\ntests:\n  - id: getsUser\n    call: users#get\n    skip:\n      reason: flaky\n      until: {test_until}\n  - id: getsAgain\n    call: users#get\n"
     );
     let mut input = input(CONFIG, &text);
     input.today = vc_model::Date::parse("2026-11-03");
@@ -106,7 +109,7 @@ fn a_skip_until_today_or_later_or_with_no_date_given_is_not_reported() {
 
 #[test]
 fn a_skip_on_a_line_it_shares_has_no_fix() {
-    let text = "name: Crud\ntests:\n  - {id: a, call: users#get, skip: {reason: x, until: 2020-01-01}}\n";
+    let text = "name: Crud\ntests:\n  - {id: getsUser, call: users#get, skip: {reason: x, until: 2020-01-01}}\n";
     let mut input = input(CONFIG, text);
     input.today = vc_model::Date::parse("2026-11-03");
     let compiled = crate::compile(input);

@@ -1,0 +1,5 @@
+apis:
+  - id: getUser
+    path: /users/1
+    save:
+      userId: ${response.body.id}
