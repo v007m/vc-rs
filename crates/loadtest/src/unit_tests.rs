@@ -27,7 +27,17 @@ fn a_breach_gets_the_decimals_it_needs_not_to_read_as_its_limit() {
     assert_eq!(Unit::SHARE.breach(0.000_001, &json!({"lte": 0})), "0.0001% (lte 0%)");
     assert_eq!(Unit::PER_SECOND.breach(0.000_04, &json!({"between": [1, 5]})), "0.00004/s (between 1/s, 5/s)");
     assert_eq!(Unit::MS.breach(30.0, &json!({"lt": 30.0})), "30 ms (lt 30 ms)", "an equal actual is shown as it is");
-    assert_eq!(Unit::SHARE.breach(1e-12, &json!({"lte": 0})), "0% (lte 0%)", "six decimals at most");
+    assert_eq!(Unit::SHARE.breach(1e-12, &json!({"lte": 0})), "0.0000000001% (lte 0%)", "past six, exactly");
+}
+
+#[test]
+fn a_breach_shows_its_limit_with_the_actual_s_decimals_and_never_rounds_it() {
+    assert_eq!(Unit::MS.breach(1.0006, &json!({"lte": 1.0005})), "1.0006 ms (lte 1.0005 ms)");
+    assert_eq!(Unit::MS.breach(2.5, &json!({"lt": 1.2345})), "2.5 ms (lt 1.2345 ms)");
+    assert_eq!(Unit::MS.breach(1.000_002, &json!({"lte": 1.000_001})), "1.000002 ms (lte 1.000001 ms)");
+    assert_eq!(Unit::MS.breach(1.000_000_4, &json!({"lte": 1.000_000_3})), "1.0000004 ms (lte 1.0000003 ms)");
+    assert_eq!(Unit::SHARE.breach(0.25, &json!({"lt": 0.0007})), "25% (lt 0.07%)", "not 0.06999999999999999%");
+    assert_eq!(Unit::SHARE.breach(0.0, &json!({"gte": 0.0007})), "0% (gte 0.07%)", "a zero actual reads as 0");
 }
 
 #[test]
