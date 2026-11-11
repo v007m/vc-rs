@@ -593,6 +593,8 @@ pub vc_model::TemplateValue::Map(indexmap::map::IndexMap<alloc::string::String, 
 pub vc_model::TemplateValue::Null
 pub vc_model::TemplateValue::Number(serde_json::number::Number)
 pub vc_model::TemplateValue::String(vc_model::Template)
+impl vc_model::TemplateValue
+pub fn vc_model::TemplateValue::references(&self) -> alloc::vec::Vec<&vc_model::Reference>
 impl core::clone::Clone for vc_model::TemplateValue
 pub fn vc_model::TemplateValue::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::TemplateValue
@@ -2053,6 +2055,7 @@ pub vc_model::Template::parts: alloc::vec::Vec<vc_model::Part>
 impl vc_model::Template
 pub fn vc_model::Template::as_literal(&self) -> core::option::Option<&str>
 pub const fn vc_model::Template::preserves_type(&self) -> bool
+pub fn vc_model::Template::references(&self) -> impl core::iter::traits::iterator::Iterator<Item = &vc_model::Reference>
 pub const fn vc_model::Template::single_ref(&self) -> core::option::Option<&vc_model::Reference>
 impl core::clone::Clone for vc_model::Template
 pub fn vc_model::Template::clone(&self) -> Self
