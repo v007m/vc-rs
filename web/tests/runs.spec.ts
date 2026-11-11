@@ -25,3 +25,18 @@ test('filters the event log by level', async ({ page }) => {
   );
   await expect(page.getByRole('log')).not.toContainText('started:');
 });
+
+test('lists the finished run in recent runs and opens it from the history', async ({ page }) => {
+  await page.goto('/runs');
+  await page.getByRole('button', { name: 'Run all tests' }).click();
+  await expect(page.getByRole('status')).toHaveText(/Passed|Failed/, { timeout: 30_000 });
+  const recent = page.getByRole('list', { name: 'Recent runs' });
+  await recent
+    .getByRole('button', { name: /^Run #\d+/ })
+    .first()
+    .click();
+  await expect(page.getByRole('heading', { name: /^Run #\d+$/ })).toBeVisible();
+  await expect(page.getByRole('listbox', { name: 'Tests' })).toContainText('users.crud#listsUsers');
+  await page.getByRole('button', { name: 'Back to the current run' }).click();
+  await expect(page.getByRole('log', { name: 'Run events, newest first' })).toBeVisible();
+});

@@ -154,6 +154,16 @@ Buttons:
 | **Re-run failed** | After a failed run | Runs the failed tests again |
 | **Run again** | After a run | Starts the same run again |
 
+### Recent runs
+
+**Recent runs**, beside the live run, lists the last 20 runs in the history (load runs too), each with its pass rate. Click one to see it in place of the live run:
+
+- its outcome, profiles, selector, branch and commit, and when it started and how long it took;
+- its totals, and each test with its status and time; it opens at the first test that didn't pass;
+- for the selected test: why it failed, how many attempts it took, the action that blocked it or why it was skipped, its checks, and each request and response.
+
+Secret values are masked, as the history keeps them. **Re-run failed** runs that run's failed and blocked tests again. **Back to the current run** returns to the live view.
+
 ## Insights
 
 Trends across stored test runs. Choose **Last 10**, **30** or **100 runs**.
