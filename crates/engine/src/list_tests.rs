@@ -116,14 +116,14 @@ fn a_test_given_no_rows_is_listed_as_skipped_not_dropped() {
 }
 
 #[test]
-fn a_skipped_test_shows_its_reason_and_until_and_an_expired_skip_runs() {
+fn a_skipped_test_shows_its_reason_and_until_and_an_expired_skip_is_marked_ended() {
     let config = "syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
     let api = "baseUrl: ${var.baseUrl}\napis:\n  - id: get\n    path: /users\n";
     let parked =
         "skip: {reason: auth broken in staging, until: 2026-12-01}\ntests:\n  - id: listsUsers\n    call: users#get\n";
     let own = concat!(
         "tests:\n  - id: getsUser\n    call: users#get\n    skip: {reason: 'flaky upstream, see #7', until: 2026-11-30}\n",
-        "  - id: searchesUsers\n    call: users#get\n    skip: {reason: no search yet, until: 2026-11-01}\n",
+        "  - id: searchesUsers\n    call: users#get\n    skip: {reason: no search yet, until: 2000-01-01}\n",
     );
     let files: [(&str, &[u8]); 4] = [
         ("vibranium.config.yaml", config.as_bytes()),
@@ -136,10 +136,18 @@ fn a_skipped_test_shows_its_reason_and_until_and_an_expired_skip_runs() {
     let text = skipped.text();
     assert!(text.contains("users.parked#listsUsers  (skipped: auth broken in staging, until 2026-12-01)\n"), "{text}");
     assert!(text.contains("users.own#getsUser  (skipped: flaky upstream, see #7, until 2026-11-30)\n"), "{text}");
-    assert!(!text.contains("searchesUsers"), "a skip past its until runs: {text}");
+    assert!(text.contains("users.own#searchesUsers  (skip ended 2000-01-01: no search yet)\n"), "{text}");
     let json = skipped.json();
-    let gets = json.as_array().unwrap().iter().find(|item| item["id"] == "users.own#getsUser").unwrap();
+    let item = |id: &str| json.as_array().unwrap().iter().find(|item| item["id"] == id).unwrap().clone();
+    let gets = item("users.own#getsUser");
     assert_eq!((&gets["skipReason"], &gets["skipUntil"]), (&json!("flaky upstream, see #7"), &json!("2026-11-30")));
+    assert_eq!((&gets["skipped"], &gets["skipExpired"]), (&json!(true), &json!(false)));
+    let ended = item("users.own#searchesUsers");
+    assert_eq!((&ended["skipped"], &ended["skipExpired"]), (&json!(false), &json!(true)), "it runs again (V3104)");
+    assert_eq!((&ended["skipReason"], &ended["skipUntil"]), (&json!("no search yet"), &json!("2000-01-01")));
+    let all = listing.list(&ListRequest::default()).unwrap();
+    let searches = all.items.iter().find(|item| item.id == "users.own#searchesUsers").unwrap();
+    assert!(!searches.skipped && searches.skip_expired, "listed with the rest, as a test that runs");
 }
 
 #[test]

@@ -28,7 +28,7 @@ $ vc list [OPTIONS] <KIND> [SELECTORS]...
 | `-g`, `--grep` | `<TEXT>` | | Only tests whose full ID or name contains this text, ignoring case |
 | `--changed` | `[<REF>]` | | Only files changed since this git ref, or the uncommitted and untracked changes when no ref is given |
 | `--include-skipped` | | | Also lists the skipped tests, without the `(skipped: …)` marker |
-| `--skipped` | | | Lists only the skipped tests |
+| `--skipped` | | | Lists only the skipped tests, and the tests whose skip has ended |
 | `--json` | | | Prints the list as JSON on stdout |
 | `--project` | `<DIR>` | | See [global flags](/vc-rs/reference/cli/#global-flags) |
 
@@ -69,6 +69,14 @@ sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped: demo data chang
 
 Each skipped test shows its reason, then its `until` date when it has one: `(skipped: flaky upstream, until 2026-11-30)`. A test whose examples gave no rows shows `(skipped: examples gave no rows)`.
 
+A skip past its `until` date no longer holds, so the test runs again and `vc check` warns (V3104). The list still shows it, as `(skip ended 2000-01-01: no search yet)`, so you can find the stale `skip` and remove it:
+
+```console
+$ vc list tests --skipped
+sample.extra#findsAda  Finds Ada first  [extra, slow]  (skipped: demo data changed)
+sample.extra#searchesUsers  (skip ended 2000-01-01: no search yet)
+```
+
 ### Apis and files
 
 ```console
@@ -95,6 +103,7 @@ $ vc list apis --json
     "id": "sample#listUsers",
     "name": "List users",
     "path": "services/sample/sample.api.yaml",
+    "skipExpired": false,
     "skipReason": null,
     "skipUntil": null,
     "skipped": false,
@@ -125,9 +134,10 @@ An array with one object per item, the same shape for every kind:
 | `id` | The full ID: `file#id` for tests and apis, the file ID for files |
 | `name` | The `name`, or `null` when there is none |
 | `path` | The file, relative to the project root |
-| `skipped` | `true` when the test is skipped |
-| `skipReason` | Why a skipped test does not run, else `null` |
-| `skipUntil` | A skipped test's `until` date, as written, else `null` |
+| `skipped` | `true` when the test does not run |
+| `skipExpired` | `true` when the test's `skip`, or its file's, is past its `until`: the test runs again |
+| `skipReason` | Why a skipped test does not run, or an ended skip's reason, else `null` |
+| `skipUntil` | The `until` date of a skipped test or an ended skip, as written, else `null` |
 | `tags` | The test's tags, file tags included |
 
 ## Related
