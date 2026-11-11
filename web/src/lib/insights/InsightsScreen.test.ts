@@ -45,17 +45,17 @@ const CRUD = `tests:
 `;
 
 /** A skip port that answers with a real test file's change and keeps what it was sent. */
-function skipPort(sent: [SkipInput | string, boolean][]): SkipPort {
+function skipPort(sent: [SkipInput | string, string | undefined][]): SkipPort {
   const after = `${CRUD}    skip:\n      reason: flaky on staging\n      until: 2026-11-20\n`;
   const files = [{ path: 'services/users/crud.test.yaml', before: CRUD, after }];
   return {
-    skip: (input, write) => {
-      sent.push([input, write]);
-      return Promise.resolve({ files, titles: [`Skip ${input.target}`] });
+    skip: (input, digest) => {
+      sent.push([input, digest]);
+      return Promise.resolve({ files, titles: [`Skip ${input.target}`], digest: 'd1' });
     },
-    unskip: (target, write) => {
-      sent.push([target, write]);
-      return Promise.resolve({ files, titles: [`Unskip ${target}`] });
+    unskip: (target, digest) => {
+      sent.push([target, digest]);
+      return Promise.resolve({ files, titles: [`Unskip ${target}`], digest: 'd2' });
     },
   };
 }
@@ -74,7 +74,7 @@ async function rendered(port?: Partial<InsightsPort>) {
   const asked: number[] = [];
   const skipReads: number[] = [];
   const scopes: Scope[] = [];
-  const sent: [SkipInput | string, boolean][] = [];
+  const sent: [SkipInput | string, string | undefined][] = [];
   const insights = new Insights(
     {
       runs: (limit, scope) => {
@@ -147,30 +147,13 @@ describe('InsightsScreen', () => {
     expect(within(range).getByRole('button', { name: 'Last 10 runs' }).ariaPressed).toBe('true');
   });
 
-  it('narrows to one profile and one branch, and widens again', async () => {
-    const { scopes, user } = await rendered();
-    const profile = screen.getByRole('group', { name: 'Profile' });
-    expect(
-      within(profile)
-        .getAllByRole('button')
-        .map((b) => b.textContent),
-    ).toEqual(['All profiles', 'dev', 'staging']);
-    await user.click(within(profile).getByRole('button', { name: 'staging' }));
-    const branch = screen.getByRole('group', { name: 'Branch' });
-    expect(
-      within(branch)
-        .getAllByRole('button')
-        .map((b) => b.textContent),
-    ).toEqual(['All branches', 'main', 'tax-line']);
-    await user.click(within(branch).getByRole('button', { name: 'main' }));
-    expect(within(branch).getByRole('button', { name: 'main' }).ariaPressed).toBe('true');
-    await user.click(within(profile).getByRole('button', { name: 'All profiles' }));
-    expect(scopes).toEqual([
-      { profile: undefined, branch: undefined },
-      { profile: 'staging', branch: undefined },
-      { profile: 'staging', branch: 'main' },
-      { profile: undefined, branch: 'main' },
-    ]);
+  it('offers no profile or branch filter yet, and reads the whole history', async () => {
+    const { scopes } = await rendered();
+    expect(screen.queryByRole('group', { name: 'Profile' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Branch' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'staging' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'main' })).toBeNull();
+    expect(scopes).toEqual([{ profile: undefined, branch: undefined }]);
   });
 
   it('skips a flaky test until a date after a preview, and undoes it', async () => {
@@ -188,8 +171,8 @@ describe('InsightsScreen', () => {
       until: '2026-11-20',
     };
     expect(sent).toEqual([
-      [input, false],
-      [input, true],
+      [input, undefined],
+      [input, 'd1'],
     ]);
     expect(screen.getByText('skipped until 2026-11-20')).toBeTruthy();
     await user.click(
@@ -199,8 +182,8 @@ describe('InsightsScreen', () => {
     await user.click(within(undo).getByRole('button', { name: 'Preview' }));
     await user.click(within(undo).getByRole('button', { name: 'Remove skip' }));
     expect(sent.slice(2)).toEqual([
-      ['users.crud#createsOne', false],
-      ['users.crud#createsOne', true],
+      ['users.crud#createsOne', undefined],
+      ['users.crud#createsOne', 'd2'],
     ]);
     expect(screen.getByRole('button', { name: 'Skip users.crud#createsOne until…' })).toBeTruthy();
   });
@@ -226,8 +209,8 @@ describe('InsightsScreen', () => {
     await user.click(within(form).getByRole('button', { name: 'Preview' }));
     await user.click(within(form).getByRole('button', { name: 'Remove skip' }));
     expect(sent).toEqual([
-      ['users.crud#getsOne', false],
-      ['users.crud#getsOne', true],
+      ['users.crud#getsOne', undefined],
+      ['users.crud#getsOne', 'd2'],
     ]);
     expect(skipReads).toEqual([1, 2]);
     expect(within(panel).queryByRole('group')).toBeNull();

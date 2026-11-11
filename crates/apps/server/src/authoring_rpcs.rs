@@ -123,31 +123,34 @@ async fn import(api: Arc<EngineApi>, request: wire::ImportRequest) -> Result<wir
     Ok(response(changes))
 }
 
-/// `vc skip` from the web UI: previews the change, or writes it when asked. The engine's guard
-/// (D107) refuses a change that would add an error, and nothing is written.
+/// `vc skip` from the web UI: previews the change with the digest of its file, or writes it when
+/// asked with the digest its preview gave; a file changed since is aborted (stale). The engine's
+/// guard (D107) refuses a change that would add an error, and nothing is written.
 async fn skip(api: Arc<EngineApi>, request: wire::SkipRequest) -> Result<wire::SkipResponse, ConnectError> {
-    let write = request.write;
+    let expected = request.write.then(|| request.expected_digest.unwrap_or_default());
     let skip = SkipRequest { target: request.target, reason: request.reason, until: request.until };
-    let changes = api.blocking(move |engine| written(engine, engine.skip(&skip)?, write)).await?;
+    let (changes, digest) = api.blocking(move |engine| previewed(engine, engine.skip(&skip)?, expected)).await?;
     let wire::ImportResponse { files, titles } = response(changes);
-    Ok(wire::SkipResponse { files, titles })
+    Ok(wire::SkipResponse { files, titles, digest })
 }
 
-/// `vc unskip` from the web UI: previews the change, or writes it when asked.
+/// `vc unskip` from the web UI: previews or writes the change, as a skip does.
 async fn unskip(api: Arc<EngineApi>, request: wire::UnskipRequest) -> Result<wire::UnskipResponse, ConnectError> {
-    let write = request.write;
+    let expected = request.write.then(|| request.expected_digest.unwrap_or_default());
     let target = request.target;
-    let changes = api.blocking(move |engine| written(engine, engine.unskip(&target)?, write)).await?;
+    let (changes, digest) = api.blocking(move |engine| previewed(engine, engine.unskip(&target)?, expected)).await?;
     let wire::ImportResponse { files, titles } = response(changes);
-    Ok(wire::UnskipResponse { files, titles })
+    Ok(wire::UnskipResponse { files, titles, digest })
 }
 
-/// `changes`, written first when `write` asks for it.
-fn written(engine: &Engine, changes: Changes, write: bool) -> Result<Changes, EngineError> {
-    if write {
-        engine.write(&changes)?;
+/// `changes` with the digest of their files as previewed; written first when `expected` holds
+/// the digest a preview gave and the files are still those.
+fn previewed(engine: &Engine, changes: Changes, expected: Option<String>) -> Result<(Changes, String), EngineError> {
+    let digest = engine.preview_digest(&changes)?;
+    if let Some(expected) = expected {
+        engine.write_previewed(&changes, &expected)?;
     }
-    Ok(changes)
+    Ok((changes, digest))
 }
 
 fn response(changes: Changes) -> wire::ImportResponse {

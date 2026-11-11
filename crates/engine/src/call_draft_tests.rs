@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use vc_adapter_system::FsSources;
 use vc_executor::MASKED;
 use vc_model::{HttpResponse, RenderedRequest};
-use vc_testkit::{FakeTransport, FakeVcs, MemoryEnvironment, RecordingTransport, Recordings, status};
+use vc_testkit::{FakeCommands, FakeTransport, FakeVcs, MemoryEnvironment, RecordingTransport, Recordings, status};
 
 use super::CallDraft;
 use crate::sample::builder;
@@ -48,6 +48,10 @@ fn answer(request: &RenderedRequest) -> HttpResponse {
 }
 
 fn project() -> (tempfile::TempDir, Engine, Recordings) {
+    project_with("tok-draft-5c1")
+}
+
+fn project_with(secret: &str) -> (tempfile::TempDir, Engine, Recordings) {
     let dir = tempfile::tempdir().unwrap();
     fs::create_dir_all(dir.path().join("services/users")).unwrap();
     for (path, text) in [("vibranium.config.yaml", CONFIG), (API, USERS), (FLOW, STEPS), (".env.schema", "SHOP_KEY=\n")]
@@ -57,9 +61,9 @@ fn project() -> (tempfile::TempDir, Engine, Recordings) {
     let (transport, recordings) =
         RecordingTransport::new(Arc::new(FakeTransport::new(|request, _| Ok(answer(request)))));
     let folder = Arc::new(FsSources::new(dir.path()).unwrap());
-    let environment = Arc::new(MemoryEnvironment::new(&[("SHOP_KEY", "tok-draft-5c1")]));
+    let environment = Arc::new(MemoryEnvironment::new(&[("SHOP_KEY", secret)]));
     let engine = builder(FakeVcs::default()).sources(folder.clone()).writer(folder).transport(Arc::new(transport));
-    let engine = engine.environment(environment);
+    let engine = engine.environment(environment).commands(Arc::new(FakeCommands::new(|_| None)));
     (dir, engine.build().unwrap(), recordings)
 }
 
@@ -112,6 +116,50 @@ async fn gives_a_flow_test_as_its_file_writes_it_with_its_steps_and_the_secret_m
     assert_eq!(test["steps"][1]["headers"], json!({"X-Key": MASKED}));
     assert_eq!(test["steps"][1]["poll"], json!({"until": {"status": 200}, "every": "1s", "timeout": "10s"}));
     assert!(!format!("{written:?}").contains("tok-draft-5c1"));
+}
+
+#[tokio::test]
+async fn a_written_api_stays_json_when_its_secrets_cannot_load_every_string_masked() {
+    let (dir, engine, _) = project();
+    fs::write(dir.path().join("vibranium.config.yaml"), format!("{CONFIG}secrets: {{provider: varlock}}\n")).unwrap();
+    let written = engine.written_definition("users#get").await.unwrap();
+    let api: Value = serde_json::from_str(&written.json).unwrap();
+    let every = json!({
+        "id": MASKED,
+        "name": MASKED,
+        "path": MASKED,
+        "vars": {"userId": 1},
+        "headers": {"X-Key": MASKED},
+        "expect": {"status": 200},
+    });
+    assert_eq!(api, every, "keys and numbers stay; a form opens it read-only");
+}
+
+#[tokio::test]
+async fn a_regex_rule_or_a_field_rule_masks_one_value_and_leaves_the_json_whole() {
+    let (dir, engine, _) = project();
+    let rules = "redact:\n  fields: [sessionRef]\n  rules:\n    - regex: 'Bearer\\s+\\S+'\n";
+    fs::write(dir.path().join("vibranium.config.yaml"), format!("{CONFIG}{rules}")).unwrap();
+    let api = USERS
+        .replace("X-Key: tok-draft-5c1", "X-Auth: Bearer abc.def\n      X-Note: plain")
+        .replace("vars: {userId: 1}", "vars: {userId: 1, SessionRef: ref-77a1}");
+    fs::write(dir.path().join(API), api).unwrap();
+    let written = engine.written_definition("users#get").await.unwrap();
+    let api: Value = serde_json::from_str(&written.json).unwrap();
+    assert_eq!(api["headers"], json!({"X-Auth": MASKED, "X-Note": "plain"}));
+    assert_eq!(api["vars"], json!({"userId": 1, "SessionRef": MASKED}), "a field rule matches any case");
+    assert_eq!(api["path"], json!("/users/${var.userId}"));
+}
+
+#[tokio::test]
+async fn a_secret_with_a_quote_or_a_backslash_is_masked_where_the_file_writes_it() {
+    let secret = r#"tok"quo\te-5c1"#;
+    let (dir, engine, _) = project_with(secret);
+    fs::write(dir.path().join(API), USERS.replace("X-Key: tok-draft-5c1", r#"X-Key: 'tok"quo\te-5c1'"#)).unwrap();
+    let written = engine.written_definition("users#get").await.unwrap();
+    let api: Value = serde_json::from_str(&written.json).unwrap();
+    assert_eq!(api["headers"], json!({"X-Key": MASKED}));
+    assert!(!written.json.contains("quo"), "{}", written.json);
 }
 
 #[tokio::test]

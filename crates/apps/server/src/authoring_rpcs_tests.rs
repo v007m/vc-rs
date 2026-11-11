@@ -147,13 +147,15 @@ async fn a_skip_previews_then_writes_and_its_unskip_gives_back_the_original_byte
     );
     assert!(preview.files[0].after.contains("until: 2099-12-01"), "{preview:?}");
     assert_eq!(on_disk(), CRUD, "a preview writes nothing");
-    skip(api.clone(), wire::SkipRequest { write: true, ..request }).await.unwrap();
+    let expected_digest = Some(preview.digest.clone());
+    skip(api.clone(), wire::SkipRequest { write: true, expected_digest, ..request }).await.unwrap();
     assert!(on_disk().contains("reason: flaky upstream"), "{}", on_disk());
     let target = "users.crud#listsUsers".to_owned();
-    let undo = unskip(api.clone(), wire::UnskipRequest { target: target.clone(), write: false }).await.unwrap();
+    let undoing = wire::UnskipRequest { target, ..wire::UnskipRequest::default() };
+    let undo = unskip(api.clone(), undoing.clone()).await.unwrap();
     assert_eq!(undo.files[0].after, CRUD);
     assert_ne!(on_disk(), CRUD, "a preview writes nothing");
-    unskip(api, wire::UnskipRequest { target, write: true }).await.unwrap();
+    unskip(api, wire::UnskipRequest { write: true, expected_digest: Some(undo.digest.clone()), ..undoing }).await.unwrap();
     assert_eq!(on_disk(), CRUD);
     assert!(!format!("{preview:?} {undo:?}").contains(SECRET));
 }
@@ -170,7 +172,8 @@ async fn a_skip_the_engine_refuses_is_an_invalid_argument_and_writes_nothing() {
         let refused = skip(api.clone(), wire::SkipRequest { write: true, ..request }).await.unwrap_err();
         assert_eq!(refused.code, Code::InvalidArgument, "{refused:?}");
     }
-    let unskipped = wire::UnskipRequest { target: "users.crud#listsUsers".into(), write: true };
+    let unskipped =
+        wire::UnskipRequest { target: "users.crud#listsUsers".into(), write: true, ..wire::UnskipRequest::default() };
     assert_eq!(unskip(api, unskipped).await.unwrap_err().code, Code::InvalidArgument, "it is not skipped");
     assert_eq!(fs::read_to_string(dir.path().join(TESTS)).unwrap(), CRUD);
 }
@@ -183,9 +186,31 @@ async fn a_skip_target_never_reaches_a_file_outside_the_tests_or_says_a_secret()
         let refused = refused.unwrap_err();
         assert_eq!(refused.code, Code::InvalidArgument, "{target}: {refused:?}");
         assert!(!format!("{refused:?}").contains(SECRET), "{target}: {refused:?}");
-        let undo = unskip(api.clone(), wire::UnskipRequest { target: target.into(), write: true }).await.unwrap_err();
+        let undoing = wire::UnskipRequest { target: target.into(), write: true, ..wire::UnskipRequest::default() };
+        let undo = unskip(api.clone(), undoing).await.unwrap_err();
         assert_eq!(undo.code, Code::InvalidArgument, "{target}: {undo:?}");
     }
     assert_eq!(fs::read_to_string(dir.path().join(".env")).unwrap(), format!("SHOP_TOKEN={SECRET}\n"));
     assert_eq!(fs::read_to_string(dir.path().join(TESTS)).unwrap(), CRUD);
+}
+
+#[tokio::test]
+async fn a_skip_or_unskip_write_over_a_changed_file_or_without_its_preview_is_aborted() {
+    let (dir, api) = project();
+    let on_disk = || fs::read_to_string(dir.path().join(TESTS)).unwrap();
+    let request = skipping("users.crud#listsUsers", "flaky", None);
+    let preview = skip(api.clone(), request.clone()).await.unwrap();
+    let unpreviewed = skip(api.clone(), wire::SkipRequest { write: true, ..request.clone() }).await.unwrap_err();
+    assert_eq!(unpreviewed.code, Code::Aborted, "{unpreviewed:?}");
+    fs::write(dir.path().join(TESTS), format!("{CRUD}# edited\n")).unwrap();
+    let expected_digest = Some(preview.digest);
+    let stale = skip(api.clone(), wire::SkipRequest { write: true, expected_digest, ..request }).await.unwrap_err();
+    assert_eq!(stale.code, Code::Aborted, "{stale:?}");
+    assert_eq!(on_disk(), format!("{CRUD}# edited\n"), "nothing is written");
+    let target = "users.crud#listsUsers".to_owned();
+    let skipped = format!("{CRUD}    skip: flaky\n");
+    fs::write(dir.path().join(TESTS), &skipped).unwrap();
+    let undo = wire::UnskipRequest { target, write: true, expected_digest: Some("0000".into()) };
+    assert_eq!(unskip(api, undo).await.unwrap_err().code, Code::Aborted);
+    assert_eq!(on_disk(), skipped);
 }

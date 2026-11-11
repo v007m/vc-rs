@@ -134,9 +134,60 @@ fn long_form(reason: &str, until: &str, indent: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::sync::Arc;
+
+    use vc_adapter_system::FsSources;
     use vc_model::Date;
+    use vc_testkit::FakeVcs;
 
     use super::{SkipRequest, checked, long_form};
+    use crate::sample::builder;
+    use crate::{Engine, EngineError};
+
+    const TESTS: &str = "services/users/crud.test.yaml";
+    const CRUD: &str = "tests:\n  - id: listsUsers\n    call: users#list\n";
+
+    fn project() -> (tempfile::TempDir, Engine) {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("vibranium.config.yaml"), "syntaxVersion: 2\nproject: shop\n").unwrap();
+        fs::create_dir_all(dir.path().join("services/users")).unwrap();
+        let api = "baseUrl: http://x\napis:\n  - id: list\n    path: /users\n";
+        fs::write(dir.path().join("services/users/users.api.yaml"), api).unwrap();
+        fs::write(dir.path().join(TESTS), CRUD).unwrap();
+        let folder = Arc::new(FsSources::new(dir.path()).unwrap());
+        (dir, builder(FakeVcs::default()).sources(folder.clone()).writer(folder).build().unwrap())
+    }
+
+    fn flaky() -> SkipRequest {
+        SkipRequest { target: "users.crud#listsUsers".into(), reason: "flaky".into(), until: None }
+    }
+
+    #[test]
+    fn a_skip_written_with_a_digest_its_preview_did_not_give_is_refused_and_writes_nothing() {
+        let (dir, engine) = project();
+        let changes = engine.skip(&flaky()).unwrap();
+        let digest = engine.preview_digest(&changes).unwrap();
+        assert_eq!(digest, engine.read_file(TESTS).unwrap().digest);
+        let wrong = engine.write_previewed(&changes, "0000");
+        assert!(matches!(&wrong, Err(EngineError::Stale { reason }) if reason.contains(TESTS)), "{wrong:?}");
+        assert_eq!(fs::read_to_string(dir.path().join(TESTS)).unwrap(), CRUD);
+    }
+
+    #[test]
+    fn a_previewed_skip_writes_only_while_its_file_is_the_one_previewed() {
+        let (dir, engine) = project();
+        let on_disk = || fs::read_to_string(dir.path().join(TESTS)).unwrap();
+        let changes = engine.skip(&flaky()).unwrap();
+        let digest = engine.preview_digest(&changes).unwrap();
+        fs::write(dir.path().join(TESTS), format!("{CRUD}# edited\n")).unwrap();
+        assert!(matches!(engine.preview_digest(&changes), Err(EngineError::Stale { .. })));
+        assert!(matches!(engine.write_previewed(&changes, &digest), Err(EngineError::Stale { .. })));
+        assert_eq!(on_disk(), format!("{CRUD}# edited\n"), "a stale write writes nothing");
+        let changes = engine.skip(&flaky()).unwrap();
+        engine.write_previewed(&changes, &engine.preview_digest(&changes).unwrap()).unwrap();
+        assert!(on_disk().contains("skip: flaky"), "{}", on_disk());
+    }
 
     #[test]
     fn the_long_form_quotes_a_reason_only_when_yaml_needs_it() {

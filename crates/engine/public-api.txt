@@ -593,6 +593,10 @@ pub fn vc_engine::Engine::plugin_remove(&self, &str) -> core::result::Result<vc_
 impl vc_engine::Engine
 pub fn vc_engine::Engine::policy_check(&self, &vc_engine::AgentCall) -> core::result::Result<vc_engine::Permission, vc_engine::EngineError>
 impl vc_engine::Engine
+pub fn vc_engine::Engine::preview_digest(&self, &vc_engine::Changes) -> core::result::Result<alloc::string::String, vc_engine::EngineError>
+pub fn vc_engine::Engine::write(&self, &vc_engine::Changes) -> core::result::Result<(), vc_engine::EngineError>
+pub fn vc_engine::Engine::write_previewed(&self, &vc_engine::Changes, &str) -> core::result::Result<(), vc_engine::EngineError>
+impl vc_engine::Engine
 pub fn vc_engine::Engine::project_info(&self) -> core::result::Result<vc_engine::ProjectInfo, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::project_path(&self, &std::path::Path, &std::path::Path) -> core::option::Option<alloc::string::String>
@@ -617,8 +621,6 @@ impl vc_engine::Engine
 pub async fn vc_engine::Engine::test_alerts(&self, &vc_engine::ExplainRequest) -> core::result::Result<alloc::vec::Vec<vc_engine::AlertSent>, vc_engine::EngineError>
 impl vc_engine::Engine
 pub fn vc_engine::Engine::watch(&self) -> core::result::Result<std::sync::mpsc::Receiver<alloc::vec::Vec<vc_model::source::SourcePath>>, vc_engine::EngineError>
-impl vc_engine::Engine
-pub fn vc_engine::Engine::write(&self, &vc_engine::Changes) -> core::result::Result<(), vc_engine::EngineError>
 impl vc_engine::Engine
 pub async fn vc_engine::Engine::write_definition(&self, &vc_engine::WriteRequest) -> core::result::Result<vc_engine::Changes, vc_engine::EngineError>
 impl vc_engine::Engine

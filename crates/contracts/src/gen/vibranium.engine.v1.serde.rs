@@ -3991,6 +3991,9 @@ impl serde::Serialize for ExplainApiRequest {
         if !self.sets.is_empty() {
             len += 1;
         }
+        if self.draft.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.ExplainApiRequest", len)?;
         if !self.api.is_empty() {
             struct_ser.serialize_field("api", &self.api)?;
@@ -4003,6 +4006,9 @@ impl serde::Serialize for ExplainApiRequest {
         }
         if !self.sets.is_empty() {
             struct_ser.serialize_field("sets", &self.sets)?;
+        }
+        if let Some(v) = self.draft.as_ref() {
+            struct_ser.serialize_field("draft", v)?;
         }
         struct_ser.end()
     }
@@ -4018,6 +4024,7 @@ impl<'de> serde::Deserialize<'de> for ExplainApiRequest {
             "vars",
             "profiles",
             "sets",
+            "draft",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -4026,6 +4033,7 @@ impl<'de> serde::Deserialize<'de> for ExplainApiRequest {
             Vars,
             Profiles,
             Sets,
+            Draft,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -4051,6 +4059,7 @@ impl<'de> serde::Deserialize<'de> for ExplainApiRequest {
                             "vars" => Ok(GeneratedField::Vars),
                             "profiles" => Ok(GeneratedField::Profiles),
                             "sets" => Ok(GeneratedField::Sets),
+                            "draft" => Ok(GeneratedField::Draft),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -4074,6 +4083,7 @@ impl<'de> serde::Deserialize<'de> for ExplainApiRequest {
                 let mut vars__ = None;
                 let mut profiles__ = None;
                 let mut sets__ = None;
+                let mut draft__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Api => {
@@ -4100,6 +4110,12 @@ impl<'de> serde::Deserialize<'de> for ExplainApiRequest {
                             }
                             sets__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::Draft => {
+                            if draft__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("draft"));
+                            }
+                            draft__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(ExplainApiRequest {
@@ -4107,6 +4123,7 @@ impl<'de> serde::Deserialize<'de> for ExplainApiRequest {
                     vars: vars__.unwrap_or_default(),
                     profiles: profiles__.unwrap_or_default(),
                     sets: sets__.unwrap_or_default(),
+                    draft: draft__,
                 })
             }
         }
@@ -10080,6 +10097,9 @@ impl serde::Serialize for SkipRequest {
         if self.write {
             len += 1;
         }
+        if self.expected_digest.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.SkipRequest", len)?;
         if !self.target.is_empty() {
             struct_ser.serialize_field("target", &self.target)?;
@@ -10092,6 +10112,9 @@ impl serde::Serialize for SkipRequest {
         }
         if self.write {
             struct_ser.serialize_field("write", &self.write)?;
+        }
+        if let Some(v) = self.expected_digest.as_ref() {
+            struct_ser.serialize_field("expectedDigest", v)?;
         }
         struct_ser.end()
     }
@@ -10107,6 +10130,8 @@ impl<'de> serde::Deserialize<'de> for SkipRequest {
             "reason",
             "until",
             "write",
+            "expected_digest",
+            "expectedDigest",
         ];
 
         #[allow(clippy::enum_variant_names)]
@@ -10115,6 +10140,7 @@ impl<'de> serde::Deserialize<'de> for SkipRequest {
             Reason,
             Until,
             Write,
+            ExpectedDigest,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -10140,6 +10166,7 @@ impl<'de> serde::Deserialize<'de> for SkipRequest {
                             "reason" => Ok(GeneratedField::Reason),
                             "until" => Ok(GeneratedField::Until),
                             "write" => Ok(GeneratedField::Write),
+                            "expectedDigest" | "expected_digest" => Ok(GeneratedField::ExpectedDigest),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -10163,6 +10190,7 @@ impl<'de> serde::Deserialize<'de> for SkipRequest {
                 let mut reason__ = None;
                 let mut until__ = None;
                 let mut write__ = None;
+                let mut expected_digest__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Target => {
@@ -10189,6 +10217,12 @@ impl<'de> serde::Deserialize<'de> for SkipRequest {
                             }
                             write__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::ExpectedDigest => {
+                            if expected_digest__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("expectedDigest"));
+                            }
+                            expected_digest__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(SkipRequest {
@@ -10196,6 +10230,7 @@ impl<'de> serde::Deserialize<'de> for SkipRequest {
                     reason: reason__.unwrap_or_default(),
                     until: until__,
                     write: write__.unwrap_or_default(),
+                    expected_digest: expected_digest__,
                 })
             }
         }
@@ -10216,12 +10251,18 @@ impl serde::Serialize for SkipResponse {
         if !self.titles.is_empty() {
             len += 1;
         }
+        if !self.digest.is_empty() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.SkipResponse", len)?;
         if !self.files.is_empty() {
             struct_ser.serialize_field("files", &self.files)?;
         }
         if !self.titles.is_empty() {
             struct_ser.serialize_field("titles", &self.titles)?;
+        }
+        if !self.digest.is_empty() {
+            struct_ser.serialize_field("digest", &self.digest)?;
         }
         struct_ser.end()
     }
@@ -10235,12 +10276,14 @@ impl<'de> serde::Deserialize<'de> for SkipResponse {
         const FIELDS: &[&str] = &[
             "files",
             "titles",
+            "digest",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
             Files,
             Titles,
+            Digest,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -10264,6 +10307,7 @@ impl<'de> serde::Deserialize<'de> for SkipResponse {
                         match value {
                             "files" => Ok(GeneratedField::Files),
                             "titles" => Ok(GeneratedField::Titles),
+                            "digest" => Ok(GeneratedField::Digest),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -10285,6 +10329,7 @@ impl<'de> serde::Deserialize<'de> for SkipResponse {
             {
                 let mut files__ = None;
                 let mut titles__ = None;
+                let mut digest__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Files => {
@@ -10299,11 +10344,18 @@ impl<'de> serde::Deserialize<'de> for SkipResponse {
                             }
                             titles__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::Digest => {
+                            if digest__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("digest"));
+                            }
+                            digest__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(SkipResponse {
                     files: files__.unwrap_or_default(),
                     titles: titles__.unwrap_or_default(),
+                    digest: digest__.unwrap_or_default(),
                 })
             }
         }
@@ -10968,12 +11020,18 @@ impl serde::Serialize for UnskipRequest {
         if self.write {
             len += 1;
         }
+        if self.expected_digest.is_some() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.UnskipRequest", len)?;
         if !self.target.is_empty() {
             struct_ser.serialize_field("target", &self.target)?;
         }
         if self.write {
             struct_ser.serialize_field("write", &self.write)?;
+        }
+        if let Some(v) = self.expected_digest.as_ref() {
+            struct_ser.serialize_field("expectedDigest", v)?;
         }
         struct_ser.end()
     }
@@ -10987,12 +11045,15 @@ impl<'de> serde::Deserialize<'de> for UnskipRequest {
         const FIELDS: &[&str] = &[
             "target",
             "write",
+            "expected_digest",
+            "expectedDigest",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
             Target,
             Write,
+            ExpectedDigest,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -11016,6 +11077,7 @@ impl<'de> serde::Deserialize<'de> for UnskipRequest {
                         match value {
                             "target" => Ok(GeneratedField::Target),
                             "write" => Ok(GeneratedField::Write),
+                            "expectedDigest" | "expected_digest" => Ok(GeneratedField::ExpectedDigest),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -11037,6 +11099,7 @@ impl<'de> serde::Deserialize<'de> for UnskipRequest {
             {
                 let mut target__ = None;
                 let mut write__ = None;
+                let mut expected_digest__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Target => {
@@ -11051,11 +11114,18 @@ impl<'de> serde::Deserialize<'de> for UnskipRequest {
                             }
                             write__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::ExpectedDigest => {
+                            if expected_digest__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("expectedDigest"));
+                            }
+                            expected_digest__ = map_.next_value()?;
+                        }
                     }
                 }
                 Ok(UnskipRequest {
                     target: target__.unwrap_or_default(),
                     write: write__.unwrap_or_default(),
+                    expected_digest: expected_digest__,
                 })
             }
         }
@@ -11076,12 +11146,18 @@ impl serde::Serialize for UnskipResponse {
         if !self.titles.is_empty() {
             len += 1;
         }
+        if !self.digest.is_empty() {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("vibranium.engine.v1.UnskipResponse", len)?;
         if !self.files.is_empty() {
             struct_ser.serialize_field("files", &self.files)?;
         }
         if !self.titles.is_empty() {
             struct_ser.serialize_field("titles", &self.titles)?;
+        }
+        if !self.digest.is_empty() {
+            struct_ser.serialize_field("digest", &self.digest)?;
         }
         struct_ser.end()
     }
@@ -11095,12 +11171,14 @@ impl<'de> serde::Deserialize<'de> for UnskipResponse {
         const FIELDS: &[&str] = &[
             "files",
             "titles",
+            "digest",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
             Files,
             Titles,
+            Digest,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -11124,6 +11202,7 @@ impl<'de> serde::Deserialize<'de> for UnskipResponse {
                         match value {
                             "files" => Ok(GeneratedField::Files),
                             "titles" => Ok(GeneratedField::Titles),
+                            "digest" => Ok(GeneratedField::Digest),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -11145,6 +11224,7 @@ impl<'de> serde::Deserialize<'de> for UnskipResponse {
             {
                 let mut files__ = None;
                 let mut titles__ = None;
+                let mut digest__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Files => {
@@ -11159,11 +11239,18 @@ impl<'de> serde::Deserialize<'de> for UnskipResponse {
                             }
                             titles__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::Digest => {
+                            if digest__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("digest"));
+                            }
+                            digest__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(UnskipResponse {
                     files: files__.unwrap_or_default(),
                     titles: titles__.unwrap_or_default(),
+                    digest: digest__.unwrap_or_default(),
                 })
             }
         }

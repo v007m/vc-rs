@@ -5,7 +5,7 @@ use vc_testkit::{FakeCommands, FakeVcs, MemoryEnvironment, MemorySources};
 
 use super::ApiExplained;
 use crate::sample::builder;
-use crate::{CallRequest, Engine, EngineError};
+use crate::{CallDraft, CallRequest, EditOp, Engine, EngineError, PointerEdit};
 
 const SECRET: &str = "tok-explain-7d20c4";
 const SCHEMA: (&str, &[u8]) = (".env.schema", b"SHOP_TOKEN=\nSHOP_CLIENT_ID=\n");
@@ -56,9 +56,13 @@ apis:
 );
 
 fn project() -> Engine {
+    project_with(CONFIG.1)
+}
+
+fn project_with(config: &[u8]) -> Engine {
     let environment = [("SHOP_TOKEN", SECRET), ("SHOP_CLIENT_ID", "client-1")];
     builder(FakeVcs::default())
-        .sources(Arc::new(MemorySources::new(&[CONFIG, SCHEMA, USERS])))
+        .sources(Arc::new(MemorySources::new(&[(CONFIG.0, config), SCHEMA, USERS])))
         .environment(Arc::new(MemoryEnvironment::new(&environment)))
         .commands(Arc::new(FakeCommands::new(|_| None)))
         .build()
@@ -109,16 +113,17 @@ async fn gives_the_headers_it_inherits_masked_and_its_auth_by_name_never_a_secre
 }
 
 #[tokio::test]
-async fn gives_a_curl_command_with_every_header_masked_and_the_token_as_a_variable() {
+async fn gives_a_curl_command_with_every_header_masked_and_names_the_auth_vc_applies() {
     let explained = project().explain_api(&request("users#get", &["userId=7"], &["vars.region=eu"])).await.unwrap();
-    let curl = "curl -X GET 'http://dev.local/api/users/7?lang=en' \\
+    let curl = "# auth shopOauth (oauth2ClientCredentials) is applied by vc
+curl -X GET 'http://dev.local/api/users/7?lang=en' \\
   -H 'accept: text/plain' \\
   -H 'x-key: ••••' \\
-  -H 'x-trace: eu' \\
-  -H \"Authorization: Bearer $TOKEN\"";
+  -H 'x-trace: eu'";
     assert_eq!(explained.curl, curl);
     let open = project().explain_api(&request("users#open", &[], &[])).await.unwrap();
     assert_eq!(open.auth, None, "`auth: none` sends no auth");
+    assert!(open.curl.starts_with("curl -X GET"), "{}", open.curl);
     assert!(open.curl.ends_with("-H 'x-note: it'\\''s'"), "{}", open.curl);
     assert!(open.headers.iter().all(|header| header.name != "x-note"), "the api writes it itself");
 }
@@ -130,4 +135,42 @@ async fn an_unknown_api_or_a_var_that_is_not_name_value_is_refused() {
     assert!(matches!(&unknown, EngineError::Selection { help: Some(help), .. } if help.contains("users#get")));
     let bad = engine.explain_api(&request("users#get", &["userId=1", SECRET], &[])).await.unwrap_err();
     assert!(matches!(&bad, EngineError::Setting { reason, .. } if reason == "var 2 is not `name=value`"), "{bad:?}");
+}
+
+#[tokio::test]
+async fn an_api_key_auth_is_named_never_sent_as_a_bearer_header() {
+    let config = String::from_utf8_lossy(CONFIG.1).replace(
+        "    type: oauth2ClientCredentials\n    tokenUrl: ${var.usersUrl}/oauth/token\n    clientId: ${secret.SHOP_CLIENT_ID}\n    clientSecret: ${secret.SHOP_TOKEN}\n",
+        "    type: apiKey\n    in: query\n    name: key\n    value: ${secret.SHOP_TOKEN}\n",
+    );
+    let engine = project_with(config.as_bytes());
+    let explained = engine.explain_api(&request("users#get", &[], &[])).await.unwrap();
+    assert!(explained.curl.starts_with("# auth shopOauth (apiKey) is applied by vc\ncurl "), "{}", explained.curl);
+    assert!(!explained.curl.contains("Authorization"), "{}", explained.curl);
+}
+
+#[tokio::test]
+async fn a_var_or_query_value_named_in_redact_fields_fills_the_url_masked() {
+    let config = format!("{}redact:\n  fields: [lang, userid]\n", String::from_utf8_lossy(CONFIG.1));
+    let engine = project_with(config.as_bytes());
+    let explained = engine.explain_api(&request("users#get", &["userId=7"], &[])).await.unwrap();
+    let url = explained.curl.lines().nth(1).unwrap();
+    assert_eq!(url, "curl -X GET 'http://dev.local/api/users/••••?lang=••••' \\", "{}", explained.curl);
+}
+
+#[tokio::test]
+async fn explains_the_draft_a_call_would_send_in_place_of_the_file() {
+    let engine = project();
+    let digest = engine.read_file(USERS.0).unwrap().digest;
+    let edits = vec![PointerEdit {
+        pointer: "/apis/0/path".into(),
+        op: EditOp::Set,
+        value: "\"/people/${var.userId}\"".into(),
+    }];
+    let mut drafted = request("users#get", &["userId=7"], &[]);
+    drafted.draft = Some(CallDraft { path: USERS.0.into(), digest, edits });
+    let explained = engine.explain_api(&drafted).await.unwrap();
+    assert!(explained.curl.contains("'http://dev.local/api/people/7?lang=en'"), "{}", explained.curl);
+    drafted.draft = Some(CallDraft { digest: "stale".into(), ..drafted.draft.unwrap() });
+    assert!(matches!(engine.explain_api(&drafted).await.unwrap_err(), EngineError::Stale { .. }));
 }

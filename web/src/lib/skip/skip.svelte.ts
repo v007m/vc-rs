@@ -1,6 +1,5 @@
-import { ConnectError } from '@connectrpc/connect';
-import type { ChangesOutput } from '#lib/client/port.ts';
-import type { SkipPort } from './port.ts';
+import { Code, ConnectError } from '@connectrpc/connect';
+import type { PreviewedChanges, SkipPort } from './port.ts';
 
 /**
  * One skip change, previewed then written as `vc skip` or `vc unskip` writes it: a skip of
@@ -10,7 +9,7 @@ export class SkipChange {
   reason = $state('');
   /** `YYYY-MM-DD`, or empty for no end date. */
   until = $state('');
-  preview: ChangesOutput | undefined = $state();
+  preview: PreviewedChanges | undefined = $state();
   /** What the write did, once written. */
   written: readonly string[] | undefined = $state();
   busy = $state(false);
@@ -39,27 +38,32 @@ export class SkipChange {
 
   async showPreview(): Promise<void> {
     if (!this.ready) return;
-    const changes = await this.#send(false);
+    const changes = await this.#send();
     if (changes) this.preview = changes;
   }
 
-  /** Writes the change the preview showed. */
+  /**
+   * Writes the change the preview showed, only while its file is the one previewed; when the
+   * file changed since, the preview is dropped, to be shown again.
+   */
   async write(): Promise<void> {
     if (!this.preview || !this.ready) return;
-    const changes = await this.#send(true);
+    const changes = await this.#send(this.preview.digest);
     if (changes) this.written = changes.titles;
   }
 
-  async #send(write: boolean): Promise<ChangesOutput | undefined> {
+  async #send(digest?: string): Promise<PreviewedChanges | undefined> {
     this.busy = true;
     try {
       const changes = this.removing
-        ? await this.#port.unskip(this.target, write)
-        : await this.#port.skip(this.#input(), write);
+        ? await this.#port.unskip(this.target, digest)
+        : await this.#port.skip(this.#input(), digest);
       this.error = undefined;
       return changes;
     } catch (error) {
-      this.error = ConnectError.from(error).rawMessage;
+      const refused = ConnectError.from(error);
+      if (refused.code === Code.Aborted) this.preview = undefined;
+      this.error = refused.rawMessage;
       return undefined;
     } finally {
       this.busy = false;

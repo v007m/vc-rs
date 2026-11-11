@@ -55,7 +55,7 @@ export type WrittenDefinition = Readonly<{
 
 /**
  * What a call adds to an api: each var's layers, the inherited headers, the auth and the call
- * as curl, the token as `$TOKEN`.
+ * as curl, without the auth, which a comment line names.
  */
 export type ExplainedApi = Readonly<{
   vars: readonly ConfigValue[];
@@ -117,7 +117,8 @@ export interface ClientPort {
   flows(): Promise<FlowInfo[]>;
   call(input: CallInput): Promise<CallOutput>;
   readDefinition(id: string): Promise<WrittenDefinition>;
-  explainApi(api: string, vars: readonly string[]): Promise<ExplainedApi>;
+  /** `api` as a call with `vars` and `draft` would send it. */
+  explainApi(api: string, vars: readonly string[], draft?: ApiDraft): Promise<ExplainedApi>;
   editFile(draft: ApiDraft, write: boolean): Promise<Edited>;
   saveCallAsTest(input: SaveCallInput): Promise<SavedTest>;
   importHar(input: HarInput): Promise<ChangesOutput>;
@@ -183,8 +184,9 @@ export function enginePort(client: EngineClient): ClientPort {
       const { path, pointer, digest, json } = await client.readDefinition({ id });
       return { path, pointer, digest, node: parsed(json) };
     },
-    async explainApi(api, vars) {
-      const out = await client.explainApi({ api, vars: [...vars] });
+    async explainApi(api, vars, draft) {
+      const sent = draft && { ...draft, edits: wireEdits(draft.edits) };
+      const out = await client.explainApi({ api, vars: [...vars], draft: sent });
       const { curl, notices, auth } = out;
       const values = out.vars.map(({ key, layers }) => ({
         key,

@@ -88,8 +88,13 @@ describe('enginePort', () => {
             json: '{"id":"get","path":"/users/${var.userId}"}',
           };
         },
-        explainApi: ({ api, vars }) => {
-          seen.push({ api, vars });
+        explainApi: ({ api, vars, draft }) => {
+          const edits = draft?.edits.map(({ pointer, op, valueJson }) => ({
+            pointer,
+            op,
+            valueJson,
+          }));
+          seen.push(draft ? { api, vars, digest: draft.digest, edits } : { api, vars });
           return {
             vars: [{ key: 'userId', layers: [{ value: '1', source: 'api' }] }],
             headers: [{ name: 'X-Key', value: '••••', from: 'users.api.yaml' }],
@@ -126,6 +131,7 @@ describe('enginePort', () => {
       digest: 'd1',
       edits: [{ pointer: '/apis/1/method', op: 'set', value: 'POST' } as const],
     };
+    await port.explainApi('users#get', [], draft);
     await port.call({ api: 'users#get', vars: [], keep: false, draft });
     expect(await port.editFile(draft, true)).toEqual({
       diff: '-a\n+b\n',
@@ -136,6 +142,12 @@ describe('enginePort', () => {
     expect(seen).toEqual([
       { id: 'users#get' },
       { api: 'users#get', vars: ['userId=2'] },
+      {
+        api: 'users#get',
+        vars: [],
+        digest: 'd1',
+        edits: [{ pointer: '/apis/1/method', op: EditOp.SET, valueJson: '"POST"' }],
+      },
       [{ pointer: '/apis/1/method', op: EditOp.SET, valueJson: '"POST"' }],
       { path: 'services/users/users.api.yaml', digest: 'd1', write: true },
     ]);

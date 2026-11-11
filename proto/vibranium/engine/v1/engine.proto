@@ -420,6 +420,8 @@ message ExplainApiRequest {
   repeated string vars = 2;
   repeated string profiles = 3;
   repeated string sets = 4;
+  // The form's unsaved edits, as a `Call` would send them: explained in place of the file.
+  optional ApiDraft draft = 5;
 }
 
 message ExplainApiResponse {
@@ -556,11 +558,15 @@ message SkipRequest {
   optional string until = 3;
   // Write the file; a preview when false.
   bool write = 4;
+  // The digest the preview gave; a write is aborted when the file changed since, or without it.
+  optional string expected_digest = 5;
 }
 
 message SkipResponse {
   repeated FileChange files = 1;
   repeated string titles = 2;
+  // The digest of the file as previewed, which the write passes back.
+  string digest = 3;
 }
 
 message UnskipRequest {
@@ -568,11 +574,15 @@ message UnskipRequest {
   string target = 1;
   // Write the file; a preview when false.
   bool write = 2;
+  // The digest the preview gave; a write is aborted when the file changed since, or without it.
+  optional string expected_digest = 3;
 }
 
 message UnskipResponse {
   repeated FileChange files = 1;
   repeated string titles = 2;
+  // The digest of the file as previewed, which the write passes back.
+  string digest = 3;
 }
 
 message ListRunsRequest {

@@ -86,14 +86,19 @@ impl Engine {
 
     /// The layered settings and active profiles of `request`, with nothing planned.
     pub(crate) fn adhoc(&self, request: &CallRequest) -> Result<Prepared, EngineError> {
-        let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
-        let draft = request.draft.iter().map(|draft| self.draft_change(draft)).collect::<Result<Vec<_>, _>>()?;
-        let Layered { mut program, notices, settings, environment, dot_env, .. } =
-            self.layered_with(&request.sets, &flags, &draft)?;
+        let Layered { mut program, notices, settings, environment, dot_env, .. } = self.call_layered(request)?;
         settings.apply(&mut program);
         let (profiles, names) = plan::profiles(&program, settings.profiles.as_ref())?;
         let (plan, draw) = (Arc::default(), Draw::new(None));
         Ok(Prepared { program, plan, settings, profiles, names, notices, environment, dot_env, draw })
+    }
+
+    /// The settings `request` layers, under its profiles, with its draft compiled in place of
+    /// the file it edits.
+    pub(crate) fn call_layered(&self, request: &CallRequest) -> Result<Layered, EngineError> {
+        let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
+        let draft = request.draft.iter().map(|draft| self.draft_change(draft)).collect::<Result<Vec<_>, _>>()?;
+        self.layered_with(&request.sets, &flags, &draft)
     }
 
     /// The history entry of the call, or `None` and a notice that it is not recorded.

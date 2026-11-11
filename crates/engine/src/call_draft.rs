@@ -38,7 +38,8 @@ pub struct WrittenNode {
     pub pointer: String,
     /// The file's digest, for the edits and the save.
     pub digest: String,
-    /// Its YAML as JSON text, templates as written, masked as a run's values are.
+    /// Its YAML as JSON text, templates as written, each value masked as a run's values are;
+    /// every string masked when the secrets cannot be loaded.
     pub json: String,
 }
 
@@ -58,7 +59,7 @@ impl Engine {
         let opened = self.read_file(path.as_str())?;
         let local = id.rsplit_once('#').map_or(id, |(_, local)| local);
         let (at, json) = written(&path, &opened.text, (list, local))?;
-        let json = self.masked_text(&json.to_string()).await;
+        let json = self.masked_json(json).await.to_string();
         Ok(WrittenNode { path: path.to_string(), pointer: format!("/{list}/{at}"), digest: opened.digest, json })
     }
 

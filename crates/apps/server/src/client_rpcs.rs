@@ -34,14 +34,15 @@ async fn read_definition(
     })
 }
 
-/// The api as `Call` would send it: the vars it uses with their layers, the headers it inherits,
-/// its auth and a curl command, every value masked and the token `$TOKEN`.
+/// The api as `Call` would send it, its draft in place of the file: the vars it uses with their
+/// layers, the headers it inherits, its auth and a curl command, every value masked.
 async fn explain_api(
     api: Arc<EngineApi>,
     request: wire::ExplainApiRequest,
 ) -> Result<wire::ExplainApiResponse, ConnectError> {
     let (profiles, sets) = api.layers(request.profiles, request.sets);
-    let call = CallRequest { api: request.api, vars: request.vars, profiles, sets, ..CallRequest::default() };
+    let draft = request.draft.as_ref().map(draft).transpose()?;
+    let call = CallRequest { api: request.api, vars: request.vars, profiles, sets, draft, ..CallRequest::default() };
     let explained = api.blocking(move |engine| Handle::current().block_on(engine.explain_api(&call))).await?;
     let headers = explained.headers.into_iter().map(|header| wire::InheritedHeader {
         name: header.name,

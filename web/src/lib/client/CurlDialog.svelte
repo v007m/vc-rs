@@ -1,7 +1,7 @@
 <script lang="ts">
   import Dialog from '#lib/ui/Dialog.svelte';
 
-  /** The api as a curl command, resolved by the engine with its token as `$TOKEN`. */
+  /** The request as a curl command, resolved by the engine, its auth left out. */
   let { curl, onclose }: { curl: string; onclose: () => void } = $props();
 
   let copied = $state('');
@@ -18,8 +18,8 @@
 
 <Dialog title="Copy as cURL" {onclose}>
   <p class="help">
-    Resolved for the active profile. The bearer token is replaced by <code>$TOKEN</code>; print one
-    with <code>vc auth token</code>.
+    Resolved for the active profile, with your unsaved edits and vars. Auth is left out because vc
+    applies it; the first line names it, and <code>vc auth token</code> prints a token.
   </p>
   <pre class="curl mono" aria-label="cURL command">{curl}</pre>
   <div class="actions">

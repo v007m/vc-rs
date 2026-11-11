@@ -100,6 +100,14 @@ impl Engine {
         self.masker(&mut layered).await.text(text).await
     }
 
+    /// `value` masked leaf by leaf as a run's values are, its keys and shape kept, so it still
+    /// reads as JSON; every string when the project cannot be layered or its secrets cannot be
+    /// loaded.
+    pub(crate) async fn masked_json(&self, value: Value) -> Value {
+        let Ok(mut layered) = self.layered(&[], &[]) else { return every_string_masked(value) };
+        self.masker(&mut layered).await.json(value).await
+    }
+
     /// The redactor a run would mask with, told the declared secrets' values and names (and its
     /// `function:` rules given them); when they cannot be loaded, one that masks every value
     /// but the built-in ones.
@@ -186,6 +194,12 @@ impl Masker {
         if self.blind { MASKED.to_owned() } else { self.redactor.masked_text(text).await }
     }
 
+    /// `value` masked leaf by leaf, a field named like a secret or a `redact.fields` entry
+    /// whole; every string when the secrets could not be loaded.
+    pub async fn json(&self, value: Value) -> Value {
+        if self.blind { every_string_masked(value) } else { self.redactor.masked(value).await }
+    }
+
     /// `value` as the field `field` set by `source`, masked.
     pub async fn masked(&self, field: &str, value: String, source: &str) -> String {
         if self.blind && source != BUILT_IN {
@@ -196,6 +210,18 @@ impl Masker {
             Some(Value::String(text)) => text.clone(),
             _ => MASKED.to_owned(),
         }
+    }
+}
+
+/// `value` with every string in it [`MASKED`], its keys and the rest kept.
+fn every_string_masked(value: Value) -> Value {
+    match value {
+        Value::String(_) => Value::String(MASKED.to_owned()),
+        Value::Array(items) => Value::Array(items.into_iter().map(every_string_masked).collect()),
+        Value::Object(fields) => {
+            Value::Object(fields.into_iter().map(|(key, field)| (key, every_string_masked(field))).collect())
+        }
+        other @ (Value::Null | Value::Bool(_) | Value::Number(_)) => other,
     }
 }
 

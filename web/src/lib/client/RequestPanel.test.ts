@@ -87,6 +87,19 @@ describe('RequestPanel', () => {
     });
   });
 
+  it('says a masked header keeps its name, and sends it unchanged', async () => {
+    const { client, user, sent } = await rendered();
+    const row = client.request?.form.headers[0];
+    if (!row) throw new Error('no header row');
+    row.name = 'X-Api-Key';
+    const notices = await screen.findByRole('list', { name: 'Not saved' });
+    expect(within(notices).getByRole('listitem').textContent).toBe(
+      'Header X-Api-Key holds a secret, so it is not saved under a new name; rename it in the api file.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(sent.calls[0]?.draft).toBeUndefined();
+  });
+
   it('will not send a JSON body that does not parse', async () => {
     const { user, sent } = await rendered();
     const body = screen.getByRole('textbox', { name: 'JSON body' });
@@ -159,16 +172,38 @@ describe('RequestPanel', () => {
     expect(within(dialog).queryByRole('alert')).toBeNull();
   });
 
-  it('shows the vars the project sets and the curl command when there is one', async () => {
+  it('shows the vars the project sets and the curl of the request as it would be sent now', async () => {
+    const explained: { vars: readonly string[]; draft?: ApiDraft }[] = [];
     const { user } = await rendered({
-      explainApi: () => Promise.resolve({ ...EXPLAINED, curl: "curl -X POST 'http://x/users'" }),
+      explainApi: (_api, vars, draft) => {
+        explained.push({ vars, draft });
+        return Promise.resolve({ ...EXPLAINED, curl: "curl -X PUT 'http://x/users'" });
+      },
     });
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Method' }), 'PUT');
     await user.click(screen.getByRole('tab', { name: 'Vars' }));
     const layers = screen.getByRole('table', { name: 'Vars from the project' });
     expect(layers.textContent).toContain('profile dev');
     await user.click(screen.getByRole('button', { name: 'Copy as cURL' }));
     const dialog = screen.getByRole('dialog', { name: 'Copy as cURL' });
-    expect(within(dialog).getByLabelText('cURL command').textContent).toContain('curl -X POST');
-    expect(within(dialog).getByText('$TOKEN')).toBeTruthy();
+    expect(within(dialog).getByLabelText('cURL command').textContent).toContain('curl -X PUT');
+    expect(within(dialog).getByText('vc auth token')).toBeTruthy();
+    const last = explained.at(-1);
+    expect(last?.draft?.edits).toEqual([{ pointer: '/apis/1/method', op: 'set', value: 'PUT' }]);
+    expect(last?.draft?.digest).toBe('d1');
+  });
+
+  it('keeps the curl dialog shut and names the change when the file moved on', async () => {
+    let opens = 0;
+    const { user, client } = await rendered({
+      explainApi: () =>
+        ++opens === 1
+          ? Promise.resolve({ ...EXPLAINED, curl: 'curl -X POST' })
+          : Promise.reject(new ConnectError('changed', Code.Aborted)),
+    });
+    await user.click(screen.getByRole('button', { name: 'Copy as cURL' }));
+    expect(screen.queryByRole('dialog', { name: 'Copy as cURL' })).toBeNull();
+    expect(client.error).toContain('changed');
+    expect(client.request?.state).toBe('conflict');
   });
 });

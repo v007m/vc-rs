@@ -71,39 +71,6 @@
       >
     {/each}
   </div>
-  <div class="filters">
-    <div class="seg" role="group" aria-label="Profile">
-      <button
-        type="button"
-        aria-pressed={insights.profile === undefined}
-        onclick={() => void insights.scope('profile', undefined)}>All profiles</button
-      >
-      {#each insights.profiles as p (p)}
-        <button
-          type="button"
-          aria-pressed={insights.profile === p}
-          onclick={() => void insights.scope('profile', p)}>{p}</button
-        >
-      {/each}
-    </div>
-    {#if insights.branches.length}
-      <div class="seg" role="group" aria-label="Branch">
-        <button
-          type="button"
-          aria-pressed={insights.branch === undefined}
-          onclick={() => void insights.scope('branch', undefined)}>All branches</button
-        >
-        {#each insights.branches as b (b)}
-          <button
-            type="button"
-            class="mono"
-            aria-pressed={insights.branch === b}
-            onclick={() => void insights.scope('branch', b)}>{b}</button
-          >
-        {/each}
-      </div>
-    {/if}
-  </div>
   {#if insights.error}
     <p class="error" role="alert">{insights.error}</p>
   {/if}
@@ -245,11 +212,6 @@
   }
   .seg {
     justify-self: start;
-  }
-  .filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 16px;
   }
   .kpis {
     display: grid;

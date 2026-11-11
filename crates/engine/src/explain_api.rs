@@ -1,17 +1,17 @@
 //! The API client's `ExplainApi` (D245): an api as `vc call` would send it, as data. It gives the
 //! vars the api uses, each with the layers that set it, the headers it inherits, its auth and a
-//! curl command. Every value is masked as a run's are (D229), and the token is `$TOKEN`.
+//! curl command, all with the request's unsaved draft in place of its file. Every value is masked
+//! as a run's are (D229); the curl leaves the auth out and says so, since only vc applies it.
 
 use std::fmt::Write as _;
 
-use vc_interfaces::ConfigEntry;
 use vc_model::{Api, AuthRef, BodySpec, Namespace, PartSpec, Program, Reference, Segment, Template, TemplateValue};
 
 use super::call::{CALL, Called};
 use super::{Explainer, unknown};
 use crate::call::given;
 use crate::config_values::{ConfigValue, Masker, shown_unless_secret};
-use crate::plan::{self, profile_flag};
+use crate::plan;
 use crate::shown::{self, Shown, Var};
 use crate::{CallRequest, Engine, EngineError};
 
@@ -49,22 +49,23 @@ pub struct ApiExplained {
     /// The headers it is sent with that it does not write itself.
     pub headers: Vec<SentHeader>,
     pub auth: Option<AuthShown>,
-    /// The request as a curl command, without its body, the auth's token as `$TOKEN`.
+    /// The request as a curl command, without its body or its auth, which a comment names.
     pub curl: String,
     pub notices: Vec<String>,
 }
 
 impl Engine {
     /// The api `request.api` as `vc call` would send it, with the `name=value` vars of
-    /// `request.vars` at call level, under its profiles and settings.
+    /// `request.vars` at call level and its draft in place of its file, under its profiles and
+    /// settings.
     ///
     /// # Errors
     ///
     /// [`EngineError::Invalid`] when the project has errors, [`EngineError::Setting`] for a bad
-    /// setting, var or an unknown profile, and [`EngineError::Selection`] when no api has the ID.
+    /// setting, var or an unknown profile, and [`EngineError::Selection`] when no api has the ID;
+    /// the errors of a call's draft.
     pub async fn explain_api(&self, request: &CallRequest) -> Result<ApiExplained, EngineError> {
-        let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
-        let mut layered = self.layered(&request.sets, &flags)?;
+        let mut layered = self.call_layered(request)?;
         let program = layered.program.clone();
         let api = program.apis.values().find(|api| program.str(api.id.sym()) == Some(request.api.as_str()));
         let api = api.ok_or_else(|| unknown(&program, &request.api))?;
@@ -82,8 +83,9 @@ impl Engine {
         let shown = Shown { program: &program, vars: &vars };
         let sent = masked_headers(&masker, explainer.sent_headers(&called, &shown)).await;
         let auth = explainer.auth_shown(&called, &masker).await;
-        let url = masker.text(&url(&program, api, &shown)).await;
-        let curl = curl(api, &url, &sent) + if auth.is_some() { BEARER } else { "" };
+        let hidden = masked_vars(&masker, &shown, &vars).await;
+        let url = url(&masker, (&program, api), &Shown { program: &program, vars: &hidden }).await;
+        let curl = applied_by_vc(auth.as_ref()) + &curl(api, &url, &sent);
         let headers = sent.into_iter().filter(|header| !writes(api, &header.name)).collect();
         let vars = layers(&masker, &program, used(&explainer, &called, vars)).await;
         Ok(ApiExplained { vars, headers, auth, curl, notices: layered.notices })
@@ -206,22 +208,46 @@ fn writes(api: &Api, name: &str) -> bool {
     api.headers.keys().any(|written| written.eq_ignore_ascii_case(name))
 }
 
-/// The base URL, the path and the query, the vars filled in.
-fn url(program: &Program, api: &Api, shown: &Shown<'_>) -> String {
+/// `vars` with each value shown and masked as the field its name is, so a var named like a
+/// secret or a `redact.fields` entry fills a URL masked.
+async fn masked_vars(masker: &Masker, shown: &Shown<'_>, vars: &[Var]) -> Vec<Var> {
+    let mut hidden = Vec::with_capacity(vars.len());
+    for var in vars {
+        let value = masker.masked(&var.name, shown_unless_secret(shown, &var.value), &var.origin).await;
+        let value = shown::literal(&value);
+        hidden.push(Var {
+            name: var.name.clone(),
+            value,
+            origin: var.origin.clone(),
+            saved: var.saved,
+            replaced: Vec::new(),
+        });
+    }
+    hidden
+}
+
+/// The base URL, the path and the query, the vars filled in, each query value masked as the
+/// field its name is, then the whole masked as a run's text is.
+async fn url(masker: &Masker, (program, api): (&Program, &Api), shown: &Shown<'_>) -> String {
     let base = program.api_groups.get(&api.group).and_then(|group| group.base_url.as_ref());
     let mut url = base.map(|base| shown.template(base)).unwrap_or_default();
     url.push_str(&shown.template(&api.path));
-    let query: Vec<String> =
-        api.query.iter().map(|(name, value)| format!("{name}={}", shown.template(value))).collect();
+    let mut query = Vec::with_capacity(api.query.len());
+    for (name, value) in &api.query {
+        query.push(format!("{name}={}", masker.masked(name, shown.template(value), CALL).await));
+    }
     if !query.is_empty() {
         url.push('?');
         url.push_str(&query.join("&"));
     }
-    url
+    masker.text(&url).await
 }
 
-/// The header that stands for the auth's token, in double quotes so a shell fills in `$TOKEN`.
-const BEARER: &str = " \\\n  -H \"Authorization: Bearer $TOKEN\"";
+/// A comment naming the auth vc applies, which the command leaves out: how it is sent depends on
+/// its type, and its token or credentials never leave vc.
+fn applied_by_vc(auth: Option<&AuthShown>) -> String {
+    auth.map(|auth| format!("# auth {} ({}) is applied by vc\n", auth.id, auth.kind)).unwrap_or_default()
+}
 
 /// `curl -X GET 'url'` and a `-H` for each header.
 fn curl(api: &Api, url: &str, headers: &[SentHeader]) -> String {

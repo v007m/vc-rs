@@ -1,4 +1,4 @@
-import { ConnectError } from '@connectrpc/connect';
+import { Code, ConnectError } from '@connectrpc/connect';
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -44,8 +44,8 @@ const CRUD = `tests:
 const SKIPPED = `${CRUD}    skip: flaky upstream
 `;
 
-/** The Skip and Unskip calls the engine was sent, as `[rpc, target, reason, write]`. */
-type SkipCall = [string, string, string, boolean];
+/** The Skip and Unskip calls the engine was sent, as `[rpc, target, reason, write, digest]`. */
+type SkipCall = [string, string, string, boolean, string | undefined];
 
 async function setup(
   runs: string[][] = [],
@@ -55,13 +55,15 @@ async function setup(
 ) {
   const path = 'services/users/crud.test.yaml';
   const engine = fakeEngine({
-    skip: ({ target, reason, write }) => {
-      skips.push(['skip', target, reason, write]);
-      return { files: [{ path, before: CRUD, after: SKIPPED }], titles: [`Skip ${target}`] };
+    skip: ({ target, reason, write, expectedDigest }) => {
+      skips.push(['skip', target, reason, write, expectedDigest]);
+      const files = [{ path, before: CRUD, after: SKIPPED }];
+      return { files, titles: [`Skip ${target}`], digest: 'd-crud' };
     },
-    unskip: ({ target, write }) => {
-      skips.push(['unskip', target, '', write]);
-      return { files: [{ path, before: SKIPPED, after: CRUD }], titles: [`Unskip ${target}`] };
+    unskip: ({ target, write, expectedDigest }) => {
+      skips.push(['unskip', target, '', write, expectedDigest]);
+      const files = [{ path, before: SKIPPED, after: CRUD }];
+      return { files, titles: [`Unskip ${target}`], digest: 'd-skipped' };
     },
     listDefinitions: (request) => {
       const since = request.selection?.changed;
@@ -182,8 +184,8 @@ describe('Explorer', () => {
     expect(diff.textContent).toContain('skip: flaky upstream');
     await user.click(within(form).getByRole('button', { name: 'Write skip' }));
     expect(skips).toEqual([
-      ['skip', 'users.crud#createsUser', 'flaky upstream', false],
-      ['skip', 'users.crud#createsUser', 'flaky upstream', true],
+      ['skip', 'users.crud#createsUser', 'flaky upstream', false, undefined],
+      ['skip', 'users.crud#createsUser', 'flaky upstream', true, 'd-crud'],
     ]);
     expect(screen.queryByRole('group', { name: /^Skip / })).toBeNull();
     expect(asked).toEqual([false, false]);
@@ -201,9 +203,9 @@ describe('Explorer', () => {
     expect(remove.hasAttribute('disabled')).toBe(true);
     await user.click(within(form).getByRole('button', { name: 'Preview' }));
     await user.click(remove);
-    expect(skips.map(([rpc, target, , write]) => [rpc, target, write])).toEqual([
-      ['unskip', 'users.crud#rejectsBadEmail', false],
-      ['unskip', 'users.crud#rejectsBadEmail', true],
+    expect(skips.map(([rpc, target, , write, digest]) => [rpc, target, write, digest])).toEqual([
+      ['unskip', 'users.crud#rejectsBadEmail', false, undefined],
+      ['unskip', 'users.crud#rejectsBadEmail', true, 'd-skipped'],
     ]);
   });
 
@@ -223,6 +225,30 @@ describe('Explorer', () => {
     await user.type(screen.getByRole('textbox', { name: 'Reason' }), 'flaky');
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     expect(screen.getByRole('alert').textContent).toContain('is already skipped');
+    expect(screen.getByRole('button', { name: 'Write skip' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('drops the preview and says so when the file changed before the skip was written', async () => {
+    const engine = fakeEngine({
+      listDefinitions: () => ({ definitions }),
+      skip: ({ write }) => {
+        if (write)
+          throw new ConnectError('crud.test.yaml: changed since the preview', Code.Aborted);
+        const files = [{ path: 'services/users/crud.test.yaml', before: CRUD, after: SKIPPED }];
+        return { files, titles: ['Skip users.crud#createsUser'], digest: 'd-crud' };
+      },
+    });
+    const catalog = new Catalog(engine);
+    await catalog.load();
+    render(Explorer, { catalog, session: new RunSession(engine), skips: skipPort(engine) });
+    const user = userEvent.setup();
+    await user.click(screen.getByText('Creates a user'));
+    await user.click(screen.getByRole('button', { name: 'Skip…' }));
+    await user.type(screen.getByRole('textbox', { name: 'Reason' }), 'flaky');
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await user.click(screen.getByRole('button', { name: 'Write skip' }));
+    expect(screen.getByRole('alert').textContent).toContain('changed since the preview');
+    expect(screen.queryByLabelText('Changes to services/users/crud.test.yaml')).toBeNull();
     expect(screen.getByRole('button', { name: 'Write skip' }).hasAttribute('disabled')).toBe(true);
   });
 

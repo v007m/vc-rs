@@ -19,6 +19,11 @@
   const declared = $derived(new Set(client.current?.vars ?? []));
   const request = $derived(client.request);
   const layered = $derived(request?.explained?.vars ?? []);
+
+  /** Explains the request as a send would send it now, then shows its curl. */
+  async function showCurl(): Promise<void> {
+    if (await client.explain()) dialog = 'curl';
+  }
 </script>
 
 <section class="request" aria-labelledby="request-title">
@@ -29,7 +34,7 @@
         <p class="mono id">{client.current.id}</p>
       </div>
       {#if request?.explained?.curl}
-        <button type="button" class="btn" onclick={() => (dialog = 'curl')}>Copy as cURL</button>
+        <button type="button" class="btn" onclick={() => void showCurl()}>Copy as cURL</button>
       {/if}
       <button
         type="button"

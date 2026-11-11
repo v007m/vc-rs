@@ -80,6 +80,21 @@ export class ClientSession {
     return draft ? { ...input, draft } : input;
   }
 
+  /** Explains the open request as `send` would send it now; whether it could. */
+  async explain(): Promise<boolean> {
+    const [input, request] = [this.input, this.request];
+    if (!input || !request) return false;
+    try {
+      await request.explain(input.vars);
+      this.error = undefined;
+      return true;
+    } catch (error) {
+      if (ConnectError.from(error).code === Code.Aborted) request.stale();
+      this.error = message(error);
+      return false;
+    }
+  }
+
   async send(): Promise<void> {
     const input = this.input;
     if (!input || this.sending || this.request?.problem !== undefined) return;

@@ -708,7 +708,7 @@ pub struct ReadDefinitionResponse {
     #[prost(string, tag="4")]
     pub json: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExplainApiRequest {
     /// The api's full ID.
     #[prost(string, tag="1")]
@@ -720,6 +720,9 @@ pub struct ExplainApiRequest {
     pub profiles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag="4")]
     pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The form's unsaved edits, as a `Call` would send them: explained in place of the file.
+    #[prost(message, optional, tag="5")]
+    pub draft: ::core::option::Option<ApiDraft>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExplainApiResponse {
@@ -911,6 +914,9 @@ pub struct SkipRequest {
     /// Write the file; a preview when false.
     #[prost(bool, tag="4")]
     pub write: bool,
+    /// The digest the preview gave; a write is aborted when the file changed since, or without it.
+    #[prost(string, optional, tag="5")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SkipResponse {
@@ -918,6 +924,9 @@ pub struct SkipResponse {
     pub files: ::prost::alloc::vec::Vec<FileChange>,
     #[prost(string, repeated, tag="2")]
     pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the file as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UnskipRequest {
@@ -927,6 +936,9 @@ pub struct UnskipRequest {
     /// Write the file; a preview when false.
     #[prost(bool, tag="2")]
     pub write: bool,
+    /// The digest the preview gave; a write is aborted when the file changed since, or without it.
+    #[prost(string, optional, tag="3")]
+    pub expected_digest: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UnskipResponse {
@@ -934,6 +946,9 @@ pub struct UnskipResponse {
     pub files: ::prost::alloc::vec::Vec<FileChange>,
     #[prost(string, repeated, tag="2")]
     pub titles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The digest of the file as previewed, which the write passes back.
+    #[prost(string, tag="3")]
+    pub digest: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListRunsRequest {
