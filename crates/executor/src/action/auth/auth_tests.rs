@@ -185,13 +185,15 @@ async fn an_auth_var_reads_the_other_vars_of_its_definition_and_use_site() {
     assert_eq!(header(&sent[0], &AUTHORIZATION), Some("Bearer ops-bob-key-1".to_owned()));
 }
 
-/// What a bearer `svc` sends when its vars are `definition` and its use site's are `site`.
-async fn sent_with(definition: &[(&str, &str)], site: &[(&str, &str)]) -> Option<String> {
+/// What a bearer `svc` sends when its vars are `definition`, its use site's are `site` and the
+/// call's are `caller`.
+async fn sent_with(definition: &[(&str, &str)], site: &[(&str, &str)], caller: &[(&str, &str)]) -> Option<String> {
     let mut fixture = Fixture::new();
     let id = define(&mut fixture, "bearer");
     let vars = fixture.vars(definition);
     fixture.program.auth.get_mut(&id).unwrap().vars.values = vars;
     let call = fixture.call("/users");
+    fixture.action_mut(call).vars.values = fixture.vars(caller);
     fixture.api_mut(call).auth = uses(id, fixture.vars(site));
     let issuer = Arc::new(Issuer::default());
     let (cx, recordings) = context(fixture, issuer as Arc<dyn AuthProvider>, vec![vc_testkit::status(200)]);
@@ -203,15 +205,41 @@ async fn sent_with(definition: &[(&str, &str)], site: &[(&str, &str)]) -> Option
 #[tokio::test]
 async fn a_use_site_var_falls_back_to_the_definition_s_vars_and_reads_its_own_default() {
     let tenant = [("token", "${var.user}"), ("tenant", "acme")];
-    assert_eq!(sent_with(&tenant, &[("user", "${var.tenant}-bob")]).await.as_deref(), Some("Bearer acme-bob-1"));
+    assert_eq!(sent_with(&tenant, &[("user", "${var.tenant}-bob")], &[]).await.as_deref(), Some("Bearer acme-bob-1"));
     let token = [("token", "t")];
-    assert_eq!(sent_with(&token, &[("token", "${var.token}-v2")]).await.as_deref(), Some("Bearer t-v2-1"));
+    assert_eq!(sent_with(&token, &[("token", "${var.token}-v2")], &[]).await.as_deref(), Some("Bearer t-v2-1"));
+}
+
+#[tokio::test]
+async fn a_use_site_var_reading_its_own_name_finds_the_caller_s_value_before_the_definition_s() {
+    let site = [("token", "${var.token}-v2")];
+    assert_eq!(sent_with(&[("token", "t")], &site, &[("token", "c")]).await.as_deref(), Some("Bearer c-v2-1"));
+}
+
+/// The call and the definition each have a fake `salt`; the call sends its own as `x-salt`.
+#[tokio::test]
+async fn a_use_site_var_reads_the_caller_s_fake_over_a_same_named_one_of_the_definition() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "bearer");
+    let own = fixture.vars(&[("token", "${var.k}"), ("salt", "${fake.string.uuid}")]);
+    fixture.program.auth.get_mut(&id).unwrap().vars.values = own;
+    let call = fixture.call("/users");
+    fixture.action_mut(call).vars.values = fixture.vars(&[("salt", "${fake.string.uuid}")]);
+    fixture.api_mut(call).headers = fixture.templates(&[("x-salt", "${var.salt}")]);
+    fixture.api_mut(call).auth = uses(id, fixture.vars(&[("k", "${var.salt}")]));
+    let issuer = Arc::new(Issuer::default());
+    let (cx, recordings) = context(fixture, issuer as Arc<dyn AuthProvider>, vec![vc_testkit::status(200)]);
+    let report = run(&cx, call).await;
+    assert!(report.outcome.failure().is_none(), "{:?}", report.outcome.failure());
+    let sent = recordings.take();
+    let salt = header(&sent[0], &http::HeaderName::from_static("x-salt")).unwrap();
+    assert_eq!(header(&sent[0], &AUTHORIZATION), Some(format!("Bearer {salt}-1")), "the call's one draw");
 }
 
 #[tokio::test]
 async fn a_fake_definition_var_the_use_site_reads_is_drawn_once() {
     let salted = [("token", "${var.salt}|${var.k}"), ("salt", "${fake.string.uuid}")];
-    let bearer = sent_with(&salted, &[("k", "${var.salt}")]).await.unwrap();
+    let bearer = sent_with(&salted, &[("k", "${var.salt}")], &[]).await.unwrap();
     let token = bearer.strip_prefix("Bearer ").and_then(|token| token.strip_suffix("-1")).unwrap();
     let [salt, k] = token.split('|').collect::<Vec<_>>()[..] else { panic!("{token}") };
     assert_eq!(salt, k, "the use site and the definition read one draw");

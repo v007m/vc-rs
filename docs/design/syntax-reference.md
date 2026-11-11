@@ -1013,7 +1013,7 @@ The `oauth2*` types post to `tokenUrl` with the client in HTTP Basic when `clien
 
 `vc check` reports a definition that leaves out a key its type needs as V1005 at its `type` (`a \`bearer\` auth needs \`token\``): `username` and `password` for `basic`, `token` for `bearer`, `name` and `value` for `apiKey`, `tokenUrl` and `clientId` for every `oauth2*` type (plus `username` and `password` for `oauth2Password`, `authorizeUrl` for `oauth2AuthorizationCode` and `refreshToken` for `oauth2Refresh`), `steps` for `flow` and `plugin` for `plugin`.
 
-Every definition can also have `vars` (its defaults), which can read each other and the use site's vars. A use site's var reads its sibling use-site vars first, then the caller's vars, then the definition's as the last fallback, so `token: ${var.token}-v2` builds on the default. Use one by ID on an api file, an api, a test, a step or an action: `auth: shopOauth`, `auth: none`, or with values:
+Every definition can also have `vars` (its defaults), which can read each other and the use site's vars. A use site's var reads its sibling use-site vars first, then the caller's vars, then the definition's as the last fallback, so `token: ${var.token}-v2` builds on the default. A use-site var that reads its own name follows the same order: it finds the caller's `token` when the caller has one, and the definition's otherwise. Use one by ID on an api file, an api, a test, a step or an action: `auth: shopOauth`, `auth: none`, or with values:
 
 ```yaml
 auth:

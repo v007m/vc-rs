@@ -75,9 +75,9 @@ async fn every_key_a_type_requires_is_one_the_compiler_checks_for() {
     }
 }
 
-/// The keys a type reads only on the path that uses them: an authorization code reads its
-/// `authorizeUrl` and `tokenUrl` only after the keychain had no refresh token. The compiler's
-/// V1005 still asks for them.
+/// The keys a type reads late, on purpose: an authorization code reads its `authorizeUrl` and
+/// `tokenUrl` only when the keychain has no refresh token. V1005 enforces them at check time,
+/// which is what matters, so the adapter is left lazy.
 const READ_LATE: [(&str, &str); 2] =
     [("oauth2AuthorizationCode", "authorizeUrl"), ("oauth2AuthorizationCode", "tokenUrl")];
 
