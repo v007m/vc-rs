@@ -2,8 +2,8 @@
 //! (masked there by a `redact.rules` regex), and a `redact.fields` password, never reach the
 //! history or a report file, even where `history.maxBodySize` cuts a body in the middle of one
 //! (masked first, then cut: D184). A `${secret.X}` the environment gives is sent, and shows
-//! nowhere either, also when an inline example row reads it. Nor does a hidden field a failed
-//! check quotes.
+//! nowhere either, also when an inline example row reads it, or a dataset row's `name` holds its
+//! value. Nor does a hidden field a failed check quotes.
 
 use std::fs;
 use std::path::Path;
@@ -171,6 +171,50 @@ async fn an_inline_row_reading_a_secret_is_sent_and_its_instance_shows_it_nowher
     let history = history_text(&project.path().join(".vibranium/history.db"));
     let mut seen = vec![("history.db rows".to_owned(), history), ("vc output".to_owned(), said(&run))];
     files(project.path().join(".vibranium").as_path(), &mut seen);
+    assert_hidden(&seen, &[TOKEN]);
+}
+
+/// A test with one example row per dataset row, and a dataset whose one row is named with the
+/// value the secret `API_TOKEN` has.
+const TOKEN_ROWS: [(&str, &str); 2] = [
+    (
+        "services/echo/send.test.yaml",
+        "tests:\n  - id: sendsEachToken\n    examples: ${dataset.tokens}\n    call: echo#send\n",
+    ),
+    ("datasets/tokens.json", r#"[{"name": "Kd4R-8wNq-Yb6T-2hVz-Jc5M"}]"#),
+];
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_row_named_with_a_secrets_value_is_labelled_masked_in_every_report() {
+    let server = MockServer::start().await.unwrap();
+    let config = (
+        "vibranium.config.yaml",
+        "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {baseUrl: 'http://x'}\n",
+    );
+    let api = (
+        "services/echo/echo.api.yaml",
+        "baseUrl: ${var.baseUrl}\napis:\n  - id: send\n    method: POST\n    path: /echo\n",
+    );
+    let schema = (".env.schema", "# the api's token\nAPI_TOKEN=\n");
+    let project = Project::new(&[config, api, TOKEN_ROWS[0], TOKEN_ROWS[1], schema]);
+    let mut console = project.run(&server.base_url(), &["--report", "ctrf,junit", "--out", "out"]);
+    let console = console.env("API_TOKEN", TOKEN).output().unwrap();
+    assert_eq!(console.status.code(), Some(0), "{}", said(&console));
+    let label = "echo.send#sendsEachToken › ••••";
+    assert!(said(&console).contains(label), "{}", said(&console));
+    let read = |name: &str| fs::read_to_string(project.path().join("out").join(name)).unwrap();
+    let (ctrf, junit) = (read("ctrf.json"), read("junit.xml"));
+    assert!(ctrf.contains(label) && junit.contains(label), "{ctrf}\n{junit}");
+    let mut json = project.run(&server.base_url(), &["--reporter", "json"]);
+    let json = json.env("API_TOKEN", TOKEN).output().unwrap();
+    let events = events(&json.stdout);
+    let finished = of_kind(&events, "testFinished");
+    assert_eq!(finished.iter().map(|event| event["label"].clone()).collect::<Vec<_>>(), [label], "{}", said(&json));
+    let history = history_text(&project.path().join(".vibranium/history.db"));
+    let shown = said(&console) + &said(&json);
+    let mut seen = vec![("history.db rows".to_owned(), history), ("vc output".to_owned(), shown)];
+    files(project.path().join(".vibranium").as_path(), &mut seen);
+    files(project.path().join("out").as_path(), &mut seen);
     assert_hidden(&seen, &[TOKEN]);
 }
 

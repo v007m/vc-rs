@@ -49,6 +49,19 @@ async fn a_p90_within_its_threshold_passes() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_scenarios_name_is_in_its_summary_and_json_report() {
+    let (_, report) = load(&scenario("p90: {lt: 10s}", "p90: {lt: 10s}")).await;
+    assert_eq!((&report["scenario"], &report["name"]), (&json!("scripted.peak"), &json!("Sleeping")), "{report:#}");
+    let server = MockServer::start().await.unwrap();
+    let peak = ("load/scripted/peak.load.yaml", scenario("p90: {lt: 10s}", "p90: {lt: 10s}"));
+    let project = Project::new(&[CONFIG, SCRIPTED, SLEEPS, (peak.0, &peak.1)]);
+    let base = format!("vars.baseUrl={}", server.base_url());
+    let output = project.vc(&["load", "scripted.peak", "--set", &base]).output().unwrap();
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.contains("scripted.peak — Sleeping · finished after "), "{}", said(&output));
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn a_p90_over_the_scenarios_threshold_exits_3_and_names_the_metric() {
     let (code, report) = load(&scenario("p90: {lt: 20ms}", "p90: {lt: 10s}")).await;
     assert_eq!(code, Some(3), "every call sleeps 80 ms: {report:#}");

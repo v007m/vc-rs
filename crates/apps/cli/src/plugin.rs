@@ -77,13 +77,20 @@ fn add(engine: &Engine, source: &str, yes: bool) -> anyhow::Result<Outcome> {
     Ok(changes::write(engine, engine.plugin_approve(&offer), &format!("✓ added plugin {id} from {source}")))
 }
 
-/// `report 1.0.0 · reporter plugin from path:plugin`, then what it asks to reach.
+/// `report 1.0.0 · reporter plugin from path:plugin`, then what it asks to reach and a
+/// `warning:` line for each thing a run will trip over.
 fn offered(offer: &PluginOffer) -> String {
     let manifest = &offer.manifest;
     let args = manifest.args.iter().map(String::as_str);
     let runs: Vec<&str> = std::iter::once(manifest.command.as_str()).chain(args).collect();
+    let warnings = offer.warnings.iter().fold(String::new(), |mut out, warning| {
+        out.push_str("  warning: ");
+        out.push_str(warning);
+        out.push('\n');
+        out
+    });
     format!(
-        "{} {} · {} plugin from {} ({})\n  runs: {}\n  asks to reach: {}\n",
+        "{} {} · {} plugin from {} ({})\n  runs: {}\n  asks to reach: {}\n{warnings}",
         manifest.id,
         manifest.version,
         manifest.kind.name(),

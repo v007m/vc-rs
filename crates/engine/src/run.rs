@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
-    MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
+    MaskRules, PipelineParts, Redactor, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
 use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secrets, Transport};
 use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals};
@@ -43,6 +43,9 @@ pub struct RunReport {
     pub exit: u8,
     /// The seed of the run's random values, for `--seed` to repeat them.
     pub seed: u64,
+    /// Whether the run generated data from the seed (`${fake.…}`, `random`, `shuffle`), so
+    /// that `--seed` repeats something.
+    pub generated: bool,
     /// Problems that did not change the result, such as a report that could not be written.
     pub notices: Vec<String>,
     /// The run's number in the history, when it is recorded.
@@ -74,15 +77,26 @@ impl Engine {
 
     /// Executes the admitted plan with its secrets and reporters, and gathers its report. A
     /// run the executor fails still finishes its reporters and its watch before the error, and
-    /// is reported and recorded as cancelled, not as a failed run with no tests.
+    /// is reported and recorded as cancelled, not as a failed run with no tests. The plugins it
+    /// started are ended either way, an error before the run starts among them.
     async fn execute(
         &self,
         request: &RunRequest,
         prepared: Prepared,
         interrupts: &mut Interrupts,
     ) -> Result<RunReport, EngineError> {
-        let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
+        let (prepared, secrets) = self.secured(prepared).await?;
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
+        plugins.around(Box::pin(self.execute_with(request, (prepared, secrets, &plugins), interrupts))).await
+    }
+
+    /// [`Engine::execute`]'s work with the run's `plugins`, which it leaves running.
+    async fn execute_with(
+        &self,
+        request: &RunRequest,
+        (prepared, secrets, plugins): (Prepared, Secrets, &Hosts),
+        interrupts: &mut Interrupts,
+    ) -> Result<RunReport, EngineError> {
         let heard = plugins.heard();
         let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone(), started_ms))?;
@@ -91,7 +105,7 @@ impl Engine {
         let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(started_ms);
-        let (executor, sweep) = self.executor(&prepared, (inputs, &plugins), request).await?;
+        let (executor, sweep) = self.executor(&prepared, (inputs, plugins), request).await?;
         let bus = EventBus::spawn();
         let watching = request.watch.as_ref().map(|watch| watch.follow(&bus, &prepared));
         let mut fanout = Fanout { feed: bus.subscribe(FEED), reporters };
@@ -107,8 +121,26 @@ impl Engine {
         let mut notices = prepared.notices;
         notices.extend(unrecorded);
         notices.extend(swept);
-        let closing = Closing { seed, run: Some(run_id).filter(|id| *id > 0), notices, alerting, watching, heard };
+        let generated = crate::examples::generates(&prepared.program, &prepared.plan);
+        let run_id = Some(run_id).filter(|id| *id > 0);
+        let closing = Closing { seed: (seed, generated), run: run_id, notices, alerting, watching, heard };
         close(fanout.reporters, closing, (ran, run)).await
+    }
+
+    /// `prepared` with its declared secrets, and with its example-row labels masked by a redactor
+    /// like the one its events go through, so a row `name` holding a secret's value never
+    /// reaches a reporter, the history or a watcher.
+    async fn secured(&self, mut prepared: Prepared) -> Result<(Prepared, Secrets), EngineError> {
+        let program = Arc::clone(&prepared.program);
+        let secrets = self.secrets(&program.config.secrets, &prepared.environment).await?;
+        if !prepared.plan.row_names.is_empty() {
+            let hooks = RuleHooks::new(self.hook_runner(&program), secrets.clone());
+            let rules = MaskRules::standard().with_hooks(hooks, &program).for_config(&program.config);
+            let redactor = Redactor::for_config(&program.config).with_rules(rules);
+            redactor.hide_values(secrets.iter().map(|(_, secret)| secret.expose()));
+            crate::examples::mask_labels(Arc::make_mut(&mut prepared.plan), &redactor).await;
+        }
+        Ok((prepared, secrets))
     }
 
     /// The reporters `request` chooses, the reporter plugins among `plugins`, recording into the
@@ -134,8 +166,9 @@ impl Engine {
             vc_version: env!("CARGO_PKG_VERSION").to_owned(),
             ..RunStart::default()
         };
-        let mut notices = plugins.notices();
-        let recording = self.recording(&start).inspect_err(|error| {
+        let mut notices = plugins.notices(&chosen.plugins);
+        let folders = chosen.per_run.then(|| chosen.dir.clone());
+        let recording = self.recording(&start).map(|recording| recording.pruning(folders)).inspect_err(|error| {
             notices.push(format!("history: {error}; this run is not recorded"));
         });
         let headline = format!("plan  {}", prepared.report().line());
@@ -248,10 +281,11 @@ fn flags(request: &RunRequest) -> Vec<ConfigEntry> {
     flags
 }
 
-/// What a run's end needs besides its reporters: the seed, the history run, the notices so
+/// What a run's end needs besides its reporters: the seed and whether the run generated data
+/// from it, the history run, the notices so
 /// far, the alerts, the watch, and what the plugins said as they started.
 struct Closing {
-    seed: u64,
+    seed: (u64, bool),
     run: Option<u64>,
     notices: Vec<String>,
     alerting: Option<Alerting>,
@@ -266,7 +300,7 @@ async fn close(
     closing: Closing,
     (ran, run): (Result<vc_executor::RunSummary, EngineError>, RunSummary),
 ) -> Result<RunReport, EngineError> {
-    let Closing { seed, run: id, mut notices, alerting, watching, mut heard } = closing;
+    let Closing { seed: (seed, generated), run: id, mut notices, alerting, watching, mut heard } = closing;
     let (problems, ending) = reporters.finish(run.clone()).await;
     notices.extend(problems);
     notices.extend(std::iter::from_fn(|| heard.try_recv().ok()));
@@ -276,13 +310,13 @@ async fn close(
             notices.push(error.to_string());
             let exit = if error.is_internal() { EXIT_INTERNAL } else { vc_executor::EXIT_NOTHING_RAN };
             if let Some(watching) = watching {
-                watching.finish(RunReport { exit, seed, notices, run: id });
+                watching.finish(RunReport { exit, seed, generated, notices, run: id });
             }
             return Err(error);
         }
     };
     notices.extend(notify::send(alerting, run, ending).await);
-    let report = RunReport { exit: vc_executor::exit_code(ran), seed, notices, run: id };
+    let report = RunReport { exit: vc_executor::exit_code(ran), seed, generated, notices, run: id };
     if let Some(watching) = watching {
         watching.finish(report.clone());
     }

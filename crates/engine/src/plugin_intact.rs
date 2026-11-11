@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tokio::sync::OnceCell;
 use vc_diagnostics::Code;
-use vc_interfaces::{LOCK_FILE, PluginError, PluginHost, PluginManifest, PluginStore};
+use vc_interfaces::{LOCK_FILE, PluginError, PluginHost, PluginManifest, PluginStore, PluginStoreError};
 
 /// The prefix of an integrity the engine can check against an installed folder.
 const FOLDER_HASH: &str = "blake3-";
@@ -34,10 +34,9 @@ struct Intact {
 impl Intact {
     /// Whether the installed files still hash to the approved integrity; otherwise why not.
     async fn check(&self) -> Result<(), String> {
-        let (store, id) = (Arc::clone(&self.store), self.host.manifest().id.clone());
-        let hashed = tokio::task::spawn_blocking(move || store.integrity(&id)).await;
-        let found = hashed.map_err(|error| error.to_string())?.map_err(|error| error.to_string())?;
-        if found.as_deref() == Some(self.approved.as_str()) {
+        let (store, id, approved) = (Arc::clone(&self.store), self.host.manifest().id.clone(), self.approved.clone());
+        let hashed = tokio::task::spawn_blocking(move || unchanged(store.as_ref(), &id, &approved)).await;
+        if hashed.map_err(|error| error.to_string())?.map_err(|error| error.to_string())? {
             return Ok(());
         }
         Err(format!(
@@ -46,6 +45,20 @@ impl Intact {
             Code::V5118
         ))
     }
+}
+
+/// Whether the installed files of the plugin `id` still hash to the integrity `approved` in the
+/// lock; an integrity that is not a folder hash cannot be checked here, so it counts as
+/// unchanged. It reads every installed file: call it off the async threads.
+///
+/// # Errors
+///
+/// Why the installed files cannot be read.
+pub fn unchanged(store: &dyn PluginStore, id: &str, approved: &str) -> Result<bool, PluginStoreError> {
+    if !approved.starts_with(FOLDER_HASH) {
+        return Ok(true);
+    }
+    Ok(store.integrity(id)?.as_deref() == Some(approved))
 }
 
 #[async_trait]
@@ -59,5 +72,9 @@ impl PluginHost for Intact {
             return Err(PluginError::Start { plugin: self.manifest().id.clone(), reason: reason.clone() });
         }
         self.host.call(method, params, deadline).await
+    }
+
+    async fn shutdown(&self) {
+        self.host.shutdown().await;
     }
 }

@@ -13,7 +13,7 @@ use tokio::task::JoinHandle;
 use vc_interfaces::{Artifact, CALL_DEADLINE, PluginError, PluginHost, ReportError, Reporter, RunSummary};
 use vc_model::Event;
 
-use crate::json::{JsonReporter, summary};
+use crate::json::JsonReporter;
 use crate::{Destination, ReporterContext};
 
 /// How many encoded events may wait for the plugin; one that falls further behind is given up on.
@@ -126,7 +126,8 @@ impl Reporter for PluginReporter {
 
     async fn finish(&mut self, run: &RunSummary) -> Result<Vec<Artifact>, ReportError> {
         self.drained().await.map_err(|reason| self.failed(reason))?;
-        let called = self.host.call("reporter/finish", json!({"summary": summary(run)}), CALL_DEADLINE).await;
+        let called =
+            self.host.call("reporter/finish", json!({"summary": self.encoder.summary(run)}), CALL_DEADLINE).await;
         let answer = called.map_err(|error| self.failed(error.to_string()))?;
         let files = answer.get("files").and_then(Value::as_array).cloned().unwrap_or_default();
         files.iter().map(|file| self.save(file)).collect()

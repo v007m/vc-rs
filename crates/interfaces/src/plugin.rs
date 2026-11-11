@@ -50,6 +50,11 @@ pub trait PluginHost: Send + Sync {
     /// was refused something it needed, [`PluginError::Remote`] for any other error it answers,
     /// and [`PluginError::Crashed`] or [`PluginError::Protocol`] when it stops or garbles.
     async fn call(&self, method: &str, params: Value, deadline: Duration) -> Result<Value, PluginError>;
+
+    /// Ends the plugin once the run is over, and waits until it has: `shutdown`, then its stdin
+    /// closed, each given a second before it is killed. A plugin never started is left alone,
+    /// and every later call fails. A host with no process does nothing.
+    async fn shutdown(&self) {}
 }
 
 /// What a plugin is for: which methods the host calls.

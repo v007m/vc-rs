@@ -186,9 +186,14 @@ impl Engine {
     }
 }
 
-/// The seed of the run's random source, `seed` or a fresh one, and the source.
+/// The largest integer a JSON number holds exactly in JavaScript (2^53 - 1), the cap of a fresh
+/// seed, so a seed read back from `--json` or MCP replays the same data.
+pub const MAX_FRESH_SEED: u64 = (1 << 53) - 1;
+
+/// The seed of the run's random source, `seed` or a fresh one up to [`MAX_FRESH_SEED`], and the
+/// source.
 pub fn random(seed: Option<u64>) -> (u64, Arc<dyn Random>) {
-    let seed = seed.unwrap_or_else(|| RandomState::new().build_hasher().finish());
+    let seed = seed.unwrap_or_else(|| RandomState::new().build_hasher().finish() & MAX_FRESH_SEED);
     (seed, Arc::new(SeededRandom::new(seed)))
 }
 

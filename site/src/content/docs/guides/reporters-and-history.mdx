@@ -21,15 +21,15 @@ Every `vc run` produces three kinds of output:
 ```console
 $ vc run sample.extra
 plan  3 tests in 1 file · profile default
-✓ sample.extra#echoesBody                                         0ms
-✕ sample.extra#findsAda                                           0ms
+✓ sample.extra#echoesBody — Echoes the body back                  0ms
+✕ sample.extra#findsAda — Finds Ada first                         0ms
   error[V5101]: expect.body.match.[0].name
     --> services/sample/extra.test.yaml:35:23
      |
   35 |           "[0].name": Grace Hopper
      |                       ^^^^^^^^^^^^ expected "Grace Hopper", got "Ada Lovelace"
-✓ sample.extra#rejectsBadEmail [row 1]                            4ms
-✓ sample.extra#rejectsBadEmail [row 2]                            5ms
+✓ sample.extra#rejectsBadEmail › empty — Rejects a bad email      4ms
+✓ sample.extra#rejectsBadEmail › no at sign — Rejects a bad email    5ms
 3 passed · 1 failed                                          12ms · profile default
 reports  /home/ada/shop/.vibranium/reports/35/{ctrf.json,junit.xml,index.html}
 next     vc run --failed
@@ -64,7 +64,7 @@ reports  /home/ada/shop/build/reports/{junit.xml,ctrf.json,index.html}
 
 ### JUnit
 
-A failure keeps the short message as the `message` attribute, the diagnostic code as `type`, and the full diagnostic as the text. A skip keeps its reason:
+A testcase is named by its label, the full test ID. A failure keeps the short message as the `message` attribute, the diagnostic code as `type`, and the full diagnostic as the text. A skip keeps its reason. A test's `name` is a `name` property of its testcase; each testsuite carries the run's `seed` and its file's `name` as properties:
 
 ```xml title="junit.xml"
 <testcase name="users.openapi#getsUser" classname="users.openapi" time="0.007" file="services/users/openapi.test.yaml" line="23">
@@ -73,13 +73,16 @@ A failure keeps the short message as the `message` attribute, the diagnostic cod
   ...
 </testcase>
 <testcase name="sample.extra#findsAda" classname="sample.extra" time="0.000" file="services/sample/extra.test.yaml" line="27">
+  <properties>
+    <property name="name" value="Finds Ada first"/>
+  </properties>
   <skipped message="demo data changed"/>
 </testcase>
 ```
 
 ### CTRF
 
-Each test has the standard CTRF fields (`name`, `status`, `duration`, `message`, `filePath`, `line`, `tags`, `retries`, `flaky`). Everything else is under `extra`: each step with its checks (expected, actual, where it was set), the lifecycle actions, the cleanups, and the run's totals and profiles.
+Each test has the standard CTRF fields (`name`, `status`, `duration`, `message`, `filePath`, `line`, `tags`, `retries`, `flaky`). `name` is the full test ID. Everything else is under `extra`: the test's and its file's `name` (`name`, `fileName`), each step with its checks (expected, actual, where it was set), the lifecycle actions, the cleanups, and, in `results.extra`, the run's totals, profiles, `profileNames` and `seed`.
 
 ```json title="ctrf.json (one test, shortened)"
 {
@@ -146,7 +149,7 @@ history:
   maxBodySize: 64kb   # a longer body is cut
 ```
 
-To drop old runs now, run `vc history prune --keep 20`.
+To drop old runs now, run `vc history prune --keep 20`. A dropped run's report folder, `.vibranium/reports/<run>/`, goes with it. `vc` marks each run's folder with an empty `.vc-run` file and removes no other folder.
 
 <Aside type="note">
 `.vibranium/` is git-ignored, so history stays on each machine. To keep it in CI, cache the folder; see [CI](/vc-rs/guides/ci/#cache-between-ci-runs).
