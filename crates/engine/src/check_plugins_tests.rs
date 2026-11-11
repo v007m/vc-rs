@@ -101,3 +101,23 @@ fn an_auth_plugin_named_as_a_report_format_is_v2302() {
     assert_eq!((*code, *severity), (Code::V2302, Severity::Error));
     assert_eq!(message, "`stamp` is an `auth` plugin, not a reporter, so it writes no report");
 }
+
+#[test]
+fn a_broken_or_unreadable_installed_manifest_is_a_warning_and_no_plugin_code_runs() {
+    let (dir, engine) = project();
+    fs::write(dir.path().join("report/main.py"), "open('ran', 'w')\n").unwrap();
+    added(&engine, "path:report");
+    let installed = dir.path().join(".vibranium/plugins/report/vibranium-plugin.yaml");
+    fs::write(&installed, "id: [not, a, manifest\n").unwrap();
+    let found = checked(&engine);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!((found[0].0, found[0].1), (Code::V5120, Severity::Warning));
+    assert!(found[0].3.ends_with("not installed: `vc plugin add` it again"), "{found:?}");
+    fs::remove_file(&installed).unwrap();
+    fs::create_dir(&installed).unwrap();
+    let found = checked(&engine);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].0, Code::V5120, "{found:?}");
+    assert!(found[0].3.starts_with("a run cannot use plugin `report`: "), "{found:?}");
+    assert!(!dir.path().join("ran").exists() && !dir.path().join(".vibranium/plugins/report/ran").exists());
+}
