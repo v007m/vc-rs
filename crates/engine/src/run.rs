@@ -142,7 +142,8 @@ impl Engine {
             ..RunStart::default()
         };
         let mut notices = plugins.notices(&chosen.plugins);
-        let recording = self.recording(&start).inspect_err(|error| {
+        let folders = chosen.per_run.then(|| chosen.dir.clone());
+        let recording = self.recording(&start).map(|recording| recording.pruning(folders)).inspect_err(|error| {
             notices.push(format!("history: {error}; this run is not recorded"));
         });
         let headline = format!("plan  {}", prepared.report().line());

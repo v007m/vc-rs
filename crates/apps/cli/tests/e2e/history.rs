@@ -77,6 +77,23 @@ async fn writes_a_stored_runs_report_again_and_prunes() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn a_pruned_runs_report_folder_goes_with_it() {
+    let server = MockServer::start().await.unwrap();
+    let config = format!("{}history: {{keep: 2}}\n", CONFIG.1);
+    let project = Project::new(&[(CONFIG.0, config.as_str()), USERS, MIXED]);
+    let reports = project.path().join(".vibranium/reports");
+    for _ in 0..3 {
+        project.run(&server.base_url(), &["users.mixed#listsUsers"]).assert().code(0);
+    }
+    fs::write(reports.join("notes.txt"), "mine").unwrap();
+    let folders = || ["1", "2", "3"].map(|run| reports.join(run).is_dir());
+    assert_eq!(folders(), [false, true, true], "`history.keep: 2` keeps the folders of runs 2 and 3");
+    project.vc(&["history", "prune", "--keep", "1"]).assert().code(0).stdout("pruned 1 run\n");
+    assert_eq!(folders(), [false, false, true], "`vc history prune --keep 1` drops run 2's folder");
+    assert!(reports.join("notes.txt").is_file(), "anything not a run's folder stays");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn failed_needs_a_failure_to_rerun() {
     let server = MockServer::start().await.unwrap();
     let project = Project::new(&[CONFIG, USERS, MIXED]);
