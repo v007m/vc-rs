@@ -80,12 +80,13 @@ async fn unknown_clients_wrong_passwords_and_unknown_grants_are_refused() -> Tes
 #[tokio::test]
 async fn authorize_redirects_with_a_code_that_is_exchanged_once() -> TestResult {
     let mock = Mock::start().await?;
+    mock.handle.refresh_token().await?;
     let client = Client::builder().redirect(redirect::Policy::none()).build()?;
     let url = format!("{}/oauth/authorize?redirect_uri=http://127.0.0.1:9/cb&state=xyz", mock.handle.base_url());
     let response = client.get(url).send().await?;
     assert!(response.status().is_redirection());
     let location = response.headers().get(LOCATION).ok_or("no location")?.to_str()?.to_owned();
-    assert_eq!(location, "http://127.0.0.1:9/cb?code=mock-code-1&state=xyz");
+    assert_eq!(location, "http://127.0.0.1:9/cb?code=mock-code-1&state=xyz", "a refresh token leaves codes at 1");
     let exchange = "grant_type=authorization_code&code=mock-code-1&client_id=vc-public";
     let (status, issued) = token(&mock, None, exchange).await?;
     assert!(status == StatusCode::OK && issued["refresh_token"].is_string());

@@ -1,14 +1,14 @@
 use std::collections::HashSet;
 
-/// Issued bearer tokens, OAuth refresh tokens and codes, the login counter, and the counter
-/// that names each refresh token and code.
+/// Issued bearer tokens, OAuth refresh tokens and codes, and the counters that name each kind.
 #[derive(Default)]
 pub struct Sessions {
     logins: u64,
     tokens: HashSet<String>,
     refresh: HashSet<String>,
     codes: HashSet<String>,
-    issued: u64,
+    refreshed: u64,
+    coded: u64,
 }
 
 impl Sessions {
@@ -21,8 +21,8 @@ impl Sessions {
 
     /// Issues a refresh token that [`Self::refreshes`] accepts until it is used.
     pub fn refresh_token(&mut self) -> String {
-        self.issued += 1;
-        let token = format!("mock-refresh-{}", self.issued);
+        self.refreshed += 1;
+        let token = format!("mock-refresh-{}", self.refreshed);
         self.refresh.insert(token.clone());
         token
     }
@@ -34,8 +34,8 @@ impl Sessions {
 
     /// Issues a one-time authorization code.
     pub fn code(&mut self) -> String {
-        self.issued += 1;
-        let code = format!("mock-code-{}", self.issued);
+        self.coded += 1;
+        let code = format!("mock-code-{}", self.coded);
         self.codes.insert(code.clone());
         code
     }
