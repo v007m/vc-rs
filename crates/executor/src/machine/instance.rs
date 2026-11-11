@@ -282,10 +282,8 @@ impl InstanceWorkflow {
         let allowed = self.script.allow_failure.as_ref().filter(|_| status == TestStatus::Failed);
         let status = if allowed.is_some() { TestStatus::AllowedFailure } else { status };
         self.phase = InstancePhase::Done(status);
-        let skip_reason = match allowed {
-            Some(allowed) => allowed.reason.clone(),
-            None => (status == TestStatus::Skipped).then(|| CANCELLED.to_owned()),
-        };
+        let cancelled = || (status == TestStatus::Skipped).then(|| CANCELLED.to_owned());
+        let skip_reason = allowed.map_or_else(cancelled, |allowed| allowed.reason.clone());
         out.push(InstanceCommand::Finish(Verdict { status, attempts: self.attempt, failure, skip_reason }));
     }
 }

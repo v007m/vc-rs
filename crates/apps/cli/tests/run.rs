@@ -83,7 +83,7 @@ async fn the_json_reporter_prints_json_lines() {
 }
 
 /// The NDJSON a run printed, with every number zeroed, since timings differ between runs.
-fn ndjson(output: &std::process::Output) -> Vec<serde_json::Value> {
+fn ndjson(output: &std::process::Output) -> serde_json::Result<Vec<serde_json::Value>> {
     fn zeroed(value: serde_json::Value) -> serde_json::Value {
         match value {
             serde_json::Value::Number(_) => 0.into(),
@@ -93,7 +93,7 @@ fn ndjson(output: &std::process::Output) -> Vec<serde_json::Value> {
         }
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
-    stdout.lines().map(|line| zeroed(serde_json::from_str(line).unwrap())).collect()
+    stdout.lines().map(|line| serde_json::from_str(line).map(zeroed)).collect()
 }
 
 /// D264: `--json` is `--reporter json`, and cannot be given beside `--reporter`.
@@ -104,7 +104,7 @@ async fn json_is_the_json_reporter_under_a_shorter_name() {
     let base = format!("vars.baseUrl={}", server.base_url());
     let printed = |flags: &[&str]| {
         let args = [&["run", "--set", base.as_str(), "--out", "out"][..], flags].concat();
-        ndjson(vc(dir.path(), &args).assert().code(0).get_output())
+        ndjson(vc(dir.path(), &args).assert().code(0).get_output()).unwrap()
     };
     let (alias, reporter) = (printed(&["--json"]), printed(&["--reporter", "json"]));
     assert!(alias.len() > 2, "{alias:?}");
