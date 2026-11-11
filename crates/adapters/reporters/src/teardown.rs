@@ -9,13 +9,13 @@ use crate::collect::StepRecord;
 
 /// The block each teardown action of a plan belongs to.
 #[derive(Debug, Default)]
-pub(crate) struct Teardown {
+pub struct Teardown {
     blocks: HashMap<(OwnerKey, ActionId), String>,
 }
 
 impl Teardown {
     /// The `afterAll` and `afterRun` actions of `plan`, each with its block's name.
-    pub(crate) fn new(plan: &Plan, names: &Names) -> Self {
+    pub fn new(plan: &Plan, names: &Names) -> Self {
         let mut blocks = HashMap::new();
         for file in &plan.files {
             let block = format!("afterAll in {}", names.file(file.id));
@@ -26,7 +26,7 @@ impl Teardown {
     }
 
     /// The blocks with a failed action among `lifecycle`, each once, in the order they failed.
-    pub(crate) fn failed(&self, lifecycle: &[StepRecord]) -> Vec<&str> {
+    pub fn failed(&self, lifecycle: &[StepRecord]) -> Vec<&str> {
         let mut failed: Vec<&str> = Vec::new();
         let failures = lifecycle.iter().filter(|step| step.outcome.failure().is_some());
         for block in failures.filter_map(|step| self.blocks.get(&(step.owner, step.action))) {

@@ -98,10 +98,12 @@ impl SchemaNames {
     }
 }
 
-/// The names a `.env.schema` declares: each `NAME=` line, with or without a value or an
-/// `export ` before it. `#` lines are Varlock's decorators: a name is optional when `@optional`
-/// is in the comment lines just above it (no blank line between) or in a `#` comment after its
-/// `=`, as Varlock reads it (D280). Blank lines declare nothing.
+/// The names a `.env.schema` declares.
+///
+/// Each `NAME=` line declares one, with or without a value or an `export ` before it. `#` lines
+/// are Varlock's decorators: a name is optional when `@optional` is in the comment lines just
+/// above it (no blank line between) or in a `#` comment after its `=`, as Varlock reads it
+/// (D280). Blank lines declare nothing.
 #[must_use]
 pub fn schema_names(text: &str) -> SchemaNames {
     let mut names = SchemaNames::default();

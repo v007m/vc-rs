@@ -151,7 +151,7 @@ impl Engine {
 
 /// The secrets a run of `plan` reads (D280): what it runs, the api cleanups the cache's sweep
 /// can run when the program caches, and the alert channels its end sends to.
-pub(crate) fn run_reads(program: &Program, plan: &Plan) -> BTreeSet<String> {
+pub fn run_reads(program: &Program, plan: &Plan) -> BTreeSet<String> {
     let mut read = vc_planner::secrets(program, plan);
     if crate::body_files::caches(program) {
         read.extend(vc_planner::secrets_from(program, &crate::body_files::cleanups(program)));
