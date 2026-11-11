@@ -27,6 +27,8 @@ import Playground from '~/components/Playground.svelte';
 
 All three keys are required. There are no defaults.
 
+A poll reports one exchange, its last: the response that held, or the one it gave up on.
+
 `poll` can be written on a step, an action or a test. On a test, it applies to the test's call, and to each of its steps that has no `poll` of its own.
 
 ## Examples
@@ -73,7 +75,7 @@ tests:
       timeout: 1s
 ```
 
-The getUser call returns 404 until the background user exists. The test passes after about a second. `givesUp` never sees a 200 and stops at its timeout:
+The getUser call returns 404 until the background user exists. The test passes after about a second. `givesUp` never sees a 200 and stops at its timeout. With `--reporter json`, its last response is still an `exchanged` event, so you can see what the server answered:
 
 ```console
 $ vc run sample.poll

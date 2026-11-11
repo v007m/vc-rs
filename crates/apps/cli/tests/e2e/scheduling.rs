@@ -55,6 +55,23 @@ async fn a_poll_resends_until_its_check_holds() {
     assert_eq!(server.stats().await.unwrap().count("GET /poll/{id}"), 3, "pending, pending, done");
 }
 
+/// A poll that gives up still reports what the server last answered, so the events show why.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_poll_that_gives_up_reports_its_last_exchange() {
+    let server = MockServer::start().await.unwrap();
+    let test = "tests:\n  - id: givesUp\n    call: scripted#poll\n    query: {after: '1000'}\n\
+                \x20   poll: {until: {body: {match: {status: done}}}, every: 10ms, timeout: 100ms}\n";
+    let project = Project::new(&[CONFIG, SCRIPTED, ("services/scripted/poll.test.yaml", test)]);
+    let output = project.run(&server.base_url(), &["--reporter", "json"]).assert().code(1).get_output().clone();
+    let events = events(&output.stdout);
+    let exchanged = of_kind(&events, "exchanged");
+    assert_eq!(exchanged.len(), 1, "{events:#?}");
+    assert_eq!(exchanged[0]["status"], 200, "{events:#?}");
+    assert!(exchanged[0]["url"].as_str().is_some_and(|url| url.contains("/poll/job?after=1000")), "{events:#?}");
+    let sent = server.stats().await.unwrap().count("GET /poll/{id}");
+    assert!(sent > 1, "it polled more than once, and reported only the last: {sent}");
+}
+
 /// The iterations finish out of order, but what they save is in iteration order.
 #[tokio::test(flavor = "multi_thread")]
 async fn a_parallel_loop_saves_in_iteration_order() {

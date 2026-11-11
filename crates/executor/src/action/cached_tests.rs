@@ -100,6 +100,11 @@ async fn replacing(
     (report, recordings.take(), std::iter::from_fn(|| waiting.try_recv().ok()).collect())
 }
 
+/// The path of each exchange `report` gives, in order.
+fn reported(report: &ActionReport) -> Vec<String> {
+    report.exchanges.iter().map(|exchange| exchange.request.uri.path().to_owned()).collect()
+}
+
 #[tokio::test]
 async fn a_passed_action_is_stored_with_its_cleanups_and_reused_until_it_expires() {
     let store = MemoryCacheStore::new();
@@ -141,8 +146,10 @@ async fn the_check_reads_the_cached_saves_and_a_failed_check_reruns_the_action_a
     let (hit, sent) = run(&target, (Some(&store), 1_001), vec![json_response(200, &json!({}))]).await;
     let paths: Vec<_> = sent.iter().map(|recorded| recorded.request.uri.path().to_owned()).collect();
     assert_eq!((hit.saved, paths), (saved(json!({ "userId": 7 })), vec!["/users/7/7".to_owned()]));
+    assert_eq!(reported(&hit), ["/users/7/7"], "a hit reports its check's exchange");
     let answers = vec![json_response(404, &json!({})), json_response(201, &json!({ "id": 8 }))];
     let (rerun, sent, replaced) = replacing(&target, (Some(&store), 1_002), answers).await;
+    assert_eq!(reported(&rerun), ["/users/7/7", "/users"], "a miss reports the check's exchange, then its own");
     let paths: Vec<_> = sent.iter().map(|recorded| recorded.request.uri.path().to_owned()).collect();
     assert_eq!(
         (rerun.saved, paths),
