@@ -4,13 +4,14 @@ use std::sync::Arc;
 use indexmap::IndexMap;
 use serde_json::{Value, json};
 use vc_diagnostics::Code;
+use vc_interfaces::{Secret, Secrets};
 use vc_model::{
     ActionId, ActionKind, AgentPolicy, Dataset, DatasetId, Examples, GeneratorDef, HookRef, Instance, InstanceId,
     Needs, OwnerKey, Profile, ProfileId, TemplateValue,
 };
 use vc_template::RenderError;
 
-use super::{Frame, Iteration, Render};
+use super::{Around, Frame, Iteration, Render};
 use crate::fixture;
 use crate::fixture::Fixture;
 use crate::{ActionCx, ActionExecutors, ActionReport, ActionRequest, Saved, SharedSlots};
@@ -222,6 +223,23 @@ fn env_reads_the_environment_port() {
 }
 
 #[test]
+fn a_secret_that_did_not_load_is_v5114_and_shows_no_other_secret() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    let (loaded, unloaded) = (fixture.value("${secret.TOKEN}"), fixture.value("${secret.NOPE}"));
+    let inside = fixture.value("${secret.TOKEN.part}");
+    let mut secrets = Secrets::new();
+    secrets.insert("TOKEN", Secret::new("tok-fixture-71"));
+    let cx = fixture.cx_with(ActionExecutors::new(), fixture::inputs(&[]).with_secrets(secrets));
+    assert_eq!(run_level(&cx, action, &loaded), Ok(json!("tok-fixture-71")));
+    let error = run_level(&cx, action, &unloaded).unwrap_err();
+    let shown = (error.missing, error.code, error.message.as_str());
+    assert_eq!(shown, (true, Some(Code::V5114), "the secret `NOPE` did not load"));
+    let error = run_level(&cx, action, &inside).unwrap_err();
+    assert_eq!(error.message, "`secret.TOKEN` is text and has no fields");
+}
+
+#[test]
 fn cel_values_read_vars_env_and_bound_roots() {
     let mut fixture = Fixture::new();
     let action = fixture.call("/users");
@@ -368,4 +386,25 @@ fn a_value_saved_again_by_a_call_is_no_longer_undeclared() {
     assert_eq!(render.warnings(), []);
     frame.restart();
     assert!(frame.origins.is_empty(), "a new attempt forgets where values came from");
+}
+
+#[test]
+fn a_scoped_level_reads_first_and_is_gone_afterwards() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    fixture.action_mut(action).vars.values = fixture.vars(&[("name", "outer")]);
+    let inner = Arc::new(std::iter::once(("name".to_owned(), fixture.value("inner"))).collect());
+    let last = [("name", "last"), ("region", "eu")];
+    let fallback = Arc::new(last.iter().map(|(name, text)| ((*name).to_owned(), fixture.value(text))).collect());
+    let cx = fixture.cx(ActionExecutors::new());
+    let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
+    let mut render = Render::new(&request).unwrap();
+    let around = Around { vars: inner, given: saved(&[("token", json!("t"))]), fallback };
+    let (read, drawn) = render
+        .scoped(around, |render| (render.var_value("name"), render.var_value("token"), render.var_value("region")));
+    assert_eq!(read, (Ok(json!("inner")), Ok(json!("t")), Ok(json!("eu"))), "the fallback is found only last");
+    assert!(drawn.is_empty(), "no fake var was drawn");
+    assert_eq!(render.var_value("name"), Ok(json!("outer")));
+    assert!(render.var_value("token").is_err(), "the given level is dropped too");
+    assert!(render.var_value("region").is_err(), "and so is the fallback");
 }

@@ -2,13 +2,14 @@
 //! the scope a `${var.x}` lookup walks and the renderer that answers references.
 
 mod frame;
+mod lookup;
 mod reads;
 mod render;
 mod run;
 mod scope;
 
 pub use frame::{Frame, Iteration};
-pub use render::Render;
+pub use render::{Around, Render};
 pub use run::{Defined, RunInputs, RunValues};
 
 #[cfg(test)]

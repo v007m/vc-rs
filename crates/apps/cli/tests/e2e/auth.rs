@@ -13,8 +13,10 @@ use crate::{Project, said};
 
 const TOKEN: &str = "Hb3N-7tYq-Wd5K-1mZr-Pg8C";
 
-/// A project with the auth definitions `auth`, the `svc` apis `apis` and the tests `tests`.
+/// A project with the auth definitions `auth`, the `svc` apis `apis` and the tests `tests`; it
+/// declares `API_TOKEN` only when `auth` reads it, since a declared secret must be set.
 fn project(auth: &str, apis: &str, tests: &str) -> Project {
+    let schema = if auth.contains("secret.API_TOKEN") { "API_TOKEN=\n" } else { "" };
     let config = format!(
         "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {{baseUrl: 'http://x'}}\n\
          history: {{bodies: all}}\nauth:\n{auth}"
@@ -24,7 +26,7 @@ fn project(auth: &str, apis: &str, tests: &str) -> Project {
         ("vibranium.config.yaml", &config),
         ("services/svc/svc.api.yaml", &apis),
         ("services/svc/auth.test.yaml", &format!("tests:\n{tests}")),
-        (".env.schema", "API_TOKEN=\n"),
+        (".env.schema", schema),
     ])
 }
 

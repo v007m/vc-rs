@@ -77,7 +77,7 @@ impl Engine {
     /// but the built-in ones.
     async fn masker(&self, layered: &mut Layered) -> Masker {
         let program = &layered.program;
-        let loaded = self.secrets(&program.config.secrets, &layered.environment).await;
+        let loaded = self.loaded_secrets(&program.config.secrets, &layered.environment).await;
         let secrets = loaded.as_ref().map_or_else(|_| Secrets::new(), Clone::clone);
         let hooks = RuleHooks::new(self.hook_runner(program), secrets);
         let rules = MaskRules::standard().with_hooks(hooks, program).for_config(&program.config);

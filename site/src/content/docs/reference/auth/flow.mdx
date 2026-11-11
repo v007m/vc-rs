@@ -108,10 +108,9 @@ A failing step fails every call that uses the flow. The message names the step a
 The server saw a single `POST /status/403`: a failed login is kept for the run, so tests do not each retry it and lock the account.
 
 <Aside type="caution">
-Two limits in this version:
+A limit in this version:
 
 - A map `body` is sent as JSON even when the step sets `content-type: application/x-www-form-urlencoded`. For a login that needs a form body, write the body as one text value and encode each value with [`urlEncode`](/vc-rs/reference/pipes/url-encode/): `body: grant_type=session&session_id=${var.sessionId | urlEncode}`.
-- `expiresIn` that reads a value saved by a step needs a default for that name in the definition's `vars` (`ttl: 3600` above), or `vc check` reports it as never set (V2101). The value the step saves wins at run time.
 </Aside>
 
 <Playground client:visible kind="config" code={`syntaxVersion: 2
