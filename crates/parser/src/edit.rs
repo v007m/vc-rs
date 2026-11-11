@@ -7,6 +7,7 @@
 
 mod command;
 mod format;
+mod format_tree;
 mod items;
 mod names;
 mod refs;

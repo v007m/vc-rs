@@ -16,6 +16,11 @@ use crate::plan::{Extra, Prepared};
 use crate::run::executor_error;
 use crate::{Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history};
 
+/// The kind a test run is stored and alerted as.
+pub const RUN_KIND: &str = "run";
+/// The kind a load run is stored and alerted as.
+pub const LOAD_KIND: &str = "load";
+
 /// A load run between its plan and its report.
 struct Session {
     prepared: Prepared,
@@ -51,7 +56,7 @@ impl Engine {
         let secrets = self.secrets(&session.prepared.program.config.secrets, &session.prepared.environment).await?;
         let live = Live::new(Arc::clone(&session.prepared.program), self.load_recording(&mut session), watch.ticks);
         let run_id = live.run_id().unwrap_or(0);
-        session.alerting = self.alerting(&session.prepared, &secrets, (run_id, "load"))?;
+        session.alerting = self.alerting(&session.prepared, &secrets, (run_id, LOAD_KIND))?;
         let plugins = self.plugin_hosts(&session.prepared.program, &secrets);
         let reached = crate::body_files::reached(&session.prepared.program, &session.prepared.plan);
         let inputs = self.inputs(&session.prepared, (Arc::clone(&session.random), run_id, reached)).await;
@@ -93,7 +98,7 @@ impl Engine {
     /// with a notice saying so.
     fn load_recording(&self, session: &mut Session) -> Option<history::Recording> {
         let start = RunStart {
-            kind: "load".to_owned(),
+            kind: LOAD_KIND.to_owned(),
             started_ms: session.started_ms,
             profiles: session.prepared.names.clone(),
             selector: session.report.scenario.clone(),

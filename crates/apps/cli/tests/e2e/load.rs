@@ -63,3 +63,23 @@ async fn a_p90_over_a_mix_entrys_threshold_names_its_test() {
     assert_eq!(breached[0].0, "p90", "{report:#}");
     assert!(breached[0].1.as_str().is_some_and(|test| test.contains("sleeps")), "{report:#}");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_report_of_a_load_run_says_how_to_get_one() {
+    let server = MockServer::start().await.unwrap();
+    let peak = ("load/scripted/peak.load.yaml", scenario("p90: {lt: 10s}", "p90: {lt: 10s}"));
+    let project = Project::new(&[CONFIG, SCRIPTED, SLEEPS, (peak.0, &peak.1)]);
+    let base = format!("vars.baseUrl={}", server.base_url());
+    let loaded = project.vc(&["load", "scripted.peak", "--set", &base]).output().unwrap();
+    assert_eq!(loaded.status.code(), Some(0), "{}", said(&loaded));
+
+    let reported = project.vc(&["report"]).output().unwrap();
+    assert_eq!(reported.status.code(), Some(2), "{}", said(&reported));
+    let stderr = String::from_utf8_lossy(&reported.stderr);
+    assert!(stderr.contains("is a load run, and `vc report` writes the files of test runs only"), "{stderr}");
+    let help = "= help: `vc history` lists it; for a load report, add `--json` to the next `vc load scripted.peak`, \
+                which sends the load again; to report a test run, pass its number from `vc history`\n";
+    assert!(stderr.contains(help), "{stderr}");
+    assert!(!stderr.contains("snapshot"), "{stderr}");
+    assert!(reported.stdout.is_empty(), "no file is written: {}", said(&reported));
+}
