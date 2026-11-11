@@ -1,8 +1,8 @@
-//! The authoring RPCs: `Call`, `SaveCallAsTest` and `Import`. The web UI's call is the person at
+//! The authoring RPCs: `Call`, `SaveCallAsTest`, `Import`, `Skip` and `Unskip`. The web UI's call is the person at
 //! the browser's, as `vc call`'s is: the profiles' agent policy and the agent log, which are for
 //! agents on `/mcp`, do not apply (D241). An import reads only the
 //! text the request carries, never a URL or path, and fetches none of its `$ref`s from the
-//! network; it writes only when asked. A call and an import read and compile the project on the
+//! network; it writes only when asked, as a skip and an unskip do. A call and an import read and compile the project on the
 //! blocking pool, never on an async worker.
 
 use std::sync::Arc;
@@ -11,7 +11,10 @@ use serde_json::Value;
 use tokio::runtime::Handle;
 use vc_contracts::engine::v1 as wire;
 use vc_contracts::results::v1 as results;
-use vc_engine::{CallAsTest, CallReport, CallRequest, Changes, Exchange, FileChange, ImportRequest, Keep, cut_body};
+use vc_engine::{
+    CallAsTest, CallReport, CallRequest, Changes, Engine, EngineError, Exchange, FileChange, ImportRequest, Keep,
+    SkipRequest, cut_body,
+};
 
 use crate::engine_api::{EngineApi, Rpcs};
 use crate::{Code, ConnectError, client_rpcs, wire_results};
@@ -21,7 +24,11 @@ const PASTED: &str = "pasted";
 
 /// Adds the authoring RPCs.
 pub fn register(rpcs: Rpcs) -> Rpcs {
-    rpcs.unary("Call", call).unary("SaveCallAsTest", save_call_as_test).unary("Import", import)
+    rpcs.unary("Call", call)
+        .unary("SaveCallAsTest", save_call_as_test)
+        .unary("Import", import)
+        .unary("Skip", skip)
+        .unary("Unskip", unskip)
 }
 
 pub async fn call(api: Arc<EngineApi>, request: wire::CallRequest) -> Result<wire::CallResponse, ConnectError> {
@@ -114,6 +121,33 @@ async fn import(api: Arc<EngineApi>, request: wire::ImportRequest) -> Result<wir
         })
         .await?;
     Ok(response(changes))
+}
+
+/// `vc skip` from the web UI: previews the change, or writes it when asked. The engine's guard
+/// (D107) refuses a change that would add an error, and nothing is written.
+async fn skip(api: Arc<EngineApi>, request: wire::SkipRequest) -> Result<wire::SkipResponse, ConnectError> {
+    let write = request.write;
+    let skip = SkipRequest { target: request.target, reason: request.reason, until: request.until };
+    let changes = api.blocking(move |engine| written(engine, engine.skip(&skip)?, write)).await?;
+    let wire::ImportResponse { files, titles } = response(changes);
+    Ok(wire::SkipResponse { files, titles })
+}
+
+/// `vc unskip` from the web UI: previews the change, or writes it when asked.
+async fn unskip(api: Arc<EngineApi>, request: wire::UnskipRequest) -> Result<wire::UnskipResponse, ConnectError> {
+    let write = request.write;
+    let target = request.target;
+    let changes = api.blocking(move |engine| written(engine, engine.unskip(&target)?, write)).await?;
+    let wire::ImportResponse { files, titles } = response(changes);
+    Ok(wire::UnskipResponse { files, titles })
+}
+
+/// `changes`, written first when `write` asks for it.
+fn written(engine: &Engine, changes: Changes, write: bool) -> Result<Changes, EngineError> {
+    if write {
+        engine.write(&changes)?;
+    }
+    Ok(changes)
 }
 
 fn response(changes: Changes) -> wire::ImportResponse {
