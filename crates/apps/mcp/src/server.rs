@@ -7,7 +7,7 @@ use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CallToolResult, Implementation, ListToolsResult, PaginatedRequestParams,
     ServerCapabilities, ServerConfig,
 };
-use rmcp::service::{MaybeSendFuture, RequestContext};
+use rmcp::service::{MaybeSendFuture, RequestContext, ServerInitializeError};
 use rmcp::{ErrorData, RoleServer, ServerHandler, ServiceExt as _};
 use serde_json::Value;
 use vc_engine::{AgentCall, AgentOutcome, Engine};
@@ -50,9 +50,14 @@ impl VcServer {
     ///
     /// # Errors
     ///
-    /// [`McpError::Serve`] when the session cannot start or fails.
+    /// [`McpError::Serve`] when the session cannot start or fails. An agent that closes stdin
+    /// before it begins ends the session quietly.
     pub async fn serve_stdio(self) -> Result<(), McpError> {
-        let running = self.serve(rmcp::transport::stdio()).await.map_err(serve)?;
+        let running = match self.serve(rmcp::transport::stdio()).await {
+            Ok(running) => running,
+            Err(ServerInitializeError::ConnectionClosed(_)) => return Ok(()),
+            Err(error) => return Err(serve(error)),
+        };
         running.waiting().await.map_err(serve)?;
         Ok(())
     }

@@ -10,6 +10,7 @@ use vc_interfaces::{RunRow, TestRow, TestTrend};
 use vc_model::{Date, Program};
 
 use crate::history::history_error;
+use crate::load::LOAD_KIND;
 use crate::reporting::{self, Chosen};
 use crate::settings::{Named, Settings};
 use crate::{Engine, EngineError, ReportFlags};
@@ -93,11 +94,14 @@ impl Engine {
     ///
     /// # Errors
     ///
-    /// [`EngineError::History`] when the run is not stored, has no snapshot or the history
-    /// cannot be read, and [`EngineError::Reporter`] for a name that is not a report format.
+    /// [`EngineError::History`] when the run is not stored, is a load run, has no snapshot or
+    /// the history cannot be read, and [`EngineError::Reporter`] for a name that is not a report format.
     pub fn report(&self, request: &ReportRequest) -> Result<ReportFiles, EngineError> {
         let which = if request.run.is_empty() { "last" } else { request.run.as_str() };
         let row = self.stored_run(which)?;
+        if row.start.kind == LOAD_KIND {
+            return Err(load_run(&row));
+        }
         let snapshot = self.snapshot(&row)?;
         let chosen = report_choice(&request.files)?.under(self.root()).flat(request.files.out.is_some());
         let (artifacts, notices) = chosen.render(&snapshot, row.id)?;
@@ -116,6 +120,22 @@ impl Engine {
             reason: format!("run {}'s report snapshot cannot be read: {error}", row.id),
             help: Some("it was stored by another `vc` version; run the tests again".to_owned()),
         })
+    }
+}
+
+/// How to report a test run instead.
+const TEST_RUN: &str = "to report a test run, pass its number from `vc history`";
+
+/// The refusal of a report for a load run, which stores no snapshot to write files from.
+fn load_run(row: &RunRow) -> EngineError {
+    let scenario = &row.start.selector;
+    let help = format!(
+        "`vc history` lists it; for a load report, add `--json` to the next `vc load {scenario}`, \
+         which sends the load again; {TEST_RUN}"
+    );
+    EngineError::History {
+        reason: format!("run {} is a load run, and `vc report` writes the files of test runs only", row.id),
+        help: Some(help),
     }
 }
 

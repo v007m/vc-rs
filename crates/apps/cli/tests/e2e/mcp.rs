@@ -130,6 +130,62 @@ async fn an_agent_needs_approval_exactly_where_the_profile_says() {
     assert!(String::from_utf8_lossy(&decided.stdout).contains("e2e-agent"), "{}", said(&decided));
 }
 
+#[test]
+fn an_agent_that_closes_stdin_before_it_begins_ends_the_server_quietly() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let closed = project.vc(&["mcp"]).write_stdin("").output().unwrap();
+    assert_eq!(closed.status.code(), Some(0), "{}", said(&closed));
+    assert!(closed.stdout.is_empty(), "{}", said(&closed));
+    assert!(closed.stderr.is_empty(), "{}", said(&closed));
+}
+
+#[test]
+fn an_unknown_profile_is_refused_before_the_server_starts() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let refused = project.vc(&["mcp", "--profile", "nope"]).write_stdin("").output().unwrap();
+    assert_eq!(refused.status.code(), Some(2), "{}", said(&refused));
+    let stderr = String::from_utf8_lossy(&refused.stderr);
+    assert!(stderr.contains("error: --profile: no profile `nope`"), "{stderr}");
+    assert!(stderr.contains("  = help: the profiles are dev\n"), "{stderr}");
+    assert!(refused.stdout.is_empty(), "stdout carries only the protocol: {}", said(&refused));
+}
+
+/// A profile from any layer is checked, not only `--profile`; the user config's counts only
+/// when the project has no default profile (D129).
+#[test]
+fn an_unknown_profile_from_the_environment_or_the_user_config_is_refused() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let from_env = project.vc(&["mcp"]).env("VIB_PROFILE", "nope").write_stdin("").output().unwrap();
+    assert_eq!(from_env.status.code(), Some(2), "{}", said(&from_env));
+    assert!(said(&from_env).contains("error: VIB_PROFILE: no profile `nope`"), "{}", said(&from_env));
+    assert!(from_env.stdout.is_empty(), "stdout carries only the protocol: {}", said(&from_env));
+    project.write(CONFIG.0, &CONFIG.1.replace("    default: true\n", ""));
+    let user = project.home().join("vibranium");
+    std::fs::create_dir_all(&user).unwrap();
+    std::fs::write(user.join("config.yaml"), "profile: nope\n").unwrap();
+    let from_user = project.vc(&["mcp"]).write_stdin("").output().unwrap();
+    assert_eq!(from_user.status.code(), Some(2), "{}", said(&from_user));
+    assert!(said(&from_user).contains("no profile `nope`"), "{}", said(&from_user));
+    assert!(said(&from_user).contains("  = help: the profiles are dev\n"), "{}", said(&from_user));
+    assert!(from_user.stdout.is_empty(), "stdout carries only the protocol: {}", said(&from_user));
+}
+
+#[test]
+fn a_bad_set_is_refused_before_the_server_starts() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let refused = project.vc(&["mcp", "--set", "colour=red"]).write_stdin("").output().unwrap();
+    assert_eq!(refused.status.code(), Some(2), "{}", said(&refused));
+    assert!(said(&refused).contains("error: --set: `colour`: not a setting"), "{}", said(&refused));
+    assert!(refused.stdout.is_empty(), "stdout carries only the protocol: {}", said(&refused));
+}
+
+#[test]
+fn a_known_profile_serves_as_before() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let served = project.vc(&["mcp", "--profile", "dev"]).write_stdin("").output().unwrap();
+    assert_eq!(served.status.code(), Some(0), "{}", said(&served));
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn approve_always_says_whether_it_kept_a_rule() {
     let server = MockServer::start().await.unwrap();

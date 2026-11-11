@@ -10,6 +10,8 @@ use vc_model::{FileKind, SourceFileId, SourcePath};
 use vc_parser::{Document, write_text};
 
 use crate::authoring::{Authoring, Named, Opened, item, refused};
+use crate::create_load::load_body;
+use crate::create_vars::path_vars;
 use crate::edit::{Changes, FileChange, internal};
 use crate::rename::item_ids;
 use crate::{Engine, EngineError};
@@ -94,7 +96,8 @@ impl Added {
 impl Engine {
     /// The change that appends a test calling `request.from` to the test file its ID derives
     /// from, creating that file when there is none; with `request.auth`, a second test after it
-    /// calls the api with `auth: none` and expects 401.
+    /// calls the api with `auth: none` and expects 401. Each var in the api's path that neither
+    /// the config, a profile, the api file nor the test file sets is set, marked `# replace` (D262).
     ///
     /// # Errors
     ///
@@ -106,24 +109,29 @@ impl Engine {
         let project = self.authoring()?;
         let api = called(&project, &request.from)?;
         if request.negative {
-            let help = "D176: `--negative` builds its cases from the api's body schema; drop it for the happy path";
-            return Err(refused(format!("`{api}` declares no body schema"), help));
+            let help = "drop `--negative` to add the happy-path test, then add each invalid body as an `examples` row";
+            return Err(refused(
+                format!("`--negative` cannot build bad-body cases for `{api}`: it has no request body schema"),
+                help,
+            ));
         }
         let id = named.item.unwrap_or_default();
-        let yaml = format!("id: {id}\nname: {}\ncall: {api}", write_text(&sentence(id), false));
+        let vars = path_vars(&project, api, named.file)?;
+        let yaml = format!("id: {id}\nname: {}\ncall: {api}{vars}", write_text(&sentence(id), false));
         let comment = format!("# {} · calls {api} · keys: {DOCS}#tests", request.id);
         let mut new = NewItem::test(named, yaml, comment);
-        new.next = request.auth.then(|| anonymous(named.file, api));
+        new.next = request.auth.then(|| anonymous(named.file, api, &vars));
         self.added(&project, new)
     }
 
     /// The change that creates the empty file of `kind` with the ID `id`, holding only its
-    /// header.
+    /// header; a load file also gets a `mix` of the project's first test and one stage.
     ///
     /// # Errors
     ///
     /// [`EngineError::Edit`] for the config, an ID that breaks the convention, a file that is
-    /// already there (it is never overwritten), or a change the guard refuses.
+    /// already there (it is never overwritten), a load file in a project with no test, or a
+    /// change the guard refuses.
     pub fn new_file(&self, kind: FileKind, id: &str) -> Result<Added, EngineError> {
         if kind == FileKind::Config {
             return Err(refused("`vc new file` makes api, test and load files", "`vc init` writes the config"));
@@ -143,7 +151,9 @@ impl Engine {
                 "it is never overwritten; pick another ID",
             ));
         }
-        let change = FileChange { path: path.clone(), before: None, after: header(kind, id), moved_from: None };
+        let body = if kind == FileKind::Load { load_body(&project)? } else { String::new() };
+        let after = format!("{}{body}", header(kind, id));
+        let change = FileChange { path: path.clone(), before: None, after, moved_from: None };
         let changes =
             self.guarded(&project, Changes { files: vec![change], titles: vec![format!("Create {path}")] })?;
         Ok(Added { changes, id: id.to_owned(), path, line: 1 })
@@ -241,13 +251,14 @@ fn append(opened: &Opened<'_>, new: &NewItem<'_>) -> Result<(FileChange, usize),
     commented_item(opened, &ListItem { list: new.list, yaml: &new.yaml, comment: &new.comment })
 }
 
-/// The `--auth` test of a test file `file`: `api` called with `auth: none`, expecting 401, and
-/// its comment. Its ID is the api's with `RejectsAnonymous`: `deactivateRejectsAnonymous`.
-fn anonymous(file: &str, api: &str) -> (String, String) {
+/// The `--auth` test of a test file `file`: `api` called with `auth: none` and its path `vars`,
+/// expecting 401, and its comment. Its ID is the api's with `RejectsAnonymous`:
+/// `deactivateRejectsAnonymous`.
+fn anonymous(file: &str, api: &str, vars: &str) -> (String, String) {
     let verb = Named::parse(api).item.unwrap_or_default();
     let id = format!("{verb}RejectsAnonymous");
     let name = write_text(&format!("{} needs a signed-in caller", sentence(verb)), false);
-    let yaml = format!("id: {id}\nname: {name}\ncall: {api}\nauth: none\nexpect:\n  status: 401");
+    let yaml = format!("id: {id}\nname: {name}\ncall: {api}\nauth: none{vars}\nexpect:\n  status: 401");
     (yaml, format!("# {file}#{id} · calls {api} with no auth · keys: {DOCS}#tests"))
 }
 

@@ -72,6 +72,27 @@ impl Engine {
         Ok(ConfigValues { values, notices: layered.notices })
     }
 
+    /// Checks the layers before a long-lived server starts, so a bad `--set` or a profile no
+    /// project has, from `--profile`, `VIB_PROFILE` or the user config, is refused up front. A
+    /// project with errors passes: the server reports them.
+    ///
+    /// # Errors
+    ///
+    /// [`EngineError::Setting`] for a bad `--set` or an unknown profile.
+    pub fn check_layers(&self, request: &ExplainRequest) -> Result<(), EngineError> {
+        let flags: Vec<ConfigEntry> = profile_flag(&request.profiles).into_iter().collect();
+        let layered = match self.layered(&request.sets, &flags) {
+            Ok(layered) => layered,
+            Err(EngineError::Invalid(_)) => return Ok(()),
+            Err(error) => return Err(error),
+        };
+        let named = layered.settings.profiles.as_ref().filter(|named| !named.names.is_empty());
+        if named.is_some() {
+            plan::profiles(layered.program.as_ref(), named)?;
+        }
+        Ok(())
+    }
+
     /// The redactor a run would mask with, told the declared secrets' values and names (and its
     /// `function:` rules given them); when they cannot be loaded, one that masks every value
     /// but the built-in ones.

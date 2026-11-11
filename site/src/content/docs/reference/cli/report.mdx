@@ -53,7 +53,7 @@ $ vc report --single-file --out build/share
 | Code | When |
 | --- | --- |
 | `0` | The files were written |
-| `2` | No such run, or an unknown format |
+| `2` | No such run, a load run, or an unknown format |
 
 ```console
 $ vc report 999
@@ -64,7 +64,14 @@ error: --format: no report format `pdf`
   = help: the report formats are ctrf, junit, html
 ```
 
-`vc report` works for test runs. For a load run it currently fails with an error about the stored snapshot; pass the run number of a test run.
+`vc report` writes the files of test runs only. A load run keeps no report to write again: `vc history` lists it, and its report is what `vc load` prints as it runs, as JSON with `--json`. Getting one means running the load again:
+
+```console
+$ vc load checkout.peak
+$ vc report
+error: history: run 83 is a load run, and `vc report` writes the files of test runs only
+  = help: `vc history` lists it; for a load report, add `--json` to the next `vc load checkout.peak`, which sends the load again; to report a test run, pass its number from `vc history`
+```
 
 ## Related
 

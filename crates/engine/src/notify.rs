@@ -11,13 +11,12 @@ use vc_model::{AlertChannel, CelProgram, Namespace, Program, Reference, RunStatu
 use vc_template::{Chance, PipeRegistry, RenderError, Renderer, Resolve};
 
 use crate::alerts::{self, Ending, Finished};
+use crate::load::RUN_KIND;
 use crate::plan::Prepared;
 use crate::{Engine, EngineError};
 
 /// How many stored runs are searched for the previous one.
 const LOOKBACK: usize = 50;
-/// The history kind of a `vc run`.
-const RUN: &str = "run";
 
 /// What a run's end needs to send its alerts.
 pub struct Alerting {
@@ -84,7 +83,7 @@ fn folder(root: &Path) -> String {
 fn previous(history: &dyn HistoryReader, (run, kind): (u64, &str), profiles: &[String]) -> Option<RunStatus> {
     let runs = history.runs(LOOKBACK).ok()?;
     let earlier = |row: &&RunRow| row.id != RunId::new(run) && row.start.kind == kind && row.start.profiles == profiles;
-    runs.iter().filter(earlier).filter(|row| kind != RUN || ran(&row.totals)).find_map(|row| row.status)
+    runs.iter().filter(earlier).filter(|row| kind != RUN_KIND || ran(&row.totals)).find_map(|row| row.status)
 }
 
 /// Whether a test ran, rather than none or only skipped ones.

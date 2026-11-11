@@ -106,12 +106,12 @@ pub fn run(args: NewArgs, project: Option<&Path>) -> anyhow::Result<Outcome> {
     })
 }
 
-/// `vc new api`: from the flags, or from `--from-curl`, with a line for each note on what the
-/// command sent that was left out.
+/// `vc new api`: from the flags, or from `--from-curl`, with a line for each note: a base URL
+/// to set, or what the command sent that was left out.
 fn api(engine: &Engine, args: ApiArgs) -> anyhow::Result<Outcome> {
     let Some(curl) = args.from_curl else {
         let request = NewApi { id: args.id, method: args.method, path: args.path, url: args.url };
-        return Ok(written(engine, engine.new_api(&request), false));
+        return noted(engine, engine.new_api(&request), false);
     };
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let made = runtime.block_on(engine.new_api_from_curl(&args.id, &curl));

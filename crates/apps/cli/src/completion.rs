@@ -1,6 +1,8 @@
 //! `vc completion <shell>` and the hidden `vc __complete <command> <word>` it calls (D180): the
 //! `clap_complete` script for the commands and flags, plus a hook that asks `vc` for the
-//! project's own IDs, profiles and tags.
+//! project's own IDs, profiles and tags. Each script completes both names, `vc` and
+//! `vibranium`, and the hook asks the name that was typed; fish's `vibranium` lines ask
+//! `vibranium` by name.
 
 use std::io::Write;
 use std::path::Path;
@@ -48,6 +50,9 @@ const KINDS: &[(&str, CompleteKind)] = &[
     ("--tag", CompleteKind::Tags),
 ];
 
+/// The first line of the generated zsh script, which `compinit` reads for the names it completes.
+const ZSH_NAMES: &str = "#compdef vc\n";
+
 /// The generated PowerShell completer is kept under this name, so the hook can call it first.
 const POWERSHELL_STATIC: &str = "Register-ArgumentCompleter -Native -CommandName 'vc' -ScriptBlock {";
 
@@ -56,11 +61,13 @@ _vc_ids() {
     _vc "$@"
     local cur="${COMP_WORDS[COMP_CWORD]}" kind="${COMP_WORDS[1]}" prev="${COMP_WORDS[COMP_CWORD-1]}"
     case "$prev" in --profile|-t|--tag) kind="$prev" ;; esac
+    local typed="${COMP_WORDS[0]}"
+    [[ $typed == "~/"* ]] && typed="$HOME/${typed#\~/}"
     if [[ $COMP_CWORD -ge 2 && "$cur" != -* ]]; then
-        COMPREPLY+=($(compgen -W "$(vc __complete "$kind" "$cur" 2>/dev/null)" -- "$cur"))
+        COMPREPLY+=($(compgen -W "$("$typed" __complete "$kind" "$cur" 2>/dev/null)" -- "$cur"))
     fi
 }
-complete -F _vc_ids -o bashdefault -o default vc
+complete -F _vc_ids -o bashdefault -o default vc vibranium
 "#;
 
 const ZSH_HOOK: &str = r#"
@@ -70,21 +77,21 @@ _vc_ids() {
     [[ $prev == (--profile|-t|--tag) ]] && kind=$prev
     if (( CURRENT > 2 )) && [[ $words[CURRENT] != -* ]]; then
         local -a ids
-        ids=(${(f)"$(vc __complete $kind $words[CURRENT] 2>/dev/null)"})
+        ids=(${(f)"$(${~words[1]} __complete $kind $words[CURRENT] 2>/dev/null)"})
         (( $#ids )) && compadd -Q -- $ids
     fi
 }
-compdef _vc_ids vc
+compdef _vc_ids vc vibranium
 "#;
 
 const FISH_HOOK: &str = r"
-complete -c vc -f -n '__fish_seen_subcommand_from run watch plan list explain call skip unskip rename' -a '(vc __complete (commandline -opc)[2] (commandline -ct))'
-complete -c vc -l profile -x -a '(vc __complete --profile (commandline -ct))'
-complete -c vc -s t -l tag -x -a '(vc __complete --tag (commandline -ct))'
+complete -c vc -f -n '__fish_seen_subcommand_from run watch plan list explain call skip unskip rename' -a '(command (commandline -opc)[1] __complete (commandline -opc)[2] (commandline -ct))'
+complete -c vc -l profile -x -a '(command (commandline -opc)[1] __complete --profile (commandline -ct))'
+complete -c vc -s t -l tag -x -a '(command (commandline -opc)[1] __complete --tag (commandline -ct))'
 ";
 
 const POWERSHELL_HOOK: &str = r"
-Register-ArgumentCompleter -Native -CommandName 'vc' -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName 'vc', 'vibranium' -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     & $global:VcStaticCompleter $wordToComplete $commandAst $cursorPosition
     $words = $commandAst.CommandElements
@@ -93,7 +100,7 @@ Register-ArgumentCompleter -Native -CommandName 'vc' -ScriptBlock {
         $prev = $words[$words.Count - 1].ToString()
         if ($prev -eq $wordToComplete -and $words.Count -ge 3) { $prev = $words[$words.Count - 2].ToString() }
         if ($prev -in '--profile', '-t', '--tag') { $kind = $prev }
-        vc __complete $kind $wordToComplete 2>$null | ForEach-Object {
+        & $words[0].ToString() __complete $kind $wordToComplete 2>$null | ForEach-Object {
             [CompletionResult]::new($_, $_, [CompletionResultType]::ParameterValue, $_)
         }
     }
@@ -102,17 +109,34 @@ Register-ArgumentCompleter -Native -CommandName 'vc' -ScriptBlock {
 
 /// `vc completion bash|zsh|fish|powershell`: exit 0; clap refuses any other shell.
 pub fn run(args: &CompletionArgs) -> anyhow::Result<Outcome> {
-    let (generator, hook) = match args.shell {
-        Shell::Bash => (Generator::Bash, BASH_HOOK),
-        Shell::Zsh => (Generator::Zsh, ZSH_HOOK),
-        Shell::Fish => (Generator::Fish, FISH_HOOK),
-        Shell::Powershell => (Generator::PowerShell, POWERSHELL_HOOK),
+    let script = match args.shell {
+        Shell::Bash => generated(Generator::Bash, "vc")? + BASH_HOOK,
+        Shell::Zsh => generated(Generator::Zsh, "vc")?.replacen(ZSH_NAMES, "#compdef vc vibranium\n", 1) + ZSH_HOOK,
+        Shell::Fish => fish()?,
+        Shell::Powershell => {
+            let script = generated(Generator::PowerShell, "vc")?;
+            script.replacen(POWERSHELL_STATIC, "$global:VcStaticCompleter = {", 1) + POWERSHELL_HOOK
+        }
     };
-    let mut script = Vec::new();
-    clap_complete::generate(generator, &mut crate::Cli::command(), "vc", &mut script);
-    let script = String::from_utf8(script)?.replacen(POWERSHELL_STATIC, "$global:VcStaticCompleter = {", 1);
-    write!(stdout::out(), "{script}{hook}")?;
+    write!(stdout::out(), "{script}")?;
     Ok(Outcome::Done)
+}
+
+/// The `clap_complete` script for the commands and flags, completing `name`.
+fn generated(generator: Generator, name: &str) -> anyhow::Result<String> {
+    let mut script = Vec::new();
+    clap_complete::generate(generator, &mut crate::Cli::command(), name, &mut script);
+    Ok(String::from_utf8(script)?)
+}
+
+/// fish completes a command only by the lines that name it, so `vibranium` gets lines of its
+/// own, and its hook asks `vibranium` itself, never the `vc` first on `PATH`.
+fn fish() -> anyhow::Result<String> {
+    let long = FISH_HOOK
+        .replace("complete -c vc ", "complete -c vibranium ")
+        .replace("command (commandline -opc)[1]", "command vibranium");
+    let (short, long_static) = (generated(Generator::Fish, "vc")?, generated(Generator::Fish, "vibranium")?);
+    Ok(format!("{short}{FISH_HOOK}{long_static}{long}"))
 }
 
 /// `vc __complete <command> <word>`: one candidate a line; nothing, and exit 0, outside a
