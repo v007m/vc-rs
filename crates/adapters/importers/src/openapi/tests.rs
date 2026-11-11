@@ -302,3 +302,4 @@ async fn bytes_that_do_not_decode_are_invalid_at_their_location() {
 }
 
 mod needs;
+mod pointers;

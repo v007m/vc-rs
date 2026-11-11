@@ -5,6 +5,7 @@ use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use serde_json::Value;
 
 use super::draft::{Reader, Route};
+use super::values::local;
 
 /// How many `$ref`s in a row are followed before giving up on a response or schema.
 const MAX_HOPS: usize = 16;
@@ -15,7 +16,7 @@ const REJECTED: [&str; 2] = ["400", "422"];
 /// The status a rejected body gets when the spec documents none of [`REJECTED`].
 const REJECTED_DEFAULT: u16 = 400;
 
-/// What a JSON pointer cannot hold unescaped as a URI fragment (`{id}` in a path).
+/// What a JSON pointer cannot hold unescaped as a URI fragment (`{id}` or `[]` in a path).
 const FRAGMENT: &AsciiSet = &CONTROLS
     .add(b' ')
     .add(b'"')
@@ -23,7 +24,9 @@ const FRAGMENT: &AsciiSet = &CONTROLS
     .add(b'%')
     .add(b'<')
     .add(b'>')
+    .add(b'[')
     .add(b'\\')
+    .add(b']')
     .add(b'^')
     .add(b'`')
     .add(b'{')
@@ -71,12 +74,13 @@ fn success_code<'r>(route: &Route<'r>) -> Option<&'r str> {
     codes.map(String::as_str).find(|code| code.starts_with('2'))
 }
 
-/// The node at `pointer` in `doc` with its local `$ref`s followed, and the pointer it ends at.
+/// The node at `pointer` in `doc` with its local `$ref`s followed, and the pointer it ends at,
+/// percent-decoded.
 fn followed(doc: &Value, mut pointer: String) -> Option<(String, &Value)> {
     for _ in 0..MAX_HOPS {
         let node = doc.pointer(&pointer)?;
-        match node.get("$ref").and_then(Value::as_str).and_then(|next| next.strip_prefix('#')) {
-            Some(next) => pointer = next.to_owned(),
+        match node.get("$ref").and_then(Value::as_str).and_then(local) {
+            Some(next) => pointer = next.into_owned(),
             None => return Some((pointer, node)),
         }
     }

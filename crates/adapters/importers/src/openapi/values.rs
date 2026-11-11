@@ -1,6 +1,9 @@
 //! Values for a draft from JSON Schemas: a parameter's default, a body field's generator.
 
+use std::borrow::Cow;
+
 use indexmap::IndexMap;
+use percent_encoding::percent_decode_str;
 use serde_json::{Map, Value, json};
 
 /// How many `$ref`s in a row are followed before giving up on a schema.
@@ -29,13 +32,20 @@ const NAMES: [(&str, &str); 5] = [
 pub fn resolve<'a>(doc: &'a Value, schema: &'a Value) -> &'a Value {
     let mut current = schema;
     for _ in 0..MAX_HOPS {
-        let pointer = current.get("$ref").and_then(Value::as_str).and_then(|at| at.strip_prefix('#'));
-        match pointer.and_then(|pointer| doc.pointer(pointer)) {
+        let pointer = current.get("$ref").and_then(Value::as_str).and_then(local);
+        match pointer.and_then(|pointer| doc.pointer(&pointer)) {
             Some(next) => current = next,
             None => return current,
         }
     }
     current
+}
+
+/// The JSON pointer a local `$ref` names, percent-decoded as a URI fragment is
+/// (`#/paths/~1items~1%7Bid%7D` gives `/paths/~1items~1{id}`); none for another document's.
+pub fn local(reference: &str) -> Option<Cow<'_, str>> {
+    let fragment = reference.strip_prefix('#')?;
+    Some(percent_decode_str(fragment).decode_utf8().unwrap_or(Cow::Borrowed(fragment)))
 }
 
 /// The value the schema shows or defaults to: its first example, `example`, `default`,
