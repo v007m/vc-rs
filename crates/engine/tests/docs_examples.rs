@@ -11,8 +11,8 @@
 //! by being the first block under a `###` heading that is just the path in backticks (as in "What
 //! `vc init` writes"). It is still an excerpt, and so a fragment, when its top level is a list or
 //! indented (the entries of a file's list) or when a line of just `...` stands for lines left
-//! out. A title such as `vibranium.config.yaml (excerpt)` names no file, so its block is a
-//! fragment too.
+//! out. A title marked `(excerpt)`, such as `vibranium.config.yaml (excerpt)`, makes its block a
+//! fragment whatever its first line or the heading over it.
 //!
 //! A page's whole files are checked together as one project. Writing a path again (a walkthrough
 //! growing a file, or a reference page showing one file several ways) starts a new version of the
@@ -65,6 +65,9 @@ const WRONG: [&str; 3] = ["Wrong", "Seen in practice", "Common errors"];
 /// Words in a fence's info string that leave its block out.
 const LEFT_OUT: [&str; 2] = ["skip", "wrong"];
 
+/// The mark at the end of a title that makes its block a fragment.
+const EXCERPT: &str = "(excerpt)";
+
 /// The default profile a config gets when it writes none.
 const PROFILES: &str = "profiles:\n  - id: dev\n    default: true\n";
 
@@ -107,9 +110,14 @@ fn title(info: &str) -> Option<&str> {
     rest.split_once('"').map(|(title, _)| title)
 }
 
-/// The path a block names as its file, by its title, its first line or the heading over it.
+/// The path a block names as its file, by its title, its first line or the heading over it; none
+/// when its title is marked [`EXCERPT`].
 fn named_path(heading: &str, block: &Block) -> Option<String> {
-    let titled = title(&block.info).and_then(definition);
+    let given = title(&block.info);
+    if given.is_some_and(|title| title.ends_with(EXCERPT)) {
+        return None;
+    }
+    let titled = given.and_then(definition);
     let first = block.first.strip_prefix("# ").and_then(definition);
     let headed = || heading.strip_prefix('`').and_then(|rest| rest.strip_suffix('`')).and_then(definition);
     titled.or(first).or_else(headed)
@@ -183,13 +191,14 @@ fn read(name: &str, doc: &str) -> Outcome<Page> {
     Ok(reading.finish())
 }
 
-/// `config` with `syntaxVersion` and a default profile added when it leaves them out: a page
-/// often shows only the keys its point needs.
+/// `config` with `syntaxVersion` and a default profile added after it when it leaves them out (a
+/// page often shows only the keys its point needs), so its lines keep their numbers.
 fn completed(config: &str) -> String {
     let has = |key: &str| config.lines().any(|line| line.strip_prefix(key).is_some_and(|rest| rest.starts_with(':')));
+    let ended = if config.is_empty() || config.ends_with('\n') { "" } else { "\n" };
     let version = if has("syntaxVersion") { "" } else { "syntaxVersion: 2\n" };
     let profiles = if has("profiles") { "" } else { PROFILES };
-    format!("{version}{config}{profiles}")
+    format!("{config}{ended}{version}{profiles}")
 }
 
 /// Whether `found` is about a name defined in a file a page does not show.
@@ -201,13 +210,19 @@ const fn none(_: &Diagnostic) -> bool {
     false
 }
 
-/// The errors `vc check` reports on `files`, but for those `allowed`.
+/// The errors `vc check` reports on a page's `files`, its config [`completed`], but for those
+/// `allowed`.
 fn errors(files: &Files, allowed: Allowed) -> Outcome<Vec<String>> {
     let config = |(path, text): (&String, &String)| {
         let text = if path == support::CONFIG_PATH { completed(text) } else { text.clone() };
         (path.clone(), text)
     };
-    let report = support::check(&files.iter().map(config).collect::<Vec<_>>())?;
+    reported(&files.iter().map(config).collect::<Vec<_>>(), allowed)
+}
+
+/// The errors `vc check` reports on `files` (path, text) as they are, but for those `allowed`.
+fn reported(files: &[(String, String)], allowed: Allowed) -> Outcome<Vec<String>> {
+    let report = support::check(files)?;
     let errors = report.diagnostics.iter().filter(|found| found.severity == Severity::Error && !allowed(found));
     Ok(errors.map(|found| describe(found, &report.files)).collect())
 }
@@ -261,7 +276,7 @@ fn the_site_example_project_checks_clean() -> Outcome<()> {
         files.insert(relative, fs::read_to_string(&path)?);
     }
     assert!(files.contains_key(support::CONFIG_PATH), "the example project has no config");
-    let errors = errors(&files, none)?;
+    let errors = reported(&files.into_iter().collect::<Vec<_>>(), none)?;
     assert!(errors.is_empty(), "{}", errors.join("\n"));
     Ok(())
 }
@@ -283,6 +298,19 @@ fn wrong_examples_are_left_out_and_configs_completed() {
     assert!(!checked("Common errors", &block("yaml")));
     assert!(!checked("Examples", &block("console")));
     assert_eq!(named_path("", &block(r#"yaml title="vibranium.config.yaml (excerpt)""#)), None);
-    assert_eq!(completed("vars: {}\n"), format!("syntaxVersion: 2\nvars: {{}}\n{PROFILES}"));
+    assert_eq!(completed("vars: {}\n"), format!("vars: {{}}\nsyntaxVersion: 2\n{PROFILES}"));
+    assert_eq!(completed("vars: {}"), format!("vars: {{}}\nsyntaxVersion: 2\n{PROFILES}"));
     assert_eq!(completed("syntaxVersion: 2\nprofiles: []\n"), "syntaxVersion: 2\nprofiles: []\n");
+}
+
+#[test]
+fn an_excerpt_title_makes_a_fragment_whatever_names_the_file() {
+    let block = |info: &str, first: &str| Block { info: info.to_owned(), first: first.to_owned(), body: String::new() };
+    let excerpt = r#"yaml title="vibranium.config.yaml (excerpt)""#;
+    let heading = "`vibranium.config.yaml`";
+    assert_eq!(named_path("", &block(excerpt, "# vibranium.config.yaml")), None, "a `# path` first line");
+    assert_eq!(named_path(heading, &block(excerpt, "vars: {}")), None, "a path heading");
+    assert_eq!(named_path(heading, &block("yaml", "vars: {}")).as_deref(), Some("vibranium.config.yaml"));
+    let first = block("yaml", "# vibranium.config.yaml");
+    assert_eq!(named_path("", &first).as_deref(), Some("vibranium.config.yaml"));
 }
