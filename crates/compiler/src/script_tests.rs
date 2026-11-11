@@ -86,3 +86,18 @@ fn positions_count_lines_and_characters() {
     assert_eq!(position(text, 4).offset, 3, "inside a character, the start of it");
     assert_eq!(position(text, 99).offset, text.len());
 }
+
+#[test]
+fn a_tick_on_the_loop_s_line_comes_just_before_each_loop() {
+    let text = "export function loops(xs: number[]): number {\n  let n = 0;\n  while (n < 1) n++;\n  do {\n    n++;\n  } while (n < 2);\n  for (let i = 0; i < 1; i++) {}\n  for (const x of xs) n += x;\n  outer: for (const k in xs) {\n    if (n > 9) continue outer;\n    while (n < 3) n++;\n  }\n  return n;\n}\n";
+    let module = run("hooks/loops.ts", text).0.unwrap().module;
+    let ticks: Vec<Option<u32>> = module
+        .js
+        .lines()
+        .zip(1..)
+        .filter(|(line, _)| line.trim() == "__vcTick();")
+        .map(|(_, js_line)| module.ts_line(js_line))
+        .collect();
+    assert_eq!(ticks, [Some(3), Some(4), Some(7), Some(8), Some(9), Some(11)], "{}", module.js);
+    assert!(module.js.contains("outer: for"), "a label stays on its loop: {}", module.js);
+}

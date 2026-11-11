@@ -1,10 +1,13 @@
 //! The per-file stage for a hook file (D172): oxc parses it, strips its types and reads what it
-//! exports and imports. Pure: the text comes in, JavaScript with a line map comes out.
+//! exports and imports. Pure: the text comes in, JavaScript with a line map comes out. A call to
+//! [`HookModule::LOOP_TICK`] comes just before each loop, so a hook stopped in a loop names it.
 
 use std::path::Path;
 
-use oxc_allocator::Allocator;
-use oxc_ast::ast::{Program, Statement};
+use oxc_allocator::{Allocator, ArenaVec, TakeIn};
+use oxc_ast::ast::{Expression, Program, Statement};
+use oxc_ast::builder::AstBuilder;
+use oxc_ast_visit::{VisitMut, walk_mut};
 use oxc_codegen::{Codegen, CodegenOptions, CodegenReturn};
 use oxc_diagnostics::OxcDiagnostic;
 use oxc_parser::Parser;
@@ -69,6 +72,7 @@ pub fn strip(id: SourceFileId, source: &SourceFile) -> (Option<Script>, Diagnost
     if let Some(error) = stripped.diagnostics.first() {
         return (None, std::iter::once(at.invalid(error)).collect());
     }
+    Ticks { builder: AstBuilder::new(&allocator), labeled: false }.visit_program(&mut program);
     let mut imports = at.imports(&program);
     imports.extend(dynamic);
     let options = CodegenOptions { source_map_path: Some(path.to_path_buf()), ..CodegenOptions::default() };
@@ -107,6 +111,53 @@ fn module(generated: CodegenReturn<'_>) -> HookModule {
         }
     }
     HookModule { js: generated.code, lines }
+}
+
+/// Puts a call to [`HookModule::LOOP_TICK`] just before each loop. When the hook runtime stops a
+/// loop at its jump back, it names the line of the code before the jump's target, which is then
+/// the call, and the call's span is the loop's, so the line map points at the loop.
+struct Ticks<'a> {
+    builder: AstBuilder<'a>,
+    /// The statement being visited is the body of a label, which a block must not come between.
+    labeled: bool,
+}
+
+impl<'a> VisitMut<'a> for Ticks<'a> {
+    fn visit_statement(&mut self, statement: &mut Statement<'a>) {
+        let labeled = std::mem::replace(&mut self.labeled, matches!(statement, Statement::LabeledStatement(_)));
+        walk_mut::walk_statement(self, statement);
+        self.labeled = false;
+        if let Some(span) = loop_span(statement).filter(|_| !labeled) {
+            self.tick(statement, Span::sized(span.start, 1));
+        }
+    }
+}
+
+impl<'a> Ticks<'a> {
+    /// `statement` as a block that calls the tick, at `span`, and then runs it. The block has no
+    /// span, so only the call maps to the loop.
+    fn tick(&self, statement: &mut Statement<'a>, span: Span) {
+        let builder = &self.builder;
+        let callee = Expression::new_identifier(span, HookModule::LOOP_TICK, builder);
+        let call = Expression::new_call_expression(span, callee, None, ArenaVec::new_in(builder), false, builder);
+        let tick = Statement::new_expression_statement(span, call, builder);
+        let inner = statement.take_in(builder);
+        let block = Span::empty(span.start);
+        *statement = Statement::new_block_statement(block, ArenaVec::from_array_in([tick, inner], builder), builder);
+    }
+}
+
+/// The span of `statement` when it is a loop, or labels one.
+fn loop_span(statement: &Statement<'_>) -> Option<Span> {
+    match statement {
+        Statement::WhileStatement(found) => Some(found.span),
+        Statement::DoWhileStatement(found) => Some(found.span),
+        Statement::ForStatement(found) => Some(found.span),
+        Statement::ForInStatement(found) => Some(found.span),
+        Statement::ForOfStatement(found) => Some(found.span),
+        Statement::LabeledStatement(found) => loop_span(&found.body).map(|_| found.span),
+        _ => None,
+    }
 }
 
 /// A file being stripped, for spans.

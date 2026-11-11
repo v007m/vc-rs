@@ -10,6 +10,7 @@ use rquickjs::promise::MaybePromise;
 use rquickjs::{Context, Ctx, Exception, Function, Module, Object, Persistent, Runtime, Value};
 use serde_json::Value as Json;
 use vc_interfaces::{HookCall, HookError, HookOutput};
+use vc_model::HookModule;
 
 use crate::deadline::Deadline;
 use crate::fault::{Fault, Seen, Thrown, classify};
@@ -126,6 +127,7 @@ impl Loaded {
 
 fn evaluate(ctx: &Ctx<'_>, call: &HookCall, state: Rc<CallState>) -> Result<Persistent<Object<'static>>, Fault> {
     install_secret(ctx, state)?;
+    ctx.globals().set(HookModule::LOOP_TICK, Function::new(ctx.clone(), || ())?)?;
     let js = call.modules.get(&call.hook.file).map(|module| module.js.clone()).ok_or(Fault::Missing)?;
     let (module, evaluated) = Module::declare(ctx.clone(), call.hook.file.as_str(), js)?.eval()?;
     evaluated.finish::<()>()?;
