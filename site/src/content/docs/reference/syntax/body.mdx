@@ -261,7 +261,7 @@ $ vc call echo#b64
 
 ### A file's bytes with $file
 
-`$file` sends a file as it is, text or binary. The path is relative to the file that names it, and `vc check` reports a path that names no file (V2004). The path can't hold a `${…}` template: vc reads, before the run starts, each file the run can send. A `$file` map inside a JSON body is not read; it is sent as written.
+`$file` sends a file as it is, text or binary. The path is relative to the file that names it, and `vc check` reports a path that names no file (V2004). The path can't hold a `${…}` template: vc reads, before the run starts, each file the run can send. A `$file` map inside a JSON body is sent as written, not as the file's bytes.
 
 ```yaml title="services/uploads/uploads.api.yaml"
 baseUrl: ${var.sampleUrl}

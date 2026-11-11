@@ -2244,6 +2244,7 @@ pub fn vc_model::basename(&str) -> &str
 pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String
 pub fn vc_model::check_parts(&vc_model::CheckResult) -> (&'static str, core::option::Option<alloc::string::String>)
 pub fn vc_model::cut_body(&[u8], usize) -> (core::option::Option<alloc::string::String>, bool)
+pub fn vc_model::file_parts(&vc_model::TemplateValue) -> alloc::vec::Vec<(alloc::string::String, &vc_model::Template)>
 pub fn vc_model::file_path(&serde_json::value::Value) -> core::option::Option<&str>
 pub fn vc_model::form_pairs<'p>(impl core::iter::traits::collect::IntoIterator<Item = (&'p str, &'p str)>) -> alloc::string::String
 pub fn vc_model::form_text(&str) -> alloc::string::String

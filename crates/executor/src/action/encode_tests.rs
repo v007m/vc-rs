@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use bytes::Bytes;
 use http::HeaderValue;
 use serde_json::{Map, Value, json};
@@ -7,7 +5,7 @@ use vc_diagnostics::Code;
 use vc_model::ActionId;
 use vc_testkit::ScriptedRandom;
 
-use super::{Encoding, encoder};
+use super::{Encoding, encoder, items};
 use crate::BodyFiles;
 
 const FORM: &str = "application/x-www-form-urlencoded";
@@ -22,9 +20,8 @@ fn fields(value: Value) -> Map<String, Value> {
 /// `value` sent as a form, or the failure's code and message.
 fn sent(value: Value) -> Result<Bytes, (Option<String>, String)> {
     let content_type = HeaderValue::from_static(FORM);
-    let (files, random, written) = (BodyFiles::default(), ScriptedRandom::seeded(1), BTreeSet::new());
-    let (action, written) = (ActionId::new(0), &written);
-    let encoding = Encoding { files: &files, random: &random, content_type: &content_type, action, written };
+    let (files, random) = (BodyFiles::default(), ScriptedRandom::seeded(1));
+    let encoding = Encoding { files: &files, random: &random, content_type: &content_type, action: ActionId::new(0) };
     let encode = encoder(&content_type).ok_or((None, String::new()))?;
     let encoded = encode(&fields(value), &encoding).map_err(|failure| (failure.code, failure.message));
     let (bytes, rewritten) = encoded?;
@@ -66,4 +63,13 @@ fn a_nested_object_or_list_fails_with_v5111_naming_what_it_holds() {
         |what: &str, key: &str| format!("the form field `{key}` holds {what}; a form field takes text or a list");
     assert_eq!(sent(json!({"user": {"name": "a"}})), Err((v5111.clone(), holds("an object", "user"))));
     assert_eq!(sent(json!({"rows": [["a"]]})), Err((v5111, holds("a list", "rows"))), "a list inside a list");
+}
+
+#[test]
+fn items_keep_their_index_in_the_list_and_leave_nulls_out() {
+    let listed = json!(["a", null, "b"]);
+    let found: Vec<(Option<usize>, &Value)> = items(&listed).collect();
+    assert_eq!(found, [(Some(0), &json!("a")), (Some(2), &json!("b"))]);
+    assert_eq!(items(&json!("x")).collect::<Vec<_>>(), [(None, &json!("x"))], "a value is not a list item");
+    assert_eq!(items(&Value::Null).count(), 0);
 }

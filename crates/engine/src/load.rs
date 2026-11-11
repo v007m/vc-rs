@@ -55,7 +55,7 @@ impl Engine {
         let run_id = live.run_id().unwrap_or(0);
         session.alerting = self.alerting(&session.prepared, &secrets, (run_id, "load"))?;
         let plugins = self.plugin_hosts(&session.prepared.program, &secrets);
-        let reached = vc_planner::bodies(&session.prepared.program, &session.prepared.plan);
+        let reached = crate::body_files::reached(&session.prepared.program, &session.prepared.plan);
         let inputs = self.inputs(&session.prepared, (Arc::clone(&session.random), run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(session.started_ms);
         let cx = Arc::new(self.action_cx(&session.prepared, (inputs, &plugins))?);

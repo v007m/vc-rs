@@ -86,7 +86,7 @@ impl Engine {
         let (reporters, unrecorded) = self.reporters(request, &prepared, (seed, plugins.clone()))?;
         let run_id = reporters.run_id().map_or(0, RunId::get);
         let alerting = self.alerting(&prepared, &secrets, (run_id, "run"))?;
-        let reached = vc_planner::bodies(&prepared.program, &prepared.plan);
+        let reached = crate::body_files::reached(&prepared.program, &prepared.plan);
         let inputs = self.inputs(&prepared, (random, run_id, reached)).await;
         let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
         let (executor, sweep) = self.executor(&prepared, (inputs, &plugins), request).await?;

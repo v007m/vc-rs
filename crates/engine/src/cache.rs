@@ -17,7 +17,7 @@ use vc_adapter_store::{CacheSecret, SqliteCache};
 use vc_diagnostics::Code;
 use vc_executor::{ActionCx, ActionRequest, RunCache};
 use vc_interfaces::{CacheEntry, CacheListing, CacheStore, CacheStoreError, CachedCleanup, Environment, Secret};
-use vc_model::{ActionId, Plan};
+use vc_model::Plan;
 
 use crate::plan::Prepared;
 use crate::ports::Layered;
@@ -111,7 +111,7 @@ impl Engine {
     /// expired at the run's start have run, with the notices of a cache that is off or failed.
     /// A program with no `cache:` action leaves the cache, and the keychain, alone.
     pub(crate) async fn cached(&self, cx: ActionCx, prepared: &Prepared) -> Sweep {
-        if !prepared.program.actions.iter().any(|action| action.cache.is_some()) {
+        if !crate::body_files::caches(&prepared.program) {
             return Sweep::off(cx, Vec::new());
         }
         let store = match self.cache_store(prepared.environment.as_ref()) {
@@ -154,7 +154,7 @@ impl Engine {
         let store = self.cache_store(layered.environment.as_ref())?;
         let prepared = unplanned(layered);
         let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
-        let cleanups: Vec<ActionId> = prepared.program.apis.values().filter_map(|api| api.cleanup).collect();
+        let cleanups = crate::body_files::cleanups(&prepared.program);
         let cx = self.adhoc_cx(&prepared, (&cleanups, 0, secrets)).await?;
         let cleared = store.clear(label).map_err(|error| store_error(&error))?;
         let count = cleared.len();

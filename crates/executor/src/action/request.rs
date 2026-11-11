@@ -1,8 +1,6 @@
 //! Renders a `call:`'s request (the method, the URL with its query, the headers and the body),
 //! and turns the exchange into the `request` and `response` roots.
 
-use std::collections::BTreeSet;
-
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use bytes::Bytes;
@@ -20,7 +18,6 @@ use vc_template::RenderError;
 use crate::Render;
 use crate::action::encode::{self, Encoder, Encoding};
 use crate::action::media::{self, OCTETS};
-use crate::action::multipart;
 
 /// RFC 3986 unreserved characters stay as they are in a query.
 const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove(b'_').remove(b'~');
@@ -54,7 +51,7 @@ fn with_body(
     (action, spec): (ActionId, &BodySpec),
 ) -> Result<RenderedRequest, Failure> {
     let written = request.headers.get(CONTENT_TYPE).cloned();
-    let sending = Sending::new(action, spec, written.as_ref())?;
+    let sending = Sending::new(action, written.as_ref());
     if let Some((body, kind)) = body(render, spec, &sending)? {
         request.body = body;
         match kind {
@@ -157,22 +154,18 @@ enum ContentType {
 /// A body's bytes and its `content-type`.
 type Body = (Bytes, ContentType);
 
-/// How an action's body is sent: by which action, the encoder its written `content-type`
-/// names with that header, and the `$file` parts it writes with a literal path.
+/// How an action's body is sent: by which action, and the encoder its written `content-type`
+/// names with that header.
 struct Sending<'h> {
     action: ActionId,
     encode: Option<(Encoder, &'h HeaderValue)>,
-    written: BTreeSet<String>,
 }
 
 impl<'h> Sending<'h> {
-    /// How action `action` sends `spec` under the written `content_type`; V5111 for a multipart
-    /// `$file` part whose path holds `${…}` (D272).
-    fn new(action: ActionId, spec: &BodySpec, content_type: Option<&'h HeaderValue>) -> Result<Self, Failure> {
+    /// How action `action` sends its body under the written `content_type`.
+    fn new(action: ActionId, content_type: Option<&'h HeaderValue>) -> Self {
         let encode = content_type.and_then(|written| Some((encode::encoder(written)?, written)));
-        let multipart = content_type.and_then(|written| written.to_str().ok()).is_some_and(vc_model::is_multipart);
-        let written = if multipart { multipart::written_parts(spec)? } else { BTreeSet::new() };
-        Ok(Self { action, encode, written })
+        Self { action, encode }
     }
 }
 
@@ -203,7 +196,7 @@ fn structured(render: &Render<'_>, value: Value, sending: &Sending<'_>) -> Resul
         (Value::Object(fields), Some((encode, content_type))) => {
             let inputs = render.values().inputs();
             let (files, random) = (&inputs.bodies, inputs.random.as_ref());
-            let encoding = Encoding { files, random, content_type, action: sending.action, written: &sending.written };
+            let encoding = Encoding { files, random, content_type, action: sending.action };
             let (bytes, rewritten) = encode(&fields, &encoding)?;
             Ok((bytes, rewritten.map_or(ContentType::Implied(JSON), ContentType::Replaced)))
         }
@@ -217,7 +210,7 @@ fn file(render: &Render<'_>, path: &Template, action: ActionId) -> Result<Body, 
     let path =
         path.as_literal().ok_or_else(|| rendering("a `$file` body path cannot hold `${…}` references (D272)"))?;
     let read = media::file(&render.values().inputs().bodies, (action, ""), path)?;
-    let (bytes, kind) = read.ok_or_else(|| media::not_read(path))?;
+    let (bytes, kind) = read.ok_or_else(|| media::not_read((action, ""), path))?;
     Ok((bytes, ContentType::Implied(kind)))
 }
 

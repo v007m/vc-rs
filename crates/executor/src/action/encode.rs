@@ -2,8 +2,6 @@
 //! URL-encoded form (D273) and multipart parts (D274). A media type with no encoder sends the
 //! map as JSON.
 
-use std::collections::BTreeSet;
-
 use bytes::Bytes;
 use http::HeaderValue;
 use serde_json::{Map, Value};
@@ -24,8 +22,6 @@ pub struct Encoding<'e> {
     pub content_type: &'e HeaderValue,
     /// The action sending the body, whose `$file` parts the engine read.
     pub action: ActionId,
-    /// The pointers of the `$file` parts the body writes with a literal path.
-    pub written: &'e BTreeSet<String>,
 }
 
 /// A map body's bytes, and the `content-type` to send in place of the one written, if any.
@@ -48,7 +44,7 @@ pub fn encoder(content_type: &HeaderValue) -> Option<Encoder> {
 pub fn form(fields: &Map<String, Value>, _: &Encoding<'_>) -> Result<Encoded, Failure> {
     let mut pairs = Vec::new();
     for (key, value) in fields {
-        for item in items(value) {
+        for (_, item) in items(value) {
             pairs.push(format!("{}={}", form_text(key), form_text(&form_value(key, item)?)));
         }
     }
@@ -65,13 +61,15 @@ fn form_value(key: &str, item: &Value) -> Result<String, Failure> {
     Err(rendering(&format!("the form field `{key}` holds {nested}; a form field takes text or a list")))
 }
 
-/// A field's values: each item of a list, else the value itself, nulls left out.
-pub fn items(value: &Value) -> impl Iterator<Item = &Value> {
-    let items = match value {
-        Value::Array(items) => items.as_slice(),
-        value => std::slice::from_ref(value),
+/// A field's values with their index in its list: each item of a list, else the value itself
+/// with none; nulls left out.
+pub fn items(value: &Value) -> impl Iterator<Item = (Option<usize>, &Value)> {
+    let (items, listed) = match value {
+        Value::Array(items) => (items.as_slice(), true),
+        value => (std::slice::from_ref(value), false),
     };
-    items.iter().filter(|item| !item.is_null())
+    let indexed = items.iter().enumerate().map(move |(at, item)| (listed.then_some(at), item));
+    indexed.filter(|(_, item)| !item.is_null())
 }
 
 #[cfg(test)]

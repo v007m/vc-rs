@@ -16,13 +16,15 @@ pub enum Unread {
     Refused(String),
     /// The file could not be read.
     Failed(String),
+    /// Its path holds `${…}` references, so it was not read (D272).
+    Templated,
 }
 
 /// A `$file`'s bytes, or why it was not read.
 type Read = Result<Bytes, Unread>;
 
 /// What the engine read for one `$file`: its action and pointer, and its bytes or why not.
-type BodyFile = ((ActionId, String), Result<Vec<u8>, Unread>);
+type BodyFile = ((ActionId, String), Read);
 
 /// Each `$file`'s bytes by the action that sends it and its pointer in the body, or why it was
 /// not read.
@@ -38,13 +40,13 @@ impl BodyFiles {
     pub fn new(files: impl IntoIterator<Item = BodyFile>) -> Self {
         let mut held: HashMap<ActionId, Pointers> = HashMap::new();
         for ((action, pointer), read) in files {
-            held.entry(action).or_default().insert(pointer, read.map(Bytes::from));
+            held.entry(action).or_default().insert(pointer, read);
         }
         Self(Arc::new(held))
     }
 
     /// The bytes of the `$file` at `pointer` in `action`'s body, or why it was not read; `None`
-    /// when the run was not given it, as for a path that arrives in a `${…}` value.
+    /// when the body does not write one there, as for a `$file` that arrives in a `${…}` value.
     #[must_use]
     pub fn get(&self, action: ActionId, pointer: &str) -> Option<Result<&Bytes, &Unread>> {
         self.0.get(&action)?.get(pointer).map(Result::as_ref)

@@ -170,7 +170,7 @@ async fn each_body_kind_sets_its_content_type_unless_one_is_given() {
 async fn a_file_body_sends_the_bytes_read_before_the_run_with_its_extensions_type() {
     let logo = Bytes::from_static(&[0x89, b'P', 0xff, 0]);
     let file = |path: &'static str| {
-        let logo = logo.to_vec();
+        let logo = logo.clone();
         move |fixture: &mut Fixture| {
             fixture.bodies = BodyFiles::new([((sender(fixture), String::new()), Ok(logo))]);
             BodySpec::File(fixture::literal(path))
@@ -202,7 +202,8 @@ async fn a_json_body_sends_a_file_map_as_written() {
 async fn multipart_file_parts_are_the_bytes_read_at_their_pointer() {
     let parts = |fixture: &mut Fixture| {
         let at = |pointer: &str| (sender(fixture), pointer.to_owned());
-        fixture.bodies = BodyFiles::new([(at("/doc"), Ok(b"pdf".to_vec())), (at("/scans/0"), Ok(b"png".to_vec()))]);
+        fixture.bodies =
+            BodyFiles::new([(at("/doc"), Ok(Bytes::from("pdf"))), (at("/scans/0"), Ok(Bytes::from("png")))]);
         BodySpec::Json(written(vec![
             ("doc", file_map("a.pdf")),
             ("scans", TemplateValue::List(vec![file_map("b.png")])),
@@ -220,6 +221,7 @@ async fn a_multipart_file_part_with_a_templated_path_or_from_a_reference_fails_w
     let v5111 = Err(Some(Code::V5111.to_string()));
     let multipart = [("content-type", "multipart/form-data")];
     let templated = |fixture: &mut Fixture| {
+        fixture.bodies = BodyFiles::new([((sender(fixture), "/doc".to_owned()), Err(Unread::Templated))]);
         let path = written(vec![("$file", fixture.value("${var.greeting}.pdf"))]);
         BodySpec::Json(written(vec![("doc", path)]))
     };

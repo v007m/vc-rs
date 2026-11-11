@@ -3,7 +3,7 @@ use vc_model::{ActionId, ActionKind, BodySpec, ContentHash, Program, SourceFile,
 use super::body_files;
 use crate::CompileInput;
 
-const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {name: u, base: {a: 1}}\n";
+const CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default: true\nvars: {name: u, base: {a: 1}, uploadType: multipart/form-data}\n";
 
 const APIS: &str = r"baseUrl: http://u
 apis:
@@ -28,6 +28,11 @@ apis:
     method: POST
     path: /o
     body: {$file: ../../../secret.txt}
+  - id: typed
+    method: POST
+    path: /y
+    headers: {content-type: '${var.uploadType}'}
+    body: {doc: {$file: fixtures/typed.pdf}}
 ";
 
 const TESTS: &str = r"tests:
@@ -44,6 +49,8 @@ const TESTS: &str = r"tests:
     call: users#asJson
   - id: sendsOutside
     call: users#outside
+  - id: sendsTyped
+    call: users#typed
   - id: extendsParts
     call: users#asJson
     headers: {Content-Type: multipart/form-data; boundary=b}
@@ -79,7 +86,9 @@ fn found(program: &Program, actions: Vec<ActionId>) -> Vec<String> {
     let found = body_files(program, actions);
     found
         .into_iter()
-        .map(|((_, pointer), path)| format!("{pointer}={}", path.map_or_else(|e| e, |p| p.to_string())))
+        .map(|((_, pointer), path)| {
+            format!("{pointer}={}", path.map_or_else(|why| format!("{why:?}"), |p| p.to_string()))
+        })
         .collect()
 }
 
@@ -106,14 +115,21 @@ fn each_literal_file_is_resolved_from_the_folder_of_its_file_at_its_pointer() {
     let expected = [
         "/doc=services/users/b.pdf",
         "/doc=services/shared/doc.pdf",
+        "/doc=services/users/fixtures/doc.pdf",
+        "/doc=services/users/fixtures/typed.pdf",
+        "/note=Templated",
         "/scans/0=services/users/a.png",
         "=other.bin",
         "=services/users/fixtures/u.csv",
-        "=it leads out of the project",
+        "=Templated",
+        "=Refused(\"it leads out of the project\")",
     ];
     let mut expected = expected.map(str::to_owned).to_vec();
     expected.sort();
-    assert_eq!(all, expected, "a templated path is not read, and a json body's `$file` is sent as written");
+    assert_eq!(
+        all, expected,
+        "a map's `$file` parts are found whatever its `content-type`; a templated path is not read"
+    );
 }
 
 #[test]

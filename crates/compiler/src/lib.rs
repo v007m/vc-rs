@@ -40,7 +40,7 @@ mod suggest;
 mod value;
 mod version;
 
-pub use body_files::{FilePath, FileSlot, body_files};
+pub use body_files::{FilePath, FileSlot, Unreadable, body_files};
 pub use cache::CompileCache;
 pub use compile::{CompileInput, Compiled, compile};
 pub use docs::key_tables;

@@ -32,20 +32,30 @@ pub const OCTETS: &str = "application/octet-stream";
 type Read = (Bytes, &'static str);
 
 /// The bytes the engine read for the `$file` at `path`, at `pointer` in `action`'s body, and its
-/// media type; `None` when the run was not given it. V5111 when the path was refused or the file
-/// could not be read.
+/// media type; `None` when the body does not write one there. V5111 when the path holds `${…}`
+/// or was refused, or the file could not be read.
 pub fn file(files: &BodyFiles, (action, pointer): (ActionId, &str), path: &str) -> Result<Option<Read>, Failure> {
-    match files.get(action, pointer) {
-        None => Ok(None),
-        Some(Ok(bytes)) => Ok(Some((bytes.clone(), media_type(path)))),
-        Some(Err(Unread::Refused(why))) => Err(rendering(&format!("the `$file` `{path}` is refused: {why}"))),
-        Some(Err(Unread::Failed(why))) => Err(rendering(&format!("the `$file` `{path}` cannot be read: {why}"))),
-    }
+    let why = match files.get(action, pointer) {
+        None => return Ok(None),
+        Some(Ok(bytes)) => return Ok(Some((bytes.clone(), media_type(path)))),
+        Some(Err(Unread::Refused(why))) => format!("the `$file` `{path}` is refused: {why}"),
+        Some(Err(Unread::Failed(why))) => format!("the `$file` `{path}` cannot be read: {why}"),
+        Some(Err(Unread::Templated)) => {
+            format!(
+                "the `$file` at `{pointer}` cannot hold `${{…}}` references in its path; write it as plain text (D272)"
+            )
+        }
+    };
+    Err(rendering(&why))
 }
 
-/// V5111 for a written `$file` body the engine did not read before the run.
-pub fn not_read(path: &str) -> Failure {
-    rendering(&format!("the `$file` `{path}` was not read before the run (an internal error)"))
+/// V5111 for a written `$file` body the engine did not read before the run: an internal error,
+/// since the engine reads every `$file` the actions a run can send write.
+pub fn not_read((action, pointer): (ActionId, &str), path: &str) -> Failure {
+    let at = action.index();
+    rendering(&format!(
+        "the `$file` `{path}` at `{pointer}` in action {at} was not read before the run (an internal error)"
+    ))
 }
 
 /// The media type of the file at `path`, by its extension in any case.
@@ -84,7 +94,7 @@ mod tests {
     fn a_file_is_its_bytes_and_type_or_says_why_it_was_not_read() {
         let at = |pointer: &str| (ActionId::new(0), pointer.to_owned());
         let files = BodyFiles::new([
-            (at(""), Ok(b"x".to_vec())),
+            (at(""), Ok(Bytes::from_static(b"x"))),
             (at("/refused"), Err(Unread::Refused("it leads out of the project".to_owned()))),
             (at("/gone"), Err(Unread::Failed("no such file".to_owned()))),
         ]);

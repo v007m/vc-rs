@@ -44,7 +44,7 @@ mod units;
 pub use agents::{AgentPolicy, WriteDefinitions};
 pub use alerts::{Alert, AlertChannel, AlertTrigger};
 pub use api::{Api, ApiGroup, ApiSource, BodySpec, PartSpec};
-pub use body_file::{FILE_KEY, MULTIPART, basename, file_path, is_multipart, part_pointer};
+pub use body_file::{FILE_KEY, MULTIPART, basename, file_parts, file_path, is_multipart, part_pointer};
 pub use builder::ProgramBuilder;
 pub use config::{
     AUTH_NEEDS, AuthDef, Config, Dataset, Defaults, GeneratorDef, HttpRetry, LoadScenario, LoadStage, MixEntry,
