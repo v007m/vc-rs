@@ -15,6 +15,8 @@ mod load_tests;
 mod read;
 mod rows;
 #[cfg(test)]
+mod saves_tests;
+#[cfg(test)]
 mod schema_tests;
 mod schemas;
 #[cfg(test)]
