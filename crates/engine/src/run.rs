@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use vc_executor::{
     ActionCx, ActionExecutors, ActionKindTag, CommandExecutor, Defined, EventBus, Executor, ExecutorError, HostLimits,
-    MaskRules, PipelineParts, RuleHooks, RunHandle, RunInputs, RunOptions,
+    MaskRules, PipelineParts, Redactor, RuleHooks, RunHandle, RunInputs, RunOptions,
 };
 use vc_interfaces::{ConfigEntry, HookRunner, Random, RunId, RunStart, RunSummary, Secrets, Transport};
 use vc_model::{ActionId, Feed, Part, RunStatus, Template, TemplateValue, Totals};
@@ -84,7 +84,7 @@ impl Engine {
         prepared: Prepared,
         interrupts: &mut Interrupts,
     ) -> Result<RunReport, EngineError> {
-        let secrets = self.secrets(&prepared.program.config.secrets, &prepared.environment).await?;
+        let (prepared, secrets) = self.secured(prepared).await?;
         let plugins = self.plugin_hosts(&prepared.program, &secrets);
         let heard = plugins.heard();
         let (seed, random, started_ms) = (prepared.draw.seed, Arc::clone(&prepared.draw.random), self.clock.now_ms());
@@ -116,6 +116,22 @@ impl Engine {
         let closed = close(fanout.reporters, closing, (ran, run)).await;
         plugins.shutdown().await;
         closed
+    }
+
+    /// `prepared` with its declared secrets, and with its example-row labels masked by a redactor
+    /// like the one its events go through, so a row `name` holding a secret's value never
+    /// reaches a reporter, the history or a watcher.
+    async fn secured(&self, mut prepared: Prepared) -> Result<(Prepared, Secrets), EngineError> {
+        let program = Arc::clone(&prepared.program);
+        let secrets = self.secrets(&program.config.secrets, &prepared.environment).await?;
+        if !prepared.plan.row_names.is_empty() {
+            let hooks = RuleHooks::new(self.hook_runner(&program), secrets.clone());
+            let rules = MaskRules::standard().with_hooks(hooks, &program).for_config(&program.config);
+            let redactor = Redactor::for_config(&program.config).with_rules(rules);
+            redactor.hide_values(secrets.iter().map(|(_, secret)| secret.expose()));
+            crate::examples::mask_labels(Arc::make_mut(&mut prepared.plan), &redactor).await;
+        }
+        Ok((prepared, secrets))
     }
 
     /// The reporters `request` chooses, the reporter plugins among `plugins`, recording into the

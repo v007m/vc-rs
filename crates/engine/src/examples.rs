@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use serde_json::Value;
 use vc_diagnostics::{Code, Diagnostic};
-use vc_executor::{ExampleRows, RunInputs, RunValues, UnreadVar};
+use vc_executor::{ExampleRows, Redactor, RunInputs, RunValues, UnreadVar};
 use vc_interfaces::Random;
 use vc_model::{Examples, Plan, Program, TemplateValue, Test, TestId};
 use vc_planner::{NO_ROWS, PlanOptions, Selection};
@@ -86,6 +86,15 @@ fn row_name(program: &Program, rendered: &ExampleRows, (test, row): (TestId, u32
         Some(Examples::File(_)) | None => return None,
     };
     (!name.is_empty()).then(|| name.to_owned())
+}
+
+/// Masks each example-row label in `plan` with `redactor`, as the run's events are masked: a row
+/// `name` a template drew from an env var or a dataset holding a secret's value reads `••••` in
+/// every report, the history and the run's JSON.
+pub async fn mask_labels(plan: &mut Plan, redactor: &Redactor) {
+    for name in plan.row_names.values_mut() {
+        *name = redactor.masked_text(name).await;
+    }
 }
 
 /// Whether running `plan` generates data from the run's seed: a `${fake.…}`, or a built-in pipe
