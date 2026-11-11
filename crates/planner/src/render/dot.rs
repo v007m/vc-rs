@@ -37,7 +37,8 @@ pub fn dot(program: &Program, plan: &Plan) -> String {
 }
 
 impl Graph<'_> {
-    /// One file's cluster and its `needs` edges; its stages, in the order they run.
+    /// One file's cluster and its `needs` edges; its stages, in the order they run, for the
+    /// caller to order between `beforeRun` and `afterRun`.
     fn file(&mut self, index: usize, file: &PlannedFile) -> Vec<Stage> {
         let label = quote(super::name(self.program, file.id.sym()));
         let _ = writeln!(self.out, "  subgraph cluster_{index} {{\n    label={label};");
@@ -57,7 +58,6 @@ impl Graph<'_> {
         for instance in &file.instances {
             self.needs(&format!("i{}", instance.id.index()), &instance.needs);
         }
-        self.order(&stages);
         stages.retain(|stage| !stage.is_empty());
         stages
     }
