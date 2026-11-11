@@ -172,7 +172,7 @@ const MORE_CONFIG: &str = "syntaxVersion: 2\nprofiles:\n  - id: dev\n    default
 
 const ORDERS: &str = "baseUrl: http://o\nbeforeRequest:\n  - function: ../../hooks/a.ts#sign\napis:\n  - id: upload\n    method: POST\n    path: /orders\n    body: {$file: data/o.json}\n    afterResponse:\n      - function: hooks/a.ts#log\n  - id: mixed\n    method: POST\n    path: /orders\n    body: {$file: data/o.json, name: x}\n";
 
-const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    timeout: 9s\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n  - id: reusesTheWait\n    headers: {x-t: '1'}\n    expect: {status: 202}\n    steps:\n      - test: waitsForOrder\n        expect: {size: {lt: 1kb}}\n        timeout: 3s\n      - function: hooks/a.ts#check\n";
+const FLOW: &str = "skip: {reason: later, until: 2026-12-01}\ntests:\n  - id: waitsForOrder\n    call: orders#upload\n    skip: flaky\n    timeout: 9s\n    poll:\n      until: {status: 200}\n      every: 2s\n      timeout: 30s\n    expect:\n      body: {equals: {ok: true}}\n      custom:\n        - function: hooks/a.ts#isSorted\n  - id: reusesTheWait\n    headers: {x-t: '1'}\n    expect: {status: 202}\n    steps:\n      - test: waitsForOrder\n        expect: {size: {lt: 1kb}}\n        headers: {x-s: '2'}\n        poll: {until: {status: 200}, every: 1s, timeout: 5s}\n        timeout: 3s\n      - function: hooks/a.ts#check\n";
 
 fn more() -> Arc<Program> {
     let files = vec![
@@ -237,8 +237,12 @@ fn test_and_function_steps_take_none_of_the_tests_defaults() {
     let reuses = test(&program, "orders.flow#reusesTheWait");
     let [reuse, hook] = steps(&program, reuses)[..] else { panic!("two steps") };
     assert!(matches!(reuse.kind, ActionKind::Test(_)));
-    assert!(reuse.headers.is_empty(), "D270: a `test:` step runs the reused test as written");
-    assert_eq!(checks(reuse), [(CheckKind::Size, 20, 's')], "only its own, which V3207 reports");
+    let sent = (reuse.headers.is_empty(), checks(reuse).is_empty(), reuse.poll.is_none());
+    assert_eq!(
+        sent,
+        (true, true, true),
+        "D270: a `test:` step runs the reused test as written; V3207 reports its keys"
+    );
     assert_eq!((reuse.timeout, hook.timeout), (Some(seconds(3)), None));
     assert!(hook.headers.is_empty() && hook.expect.checks.is_empty());
 }

@@ -70,6 +70,22 @@ fn unit_with(body: &str) -> FileUnit {
 }
 
 #[test]
+fn names_the_default_timeout_only_for_a_timeout_it_sets() {
+    let help = |body: &str| {
+        let unit = unit_with(body);
+        assert_eq!(codes(&unit.diagnostics), vec![Code::V2301; body.matches("${").count()], "{:?}", unit.diagnostics);
+        unit.diagnostics.iter().flat_map(|found| found.help.clone()).collect::<Vec<_>>()
+    };
+    let timeout = help("    timeout: ${var.wait}\n");
+    assert!(timeout.iter().all(|help| help.contains("--set defaults.timeout=10s")), "{timeout:?}");
+    let polled = help("    poll:\n      until: {status: 200}\n      every: ${var.wait}\n      timeout: ${var.wait}\n");
+    let retried = help("    retry:\n      attempts: 2\n      delay: ${var.wait}\n");
+    for help in polled.iter().chain(&retried) {
+        assert_eq!(help, "write it out, such as `2s`");
+    }
+}
+
+#[test]
 fn checks_matcher_arguments() {
     let ok = unit_with(
         "    expect:\n      body:\n        match:\n          id: {type: string, length: {gt: 3}}\n          tags: {every: {in: [a, b]}}\n          n: {between: [1, 5], not: {eq: 3}}\n          s: {regex: '^a+$', anyOf: [x, {startsWith: y}]}\n",

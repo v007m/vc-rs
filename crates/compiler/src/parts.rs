@@ -86,7 +86,9 @@ pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan
     let mut pieces = IndexMap::new();
     for leaf in &walk.leaves {
         let Some(node) = shape_check::at(root, &leaf.path) else { continue };
-        if let Some(piece) = piece(cx, At { node, scope: leaf.scope }, leaf) {
+        let at = At { node, scope: leaf.scope };
+        let timeout = leaf.ty == LeafTy::Duration && is_timeout(root, &leaf.path);
+        if let Some(piece) = if timeout { unit(cx, at, &TIMEOUT) } else { piece(cx, at, leaf) } {
             pieces.insert(node.span, piece);
         }
     }
@@ -116,8 +118,15 @@ struct UnitKind {
 
 const DURATION: UnitKind = UnitKind {
     name: "duration",
-    help: "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`",
+    help: "write it out, such as `2s`",
     parse: |text, span| vc_template::parse_duration(text, span).map(Piece::Duration),
+};
+
+/// A `timeout:` other than a poll's: the one `defaults.timeout` sets per run.
+const TIMEOUT: UnitKind = UnitKind {
+    name: "duration",
+    help: "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`",
+    parse: DURATION.parse,
 };
 
 const SIZE: UnitKind = UnitKind {
@@ -136,6 +145,20 @@ fn unit(cx: &mut Cx<'_>, at: At<'_>, kind: &UnitKind) -> Option<Piece> {
         return None;
     }
     cx.check((kind.parse)(text, at.node.span))
+}
+
+/// Whether the leaf at `path` is a `timeout:` that `defaults.timeout` stands in for: any but a
+/// `poll`'s, which bounds the polling, not one request.
+fn is_timeout(root: &Node, path: &[usize]) -> bool {
+    let Some((&last, parent)) = path.split_last() else { return false };
+    let in_poll = parent.split_last().is_some_and(|(&at, above)| key(root, above, at) == Some("poll"));
+    key(root, parent, last) == Some("timeout") && !in_poll
+}
+
+/// The key of entry `index` of the map at `path`.
+fn key<'n>(root: &'n Node, path: &[usize], index: usize) -> Option<&'n str> {
+    let Value::Map(entries) = &shape_check::at(root, path)?.value else { return None };
+    entries.get(index).map(|entry| entry.key.as_str())
 }
 
 fn templated(span: SourceSpan, text: &str, kind: &UnitKind) -> Diagnostic {
