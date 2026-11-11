@@ -24,7 +24,7 @@ ending in `.ts`, `.mts`, `.js` or `.mjs` is V2008 too.
 
 ## Wrong
 
-```yaml wrong title="services/orders/orders.api.yaml"
+```yaml wrong V2008 title="services/orders/orders.api.yaml"
 beforeRequest:
   - function: ../../hooks/sign.ts#sign
 apis:
@@ -32,7 +32,7 @@ apis:
     path: /orders
 ```
 
-```ts wrong title="hooks/sign.ts"
+```ts wrong V2008 title="hooks/sign.ts"
 import { createHmac } from "node:crypto";
 
 export function sign() {

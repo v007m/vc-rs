@@ -561,6 +561,16 @@ fn a_wrong_example_that_names_its_code_must_report_it() -> Outcome<()> {
 }
 
 #[test]
+fn a_named_code_counts_as_a_warning_but_a_bare_wrong_needs_an_error() -> Outcome<()> {
+    let expired = "tests:\n  - id: getsIt\n    call: a#x\n    skip:\n      reason: flaky\n      until: 2026-01-31\n";
+    let page = |info: &str| format!("```yaml {info} title=\"services/a/a.test.yaml\"\n{expired}```\n");
+    let (_, problems) = read("p", &page("wrong V3104"))?;
+    assert!(problems.is_empty(), "the V3104 warning is the named code: {problems:?}");
+    assert!(has_no_error(&page("wrong"))?, "a warning is not an error");
+    Ok(())
+}
+
+#[test]
 fn a_wrong_example_reads_the_pages_secret_schema() -> Outcome<()> {
     let schema = "```dotenv title=\".env.schema\"\nAPI_TOKEN=\n```\n";
     let api = |name: &str| {

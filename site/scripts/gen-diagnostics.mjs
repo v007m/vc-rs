@@ -31,6 +31,16 @@ const CATEGORIES = {
   5: { range: 'V5xxx', name: 'Run time', blurb: 'what went wrong while a test, hook or plugin ran' },
 };
 
+/** A V1–V3 code is reported by `vc check`, so `explain.rs` holds its wrong example to it. */
+const checked = (code) => '123'.includes(code[1]);
+
+/**
+ * The info words that mark a block of a V1–V3 wrong example for the docs check
+ * (`crates/engine/tests/docs_examples.rs`): `wrong <code>` keeps it out of the page's project
+ * and makes the example report that code.
+ */
+const wrongTag = (code) => (checked(code) ? ` wrong ${code}` : '');
+
 const readIf = (file) => (existsSync(file) ? readFileSync(file, 'utf8') : '');
 
 /** Severity per code from the Rust code table: `V1001 = 1001, Error, "…";`. */
@@ -69,9 +79,12 @@ function firstSentence(prose) {
   return m ? m[1] : text;
 }
 
-/** Turns a fenced block whose first line is `# file: <path>` into a titled code block. */
-function convertFence(lines, start) {
-  const lang = lines[start].slice(3).trim() || 'yaml';
+/**
+ * Turns a fenced block whose first line is `# file: <path>` into a titled code block, its info
+ * string kept and `tag` added after it.
+ */
+function convertFence(lines, start, tag) {
+  const lang = (lines[start].slice(3).trim() || 'yaml') + tag;
   let end = start + 1;
   while (end < lines.length && !lines[end].startsWith('```')) end += 1;
   let body = lines.slice(start + 1, end);
@@ -93,6 +106,7 @@ function parsePage(source) {
   const body = [];
   let i = 1;
   let inSections = false;
+  let section = '';
   let paragraph = [];
   // Prose is escaped a paragraph at a time, since an inline code span can wrap a line.
   const flush = () => {
@@ -103,12 +117,15 @@ function parsePage(source) {
     const line = lines[i];
     if (line.startsWith('```')) {
       flush();
-      const fence = convertFence(lines, i);
+      const fence = convertFence(lines, i, section === 'Wrong' ? wrongTag(head[1]) : '');
       body.push(fence.text);
       i = fence.next;
       continue;
     }
-    if (/^## /.test(line)) inSections = true;
+    if (/^## /.test(line)) {
+      inSections = true;
+      section = line.slice(3).trim();
+    }
     if (!inSections && line.trim()) prose.push(line);
     if (line.startsWith('#') || !line.trim()) {
       flush();
@@ -137,9 +154,10 @@ function factsTable(page, severity, lld) {
   return ['| | |', '| --- | --- |', ...rows.map(([k, v]) => `| ${k} | ${v} |`)].join('\n');
 }
 
-function seenInPractice(example) {
+function seenInPractice(code, example) {
   if (!example) return '';
-  const files = example.files.map((f) => ['```' + f.lang + ` title="${f.path}"`, f.code, '```'].join('\n'));
+  const tag = example.output.includes(code) ? wrongTag(code) : '';
+  const files = example.files.map((f) => ['```' + f.lang + tag + ` title="${f.path}"`, f.code, '```'].join('\n'));
   return [
     '## Seen in practice',
     '',
@@ -178,7 +196,7 @@ function renderPage(page, severity, lld, example) {
     '',
     page.body,
     '',
-    seenInPractice(example),
+    seenInPractice(page.code, example),
     '## Explain it in your terminal',
     '',
     'The same page is built into the binary, so this works anywhere, even outside a project:',

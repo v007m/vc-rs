@@ -22,7 +22,7 @@ value's type is known: a var every profile sets to a literal of one type.
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2304 title="services/users/users.api.yaml"
 vars:
   limit: 10
   region: eu
@@ -33,7 +33,7 @@ apis:
       limit: ${var.limit | upper}
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml wrong V2304 title="services/users/crud.test.yaml"
 tests:
   - id: listsUsers
     call: users#listUsers
