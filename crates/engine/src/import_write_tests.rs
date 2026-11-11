@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use serde_json::json;
-use vc_interfaces::{DraftApi, DraftGroup, DraftTest, ImportDraft, ImportNote};
+use vc_interfaces::{
+    DraftApi, DraftBefore, DraftCleanup, DraftExample, DraftGroup, DraftTest, ImportDraft, ImportNote,
+};
 use vc_model::{FileKind, Method};
 use vc_testkit::{FakeVcs, MemorySources};
 
@@ -34,6 +36,12 @@ apis:
       content-type: application/x-www-form-urlencoded
     body:
       name: ${var.name}
+    save:
+      petId: ${response.body.id}
+    cleanup:
+      call: remove
+      vars:
+        petId: ${response.body.id}
     operationId: createPet
 ";
 
@@ -41,16 +49,36 @@ const TESTS: &str = "id: pets.openapi
 
 tests:
   - id: listsPets
-    name: List returns 200
+    name: List
+    before:
+      - call: pets#create
+        keep: true
     call: pets#list
     expect:
       status: 200
-  - id: rejectsCreateWithoutAuth
-    name: Create a pet without auth returns 401
+      body:
+        schema:
+          $file: ../../openapi/pets.yaml#/components/schemas/Pet
+  - id: rejectsInvalidCreate
+    name: \"Create a pet: rejects an invalid body\"
     call: pets#create
-    auth: none
+    examples:
+      - name: name missing
+        body: {}
+      - name: name is not a string
+        body:
+          name: 123
+    body: ${example.body}
+    expect:
+      status: 400
+  - id: rejectsCreateWithoutAuth
+    name: \"Create a pet: needs a signed-in caller\"
+    call: pets#create
+    skip:
+      reason: \"needs an existing pet: set vars.petId to one\"
     vars:
       name: null
+    auth: none
     expect:
       status: 401
 ";
@@ -71,22 +99,12 @@ fn group(tests: bool) -> DraftGroup {
         body: Some(json!({ "name": "${var.name}" })),
         content_type: Some("application/x-www-form-urlencoded".to_owned()),
         operation_id: Some("createPet".to_owned()),
+        save: std::iter::once(("petId".to_owned(), "${response.body.id}".to_owned())).collect(),
+        cleanup: Some(DraftCleanup {
+            call: "remove".to_owned(),
+            vars: std::iter::once(("petId".to_owned(), "${response.body.id}".to_owned())).collect(),
+        }),
         ..DraftApi::default()
-    };
-    let ok = DraftTest {
-        id: "listsPets".to_owned(),
-        name: "List returns 200".to_owned(),
-        call: "pets#list".to_owned(),
-        status: 200,
-        ..DraftTest::default()
-    };
-    let no_auth = DraftTest {
-        id: "rejectsCreateWithoutAuth".to_owned(),
-        name: "Create a pet without auth returns 401".to_owned(),
-        call: "pets#create".to_owned(),
-        vars: std::iter::once(("name".to_owned(), json!(null))).collect(),
-        no_auth: true,
-        status: 401,
     };
     DraftGroup {
         file_id: "pets".to_owned(),
@@ -94,8 +112,41 @@ fn group(tests: bool) -> DraftGroup {
         base_url: Some("${var.draftUrl}/v1".to_owned()),
         config_vars: std::iter::once(("draftUrl".to_owned(), json!("https://pets.test"))).collect(),
         apis: vec![list, create],
-        tests: if tests { vec![ok, no_auth] } else { Vec::new() },
+        tests: if tests { drafted_tests() } else { Vec::new() },
     }
+}
+
+fn drafted_tests() -> Vec<DraftTest> {
+    let ok = DraftTest {
+        id: "listsPets".to_owned(),
+        name: "List".to_owned(),
+        before: vec![DraftBefore { call: "pets#create".to_owned(), keep: true }],
+        call: "pets#list".to_owned(),
+        status: 200,
+        schema: Some("/components/schemas/Pet".to_owned()),
+        ..DraftTest::default()
+    };
+    let row = |name: &str, body| DraftExample { name: name.to_owned(), body };
+    let negative = DraftTest {
+        id: "rejectsInvalidCreate".to_owned(),
+        name: "Create a pet: rejects an invalid body".to_owned(),
+        call: "pets#create".to_owned(),
+        body: Some(json!("${example.body}")),
+        examples: vec![row("name missing", json!({})), row("name is not a string", json!({ "name": 123 }))],
+        status: 400,
+        ..DraftTest::default()
+    };
+    let no_auth = DraftTest {
+        id: "rejectsCreateWithoutAuth".to_owned(),
+        name: "Create a pet: needs a signed-in caller".to_owned(),
+        skip: Some("needs an existing pet: set vars.petId to one".to_owned()),
+        call: "pets#create".to_owned(),
+        vars: std::iter::once(("name".to_owned(), json!(null))).collect(),
+        no_auth: true,
+        status: 401,
+        ..DraftTest::default()
+    };
+    vec![ok, negative, no_auth]
 }
 
 fn draft(tests: bool) -> ImportDraft {
