@@ -38,16 +38,25 @@ impl LoneKeys {
         }
         let diagnostic = Diagnostic::new(self.code(), entry.key_span, "`parallel` on an action that does not loop");
         let diagnostic = diagnostic.label("needs `repeat` or `forEach`");
-        Some(diagnostic.help("`parallel` sets how many iterations run at a time: add `repeat: 10` or `forEach`, or remove `parallel`"))
+        Some(diagnostic.help(
+            "`parallel` sets how many iterations run at a time: add `repeat: 10` or `forEach`, or remove `parallel`",
+        ))
     }
 
     /// The `abortOn` metrics that neither the scenario's nor a mix test's `thresholds` name.
     fn abort_on(&self, source: &Source<'_>) -> Vec<Diagnostic> {
         let root = source.root;
         let holders = std::iter::once(root).chain(link::list(root, "mix"));
-        let named: Vec<&str> = holders.filter_map(|holder| holder.get("thresholds")).flat_map(Node::entries).map(|entry| entry.key.as_str()).collect();
+        let named: Vec<&str> = holders
+            .filter_map(|holder| holder.get("thresholds"))
+            .flat_map(Node::entries)
+            .map(|entry| entry.key.as_str())
+            .collect();
         let metrics = link::list(root, "abortOn").iter().filter_map(|node| Some((node, node.as_str()?)));
-        metrics.filter(|(_, metric)| !named.contains(metric)).map(|(node, metric)| self.unthresholded(node, metric)).collect()
+        metrics
+            .filter(|(_, metric)| !named.contains(metric))
+            .map(|(node, metric)| self.unthresholded(node, metric))
+            .collect()
     }
 
     fn unthresholded(&self, node: &Node, metric: &str) -> Diagnostic {
@@ -55,6 +64,8 @@ impl LoneKeys {
         Diagnostic::new(self.code(), node.span, message)
             .label("never breached")
             .note("a run stops early only when a threshold on the metric is breached")
-            .help(format!("add a threshold such as `thresholds: {{{metric}: {{lt: …}}}}`, or remove `{metric}` from `abortOn`"))
+            .help(format!(
+                "add a threshold such as `thresholds: {{{metric}: {{lt: …}}}}`, or remove `{metric}` from `abortOn`"
+            ))
     }
 }

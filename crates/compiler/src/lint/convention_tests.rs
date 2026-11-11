@@ -75,7 +75,10 @@ fn a_test_id_that_is_not_a_third_person_verb_is_renamed_from_its_name_or_conjuga
         "  - id: getsUser\n    call: users#get\n",
     );
     let compiled = crate::compile(CompileInput {
-        files: [CONFIG, USERS, ("services/users/crud.test.yaml", tests)].iter().map(|(path, text)| file(path, text)).collect(),
+        files: [CONFIG, USERS, ("services/users/crud.test.yaml", tests)]
+            .iter()
+            .map(|(path, text)| file(path, text))
+            .collect(),
         ..CompileInput::default()
     });
     let warnings: Vec<(&str, Option<bool>)> = compiled
