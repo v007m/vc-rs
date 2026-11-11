@@ -15,7 +15,8 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
-  # PRs only build the site, so a broken page fails before merge; only master deploys.
+  # PRs only build the site, so a broken page fails before merge; only master deploys. A PR that
+  # changes any crate also checks that the playground still compiles for wasm (check-wasm).
   pull_request:
     paths:
       - 'site/**'
@@ -23,9 +24,10 @@ on:
       - 'skills/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/pages.yml'
-      - 'crates/browser/**'
-      - 'crates/apps/demo/**'
+      - 'crates/**'
+      - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'rust-toolchain.toml'
   workflow_dispatch:
 
 permissions:
@@ -36,7 +38,56 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # What a PR touches: the site and its runner (build), or only the engine (check-wasm).
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      site: ${{ steps.filter.outputs.site }}
+      engine: ${{ steps.filter.outputs.engine }}
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            site:
+              - 'site/**'
+              - 'schema/**'
+              - 'skills/**'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/pages.yml'
+              - 'crates/browser/**'
+              - 'crates/apps/demo/**'
+              - 'Cargo.lock'
+            engine:
+              - 'crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - '.github/workflows/pages.yml'
+
+  # The cheap PR check (D293): the playground's composition root still compiles for
+  # wasm32-wasip1 after an engine change. No module build and no e2e; build does those.
+  check-wasm:
+    needs: changes
+    if: needs.changes.outputs.engine == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - run: rustup target add wasm32-wasip1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: wasm-check
+      - run: cargo check --locked --target wasm32-wasip1 -p vc-browser
+
   build:
+    needs: changes
+    # On master `changes` is skipped, so build runs; on a PR only when the site or its runner changes.
+    if: ${{ !failure() && !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.site == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -83,7 +134,8 @@ jobs:
           path: site/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    # The skipped `changes` would skip this too without the status check.
+    if: ${{ !failure() && !cancelled() && github.event_name != 'pull_request' && needs.build.result == 'success' }}
     needs: build
     runs-on: ubuntu-latest
     permissions:
