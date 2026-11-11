@@ -15,7 +15,7 @@ use vc_adapter_system::SystemEnvironment;
 use vc_executor::{MaskRules, Redactor, RuleHooks};
 use vc_interfaces::{
     AgentAction, AgentActionLog, Approval, ApprovalError, ApprovalId, ApprovalRequest, ApprovalStatus, Approvals,
-    Decision, LoggedAction, Secrets, Verdict,
+    Decided, Decision, LoggedAction, Secrets, Verdict,
 };
 use vc_model::Program;
 
@@ -106,13 +106,13 @@ impl Engine {
     }
 
     /// Records the user's verdict on request `id`; `always-allow` also keeps a standing rule
-    /// for its profiles, tool and methods.
+    /// for its profiles, tool and methods, which the result names.
     ///
     /// # Errors
     ///
     /// [`EngineError::History`] when there is no request `id`, it is decided already, or the
     /// queue cannot be written.
-    pub fn approvals_decide(&self, id: ApprovalId, verdict: Verdict) -> Result<ApprovalStatus, EngineError> {
+    pub fn approvals_decide(&self, id: ApprovalId, verdict: Verdict) -> Result<Decided, EngineError> {
         let decision = Decision { id, verdict, by: self.person() };
         self.approval_queue().decide(&decision).map_err(|error| store_error(&error))
     }

@@ -9,7 +9,7 @@ use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tokio::time::Instant;
 use vc_interfaces::{
     AgentAction, AgentActionReader, AgentActionWriter, Approval, ApprovalError, ApprovalId, ApprovalRequest,
-    ApprovalStatus, Approvals, Decision, LoggedAction, StandingRule, Verdict,
+    ApprovalStatus, Approvals, Decided, Decision, LoggedAction, StandingRule, Verdict,
 };
 use vc_model::Method;
 
@@ -169,7 +169,7 @@ impl Approvals for SqliteApprovals {
         })
     }
 
-    fn decide(&self, decision: &Decision) -> Result<ApprovalStatus, ApprovalError> {
+    fn decide(&self, decision: &Decision) -> Result<Decided, ApprovalError> {
         let mut connection = schema::open_for_writing(&self.path).map_err(|error| self.failed(&error))?;
         let transaction = connection.transaction().map_err(|error| self.failed(&error))?;
         let found = standing(&transaction, decision.id).map_err(|error| self.failed(&error))?;
@@ -177,7 +177,7 @@ impl Approvals for SqliteApprovals {
         if status != "pending" {
             return Err(ApprovalError::Decided { id: decision.id });
         }
-        let decided = settle(&transaction, decision, &rule).and_then(|status| transaction.commit().map(|()| status));
+        let decided = settle(&transaction, decision, rule).and_then(|decided| transaction.commit().map(|()| decided));
         decided.map_err(|error| self.failed(&error))
     }
 
@@ -240,7 +240,7 @@ fn status_of(connection: &Connection, id: ApprovalId) -> rusqlite::Result<Option
 struct Covered {
     profile: String,
     tool: String,
-    methods: Vec<String>,
+    methods: Vec<Method>,
 }
 
 /// The status of request `id` and what an always-allow would cover, when there is one.
@@ -248,15 +248,14 @@ fn standing(transaction: &Transaction<'_>, id: ApprovalId) -> rusqlite::Result<O
     let sql = "SELECT status, profile, tool, methods FROM approvals WHERE id = ?1";
     transaction
         .query_row(sql, [id.get()], |row| {
-            let methods: String = row.get(3)?;
-            let covered = Covered { profile: row.get(1)?, tool: row.get(2)?, methods: from_json(3, &methods)? };
+            let covered = Covered { profile: row.get(1)?, tool: row.get(2)?, methods: methods(row, 3)? };
             Ok((row.get(0)?, covered))
         })
         .optional()
 }
 
-/// Records `decision`, and for an always-allow a standing rule per method.
-fn settle(transaction: &Transaction<'_>, decision: &Decision, covered: &Covered) -> rusqlite::Result<ApprovalStatus> {
+/// Records `decision`, and for an always-allow a standing rule per method, which it names.
+fn settle(transaction: &Transaction<'_>, decision: &Decision, covered: Covered) -> rusqlite::Result<Decided> {
     let status = match decision.verdict {
         Verdict::Approve | Verdict::AlwaysAllow => ApprovalStatus::Approved,
         Verdict::Deny => ApprovalStatus::Denied,
@@ -269,18 +268,16 @@ fn settle(transaction: &Transaction<'_>, decision: &Decision, covered: &Covered)
              VALUES (?1, ?2, ?3, ?4, ?5)",
         )?;
         for method in &covered.methods {
-            add.execute(params![&covered.profile, &covered.tool, method, now_ms(), &decision.by])?;
+            add.execute(params![&covered.profile, &covered.tool, method.name(), now_ms(), &decision.by])?;
         }
+        return Ok(Decided { status, kept: covered.methods });
     }
-    Ok(status)
+    Ok(Decided { status, kept: Vec::new() })
 }
 
 /// One request, read from [`COLUMNS`].
 fn approval(row: &SqlRow<'_>) -> rusqlite::Result<Approval> {
-    let methods: String = row.get(5)?;
-    let methods: Vec<String> = from_json(5, &methods)?;
-    let methods =
-        methods.iter().map(|name| Method::named(name).ok_or_else(|| unreadable(5, name))).collect::<Result<_, _>>()?;
+    let methods = methods(row, 5)?;
     let text: String = row.get(8)?;
     let request = ApprovalRequest {
         agent: row.get(2)?,
@@ -312,6 +309,13 @@ fn status(text: &str) -> Option<ApprovalStatus> {
 
 fn status_text(status: ApprovalStatus) -> &'static str {
     STATUSES.iter().find(|(known, _)| *known == status).map_or("pending", |(_, text)| text)
+}
+
+/// The methods in column `index`, a JSON list of their names.
+fn methods(row: &SqlRow<'_>, index: usize) -> rusqlite::Result<Vec<Method>> {
+    let text: String = row.get(index)?;
+    let names: Vec<String> = from_json(index, &text)?;
+    names.iter().map(|name| Method::named(name).ok_or_else(|| unreadable(index, name))).collect()
 }
 
 fn method_names(methods: &[Method]) -> Vec<&'static str> {

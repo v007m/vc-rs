@@ -77,7 +77,7 @@ async fn a_decision_from_another_process_ends_the_wait_at_once() {
     let person = agent.clone();
     let decided = std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(100));
-        person.decide(&Decision { id, verdict: Verdict::Approve, by: "sam".into() })
+        person.decide(&Decision { id, verdict: Verdict::Approve, by: "sam".into() }).map(|decided| decided.status)
     });
     let started = Instant::now();
     assert_eq!(agent.wait(id, Duration::from_secs(30)).await, Ok(ApprovalStatus::Approved));
@@ -109,7 +109,7 @@ fn a_decision_ends_the_wait_while_its_watcher_is_still_starting() {
     let person = agent.clone();
     let decided = std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(100));
-        person.decide(&Decision { id, verdict: Verdict::Approve, by: "sam".into() })
+        person.decide(&Decision { id, verdict: Verdict::Approve, by: "sam".into() }).map(|decided| decided.status)
     });
     let slow = |_: UnboundedSender<()>| {
         std::thread::sleep(SLOW_WATCH);

@@ -1278,7 +1278,7 @@ Decisions are made in the web UI's AI agents page, or with `vc approvals` / `vc 
 
 The engine reaches the queue and the log through two `vc-interfaces` ports. `vc_adapter_store::SqliteApprovals` implements both over `history.db` (its migration 2 holds the tables): each call opens its own connection, so every process on the project shares one queue, and a wait wakes on file events in the database's folder and looks again every second in case one was missed. A wait looks on one connection it keeps, because a connection opened per look makes and removes the WAL files each time, and their file events would wake it again at once. It makes its watcher on a blocking thread and looks every second meanwhile, since starting a watch can take seconds while the OS's file event service is busy (macOS FSEvents took 0.5 to 1.6s alone, and 20s in a full gates run). `vc_testkit::MemoryApprovals` implements both in memory and runs `approvals_suite` and `agent_action_writer_suite`:
 
-- `Approvals`: `list(pending_only)`, `get(id)`, `create(ApprovalRequest)`, `decide(Decision)`, `wait(id, timeout)` and `always_allowed(StandingRule)`.
+- `Approvals`: `list(pending_only)`, `get(id)`, `create(ApprovalRequest)`, `decide(Decision)` (it gives a `Decided`: the status, and the methods an always-allow kept a rule for, which `vc approve --always` prints), `wait(id, timeout)` and `always_allowed(StandingRule)`.
   - An `ApprovalRequest` holds the agent, the tool, the profile, the methods that need approval, a one-line summary and the redacted arguments.
   - A `Decision` holds an `ApprovalId`, a `Verdict` (`Approve`, `AlwaysAllow` or `Deny`) and who decided.
   - `AlwaysAllow` stores a `StandingRule` for each profile, tool and method.

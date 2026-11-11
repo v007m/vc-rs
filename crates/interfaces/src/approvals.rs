@@ -38,13 +38,13 @@ pub trait Approvals: Send + Sync {
     fn create(&self, request: &ApprovalRequest) -> Result<ApprovalId, ApprovalError>;
 
     /// Records a person's decision. [`Verdict::AlwaysAllow`] also stores a standing rule for the
-    /// request's profile, tool and each of its methods.
+    /// request's profile, tool and each of its methods, which the result names.
     ///
     /// # Errors
     ///
     /// [`ApprovalError::Unknown`] for an ID not in the queue, [`ApprovalError::Decided`] for a
     /// request no longer pending.
-    fn decide(&self, decision: &Decision) -> Result<ApprovalStatus, ApprovalError>;
+    fn decide(&self, decision: &Decision) -> Result<Decided, ApprovalError>;
 
     /// Waits until the request is decided, at most `timeout`; it is then expired. The store wakes
     /// on changes to its file, so a decision from another process ends the wait at once.
@@ -167,6 +167,20 @@ pub struct Decision {
     pub verdict: Verdict,
     /// Who answered: the OS user for `vc approve`, the web UI's user otherwise.
     pub by: String,
+}
+
+/// What recording a decision did.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "built or matched in other crates, shared across the workspace; every user is in this repo (D160)"
+)]
+pub struct Decided {
+    /// Where the request stands now.
+    pub status: ApprovalStatus,
+    /// The methods a standing rule was kept for: those of an always-allowed request, and none
+    /// for any other verdict.
+    pub kept: Vec<Method>,
 }
 
 /// The answer itself.

@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::Path;
 
 use clap::Args;
-use vc_engine::{Approval, ApprovalId, ApprovalStatus, Engine, Method, Verdict};
+use vc_engine::{Approval, ApprovalId, ApprovalStatus, Method, Verdict};
 
 use crate::stdout;
 use crate::{Outcome, project};
@@ -43,8 +43,9 @@ pub fn list(args: &ApprovalsArgs, project: Option<&Path>) -> anyhow::Result<Outc
             Outcome::Done
         }
         Ok(approvals) => {
+            let mut out = stdout::out();
             for approval in &approvals {
-                writeln!(stdout::out(), "{}", row(approval, args.all))?;
+                writeln!(out, "{}", row(approval, args.all))?;
             }
             Outcome::Done
         }
@@ -63,10 +64,9 @@ pub fn approve(args: &ApproveArgs, project: Option<&Path>) -> anyhow::Result<Out
         (_, true) => Verdict::Deny,
         _ => Verdict::Approve,
     };
-    let kept = if args.always { methods(&located.engine, args.id) } else { Vec::new() };
     Ok(match located.engine.approvals_decide(ApprovalId::new(args.id), verdict) {
-        Ok(_) => {
-            writeln!(stdout::out(), "{}", decided(args.id, verdict, &kept))?;
+        Ok(done) => {
+            writeln!(stdout::out(), "{}", decided(args.id, verdict, &done.kept))?;
             Outcome::Done
         }
         Err(error) => Outcome::Engine(error),
@@ -88,17 +88,6 @@ const fn status(status: ApprovalStatus) -> &'static str {
         ApprovalStatus::Denied => "denied",
         ApprovalStatus::Expired => "expired",
     }
-}
-
-/// The methods waiting request `id` asks for: what an always-allow of it keeps a rule for. None
-/// when it is not waiting, which deciding it then reports.
-fn methods(engine: &Engine, id: u64) -> Vec<Method> {
-    let waiting = engine.approvals_list(true).unwrap_or_default();
-    waiting
-        .into_iter()
-        .find(|approval| approval.id.get() == id)
-        .map(|approval| approval.request.methods)
-        .unwrap_or_default()
 }
 
 /// What deciding request `id` did; `kept`, the methods an always-allow kept a rule for. A request

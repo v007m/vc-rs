@@ -152,7 +152,7 @@ pub use vc_diagnostics::{
     Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, JsonRenderer, Label, Render, Severity, Summary, TextRenderer,
 };
 pub use vc_interfaces::{
-    AgentAction, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, ExchangeRow, LoggedAction,
+    AgentAction, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, Decided, ExchangeRow, LoggedAction,
     PluginKind, PluginManifest, PluginPermissions, PluginStderr, RunId, RunRow, RunStart, TestRow, TestTrend, Verdict,
 };
 pub use vc_model::{
