@@ -204,14 +204,14 @@ A **test** calls an api by its ID and states what it expects. Tests live next to
    $ vc run
    plan  2 tests in 1 file · profile default
 
-   ✓ users.accounts#listsSeedUsers                                   8ms
-   ✓ users.accounts#createsUser                                      9ms
+   ✓ users.accounts#listsSeedUsers — Lists the two seed users        4ms
+   ✓ users.accounts#createsUser — Creates a user with the given email    7ms
 
-   2 passed                                                     13ms · profile default
+   2 passed                                                     9ms · profile default
    reports  /home/you/shop/.vibranium/reports/1/{ctrf.json,junit.xml,index.html}
    ```
 
-   Tests run in parallel, so the order changes from run to run. Open `index.html` in a browser for the full report.
+   Each line shows the test's ID, then its `name`. Tests run in parallel, so the order changes from run to run. Open `index.html` in a browser for the full report.
 </Steps>
 
 Here is what happened when `createsUser` ran:
@@ -269,21 +269,21 @@ Mistakes are easier to fix when you have seen what they look like. Make two.
    $ vc run
    plan  2 tests in 1 file · profile default
 
-   ✕ users.accounts#listsSeedUsers                                   2ms
+   ✕ users.accounts#listsSeedUsers — Lists the two seed users        2ms
      error[V5101]: expect.body.match.[1].name
        --> services/users/accounts.test.yaml:10:23
         |
      10 |           "[1].name": Grace Hoper
         |                       ^^^^^^^^^^^ expected "Grace Hoper", got "Grace Hopper"
-   ✓ users.accounts#createsUser                                      2ms
+   ✓ users.accounts#createsUser — Creates a user with the given email    3ms
 
-   1 passed · 1 failed                                          3ms · profile default
+   1 passed · 1 failed                                          7ms · profile default
    reports  /home/you/shop/.vibranium/reports/2/{ctrf.json,junit.xml,index.html}
    next     vc run --failed
-   seed 8695405704752789749: pass `--seed 8695405704752789749` to run with the same generated data
+   seed 5032002959074185: pass `--seed 5032002959074185` to run with the same generated data
    ```
 
-   A failed check points at the YAML line that made it and shows what it expected and what came back. The run exits with code 1, which fails a CI job. The `seed` line lets you replay the same fake data.
+   A failed check points at the YAML line that made it and shows what it expected and what came back. The run exits with code 1, which fails a CI job. This run made up a name for `createsUser` with `${fake.person.fullName}`, so it also prints its `seed`: pass it back to replay the same fake data.
 
 3. **Fix it and rerun only what failed.** Change the name back to `Grace Hopper`:
 
@@ -291,9 +291,10 @@ Mistakes are easier to fix when you have seen what they look like. Make two.
    $ vc run --failed
    plan  1 test in 1 file · profile default
 
-   ✓ users.accounts#listsSeedUsers                                   1ms
+   ✓ users.accounts#listsSeedUsers — Lists the two seed users        3ms
 
-   1 passed                                                     2ms · profile default
+   1 passed                                                     4ms · profile default
+   reports  /home/you/shop/.vibranium/reports/3/{ctrf.json,junit.xml,index.html}
    ```
 </Steps>
 
@@ -327,7 +328,7 @@ The same tests can run against another server. [JSONPlaceholder](https://jsonpla
    $ vc run users.accounts#listsSeedUsers --profile public
    plan  1 test in 1 file · profile public
 
-   ✕ users.accounts#listsSeedUsers                                  25ms
+   ✕ users.accounts#listsSeedUsers — Lists the two seed users       31ms
      error[V5101]: expect.body.match.[0].name
       --> services/users/accounts.test.yaml:9:23
        |
@@ -339,7 +340,9 @@ The same tests can run against another server. [JSONPlaceholder](https://jsonpla
      10 |           "[1].name": Grace Hopper
         |                       ^^^^^^^^^^^^ expected "Grace Hopper", got "Ervin Howell"
 
-   0 passed · 1 failed                                          29ms · profile public
+   0 passed · 1 failed                                          38ms · profile public
+   reports  /home/you/shop/.vibranium/reports/4/{ctrf.json,junit.xml,index.html}
+   next     vc run --failed
    ```
 
 3. **Move the expected names into vars.** A test file can have its own `vars`, and its own `profiles` list that overrides them. Change the top of `accounts.test.yaml` and the first test to this:
@@ -383,16 +386,18 @@ The same tests can run against another server. [JSONPlaceholder](https://jsonpla
    $ vc run users.accounts#listsSeedUsers --profile public
    plan  1 test in 1 file · profile public
 
-   ✓ users.accounts#listsSeedUsers                                  37ms
+   ✓ users.accounts#listsSeedUsers — Lists the two seed users       28ms
 
-   1 passed                                                     40ms · profile public
+   1 passed                                                     30ms · profile public
+   reports  /home/you/shop/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
 
    $ vc run users.accounts#listsSeedUsers
    plan  1 test in 1 file · profile default
 
-   ✓ users.accounts#listsSeedUsers                                   2ms
+   ✓ users.accounts#listsSeedUsers — Lists the two seed users        3ms
 
-   1 passed                                                      3ms · profile default
+   1 passed                                                     4ms · profile default
+   reports  /home/you/shop/.vibranium/reports/6/{ctrf.json,junit.xml,index.html}
    ```
 </Steps>
 

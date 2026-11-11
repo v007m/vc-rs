@@ -243,7 +243,19 @@ tests:
 
 <DatasetFanout />
 
-Each row becomes its own test instance, with its own result. `vc run users.data#createsEverySignup:2` runs only the second row.
+Each row becomes its own test instance, with its own result. `vc run users.data#createsEverySignup:2` runs only the second row. A row with a `name` column is labelled by it in the output:
+
+```console
+$ vc run users.data
+plan  1 test in 1 file · profile default
+
+✓ users.data#createsEverySignup › Alan Turing — Creates a user for each sign-up row    9ms
+✓ users.data#createsEverySignup › Ada Lovelace — Creates a user for each sign-up row   13ms
+✓ users.data#createsEverySignup › Grace Hopper — Creates a user for each sign-up row   13ms
+
+3 passed                                                     15ms · profile default
+reports  /home/you/shop/.vibranium/reports/5/{ctrf.json,junit.xml,index.html}
+```
 
 ## Values: vars, templates and profiles
 
