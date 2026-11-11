@@ -180,7 +180,7 @@ apis:
 - **`beforeRequest` returns the new request.** Changes to `headers`, `body`, `url`, `path` and `query` are applied. Returning nothing (or `null`) keeps the request unchanged. Returning anything that is not an object fails the call with V5115.
 - **`afterResponse` cannot change the response.** It can only throw. A throw fails the call, even when `expect` passed.
 - **Budget.** Each hook gets 200 ms and 64 MiB by default. Going over is V5116.
-- **No console.** `console.log` throws `ReferenceError: console is not defined`, which fails the call with V5115.
+- **No console yet.** `console.log` throws `ReferenceError: console is not defined`, which fails the call with V5115. Until hooks get a log, return what you want to see from a `function:` step (`provides:`), or throw it from `afterResponse`.
 - Hooks are checked by `vc check`: the file must exist, parse, and export the named function.
 
 ## Common errors

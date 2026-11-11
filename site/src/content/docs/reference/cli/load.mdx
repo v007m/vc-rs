@@ -53,7 +53,7 @@ $ vc load sample.smoke
     4s  5 users  717 rps  p50 2 ms  p95 6 ms  p99 23 ms  0 errors
     5s  3 users  737 rps  p50 2 ms  p95 6 ms  p99 25 ms  0 errors
     5s  0 users  737 rps  p50 2 ms  p95 6 ms  p99 25 ms  0 errors
-sample.smoke finished after 5 s · 3696 iterations · 739.2 rps · 0 errors
+sample.smoke — Sample smoke load · finished after 5 s · 3696 iterations · 739.2 rps · 0 errors
 latency p50 2.5 ms · p90 4.8 ms · p95 6.4 ms · p99 25.2 ms · max 278.8 ms
 ```
 
@@ -68,7 +68,7 @@ $ vc load sample.strict
     1s  0 users  0 rps  p50 0 ms  p95 0 ms  p99 0 ms  0 errors
     2s  1 users  257 rps  p50 1 ms  p95 2 ms  p99 3 ms  0 errors  breaching: p95
     2s  0 users  257 rps  p50 1 ms  p95 2 ms  p99 3 ms  0 errors
-sample.strict finished after 2 s · 515 iterations · 257.5 rps · 0 errors
+sample.strict — Too strict on purpose · finished after 2 s · 515 iterations · 257.5 rps · 0 errors
 latency p50 1.8 ms · p90 2.4 ms · p95 2.6 ms · p99 3.3 ms · max 4.3 ms
 breached p95 at 2.597 ms (lt 1 ms)
 $ echo $?
@@ -84,7 +84,7 @@ When iterations fail, the summary groups them by the api of the call that failed
 ```console
 $ vc load sample.strict --set vars.sampleUrl=http://127.0.0.1:9
 ...
-sample.strict finished after 2 s · 590 iterations · 295.0 rps · 590 errors
+sample.strict — Too strict on purpose · finished after 2 s · 590 iterations · 295.0 rps · 590 errors
 latency p50 1.6 ms · p90 2.1 ms · p95 2.1 ms · p99 2.5 ms · max 2.8 ms
 breached p95 at 2.149 ms (lt 1 ms)
 breached errorRate at 100% (lt 1%)
@@ -97,7 +97,7 @@ A failed check is `V5101` with the status the call got (`errors sample#listUsers
 
 ```console
 $ vc load sample.strict --json
-{"blocked":null,"breaches":[{"actual":2.6229999999999998,"limit":{"lt":1.0},"metric":"p95","test":null,"unit":"ms"}],"ending":"finished","errorKinds":[],"errors":0,"exit":3,"iterations":496,"maxMs":7.119,"notices":[],"p50Ms":1.894,"p90Ms":2.481,"p95Ms":2.623,"p99Ms":3.433,"rps":248.0,"runId":8,"scenario":"sample.strict","seconds":2,"seed":15677014093771026702}
+{"blocked":null,"breaches":[{"actual":2.6229999999999998,"limit":{"lt":1.0},"metric":"p95","test":null,"unit":"ms"}],"ending":"finished","errorKinds":[],"errors":0,"exit":3,"iterations":496,"maxMs":7.119,"name":"Too strict on purpose","notices":[],"p50Ms":1.894,"p90Ms":2.481,"p95Ms":2.623,"p99Ms":3.433,"rps":248.0,"runId":8,"scenario":"sample.strict","seconds":2,"seed":5677014093771026}
 ```
 
 ## Exit codes

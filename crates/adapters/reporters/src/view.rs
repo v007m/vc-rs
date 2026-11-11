@@ -4,6 +4,8 @@
 //! Every ID is already turned into the text a reader sees, so a snapshot renders without the
 //! program it came from. Exchanges are the redacted ones, cut at `history.maxBodySize`.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use vc_interfaces::{ReportError, RunSummary};
@@ -107,7 +109,13 @@ pub struct ExchangeView {
 pub struct TestView {
     pub id: String,
     pub label: String,
+    /// The test's `name`; a snapshot from before names were kept has none.
+    #[serde(default)]
+    pub name: Option<String>,
     pub file: String,
+    /// The `name` of the test's file.
+    #[serde(default)]
+    pub file_name: Option<String>,
     pub status: TestStatus,
     pub instance: Option<u32>,
     pub example_row: Option<u32>,
@@ -132,6 +140,12 @@ impl TestView {
     /// How long the test ran, zero when it never started.
     pub fn duration_ms(&self) -> u64 {
         self.start_ms.map_or(0, |start| self.stop_ms.saturating_sub(start))
+    }
+
+    /// The label followed by the test's `name`, as the console shows it:
+    /// `users.crud#listsUsers — Lists every user`.
+    pub fn titled(&self) -> String {
+        self.name.as_ref().map_or_else(|| self.label.clone(), |name| format!("{} — {name}", self.label))
     }
 
     /// Every check of every step, in run order.
@@ -181,6 +195,9 @@ pub struct RunSnapshot {
     /// The config's `project`; a snapshot from before it was kept has none.
     #[serde(default)]
     pub(crate) project: Option<String>,
+    /// The `name` of each active profile that gives one, by its ID.
+    #[serde(default)]
+    pub(crate) profile_names: BTreeMap<String, String>,
     pub(crate) files: Vec<String>,
     pub(crate) tests: Vec<TestView>,
     pub(crate) lifecycle: Vec<StepView>,
@@ -192,6 +209,7 @@ pub struct RunSnapshot {
 #[derive(Debug, Default)]
 pub struct Gathered {
     pub project: Option<String>,
+    pub profile_names: BTreeMap<String, String>,
     pub files: Vec<String>,
     pub tests: Vec<TestView>,
     pub lifecycle: Vec<StepView>,
@@ -201,8 +219,8 @@ pub struct Gathered {
 
 impl RunSnapshot {
     pub(crate) fn new(run: RunFacts, gathered: Gathered) -> Self {
-        let Gathered { project, files, tests, lifecycle, cleanups, abandoned } = gathered;
-        Self { version: VERSION, run, project, files, tests, lifecycle, cleanups, abandoned }
+        let Gathered { project, profile_names, files, tests, lifecycle, cleanups, abandoned } = gathered;
+        Self { version: VERSION, run, project, profile_names, files, tests, lifecycle, cleanups, abandoned }
     }
 
     /// The project's display name: the config's `project`, else `vibranium`.

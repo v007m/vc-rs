@@ -64,6 +64,13 @@ tagged.flows#listsSlowly  [users, smoke, slow-network]
 tagged.flows#listsNightly  [users, smoke, nightly]
 ```
 
+A run prints it after the test's label, joined by a dash:
+
+```console
+$ vc run tagged.flows#listsUsers
+✓ tagged.flows#listsUsers — Lists every user                      4ms
+```
+
 `--grep` (`-g`) matches the name as well as the full ID, ignoring case:
 
 ```console
@@ -123,7 +130,9 @@ tests:
 
 - `name` never changes what runs. Two tests can share a name; they cannot share an ID.
 - Selectors, reports and history key on the ID, not the name. Renaming a test's `name` keeps its history.
-- Today the name appears in `vc list tests` and is searched by `--grep`. The console run output, the CTRF and JUnit reports and the HTML report show the full ID, not the name.
+- The name appears in `vc list` and is searched by `--grep`. In a run it follows the full ID; it never replaces it.
+- A file's name shows in `vc list files`, the HTML report's file list (`tagged.flows — User flows`), CTRF's `extra.fileName` and a `name` property of the JUnit testsuite.
+- A test's name shows after its label in the console and the HTML report, as `name` in the json reporter's `testFinished` event, as CTRF's `extra.name` and as a `name` property of the JUnit testcase.
 
 ## Common errors
 

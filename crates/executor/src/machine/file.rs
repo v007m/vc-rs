@@ -141,6 +141,10 @@ impl FileOrchestrator {
     fn start(&mut self, failed: FailedActions, out: &mut Vec<FileCommand>) {
         self.shared.failed = failed;
         out.push(FileCommand::Emit(Event::FileStarted { file: self.file.id }));
+        for test in &self.file.skipped {
+            self.totals.add(TestStatus::Skipped);
+            out.push(FileCommand::Emit(Event::TestFinished { result: super::run::skipped(test) }));
+        }
         self.phase = FilePhase::BeforeAll(0);
         self.resume_before(out);
     }

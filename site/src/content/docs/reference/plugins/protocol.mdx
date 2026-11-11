@@ -39,8 +39,8 @@ A message that is not a framed JSON-RPC object stops the plugin for the rest of 
 
 An error or timeout in `initialize` fails every call to that plugin in the run.
 
-<Aside type="caution" title="Do not rely on shutdown">
-In the current build the plugin process ends with `vc`, right after the run's last call. A test plugin that logged every message never saw `shutdown`, an end of stdin or a SIGTERM. Write your files and flush your state by the end of your last call, such as `reporter/finish`.
+<Aside type="note" title="How a run ends a plugin">
+Once `vc run` or `vc load` has written its reports and sent its alerts, it sends `shutdown` to each plugin it started, then closes the plugin's stdin, and waits for it to exit before `vc` exits. Each step gets 1 s; a plugin still running after that is killed. Answer `shutdown`, then exit when stdin ends. `vc call` does not wait: its auth plugin can be killed as `vc` exits, before it gets either, so keep no state that only `shutdown` would save.
 </Aside>
 
 ## Methods the host calls

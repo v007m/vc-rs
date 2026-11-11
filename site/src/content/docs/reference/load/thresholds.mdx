@@ -35,7 +35,7 @@ Each metric takes a [matcher](/vc-rs/reference/matchers/) such as `lt`, `lte`, `
 `sample.smoke` sets `p99` below `500ms` and `errorRate` below `1%`. The run stays well within them and exits 0:
 
 ```console
-sample.smoke finished after 10 s · 198 iterations · 19.8 rps · 0 errors
+sample.smoke — Sample smoke load · finished after 10 s · 198 iterations · 19.8 rps · 0 errors
 latency p50 3.4 ms · p90 5.6 ms · p95 7.1 ms · p99 8.9 ms · max 9.8 ms
 ```
 
@@ -71,7 +71,7 @@ $ vc load sample.strict; echo "exit $?"
     4s  3 users  417 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
     5s  2 users  462 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors  breaching: p99, sample.basics#getsCreatedUser: p95
     5s  0 users  462 rps  p50 2 ms  p95 8 ms  p99 15 ms  0 errors
-sample.strict finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
+sample.strict — Too strict on purpose · finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
 latency p50 2.7 ms · p90 6.0 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
 breached p99 at 15.615 ms (lt 1 ms)
 breached sample.basics#getsCreatedUser: p95 at 11.215 ms (lt 2 ms)

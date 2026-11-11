@@ -64,6 +64,14 @@ $ vc plugin list
 summary  reporter 1.0.0  path:plugins/summary  asks for more: secret reportToken; `vc plugin add` it again  may reach: nothing
 ```
 
+**Spot a plugin a run cannot start.** Its installed files changed since the lock approved them, or its entry program is not installed.
+
+```console
+$ vc plugin list
+stamp  auth 0.1.0  path:plugins/stamp  V5118: its installed files changed since vibranium.lock approved them; `vc plugin add` it again  may reach: secret stampKey
+summary  reporter 1.0.0  path:plugins/summary  its entry program `python3.13` cannot be found: install it, or fix `entry.command` in its vibranium-plugin.yaml  may reach: secret reportToken
+```
+
 **Remove a plugin.** `vc` refuses when the config still uses it, and writes nothing.
 
 ```console
@@ -114,7 +122,7 @@ reports:
 | --- | --- |
 | `cannot ask for approval: stdin is not a terminal` | Pass `--yes` |
 | `cannot fetch ...: No such file or directory` | Check the `path:` folder, relative to the project root |
-| `cannot fetch ...: npm failed` | Check the package name and that `npm` works; the full log is in `~/.npm/_logs/` |
+| ``cannot fetch ...: `npm` failed: E404: …`` | npm's error code and its first line that says why. Check the package name and range, and that `npm` can reach its registry; the full log is in `~/.npm/_logs/` |
 | [V2302](/vc-rs/reference/diagnostics/v2302/) | `vc plugin remove` would leave the config naming a missing plugin |
 | [V5118](/vc-rs/reference/diagnostics/v5118/) | At run time: re-run `vc plugin add` when the plugin's files or permissions changed |
 

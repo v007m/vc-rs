@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use vc_model::{Instance, Lifecycle, Needs, Plan, PlannedFile, Program, TestId};
+use vc_model::{FileId, Instance, Lifecycle, Needs, Plan, PlannedFile, Program, SkippedTest, TestId};
 
 use crate::expand::{Expanded, Expander};
 use crate::needs::Shared;
@@ -57,11 +57,11 @@ impl<'p> PlanBuilder<'p> {
         }
         let blocks = &self.program.run_blocks;
         let before_run = self.run.plan(self.program, &blocks.before_run);
-        let files = files.into_iter().map(|(id, instances)| self.file(id, instances)).collect();
-        Plan { before_run, files, after_run: blocks.after_run.clone(), skipped }
+        let files = files.into_iter().map(|(id, instances)| self.file(id, instances, &skipped)).collect();
+        Plan { before_run, files, after_run: blocks.after_run.clone(), skipped, ..Plan::default() }
     }
 
-    fn file(&self, id: vc_model::FileId, mut instances: Vec<Instance>) -> PlannedFile {
+    fn file(&self, id: FileId, mut instances: Vec<Instance>, skipped: &[SkippedTest]) -> PlannedFile {
         let none = Lifecycle::default();
         let lifecycle = self.program.test_files.get(&id).map_or(&none, |file| &file.lifecycle);
         let mut shared = self.run.clone();
@@ -74,6 +74,8 @@ impl<'p> PlanBuilder<'p> {
             });
             instance.needs = test.clone();
         }
-        PlannedFile { id, before_all, instances, after_all: lifecycle.after_all.clone() }
+        let of_file = |test: &&SkippedTest| self.program.tests.get(&test.test).is_some_and(|found| found.file == id);
+        let skipped = skipped.iter().filter(of_file).cloned().collect();
+        PlannedFile { id, before_all, instances, after_all: lifecycle.after_all.clone(), skipped }
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -94,6 +94,10 @@ pub struct PlannedFile {
     pub instances: Vec<Instance>,
     /// `afterAll`, run after the last instance.
     pub after_all: Vec<ActionId>,
+    /// The file's selected tests that are skipped, also in [`Plan::skipped`]: reported as the
+    /// file starts and counted in its totals. A skipped test of a file with nothing to run is
+    /// reported as the run starts.
+    pub skipped: Vec<SkippedTest>,
 }
 
 /// A selected test that will not run, with the reason shown in reports.
@@ -126,6 +130,9 @@ pub struct Plan {
     pub after_run: Vec<ActionId>,
     /// Selected tests that are skipped.
     pub skipped: Vec<SkippedTest>,
+    /// The `name` of each example row that gives one, by test and row index from 0: the
+    /// instance's label in reports, `users.crud#rejectsBadEmail › missing @`.
+    pub row_names: BTreeMap<(TestId, u32), String>,
 }
 
 impl Plan {
@@ -155,7 +162,13 @@ mod tests {
         let test = TestId::new(table.intern("users.crud#getsUser").unwrap());
         let instance =
             |n| Instance { id: InstanceId::new(n), test, example_row: None, repeat_index: n, needs: Needs::default() };
-        let planned = |instances| PlannedFile { id: file, before_all: Vec::new(), instances, after_all: Vec::new() };
+        let planned = |instances| PlannedFile {
+            id: file,
+            before_all: Vec::new(),
+            instances,
+            after_all: Vec::new(),
+            skipped: Vec::new(),
+        };
         let plan = Plan {
             files: vec![planned(vec![instance(0), instance(1)]), planned(vec![instance(2)])],
             ..Plan::default()

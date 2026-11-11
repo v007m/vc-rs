@@ -1,4 +1,4 @@
-use vc_model::{ActionId, ActionKind, Instance, InstanceId, Needs, Plan, PlannedAction, PlannedFile, TestBody};
+use vc_model::{ActionId, ActionKind, Needs, Plan, PlannedAction, TestBody};
 
 use super::{bodies, bodies_from};
 use crate::testing::Fixture;
@@ -6,20 +6,12 @@ use crate::testing::Fixture;
 /// Puts `action` somewhere in a program whose plan runs test `a` alone, with test `b` beside it.
 type Place = fn(&mut Fixture, ActionId, &mut Plan);
 
-/// A plan running one instance of `test`.
-fn planned(fixture: &Fixture, test: vc_model::TestId) -> Plan {
-    let instance =
-        Instance { id: InstanceId::new(0), test, example_row: None, repeat_index: 0, needs: Needs::default() };
-    let file = PlannedFile { id: fixture.file, before_all: vec![], instances: vec![instance], after_all: vec![] };
-    Plan { files: vec![file], ..Plan::default() }
-}
-
 /// Whether `bodies` reaches an action once `place` has put it somewhere.
 fn reached(place: Place) -> bool {
     let mut fixture = Fixture::new();
     let a = fixture.test("a", &[]);
     fixture.test("b", &[]);
-    let mut plan = planned(&fixture, a);
+    let mut plan = fixture.plan_of(a);
     let action = fixture.call(None);
     place(&mut fixture, action, &mut plan);
     bodies(&fixture.program, &plan).contains(&action)

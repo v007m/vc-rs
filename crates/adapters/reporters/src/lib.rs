@@ -10,6 +10,8 @@
 //! `ctrf` writes the canonical `ctrf.json`, `junit` writes `junit.xml` and `html` the HTML
 //! report (D169), each rendered from a snapshot, so `vc report` renders them again later. A
 //! [`PluginReporter`] hands the run to a reporter plugin named in `reports.formats` (G6).
+//! [`mark_run_folder`] marks a run's report folder, and [`prune_run_folders`] drops the marked
+//! folders of runs the history no longer keeps.
 
 mod collect;
 mod context;
@@ -18,6 +20,7 @@ mod destination;
 mod encode;
 mod exchange;
 mod failure;
+mod folders;
 mod format;
 mod html;
 mod html_data;
@@ -40,6 +43,7 @@ mod xml;
 
 pub use context::{Color, ReporterContext, Stopwatch, SystemStopwatch};
 pub use destination::{Destination, FsDestination};
+pub use folders::{RUN_MARKER, mark_run_folder, prune_run_folders};
 pub use format::{Format, FormatRegistry, HtmlLayout};
 pub use noop::NoopReporter;
 pub use plugin::PluginReporter;

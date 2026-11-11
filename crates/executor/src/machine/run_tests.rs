@@ -15,7 +15,7 @@ fn plan(before_run: &[(u32, &[u32])], files: usize, after_run: &[u32]) -> Arc<Pl
         before_run: before_run.iter().map(|&(action, needs)| sim::planned(action, needs)).collect(),
         files: vec![file(); files],
         after_run: after_run.iter().copied().map(sim::act).collect(),
-        skipped: Vec::new(),
+        ..Plan::default()
     })
 }
 
@@ -100,6 +100,18 @@ fn skipped_tests_are_reported_and_counted() {
     assert!(log.iter().any(|c| matches!(c, RunCommand::Emit(Event::TestFinished { result })
         if result.status == TestStatus::Skipped && result.skip_reason.as_deref() == Some("flaky upstream"))));
     assert_eq!(finish(&log).totals.skipped, 1);
+}
+
+#[test]
+fn a_skipped_test_of_a_running_file_is_left_to_the_file() {
+    let (_, test) = sim::file_and_test();
+    let skip = SkippedTest { test, reason: "flaky upstream".into(), until: None };
+    let mut planned = file();
+    planned.skipped = vec![skip.clone()];
+    let plan = Arc::new(Plan { files: vec![planned], skipped: vec![skip], ..Plan::default() });
+    let log = sim::drive_run(RunOrchestrator::new(plan, false), &mut |_| ActionReport::passed(), &[passed(1)]);
+    assert!(!log.iter().any(|c| matches!(c, RunCommand::Emit(Event::TestFinished { .. }))), "the file reports it");
+    assert_eq!(finish(&log).totals.skipped, 0, "the file's totals carry it");
 }
 
 /// A started run with one file, past `beforeRun` (which registered cleanup 100).

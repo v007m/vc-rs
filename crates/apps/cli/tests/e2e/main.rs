@@ -22,6 +22,7 @@ mod generated;
 mod history;
 mod hooks;
 mod import;
+mod labels;
 mod layers;
 mod lifecycle;
 mod load;
