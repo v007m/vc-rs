@@ -260,17 +260,7 @@ plan  7 tests in 2 files · profile default
 7 passed                                                     51ms · profile default
 ```
 
-<Aside type="caution" title="Known issue: an auth var built from another auth var">
-If one of an auth's var defaults uses another of its vars, as `demoKey` does above (`apiKey: key-for-${var.who}` with `who: service`), `vc check` passes but every call fails unless the calling test sets `who`:
-
-```console
-✕ authlab.who#usesFileAuth                                        0ms
-  error[V5111]: `var.who` is not set
-     = at: call authlab#fromFile
-```
-
-Setting `who` through `auth: { id, vars }` fails the same way. Setting it in the calling test's `vars` works. Until this is fixed, give each auth var a plain value.
-</Aside>
+An auth's var defaults can read each other and the vars the use site passes, as `demoKey` does above (`apiKey: key-for-${var.who}` with `who: service`). A use site's `vars` win over the definition's.
 
 ## Try it
 

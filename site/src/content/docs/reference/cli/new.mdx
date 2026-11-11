@@ -154,9 +154,10 @@ auth:
   # partnerToken · bearer · keys: https://github.com/v007m/vc-rs/blob/master/docs/design/syntax-reference.md#authentication
   - id: partnerToken
     type: bearer
+    token: ${secret.PARTNER_TOKEN_TOKEN}
 ```
 
-When it does not ask, only `id` and `type` are written. Add the type's fields yourself, such as `token: ${secret.PARTNER_TOKEN}` for `bearer`; see [Auth](/vc-rs/reference/auth/).
+When it does not ask, `id` and `type` are written, plus a secret reference for each credential the type needs: `token: ${secret.PARTNER_TOKEN_TOKEN}` for `bearer`, `password` for `basic`, `value` for `apiKey` and `refreshToken` for `oauth2Refresh`. Declare the name in `.env.schema` and add the other fields yourself; `vc check` reports a needed key that is still missing (V1005). See [Auth](/vc-rs/reference/auth/).
 
 ## vc new file
 
