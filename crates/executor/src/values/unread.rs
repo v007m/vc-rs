@@ -5,7 +5,7 @@
 use std::collections::BTreeSet;
 
 use vc_model::{Examples, Namespace, Program, Reference, Segment, SourceSpan, Test};
-use vc_template::ROW_ROOTS;
+use vc_template::{PipeRegistry, ROW_ROOTS};
 
 use super::run::RunValues;
 use super::scope::{Found, Scope};
@@ -32,7 +32,7 @@ pub struct UnreadVar {
 #[must_use]
 pub fn unread_var(program: &Program, values: &RunValues, test: &Test) -> Option<UnreadVar> {
     let Some(Examples::Template(template)) = &test.examples else { return None };
-    let walk = Walk { program, scope: Scope::of_test(values, test) };
+    let walk = Walk { program, scope: Scope::of_test(values, test), pipes: values.pipes() };
     template.references().find_map(|reference| {
         let read = var_name(reference)?;
         let (var, root) = walk.needs((read, 0), &mut BTreeSet::new())?;
@@ -44,24 +44,34 @@ pub fn unread_var(program: &Program, values: &RunValues, test: &Test) -> Option<
 struct Walk<'p> {
     program: &'p Program,
     scope: Scope,
+    pipes: &'p PipeRegistry,
 }
 
 impl Walk<'_> {
     /// The var and root the definition of `name` found from level `from` on needs: a root it
-    /// reads itself, else what a var it reads needs, as the compiler words it. A definition
-    /// reading its own name continues past its level, as rendering does; a name not set, a saved
-    /// value or a definition already followed needs nothing more.
+    /// reads itself, unless a `default` pipe stands in for it, else what a var it reads needs,
+    /// as the compiler words it. A definition reading its own name continues past its level, as
+    /// rendering does; a name not set, a saved value or a definition already followed needs
+    /// nothing more.
     fn needs(&self, (name, from): (&str, usize), seen: &mut BTreeSet<(String, usize)>) -> Option<(String, Namespace)> {
         let (level, Found::Defined(def)) = self.scope.find(self.program, name, from)? else { return None };
         if !seen.insert((name.to_owned(), level)) {
             return None;
         }
         let reads = def.references();
-        if let Some(outside) = reads.iter().find(|read| !ROW_ROOTS.contains(&read.ns)) {
+        let unread = |read: &&&Reference| !ROW_ROOTS.contains(&read.ns) && !self.takes_missing(read);
+        if let Some(outside) = reads.iter().find(unread) {
             return Some((name.to_owned(), outside.ns));
         }
         let mut vars = reads.iter().copied().filter_map(var_name);
         vars.find_map(|next| self.needs((next, if next == name { level.saturating_add(1) } else { 0 }), seen))
+    }
+
+    /// Whether `reference`'s first pipe gives a value for a missing one (`default`), as the
+    /// render does.
+    fn takes_missing(&self, reference: &Reference) -> bool {
+        let first = reference.pipes.first().and_then(|call| self.pipes.get(&call.name));
+        first.is_some_and(|pipe| pipe.takes_missing)
     }
 }
 

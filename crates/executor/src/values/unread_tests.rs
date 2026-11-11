@@ -54,6 +54,12 @@ fn a_var_reading_its_own_name_reads_the_level_past_its_own() {
 }
 
 #[test]
+fn a_root_read_with_a_default_needs_nothing() {
+    let (fixture, test) = reading_region(&[("region", "${secret.S | default('eu')}")], &[]);
+    assert_eq!(needs(&fixture, test, vec![]), None, "the render gives the default before the run");
+}
+
+#[test]
 fn vars_that_read_each_other_end_the_walk() {
     let (fixture, test) = reading_region(&[], &[("region", "${var.token}"), ("token", "${var.region} ${env.HOME}")]);
     assert_eq!(needs(&fixture, test, vec![]), None);
