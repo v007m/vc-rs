@@ -50,4 +50,4 @@ pub use naming::{camel_id, file_id, is_camel_id, is_file_id};
 pub use paths::SourceGlobs;
 pub use schema::{FileSchema, schema_line, schemas, to_json};
 pub use shapes::key_order;
-pub use wanted::{Wanted, WantedError, WantedRead, compile_wanted};
+pub use wanted::{Settled, Wanted, WantedError, WantedRead, compile_wanted};

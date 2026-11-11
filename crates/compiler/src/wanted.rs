@@ -21,6 +21,9 @@ pub type Wanted = (SourcePath, Option<SourcePath>);
 /// What reading wanted files gave: the files read, and a problem for each one that could not be.
 pub type WantedRead<P> = (Vec<SourceFile>, Vec<P>);
 
+/// A settled compile, and the problems of the files that could not be read.
+pub type Settled<P> = (Compiled, Vec<P>);
+
 /// Why the loop stopped without a settled compile.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -87,9 +90,10 @@ impl<P> Reading<P> {
     }
 }
 
-/// Compiles `input`, then has `read` read each file the compile wanted and compiles again, for
-/// at most eight rounds. A file asked for once is not asked for again, so one that cannot be
-/// read ends the loop and comes back as one of the problems, next to the last compile.
+/// Compiles `input`, then has `read` read each file the compile wanted and compiles again.
+///
+/// It runs for at most eight rounds. A file asked for once is not asked for again, so one that
+/// cannot be read ends the loop and comes back as one of the problems, next to the last compile.
 ///
 /// # Errors
 ///
@@ -98,7 +102,7 @@ impl<P> Reading<P> {
 pub fn compile_wanted<P, E>(
     input: CompileInput,
     mut read: impl FnMut(&[Wanted]) -> Result<WantedRead<P>, E>,
-) -> Result<(Compiled, Vec<P>), WantedError<E>> {
+) -> Result<Settled<P>, WantedError<E>> {
     let mut reading = Reading { input, asked: BTreeSet::new(), problems: Vec::new() };
     let mut compiled = compile(reading.input.clone());
     for _ in 0..ROUNDS {

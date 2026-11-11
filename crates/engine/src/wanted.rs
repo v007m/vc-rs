@@ -2,7 +2,7 @@
 //! engine reads them and compiles again, until no file it has not asked for is wanted. The loop
 //! itself is [`vc_compiler::compile_wanted`]; the engine supplies the reading.
 
-use vc_compiler::{CompileInput, Compiled, Wanted, WantedRead};
+use vc_compiler::{CompileInput, Wanted, WantedRead};
 use vc_interfaces::{Discovery, SourceError};
 use vc_model::SourcePath;
 
@@ -10,7 +10,7 @@ use crate::project::sources_error;
 use crate::{Engine, EngineError};
 
 /// The last compile, and the wanted files that could not be read.
-pub type Settled = (Compiled, Vec<SourceError>);
+pub type Settled = vc_compiler::Settled<SourceError>;
 
 impl Engine {
     /// Compiles `input`, then reads each file the compile wanted and compiles again, for at most

@@ -42,10 +42,11 @@ pub fn rows_wanted(program: &Program, selection: &Selection, options: &PlanOptio
 /// The rows a draw gave each test, in the order its `examples:` template gave them.
 pub type DrawnRows<T> = HashMap<TestId, Vec<T>>;
 
-/// Plans `selection` as a run whose templated `examples:` rows are drawn first: `draw` renders
-/// the rows of the [`rows_wanted`] tests, all in one pass, and the plan counts them. A program
-/// with no templated `examples` is planned at once, without calling `draw`. The rows come back
-/// with the plan, for the run to bind each instance to its own.
+/// Plans `selection` as a run whose templated `examples:` rows are drawn first.
+///
+/// `draw` renders the rows of the [`rows_wanted`] tests, all in one pass, and the plan counts
+/// them. A program with no templated `examples` is planned at once, without calling `draw`. The
+/// rows come back with the plan, for the run to bind each instance to its own.
 ///
 /// The planner stays pure: drawing renders templates with the run's values, so it is the
 /// caller's (the executor's `draw_rows`), passed in as `draw`.
