@@ -2,4 +2,5 @@ baseUrl: https://api.example.com
 vars:
   owner: ${fake.person.fulName}
   email: ${fake.internet.emial}
+  name: ${fake.person.fullname}
 apis: []

@@ -118,6 +118,37 @@ fn unknown(source: &Source<'_>, reference: &Reference, (name, known): (&str, &Kn
     let mut names = known.fakes.names();
     names.extend(known.named.keys().map(String::as_str));
     names.sort_unstable();
-    let diagnostic = uses::did_you_mean(diagnostic, (source, reference, name), &names);
+    let diagnostic = uses::offer(diagnostic, (source, reference, name), &close(name, &names));
     diagnostic.note(format!("the generators are {}", suggest::quoted(&names)))
+}
+
+/// The generators close to `name`: by its last word among its namespace's (`person.fullname` is
+/// close to `person.fullName` only), or by the whole name when none of those is.
+fn close<'a>(name: &str, names: &[&'a str]) -> Vec<&'a str> {
+    let word_in = |ns: &str, generator: &'a str| generator.strip_prefix(ns)?.strip_prefix('.');
+    if let Some((ns, word)) = name.rsplit_once('.') {
+        let words = suggest::close(word, names.iter().filter_map(|generator| word_in(ns, generator)));
+        let full = |word: &str| names.iter().copied().find(|generator| word_in(ns, generator) == Some(word));
+        if !words.is_empty() {
+            return words.into_iter().filter_map(full).collect();
+        }
+    }
+    suggest::close(name, names.iter().copied())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::close;
+
+    const NAMES: [&str; 5] =
+        ["internet.email", "person.firstName", "person.fullName", "person.jobTitle", "phone.number"];
+
+    #[test]
+    fn a_generator_is_close_by_its_last_word_in_its_namespace_or_else_by_its_whole_name() {
+        assert_eq!(close("person.fullname", &NAMES), ["person.fullName"]);
+        assert_eq!(close("person.fulName", &NAMES), ["person.fullName"]);
+        assert_eq!(close("internet.emial", &NAMES), ["internet.email"]);
+        assert_eq!(close("persn.fullName", &NAMES), ["person.fullName"]);
+        assert_eq!(close("person.zzz", &NAMES), [] as [&str; 0]);
+    }
 }

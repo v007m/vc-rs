@@ -67,6 +67,8 @@ error[V2002]: `fake.person.fullname` is not a generator
 9 |       payload: ${fake.person.fullname}
   |                ^^^^^^^^^^^^^^^^^^^^^^^ no generator has this name
   = note: the generators are `commerce.price`, `date.future`, `date.past`, `date.recent`, `helpers.arrayElement`, `internet.email`, `internet.userName`, `location.city`, `location.country`, `location.countryCode`, `location.streetAddress`, `location.zipCode`, `lorem.paragraphs`, `lorem.sentence`, `lorem.word`, `lorem.words`, `number.float`, `number.int`, `person.firstName`, `person.fullName`, `person.jobTitle`, `phone.number`, `string.alphanumeric`, `string.fromRegExp`, `string.uuid`
+  = help: did you mean `person.fullName`?
+  = fix: Replace with person.fullName (certain)
 ```
 
 - [V2002](/vc-rs/reference/diagnostics/v2002/): not a generator.

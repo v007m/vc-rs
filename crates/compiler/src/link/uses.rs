@@ -153,13 +153,26 @@ impl<'p, 'a> Checker<'p, 'a> {
     }
 }
 
-/// Offers the one close name that is known, as a certain fix when the name's span is exact.
+/// Offers the known names close to the name: one as a certain fix when the name's span is exact.
 pub fn did_you_mean(
     diagnostic: Diagnostic,
     (source, reference, name): (&Source<'_>, &Reference, &str),
     known: &[&str],
 ) -> Diagnostic {
-    let [one] = suggest::close(name, known.iter().copied())[..] else { return diagnostic };
+    offer(diagnostic, (source, reference, name), &suggest::close(name, known.iter().copied()))
+}
+
+/// Offers the `close` names: one as a certain fix when the name's span is exact, several as help.
+pub fn offer(
+    diagnostic: Diagnostic,
+    (source, reference, name): (&Source<'_>, &Reference, &str),
+    close: &[&str],
+) -> Diagnostic {
+    let one = match *close {
+        [] => return diagnostic,
+        [one] => one,
+        ref several => return diagnostic.help(format!("did you mean one of {}?", suggest::quoted(several))),
+    };
     let diagnostic = diagnostic.help(format!("did you mean `{one}`?"));
     let at = reference.root_span.end;
     let exact = source.text.get(at.offset..=at.offset) == Some(".");
