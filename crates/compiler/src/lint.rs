@@ -9,6 +9,7 @@ mod deprecated_calls;
 mod expired_skips;
 mod item_ids;
 mod names;
+mod reuse_keys;
 mod shared_writes;
 mod skip_reasons;
 mod test_cache;
@@ -16,9 +17,11 @@ mod test_cache;
 mod tests;
 mod unused_defaults;
 
+use std::ops::Range;
+
 use vc_diagnostics::{Code, Diagnostic, Diagnostics};
 use vc_model::{Date, FileKind, Program};
-use vc_parser::Node;
+use vc_parser::{Entry, Node};
 
 use crate::link;
 use crate::link::{Project, Source};
@@ -58,6 +61,7 @@ impl LintRegistry {
             Box::new(deprecated_calls::DeprecatedCalls),
             Box::new(body_on_read::BodyOnRead),
             Box::new(unused_defaults::UnusedDefaults),
+            Box::new(reuse_keys::ReuseKeys),
         ];
         Self { lints }
     }
@@ -95,4 +99,16 @@ impl<'a> LintCx<'_, 'a> {
         let call = link::text(node, "call")?;
         self.project.apis.get(&source.resolve(call)).map(|item| item.node)
     }
+}
+
+/// The lines `entry` is written on, newline included, when nothing else shares its first line.
+fn whole_lines(text: &str, entry: &Entry) -> Option<Range<usize>> {
+    let start = entry.key_span.start.offset;
+    let line = text.get(..start)?.rfind('\n').map_or(0, |at| at + 1);
+    if !text.get(line..start)?.trim().is_empty() {
+        return None;
+    }
+    let end = entry.value.span.end.offset;
+    let after = text.get(end..)?.find('\n').map_or(text.len(), |at| end + at + 1);
+    Some(line..after)
 }

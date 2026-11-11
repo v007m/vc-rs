@@ -12,6 +12,7 @@ pub fn source_provider_suite(make: &mut MakeSources<'_>) {
     reports_files_that_are_not_utf8(make);
     finds_nothing_in_an_empty_project(make);
     reads_any_file_by_path(make);
+    reads_any_bytes_by_path(make);
 }
 
 const CONFIG: &[u8] = b"syntaxVersion: 2\n";
@@ -124,6 +125,15 @@ fn reads_any_file_by_path(make: &mut MakeSources<'_>) {
         1,
         "discover still reads only definitions"
     );
+}
+
+fn reads_any_bytes_by_path(make: &mut MakeSources<'_>) {
+    let provider = make(&[("vibranium.config.yaml", CONFIG), ("fixtures/logo.png", &[0x89, b'P', 0xff, 0])]);
+    let path = |text: &str| SourcePath::new(text).ok();
+    let logo = path("fixtures/logo.png").map(|logo| provider.read_bytes(&logo));
+    assert_eq!(logo, Some(Ok(vec![0x89, b'P', 0xff, 0])), "the bytes as they are, text or not");
+    let gone = path("fixtures/gone.png").map(|gone| provider.read_bytes(&gone));
+    assert!(matches!(gone, Some(Err(SourceError::Missing { .. }))), "a missing file is named as missing: {gone:?}");
 }
 
 /// Builds a writer, and a provider that reads the same project, over a project holding these

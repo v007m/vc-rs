@@ -158,7 +158,7 @@ Connect agents to your project, decide on what they ask to do, and review what t
 When an agent calls a tool that its profile's policy holds for approval, it pauses and the request shows here: which agent, which tool, which profile, the HTTP methods, a summary and the arguments. Choose:
 
 - **Approve once**: run this call.
-- **Always allow on &lt;profile&gt;**: saves a rule to `vibranium.config.yaml`, so later calls of that tool on that profile run without asking. You confirm before it's saved.
+- **Always allow on &lt;profile&gt;**: keeps a rule in `.vibranium/history.db` on this machine, never in the YAML, so later calls of that tool on that profile that send only the same methods run without asking. You confirm before it's saved. A write, or a run that reaches a `command:` or `function:` action, keeps no rule and still asks every time; for those the confirm step says so and approves the call once.
 - **Deny**: refuse the call.
 
 See [Policy and approvals](/vc-rs/agents/policy-and-approvals/) for how the policy decides.

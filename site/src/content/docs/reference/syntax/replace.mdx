@@ -65,7 +65,7 @@ $ vc explain lab.expect#replacesAll
     status: 4xx
 ```
 
-**On a test with steps.** A test-level `expect` is a default for every `call` and `test:` step, and `replace: true` goes with it. Each step drops its api's checks and starts from the test's. A step's own checks then merge over that as usual.
+**On a test with steps.** A test-level `expect` is a default for every `call` step, and `replace: true` goes with it. Each step drops its api's checks and starts from the test's. A step's own checks then merge over that as usual.
 
 ```yaml
 - id: testReplace
@@ -128,7 +128,7 @@ warning[V3206]: no step uses the test-level `expect`
    |
 36 |           exists: false
    |           ^^^^^^^^^^^^^ unused default
-   = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+   = note: `call` steps take the test's defaults and their own values win; `test:`, `function` and `command` steps take none
    = help: remove it, or remove the steps' own values that replace it
 ```
 

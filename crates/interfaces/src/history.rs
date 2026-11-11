@@ -117,7 +117,8 @@ impl fmt::Display for RunId {
     reason = "history row built and read across crates; every user is in this repo (D160)"
 )]
 pub enum RunRef {
-    /// The newest run.
+    /// The newest run that is not an ad hoc call (`adhoc`): what `vc history show`,
+    /// `vc report` and `vc run --failed` mean by the last run.
     Last,
     /// The run with this ID.
     Id(RunId),

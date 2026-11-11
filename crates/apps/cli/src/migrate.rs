@@ -1,11 +1,13 @@
 //! `vc migrate v1 <path>`: converts a Vibranium v1 project into v2 files (D194, D200).
 
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
 use clap::Subcommand;
 use vc_engine::EngineBuilder;
 
 use crate::Outcome;
+use crate::stdout;
 
 /// `vc migrate …`.
 #[derive(Subcommand)]
@@ -36,11 +38,12 @@ pub fn run(command: &MigrateCommand, project: Option<&Path>) -> anyhow::Result<O
         Ok(changes) => changes,
         Err(error) => return Ok(Outcome::Engine(error)),
     };
-    println!("✓ migrated {} into {}", path.display(), root.display());
+    let mut out = stdout::out();
+    writeln!(out, "✓ migrated {} into {}", path.display(), root.display())?;
     for title in &changes.titles {
-        println!("  {title}");
+        writeln!(out, "  {title}")?;
     }
-    println!("next: vc check");
+    writeln!(out, "next: vc check")?;
     Ok(Outcome::Done)
 }
 

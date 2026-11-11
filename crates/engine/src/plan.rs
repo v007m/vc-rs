@@ -5,13 +5,16 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use serde_json::Value;
+use vc_executor::RunInputs;
 use vc_interfaces::{ConfigEntry, Environment, TestRow, VcsError};
 use vc_model::{Plan, ProfileId, Program, SourcePath};
 use vc_planner::{PlanError, PlanOptions, Selection};
 
+use crate::examples::{self, Draw};
 use crate::failed;
 use crate::ports::Layered;
 use crate::project::invalid;
+use crate::run;
 use crate::settings::{Named, Settings};
 use crate::{Engine, EngineError, PlanRequest, SelectRequest};
 
@@ -87,14 +90,17 @@ pub struct Prepared {
     pub environment: Arc<dyn Environment>,
     /// The `.env` variables the process environment does not set.
     pub dot_env: Vec<(String, String)>,
+    /// The run's random source and the example rows drawn from it before planning.
+    pub draw: Draw,
 }
 
-/// What `vc run` adds to a plan request: its flags that are settings, and the results
-/// `--failed` runs again.
+/// What `vc run` adds to a plan request: its flags that are settings, the results `--failed`
+/// runs again, and `--seed`, which the example rows are drawn with too.
 #[derive(Default)]
 pub struct Extra {
     pub flags: Vec<ConfigEntry>,
     pub rerun: Vec<TestRow>,
+    pub seed: Option<u64>,
 }
 
 impl Prepared {
@@ -123,7 +129,7 @@ impl Engine {
 
     /// Reads the settings, compiles, applies the settings, picks the profiles and plans.
     pub(crate) fn prepare(&self, request: &PlanRequest, extra: Extra) -> Result<Prepared, EngineError> {
-        let Extra { mut flags, rerun } = extra;
+        let Extra { mut flags, rerun, seed } = extra;
         flags.splice(0..0, profile_flag(&request.profiles));
         let Layered { mut program, notices, settings, environment, dot_env, .. } =
             self.layered(&request.sets, &flags)?;
@@ -135,10 +141,15 @@ impl Engine {
         if !rerun.is_empty() {
             selection.ids = failed::selectors(&program, &rerun, request.repeat)?;
         }
-        let options =
-            PlanOptions { repeat: request.repeat, today: Some(self.clock.today().to_string()), ..Default::default() };
-        let plan = vc_planner::plan(&program, &selection, &options).map_err(|error| plan_error(error, &program))?;
-        Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment, dot_env })
+        let mut draw = Draw::new(seed);
+        let inputs = RunInputs::new(Arc::clone(&draw.random), Arc::clone(&environment));
+        let inputs = inputs.with_profiles(profiles.clone()).with_vars(run::vars(&settings.vars));
+        let today = Some(self.clock.today().to_string());
+        let options = PlanOptions { repeat: request.repeat, today, ..PlanOptions::default() };
+        let plan = examples::planned(&program, &selection, (inputs, &mut draw, options))?;
+        let mut notices = notices;
+        notices.extend(examples::empty(&program, &plan));
+        Ok(Prepared { program, plan: Arc::new(plan), settings, profiles, names, notices, environment, dot_env, draw })
     }
 
     /// The planner's selection for `select`, with `--changed` asked of the vcs; `vc watch`'s
@@ -222,7 +233,7 @@ fn known(program: &Program) -> String {
 
 /// The planner's refusal as the engine's: definition problems as a check report, selector
 /// problems with their help.
-fn plan_error(error: PlanError, program: &Program) -> EngineError {
+pub fn plan_error(error: PlanError, program: &Program) -> EngineError {
     match error {
         PlanError::Diagnostics(found) => invalid(found.into_iter().collect(), program.files.clone(), Vec::new()),
         other => EngineError::Selection { reason: other.to_string(), help: other.help() },

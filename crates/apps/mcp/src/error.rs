@@ -18,6 +18,14 @@ pub enum McpError {
         /// What is wrong with it.
         reason: String,
     },
+    /// A tool argument the tool's schema does not name.
+    #[error("argument `{name}`: is not one this tool takes; it takes {takes}")]
+    UnknownArgument {
+        /// The argument's name.
+        name: String,
+        /// The arguments the tool takes, quoted and comma-separated, or `none`.
+        takes: String,
+    },
     /// Something inside the server failed; a bug to report.
     #[error("{reason}")]
     Internal {
@@ -40,7 +48,7 @@ impl McpError {
         let (kind, help) = match self {
             Self::Engine(error @ EngineError::Refused { .. }) => ("refused", error.help()),
             Self::Engine(error) => ("error", error.help()),
-            Self::Argument { .. } => ("arguments", None),
+            Self::Argument { .. } | Self::UnknownArgument { .. } => ("arguments", None),
             Self::Internal { .. } | Self::Serve { .. } => ("error", None),
         };
         json!({ "kind": kind, "reason": self.to_string(), "help": help })

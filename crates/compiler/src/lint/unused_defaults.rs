@@ -1,5 +1,5 @@
-//! V3206: a test-level default that no step uses (D124), because every `call` and `test:` step
-//! sets its own, or the test has none.
+//! V3206: a test-level default that no step uses (D124), because every `call` step sets its own,
+//! or the test has none (`test:` steps take no defaults, D270).
 
 use std::collections::HashMap;
 
@@ -44,14 +44,14 @@ impl UnusedDefaults {
         let message = format!("no step uses the test-level `{what}`");
         Diagnostic::new(self.code(), span, message)
             .label("unused default")
-            .note("`call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none")
+            .note("`call` steps take the test's defaults and their own values win; `test:`, `function` and `command` steps take none")
             .help("remove it, or remove the steps' own values that replace it")
     }
 }
 
-/// Whether a step takes the test's defaults.
+/// Whether a step takes the test's defaults: only a `call` does (D270).
 fn takes(step: &Node) -> bool {
-    step.get("call").is_some() || step.get("test").is_some()
+    step.get("call").is_some()
 }
 
 /// The replaced defaults every taker sets itself.

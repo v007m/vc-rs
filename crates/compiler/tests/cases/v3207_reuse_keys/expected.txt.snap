@@ -1,0 +1,21 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v3207_reuse_keys/project
+---
+warning[V3207]: a `test:` action ignores `headers`
+ --> services/users/crud.test.yaml:8:9
+  |
+8 |         headers: {x-trace: '1'}
+  |         ^^^^^^^ has no effect
+  = note: a `test:` action runs the reused test as written, with its own requests and checks (D270)
+  = help: remove `headers`, or set it in the reused test
+  = fix: Remove `headers` (certain)
+
+warning[V3207]: a `test:` action ignores `expect`
+ --> services/users/crud.test.yaml:9:9
+  |
+9 |         expect: {status: 201}
+  |         ^^^^^^ has no effect
+  = note: a `test:` action runs the reused test as written, with its own requests and checks (D270)
+  = help: remove `expect`, or set it in the reused test
+  = fix: Remove `expect` (certain)

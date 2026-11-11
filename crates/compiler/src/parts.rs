@@ -14,7 +14,7 @@ use vc_model::{
     StringTable, Sym, Template, TemplateValue,
 };
 use vc_parser::{Node, Value};
-use vc_template::{CelCompiler, PipeRegistry, Roots, TemplateError, ValueType};
+use vc_template::{CelCompiler, PipeRegistry, ROW_HELP, ROW_ROOTS, Roots, TemplateError, ValueType};
 
 use crate::shape_check;
 use crate::shape_check::{Leaf, LeafTy, Walk};
@@ -86,7 +86,9 @@ pub fn compile(root: &Node, walk: &Walk, cx: &mut Cx<'_>) -> IndexMap<SourceSpan
     let mut pieces = IndexMap::new();
     for leaf in &walk.leaves {
         let Some(node) = shape_check::at(root, &leaf.path) else { continue };
-        if let Some(piece) = piece(cx, At { node, scope: leaf.scope }, leaf) {
+        let at = At { node, scope: leaf.scope };
+        let timeout = leaf.ty == LeafTy::Duration && is_timeout(root, &leaf.path);
+        if let Some(piece) = if timeout { unit(cx, at, &TIMEOUT) } else { piece(cx, at, leaf) } {
             if let (Piece::Matcher(matcher), Some(key)) = (&piece, list_key(root, leaf)) {
                 matchers::on_list(cx, matcher, key);
             }
@@ -107,8 +109,8 @@ fn list_key<'n>(root: &'n Node, leaf: &Leaf) -> Option<&'n str> {
 fn piece(cx: &mut Cx<'_>, at: At<'_>, leaf: &Leaf) -> Option<Piece> {
     match leaf.ty {
         LeafTy::Template => template(cx, at).map(Piece::Template),
-        LeafTy::Duration => unit(cx, at, |text, span| vc_template::parse_duration(text, span).map(Piece::Duration)),
-        LeafTy::Size => unit(cx, at, |text, span| vc_template::parse_size(text, span).map(Piece::Size)),
+        LeafTy::Duration => unit(cx, at, &DURATION),
+        LeafTy::Size => unit(cx, at, &SIZE),
         LeafTy::Status => status(cx, at).map(Piece::Matcher),
         LeafTy::Matcher(unit) => matchers::matcher(cx, at, unit).map(Piece::Matcher),
         LeafTy::Cel => cel(cx, at).map(Piece::Cel),
@@ -118,13 +120,75 @@ fn piece(cx: &mut Cx<'_>, at: At<'_>, leaf: &Leaf) -> Option<Piece> {
 
 type UnitParser = fn(&str, SourceSpan) -> Result<Piece, Box<Diagnostic>>;
 
-/// A duration or size; text holding `${` is a template that gives one at run time.
-fn unit(cx: &mut Cx<'_>, at: At<'_>, parse: UnitParser) -> Option<Piece> {
+/// A kind of unit a leaf is written in: what it is called, how to write one, and its parser.
+struct UnitKind {
+    name: &'static str,
+    help: &'static str,
+    parse: UnitParser,
+}
+
+const DURATION: UnitKind = UnitKind {
+    name: "duration",
+    help: "write it out, such as `2s`",
+    parse: |text, span| vc_template::parse_duration(text, span).map(Piece::Duration),
+};
+
+/// A request's `timeout:`: the one `defaults.timeout` sets per run.
+const TIMEOUT: UnitKind = UnitKind {
+    name: "duration",
+    help: "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`",
+    parse: DURATION.parse,
+};
+
+const SIZE: UnitKind = UnitKind {
+    name: "size",
+    help: "write it out, such as `4kb`",
+    parse: |text, span| vc_template::parse_size(text, span).map(Piece::Size),
+};
+
+/// A duration or size, written out. Nothing renders a template there at run time, so one is
+/// V2301 rather than a value that is silently left out; `expiresIn`, which is rendered, is a
+/// template key.
+fn unit(cx: &mut Cx<'_>, at: At<'_>, kind: &UnitKind) -> Option<Piece> {
     let text = at.node.as_scalar()?.text.as_str();
     if text.contains("${") {
-        return template(cx, at).map(Piece::Template);
+        cx.push(templated(at.node.span, text, kind));
+        return None;
     }
-    cx.check(parse(text, at.node.span))
+    cx.check((kind.parse)(text, at.node.span))
+}
+
+/// Whether the leaf at `path` is a request's `timeout:`, which `defaults.timeout` stands in for:
+/// `defaults.timeout` itself, an api's and a `call` action's. A test's `timeout` limits the whole
+/// test, a `poll`'s the polling, and a `test:`, `function:` or `command:` action's its own run,
+/// so those get the plain help.
+fn is_timeout(root: &Node, path: &[usize]) -> bool {
+    let Some((&last, parent)) = path.split_last() else { return false };
+    if key(root, parent, last) != Some("timeout") {
+        return false;
+    }
+    match holder_key(root, parent) {
+        Some("defaults" | "apis") => true,
+        Some("tests") | None => false,
+        Some(_) => shape_check::at(root, parent).is_some_and(|holder| holder.get("call").is_some()),
+    }
+}
+
+/// The key the node at `path` is under: its own, or for a list item, its list's.
+fn holder_key<'n>(root: &'n Node, path: &[usize]) -> Option<&'n str> {
+    let (&at, above) = path.split_last()?;
+    key(root, above, at).or_else(|| holder_key(root, above))
+}
+
+/// The key of entry `index` of the map at `path`.
+fn key<'n>(root: &'n Node, path: &[usize], index: usize) -> Option<&'n str> {
+    let Value::Map(entries) = &shape_check::at(root, path)?.value else { return None };
+    entries.get(index).map(|entry| entry.key.as_str())
+}
+
+fn templated(span: SourceSpan, text: &str, kind: &UnitKind) -> Diagnostic {
+    let message = format!("a {} cannot be a template: `{text}`", kind.name);
+    Diagnostic::new(Code::V2301, span, message).help(kind.help)
 }
 
 /// A code, a class, a list of them, or a matcher; a template gives one of the first three at
@@ -193,8 +257,12 @@ const SCOPE_ROOTS: &[(Scope, AddRoots)] = &[
     (Scope::FOR_EACH, Roots::in_for_each),
 ];
 
+/// The roots a spot's templates read; a row source reads only [`ROW_ROOTS`], since the engine
+/// renders it before the run starts, when nothing else has a value.
 fn roots(scope: Scope) -> Roots {
-    SCOPE_ROOTS.iter().filter(|(added, _)| scope.has(*added)).fold(Roots::new(), |roots, (_, add)| add(roots))
+    let roots =
+        SCOPE_ROOTS.iter().filter(|(added, _)| scope.has(*added)).fold(Roots::new(), |roots, (_, add)| add(roots));
+    if scope.has(Scope::ROWS) { roots.only(ROW_ROOTS, ROW_HELP) } else { roots }
 }
 
 /// Bare names that mean `response.<name>` unless a step has that id (D150).

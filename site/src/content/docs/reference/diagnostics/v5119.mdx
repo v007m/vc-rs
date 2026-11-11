@@ -1,0 +1,61 @@
+---
+title: "V5119 — A plugin cannot be confined to its permissions"
+description: "A plugin's process runs held to the permissions in its manifest (D254)."
+sidebar:
+  label: "V5119 A plugin cannot be confined to its permissions"
+  order: 5119
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="error" variant="danger" /> <Badge text="Run time" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V5119` |
+| Category | V5xxx: Run time |
+| Severity | error |
+| Test outcome | failure |
+| Certain fix | none; `vc check --fix` leaves this one to you |
+
+A plugin's process runs held to the permissions in its manifest (D254). On macOS that is `sandbox-exec`, and a plugin
+that it cannot start under (for example when `vc` itself runs in a sandbox) is not started at all, so only the work
+that uses the plugin fails. When you trust the plugin, you may run it unconfined: set `plugins.allowUnconfined: true`
+in your user config (`~/.config/vibranium/config.yaml`), or `VIB_PLUGINS_ALLOW_UNCONFINED=1` in the environment. The
+setting is never read from `vibranium.config.yaml`, a profile or `.env`, so a project you clone cannot switch
+confinement off. A plugin that runs unconfined (this opt-out, or Linux without Landlock) prints one warning per run
+naming it, and the run's report records it (D260).
+
+## Wrong
+
+`vc` runs inside a sandbox, so `acmeAuth` cannot start confined and the calls that use it fail with V5119. Switching
+confinement off in the project has no effect: `plugins` there is the list of plugins, not a setting.
+
+```yaml title="vibranium.config.yaml"
+plugins:
+  - id: acmeAuth
+    source: path:./plugins/acme-auth
+```
+
+## Right
+
+```yaml title="~/.config/vibranium/config.yaml"
+plugins:
+  allowUnconfined: true
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V5119
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

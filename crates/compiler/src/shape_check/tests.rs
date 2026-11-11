@@ -110,6 +110,17 @@ fn collects_leaves_with_their_scopes() {
 }
 
 #[test]
+fn reads_a_row_source_before_the_run_but_inline_rows_per_instance() {
+    let scope = |examples: &str| {
+        let text = format!("tests:\n  - id: a\n    call: users#get\n    examples: {examples}\n");
+        walk(FileKind::Test, &text).leaves[0].scope
+    };
+    assert!(scope("'${dataset.cities | take(3)}'").has(Scope::ROWS));
+    assert!(scope("{$file: rows.csv}").has(Scope::ROWS));
+    assert!(!scope("[{n: 1}]").has(Scope::ROWS), "inline rows render per instance");
+}
+
+#[test]
 fn records_the_ids_of_actions() {
     let text = "beforeAll:\n  - id: seed\n    command: ./seed\n  - command: ./other\n";
     assert_eq!(walk(FileKind::Test, text).steps, ["seed"]);

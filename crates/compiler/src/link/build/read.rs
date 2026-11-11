@@ -2,8 +2,8 @@
 
 use indexmap::IndexMap;
 use vc_model::{
-    AgentPolicy, ApiSource, BodySpec, Duration, Examples, HookRef, Loop, Method, Retry, Size, Skip, Tag, Template,
-    TemplateValue, WriteDefinitions,
+    AgentPolicy, ApiSource, BodySpec, Duration, Examples, FILE_KEY, HookRef, Loop, Method, Retry, Size, Skip, Tag,
+    Template, TemplateValue, WriteDefinitions,
 };
 use vc_parser::Node;
 
@@ -22,7 +22,7 @@ const WRITES: [(&str, WriteDefinitions); 3] =
 type MakeBody = fn(Template) -> BodySpec;
 
 /// The single-key body maps that name a body kind other than JSON.
-const BODY_KINDS: [(&str, MakeBody); 2] = [("$file", BodySpec::File), ("$base64", BodySpec::Base64)];
+const BODY_KINDS: [(&str, MakeBody); 2] = [(FILE_KEY, BodySpec::File), ("$base64", BodySpec::Base64)];
 
 /// The value the compiler lowered at `node`.
 pub fn value(source: &Source<'_>, node: &Node) -> Option<TemplateValue> {
@@ -160,7 +160,8 @@ pub fn hooks(source: &Source<'_>, node: &Node, key: &str) -> Vec<HookRef> {
     written.map(|written| hook(source, written)).collect()
 }
 
-/// The request body at `node`: text, `$file`, `$base64`, or JSON.
+/// The request body at `node`: text, `$file`, `$base64`, or JSON, as written; the engine reads
+/// a literal `$file` before the run (D272).
 pub fn body(source: &Source<'_>, node: &Node) -> Option<BodySpec> {
     let value = value(source, node)?;
     Some(match value {

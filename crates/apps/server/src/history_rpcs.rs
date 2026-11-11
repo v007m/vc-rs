@@ -126,7 +126,7 @@ async fn decide_approval(
     };
     let id = ApprovalId::new(request.id);
     let decided = api.blocking(move |engine| engine.approvals_decide(id, verdict)).await?;
-    Ok(wire::DecideApprovalResponse { status: status(decided).into() })
+    Ok(wire::DecideApprovalResponse { status: status(decided.status).into() })
 }
 
 const fn status(status: ApprovalStatus) -> wire::ApprovalStatus {

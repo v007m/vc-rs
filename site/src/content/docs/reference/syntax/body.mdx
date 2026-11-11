@@ -1,6 +1,6 @@
 ---
 title: body
-description: The request body of an api, test or step; a map is sent as JSON, a string as text, and $base64 as raw bytes.
+description: The request body of an api, test or step; a map is sent as JSON or as a form, a string as text, $file as a file's bytes and $base64 as raw bytes.
 sidebar: { order: 115, badge: { text: 'api + test', variant: 'note' } }
 ---
 
@@ -26,8 +26,11 @@ import Playground from '~/components/Playground.svelte';
 | a map, a list, or pasted JSON | JSON | `application/json` |
 | a string | the text, with templates rendered | `text/plain; charset=utf-8` |
 | a string, plus a `content-type` header | the text as written | the header's value |
+| `$file: <path>` | the file's bytes | from the file's extension |
 | `$base64: <text>` | the decoded bytes | `application/octet-stream` |
 | `$extend: <object>` plus changes | the object with your changes | `application/json` |
+| a map, plus `content-type: application/x-www-form-urlencoded` | a URL-encoded form | the header's value |
+| a map, plus `content-type: multipart/form-data` | one part per field | the header's value, with a `boundary` added |
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
@@ -256,6 +259,86 @@ $ vc call echo#b64
 }
 ```
 
+### A file's bytes with $file
+
+`$file` sends a file as it is, text or binary. The path is relative to the file that names it, and `vc check` reports a path that names no file (V2004). The path can't hold a `${…}` template: vc reads, before the run starts, each file the run can send. A `$file` map inside a JSON body is sent as written, not as the file's bytes.
+
+```yaml title="services/uploads/uploads.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: importUsers
+    method: POST
+    path: /echo
+    body:
+      $file: ../../fixtures/users.csv
+    expect:
+      body:
+        match:
+          "headers['content-type']": text/csv
+```
+
+The `content-type` comes from the extension unless you set the header:
+
+| Extension | `content-type` |
+| --- | --- |
+| `json` | `application/json` |
+| `csv` | `text/csv` |
+| `txt` | `text/plain` |
+| `xml` | `application/xml` |
+| `html`, `htm` | `text/html` |
+| `yaml`, `yml` | `application/yaml` |
+| `png` | `image/png` |
+| `jpg`, `jpeg` | `image/jpeg` |
+| `gif` | `image/gif` |
+| `pdf` | `application/pdf` |
+| `zip` | `application/zip` |
+| any other | `application/octet-stream` |
+
+### A map sent as a form
+
+With a `content-type` of `application/x-www-form-urlencoded`, a map is sent as a form. A space is sent as `+`, and a list repeats its key. A null field is left out, and a field that holds a map or a list of lists fails with V5111. The header's parameters and case don't matter (`application/x-www-form-urlencoded; charset=utf-8` works too), and it is sent as you wrote it.
+
+```yaml title="services/forms/forms.api.yaml"
+baseUrl: ${var.sampleUrl}
+apis:
+  - id: login
+    method: POST
+    path: /echo
+    headers:
+      content-type: application/x-www-form-urlencoded
+    body:
+      user: Ada Lovelace
+      scope: [read, write]
+    expect:
+      body:
+        match:
+          body: user=Ada+Lovelace&scope=read&scope=write
+```
+
+### A map sent as multipart parts
+
+With a `content-type` of `multipart/form-data`, each field of a map is a part. A `$file` value is a file part, sent with the file's name and its extension's type. Text is sent with no part type, and a nested map as an `application/json` part. A list repeats the part, and a null field is left out. A file part's path must be written in the body as plain text: a `${…}` in the path, or a `$file` map that arrives through a `${…}` value, fails with V5111.
+
+vc adds a boundary to the header (`multipart/form-data; boundary=vc-…`). The boundary is drawn from the run's random source, so `--seed` repeats it. If your header already names a `boundary`, vc uses it. It must be 1 to 70 characters that RFC 2046 allows (letters, digits and `'()+_,-./:=?` or a space, not at the end), and it must not appear in any part; otherwise the request fails with V5111.
+
+```yaml title="services/uploads/uploads.api.yaml"
+  - id: uploadAvatar
+    method: POST
+    path: /echo
+    headers:
+      content-type: multipart/form-data
+    body:
+      avatar:
+        $file: ../../fixtures/avatar.png
+      caption: Profile photo
+      tags: [team, public]
+    expect:
+      body:
+        match:
+          "headers['content-type']":
+            startsWith: "multipart/form-data; boundary="
+```
+
 ### A test replaces the body
 
 A test's `body` replaces the api's body as a whole. Nothing from the api's map is kept. To change a few fields instead, use [`$extend`](/vc-rs/reference/syntax/extend/).
@@ -288,21 +371,6 @@ plan  5 tests in 1 file · profile default
 5 passed                                                     6ms · profile default
 ```
 
-<Aside type="caution" title="Not working yet">
-- `$file: <path>` passes `vc check` but fails when the request is sent.
-- A map with `content-type: application/x-www-form-urlencoded` or `multipart/form-data` is currently sent as JSON, not as a form.
-
-Until these are fixed, send a form as a string with the matching `content-type`. You encode it yourself:
-
-```yaml
-    headers:
-      content-type: application/x-www-form-urlencoded
-    body: a=one+two&b=2
-```
-
-The demo receives `"body": "a=one+two&b=2"` with that `content-type`.
-</Aside>
-
 ## Try it
 
 <Playground client:visible kind="api" code={`id: bodylab
@@ -321,12 +389,12 @@ apis:
 
 ## How it behaves
 
-- The shape you write picks the encoding: a map or list is JSON, a string is text, `$base64` is bytes.
+- The shape you write picks the encoding: a map or list is JSON, a string is text, `$file` and `$base64` are bytes. A map whose `content-type` is a form or multipart is sent that way.
 - A `content-type` header you set wins over the default. With a string body, the text is sent as written.
 - A template that is the whole value keeps its type, such as a number or a map. A template inside other text makes a string.
 - `body: ${var.payload}` sends the whole var. A map var is sent as JSON.
 - A test's or step's `body` replaces the api's. It does not merge. Use [`$extend`](/vc-rs/reference/syntax/extend/) to change part of a body.
-- A test-level `body` is a default for every `call` and `test:` step.
+- A test-level `body` is a default for every `call` step.
 - vc sends a body on any method, including `GET`, without a warning on the api. It warns only when a test-level `body` default reaches a GET or HEAD step.
 
 ## Common errors

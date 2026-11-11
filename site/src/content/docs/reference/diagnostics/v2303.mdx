@@ -22,13 +22,13 @@ code in it. A status map or list with nothing in it (`status: {}`, `saveOn: []`)
 
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2303 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml wrong V2303 title="services/users/crud.test.yaml"
 tests:
   - id: getsUser
     call: users#getUser

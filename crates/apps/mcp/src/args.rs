@@ -7,6 +7,20 @@ use crate::McpError;
 /// The arguments of one tool call: a JSON object.
 pub type Args = Map<String, Value>;
 
+/// `Ok` when `schema`'s `properties` name every argument in `args`; otherwise the first one
+/// they do not, with those they do. The schemas are closed (`additionalProperties: false`), so
+/// a misspelt key is refused rather than left out.
+pub fn known(schema: &Value, args: &Args) -> Result<(), McpError> {
+    let properties = schema.get("properties").and_then(Value::as_object);
+    let named = |key: &&String| properties.is_some_and(|properties| properties.contains_key(key.as_str()));
+    let Some(name) = args.keys().find(|key| !named(key)) else {
+        return Ok(());
+    };
+    let takes: Vec<String> = properties.into_iter().flat_map(Map::keys).map(|key| format!("`{key}`")).collect();
+    let takes = if takes.is_empty() { "none".to_owned() } else { takes.join(", ") };
+    Err(McpError::UnknownArgument { name: name.clone(), takes })
+}
+
 /// The string argument `name`.
 pub fn text(args: &Args, name: &'static str) -> Result<String, McpError> {
     optional_text(args, name)?.ok_or_else(|| wrong(name, "is required"))

@@ -20,15 +20,19 @@ import { Badge } from '@astrojs/starlight/components';
 A duration or size is not written in a form Vibranium reads. Units are always written out: durations as `250ms`, `2s`
 or `1m`, sizes as `4kb` or `1mb`. A bare number is never milliseconds.
 
+A duration or size key also takes no template (`timeout: ${var.t}`): write the value out. To change the default timeout
+per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`. Only a flow auth's `expiresIn` is rendered from a
+template.
+
 ## Wrong
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2301 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml wrong title="services/users/crud.test.yaml"
+```yaml wrong V2301 title="services/users/crud.test.yaml"
 tests:
   - id: getsUser
     call: users#getUser
@@ -54,7 +58,7 @@ tests:
 
 This is real output from `vc`, run against the files below.
 
-```yaml wrong title="services/users/users.api.yaml"
+```yaml wrong V2301 title="services/users/users.api.yaml"
 id: users
 name: Users
 baseUrl: http://localhost:7421

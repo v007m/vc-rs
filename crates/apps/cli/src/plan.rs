@@ -6,6 +6,7 @@ use clap::Args;
 use crate::Outcome;
 use crate::project;
 use crate::select::PlanArgs;
+use crate::stdout;
 
 #[derive(Args)]
 pub struct PlanCommandArgs {
@@ -36,7 +37,7 @@ pub fn run(args: &PlanCommandArgs, project: Option<&Path>) -> anyhow::Result<Out
     for notice in report.notices() {
         eprintln!("warning: {notice}");
     }
-    let mut out = std::io::stdout().lock();
+    let mut out = stdout::out();
     if args.json {
         writeln!(out, "{:#}", report.json())?;
     } else if args.dot {

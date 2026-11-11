@@ -817,6 +817,17 @@ pub fn vc_interfaces::Credentials::default() -> Self
 impl core::fmt::Debug for vc_interfaces::Credentials
 pub fn vc_interfaces::Credentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for vc_interfaces::Credentials
+pub struct vc_interfaces::Decided
+pub vc_interfaces::Decided::kept: alloc::vec::Vec<vc_model::defs::Method>
+pub vc_interfaces::Decided::status: vc_interfaces::ApprovalStatus
+impl core::clone::Clone for vc_interfaces::Decided
+pub fn vc_interfaces::Decided::clone(&self) -> Self
+impl core::cmp::Eq for vc_interfaces::Decided
+impl core::cmp::PartialEq for vc_interfaces::Decided
+pub fn vc_interfaces::Decided::eq(&self, &Self) -> bool
+impl core::fmt::Debug for vc_interfaces::Decided
+pub fn vc_interfaces::Decided::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vc_interfaces::Decided
 pub struct vc_interfaces::Decision
 pub vc_interfaces::Decision::by: alloc::string::String
 pub vc_interfaces::Decision::id: vc_interfaces::ApprovalId
@@ -1442,7 +1453,7 @@ pub fn vc_interfaces::AgentActionWriter::record(&self, &vc_interfaces::AgentActi
 pub trait vc_interfaces::Approvals: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::Approvals::always_allowed(&self, &vc_interfaces::StandingRule) -> core::result::Result<bool, vc_interfaces::ApprovalError>
 pub fn vc_interfaces::Approvals::create(&self, &vc_interfaces::ApprovalRequest) -> core::result::Result<vc_interfaces::ApprovalId, vc_interfaces::ApprovalError>
-pub fn vc_interfaces::Approvals::decide(&self, &vc_interfaces::Decision) -> core::result::Result<vc_interfaces::ApprovalStatus, vc_interfaces::ApprovalError>
+pub fn vc_interfaces::Approvals::decide(&self, &vc_interfaces::Decision) -> core::result::Result<vc_interfaces::Decided, vc_interfaces::ApprovalError>
 pub fn vc_interfaces::Approvals::get(&self, vc_interfaces::ApprovalId) -> core::result::Result<core::option::Option<vc_interfaces::Approval>, vc_interfaces::ApprovalError>
 pub fn vc_interfaces::Approvals::list(&self, bool) -> core::result::Result<alloc::vec::Vec<vc_interfaces::Approval>, vc_interfaces::ApprovalError>
 pub fn vc_interfaces::Approvals::wait<'life0, 'async_trait>(&'life0 self, vc_interfaces::ApprovalId, core::time::Duration) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<vc_interfaces::ApprovalStatus, vc_interfaces::ApprovalError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
@@ -1520,6 +1531,7 @@ pub trait vc_interfaces::SourceProvider: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceProvider::discover(&self, &vc_interfaces::SourceFilter) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceProvider::ignores(&self, &vc_model::source::SourcePath) -> bool
 pub fn vc_interfaces::SourceProvider::read(&self, &[vc_model::source::SourcePath]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
+pub fn vc_interfaces::SourceProvider::read_bytes(&self, &vc_model::source::SourcePath) -> core::result::Result<alloc::vec::Vec<u8>, vc_interfaces::SourceError>
 pub fn vc_interfaces::SourceProvider::read_outside(&self, &[(vc_model::source::SourcePath, vc_model::source::SourcePath)]) -> core::result::Result<vc_interfaces::Discovery, vc_interfaces::SourceError>
 pub trait vc_interfaces::SourceWriter: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::SourceWriter::remove(&self, &vc_model::source::SourcePath) -> core::result::Result<(), vc_interfaces::SourceError>

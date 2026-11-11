@@ -46,5 +46,5 @@ pub fn field<'p>(pairs: &'p [(String, String)], key: &str) -> Option<&'p str> {
 }
 
 fn decode(text: &str) -> String {
-    percent_encoding::percent_decode_str(text).decode_utf8_lossy().into_owned()
+    percent_encoding::percent_decode_str(&text.replace('+', " ")).decode_utf8_lossy().into_owned()
 }

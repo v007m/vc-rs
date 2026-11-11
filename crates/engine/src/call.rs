@@ -15,12 +15,13 @@ use vc_model::{
 
 use crate::agent_gate::{Gated, call_reach};
 use crate::call_report::CallReport;
+use crate::examples::Draw;
 use crate::explain::did_you_mean;
 use crate::history::Recording;
 use crate::plan::{self, Prepared, profile_flag};
 use crate::policy::AgentCall;
-use crate::ports::{self, Layered};
-use crate::{CallRequest, Engine, EngineError, run};
+use crate::ports::Layered;
+use crate::{CallRequest, Engine, EngineError};
 
 /// The history kind of an ad hoc call.
 const KIND: &str = "adhoc";
@@ -44,15 +45,9 @@ impl Engine {
         let mut notices = std::mem::take(&mut prepared.notices);
         let recording = self.call_recording(&prepared, &request.api, &mut notices);
         let run_id = recording.as_ref().map_or(0, |recording| recording.id().get());
-        let plugins = self.plugin_hosts(&prepared.program, &secrets);
-        let inputs = run::inputs(&prepared, ports::random(None).1, run_id);
-        let inputs = inputs.with_secrets(secrets).with_started_at(self.clock.now_ms());
-        let cx = Arc::new(self.action_cx(&prepared, (inputs, &plugins))?);
-        let mut sent = ActionRequest::cleanup(&cx, action, &Arc::new(Saved::new()));
-        sent.frame = Frame::default();
-        sent.frame.saved = Arc::new(given);
-        let report = cx.executors.execute(sent).await;
-        notices.extend(clean(&cx, &report).await);
+        let cx = self.adhoc_cx(&prepared, (&[action], run_id, secrets)).await?;
+        let (report, failed) = sent_once(&cx, action, given).await;
+        notices.extend(failed);
         let passed = matches!(report.outcome, ActionOutcome::Passed);
         notices.extend(self.closed(recording, passed, &prepared.program).await);
         self.settle(admitted, passed).await?;
@@ -98,7 +93,8 @@ impl Engine {
             Arc::make_mut(&mut program).config.defaults.timeout = Some(timeout);
         }
         let (profiles, names) = plan::profiles(&program, settings.profiles.as_ref())?;
-        Ok(Prepared { program, plan: Arc::default(), settings, profiles, names, notices, environment, dot_env })
+        let (plan, draw) = (Arc::default(), Draw::new(None));
+        Ok(Prepared { program, plan, settings, profiles, names, notices, environment, dot_env, draw })
     }
 
     /// The history entry of the call, or `None` and a notice that it is not recorded.
@@ -200,6 +196,17 @@ fn called(api: &Api, keep: bool) -> Action {
 fn unknown(program: &Program, id: &str) -> EngineError {
     let names = program.apis.keys().filter_map(|api| program.str(api.sym()));
     EngineError::Selection { reason: format!("no api `{id}`"), help: did_you_mean(&vc_planner::closest(id, names)) }
+}
+
+/// Sends `action` once with the `--var` values `given`, then runs the cleanups it registered;
+/// gives its report and a notice for each cleanup that failed.
+async fn sent_once(cx: &Arc<ActionCx>, action: ActionId, given: Saved) -> (ActionReport, Vec<String>) {
+    let mut sent = ActionRequest::cleanup(cx, action, &Arc::new(Saved::new()));
+    sent.frame = Frame::default();
+    sent.frame.saved = Arc::new(given);
+    let report = cx.executors.execute(sent).await;
+    let failed = clean(cx, &report).await;
+    (report, failed)
 }
 
 /// Runs the cleanups the call registered, last first; each failure is a notice.

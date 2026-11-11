@@ -1,0 +1,88 @@
+---
+title: "V3207 — A key a test: action ignores"
+description: "A test: action runs the reused test as written: its own calls, with their own auth, headers, query, body, poll and expect (D270)."
+sidebar:
+  label: "V3207 A key a test: action ignores"
+  order: 3207
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="warning" variant="caution" /> <Badge text="Lifecycle" variant="note" />
+
+| | |
+| --- | --- |
+| Code | `V3207` |
+| Category | V3xxx: Lifecycle |
+| Severity | warning |
+| Certain fix | remove the key |
+
+A `test:` action runs the reused test as written: its own calls, with their own `auth`, `headers`, `query`, `body`,
+`poll` and `expect` (D270). Written on the `test:` action itself, those keys never reach the reused test's calls, so
+they have no effect. Remove the key, or set it in the reused test.
+
+## Wrong
+
+```yaml wrong V3207 title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+```
+
+```yaml wrong V3207 title="services/users/crud.test.yaml"
+tests:
+  - id: makesUser
+    standalone: false
+    call: users#createUser
+  - id: readsNewUser
+    steps:
+      - test: users.crud#makesUser
+        headers: {x-trace: '1'}
+      - call: users#getUser
+```
+
+## Right
+
+```yaml title="services/users/users.api.yaml"
+apis:
+  - id: getUser
+    path: /users/1
+  - id: createUser
+    method: POST
+    path: /users
+    save:
+      userId: ${response.body.id}
+```
+
+```yaml title="services/users/crud.test.yaml"
+tests:
+  - id: makesUser
+    standalone: false
+    call: users#createUser
+    headers: {x-trace: '1'}
+  - id: readsNewUser
+    steps:
+      - test: users.crud#makesUser
+      - call: users#getUser
+```
+
+
+## Explain it in your terminal
+
+The same page is built into the binary, so this works anywhere, even outside a project:
+
+```console
+$ vc explain V3207
+```
+
+## Related
+
+- [All diagnostic codes](/vc-rs/reference/diagnostics/)
+- [`vc explain`](/vc-rs/reference/cli/explain/)
+- [`vc check`](/vc-rs/reference/cli/check/)
+- [Errors and fixes](/vc-rs/guides/errors-and-fixes/)

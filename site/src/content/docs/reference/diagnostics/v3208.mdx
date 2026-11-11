@@ -24,13 +24,13 @@ say it is meant as a literal. A status map is never a literal, so an unknown key
 
 ## Wrong
 
-```yaml title="services/users/users.api.yaml"
+```yaml wrong V3208 title="services/users/users.api.yaml"
 apis:
   - id: getUser
     path: /users/1
 ```
 
-```yaml title="services/users/crud.test.yaml"
+```yaml wrong V3208 title="services/users/crud.test.yaml"
 tests:
   - id: getsUser
     call: users#getUser

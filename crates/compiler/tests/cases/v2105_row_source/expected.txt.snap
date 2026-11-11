@@ -1,0 +1,10 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2105_row_source/project
+---
+error[V2105]: `fake` is not available here
+ --> services/users/rows.test.yaml:3:15
+  |
+3 |     examples: ${fake.string.uuid}
+  |               ^^^^^^^^^^^^^^^^^^^
+  = help: `examples` is read before the run starts, so it reads only `var`, `env` and `dataset`

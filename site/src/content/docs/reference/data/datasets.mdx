@@ -173,6 +173,7 @@ examples: ${dataset.smokeUsers}
 
 - `vc check` reads every dataset before the run. A malformed file, a duplicate column or a column name that no row has is caught before any request.
 - With `examples`, every `${example.<column>}` must be a column of the rows ([V2103](/vc-rs/reference/diagnostics/v2103/)).
+- A piped dataset in `examples`, such as `${dataset.capitals | shuffle | take(3)}`, is drawn once before the run starts, so `--seed` repeats the same rows in the same order.
 - A row missing a field that `${item.<field>}` reads fails that iteration at run time ([V5112](/vc-rs/reference/diagnostics/v5112/)).
 - Datasets are read-only. Tests that change data should create their own.
 

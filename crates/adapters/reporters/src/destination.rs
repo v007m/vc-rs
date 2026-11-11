@@ -7,11 +7,12 @@ use vc_interfaces::ReportError;
 
 /// Where reports go: console text, and report files in the run's report folder.
 pub trait Destination: Send + Sync + Debug {
-    /// Writes `text` to the console as it is.
+    /// Writes `text` to the console as it is; once its reader has gone (a closed pipe, as in
+    /// `vc run | head -1`), the text is dropped and the run goes on.
     ///
     /// # Errors
     ///
-    /// [`ReportError::Write`] when the console cannot be written, a closed pipe for one.
+    /// [`ReportError::Write`] when the console cannot be written for another reason.
     fn print(&self, text: &str) -> Result<(), ReportError>;
 
     /// Saves a whole report file called `name`, which may name a subfolder (`data/index.js`),
@@ -51,7 +52,10 @@ impl Destination for FsDestination {
             return Ok(());
         }
         let mut out = std::io::stdout().lock();
-        out.write_all(text.as_bytes()).and_then(|()| out.flush()).map_err(|e| write_error("console", &e))
+        match out.write_all(text.as_bytes()).and_then(|()| out.flush()) {
+            Err(error) if error.kind() != std::io::ErrorKind::BrokenPipe => Err(write_error("console", &error)),
+            _ => Ok(()),
+        }
     }
 
     fn save(&self, name: &str, contents: &[u8]) -> Result<PathBuf, ReportError> {

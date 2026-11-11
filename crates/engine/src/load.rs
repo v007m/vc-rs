@@ -13,10 +13,8 @@ use crate::load_live::{self, Live};
 use crate::load_report::{self, LoadBreach, LoadEnding};
 use crate::notify::{self, Alerting};
 use crate::plan::{Extra, Prepared};
-use crate::run::{executor_error, inputs};
-use crate::{
-    Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history, ports,
-};
+use crate::run::executor_error;
+use crate::{Engine, EngineError, LoadReport, LoadRequest, LoadWatch, PlanRequest, SelectRequest, alerts, history};
 
 /// A load run between its plan and its report.
 struct Session {
@@ -55,9 +53,9 @@ impl Engine {
         let run_id = live.run_id().unwrap_or(0);
         session.alerting = self.alerting(&session.prepared, &secrets, (run_id, "load"))?;
         let plugins = self.plugin_hosts(&session.prepared.program, &secrets);
-        let inputs = inputs(&session.prepared, Arc::clone(&session.random), run_id)
-            .with_secrets(secrets)
-            .with_started_at(session.started_ms);
+        let reached = crate::body_files::reached(&session.prepared.program, &session.prepared.plan);
+        let inputs = self.inputs(&session.prepared, (Arc::clone(&session.random), run_id, reached)).await;
+        let inputs = inputs.with_secrets(secrets).with_started_at(session.started_ms);
         let cx = Arc::new(self.action_cx(&session.prepared, (inputs, &plugins))?);
         let full_checks = session.scenario.full_checks;
         let setup = IterationSetup { bus: EventBus::spawn(), cancel: session.root.clone(), full_checks };
@@ -85,7 +83,7 @@ impl Engine {
         let select = SelectRequest { ids, ..SelectRequest::default() };
         let plan = PlanRequest { select, profiles: request.profiles.clone(), sets: request.sets.clone(), repeat: None };
         let prepared = self.prepare(&plan, Extra::default())?;
-        let (seed, random) = ports::random(None);
+        let (seed, random) = (prepared.draw.seed, Arc::clone(&prepared.draw.random));
         let report = LoadReport { scenario: request.scenario.clone(), seed, ..LoadReport::default() };
         let (root, started_ms) = (CancelTree::new(RunOptions::default().grace), self.clock.now_ms());
         Ok(Session { prepared, scenario, seed, random, root, started_ms, report, alerting: None })

@@ -3,7 +3,9 @@
 use std::time::Duration;
 
 use vc_diagnostics::{Code, Diagnostic};
-use vc_model::{Pos, Reference, ScalarSource, ScalarStyle, SourceFileId, SourceSpan, StatusPattern, StringTable};
+use vc_model::{
+    Namespace, Pos, Reference, ScalarSource, ScalarStyle, SourceFileId, SourceSpan, StatusPattern, StringTable,
+};
 use vc_template::Roots;
 
 fn span() -> SourceSpan {
@@ -33,6 +35,20 @@ fn code(roots: &Roots, text: &str) -> Code {
 fn everyday_roots_are_available_everywhere() {
     for text in ["${var.a}", "${env.HOME}", "${secret.key}", "${fake.uuid}", "${dataset.users}", "${run.id}"] {
         assert!(check(&Roots::new(), text).is_ok(), "{text}");
+    }
+}
+
+#[test]
+fn only_keeps_the_named_roots_whatever_else_is_added() {
+    let why = "read before the run";
+    let roots = Roots::new().with_call().in_for_each().only(&[Namespace::Var, Namespace::Dataset], why);
+    assert!(check(&roots, "${var.a}").is_ok() && check(&roots, "${dataset.users | take(3)}").is_ok());
+    for (text, name) in
+        [("${fake.uuid}", "fake"), ("${response.body}", "response"), ("${item.n}", "item"), ("${seed.id}", "seed")]
+    {
+        let diagnostic = *check(&roots, text).unwrap_err();
+        assert_eq!((diagnostic.code, diagnostic.message), (Code::V2105, format!("`{name}` is not available here")));
+        assert_eq!(diagnostic.help, [why]);
     }
 }
 

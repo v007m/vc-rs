@@ -43,7 +43,8 @@ impl InlineExecutor {
         let ActionKind::Inline(inline) = &action.kind else { return Err(Failure::new("the action is not inline")) };
         let mut render = Render::new(request).map_err(request::failed)?;
         let timeout = own_limit(render.program(), action);
-        let call = Call { request: request::inline(&render, inline)?, timeout, ctx: SendContext::default() };
+        let call =
+            Call { request: request::inline(&render, (request.action, inline))?, timeout, ctx: SendContext::default() };
         let exchange = send(&crate::pipeline(self.parts.clone()), call).await?;
         let response = bind(&mut render, &exchange);
         let checks = expected(action, (Origin::Action(request.action), action.span));

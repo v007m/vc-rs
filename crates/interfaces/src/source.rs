@@ -32,6 +32,15 @@ pub trait SourceProvider: Send + Sync {
     /// [`SourceError::Root`] when the project cannot be read at all.
     fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError>;
 
+    /// The bytes of the file at `path`, which need not be text: the engine reads the `$file`
+    /// request bodies with it before a run (D272).
+    ///
+    /// # Errors
+    ///
+    /// The [`SourceError`] of a path [`Self::read`] cannot use, other than
+    /// [`SourceError::NotUtf8`].
+    fn read_bytes(&self, path: &SourcePath) -> Result<Vec<u8>, SourceError>;
+
     /// The data files of `wanted` that lead out of the project, each with the
     /// `datasets.allowRoots` folder it must stay under (D173), read as [`Self::read`] reads, but
     /// only while the file, with links resolved, is inside that folder and in no hidden folder

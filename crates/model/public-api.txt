@@ -593,6 +593,9 @@ pub vc_model::TemplateValue::Map(indexmap::map::IndexMap<alloc::string::String, 
 pub vc_model::TemplateValue::Null
 pub vc_model::TemplateValue::Number(serde_json::number::Number)
 pub vc_model::TemplateValue::String(vc_model::Template)
+impl vc_model::TemplateValue
+pub fn vc_model::TemplateValue::collect_references<'v>(&'v self, &mut alloc::vec::Vec<&'v vc_model::Reference>)
+pub fn vc_model::TemplateValue::references(&self) -> alloc::vec::Vec<&vc_model::Reference>
 impl core::clone::Clone for vc_model::TemplateValue
 pub fn vc_model::TemplateValue::clone(&self) -> Self
 impl core::cmp::Eq for vc_model::TemplateValue
@@ -2051,7 +2054,9 @@ impl core::marker::StructuralPartialEq for vc_model::Tag
 pub struct vc_model::Template
 pub vc_model::Template::parts: alloc::vec::Vec<vc_model::Part>
 impl vc_model::Template
+pub fn vc_model::Template::as_literal(&self) -> core::option::Option<&str>
 pub const fn vc_model::Template::preserves_type(&self) -> bool
+pub fn vc_model::Template::references(&self) -> impl core::iter::traits::iterator::Iterator<Item = &vc_model::Reference>
 pub const fn vc_model::Template::single_ref(&self) -> core::option::Option<&vc_model::Reference>
 impl core::clone::Clone for vc_model::Template
 pub fn vc_model::Template::clone(&self) -> Self
@@ -2236,12 +2241,21 @@ pub const vc_model::DEFAULT_KEEP: u32
 pub const vc_model::DEFAULT_MAX_BODY: vc_model::Size
 pub const vc_model::DEFAULT_SECRETS_PROVIDER: &str
 pub const vc_model::DEFAULT_SECRETS_SCHEMA: &str
+pub const vc_model::FILE_KEY: &str
+pub const vc_model::MULTIPART: &str
 pub fn vc_model::auth_needs(&str) -> core::option::Option<&'static [&'static str]>
+pub fn vc_model::basename(&str) -> &str
 pub fn vc_model::check_label(&vc_model::CheckResult) -> alloc::string::String
 pub fn vc_model::check_parts(&vc_model::CheckResult) -> (&'static str, core::option::Option<alloc::string::String>)
 pub fn vc_model::cut_body(&[u8], usize) -> (core::option::Option<alloc::string::String>, bool)
+pub fn vc_model::file_parts(&vc_model::TemplateValue) -> alloc::vec::Vec<(alloc::string::String, &vc_model::Template)>
+pub fn vc_model::file_path(&serde_json::value::Value) -> core::option::Option<&str>
+pub fn vc_model::form_pairs<'p>(impl core::iter::traits::collect::IntoIterator<Item = (&'p str, &'p str)>) -> alloc::string::String
+pub fn vc_model::form_text(&str) -> alloc::string::String
 pub fn vc_model::hidden_part(&str) -> bool
 pub fn vc_model::import_paths(&str) -> alloc::vec::Vec<alloc::string::String>
+pub fn vc_model::is_multipart(&str) -> bool
+pub fn vc_model::part_pointer(&str, core::option::Option<usize>) -> alloc::string::String
 pub fn vc_model::resolve_path(&[&str], &str) -> core::option::Option<alloc::string::String>
 pub fn vc_model::schema_names(&str) -> alloc::vec::Vec<alloc::string::String>
 pub fn vc_model::secret_name(&str) -> alloc::string::String

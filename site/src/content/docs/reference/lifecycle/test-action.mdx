@@ -4,7 +4,7 @@ description: "The test action reuses another test's calls as one action, with th
 sidebar: { order: 6 }
 ---
 
-import { CardGrid, LinkCard, Aside } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 import Playground from '~/components/Playground.svelte';
 
 `test: <test ID>` runs another test's calls in order, as if you had written them in place. Use it when a multi-step setup already exists as a test.
@@ -86,9 +86,7 @@ Without `provides`, reading a value the reused test saved still works, with a wa
 ! V5108: `var.itemId` was saved by a `test:` step that does not declare it; add `provides: [itemId]` to that step
 ```
 
-<Aside type="caution">
-The reused test's own test-level `expect` is checked today. If it does not hold, the test that reuses it is blocked with a V5101 that points into the reused test.
-</Aside>
+The reused test's own test-level `expect` is checked, as when it runs on its own. If it does not hold, the test that reuses it is blocked with a V5101 that points into the reused test.
 
 <Playground client:visible kind="test" code={`tests:
   - id: makesAnItem

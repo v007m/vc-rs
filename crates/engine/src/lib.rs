@@ -35,6 +35,7 @@ mod alert_samples;
 mod alerts;
 mod approvals;
 mod authoring;
+mod body_files;
 mod builder;
 mod cache;
 mod call;
@@ -51,6 +52,7 @@ mod create_curl;
 mod edit;
 mod editor_files;
 mod error;
+mod examples;
 mod explain;
 mod failed;
 mod fetch;
@@ -151,7 +153,7 @@ pub use vc_diagnostics::{
     Code, Diagnostic, Diagnostics, DiagnosticsError, Fix, JsonRenderer, Label, Render, Severity, Summary, TextRenderer,
 };
 pub use vc_interfaces::{
-    AgentAction, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, ExchangeRow, LoggedAction,
+    AgentAction, Approval, ApprovalId, ApprovalRequest, ApprovalStatus, CheckRow, Decided, ExchangeRow, LoggedAction,
     PluginKind, PluginManifest, PluginPermissions, PluginStderr, RunId, RunRow, RunStart, TestRow, TestTrend, Verdict,
 };
 pub use vc_model::{

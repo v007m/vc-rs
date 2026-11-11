@@ -74,11 +74,20 @@ impl Scope {
     pub const LOOP: Self = Self(1 << 2);
     /// `item` and `iteration`: `forEach`.
     pub const FOR_EACH: Self = Self(1 << 3);
+    /// Only the roots a row source reads before the run starts: `examples` written as one
+    /// template or a `$file` map, not inline rows.
+    pub const ROWS: Self = Self(1 << 4);
 
     /// Both scopes.
     #[must_use]
     pub const fn with(self, other: Self) -> Self {
         Self(self.0 | other.0)
+    }
+
+    /// This scope without the roots of `other`.
+    #[must_use]
+    pub const fn without(self, other: Self) -> Self {
+        Self(self.0 & !other.0)
     }
 
     /// Whether every root of `other` is in this scope.
@@ -306,5 +315,7 @@ mod tests {
         let scope = Scope::CALL.with(Scope::LOOP);
         assert!(scope.has(Scope::CALL) && scope.has(Scope::LOOP) && !scope.has(Scope::EXAMPLES));
         assert!(Scope::NONE.has(Scope::NONE));
+        assert_eq!(scope.with(Scope::ROWS).without(Scope::ROWS), scope);
+        assert_eq!(scope.without(Scope::CALL), Scope::LOOP);
     }
 }

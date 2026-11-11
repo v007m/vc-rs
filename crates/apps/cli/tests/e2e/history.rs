@@ -88,3 +88,19 @@ async fn failed_needs_a_failure_to_rerun() {
     assert_eq!(clean.status.code(), Some(2));
     assert!(said(&clean).contains("no failed or blocked test"), "{}", said(&clean));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_call_is_not_the_last_run() {
+    let server = MockServer::start().await.unwrap();
+    let project = Project::new(&[CONFIG, USERS, MIXED]);
+    project.run(&server.base_url(), &[]).assert().code(1);
+    let base = format!("vars.baseUrl={}", server.base_url());
+    project.vc(&["call", "users#list", "--set", &base]).assert().code(0);
+
+    let shown = project.vc(&["history", "show"]).output().unwrap();
+    assert_eq!(shown.status.code(), Some(0), "{}", said(&shown));
+    assert!(String::from_utf8_lossy(&shown.stdout).contains("failed   users.mixed#wantsAnError"), "{}", said(&shown));
+    let rerun = project.run(&server.base_url(), &["--failed", "--reporter", "json"]).output().unwrap();
+    assert_eq!(rerun.status.code(), Some(1), "{}", said(&rerun));
+    assert_eq!(of_kind(&events(&rerun.stdout), "testFinished").len(), 1, "{}", said(&rerun));
+}

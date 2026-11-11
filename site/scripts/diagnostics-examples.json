@@ -113,6 +113,11 @@
   "V3103": {
     "files": [
       {
+        "path": "services/users/users.api.yaml",
+        "lang": "yaml",
+        "code": "apis:\n  - id: listUsers\n    path: /users"
+      },
+      {
         "path": "services/users/crud.test.yaml",
         "lang": "yaml",
         "code": "id: users.crud\nname: Users CRUD\ntests:\n  - id: listsUsers\n    name: Lists users\n    call: users#listUsers\n    skip: ''"

@@ -26,7 +26,7 @@ apis:
 | `vibranium.config.yaml` | `defaults.headers` | every request in the project |
 | api file | `headers` | every api in the file |
 | api | `headers` | that api |
-| test | `headers` | the test's call, or every `call` and `test:` step as a default |
+| test | `headers` | the test's call, or every `call` step as a default |
 | step or action | `headers` | that one call |
 
 | Field | Type | Default | Required | Notes |
@@ -147,7 +147,7 @@ $ vc call qlab#typed
 
 ### A default for every step
 
-A test-level `headers` map is a default for each `call` and `test:` step. A step's own value wins. If every step replaces it, `vc check` warns that the default is unused:
+A test-level `headers` map is a default for each `call` step. A step's own value wins. If every step replaces it, `vc check` warns that the default is unused:
 
 ```yaml title="services/bodylab/e.test.yaml"
   - id: unusedDefault
@@ -166,7 +166,7 @@ warning[V3206]: no step uses the test-level `headers.x-a`
    |
 22 |       x-a: "1"
    |       ^^^ unused default
-   = note: `call` and `test:` steps take the test's defaults and their own values win; `function` and `command` steps take none
+   = note: `call` steps take the test's defaults and their own values win; `test:`, `function` and `command` steps take none
    = help: remove it, or remove the steps' own values that replace it
 ```
 
