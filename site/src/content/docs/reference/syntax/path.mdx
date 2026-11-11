@@ -20,7 +20,7 @@ apis:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `path` | template | — | yes | Start it with `/`. Joined to `baseUrl` as plain text. Not percent-encoded. |
+| `path` | template | — | yes | Start it with `/`. Joined to `baseUrl` as plain text. Each `${…}` value is percent-encoded as one segment. |
 
 The query string does not go in `path`. Put it in [`query`](/vc-rs/reference/syntax/query/), which encodes each value for you.
 
@@ -47,29 +47,15 @@ $ vc call sample#getUser --var userId=1
 
 In a test, the var usually comes from an earlier call's [`save`](/vc-rs/reference/syntax/save/), such as `userId: ${response.body.id}` on `createUser`.
 
-### Encode values that may hold spaces or slashes
+### Values are encoded as one segment
 
-vc does not encode the path. A value with a space makes an invalid URL, and the call fails before it is sent:
-
-```yaml title="services/h/h.api.yaml"
-  - id: badPath
-    path: /users/${var.userId}
-    vars:
-      userId: a b
-```
-
-```console
-$ vc run h.t
-✕ h.t#b                                                           0ms
-  error[V5111]: `http://localhost:7432/users/a b` is not a URL: invalid uri character
-     = at: call h#badPath
-```
-
-Add the [`urlEncode`](/vc-rs/reference/pipes/) pipe to any path value that is not a plain ID:
+vc percent-encodes each `${…}` value in the path, so whatever it holds stays one path segment. A space is sent as
+`%20` and a `/` as `%2F`, and a `..` cannot climb to another endpoint. The text you write around the values is sent
+as written.
 
 ```yaml title="services/req/req.api.yaml"
   - id: getUser
-    path: /users/${var.userId | urlEncode}
+    path: /users/${var.userId}
     vars:
       userId: "1"
 ```
@@ -86,10 +72,14 @@ $ vc call req#getUser
 With `userId: a b/c` the same api sends `/users/a%20b%2Fc`, one path segment. The demo has no such user, so it answers 404:
 
 ```console
-$ vc call req#badEnc
+$ vc call req#getUser --var "userId=a b/c"
 404 Not Found · 2 ms · api expect failed
 ✗ status: expected ["2xx"], got 404
 ```
+
+Don't add the [`urlEncode`](/vc-rs/reference/pipes/url-encode/) pipe. A value whose last pipe is `urlEncode` is sent as
+the pipe left it, not encoded twice, and `vc check` warns with [V4007](/vc-rs/reference/diagnostics/v4007/), whose fix
+removes the pipe.
 
 ### A full URL in the path
 
@@ -129,7 +119,7 @@ profile  default
   PUT http://localhost:7432/echo/abc 123
 ```
 
-Here the space in `abc 123` shows that the path needs `urlEncode`. A template with a pipe is shown unrendered, as in `GET http://localhost:7432/users/${var.userId | urlEncode}`.
+`vc explain` shows each value as it renders, before it is encoded: the call sends `/echo/abc%20123`. A template with a pipe is shown unrendered, as in `GET http://localhost:7432/users/${var.userId | trim}`.
 
 ## Try it
 
@@ -137,7 +127,7 @@ Here the space in `abc 123` shows that the path needs `urlEncode`. A template wi
 baseUrl: \${var.sampleUrl}
 apis:
   - id: getUser
-    path: /users/\${var.userId | urlEncode}
+    path: /users/\${var.userId}
     vars:
       userId: "1"
 `} />
@@ -149,7 +139,8 @@ apis:
 - A `baseUrl` that ends in `/` plus a path that starts with `/` gives `//`, which most servers answer with 404. `vc check` warns with V4005 here too.
 - A path that is a full URL or starts with a template (`${var.usersUrl}/users`) is not checked.
 - A path parameter is a var: `/poll/${var.jobId}`. The OpenAPI style `/poll/{jobId}` is sent as the literal text `{jobId}`, so `vc check` warns with [V4006](/vc-rs/reference/diagnostics/v4006/) and suggests the var.
-- Templates in the path are rendered, not encoded. Use `| urlEncode` for user-supplied text. Values in [`query`](/vc-rs/reference/syntax/query/) are encoded automatically, so don't use the pipe there.
+- Each `${…}` value is percent-encoded as one segment: `/`, `?`, `#`, `%` and a space are encoded, while letters, digits and `-._~!$&'()*+,;=:@` are kept. A value that is just `.` or `..` is sent as `%2E` or `%2E%2E`. Values in [`query`](/vc-rs/reference/syntax/query/) are encoded too, so neither needs `urlEncode` (V4007 warns about it in a path).
+- A value before the path's first `/`, such as `${var.usersUrl}` in `${var.usersUrl}/users`, is the start of a URL and is sent as written, as `baseUrl` is.
 - Any var in scope can be used: the api's own `vars`, the file's, the config's, a test's, or a saved value.
 
 ## Common errors

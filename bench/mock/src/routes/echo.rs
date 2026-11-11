@@ -12,9 +12,10 @@ use serde_json::{Value, json};
 
 const BODY_LIMIT: usize = 16 * 1024 * 1024;
 
-/// `ANY /echo` returns the request's method, path, query, headers and body as JSON.
+/// `ANY /echo` and `ANY /echo/…` return the request's method, path (as it arrived, still
+/// percent-encoded), query, headers and body as JSON.
 pub fn routes() -> Router {
-    Router::new().route("/echo", routing::any(echo))
+    Router::new().route("/echo", routing::any(echo)).route("/echo/{*rest}", routing::any(echo))
 }
 
 async fn echo(request: Request) -> Response {

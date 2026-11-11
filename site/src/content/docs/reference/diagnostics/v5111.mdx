@@ -27,6 +27,10 @@ not a full URL: `` `users#list` sends to `/users`, which is not a full URL: no `
 dev) ``. Add `baseUrl: ${var.usersUrl}` to the api file and set `usersUrl` in the config, a profile, or with
 `--set vars.usersUrl=http://localhost:8080`.
 
+A `${…}` value in a `path` cannot make a bad URL, since each one is percent-encoded as one segment (D278). The
+`path`'s own text is sent as written, so a space typed into it is a V5111: `` `http://localhost/users/a b` is not a
+URL ``.
+
 ## Wrong
 
 ```yaml title="services/users/users.api.yaml"

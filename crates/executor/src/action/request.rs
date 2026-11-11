@@ -11,13 +11,15 @@ use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
 use vc_model::{
-    Action, ActionId, Api, BodySpec, Exchange, Failure, InlineRequest, Method, RenderedRequest, Template, Timing,
+    Action, ActionId, Api, BodySpec, Exchange, Failure, InlineRequest, Method, Part, Reference, RenderedRequest,
+    Template, Timing,
 };
 use vc_template::RenderError;
 
 use crate::Render;
 use crate::action::encode::{self, Encoder, Encoding};
 use crate::action::media::{self, OCTETS};
+use crate::action::path;
 
 /// RFC 3986 unreserved characters stay as they are in a query.
 const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove(b'_').remove(b'~');
@@ -65,13 +67,12 @@ fn with_body(
     Ok(request)
 }
 
-/// The api file's `baseUrl`, the api's `path` and the query.
+/// The api file's `baseUrl` as written, the api's `path` with each value encoded (D278), and
+/// the query.
 fn uri(render: &Render<'_>, api: &Api, action: &Action) -> Result<Uri, Failure> {
     let base = render.program().api_groups.get(&api.group).and_then(|group| group.base_url.as_ref());
-    let mut url = String::new();
-    for template in base.into_iter().chain([&api.path]) {
-        url.push_str(&render.text(template).map_err(failed)?);
-    }
+    let mut url = base.map(|base| render.text(base)).transpose().map_err(failed)?.unwrap_or_default();
+    url.push_str(&path::rendered(render, &api.path)?);
     if base.is_none() && !url.contains("://") {
         return Err(unbased(render, api, &url));
     }
@@ -116,6 +117,11 @@ fn query<const N: usize>(render: &Render<'_>, levels: [&IndexMap<String, Templat
         pairs.extend(items.map(|item| format!("{}={}", encode(key), encode(&vc_template::to_text(item)))));
     }
     Ok(pairs.join("&"))
+}
+
+/// `reference` as a template of its own.
+pub fn lone(reference: Reference) -> Template {
+    Template { parts: vec![Part::Ref(reference)] }
 }
 
 /// `text` percent-encoded for a query, leaving only the unreserved characters.

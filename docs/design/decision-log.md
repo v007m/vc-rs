@@ -513,6 +513,12 @@ Round 43 (11 November 2026; gaps found by the WP4 triage and review. Orchestrato
 | D275 | A timing phase that did not happen | `dns`, `connect` and `tls` read 0 ms in timing checks and in `${response.timing.*}` when the phase did not happen: a reused connection (no `dns` or `connect`), an IP literal (no `dns`), plain HTTP (no `tls`). So `connect: {lt: 5ms}` passes on a reused connection and `connect: {gt: 0ms}` fails, as in curl. The exchange, reports and history keep the phase as not measured (`None`, `NULL`) | — |
 | D276 | A literal object that looks like a misspelt matcher | A map in a literal position (`expect.body`, a header, a `[*]` path) with no matcher's name as a key is a literal object, as before. When its one key has five characters or more and is close to a matcher's name, case counted (`startWith`, `lenght`, `Length`, `exist`, `types`), it still compiles as that literal but warns V3208, a new lint code: "fix the name to use the matcher, or write `eq:` to keep it as a literal". It is never an error. A status map (`expect.status`, `saveOn`) is never a literal, so an unknown key there stays V1004. Orchestrator default; Sarath to confirm | — |
 
+Round 45 (11 November 2026; orchestrator; Sarath away):
+
+| # | Topic | Decision | Supersedes |
+| --- | --- | --- | --- |
+| D278 | How a `path` is encoded | A `path`'s literal text is sent as written. Each `${…}` value is percent-encoded as one segment (RFC 3986 `pchar`: `/`, `?`, `#`, `%` and a space are encoded), and a lone `.` or `..` is sent as `%2E` or `%2E%2E`, so a value cannot change the path's shape. A value before the path's first `/` (`${var.usersUrl}/users`) is sent as written, and one after a literal `?` is encoded as a query value. A value whose last pipe is `urlEncode` is sent as the pipe left it, not encoded twice, and `vc check` warns with V4007, whose certain fix removes the pipe. The `baseUrl` is sent as written | D268 (clarified) |
+
 ## Open
 
 All decisions needed for the PRD and technical design are settled. The language is decided by the spike (D6, D36, D37, D41).

@@ -12,6 +12,7 @@ mod item_ids;
 mod load_ranges;
 mod lone_keys;
 mod names;
+mod path_encode;
 mod placeholders;
 mod redact_rules;
 mod reuse_keys;
@@ -85,6 +86,7 @@ impl LintRegistry {
             Box::new(names::Labels),
             Box::new(urls::ApiUrls),
             Box::new(placeholders::PathPlaceholders),
+            Box::new(path_encode::PathEncode),
         ];
         Self { lints }
     }

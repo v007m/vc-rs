@@ -180,3 +180,20 @@ fn a_braced_path_placeholder_is_a_warning_with_the_var_suggested() {
     let fixed = renamed("/poll/{jobId}/runs/{runId}", "/poll/${var.jobId}/runs/${var.runId}");
     assert_eq!(found, [placeholder(Vec::new()), placeholder(vec![fixed])]);
 }
+
+#[test]
+fn a_path_value_ending_in_url_encode_is_a_warning_with_the_pipe_removed() {
+    let api = concat!(
+        "baseUrl: ${var.baseUrl}\n",
+        "vars: {userId: '1', term: a b}\n",
+        "apis:\n",
+        "  - id: get\n    path: /users/${var.userId | urlEncode}\n",
+        "  - id: quoted\n    path: '/search/${var.term | lower |urlEncode}/all'\n",
+        "  - id: before\n    path: /users/${var.userId | urlEncode | upper}\n",
+        "  - id: plain\n    path: /users/${var.userId}\n",
+    );
+    let found = found(&[CONFIG, ("services/users/users.api.yaml", api)]);
+    let message = "`urlEncode` is not needed in a `path`: a run encodes each value there".to_owned();
+    let removed = |text: &str| (Code::V4007, message.clone(), vec![renamed(text, "")]);
+    assert_eq!(found, [removed(" | urlEncode"), removed(" |urlEncode")]);
+}
