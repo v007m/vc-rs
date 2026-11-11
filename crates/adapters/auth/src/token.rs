@@ -8,22 +8,15 @@ use base64::engine::general_purpose::STANDARD;
 use bytes::Bytes;
 use http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use http::{HeaderValue, Method, Uri};
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde_json::Value;
 use vc_interfaces::{AuthError, AuthRequest, Credentials, SendContext, Transport};
 use vc_model::RenderedRequest;
 
-/// RFC 3986 unreserved characters stay as they are in a form or a query.
-const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove(b'_').remove(b'~');
-
 const FORM: &str = "application/x-www-form-urlencoded";
 
-/// `key=value` pairs, percent-encoded, joined with `&`.
+/// `key=value` pairs, form-encoded as a form body is (D273), joined with `&`.
 pub fn encode(pairs: &[(&str, &str)]) -> String {
-    let encoded = pairs.iter().map(|(key, value)| {
-        format!("{}={}", utf8_percent_encode(key, UNRESERVED), utf8_percent_encode(value, UNRESERVED))
-    });
-    encoded.collect::<Vec<_>>().join("&")
+    vc_model::form_pairs(pairs.iter().copied())
 }
 
 /// The setting `key` as text.
@@ -109,7 +102,7 @@ fn post(request: &AuthRequest, grant: &[(&str, &str)]) -> Result<RenderedRequest
 
 /// RFC 6749 section 2.3.1: the client ID and secret are form-encoded before Basic encoding.
 fn encode_one(text: &str) -> String {
-    utf8_percent_encode(text, UNRESERVED).to_string()
+    vc_model::form_text(text)
 }
 
 fn parse(request: &AuthRequest, body: &[u8]) -> Result<Token, AuthError> {

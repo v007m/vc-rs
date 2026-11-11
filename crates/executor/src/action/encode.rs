@@ -2,12 +2,13 @@
 //! URL-encoded form (D273) and multipart parts (D274). A media type with no encoder sends the
 //! map as JSON.
 
+use std::collections::BTreeSet;
+
 use bytes::Bytes;
 use http::HeaderValue;
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use serde_json::{Map, Value};
 use vc_interfaces::Random;
-use vc_model::Failure;
+use vc_model::{ActionId, Failure, MULTIPART, form_text};
 
 use crate::BodyFiles;
 use crate::action::multipart::multipart;
@@ -21,6 +22,10 @@ pub struct Encoding<'e> {
     pub random: &'e dyn Random,
     /// The `content-type` as written.
     pub content_type: &'e HeaderValue,
+    /// The action sending the body, whose `$file` parts the engine read.
+    pub action: ActionId,
+    /// The pointers of the `$file` parts the body writes with a literal path.
+    pub written: &'e BTreeSet<String>,
 }
 
 /// A map body's bytes, and the `content-type` to send in place of the one written, if any.
@@ -30,11 +35,7 @@ pub type Encoded = (Bytes, Option<HeaderValue>);
 pub type Encoder = fn(&Map<String, Value>, &Encoding<'_>) -> Result<Encoded, Failure>;
 
 /// The encoder of each media type, lower case.
-const ENCODERS: [(&str, Encoder); 2] =
-    [("application/x-www-form-urlencoded", form), ("multipart/form-data", multipart)];
-
-/// The WHATWG form serializer keeps alphanumerics and `*-._`; a space becomes `+`.
-const FORM_KEPT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'*').remove(b'-').remove(b'.').remove(b'_').remove(b' ');
+const ENCODERS: [(&str, Encoder); 2] = [("application/x-www-form-urlencoded", form), (MULTIPART, multipart)];
 
 /// The encoder for `content_type`'s media type, its parameters and case ignored.
 pub fn encoder(content_type: &HeaderValue) -> Option<Encoder> {
@@ -48,15 +49,20 @@ pub fn form(fields: &Map<String, Value>, _: &Encoding<'_>) -> Result<Encoded, Fa
     let mut pairs = Vec::new();
     for (key, value) in fields {
         for item in items(value) {
-            if item.is_object() || item.is_array() {
-                return Err(rendering(&format!(
-                    "the form field `{key}` holds an object; a form field takes text or a list"
-                )));
-            }
-            pairs.push(format!("{}={}", form_text(key), form_text(&vc_template::to_text(item))));
+            pairs.push(format!("{}={}", form_text(key), form_text(&form_value(key, item)?)));
         }
     }
     Ok((Bytes::from(pairs.join("&")), None))
+}
+
+/// One form value as text; V5111 naming what field `key` holds when it is an object or a list.
+fn form_value(key: &str, item: &Value) -> Result<String, Failure> {
+    let nested = match item {
+        Value::Object(_) => "an object",
+        Value::Array(_) => "a list",
+        scalar => return Ok(vc_template::to_text(scalar)),
+    };
+    Err(rendering(&format!("the form field `{key}` holds {nested}; a form field takes text or a list")))
 }
 
 /// A field's values: each item of a list, else the value itself, nulls left out.
@@ -66,11 +72,6 @@ pub fn items(value: &Value) -> impl Iterator<Item = &Value> {
         value => std::slice::from_ref(value),
     };
     items.iter().filter(|item| !item.is_null())
-}
-
-/// `text` encoded as a form name or value.
-fn form_text(text: &str) -> String {
-    percent_encoding::utf8_percent_encode(text, FORM_KEPT).to_string().replace(' ', "+")
 }
 
 #[cfg(test)]

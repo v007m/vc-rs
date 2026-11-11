@@ -127,7 +127,8 @@ impl<'a> Data<'a> {
             return named(text).and_then(|id| self.sets.get(id)).map(|set| set.path.clone());
         }
         let [only] = node.entries() else { return None };
-        let written = only.value.as_str().filter(|text| only.key == "$file" && !text.contains(['#', '$']))?;
+        let written =
+            only.value.as_str().filter(|text| only.key == vc_model::FILE_KEY && !text.contains(['#', '$']))?;
         assets::resolve(&assets::folder(self.files.get(source.file)?.path.as_str()), written)
     }
 

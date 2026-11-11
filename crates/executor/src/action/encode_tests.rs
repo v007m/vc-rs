@@ -1,7 +1,10 @@
+use std::collections::BTreeSet;
+
 use bytes::Bytes;
 use http::HeaderValue;
 use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
+use vc_model::ActionId;
 use vc_testkit::ScriptedRandom;
 
 use super::{Encoding, encoder};
@@ -16,15 +19,22 @@ fn fields(value: Value) -> Map<String, Value> {
     }
 }
 
-/// `value` sent as a form.
-fn form(value: Value) -> Result<Bytes, Option<String>> {
+/// `value` sent as a form, or the failure's code and message.
+fn sent(value: Value) -> Result<Bytes, (Option<String>, String)> {
     let content_type = HeaderValue::from_static(FORM);
-    let (files, random) = (BodyFiles::default(), ScriptedRandom::seeded(1));
-    let encoding = Encoding { files: &files, random: &random, content_type: &content_type };
-    let encode = encoder(&content_type).ok_or(None)?;
-    let (bytes, rewritten) = encode(&fields(value), &encoding).map_err(|failure| failure.code)?;
+    let (files, random, written) = (BodyFiles::default(), ScriptedRandom::seeded(1), BTreeSet::new());
+    let (action, written) = (ActionId::new(0), &written);
+    let encoding = Encoding { files: &files, random: &random, content_type: &content_type, action, written };
+    let encode = encoder(&content_type).ok_or((None, String::new()))?;
+    let encoded = encode(&fields(value), &encoding).map_err(|failure| (failure.code, failure.message));
+    let (bytes, rewritten) = encoded?;
     assert_eq!(rewritten, None, "a form's header is sent as written");
     Ok(bytes)
+}
+
+/// `value` sent as a form, or the failure code.
+fn form(value: Value) -> Result<Bytes, Option<String>> {
+    sent(value).map_err(|(code, _)| code)
 }
 
 #[test]
@@ -50,8 +60,10 @@ fn a_list_repeats_its_key_and_a_null_is_left_out() {
 }
 
 #[test]
-fn a_nested_object_or_list_fails_with_v5111() {
-    for nested in [json!({"user": {"name": "a"}}), json!({"rows": [["a"]]})] {
-        assert_eq!(form(nested), Err(Some(Code::V5111.to_string())));
-    }
+fn a_nested_object_or_list_fails_with_v5111_naming_what_it_holds() {
+    let v5111 = Some(Code::V5111.to_string());
+    let holds =
+        |what: &str, key: &str| format!("the form field `{key}` holds {what}; a form field takes text or a list");
+    assert_eq!(sent(json!({"user": {"name": "a"}})), Err((v5111.clone(), holds("an object", "user"))));
+    assert_eq!(sent(json!({"rows": [["a"]]})), Err((v5111, holds("a list", "rows"))), "a list inside a list");
 }

@@ -8,7 +8,7 @@ mod render;
 mod run;
 mod scope;
 
-pub use bodies::BodyFiles;
+pub use bodies::{BodyFiles, Unread};
 pub use frame::{Frame, Iteration};
 pub use render::Render;
 pub use run::{Defined, RunInputs, RunValues};

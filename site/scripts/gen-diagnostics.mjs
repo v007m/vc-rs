@@ -31,8 +31,14 @@ const CATEGORIES = {
   5: { range: 'V5xxx', name: 'Run time', blurb: 'what went wrong while a test, hook or plugin ran' },
 };
 
+/**
+ * The V1–V3 codes whose wrong example the docs check cannot hold to its code: it completes a
+ * config with a default profile, so V3101's example never reports it.
+ */
+const UNCHECKABLE = new Set(['V3101']);
+
 /** A V1–V3 code is reported by `vc check`, so `explain.rs` holds its wrong example to it. */
-const checked = (code) => '123'.includes(code[1]);
+const checked = (code) => '123'.includes(code[1]) && !UNCHECKABLE.has(code);
 
 /**
  * The info words that mark a block of a V1–V3 wrong example for the docs check

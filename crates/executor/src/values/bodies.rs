@@ -1,32 +1,52 @@
-//! The bytes of the `$file` request bodies, read by the engine before the run so the executor
-//! does no I/O (D272).
+//! The bytes of the `$file`s request bodies send, read by the engine before the run so the
+//! executor does no I/O (D272). Each is held by the action that sends the body and the JSON
+//! pointer to the `$file` in it (D274), so the body itself is sent as written.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use bytes::Bytes;
+use vc_model::ActionId;
 
-/// A file's bytes, or why it could not be read.
-type Read = Result<Bytes, String>;
+/// Why the engine did not read a `$file`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Unread {
+    /// Its path was refused: it leads out of the project, or is not a project path.
+    Refused(String),
+    /// The file could not be read.
+    Failed(String),
+}
 
-/// Each `$file` body's bytes by its project path, or why the file could not be read.
+/// A `$file`'s bytes, or why it was not read.
+type Read = Result<Bytes, Unread>;
+
+/// What the engine read for one `$file`: its action and pointer, and its bytes or why not.
+type BodyFile = ((ActionId, String), Result<Vec<u8>, Unread>);
+
+/// Each `$file`'s bytes by the action that sends it and its pointer in the body, or why it was
+/// not read.
 #[derive(Clone, Debug, Default)]
-pub struct BodyFiles(Arc<HashMap<String, Read>>);
+pub struct BodyFiles(Arc<HashMap<ActionId, Pointers>>);
+
+/// One action's `$file`s by their pointer in its body.
+type Pointers = HashMap<String, Read>;
 
 impl BodyFiles {
-    /// The files read, each by its project path.
+    /// The files the engine read, each by its action and pointer.
     #[must_use]
-    pub fn new(files: impl IntoIterator<Item = (String, Result<Vec<u8>, String>)>) -> Self {
-        Self(Arc::new(files.into_iter().map(|(path, read)| (path, read.map(Bytes::from))).collect()))
+    pub fn new(files: impl IntoIterator<Item = BodyFile>) -> Self {
+        let mut held: HashMap<ActionId, Pointers> = HashMap::new();
+        for ((action, pointer), read) in files {
+            held.entry(action).or_default().insert(pointer, read.map(Bytes::from));
+        }
+        Self(Arc::new(held))
     }
 
-    /// The bytes of the file at `path`, or why it could not be read; `None` when the run was
-    /// not given it, as for a templated path.
+    /// The bytes of the `$file` at `pointer` in `action`'s body, or why it was not read; `None`
+    /// when the run was not given it, as for a path that arrives in a `${…}` value.
     #[must_use]
-    pub fn get(&self, path: &str) -> Option<Result<Bytes, &str>> {
-        self.0.get(path).map(|read| match read {
-            Ok(bytes) => Ok(bytes.clone()),
-            Err(reason) => Err(reason.as_str()),
-        })
+    pub fn get(&self, action: ActionId, pointer: &str) -> Option<Result<&Bytes, &Unread>> {
+        self.0.get(&action)?.get(pointer).map(Result::as_ref)
     }
 }

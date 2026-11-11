@@ -6,6 +6,7 @@
 //! JSON, DOT and the `--explain` listing. No I/O: preloaded example row counts arrive in
 //! [`PlanOptions`] (D132).
 
+mod bodies;
 mod build;
 mod error;
 mod expand;
@@ -17,6 +18,7 @@ mod select;
 mod testing;
 mod visit;
 
+pub use bodies::{bodies, bodies_from};
 pub use build::plan;
 pub use error::PlanError;
 pub use options::{PlanOptions, Selection};

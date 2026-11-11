@@ -13,8 +13,8 @@ use crate::testing::{TOKEN, answering, field, form, request, token_server};
 const GRANT: [(&str, &str); 1] = [("grant_type", "client_credentials")];
 
 #[test]
-fn encode_keeps_unreserved_characters_and_escapes_the_rest() {
-    assert_eq!(encode(&[("a b", "x&y=z"), ("k", "A-z0_9.~")]), "a%20b=x%26y%3Dz&k=A-z0_9.~");
+fn encode_is_the_whatwg_form_encoding_a_form_body_uses() {
+    assert_eq!(encode(&[("a b", "x&y=z"), ("k", "A-z0_9.*~")]), "a+b=x%26y%3Dz&k=A-z0_9.*%7E");
     assert_eq!(encode(&[]), "");
 }
 
@@ -59,6 +59,18 @@ async fn a_public_client_sends_its_id_in_the_form() {
     assert_eq!(token.credentials.headers[0].1.expose(), "MAC x");
     assert_eq!(token.credentials.expires_in, Some(Duration::from_secs(90)));
     assert_eq!(token.refresh, None);
+}
+
+/// The token request's body is the WHATWG form encoding a form body uses (D273): a space is `+`.
+#[tokio::test]
+async fn a_token_request_is_form_encoded_with_a_space_as_plus() {
+    let (transport, recordings) = token_server(TOKEN);
+    let settings = json!({"tokenUrl": "https://id.test/token", "clientId": "my cli~", "audience": "a b"});
+    let grant = [("grant_type", "client_credentials"), ("scope", "read write")];
+    TokenEndpoint::new(transport).token(&request("t", &settings), &grant).await.unwrap();
+    let sent = recordings.take().remove(0).request;
+    let body = String::from_utf8_lossy(&sent.body).into_owned();
+    assert_eq!(body, "grant_type=client_credentials&scope=read+write&audience=a+b&client_id=my+cli%7E");
 }
 
 #[tokio::test]

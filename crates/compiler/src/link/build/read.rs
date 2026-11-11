@@ -2,12 +2,11 @@
 
 use indexmap::IndexMap;
 use vc_model::{
-    AgentPolicy, ApiSource, BodySpec, Duration, Examples, HookRef, Loop, Method, Retry, Size, Skip, Tag, Template,
-    TemplateValue, WriteDefinitions,
+    AgentPolicy, ApiSource, BodySpec, Duration, Examples, FILE_KEY, HookRef, Loop, Method, Retry, Size, Skip, Tag,
+    Template, TemplateValue, WriteDefinitions,
 };
 use vc_parser::Node;
 
-use crate::body_files;
 use crate::link::assets;
 use crate::link::project;
 use crate::link::project::Source;
@@ -23,7 +22,7 @@ const WRITES: [(&str, WriteDefinitions); 3] =
 type MakeBody = fn(Template) -> BodySpec;
 
 /// The single-key body maps that name a body kind other than JSON.
-const BODY_KINDS: [(&str, MakeBody); 2] = [("$file", BodySpec::File), ("$base64", BodySpec::Base64)];
+const BODY_KINDS: [(&str, MakeBody); 2] = [(FILE_KEY, BodySpec::File), ("$base64", BodySpec::Base64)];
 
 /// The value the compiler lowered at `node`.
 pub fn value(source: &Source<'_>, node: &Node) -> Option<TemplateValue> {
@@ -161,16 +160,16 @@ pub fn hooks(source: &Source<'_>, node: &Node, key: &str) -> Vec<HookRef> {
     written.map(|written| hook(source, written)).collect()
 }
 
-/// The request body at `node`: text, `$file`, `$base64`, or JSON, with its literal `$file`
-/// paths resolved from the folder of the file that holds it (D272).
+/// The request body at `node`: text, `$file`, `$base64`, or JSON, as written; the engine reads
+/// a literal `$file` before the run (D272).
 pub fn body(source: &Source<'_>, node: &Node) -> Option<BodySpec> {
-    let body = match value(source, node)? {
+    let value = value(source, node)?;
+    Some(match value {
         TemplateValue::String(template) => BodySpec::Text(template),
         TemplateValue::Extend { base, changes, remove } => BodySpec::Extend { base, changes: *changes, remove },
         TemplateValue::Map(map) => special(map),
         other => BodySpec::Json(other),
-    };
-    Some(body_files::resolved(body, &assets::folder(source.path)))
+    })
 }
 
 /// `examples`: rows written inline, a single-key `$file` map, or a template that yields the rows.

@@ -1,29 +1,51 @@
+use std::collections::BTreeSet;
+
 use bytes::Bytes;
 use http::HeaderValue;
 use serde_json::{Value, json};
 use vc_diagnostics::Code;
+use vc_model::{ActionId, BodySpec, Failure, TemplateValue};
 use vc_testkit::ScriptedRandom;
 
-use super::multipart;
-use crate::BodyFiles;
+use super::{multipart, written_parts};
 use crate::action::encode::Encoding;
+use crate::{BodyFiles, Unread};
 
 /// A body as text and the header to send instead.
 type Sent = (String, Option<String>);
 
-/// `value` sent with `content_type`, or the failure code.
-fn sent(value: &Value, content_type: &'static str) -> Result<Sent, Option<String>> {
+const FORM_DATA: &str = "multipart/form-data";
+
+/// `value` sent with `content_type` by an action whose body writes the `$file` parts at
+/// `written`, or the failure.
+fn sending(value: &Value, content_type: &str, written: &[&str]) -> Result<Sent, Failure> {
+    let at = |pointer: &str| (ActionId::new(0), pointer.to_owned());
     let files = BodyFiles::new([
-        ("services/users/fixtures/avatar.png".to_owned(), Ok(vec![0x89, b'P', b'N', b'G'])),
-        ("services/users/notes.txt".to_owned(), Err("services/users/notes.txt: no such file".to_owned())),
+        (at("/file"), Ok(vec![0x89, b'P', b'N', b'G'])),
+        (at("/gone"), Err(Unread::Failed("no such file".to_owned()))),
+        (at("/out"), Err(Unread::Refused("it leads out of the project".to_owned()))),
     ]);
-    let (random, content_type) =
-        (ScriptedRandom::new([0x0123_4567_89ab_cdef, 0xfedc_ba98_7654_3210]), HeaderValue::from_static(content_type));
-    let encoding = Encoding { files: &files, random: &random, content_type: &content_type };
-    let Value::Object(fields) = value else { return Err(None) };
-    let (bytes, header): (Bytes, _) = multipart(fields, &encoding).map_err(|failure| failure.code)?;
+    let random = ScriptedRandom::new([0x0123_4567_89ab_cdef, 0xfedc_ba98_7654_3210]);
+    let content_type = HeaderValue::from_str(content_type).unwrap();
+    let written: BTreeSet<String> = written.iter().map(|pointer| (*pointer).to_owned()).collect();
+    let (action, written) = (ActionId::new(0), &written);
+    let encoding = Encoding { files: &files, random: &random, content_type: &content_type, action, written };
+    let Value::Object(fields) = value else { return Err(Failure::new("not a map")) };
+    let (bytes, header): (Bytes, _) = multipart(fields, &encoding)?;
     let header = header.map(|header| header.to_str().unwrap_or_default().to_owned());
     Ok((String::from_utf8_lossy(&bytes).into_owned(), header))
+}
+
+/// `value` sent with `content_type`, or the failure code.
+fn sent(value: &Value, content_type: &str) -> Result<Sent, Option<String>> {
+    sending(value, content_type, &[]).map_err(|failure| failure.code)
+}
+
+/// The V5111 message `value` fails with when sent with `content_type`.
+fn failure(value: &Value, content_type: &str, written: &[&str]) -> String {
+    let failure = sending(value, content_type, written).unwrap_err();
+    assert_eq!(failure.code, Some(Code::V5111.to_string()), "{}", failure.message);
+    failure.message
 }
 
 #[test]
@@ -63,8 +85,59 @@ fn a_boundary_the_header_names_is_used_and_the_header_kept() {
 }
 
 #[test]
-fn a_file_part_not_read_fails_with_v5111() {
-    let v5111 = Err(Some(Code::V5111.to_string()));
-    assert_eq!(sent(&json!({"f": {"$file": "services/users/notes.txt"}}), "multipart/form-data"), v5111);
-    assert_eq!(sent(&json!({"f": {"$file": "elsewhere.bin"}}), "multipart/form-data"), v5111);
+fn a_file_part_not_read_fails_with_v5111_saying_why() {
+    let gone = failure(&json!({"gone": {"$file": "notes.txt"}}), FORM_DATA, &["/gone"]);
+    assert_eq!(gone, "the `$file` `notes.txt` cannot be read: no such file");
+    let out = failure(&json!({"out": {"$file": "../../x.txt"}}), FORM_DATA, &["/out"]);
+    assert_eq!(out, "the `$file` `../../x.txt` is refused: it leads out of the project");
+    let unread = failure(&json!({"late": {"$file": "a.bin"}}), FORM_DATA, &["/late"]);
+    assert!(unread.contains("was not read before the run"), "{unread}");
+    let referenced = failure(&json!({"late": {"$file": "a.bin"}}), FORM_DATA, &[]);
+    assert!(referenced.contains("arrives in a `${…}` value"), "{referenced}");
+    let item = failure(&json!({"file": ["x", {"$file": "a.png"}]}), FORM_DATA, &["/file/1"]);
+    assert!(item.contains("was not read"), "an item's pointer is `/name/index`, not the field's: {item}");
+}
+
+#[test]
+fn a_named_boundary_must_be_valid_per_rfc_2046() {
+    let named = |boundary: &str| format!("{FORM_DATA}; boundary=\"{boundary}\"");
+    let wrong = |boundary: &str| failure(&json!({"a": "1"}), &named(boundary), &[]);
+    assert!(wrong("").contains("it is empty"));
+    assert!(wrong(&"b".repeat(71)).contains("longer than 70"));
+    assert!(wrong("ab ").contains("ends in a space"));
+    assert!(wrong("a@b").contains("does not allow"));
+    let longest = "b".repeat(70);
+    assert!(sent(&json!({"a": "1"}), &named(&longest)).is_ok());
+    assert!(sent(&json!({"a": "1"}), &named("a'()+_,-./:=? z")).is_ok(), "every bchar is allowed");
+}
+
+#[test]
+fn a_named_boundary_inside_a_part_fails_and_a_drawn_one_is_not_scanned() {
+    let inside = failure(&json!({"note": "x\r\n--given-1\r\ny"}), "multipart/form-data; boundary=given-1", &[]);
+    assert!(inside.contains("appears inside the part `note`"), "{inside}");
+    let header = failure(&json!({"--given-1": "x"}), "multipart/form-data; boundary=given-1", &[]);
+    assert!(header.contains("appears inside"), "a part's headers are scanned too: {header}");
+    let drawn = json!({"note": "--vc-0123456789abcdeffedcba98"});
+    assert!(sent(&drawn, FORM_DATA).is_ok(), "a drawn boundary is random, so it is not looked for");
+}
+
+/// `text` as a written body value: a map, a list or a literal string.
+fn written(value: &Value) -> TemplateValue {
+    match value {
+        Value::Object(map) => {
+            TemplateValue::Map(map.iter().map(|(key, value)| (key.clone(), written(value))).collect())
+        }
+        Value::Array(items) => TemplateValue::List(items.iter().map(written).collect()),
+        value => TemplateValue::String(crate::fixture::literal(&vc_template::to_text(value))),
+    }
+}
+
+#[test]
+fn written_parts_are_the_pointers_of_literal_file_parts() {
+    let body = json!({"doc": {"$file": "a.pdf"}, "scans": ["x", {"$file": "b.png"}], "meta": {"$file": "c", "n": 1}});
+    let parts = written_parts(&BodySpec::Json(written(&body))).unwrap();
+    assert_eq!(parts, ["/doc", "/scans/1"].map(str::to_owned).into(), "a map with more keys is no file");
+    let extend = BodySpec::Extend { base: crate::fixture::literal("x"), changes: written(&body), remove: Vec::new() };
+    assert_eq!(written_parts(&extend).unwrap().len(), 2, "an `$extend`'s changes are written parts too");
+    assert!(written_parts(&BodySpec::Text(crate::fixture::literal("x"))).unwrap().is_empty());
 }

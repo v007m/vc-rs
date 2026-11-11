@@ -2,10 +2,10 @@
 //! the `content-type` its extension implies (D272).
 
 use bytes::Bytes;
-use vc_model::Failure;
+use vc_model::{ActionId, Failure};
 
-use crate::BodyFiles;
 use crate::action::request::rendering;
+use crate::{BodyFiles, Unread};
 
 /// The media type of each known extension, lower case; any other file is `application/octet-stream`.
 const MEDIA: [(&str, &str); 14] = [
@@ -28,22 +28,29 @@ const MEDIA: [(&str, &str); 14] = [
 /// What a file with no known extension is sent as.
 pub const OCTETS: &str = "application/octet-stream";
 
-/// The bytes of the file at `path` and its media type; V5111 when the run was not given it (a
-/// templated path) or it could not be read.
-pub fn file(files: &BodyFiles, path: &str) -> Result<(Bytes, &'static str), Failure> {
-    match files.get(path) {
-        Some(Ok(bytes)) => Ok((bytes, media_type(path))),
-        Some(Err(reason)) => Err(rendering(&format!("the `$file` body cannot be read: {reason}"))),
-        None => {
-            Err(rendering(&format!("the `$file` `{path}` was not read before the run; its path cannot hold `${{…}}`")))
-        }
+/// A read `$file`'s bytes and media type.
+type Read = (Bytes, &'static str);
+
+/// The bytes the engine read for the `$file` at `path`, at `pointer` in `action`'s body, and its
+/// media type; `None` when the run was not given it. V5111 when the path was refused or the file
+/// could not be read.
+pub fn file(files: &BodyFiles, (action, pointer): (ActionId, &str), path: &str) -> Result<Option<Read>, Failure> {
+    match files.get(action, pointer) {
+        None => Ok(None),
+        Some(Ok(bytes)) => Ok(Some((bytes.clone(), media_type(path)))),
+        Some(Err(Unread::Refused(why))) => Err(rendering(&format!("the `$file` `{path}` is refused: {why}"))),
+        Some(Err(Unread::Failed(why))) => Err(rendering(&format!("the `$file` `{path}` cannot be read: {why}"))),
     }
+}
+
+/// V5111 for a written `$file` body the engine did not read before the run.
+pub fn not_read(path: &str) -> Failure {
+    rendering(&format!("the `$file` `{path}` was not read before the run (an internal error)"))
 }
 
 /// The media type of the file at `path`, by its extension in any case.
 pub fn media_type(path: &str) -> &'static str {
-    let name = path.rsplit('/').next().unwrap_or(path);
-    let extension = name.rsplit_once('.').map(|(_, extension)| extension.to_ascii_lowercase());
+    let extension = vc_model::basename(path).rsplit_once('.').map(|(_, extension)| extension.to_ascii_lowercase());
     let known = extension.and_then(|extension| MEDIA.iter().find(|(known, _)| *known == extension));
     known.map_or(OCTETS, |(_, media)| media)
 }
@@ -53,8 +60,10 @@ mod tests {
     use bytes::Bytes;
     use vc_diagnostics::Code;
 
+    use vc_model::ActionId;
+
     use super::{OCTETS, file, media_type};
-    use crate::BodyFiles;
+    use crate::{BodyFiles, Unread};
 
     #[test]
     fn a_known_extension_names_its_media_type_in_any_case() {
@@ -72,13 +81,21 @@ mod tests {
     }
 
     #[test]
-    fn a_file_is_its_bytes_and_type_or_v5111_when_it_was_not_read() {
-        let files =
-            BodyFiles::new([("a.csv".to_owned(), Ok(b"x".to_vec())), ("b.png".to_owned(), Err("gone".to_owned()))]);
-        assert_eq!(file(&files, "a.csv"), Ok((Bytes::from_static(b"x"), "text/csv")));
-        for unread in ["b.png", "c.json"] {
-            let code = file(&files, unread).err().and_then(|failure| failure.code);
-            assert_eq!(code, Some(Code::V5111.to_string()), "{unread}");
-        }
+    fn a_file_is_its_bytes_and_type_or_says_why_it_was_not_read() {
+        let at = |pointer: &str| (ActionId::new(0), pointer.to_owned());
+        let files = BodyFiles::new([
+            (at(""), Ok(b"x".to_vec())),
+            (at("/refused"), Err(Unread::Refused("it leads out of the project".to_owned()))),
+            (at("/gone"), Err(Unread::Failed("no such file".to_owned()))),
+        ]);
+        let found = |pointer: &str, path: &str| file(&files, (ActionId::new(0), pointer), path);
+        assert_eq!(found("", "a.csv"), Ok(Some((Bytes::from_static(b"x"), "text/csv"))));
+        assert_eq!(found("/other", "a.csv"), Ok(None), "not given");
+        assert_eq!(file(&files, (ActionId::new(1), ""), "a.csv"), Ok(None), "another action's");
+        let failed = |pointer: &str| found(pointer, "../x.png").err().map(|failure| (failure.code, failure.message));
+        let v5111 = Some(Code::V5111.to_string());
+        let refused = "the `$file` `../x.png` is refused: it leads out of the project".to_owned();
+        assert_eq!(failed("/refused"), Some((v5111.clone(), refused)));
+        assert_eq!(failed("/gone"), Some((v5111, "the `$file` `../x.png` cannot be read: no such file".to_owned())));
     }
 }

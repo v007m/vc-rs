@@ -1,6 +1,8 @@
 //! Renders a `call:`'s request (the method, the URL with its query, the headers and the body),
 //! and turns the exchange into the `request` and `response` roots.
 
+use std::collections::BTreeSet;
+
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use bytes::Bytes;
@@ -10,12 +12,15 @@ use indexmap::IndexMap;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use serde_json::{Map, Value, json};
 use vc_diagnostics::Code;
-use vc_model::{Action, Api, BodySpec, Exchange, Failure, InlineRequest, Method, RenderedRequest, Template, Timing};
+use vc_model::{
+    Action, ActionId, Api, BodySpec, Exchange, Failure, InlineRequest, Method, RenderedRequest, Template, Timing,
+};
 use vc_template::RenderError;
 
 use crate::Render;
 use crate::action::encode::{self, Encoder, Encoding};
 use crate::action::media::{self, OCTETS};
+use crate::action::multipart;
 
 /// RFC 3986 unreserved characters stay as they are in a query.
 const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove(b'_').remove(b'~');
@@ -23,30 +28,34 @@ const UNRESERVED: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove
 pub const JSON: &str = "application/json";
 const TEXT: &str = "text/plain; charset=utf-8";
 
-/// The request `action` sends to `api`: the action's query, headers and body over the api's.
-pub fn rendered(render: &Render<'_>, api: &Api, action: &Action) -> Result<RenderedRequest, Failure> {
+/// The request action `id` sends to `api`: the action's query, headers and body over the api's.
+pub fn rendered(render: &Render<'_>, api: &Api, (id, action): (ActionId, &Action)) -> Result<RenderedRequest, Failure> {
     let mut request = RenderedRequest::new(method(api.method), uri(render, api, action)?);
     request.headers = headers(render, api, action)?;
-    with_body(render, request, action.body.as_ref().unwrap_or(&api.body))
+    with_body(render, request, (id, action.body.as_ref().unwrap_or(&api.body)))
 }
 
 /// The request an inline step (a `flow` auth's) sends: its method, URL, query, headers and
 /// body as written, with the config's default headers under its own.
-pub fn inline(render: &Render<'_>, inline: &InlineRequest) -> Result<RenderedRequest, Failure> {
+pub fn inline(render: &Render<'_>, (id, inline): (ActionId, &InlineRequest)) -> Result<RenderedRequest, Failure> {
     let url = render.text(&inline.url).map_err(failed)?;
     let uri = with_query(url, &query(render, [&inline.query])?)?;
     let mut request = RenderedRequest::new(method(inline.method), uri);
     let levels = [&render.program().config.defaults.headers, &inline.headers];
     request.headers = header_levels(render, levels.into_iter().flatten())?;
-    with_body(render, request, &inline.body)
+    with_body(render, request, (id, &inline.body))
 }
 
-/// `request` with the body `spec` renders to, in the encoding its `content-type` names, and the
-/// `content-type` the body implies unless one is set.
-fn with_body(render: &Render<'_>, mut request: RenderedRequest, spec: &BodySpec) -> Result<RenderedRequest, Failure> {
+/// `request` with the body `spec` that action `id` sends, in the encoding its `content-type`
+/// names, and the `content-type` the body implies unless one is set.
+fn with_body(
+    render: &Render<'_>,
+    mut request: RenderedRequest,
+    (action, spec): (ActionId, &BodySpec),
+) -> Result<RenderedRequest, Failure> {
     let written = request.headers.get(CONTENT_TYPE).cloned();
-    let encode = written.as_ref().and_then(|written| Some((encode::encoder(written)?, written)));
-    if let Some((body, kind)) = body(render, spec, encode)? {
+    let sending = Sending::new(action, spec, written.as_ref())?;
+    if let Some((body, kind)) = body(render, spec, &sending)? {
         request.body = body;
         match kind {
             ContentType::Replaced(value) => drop(request.headers.insert(CONTENT_TYPE, value)),
@@ -148,23 +157,39 @@ enum ContentType {
 /// A body's bytes and its `content-type`.
 type Body = (Bytes, ContentType);
 
-/// The encoder the written `content-type` names, with that header.
-type Encode<'h> = Option<(Encoder, &'h HeaderValue)>;
+/// How an action's body is sent: by which action, the encoder its written `content-type`
+/// names with that header, and the `$file` parts it writes with a literal path.
+struct Sending<'h> {
+    action: ActionId,
+    encode: Option<(Encoder, &'h HeaderValue)>,
+    written: BTreeSet<String>,
+}
 
-/// The body's bytes and its `content-type`; a map is encoded by `encode` when the
-/// `content-type` names one.
-fn body(render: &Render<'_>, spec: &BodySpec, encode: Encode<'_>) -> Result<Option<Body>, Failure> {
+impl<'h> Sending<'h> {
+    /// How action `action` sends `spec` under the written `content_type`; V5111 for a multipart
+    /// `$file` part whose path holds `${…}` (D272).
+    fn new(action: ActionId, spec: &BodySpec, content_type: Option<&'h HeaderValue>) -> Result<Self, Failure> {
+        let encode = content_type.and_then(|written| Some((encode::encoder(written)?, written)));
+        let multipart = content_type.and_then(|written| written.to_str().ok()).is_some_and(vc_model::is_multipart);
+        let written = if multipart { multipart::written_parts(spec)? } else { BTreeSet::new() };
+        Ok(Self { action, encode, written })
+    }
+}
+
+/// The body's bytes and its `content-type`; a map is encoded by the encoder the `content-type`
+/// names, if any.
+fn body(render: &Render<'_>, spec: &BodySpec, sending: &Sending<'_>) -> Result<Option<Body>, Failure> {
     let body = match spec {
         BodySpec::None => return Ok(None),
-        BodySpec::Json(value) => structured(render, render.value(value).map_err(failed)?, encode)?,
-        BodySpec::Text(template) => text_body(render, template, encode)?,
+        BodySpec::Json(value) => structured(render, render.value(value).map_err(failed)?, sending)?,
+        BodySpec::Text(template) => text_body(render, template, sending)?,
         BodySpec::Base64(template) => (decode(&render.text(template).map_err(failed)?)?, ContentType::Implied(OCTETS)),
         BodySpec::Extend { base, changes, remove } => {
             let base = render.template(base).map_err(failed)?;
             let value = vc_template::extend(base, render.value(changes).map_err(failed)?, remove);
-            structured(render, value, encode)?
+            structured(render, value, sending)?
         }
-        BodySpec::File(path) => file(render, path)?,
+        BodySpec::File(path) => file(render, path, sending.action)?,
         BodySpec::Form(_) | BodySpec::Multipart(_) => {
             return Err(rendering("form and multipart bodies are written as a map with a `content-type`"));
         }
@@ -173,11 +198,12 @@ fn body(render: &Render<'_>, spec: &BodySpec, encode: Encode<'_>) -> Result<Opti
 }
 
 /// `value` as JSON, or a map in the encoding its `content-type` names (D273, D274).
-fn structured(render: &Render<'_>, value: Value, encode: Encode<'_>) -> Result<Body, Failure> {
-    match (value, encode) {
+fn structured(render: &Render<'_>, value: Value, sending: &Sending<'_>) -> Result<Body, Failure> {
+    match (value, sending.encode) {
         (Value::Object(fields), Some((encode, content_type))) => {
             let inputs = render.values().inputs();
-            let encoding = Encoding { files: &inputs.bodies, random: inputs.random.as_ref(), content_type };
+            let (files, random) = (&inputs.bodies, inputs.random.as_ref());
+            let encoding = Encoding { files, random, content_type, action: sending.action, written: &sending.written };
             let (bytes, rewritten) = encode(&fields, &encoding)?;
             Ok((bytes, rewritten.map_or(ContentType::Implied(JSON), ContentType::Replaced)))
         }
@@ -187,19 +213,20 @@ fn structured(render: &Render<'_>, value: Value, encode: Encode<'_>) -> Result<B
 
 /// The bytes of the `$file` at `path`, which the engine read before the run, and the
 /// `content-type` its extension implies (D272).
-fn file(render: &Render<'_>, path: &Template) -> Result<Body, Failure> {
+fn file(render: &Render<'_>, path: &Template, action: ActionId) -> Result<Body, Failure> {
     let path =
         path.as_literal().ok_or_else(|| rendering("a `$file` body path cannot hold `${…}` references (D272)"))?;
-    let (bytes, kind) = media::file(&render.values().inputs().bodies, path)?;
+    let read = media::file(&render.values().inputs().bodies, (action, ""), path)?;
+    let (bytes, kind) = read.ok_or_else(|| media::not_read(path))?;
     Ok((bytes, ContentType::Implied(kind)))
 }
 
 /// A text body; a lone reference to an object or array (`body: ${var.payload}`) is sent as a
 /// [`structured`] body.
-fn text_body(render: &Render<'_>, template: &Template, encode: Encode<'_>) -> Result<Body, Failure> {
+fn text_body(render: &Render<'_>, template: &Template, sending: &Sending<'_>) -> Result<Body, Failure> {
     let value = render.template(template).map_err(failed)?;
     if value.is_object() || value.is_array() {
-        return structured(render, value, encode);
+        return structured(render, value, sending);
     }
     Ok((Bytes::from(vc_template::to_text(&value)), ContentType::Implied(TEXT)))
 }

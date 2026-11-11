@@ -92,7 +92,7 @@ impl SourcePath {
     /// The last part of the path: `checkout.test.yaml`.
     #[must_use]
     pub fn file_name(&self) -> &str {
-        self.0.rsplit('/').next().unwrap_or(&self.0)
+        crate::basename(&self.0)
     }
 
     /// Whether the path names a hidden file or folder, or leads through one, as
