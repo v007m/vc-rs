@@ -56,7 +56,7 @@ impl<'p> Expander<'p> {
         let mut instances = Vec::new();
         let tests = file.tests.iter().filter_map(|id| Some((self.program.tests.get(id)?, picked.get(id)?)));
         for (test, pick) in tests.filter(|(test, _)| test.standalone) {
-            match self.not_run(file, test)? {
+            match self.not_run(file, test, pick)? {
                 Some(reason) => skipped.push(SkippedTest { test: test.id, reason }),
                 None => instances.extend(self.instances(test, pick)?),
             }
@@ -64,13 +64,34 @@ impl<'p> Expander<'p> {
         Ok(instances)
     }
 
-    /// Why `test` does not run: its file's `skip` or its own, else examples that gave no rows;
-    /// `None` when it runs.
-    fn not_run(&self, file: &TestFile, test: &Test) -> Result<Option<String>, PlanError> {
+    /// Why `test` does not run: its file's `skip` or its own, else, in a run's plan, examples
+    /// that gave no rows; `None` when it runs. An instance picked by number (`:n`) is never
+    /// skipped for having no rows: it does not exist, which the selection reports.
+    fn not_run(&self, file: &TestFile, test: &Test, pick: &Pick) -> Result<Option<String>, PlanError> {
         if let Some(reason) = self.skip(file, test) {
             return Ok(Some(reason));
         }
-        Ok((self.rows(test)? == Some(0)).then(|| NO_ROWS.to_owned()))
+        let counted = self.options.skip_empty && matches!(pick, Pick::All);
+        Ok((counted && self.rows(test)? == Some(0)).then(|| NO_ROWS.to_owned()))
+    }
+
+    /// The picked tests that run and read their rows from a file or a template that the options
+    /// do not count yet, in plan order.
+    pub fn unloaded(&self, picked: &BTreeMap<TestId, Pick>) -> Vec<TestId> {
+        let mut wanted = Vec::new();
+        for file in self.program.test_files.values() {
+            let tests = file.tests.iter().filter(|id| picked.contains_key(id));
+            let tests = tests.filter_map(|id| self.program.tests.get(id)).filter(|test| test.standalone);
+            let unread = tests.filter(|test| self.skip(file, test).is_none() && self.unread(test));
+            wanted.extend(unread.map(|test| test.id));
+        }
+        wanted
+    }
+
+    /// Whether `test`'s rows come from a file or a template the options do not count.
+    fn unread(&self, test: &Test) -> bool {
+        let loaded = matches!(test.examples, Some(Examples::File(_) | Examples::Template(_)));
+        loaded && !self.options.example_rows.contains_key(&test.id)
     }
 
     /// The reason `test` is skipped, from its file's `skip` or its own; `None` when it runs.

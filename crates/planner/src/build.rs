@@ -23,6 +23,18 @@ pub fn plan(program: &Program, selection: &Selection, options: &PlanOptions) -> 
     Ok(PlanBuilder::new(program).build(expanded))
 }
 
+/// The tests a run of `selection` plans whose rows come from a file or a template that `options`
+/// does not count yet, in plan order: the engine reads those, and only those, then plans once
+/// (D132). A test the selection leaves out, or skips, is not among them.
+///
+/// # Errors
+///
+/// A [`PlanError`] when a selector cannot be read or matches nothing.
+pub fn rows_wanted(program: &Program, selection: &Selection, options: &PlanOptions) -> Result<Vec<TestId>, PlanError> {
+    let picked = select::select(program, selection)?;
+    Ok(Expander::new(program, options, selection.include_skipped).unloaded(&picked))
+}
+
 /// Assembles a [`Plan`] from expanded instances: lifecycle blocks only where an instance runs
 /// (D122), and every instance's needs.
 struct PlanBuilder<'p> {
