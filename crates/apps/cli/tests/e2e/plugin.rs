@@ -19,12 +19,14 @@ const RPC: (&str, &str) = ("plugin/rpc.py", include_str!("../fixtures/plugin/rpc
 
 /// Whether `python3` runs. Starting the interpreter once (site-packages and all) also warms it,
 /// so a plugin's own cold start on a loaded runner stays inside the initialize deadline (D217).
-/// A non-zero exit, such as the Windows Store alias's, counts as no Python.
+/// A non-zero exit, such as the Windows Store alias's, counts as no Python. Under `CI` a missing or
+/// broken `python3` fails the test instead of skipping it.
 fn has_python() -> bool {
     let ran = Command::new("python3").args(["-c", "pass"]).output();
     if ran.as_ref().is_ok_and(|output| output.status.success()) {
         return true;
     }
+    assert!(std::env::var_os("CI").is_none(), "CI needs a working python3 on PATH: {ran:?}");
     eprintln!("skipped: no python3 on PATH");
     false
 }
