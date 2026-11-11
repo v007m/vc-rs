@@ -1,7 +1,8 @@
 //! What a playground run plans: the default profiles, the seed, the example rows drawn from it
-//! and the plan, as `vc run` with no flags plans them (`engine/plan.rs` and `examples.rs`; the
-//! engine's glue is layered over settings the playground does not have, so it is mirrored here
-//! and the CLI's `playground` e2e test holds the two to the same output).
+//! and the plan, as `vc run` with no flags plans them (`engine/plan.rs` and `examples.rs`). The
+//! drawing and planning are the planner's [`vc_planner::plan_drawn`], as in the engine; the
+//! engine's glue around it is layered over settings the playground does not have, so that part
+//! is mirrored here and the CLI's `playground` e2e test holds the two to the same output.
 
 use std::collections::hash_map::RandomState;
 use std::hash::{BuildHasher as _, Hasher as _};
@@ -9,7 +10,7 @@ use std::sync::Arc;
 
 use vc_executor::{Defined, ExampleRows, RunInputs, RunValues, SeededRandom};
 use vc_interfaces::{Environment, Random};
-use vc_model::{Examples, Plan, ProfileId, Program};
+use vc_model::{Plan, ProfileId, Program, TestId};
 use vc_planner::{PlanError, PlanOptions, Selection};
 
 use crate::BrowserError;
@@ -44,29 +45,19 @@ pub fn prepare(
     Ok(Prepared { program, plan: Arc::new(plan), profiles, names, seed, random, rows, notices })
 }
 
-/// Renders the rows of the templated tests the run does not skip, each from its own source
-/// ([`vc_executor::row_seed`]), then plans once with their counts.
+/// Plans every test, drawing the rows of the templated ones the run does not skip first, each
+/// from its own source ([`vc_executor::row_seed`]), as the engine does ([`vc_planner::plan_drawn`]).
 fn planned(
     program: &Program,
     inputs: RunInputs,
-    (seed, mut options): (u64, PlanOptions),
+    (seed, options): (u64, PlanOptions),
 ) -> Result<(Plan, ExampleRows), BrowserError> {
-    let selection = Selection::default();
-    let templated = program.tests.values().any(|test| matches!(test.examples, Some(Examples::Template(_))));
-    let wanted = if templated { vc_planner::rows_wanted(program, &selection, &options) } else { Ok(Vec::new()) };
-    let wanted = wanted.map_err(|error| plan_error(error, program))?;
-    let mut rows = ExampleRows::new();
-    if !wanted.is_empty() {
+    let rows = |wanted: &[TestId]| {
         let values = RunValues::new(program, inputs);
         let random_for = |id: &str| Arc::new(SeededRandom::new(vc_executor::row_seed(seed, id))) as Arc<dyn Random>;
-        rows = vc_executor::draw_rows(program, &values, (&wanted, &random_for)).map_err(|diagnostic| {
-            BrowserError::invalid(std::iter::once(*diagnostic).collect(), program.files.clone())
-        })?;
-        let counts = rows.iter().map(|(test, drawn)| (*test, u32::try_from(drawn.len()).unwrap_or(u32::MAX)));
-        options.example_rows.extend(counts);
-    }
-    let plan = vc_planner::plan(program, &selection, &options).map_err(|error| plan_error(error, program))?;
-    Ok((plan, rows))
+        vc_executor::draw_rows(program, &values, (wanted, &random_for))
+    };
+    vc_planner::plan_drawn(program, &Selection::default(), (options, rows)).map_err(|error| plan_error(error, program))
 }
 
 /// The planner's refusal: definition problems as the project's diagnostics, the rest with help.
