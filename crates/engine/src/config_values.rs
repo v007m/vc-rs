@@ -93,6 +93,14 @@ impl Engine {
         Ok(())
     }
 
+    /// `text` masked as a run's values are; all of it when the project cannot be layered or its
+    /// secrets cannot be loaded.
+    pub(crate) async fn masked_text(&self, text: &str) -> String {
+        let Ok(mut layered) = self.layered(&[], &[]) else { return MASKED.to_owned() };
+        let masker = self.masker(&mut layered).await;
+        if masker.blind { MASKED.to_owned() } else { masker.redactor.masked_text(text).await }
+    }
+
     /// The redactor a run would mask with, told the declared secrets' values and names (and its
     /// `function:` rules given them); when they cannot be loaded, one that masks every value
     /// but the built-in ones.

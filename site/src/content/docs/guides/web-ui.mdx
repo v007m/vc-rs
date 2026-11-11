@@ -52,7 +52,7 @@ A sidebar on the left links the seven screens. Use the button at its top to coll
 | **Runs** | Watch the current run live |
 | **Insights** | Pass rate, duration and flaky tests across runs |
 | **AI agents** | Connect agents, approve their requests, see what they did |
-| **Settings** | See each setting's value and where it comes from |
+| **Settings** | See each setting's value and where it comes from, and change the project's config |
 
 A run you start on any screen shows up on **Runs**. Only one run goes at a time.
 
@@ -199,7 +199,17 @@ The agent policy and the activity log apply to agents only. What you do in the b
 
 Shows the effective value of every setting under the profile you pick, as `vc config explain` does. The **Set by** column says where each value comes from, and lists any values it replaced. Secrets always show as `••••`.
 
-Settings is read-only. To change a value, follow the link to open `vibranium.config.yaml` in the Editor.
+**Project config** is a form over `vibranium.config.yaml`: the project's name, `defaults.timeout`, `defaults.concurrency` and `defaults.perHost`, the profiles (pick the default, add or remove one) and the vars. It shows what the file itself sets, not a profile's or `.env`'s value. A var that reads a secret shows as `••••`; you can remove it here, but change it in the Editor.
+
+1. Change the values you want. The status line counts the unsaved changes.
+2. Click **Review changes** to see the diff of the file. Nothing is written yet, and secret values are masked in the diff too.
+3. Click **Save**. Only the lines you changed are rewritten, so the file keeps its comments and layout.
+
+A change that would add an error to the project, such as removing a profile a test needs, isn't saved, and the message says which change it was. If the file changed on disk since the page read it, nothing is written: click **Reload from disk** and make the change again.
+
+For anything else, such as `reports` or `auth`, follow the link to open `vibranium.config.yaml` in the Editor.
+
+**Secrets** lists the names `.env.schema` declares. Add or remove a name and click **Save**. A secret's value goes in `.env` or your secrets provider, never on this page.
 
 ## Security
 

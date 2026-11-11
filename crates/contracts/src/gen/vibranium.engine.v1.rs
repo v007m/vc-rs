@@ -518,6 +518,50 @@ pub struct WriteFileResponse {
     #[prost(string, tag="3")]
     pub check_error: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PointerEdit {
+    /// RFC 6901, such as `/defaults/timeout` or `/profiles/0/default`.
+    #[prost(string, tag="1")]
+    pub pointer: ::prost::alloc::string::String,
+    #[prost(enumeration="EditOp", tag="2")]
+    pub op: i32,
+    /// The value as JSON text: `"5s"`, `8`, `true`, a list or a map; empty for a remove.
+    #[prost(string, tag="3")]
+    pub value_json: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EditFileRequest {
+    /// Relative to the project root.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// The digest `ReadFile` gave; the edit is refused if the file changed since.
+    #[prost(string, tag="2")]
+    pub digest: ::prost::alloc::string::String,
+    /// Made in order, each pointer read against the file the edits before it left.
+    #[prost(message, repeated, tag="3")]
+    pub edits: ::prost::alloc::vec::Vec<PointerEdit>,
+    /// Writes the file; otherwise only previews it.
+    #[prost(bool, tag="4")]
+    pub write: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EditFileResponse {
+    /// The change as a unified diff, masked as a run's values are; empty when the edits change
+    /// nothing.
+    #[prost(string, tag="1")]
+    pub diff: ::prost::alloc::string::String,
+    /// The digest on disk: the new one once written, else the one sent.
+    #[prost(string, tag="2")]
+    pub digest: ::prost::alloc::string::String,
+    #[prost(bool, tag="3")]
+    pub written: bool,
+    /// The diagnostics of the project with the file written; empty for a preview.
+    #[prost(message, repeated, tag="4")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// Why the project could not be checked after the write, with its help; empty when it was.
+    #[prost(string, tag="5")]
+    pub check_error: ::prost::alloc::string::String,
+}
 /// An agent's request to do something its policy holds for a person.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Approval {
@@ -908,6 +952,42 @@ impl Severity {
             "SEVERITY_INFO" => Some(Self::Info),
             "SEVERITY_WARNING" => Some(Self::Warning),
             "SEVERITY_ERROR" => Some(Self::Error),
+            _ => None,
+        }
+    }
+}
+/// What an edit does at its pointer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum EditOp {
+    Unspecified = 0,
+    /// Replaces the value there, or adds the key with any maps above it that are missing.
+    Set = 1,
+    /// Removes the map entry or list item there, with its lines.
+    Remove = 2,
+    /// Adds a key to a map, or a last item to a list (`/profiles/-`).
+    Insert = 3,
+}
+impl EditOp {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "EDIT_OP_UNSPECIFIED",
+            Self::Set => "EDIT_OP_SET",
+            Self::Remove => "EDIT_OP_REMOVE",
+            Self::Insert => "EDIT_OP_INSERT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "EDIT_OP_UNSPECIFIED" => Some(Self::Unspecified),
+            "EDIT_OP_SET" => Some(Self::Set),
+            "EDIT_OP_REMOVE" => Some(Self::Remove),
+            "EDIT_OP_INSERT" => Some(Self::Insert),
             _ => None,
         }
     }

@@ -17,7 +17,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file vibranium/engine/v1/engine.proto.
  */
 export const file_vibranium_engine_v1_engine: GenFile = /*@__PURE__*/
-  fileDesc("CiB2aWJyYW5pdW0vZW5naW5lL3YxL2VuZ2luZS5wcm90bxITdmlicmFuaXVtLmVuZ2luZS52MSKMAQoJU2VsZWN0aW9uEgsKA2lkcxgBIAMoCRINCgVwYXRocxgCIAMoCRIMCgR0YWdzGAMgAygJEhEKBGdyZXAYBCABKAlIAIgBARIUCgdjaGFuZ2VkGAUgASgJSAGIAQESFwoPaW5jbHVkZV9za2lwcGVkGAYgASgIQgcKBV9ncmVwQgoKCF9jaGFuZ2VkIhMKEUdldFByb2plY3RSZXF1ZXN0InoKEkdldFByb2plY3RSZXNwb25zZRIMCgRuYW1lGAEgASgJEhAKCHByb2ZpbGVzGAIgAygJEhwKD2RlZmF1bHRfcHJvZmlsZRgDIAEoCUgAiAEBEhIKCnZjX3ZlcnNpb24YBCABKAlCEgoQX2RlZmF1bHRfcHJvZmlsZSKPAQoWTGlzdERlZmluaXRpb25zUmVxdWVzdBIxCgRraW5kGAEgASgOMiMudmlicmFuaXVtLmVuZ2luZS52MS5EZWZpbml0aW9uS2luZBIxCglzZWxlY3Rpb24YAiABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLlNlbGVjdGlvbhIPCgdza2lwcGVkGAMgASgIItUBCgpEZWZpbml0aW9uEgoKAmlkGAEgASgJEhEKBG5hbWUYAiABKAlIAIgBARIMCgRwYXRoGAMgASgJEgwKBHRhZ3MYBCADKAkSDwoHc2tpcHBlZBgFIAEoCBIoCgRzcGFuGAYgASgLMhoudmlicmFuaXVtLnJlc3VsdHMudjEuU3BhbhIrCgVjYWxscxgHIAMoCzIcLnZpYnJhbml1bS5lbmdpbmUudjEuQXBpQ2FsbBINCgVzdGVwcxgIIAEoDRIMCgR2YXJzGAkgAygJQgcKBV9uYW1lIjQKB0FwaUNhbGwSCwoDYXBpGAEgASgJEg4KBm1ldGhvZBgCIAEoCRIMCgRwYXRoGAMgASgJImAKF0xpc3REZWZpbml0aW9uc1Jlc3BvbnNlEjQKC2RlZmluaXRpb25zGAEgAygLMh8udmlicmFuaXVtLmVuZ2luZS52MS5EZWZpbml0aW9uEg8KB25vdGljZXMYAiADKAkijgEKDENoZWNrUmVxdWVzdBINCgVwYXRocxgBIAMoCRI/CgdvdmVybGF5GAIgAygLMi4udmlicmFuaXVtLmVuZ2luZS52MS5DaGVja1JlcXVlc3QuT3ZlcmxheUVudHJ5Gi4KDE92ZXJsYXlFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIj8KBUxhYmVsEigKBHNwYW4YASABKAsyGi52aWJyYW5pdW0ucmVzdWx0cy52MS5TcGFuEgwKBHRleHQYAiABKAkiRgoIVGV4dEVkaXQSDAoEZmlsZRgBIAEoCRINCgVzdGFydBgCIAEoDRILCgNlbmQYAyABKA0SEAoIbmV3X3RleHQYBCABKAkiUwoDRml4Eg0KBXRpdGxlGAEgASgJEg8KB2NlcnRhaW4YAiABKAgSLAoFZWRpdHMYAyADKAsyHS52aWJyYW5pdW0uZW5naW5lLnYxLlRleHRFZGl0Iv4BCgpEaWFnbm9zdGljEgwKBGNvZGUYASABKAkSLwoIc2V2ZXJpdHkYAiABKA4yHS52aWJyYW5pdW0uZW5naW5lLnYxLlNldmVyaXR5Eg8KB21lc3NhZ2UYAyABKAkSKwoHcHJpbWFyeRgEIAEoCzIaLnZpYnJhbml1bS5lbmdpbmUudjEuTGFiZWwSLQoJc2Vjb25kYXJ5GAUgAygLMhoudmlicmFuaXVtLmVuZ2luZS52MS5MYWJlbBINCgVub3RlcxgGIAMoCRIMCgRoZWxwGAcgAygJEicKBWZpeGVzGAggAygLMhgudmlicmFuaXVtLmVuZ2luZS52MS5GaXgiZwoNQ2hlY2tSZXNwb25zZRI0CgtkaWFnbm9zdGljcxgBIAMoCzIfLnZpYnJhbml1bS5lbmdpbmUudjEuRGlhZ25vc3RpYxIPCgdjaGVja2VkGAIgASgNEg8KB25vdGljZXMYAyADKAki9QEKClJ1blJlcXVlc3QSMQoJc2VsZWN0aW9uGAEgASgLMh4udmlicmFuaXVtLmVuZ2luZS52MS5TZWxlY3Rpb24SEAoIcHJvZmlsZXMYAiADKAkSDAoEc2V0cxgDIAMoCRITCgZyZXBlYXQYBCABKA1IAIgBARIRCgRzZWVkGAUgASgESAGIAQESDAoEYmFpbBgGIAEoCBIYCgtjb25jdXJyZW5jeRgHIAEoDUgCiAEBEg4KBmZhaWxlZBgIIAEoCBIQCghub19jYWNoZRgJIAEoCEIJCgdfcmVwZWF0QgcKBV9zZWVkQg4KDF9jb25jdXJyZW5jeSI7CgtSdW5SZXNwb25zZRIsCgVldmVudBgBIAEoCzIdLnZpYnJhbml1bS5lbmdpbmUudjEuUnVuRXZlbnQiHwoPUmVhZEZpbGVSZXF1ZXN0EgwKBHBhdGgYASABKAkiMAoQUmVhZEZpbGVSZXNwb25zZRIMCgR0ZXh0GAEgASgJEg4KBmRpZ2VzdBgCIAEoCSJgChBXcml0ZUZpbGVSZXF1ZXN0EgwKBHBhdGgYASABKAkSDAoEdGV4dBgCIAEoCRIcCg9leHBlY3RlZF9kaWdlc3QYAyABKAlIAIgBAUISChBfZXhwZWN0ZWRfZGlnZXN0Im4KEVdyaXRlRmlsZVJlc3BvbnNlEg4KBmRpZ2VzdBgBIAEoCRI0CgtkaWFnbm9zdGljcxgCIAMoCzIfLnZpYnJhbml1bS5lbmdpbmUudjEuRGlhZ25vc3RpYxITCgtjaGVja19lcnJvchgDIAEoCSLqAQoIQXBwcm92YWwSCgoCaWQYASABKAQSDQoFYWdlbnQYAiABKAkSDAoEdG9vbBgDIAEoCRIPCgdwcm9maWxlGAQgASgJEg8KB21ldGhvZHMYBSADKAkSDwoHc3VtbWFyeRgGIAEoCRIRCglhcmd1bWVudHMYByABKAkSEgoKY3JlYXRlZF9tcxgIIAEoBBIzCgZzdGF0dXMYCSABKA4yIy52aWJyYW5pdW0uZW5naW5lLnYxLkFwcHJvdmFsU3RhdHVzEhcKCmRlY2lkZWRfYnkYCiABKAlIAIgBAUINCgtfZGVjaWRlZF9ieSIsChRMaXN0QXBwcm92YWxzUmVxdWVzdBIUCgxwZW5kaW5nX29ubHkYASABKAgiSQoVTGlzdEFwcHJvdmFsc1Jlc3BvbnNlEjAKCWFwcHJvdmFscxgBIAMoCzIdLnZpYnJhbml1bS5lbmdpbmUudjEuQXBwcm92YWwiUgoVRGVjaWRlQXBwcm92YWxSZXF1ZXN0EgoKAmlkGAEgASgEEi0KB3ZlcmRpY3QYAiABKA4yHC52aWJyYW5pdW0uZW5naW5lLnYxLlZlcmRpY3QiTQoWRGVjaWRlQXBwcm92YWxSZXNwb25zZRIzCgZzdGF0dXMYASABKA4yIy52aWJyYW5pdW0uZW5naW5lLnYxLkFwcHJvdmFsU3RhdHVzIqgBCgtBZ2VudEFjdGlvbhINCgVhZ2VudBgBIAEoCRIMCgR0b29sGAIgASgJEhQKB3Byb2ZpbGUYAyABKAlIAIgBARIRCglhcmd1bWVudHMYBCABKAkSDgoGcmVzdWx0GAUgASgJEhgKC2FwcHJvdmVkX2J5GAYgASgJSAGIAQESDQoFYXRfbXMYByABKARCCgoIX3Byb2ZpbGVCDgoMX2FwcHJvdmVkX2J5IigKF0xpc3RBZ2VudEFjdGlvbnNSZXF1ZXN0Eg0KBWxpbWl0GAEgASgNIk0KGExpc3RBZ2VudEFjdGlvbnNSZXNwb25zZRIxCgdhY3Rpb25zGAEgAygLMiAudmlicmFuaXVtLmVuZ2luZS52MS5BZ2VudEFjdGlvbiJWCgtDYWxsUmVxdWVzdBILCgNhcGkYASABKAkSDAoEdmFycxgCIAMoCRIMCgRrZWVwGAMgASgIEhAKCHByb2ZpbGVzGAQgAygJEgwKBHNldHMYBSADKAkiigIKDENhbGxSZXNwb25zZRIMCgRleGl0GAEgASgNEgwKBHRleHQYAiABKAkSDwoHbm90aWNlcxgDIAMoCRIaCg1yZXNwb25zZV9qc29uGAQgASgJSACIAQESNQoIZXhjaGFuZ2UYBSABKAsyHi52aWJyYW5pdW0ucmVzdWx0cy52MS5FeGNoYW5nZUgBiAEBEisKBmNoZWNrcxgGIAMoCzIbLnZpYnJhbml1bS5yZXN1bHRzLnYxLkNoZWNrEi4KBXNhdmVkGAcgAygLMh8udmlicmFuaXVtLmVuZ2luZS52MS5TYXZlZFZhbHVlQhAKDl9yZXNwb25zZV9qc29uQgsKCV9leGNoYW5nZSI3CgpTYXZlZFZhbHVlEgwKBG5hbWUYASABKAkSDAoEZnJvbRgCIAEoCRINCgV2YWx1ZRgDIAEoCSJ8ChVTYXZlQ2FsbEFzVGVzdFJlcXVlc3QSCgoCaWQYASABKAkSCwoDYXBpGAIgASgJEgwKBHZhcnMYAyADKAkSGgoNcmVzcG9uc2VfanNvbhgEIAEoCUgAiAEBEg4KBmZpZWxkcxgFIAMoCUIQCg5fcmVzcG9uc2VfanNvbiJQChZTYXZlQ2FsbEFzVGVzdFJlc3BvbnNlEgoKAmlkGAEgASgJEgwKBHBhdGgYAiABKAkSDAoEbGluZRgDIAEoDRIOCgZ0aXRsZXMYBCADKAkiKwoKSW1wb3J0S2VlcBINCgVob3N0cxgBIAMoCRIOCgZhc3NldHMYAiABKAgiiQIKDUltcG9ydFJlcXVlc3QSDAoEa2luZBgBIAEoCRIOCgZzb3VyY2UYAiABKAkSFAoHZmlsZV9pZBgDIAEoCUgAiAEBEg0KBXRlc3RzGAQgASgIEhAKCG5lZ2F0aXZlGAUgASgIEgwKBGF1dGgYBiABKAgSDwoHaW5jbHVkZRgHIAMoCRIMCgRvbmx5GAggAygJEhAKCHByb2ZpbGVzGAkgAygJEhEKBGZsb3cYCiABKAlIAYgBARItCgRrZWVwGAsgASgLMh8udmlicmFuaXVtLmVuZ2luZS52MS5JbXBvcnRLZWVwEg0KBXdyaXRlGAwgASgIQgoKCF9maWxlX2lkQgcKBV9mbG93InEKCkZpbGVDaGFuZ2USDAoEcGF0aBgBIAEoCRITCgZiZWZvcmUYAiABKAlIAIgBARINCgVhZnRlchgDIAEoCRIXCgptb3ZlZF9mcm9tGAQgASgJSAGIAQFCCQoHX2JlZm9yZUINCgtfbW92ZWRfZnJvbSJQCg5JbXBvcnRSZXNwb25zZRIuCgVmaWxlcxgBIAMoCzIfLnZpYnJhbml1bS5lbmdpbmUudjEuRmlsZUNoYW5nZRIOCgZ0aXRsZXMYAiADKAkiPAoPTGlzdFJ1bnNSZXF1ZXN0Eg0KBWxpbWl0GAEgASgNEhEKBGtpbmQYAiABKAlIAIgBAUIHCgVfa2luZCI7ChBMaXN0UnVuc1Jlc3BvbnNlEicKBHJ1bnMYASADKAsyGS52aWJyYW5pdW0ucmVzdWx0cy52MS5SdW4iJwoNR2V0UnVuUmVxdWVzdBIPCgJpZBgBIAEoBEgAiAEBQgUKA19pZCJjCg5HZXRSdW5SZXNwb25zZRImCgNydW4YASABKAsyGS52aWJyYW5pdW0ucmVzdWx0cy52MS5SdW4SKQoFdGVzdHMYAiADKAsyGi52aWJyYW5pdW0ucmVzdWx0cy52MS5UZXN0Ih8KDVRyZW5kc1JlcXVlc3QSDgoGd2luZG93GAEgASgNIl0KCVRlc3RUcmVuZBIPCgd0ZXN0X2lkGAEgASgJEg8KB3Jlc3VsdHMYAiABKA0SDgoGZmFpbGVkGAMgASgNEg0KBWZsYWt5GAQgASgNEg8KB21lYW5fbXMYBSABKAEiQAoOVHJlbmRzUmVzcG9uc2USLgoGdHJlbmRzGAEgAygLMh4udmlicmFuaXVtLmVuZ2luZS52MS5UZXN0VHJlbmQiRAoURXhwbGFpbkNvbmZpZ1JlcXVlc3QSDAoEa2V5cxgBIAMoCRIQCghwcm9maWxlcxgCIAMoCRIMCgRzZXRzGAMgAygJIiwKC0NvbmZpZ0xheWVyEg0KBXZhbHVlGAEgASgJEg4KBnNvdXJjZRgCIAEoCSJMCgtDb25maWdWYWx1ZRILCgNrZXkYASABKAkSMAoGbGF5ZXJzGAIgAygLMiAudmlicmFuaXVtLmVuZ2luZS52MS5Db25maWdMYXllciJaChVFeHBsYWluQ29uZmlnUmVzcG9uc2USMAoGdmFsdWVzGAEgAygLMiAudmlicmFuaXVtLmVuZ2luZS52MS5Db25maWdWYWx1ZRIPCgdub3RpY2VzGAIgAygJIhMKEUNvbm5lY3Rpb25SZXF1ZXN0IjoKEkNvbm5lY3Rpb25SZXNwb25zZRIPCgdtY3BfdXJsGAEgASgJEhMKC2FnZW50X3Rva2VuGAIgASgJKoEBCg5EZWZpbml0aW9uS2luZBIfChtERUZJTklUSU9OX0tJTkRfVU5TUEVDSUZJRUQQABIZChVERUZJTklUSU9OX0tJTkRfVEVTVFMQARIYChRERUZJTklUSU9OX0tJTkRfQVBJUxACEhkKFURFRklOSVRJT05fS0lORF9GSUxFUxADKmEKCFNldmVyaXR5EhgKFFNFVkVSSVRZX1VOU1BFQ0lGSUVEEAASEQoNU0VWRVJJVFlfSU5GTxABEhQKEFNFVkVSSVRZX1dBUk5JTkcQAhISCg5TRVZFUklUWV9FUlJPUhADKqUBCg5BcHByb3ZhbFN0YXR1cxIfChtBUFBST1ZBTF9TVEFUVVNfVU5TUEVDSUZJRUQQABIbChdBUFBST1ZBTF9TVEFUVVNfUEVORElORxABEhwKGEFQUFJPVkFMX1NUQVRVU19BUFBST1ZFRBACEhoKFkFQUFJPVkFMX1NUQVRVU19ERU5JRUQQAxIbChdBUFBST1ZBTF9TVEFUVVNfRVhQSVJFRBAEKmMKB1ZlcmRpY3QSFwoTVkVSRElDVF9VTlNQRUNJRklFRBAAEhMKD1ZFUkRJQ1RfQVBQUk9WRRABEhgKFFZFUkRJQ1RfQUxXQVlTX0FMTE9XEAISEAoMVkVSRElDVF9ERU5ZEAMywgwKDUVuZ2luZVNlcnZpY2USXQoKR2V0UHJvamVjdBImLnZpYnJhbml1bS5lbmdpbmUudjEuR2V0UHJvamVjdFJlcXVlc3QaJy52aWJyYW5pdW0uZW5naW5lLnYxLkdldFByb2plY3RSZXNwb25zZRJsCg9MaXN0RGVmaW5pdGlvbnMSKy52aWJyYW5pdW0uZW5naW5lLnYxLkxpc3REZWZpbml0aW9uc1JlcXVlc3QaLC52aWJyYW5pdW0uZW5naW5lLnYxLkxpc3REZWZpbml0aW9uc1Jlc3BvbnNlEk4KBUNoZWNrEiEudmlicmFuaXVtLmVuZ2luZS52MS5DaGVja1JlcXVlc3QaIi52aWJyYW5pdW0uZW5naW5lLnYxLkNoZWNrUmVzcG9uc2USSgoDUnVuEh8udmlicmFuaXVtLmVuZ2luZS52MS5SdW5SZXF1ZXN0GiAudmlicmFuaXVtLmVuZ2luZS52MS5SdW5SZXNwb25zZTABElcKCFJlYWRGaWxlEiQudmlicmFuaXVtLmVuZ2luZS52MS5SZWFkRmlsZVJlcXVlc3QaJS52aWJyYW5pdW0uZW5naW5lLnYxLlJlYWRGaWxlUmVzcG9uc2USWgoJV3JpdGVGaWxlEiUudmlicmFuaXVtLmVuZ2luZS52MS5Xcml0ZUZpbGVSZXF1ZXN0GiYudmlicmFuaXVtLmVuZ2luZS52MS5Xcml0ZUZpbGVSZXNwb25zZRJmCg1MaXN0QXBwcm92YWxzEikudmlicmFuaXVtLmVuZ2luZS52MS5MaXN0QXBwcm92YWxzUmVxdWVzdBoqLnZpYnJhbml1bS5lbmdpbmUudjEuTGlzdEFwcHJvdmFsc1Jlc3BvbnNlEmkKDkRlY2lkZUFwcHJvdmFsEioudmlicmFuaXVtLmVuZ2luZS52MS5EZWNpZGVBcHByb3ZhbFJlcXVlc3QaKy52aWJyYW5pdW0uZW5naW5lLnYxLkRlY2lkZUFwcHJvdmFsUmVzcG9uc2USbwoQTGlzdEFnZW50QWN0aW9ucxIsLnZpYnJhbml1bS5lbmdpbmUudjEuTGlzdEFnZW50QWN0aW9uc1JlcXVlc3QaLS52aWJyYW5pdW0uZW5naW5lLnYxLkxpc3RBZ2VudEFjdGlvbnNSZXNwb25zZRJLCgRDYWxsEiAudmlicmFuaXVtLmVuZ2luZS52MS5DYWxsUmVxdWVzdBohLnZpYnJhbml1bS5lbmdpbmUudjEuQ2FsbFJlc3BvbnNlEmkKDlNhdmVDYWxsQXNUZXN0EioudmlicmFuaXVtLmVuZ2luZS52MS5TYXZlQ2FsbEFzVGVzdFJlcXVlc3QaKy52aWJyYW5pdW0uZW5naW5lLnYxLlNhdmVDYWxsQXNUZXN0UmVzcG9uc2USUQoGSW1wb3J0EiIudmlicmFuaXVtLmVuZ2luZS52MS5JbXBvcnRSZXF1ZXN0GiMudmlicmFuaXVtLmVuZ2luZS52MS5JbXBvcnRSZXNwb25zZRJXCghMaXN0UnVucxIkLnZpYnJhbml1bS5lbmdpbmUudjEuTGlzdFJ1bnNSZXF1ZXN0GiUudmlicmFuaXVtLmVuZ2luZS52MS5MaXN0UnVuc1Jlc3BvbnNlElEKBkdldFJ1bhIiLnZpYnJhbml1bS5lbmdpbmUudjEuR2V0UnVuUmVxdWVzdBojLnZpYnJhbml1bS5lbmdpbmUudjEuR2V0UnVuUmVzcG9uc2USUQoGVHJlbmRzEiIudmlicmFuaXVtLmVuZ2luZS52MS5UcmVuZHNSZXF1ZXN0GiMudmlicmFuaXVtLmVuZ2luZS52MS5UcmVuZHNSZXNwb25zZRJmCg1FeHBsYWluQ29uZmlnEikudmlicmFuaXVtLmVuZ2luZS52MS5FeHBsYWluQ29uZmlnUmVxdWVzdBoqLnZpYnJhbml1bS5lbmdpbmUudjEuRXhwbGFpbkNvbmZpZ1Jlc3BvbnNlEl0KCkNvbm5lY3Rpb24SJi52aWJyYW5pdW0uZW5naW5lLnYxLkNvbm5lY3Rpb25SZXF1ZXN0GicudmlicmFuaXVtLmVuZ2luZS52MS5Db25uZWN0aW9uUmVzcG9uc2ViBnByb3RvMw", [file_vibranium_engine_v1_events, file_vibranium_results_v1_results]);
+  fileDesc("CiB2aWJyYW5pdW0vZW5naW5lL3YxL2VuZ2luZS5wcm90bxITdmlicmFuaXVtLmVuZ2luZS52MSKMAQoJU2VsZWN0aW9uEgsKA2lkcxgBIAMoCRINCgVwYXRocxgCIAMoCRIMCgR0YWdzGAMgAygJEhEKBGdyZXAYBCABKAlIAIgBARIUCgdjaGFuZ2VkGAUgASgJSAGIAQESFwoPaW5jbHVkZV9za2lwcGVkGAYgASgIQgcKBV9ncmVwQgoKCF9jaGFuZ2VkIhMKEUdldFByb2plY3RSZXF1ZXN0InoKEkdldFByb2plY3RSZXNwb25zZRIMCgRuYW1lGAEgASgJEhAKCHByb2ZpbGVzGAIgAygJEhwKD2RlZmF1bHRfcHJvZmlsZRgDIAEoCUgAiAEBEhIKCnZjX3ZlcnNpb24YBCABKAlCEgoQX2RlZmF1bHRfcHJvZmlsZSKPAQoWTGlzdERlZmluaXRpb25zUmVxdWVzdBIxCgRraW5kGAEgASgOMiMudmlicmFuaXVtLmVuZ2luZS52MS5EZWZpbml0aW9uS2luZBIxCglzZWxlY3Rpb24YAiABKAsyHi52aWJyYW5pdW0uZW5naW5lLnYxLlNlbGVjdGlvbhIPCgdza2lwcGVkGAMgASgIItUBCgpEZWZpbml0aW9uEgoKAmlkGAEgASgJEhEKBG5hbWUYAiABKAlIAIgBARIMCgRwYXRoGAMgASgJEgwKBHRhZ3MYBCADKAkSDwoHc2tpcHBlZBgFIAEoCBIoCgRzcGFuGAYgASgLMhoudmlicmFuaXVtLnJlc3VsdHMudjEuU3BhbhIrCgVjYWxscxgHIAMoCzIcLnZpYnJhbml1bS5lbmdpbmUudjEuQXBpQ2FsbBINCgVzdGVwcxgIIAEoDRIMCgR2YXJzGAkgAygJQgcKBV9uYW1lIjQKB0FwaUNhbGwSCwoDYXBpGAEgASgJEg4KBm1ldGhvZBgCIAEoCRIMCgRwYXRoGAMgASgJImAKF0xpc3REZWZpbml0aW9uc1Jlc3BvbnNlEjQKC2RlZmluaXRpb25zGAEgAygLMh8udmlicmFuaXVtLmVuZ2luZS52MS5EZWZpbml0aW9uEg8KB25vdGljZXMYAiADKAkijgEKDENoZWNrUmVxdWVzdBINCgVwYXRocxgBIAMoCRI/CgdvdmVybGF5GAIgAygLMi4udmlicmFuaXVtLmVuZ2luZS52MS5DaGVja1JlcXVlc3QuT3ZlcmxheUVudHJ5Gi4KDE92ZXJsYXlFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIj8KBUxhYmVsEigKBHNwYW4YASABKAsyGi52aWJyYW5pdW0ucmVzdWx0cy52MS5TcGFuEgwKBHRleHQYAiABKAkiRgoIVGV4dEVkaXQSDAoEZmlsZRgBIAEoCRINCgVzdGFydBgCIAEoDRILCgNlbmQYAyABKA0SEAoIbmV3X3RleHQYBCABKAkiUwoDRml4Eg0KBXRpdGxlGAEgASgJEg8KB2NlcnRhaW4YAiABKAgSLAoFZWRpdHMYAyADKAsyHS52aWJyYW5pdW0uZW5naW5lLnYxLlRleHRFZGl0Iv4BCgpEaWFnbm9zdGljEgwKBGNvZGUYASABKAkSLwoIc2V2ZXJpdHkYAiABKA4yHS52aWJyYW5pdW0uZW5naW5lLnYxLlNldmVyaXR5Eg8KB21lc3NhZ2UYAyABKAkSKwoHcHJpbWFyeRgEIAEoCzIaLnZpYnJhbml1bS5lbmdpbmUudjEuTGFiZWwSLQoJc2Vjb25kYXJ5GAUgAygLMhoudmlicmFuaXVtLmVuZ2luZS52MS5MYWJlbBINCgVub3RlcxgGIAMoCRIMCgRoZWxwGAcgAygJEicKBWZpeGVzGAggAygLMhgudmlicmFuaXVtLmVuZ2luZS52MS5GaXgiZwoNQ2hlY2tSZXNwb25zZRI0CgtkaWFnbm9zdGljcxgBIAMoCzIfLnZpYnJhbml1bS5lbmdpbmUudjEuRGlhZ25vc3RpYxIPCgdjaGVja2VkGAIgASgNEg8KB25vdGljZXMYAyADKAki9QEKClJ1blJlcXVlc3QSMQoJc2VsZWN0aW9uGAEgASgLMh4udmlicmFuaXVtLmVuZ2luZS52MS5TZWxlY3Rpb24SEAoIcHJvZmlsZXMYAiADKAkSDAoEc2V0cxgDIAMoCRITCgZyZXBlYXQYBCABKA1IAIgBARIRCgRzZWVkGAUgASgESAGIAQESDAoEYmFpbBgGIAEoCBIYCgtjb25jdXJyZW5jeRgHIAEoDUgCiAEBEg4KBmZhaWxlZBgIIAEoCBIQCghub19jYWNoZRgJIAEoCEIJCgdfcmVwZWF0QgcKBV9zZWVkQg4KDF9jb25jdXJyZW5jeSI7CgtSdW5SZXNwb25zZRIsCgVldmVudBgBIAEoCzIdLnZpYnJhbml1bS5lbmdpbmUudjEuUnVuRXZlbnQiHwoPUmVhZEZpbGVSZXF1ZXN0EgwKBHBhdGgYASABKAkiMAoQUmVhZEZpbGVSZXNwb25zZRIMCgR0ZXh0GAEgASgJEg4KBmRpZ2VzdBgCIAEoCSJgChBXcml0ZUZpbGVSZXF1ZXN0EgwKBHBhdGgYASABKAkSDAoEdGV4dBgCIAEoCRIcCg9leHBlY3RlZF9kaWdlc3QYAyABKAlIAIgBAUISChBfZXhwZWN0ZWRfZGlnZXN0Im4KEVdyaXRlRmlsZVJlc3BvbnNlEg4KBmRpZ2VzdBgBIAEoCRI0CgtkaWFnbm9zdGljcxgCIAMoCzIfLnZpYnJhbml1bS5lbmdpbmUudjEuRGlhZ25vc3RpYxITCgtjaGVja19lcnJvchgDIAEoCSJbCgtQb2ludGVyRWRpdBIPCgdwb2ludGVyGAEgASgJEicKAm9wGAIgASgOMhsudmlicmFuaXVtLmVuZ2luZS52MS5FZGl0T3ASEgoKdmFsdWVfanNvbhgDIAEoCSJvCg9FZGl0RmlsZVJlcXVlc3QSDAoEcGF0aBgBIAEoCRIOCgZkaWdlc3QYAiABKAkSLwoFZWRpdHMYAyADKAsyIC52aWJyYW5pdW0uZW5naW5lLnYxLlBvaW50ZXJFZGl0Eg0KBXdyaXRlGAQgASgIIowBChBFZGl0RmlsZVJlc3BvbnNlEgwKBGRpZmYYASABKAkSDgoGZGlnZXN0GAIgASgJEg8KB3dyaXR0ZW4YAyABKAgSNAoLZGlhZ25vc3RpY3MYBCADKAsyHy52aWJyYW5pdW0uZW5naW5lLnYxLkRpYWdub3N0aWMSEwoLY2hlY2tfZXJyb3IYBSABKAki6gEKCEFwcHJvdmFsEgoKAmlkGAEgASgEEg0KBWFnZW50GAIgASgJEgwKBHRvb2wYAyABKAkSDwoHcHJvZmlsZRgEIAEoCRIPCgdtZXRob2RzGAUgAygJEg8KB3N1bW1hcnkYBiABKAkSEQoJYXJndW1lbnRzGAcgASgJEhIKCmNyZWF0ZWRfbXMYCCABKAQSMwoGc3RhdHVzGAkgASgOMiMudmlicmFuaXVtLmVuZ2luZS52MS5BcHByb3ZhbFN0YXR1cxIXCgpkZWNpZGVkX2J5GAogASgJSACIAQFCDQoLX2RlY2lkZWRfYnkiLAoUTGlzdEFwcHJvdmFsc1JlcXVlc3QSFAoMcGVuZGluZ19vbmx5GAEgASgIIkkKFUxpc3RBcHByb3ZhbHNSZXNwb25zZRIwCglhcHByb3ZhbHMYASADKAsyHS52aWJyYW5pdW0uZW5naW5lLnYxLkFwcHJvdmFsIlIKFURlY2lkZUFwcHJvdmFsUmVxdWVzdBIKCgJpZBgBIAEoBBItCgd2ZXJkaWN0GAIgASgOMhwudmlicmFuaXVtLmVuZ2luZS52MS5WZXJkaWN0Ik0KFkRlY2lkZUFwcHJvdmFsUmVzcG9uc2USMwoGc3RhdHVzGAEgASgOMiMudmlicmFuaXVtLmVuZ2luZS52MS5BcHByb3ZhbFN0YXR1cyKoAQoLQWdlbnRBY3Rpb24SDQoFYWdlbnQYASABKAkSDAoEdG9vbBgCIAEoCRIUCgdwcm9maWxlGAMgASgJSACIAQESEQoJYXJndW1lbnRzGAQgASgJEg4KBnJlc3VsdBgFIAEoCRIYCgthcHByb3ZlZF9ieRgGIAEoCUgBiAEBEg0KBWF0X21zGAcgASgEQgoKCF9wcm9maWxlQg4KDF9hcHByb3ZlZF9ieSIoChdMaXN0QWdlbnRBY3Rpb25zUmVxdWVzdBINCgVsaW1pdBgBIAEoDSJNChhMaXN0QWdlbnRBY3Rpb25zUmVzcG9uc2USMQoHYWN0aW9ucxgBIAMoCzIgLnZpYnJhbml1bS5lbmdpbmUudjEuQWdlbnRBY3Rpb24iVgoLQ2FsbFJlcXVlc3QSCwoDYXBpGAEgASgJEgwKBHZhcnMYAiADKAkSDAoEa2VlcBgDIAEoCBIQCghwcm9maWxlcxgEIAMoCRIMCgRzZXRzGAUgAygJIooCCgxDYWxsUmVzcG9uc2USDAoEZXhpdBgBIAEoDRIMCgR0ZXh0GAIgASgJEg8KB25vdGljZXMYAyADKAkSGgoNcmVzcG9uc2VfanNvbhgEIAEoCUgAiAEBEjUKCGV4Y2hhbmdlGAUgASgLMh4udmlicmFuaXVtLnJlc3VsdHMudjEuRXhjaGFuZ2VIAYgBARIrCgZjaGVja3MYBiADKAsyGy52aWJyYW5pdW0ucmVzdWx0cy52MS5DaGVjaxIuCgVzYXZlZBgHIAMoCzIfLnZpYnJhbml1bS5lbmdpbmUudjEuU2F2ZWRWYWx1ZUIQCg5fcmVzcG9uc2VfanNvbkILCglfZXhjaGFuZ2UiNwoKU2F2ZWRWYWx1ZRIMCgRuYW1lGAEgASgJEgwKBGZyb20YAiABKAkSDQoFdmFsdWUYAyABKAkifAoVU2F2ZUNhbGxBc1Rlc3RSZXF1ZXN0EgoKAmlkGAEgASgJEgsKA2FwaRgCIAEoCRIMCgR2YXJzGAMgAygJEhoKDXJlc3BvbnNlX2pzb24YBCABKAlIAIgBARIOCgZmaWVsZHMYBSADKAlCEAoOX3Jlc3BvbnNlX2pzb24iUAoWU2F2ZUNhbGxBc1Rlc3RSZXNwb25zZRIKCgJpZBgBIAEoCRIMCgRwYXRoGAIgASgJEgwKBGxpbmUYAyABKA0SDgoGdGl0bGVzGAQgAygJIisKCkltcG9ydEtlZXASDQoFaG9zdHMYASADKAkSDgoGYXNzZXRzGAIgASgIIokCCg1JbXBvcnRSZXF1ZXN0EgwKBGtpbmQYASABKAkSDgoGc291cmNlGAIgASgJEhQKB2ZpbGVfaWQYAyABKAlIAIgBARINCgV0ZXN0cxgEIAEoCBIQCghuZWdhdGl2ZRgFIAEoCBIMCgRhdXRoGAYgASgIEg8KB2luY2x1ZGUYByADKAkSDAoEb25seRgIIAMoCRIQCghwcm9maWxlcxgJIAMoCRIRCgRmbG93GAogASgJSAGIAQESLQoEa2VlcBgLIAEoCzIfLnZpYnJhbml1bS5lbmdpbmUudjEuSW1wb3J0S2VlcBINCgV3cml0ZRgMIAEoCEIKCghfZmlsZV9pZEIHCgVfZmxvdyJxCgpGaWxlQ2hhbmdlEgwKBHBhdGgYASABKAkSEwoGYmVmb3JlGAIgASgJSACIAQESDQoFYWZ0ZXIYAyABKAkSFwoKbW92ZWRfZnJvbRgEIAEoCUgBiAEBQgkKB19iZWZvcmVCDQoLX21vdmVkX2Zyb20iUAoOSW1wb3J0UmVzcG9uc2USLgoFZmlsZXMYASADKAsyHy52aWJyYW5pdW0uZW5naW5lLnYxLkZpbGVDaGFuZ2USDgoGdGl0bGVzGAIgAygJIjwKD0xpc3RSdW5zUmVxdWVzdBINCgVsaW1pdBgBIAEoDRIRCgRraW5kGAIgASgJSACIAQFCBwoFX2tpbmQiOwoQTGlzdFJ1bnNSZXNwb25zZRInCgRydW5zGAEgAygLMhkudmlicmFuaXVtLnJlc3VsdHMudjEuUnVuIicKDUdldFJ1blJlcXVlc3QSDwoCaWQYASABKARIAIgBAUIFCgNfaWQiYwoOR2V0UnVuUmVzcG9uc2USJgoDcnVuGAEgASgLMhkudmlicmFuaXVtLnJlc3VsdHMudjEuUnVuEikKBXRlc3RzGAIgAygLMhoudmlicmFuaXVtLnJlc3VsdHMudjEuVGVzdCIfCg1UcmVuZHNSZXF1ZXN0Eg4KBndpbmRvdxgBIAEoDSJdCglUZXN0VHJlbmQSDwoHdGVzdF9pZBgBIAEoCRIPCgdyZXN1bHRzGAIgASgNEg4KBmZhaWxlZBgDIAEoDRINCgVmbGFreRgEIAEoDRIPCgdtZWFuX21zGAUgASgBIkAKDlRyZW5kc1Jlc3BvbnNlEi4KBnRyZW5kcxgBIAMoCzIeLnZpYnJhbml1bS5lbmdpbmUudjEuVGVzdFRyZW5kIkQKFEV4cGxhaW5Db25maWdSZXF1ZXN0EgwKBGtleXMYASADKAkSEAoIcHJvZmlsZXMYAiADKAkSDAoEc2V0cxgDIAMoCSIsCgtDb25maWdMYXllchINCgV2YWx1ZRgBIAEoCRIOCgZzb3VyY2UYAiABKAkiTAoLQ29uZmlnVmFsdWUSCwoDa2V5GAEgASgJEjAKBmxheWVycxgCIAMoCzIgLnZpYnJhbml1bS5lbmdpbmUudjEuQ29uZmlnTGF5ZXIiWgoVRXhwbGFpbkNvbmZpZ1Jlc3BvbnNlEjAKBnZhbHVlcxgBIAMoCzIgLnZpYnJhbml1bS5lbmdpbmUudjEuQ29uZmlnVmFsdWUSDwoHbm90aWNlcxgCIAMoCSITChFDb25uZWN0aW9uUmVxdWVzdCI6ChJDb25uZWN0aW9uUmVzcG9uc2USDwoHbWNwX3VybBgBIAEoCRITCgthZ2VudF90b2tlbhgCIAEoCSqBAQoORGVmaW5pdGlvbktpbmQSHwobREVGSU5JVElPTl9LSU5EX1VOU1BFQ0lGSUVEEAASGQoVREVGSU5JVElPTl9LSU5EX1RFU1RTEAESGAoUREVGSU5JVElPTl9LSU5EX0FQSVMQAhIZChVERUZJTklUSU9OX0tJTkRfRklMRVMQAyphCghTZXZlcml0eRIYChRTRVZFUklUWV9VTlNQRUNJRklFRBAAEhEKDVNFVkVSSVRZX0lORk8QARIUChBTRVZFUklUWV9XQVJOSU5HEAISEgoOU0VWRVJJVFlfRVJST1IQAypaCgZFZGl0T3ASFwoTRURJVF9PUF9VTlNQRUNJRklFRBAAEg8KC0VESVRfT1BfU0VUEAESEgoORURJVF9PUF9SRU1PVkUQAhISCg5FRElUX09QX0lOU0VSVBADKqUBCg5BcHByb3ZhbFN0YXR1cxIfChtBUFBST1ZBTF9TVEFUVVNfVU5TUEVDSUZJRUQQABIbChdBUFBST1ZBTF9TVEFUVVNfUEVORElORxABEhwKGEFQUFJPVkFMX1NUQVRVU19BUFBST1ZFRBACEhoKFkFQUFJPVkFMX1NUQVRVU19ERU5JRUQQAxIbChdBUFBST1ZBTF9TVEFUVVNfRVhQSVJFRBAEKmMKB1ZlcmRpY3QSFwoTVkVSRElDVF9VTlNQRUNJRklFRBAAEhMKD1ZFUkRJQ1RfQVBQUk9WRRABEhgKFFZFUkRJQ1RfQUxXQVlTX0FMTE9XEAISEAoMVkVSRElDVF9ERU5ZEAMymw0KDUVuZ2luZVNlcnZpY2USXQoKR2V0UHJvamVjdBImLnZpYnJhbml1bS5lbmdpbmUudjEuR2V0UHJvamVjdFJlcXVlc3QaJy52aWJyYW5pdW0uZW5naW5lLnYxLkdldFByb2plY3RSZXNwb25zZRJsCg9MaXN0RGVmaW5pdGlvbnMSKy52aWJyYW5pdW0uZW5naW5lLnYxLkxpc3REZWZpbml0aW9uc1JlcXVlc3QaLC52aWJyYW5pdW0uZW5naW5lLnYxLkxpc3REZWZpbml0aW9uc1Jlc3BvbnNlEk4KBUNoZWNrEiEudmlicmFuaXVtLmVuZ2luZS52MS5DaGVja1JlcXVlc3QaIi52aWJyYW5pdW0uZW5naW5lLnYxLkNoZWNrUmVzcG9uc2USSgoDUnVuEh8udmlicmFuaXVtLmVuZ2luZS52MS5SdW5SZXF1ZXN0GiAudmlicmFuaXVtLmVuZ2luZS52MS5SdW5SZXNwb25zZTABElcKCFJlYWRGaWxlEiQudmlicmFuaXVtLmVuZ2luZS52MS5SZWFkRmlsZVJlcXVlc3QaJS52aWJyYW5pdW0uZW5naW5lLnYxLlJlYWRGaWxlUmVzcG9uc2USWgoJV3JpdGVGaWxlEiUudmlicmFuaXVtLmVuZ2luZS52MS5Xcml0ZUZpbGVSZXF1ZXN0GiYudmlicmFuaXVtLmVuZ2luZS52MS5Xcml0ZUZpbGVSZXNwb25zZRJXCghFZGl0RmlsZRIkLnZpYnJhbml1bS5lbmdpbmUudjEuRWRpdEZpbGVSZXF1ZXN0GiUudmlicmFuaXVtLmVuZ2luZS52MS5FZGl0RmlsZVJlc3BvbnNlEmYKDUxpc3RBcHByb3ZhbHMSKS52aWJyYW5pdW0uZW5naW5lLnYxLkxpc3RBcHByb3ZhbHNSZXF1ZXN0GioudmlicmFuaXVtLmVuZ2luZS52MS5MaXN0QXBwcm92YWxzUmVzcG9uc2USaQoORGVjaWRlQXBwcm92YWwSKi52aWJyYW5pdW0uZW5naW5lLnYxLkRlY2lkZUFwcHJvdmFsUmVxdWVzdBorLnZpYnJhbml1bS5lbmdpbmUudjEuRGVjaWRlQXBwcm92YWxSZXNwb25zZRJvChBMaXN0QWdlbnRBY3Rpb25zEiwudmlicmFuaXVtLmVuZ2luZS52MS5MaXN0QWdlbnRBY3Rpb25zUmVxdWVzdBotLnZpYnJhbml1bS5lbmdpbmUudjEuTGlzdEFnZW50QWN0aW9uc1Jlc3BvbnNlEksKBENhbGwSIC52aWJyYW5pdW0uZW5naW5lLnYxLkNhbGxSZXF1ZXN0GiEudmlicmFuaXVtLmVuZ2luZS52MS5DYWxsUmVzcG9uc2USaQoOU2F2ZUNhbGxBc1Rlc3QSKi52aWJyYW5pdW0uZW5naW5lLnYxLlNhdmVDYWxsQXNUZXN0UmVxdWVzdBorLnZpYnJhbml1bS5lbmdpbmUudjEuU2F2ZUNhbGxBc1Rlc3RSZXNwb25zZRJRCgZJbXBvcnQSIi52aWJyYW5pdW0uZW5naW5lLnYxLkltcG9ydFJlcXVlc3QaIy52aWJyYW5pdW0uZW5naW5lLnYxLkltcG9ydFJlc3BvbnNlElcKCExpc3RSdW5zEiQudmlicmFuaXVtLmVuZ2luZS52MS5MaXN0UnVuc1JlcXVlc3QaJS52aWJyYW5pdW0uZW5naW5lLnYxLkxpc3RSdW5zUmVzcG9uc2USUQoGR2V0UnVuEiIudmlicmFuaXVtLmVuZ2luZS52MS5HZXRSdW5SZXF1ZXN0GiMudmlicmFuaXVtLmVuZ2luZS52MS5HZXRSdW5SZXNwb25zZRJRCgZUcmVuZHMSIi52aWJyYW5pdW0uZW5naW5lLnYxLlRyZW5kc1JlcXVlc3QaIy52aWJyYW5pdW0uZW5naW5lLnYxLlRyZW5kc1Jlc3BvbnNlEmYKDUV4cGxhaW5Db25maWcSKS52aWJyYW5pdW0uZW5naW5lLnYxLkV4cGxhaW5Db25maWdSZXF1ZXN0GioudmlicmFuaXVtLmVuZ2luZS52MS5FeHBsYWluQ29uZmlnUmVzcG9uc2USXQoKQ29ubmVjdGlvbhImLnZpYnJhbml1bS5lbmdpbmUudjEuQ29ubmVjdGlvblJlcXVlc3QaJy52aWJyYW5pdW0uZW5naW5lLnYxLkNvbm5lY3Rpb25SZXNwb25zZWIGcHJvdG8z", [file_vibranium_engine_v1_events, file_vibranium_results_v1_results]);
 
 /**
  * Which tests or apis to act on, as `vc run` selects them.
@@ -679,6 +679,123 @@ export const WriteFileResponseSchema: GenMessage<WriteFileResponse> = /*@__PURE_
   messageDesc(file_vibranium_engine_v1_engine, 18);
 
 /**
+ * @generated from message vibranium.engine.v1.PointerEdit
+ */
+export type PointerEdit = Message<"vibranium.engine.v1.PointerEdit"> & {
+  /**
+   * RFC 6901, such as `/defaults/timeout` or `/profiles/0/default`.
+   *
+   * @generated from field: string pointer = 1;
+   */
+  pointer: string;
+
+  /**
+   * @generated from field: vibranium.engine.v1.EditOp op = 2;
+   */
+  op: EditOp;
+
+  /**
+   * The value as JSON text: `"5s"`, `8`, `true`, a list or a map; empty for a remove.
+   *
+   * @generated from field: string value_json = 3;
+   */
+  valueJson: string;
+};
+
+/**
+ * Describes the message vibranium.engine.v1.PointerEdit.
+ * Use `create(PointerEditSchema)` to create a new message.
+ */
+export const PointerEditSchema: GenMessage<PointerEdit> = /*@__PURE__*/
+  messageDesc(file_vibranium_engine_v1_engine, 19);
+
+/**
+ * @generated from message vibranium.engine.v1.EditFileRequest
+ */
+export type EditFileRequest = Message<"vibranium.engine.v1.EditFileRequest"> & {
+  /**
+   * Relative to the project root.
+   *
+   * @generated from field: string path = 1;
+   */
+  path: string;
+
+  /**
+   * The digest `ReadFile` gave; the edit is refused if the file changed since.
+   *
+   * @generated from field: string digest = 2;
+   */
+  digest: string;
+
+  /**
+   * Made in order, each pointer read against the file the edits before it left.
+   *
+   * @generated from field: repeated vibranium.engine.v1.PointerEdit edits = 3;
+   */
+  edits: PointerEdit[];
+
+  /**
+   * Writes the file; otherwise only previews it.
+   *
+   * @generated from field: bool write = 4;
+   */
+  write: boolean;
+};
+
+/**
+ * Describes the message vibranium.engine.v1.EditFileRequest.
+ * Use `create(EditFileRequestSchema)` to create a new message.
+ */
+export const EditFileRequestSchema: GenMessage<EditFileRequest> = /*@__PURE__*/
+  messageDesc(file_vibranium_engine_v1_engine, 20);
+
+/**
+ * @generated from message vibranium.engine.v1.EditFileResponse
+ */
+export type EditFileResponse = Message<"vibranium.engine.v1.EditFileResponse"> & {
+  /**
+   * The change as a unified diff, masked as a run's values are; empty when the edits change
+   * nothing.
+   *
+   * @generated from field: string diff = 1;
+   */
+  diff: string;
+
+  /**
+   * The digest on disk: the new one once written, else the one sent.
+   *
+   * @generated from field: string digest = 2;
+   */
+  digest: string;
+
+  /**
+   * @generated from field: bool written = 3;
+   */
+  written: boolean;
+
+  /**
+   * The diagnostics of the project with the file written; empty for a preview.
+   *
+   * @generated from field: repeated vibranium.engine.v1.Diagnostic diagnostics = 4;
+   */
+  diagnostics: Diagnostic[];
+
+  /**
+   * Why the project could not be checked after the write, with its help; empty when it was.
+   *
+   * @generated from field: string check_error = 5;
+   */
+  checkError: string;
+};
+
+/**
+ * Describes the message vibranium.engine.v1.EditFileResponse.
+ * Use `create(EditFileResponseSchema)` to create a new message.
+ */
+export const EditFileResponseSchema: GenMessage<EditFileResponse> = /*@__PURE__*/
+  messageDesc(file_vibranium_engine_v1_engine, 21);
+
+/**
  * An agent's request to do something its policy holds for a person.
  *
  * @generated from message vibranium.engine.v1.Approval
@@ -746,7 +863,7 @@ export type Approval = Message<"vibranium.engine.v1.Approval"> & {
  * Use `create(ApprovalSchema)` to create a new message.
  */
 export const ApprovalSchema: GenMessage<Approval> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 19);
+  messageDesc(file_vibranium_engine_v1_engine, 22);
 
 /**
  * @generated from message vibranium.engine.v1.ListApprovalsRequest
@@ -763,7 +880,7 @@ export type ListApprovalsRequest = Message<"vibranium.engine.v1.ListApprovalsReq
  * Use `create(ListApprovalsRequestSchema)` to create a new message.
  */
 export const ListApprovalsRequestSchema: GenMessage<ListApprovalsRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 20);
+  messageDesc(file_vibranium_engine_v1_engine, 23);
 
 /**
  * @generated from message vibranium.engine.v1.ListApprovalsResponse
@@ -780,7 +897,7 @@ export type ListApprovalsResponse = Message<"vibranium.engine.v1.ListApprovalsRe
  * Use `create(ListApprovalsResponseSchema)` to create a new message.
  */
 export const ListApprovalsResponseSchema: GenMessage<ListApprovalsResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 21);
+  messageDesc(file_vibranium_engine_v1_engine, 24);
 
 /**
  * @generated from message vibranium.engine.v1.DecideApprovalRequest
@@ -802,7 +919,7 @@ export type DecideApprovalRequest = Message<"vibranium.engine.v1.DecideApprovalR
  * Use `create(DecideApprovalRequestSchema)` to create a new message.
  */
 export const DecideApprovalRequestSchema: GenMessage<DecideApprovalRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 22);
+  messageDesc(file_vibranium_engine_v1_engine, 25);
 
 /**
  * @generated from message vibranium.engine.v1.DecideApprovalResponse
@@ -819,7 +936,7 @@ export type DecideApprovalResponse = Message<"vibranium.engine.v1.DecideApproval
  * Use `create(DecideApprovalResponseSchema)` to create a new message.
  */
 export const DecideApprovalResponseSchema: GenMessage<DecideApprovalResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 23);
+  messageDesc(file_vibranium_engine_v1_engine, 26);
 
 /**
  * A tool call an agent made.
@@ -870,7 +987,7 @@ export type AgentAction = Message<"vibranium.engine.v1.AgentAction"> & {
  * Use `create(AgentActionSchema)` to create a new message.
  */
 export const AgentActionSchema: GenMessage<AgentAction> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 24);
+  messageDesc(file_vibranium_engine_v1_engine, 27);
 
 /**
  * @generated from message vibranium.engine.v1.ListAgentActionsRequest
@@ -889,7 +1006,7 @@ export type ListAgentActionsRequest = Message<"vibranium.engine.v1.ListAgentActi
  * Use `create(ListAgentActionsRequestSchema)` to create a new message.
  */
 export const ListAgentActionsRequestSchema: GenMessage<ListAgentActionsRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 25);
+  messageDesc(file_vibranium_engine_v1_engine, 28);
 
 /**
  * @generated from message vibranium.engine.v1.ListAgentActionsResponse
@@ -906,7 +1023,7 @@ export type ListAgentActionsResponse = Message<"vibranium.engine.v1.ListAgentAct
  * Use `create(ListAgentActionsResponseSchema)` to create a new message.
  */
 export const ListAgentActionsResponseSchema: GenMessage<ListAgentActionsResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 26);
+  messageDesc(file_vibranium_engine_v1_engine, 29);
 
 /**
  * @generated from message vibranium.engine.v1.CallRequest
@@ -949,7 +1066,7 @@ export type CallRequest = Message<"vibranium.engine.v1.CallRequest"> & {
  * Use `create(CallRequestSchema)` to create a new message.
  */
 export const CallRequestSchema: GenMessage<CallRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 27);
+  messageDesc(file_vibranium_engine_v1_engine, 30);
 
 /**
  * @generated from message vibranium.engine.v1.CallResponse
@@ -1009,7 +1126,7 @@ export type CallResponse = Message<"vibranium.engine.v1.CallResponse"> & {
  * Use `create(CallResponseSchema)` to create a new message.
  */
 export const CallResponseSchema: GenMessage<CallResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 28);
+  messageDesc(file_vibranium_engine_v1_engine, 31);
 
 /**
  * A value a call saved.
@@ -1044,7 +1161,7 @@ export type SavedValue = Message<"vibranium.engine.v1.SavedValue"> & {
  * Use `create(SavedValueSchema)` to create a new message.
  */
 export const SavedValueSchema: GenMessage<SavedValue> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 29);
+  messageDesc(file_vibranium_engine_v1_engine, 32);
 
 /**
  * @generated from message vibranium.engine.v1.SaveCallAsTestRequest
@@ -1089,7 +1206,7 @@ export type SaveCallAsTestRequest = Message<"vibranium.engine.v1.SaveCallAsTestR
  * Use `create(SaveCallAsTestRequestSchema)` to create a new message.
  */
 export const SaveCallAsTestRequestSchema: GenMessage<SaveCallAsTestRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 30);
+  messageDesc(file_vibranium_engine_v1_engine, 33);
 
 /**
  * @generated from message vibranium.engine.v1.SaveCallAsTestResponse
@@ -1125,7 +1242,7 @@ export type SaveCallAsTestResponse = Message<"vibranium.engine.v1.SaveCallAsTest
  * Use `create(SaveCallAsTestResponseSchema)` to create a new message.
  */
 export const SaveCallAsTestResponseSchema: GenMessage<SaveCallAsTestResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 31);
+  messageDesc(file_vibranium_engine_v1_engine, 34);
 
 /**
  * What a recording keeps that its filter would drop.
@@ -1153,7 +1270,7 @@ export type ImportKeep = Message<"vibranium.engine.v1.ImportKeep"> & {
  * Use `create(ImportKeepSchema)` to create a new message.
  */
 export const ImportKeepSchema: GenMessage<ImportKeep> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 32);
+  messageDesc(file_vibranium_engine_v1_engine, 35);
 
 /**
  * @generated from message vibranium.engine.v1.ImportRequest
@@ -1235,7 +1352,7 @@ export type ImportRequest = Message<"vibranium.engine.v1.ImportRequest"> & {
  * Use `create(ImportRequestSchema)` to create a new message.
  */
 export const ImportRequestSchema: GenMessage<ImportRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 33);
+  messageDesc(file_vibranium_engine_v1_engine, 36);
 
 /**
  * A file an import or edit creates, changes or moves.
@@ -1273,7 +1390,7 @@ export type FileChange = Message<"vibranium.engine.v1.FileChange"> & {
  * Use `create(FileChangeSchema)` to create a new message.
  */
 export const FileChangeSchema: GenMessage<FileChange> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 34);
+  messageDesc(file_vibranium_engine_v1_engine, 37);
 
 /**
  * @generated from message vibranium.engine.v1.ImportResponse
@@ -1297,7 +1414,7 @@ export type ImportResponse = Message<"vibranium.engine.v1.ImportResponse"> & {
  * Use `create(ImportResponseSchema)` to create a new message.
  */
 export const ImportResponseSchema: GenMessage<ImportResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 35);
+  messageDesc(file_vibranium_engine_v1_engine, 38);
 
 /**
  * @generated from message vibranium.engine.v1.ListRunsRequest
@@ -1323,7 +1440,7 @@ export type ListRunsRequest = Message<"vibranium.engine.v1.ListRunsRequest"> & {
  * Use `create(ListRunsRequestSchema)` to create a new message.
  */
 export const ListRunsRequestSchema: GenMessage<ListRunsRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 36);
+  messageDesc(file_vibranium_engine_v1_engine, 39);
 
 /**
  * @generated from message vibranium.engine.v1.ListRunsResponse
@@ -1340,7 +1457,7 @@ export type ListRunsResponse = Message<"vibranium.engine.v1.ListRunsResponse"> &
  * Use `create(ListRunsResponseSchema)` to create a new message.
  */
 export const ListRunsResponseSchema: GenMessage<ListRunsResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 37);
+  messageDesc(file_vibranium_engine_v1_engine, 40);
 
 /**
  * @generated from message vibranium.engine.v1.GetRunRequest
@@ -1359,7 +1476,7 @@ export type GetRunRequest = Message<"vibranium.engine.v1.GetRunRequest"> & {
  * Use `create(GetRunRequestSchema)` to create a new message.
  */
 export const GetRunRequestSchema: GenMessage<GetRunRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 38);
+  messageDesc(file_vibranium_engine_v1_engine, 41);
 
 /**
  * @generated from message vibranium.engine.v1.GetRunResponse
@@ -1381,7 +1498,7 @@ export type GetRunResponse = Message<"vibranium.engine.v1.GetRunResponse"> & {
  * Use `create(GetRunResponseSchema)` to create a new message.
  */
 export const GetRunResponseSchema: GenMessage<GetRunResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 39);
+  messageDesc(file_vibranium_engine_v1_engine, 42);
 
 /**
  * @generated from message vibranium.engine.v1.TrendsRequest
@@ -1400,7 +1517,7 @@ export type TrendsRequest = Message<"vibranium.engine.v1.TrendsRequest"> & {
  * Use `create(TrendsRequestSchema)` to create a new message.
  */
 export const TrendsRequestSchema: GenMessage<TrendsRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 40);
+  messageDesc(file_vibranium_engine_v1_engine, 43);
 
 /**
  * One test's results over the window.
@@ -1441,7 +1558,7 @@ export type TestTrend = Message<"vibranium.engine.v1.TestTrend"> & {
  * Use `create(TestTrendSchema)` to create a new message.
  */
 export const TestTrendSchema: GenMessage<TestTrend> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 41);
+  messageDesc(file_vibranium_engine_v1_engine, 44);
 
 /**
  * @generated from message vibranium.engine.v1.TrendsResponse
@@ -1458,7 +1575,7 @@ export type TrendsResponse = Message<"vibranium.engine.v1.TrendsResponse"> & {
  * Use `create(TrendsResponseSchema)` to create a new message.
  */
 export const TrendsResponseSchema: GenMessage<TrendsResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 42);
+  messageDesc(file_vibranium_engine_v1_engine, 45);
 
 /**
  * @generated from message vibranium.engine.v1.ExplainConfigRequest
@@ -1491,7 +1608,7 @@ export type ExplainConfigRequest = Message<"vibranium.engine.v1.ExplainConfigReq
  * Use `create(ExplainConfigRequestSchema)` to create a new message.
  */
 export const ExplainConfigRequestSchema: GenMessage<ExplainConfigRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 43);
+  messageDesc(file_vibranium_engine_v1_engine, 46);
 
 /**
  * One value a key was set to. A secret's value is `••••` wherever it appears.
@@ -1518,7 +1635,7 @@ export type ConfigLayer = Message<"vibranium.engine.v1.ConfigLayer"> & {
  * Use `create(ConfigLayerSchema)` to create a new message.
  */
 export const ConfigLayerSchema: GenMessage<ConfigLayer> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 44);
+  messageDesc(file_vibranium_engine_v1_engine, 47);
 
 /**
  * @generated from message vibranium.engine.v1.ConfigValue
@@ -1542,7 +1659,7 @@ export type ConfigValue = Message<"vibranium.engine.v1.ConfigValue"> & {
  * Use `create(ConfigValueSchema)` to create a new message.
  */
 export const ConfigValueSchema: GenMessage<ConfigValue> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 45);
+  messageDesc(file_vibranium_engine_v1_engine, 48);
 
 /**
  * @generated from message vibranium.engine.v1.ExplainConfigResponse
@@ -1564,7 +1681,7 @@ export type ExplainConfigResponse = Message<"vibranium.engine.v1.ExplainConfigRe
  * Use `create(ExplainConfigResponseSchema)` to create a new message.
  */
 export const ExplainConfigResponseSchema: GenMessage<ExplainConfigResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 46);
+  messageDesc(file_vibranium_engine_v1_engine, 49);
 
 /**
  * @generated from message vibranium.engine.v1.ConnectionRequest
@@ -1577,7 +1694,7 @@ export type ConnectionRequest = Message<"vibranium.engine.v1.ConnectionRequest">
  * Use `create(ConnectionRequestSchema)` to create a new message.
  */
 export const ConnectionRequestSchema: GenMessage<ConnectionRequest> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 47);
+  messageDesc(file_vibranium_engine_v1_engine, 50);
 
 /**
  * @generated from message vibranium.engine.v1.ConnectionResponse
@@ -1603,7 +1720,7 @@ export type ConnectionResponse = Message<"vibranium.engine.v1.ConnectionResponse
  * Use `create(ConnectionResponseSchema)` to create a new message.
  */
 export const ConnectionResponseSchema: GenMessage<ConnectionResponse> = /*@__PURE__*/
-  messageDesc(file_vibranium_engine_v1_engine, 48);
+  messageDesc(file_vibranium_engine_v1_engine, 51);
 
 /**
  * What to list.
@@ -1672,6 +1789,45 @@ export const SeveritySchema: GenEnum<Severity> = /*@__PURE__*/
   enumDesc(file_vibranium_engine_v1_engine, 1);
 
 /**
+ * What an edit does at its pointer.
+ *
+ * @generated from enum vibranium.engine.v1.EditOp
+ */
+export enum EditOp {
+  /**
+   * @generated from enum value: EDIT_OP_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Replaces the value there, or adds the key with any maps above it that are missing.
+   *
+   * @generated from enum value: EDIT_OP_SET = 1;
+   */
+  SET = 1,
+
+  /**
+   * Removes the map entry or list item there, with its lines.
+   *
+   * @generated from enum value: EDIT_OP_REMOVE = 2;
+   */
+  REMOVE = 2,
+
+  /**
+   * Adds a key to a map, or a last item to a list (`/profiles/-`).
+   *
+   * @generated from enum value: EDIT_OP_INSERT = 3;
+   */
+  INSERT = 3,
+}
+
+/**
+ * Describes the enum vibranium.engine.v1.EditOp.
+ */
+export const EditOpSchema: GenEnum<EditOp> = /*@__PURE__*/
+  enumDesc(file_vibranium_engine_v1_engine, 2);
+
+/**
  * Where an approval request stands.
  *
  * @generated from enum vibranium.engine.v1.ApprovalStatus
@@ -1707,7 +1863,7 @@ export enum ApprovalStatus {
  * Describes the enum vibranium.engine.v1.ApprovalStatus.
  */
 export const ApprovalStatusSchema: GenEnum<ApprovalStatus> = /*@__PURE__*/
-  enumDesc(file_vibranium_engine_v1_engine, 2);
+  enumDesc(file_vibranium_engine_v1_engine, 3);
 
 /**
  * What a person decided.
@@ -1742,7 +1898,7 @@ export enum Verdict {
  * Describes the enum vibranium.engine.v1.Verdict.
  */
 export const VerdictSchema: GenEnum<Verdict> = /*@__PURE__*/
-  enumDesc(file_vibranium_engine_v1_engine, 3);
+  enumDesc(file_vibranium_engine_v1_engine, 4);
 
 /**
  * The engine of one project, opened by `vc ui`.
@@ -1810,6 +1966,18 @@ export const EngineService: GenService<{
     methodKind: "unary";
     input: typeof WriteFileRequestSchema;
     output: typeof WriteFileResponseSchema;
+  },
+  /**
+   * Sets, removes or adds values in a config, api, test or load file by JSON pointer, keeping
+   * its comments: a preview with the diff, or the file written. Refused when the file changed
+   * since it was read, or when the result adds an error (D107).
+   *
+   * @generated from rpc vibranium.engine.v1.EngineService.EditFile
+   */
+  editFile: {
+    methodKind: "unary";
+    input: typeof EditFileRequestSchema;
+    output: typeof EditFileResponseSchema;
   },
   /**
    * The agents' approval requests, newest first.

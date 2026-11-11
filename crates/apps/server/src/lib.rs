@@ -22,6 +22,7 @@ mod builder;
 mod code;
 mod codec;
 mod csp;
+mod edit_rpcs;
 #[cfg(feature = "ui")]
 mod embedded;
 mod engine_api;

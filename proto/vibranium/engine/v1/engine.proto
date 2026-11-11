@@ -22,6 +22,10 @@ service EngineService {
   rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
   // Saves a project file the editor changed, unless it changed on disk since it was read.
   rpc WriteFile(WriteFileRequest) returns (WriteFileResponse);
+  // Sets, removes or adds values in a config, api, test or load file by JSON pointer, keeping
+  // its comments: a preview with the diff, or the file written. Refused when the file changed
+  // since it was read, or when the result adds an error (D107).
+  rpc EditFile(EditFileRequest) returns (EditFileResponse);
   // The agents' approval requests, newest first.
   rpc ListApprovals(ListApprovalsRequest) returns (ListApprovalsResponse);
   // Approves or denies an agent's request.
@@ -232,6 +236,49 @@ message WriteFileResponse {
   // Why the project could not be checked after the save, with its help; empty when it was.
   // The file was written either way, so `digest` is the one to save over next.
   string check_error = 3;
+}
+
+// What an edit does at its pointer.
+enum EditOp {
+  EDIT_OP_UNSPECIFIED = 0;
+  // Replaces the value there, or adds the key with any maps above it that are missing.
+  EDIT_OP_SET = 1;
+  // Removes the map entry or list item there, with its lines.
+  EDIT_OP_REMOVE = 2;
+  // Adds a key to a map, or a last item to a list (`/profiles/-`).
+  EDIT_OP_INSERT = 3;
+}
+
+message PointerEdit {
+  // RFC 6901, such as `/defaults/timeout` or `/profiles/0/default`.
+  string pointer = 1;
+  EditOp op = 2;
+  // The value as JSON text: `"5s"`, `8`, `true`, a list or a map; empty for a remove.
+  string value_json = 3;
+}
+
+message EditFileRequest {
+  // Relative to the project root.
+  string path = 1;
+  // The digest `ReadFile` gave; the edit is refused if the file changed since.
+  string digest = 2;
+  // Made in order, each pointer read against the file the edits before it left.
+  repeated PointerEdit edits = 3;
+  // Writes the file; otherwise only previews it.
+  bool write = 4;
+}
+
+message EditFileResponse {
+  // The change as a unified diff, masked as a run's values are; empty when the edits change
+  // nothing.
+  string diff = 1;
+  // The digest on disk: the new one once written, else the one sent.
+  string digest = 2;
+  bool written = 3;
+  // The diagnostics of the project with the file written; empty for a preview.
+  repeated Diagnostic diagnostics = 4;
+  // Why the project could not be checked after the write, with its help; empty when it was.
+  string check_error = 5;
 }
 
 // Where an approval request stands.

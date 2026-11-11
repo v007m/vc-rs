@@ -28,3 +28,17 @@ test('opens the config in the editor', async ({ page }) => {
   await page.getByRole('link', { name: 'Open vibranium.config.yaml in the editor' }).click();
   await expect(page).toHaveURL(/\/editor\?file=vibranium\.config\.yaml$/);
 });
+
+test('reviews a config change as a diff before anything is written', async ({ page }) => {
+  await page.goto('/settings');
+  const form = page.getByRole('region', { name: 'Project config' });
+  const mockUrl = form.getByRole('textbox', { name: /mockUrl/ });
+  await expect(mockUrl).toHaveValue('http://127.0.0.1:18080');
+  await mockUrl.fill('http://127.0.0.1:18081');
+  await form.getByRole('button', { name: 'Review changes' }).click();
+  const diff = form.getByLabel('Changes to vibranium.config.yaml');
+  await expect(diff).toContainText('-  mockUrl:');
+  await expect(diff).toContainText('+  mockUrl: http://127.0.0.1:18081');
+  await form.getByRole('button', { name: 'Discard changes' }).click();
+  await expect(mockUrl).toHaveValue('http://127.0.0.1:18080');
+});
