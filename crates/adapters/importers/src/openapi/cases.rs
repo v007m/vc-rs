@@ -113,7 +113,7 @@ impl Case<'_> {
     }
 
     /// The call with what it needs created first, or skipped with why it cannot be. A
-    /// `DELETE` keeps the item it removes, so no cleanup removes it again.
+    /// `DELETE` of the item the last creator makes keeps it, so no cleanup removes it again.
     fn needing(&self) -> DraftTest {
         let mut test = DraftTest { call: self.call(), ..DraftTest::default() };
         match self.needs {
@@ -121,14 +121,17 @@ impl Case<'_> {
             Needs::Made(links) => {
                 let call = |id: &str| format!("{}#{id}", self.file_id);
                 test.before = links.iter().map(|link| DraftBefore { call: call(&link.id), keep: false }).collect();
-                if self.route.method == Method::Delete
-                    && let Some(last) = test.before.last_mut()
-                {
-                    last.keep = true;
+                if let (Some(last), Some(link)) = (test.before.last_mut(), links.last()) {
+                    last.keep = self.removes(link);
                 }
             }
         }
         test
+    }
+
+    /// Whether the call deletes the item `link` creates.
+    fn removes(&self, link: &Link) -> bool {
+        self.route.method == Method::Delete && link.item == self.route.path
     }
 
     fn call(&self) -> String {

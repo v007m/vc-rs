@@ -300,3 +300,5 @@ async fn bytes_that_do_not_decode_are_invalid_at_their_location() {
     let result = read("broken.yaml", "{", &opts()).await;
     assert!(matches!(result, Err(ImportError::Invalid { location, .. }) if location == "broken.yaml"));
 }
+
+mod needs;
