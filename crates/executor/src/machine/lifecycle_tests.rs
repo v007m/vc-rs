@@ -11,7 +11,7 @@ fn plan() -> (Plan, OwnerKey) {
         before_run: vec![sim::planned(1, &[])],
         files: vec![file],
         after_run: sim::acts(&[5]),
-        skipped: Vec::new(),
+        ..Plan::default()
     };
     (plan, owner)
 }

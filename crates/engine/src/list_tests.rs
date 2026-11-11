@@ -166,3 +166,34 @@ fn each_item_knows_the_kind_of_its_file() {
     let files = engine(FakeVcs::default()).list(&ListRequest { kind: ListKind::Files, ..ListRequest::default() });
     assert!(files.unwrap().items.iter().all(|file| file.kind().is_some()));
 }
+
+#[test]
+fn files_carry_the_name_each_file_declares() {
+    let config = "syntaxVersion: 2\nvars: {baseUrl: 'http://x'}\nprofiles:\n  - id: dev\n    default: true\n";
+    let api = "name: Users service\nbaseUrl: ${var.baseUrl}\napis:\n  - id: list\n    path: /users\n";
+    let crud = "name: User CRUD\ntests:\n  - id: listsUsers\n    call: users#list\n";
+    let bare = "tests:\n  - id: listsAgain\n    call: users#list\n";
+    let peak = "name: Peak traffic\nmix:\n  - {test: users.crud#listsUsers, weight: 1}\nstages:\n  - {duration: 3s, users: 2}\n";
+    let files: [(&str, &[u8]); 5] = [
+        ("vibranium.config.yaml", config.as_bytes()),
+        ("services/users/users.api.yaml", api.as_bytes()),
+        ("services/users/crud.test.yaml", crud.as_bytes()),
+        ("services/users/bare.test.yaml", bare.as_bytes()),
+        ("load/users/peak.load.yaml", peak.as_bytes()),
+    ];
+    let listing = builder(FakeVcs::default()).sources(Arc::new(MemorySources::new(&files))).build().unwrap();
+    let report = listing.list(&ListRequest { kind: ListKind::Files, ..ListRequest::default() }).unwrap();
+    let mut named: Vec<_> = report.items.iter().map(|item| (item.id.as_str(), item.name.as_deref())).collect();
+    named.sort_unstable();
+    let expected = [
+        ("users", Some("Users service")),
+        ("users.bare", None),
+        ("users.crud", Some("User CRUD")),
+        ("users.peak", Some("Peak traffic")),
+    ];
+    assert_eq!(named, expected);
+    let json = report.json();
+    let crud = json.as_array().unwrap().iter().find(|item| item["id"] == "users.crud").unwrap();
+    assert_eq!(crud["name"], "User CRUD", "not null, as it was before");
+    assert!(report.text().contains("users.crud  User CRUD\n"), "{}", report.text());
+}

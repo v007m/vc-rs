@@ -39,7 +39,7 @@ One line a second, on stderr. `rps` is the iterations per second over the last 3
 ### The summary
 
 ```console
-sample.strict finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
+sample.strict — Too strict on purpose · finished after 5 s · 2315 iterations · 463.0 rps · 0 errors
 latency p50 2.7 ms · p90 6.0 ms · p95 8.2 ms · p99 15.6 ms · max 35.7 ms
 breached p99 at 15.615 ms (lt 1 ms)
 breached sample.basics#getsCreatedUser: p95 at 11.215 ms (lt 2 ms)
@@ -58,6 +58,7 @@ $ vc load sample.smoke --json
   "exit": 0,
   "iterations": 207,
   "maxMs": 10.047,
+  "name": "Sample smoke load",
   "notices": [],
   "p50Ms": 3.237,
   "p90Ms": 4.838,
@@ -67,7 +68,7 @@ $ vc load sample.smoke --json
   "runId": 62,
   "scenario": "sample.smoke",
   "seconds": 10,
-  "seed": 98585524695896057
+  "seed": 8585524695896057
 }
 ```
 

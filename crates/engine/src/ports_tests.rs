@@ -74,3 +74,11 @@ fn a_test_draws_its_rows_from_the_seed_and_its_id_alone() {
     assert_ne!(draws(7, "users.crud#listsPages"), draws(7, "users.crud#listsUsers"));
     assert_ne!(draws(7, "users.crud#listsPages"), draws(8, "users.crud#listsPages"));
 }
+
+#[test]
+fn a_fresh_seed_fits_a_javascript_number_and_a_given_one_is_kept() {
+    for _ in 0..64 {
+        assert!(super::random(None).0 <= super::MAX_FRESH_SEED, "2^53 - 1 at most");
+    }
+    assert_eq!(super::random(Some(u64::MAX)).0, u64::MAX, "`--seed` is used as given");
+}

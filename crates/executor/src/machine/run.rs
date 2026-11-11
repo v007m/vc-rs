@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use vc_model::{ActionId, Event, OwnerKey, Plan, RunStatus, SkippedTest, TestResult, TestStatus, Totals};
+use vc_model::{ActionId, Event, OwnerKey, Plan, RunStatus, SkippedTest, TestId, TestResult, TestStatus, Totals};
 
 use super::{ActionReport, FailedActions, PendingCleanup, SharedActions};
 
@@ -150,7 +150,8 @@ impl RunOrchestrator {
     fn start(&mut self, out: &mut Vec<RunCommand>) {
         let (files, instances) = (self.plan.files.len(), self.plan.instance_count());
         out.push(RunCommand::Emit(Event::RunStarted { files, instances }));
-        for test in &self.plan.skipped {
+        let in_files: Vec<TestId> = self.plan.files.iter().flat_map(|file| &file.skipped).map(|s| s.test).collect();
+        for test in self.plan.skipped.iter().filter(|test| !in_files.contains(&test.test)) {
             self.totals.add(TestStatus::Skipped);
             out.push(RunCommand::Emit(Event::TestFinished { result: skipped(test) }));
         }
@@ -311,7 +312,8 @@ impl RunOrchestrator {
     }
 }
 
-fn skipped(test: &SkippedTest) -> TestResult {
+/// The result reported for a test the plan skips, with its reason.
+pub(super) fn skipped(test: &SkippedTest) -> TestResult {
     TestResult {
         test: test.test,
         instance: None,

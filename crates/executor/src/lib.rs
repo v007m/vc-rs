@@ -67,5 +67,5 @@ pub use slots::{SharedResult, SharedSlots};
 use values::{Around, Render};
 pub use values::{
     BodyFiles, Defined, ExampleRows, Frame, Iteration, RandomFor, RunInputs, RunValues, Unread, UnreadVar, draw_rows,
-    example_rows, row_seed, unread_var,
+    example_rows, row_names, row_seed, unread_var,
 };

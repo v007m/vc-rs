@@ -11,6 +11,7 @@
 
 mod bodies;
 mod build;
+mod draws;
 mod error;
 mod expand;
 mod needs;
@@ -24,6 +25,7 @@ mod visit;
 
 pub use bodies::{bodies, bodies_from};
 pub use build::{DrawnRows, plan, plan_drawn, rows_wanted};
+pub use draws::generates;
 pub use error::PlanError;
 pub use expand::{NO_ROWS, no_rows_notices};
 pub use options::{PlanOptions, Selection};

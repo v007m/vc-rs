@@ -110,7 +110,21 @@ fn the_lock_is_read_when_there() {
     assert_eq!(store.lock().unwrap().as_deref(), Some("lockVersion: 1\n"));
 }
 
-/// A fake `npm` that packs a package holding `MANIFEST`, or fails when `FAIL` is set.
+/// What npm 10 says on stderr when the registry has no such package, its log pointer last.
+#[cfg(unix)]
+const NPM_E404: &str = concat!(
+    "npm error code E404\n",
+    "npm error 404 Not Found - GET https://registry.npmjs.org/@acme%2fnothing - Not found\n",
+    "npm error 404\n",
+    "npm error 404  '@acme/nothing@*' is not in this registry.\n",
+    "npm error 404\n",
+    "npm error 404 Note that you can also install from a\n",
+    "npm error 404 tarball, folder, http url, or git repo.\n",
+    "npm error A complete log of this run can be found in: /home/a/.npm/_logs/2026-11-11T10_00_00_000Z-debug-0.log\n",
+);
+
+/// A fake `npm` that packs a package holding `MANIFEST`, or fails as npm 10 does for a package
+/// the registry does not have when `fail` is set.
 #[cfg(unix)]
 fn fake_npm(root: &Path, fail: bool) -> PathBuf {
     use std::os::unix::fs::PermissionsExt as _;
@@ -120,12 +134,13 @@ fn fake_npm(root: &Path, fail: bool) -> PathBuf {
     let script = format!(
         concat!(
             "#!/bin/sh\n",
-            "if [ {fail} = 1 ]; then echo 'npm error 404 Not Found' >&2; exit 1; fi\n",
+            "if [ {fail} = 1 ]; then printf '%s' '{e404}' >&2; exit 1; fi\n",
             "tar -czf \"$5/acme-report-2.1.0.tgz\" -C '{work}' package\n",
             "echo '[{{\"name\":\"@acme/report\",\"version\":\"2.1.0\",",
             "\"filename\":\"acme-report-2.1.0.tgz\",\"integrity\":\"sha512-abc\"}}]'\n",
         ),
         fail = u8::from(fail),
+        e404 = NPM_E404.replace('\'', "'\\''"),
         work = root.join("work").display(),
     );
     let npm = root.join("npm");
@@ -147,10 +162,12 @@ fn an_npm_package_is_packed_and_unpacked_with_npm_s_integrity() {
 
 #[cfg(unix)]
 #[test]
-fn a_failed_npm_shows_its_last_error_line() {
+fn a_failed_npm_shows_its_error_code_and_reason_not_its_log_pointer() {
     let root = project();
     let store = FsPluginStore::new(root.path()).with_npm(fake_npm(root.path(), true));
     let error = store.fetch("npm:@acme/nothing").unwrap_err().to_string();
-    assert!(error.contains("`npm` failed: npm error 404 Not Found"), "{error}");
+    let reason = "`npm` failed: E404: 404 Not Found - GET https://registry.npmjs.org/@acme%2fnothing - Not found";
+    assert!(error.contains(reason), "{error}");
+    assert!(!error.contains("A complete log"), "{error}");
     assert_eq!(staged_count(root.path()), 0);
 }

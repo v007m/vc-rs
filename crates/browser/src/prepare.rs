@@ -46,7 +46,8 @@ pub fn prepare(
 }
 
 /// Plans every test, drawing the rows of the templated ones the run does not skip first, each
-/// from its own source ([`vc_executor::row_seed`]), as the engine does ([`vc_planner::plan_drawn`]).
+/// from its own source ([`vc_executor::row_seed`]), and labels each row, as the engine does
+/// ([`vc_planner::plan_drawn`], [`vc_executor::row_names`]).
 fn planned(
     program: &Program,
     inputs: RunInputs,
@@ -57,7 +58,10 @@ fn planned(
         let random_for = |id: &str| Arc::new(SeededRandom::new(vc_executor::row_seed(seed, id))) as Arc<dyn Random>;
         vc_executor::draw_rows(program, &values, (wanted, &random_for))
     };
-    vc_planner::plan_drawn(program, &Selection::default(), (options, rows)).map_err(|error| plan_error(error, program))
+    let (mut plan, rows) = vc_planner::plan_drawn(program, &Selection::default(), (options, rows))
+        .map_err(|error| plan_error(error, program))?;
+    plan.row_names = vc_executor::row_names(program, &plan, &rows);
+    Ok((plan, rows))
 }
 
 /// The planner's refusal: definition problems as the project's diagnostics, the rest with help.

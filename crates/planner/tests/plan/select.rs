@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use vc_model::{Plan, PlannedFile};
 use vc_planner::{PlanError, Selection};
 
 use crate::common;
@@ -63,6 +64,15 @@ fn each_selector_kind_picks_its_tests() {
         assert_eq!(common::tests(&program, &plan), expected, "{case}");
         assert_eq!(common::skipped(&program, &plan), expected_skipped, "{case}");
     }
+}
+
+#[test]
+fn each_planned_file_lists_the_skipped_tests_of_its_own() {
+    let program = common::project();
+    let plan = common::planned(&program, &common::ids(&["orders.checkout", "users.crud"]));
+    let of_file = |file: &PlannedFile| Plan { skipped: file.skipped.clone(), ..Plan::default() };
+    let skipped: Vec<Vec<&str>> = plan.files.iter().map(|file| common::skipped(&program, &of_file(file))).collect();
+    assert_eq!(skipped, [vec!["refundsOrder"], vec![]]);
 }
 
 #[test]

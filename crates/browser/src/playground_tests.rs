@@ -88,6 +88,17 @@ async fn a_hook_is_refused_with_its_code_and_help() {
 }
 
 #[tokio::test]
+async fn an_example_row_with_a_name_is_labeled_by_it() {
+    let mut files = examples();
+    let search = files.get_mut("services/echo/search.test.yaml").unwrap();
+    *search = search.replacen("      - term: shoes\n", "      - name: first term\n        term: shoes\n", 1);
+    let (exit, out, err) = play(files, Command::Run).await;
+    assert_eq!(exit, 0, "{out}{err}");
+    assert!(out.contains("echo.search#echoesSearchTerm › first term"), "{out}");
+    assert!(out.contains("echo.search#echoesSearchTerm [row 2]"), "{out}");
+}
+
+#[tokio::test]
 async fn a_request_with_secrets_is_refused() {
     let mut files = examples();
     files.insert(".env.schema".to_owned(), "# @required\nAPI_TOKEN=\n".to_owned());

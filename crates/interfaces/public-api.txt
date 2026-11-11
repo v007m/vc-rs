@@ -1582,6 +1582,7 @@ pub fn vc_interfaces::NotifierFactory::create(&self, &str, &serde_json::value::V
 pub trait vc_interfaces::PluginHost: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::PluginHost::call<'life0, 'life1, 'async_trait>(&'life0 self, &'life1 str, serde_json::value::Value, core::time::Duration) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<serde_json::value::Value, vc_interfaces::PluginError>> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait, 'life1: 'async_trait
 pub fn vc_interfaces::PluginHost::manifest(&self) -> &vc_interfaces::PluginManifest
+pub fn vc_interfaces::PluginHost::shutdown<'life0, 'async_trait>(&'life0 self) -> core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = ()> + core::marker::Send + 'async_trait)>> where Self: 'async_trait, 'life0: 'async_trait
 pub trait vc_interfaces::PluginStore: core::marker::Send + core::marker::Sync
 pub fn vc_interfaces::PluginStore::discard(&self, &vc_interfaces::Fetched)
 pub fn vc_interfaces::PluginStore::fetch(&self, &str) -> core::result::Result<vc_interfaces::Fetched, vc_interfaces::PluginStoreError>

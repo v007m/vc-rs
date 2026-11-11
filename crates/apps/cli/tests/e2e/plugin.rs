@@ -142,3 +142,111 @@ async fn an_auth_plugin_signs_every_request_with_what_it_answered_once() {
     assert_eq!(run.status.code(), Some(0), "{}", said(&run));
     assert_eq!(server.stats().await.unwrap().count("GET /echo"), 2);
 }
+
+/// A reporter plugin that writes down each message it reads, then the end of its stdin.
+const HEARD_PY: &str = include_str!("../fixtures/plugin/heard.py");
+
+/// Once the run's reports are written, `vc` sends each plugin it started `shutdown`, then closes
+/// its stdin, and waits for it to exit before it exits itself: the plugin hears both.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_plugin_hears_shutdown_then_its_stdin_close_before_vc_exits() {
+    if !has_python() {
+        return;
+    }
+    let server = MockServer::start().await.unwrap();
+    let manifest = "id: heard\nversion: 1.0.0\nkind: reporter\nentry: {command: python3, args: [heard.py]}\n";
+    let plugin = [("plugin/vibranium-plugin.yaml", manifest), ("plugin/heard.py", HEARD_PY)];
+    let project = Project::new(&[CONFIG, USERS, LISTS, plugin[0], plugin[1], RPC]);
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    let config = fs::read_to_string(project.path().join(CONFIG.0)).unwrap();
+    project.write(CONFIG.0, &format!("{config}reports: {{formats: [heard]}}\n"));
+    let run = project.run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let heard = fs::read_to_string(project.path().join(".vibranium/plugin-data/heard/heard.log")).unwrap();
+    let last: Vec<&str> = heard.lines().rev().take(3).collect();
+    assert_eq!(last, ["EOF", "shutdown", "reporter/finish"], "{heard}");
+}
+
+/// `vc plugin add` warns that a plugin's entry program cannot be found, and `vc plugin list`
+/// shows it, and a plugin whose installed files changed since the lock (V5118), as not usable.
+#[test]
+fn the_list_shows_a_plugin_whose_files_changed_or_whose_entry_program_is_missing_as_not_usable() {
+    let missing = MANIFEST.replace("command: python3", "command: vibranium-no-such-program");
+    let project =
+        Project::new(&[CONFIG, ("plugin/vibranium-plugin.yaml", &missing), ("plugin/report.py", "print()\n")]);
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    let entry = "its entry program `vibranium-no-such-program` cannot be found: install it, or fix \
+                 `entry.command` in its vibranium-plugin.yaml";
+    assert!(said(&added).contains(&format!("  warning: {entry}\n")), "{}", said(&added));
+    let listed = project.vc(&["plugin", "list"]).output().unwrap();
+    let row = format!("report  reporter 1.0.0  path:plugin  {entry}  may reach: secret reportToken\n");
+    assert_eq!(String::from_utf8_lossy(&listed.stdout), row);
+    project.write(".vibranium/plugins/report/report.py", "print('changed')\n");
+    let listed = project.vc(&["plugin", "list"]).output().unwrap();
+    let row = "report  reporter 1.0.0  path:plugin  V5118: its installed files changed since vibranium.lock \
+               approved them; `vc plugin add` it again  may reach: secret reportToken\n";
+    assert_eq!(String::from_utf8_lossy(&listed.stdout), row);
+}
+
+/// A reporter plugin whose installed manifest asks for more than the lock grants is named in
+/// one run notice, which says its report is not written.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_reporter_plugin_asking_for_more_than_the_lock_grants_gets_one_run_notice() {
+    let server = MockServer::start().await.unwrap();
+    let granted = MANIFEST.replace("{secrets: [reportToken]}", "{}");
+    let plugin = [("plugin/vibranium-plugin.yaml", granted.as_str()), ("plugin/report.py", "print()\n")];
+    let project = Project::new(&[CONFIG, USERS, LISTS, plugin[0], plugin[1]]);
+    let added = project.vc(&["plugin", "add", "path:plugin", "--yes"]).output().unwrap();
+    assert_eq!(added.status.code(), Some(0), "{}", said(&added));
+    project.write(".vibranium/plugins/report/vibranium-plugin.yaml", MANIFEST);
+    let config = fs::read_to_string(project.path().join(CONFIG.0)).unwrap();
+    project.write(CONFIG.0, &format!("{config}reports: {{formats: [report]}}\n"));
+    let run = project.run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(run.status.code(), Some(0), "{}", said(&run));
+    let said = said(&run);
+    assert_eq!(said.matches("asks for more").count(), 1, "{said}");
+    let notice = "plugin `report`: asks for more: secret reportToken; `vc plugin add` it again; its report is \
+                  not written";
+    assert!(said.contains(notice), "{said}");
+}
+
+/// An `npm` that fails as npm 10 does for a package the registry does not have: its code, the
+/// reason, and last the pointer to its log.
+#[cfg(unix)]
+const NPM_E404: &str = concat!(
+    "#!/bin/sh\n",
+    "echo 'npm error code E404' >&2\n",
+    "echo 'npm error 404 Not Found - GET https://registry.npmjs.org/@acme%2fnothing - Not found' >&2\n",
+    "echo 'npm error 404' >&2\n",
+    "echo \"npm error 404  '@acme/nothing@*' is not in this registry.\" >&2\n",
+    "echo 'npm error A complete log of this run can be found in: /home/a/.npm/_logs/debug-0.log' >&2\n",
+    "exit 1\n",
+);
+
+/// `vc plugin add` says why npm could not fetch a package, not where npm logged it, and a
+/// `path:` source it cannot fetch gets help about the folder.
+#[cfg(unix)]
+#[test]
+fn a_source_that_cannot_be_fetched_says_npm_s_reason_or_points_at_the_folder() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let project = Project::new(&[CONFIG, ("bin/npm", NPM_E404)]);
+    let npm = project.path().join("bin/npm");
+    fs::set_permissions(&npm, fs::Permissions::from_mode(0o755)).unwrap();
+    let path = std::env::join_paths(
+        std::iter::once(project.path().join("bin")).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+    )
+    .unwrap();
+    let fetched = project.vc(&["plugin", "add", "npm:@acme/nothing", "--yes"]).env("PATH", path).output().unwrap();
+    assert_eq!(fetched.status.code(), Some(2), "{}", said(&fetched));
+    let reason = "error: cannot fetch `npm:@acme/nothing`: `npm` failed: E404: 404 Not Found - GET \
+                  https://registry.npmjs.org/@acme%2fnothing - Not found\n  = help: check the package name and \
+                  range, and that `npm` is on the path and can reach its registry\n";
+    assert!(said(&fetched).contains(reason), "{}", said(&fetched));
+    let folder = project.vc(&["plugin", "add", "path:nope", "--yes"]).output().unwrap();
+    assert_eq!(folder.status.code(), Some(2), "{}", said(&folder));
+    let help = "  = help: check the folder: a `path:` source is a folder, from the project root, holding \
+                vibranium-plugin.yaml\n";
+    assert!(said(&folder).contains(help), "{}", said(&folder));
+}

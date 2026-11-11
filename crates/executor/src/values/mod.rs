@@ -4,6 +4,7 @@
 mod bodies;
 mod draw;
 mod frame;
+mod labels;
 mod lookup;
 mod reads;
 mod render;
@@ -15,6 +16,7 @@ mod unread;
 pub use bodies::{BodyFiles, Unread};
 pub use draw::{RandomFor, draw_rows, row_seed};
 pub use frame::{Frame, Iteration};
+pub use labels::row_names;
 pub use render::{Around, Render};
 pub use rows::example_rows;
 pub use run::{Defined, ExampleRows, RunInputs, RunValues};

@@ -95,3 +95,21 @@ fn names_the_project_as_the_app_and_vibranium_as_the_tool() {
     assert_eq!(document["results"]["environment"]["appName"], "shop");
     assert_eq!(document["results"]["tool"]["name"], "vibranium");
 }
+
+#[test]
+fn keeps_the_names_of_tests_files_and_profiles_and_the_runs_seed() {
+    let results = &written()["results"];
+    let tests = results["tests"].as_array().unwrap();
+    assert_eq!(tests[4]["name"], "users.crud#listsUsers [repeat 2]", "the name a dashboard tracks stays the ID");
+    assert_eq!(tests[4]["extra"]["name"], "Lists every user");
+    assert_eq!(tests[4]["extra"]["fileName"], "Crud");
+    assert_eq!(tests[0]["extra"]["name"], Value::Null, "getsUser has no `name`");
+    assert_eq!(results["extra"]["profileNames"], serde_json::json!({"dev": "Local dev"}));
+    assert_eq!(results["extra"]["seed"], Value::Null, "the scripted run has no seed");
+    let mut snapshot = testing::snapshot();
+    snapshot.run.seed = Some(42);
+    let (capture, captured) = Capture::new();
+    CtrfFormat.render(&snapshot, capture.as_ref()).unwrap();
+    let document: Value = serde_json::from_str(&captured.take().1[0].1).unwrap();
+    assert_eq!(document["results"]["extra"]["seed"], 42);
+}

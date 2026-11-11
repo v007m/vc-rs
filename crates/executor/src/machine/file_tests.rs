@@ -1,4 +1,4 @@
-use vc_model::{Event, Failure, TestStatus, Totals};
+use vc_model::{Event, Failure, SkippedTest, TestStatus, Totals};
 
 use super::super::sim;
 use super::super::{ActionReport, FailedActions, PendingCleanup};
@@ -213,4 +213,17 @@ fn inputs_out_of_place_are_ignored() {
     }
     let (done, _) = waiting.transition(FileInput::Abort);
     assert_eq!(done.transition(FileInput::Start(FailedActions::new())).1.len(), 0);
+}
+
+#[test]
+fn a_skipped_test_is_reported_after_the_file_starts_and_counted_in_its_totals() {
+    let mut file = (*sim::planned_file(vec![], vec![sim::instance(0, &[])], &[])).clone();
+    file.skipped = vec![SkippedTest { test: sim::file_and_test().1, reason: "flaky upstream".into(), until: None }];
+    let file = std::sync::Arc::new(file);
+    let trace = sim::drive_file(FileOrchestrator::new(file, 1), &mut passing, &mut |_| TestStatus::Passed);
+    assert!(matches!(trace.log.first(), Some(FileCommand::Emit(Event::FileStarted { .. }))));
+    assert!(matches!(trace.log.get(1), Some(FileCommand::Emit(Event::TestFinished { result }))
+        if result.status == TestStatus::Skipped && result.skip_reason.as_deref() == Some("flaky upstream")));
+    let totals = finished(&trace.log);
+    assert_eq!((totals.passed, totals.skipped), (1, 1));
 }

@@ -8,10 +8,11 @@
 
 use std::sync::Arc;
 
-use vc_executor::{ExampleRows, RunInputs, RunValues};
+use vc_executor::{ExampleRows, Redactor, RunInputs, RunValues};
 use vc_interfaces::Random;
 use vc_model::{Plan, Program, TestId};
 use vc_planner::{PlanOptions, Selection};
+use vc_template::PipeRegistry;
 
 use crate::EngineError;
 use crate::plan::plan_error;
@@ -34,7 +35,8 @@ impl Draw {
 
 /// Plans `selection` as a run ([`vc_planner::plan_drawn`]): renders, with `inputs`, the rows of
 /// the selected templated tests the run does not skip, all in one pass and into `draw`
-/// ([`vc_executor::draw_rows`]), then plans once with their counts.
+/// ([`vc_executor::draw_rows`]), then plans once with their counts and labels each row
+/// ([`vc_executor::row_names`]).
 pub fn planned(
     program: &Program,
     selection: &Selection,
@@ -46,10 +48,27 @@ pub fn planned(
         let random_for = |name: &str| ports::random_for(seed, name);
         vc_executor::draw_rows(program, &values, (wanted, &random_for))
     };
-    let (plan, rows) =
+    let (mut plan, rows) =
         vc_planner::plan_drawn(program, selection, (options, rows)).map_err(|error| plan_error(error, program))?;
+    plan.row_names = vc_executor::row_names(program, &plan, &rows);
     draw.rows = rows;
     Ok(plan)
+}
+
+/// Masks each example-row label in `plan` with `redactor`, as the run's events are masked: a row
+/// `name` a template drew from an env var or a dataset holding a secret's value reads `••••` in
+/// every report, the history and the run's JSON.
+pub async fn mask_labels(plan: &mut Plan, redactor: &Redactor) {
+    for name in plan.row_names.values_mut() {
+        *name = redactor.masked_text(name).await;
+    }
+}
+
+/// Whether running `plan` generates data from the run's seed: a `${fake.…}`, or a built-in pipe
+/// that draws from it, in anything the run reads. Only then does `--seed` repeat something.
+pub fn generates(program: &Program, plan: &Plan) -> bool {
+    let pipes = PipeRegistry::builtin();
+    vc_planner::generates(program, plan, |name| pipes.get(name).is_some_and(|pipe| pipe.draws))
 }
 
 #[cfg(test)]
