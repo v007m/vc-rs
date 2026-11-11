@@ -60,7 +60,7 @@ impl CallExecutor {
         let mut render = Render::new(request).map_err(request::failed)?;
         let timeout = timeout(render.program(), api, action);
         let call = Call { request: request::rendered(&render, api, action)?, timeout, ctx: SendContext::default() };
-        let trip = self.flight(request, &render, (api, action))?;
+        let trip = self.flight(request, &mut render, (api, action))?;
         let exchange = match &action.poll {
             Some(poll) => trip.poll(&mut render, (call, poll)).await?,
             None => trip.send(call).await?,
@@ -96,7 +96,12 @@ impl CallExecutor {
 
     /// The call's flight: the pipeline from these parts with the api's retry (D143), auth and
     /// request hooks, judged with these matchers.
-    fn flight(&self, request: &ActionRequest, render: &Render<'_>, call: (&Api, &Action)) -> Result<Flight, Failure> {
+    fn flight(
+        &self,
+        request: &ActionRequest,
+        render: &mut Render<'_>,
+        call: (&Api, &Action),
+    ) -> Result<Flight, Failure> {
         let program = render.program();
         let retry = http_retry::policy(program, call.0, &request.cx.values.inputs().random);
         let prepared = auth::prepare(request, render, call)?;

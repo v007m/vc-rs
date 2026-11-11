@@ -185,6 +185,51 @@ async fn an_auth_var_reads_the_other_vars_of_its_definition_and_use_site() {
     assert_eq!(header(&sent[0], &AUTHORIZATION), Some("Bearer ops-bob-key-1".to_owned()));
 }
 
+/// The call draws `nonce` and sends it as `x-nonce`; `who` is `alice` where the call renders.
+/// The definition's `salt` is a fake, its `who` is `bob`; the use site passes `n` and `k`.
+#[tokio::test]
+async fn auth_vars_render_in_the_call_s_render_and_a_use_site_var_in_the_caller_s_scope() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "bearer");
+    let own = [("token", "${var.salt}|${var.salt}|${var.n}|${var.k}"), ("salt", "${fake.string.uuid}"), ("who", "bob")];
+    fixture.program.auth.get_mut(&id).unwrap().vars.values = fixture.vars(&own);
+    let call = fixture.call("/users");
+    fixture.action_mut(call).vars.values = fixture.vars(&[("nonce", "${fake.string.uuid}"), ("who", "alice")]);
+    fixture.api_mut(call).headers = fixture.templates(&[("x-nonce", "${var.nonce}")]);
+    fixture.api_mut(call).auth = uses(id, fixture.vars(&[("n", "${var.nonce}"), ("k", "k-${var.who}")]));
+    let issuer = Arc::new(Issuer::default());
+    let (cx, recordings) = context(fixture, issuer as Arc<dyn AuthProvider>, vec![vc_testkit::status(200)]);
+    let report = run(&cx, call).await;
+    assert!(report.outcome.failure().is_none(), "{:?}", report.outcome.failure());
+    let sent = recordings.take();
+    let nonce = header(&sent[0], &http::HeaderName::from_static("x-nonce")).unwrap();
+    let bearer = header(&sent[0], &AUTHORIZATION).unwrap();
+    let token = bearer.strip_prefix("Bearer ").and_then(|token| token.strip_suffix("-1")).unwrap();
+    let [salt, again, n, k] = token.split('|').collect::<Vec<_>>()[..] else { panic!("{token}") };
+    assert_eq!((salt, n, k), (again, nonce.as_str(), "k-alice"), "one salt, the call's nonce, the caller's who");
+    assert!(!report.fakes.contains_key("salt"), "an auth var's draw stays out of the call's memo");
+}
+
+#[tokio::test]
+async fn a_use_site_var_reading_a_value_a_function_saved_undeclared_is_a_v5108_warning() {
+    let mut fixture = Fixture::new();
+    let id = define(&mut fixture, "bearer");
+    let seed =
+        fixture.action(ActionKind::Function(vc_model::HookRef { file: "hooks.ts".into(), export: "seed".into() }));
+    let call = fixture.call("/users");
+    fixture.api_mut(call).auth = uses(id, fixture.vars(&[("token", "${var.secretish}")]));
+    let issuer = Arc::new(Issuer::default());
+    let (cx, recordings) = context(fixture, issuer as Arc<dyn AuthProvider>, vec![vc_testkit::status(200)]);
+    let mut frame = Frame::default();
+    let left: Saved = std::iter::once(("secretish".to_owned(), json!("s"))).collect();
+    frame.absorb(&cx.program, seed, &ActionReport { saved: left, ..ActionReport::passed() });
+    let report =
+        cx.executors.execute(ActionRequest { action: call, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame }).await;
+    assert_eq!(header(&recordings.take()[0], &AUTHORIZATION), Some("Bearer s-1".to_owned()));
+    let warned: Vec<_> = report.warnings.iter().map(|warning| (warning.code.clone(), warning.action)).collect();
+    assert_eq!(warned, [(Some(Code::V5108.to_string()), Some(seed))]);
+}
+
 #[tokio::test]
 async fn a_refresh_on_status_fetches_again_and_retries_once() {
     let mut fixture = Fixture::new();

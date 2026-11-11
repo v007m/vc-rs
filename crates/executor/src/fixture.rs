@@ -45,6 +45,10 @@ pub const WORDS: &[&str] = &[
     "spareId",
     "svc",
     "login",
+    "salt",
+    "who",
+    "nonce",
+    "k",
 ];
 
 /// How long `/slow` takes to answer.

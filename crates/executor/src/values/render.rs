@@ -72,20 +72,23 @@ impl<'a> Render<'a> {
         Ok(render)
     }
 
-    /// The same render with `given` found before every other level: an auth definition's
-    /// vars while its settings render.
-    #[must_use]
-    pub fn with_given(mut self, given: Arc<Saved>) -> Self {
+    /// Runs `inner` with `vars` defined, and `given` over them, before every other level: an
+    /// auth definition's vars or its use site's. Each fake var of `vars` is drawn once and
+    /// apart from a same-named one behind it; afterwards the levels, memo and draws are as before.
+    pub fn scoped<T>(&mut self, (vars, given): (Arc<Defined>, Arc<Saved>), inner: impl FnOnce(&Self) -> T) -> T {
+        let fakes: Vec<String> = vars.iter().filter(|(_, def)| is_fake(def)).map(|(name, _)| name.clone()).collect();
+        let aside = self.set_aside(&fakes);
+        self.scope.define(vars);
         self.scope.give(given);
-        self
+        let out = inner(self);
+        self.scope.drop_front(2);
+        self.restore(&fakes, aside);
+        out
     }
 
-    /// The same render with `vars` defined before every other level: an auth definition's
-    /// vars with its use site's, which may read each other.
-    #[must_use]
-    pub fn with_vars(mut self, vars: Arc<Defined>) -> Self {
-        self.scope.define(vars);
-        self
+    /// The value of `var.<name>` from the closest level.
+    pub fn var_value(&self, name: &str) -> Result<Value, RenderError> {
+        self.var(name, None)
     }
 
     /// Binds `ns` to `value` for the renders that follow.
@@ -193,6 +196,23 @@ impl<'a> Render<'a> {
     }
 
     /// Binds `iteration` and the instance's `example` row.
+    /// Takes out the memo and draws of `names`, giving each a fresh slot.
+    fn set_aside(&mut self, names: &[String]) -> Aside {
+        let memo = names.iter().filter_map(|name| Some((name.clone(), self.memo.remove(name)?))).collect();
+        let drawn =
+            names.iter().filter_map(|name| Some((name.clone(), self.drawn.insert(name.clone(), OnceCell::new())?)));
+        Aside { memo, drawn: drawn.collect() }
+    }
+
+    /// Drops the slots of `names` and puts back what [`Self::set_aside`] took out.
+    fn restore(&mut self, names: &[String], aside: Aside) {
+        for name in names {
+            self.drawn.remove(name);
+        }
+        self.drawn.extend(aside.drawn);
+        self.memo.extend(aside.memo);
+    }
+
     fn bind_instance(&mut self, frame: &Frame) -> Result<(), RenderError> {
         let Some(instance) = &frame.instance else { return Ok(()) };
         let Some(test) = self.program.tests.get(&instance.test) else { return Ok(()) };
@@ -262,6 +282,12 @@ impl<'a> Render<'a> {
 fn is_fake(def: &TemplateValue) -> bool {
     let TemplateValue::String(template) = def else { return false };
     template.single_ref().is_some_and(|reference| reference.ns == Namespace::Fake)
+}
+
+/// The memo and draws a scoped level hides.
+struct Aside {
+    memo: Saved,
+    drawn: Drawn,
 }
 
 /// The var definition being rendered.

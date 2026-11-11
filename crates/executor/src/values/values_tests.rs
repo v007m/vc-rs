@@ -387,3 +387,20 @@ fn a_value_saved_again_by_a_call_is_no_longer_undeclared() {
     frame.restart();
     assert!(frame.origins.is_empty(), "a new attempt forgets where values came from");
 }
+
+#[test]
+fn a_scoped_level_reads_first_and_is_gone_afterwards() {
+    let mut fixture = Fixture::new();
+    let action = fixture.call("/users");
+    fixture.action_mut(action).vars.values = fixture.vars(&[("name", "outer")]);
+    let inner = Arc::new(std::iter::once(("name".to_owned(), fixture.value("inner"))).collect());
+    let cx = fixture.cx(ActionExecutors::new());
+    let request = ActionRequest { action, owner: OwnerKey::Run, cx: Arc::clone(&cx), frame: Frame::default() };
+    let mut render = Render::new(&request).unwrap();
+    let read = render.scoped((inner, saved(&[("token", json!("t"))])), |render| {
+        (render.var_value("name"), render.var_value("token"))
+    });
+    assert_eq!(read, (Ok(json!("inner")), Ok(json!("t"))));
+    assert_eq!(render.var_value("name"), Ok(json!("outer")));
+    assert!(render.var_value("token").is_err(), "the given level is dropped too");
+}

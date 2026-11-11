@@ -133,6 +133,11 @@ impl Scope {
         self.levels.insert(0, Level::Given(given));
     }
 
+    /// Removes the `count` closest levels.
+    pub fn drop_front(&mut self, count: usize) {
+        self.levels.drain(..count.min(self.levels.len()));
+    }
+
     fn push(&mut self, level: Option<Level>) {
         self.levels.extend(level);
     }
