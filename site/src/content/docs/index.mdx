@@ -6,32 +6,34 @@ tableOfContents: false
 editUrl: false
 lastUpdated: false
 hero:
-  tagline: Test HTTP APIs with plain YAML in git. One engine runs functional, contract and load tests, from the CLI, a terminal UI, a web UI or an AI agent.
+  title: Test HTTP APIs with <span class="lp-grad">plain YAML</span>
+  tagline: One Rust engine runs functional, contract and load tests from files in git. Drive it from the CLI, a terminal UI, a web UI or an AI agent.
   actions:
     - text: Quickstart
       link: /vc-rs/start/quickstart/
-      icon: right-arrow
-    - text: Walkthroughs
-      link: /vc-rs/walkthroughs/rest-crud/
-      variant: minimal
-    - text: Try it in the browser
+      variant: primary
+    - text: GitHub
+      link: https://github.com/v007m/vc-rs
+      icon: github
+      variant: secondary
+    - text: Playground
       link: /vc-rs/playground/
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import Section from '~/components/landing/Section.astro';
+import Split from '~/components/landing/Split.astro';
+import Grid from '~/components/landing/Grid.astro';
+import Feature from '~/components/landing/Feature.astro';
+import HowStep from '~/components/landing/HowStep.astro';
+import Cta from '~/components/landing/Cta.astro';
+import LandingFooter from '~/components/landing/LandingFooter.astro';
 
-## Install
+<Section id="a-test" eyebrow="A test in ten lines" title="Say what you expect. Get told exactly what broke." lead="An <strong>api</strong> says how to call an endpoint once. A <strong>test</strong> calls it by ID and states what it expects. When a check fails, the error points at the line of YAML that set it.">
+<Split startLabel="You write" endLabel="vc tells you">
+<div slot="start">
 
-Build `vc` and the demo service from source with Cargo (release downloads are planned; see [Install](/vc-rs/start/install/)):
-
-```console
-cargo install --git https://github.com/v007m/vc-rs vc-cli vc-demo --locked
-```
-
-## A test in ten lines
-
-`vc init` creates a project with a `sample` api that calls the bundled demo service. Add this file next to it as `services/sample/landing.test.yaml`:
+`vc init` creates a project with a `sample` api for the bundled demo service. Add this file next to it:
 
 ```yaml title="services/sample/landing.test.yaml"
 name: User accounts
@@ -46,9 +48,10 @@ tests:
         match: { email: ada@example.com, id: { type: string } }
 ```
 
-Start the demo and run the file:
+</div>
+<div slot="end">
 
-```console
+```console title="It passes"
 $ vc demo start --detach
 $ vc run sample.landing
 plan  1 test in 1 file · profile default
@@ -58,9 +61,7 @@ plan  1 test in 1 file · profile default
 1 passed                                                     5ms · profile default
 ```
 
-When a check fails, the error points at the exact line of YAML:
-
-```console
+```console title="Change the email, and it fails at the exact line"
 ✕ sample.landing#createsUser                                     50ms
   error[V5101]: expect.body.match.email
     --> services/sample/landing.test.yaml:10:25
@@ -69,45 +70,126 @@ When a check fails, the error points at the exact line of YAML:
      |                         ^^^^^^^^^^^^^^^ expected "bob@example.com", got "ada@example.com"
 ```
 
-## What it does
+</div>
+</Split>
+</Section>
 
-<CardGrid>
-  <Card title="Functional tests" icon="approve-check">
-    Describe each endpoint once as an api, then call it from tests with
-    [matchers](/vc-rs/reference/matchers/literal/), data-driven
-    [examples](/vc-rs/reference/syntax/examples/), polling, setup and cleanup.
-    `vc check` catches mistakes before a request is sent.
-  </Card>
-  <Card title="Contract and OpenAPI sync" icon="document">
-    `vc import` creates api files from an OpenAPI spec, a HAR recording or
-    another tool's collection. `vc sync` merges later spec changes and keeps
-    your edits. See [contract testing](/vc-rs/walkthroughs/contract-testing/).
-  </Card>
-  <Card title="Load tests" icon="rocket">
-    Reuse your tests as load scenarios with weighted mixes, stages, think time
-    and thresholds. `vc load` shows live metrics and exits with code 3 when a
-    threshold is breached.
-  </Card>
-  <Card title="Terminal UI" icon="seti:shell">
-    `vc tui` runs tests, explores apis, browses history, watches load runs and
-    imports specs, all from the terminal.
-  </Card>
-  <Card title="Web UI" icon="laptop">
-    `vc ui` serves a local web UI on 127.0.0.1 and opens it in your browser,
-    with a live feed of the run as it happens.
-  </Card>
-  <Card title="MCP for AI agents" icon="puzzle">
-    `vc mcp` gives agents tools to check, run and author tests over stdio, and
-    `vc ui` also serves MCP over HTTP at `/mcp`. Risky calls wait for a
-    person's approval. See [For AI agents](/vc-rs/agents/).
-  </Card>
-  <Card title="Plugins and alerts" icon="setting">
-    Add reporter and auth plugins in any language, and send alerts to
-    webhooks, Slack, Teams or PagerDuty when a run fails, recovers or breaches
-    a threshold. See [Plugins and alerts](/vc-rs/reference/plugins/).
-  </Card>
-  <Card title="Plain YAML in git" icon="open-book">
-    Tests, apis and config are YAML files with JSON Schemas for editor
-    completion. Reports come out as CTRF, JUnit and HTML for CI.
-  </Card>
-</CardGrid>
+<Section id="features" variant="band" eyebrow="What it does" title="One engine for every kind of API test" lead="Write a test once, then check it, run it, load it or hand it to an agent. Every front end runs the same engine.">
+<Grid>
+<Feature title="Functional tests" icon="check" href="/vc-rs/walkthroughs/rest-crud/">
+Call each endpoint from tests with matchers, data-driven examples, polling, setup and cleanup.
+</Feature>
+<Feature title="Contract and OpenAPI sync" icon="contract" href="/vc-rs/walkthroughs/contract-testing/">
+`vc import` builds api files from OpenAPI, HAR or another tool. `vc sync` merges spec changes and keeps your edits.
+</Feature>
+<Feature title="Load tests" icon="load" href="/vc-rs/walkthroughs/load-testing/">
+Reuse tests as load scenarios with weighted mixes, stages and thresholds. A breach exits with code 3.
+</Feature>
+<Feature title="Terminal UI" icon="terminal" href="/vc-rs/guides/tui/">
+`vc tui` runs tests, explores apis, browses history and watches load runs without leaving the terminal.
+</Feature>
+<Feature title="Web UI" icon="browser" href="/vc-rs/guides/web-ui/">
+`vc ui` serves a local web UI on 127.0.0.1 with a live feed of the run as it happens.
+</Feature>
+<Feature title="MCP for AI agents" icon="agent" href="/vc-rs/agents/">
+`vc mcp` gives agents tools to check, run and author tests. Risky calls wait for a person's approval.
+</Feature>
+<Feature title="Plugins and alerts" icon="plug" href="/vc-rs/reference/plugins/">
+Reporter and auth plugins in any language. Alerts to webhooks, Slack, Teams or PagerDuty.
+</Feature>
+<Feature title="Plain YAML in git" icon="git" href="/vc-rs/reference/schemas/">
+Tests, apis and config are YAML with JSON Schemas for editor completion. Every change is a diff.
+</Feature>
+</Grid>
+</Section>
+
+<Section id="how-it-works" eyebrow="How it works" title="Write, check, run" lead="The same three steps on your laptop and in CI.">
+<Grid as="ol" columns={3}>
+<HowStep n={1} title="Write YAML" href="/vc-rs/start/concepts/" link="Concepts">
+
+Describe each endpoint once in `services/<service>/<service>.api.yaml`, then write tests that call it.
+
+```yaml title="services/users/crud.test.yaml (excerpt)"
+tests:
+  - id: getsUser
+    call: users#getUser
+    expect: { status: 200 }
+```
+
+</HowStep>
+<HowStep n={2} title="<code>vc check</code>" href="/vc-rs/guides/errors-and-fixes/" link="Errors and fixes">
+
+Parse and link every file without sending a request. Each problem has a code, a line and, where one is certain, a fix.
+
+```console wrap
+$ vc check
+0 errors · 0 warnings · 3 files checked
+```
+
+</HowStep>
+<HowStep n={3} title="<code>vc run</code>, here or in CI" href="/vc-rs/guides/ci/" link="Run it in CI">
+
+Tests run in parallel. A failure exits with code 1, so CI needs no extra scripting.
+
+```console wrap
+$ vc run --profile ci --report junit,ctrf,html --out reports
+```
+
+</HowStep>
+</Grid>
+</Section>
+
+<Section id="agents" variant="band" eyebrow="For AI agents" title="Built so an agent can write, run and fix tests" lead="Everything an agent needs is plain text with a stable shape, and every error says what to do next.">
+<Split>
+<div slot="start">
+
+- **Nine MCP tools** over stdio with `vc mcp`, or over HTTP at `/mcp` while `vc ui` runs.
+- **Rules and approvals.** Each profile's `agents` block says what an agent may run, call and write. Anything else is refused or waits for `vc approve`.
+- **Diagnostics with fixes.** Every problem has a code, a span and a `help:` line. `vc check --fix` applies the certain fixes.
+- **JSON everywhere.** `--json` output, an NDJSON run stream and a hosted [llms.txt](/vc-rs/llms.txt) of the whole site.
+
+<p class="lp-links"><a href="/vc-rs/agents/mcp-setup/">Set up MCP →</a> <a href="/vc-rs/agents/mcp-tools/">See the tools →</a></p>
+
+</div>
+<div slot="end">
+
+```console title="Claude Code, in the project folder"
+claude mcp add vibranium -- vc mcp
+```
+
+```json title=".mcp.json"
+{
+  "mcpServers": {
+    "vibranium": {
+      "command": "vc",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+</div>
+</Split>
+</Section>
+
+<Section id="reports" eyebrow="CI and reports" title="Reports your CI already reads" lead="Each run writes its reports to <code>.vibranium/reports/</code> and keeps an entry in local history. CTRF is on by default; add JUnit and HTML with <code>--report</code> or in config.">
+<Grid columns={3}>
+<Feature title="CTRF" icon="report" href="/vc-rs/guides/reporters-and-history/">
+`ctrf.json`, for tools that read CTRF and for your own scripts. Each check keeps what it expected and got.
+</Feature>
+<Feature title="JUnit" icon="report" href="/vc-rs/guides/reporters-and-history/">
+`junit.xml`, for CI test tabs: one test case per test, with its file and line.
+</Feature>
+<Feature title="HTML" icon="report" href="/vc-rs/guides/reporters-and-history/">
+`index.html`: every test with its steps, checks, requests and responses, with secrets masked.
+</Feature>
+</Grid>
+</Section>
+
+<Cta title="Write your first test" primary={{ text: 'Start the quickstart', href: '/vc-rs/start/quickstart/' }} secondary={{ text: 'Browse the walkthroughs', href: '/vc-rs/walkthroughs/rest-crud/' }}>
+
+`vc init` makes a working project and `vc demo` gives it a service to call on localhost. Everything runs on your machine.
+
+</Cta>
+
+<LandingFooter />
