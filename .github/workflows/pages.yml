@@ -2,17 +2,30 @@
 name: pages
 
 on:
+  # Master deploys whenever the site or the engine the playground runs (D293) changes.
   push:
     branches: [master]
-    paths: &site-paths
+    paths:
       - 'site/**'
       - 'schema/**'
       - 'skills/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/pages.yml'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
   # PRs only build the site, so a broken page fails before merge; only master deploys.
   pull_request:
-    paths: *site-paths
+    paths:
+      - 'site/**'
+      - 'schema/**'
+      - 'skills/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/pages.yml'
+      - 'crates/browser/**'
+      - 'crates/apps/demo/**'
+      - 'Cargo.lock'
   workflow_dispatch:
 
 permissions:
@@ -25,10 +38,33 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # full history for each page's "last updated" date
+      # The playground's runner: always built on master; on a PR only when it or the page changes.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            wasm:
+              - 'site/**'
+              - 'crates/browser/**'
+              - 'crates/apps/demo/**'
+              - 'Cargo.lock'
+              - '.github/workflows/pages.yml'
+      - if: github.event_name != 'pull_request' || steps.filter.outputs.wasm == 'true'
+        run: rustup toolchain install
+      - if: github.event_name != 'pull_request' || steps.filter.outputs.wasm == 'true'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: wasm
+      - if: github.event_name != 'pull_request' || steps.filter.outputs.wasm == 'true'
+        run: bash site/scripts/build-wasm.sh
       # The pnpm version comes from packageManager in the root package.json.
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -37,6 +73,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter site build
+      - if: github.event_name != 'pull_request' || steps.filter.outputs.wasm == 'true'
+        run: |
+          pnpm --filter site exec playwright install --with-deps chromium
+          pnpm --filter site test:e2e
       - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
