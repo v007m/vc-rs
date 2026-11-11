@@ -44,12 +44,12 @@ pub fn rendered(render: &Render<'_>, path: &Template) -> Result<String, Failure>
     Ok(out)
 }
 
-/// One value after the text `before`. Before any `/` it is the URL's start, such as
-/// `${var.usersUrl}`, and is sent as written; after a `?` it is a query value; anywhere else
-/// it is one segment, with `.` and `..` encoded too so they name no other path. A value whose
-/// last pipe is `urlEncode` is already encoded (V4007).
+/// One value after the text `before`. Before any `/`, a value that is an absolute `http(s)://`
+/// URL, such as `${var.usersUrl}`, is the URL's start and is sent as written; after a `?` a
+/// value is a query value; anywhere else it is one segment, with `.` and `..` encoded too so
+/// they name no other path. A value whose last pipe is `urlEncode` is already encoded (V4007).
 fn placed(before: &str, reference: &Reference, value: &str) -> String {
-    if !before.contains('/') || url_encoded(reference) {
+    if url_encoded(reference) || (!before.contains('/') && absolute(value)) {
         return value.to_owned();
     }
     if before.contains('?') {
@@ -62,6 +62,12 @@ fn placed(before: &str, reference: &Reference, value: &str) -> String {
     }
 }
 
+/// Whether `value` starts with `http://` or `https://`, in any case.
+fn absolute(value: &str) -> bool {
+    let scheme = |prefix: &str| value.get(..prefix.len()).is_some_and(|start| start.eq_ignore_ascii_case(prefix));
+    scheme("http://") || scheme("https://")
+}
+
 /// Whether `reference` ends in the `urlEncode` pipe.
 fn url_encoded(reference: &Reference) -> bool {
     reference.pipes.last().is_some_and(|pipe| pipe.name == "urlEncode")
@@ -69,7 +75,13 @@ fn url_encoded(reference: &Reference) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{SEGMENT, utf8_percent_encode};
+    use super::{SEGMENT, absolute, utf8_percent_encode};
+
+    #[test]
+    fn only_an_http_or_https_url_is_an_absolute_start() {
+        assert!(absolute("http://api.example.com") && absolute("HTTPS://api.example.com/v1"));
+        assert!(!absolute("../admin") && !absolute("/users") && !absolute("ftp://x") && !absolute("http:/x"));
+    }
 
     #[test]
     fn a_segment_keeps_pchar_and_encodes_what_would_end_it() {

@@ -140,7 +140,7 @@ apis:
 - A path that is a full URL or starts with a template (`${var.usersUrl}/users`) is not checked.
 - A path parameter is a var: `/poll/${var.jobId}`. The OpenAPI style `/poll/{jobId}` is sent as the literal text `{jobId}`, so `vc check` warns with [V4006](/vc-rs/reference/diagnostics/v4006/) and suggests the var.
 - Each `${…}` value is percent-encoded as one segment: `/`, `?`, `#`, `%` and a space are encoded, while letters, digits and `-._~!$&'()*+,;=:@` are kept. A value that is just `.` or `..` is sent as `%2E` or `%2E%2E`. Values in [`query`](/vc-rs/reference/syntax/query/) are encoded too, so neither needs `urlEncode` (V4007 warns about it in a path).
-- A value before the path's first `/`, such as `${var.usersUrl}` in `${var.usersUrl}/users`, is the start of a URL and is sent as written, as `baseUrl` is.
+- A value before the path's first `/` that is an absolute `http://` or `https://` URL, such as `${var.usersUrl}` in `${var.usersUrl}/users`, is the start of a URL and is sent as written, as `baseUrl` is. Any other value there is one segment like the rest: `${var.id}/orders` with `id: ../admin` sends `..%2Fadmin/orders`.
 - Any var in scope can be used: the api's own `vars`, the file's, the config's, a test's, or a saved value.
 
 ## Common errors
