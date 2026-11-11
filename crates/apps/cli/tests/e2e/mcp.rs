@@ -129,3 +129,30 @@ async fn an_agent_needs_approval_exactly_where_the_profile_says() {
     let decided = project.vc(&["approvals", "--all"]).output().unwrap();
     assert!(String::from_utf8_lossy(&decided.stdout).contains("e2e-agent"), "{}", said(&decided));
 }
+
+#[test]
+fn an_agent_that_closes_stdin_before_it_begins_ends_the_server_quietly() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let closed = project.vc(&["mcp"]).stdin(Stdio::null()).output().unwrap();
+    assert_eq!(closed.status.code(), Some(0), "{}", said(&closed));
+    assert!(closed.stdout.is_empty(), "{}", said(&closed));
+    assert!(closed.stderr.is_empty(), "{}", said(&closed));
+}
+
+#[test]
+fn an_unknown_profile_is_refused_before_the_server_starts() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let refused = project.vc(&["mcp", "--profile", "nope"]).stdin(Stdio::null()).output().unwrap();
+    assert_eq!(refused.status.code(), Some(2), "{}", said(&refused));
+    let stderr = String::from_utf8_lossy(&refused.stderr);
+    assert!(stderr.contains("error: --profile: no profile `nope`"), "{stderr}");
+    assert!(stderr.contains("  = help: the profiles are dev\n"), "{stderr}");
+    assert!(refused.stdout.is_empty(), "stdout carries only the protocol: {}", said(&refused));
+}
+
+#[test]
+fn a_known_profile_serves_as_before() {
+    let project = Project::new(&[CONFIG, USERS, CRUD]);
+    let served = project.vc(&["mcp", "--profile", "dev"]).stdin(Stdio::null()).output().unwrap();
+    assert_eq!(served.status.code(), Some(0), "{}", said(&served));
+}
