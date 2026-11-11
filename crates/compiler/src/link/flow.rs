@@ -29,6 +29,9 @@ pub fn check(project: &Project<'_>) -> Diagnostics {
 /// runs after the action and sees what it saved (under its `id` too).
 const ACTION_PARTS: [&str; 4] = ["before", "steps", "after", "cache"];
 
+/// The parts of a `flow` auth entry that run after its steps and see their saves.
+const AFTER_STEPS: [&str; 2] = ["apply", "expiresIn"];
+
 /// Whether a block's saves are shared under the action's `id` or kept as plain names.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Saved {
@@ -57,14 +60,17 @@ impl<'p, 'a> Flow<'p, 'a> {
         run
     }
 
-    /// Each `auth` entry with its own vars; its `steps` run in order and `apply` sees their saves.
+    /// Each `auth` entry with its own vars; its `steps` run in order and `apply` and
+    /// `expiresIn` see their saves.
     fn auth(&mut self, source: &'p Source<'a>, base: &Scope<'a>) {
         for entry in project::list(source.root, "auth") {
             let mut scope = base.with(Layer::vars(source, entry));
-            self.spot(source, (entry, &project::holes(entry, &["steps", "apply"])), &scope);
+            let mut keys = vec!["steps"];
+            keys.extend(AFTER_STEPS);
+            self.spot(source, (entry, &project::holes(entry, &keys)), &scope);
             self.block(source, project::list(entry, "steps"), (&mut scope, Saved::Plain));
-            if let Some(apply) = entry.get("apply") {
-                self.spot(source, (apply, &[]), &scope);
+            for part in AFTER_STEPS.iter().filter_map(|key| entry.get(key)) {
+                self.spot(source, (part, &[]), &scope);
             }
         }
     }

@@ -79,11 +79,18 @@ impl<'p, 'a> Checker<'p, 'a> {
         let missing: Vec<&str> =
             self.profiles.iter().map(String::as_str).filter(|profile| !scope.sets(name, profile)).collect();
         if !missing.is_empty() {
-            return Some(self.unset(spot, (reference, name), (&missing, scope)));
+            return (!self.takes_missing(reference)).then(|| self.unset(spot, (reference, name), (&missing, scope)));
         }
         let ty = scope.ty(name).filter(|_| reference.path.segments.len() == 1 && !reference.pipes.is_empty())?;
         let problem = self.pipes.check_chain(&reference.pipes, ty).err()?;
         (problem.code == Code::V2304).then_some(*problem)
+    }
+
+    /// Whether the reference's first pipe also runs on a missing value (`default`), so an
+    /// unset var is not an error.
+    fn takes_missing(&self, reference: &Reference) -> bool {
+        let first = reference.pipes.first().and_then(|call| self.pipes.get(&call.name));
+        first.is_some_and(|pipe| pipe.takes_missing)
     }
 
     /// V2101: `name` is set at no level for the `missing` profiles.
