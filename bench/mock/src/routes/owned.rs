@@ -3,12 +3,11 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing;
 use axum::{Json, Router};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
+use super::crud::Item;
 use crate::error::MockError;
 use crate::store::Store;
-
-type Item = Map<String, Value>;
 
 /// The collection a user's orders are kept in, apart from `/orders`.
 const ORDERS: &str = "user orders";
