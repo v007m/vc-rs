@@ -87,6 +87,10 @@ fn a_pipe_given_the_wrong_type_is_v2304() {
     assert_eq!((diagnostic.code, diagnostic.message.as_str()), (Code::V2304, "pipe `take` takes a list, not text"));
     assert_eq!(chain_err("number", ValueType::Object).code, Code::V2304);
     assert_eq!(chain_err("number", ValueType::List).code, Code::V2304);
+    let diagnostic = chain_err("int", ValueType::Bool);
+    assert_eq!(diagnostic.message, "pipe `int` takes text or a number, not a boolean");
+    assert_eq!(chain_err("bool", ValueType::Number).message, "pipe `bool` takes text or a boolean, not a number");
+    assert!(chain("number", ValueType::Text).is_ok() && chain("bool", ValueType::Bool).is_ok());
 }
 
 #[test]
@@ -136,11 +140,22 @@ fn registering_rejects_names_without_a_prefix() {
 
 #[test]
 fn types_describe_themselves_in_the_syntax_reference_words() {
-    use ValueType::{Any, Bool, List, Number, Object, Scalar, Text};
-    let words: Vec<String> = [Any, Scalar, Text, Number, Bool, List, Object].iter().map(ToString::to_string).collect();
+    use ValueType::{Any, Bool, List, Number, Object, Scalar, Text, TextOrBool, TextOrNumber};
+    let all = [Any, Scalar, TextOrNumber, TextOrBool, Text, Number, Bool, List, Object];
+    let words: Vec<String> = all.iter().map(ToString::to_string).collect();
     assert_eq!(
         words,
-        ["any value", "text, a number or a boolean", "text", "a number", "a boolean", "a list", "an object"]
+        [
+            "any value",
+            "text, a number or a boolean",
+            "text or a number",
+            "text or a boolean",
+            "text",
+            "a number",
+            "a boolean",
+            "a list",
+            "an object"
+        ]
     );
     assert_eq!((ArgType::Any.to_string(), ArgType::Count.describe()), ("any literal".to_owned(), "a whole number ≥ 0"));
 }

@@ -143,6 +143,7 @@ cases!(
     v2210_shared_without_id,
     v2211_lone_keys,
     v2304_pipe_type,
+    v2304_scalar_pipes,
     v3101_no_profile,
     v3102_default_profiles,
     v3103_skip_reason,
