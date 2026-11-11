@@ -119,7 +119,7 @@ fn unit(cx: &mut Cx<'_>, at: At<'_>, parse: UnitParser) -> Option<Piece> {
 /// A code, a class, a list of them, or a matcher.
 fn status(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
     let items: Vec<&Node> = match &at.node.value {
-        Value::Map(_) => return matchers::matcher(cx, at, Unit::Plain),
+        Value::Map(_) => return matchers::status(cx, at),
         Value::Seq(items) => items.iter().collect(),
         Value::Scalar(_) => vec![at.node],
     };

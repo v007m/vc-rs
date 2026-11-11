@@ -929,7 +929,7 @@ Matchers:
 | `not` | inverts a matcher | `{ not: { contains: test } }` |
 | `allOf`, `anyOf` | combines matchers | `{ anyOf: [{ eq: 0 }, { gt: 10 }] }` |
 
-Several matchers in one object must all pass: `{ type: string, length: 32 }`. A path with `[*]` yields a list, so it takes a list matcher (`every`, `some`, `none`, `length`, `contains`); the compiler flags a scalar matcher on a list path.
+Several matchers in one object must all pass: `{ type: string, length: 32 }`. An object with no matcher key is a literal compared for equality, except one key of five or more characters close to a matcher's name (`{ startWith: A }`, `{ lenght: 3 }`), which is V1004 with the suggestion; put such an object under `eq:` to compare with it. A map at a status (`expect.status`, `saveOn`) takes only matchers, so any other key there is V1004. A path with `[*]` yields a list, so it takes a list matcher (`every`, `some`, `none`, `length`, `contains`); the compiler flags a scalar matcher on a list path.
 
 Every evaluated check is reported on its own, with its source line, expected value, actual value and a diff for objects.
 

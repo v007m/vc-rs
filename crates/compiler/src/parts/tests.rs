@@ -85,6 +85,23 @@ fn checks_matcher_arguments() {
 }
 
 #[test]
+fn a_lone_misspelt_matcher_is_v1004_and_a_status_map_takes_only_matchers() {
+    let misspelt = unit_with("    expect:\n      body:\n        match:\n          name: {startWith: A}\n");
+    let [found] = &misspelt.diagnostics.iter().collect::<Vec<_>>()[..] else { panic!("{:?}", misspelt.diagnostics) };
+    assert_eq!(found.code, Code::V1004);
+    assert_eq!(found.message, "unknown matcher `startWith`");
+    assert_eq!(found.help[0], "did you mean `startsWith`?");
+    assert!(found.help[1].contains("`eq:`"), "{:?}", found.help);
+    let literal = unit_with(
+        "    expect:\n      body:\n        match:\n          user: {id: 5}\n          meta: {note: hi}\n          tags: {colour: red}\n",
+    );
+    assert!(literal.diagnostics.is_empty(), "{:?}", literal.diagnostics);
+    assert!(pieces(&literal).iter().all(|piece| matches!(piece, Piece::Matcher(Matcher::Equals(_)))));
+    let status = unit_with("    expect:\n      status: {oneOf: [200, 201]}\n");
+    assert_eq!(codes(&status.diagnostics), [Code::V1004]);
+}
+
+#[test]
 fn reads_ranges_and_lengths_in_their_unit() {
     let timing = unit_with("    expect:\n      timing: {total: {between: [1s, 2s]}}\n");
     assert!(timing.diagnostics.is_empty(), "{:?}", timing.diagnostics);

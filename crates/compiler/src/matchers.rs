@@ -82,19 +82,56 @@ struct Spot<'n> {
 /// The matcher or literal at `at`, comparing in `unit`.
 pub fn matcher(cx: &mut Cx<'_>, at: At<'_>, unit: Unit) -> Option<Matcher> {
     let Value::Map(entries) = &at.node.value else { return value::lower(cx, at).map(Matcher::Equals) };
-    if !entries.iter().any(|entry| find(&entry.key).is_some()) {
+    if !entries.iter().any(|entry| find(&entry.key).is_some()) && !misspelt(entries) {
         return value::lower(cx, at).map(Matcher::Equals);
     }
-    let calls: Vec<_> = entries.iter().map(|entry| call(cx, at, (entry, unit))).collect();
+    calls(cx, at, (entries, unit, Literal::Allowed))
+}
+
+/// A status's matcher: a map there is never a literal, so each of its keys must be a matcher.
+pub fn status(cx: &mut Cx<'_>, at: At<'_>) -> Option<Matcher> {
+    let Value::Map(entries) = &at.node.value else { return matcher(cx, at, Unit::Plain) };
+    calls(cx, at, (entries, Unit::Plain, Literal::Refused))
+}
+
+/// Whether a map at the spot could have been a literal object, which the V1004 help then explains.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Literal {
+    Allowed,
+    Refused,
+}
+
+fn calls(cx: &mut Cx<'_>, at: At<'_>, (entries, unit, literal): (&[Entry], Unit, Literal)) -> Option<Matcher> {
+    let alone = literal == Literal::Allowed && entries.len() == 1;
+    let calls: Vec<_> = entries.iter().map(|entry| call(cx, at, (entry, unit, alone))).collect();
     calls.into_iter().collect::<Option<Vec<_>>>().map(Matcher::All)
 }
 
-fn call(cx: &mut Cx<'_>, at: At<'_>, (entry, unit): (&Entry, Unit)) -> Option<MatcherCall> {
+/// The shortest lone key read as a misspelt matcher: shorter ones (`id`, `note`) are one edit
+/// from a matcher (`in`, `not`) and are far more often plain fields.
+const MISSPELT_FROM: usize = 5;
+
+/// How to keep a lone key read as a misspelt matcher as a literal object.
+const LITERAL_HELP: &str = "to compare with an object that has this key, put the object under `eq:`";
+
+/// Whether `entries` is one key close to a matcher's name (`startWith`, `lenght`), which is
+/// far more likely a misspelt matcher than a literal object.
+fn misspelt(entries: &[Entry]) -> bool {
+    let [entry] = entries else { return false };
+    entry.key.chars().count() >= MISSPELT_FROM && !suggest::close(&entry.key, names()).is_empty()
+}
+
+fn names() -> impl Iterator<Item = &'static str> {
+    MATCHERS.iter().map(|(name, _)| *name)
+}
+
+fn call(cx: &mut Cx<'_>, at: At<'_>, (entry, unit, alone): (&Entry, Unit, bool)) -> Option<MatcherCall> {
     let Some(kind) = find(&entry.key) else {
         let message = format!("unknown matcher `{}`", entry.key);
         let diagnostic = Diagnostic::new(Code::V1004, entry.key_span, message).label("not a matcher");
-        let names: Vec<&str> = MATCHERS.iter().map(|(name, _)| *name).collect();
-        cx.push(suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: &names }));
+        let names: Vec<&str> = names().collect();
+        let hinted = suggest::hint(diagnostic, &Misspelling { word: &entry.key, span: entry.key_span, known: &names });
+        cx.push(if alone { hinted.help(LITERAL_HELP) } else { hinted });
         return None;
     };
     let spot = Spot { at: at.child(&entry.value), unit, name: &entry.key };
