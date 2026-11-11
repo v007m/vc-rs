@@ -69,24 +69,86 @@ impl FsSources {
 
     /// Reads the file through its resolved path, so a link cannot lead out of the root.
     fn load(&self, path: SourcePath, on_disk: &Path) -> Result<vc_model::SourceFile, SourceError> {
-        let bytes = self.load_bytes(&path, on_disk)?;
-        vc_interfaces::source_file(path, bytes)
+        let target = self.canonical(&path, on_disk)?;
+        read_file(path, &target)
     }
 
-    /// The bytes of the file, read through its resolved path as [`Self::load`] reads it.
-    fn load_bytes(&self, path: &SourcePath, on_disk: &Path) -> Result<Vec<u8>, SourceError> {
-        let failed = |error: std::io::Error| match error.kind() {
-            std::io::ErrorKind::NotFound => SourceError::Missing { path: path.to_string() },
-            _ => SourceError::Read { path: path.to_string(), reason: error.to_string() },
-        };
-        let target = std::fs::canonicalize(on_disk).map_err(failed)?;
+    /// Where `on_disk` resolves to, links followed, while that stays in the root.
+    fn canonical(&self, path: &SourcePath, on_disk: &Path) -> Result<PathBuf, SourceError> {
+        let target = std::fs::canonicalize(on_disk).map_err(|error| read_error(path, &error))?;
         if !self.leads_in(path, &target) {
             return Err(SourceError::OutsideRoot { path: path.to_string() });
         }
-        if target.is_dir() {
-            return Err(SourceError::Read { path: path.to_string(), reason: "it is a folder, not a file".to_owned() });
+        Ok(target)
+    }
+
+    /// Reads the data file at `path`, outside the root, through its resolved path, only while
+    /// that stays under `allowed` (a `datasets.allowRoots` folder, resolved too) and in no
+    /// hidden folder below it. It never lands inside the project: a file there is read by its own
+    /// path, under discovery's rules for hidden files and links.
+    fn load_outside(&self, path: &SourcePath, allowed: &SourcePath) -> Result<vc_model::SourceFile, SourceError> {
+        let outside = || SourceError::OutsideRoot { path: path.to_string() };
+        let target = std::fs::canonicalize(self.root.join(path.as_str())).map_err(|error| read_error(path, &error))?;
+        let folder = std::fs::canonicalize(self.root.join(allowed.as_str())).map_err(|_| outside())?;
+        let rest = target.strip_prefix(&folder).map_err(|_| outside())?;
+        if target.starts_with(&self.root)
+            || rest.components().any(|part| hidden_part(&part.as_os_str().to_string_lossy()))
+        {
+            return Err(outside());
         }
-        std::fs::read(&target).map_err(failed)
+        read_file(path.clone(), &target)
+    }
+
+    /// Each of `wanted`, asked for once, read by `load`: the files and the problems; an error
+    /// when the root cannot be read.
+    fn gathered<T: Ord>(
+        &self,
+        wanted: &[T],
+        load: impl Fn(&T) -> Result<vc_model::SourceFile, SourceError>,
+    ) -> Result<Discovery, SourceError> {
+        if let Err(error) = std::fs::read_dir(&self.root) {
+            return Err(root_error(&self.root, &error));
+        }
+        let mut found = Discovery::default();
+        for item in unique(wanted) {
+            match load(item) {
+                Ok(file) => found.files.push(file),
+                Err(problem) => found.problems.push(problem),
+            }
+        }
+        found.sort();
+        Ok(found)
+    }
+}
+
+/// The file at `target`, where `path` resolved to, read and hashed. A link swapped in on the
+/// way after `target` was resolved and checked is caught by resolving it again after the read:
+/// a file that no longer resolves to `target` is refused. Residual risk: a link swapped in and
+/// back again while the file is read goes unseen; std has no safe, portable way to ask an open
+/// file for its path, and the crate forbids `unsafe`.
+fn read_file(path: SourcePath, target: &Path) -> Result<vc_model::SourceFile, SourceError> {
+    let bytes = read_checked(&path, target)?;
+    vc_interfaces::source_file(path, bytes)
+}
+
+/// The bytes of the file at `target`, where `path` resolved to, refused when it is a folder or
+/// no longer resolves to `target` after the read (see [`read_file`]).
+fn read_checked(path: &SourcePath, target: &Path) -> Result<Vec<u8>, SourceError> {
+    if target.is_dir() {
+        return Err(SourceError::Read { path: path.to_string(), reason: "it is a folder, not a file".to_owned() });
+    }
+    let bytes = std::fs::read(target).map_err(|error| read_error(path, &error))?;
+    if std::fs::canonicalize(target).ok().as_deref() != Some(target) {
+        return Err(SourceError::OutsideRoot { path: path.to_string() });
+    }
+    Ok(bytes)
+}
+
+/// Why `path` could not be read: missing, or what the system said.
+fn read_error(path: &SourcePath, error: &std::io::Error) -> SourceError {
+    match error.kind() {
+        std::io::ErrorKind::NotFound => SourceError::Missing { path: path.to_string() },
+        _ => SourceError::Read { path: path.to_string(), reason: error.to_string() },
     }
 }
 
@@ -107,22 +169,16 @@ impl SourceProvider for FsSources {
     }
 
     fn read(&self, paths: &[SourcePath]) -> Result<Discovery, SourceError> {
-        if let Err(error) = std::fs::read_dir(&self.root) {
-            return Err(root_error(&self.root, &error));
-        }
-        let mut found = Discovery::default();
-        for path in unique(paths) {
-            match self.load(path.clone(), &self.root.join(path.as_str())) {
-                Ok(file) => found.files.push(file),
-                Err(problem) => found.problems.push(problem),
-            }
-        }
-        found.sort();
-        Ok(found)
+        self.gathered(paths, |path| self.load(path.clone(), &self.root.join(path.as_str())))
+    }
+
+    fn read_outside(&self, wanted: &[(SourcePath, SourcePath)]) -> Result<Discovery, SourceError> {
+        self.gathered(wanted, |(path, allowed)| self.load_outside(path, allowed))
     }
 
     fn read_bytes(&self, path: &SourcePath) -> Result<Vec<u8>, SourceError> {
-        self.load_bytes(path, &self.root.join(path.as_str()))
+        let target = self.canonical(path, &self.root.join(path.as_str()))?;
+        read_checked(path, &target)
     }
 
     /// Walks only the folders on the way to `path`, with the same ignore rules as
@@ -313,8 +369,8 @@ fn write_error(path: &SourcePath, error: &std::io::Error) -> SourceError {
 }
 
 /// `paths` in order, each once.
-fn unique(paths: &[SourcePath]) -> std::collections::BTreeSet<&SourcePath> {
-    paths.iter().collect()
+fn unique<T: Ord>(items: &[T]) -> std::collections::BTreeSet<&T> {
+    items.iter().collect()
 }
 
 fn error_path(error: &ignore::Error) -> Option<&Path> {

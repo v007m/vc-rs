@@ -157,7 +157,7 @@ fn body(render: &Render<'_>, spec: &BodySpec, encode: Encode<'_>) -> Result<Opti
     let body = match spec {
         BodySpec::None => return Ok(None),
         BodySpec::Json(value) => structured(render, render.value(value).map_err(failed)?, encode)?,
-        BodySpec::Text(template) => (Bytes::from(render.text(template).map_err(failed)?), ContentType::Implied(TEXT)),
+        BodySpec::Text(template) => text_body(render, template, encode)?,
         BodySpec::Base64(template) => (decode(&render.text(template).map_err(failed)?)?, ContentType::Implied(OCTETS)),
         BodySpec::Extend { base, changes, remove } => {
             let base = render.template(base).map_err(failed)?;
@@ -192,6 +192,16 @@ fn file(render: &Render<'_>, path: &Template) -> Result<Body, Failure> {
         path.as_literal().ok_or_else(|| rendering("a `$file` body path cannot hold `${…}` references (D272)"))?;
     let (bytes, kind) = media::file(&render.values().inputs().bodies, path)?;
     Ok((bytes, ContentType::Implied(kind)))
+}
+
+/// A text body; a lone reference to an object or array (`body: ${var.payload}`) is sent as a
+/// [`structured`] body.
+fn text_body(render: &Render<'_>, template: &Template, encode: Encode<'_>) -> Result<Body, Failure> {
+    let value = render.template(template).map_err(failed)?;
+    if value.is_object() || value.is_array() {
+        return structured(render, value, encode);
+    }
+    Ok((Bytes::from(vc_template::to_text(&value)), ContentType::Implied(TEXT)))
 }
 
 fn decode(text: &str) -> Result<Bytes, Failure> {

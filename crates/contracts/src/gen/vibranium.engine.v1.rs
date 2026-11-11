@@ -613,7 +613,7 @@ pub struct CallRequest {
     #[prost(string, repeated, tag="5")]
     pub sets: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CallResponse {
     /// The exit code `vc call` would have.
     #[prost(uint32, tag="1")]
@@ -626,6 +626,29 @@ pub struct CallResponse {
     /// The response as JSON text, when one came.
     #[prost(string, optional, tag="4")]
     pub response_json: ::core::option::Option<::prost::alloc::string::String>,
+    /// The request as sent, with the inherited and auth headers, and the response with its
+    /// timing; bodies whole. Everything secret is masked. Absent when no response came back.
+    #[prost(message, optional, tag="5")]
+    pub exchange: ::core::option::Option<super::super::results::v1::Exchange>,
+    /// The api's checks, in the order they ran, masked.
+    #[prost(message, repeated, tag="6")]
+    pub checks: ::prost::alloc::vec::Vec<super::super::results::v1::Check>,
+    /// The values the api's `save` took from the response, masked.
+    #[prost(message, repeated, tag="7")]
+    pub saved: ::prost::alloc::vec::Vec<SavedValue>,
+}
+/// A value a call saved.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SavedValue {
+    /// The var it was saved as.
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// Where it came from, as written: `${response.body.id}`.
+    #[prost(string, tag="2")]
+    pub from: ::prost::alloc::string::String,
+    /// The value as JSON text, masked.
+    #[prost(string, tag="3")]
+    pub value: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct SaveCallAsTestRequest {

@@ -87,6 +87,23 @@ async fn pagerduty_resolves_on_recovery_under_one_dedup_key() {
 }
 
 #[tokio::test]
+async fn a_sample_is_titled_test_and_pagerduty_resolves_it_at_once_as_info() {
+    let notice = full_notice(AlertTrigger::Failure).as_test();
+    let (recording, recordings) = RecordingTransport::new(Arc::new(FakeTransport::scripted(Vec::new())));
+    let registry = NotifierRegistry::standard(Arc::new(recording));
+    let settings = json!({"routingKey": "r0ut1ng-key", "severity": "critical"});
+    registry.create("pagerduty", &settings).unwrap().notify(&notice).await.unwrap();
+    let bodies: Vec<Value> =
+        recordings.take().iter().map(|sent| serde_json::from_slice(&sent.request.body).unwrap()).collect();
+    let actions: Vec<&Value> = bodies.iter().map(|body| &body["event_action"]).collect();
+    assert_eq!(actions, [&json!("trigger"), &json!("resolve")]);
+    assert!(bodies.iter().all(|body| body["dedup_key"] == "shop#test" && body["payload"]["severity"] == "info"));
+    assert!(bodies[0]["payload"]["summary"].as_str().is_some_and(|summary| summary.starts_with("[test] shop: ")));
+    let (_, _, slack) = posted("slack", &json!({"webhook": "https://hooks.example/h"}), &notice).await;
+    assert_eq!(slack["text"], "[test] shop: run failed (staging+eu)");
+}
+
+#[tokio::test]
 async fn a_message_lists_ten_failures_each_clipped_and_counts_the_rest() {
     let failures = (0..13).map(|n| NoticeFailure::new(format!("t#n{n}"), "x".repeat(300))).collect();
     let notice = full_notice(AlertTrigger::Failure).failures(failures);

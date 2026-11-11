@@ -29,7 +29,17 @@ pub struct HttpNotifier {
 #[async_trait]
 impl Notifier for HttpNotifier {
     async fn notify(&self, notice: &Notice) -> Result<(), NotifyError> {
-        let body = self.payload.body(notice, &self.settings);
+        self.post(self.payload.body(notice, &self.settings)).await?;
+        match self.payload.then(notice, &self.settings) {
+            Some(body) => self.post(body).await,
+            None => Ok(()),
+        }
+    }
+}
+
+impl HttpNotifier {
+    /// Posts `body`: whether the channel took it.
+    async fn post(&self, body: Value) -> Result<(), NotifyError> {
         let mut request = RenderedRequest::new(Method::POST, self.url.clone());
         request.headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         request.body = Bytes::from(body.to_string());
@@ -39,9 +49,7 @@ impl Notifier for HttpNotifier {
         let status = exchange.response.status;
         if status.is_success() { Ok(()) } else { Err(failed(format!("HTTP {}", status.as_u16()))) }
     }
-}
 
-impl HttpNotifier {
     /// `reason` without the URL's path and query, which may be a secret.
     fn scrub(&self, reason: &str) -> String {
         let secret = self.url.path_and_query().map(http::uri::PathAndQuery::as_str).filter(|path| path.len() > 1);

@@ -41,6 +41,21 @@ pub trait SourceProvider: Send + Sync {
     /// [`SourceError::NotUtf8`].
     fn read_bytes(&self, path: &SourcePath) -> Result<Vec<u8>, SourceError>;
 
+    /// The data files of `wanted` that lead out of the project, each with the
+    /// `datasets.allowRoots` folder it must stay under (D173), read as [`Self::read`] reads, but
+    /// only while the file, with links resolved, is inside that folder and in no hidden folder
+    /// below it; any other is [`SourceError::OutsideRoot`] in [`Discovery::problems`]. A
+    /// provider that holds no files outside the project keeps this default, which reads the
+    /// paths with [`Self::read`].
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::Root`] when the project cannot be read at all.
+    fn read_outside(&self, wanted: &[(SourcePath, SourcePath)]) -> Result<Discovery, SourceError> {
+        let paths: Vec<SourcePath> = wanted.iter().map(|(path, _)| path.clone()).collect();
+        self.read(&paths)
+    }
+
     /// Whether the project's ignore files (`.gitignore`, `.ignore`) keep [`Self::discover`] from
     /// the file at `path`, by itself or through a folder it is in; a path that is not there yet
     /// is judged as if it were. The engine asks before it opens or writes a file for the web

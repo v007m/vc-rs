@@ -27,6 +27,7 @@ expression: "serde_json::to_string_pretty(&body).unwrap()"
       ],
       "project": "shop",
       "report": "reports/ctrf.json",
+      "test": false,
       "trigger": "failure"
     },
     "summary": {

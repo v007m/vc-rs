@@ -17,8 +17,8 @@ pub struct FileSchema {
     pub schema: Value,
 }
 
-/// Where the published schemas live; `<kind>.schema.json` is appended.
-const BASE_URL: &str = "https://raw.githubusercontent.com/v007m/vc-rs/master/schema/";
+/// Where the docs site publishes the schemas (D258); `<kind>.schema.json` is appended.
+const BASE_URL: &str = "https://v007m.github.io/vc-rs/schema/";
 
 /// The first line of every file of `kind` Vibranium creates, which points editors at its schema.
 #[must_use]
