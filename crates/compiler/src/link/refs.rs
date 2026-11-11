@@ -83,18 +83,40 @@ fn close<'t>(source: &Source<'_>, full: &str, kind: &Kind<'t, '_>) -> Vec<&'t st
     found
 }
 
-/// The `ids` close to `full`. Those in the file `full` names are compared by their own ID alone,
-/// so the shared file ID cannot make an unrelated item look close; without that file (a misspelt
-/// file ID) whole IDs are compared.
+/// The `ids` close to `full`. The file ID and the item's own ID are measured apart, so a shared
+/// or misspelt file ID cannot make an unrelated item look close: the items of the file `full`
+/// names, or else of the files close to it, are compared by their own ID. Only when no file is
+/// close (a bare ID resolved to the wrong file) are whole IDs compared.
 fn nearest<'t>(full: &str, ids: Vec<&'t str>) -> Vec<&'t str> {
     let (file, item) = full.split_once('#').unwrap_or_default();
-    let in_file: Vec<(&'t str, &'t str)> =
-        ids.iter().filter_map(|id| Some((id.strip_prefix(file)?.strip_prefix('#')?, *id))).collect();
-    if in_file.is_empty() {
+    let files = near_files(file, &ids);
+    let in_files: Vec<(&'t str, &'t str)> = ids
+        .iter()
+        .filter_map(|id| id.split_once('#').filter(|(own_file, _)| files.contains(own_file)).map(|(_, own)| (own, *id)))
+        .collect();
+    if in_files.is_empty() {
         return suggest::close(full, ids);
     }
-    let items = suggest::close(item, in_file.iter().map(|(own, _)| *own));
-    items.into_iter().filter_map(|item| in_file.iter().find(|(own, _)| *own == item).map(|(_, id)| *id)).collect()
+    let mut found: Vec<&'t str> = Vec::new();
+    for close in suggest::close(item, in_files.iter().map(|(own, _)| *own)) {
+        for (own, id) in &in_files {
+            if *own == close && !found.contains(id) {
+                found.push(id);
+            }
+        }
+    }
+    found
+}
+
+/// `file` itself when an ID lives in it, else the file IDs close to it.
+fn near_files<'t>(file: &str, ids: &[&'t str]) -> Vec<&'t str> {
+    let mut files: Vec<&'t str> = ids.iter().filter_map(|id| id.split_once('#').map(|(own, _)| own)).collect();
+    files.sort_unstable();
+    files.dedup();
+    if let Some(own) = files.iter().copied().find(|own| *own == file) {
+        return vec![own];
+    }
+    suggest::close(file, files)
 }
 
 /// The help, and a certain fix when exactly one ID is close.
