@@ -62,7 +62,7 @@ fn reads_units_and_statuses() {
     assert_eq!(codes(&bad.diagnostics).len(), 2);
     let templated = unit_with("    timeout: ${var.wait}\n");
     assert_eq!(codes(&templated.diagnostics), [Code::V2301]);
-    assert!(pieces(&templated).is_empty());
+    assert!(templated.parts.is_empty());
 }
 
 fn unit_with(body: &str) -> FileUnit {

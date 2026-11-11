@@ -1,0 +1,97 @@
+---
+source: crates/compiler/tests/golden.rs
+input_file: crates/compiler/tests/cases/v2301_templated_timeout/project
+---
+{
+  "summary": {
+    "errors": 4,
+    "warnings": 0,
+    "infos": 0
+  },
+  "diagnostics": [
+    {
+      "code": "V2301",
+      "severity": "error",
+      "message": "a duration cannot be a template: `${var.t}`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 4,
+          "column": 14,
+          "endLine": 4,
+          "endColumn": 22
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2301",
+      "severity": "error",
+      "message": "a duration cannot be a template: `${var.t}`",
+      "primary": {
+        "span": {
+          "path": "services/users/crud.test.yaml",
+          "line": 8,
+          "column": 18,
+          "endLine": 8,
+          "endColumn": 26
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2301",
+      "severity": "error",
+      "message": "a duration cannot be a template: `${var.t}`",
+      "primary": {
+        "span": {
+          "path": "services/users/users.api.yaml",
+          "line": 4,
+          "column": 14,
+          "endLine": 4,
+          "endColumn": 22
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`"
+      ],
+      "fixes": []
+    },
+    {
+      "code": "V2301",
+      "severity": "error",
+      "message": "a duration cannot be a template: `${var.t}`",
+      "primary": {
+        "span": {
+          "path": "vibranium.config.yaml",
+          "line": 9,
+          "column": 12,
+          "endLine": 9,
+          "endColumn": 20
+        },
+        "text": ""
+      },
+      "secondary": [],
+      "notes": [],
+      "help": [
+        "write it out, such as `2s`; to change the default timeout per run, use `--set defaults.timeout=10s` or `VIB_DEFAULTS_TIMEOUT`"
+      ],
+      "fixes": []
+    }
+  ]
+}
