@@ -69,6 +69,16 @@ fn unit_with(body: &str) -> FileUnit {
 }
 
 #[test]
+fn a_templated_status_is_compared_at_run_time() {
+    let rows = "    examples:\n      - {status: 415}\n";
+    let templated = unit_with(&format!("{rows}    expect:\n      status: ${{example.status}}\n"));
+    assert!(templated.diagnostics.is_empty(), "{:?}", templated.diagnostics);
+    assert!(matches!(pieces(&templated)[..], [.., Piece::Matcher(Matcher::Equals(TemplateValue::String(_)))]));
+    let unknown = unit_with(&format!("{rows}    expect:\n      status: ${{nope.status}}\n"));
+    assert_eq!(codes(&unknown.diagnostics), [Code::V2105]);
+}
+
+#[test]
 fn checks_matcher_arguments() {
     let ok = unit_with(
         "    expect:\n      body:\n        match:\n          id: {type: string, length: {gt: 3}}\n          tags: {every: {in: [a, b]}}\n          n: {between: [1, 5], not: {eq: 3}}\n          s: {regex: '^a+$', anyOf: [x, {startsWith: y}]}\n",

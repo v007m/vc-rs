@@ -17,7 +17,7 @@ expect:
 
 | Field | Type | Default | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `status` | integer, class, list or matcher | — | no | Codes are 100 to 599. Classes are `1xx` to `5xx`, lowercase. |
+| `status` | integer, class, list, matcher or template | — | no | Codes are 100 to 599. Classes are `1xx` to `5xx`, lowercase. |
 
 ## Examples
 
@@ -174,6 +174,7 @@ Edit the test below. The editor checks it against the real schema as you type.
 
 - A list passes when any entry matches.
 - Classes are written in lowercase: `2xx`, not `2XX`.
+- A template, such as `status: ${example.status}` in a test with `examples`, gives the code when the test runs; the response's code must equal it.
 - An api's `status` applies to every call of that api. A test's `status` replaces it; see [merging](/vc-rs/reference/matchers/merging/).
 
 ## Common errors

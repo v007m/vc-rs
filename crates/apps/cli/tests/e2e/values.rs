@@ -56,3 +56,28 @@ async fn a_dataset_outside_the_project_is_read_only_under_an_allowed_root() {
     let said = crate::said(&output);
     assert!(said.contains("V1012") && said.contains("cities.csv"), "{said}");
 }
+
+/// `coded#answer` answers with the status its `code` var names.
+const CODED: (&str, &str) = (
+    "services/coded/coded.api.yaml",
+    "baseUrl: ${var.baseUrl}\napis:\n  - id: answer\n    path: /status/${var.code}\n    vars: {code: 200}\n",
+);
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_templated_status_takes_each_rows_code() {
+    let server = MockServer::start().await.unwrap();
+    let test = |rows: &str| {
+        format!(
+            "tests:\n  - id: answersWithTheRowsStatus\n    examples:\n{rows}    call: coded#answer\n    vars: {{code: '${{example.code}}'}}\n    expect:\n      status: ${{example.status}}\n"
+        )
+    };
+    let rows = "      - {code: 415, status: 415}\n      - {code: 201, status: 201}\n";
+    let project = Project::new(&[CONFIG, CODED, ("services/coded/rows.test.yaml", &test(rows))]);
+    let output = project.run(&server.base_url(), &[]).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{}", crate::said(&output));
+    project.write("services/coded/rows.test.yaml", &test("      - {code: 200, status: 415}\n"));
+    let output = project.run(&server.base_url(), &[]).output().unwrap();
+    let said = crate::said(&output);
+    assert_eq!(output.status.code(), Some(1), "{said}");
+    assert!(said.contains("expect.status") && said.contains("415"), "{said}");
+}

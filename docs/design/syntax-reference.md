@@ -868,7 +868,7 @@ beforeEach:
 
 | Key | Value | Example |
 | --- | --- | --- |
-| `status` | code, list of codes, class (`2xx`), or matcher | `status: [200, 201]` |
+| `status` | code, list of codes, class (`2xx`), or matcher; a template such as `${example.status}` gives the code at run time | `status: [200, 201]` |
 | `headers.<name>` | matcher; names are case-insensitive | `content-type: {contains: json}` |
 | `body.schema` | JSON Schema, usually `$file` | `schema: {$file: schemas/user.json}` |
 | `body.match.<path>` | matcher at a path in the body | `items[*].price: {every: {gt: 0}}` |
